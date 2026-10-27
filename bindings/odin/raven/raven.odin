@@ -988,6 +988,17 @@ RExpanderChangedCallback :: #type proc "c" (expander: Rid, expanded: i32, user_d
 // action "file.save" (Raction_bind), and http, https and mailto links
 // open in the browser or the mail program of the user (Ropen_url).
 RLabelLinkCallback :: #type proc "c" (label: Rid, url: cstring, user_data: rawptr)
+// Draws a formula: fills `box` and returns R_TRUE, or returns R_FALSE
+// to have the label show the source as text.
+//
+// `source` is the text between the marks, as it was written (its escaping
+// is the escaping of the formula, not the escaping of the Markdown), and
+// `size` is the size of the text of the label, in logical units. `display`
+// is R_TRUE for a formula written with `$$`, which an engine sets with
+// limits above and below rather than beside. Called from the UI thread,
+// once per formula and per size, when the text is laid out; the texture
+// belongs to the application, which frees it.
+RMathCallback :: #type proc "c" (label: Rid, source: cstring, length: i32, size: f32, display: i32, box: ^RMathBox, user_data: rawptr) -> i32
 RButtonClickedCallback :: #type proc "c" (button: Rid, user_data: rawptr)
 RCheckboxChangedCallback :: #type proc "c" (checkbox: Rid, checked: i32, user_data: rawptr)
 RSliderChangedCallback :: #type proc "c" (slider: Rid, value: f32, user_data: rawptr)
@@ -1219,6 +1230,21 @@ RDropEvent :: struct {
 	drag_type: cstring,
 	// Widget the drag started from, or R_INVALID_ID.
 	drag_source: Rid,
+}
+
+// The picture of one formula, as the application draws it (Rlabel_set_math_callback).
+//
+// The sizes are in em: they are multiplied by the size of the text of the
+// label, so that a formula follows the text it sits in, and so that a
+// formula the label has to shrink can be asked for again at a smaller size.
+RMathBox :: struct {
+	// Drawn at the size the box takes. Drawn in white: the color of the text tints it.
+	texture: Rid,
+	// Across.
+	width: f32,
+	// Above the baseline of the line it is on, and below it.
+	ascent: f32,
+	descent: f32,
 }
 
 // What a tile shows, filled by the application when the tile is drawn.
@@ -2194,6 +2220,21 @@ foreign lib {
 	Rlabel_set_link_callback :: proc(label: Rid, callback: RLabelLinkCallback, user_data: rawptr) ---
 	// The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
 	Rlabel_get_plain_text :: proc(label: Rid) -> cstring ---
+	// Reads the formulas of the Markdown of a label: $...$ inside a line,
+	// $$...$$ alone in a paragraph.
+	//
+	// Without a callback, a $ is a $ and the text says what it says. With one,
+	// $...$ is a picture: it shares its line with the words around it, it is
+	// moved to the next line when it does not fit, it is made smaller when it
+	// is wider than the space the text has, and \$ is a $.
+	//
+	// Setting a callback reads the text of the label again (what counts as a
+	// formula changes); Rlabel_invalidate_math asks for the pictures again
+	// when the application drew them differently.
+	Rlabel_set_math_callback :: proc(label: Rid, callback: RMathCallback, user_data: rawptr) ---
+	// Forgets the pictures of the formulas of a label: they are asked for
+	// again at the next layout (a texture that arrived, a color that changed).
+	Rlabel_invalidate_math :: proc(label: Rid) ---
 	// Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
 	Rbutton_create :: proc(text: cstring) -> Rid ---
 	// Sets the content of the button to a label. A button can instead

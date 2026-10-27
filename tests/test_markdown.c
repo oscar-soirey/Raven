@@ -189,6 +189,232 @@ static void test_links(void) {
 	CHECK(Rwindow_get_hovered_widget(g_window) != label);
 }
 
+/* --------------------------------------------------------------------------
+ *  Formulas: a $...$ in a line, a $$...$$ of its own, drawn by the application
+ * ----------------------------------------------------------------------- */
+
+/* What the resolver saw, and what it answers. The picture is a texture the test
+ * makes once; the box it gives is one em tall unless the test says otherwise. */
+static int g_math_calls;
+static char g_math_source[256];
+static float g_math_size;
+static float g_math_width = 3.0f;
+static float g_math_tall = 1.0f;
+static int g_math_fail;
+static int g_math_display;
+static Rid g_math_texture;
+
+static int on_math(Rid label, const char* source, int length, float size, int display, RMathBox* box, void* user_data) {
+	(void)label;
+	(void)user_data;
+	g_math_calls++;
+	if (length > (int)sizeof(g_math_source) - 1) length = (int)sizeof(g_math_source) - 1;
+	if (length > 0) memcpy(g_math_source, source, (size_t)length);
+	g_math_source[length > 0 ? length : 0] = 0;
+	g_math_size = size;
+	g_math_display = display;
+	if (g_math_fail) return R_FALSE;
+	box->texture = g_math_texture;
+	box->width = g_math_width;
+	/* (the baseline sits four fifths of the way down the box, as an engine reports it) */
+	box->ascent = g_math_tall * 0.8f;
+	box->descent = g_math_tall * 0.2f;
+	return R_TRUE;
+}
+
+static void math_reset(void) {
+	g_math_calls = 0;
+	g_math_source[0] = 0;
+	g_math_size = 0.0f;
+	g_math_width = 3.0f;
+	g_math_tall = 1.0f;
+	g_math_fail = 0;
+	g_math_display = R_FALSE;
+}
+
+/* A Markdown label whose formulas `on_math` draws, laid out and drawn. */
+static Rid math_label(const char* text) {
+	Rid label = markdown_label(text);
+	Rlabel_set_math_callback(label, on_math, NULL);
+	Rdraw_frame();
+	return label;
+}
+
+static void test_math_syntax(void) {
+	Rid label;
+
+	math_reset();
+	label = math_label("The area is $x^2$ exactly.");
+	CHECK(g_math_calls == 1);
+	CHECK_STR(g_math_source, "x^2");
+	CHECK_NEAR(g_math_size, 13.0);
+	CHECK(g_math_display == R_FALSE);
+	/* (copying gives the marks back, so it re-renders elsewhere) */
+	CHECK_STR(Rlabel_get_plain_text(label), "The area is $x^2$ exactly.");
+
+	/* money and a pair of dollars in prose are not formulas */
+	math_reset();
+	math_label("it costs $5 and $10, and 3 dollars");
+	CHECK(g_math_calls == 0);
+	math_reset();
+	math_label("a $ b $ c");
+	CHECK(g_math_calls == 0);
+	math_reset();
+	math_label("a $x $ c");
+	CHECK(g_math_calls == 0);
+	/* a code span and a fence win over the marks: a formula shown as code stays code */
+	math_reset();
+	math_label("a `$x^2$` b");
+	CHECK(g_math_calls == 0);
+	math_reset();
+	math_label("```\n$x^2$\n```");
+	CHECK(g_math_calls == 0);
+	/* an escaped dollar is a dollar */
+	math_reset();
+	label = math_label("a \\$x\\$ b");
+	CHECK(g_math_calls == 0);
+	CHECK_STR(Rlabel_get_plain_text(label), "a $x$ b");
+	/* an open formula is text until its closer arrives */
+	math_reset();
+	math_label("a $x^2 b");
+	CHECK(g_math_calls == 0);
+	/* the other pair of delimiters is prose, not marks (and copies as the prose it reads as) */
+	math_reset();
+	label = math_label("\\(x^2\\) and \\[y\\]");
+	CHECK(g_math_calls == 0);
+	CHECK_STR(Rlabel_get_plain_text(label), "(x^2) and [y]");
+	/* a formula keeps no emphasis of the text, and a TeX star is not a mark */
+	math_reset();
+	math_label("$x_1 * y_2$");
+	CHECK(g_math_calls == 1);
+	CHECK_STR(g_math_source, "x_1 * y_2");
+	/* a formula inside a link label still has its link */
+	math_reset();
+	label = math_label("[see $x$](https://example.com)");
+	CHECK(g_math_calls == 1);
+	CHECK_STR(g_math_source, "x");
+	CHECK_STR(Rlabel_get_plain_text(label), "see $x$");
+}
+
+static void test_math_display(void) {
+	Rid label;
+	float line, tall;
+
+	math_reset();
+	line = height_of(markdown_label("prose"));
+	label = math_label("prose\n\n$$\\int_0^1 x^2 dx$$");
+	CHECK(g_math_calls == 1);
+	CHECK_STR(g_math_source, "\\int_0^1 x^2 dx");
+	CHECK(g_math_display == R_TRUE);
+	CHECK_STR(Rlabel_get_plain_text(label), "prose\n$$\\int_0^1 x^2 dx$$");
+	/* a display formula has vertical space of its own above it */
+	tall = height_of(label);
+	CHECK(tall > line + 8.0f);
+	/* surrounded by words it only breaks the lines it is on, and keeps its marks when copied */
+	math_reset();
+	label = math_label("before $$x^2$$ after");
+	CHECK(g_math_calls == 1);
+	CHECK(g_math_display == R_TRUE);
+	CHECK_STR(Rlabel_get_plain_text(label), "before \n$$x^2$$\n after");
+	/* $$ inside the paragraph, not alone, is not a block: three lines, not a paragraph */
+	CHECK(height_of(label) > line * 2.0f);
+}
+
+static void test_math_layout(void) {
+	Rid plain_label, label;
+	float line, with_formula;
+
+	line = height_of(markdown_label("aaa bbb"));
+
+	/* a tall formula raises the line, and the words keep its baseline */
+	math_reset();
+	g_math_tall = 2.2f;
+	label = math_label("aaa $x$ bbb");
+	with_formula = height_of(label);
+	CHECK(g_math_calls == 1);
+	CHECK(with_formula > line + 8.0f);
+	Rwidget_destroy(label);
+
+	/* a formula that does not fit is moved to the next line whole */
+	math_reset();
+	g_math_width = 3.0f;
+	plain_label = math_label("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa $x$");
+	math_reset();
+	g_math_width = 30.0f;
+	Rlabel_set_math_callback(plain_label, NULL, NULL);
+	Rlabel_set_math_callback(plain_label, on_math, NULL);
+	Rdraw_frame();
+	with_formula = height_of(plain_label);
+	math_reset();
+	g_math_width = 3.0f;
+	Rlabel_set_math_callback(plain_label, NULL, NULL);
+	Rlabel_set_math_callback(plain_label, on_math, NULL);
+	Rdraw_frame();
+	CHECK(with_formula > height_of(plain_label) + 8.0f);
+	Rwidget_destroy(plain_label);
+
+	/* a formula wider than the column is asked for again, smaller, at half at the floor */
+	math_reset();
+	g_math_width = 60.0f;
+	label = math_label("$x^2$");
+	CHECK(g_math_calls == 2);
+	CHECK(g_math_size > 6.0f && g_math_size < 13.0f);
+	Rwidget_destroy(label);
+	math_reset();
+	g_math_width = 400.0f;
+	label = math_label("$x^2$");
+	CHECK(g_math_calls == 2);
+	CHECK_NEAR(g_math_size, 6.5);
+	Rwidget_destroy(label);
+
+	/* the pictures are kept: a second layout asks for nothing, and an invalidation asks again */
+	math_reset();
+	label = math_label("$x$");
+	CHECK(g_math_calls == 1);
+	Rdraw_frame();
+	Rdraw_frame();
+	CHECK(g_math_calls == 1);
+	Rlabel_invalidate_math(label);
+	Rdraw_frame();
+	CHECK(g_math_calls == 2);
+	/* a new text is a new parse, and the formulas in it are asked for again */
+	Rlabel_set_text(label, "$y$");
+	Rdraw_frame();
+	CHECK(g_math_calls == 3);
+	CHECK_STR(g_math_source, "y");
+	Rwidget_destroy(label);
+}
+
+static void test_math_failure(void) {
+	Rid label, failed;
+	float line;
+
+	/* a formula the application cannot draw is shown as its source, in the flow */
+	math_reset();
+	g_math_fail = 1;
+	failed = math_label("the root $\\notacommand{x}$ of it");
+	CHECK(g_math_calls == 1);
+	CHECK_STR(Rlabel_get_plain_text(failed), "the root $\\notacommand{x}$ of it");
+	line = height_of(failed);
+	/* (it reads as the sentence it is: no room is reserved for a picture) */
+	CHECK(line > 10.0f && line < 60.0f);
+
+	/* the same formula, drawn: the same label grows, and asks again when told to */
+	g_math_fail = 0;
+	g_math_tall = 2.2f;
+	Rlabel_invalidate_math(failed);
+	Rdraw_frame();
+	CHECK(g_math_calls == 2);
+	CHECK(height_of(failed) > line + 4.0f);
+	/* a label that is not Markdown does not read the marks at all */
+	label = markdown_label("not Markdown $x$");
+	Rlabel_set_math_callback(label, on_math, NULL);
+	Rlabel_set_markdown(label, R_FALSE);
+	Rdraw_frame();
+	CHECK(g_math_calls == 2);
+	CHECK_STR(Rlabel_get_plain_text(label), "not Markdown $x$");
+}
+
 static void test_fonts(void) {
 	Rid font = Rfont_get_default();
 	Rid bold = Rfont_get_variant(font, R_FONT_BOLD);
@@ -280,9 +506,19 @@ int main(void) {
 		return 1;
 	}
 	g_window = Rwindow_create("Markdown", 400, 300, R_WINDOW_DEFAULT);
+	/* a picture for the formulas: white, one pixel per texel, never drawn headless */
+	{
+		static unsigned char pixels[8 * 8 * 4];
+		memset(pixels, 255, sizeof(pixels));
+		g_math_texture = Rtexture_create_from_pixels(pixels, 8, 8);
+	}
 	RUN(test_inline);
 	RUN(test_blocks);
 	RUN(test_links);
+	RUN(test_math_syntax);
+	RUN(test_math_display);
+	RUN(test_math_layout);
+	RUN(test_math_failure);
 	RUN(test_fonts);
 	RUN(test_editor);
 	Rwindow_destroy(g_window);

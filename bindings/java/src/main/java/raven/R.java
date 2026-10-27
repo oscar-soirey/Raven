@@ -1936,6 +1936,74 @@ public final class R {
     }
 
     /**
+     * The picture of one formula, as the application draws it (Rlabel_set_math_callback).
+     *
+     * The sizes are in em: they are multiplied by the size of the text of the
+     * label, so that a formula follows the text it sits in, and so that a
+     * formula the label has to shrink can be asked for again at a smaller size.
+     */
+    public static final class RMathBox {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 16;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RMathBox x = {0};` is in C). */
+        public RMathBox() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 4);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RMathBox(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RMathBox(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RMathBox[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 4);
+            RMathBox[] items = new RMathBox[count];
+            for (int i = 0; i < count; i++) items[i] = new RMathBox(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * Drawn at the size the box takes. Drawn in white: the color of the text tints it.
+         */
+        public int texture() { return s.get(JAVA_INT, 0); }
+        public RMathBox texture(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        /**
+         * Across.
+         */
+        public float width() { return s.get(JAVA_FLOAT, 4); }
+        public RMathBox width(float value) { s.set(JAVA_FLOAT, 4, value); return this; }
+
+        /**
+         * Above the baseline of the line it is on, and below it.
+         */
+        public float ascent() { return s.get(JAVA_FLOAT, 8); }
+        public RMathBox ascent(float value) { s.set(JAVA_FLOAT, 8, value); return this; }
+
+        public float descent() { return s.get(JAVA_FLOAT, 12); }
+        public RMathBox descent(float value) { s.set(JAVA_FLOAT, 12, value); return this; }
+    }
+
+    /**
      * What a tile shows, filled by the application when the tile is drawn.
      */
     public static final class RTileItem {
@@ -3197,6 +3265,37 @@ public final class R {
 
     private static MemorySegment upcall(RLabelLinkCallback f) {
         return stub(f, RLabelLinkCallback.class, "RLabelLinkCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Draws a formula: fills `box` and returns R_TRUE, or returns R_FALSE
+     * to have the label show the source as text.
+     *
+     * `source` is the text between the marks, as it was written (its escaping
+     * is the escaping of the formula, not the escaping of the Markdown), and
+     * `size` is the size of the text of the label, in logical units. `display`
+     * is R_TRUE for a formula written with `$$`, which an engine sets with
+     * limits above and below rather than beside. Called from the UI thread,
+     * once per formula and per size, when the text is laid out; the texture
+     * belongs to the application, which frees it.
+     */
+    @FunctionalInterface
+    public interface RMathCallback {
+        int invoke(int label, String source, int length, float size, int display, RMathBox box, MemorySegment user_data);
+    }
+
+    private static int RMathCallback$raw(RMathCallback f, int label, MemorySegment source, int length, float size, int display, MemorySegment box, MemorySegment user_data) {
+        try {
+            return f.invoke(label, text(source), length, size, display, box.equals(MemorySegment.NULL) ? null : new RMathBox(box), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RMathCallback f) {
+        return stub(f, RMathCallback.class, "RMathCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT, JAVA_FLOAT, JAVA_INT, ADDRESS, ADDRESS));
     }
 
     @FunctionalInterface
@@ -9158,6 +9257,64 @@ public final class R {
         try {
             MemorySegment $r = (MemorySegment) $h.invokeExact(label);
             return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlabel_set_math_callback$;
+
+    /**
+     * Reads the formulas of the Markdown of a label: $...$ inside a line,
+     * $$...$$ alone in a paragraph.
+     *
+     * Without a callback, a $ is a $ and the text says what it says. With one,
+     * $...$ is a picture: it shares its line with the words around it, it is
+     * moved to the next line when it does not fit, it is made smaller when it
+     * is wider than the space the text has, and \$ is a $.
+     *
+     * Setting a callback reads the text of the label again (what counts as a
+     * formula changes); Rlabel_invalidate_math asks for the pictures again
+     * when the application drew them differently.
+     */
+    public static void Rlabel_set_math_callback(int label, RMathCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rlabel_set_math_callback$;
+        if ($h == null) Rlabel_set_math_callback$ = $h = find("Rlabel_set_math_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(label, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Reads the formulas of the Markdown of a label: $...$ inside a line,
+     * $$...$$ alone in a paragraph.
+     *
+     * Without a callback, a $ is a $ and the text says what it says. With one,
+     * $...$ is a picture: it shares its line with the words around it, it is
+     * moved to the next line when it does not fit, it is made smaller when it
+     * is wider than the space the text has, and \$ is a $.
+     *
+     * Setting a callback reads the text of the label again (what counts as a
+     * formula changes); Rlabel_invalidate_math asks for the pictures again
+     * when the application drew them differently.
+     */
+    public static void Rlabel_set_math_callback(int label, RMathCallback callback) {
+        Rlabel_set_math_callback(label, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rlabel_invalidate_math$;
+
+    /**
+     * Forgets the pictures of the formulas of a label: they are asked for
+     * again at the next layout (a texture that arrived, a color that changed).
+     */
+    public static void Rlabel_invalidate_math(int label) {
+        MethodHandle $h = Rlabel_invalidate_math$;
+        if ($h == null) Rlabel_invalidate_math$ = $h = find("Rlabel_invalidate_math", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(label);
         } catch (Throwable $t) {
             throw fail($t);
         }

@@ -1420,6 +1420,20 @@ class RDropEvent(ctypes.Structure):
     ]
 
 
+class RMathBox(ctypes.Structure):
+    """The picture of one formula, as the application draws it (Rlabel_set_math_callback).
+    
+    The sizes are in em: they are multiplied by the size of the text of the
+    label, so that a formula follows the text it sits in, and so that a
+    formula the label has to shrink can be asked for again at a smaller size."""
+    _fields_ = [
+        ("texture", ctypes.c_uint32),
+        ("width", ctypes.c_float),
+        ("ascent", ctypes.c_float),
+        ("descent", ctypes.c_float),
+    ]
+
+
 class RTileItem(ctypes.Structure):
     """What a tile shows, filled by the application when the tile is drawn."""
     _fields_ = [
@@ -1698,6 +1712,14 @@ RLabelLinkCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_char_p, ct
 def _adapt_RLabelLinkCallback(function):
     def call(label, url, user_data):
         function(label, _r(url), user_data)
+    return call
+
+RMathCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_float, ctypes.c_int, ctypes.POINTER(RMathBox), ctypes.c_void_p)
+
+
+def _adapt_RMathCallback(function):
+    def call(label, source, length, size, display, box, user_data):
+        return function(label, _r(source), length, size, display, box.contents if box else None, user_data) or 0
     return call
 
 RButtonClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
@@ -5145,6 +5167,35 @@ _lib.Rlabel_get_plain_text.restype = ctypes.c_char_p
 def Rlabel_get_plain_text(label):
     """The text of a Markdown label without its marks, as a reader sees it. Valid until the next call."""
     return _r(_lib.Rlabel_get_plain_text(label))
+
+
+_lib.Rlabel_set_math_callback.argtypes = [ctypes.c_uint32, RMathCallback, ctypes.c_void_p]
+_lib.Rlabel_set_math_callback.restype = None
+
+
+def Rlabel_set_math_callback(label, callback, user_data=None):
+    """Reads the formulas of the Markdown of a label: $...$ inside a line,
+    $$...$$ alone in a paragraph.
+    
+    Without a callback, a $ is a $ and the text says what it says. With one,
+    $...$ is a picture: it shares its line with the words around it, it is
+    moved to the next line when it does not fit, it is made smaller when it
+    is wider than the space the text has, and \\$ is a $.
+    
+    Setting a callback reads the text of the label again (what counts as a
+    formula changes); Rlabel_invalidate_math asks for the pictures again
+    when the application drew them differently."""
+    _lib.Rlabel_set_math_callback(label, _callback(RMathCallback, _adapt_RMathCallback, callback), user_data)
+
+
+_lib.Rlabel_invalidate_math.argtypes = [ctypes.c_uint32]
+_lib.Rlabel_invalidate_math.restype = None
+
+
+def Rlabel_invalidate_math(label):
+    """Forgets the pictures of the formulas of a label: they are asked for
+    again at the next layout (a texture that arrived, a color that changed)."""
+    _lib.Rlabel_invalidate_math(label)
 
 
 _lib.Rbutton_create.argtypes = [ctypes.c_char_p]
