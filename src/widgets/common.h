@@ -136,6 +136,8 @@ float rvn_widget_press(rvn_widget_t* widget, RPainter* painter, int pressed);
 void rvn_widget_squash(rvn_widget_t* widget, float press, float amount);
 /** A solid knob with a soft shadow (slider, switch), or a lens of clear glass while `press` is 1. */
 void rvn_paint_knob(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t rect, float press);
+/** R_TRUE when the widget lies on a header bar (macOS 26 makes the controls of bars glass). */
+int rvn_widget_on_bar(const rvn_widget_t* widget);
 
 /* ---------------------------------------------------------------------------
  *  The look of Windows 11 (widgets/common.c)

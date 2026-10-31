@@ -149,7 +149,19 @@ static void rvn_window_paint_tooltip_fluent(rvn_window_t* window, RPainter* pain
 	if (y + height > size.y) y = window->tooltip_y - height - 6.0f;
 	if (y < 0.0f) y = 0.0f;
 	rvn_part_look(owner, RVN_PART_TOOLTIP, 0, rvn_platform_popup_look, NULL, &look);
-	rvn_paint_part(painter, rvn_rect(x, y, width, height), &look);
+	if (rvn_widget_liquid(owner) && !rvn_part_styled(owner, RVN_PART_TOOLTIP)) {
+		/* macOS 26: a drop of glass of the color of tooltips */
+		rvn_glass_t glass;
+		float radii[4];
+		rvn_glass_style(owner, RVN_SURFACE_POPUP, 0.0f, 0.0f, &glass);
+		glass.tint = look.background;
+		if (rvn_color_a(glass.tint) > 210) glass.tint = (glass.tint & 0x00FFFFFFu) | (210u << 24);
+		glass.shadow = 8.0f;
+		radii[0] = radii[1] = radii[2] = radii[3] = look.radius;
+		rvn_paint_glass(painter, rvn_rect(x, y, width, height), radii, &glass);
+	} else {
+		rvn_paint_part(painter, rvn_rect(x, y, width, height), &look);
+	}
 	y += pad_y + 1.0f;
 	for (line = text;;) {
 		const char* newline = strchr(line, '\n');
@@ -812,6 +824,9 @@ static void rvn_window_paint_dialog(rvn_window_t* window, RPainter* painter, rvn
 	painter->opacity *= rvn_clampf(shown * 2.2f, 0.0f, 1.0f);
 	if (g_rvn.theme.glass) {
 		rvn_paint_surface(painter, root, frame, 26.0f, RVN_SURFACE_POPUP, 0.0f, 0.0f);
+	} else if (g_rvn.theme.liquid) {
+		/* macOS 26: sheets are glass too, with the corners of its windows */
+		rvn_paint_surface(painter, root, frame, 16.0f, RVN_SURFACE_POPUP, 0.0f, 0.0f);
 	} else {
 		rvn_paint_shadow(painter, rvn_rect(frame.x, frame.y + 6.0f, frame.w, frame.h), 10.0f, 28.0f, RVN_THEME_COLOR(R_COLOR_SHADOW));
 		rvn_paint_box(painter, frame, 10.0f, RVN_THEME_COLOR(R_COLOR_POPUP), 1.0f, RVN_THEME_COLOR(R_COLOR_POPUP_BORDER));

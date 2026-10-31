@@ -224,6 +224,14 @@ void rvn_paint_knob(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t re
 	rvn_paint_box(painter, rect, radius, painter->enabled ? rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f) : rvn_rgba(0.85f, 0.85f, 0.87f, 1.0f), 0.0f, 0);
 }
 
+int rvn_widget_on_bar(const rvn_widget_t* widget) {
+	const rvn_widget_t* parent;
+	for (parent = widget->parent; parent; parent = parent->parent) {
+		if (parent->cls->type == R_WIDGET_HEADER_BAR) return R_TRUE;
+	}
+	return R_FALSE;
+}
+
 /* The focus ring, from the look and the styles (Part="Focus"). */
 static void rvn_focus_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
 	const float* radius = (const float*)context;
@@ -430,6 +438,11 @@ void rvn_paint_popup_surface(RPainter* painter, const rvn_widget_t* widget, rvn_
 	}
 	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
 		rvn_part_look(widget, RVN_PART_POPUP, 0, rvn_platform_popup_look, NULL, &look);
+		if (rvn_widget_liquid(widget) && !rvn_part_styled(widget, RVN_PART_POPUP)) {
+			/* macOS 26: menus and drop-down lists are glass (a style given to the popup makes it a plain one again) */
+			rvn_paint_surface(painter, widget, rect, look.radius, RVN_SURFACE_POPUP, 0.0f, 0.0f);
+			return;
+		}
 		rvn_paint_part(painter, rect, &look);
 		return;
 	}
