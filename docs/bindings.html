@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raven manual: Bindings</title>
+<meta name="description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
+<link rel="icon" type="image/png" href="logo-black-192.png" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/png" href="logo-white-192.png" media="(prefers-color-scheme: dark)">
+<style>
+body { margin: 0 auto; padding: 1em 16px 4em; max-width: 46em; background: #fff; color: #000;
+       font: 17px/1.45 Georgia, "Times New Roman", Times, serif; overflow-wrap: break-word; }
+a { color: #00e; } a:visited { color: #551a8b; }
+h1 { font-size: 1.9em; margin: .6em 0 .3em; }
+h2 { font-size: 1.45em; margin: 2em 0 .4em; border-bottom: 1px solid #000; }
+h3 { font-size: 1.2em; margin: 1.8em 0 .3em; }
+h4 { font-size: 1em; margin: 1.5em 0 .2em; font-style: italic; }
+h5 { font-size: 1em; margin: 1.2em 0 .2em; font-weight: normal; text-decoration: underline; }
+code, pre, tt { font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", monospace; font-size: .88em; }
+:not(pre) > code, :not(pre) > tt { color: #a3195b; background: #f7eef2; border-radius: 3px; padding: .08em .3em; }
+pre { color: #24292f; }
+.tk-c { color: #6a737d; font-style: italic; }
+.tk-s { color: #0a7a3d; }
+.tk-n { color: #c2410c; }
+.tk-k { color: #7c3aed; font-weight: bold; }
+.tk-p { color: #c01c28; }
+.tk-t { color: #0b57d0; }
+pre { background: #f2f2f2; border: 1px solid #aaa; padding: .5em .7em; overflow-x: auto; line-height: 1.3; }
+pre.sig { background: none; border: 0; border-top: 1px dotted #888; padding: .6em 0 0; margin: 1.2em 0 .2em; font-weight: bold; white-space: pre-wrap; overflow-wrap: anywhere; }
+table { border-collapse: collapse; margin: .6em 0; font-size: .95em; }
+td, th { border: 1px solid #888; padding: .15em .45em; vertical-align: top; text-align: left; }
+table.v { width: 100%; }
+dt { font-style: italic; } dd { margin: 0 0 .3em 2em; }
+hr { border: 0; border-top: 1px solid #000; margin: 2em 0; }
+.nav { font-size: .95em; border-bottom: 1px solid #000; padding-bottom: .3em; }
+.nav img { height: 1.9em; width: auto; vertical-align: middle; margin: 0 .35em .2em 0; }
+.foot { font-size: .85em; margin-top: 3em; border-top: 1px solid #000; padding-top: .3em; }
+small { color: #555; }
+ul.toc { list-style: none; padding-left: 0; } ul.toc ul { list-style: none; padding-left: 1.6em; }
+
+.gh-note { font-size: .88em; color: #555; margin: .2em 0 .8em; }
+.gh-status { font-style: italic; color: #555; }
+.gh-rel { border: 1px solid #888; padding: .1em .8em .5em; margin: 1em 0; }
+.gh-rel h4 { margin: .7em 0 .1em; font-style: normal; font-size: 1.05em; }
+.gh-rel .meta { font-size: .88em; color: #555; margin: 0 0 .4em; }
+.gh-tag { font-size: .75em; border: 1px solid currentColor; border-radius: 3px; padding: 0 .35em; margin-left: .4em; vertical-align: .1em; font-weight: normal; }
+.gh-tag.latest { color: #0a7a3d; } .gh-tag.pre { color: #c2410c; }
+.gh-rel table { width: 100%; margin: .3em 0; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+ul.contrib { list-style: none; padding: 0; margin: .6em 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); gap: .5em; }
+ul.contrib li { display: flex; align-items: center; gap: .5em; border: 1px solid #888; padding: .3em .5em; min-width: 0; }
+ul.contrib img { width: 36px; height: 36px; border-radius: 50%; flex: none; background: #ccc; }
+ul.contrib a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+ul.contrib small { display: block; }
+
+.cmp-wrap { margin: 1em 0; overflow-x: auto; }
+table.cmp { display: table; table-layout: fixed; width: 100%; min-width: 34em; margin: 0; font-size: .85em; line-height: 1.35; }
+table.cmp th, table.cmp td { padding: .3em .5em; }
+table.cmp thead th { text-align: center; }
+table.cmp thead th:first-child, table.cmp tbody th[scope=row] { width: 7.5em; }
+table.cmp tbody th[scope=row] { background: #fff; font-weight: bold; position: sticky; left: 0; }
+table.cmp tr.grp th { background: #e8e8e8; position: static; }
+table.cmp td.rv, table.cmp th.rv { background: #eef5ff; }
+table.cmp td.e { text-align: center; vertical-align: middle; font-size: 1.15em; line-height: 1.2; }
+table.cmp code { font-size: .92em; }
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  table { display: block; overflow-x: auto; max-width: 100%; }
+  pre { font-size: .8em; }
+}
+@media (prefers-color-scheme: dark) {
+  body { background: #111; color: #ddd; } a { color: #8ab4ff; } a:visited { color: #c9a0ff; }
+  h2, hr, .nav, .foot { border-color: #ddd; } pre { background: #1c1c1c; border-color: #555; }
+  td, th { border-color: #666; } small { color: #999; }
+  :not(pre) > code, :not(pre) > tt { color: #ff9cc4; background: #2a2028; }
+  table.cmp tbody th[scope=row] { background: #111; }
+  table.cmp tr.grp th { background: #262626; }
+  table.cmp td.rv, table.cmp th.rv { background: #16212f; }
+  .gh-note, .gh-status, .gh-rel .meta { color: #999; }
+  .gh-rel, ul.contrib li { border-color: #666; }
+  .gh-tag.latest { color: #7ee2a0; } .gh-tag.pre { color: #ffa860; }
+  ul.contrib img { background: #333; }
+  pre { color: #d4d4d4; }
+  .tk-c { color: #7f8c98; } .tk-s { color: #7ee2a0; } .tk-n { color: #ffa860; }
+  .tk-k { color: #c4a1ff; } .tk-p { color: #ff8f8f; } .tk-t { color: #7cb7ff; }
+}
+</style>
+</head>
+<body>
+<p class="nav"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="Raven" width="192" height="192"></picture>Raven manual &nbsp;[ <a href="index.html">Guide</a> | <a href="xml.html">XML</a> | <a href="reference.html">C API</a> | <b>Bindings</b> ]</p>
+<h1>Raven in other languages</h1>
+
+<p>Raven is a C library, so any language that can call C can use it. Raven
+comes with bindings for seven of them: C++, Python, Rust, Go, C#, Zig and
+LuaJIT. This page explains, for each one, how to install it, how the C API
+looks from that language, how callbacks and texts are handled, and what to
+watch for. The functions themselves are documented once, in
+<a href="reference.html">the C API reference</a>: every binding uses the same names.</p>
+
+<p><small>Raven 0.2 packages (generated from the 0.1 API). The public API may still change before 1.0.</small></p>
+
+<h2 id="contents">Contents</h2>
+<ul class="toc">
+<li><a href="#overview">1. At a glance</a></li>
+<li><a href="#common">2. What every binding shares</a>
+  <ul>
+  <li><a href="#names">Names</a> &middot; <a href="#library">The library</a> &middot; <a href="#thread">The UI thread</a> &middot; <a href="#xml">XML and actions</a> &middot; <a href="#errors">Errors</a></li>
+  </ul></li>
+<li><a href="#cpp">3. C++</a></li>
+<li><a href="#python">4. Python</a></li>
+<li><a href="#rust">5. Rust</a></li>
+<li><a href="#go">6. Go</a></li>
+<li><a href="#csharp">7. C#</a></li>
+<li><a href="#zig">8. Zig</a></li>
+<li><a href="#lua">9. LuaJIT</a></li>
+<li><a href="#rosetta">10. One call in every language</a></li>
+<li><a href="#testing">11. Testing without a screen</a></li>
+<li><a href="#packages">12. Packages and publishing</a></li>
+<li><a href="#bindgen">13. How the bindings are made</a></li>
+</ul>
+
+<!-- ======================================================================= -->
+<h2 id="overview">1. At a glance</h2>
+
+<table class="v">
+<tr><th>Language</th><th>Files</th><th>Install</th><th>What it is</th><th>Test in <code>ctest</code></th></tr>
+<tr><td><a href="#cpp">C++</a> (11+)</td><td><code>bindings/cpp/raven.hpp</code></td><td>the header</td><td>One header. A class per kind of handle, lambdas where C takes a callback, a <code>Painter</code>.</td><td><code>binding_cpp</code></td></tr>
+<tr><td><a href="#python">Python</a> (3.7+)</td><td><code>bindings/python/raven.py</code></td><td><code>pip install raven-gui</code></td><td>One <code>ctypes</code> module, no dependency. <code>str</code> texts, Python callbacks, out-parameters returned.</td><td><code>binding_python</code></td></tr>
+<tr><td><a href="#rust">Rust</a></td><td><code>bindings/rust/</code></td><td><code>raven-gui = "0.2"</code></td><td>A crate: <code>raven::sys</code> is the C API, plus <code>text</code>, <code>cstr</code>, <code>action_bind</code> and <code>&amp;str</code> helpers.</td><td><code>binding_rust</code></td></tr>
+<tr><td><a href="#go">Go</a> (1.18+)</td><td><code>bindings/go/</code></td><td><code>replace</code> directive</td><td>A cgo package with Go names and types; actions, errors and timers bridged.</td><td><code>binding_go</code></td></tr>
+<tr><td><a href="#csharp">C#</a></td><td><code>bindings/csharp/Raven.cs</code></td><td><code>dotnet add package Raven.Gui</code></td><td>P/Invoke in the static class <code>Raven.R</code>; <code>string</code>, <code>out</code>, <code>ref</code>, delegates.</td><td>none</td></tr>
+<tr><td><a href="#zig">Zig</a></td><td><code>bindings/zig/raven.zig</code></td><td>the file</td><td><code>extern fn</code> and <code>extern struct</code> declarations.</td><td>none</td></tr>
+<tr><td><a href="#lua">LuaJIT</a></td><td><code>bindings/luajit/raven.lua</code></td><td><code>luarocks install raven-gui</code></td><td>The declarations of the headers for the FFI of LuaJIT.</td><td>none</td></tr>
+</table>
+
+<p>Every binding covers the whole of <code>Raven.h</code>: 500 functions, 39
+enumerations, 14 structures and 33 kinds of callback, with the documentation
+comments of the headers. Three headers are left out everywhere, because they only make
+sense from C: <code>raven_backend.h</code> (writing a rendering backend),
+<code>raven_vulkan.h</code> (sharing the Vulkan device) and <code>raven_web.h</code>.</p>
+
+<p>C#, Zig and LuaJIT are generated by the same script from the same data as
+the others but have no automatic test in the build: if something does not work
+the first time, please <a href="https://github.com/oscar-soirey/Raven/issues">open an issue</a>.</p>
+
+<!-- ======================================================================= -->
+<h2 id="common">2. What every binding shares</h2>
+
+<h3 id="names">Names</h3>
+<p>The C names are kept, so that the <a href="reference.html">C API reference</a>,
+the <a href="index.html">guide</a> and the examples apply to every language.
+Two bindings rename, by a fixed rule:</p>
+<table>
+<tr><th>C</th><th>C++</th><th>Go</th><th>Others</th></tr>
+<tr><td><code>Rbutton_set_text(button, "OK")</code></td><td><code>button.set_text("OK")</code></td><td><code>raven.ButtonSetText(button, "OK")</code></td><td><code>Rbutton_set_text</code></td></tr>
+<tr><td><code>Rdraw_frame()</code></td><td><code>raven::draw_frame()</code></td><td><code>raven.DrawFrame()</code></td><td><code>Rdraw_frame</code></td></tr>
+<tr><td><code>R_WIDGET_BUTTON</code></td><td><code>R_WIDGET_BUTTON</code></td><td><code>raven.R_WIDGET_BUTTON</code></td><td><code>R_WIDGET_BUTTON</code></td></tr>
+</table>
+<p>Every object (window, widget, font, texture, timer, XML node) is a
+<code>Rid</code>, a 32-bit handle. <code>R_INVALID_ID</code> (<code>0xFFFFFFFF</code>) names nothing.
+A handle never owns what it names, in any language: a widget added to a
+parent is destroyed with it, and a widget never added is destroyed with
+<code>Rwidget_destroy</code>. Using a destroyed handle does not crash; it reports
+<code>R_ERROR_INVALID_ID</code> (see <a href="#errors">Errors</a>).</p>
+
+<h3 id="library">The library</h3>
+<p>All the bindings but C++ load or link the shared library. The Python wheel
+and the NuGet package include it; for the others, take it from a
+<a href="index.html#releases">release</a> or build it:</p>
+<pre>cmake -B build -DRAVEN_BUILD_SHARED=ON
+cmake --build build --config Release</pre>
+<p>This gives <code>raven.dll</code> and <code>raven.lib</code> on Windows,
+<code>libraven.so</code> on Linux and <code>libraven.dylib</code> on macOS. These
+environment variables tell the bindings where it is:</p>
+<table>
+<tr><th>Variable</th><th>Read by</th><th></th></tr>
+<tr><td><code>RAVEN_LIBRARY</code></td><td>Python, LuaJIT</td><td>the path of the shared library</td></tr>
+<tr><td><code>RAVEN_LIB_DIR</code></td><td>Rust (<code>build.rs</code>)</td><td>the folder of the library, for the linker</td></tr>
+<tr><td><code>RAVEN_STATIC=1</code></td><td>Rust</td><td>link <code>libraven.a</code> / <code>raven.lib</code> instead</td></tr>
+<tr><td><code>CGO_CFLAGS</code>, <code>CGO_LDFLAGS</code></td><td>Go</td><td><code>-I&lt;raven&gt;/include</code> and <code>-L&lt;folder of the library&gt;</code></td></tr>
+</table>
+<p>At run time the program must also find the library: beside the
+executable on Windows, or on <code>LD_LIBRARY_PATH</code> / <code>DYLD_LIBRARY_PATH</code>.
+Raven draws with Vulkan: the machine needs a Vulkan driver (on macOS,
+<a href="https://github.com/KhronosGroup/MoltenVK">MoltenVK</a>); on Linux, libX11 is used for windows.</p>
+
+<h3 id="thread">The UI thread</h3>
+<p>Raven belongs to the thread that calls <code>Rinit</code>. Call it from that thread
+only, except the functions documented as thread-safe (<code>Rtask_post</code>,
+<code>Rwake_up</code>). In Go this means <code>runtime.LockOSThread()</code> at the top of
+<code>main</code>; in C# and Python, do not call Raven from a <code>Task</code> or a
+<code>threading.Thread</code>. A call from the wrong thread reports
+<code>R_ERROR_WRONG_THREAD</code>.</p>
+
+<h3 id="xml">XML and actions: the simplest way in every language</h3>
+<p>The binding code shrinks to almost nothing when the interface is
+described in XML. Name the widgets you need, name the actions they fire,
+and bind the actions:</p>
+<pre>&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;HBox Spacing="8"&gt;
+            &lt;Button Text="Greet" Style="Primary" OnClicked="greet" Slot.Fill="1"/&gt;
+            &lt;Button Text="Quit" OnClicked="quit"/&gt;
+        &lt;/HBox&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;</pre>
+<p>The program then does four things, in any language: <code>Rinit</code>,
+<code>Rwindow_create_from_xml</code> (or <code>Rwindow_create_from_xml_file("main.xml")</code>),
+<code>Rwidget_find</code> for each named widget, and <code>Raction_bind</code> for each
+action; then it loops on <code>Rwait_frame(-1.0)</code> and ends with
+<code>Rshutdown</code>. Actions are the one kind of callback every binding
+bridges, Go included, so an interface in XML needs no C callback at all.</p>
+<p>When the XML is loaded from a file, save it while the program runs and the
+window follows, without restarting. The designer (<code>raven_designer</code>)
+edits that file, and its New project writes a starter program in each language.
+See <a href="xml.html">the XML reference</a> for every tag.</p>
+
+<h3 id="errors">Errors</h3>
+<p>A function never throws or panics. A wrong handle, enumeration or value is
+reported to the error callback and the call returns a neutral value
+(0, <code>R_INVALID_ID</code>, an empty text). Install the callback first thing
+after <code>Rinit</code> while developing:</p>
+<pre># Python
+r.Rerror_set_callback(lambda code, severity, detail: print(r.Rerror_to_string(code), detail))</pre>
+<p>The other way is to ask: <code>Rerror_get_last</code> returns and clears the last error.
+Functions return <code>R_TRUE</code> (1) / <code>R_FALSE</code> (0) as integers, not
+booleans, in every binding but Python, where 0 and 1 are still falsy and truthy.</p>
+
+<!-- ======================================================================= -->
+<h2 id="cpp">3. C++</h2>
+
+<h3 id="cpp-install">Install</h3>
+<p>One header, <code>bindings/cpp/raven.hpp</code>, over the C headers. It needs
+C++11 and links like a C program, with the static or the shared library.
+From CMake, with an installed Raven or its sources:</p>
+<pre>find_package(raven REQUIRED)          # or add_subdirectory(Raven)
+add_executable(app main.cpp)
+target_include_directories(app PRIVATE ${RAVEN_ROOT}/bindings/cpp)   # or share/raven/bindings/cpp
+target_link_libraries(app PRIVATE raven::raven)</pre>
+<p>Or by hand:</p>
+<pre>g++ -std=c++17 app.cpp -I&lt;raven&gt;/include -I&lt;raven&gt;/bindings/cpp -lraven</pre>
+
+<h3 id="cpp-hello">A program</h3>
+<pre>#include &lt;raven.hpp&gt;
+#include &lt;string&gt;
+
+int main() {
+    if (!raven::init(R_BACKEND_VULKAN)) return 1;
+
+    auto window = raven::Window::create("Hello", 360, 200, R_WINDOW_DEFAULT);
+    auto box    = raven::Panel(raven::Widget::create(R_WIDGET_VBOX));
+    auto title  = raven::Label::create("Hello from C++");
+    auto name   = raven::TextInput::create();
+    auto greet  = raven::Button::create("Greet");
+
+    box.set_spacing(10.0f);
+    box.slot_set_padding(16.0f, 16.0f, 16.0f, 16.0f);
+    name.set_placeholder("Your name");
+    greet.set_style(R_BUTTON_PRIMARY);
+
+    std::string greeting;
+    greet.set_clicked_callback([&amp;](Rid) {          // a lambda, captures included
+        greeting = std::string("Hello, ") + name.get_text() + "!";
+        title.set_text(greeting.c_str());
+    });
+
+    box.add_child(title);
+    box.add_child(name);
+    box.add_child(greet);
+    window.set_content(box);
+
+    raven::action_bind("quit", [](Rid, const char*) { raven::quit(0); });
+    window.register_shortcut(R_KEY_ESCAPE, 0, "quit");
+
+    while (raven::wait_frame(-1.0)) {}
+    raven::shutdown();
+}</pre>
+<p>From XML, the same thing is shorter:</p>
+<pre>const char xml[] = R"(&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;)";
+auto window = raven::Window::create_from_xml(xml, sizeof xml - 1);
+raven::action_bind("quit", [](Rid, const char*) { raven::quit(0); });
+// or: raven::Window::create_from_xml_file("main.xml")</pre>
+
+<h3 id="cpp-rules">How the C API looks</h3>
+<dl>
+<dt>Classes</dt>
+<dd>One class per kind of handle: <code>Window</code>, <code>Widget</code> and its kinds
+(<code>Label</code>, <code>Button</code>, <code>Checkbox</code>, <code>Slider</code>,
+<code>TextInput</code>, <code>ComboBox</code>, <code>ListView</code>, <code>TreeView</code>,
+<code>Panel</code>, <code>Grid</code>, <code>Border</code>, <code>ScrollBox</code>,
+<code>Splitter</code>, <code>TabView</code>, <code>TextEditor</code>, <code>HeaderBar</code>,
+<code>DockArea</code>, <code>FileBrowser</code>, <code>Viewport</code>, <code>Custom</code>...),
+<code>TreeItem</code>, <code>Font</code>, <code>Texture</code>, <code>Timer</code>,
+<code>XmlDocument</code>, <code>XmlNode</code>. The member functions are the C
+functions of that object without their prefix; <code>Widget</code> holds what every widget has.</dd>
+<dt>Handles, not owners</dt>
+<dd>A class is the size of a <code>Rid</code>, converts to and from it, and is
+<code>false</code> when it names nothing. Copying it copies the handle. It does
+not destroy anything when it goes out of scope: call <code>destroy()</code>, as
+in C. To view a handle as another kind, construct it:
+<code>raven::Widget(button.get_parent())</code>,
+<code>raven::Panel(raven::Widget::create(R_WIDGET_VBOX))</code>.</dd>
+<dt>Callbacks</dt>
+<dd>Every function that takes a callback has an overload that takes anything
+callable (<code>std::function</code>). The last C parameter,
+<code>user_data</code>, is dropped: capture what you need instead. The callable is kept
+until another one is set for the same object and event, or until the program
+ends. The C form (function pointer plus <code>void*</code>) is still there.
+<code>raven::error_set_callback</code> takes a plain function pointer, like the C function.</dd>
+<dt>Free functions</dt>
+<dd>Everything that is not a method is in the namespace <code>raven</code>:
+<code>raven::init</code>, <code>raven::init_ex</code>, <code>raven::wait_frame</code>,
+<code>raven::action_fire</code>, <code>raven::xml_get_tag_count</code>...</dd>
+<dt>Texts</dt>
+<dd><code>const char*</code>, UTF-8. A text returned by Raven is valid until the next
+call that changes it: copy it into a <code>std::string</code> to keep it.</dd>
+<dt>Drawing</dt>
+<dd><code>raven::Painter</code> wraps the <code>RPainter*</code> a paint callback
+receives: <code>painter.rect(...)</code>, <code>circle</code>, <code>line</code>,
+<code>curve</code>, <code>text</code>, <code>image</code>, <code>glass</code>, <code>spring</code>...</dd>
+</dl>
+<pre>auto canvas = raven::Custom(raven::Widget::create(R_WIDGET_CUSTOM));
+canvas.set_paint_callback([](Rid, RPainter* p, float width, float height) {
+    raven::Painter painter(p);
+    painter.rect(0, 0, width, height, 8.0f, 0.10f, 0.12f, 0.16f, 1.0f);
+    painter.text(R_INVALID_ID, 0, 12, 12, "Drawn in C++", 1, 1, 1, 1);
+});</pre>
+<p>Because the C headers are included, any C function can also be called as
+it is, alongside the classes. The C++ wrapper is header-only; there is
+nothing to build.</p>
+
+<!-- ======================================================================= -->
+<h2 id="python">4. Python</h2>
+
+<h3 id="python-install">Install</h3>
+<pre>pip install raven-gui</pre>
+<p>The package is named <code>raven-gui</code> (the name <code>raven</code> is taken on
+PyPI) and imported as <code>raven</code>. The wheels include the library, for
+Windows x64, Linux x86_64 (glibc 2.28 or newer) and macOS 11 or newer (Apple
+silicon and Intel). Python 3.7 or later, no dependency.</p>
+<p>From the sources instead, copy <code>bindings/python/raven.py</code> and point it to a shared build:</p>
+<pre>RAVEN_LIBRARY=/path/to/libraven.so python3 app.py</pre>
+<p>The library is looked for in <code>RAVEN_LIBRARY</code>, then beside <code>raven.py</code>, then where
+the system looks; the error message lists every place that was tried.</p>
+
+<h3 id="python-hello">A program</h3>
+<pre>import raven as r
+
+XML = """
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;"""
+
+if not r.Rinit(r.R_BACKEND_VULKAN):
+    raise SystemExit("cannot start Raven")
+r.Rerror_set_callback(lambda code, severity, detail: print("raven:", detail))
+
+window = r.Rwindow_create_from_xml(XML)
+title = r.Rwidget_find(window, "title")
+name = r.Rwidget_find(window, "name")
+
+def greet(sender, action, user_data):
+    r.Rlabel_set_text(title, "Hello, %s!" % (r.Rtext_input_get_text(name) or "you"))
+
+r.Raction_bind("greet", greet)
+
+while r.Rwait_frame(-1.0):
+    pass
+r.Rshutdown()</pre>
+
+<h3 id="python-rules">How the C API looks</h3>
+<dl>
+<dt>Names</dt>
+<dd>Every C function, under its own name, in the module. Use <code>import raven as r</code>.</dd>
+<dt>Texts</dt>
+<dd><code>str</code> on both sides, UTF-8 underneath. A function that may return
+NULL returns <code>None</code>. Byte buffers are <code>bytes</code>:
+<code>r.Rfile_write("a.bin", b"...")</code>, <code>r.Rfile_read("a.bin")</code>.</dd>
+<dt>Sizes</dt>
+<dd>The size that follows a text or a buffer in C is not passed:
+<code>r.Rwindow_create_from_xml(xml)</code>, not <code>(xml, len(xml))</code>.</dd>
+<dt>Out-parameters</dt>
+<dd>A parameter the C function writes through (<code>int*</code>, <code>float*</code>) is not
+passed: its value is returned, after the result of the function if it has
+one. <code>x, y, w, h = r.Rwidget_get_rect(widget)</code>;
+<code>width, height = r.Rwindow_get_size(window)</code>.</dd>
+<dt>Structures</dt>
+<dd><code>ctypes</code> structures with the C field names, passed as they are
+(the binding takes their address). Fields that are texts in C are <code>bytes</code>.</dd>
+</dl>
+<pre>desc = r.RInitDesc()
+desc.backend = r.R_BACKEND_VULKAN
+desc.app_name = b"My tool"
+r.Rinit_ex(desc)
+
+error = r.RXmlError()
+if r.Rxml_document_parse("&lt;A&gt;&lt;B&gt;&lt;/A&gt;", error) == r.R_INVALID_ID:
+    print(error.line, error.column, error.message.decode())</pre>
+<dl>
+<dt>Enumerations</dt>
+<dd><code>enum.IntEnum</code> (or <code>IntFlag</code> for flags) classes such as
+<code>r.RWidgetType</code>, and each member also at the top of the module:
+<code>r.R_WIDGET_BUTTON</code>. Values returned by Raven come back as members
+when they are one.</dd>
+<dt>Callbacks</dt>
+<dd>Any Python function, lambda or bound method, with the parameters of the C
+callback; <code>user_data</code> can be left out when you bind it and is then
+<code>None</code>. The binding keeps the function alive for as long as the library
+runs, so you need not hold a reference. Texts a callback receives are
+<code>str</code>; a callback that returns a text returns a <code>str</code>.</dd>
+</dl>
+<pre>lst = r.Rwidget_create(r.R_WIDGET_LIST_VIEW)
+r.Rlist_view_set_virtual_items(lst, 10000, lambda view, index, user: "row %d" % index)
+
+r.Rtimer_create(0.5, r.R_TRUE, lambda timer, user: print("tick"))</pre>
+<p>An exception raised inside a callback cannot cross the C code: <code>ctypes</code>
+prints it and the call returns a default value. Catch what you need inside
+the callback.</p>
+<p>Each call goes through <code>ctypes</code>, which costs about a microsecond.
+That is nothing for an interface driven by events, but a paint callback that
+draws thousands of shapes per frame is better written with fewer, larger
+calls, or in C.</p>
+
+<!-- ======================================================================= -->
+<h2 id="rust">5. Rust</h2>
+
+<h3 id="rust-install">Install</h3>
+<pre>[dependencies]
+raven-gui = "0.2"          # used as `raven`
+# or, from the sources:
+# raven = { package = "raven-gui", path = "&lt;raven&gt;/bindings/rust" }</pre>
+<p>The crate links the C library; it does not include it. Download the shared
+package of a <a href="https://github.com/oscar-soirey/Raven/releases">release</a>
+(or build it) and tell cargo where it is:</p>
+<pre>RAVEN_LIB_DIR=/path/to/raven/lib cargo run                # Linux, macOS
+set RAVEN_LIB_DIR=C:\path\to\raven\lib &amp;&amp; cargo run     # Windows: raven.lib; raven.dll beside the program</pre>
+<p><code>RAVEN_STATIC=1</code> links the static library instead; <code>build.rs</code>
+then adds the system libraries it needs (<code>user32 gdi32 shell32 comdlg32 ole32</code>
+on Windows, <code>X11 dl pthread m</code> on Linux).</p>
+
+<h3 id="rust-hello">A program</h3>
+<pre>use raven::*;
+use std::cell::Cell;
+use std::rc::Rc;
+
+const XML: &amp;str = r#"
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;"#;
+
+fn main() {
+    unsafe {
+        if Rinit(R_BACKEND_VULKAN) == 0 {
+            eprintln!("cannot start Raven");
+            return;
+        }
+    }
+    let window = window_from_xml(XML);
+    let title = widget_find(window, "title");
+    let name = widget_find(window, "name");
+
+    let clicks = Rc::new(Cell::new(0));
+    let counter = clicks.clone();
+    action_bind("greet", move |_sender, _action| unsafe {
+        counter.set(counter.get() + 1);
+        let who = text(Rtext_input_get_text(name));
+        Rlabel_set_text(title, cstr(&amp;format!("Hello, {}!", who)).as_ptr());
+    });
+
+    unsafe {
+        while Rwait_frame(-1.0) != 0 {}
+        Rshutdown();
+    }
+}</pre>
+
+<h3 id="rust-rules">How the C API looks</h3>
+<dl>
+<dt><code>raven::sys</code></dt>
+<dd>The C API as it is: same names, raw pointers, <code>#[repr(C)]</code> structures,
+enumerations as integer constants, and every function <code>unsafe</code>.
+Everything in it is also at the root of the crate (<code>use raven::*;</code>).</dd>
+<dt>Helpers</dt>
+<dd><code>text(ptr) -&gt; String</code> reads a text of the library ("" for NULL);
+<code>cstr(&amp;str) -&gt; CString</code> makes one for it;
+<code>action_bind(name, closure)</code>; <code>window_from_xml</code>,
+<code>widget_from_xml</code> and <code>widget_find</code> take <code>&amp;str</code>. These are safe functions.</dd>
+<dt>Texts</dt>
+<dd>Pass <code>cstr("...").as_ptr()</code> directly as an argument: the
+temporary <code>CString</code> lives until the end of the statement, which is what
+the call needs. Do not store the pointer of a temporary in a variable.
+A zero inside the text ends it.</dd>
+<dt>Out-parameters and structures</dt>
+<dd>Pass <code>&amp;mut</code>; zero a structure with <code>std::mem::zeroed()</code>, which is
+what C means by <code>{0}</code>.</dd>
+</dl>
+<pre>unsafe {
+    let (mut x, mut y, mut w, mut h) = (0.0f32, 0.0, 0.0, 0.0);
+    Rwidget_get_rect(button, &amp;mut x, &amp;mut y, &amp;mut w, &amp;mut h);
+
+    let mut desc: RInitDesc = std::mem::zeroed();
+    desc.backend = R_BACKEND_NULL;
+    desc.headless = 1;
+    Rinit_ex(&amp;desc);
+}</pre>
+<dl>
+<dt>Callbacks</dt>
+<dd><code>action_bind</code> takes any <code>FnMut(Rid, &amp;str) + 'static</code>
+closure, kept until the program ends (use <code>Rc&lt;Cell&gt;</code> /
+<code>Rc&lt;RefCell&gt;</code> to share state with it). Every other callback is an
+<code>unsafe extern "C" fn</code> passed as <code>Some(function)</code>, with a
+<code>*mut c_void</code> for your data, as in C:</dd>
+</dl>
+<pre>use std::os::raw::c_void;
+
+unsafe extern "C" fn on_click(button: Rid, user_data: *mut c_void) {
+    let count = &amp;mut *(user_data as *mut u32);
+    *count += 1;
+}
+
+let count: &amp;'static mut u32 = Box::leak(Box::new(0));
+unsafe { Rbutton_set_clicked_callback(button, Some(on_click), count as *mut u32 as *mut c_void) };</pre>
+<p>A panic must not unwind through C: wrap the body of an
+<code>extern "C"</code> callback in <code>std::panic::catch_unwind</code> if it can panic.
+Raven is single-threaded on its UI thread and its handles are plain <code>u32</code>:
+nothing stops you from sending a <code>Rid</code> to another thread, so keep the calls on
+the thread that called <code>Rinit</code>.</p>
+
+<!-- ======================================================================= -->
+<h2 id="go">6. Go</h2>
+
+<h3 id="go-install">Install</h3>
+<p>Go has no registry: the package is used from the folder
+<code>bindings/go</code> (a module named <code>raven</code>) through a
+<code>replace</code> directive, which is what the projects of the designer do:</p>
+<pre>// go.mod of your program
+module mytool
+
+go 1.18
+
+require raven v0.0.0
+replace raven =&gt; /path/to/Raven/bindings/go</pre>
+<pre>CGO_CFLAGS="-I&lt;raven&gt;/include" CGO_LDFLAGS="-L&lt;folder of the library&gt;" go run .</pre>
+<p>cgo needs a C compiler (gcc or clang; on Windows, MinGW-w64).</p>
+
+<h3 id="go-hello">A program</h3>
+<pre>package main
+
+import (
+    "fmt"
+    "runtime"
+
+    "raven/raven"
+)
+
+const xml = `
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;`
+
+func main() {
+    runtime.LockOSThread() // Raven belongs to the thread that starts it
+    if raven.Init(raven.R_BACKEND_VULKAN) == 0 {
+        fmt.Println("cannot start Raven")
+        return
+    }
+    raven.ErrorSetCallback(func(code raven.RError, severity raven.RSeverity, detail string) {
+        fmt.Println("raven:", detail)
+    })
+
+    window := raven.WindowCreateFromXml(xml)
+    title := raven.WidgetFind(window, "title")
+    name := raven.WidgetFind(window, "name")
+    raven.ActionBind("greet", func(sender raven.ID, action string) {
+        raven.LabelSetText(title, "Hello, "+raven.TextInputGetText(name)+"!")
+    })
+
+    for raven.WaitFrame(-1.0) != 0 {
+    }
+    raven.Shutdown()
+}</pre>
+
+<h3 id="go-rules">How the C API looks</h3>
+<dl>
+<dt>Names</dt>
+<dd>The prefix <code>R</code> is dropped and the rest is written in Go style:
+<code>Rwindow_set_title</code> is <code>WindowSetTitle</code>,
+<code>Rtext_input_get_text</code> is <code>TextInputGetText</code>. Enumerations keep
+their C names (<code>raven.R_WIDGET_BUTTON</code>), with Go types
+(<code>raven.RWidgetType</code>). A handle is a <code>raven.ID</code>.</dd>
+<dt>Texts and buffers</dt>
+<dd><code>string</code> and <code>[]byte</code>; the size that follows them in C is not
+passed. An empty string is passed as an empty text, never as NULL: where NULL
+has a meaning in C there is a function of its own
+(<code>XmlNodeRemoveAttribute</code>).</dd>
+<dt>Out-parameters</dt>
+<dd>Results: <code>x, y, w, h := raven.WidgetGetRect(widget)</code>,
+<code>w, h := raven.WindowGetSize(window)</code>.</dd>
+<dt>Integers, not booleans</dt>
+<dd>Functions return what C returns: <code>raven.WaitFrame(-1.0) != 0</code>,
+<code>raven.IsRunning() == 0</code>.</dd>
+<dt>Callbacks</dt>
+<dd>Three are bridged to Go functions, which is what an interface in XML
+needs: <code>ActionBind</code>, <code>ErrorSetCallback</code> (nil removes it) and
+<code>TimerStart</code> / <code>TimerStop</code>.</dd>
+</dl>
+<pre>ticks := 0
+timer := raven.TimerStart(0.5, true, func() { ticks++ })
+// ...
+raven.TimerStop(timer)</pre>
+<dl>
+<dt>Written by hand for Go</dt>
+<dd>A few functions that take structures in C have a simpler Go form:
+<code>InitHeadless()</code> (the null backend, for tests),
+<code>XmlDocumentParse(xml) (document, line, column, message)</code>,
+<code>FileRead(path) []byte</code>, <code>FileDialogOpen(parent, title) string</code>.</dd>
+<dt>Not wrapped</dt>
+<dd>The functions that take a pointer to a structure, a <code>void*</code> or a C
+callback are left to cgo; they are listed at the end of <code>raven.go</code>.
+They include the per-widget callbacks (<code>Rbutton_set_clicked_callback</code>,
+<code>Rslider_set_changed_callback</code>...), <code>Rinit_ex</code>, the painter
+(<code>Rdraw_*</code>), textures from pixels and <code>Rtask_*</code>. Use actions
+instead of per-widget callbacks (<code>OnClicked</code>, <code>OnChanged</code> in XML,
+or <code>WidgetSetAction</code>), or call them through cgo with an
+<code>//export</code> function, as <code>callbacks.go</code> does.</dd>
+</dl>
+
+<!-- ======================================================================= -->
+<h2 id="csharp">7. C#</h2>
+
+<h3 id="csharp-install">Install</h3>
+<pre>dotnet add package Raven.Gui</pre>
+<p>The package holds the bindings (<code>Raven.dll</code>, .NET Standard 2.0) and the
+native library for Windows x64, Linux x64 and macOS (Apple silicon and
+Intel), which the .NET SDK copies beside the program. It runs on .NET 5 and
+later, .NET Core 3 and .NET Framework 4.7.2. Without the package, add
+<code>bindings/csharp/Raven.cs</code> to the project (it needs
+<code>&lt;AllowUnsafeBlocks&gt;true&lt;/AllowUnsafeBlocks&gt;</code>) and put the
+library beside the program.</p>
+
+<h3 id="csharp-hello">A program</h3>
+<pre>using System;
+using Raven;
+
+static class Program
+{
+    const string Xml = @"
+&lt;Window Title=""Hello"" Width=""360"" Height=""200""&gt;
+    &lt;VBox Spacing=""10"" Slot.Padding=""16""&gt;
+        &lt;Label Name=""title"" Text=""Hello"" TextSize=""20""/&gt;
+        &lt;TextInput Name=""name"" Placeholder=""Your name""/&gt;
+        &lt;Button Text=""Greet"" Style=""Primary"" OnClicked=""greet""/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;";
+
+    static void Main()
+    {
+        if (R.Rinit(RBackend.R_BACKEND_VULKAN) == 0) { Console.WriteLine("cannot start Raven"); return; }
+        R.Rerror_set_callback(R.Keep&lt;RErrorCallback&gt;((code, severity, detail) =&gt;
+            Console.WriteLine("raven: " + R.Text(detail))));
+
+        uint window = R.Rwindow_create_from_xml(Xml);
+        uint title = R.Rwidget_find(window, "title");
+        uint name = R.Rwidget_find(window, "name");
+
+        R.Raction_bind("greet", R.Keep&lt;RActionCallback&gt;((sender, action, user) =&gt;
+            R.Rlabel_set_text(title, "Hello, " + R.Rtext_input_get_text(name) + "!")), IntPtr.Zero);
+
+        while (R.Rwait_frame(-1.0) != 0) { }
+        R.Rshutdown();
+    }
+}</pre>
+
+<h3 id="csharp-rules">How the C API looks</h3>
+<dl>
+<dt>Names</dt>
+<dd>Every function is a static method of <code>Raven.R</code>, under its C name.
+Enumerations are C# <code>enum</code>s (<code>RBackend.R_BACKEND_VULKAN</code>,
+<code>RWidgetType.R_WIDGET_BUTTON</code>), <code>[Flags]</code> where they are flags.
+A handle is a <code>uint</code>.</dd>
+<dt>Texts</dt>
+<dd><code>string</code> in and out, UTF-8 underneath. The size that follows a text
+has an overload without it: <code>R.Rwindow_create_from_xml(xml)</code>.</dd>
+<dt>Out-parameters and structures</dt>
+<dd>A parameter the C function writes through is an <code>out</code>; a structure
+is passed by <code>ref</code>. Where C accepts NULL, a second overload takes an
+<code>IntPtr</code>, for <code>IntPtr.Zero</code>.</dd>
+</dl>
+<pre>R.Rwidget_get_rect(button, out float x, out float y, out float w, out float h);
+
+var desc = new RInitDesc { backend = RBackend.R_BACKEND_VULKAN, app_name = R.Alloc("My tool") };
+R.Rinit_ex(ref desc);</pre>
+<dl>
+<dt>Pointers inside structures</dt>
+<dd>Texts and pointers in a structure are <code>IntPtr</code>: <code>R.Text(ptr)</code>
+reads one; <code>R.Alloc(string)</code> makes one that lives until the program ends.</dd>
+<dt>Callbacks</dt>
+<dd>A delegate of the type of the C callback (<code>RActionCallback</code>,
+<code>RTimerCallback</code>, <code>RPaintCallback</code>...). The library keeps its
+address, not the delegate: wrap it in <code>R.Keep(...)</code> (or keep a reference
+in a field) or the garbage collector frees it and the next call crashes.
+Texts received by a callback are <code>IntPtr</code>: read them with
+<code>R.Text</code>. <code>user_data</code> is an <code>IntPtr</code>; with lambdas, capture
+instead and pass <code>IntPtr.Zero</code>.</dd>
+</dl>
+<pre>R.Raction_bind("open", R.Keep&lt;RActionCallback&gt;((sender, action, user) =&gt;
+{
+    string name = R.Text(action);   // "open"
+    OpenDocument();
+}), IntPtr.Zero);</pre>
+<p>An exception thrown in a callback must not cross into C: catch it inside.
+Keep every call on the thread that called <code>Rinit</code> (not from
+<code>Task.Run</code> or <code>async</code> continuations on the thread pool).</p>
+
+<!-- ======================================================================= -->
+<h2 id="zig">8. Zig</h2>
+
+<h3 id="zig-install">Install</h3>
+<p>Copy <code>bindings/zig/raven.zig</code> into the project (or take it from a release),
+and link the library in <code>build.zig</code>:</p>
+<pre>exe.linkSystemLibrary("raven");
+exe.linkLibC();
+exe.addLibraryPath(b.path("third_party/raven/lib"));   // where raven.lib / libraven.so is</pre>
+<p>Zig can also read the C header itself, with no binding file:
+<code>const r = @cImport(@cInclude("Raven.h"));</code>. <code>raven.zig</code> adds the
+documentation comments, typed callbacks and structures whose fields default to zero.</p>
+
+<h3 id="zig-hello">A program</h3>
+<pre>const std = @import("std");
+const r = @import("raven.zig");
+
+var title: r.Rid = r.R_INVALID_ID;
+var name: r.Rid = r.R_INVALID_ID;
+
+pub fn main() void {
+    if (r.Rinit(r.R_BACKEND_VULKAN) == 0) return;
+    const xml =
+        \\&lt;Window Title="Hello" Width="360" Height="200"&gt;
+        \\    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        \\        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        \\        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        \\        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+        \\    &lt;/VBox&gt;
+        \\&lt;/Window&gt;
+    ;
+    const window = r.Rwindow_create_from_xml(xml, xml.len);
+    title = r.Rwidget_find(window, "title");
+    name = r.Rwidget_find(window, "name");
+    r.Raction_bind("greet", greet, null);
+    while (r.Rwait_frame(-1.0) != 0) {}
+    r.Rshutdown();
+}
+
+fn greet(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void {
+    _ = sender; _ = action; _ = user_data;
+    const who = std.mem.span(r.Rtext_input_get_text(name) orelse "");
+    var buffer: [256]u8 = undefined;
+    const text = std.fmt.bufPrintZ(&amp;buffer, "Hello, {s}!", .{who}) catch return;
+    r.Rlabel_set_text(title, text.ptr);
+}</pre>
+
+<h3 id="zig-rules">How the C API looks</h3>
+<dl>
+<dt>Declarations</dt>
+<dd>The C API as it is: <code>pub extern fn</code> with the C names,
+<code>Rid = u32</code>, enumerations as <code>c_int</code> types with constants
+(<code>r.R_WIDGET_BUTTON</code>).</dd>
+<dt>Texts</dt>
+<dd><code>?[*:0]const u8</code>: a string literal passes as it is. A text
+returned by Raven is optional (NULL is <code>null</code>): <code>std.mem.span(t orelse "")</code>
+makes a slice of it. Texts you build need a terminating zero
+(<code>bufPrintZ</code>, <code>allocator.dupeZ</code>).</dd>
+<dt>Structures</dt>
+<dd><code>extern struct</code>s whose fields default to zero, so
+<code>r.RInitDesc{}</code> is the zeroed structure of C and
+<code>.{ .backend = r.R_BACKEND_NULL, .headless = 1 }</code> sets only what you need.</dd>
+<dt>Out-parameters</dt>
+<dd>Optional pointers: <code>var x: f32 = 0; ... r.Rwidget_get_rect(w, &amp;x, &amp;y, &amp;width, &amp;height);</code>
+(or <code>null</code> for what you do not need).</dd>
+<dt>Callbacks</dt>
+<dd>Functions declared <code>callconv(.C)</code> with the parameters of the C type
+(<code>r.RActionCallback</code> and the others are declared in <code>raven.zig</code>).
+Recent Zig versions spell it <code>callconv(.c)</code>. Pass state through
+<code>user_data</code> or use container-level variables.</dd>
+<dt>Memory</dt>
+<dd>What Raven allocates for you (<code>Rfile_read</code>) is released with
+<code>r.Rmemory_free</code>, never with a Zig allocator.</dd>
+</dl>
+
+<!-- ======================================================================= -->
+<h2 id="lua">9. LuaJIT</h2>
+
+<h3 id="lua-install">Install</h3>
+<pre>luarocks install raven-gui</pre>
+<p>The rock installs the module <code>raven</code>. It needs LuaJIT (the binding
+uses its FFI; plain Lua 5.x cannot load it) and the shared library from a
+<a href="https://github.com/oscar-soirey/Raven/releases">release</a>: put it where
+the system finds libraries, or set <code>RAVEN_LIBRARY</code> to its path. Without
+LuaRocks, copy <code>bindings/luajit/raven.lua</code> next to the program.</p>
+
+<h3 id="lua-hello">A program</h3>
+<pre>local r = require("raven")
+local ffi = r.ffi
+
+assert(r.Rinit(r.R_BACKEND_VULKAN) ~= 0, "cannot start Raven")
+
+local xml = [[
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;]]
+local window = r.Rwindow_create_from_xml(xml, #xml)
+local title = r.Rwidget_find(window, "title")
+local name = r.Rwidget_find(window, "name")
+
+-- keep the callback in a variable that lives as long as the program
+local greet = ffi.cast("RActionCallback", function(sender, action, user_data)
+    local who = ffi.string(r.Rtext_input_get_text(name))
+    r.Rlabel_set_text(title, "Hello, " .. who .. "!")
+end)
+r.Raction_bind("greet", greet, nil)
+
+while r.Rwait_frame(-1.0) ~= 0 do end
+r.Rshutdown()
+greet:free()</pre>
+
+<h3 id="lua-rules">How the C API looks</h3>
+<dl>
+<dt>The module</dt>
+<dd>The C declarations of the headers given to <code>ffi.cdef</code>; the module is
+the library itself, so <code>r.Rwidget_find</code> is the C function.
+<code>r.ffi</code> is the FFI and <code>r.C</code> the loaded library.</dd>
+<dt>Numbers and enumerations</dt>
+<dd>Enumerations are numbers (<code>r.R_WIDGET_BUTTON</code>). Where a parameter
+has the type of an enumeration, its name as a string works too:
+<code>r.Rwidget_create("R_WIDGET_VBOX")</code>. <code>R_TRUE</code> /
+<code>R_FALSE</code> are 1 and 0, and 0 is <em>true</em> in Lua: always compare,
+<code>if r.Ris_running() ~= 0 then</code>.</dd>
+<dt>Texts</dt>
+<dd>A Lua string passes where C takes <code>const char*</code>. A text returned by Raven
+is a <code>const char*</code> cdata: <code>ffi.string(ptr)</code> makes a Lua string of it
+(check for NULL first when the function may return it:
+<code>ptr ~= nil and ffi.string(ptr)</code>). Sizes are passed explicitly:
+<code>(xml, #xml)</code>.</dd>
+<dt>Out-parameters and structures</dt>
+<dd>Allocate them with the FFI:</dd>
+</dl>
+<pre>local rect = ffi.new("float[4]")
+r.Rwidget_get_rect(button, rect, rect + 1, rect + 2, rect + 3)
+print(rect[0], rect[1], rect[2], rect[3])
+
+local desc = ffi.new("RInitDesc")            -- zeroed
+desc.backend = r.R_BACKEND_NULL
+desc.headless = 1
+r.Rinit_ex(desc)</pre>
+<dl>
+<dt>Callbacks</dt>
+<dd>A Lua function passes where a callback is expected, but a callback made
+implicitly is freed by the garbage collector. Make it with
+<code>ffi.cast("RActionCallback", fn)</code> (or the type of that callback),
+keep the result referenced while Raven may call it, and
+<code>:free()</code> it when you are done. LuaJIT has a limited number of callback
+slots (a few hundred): prefer one action bound to a name over a callback per
+widget. Texts a callback receives are <code>const char*</code> cdata too.</dd>
+<dt>Errors in callbacks</dt>
+<dd>A Lua error raised inside a callback called from C cannot be caught by
+the Lua code around the C call: catch it in the callback with
+<code>pcall</code>.</dd>
+</dl>
+
+<!-- ======================================================================= -->
+<h2 id="rosetta">10. One call in every language</h2>
+
+<p>Reading the bounds of a widget (a function with four out-parameters) and
+changing the text of a label, to see each convention side by side:</p>
+<table class="v">
+<tr><th>Language</th><th>Bounds</th><th>Text</th></tr>
+<tr><td>C</td><td><code>float x, y, w, h; Rwidget_get_rect(b, &amp;x, &amp;y, &amp;w, &amp;h);</code></td><td><code>Rlabel_set_text(l, "Hi");</code></td></tr>
+<tr><td>C++</td><td><code>float x, y, w, h; b.get_rect(&amp;x, &amp;y, &amp;w, &amp;h);</code></td><td><code>l.set_text("Hi");</code></td></tr>
+<tr><td>Python</td><td><code>x, y, w, h = r.Rwidget_get_rect(b)</code></td><td><code>r.Rlabel_set_text(l, "Hi")</code></td></tr>
+<tr><td>Rust</td><td><code>Rwidget_get_rect(b, &amp;mut x, &amp;mut y, &amp;mut w, &amp;mut h)</code></td><td><code>Rlabel_set_text(l, cstr("Hi").as_ptr())</code></td></tr>
+<tr><td>Go</td><td><code>x, y, w, h := raven.WidgetGetRect(b)</code></td><td><code>raven.LabelSetText(l, "Hi")</code></td></tr>
+<tr><td>C#</td><td><code>R.Rwidget_get_rect(b, out var x, out var y, out var w, out var h);</code></td><td><code>R.Rlabel_set_text(l, "Hi");</code></td></tr>
+<tr><td>Zig</td><td><code>r.Rwidget_get_rect(b, &amp;x, &amp;y, &amp;w, &amp;h);</code></td><td><code>r.Rlabel_set_text(l, "Hi");</code></td></tr>
+<tr><td>LuaJIT</td><td><code>local f = ffi.new("float[4]"); r.Rwidget_get_rect(b, f, f+1, f+2, f+3)</code></td><td><code>r.Rlabel_set_text(l, "Hi")</code></td></tr>
+</table>
+
+<p>And binding an action, the one callback every binding makes easy:</p>
+<table class="v">
+<tr><th>Language</th><th>Code</th></tr>
+<tr><td>C++</td><td><code>raven::action_bind("save", [&amp;](Rid, const char*) { save(); });</code></td></tr>
+<tr><td>Python</td><td><code>r.Raction_bind("save", lambda sender, action, user: save())</code></td></tr>
+<tr><td>Rust</td><td><code>action_bind("save", |_, _| save());</code></td></tr>
+<tr><td>Go</td><td><code>raven.ActionBind("save", func(sender raven.ID, action string) { save() })</code></td></tr>
+<tr><td>C#</td><td><code>R.Raction_bind("save", R.Keep&lt;RActionCallback&gt;((s, a, u) =&gt; Save()), IntPtr.Zero);</code></td></tr>
+<tr><td>Zig</td><td><code>r.Raction_bind("save", onSave, null);</code> with <code>fn onSave(...) callconv(.C) void</code></td></tr>
+<tr><td>LuaJIT</td><td><code>local cb = ffi.cast("RActionCallback", save); r.Raction_bind("save", cb, nil)</code></td></tr>
+</table>
+
+<!-- ======================================================================= -->
+<h2 id="testing">11. Testing without a screen</h2>
+
+<p>Every binding can run Raven with the null backend and no window system,
+which is how the build checks them: each example, started with
+<code>--test</code>, builds its interface, clicks its own button by injecting
+mouse events, and checks the result.</p>
+<pre># Python
+desc = r.RInitDesc()
+desc.backend = r.R_BACKEND_NULL
+desc.headless = 1
+r.Rinit_ex(desc)
+
+window = r.Rwindow_create_from_xml(XML)
+r.Rdraw_frame()                                   # one layout pass
+x, y, w, h = r.Rwidget_get_rect(r.Rwidget_find(window, "greet"))
+r.Rwindow_inject_mouse_move(window, x + w / 2, y + h / 2)
+r.Rwindow_inject_mouse_button(window, r.R_MOUSE_LEFT, 1)
+r.Rwindow_inject_mouse_button(window, r.R_MOUSE_LEFT, 0)
+assert r.Rlabel_get_text(title) == "Hello, you!"</pre>
+<p>In Go, <code>raven.InitHeadless()</code> does the first four lines. The
+examples (<code>cpp/example.cpp</code>, <code>python/example.py</code>,
+<code>rust/examples/hello.rs</code>, <code>go/example/main.go</code>) are complete tests
+to copy. With <code>-DRAVEN_BUILD_TESTS=ON</code>, <code>ctest</code> runs
+<code>bindings_up_to_date</code> and, where the tools are installed,
+<code>binding_cpp</code>, <code>binding_python</code>, <code>binding_rust</code> and
+<code>binding_go</code> (the last three need <code>RAVEN_BUILD_SHARED</code>, and are
+run by hand on Windows).</p>
+
+<!-- ======================================================================= -->
+<h2 id="packages">12. Packages and publishing</h2>
+
+<table class="v">
+<tr><th>Registry</th><th>Package</th><th>In code</th><th>Contents</th></tr>
+<tr><td>PyPI</td><td><code>raven-gui</code></td><td><code>import raven</code></td><td>the module and the library (wheels for Windows, Linux, macOS)</td></tr>
+<tr><td>NuGet</td><td><code>Raven.Gui</code></td><td><code>using Raven;</code></td><td><code>Raven.dll</code> (netstandard2.0) and the library under <code>runtimes/&lt;rid&gt;/native/</code></td></tr>
+<tr><td>crates.io</td><td><code>raven-gui</code></td><td><code>use raven::*;</code></td><td>the crate; the library comes from a release</td></tr>
+<tr><td>LuaRocks</td><td><code>raven-gui</code></td><td><code>require("raven")</code></td><td>the module; the library comes from a release</td></tr>
+</table>
+<p>C++, Go and Zig are used from the files of a release or of the sources
+(<code>share/raven/bindings</code> in an installed package).</p>
+<p>For maintainers: <code>bindings\package.bat</code>, from a Developer Command
+Prompt for Visual Studio, builds Raven (shared, Release) and writes the four
+packages into <code>dist\bindings\</code> without publishing anything.
+<code>--linux &lt;folder&gt;</code> and <code>--macos &lt;folder&gt;</code> add the libraries of
+those platforms from the shared packages of a release;
+<code>python bindings/set_version.py X.Y.Z</code> changes the version everywhere
+(CMake, Cargo, NuGet, rockspec). The publishing commands are in
+<code>bindings/PUBLISHING.md</code>. A version can be published only once on each
+registry.</p>
+
+<!-- ======================================================================= -->
+<h2 id="bindgen">13. How the bindings are made</h2>
+
+<p>The bindings are not written by hand: <code>tools/bindgen</code> reads the public
+headers (<code>cparse.py</code>) and writes every file of <code>bindings/</code>, one
+generator per language (<code>gen_&lt;language&gt;.py</code>). That is why they always
+have the whole API, under the same names, with the same documentation. Do not
+edit the generated files; after changing a public header, run</p>
+<pre>python3 tools/bindgen/bindgen.py</pre>
+<p>The test <code>bindings_up_to_date</code> fails when this was forgotten. To add a
+language, write <code>tools/bindgen/gen_&lt;language&gt;.py</code> with a
+<code>generate(api)</code> function that returns <code>{path: text}</code>, and add its name
+to the list in <code>bindgen.py</code>; <code>cparse.py</code> documents the data it
+receives. Contributions of new languages are welcome on
+<a href="https://github.com/oscar-soirey/Raven">GitHub</a>.</p>
+
+<p class="foot">Raven &mdash; Apache License 2.0 &mdash; <a href="index.html">Guide</a> &middot; <a href="xml.html">XML</a> &middot; <a href="reference.html">C API</a> &middot; <a href="https://github.com/oscar-soirey/Raven">source</a></p>
+<script>
+(function () {
+  var KW = "if else for while do switch case default break continue return goto struct union enum typedef static const extern inline void int char float double long short unsigned signed bool sizeof volatile fn let mut pub impl trait match loop def class import lambda func package var type interface nil null true false NULL None True False self this new delete local function";
+  var re = new RegExp([
+    "(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*|<!--[\\s\\S]*?-->)",          // 1 commentaire
+    "(\"(?:\\\\.|[^\"\\\\\\n])*\"|'(?:\\\\.|[^'\\\\\\n]){0,40}')",        // 2 chaine
+    "(^[ \\t]*#[ \\t]*[a-z_]+)",                                           // 3 preprocesseur
+    "((?<![\\w)\\]])<\\/?[A-Za-z][\\w:.-]*)",                              // 4 balise XML
+    "(\\b(?:0x[0-9a-fA-F]+|\\d+(?:\\.\\d+)?)[fFuUlL]*\\b)",                // 5 nombre
+    "(\\b(?:" + KW.split(" ").join("|") + ")\\b)"                          // 6 mot-cle
+  ].join("|"), "gm");
+  var cls = [null, "tk-c", "tk-s", "tk-p", "tk-t", "tk-n", "tk-k"];
+
+  function paint(node) {
+    var text = node.nodeValue, last = 0, m, frag = document.createDocumentFragment();
+    re.lastIndex = 0;
+    while ((m = re.exec(text))) {
+      var i = 1; while (!m[i]) i++;
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      var sp = document.createElement("span");
+      sp.className = cls[i]; sp.textContent = m[0];
+      frag.appendChild(sp);
+      last = m.index + m[0].length;
+      if (m[0].length === 0) re.lastIndex++;
+    }
+    if (!last) return;
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+
+  try {
+    document.querySelectorAll("pre:not(.sig)").forEach(function (pre) {
+      var w = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT, null), nodes = [], n;
+      while ((n = w.nextNode())) { nodes.push(n); }
+      nodes.forEach(paint);
+    });
+  } catch (e) { /* sans coloration si le navigateur est trop ancien */ }
+})();
+</script>
+</body>
+</html>
