@@ -622,7 +622,7 @@ static void test_looks(void) {
 	{
 		/* every look draws a window of every widget */
 		static const RLook looks[] = { R_LOOK_WINDOWS_DARK, R_LOOK_WINDOWS_LIGHT, R_LOOK_MACOS_DARK, R_LOOK_MACOS_LIGHT,
-			R_LOOK_GNOME_DARK, R_LOOK_GNOME_LIGHT };
+			R_LOOK_GNOME_DARK, R_LOOK_GNOME_LIGHT, R_LOOK_MACOS_GLASS_DARK, R_LOOK_MACOS_GLASS_LIGHT };
 		const char* all =
 			"<Window Width=\"500\" Height=\"400\"><VBox><HeaderBar/><MenuBar><Menu Text=\"File\"><MenuItem Text=\"Open\"/></Menu></MenuBar>"
 			"<Button Text=\"A\" Style=\"Primary\"/><Button Text=\"B\" Style=\"Flat\"/><Checkbox Text=\"C\" Checked=\"true\"/>"
@@ -721,6 +721,107 @@ static void test_looks(void) {
 	CHECK_STR(Rtheme_get_name(), "Dark");
 }
 
+/* Captures of what is behind glass in the last frame of a window: 0 when nothing in it is glass. */
+static unsigned glass_in(Rid window) {
+	RFrameStats stats;
+	Rdraw_frame();
+	memset(&stats, 0, sizeof(stats));
+	Rwindow_get_frame_stats(window, &stats);
+	return stats.backdrop_count;
+}
+
+/* macOS 26 (Liquid Glass): the controls of macOS, rounder; glass on what floats, the content opaque. */
+static void test_macos_glass(void) {
+	const char* plain = "<Window Width=\"420\" Height=\"240\"><VBox Spacing=\"8\" Slot.Padding=\"12\">"
+		"<Button Text=\"OK\" Style=\"Primary\"/><TextInput/><Checkbox Style=\"Switch\" Name=\"switch\"/>"
+		"<Slider Name=\"slider\" Value=\"0.5\" Width=\"200\"/></VBox></Window>";
+	const char* bar = "<Window Width=\"420\" Height=\"240\"><VBox><HeaderBar><Button Text=\"Share\"/></HeaderBar>"
+		"<Label Text=\"content\"/></VBox></Window>";
+	Rid window, bar_window, slider, menu;
+	float x, y, w, h;
+
+	/* the look, its names, its dark twin */
+	Rlook_set(R_LOOK_MACOS_GLASS_LIGHT);
+	CHECK(Rlook_get() == R_LOOK_MACOS_GLASS_LIGHT);
+	CHECK_STR(Rtheme_get_name(), "MacOSGlassLight");
+	CHECK(!Rtheme_is_dark());
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 24.0f);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CORNER_RADIUS), 8.0f);
+	/* (the material of the widgets stays solid: the glass is where macOS puts it) */
+	CHECK(Rtheme_get_material() == R_MATERIAL_SOLID);
+	CHECK(Rtheme_use("MacOSGlassDark"));
+	CHECK(Rlook_get() == R_LOOK_MACOS_GLASS_DARK);
+	CHECK(Rtheme_is_dark());
+	CHECK(theme_color(R_COLOR_WINDOW) == 0x262626FFu);
+	CHECK(Rtheme_use("Tahoe"));
+	CHECK(Rlook_get() == R_LOOK_MACOS_GLASS_LIGHT);
+	CHECK(Rtheme_use("LiquidGlassDark"));
+	CHECK(Rlook_get() == R_LOOK_MACOS_GLASS_DARK);
+	/* the accent behaves as on macOS: no change under the pointer */
+	Rlook_set(R_LOOK_MACOS_GLASS_LIGHT);
+	Rtheme_set_accent(1.0f, 0.0f, 0.0f);
+	CHECK(theme_color(R_COLOR_ACCENT_HOVERED) == 0xFF0000FFu);
+	Rlook_set(R_LOOK_MACOS_GLASS_LIGHT);
+	/* a material for everything is still refused: the look decides where the glass goes */
+	EXPECT_ERRORS_BEGIN();
+	Rtheme_set_material(R_MATERIAL_FROSTED_GLASS);
+	EXPECT_ERRORS_END(1);
+	CHECK(Rtheme_get_material() == R_MATERIAL_SOLID);
+
+	/* the content is opaque: buttons, fields, switches, sliders */
+	window = Rwindow_create_from_xml(plain, strlen(plain));
+	Rdraw_frame();
+	CHECK(glass_in(window) == 0);
+	/* the bar and its buttons are glass */
+	bar_window = Rwindow_create_from_xml(bar, strlen(bar));
+	CHECK(glass_in(bar_window) > 0);
+	/* (and the look of Sequoia has none) */
+	Rlook_set(R_LOOK_MACOS_LIGHT);
+	CHECK(glass_in(bar_window) == 0);
+	Rlook_set(R_LOOK_MACOS_GLASS_DARK);
+	CHECK(glass_in(bar_window) > 0);
+
+	/* a knob that is held turns into a lens of glass, and back */
+	Rlook_set(R_LOOK_MACOS_GLASS_LIGHT);
+	slider = Rwidget_find(window, "slider");
+	Rdraw_frame();
+	Rwidget_get_rect(slider, &x, &y, &w, &h);
+	Rwindow_inject_mouse_move(window, x + w * 0.5f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_TRUE);
+	CHECK(glass_in(window) > 0);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
+	CHECK(glass_in(window) == 0);
+
+	/* menus are glass */
+	menu = Rwidget_create(R_WIDGET_MENU);
+	Rmenu_add_item(menu, "Open");
+	Rmenu_open(menu, window, 20.0f, 20.0f);
+	CHECK(glass_in(window) > 0);
+	Rwindow_close_popups(window);
+	CHECK(glass_in(window) == 0);
+
+	/* every widget, in both */
+	{
+		const char* all =
+			"<Window Width=\"500\" Height=\"400\"><VBox><HeaderBar><Button Text=\"P\" Style=\"Primary\"/><Button Text=\"F\" Style=\"Flat\"/></HeaderBar>"
+			"<Button Text=\"A\" Style=\"Primary\"/><Button Text=\"B\" Style=\"Flat\"/><Checkbox Text=\"C\" Checked=\"true\"/>"
+			"<Checkbox Style=\"Radio\" Checked=\"true\"/><Checkbox Style=\"Switch\" Checked=\"true\"/><Slider Value=\"0.5\" Orientation=\"Vertical\" Height=\"60\"/>"
+			"<TextInput Placeholder=\"P\"/><ComboBox Items=\"X|Y\" Selected=\"0\"/><SpinBox Value=\"3\"/>"
+			"<TabView Height=\"60\"><Label Slot.Title=\"T1\"/><Label Slot.Title=\"T2\"/></TabView>"
+			"<ListView Items=\"1|2\" Height=\"60\"/></VBox></Window>";
+		Rid all_window = Rwindow_create_from_xml(all, strlen(all));
+		CHECK(Rwindow_is_valid(all_window));
+		Rlook_set(R_LOOK_MACOS_GLASS_LIGHT);
+		Rdraw_frame();
+		Rlook_set(R_LOOK_MACOS_GLASS_DARK);
+		Rdraw_frame();
+		Rwindow_destroy(all_window);
+	}
+	Rwindow_destroy(window);
+	Rwindow_destroy(bar_window);
+	Rlook_set(R_LOOK_RAVEN_DARK);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("test_themes: cannot initialize Raven\n");
@@ -731,6 +832,7 @@ int main(void) {
 	RUN(test_theme_files);
 	RUN(test_live_reload);
 	RUN(test_looks);
+	RUN(test_macos_glass);
 	Rshutdown();
 	return test_report("test_themes");
 }
