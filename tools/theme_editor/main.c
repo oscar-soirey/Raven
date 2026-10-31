@@ -110,6 +110,8 @@ static struct {
 	char backdrop_key[64];
 
 	int syncing, xml_edited, scripted;
+	/* random input (the fuzz command): no file dialog, no message box, no quitting */
+	int fuzzing;
 	/* the control the user is moving: the model follows it, not the reverse */
 	Rid source;
 	te_text errors;
@@ -1072,13 +1074,39 @@ static void on_slider_label(Rid slider, float value, void* user_data) {
 	Rlabel_set_text((Rid)(uintptr_t)user_data, text);
 }
 
+/* A path that names a file which is there (a file being typed is loaded once it is complete). */
+static int is_file(const char* path) {
+	FILE* file;
+	if (!path[0]) return 1;
+	file = fopen(path, "rb");
+	if (!file) return 0;
+	fclose(file);
+	return 1;
+}
+
+static void set_path_field(char* field, const char* text) {
+	if (strcmp(field, text) == 0) return;
+	begin_change(field == g.model.font ? "font" : "wallpaper.text");
+	te_copy(field, 512, text);
+	changed();
+}
+
+/*
+ * A font or an image is loaded each time the theme is: not at each key typed,
+ * only when the path names a file, or on Enter (the colors of a gradient, at once).
+ */
 static void on_path(Rid input, const char* text, void* user_data) {
 	char* field = (char*)user_data;
 	(void)input;
 	if (g.syncing) return;
-	begin_change(field == g.model.font ? "font" : "wallpaper.text");
-	te_copy(field, 512, text);
-	changed();
+	if (field == g.model.wallpaper_text && g.model.wallpaper == TE_WALLPAPER_COLORS) set_path_field(field, text);
+	else if (is_file(text)) set_path_field(field, text);
+}
+
+static void on_path_committed(Rid input, const char* text, void* user_data) {
+	(void)input;
+	if (g.syncing) return;
+	set_path_field((char*)user_data, text);
 }
 
 static void apply_styles(Rid timer, void* user_data) {
@@ -1284,6 +1312,8 @@ static int save_as(void) {
 static void action_file(Rid sender, const char* action, void* user_data) {
 	(void)sender;
 	(void)user_data;
+	if (g.fuzzing && (strcmp(action, "te.open") == 0 || strcmp(action, "te.save_as") == 0 || strcmp(action, "te.quit") == 0 ||
+		(strcmp(action, "te.save") == 0 && !g.path[0]))) return;
 	if (strcmp(action, "te.open") == 0) {
 		RFileDialogDesc desc;
 		const char* path;
@@ -1321,6 +1351,7 @@ static void pick_file(char* field, const char* title, const char* filter_name, c
 	RFileDialogDesc desc;
 	RFileFilter filters[2];
 	const char* path;
+	if (g.fuzzing) return;
 	filters[0].name = filter_name;
 	filters[0].patterns = patterns;
 	filters[1].name = "Every file";
@@ -1493,6 +1524,7 @@ static void action_view(Rid sender, const char* action, void* user_data) {
 static int on_close(Rid window, void* user_data) {
 	(void)window;
 	(void)user_data;
+	if (g.fuzzing) return R_FALSE;
 	if (!g.scripted && !te_model_equal(&g.model, &g.saved)) {
 		RMessageResult answer = Rmessage_box(g.window, "Save the theme?", "The theme has changes that are not saved.", R_MESSAGE_YES_NO_CANCEL);
 		if (answer == R_MESSAGE_RESULT_CANCEL) return R_FALSE;
@@ -1597,6 +1629,8 @@ static int find_widgets(void) {
 	on_slider_label(g.contrast, Rslider_get_value(g.contrast), (void*)(uintptr_t)g.contrast_value);
 	Rtext_input_set_changed_callback(g.font, on_path, g.model.font);
 	Rtext_input_set_changed_callback(g.wallpaper_text, on_path, g.model.wallpaper_text);
+	Rtext_input_set_committed_callback(g.font, on_path_committed, g.model.font);
+	Rtext_input_set_committed_callback(g.wallpaper_text, on_path_committed, g.model.wallpaper_text);
 	Rtext_input_set_changed_callback(g.filter, on_filter, NULL);
 	Rtext_editor_set_changed_callback(g.styles, on_styles, NULL);
 	Rtext_editor_set_changed_callback(g.xml, on_xml_edited, NULL);
@@ -1646,6 +1680,106 @@ static int index_of_look(const char* name) {
 	return -1;
 }
 
+/* xorshift: the same seed gives the same run, to replay a crash */
+static uint32_t g_fuzz_state = 1;
+static uint32_t fuzz_next(void) {
+	g_fuzz_state ^= g_fuzz_state << 13;
+	g_fuzz_state ^= g_fuzz_state >> 17;
+	g_fuzz_state ^= g_fuzz_state << 5;
+	return g_fuzz_state;
+}
+static int fuzz_int(int n) {
+	return n > 0 ? (int)(fuzz_next() % (uint32_t)n) : 0;
+}
+
+/*
+ * `steps` random things a person could do: clicks, drags and wheels anywhere
+ * in the windows (menus, popups and pickers included), keys and text, and the
+ * actions of the editor. Under a sanitizer, this finds what crashes.
+ */
+static void fuzz(int steps, uint32_t seed) {
+	static const RKey keys[] = { R_KEY_TAB, R_KEY_ENTER, R_KEY_ESCAPE, R_KEY_BACKSPACE, R_KEY_DELETE, R_KEY_LEFT, R_KEY_RIGHT,
+		R_KEY_UP, R_KEY_DOWN, R_KEY_HOME, R_KEY_END, R_KEY_PAGE_DOWN, R_KEY_SPACE, R_KEY_A, R_KEY_Z, R_KEY_Y, R_KEY_C, R_KEY_V, R_KEY_F7 };
+	static const char* const texts[] = { "a", "#", "FF", "<Style Widget=\"Button\" CornerRadius=\"8\"/>", "<", "\"", "/>", "12", " ", "\xC3\xA9", "<Theme>", "&amp;" };
+	static const char* const actions[] = { "te.undo", "te.redo", "te.generate", "te.surprise", "te.reset.colors", "te.reset.metrics",
+		"te.reset.syntax", "te.copy", "te.copy.c", "te.fix.all", "te.window", "te.ui.dark", "te.ui.light", "te.xml.apply", "te.xml.revert", "te.save" };
+	int step;
+	float width = 1460.0f, height = 900.0f;
+	g_fuzz_state = seed ? seed : 1;
+	g.fuzzing = 1;
+	for (step = 0; step < steps && Ris_running(); step++) {
+		Rid window = g.window;
+		int what = fuzz_int(100);
+		float x, y;
+		if (g.preview_window != R_INVALID_ID && Rwindow_is_valid(g.preview_window) && fuzz_int(6) == 0) window = g.preview_window;
+		x = (float)fuzz_int((int)width);
+		y = (float)fuzz_int((int)height);
+		if (what < 30) {
+			/* a click, sometimes a double one */
+			int k, clicks = fuzz_int(5) == 0 ? 2 : 1;
+			Rwindow_inject_mouse_move(window, x, y);
+			for (k = 0; k < clicks; k++) {
+				Rwindow_inject_mouse_button(window, fuzz_int(8) == 0 ? R_MOUSE_RIGHT : R_MOUSE_LEFT, 1);
+				Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, 0);
+				Rwindow_inject_mouse_button(window, R_MOUSE_RIGHT, 0);
+			}
+		} else if (what < 45) {
+			/* a drag (sliders, pickers, splitters, text) */
+			int k;
+			Rwindow_inject_mouse_move(window, x, y);
+			Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, 1);
+			for (k = 0; k < 4; k++) {
+				Rwindow_inject_mouse_move(window, x + (float)(fuzz_int(200) - 100), y + (float)(fuzz_int(120) - 60));
+				Rdraw_frame();
+			}
+			Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, 0);
+		} else if (what < 50) {
+			Rwindow_inject_mouse_move(window, x, y);
+			Rwindow_inject_mouse_wheel(window, 0.0f, (float)(fuzz_int(7) - 3));
+		} else if (what < 62) {
+			RKey key = keys[fuzz_int((int)(sizeof(keys) / sizeof(keys[0])))];
+			Ruint mods = fuzz_int(4) == 0 ? R_MOD_CTRL : fuzz_int(6) == 0 ? R_MOD_SHIFT : 0;
+			/* (Ctrl+Q would quit, Ctrl+O and Ctrl+Shift+S open file dialogs: the actions refuse them while fuzzing) */
+			Rwindow_inject_key(window, key, 1, mods);
+			Rwindow_inject_key(window, key, 0, mods);
+		} else if (what < 72) {
+			Rwindow_inject_text(window, texts[fuzz_int((int)(sizeof(texts) / sizeof(texts[0])))]);
+		} else if (what < 80) {
+			Raction_fire(actions[fuzz_int((int)(sizeof(actions) / sizeof(actions[0])))], R_INVALID_ID);
+		} else if (what < 84) {
+			int look = fuzz_int(g_te_look_count);
+			Rcombo_box_set_selected(g.look, look);
+			on_combo(g.look, look, &g.model.look);
+		} else if (what < 87) {
+			char action[32];
+			snprintf(action, sizeof(action), "te.new.%d", 1 + fuzz_int(g_te_look_count - 1));
+			Raction_fire(action, R_INVALID_ID);
+		} else if (what < 91) {
+			Rtab_view_set_active(g.tabs, fuzz_int(7));
+		} else if (what < 94) {
+			Rid pages = Rwidget_find(g.preview_root, "preview.pages");
+			if (pages != R_INVALID_ID) Rtab_view_set_active(pages, fuzz_int(5));
+		} else if (what < 96) {
+			Rcheckbox_set_checked(g.compare, fuzz_int(2));
+			on_compare(g.compare, Rcheckbox_is_checked(g.compare), NULL);
+		} else if (what < 98) {
+			int index = fuzz_int(TE_COLOR_COUNT);
+			on_color(g.color_picker[index], (float)fuzz_int(256) / 255.0f, (float)fuzz_int(256) / 255.0f, (float)fuzz_int(256) / 255.0f,
+				(float)fuzz_int(256) / 255.0f, (void*)(intptr_t)index);
+		} else {
+			/* the preview window closed by the user */
+			if (g.preview_window != R_INVALID_ID && Rwindow_is_valid(g.preview_window)) Rwindow_close(g.preview_window);
+		}
+		if (fuzz_int(3) == 0) Rdraw_frame();
+		/* (a timer of the Styles tab may be waiting: let time pass now and then) */
+		if (fuzz_int(40) == 0) {
+			int k;
+			for (k = 0; k < 25; k++) Rdraw_frame();
+		}
+	}
+	g.fuzzing = 0;
+}
+
 static int same_rgb(const float* a, const float* b) {
 	return fabsf(a[0] - b[0]) < 0.006f && fabsf(a[1] - b[1]) < 0.006f && fabsf(a[2] - b[2]) < 0.006f;
 }
@@ -1671,6 +1805,7 @@ static void tilde(char* word) {
  *   snippet INDEX          adds a rule of "Add a rule"
  *   save PATH / open PATH  writes / reads a theme file
  *   tab N / page N         shows a tab of the editor / a page of the preview
+ *   fuzz STEPS SEED        random clicks, drags, keys, text and actions (the same seed replays the same run)
  *   fix N                  the Fix button of the pair N of the Check tab
  *   compare 0|1            the preview shows the saved version (1) or the changes (0)
  *   expectclipboard TEXT   stops unless the clipboard contains TEXT
@@ -1706,7 +1841,7 @@ static int run_script(char* script) {
 			Raction_fire(ARG(1), R_INVALID_ID);
 			i++;
 		} else if (strcmp(command, "name") == 0) {
-			tilde(words[i + 1]);
+			if (i + 1 < count) tilde(words[i + 1]);
 			Rtext_input_set_text(g.name, ARG(1));
 			on_name(g.name, ARG(1), NULL);
 			i++;
@@ -1747,7 +1882,7 @@ static int run_script(char* script) {
 			}
 			i += 2;
 		} else if (strcmp(command, "styles") == 0) {
-			tilde(words[i + 1]);
+			if (i + 1 < count) tilde(words[i + 1]);
 			Rtext_editor_set_text(g.styles, strcmp(ARG(1), "-") == 0 ? "" : ARG(1));
 			apply_styles(R_INVALID_ID, NULL);
 			i++;
@@ -1760,6 +1895,9 @@ static int run_script(char* script) {
 		} else if (strcmp(command, "open") == 0) {
 			if (!open_file(ARG(1))) FAIL("cannot open %s", ARG(1));
 			i++;
+		} else if (strcmp(command, "fuzz") == 0) {
+			fuzz(atoi(ARG(1)), (uint32_t)strtoul(ARG(2), NULL, 10));
+			i += 2;
 		} else if (strcmp(command, "fix") == 0) {
 			on_fix(g.check_fix[atoi(ARG(1))], (void*)(intptr_t)atoi(ARG(1)));
 			i++;
@@ -1769,7 +1907,7 @@ static int run_script(char* script) {
 			i++;
 		} else if (strcmp(command, "expectclipboard") == 0) {
 			const char* text = Rclipboard_get_text();
-			tilde(words[i + 1]);
+			if (i + 1 < count) tilde(words[i + 1]);
 			if (!text || !strstr(text, ARG(1))) FAIL("'%s' not in the clipboard:\n%s", ARG(1), text ? text : "(empty)");
 			i++;
 		} else if (strcmp(command, "tab") == 0) {
@@ -1786,7 +1924,7 @@ static int run_script(char* script) {
 			int found;
 			memset(&xml, 0, sizeof(xml));
 			te_model_write(&g.model, &xml, NULL, 0, NULL);
-			tilde(words[i + 1]);
+			if (i + 1 < count) tilde(words[i + 1]);
 			found = strstr(xml.data, ARG(1)) != NULL;
 			if (found != (command[0] == 'e')) FAIL("'%s'%s in:\n%s", ARG(1), found ? "" : " not found", xml.data);
 			te_text_free(&xml);
@@ -1810,7 +1948,7 @@ static int run_script(char* script) {
 		} else if (strcmp(command, "expectfile") == 0) {
 			size_t size = 0;
 			char* text = Rfile_read(ARG(1), &size);
-			tilde(words[i + 2]);
+			if (i + 2 < count) tilde(words[i + 2]);
 			if (!text || !strstr(text, ARG(2))) FAIL("'%s' not in %s", ARG(2), ARG(1));
 			Rmemory_free(text);
 			i += 2;
@@ -1826,7 +1964,7 @@ static int run_script(char* script) {
 			i++;
 		} else if (strcmp(command, "expecterror") == 0) {
 			const char* shown = Rlabel_get_text(g.styles_error);
-			tilde(words[i + 1]);
+			if (i + 1 < count) tilde(words[i + 1]);
 			if (strcmp(ARG(1), "-") == 0 ? shown[0] != '\0' : !te_contains(shown, ARG(1))) FAIL("the error is '%s'", shown);
 			i++;
 		} else if (strcmp(command, "expectsize") == 0) {
