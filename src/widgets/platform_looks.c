@@ -1,6 +1,7 @@
 /**
  * Raven - widgets/platform_looks.c
- * The looks of macOS (Aqua, Sequoia) and of GNOME (libadwaita), and what the
+ * The looks of macOS (Aqua: Sequoia, and macOS 26 with Liquid Glass) and of
+ * GNOME (libadwaita), and what the
  * widgets ask whatever the platform: the base look of a button, of a field,
  * of a flyout, of a row (widgets/common.c has the ones of Windows).
  *
@@ -31,9 +32,50 @@ static rvn_color_t rvn_alpha_scale(rvn_color_t color, float factor) {
  *  macOS
  * ------------------------------------------------------------------------- */
 
+/*
+ * macOS 26: flat fills without the lines of Aqua, rounder; the push button
+ * sits on a soft shadow instead of a darker edge, the default button is the
+ * accent, plain.
+ */
+static void rvn_tahoe_button_look(const rvn_widget_t* widget, uint32_t states, rvn_part_look_t* look) {
+	const int dark = rvn_widget_theme(widget)->dark;
+	const int pressed = (states & RVN_STATE_PRESSED) != 0;
+	look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+	look->foreground = (states & RVN_STATE_DISABLED) ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : rvn_widget_color(widget, R_COLOR_TEXT);
+	if (states & RVN_STATE_FLAT) {
+		look->background = pressed ? rvn_platform_ink(widget, dark ? 0.15f : 0.1f) : 0;
+		return;
+	}
+	if ((states & RVN_STATE_PRIMARY) && !(states & RVN_STATE_DISABLED)) {
+		look->background = rvn_widget_color(widget, pressed ? R_COLOR_ACCENT_PRESSED : R_COLOR_ACCENT);
+		look->foreground = rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+		look->shadow = 2.0f;
+		look->shadow_color = rvn_hex(0x000000, dark ? 70 : 40);
+		return;
+	}
+	look->background = rvn_widget_color(widget, pressed ? R_COLOR_CONTROL_PRESSED : R_COLOR_CONTROL);
+	if (dark) {
+		look->border = rvn_hex(0xFFFFFF, 20);
+		look->border_width = 0.5f;
+	} else {
+		look->shadow = 2.0f;
+		look->shadow_color = rvn_hex(0x000000, 46);
+		look->border = rvn_hex(0x000000, 15);
+		look->border_width = 0.5f;
+	}
+	if (states & RVN_STATE_DISABLED) {
+		look->background = rvn_alpha_scale(look->background, 0.5f);
+		look->shadow = 0.0f;
+	}
+}
+
 static void rvn_aqua_button_look(const rvn_widget_t* widget, uint32_t states, rvn_part_look_t* look) {
 	const int dark = rvn_widget_theme(widget)->dark;
 	const int pressed = (states & RVN_STATE_PRESSED) != 0;
+	if (rvn_widget_liquid(widget)) {
+		rvn_tahoe_button_look(widget, states, look);
+		return;
+	}
 	look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
 	look->border_width = 1.0f;
 	if (states & RVN_STATE_FLAT) {
@@ -68,11 +110,13 @@ static void rvn_aqua_button_look(const rvn_widget_t* widget, uint32_t states, rv
 
 static void rvn_aqua_field_look(const rvn_widget_t* widget, uint32_t states, rvn_part_look_t* look) {
 	/* a text field: white, a hairline darker along its top (it is sunk); the focus is a ring around it */
-	look->radius = rvn_minf(rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), 4.0f);
+	const int liquid = rvn_widget_liquid(widget);
+	/* (macOS 26: as round as the buttons, and no longer sunk) */
+	look->radius = liquid ? rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) : rvn_minf(rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), 4.0f);
 	look->border_width = 1.0f;
 	look->background = rvn_widget_color(widget, R_COLOR_INPUT);
 	look->border = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
-	look->border_top = rvn_alpha_scale(look->border, 1.5f);
+	if (!liquid) look->border_top = rvn_alpha_scale(look->border, 1.5f);
 	look->foreground = rvn_widget_color(widget, R_COLOR_TEXT);
 	if (states & RVN_STATE_DISABLED) {
 		look->background = rvn_alpha_scale(look->background, 0.5f);
@@ -82,7 +126,8 @@ static void rvn_aqua_field_look(const rvn_widget_t* widget, uint32_t states, rvn
 
 static void rvn_aqua_item_look(const rvn_widget_t* widget, int part, uint32_t states, int kind, rvn_part_look_t* look) {
 	const int dark = rvn_widget_theme(widget)->dark;
-	look->radius = kind == RVN_ITEM_MENU ? 4.0f : rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+	/* (macOS 26: the rows of menus and of lists are rounder) */
+	look->radius = kind == RVN_ITEM_MENU ? (rvn_widget_liquid(widget) ? 7.0f : 4.0f) : rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
 	look->foreground = (states & RVN_STATE_DISABLED) ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : rvn_widget_color(widget, R_COLOR_TEXT);
 	if (part == RVN_PART_INDICATOR || (states & RVN_STATE_DISABLED)) return;
 	if (kind == RVN_ITEM_MENU) {
@@ -200,7 +245,7 @@ void rvn_platform_popup_look(const rvn_widget_t* widget, int part, uint32_t stat
 		/* menus: a hairline, a deep shadow; tooltips: small, square-ish */
 		look->border = rvn_widget_color(widget, R_COLOR_POPUP_BORDER);
 		look->border_width = 1.0f;
-		look->radius = tooltip ? 4.0f : rvn_widget_metric(widget, R_METRIC_POPUP_RADIUS);
+		look->radius = tooltip ? (rvn_widget_liquid(widget) ? 9.0f : 4.0f) : rvn_widget_metric(widget, R_METRIC_POPUP_RADIUS);
 		look->shadow = tooltip ? 6.0f : 24.0f;
 	} else {
 		/* popovers: large round corners; tooltips: dark, no border */
@@ -287,10 +332,10 @@ void rvn_platform_paint_list_frame(RPainter* painter, const rvn_widget_t* widget
 		look.border = rvn_fluent(widget, RVN_FLUENT_CARD_BORDER);
 		look.radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
 	} else if (family == RVN_FAMILY_MACOS) {
-		/* a table in its scroll view: white (black in the dark), a hairline around */
+		/* a table in its scroll view: white (black in the dark), a hairline around (macOS 26: rounder) */
 		look.background = rvn_widget_color(widget, R_COLOR_PANEL);
 		look.border = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
-		look.radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+		look.radius = rvn_widget_metric(widget, rvn_widget_liquid(widget) ? R_METRIC_POPUP_RADIUS : R_METRIC_CORNER_RADIUS);
 	} else {
 		/* a .boxed-list: a card with large corners */
 		look.background = rvn_widget_color(widget, R_COLOR_PANEL);
@@ -303,7 +348,9 @@ void rvn_platform_paint_list_frame(RPainter* painter, const rvn_widget_t* widget
 
 rvn_rect_t rvn_platform_row(const rvn_widget_t* widget, rvn_rect_t line) {
 	switch (rvn_widget_family(widget)) {
-		case RVN_FAMILY_MACOS: return rvn_rect(line.x + 4.0f, line.y + 1.0f, line.w - 8.0f, line.h - 2.0f);
+		case RVN_FAMILY_MACOS:
+			if (rvn_widget_liquid(widget)) return rvn_rect(line.x + 6.0f, line.y + 1.0f, line.w - 12.0f, line.h - 2.0f);
+			return rvn_rect(line.x + 4.0f, line.y + 1.0f, line.w - 8.0f, line.h - 2.0f);
 		case RVN_FAMILY_GNOME: return rvn_rect(line.x + 5.0f, line.y + 1.0f, line.w - 10.0f, line.h - 2.0f);
 		default: return rvn_rect(line.x + 4.0f, line.y + 2.0f, line.w - 8.0f, line.h - 4.0f);
 	}

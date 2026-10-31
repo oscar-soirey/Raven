@@ -380,7 +380,8 @@ static void rvn_tab_other_look(const rvn_widget_t* widget, int part, uint32_t st
 	switch (part) {
 		case RVN_PART_HEADER:
 			look->background = rvn_platform_ink(widget, mac ? (dark ? 0.1f : 0.06f) : 0.1f);
-			look->radius = mac ? 6.0f : 9.0f;
+			/* (macOS 26: the segmented control is a capsule, and so is its pill) */
+			look->radius = mac ? (rvn_widget_liquid(widget) ? 12.0f : 6.0f) : 9.0f;
 			if (mac) {
 				look->border = rvn_platform_ink(widget, 0.06f);
 				look->border_width = 1.0f;
@@ -389,7 +390,7 @@ static void rvn_tab_other_look(const rvn_widget_t* widget, int part, uint32_t st
 		case RVN_PART_INDICATOR:
 			/* the raised pill: white, or the color of a control in the dark */
 			look->background = dark ? rvn_platform_ink(widget, mac ? 0.28f : 0.16f) : rvn_hex(0xFFFFFF, 255);
-			look->radius = mac ? 5.0f : 6.0f;
+			look->radius = mac ? (rvn_widget_liquid(widget) ? 11.0f : 5.0f) : 6.0f;
 			look->shadow = mac ? 1.5f : 3.0f;
 			look->shadow_color = rvn_hex(0x000000, dark ? 90 : 46);
 			if (mac && !dark) {
@@ -454,7 +455,7 @@ static void rvn_tab_view_paint_other(rvn_widget_t* widget, RPainter* painter, fl
 	for (i = 0; i < widget->child_count; i++) total += rvn_tab_width(widget, widget->children[i]);
 	/* the groove, then the pill of the active tab (it slides), then the titles */
 	{
-		float height = mac ? rvn_minf(22.0f, bar - 2.0f) : bar - 2.0f;
+		float height = mac ? rvn_minf(rvn_widget_liquid(widget) ? 24.0f : 22.0f, bar - 2.0f) : bar - 2.0f;
 		float top = floorf((bar - height) * 0.5f), inset = mac ? 1.0f : 3.0f;
 		rvn_part_look(widget, RVN_PART_HEADER, rvn_widget_states(widget, painter, R_FALSE, R_FALSE), rvn_tab_other_look, NULL, &look);
 		rvn_paint_part(painter, rvn_rect(0.0f, top, total, height), &look);
