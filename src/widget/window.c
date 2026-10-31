@@ -2127,6 +2127,8 @@ void Rwindow_show(Rid id) {
 void Rwindow_hide(Rid id) {
 	RVN_WINDOW_VOID(window, id);
 	window->visible = R_FALSE;
+	/* a frame still queued must not be presented once the window is hidden (on Wayland that would show it again) */
+	rvn_renderer_sync();
 	g_rvn.platform->window_show(window->platform, R_FALSE);
 }
 
