@@ -34,7 +34,8 @@ static rvn_vec2_t rvn_checkbox_mark(const rvn_widget_t* widget) {
 		if (rvn_widget_glass(widget)) return rvn_vec2(floorf((size + 6.0f) * 2.1f), size + 6.0f);
 		/* the one of Windows is twice as long as high (40 x 20); macOS 38 x 22 (NSSwitch); GNOME 48 x 26 */
 		if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) return rvn_vec2(floorf(size * 2.0f), size);
-		if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return rvn_vec2(38.0f, 22.0f);
+		/* (macOS 26: a little longer, for its elongated knob) */
+		if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return rvn_widget_liquid(widget) ? rvn_vec2(42.0f, 22.0f) : rvn_vec2(38.0f, 22.0f);
 		if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) return rvn_vec2(48.0f, 26.0f);
 		return rvn_vec2(floorf(size * 1.9f), size);
 	}
@@ -205,6 +206,19 @@ static void rvn_checkbox_paint_fluent(rvn_widget_t* widget, RPainter* painter, r
 		rvn_part_look_eased(widget, RVN_PART_KNOB, states | RVN_STATE_CHECKED, hover, press, base, &mark, &other);
 		rvn_part_look_mix(&look, &other, mix);
 		size = look.size;
+		if (rvn_widget_liquid(widget) && !rvn_part_styled(widget, RVN_PART_KNOB)) {
+			/*
+			 * macOS 26: a white capsule, wider than high, that turns into a
+			 * lens of clear glass while it is held
+			 */
+			float knob_h = box.h - 4.0f, knob_w = floorf(knob_h * 1.4f);
+			float opacity = painter->opacity;
+			float x = box.x + 2.0f + (box.w - knob_w - 4.0f) * mix;
+			painter->opacity *= look.opacity;
+			rvn_paint_knob(painter, widget, rvn_rect(x, box.y + 2.0f, knob_w, knob_h), rvn_clampf(press, 0.0f, 1.0f));
+			painter->opacity = opacity;
+			return;
+		}
 		/* pressed, the knob stretches toward where it would go */
 		width = size + (box.h * 0.85f - size) * rvn_clampf(press, 0.0f, 1.0f);
 		if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) width = size;

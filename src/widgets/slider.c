@@ -49,10 +49,10 @@ static void rvn_slider_set(rvn_widget_t* widget, float value, int notify) {
 	}
 }
 
-/* Length of the knob along the track: a disc, or an elongated capsule with a glass theme. */
+/* Length of the knob along the track: a disc, or an elongated capsule with a glass theme (and on macOS 26). */
 static float rvn_slider_handle(const rvn_widget_t* widget) {
 	float size = rvn_widget_metric(widget, R_METRIC_SLIDER_HANDLE_SIZE);
-	return rvn_widget_glass(widget) ? floorf(size * 1.5f) : size;
+	return (rvn_widget_glass(widget) || rvn_widget_liquid(widget)) ? floorf(size * 1.5f) : size;
 }
 
 static rvn_vec2_t rvn_slider_measure(rvn_widget_t* widget) {
@@ -110,7 +110,7 @@ static void rvn_slider_other_look(const rvn_widget_t* widget, int part, uint32_t
 		case RVN_PART_TRACK:
 		case RVN_PART_FILL:
 			look->background = part == RVN_PART_TRACK ? rvn_widget_color(widget, R_COLOR_TRACK) : rvn_widget_color(widget, R_COLOR_ACCENT);
-			look->size = mac ? 4.0f : 6.0f;
+			look->size = (mac && !rvn_widget_liquid(widget)) ? 4.0f : 6.0f;
 			look->radius = look->size * 0.5f;
 			if (disabled) look->opacity = 0.5f;
 			break;
@@ -149,6 +149,27 @@ static void rvn_slider_paint_fluent(rvn_widget_t* widget, RPainter* painter, flo
 	rvn_part_look_eased(widget, RVN_PART_THUMB, states, hover, press, base, NULL, &thumb);
 	rvn_part_look_eased(widget, RVN_PART_KNOB, states, hover, press, base, NULL, &core);
 	t = track.size;
+	if (rvn_widget_liquid(widget) && !rvn_part_styled(widget, RVN_PART_THUMB)) {
+		/*
+		 * macOS 26: the knob is a white capsule along the track; held, it
+		 * grows into a lens of clear glass that shows the track through it.
+		 */
+		float knob = rvn_widget_metric(widget, R_METRIC_SLIDER_HANDLE_SIZE);
+		float opacity = painter->opacity;
+		if (horizontal) {
+			rvn_paint_part(painter, rvn_rect(0.0f, middle - t * 0.5f, widget->rect.w, t), &track);
+			rvn_paint_part(painter, rvn_rect(0.0f, middle - fill.size * 0.5f, center, fill.size), &fill);
+			painter->opacity *= thumb.opacity;
+			rvn_paint_knob(painter, widget, rvn_rect(center - handle * 0.5f, middle - knob * 0.5f, handle, knob), press);
+		} else {
+			rvn_paint_part(painter, rvn_rect(middle - t * 0.5f, 0.0f, t, widget->rect.h), &track);
+			rvn_paint_part(painter, rvn_rect(middle - fill.size * 0.5f, center, fill.size, widget->rect.h - center), &fill);
+			painter->opacity *= thumb.opacity;
+			rvn_paint_knob(painter, widget, rvn_rect(middle - knob * 0.5f, center - handle * 0.5f, knob, handle), press);
+		}
+		painter->opacity = opacity;
+		return;
+	}
 	if (horizontal) {
 		rvn_paint_part(painter, rvn_rect(0.0f, middle - t * 0.5f, widget->rect.w, t), &track);
 		rvn_paint_part(painter, rvn_rect(0.0f, middle - fill.size * 0.5f, center, fill.size), &fill);
