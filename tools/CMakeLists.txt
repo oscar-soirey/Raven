@@ -10,7 +10,8 @@
 
 # (the Theme tab is the theme editor itself, built in: designer/theme_tab.c)
 add_executable(raven_designer designer/main.c designer/designer.h designer/os.c designer/files.c designer/island.c
-	designer/strings.c designer/welcome.c designer/accessibility.c designer/theme_tab.c theme_editor/model.c theme_editor/editor.h)
+	designer/strings.c designer/welcome.c designer/accessibility.c designer/theme_tab.c theme_editor/model.c theme_editor/editor.h
+	crash_report.c crash_report.h)
 target_link_libraries(raven_designer PRIVATE raven::raven)
 set_target_properties(raven_designer PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tools")
 if(MSVC)
@@ -23,7 +24,7 @@ else()
 	target_link_libraries(raven_designer PRIVATE m)
 endif()
 
-add_executable(raven_theme_editor theme_editor/main.c theme_editor/model.c theme_editor/editor.h)
+add_executable(raven_theme_editor theme_editor/main.c theme_editor/model.c theme_editor/editor.h crash_report.c crash_report.h)
 target_link_libraries(raven_theme_editor PRIVATE raven::raven)
 set_target_properties(raven_theme_editor PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tools")
 if(MSVC)

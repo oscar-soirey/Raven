@@ -19,6 +19,7 @@
  */
 
 #include "designer.h"
+#include "../crash_report.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -273,6 +274,7 @@ void accessibility_sync_menu(void) {
 }
 
 static void action_accessibility(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "view.accessibility")) {

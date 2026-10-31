@@ -11,6 +11,7 @@
  */
 
 #include "designer.h"
+#include "../crash_report.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -494,6 +495,7 @@ static const char WELCOME_XML[] =
 "</ScrollBox>";
 
 static void action_welcome(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "welcome.back")) {

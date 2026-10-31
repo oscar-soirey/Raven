@@ -14,6 +14,7 @@
  */
 
 #include "designer.h"
+#include "../crash_report.h"
 #include "../theme_editor/editor.h"
 
 #include <stdio.h>
@@ -588,6 +589,7 @@ static void on_context(Rid tree, Rid item, float x, float y, void* user_data) {
 }
 
 static void action_files(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "files.open")) {

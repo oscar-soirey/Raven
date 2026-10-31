@@ -23,6 +23,7 @@
  */
 
 #include "editor.h"
+#include "../crash_report.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -1347,6 +1348,7 @@ static int save_as(void) {
 }
 
 static void action_file(Rid sender, const char* action, void* user_data) {
+	crash_report_note("theme editor: action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (g.fuzzing && (strcmp(action, "te.open") == 0 || strcmp(action, "te.save_as") == 0 || strcmp(action, "te.quit") == 0 ||
@@ -1408,6 +1410,7 @@ static void pick_file(char* field, const char* title, const char* filter_name, c
 
 static void action_edit(Rid sender, const char* action, void* user_data) {
 	int i;
+	crash_report_note("theme editor: action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (strcmp(action, "te.undo") == 0) {
@@ -1534,6 +1537,7 @@ static void action_edit(Rid sender, const char* action, void* user_data) {
 }
 
 static void action_view(Rid sender, const char* action, void* user_data) {
+	crash_report_note("theme editor: action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (strcmp(action, "te.window") == 0) {
@@ -2177,6 +2181,19 @@ int main(int argc, char** argv) {
 		}
 	}
 	g.scripted = frames >= 0 || script != NULL;
+	/* a crash leaves a report (raven_theme_editor-crash.txt) in the folder of the settings of Raven */
+	if (!g.scripted) {
+		char folder[1024];
+#if defined(_WIN32)
+		const char* base = getenv("APPDATA");
+		snprintf(folder, sizeof(folder), "%s/Raven", base && base[0] ? base : ".");
+#else
+		const char* base = getenv("XDG_CONFIG_HOME");
+		if (base && base[0]) snprintf(folder, sizeof(folder), "%s/raven", base);
+		else snprintf(folder, sizeof(folder), "%s/.config/raven", getenv("HOME") ? getenv("HOME") : ".");
+#endif
+		crash_report_install(folder, "raven_theme_editor");
+	}
 	Rerror_set_callback(on_error);
 	if (!Rinit_ex(&desc)) {
 		fprintf(stderr, "raven_theme_editor: cannot start Raven (is a Vulkan driver installed?)\n");
@@ -2186,6 +2203,7 @@ int main(int argc, char** argv) {
 	Rlook_set(R_LOOK_RAVEN_DARK);
 	prepare();
 
+	memset(&x, 0, sizeof(x));
 	build_interface(&x);
 	g.window = Rwindow_create_from_xml(x.data, x.length);
 	g.root = g.window;
@@ -2198,6 +2216,10 @@ int main(int argc, char** argv) {
 
 	finish();
 	if (file) open_file(file);
+	{
+		const char* report = crash_report_previous();
+		if (report) set_status("The theme editor stopped on a crash last time. What happened is in %s: send it with the .dmp next to it.", report);
+	}
 
 	if (script) ok = run_script(script);
 	if (frames >= 0) run_frames(frames);

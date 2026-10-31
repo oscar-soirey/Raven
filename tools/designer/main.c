@@ -37,6 +37,7 @@
  */
 
 #include "designer.h"
+#include "../crash_report.h"
 #include "../theme_editor/editor.h"
 
 #include <math.h>
@@ -579,6 +580,7 @@ static void on_error(RError code, RSeverity severity, const char* detail) {
 		add_problem(detail, at ? atoi(at + 5) : 0, severity != R_SEVERITY_WARNING);
 		return;
 	}
+	crash_report_note("Raven said: %s: %.100s", Rerror_to_string(code), detail);
 	fprintf(stderr, "[Raven] %s (%s): %s\n", Rerror_to_string(code), Rseverity_to_string(severity), detail);
 }
 
@@ -1323,6 +1325,7 @@ static int set_document_text(const char* text, int record) {
 }
 
 static void on_parse_timer(Rid timer, void* user_data) {
+	crash_report_note("the XML typed is read");
 	(void)timer;
 	(void)user_data;
 	g.parse_timer = R_INVALID_ID;
@@ -1427,6 +1430,7 @@ static void action_palette_add(Rid sender, const char* action, void* user_data) 
 	int index = Rlist_view_get_selected(g.palette), i;
 	const char* tag;
 	char xml[160];
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)action;
 	(void)user_data;
@@ -1446,6 +1450,7 @@ static void action_palette_add(Rid sender, const char* action, void* user_data) 
 }
 
 static void action_palette_filter(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)action;
 	(void)user_data;
@@ -1483,6 +1488,7 @@ static int drop_widget(const char* tag, float x, float y) {
 	char text[160];
 	Rid parent, added;
 	int index;
+	crash_report_note("drop <%s> at %.0f,%.0f", tag, x, y);
 	if (!g.has_document || g.tab != TAB_WINDOW || !known_tag(tag) || !flush_source()) return R_FALSE;
 	if (!drop_place(x, y, &parent, &index)) return R_FALSE;
 	if (!xml) {
@@ -1505,6 +1511,7 @@ static int drop_widget(const char* tag, float x, float y) {
 static int drop_node(Rid node, float x, float y) {
 	Rid parent;
 	int index;
+	crash_report_note("move an element to %.0f,%.0f", x, y);
 	if (!g.has_document || g.tab != TAB_WINDOW || node == R_INVALID_ID || !Rxml_node_is_valid(node) || !flush_source()) return R_FALSE;
 	if (Rxml_node_get_parent(node) == R_INVALID_ID) {
 		set_status("The root of the document stays where it is.");
@@ -1554,6 +1561,14 @@ static void drag_reset(void) {
 static int window_hook(Rid window, const REvent* event, void* user_data) {
 	(void)window;
 	(void)user_data;
+	/* what the hand did, for the report of a crash */
+	if (event->type == R_EVENT_MOUSE_DOWN) {
+		const char* name = event->target != R_INVALID_ID ? Rwidget_get_name(event->target) : NULL;
+		crash_report_note("tab %d: click %d at %.0f,%.0f on %s (type 0x%X)", g.tab, (int)event->button, event->x, event->y,
+			name && name[0] ? name : "a widget with no name", event->target != R_INVALID_ID ? (unsigned)Rwidget_get_type(event->target) : 0u);
+	} else if (event->type == R_EVENT_KEY_DOWN) {
+		crash_report_note("tab %d: key 0x%X, modifiers 0x%X", g.tab, (unsigned)event->key, (unsigned)event->modifiers);
+	}
 	switch (event->type) {
 		case R_EVENT_MOUSE_DOWN:
 			if (event->button != R_MOUSE_LEFT || g.tab != TAB_WINDOW || !g.has_document) return R_FALSE;
@@ -1655,6 +1670,7 @@ static void action_edit(Rid sender, const char* action, void* user_data) {
 	const char* what = action + 5;
 	Rid node, parent;
 	int index;
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 
@@ -1740,6 +1756,7 @@ static void action_edit(Rid sender, const char* action, void* user_data) {
 static void action_history(Rid sender, const char* action, void* user_data) {
 	int step = strcmp(action, "edit.undo") == 0 ? -1 : 1;
 	Rid focus = Rwindow_get_focused_widget(g.window);
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	/* the Theme tab has its own history */
@@ -1849,6 +1866,7 @@ static void base_path_of(const char* path) {
 static void open_file(const char* path) {
 	size_t size = 0;
 	char* text = Rfile_read(path, &size);
+	crash_report_note("open %s", path);
 	if (!text) {
 		set_status("Cannot read %s", path);
 		return;
@@ -1920,6 +1938,7 @@ static void open_with_folder(const char* path) {
 
 static void action_file(Rid sender, const char* action, void* user_data) {
 	static const RFileFilter filters[] = { { "Interfaces", "*.xml" }, { "All files", "*" } };
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (g.fuzzing && (strcmp(action, "folder.open") == 0 || strcmp(action, "file.open") == 0 || strcmp(action, "file.save_as") == 0 ||
@@ -2315,6 +2334,7 @@ int designer_get_tab(void) {
 }
 
 void designer_show_tab(int tab) {
+	crash_report_note("show the tab %d (was %d)", tab, g.tab);
 	static const char* const empty[2] = {
 		"Double click a window in Files, make one with New, or press Ctrl+K.",
 		"Double click a widget library in Files, or make one with New: its tags can then be used by every window of the folder."
@@ -2367,6 +2387,7 @@ void designer_forget_tabs(void) {
 
 static void action_tab(Rid sender, const char* action, void* user_data) {
 	int i;
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	for (i = 0; i < 4; i++) {
@@ -2556,6 +2577,7 @@ static const char RUN_XML[] =
 
 /* F7: the window comes (or comes back in front), and follows the designer from then on. */
 static void open_run_window(void) {
+	crash_report_note("open the preview window");
 	if (!g.has_document) {
 		set_status("Open an interface first: the window shows it live.");
 		return;
@@ -2607,6 +2629,7 @@ static void on_run_language(Rid combo, int index, void* user_data) {
 }
 
 static void action_run(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)action;
 	(void)user_data;
@@ -2631,6 +2654,7 @@ static void set_interact(int interact) {
 }
 
 static void action_view(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)user_data;
 	if (strncmp(action, "view.theme.", 11) == 0) {
 		/* (the commands of the island, and the preferences of the designer before it had a list) */
@@ -2652,6 +2676,7 @@ static void action_view(Rid sender, const char* action, void* user_data) {
 
 static void action_problems(Rid sender, const char* action, void* user_data) {
 	int index = Rlist_view_get_selected(g.problems_list);
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)action;
 	(void)user_data;
@@ -2664,6 +2689,7 @@ static void action_problems(Rid sender, const char* action, void* user_data) {
 
 /* Actions of the interface being designed have nothing bound to them here: say what would happen. */
 static void on_unbound_action(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	set_status("The interface fired the action \"%s\".", action);
@@ -2816,9 +2842,45 @@ static void fuzz(int steps, unsigned seed) {
 				for (k = 0; k < depth; k++) path[k] = fuzz_int(4);
 				select_node(node_at_path(path, depth), R_TRUE);
 			}
-		} else {
+		} else if (what < 98) {
 			if (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window)) Rwindow_close(g.run_window);
+		} else {
+			/* the rest of what happens to a real window: a resize, files dropped on it, the folder changed by another program */
+			int kind = fuzz_int(5);
+			if (kind == 0) {
+				Rwindow_set_size(window, 300 + fuzz_int(1400), 200 + fuzz_int(900));
+			} else if (kind == 1 && g_folder) {
+				char* path = ds_join(g_folder, fuzz_int(2) ? "main.xml" : "dropped.xml");
+				const char* paths[1];
+				paths[0] = path;
+				Rwindow_inject_drag(window, x, y, R_TRUE);
+				Rwindow_inject_drop(window, x, y, paths, 1, NULL);
+				free(path);
+			} else if (g_folder) {
+				static const char* const names[] = { "main.xml", "strings.csv", "night.xml", "widgets.xml", "other.xml" };
+				static const char* const bodies[] = {
+					"<Window Width=\"320\" Height=\"240\"><VBox><Label Text=\"@hello\"/><Card/></VBox></Window>",
+					"<Window><VBox><Label Text=\"broken",
+					"key,en,fr\nhello,Hi,Salut\nbye,Bye,\n",
+					"key,en\n\"open",
+					"<Theme Name=\"FuzzNight\" Look=\"RavenLight\" Accent=\"#30D158\"/>",
+					"<Theme Name=\"Other\" Look=\"Nope\"",
+					"<Widgets><Widget Name=\"Card\"><Border Padding=\"4\"><Label Text=\"Changed\"/></Border></Widget></Widgets>",
+					"<Widgets><Widget Name=\"Loop\"><Loop/></Widget></Widgets>",
+					"" };
+				char* path = ds_join(g_folder, names[fuzz_int(5)]);
+				if (kind == 4 && fuzz_int(3) == 0) ds_remove_file(path);
+				else {
+					const char* body = bodies[fuzz_int((int)(sizeof(bodies) / sizeof(bodies[0])))];
+					Rfile_write(path, body, strlen(body));
+				}
+				free(path);
+			}
 		}
+		/* the pointer passing over things (the island unfolds on hover) */
+		if (fuzz_int(4) == 0) Rwindow_inject_mouse_move(window, (float)fuzz_int(1480), (float)fuzz_int(900));
+		/* now and then a real pause: the timers go off between two gestures, as they do for a person */
+		if (fuzz_int(30) == 0) Rwait_events(0.05 + 0.4 * (double)fuzz_int(100) / 100.0);
 		if (fuzz_int(3) == 0) Rdraw_frame();
 		if (fuzz_int(40) == 0) {
 			int k;
@@ -3371,6 +3433,8 @@ int main(int argc, char** argv) {
 			file = argv[i];
 		}
 	}
+	/* a crash leaves a report in the folder of the preferences (raven_designer-crash.txt) */
+	if (!(frames >= 0 || script)) crash_report_install(ds_config_dir(), "raven_designer");
 	Rerror_set_callback(on_error);
 	if (!Rinit_ex(&desc)) {
 		fprintf(stderr, "raven_designer: cannot start Raven (is a Vulkan driver installed?)\n");
@@ -3396,6 +3460,11 @@ int main(int argc, char** argv) {
 	if (file && ds_is_dir(file)) folder_open(file);
 	else if (file) open_with_folder(file);
 	else welcome_show();
+	{
+		/* the last run stopped on a crash: where its report is (raven_designer-crash.txt, and a .dmp on Windows) */
+		const char* report = crash_report_previous();
+		if (report) ds_status("The designer stopped on a crash last time. What happened is in %s: send it with the .dmp next to it.", report);
+	}
 	update_title();
 
 	if (script) ok = designer_script(script);

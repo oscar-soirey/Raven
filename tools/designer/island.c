@@ -19,6 +19,7 @@
  */
 
 #include "designer.h"
+#include "../crash_report.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -414,6 +415,7 @@ static void on_changed(Rid island, int expanded, void* user_data) {
 }
 
 static void action_island(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "island.problems")) {

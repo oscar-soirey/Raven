@@ -7,6 +7,7 @@
  */
 
 #include "designer.h"
+#include "../crash_report.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -536,6 +537,7 @@ static void add_table(void) {
 }
 
 static void action_strings(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "strings.add_key")) add_key();
