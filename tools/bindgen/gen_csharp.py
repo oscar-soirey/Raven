@@ -81,6 +81,13 @@ def generate(api):
     w("")
     w("namespace Raven")
     w("{")
+    w("    // UnmanagedType.LPUTF8Str (48) is missing from netstandard2.0 but understood")
+    w("    // at run time by .NET Framework 4.7+, .NET Core, .NET 5+ and Mono.")
+    w("    internal static class Utf8")
+    w("    {")
+    w("        internal const UnmanagedType Str = (UnmanagedType)48;")
+    w("    }")
+    w("")
     for e in api.enums:
         emit_doc(out, e.doc, "    ")
         if e.flags:
@@ -178,7 +185,7 @@ def generate(api):
     w("            return (UIntPtr)(text == null ? 0 : Encoding.UTF8.GetByteCount(text));")
     w("        }")
 
-    UTF8 = "[MarshalAs(UnmanagedType.LPUTF8Str)] string"
+    UTF8 = "[MarshalAs(Utf8.Str)] string"
     for f in api.functions:
         ret_kind, ret_detail = classify(f.ret, api)
         struct_params = [i for i, p in enumerate(f.params) if classify(p.ctype, api)[0] in ("struct_ptr", "cstruct_ptr")]
@@ -199,7 +206,7 @@ def generate(api):
                 elif kind == "cstr":
                     t = "byte[]" if is_binary(f, i, api) else UTF8
                 elif kind == "cstr_array":
-                    t = "[MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPUTF8Str)] string[]"
+                    t = "[MarshalAs(UnmanagedType.LPArray, ArraySubType = Utf8.Str)] string[]"
                 elif kind == "cptr" and i + 1 < len(f.params) and f.params[i + 1].ctype == "size_t":
                     t = "byte[]"
                 elif kind == "cbytes":
@@ -229,7 +236,7 @@ def generate(api):
                 w("        [DllImport(Lib, EntryPoint = \"%s\", CallingConvention = CallingConvention.Cdecl)]" % f.name)
                 w("        private static extern IntPtr %s_(%s);" % (f.name, ", ".join(params)))
                 plain = ", ".join("%s %s" % (t.replace(UTF8, "string").replace(
-                    "[MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPUTF8Str)] ", ""), n) for t, n in names)
+                    "[MarshalAs(UnmanagedType.LPArray, ArraySubType = Utf8.Str)] ", ""), n) for t, n in names)
                 call = ", ".join(("out " if t.startswith("out ") else "ref " if t.startswith("ref ") else "") + n for t, n in names)
                 w("        public static string %s(%s) { return Text(%s_(%s)); }" % (f.name, plain, f.name, call))
             else:
