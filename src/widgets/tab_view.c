@@ -242,6 +242,247 @@ static int rvn_tab_view_event(rvn_widget_t* widget, const REvent* event) {
 	}
 }
 
+/* The tabs of Windows: their background, their text, the pill of the selected one. */
+static void rvn_tab_fluent_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int documents = rvn_tab_documents(widget);
+	RVN_UNUSED(context);
+	switch (part) {
+		case RVN_PART_TAB:
+			look->radius = documents ? rvn_widget_metric(widget, R_METRIC_POPUP_RADIUS) : rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+			if (states & RVN_STATE_SELECTED) {
+				look->foreground = rvn_widget_color(widget, R_COLOR_TEXT);
+				if (documents) {
+					/* the selected tab is a piece of the page, raised into the bar */
+					look->background = rvn_widget_color(widget, R_COLOR_TAB_ACTIVE);
+					look->border = rvn_fluent(widget, RVN_FLUENT_CARD_BORDER);
+					look->border_width = 1.0f;
+				}
+			} else {
+				look->foreground = (states & RVN_STATE_DISABLED) ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : rvn_fluent(widget, RVN_FLUENT_TEXT_SECONDARY);
+				if (states & RVN_STATE_PRESSED) look->background = rvn_fluent(widget, RVN_FLUENT_SUBTLE_PRESSED);
+				else if (states & RVN_STATE_HOVERED) look->background = rvn_widget_color(widget, R_COLOR_ROW_HOVERED);
+				if (states & RVN_STATE_HOVERED) look->foreground = rvn_widget_color(widget, R_COLOR_TEXT);
+			}
+			break;
+		case RVN_PART_INDICATOR:
+			look->background = rvn_widget_color(widget, R_COLOR_ACCENT);
+			look->size = 16.0f;
+			look->radius = 1.5f;
+			break;
+		case RVN_PART_HEADER:
+			look->border = rvn_fluent(widget, RVN_FLUENT_CARD_BORDER);
+			break;
+		default:
+			break;
+	}
+}
+
+static void rvn_tab_view_paint_fluent(rvn_widget_t* widget, RPainter* painter, float mark_x, float mark_w) {
+	rvn_tab_view_t* tabs = (rvn_tab_view_t*)widget;
+	float bar = rvn_tab_bar_height(widget), x = tabs->documents ? 4.0f : 0.0f;
+	float size = rvn_widget_font_size(widget, 0.0f);
+	rvn_part_look_t look, header;
+	uint32_t i;
+
+	rvn_part_look(widget, RVN_PART_HEADER, 0, rvn_tab_fluent_look, NULL, &header);
+	if (rvn_color_a(header.background)) rvn_paint_rect(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, bar), header.background);
+	for (i = 0; i < widget->child_count; i++) {
+		rvn_widget_t* page = widget->children[i];
+		float width = rvn_tab_width(widget, page);
+		int active = (int)i == tabs->active;
+		int hot = (int)i == tabs->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled;
+		uint32_t states = rvn_widget_states(widget, painter, hot, R_FALSE) | (active ? RVN_STATE_SELECTED : 0);
+		float tx;
+		rvn_part_look(widget, RVN_PART_TAB, states & ~RVN_STATE_FOCUSED, rvn_tab_fluent_look, NULL, &look);
+		if (tabs->documents) {
+			/* TabView: the selected tab opens onto the page; a short line between the others */
+			rvn_rect_t tab = rvn_rect(x, 6.0f, width - 2.0f, bar - 6.0f);
+			int closable = rvn_tab_closable(widget, page);
+			float radii[4];
+			radii[0] = radii[1] = look.radius;
+			radii[2] = radii[3] = 0.0f;
+			if (active) {
+				rvn_paint_box4(painter, rvn_rect(tab.x, tab.y, tab.w, tab.h + look.radius), radii, look.border, 0.0f, 0);
+				rvn_paint_box4(painter, rvn_rect(tab.x + 1.0f, tab.y + 1.0f, tab.w - 2.0f, tab.h + look.radius), radii, look.background, 0.0f, 0);
+			} else {
+				if (rvn_color_a(look.background)) {
+					float small[4];
+					small[0] = small[1] = small[2] = small[3] = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+					rvn_paint_box4(painter, rvn_rect(tab.x + 2.0f, tab.y + 3.0f, tab.w - 4.0f, tab.h - 6.0f), small, look.background, 0.0f, 0);
+				}
+				if (i + 1 < widget->child_count && (int)i + 1 != tabs->active && !hot) {
+					rvn_paint_rect(painter, rvn_rect(tab.x + tab.w + 0.5f, tab.y + (tab.h - 16.0f) * 0.5f, 1.0f, 16.0f),
+						rvn_widget_color(widget, R_COLOR_SEPARATOR));
+				}
+			}
+			tx = tab.x + 12.0f;
+			rvn_paint_push_clip(painter, rvn_rect(tab.x, tab.y, rvn_maxf(0.0f, tab.w - (closable ? RVN_TAB_CLOSE + 10.0f : 6.0f)), tab.h));
+			if (page->slot.has_icon) {
+				rvn_color_t tint = page->slot.icon_tint ? look.foreground : rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f);
+				rvn_paint_image(painter, rvn_rect(tx, floorf(tab.y + (tab.h - RVN_TAB_ICON) * 0.5f), RVN_TAB_ICON, RVN_TAB_ICON),
+					page->slot.icon, page->slot.icon_uv, tint, 0.0f);
+				tx += RVN_TAB_ICON + RVN_TAB_ICON_GAP;
+			}
+			rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(tx, tab.y, tab.x + tab.w - tx, tab.h), 0.0f, rvn_tab_title(page), -1, look.foreground);
+			rvn_paint_pop_clip(painter);
+			if (closable && (active || hot)) {
+				rvn_rect_t close = rvn_tab_close_rect(widget, x, width);
+				int over = hot && tabs->hot_close;
+				if (over || tabs->press_close == (int)i) {
+					rvn_paint_box(painter, close, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS),
+						tabs->press_close == (int)i ? rvn_fluent(widget, RVN_FLUENT_SUBTLE_PRESSED) : rvn_widget_color(widget, R_COLOR_ROW_HOVERED), 0.0f, 0);
+				}
+				/* Cancel, from Segoe Fluent Icons */
+				if (!rvn_paint_look_icon(painter, widget, 0xE711, close.x + close.w * 0.5f, close.y + close.h * 0.5f, 10.0f, look.foreground)) {
+					rvn_paint_icon(painter, RVN_ICON_CROSS, close.x + close.w * 0.5f, close.y + close.h * 0.5f, 7.0f, look.foreground);
+				}
+			}
+		} else {
+			/* SelectorBar: titles, the one under the pointer on a soft background, the selected one with its pill */
+			rvn_rect_t item = rvn_rect(x + 2.0f, 4.0f, width - 4.0f, bar - 8.0f);
+			if (!active && rvn_color_a(look.background)) rvn_paint_box(painter, item, look.radius, look.background, 0.0f, 0);
+			rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(x, 0.0f, width, bar - 2.0f), 0.5f, rvn_tab_title(page), -1, look.foreground);
+		}
+		x += width;
+	}
+	if (tabs->documents) {
+		/* the line under the bar, open under the selected tab */
+		float start = 4.0f, position = 4.0f;
+		for (i = 0; i < widget->child_count; i++) {
+			float width = rvn_tab_width(widget, widget->children[i]);
+			if ((int)i == tabs->active) {
+				rvn_paint_rect(painter, rvn_rect(0.0f, bar - 1.0f, position, 1.0f), header.border);
+				start = position + width - 2.0f;
+			}
+			position += width;
+		}
+		rvn_paint_rect(painter, rvn_rect(tabs->active >= 0 ? start : 0.0f, bar - 1.0f, widget->rect.w - (tabs->active >= 0 ? start : 0.0f), 1.0f), header.border);
+		return;
+	}
+	if (tabs->active >= 0 && mark_w > 4.0f) {
+		float pill;
+		rvn_part_look(widget, RVN_PART_INDICATOR, RVN_STATE_SELECTED, rvn_tab_fluent_look, NULL, &look);
+		pill = rvn_minf(look.size, mark_w - 8.0f);
+		rvn_paint_part(painter, rvn_rect(floorf(mark_x + (mark_w - pill) * 0.5f), bar - 6.0f, pill, 3.0f), &look);
+	}
+}
+
+/*
+ * macOS and GNOME: the tabs are a segmented control (NSSegmentedControl,
+ * AdwToggleGroup): a rounded groove holding the titles, the active one on a
+ * raised pill that slides. Document tabs (AdwTabBar, the tabs of Safari):
+ * rounded tabs, the selected one raised, a close button.
+ */
+static void rvn_tab_other_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int mac = rvn_widget_family(widget) == RVN_FAMILY_MACOS;
+	const int dark = rvn_widget_theme(widget)->dark;
+	RVN_UNUSED(context);
+	switch (part) {
+		case RVN_PART_HEADER:
+			look->background = rvn_platform_ink(widget, mac ? (dark ? 0.1f : 0.06f) : 0.1f);
+			look->radius = mac ? 6.0f : 9.0f;
+			if (mac) {
+				look->border = rvn_platform_ink(widget, 0.06f);
+				look->border_width = 1.0f;
+			}
+			break;
+		case RVN_PART_INDICATOR:
+			/* the raised pill: white, or the color of a control in the dark */
+			look->background = dark ? rvn_platform_ink(widget, mac ? 0.28f : 0.16f) : rvn_hex(0xFFFFFF, 255);
+			look->radius = mac ? 5.0f : 6.0f;
+			look->shadow = mac ? 1.5f : 3.0f;
+			look->shadow_color = rvn_hex(0x000000, dark ? 90 : 46);
+			if (mac && !dark) {
+				look->border = rvn_hex(0x000000, 20);
+				look->border_width = 0.5f;
+			}
+			break;
+		case RVN_PART_TAB:
+			look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) + (mac ? 1.0f : 2.0f);
+			look->foreground = (states & RVN_STATE_DISABLED) ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : rvn_widget_color(widget, R_COLOR_TEXT);
+			if (states & RVN_STATE_SELECTED) look->background = rvn_widget_color(widget, R_COLOR_CONTROL_PRESSED);
+			else if (states & RVN_STATE_HOVERED) look->background = rvn_platform_ink(widget, 0.06f);
+			/* (GNOME: the titles that are not active, a little dimmer) */
+			if (!(states & RVN_STATE_SELECTED) && !mac && !(states & RVN_STATE_HOVERED)) look->foreground = rvn_platform_ink(widget, 0.75f);
+			break;
+		default:
+			break;
+	}
+}
+
+static void rvn_tab_view_paint_other(rvn_widget_t* widget, RPainter* painter, float mark_x, float mark_w) {
+	rvn_tab_view_t* tabs = (rvn_tab_view_t*)widget;
+	const int mac = rvn_widget_family(widget) == RVN_FAMILY_MACOS;
+	float bar = rvn_tab_bar_height(widget), size = rvn_widget_font_size(widget, 0.0f), x = 0.0f, total = 0.0f;
+	rvn_part_look_t look;
+	uint32_t i;
+
+	if (tabs->documents) {
+		x = 4.0f;
+		for (i = 0; i < widget->child_count; i++) {
+			rvn_widget_t* page = widget->children[i];
+			float width = rvn_tab_width(widget, page);
+			int active = (int)i == tabs->active;
+			int hot = (int)i == tabs->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled;
+			int closable = rvn_tab_closable(widget, page);
+			rvn_rect_t tab = rvn_rect(x + 1.0f, 5.0f, width - 2.0f, bar - 10.0f);
+			uint32_t states = rvn_widget_states(widget, painter, hot, R_FALSE) | (active ? RVN_STATE_SELECTED : 0);
+			float tx = tab.x + 10.0f;
+			rvn_part_look(widget, RVN_PART_TAB, states & ~RVN_STATE_FOCUSED, rvn_tab_other_look, NULL, &look);
+			rvn_paint_part(painter, tab, &look);
+			rvn_paint_push_clip(painter, rvn_rect(tab.x, tab.y, rvn_maxf(0.0f, tab.w - (closable ? RVN_TAB_CLOSE + 8.0f : 4.0f)), tab.h));
+			if (page->slot.has_icon) {
+				rvn_color_t tint = page->slot.icon_tint ? look.foreground : rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f);
+				rvn_paint_image(painter, rvn_rect(tx, floorf(tab.y + (tab.h - RVN_TAB_ICON) * 0.5f), RVN_TAB_ICON, RVN_TAB_ICON),
+					page->slot.icon, page->slot.icon_uv, tint, 0.0f);
+				tx += RVN_TAB_ICON + RVN_TAB_ICON_GAP;
+			}
+			rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(tx, tab.y, tab.x + tab.w - tx, tab.h), 0.0f, rvn_tab_title(page), -1, look.foreground);
+			rvn_paint_pop_clip(painter);
+			if (closable && (active || hot)) {
+				rvn_rect_t close = rvn_tab_close_rect(widget, x, width);
+				int over = hot && tabs->hot_close;
+				if (over || tabs->press_close == (int)i) {
+					rvn_paint_box(painter, close, mac ? 4.0f : close.w * 0.5f, rvn_platform_ink(widget, tabs->press_close == (int)i ? 0.16f : 0.08f), 0.0f, 0);
+				}
+				rvn_paint_icon(painter, RVN_ICON_CROSS, close.x + close.w * 0.5f, close.y + close.h * 0.5f, 7.0f, look.foreground);
+			}
+			x += width;
+		}
+		return;
+	}
+	for (i = 0; i < widget->child_count; i++) total += rvn_tab_width(widget, widget->children[i]);
+	/* the groove, then the pill of the active tab (it slides), then the titles */
+	{
+		float height = mac ? rvn_minf(22.0f, bar - 2.0f) : bar - 2.0f;
+		float top = floorf((bar - height) * 0.5f), inset = mac ? 1.0f : 3.0f;
+		rvn_part_look(widget, RVN_PART_HEADER, rvn_widget_states(widget, painter, R_FALSE, R_FALSE), rvn_tab_other_look, NULL, &look);
+		rvn_paint_part(painter, rvn_rect(0.0f, top, total, height), &look);
+		if (tabs->active >= 0 && mark_w > 4.0f) {
+			rvn_part_look(widget, RVN_PART_INDICATOR, RVN_STATE_SELECTED, rvn_tab_other_look, NULL, &look);
+			rvn_paint_part(painter, rvn_rect(mark_x + inset, top + inset, mark_w - inset * 2.0f, height - inset * 2.0f), &look);
+		}
+		for (i = 0; i < widget->child_count; i++) {
+			rvn_widget_t* page = widget->children[i];
+			float width = rvn_tab_width(widget, page);
+			int active = (int)i == tabs->active;
+			int hot = (int)i == tabs->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled;
+			uint32_t states = rvn_widget_states(widget, painter, hot, R_FALSE) | (active ? RVN_STATE_SELECTED : 0);
+			rvn_part_look(widget, RVN_PART_TAB, states & ~RVN_STATE_FOCUSED, rvn_tab_other_look, NULL, &look);
+			/* (macOS: a hairline between two titles that are not next to the active one) */
+			if (mac && i + 1 < widget->child_count && !active && (int)i + 1 != tabs->active) {
+				rvn_paint_rect(painter, rvn_rect(x + width - 0.5f, top + 5.0f, 1.0f, height - 10.0f), rvn_platform_ink(widget, 0.15f));
+			}
+			if (!active && hot && !mac) {
+				rvn_paint_box(painter, rvn_rect(x + inset, top + inset, width - inset * 2.0f, height - inset * 2.0f), 6.0f,
+					rvn_platform_ink(widget, 0.05f), 0.0f, 0);
+			}
+			rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(x, top, width, height), 0.5f, rvn_tab_title(page), -1, look.foreground);
+			x += width;
+		}
+	}
+}
+
 static void rvn_tab_view_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_tab_view_t* tabs = (rvn_tab_view_t*)widget;
 	float bar = rvn_tab_bar_height(widget), position = 0.0f;
@@ -265,6 +506,14 @@ static void rvn_tab_view_paint(rvn_widget_t* widget, RPainter* painter) {
 	mark_x -= stretch * 0.5f;
 	mark_w += stretch;
 
+	if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) {
+		rvn_tab_view_paint_fluent(widget, painter, mark_x, mark_w);
+		return;
+	}
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		rvn_tab_view_paint_other(widget, painter, mark_x, mark_w);
+		return;
+	}
 	if (tabs->documents) {
 		/* the major tabs of the application : left aligned, icon, title, close button */
 		float x = 4.0f, radius = rvn_minf(6.0f, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) + 2.0f);

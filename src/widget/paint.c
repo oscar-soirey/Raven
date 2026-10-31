@@ -217,6 +217,7 @@ void rvn_widget_paint(rvn_widget_t* widget, const RPainter* parent) {
 	else if (widget->direction == R_DIRECTION_LTR) painter.rtl = R_FALSE;
 	else if (!widget->parent) painter.rtl = rvn_direction_global_rtl();
 	if (widget->flags & RVN_WF_DISABLED) painter.enabled = R_FALSE;
+	painter.calm = !rvn_widget_springy(widget);
 	/* the text takes the color of the nearest ancestor that has one: a widget, a style, or a theme given to a part of the tree */
 	if (widget->theme_own || rvn_widget_has_color(widget, R_COLOR_TEXT)) painter.text_color = rvn_widget_color(widget, R_COLOR_TEXT);
 

@@ -271,6 +271,255 @@ static const rvn_palette_entry_t g_glass_light_palette[] = {
 	{ R_COLOR_CODE,             0x3C3C43, 24 }
 };
 
+/*
+ * Windows 11 (the Fluent tokens of WinUI: TextFillColorPrimary,
+ * ControlFillColorDefault, ControlStrokeColorDefault...). Many of them are
+ * translucent: they are made to be laid over the background of the window
+ * (Mica: #F3F3F3, #202020) or over a card. The window color is that base.
+ */
+static const rvn_palette_entry_t g_windows_light_palette[] = {
+	{ R_COLOR_WINDOW,           0xF3F3F3, 255 },
+	{ R_COLOR_PANEL,            0xFFFFFF, 179 },  /* CardBackgroundFillColorDefault */
+	{ R_COLOR_BORDER,           0x000000, 15 },   /* CardStrokeColorDefault */
+	{ R_COLOR_TEXT,             0x1B1B1B, 255 },  /* TextFillColorPrimary (#E4000000) */
+	{ R_COLOR_TEXT_DISABLED,    0x000000, 92 },
+	{ R_COLOR_TEXT_PLACEHOLDER, 0x000000, 158 },  /* TextFillColorSecondary */
+	{ R_COLOR_ACCENT,           0x005FB8, 255 },  /* AccentFillColorDefault (SystemAccentColorDark1) */
+	{ R_COLOR_ACCENT_HOVERED,   0x005FB8, 230 },
+	{ R_COLOR_ACCENT_PRESSED,   0x005FB8, 204 },
+	{ R_COLOR_ACCENT_TEXT,      0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL,          0xFFFFFF, 179 },  /* ControlFillColorDefault */
+	{ R_COLOR_CONTROL_HOVERED,  0xF9F9F9, 128 },
+	{ R_COLOR_CONTROL_PRESSED,  0xF9F9F9, 77 },
+	{ R_COLOR_CONTROL_BORDER,   0x000000, 15 },   /* ControlStrokeColorDefault */
+	{ R_COLOR_INPUT,            0xFFFFFF, 179 },
+	{ R_COLOR_FOCUS,            0x000000, 228 },  /* FocusStrokeColorOuter */
+	{ R_COLOR_SELECTION,        0x005FB8, 90 },
+	{ R_COLOR_ROW_HOVERED,      0x000000, 9 },    /* SubtleFillColorSecondary */
+	{ R_COLOR_TRACK,            0x000000, 114 },  /* ControlStrongFillColorDefault */
+	{ R_COLOR_HANDLE,           0x000000, 114 },
+	{ R_COLOR_HANDLE_HOVERED,   0x000000, 158 },
+	{ R_COLOR_SEPARATOR,        0x000000, 15 },   /* DividerStrokeColorDefault */
+	{ R_COLOR_HEADER,           0x000000, 0 },
+	{ R_COLOR_HEADER_HOVERED,   0x000000, 9 },
+	{ R_COLOR_TAB_ACTIVE,       0xF9F9F9, 255 },  /* SolidBackgroundFillColorTertiary */
+	{ R_COLOR_POPUP,            0xF9F9F9, 255 },  /* the acrylic of flyouts, opaque */
+	{ R_COLOR_POPUP_BORDER,     0x000000, 15 },   /* SurfaceStrokeColorFlyout */
+	{ R_COLOR_SHADOW,           0x000000, 36 },
+	{ R_COLOR_TOOLTIP,          0xF9F9F9, 255 },
+	{ R_COLOR_TOOLTIP_TEXT,     0x1B1B1B, 255 },
+	{ R_COLOR_SWITCH,           0x005FB8, 255 },
+	{ R_COLOR_SUCCESS,          0x0F7B0F, 255 },
+	{ R_COLOR_WARNING,          0x9D5D00, 255 },
+	{ R_COLOR_DANGER,           0xC42B1C, 255 },
+	{ R_COLOR_LINK,             0x003E92, 255 },  /* AccentTextFillColorPrimary */
+	{ R_COLOR_CODE,             0x000000, 13 }
+};
+
+static const rvn_palette_entry_t g_windows_dark_palette[] = {
+	{ R_COLOR_WINDOW,           0x202020, 255 },
+	{ R_COLOR_PANEL,            0xFFFFFF, 13 },
+	{ R_COLOR_BORDER,           0x000000, 25 },
+	{ R_COLOR_TEXT,             0xFFFFFF, 255 },
+	{ R_COLOR_TEXT_DISABLED,    0xFFFFFF, 93 },
+	{ R_COLOR_TEXT_PLACEHOLDER, 0xFFFFFF, 197 },
+	{ R_COLOR_ACCENT,           0x60CDFF, 255 },  /* SystemAccentColorLight2 */
+	{ R_COLOR_ACCENT_HOVERED,   0x60CDFF, 230 },
+	{ R_COLOR_ACCENT_PRESSED,   0x60CDFF, 204 },
+	{ R_COLOR_ACCENT_TEXT,      0x000000, 255 },
+	{ R_COLOR_CONTROL,          0xFFFFFF, 15 },
+	{ R_COLOR_CONTROL_HOVERED,  0xFFFFFF, 21 },
+	{ R_COLOR_CONTROL_PRESSED,  0xFFFFFF, 8 },
+	{ R_COLOR_CONTROL_BORDER,   0xFFFFFF, 18 },
+	{ R_COLOR_INPUT,            0xFFFFFF, 15 },
+	{ R_COLOR_FOCUS,            0xFFFFFF, 255 },
+	{ R_COLOR_SELECTION,        0x60CDFF, 80 },
+	{ R_COLOR_ROW_HOVERED,      0xFFFFFF, 15 },
+	{ R_COLOR_TRACK,            0xFFFFFF, 139 },
+	{ R_COLOR_HANDLE,           0xFFFFFF, 139 },
+	{ R_COLOR_HANDLE_HOVERED,   0xFFFFFF, 197 },
+	{ R_COLOR_SEPARATOR,        0xFFFFFF, 21 },
+	{ R_COLOR_HEADER,           0x000000, 0 },
+	{ R_COLOR_HEADER_HOVERED,   0xFFFFFF, 15 },
+	{ R_COLOR_TAB_ACTIVE,       0x282828, 255 },
+	{ R_COLOR_POPUP,            0x2C2C2C, 255 },
+	{ R_COLOR_POPUP_BORDER,     0x000000, 51 },
+	{ R_COLOR_SHADOW,           0x000000, 66 },
+	{ R_COLOR_TOOLTIP,          0x2C2C2C, 255 },
+	{ R_COLOR_TOOLTIP_TEXT,     0xFFFFFF, 255 },
+	{ R_COLOR_SWITCH,           0x60CDFF, 255 },
+	{ R_COLOR_SUCCESS,          0x6CCB5F, 255 },
+	{ R_COLOR_WARNING,          0xFCE100, 255 },
+	{ R_COLOR_DANGER,           0xFF99A4, 255 },
+	{ R_COLOR_LINK,             0x99EBFF, 255 },
+	{ R_COLOR_CODE,             0xFFFFFF, 15 }
+};
+
+/*
+ * macOS Sequoia (the colors of AppKit: windowBackgroundColor, labelColor,
+ * controlAccentColor...). Controls do not change under the pointer.
+ */
+static const rvn_palette_entry_t g_macos_light_palette[] = {
+	{ R_COLOR_WINDOW,           0xECECEC, 255 },  /* windowBackgroundColor */
+	{ R_COLOR_PANEL,            0xFFFFFF, 255 },  /* controlBackgroundColor */
+	{ R_COLOR_BORDER,           0x000000, 26 },   /* separatorColor */
+	{ R_COLOR_TEXT,             0x000000, 217 },  /* labelColor */
+	{ R_COLOR_TEXT_DISABLED,    0x000000, 64 },   /* tertiaryLabelColor */
+	{ R_COLOR_TEXT_PLACEHOLDER, 0x000000, 64 },   /* placeholderTextColor */
+	{ R_COLOR_ACCENT,           0x007AFF, 255 },  /* controlAccentColor (blue) */
+	{ R_COLOR_ACCENT_HOVERED,   0x007AFF, 255 },
+	{ R_COLOR_ACCENT_PRESSED,   0x0062CC, 255 },
+	{ R_COLOR_ACCENT_TEXT,      0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL,          0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL_HOVERED,  0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL_PRESSED,  0xE0E0E0, 255 },
+	{ R_COLOR_CONTROL_BORDER,   0x000000, 38 },
+	{ R_COLOR_INPUT,            0xFFFFFF, 255 },  /* textBackgroundColor */
+	{ R_COLOR_FOCUS,            0x007AFF, 128 },  /* keyboardFocusIndicatorColor */
+	{ R_COLOR_SELECTION,        0xB3D7FF, 255 },  /* selectedTextBackgroundColor */
+	{ R_COLOR_ROW_HOVERED,      0x000000, 0 },
+	{ R_COLOR_TRACK,            0x000000, 26 },
+	{ R_COLOR_HANDLE,           0x000000, 128 },
+	{ R_COLOR_HANDLE_HOVERED,   0x000000, 166 },
+	{ R_COLOR_SEPARATOR,        0x000000, 26 },
+	{ R_COLOR_HEADER,           0x000000, 0 },
+	{ R_COLOR_HEADER_HOVERED,   0x000000, 15 },
+	{ R_COLOR_TAB_ACTIVE,       0xFFFFFF, 255 },
+	{ R_COLOR_POPUP,            0xF2F2F2, 255 },  /* the vibrancy of menus, opaque */
+	{ R_COLOR_POPUP_BORDER,     0x000000, 38 },
+	{ R_COLOR_SHADOW,           0x000000, 89 },
+	{ R_COLOR_TOOLTIP,          0xF0F0F0, 255 },
+	{ R_COLOR_TOOLTIP_TEXT,     0x000000, 217 },
+	{ R_COLOR_SWITCH,           0x007AFF, 255 },
+	{ R_COLOR_SUCCESS,          0x28CD41, 255 },
+	{ R_COLOR_WARNING,          0xFF9500, 255 },
+	{ R_COLOR_DANGER,           0xFF3B30, 255 },
+	{ R_COLOR_LINK,             0x0068DA, 255 },  /* linkColor */
+	{ R_COLOR_CODE,             0x000000, 13 }
+};
+
+static const rvn_palette_entry_t g_macos_dark_palette[] = {
+	{ R_COLOR_WINDOW,           0x323232, 255 },
+	{ R_COLOR_PANEL,            0x1E1E1E, 255 },
+	{ R_COLOR_BORDER,           0xFFFFFF, 26 },
+	{ R_COLOR_TEXT,             0xFFFFFF, 217 },
+	{ R_COLOR_TEXT_DISABLED,    0xFFFFFF, 64 },
+	{ R_COLOR_TEXT_PLACEHOLDER, 0xFFFFFF, 64 },
+	{ R_COLOR_ACCENT,           0x0A84FF, 255 },
+	{ R_COLOR_ACCENT_HOVERED,   0x0A84FF, 255 },
+	{ R_COLOR_ACCENT_PRESSED,   0x3D9BFF, 255 },
+	{ R_COLOR_ACCENT_TEXT,      0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL,          0xFFFFFF, 64 },
+	{ R_COLOR_CONTROL_HOVERED,  0xFFFFFF, 64 },
+	{ R_COLOR_CONTROL_PRESSED,  0xFFFFFF, 92 },
+	{ R_COLOR_CONTROL_BORDER,   0xFFFFFF, 26 },
+	{ R_COLOR_INPUT,            0xFFFFFF, 13 },
+	{ R_COLOR_FOCUS,            0x0A84FF, 128 },
+	{ R_COLOR_SELECTION,        0x3F638B, 255 },
+	{ R_COLOR_ROW_HOVERED,      0xFFFFFF, 0 },
+	{ R_COLOR_TRACK,            0xFFFFFF, 38 },
+	{ R_COLOR_HANDLE,           0xFFFFFF, 128 },
+	{ R_COLOR_HANDLE_HOVERED,   0xFFFFFF, 166 },
+	{ R_COLOR_SEPARATOR,        0xFFFFFF, 26 },
+	{ R_COLOR_HEADER,           0x000000, 0 },
+	{ R_COLOR_HEADER_HOVERED,   0xFFFFFF, 20 },
+	{ R_COLOR_TAB_ACTIVE,       0xFFFFFF, 51 },
+	{ R_COLOR_POPUP,            0x2D2D2D, 255 },
+	{ R_COLOR_POPUP_BORDER,     0xFFFFFF, 38 },
+	{ R_COLOR_SHADOW,           0x000000, 128 },
+	{ R_COLOR_TOOLTIP,          0x3A3A3A, 255 },
+	{ R_COLOR_TOOLTIP_TEXT,     0xFFFFFF, 217 },
+	{ R_COLOR_SWITCH,           0x0A84FF, 255 },
+	{ R_COLOR_SUCCESS,          0x32D74B, 255 },
+	{ R_COLOR_WARNING,          0xFFD60A, 255 },
+	{ R_COLOR_DANGER,           0xFF453A, 255 },
+	{ R_COLOR_LINK,             0x419CFF, 255 },
+	{ R_COLOR_CODE,             0xFFFFFF, 20 }
+};
+
+/*
+ * GNOME (the named colors of libadwaita: window_bg_color, view_fg_color,
+ * accent_bg_color...). Controls are the color of the text, seen through
+ * (alpha(currentColor, .1)), without borders.
+ */
+static const rvn_palette_entry_t g_gnome_light_palette[] = {
+	{ R_COLOR_WINDOW,           0xFAFAFA, 255 },  /* window_bg_color */
+	{ R_COLOR_PANEL,            0xFFFFFF, 255 },  /* card_bg_color */
+	{ R_COLOR_BORDER,           0x000006, 18 },   /* card_shade_color */
+	{ R_COLOR_TEXT,             0x000006, 204 },  /* window_fg_color */
+	{ R_COLOR_TEXT_DISABLED,    0x000006, 102 },
+	{ R_COLOR_TEXT_PLACEHOLDER, 0x000006, 112 },  /* .dim-label */
+	{ R_COLOR_ACCENT,           0x3584E4, 255 },  /* accent_bg_color */
+	{ R_COLOR_ACCENT_HOVERED,   0x4990E6, 255 },
+	{ R_COLOR_ACCENT_PRESSED,   0x2A6AB6, 255 },
+	{ R_COLOR_ACCENT_TEXT,      0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL,          0x000006, 26 },   /* alpha(currentColor, .1) */
+	{ R_COLOR_CONTROL_HOVERED,  0x000006, 38 },
+	{ R_COLOR_CONTROL_PRESSED,  0x000006, 77 },
+	{ R_COLOR_CONTROL_BORDER,   0x000006, 0 },
+	{ R_COLOR_INPUT,            0x000006, 26 },
+	{ R_COLOR_FOCUS,            0x1C71D8, 128 },  /* alpha(accent_color, .5) */
+	{ R_COLOR_SELECTION,        0x3584E4, 64 },
+	{ R_COLOR_ROW_HOVERED,      0x000006, 10 },
+	{ R_COLOR_TRACK,            0x000006, 38 },
+	{ R_COLOR_HANDLE,           0x000006, 51 },
+	{ R_COLOR_HANDLE_HOVERED,   0x000006, 102 },
+	{ R_COLOR_SEPARATOR,        0x000006, 26 },
+	{ R_COLOR_HEADER,           0xEBEBED, 255 },  /* headerbar_bg_color */
+	{ R_COLOR_HEADER_HOVERED,   0x000006, 26 },
+	{ R_COLOR_TAB_ACTIVE,       0xFAFAFA, 255 },
+	{ R_COLOR_POPUP,            0xFFFFFF, 255 },  /* popover_bg_color */
+	{ R_COLOR_POPUP_BORDER,     0x000006, 36 },
+	{ R_COLOR_SHADOW,           0x000000, 56 },
+	{ R_COLOR_TOOLTIP,          0x000006, 204 },
+	{ R_COLOR_TOOLTIP_TEXT,     0xFFFFFF, 255 },
+	{ R_COLOR_SWITCH,           0x3584E4, 255 },
+	{ R_COLOR_SUCCESS,          0x1B8553, 255 },
+	{ R_COLOR_WARNING,          0x9C6E03, 255 },
+	{ R_COLOR_DANGER,           0xE01B24, 255 },  /* destructive_bg_color */
+	{ R_COLOR_LINK,             0x1C71D8, 255 },  /* accent_color */
+	{ R_COLOR_CODE,             0x000006, 15 }
+};
+
+static const rvn_palette_entry_t g_gnome_dark_palette[] = {
+	{ R_COLOR_WINDOW,           0x222226, 255 },
+	{ R_COLOR_PANEL,            0xFFFFFF, 20 },
+	{ R_COLOR_BORDER,           0x000006, 36 },
+	{ R_COLOR_TEXT,             0xFFFFFF, 255 },
+	{ R_COLOR_TEXT_DISABLED,    0xFFFFFF, 128 },
+	{ R_COLOR_TEXT_PLACEHOLDER, 0xFFFFFF, 140 },
+	{ R_COLOR_ACCENT,           0x3584E4, 255 },
+	{ R_COLOR_ACCENT_HOVERED,   0x4990E6, 255 },
+	{ R_COLOR_ACCENT_PRESSED,   0x2A6AB6, 255 },
+	{ R_COLOR_ACCENT_TEXT,      0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL,          0xFFFFFF, 26 },
+	{ R_COLOR_CONTROL_HOVERED,  0xFFFFFF, 38 },
+	{ R_COLOR_CONTROL_PRESSED,  0xFFFFFF, 77 },
+	{ R_COLOR_CONTROL_BORDER,   0xFFFFFF, 0 },
+	{ R_COLOR_INPUT,            0xFFFFFF, 26 },
+	{ R_COLOR_FOCUS,            0x78AEED, 128 },
+	{ R_COLOR_SELECTION,        0x3584E4, 64 },
+	{ R_COLOR_ROW_HOVERED,      0xFFFFFF, 10 },
+	{ R_COLOR_TRACK,            0xFFFFFF, 38 },
+	{ R_COLOR_HANDLE,           0xFFFFFF, 51 },
+	{ R_COLOR_HANDLE_HOVERED,   0xFFFFFF, 102 },
+	{ R_COLOR_SEPARATOR,        0xFFFFFF, 26 },
+	{ R_COLOR_HEADER,           0x2E2E32, 255 },
+	{ R_COLOR_HEADER_HOVERED,   0xFFFFFF, 26 },
+	{ R_COLOR_TAB_ACTIVE,       0x222226, 255 },
+	{ R_COLOR_POPUP,            0x36363A, 255 },
+	{ R_COLOR_POPUP_BORDER,     0xFFFFFF, 20 },
+	{ R_COLOR_SHADOW,           0x000000, 128 },
+	{ R_COLOR_TOOLTIP,          0x000006, 204 },
+	{ R_COLOR_TOOLTIP_TEXT,     0xFFFFFF, 255 },
+	{ R_COLOR_SWITCH,           0x3584E4, 255 },
+	{ R_COLOR_SUCCESS,          0x8FF0A4, 255 },
+	{ R_COLOR_WARNING,          0xF8E45C, 255 },
+	{ R_COLOR_DANGER,           0xFF7B63, 255 },
+	{ R_COLOR_LINK,             0x78AEED, 255 },
+	{ R_COLOR_CODE,             0xFFFFFF, 20 }
+};
+
 /* Same order as RMetric. */
 static const float g_flat_metrics[R_METRIC_COUNT] = {
 	13.0f, /* font size */
@@ -330,6 +579,181 @@ static const float g_glass_metrics[R_METRIC_COUNT] = {
 	1.0f, 1.0f, 1.0f, 1.0f, 1.0f, /* glass: frost, refraction, saturation, rim, shadow */
 	18.0f  /* blur radius */
 };
+
+/* Windows 11: the sizes of WinUI (ControlCornerRadius 4, OverlayCornerRadius 8, controls 32 high). */
+static const float g_windows_metrics[R_METRIC_COUNT] = {
+	14.0f, /* font size */
+	4.0f,  /* corner radius */
+	1.0f,  /* border width */
+	32.0f, /* control height */
+	11.0f, /* padding x */
+	5.0f,  /* padding y */
+	8.0f,  /* spacing */
+	12.0f, /* scrollbar size */
+	32.0f, /* row height */
+	16.0f, /* indent */
+	5.0f,  /* splitter size */
+	20.0f, /* check size */
+	20.0f, /* slider handle size */
+	8.0f,  /* popup radius */
+	1.0f, 1.0f, 1.0f, 1.0f, 1.0f, /* glass: frost, refraction, saturation, rim, shadow */
+	18.0f  /* blur radius */
+};
+
+/* macOS: regular controls, 22 high, SF at 13. */
+static const float g_macos_metrics[R_METRIC_COUNT] = {
+	13.0f, /* font size */
+	5.0f,  /* corner radius */
+	1.0f,  /* border width */
+	22.0f, /* control height */
+	10.0f, /* padding x */
+	2.0f,  /* padding y */
+	8.0f,  /* spacing */
+	11.0f, /* scrollbar size */
+	24.0f, /* row height */
+	16.0f, /* indent */
+	5.0f,  /* splitter size */
+	14.0f, /* check size */
+	20.0f, /* slider handle size */
+	7.0f,  /* popup radius */
+	1.0f, 1.0f, 1.0f, 1.0f, 1.0f, /* glass: frost, refraction, saturation, rim, shadow */
+	18.0f  /* blur radius */
+};
+
+/* GNOME: controls 34 high, radius 6, popovers 12, the font at 11 points. */
+static const float g_gnome_metrics[R_METRIC_COUNT] = {
+	14.67f, /* font size */
+	6.0f,  /* corner radius */
+	1.0f,  /* border width */
+	34.0f, /* control height */
+	10.0f, /* padding x */
+	5.0f,  /* padding y */
+	6.0f,  /* spacing */
+	12.0f, /* scrollbar size */
+	34.0f, /* row height */
+	18.0f, /* indent */
+	5.0f,  /* splitter size */
+	14.0f, /* check size */
+	20.0f, /* slider handle size */
+	12.0f, /* popup radius */
+	1.0f, 1.0f, 1.0f, 1.0f, 1.0f, /* glass: frost, refraction, saturation, rim, shadow */
+	18.0f  /* blur radius */
+};
+
+/* ---------------------------------------------------------------------------
+ *  The looks
+ * ------------------------------------------------------------------------- */
+
+typedef struct rvn_look_info_t {
+	RLook look;
+	/** Its name in theme files and for Rtheme_use, and the one of Raven 0.2 (or NULL). */
+	const char* name;
+	const char* old_name;
+	int family;
+	int dark;
+	int glass;
+	int contrast;
+	const rvn_palette_entry_t* palette;
+	size_t palette_count;
+	const float* metrics;
+} rvn_look_info_t;
+
+#define RVN_PALETTE(p) p, RVN_COUNT_OF(p)
+
+static const rvn_look_info_t g_looks[] = {
+	{ R_LOOK_RAVEN_DARK, "RavenDark", "Dark", RVN_FAMILY_RAVEN, 1, 0, 0, RVN_PALETTE(g_dark_palette), g_flat_metrics },
+	{ R_LOOK_RAVEN_LIGHT, "RavenLight", "Light", RVN_FAMILY_RAVEN, 0, 0, 0, RVN_PALETTE(g_light_palette), g_flat_metrics },
+	{ R_LOOK_RAVEN_GLASS_DARK, "RavenGlassDark", "GlassDark", RVN_FAMILY_RAVEN, 1, 1, 0, RVN_PALETTE(g_glass_dark_palette), g_glass_metrics },
+	{ R_LOOK_RAVEN_GLASS_LIGHT, "RavenGlassLight", "GlassLight", RVN_FAMILY_RAVEN, 0, 1, 0, RVN_PALETTE(g_glass_light_palette), g_glass_metrics },
+	{ R_LOOK_RAVEN_HIGH_CONTRAST_DARK, "RavenHighContrastDark", "HighContrastDark", RVN_FAMILY_RAVEN, 1, 0, 1, RVN_PALETTE(g_hc_dark_palette), g_hc_metrics },
+	{ R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT, "RavenHighContrastLight", "HighContrastLight", RVN_FAMILY_RAVEN, 0, 0, 1, RVN_PALETTE(g_hc_light_palette), g_hc_metrics },
+	{ R_LOOK_WINDOWS_DARK, "WindowsDark", NULL, RVN_FAMILY_WINDOWS, 1, 0, 0, RVN_PALETTE(g_windows_dark_palette), g_windows_metrics },
+	{ R_LOOK_WINDOWS_LIGHT, "WindowsLight", NULL, RVN_FAMILY_WINDOWS, 0, 0, 0, RVN_PALETTE(g_windows_light_palette), g_windows_metrics },
+	{ R_LOOK_MACOS_DARK, "MacOSDark", NULL, RVN_FAMILY_MACOS, 1, 0, 0, RVN_PALETTE(g_macos_dark_palette), g_macos_metrics },
+	{ R_LOOK_MACOS_LIGHT, "MacOSLight", NULL, RVN_FAMILY_MACOS, 0, 0, 0, RVN_PALETTE(g_macos_light_palette), g_macos_metrics },
+	{ R_LOOK_GNOME_DARK, "GnomeDark", NULL, RVN_FAMILY_GNOME, 1, 0, 0, RVN_PALETTE(g_gnome_dark_palette), g_gnome_metrics },
+	{ R_LOOK_GNOME_LIGHT, "GnomeLight", NULL, RVN_FAMILY_GNOME, 0, 0, 0, RVN_PALETTE(g_gnome_light_palette), g_gnome_metrics }
+};
+
+int rvn_look_valid(RLook look) {
+	return look >= R_LOOK_RAVEN_DARK && look <= R_LOOK_NATIVE_LIGHT;
+}
+
+RLook rvn_look_resolve(RLook look) {
+	if (look == R_LOOK_NATIVE_DARK || look == R_LOOK_NATIVE_LIGHT) {
+		int dark = look == R_LOOK_NATIVE_DARK;
+#if defined(_WIN32)
+		return dark ? R_LOOK_WINDOWS_DARK : R_LOOK_WINDOWS_LIGHT;
+#elif defined(__APPLE__)
+		return dark ? R_LOOK_MACOS_DARK : R_LOOK_MACOS_LIGHT;
+#else
+		/* (Linux and the other Unix: GNOME, the desktop most of them have) */
+		return dark ? R_LOOK_GNOME_DARK : R_LOOK_GNOME_LIGHT;
+#endif
+	}
+	return rvn_look_valid(look) ? look : R_LOOK_RAVEN_DARK;
+}
+
+static const rvn_look_info_t* rvn_look_info(RLook look) {
+	size_t i;
+	look = rvn_look_resolve(look);
+	for (i = 0; i < RVN_COUNT_OF(g_looks); i++) {
+		if (g_looks[i].look == look) return &g_looks[i];
+	}
+	return &g_looks[0];
+}
+
+const char* rvn_look_name(RLook look) {
+	if (look == R_LOOK_NATIVE_DARK) return "NativeDark";
+	if (look == R_LOOK_NATIVE_LIGHT) return "NativeLight";
+	return rvn_look_info(look)->name;
+}
+
+const char* rvn_look_old_name(RLook look) {
+	return rvn_look_valid(look) && look <= R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT ? rvn_look_info(look)->old_name : NULL;
+}
+
+int rvn_look_by_name(const char* name, RLook* look) {
+	size_t i;
+	if (!name) return R_FALSE;
+	if (rvn_stricmp(name, "NativeDark") == 0 || rvn_stricmp(name, "Native") == 0) {
+		*look = R_LOOK_NATIVE_DARK;
+		return R_TRUE;
+	}
+	if (rvn_stricmp(name, "NativeLight") == 0) {
+		*look = R_LOOK_NATIVE_LIGHT;
+		return R_TRUE;
+	}
+	for (i = 0; i < RVN_COUNT_OF(g_looks); i++) {
+		if (rvn_stricmp(g_looks[i].name, name) == 0 || (g_looks[i].old_name && rvn_stricmp(g_looks[i].old_name, name) == 0)) {
+			*look = g_looks[i].look;
+			return R_TRUE;
+		}
+	}
+	/* "Windows", "macOS", "GNOME" alone: the light one, as the systems start */
+	if (rvn_stricmp(name, "Windows") == 0) *look = R_LOOK_WINDOWS_LIGHT;
+	else if (rvn_stricmp(name, "macOS") == 0 || rvn_stricmp(name, "Mac") == 0) *look = R_LOOK_MACOS_LIGHT;
+	else if (rvn_stricmp(name, "GNOME") == 0 || rvn_stricmp(name, "Adwaita") == 0 || rvn_stricmp(name, "Linux") == 0) *look = R_LOOK_GNOME_LIGHT;
+	else if (rvn_stricmp(name, "AdwaitaDark") == 0 || rvn_stricmp(name, "LinuxDark") == 0) *look = R_LOOK_GNOME_DARK;
+	else if (rvn_stricmp(name, "AdwaitaLight") == 0 || rvn_stricmp(name, "LinuxLight") == 0) *look = R_LOOK_GNOME_LIGHT;
+	else return R_FALSE;
+	return R_TRUE;
+	return R_FALSE;
+}
+
+RLook rvn_look_dark_counterpart(RLook look) {
+	const rvn_look_info_t* info = rvn_look_info(look);
+	if (info->dark) return info->look;
+	if (info->family == RVN_FAMILY_WINDOWS) return R_LOOK_WINDOWS_DARK;
+	if (info->family == RVN_FAMILY_MACOS) return R_LOOK_MACOS_DARK;
+	if (info->family == RVN_FAMILY_GNOME) return R_LOOK_GNOME_DARK;
+	if (info->contrast) return R_LOOK_RAVEN_HIGH_CONTRAST_DARK;
+	return info->glass ? R_LOOK_RAVEN_GLASS_DARK : R_LOOK_RAVEN_DARK;
+}
+
+int rvn_look_dark(RLook look) {
+	return rvn_look_info(look)->dark;
+}
 
 /* ---------------------------------------------------------------------------
  *  Wallpaper of the glass themes
@@ -412,65 +836,58 @@ Rid rvn_theme_builtin_wallpaper(int dark) {
 	return *wallpaper;
 }
 
-void rvn_theme_build(rvn_theme_t* theme, RTheme builtin) {
-	const rvn_palette_entry_t* palette;
-	size_t count, i;
-	int glass = builtin == R_THEME_GLASS_DARK || builtin == R_THEME_GLASS_LIGHT;
-	int contrast = builtin == R_THEME_HIGH_CONTRAST_DARK || builtin == R_THEME_HIGH_CONTRAST_LIGHT;
-	int dark = builtin == R_THEME_DARK || builtin == R_THEME_GLASS_DARK || builtin == R_THEME_HIGH_CONTRAST_DARK;
+void rvn_theme_build_look(rvn_theme_t* theme, RLook look) {
+	const rvn_look_info_t* info = rvn_look_info(look);
+	size_t i;
 	char* name = theme->name;
 	char* path = theme->path;
 	Rid font = theme->font;
+	int look_font = theme->look_font;
 
 	theme->name = NULL;
 	theme->path = NULL;
 	rvn_theme_clear(theme);
 	theme->name = name;
 	theme->path = path;
-	/* (the font is not part of the built-in themes: the one in use stays) */
-	theme->font = font;
 
-	switch (builtin) {
-		case R_THEME_LIGHT:
-			palette = g_light_palette;
-			count = RVN_COUNT_OF(g_light_palette);
-			break;
-		case R_THEME_GLASS_DARK:
-			palette = g_glass_dark_palette;
-			count = RVN_COUNT_OF(g_glass_dark_palette);
-			break;
-		case R_THEME_GLASS_LIGHT:
-			palette = g_glass_light_palette;
-			count = RVN_COUNT_OF(g_glass_light_palette);
-			break;
-		case R_THEME_HIGH_CONTRAST_DARK:
-			palette = g_hc_dark_palette;
-			count = RVN_COUNT_OF(g_hc_dark_palette);
-			break;
-		case R_THEME_HIGH_CONTRAST_LIGHT:
-			palette = g_hc_light_palette;
-			count = RVN_COUNT_OF(g_hc_light_palette);
-			break;
-		case R_THEME_DARK:
-		default:
-			palette = g_dark_palette;
-			count = RVN_COUNT_OF(g_dark_palette);
-			break;
+	for (i = 0; i < info->palette_count; i++) {
+		theme->colors[RVN_COLOR_INDEX(info->palette[i].role)] = rvn_hex(info->palette[i].rgb, info->palette[i].alpha);
 	}
-	for (i = 0; i < count; i++) theme->colors[RVN_COLOR_INDEX(palette[i].role)] = rvn_hex(palette[i].rgb, palette[i].alpha);
-	memcpy(theme->metrics, glass ? g_glass_metrics : contrast ? g_hc_metrics : g_flat_metrics, sizeof(theme->metrics));
+	memcpy(theme->metrics, info->metrics, sizeof(theme->metrics));
 
-	theme->material = glass ? R_MATERIAL_FROSTED_GLASS : R_MATERIAL_SOLID;
-	theme->glass = glass;
-	theme->dark = dark;
-	theme->wallpaper = glass ? rvn_theme_builtin_wallpaper(dark) : R_INVALID_ID;
+	theme->look = info->look;
+	theme->family = info->family;
+	theme->motion = info->family == RVN_FAMILY_RAVEN ? RVN_MOTION_SPRINGY : RVN_MOTION_SMOOTH;
+	theme->material = info->glass ? R_MATERIAL_FROSTED_GLASS : R_MATERIAL_SOLID;
+	theme->glass = info->glass;
+	theme->dark = info->dark;
+	theme->wallpaper = info->glass ? rvn_theme_builtin_wallpaper(info->dark) : R_INVALID_ID;
+
+	/*
+	 * The font: the looks of Raven keep the one in use (it is the
+	 * application's), the looks of the platforms bring theirs when the
+	 * system has it; going back to Raven gives back the font of Raven.
+	 */
+	if (info->family != RVN_FAMILY_RAVEN && rvn_look_platform_font(info->family) != R_INVALID_ID) {
+		theme->font = rvn_look_platform_font(info->family);
+		theme->look_font = R_TRUE;
+	} else if (look_font) {
+		theme->font = theme == &g_rvn.theme ? g_rvn.default_font : R_INVALID_ID;
+		theme->look_font = R_FALSE;
+	} else {
+		theme->font = font;
+		theme->look_font = R_FALSE;
+	}
+	/* the accent the user chose for the system */
+	if (info->family != RVN_FAMILY_RAVEN) rvn_look_system_accent(theme);
+}
+
+void rvn_theme_build(rvn_theme_t* theme, RTheme builtin) {
+	rvn_theme_build_look(theme, (RLook)builtin);
 }
 
 void rvn_theme_apply(RTheme theme) {
-	static const char* const names[] = { "Dark", "Light", "GlassDark", "GlassLight", "HighContrastDark", "HighContrastLight" };
-	rvn_theme_build(&g_rvn.theme, theme);
-	rvn_str_set(&g_rvn.theme_name, names[(int)theme - (int)R_THEME_DARK]);
-	rvn_theme_changed();
+	rvn_look_apply((RLook)theme, R_FALSE);
 }
 
 /* ---------------------------------------------------------------------------
@@ -567,7 +984,20 @@ void Rtheme_apply(RTheme theme) {
 		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rtheme_apply: invalid theme");
 		return;
 	}
-	rvn_theme_apply(theme);
+	rvn_look_apply((RLook)theme, R_FALSE);
+}
+
+void Rlook_set(RLook look) {
+	RVN_API_GUARD_VOID();
+	if (!rvn_look_valid(look)) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rlook_set: invalid look");
+		return;
+	}
+	rvn_look_apply(look, R_TRUE);
+}
+
+RLook Rlook_get(void) {
+	return g_rvn.initialized ? g_rvn.look : R_LOOK_RAVEN_DARK;
 }
 
 void Rtheme_set_color(RColorRole role, float r, float g, float b, float a) {
@@ -612,6 +1042,11 @@ void Rtheme_set_material(RMaterial material) {
 		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rtheme_set_material: invalid material");
 		return;
 	}
+	if (g_rvn.theme.family != RVN_FAMILY_RAVEN && material != R_MATERIAL_SOLID) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_WARNING, "Rtheme_set_material: the look %s is opaque; only the looks of Raven are made of glass",
+			rvn_look_name(g_rvn.theme.look));
+		return;
+	}
 	g_rvn.theme.material = material;
 	g_rvn.theme.glass = material != R_MATERIAL_SOLID;
 	/* (the sizes of some controls depend on it) */
@@ -644,6 +1079,8 @@ void Rtheme_set_font(Rid font) {
 		return;
 	}
 	g_rvn.theme.font = font == R_INVALID_ID ? g_rvn.default_font : font;
+	/* (the application's: it is kept when the look changes) */
+	g_rvn.theme.look_font = R_FALSE;
 	rvn_theme_changed();
 }
 

@@ -349,9 +349,15 @@ static void rvn_tree_view_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_color_t text = rvn_widget_text_color(widget, painter);
 	rvn_color_t selection = rvn_widget_color(widget, R_COLOR_SELECTION);
 	rvn_vec2_t origin = rvn_widget_origin(widget);
+	/* the platforms: a frame, rows inset and rounded (rvn_platform_paint_item) */
+	const int fluent = rvn_widget_family(widget) != RVN_FAMILY_RAVEN;
 
-	rvn_paint_box(painter, rect, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), rvn_widget_color(widget, R_COLOR_INPUT),
-		rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH), rvn_widget_color(widget, focused ? R_COLOR_FOCUS : R_COLOR_BORDER));
+	if (fluent) {
+		rvn_platform_paint_list_frame(painter, widget, rect, rvn_widget_states(widget, painter, R_FALSE, R_FALSE));
+	} else {
+		rvn_paint_box(painter, rect, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), rvn_widget_color(widget, R_COLOR_INPUT),
+			rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH), rvn_widget_color(widget, focused ? R_COLOR_FOCUS : R_COLOR_BORDER));
+	}
 
 	rvn_paint_push_clip(painter, rvn_rect(1.0f, 1.0f, rect.w - 2.0f, rect.h - 2.0f));
 	last = rvn_mini((int)tree->row_count, first + (int)(tree->bar.viewport / row) + 3);
@@ -364,18 +370,29 @@ static void rvn_tree_view_paint(rvn_widget_t* widget, RPainter* painter) {
 	}
 	if (selected_row >= 0) {
 		float y = rvn_paint_spring(painter, &tree->select_y, row * (float)selected_row, R_MOTION_SNAPPY);
-		rvn_paint_row(painter, widget, rvn_rect(1.0f, 1.0f + y - offset, content_width, row),
-			focused ? selection : rvn_color_mix(selection, rvn_widget_color(widget, R_COLOR_INPUT), 0.45f));
+		if (fluent) {
+			rvn_platform_paint_item(painter, widget, rvn_platform_row(widget, rvn_rect(1.0f, 1.0f + y - offset, content_width, row)),
+				rvn_widget_states(widget, painter, tree->hot == selected_row && (widget->flags & RVN_WF_HOVERED), R_FALSE) | RVN_STATE_SELECTED,
+				RVN_ITEM_LIST, 1.0f);
+		} else {
+			rvn_paint_row(painter, widget, rvn_rect(1.0f, 1.0f + y - offset, content_width, row),
+				focused ? selection : rvn_color_mix(selection, rvn_widget_color(widget, R_COLOR_INPUT), 0.45f));
+		}
 	} else {
 		tree->select_y.started = R_FALSE;
 	}
 	for (i = rvn_maxi(first, 0); i < last; i++) {
 		rvn_tree_item_t* item = tree->rows[i];
 		rvn_rect_t line = rvn_rect(1.0f, 1.0f + row * (float)i - offset, content_width, row);
-		float x = 4.0f + indent * (float)item->depth;
-		float text_x = x + indent;
+		/* (Windows: the rows are inset; the chevron and the text move in with them) */
+		float x = 4.0f + indent * (float)item->depth + (fluent ? 8.0f : 0.0f);
+		float text_x = x + indent + (fluent ? 6.0f : 0.0f);
 		if (item == tree->selected) {
 			/* (drawn above) */
+		} else if (fluent && ((tree->multi && item->selected) || (i == tree->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled))) {
+			rvn_platform_paint_item(painter, widget, rvn_platform_row(widget, line),
+				rvn_widget_states(widget, painter, i == tree->hot && (widget->flags & RVN_WF_HOVERED), R_FALSE) |
+				((tree->multi && item->selected) ? RVN_STATE_SELECTED : 0), RVN_ITEM_LIST, 0.0f);
 		} else if (tree->multi && item->selected) {
 			rvn_paint_row(painter, widget, line, focused ? rvn_color_fade(selection, 0.75f)
 				: rvn_color_mix(selection, rvn_widget_color(widget, R_COLOR_INPUT), 0.55f));
@@ -387,7 +404,17 @@ static void rvn_tree_view_paint(rvn_widget_t* widget, RPainter* painter) {
 			rvn_paint_box(painter, rvn_rect(line.x + 1.0f, line.y + 1.0f, line.w - 2.0f, line.h - 2.0f), 4.0f,
 				rvn_color_fade(accent, 0.18f), 1.5f, accent);
 		}
-		if (item->child_count > 0) {
+		if (item->child_count > 0 && fluent) {
+			rvn_part_look_t arrow;
+			rvn_part_look_clear(&arrow);
+			arrow.foreground = rvn_platform_secondary(widget);
+			/* (on the selection of macOS, white) */
+			if (item == tree->selected && rvn_widget_family(widget) == RVN_FAMILY_MACOS)
+				arrow.foreground = rvn_platform_item_foreground(widget, rvn_widget_states(widget, painter, R_FALSE, R_FALSE) | RVN_STATE_SELECTED, RVN_ITEM_LIST);
+			rvn_part_apply_styles(widget, RVN_PART_ARROW, item->expanded ? RVN_STATE_OPEN : 0, &arrow);
+			rvn_platform_paint_chevron(painter, widget, x + indent * 0.5f, line.y + row * 0.5f, 10.0f,
+				item->expanded ? 1.5707964f : 0.0f, arrow.foreground);
+		} else if (item->child_count > 0) {
 			rvn_paint_icon(painter, item->expanded ? RVN_ICON_CHEVRON_DOWN : RVN_ICON_CHEVRON_RIGHT,
 				x + indent * 0.5f, line.y + row * 0.5f, 7.0f, rvn_color_fade(text, 0.75f));
 		}
@@ -399,7 +426,8 @@ static void rvn_tree_view_paint(rvn_widget_t* widget, RPainter* painter) {
 		}
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
 			rvn_rect(text_x, line.y, rvn_maxf(0.0f, line.w - text_x), row), 0.0f, item->text, -1,
-			rvn_color_a(item->color) ? item->color : text);
+			rvn_color_a(item->color) ? item->color : (fluent && (item == tree->selected || (tree->multi && item->selected))) ?
+			rvn_platform_item_foreground(widget, rvn_widget_states(widget, painter, R_FALSE, R_FALSE) | RVN_STATE_SELECTED, RVN_ITEM_LIST) : text);
 	}
 	if (tree->drop_root) {
 		rvn_color_t accent = rvn_widget_color(widget, R_COLOR_ACCENT);
@@ -494,7 +522,7 @@ static int rvn_tree_view_event(rvn_widget_t* widget, const REvent* event) {
 				return R_TRUE;
 			}
 			item = tree->rows[row];
-			arrow_x = 5.0f + indent * (float)item->depth;
+			arrow_x = 5.0f + indent * (float)item->depth + (rvn_widget_family(widget) != RVN_FAMILY_RAVEN ? 8.0f : 0.0f);
 			if (item->child_count > 0 && event->local_x >= arrow_x && event->local_x < arrow_x + indent) {
 				/* the arrow only opens and closes the branch */
 				rvn_tree_set_expanded(item, !item->expanded);

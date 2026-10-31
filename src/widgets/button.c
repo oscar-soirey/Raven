@@ -39,19 +39,60 @@ static void rvn_button_arrange(rvn_widget_t* widget) {
 	}
 }
 
+/* The states of a button, its style among them (State="Primary", "Flat"). */
+static uint32_t rvn_button_states(const rvn_button_t* button, const RPainter* painter, int hovered, int pressed) {
+	uint32_t states = rvn_widget_states(&button->base, painter, hovered, pressed);
+	if (button->style == R_BUTTON_PRIMARY) states |= RVN_STATE_PRIMARY;
+	else if (button->style == R_BUTTON_FLAT) states |= RVN_STATE_FLAT;
+	return states;
+}
+
+/* The flat look of Raven, as a part: the colors of the three states blend with the springs. */
+static void rvn_button_raven_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int hovered = (states & RVN_STATE_HOVERED) != 0, pressed = (states & RVN_STATE_PRESSED) != 0;
+	RVN_UNUSED(part);
+	RVN_UNUSED(context);
+	look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+	if (states & RVN_STATE_PRIMARY) {
+		look->background = rvn_widget_color(widget, pressed ? R_COLOR_ACCENT_PRESSED : hovered ? R_COLOR_ACCENT_HOVERED : R_COLOR_ACCENT);
+		if (states & RVN_STATE_DISABLED) look->background = rvn_color_fade(look->background, 0.4f);
+		else look->foreground = rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+	} else if (states & RVN_STATE_FLAT) {
+		look->background = pressed ? rvn_widget_color(widget, R_COLOR_CONTROL_PRESSED) :
+			hovered ? rvn_widget_color(widget, R_COLOR_CONTROL_HOVERED) : (rvn_widget_color(widget, R_COLOR_CONTROL_HOVERED) & 0x00FFFFFFu);
+	} else {
+		look->background = rvn_widget_color(widget, pressed ? R_COLOR_CONTROL_PRESSED : hovered ? R_COLOR_CONTROL_HOVERED : R_COLOR_CONTROL);
+		look->border = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
+		look->border_width = rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH);
+		if (states & RVN_STATE_DISABLED) {
+			look->background = rvn_color_fade(look->background, 0.5f);
+			look->border = rvn_color_fade(look->border, 0.5f);
+		}
+	}
+}
+
 static void rvn_button_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_button_t* button = (rvn_button_t*)widget;
 	rvn_rect_t rect = rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
 	float radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
 	int pressed = (widget->flags & RVN_WF_PRESSED) && button->armed;
 	int hovered = (widget->flags & RVN_WF_HOVERED) && painter->enabled;
-	rvn_color_t fill, outline = 0;
+	uint32_t states = rvn_button_states(button, painter, hovered, pressed);
+	rvn_part_look_t look;
 	float hover, press;
 
 	/* a button is soft: it flattens under the finger and springs back past its shape */
 	hover = rvn_widget_hover(widget, painter, hovered);
 	press = rvn_widget_press(widget, painter, pressed);
 	rvn_widget_squash(widget, press, rvn_widget_glass(widget) ? 0.13f : 0.09f);
+
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/* the platforms: no squash, the colors fade from state to state; the text follows the look */
+		rvn_part_look_eased(widget, RVN_PART_BODY, states, hover, press, rvn_platform_button_look, NULL, &look);
+		rvn_paint_part(painter, rect, &look);
+		if (rvn_color_a(look.foreground) && painter->enabled) painter->text_color = look.foreground;
+		return;
+	}
 
 	if (rvn_widget_glass(widget)) {
 		/* a capsule of glass that lights up under the pointer */
@@ -77,27 +118,11 @@ static void rvn_button_paint(rvn_widget_t* widget, RPainter* painter) {
 	}
 
 	/* flat themes: the colors of the three states blend with the same springs */
-	hover = rvn_clampf(hover, 0.0f, 1.0f);
-	press = rvn_clampf(press, 0.0f, 1.0f);
-	if (button->style == R_BUTTON_PRIMARY) {
-		fill = rvn_color_mix(rvn_color_mix(rvn_widget_color(widget, R_COLOR_ACCENT), rvn_widget_color(widget, R_COLOR_ACCENT_HOVERED), hover),
-			rvn_widget_color(widget, R_COLOR_ACCENT_PRESSED), press);
-		if (!painter->enabled) fill = rvn_color_fade(fill, 0.4f);
-		/* the content of a primary button is drawn in the accent text color */
-		if (painter->enabled) painter->text_color = rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
-	} else if (button->style == R_BUTTON_FLAT) {
-		fill = rvn_color_mix(rvn_color_fade(rvn_widget_color(widget, R_COLOR_CONTROL_HOVERED), hover),
-			rvn_widget_color(widget, R_COLOR_CONTROL_PRESSED), press);
-	} else {
-		fill = rvn_color_mix(rvn_color_mix(rvn_widget_color(widget, R_COLOR_CONTROL), rvn_widget_color(widget, R_COLOR_CONTROL_HOVERED), hover),
-			rvn_widget_color(widget, R_COLOR_CONTROL_PRESSED), press);
-		outline = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
-		if (!painter->enabled) {
-			fill = rvn_color_fade(fill, 0.5f);
-			outline = rvn_color_fade(outline, 0.5f);
-		}
-	}
-	rvn_paint_box(painter, rect, radius, fill, outline ? rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH) : 0.0f, outline);
+	rvn_part_look_eased(widget, RVN_PART_BODY, states, hover, press, rvn_button_raven_look, NULL, &look);
+	rvn_paint_part(painter, rect, &look);
+	/* the content of a primary button is drawn in the accent text color (or the one a style gives) */
+	if (rvn_color_a(look.foreground) && painter->enabled) painter->text_color = look.foreground;
+	RVN_UNUSED(radius);
 }
 
 static void rvn_button_paint_overlay(rvn_widget_t* widget, RPainter* painter) {
@@ -106,8 +131,8 @@ static void rvn_button_paint_overlay(rvn_widget_t* widget, RPainter* painter) {
 
 static void rvn_button_click(rvn_widget_t* widget) {
 	rvn_button_t* button = (rvn_button_t*)widget;
-	/* the release throws the button past its shape: it wobbles once before settling */
-	rvn_spring_kick(&widget->press, -11.0f);
+	/* the release throws the button past its shape: it wobbles once before settling (not on the platforms) */
+	if (rvn_widget_springy(widget)) rvn_spring_kick(&widget->press, -11.0f);
 	if (button->callback) button->callback(widget->id, button->user_data);
 	if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
 }

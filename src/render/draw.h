@@ -99,6 +99,8 @@ struct RPainter {
 	float dt;
 	/** R_TRUE in a right-to-left part of the window: texts that start on the left start on the right. */
 	int rtl;
+	/** R_TRUE while painting a widget whose look does not bounce (the platforms): bouncy springs settle without overshoot. */
+	int calm;
 };
 
 /* ---------------------------------------------------------------------------

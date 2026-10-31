@@ -28,7 +28,10 @@ static void rvn_text_input_destroy(rvn_widget_t* widget) {
 }
 
 static rvn_rect_t rvn_text_input_area(const rvn_widget_t* widget) {
-	float px = rvn_widget_metric(widget, R_METRIC_PADDING_X) * 0.7f;
+	/* (Windows: the text starts 10 from the edge) */
+	float px = rvn_widget_family(widget) == RVN_FAMILY_WINDOWS ? rvn_widget_metric(widget, R_METRIC_PADDING_X) - 1.0f :
+		rvn_widget_family(widget) == RVN_FAMILY_MACOS ? 5.0f : rvn_widget_family(widget) == RVN_FAMILY_GNOME ? 9.0f :
+		rvn_widget_metric(widget, R_METRIC_PADDING_X) * 0.7f;
 	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f), widget->rect.h);
 }
 
@@ -48,7 +51,19 @@ static void rvn_text_input_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_color_t outline = rvn_color_mix(rvn_widget_color(widget, R_COLOR_BORDER), rvn_widget_color(widget, R_COLOR_FOCUS), lit);
 
 	if (!painter->enabled) fill = rvn_color_fade(fill, 0.5f);
-	if (rvn_widget_glass(widget)) {
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/*
+		 * a field of a platform: on Windows the bottom line darkens, and turns
+		 * to the accent while typing; on GNOME a ring of the accent inside it,
+		 * on macOS a ring around it
+		 */
+		int hovered = (widget->flags & RVN_WF_HOVERED) && painter->enabled;
+		rvn_part_look_t look;
+		rvn_part_look_eased(widget, RVN_PART_BODY, rvn_widget_states(widget, painter, hovered, R_FALSE),
+			rvn_widget_hover(widget, painter, hovered), 0.0f, rvn_platform_field_look, NULL, &look);
+		rvn_paint_part(painter, rect, &look);
+		rvn_platform_paint_field_focus(painter, widget, rect, lit, look.radius);
+	} else if (rvn_widget_glass(widget)) {
 		/* a field of darker glass; the focus is a ring of the accent color */
 		float radius = rvn_control_radius(widget, rect.h);
 		rvn_paint_surface(painter, widget, rect, radius, RVN_SURFACE_INPUT, 0.0f, 0.0f);
@@ -58,8 +73,14 @@ static void rvn_text_input_paint(rvn_widget_t* widget, RPainter* painter) {
 				radius + away, 0, 1.5f, rvn_color_fade(rvn_widget_color(widget, R_COLOR_FOCUS), lit));
 		}
 	} else {
-		rvn_paint_box(painter, rect, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), fill,
-			rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH), outline);
+		rvn_part_look_t look;
+		rvn_part_look_clear(&look);
+		look.background = fill;
+		look.border = outline;
+		look.border_width = rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH);
+		look.radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+		rvn_part_apply_styles(widget, RVN_PART_BODY, rvn_widget_states(widget, painter, (widget->flags & RVN_WF_HOVERED) != 0, R_FALSE), &look);
+		rvn_paint_part(painter, rect, &look);
 		if (lit > 0.01f && lit < 0.99f) {
 			float away = (1.0f - focus) * 4.0f;
 			rvn_paint_box(painter, rvn_rect(rect.x - away, rect.y - away, rect.w + away * 2.0f, rect.h + away * 2.0f),
@@ -67,12 +88,13 @@ static void rvn_text_input_paint(rvn_widget_t* widget, RPainter* painter) {
 				rvn_color_fade(rvn_widget_color(widget, R_COLOR_FOCUS), lit * (1.0f - lit) * 2.0f));
 		}
 	}
-	if (input->edit.length == 0 && input->placeholder && !focused) {
+	if (input->edit.length == 0 && input->placeholder && (!focused || rvn_widget_family(widget) != RVN_FAMILY_RAVEN)) {
 		rvn_paint_push_clip(painter, area);
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), area, 0.0f, input->placeholder, -1,
 			rvn_widget_color(widget, R_COLOR_TEXT_PLACEHOLDER));
 		rvn_paint_pop_clip(painter);
-		return;
+		/* (Windows keeps the placeholder while the caret blinks in the empty field) */
+		if (!focused) return;
 	}
 	rvn_textedit_paint(&input->edit, widget, painter, area, R_INVALID_ID, 0.0f,
 		rvn_widget_text_color(widget, painter), focused);

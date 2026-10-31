@@ -1,23 +1,34 @@
 /**
  * Raven
- * raven_style.h : themes (colors, metrics, materials, styles, theme files).
+ * raven_style.h : looks and themes (colors, metrics, materials, styles,
+ * theme files).
  *
- * Every widget reads its colors and sizes from a theme. A value is looked for
- * in this order:
+ * A look is how every widget is drawn: the shapes of the controls, how they
+ * show their states, how they move, and the colors, sizes and font that go
+ * with them. Raven has its own looks (flat, glass, high contrast) and looks
+ * that imitate the platforms (Windows 11, macOS, GNOME); Rlook_set picks the
+ * one of the application.
+ *
+ * A theme is laid over the look: a file that changes colors, sizes and the
+ * styles of some widgets (see docs/THEMES.md). A theme file that names no
+ * look follows the look in use.
+ *
+ * Every widget reads its colors and sizes from its theme. A value is looked
+ * for in this order:
  *
  *   1. the widget itself   Rwidget_set_color, Rwidget_set_metric, Color.Accent="#f00"
  *   2. the styles          rules of the theme for a type of widget ("Button"),
- *                          for a class (Class="danger"), or for both
+ *                          for a class (Class="danger"), or for both; for a
+ *                          part of a widget ("Thumb") and its states ("Hovered")
  *   3. the theme           the theme of the application, or the one given to
  *                          an ancestor of the widget (Rwidget_set_theme,
  *                          Theme="Night"): a part of a window can have its own
  *
- * A theme is one of the four built-in ones, or a file (see docs/THEMES.md):
- *
- *   <Theme Name="Night" Base="GlassDark" Accent="#FF9F0A">
- *       <Colors Panel="#101018B0" Text="#FFF4E0"/>
- *       <Metrics CornerRadius="14" ControlHeight="34"/>
+ *   <Theme Name="Night" Accent="#FF9F0A">
+ *       <Colors Panel="#101018" Text="#FFF4E0"/>
+ *       <Metrics CornerRadius="6" ControlHeight="34"/>
  *       <Style Widget="Button" Class="danger" Accent="#FF453A"/>
+ *       <Style Widget="Slider" Part="Thumb" State="Hovered" Background="#FFB340"/>
  *   </Theme>
  */
 
@@ -27,6 +38,66 @@
 #include "raven_core.h"
 
 
+/**
+ * The looks. Each one comes dark and light.
+ *
+ * Raven's looks are the default; the ones of the platforms imitate them
+ * closely (their shapes, colors, sizes, states and motion), without using
+ * their widgets. The looks of the platforms are opaque: the glass materials
+ * belong to the glass looks of Raven.
+ */
+typedef enum RLook{
+	/** Raven, flat and dense, for tools. The look at start. */
+	R_LOOK_RAVEN_DARK = 0x00E0,
+	R_LOOK_RAVEN_LIGHT,
+	/**
+	 * Raven in glass: controls are capsules of translucent glass that refract
+	 * and blur what is behind them, catch the light on their rim and react
+	 * to the pointer with short animations. Windows get a soft colored
+	 * background unless they have their own (Rwindow_set_background,
+	 * Rwindow_set_clear_color).
+	 */
+	R_LOOK_RAVEN_GLASS_DARK,
+	R_LOOK_RAVEN_GLASS_LIGHT,
+	/**
+	 * High contrast, for low vision: pure black and white, yellow (or blue)
+	 * focus and selection, thick borders, larger text (raven_accessibility.h,
+	 * Raccessibility_set_high_contrast).
+	 */
+	R_LOOK_RAVEN_HIGH_CONTRAST_DARK,
+	R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT,
+	/**
+	 * Windows 11 (Fluent): its controls, its colors, the accent color the
+	 * user chose (on Windows), the Segoe UI font when the system has it, and
+	 * motion without bounce.
+	 */
+	R_LOOK_WINDOWS_DARK,
+	R_LOOK_WINDOWS_LIGHT,
+	/**
+	 * macOS (Sequoia, Aqua): its controls, its colors, the accent color the
+	 * user chose (on macOS), the San Francisco font when the system has it,
+	 * no change under the pointer, and selections in the accent color.
+	 */
+	R_LOOK_MACOS_DARK,
+	R_LOOK_MACOS_LIGHT,
+	/**
+	 * GNOME (libadwaita), the desktop of most Linux distributions: flat
+	 * rounded controls, the accent and the font of the desktop (on Linux).
+	 */
+	R_LOOK_GNOME_DARK,
+	R_LOOK_GNOME_LIGHT,
+	/**
+	 * The look of the platform the application runs on: Windows on Windows,
+	 * macOS on macOS, GNOME on Linux and the other systems.
+	 */
+	R_LOOK_NATIVE_DARK,
+	R_LOOK_NATIVE_LIGHT
+}RLook;
+
+/**
+ * @deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is
+ * R_LOOK_RAVEN_DARK and so on, and Rtheme_apply is Rlook_set.
+ */
 typedef enum RTheme{
 	/** Flat, dense themes for tools. */
 	R_THEME_DARK = 0x00E0,
@@ -181,11 +252,26 @@ typedef enum RMetric{
 extern "C" {
 #endif
 
+	/* -----------------------------------------------------------------------
+	 *  Looks
+	 * --------------------------------------------------------------------- */
+
 	/**
-	 * @brief Switches to a built-in theme: replaces every theme color and
-	 * metric. Colors and metrics changed with Rtheme_set_color and
-	 * Rtheme_set_metric are lost; per-widget overrides are kept.
+	 * @brief Changes the look of the application. The theme file in use, if
+	 * it names no look of its own, is laid again over the new one; colors
+	 * and metrics changed with Rtheme_set_... are lost; what was given to
+	 * widgets (Rwidget_set_color...) is kept.
+	 *
+	 *   Rlook_set(R_LOOK_NATIVE_LIGHT);   the look of the platform, light
+	 *
+	 * Theme files that name no look (no Look attribute) follow it too, so a
+	 * part of a window given one (Theme="paper.xml") changes with it.
 	 */
+	RAVEN_API void Rlook_set(RLook look);
+	/** @brief The look given to Rlook_set (R_LOOK_RAVEN_DARK at start). */
+	RAVEN_API RLook Rlook_get(void);
+
+	/** @deprecated Rlook_set: a built-in theme is a look of Raven. */
 	RAVEN_API void Rtheme_apply(RTheme theme);
 
 	RAVEN_API void Rtheme_set_color(RColorRole role, float r, float g, float b, float a);
@@ -268,8 +354,10 @@ extern "C" {
 	RAVEN_API const char* Rtheme_load_from_memory(const char* xml, size_t size);
 
 	/**
-	 * @brief Makes a named theme the theme of the application: "Dark",
-	 * "Light", "GlassDark", "GlassLight", or a theme given by Rtheme_load.
+	 * @brief Makes a named theme the theme of the application: a theme
+	 * given by Rtheme_load (laid over the look in use when it names no
+	 * look), or the name of a look ("WindowsLight", "RavenDark"; the old
+	 * "Dark", "Light", "GlassDark"... too), which is then Rlook_set.
 	 * Values changed with Rtheme_set_... are lost.
 	 * @return R_FALSE, after reporting an error, when no theme has that name.
 	 */

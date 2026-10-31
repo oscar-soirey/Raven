@@ -34,6 +34,7 @@ static void rvn_theme_free_matches(rvn_theme_t* theme) {
 	uint32_t i;
 	for (i = 0; i < theme->match_count; i++) {
 		rvn_free(theme->matches[i]->classes);
+		rvn_free(theme->matches[i]->part_rules);
 		rvn_free(theme->matches[i]);
 	}
 	rvn_free(theme->matches);
@@ -56,6 +57,7 @@ void rvn_theme_clear(rvn_theme_t* theme) {
 	rvn_theme_free_rules(theme);
 	rvn_free(theme->name);
 	rvn_free(theme->path);
+	rvn_free(theme->source);
 	memset(theme, 0, sizeof(*theme));
 }
 
@@ -66,7 +68,14 @@ void rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source) {
 	if (destination == source) return;
 	rvn_theme_free_matches(destination);
 	rvn_theme_free_rules(destination);
+	rvn_free(destination->source);
 	*destination = *source;
+	destination->source = NULL;
+	if (source->source) {
+		destination->source = (char*)rvn_alloc(source->source_size + 1);
+		memcpy(destination->source, source->source, source->source_size);
+		destination->source[source->source_size] = '\0';
+	}
 	destination->name = name;
 	destination->path = path;
 	destination->matches = NULL;
@@ -130,6 +139,15 @@ rvn_theme_t* rvn_theme_find(const char* name) {
 			return theme;
 		}
 	}
+	/* and so are the looks, by their names ("WindowsDark"...) */
+	{
+		RLook look;
+		if (rvn_look_by_name(name, &look)) {
+			rvn_theme_t* theme = rvn_theme_add(name);
+			rvn_theme_build_look(theme, look);
+			return theme;
+		}
+	}
 	return NULL;
 }
 
@@ -169,7 +187,9 @@ static void rvn_theme_refresh_twin(void) {
 		rvn_theme_copy(&g_dark_twin, theme);
 		return;
 	}
-	rvn_theme_build(&g_dark_twin, theme->glass ? R_THEME_GLASS_DARK : R_THEME_DARK);
+	/* (the dark look of the same family; a glass look stays glass) */
+	rvn_theme_build_look(&g_dark_twin, theme->family == RVN_FAMILY_RAVEN ? (theme->glass ? R_LOOK_RAVEN_GLASS_DARK : R_LOOK_RAVEN_DARK) :
+		rvn_look_dark_counterpart(theme->look));
 	for (i = 0; i < RVN_COUNT_OF(kept); i++) g_dark_twin.colors[RVN_COLOR_INDEX(kept[i])] = theme->colors[RVN_COLOR_INDEX(kept[i])];
 	memcpy(g_dark_twin.metrics, theme->metrics, sizeof(g_dark_twin.metrics));
 	g_dark_twin.material = theme->material;
@@ -189,6 +209,18 @@ void rvn_theme_changed(void) {
 	rvn_invalidate_all_windows();
 }
 
+/*
+ * The theme in use was just replaced: when it names no font, it keeps the
+ * one that was in use, unless that one came with the look (Segoe UI) and the
+ * new theme is not of a platform: the font of Raven comes back.
+ */
+static void rvn_theme_settle_font(Rid previous, int previous_from_look) {
+	if (g_rvn.theme.font != R_INVALID_ID && rvn_pool_get(&g_rvn.fonts, g_rvn.theme.font)) return;
+	g_rvn.theme.look_font = R_FALSE;
+	g_rvn.theme.font = previous_from_look ? g_rvn.default_font : previous;
+	if (g_rvn.theme.font == R_INVALID_ID || !rvn_pool_get(&g_rvn.fonts, g_rvn.theme.font)) g_rvn.theme.font = g_rvn.default_font;
+}
+
 static float rvn_color_luminance(rvn_color_t color) {
 	float r, g, b, a;
 	rvn_color_to_floats(color, &r, &g, &b, &a);
@@ -202,6 +234,54 @@ void rvn_theme_set_accent(rvn_theme_t* theme, rvn_color_t accent) {
 	uint32_t selection_alpha = rvn_color_a(colors[RVN_COLOR_INDEX(R_COLOR_SELECTION)]);
 	uint32_t focus_alpha = rvn_color_a(colors[RVN_COLOR_INDEX(R_COLOR_FOCUS)]);
 	int switch_follows = colors[RVN_COLOR_INDEX(R_COLOR_SWITCH)] == colors[RVN_COLOR_INDEX(R_COLOR_ACCENT)];
+
+	if (theme->family == RVN_FAMILY_MACOS) {
+		/*
+		 * macOS: no change under the pointer, darker (lighter in the dark)
+		 * when pressed; the focus ring and the selection of text are the
+		 * accent, faded; links are the accent.
+		 */
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT)] = opaque;
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_HOVERED)] = opaque;
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_PRESSED)] = theme->dark ? rvn_color_mix(opaque, white, 0.2f) : rvn_color_mix(opaque, black, 0.2f);
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_TEXT)] = rvn_color_luminance(opaque) > 0.62f ? rvn_hex(0x000000, 217) : white;
+		colors[RVN_COLOR_INDEX(R_COLOR_FOCUS)] = rvn_color_fade(opaque, 0.5f);
+		colors[RVN_COLOR_INDEX(R_COLOR_SELECTION)] = theme->dark ? rvn_color_mix(opaque, rvn_hex(0x1E1E1E, 255), 0.55f) : rvn_color_mix(opaque, white, 0.7f);
+		colors[RVN_COLOR_INDEX(R_COLOR_LINK)] = theme->dark ? rvn_color_mix(opaque, white, 0.2f) : rvn_color_mix(opaque, black, 0.12f);
+		if (switch_follows) colors[RVN_COLOR_INDEX(R_COLOR_SWITCH)] = opaque;
+		return;
+	}
+	if (theme->family == RVN_FAMILY_GNOME) {
+		/*
+		 * GNOME: the accent lightened under the pointer, darkened pressed;
+		 * the focus ring and the selection, the accent seen through; the
+		 * text in the accent (links) a little darker, or lighter in the dark.
+		 */
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT)] = opaque;
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_HOVERED)] = rvn_color_mix(opaque, white, 0.1f);
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_PRESSED)] = rvn_color_mix(opaque, black, 0.2f);
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_TEXT)] = rvn_color_luminance(opaque) > 0.62f ? rvn_hex(0x000006, 204) : white;
+		colors[RVN_COLOR_INDEX(R_COLOR_LINK)] = theme->dark ? rvn_color_mix(opaque, white, 0.35f) : rvn_color_mix(opaque, black, 0.15f);
+		colors[RVN_COLOR_INDEX(R_COLOR_FOCUS)] = rvn_color_fade(colors[RVN_COLOR_INDEX(R_COLOR_LINK)], 0.5f);
+		colors[RVN_COLOR_INDEX(R_COLOR_SELECTION)] = rvn_color_fade(opaque, 0.25f);
+		if (switch_follows) colors[RVN_COLOR_INDEX(R_COLOR_SWITCH)] = opaque;
+		return;
+	}
+	if (theme->family == RVN_FAMILY_WINDOWS) {
+		/*
+		 * Windows: the shades are the accent seen through (90 %, 80 %), the
+		 * focus stays black or white, the selection of text is the accent
+		 * faded, the links are the accent pushed toward the text.
+		 */
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT)] = opaque;
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_HOVERED)] = rvn_color_fade(opaque, 0.9f);
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_PRESSED)] = rvn_color_fade(opaque, 0.8f);
+		colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_TEXT)] = rvn_color_luminance(opaque) > 0.45f ? black : white;
+		colors[RVN_COLOR_INDEX(R_COLOR_SELECTION)] = rvn_color_fade(opaque, theme->dark ? 0.32f : 0.36f);
+		colors[RVN_COLOR_INDEX(R_COLOR_LINK)] = theme->dark ? rvn_color_mix(opaque, white, 0.35f) : rvn_color_mix(opaque, black, 0.3f);
+		if (switch_follows) colors[RVN_COLOR_INDEX(R_COLOR_SWITCH)] = opaque;
+		return;
+	}
 
 	colors[RVN_COLOR_INDEX(R_COLOR_ACCENT)] = opaque;
 	colors[RVN_COLOR_INDEX(R_COLOR_ACCENT_HOVERED)] = rvn_color_mix(opaque, white, 0.18f);
@@ -253,6 +333,16 @@ static void rvn_style_overlay(rvn_style_match_t* match, const rvn_style_rule_t* 
 	if (rule->material) match->material = rule->material;
 }
 
+static int rvn_rule_weight(const rvn_style_rule_t* rule) {
+	int weight = (rule->type ? 1 : 0) + (rule->cls ? 2 : 0);
+	uint32_t states = rule->states;
+	while (states) {
+		weight += 2;
+		states &= states - 1;
+	}
+	return weight;
+}
+
 /* What the styles of a theme give to a type of widget with these classes. Called with the style mutex held. */
 static const rvn_style_match_t* rvn_theme_match(rvn_theme_t* theme, int type, const char* classes) {
 	rvn_style_match_t* match;
@@ -265,7 +355,7 @@ static const rvn_style_match_t* rvn_theme_match(rvn_theme_t* theme, int type, co
 		match = theme->matches[i];
 		if (match->type != type) continue;
 		if ((!classes && !match->classes) || (classes && match->classes && strcmp(classes, match->classes) == 0)) {
-			return (match->style.color_mask || match->style.metric_mask || match->material) ? match : NULL;
+			return (match->style.color_mask || match->style.metric_mask || match->material || match->part_rule_count) ? match : NULL;
 		}
 	}
 	match = (rvn_style_match_t*)rvn_calloc(sizeof(rvn_style_match_t));
@@ -279,12 +369,37 @@ static const rvn_style_match_t* rvn_theme_match(rvn_theme_t* theme, int type, co
 			if (specificity != pass) continue;
 			if (rule->type && rule->type != type) continue;
 			if (rule->cls && !rvn_classes_have(classes, rule->cls)) continue;
-			rvn_style_overlay(match, rule);
+			/* (a rule for a state is only about parts) */
+			if (!rule->states) rvn_style_overlay(match, rule);
+		}
+	}
+	/*
+	 * The rules for parts and states, kept in the order they apply: a type
+	 * counts 1, a class or a state 2 each (as in CSS: a state is as specific
+	 * as a class); between equals, the last one written wins.
+	 */
+	for (i = 0; i < theme->rule_count; i++) {
+		const rvn_style_rule_t* rule = &theme->rules[i];
+		if (!rule->look_mask) continue;
+		if (rule->type && rule->type != type) continue;
+		if (rule->cls && !rvn_classes_have(classes, rule->cls)) continue;
+		match->part_rules = (uint32_t*)rvn_realloc(match->part_rules, sizeof(uint32_t) * (match->part_rule_count + 1));
+		match->part_rules[match->part_rule_count++] = i;
+	}
+	{
+		uint32_t a, b;
+		for (a = 1; a < match->part_rule_count; a++) {
+			uint32_t index = match->part_rules[a];
+			int weight = rvn_rule_weight(&theme->rules[index]);
+			for (b = a; b > 0 && rvn_rule_weight(&theme->rules[match->part_rules[b - 1]]) > weight; b--) {
+				match->part_rules[b] = match->part_rules[b - 1];
+			}
+			match->part_rules[b] = index;
 		}
 	}
 	RVN_ARRAY_RESERVE(theme->matches, theme->match_cap, theme->match_count + 1);
 	theme->matches[theme->match_count++] = match;
-	return (match->style.color_mask || match->style.metric_mask || match->material) ? match : NULL;
+	return (match->style.color_mask || match->style.metric_mask || match->material || match->part_rule_count) ? match : NULL;
 }
 
 void rvn_widget_restyle(rvn_widget_t* widget) {
@@ -295,8 +410,8 @@ void rvn_widget_restyle(rvn_widget_t* widget) {
 	rvn_mutex_unlock(&g_rvn.style_mutex);
 }
 
-/* The rule of a theme for a type and a class, created when missing. `widget` and `cls` may be NULL. */
-static rvn_style_rule_t* rvn_theme_rule(rvn_theme_t* theme, const char* widget, const char* cls, const char* function) {
+/* The rule of a theme for a type, a class, a part and states, created when missing. `widget` and `cls` may be NULL. */
+static rvn_style_rule_t* rvn_theme_part_rule(rvn_theme_t* theme, const char* widget, const char* cls, int part, uint32_t states, const char* function) {
 	int type = 0;
 	uint32_t i;
 	rvn_style_rule_t* rule;
@@ -312,7 +427,7 @@ static rvn_style_rule_t* rvn_theme_rule(rvn_theme_t* theme, const char* widget, 
 	}
 	for (i = 0; i < theme->rule_count; i++) {
 		rule = &theme->rules[i];
-		if (rule->type != type) continue;
+		if (rule->type != type || rule->part != part || rule->states != states) continue;
 		if ((!cls && !rule->cls) || (cls && rule->cls && strcmp(cls, rule->cls) == 0)) return rule;
 	}
 	RVN_ARRAY_RESERVE(theme->rules, theme->rule_cap, theme->rule_count + 1);
@@ -320,7 +435,13 @@ static rvn_style_rule_t* rvn_theme_rule(rvn_theme_t* theme, const char* widget, 
 	memset(rule, 0, sizeof(*rule));
 	rule->type = type;
 	rule->cls = rvn_strdup(cls);
+	rule->part = part;
+	rule->states = states;
 	return rule;
+}
+
+static rvn_style_rule_t* rvn_theme_rule(rvn_theme_t* theme, const char* widget, const char* cls, const char* function) {
+	return rvn_theme_part_rule(theme, widget, cls, RVN_PART_BODY, 0, function);
 }
 
 /* ---------------------------------------------------------------------------
@@ -379,8 +500,15 @@ typedef struct rvn_theme_reader_t {
 	int problems;
 } rvn_theme_reader_t;
 
+/* R_TRUE while theme files are read again for a new look: what was wrong in them was said when they were loaded. */
+static int g_theme_quiet;
+
 static void rvn_theme_problem(rvn_theme_reader_t* reader, const rvn_xml_node_t* node, const char* format, const char* a, const char* b) {
 	char message[200];
+	if (g_theme_quiet) {
+		reader->problems++;
+		return;
+	}
 	snprintf(message, sizeof(message), format, a ? a : "", b ? b : "");
 	rvn_error(R_ERROR_XML, R_SEVERITY_WARNING, "theme %s:%d: %s", reader->source, node->line, message);
 	reader->problems++;
@@ -448,20 +576,66 @@ static void rvn_theme_take(rvn_theme_t* theme, const rvn_style_t* style) {
 	}
 }
 
+/* A property of a part ("Background", "Foreground"...) into a rule. R_FALSE when the name is none. */
+static int rvn_theme_read_part_value(rvn_theme_reader_t* reader, const rvn_xml_node_t* node, rvn_style_rule_t* rule,
+	const char* name, const char* value) {
+	uint32_t bit = 0;
+	int bad = R_FALSE;
+	/* (the text of a part is its foreground) */
+	if (rvn_stricmp(name, "Text") == 0) name = "Foreground";
+	if (!rvn_part_property(name, value, &rule->look, &bit, &bad)) return R_FALSE;
+	if (bad) rvn_theme_problem(reader, node, "'%s' is not a valid value for %s", value, name);
+	else rule->look_mask |= bit;
+	return R_TRUE;
+}
+
+/*
+ * <Style Widget="Slider" Class="big" Part="Thumb" State="Hovered" Background="#fff"/>
+ *
+ * Without Part nor State, a style gives colors and metrics to the widgets it
+ * names (Accent, CornerRadius...), and properties to the widget itself
+ * (Background, Foreground, BorderColor...). With a Part or a State, it only
+ * gives properties to that part in those states.
+ */
 static void rvn_theme_read_style(rvn_theme_reader_t* reader, const rvn_xml_node_t* node) {
 	const char* widget = rvn_xml_attribute(node, "Widget");
 	const char* cls = rvn_xml_attribute(node, "Class");
+	const char* part_name = rvn_xml_attribute(node, "Part");
+	const char* state_text = rvn_xml_attribute(node, "State");
 	const rvn_xml_attribute_t* attribute;
 	rvn_style_rule_t* rule;
+	int part = RVN_PART_BODY, about_part;
+	uint32_t states = 0;
+	char bad[40];
+
 	if (widget && widget[0] && !rvn_widget_class_by_name(widget)) {
 		rvn_theme_problem(reader, node, "<Style Widget=\"%s\">: no widget has that name%s", widget, "");
 		return;
 	}
-	rule = rvn_theme_rule(reader->theme, widget, cls, "theme");
+	if (part_name && part_name[0] && !rvn_part_by_name(part_name, &part)) {
+		rvn_theme_problem(reader, node, "<Style Part=\"%s\">: no part has that name%s", part_name, "");
+		return;
+	}
+	if (state_text && !rvn_states_parse(state_text, &states, bad, sizeof(bad))) {
+		rvn_theme_problem(reader, node, "<Style State=\"%s\">: '%s' is not a state", state_text, bad);
+		return;
+	}
+	about_part = part != RVN_PART_BODY || states != 0;
+	rule = rvn_theme_part_rule(reader->theme, widget, cls, part, states, "theme");
 	if (!rule) return;
 	for (attribute = node->attributes; attribute; attribute = attribute->next) {
-		if (rvn_stricmp(attribute->name, "Widget") == 0 || rvn_stricmp(attribute->name, "Class") == 0) continue;
-		if (rvn_stricmp(attribute->name, "Material") == 0) {
+		const char* name = attribute->name;
+		if (rvn_stricmp(name, "Widget") == 0 || rvn_stricmp(name, "Class") == 0 ||
+			rvn_stricmp(name, "Part") == 0 || rvn_stricmp(name, "State") == 0) continue;
+		if (about_part) {
+			if (!rvn_theme_read_part_value(reader, node, rule, name, attribute->value)) {
+				rvn_theme_problem(reader, node, "<Style Part / State>: '%s' is not a property of a part "
+					"(Background, Foreground, BorderColor, BorderTopColor, BorderBottomColor, BorderWidth, BorderBottomWidth, "
+					"CornerRadius, Size, Opacity, ShadowColor, ShadowSize)%s", name, "");
+			}
+			continue;
+		}
+		if (rvn_stricmp(name, "Material") == 0) {
 			RMaterial material;
 			if (!rvn_parse_material(attribute->value, &material)) {
 				rvn_theme_problem(reader, node, "'%s' is not a material%s", attribute->value, "");
@@ -470,9 +644,10 @@ static void rvn_theme_read_style(rvn_theme_reader_t* reader, const rvn_xml_node_
 			}
 			continue;
 		}
-		if (!rvn_theme_read_value(reader, node, &rule->style, attribute->name, attribute->value, R_TRUE, R_TRUE)) {
-			rvn_theme_problem(reader, node, "<Style>: '%s' is neither a color nor a metric%s", attribute->name, "");
-		}
+		/* the colors and metrics first ("Border", "CornerRadius" keep their meaning of Raven 0.2) */
+		if (rvn_theme_read_value(reader, node, &rule->style, name, attribute->value, R_TRUE, R_TRUE)) continue;
+		if (rvn_theme_read_part_value(reader, node, rule, name, attribute->value)) continue;
+		rvn_theme_problem(reader, node, "<Style>: '%s' is neither a color, a metric nor a property of a part%s", name, "");
 	}
 }
 
@@ -545,16 +720,52 @@ static int rvn_theme_read(rvn_theme_t* theme, const char* text, size_t size, con
 		return R_FALSE;
 	}
 
-	/* what it starts from */
-	value = rvn_xml_attribute(root, "Base");
+	/*
+	 * What it starts from: the look it names (Look="WindowsDark"), the theme
+	 * it names (Base="Ember", or a look by its old name: Base="GlassDark"),
+	 * else the look in use, which it then follows (it is read again over
+	 * each new look).
+	 */
 	{
-		const rvn_theme_t* base = rvn_theme_find(value && value[0] ? value : "Dark");
-		if (!base) {
-			rvn_theme_problem(&reader, root, "Base=\"%s\": no theme has that name; starting from Dark%s", value, "");
-			base = rvn_theme_find("Dark");
+		const char* look_name = rvn_xml_attribute(root, "Look");
+		const char* base_name = rvn_xml_attribute(root, "Base");
+		RLook look = rvn_look_valid(g_rvn.look) ? g_rvn.look : R_LOOK_RAVEN_DARK;
+		const rvn_theme_t* base = NULL;
+		int follows = R_FALSE;
+		if (look_name && look_name[0]) {
+			if (!rvn_look_by_name(look_name, &look)) {
+				rvn_theme_problem(&reader, root, "Look=\"%s\": no look has that name; the look in use is kept%s", look_name, "");
+				look = rvn_look_valid(g_rvn.look) ? g_rvn.look : R_LOOK_RAVEN_DARK;
+				follows = R_TRUE;
+			}
+		} else if (base_name && base_name[0]) {
+			if (!rvn_look_by_name(base_name, &look)) {
+				base = rvn_theme_find(base_name);
+				if (!base) {
+					rvn_theme_problem(&reader, root, "Base=\"%s\": no theme has that name; starting from the look in use%s", base_name, "");
+					look = rvn_look_valid(g_rvn.look) ? g_rvn.look : R_LOOK_RAVEN_DARK;
+					follows = R_TRUE;
+				}
+			}
+		} else {
+			follows = R_TRUE;
 		}
-		rvn_theme_copy(theme, base);
-		theme->font = R_INVALID_ID;
+		if (base) {
+			rvn_theme_copy(theme, base);
+			follows = base->follows_look;
+		} else {
+			rvn_theme_build_look(theme, look);
+		}
+		/* (a theme names its font itself; the one of a look comes with the look) */
+		if (!theme->look_font) theme->font = R_INVALID_ID;
+		rvn_free(theme->source);
+		theme->source = NULL;
+		theme->source_size = 0;
+		theme->follows_look = follows;
+		if (follows) {
+			theme->source = rvn_strndup(text, size);
+			theme->source_size = size;
+		}
 	}
 
 	/* (fonts and images named in the file are looked for next to it) */
@@ -563,16 +774,26 @@ static int rvn_theme_read(rvn_theme_t* theme, const char* text, size_t size, con
 	for (attribute = root->attributes; attribute; attribute = attribute->next) {
 		const char* name = attribute->name;
 		value = attribute->value;
-		if (rvn_stricmp(name, "Name") == 0 || rvn_stricmp(name, "Base") == 0) {
+		if (rvn_stricmp(name, "Name") == 0 || rvn_stricmp(name, "Base") == 0 || rvn_stricmp(name, "Look") == 0) {
 			continue;
 		} else if (rvn_stricmp(name, "Material") == 0) {
 			RMaterial material;
 			if (!rvn_parse_material(value, &material) || material == R_MATERIAL_DEFAULT) {
 				rvn_theme_problem(&reader, root, "'%s' is not a material%s", value, "");
+			} else if (theme->family != RVN_FAMILY_RAVEN && material != R_MATERIAL_SOLID) {
+				/* (said once: a theme that follows the look is read again at each change) */
+				if (!g_rvn.look_glass_warned) {
+					rvn_theme_problem(&reader, root, "Material=\"%s\": the look %s is opaque; only the looks of Raven are made of glass", value, rvn_look_name(theme->look));
+					g_rvn.look_glass_warned = R_TRUE;
+				}
 			} else {
 				theme->material = material;
 				theme->glass = material != R_MATERIAL_SOLID;
 			}
+		} else if (rvn_stricmp(name, "Motion") == 0) {
+			if (rvn_stricmp(value, "Springy") == 0 || rvn_stricmp(value, "Raven") == 0) theme->motion = RVN_MOTION_SPRINGY;
+			else if (rvn_stricmp(value, "Smooth") == 0 || rvn_stricmp(value, "Native") == 0) theme->motion = RVN_MOTION_SMOOTH;
+			else rvn_theme_problem(&reader, root, "Motion=\"%s\": expected Springy or Smooth%s", value, "");
 		} else if (rvn_stricmp(name, "Dark") == 0) {
 			if (!rvn_parse_bool(value, &flag)) rvn_theme_problem(&reader, root, "Dark=\"%s\": expected true or false%s", value, "");
 			else {
@@ -627,7 +848,7 @@ static int rvn_theme_read(rvn_theme_t* theme, const char* text, size_t size, con
 		}
 	}
 	/* dark or light: said by the file, else read from the color of the text */
-	if (!has_dark && !rvn_xml_attribute(root, "Base")) theme->dark = rvn_color_luminance(theme->colors[RVN_COLOR_INDEX(R_COLOR_TEXT)]) > 0.5f;
+	if (!has_dark && !rvn_xml_attribute(root, "Base") && !rvn_xml_attribute(root, "Look")) theme->dark = rvn_color_luminance(theme->colors[RVN_COLOR_INDEX(R_COLOR_TEXT)]) > 0.5f;
 
 	value = rvn_xml_attribute(root, "Name");
 	if (value && value[0]) {
@@ -657,9 +878,10 @@ static rvn_theme_t* rvn_theme_install(rvn_theme_t* loaded, const char* path) {
 	rvn_theme_t* theme = NULL;
 	uint32_t i;
 	size_t k;
+	RLook look;
 	for (k = 0; k < RVN_COUNT_OF(g_builtin_themes); k++) {
-		if (rvn_stricmp(g_builtin_themes[k].name, loaded->name) == 0) {
-			rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "theme: '%s' is the name of a built-in theme; give the theme another Name", loaded->name);
+		if (rvn_stricmp(g_builtin_themes[k].name, loaded->name) == 0 || rvn_look_by_name(loaded->name, &look)) {
+			rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "theme: '%s' is the name of a built-in theme or of a look; give the theme another Name", loaded->name);
 			rvn_theme_clear(loaded);
 			return NULL;
 		}
@@ -678,11 +900,71 @@ static rvn_theme_t* rvn_theme_install(rvn_theme_t* loaded, const char* path) {
 	/* the theme in use is a copy of it: it follows */
 	if (g_rvn.theme_name && rvn_stricmp(g_rvn.theme_name, theme->name) == 0) {
 		Rid font = g_rvn.theme.font;
+		int look_font = g_rvn.theme.look_font;
 		rvn_theme_copy(&g_rvn.theme, theme);
-		if (g_rvn.theme.font == R_INVALID_ID) g_rvn.theme.font = font;
+		rvn_theme_settle_font(font, look_font);
 	}
 	rvn_theme_changed();
 	return theme;
+}
+
+/*
+ * The theme files that name no look are read again over the look in use.
+ * (In the order they were loaded: one made from another one comes after it.)
+ */
+static void rvn_themes_follow_look(void) {
+	uint32_t i;
+	g_theme_quiet = R_TRUE;
+	for (i = 0; i < g_rvn.theme_count; i++) {
+		rvn_theme_t* theme = g_rvn.themes[i];
+		rvn_theme_t loaded;
+		char* text;
+		char* path;
+		size_t size;
+		if (!theme->follows_look || !theme->source) continue;
+		text = rvn_strndup(theme->source, theme->source_size);
+		size = theme->source_size;
+		path = rvn_strdup(theme->path);
+		memset(&loaded, 0, sizeof(loaded));
+		/* (the address, the name and the path of the theme stay: widgets point to it) */
+		if (rvn_theme_read(&loaded, text, size, path)) rvn_theme_copy(theme, &loaded);
+		rvn_theme_clear(&loaded);
+		rvn_free(text);
+		rvn_free(path);
+	}
+	g_theme_quiet = R_FALSE;
+}
+
+void rvn_look_apply(RLook look, int keep_theme) {
+	Rid font = g_rvn.theme.font;
+	int look_font = g_rvn.theme.look_font;
+	rvn_theme_t* file = NULL;
+	uint32_t i;
+
+	g_rvn.look = look;
+	rvn_themes_follow_look();
+	for (i = 0; keep_theme && i < g_rvn.theme_count && g_rvn.theme_name; i++) {
+		if (rvn_stricmp(g_rvn.themes[i]->name, g_rvn.theme_name) == 0) file = g_rvn.themes[i];
+	}
+	if (file && file->follows_look && file->source) {
+		/* the theme file in use stays, laid over the new look */
+		rvn_theme_copy(&g_rvn.theme, file);
+	} else {
+		/* (named after the look it is: "WindowsLight" for NativeLight on Windows) */
+		RLook resolved = rvn_look_resolve(look);
+		const char* name = rvn_look_old_name(resolved);
+		rvn_theme_build_look(&g_rvn.theme, look);
+		rvn_str_set(&g_rvn.theme_name, name ? name : rvn_look_name(resolved));
+	}
+	rvn_theme_settle_font(font, look_font);
+	/* the looks of the platforms follow the system: no animation when the user asked for none */
+	if (g_rvn.theme.family != RVN_FAMILY_RAVEN && g_rvn.platform && g_rvn.platform->a11y_settings) {
+		RAccessibilitySettings settings;
+		memset(&settings, 0, sizeof(settings));
+		g_rvn.platform->a11y_settings(&settings);
+		if (settings.reduce_motion && !Raccessibility_get_reduce_motion()) Raccessibility_set_reduce_motion(R_TRUE);
+	}
+	rvn_theme_changed();
 }
 
 static rvn_theme_t* rvn_theme_load_file(const char* path) {
@@ -773,6 +1055,20 @@ static void rvn_theme_write_style(rvn_text_t* out, const rvn_style_t* style, int
 	}
 }
 
+/* The properties a rule gives to a part. */
+static void rvn_theme_write_look(rvn_text_t* out, const rvn_style_rule_t* rule) {
+	const rvn_part_look_t* look = &rule->look;
+	const rvn_color_t colors[6] = { look->background, look->foreground, look->border, look->border_top, look->border_bottom, look->shadow_color };
+	const float numbers[6] = { look->border_width, look->border_bottom_width, look->radius, look->size, look->opacity, look->shadow };
+	int i;
+	for (i = 0; i < 6; i++) {
+		if (rule->look_mask & (1u << i)) rvn_theme_write_color(out, rvn_part_property_name(1u << i), colors[i]);
+	}
+	for (i = 0; i < 6; i++) {
+		if (rule->look_mask & (1u << (i + 6))) rvn_text_printf(out, " %s=\"%g\"", rvn_part_property_name(1u << (i + 6)), (double)numbers[i]);
+	}
+}
+
 static const char* rvn_material_name(RMaterial material) {
 	switch (material) {
 		case R_MATERIAL_GLASS: return "Glass";
@@ -786,10 +1082,14 @@ static void rvn_theme_write(const rvn_theme_t* theme, const char* name, rvn_text
 	rvn_style_t all;
 	uint32_t i;
 	size_t k;
-	const char* base = theme->glass ? (theme->dark ? "GlassDark" : "GlassLight") : (theme->dark ? "Dark" : "Light");
+	/* (a theme of the look of Raven names its look by the name of the material it is in) */
+	RLook look = theme->family != RVN_FAMILY_RAVEN ? theme->look :
+		theme->glass ? (theme->dark ? R_LOOK_RAVEN_GLASS_DARK : R_LOOK_RAVEN_GLASS_LIGHT) : (theme->dark ? R_LOOK_RAVEN_DARK : R_LOOK_RAVEN_LIGHT);
+	if (theme->family == RVN_FAMILY_RAVEN && (theme->look == R_LOOK_RAVEN_HIGH_CONTRAST_DARK || theme->look == R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT)) look = theme->look;
 
-	rvn_text_printf(out, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Theme Name=\"%s\" Base=\"%s\" Material=\"%s\" Dark=\"%s\"",
-		name, base, rvn_material_name(theme->material), theme->dark ? "true" : "false");
+	rvn_text_printf(out, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Theme Name=\"%s\" Look=\"%s\" Material=\"%s\" Dark=\"%s\" Motion=\"%s\"",
+		name, rvn_look_name(look), rvn_material_name(theme->material), theme->dark ? "true" : "false",
+		theme->motion == RVN_MOTION_SMOOTH ? "Smooth" : "Springy");
 	if (theme->glass && theme->wallpaper == R_INVALID_ID) rvn_text_add(out, " Wallpaper=\"None\"");
 	rvn_text_add(out, ">\n");
 
@@ -814,12 +1114,19 @@ static void rvn_theme_write(const rvn_theme_t* theme, const char* name, rvn_text
 	for (i = 0; i < theme->rule_count; i++) {
 		const rvn_style_rule_t* rule = &theme->rules[i];
 		const rvn_widget_class_t* cls = rule->type ? rvn_widget_class_by_type((RWidgetType)rule->type) : NULL;
-		if (!rule->style.color_mask && !rule->style.metric_mask && !rule->material) continue;
+		if (!rule->style.color_mask && !rule->style.metric_mask && !rule->material && !rule->look_mask) continue;
 		rvn_text_add(out, "\t<Style");
 		if (cls) rvn_text_printf(out, " Widget=\"%s\"", cls->name);
 		if (rule->cls) rvn_text_printf(out, " Class=\"%s\"", rule->cls);
+		if (rule->part) rvn_text_printf(out, " Part=\"%s\"", rvn_part_name(rule->part));
+		if (rule->states) {
+			rvn_text_add(out, " State=\"");
+			rvn_states_write(rule->states, out);
+			rvn_text_add(out, "\"");
+		}
 		if (rule->material) rvn_text_printf(out, " Material=\"%s\"", rvn_material_name(rule->material));
-		rvn_theme_write_style(out, &rule->style, R_TRUE, R_TRUE, NULL);
+		if (!rule->states) rvn_theme_write_style(out, &rule->style, R_TRUE, R_TRUE, NULL);
+		rvn_theme_write_look(out, rule);
 		rvn_text_add(out, "/>\n");
 	}
 	rvn_text_add(out, "</Theme>\n");
@@ -941,16 +1248,24 @@ const char* Rtheme_load_from_memory(const char* xml, size_t size) {
 int Rtheme_use(const char* name) {
 	rvn_theme_t* theme;
 	Rid font;
+	int look_font;
+	RLook look;
 	RVN_API_GUARD(R_FALSE);
 	theme = rvn_theme_find(name);
 	if (!theme) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtheme_use: no theme is called '%s'", name ? name : "(null)");
 		return R_FALSE;
 	}
+	/* the name of a look ("WindowsDark", "Dark"): that look becomes the one of the application */
+	if (!theme->path && !theme->source && rvn_look_by_name(name, &look)) {
+		rvn_look_apply(look, R_FALSE);
+		return R_TRUE;
+	}
 	font = g_rvn.theme.font;
+	look_font = g_rvn.theme.look_font;
 	rvn_theme_copy(&g_rvn.theme, theme);
 	/* a theme that names no font keeps the one in use */
-	if (g_rvn.theme.font == R_INVALID_ID || !rvn_pool_get(&g_rvn.fonts, g_rvn.theme.font)) g_rvn.theme.font = font;
+	rvn_theme_settle_font(font, look_font);
 	rvn_str_set(&g_rvn.theme_name, theme->name);
 	rvn_theme_changed();
 	return R_TRUE;

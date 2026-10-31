@@ -27,6 +27,8 @@ static struct {
 	float text_scale;
 	int high_contrast;
 	char* theme_before;
+	/* the look before high contrast, given back with the theme */
+	RLook look_before;
 	int focus_always;
 	RColorFilter filter;
 	/* the screen reader: asked to the platform at most once a second */
@@ -38,7 +40,7 @@ static struct {
 	rvn_text_t name, value, description, scratch;
 	float linear[256];
 	int linear_ready;
-} g_a11y = { 1.0f, 0, NULL, 0, R_COLOR_FILTER_NONE, 0, -10.0, 0, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, 0 };
+} g_a11y = { 1.0f, 0, NULL, R_LOOK_RAVEN_DARK, 0, R_COLOR_FILTER_NONE, 0, -10.0, 0, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, 0 };
 
 /* ---------------------------------------------------------------------------
  *  Settings read by the rest of the library
@@ -994,11 +996,15 @@ void Raccessibility_set_high_contrast(int enabled) {
 		const char* current = Rtheme_get_name();
 		int dark = Rtheme_is_dark();
 		rvn_str_set(&g_a11y.theme_before, current ? current : "Dark");
+		g_a11y.look_before = Rlook_get();
 		g_a11y.high_contrast = 1;
-		Rtheme_apply(dark ? R_THEME_HIGH_CONTRAST_DARK : R_THEME_HIGH_CONTRAST_LIGHT);
+		/* (the theme file in use goes: high contrast is a whole look) */
+		rvn_look_apply(dark ? R_LOOK_RAVEN_HIGH_CONTRAST_DARK : R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT, R_FALSE);
 	} else {
 		g_a11y.high_contrast = 0;
-		if (!g_a11y.theme_before || !Rtheme_use(g_a11y.theme_before)) Rtheme_apply(R_THEME_DARK);
+		/* the look first, then the theme file that was laid over it (when it was not the look itself) */
+		rvn_look_apply(rvn_look_valid(g_a11y.look_before) ? g_a11y.look_before : R_LOOK_RAVEN_DARK, R_FALSE);
+		if (g_a11y.theme_before && rvn_stricmp(g_a11y.theme_before, Rtheme_get_name()) != 0) Rtheme_use(g_a11y.theme_before);
 	}
 	rvn_invalidate_all_windows();
 }

@@ -56,6 +56,9 @@ static float rvn_combo_row_height(const rvn_widget_t* widget) {
 
 /* Space between the edge of the list and its rows: more with the rounded popups of the glass themes. */
 static float rvn_combo_list_pad(const rvn_widget_t* widget) {
+	if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) return 4.0f;
+	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return 5.0f;
+	if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) return 6.0f;
 	return rvn_widget_glass(widget) ? 5.0f : 1.0f;
 }
 
@@ -110,15 +113,38 @@ static void rvn_combo_list_paint(rvn_widget_t* widget, RPainter* painter) {
 	int first = (int)floorf(offset / row), last, i;
 	rvn_vec2_t origin = rvn_widget_origin(widget);
 
-	if (rvn_widget_glass(widget)) {
-		rvn_paint_surface(painter, widget, rect, radius, RVN_SURFACE_POPUP, 0.0f, 0.0f);
-	} else {
-		rvn_paint_shadow(painter, rvn_rect(0.0f, 3.0f, rect.w, rect.h), radius, 12.0f, rvn_widget_color(widget, R_COLOR_SHADOW));
-		rvn_paint_box(painter, rect, radius, rvn_widget_color(widget, R_COLOR_POPUP), 1.0f, rvn_widget_color(widget, R_COLOR_POPUP_BORDER));
-	}
+	rvn_paint_popup_surface(painter, widget, rect, radius, 12.0f);
 
 	rvn_paint_push_clip(painter, rvn_rect(1.0f, pad, rect.w - 2.0f, rect.h - pad * 2.0f));
 	last = rvn_mini((int)combo->count, first + (int)(list->bar.viewport / row) + 3);
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/*
+		 * The platforms: rows inset in the flyout. Windows marks the selected
+		 * one with its pill; macOS (a menu) with a check mark before it, the
+		 * row under the pointer in the accent; GNOME with a check mark after it.
+		 */
+		const int family = rvn_widget_family(widget);
+		const int kind = family == RVN_FAMILY_WINDOWS ? RVN_ITEM_LIST : RVN_ITEM_MENU;
+		const float inset = family == RVN_FAMILY_GNOME ? 6.0f : family == RVN_FAMILY_MACOS ? 5.0f : 4.0f;
+		const float lead = family == RVN_FAMILY_MACOS ? 16.0f : 0.0f;
+		for (i = rvn_maxi(first, 0); i < last; i++) {
+			rvn_rect_t line = rvn_rect(inset, pad + row * (float)i - offset, rect.w - inset * 2.0f, row);
+			uint32_t states = (i == list->hot ? RVN_STATE_HOVERED : 0) | (i == combo->selected ? RVN_STATE_SELECTED : 0);
+			rvn_color_t color = rvn_platform_item_foreground(widget, states, kind);
+			rvn_platform_paint_item(painter, widget, rvn_rect(line.x, line.y + 1.0f, line.w, line.h - 2.0f), states, kind, 1.0f);
+			if (!rvn_color_a(color)) color = text;
+			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
+				rvn_rect(line.x + padding + lead, line.y, line.w - padding * 2.0f - lead, row), 0.0f, combo->items[i], -1, color);
+			if (i == combo->selected && family != RVN_FAMILY_WINDOWS) {
+				float cx = family == RVN_FAMILY_MACOS ? line.x + 12.0f : line.x + line.w - 16.0f;
+				rvn_paint_icon(painter, RVN_ICON_CHECK, cx, line.y + row * 0.5f, 9.0f, color);
+			}
+		}
+		rvn_paint_pop_clip(painter);
+		rvn_scrollbar_paint(&list->bar, widget, painter, rvn_combo_list_track(widget), R_TRUE,
+			widget->window ? widget->window->mouse_x - origin.x : -1.0f, widget->window ? widget->window->mouse_y - origin.y : -1.0f);
+		return;
+	}
 	if (list->hot >= 0) {
 		/* the highlight slides under the pointer from row to row */
 		float y = rvn_paint_spring(painter, &list->hot_y, row * (float)list->hot, R_MOTION_SNAPPY);
@@ -296,12 +322,59 @@ static void rvn_combo_box_paint(rvn_widget_t* widget, RPainter* painter) {
 		fill = rvn_color_fade(fill, 0.5f);
 		outline = rvn_color_fade(outline, 0.5f);
 	}
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/*
+		 * a button of the platform, the text on the left, on the right a
+		 * chevron (Windows, GNOME) or, on macOS, the two little arrows of a
+		 * pop-up button on a square of the accent
+		 */
+		const int family = rvn_widget_family(widget);
+		uint32_t states = rvn_widget_states(widget, painter, hovered, open) | (open ? RVN_STATE_OPEN : 0);
+		rvn_part_look_t look;
+		rvn_part_look_eased(widget, RVN_PART_BODY, states, rvn_widget_hover(widget, painter, hovered),
+			rvn_widget_press(widget, painter, open), rvn_platform_button_look, NULL, &look);
+		rvn_paint_part(painter, rect, &look);
+		if (painter->enabled && rvn_color_a(look.foreground)) text = look.foreground;
+		if (combo->selected >= 0 && combo->selected < (int)combo->count) {
+			rvn_rect_t area = rvn_rect(padding, 0.0f, rvn_maxf(0.0f, rect.w - padding - 32.0f), rect.h);
+			rvn_paint_push_clip(painter, area);
+			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), area, 0.0f,
+				combo->items[combo->selected], -1, text);
+			rvn_paint_pop_clip(painter);
+		}
+		if (family == RVN_FAMILY_MACOS) {
+			rvn_rect_t square = rvn_rect(rect.w - 19.0f, floorf((rect.h - 16.0f) * 0.5f), 16.0f, 16.0f);
+			rvn_part_look_clear(&look);
+			look.background = painter->enabled ? rvn_widget_color(widget, R_COLOR_ACCENT) : 0;
+			look.foreground = painter->enabled ? rvn_widget_color(widget, R_COLOR_ACCENT_TEXT) : text;
+			look.radius = 4.0f;
+			rvn_part_apply_styles(widget, RVN_PART_ARROW, states, &look);
+			rvn_paint_part(painter, square, &look);
+			rvn_paint_chevron(painter, square.x + 8.0f, square.y + 5.5f, 5.0f, -1.5707964f, look.foreground);
+			rvn_paint_chevron(painter, square.x + 8.0f, square.y + 10.5f, 5.0f, 1.5707964f, look.foreground);
+			return;
+		}
+		rvn_part_look_clear(&look);
+		look.foreground = painter->enabled ? rvn_platform_secondary(widget) : text;
+		if (family == RVN_FAMILY_GNOME && painter->enabled) look.foreground = text;
+		rvn_part_apply_styles(widget, RVN_PART_ARROW, states, &look);
+		rvn_platform_paint_chevron(painter, widget, rect.w - (family == RVN_FAMILY_GNOME ? 18.0f : 20.0f), rect.h * 0.5f,
+			family == RVN_FAMILY_GNOME ? 14.0f : 12.0f, 1.5707964f, look.foreground);
+		return;
+	}
 	if (rvn_widget_glass(widget)) {
 		rvn_paint_surface(painter, widget, rect, rvn_control_radius(widget, rect.h), RVN_SURFACE_CONTROL,
 			rvn_widget_hover(widget, painter, hovered), rvn_widget_press(widget, painter, open));
 	} else {
-		rvn_paint_box(painter, rect, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), fill,
-			rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH), outline);
+		rvn_part_look_t look;
+		rvn_part_look_clear(&look);
+		look.background = fill;
+		look.border = outline;
+		look.border_width = rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH);
+		look.radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+		rvn_part_apply_styles(widget, RVN_PART_BODY, rvn_widget_states(widget, painter, hovered, open) | (open ? RVN_STATE_OPEN : 0), &look);
+		rvn_paint_part(painter, rect, &look);
+		if (painter->enabled && rvn_color_a(look.foreground)) text = look.foreground;
 	}
 	if (combo->selected >= 0 && combo->selected < (int)combo->count) {
 		rvn_rect_t area = rvn_rect(padding, 0.0f, rvn_maxf(0.0f, rect.w - padding - arrow), rect.h);

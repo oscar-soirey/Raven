@@ -27,7 +27,70 @@ static void rvn_expander_destroy(rvn_widget_t* widget) {
 }
 
 static float rvn_expander_header(const rvn_widget_t* widget) {
+	/* (Windows: a card 48 high) */
+	if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) return rvn_widget_metric(widget, R_METRIC_ROW_HEIGHT) + 16.0f;
+	/* (GNOME: an expander row, 50; macOS: a disclosure, one row) */
+	if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) return 50.0f;
+	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return rvn_widget_metric(widget, R_METRIC_ROW_HEIGHT);
 	return rvn_widget_metric(widget, R_METRIC_ROW_HEIGHT) + 4.0f;
+}
+
+/* Windows: the header is a card, the content another one hanging under it; the chevron is on the right. */
+static void rvn_expander_fluent_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	RVN_UNUSED(context);
+	look->radius = rvn_widget_metric(widget, rvn_widget_family(widget) == RVN_FAMILY_GNOME ? R_METRIC_POPUP_RADIUS : R_METRIC_CORNER_RADIUS);
+	look->border = rvn_fluent(widget, RVN_FLUENT_CARD_BORDER);
+	look->border_width = 1.0f;
+	if (part == RVN_PART_HEADER) {
+		look->background = rvn_fluent(widget, RVN_FLUENT_CARD);
+		look->foreground = (states & RVN_STATE_DISABLED) ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : rvn_widget_color(widget, R_COLOR_TEXT);
+	} else if (part == RVN_PART_ARROW) {
+		/* the chevron sits on a small button of its own, lit under the pointer */
+		look->background = (states & RVN_STATE_PRESSED) ? rvn_fluent(widget, RVN_FLUENT_SUBTLE_PRESSED) :
+			(states & RVN_STATE_HOVERED) ? rvn_widget_color(widget, R_COLOR_ROW_HOVERED) : 0;
+		look->border = 0;
+		look->border_width = 0.0f;
+		look->foreground = rvn_widget_color(widget, R_COLOR_TEXT);
+	} else {
+		/* the content: a little darker than the header (CardBackgroundFillColorSecondary) */
+		look->background = rvn_color_fade(rvn_fluent(widget, RVN_FLUENT_CARD), 0.7f);
+	}
+}
+
+static void rvn_expander_paint_fluent(rvn_widget_t* widget, RPainter* painter, float header, int hot) {
+	rvn_expander_t* expander = (rvn_expander_t*)widget;
+	uint32_t states = rvn_widget_states(widget, painter, hot, R_FALSE) | (expander->expanded ? RVN_STATE_OPEN : 0);
+	float open = rvn_clampf(expander->open.value, 0.0f, 1.0f), radius;
+	rvn_part_look_t look;
+	float radii[4];
+
+	if (open > 0.0f && widget->rect.h > header + 0.5f) {
+		rvn_part_look(widget, RVN_PART_BODY, states, rvn_expander_fluent_look, NULL, &look);
+		radius = look.radius;
+		radii[0] = radii[1] = 0.0f;
+		radii[2] = radii[3] = radius;
+		rvn_paint_box4(painter, rvn_rect(0.0f, header - 1.0f, widget->rect.w, widget->rect.h - header + 1.0f), radii, look.background,
+			look.border_width, look.border);
+	}
+	rvn_part_look(widget, RVN_PART_HEADER, states, rvn_expander_fluent_look, NULL, &look);
+	radius = look.radius;
+	radii[0] = radii[1] = radius;
+	/* open, its bottom corners square off to meet the content */
+	radii[2] = radii[3] = radius * (1.0f - open);
+	rvn_paint_box4(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, header), radii, look.background, look.border_width, look.border);
+	if (expander->title) {
+		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
+			rvn_rect(16.0f, 0.0f, rvn_maxf(0.0f, widget->rect.w - 64.0f), header), 0.0f, expander->title, -1, look.foreground);
+	}
+	{
+		rvn_rect_t button = rvn_rect(widget->rect.w - 8.0f - 32.0f, (header - 32.0f) * 0.5f, 32.0f, 32.0f);
+		rvn_part_look_t arrow;
+		rvn_part_look(widget, RVN_PART_ARROW, states, rvn_expander_fluent_look, NULL, &arrow);
+		rvn_paint_part(painter, button, &arrow);
+		/* the chevron points down when closed and turns up when open */
+		rvn_fluent_paint_chevron(painter, widget, button.x + 16.0f, button.y + 16.0f, 12.0f,
+			open > 0.5f ? -1.5707964f : 1.5707964f, arrow.foreground);
+	}
 }
 
 static rvn_vec2_t rvn_expander_measure(rvn_widget_t* widget) {
@@ -113,6 +176,24 @@ static void rvn_expander_paint(rvn_widget_t* widget, RPainter* painter) {
 		widget->window->mouse_y - origin.y < header && widget->window->mouse_y - origin.y >= 0.0f;
 	rvn_color_t text = rvn_widget_text_color(widget, painter);
 
+	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) {
+		/* macOS: a disclosure, the chevron before the title, nothing around */
+		rvn_part_look_t look;
+		rvn_part_look_clear(&look);
+		look.foreground = rvn_platform_secondary(widget);
+		rvn_part_apply_styles(widget, RVN_PART_ARROW, rvn_widget_states(widget, painter, hot, R_FALSE) | (expander->expanded ? RVN_STATE_OPEN : 0), &look);
+		rvn_paint_chevron(painter, 9.0f, header * 0.5f, 7.0f, rvn_clampf(expander->open.value, 0.0f, 1.0f) * 1.5707963f, look.foreground);
+		if (expander->title) {
+			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
+				rvn_rect(20.0f, 0.0f, rvn_maxf(0.0f, widget->rect.w - 20.0f), header), 0.0f, expander->title, -1, text);
+		}
+		return;
+	}
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/* Windows (Expander) and GNOME (an expander row): cards */
+		rvn_expander_paint_fluent(widget, painter, header, hot);
+		return;
+	}
 	rvn_paint_box(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, header), rvn_widget_glass(widget) ? 10.0f : 0.0f,
 		rvn_widget_color(widget, hot ? R_COLOR_HEADER_HOVERED : R_COLOR_HEADER), 0.0f, 0);
 	/* the chevron turns with the content */
@@ -124,7 +205,8 @@ static void rvn_expander_paint(rvn_widget_t* widget, RPainter* painter) {
 }
 
 static void rvn_expander_paint_overlay(rvn_widget_t* widget, RPainter* painter) {
-	rvn_paint_focus(widget, painter, rvn_widget_glass(widget) ? 10.0f : 0.0f);
+	rvn_paint_focus(widget, painter, rvn_widget_glass(widget) ? 10.0f :
+		rvn_widget_family(widget) == RVN_FAMILY_WINDOWS ? rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) : 0.0f);
 }
 
 static int rvn_expander_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {

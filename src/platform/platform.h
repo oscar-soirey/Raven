@@ -203,6 +203,8 @@ typedef struct rvn_platform_t {
 	int   (*a11y_active)(void);
 	/** What the user asked the system for: text size, contrast, motion. */
 	void  (*a11y_settings)(struct RAccessibilitySettings* settings);
+	/** The accent color the user chose for the system (0..1); R_FALSE when it does not tell. NULL: none (widget/look.c reads Windows and GNOME itself). */
+	int   (*accent_color)(float rgb[3]);
 } rvn_platform_t;
 
 /** Picks the platform compiled in for this OS, or the null platform. */

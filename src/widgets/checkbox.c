@@ -32,8 +32,14 @@ static rvn_vec2_t rvn_checkbox_mark(const rvn_widget_t* widget) {
 	if (((const rvn_checkbox_t*)widget)->style == R_CHECKBOX_SWITCH) {
 		/* the switch of the glass themes is a long capsule with an elongated knob */
 		if (rvn_widget_glass(widget)) return rvn_vec2(floorf((size + 6.0f) * 2.1f), size + 6.0f);
+		/* the one of Windows is twice as long as high (40 x 20); macOS 38 x 22 (NSSwitch); GNOME 48 x 26 */
+		if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) return rvn_vec2(floorf(size * 2.0f), size);
+		if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return rvn_vec2(38.0f, 22.0f);
+		if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) return rvn_vec2(48.0f, 26.0f);
 		return rvn_vec2(floorf(size * 1.9f), size);
 	}
+	/* GNOME: the check is 14 inside a round square of 20 */
+	if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) size += 6.0f;
 	return rvn_vec2(size, size);
 }
 
@@ -48,6 +54,225 @@ static rvn_vec2_t rvn_checkbox_measure(rvn_widget_t* widget) {
 	}
 	desired.y = rvn_maxf(desired.y, rvn_widget_metric(widget, R_METRIC_ROW_HEIGHT));
 	return desired;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Windows
+ * ------------------------------------------------------------------------- */
+
+/* The parts of a check box, a radio button and a switch of Windows 11, in a state. */
+static void rvn_checkbox_fluent_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int on = (states & RVN_STATE_CHECKED) != 0, disabled = (states & RVN_STATE_DISABLED) != 0;
+	const int hovered = (states & RVN_STATE_HOVERED) != 0, pressed = (states & RVN_STATE_PRESSED) != 0;
+	const float size = rvn_widget_metric(widget, R_METRIC_CHECK_SIZE);
+	RVN_UNUSED(context);
+	switch (part) {
+		case RVN_PART_BOX:
+		case RVN_PART_RADIO:
+		case RVN_PART_TRACK:
+			look->radius = part == RVN_PART_BOX ? rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) : size;
+			look->border_width = 1.0f;
+			if (on) {
+				/* on: filled with the accent, edge and all */
+				look->background = disabled ? rvn_fluent(widget, RVN_FLUENT_ACCENT_DISABLED) :
+					rvn_widget_color(widget, pressed ? R_COLOR_ACCENT_PRESSED : hovered ? R_COLOR_ACCENT_HOVERED : R_COLOR_ACCENT);
+				look->border = look->background;
+			} else {
+				look->background = disabled ? 0 : rvn_fluent(widget, pressed ? RVN_FLUENT_ALT_FILL_PRESSED : hovered ? RVN_FLUENT_ALT_FILL_HOVERED : RVN_FLUENT_ALT_FILL);
+				look->border = disabled || (pressed && part != RVN_PART_TRACK) ? rvn_fluent(widget, RVN_FLUENT_ACCENT_DISABLED) : rvn_fluent(widget, RVN_FLUENT_STRONG_STROKE);
+			}
+			break;
+		case RVN_PART_MARK:
+			look->foreground = disabled ? rvn_fluent(widget, RVN_FLUENT_TEXT_ON_ACCENT_DISABLED) :
+				pressed ? rvn_fluent(widget, RVN_FLUENT_TEXT_ON_ACCENT_SECONDARY) : rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+			look->size = 12.0f;
+			break;
+		case RVN_PART_DOT:
+			/* the dot of a radio button: 12 at rest, 14 under the pointer, 10 pressed */
+			look->background = disabled ? rvn_fluent(widget, RVN_FLUENT_TEXT_ON_ACCENT_DISABLED) : rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+			look->size = pressed ? size * 0.5f : hovered ? size * 0.7f : size * 0.6f;
+			look->radius = size;
+			break;
+		case RVN_PART_KNOB:
+			/* the knob of a switch: 12 at rest, 14 under the pointer, stretched to 17 pressed */
+			look->background = on ? (disabled ? rvn_fluent(widget, RVN_FLUENT_TEXT_ON_ACCENT_DISABLED) : rvn_widget_color(widget, R_COLOR_ACCENT_TEXT)) :
+				(disabled ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : rvn_fluent(widget, RVN_FLUENT_TEXT_SECONDARY));
+			look->size = pressed ? size * 0.7f : hovered ? size * 0.7f : size * 0.6f;
+			look->radius = size;
+			break;
+		default:
+			break;
+	}
+}
+
+/* macOS and GNOME: the same parts, their own colors and sizes. */
+static void rvn_checkbox_other_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int on = (states & RVN_STATE_CHECKED) != 0, disabled = (states & RVN_STATE_DISABLED) != 0;
+	const int pressed = (states & RVN_STATE_PRESSED) != 0, hovered = (states & RVN_STATE_HOVERED) != 0;
+	const int mac = rvn_widget_family(widget) == RVN_FAMILY_MACOS;
+	const int dark = rvn_widget_theme(widget)->dark;
+	const rvn_vec2_t mark = *(const rvn_vec2_t*)context;
+	switch (part) {
+		case RVN_PART_BOX:
+		case RVN_PART_RADIO:
+			if (mac) {
+				/* a little white square (round), a hairline darker at the bottom; on, the accent */
+				look->radius = part == RVN_PART_BOX ? 3.5f : mark.y;
+				look->border_width = 1.0f;
+				if (on) {
+					look->background = rvn_widget_color(widget, pressed ? R_COLOR_ACCENT_PRESSED : R_COLOR_ACCENT);
+					look->border = look->background;
+					look->border_bottom = rvn_color_mix(look->background, rvn_hex(0x000000, 255), 0.15f);
+				} else {
+					look->background = pressed ? rvn_widget_color(widget, R_COLOR_CONTROL_PRESSED) : (dark ? rvn_hex(0xFFFFFF, 48) : rvn_hex(0xFFFFFF, 255));
+					look->border = rvn_platform_ink(widget, dark ? 0.15f : 0.2f);
+					if (!dark) look->border_bottom = rvn_platform_ink(widget, 0.3f);
+				}
+			} else {
+				/* a round square with a ring of the text seen through; on, the accent */
+				look->radius = part == RVN_PART_BOX ? 6.0f : mark.y;
+				if (on) {
+					look->background = rvn_widget_color(widget, pressed ? R_COLOR_ACCENT_PRESSED : hovered ? R_COLOR_ACCENT_HOVERED : R_COLOR_ACCENT);
+				} else {
+					look->background = pressed ? rvn_platform_ink(widget, 0.1f) : hovered ? rvn_platform_ink(widget, 0.05f) : 0;
+					look->border = rvn_platform_ink(widget, 0.2f);
+					look->border_width = 2.0f;
+				}
+			}
+			if (disabled) look->opacity = 0.5f;
+			break;
+		case RVN_PART_MARK:
+			look->foreground = rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+			look->size = mac ? 9.0f : 11.0f;
+			if (disabled) look->opacity = 0.5f;
+			break;
+		case RVN_PART_DOT:
+			look->background = rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+			look->size = mac ? 6.0f : 8.0f;
+			look->radius = mark.y;
+			if (disabled) look->opacity = 0.5f;
+			break;
+		case RVN_PART_TRACK:
+			look->radius = mark.y;
+			if (on) {
+				look->background = rvn_widget_color(widget, R_COLOR_SWITCH);
+				if (!mac && pressed) look->background = rvn_widget_color(widget, R_COLOR_ACCENT_PRESSED);
+			} else {
+				look->background = mac ? rvn_platform_ink(widget, dark ? 0.25f : 0.09f) : rvn_platform_ink(widget, pressed ? 0.3f : hovered ? 0.2f : 0.15f);
+				if (mac) {
+					look->border = rvn_platform_ink(widget, dark ? 0.1f : 0.06f);
+					look->border_width = 1.0f;
+				}
+			}
+			if (disabled) look->opacity = 0.5f;
+			break;
+		case RVN_PART_KNOB:
+			/* a white round with a soft shadow, a little smaller than the track */
+			look->background = mac && dark && !on ? rvn_hex(0xCACACA, 255) : rvn_hex(0xFFFFFF, 255);
+			look->size = mark.y - (mac ? 2.0f : 6.0f);
+			look->radius = mark.y;
+			look->shadow = 2.0f;
+			look->shadow_color = rvn_hex(0x000000, 90);
+			look->border = rvn_hex(0x000000, 20);
+			look->border_width = mac ? 0.5f : 0.0f;
+			if (disabled) look->opacity = 0.6f;
+			break;
+		default:
+			break;
+	}
+}
+
+static void rvn_checkbox_paint_fluent(rvn_widget_t* widget, RPainter* painter, rvn_rect_t box, float on, float hover, float press) {
+	rvn_checkbox_t* checkbox = (rvn_checkbox_t*)widget;
+	const int hovered = (widget->flags & RVN_WF_HOVERED) && painter->enabled;
+	const int pressed = (widget->flags & RVN_WF_PRESSED) && checkbox->armed;
+	uint32_t states = rvn_widget_states(widget, painter, hovered, pressed);
+	uint32_t checked = checkbox->checked ? RVN_STATE_CHECKED : 0;
+	float mix = rvn_clampf(on, 0.0f, 1.0f);
+	rvn_part_look_t look, other;
+	/* (Windows, or macOS and GNOME; the size of the mark is what the latter need to know) */
+	rvn_part_base_t base = rvn_widget_family(widget) == RVN_FAMILY_WINDOWS ? rvn_checkbox_fluent_look : rvn_checkbox_other_look;
+	rvn_vec2_t mark = rvn_vec2(box.w, box.h);
+
+	if (checkbox->style == R_CHECKBOX_SWITCH) {
+		float size, width, center;
+		/* the track goes from off to on as the knob travels */
+		rvn_part_look_eased(widget, RVN_PART_TRACK, states, hover, press, base, &mark, &look);
+		rvn_part_look_eased(widget, RVN_PART_TRACK, states | RVN_STATE_CHECKED, hover, press, base, &mark, &other);
+		rvn_part_look_mix(&look, &other, mix);
+		rvn_paint_part(painter, box, &look);
+		rvn_part_look_eased(widget, RVN_PART_KNOB, states, hover, press, base, &mark, &look);
+		rvn_part_look_eased(widget, RVN_PART_KNOB, states | RVN_STATE_CHECKED, hover, press, base, &mark, &other);
+		rvn_part_look_mix(&look, &other, mix);
+		size = look.size;
+		/* pressed, the knob stretches toward where it would go */
+		width = size + (box.h * 0.85f - size) * rvn_clampf(press, 0.0f, 1.0f);
+		if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) width = size;
+		center = box.x + box.h * 0.5f + (box.w - box.h) * mix;
+		center += (checkbox->checked ? -1.0f : 1.0f) * (width - size) * 0.5f;
+		rvn_paint_part(painter, rvn_rect(center - width * 0.5f, box.y + (box.h - size) * 0.5f, width, size), &look);
+		return;
+	}
+	if (checkbox->style == R_CHECKBOX_RADIO) {
+		rvn_part_look_eased(widget, RVN_PART_RADIO, states | checked, hover, press, base, &mark, &look);
+		rvn_paint_part(painter, box, &look);
+		if (mix > 0.01f) {
+			float opacity = painter->opacity, dot;
+			rvn_part_look_eased(widget, RVN_PART_DOT, states | RVN_STATE_CHECKED, hover, press, base, &mark, &look);
+			dot = look.size * (0.5f + 0.5f * mix);
+			painter->opacity *= mix;
+			rvn_paint_part(painter, rvn_rect(box.x + (box.w - dot) * 0.5f, box.y + (box.h - dot) * 0.5f, dot, dot), &look);
+			painter->opacity = opacity;
+		}
+		return;
+	}
+	rvn_part_look_eased(widget, RVN_PART_BOX, states, hover, press, base, &mark, &look);
+	rvn_part_look_eased(widget, RVN_PART_BOX, states | RVN_STATE_CHECKED, hover, press, base, &mark, &other);
+	rvn_part_look_mix(&look, &other, mix);
+	rvn_paint_part(painter, box, &look);
+	if (mix > 0.01f) {
+		float opacity = painter->opacity;
+		rvn_part_look_eased(widget, RVN_PART_MARK, states | RVN_STATE_CHECKED, hover, press, base, &mark, &look);
+		painter->opacity *= mix;
+		/* the check mark of Segoe Fluent Icons (CheckMark), or drawn */
+		painter->opacity *= look.opacity;
+		if (!rvn_paint_look_icon(painter, widget, 0xE73E, box.x + box.w * 0.5f, box.y + box.h * 0.5f, look.size, look.foreground)) {
+			rvn_paint_icon(painter, RVN_ICON_CHECK, box.x + box.w * 0.5f, box.y + box.h * 0.5f, look.size * 0.85f, look.foreground);
+		}
+		painter->opacity = opacity;
+	}
+}
+
+/* ---------------------------------------------------------------------------
+ *  Painting
+ * ------------------------------------------------------------------------- */
+
+/* A shape of the look of Raven, through the styles of its part when it has some. */
+static void rvn_checkbox_raven_part(RPainter* painter, const rvn_widget_t* widget, int part, uint32_t states, rvn_rect_t rect,
+	float radius, rvn_color_t fill, float width, rvn_color_t border) {
+	rvn_part_look_t look;
+	if (!rvn_part_styled(widget, part)) {
+		rvn_paint_box(painter, rect, radius, fill, width, border);
+		return;
+	}
+	rvn_part_look_clear(&look);
+	look.background = fill;
+	look.border = border;
+	look.border_width = width;
+	look.radius = radius;
+	rvn_part_apply_styles(widget, part, states, &look);
+	rvn_paint_part(painter, rect, &look);
+}
+
+/* The color of a mark of the look of Raven, or the one the styles of its part give. */
+static rvn_color_t rvn_checkbox_raven_mark(const rvn_widget_t* widget, int part, uint32_t states, rvn_color_t color) {
+	rvn_part_look_t look;
+	if (!rvn_part_styled(widget, part)) return color;
+	rvn_part_look_clear(&look);
+	look.foreground = color;
+	look.background = color;
+	rvn_part_apply_styles(widget, part, states, &look);
+	return part == RVN_PART_MARK ? look.foreground : look.background;
 }
 
 static void rvn_checkbox_paint(rvn_widget_t* widget, RPainter* painter) {
@@ -67,6 +292,7 @@ static void rvn_checkbox_paint(rvn_widget_t* widget, RPainter* painter) {
 	float mix = rvn_clampf(on, 0.0f, 1.0f);
 	float press = rvn_widget_press(widget, painter, pressed);
 	float held = rvn_clampf(press, 0.0f, 1.0f);
+	uint32_t states = rvn_widget_states(widget, painter, hovered, pressed) | (checkbox->checked ? RVN_STATE_CHECKED : 0);
 
 	if (!painter->enabled) {
 		accent = rvn_color_fade(accent, 0.4f);
@@ -74,7 +300,9 @@ static void rvn_checkbox_paint(rvn_widget_t* widget, RPainter* painter) {
 		outline = rvn_color_fade(outline, 0.5f);
 	}
 
-	if (checkbox->style == R_CHECKBOX_SWITCH) {
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		rvn_checkbox_paint_fluent(widget, painter, box, on, rvn_widget_hover(widget, painter, hovered), press);
+	} else if (checkbox->style == R_CHECKBOX_SWITCH) {
 		/* the knob slides, stretched by its speed and by the finger holding it, and bounces on arrival */
 		float inset = 2.0f, knob_h = mark.y - inset * 2.0f;
 		float knob_w = glass ? floorf(knob_h * 1.45f) : knob_h;
@@ -89,20 +317,20 @@ static void rvn_checkbox_paint(rvn_widget_t* widget, RPainter* painter) {
 		knob_x -= stretch * mix;
 		knob_x = rvn_clampf(knob_x, box.x + inset - 1.5f, box.x + mark.x - inset - knob_w + 1.5f);
 		if (!painter->enabled) track = rvn_color_fade(track, 0.5f);
-		rvn_paint_box(painter, box, mark.y * 0.5f, track, glass ? 0.0f : border * (1.0f - mix), outline);
+		rvn_checkbox_raven_part(painter, widget, RVN_PART_TRACK, states, box, mark.y * 0.5f, track, glass ? 0.0f : border * (1.0f - mix), outline);
 		if (glass) {
 			rvn_paint_knob(painter, widget, rvn_rect(knob_x, box.y + inset, knob_w, knob_h), held);
 		} else {
 			rvn_paint_box(painter, rvn_rect(knob_x, box.y + inset, knob_w, knob_h), knob_h * 0.5f,
-				rvn_color_mix(rvn_widget_color(widget, R_COLOR_HANDLE_HOVERED), on_mark, mix), 0.0f, 0);
+				rvn_checkbox_raven_mark(widget, RVN_PART_KNOB, states, rvn_color_mix(rvn_widget_color(widget, R_COLOR_HANDLE_HOVERED), on_mark, mix)), 0.0f, 0);
 		}
 	} else {
 		/* check boxes and radio buttons: the box dips under the finger, the mark pops into it */
 		float radius = (glass || checkbox->style == R_CHECKBOX_RADIO) ? mark.y * 0.5f : 3.0f;
 		float dip = held * 1.5f;
 		rvn_rect_t body = rvn_rect(box.x + dip, box.y + dip, box.w - dip * 2.0f, box.h - dip * 2.0f);
-		rvn_paint_box(painter, body, radius, rvn_color_mix(off, accent, mix),
-			(glass ? 1.5f : border) * (1.0f - mix), rvn_color_mix(outline, accent, mix));
+		rvn_checkbox_raven_part(painter, widget, checkbox->style == R_CHECKBOX_RADIO ? RVN_PART_RADIO : RVN_PART_BOX, states, body, radius,
+			rvn_color_mix(off, accent, mix), (glass ? 1.5f : border) * (1.0f - mix), rvn_color_mix(outline, accent, mix));
 		if (on > 0.05f) {
 			float opacity = painter->opacity;
 			/* `on` peaks above 1 before settling: the mark arrives too large and shrinks back */
@@ -111,10 +339,10 @@ static void rvn_checkbox_paint(rvn_widget_t* widget, RPainter* painter) {
 			if (checkbox->style == R_CHECKBOX_RADIO) {
 				float dot = mark.y * (glass ? 0.38f : 0.4f) * pop;
 				rvn_paint_box(painter, rvn_rect(box.x + (mark.x - dot) * 0.5f, box.y + (mark.y - dot) * 0.5f, dot, dot),
-					dot * 0.5f, on_mark, 0.0f, 0);
+					dot * 0.5f, rvn_checkbox_raven_mark(widget, RVN_PART_DOT, states, on_mark), 0.0f, 0);
 			} else {
 				rvn_paint_icon(painter, RVN_ICON_CHECK, box.x + mark.x * 0.5f, box.y + mark.y * 0.5f,
-					mark.y * (glass ? 0.5f : 0.55f) * pop, on_mark);
+					mark.y * (glass ? 0.5f : 0.55f) * pop, rvn_checkbox_raven_mark(widget, RVN_PART_MARK, states, on_mark));
 			}
 			painter->opacity = opacity;
 		}

@@ -165,6 +165,8 @@ set(RAVEN_WIDGET_SOURCES
 	src/widget/registry.c
 	src/widget/style.c
 	src/widget/theme.c
+	src/widget/look.c
+	src/widgets/platform_looks.c
 	src/widget/widget.c
 	src/widget/widget.h
 	src/widget/window.c

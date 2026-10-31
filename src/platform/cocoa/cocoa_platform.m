@@ -793,6 +793,21 @@ static void rvn_cocoa_a11y_settings(RAccessibilitySettings* settings) {
         settings->reduce_motion = [workspace accessibilityDisplayShouldReduceMotion] ? R_TRUE : R_FALSE;
 }
 
+/* The accent color chosen in the System Settings (Appearance), for the look of macOS. */
+static int rvn_cocoa_accent_color(float rgb[3]) {
+    @autoreleasepool {
+        NSColor* color = nil;
+        if (@available(macOS 10.14, *)) color = [NSColor controlAccentColor];
+        if (!color) return R_FALSE;
+        color = [color colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        if (!color) return R_FALSE;
+        rgb[0] = (float)[color redComponent];
+        rgb[1] = (float)[color greenComponent];
+        rgb[2] = (float)[color blueComponent];
+        return R_TRUE;
+    }
+}
+
 const rvn_platform_t* rvn_platform_cocoa(void) {
     static const rvn_platform_t platform = {
         .name = "Cocoa", .system = R_WINDOW_SYSTEM_COCOA,
@@ -810,7 +825,8 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .child_set_rect = rvn_cocoa_child_set_rect, .pump = rvn_cocoa_pump, .wake = rvn_cocoa_wake,
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,
         .a11y_event = rvn_cocoa_a11y_event, .a11y_announce = rvn_cocoa_a11y_announce,
-        .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings
+        .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
+        .accent_color = rvn_cocoa_accent_color
     };
     return &platform;
 }

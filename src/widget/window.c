@@ -114,6 +114,54 @@ void rvn_window_rearm_tooltip(rvn_window_t* window) {
 	if (!window->dead) rvn_window_tooltip_arm(window);
 }
 
+/* The tooltip of a platform: a small flyout that fades in where it is. Windows: text at 12; macOS: 11; GNOME: dark, 13. */
+static void rvn_window_paint_tooltip_fluent(rvn_window_t* window, RPainter* painter) {
+	const rvn_widget_t* owner = window->tooltip_widget;
+	const char* text = owner->tooltip;
+	const char* line;
+	rvn_font_t* font = rvn_font_resolve(R_INVALID_ID);
+	rvn_font_metrics_t metrics;
+	rvn_vec2_t size = rvn_window_size(window);
+	const int family = rvn_widget_family(owner);
+	float font_size = family == RVN_FAMILY_MACOS ? 11.0f : family == RVN_FAMILY_GNOME ? 13.0f : 12.0f;
+	float pad_x = family == RVN_FAMILY_MACOS ? 6.0f : family == RVN_FAMILY_GNOME ? 10.0f : 9.0f;
+	float pad_y = family == RVN_FAMILY_MACOS ? 3.0f : family == RVN_FAMILY_GNOME ? 6.0f : 6.0f;
+	float width = 0.0f, height, x, y, shown, opacity = painter->opacity;
+	rvn_part_look_t look;
+	int lines = 0;
+
+	if (!font) return;
+	shown = rvn_paint_spring_from(painter, &window->tooltip_shown, 1.0f, R_MOTION_SMOOTH);
+	painter->opacity *= rvn_clampf(shown, 0.0f, 1.0f);
+	rvn_font_metrics(font, font_size, &metrics);
+	for (line = text;;) {
+		const char* newline = strchr(line, '\n');
+		int length = newline ? (int)(newline - line) : (int)strlen(line);
+		width = rvn_maxf(width, rvn_text_width(font, font_size, line, length));
+		lines++;
+		if (!newline) break;
+		line = newline + 1;
+	}
+	width = ceilf(width) + pad_x * 2.0f;
+	height = ceilf(metrics.line_height * (float)lines) + pad_y * 2.0f + 2.0f;
+	x = rvn_clampf(window->tooltip_x + 12.0f, 0.0f, rvn_maxf(0.0f, size.x - width));
+	y = window->tooltip_y + 22.0f;
+	if (y + height > size.y) y = window->tooltip_y - height - 6.0f;
+	if (y < 0.0f) y = 0.0f;
+	rvn_part_look(owner, RVN_PART_TOOLTIP, 0, rvn_platform_popup_look, NULL, &look);
+	rvn_paint_part(painter, rvn_rect(x, y, width, height), &look);
+	y += pad_y + 1.0f;
+	for (line = text;;) {
+		const char* newline = strchr(line, '\n');
+		int length = newline ? (int)(newline - line) : (int)strlen(line);
+		rvn_paint_text(painter, R_INVALID_ID, font_size, x + pad_x, y, line, length, look.foreground);
+		y += metrics.line_height;
+		if (!newline) break;
+		line = newline + 1;
+	}
+	painter->opacity = opacity;
+}
+
 static void rvn_window_paint_tooltip(rvn_window_t* window, RPainter* painter) {
 	const char* text;
 	const char* line;
@@ -126,6 +174,10 @@ static void rvn_window_paint_tooltip(rvn_window_t* window, RPainter* painter) {
 	int lines = 0;
 
 	if (!window->tooltip_visible || !window->tooltip_widget || !window->tooltip_widget->tooltip) return;
+	if (rvn_widget_family(window->tooltip_widget) != RVN_FAMILY_RAVEN) {
+		rvn_window_paint_tooltip_fluent(window, painter);
+		return;
+	}
 	shown = rvn_paint_spring_from(painter, &window->tooltip_shown, 1.0f, R_MOTION_BOUNCY);
 	painter->opacity *= rvn_clampf(shown * 2.0f, 0.0f, 1.0f);
 	text = window->tooltip_widget->tooltip;

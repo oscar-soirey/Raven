@@ -27,6 +27,8 @@ typedef struct rvn_header_bar_t {
 	Ruint buttons;
 	/** R_HALIGN_RIGHT: glyph buttons (Windows). R_HALIGN_LEFT: colored lights (macOS). */
 	RHAlign side;
+	/** R_TRUE when the application chose the side (ButtonSide, Rheader_bar_set_button_side); else it follows the look. */
+	int side_given;
 	RHAlign title_align;
 	int no_background;
 	/** R_TRUE: the title is in a dark tab hanging from the top (TitleStyle="Notch"). */
@@ -41,6 +43,15 @@ typedef struct rvn_header_bar_t {
 	/** Space left free by the children, where the title goes (set by arrange). */
 	float gap_x0, gap_x1;
 } rvn_header_bar_t;
+
+/* The side of the window buttons: the one chosen, else the one of the look (macOS: left). */
+static RHAlign rvn_header_bar_side(const rvn_widget_t* widget) {
+	const rvn_header_bar_t* bar = (const rvn_header_bar_t*)widget;
+	if (bar->side_given) return bar->side;
+	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return R_HALIGN_LEFT;
+	if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS || rvn_widget_family(widget) == RVN_FAMILY_GNOME) return R_HALIGN_RIGHT;
+	return bar->side;
+}
 
 #define RVN_HB_SPACING 6.0f
 #define RVN_HB_PADDING 8.0f
@@ -73,10 +84,9 @@ static int rvn_header_bar_has(const rvn_widget_t* widget, int button) {
 
 /* The buttons from left to right. Returns how many there are. */
 static int rvn_header_bar_order(const rvn_widget_t* widget, int order[RVN_HB_COUNT]) {
-	const rvn_header_bar_t* bar = (const rvn_header_bar_t*)widget;
 	static const int right[RVN_HB_COUNT] = { RVN_HB_MINIMIZE, RVN_HB_MAXIMIZE, RVN_HB_CLOSE };
 	static const int left[RVN_HB_COUNT] = { RVN_HB_CLOSE, RVN_HB_MINIMIZE, RVN_HB_MAXIMIZE };
-	const int* from = bar->side == R_HALIGN_LEFT ? left : right;
+	const int* from = rvn_header_bar_side(widget) == R_HALIGN_LEFT ? left : right;
 	int count = 0, i;
 	for (i = 0; i < RVN_HB_COUNT; i++) {
 		if (rvn_header_bar_has(widget, from[i])) order[count++] = from[i];
@@ -86,8 +96,7 @@ static int rvn_header_bar_order(const rvn_widget_t* widget, int order[RVN_HB_COU
 
 /* Width and gap of one button for the current side and theme. */
 static void rvn_header_bar_button_metrics(const rvn_widget_t* widget, float* size, float* gap, float* margin) {
-	const rvn_header_bar_t* bar = (const rvn_header_bar_t*)widget;
-	if (bar->side == R_HALIGN_LEFT) {
+	if (rvn_header_bar_side(widget) == R_HALIGN_LEFT) {
 		*size = 13.0f;
 		*gap = 8.0f;
 		*margin = 14.0f;
@@ -95,6 +104,11 @@ static void rvn_header_bar_button_metrics(const rvn_widget_t* widget, float* siz
 		*size = 28.0f;
 		*gap = 6.0f;
 		*margin = 10.0f;
+	} else if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) {
+		/* GNOME: round buttons, 24 wide */
+		*size = 24.0f;
+		*gap = 12.0f;
+		*margin = 8.0f;
 	} else {
 		*size = 46.0f;
 		*gap = 0.0f;
@@ -114,16 +128,17 @@ static float rvn_header_bar_buttons_width(const rvn_widget_t* widget) {
 
 /* Where a button is drawn. R_FALSE when the bar does not show it. */
 static int rvn_header_bar_button_rect(const rvn_widget_t* widget, int button, rvn_rect_t* rect) {
-	const rvn_header_bar_t* bar = (const rvn_header_bar_t*)widget;
 	int order[RVN_HB_COUNT];
 	int count = rvn_header_bar_order(widget, order), i;
 	float size, gap, margin, x;
 
 	rvn_header_bar_button_metrics(widget, &size, &gap, &margin);
-	x = bar->side == R_HALIGN_LEFT ? margin : widget->rect.w - margin - size * (float)count - gap * (float)(count - 1);
+	x = rvn_header_bar_side(widget) == R_HALIGN_LEFT ? margin : widget->rect.w - margin - size * (float)count - gap * (float)(count - 1);
 	for (i = 0; i < count; i++) {
 		if (order[i] == button) {
-			if (bar->side != R_HALIGN_LEFT && !rvn_widget_glass(widget)) *rect = rvn_rect(x, 0.0f, size, widget->rect.h);
+			if (rvn_header_bar_side(widget) != R_HALIGN_LEFT && !rvn_widget_glass(widget) && rvn_widget_family(widget) != RVN_FAMILY_GNOME) {
+				*rect = rvn_rect(x, 0.0f, size, widget->rect.h);
+			}
 			else *rect = rvn_rect(x, floorf((widget->rect.h - size) * 0.5f), size, size);
 			return R_TRUE;
 		}
@@ -133,9 +148,8 @@ static int rvn_header_bar_button_rect(const rvn_widget_t* widget, int button, rv
 }
 
 static int rvn_header_bar_button_at(const rvn_widget_t* widget, float x, float y) {
-	const rvn_header_bar_t* bar = (const rvn_header_bar_t*)widget;
 	/* small round buttons are easier to hit a little outside of their circle */
-	float slack = (bar->side == R_HALIGN_LEFT || rvn_widget_glass(widget)) ? 3.0f : 0.0f;
+	float slack = (rvn_header_bar_side(widget) == R_HALIGN_LEFT || rvn_widget_glass(widget)) ? 3.0f : 0.0f;
 	int i;
 	for (i = 0; i < RVN_HB_COUNT; i++) {
 		rvn_rect_t rect;
@@ -180,8 +194,8 @@ static rvn_vec2_t rvn_header_bar_measure(rvn_widget_t* widget) {
 static void rvn_header_bar_arrange(rvn_widget_t* widget) {
 	rvn_header_bar_t* bar = (rvn_header_bar_t*)widget;
 	float buttons = rvn_header_bar_buttons_width(widget);
-	float x0 = RVN_HB_PADDING + (bar->side == R_HALIGN_LEFT ? buttons : 0.0f);
-	float x1 = widget->rect.w - RVN_HB_PADDING - (bar->side == R_HALIGN_LEFT ? 0.0f : buttons);
+	float x0 = RVN_HB_PADDING + (rvn_header_bar_side(widget) == R_HALIGN_LEFT ? buttons : 0.0f);
+	float x1 = widget->rect.w - RVN_HB_PADDING - (rvn_header_bar_side(widget) == R_HALIGN_LEFT ? 0.0f : buttons);
 	float fixed = 0.0f, fill_total = 0.0f, remaining, right_width = 0.0f, x;
 	uint32_t i, visible = 0;
 	int pass;
@@ -279,7 +293,7 @@ static void rvn_header_bar_paint_button(rvn_widget_t* widget, RPainter* painter,
 	cx = rect.x + rect.w * 0.5f;
 	cy = rect.y + rect.h * 0.5f;
 
-	if (bar->side == R_HALIGN_LEFT) {
+	if (rvn_header_bar_side(widget) == R_HALIGN_LEFT) {
 		/* three lights: red, yellow, green; grey while the window is in the background */
 		static const uint32_t colors[RVN_HB_COUNT] = { 0xFF5F57, 0xFEBC2E, 0x28C840 };
 		float glyphs = rvn_clampf(bar->glyphs.value, 0.0f, 1.0f);
@@ -290,6 +304,52 @@ static void rvn_header_bar_paint_button(rvn_widget_t* widget, RPainter* painter,
 				rvn_rgba(0.0f, 0.0f, 0.0f, 0.6f * glyphs));
 		}
 		scale = 1.0f + 0.26f * hover - 0.2f * press;
+	} else if (rvn_widget_family(widget) == RVN_FAMILY_GNOME) {
+		/* GNOME: round buttons of the color of the text seen through, their symbolic icons */
+		uint32_t states = (bar->hot == button && painter->enabled ? RVN_STATE_HOVERED : 0) |
+			(bar->down == button && bar->hot == button ? RVN_STATE_PRESSED : 0) | (active ? 0 : RVN_STATE_DISABLED);
+		int part = button == RVN_HB_CLOSE ? RVN_PART_CLOSE_BUTTON : RVN_PART_CAPTION_BUTTON;
+		rvn_part_look_t look;
+		rvn_part_look_clear(&look);
+		look.background = rvn_widget_color(widget, (states & RVN_STATE_PRESSED) ? R_COLOR_CONTROL_PRESSED :
+			(states & RVN_STATE_HOVERED) ? R_COLOR_CONTROL_HOVERED : R_COLOR_CONTROL);
+		look.foreground = text;
+		look.radius = rect.w * 0.5f;
+		if (!active) look.opacity = 0.6f;
+		rvn_part_apply_styles(widget, part, states, &look);
+		rvn_paint_part(painter, rect, &look);
+		rvn_header_bar_glyph(painter, button, maximized, R_FALSE, cx, cy, 8.0f, look.foreground);
+		return;
+	} else if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) {
+		/*
+		 * Windows 11: 46 wide, the glyphs of Segoe Fluent Icons; a soft
+		 * background under the pointer, red for the one that closes.
+		 */
+		static const uint32_t glyphs[RVN_HB_COUNT] = { 0xE8BB, 0xE921, 0xE922 };
+		uint32_t states = (bar->hot == button && painter->enabled ? RVN_STATE_HOVERED : 0) |
+			(bar->down == button && bar->hot == button ? RVN_STATE_PRESSED : 0) | (active ? 0 : RVN_STATE_DISABLED);
+		int part = button == RVN_HB_CLOSE ? RVN_PART_CLOSE_BUTTON : RVN_PART_CAPTION_BUTTON;
+		rvn_part_look_t look, other;
+		uint32_t glyph = glyphs[button];
+		if (button == RVN_HB_MAXIMIZE && maximized) glyph = 0xE923;
+		rvn_part_look_clear(&look);
+		look.foreground = active ? text : rvn_widget_color(widget, R_COLOR_TEXT_DISABLED);
+		rvn_part_apply_styles(widget, part, states & ~(RVN_STATE_HOVERED | RVN_STATE_PRESSED), &look);
+		rvn_part_look_clear(&other);
+		if (button == RVN_HB_CLOSE) {
+			other.background = (states & RVN_STATE_PRESSED) ? rvn_fluent(widget, RVN_FLUENT_CLOSE_PRESSED) : rvn_fluent(widget, RVN_FLUENT_CLOSE);
+			other.foreground = (states & RVN_STATE_PRESSED) ? rvn_hex(0xFFFFFF, 179) : rvn_hex(0xFFFFFF, 255);
+		} else {
+			other.background = (states & RVN_STATE_PRESSED) ? rvn_fluent(widget, RVN_FLUENT_SUBTLE_PRESSED) : rvn_widget_color(widget, R_COLOR_ROW_HOVERED);
+			other.foreground = (states & RVN_STATE_PRESSED) ? rvn_fluent(widget, RVN_FLUENT_TEXT_SECONDARY) : text;
+		}
+		rvn_part_apply_styles(widget, part, states | RVN_STATE_HOVERED, &other);
+		rvn_part_look_mix(&look, &other, rvn_clampf(hover, 0.0f, 1.0f));
+		rvn_paint_part(painter, rect, &look);
+		if (!rvn_paint_look_icon(painter, widget, glyph, cx, cy, 10.0f, look.foreground)) {
+			rvn_header_bar_glyph(painter, button, maximized, R_FALSE, cx, cy, 10.0f, look.foreground);
+		}
+		return;
 	} else if (rvn_widget_glass(widget)) {
 		/* a bead of glass; the one that closes turns red under the pointer */
 		float mix = rvn_clampf(hover, 0.0f, 1.0f);
@@ -333,6 +393,14 @@ static void rvn_header_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 	if (!bar->no_background) {
 		if (rvn_widget_glass(widget)) {
 			rvn_paint_surface(painter, widget, rect, 0.0f, RVN_SURFACE_BAR, 0.0f, 0.0f);
+		} else if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) {
+			/* Windows: the title bar is the window itself (Mica), without a line under it */
+			if (rvn_color_a(rvn_widget_color(widget, R_COLOR_HEADER))) rvn_paint_rect(painter, rect, rvn_widget_color(widget, R_COLOR_HEADER));
+		} else if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+			/* macOS: the window, a hairline under it; GNOME: its own grey, a shade under it */
+			if (rvn_color_a(rvn_widget_color(widget, R_COLOR_HEADER))) rvn_paint_rect(painter, rect, rvn_widget_color(widget, R_COLOR_HEADER));
+			rvn_paint_rect(painter, rvn_rect(0.0f, rect.h - 1.0f, rect.w, 1.0f),
+				rvn_widget_color(widget, rvn_widget_family(widget) == RVN_FAMILY_GNOME ? R_COLOR_BORDER : R_COLOR_SEPARATOR));
 		} else {
 			rvn_paint_rect(painter, rect, rvn_widget_color(widget, R_COLOR_HEADER));
 			rvn_paint_rect(painter, rvn_rect(0.0f, rect.h - 1.0f, rect.w, 1.0f), rvn_widget_color(widget, R_COLOR_SEPARATOR));
@@ -382,7 +450,7 @@ static void rvn_header_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_paint_pop_clip(painter);
 	}
 
-	if (bar->side == R_HALIGN_LEFT) rvn_paint_spring(painter, &bar->glyphs, bar->hot >= 0 ? 1.0f : 0.0f, R_MOTION_SNAPPY);
+	if (rvn_header_bar_side(widget) == R_HALIGN_LEFT) rvn_paint_spring(painter, &bar->glyphs, bar->hot >= 0 ? 1.0f : 0.0f, R_MOTION_SNAPPY);
 	for (i = 0; i < RVN_HB_COUNT; i++) rvn_header_bar_paint_button(widget, painter, i);
 }
 
@@ -489,6 +557,7 @@ static int rvn_header_bar_set_attribute(rvn_widget_t* widget, const char* name, 
 		if (rvn_stricmp(value, "Left") == 0) bar->side = R_HALIGN_LEFT;
 		else if (rvn_stricmp(value, "Right") == 0) bar->side = R_HALIGN_RIGHT;
 		else return R_FALSE;
+		bar->side_given = R_TRUE;
 	} else if (RVN_ATTR("TitleAlign")) {
 		if (rvn_stricmp(value, "Left") == 0) bar->title_align = R_HALIGN_LEFT;
 		else if (rvn_stricmp(value, "Center") == 0) bar->title_align = R_HALIGN_CENTER;
@@ -553,6 +622,7 @@ void Rheader_bar_set_button_side(Rid id, RHAlign side) {
 		return;
 	}
 	((rvn_header_bar_t*)widget)->side = side;
+	((rvn_header_bar_t*)widget)->side_given = R_TRUE;
 	rvn_widget_invalidate_layout(widget);
 }
 

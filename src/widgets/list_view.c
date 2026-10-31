@@ -129,6 +129,38 @@ static void rvn_list_view_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_color_t selection = rvn_widget_color(widget, R_COLOR_SELECTION);
 	rvn_vec2_t origin = rvn_widget_origin(widget);
 
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/*
+		 * The platforms: a frame (rvn_platform_paint_list_frame), rows inset
+		 * and rounded; the selected one with the pill of the accent (Windows),
+		 * in the accent (macOS), a little darker (GNOME)
+		 */
+		rvn_platform_paint_list_frame(painter, widget, rect, rvn_widget_states(widget, painter, R_FALSE, R_FALSE));
+		rvn_paint_push_clip(painter, rvn_rect(1.0f, 1.0f, rect.w - 2.0f, rect.h - 2.0f));
+		last = rvn_mini(count, first + (int)(list->bar.viewport / row) + 3);
+		if (list->selected >= 0) {
+			float y = rvn_paint_spring(painter, &list->select_y, row * (float)list->selected, R_MOTION_SNAPPY);
+			rvn_platform_paint_item(painter, widget, rvn_platform_row(widget, rvn_rect(1.0f, 1.0f + y - offset, content_width, row)),
+				rvn_widget_states(widget, painter, list->hot == list->selected && (widget->flags & RVN_WF_HOVERED), R_FALSE) | RVN_STATE_SELECTED,
+				RVN_ITEM_LIST, 1.0f);
+		} else {
+			list->select_y.started = R_FALSE;
+		}
+		for (i = rvn_maxi(first, 0); i < last; i++) {
+			rvn_rect_t line = rvn_platform_row(widget, rvn_rect(1.0f, 1.0f + row * (float)i - offset, content_width, row));
+			uint32_t states = rvn_widget_states(widget, painter, i == list->hot && (widget->flags & RVN_WF_HOVERED), R_FALSE);
+			rvn_color_t color;
+			if (i != list->selected && (states & RVN_STATE_HOVERED)) rvn_platform_paint_item(painter, widget, line, states, RVN_ITEM_LIST, 0.0f);
+			color = rvn_platform_item_foreground(widget, states | (i == list->selected ? RVN_STATE_SELECTED : 0), RVN_ITEM_LIST);
+			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
+				rvn_rect(line.x + 11.0f, line.y, rvn_maxf(0.0f, line.w - 22.0f), line.h), 0.0f, rvn_list_text(list, i), -1,
+				rvn_color_a(color) ? color : text);
+		}
+		rvn_paint_pop_clip(painter);
+		rvn_scrollbar_paint(&list->bar, widget, painter, rvn_list_track(widget), R_TRUE,
+			widget->window ? widget->window->mouse_x - origin.x : -1.0f, widget->window ? widget->window->mouse_y - origin.y : -1.0f);
+		return;
+	}
 	rvn_paint_box(painter, rect, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), rvn_widget_color(widget, R_COLOR_INPUT),
 		rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH), rvn_widget_color(widget, focused ? R_COLOR_FOCUS : R_COLOR_BORDER));
 

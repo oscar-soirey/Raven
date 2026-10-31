@@ -19,6 +19,10 @@
 
 #if !defined(_WIN32) && !defined(__APPLE__)
 
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE /* popen, pclose */
+#endif
+
 #include "platform.h"
 #include "atspi.h"
 #include "../core/accessibility.h"
@@ -1025,6 +1029,15 @@ void rvn_atspi_settings(RAccessibilitySettings* settings) {
 	const char* scale = getenv("GDK_DPI_SCALE");
 	if (theme && (strstr(theme, "HighContrast") || strstr(theme, "highcontrast"))) settings->high_contrast = R_TRUE;
 	if (scale && atof(scale) >= 0.5 && atof(scale) <= 4.0) settings->text_scale = (float)atof(scale);
+	/* GNOME: animations turned off in the settings (Accessibility, Reduce Animation) */
+	{
+		FILE* pipe = popen("gsettings get org.gnome.desktop.interface enable-animations 2>/dev/null", "r");
+		char line[32];
+		if (pipe) {
+			if (fgets(line, sizeof(line), pipe) && strncmp(line, "false", 5) == 0) settings->reduce_motion = R_TRUE;
+			pclose(pipe);
+		}
+	}
 }
 
 #endif

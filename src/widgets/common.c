@@ -190,11 +190,17 @@ float rvn_widget_hover(rvn_widget_t* widget, RPainter* painter, int hovered) {
 }
 
 float rvn_widget_press(rvn_widget_t* widget, RPainter* painter, int pressed) {
-	/* goes down at once; released, it springs back past its rest position */
-	return rvn_paint_spring(painter, &widget->press, pressed ? 1.0f : 0.0f, pressed ? R_MOTION_SNAPPY : R_MOTION_BOUNCY);
+	/* goes down at once; released, it springs back past its rest position (the looks of Raven) */
+	return rvn_paint_spring(painter, &widget->press, pressed ? 1.0f : 0.0f, pressed ? R_MOTION_SNAPPY : rvn_widget_motion(widget, R_MOTION_BOUNCY));
 }
 
 void rvn_widget_squash(rvn_widget_t* widget, float press, float amount) {
+	/* (the platforms do not squash their controls) */
+	if (!rvn_widget_springy(widget)) {
+		widget->xform.grow_x = 0.0f;
+		widget->xform.grow_y = 0.0f;
+		return;
+	}
 	/* pressed: flatter and wider, like something soft; released, the spring overshoots the other way */
 	widget->xform.grow_x = amount * 0.45f * press;
 	widget->xform.grow_y = -amount * press;
@@ -218,12 +224,236 @@ void rvn_paint_knob(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t re
 	rvn_paint_box(painter, rect, radius, painter->enabled ? rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f) : rvn_rgba(0.85f, 0.85f, 0.87f, 1.0f), 0.0f, 0);
 }
 
+/* The focus ring, from the look and the styles (Part="Focus"). */
+static void rvn_focus_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const float* radius = (const float*)context;
+	RVN_UNUSED(part);
+	RVN_UNUSED(states);
+	look->border = rvn_widget_color(widget, R_COLOR_FOCUS);
+	look->border_width = rvn_a11y_focus_width();
+	look->radius = *radius;
+	/* Windows: two rings, black (white in the dark) around a thin light (dark) one */
+	if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) look->foreground = rvn_fluent(widget, RVN_FLUENT_FOCUS_INNER);
+	/* macOS: a ring of the accent, faded, three wide; GNOME: two wide */
+	else if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) look->border_width = rvn_maxf(look->border_width, 3.0f);
+}
+
 void rvn_paint_focus(const rvn_widget_t* widget, RPainter* painter, float radius) {
-	float width = rvn_a11y_focus_width();
+	rvn_part_look_t look;
+	float width, away;
 	if (!(widget->flags & RVN_WF_FOCUSED) || !widget->window) return;
 	if (!widget->window->focus_visible && !rvn_a11y_focus_always()) return;
-	rvn_paint_box(painter, rvn_rect(-width, -width, widget->rect.w + width * 2.0f, widget->rect.h + width * 2.0f), radius + width,
-		0, width, rvn_widget_color(widget, R_COLOR_FOCUS));
+	rvn_part_look(widget, RVN_PART_FOCUS, RVN_STATE_FOCUSED, rvn_focus_look, &radius, &look);
+	width = look.border_width;
+	if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) {
+		/* the inner ring lies against the control, the outer one just outside it */
+		away = 1.0f + width;
+		if (rvn_color_a(look.foreground)) {
+			rvn_paint_box(painter, rvn_rect(-1.0f, -1.0f, widget->rect.w + 2.0f, widget->rect.h + 2.0f), look.radius + 1.0f,
+				0, 1.0f, look.foreground);
+		}
+		rvn_paint_box(painter, rvn_rect(-away, -away, widget->rect.w + away * 2.0f, widget->rect.h + away * 2.0f), look.radius + away,
+			0, width, look.border);
+		return;
+	}
+	rvn_paint_box(painter, rvn_rect(-width, -width, widget->rect.w + width * 2.0f, widget->rect.h + width * 2.0f), look.radius + width,
+		0, width, look.border);
+}
+
+/* ---------------------------------------------------------------------------
+ *  The look of Windows 11
+ * ------------------------------------------------------------------------- */
+
+/* The color of the text of the theme, made translucent: the greys of Fluent are black or white seen through. */
+static rvn_color_t rvn_fluent_ink(const rvn_widget_t* widget, float alpha) {
+	rvn_color_t text = rvn_widget_color(widget, R_COLOR_TEXT);
+	/* (Fluent is black at 89 % or white: the ink is the text at full strength) */
+	return rvn_color_fade((text & 0x00FFFFFFu) | 0xFF000000u, alpha);
+}
+
+rvn_color_t rvn_fluent(const rvn_widget_t* widget, rvn_fluent_t token) {
+	const int dark = rvn_widget_theme(widget)->dark;
+	switch (token) {
+		case RVN_FLUENT_STROKE_EDGE: return dark ? rvn_hex(0xFFFFFF, 24) : rvn_hex(0x000000, 41);
+		case RVN_FLUENT_STRONG_STROKE: return rvn_fluent_ink(widget, dark ? 0.545f : 0.447f);
+		case RVN_FLUENT_ACCENT_EDGE_TOP: return rvn_hex(0xFFFFFF, 20);
+		case RVN_FLUENT_ACCENT_EDGE_BOTTOM: return dark ? rvn_hex(0x000000, 36) : rvn_hex(0x000000, 102);
+		case RVN_FLUENT_SUBTLE_PRESSED: return dark ? rvn_hex(0xFFFFFF, 10) : rvn_hex(0x000000, 6);
+		case RVN_FLUENT_ALT_FILL: return dark ? rvn_hex(0x000000, 25) : rvn_hex(0x000000, 6);
+		case RVN_FLUENT_ALT_FILL_HOVERED: return dark ? rvn_hex(0xFFFFFF, 11) : rvn_hex(0x000000, 15);
+		case RVN_FLUENT_ALT_FILL_PRESSED: return dark ? rvn_hex(0xFFFFFF, 18) : rvn_hex(0x000000, 24);
+		case RVN_FLUENT_TEXT_SECONDARY: return rvn_fluent_ink(widget, dark ? 0.773f : 0.62f);
+		case RVN_FLUENT_TEXT_ON_ACCENT_SECONDARY: return dark ? rvn_hex(0x000000, 128) : rvn_hex(0xFFFFFF, 179);
+		case RVN_FLUENT_TEXT_ON_ACCENT_DISABLED: return dark ? rvn_hex(0xFFFFFF, 135) : rvn_hex(0xFFFFFF, 255);
+		case RVN_FLUENT_CONTROL_DISABLED: return dark ? rvn_hex(0xFFFFFF, 11) : rvn_hex(0xF9F9F9, 77);
+		case RVN_FLUENT_ACCENT_DISABLED: return dark ? rvn_hex(0xFFFFFF, 40) : rvn_hex(0x000000, 55);
+		case RVN_FLUENT_INPUT_ACTIVE: return dark ? rvn_hex(0x1E1E1E, 179) : rvn_hex(0xFFFFFF, 255);
+		case RVN_FLUENT_SOLID_CONTROL: return dark ? rvn_hex(0x454545, 255) : rvn_hex(0xFFFFFF, 255);
+		case RVN_FLUENT_FOCUS_INNER: return dark ? rvn_hex(0x000000, 179) : rvn_hex(0xFFFFFF, 179);
+		case RVN_FLUENT_CLOSE: return rvn_hex(0xC42B1C, 255);
+		case RVN_FLUENT_CLOSE_PRESSED: return rvn_hex(0xC42B1C, 230);
+		case RVN_FLUENT_CARD: return rvn_widget_color(widget, R_COLOR_PANEL);
+		case RVN_FLUENT_CARD_BORDER: return rvn_widget_color(widget, R_COLOR_BORDER);
+		default: return 0;
+	}
+}
+
+void rvn_fluent_button_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int dark = rvn_widget_theme(widget)->dark;
+	const int pressed = (states & RVN_STATE_PRESSED) != 0, hovered = (states & RVN_STATE_HOVERED) != 0;
+	RVN_UNUSED(part);
+	RVN_UNUSED(context);
+	look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+	look->border_width = rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH);
+	if (states & RVN_STATE_PRIMARY) {
+		if (states & RVN_STATE_DISABLED) {
+			look->background = rvn_fluent(widget, RVN_FLUENT_ACCENT_DISABLED);
+			look->foreground = rvn_fluent(widget, RVN_FLUENT_TEXT_ON_ACCENT_DISABLED);
+			return;
+		}
+		look->background = rvn_widget_color(widget, pressed ? R_COLOR_ACCENT_PRESSED : hovered ? R_COLOR_ACCENT_HOVERED : R_COLOR_ACCENT);
+		look->foreground = pressed ? rvn_fluent(widget, RVN_FLUENT_TEXT_ON_ACCENT_SECONDARY) : rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+		if (!pressed) {
+			/* a light line along the top, a dark one along the bottom: the accent button stands out */
+			look->border = rvn_fluent(widget, RVN_FLUENT_ACCENT_EDGE_TOP);
+			look->border_bottom = rvn_fluent(widget, RVN_FLUENT_ACCENT_EDGE_BOTTOM);
+		}
+		return;
+	}
+	if (states & RVN_STATE_FLAT) {
+		look->background = pressed ? rvn_fluent(widget, RVN_FLUENT_SUBTLE_PRESSED) : hovered ? rvn_widget_color(widget, R_COLOR_ROW_HOVERED) : 0;
+		look->foreground = (states & RVN_STATE_DISABLED) ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) :
+			pressed ? rvn_fluent(widget, RVN_FLUENT_TEXT_SECONDARY) : rvn_widget_color(widget, R_COLOR_TEXT);
+		return;
+	}
+	look->border = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
+	if (states & RVN_STATE_DISABLED) {
+		look->background = rvn_fluent(widget, RVN_FLUENT_CONTROL_DISABLED);
+		look->foreground = rvn_widget_color(widget, R_COLOR_TEXT_DISABLED);
+		return;
+	}
+	look->background = rvn_widget_color(widget, pressed ? R_COLOR_CONTROL_PRESSED : hovered ? R_COLOR_CONTROL_HOVERED : R_COLOR_CONTROL);
+	look->foreground = pressed ? rvn_fluent(widget, RVN_FLUENT_TEXT_SECONDARY) : rvn_widget_color(widget, R_COLOR_TEXT);
+	/* the elevation: a darker bottom edge in the light, a lighter top edge in the dark; pressed, it is flat */
+	if (!pressed) {
+		if (dark) look->border_top = rvn_fluent(widget, RVN_FLUENT_STROKE_EDGE);
+		else look->border_bottom = rvn_fluent(widget, RVN_FLUENT_STROKE_EDGE);
+	}
+}
+
+void rvn_fluent_field_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	RVN_UNUSED(part);
+	RVN_UNUSED(context);
+	look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+	look->border_width = rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH);
+	look->border = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
+	look->foreground = rvn_widget_color(widget, R_COLOR_TEXT);
+	if (states & RVN_STATE_DISABLED) {
+		look->background = rvn_fluent(widget, RVN_FLUENT_CONTROL_DISABLED);
+		look->foreground = rvn_widget_color(widget, R_COLOR_TEXT_DISABLED);
+		return;
+	}
+	if (states & RVN_STATE_FOCUSED) {
+		/* typed into: brighter (darker in the dark), and a line of the accent, two pixels, along the bottom */
+		look->background = rvn_fluent(widget, RVN_FLUENT_INPUT_ACTIVE);
+		look->border_bottom = rvn_widget_color(widget, R_COLOR_ACCENT);
+		look->border_bottom_width = 2.0f;
+		return;
+	}
+	look->background = (states & RVN_STATE_HOVERED) ? rvn_widget_color(widget, R_COLOR_CONTROL_HOVERED) : rvn_widget_color(widget, R_COLOR_INPUT);
+	look->border_bottom = rvn_fluent(widget, RVN_FLUENT_STRONG_STROKE);
+}
+
+void rvn_fluent_popup_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	RVN_UNUSED(part);
+	RVN_UNUSED(states);
+	RVN_UNUSED(context);
+	look->background = rvn_widget_color(widget, part == RVN_PART_TOOLTIP ? R_COLOR_TOOLTIP : R_COLOR_POPUP);
+	look->foreground = rvn_widget_color(widget, part == RVN_PART_TOOLTIP ? R_COLOR_TOOLTIP_TEXT : R_COLOR_TEXT);
+	look->border = rvn_widget_color(widget, R_COLOR_POPUP_BORDER);
+	look->border_width = 1.0f;
+	look->radius = part == RVN_PART_TOOLTIP ? rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) : rvn_widget_metric(widget, R_METRIC_POPUP_RADIUS);
+	look->shadow = part == RVN_PART_TOOLTIP ? 8.0f : 16.0f;
+	look->shadow_color = rvn_widget_color(widget, R_COLOR_SHADOW);
+}
+
+/* Rows of Windows: the background of a row, then the pill of the selection. */
+void rvn_fluent_item_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	RVN_UNUSED(context);
+	look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+	if (part == RVN_PART_INDICATOR) {
+		look->background = rvn_widget_color(widget, R_COLOR_ACCENT);
+		look->size = 16.0f;
+		look->radius = 1.5f;
+		return;
+	}
+	look->foreground = (states & RVN_STATE_DISABLED) ? rvn_widget_color(widget, R_COLOR_TEXT_DISABLED) : rvn_widget_color(widget, R_COLOR_TEXT);
+	if (states & RVN_STATE_DISABLED) return;
+	if (states & RVN_STATE_PRESSED) look->background = rvn_fluent(widget, RVN_FLUENT_SUBTLE_PRESSED);
+	else if (states & (RVN_STATE_HOVERED | RVN_STATE_SELECTED | RVN_STATE_OPEN)) look->background = rvn_widget_color(widget, R_COLOR_ROW_HOVERED);
+	/* selected and hovered: a little stronger */
+	if ((states & RVN_STATE_SELECTED) && (states & RVN_STATE_HOVERED) && !(states & RVN_STATE_PRESSED)) {
+		uint32_t alpha = (uint32_t)rvn_minf((float)rvn_color_a(look->background) * 1.6f, 255.0f);
+		look->background = (look->background & 0x00FFFFFFu) | (alpha << 24);
+	}
+}
+
+void rvn_fluent_paint_item(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t row, uint32_t states, int indicator, float indicator_shown) {
+	rvn_part_look_t look;
+	rvn_part_look(widget, RVN_PART_ITEM, states, rvn_fluent_item_look, NULL, &look);
+	rvn_paint_part(painter, row, &look);
+	if (indicator && indicator_shown > 0.01f) {
+		float height;
+		rvn_part_look(widget, RVN_PART_INDICATOR, states, rvn_fluent_item_look, NULL, &look);
+		/* the pill grows from its middle when it arrives */
+		height = rvn_minf(look.size, row.h - 8.0f) * rvn_clampf(indicator_shown, 0.0f, 1.0f);
+		rvn_paint_part(painter, rvn_rect(row.x, floorf(row.y + (row.h - height) * 0.5f), 3.0f, height), &look);
+	}
+}
+
+static void rvn_raven_popup_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	RVN_UNUSED(part);
+	RVN_UNUSED(states);
+	look->background = rvn_widget_color(widget, R_COLOR_POPUP);
+	look->border = rvn_widget_color(widget, R_COLOR_POPUP_BORDER);
+	look->border_width = 1.0f;
+	look->radius = *(const float*)context;
+	look->shadow = 14.0f;
+	look->shadow_color = rvn_widget_color(widget, R_COLOR_SHADOW);
+}
+
+void rvn_paint_popup_surface(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t rect, float radius, float shadow) {
+	rvn_part_look_t look;
+	if (rvn_widget_glass(widget)) {
+		rvn_paint_surface(painter, widget, rect, radius, RVN_SURFACE_POPUP, 0.0f, 0.0f);
+		return;
+	}
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		rvn_part_look(widget, RVN_PART_POPUP, 0, rvn_platform_popup_look, NULL, &look);
+		rvn_paint_part(painter, rect, &look);
+		return;
+	}
+	if (!rvn_part_styled(widget, RVN_PART_POPUP)) {
+		rvn_paint_shadow(painter, rvn_rect(0.0f, shadow * 0.25f, rect.w, rect.h), radius, shadow, rvn_widget_color(widget, R_COLOR_SHADOW));
+		rvn_paint_box(painter, rect, radius, rvn_widget_color(widget, R_COLOR_POPUP), 1.0f, rvn_widget_color(widget, R_COLOR_POPUP_BORDER));
+		return;
+	}
+	rvn_part_look(widget, RVN_PART_POPUP, 0, rvn_raven_popup_look, &radius, &look);
+	look.shadow = shadow;
+	rvn_part_apply_styles(widget, RVN_PART_POPUP, 0, &look);
+	rvn_paint_part(painter, rect, &look);
+}
+
+void rvn_fluent_paint_chevron(RPainter* painter, const rvn_widget_t* widget, float cx, float cy, float size, float angle, rvn_color_t color) {
+	/* Segoe Fluent Icons: ChevronRightMed E974, ChevronDownMed E972, ChevronUpMed E971, ChevronLeftMed E973 */
+	uint32_t glyph = 0xE974;
+	float quarter = 1.5707964f;
+	if (fabsf(angle - quarter) < 0.01f) glyph = 0xE972;
+	else if (fabsf(angle + quarter) < 0.01f) glyph = 0xE971;
+	else if (fabsf(fabsf(angle) - quarter * 2.0f) < 0.01f) glyph = 0xE973;
+	else if (fabsf(angle) > 0.01f) glyph = 0;
+	if (glyph && rvn_paint_look_icon(painter, widget, glyph, cx, cy, size, color)) return;
+	rvn_paint_chevron(painter, cx, cy, size * 0.62f, angle, color);
 }
 
 /* ---------------------------------------------------------------------------
@@ -298,6 +528,44 @@ void rvn_scrollbar_paint(rvn_scrollbar_t* bar, const rvn_widget_t* widget, RPain
 	else thumb = rvn_rect(track.x + start + 2.0f, track.y + 2.0f, length - 4.0f, thickness - 4.0f);
 
 	hot = bar->dragging || ((widget->flags & RVN_WF_HOVERED) && rvn_rect_contains(track, mouse_x, mouse_y));
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/*
+		 * The overlay scrollbars of the platforms: a thin thumb over the
+		 * content while the pointer is over it or the content moves, that
+		 * widens over a light track when the pointer is on it; nothing
+		 * otherwise. Windows 2 then 6 wide, macOS 7 then 9, GNOME 3 then 8.
+		 */
+		const int family = rvn_widget_family(widget);
+		const float thin = family == RVN_FAMILY_MACOS ? 7.0f : family == RVN_FAMILY_GNOME ? 3.0f : 2.0f;
+		const float thick = family == RVN_FAMILY_MACOS ? 9.0f : family == RVN_FAMILY_GNOME ? 8.0f : 6.0f;
+		int active = hot || (widget->flags & RVN_WF_HOVERED) || rvn_spring_moving(&bar->shown, bar->offset);
+		float visible = rvn_clampf(rvn_paint_spring(painter, &bar->fade, active ? 1.0f : 0.0f, R_MOTION_SMOOTH), 0.0f, 1.0f);
+		float wide = rvn_clampf(rvn_paint_spring(painter, &bar->expand, hot ? 1.0f : 0.0f, R_MOTION_SMOOTH), 0.0f, 1.0f);
+		float size = thin + (thick - thin) * wide;
+		uint32_t states = (hot ? RVN_STATE_HOVERED : 0) | (bar->dragging ? RVN_STATE_PRESSED : 0);
+		rvn_part_look_t back, grip;
+		if (visible < 0.02f) return;
+		rvn_part_look_clear(&back);
+		back.background = rvn_color_fade(rvn_widget_color(widget, family == RVN_FAMILY_GNOME ? R_COLOR_WINDOW : R_COLOR_POPUP), 0.9f * wide);
+		back.radius = thickness * 0.5f;
+		rvn_part_apply_styles(widget, RVN_PART_SCROLLBAR, states, &back);
+		rvn_part_look_clear(&grip);
+		grip.background = rvn_widget_color(widget, hot ? R_COLOR_HANDLE_HOVERED : R_COLOR_HANDLE);
+		if (family == RVN_FAMILY_WINDOWS) grip.background = rvn_widget_color(widget, R_COLOR_HANDLE);
+		grip.radius = size * 0.5f;
+		rvn_part_apply_styles(widget, RVN_PART_SCROLL_THUMB, states, &grip);
+		back.opacity *= visible;
+		grip.opacity *= visible;
+		if (wide > 0.01f) {
+			rvn_paint_part(painter, vertical ? rvn_rect(track.x + 1.0f, track.y + 1.0f, thickness - 2.0f, track.h - 2.0f) :
+				rvn_rect(track.x + 1.0f, track.y + 1.0f, track.w - 2.0f, thickness - 2.0f), &back);
+		}
+		/* (the hairline keeps to the edge; the thumb is centered on the track) */
+		if (vertical) thumb = rvn_rect(track.x + thickness - 3.0f - size - (thickness * 0.5f - 3.0f - size * 0.5f) * wide, thumb.y, size, thumb.h);
+		else thumb = rvn_rect(thumb.x, track.y + thickness - 3.0f - size - (thickness * 0.5f - 3.0f - size * 0.5f) * wide, thumb.w, size);
+		rvn_paint_part(painter, thumb, &grip);
+		return;
+	}
 	if (rvn_widget_glass(widget)) {
 		/* no track: a thin capsule over the content, thicker under the pointer, gone when nothing moves */
 		int active = hot || (widget->flags & RVN_WF_HOVERED) || rvn_spring_moving(&bar->shown, bar->offset);

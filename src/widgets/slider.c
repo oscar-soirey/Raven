@@ -62,6 +62,106 @@ static rvn_vec2_t rvn_slider_measure(rvn_widget_t* widget) {
 	return slider->orientation == R_HORIZONTAL ? rvn_vec2(120.0f, thickness) : rvn_vec2(thickness, 120.0f);
 }
 
+/* The parts of a slider of Windows 11: a thin rail, the accent up to the value, a round thumb with an accent core. */
+static void rvn_slider_fluent_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int disabled = (states & RVN_STATE_DISABLED) != 0;
+	const float size = rvn_widget_metric(widget, R_METRIC_SLIDER_HANDLE_SIZE);
+	RVN_UNUSED(context);
+	switch (part) {
+		case RVN_PART_TRACK:
+			look->background = disabled ? rvn_fluent(widget, RVN_FLUENT_ACCENT_DISABLED) : rvn_widget_color(widget, R_COLOR_TRACK);
+			look->size = 4.0f;
+			look->radius = 2.0f;
+			break;
+		case RVN_PART_FILL:
+			look->background = disabled ? rvn_fluent(widget, RVN_FLUENT_ACCENT_DISABLED) : rvn_widget_color(widget, R_COLOR_ACCENT);
+			look->size = 4.0f;
+			look->radius = 2.0f;
+			break;
+		case RVN_PART_THUMB:
+			/* the outer round, with the edge of the controls */
+			look->background = rvn_fluent(widget, RVN_FLUENT_SOLID_CONTROL);
+			look->border = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
+			if (rvn_widget_theme(widget)->dark) look->border_top = rvn_fluent(widget, RVN_FLUENT_STROKE_EDGE);
+			else look->border_bottom = rvn_fluent(widget, RVN_FLUENT_STROKE_EDGE);
+			look->border_width = 1.0f;
+			look->size = size;
+			look->radius = size;
+			break;
+		case RVN_PART_KNOB:
+			/* its core: 12 at rest, 14 under the pointer, 10 held */
+			look->background = disabled ? rvn_fluent(widget, RVN_FLUENT_ACCENT_DISABLED) :
+				rvn_widget_color(widget, (states & RVN_STATE_PRESSED) ? R_COLOR_ACCENT_PRESSED : (states & RVN_STATE_HOVERED) ? R_COLOR_ACCENT_HOVERED : R_COLOR_ACCENT);
+			look->size = (states & RVN_STATE_PRESSED) ? size * 0.5f : (states & RVN_STATE_HOVERED) ? size * 0.7f : size * 0.6f;
+			look->radius = size;
+			break;
+		default:
+			break;
+	}
+}
+
+/* macOS and GNOME: a thin track, the accent up to the value, a white round knob with a soft shadow. */
+static void rvn_slider_other_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const int disabled = (states & RVN_STATE_DISABLED) != 0;
+	const int mac = rvn_widget_family(widget) == RVN_FAMILY_MACOS;
+	const float size = rvn_widget_metric(widget, R_METRIC_SLIDER_HANDLE_SIZE);
+	RVN_UNUSED(context);
+	switch (part) {
+		case RVN_PART_TRACK:
+		case RVN_PART_FILL:
+			look->background = part == RVN_PART_TRACK ? rvn_widget_color(widget, R_COLOR_TRACK) : rvn_widget_color(widget, R_COLOR_ACCENT);
+			look->size = mac ? 4.0f : 6.0f;
+			look->radius = look->size * 0.5f;
+			if (disabled) look->opacity = 0.5f;
+			break;
+		case RVN_PART_THUMB:
+			look->background = (mac && rvn_widget_theme(widget)->dark) ? rvn_hex(0xCACACA, 255) : rvn_hex(0xFFFFFF, 255);
+			look->border = rvn_hex(0x000000, mac ? 38 : 26);
+			look->border_width = mac ? 0.5f : 1.0f;
+			look->shadow = mac ? 2.0f : 4.0f;
+			look->shadow_color = rvn_hex(0x000000, mac ? 70 : 51);
+			look->size = mac ? size - 2.0f : size;
+			look->radius = size;
+			/* GNOME darkens it a little pressed; macOS too */
+			if (states & RVN_STATE_PRESSED) look->background = rvn_color_mix(look->background, rvn_hex(0x000000, 255), 0.06f);
+			if (disabled) look->opacity = 0.6f;
+			break;
+		default:
+			/* (no core in the thumb) */
+			look->size = 0.0f;
+			break;
+	}
+}
+
+static void rvn_slider_paint_fluent(rvn_widget_t* widget, RPainter* painter, float fraction, float hover, float press, int hot, int held) {
+	rvn_slider_t* slider = (rvn_slider_t*)widget;
+	uint32_t states = rvn_widget_states(widget, painter, hot, held);
+	float handle = rvn_slider_handle(widget);
+	rvn_part_look_t track, fill, thumb, core;
+	int horizontal = slider->orientation == R_HORIZONTAL;
+	float length = horizontal ? widget->rect.w : widget->rect.h, cross = horizontal ? widget->rect.h : widget->rect.w;
+	float travel = rvn_maxf(0.0f, length - handle), center = handle * 0.5f + travel * (horizontal ? fraction : 1.0f - fraction);
+	float t, middle = floorf(cross * 0.5f);
+
+	rvn_part_base_t base = rvn_widget_family(widget) == RVN_FAMILY_WINDOWS ? rvn_slider_fluent_look : rvn_slider_other_look;
+	rvn_part_look_eased(widget, RVN_PART_TRACK, states, hover, press, base, NULL, &track);
+	rvn_part_look_eased(widget, RVN_PART_FILL, states, hover, press, base, NULL, &fill);
+	rvn_part_look_eased(widget, RVN_PART_THUMB, states, hover, press, base, NULL, &thumb);
+	rvn_part_look_eased(widget, RVN_PART_KNOB, states, hover, press, base, NULL, &core);
+	t = track.size;
+	if (horizontal) {
+		rvn_paint_part(painter, rvn_rect(0.0f, middle - t * 0.5f, widget->rect.w, t), &track);
+		rvn_paint_part(painter, rvn_rect(0.0f, middle - fill.size * 0.5f, center, fill.size), &fill);
+		rvn_paint_part(painter, rvn_rect(center - thumb.size * 0.5f, middle - thumb.size * 0.5f, thumb.size, thumb.size), &thumb);
+		rvn_paint_part(painter, rvn_rect(center - core.size * 0.5f, middle - core.size * 0.5f, core.size, core.size), &core);
+	} else {
+		rvn_paint_part(painter, rvn_rect(middle - t * 0.5f, 0.0f, t, widget->rect.h), &track);
+		rvn_paint_part(painter, rvn_rect(middle - fill.size * 0.5f, center, fill.size, widget->rect.h - center), &fill);
+		rvn_paint_part(painter, rvn_rect(middle - thumb.size * 0.5f, center - thumb.size * 0.5f, thumb.size, thumb.size), &thumb);
+		rvn_paint_part(painter, rvn_rect(middle - core.size * 0.5f, center - core.size * 0.5f, core.size, core.size), &core);
+	}
+}
+
 static void rvn_slider_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_slider_t* slider = (rvn_slider_t*)widget;
 	float handle = rvn_slider_handle(widget);
@@ -83,6 +183,11 @@ static void rvn_slider_paint(rvn_widget_t* widget, RPainter* painter) {
 	}
 	if (slider->dragging) rvn_spring_set(&slider->shown, fraction);
 	fraction = rvn_clampf(rvn_paint_spring(painter, &slider->shown, fraction, R_MOTION_BOUNCY), 0.0f, 1.0f);
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/* (the core of the thumb reacts to the pointer over the thumb, as the whole slider here) */
+		rvn_slider_paint_fluent(widget, painter, fraction, hover, press, hot, held);
+		return;
+	}
 	if (slider->orientation == R_HORIZONTAL) {
 		float travel = rvn_maxf(0.0f, widget->rect.w - handle);
 		float center = handle * 0.5f + travel * fraction;

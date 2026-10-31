@@ -354,6 +354,8 @@ RVN_INLINE const rvn_style_match_t* rvn_widget_match(const rvn_widget_t* widget)
 RVN_INLINE RMaterial rvn_widget_material(const rvn_widget_t* widget) {
 	const rvn_style_match_t* match;
 	if (widget->material) return widget->material;
+	/* the looks of the platforms are opaque: only a widget told so itself is made of glass */
+	if (rvn_widget_theme(widget)->family != RVN_FAMILY_RAVEN) return R_MATERIAL_SOLID;
 	match = rvn_widget_match(widget);
 	if (match && match->material) return match->material;
 	return rvn_widget_theme(widget)->material;
@@ -372,10 +374,139 @@ void  rvn_widget_set_color(rvn_widget_t* widget, RColorRole role, rvn_color_t co
 void  rvn_widget_set_metric(rvn_widget_t* widget, RMetric metric, float value);
 /** Color of the text of a widget: its override, else the inherited color, dimmed when disabled. */
 rvn_color_t rvn_widget_text_color(const rvn_widget_t* widget, const RPainter* painter);
-/** Makes a built-in theme the theme in use. */
+/** Makes a built-in theme the theme in use (Rlook_set). */
 void  rvn_theme_apply(RTheme theme);
 /** Fills a theme with a built-in one (its styles are removed; name and path are kept). */
 void  rvn_theme_build(rvn_theme_t* theme, RTheme builtin);
+/** Fills a theme with a look (its styles are removed; name and path are kept). */
+void  rvn_theme_build_look(rvn_theme_t* theme, RLook look);
+
+/* ---- looks (widget/style.c, widget/theme.c) ---- */
+
+int   rvn_look_valid(RLook look);
+/** The look a NATIVE one stands for on this platform; the look itself otherwise. */
+RLook rvn_look_resolve(RLook look);
+/** "WindowsDark", "RavenLight", "NativeDark"...; the names of Raven 0.2 ("Dark", "GlassLight"...) for the looks of Raven. */
+const char* rvn_look_name(RLook look);
+const char* rvn_look_old_name(RLook look);
+/** Look by name, new ones and old ones; R_FALSE when unknown. */
+int   rvn_look_by_name(const char* name, RLook* look);
+/** The dark look of the same family (itself when it is dark): the island and what must stay dark. */
+RLook rvn_look_dark_counterpart(RLook look);
+int   rvn_look_dark(RLook look);
+/**
+ * Makes a look the one of the application. `keep_theme`: the theme file in
+ * use, when it follows the look, is laid over it again (Rlook_set); else the
+ * look replaces it (Rtheme_apply, Rtheme_use of a look, high contrast).
+ */
+void  rvn_look_apply(RLook look, int keep_theme);
+
+/* ---- parts and states (widget/look.c) ---- */
+
+/**
+ * The parts of the widgets that styles can reach (<Style Part="Thumb">).
+ * RVN_PART_BODY is the widget itself: a style without Part.
+ */
+typedef enum rvn_part_t {
+	RVN_PART_BODY = 0,
+	/** Check box: the box and its check mark; radio button: the circle and its dot. */
+	RVN_PART_BOX,
+	RVN_PART_MARK,
+	RVN_PART_RADIO,
+	RVN_PART_DOT,
+	/** Slider, progress bar, switch: the groove, what fills it, the knob of a slider, the knob of a switch. */
+	RVN_PART_TRACK,
+	RVN_PART_FILL,
+	RVN_PART_THUMB,
+	RVN_PART_KNOB,
+	/** The arrow of a combo box, of a spin box, of an expander, of a sub-menu. */
+	RVN_PART_ARROW,
+	/** The list of a combo box, a menu. */
+	RVN_PART_POPUP,
+	/** A row of a list, of a tree, of a menu, of a combo box; a title of a menu bar. */
+	RVN_PART_ITEM,
+	/** The mark of the selected row, tab or item (the pill of Windows). */
+	RVN_PART_INDICATOR,
+	RVN_PART_TAB,
+	/** The header of an expander, the bar of the tabs. */
+	RVN_PART_HEADER,
+	RVN_PART_SCROLLBAR,
+	RVN_PART_SCROLL_THUMB,
+	RVN_PART_TOOLTIP,
+	/** The buttons of the title bar (minimize, maximize), and the one that closes. */
+	RVN_PART_CAPTION_BUTTON,
+	RVN_PART_CLOSE_BUTTON,
+	/** The ring of the keyboard focus. */
+	RVN_PART_FOCUS,
+	RVN_PART_COUNT
+} rvn_part_t;
+
+/** States a style can ask for (<Style State="Hovered Checked">). */
+#define RVN_STATE_HOVERED  (1u << 0)
+#define RVN_STATE_PRESSED  (1u << 1)
+#define RVN_STATE_FOCUSED  (1u << 2)
+#define RVN_STATE_DISABLED (1u << 3)
+#define RVN_STATE_CHECKED  (1u << 4)
+#define RVN_STATE_SELECTED (1u << 5)
+#define RVN_STATE_OPEN     (1u << 6)
+/** The styles of a button (Style="Primary", "Flat"). */
+#define RVN_STATE_PRIMARY  (1u << 7)
+#define RVN_STATE_FLAT     (1u << 8)
+
+int rvn_part_by_name(const char* name, int* part);
+const char* rvn_part_name(int part);
+/** Parses "Hovered Checked" into RVN_STATE_... bits; R_FALSE (with the word in `bad`) on an unknown word. */
+int rvn_states_parse(const char* text, uint32_t* states, char* bad, size_t bad_size);
+/** Writes the names of the states, separated by spaces. */
+void rvn_states_write(uint32_t states, rvn_text_t* out);
+/** The property of a part named in a style: R_TRUE and its RVN_LOOK_ bit, which `value` is parsed into. */
+int rvn_part_property(const char* name, const char* value, rvn_part_look_t* look, uint32_t* bit, int* bad_value);
+/** Name of the property of an RVN_LOOK_ bit. */
+const char* rvn_part_property_name(uint32_t bit);
+
+/** States of a widget that every widget has: hovered (`hovered`), pressed (`pressed`), focused, disabled. */
+uint32_t rvn_widget_states(const rvn_widget_t* widget, const RPainter* painter, int hovered, int pressed);
+
+/** What the look of a family gives to a part in some states, before the styles: filled by the widget. */
+typedef void (*rvn_part_base_t)(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+
+/** A part in some states: what `base` gives (nothing when NULL), then what the styles of the theme change. */
+void rvn_part_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_base_t base, const void* context, rvn_part_look_t* look);
+/**
+ * Same, eased between the states: `hover` and `press` (0..1, the springs of
+ * the widget) blend the look without HOVERED and PRESSED, with HOVERED, and
+ * with both.
+ */
+void rvn_part_look_eased(const rvn_widget_t* widget, int part, uint32_t states, float hover, float press,
+	rvn_part_base_t base, const void* context, rvn_part_look_t* look);
+/** R_TRUE when the styles of the theme give something to this part of the widget. */
+int  rvn_part_styled(const rvn_widget_t* widget, int part);
+/** Applies what the styles give to a part in some states over `look`. */
+void rvn_part_apply_styles(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look);
+void rvn_part_look_clear(rvn_part_look_t* look);
+void rvn_part_look_mix(rvn_part_look_t* a, const rvn_part_look_t* b, float t);
+/** Draws a part: its shadow, its background, its border (with its own top and bottom edges). */
+void rvn_paint_part(RPainter* painter, rvn_rect_t rect, const rvn_part_look_t* look);
+
+/** The family of the look of a widget: RVN_FAMILY_... */
+RVN_INLINE int rvn_widget_family(const rvn_widget_t* widget) {
+	return rvn_widget_theme(widget)->family;
+}
+/** How a widget moves: the motion asked for, calmed down by the looks that do not bounce. */
+RMotion rvn_widget_motion(const rvn_widget_t* widget, RMotion motion);
+/** R_TRUE when the look of the widget squashes and bounces (Raven), R_FALSE for the platforms. */
+int rvn_widget_springy(const rvn_widget_t* widget);
+
+/** The font of the text of a family of the platforms (Segoe UI), opened on first use; R_INVALID_ID when the system has none. */
+Rid  rvn_look_platform_font(int family);
+/** The font of its icons (Segoe Fluent Icons, Segoe MDL2 Assets); R_INVALID_ID when the system has none. */
+Rid  rvn_look_icon_font(int family);
+/** Draws an icon of the font of icons of the family, centered on (cx, cy); R_FALSE when there is no such font (draw it by hand). */
+int  rvn_paint_look_icon(RPainter* painter, const rvn_widget_t* widget, uint32_t codepoint, float cx, float cy, float size, rvn_color_t color);
+/** Gives a theme of a platform the accent color the user chose for the system, when the system tells it. */
+void rvn_look_system_accent(rvn_theme_t* theme);
+/** Forgets the fonts of the platforms (shutdown). */
+void rvn_look_shutdown(void);
 /** Wallpaper of the built-in glass themes. */
 Rid   rvn_theme_builtin_wallpaper(int dark);
 /** A soft gradient made of a base color and up to five blobs of color (0xRRGGBB). */

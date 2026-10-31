@@ -228,6 +228,7 @@ void Rshutdown(void) {
 	rvn_locale_shutdown();
 	rvn_a11y_shutdown();
 	rvn_themes_shutdown();
+	rvn_look_shutdown();
 	rvn_dialogs_shutdown();
 	rvn_islands_shutdown();
 	rvn_languages_shutdown();

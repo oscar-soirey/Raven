@@ -137,6 +137,102 @@ void rvn_widget_squash(rvn_widget_t* widget, float press, float amount);
 /** A solid knob with a soft shadow (slider, switch), or a lens of clear glass while `press` is 1. */
 void rvn_paint_knob(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t rect, float press);
 
+/* ---------------------------------------------------------------------------
+ *  The look of Windows 11 (widgets/common.c)
+ *
+ *  The colors of Fluent that are not color roles of Raven, worked out from
+ *  the theme (dark or light), and the base looks shared by several widgets.
+ * ------------------------------------------------------------------------- */
+
+typedef enum rvn_fluent_t {
+	/** The edge of controls that is not ControlBorder: the bottom one in the light, the top one in the dark. */
+	RVN_FLUENT_STROKE_EDGE,
+	/** Outlines of check boxes and radio buttons, the bottom line of fields, the arrows. */
+	RVN_FLUENT_STRONG_STROKE,
+	/** The edges of an accent button: top, bottom. */
+	RVN_FLUENT_ACCENT_EDGE_TOP,
+	RVN_FLUENT_ACCENT_EDGE_BOTTOM,
+	/** Flat controls pressed (SubtleFillColorTertiary). */
+	RVN_FLUENT_SUBTLE_PRESSED,
+	/** Check boxes and radio buttons that are off: at rest, hovered, pressed. */
+	RVN_FLUENT_ALT_FILL,
+	RVN_FLUENT_ALT_FILL_HOVERED,
+	RVN_FLUENT_ALT_FILL_PRESSED,
+	RVN_FLUENT_TEXT_SECONDARY,
+	RVN_FLUENT_TEXT_ON_ACCENT_SECONDARY,
+	RVN_FLUENT_TEXT_ON_ACCENT_DISABLED,
+	RVN_FLUENT_CONTROL_DISABLED,
+	RVN_FLUENT_ACCENT_DISABLED,
+	/** A field being typed into. */
+	RVN_FLUENT_INPUT_ACTIVE,
+	/** The solid round of the thumb of a slider, of the knob of a switch that is on. */
+	RVN_FLUENT_SOLID_CONTROL,
+	/** The inner line of the focus ring. */
+	RVN_FLUENT_FOCUS_INNER,
+	/** The button that closes a window, under the pointer. */
+	RVN_FLUENT_CLOSE,
+	RVN_FLUENT_CLOSE_PRESSED,
+	/** A card (an expander) and its outline. */
+	RVN_FLUENT_CARD,
+	RVN_FLUENT_CARD_BORDER
+} rvn_fluent_t;
+
+rvn_color_t rvn_fluent(const rvn_widget_t* widget, rvn_fluent_t token);
+/**
+ * Base look of a button of Windows (Button, ComboBox...): `states` tells its
+ * style (RVN_STATE_PRIMARY, RVN_STATE_FLAT) and its state. An rvn_part_base_t.
+ */
+void rvn_fluent_button_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+/** Base look of a field of Windows (TextInput, SpinBox): the bottom line darkens, and turns to the accent when focused. */
+void rvn_fluent_field_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+/** Base look of a flyout of Windows (menus, the list of a combo box, tooltips). */
+void rvn_fluent_popup_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+/** A row of a list, a menu, a tree (hovered, pressed, selected) of Windows: inset, rounded, with the pill of the selection. */
+void rvn_fluent_paint_item(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t row, uint32_t states, int indicator, float indicator_shown);
+/** The look of a surface of a popup (menus, list of a combo box), with its shadow, for any look. */
+void rvn_paint_popup_surface(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t rect, float radius, float shadow);
+/** A chevron of Windows (the glyph of Segoe Fluent Icons, or drawn when the system has no such font). `angle` as rvn_paint_chevron. */
+void rvn_fluent_paint_chevron(RPainter* painter, const rvn_widget_t* widget, float cx, float cy, float size, float angle, rvn_color_t color);
+
+/** Base look of a row of Windows (RVN_PART_ITEM) and of the pill of the selection (RVN_PART_INDICATOR). */
+void rvn_fluent_item_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+
+/* ---------------------------------------------------------------------------
+ *  The looks of the platforms (widgets/platform_looks.c)
+ *
+ *  What a widget drawn in the look of a platform (rvn_widget_family not
+ *  RVN_FAMILY_RAVEN) asks, whatever the platform: Windows (widgets/common.c),
+ *  macOS (Aqua) and GNOME (libadwaita).
+ * ------------------------------------------------------------------------- */
+
+/** The kinds of rows: of a list (a list, a tree, the list of a combo box), of a menu, of a bar (the titles of a menu bar). */
+#define RVN_ITEM_LIST 0
+#define RVN_ITEM_MENU 1
+#define RVN_ITEM_BAR  2
+
+/** The color of the text of a widget seen through: the greys of libadwaita and of AppKit. */
+rvn_color_t rvn_platform_ink(const rvn_widget_t* widget, float alpha);
+/** Secondary text (shortcuts, placeholders, glyphs) of the platform. */
+rvn_color_t rvn_platform_secondary(const rvn_widget_t* widget);
+/** rvn_part_base_t of a button (states: RVN_STATE_PRIMARY, RVN_STATE_FLAT), of a field, of a flyout or a tooltip. */
+void rvn_platform_button_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+void rvn_platform_field_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+void rvn_platform_popup_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context);
+/** A row (RVN_PART_ITEM) or the pill of its selection (RVN_PART_INDICATOR), with the styles. */
+void rvn_platform_item_look(const rvn_widget_t* widget, int part, uint32_t states, int kind, rvn_part_look_t* look);
+/** Draws a row: its background, and the pill when it is selected (Windows). */
+void rvn_platform_paint_item(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t row, uint32_t states, int kind, float indicator_shown);
+/** The color of the text of a row in its states (white on the selection of macOS...). */
+rvn_color_t rvn_platform_item_foreground(const rvn_widget_t* widget, uint32_t states, int kind);
+/** A chevron of the platform; `angle` as rvn_paint_chevron. */
+void rvn_platform_paint_chevron(RPainter* painter, const rvn_widget_t* widget, float cx, float cy, float size, float angle, rvn_color_t color);
+/** The frame of a list or a tree (a card on Windows and GNOME, a bordered table on macOS), with the styles of the widget. */
+void rvn_platform_paint_list_frame(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t rect, uint32_t states);
+/** A row of a list inset in its line, as the platform draws it. */
+rvn_rect_t rvn_platform_row(const rvn_widget_t* widget, rvn_rect_t line);
+/** macOS: the ring of the focus around a field (`focus`: 0..1); nothing on the other platforms. */
+void rvn_platform_paint_field_focus(RPainter* painter, const rvn_widget_t* widget, rvn_rect_t rect, float focus, float radius);
+
 /** Where a source of `size` texels goes in an area, and which part of it shows (widgets/image.c). */
 void rvn_image_fit(RStretch stretch, rvn_vec2_t size, float width, float height, const float uv_in[4],
 	rvn_rect_t* rect, float uv_out[4]);
@@ -254,6 +350,8 @@ typedef struct rvn_scrollbar_t {
 	RSpring shown;
 	/** Glass themes: the thumb only shows while the content moves or the pointer is near. */
 	RSpring fade;
+	/** Windows: the hairline widens to a thumb over its track while the pointer is on it. */
+	RSpring expand;
 } rvn_scrollbar_t;
 
 float rvn_scrollbar_max(const rvn_scrollbar_t* bar);
