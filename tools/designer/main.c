@@ -37,6 +37,7 @@
  */
 
 #include "designer.h"
+#include "../theme_editor/editor.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -61,9 +62,11 @@ static const char* const DESIGNER_XML[] = {
 "          <MenuItem Text=\"Open a folder...\" Shortcut=\"Ctrl+Shift+O\" OnClicked=\"folder.open\"/>"
 "          <MenuItem Text=\"Open an interface...\" Shortcut=\"Ctrl+O\" OnClicked=\"file.open\"/>"
 "          <Menu Text=\"New interface\">"
-"            <MenuItem Text=\"Window\" Shortcut=\"Ctrl+N\" OnClicked=\"files.new.window\"/>"
+"            <MenuItem Text=\"Window\" Shortcut=\"Ctrl+N\" OnClicked=\"files.new\"/>"
 "            <MenuItem Text=\"Panel\" OnClicked=\"files.new.panel\"/>"
 "            <MenuItem Text=\"Form with declared widgets\" OnClicked=\"files.new.form\"/>"
+"            <MenuItem Text=\"Widget library\" OnClicked=\"files.new.widgets\"/>"
+"            <MenuItem Text=\"Theme\" OnClicked=\"files.new.theme\"/>"
 "          </Menu>"
 "          <Separator/>"
 "          <MenuItem Text=\"Save\" Shortcut=\"Ctrl+S\" OnClicked=\"file.save\"/>"
@@ -100,13 +103,12 @@ static const char* const DESIGNER_XML[] = {
 "        </Menu>",
 "        <Menu Text=\"View\">"
 "          <MenuItem Name=\"menu.interact\" Text=\"Use the preview\" Shortcut=\"F6\" Checkable=\"true\" OnClicked=\"view.interact\"/>"
-"          <MenuItem Text=\"Run in a window\" Shortcut=\"F7\" OnClicked=\"view.run\"/>"
-"          <MenuItem Text=\"Translations\" Shortcut=\"Ctrl+T\" OnClicked=\"view.strings\"/>"
+"          <MenuItem Text=\"Preview in a window\" Shortcut=\"F7\" OnClicked=\"view.run\"/>"
 "          <Separator/>"
-"          <MenuItem Name=\"theme.dark\" Text=\"Designer in dark\" Checkable=\"true\" Checked=\"true\" OnClicked=\"view.theme.dark\"/>"
-"          <MenuItem Name=\"theme.light\" Text=\"Designer in light\" Checkable=\"true\" OnClicked=\"view.theme.light\"/>"
-"          <MenuItem Name=\"theme.glass_dark\" Text=\"Designer in dark glass\" Checkable=\"true\" OnClicked=\"view.theme.glass_dark\"/>"
-"          <MenuItem Name=\"theme.glass_light\" Text=\"Designer in light glass\" Checkable=\"true\" OnClicked=\"view.theme.glass_light\"/>"
+"          <MenuItem Text=\"Window\" Shortcut=\"Ctrl+1\" OnClicked=\"tab.window\"/>"
+"          <MenuItem Text=\"Widget\" Shortcut=\"Ctrl+2\" OnClicked=\"tab.widget\"/>"
+"          <MenuItem Text=\"Theme\" Shortcut=\"Ctrl+3\" OnClicked=\"tab.theme\"/>"
+"          <MenuItem Text=\"Translations\" Shortcut=\"Ctrl+4\" OnClicked=\"tab.strings\"/>"
 "          <Separator/>"
 "          <MenuItem Name=\"menu.reduce_motion\" Text=\"Reduce motion\" Checkable=\"true\" OnClicked=\"view.reduce_motion\"/>"
 "          <MenuItem Text=\"Accessibility...\" OnClicked=\"view.accessibility\"/>"
@@ -114,11 +116,17 @@ static const char* const DESIGNER_XML[] = {
 "          <MenuItem Text=\"Reset the panels\" OnClicked=\"view.reset\"/>"
 "        </Menu>"
 "      </MenuBar>"
+"      <HBox Name=\"tabs\" Spacing=\"2\" Slot.VAlign=\"Center\" Slot.Padding=\"14,0,0,0\">"
+"        <Button Name=\"tab.window\" Text=\"Window\" Style=\"Primary\" OnClicked=\"tab.window\" Tooltip=\"The windows and panels of the folder (Ctrl+1)\" Metric.ControlHeight=\"26\"/>"
+"        <Button Name=\"tab.widget\" Text=\"Widget\" Style=\"Flat\" OnClicked=\"tab.widget\" Tooltip=\"Tags of your own, declared with &lt;Widget&gt;, used by the windows (Ctrl+2)\" Metric.ControlHeight=\"26\"/>"
+"        <Button Name=\"tab.theme\" Text=\"Theme\" Style=\"Flat\" OnClicked=\"tab.theme\" Tooltip=\"The themes of the folder: colors, sizes, glass, styles (Ctrl+3)\" Metric.ControlHeight=\"26\"/>"
+"        <Button Name=\"tab.strings\" Text=\"Translations\" Style=\"Flat\" OnClicked=\"tab.strings\" Tooltip=\"The tables of the texts, one column per language (Ctrl+4)\" Metric.ControlHeight=\"26\"/>"
+"      </HBox>"
 "      <HBox Spacing=\"6\" Slot.HAlign=\"Right\" Slot.VAlign=\"Center\" Slot.Padding=\"8,0\">"
+"        <ComboBox Name=\"appearance\" Width=\"190\" Tooltip=\"The look of the designer itself: any look of Raven, or a theme of the folder\" Metric.ControlHeight=\"26\"/>"
 "        <Button Text=\"Undo\" Style=\"Flat\" OnClicked=\"edit.undo\" Tooltip=\"Ctrl+Z\" Metric.ControlHeight=\"26\"/>"
 "        <Button Text=\"Redo\" Style=\"Flat\" OnClicked=\"edit.redo\" Tooltip=\"Ctrl+Y\" Metric.ControlHeight=\"26\"/>"
-"        <Button Text=\"Save\" OnClicked=\"file.save\" Tooltip=\"Ctrl+S\" Metric.ControlHeight=\"26\"/>"
-"        <Button Text=\"Run\" Style=\"Primary\" OnClicked=\"view.run\" Tooltip=\"The interface in a window of its own (F7)\" Metric.ControlHeight=\"26\"/>"
+"        <Button Text=\"Save\" Style=\"Primary\" OnClicked=\"file.save\" Tooltip=\"Ctrl+S\" Metric.ControlHeight=\"26\"/>"
 "      </HBox>"
 "    </HeaderBar>",
 "    <Switcher Name=\"pages\" Slot.Fill=\"1\">"
@@ -134,6 +142,7 @@ static const char* const DESIGNER_XML[] = {
 "          <ComboBox Name=\"preview.language\" Width=\"170\" Tooltip=\"The language of the preview: the tables of the folder, right to left included\"/>"
 "          <Spacer Slot.Fill=\"1\"/>"
 "          <Label Name=\"stage.size\" Opacity=\"0.6\" Slot.VAlign=\"Center\"/>"
+"          <Button Text=\"Open in a window\" Style=\"Primary\" OnClicked=\"view.run\" Tooltip=\"A live preview in a window of its own: it follows every change (F7)\" Slot.VAlign=\"Center\"/>"
 "        </HBox>"
 "        <Separator/>"
 "        <Overlay Slot.Fill=\"1\">"
@@ -142,13 +151,13 @@ static const char* const DESIGNER_XML[] = {
 "          </ScrollBox>"
 "          <VBox Name=\"stage.empty\" Spacing=\"8\" Slot.HAlign=\"Center\" Slot.VAlign=\"Center\" Visibility=\"Collapsed\">"
 "            <Label Text=\"No interface open\" TextSize=\"20\" Slot.HAlign=\"Center\"/>"
-"            <Label Text=\"Double click one in Files, make one (File &gt; New interface), or press Ctrl+K.\" Opacity=\"0.6\" Slot.HAlign=\"Center\"/>"
+"            <Label Name=\"stage.empty.text\" Text=\"Double click one in Files, make one with New, or press Ctrl+K.\" Opacity=\"0.6\" Slot.HAlign=\"Center\"/>"
 "          </VBox>"
 "        </Overlay>"
 "      </VBox>"
 "      <VBox Name=\"panel.files\" Slot.Title=\"Files\" Slot.Dock=\"Left\" Slot.DockSize=\"0.2\" Slot.Closable=\"false\">"
 "        <WrapBox Spacing=\"0\" Slot.Padding=\"4,2\">"
-"          <ToolButton Text=\"New\" Tip=\"A new window in the folder (Ctrl+N)\" Do=\"files.new.window\"/>"
+"          <ToolButton Text=\"New\" Tip=\"A new file in the folder (Ctrl+N)\" Do=\"files.new\"/>"
 "          <ToolButton Text=\"Folder...\" Tip=\"Open another folder (Ctrl+Shift+O)\" Do=\"folder.open\"/>"
 "          <ToolButton Text=\"Refresh\" Tip=\"The folder is followed by itself; this looks now\" Do=\"files.refresh\"/>"
 "        </WrapBox>"
@@ -185,7 +194,20 @@ static const char* const DESIGNER_XML[] = {
 "      <TextEditor Name=\"source\" Language=\"XML\" LineNumbers=\"true\" Slot.Title=\"XML\" Slot.Dock=\"Bottom\" Slot.DockTo=\"panel.preview\""
 "        Slot.DockSize=\"0.34\" Slot.Closable=\"false\"/>"
 "      <ListView Name=\"problems\" Slot.Title=\"Problems\" Slot.Dock=\"Tab\" Slot.DockTo=\"source\" Slot.Closable=\"false\" OnActivated=\"problems.go\"/>",
-"      <VBox Name=\"panel.strings\" Slot.Title=\"Translations\" Slot.Dock=\"Tab\" Slot.DockTo=\"source\" Slot.Closable=\"false\">"
+"    </DockArea>"
+"    </VBox>"
+"    <HBox Name=\"page.theme\">"
+"      <VBox Width=\"230\" Spacing=\"6\" Slot.Padding=\"10\">"
+"        <Label Text=\"THEMES OF THE FOLDER\" TextSize=\"11\" Opacity=\"0.55\"/>"
+"        <ListView Name=\"theme.list\" Slot.Fill=\"1\" Tooltip=\"A click opens the theme in the editor\"/>"
+"        <Button Text=\"New theme\" OnClicked=\"files.new.theme\"/>"
+"        <Label Wrap=\"true\" Opacity=\"0.55\" TextSize=\"11\" Text=\"A theme dresses the windows of the folder: in the Window tab, choose it above the preview.\"/>"
+"      </VBox>"
+"      <Separator Orientation=\"Vertical\"/>"
+"      <VBox Name=\"theme.host\" Slot.Fill=\"1\"/>"
+"    </HBox>"
+"    <VBox Name=\"page.strings\">"
+"      <VBox Name=\"panel.strings\" Slot.Fill=\"1\">"
 "        <HBox Spacing=\"6\" Slot.Padding=\"6,4\">"
 "          <ComboBox Name=\"strings.file\" Width=\"170\" Tooltip=\"The CSV tables of the folder\"/>"
 "          <TextInput Name=\"strings.filter\" Placeholder=\"Search a key or a text\" OnChanged=\"strings.filter\" Slot.Fill=\"1\"/>"
@@ -200,14 +222,13 @@ static const char* const DESIGNER_XML[] = {
 "          <VBox Name=\"strings.grid\" Spacing=\"4\" Slot.Padding=\"8,6\"/>"
 "        </ScrollBox>"
 "      </VBox>"
-"    </DockArea>"
+"    </VBox>"
+"    </Switcher>"
 "    <Separator/>"
 "    <HBox Spacing=\"12\" Slot.Padding=\"10,4\">"
 "      <Label Name=\"status\" Slot.Fill=\"1\" Opacity=\"0.8\"/>"
 "      <Label Name=\"path\" Opacity=\"0.6\"/>"
 "    </HBox>"
-"    </VBox>"
-"    </Switcher>"
 "  </VBox>"
 "</Window>",
 };
@@ -267,6 +288,20 @@ static const char TEMPLATE_FORM[] =
 "\t\t<Button Text=\"Sign up\" Style=\"Primary\" Slot.HAlign=\"Right\"/>\n"
 "\t</VBox>\n"
 "</Window>\n";
+
+static const char TEMPLATE_WIDGETS[] =
+"<Widgets>\n"
+"\t<!-- Tags of your own: every window of the folder can use them, as <Card Title=\"...\">...</Card>. -->\n"
+"\t<Widget Name=\"Card\" Title=\"Title\" Text=\"\">\n"
+"\t\t<Border Padding=\"14\" CornerRadius=\"10\" Background=\"#8080801A\">\n"
+"\t\t\t<VBox Spacing=\"6\">\n"
+"\t\t\t\t<Label Text=\"{Title}\" TextSize=\"17\"/>\n"
+"\t\t\t\t<Label Text=\"{Text}\" Wrap=\"true\" Opacity=\"0.7\"/>\n"
+"\t\t\t\t<Children/>\n"
+"\t\t\t</VBox>\n"
+"\t\t</Border>\n"
+"\t</Widget>\n"
+"</Widgets>\n";
 
 /** What the palette adds for a tag, when an empty element would not show. */
 static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
@@ -343,6 +378,8 @@ static const struct { const char* tag; const char* attributes; const char* about
 #define MAX_HISTORY 200
 #define MAX_PROBLEMS 64
 
+enum { TAB_WINDOW, TAB_WIDGET, TAB_THEME, TAB_STRINGS };
+
 /** A row of the inspector: which attribute its editor writes. */
 typedef struct row_t {
 	char name[72];
@@ -402,6 +439,28 @@ static struct {
 	char** palette_tags;
 	int palette_count;
 
+	/** The tab in front (TAB_...), and what the Window and Widget tabs hold while the other one is in front. */
+	int tab;
+	struct {
+		char* path;
+		char* text;
+		int modified, has_document;
+		char* history[MAX_HISTORY];
+		int history_count, history_at;
+	} slots[2];
+	Rid tab_buttons[4], appearance, theme_list, theme_root;
+
+	/** Drag and drop in the preview: a widget of the palette, or an element moved. */
+	int drag_armed, dragging, drag_from_palette;
+	char drag_tag[96];
+	Rid drag_node;
+	float drag_start_x, drag_start_y, drag_x, drag_y;
+	Rid drop_parent;
+	int drop_index;
+
+	/** The live preview in a window of its own: its frame and its bar. */
+	Rid run_frame, run_device, run_theme, run_language, run_title;
+
 	/** The theme the preview wears ("": the look of the designer), and the device it is shown on (0: the size of the XML). */
 	char preview_theme[128];
 	int device, device_width, device_height;
@@ -412,6 +471,10 @@ static struct {
 } g;
 
 static void rebuild_all(int keep_inspector);
+static void fill_theme_list(void);
+static void fill_appearance(void);
+static void fill_run_bar(void);
+static void open_run_window(void);
 static void select_node(Rid node, int reveal);
 static int load_text(const char* text, int record);
 
@@ -508,6 +571,8 @@ static void add_problem(const char* text, int line, int error) {
 }
 
 static void on_error(RError code, RSeverity severity, const char* detail) {
+	/* (the editor of themes reads what loading its theme said) */
+	te_error(code, severity, detail);
 	if (g.collecting && code == R_ERROR_XML) {
 		/* "XML line 12, column 3: ..." */
 		const char* at = strstr(detail, "line ");
@@ -588,6 +653,8 @@ static Rid node_widget(Rid node) {
 		Rid widget = Rxml_node_get_widget(node);
 		if (widget != R_INVALID_ID && Rwidget_is_valid(widget)) return widget;
 	}
+	/* (the Widget tab shows uses of the declarations, not the nodes of the document) */
+	if (g.tab == TAB_WIDGET) return R_INVALID_ID;
 	/* the root of a window, or something in it that is not a widget (a shortcut): the frame that stands for the window */
 	return g.frame;
 }
@@ -631,10 +698,112 @@ static void history_clear(void) {
  *  Preview
  * ------------------------------------------------------------------------- */
 
+static Rid node_under(float x, float y);
+static int accepts_children(Rid node);
+
+/* Laid out from left to right: where a pointer falls among the children goes by x. */
+static int horizontal(Rid node) {
+	const char* tag = Rxml_node_get_tag(node);
+	const char* orientation = Rxml_node_get_attribute(node, "Orientation");
+	if (orientation) return same_text(orientation, "Horizontal") && !same_text(tag, "ScrollBox");
+	return same_text(tag, "HBox") || same_text(tag, "HorizontalBox") || same_text(tag, "WrapBox") || same_text(tag, "MenuBar") ||
+		same_text(tag, "HeaderBar") || same_text(tag, "Splitter");
+}
+
+static int inside_of(Rid node, Rid ancestor) {
+	for (; node != R_INVALID_ID; node = Rxml_node_get_parent(node)) if (node == ancestor) return R_TRUE;
+	return R_FALSE;
+}
+
+/* The index among the children of `parent` where the pointer falls, by their places on screen. */
+static int index_at(Rid parent, float x, float y) {
+	int i, count = Rxml_node_get_child_count(parent), across = horizontal(parent);
+	for (i = 0; i < count; i++) {
+		Rid child = Rxml_node_get_child(parent, i);
+		Rid widget = child == g.drag_node ? R_INVALID_ID : Rxml_node_get_widget(child);
+		float wx, wy, ww, wh;
+		if (widget == R_INVALID_ID || !Rwidget_is_valid(widget)) continue;
+		Rwidget_get_rect(widget, &wx, &wy, &ww, &wh);
+		if (across ? x < wx + ww * 0.5f : y < wy + wh * 0.5f) return i;
+	}
+	return count;
+}
+
+/*
+ * Where something dropped at (x, y) goes: inside the panel under the pointer,
+ * at the place among its children the pointer shows; next to a widget that
+ * holds nothing, before or after it; near the edge of a panel, next to it.
+ * R_FALSE when it cannot go there (an element into itself).
+ */
+static int drop_place(float x, float y, Rid* parent, int* index) {
+	Rid node = node_under(x, y), widget;
+	float wx, wy, ww, wh;
+	if (node == R_INVALID_ID) node = Rxml_document_get_root(g.document);
+	/* (what is dragged is not a place: what holds it is) */
+	if (g.drag_node != R_INVALID_ID) {
+		while (node != R_INVALID_ID && inside_of(node, g.drag_node)) node = Rxml_node_get_parent(node);
+		if (node == R_INVALID_ID) return R_FALSE;
+	}
+	widget = Rxml_node_get_widget(node);
+	if (accepts_children(node) && !(Rxml_get_tag_children(Rxml_node_get_tag(node)) == 1 && Rxml_node_get_child_count(node) > 0 &&
+		!(Rxml_node_get_child_count(node) == 1 && Rxml_node_get_child(node, 0) == g.drag_node))) {
+		int edge = R_FALSE;
+		Rid up = Rxml_node_get_parent(node);
+		/* near the edge of a panel (not the root): next to it, in its parent */
+		if (up != R_INVALID_ID && widget != R_INVALID_ID && Rwidget_is_valid(widget)) {
+			Rwidget_get_rect(widget, &wx, &wy, &ww, &wh);
+			edge = horizontal(up) ? (x < wx + 6.0f || x > wx + ww - 6.0f) : (y < wy + 6.0f || y > wy + wh - 6.0f);
+			if (edge) {
+				*parent = up;
+				*index = Rxml_node_get_index(node) + ((horizontal(up) ? x > wx + ww * 0.5f : y > wy + wh * 0.5f) ? 1 : 0);
+				return R_TRUE;
+			}
+		}
+		*parent = node;
+		*index = index_at(node, x, y);
+		return R_TRUE;
+	}
+	*parent = Rxml_node_get_parent(node);
+	if (*parent == R_INVALID_ID) return R_FALSE;
+	*index = Rxml_node_get_index(node);
+	if (widget != R_INVALID_ID && Rwidget_is_valid(widget)) {
+		Rwidget_get_rect(widget, &wx, &wy, &ww, &wh);
+		if (horizontal(*parent) ? x > wx + ww * 0.5f : y > wy + wh * 0.5f) (*index)++;
+	}
+	return R_TRUE;
+}
+
+/* The line that shows where a drop goes: between two children of the panel, across it. */
+static void drop_line(Rid parent, int index, float ox, float oy, RPainter* painter, float r, float gr, float b) {
+	Rid widget = node_widget(parent), child = R_INVALID_ID;
+	float px, py, pw, ph, cx, cy, cw, ch;
+	int count = Rxml_node_get_child_count(parent), across = horizontal(parent), after = R_FALSE;
+	if (widget == R_INVALID_ID) return;
+	Rwidget_get_rect(widget, &px, &py, &pw, &ph);
+	/* the panel that receives it */
+	Rdraw_rect_outline(painter, px - ox, py - oy, pw, ph, 4.0f, 1.5f, r, gr, b, 0.8f);
+	/* the child it goes before (or the last one it goes after) */
+	if (index < count) child = Rxml_node_get_child(parent, index);
+	if (child == g.drag_node && index + 1 <= count) child = index + 1 < count ? Rxml_node_get_child(parent, index + 1) : R_INVALID_ID;
+	if (child == R_INVALID_ID && count > 0) {
+		child = Rxml_node_get_child(parent, count - 1);
+		after = R_TRUE;
+	}
+	if (child != R_INVALID_ID && Rxml_node_get_widget(child) != R_INVALID_ID && Rwidget_is_valid(Rxml_node_get_widget(child))) {
+		Rwidget_get_rect(Rxml_node_get_widget(child), &cx, &cy, &cw, &ch);
+		if (across) Rdraw_rect(painter, (after ? cx + cw + 1.0f : cx - 3.0f) - ox, cy - oy, 3.0f, ch, 1.5f, r, gr, b, 1.0f);
+		else Rdraw_rect(painter, cx - ox, (after ? cy + ch + 1.0f : cy - 3.0f) - oy, cw, 3.0f, 1.5f, r, gr, b, 1.0f);
+	} else {
+		/* an empty panel: a line across its middle */
+		if (across) Rdraw_rect(painter, px + pw * 0.5f - 1.5f - ox, py + 4.0f - oy, 3.0f, ph - 8.0f, 1.5f, r, gr, b, 1.0f);
+		else Rdraw_rect(painter, px + 4.0f - ox, py + ph * 0.5f - 1.5f - oy, pw - 8.0f, 3.0f, 1.5f, r, gr, b, 1.0f);
+	}
+}
+
 static void outline_paint(Rid widget, RPainter* painter, float width, float height, void* user_data) {
 	float ox, oy, ow, oh, x, y, w, h, shown, r, gr, b, a;
 	Rid target = node_widget(g.selected);
-	Rid hover = g.interact ? R_INVALID_ID : node_widget(g.hovered);
+	Rid hover = g.interact || g.dragging ? R_INVALID_ID : node_widget(g.hovered);
 	(void)user_data;
 	(void)width;
 	(void)height;
@@ -645,7 +814,7 @@ static void outline_paint(Rid widget, RPainter* painter, float width, float heig
 		Rwidget_get_rect(hover, &x, &y, &w, &h);
 		Rdraw_rect_outline(painter, x - ox, y - oy, w, h, 3.0f, 1.0f, r, gr, b, 0.45f);
 	}
-	/* the frame of the selection flies from one element to the next */
+	/* the frame of the selection flies from one element to the next; inside, nothing: the widget shows as it is */
 	shown = Rdraw_spring(painter, &g.box_shown, target != R_INVALID_ID ? 1.0f : 0.0f, R_MOTION_SMOOTH);
 	if (target != R_INVALID_ID) {
 		char caption[96];
@@ -655,14 +824,24 @@ static void outline_paint(Rid widget, RPainter* painter, float width, float heig
 		y = Rdraw_spring(painter, &g.box[1], y - oy, R_MOTION_BOUNCY);
 		w = Rdraw_spring(painter, &g.box[2], w, R_MOTION_BOUNCY);
 		h = Rdraw_spring(painter, &g.box[3], h, R_MOTION_BOUNCY);
-		Rdraw_rect(painter, x, y, w, h, 4.0f, r, gr, b, 0.10f * shown);
-		Rdraw_rect_outline(painter, x - 1.0f, y - 1.0f, w + 2.0f, h + 2.0f, 5.0f, 2.0f, r, gr, b, shown);
+		Rdraw_rect_outline(painter, x - 1.0f, y - 1.0f, w + 2.0f, h + 2.0f, 5.0f, 2.0f, r, gr, b, shown * (g.dragging && !g.drag_from_palette ? 0.35f : 1.0f));
 		/* its tag, on a tab above it (inside when there is no room) */
 		snprintf(caption, sizeof(caption), "%s", Rxml_node_get_tag(g.selected));
 		Rfont_measure_text(R_INVALID_ID, 11.0f, caption, &text_width, &text_height);
 		label_y = y - 19.0f < -24.0f ? y + 2.0f : y - 19.0f;
 		Rdraw_rect(painter, x - 1.0f, label_y, text_width + 12.0f, 17.0f, 4.0f, r, gr, b, shown);
 		Rdraw_text(painter, R_INVALID_ID, 11.0f, x + 5.0f, label_y + 2.0f, caption, 1.0f, 1.0f, 1.0f, shown);
+	}
+	/* a drag: where it would go, and what is carried, under the pointer */
+	if (g.dragging) {
+		char caption[120];
+		float text_width = 0.0f, text_height = 0.0f;
+		int inside = g.drag_x >= ox && g.drag_x < ox + ow && g.drag_y >= oy && g.drag_y < oy + oh;
+		if (inside && g.drop_parent != R_INVALID_ID) drop_line(g.drop_parent, g.drop_index, ox, oy, painter, r, gr, b);
+		snprintf(caption, sizeof(caption), "%s%s", g.drag_from_palette ? "+ " : "", g.drag_from_palette ? g.drag_tag : Rxml_node_get_tag(g.drag_node));
+		Rfont_measure_text(R_INVALID_ID, 12.0f, caption, &text_width, &text_height);
+		Rdraw_rect(painter, g.drag_x - ox + 14.0f, g.drag_y - oy + 10.0f, text_width + 16.0f, 22.0f, 11.0f, r, gr, b, inside ? 0.95f : 0.5f);
+		Rdraw_text(painter, R_INVALID_ID, 12.0f, g.drag_x - ox + 22.0f, g.drag_y - oy + 14.0f, caption, 1.0f, 1.0f, 1.0f, 1.0f);
 	}
 }
 
@@ -707,6 +886,35 @@ static int outline_event(Rid widget, const REvent* event, void* user_data) {
 	}
 }
 
+/* The Widget tab: a use of each tag the document declares, under its name. */
+static Rid build_showcase(void) {
+	Rid root = Rxml_document_get_root(g.document);
+	ds_buffer_t xml = { 0 };
+	const char* text = Rxml_document_to_string(g.document);
+	Rid widget;
+	int i, count, shown = 0;
+	/* the declarations are made known first (they replace those of the same name) */
+	Rxml_register_widgets(text, strlen(text));
+	ds_buffer_printf(&xml, "<VBox Spacing=\"20\" Slot.Padding=\"22\">");
+	count = same_text(Rxml_node_get_tag(root), "Widget") ? 1 : Rxml_node_get_child_count(root);
+	for (i = 0; i < count; i++) {
+		Rid node = same_text(Rxml_node_get_tag(root), "Widget") ? root : Rxml_node_get_child(root, i);
+		const char* name;
+		if (Rxml_node_is_comment(node) || !same_text(Rxml_node_get_tag(node), "Widget")) continue;
+		name = Rxml_node_get_attribute(node, "Name");
+		if (!name || !Rxml_is_widget_registered(name)) continue;
+		ds_buffer_printf(&xml, "<VBox Spacing=\"6\"><Label Text=\"&lt;%s/&gt;\" TextSize=\"11\" Opacity=\"0.55\"/><%s/></VBox>", name, name);
+		shown++;
+	}
+	if (!shown) ds_buffer_printf(&xml, "<Label Wrap=\"true\" Opacity=\"0.6\" Text=\"No tag declared yet: add a &lt;Widget Name=&quot;Card&quot;&gt; with what it stands for inside.\"/>");
+	ds_buffer_printf(&xml, "</VBox>");
+	widget = Rwidget_create_from_xml(xml.data, xml.size);
+	ds_buffer_free(&xml);
+	return widget;
+}
+
+static void rebuild_run_window(void);
+
 static void rebuild_preview(void) {
 	Rid root = Rxml_document_get_root(g.document);
 	const char* tag = Rxml_node_get_tag(root);
@@ -718,14 +926,16 @@ static void rebuild_preview(void) {
 
 	g.problem_count = 0;
 	g.collecting = R_TRUE;
-	g.preview = Rxml_document_create_widget(g.document);
+	/* the window of its own first: the nodes lead to the widgets built last, those of the preview here */
+	rebuild_run_window();
+	g.preview = g.tab == TAB_WIDGET ? build_showcase() : Rxml_document_create_widget(g.document);
 	g.collecting = R_FALSE;
 
 	if (g.device_width > 0 && (same_text(tag, "Window") || g.device)) {
 		/* the size of a device: the interface as it will be there */
 		Rwidget_set_size(g.frame, (float)g.device_width, (float)g.device_height);
 		snprintf(size, sizeof(size), "%d x %d", g.device_width, g.device_height);
-	} else if (same_text(tag, "Window")) {
+	} else if (same_text(tag, "Window") && g.tab == TAB_WINDOW) {
 		const char* width = Rxml_node_get_attribute(root, "Width");
 		const char* height = Rxml_node_get_attribute(root, "Height");
 		int w = width ? atoi(width) : 800, h = height ? atoi(height) : 600;
@@ -736,7 +946,7 @@ static void rebuild_preview(void) {
 	} else {
 		/* a piece of interface: the size it asks for */
 		Rwidget_set_size(g.frame, -1.0f, -1.0f);
-		snprintf(size, sizeof(size), "%s", tag);
+		snprintf(size, sizeof(size), "%s", g.tab == TAB_WIDGET ? "the tags it declares" : tag);
 	}
 	Rlabel_set_text(Rwidget_find(g.window, "stage.size"), size);
 	if (g.preview != R_INVALID_ID) Rwidget_add_child(g.frame, g.preview);
@@ -1243,6 +1453,177 @@ static void action_palette_filter(Rid sender, const char* action, void* user_dat
 }
 
 /* ---------------------------------------------------------------------------
+ *  Drag and drop in the preview
+ * ------------------------------------------------------------------------- */
+
+static int accepts_children(Rid node) {
+	const char* tag;
+	if (node == R_INVALID_ID || Rxml_node_is_comment(node)) return R_FALSE;
+	tag = Rxml_node_get_tag(node);
+	if (special_tag(tag) >= 0) {
+		return same_text(tag, "Widget") || same_text(tag, "Widgets") || same_text(tag, "Repeat") || same_text(tag, "ForEach") ||
+			same_text(tag, "If") || same_text(tag, "Node") || same_text(tag, "Track") || same_text(tag, "Item");
+	}
+	return Rxml_get_tag_children(tag) != 0;
+}
+
+static const char* template_of(const char* tag);
+
+/* A widget of the palette dropped at (x, y) of the window. */
+/* A tag the palette offers: one of Raven, one the folder declares, or Item and Shortcut. */
+static int known_tag(const char* tag) {
+	int i;
+	if (same_text(tag, "Item") || same_text(tag, "Shortcut") || Rxml_is_widget_registered(tag)) return R_TRUE;
+	for (i = 1; i < Rxml_get_tag_count(); i++) if (same_text(Rxml_get_tag_name(i), tag)) return R_TRUE;
+	return R_FALSE;
+}
+
+static int drop_widget(const char* tag, float x, float y) {
+	const char* xml = template_of(tag);
+	char text[160];
+	Rid parent, added;
+	int index;
+	if (!g.has_document || g.tab != TAB_WINDOW || !known_tag(tag) || !flush_source()) return R_FALSE;
+	if (!drop_place(x, y, &parent, &index)) return R_FALSE;
+	if (!xml) {
+		snprintf(text, sizeof(text), "<%s/>", tag);
+		xml = text;
+	}
+	added = Rxml_node_add_xml(parent, xml, strlen(xml), index);
+	if (added == R_INVALID_ID) {
+		set_status("<%s> cannot go there.", tag);
+		return R_FALSE;
+	}
+	g.selected = added;
+	document_changed(R_FALSE);
+	select_node(added, R_TRUE);
+	set_status("Dropped <%s> into <%s>.", tag, Rxml_node_get_tag(parent));
+	return R_TRUE;
+}
+
+/* An element of the preview moved to (x, y). */
+static int drop_node(Rid node, float x, float y) {
+	Rid parent;
+	int index;
+	if (!g.has_document || g.tab != TAB_WINDOW || node == R_INVALID_ID || !Rxml_node_is_valid(node) || !flush_source()) return R_FALSE;
+	if (Rxml_node_get_parent(node) == R_INVALID_ID) {
+		set_status("The root of the document stays where it is.");
+		return R_FALSE;
+	}
+	g.drag_node = node;
+	if (!drop_place(x, y, &parent, &index) || inside_of(parent, node)) {
+		g.drag_node = R_INVALID_ID;
+		set_status("An element cannot go inside itself.");
+		return R_FALSE;
+	}
+	g.drag_node = R_INVALID_ID;
+	/* (in the same parent, the indices after it move down by one once it is taken out) */
+	if (Rxml_node_get_parent(node) == parent && Rxml_node_get_index(node) < index) index--;
+	if (Rxml_node_get_parent(node) == parent && Rxml_node_get_index(node) == index) return R_FALSE;
+	Rxml_node_move(node, parent, index);
+	g.selected = node;
+	document_changed(R_FALSE);
+	select_node(node, R_TRUE);
+	set_status("Moved <%s> into <%s>.", Rxml_node_get_tag(node), Rxml_node_get_tag(parent));
+	return R_TRUE;
+}
+
+static int over_stage(float x, float y) {
+	float ox, oy, ow, oh;
+	Rwidget_get_rect(g.outline, &ox, &oy, &ow, &oh);
+	return x >= ox && x < ox + ow && y >= oy && y < oy + oh;
+}
+
+static int is_inside_widget(Rid widget, Rid ancestor) {
+	for (; widget != R_INVALID_ID; widget = Rwidget_get_parent(widget)) if (widget == ancestor) return R_TRUE;
+	return R_FALSE;
+}
+
+static void drag_reset(void) {
+	g.drag_armed = g.dragging = R_FALSE;
+	g.drag_node = R_INVALID_ID;
+	g.drop_parent = R_INVALID_ID;
+	Rwidget_invalidate(g.outline);
+}
+
+/*
+ * Every event of the window passes here first: a press on the palette or on
+ * an element of the preview arms a drag; past a few pixels it is one, and
+ * the release drops it where the line shows.
+ */
+static int window_hook(Rid window, const REvent* event, void* user_data) {
+	(void)window;
+	(void)user_data;
+	switch (event->type) {
+		case R_EVENT_MOUSE_DOWN:
+			if (event->button != R_MOUSE_LEFT || g.tab != TAB_WINDOW || !g.has_document) return R_FALSE;
+			if (is_inside_widget(event->target, g.palette)) {
+				g.drag_armed = R_TRUE;
+				g.drag_from_palette = R_TRUE;
+			} else if (!g.interact && over_stage(event->x, event->y)) {
+				Rid node = node_under(event->x, event->y);
+				if (node == R_INVALID_ID || Rxml_node_get_parent(node) == R_INVALID_ID) return R_FALSE;
+				g.drag_armed = R_TRUE;
+				g.drag_from_palette = R_FALSE;
+				g.drag_node = node;
+			}
+			g.drag_start_x = event->x;
+			g.drag_start_y = event->y;
+			return R_FALSE;
+		case R_EVENT_MOUSE_MOVE:
+			if (!g.drag_armed) return R_FALSE;
+			g.drag_x = event->x;
+			g.drag_y = event->y;
+			if (!g.dragging) {
+				float dx = event->x - g.drag_start_x, dy = event->y - g.drag_start_y;
+				if (dx * dx + dy * dy < 36.0f) return R_FALSE;
+				if (g.drag_from_palette) {
+					int row = Rlist_view_get_selected(g.palette);
+					if (row < 0 || row >= g.palette_count) {
+						drag_reset();
+						return R_FALSE;
+					}
+					snprintf(g.drag_tag, sizeof(g.drag_tag), "%s", g.palette_tags[row]);
+				}
+				g.dragging = R_TRUE;
+			}
+			g.drop_parent = R_INVALID_ID;
+			if (over_stage(event->x, event->y) && !drop_place(event->x, event->y, &g.drop_parent, &g.drop_index)) g.drop_parent = R_INVALID_ID;
+			if (g.drop_parent != R_INVALID_ID && !g.drag_from_palette && inside_of(g.drop_parent, g.drag_node)) g.drop_parent = R_INVALID_ID;
+			Rwidget_set_cursor(g.outline, g.drop_parent != R_INVALID_ID ? R_CURSOR_MOVE : R_CURSOR_NOT_ALLOWED);
+			Rwidget_invalidate(g.outline);
+			return R_TRUE;
+		case R_EVENT_MOUSE_UP:
+			if (!g.drag_armed) return R_FALSE;
+			if (g.dragging) {
+				Rid node = g.drag_node;
+				int from_palette = g.drag_from_palette;
+				char tag[96];
+				float x = event->x, y = event->y;
+				snprintf(tag, sizeof(tag), "%s", g.drag_tag);
+				drag_reset();
+				Rwidget_set_cursor(g.outline, R_CURSOR_ARROW);
+				if (over_stage(x, y)) {
+					if (from_palette) drop_widget(tag, x, y);
+					else drop_node(node, x, y);
+				}
+				return R_TRUE;
+			}
+			drag_reset();
+			return R_FALSE;
+		case R_EVENT_KEY_DOWN:
+			if (g.dragging && event->key == R_KEY_ESCAPE) {
+				drag_reset();
+				set_status("Drag cancelled.");
+				return R_TRUE;
+			}
+			return R_FALSE;
+		default:
+			return R_FALSE;
+	}
+}
+
+/* ---------------------------------------------------------------------------
  *  Editing the tree
  * ------------------------------------------------------------------------- */
 
@@ -1361,6 +1742,12 @@ static void action_history(Rid sender, const char* action, void* user_data) {
 	Rid focus = Rwindow_get_focused_widget(g.window);
 	(void)sender;
 	(void)user_data;
+	/* the Theme tab has its own history */
+	if (g.tab == TAB_THEME) {
+		Raction_fire(step < 0 ? "te.undo" : "te.redo", R_INVALID_ID);
+		return;
+	}
+	if (g.tab == TAB_STRINGS) return;
 	/* in a text, Ctrl+Z is for the text */
 	if (focus != R_INVALID_ID && (Rwidget_get_type(focus) == R_WIDGET_TEXT_INPUT || Rwidget_get_type(focus) == R_WIDGET_TEXT_EDITOR)) return;
 	if (!g.has_document) return;
@@ -1388,19 +1775,27 @@ int ds_confirm_unsaved(const char* why) {
 	char text[400];
 	RMessageResult answer;
 	int interface = g.has_document && g.modified;
+	int other = g.slots[0].modified || g.slots[1].modified, k;
 	if (g.quitting) return R_TRUE;
-	if (!interface && !strings_any_modified()) return R_TRUE;
+	if (!interface && !other && !strings_any_modified() && !te_is_modified()) return R_TRUE;
 	snprintf(text, sizeof(text), "Some files have changes that were not saved. Save them before %s?", why);
 	answer = Rmessage_box(g.window, "Unsaved changes", text, R_MESSAGE_YES_NO_CANCEL);
 	if (answer == R_MESSAGE_RESULT_CANCEL) return R_FALSE;
 	if (answer == R_MESSAGE_RESULT_NO) {
 		g.modified = R_FALSE;
+		g.slots[0].modified = g.slots[1].modified = R_FALSE;
 		/* (the tables go back to what their files say) */
 		if (strings_any_modified()) strings_reload();
 		return R_TRUE;
 	}
 	/* (an interface never saved asks where; refusing there cancels) */
 	if (interface && !save_file(!g.path)) return R_FALSE;
+	for (k = 0; k < 2; k++) {
+		if (!g.slots[k].modified || !g.slots[k].path || !g.slots[k].text) continue;
+		if (!Rfile_write(g.slots[k].path, g.slots[k].text, strlen(g.slots[k].text))) return R_FALSE;
+		g.slots[k].modified = R_FALSE;
+	}
+	if (te_is_modified() && !te_save()) return R_FALSE;
 	if (strings_any_modified() && !strings_save()) return R_FALSE;
 	return R_TRUE;
 }
@@ -1561,12 +1956,27 @@ static void action_file(Rid sender, const char* action, void* user_data) {
 			free(path);
 		}
 	} else if (strcmp(action, "file.save") == 0) {
-		save_file(R_FALSE);
+		if (g.tab == TAB_THEME) {
+			if (te_save()) folder_refresh();
+		} else if (g.tab == TAB_STRINGS) {
+			if (strings_save()) set_status("Translations saved.");
+		} else {
+			save_file(R_FALSE);
+		}
 	} else if (strcmp(action, "file.save_as") == 0) {
-		save_file(R_TRUE);
+		if (g.tab == TAB_THEME) Raction_fire("te.save_as", R_INVALID_ID);
+		else save_file(R_TRUE);
 	} else if (strcmp(action, "file.save_all") == 0) {
+		int k;
 		if (g.has_document && g.modified) save_file(R_FALSE);
+		/* the interface the other tab holds */
+		for (k = 0; k < 2; k++) {
+			if (g.slots[k].has_document && g.slots[k].modified && g.slots[k].path && g.slots[k].text &&
+				Rfile_write(g.slots[k].path, g.slots[k].text, strlen(g.slots[k].text))) g.slots[k].modified = R_FALSE;
+		}
+		if (te_is_modified()) te_save();
 		strings_save();
+		folder_refresh();
 		set_status("Everything is saved.");
 	} else if (strcmp(action, "file.quit") == 0) {
 		if (confirm_discard()) Rquit(0);
@@ -1638,6 +2048,7 @@ int designer_has_document(void) {
 const char* designer_template(const char* kind) {
 	if (!strcmp(kind, "panel")) return TEMPLATE_PANEL;
 	if (!strcmp(kind, "form")) return TEMPLATE_FORM;
+	if (!strcmp(kind, "widgets")) return TEMPLATE_WIDGETS;
 	return TEMPLATE_WINDOW;
 }
 
@@ -1803,6 +2214,7 @@ void designer_set_preview_theme(const char* name) {
 		Rwidget_set_theme(g.frame, NULL);
 	}
 	fill_theme_combo();
+	fill_run_bar();
 	designer_refresh_preview();
 }
 
@@ -1813,6 +2225,9 @@ void designer_themes_changed(void) {
 	/* (a theme whose file went away: back to the look of the designer) */
 	if (!still) designer_set_preview_theme("");
 	else fill_theme_combo();
+	fill_theme_list();
+	fill_appearance();
+	fill_run_bar();
 }
 
 static void on_theme_changed(Rid combo, int index, void* user_data) {
@@ -1835,6 +2250,367 @@ static void on_device_changed(Rid combo, int index, void* user_data) {
 	g.device_height = DEVICES[index].height;
 	designer_refresh_preview();
 	set_status(index ? "The preview is the size of a %s." : "The preview is the size the XML gives.", DEVICES[index].name);
+	fill_run_bar();
+}
+
+/* ---------------------------------------------------------------------------
+ *  Tabs: Window, Widget, Theme, Translations
+ * ------------------------------------------------------------------------- */
+
+static const char* const TAB_ACTIONS[4] = { "tab.window", "tab.widget", "tab.theme", "tab.strings" };
+
+/* What the Window or the Widget tab holds goes aside while the other one is in front. */
+static void slot_store(int tab) {
+	int i;
+	if (tab != TAB_WINDOW && tab != TAB_WIDGET) return;
+	free(g.slots[tab].path);
+	free(g.slots[tab].text);
+	for (i = 0; i < g.slots[tab].history_count; i++) free(g.slots[tab].history[i]);
+	g.slots[tab].has_document = g.has_document;
+	g.slots[tab].path = g.path;
+	g.slots[tab].text = g.has_document ? copy_text(Rtext_editor_get_text(g.source)) : NULL;
+	g.slots[tab].modified = g.modified;
+	memcpy(g.slots[tab].history, g.history, sizeof(g.history));
+	g.slots[tab].history_count = g.history_count;
+	g.slots[tab].history_at = g.history_at;
+	/* (taken by the slot: the editor forgets them without freeing them) */
+	g.path = NULL;
+	g.history_count = 0;
+	g.history_at = 0;
+}
+
+static void slot_restore(int tab) {
+	char* path = g.slots[tab].path;
+	char* text = g.slots[tab].text;
+	int has = g.slots[tab].has_document, modified = g.slots[tab].modified;
+	g.slots[tab].path = NULL;
+	g.slots[tab].text = NULL;
+	designer_close();
+	if (!has || !text) {
+		free(path);
+		free(text);
+		g.slots[tab].history_count = 0;
+		return;
+	}
+	new_document(text, path);
+	history_clear();
+	memcpy(g.history, g.slots[tab].history, sizeof(g.history));
+	g.history_count = g.slots[tab].history_count;
+	g.history_at = g.slots[tab].history_at;
+	g.slots[tab].history_count = 0;
+	if (g.history_count == 0) history_push(text, R_FALSE);
+	g.modified = modified;
+	update_title();
+	free(path);
+	free(text);
+}
+
+/* The page of the switcher a tab shows (the start page is 0). */
+int designer_tab_page(void) {
+	return g.tab == TAB_THEME ? 2 : g.tab == TAB_STRINGS ? 3 : 1;
+}
+
+int designer_get_tab(void) {
+	return g.tab;
+}
+
+void designer_show_tab(int tab) {
+	static const char* const empty[2] = {
+		"Double click a window in Files, make one with New, or press Ctrl+K.",
+		"Double click a widget library in Files, or make one with New: its tags can then be used by every window of the folder."
+	};
+	int i;
+	if (tab < TAB_WINDOW || tab > TAB_STRINGS) return;
+	if (tab != g.tab) {
+		if (g.tab == TAB_WINDOW || g.tab == TAB_WIDGET) {
+			if (g.has_document) flush_source();
+			slot_store(g.tab);
+			designer_close();
+		}
+		g.tab = tab;
+		folder_set_view(tab);
+		if (tab == TAB_WINDOW || tab == TAB_WIDGET) {
+			slot_restore(tab);
+			/* nothing open in it yet: its first file */
+			if (!g.has_document) folder_open_first(tab);
+		}
+		/* (the tags declared in the folder may have changed while a library was edited) */
+		folder_register_widgets();
+		palette_fill();
+	}
+	/* the Theme tab opens on the first theme of the folder */
+	if (tab == TAB_THEME && !te_get_path()[0] && !te_is_modified() && folder_theme_count() > 0) {
+		te_open(folder_theme_path(0));
+		fill_theme_list();
+	}
+	for (i = 0; i < 4; i++) Rbutton_set_style(g.tab_buttons[i], i == tab ? R_BUTTON_PRIMARY : R_BUTTON_FLAT);
+	if (tab == TAB_WINDOW || tab == TAB_WIDGET) Rlabel_set_text(Rwidget_find(g.window, "stage.empty.text"), empty[tab]);
+	if (!welcome_is_shown()) Rswitcher_set_index(Rwidget_find(g.window, "pages"), designer_tab_page());
+	update_title();
+}
+
+void designer_widgets_changed(void) {
+	palette_fill();
+	designer_refresh_preview();
+}
+
+/* Another folder: what the tabs held goes. */
+void designer_forget_tabs(void) {
+	int k, h;
+	for (k = 0; k < 2; k++) {
+		free(g.slots[k].path);
+		free(g.slots[k].text);
+		for (h = 0; h < g.slots[k].history_count; h++) free(g.slots[k].history[h]);
+		memset(&g.slots[k], 0, sizeof(g.slots[k]));
+	}
+}
+
+static void action_tab(Rid sender, const char* action, void* user_data) {
+	int i;
+	(void)sender;
+	(void)user_data;
+	for (i = 0; i < 4; i++) {
+		if (!strcmp(action, TAB_ACTIONS[i])) {
+			if (welcome_is_shown() && g_folder) welcome_hide();
+			designer_show_tab(i);
+		}
+	}
+}
+
+/* ---- the Theme tab: the themes of the folder, and the editor of themes ---- */
+
+static void fill_theme_list(void) {
+	int i, count = folder_theme_count(), selected = -1;
+	const char* open = te_get_path();
+	g.syncing++;
+	Rlist_view_clear_items(g.theme_list);
+	for (i = 0; i < count; i++) {
+		Rlist_view_add_item(g.theme_list, folder_theme_name(i));
+		if (open && open[0] && ds_same_path(open, folder_theme_path(i))) selected = i;
+	}
+	if (selected >= 0) Rlist_view_set_selected(g.theme_list, selected);
+	g.syncing--;
+}
+
+static int confirm_theme(void) {
+	RMessageResult answer;
+	if (!te_is_modified() || g.quitting || g_ds_fuzzing) return R_TRUE;
+	answer = Rmessage_box(g.window, "Unsaved theme", "The theme has changes that were not saved. Save them?", R_MESSAGE_YES_NO_CANCEL);
+	if (answer == R_MESSAGE_RESULT_CANCEL) return R_FALSE;
+	if (answer == R_MESSAGE_RESULT_YES) return te_save();
+	return R_TRUE;
+}
+
+void designer_open_theme(const char* path) {
+	if (!confirm_theme()) return;
+	if (te_open(path)) ds_status("The theme %s is open: the windows of the folder wear it once it is saved.", ds_basename(path));
+	fill_theme_list();
+}
+
+static void on_theme_list(Rid list, int index, void* user_data) {
+	(void)list;
+	(void)user_data;
+	if (g.syncing || index < 0 || index >= folder_theme_count()) return;
+	if (te_get_path()[0] && ds_same_path(te_get_path(), folder_theme_path(index))) return;
+	designer_open_theme(folder_theme_path(index));
+}
+
+/* ---- the appearance of the designer itself ---- */
+
+static const struct { const char* name; RLook look; } DESIGNER_LOOKS[] = {
+	{ "Raven dark", R_LOOK_RAVEN_DARK }, { "Raven light", R_LOOK_RAVEN_LIGHT }, { "Raven glass dark", R_LOOK_RAVEN_GLASS_DARK },
+	{ "Raven glass light", R_LOOK_RAVEN_GLASS_LIGHT }, { "High contrast dark", R_LOOK_RAVEN_HIGH_CONTRAST_DARK },
+	{ "High contrast light", R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT }, { "Windows 11 dark", R_LOOK_WINDOWS_DARK }, { "Windows 11 light", R_LOOK_WINDOWS_LIGHT },
+	{ "macOS dark", R_LOOK_MACOS_DARK }, { "macOS light", R_LOOK_MACOS_LIGHT }, { "macOS 26 glass dark", R_LOOK_MACOS_GLASS_DARK },
+	{ "macOS 26 glass light", R_LOOK_MACOS_GLASS_LIGHT }, { "GNOME dark", R_LOOK_GNOME_DARK }, { "GNOME light", R_LOOK_GNOME_LIGHT },
+	{ "The system's, dark", R_LOOK_NATIVE_DARK }, { "The system's, light", R_LOOK_NATIVE_LIGHT }
+};
+#define DESIGNER_LOOK_COUNT ((int)(sizeof(DESIGNER_LOOKS) / sizeof(DESIGNER_LOOKS[0])))
+
+static void fill_appearance(void) {
+	const char* chosen = prefs_get("appearance");
+	int i, selected = 0, count = folder_theme_count();
+	char item[160];
+	g.syncing++;
+	Rcombo_box_clear_items(g.appearance);
+	for (i = 0; i < DESIGNER_LOOK_COUNT; i++) {
+		Rcombo_box_add_item(g.appearance, DESIGNER_LOOKS[i].name);
+		if (!strcmp(DESIGNER_LOOKS[i].name, chosen)) selected = i;
+	}
+	for (i = 0; i < count; i++) {
+		snprintf(item, sizeof(item), "Theme: %s", folder_theme_name(i));
+		Rcombo_box_add_item(g.appearance, item);
+		if (!strcmp(item, chosen)) selected = DESIGNER_LOOK_COUNT + i;
+	}
+	Rcombo_box_set_selected(g.appearance, selected);
+	g.syncing--;
+}
+
+/* The designer wears a look of Raven, or a theme of the folder ("Theme: Night"). */
+void designer_set_appearance(const char* name) {
+	int i;
+	for (i = 0; i < DESIGNER_LOOK_COUNT; i++) {
+		if (!strcmp(DESIGNER_LOOKS[i].name, name)) {
+			Rlook_set(DESIGNER_LOOKS[i].look);
+			break;
+		}
+	}
+	if (i == DESIGNER_LOOK_COUNT && !strncmp(name, "Theme: ", 7) && !Rtheme_use(name + 7)) return;
+	if (!g.quitting) prefs_set("appearance", name);
+	fill_appearance();
+}
+
+static void on_appearance(Rid combo, int index, void* user_data) {
+	(void)user_data;
+	if (g.syncing || index < 0) return;
+	designer_set_appearance(Rcombo_box_get_item_text(combo, index));
+	set_status("The designer wears %s.", Rcombo_box_get_item_text(combo, index));
+}
+
+/* ---- the live preview in a window of its own ---- */
+
+static void on_run_device(Rid combo, int index, void* user_data);
+static void on_run_theme(Rid combo, int index, void* user_data);
+static void on_run_language(Rid combo, int index, void* user_data);
+
+static void fill_run_bar(void) {
+	int i, count;
+	char item[160];
+	if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window)) return;
+	g.syncing++;
+	Rcombo_box_clear_items(g.run_device);
+	for (i = 0; i < DEVICE_COUNT; i++) Rcombo_box_add_item(g.run_device, DEVICES[i].name);
+	Rcombo_box_set_selected(g.run_device, g.device);
+	/* the same choices as above the preview of the designer */
+	Rcombo_box_clear_items(g.run_theme);
+	count = Rcombo_box_get_item_count(g.theme_combo);
+	for (i = 0; i < count; i++) Rcombo_box_add_item(g.run_theme, Rcombo_box_get_item_text(g.theme_combo, i));
+	Rcombo_box_set_selected(g.run_theme, Rcombo_box_get_selected(g.theme_combo));
+	Rcombo_box_clear_items(g.run_language);
+	Rcombo_box_add_item(g.run_language, "Language: first column");
+	count = strings_language_count();
+	for (i = 0; i < count; i++) {
+		snprintf(item, sizeof(item), "Language: %s", strings_language_at(i));
+		Rcombo_box_add_item(g.run_language, item);
+	}
+	Rcombo_box_set_selected(g.run_language, 0);
+	{
+		Rid main_language = Rwidget_find(g.window, "preview.language");
+		int at = main_language != R_INVALID_ID ? Rcombo_box_get_selected(main_language) : 0;
+		if (at >= 0 && at < Rcombo_box_get_item_count(g.run_language)) Rcombo_box_set_selected(g.run_language, at);
+	}
+	g.syncing--;
+}
+
+/* What the window shows, built again from the document (each change of the designer comes here). */
+static void rebuild_run_window(void) {
+	Rid root, content;
+	char title[400];
+	if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window)) {
+		g.run_window = R_INVALID_ID;
+		return;
+	}
+	Rwidget_clear_children(g.run_frame);
+	if (!g.has_document || g.document == R_INVALID_ID) {
+		Rlabel_set_text(g.run_title, "Nothing open in the designer");
+		return;
+	}
+	root = Rxml_document_get_root(g.document);
+	content = g.tab == TAB_WIDGET ? build_showcase() : Rxml_document_create_widget(g.document);
+	if (content != R_INVALID_ID) Rwidget_add_child(g.run_frame, content);
+	Rwidget_set_theme(g.run_frame, g.preview_theme[0] ? g.preview_theme : NULL);
+	Rwidget_set_direction(g.run_frame, Rlocale_get_language_count() > 0 && Rlocale_is_rtl() ? R_DIRECTION_RTL : R_DIRECTION_LTR);
+	/* the size of a device, else the one of the XML, else what it asks for */
+	if (g.device_width > 0) {
+		Rwidget_set_size(g.run_frame, (float)g.device_width, (float)g.device_height);
+	} else if (same_text(Rxml_node_get_tag(root), "Window") && g.tab == TAB_WINDOW) {
+		const char* w = Rxml_node_get_attribute(root, "Width");
+		const char* h = Rxml_node_get_attribute(root, "Height");
+		Rwidget_set_size(g.run_frame, w && atoi(w) > 0 ? (float)atoi(w) : 800.0f, h && atoi(h) > 0 ? (float)atoi(h) : 600.0f);
+	} else {
+		Rwidget_set_size(g.run_frame, -1.0f, -1.0f);
+	}
+	snprintf(title, sizeof(title), "Live preview of %s%s", g.path ? ds_basename(g.path) : "the interface", g.modified ? "  \xE2\x80\xA2  unsaved changes" : "");
+	Rlabel_set_text(g.run_title, title);
+	snprintf(title, sizeof(title), "Preview - %s", g.path ? ds_basename(g.path) : "Untitled");
+	Rwindow_set_title(g.run_window, title);
+}
+
+static const char RUN_XML[] =
+"<Window Title=\"Preview\" Width=\"960\" Height=\"720\" MinWidth=\"420\" MinHeight=\"300\">"
+"  <VBox>"
+"    <HBox Spacing=\"8\" Slot.Padding=\"10,6\">"
+"      <Border Width=\"8\" Height=\"8\" CornerRadius=\"4\" Background=\"#30D158\" Slot.VAlign=\"Center\" Tooltip=\"Live: every change of the designer shows here\"/>"
+"      <Label Name=\"run.title\" Slot.Fill=\"1\" Slot.VAlign=\"Center\"/>"
+"      <ComboBox Name=\"run.device\" Width=\"170\" Tooltip=\"The size the interface is shown in\"/>"
+"      <ComboBox Name=\"run.theme\" Width=\"180\" Tooltip=\"The look or the theme it wears\"/>"
+"      <ComboBox Name=\"run.language\" Width=\"160\" Tooltip=\"The language of its texts\"/>"
+"      <Button Text=\"Back to the designer\" Style=\"Flat\" OnClicked=\"run.back\"/>"
+"    </HBox>"
+"    <Separator/>"
+"    <ScrollBox ScrollBoth=\"true\" Slot.Fill=\"1\">"
+"      <Border Name=\"run.frame\" Slot.HAlign=\"Center\" Slot.Padding=\"0,12\"/>"
+"    </ScrollBox>"
+"  </VBox>"
+"</Window>";
+
+/* F7: the window comes (or comes back in front), and follows the designer from then on. */
+static void open_run_window(void) {
+	if (!g.has_document) {
+		set_status("Open an interface first: the window shows it live.");
+		return;
+	}
+	if (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window)) {
+		Rwindow_show(g.run_window);
+		set_status("The preview window is in front: it follows every change.");
+		return;
+	}
+	g.run_window = Rwindow_create_from_xml(RUN_XML, sizeof(RUN_XML) - 1);
+	if (g.run_window == R_INVALID_ID) return;
+	g.run_frame = Rwidget_find(g.run_window, "run.frame");
+	g.run_device = Rwidget_find(g.run_window, "run.device");
+	g.run_theme = Rwidget_find(g.run_window, "run.theme");
+	g.run_language = Rwidget_find(g.run_window, "run.language");
+	g.run_title = Rwidget_find(g.run_window, "run.title");
+	Rwidget_set_clipping(g.run_frame, R_TRUE);
+	Rcombo_box_set_changed_callback(g.run_device, on_run_device, NULL);
+	Rcombo_box_set_changed_callback(g.run_theme, on_run_theme, NULL);
+	Rcombo_box_set_changed_callback(g.run_language, on_run_language, NULL);
+	fill_run_bar();
+	if (g.device_width > 0) Rwindow_set_size(g.run_window, g.device_width + 40, g.device_height + 90);
+	designer_refresh_preview();
+	set_status("A live preview in its own window: it follows every change, in the size, theme and language chosen on its bar.");
+}
+
+static void on_run_device(Rid combo, int index, void* user_data) {
+	(void)combo;
+	(void)user_data;
+	if (g.syncing) return;
+	Rcombo_box_set_selected(g.device_combo, index);
+	on_device_changed(g.device_combo, index, NULL);
+	if (g.device_width > 0) Rwindow_set_size(g.run_window, g.device_width + 40, g.device_height + 90);
+}
+
+static void on_run_theme(Rid combo, int index, void* user_data) {
+	(void)combo;
+	(void)user_data;
+	if (g.syncing) return;
+	Rcombo_box_set_selected(g.theme_combo, index);
+	on_theme_changed(g.theme_combo, index, NULL);
+}
+
+static void on_run_language(Rid combo, int index, void* user_data) {
+	(void)combo;
+	(void)user_data;
+	if (g.syncing) return;
+	strings_set_preview_language(index <= 0 ? "" : strings_language_at(index - 1));
+}
+
+static void action_run(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	Rwindow_show(g.window);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1855,57 +2631,22 @@ static void set_interact(int interact) {
 }
 
 static void action_view(Rid sender, const char* action, void* user_data) {
-	static const struct { const char* name; RTheme theme; } themes[] = {
-		{ "dark", R_THEME_DARK }, { "light", R_THEME_LIGHT }, { "glass_dark", R_THEME_GLASS_DARK }, { "glass_light", R_THEME_GLASS_LIGHT }
-	};
 	(void)user_data;
 	if (strncmp(action, "view.theme.", 11) == 0) {
-		int i;
-		for (i = 0; i < 4; i++) {
-			char name[40];
-			snprintf(name, sizeof(name), "theme.%s", themes[i].name);
-			Rmenu_item_set_checked(Rwidget_find(g.window, name), strcmp(themes[i].name, action + 11) == 0);
-			if (strcmp(themes[i].name, action + 11) == 0) {
-				Rtheme_apply(themes[i].theme);
-				/* (the next start comes back to it) */
-				if (!g.quitting) prefs_set("theme", themes[i].name);
-			}
-		}
-	} else if (strcmp(action, "view.interact") == 0) {
+		/* (the commands of the island, and the preferences of the designer before it had a list) */
+		const char* look = action + 11;
+		designer_set_appearance(!strcmp(look, "light") ? "Raven light" : !strcmp(look, "glass_dark") ? "Raven glass dark" :
+			!strcmp(look, "glass_light") ? "Raven glass light" : "Raven dark");	} else if (strcmp(action, "view.interact") == 0) {
 		set_interact(!g.interact);
 	} else if (strcmp(action, "view.interact.switch") == 0) {
 		if (!g.syncing) set_interact(Rcheckbox_is_checked(sender));
 	} else if (strcmp(action, "view.run") == 0) {
-		if (!g.has_document) {
-			set_status("No interface is open: nothing to show in a window.");
-			return;
-		}
-		if (!flush_source()) return;
-		if (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window)) Rwindow_destroy(g.run_window);
-		g.collecting = R_TRUE;
-		if (same_text(Rxml_node_get_tag(Rxml_document_get_root(g.document)), "Window")) {
-			g.run_window = Rxml_document_create_window(g.document);
-		} else {
-			/* a piece of interface: a window around it */
-			Rid content = Rxml_document_create_widget(g.document);
-			g.run_window = content != R_INVALID_ID ? Rwindow_create("Preview", 640, 480, R_WINDOW_DEFAULT) : R_INVALID_ID;
-			if (g.run_window != R_INVALID_ID) Rwindow_set_content(g.run_window, content);
-		}
-		g.collecting = R_FALSE;
-		/* it wears the theme and the size of the preview */
-		if (g.run_window != R_INVALID_ID) {
-			if (g.preview_theme[0]) Rwidget_set_theme(Rwindow_get_content(g.run_window), g.preview_theme);
-			if (g.device_width > 0) Rwindow_set_size(g.run_window, g.device_width, g.device_height);
-		}
-		/* (the widgets of the preview are what the nodes lead to, not those of this window) */
-		rebuild_preview();
-		set_status(g.run_window != R_INVALID_ID ? "Running in its own window." : "The interface could not be built: see the Problems tab.");
+		if (g.tab == TAB_THEME) Raction_fire("te.window", R_INVALID_ID);
+		else if (flush_source() || g.broken) open_run_window();
 	} else if (strcmp(action, "view.reset") == 0) {
 		Rdock_area_load_layout(g.dock, (const char*)Rwidget_get_user_handle(g.dock));
 	} else if (strcmp(action, "view.strings") == 0) {
-		Rid panel = Rwidget_find(g.window, "panel.strings");
-		Rdock_area_open_panel(g.dock, panel);
-		Rdock_area_show_panel(g.dock, panel);
+		designer_show_tab(TAB_STRINGS);
 	}
 }
 
@@ -1966,6 +2707,10 @@ static void run_frames(int count) {
  *   expectthemes N stops unless the folder holds N themes
  *   expectselected TAG     stops unless the selection is a TAG
  *   refresh        looks at the folder now
+ *   tab NAME       shows a tab: window, widget, theme, strings     expecttab NAME
+ *   dropon TAG PATH [before|after]   drops a widget of the palette on the element at PATH
+ *   moveto PATH PATH       drags the element at the first path onto the one at the second
+ *   expectrun NAME stops unless the preview window shows a widget named NAME
  *   fuzz STEPS SEED        random clicks, drags, keys, text and actions (the same seed replays the same run)
  *   size W H       the size of the window          capture PATH   saves the frame now (.ppm)
  *   defer S words --   the words run S seconds later, from a timer (inside a dialog that is open then)
@@ -2012,10 +2757,11 @@ static void fuzz(int steps, unsigned seed) {
 	static const char* const actions[] = { "edit.undo", "edit.redo", "edit.duplicate", "edit.delete", "edit.up", "edit.down", "edit.out", "edit.in",
 		"edit.wrap.VBox", "edit.wrap.Border", "edit.unwrap", "edit.copy", "edit.paste", "palette.add", "view.interact", "view.run", "view.strings",
 		"view.reset", "files.new.window", "files.new.panel", "files.new.form", "files.refresh", "file.save", "island.search", "file.welcome",
-		"view.theme.dark", "view.theme.light", "strings.add_key", "strings.save" };
+		"view.theme.dark", "view.theme.light", "strings.add_key", "strings.save", "tab.window", "tab.widget", "tab.theme", "tab.strings", "files.new.widgets", "te.reset.colors", "te.undo", "te.generate" };
 	int step;
 	g_fuzz_state = seed ? seed : 1;
 	g.fuzzing = g_ds_fuzzing = R_TRUE;
+	te_set_fuzzing(R_TRUE);
 	for (step = 0; step < steps && Ris_running(); step++) {
 		int what = fuzz_int(100);
 		float x = (float)fuzz_int(1480), y = (float)fuzz_int(900);
@@ -2081,6 +2827,7 @@ static void fuzz(int steps, unsigned seed) {
 		}
 	}
 	g.fuzzing = g_ds_fuzzing = R_FALSE;
+	te_set_fuzzing(R_FALSE);
 }
 
 static void on_deferred_script(Rid timer, void* user_data) {
@@ -2168,6 +2915,63 @@ static int designer_script(char* script) {
 			for (c = text; *c; c++) if (*c == '~') *c = ' ';
 			if (!island_run_search(text)) {
 				fprintf(stderr, "raven_designer: the search of the island finds nothing for \"%s\"\n", text);
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "tab") == 0) {
+			char* name = next_token(&cursor);
+			int k;
+			for (k = 0; k < 4; k++) if (!strcmp(name, TAB_ACTIONS[k] + 4)) Raction_fire(TAB_ACTIONS[k], R_INVALID_ID);
+		} else if (strcmp(token, "expecttab") == 0) {
+			char* name = next_token(&cursor);
+			if (strcmp(name, TAB_ACTIONS[g.tab] + 4) != 0) {
+				fprintf(stderr, "raven_designer: expected the tab %s, it is %s\n", name, TAB_ACTIONS[g.tab] + 4);
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "dropon") == 0 || strcmp(token, "moveto") == 0) {
+			/* dropon TAG PATH [before|after]: a widget of the palette dropped on the element at PATH (its middle, or near an edge) */
+			int moving = token[0] == 'm';
+			char* what = next_token(&cursor);
+			char* where = next_token(&cursor);
+			char* side = cursor && (!strncmp(cursor, "before", 6) || !strncmp(cursor, "after", 5)) ? next_token(&cursor) : NULL;
+			int path[32], depth = 0, from[32], from_depth = 0;
+			Rid target, widget;
+			float x, y, w, h;
+			char* walk = where;
+			while (walk && *walk && *walk != '.' && depth < 32) {
+				path[depth++] = atoi(walk);
+				walk = strchr(walk, '/');
+				if (walk) walk++;
+			}
+			if (moving) {
+				walk = what;
+				while (walk && *walk && *walk != '.' && from_depth < 32) {
+					from[from_depth++] = atoi(walk);
+					walk = strchr(walk, '/');
+					if (walk) walk++;
+				}
+			}
+			run_frames(1);
+			target = node_at_path(path, depth);
+			widget = node_widget(target);
+			if (widget == R_INVALID_ID) {
+				fprintf(stderr, "raven_designer: nothing is shown for %s\n", where);
+				return R_FALSE;
+			}
+			Rwidget_get_rect(widget, &x, &y, &w, &h);
+			x += w * 0.5f;
+			y += h * 0.5f;
+			if (side && !strcmp(side, "before")) y -= h * 0.5f - 2.0f;
+			if (side && !strcmp(side, "after")) y += h * 0.5f - 2.0f;
+			if (moving ? !drop_node(node_at_path(from, from_depth), x, y) : !drop_widget(what, x, y)) {
+				fprintf(stderr, "raven_designer: the drop on %s did nothing\n", where);
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectrun") == 0) {
+			char* text = next_token(&cursor);
+			char* c;
+			for (c = text; *c; c++) if (*c == '~') *c = ' ';
+			if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window) || !Rwidget_find(g.run_frame, text)) {
+				fprintf(stderr, "raven_designer: the preview window shows no widget named %s\n", text);
 				return R_FALSE;
 			}
 		} else if (strcmp(token, "fuzz") == 0) {
@@ -2433,6 +3237,8 @@ static int build_interface(void) {
 	Raction_bind("palette.add", action_palette_add, NULL);
 	Raction_bind("palette.filter", action_palette_filter, NULL);
 	Raction_bind("problems.go", action_problems, NULL);
+	for (i = 0; i < 4; i++) Raction_bind(TAB_ACTIONS[i], action_tab, NULL);
+	Raction_bind("run.back", action_run, NULL);
 	Raction_set_default_handler(on_unbound_action, NULL);
 
 	{
@@ -2459,6 +3265,15 @@ static int build_interface(void) {
 	g.interact_switch = Rwidget_find(g.window, "interact");
 	g_ds_window = g.window;
 	g_ds_dock = g.dock;
+	for (i = 0; i < 4; i++) {
+		static const char* const names[4] = { "tab.window", "tab.widget", "tab.theme", "tab.strings" };
+		g.tab_buttons[i] = Rwidget_find(g.window, names[i]);
+	}
+	g.appearance = Rwidget_find(g.window, "appearance");
+	g.theme_list = Rwidget_find(g.window, "theme.list");
+	Rcombo_box_set_changed_callback(g.appearance, on_appearance, NULL);
+	Rlist_view_set_selection_changed_callback(g.theme_list, on_theme_list, NULL);
+	Rwindow_set_event_hook(g.window, window_hook, NULL);
 	g.device_combo = Rwidget_find(g.window, "preview.device");
 	g.theme_combo = Rwidget_find(g.window, "preview.theme");
 	for (i = 0; i < (size_t)DEVICE_COUNT; i++) Rcombo_box_add_item(g.device_combo, DEVICES[i].name);
@@ -2504,6 +3319,9 @@ static int build_interface(void) {
 	g.preview = R_INVALID_ID;
 	g.run_window = R_INVALID_ID;
 	g.parse_timer = R_INVALID_ID;
+	g.drag_node = R_INVALID_ID;
+	g.drop_parent = R_INVALID_ID;
+	g.tab = TAB_WINDOW;
 
 	/* what is around the visual editor */
 	Rtext_editor_set_completion_callback(g.source, on_complete, NULL);
@@ -2512,7 +3330,14 @@ static int build_interface(void) {
 	accessibility_init();
 	folder_init();
 	island_init();
+	/* the Theme tab: the editor of themes, inside */
+	g.theme_root = te_embed(g.window);
+	if (g.theme_root != R_INVALID_ID) {
+		Rslot_set_fill(g.theme_root, 1.0f);
+		Rwidget_add_child(Rwidget_find(g.window, "theme.host"), g.theme_root);
+	}
 	fill_theme_combo();
+	fill_appearance();
 	Rdock_area_show_panel(g.dock, g.source);
 	return R_TRUE;
 }
@@ -2562,12 +3387,8 @@ int main(int argc, char** argv) {
 		Rshutdown();
 		return 1;
 	}
-	/* the theme of the last time (not for the scripted runs: they start the same way everywhere) */
-	if (!g.quitting && prefs_get("theme")[0]) {
-		char action[64];
-		snprintf(action, sizeof(action), "view.theme.%s", prefs_get("theme"));
-		Raction_fire(action, R_INVALID_ID);
-	}
+	/* the appearance of the last time (not for the scripted runs: they start the same way everywhere) */
+	if (!g.quitting && prefs_get("appearance")[0]) designer_set_appearance(prefs_get("appearance"));
 	/* the accessibility settings of the last time (text size, contrast, motion...) */
 	if (!g.quitting) accessibility_apply_saved();
 	/* nothing is opened by itself: the start page, unless a folder or an interface was given */
@@ -2586,11 +3407,20 @@ int main(int argc, char** argv) {
 	}
 
 	island_shutdown();
+	te_shutdown();
 	folder_shutdown();
 	accessibility_shutdown();
 	welcome_shutdown();
 	strings_shutdown();
 	history_clear();
+	{
+		int k, h;
+		for (k = 0; k < 2; k++) {
+			free(g.slots[k].path);
+			free(g.slots[k].text);
+			for (h = 0; h < g.slots[k].history_count; h++) free(g.slots[k].history[h]);
+		}
+	}
 	for (i = 0; i < g.palette_count; i++) free(g.palette_tags[i]);
 	free(g.palette_tags);
 	free(g.rows);

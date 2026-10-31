@@ -184,8 +184,9 @@ static table_t* current(void) {
 static void update_title(void) {
 	table_t* t = current();
 	char title[300];
-	snprintf(title, sizeof(title), "Translations%s%s%s", t ? " - " : "", t ? ds_basename(t->path) : "", t && t->modified ? " *" : "");
-	Rdock_area_set_panel_title(g_ds_dock, g_s.panel, title);
+	/* (the tab says when a table has unsaved changes) */
+	snprintf(title, sizeof(title), "Translations%s", t && t->modified ? " \xE2\x80\xA2" : "");
+	Rbutton_set_text(Rwidget_find(g_ds_window, "tab.strings"), title);
 }
 
 static void mark_cell(Rid input, int missing) {
@@ -444,7 +445,6 @@ void strings_open(const char* path) {
 			Rcombo_box_set_selected(g_s.file_combo, i);
 			g_s.syncing--;
 			rebuild_grid();
-			Rdock_area_open_panel(g_ds_dock, g_s.panel);
 			return;
 		}
 	}

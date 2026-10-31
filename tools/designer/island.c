@@ -27,7 +27,7 @@
 #define MAX_RESULTS 40
 
 static const char ISLAND_XML[] =
-"<Island Name=\"island\" Attached=\"true\" ExpandOnHover=\"false\">"
+"<Island Name=\"island\" Attached=\"true\" ExpandOnHover=\"true\">"
 "  <HBox Spacing=\"8\" Slot.Padding=\"14,5\">"
 "    <Border Name=\"island.dot\" Width=\"8\" Height=\"8\" CornerRadius=\"4\" Background=\"#8E8E93\" Slot.VAlign=\"Center\" AccessibleHidden=\"true\"/>"
 "    <Label Name=\"island.title\" Text=\"Raven Designer\" Slot.VAlign=\"Center\"/>"
@@ -76,7 +76,7 @@ typedef struct result_t {
 static const struct { const char* text; const char* action; const char* words; } COMMANDS[] = {
 	{ "Save", "file.save", "write ctrl+s" },
 	{ "Save as...", "file.save_as", "write copy" },
-	{ "Run in a window", "view.run", "f7 test try launch start" },
+	{ "Preview in a window", "view.run", "f7 test try launch start run live" },
 	{ "Use the preview", "view.interact", "f6 interact click try" },
 	{ "Undo", "edit.undo", "back ctrl+z" },
 	{ "Redo", "edit.redo", "again ctrl+y" },
@@ -100,7 +100,12 @@ static const struct { const char* text; const char* action; const char* words; }
 	{ "Open a folder...", "folder.open", "project directory" },
 	{ "Open an interface...", "file.open", "file xml" },
 	{ "Start page", "file.welcome", "recent welcome home" },
-	{ "Translations", "view.strings", "csv languages strings locale" },
+	{ "Window tab", "tab.window", "windows interfaces ctrl+1" },
+	{ "Widget tab", "tab.widget", "declared tags library components ctrl+2" },
+	{ "Theme tab", "tab.theme", "themes colors editor ctrl+3" },
+	{ "Translations tab", "tab.strings", "csv languages strings locale ctrl+4" },
+	{ "New widget library", "files.new.widgets", "declared tags component create" },
+	{ "New theme", "files.new.theme", "colors create" },
 	{ "Problems", "island.problems", "errors warnings mistakes" },
 	{ "Reset the panels", "view.reset", "layout dock" },
 	{ "Accessibility...", "view.accessibility", "text size contrast motion" },

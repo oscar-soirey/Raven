@@ -14,6 +14,7 @@
  */
 
 #include "designer.h"
+#include "../theme_editor/editor.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +23,8 @@
 #define MAX_DEPTH 4
 #define MAX_FILES 2000
 
-typedef enum file_kind_t { FILE_INTERFACE, FILE_THEME, FILE_TABLE } file_kind_t;
+/* (in the order of the tabs: what each one shows in Files) */
+typedef enum file_kind_t { FILE_INTERFACE, FILE_WIDGETS, FILE_THEME, FILE_TABLE } file_kind_t;
 
 typedef struct file_t {
 	char* path;
@@ -44,19 +46,21 @@ static struct {
 	char** item_paths;
 	int item_count, item_cap;
 	double tables_time;
+	/* the kind of files the tab in front shows */
+	int view;
 } g_f;
 
 /* ---------------------------------------------------------------------------
  *  Looking at the folder
  * ------------------------------------------------------------------------- */
 
-/* A .xml that is a theme file: its root element is <Theme>. */
-static int is_theme_file(const char* path) {
+/* What a .xml is, by its root element: <Theme>, <Widgets> or <Widget> (a library of tags), else an interface. */
+static file_kind_t xml_kind(const char* path) {
 	size_t size = 0;
 	char* text = Rfile_read(path, &size);
 	const char* p;
-	int theme = 0;
-	if (!text) return 0;
+	int theme = FILE_INTERFACE;
+	if (!text) return FILE_INTERFACE;
 	/* past the declaration and the comments */
 	p = text;
 	for (;;) {
@@ -73,9 +77,11 @@ static int is_theme_file(const char* path) {
 			break;
 		}
 	}
-	theme = !strncmp(p, "<Theme", 6) && (p[6] == ' ' || p[6] == '>' || p[6] == '\t' || p[6] == '\r' || p[6] == '\n' || p[6] == '/');
+#define ROOT_IS(word, n) (!strncmp(p, word, n) && (p[n] == ' ' || p[n] == '>' || p[n] == '\t' || p[n] == '\r' || p[n] == '\n' || p[n] == '/'))
+	theme = ROOT_IS("<Theme", 6) ? FILE_THEME : (ROOT_IS("<Widgets", 8) || ROOT_IS("<Widget", 7)) ? FILE_WIDGETS : FILE_INTERFACE;
+#undef ROOT_IS
 	Rmemory_free(text);
-	return theme;
+	return (file_kind_t)theme;
 }
 
 static int skipped_folder(const char* name) {
@@ -102,7 +108,7 @@ static void scan(const char* folder, int depth, file_t** files, int* count) {
 		if (entries[i].is_dir) {
 			scan(full, depth + 1, files, count);
 		} else if (ds_iequal(ds_extension(entries[i].name), "xml")) {
-			add_file(files, count, full, is_theme_file(full) ? FILE_THEME : FILE_INTERFACE);
+			add_file(files, count, full, xml_kind(full));
 		} else if (ds_iequal(ds_extension(entries[i].name), "csv")) {
 			add_file(files, count, full, FILE_TABLE);
 		}
@@ -177,7 +183,9 @@ static void fill_tree(void) {
 	if (!g_folder) return;
 	for (i = 0; i < g_f.file_count; i++) {
 		const file_t* file = &g_f.files[i];
-		char* normalized = ds_normalize(file->path);
+		char* normalized;
+		if ((int)file->kind != g_f.view) continue;
+		normalized = ds_normalize(file->path);
 		const char* relative = normalized + (strlen(normalized) > root_length ? root_length + 1 : 0);
 		const char* slash = strrchr(relative, '/');
 		char sub[1024], caption[400];
@@ -186,23 +194,19 @@ static void fill_tree(void) {
 			snprintf(sub, sizeof(sub), "%.*s", (int)(slash - relative), relative);
 			parent = folder_item(sub, folders, names, &folder_count);
 		}
-		snprintf(caption, sizeof(caption), "%s%s", ds_basename(relative),
-			file->kind == FILE_THEME ? "   theme" : file->kind == FILE_TABLE ? "   translations" : "");
+		snprintf(caption, sizeof(caption), "%s", ds_basename(relative));
 		item = Rtree_view_add_item(g_f.tree, parent, caption);
 		remember_path(item, file->path);
-		if (file->kind != FILE_INTERFACE) {
-			float r, g, b, a;
-			Rtheme_get_color(file->kind == FILE_THEME ? R_COLOR_ACCENT : R_COLOR_LINK, &r, &g, &b, &a);
-			Rtree_item_set_text_color(item, r, g, b, 1.0f);
-		}
 		if (open && ds_same_path(open, file->path)) Rtree_view_set_selected_item(g_f.tree, item);
 		free(normalized);
 	}
 	for (i = 0; i < folder_count; i++) free(names[i]);
 	{
+		static const char* const titles[4] = { "Windows", "Widget libraries", "Themes", "Tables" };
 		char title[64];
-		int interfaces = folder_interface_count();
-		snprintf(title, sizeof(title), "Files (%d)", interfaces);
+		int shown = 0;
+		for (i = 0; i < g_f.file_count; i++) shown += (int)g_f.files[i].kind == g_f.view;
+		snprintf(title, sizeof(title), "%s (%d)", titles[g_f.view >= 0 && g_f.view < 4 ? g_f.view : 0], shown);
 		Rdock_area_set_panel_title(g_ds_dock, g_f.panel, title);
 	}
 }
@@ -282,7 +286,7 @@ static int same_listing(const file_t* a, int a_count, const file_t* b, int b_cou
 
 void folder_refresh(void) {
 	file_t* files = NULL;
-	int count = 0, i, listing_changed, tables = 0;
+	int count = 0, i, listing_changed, tables = 0, widgets = 0;
 	const char* open = designer_get_path();
 	double open_time = 0.0, open_was = 0.0;
 	if (!g_folder) return;
@@ -294,6 +298,7 @@ void folder_refresh(void) {
 		for (k = 0; k < g_f.file_count; k++) {
 			if (strcmp(files[i].path, g_f.files[k].path) != 0) continue;
 			if (files[i].kind == FILE_TABLE && files[i].time != g_f.files[k].time) tables = 1;
+			if (files[i].kind == FILE_WIDGETS && files[i].time != g_f.files[k].time) widgets = 1;
 			if (open && ds_same_path(open, files[i].path)) {
 				open_time = files[i].time;
 				open_was = g_f.files[k].time;
@@ -302,7 +307,7 @@ void folder_refresh(void) {
 		}
 		if (k == g_f.file_count && files[i].kind == FILE_TABLE) tables = 1;
 	}
-	if (!listing_changed && !tables && open_time == open_was) {
+	if (!listing_changed && !tables && !widgets && open_time == open_was) {
 		free_files(files, count);
 		return;
 	}
@@ -318,6 +323,10 @@ void folder_refresh(void) {
 	if (listing_changed) {
 		fill_tree();
 		if (load_themes()) designer_themes_changed();
+	}
+	if (listing_changed || widgets) {
+		folder_register_widgets();
+		designer_widgets_changed();
 	}
 	/* (the tables with unsaved changes here are not read over them) */
 	if (tables && !strings_any_modified()) strings_reload();
@@ -342,6 +351,7 @@ int folder_open(const char* path) {
 	normalized = ds_normalize(path);
 	n = strlen(normalized);
 	while (n > 1 && normalized[n - 1] == '/') normalized[--n] = '\0';
+	designer_forget_tabs();
 	designer_close();
 	free(g_folder);
 	g_folder = normalized;
@@ -352,27 +362,17 @@ int folder_open(const char* path) {
 	scan(g_folder, 0, &g_f.files, &g_f.file_count);
 	fill_tree();
 	load_themes();
+	folder_register_widgets();
 	designer_themes_changed();
 	strings_reload();
 	g_f.tables_time = tables_time();
 	recent_add(g_folder);
 	welcome_hide();
+	designer_show_tab(0);
 	Rdock_area_show_panel(g_ds_dock, g_f.panel);
 	designer_update_title();
-	/* an interface of the folder opens by itself, there is something to look at: main.xml, else the first one at its top, else any */
-	{
-		int best = -1, best_rank = 4;
-		for (n = 0; n < (size_t)g_f.file_count; n++) {
-			const char* relative = g_f.files[n].path + strlen(g_folder) + 1;
-			int top = !strchr(relative, '/') && !strchr(relative, '\\');
-			int rank = g_f.files[n].kind != FILE_INTERFACE ? 4 : top && ds_iequal(ds_basename(relative), "main.xml") ? 0 : top ? 1 : 2;
-			if (rank < best_rank) {
-				best_rank = rank;
-				best = (int)n;
-			}
-		}
-		if (best >= 0) designer_open_file(g_f.files[best].path);
-	}
+	/* a window of the folder opens by itself: there is something to look at */
+	folder_open_first(0);
 	ds_status("%s: %d interface%s, %d theme%s.", ds_basename(g_folder), folder_interface_count(), folder_interface_count() == 1 ? "" : "s",
 		g_f.theme_count, g_f.theme_count == 1 ? "" : "s");
 	return R_TRUE;
@@ -413,16 +413,107 @@ const char* folder_theme_name(int index) {
 	return index >= 0 && index < g_f.theme_count ? g_f.theme_names[index] : "";
 }
 
+const char* folder_theme_path(int index) {
+	return index >= 0 && index < g_f.theme_count ? g_f.theme_paths[index] : "";
+}
+
+/* The first file of a kind (main.xml first, then the top of the folder), opened: the tab has something to show. */
+int folder_open_first(int view) {
+	int best = -1, best_rank = 4;
+	size_t n;
+	if (!g_folder) return R_FALSE;
+	for (n = 0; n < (size_t)g_f.file_count; n++) {
+		const char* relative = g_f.files[n].path + strlen(g_folder) + 1;
+		int top = !strchr(relative, '/') && !strchr(relative, '\\');
+		int rank = (int)g_f.files[n].kind != view ? 4 : top && ds_iequal(ds_basename(relative), "main.xml") ? 0 : top ? 1 : 2;
+		if (rank < best_rank) {
+			best_rank = rank;
+			best = (int)n;
+		}
+	}
+	if (best < 0) return R_FALSE;
+	designer_open_file(g_f.files[best].path);
+	return R_TRUE;
+}
+
+void folder_set_view(int view) {
+	if (view < 0 || view > 3) return;
+	g_f.view = view;
+	fill_tree();
+}
+
+void folder_register_widgets(void) {
+	int i;
+	const char* open = designer_get_path();
+	for (i = 0; i < g_f.file_count; i++) {
+		size_t size = 0;
+		char* text;
+		if (g_f.files[i].kind != FILE_WIDGETS) continue;
+		/* (the library being edited is made known from its text, not from its file) */
+		if (open && designer_get_tab() == 1 && ds_same_path(open, g_f.files[i].path)) continue;
+		text = Rfile_read(g_f.files[i].path, &size);
+		if (!text) continue;
+		Rxml_register_widgets(text, size);
+		Rmemory_free(text);
+	}
+}
+
+/* A theme to start from, written in the folder and opened in the Theme tab. */
+static int new_theme(void) {
+	char name[64];
+	char* path = NULL;
+	te_model model;
+	te_text text;
+	int n;
+	for (n = 1; n < 1000; n++) {
+		if (n == 1) snprintf(name, sizeof(name), "theme.xml");
+		else snprintf(name, sizeof(name), "theme-%d.xml", n);
+		path = ds_join(g_folder, name);
+		if (!ds_file_exists(path)) break;
+		free(path);
+		path = NULL;
+	}
+	if (!path) return R_FALSE;
+	te_model_init(&model);
+	model.accent_set = 1;
+	model.accent[0] = 0.49f;
+	model.accent[1] = 0.36f;
+	model.accent[2] = 1.0f;
+	snprintf(model.name, sizeof(model.name), "%s", n == 1 ? "My theme" : name);
+	memset(&text, 0, sizeof(text));
+	te_model_write(&model, &text, NULL, 0, NULL);
+	te_model_free(&model);
+	if (!Rfile_write(path, text.data, text.length)) {
+		te_text_free(&text);
+		free(path);
+		return R_FALSE;
+	}
+	te_text_free(&text);
+	folder_refresh();
+	designer_show_tab(2);
+	designer_open_theme(path);
+	ds_status("%s made: change it here, the windows of the folder can wear it.", name);
+	free(path);
+	return R_TRUE;
+}
+
 int folder_new_interface(const char* kind) {
 	char name[64];
 	char* path = NULL;
 	const char* text = designer_template(kind);
 	int n;
 	if (!g_folder) {
-		ds_status("Open a folder first: the new interface goes in it.");
+		ds_status("Open a folder first: the new file goes in it.");
 		return R_FALSE;
 	}
-	if (!ds_confirm_unsaved("making a new interface")) return R_FALSE;
+	if (!strcmp(kind, "theme")) return new_theme();
+	if (!strcmp(kind, "table")) {
+		Raction_fire("strings.add_table", R_INVALID_ID);
+		designer_show_tab(3);
+		return R_TRUE;
+	}
+	/* a library of tags is made in the Widget tab, a window in the Window tab */
+	designer_show_tab(!strcmp(kind, "widgets") ? 1 : 0);
 	for (n = 1; n < 1000; n++) {
 		if (n == 1) snprintf(name, sizeof(name), "%s.xml", kind);
 		else snprintf(name, sizeof(name), "%s-%d.xml", kind, n);
@@ -437,6 +528,10 @@ int folder_new_interface(const char* kind) {
 		return R_FALSE;
 	}
 	folder_refresh();
+	if (!ds_confirm_unsaved("making a new file")) {
+		free(path);
+		return R_FALSE;
+	}
 	designer_open_file(path);
 	ds_status("%s made from the %s template.", name, kind);
 	free(path);
@@ -459,20 +554,20 @@ static void open_path(const char* path) {
 	if (!file) return;
 	switch (file->kind) {
 		case FILE_INTERFACE:
+		case FILE_WIDGETS:
+			designer_show_tab(file->kind == FILE_WIDGETS ? 1 : 0);
 			if (designer_get_path() && ds_same_path(designer_get_path(), path)) return;
 			if (!ds_confirm_unsaved("opening another interface")) return;
 			designer_open_file(path);
 			break;
 		case FILE_TABLE:
+			designer_show_tab(3);
 			strings_open(path);
 			break;
 		case FILE_THEME:
-			for (i = 0; i < g_f.theme_count; i++) {
-				if (ds_same_path(g_f.theme_paths[i], path)) {
-					designer_set_preview_theme(g_f.theme_names[i]);
-					ds_status("The preview wears the theme %s (edit it with raven_theme_editor: the preview follows).", g_f.theme_names[i]);
-				}
-			}
+			(void)i;
+			designer_show_tab(2);
+			designer_open_theme(path);
 			break;
 	}
 }
@@ -513,6 +608,9 @@ static void action_files(Rid sender, const char* action, void* user_data) {
 		if (!ds_remove_file(path)) ds_status("Cannot delete %s.", path);
 		else ds_status("Deleted %s.", ds_basename(path));
 		folder_refresh();
+	} else if (!strcmp(action, "files.new")) {
+		static const char* const kinds[4] = { "window", "widgets", "theme", "table" };
+		folder_new_interface(kinds[g_f.view >= 0 && g_f.view < 4 ? g_f.view : 0]);
 	} else if (!strncmp(action, "files.new.", 10)) {
 		folder_new_interface(action + 10);
 	} else if (!strcmp(action, "files.refresh")) {
@@ -524,8 +622,7 @@ static void action_files(Rid sender, const char* action, void* user_data) {
 
 void folder_init(void) {
 	static const struct { const char* text; const char* action; } items[] = {
-		{ "Open", "files.open" }, { NULL, NULL }, { "New window", "files.new.window" }, { "New panel", "files.new.panel" },
-		{ "New form", "files.new.form" }, { NULL, NULL }, { "Delete...", "files.delete" }
+		{ "Open", "files.open" }, { NULL, NULL }, { "New", "files.new" }, { NULL, NULL }, { "Delete...", "files.delete" }
 	};
 	size_t i;
 	g_f.panel = Rwidget_find(g_ds_window, "panel.files");
@@ -542,6 +639,10 @@ void folder_init(void) {
 	Raction_bind("files.new.window", action_files, NULL);
 	Raction_bind("files.new.panel", action_files, NULL);
 	Raction_bind("files.new.form", action_files, NULL);
+	Raction_bind("files.new", action_files, NULL);
+	Raction_bind("files.new.widgets", action_files, NULL);
+	Raction_bind("files.new.theme", action_files, NULL);
+	Raction_bind("files.new.table", action_files, NULL);
 	Raction_bind("files.refresh", action_files, NULL);
 	g_f.timer = Rtimer_create(1.5, R_TRUE, on_timer, NULL);
 }

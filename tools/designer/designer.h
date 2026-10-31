@@ -110,6 +110,21 @@ void designer_add_widget(const char* tag);
 int  designer_widget_count(void);
 const char* designer_widget_at(int index);
 
+/** The tabs: 0 Window, 1 Widget, 2 Theme, 3 Translations. */
+void designer_show_tab(int tab);
+int  designer_get_tab(void);
+/** The page of the window the tab in front shows (the start page is 0). */
+int  designer_tab_page(void);
+/** Opens a theme file in the Theme tab. */
+void designer_open_theme(const char* path);
+/** The designer wears a look ("Raven dark"...) or a theme of the folder ("Theme: Night"). */
+void designer_set_appearance(const char* name);
+
+/** The widget libraries of the folder changed: the palette and the preview follow. */
+void designer_widgets_changed(void);
+/** Another folder opens: what the Window and Widget tabs held goes. */
+void designer_forget_tabs(void);
+
 /** The themes of the preview changed (files.c found or lost a theme file). */
 void designer_themes_changed(void);
 /** The preview wears this theme ("" : the look of the designer). */
@@ -130,6 +145,13 @@ const char* folder_interface_at(int index);
 /** The themes the folder holds (theme files): their names, as Rtheme_load gave them. */
 int  folder_theme_count(void);
 const char* folder_theme_name(int index);
+/** What Files shows: the windows (0), the widget libraries (1), the themes (2), the tables (3). */
+void folder_set_view(int view);
+/** The tags declared by the widget libraries of the folder, made known to the windows. */
+void folder_register_widgets(void);
+const char* folder_theme_path(int index);
+/** Opens the first file of a kind (0 windows, 1 widget libraries): main.xml, else the top of the folder. */
+int  folder_open_first(int view);
 /** Makes a new interface in the folder from a template ("window", "panel", "form") and opens it. */
 int  folder_new_interface(const char* kind);
 

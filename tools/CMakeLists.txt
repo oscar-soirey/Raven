@@ -8,8 +8,9 @@
 # embed.py and subset_font.py are the scripts that produce the files of
 # src/embedded; they are not needed to build.
 
+# (the Theme tab is the theme editor itself, built in: designer/theme_tab.c)
 add_executable(raven_designer designer/main.c designer/designer.h designer/os.c designer/files.c designer/island.c
-	designer/strings.c designer/welcome.c designer/accessibility.c)
+	designer/strings.c designer/welcome.c designer/accessibility.c designer/theme_tab.c theme_editor/model.c theme_editor/editor.h)
 target_link_libraries(raven_designer PRIVATE raven::raven)
 set_target_properties(raven_designer PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tools")
 if(MSVC)
@@ -40,7 +41,7 @@ install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_IN
 if(RAVEN_BUILD_TESTS)
 	set(_ds "${CMAKE_CURRENT_BINARY_DIR}/designer_test")
 	add_test(NAME designer_folder_clean COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_ds}")
-	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz")
+	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs")
 	set_tests_properties(designer_folder_clean PROPERTIES FIXTURES_SETUP designer_folder_clean)
 	set_tests_properties(designer_folder_make PROPERTIES FIXTURES_SETUP designer_folder FIXTURES_REQUIRED designer_folder_clean)
 
@@ -62,6 +63,13 @@ if(RAVEN_BUILD_TESTS)
 	add_test(NAME designer_fuzz COMMAND raven_designer --null --frames 1 --script
 		"write ${_ds}/fuzz/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Text=\"@hello\"/><Button~Text=\"Go\"/></VBox></Window> write ${_ds}/fuzz/strings.csv key,en,fr|hello,Hello,Bonjour| write ${_ds}/fuzz/night.xml <Theme~Name=\"FuzzNight\"~Look=\"RavenDark\"/> open ${_ds}/fuzz f 2 fuzz 700 7 fuzz 700 99 f 2")
 	set_tests_properties(designer_fuzz PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# The tabs kept apart: widgets dropped into the preview and an element dragged in it, the preview
+	# window following live, a widget library in the Widget tab, a theme edited, saved, undone and saved
+	# again in the Theme tab, the Translations tab, and back to the window as it was.
+	add_test(NAME designer_tabs COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/tabs/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/><Button~Text=\"Go\"/></VBox></Window> write ${_ds}/tabs/night.xml <Theme~Name=\"Night\"~Look=\"RavenDark\"~Accent=\"#FF9F0A\"/> write ${_ds}/tabs/strings.csv key,en,fr|hello,Hello,Bonjour| open ${_ds}/tabs f 2 expecttab window expecttitle main.xml dropon Slider 0/0 after expect <Slider dropon Checkbox 0/1 before expect <Checkbox moveto 0/0 0/3 after path 0/0 expectselected Checkbox path 0/3 expectselected Label do view.run f 2 expectrun greet path 0/3 set Name moved f 2 expectrun moved do edit.undo f 2 expectrun greet tab widget expecttab widget do files.new.widgets f 2 expect <Widgets tab theme expecttab theme f 2 do te.reset.colors do file.save expectfile ${_ds}/tabs/night.xml Name=\"Night\" do edit.undo do file.save do file.save expectfile ${_ds}/tabs/night.xml Accent=\"#FF9F0A\" tab strings expecttab strings tab window expecttab window expecttitle main.xml do view.theme.dark f 2")
+	set_tests_properties(designer_tabs PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# The theme editor driving itself: a look, an accent, colors, sizes and rules edited and seen
 	# in the preview, a palette generated, undo and redo, the contrast checked, a file saved and read back.

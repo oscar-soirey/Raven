@@ -570,8 +570,9 @@ void welcome_show(void) {
 
 void welcome_hide(void) {
 	Rid pages = Rwidget_find(g_ds_window, "pages");
-	if (pages == R_INVALID_ID || Rswitcher_get_index(pages) == 1) return;
-	Rswitcher_set_index(pages, 1);
+	if (pages == R_INVALID_ID || Rswitcher_get_index(pages) != 0) return;
+	/* the page of the tab in front */
+	Rswitcher_set_index(pages, designer_tab_page());
 }
 
 int welcome_is_shown(void) {
