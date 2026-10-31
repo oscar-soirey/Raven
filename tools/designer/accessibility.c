@@ -1,5 +1,5 @@
 /*
- * Raven IDE - accessibility.c
+ * Raven Designer - accessibility.c
  * View > Accessibility: every accessibility setting of Raven, live, in a
  * window of its own. It is also a showcase: what any application built with
  * Raven offers its users without writing a line for it.
@@ -14,11 +14,11 @@
  *   screen readers         Raccessibility_is_screen_reader_active, Raccessibility_announce
  *   the system             Raccessibility_get_system_settings, Raccessibility_follow_system
  *
- * The settings are kept in ide.ini (a11y.*) and applied again at the next
+ * The settings are kept in designer.ini (a11y.*) and applied again at the next
  * start. View > Reduce motion switches the one most asked for from the menu.
  */
 
-#include "ide.h"
+#include "designer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +43,7 @@ static const char A11Y_XML[] =
 "<ScrollBox>"
 "  <VBox Spacing=\"14\" Slot.Padding=\"22\">"
 "    <Label Text=\"Accessibility\" TextSize=\"22\" AccessibleRole=\"Heading\"/>"
-"    <Label Text=\"What every application made with Raven offers its users, with nothing to write: the settings apply at once, to every window. The IDE keeps them for the next time.\" Wrap=\"true\" Opacity=\"0.65\"/>"
+"    <Label Text=\"What every application made with Raven offers its users, with nothing to write: the settings apply at once, to every window. The designer keeps them for the next time.\" Wrap=\"true\" Opacity=\"0.65\"/>"
 
 "    <Label Text=\"Sight\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Grid Columns=\"0,1\" Spacing=\"12\">"
@@ -212,7 +212,7 @@ static void on_button(Rid button, void* user_data) {
 	(void)button;
 	if (!strcmp(which, "announce")) {
 		Raccessibility_announce("This is Raven: the screen reader reads what the application announces.", R_FALSE);
-		ide_status("Announced to the screen reader%s.", Raccessibility_is_screen_reader_active() ? "" : " (none is running)");
+		ds_status("Announced to the screen reader%s.", Raccessibility_is_screen_reader_active() ? "" : " (none is running)");
 		return;
 	}
 	if (!strcmp(which, "close")) {
@@ -267,7 +267,7 @@ void accessibility_window(void) {
  * ------------------------------------------------------------------------- */
 
 void accessibility_sync_menu(void) {
-	Rid item = Rwidget_find(g_ide_window, "menu.reduce_motion");
+	Rid item = Rwidget_find(g_ds_window, "menu.reduce_motion");
 	if (item != R_INVALID_ID) Rmenu_item_set_checked(item, Raccessibility_get_reduce_motion());
 	refresh();
 }
@@ -281,7 +281,7 @@ static void action_accessibility(Rid sender, const char* action, void* user_data
 		Raccessibility_set_reduce_motion(!Raccessibility_get_reduce_motion());
 		save_all();
 		accessibility_sync_menu();
-		ide_status(Raccessibility_get_reduce_motion() ? "Reduced motion: nothing moves by itself." : "Animations are back.");
+		ds_status(Raccessibility_get_reduce_motion() ? "Reduced motion: nothing moves by itself." : "Animations are back.");
 	}
 }
 

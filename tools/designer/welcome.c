@@ -1,15 +1,16 @@
 /**
  * Raven Designer - welcome.c
- * The start page: what the IDE shows when nothing is open. New project, open
- * a folder or a file, and the recent projects (the last opened first, with
- * their language; a click opens one, the cross takes it out of the list).
+ * The start page: what the designer shows when nothing is open. Open a
+ * folder or an interface, and the recent folders (the last opened first,
+ * with how many interfaces they hold; a click opens one, the cross takes it
+ * out of the list).
  *
- * Also the preferences of the IDE, kept between two runs in ide_config_dir():
- *   ide.ini               key=value (theme, the folder of new projects, the Raven package)
- *   recent-projects.txt   one project per line: "<seconds since 1970>\t<folder>"
+ * Also the preferences of the designer, kept between two runs in ds_config_dir():
+ *   designer.ini         key=value (the theme of the designer, accessibility)
+ *   recent-folders.txt   one folder per line: "<seconds since 1970>\t<folder>"
  */
 
-#include "ide.h"
+#include "designer.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -25,13 +26,13 @@
 typedef struct recent_t {
 	char* path;
 	char* name;
-	const char* language;   /* "C", "Rust"... or "CMake", "Folder" */
+	int interfaces;         /* the .xml files at its top */
 	double opened;          /* seconds since 1970 */
 	int missing;            /* the folder is not there any more */
 } recent_t;
 
 static struct {
-	Rid page, list, search, empty, back, package;
+	Rid page, list, search, empty, back;
 	recent_t recent[MAX_RECENT];
 	int count;
 	/* the rows shown (the search filters them): indices into recent */
@@ -49,7 +50,7 @@ static struct {
  * ------------------------------------------------------------------------- */
 
 static char* config_file(const char* name) {
-	return ide_join(ide_config_dir(), name);
+	return ds_join(ds_config_dir(), name);
 }
 
 static void prefs_load(void) {
@@ -58,7 +59,7 @@ static void prefs_load(void) {
 	size_t size = 0;
 	if (g_w.prefs_loaded) return;
 	g_w.prefs_loaded = R_TRUE;
-	path = config_file("ide.ini");
+	path = config_file("designer.ini");
 	text = Rfile_read(path, &size);
 	free(path);
 	if (!text) return;
@@ -72,8 +73,8 @@ static void prefs_load(void) {
 			equal = strchr(line, '=');
 			if (equal && equal > line) {
 				*equal = 0;
-				g_w.keys[g_w.pref_count] = ide_strdup(line);
-				g_w.values[g_w.pref_count] = ide_strdup(equal + 1);
+				g_w.keys[g_w.pref_count] = ds_strdup(line);
+				g_w.values[g_w.pref_count] = ds_strdup(equal + 1);
 				g_w.pref_count++;
 			}
 			line = end ? end + 1 : NULL;
@@ -90,7 +91,7 @@ const char* prefs_get(const char* key) {
 }
 
 void prefs_set(const char* key, const char* value) {
-	ide_buffer_t out = { 0 };
+	ds_buffer_t out = { 0 };
 	char* path;
 	int i;
 	prefs_load();
@@ -98,43 +99,30 @@ void prefs_set(const char* key, const char* value) {
 	if (i < g_w.pref_count) {
 		if (!strcmp(g_w.values[i], value ? value : "")) return;
 		free(g_w.values[i]);
-		g_w.values[i] = ide_strdup(value);
+		g_w.values[i] = ds_strdup(value);
 	} else if (g_w.pref_count < MAX_PREFS) {
-		g_w.keys[g_w.pref_count] = ide_strdup(key);
-		g_w.values[g_w.pref_count] = ide_strdup(value);
+		g_w.keys[g_w.pref_count] = ds_strdup(key);
+		g_w.values[g_w.pref_count] = ds_strdup(value);
 		g_w.pref_count++;
 	}
-	for (i = 0; i < g_w.pref_count; i++) ide_buffer_printf(&out, "%s=%s\n", g_w.keys[i], g_w.values[i]);
-	path = config_file("ide.ini");
+	for (i = 0; i < g_w.pref_count; i++) ds_buffer_printf(&out, "%s=%s\n", g_w.keys[i], g_w.values[i]);
+	path = config_file("designer.ini");
 	Rfile_write(path, out.data ? out.data : "", out.size);
 	free(path);
-	ide_buffer_free(&out);
+	ds_buffer_free(&out);
 }
 
 /* ---------------------------------------------------------------------------
- *  Recent projects
+ *  Recent folders
  * ------------------------------------------------------------------------- */
 
-/* What a project is written in: the file its tools read, or its program. */
-static const char* detect_language(const char* folder) {
-	static const struct { const char* file; const char* language; } programs[] = {
-		{ "main.c", "C" }, { "main.cpp", "C++" }, { "Cargo.toml", "Rust" }, { "go.mod", "Go" }, { "Program.cs", "C#" },
-		{ "build.zig", "Zig" }, { "main.py", "Python" }, { "main.lua", "Lua" }
-	};
-	int i;
-	for (i = 0; i < (int)(sizeof(programs) / sizeof(programs[0])); i++) {
-		char* path = ide_join(folder, programs[i].file);
-		int found = ide_file_exists(path);
-		free(path);
-		if (found) return programs[i].language;
-	}
-	{
-		char* cmake = ide_join(folder, "CMakeLists.txt");
-		int found = ide_file_exists(cmake);
-		free(cmake);
-		if (found) return "CMake";
-	}
-	return "Folder";
+/* How many interfaces (.xml) a folder holds at its top. */
+static int count_interfaces(const char* folder) {
+	ds_entry_t* entries;
+	int count = ds_list_dir(folder, &entries), i, found = 0;
+	for (i = 0; i < count; i++) if (!entries[i].is_dir && ds_iequal(ds_extension(entries[i].name), "xml")) found++;
+	free(entries);
+	return found;
 }
 
 static void recent_free(recent_t* r) {
@@ -144,29 +132,29 @@ static void recent_free(recent_t* r) {
 }
 
 static void recent_fill(recent_t* r, const char* path, double opened) {
-	r->path = ide_normalize(path);
+	r->path = ds_normalize(path);
 	{
 		size_t n = strlen(r->path);
 		while (n > 1 && r->path[n - 1] == '/') r->path[--n] = 0;
 	}
-	r->name = ide_strdup(ide_basename(r->path));
+	r->name = ds_strdup(ds_basename(r->path));
 	r->opened = opened;
-	r->missing = !ide_is_dir(r->path);
-	r->language = r->missing ? "Folder" : detect_language(r->path);
+	r->missing = !ds_is_dir(r->path);
+	r->interfaces = r->missing ? 0 : count_interfaces(r->path);
 }
 
 static void recent_save(void) {
-	ide_buffer_t out = { 0 };
-	char* path = config_file("recent-projects.txt");
+	ds_buffer_t out = { 0 };
+	char* path = config_file("recent-folders.txt");
 	int i;
-	for (i = 0; i < g_w.count; i++) ide_buffer_printf(&out, "%.0f\t%s\n", g_w.recent[i].opened, g_w.recent[i].path);
+	for (i = 0; i < g_w.count; i++) ds_buffer_printf(&out, "%.0f\t%s\n", g_w.recent[i].opened, g_w.recent[i].path);
 	Rfile_write(path, out.data ? out.data : "", out.size);
 	free(path);
-	ide_buffer_free(&out);
+	ds_buffer_free(&out);
 }
 
 static void recent_load(void) {
-	char* path = config_file("recent-projects.txt");
+	char* path = config_file("recent-folders.txt");
 	size_t size = 0;
 	char* text = Rfile_read(path, &size);
 	free(path);
@@ -181,7 +169,7 @@ static void recent_load(void) {
 			tab = strchr(line, '\t');
 			if (tab && tab[1]) {
 				int i, duplicate = 0;
-				for (i = 0; i < g_w.count; i++) if (ide_same_path(g_w.recent[i].path, tab + 1)) duplicate = 1;
+				for (i = 0; i < g_w.count; i++) if (ds_same_path(g_w.recent[i].path, tab + 1)) duplicate = 1;
 				if (!duplicate) recent_fill(&g_w.recent[g_w.count++], tab + 1, atof(line));
 			}
 			line = end ? end + 1 : NULL;
@@ -192,11 +180,11 @@ static void recent_load(void) {
 
 static int recent_find(const char* folder) {
 	int i;
-	char* normalized = ide_normalize(folder);
+	char* normalized = ds_normalize(folder);
 	size_t n = strlen(normalized);
 	while (n > 1 && normalized[n - 1] == '/') normalized[--n] = 0;
 	for (i = 0; i < g_w.count; i++) {
-		if (ide_same_path(g_w.recent[i].path, normalized)) break;
+		if (ds_same_path(g_w.recent[i].path, normalized)) break;
 	}
 	free(normalized);
 	return i < g_w.count ? i : -1;
@@ -231,30 +219,17 @@ void recent_add(const char* folder) {
  *  The list
  * ------------------------------------------------------------------------- */
 
-static void language_color(const char* language, float* r, float* gr, float* b) {
-	static const struct { const char* name; float r, g, b; } colors[] = {
-		{ "C", 0.33f, 0.47f, 0.80f }, { "C++", 0.20f, 0.42f, 0.70f }, { "Rust", 0.80f, 0.42f, 0.24f }, { "Python", 0.22f, 0.55f, 0.75f },
-		{ "Go", 0.16f, 0.66f, 0.75f }, { "C#", 0.45f, 0.33f, 0.75f }, { "Zig", 0.93f, 0.62f, 0.15f }, { "Lua", 0.20f, 0.25f, 0.65f },
-		{ "CMake", 0.55f, 0.55f, 0.60f }
+/* A color of its own for each folder, from its name. */
+static void folder_color(const char* name, float* r, float* gr, float* b) {
+	static const float colors[][3] = {
+		{ 0.33f, 0.47f, 0.80f }, { 0.80f, 0.42f, 0.24f }, { 0.22f, 0.60f, 0.45f }, { 0.55f, 0.36f, 0.78f },
+		{ 0.16f, 0.62f, 0.75f }, { 0.85f, 0.35f, 0.50f }, { 0.80f, 0.60f, 0.15f }, { 0.40f, 0.45f, 0.55f }
 	};
-	size_t i;
-	for (i = 0; i < sizeof(colors) / sizeof(colors[0]); i++) {
-		if (!strcmp(colors[i].name, language)) {
-			*r = colors[i].r;
-			*gr = colors[i].g;
-			*b = colors[i].b;
-			return;
-		}
-	}
-	*r = *gr = *b = 0.5f;
-}
-
-static const char* language_badge(const char* language) {
-	if (!strcmp(language, "Rust")) return "Rs";
-	if (!strcmp(language, "Python")) return "Py";
-	if (!strcmp(language, "Folder")) return "...";
-	if (!strcmp(language, "CMake")) return "CM";
-	return language;
+	unsigned hash = 5381;
+	for (; *name; name++) hash = hash * 33u + (unsigned char)*name;
+	*r = colors[hash % 8][0];
+	*gr = colors[hash % 8][1];
+	*b = colors[hash % 8][2];
 }
 
 static void time_ago(double then, char* out, size_t size) {
@@ -273,7 +248,7 @@ static void time_ago(double then, char* out, size_t size) {
 	}
 }
 
-/* The text cut on the left ("...ts/Raven Projects/demo") to fit a width. */
+/* The text cut on the left ("...ments/My App/ui") to fit a width. */
 static void fit_left(const char* text, float size, float width, char* out, size_t out_size) {
 	float w = 0.0f, h = 0.0f;
 	size_t length = strlen(text), cut;
@@ -319,8 +294,8 @@ static void refresh_list(void) {
 	if (g_w.selected >= g_w.shown_count) g_w.selected = g_w.shown_count - 1;
 	g_w.hovered = -1;
 	Rwidget_set_size(g_w.list, -1.0f, g_w.shown_count ? g_w.shown_count * (ROW_HEIGHT + ROW_GAP) : 1.0f);
-	Rlabel_set_text(g_w.empty, g_w.count == 0 ? "No recent projects yet. Create one, or open a folder: it will be listed here."
-		: g_w.shown_count == 0 ? "No recent project matches the search." : "");
+	Rlabel_set_text(g_w.empty, g_w.count == 0 ? "No recent folder yet. Open the folder of your interfaces: it will be listed here."
+		: g_w.shown_count == 0 ? "No recent folder matches the search." : "");
 	Rwidget_set_visibility(g_w.empty, g_w.shown_count == 0 ? R_VISIBLE : R_COLLAPSED);
 	Rwidget_invalidate(g_w.list);
 }
@@ -332,7 +307,7 @@ static void row_rect(int row, float width, float* x, float* y, float* w, float* 
 	*h = ROW_HEIGHT;
 }
 
-/* The little cross that takes a project out of the list, at the right of a row. */
+/* The little cross that takes a folder out of the list, at the right of a row. */
 static void remove_rect(float width, float row_y, float* x, float* y, float* size) {
 	*size = 26.0f;
 	*x = width - 14.0f - *size;
@@ -354,12 +329,13 @@ static void list_paint(Rid widget, RPainter* painter, float width, float height,
 		const recent_t* r = &g_w.recent[g_w.shown[row]];
 		float x, y, w, h, br, bg, bb, tw = 0.0f, th = 0.0f, text_x, right;
 		char text[1200], when[64];
-		const char* badge = language_badge(r->language);
+		char badge[8];
 		row_rect(row, width, &x, &y, &w, &h);
 		if (row == g_w.hovered) Rdraw_rect(painter, x, y, w, h, 12.0f, hr, hg, hb, ha);
 		else if (row == g_w.selected) Rdraw_rect(painter, x, y, w, h, 12.0f, sr, sg, sb, sa * 0.6f);
-		/* the badge of the language */
-		language_color(r->language, &br, &bg, &bb);
+		/* the badge: how many interfaces the folder holds */
+		snprintf(badge, sizeof(badge), r->interfaces > 99 ? "99+" : "%d", r->interfaces);
+		folder_color(r->name, &br, &bg, &bb);
 		Rdraw_rect(painter, x + 12.0f, y + 11.0f, 40.0f, 40.0f, 10.0f, br, bg, bb, r->missing ? 0.35f : 1.0f);
 		Rfont_measure_text(bold, 14.0f, badge, &tw, &th);
 		Rdraw_text(painter, bold, 14.0f, x + 32.0f - tw * 0.5f, y + 31.0f - th * 0.5f, badge, 1.0f, 1.0f, 1.0f, 1.0f);
@@ -387,8 +363,8 @@ static void list_paint(Rid widget, RPainter* painter, float width, float height,
 			Rdraw_text(painter, R_INVALID_ID, 12.0f, text_x, y + 35.0f, text, dr, dg, db, 0.9f);
 		} else {
 			char pretty[1100], line[1200];
-			ide_pretty_path(r->path, pretty, sizeof(pretty));
-			snprintf(line, sizeof(line), "%s  ·  %s", r->language, pretty);
+			ds_pretty_path(r->path, pretty, sizeof(pretty));
+			snprintf(line, sizeof(line), "%d interface%s  ·  %s", r->interfaces, r->interfaces == 1 ? "" : "s", pretty);
 			fit_left(line, 12.0f, right - text_x, text, sizeof(text));
 			Rdraw_text(painter, R_INVALID_ID, 12.0f, text_x, y + 35.0f, text, tr, tg, tb, 0.55f);
 		}
@@ -405,13 +381,13 @@ static int row_at(float y) {
 static void open_row(int row) {
 	char* path;
 	if (row < 0 || row >= g_w.shown_count) return;
-	path = ide_strdup(g_w.recent[g_w.shown[row]].path);
-	if (!ide_is_dir(path)) {
+	path = ds_strdup(g_w.recent[g_w.shown[row]].path);
+	if (!ds_is_dir(path)) {
 		g_w.recent[g_w.shown[row]].missing = R_TRUE;
 		Rwidget_invalidate(g_w.list);
-		ide_status("%s is not there any more.", path);
+		ds_status("%s is not there any more.", path);
 	} else {
-		project_open(path);
+		folder_open(path);
 	}
 	free(path);
 }
@@ -479,7 +455,7 @@ static void on_search(Rid input, const char* text, void* user_data) {
 	refresh_list();
 }
 
-/* Enter in the search box: the first project that matches. */
+/* Enter in the search box: the first folder that matches. */
 static void on_search_committed(Rid input, const char* text, void* user_data) {
 	(void)input;
 	(void)text;
@@ -495,26 +471,20 @@ static const char WELCOME_XML[] =
 "<ScrollBox Slot.Fill=\"1\">"
 "  <HBox Spacing=\"56\" Slot.Padding=\"64,48\">"
 "    <VBox Spacing=\"10\" Width=\"290\">"
-"      <Label Text=\"Raven IDE\" TextSize=\"34\"/>"
+"      <Label Text=\"Raven Designer\" TextSize=\"34\"/>"
 "      <Label Name=\"welcome.version\" Opacity=\"0.55\"/>"
-"      <Spacer Height=\"22\"/>"
-"      <Button Text=\"New project...\" Style=\"Primary\" OnClicked=\"project.new\" Tooltip=\"In the language you choose: with a Raven interface, or native (Ctrl+Shift+N)\"/>"
-"      <Button Text=\"Open a folder...\" OnClicked=\"project.open\" Tooltip=\"A project folder (Ctrl+Shift+O)\"/>"
-"      <Button Text=\"Open a file...\" OnClicked=\"file.open\" Tooltip=\"An interface: .xml (Ctrl+O)\"/>"
+"      <Label Text=\"Interfaces made by looking at them. The program that loads them is written in any language, elsewhere.\" Wrap=\"true\" Opacity=\"0.7\"/>"
+"      <Spacer Height=\"18\"/>"
+"      <Button Text=\"Open a folder...\" Style=\"Primary\" OnClicked=\"folder.open\" Tooltip=\"The folder of your interfaces, themes and translations (Ctrl+Shift+O)\"/>"
+"      <Button Text=\"Open an interface...\" OnClicked=\"file.open\" Tooltip=\"A .xml file: its folder opens with it (Ctrl+O)\"/>"
 "      <Button Name=\"welcome.back\" Style=\"Flat\" OnClicked=\"welcome.back\" Visibility=\"Collapsed\"/>"
-"      <Spacer Height=\"22\"/>"
-"      <Label Text=\"Without a project\" Opacity=\"0.55\"/>"
-"      <Button Text=\"A new window\" Style=\"Flat\" OnClicked=\"file.new.window\" Slot.HAlign=\"Left\"/>"
-"      <Button Text=\"A form with its own tags\" Style=\"Flat\" OnClicked=\"file.new.form\" Slot.HAlign=\"Left\"/>"
-"      <Spacer Height=\"22\"/>"
-"      <Label Text=\"The Raven package\" Opacity=\"0.55\"/>"
-"      <Label Name=\"welcome.package\" Wrap=\"true\"/>"
-"      <Button Text=\"Choose the Raven package...\" Style=\"Flat\" OnClicked=\"welcome.package\" Slot.HAlign=\"Left\""
-"        Tooltip=\"The folder with bin/, include/ and lib/: what the projects are built with\"/>"
+"      <Spacer Height=\"18\"/>"
+"      <Label Text=\"In the designer\" Opacity=\"0.55\"/>"
+"      <Label Wrap=\"true\" Opacity=\"0.8\" Markdown=\"true\">**Ctrl+K** searches everything: a widget to add, a file to open, a command. **F7** runs the interface in a window of its own.</Label>"
 "    </VBox>"
 "    <VBox Spacing=\"14\" Slot.Fill=\"1\">"
 "      <HBox Spacing=\"12\">"
-"        <Label Text=\"Recent projects\" TextSize=\"20\" Slot.Fill=\"1\" Slot.VAlign=\"Center\"/>"
+"        <Label Text=\"Recent folders\" TextSize=\"20\" Slot.Fill=\"1\" Slot.VAlign=\"Center\"/>"
 "        <TextInput Name=\"welcome.search\" Placeholder=\"Search\" Width=\"240\"/>"
 "      </HBox>"
 "      <VBox Name=\"welcome.rows\"/>"
@@ -523,44 +493,18 @@ static const char WELCOME_XML[] =
 "  </HBox>"
 "</ScrollBox>";
 
-static void update_package(void) {
-	char text[1200], pretty[1100];
-	if (g_settings.raven_prefix[0]) {
-		ide_pretty_path(g_settings.raven_prefix, pretty, sizeof(pretty));
-		snprintf(text, sizeof(text), "%s", pretty);
-		Rlabel_set_text(g_w.package, text);
-		Rwidget_set_opacity(g_w.package, 0.8f);
-	} else {
-		Rlabel_set_text(g_w.package, "Not found. C and C++ projects need it to build (Rust, Go, C#, Zig, Python and Lua need its bindings).");
-		Rwidget_set_opacity(g_w.package, 1.0f);
-	}
-}
-
 static void action_welcome(Rid sender, const char* action, void* user_data) {
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "welcome.back")) {
 		welcome_hide();
-		ide_status("Back to %s.", g_project_dir ? ide_basename(g_project_dir) : "the IDE");
-	} else if (!strcmp(action, "welcome.package")) {
-		RFileDialogDesc desc;
-		const char* chosen;
-		memset(&desc, 0, sizeof(desc));
-		desc.parent = g_ide_window;
-		desc.title = "The folder of the Raven package (bin/, include/, lib/)";
-		chosen = Rfile_dialog_select_folder(&desc);
-		if (chosen) {
-			snprintf(g_settings.raven_prefix, sizeof(g_settings.raven_prefix), "%s", chosen);
-			prefs_set("raven_prefix", chosen);
-			if (g_project_dir) project_save_settings();
-			update_package();
-		}
+		ds_status("Back to %s.", g_folder ? ds_basename(g_folder) : "the interface");
 	}
 }
 
 void welcome_init(void) {
 	Rid content, rows;
-	g_w.page = Rwidget_find(g_ide_window, "page.welcome");
+	g_w.page = Rwidget_find(g_ds_window, "page.welcome");
 	g_w.list = R_INVALID_ID;
 	g_w.hovered = -1;
 	g_w.selected = 0;
@@ -572,7 +516,6 @@ void welcome_init(void) {
 	g_w.search = Rwidget_find(content, "welcome.search");
 	g_w.empty = Rwidget_find(content, "welcome.empty");
 	g_w.back = Rwidget_find(content, "welcome.back");
-	g_w.package = Rwidget_find(content, "welcome.package");
 	{
 		char version[96];
 		snprintf(version, sizeof(version), "Version %s", Rget_version());
@@ -587,9 +530,7 @@ void welcome_init(void) {
 	Rtext_input_set_changed_callback(g_w.search, on_search, NULL);
 	Rtext_input_set_committed_callback(g_w.search, on_search_committed, NULL);
 	Raction_bind("welcome.back", action_welcome, NULL);
-	Raction_bind("welcome.package", action_welcome, NULL);
 	refresh_list();
-	update_package();
 }
 
 void welcome_shutdown(void) {
@@ -604,18 +545,17 @@ void welcome_shutdown(void) {
 }
 
 void welcome_show(void) {
-	Rid pages = Rwidget_find(g_ide_window, "pages");
+	Rid pages = Rwidget_find(g_ds_window, "pages");
 	int i;
 	/* folders may have come or gone since */
 	for (i = 0; i < g_w.count; i++) {
-		g_w.recent[i].missing = !ide_is_dir(g_w.recent[i].path);
-		if (!g_w.recent[i].missing) g_w.recent[i].language = detect_language(g_w.recent[i].path);
+		g_w.recent[i].missing = !ds_is_dir(g_w.recent[i].path);
+		if (!g_w.recent[i].missing) g_w.recent[i].interfaces = count_interfaces(g_w.recent[i].path);
 	}
 	Rswitcher_set_index(pages, 0);
-	Rwidget_set_visibility(Rwidget_find(g_ide_window, "header.build"), R_COLLAPSED);
-	if (g_project_dir) {
+	if (g_folder) {
 		char text[400];
-		snprintf(text, sizeof(text), "Back to %s", ide_basename(g_project_dir));
+		snprintf(text, sizeof(text), "Back to %s", ds_basename(g_folder));
 		Rbutton_set_text(g_w.back, text);
 		Rwidget_set_visibility(g_w.back, R_VISIBLE);
 	} else if (designer_has_document()) {
@@ -624,19 +564,17 @@ void welcome_show(void) {
 	} else {
 		Rwidget_set_visibility(g_w.back, R_COLLAPSED);
 	}
-	update_package();
 	refresh_list();
 	Rwidget_focus(g_w.list);
 }
 
 void welcome_hide(void) {
-	Rid pages = Rwidget_find(g_ide_window, "pages");
+	Rid pages = Rwidget_find(g_ds_window, "pages");
 	if (pages == R_INVALID_ID || Rswitcher_get_index(pages) == 1) return;
 	Rswitcher_set_index(pages, 1);
-	Rwidget_set_visibility(Rwidget_find(g_ide_window, "header.build"), R_VISIBLE);
 }
 
 int welcome_is_shown(void) {
-	Rid pages = g_ide_window != R_INVALID_ID ? Rwidget_find(g_ide_window, "pages") : R_INVALID_ID;
+	Rid pages = g_ds_window != R_INVALID_ID ? Rwidget_find(g_ds_window, "pages") : R_INVALID_ID;
 	return pages != R_INVALID_ID && Rswitcher_get_index(pages) == 0;
 }
