@@ -291,6 +291,51 @@ runs: save the file and every widget that uses the theme follows.
 `Rxml_check_files()` checks now instead of at the next tick (five times a
 second). A file with a mistake changes nothing.
 
+## The theme editor
+
+`raven_theme_editor [theme.xml]` (built with the tools, `tools/theme_editor/`)
+makes theme files by looking at them. On the left, everything a theme holds;
+on the right, a preview built of real widgets (controls, an application, code,
+lists, a dialog) drawn with the theme as it is being made, and alive: hover,
+type and drag in it.
+
+- **Theme**: the name, the look it starts from, dark or light, the material,
+  the motion, the accent (with swatches), the font and the wallpaper. *Generate
+  the palette* works out the 36 colors and the syntax colors from the accent:
+  surfaces tinted with its hue (*Tint*), as far apart as *Depth* says, text
+  that reads, matching states and status colors. *Surprise me* tries another
+  accent.
+- **Colors**, **Sizes**, **Code**: each color role, metric, glass multiplier
+  and syntax color, with the value the look gives shown until one is set, and
+  `×` to go back to it. A filter finds a color by name or use.
+- **Styles**: the `<Style>` rules, typed as in the file, with *Add a rule* for
+  the common ones; a mistake shows under the text and the preview keeps the
+  last good theme.
+- **Check**: the contrast of the pairs of colors people read (text on the
+  window, on buttons, on the accent, selected rows, tooltips, links...),
+  measured as WCAG 2 does: AA, AAA, low or failing. *Fix* changes the
+  lightness of the color in front as little as it takes; *Fix every pair*
+  does it everywhere but on the accent, which stays as chosen.
+- **XML**: the file as it will be saved, which can be edited by hand and
+  applied. *Copy as C* gives the theme as a C string with the two calls that
+  load and use it, for an application that ships no theme file.
+
+*Saved version*, above the preview, shows the theme as it was last opened or
+saved, to compare with the changes.
+
+Undo and redo cover every change (`Ctrl+Z`, `Ctrl+Y`); `F7` opens the preview
+in a window of its own, with the wallpaper of the theme; *File > New from a
+look* starts again from any look; *Open* reads any theme file, the ones of
+`examples/themes` included. Behind the preview, *Behind* shows the window
+color, a gradient (what glass shows best) or a checkerboard.
+
+It works with the public API only: the theme being edited is written as a
+file, loaded with `Rtheme_load_from_memory` under a name of its own and given
+to the preview with `Rwidget_set_theme`; loading it again under the same name
+changes it in place, so the preview follows while the editor keeps its own
+look. What a theme inherits from its look is read from a theme that names only
+the look, with `Rwidget_get_color` and `Rwidget_get_metric`.
+
 ## What a widget author needs to know
 
 Widgets read the theme through `rvn_widget_color(widget, role)` and
