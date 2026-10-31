@@ -37,8 +37,9 @@ RLook look = Rlook_get();
 | `R_LOOK_RAVEN_HIGH_CONTRAST_DARK`, `..._LIGHT` | black and white, thick borders, larger text (`Raccessibility_set_high_contrast`) |
 | `R_LOOK_WINDOWS_DARK`, `R_LOOK_WINDOWS_LIGHT` | Windows 11 (Fluent) |
 | `R_LOOK_MACOS_DARK`, `R_LOOK_MACOS_LIGHT` | macOS Sequoia (Aqua) |
+| `R_LOOK_MACOS_GLASS_DARK`, `R_LOOK_MACOS_GLASS_LIGHT` | macOS 26 Tahoe (Liquid Glass) |
 | `R_LOOK_GNOME_DARK`, `R_LOOK_GNOME_LIGHT` | GNOME (libadwaita), the desktop of most Linux distributions |
-| `R_LOOK_NATIVE_DARK`, `R_LOOK_NATIVE_LIGHT` | Windows on Windows, macOS on macOS, GNOME on Linux and the other systems |
+| `R_LOOK_NATIVE_DARK`, `R_LOOK_NATIVE_LIGHT` | Windows on Windows, macOS on macOS (macOS Glass from macOS 26 on), GNOME on Linux and the other systems |
 
 The look of Windows imitates WinUI closely, without using it: the controls
 of Windows 11 (buttons with their darker bottom edge, check boxes, radio
@@ -68,6 +69,23 @@ title bar. Nothing changes under the pointer, as on the Mac. On macOS it
 takes the accent color of the System Settings, San Francisco, and reduced
 motion.
 
+The look of **macOS Glass** is the one of macOS 26 (Tahoe), with Liquid
+Glass. The controls are those of macOS, larger (24 high) and rounder, without
+the lines of Aqua: push buttons on a soft shadow, the default button a plain
+accent, fields as round as the buttons, a capsule for the segmented control
+of the tabs, rows of lists and of menus with rounder corners. Glass is where
+the system puts it, on what floats above the content: header bars and the
+buttons on them (capsules of glass, the primary one tinted with the accent),
+menus, drop-down lists, tooltips and sheets. The knobs of sliders and
+switches are white capsules that turn into a lens of clear glass while they
+are held. The content itself (fields, lists, text, the buttons of a form)
+stays opaque, as Apple asks. `R_LOOK_NATIVE_...` gives it on macOS 26 and
+later, and the look of Sequoia before. Its names in theme files:
+`MacOSGlassDark`, `MacOSGlassLight` (and `Tahoe`, `LiquidGlass`).
+
+The sizes are measured on the system (Apple publishes none but the corners
+of windows): a theme file can correct any of them (`<Metrics CornerRadius="10"/>`).
+
 The look of **GNOME** imitates libadwaita: flat rounded controls of the color
 of the text seen through, the suggested action in the accent, entries with
 a ring of the accent inside them, round check boxes and switches,
@@ -78,7 +96,8 @@ and its size (`font-name`, found with fontconfig), and "Reduce Animation".
 It needs no library: these settings are read with `gsettings` and
 `fc-match` when they are there.
 
-The looks of the platforms are opaque: glass belongs to the looks of Raven.
+The looks of the platforms are opaque, but for the glass macOS Glass draws
+where macOS puts it: the materials belong to the looks of Raven.
 `Rtheme_set_material` and `Material="..."` in a theme file are ignored there
 (with a warning); a material given to one widget (`Rwidget_set_material`,
 `Material=` in the interface) is still honored.
@@ -152,7 +171,7 @@ widget takes from the nearest ancestor that has one.
 | On `<Theme>` | |
 |---|---|
 | `Name` | the name the theme is kept under (default: the name of the file) |
-| `Look` | the look it starts from, and imposes: `RavenDark`, `RavenLight`, `RavenGlassDark`, `RavenGlassLight`, `RavenHighContrastDark`, `RavenHighContrastLight`, `WindowsDark`, `WindowsLight`, `MacOSDark`, `MacOSLight`, `GnomeDark`, `GnomeLight`, `NativeDark`, `NativeLight` (the names of Raven 0.2 work too: `Dark`, `GlassLight`...). Without `Look` (nor `Base`), the theme is laid over the look in use and **follows it**: `Rlook_set` reads it again over the new look |
+| `Look` | the look it starts from, and imposes: `RavenDark`, `RavenLight`, `RavenGlassDark`, `RavenGlassLight`, `RavenHighContrastDark`, `RavenHighContrastLight`, `WindowsDark`, `WindowsLight`, `MacOSDark`, `MacOSLight`, `MacOSGlassDark`, `MacOSGlassLight`, `GnomeDark`, `GnomeLight`, `NativeDark`, `NativeLight` (the names of Raven 0.2 work too: `Dark`, `GlassLight`...). Without `Look` (nor `Base`), the theme is laid over the look in use and **follows it**: `Rlook_set` reads it again over the new look |
 | `Base` | the theme it starts from: a theme loaded before, or a look by its old name (`Dark`, `Light`, `GlassDark`, `GlassLight`). Kept for Raven 0.2; `Look` is the new name |
 | `Motion` | `Springy` (Raven: things bounce and squash) or `Smooth` (the platforms: short transitions that settle at once). Each look has its own |
 | `Accent` | the accent color, and the shades derived from it |

@@ -145,7 +145,7 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
 - **Tools of the trade.** A **graph of nodes** whose wires hang and swing, a
   **timeline** (tracks, clips, keys, markers), a complete **color picker**.
 - **Looks and themes you write.** The looks of Raven, or the ones of
-  **Windows 11**, **macOS** and **GNOME** imitated closely (their controls,
+  **Windows 11**, **macOS** (Sequoia, and macOS 26 with Liquid Glass) and **GNOME** imitated closely (their controls,
   colors, accent, font and motion). Theme files laid over them, styles for a type of widget, a class,
   a **part of a widget and its states**, a theme for a part of a window. **Markdown** in labels and in the
   text editor. Interface and theme files are **loaded again while the
@@ -1046,7 +1046,8 @@ by Raven, call `Rvulkan_set_external_device` (and
 `Rlook_set` chooses the look: the ones of Raven (`R_LOOK_RAVEN_DARK`,
 `R_LOOK_RAVEN_LIGHT`, the glass and high contrast ones), the one of Windows 11
 (`R_LOOK_WINDOWS_DARK`, `R_LOOK_WINDOWS_LIGHT`), of macOS
-(`R_LOOK_MACOS_...`) and of GNOME (`R_LOOK_GNOME_...`) — their controls,
+(`R_LOOK_MACOS_...` for Sequoia, `R_LOOK_MACOS_GLASS_...` for macOS 26 and
+its Liquid Glass) and of GNOME (`R_LOOK_GNOME_...`) — their controls,
 their colors, the accent and the font of the system — or the one of the
 platform the program runs on (`R_LOOK_NATIVE_DARK`, `R_LOOK_NATIVE_LIGHT`). A theme is
 laid over it:

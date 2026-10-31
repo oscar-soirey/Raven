@@ -1405,6 +1405,15 @@ widgets: accent, panel, text...), twenty metrics (font size, corner radius,
 height of a control...), a material, a font, the colors of code, and styles
 for a type of widget, a class, or both. Six themes are built in.</p>
 
+<p>A theme starts from a <em>look</em> (<code>Rlook_set</code>): the ones of Raven, or
+those of the platforms, imitated closely: Windows 11 (<code>R_LOOK_WINDOWS_...</code>),
+macOS Sequoia (<code>R_LOOK_MACOS_...</code>), macOS 26 with Liquid Glass
+(<code>R_LOOK_MACOS_GLASS_...</code>: glass on header bars and their buttons, menus,
+drop-down lists, tooltips and sheets, knobs that turn into a lens of glass
+while held, the content opaque), GNOME (<code>R_LOOK_GNOME_...</code>), or the one of
+the platform the program runs on (<code>R_LOOK_NATIVE_...</code>, which gives macOS
+Glass from macOS 26 on).</p>
+
 <pre>Rtheme_apply(R_THEME_DARK);          /* R_THEME_LIGHT, R_THEME_GLASS_DARK, R_THEME_GLASS_LIGHT,
                                         R_THEME_HIGH_CONTRAST_DARK, R_THEME_HIGH_CONTRAST_LIGHT */
 Rtheme_set_accent(0.13f, 0.83f, 0.93f);                          /* one color, and every shade that follows */
