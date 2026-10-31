@@ -144,8 +144,10 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   top of the window.
 - **Tools of the trade.** A **graph of nodes** whose wires hang and swing, a
   **timeline** (tracks, clips, keys, markers), a complete **color picker**.
-- **Themes you write.** Theme files, styles for a type of widget or for a
-  class, a theme for a part of a window. **Markdown** in labels and in the
+- **Looks and themes you write.** The looks of Raven, or the ones of
+  **Windows 11**, **macOS** and **GNOME** imitated closely (their controls,
+  colors, accent, font and motion). Theme files laid over them, styles for a type of widget, a class,
+  a **part of a widget and its states**, a theme for a part of a window. **Markdown** in labels and in the
   text editor. Interface and theme files are **loaded again while the
   application runs** when they are saved.
 - **Web pages** (`raven_web.h`, built into the same library) shown by driving
@@ -474,7 +476,7 @@ The build trees are in `build\dist\`.
 | `examples/components` | tags declared with `<Widget>`, `<Repeat>`, `<ForEach>`, `<Include>`, and a piece of interface built from C as a document |
 | `examples/memory` | an allocator given by the application, the statistics of the library, the heap check |
 | `examples/studio` | a graph of nodes (widgets inside the nodes, links the application can refuse, nodes added from code), a timeline that plays, a color picker that colors the selected nodes; its XML is loaded again when saved |
-| `examples/themes` | two theme files, styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
+| `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
 | `examples/browser` | web pages with `raven_web`: an address bar, the history, a color picker of Raven that drives the CSS of the page, messages from the page |
 | `examples/glass` | the glass themes and the three glass materials. `raven_glass light` starts with the light glass |
@@ -734,7 +736,7 @@ A material is what the surface of a widget is made of:
 | `TintedGlass` | blurred and colored by the theme: the easiest to read on |
 
 ```c
-Rtheme_apply(R_THEME_GLASS_DARK);                     /* a theme comes with its material          */
+Rlook_set(R_LOOK_RAVEN_GLASS_DARK);                   /* a look comes with its material           */
 Rtheme_set_material(R_MATERIAL_FROSTED_GLASS);        /* every widget that was not given its own  */
 Rwidget_set_material(panel, R_MATERIAL_GLASS);        /* this widget and what it contains         */
 ```
@@ -1015,10 +1017,16 @@ by Raven, call `Rvulkan_set_external_device` (and
 
 ### Themes
 
-`Rtheme_apply` chooses one of four themes: `R_THEME_DARK`, `R_THEME_LIGHT`,
-`R_THEME_GLASS_DARK`, `R_THEME_GLASS_LIGHT`. From there:
+`Rlook_set` chooses the look: the ones of Raven (`R_LOOK_RAVEN_DARK`,
+`R_LOOK_RAVEN_LIGHT`, the glass and high contrast ones), the one of Windows 11
+(`R_LOOK_WINDOWS_DARK`, `R_LOOK_WINDOWS_LIGHT`), of macOS
+(`R_LOOK_MACOS_...`) and of GNOME (`R_LOOK_GNOME_...`) — their controls,
+their colors, the accent and the font of the system — or the one of the
+platform the program runs on (`R_LOOK_NATIVE_DARK`, `R_LOOK_NATIVE_LIGHT`). A theme is
+laid over it:
 
 ```c
+Rlook_set(R_LOOK_NATIVE_LIGHT);                                         /* the look of the platform              */
 Rtheme_set_accent(0.13f, 0.83f, 0.93f);                                 /* one color, and the shades that follow */
 Rtheme_set_color(R_COLOR_PANEL, 0.07f, 0.10f, 0.17f, 1.0f);             /* any color or metric of the theme      */
 Rtheme_set_style_metric("Button", NULL, R_METRIC_CORNER_RADIUS, 16);    /* a style for a type of widget          */
@@ -1027,12 +1035,17 @@ Rtheme_load("themes/ocean.xml");  Rtheme_use("Ocean");                  /* a the
 ```
 
 ```xml
-<Theme Name="Ocean" Base="Dark" Accent="#22D3EE" CornerRadius="10">
+<Theme Name="Ocean" Accent="#22D3EE" CornerRadius="10">
     <Colors Panel="#111A2C" Text="#DCE7F5"/>
     <Style Widget="Button" CornerRadius="16"/>
     <Style Class="danger" Accent="#FB7185"/>
+    <Style Widget="Slider" Part="Thumb" State="Hovered" Background="#FFB340"/>
 </Theme>
 ```
+
+A theme file that names no look (`Look="WindowsDark"`) follows the look in
+use. Styles reach the parts of widgets (`Part="Thumb"`) in their states
+(`State="Hovered Pressed"`).
 
 `Theme="Ocean"` (or `Theme="themes/ocean.xml"`) on a widget or on a window
 gives a theme to that part of the interface only. Colors and metrics can
