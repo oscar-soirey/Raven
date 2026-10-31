@@ -84,6 +84,7 @@ static VkExtensionProperties* rvn_vk_enumerate_instance_extensions(uint32_t* cou
 /*
  * Surface extensions of the window systems Raven can run on. X11 windows work
  * with either the Xlib or the XCB flavor: drivers do not all expose both.
+ * Linux and BSD enable Wayland too: the window system is chosen at run time.
  */
 static const char* const g_vk_surface_extensions[] = {
 #if defined(_WIN32)
@@ -94,6 +95,7 @@ static const char* const g_vk_surface_extensions[] = {
 #else
 	"VK_KHR_xlib_surface",
 	"VK_KHR_xcb_surface",
+	"VK_KHR_wayland_surface",
 #endif
 	"VK_EXT_headless_surface"
 };

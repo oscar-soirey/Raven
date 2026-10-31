@@ -4,7 +4,7 @@
  *
  * The window-system headers are not included: the create-info structures of
  * the surface extensions are declared here with their exact layout, which
- * keeps <windows.h> and <X11/Xlib.h> out of the renderer.
+ * keeps <windows.h>, <X11/Xlib.h> and <wayland-client.h> out of the renderer.
  */
 
 #include "vk_backend.h"
@@ -36,6 +36,15 @@ typedef struct rvn_vk_xcb_surface_info_t {
 	void* connection;
 	uint32_t window;
 } rvn_vk_xcb_surface_info_t;
+
+/* VkWaylandSurfaceCreateInfoKHR */
+typedef struct rvn_vk_wayland_surface_info_t {
+	VkStructureType sType;
+	const void* pNext;
+	VkFlags flags;
+	void* display;
+	void* surface;
+} rvn_vk_wayland_surface_info_t;
 
 /* VkMetalSurfaceCreateInfoEXT: declared locally so Metal headers/platform macros stay out of the C renderer. */
 typedef struct rvn_vk_metal_surface_info_t {
@@ -99,6 +108,13 @@ static int rvn_vk_native_surface_create(const RNativeWindow* native, VkSurfaceKH
 				return R_FALSE;
 			}
 		}
+	} else if (native->system == R_WINDOW_SYSTEM_WAYLAND && rvn_vk.CreateWaylandSurfaceKHR) {
+		rvn_vk_wayland_surface_info_t info;
+		memset(&info, 0, sizeof(info));
+		info.sType = (VkStructureType)1000006000; /* VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR */
+		info.display = native->display;
+		info.surface = (void*)native->window;
+		result = rvn_vk.CreateWaylandSurfaceKHR(g_vk.instance, &info, NULL, out);
 	} else if (native->system == R_WINDOW_SYSTEM_NONE && rvn_vk.CreateHeadlessSurfaceEXT) {
 		/* no window system (headless runs): frames are rendered and can be captured */
 		VkHeadlessSurfaceCreateInfoEXT info;

@@ -136,6 +136,7 @@ typedef struct rvn_vk_functions_t {
 	rvn_vk_create_surface_fn CreateWin32SurfaceKHR;
 	rvn_vk_create_surface_fn CreateXlibSurfaceKHR;
 	rvn_vk_create_surface_fn CreateXcbSurfaceKHR;
+	rvn_vk_create_surface_fn CreateWaylandSurfaceKHR;
 	rvn_vk_create_surface_fn CreateMetalSurfaceEXT;
 	rvn_vk_create_surface_fn CreateHeadlessSurfaceEXT;
 	PFN_vkCreateDebugUtilsMessengerEXT CreateDebugUtilsMessengerEXT;
