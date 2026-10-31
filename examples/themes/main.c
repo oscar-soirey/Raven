@@ -2,6 +2,7 @@
  * Raven example - themes
  * Theme files, styles, classes, Markdown, and files loaded again when they change.
  *
+ *   Rlook_set(look)            the look: Raven's (flat, glass, high contrast), Windows 11, macOS, GNOME, the platform's
  *   Rtheme_load(path)          reads a theme file and keeps it under its name
  *   Rtheme_use(name)           makes a named theme the theme of the application
  *   Rtheme_set_accent(r,g,b)   one color, and the shades that follow from it
@@ -9,8 +10,11 @@
  *   Class="danger", Theme="paper.xml"       in the XML
  *   Markdown="true"            on a Label (rendered) and on a TextEditor (styled in place)
  *
+ * A theme file that names no look (tweaks.xml) is laid over the look in use
+ * and follows it; one that names a look (ocean.xml, paper.xml) imposes it.
+ *
  * Every file of this example is watched while it runs: themes.xml, ocean.xml,
- * paper.xml and notes.md. Save one and the window follows.
+ * paper.xml, tweaks.xml and notes.md. Save one and the window follows.
  */
 
 #include "../common/example.h"
@@ -20,9 +24,23 @@
 #endif
 
 static struct {
-	Rid window, themes, status, notes, editor, watch;
+	Rid window, themes, looks, status, notes, editor, watch;
 	char* notes_text;
 } app;
+
+static const RLook g_looks[] = {
+	R_LOOK_RAVEN_DARK, R_LOOK_RAVEN_LIGHT, R_LOOK_RAVEN_GLASS_DARK, R_LOOK_RAVEN_GLASS_LIGHT,
+	R_LOOK_RAVEN_HIGH_CONTRAST_DARK, R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT,
+	R_LOOK_WINDOWS_DARK, R_LOOK_WINDOWS_LIGHT, R_LOOK_MACOS_DARK, R_LOOK_MACOS_LIGHT, R_LOOK_GNOME_DARK, R_LOOK_GNOME_LIGHT,
+	R_LOOK_NATIVE_DARK, R_LOOK_NATIVE_LIGHT
+};
+
+static void fill_looks(void) {
+	int i;
+	for (i = 0; i < (int)(sizeof(g_looks) / sizeof(g_looks[0])); i++) {
+		if (g_looks[i] == Rlook_get()) Rcombo_box_set_selected(app.looks, i);
+	}
+}
 
 static void fill_themes(void) {
 	const char* current = Rtheme_get_name();
@@ -58,6 +76,8 @@ static void on_notes_timer(Rid timer, void* user_data) {
 
 static void find_widgets(void) {
 	app.themes = Rwidget_find(app.window, "themes");
+	app.looks = Rwidget_find(app.window, "looks");
+	fill_looks();
 	app.status = Rwidget_find(app.window, "status");
 	app.notes = Rwidget_find(app.window, "notes");
 	app.editor = Rwidget_find(app.window, "editor");
@@ -78,6 +98,14 @@ static void action_use(Rid sender, const char* action, void* user_data) {
 	(void)action;
 	(void)user_data;
 	if (index >= 0) Rtheme_use(Rcombo_box_get_item_text(sender, index));
+}
+
+static void action_look(Rid sender, const char* action, void* user_data) {
+	int index = Rcombo_box_get_selected(sender);
+	(void)action;
+	(void)user_data;
+	if (index >= 0 && index < (int)(sizeof(g_looks) / sizeof(g_looks[0]))) Rlook_set(g_looks[index]);
+	fill_themes();
 }
 
 static void action_accent(Rid sender, const char* action, void* user_data) {
@@ -109,9 +137,11 @@ int main(void) {
 	/* the theme files: each becomes a theme with a name, next to the four built-in ones */
 	Rtheme_load(RAVEN_EXAMPLE_DIR "/ocean.xml");
 	Rtheme_load(RAVEN_EXAMPLE_DIR "/paper.xml");
+	Rtheme_load(RAVEN_EXAMPLE_DIR "/tweaks.xml");
 	Rtheme_use(theme ? theme : "Ocean");
 
 	Raction_bind("themes.use", action_use, NULL);
+	Raction_bind("themes.look", action_look, NULL);
 	Raction_bind("themes.accent", action_accent, NULL);
 	Raction_bind("themes.save", action_save, NULL);
 	Raction_bind("themes.docs", action_docs, NULL);

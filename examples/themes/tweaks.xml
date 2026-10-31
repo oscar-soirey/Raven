@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A theme file that names no look (no Look, no Base): it is laid over the
+  look in use, and follows it when it changes (Rlook_set). Try it with the
+  look of Windows and with the ones of Raven.
+
+  Styles can reach a part of a widget (Part="Thumb") in some states
+  (State="Hovered Pressed"), and give it properties: Background,
+  Foreground, BorderColor, BorderTopColor, BorderBottomColor, BorderWidth,
+  BorderBottomWidth, CornerRadius, Size, Opacity, ShadowColor, ShadowSize.
+-->
+<Theme Name="Tweaks" Accent="#E8590C">
+	<!-- buttons of the class "danger": red, white text, darker when pressed -->
+	<Style Widget="Button" Class="danger" Background="#C42B1C" Foreground="#FFFFFF" BorderColor="#00000033"/>
+	<Style Widget="Button" Class="danger" State="Hovered" Background="#D13A2B"/>
+	<Style Widget="Button" Class="danger" State="Pressed" Background="#A12317" Foreground="#FFFFFFCC"/>
+	<!-- the thumb of the sliders grows under the pointer -->
+	<Style Widget="Slider" Part="Knob" State="Hovered" Size="16"/>
+	<!-- the pill of the selected rows, taller and green -->
+	<Style Part="Indicator" Background="#2F9E44" Size="20"/>
+	<!-- switches that are on: green -->
+	<Style Widget="Checkbox" Part="Track" State="Checked" Background="#2F9E44" BorderColor="#2F9E44"/>
+</Theme>

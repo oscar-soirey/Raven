@@ -11,7 +11,10 @@
 		<VBox Width="250" Spacing="10" Slot.Padding="16">
 			<Label Class="eyebrow" Text="APPEARANCE"/>
 			<Label Text="Themes" TextSize="24"/>
-			<Label Text="Theme of the application" Opacity="0.65" Slot.Padding="0,8,0,0"/>
+			<Label Text="Look" Opacity="0.65" Slot.Padding="0,8,0,0"/>
+			<ComboBox Name="looks" OnChanged="themes.look"
+				Items="Raven dark|Raven light|Raven glass dark|Raven glass light|Raven high contrast dark|Raven high contrast light|Windows dark|Windows light|macOS dark|macOS light|GNOME dark|GNOME light|Native dark|Native light"/>
+			<Label Text="Theme file laid over it" Opacity="0.65" Slot.Padding="0,8,0,0"/>
 			<ComboBox Name="themes" OnChanged="themes.use"/>
 			<Label Text="Accent" Opacity="0.65" Slot.Padding="0,8,0,0"/>
 			<HBox Spacing="8">
@@ -22,7 +25,7 @@
 				Tooltip="Writes the theme in use, with the changes made here, as a theme file"/>
 			<Label Name="status" Text="" Wrap="true" Opacity="0.65"/>
 			<Spacer Slot.Fill="1"/>
-			<Label Wrap="true" Opacity="0.6" Markdown="true">Edit **ocean.xml**, **paper.xml** or **themes.xml** while this runs: the window follows.</Label>
+			<Label Wrap="true" Opacity="0.6" Markdown="true">Edit **ocean.xml**, **paper.xml**, **tweaks.xml** or **themes.xml** while this runs: the window follows.</Label>
 		</VBox>
 		<Separator Orientation="Vertical"/>
 
@@ -43,8 +46,13 @@
 							<Checkbox Text="Switch" Style="Switch" Checked="true"/>
 							<Checkbox Text="Danger" Style="Switch" Checked="true" Class="danger"/>
 						</HBox>
+						<HBox Spacing="12">
+							<Checkbox Text="Radio" Style="Radio" Checked="true"/>
+							<Checkbox Text="Radio" Style="Radio"/>
+						</HBox>
 						<Slider Value="0.6"/>
 						<ProgressBar Value="0.4"/>
+						<ListView Items="First|Second|Third" Height="110"/>
 						<HBox Spacing="8">
 							<TextInput Placeholder="Text" Slot.Fill="1"/>
 							<ComboBox Items="One|Two|Three" Selected="0" Width="120"/>
