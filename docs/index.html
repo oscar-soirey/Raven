@@ -86,7 +86,7 @@ table.cmp code { font-size: .92em; }
 </style>
 </head>
 <body>
-<p class="nav"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="Raven" width="192" height="192"></picture>Raven manual &nbsp;[ <b>Guide</b> | <a href="xml.html">XML</a> | <a href="reference.html">C API</a> | <a href="#compare">Comparison</a> | <a href="#releases">Downloads</a> ]</p>
+<p class="nav"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="Raven" width="192" height="192"></picture>Raven manual &nbsp;[ <b>Guide</b> | <a href="xml.html">XML</a> | <a href="reference.html">C API</a> | <a href="bindings.html">Bindings</a> | <a href="#compare">Comparison</a> | <a href="#releases">Downloads</a> ]</p>
 <h1>The Raven manual</h1>
 
 <p>Raven is a GUI library in C11 for editors and tools: native windows on
@@ -157,7 +157,7 @@ if a cell is wrong or out of date, please
 
 <h3>Which one when</h3>
 <ul>
-<li><b>Raven</b>: a desktop tool or editor, in C or one of its bindings, where you want real windows, docking, a code editor, translations, accessibility and a distinctive look, and a small dependency footprint. Not yet: mobile, web, native Wayland, or an API frozen before 1.0.</li>
+<li><b>Raven</b>: a desktop tool or editor, in C or one of its bindings, where you want real windows, docking, a code editor, translations, accessibility and a distinctive look, and a small dependency footprint. Not yet: mobile, web, or an API frozen before 1.0.</li>
 <li><b>Qt</b>: a large product that must run on mobile and embedded as well as the desktop, with a mature ecosystem, complete text support and commercial backing. The price is size, a code-generation build and licensing to read carefully.</li>
 <li><b>Clay</b>: you already have a renderer and an input loop (a game, a custom engine, a WebAssembly page) and only need responsive layout.</li>
 <li><b>Dear ImGui</b>: panels for debugging or tooling inside a program that redraws every frame anyway, written fast and thrown away fast.</li>
@@ -387,6 +387,7 @@ cmake --install build --prefix install</pre>
 <tr><td><code>RAVEN_BUILD_WEB</code></td><td>ON</td><td>web pages (<code>raven_web.h</code>), compiled into the library</td></tr>
 <tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>OFF builds without any GPU code (a custom backend, or headless)</td></tr>
 <tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code> or <code>null</code></td></tr>
+<tr><td><code>RAVEN_WAYLAND</code></td><td>ON</td><td>Linux and BSD: native Wayland beside X11 (<a href="#build-wayland">Wayland and X11</a>); nothing of Wayland is needed to build</td></tr>
 <tr><td><code>RAVEN_WITH_STB_IMAGE</code></td><td>ON</td><td>PNG, JPEG, BMP and TGA decoding</td></tr>
 <tr><td><code>RAVEN_FETCH_VULKAN_HEADERS</code></td><td>ON</td><td>download the Khronos headers when no SDK is found</td></tr>
 <tr><td><code>RAVEN_VULKAN_INCLUDE_DIR</code></td><td></td><td>the folder of <code>vulkan/vulkan.h</code>, to skip the search</td></tr>
@@ -397,6 +398,37 @@ cmake --install build --prefix install</pre>
 
 <p>With CMake 3.21 or newer, presets do the same: <code>cmake --preset linux</code>
 (or <code>msvc</code>, <code>msvc-shared</code>, <code>mingw</code>, <code>mingw-shared</code>, <code>linux-shared</code>, <code>dev</code>).</p>
+
+<h3 id="build-wayland">Linux: Wayland and X11</h3>
+
+<p>Raven speaks both. In a Wayland session it opens native Wayland windows;
+elsewhere, or where Wayland cannot be used, X11 windows (through XWayland in a
+Wayland session). Nothing of Wayland is needed to build: <code>libwayland-client</code>
+and <code>libxkbcommon</code> are opened when the program starts, and the protocols are
+compiled in.</p>
+<ul>
+<li><b>Title bars</b>: drawn by the compositor (<code>xdg-decoration</code>: KDE, wlroots,
+Hyprland...), or by <code>libdecor</code> where the compositor draws none (GNOME). With
+neither, Raven uses X11, whose window manager draws them. Windows with a
+custom header (<code>R_WINDOW_CUSTOM_HEADER</code>) draw their own everywhere.</li>
+<li><b>Scale</b>: fractional scales (<code>fractional-scale-v1</code> and <code>viewporter</code>):
+the window is drawn at its size in pixels, sharp at 125 % or 150 %.</li>
+<li><b>Keyboard</b>: the layout of the compositor (<code>xkbcommon</code>), key repeat, dead
+keys and compose sequences.</li>
+<li><b>Also</b>: cursors (<code>cursor-shape-v1</code>, or the cursor theme), clipboard, files
+and text dropped from other applications, native viewports as sub-surfaces,
+window icons (<code>xdg-toplevel-icon</code>), blur behind transparent windows
+(<code>ext-background-effect</code>).</li>
+<li><b>Not possible on Wayland</b>: an application cannot place its windows or know
+where they are (<code>Rwindow_set_position</code> and <code>Rwindow_center</code> do nothing,
+<code>Rwindow_get_position</code> gives 0, 0), keep one above the others, or fade a whole
+window.</li>
+</ul>
+<p><code>RAVEN_WINDOW_SYSTEM=x11</code> or <code>=wayland</code> overrides the choice.
+<code>Rwindow_get_native_handle</code> tells which one a window got: with
+<code>R_WINDOW_SYSTEM_WAYLAND</code>, <code>display</code> is the <code>wl_display*</code> and
+<code>window</code> the <code>wl_surface*</code>. <code>RAVEN_APP_ID</code> names the application to the desktop
+(default: the name of the executable); it should match its <code>.desktop</code> file.</p>
 
 <h3 id="build-using">Using Raven from a project</h3>
 
@@ -1768,6 +1800,9 @@ for C++, Python, Rust, Go, C#, Zig and LuaJIT. They cover everything in
 <code>Raven.h</code> (<code>raven_web.h</code>, <code>raven_vulkan.h</code> and <code>raven_backend.h</code> are C only).
 Run <code>python3 tools/bindgen/bindgen.py</code> after changing a public header; the
 test <code>bindings_up_to_date</code> checks it was done.</p>
+<p>Each language has its own chapter in <a href="bindings.html">the bindings
+manual</a>: installation, how texts, out-parameters, structures and callbacks
+look, what to watch for, tests and packages. Below, the same program in each.</p>
 
 <h3 id="lang-cpp">C++</h3>
 <pre>#include &lt;raven.hpp&gt;
@@ -1980,6 +2015,8 @@ render of the last frame.</p>
 <tr><td><code>RAVEN_WEB_ARGUMENTS</code></td><td>switches added to its command line</td></tr>
 <tr><td><code>RAVEN_WEB_NO_SANDBOX</code></td><td>starts it with <code>--no-sandbox</code> (containers)</td></tr>
 <tr><td><code>RAVEN_WEB_TRACE=1</code>, <code>RAVEN_WEB_DEBUG=1</code></td><td>print the messages of the browser; let its errors through</td></tr>
+<tr><td><code>RAVEN_WINDOW_SYSTEM=x11</code> / <code>wayland</code></td><td>Linux: the window system, instead of choosing (<a href="#build-wayland">Wayland and X11</a>)</td></tr>
+<tr><td><code>RAVEN_APP_ID</code></td><td>Wayland: the name of the application for the desktop (default: the name of the executable)</td></tr>
 <tr><td><code>RAVEN_LIBRARY</code></td><td>bindings: the path of the shared library</td></tr>
 <tr><td><code>RAVEN_LIB_DIR</code></td><td>Rust (<code>build.rs</code>) and Zig (<code>build.zig</code>): the folder of the library</td></tr>
 <tr><td><code>RAVEN_STATIC=1</code></td><td>Rust: link the static library instead of the shared one</td></tr>
@@ -1988,7 +2025,7 @@ render of the last frame.</p>
 <!-- ======================================================================= -->
 <h2 id="limits">29. What Raven does not do yet</h2>
 <ul>
-<li>Native Wayland (Wayland sessions work through XWayland).</li>
+<li>Wayland: placing windows, keeping one above the others and fading a whole window (the protocol does not let an application do it); input methods (text-input-v3) for Chinese, Japanese and Korean.</li>
 <li>Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic joining is done. The placement of the window of an input method.</li>
 <li>In the text editor: several cursors, search and replace, folding, a language server client.</li>
 <li>Dragging from a Raven window to another application. Glass over a native child window.</li>

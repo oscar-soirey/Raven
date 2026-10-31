@@ -18,6 +18,8 @@ wants to read, debug or extend it.
 │          textures, renderer  │            clipboard        │
 │   ├─ vulkan/                 │   ├─ win32/                 │
 │   └─ null/                   │   ├─ x11/                   │
+│                              │   ├─ wayland/               │
+│                              │   ├─ cocoa/                 │
 │                              │   └─ null/                  │
 ├──────────────────────────────┴─────────────────────────────┤
 │ core/   allocator, handles, threads, jobs, files, loop     │
@@ -212,7 +214,8 @@ window keeps producing frames, then goes back to sleep.
 - `vk_surface.c` holds one surface and swapchain per window. The window
   system headers are not included: the create-info structures of the surface
   extensions are declared locally. X11 windows work with either
-  `VK_KHR_xlib_surface` or `VK_KHR_xcb_surface`; `VK_EXT_headless_surface`
+  `VK_KHR_xlib_surface` or `VK_KHR_xcb_surface`, Wayland windows with
+  `VK_KHR_wayland_surface`; `VK_EXT_headless_surface`
   renders without a window (tests).
 - `vk_pipeline.c`: per swapchain format, the render passes and the two
   pipelines (UI, blur); one descriptor set per texture.
@@ -248,6 +251,37 @@ specific to Windows:
 **X11.** Xlib only. Text input goes through an X input context (dead keys,
 compose). The scale comes from the `Xft.dpi` resource. A self-pipe wakes the
 event loop from other threads.
+
+**Wayland.** Compiled beside X11; `rvn_platform_select` connects to the
+compositor first and keeps X11 when Wayland cannot be used (no
+libwayland-client or libxkbcommon, or no title bars: no `xdg-decoration` and
+no libdecor). Nothing of Wayland is linked: `libwayland-client`,
+`libxkbcommon`, `libwayland-cursor` and `libdecor` are opened with `dlopen`,
+and `wayland_protocols.h`, written by `tools/wayland/gen_wayland.py` from the
+protocol files in `third_party/wayland-protocols`, holds the interfaces as
+private copies whose requests call the library through function pointers.
+Things that differ from the other systems:
+
+- *A surface becomes a window once.* The `xdg_toplevel` role is given when
+  the window is created, before the renderer presents anything; a surface
+  that had a buffer could no longer get it. Hiding unmaps (a null buffer)
+  and drops the role; showing gives it again and waits for the first
+  configure. `Rwindow_hide` syncs with the render thread first, so that no
+  queued frame maps the window again.
+- *Sizes.* The protocol speaks logical units, the core pixels. With
+  `wp_viewporter` the buffer keeps a scale of 1 and the viewport shows it at
+  the logical size: any scale, fractional or not, and a frame of the old size
+  during a change is only stretched. Without it, the integer
+  `wl_surface.set_buffer_scale`.
+- *Input.* Key repeat is the client's job (a `timerfd` in the poll of the
+  pump). Moving and resizing a window with a custom header hand the serial of
+  the last button press to `xdg_toplevel.move` / `.resize`.
+- *The clipboard* is read through a pipe from the other application; a
+  selection of our own is answered without going through the compositor.
+
+`tests/test_wayland.c` runs a small compositor of its own (on
+`libwayland-server`) and checks the dialogue: configure, resize, scale,
+pointer, keyboard, clipboard, drops, hide and show, close.
 
 ## Memory
 
@@ -294,7 +328,8 @@ every spring on its target at once.
   button). On Windows the answer is given to `WM_NCHITTEST`, so the system
   itself moves, resizes and snaps the window. On X11 the core starts the
   move or the resize (`_NET_WM_MOVERESIZE`, or by hand without a window
-  manager) from `rvn_window_press_region`.
+  manager) from `rvn_window_press_region`; on Wayland, `xdg_toplevel.move`
+  and `.resize`.
 - **Popups** are roots of their own, laid out and painted after the content:
   menus, combo lists, the completion list, tooltips. **Dialogs** are popups
   with the `RVN_POPUP_DIALOG` placement: a veil over the window, the content
@@ -398,7 +433,7 @@ Three additions to the rendering model, all in `ui.frag`:
 
 A transparent window asks the platform for a visual with alpha (X11: a
 32-bit visual and its colormap, only when a compositor owns the screen;
-Win32: the DWM) and the swapchain for premultiplied alpha; its frame is
+Win32: the DWM; Wayland: always, without an opaque region) and the swapchain for premultiplied alpha; its frame is
 cleared to nothing and the wallpaper of the theme is not drawn.
 
 ## A canvas that zooms: NodeGraph

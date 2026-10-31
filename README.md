@@ -122,7 +122,7 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   interfaces edited visually next to their code, completion of the Raven API,
   translations in a table, build, run and compiler errors at their line. See
   [The IDE](#the-ide).
-- **C11, no dependency.** Raven opens its own native windows (Win32, X11, Cocoa on macOS), loads
+- **C11, no dependency.** Raven opens its own native windows (Win32, X11 and Wayland, Cocoa on macOS), loads
   Vulkan at run time and has its own memory allocator. A stripped shared
   library is about 1.3 MB, two fonts included.
 - **Slate-style layout.** Boxes, grid, overlay, border, canvas, scroll box,
@@ -365,12 +365,37 @@ shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
 under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
 real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 `raven_web`, the designer, the build scripts, `dist.sh`/`dist.bat`, the CMake
-package and every binding (C++, Python, Rust, Go, C#, Zig, LuaJIT).
+package and every binding (C++, Python, Rust, Go, C#, Zig, LuaJIT). The native
+Wayland platform is newer: it is tested against a compositor written in its
+test (`test_wayland`: windows, scales, keyboard, pointer, clipboard, drops,
+with and without libdecor), not yet on GNOME, KDE or wlroots with a GPU.
+
+### Linux: Wayland and X11
+
+Raven speaks both. In a Wayland session it opens native Wayland windows;
+elsewhere, or where Wayland cannot be used, it opens X11 windows (through
+XWayland in a Wayland session). Nothing of Wayland is needed to build: its
+libraries are opened when the program starts.
+
+| On Wayland | |
+|---|---|
+| Needs | `libwayland-client` and `libxkbcommon` (installed on every Wayland desktop) |
+| Title bars | drawn by the compositor (KDE, wlroots, Hyprland...), or by `libdecor` where it draws none (GNOME). Without either, Raven uses X11 |
+| Scale | fractional scales (125 %, 150 %...) through `fractional-scale-v1`, sharp at any scale |
+| Keyboard | the layout of the compositor, key repeat, dead keys and compose sequences |
+| Cursors | `cursor-shape-v1`, or the cursor theme (`XCURSOR_THEME`, `XCURSOR_SIZE`) |
+| Also | clipboard, files dropped from other applications, native viewports (sub-surfaces), window icons (`xdg-toplevel-icon`), blur behind transparent windows (`ext-background-effect`) |
+
+`RAVEN_WINDOW_SYSTEM=x11` or `=wayland` overrides the choice;
+`RAVEN_APP_ID` names the application to the desktop (default: the name of
+the executable; it should match the `.desktop` file). `Rwindow_get_native_handle`
+tells which one a window got (`R_WINDOW_SYSTEM_WAYLAND`: `display` is the
+`wl_display*`, `window` the `wl_surface*`).
 
 ## Build options and scripts
 
 Requirements: CMake 3.16+, a C11 compiler. Linux also needs the X11
-development package (`libx11-dev`). The Vulkan *headers* are needed to build;
+development package (`libx11-dev`); nothing of Wayland is needed to build. The Vulkan *headers* are needed to build;
 they come from the Vulkan SDK when it is installed and are downloaded
 otherwise. No Vulkan library is linked.
 
@@ -410,6 +435,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
 | `RAVEN_BACKEND_VULKAN` | `ON` | `OFF` builds without any GPU code (custom backend or headless) |
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
+| `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
 | `RAVEN_FETCH_VULKAN_HEADERS` | `ON` | download the Khronos headers when no SDK is found |
 | `RAVEN_VULKAN_INCLUDE_DIR` | | folder containing `vulkan/vulkan.h`, to skip the search |
@@ -786,7 +812,7 @@ filled: where no widget draws, what is behind it on the screen shows.
 nothing, a blur, or the acrylic and mica materials of Windows 11;
 `Rwindow_set_opacity` fades the whole window. All of it depends on the
 window system (Windows 10 and 11; X11 with a compositor, and KWin for the
-blur): `Rwindow_get_backdrop` tells what was obtained, and where nothing is
+blur; Wayland, and the blur where the compositor offers `ext-background-effect`): `Rwindow_get_backdrop` tells what was obtained, and where nothing is
 available the same interface shows on a plain background.
 
 ![The overlay example](docs/images/overlay.png)
@@ -1006,7 +1032,7 @@ Rviewport_set_texture(viewport, texture);
 /* 2. draw callback: your Vulkan draw calls in the render pass of the window */
 Rviewport_set_draw_callback(viewport, on_draw, user);
 
-/* 3. native child window: a HWND / X11 Window for OpenGL, Direct3D, anything */
+/* 3. native child window: a HWND / X11 Window / Wayland wl_surface for OpenGL, Direct3D, anything */
 Rviewport_set_native(viewport, R_TRUE);
 Rviewport_get_native_handle(viewport, &native);
 ```
@@ -1094,7 +1120,7 @@ cost is the blur passes, but it has not been measured. Read
 include/Raven.h      the whole public API in one include
 include/raven/       ... one header per area
 src/core/            allocator, handles, threads, job system, files, main loop
-src/platform/        window systems behind one interface: win32/, x11/, null/
+src/platform/        window systems behind one interface: win32/, x11/, wayland/, cocoa/, null/
 src/render/          draw lists, fonts and glyph atlas, textures, render thread
 src/render/vulkan/   the Vulkan backend and its shaders (vk_glass.c: backdrop blur)
 src/widget/          widget base: tree, layout, events, painting, animation, windows, style, themes
@@ -1117,7 +1143,10 @@ and how to add a widget, a window system or a backend.
 What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
-- Native Wayland (Wayland sessions work through XWayland and the X11 platform).
+- Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
+  one above the others and fading a whole window: the protocol does not let an
+  application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
+  are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
   installed Chromium-based browser instead.
 
