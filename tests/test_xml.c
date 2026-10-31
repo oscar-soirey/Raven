@@ -851,6 +851,42 @@ static void test_schema(void) {
 	Rxml_unregister_widget("SchemaCard");
 }
 
+/*
+ * A <Widget> declared again while it is being used: inside its own body, or
+ * declarations made inside a use (the list of declarations grows while it is
+ * read). What is being expanded stays alive until the expansion is over.
+ */
+static void test_declared_again_inside(void) {
+	const char* again =
+		"<VBox>"
+		"<Widget Name=\"Card\"><Border><VBox><Widget Name=\"Card\"><Label Text=\"again\"/></Widget><Label Name=\"inside\" Text=\"first\"/></VBox></Border></Widget>"
+		"<Card/><Card/><Card/>"
+		"</VBox>";
+	char grows[4096];
+	int length = 0, i;
+	Rid widget;
+	widget = Rwidget_create_from_xml(again, strlen(again));
+	CHECK(widget != R_INVALID_ID);
+	if (widget != R_INVALID_ID) {
+		CHECK(Rwidget_get_child_count(widget) == 3);
+		Rwidget_destroy(widget);
+	}
+	/* a body that declares twenty more: the array of declarations is reallocated during the use */
+	length += snprintf(grows + length, sizeof(grows) - (size_t)length, "<VBox><Widget Name=\"Grower\"><VBox>");
+	for (i = 0; i < 20; i++) length += snprintf(grows + length, sizeof(grows) - (size_t)length, "<Widget Name=\"Made%d\"><Label/></Widget>", i);
+	length += snprintf(grows + length, sizeof(grows) - (size_t)length, "<Label Text=\"grown\"/></VBox></Widget><Grower/><Grower/><Made3/></VBox>");
+	widget = Rwidget_create_from_xml(grows, (size_t)length);
+	CHECK(widget != R_INVALID_ID);
+	if (widget != R_INVALID_ID) Rwidget_destroy(widget);
+	for (i = 0; i < 20; i++) {
+		char name[32];
+		snprintf(name, sizeof(name), "Made%d", i);
+		Rxml_unregister_widget(name);
+	}
+	Rxml_unregister_widget("Grower");
+	Rxml_unregister_widget("Card");
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
@@ -860,6 +896,7 @@ int main(void) {
 	RUN(test_widget_fragment);
 	RUN(test_errors);
 	RUN(test_components);
+	RUN(test_declared_again_inside);
 	RUN(test_documents);
 	RUN(test_schema);
 	Rshutdown();

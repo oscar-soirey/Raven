@@ -44,6 +44,14 @@ static struct {
 	uint32_t cap;
 	/** Number of instances made so far: the value of {Instance}. */
 	uint32_t instances;
+	/**
+	 * Declarations replaced while a document is being expanded: what is being
+	 * expanded may be one of them (a <Widget> declared again inside its own
+	 * body, or inside a use of it). They are freed once the expansion is over.
+	 */
+	rvn_component_t* retired;
+	uint32_t retired_count, retired_cap;
+	int expanding;
 } g_components;
 
 typedef struct rvn_xc_var_t {
@@ -172,9 +180,27 @@ static void rvn_component_release(rvn_component_t* component) {
 	rvn_xml_free(&component->document);
 }
 
+/* A declaration goes away: at once, or after the expansion that may be reading it. */
+static void rvn_component_retire(rvn_component_t* component) {
+	if (g_components.expanding <= 0) {
+		rvn_component_release(component);
+		return;
+	}
+	RVN_ARRAY_RESERVE(g_components.retired, g_components.retired_cap, g_components.retired_count + 1);
+	g_components.retired[g_components.retired_count++] = *component;
+}
+
+static void rvn_components_free_retired(void) {
+	uint32_t i;
+	for (i = 0; i < g_components.retired_count; i++) rvn_component_release(&g_components.retired[i]);
+	g_components.retired_count = 0;
+}
+
 void rvn_xml_components_shutdown(void) {
 	uint32_t i;
 	for (i = 0; i < g_components.count; i++) rvn_component_release(&g_components.items[i]);
+	rvn_components_free_retired();
+	rvn_free(g_components.retired);
 	rvn_free(g_components.items);
 	memset(&g_components, 0, sizeof(g_components));
 }
@@ -224,7 +250,7 @@ static void rvn_xc_register(rvn_xc_t* ctx, const rvn_xml_node_t* definition) {
 	}
 	component = rvn_component_find(name);
 	if (component) {
-		rvn_component_release(component);
+		rvn_component_retire(component);
 	} else {
 		RVN_ARRAY_RESERVE(g_components.items, g_components.cap, g_components.count + 1);
 		component = &g_components.items[g_components.count++];
@@ -757,7 +783,9 @@ static void rvn_xc_instantiate(rvn_xc_t* ctx, const rvn_component_t* component, 
 	const rvn_xc_scope_t* scope, rvn_xml_node_t* holder) {
 
 	rvn_arena_t* arena = &ctx->document->arena;
+	/* (taken now: the array of declarations may grow while the body is expanded, and `component` move) */
 	const rvn_xml_node_t* definition = component->document.root;
+	const char* name = component->name;
 	const rvn_xml_attribute_t* attribute;
 	rvn_xml_node_t* extra = rvn_xc_node(arena, use, "extra");
 	rvn_xml_node_t* out = rvn_xc_node(arena, use, "out");
@@ -797,7 +825,7 @@ static void rvn_xc_instantiate(rvn_xc_t* ctx, const rvn_component_t* component, 
 	if (ctx->failed) return;
 	root = out->first_child;
 	if (!root || root->next) {
-		rvn_xc_report(use, R_SEVERITY_ERROR, "<%.60s>: a <Widget> stands for exactly one element, this one gives %s", component->name,
+		rvn_xc_report(use, R_SEVERITY_ERROR, "<%.60s>: a <Widget> stands for exactly one element, this one gives %s", name,
 			root ? "several (wrap them in a panel)" : "none");
 		ctx->failed = R_TRUE;
 		return;
@@ -912,7 +940,17 @@ static void rvn_xc_expand(rvn_xc_t* ctx, const rvn_xml_node_t* node, const rvn_x
 	ctx->depth--;
 }
 
+static int rvn_xml_expand_document(rvn_xml_document_t* document, int* registered);
+
 int rvn_xml_expand(rvn_xml_document_t* document, int* registered) {
+	int ok;
+	g_components.expanding++;
+	ok = rvn_xml_expand_document(document, registered);
+	if (--g_components.expanding == 0) rvn_components_free_retired();
+	return ok;
+}
+
+static int rvn_xml_expand_document(rvn_xml_document_t* document, int* registered) {
 	rvn_xc_t ctx;
 	rvn_xml_node_t* holder;
 
@@ -980,7 +1018,7 @@ void Rxml_unregister_widget(const char* name) {
 	RVN_API_GUARD_VOID();
 	component = name ? rvn_component_find(name) : NULL;
 	if (!component) return;
-	rvn_component_release(component);
+	rvn_component_retire(component);
 	*component = g_components.items[--g_components.count];
 }
 
