@@ -19,8 +19,17 @@ static FILE* rvn_fopen_read(const char* path) {
 	return _wfopen(wide, L"rb");
 }
 #else
+#include <sys/stat.h>
+
 static FILE* rvn_fopen_read(const char* path) {
-	return fopen(path, "rb");
+	struct stat info;
+	FILE* file = fopen(path, "rb");
+	/* (a folder opens too, and then says it is LONG_MAX bytes long: only regular files are read) */
+	if (file && (fstat(fileno(file), &info) != 0 || !S_ISREG(info.st_mode))) {
+		fclose(file);
+		return NULL;
+	}
+	return file;
 }
 #endif
 
@@ -195,7 +204,8 @@ char* rvn_read_file(const char* path, size_t* size) {
 	}
 	file = rvn_fopen_read(path);
 	if (!file) return NULL;
-	if (fseek(file, 0, SEEK_END) != 0 || (length = ftell(file)) < 0 || fseek(file, 0, SEEK_SET) != 0) {
+	if (fseek(file, 0, SEEK_END) != 0 || (length = ftell(file)) < 0 || (unsigned long)length >= (unsigned long)(SIZE_MAX / 2) ||
+		fseek(file, 0, SEEK_SET) != 0) {
 		fclose(file);
 		return NULL;
 	}
