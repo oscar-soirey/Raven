@@ -160,4 +160,23 @@ int te_model_read(te_model* model, const char* xml, size_t size, char* error, si
  */
 void te_generate_palette(te_model* model, int dark, float tint, float contrast);
 
+/* ---- the editor inside another program (the Theme tab of the designer) ---- */
+
+/** Builds the editor into a widget for `window` (its dialogs belong to it); R_INVALID_ID on failure. */
+Rid  te_embed(Rid window);
+/** Opens a theme file. R_FALSE when it cannot be read. */
+int  te_open(const char* path);
+int  te_is_modified(void);
+/** Saves into its file (asks where when it has none). */
+int  te_save(void);
+/** The file of the theme ("" when not saved yet). */
+const char* te_get_path(void);
+/** R_TRUE: no message box (the scripted runs of the tests). */
+void te_set_scripted(int scripted);
+/** R_TRUE during the random runs of the tests: no dialog opens. */
+void te_set_fuzzing(int fuzzing);
+/** What the library reports: the host passes it on (the Styles tab shows the mistakes). */
+void te_error(RError code, RSeverity severity, const char* detail);
+void te_shutdown(void);
+
 #endif

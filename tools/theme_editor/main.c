@@ -82,7 +82,9 @@ static const char* const g_backdrops[] = { "Automatic", "The window color", "Sof
 #define BACKDROP_COUNT 5
 
 static struct {
-	Rid window, preview_window;
+	/* the window, and what holds the editor in it (the window itself, or a panel of the designer) */
+	Rid window, root, preview_window;
+	int embedded;
 	Rid preview_root, preview_backdrop, probe, preview_button;
 	Rid tabs, name, look, dark, material, motion, accent_own, accent, tint, contrast, tint_value, contrast_value;
 	Rid font, wallpaper, wallpaper_text, wallpaper_browse, look_hint;
@@ -126,7 +128,7 @@ static void changed(void);
  * ------------------------------------------------------------------------- */
 
 static Rid W(const char* name) {
-	Rid widget = Rwidget_find(g.window, name);
+	Rid widget = Rwidget_find(g.root, name);
 	if (widget == R_INVALID_ID) fprintf(stderr, "raven_theme_editor: no widget '%s'\n", name);
 	return widget;
 }
@@ -404,13 +406,11 @@ static void add_color_row(te_text* x, const char* id, int index, const char* nam
 	te_add(x, "</HBox>");
 }
 
+static void build_content(te_text* x);
+
+#ifndef TE_EMBEDDED
 static void build_interface(te_text* x) {
 	int i;
-	const char* group = "";
-	static const char* const darks[] = { "As the look says", "Dark", "Light" };
-	static const char* const materials[] = { "From the look", "Solid", "Glass", "Frosted glass", "Tinted glass" };
-	static const char* const motions[] = { "From the look", "Springy", "Smooth" };
-	static const char* const wallpapers[] = { "From the look", "None", "Dark", "Light", "Gradient of colors", "Image" };
 
 	te_add(x,
 		"<Window Title=\"Raven Theme Editor\" Width=\"1460\" Height=\"900\" MinWidth=\"1040\" MinHeight=\"640\" CustomHeader=\"true\">"
@@ -452,7 +452,35 @@ static void build_interface(te_text* x) {
 		"<Button Name=\"redo\" Text=\"Redo\" Style=\"Flat\" OnClicked=\"te.redo\" Tooltip=\"Ctrl+Y\" Metric.ControlHeight=\"26\"/>"
 		"<Button Text=\"Open in a window\" OnClicked=\"te.window\" Tooltip=\"The preview in a window of its own, with the wallpaper of the theme (F7)\" Metric.ControlHeight=\"26\"/>"
 		"<Button Text=\"Save\" Style=\"Primary\" OnClicked=\"te.save\" Tooltip=\"Ctrl+S\" Metric.ControlHeight=\"26\"/>"
-		"</HBox></HeaderBar>"
+		"</HBox></HeaderBar>");
+	build_content(x);
+	te_add(x, "</VBox></Window>");
+}
+#endif
+
+/* What the editor is made of, in its window or in the Theme tab of the designer. */
+static void build_content(te_text* x) {
+	int i;
+	const char* group = "";
+	static const char* const darks[] = { "As the look says", "Dark", "Light" };
+	static const char* const materials[] = { "From the look", "Solid", "Glass", "Frosted glass", "Tinted glass" };
+	static const char* const motions[] = { "From the look", "Springy", "Smooth" };
+	static const char* const wallpapers[] = { "From the look", "None", "Dark", "Light", "Gradient of colors", "Image" };
+
+	te_add(x, "<VBox Slot.Fill=\"1\">");
+	if (g.embedded) {
+		/* (no header bar of its own: what it holds comes here) */
+		te_add(x, "<HBox Spacing=\"6\" Slot.Padding=\"10,6\">"
+			"<Label Name=\"embedded.title\" TextSize=\"15\" Slot.Fill=\"1\" Slot.VAlign=\"Center\"/>"
+			"<Button Name=\"undo\" Text=\"Undo\" Style=\"Flat\" OnClicked=\"te.undo\" Tooltip=\"Ctrl+Z\"/>"
+			"<Button Name=\"redo\" Text=\"Redo\" Style=\"Flat\" OnClicked=\"te.redo\" Tooltip=\"Ctrl+Y\"/>"
+			"<Button Text=\"Generate the palette\" Style=\"Flat\" OnClicked=\"te.generate\" Tooltip=\"Every color from the accent\"/>"
+			"<Button Text=\"Copy as C\" Style=\"Flat\" OnClicked=\"te.copy.c\"/>"
+			"<Button Text=\"Open in a window\" OnClicked=\"te.window\" Tooltip=\"The preview in a window of its own, with the wallpaper of the theme\"/>"
+			"<Button Text=\"Save\" Style=\"Primary\" OnClicked=\"te.save\" Tooltip=\"Ctrl+S\"/>"
+			"</HBox><Separator/>");
+	}
+	te_add(x,
 		"<Splitter Slot.Fill=\"1\">"
 		"<TabView Name=\"tabs\" Slot.Fill=\"0.62\">");
 
@@ -622,7 +650,7 @@ static void build_interface(te_text* x) {
 		"<HBox Spacing=\"12\" Slot.Padding=\"12,5\">"
 		"<Label Name=\"status\" Slot.Fill=\"1\" Slot.VAlign=\"Center\" TextSize=\"12\"/>"
 		"<Label Name=\"file\" Opacity=\"0.55\" TextSize=\"12\" Slot.VAlign=\"Center\"/></HBox>"
-		"</VBox></Window>");
+		"</VBox>");
 }
 
 /* ---------------------------------------------------------------------------
@@ -846,7 +874,12 @@ static void update_title(void) {
 	char text[1200];
 	int dirty = !te_model_equal(&g.model, &g.saved);
 	snprintf(text, sizeof(text), "%s%s - Raven Theme Editor", dirty ? "\xE2\x80\xA2 " : "", g.model.name[0] ? g.model.name : "Untitled");
-	Rwindow_set_title(g.window, text);
+	if (g.embedded) {
+		snprintf(text, sizeof(text), "%s%s", g.model.name[0] ? g.model.name : "Untitled", dirty ? "  \xE2\x80\xA2" : "");
+		Rlabel_set_text(W("embedded.title"), text);
+	} else {
+		Rwindow_set_title(g.window, text);
+	}
 	Rlabel_set_text(g.file_label, g.path[0] ? g.path : "Not saved yet");
 	Rwidget_set_enabled(g.undo_button, g.undo_count > 0);
 	Rwidget_set_enabled(g.redo_button, g.redo_count > 0);
@@ -1215,7 +1248,11 @@ static void on_backdrop(Rid combo, int index, void* user_data) {
  * ------------------------------------------------------------------------- */
 
 static void set_path(const char* path) {
+	char copy[sizeof(g.path)];
 	char* slash;
+	/* (path may be g.path itself: Save on a theme that has a file) */
+	te_copy(copy, sizeof(copy), path);
+	path = copy;
 	te_copy(g.path, sizeof(g.path), path);
 	te_copy(g.dir, sizeof(g.dir), path);
 	slash = strrchr(g.dir, '/');
@@ -1331,7 +1368,7 @@ static void action_file(Rid sender, const char* action, void* user_data) {
 	} else if (strcmp(action, "te.save_as") == 0) {
 		save_as();
 	} else if (strcmp(action, "te.quit") == 0) {
-		Rwindow_close(g.window);
+		if (!g.embedded) Rwindow_close(g.window);
 	} else if (strncmp(action, "te.new.", 7) == 0) {
 		int look = atoi(action + 7);
 		if (look <= 0 || look >= g_te_look_count) return;
@@ -1640,9 +1677,132 @@ static int find_widgets(void) {
 	Rcheckbox_set_changed_callback(g.compare, on_compare, NULL);
 	Rcombo_box_set_selected(g.snippets, 0);
 	Rcombo_box_set_selected(g.backdrop, 0);
-	Rwindow_set_close_callback(g.window, on_close, NULL);
+	if (!g.embedded) Rwindow_set_close_callback(g.window, on_close, NULL);
 	return 1;
 }
+
+/* ---------------------------------------------------------------------------
+ *  Starting, alone or inside the designer
+ * ------------------------------------------------------------------------- */
+
+static void bind_actions(void) {
+	int i;
+	static const char* const edits[] = { "te.undo", "te.redo", "te.copy", "te.generate", "te.surprise", "te.reset.colors",
+		"te.reset.metrics", "te.reset.syntax", "te.xml.apply", "te.xml.revert", "te.font.browse", "te.wallpaper.browse",
+		"te.copy.c", "te.fix.all" };
+	Raction_bind("te.open", action_file, NULL);
+	Raction_bind("te.save", action_file, NULL);
+	Raction_bind("te.save_as", action_file, NULL);
+	Raction_bind("te.quit", action_file, NULL);
+	for (i = 1; i < g_te_look_count; i++) {
+		char name[32];
+		snprintf(name, sizeof(name), "te.new.%d", i);
+		Raction_bind(name, action_file, NULL);
+	}
+	for (i = 0; i < (int)(sizeof(edits) / sizeof(edits[0])); i++) Raction_bind(edits[i], action_edit, NULL);
+	Raction_bind("te.window", action_view, NULL);
+	Raction_bind("te.ui.dark", action_view, NULL);
+	Raction_bind("te.ui.light", action_view, NULL);
+}
+
+/* The model to start from, and the two themes the interface names (before it is made). */
+static void prepare(void) {
+	te_text x;
+	srand((unsigned)(Rget_time() * 1000.0) ^ 0x5EED);
+	/* a theme to start from: Raven dark, an accent of its own */
+	te_model_init(&g.model);
+	g.model.accent_set = 1;
+	g.model.accent[0] = 0.49f;
+	g.model.accent[1] = 0.36f;
+	g.model.accent[2] = 1.0f;
+	te_model_init(&g.saved);
+	g.probe = R_INVALID_ID;
+	g.preview_window = R_INVALID_ID;
+	g.styles_timer = R_INVALID_ID;
+	g.backdrop_texture = R_INVALID_ID;
+	g.source = R_INVALID_ID;
+	g.compare = R_INVALID_ID;
+	update_base();
+	memset(&x, 0, sizeof(x));
+	te_model_write(&g.model, &x, PREVIEW_THEME, 0, NULL);
+	Rtheme_load_from_memory(x.data, x.length);
+	te_text_free(&x);
+}
+
+static void finish(void) {
+	bind_actions();
+	te_model_copy(&g.saved, &g.model);
+	ui_from_model();
+	refresh();
+	set_status("Pick a look and an accent, or generate a whole palette: the preview on the right follows every change.");
+}
+
+static void release(void) {
+	if (g.backdrop_texture != R_INVALID_ID && Rtexture_is_valid(g.backdrop_texture)) Rtexture_destroy(g.backdrop_texture);
+	g.backdrop_texture = R_INVALID_ID;
+	clear_stack(g.undo, &g.undo_count);
+	clear_stack(g.redo, &g.redo_count);
+	te_model_free(&g.model);
+	te_model_free(&g.saved);
+	te_text_free(&g.errors);
+	free(g.base_xml);
+	g.base_xml = NULL;
+}
+
+Rid te_embed(Rid window) {
+	te_text x;
+	memset(&g, 0, sizeof(g));
+	g.embedded = 1;
+	g.window = window;
+	prepare();
+	memset(&x, 0, sizeof(x));
+	build_content(&x);
+	g.root = Rwidget_create_from_xml(x.data, x.length);
+	te_text_free(&x);
+	if (g.root == R_INVALID_ID || !find_widgets()) return R_INVALID_ID;
+	finish();
+	return g.root;
+}
+
+int te_open(const char* path) {
+	return open_file(path);
+}
+
+int te_is_modified(void) {
+	return g.root != R_INVALID_ID && !te_model_equal(&g.model, &g.saved);
+}
+
+int te_save(void) {
+	/* (no dialog during the random runs of the tests) */
+	if (!g.path[0] && g.fuzzing) return 0;
+	return g.path[0] ? save_to(g.path) : save_as();
+}
+
+const char* te_get_path(void) {
+	return g.path;
+}
+
+void te_set_scripted(int scripted) {
+	g.scripted = scripted;
+}
+
+void te_set_fuzzing(int fuzzing) {
+	g.fuzzing = fuzzing;
+}
+
+void te_error(RError code, RSeverity severity, const char* detail) {
+	/* (nothing before te_embed nor after te_shutdown) */
+	if (!g.embedded || g.root == R_INVALID_ID) return;
+	on_error(code, severity, detail);
+}
+
+void te_shutdown(void) {
+	if (g.preview_window != R_INVALID_ID && Rwindow_is_valid(g.preview_window)) Rwindow_destroy(g.preview_window);
+	release();
+	g.root = R_INVALID_ID;
+}
+
+#ifndef TE_EMBEDDED
 
 /* ---------------------------------------------------------------------------
  *  Scripted runs (the tests)
@@ -2023,32 +2183,12 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	if (g.scripted) Rset_animation_time_step(1.0 / 60.0);
-	srand((unsigned)(Rget_time() * 1000.0) ^ 0x5EED);
 	Rlook_set(R_LOOK_RAVEN_DARK);
-
-	/* a theme to start from: Raven dark, an accent of its own */
-	te_model_init(&g.model);
-	g.model.accent_set = 1;
-	g.model.accent[0] = 0.49f;
-	g.model.accent[1] = 0.36f;
-	g.model.accent[2] = 1.0f;
-	te_model_init(&g.saved);
-	g.probe = R_INVALID_ID;
-	g.preview_window = R_INVALID_ID;
-	g.styles_timer = R_INVALID_ID;
-	g.backdrop_texture = R_INVALID_ID;
-	g.source = R_INVALID_ID;
-	g.compare = R_INVALID_ID;
-
-	/* the two themes the window names, before it is made */
-	update_base();
-	memset(&x, 0, sizeof(x));
-	te_model_write(&g.model, &x, PREVIEW_THEME, 0, NULL);
-	Rtheme_load_from_memory(x.data, x.length);
-	te_text_free(&x);
+	prepare();
 
 	build_interface(&x);
 	g.window = Rwindow_create_from_xml(x.data, x.length);
+	g.root = g.window;
 	te_text_free(&x);
 	if (g.window == R_INVALID_ID || !find_widgets()) {
 		fprintf(stderr, "raven_theme_editor: cannot build the window\n");
@@ -2056,29 +2196,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	Raction_bind("te.open", action_file, NULL);
-	Raction_bind("te.save", action_file, NULL);
-	Raction_bind("te.save_as", action_file, NULL);
-	Raction_bind("te.quit", action_file, NULL);
-	for (i = 1; i < g_te_look_count; i++) {
-		char name[32];
-		snprintf(name, sizeof(name), "te.new.%d", i);
-		Raction_bind(name, action_file, NULL);
-	}
-	{
-		static const char* const edits[] = { "te.undo", "te.redo", "te.copy", "te.generate", "te.surprise", "te.reset.colors",
-			"te.reset.metrics", "te.reset.syntax", "te.xml.apply", "te.xml.revert", "te.font.browse", "te.wallpaper.browse",
-			"te.copy.c", "te.fix.all" };
-		for (i = 0; i < (int)(sizeof(edits) / sizeof(edits[0])); i++) Raction_bind(edits[i], action_edit, NULL);
-	}
-	Raction_bind("te.window", action_view, NULL);
-	Raction_bind("te.ui.dark", action_view, NULL);
-	Raction_bind("te.ui.light", action_view, NULL);
-
-	te_model_copy(&g.saved, &g.model);
-	ui_from_model();
-	refresh();
-	set_status("Pick a look and an accent, or generate a whole palette: the preview on the right follows every change.");
+	finish();
 	if (file) open_file(file);
 
 	if (script) ok = run_script(script);
@@ -2089,13 +2207,11 @@ int main(int argc, char** argv) {
 
 	code = Rget_exit_code();
 	if (g.backdrop_texture != R_INVALID_ID) Rtexture_destroy(g.backdrop_texture);
+	g.backdrop_texture = R_INVALID_ID;
 	Rshutdown();
-	clear_stack(g.undo, &g.undo_count);
-	clear_stack(g.redo, &g.redo_count);
-	te_model_free(&g.model);
-	te_model_free(&g.saved);
-	te_text_free(&g.errors);
-	free(g.base_xml);
+	release();
 	free(script);
 	return ok ? code : 1;
 }
+
+#endif /* TE_EMBEDDED */
