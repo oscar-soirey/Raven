@@ -205,7 +205,7 @@ if a cell is wrong or out of date, please
 <ul><li><a href="#color-picker">Color picker</a></li><li><a href="#timeline">Timeline</a></li><li><a href="#node-graph">Node graph</a></li><li><a href="#block-editor">Block editor</a></li></ul>
 </li>
 <li><a href="#themes">15. Themes, styles and materials</a>
-<ul><li><a href="#styles">Styles and classes</a></li><li><a href="#theme-files">Theme files</a></li><li><a href="#materials">Materials, glass and blur</a></li></ul>
+<ul><li><a href="#styles">Styles and classes</a></li><li><a href="#theme-files">Theme files</a></li><li><a href="#materials">Materials, glass and blur</a></li><li><a href="#theme-editor">The theme editor</a></li></ul>
 </li>
 <li><a href="#drawing">16. Custom widgets, drawing and animation</a>
 <ul><li><a href="#springs">Springs</a></li><li><a href="#transitions">Transitions</a></li></ul>
@@ -383,7 +383,7 @@ cmake --install build --prefix install</pre>
 <tr><td><code>RAVEN_BUILD_SHARED</code></td><td>OFF</td><td>a shared library (<code>raven.dll</code>, <code>libraven.so</code>, <code>libraven.dylib</code>) instead of a static one</td></tr>
 <tr><td><code>RAVEN_BUILD_EXAMPLES</code></td><td>ON at top level</td><td>the example programs</td></tr>
 <tr><td><code>RAVEN_BUILD_TESTS</code></td><td>ON at top level</td><td>the tests, the tests of the bindings, <code>raven_benchmark</code></td></tr>
-<tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code>, the IDE</td></tr>
+<tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code>, the IDE, and <code>raven_theme_editor</code></td></tr>
 <tr><td><code>RAVEN_BUILD_WEB</code></td><td>ON</td><td>web pages (<code>raven_web.h</code>), compiled into the library</td></tr>
 <tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>OFF builds without any GPU code (a custom backend, or headless)</td></tr>
 <tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code> or <code>null</code></td></tr>
@@ -1498,6 +1498,30 @@ was obtained.</p>
         &lt;Label Text="Seen through" TextSize="22"/&gt;
     &lt;/BackgroundBlur&gt;
 &lt;/Window&gt;</pre>
+
+<h3 id="theme-editor">The theme editor</h3>
+<p><code>raven_theme_editor [theme.xml]</code> makes theme files by looking at them.
+On the left, everything a theme holds; on the right, a preview made of real
+widgets (controls, an application, code, lists, a dialog) drawn with the theme
+as it is being made, and alive: hover, type and drag in it.</p>
+<ul>
+<li><b>Theme</b>: the name, the look it starts from, dark or light, the material, the motion, the accent, the font and the wallpaper. <i>Generate the palette</i> works out the 36 colors and the syntax colors from the accent (<i>Tint</i>: how much the surfaces take its hue; <i>Depth</i>: how far apart they are), with text that reads; <i>Surprise me</i> tries another accent.</li>
+<li><b>Colors</b>, <b>Sizes</b>, <b>Code</b>: each color role, metric, glass multiplier and syntax color, showing the value of the look until one is set; &times; goes back to it.</li>
+<li><b>Styles</b>: the <code>&lt;Style&gt;</code> rules as text, with ready-made ones to add; a mistake shows under the text, and the preview keeps the last good theme.</li>
+<li><b>Check</b>: the contrast of the pairs of colors people read, measured as WCAG 2 does (AA, AAA, low, failing). <i>Fix</i> changes the lightness of the color in front as little as it takes; <i>Fix every pair</i> does it everywhere but on the accent.</li>
+<li><b>XML</b>: the file as it will be saved, editable by hand. <i>Copy as C</i> gives it as a C string, with the calls that load and use it.</li>
+</ul>
+<p><i>Saved version</i>, above the preview, shows the theme as it was last
+opened or saved, to compare with the changes.</p>
+<p>Undo and redo cover every change; F7 opens the preview in a window of its
+own, with the wallpaper of the theme. It uses the public API only: the theme
+is written as a file, loaded with <code>Rtheme_load_from_memory</code> under a name of
+its own and given to the preview with <code>Rwidget_set_theme</code>; loading it again
+under the same name changes it in place.</p>
+<p>Like the IDE, it can be driven from a script, which is how its test works:</p>
+<pre>raven_theme_editor --null --frames 2 --script "look WindowsDark accent #FF9F0A color Window #101018 expectpreview Window #101018 do te.generate save night.xml"</pre>
+<p>The commands are listed at the top of <code>run_script</code> in
+<code>tools/theme_editor/main.c</code>.</p>
 
 <!-- ======================================================================= -->
 <h2 id="drawing">16. Custom widgets, drawing and animation</h2>

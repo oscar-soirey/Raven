@@ -122,6 +122,10 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   interfaces edited visually next to their code, completion of the Raven API,
   translations in a table, build, run and compiler errors at their line. See
   [The IDE](#the-ide).
+- **A theme editor** (`raven_theme_editor`): every color, size, glass setting,
+  syntax color and style rule of a theme, edited over a live preview of real
+  widgets, a palette worked out from one accent, contrast checked. See
+  [The theme editor](#the-theme-editor).
 - **C11, no dependency.** Raven opens its own native windows (Win32, X11 and Wayland, Cocoa on macOS), loads
   Vulkan at run time and has its own memory allocator. A stripped shared
   library is about 1.3 MB, two fonts included.
@@ -341,6 +345,31 @@ View menu switches the theme; a folder dropped on the window opens it as a
 project. The visual editor uses the public API only. The files are in
 `tools/designer/` (`ide.h` says what each one does).
 
+## The theme editor
+
+`raven_theme_editor [theme.xml]` makes theme files ([docs/THEMES.md](docs/THEMES.md))
+by looking at them: the theme on the left, a preview on the right made of real
+widgets (controls, an application, code, lists, a dialog) drawn with the theme
+as it changes, and alive.
+
+- **Theme**: the look it starts from (any of the sixteen), dark or light,
+  material, motion, accent, font, wallpaper; *Generate the palette* works out
+  every color from the accent (tint and depth adjustable), *Surprise me* tries
+  another one.
+- **Colors**, **Sizes**, **Code**: the 36 color roles, the metrics, the glass
+  multipliers and the syntax colors, each showing what the look gives until it
+  is set, with a button to go back to it.
+- **Styles**: the `<Style>` rules as text, with ready-made ones to add.
+- **Check**: the contrast of the pairs of colors people read, as WCAG 2
+  measures it, with a button that fixes a pair (or all of them).
+- **XML**: the file as it will be saved, editable, or copied as C code that
+  loads it.
+
+*Saved version* above the preview compares with the last saved theme.
+
+Undo and redo, open and save, `F7` for the preview in a window of its own.
+The files are in `tools/theme_editor/`.
+
 ## License
 
 **Raven is open source**, under the [Apache License 2.0](LICENSE) (see also
@@ -431,7 +460,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_SHARED` | `OFF` | shared library instead of static |
 | `RAVEN_BUILD_EXAMPLES` | `ON` when top level | |
 | `RAVEN_BUILD_TESTS` | `ON` when top level | tests, tests of the bindings, `raven_benchmark` |
-| `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer` |
+| `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer`, `raven_theme_editor` |
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
 | `RAVEN_BACKEND_VULKAN` | `ON` | `OFF` builds without any GPU code (custom backend or headless) |
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
