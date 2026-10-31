@@ -21,6 +21,12 @@ Both stb files are compiled as `static` functions inside a single source
 file each (`src/render/font_raster.c`, `src/render/image_decode.c`), so they
 cannot clash with another copy of stb in the application.
 
+`stb_truetype.h` has one change, marked `Raven:`: the CFF table of an
+OpenType font is read within its length (the original reads up to 512 MB
+past its start), so that a damaged `.otf` cannot make it read past the end of
+the file. `font_raster.c` also checks the tables of every font and each
+TrueType glyph before stb reads them, since stb trusts the offsets of the file.
+
 On Linux and BSD, the Wayland platform opens `libwayland-client`,
 `libxkbcommon` and, when they are installed, `libwayland-cursor` and
 `libdecor` at run time (all MIT); none of them is needed to build.
