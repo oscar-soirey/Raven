@@ -33,6 +33,7 @@ option(RAVEN_REBUILD_SHADERS "Recompile the GLSL shaders (needs glslangValidator
 option(RAVEN_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(RAVEN_MSVC_STATIC_RUNTIME "Visual C++: link the C runtime statically (/MT) instead of using its DLL (/MD)" OFF)
 set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa or null")
+option(RAVEN_WAYLAND "Linux and BSD: compile native Wayland beside X11 (nothing of Wayland is needed to build: its libraries are opened at run time)" ON)
 set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa null)
 
 if(RAVEN_IS_TOP_LEVEL)
@@ -278,6 +279,13 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "x11")
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_X11)
 	list(APPEND RAVEN_LIBRARIES ${X11_X11_LIB})
+	if(RAVEN_WAYLAND)
+		list(APPEND RAVEN_PLATFORM_SOURCES
+			src/platform/wayland/wayland_platform.c
+			src/platform/wayland/wayland_protocols.h
+		)
+		list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WAYLAND)
+	endif()
 elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	if(NOT APPLE)
 		message(FATAL_ERROR "Raven: the cocoa platform is only available on macOS")
@@ -413,7 +421,12 @@ if(RAVEN_BACKEND_VULKAN)
 	target_include_directories(raven PRIVATE ${RAVEN_VULKAN_INCLUDE_DIR})
 endif()
 
-message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SELECTED} vulkan=${RAVEN_BACKEND_VULKAN} shared=${RAVEN_BUILD_SHARED}")
+if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
+	set(RAVEN_PLATFORM_SUMMARY "x11+wayland")
+else()
+	set(RAVEN_PLATFORM_SUMMARY "${RAVEN_PLATFORM_SELECTED}")
+endif()
+message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} shared=${RAVEN_BUILD_SHARED}")
 
 # ---------------------------------------------------------------------------
 #  Examples, tools and tests

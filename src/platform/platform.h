@@ -3,12 +3,13 @@
  * Windowing interface implemented once per window system.
  *
  *   platform/x11/     Xlib               (Linux, BSD)
+ *   platform/wayland/ Wayland            (Linux, BSD; compiled beside X11)
  *   platform/win32/   Win32              (Windows)
  *   platform/cocoa/   Cocoa + Metal      (macOS)
  *   platform/null/    no window at all   (headless runs, tests)
  *
- * To port Raven to another window system (for example Wayland), implement this
- * table and return it from rvn_platform_select.
+ * To port Raven to another window system, implement this table and return
+ * it from rvn_platform_select.
  *
  * Unless noted, sizes and positions are in pixels of the client area and all
  * functions are called from the UI thread.
@@ -218,6 +219,15 @@ int rvn_host_platform_registered(void);
 
 #if defined(RAVEN_PLATFORM_X11)
 const rvn_platform_t* rvn_platform_x11(void);
+#endif
+#if defined(RAVEN_PLATFORM_WAYLAND)
+const rvn_platform_t* rvn_platform_wayland(void);
+/**
+ * Connects to the Wayland compositor and checks that Raven can run there
+ * (libwayland-client, libxkbcommon, decorations). The connection is kept for
+ * init. `forced`: the user asked for Wayland, decorations or not.
+ */
+int rvn_wayland_probe(int forced);
 #endif
 #if defined(RAVEN_PLATFORM_WIN32)
 const rvn_platform_t* rvn_platform_win32(void);
