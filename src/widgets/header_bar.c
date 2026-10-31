@@ -393,6 +393,9 @@ static void rvn_header_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 	if (!bar->no_background) {
 		if (rvn_widget_glass(widget)) {
 			rvn_paint_surface(painter, widget, rect, 0.0f, RVN_SURFACE_BAR, 0.0f, 0.0f);
+		} else if (rvn_widget_liquid(widget)) {
+			/* macOS 26: the bar is glass over the content, without a line under it */
+			rvn_paint_surface(painter, widget, rect, 0.0f, RVN_SURFACE_BAR, 0.0f, 0.0f);
 		} else if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS) {
 			/* Windows: the title bar is the window itself (Mica), without a line under it */
 			if (rvn_color_a(rvn_widget_color(widget, R_COLOR_HEADER))) rvn_paint_rect(painter, rect, rvn_widget_color(widget, R_COLOR_HEADER));

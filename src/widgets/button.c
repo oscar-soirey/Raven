@@ -86,6 +86,23 @@ static void rvn_button_paint(rvn_widget_t* widget, RPainter* painter) {
 	press = rvn_widget_press(widget, painter, pressed);
 	rvn_widget_squash(widget, press, rvn_widget_glass(widget) ? 0.13f : 0.09f);
 
+	if (rvn_widget_liquid(widget) && rvn_widget_on_bar(widget) && !rvn_part_styled(widget, RVN_PART_BODY)) {
+		/*
+		 * macOS 26: the buttons of a bar are capsules of glass (the primary
+		 * one tinted with the accent); flat ones only show it while pressed.
+		 */
+		radius = rect.h * 0.5f;
+		if (button->style == R_BUTTON_PRIMARY) {
+			rvn_paint_surface(painter, widget, rect, radius, RVN_SURFACE_ACCENT, 0.0f, press);
+			if (painter->enabled) painter->text_color = rvn_widget_color(widget, R_COLOR_ACCENT_TEXT);
+		} else if (button->style != R_BUTTON_FLAT || press > 0.01f) {
+			float opacity = painter->opacity;
+			if (button->style == R_BUTTON_FLAT) painter->opacity *= rvn_clampf(press, 0.0f, 1.0f);
+			rvn_paint_surface(painter, widget, rect, radius, RVN_SURFACE_CONTROL, 0.0f, press);
+			painter->opacity = opacity;
+		}
+		return;
+	}
 	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
 		/* the platforms: no squash, the colors fade from state to state; the text follows the look */
 		rvn_part_look_eased(widget, RVN_PART_BODY, states, hover, press, rvn_platform_button_look, NULL, &look);
@@ -126,6 +143,10 @@ static void rvn_button_paint(rvn_widget_t* widget, RPainter* painter) {
 }
 
 static void rvn_button_paint_overlay(rvn_widget_t* widget, RPainter* painter) {
+	if (rvn_widget_liquid(widget) && rvn_widget_on_bar(widget)) {
+		rvn_paint_focus(widget, painter, widget->rect.h * 0.5f);
+		return;
+	}
 	rvn_paint_focus(widget, painter, rvn_control_radius(widget, widget->rect.h));
 }
 
