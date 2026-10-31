@@ -909,6 +909,34 @@ static int start(int headless) {
 	return 1;
 }
 
+/* The look of Windows, and a style given to a part: drawn as said. */
+static void test_windows_look(void) {
+	Rid window;
+	Rtheme_apply(R_THEME_DARK);
+	Rlook_set(R_LOOK_WINDOWS_LIGHT);
+	window = window_from(
+		"<Window Width=\"300\" Height=\"200\">"
+		"  <Canvas>"
+		"    <Button Text=\"\" Slot.Position=\"20,20\" Slot.Size=\"120,32\"/>"
+		"    <Button Text=\"\" Class=\"red\" Slot.Position=\"20,80\" Slot.Size=\"120,32\"/>"
+		"    <Button Text=\"\" Style=\"Primary\" Slot.Position=\"160,20\" Slot.Size=\"120,32\"/>"
+		"  </Canvas>"
+		"</Window>");
+	CHECK(Rtheme_load_from_memory("<Theme Name=\"RedButtons\"><Style Widget=\"Button\" Class=\"red\" Background=\"#FF0000\"/></Theme>", 0) != NULL);
+	CHECK(Rtheme_use("RedButtons"));
+	capture(window);
+	/* the window: Mica, light */
+	CHECK_PIXEL(5, 5, 0xF3, 0xF3, 0xF3);
+	/* a button: white at 70 % over it */
+	CHECK_PIXEL(80, 36, 0xFB, 0xFB, 0xFB);
+	/* the accent button: the accent of Windows (or the one of the system) */
+	CHECK(abs((int)pixel_at(220, 36)[0] - 0xF3) + abs((int)pixel_at(220, 36)[1] - 0xF3) + abs((int)pixel_at(220, 36)[2] - 0xF3) > 60);
+	/* the class "red": its Background */
+	CHECK_PIXEL(80, 96, 0xFF, 0x00, 0x00);
+	Rwindow_destroy(window);
+	Rtheme_apply(R_THEME_DARK);
+}
+
 int main(void) {
 	/* failures to start are expected on machines without Vulkan: stay quiet */
 	/* RAVEN_TEST_WINDOWED=1 forces a real window, to test the window system path too */
@@ -933,6 +961,7 @@ int main(void) {
 	RUN(test_text);
 	RUN(test_custom_drawing);
 	RUN(test_glass);
+	RUN(test_windows_look);
 	RUN(test_glass_theme);
 	RUN(test_materials);
 	RUN(test_curves_and_blur);

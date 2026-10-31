@@ -545,6 +545,182 @@ static void test_live_reload(void) {
 	remove(library);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Looks
+ * ------------------------------------------------------------------------- */
+
+static void test_looks(void) {
+	Rid window, button;
+	const char* name;
+	char saved[512];
+	char* text;
+	size_t size = 0;
+	float r, g, b, a;
+
+	/* (the theme files of the tests before: gone) */
+	Rtheme_apply(R_THEME_DARK);
+	CHECK(Rlook_get() == R_LOOK_RAVEN_DARK);
+	/* a look of a platform: its colors, its sizes, opaque */
+	Rlook_set(R_LOOK_WINDOWS_LIGHT);
+	CHECK(Rlook_get() == R_LOOK_WINDOWS_LIGHT);
+	CHECK_STR(Rtheme_get_name(), "WindowsLight");
+	CHECK(!Rtheme_is_dark());
+	CHECK(theme_color(R_COLOR_WINDOW) == 0xF3F3F3FFu);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 32.0f);
+	CHECK(Rtheme_get_material() == R_MATERIAL_SOLID);
+	/* no glass on Windows: said, and nothing changes */
+	EXPECT_ERRORS_BEGIN();
+	Rtheme_set_material(R_MATERIAL_FROSTED_GLASS);
+	EXPECT_ERRORS_END(1);
+	CHECK(Rtheme_get_material() == R_MATERIAL_SOLID);
+	Rlook_set(R_LOOK_WINDOWS_DARK);
+	CHECK(Rtheme_is_dark());
+	CHECK(theme_color(R_COLOR_WINDOW) == 0x202020FFu);
+	/* the accent of Windows: the shades are the accent seen through */
+	Rtheme_set_accent(1.0f, 0.0f, 0.0f);
+	Rtheme_get_color(R_COLOR_ACCENT_HOVERED, &r, &g, &b, &a);
+	CHECK(r > 0.99f && a < 0.95f && a > 0.85f);
+
+	/* the old names and the new ones */
+	Rtheme_apply(R_THEME_GLASS_LIGHT);
+	CHECK(Rlook_get() == R_LOOK_RAVEN_GLASS_LIGHT);
+	CHECK_STR(Rtheme_get_name(), "GlassLight");
+	CHECK(Rtheme_use("WindowsDark"));
+	CHECK(Rlook_get() == R_LOOK_WINDOWS_DARK);
+	/* the look of the platform: Windows on Windows, Raven elsewhere (for now) */
+	Rlook_set(R_LOOK_NATIVE_LIGHT);
+	CHECK(Rlook_get() == R_LOOK_NATIVE_LIGHT);
+	CHECK(!Rtheme_is_dark());
+#if defined(_WIN32)
+	CHECK_STR(Rtheme_get_name(), "WindowsLight");
+#elif defined(__APPLE__)
+	CHECK_STR(Rtheme_get_name(), "MacOSLight");
+#else
+	CHECK_STR(Rtheme_get_name(), "GnomeLight");
+#endif
+	/* macOS and GNOME: their colors and sizes, opaque */
+	Rlook_set(R_LOOK_MACOS_LIGHT);
+	CHECK_STR(Rtheme_get_name(), "MacOSLight");
+	CHECK(theme_color(R_COLOR_WINDOW) == 0xECECECFFu);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 22.0f);
+	CHECK(Rtheme_get_material() == R_MATERIAL_SOLID);
+	Rlook_set(R_LOOK_MACOS_DARK);
+	CHECK(Rtheme_is_dark());
+	CHECK(theme_color(R_COLOR_WINDOW) == 0x323232FFu);
+	CHECK(Rtheme_use("GnomeDark"));
+	CHECK(Rlook_get() == R_LOOK_GNOME_DARK);
+	CHECK(Rtheme_is_dark());
+	CHECK(theme_color(R_COLOR_WINDOW) == 0x222226FFu);
+	CHECK(Rtheme_use("Adwaita"));
+	CHECK(Rlook_get() == R_LOOK_GNOME_LIGHT);
+	CHECK(theme_color(R_COLOR_WINDOW) == 0xFAFAFAFFu);
+	CHECK(Rtheme_use("macOS"));
+	CHECK(Rlook_get() == R_LOOK_MACOS_LIGHT);
+	/* the accent of macOS: no change under the pointer */
+	Rtheme_set_accent(1.0f, 0.0f, 0.0f);
+	CHECK(theme_color(R_COLOR_ACCENT_HOVERED) == 0xFF0000FFu);
+	{
+		/* every look draws a window of every widget */
+		static const RLook looks[] = { R_LOOK_WINDOWS_DARK, R_LOOK_WINDOWS_LIGHT, R_LOOK_MACOS_DARK, R_LOOK_MACOS_LIGHT,
+			R_LOOK_GNOME_DARK, R_LOOK_GNOME_LIGHT };
+		const char* all =
+			"<Window Width=\"500\" Height=\"400\"><VBox><HeaderBar/><MenuBar><Menu Text=\"File\"><MenuItem Text=\"Open\"/></Menu></MenuBar>"
+			"<Button Text=\"A\" Style=\"Primary\"/><Button Text=\"B\" Style=\"Flat\"/><Checkbox Text=\"C\" Checked=\"true\"/>"
+			"<Checkbox Style=\"Radio\" Checked=\"true\"/><Checkbox Style=\"Switch\"/><Slider Value=\"0.5\"/><ProgressBar Value=\"0.5\"/>"
+			"<TextInput Placeholder=\"P\"/><ComboBox Items=\"X|Y\" Selected=\"0\"/><SpinBox Value=\"3\"/>"
+			"<TabView Height=\"60\"><Label Slot.Title=\"T1\"/><Label Slot.Title=\"T2\"/></TabView>"
+			"<ListView Items=\"1|2\" Height=\"60\"/><TreeView Height=\"60\"><Item Text=\"I\"><Item Text=\"J\"/></Item></TreeView>"
+			"<Expander Title=\"E\" Expanded=\"true\"><Label Text=\"in\"/></Expander></VBox></Window>";
+		Rid all_window = Rwindow_create_from_xml(all, strlen(all));
+		size_t k;
+		CHECK(Rwindow_is_valid(all_window));
+		for (k = 0; k < sizeof(looks) / sizeof(looks[0]); k++) {
+			Rlook_set(looks[k]);
+			Rdraw_frame();
+		}
+		Rwindow_destroy(all_window);
+	}
+	Rlook_set(R_LOOK_NATIVE_LIGHT);
+	EXPECT_ERRORS_BEGIN();
+	Rlook_set((RLook)0x1234);
+	EXPECT_ERRORS_END(1);
+
+	/* a theme file that names no look is laid over the look in use, and follows it */
+	Rlook_set(R_LOOK_RAVEN_DARK);
+	name = Rtheme_load_from_memory("<Theme Name=\"Follow\" Accent=\"#FF0000\"><Colors Panel=\"#123456\"/></Theme>", 0);
+	CHECK_STR(name, "Follow");
+	CHECK(Rtheme_use("Follow"));
+	CHECK(theme_color(R_COLOR_PANEL) == 0x123456FFu);
+	CHECK(theme_color(R_COLOR_ACCENT) == 0xFF0000FFu);
+	CHECK(theme_color(R_COLOR_WINDOW) == 0x1E1E20FFu);
+	Rlook_set(R_LOOK_WINDOWS_LIGHT);
+	CHECK_STR(Rtheme_get_name(), "Follow");
+	CHECK(theme_color(R_COLOR_PANEL) == 0x123456FFu);
+	CHECK(theme_color(R_COLOR_ACCENT) == 0xFF0000FFu);
+	CHECK(theme_color(R_COLOR_WINDOW) == 0xF3F3F3FFu);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 32.0f);
+	/* a theme that names its look imposes it */
+	name = Rtheme_load_from_memory("<Theme Name=\"Fixed\" Look=\"RavenLight\"/>", 0);
+	CHECK(Rtheme_use("Fixed"));
+	CHECK(theme_color(R_COLOR_WINDOW) == 0xF3F3F5FFu);
+	/* a theme cannot take the name of a look */
+	EXPECT_ERRORS_BEGIN();
+	CHECK(Rtheme_load_from_memory("<Theme Name=\"WindowsDark\"/>", 0) == NULL);
+	EXPECT_ERRORS_END(1);
+	/* a theme file asking a look of a platform for glass: said, and opaque */
+	EXPECT_ERRORS_BEGIN();
+	CHECK(Rtheme_load_from_memory("<Theme Name=\"GlassWin\" Look=\"WindowsDark\" Material=\"FrostedGlass\"/>", 0) != NULL);
+	EXPECT_ERRORS_END(1);
+	CHECK(Rtheme_use("GlassWin"));
+	CHECK(Rtheme_get_material() == R_MATERIAL_SOLID);
+
+	/* parts and states: read, kept, written back */
+	EXPECT_ERRORS_BEGIN();
+	name = Rtheme_load_from_memory(
+		"<Theme Name=\"Parts\" Look=\"WindowsLight\" Motion=\"Springy\">"
+		"<Style Widget=\"Slider\" Part=\"Thumb\" State=\"Hovered Pressed\" Background=\"#FF0000\" Size=\"24\"/>"
+		"<Style Widget=\"Button\" Class=\"danger\" Background=\"#C42B1C\" Foreground=\"#FFFFFF\"/>"
+		"<Style Part=\"Item\" State=\"Selected\" BorderColor=\"#00FF00\" CornerRadius=\"2\"/>"
+		"<Style Part=\"Nope\" Background=\"#000\"/>"
+		"<Style State=\"Sleepy\" Background=\"#000\"/>"
+		"<Style Part=\"Thumb\" Accent=\"#000\"/>"
+		"</Theme>", 0);
+	EXPECT_ERRORS_END(3);
+	CHECK_STR(name, "Parts");
+	CHECK(Rtheme_use("Parts"));
+	window = Rwindow_create_from_xml("<Window Width=\"300\" Height=\"200\"><VBox><Button Name=\"b\" Class=\"danger\" Text=\"Delete\"/>"
+		"<Slider/><ListView Items=\"A|B\"/></VBox></Window>", strlen("<Window Width=\"300\" Height=\"200\"><VBox><Button Name=\"b\" Class=\"danger\" Text=\"Delete\"/>"
+		"<Slider/><ListView Items=\"A|B\"/></VBox></Window>"));
+	CHECK(Rwindow_is_valid(window));
+	button = Rwidget_find(window, "b");
+	CHECK(button != R_INVALID_ID);
+	Rdraw_frame();
+	snprintf(saved, sizeof(saved), "%s/raven_test_parts_theme.xml", temp_dir());
+	CHECK(Rtheme_save(saved, "PartsAgain"));
+	text = Rfile_read(saved, &size);
+	CHECK(text != NULL);
+	if (text) {
+		CHECK(strstr(text, "Look=\"WindowsLight\"") != NULL);
+		CHECK(strstr(text, "Motion=\"Springy\"") != NULL);
+		CHECK(strstr(text, "Part=\"Thumb\" State=\"Hovered Pressed\"") != NULL);
+		CHECK(strstr(text, "Background=\"#FF0000\"") != NULL);
+		CHECK(strstr(text, "Size=\"24\"") != NULL);
+		CHECK(strstr(text, "Class=\"danger\" Background=\"#C42B1C\" Foreground=\"#FFFFFF\"") != NULL);
+		CHECK(strstr(text, "Part=\"Item\" State=\"Selected\"") != NULL);
+		Rmemory_free(text);
+	}
+	CHECK_STR(Rtheme_load(saved), "PartsAgain");
+	CHECK(Rtheme_use("PartsAgain"));
+	Rdraw_frame();
+	remove(saved);
+	Rwindow_destroy(window);
+
+	/* back to Raven: the font of Raven comes back */
+	Rlook_set(R_LOOK_RAVEN_DARK);
+	CHECK(Rtheme_get_font() == Rfont_get_default());
+	CHECK_STR(Rtheme_get_name(), "Dark");
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("test_themes: cannot initialize Raven\n");
@@ -554,6 +730,7 @@ int main(void) {
 	RUN(test_accent_and_scopes);
 	RUN(test_theme_files);
 	RUN(test_live_reload);
+	RUN(test_looks);
 	Rshutdown();
 	return test_report("test_themes");
 }
