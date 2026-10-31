@@ -1,7 +1,9 @@
 # Raven tools.
 #
-#   raven_designer   the IDE of Raven (tools/designer): projects, interfaces
-#                    edited visually (.xml), code, translations, build and run
+#   raven_designer       the IDE of Raven (tools/designer): projects, interfaces
+#                        edited visually (.xml), code, translations, build and run
+#   raven_theme_editor   makes theme files (tools/theme_editor): every color, size
+#                        and style of a theme, edited over a live preview
 #
 # embed.py and subset_font.py are the scripts that produce the files of
 # src/embedded; they are not needed to build.
@@ -22,8 +24,20 @@ else()
 	target_link_libraries(raven_designer PRIVATE m)
 endif()
 
+add_executable(raven_theme_editor theme_editor/main.c theme_editor/model.c theme_editor/editor.h)
+target_link_libraries(raven_theme_editor PRIVATE raven::raven)
+set_target_properties(raven_theme_editor PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tools")
+if(MSVC)
+	target_compile_definitions(raven_theme_editor PRIVATE _CRT_SECURE_NO_WARNINGS)
+	set_target_properties(raven_theme_editor PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+elseif(MINGW)
+	target_link_options(raven_theme_editor PRIVATE -mwindows)
+else()
+	target_link_libraries(raven_theme_editor PRIVATE m)
+endif()
+
 include(GNUInstallDirs)
-install(TARGETS raven_designer RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # The designer driving itself, without a window system and without a GPU:
 # adds, moves, wraps, deletes, undoes, and checks the XML after each step.
@@ -57,4 +71,13 @@ if(RAVEN_BUILD_TESTS)
 	add_test(NAME designer_native COMMAND raven_designer --null --frames 2 --script
 		"f 1 nativeproject ${_ide} native_c C expectfile ${_ide}/native_c/main.c Hello,~world! expecttabs main.c expectpanel panel.preview 0 nativeproject ${_ide} native_rs Rust expectfile ${_ide}/native_rs/src/main.rs Hello,~world! nativeproject ${_ide} native_py Python expectfile ${_ide}/native_py/main.py Hello,~world! nativeproject ${_ide} native_cs C# expectfile ${_ide}/native_cs/Program.cs Hello,~world! f 1")
 	set_tests_properties(designer_native PROPERTIES FIXTURES_REQUIRED designer_ide)
+
+	# The theme editor driving itself: a look, an accent, colors, sizes and rules edited and seen
+	# in the preview, a palette generated, undo and redo, the contrast checked, a file saved and read back.
+	set(_te "${CMAKE_CURRENT_BINARY_DIR}/theme_editor_test.xml")
+	add_test(NAME theme_editor COMMAND raven_theme_editor --null --frames 2 --script
+		"f 2 name Night~Owl look WindowsDark expectxml Look=\"WindowsDark\" accent #FF9F0A expectxml Accent=\"#FF9F0A\" expectbase Accent #FF9F0A color Window #101018 color Text #FFF4E0 expectpreview Window #101018 expectpreview Text #FFF4E0 expectxml Window=\"#101018\" metric CornerRadius 9 expectmetric CornerRadius 9 expectxml CornerRadius=\"9\" syntax Keyword #FF7AB2 expectxml Keyword=\"#FF7AB2\" f 1 expectundo 7 do te.undo noxml Keyword= do te.redo expectxml Keyword= reset Text noxml Text=\"#FFF4E0\" styles <Style~Widget=\"Button\"~Class=\"danger\"~Accent=\"#E5484D\"/> expecterror - expectxml Class=\"danger\" styles <Style~Widget=\"Nope\"/> expecterror Nope styles - snippet 2 expectxml CornerRadius=\"14\" look RavenGlassDark color Selection #FF9F0A55 expectxml Selection=\"#FF9F0A55\" window f 2 do te.generate expectxml AccentText= expectcheck 16 save ${_te} expectfile ${_te} Name=\"Night~Owl\" do te.new.2 noxml Night~Owl open ${_te} expectxml Name=\"Night~Owl\" expectxml Look=\"RavenGlassDark\" expectpreview Accent #FF9F0A expectundo 0 f 2")
+	# Contrast fixed one pair at a time and all at once, the saved version compared, the theme copied as C code.
+	add_test(NAME theme_editor_check COMMAND raven_theme_editor --null --frames 2 --script
+		"look RavenLight accent #FFD60A do te.generate expectcheck 15 color Text #CCCCCC expectcheck 9 fix 0 expectcheck 13 do te.fix.all expectcheck 15 name Night~Owl do te.copy.c expectclipboard night_owl_theme expectclipboard Rtheme_use(\"Night~Owl\") color Window #102030 save ${_te}.check color Window #FF0000 expectpreview Window #FF0000 compare 1 expectpreview Window #102030 compare 0 expectpreview Window #FF0000 f 2")
 endif()
