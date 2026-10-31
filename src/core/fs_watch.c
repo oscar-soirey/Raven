@@ -66,7 +66,7 @@ static struct {
     rvn_mutex_t mutex;
     int mutex_ready;
     int started;
-    int stopping;
+    rvn_atomic_t stopping; /* (read by the watching threads) */
     rvn_fs_watch_callback_t callback;
     void* user;
     rvn_fs_watch_path_t* paths;
@@ -106,7 +106,7 @@ static void rvn_fs_watch_notify_directory(const char* directory) {
     rvn_fs_watch_callback_t callback;
     void* user;
 
-    if (!g_fs_watch.started || g_fs_watch.stopping) return;
+    if (!g_fs_watch.started || rvn_atomic_load(&g_fs_watch.stopping)) return;
     rvn_mutex_lock(&g_fs_watch.mutex);
     callback = g_fs_watch.callback;
     user = g_fs_watch.user;
@@ -143,7 +143,7 @@ static void rvn_fs_watch_directory_thread(void* arg) {
         DWORD ignored = 0;
         BOOL ok;
         HANDLE waits[2];
-        if (g_fs_watch.stopping) break;
+        if (rvn_atomic_load(&g_fs_watch.stopping)) break;
         memset(&dir->overlapped, 0, sizeof(dir->overlapped));
         dir->overlapped.hEvent = dir->event;
         ResetEvent(dir->event);
@@ -168,7 +168,7 @@ static void rvn_fs_watch_directory_thread(void* arg) {
 #elif defined(__APPLE__)
 static void rvn_fs_watch_thread(void* unused) {
     RVN_UNUSED(unused);
-    while (!g_fs_watch.stopping) {
+    while (!rvn_atomic_load(&g_fs_watch.stopping)) {
         struct kevent events[16];
         struct timespec timeout;
         int n, i;
@@ -179,7 +179,7 @@ static void rvn_fs_watch_thread(void* unused) {
             if (errno == EINTR) continue;
             break;
         }
-        for (i = 0; i < n && !g_fs_watch.stopping; i++) {
+        for (i = 0; i < n && !rvn_atomic_load(&g_fs_watch.stopping); i++) {
             rvn_fs_watch_dir_t* dir = (rvn_fs_watch_dir_t*)events[i].udata;
             if (!dir || !(events[i].fflags & (NOTE_WRITE | NOTE_DELETE | NOTE_RENAME | NOTE_ATTRIB | NOTE_EXTEND))) continue;
             if (dir->is_file_watch && (events[i].fflags & (NOTE_DELETE | NOTE_RENAME))) {
@@ -198,7 +198,7 @@ static void rvn_fs_watch_thread(void* unused) {
 static void rvn_fs_watch_thread(void* unused) {
     uint8_t buffer[16384];
     RVN_UNUSED(unused);
-    while (!g_fs_watch.stopping) {
+    while (!rvn_atomic_load(&g_fs_watch.stopping)) {
         struct pollfd pfd;
         int ready;
         pfd.fd = g_fs_watch.inotify_fd;
@@ -294,7 +294,7 @@ int rvn_fs_watch_add(const char* path) {
     char* directory;
     rvn_fs_watch_path_t* item;
     rvn_fs_watch_dir_t* dir;
-    if (!path || !path[0] || !g_fs_watch.started || g_fs_watch.stopping) return R_FALSE;
+    if (!path || !path[0] || !g_fs_watch.started || rvn_atomic_load(&g_fs_watch.stopping)) return R_FALSE;
     absolute = rvn_path_absolute(path);
     if (!absolute) return R_FALSE;
     directory = rvn_path_parent(absolute);
@@ -430,7 +430,7 @@ void rvn_fs_watch_stop(void) {
     rvn_fs_watch_path_t* path;
     rvn_fs_watch_dir_t* dir;
     if (!g_fs_watch.started && !g_fs_watch.mutex_ready) return;
-    g_fs_watch.stopping = R_TRUE;
+    rvn_atomic_store(&g_fs_watch.stopping, R_TRUE);
 #if defined(_WIN32)
     for (dir = g_fs_watch.directories; dir; dir = dir->next) SetEvent(dir->stop_event);
     for (dir = g_fs_watch.directories; dir; dir = dir->next) {
@@ -447,8 +447,9 @@ void rvn_fs_watch_stop(void) {
     }
     if (g_fs_watch.started) rvn_thread_join(&g_fs_watch.thread);
 #elif defined(__linux__)
-    if (g_fs_watch.inotify_fd >= 0) close(g_fs_watch.inotify_fd);
+    /* (the thread sees the flag within a quarter of a second: its descriptor is closed once it is gone) */
     if (g_fs_watch.started) rvn_thread_join(&g_fs_watch.thread);
+    if (g_fs_watch.inotify_fd >= 0) close(g_fs_watch.inotify_fd);
 #endif
 #endif
     path = g_fs_watch.paths;

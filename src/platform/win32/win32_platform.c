@@ -169,9 +169,109 @@ static void rvn_win32_adjust(HWND handle, RECT* rect) {
 	if (GetPropW(handle, RVN_WIN32_CUSTOM_PROPERTY)) rect->top = top;
 }
 
-static void rvn_win32_emit(rvn_pwindow_t* window, rvn_pevent_t* event) {
-	event->user = window->user;
+/*
+ * Windows sends some messages at once, from inside the calls of the core:
+ * CreateWindow, ShowWindow, SetFocus, DestroyWindow, SetWindowPos answer with
+ * WM_SIZE, WM_ACTIVATE, WM_SETFOCUS, WM_KILLFOCUS... before they return. Told
+ * to the core then, they would run in the middle of what the core was doing
+ * (a window being destroyed, a click being handled, the dead widgets being
+ * collected), which the other systems never do: there the events wait in a
+ * queue. So does Win32 here: an event reaches the core at once only when it
+ * comes from the loop of messages (rvn_win32_pump) and no other event is being
+ * handled; otherwise it waits for the loop.
+ */
+#define RVN_WIN32_QUEUE_SIZE 256
+
+/* (core/context.c: what is deleted between the two is freed at the end) */
+void rvn_dispatch_begin(void);
+void rvn_dispatch_end(void);
+
+typedef struct rvn_win32_queued_t {
+	rvn_pwindow_t* window;
+	rvn_pevent_t event;
+} rvn_win32_queued_t;
+
+static struct {
+	/** Inside DispatchMessage of the loop of messages. */
+	int dispatching;
+	/** An event is being handled by the core. */
+	int handling;
+	rvn_win32_queued_t events[RVN_WIN32_QUEUE_SIZE];
+	/** The events waiting are events[head..count[ (a loop inside an event goes on from the same head). */
+	int head, count;
+} g_win32_queue;
+
+static void rvn_win32_deliver(rvn_pwindow_t* window, rvn_pevent_t* event) {
+	event->user = window ? window->user : NULL;
+	g_win32_queue.handling++;
 	g_win32.handler(event);
+	g_win32_queue.handling--;
+}
+
+static void rvn_win32_flush_events(void);
+
+static void rvn_win32_emit(rvn_pwindow_t* window, rvn_pevent_t* event) {
+	rvn_win32_queued_t* queued;
+	int i;
+	if (g_win32_queue.dispatching && !g_win32_queue.handling) {
+		/* (what waited first goes first; it may have destroyed this window) */
+		if (g_win32_queue.head < g_win32_queue.count) {
+			rvn_pwindow_t* alive;
+			rvn_win32_flush_events();
+			for (alive = g_win32.windows; alive && alive != window; alive = alive->next) {}
+			if (!alive) return;
+		}
+		rvn_win32_deliver(window, event);
+		return;
+	}
+	/* a new size replaces the one still waiting */
+	if (event->type == RVN_PEVENT_RESIZE) {
+		for (i = g_win32_queue.head; i < g_win32_queue.count; i++) {
+			queued = &g_win32_queue.events[i];
+			if (queued->window == window && queued->event.type == RVN_PEVENT_RESIZE) {
+				queued->event = *event;
+				return;
+			}
+		}
+	}
+	if (g_win32_queue.count == RVN_WIN32_QUEUE_SIZE && g_win32_queue.head > 0) {
+		/* room at the front: what waits moves there */
+		memmove(g_win32_queue.events, g_win32_queue.events + g_win32_queue.head,
+			sizeof(rvn_win32_queued_t) * (size_t)(g_win32_queue.count - g_win32_queue.head));
+		g_win32_queue.count -= g_win32_queue.head;
+		g_win32_queue.head = 0;
+	}
+	/* what points into the memory of the caller is answered now (files dropped) */
+	if (event->drop_paths || event->drop_text || event->accepted || g_win32_queue.count == RVN_WIN32_QUEUE_SIZE) {
+		/* (the queue is full: a pointer that moved does not matter, the rest is told now) */
+		if (event->type == RVN_PEVENT_MOUSE_MOVE) return;
+		rvn_win32_deliver(window, event);
+		return;
+	}
+	queued = &g_win32_queue.events[g_win32_queue.count++];
+	queued->window = window;
+	queued->event = *event;
+}
+
+/* What waited reaches the core, in order (it may destroy windows: their events are dropped then). */
+static void rvn_win32_flush_events(void) {
+	if (g_win32_queue.handling) return;
+	g_win32_queue.dispatching++;
+	while (g_win32_queue.head < g_win32_queue.count) {
+		rvn_win32_queued_t queued = g_win32_queue.events[g_win32_queue.head++];
+		/* (the events told now may queue others: they go after) */
+		if (queued.window) rvn_win32_deliver(queued.window, &queued.event);
+	}
+	g_win32_queue.head = g_win32_queue.count = 0;
+	g_win32_queue.dispatching--;
+}
+
+/* A window goes: what it still had to say is forgotten. */
+static void rvn_win32_forget_events(rvn_pwindow_t* window) {
+	int i;
+	for (i = g_win32_queue.head; i < g_win32_queue.count; i++) {
+		if (g_win32_queue.events[i].window == window) g_win32_queue.events[i].window = NULL;
+	}
 }
 
 static void rvn_win32_emit_resize(rvn_pwindow_t* window) {
@@ -186,9 +286,11 @@ static void rvn_win32_emit_resize(rvn_pwindow_t* window) {
 
 static void rvn_win32_emit_modal_tick(void) {
 	rvn_pevent_t event;
+	/* (a frame in the middle of an event is not drawn: the next tick will) */
+	if (!g_win32_queue.dispatching || g_win32_queue.handling) return;
 	memset(&event, 0, sizeof(event));
 	event.type = RVN_PEVENT_MODAL_TICK;
-	g_win32.handler(&event);
+	rvn_win32_deliver(NULL, &event);
 }
 
 static uint32_t rvn_win32_modifiers(void) {
@@ -733,6 +835,7 @@ static void rvn_win32_shutdown(void) {
 	UnregisterClassW(RVN_WIN32_CHILD_CLASS, g_win32.instance);
 	UnregisterClassW(RVN_WIN32_CLASS, g_win32.instance);
 	memset(&g_win32, 0, sizeof(g_win32));
+	memset(&g_win32_queue, 0, sizeof(g_win32_queue));
 }
 
 static void* rvn_win32_native_display(void) {
@@ -1012,6 +1115,7 @@ static void rvn_win32_window_destroy(rvn_pwindow_t* window) {
 	rvn_uia_window_destroyed(window->handle);
 	/* DestroyWindow sends messages: they must not reach the core any more */
 	SetWindowLongPtrW(window->handle, GWLP_USERDATA, 0);
+	rvn_win32_forget_events(window);
 	RemovePropW(window->handle, RVN_WIN32_CUSTOM_PROPERTY);
 	DestroyWindow(window->handle);
 	if (window->icon) DestroyIcon(window->icon);
@@ -1258,6 +1362,9 @@ static char* rvn_win32_clipboard_get(void) {
 static void rvn_win32_pump(double timeout_seconds) {
 	rvn_pwindow_t* window;
 	MSG message;
+	/* a loop inside an event (a dialog of Raven waits for its answer): its own events are told at once */
+	int handling = g_win32_queue.handling;
+	g_win32_queue.handling = 0;
 
 	if (timeout_seconds != 0.0) {
 		DWORD timeout = timeout_seconds < 0.0 ? INFINITE : (DWORD)(timeout_seconds * 1000.0 + 0.999);
@@ -1265,7 +1372,18 @@ static void rvn_win32_pump(double timeout_seconds) {
 		MsgWaitForMultipleObjectsEx(g_win32.wake_event ? 1 : 0, &g_win32.wake_event, timeout, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
 	}
 
+	/*
+	 * Until the loop is done, what the events delete (widgets, windows) stays
+	 * in memory: the window procedure goes on using its window after it told
+	 * the core, and Windows may still be inside it (a window moved, a menu).
+	 */
+	rvn_dispatch_begin();
+
+	/* what Windows said while the core was busy */
+	rvn_win32_flush_events();
+
 	/* sizes that changed while the core could not be told */
+	g_win32_queue.dispatching++;
 	for (window = g_win32.windows; window; window = window->next) {
 		if (window->size_dirty) {
 			int width = window->width, height = window->height;
@@ -1278,13 +1396,19 @@ static void rvn_win32_pump(double timeout_seconds) {
 			}
 		}
 	}
+	g_win32_queue.dispatching--;
 
 	while (PeekMessageW(&message, NULL, 0, 0, PM_REMOVE)) {
 		/* WM_QUIT is not used: the application stops with Rquit */
 		if (message.message == WM_QUIT) continue;
 		TranslateMessage(&message);
+		g_win32_queue.dispatching++;
 		DispatchMessageW(&message);
+		g_win32_queue.dispatching--;
+		rvn_win32_flush_events();
 	}
+	g_win32_queue.handling = handling;
+	rvn_dispatch_end();
 }
 
 static void rvn_win32_wake(void) {
