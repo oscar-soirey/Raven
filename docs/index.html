@@ -137,7 +137,7 @@ choice of scope, not a defect, and the rows are not meant to rank them.
 <tr><th scope="row">Translations</th><td class="e rv">✅</td><td class="e">✅</td><td class="e">❌</td><td class="e">❌</td></tr>
 <tr><th scope="row">Right to left, shaping</th><td class="e rv">🟡</td><td class="e">✅</td><td class="e">❌</td><td class="e">❌</td></tr>
 <tr><th scope="row">Accessibility</th><td class="e rv">✅</td><td class="e">✅</td><td class="e">❌</td><td class="e">❌</td></tr>
-<tr><th scope="row">IDE and editor</th><td class="e rv">✅</td><td class="e">✅</td><td class="e">🟡</td><td class="e">❌</td></tr>
+<tr><th scope="row">Visual designer</th><td class="e rv">✅</td><td class="e">✅</td><td class="e">🟡</td><td class="e">❌</td></tr>
 <tr><th scope="row">Headless tests</th><td class="e rv">✅</td><td class="e">✅</td><td class="e">🟡</td><td class="e">🟡</td></tr>
 <tr class="grp"><th colspan="5">The project</th></tr>
 <tr><th scope="row">License</th><td class="rv">Apache 2.0</td><td>LGPL 3, GPL or commercial</td><td>zlib</td><td>MIT</td></tr>
@@ -229,8 +229,8 @@ if a cell is wrong or out of date, please
 <li><a href="#languages">25. Other languages</a>
 <ul><li><a href="#lang-cpp">C++</a></li><li><a href="#lang-python">Python</a></li><li><a href="#lang-rust">Rust</a></li><li><a href="#lang-go">Go</a></li><li><a href="#lang-csharp">C#</a></li><li><a href="#lang-zig">Zig</a></li><li><a href="#lang-lua">LuaJIT</a></li></ul>
 </li>
-<li><a href="#ide">26. The IDE</a>
-<ul><li><a href="#ide-projects">Projects</a></li><li><a href="#ide-code">Code, and the island as a preview</a></li><li><a href="#ide-visual">The visual editor</a></li><li><a href="#ide-build">Translations, build and run</a></li><li><a href="#ide-scripts">Driving it from a script</a></li></ul>
+<li><a href="#ide">26. The designer</a>
+<ul><li><a href="#ide-folder">A folder</a></li><li><a href="#ide-visual">The visual editor</a></li><li><a href="#ide-preview">The preview: devices, themes, languages</a></li><li><a href="#ide-island">The island: Ctrl+K</a></li><li><a href="#ide-scripts">Driving it from a script</a></li></ul>
 </li>
 <li><a href="#testing">27. Tests, headless runs and custom backends</a>
 </li>
@@ -311,8 +311,8 @@ add_executable(hello main.c)
 target_link_libraries(hello PRIVATE raven::raven)</pre>
 
 <p>Or with the interface in its own file, <code>main.xml</code>, loaded when the
-program starts (see <a href="#anylanguage">Any language</a>): the IDE creates
-such a project for you.</p>
+program starts (see <a href="#anylanguage">Any language</a>), and made by looking
+at it in <a href="#ide">the designer</a>.</p>
 
 <!-- ======================================================================= -->
 <h2 id="build">2. Building Raven</h2>
@@ -321,7 +321,7 @@ such a project for you.</p>
 the X11 development package. The Vulkan <i>headers</i> are taken from the
 Vulkan SDK when it is installed and downloaded during the configuration
 otherwise; no Vulkan library is linked (it is loaded when the program runs).
-Each build gives the library, the IDE, the examples and the tests.</p>
+Each build gives the library, the designer, the theme editor, the examples and the tests.</p>
 
 <h3 id="build-windows">Windows</h3>
 
@@ -383,7 +383,7 @@ cmake --install build --prefix install</pre>
 <tr><td><code>RAVEN_BUILD_SHARED</code></td><td>OFF</td><td>a shared library (<code>raven.dll</code>, <code>libraven.so</code>, <code>libraven.dylib</code>) instead of a static one</td></tr>
 <tr><td><code>RAVEN_BUILD_EXAMPLES</code></td><td>ON at top level</td><td>the example programs</td></tr>
 <tr><td><code>RAVEN_BUILD_TESTS</code></td><td>ON at top level</td><td>the tests, the tests of the bindings, <code>raven_benchmark</code></td></tr>
-<tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code>, the IDE, and <code>raven_theme_editor</code></td></tr>
+<tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code> and <code>raven_theme_editor</code></td></tr>
 <tr><td><code>RAVEN_BUILD_WEB</code></td><td>ON</td><td>web pages (<code>raven_web.h</code>), compiled into the library</td></tr>
 <tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>OFF builds without any GPU code (a custom backend, or headless)</td></tr>
 <tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code> or <code>null</code></td></tr>
@@ -1099,8 +1099,8 @@ r.Rshutdown()</pre>
 <li>An interface that must not depend on a file at run time can be compiled into the program as text (<code>include_str!</code>, a C string, an embedded resource) and built with <code>Rwindow_create_from_xml</code>.</li>
 </ul>
 
-<p><code>examples/languages</code> holds the same program in the eight languages, as the
-IDE creates them, and <code>examples/bevy_editor</code> a whole 3D scene editor whose
+<p><code>examples/languages</code> holds the same program in the eight languages, each one
+loading the same <code>main.xml</code>, and <code>examples/bevy_editor</code> a whole 3D scene editor whose
 interface is one <code>editor.xml</code>, driven from Rust.</p>
 
 <!-- ======================================================================= -->
@@ -1518,7 +1518,7 @@ own, with the wallpaper of the theme. It uses the public API only: the theme
 is written as a file, loaded with <code>Rtheme_load_from_memory</code> under a name of
 its own and given to the preview with <code>Rwidget_set_theme</code>; loading it again
 under the same name changes it in place.</p>
-<p>Like the IDE, it can be driven from a script, which is how its test works:</p>
+<p>Like the designer, it can be driven from a script, which is how its test works:</p>
 <pre>raven_theme_editor --null --frames 2 --script "look WindowsDark accent #FF9F0A color Window #101018 expectpreview Window #101018 do te.generate save night.xml"</pre>
 <p>The commands are listed at the top of <code>run_script</code> in
 <code>tools/theme_editor/main.c</code>.</p>
@@ -1942,76 +1942,58 @@ while r.Rwait_frame(-1.0) ~= 0 do end
 r.Rshutdown()</pre>
 
 <!-- ======================================================================= -->
-<h2 id="ide">26. The IDE</h2>
+<h2 id="ide">26. The designer</h2>
 
-<p><code>raven_designer [project folder | file]</code> is the IDE of Raven, written with
-Raven. It opens on a start page: new project, open a folder, the recent
-projects.</p>
+<p><code>raven_designer [folder | interface.xml]</code> makes the interfaces of Raven
+(<code>.xml</code>) by looking at them, in a folder. It is a tool, not an IDE: nothing is
+built nor compiled there, and it has no code editor. The program that loads the
+interfaces is written in <a href="#anylanguage">any language</a>, with its own tools.
+It opens on a start page: open a folder, open an interface, the recent folders.</p>
 
-<h3 id="ide-projects">Projects</h3>
-<p><i>Project &gt; New project</i> (Ctrl+Shift+N) asks a name, a language
-(C, C++, Rust, Python, Go, C#, Zig, Lua), a location, and a <b>kind</b>:</p>
-<ul>
-<li><b>Raven interface + code</b>: the interface in <code>main.xml</code>, the program
-that loads it (<code>main.c</code>, <code>src/main.rs</code>, <code>main.py</code>...,
-<a href="#anylanguage">any language</a>), the files of the tools of the
-language (<code>CMakeLists.txt</code>, <code>Cargo.toml</code>, <code>go.mod</code>, <code>.csproj</code>,
-<code>build.zig</code>) and <code>strings.csv</code>. It builds as it is, and the program
-runs in the folder of the project, where <code>main.xml</code> is.</li>
-<li><b>Native</b>: the language alone, a classic Hello world and what its
-tools need (<code>main.c</code> and a <code>CMakeLists.txt</code>, <code>src/main.rs</code> and a
-<code>Cargo.toml</code>, <code>main.py</code>, <code>main.go</code> and a <code>go.mod</code>, <code>Program.cs</code> and a
-<code>.csproj</code>, <code>src/main.zig</code> and a <code>build.zig</code>, <code>main.lua</code>). Nothing of Raven.</li>
-</ul>
-<p>The <b>content drawer</b> (Ctrl+Space, from anywhere) shows the files of
-the project as tiles: a double click opens a file where it belongs, a right
-click offers <i>Open</i> and, for an interface, <i>Preview</i>; the search
-looks through the whole project.</p>
-
-<h3 id="ide-code">Code, and the island as a preview</h3>
-<p>Every file opens in a code editor tab: C, C++, Rust, Python, Go, C#, Zig,
-Lua, CMake, XML, with completion of the Raven API (read from its headers),
-of the names of the widgets of the interfaces
-(<code>Rwidget_find(window, "...")</code>), of the tags, attributes and
-<code>@keys</code>. Ctrl + wheel zooms the text of every editor at
-once, and the zoom is kept for the next time.</p>
-<p>When the file in front is an interface (<code>.xml</code>),
-the <b>island</b> at the top of the window is its preview: unfolded, it shows
-the interface built from what is being typed, rebuilt as it changes, in the
-language chosen for the preview; a mistake shows its line instead.</p>
+<h3 id="ide-folder">A folder</h3>
+<p><b>Files</b> shows the interfaces of the folder, its themes (theme files, made with
+<code>raven_theme_editor</code>) and its translation tables (<code>.csv</code>), its sub-folders
+included. A double click opens an interface in the visual editor, a table in
+<b>Translations</b>; a theme dresses the preview. A right click: open, new window,
+panel or form (from a template, in the folder), delete. The folder is followed live:
+a file another program writes shows at once; the interface open is read again when
+it has no unsaved changes here; a theme or a table that changes changes the preview.</p>
 
 <h3 id="ide-visual">The visual editor</h3>
-<p>It opens only when asked: a right click on an interface in the content
-drawer and <i>Preview</i>, the button of the island, or <i>View &gt; Preview
-the file</i> (Ctrl+Shift+P). The file leaves its code editor for it, its
-unsaved changes with it, and it shows the same document five ways, kept in
-step:</p>
+<p>The same document, five ways, kept in step:</p>
 <ul>
 <li><b>Widgets</b>: what can be added (the tags of the library and those the document declares). A double click adds inside the selection.</li>
 <li><b>Tree</b>: the elements; move up, down, out, in; duplicate, delete, wrap, unwrap; copy and paste as XML.</li>
-<li><b>Preview</b>: the interface built for real, in the language chosen above it, right to left included. A click selects; with <i>Use the preview</i> (F6) it reacts as the interface will. F7 opens it in a window of its own.</li>
+<li><b>Preview</b>: the interface built for real. A click selects; with <i>Use it</i> (F6) it reacts as the interface will. F7 runs it in a window of its own.</li>
 <li><b>Properties</b>: every attribute of the selection, by kind of value.</li>
-<li><b>XML</b>: the text, with completion; a mistake is underlined and listed in <b>Problems</b> while the last good version stays shown.</li>
+<li><b>XML</b>: the text, with completion of the tags, the attributes and the <code>@keys</code>; a mistake is underlined and listed in <b>Problems</b> while the last good version stays shown.</li>
 </ul>
-<p><i>Close</i> on the preview (or <i>View &gt; Close the preview</i>) sends
-the file back to a code editor, and the panels of the visual editor go away.</p>
 
-<h3 id="ide-build">Translations, build and run</h3>
-<p>The <b>Translations</b> panel shows the CSV tables as a grid: a row per
-key, a column per language. Ctrl+B builds, F5 builds and runs, Ctrl+F5
-stops, with the tools of the language: CMake and the compiler, Cargo,
-<code>go build</code>, <code>dotnet</code>, <code>zig build</code>, Python, LuaJIT. What they
-write goes to <b>Output</b>; the errors and warnings of GCC, Clang, MSVC,
-rustc, Go and CMake go to <b>Build</b> and onto the lines of the
-editors. <i>Project &gt; Build settings</i> sets the build type, the
-folder of the Raven package and the generator, kept in <code>.raven-ide</code>.</p>
+<h3 id="ide-preview">The preview: devices, themes, languages</h3>
+<p>Above the preview: the size it is shown in (the size the XML gives, a phone, a phone
+on its side, a tablet, a laptop, a desktop), the look or theme it wears (the looks of
+Raven, and the themes of the folder: edit one in the theme editor and the preview
+follows), and its language (the columns of the tables, right to left included). The
+window F7 opens wears the same theme and size.</p>
+
+<h3 id="ide-island">The island: Ctrl+K</h3>
+<p>The island at the top of the window is the command center of the designer.
+Folded, it says which file is open and whether it has unsaved changes, what is
+selected, and how many problems the interface has. <b>Ctrl+K</b> unfolds it on one
+search for everything: a widget to add inside the selection (<code>add slider</code>), an
+interface to open (<code>open settings</code>), a command (<code>wrap in a vbox</code>,
+<code>run</code>, <code>undo</code>, <code>new form</code>...), a language or a theme for the
+preview. Up and Down choose, Enter does it, Escape folds it. Below the search,
+the Name and the Text of the selection are edited in place, with duplicate, wrap,
+delete and run; the first problem is one click away.</p>
 
 <h3 id="ide-scripts">Driving it from a script</h3>
-<p>The IDE can run without a window, which is how its tests work:</p>
-<pre>raven_designer --null --frames 2 --script "f 2 project /tmp/p demo C preview /tmp/p/demo/main.xml expectpanel panel.preview 1 do file.save_all"
-raven_designer --null --script "nativeproject /tmp/p hello Rust expectfile /tmp/p/hello/src/main.rs Hello,~world!"</pre>
+<p>The designer can run without a window, which is how its tests work:</p>
+<pre>raven_designer --null --frames 2 --script "open /tmp/ui f 2 search add~button expect &lt;Button search wrap~in~a~vbox device 1 language fr do file.save"
+raven_designer --null --frames 1 --script "open /tmp/ui fuzz 3000 42"</pre>
 <p>The commands are listed at the top of <code>designer_script</code> in
-<code>tools/designer/main.c</code>.</p>
+<code>tools/designer/main.c</code>; <code>fuzz STEPS SEED</code> clicks, drags and types at
+random (the same seed replays the same run), to look for crashes under a sanitizer.</p>
 
 <!-- ======================================================================= -->
 <h2 id="testing">27. Tests, headless runs and custom backends</h2>

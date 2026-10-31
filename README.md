@@ -118,10 +118,11 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   actions it names and find its widgets by name, built by their usual tools.
   Save the XML while the program runs and the window follows. See
   [Any language](#any-language-the-interface-in-xml-the-code-in-yours).
-- **The official IDE** (`raven_designer`): new projects in all eight languages,
-  interfaces edited visually next to their code, completion of the Raven API,
-  translations in a table, build, run and compiler errors at their line. See
-  [The IDE](#the-ide).
+- **The designer** (`raven_designer`): the interfaces of a folder made by
+  looking at them, in the size of a phone or a desktop, in any look, theme or
+  language, with their translations; one search for everything (Ctrl+K). It
+  compiles nothing: the program is written in any language, elsewhere. See
+  [The designer](#the-designer).
 - **A theme editor** (`raven_theme_editor`): every color, size, glass setting,
   syntax color and style rule of a theme, edited over a live preview of real
   widgets, a palette worked out from one accent, contrast checked. See
@@ -283,67 +284,54 @@ fn main() {
   into the program as text (`include_str!`, a C string, an embedded resource)
   and built with `Rwindow_create_from_xml`.
 - `examples/languages/` holds the same small program in the eight languages,
-  exactly as the IDE writes it, and `examples/bevy_editor/` a complete 3D
+  each one loading the same `main.xml`, and `examples/bevy_editor/` a complete 3D
   scene editor: its interface is one `editor.xml`, driven from Rust (see
   [Examples](#examples)).
 
-## The IDE
+## The designer
 
-`raven_designer [project folder | file.xml]` is the official IDE of Raven,
-built on the library itself.
+`raven_designer [folder | interface.xml]` makes the interfaces of Raven
+(`.xml`) by looking at them, in a folder. It is a tool, not an IDE: nothing
+is built or compiled there; the program that loads the interfaces is written
+in any language, with its own tools (see
+[Any language](#any-language-the-interface-in-xml-the-code-in-yours)).
 
-**Projects in eight languages.** *Project > New project* asks a name and a
-language (C, C++, Rust, Python, Go, C#, Zig, Lua) and writes a project that
-builds as it is: the interface in `main.xml`, the program that loads it
-(`main.c`, `src/main.rs`, `main.py`...), the files of the language's own tools
-(`CMakeLists.txt`, `Cargo.toml`, `go.mod`, `.csproj`, `build.zig`) and
-`strings.csv`. The **Explorer** shows
-the files; a double click opens each one where it belongs.
+**A folder.** *Open a folder* shows its interfaces, its themes (made with
+`raven_theme_editor`) and its translation tables (`.csv`) in **Files**, its
+sub-folders included. The folder is followed live: a file that another
+program writes shows at once, the interface open is read again when it has
+no unsaved changes here, a theme or a table that changes changes the preview.
 
-**Interfaces, visually, next to their code.** A `.xml` opens as text, its
-preview in the island at the top; *Preview* opens it in the visual editor,
-the same document shown five ways and kept in step:
+**The interface, five ways, kept in step:**
 
 - **Widgets**: what can be added, the tags of the library and those the
   document declares with `<Widget>`. A double click adds inside the selection.
 - **Tree**: the elements. Move up, down, out, in; duplicate; delete; wrap in
   a panel or unwrap; copy and paste as XML.
-- **Preview**: the interface, built for real, in the language chosen above it
-  (right to left included). A click selects an element; with *Use the
-  preview* on, it reacts as the interface will.
+- **Preview**: the interface, built for real, in the size of a device (a
+  phone, a tablet, a laptop, a desktop, or the size of the XML), in any look
+  of Raven or theme of the folder, in any language of the tables, right to
+  left included. A click selects an element; with *Use it* on (F6), it reacts
+  as the interface will. `F7` runs it in a window of its own.
 - **Properties**: every attribute of the selected element, by kind of value.
 - **XML**: the text, colored, with completion of the tags, the attributes and
-  the `@keys`; typing in it updates the rest, a mistake is underlined and
-  listed in **Problems** while the last good version stays shown.
+  the `@keys`; a mistake is underlined and listed in **Problems** while the
+  last good version stays shown.
 
-Saving writes the file back with its comments and its layout.
+**Translations.** The tables as a grid: one row per key, one column per
+language, an empty cell marked; what is typed shows in the preview at once.
 
-**Code.** Any other file opens in a code editor tab (C, C++, Rust, Python,
-Go, C#, Zig, Lua, CMake, CSV...), with completion of the Raven API (read from
-its headers), of the names of the widgets of the interfaces in
-`Rwidget_find(window, "...")` and of the keys in `Rtr("...")`.
+**The island**, at the top of the window, is the command center. Folded, it
+says which file is open, whether it has unsaved changes, what is selected and
+how many problems there are. `Ctrl+K` unfolds it on one search for everything:
+a widget to add (`add slider`), an interface to open (`open settings`), a
+command (`wrap in a vbox`, `run`, `undo`, `new form`...), a language or a
+theme for the preview. Below the search, the Name and the Text of the
+selection are edited in place, with duplicate, wrap, delete and run.
 
-**Translations.** The CSV tables of the project as a grid: one row per key,
-one column per language; add keys and languages, search, delete. An empty
-cell is marked (the first language shows instead). What is typed shows in the
-preview at once.
-
-**Build and run with the tools of the language.** `Ctrl+B` builds, `F5`
-builds and runs, `Ctrl+F5` stops: CMake and the compiler for C and C++,
-Cargo for Rust, `go build`, `dotnet`, `zig build`, Python and LuaJIT, with
-the environment set from the Raven package (`RAVEN_LIB_DIR`, `PYTHONPATH`,
-`LUA_PATH`...). The program runs in the folder of the project, where its
-`main.xml` and `strings.csv` are. What they write goes to **Output**; the
-errors and warnings of GCC, Clang, MSVC, rustc, Go and CMake go to **Build**
-and on the lines of the editors; a double click opens the file at that line. *Project >
-Build settings* sets the build type, the folder of the Raven package (found
-by itself when the IDE runs from one) and the generator,
-kept in `.raven-ide` in the project.
-
-Undo and redo cover the interface; `F7` opens it in a window of its own; the
-View menu switches the theme; a folder dropped on the window opens it as a
-project. The visual editor uses the public API only. The files are in
-`tools/designer/` (`ide.h` says what each one does).
+Undo and redo cover the interface; a folder or an interface dropped on the
+window opens. The visual editor uses the public API only. The files are in
+`tools/designer/` (`designer.h` says what each one does).
 
 ## The theme editor
 
@@ -538,7 +526,7 @@ The build trees are in `build\dist\`.
 | `examples/viewport_vulkan` | a Vulkan scene in the UI, twice: offscreen image wrapped as a texture, and drawn in the render pass of Raven. Needs the Vulkan library |
 | `examples/viewport_opengl` | an OpenGL scene in a native child window (WGL / GLX) |
 | `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
-| `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, as the IDE creates them, built by the tools of each language |
+| `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
 
 ![The notepad example](docs/images/notepad.png)
 
@@ -1158,7 +1146,8 @@ src/widgets/         one file per widget type (text_editor.c, markdown.c, node_g
 src/xml/             parser, loader, declared widgets, documents, watched files, the list of tags and attributes
 web/                 web pages (raven_web.h), compiled into the Raven library
 examples/            sixteen programs (bevy_editor: a scene editor in Rust; languages: one program in eight languages)
-tools/designer/      raven_designer, the IDE (main.c: the visual editor; project, editors, build, strings, os)
+tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
+tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
 bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT
 tests/  docs/  cmake/  third_party/
