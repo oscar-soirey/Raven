@@ -32,6 +32,13 @@ using System.Text;
 
 namespace Raven
 {
+    // UnmanagedType.LPUTF8Str (48) is missing from netstandard2.0 but understood
+    // at run time by .NET Framework 4.7+, .NET Core, .NET 5+ and Mono.
+    internal static class Utf8
+    {
+        internal const UnmanagedType Str = (UnmanagedType)48;
+    }
+
     public enum RBackend : int
     {
         /// <summary>
@@ -348,6 +355,69 @@ namespace Raven
         R_DROP_DROPPED = 0x00E3,
     }
 
+    /// <summary>
+    /// The looks. Each one comes dark and light.
+    /// 
+    /// Raven's looks are the default; the ones of the platforms imitate them
+    /// closely (their shapes, colors, sizes, states and motion), without using
+    /// their widgets. The looks of the platforms are opaque: the glass materials
+    /// belong to the glass looks of Raven.
+    /// </summary>
+    public enum RLook : int
+    {
+        /// <summary>
+        /// Raven, flat and dense, for tools. The look at start.
+        /// </summary>
+        R_LOOK_RAVEN_DARK = 0x00E0,
+        R_LOOK_RAVEN_LIGHT = 0x00E1,
+        /// <summary>
+        /// Raven in glass: controls are capsules of translucent glass that refract
+        /// and blur what is behind them, catch the light on their rim and react
+        /// to the pointer with short animations. Windows get a soft colored
+        /// background unless they have their own (Rwindow_set_background,
+        /// Rwindow_set_clear_color).
+        /// </summary>
+        R_LOOK_RAVEN_GLASS_DARK = 0x00E2,
+        R_LOOK_RAVEN_GLASS_LIGHT = 0x00E3,
+        /// <summary>
+        /// High contrast, for low vision: pure black and white, yellow (or blue)
+        /// focus and selection, thick borders, larger text (raven_accessibility.h,
+        /// Raccessibility_set_high_contrast).
+        /// </summary>
+        R_LOOK_RAVEN_HIGH_CONTRAST_DARK = 0x00E4,
+        R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT = 0x00E5,
+        /// <summary>
+        /// Windows 11 (Fluent): its controls, its colors, the accent color the
+        /// user chose (on Windows), the Segoe UI font when the system has it, and
+        /// motion without bounce.
+        /// </summary>
+        R_LOOK_WINDOWS_DARK = 0x00E6,
+        R_LOOK_WINDOWS_LIGHT = 0x00E7,
+        /// <summary>
+        /// macOS (Sequoia, Aqua): its controls, its colors, the accent color the
+        /// user chose (on macOS), the San Francisco font when the system has it,
+        /// no change under the pointer, and selections in the accent color.
+        /// </summary>
+        R_LOOK_MACOS_DARK = 0x00E8,
+        R_LOOK_MACOS_LIGHT = 0x00E9,
+        /// <summary>
+        /// GNOME (libadwaita), the desktop of most Linux distributions: flat
+        /// rounded controls, the accent and the font of the desktop (on Linux).
+        /// </summary>
+        R_LOOK_GNOME_DARK = 0x00EA,
+        R_LOOK_GNOME_LIGHT = 0x00EB,
+        /// <summary>
+        /// The look of the platform the application runs on: Windows on Windows,
+        /// macOS on macOS, GNOME on Linux and the other systems.
+        /// </summary>
+        R_LOOK_NATIVE_DARK = 0x00EC,
+        R_LOOK_NATIVE_LIGHT = 0x00ED,
+    }
+
+    /// <summary>
+    /// @deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is
+    /// R_LOOK_RAVEN_DARK and so on, and Rtheme_apply is Rlook_set.
+    /// </summary>
     public enum RTheme : int
     {
         /// <summary>
@@ -2556,10 +2626,10 @@ namespace Raven
         public static extern int Rtimer_is_valid(uint timer);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Raction_bind([MarshalAs(UnmanagedType.LPUTF8Str)] string name, RActionCallback callback, IntPtr user_data);
+        public static extern void Raction_bind([MarshalAs(Utf8.Str)] string name, RActionCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Raction_unbind([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Raction_unbind([MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Fires an action as a widget would: the function bound to the
@@ -2568,7 +2638,7 @@ namespace Raven
         /// sender Passed to the function; R_INVALID_ID when there is none.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Raction_fire([MarshalAs(UnmanagedType.LPUTF8Str)] string name, uint sender);
+        public static extern void Raction_fire([MarshalAs(Utf8.Str)] string name, uint sender);
 
         /// <summary>
         /// Receives every action that has no bound function (e.g. a script bridge).
@@ -2584,10 +2654,10 @@ namespace Raven
         /// a program then really opened it).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Ropen_url([MarshalAs(UnmanagedType.LPUTF8Str)] string url);
+        public static extern int Ropen_url([MarshalAs(Utf8.Str)] string url);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rclipboard_set_text([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rclipboard_set_text([MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Returns: The clipboard text, or "" when empty. Valid until the next call.
@@ -2631,7 +2701,7 @@ namespace Raven
         /// flags        Bitmask of RWindowFlags.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rwindow_create([MarshalAs(UnmanagedType.LPUTF8Str)] string title, int width, int height, uint flags);
+        public static extern uint Rwindow_create([MarshalAs(Utf8.Str)] string title, int width, int height, uint flags);
 
         /// <summary>
         /// Closes a window and deletes its content widgets.
@@ -2653,7 +2723,7 @@ namespace Raven
         public static extern uint Rwindow_get_content(uint window);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwindow_set_title(uint window, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rwindow_set_title(uint window, [MarshalAs(Utf8.Str)] string title);
 
         [DllImport(Lib, EntryPoint = "Rwindow_get_title", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rwindow_get_title_(uint window);
@@ -2877,7 +2947,7 @@ namespace Raven
         public static extern void Rwindow_inject_key(uint window, RKey key, int pressed, uint modifiers);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwindow_inject_text(uint window, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rwindow_inject_text(uint window, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// A drag from another application moves over the window
@@ -2891,7 +2961,7 @@ namespace Raven
         /// Drops files and / or text at a position. Returns R_TRUE when a target took them.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rwindow_inject_drop(uint window, float x, float y, [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPUTF8Str)] string[] paths, int path_count, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern int Rwindow_inject_drop(uint window, float x, float y, [MarshalAs(UnmanagedType.LPArray, ArraySubType = Utf8.Str)] string[] paths, int path_count, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
@@ -2970,7 +3040,7 @@ namespace Raven
         /// Returns: R_FALSE when the widget is not in a window.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rdrag_begin(uint source, [MarshalAs(UnmanagedType.LPUTF8Str)] string type, [MarshalAs(UnmanagedType.LPUTF8Str)] string data, [MarshalAs(UnmanagedType.LPUTF8Str)] string label);
+        public static extern int Rdrag_begin(uint source, [MarshalAs(Utf8.Str)] string type, [MarshalAs(Utf8.Str)] string data, [MarshalAs(Utf8.Str)] string label);
 
         /// <summary>
         /// R_TRUE while a drag started by Rdrag_begin is in progress in the window.
@@ -2999,15 +3069,33 @@ namespace Raven
         public static extern void Rdrag_cancel(uint window);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwindow_register_shortcut(uint window, RKey key, uint modifiers, [MarshalAs(UnmanagedType.LPUTF8Str)] string action);
+        public static extern void Rwindow_register_shortcut(uint window, RKey key, uint modifiers, [MarshalAs(Utf8.Str)] string action);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_unregister_shortcut(uint window, RKey key, uint modifiers);
 
         /// <summary>
-        /// Switches to a built-in theme: replaces every theme color and
-        /// metric. Colors and metrics changed with Rtheme_set_color and
-        /// Rtheme_set_metric are lost; per-widget overrides are kept.
+        /// Changes the look of the application. The theme file in use, if
+        /// it names no look of its own, is laid again over the new one; colors
+        /// and metrics changed with Rtheme_set_... are lost; what was given to
+        /// widgets (Rwidget_set_color...) is kept.
+        /// 
+        ///   Rlook_set(R_LOOK_NATIVE_LIGHT);   the look of the platform, light
+        /// 
+        /// Theme files that name no look (no Look attribute) follow it too, so a
+        /// part of a window given one (Theme="paper.xml") changes with it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rlook_set(RLook look);
+
+        /// <summary>
+        /// The look given to Rlook_set (R_LOOK_RAVEN_DARK at start).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RLook Rlook_get();
+
+        /// <summary>
+        /// @deprecated Rlook_set: a built-in theme is a look of Raven.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtheme_apply(RTheme theme);
@@ -3084,16 +3172,16 @@ namespace Raven
         /// one with a type; between equals, the last one set wins.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtheme_set_style_color([MarshalAs(UnmanagedType.LPUTF8Str)] string widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string style_class, RColorRole role, float r, float g, float b, float a);
+        public static extern void Rtheme_set_style_color([MarshalAs(Utf8.Str)] string widget, [MarshalAs(Utf8.Str)] string style_class, RColorRole role, float r, float g, float b, float a);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtheme_set_style_metric([MarshalAs(UnmanagedType.LPUTF8Str)] string widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string style_class, RMetric metric, float value);
+        public static extern void Rtheme_set_style_metric([MarshalAs(Utf8.Str)] string widget, [MarshalAs(Utf8.Str)] string style_class, RMetric metric, float value);
 
         /// <summary>
         /// R_MATERIAL_DEFAULT removes the material of the style.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtheme_set_style_material([MarshalAs(UnmanagedType.LPUTF8Str)] string widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string style_class, RMaterial material);
+        public static extern void Rtheme_set_style_material([MarshalAs(Utf8.Str)] string widget, [MarshalAs(Utf8.Str)] string style_class, RMaterial material);
 
         /// <summary>
         /// Removes every style of the theme. Rtheme_apply and Rtheme_use do it too.
@@ -3112,24 +3200,26 @@ namespace Raven
         /// reporting an error.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rtheme_load", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rtheme_load_([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        private static extern IntPtr Rtheme_load_([MarshalAs(Utf8.Str)] string path);
         public static string Rtheme_load(string path) { return Text(Rtheme_load_(path)); }
 
         /// <summary>
         /// Same, from a text. `size` may be 0 for a null-terminated text.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rtheme_load_from_memory", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rtheme_load_from_memory_([MarshalAs(UnmanagedType.LPUTF8Str)] string xml, UIntPtr size);
+        private static extern IntPtr Rtheme_load_from_memory_([MarshalAs(Utf8.Str)] string xml, UIntPtr size);
         public static string Rtheme_load_from_memory(string xml, UIntPtr size) { return Text(Rtheme_load_from_memory_(xml, size)); }
 
         /// <summary>
-        /// Makes a named theme the theme of the application: "Dark",
-        /// "Light", "GlassDark", "GlassLight", or a theme given by Rtheme_load.
+        /// Makes a named theme the theme of the application: a theme
+        /// given by Rtheme_load (laid over the look in use when it names no
+        /// look), or the name of a look ("WindowsLight", "RavenDark"; the old
+        /// "Dark", "Light", "GlassDark"... too), which is then Rlook_set.
         /// Values changed with Rtheme_set_... are lost.
         /// Returns: R_FALSE, after reporting an error, when no theme has that name.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rtheme_use([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern int Rtheme_use([MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Name of the theme in use ("Dark" at start).
@@ -3157,7 +3247,7 @@ namespace Raven
         /// name Name given to the theme in the file; NULL keeps the current one.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rtheme_save([MarshalAs(UnmanagedType.LPUTF8Str)] string path, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern int Rtheme_save([MarshalAs(Utf8.Str)] string path, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Creates a font from the content of a .ttf / .otf file.
@@ -3169,7 +3259,7 @@ namespace Raven
         public static extern uint Rfont_create(byte[] data, UIntPtr data_size);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rfont_create_from_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern uint Rfont_create_from_file([MarshalAs(Utf8.Str)] string path);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rfont_destroy(uint font);
@@ -3225,7 +3315,7 @@ namespace Raven
         /// size Font size; 0 uses R_METRIC_FONT_SIZE.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rfont_measure_text(uint font, float size, [MarshalAs(UnmanagedType.LPUTF8Str)] string text, out float width, out float height);
+        public static extern void Rfont_measure_text(uint font, float size, [MarshalAs(Utf8.Str)] string text, out float width, out float height);
 
         /// <summary>
         /// Creates a texture from the content of an image file (PNG, JPEG,
@@ -3244,13 +3334,13 @@ namespace Raven
         public static extern uint Rtexture_create_async(byte[] data, UIntPtr data_size);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rtexture_create_from_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern uint Rtexture_create_from_file([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Reads and decodes the file on a worker thread.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rtexture_create_from_file_async([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern uint Rtexture_create_from_file_async([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
@@ -3370,7 +3460,7 @@ namespace Raven
         public static extern uint Rwidget_get_window(uint widget);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_set_name(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rwidget_set_name(uint widget, [MarshalAs(Utf8.Str)] string name);
 
         [DllImport(Lib, EntryPoint = "Rwidget_get_name", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rwidget_get_name_(uint widget);
@@ -3382,7 +3472,7 @@ namespace Raven
         /// Returns: R_INVALID_ID when no widget has that name.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rwidget_find(uint scope, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern uint Rwidget_find(uint scope, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Space kept around the child, inside its slot. All panels.
@@ -3454,7 +3544,7 @@ namespace Raven
         /// Title of the tab showing the child. TabView.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rslot_set_title(uint child, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rslot_set_title(uint child, [MarshalAs(Utf8.Str)] string title);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_visibility(uint widget, RVisibility visibility);
@@ -3510,7 +3600,7 @@ namespace Raven
         /// Text shown when the cursor rests on the widget. NULL removes it.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_set_tooltip(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rwidget_set_tooltip(uint widget, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Returns: The tooltip text of the widget, "" when it has none.
@@ -3577,7 +3667,7 @@ namespace Raven
         /// click, value change, text commit, item activation (see Raction_bind).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_set_action(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string action);
+        public static extern void Rwidget_set_action(uint widget, [MarshalAs(Utf8.Str)] string action);
 
         [DllImport(Lib, EntryPoint = "Rwidget_get_action", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rwidget_get_action_(uint widget);
@@ -3683,7 +3773,7 @@ namespace Raven
         /// In XML: Class="...". NULL or "" removes them.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_set_class(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string classes);
+        public static extern void Rwidget_set_class(uint widget, [MarshalAs(Utf8.Str)] string classes);
 
         /// <summary>
         /// Returns: The classes, "" when it has none. Valid until they change.
@@ -3693,13 +3783,13 @@ namespace Raven
         public static string Rwidget_get_class(uint widget) { return Text(Rwidget_get_class_(widget)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_add_class(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string style_class);
+        public static extern void Rwidget_add_class(uint widget, [MarshalAs(Utf8.Str)] string style_class);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_remove_class(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string style_class);
+        public static extern void Rwidget_remove_class(uint widget, [MarshalAs(Utf8.Str)] string style_class);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rwidget_has_class(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string style_class);
+        public static extern int Rwidget_has_class(uint widget, [MarshalAs(Utf8.Str)] string style_class);
 
         /// <summary>
         /// Gives the widget and everything inside it a theme of their own,
@@ -3710,7 +3800,7 @@ namespace Raven
         /// Returns: R_FALSE, after reporting an error, when no theme has that name.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rwidget_set_theme(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern int Rwidget_set_theme(uint widget, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Returns: Name of the theme the widget is drawn with.
@@ -3915,7 +4005,7 @@ namespace Raven
         /// Returns: The index of the new tab, or -1.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rtab_view_add_tab(uint tab_view, [MarshalAs(UnmanagedType.LPUTF8Str)] string title, uint content);
+        public static extern int Rtab_view_add_tab(uint tab_view, [MarshalAs(Utf8.Str)] string title, uint content);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtab_view_set_active(uint tab_view, int index);
@@ -3951,7 +4041,7 @@ namespace Raven
         public static extern int Rtab_view_find_tab(uint tab_view, uint content);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtab_view_set_tab_title(uint tab_view, uint content, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rtab_view_set_tab_title(uint tab_view, uint content, [MarshalAs(Utf8.Str)] string title);
 
         /// <summary>
         /// Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color.
@@ -3975,7 +4065,7 @@ namespace Raven
         public static extern void Rtab_view_set_close_callback(uint tab_view, RTabCloseCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rexpander_set_title(uint expander, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rexpander_set_title(uint expander, [MarshalAs(Utf8.Str)] string title);
 
         [DllImport(Lib, EntryPoint = "Rexpander_get_title", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rexpander_get_title_(uint expander);
@@ -4018,13 +4108,13 @@ namespace Raven
         /// Shortcut for Rwidget_create(R_WIDGET_LABEL) + Rlabel_set_text.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rlabel_create([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern uint Rlabel_create([MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Sets the text. '\n' starts a new line.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rlabel_set_text(uint label, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rlabel_set_text(uint label, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, EntryPoint = "Rlabel_get_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rlabel_get_text_(uint label);
@@ -4094,14 +4184,14 @@ namespace Raven
         /// Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rbutton_create([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern uint Rbutton_create([MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Sets the content of the button to a label. A button can instead
         /// hold any single child widget (Rwidget_add_child), e.g. an HBox with an icon.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rbutton_set_text(uint button, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rbutton_set_text(uint button, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rbutton_set_style(uint button, RButtonStyle style);
@@ -4110,10 +4200,10 @@ namespace Raven
         public static extern void Rbutton_set_clicked_callback(uint button, RButtonClickedCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rcheckbox_create([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern uint Rcheckbox_create([MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rcheckbox_set_text(uint checkbox, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rcheckbox_set_text(uint checkbox, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, EntryPoint = "Rcheckbox_get_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rcheckbox_get_text_(uint checkbox);
@@ -4192,7 +4282,7 @@ namespace Raven
         public static extern void Rimage_set_corner_radius(uint image, float radius);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_input_set_text(uint text_input, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rtext_input_set_text(uint text_input, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, EntryPoint = "Rtext_input_get_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rtext_input_get_text_(uint text_input);
@@ -4202,7 +4292,7 @@ namespace Raven
         /// Dimmed text shown while the input is empty.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_input_set_placeholder(uint text_input, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rtext_input_set_placeholder(uint text_input, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_input_set_password(uint text_input, int password);
@@ -4268,7 +4358,7 @@ namespace Raven
         /// Returns: The index of the new item.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rcombo_box_add_item(uint combo_box, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern int Rcombo_box_add_item(uint combo_box, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rcombo_box_clear_items(uint combo_box);
@@ -4302,10 +4392,10 @@ namespace Raven
         /// Returns: The index of the new item.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rlist_view_add_item(uint list_view, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern int Rlist_view_add_item(uint list_view, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rlist_view_set_item_text(uint list_view, int index, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rlist_view_set_item_text(uint list_view, int index, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, EntryPoint = "Rlist_view_get_item_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rlist_view_get_item_text_(uint list_view, int index);
@@ -4350,7 +4440,7 @@ namespace Raven
         /// Returns: The handle of the new item.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rtree_view_add_item(uint tree_view, uint parent_item, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern uint Rtree_view_add_item(uint tree_view, uint parent_item, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Deletes an item and its descendants.
@@ -4365,7 +4455,7 @@ namespace Raven
         public static extern int Rtree_item_is_valid(uint item);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtree_item_set_text(uint item, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rtree_item_set_text(uint item, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, EntryPoint = "Rtree_item_get_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rtree_item_get_text_(uint item);
@@ -4472,7 +4562,7 @@ namespace Raven
         /// by spaces. NULL: no drag (default).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtree_view_set_drag_type(uint tree_view, [MarshalAs(UnmanagedType.LPUTF8Str)] string type);
+        public static extern void Rtree_view_set_drag_type(uint tree_view, [MarshalAs(Utf8.Str)] string type);
 
         /// <summary>
         /// Item at a point relative to the tree (drop callbacks give local_x, local_y), or R_INVALID_ID.
@@ -4490,19 +4580,19 @@ namespace Raven
         /// Creates a menu inside a menu bar or as a sub-menu of another menu.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rmenu_add_menu(uint menu_bar_or_menu, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern uint Rmenu_add_menu(uint menu_bar_or_menu, [MarshalAs(Utf8.Str)] string title);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rmenu_set_title(uint menu, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rmenu_set_title(uint menu, [MarshalAs(Utf8.Str)] string title);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rmenu_add_item(uint menu, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern uint Rmenu_add_item(uint menu, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rmenu_add_separator(uint menu);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rmenu_item_set_text(uint item, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rmenu_item_set_text(uint item, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, EntryPoint = "Rmenu_item_get_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rmenu_item_get_text_(uint item);
@@ -4569,7 +4659,7 @@ namespace Raven
         public static extern void Rtile_view_set_tile_size(uint tile_view, float width, float height, float icon_size);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtile_view_set_empty_text(uint tile_view, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rtile_view_set_empty_text(uint tile_view, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtile_view_set_selected(uint tile_view, int index, int selected);
@@ -4618,7 +4708,7 @@ namespace Raven
         /// with this type and, as data, their indices separated by spaces.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtile_view_set_drag_type(uint tile_view, [MarshalAs(UnmanagedType.LPUTF8Str)] string type);
+        public static extern void Rtile_view_set_drag_type(uint tile_view, [MarshalAs(Utf8.Str)] string type);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtile_view_set_drag_data_callback(uint tile_view, RTileDragDataCallback callback, IntPtr user_data);
@@ -4636,13 +4726,13 @@ namespace Raven
         /// text Initial content, or NULL.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rtext_editor_create([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern uint Rtext_editor_create([MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_editor_set_text(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rtext_editor_set_text(uint editor, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Returns: The whole text, lines separated by '\n'. Valid until the next call or the next edit.
@@ -4672,7 +4762,7 @@ namespace Raven
         /// would: it can be undone and the changed callback is called.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_editor_insert_text(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rtext_editor_insert_text(uint editor, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_editor_set_cursor(uint editor, int line, int column);
@@ -4768,7 +4858,7 @@ namespace Raven
         /// Text shown, dimmed, while the editor is empty.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_editor_set_placeholder(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rtext_editor_set_placeholder(uint editor, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Zoom of the text: a factor of its font size, 1 = 100 % (0.5 .. 4).
@@ -4812,13 +4902,13 @@ namespace Raven
         /// Reads the description of a language. The strings belong to the library. Returns R_FALSE when it is unknown.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rlanguage_get([MarshalAs(UnmanagedType.LPUTF8Str)] string name, ref RLanguageDesc desc);
+        public static extern int Rlanguage_get([MarshalAs(Utf8.Str)] string name, ref RLanguageDesc desc);
 
         /// <summary>
         /// Reads the description of a language. The strings belong to the library. Returns R_FALSE when it is unknown.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rlanguage_get([MarshalAs(UnmanagedType.LPUTF8Str)] string name, IntPtr desc);
+        public static extern int Rlanguage_get([MarshalAs(Utf8.Str)] string name, IntPtr desc);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rlanguage_get_count();
@@ -4831,7 +4921,7 @@ namespace Raven
         /// Returns: The name of the language of a file, from its extension, or NULL.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rlanguage_for_file", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rlanguage_for_file_([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        private static extern IntPtr Rlanguage_for_file_([MarshalAs(Utf8.Str)] string path);
         public static string Rlanguage_for_file(string path) { return Text(Rlanguage_for_file_(path)); }
 
         /// <summary>
@@ -4841,7 +4931,7 @@ namespace Raven
         /// fixed-width font unless it was given a font.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_editor_set_language(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rtext_editor_set_language(uint editor, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Returns: The name of the language of the editor, or "".
@@ -4896,7 +4986,7 @@ namespace Raven
         /// detail A few words shown beside it ("function", "int"), or NULL.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_editor_add_completion(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string text, [MarshalAs(UnmanagedType.LPUTF8Str)] string detail);
+        public static extern void Rtext_editor_add_completion(uint editor, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string detail);
 
         /// <summary>
         /// R_FALSE stops the editor from closing brackets and quotes and
@@ -4913,7 +5003,7 @@ namespace Raven
         /// to_column -1 for the end of the line.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtext_editor_add_marker(uint editor, int line, int from_column, int to_column, RMarkerKind kind, [MarshalAs(UnmanagedType.LPUTF8Str)] string message);
+        public static extern void Rtext_editor_add_marker(uint editor, int line, int from_column, int to_column, RMarkerKind kind, [MarshalAs(Utf8.Str)] string message);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_editor_clear_markers(uint editor);
@@ -4945,13 +5035,13 @@ namespace Raven
         /// title Text shown in the bar; NULL shows the title of the window.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rheader_bar_create([MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern uint Rheader_bar_create([MarshalAs(Utf8.Str)] string title);
 
         /// <summary>
         /// title NULL shows the title of the window.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rheader_bar_set_title(uint bar, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rheader_bar_set_title(uint bar, [MarshalAs(Utf8.Str)] string title);
 
         /// <summary>
         /// buttons Bitmask of RHeaderButtons. All by default; the maximize button only shows on a resizable window.
@@ -5000,7 +5090,7 @@ namespace Raven
         ///                 (0 = a half, or a quarter along the whole area).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rdock_area_add_panel(uint area, uint panel, [MarshalAs(UnmanagedType.LPUTF8Str)] string title, RDockSide side, uint relative, float size);
+        public static extern void Rdock_area_add_panel(uint area, uint panel, [MarshalAs(Utf8.Str)] string title, RDockSide side, uint relative, float size);
 
         /// <summary>
         /// Moves a panel of the area somewhere else in it.
@@ -5015,7 +5105,7 @@ namespace Raven
         public static extern void Rdock_area_close_panel(uint area, uint panel);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rdock_area_set_panel_title(uint area, uint panel, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rdock_area_set_panel_title(uint area, uint panel, [MarshalAs(Utf8.Str)] string title);
 
         /// <summary>
         /// Icon drawn before the title of the tab of a panel (and on the chip while it is dragged).
@@ -5095,7 +5185,7 @@ namespace Raven
         /// Returns: R_FALSE when the text is not a layout (nothing is changed).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rdock_area_load_layout(uint area, [MarshalAs(UnmanagedType.LPUTF8Str)] string layout);
+        public static extern int Rdock_area_load_layout(uint area, [MarshalAs(Utf8.Str)] string layout);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rdock_area_set_close_callback(uint area, RDockCloseCallback callback, IntPtr user_data);
@@ -5220,7 +5310,7 @@ namespace Raven
         /// Returns: R_FALSE when the text is not a color (the color is unchanged).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rcolor_picker_set_hex(uint picker, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern int Rcolor_picker_set_hex(uint picker, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Returns: "#RRGGBB", or "#RRGGBBAA" when the opacity is shown and not full. Valid until the color changes.
@@ -5374,7 +5464,7 @@ namespace Raven
         /// Returns: The track, or 0. Tracks are shown in the order they were added.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rtimeline_add_track(uint timeline, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern int Rtimeline_add_track(uint timeline, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Removes a track and everything on it.
@@ -5392,7 +5482,7 @@ namespace Raven
         public static extern int Rtimeline_get_track(uint timeline, int index);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtimeline_set_track_name(uint timeline, int track, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rtimeline_set_track_name(uint timeline, int track, [MarshalAs(Utf8.Str)] string name);
 
         [DllImport(Lib, EntryPoint = "Rtimeline_get_track_name", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rtimeline_get_track_name_(uint timeline, int track);
@@ -5429,7 +5519,7 @@ namespace Raven
         /// Returns: The clip, or 0 when the track does not exist.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rtimeline_add_clip(uint timeline, int track, double start, double length, [MarshalAs(UnmanagedType.LPUTF8Str)] string label);
+        public static extern int Rtimeline_add_clip(uint timeline, int track, double start, double length, [MarshalAs(Utf8.Str)] string label);
 
         /// <summary>
         /// Returns: The key, or 0.
@@ -5441,7 +5531,7 @@ namespace Raven
         /// A named moment of the whole sequence, shown on the ruler and across the tracks.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rtimeline_add_marker(uint timeline, double time, [MarshalAs(UnmanagedType.LPUTF8Str)] string label);
+        public static extern int Rtimeline_add_marker(uint timeline, double time, [MarshalAs(Utf8.Str)] string label);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtimeline_remove_item(uint timeline, int item);
@@ -5477,7 +5567,7 @@ namespace Raven
         public static extern void Rtimeline_set_item(uint timeline, int item, int track, double start, double length);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rtimeline_set_item_label(uint timeline, int item, [MarshalAs(UnmanagedType.LPUTF8Str)] string label);
+        public static extern void Rtimeline_set_item_label(uint timeline, int item, [MarshalAs(Utf8.Str)] string label);
 
         [DllImport(Lib, EntryPoint = "Rtimeline_get_item_label", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rtimeline_get_item_label_(uint timeline, int item);
@@ -5551,7 +5641,7 @@ namespace Raven
         /// x,y Top-left corner of the node, in the units of the canvas.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rnode_graph_add_node(uint graph, [MarshalAs(UnmanagedType.LPUTF8Str)] string title, float x, float y);
+        public static extern int Rnode_graph_add_node(uint graph, [MarshalAs(Utf8.Str)] string title, float x, float y);
 
         /// <summary>
         /// Removes a node, its pins, their links, and the widget it holds.
@@ -5569,7 +5659,7 @@ namespace Raven
         public static extern int Rnode_graph_get_node(uint graph, int index);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rnode_graph_set_node_title(uint graph, int node, [MarshalAs(UnmanagedType.LPUTF8Str)] string title);
+        public static extern void Rnode_graph_set_node_title(uint graph, int node, [MarshalAs(Utf8.Str)] string title);
 
         [DllImport(Lib, EntryPoint = "Rnode_graph_get_node_title", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rnode_graph_get_node_title_(uint graph, int node);
@@ -5608,7 +5698,7 @@ namespace Raven
         /// &lt;Link From="name.pin"&gt; and Rnode_graph_find_node look for. Not shown.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rnode_graph_set_node_name(uint graph, int node, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rnode_graph_set_node_name(uint graph, int node, [MarshalAs(Utf8.Str)] string name);
 
         [DllImport(Lib, EntryPoint = "Rnode_graph_get_node_name", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rnode_graph_get_node_name_(uint graph, int node);
@@ -5618,7 +5708,7 @@ namespace Raven
         /// Returns: The node of that name, or 0.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rnode_graph_find_node(uint graph, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern int Rnode_graph_find_node(uint graph, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Value the application attaches to a node.
@@ -5633,10 +5723,10 @@ namespace Raven
         /// type Free text, or NULL for a pin that links to any type. Returns: The pin, or 0.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rnode_graph_add_input(uint graph, int node, [MarshalAs(UnmanagedType.LPUTF8Str)] string label, [MarshalAs(UnmanagedType.LPUTF8Str)] string type);
+        public static extern int Rnode_graph_add_input(uint graph, int node, [MarshalAs(Utf8.Str)] string label, [MarshalAs(Utf8.Str)] string type);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rnode_graph_add_output(uint graph, int node, [MarshalAs(UnmanagedType.LPUTF8Str)] string label, [MarshalAs(UnmanagedType.LPUTF8Str)] string type);
+        public static extern int Rnode_graph_add_output(uint graph, int node, [MarshalAs(Utf8.Str)] string label, [MarshalAs(Utf8.Str)] string type);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_remove_pin(uint graph, int pin);
@@ -5659,13 +5749,13 @@ namespace Raven
         /// Name of the pin for Rnode_graph_find_pin and for the links of XML; a pin without one answers to its label.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rnode_graph_set_pin_name(uint graph, int pin, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rnode_graph_set_pin_name(uint graph, int pin, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Returns: The pin of a node with that name (or label), or 0.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rnode_graph_find_pin(uint graph, int node, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern int Rnode_graph_find_pin(uint graph, int node, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Where a pin is on the canvas (the middle of its dot).
@@ -5686,7 +5776,7 @@ namespace Raven
         /// Color of the pins of a type and of the links between them.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rnode_graph_set_type_color(uint graph, [MarshalAs(UnmanagedType.LPUTF8Str)] string type, float r, float g, float b);
+        public static extern void Rnode_graph_set_type_color(uint graph, [MarshalAs(Utf8.Str)] string type, float r, float g, float b);
 
         /// <summary>
         /// Links an output to an input, as the user does by dragging.
@@ -5848,7 +5938,7 @@ namespace Raven
         /// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rnode_graph_set_node_badge(uint graph, int node, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rnode_graph_set_node_badge(uint graph, int node, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rblock_editor_create();
@@ -5857,13 +5947,13 @@ namespace Raven
         /// A kind of block, and its block in the palette. Returns its index, -1 on an error.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rblock_editor_add_kind(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, [MarshalAs(UnmanagedType.LPUTF8Str)] string label, RBlockShape shape, [MarshalAs(UnmanagedType.LPUTF8Str)] string category);
+        public static extern int Rblock_editor_add_kind(uint editor, [MarshalAs(Utf8.Str)] string name, [MarshalAs(Utf8.Str)] string label, RBlockShape shape, [MarshalAs(Utf8.Str)] string category);
 
         /// <summary>
         /// Color of the blocks of a category (Raven picks one from its name otherwise).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rblock_editor_set_category_color(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string category, float r, float g, float b);
+        public static extern void Rblock_editor_set_category_color(uint editor, [MarshalAs(Utf8.Str)] string category, float r, float g, float b);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rblock_editor_set_palette_visible(uint editor, int visible);
@@ -5872,7 +5962,7 @@ namespace Raven
         /// A new block, the top of a script of its own at x, y (canvas units). Returns it, 0 on an error.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rblock_editor_add_block(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string kind, float x, float y);
+        public static extern int Rblock_editor_add_block(uint editor, [MarshalAs(Utf8.Str)] string kind, float x, float y);
 
         /// <summary>
         /// Removes a block and everything that hangs under it.
@@ -5940,7 +6030,7 @@ namespace Raven
         public static string Rblock_editor_get_value(uint editor, int block, int slot) { return Text(Rblock_editor_get_value_(editor, block, slot)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rblock_editor_set_value(uint editor, int block, int slot, [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+        public static extern void Rblock_editor_set_value(uint editor, int block, int slot, [MarshalAs(Utf8.Str)] string value);
 
         /// <summary>
         /// Where a block hangs: the block it hangs from (0: the top of a script).
@@ -5968,7 +6058,7 @@ namespace Raven
         /// Replaces the scripts with those of a text from Rblock_editor_save.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rblock_editor_load(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern int Rblock_editor_load(uint editor, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rblock_editor_set_changed_callback(uint editor, RBlockEditorCallback callback, IntPtr user_data);
@@ -5983,20 +6073,20 @@ namespace Raven
         /// The choices of a %m slot of a kind, separated by '\n' ("" : the slot is typed in).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rblock_editor_set_slot_options(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string kind, int slot, [MarshalAs(UnmanagedType.LPUTF8Str)] string options);
+        public static extern void Rblock_editor_set_slot_options(uint editor, [MarshalAs(Utf8.Str)] string kind, int slot, [MarshalAs(Utf8.Str)] string options);
 
         /// <summary>
         /// R_FALSE: the kind is not in the palette (its blocks stay where they are).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rblock_editor_set_kind_visible(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string kind, int visible);
+        public static extern void Rblock_editor_set_kind_visible(uint editor, [MarshalAs(Utf8.Str)] string kind, int visible);
 
         /// <summary>
         /// A new label for a kind (a function that takes one more input...).
         /// The blocks of that kind keep the values of the slots that are still there.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rblock_editor_set_kind_label(uint editor, [MarshalAs(UnmanagedType.LPUTF8Str)] string kind, [MarshalAs(UnmanagedType.LPUTF8Str)] string label);
+        public static extern int Rblock_editor_set_kind_label(uint editor, [MarshalAs(Utf8.Str)] string kind, [MarshalAs(Utf8.Str)] string label);
 
         /// <summary>
         /// R_FALSE: the user cannot delete the block (the entry of a function). Not saved.
@@ -6060,7 +6150,7 @@ namespace Raven
         /// title  May be NULL.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern RMessageResult Rmessage_box(uint window, [MarshalAs(UnmanagedType.LPUTF8Str)] string title, [MarshalAs(UnmanagedType.LPUTF8Str)] string text, RMessageButtons buttons);
+        public static extern RMessageResult Rmessage_box(uint window, [MarshalAs(Utf8.Str)] string title, [MarshalAs(Utf8.Str)] string text, RMessageButtons buttons);
 
         /// <summary>
         /// Asks for a file to open.
@@ -6131,16 +6221,16 @@ namespace Raven
         /// copy R_TRUE: Raven keeps a copy; R_FALSE: `data` must outlive Raven (static data).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rfile_register_memory([MarshalAs(UnmanagedType.LPUTF8Str)] string path, byte[] data, UIntPtr size, int copy);
+        public static extern int Rfile_register_memory([MarshalAs(Utf8.Str)] string path, byte[] data, UIntPtr size, int copy);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rfile_unregister_memory([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern void Rfile_unregister_memory([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// R_TRUE when `path` is a file registered with Rfile_register_memory.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rfile_is_memory([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern int Rfile_is_memory([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Whole files, with UTF-8 paths on every platform.
@@ -6148,10 +6238,10 @@ namespace Raven
         /// Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr Rfile_read([MarshalAs(UnmanagedType.LPUTF8Str)] string path, out UIntPtr size);
+        public static extern IntPtr Rfile_read([MarshalAs(Utf8.Str)] string path, out UIntPtr size);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rfile_write([MarshalAs(UnmanagedType.LPUTF8Str)] string path, byte[] data, UIntPtr size);
+        public static extern int Rfile_write([MarshalAs(Utf8.Str)] string path, byte[] data, UIntPtr size);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rfile_browser_create();
@@ -6163,7 +6253,7 @@ namespace Raven
         /// Shows a folder. "~" is the home of the user. Returns R_FALSE when it cannot be read.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rfile_browser_set_directory(uint browser, [MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern int Rfile_browser_set_directory(uint browser, [MarshalAs(Utf8.Str)] string path);
 
         [DllImport(Lib, EntryPoint = "Rfile_browser_get_directory", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rfile_browser_get_directory_(uint browser);
@@ -6213,13 +6303,13 @@ namespace Raven
         /// Name typed in the name field (save mode).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rfile_browser_set_file_name(uint browser, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rfile_browser_set_file_name(uint browser, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// Added to a name typed without extension, in save mode.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rfile_browser_set_default_extension(uint browser, [MarshalAs(UnmanagedType.LPUTF8Str)] string extension);
+        public static extern void Rfile_browser_set_default_extension(uint browser, [MarshalAs(Utf8.Str)] string extension);
 
         /// <summary>
         /// Paths of the selected entries. The strings are valid until the selection or the folder changes.
@@ -6235,7 +6325,7 @@ namespace Raven
         /// Selects an entry of the folder by its name.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rfile_browser_select(uint browser, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rfile_browser_select(uint browser, [MarshalAs(Utf8.Str)] string name);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rfile_browser_set_accepted_callback(uint browser, RFileBrowserCallback callback, IntPtr user_data);
@@ -6360,7 +6450,7 @@ namespace Raven
         /// size 0 uses R_METRIC_FONT_SIZE.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rdraw_text(IntPtr painter, uint font, float size, float x, float y, [MarshalAs(UnmanagedType.LPUTF8Str)] string text, float r, float g, float b, float a);
+        public static extern void Rdraw_text(IntPtr painter, uint font, float size, float x, float y, [MarshalAs(Utf8.Str)] string text, float r, float g, float b, float a);
 
         /// <summary>
         /// Rounded rectangle of glass. It shows what was drawn before it,
@@ -6444,7 +6534,7 @@ namespace Raven
         /// The same, from a .spv file (UTF-8 path, relative to the current folder).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rshader_create_from_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path, uint flags);
+        public static extern uint Rshader_create_from_file([MarshalAs(Utf8.Str)] string path, uint flags);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rshader_destroy(uint shader);
@@ -6465,7 +6555,7 @@ namespace Raven
         /// A built-in effect by its name ("aurora", "shimmer", "neon", "ripple", "plasma", "grain", "spotlight", "mesh"), or R_INVALID_ID.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Reffect_find([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern uint Reffect_find([MarshalAs(Utf8.Str)] string name);
 
         [DllImport(Lib, EntryPoint = "Reffect_get_name", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Reffect_get_name_(REffect effect);
@@ -6550,29 +6640,29 @@ namespace Raven
         ///         their line and column through the error callback (R_ERROR_XML).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rwindow_create_from_xml([MarshalAs(UnmanagedType.LPUTF8Str)] string xml, UIntPtr size);
+        public static extern uint Rwindow_create_from_xml([MarshalAs(Utf8.Str)] string xml, UIntPtr size);
         public static uint Rwindow_create_from_xml(string xml) { return Rwindow_create_from_xml(xml, Utf8Length(xml)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rwindow_create_from_xml_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern uint Rwindow_create_from_xml_file([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Creates a widget tree from a document whose root element is a
         /// widget. The caller owns the returned widget until it is added to a parent.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rwidget_create_from_xml([MarshalAs(UnmanagedType.LPUTF8Str)] string xml, UIntPtr size);
+        public static extern uint Rwidget_create_from_xml([MarshalAs(Utf8.Str)] string xml, UIntPtr size);
         public static uint Rwidget_create_from_xml(string xml) { return Rwidget_create_from_xml(xml, Utf8Length(xml)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rwidget_create_from_xml_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern uint Rwidget_create_from_xml_file([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Folder used to resolve relative paths found in XML (Source="...",
         /// Font="..."). The *FromXmlFile functions use the folder of the file.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rxml_set_base_path([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern void Rxml_set_base_path([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Turns live reload on or off. It is on by default; the
@@ -6603,17 +6693,17 @@ namespace Raven
         /// Returns: The number of tags declared.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_register_widgets([MarshalAs(UnmanagedType.LPUTF8Str)] string xml, UIntPtr size);
+        public static extern int Rxml_register_widgets([MarshalAs(Utf8.Str)] string xml, UIntPtr size);
         public static int Rxml_register_widgets(string xml) { return Rxml_register_widgets(xml, Utf8Length(xml)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_register_widgets_from_file([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern int Rxml_register_widgets_from_file([MarshalAs(Utf8.Str)] string path);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rxml_unregister_widget([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rxml_unregister_widget([MarshalAs(Utf8.Str)] string name);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_is_widget_registered([MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern int Rxml_is_widget_registered([MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// The declared tags, for tools that list them.
@@ -6630,13 +6720,13 @@ namespace Raven
         /// Returns: R_FALSE when the name is the one of a widget of Raven, or when too many tags are registered (64).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_register_tag([MarshalAs(UnmanagedType.LPUTF8Str)] string tag, RXmlTagCreateCallback create, RXmlTagAttributeCallback set_attribute, IntPtr user_data);
+        public static extern int Rxml_register_tag([MarshalAs(Utf8.Str)] string tag, RXmlTagCreateCallback create, RXmlTagAttributeCallback set_attribute, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rxml_unregister_tag([MarshalAs(UnmanagedType.LPUTF8Str)] string tag);
+        public static extern void Rxml_unregister_tag([MarshalAs(Utf8.Str)] string tag);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_is_tag_registered([MarshalAs(UnmanagedType.LPUTF8Str)] string tag);
+        public static extern int Rxml_is_tag_registered([MarshalAs(Utf8.Str)] string tag);
 
         /// <summary>
         /// The path of a file named in a document: as the attributes
@@ -6646,7 +6736,7 @@ namespace Raven
         /// Returns: The path; valid until the next call.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rxml_resolve_path", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rxml_resolve_path_([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        private static extern IntPtr Rxml_resolve_path_([MarshalAs(Utf8.Str)] string path);
         public static string Rxml_resolve_path(string path) { return Text(Rxml_resolve_path_(path)); }
 
         /// <summary>
@@ -6655,13 +6745,13 @@ namespace Raven
         /// Returns: R_TRUE when the attribute exists for this widget and the value is valid.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rwidget_set_attribute(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+        public static extern int Rwidget_set_attribute(uint widget, [MarshalAs(Utf8.Str)] string name, [MarshalAs(Utf8.Str)] string value);
 
         /// <summary>
         /// A new document with one element.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rxml_document_create([MarshalAs(UnmanagedType.LPUTF8Str)] string root_tag);
+        public static extern uint Rxml_document_create([MarshalAs(Utf8.Str)] string root_tag);
 
         /// <summary>
         /// Reads a text into a document. Comments are kept.
@@ -6670,7 +6760,7 @@ namespace Raven
         /// Returns: The document, or R_INVALID_ID.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rxml_document_parse([MarshalAs(UnmanagedType.LPUTF8Str)] string xml, UIntPtr size, ref RXmlError error);
+        public static extern uint Rxml_document_parse([MarshalAs(Utf8.Str)] string xml, UIntPtr size, ref RXmlError error);
         public static uint Rxml_document_parse(string xml, ref RXmlError error) { return Rxml_document_parse(xml, Utf8Length(xml), ref error); }
 
         /// <summary>
@@ -6680,14 +6770,14 @@ namespace Raven
         /// Returns: The document, or R_INVALID_ID.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rxml_document_parse([MarshalAs(UnmanagedType.LPUTF8Str)] string xml, UIntPtr size, IntPtr error);
+        public static extern uint Rxml_document_parse([MarshalAs(Utf8.Str)] string xml, UIntPtr size, IntPtr error);
         public static uint Rxml_document_parse(string xml, IntPtr error) { return Rxml_document_parse(xml, Utf8Length(xml), error); }
 
         /// <summary>
         /// Reads a file. The paths written in it are relative to its folder.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rxml_document_load([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern uint Rxml_document_load([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Releases a document and its nodes. What was built from it lives on.
@@ -6711,7 +6801,7 @@ namespace Raven
         public static string Rxml_document_to_string(uint document) { return Text(Rxml_document_to_string_(document)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_document_save(uint document, [MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern int Rxml_document_save(uint document, [MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Builds the widgets the document describes, as
@@ -6741,7 +6831,7 @@ namespace Raven
         public static string Rxml_node_get_tag(uint node) { return Text(Rxml_node_get_tag_(node)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rxml_node_set_tag(uint node, [MarshalAs(UnmanagedType.LPUTF8Str)] string tag);
+        public static extern void Rxml_node_set_tag(uint node, [MarshalAs(Utf8.Str)] string tag);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rxml_node_is_comment(uint node);
@@ -6754,7 +6844,7 @@ namespace Raven
         public static string Rxml_node_get_text(uint node) { return Text(Rxml_node_get_text_(node)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rxml_node_set_text(uint node, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rxml_node_set_text(uint node, [MarshalAs(Utf8.Str)] string text);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rxml_node_get_parent(uint node);
@@ -6775,17 +6865,17 @@ namespace Raven
         /// index Where among the children; -1 for the end.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rxml_node_add_child(uint parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string tag, int index);
+        public static extern uint Rxml_node_add_child(uint parent, [MarshalAs(Utf8.Str)] string tag, int index);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rxml_node_add_comment(uint parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string text, int index);
+        public static extern uint Rxml_node_add_comment(uint parent, [MarshalAs(Utf8.Str)] string text, int index);
 
         /// <summary>
         /// Reads a piece of XML (one element and what it contains) and
         /// adds it: what a palette, a paste or a template inserts.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern uint Rxml_node_add_xml(uint parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string xml, UIntPtr size, int index);
+        public static extern uint Rxml_node_add_xml(uint parent, [MarshalAs(Utf8.Str)] string xml, UIntPtr size, int index);
         public static uint Rxml_node_add_xml(uint parent, string xml, int index) { return Rxml_node_add_xml(parent, xml, Utf8Length(xml), index); }
 
         /// <summary>
@@ -6831,14 +6921,14 @@ namespace Raven
         /// Returns: The value of an attribute (names are compared without case), or NULL when the node does not have it.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rxml_node_get_attribute", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rxml_node_get_attribute_(uint node, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        private static extern IntPtr Rxml_node_get_attribute_(uint node, [MarshalAs(Utf8.Str)] string name);
         public static string Rxml_node_get_attribute(uint node, string name) { return Text(Rxml_node_get_attribute_(node, name)); }
 
         /// <summary>
         /// Sets an attribute, added after the others when it is new. A NULL value removes it.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rxml_node_set_attribute(uint node, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+        public static extern void Rxml_node_set_attribute(uint node, [MarshalAs(Utf8.Str)] string name, [MarshalAs(Utf8.Str)] string value);
 
         /// <summary>
         /// Returns: The line of the node, starting at 1, in the text the document
@@ -6878,14 +6968,14 @@ namespace Raven
         /// Returns: One line about a tag, "" when there is nothing to say.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rxml_get_tag_description", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rxml_get_tag_description_([MarshalAs(UnmanagedType.LPUTF8Str)] string tag);
+        private static extern IntPtr Rxml_get_tag_description_([MarshalAs(Utf8.Str)] string tag);
         public static string Rxml_get_tag_description(string tag) { return Text(Rxml_get_tag_description_(tag)); }
 
         /// <summary>
         /// Returns: 0: no child widget; 1: a single one; 2: any number. Declared and unknown tags give 2.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_get_tag_children([MarshalAs(UnmanagedType.LPUTF8Str)] string tag);
+        public static extern int Rxml_get_tag_children([MarshalAs(Utf8.Str)] string tag);
 
         /// <summary>
         /// The attributes of a tag: its own first, then those every widget
@@ -6893,25 +6983,25 @@ namespace Raven
         /// &lt;Widget&gt;, its own are its parameters.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_get_attribute_count([MarshalAs(UnmanagedType.LPUTF8Str)] string tag);
+        public static extern int Rxml_get_attribute_count([MarshalAs(Utf8.Str)] string tag);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_get_attribute_info([MarshalAs(UnmanagedType.LPUTF8Str)] string tag, int index, ref RXmlAttributeInfo info);
+        public static extern int Rxml_get_attribute_info([MarshalAs(Utf8.Str)] string tag, int index, ref RXmlAttributeInfo info);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rxml_get_attribute_info([MarshalAs(UnmanagedType.LPUTF8Str)] string tag, int index, IntPtr info);
+        public static extern int Rxml_get_attribute_info([MarshalAs(Utf8.Str)] string tag, int index, IntPtr info);
 
         /// <summary>
         /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rlocale_load_csv([MarshalAs(UnmanagedType.LPUTF8Str)] string path);
+        public static extern int Rlocale_load_csv([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
         /// Same, from text in memory (UTF-8).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rlocale_load_csv_from_memory([MarshalAs(UnmanagedType.LPUTF8Str)] string csv, UIntPtr size);
+        public static extern int Rlocale_load_csv_from_memory([MarshalAs(Utf8.Str)] string csv, UIntPtr size);
         public static int Rlocale_load_csv_from_memory(string csv) { return Rlocale_load_csv_from_memory(csv, Utf8Length(csv)); }
 
         /// <summary>
@@ -6924,7 +7014,7 @@ namespace Raven
         /// Adds or replaces one text of one language.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rlocale_set_text([MarshalAs(UnmanagedType.LPUTF8Str)] string language, [MarshalAs(UnmanagedType.LPUTF8Str)] string key, [MarshalAs(UnmanagedType.LPUTF8Str)] string text);
+        public static extern void Rlocale_set_text([MarshalAs(Utf8.Str)] string language, [MarshalAs(Utf8.Str)] string key, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
         /// Number of languages in the tables, and their codes, in the order of the columns.
@@ -6945,7 +7035,7 @@ namespace Raven
         /// language is set all the same: the texts fall back).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rlocale_set_language([MarshalAs(UnmanagedType.LPUTF8Str)] string code);
+        public static extern int Rlocale_set_language([MarshalAs(Utf8.Str)] string code);
 
         [DllImport(Lib, EntryPoint = "Rlocale_get_language", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rlocale_get_language_();
@@ -6962,7 +7052,7 @@ namespace Raven
         /// The language whose texts are shown when the current one has none (default: the first column).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rlocale_set_fallback_language([MarshalAs(UnmanagedType.LPUTF8Str)] string code);
+        public static extern void Rlocale_set_fallback_language([MarshalAs(Utf8.Str)] string code);
 
         /// <summary>
         /// R_TRUE when the language is written from right to left.
@@ -6980,21 +7070,21 @@ namespace Raven
         /// The text of a key in the current language (see the fallbacks above). Never NULL.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rtr", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rtr_([MarshalAs(UnmanagedType.LPUTF8Str)] string key);
+        private static extern IntPtr Rtr_([MarshalAs(Utf8.Str)] string key);
         public static string Rtr(string key) { return Text(Rtr_(key)); }
 
         /// <summary>
         /// R_TRUE when the key has a text in the current language or the fallback one.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int Rtr_exists([MarshalAs(UnmanagedType.LPUTF8Str)] string key);
+        public static extern int Rtr_exists([MarshalAs(Utf8.Str)] string key);
 
         /// <summary>
         /// The text of a key with its {0} {1} ... replaced by the arguments
         /// (translators may put them in any order). "{{" is a brace.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rtr_format", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rtr_format_([MarshalAs(UnmanagedType.LPUTF8Str)] string key, [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPUTF8Str)] string[] args, int arg_count);
+        private static extern IntPtr Rtr_format_([MarshalAs(Utf8.Str)] string key, [MarshalAs(UnmanagedType.LPArray, ArraySubType = Utf8.Str)] string[] args, int arg_count);
         public static string Rtr_format(string key, string[] args, int arg_count) { return Text(Rtr_format_(key, args, arg_count)); }
 
         /// <summary>
@@ -7004,7 +7094,7 @@ namespace Raven
         /// replaced by the count, written in the conventions of the language.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rtr_plural", CallingConvention = CallingConvention.Cdecl)]
-        private static extern IntPtr Rtr_plural_([MarshalAs(UnmanagedType.LPUTF8Str)] string key, int count);
+        private static extern IntPtr Rtr_plural_([MarshalAs(Utf8.Str)] string key, int count);
         public static string Rtr_plural(string key, int count) { return Text(Rtr_plural_(key, count)); }
 
         /// <summary>
@@ -7014,7 +7104,7 @@ namespace Raven
         /// Same as Rwidget_set_attribute(widget, attribute, "@key").
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_set_text_key(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string attribute, [MarshalAs(UnmanagedType.LPUTF8Str)] string key);
+        public static extern void Rwidget_set_text_key(uint widget, [MarshalAs(Utf8.Str)] string attribute, [MarshalAs(Utf8.Str)] string key);
 
         /// <summary>
         /// A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French).
@@ -7089,7 +7179,7 @@ namespace Raven
         /// What the screen reader says of the widget; NULL: what it shows (or the label before it).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_set_accessible_name(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string name);
+        public static extern void Rwidget_set_accessible_name(uint widget, [MarshalAs(Utf8.Str)] string name);
 
         /// <summary>
         /// The name the screen reader uses (given, or found). Valid until the next call.
@@ -7102,7 +7192,7 @@ namespace Raven
         /// A longer explanation, read after the name.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Rwidget_set_accessible_description(uint widget, [MarshalAs(UnmanagedType.LPUTF8Str)] string description);
+        public static extern void Rwidget_set_accessible_description(uint widget, [MarshalAs(Utf8.Str)] string description);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_accessible_role(uint widget, RAccessibleRole role);
@@ -7129,7 +7219,7 @@ namespace Raven
         /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void Raccessibility_announce([MarshalAs(UnmanagedType.LPUTF8Str)] string text, int assertive);
+        public static extern void Raccessibility_announce([MarshalAs(Utf8.Str)] string text, int assertive);
 
         /// <summary>
         /// R_TRUE when a screen reader is reading the windows of the application.

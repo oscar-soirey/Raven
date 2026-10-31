@@ -527,7 +527,46 @@ R_DROP_MOVE = RDropPhase.R_DROP_MOVE
 R_DROP_LEAVE = RDropPhase.R_DROP_LEAVE
 R_DROP_DROPPED = RDropPhase.R_DROP_DROPPED
 
+class RLook(enum.IntEnum):
+    """The looks. Each one comes dark and light.
+    
+    Raven's looks are the default; the ones of the platforms imitate them
+    closely (their shapes, colors, sizes, states and motion), without using
+    their widgets. The looks of the platforms are opaque: the glass materials
+    belong to the glass looks of Raven."""
+    R_LOOK_RAVEN_DARK = 0x00E0
+    R_LOOK_RAVEN_LIGHT = 0x00E1
+    R_LOOK_RAVEN_GLASS_DARK = 0x00E2
+    R_LOOK_RAVEN_GLASS_LIGHT = 0x00E3
+    R_LOOK_RAVEN_HIGH_CONTRAST_DARK = 0x00E4
+    R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT = 0x00E5
+    R_LOOK_WINDOWS_DARK = 0x00E6
+    R_LOOK_WINDOWS_LIGHT = 0x00E7
+    R_LOOK_MACOS_DARK = 0x00E8
+    R_LOOK_MACOS_LIGHT = 0x00E9
+    R_LOOK_GNOME_DARK = 0x00EA
+    R_LOOK_GNOME_LIGHT = 0x00EB
+    R_LOOK_NATIVE_DARK = 0x00EC
+    R_LOOK_NATIVE_LIGHT = 0x00ED
+
+R_LOOK_RAVEN_DARK = RLook.R_LOOK_RAVEN_DARK
+R_LOOK_RAVEN_LIGHT = RLook.R_LOOK_RAVEN_LIGHT
+R_LOOK_RAVEN_GLASS_DARK = RLook.R_LOOK_RAVEN_GLASS_DARK
+R_LOOK_RAVEN_GLASS_LIGHT = RLook.R_LOOK_RAVEN_GLASS_LIGHT
+R_LOOK_RAVEN_HIGH_CONTRAST_DARK = RLook.R_LOOK_RAVEN_HIGH_CONTRAST_DARK
+R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT = RLook.R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT
+R_LOOK_WINDOWS_DARK = RLook.R_LOOK_WINDOWS_DARK
+R_LOOK_WINDOWS_LIGHT = RLook.R_LOOK_WINDOWS_LIGHT
+R_LOOK_MACOS_DARK = RLook.R_LOOK_MACOS_DARK
+R_LOOK_MACOS_LIGHT = RLook.R_LOOK_MACOS_LIGHT
+R_LOOK_GNOME_DARK = RLook.R_LOOK_GNOME_DARK
+R_LOOK_GNOME_LIGHT = RLook.R_LOOK_GNOME_LIGHT
+R_LOOK_NATIVE_DARK = RLook.R_LOOK_NATIVE_DARK
+R_LOOK_NATIVE_LIGHT = RLook.R_LOOK_NATIVE_LIGHT
+
 class RTheme(enum.IntEnum):
+    """@deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is
+    R_LOOK_RAVEN_DARK and so on, and Rtheme_apply is Rlook_set."""
     R_THEME_DARK = 0x00E0
     R_THEME_LIGHT = 0x00E1
     R_THEME_GLASS_DARK = 0x00E2
@@ -3158,14 +3197,38 @@ def Rwindow_unregister_shortcut(window, key, modifiers):
     _lib.Rwindow_unregister_shortcut(window, int(key), modifiers)
 
 
+_lib.Rlook_set.argtypes = [ctypes.c_int]
+_lib.Rlook_set.restype = None
+
+
+def Rlook_set(look):
+    """Changes the look of the application. The theme file in use, if
+    it names no look of its own, is laid again over the new one; colors
+    and metrics changed with Rtheme_set_... are lost; what was given to
+    widgets (Rwidget_set_color...) is kept.
+    
+      Rlook_set(R_LOOK_NATIVE_LIGHT);   the look of the platform, light
+    
+    Theme files that name no look (no Look attribute) follow it too, so a
+    part of a window given one (Theme="paper.xml") changes with it."""
+    _lib.Rlook_set(int(look))
+
+
+_lib.Rlook_get.argtypes = []
+_lib.Rlook_get.restype = ctypes.c_int
+
+
+def Rlook_get():
+    """The look given to Rlook_set (R_LOOK_RAVEN_DARK at start)."""
+    return _e(RLook, _lib.Rlook_get())
+
+
 _lib.Rtheme_apply.argtypes = [ctypes.c_int]
 _lib.Rtheme_apply.restype = None
 
 
 def Rtheme_apply(theme):
-    """Switches to a built-in theme: replaces every theme color and
-    metric. Colors and metrics changed with Rtheme_set_color and
-    Rtheme_set_metric are lost; per-widget overrides are kept."""
+    """@deprecated Rlook_set: a built-in theme is a look of Raven."""
     _lib.Rtheme_apply(int(theme))
 
 
@@ -3363,8 +3426,10 @@ _lib.Rtheme_use.restype = ctypes.c_int
 
 
 def Rtheme_use(name):
-    """Makes a named theme the theme of the application: "Dark",
-    "Light", "GlassDark", "GlassLight", or a theme given by Rtheme_load.
+    """Makes a named theme the theme of the application: a theme
+    given by Rtheme_load (laid over the look in use when it names no
+    look), or the name of a look ("WindowsLight", "RavenDark"; the old
+    "Dark", "Light", "GlassDark"... too), which is then Rlook_set.
     Values changed with Rtheme_set_... are lost.
     Returns: R_FALSE, after reporting an error, when no theme has that name."""
     return _lib.Rtheme_use(_s(name))

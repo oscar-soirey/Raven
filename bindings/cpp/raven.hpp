@@ -2355,9 +2355,21 @@ inline const char* drag_get_data(Rid window) { return Rdrag_get_data(window); }
 /// Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
 inline void drag_cancel(Rid window) { Rdrag_cancel(window); }
 
-/// Switches to a built-in theme: replaces every theme color and
-/// metric. Colors and metrics changed with Rtheme_set_color and
-/// Rtheme_set_metric are lost; per-widget overrides are kept.
+/// Changes the look of the application. The theme file in use, if
+/// it names no look of its own, is laid again over the new one; colors
+/// and metrics changed with Rtheme_set_... are lost; what was given to
+/// widgets (Rwidget_set_color...) is kept.
+///
+///   Rlook_set(R_LOOK_NATIVE_LIGHT);   the look of the platform, light
+///
+/// Theme files that name no look (no Look attribute) follow it too, so a
+/// part of a window given one (Theme="paper.xml") changes with it.
+inline void look_set(RLook look) { Rlook_set(look); }
+
+/// The look given to Rlook_set (R_LOOK_RAVEN_DARK at start).
+inline RLook look_get() { return Rlook_get(); }
+
+/// @deprecated Rlook_set: a built-in theme is a look of Raven.
 inline void theme_apply(RTheme theme) { Rtheme_apply(theme); }
 
 inline void theme_set_color(RColorRole role, float r, float g, float b, float a) { Rtheme_set_color(role, r, g, b, a); }
@@ -2429,8 +2441,10 @@ inline const char* theme_load(const char* path) { return Rtheme_load(path); }
 /// Same, from a text. `size` may be 0 for a null-terminated text.
 inline const char* theme_load_from_memory(const char* xml, size_t size) { return Rtheme_load_from_memory(xml, size); }
 
-/// Makes a named theme the theme of the application: "Dark",
-/// "Light", "GlassDark", "GlassLight", or a theme given by Rtheme_load.
+/// Makes a named theme the theme of the application: a theme
+/// given by Rtheme_load (laid over the look in use when it names no
+/// look), or the name of a look ("WindowsLight", "RavenDark"; the old
+/// "Dark", "Light", "GlassDark"... too), which is then Rlook_set.
 /// Values changed with Rtheme_set_... are lost.
 /// Returns: R_FALSE, after reporting an error, when no theme has that name.
 inline int theme_use(const char* name) { return Rtheme_use(name); }

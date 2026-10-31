@@ -236,6 +236,22 @@ typedef enum RDropPhase {
 	R_DROP_LEAVE = 226,
 	R_DROP_DROPPED = 227,
 } RDropPhase;
+typedef enum RLook {
+	R_LOOK_RAVEN_DARK = 224,
+	R_LOOK_RAVEN_LIGHT = 225,
+	R_LOOK_RAVEN_GLASS_DARK = 226,
+	R_LOOK_RAVEN_GLASS_LIGHT = 227,
+	R_LOOK_RAVEN_HIGH_CONTRAST_DARK = 228,
+	R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT = 229,
+	R_LOOK_WINDOWS_DARK = 230,
+	R_LOOK_WINDOWS_LIGHT = 231,
+	R_LOOK_MACOS_DARK = 232,
+	R_LOOK_MACOS_LIGHT = 233,
+	R_LOOK_GNOME_DARK = 234,
+	R_LOOK_GNOME_LIGHT = 235,
+	R_LOOK_NATIVE_DARK = 236,
+	R_LOOK_NATIVE_LIGHT = 237,
+} RLook;
 typedef enum RTheme {
 	R_THEME_DARK = 224,
 	R_THEME_LIGHT = 225,
@@ -980,6 +996,8 @@ const char* Rdrag_get_data(Rid window);
 void Rdrag_cancel(Rid window);
 void Rwindow_register_shortcut(Rid window, RKey key, Ruint modifiers, const char* action);
 void Rwindow_unregister_shortcut(Rid window, RKey key, Ruint modifiers);
+void Rlook_set(RLook look);
+RLook Rlook_get(void);
 void Rtheme_apply(RTheme theme);
 void Rtheme_set_color(RColorRole role, float r, float g, float b, float a);
 void Rtheme_get_color(RColorRole role, float* r, float* g, float* b, float* a);

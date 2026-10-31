@@ -370,6 +370,30 @@ const (
 	R_DROP_DROPPED RDropPhase = 0x00E3
 )
 
+// RLook: The looks. Each one comes dark and light. Raven's looks are the default; the ones of the platforms
+// imitate them closely (their shapes, colors, sizes, states and motion), without using their widgets. The
+// looks of the platforms are opaque: the glass materials belong to the glass looks of Raven.
+type RLook int32
+
+const (
+	R_LOOK_RAVEN_DARK                RLook = 0x00E0
+	R_LOOK_RAVEN_LIGHT               RLook = 0x00E1
+	R_LOOK_RAVEN_GLASS_DARK          RLook = 0x00E2
+	R_LOOK_RAVEN_GLASS_LIGHT         RLook = 0x00E3
+	R_LOOK_RAVEN_HIGH_CONTRAST_DARK  RLook = 0x00E4
+	R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT RLook = 0x00E5
+	R_LOOK_WINDOWS_DARK              RLook = 0x00E6
+	R_LOOK_WINDOWS_LIGHT             RLook = 0x00E7
+	R_LOOK_MACOS_DARK                RLook = 0x00E8
+	R_LOOK_MACOS_LIGHT               RLook = 0x00E9
+	R_LOOK_GNOME_DARK                RLook = 0x00EA
+	R_LOOK_GNOME_LIGHT               RLook = 0x00EB
+	R_LOOK_NATIVE_DARK               RLook = 0x00EC
+	R_LOOK_NATIVE_LIGHT              RLook = 0x00ED
+)
+
+// RTheme: @deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is R_LOOK_RAVEN_DARK and so
+// on, and Rtheme_apply is Rlook_set.
 type RTheme int32
 
 const (
@@ -1419,8 +1443,21 @@ func WindowUnregisterShortcut(window ID, key RKey, modifiers uint32) {
 	C.Rwindow_unregister_shortcut(C.Rid(window), C.RKey(key), C.Ruint(modifiers))
 }
 
-// ThemeApply: Switches to a built-in theme: replaces every theme color and metric. Colors and metrics changed
-// with Rtheme_set_color and Rtheme_set_metric are lost; per-widget overrides are kept.
+// LookSet: Changes the look of the application. The theme file in use, if it names no look of its own, is
+// laid again over the new one; colors and metrics changed with Rtheme_set_... are lost; what was given to
+// widgets (Rwidget_set_color...) is kept. Rlook_set(R_LOOK_NATIVE_LIGHT); the look of the platform, light
+// Theme files that name no look (no Look attribute) follow it too, so a part of a window given one
+// (Theme="paper.xml") changes with it.
+func LookSet(look RLook) {
+	C.Rlook_set(C.RLook(look))
+}
+
+// LookGet: The look given to Rlook_set (R_LOOK_RAVEN_DARK at start).
+func LookGet() RLook {
+	return RLook(C.Rlook_get())
+}
+
+// ThemeApply: @deprecated Rlook_set: a built-in theme is a look of Raven.
 func ThemeApply(theme RTheme) {
 	C.Rtheme_apply(C.RTheme(theme))
 }
@@ -1547,9 +1584,10 @@ func ThemeLoadFromMemory(xml string) string {
 	return C.GoString(C.Rtheme_load_from_memory(xml_, C.size_t(len(xml))))
 }
 
-// ThemeUse: Makes a named theme the theme of the application: "Dark", "Light", "GlassDark", "GlassLight", or
-// a theme given by Rtheme_load. Values changed with Rtheme_set_... are lost. Returns: R_FALSE, after
-// reporting an error, when no theme has that name.
+// ThemeUse: Makes a named theme the theme of the application: a theme given by Rtheme_load (laid over the
+// look in use when it names no look), or the name of a look ("WindowsLight", "RavenDark"; the old "Dark",
+// "Light", "GlassDark"... too), which is then Rlook_set. Values changed with Rtheme_set_... are lost.
+// Returns: R_FALSE, after reporting an error, when no theme has that name.
 func ThemeUse(name string) int {
 	name_ := C.CString(name)
 	defer C.free(unsafe.Pointer(name_))
