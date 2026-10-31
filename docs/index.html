@@ -1950,21 +1950,27 @@ built nor compiled there, and it has no code editor. The program that loads the
 interfaces is written in <a href="#anylanguage">any language</a>, with its own tools.
 It opens on a start page: open a folder, open an interface, the recent folders.</p>
 
-<h3 id="ide-folder">A folder</h3>
-<p><b>Files</b> shows the interfaces of the folder, its themes (theme files, made with
-<code>raven_theme_editor</code>) and its translation tables (<code>.csv</code>), its sub-folders
-included. A double click opens an interface in the visual editor, a table in
-<b>Translations</b>; a theme dresses the preview. A right click: open, new window,
-panel or form (from a template, in the folder), delete. The folder is followed live:
-a file another program writes shows at once; the interface open is read again when
-it has no unsaved changes here; a theme or a table that changes changes the preview.</p>
+<h3 id="ide-tabs">Four tabs</h3>
+<p>Each kind of file has its own tab at the top of the window, and each tab keeps its own
+file open and its own undo; <b>Ctrl+1</b> to <b>Ctrl+4</b> switch:</p>
+<ul>
+<li><b>Window</b>: the interfaces of the folder (a <code>&lt;Window&gt;</code>, a panel, a form), in the visual editor.</li>
+<li><b>Widget</b>: the widget libraries (<code>&lt;Widgets&gt;</code> with <code>&lt;Widget Name="Card"&gt;</code>...). The preview shows one of each tag declared; the windows of the folder can then use them.</li>
+<li><b>Theme</b>: the <a href="#theme-editor">theme editor</a> itself, built in: the themes of the folder in a list, every color, size and rule, its preview and its contrast check. Saved, the windows of the folder wear it.</li>
+<li><b>Translations</b>: the tables (<code>.csv</code>) as a grid, one row per key, one column per language; what is typed shows in the preview at once.</li>
+</ul>
+<p><b>Files</b> shows what the tab in front works on, sub-folders included. A right click:
+open, new (from a template, in the folder), delete. The folder is followed live: a file
+another program writes shows at once; the file open is read again when it has no unsaved
+changes here; a theme or a table that changes changes the preview. The combo at the top
+right dresses the designer itself: a look of Raven, or a theme of the folder.</p>
 
 <h3 id="ide-visual">The visual editor</h3>
 <p>The same document, five ways, kept in step:</p>
 <ul>
-<li><b>Widgets</b>: what can be added (the tags of the library and those the document declares). A double click adds inside the selection.</li>
+<li><b>Widgets</b>: what can be added (the tags of the library and those the folder declares). Drag one into the preview, or double click to add it inside the selection.</li>
 <li><b>Tree</b>: the elements; move up, down, out, in; duplicate, delete, wrap, unwrap; copy and paste as XML.</li>
-<li><b>Preview</b>: the interface built for real. A click selects; with <i>Use it</i> (F6) it reacts as the interface will. F7 runs it in a window of its own.</li>
+<li><b>Preview</b>: the interface built for real. A click selects (an outline, the inside left clear); drag an element to move it, a line shows where it goes and Escape cancels. With <i>Use it</i> (F6) it reacts as the interface will.</li>
 <li><b>Properties</b>: every attribute of the selection, by kind of value.</li>
 <li><b>XML</b>: the text, with completion of the tags, the attributes and the <code>@keys</code>; a mistake is underlined and listed in <b>Problems</b> while the last good version stays shown.</li>
 </ul>
@@ -1972,17 +1978,19 @@ it has no unsaved changes here; a theme or a table that changes changes the prev
 <h3 id="ide-preview">The preview: devices, themes, languages</h3>
 <p>Above the preview: the size it is shown in (the size the XML gives, a phone, a phone
 on its side, a tablet, a laptop, a desktop), the look or theme it wears (the looks of
-Raven, and the themes of the folder: edit one in the theme editor and the preview
-follows), and its language (the columns of the tables, right to left included). The
-window F7 opens wears the same theme and size.</p>
+Raven, and the themes of the folder), and its language (the columns of the tables,
+right to left included). <b>Open in a window</b> (or F7) shows the interface in a
+window of its own, at its real size, following every change live; its bar chooses
+the device, the theme and the language, and goes back to the designer.</p>
 
 <h3 id="ide-island">The island: Ctrl+K</h3>
-<p>The island at the top of the window is the command center of the designer.
+<p>The island at the top of the window is the command center of the designer. It
+unfolds when the pointer is over it.
 Folded, it says which file is open and whether it has unsaved changes, what is
 selected, and how many problems the interface has. <b>Ctrl+K</b> unfolds it on one
 search for everything: a widget to add inside the selection (<code>add slider</code>), an
-interface to open (<code>open settings</code>), a command (<code>wrap in a vbox</code>,
-<code>run</code>, <code>undo</code>, <code>new form</code>...), a language or a theme for the
+interface to open (<code>open settings</code>), a tab, a command (<code>wrap in a vbox</code>,
+<code>preview in a window</code>, <code>undo</code>, <code>new theme</code>...), a language or a theme for the
 preview. Up and Down choose, Enter does it, Escape folds it. Below the search,
 the Name and the Text of the selection are edited in place, with duplicate, wrap,
 delete and run; the first problem is one click away.</p>
@@ -1990,6 +1998,7 @@ delete and run; the first problem is one click away.</p>
 <h3 id="ide-scripts">Driving it from a script</h3>
 <p>The designer can run without a window, which is how its tests work:</p>
 <pre>raven_designer --null --frames 2 --script "open /tmp/ui f 2 search add~button expect &lt;Button search wrap~in~a~vbox device 1 language fr do file.save"
+raven_designer --null --frames 2 --script "open /tmp/ui f 2 dropon Slider 0/0 after moveto 0/0 0/1 after do view.run tab theme"
 raven_designer --null --frames 1 --script "open /tmp/ui fuzz 3000 42"</pre>
 <p>The commands are listed at the top of <code>designer_script</code> in
 <code>tools/designer/main.c</code>; <code>fuzz STEPS SEED</code> clicks, drags and types at

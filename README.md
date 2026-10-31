@@ -296,41 +296,61 @@ is built or compiled there; the program that loads the interfaces is written
 in any language, with its own tools (see
 [Any language](#any-language-the-interface-in-xml-the-code-in-yours)).
 
-**A folder.** *Open a folder* shows its interfaces, its themes (made with
-`raven_theme_editor`) and its translation tables (`.csv`) in **Files**, its
-sub-folders included. The folder is followed live: a file that another
-program writes shows at once, the interface open is read again when it has
-no unsaved changes here, a theme or a table that changes changes the preview.
+**Four tabs, kept apart.** At the top of the window, each kind of file has
+its own tab, and each tab keeps its own file open and its own undo:
+
+- **Window**: the interfaces of the folder (`.xml` with a `<Window>`, a panel
+  or a form), in the visual editor.
+- **Widget**: the widget libraries of the folder (`<Widgets>` with `<Widget
+  Name="Card">`...). The preview shows one of each tag declared; the tags are
+  then offered to the windows of the folder.
+- **Theme**: the theme editor itself, built in: the themes of the folder in a
+  list, every color, size and rule, the preview, the contrast; saved, the
+  windows of the folder wear it.
+- **Translations**: the tables (`.csv`) as a grid: one row per key, one column
+  per language, an empty cell marked; what is typed shows in the preview at once.
+
+`Ctrl+1` to `Ctrl+4` switch tabs. **Files** shows what the tab in front works
+on, the sub-folders included. The folder is followed live: a file that another
+program writes shows at once, the file open is read again when it has no
+unsaved changes here, a theme or a table that changes changes the preview.
+The combo at the top right dresses the designer itself: a look of Raven, or a
+theme of the folder.
 
 **The interface, five ways, kept in step:**
 
 - **Widgets**: what can be added, the tags of the library and those the
-  document declares with `<Widget>`. A double click adds inside the selection.
+  folder declares. Drag one into the preview, or double click to add it
+  inside the selection.
 - **Tree**: the elements. Move up, down, out, in; duplicate; delete; wrap in
   a panel or unwrap; copy and paste as XML.
 - **Preview**: the interface, built for real, in the size of a device (a
   phone, a tablet, a laptop, a desktop, or the size of the XML), in any look
   of Raven or theme of the folder, in any language of the tables, right to
-  left included. A click selects an element; with *Use it* on (F6), it reacts
-  as the interface will. `F7` runs it in a window of its own.
+  left included. A click selects an element (an outline, the inside left
+  clear); drag it to move it: a line shows where it goes, Escape cancels.
+  With *Use it* on (F6), it reacts as the interface will.
 - **Properties**: every attribute of the selected element, by kind of value.
 - **XML**: the text, colored, with completion of the tags, the attributes and
   the `@keys`; a mistake is underlined and listed in **Problems** while the
   last good version stays shown.
 
-**Translations.** The tables as a grid: one row per key, one column per
-language, an empty cell marked; what is typed shows in the preview at once.
+**Preview in a window** (the button above the preview, or `F7`) opens the
+interface in a window of its own, at its real size, that follows every change
+live. Its bar chooses the device, the theme and the language, and goes back
+to the designer.
 
-**The island**, at the top of the window, is the command center. Folded, it
-says which file is open, whether it has unsaved changes, what is selected and
-how many problems there are. `Ctrl+K` unfolds it on one search for everything:
-a widget to add (`add slider`), an interface to open (`open settings`), a
-command (`wrap in a vbox`, `run`, `undo`, `new form`...), a language or a
-theme for the preview. Below the search, the Name and the Text of the
-selection are edited in place, with duplicate, wrap, delete and run.
+**The island**, at the top of the window, is the command center. It unfolds
+when the pointer is over it. Folded, it says which file is open, whether it
+has unsaved changes, what is selected and how many problems there are.
+`Ctrl+K` unfolds it on one search for everything: a widget to add (`add
+slider`), an interface to open (`open settings`), a tab, a command (`wrap in a
+vbox`, `preview in a window`, `undo`, `new theme`...), a language or a theme
+for the preview. Below the search, the Name and the Text of the selection are
+edited in place, with duplicate, wrap, delete and run.
 
-Undo and redo cover the interface; a folder or an interface dropped on the
-window opens. The visual editor uses the public API only. The files are in
+Undo and redo follow the tab in front; a folder or an interface dropped on
+the window opens. The visual editor uses the public API only. The files are in
 `tools/designer/` (`designer.h` says what each one does).
 
 ## The theme editor
