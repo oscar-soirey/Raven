@@ -114,6 +114,11 @@ typedef struct rvn_theme_t {
 	RMaterial material;
 	/** R_TRUE when that material is a glass. */
 	int glass;
+	/**
+	 * macOS Glass (macOS 26): a look of a platform whose bars, menus and
+	 * floating surfaces are glass (the material of the widgets stays solid).
+	 */
+	int liquid;
 	/** Dark theme: glass is tinted accordingly. */
 	int dark;
 	/** Background drawn behind the content of windows, or R_INVALID_ID. */

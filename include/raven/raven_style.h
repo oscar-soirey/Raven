@@ -43,8 +43,10 @@
  *
  * Raven's looks are the default; the ones of the platforms imitate them
  * closely (their shapes, colors, sizes, states and motion), without using
- * their widgets. The looks of the platforms are opaque: the glass materials
- * belong to the glass looks of Raven.
+ * their widgets. The looks of the platforms are opaque, except macOS Glass
+ * (macOS 26), whose bars, menus and floating surfaces are glass as on the
+ * system; the glass materials themselves (Rtheme_set_material) belong to
+ * the glass looks of Raven.
  */
 typedef enum RLook{
 	/** Raven, flat and dense, for tools. The look at start. */
@@ -88,10 +90,22 @@ typedef enum RLook{
 	R_LOOK_GNOME_LIGHT,
 	/**
 	 * The look of the platform the application runs on: Windows on Windows,
-	 * macOS on macOS, GNOME on Linux and the other systems.
+	 * macOS on macOS (macOS Glass from macOS 26 on), GNOME on Linux and the
+	 * other systems.
 	 */
 	R_LOOK_NATIVE_DARK,
-	R_LOOK_NATIVE_LIGHT
+	R_LOOK_NATIVE_LIGHT,
+	/**
+	 * macOS 26 (Tahoe, Liquid Glass): the controls of macOS, larger and
+	 * rounder, and glass where the system puts it, on what floats above the
+	 * content: header bars and their buttons, menus, drop-down lists,
+	 * tooltips, sheets; the knobs of sliders and switches turn into a lens
+	 * of clear glass while they are held. The content itself (fields, lists,
+	 * text) stays opaque. The accent color and the font of the system, on
+	 * macOS.
+	 */
+	R_LOOK_MACOS_GLASS_DARK,
+	R_LOOK_MACOS_GLASS_LIGHT
 }RLook;
 
 /**

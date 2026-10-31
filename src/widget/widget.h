@@ -363,6 +363,14 @@ RVN_INLINE RMaterial rvn_widget_material(const rvn_widget_t* widget) {
 RVN_INLINE int rvn_widget_glass(const rvn_widget_t* widget) {
 	return rvn_widget_material(widget) != R_MATERIAL_SOLID;
 }
+/**
+ * macOS Glass (macOS 26): the look of the widget is one of a platform whose
+ * bars, menus and floating surfaces are drawn in glass by the widgets
+ * themselves (rvn_widget_glass stays false: the material is solid).
+ */
+RVN_INLINE int rvn_widget_liquid(const rvn_widget_t* widget) {
+	return rvn_widget_theme(widget)->liquid;
+}
 int rvn_parse_material(const char* text, RMaterial* material);
 
 rvn_color_t rvn_widget_color(const rvn_widget_t* widget, RColorRole role);

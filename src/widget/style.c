@@ -10,6 +10,11 @@
 
 #include <math.h>
 
+#if defined(__APPLE__)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+
 #define RVN_COLOR_INDEX(role) ((int)(role) - (int)R_COLOR_WINDOW)
 #define RVN_METRIC_INDEX(metric) ((int)(metric) - (int)R_METRIC_FONT_SIZE)
 
@@ -438,6 +443,89 @@ static const rvn_palette_entry_t g_macos_dark_palette[] = {
 };
 
 /*
+ * macOS 26 (Tahoe, Liquid Glass). The colors of macOS; the window a little
+ * lighter, and the surfaces that are glass (bars, menus, tooltips) given as
+ * the tint of the glass: what is behind shows through them.
+ */
+static const rvn_palette_entry_t g_macos_glass_light_palette[] = {
+	{ R_COLOR_WINDOW,           0xF2F2F2, 255 },  /* windowBackgroundColor */
+	{ R_COLOR_PANEL,            0xFFFFFF, 255 },  /* controlBackgroundColor; the tint of bars */
+	{ R_COLOR_BORDER,           0x000000, 20 },   /* separatorColor */
+	{ R_COLOR_TEXT,             0x000000, 217 },  /* labelColor */
+	{ R_COLOR_TEXT_DISABLED,    0x000000, 64 },   /* tertiaryLabelColor */
+	{ R_COLOR_TEXT_PLACEHOLDER, 0x000000, 64 },   /* placeholderTextColor */
+	{ R_COLOR_ACCENT,           0x007AFF, 255 },  /* controlAccentColor (blue) */
+	{ R_COLOR_ACCENT_HOVERED,   0x007AFF, 255 },
+	{ R_COLOR_ACCENT_PRESSED,   0x0062CC, 255 },
+	{ R_COLOR_ACCENT_TEXT,      0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL,          0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL_HOVERED,  0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL_PRESSED,  0xE4E4E4, 255 },
+	{ R_COLOR_CONTROL_BORDER,   0x000000, 26 },
+	{ R_COLOR_INPUT,            0xFFFFFF, 255 },  /* textBackgroundColor */
+	{ R_COLOR_FOCUS,            0x007AFF, 128 },  /* keyboardFocusIndicatorColor */
+	{ R_COLOR_SELECTION,        0xB3D7FF, 255 },  /* selectedTextBackgroundColor */
+	{ R_COLOR_ROW_HOVERED,      0x000000, 0 },
+	{ R_COLOR_TRACK,            0x000000, 26 },
+	{ R_COLOR_HANDLE,           0x000000, 128 },
+	{ R_COLOR_HANDLE_HOVERED,   0x000000, 166 },
+	{ R_COLOR_SEPARATOR,        0x000000, 20 },
+	{ R_COLOR_HEADER,           0x000000, 0 },
+	{ R_COLOR_HEADER_HOVERED,   0x000000, 15 },
+	{ R_COLOR_TAB_ACTIVE,       0xFFFFFF, 255 },
+	{ R_COLOR_POPUP,            0xF7F7F7, 170 },  /* menus: regular glass */
+	{ R_COLOR_POPUP_BORDER,     0xFFFFFF, 140 },
+	{ R_COLOR_SHADOW,           0x000000, 64 },
+	{ R_COLOR_TOOLTIP,          0xF7F7F7, 190 },
+	{ R_COLOR_TOOLTIP_TEXT,     0x000000, 217 },
+	{ R_COLOR_SWITCH,           0x007AFF, 255 },
+	{ R_COLOR_SUCCESS,          0x28CD41, 255 },
+	{ R_COLOR_WARNING,          0xFF9500, 255 },
+	{ R_COLOR_DANGER,           0xFF3B30, 255 },
+	{ R_COLOR_LINK,             0x0068DA, 255 },  /* linkColor */
+	{ R_COLOR_CODE,             0x000000, 13 }
+};
+
+static const rvn_palette_entry_t g_macos_glass_dark_palette[] = {
+	{ R_COLOR_WINDOW,           0x262626, 255 },
+	{ R_COLOR_PANEL,            0x1E1E1E, 255 },
+	{ R_COLOR_BORDER,           0xFFFFFF, 26 },
+	{ R_COLOR_TEXT,             0xFFFFFF, 217 },
+	{ R_COLOR_TEXT_DISABLED,    0xFFFFFF, 64 },
+	{ R_COLOR_TEXT_PLACEHOLDER, 0xFFFFFF, 64 },
+	{ R_COLOR_ACCENT,           0x0A84FF, 255 },
+	{ R_COLOR_ACCENT_HOVERED,   0x0A84FF, 255 },
+	{ R_COLOR_ACCENT_PRESSED,   0x3D9BFF, 255 },
+	{ R_COLOR_ACCENT_TEXT,      0xFFFFFF, 255 },
+	{ R_COLOR_CONTROL,          0xFFFFFF, 46 },
+	{ R_COLOR_CONTROL_HOVERED,  0xFFFFFF, 46 },
+	{ R_COLOR_CONTROL_PRESSED,  0xFFFFFF, 77 },
+	{ R_COLOR_CONTROL_BORDER,   0xFFFFFF, 20 },
+	{ R_COLOR_INPUT,            0xFFFFFF, 15 },
+	{ R_COLOR_FOCUS,            0x0A84FF, 128 },
+	{ R_COLOR_SELECTION,        0x3F638B, 255 },
+	{ R_COLOR_ROW_HOVERED,      0xFFFFFF, 0 },
+	{ R_COLOR_TRACK,            0xFFFFFF, 38 },
+	{ R_COLOR_HANDLE,           0xFFFFFF, 128 },
+	{ R_COLOR_HANDLE_HOVERED,   0xFFFFFF, 166 },
+	{ R_COLOR_SEPARATOR,        0xFFFFFF, 26 },
+	{ R_COLOR_HEADER,           0x000000, 0 },
+	{ R_COLOR_HEADER_HOVERED,   0xFFFFFF, 20 },
+	{ R_COLOR_TAB_ACTIVE,       0xFFFFFF, 51 },
+	{ R_COLOR_POPUP,            0x2A2A2C, 175 },
+	{ R_COLOR_POPUP_BORDER,     0xFFFFFF, 46 },
+	{ R_COLOR_SHADOW,           0x000000, 115 },
+	{ R_COLOR_TOOLTIP,          0x333335, 200 },
+	{ R_COLOR_TOOLTIP_TEXT,     0xFFFFFF, 217 },
+	{ R_COLOR_SWITCH,           0x0A84FF, 255 },
+	{ R_COLOR_SUCCESS,          0x32D74B, 255 },
+	{ R_COLOR_WARNING,          0xFFD60A, 255 },
+	{ R_COLOR_DANGER,           0xFF453A, 255 },
+	{ R_COLOR_LINK,             0x419CFF, 255 },
+	{ R_COLOR_CODE,             0xFFFFFF, 20 }
+};
+
+/*
  * GNOME (the named colors of libadwaita: window_bg_color, view_fg_color,
  * accent_bg_color...). Controls are the color of the text, seen through
  * (alpha(currentColor, .1)), without borders.
@@ -620,6 +708,30 @@ static const float g_macos_metrics[R_METRIC_COUNT] = {
 	18.0f  /* blur radius */
 };
 
+/*
+ * macOS 26: the controls grew (medium ones 24 high) and rounded; menus and
+ * popovers have large corners, rows of lists are taller. (Apple publishes no
+ * sizes: these are measured on the system.)
+ */
+static const float g_macos_glass_metrics[R_METRIC_COUNT] = {
+	13.0f, /* font size */
+	8.0f,  /* corner radius */
+	1.0f,  /* border width */
+	24.0f, /* control height */
+	12.0f, /* padding x */
+	3.0f,  /* padding y */
+	8.0f,  /* spacing */
+	11.0f, /* scrollbar size */
+	28.0f, /* row height */
+	16.0f, /* indent */
+	5.0f,  /* splitter size */
+	14.0f, /* check size */
+	16.0f, /* slider handle size (the knob is a capsule half as long again) */
+	12.0f, /* popup radius */
+	1.0f, 1.0f, 1.0f, 1.0f, 1.0f, /* glass: frost, refraction, saturation, rim, shadow */
+	18.0f  /* blur radius */
+};
+
 /* GNOME: controls 34 high, radius 6, popovers 12, the font at 11 points. */
 static const float g_gnome_metrics[R_METRIC_COUNT] = {
 	14.67f, /* font size */
@@ -672,11 +784,31 @@ static const rvn_look_info_t g_looks[] = {
 	{ R_LOOK_MACOS_DARK, "MacOSDark", NULL, RVN_FAMILY_MACOS, 1, 0, 0, RVN_PALETTE(g_macos_dark_palette), g_macos_metrics },
 	{ R_LOOK_MACOS_LIGHT, "MacOSLight", NULL, RVN_FAMILY_MACOS, 0, 0, 0, RVN_PALETTE(g_macos_light_palette), g_macos_metrics },
 	{ R_LOOK_GNOME_DARK, "GnomeDark", NULL, RVN_FAMILY_GNOME, 1, 0, 0, RVN_PALETTE(g_gnome_dark_palette), g_gnome_metrics },
-	{ R_LOOK_GNOME_LIGHT, "GnomeLight", NULL, RVN_FAMILY_GNOME, 0, 0, 0, RVN_PALETTE(g_gnome_light_palette), g_gnome_metrics }
+	{ R_LOOK_GNOME_LIGHT, "GnomeLight", NULL, RVN_FAMILY_GNOME, 0, 0, 0, RVN_PALETTE(g_gnome_light_palette), g_gnome_metrics },
+	/* (`glass` of a look of a platform: its bars, menus and floating surfaces are glass) */
+	{ R_LOOK_MACOS_GLASS_DARK, "MacOSGlassDark", NULL, RVN_FAMILY_MACOS, 1, 1, 0, RVN_PALETTE(g_macos_glass_dark_palette), g_macos_glass_metrics },
+	{ R_LOOK_MACOS_GLASS_LIGHT, "MacOSGlassLight", NULL, RVN_FAMILY_MACOS, 0, 1, 0, RVN_PALETTE(g_macos_glass_light_palette), g_macos_glass_metrics }
 };
 
+#if defined(__APPLE__)
+/*
+ * The major version of macOS: 26 for Tahoe. A program built with an SDK
+ * older than macOS 26 is told 16 by the system (its compatibility version),
+ * which means the same.
+ */
+static int rvn_macos_version(void) {
+	char text[32];
+	size_t size = sizeof(text);
+	int major;
+	if (sysctlbyname("kern.osproductversion", text, &size, NULL, 0) != 0) return 0;
+	text[sizeof(text) - 1] = '\0';
+	major = atoi(text);
+	return major == 16 ? 26 : major;
+}
+#endif
+
 int rvn_look_valid(RLook look) {
-	return look >= R_LOOK_RAVEN_DARK && look <= R_LOOK_NATIVE_LIGHT;
+	return look >= R_LOOK_RAVEN_DARK && look <= R_LOOK_MACOS_GLASS_LIGHT;
 }
 
 RLook rvn_look_resolve(RLook look) {
@@ -685,6 +817,8 @@ RLook rvn_look_resolve(RLook look) {
 #if defined(_WIN32)
 		return dark ? R_LOOK_WINDOWS_DARK : R_LOOK_WINDOWS_LIGHT;
 #elif defined(__APPLE__)
+		/* Liquid Glass from macOS 26 on, as the applications of the system */
+		if (rvn_macos_version() >= 26) return dark ? R_LOOK_MACOS_GLASS_DARK : R_LOOK_MACOS_GLASS_LIGHT;
 		return dark ? R_LOOK_MACOS_DARK : R_LOOK_MACOS_LIGHT;
 #else
 		/* (Linux and the other Unix: GNOME, the desktop most of them have) */
@@ -733,6 +867,9 @@ int rvn_look_by_name(const char* name, RLook* look) {
 	/* "Windows", "macOS", "GNOME" alone: the light one, as the systems start */
 	if (rvn_stricmp(name, "Windows") == 0) *look = R_LOOK_WINDOWS_LIGHT;
 	else if (rvn_stricmp(name, "macOS") == 0 || rvn_stricmp(name, "Mac") == 0) *look = R_LOOK_MACOS_LIGHT;
+	else if (rvn_stricmp(name, "MacOSGlass") == 0 || rvn_stricmp(name, "Tahoe") == 0 || rvn_stricmp(name, "LiquidGlass") == 0) *look = R_LOOK_MACOS_GLASS_LIGHT;
+	else if (rvn_stricmp(name, "TahoeDark") == 0 || rvn_stricmp(name, "LiquidGlassDark") == 0) *look = R_LOOK_MACOS_GLASS_DARK;
+	else if (rvn_stricmp(name, "TahoeLight") == 0 || rvn_stricmp(name, "LiquidGlassLight") == 0) *look = R_LOOK_MACOS_GLASS_LIGHT;
 	else if (rvn_stricmp(name, "GNOME") == 0 || rvn_stricmp(name, "Adwaita") == 0 || rvn_stricmp(name, "Linux") == 0) *look = R_LOOK_GNOME_LIGHT;
 	else if (rvn_stricmp(name, "AdwaitaDark") == 0 || rvn_stricmp(name, "LinuxDark") == 0) *look = R_LOOK_GNOME_DARK;
 	else if (rvn_stricmp(name, "AdwaitaLight") == 0 || rvn_stricmp(name, "LinuxLight") == 0) *look = R_LOOK_GNOME_LIGHT;
@@ -745,7 +882,7 @@ RLook rvn_look_dark_counterpart(RLook look) {
 	const rvn_look_info_t* info = rvn_look_info(look);
 	if (info->dark) return info->look;
 	if (info->family == RVN_FAMILY_WINDOWS) return R_LOOK_WINDOWS_DARK;
-	if (info->family == RVN_FAMILY_MACOS) return R_LOOK_MACOS_DARK;
+	if (info->family == RVN_FAMILY_MACOS) return info->glass ? R_LOOK_MACOS_GLASS_DARK : R_LOOK_MACOS_DARK;
 	if (info->family == RVN_FAMILY_GNOME) return R_LOOK_GNOME_DARK;
 	if (info->contrast) return R_LOOK_RAVEN_HIGH_CONTRAST_DARK;
 	return info->glass ? R_LOOK_RAVEN_GLASS_DARK : R_LOOK_RAVEN_DARK;
@@ -858,10 +995,12 @@ void rvn_theme_build_look(rvn_theme_t* theme, RLook look) {
 	theme->look = info->look;
 	theme->family = info->family;
 	theme->motion = info->family == RVN_FAMILY_RAVEN ? RVN_MOTION_SPRINGY : RVN_MOTION_SMOOTH;
-	theme->material = info->glass ? R_MATERIAL_FROSTED_GLASS : R_MATERIAL_SOLID;
-	theme->glass = info->glass;
+	/* (the glass of macOS 26 is drawn by the widgets of the platform where it belongs: their material stays solid) */
+	theme->glass = info->glass && info->family == RVN_FAMILY_RAVEN;
+	theme->liquid = info->glass && info->family != RVN_FAMILY_RAVEN;
+	theme->material = theme->glass ? R_MATERIAL_FROSTED_GLASS : R_MATERIAL_SOLID;
 	theme->dark = info->dark;
-	theme->wallpaper = info->glass ? rvn_theme_builtin_wallpaper(info->dark) : R_INVALID_ID;
+	theme->wallpaper = theme->glass ? rvn_theme_builtin_wallpaper(info->dark) : R_INVALID_ID;
 
 	/*
 	 * The font: the looks of Raven keep the one in use (it is the
