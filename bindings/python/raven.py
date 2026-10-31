@@ -532,8 +532,10 @@ class RLook(enum.IntEnum):
     
     Raven's looks are the default; the ones of the platforms imitate them
     closely (their shapes, colors, sizes, states and motion), without using
-    their widgets. The looks of the platforms are opaque: the glass materials
-    belong to the glass looks of Raven."""
+    their widgets. The looks of the platforms are opaque, except macOS Glass
+    (macOS 26), whose bars, menus and floating surfaces are glass as on the
+    system; the glass materials themselves (Rtheme_set_material) belong to
+    the glass looks of Raven."""
     R_LOOK_RAVEN_DARK = 0x00E0
     R_LOOK_RAVEN_LIGHT = 0x00E1
     R_LOOK_RAVEN_GLASS_DARK = 0x00E2
@@ -548,6 +550,8 @@ class RLook(enum.IntEnum):
     R_LOOK_GNOME_LIGHT = 0x00EB
     R_LOOK_NATIVE_DARK = 0x00EC
     R_LOOK_NATIVE_LIGHT = 0x00ED
+    R_LOOK_MACOS_GLASS_DARK = 0x00EE
+    R_LOOK_MACOS_GLASS_LIGHT = 0x00EF
 
 R_LOOK_RAVEN_DARK = RLook.R_LOOK_RAVEN_DARK
 R_LOOK_RAVEN_LIGHT = RLook.R_LOOK_RAVEN_LIGHT
@@ -563,6 +567,8 @@ R_LOOK_GNOME_DARK = RLook.R_LOOK_GNOME_DARK
 R_LOOK_GNOME_LIGHT = RLook.R_LOOK_GNOME_LIGHT
 R_LOOK_NATIVE_DARK = RLook.R_LOOK_NATIVE_DARK
 R_LOOK_NATIVE_LIGHT = RLook.R_LOOK_NATIVE_LIGHT
+R_LOOK_MACOS_GLASS_DARK = RLook.R_LOOK_MACOS_GLASS_DARK
+R_LOOK_MACOS_GLASS_LIGHT = RLook.R_LOOK_MACOS_GLASS_LIGHT
 
 class RTheme(enum.IntEnum):
     """@deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is

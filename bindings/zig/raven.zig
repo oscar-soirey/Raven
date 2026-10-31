@@ -289,8 +289,10 @@ pub const R_DROP_DROPPED: RDropPhase = 0x00E3;
 ///
 /// Raven's looks are the default; the ones of the platforms imitate them
 /// closely (their shapes, colors, sizes, states and motion), without using
-/// their widgets. The looks of the platforms are opaque: the glass materials
-/// belong to the glass looks of Raven.
+/// their widgets. The looks of the platforms are opaque, except macOS Glass
+/// (macOS 26), whose bars, menus and floating surfaces are glass as on the
+/// system; the glass materials themselves (Rtheme_set_material) belong to
+/// the glass looks of Raven.
 pub const RLook = c_int;
 /// Raven, flat and dense, for tools. The look at start.
 pub const R_LOOK_RAVEN_DARK: RLook = 0x00E0;
@@ -322,9 +324,19 @@ pub const R_LOOK_MACOS_LIGHT: RLook = 0x00E9;
 pub const R_LOOK_GNOME_DARK: RLook = 0x00EA;
 pub const R_LOOK_GNOME_LIGHT: RLook = 0x00EB;
 /// The look of the platform the application runs on: Windows on Windows,
-/// macOS on macOS, GNOME on Linux and the other systems.
+/// macOS on macOS (macOS Glass from macOS 26 on), GNOME on Linux and the
+/// other systems.
 pub const R_LOOK_NATIVE_DARK: RLook = 0x00EC;
 pub const R_LOOK_NATIVE_LIGHT: RLook = 0x00ED;
+/// macOS 26 (Tahoe, Liquid Glass): the controls of macOS, larger and
+/// rounder, and glass where the system puts it, on what floats above the
+/// content: header bars and their buttons, menus, drop-down lists,
+/// tooltips, sheets; the knobs of sliders and switches turn into a lens
+/// of clear glass while they are held. The content itself (fields, lists,
+/// text) stays opaque. The accent color and the font of the system, on
+/// macOS.
+pub const R_LOOK_MACOS_GLASS_DARK: RLook = 0x00EE;
+pub const R_LOOK_MACOS_GLASS_LIGHT: RLook = 0x00EF;
 
 /// @deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is
 /// R_LOOK_RAVEN_DARK and so on, and Rtheme_apply is Rlook_set.

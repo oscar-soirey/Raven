@@ -372,7 +372,9 @@ const (
 
 // RLook: The looks. Each one comes dark and light. Raven's looks are the default; the ones of the platforms
 // imitate them closely (their shapes, colors, sizes, states and motion), without using their widgets. The
-// looks of the platforms are opaque: the glass materials belong to the glass looks of Raven.
+// looks of the platforms are opaque, except macOS Glass (macOS 26), whose bars, menus and floating surfaces
+// are glass as on the system; the glass materials themselves (Rtheme_set_material) belong to the glass looks
+// of Raven.
 type RLook int32
 
 const (
@@ -390,6 +392,8 @@ const (
 	R_LOOK_GNOME_LIGHT               RLook = 0x00EB
 	R_LOOK_NATIVE_DARK               RLook = 0x00EC
 	R_LOOK_NATIVE_LIGHT              RLook = 0x00ED
+	R_LOOK_MACOS_GLASS_DARK          RLook = 0x00EE
+	R_LOOK_MACOS_GLASS_LIGHT         RLook = 0x00EF
 )
 
 // RTheme: @deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is R_LOOK_RAVEN_DARK and so
