@@ -12,6 +12,7 @@
  *                     the look of the designer, the theme and language of the preview,
  *                     what is going on
  *   icons.c           the colored pictures of the tags and of the files
+ *   fonts.c           the fonts of the designer (fonts/), embedded: font_*.c
  *   strings.c         the Translations panel (CSV tables) and the language of the preview
  *   welcome.c         the start page (recent folders) and the preferences
  *   accessibility.c   View > Accessibility
@@ -236,6 +237,19 @@ int  icons_group_tag_count(int group);
 const char* icons_group_tag_at(int group, int index);
 /** Saves the pictures in a .ppm (scripts of the tests). */
 int  icons_save(const char* path);
+
+/* ---- fonts.c: the fonts of the designer, embedded ---- */
+
+/** Makes the fonts and gives the designer its font (after Rinit, before the interface is built). */
+void fonts_init(void);
+Rid  fonts_title(void);
+Rid  fonts_code(void);
+/** The font of what the preview shows: the one of Raven, as in the application. */
+Rid  fonts_preview(void);
+/** A label in the font of the titles. */
+void fonts_title_on(Rid label);
+/** The text editors under `widget` (not under `preview`) in the font of the code. */
+void fonts_dress(Rid widget, Rid preview);
 
 /* ---- accessibility.c ---- */
 

@@ -200,7 +200,21 @@ static void rvn_paint_children(rvn_widget_t* widget, const RPainter* painter) {
  *  Widget
  * ------------------------------------------------------------------------- */
 
+static void rvn_widget_paint_scoped(rvn_widget_t* widget, const RPainter* parent);
+
+/* The texts of the widget take the font of its part of the tree (Rwidget_set_font). */
 void rvn_widget_paint(rvn_widget_t* widget, const RPainter* parent) {
+	Rid previous;
+	if (widget->font_scope == R_INVALID_ID) {
+		rvn_widget_paint_scoped(widget, parent);
+		return;
+	}
+	previous = rvn_font_scope_enter(widget->font_scope);
+	rvn_widget_paint_scoped(widget, parent);
+	rvn_font_scope_leave(previous);
+}
+
+static void rvn_widget_paint_scoped(rvn_widget_t* widget, const RPainter* parent) {
 	RPainter painter;
 	rvn_box_t bounds;
 	rvn_transition_state_t transition = {0};

@@ -472,7 +472,7 @@ static const char WELCOME_XML[] =
 "<ScrollBox Slot.Fill=\"1\">"
 "  <HBox Spacing=\"56\" Slot.Padding=\"64,48\">"
 "    <VBox Spacing=\"10\" Width=\"290\">"
-"      <Label Text=\"Raven Designer\" TextSize=\"34\"/>"
+"      <Label Name=\"welcome.title\" Text=\"Raven Designer\" TextSize=\"34\"/>"
 "      <Label Name=\"welcome.version\" Opacity=\"0.55\"/>"
 "      <Label Text=\"Interfaces made by looking at them. The program that loads them is written in any language, elsewhere.\" Wrap=\"true\" Opacity=\"0.7\"/>"
 "      <Spacer Height=\"18\"/>"
@@ -485,7 +485,7 @@ static const char WELCOME_XML[] =
 "    </VBox>"
 "    <VBox Spacing=\"14\" Slot.Fill=\"1\">"
 "      <HBox Spacing=\"12\">"
-"        <Label Text=\"Recent folders\" TextSize=\"20\" Slot.Fill=\"1\" Slot.VAlign=\"Center\"/>"
+"        <Label Name=\"welcome.recent\" Text=\"Recent folders\" TextSize=\"20\" Slot.Fill=\"1\" Slot.VAlign=\"Center\"/>"
 "        <TextInput Name=\"welcome.search\" Placeholder=\"Search\" Width=\"240\"/>"
 "      </HBox>"
 "      <VBox Name=\"welcome.rows\"/>"
@@ -518,6 +518,8 @@ void welcome_init(void) {
 	g_w.search = Rwidget_find(content, "welcome.search");
 	g_w.empty = Rwidget_find(content, "welcome.empty");
 	g_w.back = Rwidget_find(content, "welcome.back");
+	fonts_title_on(Rwidget_find(content, "welcome.title"));
+	fonts_title_on(Rwidget_find(content, "welcome.recent"));
 	{
 		char version[96];
 		snprintf(version, sizeof(version), "Version %s", Rget_version());

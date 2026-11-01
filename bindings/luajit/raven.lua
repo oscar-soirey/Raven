@@ -1127,6 +1127,8 @@ void Rwidget_remove_class(Rid widget, const char* style_class);
 int Rwidget_has_class(Rid widget, const char* style_class);
 int Rwidget_set_theme(Rid widget, const char* name);
 const char* Rwidget_get_theme(Rid widget);
+void Rwidget_set_font(Rid widget, Rid font);
+Rid Rwidget_get_font(Rid widget);
 void Rpanel_set_spacing(Rid panel, float spacing);
 float Rpanel_get_spacing(Rid panel);
 void Rgrid_set_column_fill(Rid grid, int column, float coefficient);

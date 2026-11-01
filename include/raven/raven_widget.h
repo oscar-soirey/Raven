@@ -449,6 +449,18 @@ extern "C" {
 	/** @return Name of the theme the widget is drawn with. */
 	RAVEN_API const char* Rwidget_get_theme(Rid widget);
 
+	/**
+	 * @brief Gives the widget and everything inside it a font, for the texts
+	 * that have none of their own (a label given Rlabel_set_font keeps its
+	 * own): a tool whose panels wear one font while the interface it shows
+	 * keeps the font of the application. Menus and lists opened from inside
+	 * follow.
+	 * @param font R_INVALID_ID: the font of the parent (in the end, the one of the theme, Rtheme_set_font) again.
+	 */
+	RAVEN_API void Rwidget_set_font(Rid widget, Rid font);
+	/** @return The font given to the widget itself, or R_INVALID_ID. */
+	RAVEN_API Rid Rwidget_get_font(Rid widget);
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

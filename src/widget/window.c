@@ -473,6 +473,7 @@ void rvn_window_open_popup(rvn_window_t* window, rvn_widget_t* root, rvn_widget_
 	if (root->window != window) rvn_widget_set_window(root, window);
 	/* a menu or a list opened from a part of the window that has its own theme wears it too */
 	if (owner) rvn_widget_inherit_theme(root, owner->theme);
+	if (owner) rvn_widget_spread_font(root, owner->font_scope);
 	rvn_window_tooltip_hide(window);
 	window->needs_layout = R_TRUE;
 	window->needs_paint = R_TRUE;

@@ -43,10 +43,10 @@ static const char A11Y_XML[] =
 "<Window Title=\"Accessibility\" Width=\"520\" Height=\"640\" MinWidth=\"420\" MinHeight=\"360\">"
 "<ScrollBox>"
 "  <VBox Spacing=\"14\" Slot.Padding=\"22\">"
-"    <Label Text=\"Accessibility\" TextSize=\"22\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading0\" Text=\"Accessibility\" TextSize=\"22\" AccessibleRole=\"Heading\"/>"
 "    <Label Text=\"What every application made with Raven offers its users, with nothing to write: the settings apply at once, to every window. The designer keeps them for the next time.\" Wrap=\"true\" Opacity=\"0.65\"/>"
 
-"    <Label Text=\"Sight\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading1\" Text=\"Sight\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Grid Columns=\"0,1\" Spacing=\"12\">"
 "      <Label Width=\"150\" Name=\"text.label\" Text=\"Text size\" Slot.VAlign=\"Center\"/>"
 "      <HBox Spacing=\"10\" Slot.Column=\"1\"><Slider Name=\"text\" Min=\"0.75\" Max=\"2\" Step=\"0.05\" Slot.Fill=\"1\" AccessibleName=\"Text size\"/><Label Name=\"text.value\" Width=\"52\" Slot.VAlign=\"Center\"/></HBox>"
@@ -60,7 +60,7 @@ static const char A11Y_XML[] =
 "      <Checkbox Name=\"focus\" Text=\"Always visible\" Style=\"Switch\" Slot.Row=\"4\" Slot.Column=\"1\"/>"
 "    </Grid>"
 
-"    <Label Text=\"Motion\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading2\" Text=\"Motion\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Grid Columns=\"0,1\" Spacing=\"12\">"
 "      <Label Width=\"150\" Text=\"Reduce motion\" Slot.VAlign=\"Center\" Tooltip=\"Nothing moves by itself: no spring, no slide, no bounce, and the effects stand still\"/>"
 "      <Checkbox Name=\"motion\" Style=\"Switch\" Slot.Column=\"1\" AccessibleName=\"Reduce motion\"/>"
@@ -71,11 +71,11 @@ static const char A11Y_XML[] =
 "      <Label Text=\"Move the pointer here\" Slot.Padding=\"14\" Slot.VAlign=\"Center\" AccessibleHidden=\"true\"/>"
 "    </Border>"
 
-"    <Label Text=\"Screen readers\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading3\" Text=\"Screen readers\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Label Name=\"reader\" Wrap=\"true\" Opacity=\"0.8\"/>"
 "    <HBox Spacing=\"8\"><Button Name=\"announce\" Text=\"Read a message\" Tooltip=\"Raccessibility_announce: what a screen reader says when something happens\"/></HBox>"
 
-"    <Label Text=\"The system\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading4\" Text=\"The system\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Label Name=\"system\" Wrap=\"true\" Opacity=\"0.8\"/>"
 "    <HBox Spacing=\"8\">"
 "      <Button Name=\"follow\" Text=\"Follow the system\" Tooltip=\"Text size, contrast and motion as the system asks\"/>"
@@ -260,6 +260,11 @@ void accessibility_window(void) {
 	for (i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++) Rbutton_set_clicked_callback(find(buttons[i]), on_button, (void*)buttons[i]);
 	Rcombo_box_set_changed_callback(find("filter"), on_filter, NULL);
 	Rwindow_set_close_callback(g_a.window, on_close, NULL);
+	for (i = 0; i < 5; i++) {
+		char name[32];
+		snprintf(name, sizeof(name), "a11y.heading%d", (int)i);
+		fonts_title_on(find(name));
+	}
 	refresh();
 }
 

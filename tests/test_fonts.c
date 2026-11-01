@@ -207,6 +207,48 @@ static void test_folder_is_not_a_file(void) {
 	EXPECT_ERRORS_END(0);
 }
 
+/* Rwidget_set_font: a part of the tree in another font; a label with a font of its own keeps it. */
+static void test_font_of_a_subtree(void) {
+	Rid window = Rwindow_create("fonts", 400, 300, R_WINDOW_DEFAULT);
+	Rid outside = Rlabel_create("iiiiiiiiii"), panel = Rwidget_create(R_WIDGET_VBOX);
+	Rid inside = Rlabel_create("iiiiiiiiii"), own = Rlabel_create("iiiiiiiiii"), root = Rwidget_create(R_WIDGET_VBOX);
+	float plain = 0.0f, w = 0.0f;
+	Rslot_set_halign(outside, R_HALIGN_LEFT);
+	Rslot_set_halign(inside, R_HALIGN_LEFT);
+	Rslot_set_halign(own, R_HALIGN_LEFT);
+	Rlabel_set_font(own, Rfont_get_default());
+	Rwidget_add_child(panel, inside);
+	Rwidget_add_child(panel, own);
+	Rwidget_add_child(root, outside);
+	Rwidget_add_child(root, panel);
+	Rwindow_set_content(window, root);
+	Rwidget_get_rect(inside, NULL, NULL, &plain, NULL);
+	CHECK(plain > 0.0f);
+
+	/* "i" is narrow in Roboto, as wide as anything in a fixed-width font */
+	Rwidget_set_font(panel, Rfont_get_monospace());
+	CHECK(Rwidget_get_font(panel) == Rfont_get_monospace());
+	Rwidget_get_rect(inside, NULL, NULL, &w, NULL);
+	CHECK(w > plain * 1.5f);
+	Rwidget_get_rect(own, NULL, NULL, &w, NULL);
+	CHECK_NEAR(w, plain);
+	Rwidget_get_rect(outside, NULL, NULL, &w, NULL);
+	CHECK_NEAR(w, plain);
+	/* a widget added later takes it too */
+	{
+		Rid later = Rlabel_create("iiiiiiiiii");
+		Rslot_set_halign(later, R_HALIGN_LEFT);
+		Rwidget_add_child(panel, later);
+		Rwidget_get_rect(later, NULL, NULL, &w, NULL);
+		CHECK(w > plain * 1.5f);
+	}
+	/* and back */
+	Rwidget_set_font(panel, R_INVALID_ID);
+	Rwidget_get_rect(inside, NULL, NULL, &w, NULL);
+	CHECK_NEAR(w, plain);
+	Rwindow_destroy(window);
+}
+
 int main(void) {
 	if (!test_init(-1)) {
 		printf("cannot start Raven\n");
@@ -216,6 +258,7 @@ int main(void) {
 	RUN(test_composite_of_itself);
 	RUN(test_damaged_ttf);
 	RUN(test_damaged_cff);
+	RUN(test_font_of_a_subtree);
 	Rshutdown();
 	return test_report("test_fonts");
 }

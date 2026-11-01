@@ -2042,6 +2042,15 @@ extern "C" {
     pub fn Rwidget_set_theme(widget: Rid, name: *const c_char) -> c_int;
     /// Returns: Name of the theme the widget is drawn with.
     pub fn Rwidget_get_theme(widget: Rid) -> *const c_char;
+    /// Gives the widget and everything inside it a font, for the texts
+    /// that have none of their own (a label given Rlabel_set_font keeps its
+    /// own): a tool whose panels wear one font while the interface it shows
+    /// keeps the font of the application. Menus and lists opened from inside
+    /// follow.
+    /// font R_INVALID_ID: the font of the parent (in the end, the one of the theme, Rtheme_set_font) again.
+    pub fn Rwidget_set_font(widget: Rid, font: Rid);
+    /// Returns: The font given to the widget itself, or R_INVALID_ID.
+    pub fn Rwidget_get_font(widget: Rid) -> Rid;
     /// Gap inserted between neighbouring children.
     pub fn Rpanel_set_spacing(panel: Rid, spacing: f32);
     pub fn Rpanel_get_spacing(panel: Rid) -> f32;

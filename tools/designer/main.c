@@ -152,7 +152,7 @@ static const char* const DESIGNER_XML[] = {
 "          </ScrollBox>"
 "          <Overlay Name=\"stage.fit\" Visibility=\"Collapsed\"/>"
 "          <VBox Name=\"stage.empty\" Spacing=\"8\" Slot.HAlign=\"Center\" Slot.VAlign=\"Center\" Visibility=\"Collapsed\">"
-"            <Label Text=\"No interface open\" TextSize=\"20\" Slot.HAlign=\"Center\"/>"
+"            <Label Name=\"stage.empty.title\" Text=\"No interface open\" TextSize=\"20\" Slot.HAlign=\"Center\"/>"
 "            <Label Name=\"stage.empty.text\" Text=\"Double click one in Files, make one with New, or press Ctrl+K.\" Opacity=\"0.6\" Slot.HAlign=\"Center\"/>"
 "          </VBox>"
 "        </Overlay>"
@@ -3448,6 +3448,9 @@ static void on_appearance(Rid combo, int index, void* user_data) {
 /* The theme of the preview and the direction of its language, on what the window shows. */
 static void run_dress(Rid widget) {
 	if (widget == R_INVALID_ID || !Rwidget_is_valid(widget)) return;
+	/* the window of the interface wears the font of Raven, as in the application (its island too) */
+	Rwidget_set_font(widget, fonts_preview());
+	if (g.run_window != R_INVALID_ID && Rwindow_get_island(g.run_window) != R_INVALID_ID) Rwidget_set_font(Rwindow_get_island(g.run_window), fonts_preview());
 	Rwidget_set_theme(widget, g.preview_theme[0] ? g.preview_theme : NULL);
 	Rwidget_set_direction(widget, Rlocale_get_language_count() > 0 && Rlocale_is_rtl() ? R_DIRECTION_RTL : R_DIRECTION_LTR);
 }
@@ -4537,6 +4540,8 @@ static int build_interface(void) {
 	Rwidget_set_attribute(g.frame, "BorderWidth", "1");
 	Rwidget_set_attribute(g.frame, "Shadow", "26,0,10");
 	Rwidget_set_clipping(g.frame, R_TRUE);
+	/* the preview keeps the font of Raven: the designer's is its own */
+	Rwidget_set_font(g.frame, fonts_preview());
 	Rwidget_add_child(g.stage, g.frame);
 	g.outline = Rwidget_create(R_WIDGET_CUSTOM);
 	Rcustom_set_paint_callback(g.outline, outline_paint, NULL);
@@ -4591,6 +4596,11 @@ static int build_interface(void) {
 	}
 	fill_theme_combo();
 	fill_appearance();
+	/* the fonts: the titles, the code; the preview of the theme editor keeps the font of Raven */
+	Rwidget_set_font(Rwidget_find(g.window, "preview.root"), fonts_preview());
+	fonts_title_on(Rwidget_find(g.window, "inspector.title"));
+	fonts_title_on(Rwidget_find(g.window, "stage.empty.title"));
+	fonts_dress(Rwindow_get_content(g.window), g.frame);
 	Rdock_area_show_panel(g.dock, g.source);
 	return R_TRUE;
 }
@@ -4640,6 +4650,8 @@ int main(int argc, char** argv) {
 	Rset_layout_direction(R_DIRECTION_LTR);
 	/* the preview shows the interface, it does not run it: OnClicked="app.quit" must not quit the designer */
 	Raction_set_builtins(R_FALSE);
+	/* the fonts of the designer (embedded) */
+	fonts_init();
 	if (!build_interface()) {
 		Rshutdown();
 		return 1;

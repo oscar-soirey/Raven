@@ -56,6 +56,8 @@ rvn_widget_t* rvn_widget_create_class(const rvn_widget_class_t* cls) {
 	widget->min_size = rvn_vec2(-1.0f, -1.0f);
 	widget->max_size = rvn_vec2(-1.0f, -1.0f);
 	widget->opacity = 1.0f;
+	widget->font_own = R_INVALID_ID;
+	widget->font_scope = R_INVALID_ID;
 	widget->slot.halign = R_HALIGN_FILL;
 	widget->slot.valign = R_VALIGN_FILL;
 	widget->slot.fill = 1.0f;
@@ -202,11 +204,40 @@ void rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index) 
 	parent->child_count++;
 	child->parent = parent;
 	rvn_widget_inherit_theme(child, parent->theme);
+	rvn_widget_spread_font(child, parent->font_scope);
 	rvn_widget_add_counts(parent, (int)child->subtree_count, (int)child->ui_paint_count);
 	rvn_widget_set_window(child, parent->window);
 	rvn_widget_appear(child);
 	if (parent->cls->children_changed) parent->cls->children_changed(parent);
 	rvn_widget_invalidate_layout(parent);
+}
+
+void rvn_widget_spread_font(rvn_widget_t* widget, Rid scope) {
+	uint32_t i;
+	Rid font = widget->font_own != R_INVALID_ID ? widget->font_own : scope;
+	if (widget->font_scope == font) return;
+	widget->font_scope = font;
+	widget->flags |= RVN_WF_LAYOUT_DIRTY;
+	for (i = 0; i < widget->child_count; i++) rvn_widget_spread_font(widget->children[i], font);
+}
+
+void Rwidget_set_font(Rid id, Rid font) {
+	RVN_WIDGET_VOID(widget, id, 0);
+	if (font != R_INVALID_ID && !Rfont_is_valid(font)) {
+		rvn_error(R_ERROR_INVALID_ID, R_SEVERITY_ERROR, "Rwidget_set_font: invalid font");
+		return;
+	}
+	widget->font_own = font;
+	/* (forced: the subtree is walked again even when its scope looks the same) */
+	widget->font_scope = (Rid)0;
+	rvn_widget_spread_font(widget, widget->parent ? widget->parent->font_scope : R_INVALID_ID);
+	/* the texts are measured again, everywhere their sizes are kept */
+	rvn_theme_changed();
+}
+
+Rid Rwidget_get_font(Rid id) {
+	RVN_WIDGET(widget, id, 0, R_INVALID_ID);
+	return widget->font_own;
 }
 
 int rvn_widget_is_shown(const rvn_widget_t* widget) {

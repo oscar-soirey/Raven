@@ -4483,6 +4483,29 @@ def Rwidget_get_theme(widget):
     return _r(_lib.Rwidget_get_theme(widget))
 
 
+_lib.Rwidget_set_font.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rwidget_set_font.restype = None
+
+
+def Rwidget_set_font(widget, font):
+    """Gives the widget and everything inside it a font, for the texts
+    that have none of their own (a label given Rlabel_set_font keeps its
+    own): a tool whose panels wear one font while the interface it shows
+    keeps the font of the application. Menus and lists opened from inside
+    follow.
+    font R_INVALID_ID: the font of the parent (in the end, the one of the theme, Rtheme_set_font) again."""
+    _lib.Rwidget_set_font(widget, font)
+
+
+_lib.Rwidget_get_font.argtypes = [ctypes.c_uint32]
+_lib.Rwidget_get_font.restype = ctypes.c_uint32
+
+
+def Rwidget_get_font(widget):
+    """Returns: The font given to the widget itself, or R_INVALID_ID."""
+    return _lib.Rwidget_get_font(widget)
+
+
 _lib.Rpanel_set_spacing.argtypes = [ctypes.c_uint32, ctypes.c_float]
 _lib.Rpanel_set_spacing.restype = None
 

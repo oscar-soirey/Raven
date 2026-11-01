@@ -10,9 +10,12 @@ in the repository and compiled into the library.
 | Roboto Regular (Google) | `third_party/roboto/Roboto-Regular-subset.ttf`, embedded as `src/resources/default_font.c` | Apache License 2.0, see `third_party/roboto/LICENSE` | default font |
 | Wayland protocol descriptions (Wayland, wayland-protocols) | `third_party/wayland-protocols/*.xml`, turned into `src/platform/wayland/wayland_protocols.h` by `tools/wayland/gen_wayland.py` | MIT, see `third_party/wayland-protocols/COPYING` | the protocols of the Wayland platform (Linux, BSD) |
 | Roboto Mono Regular (The Roboto Mono Project Authors) | `third_party/roboto-mono/RobotoMono-Regular-subset.ttf`, embedded as `src/resources/mono_font.c` | SIL Open Font License 1.1, see `third_party/roboto-mono/LICENSE` | fixed-width font of the text editor (`Rfont_get_monospace`) |
+| Instrument Sans Regular and Bold (The Instrument Sans Project Authors) | `tools/designer/fonts/InstrumentSans-*-subset.ttf`, embedded as `tools/designer/font_body.c`, `font_body_bold.c` | SIL Open Font License 1.1, see `tools/designer/fonts/OFL-InstrumentSans.txt` | the text of the designer (not the library) |
+| Bricolage Grotesque Bold (The Bricolage Grotesque Project Authors) | `tools/designer/fonts/BricolageGrotesque-Bold-subset.ttf`, embedded as `tools/designer/font_title.c` | SIL Open Font License 1.1, see `tools/designer/fonts/OFL-BricolageGrotesque.txt` | the titles of the designer |
+| JetBrains Mono Regular (The JetBrains Mono Project Authors) | `tools/designer/fonts/JetBrainsMono-Regular-subset.ttf`, embedded as `tools/designer/font_code.c` | SIL Open Font License 1.1, see `tools/designer/fonts/OFL-JetBrainsMono.txt` | the XML and the code in the designer |
 
 
-The two font files are subsets made with `tools/subset_font.py`: Basic Latin,
+The font files are subsets made with `tools/subset_font.py`: Basic Latin,
 Latin-1 Supplement, Latin Extended-A and a few punctuation marks and
 arrows. Hinting instructions were removed. Under the Apache License and the
 Open Font License these are modified versions of the original fonts.

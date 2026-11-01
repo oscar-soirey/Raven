@@ -2180,6 +2180,19 @@ func WidgetGetTheme(widget ID) string {
 	return C.GoString(C.Rwidget_get_theme(C.Rid(widget)))
 }
 
+// WidgetSetFont: Gives the widget and everything inside it a font, for the texts that have none of their own
+// (a label given Rlabel_set_font keeps its own): a tool whose panels wear one font while the interface it
+// shows keeps the font of the application. Menus and lists opened from inside follow. font R_INVALID_ID: the
+// font of the parent (in the end, the one of the theme, Rtheme_set_font) again.
+func WidgetSetFont(widget ID, font ID) {
+	C.Rwidget_set_font(C.Rid(widget), C.Rid(font))
+}
+
+// WidgetGetFont: Returns: The font given to the widget itself, or R_INVALID_ID.
+func WidgetGetFont(widget ID) ID {
+	return ID(C.Rwidget_get_font(C.Rid(widget)))
+}
+
 // PanelSetSpacing: Gap inserted between neighbouring children.
 func PanelSetSpacing(panel ID, spacing float32) {
 	C.Rpanel_set_spacing(C.Rid(panel), C.float(spacing))

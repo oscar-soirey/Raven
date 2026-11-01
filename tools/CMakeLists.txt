@@ -11,6 +11,7 @@
 # (the Theme tab is the theme editor itself, built in: designer/theme_tab.c)
 add_executable(raven_designer designer/main.c designer/designer.h designer/os.c designer/files.c designer/island.c
 	designer/strings.c designer/welcome.c designer/accessibility.c designer/icons.c designer/theme_tab.c theme_editor/model.c theme_editor/editor.h
+	designer/fonts.c designer/font_body.c designer/font_body_bold.c designer/font_title.c designer/font_code.c
 	crash_report.c crash_report.h)
 	
 if(WIN32)

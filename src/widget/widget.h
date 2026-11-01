@@ -209,6 +209,10 @@ struct rvn_widget_t {
 	const rvn_theme_t* theme;
 	/** R_TRUE when `theme` was given to this widget itself. */
 	uint8_t theme_own;
+	/** Font of the widget and of what it contains (Rwidget_set_font), or R_INVALID_ID. */
+	Rid font_own;
+	/** The font its texts take when they have none of their own: font_own, else the one of an ancestor; R_INVALID_ID for the theme's. */
+	Rid font_scope;
 	/** What the styles of the theme give to this widget, or NULL; valid while style_generation is the one of the library. */
 	const rvn_style_match_t* match;
 	uint32_t style_generation;
@@ -538,6 +542,8 @@ void  rvn_theme_set_accent(rvn_theme_t* theme, rvn_color_t accent);
 void  rvn_widget_set_theme(rvn_widget_t* widget, const rvn_theme_t* theme, int own);
 /** The widget has a new parent or a new popup owner: it follows the theme of that one unless it has its own. */
 void  rvn_widget_inherit_theme(rvn_widget_t* widget, const rvn_theme_t* theme);
+/** The font of the subtree (Rwidget_set_font): `scope` is the one of the parent; a widget with its own keeps it for itself and below. */
+void  rvn_widget_spread_font(rvn_widget_t* widget, Rid scope);
 /** The dark counterpart of the theme in use (itself when it is dark): the island and what must stay dark. */
 const rvn_theme_t* rvn_theme_dark_twin(void);
 int   rvn_widget_has_class(const rvn_widget_t* widget, const char* cls);

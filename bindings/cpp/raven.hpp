@@ -303,6 +303,17 @@ public:
 	/// Returns: Name of the theme the widget is drawn with.
 	const char* get_theme() const { return Rwidget_get_theme(id_); }
 
+	/// Gives the widget and everything inside it a font, for the texts
+	/// that have none of their own (a label given Rlabel_set_font keeps its
+	/// own): a tool whose panels wear one font while the interface it shows
+	/// keeps the font of the application. Menus and lists opened from inside
+	/// follow.
+	/// font R_INVALID_ID: the font of the parent (in the end, the one of the theme, Rtheme_set_font) again.
+	void set_font(Rid font) const { Rwidget_set_font(id_, font); }
+
+	/// Returns: The font given to the widget itself, or R_INVALID_ID.
+	Rid get_font() const { return Rwidget_get_font(id_); }
+
 	/// Scrolls every ScrollBox above the widget so that the widget is visible.
 	void scroll_into_view() const { Rwidget_scroll_into_view(id_); }
 

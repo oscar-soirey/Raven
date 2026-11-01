@@ -3861,6 +3861,23 @@ namespace Raven
         public static string Rwidget_get_theme(uint widget) { return Text(Rwidget_get_theme_(widget)); }
 
         /// <summary>
+        /// Gives the widget and everything inside it a font, for the texts
+        /// that have none of their own (a label given Rlabel_set_font keeps its
+        /// own): a tool whose panels wear one font while the interface it shows
+        /// keeps the font of the application. Menus and lists opened from inside
+        /// follow.
+        /// font R_INVALID_ID: the font of the parent (in the end, the one of the theme, Rtheme_set_font) again.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_font(uint widget, uint font);
+
+        /// <summary>
+        /// Returns: The font given to the widget itself, or R_INVALID_ID.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rwidget_get_font(uint widget);
+
+        /// <summary>
         /// Gap inserted between neighbouring children.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
