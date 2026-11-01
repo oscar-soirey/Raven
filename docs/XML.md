@@ -139,6 +139,39 @@ Raction_bind("file.save", on_save, NULL);
 Raction_set_default_handler(on_any_action, NULL);
 ```
 
+#### Actions that need no C
+
+Some names are actions of Raven itself: an interface written in XML quits,
+closes its window, shows a panel, turns a page or changes its theme with no
+line of C. They apply when no function is bound to the name (`Raction_bind`
+replaces one); the default handler only receives the other names. A name of a
+widget (`show:details`) is looked up in the window of the widget that fires it.
+
+| Action | What it does |
+|---|---|
+| `app.quit` | quits (`Rquit(0)`) |
+| `window.close`, `window.minimize`, `window.restore` | the window of the widget |
+| `window.maximize` | maximizes it; restores it when it already is |
+| `island.expand`, `island.fold`, `island.toggle` | the island of the window |
+| `theme.dark`, `theme.light`, `theme.toggle` | the look of Raven, dark or light |
+| `theme:NAME` | `Rtheme_use(NAME)`: built in, or loaded with `Rtheme_load` |
+| `language:CODE` | the language of the translations |
+| `open:ADDRESS` | opens a web page, a `mailto:`, a file |
+| `copy:TEXT` | the text to the clipboard |
+| `show:NAME`, `hide:NAME`, `toggle:NAME` | the widget named NAME (hidden: `Collapsed`) |
+| `enable:NAME`, `disable:NAME`, `focus:NAME` | the widget named NAME |
+| `page:NAME=2`, `page:NAME=+1`, `page:NAME=-1` | what a Switcher, TabView, ComboBox or ListView shows; the steps go round |
+
+```xml
+<Button Text="Next" Style="Primary" OnClicked="page:steps=+1"/>
+<Button Text="Help" Style="Flat" OnClicked="toggle:help"/>
+<Shortcut Keys="Ctrl+Q" Action="app.quit"/>
+```
+
+`Raction_set_builtins(R_FALSE)` turns them off (the designer does: its
+preview shows an interface without running it); `Raction_is_builtin(name)`
+tells whether a name is one of them.
+
 Callbacks set from C work alongside actions and cover the other events:
 every keystroke of a text input (`Rtext_input_set_changed_callback`), the
 selection of a list or tree (`Rlist_view_set_selection_changed_callback`,

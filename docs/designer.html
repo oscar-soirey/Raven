@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raven manual: the designer</title>
+<link rel="icon" type="image/png" href="logo-black-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="layout">
+<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html" aria-current="page">Designer</a><ul class="sections"><li><a href="#start">1. Starting</a></li><li><a href="#window">2. The window</a></li><li><a href="#select">3. Selecting</a></li><li><a href="#editing">4. Changing the interface</a></li><li><a href="#tabs">5. The four tabs</a></li><li><a href="#preview">6. The preview and the island</a></li><li><a href="#keys">7. Keys</a></li></ul></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<main class="doc"><article>
+<h1>The designer</h1>
+
+<p><code>raven_designer</code> makes the interfaces of Raven (<code>.xml</code>) by looking at them.
+It works on a folder: the windows, the widget libraries, the themes and the translation
+tables found in it. Nothing is compiled there: the program that loads the interfaces is
+written elsewhere, in <a href="bindings.html">any language</a>. The designer is itself made with Raven.</p>
+
+<figure><img src="images/designer.png" alt="raven_designer: widgets, tree, live preview, properties and XML" loading="lazy" style="max-width:100%"></figure>
+
+<h2 id="start">1. Starting</h2>
+<pre>raven_designer                 the start page: open a folder, an interface, a recent folder
+raven_designer my_app/ui       a folder
+raven_designer main.xml        an interface, with its folder</pre>
+<p><b>File &gt; New interface</b> (<b>Ctrl+N</b>) makes a new file in the folder: a window
+(empty, ready for widgets), a panel, a form, a widget library, a theme. Everything is
+saved as XML you can read and change by hand; the designer follows a file another program
+saves.</p>
+
+<h2 id="window">2. The window</h2>
+<ul>
+<li><b>Files</b>: the files of the folder for the tab in front. Double click opens; right click: new, delete.</li>
+<li><b>Widgets</b>: what can be added, by family, with the tags the folder declares first. Drag one into the preview or the Tree, or double click to add it inside the selection.</li>
+<li><b>Tree</b>: the elements of the interface.</li>
+<li><b>Preview</b>: the interface built for real, the selection outlined.</li>
+<li><b>Properties</b>: every attribute of the selection, by kind of value.</li>
+<li><b>XML</b>: the text, with completion; a mistake is listed in <b>Problems</b> while the last good version stays shown.</li>
+</ul>
+<p>All of them show the same document and follow each other. The panels can be moved; <b>View &gt; Reset the panels</b> puts them back.</p>
+
+<h2 id="select">3. Selecting</h2>
+<ul>
+<li>A click in the preview or in the Tree selects an element. A click around the window, or <b>Escape</b>, selects nothing.</li>
+<li><b>Ctrl + click</b> (<b>Cmd</b> on a Mac) adds an element to the selection, or takes it out.</li>
+<li><b>Shift + click</b> selects the elements between the last one clicked and this one, when they are in the same panel.</li>
+<li>With several selected, the Properties panel shows the one clicked last; what is changed there goes to all of them.</li>
+</ul>
+
+<h2 id="editing">4. Changing the interface</h2>
+<ul>
+<li><b>Drag</b> an element in the preview or in the Tree to move it: a line (in the preview) or the lit panel (in the Tree) shows where it goes, <b>Escape</b> cancels. In the Tree, the top of a row puts it before, the bottom after, the middle of a panel inside. Several selected move together.</li>
+<li><b>Ctrl+X</b>, <b>Ctrl+C</b>, <b>Ctrl+V</b>: cut, copy and paste elements (as XML text: what is copied can be pasted in a text editor too). A paste goes inside the selection, or after it.</li>
+<li><b>Delete</b> or <b>Backspace</b> removes the selection; <b>Ctrl+D</b> duplicates it.</li>
+<li><b>Edit &gt; Wrap in</b> puts the selection in a new panel (several of one panel: in the same one); <b>Unwrap</b> takes the panel away and keeps what it holds.</li>
+<li><b>Ctrl+Z</b>, <b>Ctrl+Y</b>: undo, redo.</li>
+</ul>
+<p>While a text is being typed (in the XML, in a property), these keys are for the text.</p>
+<p>Buttons can name an action that needs no code (<code>OnClicked="page:steps=+1"</code>,
+<code>"app.quit"</code>...: see <a href="xml.html#builtin-actions">the XML reference</a>). The preview does not
+run them: the status bar says which action was fired.</p>
+
+<h2 id="tabs">5. The four tabs</h2>
+<ul>
+<li><b>Window</b> (<b>Ctrl+1</b>): the interfaces of the folder.</li>
+<li><b>Widget</b> (<b>Ctrl+2</b>): the widget libraries (<code>&lt;Widgets&gt;</code>), edited like a window; the windows of the folder can use their tags.</li>
+<li><b>Theme</b> (<b>Ctrl+3</b>): the theme editor, for the theme files of the folder.</li>
+<li><b>Translations</b> (<b>Ctrl+4</b>): the tables (<code>.csv</code>), one row per key, one column per language. In a text, <code>@</code> lists the keys.</li>
+</ul>
+
+<h2 id="preview">6. The preview and the island</h2>
+<p>Above the preview: the size it is shown at (the size of the XML, a phone, a tablet...),
+the theme it wears and its language. <b>F6</b> uses the preview as the interface will be used;
+<b>F7</b> opens the window itself, at its size, and it follows every change.</p>
+<p>The island at the top says what is open and selected. <b>Ctrl+K</b> opens its search:
+a widget to add (<code>add slider</code>), a file to open, a command (<code>wrap in a vbox</code>),
+a theme or a language for the preview. On a MacBook it lives in the notch.</p>
+
+<h2 id="keys">7. Keys</h2>
+<div class="tw"><table class="v">
+<tr><th>Keys</th><th>What they do</th></tr>
+<tr><td>Ctrl+N</td><td>A new window</td></tr>
+<tr><td>Ctrl+O, Ctrl+Shift+O</td><td>Open an interface, a folder</td></tr>
+<tr><td>Ctrl+S, Ctrl+Shift+S, Ctrl+Alt+S</td><td>Save, save as, save all</td></tr>
+<tr><td>Ctrl+Z, Ctrl+Y</td><td>Undo, redo</td></tr>
+<tr><td>Ctrl+X, Ctrl+C, Ctrl+V</td><td>Cut, copy, paste elements</td></tr>
+<tr><td>Delete, Backspace</td><td>Delete the selection</td></tr>
+<tr><td>Ctrl+D</td><td>Duplicate</td></tr>
+<tr><td>Alt+Up, Alt+Down</td><td>Move up, down in the panel</td></tr>
+<tr><td>Alt+Left, Alt+Right</td><td>Move out of the panel, into the element before</td></tr>
+<tr><td>Ctrl + click, Shift + click</td><td>Select several</td></tr>
+<tr><td>Escape</td><td>Select nothing; cancel a drag</td></tr>
+<tr><td>Ctrl+K</td><td>The search of the island</td></tr>
+<tr><td>Ctrl+1 to Ctrl+4</td><td>The tabs</td></tr>
+<tr><td>F6, F7</td><td>Use the preview; open the window</td></tr>
+<tr><td>Ctrl+Q</td><td>Quit</td></tr>
+</table></div>
+
+<p>More: <a href="guide.html#ide">the designer in the guide</a> (the folder followed live, scripts and tests).</p>
+
+<p class="foot">Raven &mdash; Apache License 2.0 &mdash; <a href="guide.html">Guide</a> &middot; <a href="xml.html">XML</a> &middot; <a href="reference.html">C API</a> &middot; <a href="https://github.com/oscar-soirey/Raven">source</a></p>
+</article></main>
+</div>
+<script src="docs.js"></script>
+
+</body>
+</html>
