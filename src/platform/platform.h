@@ -206,7 +206,34 @@ typedef struct rvn_platform_t {
 	void  (*a11y_settings)(struct RAccessibilitySettings* settings);
 	/** The accent color the user chose for the system (0..1); R_FALSE when it does not tell. NULL: none (widget/look.c reads Windows and GNOME itself). */
 	int   (*accent_color)(float rgb[3]);
+
+	/*
+	 * ---- the island in the camera housing of the screen (optional, NULL when the window system has none) ----
+	 *
+	 * On a screen with a camera housing at its top (the "notch" of a MacBook),
+	 * an island asked to (Risland_set_notch) lives in it: in a window of its
+	 * own, an overlay created with RVN_PWINDOW_OVERLAY, anchored to the screen
+	 * and not to the window it belongs to (its owner), so that moving the
+	 * owner does not move it away from the notch.
+	 */
+
+	/** The camera housing of the screen that shows `window`: its size in pixels of that screen. R_FALSE when that screen has none. */
+	int   (*screen_notch)(rvn_pwindow_t* window, int* width, int* height);
+	/** Places an overlay at the top of the screen that shows `owner`, centered on its notch: `width` x `height` pixels. */
+	void  (*overlay_place)(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int width, int height);
+	/** The part of an overlay that takes the mouse (pixels of its client area); elsewhere the pointer goes to what is under it. */
+	void  (*overlay_set_input)(rvn_pwindow_t* overlay, int x, int y, int width, int height);
+	/** `key`: the overlay takes the keyboard (something in it was given the focus); 0: the keyboard goes back to `owner`. */
+	void  (*overlay_set_key)(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key);
 } rvn_platform_t;
+
+/**
+ * rvn_pwindow_desc_t::flags: a window that floats above everything, the
+ * menu bar included, without frame, shadow nor background, out of the lists
+ * of windows, shown on every space and hidden while the application is not
+ * in front. See screen_notch.
+ */
+#define RVN_PWINDOW_OVERLAY (1u << 24)
 
 /** Picks the platform compiled in for this OS, or the null platform. */
 const rvn_platform_t* rvn_platform_select(int headless);

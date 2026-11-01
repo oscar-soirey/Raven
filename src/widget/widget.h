@@ -666,6 +666,17 @@ struct rvn_window_t {
 	rvn_widget_t* root;
 	/** A widget floating at the top of the window above the content (Rwindow_set_island), or NULL. */
 	rvn_widget_t* island;
+	/**
+	 * The island lives in the camera housing of the screen (Risland_set_notch):
+	 * the overlay window that shows it. `island` stays the island of this
+	 * window; the overlay lays it out, paints it and gives it the input.
+	 */
+	rvn_window_t* notch_overlay;
+	/** On such an overlay: the window whose island it shows. */
+	rvn_window_t* notch_owner;
+	/** Overlay: the size it was given last (pixels), and the part of it that takes the mouse. */
+	int overlay_w, overlay_h;
+	int overlay_input[4];
 	char* title;
 
 	/** Size of the client area in pixels and pixels per logical unit. */

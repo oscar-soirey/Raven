@@ -315,6 +315,7 @@ static const rvn_schema_attribute_t g_island[] = {
 	B("ExpandOnHover", "Unfolds while the pointer is over it."),
 	B("ExpandOnClick", "A click unfolds it and folds it back."),
 	B("Attached", "Hangs from the top edge, like a notch, instead of floating below it."),
+	B("Notch", "On a screen with a camera housing (a MacBook), lives in it, outside of the window: it stays there when the window moves. Elsewhere it stays in the window."),
 };
 static const rvn_schema_attribute_t g_background_blur[] = {
 	C("Style", "Plain|Frosted|Glass|Native", "Plain only blurs; Frosted adds a veil and grain; Glass bends light at its rim; Native shows the desktop, blurred by the system, through a window that is seen through."),

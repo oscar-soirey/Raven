@@ -247,6 +247,14 @@ const rvn_theme_t* rvn_xml_theme(const char* value);
 void rvn_xml_shutdown(void);
 /** A mouse button was pressed on `hit` (NULL: on nothing): the unfolded islands of the window it is not in fold (widgets/island.c). */
 void rvn_islands_pressed(rvn_window_t* window, rvn_widget_t* hit, int on_popup);
+/* the island in the camera housing of the screen (widget/window.c places it there) */
+int rvn_island_wants_notch(const rvn_widget_t* island);
+/** The size of the housing it lives in, in logical units (0, 0: it is in its window again). */
+void rvn_island_set_notch(rvn_widget_t* island, float width, float height);
+/** The largest of its folded and unfolded capsules (after a measure). */
+rvn_vec2_t rvn_island_extent(const rvn_widget_t* island);
+/** An island of the window asked for the housing, or does not any more: widget/window.c looks again. */
+void rvn_window_notch_changed(rvn_window_t* window);
 void rvn_islands_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */
 void rvn_dialogs_shutdown(void);

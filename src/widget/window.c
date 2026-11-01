@@ -17,6 +17,12 @@
 #define RVN_TOOLTIP_DELAY 0.6
 #define RVN_MAX_PATH_DEPTH 128
 
+/* the island in the camera housing of the screen (at the end of this file) */
+static void rvn_window_notch_update(rvn_window_t* window);
+static void rvn_window_notch_leave(rvn_window_t* owner);
+static void rvn_window_overlay_fit(rvn_window_t* overlay);
+static void rvn_window_notch_focus(rvn_window_t* window);
+
 /* ---------------------------------------------------------------------------
  *  Lookup
  * ------------------------------------------------------------------------- */
@@ -318,8 +324,8 @@ static rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int*
 		}
 	}
 	if (popup_index) *popup_index = -1;
-	/* the island floats above the content */
-	if (window->island) {
+	/* the island floats above the content (unless it lives in the camera housing, in an overlay) */
+	if (window->island && !window->notch_overlay) {
 		rvn_widget_t* hit = rvn_widget_hit_test(window->island, x, y);
 		if (hit) return hit;
 	}
@@ -378,6 +384,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 		event = rvn_window_event(window, R_EVENT_FOCUS_GAINED);
 		rvn_widget_send(widget, &event);
 	}
+	/* an island in the camera housing: its overlay takes the keyboard while something in it has the focus */
+	if (window->notch_owner) rvn_window_notch_focus(window);
 }
 
 typedef struct rvn_focus_list_t {
@@ -700,16 +708,18 @@ void rvn_window_layout(rvn_window_t* window) {
 			/* the content obeys its slot like any child: padding and alignment in the window */
 			rvn_widget_arrange_slot(window->root, rvn_rect(0.0f, 0.0f, size.x, size.y));
 		}
-		if (window->island) {
-			/* at the top, in the middle, at its own size */
+		if (window->island && !window->notch_overlay) {
+			/* at the top, in the middle, at its own size (in an overlay of the camera housing: against the top of the screen) */
 			rvn_vec2_t desired = rvn_widget_measure(window->island);
 			float width = rvn_minf(desired.x, size.x), height = rvn_minf(desired.y, size.y);
-			rvn_widget_arrange(window->island, floorf((size.x - width) * 0.5f), window->island->slot.padding.t, width, height);
+			rvn_widget_arrange(window->island, floorf((size.x - width) * 0.5f), window->notch_owner ? 0.0f : window->island->slot.padding.t, width, height);
 		}
 		for (i = 0; i < window->popup_count; i++) rvn_window_layout_popup(window, &window->popups[i]);
 	}
 	window->needs_layout = R_FALSE;
 	window->needs_paint = R_TRUE;
+	/* an overlay of the camera housing: its size and the part of it that takes the mouse follow the island */
+	if (window->notch_owner) rvn_window_overlay_fit(window);
 	window->stats.layout_ms = (rvn_clock_seconds() - start) * 1000.0;
 	rvn_window_refresh_hover(window);
 }
@@ -901,7 +911,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 		rvn_widget_paint(window->root, &painter);
 		widgets += window->root->subtree_count;
 	}
-	if (window->island) {
+	if (window->island && !window->notch_overlay) {
 		rvn_widget_paint(window->island, &painter);
 		widgets += window->island->subtree_count;
 	}
@@ -1159,6 +1169,8 @@ void rvn_window_toggle_maximized(rvn_window_t* window) {
 
 void rvn_window_request_close(rvn_window_t* window) {
 	int close;
+	/* (Cmd+W on the island in the camera housing closes the window it belongs to) */
+	if (window->notch_owner) window = window->notch_owner;
 	rvn_dispatch_begin();
 	close = !window->close_callback || window->close_callback(window->id, window->close_user);
 	if (close && !window->dead) rvn_window_destroy(window);
@@ -1612,6 +1624,8 @@ static void rvn_window_key(rvn_window_t* window, RKey key, int pressed, uint32_t
 		rvn_window_set_focus(window, NULL);
 		return;
 	}
+	/* in the island of the camera housing, the shortcuts are those of the window it belongs to */
+	if (window->notch_owner) window = window->notch_owner;
 	for (i = 0; i < window->shortcut_count; i++) {
 		rvn_shortcut_t* shortcut = &window->shortcuts[i];
 		char* action;
@@ -1693,6 +1707,8 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			break;
 		case RVN_PEVENT_RESIZE:
 			rvn_window_resized(window, pevent->width, pevent->height, pevent->scale);
+			/* (moved to another screen: the scale changed) */
+			if (!window->notch_owner && window->island) rvn_window_notch_update(window);
 			break;
 		case RVN_PEVENT_EXPOSE:
 			window->needs_paint = R_TRUE;
@@ -1732,6 +1748,8 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			}
 			window->active = pevent->focused;
 			window->needs_paint = R_TRUE;
+			/* the window the user works in takes the camera housing for its island */
+			rvn_window_notch_focus(window);
 			break;
 		case RVN_PEVENT_STATE:
 			if (window->state != pevent->state) {
@@ -1739,6 +1757,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 				window->edge = RVN_PREGION_CLIENT;
 				window->needs_layout = R_TRUE;
 				window->needs_paint = R_TRUE;
+				rvn_window_notch_update(window);
 			}
 			break;
 		case RVN_PEVENT_DRAG: {
@@ -1833,6 +1852,12 @@ static void rvn_window_free(rvn_window_t* window) {
 void rvn_window_destroy(rvn_window_t* window) {
 	rvn_widget_t* root;
 	if (window->dead) return;
+	/* an overlay of the camera housing goes with the island going back into its window; a window takes its overlay with it */
+	if (window->notch_owner) {
+		rvn_window_notch_leave(window->notch_owner);
+		return;
+	}
+	if (window->notch_overlay) rvn_window_notch_leave(window);
 	rvn_window_close_all_popups(window);
 	if (window->dead) return;
 	while (window->ghost_count > 0) rvn_window_remove_ghost(window, 0);
@@ -2036,6 +2061,7 @@ void Rwindow_set_island(Rid id, Rid widget_id) {
 		if (!widget) return;
 	}
 	if (window->island == widget) return;
+	if (window->notch_overlay) rvn_window_notch_leave(window);
 	if (window->island) rvn_widget_destroy(window->island);
 	window->island = NULL;
 	if (widget) {
@@ -2047,6 +2073,7 @@ void Rwindow_set_island(Rid id, Rid widget_id) {
 	}
 	window->needs_layout = R_TRUE;
 	window->needs_paint = R_TRUE;
+	rvn_window_notch_changed(window);
 }
 
 Rid Rwindow_get_island(Rid id) {
@@ -2137,6 +2164,7 @@ void Rwindow_show(Rid id) {
 	window->visible = R_TRUE;
 	window->needs_paint = R_TRUE;
 	g_rvn.platform->window_show(window->platform, R_TRUE);
+	rvn_window_notch_update(window);
 }
 
 void Rwindow_hide(Rid id) {
@@ -2145,6 +2173,7 @@ void Rwindow_hide(Rid id) {
 	/* a frame still queued must not be presented once the window is hidden (on Wayland that would show it again) */
 	rvn_renderer_sync();
 	g_rvn.platform->window_show(window->platform, R_FALSE);
+	rvn_window_notch_update(window);
 }
 
 void Rwindow_maximize(Rid id) {
@@ -2614,4 +2643,205 @@ void rvn_windows_throttle(void) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window && rvn_window_wants_frame(window)) rvn_renderer_throttle(&window->frames_in_flight, RVN_MAX_FRAMES_IN_FLIGHT);
 	}
+}
+
+/* ---------------------------------------------------------------------------
+ *  The island in the camera housing of the screen
+ *
+ * On a screen with a camera housing at its top (a MacBook), an island that
+ * asked for it (Risland_set_notch) leaves its window for an overlay: a
+ * window of its own, without frame nor background, anchored to the top of
+ * that screen around the housing (the window system places it: platform.h,
+ * screen_notch). Moving the window does not move the island away from the
+ * camera. The window keeps it as its island (Rwindow_get_island, the search
+ * by name); the overlay lays it out, paints it and gives it the input, and
+ * the pointer goes through the rest of the overlay to what is under it.
+ *
+ * One window of the application has the housing at a time: the last one
+ * the user worked in whose island wants it, while it is shown and on a screen
+ * with a housing. Everything else keeps its island in its window, and so do
+ * the window systems without a housing (screen_notch NULL): nothing changes
+ * there. Whether the window went to another screen is looked at twice a
+ * second while such an island exists (a move is not an event of every
+ * window system).
+ * ------------------------------------------------------------------------- */
+
+/** The window whose island has (or may have) the housing. */
+static Rid g_notch_holder = R_INVALID_ID;
+static Rid g_notch_timer = R_INVALID_ID;
+
+static int rvn_window_notch_candidate(const rvn_window_t* window) {
+	return window && !window->dead && !window->notch_owner && window->island && rvn_island_wants_notch(window->island);
+}
+
+/* The island goes back into its window; the overlay goes away. */
+static void rvn_window_notch_leave(rvn_window_t* owner) {
+	rvn_window_t* overlay = owner->notch_overlay;
+	rvn_widget_t* island = owner->island;
+	if (!overlay) return;
+	/* (the keyboard first: the overlay had it for a text in the island) */
+	if (overlay->active && g_rvn.platform->overlay_set_key) g_rvn.platform->overlay_set_key(overlay->platform, owner->platform, R_FALSE);
+	owner->notch_overlay = NULL;
+	overlay->notch_owner = NULL;
+	if (island) {
+		rvn_window_forget_widget(overlay, island);
+		rvn_window_release_natives(overlay, island);
+		overlay->island = NULL;
+		rvn_island_set_notch(island, 0.0f, 0.0f);
+		rvn_widget_set_window(island, owner);
+		island->flags |= RVN_WF_LAYOUT_DIRTY;
+	}
+	overlay->island = NULL;
+	owner->needs_layout = R_TRUE;
+	owner->needs_paint = R_TRUE;
+	rvn_window_destroy(overlay);
+}
+
+/* The island leaves its window for an overlay (shown once it was laid out and placed: rvn_window_overlay_fit). */
+static void rvn_window_notch_enter(rvn_window_t* owner) {
+	rvn_widget_t* island = owner->island;
+	rvn_window_t* overlay;
+	Rid id = Rwindow_create("", 64, 64, R_WINDOW_BORDERLESS | R_WINDOW_NO_RESIZE | R_WINDOW_TRANSPARENT | R_WINDOW_HIDDEN | RVN_PWINDOW_OVERLAY);
+	overlay = rvn_window_get(id);
+	if (!overlay) return;
+	/* (it takes the keyboard only when something in it is given the focus) */
+	overlay->active = R_FALSE;
+	overlay->visible = R_FALSE;
+	overlay->overlay_w = overlay->overlay_h = 0;
+	overlay->overlay_input[2] = overlay->overlay_input[3] = -1;
+	overlay->notch_owner = owner;
+	owner->notch_overlay = overlay;
+	rvn_window_forget_widget(owner, island);
+	rvn_window_release_natives(owner, island);
+	overlay->island = island;
+	rvn_widget_set_window(island, overlay);
+	island->flags |= RVN_WF_LAYOUT_DIRTY;
+	overlay->needs_layout = R_TRUE;
+	overlay->needs_paint = R_TRUE;
+	owner->needs_layout = R_TRUE;
+	owner->needs_paint = R_TRUE;
+}
+
+/* Does the island of this window go into the housing, or come back from it? */
+static void rvn_window_notch_update(rvn_window_t* window) {
+	rvn_window_t* holder;
+	int width = 0, height = 0, wanted;
+	float scale;
+	if (!window || window->dead || window->notch_owner) return;
+	holder = rvn_window_get(g_notch_holder);
+	if (rvn_window_notch_candidate(window) && !rvn_window_notch_candidate(holder)) {
+		g_notch_holder = window->id;
+		holder = window;
+	}
+	wanted = holder == window && rvn_window_notch_candidate(window) && window->visible && window->state != RVN_PWINDOW_MINIMIZED &&
+		g_rvn.platform->screen_notch && g_rvn.platform->overlay_place &&
+		g_rvn.platform->screen_notch(window->platform, &width, &height) && width > 0 && height > 0;
+	if (!wanted) {
+		if (window->notch_overlay) rvn_window_notch_leave(window);
+		return;
+	}
+	if (!window->notch_overlay) rvn_window_notch_enter(window);
+	if (!window->notch_overlay) return;
+	/* the housing in logical units (the window is on the screen that has it) */
+	scale = window->scale > 0.0f ? window->scale : 1.0f;
+	rvn_island_set_notch(window->island, (float)width / scale, (float)height / scale);
+	window->notch_overlay->needs_layout = R_TRUE;
+	rvn_wake();
+}
+
+static void rvn_window_notch_timer(Rid timer, void* user_data) {
+	uint32_t i, watched = 0;
+	RVN_UNUSED(user_data);
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		if (!window || window->dead || window->notch_owner) continue;
+		if (!rvn_window_notch_candidate(window) && !window->notch_overlay) continue;
+		watched++;
+		rvn_window_notch_update(window);
+	}
+	/* no island wants the housing any more: nothing to look at */
+	if (!watched && Rtimer_is_valid(timer)) {
+		Rtimer_destroy(timer);
+		g_notch_timer = R_INVALID_ID;
+	}
+}
+
+void rvn_window_notch_changed(rvn_window_t* window) {
+	if (!window || window->dead) return;
+	/* an island in an overlay: its window decides */
+	if (window->notch_owner) window = window->notch_owner;
+	if (!g_rvn.platform->screen_notch) return;
+	if (rvn_window_notch_candidate(window) && (g_notch_timer == R_INVALID_ID || !Rtimer_is_valid(g_notch_timer)))
+		g_notch_timer = Rtimer_create(0.5, R_TRUE, rvn_window_notch_timer, NULL);
+	rvn_window_notch_update(window);
+}
+
+/*
+ * The keyboard and the housing follow the user. A window that becomes the
+ * one the user works in takes the housing for its island; an overlay takes
+ * the keyboard while something in it has the focus (a search typed in the
+ * island) and gives it back to its window otherwise.
+ */
+static void rvn_window_notch_focus(rvn_window_t* window) {
+	if (window->dead) return;
+	if (window->notch_owner) {
+		if (!g_rvn.platform->overlay_set_key) return;
+		if (window->focus && !window->active) g_rvn.platform->overlay_set_key(window->platform, window->notch_owner->platform, R_TRUE);
+		else if (!window->focus && window->active) g_rvn.platform->overlay_set_key(window->platform, window->notch_owner->platform, R_FALSE);
+		return;
+	}
+	if (window->active && rvn_window_notch_candidate(window) && g_notch_holder != window->id) {
+		rvn_window_t* previous = rvn_window_get(g_notch_holder);
+		g_notch_holder = window->id;
+		if (previous && previous != window) rvn_window_notch_update(previous);
+	}
+	if (window->island) rvn_window_notch_update(window);
+}
+
+/*
+ * After a layout of an overlay: large enough for the island unfolded, its
+ * shadow and the lists opened from it (placed by the window system around
+ * the housing), and the mouse taken only by the island, or by all of it
+ * while a list or a menu is open.
+ */
+static void rvn_window_overlay_fit(rvn_window_t* overlay) {
+	rvn_widget_t* island = overlay->island;
+	rvn_vec2_t extent;
+	float scale = overlay->scale > 0.0f ? overlay->scale : 1.0f;
+	int width, height, input[4];
+	if (!island || !overlay->notch_owner) return;
+	extent = rvn_island_extent(island);
+	if (extent.x <= 0.0f || extent.y <= 0.0f) return;
+	width = (int)ceilf((extent.x + 96.0f) * scale);
+	height = (int)ceilf((extent.y + 380.0f) * scale);
+	if (width != overlay->overlay_w || height != overlay->overlay_h) {
+		overlay->overlay_w = width;
+		overlay->overlay_h = height;
+		g_rvn.platform->overlay_place(overlay->platform, overlay->notch_owner->platform, width, height);
+		/* (the window system tells the new size by an event; the island is laid out again then) */
+		overlay->needs_layout = R_TRUE;
+	}
+	if (overlay->popup_count > 0) {
+		input[0] = input[1] = 0;
+		input[2] = overlay->width_px;
+		input[3] = overlay->height_px;
+	} else {
+		/* the capsule, and a little around it: the pointer that leaves it a little does not fall through at once */
+		input[0] = (int)floorf((island->rect.x - 6.0f) * scale);
+		input[1] = 0;
+		input[2] = (int)ceilf((island->rect.w + 12.0f) * scale);
+		input[3] = (int)ceilf((island->rect.y + island->rect.h + 8.0f) * scale);
+	}
+	if (memcmp(input, overlay->overlay_input, sizeof(input)) != 0) {
+		memcpy(overlay->overlay_input, input, sizeof(input));
+		if (g_rvn.platform->overlay_set_input) g_rvn.platform->overlay_set_input(overlay->platform, input[0], input[1], input[2], input[3]);
+	}
+	/* placed and laid out: it shows (without taking the keyboard) */
+	if (!overlay->visible) {
+		overlay->visible = R_TRUE;
+		overlay->needs_paint = R_TRUE;
+		g_rvn.platform->window_show(overlay->platform, R_TRUE);
+	}
+	/* (an island that folded let go of what had the focus: the keyboard goes back) */
+	rvn_window_notch_focus(overlay);
 }

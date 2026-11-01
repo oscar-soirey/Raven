@@ -20,6 +20,15 @@
  *   - the pointer: over it (when it unfolds on hover, or once it is unfolded
  *     by anything else), or over a menu opened from inside it.
  * When nothing does, it folds, after a short delay if the pointer just left.
+ *
+ * In the camera housing of a screen (Risland_set_notch, on a MacBook): the
+ * window puts the island in an overlay anchored to the screen (widget/
+ * window.c) and tells it the size of the housing (rvn_island_set_notch).
+ * Folded, it is the housing grown into two ears: the first Spacer of the
+ * folded content becomes the room of the camera, what is before it shows on
+ * the left of the camera and what is after on the right (without a Spacer
+ * the folded content is on the left). Unfolded, its content starts under
+ * the camera. It is black and square at the top, as the housing is.
  */
 
 #include "common.h"
@@ -49,6 +58,12 @@ typedef struct rvn_island_t {
 	float goal_w, goal_h;
 	/** Size of the capsule around each content, from the last measure. */
 	rvn_vec2_t folded_size, unfolded_size;
+	/** Risland_set_notch: it may live in the camera housing of the screen. */
+	int notch_wanted;
+	/** It lives there now: the size of the housing (0: it does not). */
+	float notch_w, notch_h;
+	/** Folded in the housing: from the left of the folded content to the middle of the camera, and from there to its right (last arrange). */
+	float ear_left, ear_right;
 	Rid timer;
 	RIslandChangedCallback callback;
 	void* user_data;
@@ -68,10 +83,40 @@ static rvn_widget_t* rvn_island_content(const rvn_widget_t* widget, int expanded
 	return index < widget->child_count ? widget->children[index] : NULL;
 }
 
+/* In the housing, the margin between the camera and what the ears show, and the width of an ear when it shows nothing. */
+#define RVN_ISLAND_NOTCH_GAP 10.0f
+#define RVN_ISLAND_NOTCH_EAR 36.0f
+
+/* The Spacer of the folded content that stands for the camera, or NULL. */
+static rvn_widget_t* rvn_island_notch_spacer(const rvn_widget_t* widget) {
+	rvn_widget_t* content = rvn_island_content(widget, R_FALSE);
+	uint32_t i;
+	if (!content) return NULL;
+	for (i = 0; i < content->child_count; i++) {
+		rvn_widget_t* child = content->children[i];
+		if (child->cls->type == R_WIDGET_SPACER && !rvn_widget_collapsed(child)) return child;
+	}
+	return NULL;
+}
+
 /* Size of the capsule around one of its contents. */
 static rvn_vec2_t rvn_island_size_for(const rvn_widget_t* widget, int expanded) {
+	const rvn_island_t* island = (const rvn_island_t*)widget;
 	rvn_widget_t* content = rvn_island_content(widget, expanded);
 	rvn_vec2_t size = content && !rvn_widget_collapsed(content) ? rvn_widget_measure_slot(content) : rvn_vec2(0.0f, 0.0f);
+	if (island->notch_w > 0.0f) {
+		/* in the housing: as tall as it is when folded, the content under it when unfolded, always wider than it */
+		if (expanded) {
+			size.x = rvn_maxf(rvn_maxf(size.x + 36.0f, 180.0f), island->notch_w + 2.0f * RVN_ISLAND_NOTCH_EAR + 40.0f);
+			size.y = rvn_maxf(size.y + 30.0f, 64.0f) + island->notch_h;
+		} else {
+			float ear = rvn_maxf(rvn_maxf(island->ear_left, island->ear_right), island->notch_w * 0.5f + RVN_ISLAND_NOTCH_EAR);
+			if (!rvn_island_notch_spacer(widget) && content) ear = rvn_maxf(ear, island->notch_w * 0.5f + RVN_ISLAND_NOTCH_GAP + size.x + 14.0f);
+			size.x = ear * 2.0f;
+			size.y = rvn_maxf(island->notch_h, size.y + 4.0f);
+		}
+		return size;
+	}
 	if (expanded) {
 		size.x = rvn_maxf(size.x + 36.0f, 180.0f);
 		size.y = rvn_maxf(size.y + 30.0f, 64.0f);
@@ -199,7 +244,9 @@ void rvn_islands_pressed(rvn_window_t* window, rvn_widget_t* hit, int on_popup) 
 			continue;
 		}
 		i++;
-		if (widget->window != window || (hit && rvn_widget_is_inside(hit, widget))) continue;
+		/* (an island in the camera housing is in an overlay of its window: a press in the window is a press elsewhere) */
+		if ((widget->window != window && !(widget->window && widget->window->notch_owner == window)) ||
+			(hit && rvn_widget_is_inside(hit, widget))) continue;
 		/* a press anywhere else puts it away, as it closes a menu */
 		rvn_island_fold(widget, R_TRUE);
 		i = 0;
@@ -249,8 +296,53 @@ static rvn_vec2_t rvn_island_measure(rvn_widget_t* widget) {
 	return rvn_vec2(rvn_maxf(island->width.value, rvn_minf(folded.x, unfolded.x)), rvn_maxf(island->height.value, rvn_minf(folded.y, unfolded.y)));
 }
 
+/*
+ * Folded in the housing: the folded content at its own width, placed so that
+ * the middle of its Spacer is the middle of the camera (or on the left of the
+ * camera when it has none). How far it goes on each side gives the ears.
+ */
+static void rvn_island_arrange_ears(rvn_widget_t* widget, rvn_widget_t* child) {
+	rvn_island_t* island = (rvn_island_t*)widget;
+	rvn_vec2_t natural = rvn_widget_measure_slot(child);
+	rvn_widget_t* spacer = rvn_island_notch_spacer(widget);
+	float center = widget->rect.w * 0.5f, y = floorf((island->folded_size.y - natural.y) * 0.5f), middle, left, right;
+	if (spacer) {
+		/* placed once at 0 to learn where its Spacer falls, then for good */
+		rvn_widget_arrange_slot(child, rvn_rect(0.0f, y, natural.x, natural.y));
+		middle = child->rect.x + spacer->rect.x + spacer->rect.w * 0.5f;
+	} else {
+		middle = natural.x + island->notch_w * 0.5f + RVN_ISLAND_NOTCH_GAP;
+	}
+	rvn_widget_arrange_slot(child, rvn_rect(floorf(center - middle), y, natural.x, natural.y));
+	left = middle + 14.0f;
+	right = spacer ? natural.x - middle + 14.0f : 0.0f;
+	if (fabsf(left - island->ear_left) > 0.5f || fabsf(right - island->ear_right) > 0.5f) {
+		island->ear_left = left;
+		island->ear_right = right;
+		/* the capsule takes the size of its ears: one more pass of layout */
+		rvn_widget_invalidate_layout(widget);
+	}
+}
+
 static void rvn_island_arrange(rvn_widget_t* widget) {
+	rvn_island_t* island = (rvn_island_t*)widget;
 	uint32_t i;
+	if (island->notch_w > 0.0f) {
+		for (i = 0; i < widget->child_count && i < 2; i++) {
+			rvn_widget_t* child = widget->children[i];
+			int expanded = widget->child_count == 1 || i == 1;
+			if (rvn_widget_collapsed(child)) continue;
+			if (!expanded) {
+				rvn_island_arrange_ears(widget, child);
+			} else {
+				/* unfolded: under the camera */
+				rvn_vec2_t size = rvn_island_size_for(widget, R_TRUE);
+				rvn_widget_arrange_slot(child, rvn_rect(floorf((widget->rect.w - size.x) * 0.5f) + 18.0f, island->notch_h + 15.0f,
+					rvn_maxf(0.0f, size.x - 36.0f), rvn_maxf(0.0f, size.y - island->notch_h - 30.0f)));
+			}
+		}
+		return;
+	}
 	/* each content keeps the place it has in its own capsule, hung from the top and centered: the capsule opens around it */
 	for (i = 0; i < widget->child_count && i < 2; i++) {
 		rvn_widget_t* child = widget->children[i];
@@ -308,10 +400,15 @@ static void rvn_island_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_widget_t* large = rvn_island_content(widget, R_TRUE);
 	RMaterial material = rvn_widget_material(widget);
 
-	radii[0] = radii[1] = island->attached ? 0.0f : radius;
+	radii[0] = radii[1] = island->attached || island->notch_w > 0.0f ? 0.0f : radius;
 	radii[2] = radii[3] = radius;
 
-	if (!theme->dark) {
+	if (island->notch_w > 0.0f) {
+		/* in the housing: black as the housing itself, square at the top, no rim (it would draw around the camera) */
+		rvn_paint_shadow(painter, rvn_rect(rect.x, rect.y + 4.0f + 8.0f * open, rect.w, rect.h), radius, 10.0f + 26.0f * open,
+			rvn_rgba(0.0f, 0.0f, 0.0f, 0.22f + 0.2f * open));
+		rvn_paint_box4(painter, rect, radii, rvn_rgba(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, rvn_rgba(0.0f, 0.0f, 0.0f, 0.0f));
+	} else if (!theme->dark) {
 		/* it was given a light theme: a panel of that theme */
 		if (material == R_MATERIAL_SOLID) {
 			rvn_paint_shadow(painter, rvn_rect(rect.x, rect.y + 3.0f + 5.0f * open, rect.w, rect.h), radius, 12.0f + 18.0f * open, rvn_widget_color(widget, R_COLOR_SHADOW));
@@ -352,7 +449,7 @@ static void rvn_island_paint(rvn_widget_t* widget, RPainter* painter) {
 	{
 		RPainter inner = *painter;
 		float inset = radius * 0.2929f;
-		float top = island->attached ? 0.0f : inset;
+		float top = island->attached || island->notch_w > 0.0f ? 0.0f : inset;
 		float center = rect.w * 0.5f;
 		rvn_paint_push_clip(&inner, rvn_rect(inset, top, rect.w - inset * 2.0f, rect.h - top - inset));
 		/* the small one leaves early, growing a little as if it were coming closer */
@@ -366,9 +463,9 @@ static void rvn_island_paint(rvn_widget_t* widget, RPainter* painter) {
 		}
 	}
 
-	/* under the pointer, a folded island swells a little: it is about to open */
+	/* under the pointer, a folded island swells a little: it is about to open (in the housing, only sideways: it stays against the top of the screen) */
 	widget->xform.grow_x = 0.035f * hover;
-	widget->xform.grow_y = 0.06f * hover;
+	widget->xform.grow_y = island->notch_w > 0.0f ? 0.0f : 0.06f * hover;
 }
 
 static int rvn_island_event(rvn_widget_t* widget, const REvent* event) {
@@ -434,6 +531,9 @@ static int rvn_island_set_attribute(rvn_widget_t* widget, const char* name, cons
 	} else if (RVN_ATTR("Attached")) {
 		island->attached = flag;
 		rvn_widget_invalidate_paint(widget);
+	} else if (RVN_ATTR("Notch")) {
+		island->notch_wanted = flag;
+		if (widget->window) rvn_window_notch_changed(widget->window);
 	} else {
 		return R_FALSE;
 	}
@@ -507,6 +607,51 @@ void Risland_set_attached(Rid id, int attached) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_ISLAND);
 	((rvn_island_t*)widget)->attached = attached != 0;
 	rvn_widget_invalidate_paint(widget);
+}
+
+void Risland_set_notch(Rid id, int enabled) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_ISLAND);
+	((rvn_island_t*)widget)->notch_wanted = enabled != 0;
+	if (widget->window) rvn_window_notch_changed(widget->window);
+}
+
+int Risland_get_notch(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_ISLAND, R_FALSE);
+	return ((rvn_island_t*)widget)->notch_wanted;
+}
+
+int Risland_is_in_notch(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_ISLAND, R_FALSE);
+	return ((rvn_island_t*)widget)->notch_w > 0.0f;
+}
+
+/* ---- for widget/window.c ---- */
+
+int rvn_island_wants_notch(const rvn_widget_t* widget) {
+	return widget && widget->cls->type == R_WIDGET_ISLAND && ((const rvn_island_t*)widget)->notch_wanted;
+}
+
+void rvn_island_set_notch(rvn_widget_t* widget, float width, float height) {
+	rvn_island_t* island = (rvn_island_t*)widget;
+	rvn_widget_t* spacer;
+	if (!widget || widget->cls->type != R_WIDGET_ISLAND) return;
+	if (width <= 0.0f || height <= 0.0f) width = height = 0.0f;
+	if (fabsf(island->notch_w - width) < 0.01f && fabsf(island->notch_h - height) < 0.01f) return;
+	island->notch_w = width;
+	island->notch_h = height;
+	island->ear_left = island->ear_right = 0.0f;
+	/* the Spacer of the folded content is the room of the camera, and nothing outside of the housing */
+	spacer = rvn_island_notch_spacer(widget);
+	if (spacer) Rspacer_set_size(spacer->id, width > 0.0f ? width + 2.0f * RVN_ISLAND_NOTCH_GAP : 0.0f, 0.0f);
+	/* the sizes change at once: no spring from the capsule in the window to the one in the housing */
+	island->sized = R_FALSE;
+	rvn_widget_invalidate_layout(widget);
+}
+
+rvn_vec2_t rvn_island_extent(const rvn_widget_t* widget) {
+	const rvn_island_t* island = (const rvn_island_t*)widget;
+	if (!widget || widget->cls->type != R_WIDGET_ISLAND) return rvn_vec2(0.0f, 0.0f);
+	return rvn_vec2(rvn_maxf(island->folded_size.x, island->unfolded_size.x), rvn_maxf(island->folded_size.y, island->unfolded_size.y));
 }
 
 void Risland_set_changed_callback(Rid id, RIslandChangedCallback callback, void* user_data) {

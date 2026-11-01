@@ -165,6 +165,8 @@ void rvn_widget_detach(rvn_widget_t* widget) {
 		rvn_window_release_natives(window, widget);
 		if (window->root == widget) window->root = NULL;
 		if (window->island == widget) window->island = NULL;
+		/* (the island of a window that lives in an overlay of the camera housing) */
+		if (window->notch_owner && window->notch_owner->island == widget) window->notch_owner->island = NULL;
 		window->needs_layout = R_TRUE;
 		window->needs_paint = R_TRUE;
 	}
