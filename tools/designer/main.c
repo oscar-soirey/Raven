@@ -103,8 +103,9 @@ static const char* const DESIGNER_XML[] = {
 "          </Menu>"
 "          <MenuItem Text=\"Unwrap\" OnClicked=\"edit.unwrap\"/>"
 "          <Separator/>"
-"          <MenuItem Text=\"Copy as XML\" Shortcut=\"Ctrl+Shift+C\" OnClicked=\"edit.copy\"/>"
-"          <MenuItem Text=\"Paste XML inside\" Shortcut=\"Ctrl+Shift+V\" OnClicked=\"edit.paste\"/>"
+"          <MenuItem Text=\"Cut\" Shortcut=\"Ctrl+X\" OnClicked=\"edit.cut\"/>"
+"          <MenuItem Text=\"Copy (as XML)\" Shortcut=\"Ctrl+C\" OnClicked=\"edit.copy\"/>"
+"          <MenuItem Text=\"Paste inside\" Shortcut=\"Ctrl+V\" OnClicked=\"edit.paste\"/>"
 "        </Menu>",
 "        <Menu Text=\"View\">"
 "          <MenuItem Name=\"menu.interact\" Text=\"Use the preview\" Shortcut=\"F6\" Checkable=\"true\" OnClicked=\"view.interact\"/>"
@@ -241,20 +242,10 @@ static const char* const DESIGNER_XML[] = {
  *  Documents to start from
  * ------------------------------------------------------------------------- */
 
+/* A new window is empty: only the panel the widgets dropped on it go into. */
 static const char TEMPLATE_WINDOW[] =
 "<Window Title=\"My window\" Width=\"520\" Height=\"360\">\n"
-"\t<VBox Spacing=\"10\" Slot.Padding=\"16\">\n"
-"\t\t<Label Text=\"Hello\" TextSize=\"22\"/>\n"
-"\t\t<Label Text=\"Select an element, change it on the right, or type in the XML below.\" Wrap=\"true\" Opacity=\"0.7\"/>\n"
-"\t\t<HBox Spacing=\"8\">\n"
-"\t\t\t<TextInput Name=\"name\" Placeholder=\"Your name\" Slot.Fill=\"1\"/>\n"
-"\t\t\t<Button Name=\"ok\" Text=\"Greet\" Style=\"Primary\" OnClicked=\"app.greet\"/>\n"
-"\t\t</HBox>\n"
-"\t\t<Checkbox Text=\"Remember me\" Style=\"Switch\"/>\n"
-"\t\t<Slider Value=\"0.4\"/>\n"
-"\t\t<Spacer Slot.Fill=\"1\"/>\n"
-"\t\t<ProgressBar Value=\"0.6\"/>\n"
-"\t</VBox>\n"
+"\t<VBox Spacing=\"8\" Slot.Padding=\"16\"/>\n"
 "</Window>\n";
 
 static const char TEMPLATE_PANEL[] =
@@ -380,6 +371,7 @@ static const struct { const char* tag; const char* attributes; const char* about
  * ------------------------------------------------------------------------- */
 
 #define MAX_HISTORY 200
+#define MAX_EXTRA 256
 #define MAX_PROBLEMS 64
 
 enum { TAB_WINDOW, TAB_WIDGET, TAB_THEME, TAB_STRINGS };
@@ -408,10 +400,15 @@ static struct {
 	Rid context_menu;
 	Rid run_window;
 
-	/** The document, and the element everything is about. */
+	/** The document, and the element everything is about (the one clicked last). */
 	Rid document;
 	Rid selected;
 	Rid hovered;
+	/** The other elements selected with it (Ctrl / Shift + click), in the order they were added. */
+	Rid extra[MAX_EXTRA];
+	int extra_count;
+	/** A press on an element of a selection of several: it alone is selected at the release, unless it was a drag. */
+	Rid press_reduce;
 
 	char* path;
 	int modified;
@@ -441,6 +438,8 @@ static struct {
 	problem_t problems[MAX_PROBLEMS];
 	int problem_count;
 	int collecting;
+	/** Set while the designer tries something that may fail without it being a mistake of the user (a paste of several elements). */
+	int quiet;
 
 	/** The tags of the palette as shown (the groups left out), and their items in its tree. */
 	char** palette_tags;
@@ -468,6 +467,10 @@ static struct {
 	float drag_start_x, drag_start_y, drag_x, drag_y;
 	Rid drop_parent;
 	int drop_index;
+	/** A drop on the Tree: the place it chose, which drop_place gives instead of the one under the pointer. */
+	int place_fixed;
+	Rid fixed_parent;
+	int fixed_index;
 
 	/** The live preview in a window of its own: its frame and its bar. */
 	/** The window it is: was it made from a <Window> of the document (its size and its header are those of the XML)? */
@@ -492,6 +495,13 @@ static void run_window_follow(void);
 static void open_run_window(void);
 static void select_node(Rid node, int reveal);
 static int load_text(const char* text, int record);
+static int is_selected(Rid node);
+static int selection_count(void);
+static void sync_tree_selection(void);
+static void prune_selection(void);
+static void selection_shown(int reveal);
+static void select_more(Rid node, int range);
+static void select_nodes(const Rid* nodes, int count);
 
 /* what the other parts of the designer see (designer.h) */
 Rid g_ds_window = R_INVALID_ID;
@@ -586,6 +596,7 @@ static void add_problem(const char* text, int line, int error) {
 }
 
 static void on_error(RError code, RSeverity severity, const char* detail) {
+	if (g.quiet && code == R_ERROR_XML) return;
 	/* (the editor of themes reads what loading its theme said) */
 	te_error(code, severity, detail);
 	if (g.collecting && code == R_ERROR_XML) {
@@ -750,8 +761,14 @@ static int index_at(Rid parent, float x, float y) {
  * R_FALSE when it cannot go there (an element into itself).
  */
 static int drop_place(float x, float y, Rid* parent, int* index) {
-	Rid node = node_under(x, y), widget;
+	Rid node, widget;
 	float wx, wy, ww, wh;
+	if (g.place_fixed) {
+		*parent = g.fixed_parent;
+		*index = g.fixed_index;
+		return g.fixed_parent != R_INVALID_ID;
+	}
+	node = node_under(x, y);
 	if (node == R_INVALID_ID) node = Rxml_document_get_root(g.document);
 	/* (what is dragged is not a place: what holds it is) */
 	if (g.drag_node != R_INVALID_ID) {
@@ -834,9 +851,25 @@ static void outline_paint(Rid widget, RPainter* painter, float width, float heig
 		}
 	}
 
-	if (hover != R_INVALID_ID && hover != target) {
+	if (hover != R_INVALID_ID && hover != target && !is_selected(g.hovered)) {
 		Rwidget_get_rect(hover, &x, &y, &w, &h);
 		Rdraw_rect_outline(painter, x - ox, y - oy, w, h, 3.0f, 1.0f, r, gr, b, 0.45f);
+	}
+	/* the others of a selection of several: a frame each, and their tags, smaller */
+	{
+		int i;
+		for (i = 0; i < g.extra_count; i++) {
+			Rid other = Rxml_node_is_valid(g.extra[i]) ? node_widget(g.extra[i]) : R_INVALID_ID;
+			float tw = 0.0f, th = 0.0f;
+			if (other == R_INVALID_ID) continue;
+			Rwidget_get_rect(other, &x, &y, &w, &h);
+			x -= ox;
+			y -= oy;
+			Rdraw_rect_outline(painter, x - 1.0f, y - 1.0f, w + 2.0f, h + 2.0f, 5.0f, 1.5f, r, gr, b, g.dragging && !g.drag_from_palette ? 0.3f : 0.85f);
+			Rfont_measure_text(R_INVALID_ID, 10.0f, Rxml_node_get_tag(g.extra[i]), &tw, &th);
+			Rdraw_rect(painter, x - 1.0f, y - 1.0f, tw + 10.0f, 15.0f, 4.0f, r, gr, b, 0.75f);
+			Rdraw_text(painter, R_INVALID_ID, 10.0f, x + 4.0f, y + 0.5f, Rxml_node_get_tag(g.extra[i]), 1.0f, 1.0f, 1.0f, 1.0f);
+		}
 	}
 	/* the frame of the selection flies from one element to the next; inside, nothing: the widget shows as it is */
 	shown = Rdraw_spring(painter, &g.box_shown, target != R_INVALID_ID ? 1.0f : 0.0f, R_MOTION_SMOOTH);
@@ -849,8 +882,9 @@ static void outline_paint(Rid widget, RPainter* painter, float width, float heig
 		w = Rdraw_spring(painter, &g.box[2], w, R_MOTION_BOUNCY);
 		h = Rdraw_spring(painter, &g.box[3], h, R_MOTION_BOUNCY);
 		Rdraw_rect_outline(painter, x - 1.0f, y - 1.0f, w + 2.0f, h + 2.0f, 5.0f, 2.0f, r, gr, b, shown * (g.dragging && !g.drag_from_palette ? 0.35f : 1.0f));
-		/* its tag, on a tab above it (inside when there is no room) */
-		snprintf(caption, sizeof(caption), "%s", Rxml_node_get_tag(g.selected));
+		/* its tag, on a tab above it (inside when there is no room); with the others, how many they are */
+		if (g.extra_count > 0) snprintf(caption, sizeof(caption), "%s   %d selected", Rxml_node_get_tag(g.selected), g.extra_count + 1);
+		else snprintf(caption, sizeof(caption), "%s", Rxml_node_get_tag(g.selected));
 		Rfont_measure_text(R_INVALID_ID, 11.0f, caption, &text_width, &text_height);
 		label_y = y - 19.0f < -24.0f ? y + 2.0f : y - 19.0f;
 		Rdraw_rect(painter, x - 1.0f, label_y, text_width + 12.0f, 17.0f, 4.0f, r, gr, b, shown);
@@ -862,7 +896,8 @@ static void outline_paint(Rid widget, RPainter* painter, float width, float heig
 		float text_width = 0.0f, text_height = 0.0f;
 		int inside = g.drag_x >= ox && g.drag_x < ox + ow && g.drag_y >= oy && g.drag_y < oy + oh;
 		if (inside && g.drop_parent != R_INVALID_ID) drop_line(g.drop_parent, g.drop_index, ox, oy, painter, r, gr, b);
-		snprintf(caption, sizeof(caption), "%s%s", g.drag_from_palette ? "+ " : "", g.drag_from_palette ? g.drag_tag : Rxml_node_get_tag(g.drag_node));
+		if (!g.drag_from_palette && is_selected(g.drag_node) && g.extra_count > 0) snprintf(caption, sizeof(caption), "%d elements", g.extra_count + 1);
+		else snprintf(caption, sizeof(caption), "%s%s", g.drag_from_palette ? "+ " : "", g.drag_from_palette ? g.drag_tag : Rxml_node_get_tag(g.drag_node));
 		Rfont_measure_text(R_INVALID_ID, 12.0f, caption, &text_width, &text_height);
 		Rdraw_rect(painter, g.drag_x - ox + 14.0f, g.drag_y - oy + 10.0f, text_width + 16.0f, 22.0f, 11.0f, r, gr, b, inside ? 0.95f : 0.5f);
 		Rdraw_text(painter, R_INVALID_ID, 12.0f, g.drag_x - ox + 22.0f, g.drag_y - oy + 14.0f, caption, 1.0f, 1.0f, 1.0f, 1.0f);
@@ -898,6 +933,21 @@ static int outline_event(Rid widget, const REvent* event, void* user_data) {
 		case R_EVENT_MOUSE_DOWN:
 			Rwidget_focus(widget);
 			node = node_under(event->x, event->y);
+			/* Ctrl (Cmd) + click: one more, or one less; Shift + click: the ones between */
+			if (event->button == R_MOUSE_LEFT && (event->modifiers & (R_MOD_CTRL | R_MOD_SUPER | R_MOD_SHIFT))) {
+				if (node != R_INVALID_ID) select_more(node, (event->modifiers & R_MOD_SHIFT) && !(event->modifiers & (R_MOD_CTRL | R_MOD_SUPER)));
+				return R_TRUE;
+			}
+			/* a press on one of several selected keeps them (a drag takes them all); the release selects it alone */
+			if (node != R_INVALID_ID && is_selected(node) && selection_count() > 1) {
+				if (event->button == R_MOUSE_LEFT) {
+					g.press_reduce = node;
+				} else {
+					g.press_reduce = R_INVALID_ID;
+					Rmenu_open(g.context_menu, g.window, event->x, event->y);
+				}
+				return R_TRUE;
+			}
 			/* a click on nothing selects nothing (the window is selected in the Tree, or by a click on its content) */
 			select_node(node, R_TRUE);
 			if (event->button == R_MOUSE_RIGHT && node != R_INVALID_ID) Rmenu_open(g.context_menu, g.window, event->x, event->y);
@@ -911,6 +961,11 @@ static int outline_event(Rid widget, const REvent* event, void* user_data) {
 			}
 			return R_FALSE;
 		case R_EVENT_MOUSE_UP:
+			if (g.press_reduce != R_INVALID_ID) {
+				node = g.press_reduce;
+				g.press_reduce = R_INVALID_ID;
+				if (Rxml_node_is_valid(node)) select_node(node, R_TRUE);
+			}
 			return R_TRUE;
 		default:
 			return R_FALSE;
@@ -1217,7 +1272,6 @@ static void tree_add(Rid parent_item, Rid node) {
 	icons_set_tree_item(item, Rxml_node_is_comment(node) ? "#comment" : Rxml_node_get_tag(node));
 	Rtree_item_set_user_handle(item, (void*)(size_t)node);
 	Rtree_item_set_expanded(item, R_TRUE);
-	if (node == g.selected) Rtree_view_set_selected_item(g.tree, item);
 	for (i = 0; i < count; i++) tree_add(item, Rxml_node_get_child(node, i));
 }
 
@@ -1226,6 +1280,8 @@ static void rebuild_tree(void) {
 	Rtree_view_clear_items(g.tree);
 	tree_add(R_INVALID_ID, Rxml_document_get_root(g.document));
 	g.syncing--;
+	prune_selection();
+	sync_tree_selection();
 }
 
 static Rid tree_item_of(Rid item, Rid node) {
@@ -1239,11 +1295,21 @@ static Rid tree_item_of(Rid item, Rid node) {
 	return R_INVALID_ID;
 }
 
+/* The Tree selects several items with Ctrl and Shift too: the selection is what it shows, the item clicked last first. */
 static void on_tree_selected(Rid tree, Rid item, void* user_data) {
-	(void)tree;
+	int i, count;
 	(void)user_data;
 	if (g.syncing) return;
-	select_node(item != R_INVALID_ID ? (Rid)(size_t)Rtree_item_get_user_handle(item) : R_INVALID_ID, R_TRUE);
+	g.selected = item != R_INVALID_ID ? (Rid)(size_t)Rtree_item_get_user_handle(item) : R_INVALID_ID;
+	g.extra_count = 0;
+	g.press_reduce = R_INVALID_ID;
+	count = g.selected != R_INVALID_ID ? Rtree_view_get_selection_count(tree) : 0;
+	for (i = 0; i < count && g.extra_count < MAX_EXTRA; i++) {
+		Rid node = (Rid)(size_t)Rtree_item_get_user_handle(Rtree_view_get_selection(tree, i));
+		if (node != g.selected) g.extra[g.extra_count++] = node;
+	}
+	prune_selection();
+	selection_shown(R_TRUE);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1287,10 +1353,30 @@ static row_t* add_row_record(const char* name, RXmlValueType type, const char* c
 	return row;
 }
 
+/* An attribute written on the element shown and, when several are selected, on the others of the same tag. */
+static void set_on_selection(const char* name, const char* value) {
+	int i;
+	if (strcmp(name, "#text") == 0) Rxml_node_set_text(g.selected, value ? value : "");
+	else Rxml_node_set_attribute(g.selected, name, value && value[0] ? value : NULL);
+	for (i = 0; i < g.extra_count; i++) {
+		Rid other = g.extra[i];
+		if (!Rxml_node_is_valid(other) || Rxml_node_is_comment(other) != Rxml_node_is_comment(g.selected)) continue;
+		/* (what a tag knows, another may not: the attributes of its tag go to the same tags; those of every widget to all) */
+		if (!same_text(Rxml_node_get_tag(other), Rxml_node_get_tag(g.selected)) && strcmp(name, "#text") != 0) {
+			RXmlAttributeInfo info;
+			int k, count = Rxml_get_attribute_count(Rxml_node_get_tag(other)), known = R_FALSE;
+			for (k = 0; k < count && !known; k++) known = Rxml_get_attribute_info(Rxml_node_get_tag(other), k, &info) && same_text(info.name, name);
+			if (!known) continue;
+		}
+		if (strcmp(name, "#text") == 0) Rxml_node_set_text(other, value ? value : "");
+		else Rxml_node_set_attribute(other, name, value && value[0] ? value : NULL);
+	}
+}
+
 static void apply_value(row_t* row, const char* value) {
+	prune_selection();
 	if (g.selected == R_INVALID_ID || !Rxml_node_is_valid(g.selected)) return;
-	if (strcmp(row->name, "#text") == 0) Rxml_node_set_text(g.selected, value ? value : "");
-	else Rxml_node_set_attribute(g.selected, row->name, value && value[0] ? value : NULL);
+	set_on_selection(row->name, value);
 	if (row->swatch != R_INVALID_ID) Rwidget_set_attribute(row->swatch, "Background", value && value[0] ? value : "transparent");
 	document_changed(R_TRUE);
 }
@@ -1394,7 +1480,23 @@ static int listed(const char* list, const char* name) {
 	return 0;
 }
 
+static void rebuild_inspector_of_one(void);
+
+/* The Properties panel: the element shown; with others selected, a change goes to them too. */
 static void rebuild_inspector(void) {
+	int count = selection_count();
+	rebuild_inspector_of_one();
+	if (count > 1) {
+		char title[120], about[300];
+		snprintf(title, sizeof(title), "%s  and %d more", Rxml_node_is_comment(g.selected) ? "Comment" : Rxml_node_get_tag(g.selected), count - 1);
+		snprintf(about, sizeof(about), "%d elements selected. The values are those of the one clicked last; "
+			"what is changed here is written on all of them (an attribute of a tag, on those of that tag). Escape selects nothing.", count);
+		Rlabel_set_text(Rwidget_find(g.window, "inspector.title"), title);
+		Rlabel_set_text(Rwidget_find(g.window, "inspector.about"), about);
+	}
+}
+
+static void rebuild_inspector_of_one(void) {
 	Rid node = g.selected;
 	Rid title = Rwidget_find(g.window, "inspector.title");
 	Rid about = Rwidget_find(g.window, "inspector.about");
@@ -1412,7 +1514,7 @@ static void rebuild_inspector(void) {
 	if (node == R_INVALID_ID || !Rxml_node_is_valid(node)) {
 		Rwidget_set_visibility(icon, R_COLLAPSED);
 		Rlabel_set_text(title, "Nothing selected");
-		Rlabel_set_text(about, g.has_document ? "Click an element in the preview or in the Tree to see and change its attributes. Escape selects nothing." : "");
+		Rlabel_set_text(about, g.has_document ? "Click an element in the preview or in the Tree to see and change its attributes; Ctrl + click selects several, Shift + click the ones between. Escape selects nothing." : "");
 		g.syncing--;
 		return;
 	}
@@ -1506,13 +1608,90 @@ static void update_path_label(void) {
 	Rlabel_set_text(g.path_label, text);
 }
 
-static void select_node(Rid node, int reveal) {
-	int line;
-	if (node != R_INVALID_ID && !Rxml_node_is_valid(node)) node = R_INVALID_ID;
-	g.selected = node;
+/*
+ * The selection is one element (g.selected, the one clicked last: the
+ * Properties panel shows it) and the others selected with it (g.extra), with
+ * Ctrl + click (one more, or one less) or Shift + click (the elements between,
+ * when they are in the same panel), in the preview as in the Tree.
+ */
+
+/* What is no longer in the document leaves the selection; the one clicked last is always there when anything is. */
+static void prune_selection(void) {
+	int i, k = 0;
+	if (g.selected != R_INVALID_ID && !Rxml_node_is_valid(g.selected)) g.selected = R_INVALID_ID;
+	for (i = 0; i < g.extra_count; i++) {
+		Rid node = g.extra[i];
+		int seen = node == g.selected, j;
+		for (j = 0; j < k && !seen; j++) seen = g.extra[j] == node;
+		if (!seen && node != R_INVALID_ID && Rxml_node_is_valid(node)) g.extra[k++] = node;
+	}
+	g.extra_count = k;
+	if (g.selected == R_INVALID_ID && g.extra_count > 0) g.selected = g.extra[--g.extra_count];
+}
+
+static int is_selected(Rid node) {
+	int i;
+	if (node == R_INVALID_ID) return R_FALSE;
+	if (node == g.selected) return R_TRUE;
+	for (i = 0; i < g.extra_count; i++) if (g.extra[i] == node) return R_TRUE;
+	return R_FALSE;
+}
+
+static int selection_count(void) {
+	prune_selection();
+	return (g.selected != R_INVALID_ID ? 1 : 0) + g.extra_count;
+}
+
+/* Before b in the document (a above b, or an element written before it). */
+static int node_before(Rid a, Rid b) {
+	int pa[32], pb[32], da = node_path(a, pa, 32), db = node_path(b, pb, 32), i;
+	for (i = 0; i < da && i < db; i++) if (pa[i] != pb[i]) return pa[i] < pb[i];
+	return da < db;
+}
+
+/*
+ * The elements selected, in the order of the document, without those that
+ * are inside another one selected (they go with it), and without the root of
+ * the document when `movable`.
+ */
+static int selection_roots(Rid* out, int max, int movable) {
+	Rid all[MAX_EXTRA + 1];
+	int count = 0, n = 0, i, j;
+	prune_selection();
+	if (g.selected != R_INVALID_ID) all[count++] = g.selected;
+	for (i = 0; i < g.extra_count; i++) all[count++] = g.extra[i];
+	for (i = 0; i < count; i++) {
+		Rid up;
+		int inside = R_FALSE;
+		if (movable && Rxml_node_get_parent(all[i]) == R_INVALID_ID) continue;
+		for (up = Rxml_node_get_parent(all[i]); up != R_INVALID_ID && !inside; up = Rxml_node_get_parent(up)) inside = is_selected(up);
+		if (!inside && n < max) out[n++] = all[i];
+	}
+	/* (a few elements: an insertion sort) */
+	for (i = 1; i < n; i++) {
+		Rid node = out[i];
+		for (j = i; j > 0 && node_before(node, out[j - 1]); j--) out[j] = out[j - 1];
+		out[j] = node;
+	}
+	return n;
+}
+
+/* The Tree shows the selection: the one clicked last, then the others. */
+static void sync_tree_selection(void) {
+	int i;
 	g.syncing++;
-	Rtree_view_set_selected_item(g.tree, node != R_INVALID_ID ? tree_item_of(R_INVALID_ID, node) : R_INVALID_ID);
+	Rtree_view_set_selected_item(g.tree, g.selected != R_INVALID_ID ? tree_item_of(R_INVALID_ID, g.selected) : R_INVALID_ID);
+	for (i = 0; i < g.extra_count; i++) {
+		Rid item = tree_item_of(R_INVALID_ID, g.extra[i]);
+		if (item != R_INVALID_ID) Rtree_item_set_selected(item, R_TRUE);
+	}
 	g.syncing--;
+}
+
+/* The selection changed: the panels that show it follow. */
+static void selection_shown(int reveal) {
+	Rid node = g.selected;
+	int line;
 	rebuild_inspector();
 	update_path_label();
 	Rwidget_invalidate(g.outline);
@@ -1522,6 +1701,86 @@ static void select_node(Rid node, int reveal) {
 		Rtext_editor_set_cursor(g.source, line - 1, 0);
 		Rtext_editor_scroll_to_line(g.source, line - 1);
 	}
+}
+
+/* One element selected (R_INVALID_ID: nothing). */
+static void select_node(Rid node, int reveal) {
+	if (node != R_INVALID_ID && !Rxml_node_is_valid(node)) node = R_INVALID_ID;
+	g.selected = node;
+	g.extra_count = 0;
+	g.press_reduce = R_INVALID_ID;
+	sync_tree_selection();
+	selection_shown(reveal);
+}
+
+/* Several elements selected; the last one is the one the Properties panel shows. */
+static void select_nodes(const Rid* nodes, int count) {
+	int i;
+	g.selected = R_INVALID_ID;
+	g.extra_count = 0;
+	for (i = 0; i < count; i++) {
+		if (nodes[i] == R_INVALID_ID || !Rxml_node_is_valid(nodes[i])) continue;
+		if (g.selected != R_INVALID_ID && g.extra_count < MAX_EXTRA) g.extra[g.extra_count++] = g.selected;
+		g.selected = nodes[i];
+	}
+	prune_selection();
+	sync_tree_selection();
+	selection_shown(R_TRUE);
+}
+
+/*
+ * A click with Ctrl (Cmd): the element joins the selection, or leaves it.
+ * With Shift: the elements from the one clicked last to this one, when they
+ * are in the same panel; else this one joins.
+ */
+static void select_more(Rid node, int range) {
+	int i;
+	if (node == R_INVALID_ID || !Rxml_node_is_valid(node)) return;
+	prune_selection();
+	if (g.selected == R_INVALID_ID) {
+		select_node(node, R_TRUE);
+		return;
+	}
+	if (range && Rxml_node_get_parent(node) != R_INVALID_ID && Rxml_node_get_parent(node) == Rxml_node_get_parent(g.selected)) {
+		Rid parent = Rxml_node_get_parent(node);
+		int from = Rxml_node_get_index(g.selected), to = Rxml_node_get_index(node), step = from < to ? 1 : -1;
+		for (i = from; i != to + step; i += step) {
+			Rid child = Rxml_node_get_child(parent, i);
+			if (child == R_INVALID_ID || Rxml_node_is_comment(child) || is_selected(child)) continue;
+			if (g.extra_count < MAX_EXTRA) g.extra[g.extra_count++] = child;
+		}
+		/* the one clicked is the one shown */
+		for (i = 0; i < g.extra_count; i++) {
+			if (g.extra[i] == node) {
+				g.extra[i] = g.selected;
+				g.selected = node;
+				break;
+			}
+		}
+	} else if (is_selected(node) && !range) {
+		/* Ctrl + click on a selected element: it leaves the selection */
+		if (node == g.selected) {
+			g.selected = g.extra_count > 0 ? g.extra[--g.extra_count] : R_INVALID_ID;
+		} else {
+			for (i = 0; i < g.extra_count; i++) {
+				if (g.extra[i] == node) {
+					g.extra[i] = g.extra[--g.extra_count];
+					break;
+				}
+			}
+		}
+	} else if (!is_selected(node)) {
+		if (g.extra_count < MAX_EXTRA) g.extra[g.extra_count++] = g.selected;
+		g.selected = node;
+	} else if (node != g.selected) {
+		/* Shift + click on one of them: it becomes the one shown */
+		for (i = 0; i < g.extra_count; i++) if (g.extra[i] == node) g.extra[i] = g.selected;
+		g.selected = node;
+	}
+	prune_selection();
+	sync_tree_selection();
+	selection_shown(R_TRUE);
+	if (selection_count() > 1) set_status("%d elements selected: Ctrl + click adds or removes one, Shift + click the ones between.", selection_count());
 }
 
 /* Everything that shows the document, from the document. */
@@ -1543,7 +1802,9 @@ static void rebuild_all(int keep_inspector) {
 static int load_text(const char* text, int record) {
 	RXmlError error;
 	Rid document;
-	int path[32], depth = -1;
+	int path[32], depth = -1, i, kept = 0;
+	/* (the others selected, by their places, the same way) */
+	static int extra_paths[MAX_EXTRA][32], extra_depths[MAX_EXTRA];
 
 	document = Rxml_document_parse(text, strlen(text), &error);
 	if (document == R_INVALID_ID) {
@@ -1558,12 +1819,23 @@ static int load_text(const char* text, int record) {
 	}
 	if (g.document != R_INVALID_ID) {
 		if (g.selected != R_INVALID_ID && Rxml_node_is_valid(g.selected)) depth = node_path(g.selected, path, 32);
+		for (i = 0; i < g.extra_count; i++) {
+			if (!Rxml_node_is_valid(g.extra[i])) continue;
+			extra_depths[kept] = node_path(g.extra[i], extra_paths[kept], 32);
+			if (extra_depths[kept] >= 0) kept++;
+		}
 		Rxml_document_destroy(g.document);
 	}
 	g.document = document;
 	g.broken = R_FALSE;
 	/* the selection stays where it was; nothing selected stays so (an interface opens with nothing selected) */
 	g.selected = depth >= 0 ? node_at_path(path, depth) : R_INVALID_ID;
+	g.extra_count = 0;
+	for (i = 0; i < kept && g.selected != R_INVALID_ID; i++) {
+		Rid node = node_at_path(extra_paths[i], extra_depths[i]);
+		if (node != R_INVALID_ID) g.extra[g.extra_count++] = node;
+	}
+	g.press_reduce = R_INVALID_ID;
 	g.hovered = R_INVALID_ID;
 	if (record) history_push(text, record == 2);
 	rebuild_all(R_FALSE);
@@ -1738,9 +2010,35 @@ static void insert_xml(const char* xml) {
 		index = Rxml_node_get_index(target) + 1;
 		target = parent;
 	}
+	g.quiet++;
 	added = Rxml_node_add_xml(target, xml, strlen(xml), index);
+	g.quiet--;
 	if (added == R_INVALID_ID) {
-		set_status("This is not XML that can be added.");
+		/* several elements one after the other (several copied together): each of them, in their order */
+		ds_buffer_t text = { 0 };
+		Rid holder, made[MAX_EXTRA + 1];
+		int count = 0, at = index;
+		ds_buffer_printf(&text, "<VBox>%s</VBox>", xml);
+		holder = Rxml_node_add_xml(target, text.data, text.size, index);
+		ds_buffer_free(&text);
+		if (holder == R_INVALID_ID || Rxml_node_get_child_count(holder) == 0) {
+			if (holder != R_INVALID_ID) Rxml_node_remove(holder);
+			set_status("This is not XML that can be added.");
+			return;
+		}
+		if (at < 0) at = Rxml_node_get_index(holder);
+		while (Rxml_node_get_child_count(holder) > 0) {
+			Rid child = Rxml_node_get_child(holder, 0);
+			Rxml_node_move(child, target, at < 0 ? -1 : at);
+			if (at >= 0) at++;
+			if (count < MAX_EXTRA) made[count++] = child;
+		}
+		Rxml_node_remove(holder);
+		g.selected = made[count - 1];
+		g.extra_count = 0;
+		document_changed(R_FALSE);
+		select_nodes(made, count);
+		set_status("Added %d elements to <%s>.", count, Rxml_node_get_tag(target));
 		return;
 	}
 	g.selected = added;
@@ -1842,6 +2140,52 @@ static int drop_widget(const char* tag, float x, float y) {
 	return R_TRUE;
 }
 
+/* A drag of an element that is one of several selected carries them all: none may receive them. */
+static int inside_dragged(Rid parent) {
+	Rid roots[MAX_EXTRA + 1];
+	int i, count;
+	if (g.drag_node == R_INVALID_ID || !is_selected(g.drag_node)) return inside_of(parent, g.drag_node);
+	count = selection_roots(roots, MAX_EXTRA + 1, R_TRUE);
+	for (i = 0; i < count; i++) if (inside_of(parent, roots[i])) return R_TRUE;
+	return inside_of(parent, g.drag_node);
+}
+
+/* Several elements selected, moved together to (x, y), in the order of the document. */
+static int drop_nodes(Rid node, float x, float y) {
+	Rid roots[MAX_EXTRA + 1], parent;
+	int count, index, i;
+	g.drag_node = node;
+	if (!drop_place(x, y, &parent, &index) || inside_dragged(parent)) {
+		g.drag_node = R_INVALID_ID;
+		set_status("Elements cannot go inside one of themselves.");
+		return R_FALSE;
+	}
+	g.drag_node = R_INVALID_ID;
+	if (!drop_allowed(parent)) {
+		set_status("In a widget library, a widget goes inside a <Widget>.");
+		return R_FALSE;
+	}
+	count = selection_roots(roots, MAX_EXTRA + 1, R_TRUE);
+	if (count == 0) return R_FALSE;
+	for (i = 0; i < count; i++) {
+		/* (in the same parent, the indices after it move down by one once it is taken out) */
+		if (Rxml_node_get_parent(roots[i]) == parent && Rxml_node_get_index(roots[i]) < index) index--;
+		Rxml_node_move(roots[i], parent, index);
+		index++;
+	}
+	document_changed(R_FALSE);
+	/* (the one dragged stays the one shown: last) */
+	for (i = 0; i < count - 1; i++) {
+		if (roots[i] == node) {
+			roots[i] = roots[count - 1];
+			roots[count - 1] = node;
+		}
+	}
+	select_nodes(roots, count);
+	set_status("Moved %d elements into <%s>.", count, Rxml_node_get_tag(parent));
+	return R_TRUE;
+}
+
 /* An element of the preview moved to (x, y). */
 static int drop_node(Rid node, float x, float y) {
 	Rid parent;
@@ -1852,6 +2196,7 @@ static int drop_node(Rid node, float x, float y) {
 		set_status("The root of the document stays where it is.");
 		return R_FALSE;
 	}
+	if (is_selected(node) && selection_count() > 1) return drop_nodes(node, x, y);
 	g.drag_node = node;
 	if (!drop_place(x, y, &parent, &index) || inside_of(parent, node)) {
 		g.drag_node = R_INVALID_ID;
@@ -1904,7 +2249,64 @@ static void drag_reset(void) {
 	g.drag_armed = g.dragging = R_FALSE;
 	g.drag_node = R_INVALID_ID;
 	g.drop_parent = R_INVALID_ID;
+	g.place_fixed = R_FALSE;
+	Rtree_view_set_drop_highlight(g.tree, R_INVALID_ID, R_FALSE);
 	Rwidget_invalidate(g.outline);
+}
+
+static int over_tree(float x, float y) {
+	float tx, ty, tw, th;
+	/* (a panel in a tab behind another keeps its old place: it is not there) */
+	if (Rwidget_get_visibility(g.tree) != R_VISIBLE || !Rdock_area_is_panel_shown(g.dock, Rwidget_find(g.window, "panel.tree"))) return R_FALSE;
+	Rwidget_get_rect(g.tree, &tx, &ty, &tw, &th);
+	return tw > 0.0f && x >= tx && x < tx + tw && y >= ty && y < ty + th;
+}
+
+/* A panel that can take one more child (a Border that holds one already cannot). */
+static int can_take_child(Rid node) {
+	return accepts_children(node) && !(Rxml_get_tag_children(Rxml_node_get_tag(node)) == 1 && Rxml_node_get_child_count(node) > 0);
+}
+
+/*
+ * Where something dropped on the Tree at (x, y) goes: near the top of a row,
+ * before its element; near the bottom, after it; in the middle of a panel,
+ * inside it, at the end. The item that shows the receiving panel is lit.
+ */
+static int tree_drop_place(float x, float y, Rid* parent, int* index) {
+	float tx, ty, tw, th, lx, ly;
+	Rid item, node, holder = R_INVALID_ID;
+	int above, below;
+	Rwidget_get_rect(g.tree, &tx, &ty, &tw, &th);
+	lx = x - tx;
+	ly = y - ty;
+	item = Rtree_view_get_item_at(g.tree, lx, ly);
+	*parent = R_INVALID_ID;
+	if (item == R_INVALID_ID) {
+		/* below the last row: at the end of the first panel of the document */
+		node = Rxml_document_get_root(g.document);
+		if (Rxml_node_get_child_count(node) == 1 && can_take_child(Rxml_node_get_child(node, 0))) node = Rxml_node_get_child(node, 0);
+		if (!can_take_child(node)) return R_FALSE;
+		*parent = node;
+		*index = Rxml_node_get_child_count(node);
+	} else {
+		node = (Rid)(size_t)Rtree_item_get_user_handle(item);
+		if (node == R_INVALID_ID || !Rxml_node_is_valid(node)) return R_FALSE;
+		above = Rtree_view_get_item_at(g.tree, lx, ly - 6.0f) != item;
+		below = Rtree_view_get_item_at(g.tree, lx, ly + 6.0f) != item;
+		holder = Rxml_node_get_parent(node);
+		if (holder == R_INVALID_ID || (can_take_child(node) && !above && !below)) {
+			if (!can_take_child(node)) return R_FALSE;
+			*parent = node;
+			*index = Rxml_node_get_child_count(node);
+		} else {
+			*parent = holder;
+			*index = Rxml_node_get_index(node) + (above ? 0 : 1);
+		}
+	}
+	/* (what is dragged cannot receive itself) */
+	if (!g.drag_from_palette && inside_dragged(*parent)) return R_FALSE;
+	if (!drop_allowed(*parent)) return R_FALSE;
+	return R_TRUE;
 }
 
 /*
@@ -1927,15 +2329,28 @@ static int window_hook(Rid window, const REvent* event, void* user_data) {
 		case R_EVENT_MOUSE_DOWN:
 			/* a click around the window (on the stage, not on the frame) selects nothing */
 			if (g.has_document && !g.interact && (g.tab == TAB_WINDOW || g.tab == TAB_WIDGET) && on_stage_margin(event->target, event->x, event->y)) {
-				if (g.selected != R_INVALID_ID) select_node(R_INVALID_ID, R_FALSE);
+				if (g.selected != R_INVALID_ID && !(event->modifiers & (R_MOD_CTRL | R_MOD_SUPER | R_MOD_SHIFT))) select_node(R_INVALID_ID, R_FALSE);
 				return R_FALSE;
 			}
 			if (event->button != R_MOUSE_LEFT || (g.tab != TAB_WINDOW && g.tab != TAB_WIDGET) || !g.has_document) return R_FALSE;
 			if (is_inside_widget(event->target, g.palette)) {
 				g.drag_armed = R_TRUE;
 				g.drag_from_palette = R_TRUE;
+			} else if (is_inside_widget(event->target, g.tree) && !(event->modifiers & (R_MOD_CTRL | R_MOD_SUPER | R_MOD_SHIFT))) {
+				/* an element of the Tree: dragged to another place of the Tree, or into the preview */
+				float tx, ty, tw, th;
+				Rid item, node;
+				Rwidget_get_rect(g.tree, &tx, &ty, &tw, &th);
+				item = Rtree_view_get_item_at(g.tree, event->x - tx, event->y - ty);
+				node = item != R_INVALID_ID ? (Rid)(size_t)Rtree_item_get_user_handle(item) : R_INVALID_ID;
+				if (node == R_INVALID_ID || !Rxml_node_is_valid(node) || Rxml_node_get_parent(node) == R_INVALID_ID) return R_FALSE;
+				g.drag_armed = R_TRUE;
+				g.drag_from_palette = R_FALSE;
+				g.drag_node = node;
 			} else if (!g.interact && over_stage(event->x, event->y)) {
 				Rid node = node_under(event->x, event->y);
+				/* (with Ctrl or Shift, a click chooses: it does not drag) */
+				if (event->modifiers & (R_MOD_CTRL | R_MOD_SUPER | R_MOD_SHIFT)) return R_FALSE;
 				if (node == R_INVALID_ID || Rxml_node_get_parent(node) == R_INVALID_ID) return R_FALSE;
 				g.drag_armed = R_TRUE;
 				g.drag_from_palette = R_FALSE;
@@ -1962,8 +2377,24 @@ static int window_hook(Rid window, const REvent* event, void* user_data) {
 				g.dragging = R_TRUE;
 			}
 			g.drop_parent = R_INVALID_ID;
+			Rtree_view_set_drop_highlight(g.tree, R_INVALID_ID, R_FALSE);
+			if (over_tree(event->x, event->y)) {
+				/* over the Tree: the panel that would receive it is lit, and said in the status bar */
+				if (tree_drop_place(event->x, event->y, &g.drop_parent, &g.drop_index)) {
+					Rid child = Rxml_node_get_child(g.drop_parent, g.drop_index);
+					Rtree_view_set_drop_highlight(g.tree, tree_item_of(R_INVALID_ID, g.drop_parent), R_FALSE);
+					if (child != R_INVALID_ID && child != g.drag_node) set_status("Into <%s>, before <%s>.", Rxml_node_get_tag(g.drop_parent), Rxml_node_is_comment(child) ? "!--" : Rxml_node_get_tag(child));
+					else set_status("Into <%s>, at the end.", Rxml_node_get_tag(g.drop_parent));
+				} else {
+					g.drop_parent = R_INVALID_ID;
+				}
+				Rwidget_set_cursor(g.tree, g.drop_parent != R_INVALID_ID ? R_CURSOR_MOVE : R_CURSOR_NOT_ALLOWED);
+				Rwidget_invalidate(g.outline);
+				return R_TRUE;
+			}
+			Rwidget_set_cursor(g.tree, R_CURSOR_ARROW);
 			if (over_stage(event->x, event->y) && !drop_place(event->x, event->y, &g.drop_parent, &g.drop_index)) g.drop_parent = R_INVALID_ID;
-			if (g.drop_parent != R_INVALID_ID && !g.drag_from_palette && inside_of(g.drop_parent, g.drag_node)) g.drop_parent = R_INVALID_ID;
+			if (g.drop_parent != R_INVALID_ID && !g.drag_from_palette && inside_dragged(g.drop_parent)) g.drop_parent = R_INVALID_ID;
 			if (g.drop_parent != R_INVALID_ID && !drop_allowed(g.drop_parent)) g.drop_parent = R_INVALID_ID;
 			Rwidget_set_cursor(g.outline, g.drop_parent != R_INVALID_ID ? R_CURSOR_MOVE : R_CURSOR_NOT_ALLOWED);
 			Rwidget_invalidate(g.outline);
@@ -1977,8 +2408,27 @@ static int window_hook(Rid window, const REvent* event, void* user_data) {
 				float x = event->x, y = event->y;
 				snprintf(tag, sizeof(tag), "%s", g.drag_tag);
 				drag_reset();
+				/* (a drag: the selection stays as it is) */
+				g.press_reduce = R_INVALID_ID;
 				Rwidget_set_cursor(g.outline, R_CURSOR_ARROW);
-				if (over_stage(x, y)) {
+				Rwidget_set_cursor(g.tree, R_CURSOR_ARROW);
+				if (over_tree(x, y)) {
+					/* dropped on the Tree: the place it showed */
+					Rid parent;
+					int index;
+					g.drag_from_palette = from_palette;
+					g.drag_node = node;
+					if (tree_drop_place(x, y, &parent, &index)) {
+						g.place_fixed = R_TRUE;
+						g.fixed_parent = parent;
+						g.fixed_index = index;
+						g.drag_node = R_INVALID_ID;
+						if (from_palette) drop_widget(tag, x, y);
+						else drop_node(node, x, y);
+					}
+					g.place_fixed = R_FALSE;
+					g.drag_node = R_INVALID_ID;
+				} else if (over_stage(x, y)) {
 					if (from_palette) drop_widget(tag, x, y);
 					else drop_node(node, x, y);
 				}
@@ -2026,6 +2476,123 @@ static Rid edit_target(int needs_parent) {
 	return g.selected;
 }
 
+/* The commands of the Edit menu on several elements selected: each one, or all of them together (wrap, move in). */
+static void edit_many(const char* what) {
+	Rid roots[MAX_EXTRA + 1], made[MAX_EXTRA + 1], parent;
+	int count = selection_roots(roots, MAX_EXTRA + 1, strcmp(what, "copy") != 0), made_count = 0, i, same = R_TRUE;
+	if (count == 0) {
+		set_status("This cannot be done to the root of the document.");
+		return;
+	}
+	parent = Rxml_node_get_parent(roots[0]);
+	for (i = 1; i < count; i++) same = same && Rxml_node_get_parent(roots[i]) == parent;
+
+	if (strcmp(what, "copy") == 0) {
+		ds_buffer_t text = { 0 };
+		for (i = 0; i < count; i++) {
+			const char* xml = Rxml_node_to_string(roots[i]);
+			ds_buffer_add(&text, xml, strlen(xml));
+			ds_buffer_add(&text, "\n", 1);
+		}
+		Rclipboard_set_text(text.data ? text.data : "");
+		ds_buffer_free(&text);
+		set_status("Copied %d elements as XML.", count);
+		return;
+	}
+	if (strcmp(what, "delete") == 0) {
+		for (i = 0; i < count; i++) Rxml_node_remove(roots[i]);
+		g.selected = parent;
+		g.extra_count = 0;
+		document_changed(R_FALSE);
+		select_node(parent, R_TRUE);
+		set_status("Deleted %d elements.", count);
+		return;
+	}
+	if (strcmp(what, "duplicate") == 0) {
+		/* (each copy goes right after its element) */
+		for (i = 0; i < count; i++) {
+			Rid copy = Rxml_node_duplicate(roots[i]);
+			if (copy != R_INVALID_ID) made[made_count++] = copy;
+		}
+		set_status("Duplicated %d elements.", made_count);
+	} else if (strcmp(what, "up") == 0 || strcmp(what, "down") == 0) {
+		int up = what[0] == 'u';
+		/* one step each, the first ones first; a block that touches the edge, or another selected, stays */
+		for (i = up ? 0 : count - 1; up ? i < count : i >= 0; i += up ? 1 : -1) {
+			Rid holder = Rxml_node_get_parent(roots[i]), next;
+			int index = Rxml_node_get_index(roots[i]);
+			next = up ? (index > 0 ? Rxml_node_get_child(holder, index - 1) : R_INVALID_ID) : Rxml_node_get_child(holder, index + 1);
+			if (next == R_INVALID_ID || is_selected(next)) continue;
+			Rxml_node_move(roots[i], holder, up ? index - 1 : index + 1);
+		}
+		for (i = 0; i < count; i++) made[made_count++] = roots[i];
+	} else if (strcmp(what, "out") == 0) {
+		/* (the last first: they keep their order after the panel they leave) */
+		for (i = count - 1; i >= 0; i--) {
+			Rid holder = Rxml_node_get_parent(roots[i]);
+			Rid grand = holder != R_INVALID_ID ? Rxml_node_get_parent(holder) : R_INVALID_ID;
+			if (grand == R_INVALID_ID) continue;
+			Rxml_node_move(roots[i], grand, Rxml_node_get_index(holder) + 1);
+		}
+		for (i = 0; i < count; i++) made[made_count++] = roots[i];
+	} else if (strcmp(what, "in") == 0) {
+		int index = Rxml_node_get_index(roots[0]);
+		Rid previous = same && index > 0 ? Rxml_node_get_child(parent, index - 1) : R_INVALID_ID;
+		if (!same) {
+			set_status("To move them into the element before them, select elements of the same panel.");
+			return;
+		}
+		if (previous == R_INVALID_ID || Rxml_node_is_comment(previous) || !accepts_children(previous)) {
+			set_status("There is no panel before them to move into.");
+			return;
+		}
+		for (i = 0; i < count; i++) {
+			Rxml_node_move(roots[i], previous, -1);
+			made[made_count++] = roots[i];
+		}
+	} else if (strncmp(what, "wrap.", 5) == 0) {
+		if (same) {
+			/* elements of one panel: one panel around them all, where the first one was */
+			Rid wrapper = Rxml_node_add_child(parent, what + 5, Rxml_node_get_index(roots[0]));
+			if (wrapper == R_INVALID_ID) return;
+			for (i = 0; i < count; i++) Rxml_node_move(roots[i], wrapper, -1);
+			made[made_count++] = wrapper;
+			set_status("Wrapped %d elements in one <%s>.", count, what + 5);
+		} else {
+			for (i = 0; i < count; i++) {
+				Rid holder = Rxml_node_get_parent(roots[i]);
+				Rid wrapper = Rxml_node_add_child(holder, what + 5, Rxml_node_get_index(roots[i]));
+				if (wrapper == R_INVALID_ID) continue;
+				Rxml_node_move(roots[i], wrapper, -1);
+				made[made_count++] = wrapper;
+			}
+			set_status("Wrapped each element in a <%s>.", what + 5);
+		}
+	} else if (strcmp(what, "unwrap") == 0) {
+		for (i = 0; i < count; i++) {
+			Rid holder = Rxml_node_get_parent(roots[i]);
+			int index = Rxml_node_get_index(roots[i]), children = Rxml_node_get_child_count(roots[i]), k;
+			if (children == 0) continue;
+			for (k = 0; k < children; k++) {
+				Rid child = Rxml_node_get_child(roots[i], 0);
+				Rxml_node_move(child, holder, index + k);
+				if (made_count < MAX_EXTRA) made[made_count++] = child;
+			}
+			Rxml_node_remove(roots[i]);
+		}
+		set_status(made_count ? "Unwrapped." : "They contain nothing to keep.");
+	} else {
+		return;
+	}
+	if (made_count == 0) return;
+	/* (set before the document is shown again: the Tree shows them) */
+	g.selected = made[made_count - 1];
+	g.extra_count = 0;
+	for (i = 0; i < made_count - 1; i++) g.extra[g.extra_count++] = made[i];
+	document_changed(R_FALSE);
+	select_nodes(made, made_count);
+}
+
 static void action_edit(Rid sender, const char* action, void* user_data) {
 	const char* what = action + 5;
 	Rid node, parent;
@@ -2037,6 +2604,23 @@ static void action_edit(Rid sender, const char* action, void* user_data) {
 	if (strcmp(what, "deselect") == 0) {
 		select_node(R_INVALID_ID, R_FALSE);
 		set_status("Nothing selected.");
+		return;
+	}
+	/* (Delete, Backspace, Ctrl+X, C, V: for the elements of the Window and Widget tabs only; the other tabs have their own) */
+	if (g.tab != TAB_WINDOW && g.tab != TAB_WIDGET) return;
+	/* Cut: copied, then deleted */
+	if (strcmp(what, "cut") == 0) {
+		int count = selection_count();
+		if (edit_target(R_TRUE) == R_INVALID_ID) return;
+		action_edit(sender, "edit.copy", user_data);
+		action_edit(sender, "edit.delete", user_data);
+		if (count > 1) set_status("Cut %d elements: Ctrl+V puts them back inside the element selected.", count);
+		else set_status("Cut: Ctrl+V puts it back inside the element selected.");
+		return;
+	}
+	/* several elements selected: the command acts on all of them */
+	if (strcmp(what, "paste") != 0 && selection_count() > 1) {
+		if (edit_target(R_FALSE) != R_INVALID_ID) edit_many(what);
 		return;
 	}
 	if (strcmp(what, "copy") == 0) {
@@ -2513,11 +3097,14 @@ void designer_selection_path(char* out, size_t size) {
 	for (i = depth - 1; i >= 0 && length < (int)size - 40; i--) {
 		length += snprintf(out + length, size - (size_t)length, "%s%s", Rxml_node_is_comment(chain[i]) ? "comment" : Rxml_node_get_tag(chain[i]), i > 0 ? "  >  " : "");
 	}
+	if (selection_count() > 1 && length < (int)size - 24) snprintf(out + length, size - (size_t)length, "  (+%d)", g.extra_count);
 }
 
 void designer_set_attribute(const char* name, const char* value) {
 	if (designer_get_selected() == R_INVALID_ID || !flush_source()) return;
-	Rxml_node_set_attribute(g.selected, name, value && value[0] ? value : NULL);
+	prune_selection();
+	if (g.selected == R_INVALID_ID) return;
+	set_on_selection(name, value);
 	document_changed(R_TRUE);
 	/* (the Properties panel shows it too) */
 	rebuild_inspector();
@@ -3008,7 +3595,8 @@ static void on_unbound_action(Rid sender, const char* action, void* user_data) {
 	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
-	set_status("The interface fired the action \"%s\".", action);
+	if (Raction_is_builtin(action)) set_status("The interface fired \"%s\", an action of Raven: the application does it by itself (not in the designer).", action);
+	else set_status("The interface fired the action \"%s\".", action);
 }
 
 /* ---------------------------------------------------------------------------
@@ -3090,6 +3678,7 @@ static char* next_token(char** cursor) {
 }
 
 static void capture(const char* path);
+static int tree_row_span(Rid tree, Rid item, float* x, float* y0, float* y1);
 static int designer_script(char* script);
 
 /* xorshift: the same seed gives the same run, to replay a crash */
@@ -3130,10 +3719,15 @@ static void fuzz(int steps, unsigned seed) {
 			}
 		}
 		if (what < 30) {
+			/* (now and then with Ctrl or Shift held: a selection of several) */
+			int held = fuzz_int(6);
+			RKey modifier = held == 0 ? R_KEY_LEFT_CTRL : R_KEY_LEFT_SHIFT;
+			if (held <= 1) Rwindow_inject_key(window, modifier, R_TRUE, held == 0 ? R_MOD_CTRL : R_MOD_SHIFT);
 			Rwindow_inject_mouse_move(window, x, y);
 			Rwindow_inject_mouse_button(window, fuzz_int(6) == 0 ? R_MOUSE_RIGHT : R_MOUSE_LEFT, R_TRUE);
 			Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
 			Rwindow_inject_mouse_button(window, R_MOUSE_RIGHT, R_FALSE);
+			if (held <= 1) Rwindow_inject_key(window, modifier, R_FALSE, 0);
 			if (fuzz_int(5) == 0) {
 				Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_TRUE);
 				Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
@@ -3176,7 +3770,8 @@ static void fuzz(int steps, unsigned seed) {
 			if (g.has_document && g.document != R_INVALID_ID) {
 				int path[3], depth = fuzz_int(4), k;
 				for (k = 0; k < depth; k++) path[k] = fuzz_int(4);
-				select_node(node_at_path(path, depth), R_TRUE);
+				if (fuzz_int(2)) select_more(node_at_path(path, depth), fuzz_int(2));
+				else select_node(node_at_path(path, depth), R_TRUE);
 			}
 		} else if (what < 98) {
 			if (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window)) Rwindow_close(g.run_window);
@@ -3274,7 +3869,8 @@ static int designer_script(char* script) {
 		} else if (strcmp(token, "key") == 0) {
 			int key = atoi(next_token(&cursor)), modifiers = atoi(next_token(&cursor));
 			Rwindow_inject_key(keyboard_window(), (RKey)key, R_TRUE, (Ruint)modifiers);
-			Rwindow_inject_key(keyboard_window(), (RKey)key, R_FALSE, (Ruint)modifiers);
+			/* (released with the modifiers: the next click is a plain one) */
+			Rwindow_inject_key(keyboard_window(), (RKey)key, R_FALSE, 0);
 		} else if (strcmp(token, "text") == 0) {
 			Rwindow_inject_text(keyboard_window(), next_token(&cursor));
 		} else if (strcmp(token, "pick") == 0) {
@@ -3300,6 +3896,86 @@ static int designer_script(char* script) {
 			for (cursor = text; *cursor; cursor++) if (*cursor == '~') *cursor = ' ';
 			if (!strstr(Rtext_editor_get_text(g.source), text)) {
 				fprintf(stderr, "raven_designer: expected the XML to contain: %s\n---\n%s---\n", text, Rtext_editor_get_text(g.source));
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "treedrag") == 0) {
+			/*
+			 * treedrag FROM TO ZONE: a drag with the mouse that ends on the row of the Tree of the element at
+			 * the path TO, at its top (before), middle (inside) or bottom (after). FROM is "tree:PATH" (a row
+			 * of the Tree), "stage:PATH" (the element in the preview) or "palette:INDEX" (a widget of the palette).
+			 */
+			char* from = next_token(&cursor);
+			char* to = next_token(&cursor);
+			char* zone = next_token(&cursor);
+			float sx = 0.0f, sy = 0.0f, ex, ey, y0, y1;
+			Rid source_tree = g.tree, source_item = R_INVALID_ID;
+			int k;
+			run_frames(1);
+			if (!strncmp(from, "palette:", 8)) {
+				int index = atoi(from + 8);
+				if (index < 0 || index >= g.palette_count) return R_FALSE;
+				source_tree = g.palette;
+				source_item = g.palette_items[index];
+				Rdock_area_show_panel(g.dock, Rwidget_find(g.window, "panel.widgets"));
+				run_frames(1);
+				Rtree_view_scroll_to_item(g.palette, source_item);
+				run_frames(1);
+			} else {
+				int path[32], depth = 0;
+				char* walk = strchr(from, ':') ? strchr(from, ':') + 1 : from;
+				while (walk && *walk && *walk != '.' && depth < 32) {
+					path[depth++] = atoi(walk);
+					walk = strchr(walk, '/');
+					if (walk) walk++;
+				}
+				if (!strncmp(from, "stage:", 6)) {
+					Rid widget = node_widget(node_at_path(path, depth));
+					float wx, wy, ww, wh;
+					if (widget == R_INVALID_ID) return R_FALSE;
+					Rwidget_get_rect(widget, &wx, &wy, &ww, &wh);
+					sx = wx + ww * 0.5f;
+					sy = wy + wh * 0.5f;
+				} else {
+					source_item = tree_item_of(R_INVALID_ID, node_at_path(path, depth));
+				}
+			}
+			if (source_item != R_INVALID_ID) {
+				if (!tree_row_span(source_tree, source_item, &sx, &y0, &y1)) {
+					fprintf(stderr, "raven_designer: treedrag: the row to drag is not shown\n");
+					return R_FALSE;
+				}
+				sy = (y0 + y1) * 0.5f;
+			}
+			{
+				int path[32], depth = 0;
+				char* walk = to;
+				while (walk && *walk && *walk != '.' && depth < 32) {
+					path[depth++] = atoi(walk);
+					walk = strchr(walk, '/');
+					if (walk) walk++;
+				}
+				if (!tree_row_span(g.tree, tree_item_of(R_INVALID_ID, node_at_path(path, depth)), &ex, &y0, &y1)) {
+					fprintf(stderr, "raven_designer: treedrag: the row to drop on is not shown\n");
+					return R_FALSE;
+				}
+				ey = !strcmp(zone, "before") ? y0 + 2.0f : !strcmp(zone, "after") ? y1 - 2.0f : (y0 + y1) * 0.5f;
+			}
+			Rwindow_inject_mouse_move(g.window, sx, sy);
+			Rwindow_inject_mouse_button(g.window, R_MOUSE_LEFT, R_TRUE);
+			run_frames(1);
+			for (k = 1; k <= 4; k++) {
+				Rwindow_inject_mouse_move(g.window, sx + (ex - sx) * (float)k / 4.0f, sy + (ey - sy) * (float)k / 4.0f);
+				run_frames(1);
+			}
+			Rwindow_inject_mouse_button(g.window, R_MOUSE_LEFT, R_FALSE);
+			run_frames(1);
+		} else if (strcmp(token, "expectnot") == 0) {
+			/* expectnot TEXT: the XML does not contain TEXT ('~' for spaces) */
+			char* text = next_token(&cursor);
+			char* c;
+			for (c = text; *c; c++) if (*c == '~') *c = ' ';
+			if (strstr(Rtext_editor_get_text(g.source), text)) {
+				fprintf(stderr, "raven_designer: expected the XML not to contain: %s\n---\n%s---\n", text, Rtext_editor_get_text(g.source));
 				return R_FALSE;
 			}
 		} else if (strcmp(token, "expectpanel") == 0) {
@@ -3481,6 +4157,37 @@ static int designer_script(char* script) {
 				fprintf(stderr, "raven_designer: expected the keyboard in the %s\n", name);
 				return R_FALSE;
 			}
+		} else if (strcmp(token, "clickpath") == 0) {
+			/* clickpath PATH MODIFIERS: a click in the middle of the widget of an element, with Shift (1) or Ctrl (2) held */
+			char* text = next_token(&cursor);
+			int modifiers = atoi(next_token(&cursor)), path[32], depth = 0;
+			Rid widget;
+			float wx, wy, ww, wh;
+			while (text && *text && *text != '.' && depth < 32) {
+				path[depth++] = atoi(text);
+				text = strchr(text, '/');
+				if (text) text++;
+			}
+			run_frames(1);
+			widget = node_widget(node_at_path(path, depth));
+			if (widget == R_INVALID_ID) {
+				fprintf(stderr, "raven_designer: clickpath: the element has no widget\n");
+				return R_FALSE;
+			}
+			Rwidget_get_rect(widget, &wx, &wy, &ww, &wh);
+			if (modifiers) Rwindow_inject_key(g.window, (modifiers & R_MOD_CTRL) ? R_KEY_LEFT_CTRL : R_KEY_LEFT_SHIFT, R_TRUE, (Ruint)modifiers);
+			Rwindow_inject_mouse_move(g.window, wx + ww * 0.5f, wy + wh * 0.5f);
+			Rwindow_inject_mouse_button(g.window, R_MOUSE_LEFT, R_TRUE);
+			Rwindow_inject_mouse_button(g.window, R_MOUSE_LEFT, R_FALSE);
+			if (modifiers) Rwindow_inject_key(g.window, (modifiers & R_MOD_CTRL) ? R_KEY_LEFT_CTRL : R_KEY_LEFT_SHIFT, R_FALSE, 0);
+			run_frames(1);
+		} else if (strcmp(token, "expectcount") == 0) {
+			/* expectcount N: how many elements are selected (in the preview and in the Tree) */
+			int expected = atoi(next_token(&cursor)), count = selection_count(), in_tree = Rtree_view_get_selection_count(g.tree);
+			if (count != expected || in_tree != expected) {
+				fprintf(stderr, "raven_designer: expected %d selected, they are %d (%d in the Tree)\n", expected, count, in_tree);
+				return R_FALSE;
+			}
 		} else if (strcmp(token, "expectnothing") == 0) {
 			if (designer_get_selected() != R_INVALID_ID) {
 				fprintf(stderr, "raven_designer: expected nothing selected, it is a %s\n", Rxml_node_get_tag(g.selected));
@@ -3657,6 +4364,25 @@ static void capture(const char* path) {
  *  Completion in the XML panel: tags, attributes, @keys of the translations
  * ------------------------------------------------------------------------- */
 
+/* The rows a tree item takes, in the window (for the scripts): x in the middle of the tree, y from y0 to y1. */
+static int tree_row_span(Rid tree, Rid item, float* x, float* y0, float* y1) {
+	float tx, ty, tw, th, y;
+	int found = R_FALSE;
+	if (item == R_INVALID_ID) return R_FALSE;
+	Rwidget_get_rect(tree, &tx, &ty, &tw, &th);
+	*x = tx + tw * 0.4f;
+	for (y = 0.5f; y < th; y += 1.0f) {
+		if (Rtree_view_get_item_at(tree, tw * 0.4f, y) == item) {
+			if (!found) *y0 = ty + y;
+			*y1 = ty + y;
+			found = R_TRUE;
+		} else if (found) {
+			break;
+		}
+	}
+	return found;
+}
+
 static int is_word(char c) {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
@@ -3728,7 +4454,7 @@ static void on_complete(Rid editor, const char* prefix, void* user_data) {
 
 static int build_interface(void) {
 	static const char* const edits[] = {
-		"edit.delete", "edit.duplicate", "edit.up", "edit.down", "edit.out", "edit.in", "edit.unwrap", "edit.copy", "edit.paste", "edit.deselect",
+		"edit.delete", "edit.duplicate", "edit.up", "edit.down", "edit.out", "edit.in", "edit.unwrap", "edit.cut", "edit.copy", "edit.paste", "edit.deselect",
 		"edit.wrap.VBox", "edit.wrap.HBox", "edit.wrap.Border", "edit.wrap.ScrollBox", "edit.wrap.Overlay"
 	};
 	static const char* const files[] = { "folder.open", "file.open", "file.welcome", "file.save", "file.save_as", "file.save_all", "file.quit" };
@@ -3739,8 +4465,8 @@ static int build_interface(void) {
 	static const struct { const char* text; const char* action; } context[] = {
 		{ "Duplicate", "edit.duplicate" }, { "Delete", "edit.delete" }, { NULL, NULL }, { "Move up", "edit.up" }, { "Move down", "edit.down" },
 		{ "Move out", "edit.out" }, { NULL, NULL }, { "Wrap in a VBox", "edit.wrap.VBox" }, { "Wrap in an HBox", "edit.wrap.HBox" },
-		{ "Wrap in a Border", "edit.wrap.Border" }, { "Unwrap", "edit.unwrap" }, { NULL, NULL }, { "Copy as XML", "edit.copy" },
-		{ "Paste XML inside", "edit.paste" }
+		{ "Wrap in a Border", "edit.wrap.Border" }, { "Unwrap", "edit.unwrap" }, { NULL, NULL }, { "Cut", "edit.cut" }, { "Copy (as XML)", "edit.copy" },
+		{ "Paste inside", "edit.paste" }
 	};
 	size_t i;
 
@@ -3792,6 +4518,8 @@ static int build_interface(void) {
 	Rcombo_box_set_changed_callback(g.appearance, on_appearance, NULL);
 	Rlist_view_set_selection_changed_callback(g.theme_list, on_theme_list, NULL);
 	Rwindow_set_event_hook(g.window, window_hook, NULL);
+	/* Backspace deletes as Delete does (the menu shows Delete; a text being typed takes the key first) */
+	Rwindow_register_shortcut(g.window, R_KEY_BACKSPACE, 0, "edit.delete");
 	g.device_combo = Rwidget_find(g.window, "preview.device");
 	g.theme_combo = Rwidget_find(g.window, "preview.theme");
 	for (i = 0; i < (size_t)DEVICE_COUNT; i++) Rcombo_box_add_item(g.device_combo, DEVICES[i].name);
@@ -3823,6 +4551,7 @@ static int build_interface(void) {
 	}
 	Rwidget_set_context_menu(g.tree, g.context_menu);
 
+	Rtree_view_set_multi_select(g.tree, R_TRUE);
 	Rtree_view_set_selection_changed_callback(g.tree, on_tree_selected, NULL);
 	Rtree_view_set_activated_callback(g.palette, on_palette_activated, NULL);
 	for (i = 0; i < 8; i++) g.palette_groups[i] = R_INVALID_ID;
@@ -3909,6 +4638,8 @@ int main(int argc, char** argv) {
 	}
 	/* the designer reads from left to right whatever the language of the preview (the preview has its own direction) */
 	Rset_layout_direction(R_DIRECTION_LTR);
+	/* the preview shows the interface, it does not run it: OnClicked="app.quit" must not quit the designer */
+	Raction_set_builtins(R_FALSE);
 	if (!build_interface()) {
 		Rshutdown();
 		return 1;

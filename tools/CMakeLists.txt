@@ -47,14 +47,14 @@ install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_IN
 if(RAVEN_BUILD_TESTS)
 	set(_ds "${CMAKE_CURRENT_BINARY_DIR}/designer_test")
 	add_test(NAME designer_folder_clean COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_ds}")
-	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch")
+	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch" "${_ds}/select" "${_ds}/clipboard" "${_ds}/tree")
 	set_tests_properties(designer_folder_clean PROPERTIES FIXTURES_SETUP designer_folder_clean)
 	set_tests_properties(designer_folder_make PROPERTIES FIXTURES_SETUP designer_folder FIXTURES_REQUIRED designer_folder_clean)
 
-	# The designer driving itself, without a window system and without a GPU:
-	# adds, moves, wraps, deletes, undoes, and checks the XML after each step.
+	# The designer driving itself, without a window system and without a GPU: a new window is empty,
+	# then adds, moves, wraps, deletes, undoes, and checks the XML after each step.
 	add_test(NAME designer_script COMMAND raven_designer --null --frames 3 --script
-		"open ${_ds}/script do files.new.window f 2 path 0/0 set Text Bonjour expect Bonjour pick 2 do palette.add expect <Grid~Columns do edit.duplicate do edit.up do edit.wrap.Border expect <Border> do edit.unwrap do edit.delete do edit.undo do edit.undo do edit.redo do files.new.form expect <Field~Label path 2/1 set Hint typed expect Hint=\"typed\" do edit.duplicate do edit.out do edit.in do view.theme.glass_light do view.interact do view.run f 3 do view.theme.dark do files.new.panel expect <Border~Padding expectfiles 3 f 2")
+		"open ${_ds}/script do files.new.window f 2 expect <VBox~Spacing=\"8\"~Slot.Padding=\"16\"/> path 0 set Text Bonjour expect Bonjour pick 2 do palette.add expect <Grid~Columns do edit.duplicate do edit.up do edit.wrap.Border expect <Border> do edit.unwrap do edit.delete do edit.undo do edit.undo do edit.redo do files.new.form expect <Field~Label path 2/1 set Hint typed expect Hint=\"typed\" do edit.duplicate do edit.out do edit.in do view.theme.glass_light do view.interact do view.run f 3 do view.theme.dark do files.new.panel expect <Border~Padding expectfiles 3 f 2")
 	set_tests_properties(designer_script PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# A folder: its interfaces, a theme and a table found, an interface open by itself, the preview in
@@ -68,7 +68,9 @@ if(RAVEN_BUILD_TESTS)
 	# "fuzz STEPS SEED" replays a run).
 	add_test(NAME designer_fuzz COMMAND raven_designer --null --frames 1 --script
 		"write ${_ds}/fuzz/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Text=\"@hello\"/><Button~Text=\"Go\"/></VBox></Window> write ${_ds}/fuzz/strings.csv key,en,fr|hello,Hello,Bonjour| write ${_ds}/fuzz/night.xml <Theme~Name=\"FuzzNight\"~Look=\"RavenDark\"/> open ${_ds}/fuzz f 2 fuzz 700 7 fuzz 700 99 f 2")
-	set_tests_properties(designer_fuzz PROPERTIES FIXTURES_REQUIRED designer_folder)
+	# (a home of its own: the recent folders it may open are not the folders of the other tests)
+	set_tests_properties(designer_fuzz PROPERTIES FIXTURES_REQUIRED designer_folder
+		ENVIRONMENT "HOME=${_ds}/fuzz-home;XDG_CONFIG_HOME=${_ds}/fuzz-home/config;USERPROFILE=${_ds}/fuzz-home;APPDATA=${_ds}/fuzz-home/config")
 
 	# The tabs kept apart: widgets dropped into the preview and an element dragged in it, the preview
 	# window following live, a widget library in the Widget tab, a theme edited, saved, undone and saved
@@ -99,6 +101,25 @@ if(RAVEN_BUILD_TESTS)
 	add_test(NAME designer_keys COMMAND raven_designer --null --frames 2 --script
 		"write ${_ds}/keys/strings.csv key,en,fr|app.hello,Hello,Bonjour|app.help,Help,Aide|menu.file,File,Fichier| write ${_ds}/keys/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/></VBox></Window> open ${_ds}/keys f 2 path 0/0 do island.search f 2 focus island.text settext island.text - text @ f 1 expectkeys 3 text he f 1 expectkeys 2 text lp f 1 expectkeys 1 key 264 0 key 257 0 f 1 expect Text=\"@app.help\" expectkeys 0 expectlabel greet Help f 1")
 	set_tests_properties(designer_keys PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# Several elements selected: Ctrl + click adds or removes one, Shift + click the ones between (in the
+	# preview and in the Tree), and the Edit menu acts on all of them: wrapped together, dragged together,
+	# duplicated, deleted, copied and pasted; a click around the window selects nothing.
+	add_test(NAME designer_select COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/select/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Text=\"A\"/><Button~Text=\"B\"/><Checkbox~Text=\"C\"/><Slider/></VBox></Window> open ${_ds}/select f 2 clickpath 0/0 0 expectselected Label expectcount 1 clickpath 0/2 2 expectcount 2 expectselected Checkbox clickpath 0/3 1 expectcount 3 expectselected Slider clickpath 0/0 2 expectcount 2 do edit.wrap.Border expectcount 1 expectselected Border expect <Border> do edit.undo f 1 path 0/0 clickpath 0/2 2 moveto 0/0 0/3 after f 1 expectcount 2 path 0/2 expectselected Label path 0/3 expectselected Checkbox path 0/0 clickpath 0/3 1 expectcount 4 do edit.duplicate expectcount 4 do edit.delete expectcount 1 expectselected VBox do edit.undo f 1 path 0/1 clickpath 0/2 2 do edit.copy path 0 do edit.paste f 1 expectcount 2 clickaround expectnothing expectcount 0 f 1")
+	set_tests_properties(designer_select PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# The keys of the clipboard on the elements: Ctrl+X, Ctrl+C, Ctrl+V; Backspace deletes as Delete does,
+	# and a text being typed keeps them for itself.
+	add_test(NAME designer_clipboard COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/clipboard/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Text=\"A\"/><Button~Text=\"B\"/><Checkbox~Text=\"C\"/><Slider/></VBox></Window> open ${_ds}/clipboard f 2 clickpath 0/0 0 clickpath 0/1 2 expectcount 2 key 88 2 f 1 expectselected VBox expectcount 1 expectnot <Label expectnot <Button key 86 2 f 1 expectcount 2 expectselected Button expect <Label clickpath 0/2 0 key 67 2 key 86 2 f 1 expectselected Label expectcount 1 clickpath 0/3 0 key 259 0 f 1 expectselected Button clickpath 0/0 0 key 261 0 f 1 expectselected Slider expectnot <Checkbox focus source key 259 0 f 1 expectselected Slider expect <Slider/> f 1")
+	set_tests_properties(designer_clipboard PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# The Tree takes drops: its own rows moved before, after or into another (several at once), an element
+	# of the preview, a widget of the palette.
+	add_test(NAME designer_tree COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/tree/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Text=\"A\"/><Button~Text=\"B\"/><HBox><Checkbox~Text=\"C\"/></HBox><Slider/></VBox></Window> open ${_ds}/tree f 2 treedrag tree:0/0 0/3 after f 1 path 0/3 expectselected Label treedrag tree:0/0 0/1 inside f 1 path 0/0/1 expectselected Button treedrag stage:0/1 0/0/0 before f 1 path 0/0/0 expectselected Slider treedrag palette:2 0/0 inside f 1 expect <Grid path 0/0 clickpath 0/1 2 treedrag tree:0/1 0/0/0 before f 1 expectcount 2 f 1")
+	set_tests_properties(designer_tree PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# On a MacBook the island lives in the camera housing (a window of its own, anchored to the screen):
 	# the null platform fakes one (RAVEN_FAKE_NOTCH). The island goes there, the camera in the middle of its
