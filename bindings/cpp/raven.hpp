@@ -1422,6 +1422,26 @@ public:
 	/// from the edge it touches, instead of a capsule that floats under it.
 	void set_attached(int attached) const { Risland_set_attached(id_, attached); }
 
+	/// R_TRUE: on a screen with a camera housing at its top (the notch
+	/// of a MacBook), the island of a window (Rwindow_set_island) lives in the
+	/// housing itself, in a window of its own anchored to the screen: it stays
+	/// there when the window is moved, and takes the mouse and the keyboard as
+	/// usual. Folded, it is the housing grown into two ears: the first Spacer
+	/// of its folded content becomes the room of the camera (what is before
+	/// it shows on the left, what is after on the right). Unfolded, its
+	/// content starts under the camera.
+	///
+	/// It is in the housing while its window is the last one of the
+	/// application the user worked in, is shown, and is on that screen; it
+	/// goes back into its window otherwise, and on the window systems and
+	/// screens without a housing (where nothing changes). XML: Notch="true".
+	void set_notch(int enabled) const { Risland_set_notch(id_, enabled); }
+
+	int get_notch() const { return Risland_get_notch(id_); }
+
+	/// R_TRUE while the island is in the camera housing of the screen.
+	int is_in_notch() const { return Risland_is_in_notch(id_); }
+
 	void set_changed_callback(RIslandChangedCallback callback, void* user_data) const { Risland_set_changed_callback(id_, callback, user_data); }
 	void set_changed_callback(std::function<void(Rid, int)> callback) const {
 		Risland_set_changed_callback(id_, [](Rid island, int expanded, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(island, expanded); }, detail::keep(id_, 27, std::move(callback)));

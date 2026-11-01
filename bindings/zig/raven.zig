@@ -2545,6 +2545,23 @@ pub extern fn Risland_set_expand_on_click(island: Rid, enabled: c_int) void;
 /// R_TRUE gives the island square upper corners: a notch that hangs
 /// from the edge it touches, instead of a capsule that floats under it.
 pub extern fn Risland_set_attached(island: Rid, attached: c_int) void;
+/// R_TRUE: on a screen with a camera housing at its top (the notch
+/// of a MacBook), the island of a window (Rwindow_set_island) lives in the
+/// housing itself, in a window of its own anchored to the screen: it stays
+/// there when the window is moved, and takes the mouse and the keyboard as
+/// usual. Folded, it is the housing grown into two ears: the first Spacer
+/// of its folded content becomes the room of the camera (what is before
+/// it shows on the left, what is after on the right). Unfolded, its
+/// content starts under the camera.
+///
+/// It is in the housing while its window is the last one of the
+/// application the user worked in, is shown, and is on that screen; it
+/// goes back into its window otherwise, and on the window systems and
+/// screens without a housing (where nothing changes). XML: Notch="true".
+pub extern fn Risland_set_notch(island: Rid, enabled: c_int) void;
+pub extern fn Risland_get_notch(island: Rid) c_int;
+/// R_TRUE while the island is in the camera housing of the screen.
+pub extern fn Risland_is_in_notch(island: Rid) c_int;
 pub extern fn Risland_set_changed_callback(island: Rid, callback: RIslandChangedCallback, user_data: ?*anyopaque) void;
 /// Shows a widget (usually an island) floating at the top of a
 /// window, in the middle, above its content. The window takes ownership;

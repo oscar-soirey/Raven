@@ -7044,6 +7044,44 @@ def Risland_set_attached(island, attached):
     _lib.Risland_set_attached(island, attached)
 
 
+_lib.Risland_set_notch.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Risland_set_notch.restype = None
+
+
+def Risland_set_notch(island, enabled):
+    """R_TRUE: on a screen with a camera housing at its top (the notch
+    of a MacBook), the island of a window (Rwindow_set_island) lives in the
+    housing itself, in a window of its own anchored to the screen: it stays
+    there when the window is moved, and takes the mouse and the keyboard as
+    usual. Folded, it is the housing grown into two ears: the first Spacer
+    of its folded content becomes the room of the camera (what is before
+    it shows on the left, what is after on the right). Unfolded, its
+    content starts under the camera.
+    
+    It is in the housing while its window is the last one of the
+    application the user worked in, is shown, and is on that screen; it
+    goes back into its window otherwise, and on the window systems and
+    screens without a housing (where nothing changes). XML: Notch="true"."""
+    _lib.Risland_set_notch(island, enabled)
+
+
+_lib.Risland_get_notch.argtypes = [ctypes.c_uint32]
+_lib.Risland_get_notch.restype = ctypes.c_int
+
+
+def Risland_get_notch(island):
+    return _lib.Risland_get_notch(island)
+
+
+_lib.Risland_is_in_notch.argtypes = [ctypes.c_uint32]
+_lib.Risland_is_in_notch.restype = ctypes.c_int
+
+
+def Risland_is_in_notch(island):
+    """R_TRUE while the island is in the camera housing of the screen."""
+    return _lib.Risland_is_in_notch(island)
+
+
 _lib.Risland_set_changed_callback.argtypes = [ctypes.c_uint32, RIslandChangedCallback, ctypes.c_void_p]
 _lib.Risland_set_changed_callback.restype = None
 
