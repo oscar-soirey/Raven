@@ -2,12 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Moving from Qt to Raven</title>
 <meta name="description" content="A professional guide for porting a Qt Widgets or QML application to Raven: concepts, code, interfaces, styles, docking, threads, translations, build and deployment.">
+<link rel="icon" type="image/png" href="logo-black-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="docs.css">
 </head>
 <body>
-
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="layout">
+<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html" aria-current="page">From Qt to Raven</a><ul class="sections"><li><a href="#summary">1. In one page</a></li><li><a href="#differences">2. What changes, and what does not</a></li><li><a href="#map">3. Qt classes and their Raven counterparts</a></li><li><a href="#application">4. The application and its loop</a></li><li><a href="#objects">5. Objects, ownership and errors</a></li><li><a href="#layouts">6. Layouts</a></li><li><a href="#signals">7. Signals and slots</a></li><li><a href="#forms">8. .ui files and QML: XML</a></li><li><a href="#styles">9. Style sheets and palettes: themes</a></li><li><a href="#painting">10. QPainter: custom widgets, drawing and effects</a></li><li><a href="#docking">11. QMainWindow and QDockWidget: DockArea</a></li><li><a href="#dialogs">12. Dialogs, files and the clipboard</a></li><li><a href="#views">13. Model/view: lists, trees and editors</a></li><li><a href="#threads">14. Timers and threads</a></li><li><a href="#i18n">15. Translations</a></li><li><a href="#gpu">16. OpenGL and Vulkan content</a></li><li><a href="#a11y">17. Accessibility</a></li><li><a href="#build">18. Building and shipping</a></li><li><a href="#licensing">19. Licensing</a></li><li><a href="#scope">20. What Raven leaves to other libraries</a></li><li><a href="#plan">21. A migration plan</a></li><li><a href="#checklist">22. Checklist</a></li></ul></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<main class="doc"><article>
 <header>
 <h1>Moving from Qt to Raven</h1>
 <p>A guide for teams that build desktop tools with Qt Widgets or Qt Quick and want to move them, in whole or in part, to Raven.</p>
@@ -15,7 +23,7 @@
 </header>
 
 <nav>
-<h2>Contents</h2>
+<h2 id="contents">Contents</h2>
 <ol>
 <li><a href="#summary">In one page</a></li>
 <li><a href="#differences">What changes, and what does not</a></li>
@@ -59,7 +67,7 @@
 
 <section id="differences">
 <h2>2. What changes, and what does not</h2>
-<table>
+<div class="tw"><table>
 <caption>Qt and Raven side by side</caption>
 <thead>
 <tr><th scope="col">Topic</th><th scope="col">Qt</th><th scope="col">Raven</th></tr>
@@ -75,13 +83,13 @@
 <tr><th scope="row">Size</th><td>Several modules of tens of megabytes</td><td>One library of about 1.3 MB, fonts included</td></tr>
 <tr><th scope="row">Build</th><td>qmake or CMake with AUTOMOC, AUTOUIC, AUTORCC</td><td>CMake <code>find_package(raven)</code>; Cargo, go, MSBuild, zig build, or a Python / Lua import for the other languages</td></tr>
 </tbody>
-</table>
+</table></div>
 <p>What does not change: a window holds a tree of widgets; layouts give each child a place; the user acts and the program reacts; translations, accessibility, file dialogs and high-DPI scaling are handled by the library.</p>
 </section>
 
 <section id="map">
 <h2>3. Qt classes and their Raven counterparts</h2>
-<table>
+<div class="tw"><table>
 <caption>Where each Qt class goes</caption>
 <thead>
 <tr><th scope="col">Qt</th><th scope="col">Raven (C API)</th><th scope="col">Raven (XML)</th></tr>
@@ -130,7 +138,7 @@
 <tr><td>QFileSystemWatcher (for interface files)</td><td><code>Rxml_set_live_reload</code></td><td>Files loaded from disk are watched</td></tr>
 <tr><td>Qt Resource System (qrc)</td><td><code>Rwidget_create_from_xml</code> on embedded text, <code>Rtexture_create_from_file</code>, <code>Rfont_create_from_file</code></td><td>XML compiled into the program as text needs no file at run time</td></tr>
 </tbody>
-</table>
+</table></div>
 </section>
 
 <section id="application">
@@ -179,7 +187,7 @@ int main(void) {
 <section id="layouts">
 <h2>6. Layouts</h2>
 <p>Raven lays out like Unreal's Slate: a panel arranges its children, and each child carries a <em>slot</em> that its parent reads: padding, horizontal and vertical alignment, and whether it takes a share of the remaining space.</p>
-<table>
+<div class="tw"><table>
 <caption>Layout properties</caption>
 <thead>
 <tr><th scope="col">Qt</th><th scope="col">Raven</th></tr>
@@ -195,7 +203,7 @@ int main(void) {
 <tr><td>QFormLayout</td><td><code>&lt;Grid Columns="0,1"&gt;</code> with labels in column 0</td></tr>
 <tr><td>Right-to-left mirroring</td><td>Automatic for right-to-left languages (<code>Rset_layout_direction</code>)</td></tr>
 </tbody>
-</table>
+</table></div>
 <p>A form written as a <code>QFormLayout</code>:</p>
 <pre><code>&lt;Grid Columns="0,1" Spacing="10"&gt;
     &lt;Label Text="Name" Slot.VAlign="Center"/&gt;
@@ -234,7 +242,7 @@ Raction_bind("file.save", on_save, NULL);</code></pre>
 <h2>8. .ui files and QML: XML</h2>
 <p>A Raven interface is an XML document. It is loaded from a file at run time, with live reload while you design (<code>Rwindow_create_from_xml_file</code>), or from text compiled into the program (<code>Rwindow_create_from_xml</code>). The Raven IDE (<code>raven_designer</code>) edits it visually, as Qt Designer edits a <code>.ui</code> file.</p>
 <h3>From a .ui file</h3>
-<table>
+<div class="tw"><table>
 <caption>Concepts of Qt Designer</caption>
 <thead><tr><th scope="col">Qt Designer</th><th scope="col">Raven XML</th></tr></thead>
 <tbody>
@@ -245,7 +253,7 @@ Raction_bind("file.save", on_save, NULL);</code></pre>
 <tr><td>Signals and slots editor</td><td><code>OnClicked</code>, <code>OnChanged</code>... naming an action, bound in the code with <code>Raction_bind</code></td></tr>
 <tr><td>Resources</td><td>Paths relative to the XML file; nothing to compile</td></tr>
 </tbody>
-</table>
+</table></div>
 <h3>From QML</h3>
 <p>QML's declarative tree, bindings and states have these counterparts:</p>
 <ul>
@@ -303,7 +311,7 @@ target_link_libraries(hello PRIVATE raven::raven)</code></pre>
 <section id="painting">
 <h2>10. QPainter: custom widgets, drawing and effects</h2>
 <p>Where Qt subclasses <code>QWidget</code> and overrides <code>paintEvent</code>, <code>mousePressEvent</code> and <code>sizeHint</code>, Raven creates a custom widget and gives it callbacks:</p>
-<table>
+<div class="tw"><table>
 <caption>Custom widgets</caption>
 <thead><tr><th scope="col">Qt</th><th scope="col">Raven</th></tr></thead>
 <tbody>
@@ -314,7 +322,7 @@ target_link_libraries(hello PRIVATE raven::raven)</code></pre>
 <tr><td>QPropertyAnimation on a painted value</td><td><code>Rdraw_spring</code> in the paint callback</td></tr>
 <tr><td>QGraphicsBlurEffect, glows, gradients</td><td><code>Rdraw_glass</code>, blur materials, and effects written as shaders</td></tr>
 </tbody>
-</table>
+</table></div>
 <pre><code>static void paint(Rid widget, RPainter* painter, float width, float height, void* user_data) {
     Rdraw_rect(painter, 0, 0, width, height, 12.0f, 0.10f, 0.10f, 0.12f, 1.0f);
     Rdraw_text(painter, R_INVALID_ID, 16.0f, 16.0f, 14.0f, "Level meter", 1, 1, 1, 1);
@@ -330,7 +338,7 @@ Rcustom_set_paint_callback(meter, paint, NULL);</code></pre>
 <section id="docking">
 <h2>11. QMainWindow and QDockWidget: DockArea</h2>
 <p>A <code>DockArea</code> holds panels that the user arranges side by side or behind tabs. Unlike <code>QMainWindow</code>, there is no central widget: every panel is equal, and the area is an ordinary widget that can be placed anywhere.</p>
-<table>
+<div class="tw"><table>
 <caption>Docking</caption>
 <thead><tr><th scope="col">Qt</th><th scope="col">Raven</th></tr></thead>
 <tbody>
@@ -344,7 +352,7 @@ Rcustom_set_paint_callback(meter, paint, NULL);</code></pre>
 <tr><td><code>saveState</code> / <code>restoreState</code></td><td><code>Rdock_area_save_layout</code> / <code>Rdock_area_load_layout</code> (docked panels)</td></tr>
 <tr><td><code>closeEvent</code> of a dock</td><td><code>Rdock_area_set_close_callback</code></td></tr>
 </tbody>
-</table>
+</table></div>
 <p>Tearing works as in Qt Creator or Visual Studio: a tab dragged out of the area takes its panel to a window of its own; dragging the tab of that window over an area of the same family shows where it will dock; a double click on that tab, or closing the window, puts the panel back where it was. Functions that take a panel keep working on panels that are floating.</p>
 </section>
 
@@ -375,7 +383,7 @@ Rcustom_set_paint_callback(meter, paint, NULL);</code></pre>
 
 <section id="threads">
 <h2>14. Timers and threads</h2>
-<table>
+<div class="tw"><table>
 <caption>Concurrency</caption>
 <thead><tr><th scope="col">Qt</th><th scope="col">Raven</th></tr></thead>
 <tbody>
@@ -386,7 +394,7 @@ Rcustom_set_paint_callback(meter, paint, NULL);</code></pre>
 <tr><td><code>QMetaObject::invokeMethod(..., Qt::QueuedConnection)</code></td><td><code>Rtask_post(function, data)</code>: runs on the UI thread at the next frame</td></tr>
 <tr><td>Long work with a progress bar</td><td>Work in <code>Rtask_run_async</code>, report with <code>Rtask_post</code> that sets <code>Rprogress_bar_set_value</code></td></tr>
 </tbody>
-</table>
+</table></div>
 <p>As with Qt widgets, only the UI thread touches the interface. The functions documented as thread-safe are <code>Rtask_post</code>, <code>Rtask_run_async</code>, <code>Rwake_up</code>, <code>Rquit</code>, <code>Rwindow_request_redraw</code>, <code>Rget_time</code> and the memory functions.</p>
 </section>
 
@@ -496,6 +504,10 @@ target_link_libraries(tool PRIVATE raven::raven)</code></pre>
 <footer>
 <p>Raven &middot; <a href="https://github.com/oscar-soirey/Raven">github.com/oscar-soirey/Raven</a> &middot; See also <a href="shaders.html">Writing effects (shaders)</a>.</p>
 </footer>
+<div class="pager"><a class="prev" href="bindings.html"><small>previous</small>Bindings</a></div>
+</article></main>
+</div>
+<script src="docs.js"></script>
 
 </body>
 </html>

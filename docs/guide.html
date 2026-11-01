@@ -1,0 +1,2149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Raven manual: Guide</title>
+<link rel="icon" type="image/png" href="logo-black-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="docs.css">
+</head>
+<body>
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="layout">
+<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html" aria-current="page">Guide</a><ul class="sections"><li><a href="#compare">Raven compared with Qt, Clay and Dear ImGui</a></li><li><a href="#intro">1. A first program</a></li><li><a href="#build">2. Building Raven</a></li><li><a href="#concepts">3. Concepts</a></li><li><a href="#windows">4. Windows</a></li><li><a href="#widgets">5. Widgets</a></li><li><a href="#layout">6. Layout</a></li><li><a href="#controls">7. Controls</a></li><li><a href="#events">8. Events and actions</a></li><li><a href="#xml">9. Interfaces in XML</a></li><li><a href="#anylanguage">10. Any language: the interface in XML, the code in yours</a></li><li><a href="#editor">11. The text editor</a></li><li><a href="#shell">12. The shell: header bar, docking, island</a></li><li><a href="#dialogs">13. Dialogs and files</a></li><li><a href="#tools">14. Tools: color picker, timeline, node graph, blocks</a></li><li><a href="#themes">15. Themes, styles and materials</a></li><li><a href="#drawing">16. Custom widgets, drawing and animation</a></li><li><a href="#effects">17. Effects (shaders)</a></li><li><a href="#resources">18. Images and fonts</a></li><li><a href="#locale">19. Translations</a></li><li><a href="#accessibility">20. Accessibility</a></li><li><a href="#viewports">21. Viewports: content of your own</a></li><li><a href="#web">22. Web pages</a></li><li><a href="#threads">23. Threads</a></li><li><a href="#memory">24. Memory</a></li><li><a href="#languages">25. Other languages</a></li><li><a href="#ide">26. The designer</a></li><li><a href="#testing">27. Tests, headless runs and custom backends</a></li><li><a href="#env">28. Environment variables</a></li><li><a href="#limits">29. What Raven does not do yet</a></li><li><a href="#releases">30. Downloads and contributors</a></li></ul></li><li><a href="xml.html">XML reference</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<main class="doc"><article>
+<h1>The Raven manual</h1>
+
+<p>Raven is a GUI library in C11 for editors and tools: native windows on
+Windows, Linux and macOS, drawn with Vulkan, with a layout in the manner of
+Slate, interfaces written in XML or in code, a text editor for code, docking,
+glass materials, translations, accessibility, and bindings for seven other
+languages. This guide explains every part of it with examples. The two other
+pages are references: <a href="xml.html">every XML tag and attribute</a>, and
+<a href="reference.html">every function of the C API</a>.</p>
+
+<p><small>Raven 0.1. The public API may still change before 1.0.</small></p>
+
+<p class="gh-note">This is Raven&rsquo;s own manual, so read it with that in mind. Written in
+October 2026 from the documentation of each project
+(<a href="https://doc.qt.io/qt-6/licensing.html">Qt licensing</a>,
+<a href="https://github.com/nicbarker/clay">Clay</a>,
+<a href="https://github.com/ocornut/imgui">Dear ImGui</a>) and from this manual for Raven;
+if a cell is wrong or out of date, please
+<a href="https://github.com/oscar-soirey/Raven/issues">open an issue</a>.</p>
+
+<h2 id="contents">Contents</h2>
+<ul class="toc">
+<li><a href="#intro">1. A first program</a>
+</li>
+<li><a href="#build">2. Building Raven</a>
+<ul><li><a href="#build-windows">Windows</a></li><li><a href="#build-linux">Linux</a></li><li><a href="#build-macos">macOS</a></li><li><a href="#build-options">Options</a></li><li><a href="#build-using">Using Raven from a project</a></li></ul>
+</li>
+<li><a href="#concepts">3. Concepts</a>
+<ul><li><a href="#names">Names</a></li><li><a href="#handles">Handles and errors</a></li><li><a href="#loop">The loop</a></li><li><a href="#ui-thread">One thread for the interface</a></li></ul>
+</li>
+<li><a href="#windows">4. Windows</a>
+</li>
+<li><a href="#widgets">5. Widgets</a>
+<ul><li><a href="#widget-properties">What every widget has</a></li></ul>
+</li>
+<li><a href="#layout">6. Layout</a>
+<ul><li><a href="#panels">The panels</a></li><li><a href="#direction">Right to left</a></li></ul>
+</li>
+<li><a href="#controls">7. Controls</a>
+<ul><li><a href="#label">Label</a></li><li><a href="#button">Button, checkbox</a></li><li><a href="#numbers">Slider, spin box, progress bar</a></li><li><a href="#text-input">Text input</a></li><li><a href="#lists">Combo box, list, tree, tiles</a></li><li><a href="#menus">Menus</a></li><li><a href="#image">Image, separator</a></li></ul>
+</li>
+<li><a href="#events">8. Events and actions</a>
+<ul><li><a href="#callbacks">Callbacks</a></li><li><a href="#actions">Actions</a></li><li><a href="#shortcuts">Keyboard shortcuts</a></li><li><a href="#raw-events">Raw input</a></li><li><a href="#timers">Timers</a></li><li><a href="#clipboard">Clipboard and links</a></li><li><a href="#drop">Drag and drop</a></li></ul>
+</li>
+<li><a href="#xml">9. Interfaces in XML</a>
+<ul><li><a href="#xml-reload">Live reload</a></li><li><a href="#xml-tags">Tags of your own</a></li></ul>
+</li>
+<li><a href="#anylanguage">10. Any language: the interface in XML, the code in yours</a>
+</li>
+<li><a href="#editor">11. The text editor</a>
+<ul><li><a href="#editor-help">Proposals and markers</a></li><li><a href="#editor-zoom">Zoom</a></li><li><a href="#editor-more">Colors, fonts, Markdown</a></li></ul>
+</li>
+<li><a href="#shell">12. The shell: header bar, docking, island</a>
+<ul><li><a href="#header-bar">Header bar</a></li><li><a href="#docking">Docking</a></li><li><a href="#island">Island</a></li></ul>
+</li>
+<li><a href="#dialogs">13. Dialogs and files</a>
+<ul><li><a href="#message-box">Message boxes</a></li><li><a href="#own-dialogs">Dialogs of your own</a></li><li><a href="#file-dialogs">File dialogs</a></li><li><a href="#file-browser">The file browser widget</a></li><li><a href="#files">Reading and writing files</a></li></ul>
+</li>
+<li><a href="#tools">14. Tools: color picker, timeline, node graph, blocks</a>
+<ul><li><a href="#color-picker">Color picker</a></li><li><a href="#timeline">Timeline</a></li><li><a href="#node-graph">Node graph</a></li><li><a href="#block-editor">Block editor</a></li></ul>
+</li>
+<li><a href="#themes">15. Themes, styles and materials</a>
+<ul><li><a href="#styles">Styles and classes</a></li><li><a href="#theme-files">Theme files</a></li><li><a href="#materials">Materials, glass and blur</a></li><li><a href="#theme-editor">The theme editor</a></li></ul>
+</li>
+<li><a href="#drawing">16. Custom widgets, drawing and animation</a>
+<ul><li><a href="#springs">Springs</a></li><li><a href="#transitions">Transitions</a></li></ul>
+</li>
+<li><a href="#effects">17. Effects (shaders)</a>
+</li>
+<li><a href="#resources">18. Images and fonts</a>
+</li>
+<li><a href="#locale">19. Translations</a>
+</li>
+<li><a href="#accessibility">20. Accessibility</a>
+</li>
+<li><a href="#viewports">21. Viewports: content of your own</a>
+</li>
+<li><a href="#web">22. Web pages</a>
+</li>
+<li><a href="#threads">23. Threads</a>
+</li>
+<li><a href="#memory">24. Memory</a>
+</li>
+<li><a href="#languages">25. Other languages</a>
+<ul><li><a href="#lang-cpp">C++</a></li><li><a href="#lang-python">Python</a></li><li><a href="#lang-rust">Rust</a></li><li><a href="#lang-go">Go</a></li><li><a href="#lang-csharp">C#</a></li><li><a href="#lang-zig">Zig</a></li><li><a href="#lang-lua">LuaJIT</a></li></ul>
+</li>
+<li><a href="#ide">26. The designer</a>
+<ul><li><a href="#ide-folder">A folder</a></li><li><a href="#ide-visual">The visual editor</a></li><li><a href="#ide-preview">The preview: devices, themes, languages</a></li><li><a href="#ide-island">The island: Ctrl+K</a></li><li><a href="#ide-scripts">Driving it from a script</a></li></ul>
+</li>
+<li><a href="#testing">27. Tests, headless runs and custom backends</a>
+</li>
+<li><a href="#env">28. Environment variables</a>
+</li>
+<li><a href="#limits">29. What Raven does not do yet</a>
+</li>
+<li><a href="#releases">30. Downloads and contributors</a>
+<ul><li><a href="#releases-list">Versions</a></li><li><a href="#contributors">Contributors</a></li></ul>
+</li>
+</ul>
+
+<!-- ======================================================================= -->
+<h2 id="intro">1. A first program</h2>
+
+<p>The whole API is one include. A window, a box, a label and a button:</p>
+
+<pre class="c-program">#include &lt;Raven.h&gt;
+
+static void on_quit(Rid button, void* user_data) {
+    (void)button;
+    (void)user_data;
+    Rquit(0);
+}
+
+int main(void) {
+    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+
+    Rid window = Rwindow_create("Hello", 420, 220, R_WINDOW_DEFAULT);
+    Rid box = Rwidget_create(R_WIDGET_VBOX);
+    Rpanel_set_spacing(box, 12);
+    Rslot_set_halign(box, R_HALIGN_CENTER);
+    Rslot_set_valign(box, R_VALIGN_CENTER);
+    Rwindow_set_content(window, box);
+
+    Rwidget_add_child(box, Rlabel_create("Hello from Raven"));
+    Rid quit = Rwidget_add_child(box, Rbutton_create("Quit"));
+    Rbutton_set_clicked_callback(quit, on_quit, NULL);
+
+    while (Rwait_frame(-1.0)) {}
+    Rshutdown();
+    return Rget_exit_code();
+}</pre>
+
+<p>The same window, written in XML and loaded by the program:</p>
+
+<pre>&lt;Window Title="Hello" Width="420" Height="220"&gt;
+    &lt;VBox Spacing="12" Slot.HAlign="Center" Slot.VAlign="Center"&gt;
+        &lt;Label&gt;Hello from Raven&lt;/Label&gt;
+        &lt;Button Text="Quit" OnClicked="app.quit"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;</pre>
+
+<pre class="c-program">#include &lt;Raven.h&gt;
+
+static void on_quit(Rid sender, const char* action, void* user_data) {
+    (void)sender;
+    (void)action;
+    (void)user_data;
+    Rquit(0);
+}
+
+int main(void) {
+    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    Raction_bind("app.quit", on_quit, NULL);
+    if (Rwindow_create_from_xml_file("hello.xml") == R_INVALID_ID) return 1;
+    while (Rwait_frame(-1.0)) {}
+    Rshutdown();
+    return 0;
+}</pre>
+
+<p>Built with CMake, against an installed Raven:</p>
+
+<pre>cmake_minimum_required(VERSION 3.16)
+project(hello C)
+find_package(raven REQUIRED)            # -DCMAKE_PREFIX_PATH=&lt;the Raven package&gt;
+add_executable(hello main.c)
+target_link_libraries(hello PRIVATE raven::raven)</pre>
+
+<p>Or with the interface in its own file, <code>main.xml</code>, loaded when the
+program starts (see <a href="#anylanguage">Any language</a>), and made by looking
+at it in <a href="#ide">the designer</a>.</p>
+
+<!-- ======================================================================= -->
+<h2 id="build">2. Building Raven</h2>
+
+<p>Raven needs CMake 3.16 or newer and a C11 compiler. On Linux it also needs
+the X11 development package. The Vulkan <i>headers</i> are taken from the
+Vulkan SDK when it is installed and downloaded during the configuration
+otherwise; no Vulkan library is linked (it is loaded when the program runs).
+Each build gives the library, the designer, the theme editor, the examples and the tests.</p>
+
+<h3 id="build-windows">Windows</h3>
+
+<p>With Visual Studio 2022 (workload <i>Desktop development with C++</i>), in
+the <i>Developer PowerShell</i>:</p>
+
+<pre>git clone https://github.com/oscar-soirey/Raven.git
+cd Raven
+cmake -S . -B build
+cmake --build build --config Release --parallel
+ctest --test-dir build -C Release --output-on-failure
+cmake --install build --config Release --prefix install</pre>
+
+<p>With MinGW-w64 (MSYS2, shell <i>MINGW64</i>):</p>
+
+<pre>pacman -S --needed git mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+cmake --install build --prefix install</pre>
+
+<p>A library built with MinGW is for programs built with MinGW, not with
+Visual C++. Three scripts help on Windows:</p>
+
+<pre>generate-cmake.bat            :: build\raven.sln for the newest Visual Studio installed
+generate-cmake.bat --open     :: ... and opens it
+build.bat                     :: Release build
+build.bat debug --test        :: Debug build, then the tests
+build.bat --run glass         :: builds, then starts an example
+dist.bat                      :: packages to give away: Visual C++ and MinGW, static and shared</pre>
+
+<h3 id="build-linux">Linux</h3>
+
+<pre>sudo apt install build-essential cmake git libx11-dev ninja-build   # Debian, Ubuntu
+sudo dnf install gcc cmake git libX11-devel ninja-build             # Fedora
+sudo pacman -S base-devel cmake git libx11 ninja                    # Arch
+
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+cmake --install build --prefix install</pre>
+
+<p>At run time the Vulkan driver of the system is used (<code>libvulkan.so.1</code>).
+<code>./dist.sh</code> makes the Linux packages.</p>
+
+<h3 id="build-macos">macOS</h3>
+
+<pre>xcode-select --install
+brew install cmake molten-vk
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+cmake --install build --prefix install</pre>
+
+<p>Vulkan runs on macOS through MoltenVK. Add
+<code>-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"</code> for a universal library.</p>
+
+<h3 id="build-options">Options</h3>
+<div class="tw"><table>
+<tr><th>Option</th><th>Default</th><th></th></tr>
+<tr><td><code>RAVEN_BUILD_SHARED</code></td><td>OFF</td><td>a shared library (<code>raven.dll</code>, <code>libraven.so</code>, <code>libraven.dylib</code>) instead of a static one</td></tr>
+<tr><td><code>RAVEN_BUILD_EXAMPLES</code></td><td>ON at top level</td><td>the example programs</td></tr>
+<tr><td><code>RAVEN_BUILD_TESTS</code></td><td>ON at top level</td><td>the tests, the tests of the bindings, <code>raven_benchmark</code></td></tr>
+<tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code> and <code>raven_theme_editor</code></td></tr>
+<tr><td><code>RAVEN_BUILD_WEB</code></td><td>ON</td><td>web pages (<code>raven_web.h</code>), compiled into the library</td></tr>
+<tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>OFF builds without any GPU code (a custom backend, or headless)</td></tr>
+<tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code> or <code>null</code></td></tr>
+<tr><td><code>RAVEN_WAYLAND</code></td><td>ON</td><td>Linux and BSD: native Wayland beside X11 (<a href="#build-wayland">Wayland and X11</a>); nothing of Wayland is needed to build</td></tr>
+<tr><td><code>RAVEN_WITH_STB_IMAGE</code></td><td>ON</td><td>PNG, JPEG, BMP and TGA decoding</td></tr>
+<tr><td><code>RAVEN_FETCH_VULKAN_HEADERS</code></td><td>ON</td><td>download the Khronos headers when no SDK is found</td></tr>
+<tr><td><code>RAVEN_VULKAN_INCLUDE_DIR</code></td><td></td><td>the folder of <code>vulkan/vulkan.h</code>, to skip the search</td></tr>
+<tr><td><code>RAVEN_REBUILD_SHADERS</code></td><td>OFF</td><td>compile the GLSL again (needs <code>glslangValidator</code> or <code>glslc</code>); the SPIR-V is in the repository</td></tr>
+<tr><td><code>RAVEN_MSVC_STATIC_RUNTIME</code></td><td>OFF</td><td>Visual C++: <code>/MT</code> instead of <code>/MD</code></td></tr>
+<tr><td><code>RAVEN_WARNINGS_AS_ERRORS</code></td><td>OFF</td><td></td></tr>
+</table></div>
+
+<p>With CMake 3.21 or newer, presets do the same: <code>cmake --preset linux</code>
+(or <code>msvc</code>, <code>msvc-shared</code>, <code>mingw</code>, <code>mingw-shared</code>, <code>linux-shared</code>, <code>dev</code>).</p>
+
+<h3 id="build-wayland">Linux: Wayland and X11</h3>
+
+<p>Raven speaks both. In a Wayland session it opens native Wayland windows;
+elsewhere, or where Wayland cannot be used, X11 windows (through XWayland in a
+Wayland session). Nothing of Wayland is needed to build: <code>libwayland-client</code>
+and <code>libxkbcommon</code> are opened when the program starts, and the protocols are
+compiled in.</p>
+<ul>
+<li><b>Title bars</b>: drawn by the compositor (<code>xdg-decoration</code>: KDE, wlroots,
+Hyprland...), or by <code>libdecor</code> where the compositor draws none (GNOME). With
+neither, Raven uses X11, whose window manager draws them. Windows with a
+custom header (<code>R_WINDOW_CUSTOM_HEADER</code>) draw their own everywhere.</li>
+<li><b>Scale</b>: fractional scales (<code>fractional-scale-v1</code> and <code>viewporter</code>):
+the window is drawn at its size in pixels, sharp at 125 % or 150 %.</li>
+<li><b>Keyboard</b>: the layout of the compositor (<code>xkbcommon</code>), key repeat, dead
+keys and compose sequences.</li>
+<li><b>Also</b>: cursors (<code>cursor-shape-v1</code>, or the cursor theme), clipboard, files
+and text dropped from other applications, native viewports as sub-surfaces,
+window icons (<code>xdg-toplevel-icon</code>), blur behind transparent windows
+(<code>ext-background-effect</code>).</li>
+<li><b>Not possible on Wayland</b>: an application cannot place its windows or know
+where they are (<code>Rwindow_set_position</code> and <code>Rwindow_center</code> do nothing,
+<code>Rwindow_get_position</code> gives 0, 0), keep one above the others, or fade a whole
+window.</li>
+</ul>
+<p><code>RAVEN_WINDOW_SYSTEM=x11</code> or <code>=wayland</code> overrides the choice.
+<code>Rwindow_get_native_handle</code> tells which one a window got: with
+<code>R_WINDOW_SYSTEM_WAYLAND</code>, <code>display</code> is the <code>wl_display*</code> and
+<code>window</code> the <code>wl_surface*</code>. <code>RAVEN_APP_ID</code> names the application to the desktop
+(default: the name of the executable); it should match its <code>.desktop</code> file.</p>
+
+<h3 id="build-using">Using Raven from a project</h3>
+
+<pre>find_package(raven REQUIRED)                  # an installed package
+target_link_libraries(app PRIVATE raven::raven)
+
+add_subdirectory(Raven)                       # or the sources, without installing
+target_link_libraries(app PRIVATE raven::raven)</pre>
+
+<p>An installed package holds <code>include/</code>, <code>lib/</code> (the library and
+<code>lib/cmake/raven</code>), <code>bin/</code> (<code>raven_designer</code>, and <code>raven.dll</code> in a
+shared build) and <code>share/raven/bindings</code>. With a shared library on Windows,
+define <code>RAVEN_USE_DLL</code> (CMake does it through the target).</p>
+
+<!-- ======================================================================= -->
+<h2 id="concepts">3. Concepts</h2>
+
+<h3 id="names">Names</h3>
+<div class="tw"><table>
+<tr><th></th><th>Form</th><th>Examples</th></tr>
+<tr><td>functions</td><td><code>R&lt;object&gt;_&lt;action&gt;</code></td><td><code>Rwindow_create</code>, <code>Rwindow_get_size</code>, <code>Rbutton_set_text</code>, <code>Rslot_set_padding</code></td></tr>
+<tr><td>functions of the library</td><td><code>R&lt;action&gt;</code></td><td><code>Rinit</code>, <code>Rdraw_frame</code>, <code>Rwait_frame</code>, <code>Rquit</code>, <code>Rshutdown</code></td></tr>
+<tr><td>types</td><td><code>R&lt;Name&gt;</code></td><td><code>Rid</code>, <code>REvent</code>, <code>RInitDesc</code>, <code>RPainter</code>; callbacks end with <code>Callback</code></td></tr>
+<tr><td>constants</td><td><code>R_&lt;NAME&gt;</code></td><td><code>R_INVALID_ID</code>, <code>R_WIDGET_VBOX</code>, <code>R_KEY_ESCAPE</code>, <code>R_THEME_GLASS_DARK</code></td></tr>
+<tr><td>build options, macros</td><td><code>RAVEN_&lt;NAME&gt;</code></td><td><code>RAVEN_BUILD_SHARED</code>, <code>RAVEN_VERSION_MAJOR</code></td></tr>
+</table></div>
+<p>Booleans are <code>int</code> (<code>R_TRUE</code>, <code>R_FALSE</code>), colors are four floats from 0
+to 1, strings are UTF-8 and always copied by the library. A string returned
+by the library stays valid until the next call that returns one of the same
+kind: copy it to keep it.</p>
+
+<h3 id="handles">Handles and errors</h3>
+
+<p>Every object is a <code>Rid</code>: windows, widgets, fonts, textures, timers, tree
+items, documents. A handle carries a generation, so using a deleted object is
+reported instead of crashing, and <code>R_INVALID_ID</code> is returned on failure.
+Deleting a widget deletes its children; deleting a window deletes its
+content.</p>
+
+<pre>static void on_error(RError code, RSeverity severity, const char* detail) {
+    fprintf(stderr, "[%s] %s: %s\n", Rseverity_to_string(severity), Rerror_to_string(code), detail);
+}
+
+Rerror_set_callback(on_error);        /* before Rinit, to see its errors too */
+
+const char* detail;
+RSeverity severity;
+if (Rerror_get_last(&amp;detail, &amp;severity) != R_NO_ERROR) puts(detail);</pre>
+
+<h3 id="loop">The loop</h3>
+
+<p>Raven has no loop of its own. The application asks for one frame at a
+time:</p>
+
+<pre>while (Rdraw_frame()) {               /* a game or an engine: never waits    */
+    update_and_render_my_scene();
+}
+
+while (Rwait_frame(-1.0)) {}          /* a tool: sleeps until something happens */</pre>
+
+<p><code>Rdraw_frame</code> processes the events, runs the timers and the posted tasks,
+lays out, paints and submits the windows that changed; a window in which
+nothing changed is not drawn again. <code>Rwait_frame</code> first sleeps until there is
+something to do (an event, a timer, an animation still moving, a task); its
+argument is the longest sleep in seconds, negative for no limit. Both return
+<code>R_FALSE</code> once <code>Rquit</code> was called or the last window closed;
+<code>Rget_exit_code</code> gives the code. <code>Rset_frame_callback</code> runs a function once
+per frame, also while the system holds the thread in a loop of its own (on
+Windows, while a window is moved or resized).</p>
+
+<pre>RInitDesc desc = { 0 };               /* zero: the default of every field */
+desc.backend = R_BACKEND_VULKAN;
+desc.app_name = "My tool";
+desc.worker_threads = 0;              /* one per spare core; negative: none */
+desc.ui_scale = 1.25f;                /* on top of the scale of the monitor */
+desc.disable_vsync = R_FALSE;
+desc.enable_validation = R_FALSE;     /* the Vulkan validation layer, when installed */
+if (!Rinit_ex(&amp;desc)) return 1;</pre>
+
+<h3 id="ui-thread">One thread for the interface</h3>
+
+<p>The thread that called <code>Rinit</code> is the UI thread: every function is called
+from it, except those documented as thread-safe (<code>Rtask_post</code>,
+<code>Rtask_run_async</code>, <code>Rwake_up</code>, <code>Rquit</code>, <code>Rwindow_request_redraw</code>,
+<code>Rget_time</code>, <code>Rmemory_alloc</code>, <code>Rmemory_realloc</code>, <code>Rmemory_free</code>,
+<code>Rmemory_get_stats</code>). Another thread changes the interface by posting a task
+(<a href="#threads">Threads</a>). A call from the wrong thread is reported as
+<code>R_ERROR_WRONG_THREAD</code>.</p>
+
+<!-- ======================================================================= -->
+<h2 id="windows">4. Windows</h2>
+
+<pre>Rid window = Rwindow_create("Editor", 1100, 720, R_WINDOW_DEFAULT);
+Rwindow_set_min_size(window, 640, 400);
+Rwindow_center(window);
+Rwindow_set_content(window, root_widget);      /* one widget: usually a panel */</pre>
+
+<div class="tw"><table>
+<tr><th>Flag</th><th></th></tr>
+<tr><td><code>R_WINDOW_DEFAULT</code></td><td>a normal window</td></tr>
+<tr><td><code>R_WINDOW_NO_RESIZE</code></td><td>its size is fixed</td></tr>
+<tr><td><code>R_WINDOW_HIDDEN</code></td><td>created hidden, until <code>Rwindow_show</code></td></tr>
+<tr><td><code>R_WINDOW_BORDERLESS</code></td><td>no frame at all</td></tr>
+<tr><td><code>R_WINDOW_MAXIMIZED</code></td><td>starts maximized</td></tr>
+<tr><td><code>R_WINDOW_CUSTOM_HEADER</code></td><td>no title bar from the system: a header bar of the interface replaces it (<a href="#shell">Shell</a>)</td></tr>
+<tr><td><code>R_WINDOW_TRANSPARENT</code></td><td>can be seen through where nothing is drawn (<a href="#materials">Materials</a>)</td></tr>
+</table></div>
+
+<p>Flags combine with <code>|</code>. The size is the size of the content, in logical
+units; <code>Rwindow_get_framebuffer_size</code> gives pixels and <code>Rwindow_get_scale</code>
+the scale of the monitor. Several windows can be open at once; the loop
+draws all of them.</p>
+
+<pre>static int on_close(Rid window, void* user_data) {
+    /* R_FALSE keeps the window open: ask about unsaved changes first */
+    return Rmessage_box(window, "Quit", "Discard the changes?", R_MESSAGE_OK_CANCEL) == R_MESSAGE_RESULT_OK;
+}
+
+static void on_resize(Rid window, int width, int height, void* user_data) {
+    printf("%d x %d\n", width, height);
+}
+
+Rwindow_set_close_callback(window, on_close, NULL);
+Rwindow_set_resize_callback(window, on_resize, NULL);
+Rwindow_set_title(window, "Editor - notes.txt");
+Rwindow_maximize(window);                /* minimize, restore, show, hide, close */
+Rwindow_set_topmost(window, R_TRUE);
+Rwindow_set_icon(window, rgba, 32, 32);  /* RGBA pixels */</pre>
+
+<p>Windows also give: their native handle (<code>Rwindow_get_native_handle</code>, a
+<code>RNativeWindow</code>), a capture of what they show (<code>Rwindow_capture</code>, RGBA
+pixels freed with <code>Rpixels_free</code>), the widget with the keyboard focus or
+under the pointer, the state of the keys and buttons for polling
+(<code>Rwindow_is_key_down</code>, <code>Rwindow_is_mouse_button_down</code>,
+<code>Rwindow_get_modifiers</code>, <code>Rwindow_get_mouse_position</code>), and synthetic input
+for tests (<code>Rwindow_inject_mouse_move</code>, <code>Rwindow_inject_key</code>,
+<code>Rwindow_inject_text</code>...). <code>Rwindow_set_continuous_redraw</code> draws every frame
+(a game view); <code>Rwindow_request_redraw</code> asks for one more.</p>
+
+<!-- ======================================================================= -->
+<h2 id="widgets">5. Widgets</h2>
+
+<p>An interface is a tree of widgets. A widget is created by type, put in a
+parent, found again by name, and deleted with its children:</p>
+
+<pre>Rid panel  = Rwidget_create(R_WIDGET_VBOX);
+Rid label  = Rwidget_add_child(panel, Rlabel_create("Name"));     /* returns the child */
+Rid input  = Rwidget_add_child(panel, Rwidget_create(R_WIDGET_TEXT_INPUT));
+Rwidget_set_name(input, "name");
+
+Rid found  = Rwidget_find(window, "name");          /* in a window, or under any widget */
+Rid parent = Rwidget_get_parent(found);
+int count  = Rwidget_get_child_count(panel);
+Rwidget_insert_child(panel, Rbutton_create("First"), 0);
+Rwidget_remove_child(panel, label);                 /* removed and deleted */
+Rwidget_clear_children(panel);
+Rwidget_destroy(panel);</pre>
+
+<p>The types: panels (<code>R_WIDGET_VBOX</code>, <code>R_WIDGET_HBOX</code>, <code>R_WIDGET_GRID</code>,
+<code>R_WIDGET_UNIFORM_GRID</code>, <code>R_WIDGET_OVERLAY</code>, <code>R_WIDGET_BORDER</code>,
+<code>R_WIDGET_SIZE_BOX</code>, <code>R_WIDGET_SPACER</code>, <code>R_WIDGET_SCROLL_BOX</code>,
+<code>R_WIDGET_SPLITTER</code>, <code>R_WIDGET_WRAP_BOX</code>, <code>R_WIDGET_CANVAS</code>,
+<code>R_WIDGET_SWITCHER</code>, <code>R_WIDGET_TAB_VIEW</code>, <code>R_WIDGET_EXPANDER</code>,
+<code>R_WIDGET_BACKGROUND_BLUR</code>), controls (<code>R_WIDGET_LABEL</code>, <code>R_WIDGET_BUTTON</code>,
+<code>R_WIDGET_CHECKBOX</code>, <code>R_WIDGET_SLIDER</code>, <code>R_WIDGET_PROGRESSBAR</code>,
+<code>R_WIDGET_IMAGE</code>, <code>R_WIDGET_TEXT_INPUT</code>, <code>R_WIDGET_SPIN_BOX</code>,
+<code>R_WIDGET_COMBO_BOX</code>, <code>R_WIDGET_SEPARATOR</code>, <code>R_WIDGET_LIST_VIEW</code>,
+<code>R_WIDGET_TREE_VIEW</code>, <code>R_WIDGET_TILE_VIEW</code>, <code>R_WIDGET_MENU_BAR</code>,
+<code>R_WIDGET_MENU</code>, <code>R_WIDGET_MENU_ITEM</code>, <code>R_WIDGET_TEXT_EDITOR</code>), the shell
+(<code>R_WIDGET_HEADER_BAR</code>, <code>R_WIDGET_DOCK_AREA</code>, <code>R_WIDGET_ISLAND</code>,
+<code>R_WIDGET_FILE_BROWSER</code>), tools (<code>R_WIDGET_COLOR_PICKER</code>, <code>R_WIDGET_TIMELINE</code>,
+<code>R_WIDGET_NODE_GRAPH</code>, <code>R_WIDGET_BLOCK_EDITOR</code>) and your own
+(<code>R_WIDGET_VIEWPORT</code>, <code>R_WIDGET_CUSTOM</code>).</p>
+
+<h3 id="widget-properties">What every widget has</h3>
+<pre>Rwidget_set_visibility(w, R_COLLAPSED);       /* R_VISIBLE, R_HIDDEN (keeps its place), R_COLLAPSED (takes none) */
+Rwidget_set_enabled(w, R_FALSE);              /* disables its children too */
+Rwidget_set_opacity(w, 0.6f);
+Rwidget_set_tooltip(w, "Saves the file (Ctrl+S)");
+Rwidget_set_cursor(w, R_CURSOR_HAND);
+Rwidget_set_size(w, 200, -1);                 /* a fixed width; -1: the content decides */
+Rwidget_set_min_size(w, 120, 0);
+Rwidget_set_max_size(w, 480, 0);
+Rwidget_set_clipping(w, R_TRUE);              /* children are cut at its bounds */
+Rwidget_set_hit_testable(w, R_FALSE);         /* the pointer goes through */
+Rwidget_set_focusable(w, R_TRUE);
+Rwidget_focus(w);
+Rwidget_set_user_handle(w, my_object);        /* your pointer, kept for you */
+Rwidget_set_attribute(w, "Tooltip", "Set by name, as in XML");
+
+float x, y, width, height;
+Rwidget_get_rect(w, &amp;x, &amp;y, &amp;width, &amp;height); /* where it was laid out, in the window */</pre>
+
+<p><code>Rwidget_set_destroy_callback</code> tells when a widget is deleted (to free what
+belongs to it), <code>Rwidget_hit_test</code> and <code>Rwidget_pick</code> find the widget at a
+point.</p>
+
+<!-- ======================================================================= -->
+<h2 id="layout">6. Layout</h2>
+
+<p>Layout is the two passes of Slate: each widget computes the size it
+wants, from the leaves up; then each panel gives a rectangle to its
+children, from the root down. How a child is placed is stored on the child,
+in its <i>slot</i>, and read by its parent:</p>
+
+<pre>Rid row  = Rwidget_add_child(parent, Rwidget_create(R_WIDGET_HBOX));
+Rpanel_set_spacing(row, 8);
+Rid name = Rwidget_add_child(row, Rwidget_create(R_WIDGET_TEXT_INPUT));
+Rslot_set_fill(name, 1.0f);                   /* takes the free width */
+Rid ok   = Rwidget_add_child(row, Rbutton_create("OK"));
+Rslot_set_valign(ok, R_VALIGN_CENTER);        /* its own height, centered */
+Rslot_set_padding(ok, 8, 0, 0, 0);            /* left, top, right, bottom */</pre>
+
+<div class="tw"><table>
+<tr><th>Slot</th><th>Read by</th></tr>
+<tr><td><code>Rslot_set_padding</code></td><td>every panel</td></tr>
+<tr><td><code>Rslot_set_halign</code> (<code>R_HALIGN_FILL</code>, <code>_LEFT</code>, <code>_CENTER</code>, <code>_RIGHT</code>)</td><td>VBox, Grid, Overlay, Border, SizeBox, ScrollBox, Switcher, a window</td></tr>
+<tr><td><code>Rslot_set_valign</code> (<code>R_VALIGN_FILL</code>, <code>_TOP</code>, <code>_CENTER</code>, <code>_BOTTOM</code>)</td><td>HBox, Grid, Overlay, Border, SizeBox, ScrollBox, Switcher, a window</td></tr>
+<tr><td><code>Rslot_set_fill</code>, <code>Rslot_set_auto</code>, <code>Rslot_set_max_size</code></td><td>VBox, HBox; Splitter (share of each pane)</td></tr>
+<tr><td><code>Rslot_set_grid</code>, <code>Rslot_set_grid_span</code></td><td>Grid, UniformGrid</td></tr>
+<tr><td><code>Rslot_set_anchors</code>, <code>Rslot_set_position</code>, <code>Rslot_set_size</code>, <code>Rslot_set_alignment</code></td><td>Canvas</td></tr>
+<tr><td><code>Rslot_set_title</code></td><td>TabView, DockArea</td></tr>
+</table></div>
+
+<p>Sizes are logical units, multiplied by the scale of the monitor. Only the
+part of the tree that changed is measured and arranged again.</p>
+
+<h3 id="panels">The panels</h3>
+
+<pre>/* VBox, HBox: in a column, in a row */
+Rid column = Rwidget_create(R_WIDGET_VBOX);
+Rpanel_set_spacing(column, 6);
+
+/* Grid: columns and rows, "auto" or shares of what is left */
+Rid grid = Rwidget_create(R_WIDGET_GRID);
+Rgrid_set_column_fill(grid, 1, 1.0f);         /* column 1 takes the free width */
+Rid label = Rwidget_add_child(grid, Rlabel_create("Width"));
+Rid value = Rwidget_add_child(grid, Rwidget_create(R_WIDGET_SPIN_BOX));
+Rslot_set_grid(value, 1, 0);                  /* column 1, row 0 */
+
+/* UniformGrid: cells of the same size, filled row by row */
+Rid cells = Rwidget_create(R_WIDGET_UNIFORM_GRID);
+Runiform_grid_set_columns(cells, 4);
+
+/* Border: a surface around one child */
+Rid card = Rwidget_create(R_WIDGET_BORDER);
+Rborder_set_padding(card, 14, 14, 14, 14);
+Rborder_set_background(card, 0.12f, 0.12f, 0.14f, 1.0f);
+Rborder_set_corner_radius(card, 12, 12, 12, 12);
+Rborder_set_outline(card, 1, 1, 1, 1, 0.1f);
+Rborder_set_shadow(card, 24, 0, 8);
+
+/* ScrollBox: what does not fit scrolls */
+Rid scroll = Rwidget_create(R_WIDGET_SCROLL_BOX);
+Rscroll_box_set_scroll_both(scroll, R_TRUE);
+Rscroll_box_scroll_to_end(scroll);            /* a log */
+
+/* Splitter: panes separated by handles the user drags */
+Rid split = Rwidget_create(R_WIDGET_SPLITTER);
+Rsplitter_set_orientation(split, R_HORIZONTAL);
+Rsplitter_set_min_pane_size(split, 120);
+
+/* Switcher: one child at a time */
+Rid pages = Rwidget_create(R_WIDGET_SWITCHER);
+Rswitcher_set_index(pages, 1);
+
+/* TabView: one tab per child */
+Rid tabs = Rwidget_create(R_WIDGET_TAB_VIEW);
+Rtab_view_add_tab(tabs, "General", general_page);
+Rtab_view_add_tab(tabs, "Advanced", advanced_page);
+Rtab_view_set_documents(tabs, R_TRUE);        /* closable tabs, like the files of an editor */
+
+/* Expander: a title that folds what is under it */
+Rid more = Rwidget_create(R_WIDGET_EXPANDER);
+Rexpander_set_title(more, "More options");
+Rexpander_set_expanded(more, R_FALSE);
+
+/* Canvas: free placement with anchors (fractions of the canvas) */
+Rid canvas = Rwidget_create(R_WIDGET_CANVAS);
+Rid help = Rwidget_add_child(canvas, Rbutton_create("Help"));
+Rslot_set_anchors(help, 1, 1, 1, 1);          /* the bottom right corner */
+Rslot_set_alignment(help, 1, 1);              /* pivot: its own bottom right corner */
+Rslot_set_position(help, -16, -16);</pre>
+
+<p><code>R_WIDGET_OVERLAY</code> stacks its children (the last on top),
+<code>R_WIDGET_WRAP_BOX</code> flows them and wraps to the next line,
+<code>R_WIDGET_SIZE_BOX</code> forces a size or an aspect ratio
+(<code>Rsize_box_set_aspect_ratio</code>), <code>R_WIDGET_SPACER</code> is empty space.</p>
+
+<h3 id="direction">Right to left</h3>
+
+<p>A language written from right to left mirrors the layouts: boxes, grids,
+menus, scroll bars and alignments start on the right. By default
+(<code>R_DIRECTION_AUTO</code>) the windows follow the language in use;
+<code>Rset_layout_direction(R_DIRECTION_RTL)</code> or <code>R_DIRECTION_LTR</code> forces one
+direction for every window, and <code>Rwidget_set_direction</code> gives one to a part
+of a window (<code>R_DIRECTION_INHERIT</code> goes back to its parent;
+<code>Direction="RightToLeft"</code> in XML).</p>
+
+<!-- ======================================================================= -->
+<h2 id="controls">7. Controls</h2>
+
+<h3 id="label">Label</h3>
+<pre>Rid title = Rlabel_create("Settings");
+Rlabel_set_text_size(title, 22);
+Rlabel_set_wrap(title, R_TRUE);
+Rlabel_set_text_align(title, R_TEXT_ALIGN_CENTER);
+Rlabel_set_color(title, 0.6f, 0.6f, 0.65f, 1);
+Rlabel_set_markdown(title, R_TRUE);           /* the text is Markdown: **bold**, lists, tables, links */</pre>
+
+<h3 id="button">Button, checkbox</h3>
+<pre>static void on_save(Rid button, void* user_data) { save_document(); }
+static void on_dark(Rid checkbox, int checked, void* user_data) { Rtheme_apply(checked ? R_THEME_DARK : R_THEME_LIGHT); }
+
+Rid save = Rbutton_create("Save");
+Rbutton_set_style(save, R_BUTTON_PRIMARY);           /* R_BUTTON_DEFAULT, R_BUTTON_PRIMARY, R_BUTTON_FLAT */
+Rbutton_set_clicked_callback(save, on_save, NULL);
+
+Rid dark = Rcheckbox_create("Dark mode");
+Rcheckbox_set_style(dark, R_CHECKBOX_SWITCH);        /* R_CHECKBOX_CHECK, _RADIO, _SWITCH */
+Rcheckbox_set_checked(dark, R_TRUE);
+Rcheckbox_set_changed_callback(dark, on_dark, NULL);</pre>
+<p>Radio boxes of the same parent are exclusive. A button can hold one child
+widget instead of a text (an icon and a label in an <code>HBox</code>).</p>
+
+<h3 id="numbers">Slider, spin box, progress bar</h3>
+<pre>static void on_volume(Rid slider, float value, void* user_data) { set_volume(value); }
+static void on_size(Rid spin, double value, void* user_data) { set_font_size(value); }
+
+Rid volume = Rwidget_create(R_WIDGET_SLIDER);
+Rslider_set_range(volume, 0, 100);
+Rslider_set_step(volume, 5);
+Rslider_set_value(volume, 40);
+Rslider_set_changed_callback(volume, on_volume, NULL);
+
+Rid size = Rwidget_create(R_WIDGET_SPIN_BOX);       /* drag to scrub, click to type, wheel to step */
+Rspin_box_set_range(size, 6, 72);
+Rspin_box_set_step(size, 0.5);
+Rspin_box_set_decimals(size, 1);
+Rspin_box_set_value(size, 12);
+Rspin_box_set_changed_callback(size, on_size, NULL);
+
+Rid progress = Rwidget_create(R_WIDGET_PROGRESSBAR);
+Rprogress_bar_set_value(progress, 0.35f);           /* 0..1 */</pre>
+
+<h3 id="text-input">Text input</h3>
+<pre>static void on_typed(Rid input, const char* text, void* user_data) { filter_list(text); }      /* every change */
+static void on_enter(Rid input, const char* text, void* user_data) { run_search(text); }       /* Enter */
+
+Rid search = Rwidget_create(R_WIDGET_TEXT_INPUT);
+Rtext_input_set_placeholder(search, "Search");
+Rtext_input_set_changed_callback(search, on_typed, NULL);
+Rtext_input_set_committed_callback(search, on_enter, NULL);
+Rtext_input_set_max_length(search, 64);
+Rtext_input_set_password(password, R_TRUE);
+const char* text = Rtext_input_get_text(search);</pre>
+
+<h3 id="lists">Combo box, list, tree, tiles</h3>
+<pre>Rid size = Rwidget_create(R_WIDGET_COMBO_BOX);
+Rcombo_box_add_item(size, "Small");
+Rcombo_box_add_item(size, "Large");
+Rcombo_box_set_selected(size, 0);
+
+Rid list = Rwidget_create(R_WIDGET_LIST_VIEW);
+Rlist_view_add_item(list, "README.md");
+Rlist_view_set_selected(list, 0);
+
+/* a million rows: only those in view are asked for */
+static const char* row_text(Rid list, int index, void* user_data) {
+    static char text[32];
+    snprintf(text, sizeof(text), "Row %d", index);
+    return text;
+}
+Rlist_view_set_virtual_items(list, 1000000, row_text, NULL);
+
+/* a tree: items are handles */
+Rid tree = Rwidget_create(R_WIDGET_TREE_VIEW);
+Rid src  = Rtree_view_add_item(tree, R_INVALID_ID, "src");       /* R_INVALID_ID: at the top */
+Rid file = Rtree_view_add_item(tree, src, "main.c");
+Rtree_item_set_expanded(src, R_TRUE);
+Rtree_item_set_user_handle(file, my_file);
+Rtree_view_set_multi_select(tree, R_TRUE);
+Rtree_view_set_activated_callback(tree, on_open_item, NULL);     /* double click, Enter */</pre>
+
+<p>A tile view shows a grid of tiles, an icon over a name, described by a
+callback for the tiles in view (a file browser, a library of assets):</p>
+
+<pre>static void tile(Rid view, int index, RTileItem* item, void* user_data) {
+    item-&gt;text = g_files[index].name;
+    item-&gt;detail = g_files[index].size_text;      /* a second, dimmer line */
+    item-&gt;badge = "PNG";                          /* top right corner */
+    item-&gt;icon = g_files[index].thumbnail;        /* a texture */
+}
+
+Rid tiles = Rwidget_create(R_WIDGET_TILE_VIEW);
+Rtile_view_set_tile_size(tiles, 112, 112, 64);
+Rtile_view_set_items(tiles, g_file_count, tile, NULL);
+Rtile_view_set_empty_text(tiles, "This folder is empty.");
+Rtile_view_set_activated_callback(tiles, on_open_tile, NULL);
+Rtile_view_set_context_callback(tiles, on_tile_menu, NULL);     /* right click */</pre>
+
+<h3 id="menus">Menus</h3>
+<pre>Rid bar  = Rwidget_create(R_WIDGET_MENU_BAR);
+Rid file = Rmenu_add_menu(bar, "File");
+Rid open = Rmenu_add_item(file, "Open...");
+Rmenu_item_set_shortcut(open, R_KEY_O, R_MOD_CTRL);
+Rwidget_set_action(open, "file.open");                     /* or Rmenu_item_set_clicked_callback */
+Rmenu_add_separator(file);
+Rid wrap = Rmenu_add_item(Rmenu_add_menu(bar, "View"), "Word wrap");
+Rmenu_item_set_checkable(wrap, R_TRUE);
+
+/* a context menu: a menu without a parent */
+Rid menu = Rwidget_create(R_WIDGET_MENU);
+Rwidget_set_action(Rmenu_add_item(menu, "Rename"), "item.rename");
+Rwidget_set_action(Rmenu_add_item(menu, "Delete"), "item.delete");
+Rwidget_set_context_menu(tree, menu);                      /* opened by a right click on the tree */
+Rmenu_open(menu, window, x, y);                            /* or anywhere, from code */</pre>
+
+<h3 id="image">Image, separator</h3>
+<pre>Rid logo = Rwidget_create(R_WIDGET_IMAGE);
+Rimage_set_texture(logo, Rtexture_create_from_file("logo.png"));
+Rimage_set_stretch(logo, R_STRETCH_FIT);        /* R_STRETCH_FILL, _FIT, _COVER, _NONE */
+Rimage_set_corner_radius(logo, 8);
+Rimage_set_tint_text(icon, R_TRUE);             /* a white icon takes the color of the text: it follows the theme */
+Rwidget_set_size(logo, 64, 64);
+
+Rid line = Rwidget_create(R_WIDGET_SEPARATOR);
+Rseparator_set_orientation(line, R_VERTICAL);</pre>
+
+<!-- ======================================================================= -->
+<h2 id="events">8. Events and actions</h2>
+
+<h3 id="callbacks">Callbacks</h3>
+<p>Each control has typed callbacks for its events (clicked, changed,
+committed, activated...), set with `R..._set_..._callback(widget, function,
+user_data)`. The last argument is given back to the function as it is.</p>
+
+<h3 id="actions">Actions</h3>
+<p>An action is a name for what the main event of a widget does: a click of
+a button or of a menu item, a change of a checkbox, Enter in a text input,
+the activation of a row. Interfaces written in XML use them
+(<code>OnClicked="file.save"</code>); from C, <code>Rwidget_set_action</code> gives one to a
+widget.</p>
+<pre>static void on_action(Rid sender, const char* action, void* user_data) {
+    if (strcmp(action, "file.save") == 0) save_document();
+}
+
+Raction_bind("file.save", on_action, NULL);
+Raction_bind("file.open", on_action, NULL);
+Raction_set_default_handler(on_action, NULL);   /* the actions bound to nothing */
+Raction_fire("file.save", R_INVALID_ID);        /* from code */
+Raction_unbind("file.open");</pre>
+
+<h3 id="shortcuts">Keyboard shortcuts</h3>
+<pre>Rwindow_register_shortcut(window, R_KEY_S, R_MOD_CTRL, "file.save");
+Rwindow_register_shortcut(window, R_KEY_Z, R_MOD_CTRL | R_MOD_SHIFT, "edit.redo");
+Rwindow_unregister_shortcut(window, R_KEY_S, R_MOD_CTRL);</pre>
+<p>The shortcut of a menu item works by itself; in XML,
+<code>&lt;Shortcut Keys="Ctrl+S" Action="file.save"/&gt;</code>. The modifiers are
+<code>R_MOD_CTRL</code>, <code>R_MOD_SHIFT</code>, <code>R_MOD_ALT</code> and <code>R_MOD_SUPER</code>. Tab and
+Shift+Tab move the focus between the controls
+(<code>Rwindow_set_tab_navigation</code> turns it off).</p>
+
+<h3 id="raw-events">Raw input</h3>
+<p>A widget can see the mouse and the keyboard before its own class does;
+returning <code>R_TRUE</code> consumes the event. Events bubble from the widget under
+the pointer (or with the focus) up to the window.</p>
+<pre>static int on_event(Rid widget, const REvent* e, void* user_data) {
+    switch (e-&gt;type) {
+    case R_EVENT_MOUSE_DOWN:
+        if (e-&gt;button == R_MOUSE_RIGHT) { open_menu(e-&gt;x, e-&gt;y); return R_TRUE; }
+        if (e-&gt;clicks == 2) { rename_item(); return R_TRUE; }
+        break;
+    case R_EVENT_MOUSE_WHEEL:
+        zoom_by(e-&gt;wheel_y);
+        return R_TRUE;
+    case R_EVENT_KEY_DOWN:
+        if (e-&gt;key == R_KEY_DELETE &amp;&amp; !(e-&gt;modifiers &amp; R_MOD_CTRL)) { delete_selection(); return R_TRUE; }
+        break;
+    case R_EVENT_TEXT:          /* e-&gt;codepoint: a typed character */
+    default:
+        break;
+    }
+    return R_FALSE;             /* not mine: the widget and its parents get it */
+}
+
+Rwidget_set_event_callback(widget, on_event, NULL);
+Rwindow_set_event_hook(window, on_window_event, NULL);   /* the whole window, before any widget */</pre>
+<p><code>REvent</code> gives the position in the window (<code>x</code>, <code>y</code>) and in the widget
+(<code>local_x</code>, <code>local_y</code>), the movement (<code>delta_x</code>, <code>delta_y</code>), the wheel, the
+button and the number of clicks, the key, the modifiers, whether the key
+repeats and the typed character.</p>
+
+<h3 id="timers">Timers</h3>
+<pre>static void on_tick(Rid timer, void* user_data) { autosave(); }
+
+Rid autosave_timer = Rtimer_create(60.0, R_TRUE, on_tick, NULL);   /* every minute; R_FALSE: once */
+Rtimer_destroy(autosave_timer);</pre>
+
+<h3 id="clipboard">Clipboard and links</h3>
+<pre>Rclipboard_set_text("copied");
+const char* pasted = Rclipboard_get_text();
+Ropen_url("https://example.org");              /* the browser of the system; a file opens in its application */</pre>
+
+<h3 id="drop">Drag and drop</h3>
+<p>Files and text dragged from other applications are dropped on a window or
+on a widget:</p>
+<pre>static int on_drop(Rid target, const RDropEvent* e, void* user_data) {
+    if (e-&gt;phase == R_DROP_DROPPED) {
+        int i;
+        for (i = 0; i &lt; e-&gt;path_count; i++) open_file(e-&gt;paths[i]);
+        if (e-&gt;text) insert_text(e-&gt;text);
+    }
+    return R_TRUE;              /* "I take it": the target is highlighted while it is over it */
+}
+
+Rwindow_set_drop_callback(window, on_drop, NULL);
+Rwidget_set_drop_callback(panel, on_drop, NULL);</pre>
+<p>Inside the application, <code>Rdrag_begin</code> drags a text with a type, while a
+mouse button is held; the drop callbacks receive <code>drag_type</code>, <code>drag_source</code>
+and the data in <code>text</code>, and can refuse it by returning <code>R_FALSE</code>. Tree views
+and tile views start their drags themselves (<code>Rtree_view_set_drag_type</code>,
+<code>Rtile_view_set_drag_type</code>).</p>
+<pre>/* in the event callback of the source, once the pointer has moved a few units */
+Rdrag_begin(source, "asset", "textures/wood.png", "wood.png");
+
+static int on_asset_drop(Rid target, const RDropEvent* e, void* user_data) {
+    if (!e-&gt;drag_type || strcmp(e-&gt;drag_type, "asset") != 0) return R_FALSE;
+    if (e-&gt;phase == R_DROP_DROPPED) apply_asset(target, e-&gt;text);
+    return R_TRUE;
+}</pre>
+<p>Dragging out of a Raven window to another application is not implemented.</p>
+
+<!-- ======================================================================= -->
+<h2 id="xml">9. Interfaces in XML</h2>
+
+<p>Every widget, attribute and slot has an XML spelling. A document is
+loaded into widgets, which are then handles like the others. The
+<a href="xml.html">XML reference</a> lists every tag and attribute; this
+section is about using it from a program.</p>
+
+<pre>Rid window = Rwindow_create_from_xml_file("ui/main.xml");
+Rid editor = Rwidget_find(window, "editor");
+Rid toolbar = Rwidget_create_from_xml_file("ui/toolbar.xml");     /* a piece, to put anywhere */
+Rwidget_insert_child(Rwidget_find(window, "top"), toolbar, 0);</pre>
+
+<h3 id="xml-reload">Live reload</h3>
+<p>A window created from a file follows the file: save <code>main.xml</code> in any
+editor while the program runs and the window changes, keeping the widgets
+that are still there with their handles, their callbacks and what was typed.
+<code>Rxml_set_reload_callback</code> tells after each reload, <code>Rxml_set_live_reload</code>
+turns it off (or <code>RAVEN_LIVE_RELOAD=0</code>). Theme files, the files of declared
+tags and the tables of translations are watched the same way.</p>
+
+<h3 id="xml-tags">Tags of your own</h3>
+<p>A document declares tags with <code>&lt;Widget Name="Card" Title=""&gt;</code>, with
+parameters, expressions, <code>&lt;Children/&gt;</code>, <code>&lt;Repeat&gt;</code>,
+<code>&lt;ForEach&gt;</code>, <code>&lt;If&gt;</code> and <code>&lt;Include&gt;</code>
+(<a href="xml.html#declared">Declaring tags</a>). From C,
+<code>Rxml_register_widgets_from_file("ui/widgets.xml")</code> reads declarations ahead
+of the documents that use them, and <code>Rxml_register_tag</code> gives a tag to a
+widget built by code (<a href="xml.html#bycode">Tags made by code</a>).</p>
+
+<!-- ======================================================================= -->
+<h2 id="anylanguage">10. Any language: the interface in XML, the code in yours</h2>
+
+<p>The interface is a <code>.xml</code> file. The program, in C or in any language
+that has a binding, loads it when it starts, binds the actions it names and
+finds the widgets it needs by their name. Save the XML while the program runs
+and the window follows, the code untouched (<a href="#xml-reload">files that are
+loaded again</a>).</p>
+
+<pre>&lt;!-- main.xml --&gt;
+&lt;Window Title="Hello" Width="400" Height="200"&gt;
+    &lt;VBox Spacing="12" Slot.Padding="24"&gt;
+        &lt;Label Name="status"&gt;Not clicked yet&lt;/Label&gt;
+        &lt;Button Text="Click me" Style="Primary" OnClicked="hello.clicked"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;</pre>
+
+<pre>/* main.c */
+#include &lt;Raven.h&gt;
+#include &lt;stdio.h&gt;
+
+static Rid g_window;
+static int g_clicks = 0;
+
+/* OnClicked="hello.clicked" fires this action */
+static void on_hello(Rid sender, const char* action, void* user_data) {
+    char text[64];
+    (void)sender; (void)action; (void)user_data;
+    snprintf(text, sizeof(text), "%d clicks", ++g_clicks);
+    Rlabel_set_text(Rwidget_find(g_window, "status"), text);   /* the widget with Name="status" */
+}
+
+int main(void) {
+    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    Raction_bind("hello.clicked", on_hello, NULL);
+    g_window = Rwindow_create_from_xml_file("main.xml");
+    while (Rwait_frame(-1.0)) {}
+    Rshutdown();
+    return 0;
+}</pre>
+
+<div class="tw"><table>
+<tr><th>Language</th><th>Loads the XML</th><th>Binds an action</th><th>Finds a widget</th></tr>
+<tr><td>C, C++</td><td><code>Rwindow_create_from_xml_file("main.xml")</code></td><td><code>Raction_bind("hello.clicked", f, NULL)</code></td><td><code>Rwidget_find(window, "status")</code></td></tr>
+<tr><td>Rust</td><td><code>Rwindow_create_from_xml_file(...)</code>, <code>window_from_xml(text)</code></td><td><code>action_bind("hello.clicked", closure)</code></td><td><code>widget_find(window, "status")</code></td></tr>
+<tr><td>Python</td><td><code>r.Rwindow_create_from_xml_file("main.xml")</code></td><td><code>r.Raction_bind("hello.clicked", f)</code></td><td><code>r.Rwidget_find(window, "status")</code></td></tr>
+<tr><td>Go</td><td><code>raven.WindowCreateFromXmlFile("main.xml")</code></td><td><code>raven.ActionBind("hello.clicked", f)</code></td><td><code>raven.WidgetFind(window, "status")</code></td></tr>
+<tr><td>C#</td><td><code>R.Rwindow_create_from_xml_file("main.xml")</code></td><td><code>R.Raction_bind("hello.clicked", R.Keep&lt;RActionCallback&gt;(F), IntPtr.Zero)</code></td><td><code>R.Rwidget_find(window, "status")</code></td></tr>
+<tr><td>Zig</td><td><code>r.Rwindow_create_from_xml_file("main.xml")</code></td><td><code>r.Raction_bind("hello.clicked", f, null)</code></td><td><code>r.Rwidget_find(window, "status")</code></td></tr>
+<tr><td>LuaJIT</td><td><code>r.Rwindow_create_from_xml_file("main.xml")</code></td><td><code>r.Raction_bind("hello.clicked", ffi.cast("RActionCallback", f), nil)</code></td><td><code>r.Rwidget_find(window, "status")</code></td></tr>
+</table></div>
+
+<p>The same program in Rust, Python and Lua, with the same <code>main.xml</code>:</p>
+
+<pre>// src/main.rs
+use raven::*;
+
+fn main() {
+    unsafe { Rinit(R_BACKEND_VULKAN) };
+    let window = unsafe { Rwindow_create_from_xml_file(cstr("main.xml").as_ptr()) };
+    let mut clicks = 0;
+    action_bind("hello.clicked", move |_sender, _action| {
+        clicks += 1;
+        let text = cstr(&amp;format!("{} clicks", clicks));
+        unsafe { Rlabel_set_text(widget_find(window, "status"), text.as_ptr()) };
+    });
+    unsafe { while Rdraw_frame() != 0 {} Rshutdown() };
+}</pre>
+
+<pre># main.py
+import raven as r
+
+clicks = 0
+
+def on_hello(sender, action, user_data):
+    global clicks
+    clicks += 1
+    r.Rlabel_set_text(r.Rwidget_find(window, "status"), f"{clicks} clicks")
+
+if __name__ == "__main__":
+    r.Rinit(r.R_BACKEND_VULKAN)
+    r.Raction_bind("hello.clicked", on_hello)
+    window = r.Rwindow_create_from_xml_file("main.xml")
+    while r.Rwait_frame(-1.0):
+        pass
+    r.Rshutdown()</pre>
+
+<pre>-- main.lua (LuaJIT)
+local ffi = require("ffi")
+local r = require("raven")
+
+r.Rinit(r.R_BACKEND_VULKAN)
+local window = r.Rwindow_create_from_xml_file("main.xml")
+local clicks = 0
+local on_hello = ffi.cast("RActionCallback", function()   -- kept: the library calls it
+    clicks = clicks + 1
+    r.Rlabel_set_text(r.Rwidget_find(window, "status"), clicks .. " clicks")
+end)
+r.Raction_bind("hello.clicked", on_hello, nil)
+while r.Rwait_frame(-1.0) ~= 0 do end
+r.Rshutdown()</pre>
+
+<ul>
+<li>Each project is built by the tools of its language (CMake, Cargo, <code>go build</code>, <code>dotnet</code>, <code>zig build</code>) or run by its interpreter: nothing is generated, there is no extra step.</li>
+<li>An interface that must not depend on a file at run time can be compiled into the program as text (<code>include_str!</code>, a C string, an embedded resource) and built with <code>Rwindow_create_from_xml</code>.</li>
+</ul>
+
+<p><code>examples/languages</code> holds the same program in the eight languages, each one
+loading the same <code>main.xml</code>, and <code>examples/bevy_editor</code> a whole 3D scene editor whose
+interface is one <code>editor.xml</code>, driven from Rust.</p>
+
+<!-- ======================================================================= -->
+<h2 id="editor">11. The text editor</h2>
+
+<p><code>R_WIDGET_TEXT_EDITOR</code> edits text of any number of lines: selection,
+clipboard, undo and redo, line numbers, word wrap, zoom. With a language it
+colors the text, proposes words while typing, shows which bracket closes
+which, closes brackets and quotes, indents, and comments lines out
+(<code>Ctrl+/</code>).</p>
+
+<pre>Rid editor = Rtext_editor_create("int main(void) {\n    return 0;\n}\n");
+Rtext_editor_set_language(editor, Rlanguage_for_file("main.c"));   /* "C"; NULL for plain text */
+Rtext_editor_set_line_numbers(editor, R_TRUE);
+Rtext_editor_set_tab_size(editor, 4);
+Rtext_editor_set_tab_inserts_spaces(editor, R_TRUE);
+Rtext_editor_set_word_wrap(editor, R_FALSE);
+Rtext_editor_set_changed_callback(editor, on_edited, NULL);
+
+Rtext_editor_set_cursor(editor, 0, 4);                /* line, column (bytes), from 0 */
+Rtext_editor_select(editor, 1, 4, 1, 10);
+Rtext_editor_insert_text(editor, "/* typed */");     /* as the user would: undoable */
+Rtext_editor_scroll_to_line(editor, 120);
+const char* all = Rtext_editor_get_text(editor);
+const char* line = Rtext_editor_get_line(editor, 0);</pre>
+
+<p>Built-in languages: C, C++, C#, Java, JavaScript, TypeScript, Python, Rust,
+GLSL, JSON, CSS, XML, HTML (with the JavaScript and CSS inside it) and
+Markdown. A language is a description, not code: change one or add
+yours with <code>Rlanguage_register</code>.</p>
+
+<pre>RLanguageDesc gd = { 0 };
+gd.name = "GDScript";
+gd.extensions = "gd";
+gd.keywords = "func var const if elif else for while match return class extends signal";
+gd.types = "int float bool String Vector2 Vector3 Node";
+gd.constants = "true false null self";
+gd.line_comment = "#";
+gd.string_quotes = "\"'";
+gd.flags = R_LANGUAGE_INDENT_ON_COLON;
+Rlanguage_register(&amp;gd);
+Rtext_editor_set_language(editor, "GDScript");</pre>
+
+<h3 id="editor-help">Proposals and markers</h3>
+<p>The editor knows what the text alone says; it is not a language server.
+What needs to understand a whole program comes from outside, through two
+doors: your proposals, listed first, and markers that underline a part of
+the text with a message (the errors of a compiler).</p>
+<pre>static void on_complete(Rid editor, const char* prefix, void* user_data) {
+    Rtext_editor_add_completion(editor, "Rwindow_create", "Rid (const char*, int, int, Ruint)");
+    Rtext_editor_add_completion(editor, "Rwidget_find", "Rid (Rid, const char*)");
+}
+
+Rtext_editor_set_completion_callback(editor, on_complete, NULL);
+Rtext_editor_add_marker(editor, 11, 4, 9, R_MARKER_ERROR, "undeclared identifier 'cout'");
+Rtext_editor_add_marker(editor, 20, 0, -1, R_MARKER_WARNING, "unused variable");    /* -1: to the end of the line */
+Rtext_editor_clear_markers(editor);</pre>
+
+<h3 id="editor-zoom">Zoom</h3>
+<p>Ctrl + wheel zooms the text around the pointer, and Ctrl + <code>+</code>, Ctrl + <code>-</code>
+and Ctrl + 0 (back to 100 %) around the cursor, keypad included. The zoom is
+a factor of the font size, from 0.5 to 4. A program reads and sets it, and
+hears about the user's changes to apply them elsewhere:</p>
+<pre>static void on_zoom(Rid editor, float zoom, void* user_data) {
+    /* zoom every other editor the same, and keep it for the next time */
+    Rtext_editor_set_zoom(other_editor, zoom);
+    save_setting("zoom", zoom);
+}
+
+Rtext_editor_set_zoom(editor, 1.25f);           /* from the program: no callback */
+Rtext_editor_set_zoom_callback(editor, on_zoom, NULL);
+Rtext_editor_set_zoomable(log_view, R_FALSE);   /* Ctrl + wheel scrolls instead */</pre>
+<p>In XML: <code>Zoom="1.25"</code> and <code>Zoomable="false"</code>.</p>
+
+<h3 id="editor-more">Colors, fonts, Markdown</h3>
+<pre>Rtheme_set_token_color(R_TOKEN_KEYWORD, 0.98f, 0.45f, 0.62f, 1);   /* or &lt;Syntax Keyword="#FB7185"/&gt; in a theme */
+Rtext_editor_set_font(editor, Rfont_create_from_file("JetBrainsMono.ttf"), 14);
+Rtext_editor_set_markdown(notes, R_TRUE);       /* Markdown styled where it is typed */
+RToken t = Rtext_editor_get_token(editor, 3, 8);</pre>
+
+<!-- ======================================================================= -->
+<h2 id="shell">12. The shell: header bar, docking, island</h2>
+
+<h3 id="header-bar">Header bar</h3>
+<p>A window created with <code>R_WINDOW_CUSTOM_HEADER</code> (<code>CustomHeader="true"</code>)
+has no title bar from the system; a header bar of the interface draws the
+title and the window buttons and holds any widgets. Dragging it moves the
+window, a double click maximizes it, the edges of the window resize it, and
+on Windows the snapping to the sides of the screen keeps working.</p>
+<pre>Rid window = Rwindow_create("Tool", 1000, 640, R_WINDOW_CUSTOM_HEADER);
+Rid root = Rwidget_create(R_WIDGET_VBOX);
+Rwindow_set_content(window, root);
+
+Rid bar = Rwidget_add_child(root, Rheader_bar_create("Tool"));
+Rheader_bar_set_buttons(bar, R_HEADER_ALL_BUTTONS);      /* or R_HEADER_CLOSE | R_HEADER_MINIMIZE ... */
+Rheader_bar_set_title_align(bar, R_HALIGN_LEFT);
+Rid run = Rwidget_add_child(bar, Rbutton_create("Run"));
+Rslot_set_halign(run, R_HALIGN_RIGHT);                  /* packed from the right */
+
+Rwidget_set_window_drag(my_toolbar, R_TRUE);            /* any widget can move the window */</pre>
+
+<h3 id="docking">Docking</h3>
+<p>A dock area arranges its children as panels with tabs. The user drags a
+tab onto another tab bar, a side of a panel or an edge of the area, and the
+panels fly to their new place; a tab dragged out of the window takes its
+panel to a window of its own, and comes back when dropped on the area.</p>
+<pre>Rid dock = Rdock_area_create();
+Rdock_area_add_panel(dock, scene,   "Scene",   R_DOCK_TAB,    R_INVALID_ID, 0);      /* the first one fills the area */
+Rdock_area_add_panel(dock, outline, "Outline", R_DOCK_LEFT,   scene, 0.22f);
+Rdock_area_add_panel(dock, details, "Details", R_DOCK_RIGHT,  scene, 0.28f);
+Rdock_area_add_panel(dock, console, "Console", R_DOCK_BOTTOM, scene, 0.30f);
+Rdock_area_add_panel(dock, assets,  "Assets",  R_DOCK_TAB,    console, 0);          /* beside Console, in its tabs */
+Rwidget_set_name(outline, "outline");          /* named panels are saved in the layout */
+
+const char* saved = Rdock_area_save_layout(dock);   /* a short text: keep it in your settings */
+Rdock_area_load_layout(dock, saved);
+
+Rdock_area_set_close_hides(dock, R_TRUE);      /* closing a tab hides its panel... */
+Rdock_area_open_panel(dock, outline);          /* ...and View &gt; Outline brings it back where it was */
+Rdock_area_float_panel(dock, console, 200, 200);  /* to a window of its own */
+Rdock_area_set_tearable(dock, R_FALSE);        /* panels stay in the window */</pre>
+<p>In XML: <code>Slot.Dock</code>, <code>Slot.DockTo</code>, <code>Slot.DockSize</code>, <code>Slot.Title</code>,
+<code>Slot.Closable</code> on the children of a <code>&lt;DockArea&gt;</code>. The close callback
+can refuse to close a panel (unsaved changes), and the changed callback
+tells when the user moved, resized, showed or closed one.</p>
+
+<h3 id="island">Island</h3>
+<p>A pill at the top of a window that unfolds under the pointer, on a click,
+or from code: the place for what is going on (a build, a download, a
+message). Its first child is shown folded, its second unfolded; they
+cross-fade while it changes size. It is dark whatever the theme, as the
+notch of a phone is.</p>
+<pre>Rid island = Risland_create();
+Rwidget_add_child(island, Rlabel_create("3 messages"));       /* folded */
+Rid more = Rwidget_add_child(island, Rwidget_create(R_WIDGET_VBOX));
+Rwidget_add_child(more, Rlabel_create("Build finished in 4 s"));
+Rwindow_set_island(window, island);
+
+Risland_expand_for(island, 2.0);               /* say something, then fold back */
+Risland_set_attached(island, R_TRUE);          /* square upper corners: a notch */
+Risland_set_expand_on_hover(island, R_FALSE);</pre>
+
+<!-- ======================================================================= -->
+<h2 id="dialogs">13. Dialogs and files</h2>
+
+<h3 id="message-box">Message boxes</h3>
+<pre>RMessageResult answer = Rmessage_box(window, "Unsaved changes", "Save before closing?", R_MESSAGE_YES_NO_CANCEL);
+if (answer == R_MESSAGE_RESULT_CANCEL) return;
+if (answer == R_MESSAGE_RESULT_YES) save_document();</pre>
+
+<h3 id="own-dialogs">Dialogs of your own</h3>
+<p>Any widget can be shown as a dialog of a window: a veil falls on the
+window, the dialog rises in its middle, and the window only listens to it
+until it closes. <code>Rdialog_run</code> waits and returns the result; <code>Rdialog_open</code>
+returns at once and calls a function when the dialog closes. The window
+takes the content and deletes it when the dialog closes: read the fields
+before.</p>
+<pre>static char g_name[128];
+
+static void on_ok(Rid button, void* user_data) {
+    snprintf(g_name, sizeof(g_name), "%s", Rtext_input_get_text((Rid)(uintptr_t)user_data));
+    Rdialog_close(button, 1);                  /* the dialog that contains the button */
+}
+static void on_cancel(Rid button, void* user_data) { Rdialog_close(button, 0); }
+
+const char* xml =
+    "&lt;Border Padding='20' Width='360'&gt;&lt;VBox Spacing='10'&gt;"
+    "  &lt;Label Text='Name of the layer' TextSize='18'/&gt;"
+    "  &lt;TextInput Name='name'/&gt;"
+    "  &lt;HBox Spacing='8' Slot.HAlign='Right'&gt;&lt;Button Name='cancel' Text='Cancel'/&gt;&lt;Button Name='ok' Text='OK' Style='Primary'/&gt;&lt;/HBox&gt;"
+    "&lt;/VBox&gt;&lt;/Border&gt;";
+Rid content = Rwidget_create_from_xml(xml, strlen(xml));
+Rid name = Rwidget_find(content, "name");
+Rbutton_set_clicked_callback(Rwidget_find(content, "ok"), on_ok, (void*)(uintptr_t)name);
+Rbutton_set_clicked_callback(Rwidget_find(content, "cancel"), on_cancel, NULL);
+Rwidget_focus(name);
+if (Rdialog_run(window, content) == 1) rename_layer(g_name);     /* Escape gives 0 */</pre>
+
+<h3 id="file-dialogs">File dialogs</h3>
+<pre>static const RFileFilter filters[] = { { "Images", "*.png;*.jpg" }, { "All files", "*" } };
+RFileDialogDesc desc = { 0 };
+desc.parent = window;
+desc.title = "Open an image";
+desc.filters = filters;
+desc.filter_count = 2;
+desc.flags = R_FILE_DIALOG_MULTIPLE;
+
+const char* path = Rfile_dialog_open(&amp;desc);           /* NULL when cancelled */
+if (path) {
+    int i, n = Rfile_dialog_get_result_count();
+    for (i = 0; i &lt; n; i++) open_image(Rfile_dialog_get_result(i));
+}
+desc.file_name = "untitled.png";
+desc.default_extension = "png";
+const char* target = Rfile_dialog_save(&amp;desc);
+const char* folder = Rfile_dialog_select_folder(&amp;desc);</pre>
+<p>They are the dialogs of the system (Windows: the common dialogs; Linux:
+<code>zenity</code> or <code>kdialog</code> when installed), and otherwise a dialog of Raven built
+on the file browser (<code>R_FILE_DIALOG_RAVEN</code> asks for it everywhere). While a
+dialog waits, the application keeps running: timers, tasks and the frame
+callback go on and the windows are still drawn.</p>
+
+<h3 id="file-browser">The file browser widget</h3>
+<pre>Rid files = Rfile_browser_create();
+Rfile_browser_set_mode(files, R_FILE_BROWSER_OPEN);
+Rfile_browser_set_directory(files, "~/Projects");
+Rfile_browser_set_filters(files, filters, 2);
+Rfile_browser_set_controls_visible(files, R_FALSE);    /* no name field, no buttons: a side panel */
+Rfile_browser_set_accepted_callback(files, on_file_chosen, NULL);</pre>
+
+<h3 id="files">Reading and writing files</h3>
+<pre>size_t size;
+char* text = Rfile_read("notes.txt", &amp;size);          /* UTF-8 paths everywhere; NULL when it cannot be read */
+if (text) {
+    Rfile_write("notes.bak", text, size);
+    Rmemory_free(text);                               /* allocated by Raven */
+}
+
+/* a file in memory: every function of Raven that reads files finds it (fonts, images, XML) */
+Rfile_register_memory("ui/main.xml", embedded_xml, embedded_xml_size, R_FALSE);</pre>
+
+<!-- ======================================================================= -->
+<h2 id="tools">14. Tools: color picker, timeline, node graph, blocks</h2>
+
+<p>Each holds a small model that the application fills and reads, or that a
+document describes (<a href="xml.html#tools">XML</a>).</p>
+
+<h3 id="color-picker">Color picker</h3>
+<pre>static void on_color(Rid picker, float r, float g, float b, float a, void* user_data) {
+    Rtheme_set_accent(r, g, b);
+}
+
+Rid picker = Rcolor_picker_create();         /* square, hues, opacity, code, numbers, swatches */
+Rcolor_picker_set_color(picker, 0.04f, 0.52f, 1.0f, 1.0f);
+Rcolor_picker_set_hex(picker, "#0A84FF");
+Rcolor_picker_add_swatch(picker, 1.0f, 0.27f, 0.23f, 1.0f);
+Rcolor_picker_set_popup(picker, R_TRUE);     /* a swatch that opens it */
+Rcolor_picker_set_changed_callback(picker, on_color, NULL);</pre>
+
+<h3 id="timeline">Timeline</h3>
+<pre>static void on_time(Rid timeline, double seconds, void* user_data) { seek_to(seconds); }
+static void on_item(Rid timeline, int item, void* user_data) {
+    printf("%s now starts at %.2f s\n", Rtimeline_get_item_label(timeline, item), Rtimeline_get_item_start(timeline, item));
+}
+
+Rid timeline = Rtimeline_create();
+Rtimeline_set_duration(timeline, 30.0);
+Rtimeline_set_frame_rate(timeline, 24.0);       /* snaps to frames */
+int camera = Rtimeline_add_track(timeline, "Camera");
+Rtimeline_add_clip(timeline, camera, 0.0, 3.5, "Wide shot");
+Rtimeline_add_key(timeline, camera, 6.0);
+Rtimeline_add_marker(timeline, 4.0, "Intro");
+Rtimeline_set_time_callback(timeline, on_time, NULL);       /* scrubbed, or playing */
+Rtimeline_set_changed_callback(timeline, on_item, NULL);    /* moved, stretched */
+Rtimeline_set_playing(timeline, R_TRUE);</pre>
+<p>It snaps to frames, to the playhead and to the other items, moves several
+items at once, stretches clips by their ends, selects with a rectangle and
+zooms with Ctrl + wheel.</p>
+
+<h3 id="node-graph">Node graph</h3>
+<pre>static int may_link(Rid graph, int output_pin, int input_pin, void* user_data) {
+    return !would_make_a_loop(output_pin, input_pin);        /* R_FALSE refuses the link */
+}
+
+Rid graph = Rnode_graph_create();
+int noise = Rnode_graph_add_node(graph, "Noise", 40, 60);
+int value = Rnode_graph_add_output(graph, noise, "Value", "number");
+int blend = Rnode_graph_add_node(graph, "Blend", 320, 90);
+int a     = Rnode_graph_add_input(graph, blend, "A", "number");
+Rnode_graph_connect(graph, value, a);
+Rnode_graph_set_type_color(graph, "number", 0.39f, 0.82f, 1.0f);
+Rnode_graph_set_node_content(graph, noise, Rwidget_create(R_WIDGET_SLIDER));   /* any widget inside a node */
+Rnode_graph_set_connect_callback(graph, may_link, NULL);
+Rnode_graph_frame_all(graph);</pre>
+<p>The graph pans (middle button, or Alt + drag) and zooms around the
+pointer; pins have types and only link to pins they fit; wires hang like
+cables and swing when their nodes move.</p>
+
+<h3 id="block-editor">Block editor</h3>
+<p>Programs made of blocks that snap into each other, in the manner of
+Scratch. A kind of block has a label of words and slots: <code>%n</code> a number, <code>%s</code>
+a text, <code>%b</code> a condition, <code>%r</code> any value, <code>%m</code> a choice; <code>{10}</code> after a slot
+is its default; <code>|</code> separates the sections of a C-shaped block.</p>
+<pre>Rid blocks = Rblock_editor_create();
+Rblock_editor_add_kind(blocks, "start",  "when started",  R_BLOCK_HAT,       "Events");
+Rblock_editor_add_kind(blocks, "move",   "move %n{10} steps", R_BLOCK_STATEMENT, "Motion");
+Rblock_editor_add_kind(blocks, "repeat", "repeat %n{10}", R_BLOCK_C,         "Control");
+Rblock_editor_add_kind(blocks, "if",     "if %b then|else", R_BLOCK_C,       "Control");
+Rblock_editor_set_category_color(blocks, "Motion", 0.30f, 0.59f, 1.0f);
+
+int top  = Rblock_editor_add_block(blocks, "start", 40, 40);
+int move = Rblock_editor_add_block(blocks, "move", 0, 0);
+Rblock_editor_attach(blocks, move, top, R_BLOCK_NEXT, 0);    /* under the hat */
+Rblock_editor_set_clicked_callback(blocks, on_run_script, NULL);
+const char* saved = Rblock_editor_save(blocks);             /* a text, for Rblock_editor_load */</pre>
+
+<!-- ======================================================================= -->
+<h2 id="themes">15. Themes, styles and materials</h2>
+
+<p>A theme gives every widget its look: about forty colors (roles, not
+widgets: accent, panel, text...), twenty metrics (font size, corner radius,
+height of a control...), a material, a font, the colors of code, and styles
+for a type of widget, a class, or both. Six themes are built in.</p>
+
+<p>A theme starts from a <em>look</em> (<code>Rlook_set</code>): the ones of Raven, or
+those of the platforms, imitated closely: Windows 11 (<code>R_LOOK_WINDOWS_...</code>),
+macOS Sequoia (<code>R_LOOK_MACOS_...</code>), macOS 26 with Liquid Glass
+(<code>R_LOOK_MACOS_GLASS_...</code>: glass on header bars and their buttons, menus,
+drop-down lists, tooltips and sheets, knobs that turn into a lens of glass
+while held, the content opaque), GNOME (<code>R_LOOK_GNOME_...</code>), or the one of
+the platform the program runs on (<code>R_LOOK_NATIVE_...</code>, which gives macOS
+Glass from macOS 26 on).</p>
+
+<pre>Rtheme_apply(R_THEME_DARK);          /* R_THEME_LIGHT, R_THEME_GLASS_DARK, R_THEME_GLASS_LIGHT,
+                                        R_THEME_HIGH_CONTRAST_DARK, R_THEME_HIGH_CONTRAST_LIGHT */
+Rtheme_set_accent(0.13f, 0.83f, 0.93f);                          /* one color, and every shade that follows */
+Rtheme_set_color(R_COLOR_PANEL, 0.07f, 0.10f, 0.17f, 1.0f);      /* any role */
+Rtheme_set_metric(R_METRIC_CORNER_RADIUS, 10);                   /* any metric */
+Rtheme_set_font(Rfont_create_from_file("Inter.ttf"));
+
+/* one widget and what it contains */
+Rwidget_set_color(delete_button, R_COLOR_ACCENT, 0.9f, 0.28f, 0.3f, 1.0f);
+Rwidget_set_metric(card, R_METRIC_CORNER_RADIUS, 18);</pre>
+
+<h3 id="styles">Styles and classes</h3>
+<pre>Rtheme_set_style_metric("Button", NULL, R_METRIC_CORNER_RADIUS, 16);             /* every button */
+Rtheme_set_style_color(NULL, "danger", R_COLOR_ACCENT, 0.98f, 0.44f, 0.52f, 1);  /* the class "danger" */
+Rtheme_set_style_color("Label", "eyebrow", R_COLOR_TEXT, 0.13f, 0.83f, 0.93f, 1);
+Rtheme_set_style_material(NULL, "card", R_MATERIAL_TINTED_GLASS);
+
+Rwidget_add_class(field, "invalid");        /* the look changes at once: a simple way to show a state */
+Rwidget_remove_class(field, "invalid");
+Rwidget_set_class(card, "card danger");     /* Class="card danger" in XML */</pre>
+<p>A style with a type and a class wins over one with a class, which wins
+over one with a type; between equals, the last set wins; what was given to
+the widget itself wins over every style.</p>
+
+<h3 id="theme-files">Theme files</h3>
+<pre>&lt;Theme Name="Ocean" Base="Dark" Accent="#22D3EE" CornerRadius="10" Font="fonts/Inter.ttf"&gt;
+    &lt;Colors Window="#0B1220" Panel="#111A2C" Text="#DCE7F5" Separator="#FFFFFF1A"/&gt;
+    &lt;Metrics ControlHeight="32" Spacing="8"/&gt;
+    &lt;Glass Frost="0.8" Refraction="1.2" Saturation="1.1" Rim="1" Shadow="1"/&gt;
+    &lt;Syntax Keyword="#7DD3FC" String="#86EFAC" Comment="#64748B"/&gt;
+    &lt;Style Widget="Button" CornerRadius="16"/&gt;
+    &lt;Style Class="danger" Accent="#FB7185"/&gt;
+    &lt;Style Class="card" Panel="#1B2742" CornerRadius="18" Material="Solid"/&gt;
+&lt;/Theme&gt;</pre>
+<pre>const char* name = Rtheme_load("themes/ocean.xml");   /* "Ocean": kept under its name, not applied */
+Rtheme_use("Ocean");
+Rwidget_set_theme(card, "Paper");                     /* a theme for a part of the window: Theme="Paper" */
+Rtheme_save("my-theme.xml", "Mine");                  /* the theme in use, with what was changed */</pre>
+<p>On <code>&lt;Theme&gt;</code>: <code>Name</code>, <code>Base</code> (<code>Dark</code>, <code>Light</code>, <code>GlassDark</code>,
+<code>GlassLight</code>, or a theme loaded before), <code>Accent</code>, <code>Material</code>, <code>Dark</code>,
+<code>Font</code>, <code>Wallpaper</code> (an image, <code>Dark</code>, <code>Light</code>, colors to blend, or <code>None</code>),
+and any color or metric. Inside: <code>&lt;Colors&gt;</code>, <code>&lt;Metrics&gt;</code>,
+<code>&lt;Glass&gt;</code> (<code>Frost Refraction Saturation Rim Shadow</code>, multipliers of what
+the glass does), <code>&lt;Syntax&gt;</code> (`Comment String Number Keyword Type
+Function Tag Attribute Punctuation Directive Heading Strong Emphasis Link`)
+and <code>&lt;Style Widget="..." Class="..."&gt;</code>. Theme files are loaded again when
+they are saved. The color roles and metrics are listed in the
+<a href="xml.html#color-attributes">XML reference</a>.</p>
+
+<h3 id="materials">Materials, glass and blur</h3>
+<div class="tw"><table>
+<tr><th>Material</th><th></th></tr>
+<tr><td><code>R_MATERIAL_SOLID</code></td><td>filled with the colors of the theme</td></tr>
+<tr><td><code>R_MATERIAL_GLASS</code></td><td>clear glass: what is behind shows through, bent at the rim</td></tr>
+<tr><td><code>R_MATERIAL_FROSTED_GLASS</code></td><td>blurred: the colors behind, without their shapes</td></tr>
+<tr><td><code>R_MATERIAL_TINTED_GLASS</code></td><td>blurred and colored by the theme: the easiest to read on</td></tr>
+</table></div>
+<pre>Rtheme_apply(R_THEME_GLASS_DARK);                    /* a theme comes with its material */
+Rtheme_set_material(R_MATERIAL_FROSTED_GLASS);       /* every widget that was not given its own */
+Rwidget_set_material(sidebar, R_MATERIAL_GLASS);     /* this widget and what it contains */
+Rwindow_set_background(window, Rtexture_create_from_file("wallpaper.jpg"));   /* what the glass bends */</pre>
+<p>Glass needs something behind it: the glass themes put a wallpaper behind
+every window. A frame without glass is drawn straight to the window, so the
+solid themes cost nothing more.</p>
+
+<p>A background blur shows what is behind a panel out of focus, without the
+rim of glass:</p>
+<pre>Rid blur = Rbackground_blur_create();
+Rbackground_blur_set_style(blur, R_BLUR_FROSTED);    /* R_BLUR_PLAIN, _FROSTED, _GLASS, _NATIVE */
+Rbackground_blur_set_tint(blur, 0.06f, 0.08f, 0.11f, 0.6f);
+Rbackground_blur_set_corner_radius(blur, 24, 24, 24, 24);
+Rbackground_blur_set_padding(blur, 22, 22, 22, 22);</pre>
+<p>A window created with <code>R_WINDOW_TRANSPARENT</code> is not filled: where no
+widget draws, the desktop shows. <code>Rwindow_set_backdrop</code> asks the system what
+to put there (<code>R_BACKDROP_TRANSPARENT</code>, <code>R_BACKDROP_BLUR</code>,
+<code>R_BACKDROP_ACRYLIC</code>, <code>R_BACKDROP_MICA</code>), and <code>R_BLUR_NATIVE</code> lets the
+system blur the desktop behind a panel. It depends on the window system
+(Windows 10 and 11; X11 with a compositor): <code>Rwindow_get_backdrop</code> says what
+was obtained.</p>
+<pre>&lt;Window Transparent="true" Backdrop="Blur" Borderless="true" Width="480" Height="300"&gt;
+    &lt;BackgroundBlur Style="Native" CornerRadius="24" Padding="22" Tint="#10141C99"&gt;
+        &lt;Label Text="Seen through" TextSize="22"/&gt;
+    &lt;/BackgroundBlur&gt;
+&lt;/Window&gt;</pre>
+
+<h3 id="theme-editor">The theme editor</h3>
+<p><code>raven_theme_editor [theme.xml]</code> makes theme files by looking at them.
+On the left, everything a theme holds; on the right, a preview made of real
+widgets (controls, an application, code, lists, a dialog) drawn with the theme
+as it is being made, and alive: hover, type and drag in it.</p>
+<ul>
+<li><b>Theme</b>: the name, the look it starts from, dark or light, the material, the motion, the accent, the font and the wallpaper. <i>Generate the palette</i> works out the 36 colors and the syntax colors from the accent (<i>Tint</i>: how much the surfaces take its hue; <i>Depth</i>: how far apart they are), with text that reads; <i>Surprise me</i> tries another accent.</li>
+<li><b>Colors</b>, <b>Sizes</b>, <b>Code</b>: each color role, metric, glass multiplier and syntax color, showing the value of the look until one is set; &times; goes back to it.</li>
+<li><b>Styles</b>: the <code>&lt;Style&gt;</code> rules as text, with ready-made ones to add; a mistake shows under the text, and the preview keeps the last good theme.</li>
+<li><b>Check</b>: the contrast of the pairs of colors people read, measured as WCAG 2 does (AA, AAA, low, failing). <i>Fix</i> changes the lightness of the color in front as little as it takes; <i>Fix every pair</i> does it everywhere but on the accent.</li>
+<li><b>XML</b>: the file as it will be saved, editable by hand. <i>Copy as C</i> gives it as a C string, with the calls that load and use it.</li>
+</ul>
+<p><i>Saved version</i>, above the preview, shows the theme as it was last
+opened or saved, to compare with the changes.</p>
+<p>Undo and redo cover every change; F7 opens the preview in a window of its
+own, with the wallpaper of the theme. It uses the public API only: the theme
+is written as a file, loaded with <code>Rtheme_load_from_memory</code> under a name of
+its own and given to the preview with <code>Rwidget_set_theme</code>; loading it again
+under the same name changes it in place.</p>
+<p>Like the designer, it can be driven from a script, which is how its test works:</p>
+<pre>raven_theme_editor --null --frames 2 --script "look WindowsDark accent #FF9F0A color Window #101018 expectpreview Window #101018 do te.generate save night.xml"</pre>
+<p>The commands are listed at the top of <code>run_script</code> in
+<code>tools/theme_editor/main.c</code>.</p>
+
+<!-- ======================================================================= -->
+<h2 id="drawing">16. Custom widgets, drawing and animation</h2>
+
+<p>A <code>R_WIDGET_CUSTOM</code> is measured and painted by two callbacks, and
+receives its input through <code>Rwidget_set_event_callback</code>. Coordinates are
+logical units from its top left corner.</p>
+
+<pre class="c-program">#include &lt;Raven.h&gt;
+
+typedef struct gauge_t {
+    float level;          /* 0..1 */
+    RSpring shown;        /* the level drawn, gliding to `level` */
+} gauge_t;
+
+static void gauge_measure(Rid widget, float* width, float* height, void* user_data) {
+    (void)widget; (void)user_data;
+    *width = 160;
+    *height = 18;
+}
+
+static void gauge_paint(Rid widget, RPainter* p, float width, float height, void* user_data) {
+    gauge_t* g = (gauge_t*)user_data;
+    float level = Rdraw_spring(p, &amp;g-&gt;shown, g-&gt;level, R_MOTION_BOUNCY);
+    float r, gr, b, a;
+    (void)widget;
+    Rtheme_get_color(R_COLOR_ACCENT, &amp;r, &amp;gr, &amp;b, &amp;a);
+    Rdraw_rect(p, 0, 0, width, height, height * 0.5f, 1, 1, 1, 0.08f);
+    Rdraw_rect(p, 0, 0, width * level, height, height * 0.5f, r, gr, b, a);
+    Rdraw_text(p, R_INVALID_ID, 11, 8, 2, level &gt; 0.9f ? "full" : "", 1, 1, 1, 1);
+}
+
+static int gauge_event(Rid widget, const REvent* e, void* user_data) {
+    gauge_t* g = (gauge_t*)user_data;
+    float x, y, w, h;
+    if (e-&gt;type != R_EVENT_MOUSE_DOWN) return R_FALSE;
+    Rwidget_get_rect(widget, &amp;x, &amp;y, &amp;w, &amp;h);
+    g-&gt;level = e-&gt;local_x / w;
+    Rwidget_invalidate(widget);           /* paint again */
+    return R_TRUE;
+}
+
+static gauge_t g_gauge = { 0.4f, { 0.0f, 0.0f, 0 } };
+
+int main(void) {
+    Rid window, gauge;
+    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    window = Rwindow_create("Gauge", 320, 120, R_WINDOW_DEFAULT);
+    gauge = Rwidget_create(R_WIDGET_CUSTOM);
+    Rcustom_set_measure_callback(gauge, gauge_measure, &amp;g_gauge);
+    Rcustom_set_paint_callback(gauge, gauge_paint, &amp;g_gauge);
+    Rwidget_set_event_callback(gauge, gauge_event, &amp;g_gauge);
+    Rslot_set_halign(gauge, R_HALIGN_CENTER);
+    Rslot_set_valign(gauge, R_VALIGN_CENTER);
+    Rwindow_set_content(window, gauge);
+    while (Rwait_frame(-1.0)) {}
+    Rshutdown();
+    return 0;
+}</pre>
+
+<p>The painter draws rounded rectangles and their outlines, circles, lines,
+curves, triangles, images, text and glass (<code>Rdraw_glass</code>), clipped with
+<code>Rdraw_push_clip_rect</code>. <code>Rxml_register_tag</code> gives such a widget a tag of its
+own (<a href="xml.html#bycode">XML</a>).</p>
+
+<h3 id="springs">Springs</h3>
+<p>Everything moves with springs, as on a phone: buttons squash and bounce
+back, switches slide, popups pop out of what opened them, lists stretch at
+their ends. In a custom widget, <code>Rdraw_spring</code> pulls a value to its target
+and keeps the window drawing while it moves; <code>Rwait_frame</code> sleeps again when
+everything rests. The motions are <code>R_MOTION_SNAPPY</code>, <code>R_MOTION_SMOOTH</code>,
+<code>R_MOTION_BOUNCY</code> and <code>R_MOTION_WOBBLY</code>; <code>Rspring_kick</code> gives a spring a
+push, <code>Rspring_set</code> puts it somewhere without moving.</p>
+
+<h3 id="transitions">Transitions</h3>
+<pre>Rwidget_set_transition(card, R_TRANSITION_FLY_UP, 0.1f);   /* each time it appears; Appear="FlyUp" */
+Rwidget_play_transition(card, R_TRANSITION_DROP, 0.0f);    /* once, now */
+
+Rset_animation_speed(0.25f);          /* slow motion */
+Rset_animations_enabled(R_FALSE);     /* everything immediate: "reduce motion", tests */
+Rset_animation_time_step(1.0 / 60);   /* frames rendered one by one: a video, deterministic tests */</pre>
+<p>Transitions: <code>FADE</code>, <code>POP</code>, <code>ZOOM</code>, <code>FLY_UP</code>, <code>FLY_DOWN</code>, <code>FLY_LEFT</code>,
+<code>FLY_RIGHT</code>, <code>DROP</code>, <code>SLIDE_LEFT</code>, <code>SLIDE_RIGHT</code>. Growing delays make a
+group arrive one after the other (<code>AppearDelay</code> in XML).</p>
+
+<!-- ======================================================================= -->
+<h2 id="effects">17. Effects (shaders)</h2>
+
+<p>An effect is a fragment shader that Raven runs on a rounded rectangle of
+a widget, with the corners, the clipping and the opacity already taken care
+of. Eight come with Raven: aurora, shimmer, neon, ripple, plasma, grain,
+spotlight and mesh. Any <code>Border</code> can take one as its background:</p>
+<pre>&lt;Border Effect="aurora" CornerRadius="18" Height="200"&gt;
+    &lt;Label Text="Tonight" TextSize="24" Slot.Padding="16" Slot.VAlign="Bottom"/&gt;
+&lt;/Border&gt;
+&lt;Border Effect="neon" Background="#111" EffectColor="#0A84FF" EffectColor2="#FF375F" EffectParams="1,2,12" Padding="16"/&gt;</pre>
+<pre>RShaderLook look;
+Rshader_look_defaults(Reffect_get(R_EFFECT_PLASMA), &amp;look);
+look.color[0] = 0.37f; look.color[1] = 0.36f; look.color[2] = 0.90f; look.color[3] = 1.0f;
+look.radius = 16;
+Rborder_set_effect(border, Reffect_get(R_EFFECT_PLASMA), &amp;look);</pre>
+<p>Your own, in GLSL compiled to SPIR-V:</p>
+<pre>#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "raven_effect.glsl"
+
+vec4 raven_effect(RavenEffect fx) {
+    float band = 0.5 + 0.5 * sin(fx.pixel.x * 0.25 - fx.time * 4.0);
+    return mix(fx.color, fx.color2, band);
+}</pre>
+<pre>glslangValidator -V -I&lt;raven package&gt;/include/raven/shaders stripes.frag -o stripes.spv</pre>
+<pre>Rid stripes = Rshader_create_from_file("stripes.spv", R_SHADER_ANIMATED);
+Rdraw_shader(painter, stripes, 0, 0, width, height, &amp;look);     /* in a paint callback */</pre>
+<p>The <a href="../shaders.html">guide to effects</a> describes everything an
+effect receives (<code>fx.uv</code>, <code>fx.pixel</code>, <code>fx.time</code>, <code>fx.pointer</code>, <code>fx.hover</code>,
+the backdrop...), its helpers and its limits.</p>
+
+<!-- ======================================================================= -->
+<h2 id="resources">18. Images and fonts</h2>
+<pre>Rid logo  = Rtexture_create_from_file("logo.png");             /* PNG, JPEG, BMP, TGA */
+Rid photo = Rtexture_create_from_file_async("photo.jpg");      /* decoded on a worker; widgets update when ready */
+Rid pixels = Rtexture_create_from_pixels(rgba, 256, 256);
+Rtexture_update(pixels, rgba, 256, 256);                       /* new content */
+Rtexture_set_filter(pixels, R_FILTER_NEAREST);                 /* pixel art */
+int w, h;
+Rtexture_get_size(logo, &amp;w, &amp;h);
+
+Rid inter = Rfont_create_from_file("Inter-Regular.ttf");
+Rfont_set_variant(inter, R_FONT_BOLD, Rfont_create_from_file("Inter-Bold.ttf"));   /* real bold for Markdown */
+Rfont_set_fallback(inter, Rfont_create_from_file("NotoSansCJK.ttf"));
+Rtheme_set_font(inter);
+float tw, th;
+Rfont_measure_text(inter, 14, "Hello", &amp;tw, &amp;th);</pre>
+<p>Subsets of Roboto and Roboto Mono (Latin-1 and Latin Extended-A) are
+embedded (<code>Rfont_get_default</code>, <code>Rfont_get_monospace</code>). A character they do
+not have is drawn with a font of the system (Segoe UI, Noto, the CJK
+fonts...), and emoji are drawn in color. <code>Rimage_decode</code> turns a picture file
+in memory into RGBA pixels, on any thread.</p>
+
+<!-- ======================================================================= -->
+<h2 id="locale">19. Translations</h2>
+
+<pre>key,en,fr,ar
+menu.file,File,Fichier,ملف
+greeting,"Hello, {0}!","Bonjour, {0} !",مرحبا {0}
+files.one,{n} file,{n} fichier,ملف واحد
+files.other,{n} files,{n} fichiers,{n} ملفات</pre>
+<pre>Rlocale_load_csv("strings.csv");
+Rlocale_set_language(Rlocale_get_system_language());     /* "fr" */
+Rlocale_set_fallback_language("en");
+
+Rlabel_set_text(label, Rtr("menu.file"));
+const char* args[] = { "Ada" };
+Rlabel_set_text(hello, Rtr_format("greeting", args, 1));
+Rlabel_set_text(count, Rtr_plural("files", 3));          /* "3 fichiers" */
+Rlabel_set_text(size, Rlocale_format_number(1234.5, 1)); /* "1 234,5" */
+Rwidget_set_text_key(button, "Text", "menu.file");       /* follows the language when it changes */</pre>
+<p>One column per language, any number of tables, plurals with the rules of
+each language (<code>.zero</code>, <code>.one</code>, <code>.two</code>, <code>.few</code>, <code>.many</code>, <code>.other</code>), and the
+tables are read again when they are saved. In XML, a text that starts with
+<code>@</code> is a key (<code>Text="@menu.file"</code>). A language written from right to left
+mirrors the layouts (<a href="#direction">Right to left</a>);
+<code>Rlocale_is_rtl</code> says whether the language in use is one, and
+<code>Rlocale_set_changed_callback</code> tells when the language changes. Text with
+both directions is ordered with the Unicode bidirectional algorithm and
+Arabic letters take their joined forms.</p>
+
+<!-- ======================================================================= -->
+<h2 id="accessibility">20. Accessibility</h2>
+<pre>Raccessibility_follow_system();                     /* text size, contrast, motion: what the system says */
+Raccessibility_set_text_scale(1.5f);                /* every text and control 50 % larger */
+Raccessibility_set_high_contrast(R_TRUE);
+Raccessibility_set_focus_always_visible(R_TRUE);
+Raccessibility_set_reduce_motion(R_TRUE);
+Raccessibility_set_color_filter(R_COLOR_FILTER_DEUTERANOPIA);   /* or R_COLOR_FILTER_SIMULATE_... */
+
+Rwidget_set_accessible_name(close_button, "Close");
+Rwidget_set_accessible_description(close_button, "Closes the document");
+Rwidget_set_accessible_role(card, R_ROLE_GROUP);
+Rwidget_set_accessible_labelled_by(field, label);
+Raccessibility_announce("File saved", R_FALSE);     /* R_TRUE: interrupts what is being said */</pre>
+<p>Every widget is seen by the screen reader of the system with its role,
+name, value and state, and can be used from it: UI Automation on Windows
+(Narrator, NVDA, JAWS), NSAccessibility on macOS (VoiceOver), AT-SPI on
+Linux (Orca). Names come from the texts and from the label in front of a
+field, so nothing has to be added for most interfaces. In XML:
+<code>AccessibleName</code>, <code>AccessibleDescription</code>, <code>AccessibleRole</code>,
+<code>AccessibleHidden</code>.</p>
+
+<!-- ======================================================================= -->
+<h2 id="viewports">21. Viewports: content of your own</h2>
+
+<p>A viewport shows what the application renders: a 3D scene, a video, an
+emulator. Three ways:</p>
+<pre>Rid view = Rwidget_create(R_WIDGET_VIEWPORT);
+
+/* 1. a texture: shown like any widget, clipped, with the interface over it */
+Rviewport_set_texture(view, texture);
+Rtexture_update(texture, rgba, width, height);            /* one copy from the CPU */
+/* zero copy:  Rvulkan_texture_create_from_image_view(image_view, sampler, w, h)   (Vulkan)
+               Rvulkan_texture_create_shared(w, h) + GL_EXT_memory_object         (OpenGL) */
+
+/* 2. a draw callback: your Vulkan commands inside the render pass of Raven (render thread) */
+Rviewport_set_draw_callback(view, on_draw, scene);
+
+/* 3. a native child window: an HWND or an X11 Window for OpenGL, Direct3D, anything */
+RNativeWindow native;
+Rviewport_set_native(view, R_TRUE);
+Rviewport_get_native_handle(view, &amp;native);
+
+Rviewport_set_resize_callback(view, on_resize, scene);    /* its size in pixels changed */
+Rviewport_set_realtime(view, R_TRUE);                     /* drawn at every frame */</pre>
+<p>To draw the interface with the Vulkan device of an engine instead of one
+created by Raven, call <code>Rvulkan_set_external_device</code> (and
+<code>Rvulkan_set_queue_lock_callbacks</code>) before <code>Rinit</code>;
+<code>Rvulkan_get_required_instance_extensions</code> and
+<code>Rvulkan_get_required_device_extensions</code> tell what the device needs.</p>
+
+<!-- ======================================================================= -->
+<h2 id="web">22. Web pages</h2>
+
+<p><code>raven_web.h</code> shows real web pages by driving a browser of the Chromium
+family that is already installed (Edge, which comes with Windows; Chrome,
+Chromium, Brave...): the page arrives as pictures in a texture, the input
+goes back, scripts run both ways. It contains no browser and needs nothing
+to build. Without a browser, a view says so and stays safe to call.</p>
+<pre>#include &lt;raven_web.h&gt;
+
+static void on_title(Rid view, const char* result, const char* error, void* user_data) {
+    if (result) printf("title: %s\n", result);      /* JSON: "\"Example Domain\"" */
+}
+static void on_message(Rid view, const char* message, void* user_data) {
+    printf("the page says %s\n", message);         /* window.raven.postMessage("saved") */
+}
+
+Rweb_register_xml();                                /* &lt;WebView Url="..."/&gt; becomes a tag */
+Rid view = Rweb_view_create();
+Rweb_view_load_url(view, "https://example.org");
+Rweb_view_run_javascript(view, "document.title", on_title, NULL);   /* promises are awaited */
+Rweb_view_set_message_callback(view, on_message, NULL);
+Rweb_view_set_zoom(view, 1.25f);</pre>
+<p><code>Rweb_is_available</code> tells whether a browser was found;
+<code>Rweb_set_browser_path</code> chooses one. Pages are pictures: they arrive a frame
+or two after what they show, which suits documents and tools.
+<code>Rweb_view_set_frames(view, R_WEB_FRAMES_JPEG, 80)</code> makes them lighter for
+pages that move a lot. The browser runs with its own temporary profile, and
+with switches that keep it from talking to anything but the sites shown.
+File choosers, downloads and printing are not available.</p>
+
+<!-- ======================================================================= -->
+<h2 id="threads">23. Threads</h2>
+
+<p>The thread of <code>Rinit</code> owns the interface. A render thread owns the GPU,
+and a job system of worker threads paints large trees in parallel and runs
+your work.</p>
+<pre>typedef struct job_t { char path[260]; char* result; } job_t;
+
+static void job_done(void* user_data) {           /* on the UI thread */
+    job_t* job = (job_t*)user_data;
+    Rtext_editor_set_text(g_editor, job-&gt;result);
+    Rmemory_free(job-&gt;result);
+    Rmemory_free(job);
+}
+
+static void job_run(void* user_data) {            /* on a worker thread: no widget here */
+    job_t* job = (job_t*)user_data;
+    job-&gt;result = load_and_format(job-&gt;path);
+    Rtask_post(job_done, job);                    /* back to the UI thread, and wakes Rwait_frame */
+}
+
+job_t* job = (job_t*)Rmemory_alloc(sizeof(job_t));
+snprintf(job-&gt;path, sizeof(job-&gt;path), "%s", path);
+Rtask_run_async(job_run, job);
+
+/* split a loop over the workers and this thread; returns when all is done */
+static void blur_rows(Ruint begin, Ruint end, void* image) { /* rows begin..end-1 */ }
+Rparallel_for(height, 16, blur_rows, image);</pre>
+<p>Viewport draw callbacks run on the render thread. <code>Rwake_up</code> wakes
+<code>Rwait_frame</code> from any thread; <code>Ris_ui_thread</code> tells where you are.</p>
+
+<!-- ======================================================================= -->
+<h2 id="memory">24. Memory</h2>
+
+<p>Raven does not call <code>malloc</code>: it takes memory from the system by regions of
+4 MB and hands it out with its own heap (TLSF: constant time, neighbours
+merged when freed). The bundled font and image decoders use it too.</p>
+<pre>static void* my_alloc(size_t size, void* user) { return engine_alloc(size, 16); }
+static void* my_realloc(void* p, size_t size, void* user) { return engine_realloc(p, size, 16); }
+static void my_free(void* p, void* user) { engine_free(p); }
+
+RAllocator mine = { my_alloc, my_realloc, my_free, NULL };
+Rset_allocator(&amp;mine);                 /* before Rinit: every block goes through your functions */
+
+RMemoryStats stats;
+Rmemory_get_stats(&amp;stats);             /* bytes in use, peak, blocks, taken from the system */
+printf("%zu bytes in %zu blocks\n", stats.used_bytes, stats.allocation_count);
+Rmemory_check();                       /* walks the heap: R_FALSE when it is corrupted */
+Rmemory_trim();                        /* gives back the regions that hold nothing */</pre>
+<p><code>Rset_allocator(Rallocator_get_system())</code>, or <code>RAVEN_ALLOCATOR=system</code>,
+uses <code>malloc</code> instead (what Valgrind and heap profilers follow; the default
+in a build with AddressSanitizer). After <code>Rshutdown</code>,
+<code>allocation_count</code> is 0: anything else is a leak of the library.</p>
+
+<!-- ======================================================================= -->
+<h2 id="languages">25. Other languages</h2>
+
+<p><code>bindings/</code> holds bindings generated from the headers by <code>tools/bindgen</code>,
+for C++, Python, Rust, Go, C#, Zig and LuaJIT. They cover everything in
+<code>Raven.h</code> (<code>raven_web.h</code>, <code>raven_vulkan.h</code> and <code>raven_backend.h</code> are C only).
+Run <code>python3 tools/bindgen/bindgen.py</code> after changing a public header; the
+test <code>bindings_up_to_date</code> checks it was done.</p>
+<p>Each language has its own chapter in <a href="bindings.html">the bindings
+manual</a>: installation, how texts, out-parameters, structures and callbacks
+look, what to watch for, tests and packages. Below, the same program in each.</p>
+
+<h3 id="lang-cpp">C++</h3>
+<pre>#include &lt;raven.hpp&gt;
+
+int main() {
+    raven::init(R_BACKEND_VULKAN);
+    auto window = raven::Window::create("Hello", 400, 200, R_WINDOW_DEFAULT);
+    auto button = raven::Button::create("Quit");
+    button.set_clicked_callback([](Rid) { raven::quit(0); });     /* any callable, captures included */
+    window.set_content(button);
+    while (raven::wait_frame(-1.0)) {}
+    raven::shutdown();
+}</pre>
+<p>A class per kind of handle, whose member functions are the C functions
+of that object (<code>Rbutton_set_text(button, "OK")</code> is <code>button.set_text("OK")</code>);
+a class is the size of a handle and does not own what it names.</p>
+
+<h3 id="lang-python">Python</h3>
+<pre>import raven as r
+
+r.Rinit(r.R_BACKEND_VULKAN)
+window = r.Rwindow_create_from_xml('&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;')
+r.Raction_bind("quit", lambda sender, action, user: r.Rquit(0))
+while r.Rwait_frame(-1.0):
+    pass
+r.Rshutdown()</pre>
+<p><code>ctypes</code>, no compilation; the shared library is found through
+<code>RAVEN_LIBRARY</code> or the usual places.</p>
+
+<h3 id="lang-rust">Rust</h3>
+<pre>use raven::*;
+
+fn main() {
+    unsafe { Rinit(R_BACKEND_VULKAN) };
+    let _window = window_from_xml(r#"&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;"#);
+    action_bind("quit", |_, _| unsafe { Rquit(0) });
+    while unsafe { Rwait_frame(-1.0) } != 0 {}
+    unsafe { Rshutdown() };
+}</pre>
+<p>The crate <code>raven-gui</code> (imported as <code>raven</code>): the C API as it is, plus
+<code>text</code>, <code>cstr</code>, <code>action_bind</code>, <code>window_from_xml</code> and <code>widget_find</code>. Its
+<code>build.rs</code> links the library from <code>RAVEN_LIB_DIR</code> (<code>RAVEN_STATIC=1</code> for the
+static one).</p>
+
+<h3 id="lang-go">Go</h3>
+<pre>package main
+
+import (
+    "runtime"
+    "raven/raven"
+)
+
+func main() {
+    runtime.LockOSThread()             // Raven belongs to the thread that started it
+    raven.Init(raven.R_BACKEND_VULKAN)
+    raven.WindowCreateFromXml(`&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;`)
+    raven.ActionBind("quit", func(sender raven.ID, action string) { raven.Quit(0) })
+    for raven.WaitFrame(-1.0) != 0 {
+    }
+    raven.Shutdown()
+}</pre>
+<p><code>Rwindow_set_title</code> is <code>WindowSetTitle</code>; texts are strings; what a C
+function writes through a pointer is a result. Build with
+<code>CGO_CFLAGS="-I&lt;raven&gt;/include"</code> and <code>CGO_LDFLAGS="-L&lt;folder of the library&gt;"</code>.</p>
+
+<h3 id="lang-csharp">C#</h3>
+<pre>using Raven;
+
+R.Rinit(RBackend.R_BACKEND_VULKAN);
+uint window = R.Rwindow_create_from_xml("&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;");
+R.Raction_bind("quit", R.Keep&lt;RActionCallback&gt;((sender, action, user) =&gt; R.Rquit(0)), IntPtr.Zero);
+while (R.Rwait_frame(-1.0) != 0) { }
+R.Rshutdown();</pre>
+<p>P/Invoke. <code>R.Keep</code> keeps a delegate away from the garbage collector while
+the library may call it; the shared library goes beside the program.</p>
+
+<h3 id="lang-zig">Zig</h3>
+<pre>const r = @import("raven.zig");
+
+pub fn main() void {
+    _ = r.Rinit(r.R_BACKEND_VULKAN);
+    const xml = "&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;";
+    _ = r.Rwindow_create_from_xml(xml, xml.len);
+    r.Raction_bind("quit", quit, null);
+    while (r.Rwait_frame(-1.0) != 0) {}
+    r.Rshutdown();
+}
+
+fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void {
+    _ = sender; _ = action; _ = user_data;
+    r.Rquit(0);
+}</pre>
+
+<h3 id="lang-lua">LuaJIT</h3>
+<pre>local r = require("raven")
+local ffi = require("ffi")
+
+r.Rinit(r.R_BACKEND_VULKAN)
+local xml = [[&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;]]
+r.Rwindow_create_from_xml(xml, #xml)
+local quit = ffi.cast("RActionCallback", function() r.Rquit(0) end)   -- keep it referenced
+r.Raction_bind("quit", quit, nil)
+while r.Rwait_frame(-1.0) ~= 0 do end
+r.Rshutdown()</pre>
+
+<!-- ======================================================================= -->
+<h2 id="ide">26. The designer</h2>
+
+<p><code>raven_designer [folder | interface.xml]</code> makes the interfaces of Raven
+(<code>.xml</code>) by looking at them, in a folder. It is a tool, not an IDE: nothing is
+built nor compiled there, and it has no code editor. The program that loads the
+interfaces is written in <a href="#anylanguage">any language</a>, with its own tools.
+It opens on a start page: open a folder, open an interface, the recent folders.</p>
+
+<h3 id="ide-tabs">Four tabs</h3>
+<p>Each kind of file has its own tab at the top of the window, and each tab keeps its own
+file open and its own undo; <b>Ctrl+1</b> to <b>Ctrl+4</b> switch:</p>
+<ul>
+<li><b>Window</b>: the interfaces of the folder (a <code>&lt;Window&gt;</code>, a panel, a form), in the visual editor.</li>
+<li><b>Widget</b>: the widget libraries (<code>&lt;Widgets&gt;</code> with <code>&lt;Widget Name="Card"&gt;</code>...). The preview shows one of each tag declared; the windows of the folder can then use them.</li>
+<li><b>Theme</b>: the <a href="#theme-editor">theme editor</a> itself, built in: the themes of the folder in a list, every color, size and rule, its preview and its contrast check. Saved, the windows of the folder wear it.</li>
+<li><b>Translations</b>: the tables (<code>.csv</code>) as a grid, one row per key, one column per language; what is typed shows in the preview at once.</li>
+</ul>
+<p><b>Files</b> shows what the tab in front works on, sub-folders included. A right click:
+open, new (from a template, in the folder), delete. The folder is followed live: a file
+another program writes shows at once; the file open is read again when it has no unsaved
+changes here; a theme or a table that changes changes the preview. The combo at the top
+right dresses the designer itself: a look of Raven, or a theme of the folder.</p>
+
+<h3 id="ide-visual">The visual editor</h3>
+<p>The same document, five ways, kept in step:</p>
+<ul>
+<li><b>Widgets</b>: what can be added (the tags of the library and those the folder declares). Drag one into the preview, or double click to add it inside the selection.</li>
+<li><b>Tree</b>: the elements; move up, down, out, in; duplicate, delete, wrap, unwrap; copy and paste as XML.</li>
+<li><b>Preview</b>: the interface built for real. A click selects (an outline, the inside left clear); drag an element to move it, a line shows where it goes and Escape cancels. With <i>Use it</i> (F6) it reacts as the interface will.</li>
+<li><b>Properties</b>: every attribute of the selection, by kind of value.</li>
+<li><b>XML</b>: the text, with completion of the tags, the attributes and the <code>@keys</code>; a mistake is underlined and listed in <b>Problems</b> while the last good version stays shown.</li>
+</ul>
+
+<h3 id="ide-preview">The preview: devices, themes, languages</h3>
+<p>Above the preview: the size it is shown in (the size the XML gives, a phone, a phone
+on its side, a tablet, a laptop, a desktop), the look or theme it wears (the looks of
+Raven, and the themes of the folder), and its language (the columns of the tables,
+right to left included). <b>Open in a window</b> (or F7) shows the interface in a
+window of its own, at its real size, following every change live; its bar chooses
+the device, the theme and the language, and goes back to the designer.</p>
+
+<h3 id="ide-island">The island: Ctrl+K</h3>
+<p>The island at the top of the window is the command center of the designer. It
+unfolds when the pointer is over it.
+Folded, it says which file is open and whether it has unsaved changes, what is
+selected, and how many problems the interface has. <b>Ctrl+K</b> unfolds it on one
+search for everything: a widget to add inside the selection (<code>add slider</code>), an
+interface to open (<code>open settings</code>), a tab, a command (<code>wrap in a vbox</code>,
+<code>preview in a window</code>, <code>undo</code>, <code>new theme</code>...), a language or a theme for the
+preview. Up and Down choose, Enter does it, Escape folds it. Below the search,
+the Name and the Text of the selection are edited in place, with duplicate, wrap,
+delete and run; the first problem is one click away.</p>
+
+<h3 id="ide-scripts">Driving it from a script</h3>
+<p>The designer can run without a window, which is how its tests work:</p>
+<pre>raven_designer --null --frames 2 --script "open /tmp/ui f 2 search add~button expect &lt;Button search wrap~in~a~vbox device 1 language fr do file.save"
+raven_designer --null --frames 2 --script "open /tmp/ui f 2 dropon Slider 0/0 after moveto 0/0 0/1 after do view.run tab theme"
+raven_designer --null --frames 1 --script "open /tmp/ui fuzz 3000 42"</pre>
+<p>The commands are listed at the top of <code>designer_script</code> in
+<code>tools/designer/main.c</code>; <code>fuzz STEPS SEED</code> clicks, drags and types at
+random (the same seed replays the same run), to look for crashes under a sanitizer.</p>
+
+<!-- ======================================================================= -->
+<h2 id="testing">27. Tests, headless runs and custom backends</h2>
+
+<pre>RInitDesc desc = { 0 };
+desc.backend = R_BACKEND_NULL;        /* draws nothing */
+desc.headless = R_TRUE;               /* no window system */
+Rinit_ex(&amp;desc);
+
+Rid window = Rwindow_create_from_xml_file("ui/main.xml");
+Rset_animations_enabled(R_FALSE);                     /* read the state right after an input */
+Rwindow_inject_mouse_move(window, 120, 40);
+Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_TRUE);
+Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
+Rwindow_inject_key(window, R_KEY_S, R_TRUE, R_MOD_CTRL);
+Rwindow_inject_text(window, "hello");
+Rdraw_frame();</pre>
+<p>A rendering backend is a table of functions (<code>RBackendVTable</code> in
+<code>raven_backend.h</code>) given to <code>Rbackend_register</code> before <code>Rinit</code> with
+<code>R_BACKEND_CUSTOM</code>: it receives each frame as instances of rounded
+rectangles and draw commands. <code>src/render/null/null_backend.c</code> is a
+template. <code>Rwindow_get_frame_stats</code> gives the times of layout, paint and
+render of the last frame.</p>
+
+<!-- ======================================================================= -->
+<h2 id="env">28. Environment variables</h2>
+<div class="tw"><table>
+<tr><th>Variable</th><th></th></tr>
+<tr><td><code>RAVEN_LIVE_RELOAD=0</code></td><td>files are not watched (<a href="#xml-reload">live reload</a>)</td></tr>
+<tr><td><code>RAVEN_ALLOCATOR=system</code></td><td><code>malloc</code> instead of the heap of Raven</td></tr>
+<tr><td><code>RAVEN_ACCESSIBILITY=1</code></td><td>Linux: expose the interface on AT-SPI even when no screen reader is announced</td></tr>
+<tr><td><code>RAVEN_X11_COMPOSITED=0</code> / <code>1</code></td><td>Linux: tells whether a compositor runs, instead of asking</td></tr>
+<tr><td><code>RAVEN_WEB_BROWSER</code></td><td>the browser <code>raven_web</code> starts</td></tr>
+<tr><td><code>RAVEN_WEB_ARGUMENTS</code></td><td>switches added to its command line</td></tr>
+<tr><td><code>RAVEN_WEB_NO_SANDBOX</code></td><td>starts it with <code>--no-sandbox</code> (containers)</td></tr>
+<tr><td><code>RAVEN_WEB_TRACE=1</code>, <code>RAVEN_WEB_DEBUG=1</code></td><td>print the messages of the browser; let its errors through</td></tr>
+<tr><td><code>RAVEN_WINDOW_SYSTEM=x11</code> / <code>wayland</code></td><td>Linux: the window system, instead of choosing (<a href="#build-wayland">Wayland and X11</a>)</td></tr>
+<tr><td><code>RAVEN_APP_ID</code></td><td>Wayland: the name of the application for the desktop (default: the name of the executable)</td></tr>
+<tr><td><code>RAVEN_LIBRARY</code></td><td>bindings: the path of the shared library</td></tr>
+<tr><td><code>RAVEN_LIB_DIR</code></td><td>Rust (<code>build.rs</code>) and Zig (<code>build.zig</code>): the folder of the library</td></tr>
+<tr><td><code>RAVEN_STATIC=1</code></td><td>Rust: link the static library instead of the shared one</td></tr>
+</table></div>
+
+<!-- ======================================================================= -->
+<h2 id="limits">29. What Raven does not do yet</h2>
+<ul>
+<li>Wayland: placing windows, keeping one above the others and fading a whole window (the protocol does not let an application do it); input methods (text-input-v3) for Chinese, Japanese and Korean.</li>
+<li>Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic joining is done. The placement of the window of an input method.</li>
+<li>In the text editor: several cursors, search and replace, folding, a language server client.</li>
+<li>Dragging from a Raven window to another application. Glass over a native child window.</li>
+<li>Mipmaps, a sub-allocator of GPU memory, recovery from a lost Vulkan device.</li>
+<li>Node graph: knots, groups and comments, a minimap, undo (the application holds the model and its history). Timeline: nested tracks, curves between keys. Markdown: HTML, footnotes.</li>
+</ul>
+
+<p>Questions, issues and contributions: <a href="https://github.com/oscar-soirey/Raven">github.com/oscar-soirey/Raven</a>.
+Raven is open source under the Apache License 2.0: use it for anything,
+commercial included; what you make with it is yours.</p>
+
+<!-- ======================================================================= -->
+<h2 id="releases">30. Downloads and contributors</h2>
+
+<p>This section is read live from <a href="https://github.com/oscar-soirey/Raven">GitHub</a>
+when the page opens.</p>
+
+<h3 id="releases-list">Versions</h3>
+<div id="gh-releases"><p class="gh-status">Loading the versions...</p></div>
+
+<h3 id="contributors">Contributors</h3>
+<div id="gh-contributors"><p class="gh-status">Loading the contributors...</p></div>
+
+<noscript><p>This section needs JavaScript. See
+<a href="https://github.com/oscar-soirey/Raven/releases">the releases</a> and
+<a href="https://github.com/oscar-soirey/Raven/graphs/contributors">the contributors</a>
+on GitHub.</p></noscript>
+
+<p class="foot">Raven 0.1 &mdash; Apache License 2.0 &mdash; <a href="../index.html">raven home</a> &middot; <a href="https://github.com/oscar-soirey/Raven">source</a></p>
+<div class="pager"><a class="next" href="xml.html"><small>next</small>XML reference</a></div>
+</article></main>
+</div>
+<script src="docs.js"></script>
+<script>
+(function () {
+  var KW = "if else for while do switch case default break continue return goto struct union enum typedef static const extern inline void int char float double long short unsigned signed bool sizeof volatile fn let mut pub impl trait match loop def class import lambda func package var type interface nil null true false NULL None True False self this new delete local function";
+  var re = new RegExp([
+    "(\\/\\*[\\s\\S]*?\\*\\/|\\/\\/[^\\n]*|<!--[\\s\\S]*?-->)",          // 1 commentaire
+    "(\"(?:\\\\.|[^\"\\\\\\n])*\"|'(?:\\\\.|[^'\\\\\\n]){0,40}')",        // 2 chaine
+    "(^[ \\t]*#[ \\t]*[a-z_]+)",                                           // 3 preprocesseur
+    "((?<![\\w)\\]])<\\/?[A-Za-z][\\w:.-]*)",                              // 4 balise XML
+    "(\\b(?:0x[0-9a-fA-F]+|\\d+(?:\\.\\d+)?)[fFuUlL]*\\b)",                // 5 nombre
+    "(\\b(?:" + KW.split(" ").join("|") + ")\\b)"                          // 6 mot-cle
+  ].join("|"), "gm");
+  var cls = [null, "tk-c", "tk-s", "tk-p", "tk-t", "tk-n", "tk-k"];
+
+  function paint(node) {
+    var text = node.nodeValue, last = 0, m, frag = document.createDocumentFragment();
+    re.lastIndex = 0;
+    while ((m = re.exec(text))) {
+      var i = 1; while (!m[i]) i++;
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      var sp = document.createElement("span");
+      sp.className = cls[i]; sp.textContent = m[0];
+      frag.appendChild(sp);
+      last = m.index + m[0].length;
+      if (m[0].length === 0) re.lastIndex++;
+    }
+    if (!last) return;
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    node.parentNode.replaceChild(frag, node);
+  }
+
+  try {
+    document.querySelectorAll("pre:not(.sig)").forEach(function (pre) {
+      var w = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT, null), nodes = [], n;
+      while ((n = w.nextNode())) { nodes.push(n); }
+      nodes.forEach(paint);
+    });
+  } catch (e) { /* sans coloration si le navigateur est trop ancien */ }
+})();
+</script>
+<script>
+(function () {
+  var REPO = "oscar-soirey/Raven";
+  var API = "https://api.github.com/repos/" + REPO;
+  var TTL = 10 * 60 * 1000;   /* the API allows 60 calls an hour without a key: keep the answers 10 minutes */
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+  function link(href, text) {
+    var a = el("a", null, text); a.href = href; a.rel = "noopener"; return a;
+  }
+  function size(n) {
+    if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+    if (n >= 1024) return Math.round(n / 1024) + " KB";
+    return n + " B";
+  }
+  function date(iso) {
+    try { return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }); }
+    catch (e) { return iso; }
+  }
+  function get(path) {
+    var key = "raven-gh:" + path;
+    try {
+      var c = JSON.parse(sessionStorage.getItem(key) || "null");
+      if (c && Date.now() - c.t < TTL) return Promise.resolve(c.d);
+    } catch (e) {}
+    return fetch(API + path, { headers: { "Accept": "application/vnd.github+json" } }).then(function (r) {
+      if (!r.ok) {
+        var err = new Error("HTTP " + r.status);
+        err.status = r.status;
+        err.limited = r.status === 403 || r.status === 429;
+        throw err;
+      }
+      return r.json();
+    }).then(function (d) {
+      try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {}
+      return d;
+    });
+  }
+  function fail(box, what, e) {
+    box.textContent = "";
+    var p = el("p", "gh-status", e && e.limited
+      ? "GitHub is limiting requests from this network for now. Try again later, or see "
+      : "The " + what + " could not be loaded. See ");
+    p.appendChild(link("https://github.com/" + REPO + (what === "contributors" ? "/graphs/contributors" : "/releases"), "GitHub"));
+    p.appendChild(document.createTextNode("."));
+    box.appendChild(p);
+  }
+
+  /* ---- versions ---- */
+  function renderRelease(r, latest) {
+    var d = el("div", "gh-rel");
+    var h = el("h4", null, r.name || r.tag_name);
+    if (r === latest) h.appendChild(el("span", "gh-tag latest", "latest"));
+    if (r.prerelease) h.appendChild(el("span", "gh-tag pre", "pre-release"));
+    d.appendChild(h);
+
+    var meta = el("p", "meta", r.tag_name + " \u00b7 " + date(r.published_at || r.created_at) + " \u00b7 ");
+    meta.appendChild(link(r.html_url, "release notes"));
+    d.appendChild(meta);
+
+    var assets = r.assets || [];
+    if (assets.length) {
+      var t = el("table"), head = el("tr");
+      ["File", "Size", "Downloads"].forEach(function (x, i) { head.appendChild(el("th", i ? "num" : null, x)); });
+      t.appendChild(head);
+      assets.forEach(function (a) {
+        var tr = el("tr"), td = el("td");
+        td.appendChild(link(a.browser_download_url, a.name));
+        tr.appendChild(td);
+        tr.appendChild(el("td", "num", size(a.size)));
+        tr.appendChild(el("td", "num", String(a.download_count)));
+        t.appendChild(tr);
+      });
+      d.appendChild(t);
+    } else {
+      d.appendChild(el("p", "meta", "No compiled package for this version."));
+    }
+    var src = el("p", "meta", "Source code: ");
+    src.appendChild(link(r.zipball_url, "zip"));
+    src.appendChild(document.createTextNode(" \u00b7 "));
+    src.appendChild(link(r.tarball_url, "tar.gz"));
+    d.appendChild(src);
+    return d;
+  }
+
+  var relBox = document.getElementById("gh-releases");
+  if (relBox) get("/releases?per_page=10").then(function (list) {
+    list = list.filter(function (r) { return !r.draft; });
+    relBox.textContent = "";
+    if (!list.length) {
+      /* no release published yet: fall back on the tags */
+      return get("/tags?per_page=10").then(function (tags) {
+        if (!tags.length) {
+          var p = el("p", null, "No version has been published yet. Build Raven from the ");
+          p.appendChild(link("https://github.com/" + REPO, "sources"));
+          p.appendChild(document.createTextNode(" (see "));
+          p.appendChild(link("#build", "Building Raven"));
+          p.appendChild(document.createTextNode(")."));
+          relBox.appendChild(p);
+          return;
+        }
+        relBox.appendChild(el("p", "gh-note", "No packaged release yet; these are the tagged versions."));
+        var ul = el("ul");
+        tags.forEach(function (t) {
+          var li = el("li", null, t.name + ": ");
+          li.appendChild(link(t.zipball_url, "zip"));
+          li.appendChild(document.createTextNode(" \u00b7 "));
+          li.appendChild(link(t.tarball_url, "tar.gz"));
+          ul.appendChild(li);
+        });
+        relBox.appendChild(ul);
+      });
+    }
+    var latest = list.filter(function (r) { return !r.prerelease; })[0] || list[0];
+    list.forEach(function (r) { relBox.appendChild(renderRelease(r, latest)); });
+    var more = el("p", "gh-note", "All versions: ");
+    more.appendChild(link("https://github.com/" + REPO + "/releases", "github.com/" + REPO + "/releases"));
+    relBox.appendChild(more);
+  }).catch(function (e) { fail(relBox, "versions", e); });
+
+  /* ---- contributors ---- */
+  var conBox = document.getElementById("gh-contributors");
+  if (conBox) get("/contributors?per_page=100").then(function (list) {
+    conBox.textContent = "";
+    if (!list || !list.length) { conBox.appendChild(el("p", null, "No contributor yet.")); return; }
+    var ul = el("ul", "contrib");
+    list.forEach(function (u) {
+      var li = el("li");
+      var img = el("img");
+      img.src = u.avatar_url + (u.avatar_url.indexOf("?") < 0 ? "?" : "&") + "s=72";
+      img.alt = ""; img.width = 36; img.height = 36; img.loading = "lazy";
+      li.appendChild(img);
+      var box = el("div"); box.style.minWidth = "0";
+      box.appendChild(link(u.html_url, u.login));
+      box.appendChild(el("small", null, u.contributions + (u.contributions === 1 ? " commit" : " commits")));
+      li.appendChild(box);
+      ul.appendChild(li);
+    });
+    conBox.appendChild(ul);
+    var note = el("p", "gh-note", list.length + (list.length === 1 ? " person" : " people") + " so far. ");
+    note.appendChild(link("https://github.com/" + REPO + "/graphs/contributors", "Details on GitHub"));
+    note.appendChild(document.createTextNode("."));
+    conBox.appendChild(note);
+  }).catch(function (e) { fail(conBox, "contributors", e); });
+})();
+</script>
+</body>
+</html>
