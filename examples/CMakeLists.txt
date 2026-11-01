@@ -15,6 +15,8 @@
 #   overlay          a window that is seen through, and the four ways to blur what is behind
 #   effects          the effects (shaders) of Raven, and two written by the application
 #   browser          web pages in the interface, with the optional library raven_web
+#   music            a music player (no sound): an interface in several XML files,
+#                    tags made by the application, themes, the accent of the cover, an island
 #   viewport_vulkan  a Vulkan scene shown in the UI (offscreen image + in-pass draw)
 #   viewport_opengl  an OpenGL scene shown in a native child window
 
@@ -43,6 +45,11 @@ raven_add_example(studio studio/main.c studio/studio.xml)
 raven_add_example(themes themes/main.c themes/themes.xml themes/ocean.xml themes/paper.xml themes/tweaks.xml themes/notes.md)
 raven_add_example(overlay overlay/main.c overlay/overlay.xml)
 raven_add_example(effects effects/main.c effects/effects.xml effects/wave.frag effects/liquid.frag)
+raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
+	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
+	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml
+	music/ui/nowplaying.xml music/ui/player.xml music/ui/island.xml
+	music/themes/nocturne.xml music/themes/aurora.xml music/themes/daylight.xml music/themes/styles.xml)
 
 # Web pages in the interface: needs the optional library (RAVEN_BUILD_WEB).
 if(TARGET raven_web)

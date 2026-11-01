@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the settings. The look of the player can be any
+  look of Raven or any of the three themes of the player (themes/); the
+  island offers the same choice.
+-->
+<ScrollBox Name="page.settings">
+	<VBox Spacing="18" MaxWidth="820" Slot.Padding="32,24,32,40">
+		<Heading Text="Settings" TextSize="30"/>
+
+		<Label Class="eyebrow" Text="APPEARANCE" Slot.Padding="0,8,0,0"/>
+		<SettingRow Title="Look" Description="A theme of the player, or a look of Raven: Windows, macOS, GNOME, glass, high contrast.">
+			<ComboBox Name="settings.look" OnChanged="look.choose" Width="260"/>
+		</SettingRow>
+		<SettingRow Title="Accent from the cover" Description="The color of the controls follows the cover of what plays.">
+			<Checkbox Name="settings.follow" Style="Switch" Checked="true" OnChanged="settings.follow"/>
+		</SettingRow>
+		<SettingRow Title="Accent" Description="The color of the controls, when it does not follow the cover.">
+			<ColorPicker Name="settings.accent" Popup="true" Alpha="false" Color="#B79CFF" OnChanged="settings.accent"/>
+		</SettingRow>
+		<SettingRow Title="Background" Description="What moves behind the panels, in the colors of the cover.">
+			<ComboBox Name="settings.effect" Items="Mesh|Aurora|Plasma|Spotlight|Shimmer|None" Selected="0" OnChanged="settings.effect" Width="160"/>
+		</SettingRow>
+		<SettingRow Title="Animate the background" Description="Off, the background stays still and the window draws only when something changes.">
+			<Checkbox Name="settings.animate" Style="Switch" Checked="true" OnChanged="settings.animate"/>
+		</SettingRow>
+		<SettingRow Title="Now playing panel" Description="The panel on the right, with the cover and what comes next.">
+			<Checkbox Name="settings.panel" Style="Switch" Checked="true" OnChanged="settings.panel"/>
+		</SettingRow>
+
+		<Separator/>
+		<Label Class="eyebrow" Text="PLAYBACK"/>
+		<SettingRow Title="Crossfade" Description="Songs fade into each other.">
+			<HBox Spacing="10">
+				<Slider Name="settings.crossfade" Min="0" Max="12" Step="1" Value="5" Width="180" OnChanged="settings.crossfade" Slot.VAlign="Center"/>
+				<Label Name="settings.crossfade.value" Text="5 s" Width="36" Slot.VAlign="Center"/>
+			</HBox>
+		</SettingRow>
+		<SettingRow Title="Normalize the volume" Description="The same loudness for every song.">
+			<Checkbox Style="Switch" Checked="true"/>
+		</SettingRow>
+		<SettingRow Title="Streaming quality" Description="Nothing is streamed: the songs of this player are made up.">
+			<ComboBox Items="Low|Normal|High|Very high" Selected="2" Width="160"/>
+		</SettingRow>
+
+		<Separator/>
+		<Label Class="eyebrow" Text="ABOUT"/>
+		<Border Class="surface" CornerRadius="12" Padding="18">
+			<Label Markdown="true" Wrap="true">**Raven Music** is a showcase of Raven: no server, no sound, only the interface.
+
+- every part is an XML file of `ui/`, brought in with `&lt;Include&gt;`
+- the cards, the rows and the tiles are tags declared in `widgets.xml`
+- `&lt;Icon&gt;`, `&lt;Cover&gt;`, `&lt;Visualizer&gt;` and `&lt;Heading&gt;` are made by the application
+- the themes are files of `themes/`; the accent follows the cover playing
+- the island at the top lives in the notch of a MacBook</Label>
+		</Border>
+	</VBox>
+</ScrollBox>

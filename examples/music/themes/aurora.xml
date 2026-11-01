@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: glass. The panels are frosted glass that bends
+  the moving colors of the background; the rest follows Nocturne.
+-->
+<Theme Name="Aurora glass" Base="GlassDark" Accent="#7DD3FC" CornerRadius="12">
+	<Colors Text="#F7F7FB" TextPlaceholder="#B4B4C6" Separator="#FFFFFF1F" RowHovered="#FFFFFF14" Track="#FFFFFF38"/>
+	<Glass Frost="0.7" Refraction="0.6" Saturation="1.5"/>
+	<Metrics ControlHeight="34" FontSize="14" SliderHandleSize="12"/>
+
+	<Style Class="surface" Material="FrostedGlass"/>
+	<Style Class="bar" Material="FrostedGlass"/>
+
+	<Style Widget="Label" Class="muted" Text="#C8C8D8"/>
+	<Style Widget="Label" Class="eyebrow" Text="#E4E4EE" FontSize="12"/>
+
+	<Style Widget="Button" Class="nav" Text="#C8C8D8"/>
+	<Style Widget="Button" Class="active" Text="#FFFFFF"/>
+	<Style Widget="Button" Class="icon" Text="#DCDCE8" CornerRadius="100"/>
+	<Style Widget="Button" Class="round" CornerRadius="100"/>
+	<Style Widget="Button" Class="white" Accent="#F7F7FB" AccentHovered="#FFFFFF" AccentPressed="#DCDCE6" AccentText="#0A0A10"/>
+	<Style Widget="Button" Class="chip" CornerRadius="100"/>
+	<Style Widget="Button" Class="on" Control="#F7F7FB" ControlHovered="#FFFFFF" Text="#0A0A10"/>
+	<Style Widget="Button" Class="card" CornerRadius="14"/>
+	<Style Widget="Button" Class="quick" CornerRadius="8"/>
+	<Style Widget="Button" Class="row" CornerRadius="8"/>
+	<Style Widget="Button" Class="link" Text="#C8C8D8"/>
+	<Style Class="search" Material="FrostedGlass"/>
+	<Style Widget="TextInput" Class="bare" Input="#00000000" ControlBorder="#00000000" Border="#00000000" Focus="#00000000" Material="Solid"/>
+	<Style Class="card-flat" Background="#FFFFFF10"/>
+	<Style Widget="Button" Class="top" CornerRadius="14"/>
+</Theme>

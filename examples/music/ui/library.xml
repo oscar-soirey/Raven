@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: everything in your library, as cards.
+-->
+<ScrollBox Name="page.library">
+	<VBox Spacing="14" Slot.Padding="24,20,24,32">
+		<Heading Text="Your library" TextSize="30"/>
+		<Label Name="library.summary" Class="muted"/>
+		<SectionHeader Title="Playlists"/>
+		<WrapBox Name="library.playlists" Spacing="4"/>
+		<SectionHeader Title="Albums"/>
+		<WrapBox Name="library.albums" Spacing="4"/>
+	</VBox>
+</ScrollBox>

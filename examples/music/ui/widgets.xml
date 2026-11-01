@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the tags of the player.
+
+  Each <Widget Name="..."> is a new tag; its other attributes are its
+  parameters, {...} is computed from them. The pages use these tags, and so
+  does main.c: the rows, the cards and the tiles it adds are written as
+  <TrackRow .../>, <AlbumCard .../> and given to Rwidget_create_from_xml.
+
+  <Icon>, <Cover>, <Visualizer> and <Heading> are made by the application
+  (tags.c, Rxml_register_tag): they are used here like the others.
+-->
+<Widgets>
+	<!-- a round button with a picture: the transport buttons, the heart... -->
+	<Widget Name="IconButton" Glyph="more" Action="" Tip="" Size="20" IconName="" Classes="">
+		<Button Style="Flat" Class="icon {Classes}" OnClicked="{Action}" Tooltip="{Tip}" Cursor="Hand" AccessibleName="{Tip}">
+			<Icon Name="{IconName}" Glyph="{Glyph}" Size="{Size}"/>
+		</Button>
+	</Widget>
+
+	<!-- the big round button: play, pause -->
+	<Widget Name="PlayButton" Action="player.toggle" Size="48" IconSize="22" IconName="" Classes="">
+		<Button Style="Primary" Class="round {Classes}" Width="{Size}" Height="{Size}" OnClicked="{Action}" Tooltip="Play / pause (Space)" Cursor="Hand" AccessibleName="Play">
+			<Icon Name="{IconName}" Glyph="play" Size="{IconSize}" Slot.HAlign="Center" Slot.VAlign="Center"/>
+		</Button>
+	</Widget>
+
+	<!-- an entry of the side bar -->
+	<Widget Name="NavItem" Glyph="home" Text="" Action="">
+		<Button Style="Flat" Class="nav" OnClicked="{Action}" Cursor="Hand" AccessibleName="{Text}">
+			<HBox Spacing="16" Slot.Padding="6,4">
+				<Icon Glyph="{Glyph}" Size="24" Slot.VAlign="Center"/>
+				<Heading Text="{Text}" TextSize="15" Slot.VAlign="Center"/>
+			</HBox>
+		</Button>
+	</Widget>
+
+	<!-- a small filter, rounded -->
+	<Widget Name="Chip" Text="" Action="" Active="false">
+		<Button Class="{Active ? 'chip on' : 'chip'}" Text="{Text}" OnClicked="{Action}" Cursor="Hand"/>
+	</Widget>
+
+	<!-- the title of a row of cards, and its link -->
+	<Widget Name="SectionHeader" Title="" Link="Show all" Action="">
+		<HBox Spacing="8" Slot.Padding="0,10,0,2">
+			<Heading Text="{Title}" TextSize="22" Slot.Fill="1" Slot.VAlign="Bottom"/>
+			<Button If="{!empty(Action)}" Style="Flat" Class="link" Text="{Link}" OnClicked="{Action}" Cursor="Hand" Slot.VAlign="Bottom"/>
+		</HBox>
+	</Widget>
+
+	<!-- an album or a playlist as a card -->
+	<Widget Name="AlbumCard" Album="0" Title="" Subtitle="" Action="" Round="false">
+		<Button Style="Flat" Class="card" OnClicked="{Action}" Width="188" Clip="true" Cursor="Hand" AccessibleName="{Title}">
+			<VBox Spacing="6" Slot.Padding="10">
+				<Cover Album="{Album}" Size="168" CornerRadius="{Round ? 84 : 8}"/>
+				<Heading Text="{Title}" TextSize="14" Slot.Padding="2,6,0,0"/>
+				<Label Text="{Subtitle}" Class="muted" TextSize="13" Wrap="true" Slot.Padding="2,0"/>
+			</VBox>
+		</Button>
+	</Widget>
+
+	<!-- the tiles at the top of Home: a cover and a name -->
+	<Widget Name="QuickCard" Album="0" Title="" Action="" Key="">
+		<Button Style="Default" Class="quick" OnClicked="{Action}" Height="60" Clip="true" Cursor="Hand" AccessibleName="{Title}">
+			<HBox Spacing="12">
+				<Cover Album="{Album}" Size="60" CornerRadius="6"/>
+				<Heading Text="{Title}" TextSize="14" Slot.Fill="1" Slot.VAlign="Center"/>
+				<Visualizer Name="quick.vis.{Key}" Bars="4" Width="16" Height="14" Visibility="Collapsed" Slot.VAlign="Center" Slot.Padding="0,0,12,0"/>
+			</HBox>
+		</Button>
+	</Widget>
+
+	<!-- one song in a list: number, cover, title and artist, album, heart, length -->
+	<Widget Name="TrackRow" Track="0" Number="1" Title="" Artist="" Album="" AlbumIndex="0" Time="0:00" Liked="false" ShowCover="true" ShowAlbum="true">
+		<Button Style="Flat" Class="row" OnClicked="track.play.{Track}" Height="56" Clip="true" AccessibleName="{Title}, {Artist}">
+			<Grid Columns="{ShowAlbum ? '0,4,3,0,0' : '0,1,0,0,0'}" Spacing="14" Slot.Padding="6,0">
+				<Label Text="{Number}" Class="muted" Width="26" TextAlign="Right" Slot.Column="0" Slot.VAlign="Center"/>
+				<HBox Spacing="12" Width="1" Slot.Column="1" Slot.VAlign="Center">
+					<Cover If="{ShowCover}" Album="{AlbumIndex}" Size="40" CornerRadius="4"/>
+					<VBox Spacing="2" Slot.VAlign="Center">
+						<Label Text="{Title}" TextSize="15"/>
+						<Label Text="{Artist}" Class="muted" TextSize="13"/>
+					</VBox>
+				</HBox>
+				<Label Text="{ShowAlbum ? Album : ''}" Class="muted" TextSize="13" Width="1" Slot.Column="2" Slot.VAlign="Center"/>
+				<Button Style="Flat" Class="icon" OnClicked="track.like.{Track}" Tooltip="{Liked ? 'Remove from Liked songs' : 'Save to Liked songs'}" Slot.Column="3" Slot.VAlign="Center">
+					<Icon Name="row.heart" Glyph="{Liked ? 'heart-filled' : 'heart'}" Size="16" Opacity="{Liked ? 1 : 0.55}"/>
+				</Button>
+				<Label Text="{Time}" Class="muted" TextSize="13" Width="44" TextAlign="Right" Slot.Column="4" Slot.VAlign="Center"/>
+			</Grid>
+		</Button>
+	</Widget>
+
+	<!-- an entry of "Your library" in the side bar -->
+	<Widget Name="LibraryRow" Album="0" Title="" Subtitle="" Action="" Round="false">
+		<Button Style="Flat" Class="row" OnClicked="{Action}" Clip="true" Cursor="Hand" AccessibleName="{Title}">
+			<HBox Spacing="12" Slot.Padding="4">
+				<Cover Album="{Album}" Size="46" CornerRadius="{Round ? 23 : 5}"/>
+				<VBox Spacing="3" Slot.VAlign="Center">
+					<Label Text="{Title}" TextSize="14"/>
+					<Label Text="{Subtitle}" Class="muted" TextSize="12"/>
+				</VBox>
+			</HBox>
+		</Button>
+	</Widget>
+
+	<!-- a genre in Search: a colored tile, a cover in its corner -->
+	<Widget Name="GenreTile" Title="" Color="#E8115B" Album="0" Action="">
+		<Button Style="Flat" Class="tile" OnClicked="{Action}" Cursor="Hand" AccessibleName="{Title}">
+			<Border Background="{Color}" CornerRadius="10" Width="184" Height="112" Clip="true">
+				<Overlay>
+					<Heading Text="{Title}" TextSize="22" Color="white" Slot.Padding="16,14" Slot.HAlign="Left" Slot.VAlign="Top"/>
+					<Cover Album="{Album}" Size="80" CornerRadius="6" Slot.HAlign="Right" Slot.VAlign="Bottom" Slot.Padding="0,0,-10,-8"/>
+				</Overlay>
+			</Border>
+		</Button>
+	</Widget>
+
+	<!-- a setting: its name and what it does on the left, the control on the right -->
+	<Widget Name="SettingRow" Title="" Description="">
+		<HBox Spacing="16" Slot.Padding="0,6">
+			<VBox Spacing="3" Slot.Fill="1" Slot.VAlign="Center">
+				<Label Text="{Title}" TextSize="15"/>
+				<Label Text="{Description}" Class="muted" TextSize="13" Wrap="true"/>
+			</VBox>
+			<HBox Slot.VAlign="Center">
+				<Children/>
+			</HBox>
+		</HBox>
+	</Widget>
+</Widgets>
