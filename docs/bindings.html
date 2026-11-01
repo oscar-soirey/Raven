@@ -5,16 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven manual: Bindings</title>
 <meta name="description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
-<link rel="icon" type="image/png" href="logo-black-192.png">
+<link rel="icon" type="image/png" href="logo-com-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="docs.css">
 </head>
 <body>
-<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
 <div class="layout">
-<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html" aria-current="page">Bindings</a><ul class="sections"><li><a href="#overview">1. At a glance</a></li><li><a href="#common">2. What every binding shares</a></li><li><a href="#cpp">3. C++</a></li><li><a href="#python">4. Python</a></li><li><a href="#rust">5. Rust</a></li><li><a href="#go">6. Go</a></li><li><a href="#csharp">7. C#</a></li><li><a href="#zig">8. Zig</a></li><li><a href="#lua">9. LuaJIT</a></li><li><a href="#rosetta">10. One call in every language</a></li><li><a href="#testing">11. Testing without a screen</a></li><li><a href="#packages">12. Packages and publishing</a></li><li><a href="#bindgen">13. How the bindings are made</a></li></ul></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html" aria-current="page">Bindings</a><ul class="sections"><li><a href="#overview">1. At a glance</a></li><li><a href="#common">2. What every binding shares</a></li><li><a href="#cpp">3. C++</a></li><li><a href="#python">4. Python</a></li><li><a href="#rust">5. Rust</a></li><li><a href="#go">6. Go</a></li><li><a href="#csharp">7. C#</a></li><li><a href="#zig">8. Zig</a></li><li><a href="#lua">9. LuaJIT</a></li><li><a href="#rosetta">10. One call in every language</a></li><li><a href="#testing">11. Testing without a screen</a></li><li><a href="#packages">12. Packages and publishing</a></li><li><a href="#bindgen">13. How the bindings are made</a></li></ul></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
 <main class="doc"><article>
 <h1>Raven in other languages</h1>
 
@@ -94,7 +94,7 @@ parent is destroyed with it, and a widget never added is destroyed with
 <h3 id="library">The library</h3>
 <p>All the bindings but C++ load or link the shared library. The Python wheel
 and the NuGet package include it; for the others, take it from a
-<a href="guide.html#releases">release</a> or build it:</p>
+<a href="index.html#releases">release</a> or build it:</p>
 <pre>cmake -B build -DRAVEN_BUILD_SHARED=ON
 cmake --build build --config Release</pre>
 <p>This gives <code>raven.dll</code> and <code>raven.lib</code> on Windows,

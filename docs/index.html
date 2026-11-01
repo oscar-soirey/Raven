@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven Homepage</title>
-<link rel="icon" type="image/png" href="logo-black-192.png">
+<link rel="icon" type="image/png" href="logo-com-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
@@ -137,7 +137,7 @@ footer{padding:44px 0 60px; color:var(--muted); font-size:16px; border-top:2px d
 <body>
 <main>
   <nav>
-    <a class="brand" href="#"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a>
+    <a class="brand" href="#"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a>
     <a class="l" href="guide.html">Docs</a>
     <a class="l" href="#releases">Releases</a>
     <a class="l" href="#contributors">Contributors</a>
@@ -324,6 +324,7 @@ if a cell is wrong or out of date, please
     if (text != null) e.textContent = text;
     return e;
   }
+  function count(n){ return (n || 0).toLocaleString('en-GB') + (n === 1 ? ' download' : ' downloads'); }
   function size(b){ return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
   function inline(parent, text){
     var re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\[[^\]]+\]\(https?:\/\/[^)\s]+\))|(https?:\/\/[^\s)<]+)/g, last = 0, m, a;
@@ -411,13 +412,14 @@ if a cell is wrong or out of date, please
       if (i === 0 && !r.prerelease) h.appendChild(el('span', 'tag', 'Latest'));
       if (r.prerelease) h.appendChild(el('span', 'tag', 'Pre-release'));
       box.appendChild(h);
-      box.appendChild(el('div', 'date', new Date(r.published_at || r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })));
+      var total = (r.assets || []).reduce(function(n, as){ return n + (as.download_count || 0); }, 0);
+      box.appendChild(el('div', 'date', new Date(r.published_at || r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) + ', ' + count(total)));
       if (r.body && r.body.trim()) box.appendChild(renderBody(r.body));
       var dl = el('div', 'dl');
       (r.assets || []).forEach(function(as){
         var d = el('a'); d.href = as.browser_download_url; d.setAttribute('download', '');
         d.appendChild(el('b', null, as.name));
-        d.appendChild(el('span', null, '↓ ' + size(as.size)));
+        d.appendChild(el('span', null, '↓ ' + size(as.size) + ', ' + count(as.download_count)));
         dl.appendChild(d);
       });
       if (r.zipball_url) {

@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven manual: XML reference</title>
-<link rel="icon" type="image/png" href="logo-black-192.png">
+<link rel="icon" type="image/png" href="logo-com-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="docs.css">
 </head>
 <body>
-<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
 <div class="layout">
-<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html" aria-current="page">XML reference</a><ul class="sections"><li><a href="#loading">1. Loading a document</a></li><li><a href="#syntax">2. Rules of the syntax</a></li><li><a href="#values">3. Kinds of values</a></li><li><a href="#actions">4. Actions</a></li><li><a href="#common">5. Attributes every widget has</a></li><li><a href="#shell">6. Windows and their shell</a></li><li><a href="#panels">7. Panels</a></li><li><a href="#controls">8. Controls</a></li><li><a href="#tools">9. Tools</a></li><li><a href="#elements">10. Elements that are not widgets</a></li><li><a href="#strings">11. Translations</a></li><li><a href="#markdown">12. Markdown</a></li><li><a href="#declared">13. Declaring tags</a></li><li><a href="#reload">14. Files that are loaded again</a></li><li><a href="#bycode">15. Tags made by code; WebView</a></li><li><a href="#documents">16. Documents, for tools</a></li></ul></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html" aria-current="page">XML reference</a><ul class="sections"><li><a href="#loading">1. Loading a document</a></li><li><a href="#syntax">2. Rules of the syntax</a></li><li><a href="#values">3. Kinds of values</a></li><li><a href="#actions">4. Actions</a></li><li><a href="#common">5. Attributes every widget has</a></li><li><a href="#shell">6. Windows and their shell</a></li><li><a href="#panels">7. Panels</a></li><li><a href="#controls">8. Controls</a></li><li><a href="#tools">9. Tools</a></li><li><a href="#elements">10. Elements that are not widgets</a></li><li><a href="#strings">11. Translations</a></li><li><a href="#markdown">12. Markdown</a></li><li><a href="#declared">13. Declaring tags</a></li><li><a href="#reload">14. Files that are loaded again</a></li><li><a href="#bycode">15. Tags made by code; WebView</a></li><li><a href="#documents">16. Documents, for tools</a></li></ul></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
 <main class="doc"><article>
 <h1>XML reference</h1>
 
@@ -30,7 +30,7 @@ says can also be said from C, and the other way round.</p>
 <li><a href="#loading">Loading a document</a></li>
 <li><a href="#syntax">Rules of the syntax</a></li>
 <li><a href="#values">Kinds of values</a></li>
-<li><a href="#actions">Actions</a> &mdash; <a href="#builtin-actions">actions that need no C</a></li>
+<li><a href="#actions">Actions</a></li>
 <li><a href="#common">Attributes every widget has</a> &mdash;
   <a href="#widget-attributes">widget</a> &middot; <a href="#slot-attributes">slot</a> &middot;
   <a href="#color-attributes">colors</a> &middot; <a href="#metric-attributes">metrics</a></li>
@@ -122,63 +122,13 @@ of it, kept for readability.</p>
 }
 
 <a href="reference.html#Raction_bind">Raction_bind</a>("file.save", on_save, NULL);
-<a href="reference.html#Raction_set_default_handler">Raction_set_default_handler</a>(on_any_action, NULL);   /* everything that has no binding of its own (and is not built in) */
+<a href="reference.html#Raction_set_default_handler">Raction_set_default_handler</a>(on_any_action, NULL);   /* everything that has no binding of its own */
 <a href="reference.html#Raction_fire">Raction_fire</a>("file.save", <a href="reference.html#R_INVALID_ID">R_INVALID_ID</a>);            /* as if a widget had fired it */</pre>
 
 <p>The typed callbacks of the C API (<code><a href="reference.html#Rbutton_set_clicked_callback">Rbutton_set_clicked_callback</a></code>,
 <code><a href="reference.html#Rtext_input_set_changed_callback">Rtext_input_set_changed_callback</a></code> for every keystroke,
 <code><a href="reference.html#Rlist_view_set_selection_changed_callback">Rlist_view_set_selection_changed_callback</a></code>...) work beside actions and cover
 the other events.</p>
-
-<h3 id="builtin-actions">Actions that need no C</h3>
-
-<p>Some names are actions of Raven itself: an interface written in XML quits, closes its
-window, shows a panel, turns a page or changes its theme with no line of C. They apply
-when no function is bound to the name; a function bound with
-<code><a href="reference.html#Raction_bind">Raction_bind</a></code> replaces one, and the default handler only receives the
-other names. A name that is a widget (<code>show:details</code>) is looked up in the window of the
-widget that fires it.</p>
-
-<div class="tw"><table class="v">
-<tr><th>Action</th><th>What it does</th></tr>
-<tr><td><code>app.quit</code></td><td>Quits the application (<code><a href="reference.html#Rquit">Rquit</a>(0)</code>).</td></tr>
-<tr><td><code>window.close</code></td><td>Closes the window of the widget.</td></tr>
-<tr><td><code>window.minimize</code></td><td>Minimizes it.</td></tr>
-<tr><td><code>window.maximize</code></td><td>Maximizes it; restores it when it already is.</td></tr>
-<tr><td><code>window.restore</code></td><td>Gives it back its size.</td></tr>
-<tr><td><code>island.expand</code>, <code>island.fold</code>, <code>island.toggle</code></td><td>The island of the window.</td></tr>
-<tr><td><code>theme.dark</code>, <code>theme.light</code>, <code>theme.toggle</code></td><td>The look of Raven, dark or light.</td></tr>
-<tr><td><code>theme:NAME</code></td><td>Uses a theme: a built-in one or one loaded with <code><a href="reference.html#Rtheme_load">Rtheme_load</a></code> (<code>theme:Ocean</code>).</td></tr>
-<tr><td><code>language:CODE</code></td><td>The language of the translations (<code>language:fr</code>).</td></tr>
-<tr><td><code>open:ADDRESS</code></td><td>Opens an address with the program of the user (<code>open:https://example.org</code>, <code>open:mailto:...</code>).</td></tr>
-<tr><td><code>copy:TEXT</code></td><td>Puts the text in the clipboard.</td></tr>
-<tr><td><code>show:NAME</code>, <code>hide:NAME</code>, <code>toggle:NAME</code></td><td>Shows or hides the widget named NAME (hidden, it gives its place back: <code>Collapsed</code>).</td></tr>
-<tr><td><code>enable:NAME</code>, <code>disable:NAME</code></td><td>Enables or disables it.</td></tr>
-<tr><td><code>focus:NAME</code></td><td>Gives it the keyboard.</td></tr>
-<tr><td><code>page:NAME=2</code></td><td>What a <code>Switcher</code>, a <code>TabView</code>, a <code>ComboBox</code> or a <code>ListView</code> shows, from 0; <code>page:NAME=+1</code> and <code>page:NAME=-1</code> step, and go round.</td></tr>
-</table></div>
-
-<pre>&lt;Window Title="Wizard" Width="420" Height="300"&gt;
-  &lt;Shortcut Keys="Ctrl+Q" Action="app.quit"/&gt;
-  &lt;VBox Spacing="10" Slot.Padding="16"&gt;
-    &lt;Switcher Name="steps" Slot.Fill="1"&gt;
-      &lt;Label Text="Welcome."/&gt;
-      &lt;Label Text="Almost there."/&gt;
-      &lt;Label Text="Done."/&gt;
-    &lt;/Switcher&gt;
-    &lt;Label Name="help" Text="Press Next to go on." Visibility="Collapsed"/&gt;
-    &lt;HBox Spacing="8" Slot.HAlign="Right"&gt;
-      &lt;Button Text="Help" Style="Flat" OnClicked="toggle:help"/&gt;
-      &lt;Button Text="Back" OnClicked="page:steps=-1"/&gt;
-      &lt;Button Text="Next" Style="Primary" OnClicked="page:steps=+1"/&gt;
-      &lt;Button Text="Close" OnClicked="window.close"/&gt;
-    &lt;/HBox&gt;
-  &lt;/VBox&gt;
-&lt;/Window&gt;</pre>
-
-<p><code><a href="reference.html#Raction_set_builtins">Raction_set_builtins</a>(R_FALSE)</code> turns them all off (what the designer does: its
-preview shows an interface, it does not run it); <code><a href="reference.html#Raction_is_builtin">Raction_is_builtin</a></code> tells
-whether a name is one of them.</p>
 
 <h2 id="common">5. Attributes every widget has</h2>
 
@@ -1042,8 +992,8 @@ for (i = 0; i &lt; n; i++) {
     printf("%-20s %s\n", info.name, info.description);
 }</pre>
 
-<p class="foot">Raven 0.1 &mdash; Apache License 2.0 &mdash; <a href="../index.html">raven home</a> &middot; <a href="https://github.com/oscar-soirey/Raven">source</a></p>
-<div class="pager"><a class="prev" href="guide.html"><small>previous</small>Guide</a><a class="next" href="reference.html"><small>next</small>C API reference</a></div>
+<p class="foot">Raven 0.1 &mdash; Apache License 2.0 &mdash; <a href="index.html">raven home</a> &middot; <a href="https://github.com/oscar-soirey/Raven">source</a></p>
+<div class="pager"><a class="prev" href="guide.html"><small>previous</small>Guide</a><a class="next" href="designer.html"><small>next</small>Designer</a></div>
 </article></main>
 </div>
 <script src="docs.js"></script>

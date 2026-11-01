@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven manual: Guide</title>
-<link rel="icon" type="image/png" href="logo-black-192.png">
+<link rel="icon" type="image/png" href="logo-com-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Newsreader:opsz,wght@6..72,400;6..72,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="docs.css">
 </head>
 <body>
-<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
 <div class="layout">
-<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-black-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html" aria-current="page">Guide</a><ul class="sections"><li><a href="#compare">Raven compared with Qt, Clay and Dear ImGui</a></li><li><a href="#intro">1. A first program</a></li><li><a href="#build">2. Building Raven</a></li><li><a href="#concepts">3. Concepts</a></li><li><a href="#windows">4. Windows</a></li><li><a href="#widgets">5. Widgets</a></li><li><a href="#layout">6. Layout</a></li><li><a href="#controls">7. Controls</a></li><li><a href="#events">8. Events and actions</a></li><li><a href="#xml">9. Interfaces in XML</a></li><li><a href="#anylanguage">10. Any language: the interface in XML, the code in yours</a></li><li><a href="#editor">11. The text editor</a></li><li><a href="#shell">12. The shell: header bar, docking, island</a></li><li><a href="#dialogs">13. Dialogs and files</a></li><li><a href="#tools">14. Tools: color picker, timeline, node graph, blocks</a></li><li><a href="#themes">15. Themes, styles and materials</a></li><li><a href="#drawing">16. Custom widgets, drawing and animation</a></li><li><a href="#effects">17. Effects (shaders)</a></li><li><a href="#resources">18. Images and fonts</a></li><li><a href="#locale">19. Translations</a></li><li><a href="#accessibility">20. Accessibility</a></li><li><a href="#viewports">21. Viewports: content of your own</a></li><li><a href="#web">22. Web pages</a></li><li><a href="#threads">23. Threads</a></li><li><a href="#memory">24. Memory</a></li><li><a href="#languages">25. Other languages</a></li><li><a href="#ide">26. The designer</a></li><li><a href="#testing">27. Tests, headless runs and custom backends</a></li><li><a href="#env">28. Environment variables</a></li><li><a href="#limits">29. What Raven does not do yet</a></li><li><a href="#releases">30. Downloads and contributors</a></li></ul></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html" aria-current="page">Guide</a><ul class="sections"><li><a href="#intro">1. A first program</a></li><li><a href="#build">2. Building Raven</a></li><li><a href="#concepts">3. Concepts</a></li><li><a href="#windows">4. Windows</a></li><li><a href="#widgets">5. Widgets</a></li><li><a href="#layout">6. Layout</a></li><li><a href="#controls">7. Controls</a></li><li><a href="#events">8. Events and actions</a></li><li><a href="#xml">9. Interfaces in XML</a></li><li><a href="#anylanguage">10. Any language: the interface in XML, the code in yours</a></li><li><a href="#editor">11. The text editor</a></li><li><a href="#shell">12. The shell: header bar, docking, island</a></li><li><a href="#dialogs">13. Dialogs and files</a></li><li><a href="#tools">14. Tools: color picker, timeline, node graph, blocks</a></li><li><a href="#themes">15. Themes, styles and materials</a></li><li><a href="#drawing">16. Custom widgets, drawing and animation</a></li><li><a href="#effects">17. Effects (shaders)</a></li><li><a href="#resources">18. Images and fonts</a></li><li><a href="#locale">19. Translations</a></li><li><a href="#accessibility">20. Accessibility</a></li><li><a href="#viewports">21. Viewports: content of your own</a></li><li><a href="#web">22. Web pages</a></li><li><a href="#threads">23. Threads</a></li><li><a href="#memory">24. Memory</a></li><li><a href="#languages">25. Other languages</a></li><li><a href="#ide">26. The designer</a></li><li><a href="#testing">27. Tests, headless runs and custom backends</a></li><li><a href="#env">28. Environment variables</a></li><li><a href="#limits">29. What Raven does not do yet</a></li></ul></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
 <main class="doc"><article>
 <h1>The Raven manual</h1>
 
@@ -26,14 +26,6 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <a href="reference.html">every function of the C API</a>.</p>
 
 <p><small>Raven 0.1. The public API may still change before 1.0.</small></p>
-
-<p class="gh-note">This is Raven&rsquo;s own manual, so read it with that in mind. Written in
-October 2026 from the documentation of each project
-(<a href="https://doc.qt.io/qt-6/licensing.html">Qt licensing</a>,
-<a href="https://github.com/nicbarker/clay">Clay</a>,
-<a href="https://github.com/ocornut/imgui">Dear ImGui</a>) and from this manual for Raven;
-if a cell is wrong or out of date, please
-<a href="https://github.com/oscar-soirey/Raven/issues">open an issue</a>.</p>
 
 <h2 id="contents">Contents</h2>
 <ul class="toc">
@@ -109,9 +101,6 @@ if a cell is wrong or out of date, please
 <li><a href="#env">28. Environment variables</a>
 </li>
 <li><a href="#limits">29. What Raven does not do yet</a>
-</li>
-<li><a href="#releases">30. Downloads and contributors</a>
-<ul><li><a href="#releases-list">Versions</a></li><li><a href="#contributors">Contributors</a></li></ul>
 </li>
 </ul>
 
@@ -1934,24 +1923,7 @@ render of the last frame.</p>
 Raven is open source under the Apache License 2.0: use it for anything,
 commercial included; what you make with it is yours.</p>
 
-<!-- ======================================================================= -->
-<h2 id="releases">30. Downloads and contributors</h2>
-
-<p>This section is read live from <a href="https://github.com/oscar-soirey/Raven">GitHub</a>
-when the page opens.</p>
-
-<h3 id="releases-list">Versions</h3>
-<div id="gh-releases"><p class="gh-status">Loading the versions...</p></div>
-
-<h3 id="contributors">Contributors</h3>
-<div id="gh-contributors"><p class="gh-status">Loading the contributors...</p></div>
-
-<noscript><p>This section needs JavaScript. See
-<a href="https://github.com/oscar-soirey/Raven/releases">the releases</a> and
-<a href="https://github.com/oscar-soirey/Raven/graphs/contributors">the contributors</a>
-on GitHub.</p></noscript>
-
-<p class="foot">Raven 0.1 &mdash; Apache License 2.0 &mdash; <a href="../index.html">raven home</a> &middot; <a href="https://github.com/oscar-soirey/Raven">source</a></p>
+<p class="foot">Raven 0.1 &mdash; Apache License 2.0 &mdash; <a href="index.html">raven home</a> &middot; <a href="https://github.com/oscar-soirey/Raven">source</a></p>
 <div class="pager"><a class="next" href="xml.html"><small>next</small>XML reference</a></div>
 </article></main>
 </div>
@@ -1993,157 +1965,6 @@ on GitHub.</p></noscript>
       nodes.forEach(paint);
     });
   } catch (e) { /* sans coloration si le navigateur est trop ancien */ }
-})();
-</script>
-<script>
-(function () {
-  var REPO = "oscar-soirey/Raven";
-  var API = "https://api.github.com/repos/" + REPO;
-  var TTL = 10 * 60 * 1000;   /* the API allows 60 calls an hour without a key: keep the answers 10 minutes */
-
-  function el(tag, cls, text) {
-    var e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (text !== undefined) e.textContent = text;
-    return e;
-  }
-  function link(href, text) {
-    var a = el("a", null, text); a.href = href; a.rel = "noopener"; return a;
-  }
-  function size(n) {
-    if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
-    if (n >= 1024) return Math.round(n / 1024) + " KB";
-    return n + " B";
-  }
-  function date(iso) {
-    try { return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }); }
-    catch (e) { return iso; }
-  }
-  function get(path) {
-    var key = "raven-gh:" + path;
-    try {
-      var c = JSON.parse(sessionStorage.getItem(key) || "null");
-      if (c && Date.now() - c.t < TTL) return Promise.resolve(c.d);
-    } catch (e) {}
-    return fetch(API + path, { headers: { "Accept": "application/vnd.github+json" } }).then(function (r) {
-      if (!r.ok) {
-        var err = new Error("HTTP " + r.status);
-        err.status = r.status;
-        err.limited = r.status === 403 || r.status === 429;
-        throw err;
-      }
-      return r.json();
-    }).then(function (d) {
-      try { sessionStorage.setItem(key, JSON.stringify({ t: Date.now(), d: d })); } catch (e) {}
-      return d;
-    });
-  }
-  function fail(box, what, e) {
-    box.textContent = "";
-    var p = el("p", "gh-status", e && e.limited
-      ? "GitHub is limiting requests from this network for now. Try again later, or see "
-      : "The " + what + " could not be loaded. See ");
-    p.appendChild(link("https://github.com/" + REPO + (what === "contributors" ? "/graphs/contributors" : "/releases"), "GitHub"));
-    p.appendChild(document.createTextNode("."));
-    box.appendChild(p);
-  }
-
-  /* ---- versions ---- */
-  function renderRelease(r, latest) {
-    var d = el("div", "gh-rel");
-    var h = el("h4", null, r.name || r.tag_name);
-    if (r === latest) h.appendChild(el("span", "gh-tag latest", "latest"));
-    if (r.prerelease) h.appendChild(el("span", "gh-tag pre", "pre-release"));
-    d.appendChild(h);
-
-    var meta = el("p", "meta", r.tag_name + " \u00b7 " + date(r.published_at || r.created_at) + " \u00b7 ");
-    meta.appendChild(link(r.html_url, "release notes"));
-    d.appendChild(meta);
-
-    var assets = r.assets || [];
-    if (assets.length) {
-      var t = el("table"), head = el("tr");
-      ["File", "Size", "Downloads"].forEach(function (x, i) { head.appendChild(el("th", i ? "num" : null, x)); });
-      t.appendChild(head);
-      assets.forEach(function (a) {
-        var tr = el("tr"), td = el("td");
-        td.appendChild(link(a.browser_download_url, a.name));
-        tr.appendChild(td);
-        tr.appendChild(el("td", "num", size(a.size)));
-        tr.appendChild(el("td", "num", String(a.download_count)));
-        t.appendChild(tr);
-      });
-      d.appendChild(t);
-    } else {
-      d.appendChild(el("p", "meta", "No compiled package for this version."));
-    }
-    var src = el("p", "meta", "Source code: ");
-    src.appendChild(link(r.zipball_url, "zip"));
-    src.appendChild(document.createTextNode(" \u00b7 "));
-    src.appendChild(link(r.tarball_url, "tar.gz"));
-    d.appendChild(src);
-    return d;
-  }
-
-  var relBox = document.getElementById("gh-releases");
-  if (relBox) get("/releases?per_page=10").then(function (list) {
-    list = list.filter(function (r) { return !r.draft; });
-    relBox.textContent = "";
-    if (!list.length) {
-      /* no release published yet: fall back on the tags */
-      return get("/tags?per_page=10").then(function (tags) {
-        if (!tags.length) {
-          var p = el("p", null, "No version has been published yet. Build Raven from the ");
-          p.appendChild(link("https://github.com/" + REPO, "sources"));
-          p.appendChild(document.createTextNode(" (see "));
-          p.appendChild(link("#build", "Building Raven"));
-          p.appendChild(document.createTextNode(")."));
-          relBox.appendChild(p);
-          return;
-        }
-        relBox.appendChild(el("p", "gh-note", "No packaged release yet; these are the tagged versions."));
-        var ul = el("ul");
-        tags.forEach(function (t) {
-          var li = el("li", null, t.name + ": ");
-          li.appendChild(link(t.zipball_url, "zip"));
-          li.appendChild(document.createTextNode(" \u00b7 "));
-          li.appendChild(link(t.tarball_url, "tar.gz"));
-          ul.appendChild(li);
-        });
-        relBox.appendChild(ul);
-      });
-    }
-    var latest = list.filter(function (r) { return !r.prerelease; })[0] || list[0];
-    list.forEach(function (r) { relBox.appendChild(renderRelease(r, latest)); });
-    var more = el("p", "gh-note", "All versions: ");
-    more.appendChild(link("https://github.com/" + REPO + "/releases", "github.com/" + REPO + "/releases"));
-    relBox.appendChild(more);
-  }).catch(function (e) { fail(relBox, "versions", e); });
-
-  /* ---- contributors ---- */
-  var conBox = document.getElementById("gh-contributors");
-  if (conBox) get("/contributors?per_page=100").then(function (list) {
-    conBox.textContent = "";
-    if (!list || !list.length) { conBox.appendChild(el("p", null, "No contributor yet.")); return; }
-    var ul = el("ul", "contrib");
-    list.forEach(function (u) {
-      var li = el("li");
-      var img = el("img");
-      img.src = u.avatar_url + (u.avatar_url.indexOf("?") < 0 ? "?" : "&") + "s=72";
-      img.alt = ""; img.width = 36; img.height = 36; img.loading = "lazy";
-      li.appendChild(img);
-      var box = el("div"); box.style.minWidth = "0";
-      box.appendChild(link(u.html_url, u.login));
-      box.appendChild(el("small", null, u.contributions + (u.contributions === 1 ? " commit" : " commits")));
-      li.appendChild(box);
-      ul.appendChild(li);
-    });
-    conBox.appendChild(ul);
-    var note = el("p", "gh-note", list.length + (list.length === 1 ? " person" : " people") + " so far. ");
-    note.appendChild(link("https://github.com/" + REPO + "/graphs/contributors", "Details on GitHub"));
-    note.appendChild(document.createTextNode("."));
-    conBox.appendChild(note);
-  }).catch(function (e) { fail(conBox, "contributors", e); });
 })();
 </script>
 </body>
