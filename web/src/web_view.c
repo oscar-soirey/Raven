@@ -6,6 +6,13 @@
  * A view is a "target" of the browser (a tab). It is created, then attached
  * to (which gives the session all later commands name), and from then on it
  * is ready. Commands asked before that wait in a list.
+ *
+ * Ready means set up: the page is attached to, and the browser answered
+ * every command that prepares it (its events, the bridge of the page, the
+ * pictures). Only then does what waits go out, the first page to show
+ * included: a navigation sent with them may be done before the page listens
+ * (Chromium answers it from another process), and the view would then miss
+ * its address, its title and every picture of a page that does not move.
  */
 
 #include "web_internal.h"
@@ -19,6 +26,8 @@ typedef enum rw_state_t {
 	RW_STATE_CREATING = 0,
 	/** Asked to be attached to it. */
 	RW_STATE_ATTACHING,
+	/** Attached: the commands that prepare the page are on their way (rw_view_t::setup_left). */
+	RW_STATE_SETTING_UP,
 	RW_STATE_READY,
 	RW_STATE_FAILED
 } rw_state_t;
@@ -33,7 +42,9 @@ typedef enum rw_kind_t {
 	/** The selection of the page, for the clipboard. */
 	RW_KIND_COPY,
 	/** The title of the page, asked when it has loaded. */
-	RW_KIND_TITLE
+	RW_KIND_TITLE,
+	/** A command that prepares the page: the view is ready once all of them are answered. */
+	RW_KIND_SETUP
 } rw_kind_t;
 
 /** A command whose answer is awaited. */
@@ -59,6 +70,8 @@ typedef struct rw_view_t {
 	struct rw_view_t* next;
 	Rid widget;
 	rw_state_t state;
+	/** RW_STATE_SETTING_UP: the answers still awaited. */
+	int setup_left;
 	char* target;
 	char* session;
 	Rid texture;
@@ -253,26 +266,47 @@ static void rw_view_cast(rw_view_t* view) {
 	rw_view_send(view, "Page.startScreencast", params, RW_KIND_NONE, NULL, NULL);
 }
 
-/* The session exists: the page is set up, and what was asked meanwhile is sent. */
-static void rw_view_ready(rw_view_t* view) {
-	rw_pending_t* pending = view->pending;
-	rw_text_t params;
-	view->pending = view->pending_last = NULL;
-	view->state = RW_STATE_READY;
+static void rw_view_ready(rw_view_t* view);
 
-	rw_view_send(view, "Page.enable", NULL, RW_KIND_NONE, NULL, NULL);
-	rw_view_send(view, "Runtime.enable", NULL, RW_KIND_NONE, NULL, NULL);
-	rw_view_send(view, "Runtime.addBinding", "{\"name\":\"ravenPostMessage\"}", RW_KIND_NONE, NULL, NULL);
+/* A command that prepares the page, sent at once (what is asked meanwhile waits): its answer is counted. */
+static void rw_view_setup(rw_view_t* view, const char* method, const char* params) {
+	int id = rw_browser_send(view->session, method, params);
+	if (!id) return;
+	view->setup_left++;
+	rw_view_expect(view, id, RW_KIND_SETUP, NULL, NULL);
+}
+
+/* The session exists: the page is prepared, and the view is ready once the browser answered (rw_view_ready). */
+static void rw_view_attached(rw_view_t* view) {
+	rw_text_t params;
+	char cast[120];
+	view->state = RW_STATE_SETTING_UP;
+	view->setup_left = 0;
+	rw_view_setup(view, "Page.enable", NULL);
+	rw_view_setup(view, "Runtime.enable", NULL);
+	rw_view_setup(view, "Runtime.addBinding", "{\"name\":\"ravenPostMessage\"}");
 	memset(&params, 0, sizeof(params));
 	rw_text_puts(&params, "{\"source\":");
 	rw_text_json(&params, g_rw_bridge);
 	rw_text_puts(&params, "}");
-	rw_view_send(view, "Page.addScriptToEvaluateOnNewDocument", params.data, RW_KIND_NONE, NULL, NULL);
+	rw_view_setup(view, "Page.addScriptToEvaluateOnNewDocument", params.data);
 	rw_text_free(&params);
 	/* the page believes it has the focus: carets blink, :focus applies */
-	rw_view_send(view, "Emulation.setFocusEmulationEnabled", "{\"enabled\":true}", RW_KIND_NONE, NULL, NULL);
+	rw_view_setup(view, "Emulation.setFocusEmulationEnabled", "{\"enabled\":true}");
+	/* the pictures, from now on: the first page is drawn while it loads */
+	if (view->frames == R_WEB_FRAMES_JPEG) snprintf(cast, sizeof(cast), "{\"format\":\"jpeg\",\"quality\":%d,\"everyNthFrame\":1}", view->quality);
+	else snprintf(cast, sizeof(cast), "{\"format\":\"png\",\"everyNthFrame\":1}");
+	rw_view_setup(view, "Page.startScreencast", cast);
+	/* (nothing could be sent: the browser is gone, and says so by itself) */
+	if (view->setup_left == 0) rw_view_ready(view);
+}
+
+/* Prepared: what was asked meanwhile is sent, in the order it was asked. */
+static void rw_view_ready(rw_view_t* view) {
+	rw_pending_t* pending = view->pending;
+	view->pending = view->pending_last = NULL;
+	view->state = RW_STATE_READY;
 	if (view->sent_width > 0.0f) rw_view_metrics(view, view->sent_width, view->sent_height, view->sent_scale);
-	rw_view_cast(view);
 
 	while (pending) {
 		rw_pending_t* next = pending->next;
@@ -355,9 +389,13 @@ static void rw_answer(rw_view_t* view, rw_request_t* request, const rw_json_t* m
 				return;
 			}
 			rw_view_set(&view->session, session);
-			rw_view_ready(view);
+			rw_view_attached(view);
 			break;
 		}
+		case RW_KIND_SETUP:
+			/* (a command the browser refused only leaves the page without that: it is shown all the same) */
+			if (view->state == RW_STATE_SETTING_UP && --view->setup_left <= 0) rw_view_ready(view);
+			break;
 		case RW_KIND_SCRIPT: {
 			const rw_json_t* exception = rw_json_get(result, "exceptionDetails");
 			rw_text_t text;
@@ -464,7 +502,8 @@ void rw_views_incoming(rw_incoming_t* incoming) {
 
 	if (incoming->closed) {
 		/* nothing will come any more */
-		const char* reason = incoming->closed == 2 ? "The browser was stopped." : "The browser stopped.";
+		/* (when it left by itself, how it ended: what to look for) */
+		const char* reason = incoming->closed == 2 ? "The browser was stopped." : rw_browser_stop_reason();
 		for (view = g_rw_views; view; view = view->next) {
 			if (view->state != RW_STATE_FAILED) {
 				rw_view_fail(view, reason);

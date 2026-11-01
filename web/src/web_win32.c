@@ -188,6 +188,14 @@ void rw_process_hang_up(rw_process_t* process) {
 	CancelIoEx(process->from_child, NULL);
 }
 
+int rw_process_exit_code(rw_process_t* process, int wait_ms, long* code) {
+	DWORD exit_code = 0;
+	if (WaitForSingleObject(process->process, wait_ms > 0 ? (DWORD)wait_ms : 0) != WAIT_OBJECT_0) return 0;
+	if (!GetExitCodeProcess(process->process, &exit_code)) return 0;
+	*code = (long)exit_code;
+	return 1;
+}
+
 void rw_process_stop(rw_process_t* process) {
 	rw_process_hang_up(process);
 	/* a browser leaves by itself when its pipe closes: it is given two seconds */

@@ -40,6 +40,8 @@
 
 struct rw_process_t {
 	pid_t pid;
+	/** rw_process_exit_code collected it already: how it ended. */
+	int reaped, status;
 	/** Our end of the pipe the child reads, and of the pipe it writes. */
 	int to_child;
 	int from_child;
@@ -98,6 +100,7 @@ rw_process_t* rw_process_start(const char* const* arguments) {
 		return NULL;
 	}
 	process->pid = pid;
+	process->reaped = process->status = 0;
 	process->to_child = down[0];
 	process->from_child = up[0];
 	/* (not passed on to the programs the application may start later) */
@@ -133,8 +136,22 @@ void rw_process_hang_up(rw_process_t* process) {
 	shutdown(process->from_child, SHUT_RDWR);
 }
 
+int rw_process_exit_code(rw_process_t* process, int wait_ms, long* code) {
+	int i;
+	for (i = 0; !process->reaped; i++) {
+		struct timespec pause = { 0, 10 * 1000 * 1000 };
+		if (waitpid(process->pid, &process->status, WNOHANG) == process->pid) process->reaped = 1;
+		else if (i * 10 >= wait_ms) return 0;
+		else nanosleep(&pause, NULL);
+	}
+	if (WIFEXITED(process->status)) *code = WEXITSTATUS(process->status);
+	else if (WIFSIGNALED(process->status)) *code = -(long)WTERMSIG(process->status);
+	else *code = 0;
+	return 1;
+}
+
 void rw_process_stop(rw_process_t* process) {
-	int i, status = 0, gone = 0;
+	int i, status = 0, gone = process->reaped;
 	rw_process_hang_up(process);
 	/* a browser leaves by itself when its pipe closes: it is given two seconds */
 	for (i = 0; i < 200 && !gone; i++) {

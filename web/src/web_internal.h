@@ -38,6 +38,11 @@ int rw_process_read(rw_process_t* process, void* buffer, size_t size);
 void rw_process_hang_up(rw_process_t* process);
 /** Waits a little for the child to leave by itself, kills it otherwise, and releases everything. */
 void rw_process_stop(rw_process_t* process);
+/**
+ * Waits up to `wait_ms` for the child to end, and gives how it ended: its
+ * exit code (a negative signal number on Unix). R_FALSE when it still runs.
+ */
+int rw_process_exit_code(rw_process_t* process, int wait_ms, long* code);
 
 typedef struct rw_thread_t rw_thread_t;
 rw_thread_t* rw_thread_start(void (*function)(void*), void* argument);
@@ -159,6 +164,8 @@ int rw_browser_start(void);
 void rw_browser_stop(void);
 int rw_browser_running(void);
 const char* rw_browser_error(void);
+/** The browser closed its pipe by itself: "The browser stopped.", with how it ended when it is known. */
+const char* rw_browser_stop_reason(void);
 /**
  * Sends a command: `params` is the JSON object of its parameters (or NULL),
  * `session` the page it is for (or NULL for the browser itself). Returns
