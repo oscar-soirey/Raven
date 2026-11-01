@@ -388,11 +388,11 @@ static void fill_language_combo(void) {
 	int i, count = Rlocale_get_language_count(), selected = 0;
 	g_s.syncing++;
 	Rcombo_box_clear_items(g_s.language_combo);
-	Rcombo_box_add_item(g_s.language_combo, "Language: first column");
+	Rcombo_box_add_item(g_s.language_combo, "First column of the tables");
 	for (i = 0; i < count; i++) {
 		const char* code = Rlocale_get_language_at(i);
 		char item[96];
-		snprintf(item, sizeof(item), "Language: %s", code);
+		snprintf(item, sizeof(item), "%s", code);
 		Rcombo_box_add_item(g_s.language_combo, item);
 		if (g_s.language[0] && !strcmp(code, g_s.language)) selected = i + 1;
 	}

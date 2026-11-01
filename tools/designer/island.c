@@ -15,6 +15,8 @@
  *     choose, Enter does it, Escape folds the island;
  *   - the selection: where it is, its Name and its Text, edited in place,
  *     and what is done most to it (duplicate, wrap, delete, run);
+ *   - the look of the designer, and the theme and the language of the
+ *     preview (main.c and strings.c fill and follow these lists);
  *   - the first problem, and the way to it.
  */
 
@@ -56,6 +58,16 @@ static const char ISLAND_XML[] =
 "        <Button Text=\"Run\" Style=\"Primary\" OnClicked=\"view.run\" Tooltip=\"The interface in a window of its own (F7)\"/>"
 "      </HBox>"
 "    </VBox>"
+"    <Separator/>"
+"    <Label Text=\"LOOK AND LANGUAGE\" TextSize=\"11\" Opacity=\"0.55\"/>"
+"    <Grid Columns=\"auto,1\" Spacing=\"8\">"
+"      <Label Text=\"Designer\" Slot.VAlign=\"Center\"/>"
+"      <ComboBox Name=\"appearance\" Slot.Column=\"1\" Tooltip=\"The look of the designer itself: any look of Raven, or a theme of the folder\"/>"
+"      <Label Text=\"Preview\" Slot.Row=\"1\" Slot.VAlign=\"Center\"/>"
+"      <ComboBox Name=\"preview.theme\" Slot.Row=\"1\" Slot.Column=\"1\" Tooltip=\"The look or the theme the preview wears: the themes of the folder are listed too\"/>"
+"      <Label Text=\"Language\" Slot.Row=\"2\" Slot.VAlign=\"Center\"/>"
+"      <ComboBox Name=\"preview.language\" Slot.Row=\"2\" Slot.Column=\"1\" Tooltip=\"The language of the preview: the tables of the folder, right to left included\"/>"
+"    </Grid>"
 "    <HBox Name=\"island.problem.row\" Spacing=\"8\">"
 "      <Border Width=\"8\" Height=\"8\" CornerRadius=\"4\" Background=\"#FF9F0A\" Slot.VAlign=\"Center\" AccessibleHidden=\"true\"/>"
 "      <Label Name=\"island.problem\" Wrap=\"true\" Slot.Fill=\"1\" Slot.VAlign=\"Center\" TextSize=\"12\"/>"
@@ -93,6 +105,7 @@ static const struct { const char* text; const char* action; const char* words; }
 	{ "Wrap in a ScrollBox", "edit.wrap.ScrollBox", "scroll" },
 	{ "Wrap in an Overlay", "edit.wrap.Overlay", "stack layer" },
 	{ "Unwrap", "edit.unwrap", "remove parent flatten" },
+	{ "Select nothing", "edit.deselect", "deselect none clear escape" },
 	{ "Copy as XML", "edit.copy", "clipboard" },
 	{ "Paste XML inside", "edit.paste", "clipboard insert" },
 	{ "New window", "files.new.window", "interface create file" },

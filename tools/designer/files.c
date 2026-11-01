@@ -160,6 +160,7 @@ static Rid folder_item(const char* relative_folder, Rid* folders, char** names, 
 			char caption[300];
 			snprintf(caption, sizeof(caption), "%.*s", (int)length, walk);
 			found = Rtree_view_add_item(g_f.tree, parent, caption);
+			icons_set_tree_item(found, "#folder");
 			Rtree_item_set_expanded(found, R_TRUE);
 			folders[*count] = found;
 			names[*count] = ds_strdup(so_far);
@@ -197,6 +198,10 @@ static void fill_tree(void) {
 		}
 		snprintf(caption, sizeof(caption), "%s", ds_basename(relative));
 		item = Rtree_view_add_item(g_f.tree, parent, caption);
+		{
+			static const char* const kinds[4] = { "#file.window", "#file.widgets", "#file.theme", "#file.table" };
+			icons_set_tree_item(item, kinds[file->kind]);
+		}
 		remember_path(item, file->path);
 		if (open && ds_same_path(open, file->path)) Rtree_view_set_selected_item(g_f.tree, item);
 		free(normalized);

@@ -9,7 +9,9 @@
  *                     preview, properties, XML, problems), the scripted runs
  *   files.c           the folder: its interfaces, themes and translation tables, followed live
  *   island.c          the island at the top: the command search (Ctrl+K), the selection,
+ *                     the look of the designer, the theme and language of the preview,
  *                     what is going on
+ *   icons.c           the colored pictures of the tags and of the files
  *   strings.c         the Translations panel (CSV tables) and the language of the preview
  *   welcome.c         the start page (recent folders) and the preferences
  *   accessibility.c   View > Accessibility
@@ -203,6 +205,31 @@ void recent_add(const char* folder);
 /** A preference of the designer (designer.ini in ds_config_dir), "" when not set. */
 const char* prefs_get(const char* key);
 void prefs_set(const char* key, const char* value);
+
+/* ---- icons.c: the colored pictures of the tags and of the files ---- */
+
+/** Draws the pictures into one texture (once, after Rinit). */
+void icons_init(void);
+void icons_shutdown(void);
+Rid  icons_texture(void);
+/** The region of the texture (u0, v0, u1, v1) of a tag ("Button"), or of "#folder", "#comment", "#file.window", "#file.widgets", "#file.theme", "#file.table". */
+void icons_region(const char* key, float uv[4]);
+/** The picture before the text of an item of a tree view. */
+void icons_set_tree_item(Rid item, const char* key);
+/** An Image shows the picture. */
+void icons_set_image(Rid image, const char* key);
+/** The groups of the palette: "Your widgets" (0), "Layout", "Controls"... "Other" (the last). */
+int  icons_group_count(void);
+const char* icons_group_name(int group);
+/** A tag whose picture stands for the group. */
+const char* icons_group_key(int group);
+/** The group a tag goes in. */
+int  icons_group_of(const char* tag);
+/** The tags of Raven a group lists, in their order (not the declared ones, not the group "Other"). */
+int  icons_group_tag_count(int group);
+const char* icons_group_tag_at(int group, int index);
+/** Saves the pictures in a .ppm (scripts of the tests). */
+int  icons_save(const char* path);
 
 /* ---- accessibility.c ---- */
 

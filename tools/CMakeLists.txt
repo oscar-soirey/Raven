@@ -10,8 +10,13 @@
 
 # (the Theme tab is the theme editor itself, built in: designer/theme_tab.c)
 add_executable(raven_designer designer/main.c designer/designer.h designer/os.c designer/files.c designer/island.c
-	designer/strings.c designer/welcome.c designer/accessibility.c designer/theme_tab.c theme_editor/model.c theme_editor/editor.h
+	designer/strings.c designer/welcome.c designer/accessibility.c designer/icons.c designer/theme_tab.c theme_editor/model.c theme_editor/editor.h
 	crash_report.c crash_report.h)
+	
+if(WIN32)
+    target_sources(raven_designer PRIVATE designer/icon.rc)
+endif()
+
 target_link_libraries(raven_designer PRIVATE raven::raven)
 set_target_properties(raven_designer PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tools")
 if(MSVC)
@@ -42,7 +47,7 @@ install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_IN
 if(RAVEN_BUILD_TESTS)
 	set(_ds "${CMAKE_CURRENT_BINARY_DIR}/designer_test")
 	add_test(NAME designer_folder_clean COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_ds}")
-	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs")
+	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout")
 	set_tests_properties(designer_folder_clean PROPERTIES FIXTURES_SETUP designer_folder_clean)
 	set_tests_properties(designer_folder_make PROPERTIES FIXTURES_SETUP designer_folder FIXTURES_REQUIRED designer_folder_clean)
 
@@ -56,7 +61,7 @@ if(RAVEN_BUILD_TESTS)
 	# another language, a theme and the size of a phone; the island adds a widget, wraps it, opens a file;
 	# a file changed by another program is read again; a new interface; everything saved.
 	add_test(NAME designer_folder COMMAND raven_designer --null --frames 2 --script
-		"write ${_ds}/folder/main.xml <Window~Title=\"A\"~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"@hello\"/></VBox></Window> write ${_ds}/folder/sub/card.xml <Border~Padding=\"8\"><Label~Text=\"Card\"/></Border> write ${_ds}/folder/night.xml <Theme~Name=\"Night\"~Look=\"RavenDark\"~Accent=\"#FF9F0A\"/> write ${_ds}/folder/strings.csv key,en,fr|hello,Hello,Bonjour| open ${_ds}/folder f 2 expectpage workspace expectfiles 2 expectthemes 1 expecttitle main.xml expectlabel greet Hello language fr f 1 expectlabel greet Bonjour cell hello 2 Salut expectlabel greet Salut path 0/0 expectselected Label search add~button f 1 expectselected Button expect <Button expecttitle Button search wrap~in~a~vbox expect <VBox> search theme~night expecttheme Night device 1 expectsize 390 844 do file.save_all expectfile ${_ds}/folder/main.xml <Button expectfile ${_ds}/folder/strings.csv Salut write ${_ds}/folder/main.xml <Window~Width=\"300\"~Height=\"200\"><Label~Name=\"greet\"~Text=\"Changed\"/></Window> refresh expectlabel greet Changed do files.new.panel expecttitle panel.xml search open~card expecttitle card.xml f 2")
+		"write ${_ds}/folder/main.xml <Window~Title=\"A\"~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"@hello\"/></VBox></Window> write ${_ds}/folder/sub/card.xml <Border~Padding=\"8\"><Label~Text=\"Card\"/></Border> write ${_ds}/folder/night.xml <Theme~Name=\"Night\"~Look=\"RavenDark\"~Accent=\"#FF9F0A\"/> write ${_ds}/folder/strings.csv key,en,fr|hello,Hello,Bonjour| open ${_ds}/folder f 2 expectpage workspace expectfiles 2 expectthemes 1 expecttitle main.xml expectlabel greet Hello language fr f 1 expectlabel greet Bonjour cell hello 2 Salut expectlabel greet Salut path 0/0 expectselected Label search add~button f 1 expectselected Button expect <Button expecttitle Button search wrap~in~a~vbox expect <VBox> search theme~night expecttheme Night device 2 expectsize 390 844 do file.save_all expectfile ${_ds}/folder/main.xml <Button expectfile ${_ds}/folder/strings.csv Salut write ${_ds}/folder/main.xml <Window~Width=\"300\"~Height=\"200\"><Label~Name=\"greet\"~Text=\"Changed\"/></Window> refresh expectlabel greet Changed do files.new.panel expecttitle panel.xml search open~card expecttitle card.xml f 2")
 	set_tests_properties(designer_folder PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# Random clicks, drags, keys, text and actions over a folder (meant for a build with AddressSanitizer:
@@ -71,6 +76,13 @@ if(RAVEN_BUILD_TESTS)
 	add_test(NAME designer_tabs COMMAND raven_designer --null --frames 2 --script
 		"write ${_ds}/tabs/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/><Button~Text=\"Go\"/></VBox></Window> write ${_ds}/tabs/night.xml <Theme~Name=\"Night\"~Look=\"RavenDark\"~Accent=\"#FF9F0A\"/> write ${_ds}/tabs/strings.csv key,en,fr|hello,Hello,Bonjour| open ${_ds}/tabs f 2 expecttab window expecttitle main.xml dropon Slider 0/0 after expect <Slider dropon Checkbox 0/1 before expect <Checkbox moveto 0/0 0/3 after path 0/0 expectselected Checkbox path 0/3 expectselected Label do view.run f 2 expectrun greet path 0/3 set Name moved f 2 expectrun moved do edit.undo f 2 expectrun greet tab widget expecttab widget do files.new.widgets f 2 expect <Widgets tab theme expecttab theme f 2 do te.reset.colors do file.save expectfile ${_ds}/tabs/night.xml Name=\"Night\" do edit.undo do file.save do file.save expectfile ${_ds}/tabs/night.xml Accent=\"#FF9F0A\" tab strings expecttab strings tab window expecttab window expecttitle main.xml do view.theme.dark f 2")
 	set_tests_properties(designer_tabs PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# The preview and the selection: an interface opens with nothing selected, a click around the window
+	# or Escape selects nothing, the window fits the panel and follows its size (the size of the XML too),
+	# the palette shows the widgets by family.
+	add_test(NAME designer_layout COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/layout/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/><Button~Text=\"Go\"/></VBox></Window> open ${_ds}/layout f 2 expecttab window expectnothing expectfit path 0/0 expectselected Label clickaround expectnothing clickin key 256 0 expectnothing path 0/1 expectselected Button tab widget f 1 tab window expectfit size 1100 760 f 2 expectfit device 1 expectsize 400 300 path 0 clickaround expectnothing device 0 expectfit expectgroup Button Controls expectgroup VBox Layout expectgroup ListView Lists~and~data expectgroup Grid Layout f 1")
+	set_tests_properties(designer_layout PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# The theme editor driving itself: a look, an accent, colors, sizes and rules edited and seen
 	# in the preview, a palette generated, undo and redo, the contrast checked, a file saved and read back.
