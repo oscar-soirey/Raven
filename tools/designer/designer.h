@@ -61,6 +61,11 @@ const char* ds_config_dir(void);
 /** A path for the eyes: the folder of the user becomes "~". */
 void ds_pretty_path(const char* path, char* out, size_t size);
 int  ds_remove_file(const char* path);
+int  ds_remove_empty_dir(const char* path);
+/** A folder and everything in it. */
+int  ds_remove_tree(const char* path);
+/** Renames or moves a file or a folder (never over one that is there). */
+int  ds_rename(const char* from, const char* to);
 
 /* ---- main.c (the visual editor) ---- */
 
@@ -127,6 +132,8 @@ void designer_set_appearance(const char* name);
 void designer_widgets_changed(void);
 /** Another folder opens: what the Window and Widget tabs held goes. */
 void designer_forget_tabs(void);
+/** A file or a folder was renamed: the files open there follow. */
+void designer_file_moved(const char* from, const char* to);
 
 /** The themes of the preview changed (files.c found or lost a theme file). */
 void designer_themes_changed(void);
@@ -155,8 +162,22 @@ void folder_register_widgets(void);
 const char* folder_theme_path(int index);
 /** Opens the first file of a kind (0 windows, 1 widget libraries): main.xml, else the top of the folder. */
 int  folder_open_first(int view);
-/** Makes a new interface in the folder from a template ("window", "panel", "form") and opens it. */
+/** Makes a new file from a template ("window", "panel", "form", "widgets", "theme", "table") in the folder chosen in Files, and opens it; "folder" makes a folder. */
 int  folder_new_interface(const char* kind);
+/** A new folder in the folder chosen in Files: `name`, or "New folder" (its path, valid until the next call; NULL when it could not be made). */
+const char* folder_new_folder(const char* name);
+/** Renames a file or a folder (a file keeps its extension when the new name has none). */
+int  folder_rename(const char* path, const char* new_name);
+/** Deletes a file, or a folder and what it holds (asks nothing: the caller did). */
+int  folder_delete(const char* path);
+/** Opens a file where it is edited: its tab (a library: Widget, a theme: Theme, a table: Translations). */
+int  folder_open_file(const char* path);
+/** Selects a file in Files (nothing opens). */
+void folder_select(const char* path);
+/** A click on a file or a folder of Files (scripts of the tests). */
+void folder_click(const char* path);
+/** R_TRUE when Files has the keyboard (Delete and F2 are for its files). */
+int  folder_has_keyboard(void);
 
 /* ---- island.c: the island at the top of the window ---- */
 

@@ -153,18 +153,20 @@ static const char* const DESIGNER_XML[] = {
 "          <Overlay Name=\"stage.fit\" Visibility=\"Collapsed\"/>"
 "          <VBox Name=\"stage.empty\" Spacing=\"8\" Slot.HAlign=\"Center\" Slot.VAlign=\"Center\" Visibility=\"Collapsed\">"
 "            <Label Name=\"stage.empty.title\" Text=\"No interface open\" TextSize=\"20\" Slot.HAlign=\"Center\"/>"
-"            <Label Name=\"stage.empty.text\" Text=\"Double click one in Files, make one with New, or press Ctrl+K.\" Opacity=\"0.6\" Slot.HAlign=\"Center\"/>"
+"            <Label Name=\"stage.empty.text\" Text=\"Click one in Files, make one with New, or press Ctrl+K.\" Opacity=\"0.6\" Slot.HAlign=\"Center\"/>"
 "          </VBox>"
 "        </Overlay>"
 "      </VBox>"
 "      <VBox Name=\"panel.files\" Slot.Title=\"Files\" Slot.Dock=\"Left\" Slot.DockSize=\"0.2\" Slot.Closable=\"false\">"
 "        <WrapBox Spacing=\"0\" Slot.Padding=\"4,2\">"
-"          <ToolButton Text=\"New\" Tip=\"A new file in the folder (Ctrl+N)\" Do=\"files.new\"/>"
-"          <ToolButton Text=\"Folder...\" Tip=\"Open another folder (Ctrl+Shift+O)\" Do=\"folder.open\"/>"
-"          <ToolButton Text=\"Refresh\" Tip=\"The folder is followed by itself; this looks now\" Do=\"files.refresh\"/>"
+"          <ToolButton Text=\"New\" Tip=\"A new window, panel, form, widget library, theme or table, in the folder selected\" Do=\"files.new.menu\"/>"
+"          <ToolButton Text=\"Folder\" Tip=\"A new folder, in the folder selected\" Do=\"files.new.folder\"/>"
+"          <ToolButton Text=\"Rename\" Tip=\"Rename the file or the folder selected (F2)\" Do=\"files.rename\"/>"
+"          <ToolButton Text=\"Delete\" Tip=\"Delete the file or the folder selected (Delete)\" Do=\"files.delete\"/>"
+"          <ToolButton Text=\"Open...\" Tip=\"Open another folder (Ctrl+Shift+O)\" Do=\"folder.open\"/>"
 "        </WrapBox>"
 "        <Separator/>"
-"        <TreeView Name=\"files\" Slot.Fill=\"1\" Tooltip=\"Double click: an interface opens, a table goes to Translations, a theme dresses the preview\"/>"
+"        <TreeView Name=\"files\" Slot.Fill=\"1\" Tooltip=\"A click opens a file where it is edited: an interface, a widget library, a theme, a table. Right click: new, rename, delete.\"/>"
 "      </VBox>"
 "      <VBox Name=\"panel.widgets\" Slot.Title=\"Widgets\" Slot.Dock=\"Tab\" Slot.DockTo=\"panel.files\" Slot.Closable=\"false\">"
 "        <TextInput Name=\"palette.filter\" Placeholder=\"Search a widget\" Slot.Padding=\"6\" OnChanged=\"palette.filter\"/>"
@@ -586,6 +588,16 @@ static void update_title(void) {
  *  Problems: what the library reports while the preview is built
  * ------------------------------------------------------------------------- */
 
+/* (a note says something worth knowing that is no problem: a tag of the application shown as a stand-in) */
+#define PROBLEM_NOTE 2
+
+/* The problems, the notes left aside. */
+static int real_problem_count(void) {
+	int i, count = 0;
+	for (i = 0; i < g.problem_count; i++) count += g.problems[i].error != PROBLEM_NOTE;
+	return count;
+}
+
 static void add_problem(const char* text, int line, int error) {
 	problem_t* problem;
 	if (g.problem_count >= MAX_PROBLEMS) return;
@@ -595,8 +607,102 @@ static void add_problem(const char* text, int line, int error) {
 	problem->error = error;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Tags the application makes
+ *
+ *  A program can make tags of its own in C (Rxml_register_tag: an <Icon>, a
+ *  <Cover>...). The designer cannot run that code: such a tag, unknown to it,
+ *  is shown as a stand-in (a frame with its name) instead of being an
+ *  error, and its attributes are kept quietly; what every widget knows
+ *  (Width, Slot.Fill, Name...) still applies to it.
+ * ------------------------------------------------------------------------- */
+
+#define MAX_STAND_INS 64
+
+static struct {
+	char names[MAX_STAND_INS][64];
+	int count;
+	/* found unknown while the preview was built, and used by the one built last */
+	char pending[MAX_STAND_INS][64];
+	int pending_count;
+	int used[MAX_STAND_INS];
+} g_stand;
+
+static Rid stand_in_create(const char* tag, void* user_data) {
+	Rid box = Rwidget_create(R_WIDGET_BORDER), label;
+	char text[80];
+	int i;
+	(void)user_data;
+	for (i = 0; i < g_stand.count; i++) if (!strcmp(g_stand.names[i], tag)) g_stand.used[i] = R_TRUE;
+	Rwidget_set_attribute(box, "Background", "#8080802A");
+	Rwidget_set_attribute(box, "BorderColor", "#80808099");
+	Rwidget_set_attribute(box, "BorderWidth", "1");
+	Rwidget_set_attribute(box, "CornerRadius", "4");
+	Rwidget_set_attribute(box, "Padding", "4,1");
+	Rwidget_set_min_size(box, 20.0f, 18.0f);
+	snprintf(text, sizeof(text), "<%s>", tag);
+	label = Rlabel_create(text);
+	Rlabel_set_text_size(label, 10.0f);
+	Rwidget_set_opacity(label, 0.7f);
+	Rwidget_set_hit_testable(label, R_FALSE);
+	Rslot_set_halign(label, R_HALIGN_CENTER);
+	Rslot_set_valign(label, R_VALIGN_CENTER);
+	Rwidget_add_child(box, label);
+	Rwidget_set_tooltip(box, "A tag the application makes in C (Rxml_register_tag): the designer shows it as a stand-in.");
+	return box;
+}
+
+/* What every widget knows goes to the frame; the rest is for the code of the application. */
+static int stand_in_attribute(Rid widget, const char* name, const char* value, void* user_data) {
+	RXmlAttributeInfo info;
+	int i, count = Rxml_get_attribute_count("Border");
+	(void)user_data;
+	if (same_text(name, "Size")) {
+		float size = (float)atof(value);
+		if (size > 0.0f) Rwidget_set_size(widget, size, size);
+		return R_TRUE;
+	}
+	for (i = 0; i < count; i++) {
+		if (Rxml_get_attribute_info("Border", i, &info) && same_text(info.name, name) &&
+			(!strcmp(info.group, "Widget") || !strcmp(info.group, "Slot"))) return R_FALSE;
+	}
+	return R_TRUE;
+}
+
+/* "unknown widget <Icon>" while the preview is built: a tag of the application. */
+static int stand_in_noticed(const char* detail) {
+	const char* at = strstr(detail, "unknown widget <");
+	char name[64];
+	size_t length;
+	int i;
+	if (!at) return R_FALSE;
+	at += 16;
+	length = strcspn(at, ">");
+	if (length == 0 || length >= sizeof(name)) return R_FALSE;
+	memcpy(name, at, length);
+	name[length] = '\0';
+	for (i = 0; i < g_stand.pending_count; i++) if (!strcmp(g_stand.pending[i], name)) return R_TRUE;
+	if (g_stand.pending_count < MAX_STAND_INS) snprintf(g_stand.pending[g_stand.pending_count++], 64, "%s", name);
+	return R_TRUE;
+}
+
+/* The tags found unknown become stand-ins. R_TRUE when there were some: the preview is built again. */
+static int stand_in_register(void) {
+	int i, added = R_FALSE;
+	for (i = 0; i < g_stand.pending_count && g_stand.count < MAX_STAND_INS; i++) {
+		if (Rxml_is_tag_registered(g_stand.pending[i]) || Rxml_is_widget_registered(g_stand.pending[i])) continue;
+		snprintf(g_stand.names[g_stand.count++], 64, "%s", g_stand.pending[i]);
+		Rxml_register_tag(g_stand.pending[i], stand_in_create, stand_in_attribute, NULL);
+		added = R_TRUE;
+	}
+	g_stand.pending_count = 0;
+	return added;
+}
+
 static void on_error(RError code, RSeverity severity, const char* detail) {
 	if (g.quiet && code == R_ERROR_XML) return;
+	/* (a tag of the application: a stand-in, not a mistake) */
+	if (g.collecting && code == R_ERROR_XML && stand_in_noticed(detail)) return;
 	/* (the editor of themes reads what loading its theme said) */
 	te_error(code, severity, detail);
 	if (g.collecting && code == R_ERROR_XML) {
@@ -617,15 +723,15 @@ static void show_problems(void) {
 		const problem_t* problem = &g.problems[i];
 		Rlist_view_add_item(g.problems_list, problem->text);
 		if (problem->line > 0) {
-			Rtext_editor_add_marker(g.source, problem->line - 1, 0, -1, problem->error ? R_MARKER_ERROR : R_MARKER_WARNING, problem->text);
+			Rtext_editor_add_marker(g.source, problem->line - 1, 0, -1, problem->error == R_TRUE ? R_MARKER_ERROR : R_MARKER_WARNING, problem->text);
 		}
 	}
-	if (g.problem_count == 0) {
-		Rlist_view_add_item(g.problems_list, "No problems.");
+	if (real_problem_count() == 0) {
+		if (g.problem_count == 0) Rlist_view_add_item(g.problems_list, "No problems.");
 		Rdock_area_set_panel_title(g.dock, g.problems_list, "Problems");
 	} else {
 		char title[32];
-		snprintf(title, sizeof(title), "Problems (%d)", g.problem_count);
+		snprintf(title, sizeof(title), "Problems (%d)", real_problem_count());
 		Rdock_area_set_panel_title(g.dock, g.problems_list, title);
 	}
 }
@@ -1223,12 +1329,29 @@ static void rebuild_preview(void) {
 	g.preview = R_INVALID_ID;
 	g.hovered = R_INVALID_ID;
 
-	g.problem_count = 0;
-	g.collecting = R_TRUE;
-	/* the window of its own first: the nodes lead to the widgets built last, those of the preview here */
-	rebuild_run_window();
-	g.preview = g.tab == TAB_WIDGET ? build_library() : Rxml_document_create_widget(g.document);
-	g.collecting = R_FALSE;
+	{
+		int attempt, i;
+		memset(g_stand.used, 0, sizeof(g_stand.used));
+		for (attempt = 0; attempt < 4; attempt++) {
+			g.problem_count = 0;
+			g_stand.pending_count = 0;
+			g.collecting = R_TRUE;
+			/* the window of its own first: the nodes lead to the widgets built last, those of the preview here */
+			rebuild_run_window();
+			g.preview = g.tab == TAB_WIDGET ? build_library() : Rxml_document_create_widget(g.document);
+			g.collecting = R_FALSE;
+			/* tags of the application found on the way: built again with their stand-ins */
+			if (!stand_in_register()) break;
+			if (g.preview != R_INVALID_ID && Rwidget_is_valid(g.preview)) Rwidget_destroy(g.preview);
+			g.preview = R_INVALID_ID;
+		}
+		for (i = 0; i < g_stand.count; i++) {
+			char note[200];
+			if (!g_stand.used[i]) continue;
+			snprintf(note, sizeof(note), "<%s> is made by the application (Rxml_register_tag): the preview shows a stand-in.", g_stand.names[i]);
+			add_problem(note, 0, PROBLEM_NOTE);
+		}
+	}
 
 	/* the frame fits the panel: a window as it is when the user resizes it */
 	stage_host(g.device_width < 0 && same_text(tag, "Window") && g.tab == TAB_WINDOW);
@@ -1839,8 +1962,8 @@ static int load_text(const char* text, int record) {
 	g.hovered = R_INVALID_ID;
 	if (record) history_push(text, record == 2);
 	rebuild_all(R_FALSE);
-	if (g.problem_count == 0) set_status("Ready.");
-	else set_status("%d problem%s in the document: see the Problems tab.", g.problem_count, g.problem_count > 1 ? "s" : "");
+	if (real_problem_count() == 0) set_status("Ready.");
+	else set_status("%d problem%s in the document: see the Problems tab.", real_problem_count(), real_problem_count() > 1 ? "s" : "");
 	return R_TRUE;
 }
 
@@ -2606,6 +2729,11 @@ static void action_edit(Rid sender, const char* action, void* user_data) {
 		set_status("Nothing selected.");
 		return;
 	}
+	/* (Delete and Backspace in Files: for its files) */
+	if (strcmp(what, "delete") == 0 && folder_has_keyboard()) {
+		Raction_fire("files.delete", R_INVALID_ID);
+		return;
+	}
 	/* (Delete, Backspace, Ctrl+X, C, V: for the elements of the Window and Widget tabs only; the other tabs have their own) */
 	if (g.tab != TAB_WINDOW && g.tab != TAB_WIDGET) return;
 	/* Cut: copied, then deleted */
@@ -2881,7 +3009,11 @@ static void open_with_folder(const char* path) {
 		free(folder);
 		return;
 	}
-	if (!g.path || !ds_same_path(g.path, path)) open_file(path);
+	/* (where it is edited: a library in the Widget tab, a theme in the Theme tab, a table in Translations) */
+	if (!g.path || !ds_same_path(g.path, path)) {
+		if (g_folder) folder_open_file(path);
+		else open_file(path);
+	}
 	free(folder);
 }
 
@@ -2979,6 +3111,39 @@ static int on_drop(Rid target, const RDropEvent* event, void* user_data) {
  *  What the rest of the designer asks the visual editor (designer.h)
  * ------------------------------------------------------------------------- */
 
+/* A file or a folder was renamed or moved: the paths kept here follow. */
+static int moved_path(char** path, const char* from, const char* to) {
+	char* a;
+	char* b;
+	size_t n;
+	int changed = R_FALSE;
+	if (!*path) return R_FALSE;
+	a = ds_normalize(*path);
+	b = ds_normalize(from);
+	n = strlen(b);
+	if (!strcmp(a, b) || (!strncmp(a, b, n) && a[n] == '/')) {
+		char* to_n = ds_normalize(to);
+		char* next = (char*)malloc(strlen(to_n) + strlen(a + n) + 1);
+		sprintf(next, "%s%s", to_n, a + n);
+		free(*path);
+		*path = next;
+		free(to_n);
+		changed = R_TRUE;
+	}
+	free(a);
+	free(b);
+	return changed;
+}
+
+void designer_file_moved(const char* from, const char* to) {
+	int k;
+	if (moved_path(&g.path, from, to)) {
+		base_path_of(g.path);
+		update_title();
+	}
+	for (k = 0; k < 2; k++) moved_path(&g.slots[k].path, from, to);
+}
+
 void designer_open_file(const char* path) {
 	open_file(path);
 	folder_refresh();
@@ -3002,7 +3167,7 @@ int designer_save(void) {
 }
 
 int designer_problem_count(void) {
-	return g.problem_count;
+	return real_problem_count();
 }
 
 const char* designer_problem_text(int index) {
@@ -3332,6 +3497,9 @@ void designer_widgets_changed(void) {
 /* Another folder: what the tabs held goes. */
 void designer_forget_tabs(void) {
 	int k, h;
+	/* the tags of the application of the other folder: unknown again (a stand-in or a declaration of this one) */
+	for (k = 0; k < g_stand.count; k++) Rxml_unregister_tag(g_stand.names[k]);
+	g_stand.count = 0;
 	for (k = 0; k < 2; k++) {
 		free(g.slots[k].path);
 		free(g.slots[k].text);
@@ -3701,7 +3869,8 @@ static void fuzz(int steps, unsigned seed) {
 	static const char* const actions[] = { "edit.undo", "edit.redo", "edit.duplicate", "edit.delete", "edit.up", "edit.down", "edit.out", "edit.in",
 		"edit.wrap.VBox", "edit.wrap.Border", "edit.unwrap", "edit.copy", "edit.paste", "palette.add", "view.interact", "view.run", "view.strings",
 		"view.reset", "files.new.window", "files.new.panel", "files.new.form", "files.refresh", "file.save", "island.search", "file.welcome",
-		"view.theme.dark", "view.theme.light", "strings.add_key", "strings.save", "tab.window", "tab.widget", "tab.theme", "tab.strings", "files.new.widgets", "te.reset.colors", "te.undo", "te.generate" };
+		"view.theme.dark", "view.theme.light", "strings.add_key", "strings.save", "tab.window", "tab.widget", "tab.theme", "tab.strings", "files.new.widgets", "te.reset.colors", "te.undo", "te.generate",
+		"files.new.folder", "files.new.table", "files.open" };
 	int step;
 	g_fuzz_state = seed ? seed : 1;
 	g.fuzzing = g_ds_fuzzing = R_TRUE;
@@ -3972,6 +4141,57 @@ static int designer_script(char* script) {
 			}
 			Rwindow_inject_mouse_button(g.window, R_MOUSE_LEFT, R_FALSE);
 			run_frames(1);
+		} else if (strcmp(token, "fileclick") == 0) {
+			/* fileclick PATH: a click on a file or a folder in Files (PATH relative to the folder open) */
+			char* full = ds_join(g_folder ? g_folder : ".", next_token(&cursor));
+			folder_click(full);
+			free(full);
+		} else if (strcmp(token, "newfolder") == 0) {
+			if (!folder_new_folder(next_token(&cursor))) return R_FALSE;
+		} else if (strcmp(token, "rename") == 0) {
+			/* rename PATH NAME (PATH relative to the folder open) */
+			char* full = ds_join(g_folder ? g_folder : ".", next_token(&cursor));
+			int ok = folder_rename(full, next_token(&cursor));
+			free(full);
+			if (!ok) return R_FALSE;
+		} else if (strcmp(token, "delete") == 0) {
+			char* full = ds_join(g_folder ? g_folder : ".", next_token(&cursor));
+			int ok = folder_delete(full);
+			free(full);
+			if (!ok) return R_FALSE;
+		} else if (strcmp(token, "expectexists") == 0) {
+			/* expectexists PATH 0|1 (PATH relative to the folder open) */
+			char* full = ds_join(g_folder ? g_folder : ".", next_token(&cursor));
+			int want = atoi(next_token(&cursor)), there = ds_file_exists(full) || ds_is_dir(full);
+			if (there != want) {
+				fprintf(stderr, "raven_designer: expected %s %s\n", full, want ? "to be there" : "to be gone");
+				free(full);
+				return R_FALSE;
+			}
+			free(full);
+		} else if (strcmp(token, "expectdeclared") == 0) {
+			/* expectdeclared TAG 0|1: the tag is declared (a <Widget> of the folder) or not */
+			const char* tag = next_token(&cursor);
+			int want = atoi(next_token(&cursor));
+			if (Rxml_is_widget_registered(tag) != want) {
+				fprintf(stderr, "raven_designer: expected <%s> %s\n", tag, want ? "declared" : "not declared");
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectopen") == 0) {
+			/* expectopen NAME: the file open in the Window or Widget tab is called NAME */
+			const char* name = next_token(&cursor);
+			if (!g.path || strcmp(ds_basename(g.path), name) != 0) {
+				fprintf(stderr, "raven_designer: expected %s open, it is %s\n", name, g.path ? ds_basename(g.path) : "nothing");
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectproblems") == 0) {
+			/* expectproblems N: the interface open has N problems (they are listed when it is not so) */
+			int want = atoi(next_token(&cursor)), k;
+			if (real_problem_count() != want) {
+				fprintf(stderr, "raven_designer: expected %d problems, there are %d:\n", want, g.problem_count);
+				for (k = 0; k < g.problem_count; k++) fprintf(stderr, "  %s\n", g.problems[k].text);
+				return R_FALSE;
+			}
 		} else if (strcmp(token, "expectnot") == 0) {
 			/* expectnot TEXT: the XML does not contain TEXT ('~' for spaces) */
 			char* text = next_token(&cursor);
@@ -4523,6 +4743,8 @@ static int build_interface(void) {
 	Rwindow_set_event_hook(g.window, window_hook, NULL);
 	/* Backspace deletes as Delete does (the menu shows Delete; a text being typed takes the key first) */
 	Rwindow_register_shortcut(g.window, R_KEY_BACKSPACE, 0, "edit.delete");
+	/* F2 in Files renames */
+	Rwindow_register_shortcut(g.window, R_KEY_F2, 0, "files.f2");
 	g.device_combo = Rwidget_find(g.window, "preview.device");
 	g.theme_combo = Rwidget_find(g.window, "preview.theme");
 	for (i = 0; i < (size_t)DEVICE_COUNT; i++) Rcombo_box_add_item(g.device_combo, DEVICES[i].name);

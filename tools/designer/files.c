@@ -25,7 +25,7 @@
 #define MAX_FILES 2000
 
 /* (in the order of the tabs: what each one shows in Files) */
-typedef enum file_kind_t { FILE_INTERFACE, FILE_WIDGETS, FILE_THEME, FILE_TABLE } file_kind_t;
+typedef enum file_kind_t { FILE_INTERFACE, FILE_WIDGETS, FILE_THEME, FILE_TABLE, FILE_FOLDER } file_kind_t;
 
 typedef struct file_t {
 	char* path;
@@ -47,8 +47,15 @@ static struct {
 	char** item_paths;
 	int item_count, item_cap;
 	double tables_time;
-	/* the kind of files the tab in front shows */
+	/* the kind of files the tab in front makes ("New") */
 	int view;
+	/* the folders the user folded (relative paths): they stay folded when the tree is filled again */
+	char** folded;
+	int folded_count;
+	/* set while the designer itself selects in the tree */
+	int syncing;
+	/* the folder a "New" makes its file in, and the file or folder the menu is about */
+	char* target_dir;
 } g_f;
 
 /* ---------------------------------------------------------------------------
@@ -107,6 +114,7 @@ static void scan(const char* folder, int depth, file_t** files, int* count) {
 		if (entries[i].is_dir && (depth >= MAX_DEPTH || skipped_folder(entries[i].name))) continue;
 		full = ds_join(folder, entries[i].name);
 		if (entries[i].is_dir) {
+			add_file(files, count, full, FILE_FOLDER);
 			scan(full, depth + 1, files, count);
 		} else if (ds_iequal(ds_extension(entries[i].name), "xml")) {
 			add_file(files, count, full, xml_kind(full));
@@ -138,81 +146,118 @@ static void remember_path(Rid item, const char* path) {
 	g_f.item_count++;
 }
 
-/* The item of a folder (relative to the folder open), made on the way. */
-static Rid folder_item(const char* relative_folder, Rid* folders, char** names, int* count) {
+static int is_folded(const char* relative) {
 	int i;
-	Rid parent = R_INVALID_ID;
-	char so_far[1024] = "";
-	const char* walk = relative_folder;
-	while (*walk) {
-		const char* slash = strchr(walk, '/');
-		size_t length = slash ? (size_t)(slash - walk) : strlen(walk);
-		size_t used = strlen(so_far);
-		Rid found = R_INVALID_ID;
-		snprintf(so_far + used, sizeof(so_far) - used, "%s%.*s", used ? "/" : "", (int)length, walk);
-		for (i = 0; i < *count; i++) {
-			if (!strcmp(names[i], so_far)) {
-				found = folders[i];
+	for (i = 0; i < g_f.folded_count; i++) if (!strcmp(g_f.folded[i], relative)) return R_TRUE;
+	return R_FALSE;
+}
+
+static const char* relative_of(const char* path) {
+	size_t root_length = g_folder ? strlen(g_folder) : 0;
+	return strlen(path) > root_length ? path + root_length + 1 : "";
+}
+
+/* The folders the user folded, read from the tree before it is filled again. */
+static void remember_folded(Rid item) {
+	int i, count = item == R_INVALID_ID ? Rtree_view_get_item_count(g_f.tree) : Rtree_item_get_child_count(item);
+	if (item != R_INVALID_ID && Rtree_item_get_child_count(item) > 0 && !Rtree_item_is_expanded(item)) {
+		const char* path = (const char*)Rtree_item_get_user_handle(item);
+		if (path && ds_is_dir(path) && !is_folded(relative_of(path))) {
+			g_f.folded = (char**)realloc(g_f.folded, sizeof(char*) * (size_t)(g_f.folded_count + 1));
+			g_f.folded[g_f.folded_count++] = ds_strdup(relative_of(path));
+		}
+	}
+	for (i = 0; i < count; i++) remember_folded(item == R_INVALID_ID ? Rtree_view_get_item(g_f.tree, i) : Rtree_item_get_child(item, i));
+}
+
+static void forget_folded(void) {
+	int i;
+	for (i = 0; i < g_f.folded_count; i++) free(g_f.folded[i]);
+	free(g_f.folded);
+	g_f.folded = NULL;
+	g_f.folded_count = 0;
+}
+
+static Rid item_of(Rid item, const char* path) {
+	int i, count = item == R_INVALID_ID ? Rtree_view_get_item_count(g_f.tree) : Rtree_item_get_child_count(item);
+	const char* own = item != R_INVALID_ID ? (const char*)Rtree_item_get_user_handle(item) : NULL;
+	if (own && ds_same_path(own, path)) return item;
+	for (i = 0; i < count; i++) {
+		Rid found = item_of(item == R_INVALID_ID ? Rtree_view_get_item(g_f.tree, i) : Rtree_item_get_child(item, i), path);
+		if (found != R_INVALID_ID) return found;
+	}
+	return R_INVALID_ID;
+}
+
+/* A file selected in the tree (by the designer: nothing opens). */
+void folder_select(const char* path) {
+	Rid item = path ? item_of(R_INVALID_ID, path) : R_INVALID_ID;
+	g_f.syncing++;
+	Rtree_view_set_selected_item(g_f.tree, item);
+	if (item != R_INVALID_ID) Rtree_view_scroll_to_item(g_f.tree, item);
+	g_f.syncing--;
+}
+
+/*
+ * Files: the whole folder, its sub-folders as branches (those folded stay
+ * so), and in them the interfaces, the widget libraries, the themes and the
+ * tables, each with its picture.
+ */
+static void fill_tree(void) {
+	Rid* folder_items;
+	int i, k;
+	char** folder_paths;
+	int folder_count = 0, shown = 0;
+	const char* open = designer_get_path();
+	if (g_f.tree == R_INVALID_ID) return;
+	remember_folded(R_INVALID_ID);
+	g_f.syncing++;
+	Rtree_view_clear_items(g_f.tree);
+	for (i = 0; i < g_f.item_count; i++) free(g_f.item_paths[i]);
+	g_f.item_count = 0;
+	if (!g_folder) {
+		g_f.syncing--;
+		Rdock_area_set_panel_title(g_ds_dock, g_f.panel, "Files");
+		return;
+	}
+	folder_items = (Rid*)malloc(sizeof(Rid) * (size_t)(g_f.file_count + 1));
+	folder_paths = (char**)malloc(sizeof(char*) * (size_t)(g_f.file_count + 1));
+	for (i = 0; i < g_f.file_count; i++) {
+		static const char* const kinds[5] = { "#file.window", "#file.widgets", "#file.theme", "#file.table", "#folder" };
+		const file_t* file = &g_f.files[i];
+		char* normalized = ds_normalize(file->path);
+		char* parent_path = ds_strdup(normalized);
+		char* slash = strrchr(parent_path, '/');
+		Rid parent = R_INVALID_ID, item;
+		if (slash) *slash = '\0';
+		/* (the scan lists a folder before what it holds) */
+		for (k = folder_count - 1; k >= 0; k--) {
+			if (!strcmp(folder_paths[k], parent_path)) {
+				parent = folder_items[k];
 				break;
 			}
 		}
-		if (found == R_INVALID_ID && *count < 256) {
-			char caption[300];
-			snprintf(caption, sizeof(caption), "%.*s", (int)length, walk);
-			found = Rtree_view_add_item(g_f.tree, parent, caption);
-			icons_set_tree_item(found, "#folder");
-			Rtree_item_set_expanded(found, R_TRUE);
-			folders[*count] = found;
-			names[*count] = ds_strdup(so_far);
-			(*count)++;
-		}
-		parent = found;
-		if (!slash) break;
-		walk = slash + 1;
-	}
-	return parent;
-}
-
-static void fill_tree(void) {
-	Rid folders[256];
-	char* names[256];
-	int folder_count = 0, i;
-	size_t root_length = g_folder ? strlen(g_folder) : 0;
-	const char* open = designer_get_path();
-	for (i = 0; i < g_f.item_count; i++) free(g_f.item_paths[i]);
-	g_f.item_count = 0;
-	Rtree_view_clear_items(g_f.tree);
-	if (!g_folder) return;
-	for (i = 0; i < g_f.file_count; i++) {
-		const file_t* file = &g_f.files[i];
-		char* normalized;
-		if ((int)file->kind != g_f.view) continue;
-		normalized = ds_normalize(file->path);
-		const char* relative = normalized + (strlen(normalized) > root_length ? root_length + 1 : 0);
-		const char* slash = strrchr(relative, '/');
-		char sub[1024], caption[400];
-		Rid parent = R_INVALID_ID, item;
-		if (slash) {
-			snprintf(sub, sizeof(sub), "%.*s", (int)(slash - relative), relative);
-			parent = folder_item(sub, folders, names, &folder_count);
-		}
-		snprintf(caption, sizeof(caption), "%s", ds_basename(relative));
-		item = Rtree_view_add_item(g_f.tree, parent, caption);
-		{
-			static const char* const kinds[4] = { "#file.window", "#file.widgets", "#file.theme", "#file.table" };
-			icons_set_tree_item(item, kinds[file->kind]);
-		}
+		item = Rtree_view_add_item(g_f.tree, parent, ds_basename(normalized));
+		icons_set_tree_item(item, kinds[file->kind]);
 		remember_path(item, file->path);
-		if (open && ds_same_path(open, file->path)) Rtree_view_set_selected_item(g_f.tree, item);
+		if (file->kind == FILE_FOLDER) {
+			Rtree_item_set_expanded(item, !is_folded(relative_of(normalized)));
+			folder_items[folder_count] = item;
+			folder_paths[folder_count++] = ds_strdup(normalized);
+		} else {
+			shown++;
+			if (open && ds_same_path(open, file->path)) Rtree_view_set_selected_item(g_f.tree, item);
+		}
+		free(parent_path);
 		free(normalized);
 	}
-	for (i = 0; i < folder_count; i++) free(names[i]);
+	for (i = 0; i < folder_count; i++) free(folder_paths[i]);
+	free(folder_paths);
+	free(folder_items);
+	g_f.syncing--;
 	{
-		static const char* const titles[4] = { "Windows", "Widget libraries", "Themes", "Tables" };
 		char title[64];
-		int shown = 0;
-		for (i = 0; i < g_f.file_count; i++) shown += (int)g_f.files[i].kind == g_f.view;
-		snprintf(title, sizeof(title), "%s (%d)", titles[g_f.view >= 0 && g_f.view < 4 ? g_f.view : 0], shown);
+		snprintf(title, sizeof(title), "Files (%d)", shown);
 		Rdock_area_set_panel_title(g_ds_dock, g_f.panel, title);
 	}
 }
@@ -365,6 +410,13 @@ int folder_open(const char* path) {
 	g_f.files = NULL;
 	g_f.file_count = 0;
 	forget_themes();
+	forget_folded();
+	free(g_f.target_dir);
+	g_f.target_dir = NULL;
+	/* (the tree of the other folder is not read for what was folded in it) */
+	g_f.syncing++;
+	Rtree_view_clear_items(g_f.tree);
+	g_f.syncing--;
 	scan(g_folder, 0, &g_f.files, &g_f.file_count);
 	fill_tree();
 	load_themes();
@@ -445,12 +497,33 @@ int folder_open_first(int view) {
 void folder_set_view(int view) {
 	if (view < 0 || view > 3) return;
 	g_f.view = view;
-	fill_tree();
+	if (view <= 1) folder_select(designer_get_path());
 }
 
+/* The tags the designer declares for itself (its own interface): never forgotten. */
+static char** g_own_tags;
+static int g_own_tag_count = -1;
+
+/*
+ * The tags declared by the widget libraries of the folder, made known to the
+ * windows; those of a library that went away, or of another folder, are
+ * forgotten first.
+ */
 void folder_register_widgets(void) {
 	int i;
 	const char* open = designer_get_path();
+	if (g_own_tag_count < 0) {
+		g_own_tag_count = Rxml_get_registered_widget_count();
+		g_own_tags = (char**)calloc((size_t)g_own_tag_count + 1, sizeof(char*));
+		for (i = 0; i < g_own_tag_count; i++) g_own_tags[i] = ds_strdup(Rxml_get_registered_widget_name(i));
+	}
+	for (i = Rxml_get_registered_widget_count() - 1; i >= 0; i--) {
+		char* name = ds_strdup(Rxml_get_registered_widget_name(i));
+		int k, own = R_FALSE;
+		for (k = 0; k < g_own_tag_count && !own; k++) own = !strcmp(g_own_tags[k], name);
+		if (!own) Rxml_unregister_widget(name);
+		free(name);
+	}
 	for (i = 0; i < g_f.file_count; i++) {
 		size_t size = 0;
 		char* text;
@@ -464,28 +537,42 @@ void folder_register_widgets(void) {
 	}
 }
 
-/* A theme to start from, written in the folder and opened in the Theme tab. */
-static int new_theme(void) {
-	char name[64];
-	char* path = NULL;
-	te_model model;
-	te_text text;
+/* ---------------------------------------------------------------------------
+ *  Making, renaming, deleting
+ * ------------------------------------------------------------------------- */
+
+/* The folder a new file goes in: the one of the menu or of the selection (a file: its folder), else the top. */
+static const char* new_file_folder(void) {
+	return g_f.target_dir && ds_is_dir(g_f.target_dir) ? g_f.target_dir : g_folder;
+}
+
+/* A free name in a folder: "base.ext", else "base-2.ext"... (malloc), NULL when none. */
+static char* free_name(const char* folder, const char* base, const char* extension) {
 	int n;
 	for (n = 1; n < 1000; n++) {
-		if (n == 1) snprintf(name, sizeof(name), "theme.xml");
-		else snprintf(name, sizeof(name), "theme-%d.xml", n);
-		path = ds_join(g_folder, name);
-		if (!ds_file_exists(path)) break;
+		char name[160];
+		char* path;
+		if (n == 1) snprintf(name, sizeof(name), "%s%s%s", base, extension[0] ? "." : "", extension);
+		else snprintf(name, sizeof(name), "%s-%d%s%s", base, n, extension[0] ? "." : "", extension);
+		path = ds_join(folder, name);
+		if (!ds_file_exists(path) && !ds_is_dir(path)) return path;
 		free(path);
-		path = NULL;
 	}
+	return NULL;
+}
+
+/* A theme to start from, written in the folder and opened in the Theme tab. */
+static int new_theme(void) {
+	char* path = free_name(new_file_folder(), "theme", "xml");
+	te_model model;
+	te_text text;
 	if (!path) return R_FALSE;
 	te_model_init(&model);
 	model.accent_set = 1;
 	model.accent[0] = 0.49f;
 	model.accent[1] = 0.36f;
 	model.accent[2] = 1.0f;
-	snprintf(model.name, sizeof(model.name), "%s", n == 1 ? "My theme" : name);
+	snprintf(model.name, sizeof(model.name), "%s", strcmp(ds_basename(path), "theme.xml") ? ds_basename(path) : "My theme");
 	memset(&text, 0, sizeof(text));
 	te_model_write(&model, &text, NULL, 0, NULL);
 	te_model_free(&model);
@@ -498,38 +585,44 @@ static int new_theme(void) {
 	folder_refresh();
 	designer_show_tab(2);
 	designer_open_theme(path);
-	ds_status("%s made: change it here, the windows of the folder can wear it.", name);
+	folder_select(path);
+	ds_status("%s made: change it here, the windows of the folder can wear it.", ds_basename(path));
+	free(path);
+	return R_TRUE;
+}
+
+/* A table of translations: a column of keys, one of English. */
+static int new_table(void) {
+	char* path = free_name(new_file_folder(), "strings", "csv");
+	if (!path || !Rfile_write(path, "key,en\n", 7)) {
+		free(path);
+		return R_FALSE;
+	}
+	folder_refresh();
+	strings_reload();
+	designer_show_tab(3);
+	strings_open(path);
+	folder_select(path);
+	ds_status("%s made: add keys and languages in the Translations tab.", ds_basename(path));
 	free(path);
 	return R_TRUE;
 }
 
 int folder_new_interface(const char* kind) {
-	char name[64];
-	char* path = NULL;
+	char* path;
 	const char* text = designer_template(kind);
-	int n;
 	if (!g_folder) {
 		ds_status("Open a folder first: the new file goes in it.");
 		return R_FALSE;
 	}
 	if (!strcmp(kind, "theme")) return new_theme();
-	if (!strcmp(kind, "table")) {
-		Raction_fire("strings.add_table", R_INVALID_ID);
-		designer_show_tab(3);
-		return R_TRUE;
-	}
+	if (!strcmp(kind, "table")) return new_table();
+	if (!strcmp(kind, "folder")) return folder_new_folder(NULL) != NULL;
+	path = free_name(new_file_folder(), kind, "xml");
 	/* a library of tags is made in the Widget tab, a window in the Window tab */
 	designer_show_tab(!strcmp(kind, "widgets") ? 1 : 0);
-	for (n = 1; n < 1000; n++) {
-		if (n == 1) snprintf(name, sizeof(name), "%s.xml", kind);
-		else snprintf(name, sizeof(name), "%s-%d.xml", kind, n);
-		path = ds_join(g_folder, name);
-		if (!ds_file_exists(path)) break;
-		free(path);
-		path = NULL;
-	}
 	if (!path || !Rfile_write(path, text, strlen(text))) {
-		ds_status("Cannot write a new file in %s.", g_folder);
+		ds_status("Cannot write a new file in %s.", new_file_folder());
 		free(path);
 		return R_FALSE;
 	}
@@ -539,9 +632,107 @@ int folder_new_interface(const char* kind) {
 		return R_FALSE;
 	}
 	designer_open_file(path);
-	ds_status("%s made from the %s template.", name, kind);
+	folder_select(path);
+	ds_status("%s made from the %s template.", ds_basename(path), kind);
 	free(path);
 	return R_TRUE;
+}
+
+/* A new folder, in the folder of the selection (or `name` there: the scripts); its path, or NULL. Static: valid until the next call. */
+const char* folder_new_folder(const char* name) {
+	static char* made;
+	char* path;
+	if (!g_folder) return NULL;
+	if (name && name[0]) {
+		path = ds_join(new_file_folder(), name);
+		if (ds_is_dir(path) || ds_file_exists(path)) {
+			free(path);
+			path = NULL;
+		}
+	} else {
+		path = free_name(new_file_folder(), "New folder", "");
+	}
+	if (!path || !ds_make_dirs(path)) {
+		ds_status("Cannot make a folder in %s.", new_file_folder());
+		free(path);
+		return NULL;
+	}
+	free(made);
+	made = path;
+	folder_refresh();
+	folder_select(made);
+	ds_status("Folder %s made: right click it to make files in it, F2 to rename it.", ds_basename(made));
+	return made;
+}
+
+/* The paths that begin with `from` (the file, or what was in the folder) now begin with `to`. */
+static void moved(const char* from, const char* to) {
+	designer_file_moved(from, to);
+	folder_refresh();
+	strings_reload();
+}
+
+/* Renames a file or a folder of the folder open. R_FALSE (with a word in the status bar) when it cannot. */
+int folder_rename(const char* path, const char* new_name) {
+	char* target;
+	char* parent;
+	char* slash;
+	if (!path || !new_name || !new_name[0] || strchr(new_name, '/') || strchr(new_name, '\\') || !strcmp(new_name, ".") || !strcmp(new_name, "..")) {
+		ds_status("A name without slashes, please.");
+		return R_FALSE;
+	}
+	parent = ds_normalize(path);
+	slash = strrchr(parent, '/');
+	if (slash) *slash = '\0';
+	target = ds_join(parent, new_name);
+	free(parent);
+	/* a file keeps its extension when the new name has none */
+	if (!ds_is_dir(path) && !strchr(new_name, '.') && ds_extension(path)[0]) {
+		char* with = (char*)malloc(strlen(target) + strlen(ds_extension(path)) + 2);
+		sprintf(with, "%s.%s", target, ds_extension(path));
+		free(target);
+		target = with;
+	}
+	if (ds_same_path(target, path)) {
+		free(target);
+		return R_TRUE;
+	}
+	if (!ds_rename(path, target)) {
+		ds_status("Cannot rename %s to %s (is there one with that name?).", ds_basename(path), ds_basename(target));
+		free(target);
+		return R_FALSE;
+	}
+	moved(path, target);
+	folder_select(target);
+	ds_status("Renamed to %s.", ds_basename(target));
+	free(target);
+	return R_TRUE;
+}
+
+/* Deletes a file, or a folder with what it holds (no trash: the caller asked). */
+int folder_delete(const char* path) {
+	int folder = ds_is_dir(path), ok;
+	const char* open = designer_get_path();
+	char* normalized;
+	if (!g_folder || !path || ds_same_path(path, g_folder)) {
+		ds_status("The folder open itself is not deleted here.");
+		return R_FALSE;
+	}
+	normalized = ds_normalize(path);
+	/* what is open there closes first */
+	if (open) {
+		char* o = ds_normalize(open);
+		size_t n = strlen(normalized);
+		if (!strcmp(o, normalized) || (folder && !strncmp(o, normalized, n) && o[n] == '/')) designer_close();
+		free(o);
+	}
+	ok = folder ? ds_remove_tree(path) : ds_remove_file(path);
+	if (!ok) ds_status("Cannot delete %s.", ds_basename(path));
+	else ds_status("Deleted %s.", ds_basename(path));
+	free(normalized);
+	folder_refresh();
+	strings_reload();
+	return ok;
 }
 
 /* ---------------------------------------------------------------------------
@@ -554,16 +745,24 @@ static const file_t* file_of(const char* path) {
 	return NULL;
 }
 
+/* What a file is, listed or not. */
+static file_kind_t kind_of(const char* path) {
+	const file_t* file = file_of(path);
+	if (file) return file->kind;
+	if (ds_is_dir(path)) return FILE_FOLDER;
+	if (ds_iequal(ds_extension(path), "csv")) return FILE_TABLE;
+	return xml_kind(path);
+}
+
+/* Opens a file where it is edited: an interface or a library in its tab, a table in Translations, a theme in the Theme tab. */
 static void open_path(const char* path) {
-	const file_t* file = path ? file_of(path) : NULL;
-	int i;
-	if (!file) return;
-	switch (file->kind) {
+	if (!path) return;
+	switch (kind_of(path)) {
 		case FILE_INTERFACE:
 		case FILE_WIDGETS:
-			designer_show_tab(file->kind == FILE_WIDGETS ? 1 : 0);
-			if (designer_get_path() && ds_same_path(designer_get_path(), path)) return;
-			if (!ds_confirm_unsaved("opening another interface")) return;
+			designer_show_tab(kind_of(path) == FILE_WIDGETS ? 1 : 0);
+			if (designer_get_path() && ds_same_path(designer_get_path(), path)) break;
+			if (!ds_confirm_unsaved("opening another interface")) break;
 			designer_open_file(path);
 			break;
 		case FILE_TABLE:
@@ -571,11 +770,56 @@ static void open_path(const char* path) {
 			strings_open(path);
 			break;
 		case FILE_THEME:
-			(void)i;
 			designer_show_tab(2);
 			designer_open_theme(path);
 			break;
+		case FILE_FOLDER:
+			break;
 	}
+	/* (a cancel leaves the file open selected) */
+	if (designer_get_tab() <= 1) folder_select(designer_get_path());
+}
+
+int folder_open_file(const char* path) {
+	open_path(path);
+	return R_TRUE;
+}
+
+/* ---------------------------------------------------------------------------
+ *  The panel: a click opens, a right click or the bar makes, renames, deletes
+ * ------------------------------------------------------------------------- */
+
+static void set_target(const char* path) {
+	free(g_f.target_dir);
+	g_f.target_dir = NULL;
+	free(g_f.menu_path);
+	g_f.menu_path = path ? ds_strdup(path) : NULL;
+	if (!path) return;
+	if (ds_is_dir(path)) {
+		g_f.target_dir = ds_strdup(path);
+	} else {
+		char* folder = ds_normalize(path);
+		char* slash = strrchr(folder, '/');
+		if (slash) *slash = '\0';
+		g_f.target_dir = folder;
+	}
+}
+
+/* The selection of the tree is what the bar acts on. */
+static const char* selected_path(void) {
+	Rid item = Rtree_view_get_selected_item(g_f.tree);
+	return item != R_INVALID_ID ? (const char*)Rtree_item_get_user_handle(item) : NULL;
+}
+
+/* A click on a file opens it (a folder opens or folds with a double click, or its arrow). */
+static void on_selected(Rid tree, Rid item, void* user_data) {
+	const char* path;
+	(void)tree;
+	(void)user_data;
+	if (g_f.syncing || item == R_INVALID_ID) return;
+	path = (const char*)Rtree_item_get_user_handle(item);
+	set_target(path);
+	if (path && !ds_is_dir(path)) open_path(path);
 }
 
 static void on_activated(Rid tree, Rid item, void* user_data) {
@@ -584,37 +828,134 @@ static void on_activated(Rid tree, Rid item, void* user_data) {
 	if (item != R_INVALID_ID) open_path((const char*)Rtree_item_get_user_handle(item));
 }
 
+static void fill_menu(int on_file, int on_folder) {
+	static const struct { const char* text; const char* action; } make[] = {
+		{ "New window", "files.new.window" }, { "New panel", "files.new.panel" }, { "New form", "files.new.form" },
+		{ "New widget library", "files.new.widgets" }, { "New theme", "files.new.theme" }, { "New table of translations", "files.new.table" },
+		{ "New folder", "files.new.folder" }
+	};
+	size_t i;
+	if (g_f.menu != R_INVALID_ID && Rwidget_is_valid(g_f.menu)) Rwidget_destroy(g_f.menu);
+	g_f.menu = Rwidget_create(R_WIDGET_MENU);
+	if (on_file) {
+		Rwidget_set_action(Rmenu_add_item(g_f.menu, "Open"), "files.open");
+		Rmenu_add_separator(g_f.menu);
+	}
+	for (i = 0; i < sizeof(make) / sizeof(make[0]); i++) Rwidget_set_action(Rmenu_add_item(g_f.menu, make[i].text), make[i].action);
+	if (on_file || on_folder) {
+		Rmenu_add_separator(g_f.menu);
+		Rwidget_set_action(Rmenu_add_item(g_f.menu, "Rename...    F2"), "files.rename");
+		Rwidget_set_action(Rmenu_add_item(g_f.menu, "Delete...    Del"), "files.delete");
+	}
+	Rmenu_add_separator(g_f.menu);
+	Rwidget_set_action(Rmenu_add_item(g_f.menu, "Show in the file manager"), "files.reveal");
+}
+
 static void on_context(Rid tree, Rid item, float x, float y, void* user_data) {
 	const char* path = item != R_INVALID_ID ? (const char*)Rtree_item_get_user_handle(item) : NULL;
 	(void)tree;
 	(void)user_data;
-	free(g_f.menu_path);
-	g_f.menu_path = path ? ds_strdup(path) : NULL;
+	set_target(path);
+	fill_menu(path && !ds_is_dir(path), path && ds_is_dir(path));
 	Rmenu_open(g_f.menu, g_ds_window, x, y);
 }
 
-static void action_files(Rid sender, const char* action, void* user_data) {
-	crash_report_note("action %s", action);
-	(void)sender;
+/* ---- asking a name ---- */
+
+typedef struct ask_t {
+	char* path;
+	Rid input;
+} ask_t;
+
+static void on_ask_closed(Rid dialog, int result, void* user_data) {
+	ask_t* ask = (ask_t*)user_data;
+	(void)dialog;
+	if (result == 1 && Rwidget_is_valid(ask->input)) folder_rename(ask->path, Rtext_input_get_text(ask->input));
+	free(ask->path);
+	free(ask);
+}
+
+static void on_ask_ok(Rid sender, const char* action, void* user_data) {
+	(void)action;
 	(void)user_data;
+	Rdialog_close(sender, 1);
+}
+
+static void on_ask_cancel(Rid sender, const char* action, void* user_data) {
+	(void)action;
+	(void)user_data;
+	Rdialog_close(sender, 0);
+}
+
+static void ask_rename(const char* path) {
+	static const char xml[] =
+		"<VBox Spacing=\"10\" Width=\"360\" Slot.Padding=\"18\">"
+		"  <Label Name=\"ask.title\" TextSize=\"17\"/>"
+		"  <TextInput Name=\"ask.input\" OnCommitted=\"files.ask.ok\"/>"
+		"  <HBox Spacing=\"8\" Slot.HAlign=\"Right\">"
+		"    <Button Text=\"Cancel\" OnClicked=\"files.ask.cancel\"/>"
+		"    <Button Text=\"Rename\" Style=\"Primary\" OnClicked=\"files.ask.ok\"/>"
+		"  </HBox>"
+		"</VBox>";
+	Rid content;
+	ask_t* ask;
+	char title[300];
+	if (g_ds_fuzzing || !path) return;
+	content = Rwidget_create_from_xml(xml, sizeof(xml) - 1);
+	if (content == R_INVALID_ID) return;
+	ask = (ask_t*)calloc(1, sizeof(ask_t));
+	ask->path = ds_strdup(path);
+	ask->input = Rwidget_find(content, "ask.input");
+	snprintf(title, sizeof(title), "Rename %s", ds_basename(path));
+	Rlabel_set_text(Rwidget_find(content, "ask.title"), title);
+	fonts_title_on(Rwidget_find(content, "ask.title"));
+	Rtext_input_set_text(ask->input, ds_basename(path));
+	Rdialog_open(g_ds_window, content, on_ask_closed, ask);
+	Rwidget_focus(ask->input);
+	Rtext_input_select_all(ask->input);
+}
+
+static void ask_delete(const char* path) {
+	char text[1200];
+	int folder;
+	if (!path || g_ds_fuzzing) return;
+	folder = ds_is_dir(path);
+	if (folder) snprintf(text, sizeof(text), "Delete the folder %s and everything in it? It does not go to the trash.", ds_basename(path));
+	else snprintf(text, sizeof(text), "Delete %s? It does not go to the trash.", ds_basename(path));
+	if (Rmessage_box(g_ds_window, folder ? "Delete the folder" : "Delete the file", text, R_MESSAGE_YES_NO) != R_MESSAGE_RESULT_YES) return;
+	folder_delete(path);
+}
+
+static void action_files(Rid sender, const char* action, void* user_data) {
+	/* (what the menu was opened on, else the selection of the tree) */
+	const char* path = g_f.menu_path ? g_f.menu_path : selected_path();
+	char* target = path ? ds_strdup(path) : NULL;
+	crash_report_note("action %s", action);
+	(void)user_data;
+	if (!g_f.menu_path) set_target(target);
 	if (!strcmp(action, "files.open")) {
-		Rid item = Rtree_view_get_selected_item(g_f.tree);
-		open_path(g_f.menu_path ? g_f.menu_path : item != R_INVALID_ID ? (const char*)Rtree_item_get_user_handle(item) : NULL);
+		open_path(target);
 	} else if (!strcmp(action, "files.delete")) {
-		const char* path = g_f.menu_path;
-		/* (no message box during the random runs of the tests) */
-		if (g_ds_fuzzing) return;
-		char text[1200];
-		if (!path || !file_of(path)) {
-			ds_status("Right click a file to delete it.");
-			return;
-		}
-		snprintf(text, sizeof(text), "Delete %s? It does not go to the trash.", ds_basename(path));
-		if (Rmessage_box(g_ds_window, "Delete the file", text, R_MESSAGE_YES_NO) != R_MESSAGE_RESULT_YES) return;
-		if (designer_get_path() && ds_same_path(designer_get_path(), path)) designer_close();
-		if (!ds_remove_file(path)) ds_status("Cannot delete %s.", path);
-		else ds_status("Deleted %s.", ds_basename(path));
-		folder_refresh();
+		if (!target) ds_status("Select a file or a folder in Files to delete it.");
+		else ask_delete(target);
+	} else if (!strcmp(action, "files.f2")) {
+		/* (F2 is for Files only when it has the keyboard) */
+		if (folder_has_keyboard() && target) ask_rename(target);
+	} else if (!strcmp(action, "files.rename")) {
+		if (!target) ds_status("Select a file or a folder in Files to rename it.");
+		else ask_rename(target);
+	} else if (!strcmp(action, "files.reveal")) {
+		const char* folder = g_f.target_dir ? g_f.target_dir : g_folder;
+		if (folder) Ropen_url(folder);
+	} else if (!strcmp(action, "files.new.menu")) {
+		/* the button "New": the same menu, under it */
+		float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
+		fill_menu(R_FALSE, R_FALSE);
+		if (sender != R_INVALID_ID && Rwidget_is_valid(sender)) Rwidget_get_rect(sender, &x, &y, &w, &h);
+		Rmenu_open(g_f.menu, g_ds_window, x, y + h);
+		free(target);
+		/* (the menu opened keeps its target until one of its items is chosen) */
+		return;
 	} else if (!strcmp(action, "files.new")) {
 		static const char* const kinds[4] = { "window", "widgets", "theme", "table" };
 		folder_new_interface(kinds[g_f.view >= 0 && g_f.view < 4 ? g_f.view : 0]);
@@ -623,34 +964,42 @@ static void action_files(Rid sender, const char* action, void* user_data) {
 	} else if (!strcmp(action, "files.refresh")) {
 		folder_refresh();
 	}
+	free(target);
 	free(g_f.menu_path);
 	g_f.menu_path = NULL;
 }
 
+/* What a click on a file or a folder of Files does (scripts of the tests). */
+void folder_click(const char* path) {
+	Rid item = path ? item_of(R_INVALID_ID, path) : R_INVALID_ID;
+	if (item == R_INVALID_ID) return;
+	g_f.syncing++;
+	Rtree_view_set_selected_item(g_f.tree, item);
+	g_f.syncing--;
+	on_selected(g_f.tree, item, NULL);
+}
+
+/* Delete or F2 in Files: for its files, not for the elements of the preview. */
+int folder_has_keyboard(void) {
+	return g_f.tree != R_INVALID_ID && Rwidget_is_focused(g_f.tree);
+}
+
 void folder_init(void) {
-	static const struct { const char* text; const char* action; } items[] = {
-		{ "Open", "files.open" }, { NULL, NULL }, { "New", "files.new" }, { NULL, NULL }, { "Delete...", "files.delete" }
+	static const char* const actions[] = {
+		"files.open", "files.delete", "files.rename", "files.reveal", "files.new", "files.new.menu", "files.new.window", "files.new.panel",
+		"files.new.form", "files.new.widgets", "files.new.theme", "files.new.table", "files.new.folder", "files.refresh", "files.f2"
 	};
 	size_t i;
 	g_f.panel = Rwidget_find(g_ds_window, "panel.files");
 	g_f.tree = Rwidget_find(g_ds_window, "files");
-	g_f.menu = Rwidget_create(R_WIDGET_MENU);
-	for (i = 0; i < sizeof(items) / sizeof(items[0]); i++) {
-		if (!items[i].text) Rmenu_add_separator(g_f.menu);
-		else Rwidget_set_action(Rmenu_add_item(g_f.menu, items[i].text), items[i].action);
-	}
+	g_f.menu = R_INVALID_ID;
+	fill_menu(R_FALSE, R_FALSE);
+	Rtree_view_set_selection_changed_callback(g_f.tree, on_selected, NULL);
 	Rtree_view_set_activated_callback(g_f.tree, on_activated, NULL);
 	Rtree_view_set_context_callback(g_f.tree, on_context, NULL);
-	Raction_bind("files.open", action_files, NULL);
-	Raction_bind("files.delete", action_files, NULL);
-	Raction_bind("files.new.window", action_files, NULL);
-	Raction_bind("files.new.panel", action_files, NULL);
-	Raction_bind("files.new.form", action_files, NULL);
-	Raction_bind("files.new", action_files, NULL);
-	Raction_bind("files.new.widgets", action_files, NULL);
-	Raction_bind("files.new.theme", action_files, NULL);
-	Raction_bind("files.new.table", action_files, NULL);
-	Raction_bind("files.refresh", action_files, NULL);
+	for (i = 0; i < sizeof(actions) / sizeof(actions[0]); i++) Raction_bind(actions[i], action_files, NULL);
+	Raction_bind("files.ask.ok", on_ask_ok, NULL);
+	Raction_bind("files.ask.cancel", on_ask_cancel, NULL);
 	g_f.timer = Rtimer_create(1.5, R_TRUE, on_timer, NULL);
 }
 
@@ -659,10 +1008,16 @@ void folder_shutdown(void) {
 	if (g_f.timer != R_INVALID_ID && Rtimer_is_valid(g_f.timer)) Rtimer_destroy(g_f.timer);
 	free_files(g_f.files, g_f.file_count);
 	forget_themes();
+	forget_folded();
 	for (i = 0; i < g_f.item_count; i++) free(g_f.item_paths[i]);
 	free(g_f.item_paths);
 	free(g_f.menu_path);
+	free(g_f.target_dir);
 	free(g_folder);
 	g_folder = NULL;
+	for (i = 0; i < g_own_tag_count; i++) free(g_own_tags[i]);
+	free(g_own_tags);
+	g_own_tags = NULL;
+	g_own_tag_count = -1;
 	memset(&g_f, 0, sizeof(g_f));
 }

@@ -371,7 +371,8 @@ static void find_tables(const char* folder, int depth) {
 		if (entries[i].name[0] == '.' || ds_iequal(entries[i].name, "build") || !strncmp(entries[i].name, "build-", 6)) continue;
 		full = ds_join(folder, entries[i].name);
 		if (entries[i].is_dir) {
-			if (depth < 3) find_tables(full, depth + 1);
+			/* (as deep as Files looks) */
+			if (depth < 4) find_tables(full, depth + 1);
 		} else if (ds_iequal(ds_extension(entries[i].name), "csv")) {
 			table_t t;
 			if (load_table(&t, full)) {
@@ -449,8 +450,25 @@ void strings_open(const char* path) {
 			return;
 		}
 	}
-	/* (a table outside of the folder) */
-	ds_status("%s is not in the folder open.", ds_basename(path));
+	/* a table the folder did not list (deeper, or new): read now and shown */
+	{
+		table_t t;
+		if (!load_table(&t, path)) {
+			ds_status("Cannot read %s.", ds_basename(path));
+			return;
+		}
+		g_s.tables = (table_t*)realloc(g_s.tables, sizeof(table_t) * (size_t)(g_s.table_count + 1));
+		g_s.tables[g_s.table_count++] = t;
+		Rlocale_load_csv(path);
+		g_s.current = g_s.table_count - 1;
+		g_s.syncing++;
+		Rcombo_box_add_item(g_s.file_combo, ds_basename(path));
+		Rcombo_box_set_selected(g_s.file_combo, g_s.current);
+		g_s.syncing--;
+		collect_keys();
+		fill_language_combo();
+		rebuild_grid();
+	}
 }
 
 int strings_any_modified(void) {
@@ -529,11 +547,9 @@ static void add_table(void) {
 		ds_status("Open a folder first.");
 		return;
 	}
-	path = ds_join(g_folder, "strings.csv");
-	if (!ds_file_exists(path)) Rfile_write(path, "key,en\n", 7);
-	free(path);
-	strings_reload();
-	folder_refresh();
+	/* (in the folder chosen in Files, with a name that is free) */
+	(void)path;
+	folder_new_interface("table");
 }
 
 static void action_strings(Rid sender, const char* action, void* user_data) {

@@ -48,7 +48,7 @@ install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_IN
 if(RAVEN_BUILD_TESTS)
 	set(_ds "${CMAKE_CURRENT_BINARY_DIR}/designer_test")
 	add_test(NAME designer_folder_clean COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_ds}")
-	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch" "${_ds}/select" "${_ds}/clipboard" "${_ds}/tree")
+	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch" "${_ds}/select" "${_ds}/clipboard" "${_ds}/tree" "${_ds}/files/ui/a/b" "${_ds}/other")
 	set_tests_properties(designer_folder_clean PROPERTIES FIXTURES_SETUP designer_folder_clean)
 	set_tests_properties(designer_folder_make PROPERTIES FIXTURES_SETUP designer_folder FIXTURES_REQUIRED designer_folder_clean)
 
@@ -121,6 +121,14 @@ if(RAVEN_BUILD_TESTS)
 	add_test(NAME designer_tree COMMAND raven_designer --null --frames 2 --script
 		"write ${_ds}/tree/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Text=\"A\"/><Button~Text=\"B\"/><HBox><Checkbox~Text=\"C\"/></HBox><Slider/></VBox></Window> open ${_ds}/tree f 2 treedrag tree:0/0 0/3 after f 1 path 0/3 expectselected Label treedrag tree:0/0 0/1 inside f 1 path 0/0/1 expectselected Button treedrag stage:0/1 0/0/0 before f 1 path 0/0/0 expectselected Slider treedrag palette:2 0/0 inside f 1 expect <Grid path 0/0 clickpath 0/1 2 treedrag tree:0/1 0/0/0 before f 1 expectcount 2 f 1")
 	set_tests_properties(designer_tree PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# Files: the whole folder as a tree; a click opens a file where it is edited (a table deep in it,
+	# a widget library); folders made, files made in them, renamed (the file open follows) and deleted;
+	# tags made by the application in C shown as stand-ins, not as problems; the tags a folder declares
+	# are forgotten when another folder opens.
+	add_test(NAME designer_files COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/files/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Card~Title=\"Hi\"/></VBox></Window> write ${_ds}/files/lib.xml <Widgets><Widget~Name=\"Card\"~Title=\"\"><Label~Text=\"{Title}\"/></Widget></Widgets> write ${_ds}/files/ui/a/b/deep.csv key,en|hi,Hello| write ${_ds}/other/main.xml <Window><VBox><Label~Text=\"x\"/></VBox></Window> open ${_ds}/files f 2 expectdeclared Card 1 expectproblems 0 fileclick ui/a/b/deep.csv f 1 expecttab strings cell hi 1 Bonjour do file.save_all expectfile ${_ds}/files/ui/a/b/deep.csv Bonjour newfolder fresh expectexists ui/a/b/fresh 1 fileclick main.xml newfolder screens expectexists screens 1 fileclick screens do files.new.window f 2 expectexists screens/window.xml 1 expectopen window.xml expecttab window rename screens/window.xml settings f 1 expectexists screens/settings.xml 1 expectopen settings.xml rename screens views f 1 expectexists views/settings.xml 1 expectopen settings.xml path 0 set Spacing 4 do file.save expectfile ${_ds}/files/views/settings.xml Spacing=\"4\" expectexists screens 0 delete views f 1 expectexists views 0 write ${_ds}/files/app.xml <Window><VBox><Icon~Glyph=\"play\"~Size=\"20\"~Slot.Padding=\"4\"/><Cover~Album=\"current\"/></VBox></Window> refresh f 2 fileclick app.xml f 2 expectopen app.xml expectproblems 0 fileclick lib.xml f 2 expecttab widget expectopen lib.xml open ${_ds}/other f 2 expectdeclared Card 0 f 1")
+	set_tests_properties(designer_files PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# On a MacBook the island lives in the camera housing (a window of its own, anchored to the screen):
 	# the null platform fakes one (RAVEN_FAKE_NOTCH). The island goes there, the camera in the middle of its

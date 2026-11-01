@@ -306,6 +306,22 @@ int ds_remove_file(const char* path) {
 	return ok != 0;
 }
 
+int ds_remove_empty_dir(const char* path) {
+	wchar_t* wide = widen(path);
+	BOOL ok = RemoveDirectoryW(wide);
+	free(wide);
+	return ok != 0;
+}
+
+int ds_rename(const char* from, const char* to) {
+	wchar_t* a = widen(from);
+	wchar_t* b = widen(to);
+	BOOL ok = MoveFileExW(a, b, 0);
+	free(a);
+	free(b);
+	return ok != 0;
+}
+
 /* ---------------------------------------------------------------------------
  *  POSIX
  * ------------------------------------------------------------------------- */
@@ -421,7 +437,30 @@ int ds_remove_file(const char* path) {
 	return unlink(path) == 0;
 }
 
+int ds_remove_empty_dir(const char* path) {
+	return rmdir(path) == 0;
+}
+
+int ds_rename(const char* from, const char* to) {
+	/* (never over a file that is there: as on Windows) */
+	if (ds_file_exists(to) || ds_is_dir(to)) return 0;
+	return rename(from, to) == 0;
+}
+
 #endif
+
+/* A folder and everything in it. */
+int ds_remove_tree(const char* path) {
+	ds_entry_t* entries;
+	int count = ds_list_dir(path, &entries), i, ok = 1;
+	for (i = 0; i < count; i++) {
+		char* full = ds_join(path, entries[i].name);
+		ok &= entries[i].is_dir ? ds_remove_tree(full) : ds_remove_file(full);
+		free(full);
+	}
+	free(entries);
+	return ds_remove_empty_dir(path) && ok;
+}
 
 /* "C:/Users/ada/Documents/x" -> "~/Documents/x": shorter, for the eyes only. */
 void ds_pretty_path(const char* path, char* out, size_t size) {
