@@ -9,15 +9,26 @@
 </p>
 
 <p align="center">
+<p align="center">
   <a href="docs/">
-    <img alt="Documentation" src="https://img.shields.io/badge/Documentation-read-555555?style=for-the-badge&logo=readthedocs&logoColor=white">
+    <img alt="Documentation" src="https://img.shields.io/badge/Documentation-Read-2EA44F?style=for-the-badge&logo=readthedocs&logoColor=white">
   </a>
   <a href="https://github.com/oscar-soirey/Raven/issues">
-    <img alt="Issues" src="https://img.shields.io/badge/Issues-report-555555?style=for-the-badge&logo=github&logoColor=white">
+    <img alt="Issues" src="https://img.shields.io/badge/Issues-Report- D93F0B?style=for-the-badge&logo=github&logoColor=white">
   </a>
   <a href="https://github.com/oscar-soirey/Raven/releases">
-    <img alt="Releases" src="https://img.shields.io/badge/Releases-download-555555?style=for-the-badge&logo=github&logoColor=white">
+    <img alt="Releases" src="https://img.shields.io/badge/Releases-Download-6F42C1?style=for-the-badge&logo=github&logoColor=white">
   </a>
+  <a href="https://github.com/oscar-soirey/Raven/issues/15">
+    <img alt="Development Process" src="https://img.shields.io/badge/Development_Process-View-0078D4?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+  <a href="https://oscar-soirey.github.io/Raven/">
+    <img alt="Official Website" src="https://img.shields.io/badge/Official_Website-Visit-0EA5E9?style=for-the-badge&logo=googlechrome&logoColor=white">
+  </a>
+  <a href="https://www.youtube.com/@oscar-soirey">
+    <img alt="YouTube" src="https://img.shields.io/badge/YouTube-Subscribe-FF0000?style=for-the-badge&logo=youtube&logoColor=white">
+  </a>
+</p>
 </p>
 
 ## Disclaimer : This project is still in active development and public API is subject to change.
