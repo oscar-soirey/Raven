@@ -47,7 +47,7 @@ install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_IN
 if(RAVEN_BUILD_TESTS)
 	set(_ds "${CMAKE_CURRENT_BINARY_DIR}/designer_test")
 	add_test(NAME designer_folder_clean COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_ds}")
-	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout")
+	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch")
 	set_tests_properties(designer_folder_clean PROPERTIES FIXTURES_SETUP designer_folder_clean)
 	set_tests_properties(designer_folder_make PROPERTIES FIXTURES_SETUP designer_folder FIXTURES_REQUIRED designer_folder_clean)
 
@@ -83,6 +83,29 @@ if(RAVEN_BUILD_TESTS)
 	add_test(NAME designer_layout COMMAND raven_designer --null --frames 2 --script
 		"write ${_ds}/layout/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/><Button~Text=\"Go\"/></VBox></Window> open ${_ds}/layout f 2 expecttab window expectnothing expectfit path 0/0 expectselected Label clickaround expectnothing clickin key 256 0 expectnothing path 0/1 expectselected Button tab widget f 1 tab window expectfit size 1100 760 f 2 expectfit device 1 expectsize 400 300 path 0 clickaround expectnothing device 0 expectfit expectgroup Button Controls expectgroup VBox Layout expectgroup ListView Lists~and~data expectgroup Grid Layout f 1")
 	set_tests_properties(designer_layout PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# The Widget tab edited as a window: the bodies of the declarations are selected, widgets dropped
+	# into them and moved, and the library keeps its parameters ({Title}) and its <Children/>.
+	add_test(NAME designer_library COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/library/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Card~Title=\"Hi\"/></VBox></Window> write ${_ds}/library/widgets.xml <Widgets><Widget~Name=\"Card\"~Title=\"Title\"~Text=\"\"><Border~Padding=\"14\"><VBox~Spacing=\"6\"><Label~Text=\"{Title}\"/><Label~Text=\"{Text}\"/><Children/></VBox></Border></Widget></Widgets> open ${_ds}/library f 2 tab widget f 2 expecttab widget expectnothing path 0/0/0/0 expectselected Label clickaround expectnothing dropon Button 0/0/0/1 after expect <Button expect {Text} expect <Children/> moveto 0/0/0/2 0/0/0/0 before f 1 path 0/0/0/0 expectselected Button do edit.undo expect Name=\"Card\"~Title=\"Title\"~Text=\"\" f 1")
+	set_tests_properties(designer_library PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# F7 opens the window itself (its title, its size, its island), which follows every change.
+	add_test(NAME designer_window COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/window/main.xml <Window~Title=\"My~app\"~Width=\"420\"~Height=\"310\"><Island><Label~Name=\"isl\"~Text=\"Island\"/><VBox/></Island><VBox><Label~Name=\"greet\"~Text=\"Hi\"/></VBox></Window> open ${_ds}/window f 2 do view.run f 2 expectrunwindow My~app 420 310 expectrun greet expectrun isl path 1/0 set Name moved f 2 expectrun moved do edit.undo f 2 expectrun greet path . set Title Other f 2 expectrunwindow Other 420 310 device 2 f 1 expectrunwindow Other 390 844 f 1")
+	set_tests_properties(designer_window PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# "@" in a text: the keys of the tables are listed under it, narrowed as it is typed, and one is chosen.
+	add_test(NAME designer_keys COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/keys/strings.csv key,en,fr|app.hello,Hello,Bonjour|app.help,Help,Aide|menu.file,File,Fichier| write ${_ds}/keys/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/></VBox></Window> open ${_ds}/keys f 2 path 0/0 do island.search f 2 focus island.text settext island.text - text @ f 1 expectkeys 3 text he f 1 expectkeys 2 text lp f 1 expectkeys 1 key 264 0 key 257 0 f 1 expect Text=\"@app.help\" expectkeys 0 expectlabel greet Help f 1")
+	set_tests_properties(designer_keys PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# On a MacBook the island lives in the camera housing (a window of its own, anchored to the screen):
+	# the null platform fakes one (RAVEN_FAKE_NOTCH). The island goes there, the camera in the middle of its
+	# ears; a text typed in it takes the keyboard and gives it back; a click in the designer folds it.
+	add_test(NAME designer_notch COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/notch/strings.csv key,en,fr|app.hello,Hello,Bonjour| write ${_ds}/notch/main.xml <Window~Width=\"400\"~Height=\"300\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/></VBox></Window> open ${_ds}/notch f 2 expectnotch 1 expectcamera 220 32 expectkeyboard designer path 0/0 do island.search f 3 expectkeyboard island focus island.text settext island.text - text @app.he f 1 expectkeys 1 key 264 0 key 257 0 f 1 expect Text=\"@app.hello\" key 256 0 f 2 expectkeyboard designer clickin f 30 expectcamera 220 32 do view.run f 2 expectnotch 1 tab widget f 1 tab window f 2 expectnotch 1")
+	set_tests_properties(designer_notch PROPERTIES FIXTURES_REQUIRED designer_folder ENVIRONMENT "RAVEN_FAKE_NOTCH=200x32")
 
 	# The theme editor driving itself: a look, an accent, colors, sizes and rules edited and seen
 	# in the preview, a palette generated, undo and redo, the contrast checked, a file saved and read back.

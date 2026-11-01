@@ -108,7 +108,7 @@ static const char* const DESIGNER_XML[] = {
 "        </Menu>",
 "        <Menu Text=\"View\">"
 "          <MenuItem Name=\"menu.interact\" Text=\"Use the preview\" Shortcut=\"F6\" Checkable=\"true\" OnClicked=\"view.interact\"/>"
-"          <MenuItem Text=\"Preview in a window\" Shortcut=\"F7\" OnClicked=\"view.run\"/>"
+"          <MenuItem Text=\"Open the window\" Shortcut=\"F7\" OnClicked=\"view.run\"/>"
 "          <Separator/>"
 "          <MenuItem Text=\"Window\" Shortcut=\"Ctrl+1\" OnClicked=\"tab.window\"/>"
 "          <MenuItem Text=\"Widget\" Shortcut=\"Ctrl+2\" OnClicked=\"tab.widget\"/>"
@@ -142,7 +142,7 @@ static const char* const DESIGNER_XML[] = {
 "          <ComboBox Name=\"preview.device\" Width=\"200\" Tooltip=\"The size the window is shown in: the room the panel gives it, the size its XML says, or the one of a device\"/>"
 "          <Label Name=\"stage.size\" Opacity=\"0.6\" Slot.VAlign=\"Center\" Slot.Padding=\"6,0,0,0\"/>"
 "          <Spacer Slot.Fill=\"1\"/>"
-"          <Button Text=\"Open in a window\" Style=\"Primary\" OnClicked=\"view.run\" Tooltip=\"A live preview in a window of its own: it follows every change (F7)\" Slot.VAlign=\"Center\"/>"
+"          <Button Text=\"Open the window\" Style=\"Primary\" OnClicked=\"view.run\" Tooltip=\"The window itself, as the program will open it: it follows every change (F7)\" Slot.VAlign=\"Center\"/>"
 "        </HBox>"
 "        <Separator/>"
 "        <Overlay Slot.Fill=\"1\">"
@@ -470,7 +470,8 @@ static struct {
 	int drop_index;
 
 	/** The live preview in a window of its own: its frame and its bar. */
-	Rid run_frame, run_device, run_theme, run_language, run_title;
+	/** The window it is: was it made from a <Window> of the document (its size and its header are those of the XML)? */
+	int run_is_window;
 
 	/** The theme the preview wears ("": the look of the designer), and the device it is shown on (0: the size of the XML). */
 	char preview_theme[128];
@@ -487,7 +488,7 @@ static void on_fit_timer(Rid timer, void* user_data);
 static int known_tag(const char* tag);
 static void fill_theme_list(void);
 static void fill_appearance(void);
-static void fill_run_bar(void);
+static void run_window_follow(void);
 static void open_run_window(void);
 static void select_node(Rid node, int reveal);
 static int load_text(const char* text, int record);
@@ -668,8 +669,6 @@ static Rid node_widget(Rid node) {
 		Rid widget = Rxml_node_get_widget(node);
 		if (widget != R_INVALID_ID && Rwidget_is_valid(widget)) return widget;
 	}
-	/* (the Widget tab shows uses of the declarations, not the nodes of the document) */
-	if (g.tab == TAB_WIDGET) return R_INVALID_ID;
 	/* the root of a window, or something in it that is not a widget (a shortcut): the frame that stands for the window */
 	return g.frame;
 }
@@ -945,6 +944,184 @@ static Rid build_showcase(void) {
 	return widget;
 }
 
+/* ---- the Widget tab: the declarations themselves, built from the nodes of the document ---- */
+
+/* What a node was before build_library changed it for a moment. */
+typedef struct snapshot_t {
+	Rid node;
+	char* tag;
+	char* text;
+	int count;
+	char** names;
+	char** values;
+} snapshot_t;
+
+typedef struct snapshots_t {
+	snapshot_t* items;
+	int count, cap;
+} snapshots_t;
+
+static void snapshot_take(snapshots_t* list, Rid node) {
+	snapshot_t* shot;
+	int i;
+	for (i = 0; i < list->count; i++) if (list->items[i].node == node) return;
+	if (list->count == list->cap) {
+		list->cap = list->cap ? list->cap * 2 : 32;
+		list->items = (snapshot_t*)realloc(list->items, sizeof(snapshot_t) * (size_t)list->cap);
+	}
+	shot = &list->items[list->count++];
+	shot->node = node;
+	shot->tag = copy_text(Rxml_node_get_tag(node));
+	shot->text = copy_text(Rxml_node_get_text(node));
+	shot->count = Rxml_node_get_attribute_count(node);
+	shot->names = (char**)calloc((size_t)shot->count + 1, sizeof(char*));
+	shot->values = (char**)calloc((size_t)shot->count + 1, sizeof(char*));
+	for (i = 0; i < shot->count; i++) {
+		shot->names[i] = copy_text(Rxml_node_get_attribute_name(node, i));
+		shot->values[i] = copy_text(Rxml_node_get_attribute_value(node, i));
+	}
+}
+
+static void clear_attributes(Rid node) {
+	while (Rxml_node_get_attribute_count(node) > 0) {
+		char* name = copy_text(Rxml_node_get_attribute_name(node, 0));
+		Rxml_node_set_attribute(node, name, NULL);
+		free(name);
+	}
+}
+
+/* Everything back as it was, in the same order: the text of the document does not change. */
+static void snapshots_restore(snapshots_t* list) {
+	int i, k;
+	for (i = list->count - 1; i >= 0; i--) {
+		snapshot_t* shot = &list->items[i];
+		Rxml_node_set_tag(shot->node, shot->tag);
+		Rxml_node_set_text(shot->node, shot->text);
+		clear_attributes(shot->node);
+		for (k = 0; k < shot->count; k++) Rxml_node_set_attribute(shot->node, shot->names[k], shot->values[k]);
+		for (k = 0; k < shot->count; k++) {
+			free(shot->names[k]);
+			free(shot->values[k]);
+		}
+		free(shot->names);
+		free(shot->values);
+		free(shot->tag);
+		free(shot->text);
+	}
+	free(list->items);
+	memset(list, 0, sizeof(*list));
+}
+
+/* "{Title}" becomes the default value of the parameter Title (its name when it has none: something to see and to click). */
+static char* fill_parameters(const char* text, Rid declaration) {
+	ds_buffer_t out = { 0 };
+	const char* walk = text;
+	int changed = R_FALSE;
+	while (*walk) {
+		const char* close = walk[0] == '{' ? strchr(walk, '}') : NULL;
+		if (close && close - walk > 1 && close - walk < 64) {
+			char name[64];
+			const char* value;
+			snprintf(name, sizeof(name), "%.*s", (int)(close - walk - 1), walk + 1);
+			value = strcmp(name, "Name") ? Rxml_node_get_attribute(declaration, name) : NULL;
+			if (value) {
+				ds_buffer_add(&out, value[0] ? value : name, strlen(value[0] ? value : name));
+				walk = close + 1;
+				changed = R_TRUE;
+				continue;
+			}
+		}
+		ds_buffer_add(&out, walk, 1);
+		walk++;
+	}
+	if (!changed) {
+		ds_buffer_free(&out);
+		return NULL;
+	}
+	return out.data ? out.data : copy_text("");
+}
+
+/* Inside a declaration: <Children/> becomes an empty box, the parameters their values. */
+static void prepare_body(snapshots_t* list, Rid node, Rid declaration) {
+	int i, count;
+	char* filled;
+	if (Rxml_node_is_comment(node)) return;
+	if (same_text(Rxml_node_get_tag(node), "Children")) {
+		snapshot_take(list, node);
+		Rxml_node_set_tag(node, "VBox");
+		clear_attributes(node);
+		return;
+	}
+	if ((filled = fill_parameters(Rxml_node_get_text(node), declaration)) != NULL) {
+		snapshot_take(list, node);
+		Rxml_node_set_text(node, filled);
+		free(filled);
+	}
+	count = Rxml_node_get_attribute_count(node);
+	for (i = 0; i < count; i++) {
+		if ((filled = fill_parameters(Rxml_node_get_attribute_value(node, i), declaration)) != NULL) {
+			char* name = copy_text(Rxml_node_get_attribute_name(node, i));
+			snapshot_take(list, node);
+			Rxml_node_set_attribute(node, name, filled);
+			free(name);
+			free(filled);
+		}
+	}
+	count = Rxml_node_get_child_count(node);
+	for (i = 0; i < count; i++) prepare_body(list, Rxml_node_get_child(node, i), declaration);
+}
+
+/* A <Widget> shown as what it stands for: a box around its body, its parameters at their default values. */
+static void prepare_declaration(snapshots_t* list, Rid declaration) {
+	int i, count = Rxml_node_get_child_count(declaration);
+	/* (the body first: it reads the parameters on the declaration) */
+	for (i = 0; i < count; i++) prepare_body(list, Rxml_node_get_child(declaration, i), declaration);
+	snapshot_take(list, declaration);
+	Rxml_node_set_tag(declaration, "VBox");
+	clear_attributes(declaration);
+}
+
+/*
+ * The Widget tab: the bodies of the declarations, one under the other,
+ * built from the nodes of the document itself, so that a click selects
+ * what it is on and a drag moves it, as in the Window tab. For a moment the
+ * document is made a plain one (<Widgets> and <Widget> become boxes, the
+ * parameters their values), built, then put back exactly as it was.
+ */
+static Rid build_library(void) {
+	Rid root = Rxml_document_get_root(g.document), widget;
+	const char* tag = Rxml_node_get_tag(root);
+	const char* text = Rxml_document_to_string(g.document);
+	snapshots_t list = { 0 };
+	int i, count;
+	/* the declarations are made known first: a declared tag may use another one */
+	Rxml_register_widgets(text, strlen(text));
+	if (same_text(tag, "Widget")) {
+		prepare_declaration(&list, root);
+	} else if (same_text(tag, "Widgets")) {
+		count = Rxml_node_get_child_count(root);
+		for (i = 0; i < count; i++) {
+			Rid child = Rxml_node_get_child(root, i);
+			if (!Rxml_node_is_comment(child) && same_text(Rxml_node_get_tag(child), "Widget")) prepare_declaration(&list, child);
+		}
+		snapshot_take(&list, root);
+		Rxml_node_set_tag(root, "VBox");
+		clear_attributes(root);
+		Rxml_node_set_attribute(root, "Spacing", "24");
+		Rxml_node_set_attribute(root, "Slot.Padding", "22");
+	} else {
+		return Rxml_document_create_widget(g.document);
+	}
+	widget = Rxml_document_create_widget(g.document);
+	snapshots_restore(&list);
+	return widget;
+}
+
+/* In a library, a widget goes inside a <Widget>, not next to the declarations. */
+static int drop_allowed(Rid parent) {
+	return !(g.tab == TAB_WIDGET && parent != R_INVALID_ID && same_text(Rxml_node_get_tag(parent), "Widgets"));
+}
+
 static void rebuild_run_window(void);
 
 /* The size of the frame that fits the panel, said above the preview (once the layout gave it). */
@@ -995,7 +1172,7 @@ static void rebuild_preview(void) {
 	g.collecting = R_TRUE;
 	/* the window of its own first: the nodes lead to the widgets built last, those of the preview here */
 	rebuild_run_window();
-	g.preview = g.tab == TAB_WIDGET ? build_showcase() : Rxml_document_create_widget(g.document);
+	g.preview = g.tab == TAB_WIDGET ? build_library() : Rxml_document_create_widget(g.document);
 	g.collecting = R_FALSE;
 
 	/* the frame fits the panel: a window as it is when the user resizes it */
@@ -1119,8 +1296,10 @@ static void apply_value(row_t* row, const char* value) {
 }
 
 static void on_row_text(Rid input, const char* text, void* user_data) {
-	(void)input;
-	if (!g.syncing) apply_value((row_t*)user_data, text);
+	if (g.syncing) return;
+	apply_value((row_t*)user_data, text);
+	/* "@": the keys of the tables, under the input */
+	strings_key_picker(input, text, on_row_text, user_data);
 }
 
 static void on_row_choice(Rid combo, int index, void* user_data) {
@@ -1536,6 +1715,20 @@ static void insert_xml(const char* xml) {
 	}
 	if (!flush_source()) return;
 	if (target == R_INVALID_ID || !Rxml_node_is_valid(target)) target = Rxml_document_get_root(g.document);
+	/* in a library: inside a declaration (the one selected, else the first) */
+	if (same_text(Rxml_node_get_tag(target), "Widgets")) {
+		int i, count = Rxml_node_get_child_count(target);
+		Rid first = R_INVALID_ID;
+		for (i = 0; i < count && first == R_INVALID_ID; i++) {
+			Rid child = Rxml_node_get_child(target, i);
+			if (!Rxml_node_is_comment(child) && same_text(Rxml_node_get_tag(child), "Widget")) first = child;
+		}
+		if (first == R_INVALID_ID) {
+			set_status("Add a <Widget Name=\"...\"> to the library first (in the XML).");
+			return;
+		}
+		target = first;
+	}
 	if (Rxml_node_is_comment(target) || (special_tag(Rxml_node_get_tag(target)) < 0 && Rxml_get_tag_children(Rxml_node_get_tag(target)) == 0)) {
 		Rid parent = Rxml_node_get_parent(target);
 		if (parent == R_INVALID_ID) {
@@ -1627,8 +1820,12 @@ static int drop_widget(const char* tag, float x, float y) {
 	Rid parent, added;
 	int index;
 	crash_report_note("drop <%s> at %.0f,%.0f", tag, x, y);
-	if (!g.has_document || g.tab != TAB_WINDOW || !known_tag(tag) || !flush_source()) return R_FALSE;
+	if (!g.has_document || (g.tab != TAB_WINDOW && g.tab != TAB_WIDGET) || !known_tag(tag) || !flush_source()) return R_FALSE;
 	if (!drop_place(x, y, &parent, &index)) return R_FALSE;
+	if (!drop_allowed(parent)) {
+		set_status("In a widget library, a widget goes inside a <Widget>.");
+		return R_FALSE;
+	}
 	if (!xml) {
 		snprintf(text, sizeof(text), "<%s/>", tag);
 		xml = text;
@@ -1650,7 +1847,7 @@ static int drop_node(Rid node, float x, float y) {
 	Rid parent;
 	int index;
 	crash_report_note("move an element to %.0f,%.0f", x, y);
-	if (!g.has_document || g.tab != TAB_WINDOW || node == R_INVALID_ID || !Rxml_node_is_valid(node) || !flush_source()) return R_FALSE;
+	if (!g.has_document || (g.tab != TAB_WINDOW && g.tab != TAB_WIDGET) || node == R_INVALID_ID || !Rxml_node_is_valid(node) || !flush_source()) return R_FALSE;
 	if (Rxml_node_get_parent(node) == R_INVALID_ID) {
 		set_status("The root of the document stays where it is.");
 		return R_FALSE;
@@ -1662,6 +1859,10 @@ static int drop_node(Rid node, float x, float y) {
 		return R_FALSE;
 	}
 	g.drag_node = R_INVALID_ID;
+	if (!drop_allowed(parent)) {
+		set_status("In a widget library, a widget goes inside a <Widget>.");
+		return R_FALSE;
+	}
 	/* (in the same parent, the indices after it move down by one once it is taken out) */
 	if (Rxml_node_get_parent(node) == parent && Rxml_node_get_index(node) < index) index--;
 	if (Rxml_node_get_parent(node) == parent && Rxml_node_get_index(node) == index) return R_FALSE;
@@ -1729,7 +1930,7 @@ static int window_hook(Rid window, const REvent* event, void* user_data) {
 				if (g.selected != R_INVALID_ID) select_node(R_INVALID_ID, R_FALSE);
 				return R_FALSE;
 			}
-			if (event->button != R_MOUSE_LEFT || g.tab != TAB_WINDOW || !g.has_document) return R_FALSE;
+			if (event->button != R_MOUSE_LEFT || (g.tab != TAB_WINDOW && g.tab != TAB_WIDGET) || !g.has_document) return R_FALSE;
 			if (is_inside_widget(event->target, g.palette)) {
 				g.drag_armed = R_TRUE;
 				g.drag_from_palette = R_TRUE;
@@ -1763,6 +1964,7 @@ static int window_hook(Rid window, const REvent* event, void* user_data) {
 			g.drop_parent = R_INVALID_ID;
 			if (over_stage(event->x, event->y) && !drop_place(event->x, event->y, &g.drop_parent, &g.drop_index)) g.drop_parent = R_INVALID_ID;
 			if (g.drop_parent != R_INVALID_ID && !g.drag_from_palette && inside_of(g.drop_parent, g.drag_node)) g.drop_parent = R_INVALID_ID;
+			if (g.drop_parent != R_INVALID_ID && !drop_allowed(g.drop_parent)) g.drop_parent = R_INVALID_ID;
 			Rwidget_set_cursor(g.outline, g.drop_parent != R_INVALID_ID ? R_CURSOR_MOVE : R_CURSOR_NOT_ALLOWED);
 			Rwidget_invalidate(g.outline);
 			return R_TRUE;
@@ -2398,7 +2600,7 @@ void designer_set_preview_theme(const char* name) {
 		Rwidget_set_theme(g.frame, NULL);
 	}
 	fill_theme_combo();
-	fill_run_bar();
+	run_window_follow();
 	designer_refresh_preview();
 }
 
@@ -2411,7 +2613,7 @@ void designer_themes_changed(void) {
 	else fill_theme_combo();
 	fill_theme_list();
 	fill_appearance();
-	fill_run_bar();
+	run_window_follow();
 }
 
 static void on_theme_changed(Rid combo, int index, void* user_data) {
@@ -2435,7 +2637,7 @@ static void on_device_changed(Rid combo, int index, void* user_data) {
 	designer_refresh_preview();
 	if (DEVICES[index].width < 0) set_status("The window takes the room of the panel: it follows the size of the designer.%s", "");
 	else set_status(DEVICES[index].width ? "The preview is the size of a %s." : "The preview is the size the XML gives.%s", DEVICES[index].width ? DEVICES[index].name : "");
-	fill_run_bar();
+	run_window_follow();
 }
 
 /* ---------------------------------------------------------------------------
@@ -2654,152 +2856,103 @@ static void on_appearance(Rid combo, int index, void* user_data) {
 	set_status("The designer wears %s.", Rcombo_box_get_item_text(combo, index));
 }
 
-/* ---- the live preview in a window of its own ---- */
+/* ---- the window itself, opened as the program will open it ---- */
 
-static void on_run_device(Rid combo, int index, void* user_data);
-static void on_run_theme(Rid combo, int index, void* user_data);
-static void on_run_language(Rid combo, int index, void* user_data);
-
-static void fill_run_bar(void) {
-	int i, count;
-	char item[160];
-	if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window)) return;
-	g.syncing++;
-	Rcombo_box_clear_items(g.run_device);
-	for (i = 0; i < DEVICE_COUNT; i++) Rcombo_box_add_item(g.run_device, DEVICES[i].name);
-	Rcombo_box_set_selected(g.run_device, g.device);
-	/* the same choices as above the preview of the designer */
-	Rcombo_box_clear_items(g.run_theme);
-	count = Rcombo_box_get_item_count(g.theme_combo);
-	for (i = 0; i < count; i++) Rcombo_box_add_item(g.run_theme, Rcombo_box_get_item_text(g.theme_combo, i));
-	Rcombo_box_set_selected(g.run_theme, Rcombo_box_get_selected(g.theme_combo));
-	Rcombo_box_clear_items(g.run_language);
-	Rcombo_box_add_item(g.run_language, "Language: first column");
-	count = strings_language_count();
-	for (i = 0; i < count; i++) {
-		snprintf(item, sizeof(item), "Language: %s", strings_language_at(i));
-		Rcombo_box_add_item(g.run_language, item);
-	}
-	Rcombo_box_set_selected(g.run_language, 0);
-	{
-		Rid main_language = Rwidget_find(g.window, "preview.language");
-		int at = main_language != R_INVALID_ID ? Rcombo_box_get_selected(main_language) : 0;
-		if (at >= 0 && at < Rcombo_box_get_item_count(g.run_language)) Rcombo_box_set_selected(g.run_language, at);
-	}
-	g.syncing--;
+/* The theme of the preview and the direction of its language, on what the window shows. */
+static void run_dress(Rid widget) {
+	if (widget == R_INVALID_ID || !Rwidget_is_valid(widget)) return;
+	Rwidget_set_theme(widget, g.preview_theme[0] ? g.preview_theme : NULL);
+	Rwidget_set_direction(widget, Rlocale_get_language_count() > 0 && Rlocale_is_rtl() ? R_DIRECTION_RTL : R_DIRECTION_LTR);
 }
 
-/* What the window shows, built again from the document (each change of the designer comes here). */
+/* Its title: the one of the XML, else the name of the file. */
+static void run_title(void) {
+	Rid root = g.document != R_INVALID_ID ? Rxml_document_get_root(g.document) : R_INVALID_ID;
+	const char* title = root != R_INVALID_ID && g.run_is_window ? Rxml_node_get_attribute(root, "Title") : NULL;
+	char text[300];
+	if (title && title[0]) snprintf(text, sizeof(text), "%s", title[0] == '@' ? Rtr(title + 1) : title);
+	else snprintf(text, sizeof(text), "%s", g.path ? ds_basename(g.path) : "Untitled");
+	Rwindow_set_title(g.run_window, text);
+}
+
+/* The size of a device, when one is chosen above the preview. */
+static void run_window_follow(void) {
+	if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window)) return;
+	if (g.device_width > 0) Rwindow_set_size(g.run_window, g.device_width, g.device_height);
+	run_dress(Rwindow_get_content(g.run_window));
+}
+
+/*
+ * The window follows the designer: each change builds what it shows again
+ * (its content, and its island), in place, without moving it nor taking
+ * the keyboard. Called before the preview is built: the nodes lead to the
+ * widgets built last, those of the preview.
+ */
 static void rebuild_run_window(void) {
-	Rid root, content;
-	char title[400];
+	Rid root, content, island = R_INVALID_ID;
+	int i, count;
 	if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window)) {
 		g.run_window = R_INVALID_ID;
 		return;
 	}
-	Rwidget_clear_children(g.run_frame);
-	if (!g.has_document || g.document == R_INVALID_ID) {
-		Rlabel_set_text(g.run_title, "Nothing open in the designer");
-		return;
-	}
+	if (!g.has_document || g.document == R_INVALID_ID) return;
 	root = Rxml_document_get_root(g.document);
 	content = g.tab == TAB_WIDGET ? build_showcase() : Rxml_document_create_widget(g.document);
-	if (content != R_INVALID_ID) Rwidget_add_child(g.run_frame, content);
-	Rwidget_set_theme(g.run_frame, g.preview_theme[0] ? g.preview_theme : NULL);
-	Rwidget_set_direction(g.run_frame, Rlocale_get_language_count() > 0 && Rlocale_is_rtl() ? R_DIRECTION_RTL : R_DIRECTION_LTR);
-	/* the size of a device, else the one of the XML, else what it asks for */
-	if (g.device_width > 0) {
-		Rwidget_set_size(g.run_frame, (float)g.device_width, (float)g.device_height);
-	} else if (same_text(Rxml_node_get_tag(root), "Window") && g.tab == TAB_WINDOW) {
-		const char* w = Rxml_node_get_attribute(root, "Width");
-		const char* h = Rxml_node_get_attribute(root, "Height");
-		Rwidget_set_size(g.run_frame, w && atoi(w) > 0 ? (float)atoi(w) : 800.0f, h && atoi(h) > 0 ? (float)atoi(h) : 600.0f);
-	} else {
-		Rwidget_set_size(g.run_frame, -1.0f, -1.0f);
+	if (content == R_INVALID_ID) content = Rwidget_create(R_WIDGET_VBOX);
+	run_dress(content);
+	Rwindow_set_content(g.run_window, content);
+	/* the island of a <Window>, built from its own text */
+	if (g.run_is_window) {
+		count = Rxml_node_get_child_count(root);
+		for (i = 0; i < count && island == R_INVALID_ID; i++) {
+			Rid child = Rxml_node_get_child(root, i);
+			if (!Rxml_node_is_comment(child) && same_text(Rxml_node_get_tag(child), "Island")) {
+				const char* text = Rxml_node_to_string(child);
+				island = Rwidget_create_from_xml(text, strlen(text));
+			}
+		}
+		if (island != R_INVALID_ID || Rwindow_get_island(g.run_window) != R_INVALID_ID) Rwindow_set_island(g.run_window, island);
 	}
-	snprintf(title, sizeof(title), "Live preview of %s%s", g.path ? ds_basename(g.path) : "the interface", g.modified ? "  \xE2\x80\xA2  unsaved changes" : "");
-	Rlabel_set_text(g.run_title, title);
-	snprintf(title, sizeof(title), "Preview - %s", g.path ? ds_basename(g.path) : "Untitled");
-	Rwindow_set_title(g.run_window, title);
+	run_title();
 }
 
-static const char RUN_XML[] =
-"<Window Title=\"Preview\" Width=\"960\" Height=\"720\" MinWidth=\"420\" MinHeight=\"300\">"
-"  <VBox>"
-"    <HBox Spacing=\"8\" Slot.Padding=\"10,6\">"
-"      <Border Width=\"8\" Height=\"8\" CornerRadius=\"4\" Background=\"#30D158\" Slot.VAlign=\"Center\" Tooltip=\"Live: every change of the designer shows here\"/>"
-"      <Label Name=\"run.title\" Slot.Fill=\"1\" Slot.VAlign=\"Center\"/>"
-"      <ComboBox Name=\"run.device\" Width=\"170\" Tooltip=\"The size the interface is shown in\"/>"
-"      <ComboBox Name=\"run.theme\" Width=\"180\" Tooltip=\"The look or the theme it wears\"/>"
-"      <ComboBox Name=\"run.language\" Width=\"160\" Tooltip=\"The language of its texts\"/>"
-"      <Button Text=\"Back to the designer\" Style=\"Flat\" OnClicked=\"run.back\"/>"
-"    </HBox>"
-"    <Separator/>"
-"    <ScrollBox ScrollBoth=\"true\" Slot.Fill=\"1\">"
-"      <Border Name=\"run.frame\" Slot.HAlign=\"Center\" Slot.Padding=\"0,12\"/>"
-"    </ScrollBox>"
-"  </VBox>"
-"</Window>";
-
-/* F7: the window comes (or comes back in front), and follows the designer from then on. */
+/* F7: the window, as the program will open it (or back in front); it follows every change from then on. */
 static void open_run_window(void) {
-	crash_report_note("open the preview window");
+	Rid root;
+	crash_report_note("open the window");
 	if (!g.has_document) {
-		set_status("Open an interface first: the window shows it live.");
+		set_status("Open an interface first.");
 		return;
 	}
 	if (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window)) {
 		Rwindow_show(g.run_window);
-		set_status("The preview window is in front: it follows every change.");
+		set_status("The window is in front: it follows every change.");
 		return;
 	}
-	g.run_window = Rwindow_create_from_xml(RUN_XML, sizeof(RUN_XML) - 1);
-	if (g.run_window == R_INVALID_ID) return;
-	g.run_frame = Rwidget_find(g.run_window, "run.frame");
-	g.run_device = Rwidget_find(g.run_window, "run.device");
-	g.run_theme = Rwidget_find(g.run_window, "run.theme");
-	g.run_language = Rwidget_find(g.run_window, "run.language");
-	g.run_title = Rwidget_find(g.run_window, "run.title");
-	Rwidget_set_clipping(g.run_frame, R_TRUE);
-	Rcombo_box_set_changed_callback(g.run_device, on_run_device, NULL);
-	Rcombo_box_set_changed_callback(g.run_theme, on_run_theme, NULL);
-	Rcombo_box_set_changed_callback(g.run_language, on_run_language, NULL);
-	fill_run_bar();
-	if (g.device_width > 0) Rwindow_set_size(g.run_window, g.device_width + 40, g.device_height + 90);
+	root = Rxml_document_get_root(g.document);
+	g.run_is_window = g.tab == TAB_WINDOW && same_text(Rxml_node_get_tag(root), "Window");
+	if (g.run_is_window) {
+		/* the window the XML describes: its size, its header, its island, its shortcuts */
+		g.collecting = R_TRUE;
+		g.run_window = Rxml_document_create_window(g.document);
+		g.collecting = R_FALSE;
+	} else {
+		/* a piece of interface, or the tags of a library: in a plain window */
+		Rid content = g.tab == TAB_WIDGET ? build_showcase() : Rxml_document_create_widget(g.document);
+		g.run_window = Rwindow_create("Preview", 640, 480, 0);
+		if (g.run_window != R_INVALID_ID && content != R_INVALID_ID) Rwindow_set_content(g.run_window, content);
+	}
+	if (g.run_window == R_INVALID_ID) {
+		set_status("The window cannot be built: see the Problems tab.");
+		return;
+	}
+	run_dress(Rwindow_get_content(g.run_window));
+	run_title();
+	if (g.device_width > 0) Rwindow_set_size(g.run_window, g.device_width, g.device_height);
+	Rwindow_show(g.run_window);
+	/* (the nodes lead to the preview again) */
 	designer_refresh_preview();
-	set_status("A live preview in its own window: it follows every change, in the size, theme and language chosen on its bar.");
-}
-
-static void on_run_device(Rid combo, int index, void* user_data) {
-	(void)combo;
-	(void)user_data;
-	if (g.syncing) return;
-	Rcombo_box_set_selected(g.device_combo, index);
-	on_device_changed(g.device_combo, index, NULL);
-	if (g.device_width > 0) Rwindow_set_size(g.run_window, g.device_width + 40, g.device_height + 90);
-}
-
-static void on_run_theme(Rid combo, int index, void* user_data) {
-	(void)combo;
-	(void)user_data;
-	if (g.syncing) return;
-	Rcombo_box_set_selected(g.theme_combo, index);
-	on_theme_changed(g.theme_combo, index, NULL);
-}
-
-static void on_run_language(Rid combo, int index, void* user_data) {
-	(void)combo;
-	(void)user_data;
-	if (g.syncing) return;
-	strings_set_preview_language(index <= 0 ? "" : strings_language_at(index - 1));
-}
-
-static void action_run(Rid sender, const char* action, void* user_data) {
-	crash_report_note("action %s", action);
-	(void)sender;
-	(void)action;
-	(void)user_data;
-	Rwindow_show(g.window);
+	set_status("The window, as the program will show it: it follows every change of the designer.");
 }
 
 /* ---------------------------------------------------------------------------
@@ -2895,7 +3048,12 @@ static void run_frames(int count) {
  *   expectfiles N  stops unless the folder holds N interfaces
  *   expectthemes N stops unless the folder holds N themes
  *   expectselected TAG     stops unless the selection is a TAG
+ *   focus NAME     gives the keyboard to a widget       expectkeys N   stops unless the list of @keys shows N keys
+ *   expectnotch 0|1        stops unless the island is in the camera housing of the screen (1: RAVEN_FAKE_NOTCH on the null platform) or in the window
+ *   expectcamera W H       stops unless the folded island is against the top, H high, with the room of a camera W wide in its middle
+ *   expectkeyboard designer|island  stops unless that window has the keyboard
  *   expectnothing  stops unless nothing is selected
+ *   expectrunwindow TITLE W H  stops unless the window opened (F7) is titled TITLE and is W x H
  *   clickaround    clicks the stage left of the frame      clickin    clicks inside the frame, near its corner
  *   expectfit      stops unless the frame takes the room of the panel
  *   expectgroup TAG GROUP  stops unless the palette shows TAG in GROUP ('~' for spaces)
@@ -2904,7 +3062,7 @@ static void run_frames(int count) {
  *   tab NAME       shows a tab: window, widget, theme, strings     expecttab NAME
  *   dropon TAG PATH [before|after]   drops a widget of the palette on the element at PATH
  *   moveto PATH PATH       drags the element at the first path onto the one at the second
- *   expectrun NAME stops unless the preview window shows a widget named NAME
+ *   expectrun NAME stops unless the window opened (F7) shows a widget named NAME
  *   fuzz STEPS SEED        random clicks, drags, keys, text and actions (the same seed replays the same run)
  *   size W H       the size of the window          capture PATH   saves the frame now (.ppm)
  *   defer S words --   the words run S seconds later, from a timer (inside a dialog that is open then)
@@ -2961,6 +3119,16 @@ static void fuzz(int steps, unsigned seed) {
 		float x = (float)fuzz_int(1480), y = (float)fuzz_int(900);
 		Rid window = g.window;
 		if (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window) && fuzz_int(8) == 0) window = g.run_window;
+		/* the island in the camera housing has a window of its own */
+		else if (fuzz_int(6) == 0) {
+			Rid island = Rwindow_get_island(g.window);
+			Rid own = island != R_INVALID_ID ? Rwidget_get_window(island) : R_INVALID_ID;
+			if (own != R_INVALID_ID && own != g.window) {
+				window = own;
+				x = (float)fuzz_int(640);
+				y = (float)fuzz_int(700);
+			}
+		}
 		if (what < 30) {
 			Rwindow_inject_mouse_move(window, x, y);
 			Rwindow_inject_mouse_button(window, fuzz_int(6) == 0 ? R_MOUSE_RIGHT : R_MOUSE_LEFT, R_TRUE);
@@ -3082,6 +3250,13 @@ static int widget_center(const char* name, float* x, float* y) {
 	return R_TRUE;
 }
 
+/* The window that has the keyboard, as the window system would send the keys: the designer, or the island in the camera housing. */
+static Rid keyboard_window(void) {
+	Rid island = Rwindow_get_island(g.window);
+	Rid window = island != R_INVALID_ID ? Rwidget_get_window(island) : R_INVALID_ID;
+	return window != R_INVALID_ID && window != g.window && Rwindow_is_active(window) ? window : g.window;
+}
+
 static int designer_script(char* script) {
 	char* cursor = script;
 	char* token = next_token(&cursor);
@@ -3098,10 +3273,10 @@ static int designer_script(char* script) {
 			Rwindow_inject_mouse_button(g.window, R_MOUSE_LEFT, R_FALSE);
 		} else if (strcmp(token, "key") == 0) {
 			int key = atoi(next_token(&cursor)), modifiers = atoi(next_token(&cursor));
-			Rwindow_inject_key(g.window, (RKey)key, R_TRUE, (Ruint)modifiers);
-			Rwindow_inject_key(g.window, (RKey)key, R_FALSE, (Ruint)modifiers);
+			Rwindow_inject_key(keyboard_window(), (RKey)key, R_TRUE, (Ruint)modifiers);
+			Rwindow_inject_key(keyboard_window(), (RKey)key, R_FALSE, (Ruint)modifiers);
 		} else if (strcmp(token, "text") == 0) {
-			Rwindow_inject_text(g.window, next_token(&cursor));
+			Rwindow_inject_text(keyboard_window(), next_token(&cursor));
 		} else if (strcmp(token, "pick") == 0) {
 			int index = atoi(next_token(&cursor));
 			if (index >= 0 && index < g.palette_count) Rtree_view_set_selected_item(g.palette, g.palette_items[index]);
@@ -3201,7 +3376,7 @@ static int designer_script(char* script) {
 			char* text = next_token(&cursor);
 			char* c;
 			for (c = text; *c; c++) if (*c == '~') *c = ' ';
-			if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window) || !Rwidget_find(g.run_frame, text)) {
+			if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window) || Rwidget_find(g.run_window, text) == R_INVALID_ID) {
 				fprintf(stderr, "raven_designer: the preview window shows no widget named %s\n", text);
 				return R_FALSE;
 			}
@@ -3245,6 +3420,65 @@ static int designer_script(char* script) {
 			int want = atoi(next_token(&cursor)), have = themes ? folder_theme_count() : folder_interface_count();
 			if (want != have) {
 				fprintf(stderr, "raven_designer: expected %d %s in the folder, there are %d\n", want, themes ? "themes" : "interfaces", have);
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectrunwindow") == 0) {
+			/* expectrunwindow TITLE W H: the window opened is titled TITLE ('~' for spaces) and is W x H */
+			char* title = next_token(&cursor);
+			int w = atoi(next_token(&cursor)), h = atoi(next_token(&cursor)), rw = 0, rh = 0;
+			char* c;
+			for (c = title; *c; c++) if (*c == '~') *c = ' ';
+			if (g.run_window == R_INVALID_ID || !Rwindow_is_valid(g.run_window)) {
+				fprintf(stderr, "raven_designer: no window is open\n");
+				return R_FALSE;
+			}
+			Rwindow_get_size(g.run_window, &rw, &rh);
+			if (strcmp(Rwindow_get_title(g.run_window), title) != 0 || rw != w || rh != h) {
+				fprintf(stderr, "raven_designer: expected the window \"%s\" %d x %d, it is \"%s\" %d x %d\n", title, w, h, Rwindow_get_title(g.run_window), rw, rh);
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "focus") == 0) {
+			Rwidget_focus(find_anywhere(next_token(&cursor)));
+		} else if (strcmp(token, "expectkeys") == 0) {
+			/* expectkeys N: the list of keys under the input shows N keys (0: closed) */
+			int want = atoi(next_token(&cursor));
+			if (strings_key_picker_count() != want) {
+				fprintf(stderr, "raven_designer: expected %d keys listed, there are %d\n", want, strings_key_picker_count());
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectnotch") == 0) {
+			/* expectnotch 0|1: the island is in the camera housing of the screen (1), in the window (0) */
+			int want = atoi(next_token(&cursor));
+			Rid island = Rwindow_get_island(g.window);
+			int in = island != R_INVALID_ID && Risland_is_in_notch(island);
+			Rid window = island != R_INVALID_ID ? Rwidget_get_window(island) : R_INVALID_ID;
+			run_frames(2);
+			if (in != want || (want ? window == g.window : window != g.window)) {
+				fprintf(stderr, "raven_designer: expected the island %s\n", want ? "in the camera housing" : "in the window");
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectcamera") == 0) {
+			/* expectcamera W H: folded in the housing, the island is against the top of its window, H high, and the room of the camera (W wide, with its margins) is in its middle */
+			float cw = (float)atof(next_token(&cursor)), chh = (float)atof(next_token(&cursor));
+			Rid island = Rwindow_get_island(g.window), camera = find_anywhere("island.camera");
+			float ix, iy, iw, ih, sx, sy, sw, sh, wx = 0.0f, wy = 0.0f;
+			int ww = 0, wh = 0;
+			run_frames(3);
+			Rwidget_get_rect(island, &ix, &iy, &iw, &ih);
+			Rwidget_get_rect(camera, &sx, &sy, &sw, &sh);
+			Rwindow_get_size(Rwidget_get_window(island), &ww, &wh);
+			(void)wx;
+			(void)wy;
+			if (fabsf(iy) > 0.5f || fabsf(ih - chh) > 0.5f || sw < cw || fabsf((sx + sw * 0.5f) - (ix + iw * 0.5f)) > 1.0f || fabsf((ix + iw * 0.5f) - ww * 0.5f) > 1.0f) {
+				fprintf(stderr, "raven_designer: the island is at %.0f,%.0f %.0f x %.0f in a window %d x %d, the camera at %.0f %.0f wide\n", ix, iy, iw, ih, ww, wh, sx, sw);
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectkeyboard") == 0) {
+			/* expectkeyboard designer|island: the window that has the keyboard */
+			char* name = next_token(&cursor);
+			int island = keyboard_window() != g.window;
+			if (island != (strcmp(name, "island") == 0)) {
+				fprintf(stderr, "raven_designer: expected the keyboard in the %s\n", name);
 				return R_FALSE;
 			}
 		} else if (strcmp(token, "expectnothing") == 0) {
@@ -3519,7 +3753,6 @@ static int build_interface(void) {
 	Raction_bind("palette.filter", action_palette_filter, NULL);
 	Raction_bind("problems.go", action_problems, NULL);
 	for (i = 0; i < 4; i++) Raction_bind(TAB_ACTIONS[i], action_tab, NULL);
-	Raction_bind("run.back", action_run, NULL);
 	Raction_set_default_handler(on_unbound_action, NULL);
 
 	{

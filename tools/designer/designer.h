@@ -187,6 +187,12 @@ int  strings_language_count(void);
 const char* strings_language_at(int index);
 /** Writes a cell (scripts of the tests). */
 int  strings_set_cell(const char* key, int column, const char* text);
+/** What writes a key chosen in the list under an input (the callback the input already has). */
+typedef void (*ds_key_applied_t)(Rid input, const char* text, void* user_data);
+/** Follows the text of an input: when it starts with '@', the keys of the tables that hold what follows are listed under it, and the one chosen is written "@key" (then `applied`). */
+void strings_key_picker(Rid input, const char* text, ds_key_applied_t applied, void* user_data);
+/** How many keys the list shows (0: closed), for the scripts of the tests. */
+int  strings_key_picker_count(void);
 /** The keys of the tables (completion of @keys). */
 int  strings_key_count(void);
 const char* strings_key(int index);

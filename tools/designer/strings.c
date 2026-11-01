@@ -575,7 +575,124 @@ static void on_language_changed(Rid combo, int index, void* user_data) {
 		g_s.language[0] && Rlocale_is_rtl() ? ", right to left" : "");
 }
 
+/* ---------------------------------------------------------------------------
+ *  The keys under an input: its text starts with '@', the keys of the tables
+ *  that hold what follows are offered (those that start with it first)
+ * ------------------------------------------------------------------------- */
+
+#define PICKER_MAX 14
+
+static struct {
+	Rid menu, input;
+	/* the window of the input (an island in the camera housing has a window of its own) */
+	Rid window;
+	ds_key_applied_t applied;
+	void* user_data;
+	char keys[PICKER_MAX][128];
+	int count;
+	/* set while a key chosen is written: the input changes, the list does not come back */
+	int picking;
+} g_kp;
+
+static int picker_shown(void) {
+	int i, count;
+	if (g_kp.menu == R_INVALID_ID || !Rwidget_is_valid(g_kp.menu)) return R_FALSE;
+	if (!Rwindow_is_valid(g_kp.window)) return R_FALSE;
+	count = Rwindow_get_popup_count(g_kp.window);
+	for (i = 0; i < count; i++) if (Rwindow_get_popup(g_kp.window, i) == g_kp.menu) return R_TRUE;
+	return R_FALSE;
+}
+
+static void picker_close(void) {
+	if (picker_shown()) Rwindow_close_popups(g_kp.window);
+}
+
+static void on_key_picked(Rid item, void* user_data) {
+	int index = (int)(size_t)user_data;
+	char text[160];
+	(void)item;
+	if (index < 0 || index >= g_kp.count || g_kp.input == R_INVALID_ID || !Rwidget_is_valid(g_kp.input)) return;
+	snprintf(text, sizeof(text), "@%s", g_kp.keys[index]);
+	g_kp.picking++;
+	Rtext_input_set_text(g_kp.input, text);
+	if (g_kp.applied) g_kp.applied(g_kp.input, text, g_kp.user_data);
+	g_kp.picking--;
+	/* (the keyboard stays in the input, to go on) */
+	if (Rwidget_is_valid(g_kp.input)) Rwidget_focus(g_kp.input);
+}
+
+static int key_starts_with(const char* key, const char* start) {
+	for (; *start; key++, start++) {
+		char x = *key, y = *start;
+		if (!x) return R_FALSE;
+		if (x >= 'A' && x <= 'Z') x = (char)(x + 32);
+		if (y >= 'A' && y <= 'Z') y = (char)(y + 32);
+		if (x != y) return R_FALSE;
+	}
+	return R_TRUE;
+}
+
+void strings_key_picker(Rid input, const char* text, ds_key_applied_t applied, void* user_data) {
+	const char* filter;
+	int i, pass, total = 0, exact = R_FALSE;
+	float x, y, w, h;
+	if (g_kp.picking) return;
+	if (!text || text[0] != '@' || g_s.key_count == 0 || !Rwidget_is_focused(input)) {
+		if (g_kp.input == input) picker_close();
+		return;
+	}
+	filter = text + 1;
+	g_kp.count = 0;
+	for (pass = 0; pass < 2; pass++) {
+		for (i = 0; i < g_s.key_count; i++) {
+			const char* key = g_s.keys[i];
+			int starts = key_starts_with(key, filter);
+			if (pass == 0 ? !starts : (starts || !ds_contains(key, filter))) continue;
+			if (ds_iequal(key, filter)) exact = R_TRUE;
+			total++;
+			if (g_kp.count < PICKER_MAX) snprintf(g_kp.keys[g_kp.count++], sizeof(g_kp.keys[0]), "%s", key);
+		}
+	}
+	picker_close();
+	/* nothing holds it, or the key is written in full */
+	if (g_kp.count == 0 || (total == 1 && exact)) return;
+	if (g_kp.menu != R_INVALID_ID && Rwidget_is_valid(g_kp.menu)) Rwidget_destroy(g_kp.menu);
+	g_kp.menu = Rwidget_create(R_WIDGET_MENU);
+	for (i = 0; i < g_kp.count; i++) {
+		char label[300];
+		const char* shown = Rtr(g_kp.keys[i]);
+		Rid item;
+		/* the key, and what it says in the language of the preview */
+		if (shown && shown[0] && strcmp(shown, g_kp.keys[i]) != 0) snprintf(label, sizeof(label), "%s      \xE2\x80\x9C%.60s\xE2\x80\x9D", g_kp.keys[i], shown);
+		else snprintf(label, sizeof(label), "%s", g_kp.keys[i]);
+		item = Rmenu_add_item(g_kp.menu, label);
+		Rmenu_item_set_clicked_callback(item, on_key_picked, (void*)(size_t)i);
+	}
+	if (total > g_kp.count) {
+		char more[96];
+		Rid item;
+		snprintf(more, sizeof(more), "%d more: type to narrow", total - g_kp.count);
+		Rmenu_add_separator(g_kp.menu);
+		item = Rmenu_add_item(g_kp.menu, more);
+		Rwidget_set_enabled(item, R_FALSE);
+	}
+	g_kp.input = input;
+	g_kp.window = Rwidget_get_window(input) != R_INVALID_ID ? Rwidget_get_window(input) : g_ds_window;
+	g_kp.applied = applied;
+	g_kp.user_data = user_data;
+	/* under the input; the keyboard stays in it (Up, Down and Enter choose, Escape closes) */
+	Rwidget_get_rect(input, &x, &y, &w, &h);
+	Rmenu_open(g_kp.menu, g_kp.window, x, y + h + 2.0f);
+}
+
+int strings_key_picker_count(void) {
+	return picker_shown() ? g_kp.count : 0;
+}
+
 void strings_init(void) {
+	g_kp.menu = R_INVALID_ID;
+	g_kp.input = R_INVALID_ID;
+	g_kp.window = R_INVALID_ID;
 	g_s.panel = Rwidget_find(g_ds_window, "panel.strings");
 	g_s.grid = Rwidget_find(g_ds_window, "strings.grid");
 	g_s.file_combo = Rwidget_find(g_ds_window, "strings.file");
@@ -598,6 +715,11 @@ void strings_init(void) {
 
 void strings_shutdown(void) {
 	int i;
+	if (g_kp.menu != R_INVALID_ID && Rwidget_is_valid(g_kp.menu)) {
+		picker_close();
+		Rwidget_destroy(g_kp.menu);
+	}
+	g_kp.menu = R_INVALID_ID;
 	for (i = 0; i < g_s.table_count; i++) free_table(&g_s.tables[i]);
 	free(g_s.tables);
 	for (i = 0; i < g_s.key_count; i++) free(g_s.keys[i]);

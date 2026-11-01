@@ -8,6 +8,13 @@
  * the file and whether it has unsaved changes, the element selected, and
  * the number of problems.
  *
+ * On a MacBook it lives in the camera housing of the screen (Notch="true"):
+ * Raven puts it in a window of its own anchored there, so that it stays
+ * around the camera when the designer is moved. The Spacer "island.camera"
+ * is the room of the camera: the dot and the file on its left, the
+ * selection, the problems and Ctrl+K on its right. Elsewhere it is in the
+ * window, as before.
+ *
  * Unfolded (a click, or Ctrl+K from anywhere):
  *   - one search for everything: a widget to add inside the selection, an
  *     interface of the folder to open, a command (save, run, undo, wrap in,
@@ -30,10 +37,11 @@
 #define MAX_RESULTS 40
 
 static const char ISLAND_XML[] =
-"<Island Name=\"island\" Attached=\"true\" ExpandOnHover=\"true\">"
+"<Island Name=\"island\" Attached=\"true\" ExpandOnHover=\"true\" Notch=\"true\">"
 "  <HBox Spacing=\"8\" Slot.Padding=\"14,5\">"
 "    <Border Name=\"island.dot\" Width=\"8\" Height=\"8\" CornerRadius=\"4\" Background=\"#8E8E93\" Slot.VAlign=\"Center\" AccessibleHidden=\"true\"/>"
 "    <Label Name=\"island.title\" Text=\"Raven Designer\" Slot.VAlign=\"Center\"/>"
+"    <Spacer Name=\"island.camera\"/>"
 "    <Label Name=\"island.selection\" Opacity=\"0.6\" Slot.VAlign=\"Center\" Visibility=\"Collapsed\"/>"
 "    <Label Name=\"island.state\" Opacity=\"0.6\" Slot.VAlign=\"Center\" Visibility=\"Collapsed\"/>"
 "    <Label Text=\"Ctrl+K\" TextSize=\"11\" Opacity=\"0.4\" Slot.VAlign=\"Center\"/>"
@@ -346,15 +354,21 @@ static void on_result_activated(Rid list, int index, void* user_data) {
  * ------------------------------------------------------------------------- */
 
 static void on_field(Rid input, const char* text, void* user_data) {
-	(void)input;
 	if (g_i.syncing || designer_get_selected() == R_INVALID_ID) return;
 	designer_set_attribute((const char*)user_data, text[0] ? text : NULL);
+	/* "@" in the Text: the keys of the tables under it (the island stays unfolded while the list is open) */
+	if (!strcmp((const char*)user_data, "Text")) {
+		if (text[0] == '@') Risland_set_expanded(g_i.island, R_TRUE);
+		strings_key_picker(input, text, on_field, user_data);
+	}
 }
 
 /* The fields follow the selection (not while one is being typed in). */
 static void update_fields(void) {
 	Rid node = designer_get_selected();
-	Rid focus = Rwindow_get_focused_widget(g_ds_window);
+	/* (the window of the island: its own, when it is in the camera housing) */
+	Rid window = Rwidget_get_window(g_i.island);
+	Rid focus = Rwindow_get_focused_widget(window != R_INVALID_ID ? window : g_ds_window);
 	int has = node != R_INVALID_ID && Rxml_node_is_valid(node) && !Rxml_node_is_comment(node);
 	char where[400];
 	set_shown("island.selected", designer_has_document());
