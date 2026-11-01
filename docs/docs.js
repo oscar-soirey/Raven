@@ -23,3 +23,24 @@
   window.addEventListener('scroll', function(){ if (!ticking) { ticking = true; requestAnimationFrame(spy); } }, { passive: true });
   spy();
 })();
+
+(function(){
+  function copy(text, btn){
+    function done(){ btn.textContent = 'Copied!'; setTimeout(function(){ btn.textContent = 'Copy'; }, 1500); }
+    function fallback(){
+      var t = document.createElement('textarea'); t.value = text; t.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Ctrl+C'; }
+      document.body.removeChild(t);
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  }
+  [].forEach.call(document.querySelectorAll('.doc pre:not(.sig)'), function(pre){
+    if (pre.parentNode.classList.contains('codebox')) return;
+    var box = document.createElement('div'), b = document.createElement('button');
+    box.className = 'codebox';
+    b.type = 'button'; b.className = 'copy'; b.textContent = 'Copy'; b.setAttribute('aria-label', 'Copy the code');
+    b.addEventListener('click', function(){ copy(pre.textContent, b); });
+    pre.parentNode.insertBefore(box, pre); box.appendChild(pre); box.appendChild(b);
+  });
+})();

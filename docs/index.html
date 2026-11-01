@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven Homepage</title>
+<meta name="description" content="Raven is an open source, native GUI library in C: lightweight, multithreaded, no dependency, with bindings for C++, Rust, Python, Go, C#, Zig and Lua.">
+<link rel="canonical" href="https://oscar-soirey.github.io/Raven/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Raven">
+<meta property="og:title" content="Raven, an open source GUI library in C">
+<meta property="og:description" content="Raven is an open source, native GUI library in C: lightweight, multithreaded, no dependency, with bindings for C++, Rust, Python, Go, C#, Zig and Lua.">
+<meta property="og:url" content="https://oscar-soirey.github.io/Raven/">
+<meta property="og:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
+<meta property="og:image:alt" content="Raven, a native GUI library in C: the studio example">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Raven, an open source GUI library in C">
+<meta name="twitter:description" content="Raven is an open source, native GUI library in C: lightweight, multithreaded, no dependency, with bindings for C++, Rust, Python, Go, C#, Zig and Lua.">
+<meta name="twitter:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
+<meta name="theme-color" content="#e5322d">
 <link rel="icon" type="image/png" href="logo-com-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -76,6 +90,17 @@ code{font-family:var(--mono); font-size:.82em; background:color-mix(in srgb,var(
 .k{color:var(--tk-k)} .t{color:var(--tk-t)} .f{color:var(--tk-f)} .s{color:var(--tk-s)}
 .n{color:var(--tk-n)} .m{color:var(--tk-m)} .c{color:var(--tk-c); font-style:italic}
 .g{color:var(--tk-g)} .a{color:var(--tk-a)}
+/* language tabs and copy button */
+.tabs{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px}
+.tabs button{font:400 14px var(--mono); background:var(--card); color:var(--fg); border:1.5px solid var(--fg); border-radius:8px 12px 9px 11px; padding:4px 14px; cursor:pointer}
+.tabs button:hover{background:color-mix(in srgb,var(--accent) 14%,var(--card))}
+.tabs button[aria-selected=true]{background:var(--accent); color:var(--accent-fg)}
+.codebox{position:relative}
+.codebox[hidden]{display:none}
+.copy{position:absolute; top:8px; right:8px; font:700 17px/1 var(--hand); color:var(--fg); background:var(--card); border:1.5px solid var(--fg); border-radius:6px 9px 7px 8px; padding:4px 11px 2px; cursor:pointer; opacity:0; transition:opacity .12s}
+.codebox:hover .copy,.copy:focus-visible{opacity:1}
+.copy:hover{background:var(--accent); color:var(--accent-fg)}
+@media (hover:none){.copy{opacity:1}}
 .langs{display:flex; flex-wrap:wrap; gap:10px}
 .langs span{font:400 14px var(--mono); background:var(--card); border:1.5px solid var(--fg); border-radius:8px 12px 9px 11px; padding:3px 13px}
 .langs span:nth-child(odd){transform:rotate(-1.5deg)}
@@ -137,7 +162,7 @@ footer{padding:44px 0 60px; color:var(--muted); font-size:16px; border-top:2px d
 <body>
 <main>
   <nav>
-    <a class="brand" href="#"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a>
+    <a class="brand" href="#"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a>
     <a class="l" href="guide.html">Docs</a>
     <a class="l" href="#releases">Releases</a>
     <a class="l" href="#contributors">Contributors</a>
@@ -149,8 +174,9 @@ footer{padding:44px 0 60px; color:var(--muted); font-size:16px; border-top:2px d
     <h1>An open source native GUI library in C.</h1>
     <p class="lead">Free, lightweight, multithreaded, no dependency. Built for editors and tools, usable from the language you like.</p>
     <a class="btn" href="https://github.com/oscar-soirey/Raven">Get started</a>
-    <a class="btn alt" href="#releases">Download</a>
-    <div class="langs" style="margin-top:28px">
+    <a class="btn alt" id="dl" href="#releases">Download</a>
+    <p id="dl-note" class="muted" hidden style="margin:0 0 6px;font-size:15px"></p>
+    <div class="langs" style="margin-top:22px">
       <span>C</span><span>C++</span><span>Rust</span><span>Python</span>
       <span>Go</span><span>C#</span><span>Zig</span><span>Lua</span>
     </div>
@@ -175,34 +201,264 @@ footer{padding:44px 0 60px; color:var(--muted); font-size:16px; border-top:2px d
   </section>
 
   <section>
-    <h2>A window in a few lines</h2>
-<pre><span class="m">#include</span> <span class="s">&lt;Raven.h&gt;</span>
+    <h2>A window, in your language</h2>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Language"></div>
+    <div class="snips">
+<div class="codebox" data-lang="c" data-name="C" data-href="guide.html#intro"><pre>#include &lt;Raven.h&gt;
 
-<span class="k">static</span> <span class="k">void</span> <span class="f">on_clicked</span>(<span class="t">Rid</span> button, <span class="k">void</span>* user) { <span class="f">Rquit</span>(<span class="n">0</span>); }
+static void on_quit(Rid button, void* user_data) {
+    (void)button;
+    (void)user_data;
+    Rquit(0);
+}
 
-<span class="k">int</span> <span class="f">main</span>(<span class="k">void</span>) {
-    <span class="f">Rinit</span>(<span class="m">R_BACKEND_VULKAN</span>);
+int main(void) {
+    if (!Rinit(R_BACKEND_VULKAN)) return 1;
 
-    <span class="t">Rid</span> window = <span class="f">Rwindow_create</span>(<span class="s">"Hello"</span>, <span class="n">420</span>, <span class="n">220</span>, <span class="m">R_WINDOW_DEFAULT</span>);
-    <span class="t">Rid</span> box = <span class="f">Rwidget_create</span>(<span class="m">R_WIDGET_VBOX</span>);
-    <span class="f">Rpanel_set_spacing</span>(box, <span class="n">12</span>);
-    <span class="f">Rwindow_set_content</span>(window, box);
+    Rid window = Rwindow_create("Hello", 420, 220, R_WINDOW_DEFAULT);
+    Rid box = Rwidget_create(R_WIDGET_VBOX);
+    Rpanel_set_spacing(box, 12);
+    Rslot_set_halign(box, R_HALIGN_CENTER);
+    Rslot_set_valign(box, R_VALIGN_CENTER);
+    Rwindow_set_content(window, box);
 
-    <span class="f">Rwidget_add_child</span>(box, <span class="f">Rlabel_create</span>(<span class="s">"Hello from Raven"</span>));
-    <span class="t">Rid</span> button = <span class="f">Rwidget_add_child</span>(box, <span class="f">Rbutton_create</span>(<span class="s">"Quit"</span>));
-    <span class="f">Rbutton_set_clicked_callback</span>(button, on_clicked, <span class="m">NULL</span>);
+    Rwidget_add_child(box, Rlabel_create("Hello from Raven"));
+    Rid quit = Rwidget_add_child(box, Rbutton_create("Quit"));
+    Rbutton_set_clicked_callback(quit, on_quit, NULL);
 
-    <span class="k">while</span> (<span class="f">Rwait_frame</span>(<span class="n">-1.0</span>)) {}
-    <span class="f">Rshutdown</span>();
-    <span class="k">return</span> <span class="n">0</span>;
-}</pre>
-    <p class="muted" style="margin:18px 0 10px">The same window in XML:</p>
-<pre>&lt;<span class="g">Window</span> <span class="a">Title</span>=<span class="s">"Hello"</span> <span class="a">Width</span>=<span class="s">"420"</span> <span class="a">Height</span>=<span class="s">"220"</span>&gt;
-    &lt;<span class="g">VBox</span> <span class="a">Spacing</span>=<span class="s">"12"</span>&gt;
-        &lt;<span class="g">Label</span>&gt;Hello from Raven&lt;/<span class="g">Label</span>&gt;
-        &lt;<span class="g">Button</span> <span class="a">Text</span>=<span class="s">"Quit"</span> <span class="a">OnClicked</span>=<span class="s">"app.quit"</span>/&gt;
-    &lt;/<span class="g">VBox</span>&gt;
-&lt;/<span class="g">Window</span>&gt;</pre>
+    while (Rwait_frame(-1.0)) {}
+    Rshutdown();
+    return Rget_exit_code();
+}</pre></div>
+<div class="codebox" data-lang="cpp" data-name="C++" data-href="bindings.html#cpp-hello"><pre>#include &lt;raven.hpp&gt;
+#include &lt;string&gt;
+
+int main() {
+    if (!raven::init(R_BACKEND_VULKAN)) return 1;
+
+    auto window = raven::Window::create("Hello", 360, 200, R_WINDOW_DEFAULT);
+    auto box    = raven::Panel(raven::Widget::create(R_WIDGET_VBOX));
+    auto title  = raven::Label::create("Hello from C++");
+    auto name   = raven::TextInput::create();
+    auto greet  = raven::Button::create("Greet");
+
+    box.set_spacing(10.0f);
+    box.slot_set_padding(16.0f, 16.0f, 16.0f, 16.0f);
+    name.set_placeholder("Your name");
+    greet.set_style(R_BUTTON_PRIMARY);
+
+    std::string greeting;
+    greet.set_clicked_callback([&amp;](Rid) {          // a lambda, captures included
+        greeting = std::string("Hello, ") + name.get_text() + "!";
+        title.set_text(greeting.c_str());
+    });
+
+    box.add_child(title);
+    box.add_child(name);
+    box.add_child(greet);
+    window.set_content(box);
+
+    raven::action_bind("quit", [](Rid, const char*) { raven::quit(0); });
+    window.register_shortcut(R_KEY_ESCAPE, 0, "quit");
+
+    while (raven::wait_frame(-1.0)) {}
+    raven::shutdown();
+}</pre></div>
+<div class="codebox" data-lang="rust" data-name="Rust" data-href="bindings.html#rust-hello"><pre>use raven::*;
+use std::cell::Cell;
+use std::rc::Rc;
+
+const XML: &amp;str = r#"
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;"#;
+
+fn main() {
+    unsafe {
+        if Rinit(R_BACKEND_VULKAN) == 0 {
+            eprintln!("cannot start Raven");
+            return;
+        }
+    }
+    let window = window_from_xml(XML);
+    let title = widget_find(window, "title");
+    let name = widget_find(window, "name");
+
+    let clicks = Rc::new(Cell::new(0));
+    let counter = clicks.clone();
+    action_bind("greet", move |_sender, _action| unsafe {
+        counter.set(counter.get() + 1);
+        let who = text(Rtext_input_get_text(name));
+        Rlabel_set_text(title, cstr(&amp;format!("Hello, {}!", who)).as_ptr());
+    });
+
+    unsafe {
+        while Rwait_frame(-1.0) != 0 {}
+        Rshutdown();
+    }
+}</pre></div>
+<div class="codebox" data-lang="python" data-name="Python" data-href="bindings.html#python-hello"><pre>import raven as r
+
+XML = """
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;"""
+
+if not r.Rinit(r.R_BACKEND_VULKAN):
+    raise SystemExit("cannot start Raven")
+r.Rerror_set_callback(lambda code, severity, detail: print("raven:", detail))
+
+window = r.Rwindow_create_from_xml(XML)
+title = r.Rwidget_find(window, "title")
+name = r.Rwidget_find(window, "name")
+
+def greet(sender, action, user_data):
+    r.Rlabel_set_text(title, "Hello, %s!" % (r.Rtext_input_get_text(name) or "you"))
+
+r.Raction_bind("greet", greet)
+
+while r.Rwait_frame(-1.0):
+    pass
+r.Rshutdown()</pre></div>
+<div class="codebox" data-lang="go" data-name="Go" data-href="bindings.html#go-hello"><pre>package main
+
+import (
+    "fmt"
+    "runtime"
+
+    "raven/raven"
+)
+
+const xml = `
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;`
+
+func main() {
+    runtime.LockOSThread() // Raven belongs to the thread that starts it
+    if raven.Init(raven.R_BACKEND_VULKAN) == 0 {
+        fmt.Println("cannot start Raven")
+        return
+    }
+    raven.ErrorSetCallback(func(code raven.RError, severity raven.RSeverity, detail string) {
+        fmt.Println("raven:", detail)
+    })
+
+    window := raven.WindowCreateFromXml(xml)
+    title := raven.WidgetFind(window, "title")
+    name := raven.WidgetFind(window, "name")
+    raven.ActionBind("greet", func(sender raven.ID, action string) {
+        raven.LabelSetText(title, "Hello, "+raven.TextInputGetText(name)+"!")
+    })
+
+    for raven.WaitFrame(-1.0) != 0 {
+    }
+    raven.Shutdown()
+}</pre></div>
+<div class="codebox" data-lang="csharp" data-name="C#" data-href="bindings.html#csharp-hello"><pre>using System;
+using Raven;
+
+static class Program
+{
+    const string Xml = @"
+&lt;Window Title=""Hello"" Width=""360"" Height=""200""&gt;
+    &lt;VBox Spacing=""10"" Slot.Padding=""16""&gt;
+        &lt;Label Name=""title"" Text=""Hello"" TextSize=""20""/&gt;
+        &lt;TextInput Name=""name"" Placeholder=""Your name""/&gt;
+        &lt;Button Text=""Greet"" Style=""Primary"" OnClicked=""greet""/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;";
+
+    static void Main()
+    {
+        if (R.Rinit(RBackend.R_BACKEND_VULKAN) == 0) { Console.WriteLine("cannot start Raven"); return; }
+        R.Rerror_set_callback(R.Keep&lt;RErrorCallback&gt;((code, severity, detail) =&gt;
+            Console.WriteLine("raven: " + R.Text(detail))));
+
+        uint window = R.Rwindow_create_from_xml(Xml);
+        uint title = R.Rwidget_find(window, "title");
+        uint name = R.Rwidget_find(window, "name");
+
+        R.Raction_bind("greet", R.Keep&lt;RActionCallback&gt;((sender, action, user) =&gt;
+            R.Rlabel_set_text(title, "Hello, " + R.Rtext_input_get_text(name) + "!")), IntPtr.Zero);
+
+        while (R.Rwait_frame(-1.0) != 0) { }
+        R.Rshutdown();
+    }
+}</pre></div>
+<div class="codebox" data-lang="zig" data-name="Zig" data-href="bindings.html#zig-hello"><pre>const std = @import("std");
+const r = @import("raven.zig");
+
+var title: r.Rid = r.R_INVALID_ID;
+var name: r.Rid = r.R_INVALID_ID;
+
+pub fn main() void {
+    if (r.Rinit(r.R_BACKEND_VULKAN) == 0) return;
+    const xml =
+        \\&lt;Window Title="Hello" Width="360" Height="200"&gt;
+        \\    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        \\        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        \\        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        \\        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+        \\    &lt;/VBox&gt;
+        \\&lt;/Window&gt;
+    ;
+    const window = r.Rwindow_create_from_xml(xml, xml.len);
+    title = r.Rwidget_find(window, "title");
+    name = r.Rwidget_find(window, "name");
+    r.Raction_bind("greet", greet, null);
+    while (r.Rwait_frame(-1.0) != 0) {}
+    r.Rshutdown();
+}
+
+fn greet(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void {
+    _ = sender; _ = action; _ = user_data;
+    const who = std.mem.span(r.Rtext_input_get_text(name) orelse "");
+    var buffer: [256]u8 = undefined;
+    const text = std.fmt.bufPrintZ(&amp;buffer, "Hello, {s}!", .{who}) catch return;
+    r.Rlabel_set_text(title, text.ptr);
+}</pre></div>
+<div class="codebox" data-lang="lua" data-name="Lua" data-href="bindings.html#lua-hello"><pre>local r = require("raven")
+local ffi = r.ffi
+
+assert(r.Rinit(r.R_BACKEND_VULKAN) ~= 0, "cannot start Raven")
+
+local xml = [[
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;]]
+local window = r.Rwindow_create_from_xml(xml, #xml)
+local title = r.Rwidget_find(window, "title")
+local name = r.Rwidget_find(window, "name")
+
+-- keep the callback in a variable that lives as long as the program
+local greet = ffi.cast("RActionCallback", function(sender, action, user_data)
+    local who = ffi.string(r.Rtext_input_get_text(name))
+    r.Rlabel_set_text(title, "Hello, " .. who .. "!")
+end)
+r.Raction_bind("greet", greet, nil)
+
+while r.Rwait_frame(-1.0) ~= 0 do end
+r.Rshutdown()
+greet:free()</pre></div>
+    </div>
+    <p class="muted" style="margin:16px 0 0">The full program is in <a id="snip-more" href="guide.html#intro" style="color:var(--accent)">the docs</a>.</p>
   </section>
 
   <section>
@@ -325,6 +581,26 @@ if a cell is wrong or out of date, please
     return e;
   }
   function count(n){ return (n || 0).toLocaleString('en-GB') + (n === 1 ? ' download' : ' downloads'); }
+  function detectOS(){
+    var s = ((navigator.userAgentData && navigator.userAgentData.platform) || '') + ' ' + (navigator.platform || '') + ' ' + (navigator.userAgent || '');
+    s = s.toLowerCase();
+    if (/android|iphone|ipad|ipod|cros/.test(s) || (/mac/.test(s) && navigator.maxTouchPoints > 1)) return null;
+    if (/win/.test(s)) return 'Windows';
+    if (/mac/.test(s)) return 'macOS';
+    if (/linux|x11/.test(s)) return 'Linux';
+    return null;
+  }
+  function setDownload(rels){
+    var r = rels.filter(function(x){ return !x.prerelease; })[0] || rels[0], os = detectOS();
+    if (!r || !os) return;
+    var re = { Windows: /(^|[^a-z])win(dows|32|64)?([^a-z]|$)/i, macOS: /mac|darwin|osx/i, Linux: /linux/i }[os];
+    var as = (r.assets || []).filter(function(a){ return re.test(a.name) && !/\.(sha256|sha512|sig|asc|txt|md5)$/i.test(a.name); })[0];
+    if (!as) return;
+    var b = document.getElementById('dl'), n = document.getElementById('dl-note');
+    b.textContent = 'Download for ' + os;
+    n.textContent = (r.name || r.tag_name) + ', ' + as.name + ', ' + size(as.size) + '. Other systems and versions are in Releases below.';
+    n.hidden = false;
+  }
   function size(b){ return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
   function inline(parent, text){
     var re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\[[^\]]+\]\(https?:\/\/[^)\s]+\))|(https?:\/\/[^\s)<]+)/g, last = 0, m, a;
@@ -396,6 +672,16 @@ if a cell is wrong or out of date, please
     node.appendChild(a);
   }
 
+  // The Download button: the images above load while the page scrolls and push the target away, so align again once they have
+  document.getElementById('dl').addEventListener('click', function(e){
+    var t = document.getElementById('releases');
+    if (!t) return;
+    e.preventDefault();
+    function go(){ t.scrollIntoView({ behavior: 'instant', block: 'start' }); }
+    go(); setTimeout(go, 300); setTimeout(go, 900);
+    if (history.replaceState) history.replaceState(null, '', '#releases');
+  });
+
   // Releases
   var list = document.getElementById('rel-list');
   api('/releases?per_page=30').then(function(rels){
@@ -403,6 +689,7 @@ if a cell is wrong or out of date, please
     list.className = '';
     rels = rels.filter(function(r){ return !r.draft; });
     if (!rels.length) { fail(list, 'releases', GH + '/releases'); return; }
+    setDownload(rels);
     var older = el('div'); older.hidden = true;
     rels.forEach(function(r, i){
       var box = el('div', 'rel');
@@ -451,6 +738,96 @@ if a cell is wrong or out of date, please
       people.appendChild(a);
     });
   }).catch(function(){ fail(people, 'contributors', GH + '/graphs/contributors'); });
+})();
+</script>
+<script>
+(function(){
+  /* ---------- coloration ---------- */
+  var C_COM = String.raw`//[^\n]*|/\*[\s\S]*?\*/`;
+  var DQ = String.raw`"(?:\\.|[^"\\\n])*"`;
+  var SQ = String.raw`'(?:\\.|[^'\\\n])*'`;
+  var LANGS = {
+    c:      { kw:'if else for while do return static const void int char float double long unsigned struct enum typedef sizeof NULL true false', com:C_COM, str:DQ+'|'+SQ, pre:true },
+    cpp:    { kw:'auto const int float void return if else for while class struct namespace new delete using nullptr true false', com:C_COM, str:DQ, pre:true },
+    rust:   { kw:'use fn let mut const unsafe if else while for return move struct impl pub mod true false as', com:C_COM, str:String.raw`r#"[\s\S]*?"#|`+DQ },
+    python: { kw:'import as def return if else elif not and or while for in raise from pass lambda True False None', com:String.raw`#[^\n]*`, str:String.raw`"""[\s\S]*?"""|`+DQ+'|'+SQ },
+    go:     { kw:'package import func const var if else for return range struct true false nil', com:C_COM, str:'`[^`]*`|'+DQ },
+    csharp: { kw:'using static class void const string uint int new return if else true false null var', com:C_COM, str:String.raw`@"(?:""|[^"])*"|`+DQ },
+    zig:    { kw:'const var pub fn if else return while for callconv void null undefined anyopaque', com:String.raw`//[^\n]*`, str:String.raw`\\\\[^\n]*|`+DQ },
+    lua:    { kw:'local function end if then else do while for return not nil true false and or', com:String.raw`--\[\[[\s\S]*?\]\]|--[^\n]*`, str:String.raw`\[\[[\s\S]*?\]\]|`+DQ }
+  };
+  var CLS = [null, 'c', 's', 'm', 'n', 'k', 'm', 'f', 't'];
+  function build(l){
+    return new RegExp([
+      '(' + l.com + ')', '(' + l.str + ')',
+      l.pre ? String.raw`(^[ \t]*#[ \t]*[a-z]+(?:[ \t]*<[^>\n]+>)?)` : '((?!))',
+      String.raw`(\b0x[0-9a-fA-F]+\b|\b\d+(?:\.\d+)?[fFuUlL]*\b)`,
+      String.raw`(\b(?:` + l.kw.split(' ').join('|') + String.raw`)\b)`,
+      String.raw`(\b[A-Z][A-Z0-9_]{2,}\b)`,
+      String.raw`(@\w+|\b[A-Za-z_]\w*(?=\())`,
+      String.raw`(\b[A-Z][a-z0-9]\w*\b)`
+    ].join('|'), 'gm');
+  }
+  function tokens(text, lang){
+    var l = LANGS[lang]; if (!l) return [{ c: null, t: text }];
+    var re = build(l), out = [], last = 0, m, i;
+    while ((m = re.exec(text))) {
+      if (!m[0].length) { re.lastIndex++; continue; }
+      i = 1; while (!m[i]) i++;
+      if (m.index > last) out.push({ c: null, t: text.slice(last, m.index) });
+      out.push({ c: CLS[i], t: m[0] });
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) out.push({ c: null, t: text.slice(last) });
+    return out;
+  }
+  function paint(pre, lang){
+    var frag = document.createDocumentFragment();
+    tokens(pre.textContent, lang).forEach(function(k){
+      if (!k.c) { frag.appendChild(document.createTextNode(k.t)); return; }
+      var s = document.createElement('span'); s.className = k.c; s.textContent = k.t; frag.appendChild(s);
+    });
+    pre.textContent = ''; pre.appendChild(frag);
+  }
+  if (typeof module !== 'undefined') module.exports = { tokens: tokens };
+  if (typeof document === 'undefined') return;
+
+  /* ---------- bouton copier ---------- */
+  function copy(text, btn){
+    function done(){ btn.textContent = 'Copied!'; setTimeout(function(){ btn.textContent = 'Copy'; }, 1500); }
+    function fallback(){
+      var t = document.createElement('textarea'); t.value = text; t.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); done(); } catch (e) { btn.textContent = 'Ctrl+C'; }
+      document.body.removeChild(t);
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  }
+  function addCopy(box){
+    var pre = box.querySelector('pre'), b = document.createElement('button');
+    b.type = 'button'; b.className = 'copy'; b.textContent = 'Copy'; b.setAttribute('aria-label', 'Copy the code');
+    b.addEventListener('click', function(){ copy(pre.textContent, b); });
+    box.appendChild(b);
+  }
+
+  /* ---------- un extrait par langage ---------- */
+  var boxes = [].slice.call(document.querySelectorAll('.snips .codebox'));
+  var tabs = document.getElementById('tabs'), more = document.getElementById('snip-more');
+  var btns = [];
+  function show(i){
+    boxes.forEach(function(b, k){ b.hidden = k !== i; btns[k].setAttribute('aria-selected', k === i ? 'true' : 'false'); });
+    more.href = boxes[i].getAttribute('data-href');
+    more.textContent = boxes[i].getAttribute('data-name') + ' in the docs';
+  }
+  boxes.forEach(function(b, i){
+    paint(b.querySelector('pre'), b.getAttribute('data-lang'));
+    addCopy(b);
+    var t = document.createElement('button');
+    t.type = 'button'; t.setAttribute('role', 'tab'); t.textContent = b.getAttribute('data-name');
+    t.addEventListener('click', function(){ show(i); });
+    btns.push(t); tabs.appendChild(t);
+  });
+  if (boxes.length) show(0);
 })();
 </script>
 </body>

@@ -1,6 +1,24 @@
-# Raven
+<p align="center">
+  <img src="docs/images/logo-com.png" alt="Raven logo" width="80">
+</p>
 
-A lightweight, multithreaded GUI library in C for editors and tools.
+<h1 align="center">Raven</h1>
+
+<p align="center">
+  A lightweight, multithreaded GUI library in C for editors and tools.
+</p>
+
+<p align="center">
+  <a href="docs/">
+    <img alt="Documentation" src="https://img.shields.io/badge/Documentation-read-555555?style=for-the-badge&logo=readthedocs&logoColor=white">
+  </a>
+  <a href="https://github.com/oscar-soirey/Raven/issues">
+    <img alt="Issues" src="https://img.shields.io/badge/Issues-report-555555?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+  <a href="https://github.com/oscar-soirey/Raven/releases">
+    <img alt="Releases" src="https://img.shields.io/badge/Releases-download-555555?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+</p>
 
 ## Disclaimer : This project is still in active development and public API is subject to change.
 

@@ -5,6 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven manual: Bindings</title>
 <meta name="description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
+<link rel="canonical" href="https://oscar-soirey.github.io/Raven/bindings.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Raven">
+<meta property="og:title" content="Raven manual: Bindings">
+<meta property="og:description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
+<meta property="og:url" content="https://oscar-soirey.github.io/Raven/bindings.html">
+<meta property="og:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
+<meta property="og:image:alt" content="Raven, a native GUI library in C: the studio example">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Raven manual: Bindings">
+<meta name="twitter:description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
+<meta name="twitter:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
+<meta name="theme-color" content="#e5322d">
 <link rel="icon" type="image/png" href="logo-com-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,9 +25,9 @@
 <link rel="stylesheet" href="docs.css">
 </head>
 <body>
-<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a></div>
 <div class="layout">
-<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html" aria-current="page">Bindings</a><ul class="sections"><li><a href="#overview">1. At a glance</a></li><li><a href="#common">2. What every binding shares</a></li><li><a href="#cpp">3. C++</a></li><li><a href="#python">4. Python</a></li><li><a href="#rust">5. Rust</a></li><li><a href="#go">6. Go</a></li><li><a href="#csharp">7. C#</a></li><li><a href="#zig">8. Zig</a></li><li><a href="#lua">9. LuaJIT</a></li><li><a href="#rosetta">10. One call in every language</a></li><li><a href="#testing">11. Testing without a screen</a></li><li><a href="#packages">12. Packages and publishing</a></li><li><a href="#bindgen">13. How the bindings are made</a></li></ul></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<aside class="side" id="side"><a class="brand" href="index.html"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html" aria-current="page">Bindings</a><ul class="sections"><li><a href="#overview">1. At a glance</a></li><li><a href="#common">2. What every binding shares</a></li><li><a href="#cpp">3. C++</a></li><li><a href="#python">4. Python</a></li><li><a href="#rust">5. Rust</a></li><li><a href="#go">6. Go</a></li><li><a href="#csharp">7. C#</a></li><li><a href="#zig">8. Zig</a></li><li><a href="#lua">9. LuaJIT</a></li><li><a href="#rosetta">10. One call in every language</a></li><li><a href="#testing">11. Testing without a screen</a></li><li><a href="#packages">12. Packages and publishing</a></li><li><a href="#bindgen">13. How the bindings are made</a></li></ul></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
 <main class="doc"><article>
 <h1>Raven in other languages</h1>
 

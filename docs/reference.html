@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven manual: C API reference</title>
+<meta name="description" content="Every function of the Raven C API.">
+<link rel="canonical" href="https://oscar-soirey.github.io/Raven/reference.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Raven">
+<meta property="og:title" content="Raven manual: C API reference">
+<meta property="og:description" content="Every function of the Raven C API.">
+<meta property="og:url" content="https://oscar-soirey.github.io/Raven/reference.html">
+<meta property="og:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
+<meta property="og:image:alt" content="Raven, a native GUI library in C: the studio example">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Raven manual: C API reference">
+<meta name="twitter:description" content="Every function of the Raven C API.">
+<meta name="twitter:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
+<meta name="theme-color" content="#e5322d">
 <link rel="icon" type="image/png" href="logo-com-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,9 +25,9 @@
 <link rel="stylesheet" href="docs.css">
 </head>
 <body>
-<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a></div>
+<div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a></div>
 <div class="layout">
-<aside class="side" id="side"><a class="brand" href="index.html"><picture><source srcset="logo-white-192.png" media="(prefers-color-scheme: dark)"><img src="logo-com-192.png" alt="" width="34" height="34"></picture>Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html" aria-current="page">C API reference</a><ul class="sections"><li><a href="#raven_core_h">raven_core.h</a></li><li><a href="#raven_window_h">raven_window.h</a></li><li><a href="#raven_style_h">raven_style.h</a></li><li><a href="#raven_resources_h">raven_resources.h</a></li><li><a href="#raven_widget_h">raven_widget.h</a></li><li><a href="#raven_layout_h">raven_layout.h</a></li><li><a href="#raven_controls_h">raven_controls.h</a></li><li><a href="#raven_text_editor_h">raven_text_editor.h</a></li><li><a href="#raven_shell_h">raven_shell.h</a></li><li><a href="#raven_tools_h">raven_tools.h</a></li><li><a href="#raven_dialogs_h">raven_dialogs.h</a></li><li><a href="#raven_viewport_h">raven_viewport.h</a></li><li><a href="#raven_draw_h">raven_draw.h</a></li><li><a href="#raven_shader_h">raven_shader.h</a></li><li><a href="#raven_xml_h">raven_xml.h</a></li><li><a href="#raven_locale_h">raven_locale.h</a></li><li><a href="#raven_accessibility_h">raven_accessibility.h</a></li><li><a href="#raven_vulkan_h">raven_vulkan.h</a></li><li><a href="#raven_backend_h">raven_backend.h</a></li><li><a href="#raven_web_h">raven_web.h</a></li><li><a href="#index">Index of functions</a></li></ul></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<aside class="side" id="side"><a class="brand" href="index.html"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html" aria-current="page">C API reference</a><ul class="sections"><li><a href="#raven_core_h">raven_core.h</a></li><li><a href="#raven_window_h">raven_window.h</a></li><li><a href="#raven_style_h">raven_style.h</a></li><li><a href="#raven_resources_h">raven_resources.h</a></li><li><a href="#raven_widget_h">raven_widget.h</a></li><li><a href="#raven_layout_h">raven_layout.h</a></li><li><a href="#raven_controls_h">raven_controls.h</a></li><li><a href="#raven_text_editor_h">raven_text_editor.h</a></li><li><a href="#raven_shell_h">raven_shell.h</a></li><li><a href="#raven_tools_h">raven_tools.h</a></li><li><a href="#raven_dialogs_h">raven_dialogs.h</a></li><li><a href="#raven_viewport_h">raven_viewport.h</a></li><li><a href="#raven_draw_h">raven_draw.h</a></li><li><a href="#raven_shader_h">raven_shader.h</a></li><li><a href="#raven_xml_h">raven_xml.h</a></li><li><a href="#raven_locale_h">raven_locale.h</a></li><li><a href="#raven_accessibility_h">raven_accessibility.h</a></li><li><a href="#raven_vulkan_h">raven_vulkan.h</a></li><li><a href="#raven_backend_h">raven_backend.h</a></li><li><a href="#raven_web_h">raven_web.h</a></li><li><a href="#index">Index of functions</a></li></ul></li><li><a href="bindings.html">Bindings</a></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
 <main class="doc"><article>
 <h1>C API reference</h1>
 <p>Every public declaration of Raven, in the order of its headers, with the comments of the headers. 926 functions, 59 callback types, 54 enumerations, 25 structures. Generated from <code>include/</code> and <code>web/include/</code>.</p>

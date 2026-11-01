@@ -90,27 +90,6 @@ td.num,th.num{text-align:right; white-space:nowrap}
 .doc header>p:first-of-type{font-size:21px; color:var(--muted)}
 .doc footer,.foot{margin-top:3em; padding-top:.8em; border-top:2px dashed var(--line); font-size:15px; color:var(--muted)}
 .doc section{margin:0}
-/* comparison table (guide) */
-.cmp-wrap{overflow-x:auto; border:2px solid var(--fg); border-radius:6px; background:var(--card); margin:1em 0}
-.doc table.cmp{table-layout:fixed; width:100%; min-width:640px; font-size:15px}
-.doc table.cmp thead th{text-align:center; font-size:17px}
-.doc table.cmp thead th:first-child,.doc table.cmp tbody th[scope=row]{width:130px}
-.doc table.cmp tbody th[scope=row]{background:var(--card); position:sticky; left:0}
-.doc table.cmp tr.grp th{background:color-mix(in srgb,var(--accent) 13%,var(--card)); font-size:16px; position:static}
-.doc table.cmp td.rv,.doc table.cmp th.rv{background:color-mix(in srgb,var(--accent) 7%,var(--card))}
-.doc table.cmp td.e{text-align:center; vertical-align:middle; font-size:17px}
-.gh-note,.gh-status{font-size:15px; color:var(--muted); font-style:italic}
-/* releases and contributors (guide, filled by script) */
-.gh-rel{border:2px solid var(--fg); border-radius:8px 11px 8px 10px; background:var(--card); padding:2px 18px 14px; margin:1.2em 0}
-.gh-rel h4{margin:.8em 0 .1em; font-size:20px}
-.gh-rel .meta{font-size:15px; color:var(--muted); margin:0 0 .5em}
-.gh-rel table{width:100%; margin:.3em 0}
-.gh-tag{font:700 17px/1 var(--hand); background:var(--accent); color:var(--accent-fg); border-radius:4px 8px 5px 7px; padding:3px 10px 1px; margin-left:8px; display:inline-block; transform:rotate(-3deg); vertical-align:.15em}
-ul.contrib{list-style:none; padding:0!important; display:grid; grid-template-columns:repeat(auto-fill,minmax(11em,1fr)); gap:10px}
-ul.contrib li{display:flex; align-items:center; gap:10px; border:1.5px solid var(--fg); border-radius:8px 11px 8px 10px; background:var(--card); padding:6px 10px; min-width:0; margin:0}
-ul.contrib img{width:38px; height:38px; border-radius:50%; flex:none; border:2px solid var(--fg)}
-ul.contrib a{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-ul.contrib small{display:block}
 /* previous and next */
 .pager{display:flex; justify-content:space-between; gap:16px; margin-top:64px; padding-top:20px; border-top:2px dashed var(--line); flex-wrap:wrap}
 .pager a{display:block; padding:10px 18px; border:2px solid var(--fg); border-radius:10px 8px 11px 9px; background:var(--card); color:var(--fg); text-decoration:none; box-shadow:3px 3px 0 var(--fg); font:700 16px var(--head); transition:transform .12s, box-shadow .12s}
@@ -129,3 +108,10 @@ ul.contrib small{display:block}
   .doc table{font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important; scroll-behavior:auto!important}}
+/* copy button */
+.codebox{position:relative; margin:1em 0}
+.doc .codebox>pre{margin:0}
+.copy{position:absolute; top:8px; right:8px; font:700 17px/1 var(--hand); color:var(--fg); background:var(--card); border:1.5px solid var(--fg); border-radius:6px 9px 7px 8px; padding:4px 11px 2px; cursor:pointer; opacity:0; transition:opacity .12s}
+.codebox:hover .copy,.copy:focus-visible{opacity:1}
+.copy:hover{background:var(--accent); color:var(--accent-fg)}
+@media (hover:none){.copy{opacity:1}}
