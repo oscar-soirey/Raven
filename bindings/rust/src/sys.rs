@@ -1528,8 +1528,35 @@ extern "C" {
     /// script or a test uses to do what a menu item does.
     /// sender Passed to the function; R_INVALID_ID when there is none.
     pub fn Raction_fire(name: *const c_char, sender: Rid);
-    /// Receives every action that has no bound function (e.g. a script bridge).
+    /// Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
     pub fn Raction_set_default_handler(callback: RActionCallback, user_data: *mut c_void);
+    /// The actions Raven knows by itself: an interface written in XML
+    /// uses them with no C at all (OnClicked="app.quit").
+    ///
+    ///   app.quit                          quits (Rquit(0))
+    ///   window.close, window.minimize,    the window of the widget
+    ///   window.maximize, window.restore   (maximize goes back when it already is)
+    ///   island.expand, island.fold,       the island of that window
+    ///   island.toggle
+    ///   theme.dark, theme.light,          the look of Raven, dark or light
+    ///   theme.toggle
+    ///   theme:NAME                        Rtheme_use(NAME): a theme loaded or built in
+    ///   language:CODE                     Rlocale_set_language(CODE)
+    ///   open:ADDRESS                      Ropen_url (https:, mailto:, a file)
+    ///   copy:TEXT                         the text to the clipboard
+    ///   show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
+    ///   enable:NAME, disable:NAME
+    ///   focus:NAME
+    ///   page:NAME=2, page:NAME=+1         what a Switcher, a TabView, a ComboBox or a ListView
+    ///                                     shows; +1 and -1 step, and go round
+    ///
+    /// A function bound to one of these names (Raction_bind) replaces it; the
+    /// default handler receives the others only.
+    /// enabled R_FALSE turns them all off: a design tool that shows
+    /// interfaces without running them. On by default.
+    pub fn Raction_set_builtins(enabled: c_int);
+    /// Returns: R_TRUE when the name is one of the built-in actions (Raction_set_builtins), whether they are on or not.
+    pub fn Raction_is_builtin(name: *const c_char) -> c_int;
     /// Opens an address with the program the user has for it: a web
     /// page in the browser, a mailto: in the mail program, a file in its
     /// application. Returns at once.

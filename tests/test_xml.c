@@ -887,6 +887,100 @@ static void test_declared_again_inside(void) {
 	Rxml_unregister_widget("Card");
 }
 
+/* The actions Raven knows by itself: an interface that works with no C. */
+static int g_unbound_count;
+static void on_unbound(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_unbound_count++;
+}
+static void on_bound_hide(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(*(int*)user_data)++;
+}
+
+static void test_builtin_actions(void) {
+	static const char xml[] =
+		"<Window Width=\"300\" Height=\"200\">"
+		"  <VBox>"
+		"    <Button Name=\"go\" Text=\"Go\" OnClicked=\"page:pages=+1\"/>"
+		"    <Label Name=\"details\" Text=\"Details\"/>"
+		"    <TextInput Name=\"field\"/>"
+		"    <Switcher Name=\"pages\"><Label Text=\"One\"/><Label Text=\"Two\"/><Label Text=\"Three\"/></Switcher>"
+		"    <ComboBox Name=\"choice\" Items=\"a|b|c\" Selected=\"0\"/>"
+		"  </VBox>"
+		"</Window>";
+	Rid window = Rwindow_create_from_xml(xml, sizeof(xml) - 1);
+	Rid go, details, pages, choice, field;
+	int bound = 0;
+	CHECK(Rwindow_is_valid(window));
+	if (!Rwindow_is_valid(window)) return;
+	go = Rwidget_find(window, "go");
+	details = Rwidget_find(window, "details");
+	pages = Rwidget_find(window, "pages");
+	choice = Rwidget_find(window, "choice");
+	field = Rwidget_find(window, "field");
+	g_unbound_count = 0;
+	Raction_set_default_handler(on_unbound, NULL);
+
+	/* the names */
+	CHECK(Raction_is_builtin("app.quit"));
+	CHECK(Raction_is_builtin("show:details"));
+	CHECK(Raction_is_builtin("page:pages=2"));
+	CHECK(!Raction_is_builtin("show:"));
+	CHECK(!Raction_is_builtin("file.save"));
+
+	/* widgets of the window of the sender, by their names */
+	Raction_fire("hide:details", go);
+	CHECK(Rwidget_get_visibility(details) == R_COLLAPSED);
+	Raction_fire("toggle:details", go);
+	CHECK(Rwidget_get_visibility(details) == R_VISIBLE);
+	Raction_fire("disable:field", go);
+	CHECK(!Rwidget_is_enabled(field));
+	Raction_fire("enable:field", go);
+	CHECK(Rwidget_is_enabled(field));
+	Raction_fire("page:pages=2", go);
+	CHECK(Rswitcher_get_index(pages) == 2);
+	Raction_fire("page:pages=+1", go);
+	CHECK(Rswitcher_get_index(pages) == 0);
+	Raction_fire("page:pages=-1", go);
+	CHECK(Rswitcher_get_index(pages) == 2);
+	Raction_fire("page:choice=1", window);
+	CHECK(Rcombo_box_get_selected(choice) == 1);
+	/* a name that is no widget does nothing, and is not passed on */
+	Raction_fire("show:nothing", go);
+	CHECK(g_unbound_count == 0);
+	/* the look */
+	Raction_fire("theme.light", go);
+	CHECK(Rlook_get() == R_LOOK_RAVEN_LIGHT);
+	Raction_fire("theme.toggle", go);
+	CHECK(Rlook_get() == R_LOOK_RAVEN_DARK);
+	/* the clipboard */
+	Raction_fire("copy:Hello", go);
+	CHECK_STR(Rclipboard_get_text(), "Hello");
+
+	/* a function bound to the name wins */
+	Raction_bind("hide:details", on_bound_hide, &bound);
+	Raction_fire("hide:details", go);
+	CHECK(bound == 1 && Rwidget_get_visibility(details) == R_VISIBLE);
+	Raction_unbind("hide:details");
+	/* other names go to the default handler */
+	Raction_fire("test.not_bound", go);
+	CHECK(g_unbound_count == 1);
+	/* turned off: they all go to the default handler */
+	Raction_set_builtins(R_FALSE);
+	Raction_fire("hide:details", go);
+	CHECK(Rwidget_get_visibility(details) == R_VISIBLE && g_unbound_count == 2);
+	Raction_set_builtins(R_TRUE);
+	/* window.close closes the window of the widget */
+	Raction_fire("window.close", go);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_valid(window));
+	Raction_set_default_handler(NULL, NULL);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
@@ -899,6 +993,7 @@ int main(void) {
 	RUN(test_declared_again_inside);
 	RUN(test_documents);
 	RUN(test_schema);
+	RUN(test_builtin_actions);
 	Rshutdown();
 	return test_report("test_xml");
 }

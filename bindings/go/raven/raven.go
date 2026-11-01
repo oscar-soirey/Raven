@@ -1073,6 +1073,29 @@ func ActionFire(name string, sender ID) {
 	C.Raction_fire(name_, C.Rid(sender))
 }
 
+// ActionSetBuiltins: The actions Raven knows by itself: an interface written in XML uses them with no C at
+// all (OnClicked="app.quit"). app.quit quits (Rquit(0)) window.close, window.minimize, the window of the
+// widget window.maximize, window.restore (maximize goes back when it already is) island.expand, island.fold,
+// the island of that window island.toggle theme.dark, theme.light, the look of Raven, dark or light
+// theme.toggle theme:NAME Rtheme_use(NAME): a theme loaded or built in language:CODE
+// Rlocale_set_language(CODE) open:ADDRESS Ropen_url (https:, mailto:, a file) copy:TEXT the text to the
+// clipboard show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
+// enable:NAME, disable:NAME focus:NAME page:NAME=2, page:NAME=+1 what a Switcher, a TabView, a ComboBox or a
+// ListView shows; +1 and -1 step, and go round A function bound to one of these names (Raction_bind) replaces
+// it; the default handler receives the others only. enabled R_FALSE turns them all off: a design tool that
+// shows interfaces without running them. On by default.
+func ActionSetBuiltins(enabled int) {
+	C.Raction_set_builtins(C.int(enabled))
+}
+
+// ActionIsBuiltin: Returns: R_TRUE when the name is one of the built-in actions (Raction_set_builtins),
+// whether they are on or not.
+func ActionIsBuiltin(name string) int {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Raction_is_builtin(name_))
+}
+
 // OpenUrl: Opens an address with the program the user has for it: a web page in the browser, a mailto: in the
 // mail program, a file in its application. Returns at once. Returns: R_FALSE when the OS could not be asked
 // (nothing tells whether a program then really opened it).

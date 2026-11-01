@@ -19,7 +19,9 @@
  *   - Tags and attribute names are not case sensitive.
  *   - Name="..." gives the widget a name for Rwidget_find.
  *   - OnClicked / OnChanged / OnCommitted / OnActivated="name" set the action
- *     of the widget (Raction_bind).
+ *     of the widget (Raction_bind). Some work with no C at all: "app.quit",
+ *     "window.close", "show:panel", "toggle:panel", "page:pages=+1",
+ *     "theme.toggle", "open:https://..." (Raction_set_builtins lists them).
  *
  *
  * NEW TAGS

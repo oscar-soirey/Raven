@@ -158,6 +158,7 @@ set(RAVEN_RENDER_SOURCES
 )
 
 set(RAVEN_WIDGET_SOURCES
+	src/widget/actions.c
 	src/widget/anim.c
 	src/widget/events.c
 	src/widget/layout.c

@@ -223,6 +223,8 @@ typedef struct rvn_context_t {
 	uint32_t action_cap;
 	RActionCallback default_action;
 	void* default_action_user;
+	/** R_TRUE: the built-in actions (widget/actions.c) are off. */
+	int builtins_off;
 
 	/*
 	 * Deferred destruction. While events are being dispatched, deleted

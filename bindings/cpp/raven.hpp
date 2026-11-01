@@ -2318,11 +2318,40 @@ inline void action_unbind(const char* name) { Raction_unbind(name); }
 /// sender Passed to the function; R_INVALID_ID when there is none.
 inline void action_fire(const char* name, Rid sender) { Raction_fire(name, sender); }
 
-/// Receives every action that has no bound function (e.g. a script bridge).
+/// Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
 inline void action_set_default_handler(RActionCallback callback, void* user_data) { Raction_set_default_handler(callback, user_data); }
 inline void action_set_default_handler(std::function<void(Rid, const char*)> callback) {
 	Raction_set_default_handler([](Rid sender, const char* action, void* kept_) -> void { return (*static_cast<std::function<void(Rid, const char*)>*>(kept_))(sender, action); }, detail::keep(0, 45, std::move(callback)));
 }
+
+/// The actions Raven knows by itself: an interface written in XML
+/// uses them with no C at all (OnClicked="app.quit").
+///
+///   app.quit                          quits (Rquit(0))
+///   window.close, window.minimize,    the window of the widget
+///   window.maximize, window.restore   (maximize goes back when it already is)
+///   island.expand, island.fold,       the island of that window
+///   island.toggle
+///   theme.dark, theme.light,          the look of Raven, dark or light
+///   theme.toggle
+///   theme:NAME                        Rtheme_use(NAME): a theme loaded or built in
+///   language:CODE                     Rlocale_set_language(CODE)
+///   open:ADDRESS                      Ropen_url (https:, mailto:, a file)
+///   copy:TEXT                         the text to the clipboard
+///   show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
+///   enable:NAME, disable:NAME
+///   focus:NAME
+///   page:NAME=2, page:NAME=+1         what a Switcher, a TabView, a ComboBox or a ListView
+///                                     shows; +1 and -1 step, and go round
+///
+/// A function bound to one of these names (Raction_bind) replaces it; the
+/// default handler receives the others only.
+/// enabled R_FALSE turns them all off: a design tool that shows
+/// interfaces without running them. On by default.
+inline void action_set_builtins(int enabled) { Raction_set_builtins(enabled); }
+
+/// Returns: R_TRUE when the name is one of the built-in actions (Raction_set_builtins), whether they are on or not.
+inline int action_is_builtin(const char* name) { return Raction_is_builtin(name); }
 
 /// Opens an address with the program the user has for it: a web
 /// page in the browser, a mailto: in the mail program, a file in its

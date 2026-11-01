@@ -492,6 +492,14 @@ void Raction_set_default_handler(RActionCallback callback, void* user_data) {
 	g_rvn.default_action_user = user_data;
 }
 
+void Raction_set_builtins(int enabled) {
+	RVN_API_GUARD_VOID();
+	g_rvn.builtins_off = !enabled;
+}
+
+/* (widget/actions.c: "app.quit", "show:name"...) */
+int rvn_builtin_action(Rid sender, const char* name);
+
 void rvn_fire_action(Rid sender, const char* name) {
 	rvn_action_t* action;
 	if (!name || !name[0]) return;
@@ -501,6 +509,8 @@ void rvn_fire_action(Rid sender, const char* name) {
 		RActionCallback callback = action->callback;
 		void* user_data = action->user_data;
 		callback(sender, name, user_data);
+	} else if (!g_rvn.builtins_off && rvn_builtin_action(sender, name)) {
+		/* one of the actions Raven knows by itself */
 	} else if (g_rvn.default_action) {
 		g_rvn.default_action(sender, name, g_rvn.default_action_user);
 	}

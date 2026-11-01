@@ -918,6 +918,8 @@ void Raction_bind(const char* name, RActionCallback callback, void* user_data);
 void Raction_unbind(const char* name);
 void Raction_fire(const char* name, Rid sender);
 void Raction_set_default_handler(RActionCallback callback, void* user_data);
+void Raction_set_builtins(int enabled);
+int Raction_is_builtin(const char* name);
 int Ropen_url(const char* url);
 void Rclipboard_set_text(const char* text);
 const char* Rclipboard_get_text(void);

@@ -2447,8 +2447,49 @@ _lib.Raction_set_default_handler.restype = None
 
 
 def Raction_set_default_handler(callback, user_data=None):
-    """Receives every action that has no bound function (e.g. a script bridge)."""
+    """Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge)."""
     _lib.Raction_set_default_handler(_callback(RActionCallback, _adapt_RActionCallback, callback), user_data)
+
+
+_lib.Raction_set_builtins.argtypes = [ctypes.c_int]
+_lib.Raction_set_builtins.restype = None
+
+
+def Raction_set_builtins(enabled):
+    """The actions Raven knows by itself: an interface written in XML
+    uses them with no C at all (OnClicked="app.quit").
+    
+      app.quit                          quits (Rquit(0))
+      window.close, window.minimize,    the window of the widget
+      window.maximize, window.restore   (maximize goes back when it already is)
+      island.expand, island.fold,       the island of that window
+      island.toggle
+      theme.dark, theme.light,          the look of Raven, dark or light
+      theme.toggle
+      theme:NAME                        Rtheme_use(NAME): a theme loaded or built in
+      language:CODE                     Rlocale_set_language(CODE)
+      open:ADDRESS                      Ropen_url (https:, mailto:, a file)
+      copy:TEXT                         the text to the clipboard
+      show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
+      enable:NAME, disable:NAME
+      focus:NAME
+      page:NAME=2, page:NAME=+1         what a Switcher, a TabView, a ComboBox or a ListView
+                                        shows; +1 and -1 step, and go round
+    
+    A function bound to one of these names (Raction_bind) replaces it; the
+    default handler receives the others only.
+    enabled R_FALSE turns them all off: a design tool that shows
+    interfaces without running them. On by default."""
+    _lib.Raction_set_builtins(enabled)
+
+
+_lib.Raction_is_builtin.argtypes = [ctypes.c_char_p]
+_lib.Raction_is_builtin.restype = ctypes.c_int
+
+
+def Raction_is_builtin(name):
+    """Returns: R_TRUE when the name is one of the built-in actions (Raction_set_builtins), whether they are on or not."""
+    return _lib.Raction_is_builtin(_s(name))
 
 
 _lib.Ropen_url.argtypes = [ctypes.c_char_p]
