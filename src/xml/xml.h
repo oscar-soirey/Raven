@@ -110,6 +110,9 @@ typedef struct rvn_xml_window_t {
 	/** RBackdrop, or 0 when not given. */
 	int backdrop;
 	const char* theme;
+	/** The Touch.* and Pen.* attributes, applied to the settings of the application. */
+	int has_touch;
+	RTouchSettings touch;
 } rvn_xml_window_t;
 void rvn_xml_window_read(const rvn_xml_node_t* root, rvn_xml_window_t* description, int report);
 /** The element of a <Window> that is its content, and the one that is its island (NULL when missing). R_FALSE when it has several contents. */

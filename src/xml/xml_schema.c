@@ -87,6 +87,29 @@ static const rvn_schema_attribute_t g_slot[] = {
 	B("Slot.Closable", "DockArea: the tab has a close button."),
 };
 
+/* ---- fingers and pens on one widget (raven_touch.h) ---- */
+
+static const rvn_schema_attribute_t g_touch[] = {
+	C("Touch.Mode", "Auto|Scroll|Mouse|None", "What a finger does here: Auto scrolls what scrolls and is a mouse elsewhere, Scroll always scrolls, Mouse is a mouse (no scrolling), None ignores fingers (a surface for the pen)."),
+	B("Touch.Gestures", "false: two fingers neither zoom nor pan the widget."),
+	B("Pen.Mouse", "false: the pen is not a mouse here; only the pen callback of the application sees it."),
+};
+
+/* ---- fingers and pens in a window ---- */
+
+static const rvn_schema_attribute_t g_window_touch[] = {
+	B("Touch.MouseEmulation", "A finger drives the widgets as the mouse does: a tap clicks, a drag drags (default true)."),
+	N("Touch.Slop", "How far a finger moves before a press becomes a drag or a scroll (default 8)."),
+	N("Touch.LongPress", "Seconds a finger rests before the press is a right click; 0 turns it off (default 0.5)."),
+	B("Touch.Inertia", "Flicked content keeps going and slows down (default true)."),
+	N("Touch.Deceleration", "How fast flicked content slows down, units per second per second (default 2400)."),
+	B("Touch.Gestures", "Two fingers pinch to zoom and pan (default true)."),
+	B("Touch.PalmRejection", "Fingers are ignored while a pen is near the screen (default true)."),
+	B("Pen.MouseEmulation", "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."),
+	N("Pen.PressureCurve", "The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder."),
+	N("Pen.PressureThreshold", "Pressure, 0 to 1, the tip needs before it presses (default 0)."),
+};
+
 /* ---- colors and metrics of the theme, for one widget and what it contains ---- */
 
 static const rvn_schema_attribute_t g_colors[] = {
@@ -482,9 +505,9 @@ static int rvn_schema_parameter_count(const char* tag) {
 
 int Rxml_get_attribute_count(const char* tag) {
 	const rvn_schema_tag_t* entry = rvn_schema_tag(tag);
-	int shared = (int)(RVN_COUNT_OF(g_widget) + RVN_COUNT_OF(g_slot) + RVN_COUNT_OF(g_colors) + RVN_COUNT_OF(g_metrics));
+	int shared = (int)(RVN_COUNT_OF(g_widget) + RVN_COUNT_OF(g_slot) + RVN_COUNT_OF(g_touch) + RVN_COUNT_OF(g_colors) + RVN_COUNT_OF(g_metrics));
 	if (!tag) return 0;
-	if (entry) return rvn_schema_is_window(entry) ? entry->count : entry->count + shared;
+	if (entry) return rvn_schema_is_window(entry) ? entry->count + (int)RVN_COUNT_OF(g_window_touch) : entry->count + shared;
 	return rvn_schema_parameter_count(tag) + shared;
 }
 
@@ -492,6 +515,7 @@ int Rxml_get_attribute_info(const char* tag, int index, RXmlAttributeInfo* info)
 	static const struct { const rvn_schema_attribute_t* attributes; int count; const char* group; } shared[] = {
 		{ g_widget, (int)RVN_COUNT_OF(g_widget), "Widget" },
 		{ g_slot, (int)RVN_COUNT_OF(g_slot), "Slot" },
+		{ g_touch, (int)RVN_COUNT_OF(g_touch), "Touch" },
 		{ g_colors, (int)RVN_COUNT_OF(g_colors), "Colors" },
 		{ g_metrics, (int)RVN_COUNT_OF(g_metrics), "Metrics" }
 	};
@@ -507,7 +531,10 @@ int Rxml_get_attribute_info(const char* tag, int index, RXmlAttributeInfo* info)
 			attribute = &entry->attributes[index];
 			group = entry->tag;
 		} else if (rvn_schema_is_window(entry)) {
-			return R_FALSE;
+			index -= entry->count;
+			if (index >= (int)RVN_COUNT_OF(g_window_touch)) return R_FALSE;
+			attribute = &g_window_touch[index];
+			group = "Touch";
 		}
 		index -= entry->count;
 	} else {

@@ -397,12 +397,17 @@ void rvn_xml_window_read(const rvn_xml_node_t* root, rvn_xml_window_t* window, i
 	window->height = 600;
 	window->flags = R_WINDOW_DEFAULT;
 	window->background = R_INVALID_ID;
+	Rtouch_get_settings(&window->touch);
 
 	for (attribute = root->attributes; attribute; attribute = attribute->next) {
 		const char* name = attribute->name;
 		const char* value = attribute->value;
 		int ok = R_TRUE;
-		if (RVN_ATTR("Title")) window->title = value;
+		int touch = rvn_touch_window_attribute(&window->touch, name, value);
+		if (touch >= 0) {
+			ok = touch;
+			window->has_touch = R_TRUE;
+		} else if (RVN_ATTR("Title")) window->title = value;
 		else if (RVN_ATTR("Width")) ok = rvn_parse_int(value, &window->width) && window->width > 0;
 		else if (RVN_ATTR("Height")) ok = rvn_parse_int(value, &window->height) && window->height > 0;
 		else if (RVN_ATTR("MinWidth")) ok = rvn_parse_int(value, &window->min_width);
@@ -519,6 +524,7 @@ Rid rvn_xml_make_window(rvn_xml_document_t* document) {
 	}
 	if (description.background != R_INVALID_ID) Rwindow_set_background(window, description.background);
 	if (description.backdrop) Rwindow_set_backdrop(window, (RBackdrop)description.backdrop);
+	if (description.has_touch) Rwindow_set_touch_settings(window, &description.touch);
 	if (content) Rwindow_set_content(window, content->id);
 	if (island) Rwindow_set_island(window, island->id);
 	if (window_object) rvn_xml_window_shortcuts(window_object, root, R_TRUE);

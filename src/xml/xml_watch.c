@@ -508,6 +508,11 @@ static void rvn_live_reload_window(rvn_live_t* live, rvn_window_t* window, rvn_x
 		const rvn_theme_t* theme = rvn_xml_theme(after.theme);
 		if (theme) Rtheme_use(theme->name);
 	}
+	if (after.has_touch) {
+		if (!before.has_touch || memcmp(&before.touch, &after.touch, sizeof(after.touch)) != 0) Rwindow_set_touch_settings(id, &after.touch);
+	} else if (before.has_touch) {
+		Rwindow_set_touch_settings(id, NULL);
+	}
 	if ((before.flags ^ after.flags) & ~(Ruint)R_WINDOW_HIDDEN) {
 		rvn_error(R_ERROR_XML, R_SEVERITY_WARNING, "%s: the frame of a window (Borderless, CustomHeader, Resizable, Transparent...) is chosen when it is created; start the application again to see this change", live->path);
 	}

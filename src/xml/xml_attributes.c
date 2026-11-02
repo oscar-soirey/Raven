@@ -363,6 +363,10 @@ int rvn_widget_set_base_attribute(rvn_widget_t* widget, const char* name, const 
 	int flag;
 
 	if (rvn_strnicmp(name, "Slot.", 5) == 0) return rvn_widget_set_slot_attribute(widget, name + 5, value);
+	if (rvn_strnicmp(name, "Touch.", 6) == 0 || rvn_strnicmp(name, "Pen.", 4) == 0) {
+		int handled = rvn_touch_attribute(widget, name, value);
+		if (handled >= 0) return handled;
+	}
 	if (rvn_strnicmp(name, "Accessible", 10) == 0) {
 		int handled = rvn_a11y_attribute(widget, name, value);
 		if (handled >= 0) return handled;

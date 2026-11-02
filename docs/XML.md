@@ -79,6 +79,22 @@ number of `<Shortcut>` and `<Widget>` declarations.
 `<Shortcut Keys="Ctrl+S" Action="file.save"/>` fires an action when the keys
 are pressed anywhere in the window.
 
+Fingers and pens work without anything written (see `raven_touch.h`); these
+attributes change how, for the window (`Rwindow_set_touch_settings`):
+
+| Attribute | Value |
+|---|---|
+| `Touch.MouseEmulation` | boolean (default true): a finger drives the widgets as the mouse does, a tap clicks, a drag drags |
+| `Touch.Slop` | how far a finger moves before a press becomes a drag or a scroll (default 8) |
+| `Touch.LongPress` | seconds a finger rests before the press is a right click, the context menu; 0 turns it off (default 0.5) |
+| `Touch.Inertia` | boolean (default true): flicked content keeps going and slows down |
+| `Touch.Deceleration` | how fast it slows down, units per second per second (default 2400) |
+| `Touch.Gestures` | boolean (default true): two fingers pinch to zoom and pan |
+| `Touch.PalmRejection` | boolean (default true): fingers are ignored while a pen is near the screen |
+| `Pen.MouseEmulation` | boolean (default true): the pen drives the widgets as the mouse does; its barrel button is the right button |
+| `Pen.PressureCurve` | the pressure given to the application is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder |
+| `Pen.PressureThreshold` | pressure, 0 to 1, the tip needs before it presses (default 0) |
+
 ## Attributes of every widget
 
 | Attribute | Value |
@@ -176,6 +192,16 @@ Callbacks set from C work alongside actions and cover the other events:
 every keystroke of a text input (`Rtext_input_set_changed_callback`), the
 selection of a list or tree (`Rlist_view_set_selection_changed_callback`,
 `Rtree_view_set_selection_changed_callback`), raw input (`Rwidget_set_event_callback`).
+
+### Fingers and pens
+
+| Attribute | Value |
+|---|---|
+| `Touch.Mode` | `Auto` (default: a finger scrolls what scrolls, and is a mouse elsewhere), `Scroll` (it always scrolls what contains the widget), `Mouse` (it is a mouse: pressing presses at once, nothing scrolls), `None` (fingers are ignored: a surface for the pen) |
+| `Touch.Gestures` | boolean (default true): `false`, two fingers neither zoom nor pan the widget |
+| `Pen.Mouse` | boolean (default true): `false`, the pen is not a mouse on the widget; only its pen callback (`Rwidget_set_pen_callback`) sees it |
+
+The mode and `Pen.Mouse` are inherited by what the widget contains.
 
 ## Slot attributes
 

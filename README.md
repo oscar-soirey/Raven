@@ -191,6 +191,12 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   conventions of each language. **Right-to-left** layouts that mirror
   themselves, bidirectional text, Arabic shaping, **emoji** in color and
   the fonts of the system for the scripts the bundled font lacks.
+- **Touch and pens, with nothing to do.** On Windows, X11, Wayland and macOS:
+  a tap clicks, a finger scrolls lists, trees, text and graphs and flicks
+  them, resting is a right click, two fingers pinch to zoom; a pen is a
+  mouse with a pressure and a tilt, and the palm resting on the screen is
+  ignored. Settings for the application, a window or a widget, from code,
+  XML or the designer, and events of their own (`raven_touch.h`).
 - **Accessible.** Native **screen readers** (Narrator and NVDA through UI
   Automation, VoiceOver, Orca through AT-SPI), a **text scale**,
   **high-contrast** themes, **color filters** for color blindness, a focus

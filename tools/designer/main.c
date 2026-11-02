@@ -664,7 +664,7 @@ static int stand_in_attribute(Rid widget, const char* name, const char* value, v
 	}
 	for (i = 0; i < count; i++) {
 		if (Rxml_get_attribute_info("Border", i, &info) && same_text(info.name, name) &&
-			(!strcmp(info.group, "Widget") || !strcmp(info.group, "Slot"))) return R_FALSE;
+			(!strcmp(info.group, "Widget") || !strcmp(info.group, "Slot") || !strcmp(info.group, "Touch"))) return R_FALSE;
 	}
 	return R_TRUE;
 }
@@ -1676,13 +1676,14 @@ static void rebuild_inspector_of_one(void) {
 			if (!Rxml_get_attribute_info(tag, i, &info)) continue;
 			if (strcmp(info.group, group) != 0) {
 				int own = same_text(info.group, tag) || (strcmp(info.group, "Widget") != 0 && strcmp(info.group, "Slot") != 0
-					&& strcmp(info.group, "Colors") != 0 && strcmp(info.group, "Metrics") != 0);
+					&& strcmp(info.group, "Colors") != 0 && strcmp(info.group, "Metrics") != 0 && strcmp(info.group, "Touch") != 0);
 				group = info.group;
-				box = add_group(strcmp(group, "Slot") == 0 ? "Place in the parent" : strcmp(group, "Widget") == 0 ? "Widget" : group,
+				box = add_group(strcmp(group, "Slot") == 0 ? "Place in the parent" : strcmp(group, "Widget") == 0 ? "Widget"
+					: strcmp(group, "Touch") == 0 ? "Touch and pen" : group,
 					own || strcmp(group, "Slot") == 0 || strcmp(group, "Widget") == 0);
 			}
 			/* "Slot.Fill" and "Color.Text" read better without what their group already says */
-			label = strchr(info.name, '.') ? strchr(info.name, '.') + 1 : info.name;
+			label = strchr(info.name, '.') && strcmp(info.group, "Touch") != 0 ? strchr(info.name, '.') + 1 : info.name;
 			add_row(box, label, info.name, info.type, info.choices, Rxml_node_get_attribute(node, info.name), info.description);
 			if (known_length < (int)sizeof(known) - 80) known_length += snprintf(known + known_length, sizeof(known) - (size_t)known_length, "%s|", info.name);
 		}
