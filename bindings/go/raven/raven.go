@@ -1324,6 +1324,28 @@ func WindowGetBackdrop(window ID) RBackdrop {
 	return RBackdrop(C.Rwindow_get_backdrop(C.Rid(window)))
 }
 
+// WindowSetTheme: Gives the window a theme of its own, by name ("Dark", "WindowsLight", or a theme of
+// Rtheme_load): everything inside it (its content, its island, its menus, lists and dialogs, its background)
+// is drawn with that theme, while the other windows keep the one of the application (Rtheme_use). A widget
+// given Rwidget_set_theme keeps its own. In XML: <Window Theme="...">. name NULL or "": the theme of the
+// application again. Returns: R_FALSE, after reporting an error, when no theme has that name.
+func WindowSetTheme(window ID, name string) int {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Rwindow_set_theme(C.Rid(window), name_))
+}
+
+// WindowGetTheme: Returns: Name of the theme the window is drawn with (the one of the application when it has
+// none of its own).
+func WindowGetTheme(window ID) string {
+	return C.GoString(C.Rwindow_get_theme(C.Rid(window)))
+}
+
+// WindowHasOwnTheme: Returns: R_TRUE when the window has a theme of its own (Rwindow_set_theme).
+func WindowHasOwnTheme(window ID) int {
+	return int(C.Rwindow_has_own_theme(C.Rid(window)))
+}
+
 // WindowSetOpacity: Opacity of the whole window, its frame included, from 0 to 1: a window that fades, a tool
 // that lets what is under it show. Returns: R_FALSE when the window system cannot do it.
 func WindowSetOpacity(window ID, opacity float32) int {

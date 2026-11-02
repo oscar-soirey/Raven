@@ -3171,6 +3171,32 @@ namespace Raven
         public static extern RBackdrop Rwindow_get_backdrop(uint window);
 
         /// <summary>
+        /// Gives the window a theme of its own, by name ("Dark",
+        /// "WindowsLight", or a theme of Rtheme_load): everything inside it (its
+        /// content, its island, its menus, lists and dialogs, its background) is
+        /// drawn with that theme, while the other windows keep the one of the
+        /// application (Rtheme_use). A widget given Rwidget_set_theme keeps its own.
+        /// In XML: &lt;Window Theme="..."&gt;.
+        /// name NULL or "": the theme of the application again.
+        /// Returns: R_FALSE, after reporting an error, when no theme has that name.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_set_theme(uint window, [MarshalAs(Utf8.Str)] string name);
+
+        /// <summary>
+        /// Returns: Name of the theme the window is drawn with (the one of the application when it has none of its own).
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rwindow_get_theme", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rwindow_get_theme_(uint window);
+        public static string Rwindow_get_theme(uint window) { return Text(Rwindow_get_theme_(window)); }
+
+        /// <summary>
+        /// Returns: R_TRUE when the window has a theme of its own (Rwindow_set_theme).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_has_own_theme(uint window);
+
+        /// <summary>
         /// Opacity of the whole window, its frame included, from 0 to 1:
         /// a window that fades, a tool that lets what is under it show.
         /// Returns: R_FALSE when the window system cannot do it.

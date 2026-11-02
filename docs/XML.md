@@ -74,7 +74,7 @@ number of `<Shortcut>` and `<Widget>` declarations.
 | `CustomHeader` | boolean: no title bar from the system; a `HeaderBar` in the content replaces it (see below). The window keeps its shadow, its resizing edges and its snapping |
 | `Transparent` | boolean: the window can be seen through. Where nothing is drawn, what is behind the window on the screen shows. Needs a window system that composes windows (Windows 10 and 11; X11 with a compositor) |
 | `Backdrop` | what the system does to what shows through a `Transparent` window: `Transparent` (nothing), `Blur`, `Acrylic`, `Mica` (Windows 11), `None`. Giving it implies `Transparent` |
-| `Theme` | the theme of the window: a name (a look: `RavenDark`, `WindowsLight`, `MacOSDark`, `GnomeLight`, `NativeDark`..., the old `Dark`, `Light`, `GlassDark`, `GlassLight`; or one given by `Rtheme_load`) or a theme file. See [THEMES.md](THEMES.md) |
+| `Theme` | the theme of this window only (`Rwindow_set_theme`): a name (a look: `RavenDark`, `WindowsLight`, `MacOSDark`, `GnomeLight`, `NativeDark`..., the old `Dark`, `Light`, `GlassDark`, `GlassLight`; or one given by `Rtheme_load`) or a theme file, named from the document. Its content, island, menus, dialogs and background wear it; the other windows keep the theme of the application (`Rtheme_use`), which it no longer changes. `Default` or nothing: the theme of the application. See [THEMES.md](THEMES.md) |
 
 `<Shortcut Keys="Ctrl+S" Action="file.save"/>` fires an action when the keys
 are pressed anywhere in the window.

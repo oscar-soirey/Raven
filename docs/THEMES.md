@@ -272,7 +272,6 @@ look (`"WindowsDark"`), which then replaces the theme in use.
 ```xml
 <Border Theme="Paper" Padding="18"> ... </Border>        <!-- a theme by name          -->
 <Border Theme="themes/paper.xml"> ... </Border>          <!-- or straight from a file  -->
-<Window Theme="Ocean" ...>
 ```
 
 `Rwidget_set_theme(widget, "Paper")` does the same from C. The widget and
@@ -280,6 +279,23 @@ everything inside it use that theme, whatever the theme of the application
 becomes; popups and menus opened from there wear it too. The island of a
 window uses this: it is always dark, as the notch of a phone is, unless it
 is told `Theme="Default"`.
+
+## A theme for one window
+
+```xml
+<Window Theme="Ocean" ...>                                <!-- or Theme="themes/ocean.xml" -->
+```
+
+`Rwindow_set_theme(window, "Ocean")` does the same from C (`NULL`: the
+theme of the application again; `Rwindow_get_theme` and
+`Rwindow_has_own_theme` tell which one it wears). Everything the window
+shows wears it: its content, its island, its menus, lists, tooltips and
+dialogs, its background and the material the system puts behind it. The
+other windows keep the theme of the application: `<Window Theme>` no longer
+changes it (it used to call `Rtheme_use`). A widget given a theme
+of its own keeps it, and the theme of the application can still change:
+the window keeps its own. To change the theme of the whole application,
+`Rtheme_use`.
 
 ## Files that are loaded again when they change
 

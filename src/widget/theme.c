@@ -1387,7 +1387,10 @@ int Rwidget_set_theme(Rid id, const char* name) {
 }
 
 const char* Rwidget_get_theme(Rid id) {
+	const rvn_theme_t* theme;
 	RVN_WIDGET(widget, id, 0, "");
-	if (widget->theme && widget->theme->name) return widget->theme->name;
+	/* its own, that of its part of the tree, that of its window, else that of the application */
+	theme = rvn_widget_theme(widget);
+	if (theme != &g_rvn.theme && theme->name) return theme->name;
 	return g_rvn.theme_name ? g_rvn.theme_name : "";
 }

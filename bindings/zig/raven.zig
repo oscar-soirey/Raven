@@ -1764,6 +1764,19 @@ pub extern fn Rwindow_set_background(window: Rid, texture: Rid) void;
 /// then stays as it was) without R_WINDOW_TRANSPARENT, or when it cannot.
 pub extern fn Rwindow_set_backdrop(window: Rid, backdrop: RBackdrop) c_int;
 pub extern fn Rwindow_get_backdrop(window: Rid) RBackdrop;
+/// Gives the window a theme of its own, by name ("Dark",
+/// "WindowsLight", or a theme of Rtheme_load): everything inside it (its
+/// content, its island, its menus, lists and dialogs, its background) is
+/// drawn with that theme, while the other windows keep the one of the
+/// application (Rtheme_use). A widget given Rwidget_set_theme keeps its own.
+/// In XML: <Window Theme="...">.
+/// name NULL or "": the theme of the application again.
+/// Returns: R_FALSE, after reporting an error, when no theme has that name.
+pub extern fn Rwindow_set_theme(window: Rid, name: ?[*:0]const u8) c_int;
+/// Returns: Name of the theme the window is drawn with (the one of the application when it has none of its own).
+pub extern fn Rwindow_get_theme(window: Rid) ?[*:0]const u8;
+/// Returns: R_TRUE when the window has a theme of its own (Rwindow_set_theme).
+pub extern fn Rwindow_has_own_theme(window: Rid) c_int;
 /// Opacity of the whole window, its frame included, from 0 to 1:
 /// a window that fades, a tool that lets what is under it show.
 /// Returns: R_FALSE when the window system cannot do it.

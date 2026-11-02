@@ -374,6 +374,22 @@ extern "C" {
 	 */
 	RAVEN_API int Rwindow_set_backdrop(Rid window, RBackdrop backdrop);
 	RAVEN_API RBackdrop Rwindow_get_backdrop(Rid window);
+
+	/**
+	 * @brief Gives the window a theme of its own, by name ("Dark",
+	 * "WindowsLight", or a theme of Rtheme_load): everything inside it (its
+	 * content, its island, its menus, lists and dialogs, its background) is
+	 * drawn with that theme, while the other windows keep the one of the
+	 * application (Rtheme_use). A widget given Rwidget_set_theme keeps its own.
+	 * In XML: <Window Theme="...">.
+	 * @param name NULL or "": the theme of the application again.
+	 * @return R_FALSE, after reporting an error, when no theme has that name.
+	 */
+	RAVEN_API int Rwindow_set_theme(Rid window, const char* name);
+	/** @return Name of the theme the window is drawn with (the one of the application when it has none of its own). */
+	RAVEN_API const char* Rwindow_get_theme(Rid window);
+	/** @return R_TRUE when the window has a theme of its own (Rwindow_set_theme). */
+	RAVEN_API int Rwindow_has_own_theme(Rid window);
 	/**
 	 * @brief Opacity of the whole window, its frame included, from 0 to 1:
 	 * a window that fades, a tool that lets what is under it show.

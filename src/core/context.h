@@ -283,6 +283,9 @@ extern rvn_context_t g_rvn;
 
 #define RVN_THEME_COLOR(role) (g_rvn.theme.colors[(int)(role) - (int)R_COLOR_WINDOW])
 #define RVN_THEME_METRIC(metric) (g_rvn.theme.metrics[(int)(metric) - (int)R_METRIC_FONT_SIZE])
+/* The same, of a given theme (that of a window, of a widget). */
+#define RVN_THEME_COLOR_OF(theme, role) ((theme)->colors[(int)(role) - (int)R_COLOR_WINDOW])
+#define RVN_THEME_METRIC_OF(theme, metric) ((theme)->metrics[(int)(metric) - (int)R_METRIC_FONT_SIZE])
 
 /**
  * Checks that the library is initialized and that the caller is the UI

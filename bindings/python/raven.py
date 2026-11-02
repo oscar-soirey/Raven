@@ -3002,6 +3002,40 @@ def Rwindow_get_backdrop(window):
     return _e(RBackdrop, _lib.Rwindow_get_backdrop(window))
 
 
+_lib.Rwindow_set_theme.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rwindow_set_theme.restype = ctypes.c_int
+
+
+def Rwindow_set_theme(window, name):
+    """Gives the window a theme of its own, by name ("Dark",
+    "WindowsLight", or a theme of Rtheme_load): everything inside it (its
+    content, its island, its menus, lists and dialogs, its background) is
+    drawn with that theme, while the other windows keep the one of the
+    application (Rtheme_use). A widget given Rwidget_set_theme keeps its own.
+    In XML: <Window Theme="...">.
+    name NULL or "": the theme of the application again.
+    Returns: R_FALSE, after reporting an error, when no theme has that name."""
+    return _lib.Rwindow_set_theme(window, _s(name))
+
+
+_lib.Rwindow_get_theme.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_theme.restype = ctypes.c_char_p
+
+
+def Rwindow_get_theme(window):
+    """Returns: Name of the theme the window is drawn with (the one of the application when it has none of its own)."""
+    return _r(_lib.Rwindow_get_theme(window))
+
+
+_lib.Rwindow_has_own_theme.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_has_own_theme.restype = ctypes.c_int
+
+
+def Rwindow_has_own_theme(window):
+    """Returns: R_TRUE when the window has a theme of its own (Rwindow_set_theme)."""
+    return _lib.Rwindow_has_own_theme(window)
+
+
 _lib.Rwindow_set_opacity.argtypes = [ctypes.c_uint32, ctypes.c_float]
 _lib.Rwindow_set_opacity.restype = ctypes.c_int
 

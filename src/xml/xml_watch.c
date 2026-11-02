@@ -504,9 +504,9 @@ static void rvn_live_reload_window(rvn_live_t* live, rvn_window_t* window, rvn_x
 	if (after.backdrop && before.backdrop != after.backdrop && (window->window_flags & R_WINDOW_TRANSPARENT)) {
 		Rwindow_set_backdrop(id, (RBackdrop)after.backdrop);
 	}
-	if (after.theme && after.theme[0] && (!before.theme || strcmp(before.theme, after.theme) != 0)) {
-		const rvn_theme_t* theme = rvn_xml_theme(after.theme);
-		if (theme) Rtheme_use(theme->name);
+	if (strcmp(before.theme ? before.theme : "", after.theme ? after.theme : "") != 0) {
+		/* the theme of this window only */
+		rvn_window_set_theme(window, rvn_xml_window_theme(after.theme));
 	}
 	if (after.has_touch) {
 		if (!before.has_touch || memcmp(&before.touch, &after.touch, sizeof(after.touch)) != 0) Rwindow_set_touch_settings(id, &after.touch);

@@ -48,7 +48,7 @@ install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_IN
 if(RAVEN_BUILD_TESTS)
 	set(_ds "${CMAKE_CURRENT_BINARY_DIR}/designer_test")
 	add_test(NAME designer_folder_clean COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_ds}")
-	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch" "${_ds}/select" "${_ds}/clipboard" "${_ds}/tree" "${_ds}/files/ui/a/b" "${_ds}/other")
+	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch" "${_ds}/select" "${_ds}/clipboard" "${_ds}/tree" "${_ds}/files/ui/a/b" "${_ds}/other" "${_ds}/theme/themes")
 	set_tests_properties(designer_folder_clean PROPERTIES FIXTURES_SETUP designer_folder_clean)
 	set_tests_properties(designer_folder_make PROPERTIES FIXTURES_SETUP designer_folder FIXTURES_REQUIRED designer_folder_clean)
 
@@ -97,6 +97,11 @@ if(RAVEN_BUILD_TESTS)
 	add_test(NAME designer_window COMMAND raven_designer --null --frames 2 --script
 		"write ${_ds}/window/main.xml <Window~Title=\"My~app\"~Width=\"420\"~Height=\"310\"><Island><Label~Name=\"isl\"~Text=\"Island\"/><VBox/></Island><VBox><Label~Name=\"greet\"~Text=\"Hi\"/></VBox></Window> open ${_ds}/window f 2 do view.run f 2 expectrunwindow My~app 420 310 expectrun greet expectrun isl path 1/0 set Name moved f 2 expectrun moved do edit.undo f 2 expectrun greet path . set Title Other f 2 expectrunwindow Other 420 310 device 2 f 1 expectrunwindow Other 390 844 f 1")
 	set_tests_properties(designer_window PROPERTIES FIXTURES_REQUIRED designer_folder)
+
+	# The theme of a window: in its XML (<Window Theme>), worn by the preview and the window of F7, never by the designer.
+	add_test(NAME designer_window_theme COMMAND raven_designer --null --frames 2 --script
+		"write ${_ds}/theme/main.xml <Window~Title=\"T\"~Width=\"300\"~Height=\"200\"~Theme=\"GnomeLight\"><VBox><Label~Name=\"greet\"~Text=\"Hi\"/></VBox></Window> write ${_ds}/theme/themes/night.xml <Theme~Name=\"Night\"~Look=\"RavenDark\"~Accent=\"#FF9F0A\"/> open ${_ds}/theme f 2 expecttheme GnomeLight expectapptheme Dark do view.run f 2 expectruntheme GnomeLight expectapptheme Dark theme WindowsDark f 1 expect Theme=\"WindowsDark\" expectruntheme WindowsDark expectapptheme Dark theme Night f 1 expect Theme=\"themes/night.xml\" expecttheme Night expectruntheme Night do edit.undo f 1 expecttheme WindowsDark expectruntheme WindowsDark theme - f 1 expectnot Theme= expecttheme - expectruntheme Dark path . set Theme MacOSLight f 2 expecttheme MacOSLight expectruntheme MacOSLight expectapptheme Dark")
+	set_tests_properties(designer_window_theme PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# "@" in a text: the keys of the tables are listed under it, narrowed as it is typed, and one is chosen.
 	add_test(NAME designer_keys COMMAND raven_designer --null --frames 2 --script

@@ -382,10 +382,8 @@ RVN_INLINE int rvn_widget_collapsed(const rvn_widget_t* widget) { return widget-
  *  Style (widget/style.c)
  * ------------------------------------------------------------------------- */
 
-/** Theme a widget reads its values from. */
-RVN_INLINE const rvn_theme_t* rvn_widget_theme(const rvn_widget_t* widget) {
-	return widget->theme ? widget->theme : &g_rvn.theme;
-}
+/** Theme a widget reads its values from: its own or that of its part of the tree, else that of its window, else that of the application. */
+RVN_INLINE const rvn_theme_t* rvn_widget_theme(const rvn_widget_t* widget);
 /** Looks again for the styles that apply to the widget (slow path of the lookups below). */
 void rvn_widget_restyle(rvn_widget_t* widget);
 RVN_INLINE const rvn_style_match_t* rvn_widget_match(const rvn_widget_t* widget) {
@@ -849,13 +847,26 @@ struct rvn_window_t {
 	void* event_hook_user;
 	/** Fingers, pen, inertia (widget/touch.c), or NULL before the first of them. */
 	rvn_touch_state_t* touch;
+	/** Theme of the window (Rwindow_set_theme, <Window Theme>): what its widgets wear when they have none of their own; NULL: the one of the application. */
+	const rvn_theme_t* theme;
 
 	RFrameStats stats;
 	uint64_t frame_index;
 	int dead;
 };
 
+RVN_INLINE const rvn_theme_t* rvn_window_theme(const rvn_window_t* window) {
+	return window && window->theme ? window->theme : &g_rvn.theme;
+}
+
+RVN_INLINE const rvn_theme_t* rvn_widget_theme(const rvn_widget_t* widget) {
+	if (widget->theme) return widget->theme;
+	return widget->window && widget->window->theme ? widget->window->theme : &g_rvn.theme;
+}
+
 rvn_window_t* rvn_window_get(Rid id);
+/** The theme of the window (Rwindow_set_theme, <Window Theme>): NULL gives it the one of the application again. */
+void rvn_window_set_theme(rvn_window_t* window, const rvn_theme_t* theme);
 rvn_window_t* rvn_window_check(Rid id, const char* function);
 /** Entry point of the platform events. */
 void rvn_window_on_platform_event(const rvn_pevent_t* event);

@@ -181,12 +181,14 @@ static void rvn_window_paint_tooltip_fluent(rvn_window_t* window, RPainter* pain
 }
 
 static void rvn_window_paint_tooltip(rvn_window_t* window, RPainter* painter) {
+	/* (the theme of the widget the tooltip is about: a part of the window may wear another one) */
+	const rvn_theme_t* theme = window->tooltip_widget ? rvn_widget_theme(window->tooltip_widget) : rvn_window_theme(window);
 	const char* text;
 	const char* line;
 	rvn_font_t* font;
 	rvn_font_metrics_t metrics;
 	rvn_vec2_t size = rvn_window_size(window);
-	float font_size = RVN_THEME_METRIC(R_METRIC_FONT_SIZE);
+	float font_size = RVN_THEME_METRIC_OF(theme, R_METRIC_FONT_SIZE);
 	float width = 0.0f, height, x, y, shown, opacity = painter->opacity;
 	uint32_t first_instance = painter->list->instance_count, first_command = painter->list->command_count;
 	int lines = 0;
@@ -218,29 +220,29 @@ static void rvn_window_paint_tooltip(rvn_window_t* window, RPainter* painter) {
 	if (y + height > size.y) y = window->tooltip_y - height - 6.0f;
 	if (y < 0.0f) y = 0.0f;
 
-	if (g_rvn.theme.glass) {
+	if (theme->glass) {
 		rvn_glass_t glass;
 		float radii[4];
 		memset(&glass, 0, sizeof(glass));
-		glass.tint = RVN_THEME_COLOR(R_COLOR_TOOLTIP);
-		glass.rim = rvn_rgba(1.0f, 1.0f, 1.0f, g_rvn.theme.dark ? 0.5f : 0.8f);
+		glass.tint = RVN_THEME_COLOR_OF(theme, R_COLOR_TOOLTIP);
+		glass.rim = rvn_rgba(1.0f, 1.0f, 1.0f, theme->dark ? 0.5f : 0.8f);
 		glass.frost = 1.0f;
 		glass.refraction = 8.0f;
 		glass.saturation = 1.6f;
 		glass.shadow = 12.0f;
-		glass.shadow_color = RVN_THEME_COLOR(R_COLOR_SHADOW);
+		glass.shadow_color = RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW);
 		radii[0] = radii[1] = radii[2] = radii[3] = rvn_minf(height * 0.5f, 12.0f);
 		rvn_paint_glass(painter, rvn_rect(x, y, width, height), radii, &glass);
 	} else {
-		rvn_paint_shadow(painter, rvn_rect(x, y + 2.0f, width, height), 4.0f, 8.0f, RVN_THEME_COLOR(R_COLOR_SHADOW));
-		rvn_paint_box(painter, rvn_rect(x, y, width, height), 4.0f, RVN_THEME_COLOR(R_COLOR_TOOLTIP),
-			1.0f, RVN_THEME_COLOR(R_COLOR_POPUP_BORDER));
+		rvn_paint_shadow(painter, rvn_rect(x, y + 2.0f, width, height), 4.0f, 8.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW));
+		rvn_paint_box(painter, rvn_rect(x, y, width, height), 4.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_TOOLTIP),
+			1.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP_BORDER));
 	}
 	y += 5.0f;
 	for (line = text;;) {
 		const char* newline = strchr(line, '\n');
 		int length = newline ? (int)(newline - line) : (int)strlen(line);
-		rvn_paint_text(painter, R_INVALID_ID, font_size, x + 8.0f, y, line, length, RVN_THEME_COLOR(R_COLOR_TOOLTIP_TEXT));
+		rvn_paint_text(painter, R_INVALID_ID, font_size, x + 8.0f, y, line, length, RVN_THEME_COLOR_OF(theme, R_COLOR_TOOLTIP_TEXT));
 		y += metrics.line_height;
 		if (!newline) break;
 		line = newline + 1;
@@ -736,13 +738,14 @@ int rvn_window_see_through(const rvn_window_t* window) {
 
 /* The image behind the content: the one of the window, else the wallpaper of a glass theme. */
 static void rvn_window_paint_background(rvn_window_t* window, RPainter* painter) {
+	const rvn_theme_t* theme = rvn_window_theme(window);
 	Rid texture = rvn_texture_get(window->background) ? window->background : R_INVALID_ID;
 	rvn_texture_t* object;
 	rvn_vec2_t size = rvn_window_size(window);
 	float scale, visible_u, visible_v, uv[4];
 
 	/* a window with its own clear color keeps it; one that is seen through has the screen for a wallpaper */
-	if (texture == R_INVALID_ID && !window->has_clear_color && !rvn_window_see_through(window)) texture = g_rvn.theme.wallpaper;
+	if (texture == R_INVALID_ID && !window->has_clear_color && !rvn_window_see_through(window)) texture = theme->wallpaper;
 	object = rvn_texture_get(texture);
 	if (!object || !object->created || object->width <= 0 || object->height <= 0 || size.x <= 0.0f || size.y <= 0.0f) return;
 
@@ -810,18 +813,19 @@ static void rvn_window_paint_popup(RPainter* painter, rvn_widget_t* root, rvn_re
  * and settles with a bounce.
  */
 static void rvn_window_paint_dialog(rvn_window_t* window, RPainter* painter, rvn_widget_t* root, float shown) {
+	const rvn_theme_t* theme = rvn_widget_theme(root);
 	rvn_vec2_t size = rvn_window_size(window);
 	rvn_rect_t frame = rvn_rect(root->rect.x - RVN_DIALOG_PADDING, root->rect.y - RVN_DIALOG_PADDING,
 		root->rect.w + RVN_DIALOG_PADDING * 2.0f, root->rect.h + RVN_DIALOG_PADDING * 2.0f);
 	float veil = rvn_clampf(shown, 0.0f, 1.0f), opacity = painter->opacity;
 	uint32_t first_instance, first_command;
 
-	if (g_rvn.theme.glass) {
+	if (theme->glass) {
 		/* the window goes out of focus behind the sheet */
 		rvn_glass_t glass;
 		float radii[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		memset(&glass, 0, sizeof(glass));
-		glass.tint = rvn_rgba(0.0f, 0.0f, 0.0f, g_rvn.theme.dark ? 0.34f : 0.16f);
+		glass.tint = rvn_rgba(0.0f, 0.0f, 0.0f, theme->dark ? 0.34f : 0.16f);
 		glass.frost = 1.0f;
 		glass.saturation = 1.0f;
 		painter->opacity *= veil;
@@ -834,14 +838,14 @@ static void rvn_window_paint_dialog(rvn_window_t* window, RPainter* painter, rvn
 	first_instance = painter->list->instance_count;
 	first_command = painter->list->command_count;
 	painter->opacity *= rvn_clampf(shown * 2.2f, 0.0f, 1.0f);
-	if (g_rvn.theme.glass) {
+	if (theme->glass) {
 		rvn_paint_surface(painter, root, frame, 26.0f, RVN_SURFACE_POPUP, 0.0f, 0.0f);
-	} else if (g_rvn.theme.liquid) {
+	} else if (theme->liquid) {
 		/* macOS 26: sheets are glass too, with the corners of its windows */
 		rvn_paint_surface(painter, root, frame, 16.0f, RVN_SURFACE_POPUP, 0.0f, 0.0f);
 	} else {
-		rvn_paint_shadow(painter, rvn_rect(frame.x, frame.y + 6.0f, frame.w, frame.h), 10.0f, 28.0f, RVN_THEME_COLOR(R_COLOR_SHADOW));
-		rvn_paint_box(painter, frame, 10.0f, RVN_THEME_COLOR(R_COLOR_POPUP), 1.0f, RVN_THEME_COLOR(R_COLOR_POPUP_BORDER));
+		rvn_paint_shadow(painter, rvn_rect(frame.x, frame.y + 6.0f, frame.w, frame.h), 10.0f, 28.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW));
+		rvn_paint_box(painter, frame, 10.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP), 1.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP_BORDER));
 	}
 	rvn_widget_paint(root, painter);
 	painter->opacity = opacity;
@@ -855,7 +859,8 @@ static void rvn_window_paint_dialog(rvn_window_t* window, RPainter* painter, rvn
 
 /* What would take the drop of a drag coming from another application lights up. */
 static void rvn_window_paint_drop(rvn_window_t* window, RPainter* painter) {
-	rvn_color_t accent = RVN_THEME_COLOR(R_COLOR_ACCENT);
+	const rvn_theme_t* theme = window->drop_target ? rvn_widget_theme(window->drop_target) : rvn_window_theme(window);
+	rvn_color_t accent = RVN_THEME_COLOR_OF(theme, R_COLOR_ACCENT);
 	rvn_rect_t rect = window->drop_rect;
 	float shown, opacity, grow;
 
@@ -877,6 +882,7 @@ static int rvn_window_can_paint(const rvn_window_t* window) {
 }
 
 static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
+	const rvn_theme_t* theme = rvn_window_theme(window);
 	rvn_frame_t* frame;
 	RPainter painter;
 	double start;
@@ -900,7 +906,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	painter.scale = window->scale;
 	painter.clip = rvn_box(0.0f, 0.0f, (float)window->width_px, (float)window->height_px);
 	painter.opacity = 1.0f;
-	painter.text_color = RVN_THEME_COLOR(R_COLOR_TEXT);
+	painter.text_color = RVN_THEME_COLOR_OF(theme, R_COLOR_TEXT);
 	painter.enabled = R_TRUE;
 	/* animations advance by the time since the last frame */
 	painter.dt = rvn_animation_dt(start - window->paint_time);
@@ -960,7 +966,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	window->stats.paint_job_count = (Ruint)rvn_paint_take_job_count();
 	window->stats.frame_index = window->frame_index;
 
-	clear = RVN_THEME_COLOR(R_COLOR_WINDOW);
+	clear = RVN_THEME_COLOR_OF(theme, R_COLOR_WINDOW);
 	frame->data.window = window->id;
 	frame->data.framebuffer_width = (Ruint)window->width_px;
 	frame->data.framebuffer_height = (Ruint)window->height_px;
@@ -1091,10 +1097,12 @@ void rvn_windows_theme_changed(void) {
 	if (!g_rvn.platform || !g_rvn.platform->window_set_backdrop) return;
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		const rvn_theme_t* theme;
 		if (!window || window->dead || !window->transparent || !window->backdrop_wanted) continue;
-		if (window->backdrop_dark == g_rvn.theme.dark) continue;
-		window->backdrop_dark = g_rvn.theme.dark;
-		window->backdrop = (RBackdrop)g_rvn.platform->window_set_backdrop(window->platform, (int)window->backdrop_wanted, g_rvn.theme.dark);
+		theme = rvn_window_theme(window);
+		if (window->backdrop_dark == theme->dark) continue;
+		window->backdrop_dark = theme->dark;
+		window->backdrop = (RBackdrop)g_rvn.platform->window_set_backdrop(window->platform, (int)window->backdrop_wanted, theme->dark);
 	}
 }
 
@@ -1351,22 +1359,23 @@ static void rvn_window_drag_cancel(rvn_window_t* window) {
 }
 
 static void rvn_window_paint_drag(rvn_window_t* window, RPainter* painter) {
+	const rvn_theme_t* theme = rvn_window_theme(window);
 	const char* label;
 	float size, width, x, y;
 	rvn_font_t* font;
 	if (!window->drag_active || !window->mouse_inside) return;
 	label = window->drag_label && window->drag_label[0] ? window->drag_label : NULL;
 	if (!label) return;
-	size = RVN_THEME_METRIC(R_METRIC_FONT_SIZE);
+	size = RVN_THEME_METRIC_OF(theme, R_METRIC_FONT_SIZE);
 	font = rvn_font_resolve(R_INVALID_ID);
 	width = (font ? rvn_text_width(font, size, label, -1) : 80.0f) + 20.0f;
 	x = window->mouse_x + 14.0f;
 	y = window->mouse_y + 10.0f;
-	rvn_paint_shadow(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, 12.0f, rvn_color_fade(RVN_THEME_COLOR(R_COLOR_SHADOW), 0.6f));
-	rvn_paint_box(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, RVN_THEME_COLOR(R_COLOR_POPUP),
-		1.0f, RVN_THEME_COLOR(window->drop_accepted ? R_COLOR_ACCENT : R_COLOR_POPUP_BORDER));
+	rvn_paint_shadow(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, 12.0f, rvn_color_fade(RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW), 0.6f));
+	rvn_paint_box(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP),
+		1.0f, RVN_THEME_COLOR_OF(theme, window->drop_accepted ? R_COLOR_ACCENT : R_COLOR_POPUP_BORDER));
 	rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(x + 10.0f, y, width - 20.0f, size + 12.0f), 0.0f, label, -1,
-		RVN_THEME_COLOR(R_COLOR_TEXT));
+		RVN_THEME_COLOR_OF(theme, R_COLOR_TEXT));
 }
 
 /* The hook of the window sees the event before the widgets; R_TRUE consumes it. */
@@ -2036,8 +2045,10 @@ void Rwindow_set_content(Rid id, Rid widget_id) {
 }
 
 int Rwindow_set_backdrop(Rid id, RBackdrop backdrop) {
+	const rvn_theme_t* theme;
 	int given;
 	RVN_WINDOW(window, id, R_FALSE);
+	theme = rvn_window_theme(window);
 	if (backdrop < R_BACKDROP_NONE || backdrop > R_BACKDROP_MICA) {
 		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rwindow_set_backdrop: invalid backdrop");
 		return R_FALSE;
@@ -2048,15 +2059,67 @@ int Rwindow_set_backdrop(Rid id, RBackdrop backdrop) {
 	}
 	given = (int)R_BACKDROP_NONE;
 	if (backdrop != R_BACKDROP_NONE && window->transparent && g_rvn.platform->window_set_backdrop) {
-		given = g_rvn.platform->window_set_backdrop(window->platform, (int)backdrop, g_rvn.theme.dark);
+		given = g_rvn.platform->window_set_backdrop(window->platform, (int)backdrop, theme->dark);
 	} else if (g_rvn.platform->window_set_backdrop && window->transparent) {
-		g_rvn.platform->window_set_backdrop(window->platform, (int)R_BACKDROP_NONE, g_rvn.theme.dark);
+		g_rvn.platform->window_set_backdrop(window->platform, (int)R_BACKDROP_NONE, theme->dark);
 	}
 	window->backdrop_wanted = backdrop;
 	window->backdrop = (RBackdrop)given;
-	window->backdrop_dark = g_rvn.theme.dark;
+	window->backdrop_dark = theme->dark;
 	window->needs_paint = R_TRUE;
 	return backdrop == R_BACKDROP_NONE || given != (int)R_BACKDROP_NONE;
+}
+
+/* every widget of the subtree looks for its styles again, and is measured again */
+static void rvn_window_restyle_tree(rvn_widget_t* widget) {
+	uint32_t i;
+	if (!widget) return;
+	widget->style_generation = 0;
+	widget->flags |= RVN_WF_LAYOUT_DIRTY;
+	for (i = 0; i < widget->child_count; i++) rvn_window_restyle_tree(widget->children[i]);
+}
+
+void rvn_window_set_theme(rvn_window_t* window, const rvn_theme_t* theme) {
+	uint32_t i;
+	const rvn_theme_t* now;
+	if (window->theme == theme) return;
+	window->theme = theme;
+	now = rvn_window_theme(window);
+	rvn_window_restyle_tree(window->root);
+	rvn_window_restyle_tree(window->island);
+	for (i = 0; i < window->popup_count; i++) rvn_window_restyle_tree(window->popups[i].root);
+	/* the material the OS puts behind follows the window, light or dark */
+	if (window->transparent && window->backdrop_wanted && g_rvn.platform->window_set_backdrop && window->backdrop_dark != now->dark) {
+		window->backdrop_dark = now->dark;
+		window->backdrop = (RBackdrop)g_rvn.platform->window_set_backdrop(window->platform, (int)window->backdrop_wanted, now->dark);
+	}
+	window->needs_layout = R_TRUE;
+	window->needs_paint = R_TRUE;
+}
+
+int Rwindow_set_theme(Rid id, const char* name) {
+	const rvn_theme_t* theme = NULL;
+	RVN_WINDOW(window, id, R_FALSE);
+	if (name && name[0]) {
+		theme = rvn_theme_find(name);
+		if (!theme) {
+			rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rwindow_set_theme: no theme is called '%s'", name);
+			return R_FALSE;
+		}
+	}
+	rvn_window_set_theme(window, theme);
+	return R_TRUE;
+}
+
+const char* Rwindow_get_theme(Rid id) {
+	RVN_WINDOW(window, id, "");
+	if (window->theme && window->theme->name) return window->theme->name;
+	return g_rvn.theme_name ? g_rvn.theme_name : "";
+}
+
+int Rwindow_has_own_theme(Rid id) {
+	RVN_WINDOW(window, id, R_FALSE);
+	return window->theme != NULL;
 }
 
 RBackdrop Rwindow_get_backdrop(Rid id) {

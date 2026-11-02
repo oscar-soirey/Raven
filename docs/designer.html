@@ -79,6 +79,12 @@ run them: the status bar says which action was fired.</p>
 <p>Above the preview: the size it is shown at (the size of the XML, a phone, a tablet...),
 the theme it wears and its language. <b>F6</b> uses the preview as the interface will be used;
 <b>F7</b> opens the window itself, at its size, and it follows every change.</p>
+<p>The theme of a window is written in it: choosing one above the preview sets
+<code>Theme</code> on the <code>&lt;Window&gt;</code> (a look by its name, a theme of the folder
+by the path of its file, <code>Theme="themes/ocean.xml"</code>; <i>Same as the designer</i> removes it,
+and the window wears the theme of the application), and a <code>Theme</code> typed in the XML or in
+Properties is what the preview wears. The preview and the window of F7 wear it, the designer keeps its
+own appearance. For a piece of interface (no <code>&lt;Window&gt;</code>), the theme only dresses the preview.</p>
 <p>The island at the top says what is open and selected. <b>Ctrl+K</b> opens its search:
 a widget to add (<code>add slider</code>), a file to open, a command (<code>wrap in a vbox</code>),
 a theme or a language for the preview. On a MacBook it lives in the notch.</p>

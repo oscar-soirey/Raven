@@ -43,6 +43,7 @@
 #include "../crash_report.h"
 #include "../theme_editor/editor.h"
 
+#include <ctype.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -497,6 +498,7 @@ static void run_window_follow(void);
 static void open_run_window(void);
 static void select_node(Rid node, int reveal);
 static int load_text(const char* text, int record);
+static void preview_theme_from_document(void);
 static int is_selected(Rid node);
 static int selection_count(void);
 static void sync_tree_selection(void);
@@ -1324,6 +1326,9 @@ static void rebuild_preview(void) {
 	Rid root = Rxml_document_get_root(g.document);
 	const char* tag = Rxml_node_get_tag(root);
 	char size[64];
+
+	/* a <Window> says which theme it wears: the preview (and the window of F7) wear it too */
+	preview_theme_from_document();
 
 	if (g.preview != R_INVALID_ID && Rwidget_is_valid(g.preview)) Rwidget_destroy(g.preview);
 	g.preview = R_INVALID_ID;
@@ -3346,13 +3351,231 @@ static void fill_theme_combo(void) {
 	g.syncing--;
 }
 
-void designer_set_preview_theme(const char* name) {
+/*
+ * The theme of a window is written in it, <Window Theme="...">: a look by its
+ * name, a theme of the folder by the path of its file from the document. The
+ * preview wears it, and the window of F7 (Rwindow_set_theme): the designer
+ * itself keeps its own look. A piece of interface (no <Window>) is only
+ * previewed in the theme chosen, nothing is written.
+ */
+static int document_names_theme(void) {
+	Rid root;
+	if (!g.has_document || g.document == R_INVALID_ID || g.tab != TAB_WINDOW) return R_FALSE;
+	root = Rxml_document_get_root(g.document);
+	return root != R_INVALID_ID && same_text(Rxml_node_get_tag(root), "Window");
+}
+
+static int path_is_absolute(const char* path) {
+	return path[0] == '/' || path[0] == '\\' || (path[0] && path[1] == ':');
+}
+
+/* "a/b/../c/./d" -> "a/c/d", in place (forward slashes) */
+static void collapse_path(char* path) {
+	char* segments[256];
+	int count = 0, i, absolute = path[0] == '/';
+	char* copy = ds_strdup(path);
+	char* walk = copy + (absolute ? 1 : 0);
+	char* out = path;
+	while (walk && *walk) {
+		char* slash = strchr(walk, '/');
+		if (slash) *slash = '\0';
+		if (!walk[0] || !strcmp(walk, ".")) {
+			/* (nothing) */
+		} else if (!strcmp(walk, "..") && count > 0 && strcmp(segments[count - 1], "..") != 0 && !strchr(segments[count - 1], ':')) {
+			count--;
+		} else if (count < 256) {
+			segments[count++] = walk;
+		}
+		walk = slash ? slash + 1 : NULL;
+	}
+	if (absolute) *out++ = '/';
+	for (i = 0; i < count; i++) {
+		size_t length = strlen(segments[i]);
+		if (i) *out++ = '/';
+		memmove(out, segments[i], length);
+		out += length;
+	}
+	*out = '\0';
+	free(copy);
+}
+
+/* The folder of the document, forward slashes (malloc), or NULL when it has no file yet. */
+static char* document_dir(void) {
+	char* dir;
+	char* slash;
+	if (!g.path) return NULL;
+	dir = ds_normalize(g.path);
+	slash = strrchr(dir, '/');
+	if (!slash) {
+		free(dir);
+		return ds_strdup(".");
+	}
+	*slash = '\0';
+	if (!dir[0]) strcpy(dir, "/");
+	return dir;
+}
+
+/* What Theme="value" names as a file, as a full path (malloc). */
+static char* theme_value_path(const char* value) {
+	char* dir = document_dir();
+	char* path;
+	if (path_is_absolute(value) || !dir) path = ds_normalize(value);
+	else {
+		char* joined = ds_join(dir, value);
+		path = ds_normalize(joined);
+		free(joined);
+	}
+	free(dir);
+	collapse_path(path);
+	return path;
+}
+
+static int same_segment(const char* a, size_t la, const char* b, size_t lb) {
+	size_t i;
+	if (la != lb) return R_FALSE;
+	for (i = 0; i < la; i++) {
+#if defined(_WIN32)
+		if (tolower((unsigned char)a[i]) != tolower((unsigned char)b[i])) return R_FALSE;
+#else
+		if (a[i] != b[i]) return R_FALSE;
+#endif
+	}
+	return R_TRUE;
+}
+
+/* The path of a theme file seen from the document ("themes/ocean.xml", "../shared/dark.xml"). */
+static void theme_relative_path(const char* theme_path, char* out, size_t size) {
+	char* dir = document_dir();
+	char* target = ds_normalize(theme_path);
+	const char* a;
+	const char* b;
+	size_t used = 0;
+	collapse_path(target);
+	if (!dir || !path_is_absolute(target)) {
+		snprintf(out, size, "%s", target);
+		free(dir);
+		free(target);
+		return;
+	}
+	collapse_path(dir);
+	a = dir;
+	b = target;
+	/* the folders both paths share */
+	for (;;) {
+		const char* ea = strchr(a, '/');
+		const char* eb = strchr(b, '/');
+		size_t la = ea ? (size_t)(ea - a) : strlen(a);
+		size_t lb;
+		if (!eb) break;
+		lb = (size_t)(eb - b);
+		if (!a[0] || !same_segment(a, la, b, lb)) break;
+		b = eb + 1;
+		a = ea ? ea + 1 : a + la;
+	}
+	if (a == dir && b == target) {
+		/* (no folder in common: another drive) */
+		snprintf(out, size, "%s", target);
+	} else {
+		out[0] = '\0';
+		/* one ".." for each folder of the document left */
+		while (a[0]) {
+			const char* ea = strchr(a, '/');
+			used += (size_t)snprintf(out + used, used < size ? size - used : 0, "../");
+			if (!ea) break;
+			a = ea + 1;
+		}
+		if (used < size) snprintf(out + used, size - used, "%s", b);
+	}
+	free(dir);
+	free(target);
+}
+
+/* The name the theme combo knows for Theme="value" (a look, a theme of the folder), or the value itself. */
+static void theme_of_value(const char* value, char* out, size_t size) {
+	int i;
+	out[0] = '\0';
+	if (!value || !value[0] || same_text(value, "Default") || same_text(value, "Inherit")) return;
+	for (i = 0; i < LOOK_COUNT; i++) {
+		if (same_text(LOOKS[i].name, value)) {
+			snprintf(out, size, "%s", LOOKS[i].name);
+			return;
+		}
+	}
+	for (i = 0; i < folder_theme_count(); i++) {
+		if (same_text(folder_theme_name(i), value)) {
+			snprintf(out, size, "%s", folder_theme_name(i));
+			return;
+		}
+	}
+	if (strchr(value, '.') || strchr(value, '/') || strchr(value, '\\')) {
+		char* path = theme_value_path(value);
+		const char* loaded;
+		for (i = 0; i < folder_theme_count(); i++) {
+			if (ds_same_path(path, folder_theme_path(i))) {
+				snprintf(out, size, "%s", folder_theme_name(i));
+				free(path);
+				return;
+			}
+		}
+		/* a theme file outside the folder: loaded, by its name */
+		loaded = ds_file_exists(path) ? Rtheme_load(path) : NULL;
+		free(path);
+		if (loaded && loaded[0]) snprintf(out, size, "%s", loaded);
+		return;
+	}
+	/* a theme of Raven by its name ("Dark") */
+	snprintf(out, size, "%s", value);
+}
+
+/* What Theme= of the window gets for a name of the combo; NULL: none (the theme of the application). */
+static const char* value_of_theme(const char* name, char* out, size_t size) {
+	int i;
+	if (!name || !name[0]) return NULL;
+	for (i = 0; i < folder_theme_count(); i++) {
+		if (!strcmp(folder_theme_name(i), name)) {
+			theme_relative_path(folder_theme_path(i), out, size);
+			return out;
+		}
+	}
+	snprintf(out, size, "%s", name);
+	return out;
+}
+
+/* The preview (and the window of F7) wear a theme: the designer keeps its own. */
+static void preview_wear(const char* name) {
 	snprintf(g.preview_theme, sizeof(g.preview_theme), "%s", name ? name : "");
 	if (!Rwidget_set_theme(g.frame, g.preview_theme[0] ? g.preview_theme : NULL)) {
 		g.preview_theme[0] = '\0';
 		Rwidget_set_theme(g.frame, NULL);
 	}
 	fill_theme_combo();
+}
+
+static void preview_theme_from_document(void) {
+	char name[128];
+	if (!document_names_theme()) return;
+	theme_of_value(Rxml_node_get_attribute(Rxml_document_get_root(g.document), "Theme"), name, sizeof(name));
+	if (strcmp(name, g.preview_theme) != 0) preview_wear(name);
+}
+
+void designer_set_preview_theme(const char* name) {
+	preview_wear(name);
+	/* a window: its theme goes in its XML (an undo takes it back) */
+	if (document_names_theme() && !g.broken && flush_source()) {
+		Rid root = Rxml_document_get_root(g.document);
+		const char* had = Rxml_node_get_attribute(root, "Theme");
+		char value[1024];
+		const char* wanted = value_of_theme(g.preview_theme, value, sizeof(value));
+		char before[128];
+		theme_of_value(had, before, sizeof(before));
+		/* (Theme="themes/ocean.xml" and Theme="Ocean" are the same theme: what was written stays) */
+		if (strcmp(before, g.preview_theme) != 0) {
+			Rxml_node_set_attribute(root, "Theme", wanted);
+			document_changed(R_TRUE);
+			if (g.selected == root) rebuild_inspector();
+			return;
+		}
+	}
 	run_window_follow();
 	designer_refresh_preview();
 }
@@ -3361,9 +3584,11 @@ void designer_themes_changed(void) {
 	int i, still = !g.preview_theme[0];
 	for (i = 0; i < LOOK_COUNT && !still; i++) still = !strcmp(LOOKS[i].name, g.preview_theme);
 	for (i = 0; i < folder_theme_count() && !still; i++) still = !strcmp(folder_theme_name(i), g.preview_theme);
-	/* (a theme whose file went away: back to the look of the designer) */
-	if (!still) designer_set_preview_theme("");
-	else fill_theme_combo();
+	/* (a theme whose file went away: the preview goes back to the look of the designer, the XML keeps what it says) */
+	if (!still) {
+		preview_wear("");
+		designer_refresh_preview();
+	} else fill_theme_combo();
 	fill_theme_list();
 	fill_appearance();
 	run_window_follow();
@@ -3620,7 +3845,8 @@ static void run_dress(Rid widget) {
 	/* the window of the interface wears the font of Raven, as in the application (its island too) */
 	Rwidget_set_font(widget, fonts_preview());
 	if (g.run_window != R_INVALID_ID && Rwindow_get_island(g.run_window) != R_INVALID_ID) Rwidget_set_font(Rwindow_get_island(g.run_window), fonts_preview());
-	Rwidget_set_theme(widget, g.preview_theme[0] ? g.preview_theme : NULL);
+	/* the window wears the theme of the preview, as a whole (its background, its island, its menus): the designer keeps its own */
+	if (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window)) Rwindow_set_theme(g.run_window, g.preview_theme[0] ? g.preview_theme : NULL);
 	Rwidget_set_direction(widget, Rlocale_get_language_count() > 0 && Rlocale_is_rtl() ? R_DIRECTION_RTL : R_DIRECTION_LTR);
 }
 
@@ -4313,6 +4539,15 @@ static int designer_script(char* script) {
 			char* name = next_token(&cursor);
 			if (strcmp(g.preview_theme, strcmp(name, "-") ? name : "") != 0) {
 				fprintf(stderr, "raven_designer: expected the preview to wear \"%s\", it wears \"%s\"\n", name, g.preview_theme);
+				return R_FALSE;
+			}
+		} else if (strcmp(token, "expectapptheme") == 0 || strcmp(token, "expectruntheme") == 0) {
+			/* expectapptheme NAME: the theme of the application (the designer); expectruntheme NAME: the one of the window of F7 */
+			char* name = next_token(&cursor);
+			int run = token[6] == 'r';
+			const char* have = run ? (g.run_window != R_INVALID_ID && Rwindow_is_valid(g.run_window) ? Rwindow_get_theme(g.run_window) : "(no window)") : Rtheme_get_name();
+			if (strcmp(have, name) != 0) {
+				fprintf(stderr, "raven_designer: expected the %s to wear \"%s\", it wears \"%s\"\n", run ? "window" : "designer", name, have);
 				return R_FALSE;
 			}
 		} else if (strcmp(token, "expectfiles") == 0 || strcmp(token, "expectthemes") == 0) {

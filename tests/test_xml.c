@@ -985,12 +985,70 @@ static void test_builtin_actions(void) {
 	Raction_set_default_handler(NULL, NULL);
 }
 
+/* <Window Theme> and Rwindow_set_theme: the theme of that window only, never the one of the application. */
+static void test_window_theme(void) {
+	static const char xml[] =
+		"<Window Title=\"Dark one\" Width=\"300\" Height=\"200\" Theme=\"RavenDark\">\n"
+		"  <VBox><Label Name=\"label\" Text=\"a\"/><Button Name=\"own\" Text=\"b\" Theme=\"WindowsLight\"/></VBox>\n"
+		"</Window>\n";
+	static const char plain[] = "<Window Title=\"Plain\" Width=\"300\" Height=\"200\"><Label Name=\"label\" Text=\"c\"/></Window>";
+	char app[64], initial[64];
+	Rid dark, other, label, own, other_label, moved;
+	float r1, g1, b1, a1, r2, g2, b2, a2;
+	snprintf(initial, sizeof(initial), "%s", Rtheme_get_name());
+	CHECK(Rtheme_use("RavenLight"));
+	snprintf(app, sizeof(app), "%s", Rtheme_get_name());
+	dark = Rwindow_create_from_xml(xml, strlen(xml));
+	other = Rwindow_create_from_xml(plain, strlen(plain));
+	CHECK(dark != R_INVALID_ID && other != R_INVALID_ID);
+	label = Rwidget_find(dark, "label");
+	own = Rwidget_find(dark, "own");
+	other_label = Rwidget_find(other, "label");
+	Rdraw_frame();
+	/* the application keeps its theme */
+	CHECK_STR(Rtheme_get_name(), app);
+	CHECK(Rwindow_has_own_theme(dark));
+	CHECK(!Rwindow_has_own_theme(other));
+	CHECK_STR(Rwindow_get_theme(dark), "RavenDark");
+	CHECK_STR(Rwindow_get_theme(other), app);
+	CHECK_STR(Rwidget_get_theme(label), "RavenDark");
+	CHECK_STR(Rwidget_get_theme(own), "WindowsLight");
+	CHECK_STR(Rwidget_get_theme(other_label), app);
+	/* drawn with it: the text of the dark window is light, the one of the other dark */
+	Rwidget_get_color(label, R_COLOR_TEXT, &r1, &g1, &b1, &a1);
+	Rwidget_get_color(other_label, R_COLOR_TEXT, &r2, &g2, &b2, &a2);
+	CHECK(r1 + g1 + b1 > r2 + g2 + b2 + 0.5f);
+	/* a widget put in the window wears its theme, and the one of the next window when it moves */
+	moved = Rwidget_create(R_WIDGET_LABEL);
+	Rwindow_set_content(dark, moved);
+	CHECK_STR(Rwidget_get_theme(moved), "RavenDark");
+	/* the application changes its theme: the window keeps its own */
+	CHECK(Rtheme_use("WindowsLight"));
+	CHECK_STR(Rwindow_get_theme(dark), "RavenDark");
+	CHECK_STR(Rwidget_get_theme(moved), "RavenDark");
+	/* NULL: the theme of the application again */
+	CHECK(Rwindow_set_theme(dark, NULL));
+	CHECK(!Rwindow_has_own_theme(dark));
+	CHECK_STR(Rwidget_get_theme(moved), Rtheme_get_name());
+	CHECK(Rwindow_set_theme(dark, "GnomeDark"));
+	CHECK_STR(Rwidget_get_theme(moved), "GnomeDark");
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rwindow_set_theme(dark, "NoSuchTheme"));
+	EXPECT_ERRORS_END(1);
+	CHECK_STR(Rwindow_get_theme(dark), "GnomeDark");
+	Rdraw_frame();
+	Rwindow_destroy(dark);
+	Rwindow_destroy(other);
+	if (initial[0]) Rtheme_use(initial);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
 		return 1;
 	}
 	RUN(test_window);
+	RUN(test_window_theme);
 	RUN(test_widget_fragment);
 	RUN(test_errors);
 	RUN(test_components);

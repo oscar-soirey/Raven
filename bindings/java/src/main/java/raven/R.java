@@ -5965,6 +5965,62 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_set_theme$;
+
+    /**
+     * Gives the window a theme of its own, by name ("Dark",
+     * "WindowsLight", or a theme of Rtheme_load): everything inside it (its
+     * content, its island, its menus, lists and dialogs, its background) is
+     * drawn with that theme, while the other windows keep the one of the
+     * application (Rtheme_use). A widget given Rwidget_set_theme keeps its own.
+     * In XML: &lt;Window Theme="..."&gt;.
+     * name NULL or "": the theme of the application again.
+     * Returns: R_FALSE, after reporting an error, when no theme has that name.
+     */
+    public static int Rwindow_set_theme(int window, String name) {
+        MethodHandle $h = Rwindow_set_theme$;
+        if ($h == null) Rwindow_set_theme$ = $h = find("Rwindow_set_theme", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            int $r = (int) $h.invokeExact(window, name$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_theme$;
+
+    /**
+     * Returns: Name of the theme the window is drawn with (the one of the application when it has none of its own).
+     */
+    public static String Rwindow_get_theme(int window) {
+        MethodHandle $h = Rwindow_get_theme$;
+        if ($h == null) Rwindow_get_theme$ = $h = find("Rwindow_get_theme", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(window);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_has_own_theme$;
+
+    /**
+     * Returns: R_TRUE when the window has a theme of its own (Rwindow_set_theme).
+     */
+    public static int Rwindow_has_own_theme(int window) {
+        MethodHandle $h = Rwindow_has_own_theme$;
+        if ($h == null) Rwindow_has_own_theme$ = $h = find("Rwindow_has_own_theme", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_set_opacity$;
 
     /**
