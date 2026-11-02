@@ -190,9 +190,10 @@ static struct wl_resource* test_create(struct wl_client* client, test_impl* impl
 	return resource;
 }
 
-static test_impl I_compositor, I_surface, I_region, I_subcompositor, I_subsurface, I_shm, I_seat, I_pointer, I_keyboard,
+static test_impl I_compositor, I_surface, I_region, I_subcompositor, I_subsurface, I_shm, I_seat, I_pointer, I_keyboard, I_touch,
 	I_output, I_wm_base, I_xdg_surface, I_toplevel, I_decoration_manager, I_decoration, I_viewporter, I_viewport,
-	I_fractional_manager, I_fractional, I_shape_manager, I_shape_device, I_ddm, I_data_device, I_data_source, I_data_offer;
+	I_fractional_manager, I_fractional, I_shape_manager, I_shape_device, I_ddm, I_data_device, I_data_source, I_data_offer,
+	I_tablet_manager, I_tablet_seat, I_tablet, I_tool, I_tool_shape;
 
 /* What the compositor saw, and what the test asks it to do: shared between the two threads. */
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -207,6 +208,9 @@ static struct {
 	struct wl_resource* fractional;
 	struct wl_resource* pointer;
 	struct wl_resource* keyboard;
+	struct wl_resource* touch;
+	struct wl_resource* tablet_seat;
+	int tool_shape_made;
 	struct wl_resource* data_device;
 	struct wl_resource* shape_device;
 	struct wl_resource* selection_source;
@@ -292,6 +296,10 @@ static void seat_get_pointer(struct wl_client* client, struct wl_resource* resou
 	C.pointer = test_create(client, &I_pointer, (uint32_t)S.resource_get_version(resource), id, NULL);
 }
 
+static void seat_get_touch(struct wl_client* client, struct wl_resource* resource, uint32_t id) {
+	C.touch = test_create(client, &I_touch, (uint32_t)S.resource_get_version(resource), id, NULL);
+}
+
 static void seat_get_keyboard(struct wl_client* client, struct wl_resource* resource, uint32_t id) {
 	size_t size = strlen(g_keymap) + 1;
 	int fd = (int)memfd_create("keymap", MFD_CLOEXEC);
@@ -306,7 +314,7 @@ static void seat_get_keyboard(struct wl_client* client, struct wl_resource* reso
 static void bind_seat(struct wl_client* client, void* data, uint32_t version, uint32_t id) {
 	struct wl_resource* seat = test_create(client, &I_seat, version, id, NULL);
 	(void)data;
-	EVENT(seat, wl_seat, "capabilities", 3u);   /* pointer | keyboard */
+	EVENT(seat, wl_seat, "capabilities", 7u);   /* pointer | keyboard | touch */
 	if (version >= 2) EVENT(seat, wl_seat, "name", "seat0");
 }
 
@@ -413,6 +421,23 @@ static void shape_get_pointer(struct wl_client* client, struct wl_resource* reso
 	(void)resource; (void)pointer;
 	C.shape_device = test_create(client, &I_shape_device, 1, id, NULL);
 }
+static void shape_get_tablet_tool(struct wl_client* client, struct wl_resource* resource, uint32_t id, struct wl_resource* tool) {
+	(void)resource; (void)tool;
+	test_create(client, &I_tool_shape, 1, id, NULL);
+	C.tool_shape_made++;
+}
+
+/* ---- tablets ---- */
+
+static void tablet_manager_get_seat(struct wl_client* client, struct wl_resource* resource, uint32_t id, struct wl_resource* seat) {
+	(void)resource; (void)seat;
+	C.tablet_seat = test_create(client, &I_tablet_seat, 1, id, NULL);
+}
+static void bind_tablet_manager(struct wl_client* client, void* data, uint32_t version, uint32_t id) {
+	(void)data;
+	test_create(client, &I_tablet_manager, version, id, NULL);
+}
+
 static void bind_shape_manager(struct wl_client* client, void* data, uint32_t version, uint32_t id) {
 	(void)data;
 	test_create(client, &I_shape_manager, version, id, NULL);
@@ -470,6 +495,7 @@ static void* compositor_thread(void* unused) {
 	S.global_create(C.display, &rvn_wp_fractional_scale_manager_v1_interface, 1, NULL, bind_fractional);
 	S.global_create(C.display, &rvn_wp_cursor_shape_manager_v1_interface, 1, NULL, bind_shape_manager);
 	S.global_create(C.display, &rvn_wl_data_device_manager_interface, 3, NULL, bind_ddm);
+	S.global_create(C.display, &rvn_zwp_tablet_manager_v2_interface, 1, NULL, bind_tablet_manager);
 
 	pthread_mutex_lock(&g_lock);
 	C.ready = 1;
@@ -539,6 +565,41 @@ static void do_pointer_click(void* unused) {
 	EVENT0(C.pointer, wl_pointer, "frame");
 	EVENT(C.pointer, wl_pointer, "button", S.display_next_serial(C.display), 2u, 0x110u, 0u);
 	EVENT0(C.pointer, wl_pointer, "frame");
+}
+
+/* A pen comes near, presses at a point with half of its pressure, and goes away. */
+static void do_pen_stroke(void* argument) {
+	point* p = (point*)argument;
+	struct wl_resource* tablet = S.resource_create(C.client, &rvn_zwp_tablet_v2_interface, 1, 0);
+	struct wl_resource* tool = S.resource_create(C.client, &rvn_zwp_tablet_tool_v2_interface, 1, 0);
+	int32_t x = (int32_t)(p->x * 256.0), y = (int32_t)(p->y * 256.0);
+	S.resource_set_implementation(tablet, I_tablet.handlers, NULL, NULL);
+	S.resource_set_implementation(tool, I_tool.handlers, NULL, NULL);
+	EVENT(C.tablet_seat, zwp_tablet_seat_v2, "tablet_added", tablet);
+	EVENT0(tablet, zwp_tablet_v2, "done");
+	EVENT(C.tablet_seat, zwp_tablet_seat_v2, "tool_added", tool);
+	EVENT(tool, zwp_tablet_tool_v2, "type", 0x140u);
+	EVENT0(tool, zwp_tablet_tool_v2, "done");
+	EVENT(tool, zwp_tablet_tool_v2, "proximity_in", S.display_next_serial(C.display), tablet, C.surface);
+	EVENT(tool, zwp_tablet_tool_v2, "motion", x, y);
+	EVENT(tool, zwp_tablet_tool_v2, "frame", 1u);
+	EVENT(tool, zwp_tablet_tool_v2, "down", S.display_next_serial(C.display));
+	EVENT(tool, zwp_tablet_tool_v2, "pressure", 32768u);
+	EVENT(tool, zwp_tablet_tool_v2, "tilt", 20 * 256, 0);
+	EVENT(tool, zwp_tablet_tool_v2, "frame", 2u);
+	EVENT0(tool, zwp_tablet_tool_v2, "up");
+	EVENT(tool, zwp_tablet_tool_v2, "frame", 3u);
+	EVENT0(tool, zwp_tablet_tool_v2, "proximity_out");
+	EVENT(tool, zwp_tablet_tool_v2, "frame", 4u);
+}
+
+/* A finger taps at a point: down, then up. */
+static void do_touch_tap(void* argument) {
+	point* p = (point*)argument;
+	EVENT(C.touch, wl_touch, "down", S.display_next_serial(C.display), 10u, C.surface, 3, (int32_t)(p->x * 256.0), (int32_t)(p->y * 256.0));
+	EVENT0(C.touch, wl_touch, "frame");
+	EVENT(C.touch, wl_touch, "up", S.display_next_serial(C.display), 20u, 3);
+	EVENT0(C.touch, wl_touch, "frame");
 }
 
 static void do_pointer_press(void* unused) {
@@ -675,6 +736,18 @@ static void on_go(Rid sender, const char* action, void* user) {
 	g_clicks++;
 }
 
+static int g_pen_downs;
+static float g_pen_pressure, g_pen_tilt;
+static int on_pen(Rid widget, const RPenEvent* event, void* user) {
+	(void)widget; (void)user;
+	if (event->phase == R_PEN_DOWN) {
+		g_pen_downs++;
+		g_pen_pressure = event->pressure;
+		g_pen_tilt = event->tilt_x;
+	}
+	return R_FALSE;
+}
+
 static int on_close(Rid window, void* user) {
 	(void)window; (void)user;
 	g_closes++;
@@ -767,6 +840,30 @@ static void test_wayland(void) {
 	compositor_do(do_pointer_click, NULL);
 	settle(20);
 	CHECK(g_clicks == 1);
+
+	/* a tap of a finger clicks it too */
+	compositor_do(do_touch_tap, &p);
+	settle(20);
+	CHECK(g_clicks == 2);
+	CHECK(Rwindow_is_touch_active(window));
+	CHECK(Rwindow_get_touch_count(window) == 0);
+	g_clicks = 1;
+
+	/* a pen: its pressure reaches the application, and it clicks */
+	Rwidget_set_pen_callback(go, on_pen, NULL);
+	compositor_do(do_pen_stroke, &p);
+	settle(20);
+	CHECK(g_clicks == 2);
+	CHECK(g_pen_downs == 1);
+	CHECK(g_pen_pressure > 0.45f && g_pen_pressure < 0.55f);
+	CHECK(g_pen_tilt > 19.0f && g_pen_tilt < 21.0f);
+	CHECK(!Rwindow_is_pen_in_range(window));
+	pthread_mutex_lock(&g_lock);
+	CHECK(C.tool_shape_made == 1);
+	pthread_mutex_unlock(&g_lock);
+	g_clicks = 1;
+	/* (the palm rejection would take the next fingers for the palm) */
+	Rwindow_advance_touch(window, 1.0);
 
 	/* the cursor follows what is under the pointer */
 	center_of(input, &p);
@@ -934,7 +1031,10 @@ int main(void) {
 	test_impl_init(&I_seat, &rvn_wl_seat_interface);
 	test_on(&I_seat, "get_pointer", (test_handler)seat_get_pointer);
 	test_on(&I_seat, "get_keyboard", (test_handler)seat_get_keyboard);
+	test_on(&I_seat, "get_touch", (test_handler)seat_get_touch);
 	test_impl_init(&I_pointer, &rvn_wl_pointer_interface);
+	test_impl_init(&I_touch, &rvn_wl_touch_interface);
+	test_on(&I_touch, "release", (test_handler)test_request_destroy);
 	test_impl_init(&I_keyboard, &rvn_wl_keyboard_interface);
 	test_impl_init(&I_output, &rvn_wl_output_interface);
 	test_impl_init(&I_wm_base, &rvn_xdg_wm_base_interface);
@@ -961,6 +1061,13 @@ int main(void) {
 	test_impl_init(&I_fractional, &rvn_wp_fractional_scale_v1_interface);
 	test_impl_init(&I_shape_manager, &rvn_wp_cursor_shape_manager_v1_interface);
 	test_on(&I_shape_manager, "get_pointer", (test_handler)shape_get_pointer);
+	test_on(&I_shape_manager, "get_tablet_tool_v2", (test_handler)shape_get_tablet_tool);
+	test_impl_init(&I_tool_shape, &rvn_wp_cursor_shape_device_v1_interface);
+	test_impl_init(&I_tablet_manager, &rvn_zwp_tablet_manager_v2_interface);
+	test_on(&I_tablet_manager, "get_tablet_seat", (test_handler)tablet_manager_get_seat);
+	test_impl_init(&I_tablet_seat, &rvn_zwp_tablet_seat_v2_interface);
+	test_impl_init(&I_tablet, &rvn_zwp_tablet_v2_interface);
+	test_impl_init(&I_tool, &rvn_zwp_tablet_tool_v2_interface);
 	test_impl_init(&I_shape_device, &rvn_wp_cursor_shape_device_v1_interface);
 	test_on(&I_shape_device, "set_shape", (test_handler)shape_set_shape);
 	test_impl_init(&I_ddm, &rvn_wl_data_device_manager_interface);

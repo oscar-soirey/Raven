@@ -800,17 +800,21 @@ static void test_schema(void) {
 
 	/* the window: its own attributes only, each accepted */
 	{
-		char xml[1024];
+		char xml[2048];
 		int length = snprintf(xml, sizeof(xml), "<Window");
 		Rid window;
 		int count = Rxml_get_attribute_count("Window");
-		CHECK(count >= 10 && count < 20);
+		CHECK(count >= 20 && count < 30);
 		for (index = 0; index < count; index++) {
+			int touch;
 			CHECK(Rxml_get_attribute_info("window", index, &info));
-			CHECK_STR(info.group, "Window");
+			/* its own attributes, then those of fingers and pens */
+			touch = strcmp(info.group, "Touch") == 0;
+			CHECK(touch || strcmp(info.group, "Window") == 0);
+			CHECK(!touch || strncmp(info.name, "Touch.", 6) == 0 || strncmp(info.name, "Pen.", 4) == 0);
 			if (info.type == R_XML_FILE) continue;
 			length += snprintf(xml + length, sizeof(xml) - (size_t)length, " %s=\"%s\"", info.name,
-				info.type == R_XML_NUMBER ? "300" : schema_sample(&info, buffer, sizeof(buffer)));
+				info.type == R_XML_NUMBER ? (touch ? "0.5" : "300") : schema_sample(&info, buffer, sizeof(buffer)));
 		}
 		snprintf(xml + length, sizeof(xml) - (size_t)length, "/>");
 		/* (an attribute it does not know would be reported, and fail the test) */
