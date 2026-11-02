@@ -266,13 +266,17 @@ void rvn_dialogs_shutdown(void);
 /** A Markdown text, parsed, and laid out for a width. */
 typedef struct rvn_md_t rvn_md_t;
 
-rvn_md_t* rvn_md_parse(const char* source);
+rvn_md_t* rvn_md_parse(const char* source, int math);
 void rvn_md_free(rvn_md_t* md);
 /**
  * Places the text for a font, a size and a width (0: nothing wraps) and
  * returns the room it takes. Cheap when nothing changed. UI thread only.
+ * `math` draws the formulas ($...$ in the text), `math_user` is given to it.
  */
-rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, float size, float width);
+rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, float size, float width,
+	RMathCallback math, void* math_user);
+/** Forgets the pictures of the formulas: they are asked for again at the next layout. */
+void rvn_md_forget_math(rvn_md_t* md);
 /** Draws what the last layout placed, from (x, y) in the widget. `hot_link`: the link under the pointer, or -1. */
 void rvn_md_paint(const rvn_md_t* md, const rvn_widget_t* widget, RPainter* painter, float x, float y, rvn_color_t color, int hot_link);
 /** Link at a point of the laid out text, or -1. */

@@ -27,6 +27,9 @@ typedef struct rvn_label_t {
 	int pressed_link;
 	RLabelLinkCallback link_callback;
 	void* link_user;
+	/** Draws the formulas of the text, and what it was given; NULL = a $ is a $. */
+	RMathCallback math;
+	void* math_user;
 	/** Result of Rlabel_get_plain_text. */
 	char* plain;
 } rvn_label_t;
@@ -61,7 +64,7 @@ static int rvn_label_wraps(const rvn_label_t* label) {
 
 static rvn_md_t* rvn_label_md(rvn_label_t* label) {
 	if (!label->md) {
-		label->md = rvn_md_parse(label->text);
+		label->md = rvn_md_parse(label->text, label->math != NULL);
 		/* a label does not take the mouse, unless it has links to click */
 		if (rvn_md_link_count(label->md) > 0) label->base.flags &= ~RVN_WF_NO_HIT;
 		else label->base.flags |= RVN_WF_NO_HIT;
@@ -114,7 +117,8 @@ static rvn_vec2_t rvn_label_measure(rvn_widget_t* widget) {
 	int lines, wraps = rvn_label_wraps(label);
 
 	if (!font) return rvn_vec2(0.0f, 0.0f);
-	if (label->markdown) return rvn_md_layout(rvn_label_md(label), widget, label->font, size, wraps ? label->wrap_width : 0.0f);
+	if (label->markdown) return rvn_md_layout(rvn_label_md(label), widget, label->font, size, wraps ? label->wrap_width : 0.0f,
+		label->math, label->math_user);
 	rvn_font_metrics(font, size, &metrics);
 	lines = rvn_label_lines(label, font, size, wraps ? label->wrap_width : 0.0f, &width, NULL, NULL);
 	/* a wrapped label keeps the width it was given, or it would be re-wrapped
@@ -381,6 +385,26 @@ void Rlabel_set_link_callback(Rid id, RLabelLinkCallback callback, void* user_da
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_LABEL);
 	((rvn_label_t*)widget)->link_callback = callback;
 	((rvn_label_t*)widget)->link_user = user_data;
+}
+
+void Rlabel_set_math_callback(Rid id, RMathCallback callback, void* user_data) {
+	rvn_label_t* label;
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_LABEL);
+	label = (rvn_label_t*)widget;
+	if (label->math == callback && label->math_user == user_data) return;
+	if ((label->math != NULL) != (callback != NULL)) rvn_label_forget(label);
+	else if (label->md) rvn_md_forget_math(label->md);
+	label->math = callback;
+	label->math_user = user_data;
+	rvn_widget_invalidate_layout(widget);
+}
+
+void Rlabel_invalidate_math(Rid id) {
+	rvn_label_t* label;
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_LABEL);
+	label = (rvn_label_t*)widget;
+	rvn_md_forget_math(label->md);
+	rvn_widget_invalidate_layout(widget);
 }
 
 const char* Rlabel_get_plain_text(Rid id) {

@@ -104,6 +104,57 @@ extern "C" {
 	/** @brief The text of a Markdown label without its marks, as a reader sees it. Valid until the next call. */
 	RAVEN_API const char* Rlabel_get_plain_text(Rid label);
 
+	/**
+	 * @brief The picture of one formula, as the application draws it (Rlabel_set_math_callback).
+	 *
+	 * The sizes are in em: they are multiplied by the size of the text of the
+	 * label, so that a formula follows the text it sits in, and so that a
+	 * formula the label has to shrink can be asked for again at a smaller size.
+	 */
+	typedef struct RMathBox {
+		/** Drawn at the size the box takes. Drawn in white: the color of the text tints it. */
+		Rid texture;
+		/** Across. */
+		float width;
+		/** Above the baseline of the line it is on, and below it. */
+		float ascent;
+		float descent;
+	} RMathBox;
+
+	/**
+	 * @brief Draws a formula: fills `box` and returns R_TRUE, or returns R_FALSE
+	 * to have the label show the source as text.
+	 *
+	 * `source` is the text between the marks, as it was written (its escaping
+	 * is the escaping of the formula, not the escaping of the Markdown), and
+	 * `size` is the size of the text of the label, in logical units. `display`
+	 * is R_TRUE for a formula written with `$$`, which an engine sets with
+	 * limits above and below rather than beside. Called from the UI thread,
+	 * once per formula and per size, when the text is laid out; the texture
+	 * belongs to the application, which frees it.
+	 */
+	typedef int (*RMathCallback)(Rid label, const char* source, int length, float size, int display, RMathBox* box, void* user_data);
+
+	/**
+	 * @brief Reads the formulas of the Markdown of a label: $...$ inside a line,
+	 * $$...$$ alone in a paragraph.
+	 *
+	 * Without a callback, a $ is a $ and the text says what it says. With one,
+	 * $...$ is a picture: it shares its line with the words around it, it is
+	 * moved to the next line when it does not fit, it is made smaller when it
+	 * is wider than the space the text has, and \$ is a $.
+	 *
+	 * Setting a callback reads the text of the label again (what counts as a
+	 * formula changes); Rlabel_invalidate_math asks for the pictures again
+	 * when the application drew them differently.
+	 */
+	RAVEN_API void Rlabel_set_math_callback(Rid label, RMathCallback callback, void* user_data);
+	/**
+	 * @brief Forgets the pictures of the formulas of a label: they are asked for
+	 * again at the next layout (a texture that arrived, a color that changed).
+	 */
+	RAVEN_API void Rlabel_invalidate_math(Rid label);
+
 
 	/* ============================================================================
 	 *  BUTTON

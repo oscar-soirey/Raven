@@ -26,6 +26,10 @@
 #define RVN_MD_STRIKE (1u << 3)
 /** The line ends after this span. */
 #define RVN_MD_BREAK  (1u << 4)
+/** The span is a formula: a picture the application drew, on the line it is in. */
+#define RVN_MD_MATH   (1u << 5)
+/** The formula was written with $$, so it copies back with them. */
+#define RVN_MD_DISPLAY (1u << 6)
 
 typedef enum rvn_md_block_type_t {
 	RVN_MD_PARAGRAPH,
@@ -33,7 +37,9 @@ typedef enum rvn_md_block_type_t {
 	RVN_MD_CODE_BLOCK,
 	RVN_MD_RULE,
 	RVN_MD_TABLE,
-	RVN_MD_IMAGE
+	RVN_MD_IMAGE,
+	/** A formula alone in a paragraph ($$...$$): centered, on its own line. */
+	RVN_MD_MATH_BLOCK
 } rvn_md_block_type_t;
 
 enum { RVN_MD_NO_MARKER, RVN_MD_BULLET, RVN_MD_NUMBER, RVN_MD_TASK, RVN_MD_TASK_DONE };
@@ -99,6 +105,8 @@ typedef struct rvn_md_run_t {
 	int16_t link;
 	/** Code: nothing is drawn past this x (0 = no limit). */
 	float clip_right;
+	/** Index in rvn_md_t::maths, or -1: a formula, whose picture is drawn instead of text. */
+	int16_t math;
 } rvn_md_run_t;
 
 enum {
@@ -111,8 +119,24 @@ enum {
 	RVN_MD_BOX_TASK_DONE,
 	RVN_MD_BOX_TABLE_HEADER,
 	RVN_MD_BOX_TABLE_LINE,
-	RVN_MD_BOX_IMAGE
+	RVN_MD_BOX_IMAGE,
+	/** A formula, in a line of text. */
+	RVN_MD_BOX_MATH
 };
+
+/** A formula, as the application drew it: what the layout places instead of words. */
+typedef struct rvn_md_math_t {
+	/** Where its source is, in rvn_md_t::text. */
+	uint32_t start, length;
+	/** The size it was asked at (0: not asked yet), and the box it takes. */
+	float size;
+	/** It was written with $$: the application sets it as display math. */
+	int display;
+	float width, height, ascent;
+	Rid texture;
+	/** The application could not draw it: its source is shown as text. */
+	int failed;
+} rvn_md_math_t;
 
 typedef struct rvn_md_box_t {
 	float x, y, w, h;
@@ -133,6 +157,12 @@ struct rvn_md_t {
 	uint32_t cell_count, cell_cap;
 	char** links;
 	uint32_t link_count, link_cap;
+	/** The formulas of the text, and the pictures the application drew for them:
+	 * kept from one layout to the next, by source and size (see rvn_md_math_resolve). */
+	rvn_md_math_t* maths;
+	uint32_t math_count, math_cap;
+	/** The text holds formulas: a $ is read as one (see rvn_md_parse). */
+	int math;
 
 	/* layout */
 	rvn_md_run_t* runs;
@@ -199,6 +229,51 @@ static int rvn_md_is_punct(char c) {
 
 static int rvn_md_is_word(char c) {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || ((unsigned char)c & 0x80u);
+}
+
+/*
+ * A formula at `p` (on its first '$'): $...$ or $$...$$. Gives where its source
+ * is and where what follows the closing marks is, or NULL when it is not one.
+ *
+ * Inside the marks the escaping is the escaping of the formula, not of the
+ * Markdown: \$ is a $ that closes nothing, and every other backslash is part
+ * of the source, untouched. A $ that follows a space, or that a space
+ * precedes, is a $ of the text ("it costs $5 and $10" or "a $ b $"), and so
+ * is a $ a digit follows.
+ */
+static const char* rvn_md_math_parts(const char* p, const char* end, const char** source, size_t* length, int* display) {
+	const char* close;
+	int marks = end - p > 1 && p[1] == '$' ? 2 : 1;
+	if (display) *display = marks == 2;
+	*source = p + marks;
+	close = *source;
+	while (close < end) {
+		if (*close == '\\' && close + 1 < end) {
+			close += 2;
+			continue;
+		}
+		if (*close != '$') {
+			/* (a formula inside a line does not run over the lines around it) */
+			if (marks == 1 && *close == '\n') return NULL;
+			close++;
+			continue;
+		}
+		if (close + 1 < end && close[1] == '$' && marks == 2) {
+			if (close == *source) return NULL;
+			*length = (size_t)(close - *source);
+			return close + 2;
+		}
+		if (marks == 2) {
+			close++;
+			continue;
+		}
+		if (close == *source || rvn_md_is_space(close[-1])) return NULL;
+		if (rvn_md_is_space((*source)[0])) return NULL;
+		if (close + 1 < end && close[1] >= '0' && close[1] <= '9') return NULL;
+		*length = (size_t)(close - *source);
+		return close + 1;
+	}
+	return NULL;
 }
 
 /* Is there, after `from`, the same run of `count` marks that could close what one opens here? */
@@ -416,6 +491,26 @@ static void rvn_md_inline(rvn_md_inline_t* in, const char* p, const char* end, i
 			}
 		}
 
+		if (c == '$' && in->md->math) {
+			const char* source = NULL;
+			const char* after;
+			size_t length = 0;
+			int display = R_FALSE;
+			after = rvn_md_math_parts(p, end, &source, &length, &display);
+			if (after) {
+				/* (display marks: the formula has a line of its own, and so has the text before it) */
+				if (display && in->md->text.length > in->span_start) rvn_md_flush(in, RVN_MD_BREAK);
+				else rvn_md_flush(in, 0);
+				in->flags |= RVN_MD_MATH | (display ? RVN_MD_DISPLAY : 0u);
+				in->fresh = R_FALSE;
+				rvn_md_put(in, source, length);
+				rvn_md_flush(in, display ? RVN_MD_BREAK : 0);
+				in->flags &= ~(RVN_MD_MATH | RVN_MD_DISPLAY);
+				p = after;
+				continue;
+			}
+		}
+
 		if (c == '*' || c == '_' || c == '~') {
 			int run = 0, used = 0;
 			char next;
@@ -564,16 +659,48 @@ static int rvn_md_lone_image(const char* text, size_t length, const char** alt, 
 	return R_TRUE;
 }
 
+/* Is the paragraph nothing but a formula, $$...$$? Gives its source. */
+static int rvn_md_lone_math(const char* text, size_t length, const char** source, size_t* source_length) {
+	const char* end = text + length;
+	int display = R_FALSE;
+	while (text < end && rvn_md_is_space(*text)) text++;
+	while (end > text && rvn_md_is_space(end[-1])) end--;
+	if (end - text < 5 || text[0] != '$' || text[1] != '$') return R_FALSE;
+	return rvn_md_math_parts(text, end, source, source_length, &display) == end && display;
+}
+
+/*
+ * The one span of a display formula. Its source is copied as it was written: the
+ * escaping inside a formula is the escaping of the formula, and reading it as
+ * Markdown again would eat the backslashes TeX is made of.
+ */
+static void rvn_md_math_block(rvn_md_t* md, rvn_md_block_t* block, const char* source, size_t length) {
+	rvn_md_span_t* span;
+	block->first_span = md->span_count;
+	block->span_count = 1;
+	RVN_ARRAY_RESERVE(md->spans, md->span_cap, md->span_count + 1);
+	span = &md->spans[md->span_count++];
+	span->start = (uint32_t)md->text.length;
+	span->length = (uint32_t)length;
+	span->flags = RVN_MD_MATH | RVN_MD_DISPLAY;
+	span->link = -1;
+	rvn_text_append(&md->text, source, length);
+}
+
 static void rvn_md_end_paragraph(rvn_md_parser_t* parser) {
 	rvn_md_t* md = parser->md;
 	rvn_md_block_t* block;
 	const char* alt;
 	const char* url;
-	size_t alt_length, url_length;
+	const char* source;
+	size_t alt_length, url_length, source_length;
 	if (!parser->paragraph_open) return;
 	parser->paragraph_open = R_FALSE;
 
-	if (!parser->heading && rvn_md_lone_image(parser->paragraph.data, parser->paragraph.length, &alt, &alt_length, &url, &url_length)) {
+	if (!parser->heading && md->math && rvn_md_lone_math(parser->paragraph.data, parser->paragraph.length, &source, &source_length)) {
+		block = rvn_md_add_block(md, RVN_MD_MATH_BLOCK);
+		rvn_md_math_block(md, block, source, source_length);
+	} else if (!parser->heading && rvn_md_lone_image(parser->paragraph.data, parser->paragraph.length, &alt, &alt_length, &url, &url_length)) {
 		int link = rvn_md_add_link(md, url, url_length);
 		block = rvn_md_add_block(md, RVN_MD_IMAGE);
 		block->link = (int16_t)link;
@@ -725,7 +852,7 @@ static char* rvn_md_dedent(const char* source) {
 	return out.data;
 }
 
-rvn_md_t* rvn_md_parse(const char* source) {
+rvn_md_t* rvn_md_parse(const char* source, int math) {
 	rvn_md_t* md = (rvn_md_t*)rvn_calloc(sizeof(rvn_md_t));
 	rvn_md_parser_t parser;
 	char* dedented = source ? rvn_md_dedent(source) : NULL;
@@ -739,6 +866,7 @@ rvn_md_t* rvn_md_parse(const char* source) {
 
 	memset(&parser, 0, sizeof(parser));
 	parser.md = md;
+	md->math = math != 0;
 	/* (offset 0 of the text is never the start of a span that matters: keeps "0 length = none" simple) */
 	rvn_text_append(&md->text, " ", 1);
 
@@ -1045,6 +1173,7 @@ void rvn_md_free(rvn_md_t* md) {
 	rvn_free(md->cells);
 	rvn_free(md->runs);
 	rvn_free(md->boxes);
+	rvn_free(md->maths);
 	rvn_free(md);
 }
 
@@ -1069,6 +1198,9 @@ typedef struct rvn_md_layout_t {
 	float size;
 	/** Width of the widest thing placed so far. */
 	float widest;
+	/** Draws the formulas, or NULL (the sources are shown as text). */
+	RMathCallback math;
+	void* math_user;
 } rvn_md_layout_t;
 
 static void rvn_md_font(rvn_md_font_t* out, Rid id, float size) {
@@ -1100,7 +1232,63 @@ static rvn_md_run_t* rvn_md_add_run(rvn_md_t* md) {
 	run = &md->runs[md->run_count++];
 	memset(run, 0, sizeof(*run));
 	run->link = -1;
+	run->math = -1;
 	return run;
+}
+
+/*
+ * Asks the application for the picture of a formula, at a size (in em: the
+ * box it gives is in em too, and is multiplied by the size of the text here).
+ */
+static void rvn_md_math_draw(rvn_md_layout_t* layout, rvn_md_math_t* math, float size) {
+	RMathBox box;
+	math->size = size;
+	math->failed = R_TRUE;
+	if (!layout->math) return;
+	memset(&box, 0, sizeof(box));
+	box.texture = R_INVALID_ID;
+	if (!layout->math(layout->widget->id, layout->md->text.data + math->start, (int)math->length, size, math->display, &box, layout->math_user)) return;
+	if (box.texture == R_INVALID_ID || box.width <= 0.0f || box.ascent + box.descent <= 0.0f) return;
+	math->texture = box.texture;
+	math->width = box.width * size;
+	math->ascent = box.ascent * size;
+	math->height = (box.ascent + box.descent) * size;
+	math->failed = R_FALSE;
+}
+
+/*
+ * The formula whose source is [start, start + length), drawn at `size`. The
+ * pictures are kept from one layout to the next: a label lays out again at
+ * every width, and the application is not asked twice for the same box.
+ */
+static const rvn_md_math_t* rvn_md_math_resolve(rvn_md_layout_t* layout, uint32_t start, uint32_t length, int display, float size) {
+	rvn_md_t* md = layout->md;
+	rvn_md_math_t* math;
+	uint32_t i;
+	/* (half sizes only: a label that shrinks a formula to fit asks for a few of them, not for hundreds) */
+	float asked = floorf(size * 2.0f + 0.5f) * 0.5f;
+	for (i = 0; i < md->math_count; i++) {
+		math = &md->maths[i];
+		if (math->start != start || math->length != length) continue;
+		if (math->size != asked) rvn_md_math_draw(layout, math, asked);
+		return math;
+	}
+	RVN_ARRAY_RESERVE(md->maths, md->math_cap, md->math_count + 1);
+	math = &md->maths[md->math_count++];
+	memset(math, 0, sizeof(*math));
+	math->start = start;
+	math->length = length;
+	math->display = display;
+	math->texture = R_INVALID_ID;
+	rvn_md_math_draw(layout, math, asked);
+	return math;
+}
+
+/* The application drew the formulas differently: they are asked for again. */
+void rvn_md_forget_math(rvn_md_t* md) {
+	if (!md) return;
+	md->math_count = 0;
+	md->laid = R_FALSE;
 }
 
 /* Ends a line of a flow: gives the runs since `first` their height and their place across. */
@@ -1124,7 +1312,12 @@ static float rvn_md_end_line(rvn_md_layout_t* layout, uint32_t first, float x0, 
 		run->y = y + leading * 0.5f + (base - bases[i - first]);
 		run->line_y = y;
 		run->line_h = height;
-		if (run->flags & RVN_MD_CODE) {
+		if (run->math >= 0) {
+			/* the formula: its picture, where the run sits, on the baseline of the line */
+			const rvn_md_math_t* math = &md->maths[run->math];
+			rvn_md_box_t* box = rvn_md_add_box(md, RVN_MD_BOX_MATH, run->x, run->y, math->width, math->height);
+			box->texture = math->texture;
+		} else if (run->flags & RVN_MD_CODE) {
 			/* the tile behind a piece of code */
 			rvn_md_add_box(md, RVN_MD_BOX_INLINE_CODE, run->x - 3.0f, y + leading * 0.5f - 1.0f, run->w + 6.0f, height - leading + 2.0f);
 		}
@@ -1168,6 +1361,49 @@ static float rvn_md_flow(rvn_md_layout_t* layout, uint32_t first_span, uint32_t 
 				made[style] = R_TRUE;
 			}
 			font = &fonts[style];
+		}
+
+		/* a formula is one word: it goes to the next line whole, and is never cut */
+		if (span->flags & RVN_MD_MATH) {
+			const rvn_md_math_t* math = rvn_md_math_resolve(layout, span->start, span->length, (span->flags & RVN_MD_DISPLAY) != 0, size);
+			if (math && !math->failed) {
+				float word_width = math->width;
+				/* (wider than the text can be: the application draws it again, smaller) */
+				if (width > 0.0f && word_width > width) {
+					const rvn_md_math_t* smaller = rvn_md_math_resolve(layout, span->start, span->length, (span->flags & RVN_MD_DISPLAY) != 0, size * rvn_maxf(width / word_width, 0.5f));
+					if (smaller && !smaller->failed) {
+						math = smaller;
+						word_width = math->width;
+					}
+				}
+				if (width > 0.0f && pen > 0.0f && pen + word_width > width + 0.5f) {
+					y += rvn_md_end_line(layout, line_first, x0, y, width, pen, align, plain.height, plain.base, bases, heights);
+					line_first = md->run_count;
+					pen = 0.0f;
+					run = NULL;
+				}
+				if (md->run_count - line_first >= RVN_MD_LINE_RUNS) {
+					y += rvn_md_end_line(layout, line_first, x0, y, width, pen, align, plain.height, plain.base, bases, heights);
+					line_first = md->run_count;
+					pen = 0.0f;
+					run = NULL;
+				}
+				run = rvn_md_add_run(md);
+				run->x = x0 + pen;
+				run->start = span->start;
+				run->math = (int16_t)(math - md->maths);
+				run->w = word_width;
+				run->font = font->id;
+				run->size = size;
+				run->link = span->link;
+				run->color = (uint8_t)(span->link >= 0 ? RVN_MD_COLOR_LINK : color);
+				/* (the box it takes, above and below the baseline of the line: see rvn_md_end_line) */
+				bases[md->run_count - 1 - line_first] = math->ascent;
+				heights[md->run_count - 1 - line_first] = math->height;
+				pen += word_width;
+				at = stop;
+				run = NULL;
+			}
 		}
 
 		while (at < stop) {
@@ -1234,6 +1470,14 @@ static float rvn_md_natural_width(rvn_md_layout_t* layout, uint32_t first_span, 
 		const rvn_md_span_t* span = &md->spans[first_span + s];
 		uint32_t style = ((span->flags & RVN_MD_BOLD) ? RVN_FONT_BOLD : 0u) | ((span->flags & RVN_MD_ITALIC) ? RVN_FONT_ITALIC : 0u) | forced;
 		rvn_font_t* font = rvn_font_resolve((span->flags & RVN_MD_CODE) ? layout->mono : rvn_font_variant(layout->font, style));
+		if (span->flags & RVN_MD_MATH) {
+			/* (a column of a table is as wide as its formulas, or they would be cut) */
+			const rvn_md_math_t* math = rvn_md_math_resolve(layout, span->start, span->length, (span->flags & RVN_MD_DISPLAY) != 0, size);
+			if (math && !math->failed) {
+				width += math->width;
+				continue;
+			}
+		}
 		width += rvn_text_width(font, (span->flags & RVN_MD_CODE) ? size * 0.94f : size, md->text.data + span->start, (int)span->length);
 	}
 	return width;
@@ -1371,7 +1615,18 @@ static float rvn_md_table(rvn_md_layout_t* layout, const rvn_md_block_t* block, 
 	return y - top;
 }
 
-rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, float size, float width) {
+/* The span of a paragraph that holds its formula ($$...$$), or NULL. */
+static const rvn_md_span_t* rvn_md_math_span(const rvn_md_t* md, const rvn_md_block_t* block) {
+	uint32_t s;
+	for (s = 0; s < block->span_count; s++) {
+		const rvn_md_span_t* span = &md->spans[block->first_span + s];
+		if (span->flags & RVN_MD_MATH) return span;
+	}
+	return NULL;
+}
+
+rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, float size, float width,
+	RMathCallback math, void* math_user) {
 	static const float heading_scale[7] = { 1.0f, 1.9f, 1.52f, 1.26f, 1.1f, 1.0f, 0.92f };
 	rvn_md_layout_t layout;
 	float y = 0.0f, gap = 0.0f;
@@ -1393,6 +1648,8 @@ rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, flo
 	layout.mono = g_rvn.mono_font;
 	layout.size = size;
 	layout.widest = 0.0f;
+	layout.math = md->math ? math : NULL;
+	layout.math_user = math_user;
 	quote_indent = floorf(size * 1.15f);
 	list_indent = floorf(size * 1.7f);
 
@@ -1412,6 +1669,7 @@ rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, flo
 		/* the space above: more before a title, less between the items of a list */
 		before = size * 0.72f;
 		if (block->type == RVN_MD_HEADING) before = size * (block->level <= 2 ? 1.25f : 1.0f);
+		else if (block->type == RVN_MD_MATH_BLOCK) before = size * 0.9f;
 		else if (block->list > 0 && b > 0 && md->blocks[b - 1].list > 0) before = size * (block->marker ? 0.3f : 0.4f);
 		if (b > 0 && md->blocks[b - 1].type == RVN_MD_HEADING) before = size * 0.5f;
 		if (b == 0) before = 0.0f;
@@ -1461,6 +1719,32 @@ rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, flo
 					height = h;
 				} else {
 					/* an image that cannot be shown is told by its alternative text */
+					height = rvn_md_flow(&layout, block->first_span, block->span_count, x0, y, room, size, RVN_FONT_ITALIC, 0, RVN_MD_COLOR_QUOTE);
+				}
+				break;
+			}
+			case RVN_MD_MATH_BLOCK: {
+				const rvn_md_span_t* span = rvn_md_math_span(md, block);
+				const rvn_md_math_t* math = span ? rvn_md_math_resolve(&layout, span->start, span->length, R_TRUE, size) : NULL;
+				float box_width = math ? math->width : 0.0f, x = x0;
+				/* (wider than the column: the application draws it again, smaller) */
+				if (math && !math->failed && room > 0.0f && box_width > room) {
+					const rvn_md_math_t* smaller = rvn_md_math_resolve(&layout, span->start, span->length, R_TRUE, size * rvn_maxf(room / box_width, 0.5f));
+					if (smaller && !smaller->failed) {
+						math = smaller;
+						box_width = math->width;
+					}
+				}
+				if (math && !math->failed) {
+					rvn_md_box_t* box;
+					float top = floorf(size * 0.25f);
+					if (room > 0.0f) x = x0 + floorf((room - box_width) * 0.5f);
+					box = rvn_md_add_box(md, RVN_MD_BOX_MATH, x, y + top, box_width, math->height);
+					box->texture = math->texture;
+					layout.widest = rvn_maxf(layout.widest, x + box_width);
+					height = top + math->height;
+				} else {
+					/* (a formula that cannot be drawn is told by its source, as an image by its alternative text) */
 					height = rvn_md_flow(&layout, block->first_span, block->span_count, x0, y, room, size, RVN_FONT_ITALIC, 0, RVN_MD_COLOR_QUOTE);
 				}
 				break;
@@ -1573,6 +1857,10 @@ void rvn_md_paint(const rvn_md_t* md, const rvn_widget_t* widget, RPainter* pain
 			case RVN_MD_BOX_IMAGE:
 				rvn_paint_image(painter, rect, box->texture, NULL, rvn_hex(0xFFFFFF, 255), 6.0f);
 				break;
+			case RVN_MD_BOX_MATH:
+				/* (drawn in white by the application: the color of the text tints it) */
+				rvn_paint_image(painter, rect, box->texture, NULL, color, 0.0f);
+				break;
 			default:
 				break;
 		}
@@ -1582,6 +1870,8 @@ void rvn_md_paint(const rvn_md_t* md, const rvn_widget_t* widget, RPainter* pain
 		const rvn_md_run_t* run = &md->runs[i];
 		rvn_color_t run_color = color;
 		int clipped = run->clip_right > 0.0f;
+		/* (a formula has no text: its picture was drawn with the boxes) */
+		if (run->math >= 0) continue;
 		if (run->color == RVN_MD_COLOR_LINK) run_color = link;
 		else if (run->color == RVN_MD_COLOR_QUOTE) run_color = dim;
 		else if (run->color >= RVN_MD_COLOR_TOKEN) run_color = rvn_syntax_color(theme, (rvn_token_t)(run->color - RVN_MD_COLOR_TOKEN), color);
@@ -1633,14 +1923,26 @@ void rvn_md_plain_text(const rvn_md_t* md, rvn_text_t* out) {
 				if (c > 0) rvn_text_append(out, c % block->columns ? "\t" : "\n", 1);
 				for (s = 0; s < cell->span_count; s++) {
 					const rvn_md_span_t* span = &md->spans[cell->first_span + s];
+					int math = (span->flags & RVN_MD_MATH) != 0;
+					const char* marks = (span->flags & RVN_MD_DISPLAY) ? "$$" : "$";
+					int marks_length = (span->flags & RVN_MD_DISPLAY) ? 2 : 1;
+					if (math) rvn_text_append(out, marks, (size_t)marks_length);
 					rvn_text_append(out, md->text.data + span->start, span->length);
+					if (math) rvn_text_append(out, marks, (size_t)marks_length);
 				}
 			}
 		} else {
+			int display = block->type == RVN_MD_MATH_BLOCK;
 			for (s = 0; s < block->span_count; s++) {
 				const rvn_md_span_t* span = &md->spans[block->first_span + s];
+				int math = (span->flags & RVN_MD_MATH) != 0;
+				const char* marks = (span->flags & RVN_MD_DISPLAY) ? "$$" : "$";
+				int marks_length = (span->flags & RVN_MD_DISPLAY) ? 2 : 1;
+				/* (a formula copies as it was written, marks and all) */
+				if (math) rvn_text_append(out, marks, (size_t)marks_length);
 				rvn_text_append(out, md->text.data + span->start, span->length);
-				if (span->flags & RVN_MD_BREAK) rvn_text_append(out, "\n", 1);
+				if (math) rvn_text_append(out, marks, (size_t)marks_length);
+				if (span->flags & RVN_MD_BREAK && !display) rvn_text_append(out, "\n", 1);
 			}
 		}
 	}

@@ -2537,6 +2537,12 @@ func LabelGetPlainText(label ID) string {
 	return C.GoString(C.Rlabel_get_plain_text(C.Rid(label)))
 }
 
+// LabelInvalidateMath: Forgets the pictures of the formulas of a label: they are asked for again at the next
+// layout (a texture that arrived, a color that changed).
+func LabelInvalidateMath(label ID) {
+	C.Rlabel_invalidate_math(C.Rid(label))
+}
+
 // ButtonCreate: Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
 func ButtonCreate(text string) ID {
 	text_ := C.CString(text)
@@ -5342,13 +5348,14 @@ func HostInjectClose(window ID) {
 // Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rwidget_set_user_handle
 // Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
 // Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
-// Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
-// Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback
-// Rtext_input_set_committed_callback, Rspin_box_set_changed_callback, Rcombo_box_set_changed_callback
-// Rlist_view_set_virtual_items, Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback
-// Rtree_item_set_user_handle, Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback
-// Rtree_view_set_activated_callback, Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback
-// Rtile_view_set_items, Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
+// Rexpander_set_changed_callback, Rlabel_set_link_callback, Rlabel_set_math_callback
+// Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback, Rslider_set_changed_callback
+// Rtext_input_set_changed_callback, Rtext_input_set_committed_callback, Rspin_box_set_changed_callback
+// Rcombo_box_set_changed_callback, Rlist_view_set_virtual_items, Rlist_view_set_selection_changed_callback
+// Rlist_view_set_activated_callback, Rtree_item_set_user_handle, Rtree_item_get_user_handle
+// Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
+// Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
+// Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
 // Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtext_editor_set_zoom_callback
 // Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback, Rtext_editor_set_changed_callback
 // Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
