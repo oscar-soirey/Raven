@@ -16,7 +16,6 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
 
-struct zwp_tablet_tool_v2;   /* (from a protocol Raven does not use) */
 struct wl_display;
 struct wl_registry;
 struct wl_callback;
@@ -57,6 +56,15 @@ struct ext_background_effect_manager_v1;
 struct ext_background_effect_surface_v1;
 struct xdg_toplevel_icon_manager_v1;
 struct xdg_toplevel_icon_v1;
+struct zwp_tablet_manager_v2;
+struct zwp_tablet_seat_v2;
+struct zwp_tablet_tool_v2;
+struct zwp_tablet_v2;
+struct zwp_tablet_pad_ring_v2;
+struct zwp_tablet_pad_strip_v2;
+struct zwp_tablet_pad_group_v2;
+struct zwp_tablet_pad_v2;
+struct zwp_tablet_pad_dial_v2;
 
 static const struct wl_interface rvn_wl_display_interface;
 static const struct wl_interface rvn_wl_registry_interface;
@@ -98,6 +106,15 @@ static const struct wl_interface rvn_ext_background_effect_manager_v1_interface;
 static const struct wl_interface rvn_ext_background_effect_surface_v1_interface;
 static const struct wl_interface rvn_xdg_toplevel_icon_manager_v1_interface;
 static const struct wl_interface rvn_xdg_toplevel_icon_v1_interface;
+static const struct wl_interface rvn_zwp_tablet_manager_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_seat_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_tool_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_pad_ring_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_pad_strip_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_pad_group_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_pad_v2_interface;
+static const struct wl_interface rvn_zwp_tablet_pad_dial_v2_interface;
 
 static const struct wl_interface* rvn_types_wl_display_r_sync[] = { &rvn_wl_callback_interface };
 static const struct wl_interface* rvn_types_wl_display_r_get_registry[] = { &rvn_wl_registry_interface };
@@ -747,7 +764,7 @@ static const struct wl_interface rvn_wp_fractional_scale_v1_interface = {
 };
 
 static const struct wl_interface* rvn_types_wp_cursor_shape_manager_v1_r_get_pointer[] = { &rvn_wp_cursor_shape_device_v1_interface, &rvn_wl_pointer_interface };
-static const struct wl_interface* rvn_types_wp_cursor_shape_manager_v1_r_get_tablet_tool_v2[] = { &rvn_wp_cursor_shape_device_v1_interface, NULL };
+static const struct wl_interface* rvn_types_wp_cursor_shape_manager_v1_r_get_tablet_tool_v2[] = { &rvn_wp_cursor_shape_device_v1_interface, &rvn_zwp_tablet_tool_v2_interface };
 static const struct wl_message rvn_wp_cursor_shape_manager_v1_requests[] = {
 	{ "destroy", "", NULL },
 	{ "get_pointer", "no", rvn_types_wp_cursor_shape_manager_v1_r_get_pointer },
@@ -825,6 +842,210 @@ static const struct wl_interface rvn_xdg_toplevel_icon_v1_interface = {
 	"xdg_toplevel_icon_v1", 1,
 	3, rvn_xdg_toplevel_icon_v1_requests,
 	0, NULL
+};
+
+static const struct wl_interface* rvn_types_zwp_tablet_manager_v2_r_get_tablet_seat[] = { &rvn_zwp_tablet_seat_v2_interface, &rvn_wl_seat_interface };
+static const struct wl_message rvn_zwp_tablet_manager_v2_requests[] = {
+	{ "get_tablet_seat", "no", rvn_types_zwp_tablet_manager_v2_r_get_tablet_seat },
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface rvn_zwp_tablet_manager_v2_interface = {
+	"zwp_tablet_manager_v2", 2,
+	2, rvn_zwp_tablet_manager_v2_requests,
+	0, NULL
+};
+
+static const struct wl_message rvn_zwp_tablet_seat_v2_requests[] = {
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_seat_v2_e_tablet_added[] = { &rvn_zwp_tablet_v2_interface };
+static const struct wl_interface* rvn_types_zwp_tablet_seat_v2_e_tool_added[] = { &rvn_zwp_tablet_tool_v2_interface };
+static const struct wl_interface* rvn_types_zwp_tablet_seat_v2_e_pad_added[] = { &rvn_zwp_tablet_pad_v2_interface };
+static const struct wl_message rvn_zwp_tablet_seat_v2_events[] = {
+	{ "tablet_added", "n", rvn_types_zwp_tablet_seat_v2_e_tablet_added },
+	{ "tool_added", "n", rvn_types_zwp_tablet_seat_v2_e_tool_added },
+	{ "pad_added", "n", rvn_types_zwp_tablet_seat_v2_e_pad_added },
+};
+static const struct wl_interface rvn_zwp_tablet_seat_v2_interface = {
+	"zwp_tablet_seat_v2", 2,
+	1, rvn_zwp_tablet_seat_v2_requests,
+	3, rvn_zwp_tablet_seat_v2_events
+};
+
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_r_set_cursor[] = { NULL, &rvn_wl_surface_interface, NULL, NULL };
+static const struct wl_message rvn_zwp_tablet_tool_v2_requests[] = {
+	{ "set_cursor", "u?oii", rvn_types_zwp_tablet_tool_v2_r_set_cursor },
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_type[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_hardware_serial[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_hardware_id_wacom[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_capability[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_proximity_in[] = { NULL, &rvn_zwp_tablet_v2_interface, &rvn_wl_surface_interface };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_down[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_motion[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_pressure[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_distance[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_tilt[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_rotation[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_slider[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_wheel[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_button[] = { NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_tool_v2_e_frame[] = { NULL };
+static const struct wl_message rvn_zwp_tablet_tool_v2_events[] = {
+	{ "type", "u", rvn_types_zwp_tablet_tool_v2_e_type },
+	{ "hardware_serial", "uu", rvn_types_zwp_tablet_tool_v2_e_hardware_serial },
+	{ "hardware_id_wacom", "uu", rvn_types_zwp_tablet_tool_v2_e_hardware_id_wacom },
+	{ "capability", "u", rvn_types_zwp_tablet_tool_v2_e_capability },
+	{ "done", "", NULL },
+	{ "removed", "", NULL },
+	{ "proximity_in", "uoo", rvn_types_zwp_tablet_tool_v2_e_proximity_in },
+	{ "proximity_out", "", NULL },
+	{ "down", "u", rvn_types_zwp_tablet_tool_v2_e_down },
+	{ "up", "", NULL },
+	{ "motion", "ff", rvn_types_zwp_tablet_tool_v2_e_motion },
+	{ "pressure", "u", rvn_types_zwp_tablet_tool_v2_e_pressure },
+	{ "distance", "u", rvn_types_zwp_tablet_tool_v2_e_distance },
+	{ "tilt", "ff", rvn_types_zwp_tablet_tool_v2_e_tilt },
+	{ "rotation", "f", rvn_types_zwp_tablet_tool_v2_e_rotation },
+	{ "slider", "i", rvn_types_zwp_tablet_tool_v2_e_slider },
+	{ "wheel", "fi", rvn_types_zwp_tablet_tool_v2_e_wheel },
+	{ "button", "uuu", rvn_types_zwp_tablet_tool_v2_e_button },
+	{ "frame", "u", rvn_types_zwp_tablet_tool_v2_e_frame },
+};
+static const struct wl_interface rvn_zwp_tablet_tool_v2_interface = {
+	"zwp_tablet_tool_v2", 2,
+	2, rvn_zwp_tablet_tool_v2_requests,
+	19, rvn_zwp_tablet_tool_v2_events
+};
+
+static const struct wl_message rvn_zwp_tablet_v2_requests[] = {
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_v2_e_name[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_v2_e_id[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_v2_e_path[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_v2_e_bustype[] = { NULL };
+static const struct wl_message rvn_zwp_tablet_v2_events[] = {
+	{ "name", "s", rvn_types_zwp_tablet_v2_e_name },
+	{ "id", "uu", rvn_types_zwp_tablet_v2_e_id },
+	{ "path", "s", rvn_types_zwp_tablet_v2_e_path },
+	{ "done", "", NULL },
+	{ "removed", "", NULL },
+	{ "bustype", "2u", rvn_types_zwp_tablet_v2_e_bustype },
+};
+static const struct wl_interface rvn_zwp_tablet_v2_interface = {
+	"zwp_tablet_v2", 2,
+	1, rvn_zwp_tablet_v2_requests,
+	6, rvn_zwp_tablet_v2_events
+};
+
+static const struct wl_interface* rvn_types_zwp_tablet_pad_ring_v2_r_set_feedback[] = { NULL, NULL };
+static const struct wl_message rvn_zwp_tablet_pad_ring_v2_requests[] = {
+	{ "set_feedback", "su", rvn_types_zwp_tablet_pad_ring_v2_r_set_feedback },
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_pad_ring_v2_e_source[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_ring_v2_e_angle[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_ring_v2_e_frame[] = { NULL };
+static const struct wl_message rvn_zwp_tablet_pad_ring_v2_events[] = {
+	{ "source", "u", rvn_types_zwp_tablet_pad_ring_v2_e_source },
+	{ "angle", "f", rvn_types_zwp_tablet_pad_ring_v2_e_angle },
+	{ "stop", "", NULL },
+	{ "frame", "u", rvn_types_zwp_tablet_pad_ring_v2_e_frame },
+};
+static const struct wl_interface rvn_zwp_tablet_pad_ring_v2_interface = {
+	"zwp_tablet_pad_ring_v2", 2,
+	2, rvn_zwp_tablet_pad_ring_v2_requests,
+	4, rvn_zwp_tablet_pad_ring_v2_events
+};
+
+static const struct wl_interface* rvn_types_zwp_tablet_pad_strip_v2_r_set_feedback[] = { NULL, NULL };
+static const struct wl_message rvn_zwp_tablet_pad_strip_v2_requests[] = {
+	{ "set_feedback", "su", rvn_types_zwp_tablet_pad_strip_v2_r_set_feedback },
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_pad_strip_v2_e_source[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_strip_v2_e_position[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_strip_v2_e_frame[] = { NULL };
+static const struct wl_message rvn_zwp_tablet_pad_strip_v2_events[] = {
+	{ "source", "u", rvn_types_zwp_tablet_pad_strip_v2_e_source },
+	{ "position", "u", rvn_types_zwp_tablet_pad_strip_v2_e_position },
+	{ "stop", "", NULL },
+	{ "frame", "u", rvn_types_zwp_tablet_pad_strip_v2_e_frame },
+};
+static const struct wl_interface rvn_zwp_tablet_pad_strip_v2_interface = {
+	"zwp_tablet_pad_strip_v2", 2,
+	2, rvn_zwp_tablet_pad_strip_v2_requests,
+	4, rvn_zwp_tablet_pad_strip_v2_events
+};
+
+static const struct wl_message rvn_zwp_tablet_pad_group_v2_requests[] = {
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_pad_group_v2_e_buttons[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_group_v2_e_ring[] = { &rvn_zwp_tablet_pad_ring_v2_interface };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_group_v2_e_strip[] = { &rvn_zwp_tablet_pad_strip_v2_interface };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_group_v2_e_modes[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_group_v2_e_mode_switch[] = { NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_group_v2_e_dial[] = { &rvn_zwp_tablet_pad_dial_v2_interface };
+static const struct wl_message rvn_zwp_tablet_pad_group_v2_events[] = {
+	{ "buttons", "a", rvn_types_zwp_tablet_pad_group_v2_e_buttons },
+	{ "ring", "n", rvn_types_zwp_tablet_pad_group_v2_e_ring },
+	{ "strip", "n", rvn_types_zwp_tablet_pad_group_v2_e_strip },
+	{ "modes", "u", rvn_types_zwp_tablet_pad_group_v2_e_modes },
+	{ "done", "", NULL },
+	{ "mode_switch", "uuu", rvn_types_zwp_tablet_pad_group_v2_e_mode_switch },
+	{ "dial", "2n", rvn_types_zwp_tablet_pad_group_v2_e_dial },
+};
+static const struct wl_interface rvn_zwp_tablet_pad_group_v2_interface = {
+	"zwp_tablet_pad_group_v2", 2,
+	1, rvn_zwp_tablet_pad_group_v2_requests,
+	7, rvn_zwp_tablet_pad_group_v2_events
+};
+
+static const struct wl_interface* rvn_types_zwp_tablet_pad_v2_r_set_feedback[] = { NULL, NULL, NULL };
+static const struct wl_message rvn_zwp_tablet_pad_v2_requests[] = {
+	{ "set_feedback", "usu", rvn_types_zwp_tablet_pad_v2_r_set_feedback },
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_pad_v2_e_group[] = { &rvn_zwp_tablet_pad_group_v2_interface };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_v2_e_path[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_v2_e_buttons[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_v2_e_button[] = { NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_v2_e_enter[] = { NULL, &rvn_zwp_tablet_v2_interface, &rvn_wl_surface_interface };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_v2_e_leave[] = { NULL, &rvn_wl_surface_interface };
+static const struct wl_message rvn_zwp_tablet_pad_v2_events[] = {
+	{ "group", "n", rvn_types_zwp_tablet_pad_v2_e_group },
+	{ "path", "s", rvn_types_zwp_tablet_pad_v2_e_path },
+	{ "buttons", "u", rvn_types_zwp_tablet_pad_v2_e_buttons },
+	{ "done", "", NULL },
+	{ "button", "uuu", rvn_types_zwp_tablet_pad_v2_e_button },
+	{ "enter", "uoo", rvn_types_zwp_tablet_pad_v2_e_enter },
+	{ "leave", "uo", rvn_types_zwp_tablet_pad_v2_e_leave },
+	{ "removed", "", NULL },
+};
+static const struct wl_interface rvn_zwp_tablet_pad_v2_interface = {
+	"zwp_tablet_pad_v2", 2,
+	2, rvn_zwp_tablet_pad_v2_requests,
+	8, rvn_zwp_tablet_pad_v2_events
+};
+
+static const struct wl_interface* rvn_types_zwp_tablet_pad_dial_v2_r_set_feedback[] = { NULL, NULL };
+static const struct wl_message rvn_zwp_tablet_pad_dial_v2_requests[] = {
+	{ "set_feedback", "su", rvn_types_zwp_tablet_pad_dial_v2_r_set_feedback },
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_tablet_pad_dial_v2_e_delta[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_tablet_pad_dial_v2_e_frame[] = { NULL };
+static const struct wl_message rvn_zwp_tablet_pad_dial_v2_events[] = {
+	{ "delta", "i", rvn_types_zwp_tablet_pad_dial_v2_e_delta },
+	{ "frame", "u", rvn_types_zwp_tablet_pad_dial_v2_e_frame },
+};
+static const struct wl_interface rvn_zwp_tablet_pad_dial_v2_interface = {
+	"zwp_tablet_pad_dial_v2", 2,
+	2, rvn_zwp_tablet_pad_dial_v2_requests,
+	2, rvn_zwp_tablet_pad_dial_v2_events
 };
 
 enum wl_display_error {
@@ -1281,6 +1502,48 @@ enum xdg_toplevel_icon_v1_error {
 	XDG_TOPLEVEL_ICON_V1_ERROR_IMMUTABLE = 2,
 	XDG_TOPLEVEL_ICON_V1_ERROR_NO_BUFFER = 3,
 };
+enum zwp_tablet_tool_v2_type {
+	ZWP_TABLET_TOOL_V2_TYPE_PEN = 0x140,
+	ZWP_TABLET_TOOL_V2_TYPE_ERASER = 0x141,
+	ZWP_TABLET_TOOL_V2_TYPE_BRUSH = 0x142,
+	ZWP_TABLET_TOOL_V2_TYPE_PENCIL = 0x143,
+	ZWP_TABLET_TOOL_V2_TYPE_AIRBRUSH = 0x144,
+	ZWP_TABLET_TOOL_V2_TYPE_FINGER = 0x145,
+	ZWP_TABLET_TOOL_V2_TYPE_MOUSE = 0x146,
+	ZWP_TABLET_TOOL_V2_TYPE_LENS = 0x147,
+};
+enum zwp_tablet_tool_v2_capability {
+	ZWP_TABLET_TOOL_V2_CAPABILITY_TILT = 1,
+	ZWP_TABLET_TOOL_V2_CAPABILITY_PRESSURE = 2,
+	ZWP_TABLET_TOOL_V2_CAPABILITY_DISTANCE = 3,
+	ZWP_TABLET_TOOL_V2_CAPABILITY_ROTATION = 4,
+	ZWP_TABLET_TOOL_V2_CAPABILITY_SLIDER = 5,
+	ZWP_TABLET_TOOL_V2_CAPABILITY_WHEEL = 6,
+};
+enum zwp_tablet_tool_v2_button_state {
+	ZWP_TABLET_TOOL_V2_BUTTON_STATE_RELEASED = 0,
+	ZWP_TABLET_TOOL_V2_BUTTON_STATE_PRESSED = 1,
+};
+enum zwp_tablet_tool_v2_error {
+	ZWP_TABLET_TOOL_V2_ERROR_ROLE = 0,
+};
+enum zwp_tablet_v2_bustype {
+	ZWP_TABLET_V2_BUSTYPE_USB = 3,
+	ZWP_TABLET_V2_BUSTYPE_BLUETOOTH = 5,
+	ZWP_TABLET_V2_BUSTYPE_VIRTUAL = 6,
+	ZWP_TABLET_V2_BUSTYPE_SERIAL = 17,
+	ZWP_TABLET_V2_BUSTYPE_I2C = 24,
+};
+enum zwp_tablet_pad_ring_v2_source {
+	ZWP_TABLET_PAD_RING_V2_SOURCE_FINGER = 1,
+};
+enum zwp_tablet_pad_strip_v2_source {
+	ZWP_TABLET_PAD_STRIP_V2_SOURCE_FINGER = 1,
+};
+enum zwp_tablet_pad_v2_button_state {
+	ZWP_TABLET_PAD_V2_BUTTON_STATE_RELEASED = 0,
+	ZWP_TABLET_PAD_V2_BUTTON_STATE_PRESSED = 1,
+};
 
 struct wl_registry_listener {
 	void (*global)(void* data, struct wl_registry* wl_registry, uint32_t name, const char* interface_, uint32_t version);
@@ -1465,6 +1728,99 @@ struct xdg_toplevel_icon_manager_v1_listener {
 };
 static int xdg_toplevel_icon_manager_v1_add_listener(struct xdg_toplevel_icon_manager_v1* xdg_toplevel_icon_manager_v1, const struct xdg_toplevel_icon_manager_v1_listener* listener, void* data) {
 	return RVN_WL_ADD_LISTENER((struct wl_proxy*)xdg_toplevel_icon_manager_v1, (void (**)(void))listener, data);
+}
+struct zwp_tablet_seat_v2_listener {
+	void (*tablet_added)(void* data, struct zwp_tablet_seat_v2* zwp_tablet_seat_v2, struct zwp_tablet_v2* id);
+	void (*tool_added)(void* data, struct zwp_tablet_seat_v2* zwp_tablet_seat_v2, struct zwp_tablet_tool_v2* id);
+	void (*pad_added)(void* data, struct zwp_tablet_seat_v2* zwp_tablet_seat_v2, struct zwp_tablet_pad_v2* id);
+};
+static int zwp_tablet_seat_v2_add_listener(struct zwp_tablet_seat_v2* zwp_tablet_seat_v2, const struct zwp_tablet_seat_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_seat_v2, (void (**)(void))listener, data);
+}
+struct zwp_tablet_tool_v2_listener {
+	void (*type)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t tool_type);
+	void (*hardware_serial)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t hardware_serial_hi, uint32_t hardware_serial_lo);
+	void (*hardware_id_wacom)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t hardware_id_hi, uint32_t hardware_id_lo);
+	void (*capability)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t capability);
+	void (*done)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2);
+	void (*removed)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2);
+	void (*proximity_in)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t serial, struct zwp_tablet_v2* tablet, struct wl_surface* surface);
+	void (*proximity_out)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2);
+	void (*down)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t serial);
+	void (*up)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2);
+	void (*motion)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, int32_t x, int32_t y);
+	void (*pressure)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t pressure);
+	void (*distance)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t distance);
+	void (*tilt)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, int32_t tilt_x, int32_t tilt_y);
+	void (*rotation)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, int32_t degrees);
+	void (*slider)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, int32_t position);
+	void (*wheel)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, int32_t degrees, int32_t clicks);
+	void (*button)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t serial, uint32_t button, uint32_t state);
+	void (*frame)(void* data, struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t time);
+};
+static int zwp_tablet_tool_v2_add_listener(struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, const struct zwp_tablet_tool_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_tool_v2, (void (**)(void))listener, data);
+}
+struct zwp_tablet_v2_listener {
+	void (*name)(void* data, struct zwp_tablet_v2* zwp_tablet_v2, const char* name);
+	void (*id)(void* data, struct zwp_tablet_v2* zwp_tablet_v2, uint32_t vid, uint32_t pid);
+	void (*path)(void* data, struct zwp_tablet_v2* zwp_tablet_v2, const char* path);
+	void (*done)(void* data, struct zwp_tablet_v2* zwp_tablet_v2);
+	void (*removed)(void* data, struct zwp_tablet_v2* zwp_tablet_v2);
+	void (*bustype)(void* data, struct zwp_tablet_v2* zwp_tablet_v2, uint32_t bustype);
+};
+static int zwp_tablet_v2_add_listener(struct zwp_tablet_v2* zwp_tablet_v2, const struct zwp_tablet_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_v2, (void (**)(void))listener, data);
+}
+struct zwp_tablet_pad_ring_v2_listener {
+	void (*source)(void* data, struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2, uint32_t source);
+	void (*angle)(void* data, struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2, int32_t degrees);
+	void (*stop)(void* data, struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2);
+	void (*frame)(void* data, struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2, uint32_t time);
+};
+static int zwp_tablet_pad_ring_v2_add_listener(struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2, const struct zwp_tablet_pad_ring_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_pad_ring_v2, (void (**)(void))listener, data);
+}
+struct zwp_tablet_pad_strip_v2_listener {
+	void (*source)(void* data, struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2, uint32_t source);
+	void (*position)(void* data, struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2, uint32_t position);
+	void (*stop)(void* data, struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2);
+	void (*frame)(void* data, struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2, uint32_t time);
+};
+static int zwp_tablet_pad_strip_v2_add_listener(struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2, const struct zwp_tablet_pad_strip_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_pad_strip_v2, (void (**)(void))listener, data);
+}
+struct zwp_tablet_pad_group_v2_listener {
+	void (*buttons)(void* data, struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, struct wl_array* buttons);
+	void (*ring)(void* data, struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, struct zwp_tablet_pad_ring_v2* ring);
+	void (*strip)(void* data, struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, struct zwp_tablet_pad_strip_v2* strip);
+	void (*modes)(void* data, struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, uint32_t modes);
+	void (*done)(void* data, struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2);
+	void (*mode_switch)(void* data, struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, uint32_t time, uint32_t serial, uint32_t mode);
+	void (*dial)(void* data, struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, struct zwp_tablet_pad_dial_v2* dial);
+};
+static int zwp_tablet_pad_group_v2_add_listener(struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, const struct zwp_tablet_pad_group_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_pad_group_v2, (void (**)(void))listener, data);
+}
+struct zwp_tablet_pad_v2_listener {
+	void (*group)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, struct zwp_tablet_pad_group_v2* pad_group);
+	void (*path)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, const char* path);
+	void (*buttons)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, uint32_t buttons);
+	void (*done)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2);
+	void (*button)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, uint32_t time, uint32_t button, uint32_t state);
+	void (*enter)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, uint32_t serial, struct zwp_tablet_v2* tablet, struct wl_surface* surface);
+	void (*leave)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, uint32_t serial, struct wl_surface* surface);
+	void (*removed)(void* data, struct zwp_tablet_pad_v2* zwp_tablet_pad_v2);
+};
+static int zwp_tablet_pad_v2_add_listener(struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, const struct zwp_tablet_pad_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_pad_v2, (void (**)(void))listener, data);
+}
+struct zwp_tablet_pad_dial_v2_listener {
+	void (*delta)(void* data, struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2, int32_t value120);
+	void (*frame)(void* data, struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2, uint32_t time);
+};
+static int zwp_tablet_pad_dial_v2_add_listener(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2, const struct zwp_tablet_pad_dial_v2_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_pad_dial_v2, (void (**)(void))listener, data);
 }
 
 static void wl_display_set_user_data(struct wl_display* wl_display, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)wl_display, data); }
@@ -2046,6 +2402,87 @@ static void xdg_toplevel_icon_v1_set_name(struct xdg_toplevel_icon_v1* xdg_tople
 }
 static void xdg_toplevel_icon_v1_add_buffer(struct xdg_toplevel_icon_v1* xdg_toplevel_icon_v1, struct wl_buffer* buffer, int32_t scale) {
 	RVN_WL_MARSHAL((struct wl_proxy*)xdg_toplevel_icon_v1, 2, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)xdg_toplevel_icon_v1), 0, buffer, scale);
+}
+
+static void zwp_tablet_manager_v2_set_user_data(struct zwp_tablet_manager_v2* zwp_tablet_manager_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_manager_v2, data); }
+static void* zwp_tablet_manager_v2_get_user_data(struct zwp_tablet_manager_v2* zwp_tablet_manager_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_manager_v2); }
+static uint32_t zwp_tablet_manager_v2_get_version(struct zwp_tablet_manager_v2* zwp_tablet_manager_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_manager_v2); }
+static struct zwp_tablet_seat_v2* zwp_tablet_manager_v2_get_tablet_seat(struct zwp_tablet_manager_v2* zwp_tablet_manager_v2, struct wl_seat* seat) {
+	return (struct zwp_tablet_seat_v2*)RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_manager_v2, 0, &rvn_zwp_tablet_seat_v2_interface, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_manager_v2), 0, NULL, seat);
+}
+static void zwp_tablet_manager_v2_destroy(struct zwp_tablet_manager_v2* zwp_tablet_manager_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_manager_v2, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_manager_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_seat_v2_set_user_data(struct zwp_tablet_seat_v2* zwp_tablet_seat_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_seat_v2, data); }
+static void* zwp_tablet_seat_v2_get_user_data(struct zwp_tablet_seat_v2* zwp_tablet_seat_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_seat_v2); }
+static uint32_t zwp_tablet_seat_v2_get_version(struct zwp_tablet_seat_v2* zwp_tablet_seat_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_seat_v2); }
+static void zwp_tablet_seat_v2_destroy(struct zwp_tablet_seat_v2* zwp_tablet_seat_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_seat_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_seat_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_tool_v2_set_user_data(struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_tool_v2, data); }
+static void* zwp_tablet_tool_v2_get_user_data(struct zwp_tablet_tool_v2* zwp_tablet_tool_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_tool_v2); }
+static uint32_t zwp_tablet_tool_v2_get_version(struct zwp_tablet_tool_v2* zwp_tablet_tool_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_tool_v2); }
+static void zwp_tablet_tool_v2_set_cursor(struct zwp_tablet_tool_v2* zwp_tablet_tool_v2, uint32_t serial, struct wl_surface* surface, int32_t hotspot_x, int32_t hotspot_y) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_tool_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_tool_v2), 0, serial, surface, hotspot_x, hotspot_y);
+}
+static void zwp_tablet_tool_v2_destroy(struct zwp_tablet_tool_v2* zwp_tablet_tool_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_tool_v2, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_tool_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_v2_set_user_data(struct zwp_tablet_v2* zwp_tablet_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_v2, data); }
+static void* zwp_tablet_v2_get_user_data(struct zwp_tablet_v2* zwp_tablet_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_v2); }
+static uint32_t zwp_tablet_v2_get_version(struct zwp_tablet_v2* zwp_tablet_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_v2); }
+static void zwp_tablet_v2_destroy(struct zwp_tablet_v2* zwp_tablet_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_pad_ring_v2_set_user_data(struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_ring_v2, data); }
+static void* zwp_tablet_pad_ring_v2_get_user_data(struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_ring_v2); }
+static uint32_t zwp_tablet_pad_ring_v2_get_version(struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_ring_v2); }
+static void zwp_tablet_pad_ring_v2_set_feedback(struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2, const char* description, uint32_t serial) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_ring_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_ring_v2), 0, description, serial);
+}
+static void zwp_tablet_pad_ring_v2_destroy(struct zwp_tablet_pad_ring_v2* zwp_tablet_pad_ring_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_ring_v2, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_ring_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_pad_strip_v2_set_user_data(struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_strip_v2, data); }
+static void* zwp_tablet_pad_strip_v2_get_user_data(struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_strip_v2); }
+static uint32_t zwp_tablet_pad_strip_v2_get_version(struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_strip_v2); }
+static void zwp_tablet_pad_strip_v2_set_feedback(struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2, const char* description, uint32_t serial) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_strip_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_strip_v2), 0, description, serial);
+}
+static void zwp_tablet_pad_strip_v2_destroy(struct zwp_tablet_pad_strip_v2* zwp_tablet_pad_strip_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_strip_v2, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_strip_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_pad_group_v2_set_user_data(struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_group_v2, data); }
+static void* zwp_tablet_pad_group_v2_get_user_data(struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_group_v2); }
+static uint32_t zwp_tablet_pad_group_v2_get_version(struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_group_v2); }
+static void zwp_tablet_pad_group_v2_destroy(struct zwp_tablet_pad_group_v2* zwp_tablet_pad_group_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_group_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_group_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_pad_v2_set_user_data(struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_v2, data); }
+static void* zwp_tablet_pad_v2_get_user_data(struct zwp_tablet_pad_v2* zwp_tablet_pad_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_v2); }
+static uint32_t zwp_tablet_pad_v2_get_version(struct zwp_tablet_pad_v2* zwp_tablet_pad_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_v2); }
+static void zwp_tablet_pad_v2_set_feedback(struct zwp_tablet_pad_v2* zwp_tablet_pad_v2, uint32_t button, const char* description, uint32_t serial) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_v2), 0, button, description, serial);
+}
+static void zwp_tablet_pad_v2_destroy(struct zwp_tablet_pad_v2* zwp_tablet_pad_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_v2, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_tablet_pad_dial_v2_set_user_data(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_dial_v2, data); }
+static void* zwp_tablet_pad_dial_v2_get_user_data(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_tablet_pad_dial_v2); }
+static uint32_t zwp_tablet_pad_dial_v2_get_version(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_dial_v2); }
+static void zwp_tablet_pad_dial_v2_set_feedback(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2, const char* description, uint32_t serial) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_dial_v2, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_dial_v2), 0, description, serial);
+}
+static void zwp_tablet_pad_dial_v2_destroy(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_dial_v2, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_dial_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
 }
 
 #if defined(__GNUC__)

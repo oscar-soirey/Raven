@@ -14,6 +14,7 @@ licensed (see `COPYING`). `tools/wayland/gen_wayland.py` reads them and writes
 | `cursor-shape-v1.xml` | wayland-protocols, staging | cursors drawn by the compositor |
 | `ext-background-effect-v1.xml` | wayland-protocols, staging | blur behind transparent windows |
 | `xdg-toplevel-icon-v1.xml` | wayland-protocols, staging | window icons |
+| `tablet-v2.xml` | wayland-protocols, stable | pens and tablets: pressure, tilt, eraser |
 
 To speak another protocol: add its file here and to the list at the top of
 `gen_wayland.py`, and run it.

@@ -38,6 +38,8 @@ static struct {
     int initialized;
     rvn_pwindow_t* resize_window;
     rvn_pregion_t resize_region;
+    /* the end of the pen near the tablet is its eraser (tabletProximity) */
+    int pen_eraser;
     NSPoint resize_start;
     NSRect resize_frame;
 } g_cocoa;
@@ -214,9 +216,47 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     rvn_pevent_t event; memset(&event, 0, sizeof(event)); event.type = RVN_PEVENT_EXPOSE;
     rvn_cocoa_emit(ravenWindow, &event);
 }
+/*
+ * A pen on a tablet: macOS makes it the mouse itself, with a pressure and a
+ * tilt on the events (subtype tablet point). The core is told about the pen
+ * as well, for the pressure and the palm (pen_native_mouse: it does not make
+ * a second mouse of it).
+ */
+- (void)rvnPen:(NSEvent*)event phase:(int)phase {
+    if ([event type] != NSEventTypeTabletPoint && [event subtype] != NSEventSubtypeTabletPoint) return;
+    NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_PEN; e.phase = phase; e.pen_native_mouse = 1;
+    e.fx = (float)(p.x * s); e.fy = (float)(p.y * s);
+    e.pressure = (phase == R_PEN_DOWN || phase == R_PEN_MOVE) ? (float)[event pressure] : 0.0f;
+    /* (the tilt goes from -1 to 1, about 60 degrees at the ends; up is negative on the screen) */
+    e.tilt_x = (float)[event tilt].x * 60.0f; e.tilt_y = (float)-[event tilt].y * 60.0f;
+    e.rotation = (float)[event rotation];
+    e.eraser = g_cocoa.pen_eraser;
+    if ([event buttonMask] & NSEventButtonMaskPenLowerSide) e.pen_buttons |= R_PEN_BUTTON_BARREL;
+    if ([event buttonMask] & NSEventButtonMaskPenUpperSide) e.pen_buttons |= R_PEN_BUTTON_BARREL2;
+    e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+}
+- (void)tabletProximity:(NSEvent*)event {
+    g_cocoa.pen_eraser = [event pointingDeviceType] == NSPointingDeviceTypeEraser;
+    if (![event isEnteringProximity]) {
+        rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_PEN; e.phase = R_PEN_LEAVE; e.pen_native_mouse = 1; rvn_cocoa_emit(ravenWindow, &e);
+    }
+}
+- (void)tabletPoint:(NSEvent*)event { [self rvnPen:event phase:[event pressure] > 0.0 ? R_PEN_MOVE : R_PEN_HOVER]; }
+/* the pinch of the trackpad: a gesture of two fingers for the core */
+- (void)magnifyWithEvent:(NSEvent*)event {
+    NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
+    NSEventPhase phase = [event phase];
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_GESTURE;
+    e.phase = (phase & NSEventPhaseBegan) ? R_GESTURE_BEGIN : (phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) ? R_GESTURE_END : R_GESTURE_UPDATE;
+    e.fx = (float)(p.x * s); e.fy = (float)(p.y * s);
+    e.gesture_scale = (float)(1.0 + [event magnification]);
+    e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+}
 - (void)mouseMoved:(NSEvent*)event {
     NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_MOUSE_MOVE; e.x = (int)lrint(p.x * s); e.y = (int)lrint(p.y * s); e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+    [self rvnPen:event phase:[event type] == NSEventTypeLeftMouseDragged ? R_PEN_MOVE : R_PEN_HOVER];
 }
 - (void)mouseDragged:(NSEvent*)event { rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
 - (void)rightMouseDragged:(NSEvent*)event { rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
@@ -231,8 +271,8 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     e.button = button; e.pressed = pressed; e.x = (int)lrint(p.x * s); e.y = (int)lrint(p.y * s);
     e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
 }
-- (void)mouseDown:(NSEvent*)event { [self rvnMouse:event button:0 pressed:1]; }
-- (void)mouseUp:(NSEvent*)event { [self rvnMouse:event button:0 pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
+- (void)mouseDown:(NSEvent*)event { [self rvnMouse:event button:0 pressed:1]; [self rvnPen:event phase:R_PEN_DOWN]; }
+- (void)mouseUp:(NSEvent*)event { [self rvnMouse:event button:0 pressed:0]; [self rvnPen:event phase:R_PEN_UP]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
 - (void)rightMouseDown:(NSEvent*)event { [self rvnMouse:event button:1 pressed:1]; }
 - (void)rightMouseUp:(NSEvent*)event { [self rvnMouse:event button:1 pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
 - (void)otherMouseDown:(NSEvent*)event { [self rvnMouse:event button:(int)[event buttonNumber] pressed:1]; }

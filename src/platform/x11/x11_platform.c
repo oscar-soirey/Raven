@@ -122,6 +122,8 @@ static struct {
 	Atom text_plain_utf8;
 	Atom text_plain;
 	Atom dnd_property;
+	/** The window a pen was last seen over (XInput 2), or NULL. */
+	rvn_pwindow_t* pen_window;
 } g_x11;
 
 /* ---------------------------------------------------------------------------
@@ -258,6 +260,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 	g_x11.screen = DefaultScreen(g_x11.display);
 	g_x11.root = RootWindow(g_x11.display, g_x11.screen);
 	g_x11.context = XUniqueContext();
+	rvn_x11_xi2_init(g_x11.display, g_x11.root);
 	g_x11.scale = rvn_x11_read_scale();
 
 	g_x11.wm_protocols = XInternAtom(g_x11.display, "WM_PROTOCOLS", False);
@@ -328,6 +331,8 @@ static void rvn_x11_shutdown(void) {
 	for (i = 0; i < RVN_X11_INCR_MAX_TRANSFERS; i++) rvn_free(g_x11.transfers[i].data);
 	if (g_x11.input_method) XCloseIM(g_x11.input_method);
 	XCloseDisplay(g_x11.display);
+	/* (after the display: libXi hooked the closing of the extension) */
+	rvn_x11_xi2_shutdown();
 	if (g_x11.wake_pipe[0] >= 0) close(g_x11.wake_pipe[0]);
 	if (g_x11.wake_pipe[1] >= 0) close(g_x11.wake_pipe[1]);
 	rvn_free(g_x11.clipboard);
@@ -398,6 +403,7 @@ static rvn_pwindow_t* rvn_x11_window_create(const rvn_pwindow_desc_t* desc) {
 		return NULL;
 	}
 	XSaveContext(g_x11.display, window->handle, g_x11.context, (XPointer)window);
+	rvn_x11_xi2_select(g_x11.display, window->handle);
 
 	protocols[0] = g_x11.wm_delete_window;
 	XSetWMProtocols(g_x11.display, window->handle, protocols, 1);
@@ -444,6 +450,7 @@ static void rvn_x11_window_destroy(rvn_pwindow_t* window) {
 	if (g_x11.drag_window == window) g_x11.drag_window = NULL;
 	if (window->input_context) XDestroyIC(window->input_context);
 	if (!window->is_child) XDeleteContext(g_x11.display, window->handle, g_x11.context);
+	if (g_x11.pen_window == window) g_x11.pen_window = NULL;
 	XDestroyWindow(g_x11.display, window->handle);
 	if (window->colormap) XFreeColormap(g_x11.display, window->colormap);
 	XFlush(g_x11.display);
@@ -1335,6 +1342,46 @@ static void rvn_x11_dnd_drop(rvn_pwindow_t* window, const XClientMessageEvent* m
 	}
 }
 
+/*
+ * A core pointer event of a pen (XInput 2 gave its pressure at the same
+ * moment): the platform already moved the mouse; the core is told about the
+ * pen too, for the pressure and the palm. `pressed`: the tip touches;
+ * `edge`: it just touched or just left.
+ */
+static void rvn_x11_pen_event(rvn_pwindow_t* window, Time time, int x, int y, int pressed, int edge, uint32_t modifiers) {
+	rvn_x11_pen_t pen;
+	rvn_pevent_t event;
+	if (!rvn_x11_xi2_pen(time, &pen)) {
+		/* a mouse moves: the pen went away */
+		if (g_x11.pen_window == window && !edge) {
+			memset(&event, 0, sizeof(event));
+			event.type = RVN_PEVENT_PEN;
+			event.phase = R_PEN_LEAVE;
+			event.pen_native_mouse = R_TRUE;
+			event.fx = (float)x;
+			event.fy = (float)y;
+			g_x11.pen_window = NULL;
+			rvn_x11_emit(window, &event);
+		}
+		return;
+	}
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_PEN;
+	event.phase = edge ? (pressed ? R_PEN_DOWN : R_PEN_UP) : (pressed ? R_PEN_MOVE : R_PEN_HOVER);
+	event.pen_native_mouse = R_TRUE;
+	event.fx = (float)x;
+	event.fy = (float)y;
+	event.pressure = pressed ? (pen.pressure > 0.0f ? pen.pressure : 1.0f) : 0.0f;
+	event.tilt_x = pen.tilt_x;
+	event.tilt_y = pen.tilt_y;
+	event.rotation = pen.rotation;
+	event.eraser = pen.eraser;
+	event.pen_buttons = pen.buttons;
+	event.modifiers = modifiers;
+	g_x11.pen_window = window;
+	rvn_x11_emit(window, &event);
+}
+
 static void rvn_x11_process(XEvent* xevent) {
 	rvn_pwindow_t* window;
 	rvn_pevent_t event;
@@ -1351,6 +1398,23 @@ static void rvn_x11_process(XEvent* xevent) {
 	if (xevent->type == PropertyNotify && rvn_x11_transfer_continue(&xevent->xproperty)) return;
 	if (xevent->type == MappingNotify) {
 		XRefreshKeyboardMapping(&xevent->xmapping);
+		return;
+	}
+
+	/* fingers, and the pressure of pens (x11_xi2.c) */
+	if (xevent->type == GenericEvent) {
+		rvn_x11_touch_t touch;
+		if (rvn_x11_xi2_event(g_x11.display, xevent, &touch) == 2 && (window = rvn_x11_find(touch.window)) != NULL) {
+			memset(&event, 0, sizeof(event));
+			event.type = RVN_PEVENT_TOUCH;
+			event.touch_id = touch.id;
+			event.phase = touch.phase;
+			event.fx = touch.x;
+			event.fy = touch.y;
+			event.pressure = 1.0f;
+			event.modifiers = touch.modifiers;
+			rvn_x11_emit(window, &event);
+		}
 		return;
 	}
 
@@ -1408,6 +1472,8 @@ static void rvn_x11_process(XEvent* xevent) {
 			event.y = xevent->xmotion.y;
 			event.modifiers = rvn_x11_translate_modifiers(xevent->xmotion.state);
 			rvn_x11_emit(window, &event);
+			rvn_x11_pen_event(window, xevent->xmotion.time, xevent->xmotion.x, xevent->xmotion.y,
+				(xevent->xmotion.state & Button1Mask) != 0, R_FALSE, event.modifiers);
 			break;
 		case EnterNotify:
 			event.type = RVN_PEVENT_MOUSE_MOVE;
@@ -1419,11 +1485,26 @@ static void rvn_x11_process(XEvent* xevent) {
 		case LeaveNotify:
 			/* a pointer grab (button held, menu of the window manager) is not a real exit */
 			if (xevent->xcrossing.mode != NotifyNormal) break;
+			if (g_x11.pen_window == window) {
+				rvn_pevent_t leave;
+				memset(&leave, 0, sizeof(leave));
+				leave.type = RVN_PEVENT_PEN;
+				leave.phase = R_PEN_LEAVE;
+				leave.pen_native_mouse = R_TRUE;
+				leave.fx = (float)xevent->xcrossing.x;
+				leave.fy = (float)xevent->xcrossing.y;
+				g_x11.pen_window = NULL;
+				rvn_x11_emit(window, &leave);
+			}
 			event.type = RVN_PEVENT_MOUSE_LEAVE;
 			rvn_x11_emit(window, &event);
 			break;
 		case ButtonPress:
 			rvn_x11_button(window, &xevent->xbutton, R_TRUE);
+			if (xevent->xbutton.button == Button1) {
+				rvn_x11_pen_event(window, xevent->xbutton.time, xevent->xbutton.x, xevent->xbutton.y, R_TRUE, R_TRUE,
+					rvn_x11_translate_modifiers(xevent->xbutton.state));
+			}
 			break;
 		case ButtonRelease:
 			if (g_x11.drag_window == window && xevent->xbutton.button == Button1) {
@@ -1432,6 +1513,10 @@ static void rvn_x11_process(XEvent* xevent) {
 				break;
 			}
 			rvn_x11_button(window, &xevent->xbutton, R_FALSE);
+			if (xevent->xbutton.button == Button1) {
+				rvn_x11_pen_event(window, xevent->xbutton.time, xevent->xbutton.x, xevent->xbutton.y, R_FALSE, R_TRUE,
+					rvn_x11_translate_modifiers(xevent->xbutton.state));
+			}
 			break;
 		case KeyPress:
 			rvn_x11_key_press(window, &xevent->xkey, filtered);

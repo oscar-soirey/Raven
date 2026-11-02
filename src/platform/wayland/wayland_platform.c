@@ -375,6 +375,22 @@ typedef struct rvn_wl_output_t {
 	int scale;
 } rvn_wl_output_t;
 
+#define RVN_WL_MAX_TOUCHES 10
+#define RVN_WL_MAX_TABLETS 8
+
+/* A pen (or its eraser) of a tablet: what its events said until the next frame. */
+typedef struct rvn_wl_tool_t {
+	struct zwp_tablet_tool_v2* tool;
+	struct wp_cursor_shape_device_v1* shape;
+	struct rvn_wl_tool_t* next;
+	uint32_t type;
+	rvn_pwindow_t* window;
+	double x, y;
+	float pressure, tilt_x, tilt_y, rotation;
+	uint32_t buttons;
+	int in, leaving, contact, contact_changed;
+} rvn_wl_tool_t;
+
 struct rvn_pwindow_t {
 	void* user;
 	uint32_t flags;
@@ -455,6 +471,16 @@ static struct {
 	float wheel_x, wheel_y;       /* gathered until wl_pointer.frame */
 	int wheel_discrete_x, wheel_discrete_y;
 	int wheel_pending;
+
+	/* fingers: the window each one came down on */
+	struct wl_touch* touch;
+	struct { int32_t id; rvn_pwindow_t* window; int32_t x, y; } touches[RVN_WL_MAX_TOUCHES];
+	/* pens (tablet-v2) */
+	struct zwp_tablet_manager_v2* tablet_manager;
+	struct zwp_tablet_seat_v2* tablet_seat;
+	struct rvn_wl_tool_t* tools;
+	/* the tablets themselves: kept until removed (the tools name them in proximity_in) */
+	struct zwp_tablet_v2* tablets[RVN_WL_MAX_TABLETS];
 
 	/* keyboard */
 	struct wl_keyboard* keyboard;
@@ -1255,6 +1281,300 @@ static const struct wl_keyboard_listener g_wl_keyboard_listener = {
 };
 
 /* ---------------------------------------------------------------------------
+ *  Fingers (wl_touch)
+ * ------------------------------------------------------------------------- */
+
+static int rvn_wl_touch_slot(int32_t id, int create) {
+	int i;
+	for (i = 0; i < RVN_WL_MAX_TOUCHES; i++) if (g_wl.touches[i].window && g_wl.touches[i].id == id) return i;
+	if (!create) return -1;
+	for (i = 0; i < RVN_WL_MAX_TOUCHES; i++) if (!g_wl.touches[i].window) return i;
+	return -1;
+}
+
+static void rvn_wl_touch_emit(int slot, int phase, int32_t x, int32_t y, int with_position) {
+	rvn_pwindow_t* window = g_wl.touches[slot].window;
+	rvn_pevent_t event;
+	/* (up and cancel tell no position: the finger leaves where it last was) */
+	if (with_position) {
+		g_wl.touches[slot].x = x;
+		g_wl.touches[slot].y = y;
+	} else {
+		x = g_wl.touches[slot].x;
+		y = g_wl.touches[slot].y;
+	}
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_TOUCH;
+	event.phase = phase;
+	event.touch_id = (int)g_wl.touches[slot].id;
+	event.pressure = 1.0f;
+	event.modifiers = g_wl.modifiers;
+	event.fx = (float)(rvn_wl_fixed(x) * (double)window->scale);
+	event.fy = (float)(rvn_wl_fixed(y) * (double)window->scale);
+	rvn_wl_emit(window, &event);
+}
+
+static void rvn_wl_touch_down(void* data, struct wl_touch* touch, uint32_t serial, uint32_t time, struct wl_surface* surface, int32_t id, int32_t x, int32_t y) {
+	rvn_pwindow_t* window = rvn_wl_window_of(surface);
+	int slot;
+	RVN_UNUSED(data); RVN_UNUSED(touch); RVN_UNUSED(time);
+	g_wl.input_serial = serial;
+	if (!window) return;
+	slot = rvn_wl_touch_slot(id, R_TRUE);
+	if (slot < 0) return;
+	g_wl.touches[slot].id = id;
+	g_wl.touches[slot].window = window;
+	rvn_wl_touch_emit(slot, R_TOUCH_DOWN, x, y, R_TRUE);
+}
+
+static void rvn_wl_touch_up(void* data, struct wl_touch* touch, uint32_t serial, uint32_t time, int32_t id) {
+	int slot = rvn_wl_touch_slot(id, R_FALSE);
+	RVN_UNUSED(data); RVN_UNUSED(touch); RVN_UNUSED(serial); RVN_UNUSED(time);
+	if (slot < 0) return;
+	rvn_wl_touch_emit(slot, R_TOUCH_UP, 0, 0, R_FALSE);
+	g_wl.touches[slot].window = NULL;
+}
+
+static void rvn_wl_touch_motion(void* data, struct wl_touch* touch, uint32_t time, int32_t id, int32_t x, int32_t y) {
+	int slot = rvn_wl_touch_slot(id, R_FALSE);
+	RVN_UNUSED(data); RVN_UNUSED(touch); RVN_UNUSED(time);
+	if (slot >= 0) rvn_wl_touch_emit(slot, R_TOUCH_MOVE, x, y, R_TRUE);
+}
+
+static void rvn_wl_touch_frame(void* data, struct wl_touch* touch) {
+	RVN_UNUSED(data); RVN_UNUSED(touch);
+}
+
+static void rvn_wl_touch_cancel(void* data, struct wl_touch* touch) {
+	int i;
+	RVN_UNUSED(data); RVN_UNUSED(touch);
+	/* the compositor took every finger (a gesture of its own) */
+	for (i = 0; i < RVN_WL_MAX_TOUCHES; i++) {
+		if (!g_wl.touches[i].window) continue;
+		rvn_wl_touch_emit(i, R_TOUCH_CANCEL, 0, 0, R_FALSE);
+		g_wl.touches[i].window = NULL;
+	}
+}
+
+static void rvn_wl_touch_shape(void* data, struct wl_touch* touch, int32_t id, int32_t major, int32_t minor) {
+	RVN_UNUSED(data); RVN_UNUSED(touch); RVN_UNUSED(id); RVN_UNUSED(major); RVN_UNUSED(minor);
+}
+
+static void rvn_wl_touch_orientation(void* data, struct wl_touch* touch, int32_t id, int32_t orientation) {
+	RVN_UNUSED(data); RVN_UNUSED(touch); RVN_UNUSED(id); RVN_UNUSED(orientation);
+}
+
+static const struct wl_touch_listener g_wl_touch_listener = {
+	rvn_wl_touch_down, rvn_wl_touch_up, rvn_wl_touch_motion, rvn_wl_touch_frame, rvn_wl_touch_cancel,
+	rvn_wl_touch_shape, rvn_wl_touch_orientation
+};
+
+/* ---------------------------------------------------------------------------
+ *  Pens (tablet-v2): the events of a tool gather until its frame
+ * ------------------------------------------------------------------------- */
+
+static void rvn_wl_tool_type(void* data, struct zwp_tablet_tool_v2* tool, uint32_t type) {
+	RVN_UNUSED(tool);
+	((rvn_wl_tool_t*)data)->type = type;
+}
+static void rvn_wl_tool_serial(void* data, struct zwp_tablet_tool_v2* tool, uint32_t hi, uint32_t lo) {
+	RVN_UNUSED(data); RVN_UNUSED(tool); RVN_UNUSED(hi); RVN_UNUSED(lo);
+}
+static void rvn_wl_tool_capability(void* data, struct zwp_tablet_tool_v2* tool, uint32_t capability) {
+	RVN_UNUSED(data); RVN_UNUSED(tool); RVN_UNUSED(capability);
+}
+static void rvn_wl_tool_done(void* data, struct zwp_tablet_tool_v2* tool) {
+	RVN_UNUSED(data); RVN_UNUSED(tool);
+}
+
+static void rvn_wl_tool_removed(void* data, struct zwp_tablet_tool_v2* tool) {
+	rvn_wl_tool_t* gone = (rvn_wl_tool_t*)data;
+	rvn_wl_tool_t** link;
+	RVN_UNUSED(tool);
+	for (link = &g_wl.tools; *link; link = &(*link)->next) {
+		if (*link != gone) continue;
+		*link = gone->next;
+		break;
+	}
+	if (gone->shape) wp_cursor_shape_device_v1_destroy(gone->shape);
+	zwp_tablet_tool_v2_destroy(gone->tool);
+	rvn_free(gone);
+}
+
+static void rvn_wl_tool_proximity_in(void* data, struct zwp_tablet_tool_v2* tool, uint32_t serial, struct zwp_tablet_v2* tablet, struct wl_surface* surface) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)data;
+	RVN_UNUSED(tool); RVN_UNUSED(tablet);
+	t->window = rvn_wl_window_of(surface);
+	t->in = R_TRUE;
+	t->leaving = R_FALSE;
+	/* the pen shows a cursor of its own over the window */
+	if (t->shape) wp_cursor_shape_device_v1_set_shape(t->shape, serial, WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT);
+}
+
+static void rvn_wl_tool_proximity_out(void* data, struct zwp_tablet_tool_v2* tool) {
+	RVN_UNUSED(tool);
+	((rvn_wl_tool_t*)data)->leaving = R_TRUE;
+}
+
+static void rvn_wl_tool_down(void* data, struct zwp_tablet_tool_v2* tool, uint32_t serial) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)data;
+	RVN_UNUSED(tool);
+	g_wl.input_serial = serial;
+	t->contact = R_TRUE;
+	t->contact_changed = R_TRUE;
+}
+
+static void rvn_wl_tool_up(void* data, struct zwp_tablet_tool_v2* tool) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)data;
+	RVN_UNUSED(tool);
+	t->contact = R_FALSE;
+	t->contact_changed = R_TRUE;
+}
+
+static void rvn_wl_tool_motion(void* data, struct zwp_tablet_tool_v2* tool, int32_t x, int32_t y) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)data;
+	RVN_UNUSED(tool);
+	t->x = rvn_wl_fixed(x);
+	t->y = rvn_wl_fixed(y);
+}
+
+static void rvn_wl_tool_pressure(void* data, struct zwp_tablet_tool_v2* tool, uint32_t pressure) {
+	RVN_UNUSED(tool);
+	((rvn_wl_tool_t*)data)->pressure = (float)pressure / 65535.0f;
+}
+
+static void rvn_wl_tool_distance(void* data, struct zwp_tablet_tool_v2* tool, uint32_t distance) {
+	RVN_UNUSED(data); RVN_UNUSED(tool); RVN_UNUSED(distance);
+}
+
+static void rvn_wl_tool_tilt(void* data, struct zwp_tablet_tool_v2* tool, int32_t tilt_x, int32_t tilt_y) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)data;
+	RVN_UNUSED(tool);
+	t->tilt_x = (float)rvn_wl_fixed(tilt_x);
+	t->tilt_y = (float)rvn_wl_fixed(tilt_y);
+}
+
+static void rvn_wl_tool_rotation(void* data, struct zwp_tablet_tool_v2* tool, int32_t degrees) {
+	RVN_UNUSED(tool);
+	((rvn_wl_tool_t*)data)->rotation = (float)rvn_wl_fixed(degrees);
+}
+
+static void rvn_wl_tool_slider(void* data, struct zwp_tablet_tool_v2* tool, int32_t position) {
+	RVN_UNUSED(data); RVN_UNUSED(tool); RVN_UNUSED(position);
+}
+
+static void rvn_wl_tool_wheel(void* data, struct zwp_tablet_tool_v2* tool, int32_t degrees, int32_t clicks) {
+	RVN_UNUSED(data); RVN_UNUSED(tool); RVN_UNUSED(degrees); RVN_UNUSED(clicks);
+}
+
+static void rvn_wl_tool_button(void* data, struct zwp_tablet_tool_v2* tool, uint32_t serial, uint32_t button, uint32_t state) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)data;
+	/* <linux/input-event-codes.h>: BTN_STYLUS, BTN_STYLUS2 */
+	uint32_t bit = button == 0x14b ? R_PEN_BUTTON_BARREL : button == 0x14c ? R_PEN_BUTTON_BARREL2 : 0;
+	RVN_UNUSED(tool);
+	g_wl.input_serial = serial;
+	if (state == ZWP_TABLET_TOOL_V2_BUTTON_STATE_PRESSED) t->buttons |= bit;
+	else t->buttons &= ~bit;
+}
+
+static void rvn_wl_tool_frame(void* data, struct zwp_tablet_tool_v2* tool, uint32_t time) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)data;
+	rvn_pevent_t event;
+	RVN_UNUSED(tool); RVN_UNUSED(time);
+	if (!t->window || !t->in) return;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_PEN;
+	if (t->leaving) event.phase = R_PEN_LEAVE;
+	else if (t->contact_changed) event.phase = t->contact ? R_PEN_DOWN : R_PEN_UP;
+	else event.phase = t->contact ? R_PEN_MOVE : R_PEN_HOVER;
+	event.fx = (float)(t->x * (double)t->window->scale);
+	event.fy = (float)(t->y * (double)t->window->scale);
+	event.pressure = t->contact ? t->pressure : 0.0f;
+	event.tilt_x = t->tilt_x;
+	event.tilt_y = t->tilt_y;
+	event.rotation = t->rotation;
+	event.eraser = t->type == ZWP_TABLET_TOOL_V2_TYPE_ERASER;
+	event.pen_buttons = t->buttons;
+	event.modifiers = g_wl.modifiers;
+	t->contact_changed = R_FALSE;
+	if (t->leaving) {
+		rvn_pwindow_t* window = t->window;
+		t->in = t->leaving = t->contact = R_FALSE;
+		t->window = NULL;
+		rvn_wl_emit(window, &event);
+		return;
+	}
+	rvn_wl_emit(t->window, &event);
+}
+
+static const struct zwp_tablet_tool_v2_listener g_wl_tool_listener = {
+	rvn_wl_tool_type, rvn_wl_tool_serial, rvn_wl_tool_serial, rvn_wl_tool_capability, rvn_wl_tool_done, rvn_wl_tool_removed,
+	rvn_wl_tool_proximity_in, rvn_wl_tool_proximity_out, rvn_wl_tool_down, rvn_wl_tool_up, rvn_wl_tool_motion,
+	rvn_wl_tool_pressure, rvn_wl_tool_distance, rvn_wl_tool_tilt, rvn_wl_tool_rotation, rvn_wl_tool_slider,
+	rvn_wl_tool_wheel, rvn_wl_tool_button, rvn_wl_tool_frame
+};
+
+static void rvn_wl_tablet_name(void* data, struct zwp_tablet_v2* tablet, const char* name) {
+	RVN_UNUSED(data); RVN_UNUSED(tablet); RVN_UNUSED(name);
+}
+static void rvn_wl_tablet_id(void* data, struct zwp_tablet_v2* tablet, uint32_t vid, uint32_t pid) {
+	RVN_UNUSED(data); RVN_UNUSED(tablet); RVN_UNUSED(vid); RVN_UNUSED(pid);
+}
+static void rvn_wl_tablet_done(void* data, struct zwp_tablet_v2* tablet) {
+	RVN_UNUSED(data); RVN_UNUSED(tablet);
+}
+static void rvn_wl_tablet_removed(void* data, struct zwp_tablet_v2* tablet) {
+	int i;
+	RVN_UNUSED(data);
+	for (i = 0; i < RVN_WL_MAX_TABLETS; i++) if (g_wl.tablets[i] == tablet) g_wl.tablets[i] = NULL;
+	zwp_tablet_v2_destroy(tablet);
+}
+static void rvn_wl_tablet_bustype(void* data, struct zwp_tablet_v2* tablet, uint32_t bustype) {
+	RVN_UNUSED(data); RVN_UNUSED(tablet); RVN_UNUSED(bustype);
+}
+
+/* (what a tablet is does not matter: only its tools) */
+static const struct zwp_tablet_v2_listener g_wl_tablet_listener = {
+	rvn_wl_tablet_name, rvn_wl_tablet_id, rvn_wl_tablet_name, rvn_wl_tablet_done, rvn_wl_tablet_removed, rvn_wl_tablet_bustype
+};
+
+static void rvn_wl_tablet_added(void* data, struct zwp_tablet_seat_v2* seat, struct zwp_tablet_v2* tablet) {
+	int i;
+	RVN_UNUSED(data); RVN_UNUSED(seat);
+	zwp_tablet_v2_add_listener(tablet, &g_wl_tablet_listener, NULL);
+	for (i = 0; i < RVN_WL_MAX_TABLETS; i++) {
+		if (g_wl.tablets[i]) continue;
+		g_wl.tablets[i] = tablet;
+		break;
+	}
+}
+
+static void rvn_wl_tool_added(void* data, struct zwp_tablet_seat_v2* seat, struct zwp_tablet_tool_v2* tool) {
+	rvn_wl_tool_t* t = (rvn_wl_tool_t*)rvn_calloc(sizeof(rvn_wl_tool_t));
+	RVN_UNUSED(data); RVN_UNUSED(seat);
+	t->tool = tool;
+	t->next = g_wl.tools;
+	g_wl.tools = t;
+	zwp_tablet_tool_v2_add_listener(tool, &g_wl_tool_listener, t);
+	if (g_wl.cursor_shape_manager) t->shape = wp_cursor_shape_manager_v1_get_tablet_tool_v2(g_wl.cursor_shape_manager, tool);
+}
+
+static void rvn_wl_pad_added(void* data, struct zwp_tablet_seat_v2* seat, struct zwp_tablet_pad_v2* pad) {
+	RVN_UNUSED(data); RVN_UNUSED(seat);
+	/* (the buttons and rings of the tablet itself are not used) */
+	zwp_tablet_pad_v2_destroy(pad);
+}
+
+static const struct zwp_tablet_seat_v2_listener g_wl_tablet_seat_listener = { rvn_wl_tablet_added, rvn_wl_tool_added, rvn_wl_pad_added };
+
+/* Once there are both a seat and the tablet manager: the tablets of the seat. */
+static void rvn_wl_tablet_seat(void) {
+	if (g_wl.tablet_seat || !g_wl.seat || !g_wl.tablet_manager) return;
+	g_wl.tablet_seat = zwp_tablet_manager_v2_get_tablet_seat(g_wl.tablet_manager, g_wl.seat);
+	zwp_tablet_seat_v2_add_listener(g_wl.tablet_seat, &g_wl_tablet_seat_listener, NULL);
+}
+
+/* ---------------------------------------------------------------------------
  *  Seat
  * ------------------------------------------------------------------------- */
 
@@ -1271,6 +1591,15 @@ static void rvn_wl_seat_capabilities(void* data, struct wl_seat* seat, uint32_t 
 		else wl_pointer_destroy(g_wl.pointer);
 		g_wl.pointer = NULL;
 		g_wl.pointer_window = NULL;
+	}
+	if ((capabilities & WL_SEAT_CAPABILITY_TOUCH) && !g_wl.touch) {
+		g_wl.touch = wl_seat_get_touch(seat);
+		wl_touch_add_listener(g_wl.touch, &g_wl_touch_listener, NULL);
+	} else if (!(capabilities & WL_SEAT_CAPABILITY_TOUCH) && g_wl.touch) {
+		rvn_wl_touch_cancel(NULL, g_wl.touch);
+		if (wl_touch_get_version(g_wl.touch) >= 3) wl_touch_release(g_wl.touch);
+		else wl_touch_destroy(g_wl.touch);
+		g_wl.touch = NULL;
 	}
 	if ((capabilities & WL_SEAT_CAPABILITY_KEYBOARD) && !g_wl.keyboard) {
 		g_wl.keyboard = wl_seat_get_keyboard(seat);
@@ -1629,6 +1958,7 @@ static void rvn_wl_registry_global(void* data, struct wl_registry* registry, uin
 	} else if (strcmp(interface, "wl_seat") == 0 && !g_wl.seat) {
 		RVN_BIND(g_wl.seat, wl_seat, 8);
 		wl_seat_add_listener(g_wl.seat, &g_wl_seat_listener, NULL);
+		rvn_wl_tablet_seat();
 	} else if (strcmp(interface, "wl_output") == 0 && g_wl.output_count < RVN_WL_MAX_OUTPUTS) {
 		rvn_wl_output_t* output = &g_wl.outputs[g_wl.output_count++];
 		output->name = name;
@@ -1653,6 +1983,9 @@ static void rvn_wl_registry_global(void* data, struct wl_registry* registry, uin
 		RVN_BIND(g_wl.icon_manager, xdg_toplevel_icon_manager_v1, 1);
 	} else if (strcmp(interface, "wl_data_device_manager") == 0) {
 		RVN_BIND(g_wl.data_device_manager, wl_data_device_manager, 3);
+	} else if (strcmp(interface, "zwp_tablet_manager_v2") == 0) {
+		RVN_BIND(g_wl.tablet_manager, zwp_tablet_manager_v2, 1);
+		rvn_wl_tablet_seat();
 	}
 #undef RVN_BIND
 }
@@ -1699,6 +2032,20 @@ static void rvn_wl_disconnect(void) {
 		if (wl_keyboard_get_version(g_wl.keyboard) >= 3) wl_keyboard_release(g_wl.keyboard);
 		else wl_keyboard_destroy(g_wl.keyboard);
 	}
+	if (g_wl.touch) {
+		if (wl_touch_get_version(g_wl.touch) >= 3) wl_touch_release(g_wl.touch);
+		else wl_touch_destroy(g_wl.touch);
+	}
+	while (g_wl.tools) {
+		rvn_wl_tool_t* tool = g_wl.tools;
+		g_wl.tools = tool->next;
+		if (tool->shape) wp_cursor_shape_device_v1_destroy(tool->shape);
+		zwp_tablet_tool_v2_destroy(tool->tool);
+		rvn_free(tool);
+	}
+	for (i = 0; i < RVN_WL_MAX_TABLETS; i++) if (g_wl.tablets[i]) zwp_tablet_v2_destroy(g_wl.tablets[i]);
+	if (g_wl.tablet_seat) zwp_tablet_seat_v2_destroy(g_wl.tablet_seat);
+	if (g_wl.tablet_manager) zwp_tablet_manager_v2_destroy(g_wl.tablet_manager);
 	for (i = 0; i < g_wl.output_count; i++) {
 		if (wl_output_get_version(g_wl.outputs[i].output) >= 3) wl_output_release(g_wl.outputs[i].output);
 		else wl_output_destroy(g_wl.outputs[i].output);
@@ -1981,7 +2328,11 @@ static rvn_pwindow_t* rvn_wl_window_create(const rvn_pwindow_desc_t* desc) {
 }
 
 static void rvn_wl_window_destroy(rvn_pwindow_t* window) {
+	rvn_wl_tool_t* tool;
+	int i;
 	if (g_wl.pointer_window == window) g_wl.pointer_window = NULL;
+	for (i = 0; i < RVN_WL_MAX_TOUCHES; i++) if (g_wl.touches[i].window == window) g_wl.touches[i].window = NULL;
+	for (tool = g_wl.tools; tool; tool = tool->next) if (tool->window == window) tool->window = NULL;
 	if (g_wl.keyboard_window == window) {
 		g_wl.keyboard_window = NULL;
 		rvn_wl_repeat_arm(0);

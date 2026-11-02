@@ -35,6 +35,7 @@ FILES = [
     "cursor-shape-v1.xml",
     "ext-background-effect-v1.xml",
     "xdg-toplevel-icon-v1.xml",
+    "tablet-v2.xml",
 ]
 
 C_TYPES = {
