@@ -88,6 +88,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/Raven.h
 	include/raven/raven_core.h
 	include/raven/raven_window.h
+	include/raven/raven_touch.h
 	include/raven/raven_style.h
 	include/raven/raven_resources.h
 	include/raven/raven_widget.h
@@ -161,6 +162,7 @@ set(RAVEN_WIDGET_SOURCES
 	src/widget/actions.c
 	src/widget/anim.c
 	src/widget/events.c
+	src/widget/touch.c
 	src/widget/layout.c
 	src/widget/direction.c
 	src/widget/paint.c
@@ -276,6 +278,7 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "x11")
 		src/platform/x11/x11_platform.c
 		src/platform/atspi.c
 		src/platform/x11/x11_keys.c
+		src/platform/x11/x11_xi2.c
 		src/platform/x11/x11_internal.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_X11)

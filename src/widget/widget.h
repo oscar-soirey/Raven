@@ -52,6 +52,7 @@ struct rvn_xml_node_t;
 #define RVN_CF_SURFACE     (1u << 7)   /* draws its own surface, in the material of the widget */
 #define RVN_CF_OWN_CHILDREN (1u << 8)  /* paints its children itself, from its paint function */
 #define RVN_CF_NO_MIRROR    (1u << 9)   /* a surface of its own: its children are not mirrored in a right-to-left layout */
+#define RVN_CF_TOUCH_DRAG   (1u << 10)  /* a finger on it drags it at once as the mouse would (a slider), it never scrolls what contains it */
 
 /* ---------------------------------------------------------------------------
  *  Widget
@@ -171,7 +172,42 @@ typedef struct rvn_widget_class_t {
 	 * NULL: the whole widget drags.
 	 */
 	int  (*window_drag_at)(rvn_widget_t* widget, float x, float y);
+
+	/* ---- fingers (widget/touch.c); NULL when the class has nothing to do with them ---- */
+
+	/**
+	 * Moves the content by (dx, dy) logical units as a finger dragging it
+	 * would (dy > 0: the finger goes down, the content follows it down, the
+	 * view goes up). `coasting`: it is the inertia after the finger left.
+	 * Returns R_TRUE when something moved; R_FALSE at the end of the range
+	 * passes the movement to what contains the widget.
+	 */
+	int  (*pan)(rvn_widget_t* widget, float dx, float dy, int coasting);
+	/** Zooms by `factor` around a point of the widget (local units). Returns R_TRUE when the zoom changed. */
+	int  (*zoom)(rvn_widget_t* widget, float factor, float x, float y);
+	/**
+	 * R_TRUE where a finger drags something of the widget as the mouse would
+	 * (a node, a clip, a scrollbar) instead of panning it. NULL: it pans everywhere.
+	 */
+	int  (*touch_drags)(rvn_widget_t* widget, float x, float y);
 } rvn_widget_class_t;
+
+/** What a widget was told about fingers and pens (widget/touch.c), allocated on first use. */
+typedef struct rvn_widget_touch_t {
+	/** RTouchMode, 0 = auto. */
+	int mode;
+	int no_gestures;
+	int no_pen_mouse;
+	RTouchCallback touch_callback;
+	void* touch_user;
+	RPenCallback pen_callback;
+	void* pen_user;
+	RGestureCallback gesture_callback;
+	void* gesture_user;
+} rvn_widget_touch_t;
+
+/** The fingers and the pen of a window (widget/touch.c), allocated on first use. */
+typedef struct rvn_touch_state_t rvn_touch_state_t;
 
 struct rvn_widget_t {
 	Rid id;
@@ -255,6 +291,8 @@ struct rvn_widget_t {
 	float child_scale;
 	/** Transitions, allocated on first use. */
 	rvn_fx_t* fx;
+	/** Fingers and pens, allocated on first use (widget/touch.c). */
+	rvn_widget_touch_t* touch;
 
 	/** Number of widgets in the subtree, this one included. */
 	uint32_t subtree_count;
@@ -809,6 +847,8 @@ struct rvn_window_t {
 	/** Sees every input event of the window before the widgets (Rwindow_set_event_hook). */
 	RWindowEventHook event_hook;
 	void* event_hook_user;
+	/** Fingers, pen, inertia (widget/touch.c), or NULL before the first of them. */
+	rvn_touch_state_t* touch;
 
 	RFrameStats stats;
 	uint64_t frame_index;
@@ -845,6 +885,30 @@ void rvn_windows_destroy_all(void);
 void rvn_windows_collect(void);
 /** Logical size of the client area. */
 rvn_vec2_t rvn_window_size(const rvn_window_t* window);
+
+/* ---- the mouse as fingers and pens drive it (widget/window.c, for widget/touch.c) ---- */
+
+void rvn_window_emulate_move(rvn_window_t* window, float x, float y);
+void rvn_window_emulate_button(rvn_window_t* window, RMouseButton button, int pressed);
+void rvn_window_emulate_leave(rvn_window_t* window);
+/** The widget under a point of the window (popups first), or NULL. */
+rvn_widget_t* rvn_window_widget_at(rvn_window_t* window, float x, float y);
+
+/* ---- fingers and pens (widget/touch.c) ---- */
+
+void rvn_touch_on_event(rvn_window_t* window, const rvn_pevent_t* event, float scale);
+/** Moves flicked content and fires a due long press; R_TRUE while something still moves. */
+int  rvn_touch_step(rvn_window_t* window);
+int  rvn_touch_animating(const rvn_window_t* window);
+void rvn_touch_forget_widget(rvn_window_t* window, rvn_widget_t* widget);
+/** The window lost the input (the keyboard focus, a dialog of the system): every finger and the pen are let go. */
+void rvn_touch_cancel(rvn_window_t* window);
+void rvn_touch_window_free(rvn_window_t* window);
+void rvn_touch_widget_free(rvn_widget_t* widget);
+/** Touch.* and Pen.* attributes of a widget. Returns -1 when the name is not one of them. */
+int  rvn_touch_attribute(rvn_widget_t* widget, const char* name, const char* value);
+/** Touch.* and Pen.* attributes of <Window>, applied to its settings. -1: not one of them. */
+int  rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const char* value);
 /** R_TRUE when what is behind the window on the screen shows where the window draws nothing. */
 int  rvn_window_see_through(const rvn_window_t* window);
 void rvn_window_add_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers, const char* action);

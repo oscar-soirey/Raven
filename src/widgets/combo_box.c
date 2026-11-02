@@ -239,6 +239,11 @@ static void rvn_combo_list_closed(rvn_widget_t* widget) {
 	rvn_widget_invalidate_paint(&list->combo->base);
 }
 
+static int rvn_combo_list_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	RVN_UNUSED(dx);
+	return rvn_scrollbar_pan(&((rvn_combo_list_t*)widget)->bar, -dy, coasting);
+}
+
 static const rvn_widget_class_t rvn_class_combo_list = {
 	.type = RVN_WIDGET_INTERNAL_COMBO_LIST,
 	.name = "ComboBoxList",
@@ -248,6 +253,7 @@ static const rvn_widget_class_t rvn_class_combo_list = {
 	.arrange = rvn_combo_list_arrange,
 	.paint = rvn_combo_list_paint,
 	.event = rvn_combo_list_event,
+	.pan = rvn_combo_list_pan,
 	.popup_closed = rvn_combo_list_closed
 };
 

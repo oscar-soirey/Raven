@@ -94,6 +94,7 @@ static void rvn_widget_free(rvn_widget_t* widget) {
 	rvn_free(widget->children);
 	rvn_free(widget->style);
 	rvn_free(widget->fx);
+	rvn_touch_widget_free(widget);
 	rvn_free(widget->name);
 	rvn_free(widget->classes);
 	rvn_free(widget->tooltip);

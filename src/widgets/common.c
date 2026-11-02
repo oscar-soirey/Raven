@@ -504,6 +504,25 @@ int rvn_scrollbar_wheel(rvn_scrollbar_t* bar, float delta) {
 	return R_FALSE;
 }
 
+int rvn_scrollbar_pan(rvn_scrollbar_t* bar, float delta, int coasting) {
+	float max = rvn_scrollbar_max(bar), wanted, whole;
+	if (delta == 0.0f) return R_FALSE;
+	if (!rvn_scrollbar_needed(bar) || (delta < 0.0f && bar->offset <= 0.0f) || (delta > 0.0f && bar->offset >= max)) {
+		bar->pan_rest = 0.0f;
+		if (coasting && rvn_scrollbar_needed(bar) && bar->shown.started) {
+			rvn_spring_kick(&bar->shown, rvn_clampf(delta * 40.0f, -1400.0f, 1400.0f));
+		}
+		return R_FALSE;
+	}
+	wanted = bar->pan_rest + delta;
+	whole = wanted < 0.0f ? ceilf(wanted) : floorf(wanted);
+	bar->pan_rest = wanted - whole;
+	if (whole != 0.0f) rvn_scrollbar_set(bar, bar->offset + whole);
+	/* the content stays under the finger: no gliding behind it */
+	if (bar->shown.started && !coasting) rvn_spring_set(&bar->shown, bar->offset);
+	return R_TRUE;
+}
+
 float rvn_scrollbar_shown(rvn_scrollbar_t* bar, RPainter* painter) {
 	/* a thumb that is dragged, or a view that lost its scrolling, follows at once */
 	if (bar->dragging || !rvn_scrollbar_needed(bar)) rvn_spring_set(&bar->shown, bar->offset);

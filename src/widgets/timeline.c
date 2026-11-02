@@ -1534,6 +1534,43 @@ static int rvn_timeline_set_attribute(rvn_widget_t* widget, const char* name, co
 	return R_TRUE;
 }
 
+/* A finger moves along the time and through the tracks; two fingers zoom the time. */
+static int rvn_timeline_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
+	rvn_tl_layout_t layout;
+	double before = tl->view_start;
+	int moved = R_FALSE;
+	rvn_tl_layout(tl, &layout);
+	if (dx != 0.0f && layout.lanes.w > 1.0f) {
+		rvn_tl_set_view(tl, tl->view_start - (double)dx * tl->view_span / (double)layout.lanes.w, tl->view_span, R_FALSE);
+		moved = tl->view_start != before;
+	}
+	if (dy != 0.0f && rvn_scrollbar_needed(&tl->track_bar)) moved |= rvn_scrollbar_pan(&tl->track_bar, -dy, coasting);
+	return moved;
+}
+
+static int rvn_timeline_zoom(rvn_widget_t* widget, float factor, float x, float y) {
+	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
+	rvn_tl_layout_t layout;
+	double before = tl->view_span;
+	RVN_UNUSED(y);
+	if (!(factor > 0.0f)) return R_FALSE;
+	rvn_tl_layout(tl, &layout);
+	rvn_tl_zoom(tl, &layout, x, 1.0f / factor);
+	return tl->view_span != before;
+}
+
+/* The ruler (the playhead), the items and the scrollbars drag; the empty lanes pan. */
+static int rvn_timeline_touch_drags(rvn_widget_t* widget, float x, float y) {
+	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
+	rvn_tl_layout_t layout;
+	int part;
+	rvn_tl_layout(tl, &layout);
+	if (y < layout.ruler_h || rvn_rect_contains(layout.time_track, x, y) || rvn_rect_contains(layout.track_track, x, y)) return R_TRUE;
+	if (rvn_rect_contains(layout.headers, x, y)) return R_FALSE;
+	return rvn_tl_hit(tl, &layout, x, y, &part) != 0 || part != RVN_TL_PART_NONE;
+}
+
 const rvn_widget_class_t rvn_class_timeline = {
 	.type = R_WIDGET_TIMELINE,
 	.name = "Timeline",
@@ -1547,7 +1584,10 @@ const rvn_widget_class_t rvn_class_timeline = {
 	.paint_overlay = rvn_timeline_paint_overlay,
 	.event = rvn_timeline_event,
 	.set_attribute = rvn_timeline_set_attribute,
-	.xml_child = rvn_timeline_xml_child
+	.xml_child = rvn_timeline_xml_child,
+	.pan = rvn_timeline_pan,
+	.zoom = rvn_timeline_zoom,
+	.touch_drags = rvn_timeline_touch_drags
 };
 
 /* ---------------------------------------------------------------------------

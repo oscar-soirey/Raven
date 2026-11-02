@@ -52,7 +52,25 @@ typedef enum rvn_pevent_type_t {
 	 */
 	RVN_PEVENT_DRAG,
 	/** Files or text were dropped: x, y, drop_paths / drop_count, drop_text. */
-	RVN_PEVENT_DROP
+	RVN_PEVENT_DROP,
+	/**
+	 * A finger: touch_id, phase (RTouchPhase), fx, fy (pixels of the client
+	 * area, with their fraction), pressure (1 when unknown), contact_w, contact_h.
+	 * The platform does not turn fingers into mouse events itself.
+	 */
+	RVN_PEVENT_TOUCH,
+	/**
+	 * A pen: phase (RPenPhase), fx, fy, pressure (0..1, as the pen gives it),
+	 * tilt_x, tilt_y, rotation, eraser, pen_buttons (RPenButton). The platform
+	 * does not turn it into mouse events itself.
+	 */
+	RVN_PEVENT_PEN,
+	/**
+	 * A gesture recognized by the system (the pinch of a trackpad): phase
+	 * (RGesturePhase), fx, fy, gesture_scale (relative to the previous event),
+	 * wheel_x, wheel_y (pan in pixels since the previous event).
+	 */
+	RVN_PEVENT_GESTURE
 } rvn_pevent_type_t;
 
 /** Parts of a window whose title bar is drawn by the application (R_WINDOW_CUSTOM_HEADER). */
@@ -99,6 +117,19 @@ typedef struct rvn_pevent_t {
 	int drop_count;
 	/** Dropped text when it is not files, or NULL. */
 	const char* drop_text;
+	/* fingers and pens (RVN_PEVENT_TOUCH, _PEN, _GESTURE) */
+	int phase;
+	int touch_id;
+	float fx, fy;
+	float pressure;
+	float contact_w, contact_h;
+	float tilt_x, tilt_y;
+	float rotation;
+	int eraser;
+	uint32_t pen_buttons;
+	/** RVN_PEVENT_PEN: the platform also sent the pen as the mouse (X11): the core must not do it again. */
+	int pen_native_mouse;
+	float gesture_scale;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);

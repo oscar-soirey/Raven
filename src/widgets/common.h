@@ -362,6 +362,8 @@ typedef struct rvn_scrollbar_t {
 	RSpring fade;
 	/** Windows: the hairline widens to a thumb over its track while the pointer is on it. */
 	RSpring expand;
+	/** What a finger moved that did not make a whole unit yet (rvn_scrollbar_pan). */
+	float pan_rest;
 } rvn_scrollbar_t;
 
 float rvn_scrollbar_max(const rvn_scrollbar_t* bar);
@@ -375,6 +377,12 @@ int   rvn_scrollbar_set(rvn_scrollbar_t* bar, float offset);
  * content bounce, which only needs a repaint.
  */
 int   rvn_scrollbar_wheel(rvn_scrollbar_t* bar, float delta);
+/**
+ * Scrolls by `delta` logical units under a finger: what is drawn follows at
+ * once (no gliding), the fractions of a unit add up. `coasting` (the
+ * inertia): reaching an end makes the content bounce. R_TRUE while it moves.
+ */
+int   rvn_scrollbar_pan(rvn_scrollbar_t* bar, float delta, int coasting);
 /** While painting: advances the drawn position and returns it. It may lie outside 0 .. max. */
 float rvn_scrollbar_shown(rvn_scrollbar_t* bar, RPainter* painter);
 void  rvn_scrollbar_paint(rvn_scrollbar_t* bar, const rvn_widget_t* widget, RPainter* painter,

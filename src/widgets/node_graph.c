@@ -1981,6 +1981,34 @@ static int rvn_node_graph_set_attribute(rvn_widget_t* widget, const char* name, 
 	return R_TRUE;
 }
 
+/* A finger on the empty canvas moves the view; on a node or a pin, it drags it as the mouse does. */
+static int rvn_node_graph_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	rvn_node_graph_t* graph = (rvn_node_graph_t*)widget;
+	RVN_UNUSED(coasting);
+	if (graph->drag != RVN_NG_DRAG_NONE || (dx == 0.0f && dy == 0.0f)) return R_FALSE;
+	rvn_ng_unpin(graph);
+	rvn_ng_set_view(graph, graph->center_x - dx / graph->zoom, graph->center_y - dy / graph->zoom, graph->zoom, R_FALSE);
+	return R_TRUE;
+}
+
+static int rvn_node_graph_zoom(rvn_widget_t* widget, float factor, float x, float y) {
+	rvn_node_graph_t* graph = (rvn_node_graph_t*)widget;
+	float before = graph->zoom;
+	if (graph->drag != RVN_NG_DRAG_NONE) return R_FALSE;
+	rvn_ng_zoom_at(graph, x, y, graph->zoom * factor);
+	/* (the view follows the fingers at once) */
+	rvn_spring_set(&graph->shown_x, graph->center_x);
+	rvn_spring_set(&graph->shown_y, graph->center_y);
+	rvn_spring_set(&graph->shown_zoom, graph->zoom);
+	return graph->zoom != before;
+}
+
+static int rvn_node_graph_touch_drags(rvn_widget_t* widget, float x, float y) {
+	rvn_node_graph_t* graph = (rvn_node_graph_t*)widget;
+	rvn_vec2_t at = rvn_ng_to_canvas(graph, x, y);
+	return rvn_ng_node_at(graph, at.x, at.y) != 0 || rvn_ng_pin_near(graph, at.x, at.y) != 0;
+}
+
 const rvn_widget_class_t rvn_class_node_graph = {
 	.type = R_WIDGET_NODE_GRAPH,
 	.name = "NodeGraph",
@@ -1994,6 +2022,9 @@ const rvn_widget_class_t rvn_class_node_graph = {
 	.paint_overlay = rvn_node_graph_paint_overlay,
 	.event = rvn_node_graph_event,
 	.set_attribute = rvn_node_graph_set_attribute,
+	.pan = rvn_node_graph_pan,
+	.zoom = rvn_node_graph_zoom,
+	.touch_drags = rvn_node_graph_touch_drags,
 	.child_at = rvn_node_graph_child_at,
 	.children_changed = rvn_node_graph_children_changed,
 	.xml_child = rvn_node_graph_xml_child

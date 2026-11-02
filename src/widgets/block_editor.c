@@ -146,6 +146,8 @@ typedef struct rvn_block_editor_t {
 	RSpring shown_zoom;
 	float palette_scroll;
 	float palette_height;
+	/** The finger that pans came down on the palette (it scrolls the palette, not the canvas). */
+	int touch_palette;
 	int palette_hidden;
 	int layout_dirty;
 	int painted;
@@ -1873,6 +1875,42 @@ static int rvn_block_editor_set_attribute(rvn_widget_t* widget, const char* name
 /* <Kind Name="move" Label="move %n{10} steps" Shape="Statement" Category="Motion"/>, <Category Name="Motion" Color="#4C97FF"/> */
 static int rvn_block_editor_xml_child(rvn_widget_t* widget, const struct rvn_xml_node_t* element);
 
+/* A finger on the empty canvas (or the palette) moves it; on a block, it drags the block. */
+static int rvn_block_editor_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	rvn_block_editor_t* e = (rvn_block_editor_t*)widget;
+	float zoom = e->zoom > 0.0f ? e->zoom : 1.0f;
+	RVN_UNUSED(coasting);
+	if (e->drag != RVN_BE_NONE || (dx == 0.0f && dy == 0.0f)) return R_FALSE;
+	if (e->touch_palette) {
+		float most = rvn_maxf(0.0f, e->palette_height - widget->rect.h), before = e->palette_scroll;
+		e->palette_scroll = rvn_clampf(e->palette_scroll - dy, 0.0f, most);
+		return e->palette_scroll != before;
+	}
+	e->pan_x -= dx / zoom;
+	e->pan_y -= dy / zoom;
+	return R_TRUE;
+}
+
+static int rvn_block_editor_zoom(rvn_widget_t* widget, float factor, float x, float y) {
+	rvn_block_editor_t* e = (rvn_block_editor_t*)widget;
+	float before_x, before_y, after_x, after_y, before = e->zoom;
+	if (e->drag != RVN_BE_NONE || rvn_be_in_palette(e, x)) return R_FALSE;
+	rvn_be_to_canvas(e, x, y, &before_x, &before_y);
+	e->zoom = rvn_clampf((e->zoom > 0.0f ? e->zoom : 1.0f) * factor, 0.3f, 3.0f);
+	rvn_spring_set(&e->shown_zoom, e->zoom);
+	rvn_be_to_canvas(e, x, y, &after_x, &after_y);
+	e->pan_x += before_x - after_x;
+	e->pan_y += before_y - after_y;
+	return e->zoom != before;
+}
+
+static int rvn_block_editor_touch_drags(rvn_widget_t* widget, float x, float y) {
+	rvn_block_editor_t* e = (rvn_block_editor_t*)widget;
+	int slot;
+	e->touch_palette = rvn_be_in_palette(e, x);
+	return rvn_be_block_at(e, x, y, &slot) != 0;
+}
+
 const rvn_widget_class_t rvn_class_block_editor = {
 	.type = R_WIDGET_BLOCK_EDITOR,
 	.name = "BlockEditor",
@@ -1885,7 +1923,10 @@ const rvn_widget_class_t rvn_class_block_editor = {
 	.paint = rvn_block_editor_paint,
 	.event = rvn_block_editor_event,
 	.set_attribute = rvn_block_editor_set_attribute,
-	.xml_child = rvn_block_editor_xml_child
+	.xml_child = rvn_block_editor_xml_child,
+	.pan = rvn_block_editor_pan,
+	.zoom = rvn_block_editor_zoom,
+	.touch_drags = rvn_block_editor_touch_drags
 };
 
 /* ---------------------------------------------------------------------------

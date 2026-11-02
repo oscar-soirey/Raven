@@ -649,6 +649,7 @@ void rvn_window_forget_widget(rvn_window_t* window, rvn_widget_t* widget) {
 		window->drop_target = NULL;
 		window->drop_accepted = R_FALSE;
 	}
+	rvn_touch_forget_widget(window, widget);
 	/* a spring of the layout that stops being stepped must not stay half-way */
 	for (i = 0; i < window->layout_spring_count;) {
 		rvn_layout_spring_t* entry = &window->layout_springs[i];
@@ -996,7 +997,7 @@ int rvn_window_wants_frame(rvn_window_t* window) {
 	if (window->dead) return R_FALSE;
 	if (window->needs_layout || window->layout_spring_count > 0) return R_TRUE;
 	if (!rvn_window_can_paint(window) || !window->visible) return R_FALSE;
-	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 ||
+	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 || rvn_touch_animating(window) ||
 		rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->redraw_requested) != 0;
 }
 
@@ -1060,6 +1061,8 @@ void rvn_window_update(rvn_window_t* window) {
 	if (window->dead) return;
 	if (rvn_atomic_exchange(&window->redraw_requested, 0)) window->needs_paint = R_TRUE;
 	rvn_window_step_layout_springs(window);
+	if (window->touch && rvn_touch_step(window)) window->needs_paint = R_TRUE;
+	if (window->dead) return;
 	if (window->continuous || rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->animating) != 0) {
 		window->needs_paint = R_TRUE;
 	}
@@ -1670,6 +1673,28 @@ static void rvn_window_resized(rvn_window_t* window, int width_px, int height_px
 }
 
 /* ---------------------------------------------------------------------------
+ *  The mouse as fingers and pens drive it (widget/touch.c)
+ * ------------------------------------------------------------------------- */
+
+void rvn_window_emulate_move(rvn_window_t* window, float x, float y) {
+	if (!window->dead) rvn_window_mouse_move(window, x, y);
+}
+
+void rvn_window_emulate_button(rvn_window_t* window, RMouseButton button, int pressed) {
+	if (!window->dead) rvn_window_mouse_button(window, button, pressed);
+}
+
+void rvn_window_emulate_leave(rvn_window_t* window) {
+	if (window->dead) return;
+	rvn_window_mouse_leave(window);
+	if (!window->dead) rvn_window_update_cursor(window);
+}
+
+rvn_widget_t* rvn_window_widget_at(rvn_window_t* window, float x, float y) {
+	return rvn_window_hit(window, x, y, NULL);
+}
+
+/* ---------------------------------------------------------------------------
  *  Platform events
  * ------------------------------------------------------------------------- */
 
@@ -1744,6 +1769,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 				window->modifiers = 0;
 				memset(window->keys, 0, sizeof(window->keys));
 				rvn_window_drag_cancel(window);
+				rvn_touch_cancel(window);
 				rvn_window_close_popups(window);
 				rvn_window_tooltip_hide(window);
 			}
@@ -1772,6 +1798,12 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			if (pevent->accepted) *pevent->accepted = taken;
 			break;
 		}
+		case RVN_PEVENT_TOUCH:
+		case RVN_PEVENT_PEN:
+		case RVN_PEVENT_GESTURE:
+			window->modifiers = pevent->modifiers;
+			rvn_touch_on_event(window, pevent, scale);
+			break;
 		case RVN_PEVENT_MODAL_TICK:
 			break;
 	}
@@ -1847,6 +1879,7 @@ static void rvn_window_free(rvn_window_t* window) {
 	rvn_free(window->drag_type);
 	rvn_free(window->drag_data);
 	rvn_free(window->drag_label);
+	rvn_touch_window_free(window);
 	rvn_free(window);
 }
 
@@ -1863,6 +1896,7 @@ void rvn_window_destroy(rvn_window_t* window) {
 	if (window->dead) return;
 	while (window->ghost_count > 0) rvn_window_remove_ghost(window, 0);
 	rvn_window_tooltip_hide(window);
+	rvn_touch_cancel(window);
 	root = window->root;
 	if (root) rvn_widget_destroy(root);
 	window->root = NULL;

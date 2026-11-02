@@ -316,6 +316,11 @@ static int rvn_list_view_xml_child(rvn_widget_t* widget, const rvn_xml_node_t* n
 	return R_TRUE;
 }
 
+static int rvn_touch_list_view_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	RVN_UNUSED(dx);
+	return rvn_scrollbar_pan(&((rvn_list_view_t*)widget)->bar, -dy, coasting);
+}
+
 const rvn_widget_class_t rvn_class_list_view = {
 	.type = R_WIDGET_LIST_VIEW,
 	.name = "ListView",
@@ -328,6 +333,7 @@ const rvn_widget_class_t rvn_class_list_view = {
 	.arrange = rvn_list_view_arrange,
 	.paint = rvn_list_view_paint,
 	.event = rvn_list_view_event,
+	.pan = rvn_touch_list_view_pan,
 	.set_attribute = rvn_list_view_set_attribute,
 	.xml_child = rvn_list_view_xml_child
 };

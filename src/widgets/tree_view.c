@@ -656,6 +656,11 @@ static int rvn_tree_view_xml_child(rvn_widget_t* widget, const rvn_xml_node_t* n
 	return rvn_tree_xml_item(tree, &tree->root, node);
 }
 
+static int rvn_touch_tree_view_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	RVN_UNUSED(dx);
+	return rvn_scrollbar_pan(&((rvn_tree_view_t*)widget)->bar, -dy, coasting);
+}
+
 const rvn_widget_class_t rvn_class_tree_view = {
 	.type = R_WIDGET_TREE_VIEW,
 	.name = "TreeView",
@@ -667,6 +672,7 @@ const rvn_widget_class_t rvn_class_tree_view = {
 	.arrange = rvn_tree_view_arrange,
 	.paint = rvn_tree_view_paint,
 	.event = rvn_tree_view_event,
+	.pan = rvn_touch_tree_view_pan,
 	.xml_child = rvn_tree_view_xml_child
 };
 
