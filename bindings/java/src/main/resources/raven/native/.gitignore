@@ -1,0 +1,3 @@
+# filled by bindings\package.bat and dev\publish-java.bat: the shared library of each platform
+*
+!.gitignore

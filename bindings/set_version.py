@@ -7,7 +7,8 @@ Sets the version of every binding package from the one of Raven.
 Updates: CMakeLists.txt (if a version is given), the fallback version of
 src/core/base.h, the Rust crate
 (rust/Cargo.toml), the NuGet package
-(csharp/Raven.Gui.csproj) and the LuaRocks rockspec (luajit/*.rockspec,
+(csharp/Raven.Gui.csproj), the Maven package (java/pom.xml, its README) and
+the LuaRocks rockspec (luajit/*.rockspec,
 renamed to the new version). The pip package reads CMakeLists.txt itself.
 """
 
@@ -57,6 +58,9 @@ def main():
     replace(os.path.join(ROOT, "src", "core", "base.h"), r'^(#define RVN_VERSION_STRING ")[^"]*(")', r"\g<1>%s\g<2>" % version)
     replace(os.path.join(HERE, "rust", "Cargo.toml"), r'^(version\s*=\s*")[^"]*(")', r"\g<1>%s\g<2>" % version)
     replace(os.path.join(HERE, "csharp", "Raven.Gui.csproj"), r"(<Version>)[^<]*(</Version>)", r"\g<1>%s\g<2>" % version)
+    replace(os.path.join(HERE, "java", "pom.xml"), r"(<artifactId>raven-gui</artifactId>\s*<version>)[^<]*(</version>)", r"\g<1>%s\g<2>" % version)
+    for readme in (os.path.join(HERE, "java", "README.md"), os.path.join(HERE, "README.md")):
+        replace(readme, r"(<version>|raven-gui:)\d+\.\d+\.\d+", r"\g<1>%s" % version, count=0)
 
     rockspecs = glob.glob(os.path.join(HERE, "luajit", "raven-gui-*.rockspec"))
     if len(rockspecs) != 1:

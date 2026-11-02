@@ -7,6 +7,8 @@
 #   binding_python        needs Python 3 and the shared library (RAVEN_BUILD_SHARED); not on Windows
 #   binding_rust          needs cargo and the shared library; not on Windows
 #   binding_go            needs go, a C compiler for cgo, and the shared library; not on Windows
+#   binding_java          needs a JDK 22 or later and the shared library; not on Windows
+#   binding_odin          needs odin and the shared library; not on Windows
 #
 # C#, Zig and LuaJIT have no test here.
 
@@ -27,7 +29,7 @@ if(CMAKE_CXX_COMPILER)
 	add_test(NAME binding_cpp COMMAND raven_binding_cpp --test)
 endif()
 
-# (on Windows these three are left to be run by hand: what they need to find the
+# (on Windows these are left to be run by hand: what they need to find the
 # DLL and its import library depends on how Python, cargo and go were installed)
 if(RAVEN_BUILD_SHARED AND NOT WIN32)
 	set(RAVEN_BINDING_ENV
@@ -55,5 +57,27 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 		add_test(NAME binding_go
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} "GOFLAGS=-mod=mod" ${RAVEN_GO} run ./example --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/go)
+	endif()
+
+	# the class is compiled by a first test, which the example (a source file) then uses
+	find_package(Java 22 COMPONENTS Runtime Development QUIET)
+	if(Java_FOUND)
+		add_test(NAME binding_java_compile
+			COMMAND ${Java_JAVAC_EXECUTABLE} -encoding UTF-8 -d ${CMAKE_CURRENT_BINARY_DIR}/java
+				${CMAKE_CURRENT_SOURCE_DIR}/java/src/main/java/raven/R.java)
+		set_tests_properties(binding_java_compile PROPERTIES FIXTURES_SETUP raven_java)
+		add_test(NAME binding_java
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${Java_JAVA_EXECUTABLE} --enable-native-access=ALL-UNNAMED
+				-cp ${CMAKE_CURRENT_BINARY_DIR}/java ${CMAKE_CURRENT_SOURCE_DIR}/java/example/Example.java --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+		set_tests_properties(binding_java PROPERTIES FIXTURES_REQUIRED raven_java)
+	endif()
+
+	find_program(RAVEN_ODIN odin)
+	if(RAVEN_ODIN)
+		add_test(NAME binding_odin
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} run example
+				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven>" -- --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
 	endif()
 endif()

@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The Maven package of Raven for Java: io.github.oscar-soirey:raven-gui.
+
+    mvn -B package                      the jar, in target/
+    mvn -B -P release -s settings.xml deploy
+                                        signed, and published on Maven Central
+
+  bindings\package.bat and dev\publish-java.bat do all of this. By hand: put
+  the shared library of each platform in src/main/resources/raven/native/
+  first (R.java takes it out of the jar when it starts):
+
+    windows-x64/raven.dll
+    linux-x64/libraven.so
+    macos/libraven.dylib        (universal: arm64 + x86_64)
+
+  A platform whose folder is empty is simply left out of the jar.
+  Needs a JDK 22 or later (the Foreign Function & Memory API).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.github.oscar-soirey</groupId>
+  <artifactId>raven-gui</artifactId>
+  <version>0.2.0</version>
+  <packaging>jar</packaging>
+
+  <name>Raven</name>
+  <description>Java bindings for Raven, a lightweight, multithreaded GUI library in C for editors and tools. The native library is included for Windows x64, Linux x64 and macOS (arm64 and x64).</description>
+  <url>https://github.com/oscar-soirey/Raven</url>
+
+  <licenses>
+    <license>
+      <name>Apache-2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>Oscar Soirey</name>
+      <url>https://github.com/oscar-soirey</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/oscar-soirey/Raven.git</connection>
+    <developerConnection>scm:git:https://github.com/oscar-soirey/Raven.git</developerConnection>
+    <url>https://github.com/oscar-soirey/Raven</url>
+  </scm>
+
+  <properties>
+    <maven.compiler.release>22</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+        <excludes>
+          <exclude>**/.gitignore</exclude>
+        </excludes>
+      </resource>
+    </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>raven</Automatic-Module-Name>
+              <!-- (read when the jar is the one started with java -jar) -->
+              <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.11.2</version>
+        <configuration>
+          <!-- the generated bindings document the API, not every parameter -->
+          <doclint>none</doclint>
+          <quiet>true</quiet>
+        </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- signed with gpg and sent to Maven Central (central.sonatype.com) -->
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.7</version>
+            <configuration>
+              <!-- the passphrase comes from MAVEN_GPG_PASSPHRASE, without a window to type it in -->
+              <gpgArguments>
+                <arg>--pinentry-mode</arg>
+                <arg>loopback</arg>
+              </gpgArguments>
+            </configuration>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.12.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>true</autoPublish>
+              <waitUntil>published</waitUntil>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
