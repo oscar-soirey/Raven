@@ -370,6 +370,51 @@ const (
 	R_DROP_DROPPED RDropPhase = 0x00E3
 )
 
+// RTouchMode: What a finger does on a widget (Rwidget_set_touch_mode).
+type RTouchMode int32
+
+const (
+	R_TOUCH_MODE_AUTO   RTouchMode = 0x0480
+	R_TOUCH_MODE_SCROLL RTouchMode = 0x0481
+	R_TOUCH_MODE_MOUSE  RTouchMode = 0x0482
+	R_TOUCH_MODE_NONE   RTouchMode = 0x0483
+)
+
+type RTouchPhase int32
+
+const (
+	R_TOUCH_DOWN   RTouchPhase = 0x0490
+	R_TOUCH_MOVE   RTouchPhase = 0x0491
+	R_TOUCH_UP     RTouchPhase = 0x0492
+	R_TOUCH_CANCEL RTouchPhase = 0x0493
+)
+
+type RPenPhase int32
+
+const (
+	R_PEN_DOWN  RPenPhase = 0x04A0
+	R_PEN_MOVE  RPenPhase = 0x04A1
+	R_PEN_UP    RPenPhase = 0x04A2
+	R_PEN_HOVER RPenPhase = 0x04A3
+	R_PEN_LEAVE RPenPhase = 0x04A4
+)
+
+// RPenButton: Buttons on the side of a pen (RPenEvent::buttons).
+type RPenButton int32
+
+const (
+	R_PEN_BUTTON_BARREL  RPenButton = 1
+	R_PEN_BUTTON_BARREL2 RPenButton = 2
+)
+
+type RGesturePhase int32
+
+const (
+	R_GESTURE_BEGIN  RGesturePhase = 0x04B0
+	R_GESTURE_UPDATE RGesturePhase = 0x04B1
+	R_GESTURE_END    RGesturePhase = 0x04B2
+)
+
 // RLook: The looks. Each one comes dark and light. Raven's looks are the default; the ones of the platforms
 // imitate them closely (their shapes, colors, sizes, states and motion), without using their widgets. The
 // looks of the platforms are opaque, except macOS Glass (macOS 26), whose bars, menus and floating surfaces
@@ -1468,6 +1513,67 @@ func WindowRegisterShortcut(window ID, key RKey, modifiers uint32, action string
 
 func WindowUnregisterShortcut(window ID, key RKey, modifiers uint32) {
 	C.Rwindow_unregister_shortcut(C.Rid(window), C.RKey(key), C.Ruint(modifiers))
+}
+
+// WidgetSetTouchMode: What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as
+// its parent says).
+func WidgetSetTouchMode(widget ID, mode RTouchMode) {
+	C.Rwidget_set_touch_mode(C.Rid(widget), C.RTouchMode(mode))
+}
+
+func WidgetGetTouchMode(widget ID) RTouchMode {
+	return RTouchMode(C.Rwidget_get_touch_mode(C.Rid(widget)))
+}
+
+// WidgetSetTouchGestures: R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+func WidgetSetTouchGestures(widget ID, enabled int) {
+	C.Rwidget_set_touch_gestures(C.Rid(widget), C.int(enabled))
+}
+
+func WidgetGetTouchGestures(widget ID) int {
+	return int(C.Rwidget_get_touch_gestures(C.Rid(widget)))
+}
+
+// WidgetSetPenMouse: R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen
+// callback sees it (default R_TRUE).
+func WidgetSetPenMouse(widget ID, enabled int) {
+	C.Rwidget_set_pen_mouse(C.Rid(widget), C.int(enabled))
+}
+
+func WidgetGetPenMouse(widget ID) int {
+	return int(C.Rwidget_get_pen_mouse(C.Rid(widget)))
+}
+
+// WindowGetTouchCount: Fingers on the window now.
+func WindowGetTouchCount(window ID) int {
+	return int(C.Rwindow_get_touch_count(C.Rid(window)))
+}
+
+// WindowIsPenInRange: R_TRUE while a pen is near the screen over the window.
+func WindowIsPenInRange(window ID) int {
+	return int(C.Rwindow_is_pen_in_range(C.Rid(window)))
+}
+
+// WindowIsTouchActive: R_TRUE when the pointer last used in the window was a finger (the interface may then
+// be made larger).
+func WindowIsTouchActive(window ID) int {
+	return int(C.Rwindow_is_touch_active(C.Rid(window)))
+}
+
+// WindowInjectTouch: A finger: R_TOUCH_DOWN, then R_TOUCH_MOVE..., then R_TOUCH_UP, with the same `id`.
+func WindowInjectTouch(window ID, id int, phase RTouchPhase, x float32, y float32) {
+	C.Rwindow_inject_touch(C.Rid(window), C.int(id), C.RTouchPhase(phase), C.float(x), C.float(y))
+}
+
+// WindowInjectPen: A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
+func WindowInjectPen(window ID, phase RPenPhase, x float32, y float32, pressure float32, tilt_x float32, tilt_y float32, buttons uint32, eraser int) {
+	C.Rwindow_inject_pen(C.Rid(window), C.RPenPhase(phase), C.float(x), C.float(y), C.float(pressure), C.float(tilt_x), C.float(tilt_y), C.Ruint(buttons), C.int(eraser))
+}
+
+// WindowAdvanceTouch: Advances the inertia of flicked content by `seconds` at once, and fires a long press
+// that is due, without waiting (tests).
+func WindowAdvanceTouch(window ID, seconds float64) {
+	C.Rwindow_advance_touch(C.Rid(window), C.double(seconds))
 }
 
 // LookSet: Changes the look of the application. The theme file in use, if it names no look of its own, is
@@ -5339,8 +5445,10 @@ func HostInjectClose(window ID) {
 // Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_set_icon, Rwindow_set_close_callback
 // Rwindow_set_resize_callback, Rwindow_set_drop_callback, Rwindow_set_user_handle, Rwindow_get_user_handle
 // Rwindow_get_native_handle, Rwindow_capture, Rwindow_inject_drop, Rwindow_set_event_hook
-// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rwidget_set_user_handle
-// Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
+// Rtouch_get_settings, Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings
+// Rwindow_get_touch_settings, Rwidget_set_touch_callback, Rwidget_set_pen_callback
+// Rwidget_set_gesture_callback, Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free
+// Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
 // Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
 // Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
 // Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback

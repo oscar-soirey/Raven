@@ -296,6 +296,50 @@ R_DROP_LEAVE :: 0x00E2
 // The user dropped: `paths` and `text` hold what was dropped.
 R_DROP_DROPPED :: 0x00E3
 
+// What a finger does on a widget (Rwidget_set_touch_mode).
+RTouchMode :: i32
+// The finger scrolls what scrolls under it, and is a mouse elsewhere (default).
+R_TOUCH_MODE_AUTO :: 0x0480
+// A finger moving on the widget always scrolls what contains it, even over a control that drags.
+R_TOUCH_MODE_SCROLL :: 0x0481
+// The finger is a mouse on the widget: pressing presses at once, moving drags, nothing scrolls.
+R_TOUCH_MODE_MOUSE :: 0x0482
+// Fingers are ignored on the widget (only its touch callback sees them): a surface for the pen.
+R_TOUCH_MODE_NONE :: 0x0483
+
+RTouchPhase :: i32
+// A finger came down.
+R_TOUCH_DOWN :: 0x0490
+R_TOUCH_MOVE :: 0x0491
+// The finger was lifted.
+R_TOUCH_UP :: 0x0492
+// The system took the finger away (a gesture of its own, the window lost it): nothing must happen as for a lift.
+R_TOUCH_CANCEL :: 0x0493
+
+RPenPhase :: i32
+// The tip touched the screen.
+R_PEN_DOWN :: 0x04A0
+// The pen moves while touching.
+R_PEN_MOVE :: 0x04A1
+// The tip left the screen.
+R_PEN_UP :: 0x04A2
+// The pen moves near the screen without touching it.
+R_PEN_HOVER :: 0x04A3
+// The pen went out of reach.
+R_PEN_LEAVE :: 0x04A4
+
+// Buttons on the side of a pen (RPenEvent::buttons).
+RPenButton :: i32
+R_PEN_BUTTON_BARREL :: 1
+R_PEN_BUTTON_BARREL2 :: 2
+
+RGesturePhase :: i32
+// A second finger came down.
+R_GESTURE_BEGIN :: 0x04B0
+R_GESTURE_UPDATE :: 0x04B1
+// Fewer than two fingers remain.
+R_GESTURE_END :: 0x04B2
+
 // The looks. Each one comes dark and light.
 //
 // Raven's looks are the default; the ones of the platforms imitate them
@@ -966,6 +1010,12 @@ RWindowResizeCallback :: #type proc "c" (window: Rid, width: i32, height: i32, u
 // Returning R_TRUE consumes the event: the widgets do not get it. The
 // state read by Rwindow_is_key_down is updated either way.
 RWindowEventHook :: #type proc "c" (window: Rid, event: ^REvent, user_data: rawptr) -> i32
+// Return R_TRUE to take the finger: the library then neither clicks nor scrolls with it.
+RTouchCallback :: #type proc "c" (widget: Rid, event: ^RTouchEvent, user_data: rawptr) -> i32
+// Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
+RPenCallback :: #type proc "c" (widget: Rid, event: ^RPenEvent, user_data: rawptr) -> i32
+// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+RGestureCallback :: #type proc "c" (widget: Rid, event: ^RGestureEvent, user_data: rawptr) -> i32
 // Called once when the widget is gone: deleted by the application,
 // with its parent or its window, or by Rshutdown. The place to release
 // what belonged to it (a texture, a connection). The handle it receives
@@ -1219,6 +1269,104 @@ RDropEvent :: struct {
 	drag_type: cstring,
 	// Widget the drag started from, or R_INVALID_ID.
 	drag_source: Rid,
+}
+
+// How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings).
+RTouchSettings :: struct {
+	// R_TRUE (default): one finger drives the widgets as the mouse does: a tap clicks, a drag drags.
+	mouse_emulation: i32,
+	// How far a finger moves (logical units) before a press becomes a drag or a scroll. Default 8.
+	slop: f32,
+	// Seconds a finger rests before the press is a right click (the context menu); 0 turns it off. Default 0.5.
+	long_press: f32,
+	// R_TRUE (default): flicked content keeps going and slows down.
+	inertia: i32,
+	// How fast it slows down, in logical units per second per second. Default 2400.
+	deceleration: f32,
+	// R_TRUE (default): two fingers pinch to zoom and pan.
+	gestures: i32,
+	// R_TRUE (default): the pen drives the widgets as the mouse does (its barrel button: the right button).
+	pen_mouse_emulation: i32,
+	// The pressure given to the application is the one of the pen to this power: 1 (default) as it is, below 1 softer, above 1 harder.
+	pressure_curve: f32,
+	// Pressure (0..1, after the curve) the tip needs before it presses. Default 0.
+	pressure_threshold: f32,
+	// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
+	palm_rejection: i32,
+}
+
+RTouchEvent :: struct {
+	phase: RTouchPhase,
+	window: Rid,
+	// Widget the finger came down on.
+	target: Rid,
+	// Number of the finger, the same from its down to its up.
+	id: i32,
+	// Position in the window, and relative to the widget receiving the event.
+	x: f32,
+	// Position in the window, and relative to the widget receiving the event.
+	y: f32,
+	local_x: f32,
+	local_y: f32,
+	// 0..1; 1 when the screen does not tell.
+	pressure: f32,
+	// Size of the contact, 0 when the screen does not tell.
+	width: f32,
+	// Size of the contact, 0 when the screen does not tell.
+	height: f32,
+	// Fingers on the window, this one included (0 after the last up).
+	count: i32,
+	// Bitmask of RModifier.
+	modifiers: u32,
+}
+
+RPenEvent :: struct {
+	phase: RPenPhase,
+	window: Rid,
+	// Widget under the pen; during a stroke, the one it started on.
+	target: Rid,
+	x: f32,
+	y: f32,
+	local_x: f32,
+	local_y: f32,
+	// 0..1, after the pressure curve; 0 while hovering.
+	pressure: f32,
+	// As the pen gives it, 0..1.
+	raw_pressure: f32,
+	// Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+	tilt_x: f32,
+	// Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+	tilt_y: f32,
+	// Rotation around its axis in degrees, 0..360 (when the pen tells).
+	rotation: f32,
+	// R_TRUE when the eraser end touches (or the eraser button is held).
+	eraser: i32,
+	// Bitmask of RPenButton.
+	buttons: u32,
+	modifiers: u32,
+}
+
+RGestureEvent :: struct {
+	phase: RGesturePhase,
+	window: Rid,
+	// Widget under the center of the fingers when the gesture began.
+	target: Rid,
+	// Center of the fingers, in the window and relative to the widget receiving the event.
+	x: f32,
+	// Center of the fingers, in the window and relative to the widget receiving the event.
+	y: f32,
+	local_x: f32,
+	local_y: f32,
+	// Distance between the fingers relative to when the gesture began (2 = twice as far apart).
+	scale: f32,
+	// The same since the previous event: what a zoom multiplies by.
+	scale_delta: f32,
+	// Movement of the center since the previous event.
+	pan_x: f32,
+	// Movement of the center since the previous event.
+	pan_y: f32,
+	// Turn of the fingers since the gesture began, in degrees, clockwise.
+	rotation: f32,
 }
 
 // What a tile shows, filled by the application when the tile is drawn.
@@ -1721,6 +1869,41 @@ foreign lib {
 	Rdrag_cancel :: proc(window: Rid) ---
 	Rwindow_register_shortcut :: proc(window: Rid, key: RKey, modifiers: u32, action: cstring) ---
 	Rwindow_unregister_shortcut :: proc(window: Rid, key: RKey, modifiers: u32) ---
+	// The settings every window follows, unless it has its own.
+	Rtouch_get_settings :: proc(settings: ^RTouchSettings) ---
+	// Changes them; NULL puts back the defaults.
+	Rtouch_set_settings :: proc(settings: ^RTouchSettings) ---
+	// The defaults, to start from.
+	Rtouch_get_default_settings :: proc(settings: ^RTouchSettings) ---
+	// Settings of one window; NULL: it follows Rtouch_set_settings again.
+	Rwindow_set_touch_settings :: proc(window: Rid, settings: ^RTouchSettings) ---
+	// The settings the window follows (its own, or those of the application).
+	Rwindow_get_touch_settings :: proc(window: Rid, settings: ^RTouchSettings) ---
+	// What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says).
+	Rwidget_set_touch_mode :: proc(widget: Rid, mode: RTouchMode) ---
+	Rwidget_get_touch_mode :: proc(widget: Rid) -> RTouchMode ---
+	// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+	Rwidget_set_touch_gestures :: proc(widget: Rid, enabled: i32) ---
+	Rwidget_get_touch_gestures :: proc(widget: Rid) -> i32 ---
+	// R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE).
+	Rwidget_set_pen_mouse :: proc(widget: Rid, enabled: i32) ---
+	Rwidget_get_pen_mouse :: proc(widget: Rid) -> i32 ---
+	Rwidget_set_touch_callback :: proc(widget: Rid, callback: RTouchCallback, user_data: rawptr) ---
+	Rwidget_set_pen_callback :: proc(widget: Rid, callback: RPenCallback, user_data: rawptr) ---
+	Rwidget_set_gesture_callback :: proc(widget: Rid, callback: RGestureCallback, user_data: rawptr) ---
+	// Fingers on the window now.
+	Rwindow_get_touch_count :: proc(window: Rid) -> i32 ---
+	// R_TRUE while a pen is near the screen over the window.
+	Rwindow_is_pen_in_range :: proc(window: Rid) -> i32 ---
+	// R_TRUE when the pointer last used in the window was a finger (the interface may then be made larger).
+	Rwindow_is_touch_active :: proc(window: Rid) -> i32 ---
+	// A finger: R_TOUCH_DOWN, then R_TOUCH_MOVE..., then R_TOUCH_UP, with the same `id`.
+	Rwindow_inject_touch :: proc(window: Rid, id: i32, phase: RTouchPhase, x: f32, y: f32) ---
+	// A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
+	Rwindow_inject_pen :: proc(window: Rid, phase: RPenPhase, x: f32, y: f32, pressure: f32, tilt_x: f32, tilt_y: f32, buttons: u32, eraser: i32) ---
+	// Advances the inertia of flicked content by `seconds` at once,
+	// and fires a long press that is due, without waiting (tests).
+	Rwindow_advance_touch :: proc(window: Rid, seconds: f64) ---
 	// Changes the look of the application. The theme file in use, if
 	// it names no look of its own, is laid again over the new one; colors
 	// and metrics changed with Rtheme_set_... are lost; what was given to

@@ -527,6 +527,59 @@ R_DROP_MOVE = RDropPhase.R_DROP_MOVE
 R_DROP_LEAVE = RDropPhase.R_DROP_LEAVE
 R_DROP_DROPPED = RDropPhase.R_DROP_DROPPED
 
+class RTouchMode(enum.IntEnum):
+    """What a finger does on a widget (Rwidget_set_touch_mode)."""
+    R_TOUCH_MODE_AUTO = 0x0480
+    R_TOUCH_MODE_SCROLL = 0x0481
+    R_TOUCH_MODE_MOUSE = 0x0482
+    R_TOUCH_MODE_NONE = 0x0483
+
+R_TOUCH_MODE_AUTO = RTouchMode.R_TOUCH_MODE_AUTO
+R_TOUCH_MODE_SCROLL = RTouchMode.R_TOUCH_MODE_SCROLL
+R_TOUCH_MODE_MOUSE = RTouchMode.R_TOUCH_MODE_MOUSE
+R_TOUCH_MODE_NONE = RTouchMode.R_TOUCH_MODE_NONE
+
+class RTouchPhase(enum.IntEnum):
+    R_TOUCH_DOWN = 0x0490
+    R_TOUCH_MOVE = 0x0491
+    R_TOUCH_UP = 0x0492
+    R_TOUCH_CANCEL = 0x0493
+
+R_TOUCH_DOWN = RTouchPhase.R_TOUCH_DOWN
+R_TOUCH_MOVE = RTouchPhase.R_TOUCH_MOVE
+R_TOUCH_UP = RTouchPhase.R_TOUCH_UP
+R_TOUCH_CANCEL = RTouchPhase.R_TOUCH_CANCEL
+
+class RPenPhase(enum.IntEnum):
+    R_PEN_DOWN = 0x04A0
+    R_PEN_MOVE = 0x04A1
+    R_PEN_UP = 0x04A2
+    R_PEN_HOVER = 0x04A3
+    R_PEN_LEAVE = 0x04A4
+
+R_PEN_DOWN = RPenPhase.R_PEN_DOWN
+R_PEN_MOVE = RPenPhase.R_PEN_MOVE
+R_PEN_UP = RPenPhase.R_PEN_UP
+R_PEN_HOVER = RPenPhase.R_PEN_HOVER
+R_PEN_LEAVE = RPenPhase.R_PEN_LEAVE
+
+class RPenButton(enum.IntFlag):
+    """Buttons on the side of a pen (RPenEvent::buttons)."""
+    R_PEN_BUTTON_BARREL = 1
+    R_PEN_BUTTON_BARREL2 = 2
+
+R_PEN_BUTTON_BARREL = RPenButton.R_PEN_BUTTON_BARREL
+R_PEN_BUTTON_BARREL2 = RPenButton.R_PEN_BUTTON_BARREL2
+
+class RGesturePhase(enum.IntEnum):
+    R_GESTURE_BEGIN = 0x04B0
+    R_GESTURE_UPDATE = 0x04B1
+    R_GESTURE_END = 0x04B2
+
+R_GESTURE_BEGIN = RGesturePhase.R_GESTURE_BEGIN
+R_GESTURE_UPDATE = RGesturePhase.R_GESTURE_UPDATE
+R_GESTURE_END = RGesturePhase.R_GESTURE_END
+
 class RLook(enum.IntEnum):
     """The looks. Each one comes dark and light.
     
@@ -1420,6 +1473,77 @@ class RDropEvent(ctypes.Structure):
     ]
 
 
+class RTouchSettings(ctypes.Structure):
+    """How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings)."""
+    _fields_ = [
+        ("mouse_emulation", ctypes.c_int),
+        ("slop", ctypes.c_float),
+        ("long_press", ctypes.c_float),
+        ("inertia", ctypes.c_int),
+        ("deceleration", ctypes.c_float),
+        ("gestures", ctypes.c_int),
+        ("pen_mouse_emulation", ctypes.c_int),
+        ("pressure_curve", ctypes.c_float),
+        ("pressure_threshold", ctypes.c_float),
+        ("palm_rejection", ctypes.c_int),
+    ]
+
+
+class RTouchEvent(ctypes.Structure):
+    _fields_ = [
+        ("phase", ctypes.c_int),
+        ("window", ctypes.c_uint32),
+        ("target", ctypes.c_uint32),
+        ("id", ctypes.c_int),
+        ("x", ctypes.c_float),
+        ("y", ctypes.c_float),
+        ("local_x", ctypes.c_float),
+        ("local_y", ctypes.c_float),
+        ("pressure", ctypes.c_float),
+        ("width", ctypes.c_float),
+        ("height", ctypes.c_float),
+        ("count", ctypes.c_int),
+        ("modifiers", ctypes.c_uint32),
+    ]
+
+
+class RPenEvent(ctypes.Structure):
+    _fields_ = [
+        ("phase", ctypes.c_int),
+        ("window", ctypes.c_uint32),
+        ("target", ctypes.c_uint32),
+        ("x", ctypes.c_float),
+        ("y", ctypes.c_float),
+        ("local_x", ctypes.c_float),
+        ("local_y", ctypes.c_float),
+        ("pressure", ctypes.c_float),
+        ("raw_pressure", ctypes.c_float),
+        ("tilt_x", ctypes.c_float),
+        ("tilt_y", ctypes.c_float),
+        ("rotation", ctypes.c_float),
+        ("eraser", ctypes.c_int),
+        ("buttons", ctypes.c_uint32),
+        ("modifiers", ctypes.c_uint32),
+    ]
+
+
+class RGestureEvent(ctypes.Structure):
+    _fields_ = [
+        ("phase", ctypes.c_int),
+        ("window", ctypes.c_uint32),
+        ("target", ctypes.c_uint32),
+        ("x", ctypes.c_float),
+        ("y", ctypes.c_float),
+        ("local_x", ctypes.c_float),
+        ("local_y", ctypes.c_float),
+        ("scale", ctypes.c_float),
+        ("scale_delta", ctypes.c_float),
+        ("pan_x", ctypes.c_float),
+        ("pan_y", ctypes.c_float),
+        ("rotation", ctypes.c_float),
+    ]
+
+
 class RTileItem(ctypes.Structure):
     """What a tile shows, filled by the application when the tile is drawn."""
     _fields_ = [
@@ -1650,6 +1774,30 @@ RWindowEventHook = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTE
 def _adapt_RWindowEventHook(function):
     def call(window, event, user_data):
         return function(window, event.contents if event else None, user_data) or 0
+    return call
+
+RTouchCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(RTouchEvent), ctypes.c_void_p)
+
+
+def _adapt_RTouchCallback(function):
+    def call(widget, event, user_data):
+        return function(widget, event.contents if event else None, user_data) or 0
+    return call
+
+RPenCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(RPenEvent), ctypes.c_void_p)
+
+
+def _adapt_RPenCallback(function):
+    def call(widget, event, user_data):
+        return function(widget, event.contents if event else None, user_data) or 0
+    return call
+
+RGestureCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(RGestureEvent), ctypes.c_void_p)
+
+
+def _adapt_RGestureCallback(function):
+    def call(widget, event, user_data):
+        return function(widget, event.contents if event else None, user_data) or 0
     return call
 
 RWidgetDestroyCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
@@ -3244,6 +3392,181 @@ _lib.Rwindow_unregister_shortcut.restype = None
 
 def Rwindow_unregister_shortcut(window, key, modifiers):
     _lib.Rwindow_unregister_shortcut(window, int(key), modifiers)
+
+
+_lib.Rtouch_get_settings.argtypes = [ctypes.POINTER(RTouchSettings)]
+_lib.Rtouch_get_settings.restype = None
+
+
+def Rtouch_get_settings(settings):
+    """The settings every window follows, unless it has its own."""
+    _lib.Rtouch_get_settings(_p(settings))
+
+
+_lib.Rtouch_set_settings.argtypes = [ctypes.POINTER(RTouchSettings)]
+_lib.Rtouch_set_settings.restype = None
+
+
+def Rtouch_set_settings(settings):
+    """Changes them; NULL puts back the defaults."""
+    _lib.Rtouch_set_settings(_p(settings))
+
+
+_lib.Rtouch_get_default_settings.argtypes = [ctypes.POINTER(RTouchSettings)]
+_lib.Rtouch_get_default_settings.restype = None
+
+
+def Rtouch_get_default_settings(settings):
+    """The defaults, to start from."""
+    _lib.Rtouch_get_default_settings(_p(settings))
+
+
+_lib.Rwindow_set_touch_settings.argtypes = [ctypes.c_uint32, ctypes.POINTER(RTouchSettings)]
+_lib.Rwindow_set_touch_settings.restype = None
+
+
+def Rwindow_set_touch_settings(window, settings):
+    """Settings of one window; NULL: it follows Rtouch_set_settings again."""
+    _lib.Rwindow_set_touch_settings(window, _p(settings))
+
+
+_lib.Rwindow_get_touch_settings.argtypes = [ctypes.c_uint32, ctypes.POINTER(RTouchSettings)]
+_lib.Rwindow_get_touch_settings.restype = None
+
+
+def Rwindow_get_touch_settings(window, settings):
+    """The settings the window follows (its own, or those of the application)."""
+    _lib.Rwindow_get_touch_settings(window, _p(settings))
+
+
+_lib.Rwidget_set_touch_mode.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwidget_set_touch_mode.restype = None
+
+
+def Rwidget_set_touch_mode(widget, mode):
+    """What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says)."""
+    _lib.Rwidget_set_touch_mode(widget, int(mode))
+
+
+_lib.Rwidget_get_touch_mode.argtypes = [ctypes.c_uint32]
+_lib.Rwidget_get_touch_mode.restype = ctypes.c_int
+
+
+def Rwidget_get_touch_mode(widget):
+    return _e(RTouchMode, _lib.Rwidget_get_touch_mode(widget))
+
+
+_lib.Rwidget_set_touch_gestures.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwidget_set_touch_gestures.restype = None
+
+
+def Rwidget_set_touch_gestures(widget, enabled):
+    """R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE)."""
+    _lib.Rwidget_set_touch_gestures(widget, enabled)
+
+
+_lib.Rwidget_get_touch_gestures.argtypes = [ctypes.c_uint32]
+_lib.Rwidget_get_touch_gestures.restype = ctypes.c_int
+
+
+def Rwidget_get_touch_gestures(widget):
+    return _lib.Rwidget_get_touch_gestures(widget)
+
+
+_lib.Rwidget_set_pen_mouse.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwidget_set_pen_mouse.restype = None
+
+
+def Rwidget_set_pen_mouse(widget, enabled):
+    """R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE)."""
+    _lib.Rwidget_set_pen_mouse(widget, enabled)
+
+
+_lib.Rwidget_get_pen_mouse.argtypes = [ctypes.c_uint32]
+_lib.Rwidget_get_pen_mouse.restype = ctypes.c_int
+
+
+def Rwidget_get_pen_mouse(widget):
+    return _lib.Rwidget_get_pen_mouse(widget)
+
+
+_lib.Rwidget_set_touch_callback.argtypes = [ctypes.c_uint32, RTouchCallback, ctypes.c_void_p]
+_lib.Rwidget_set_touch_callback.restype = None
+
+
+def Rwidget_set_touch_callback(widget, callback, user_data=None):
+    _lib.Rwidget_set_touch_callback(widget, _callback(RTouchCallback, _adapt_RTouchCallback, callback), user_data)
+
+
+_lib.Rwidget_set_pen_callback.argtypes = [ctypes.c_uint32, RPenCallback, ctypes.c_void_p]
+_lib.Rwidget_set_pen_callback.restype = None
+
+
+def Rwidget_set_pen_callback(widget, callback, user_data=None):
+    _lib.Rwidget_set_pen_callback(widget, _callback(RPenCallback, _adapt_RPenCallback, callback), user_data)
+
+
+_lib.Rwidget_set_gesture_callback.argtypes = [ctypes.c_uint32, RGestureCallback, ctypes.c_void_p]
+_lib.Rwidget_set_gesture_callback.restype = None
+
+
+def Rwidget_set_gesture_callback(widget, callback, user_data=None):
+    _lib.Rwidget_set_gesture_callback(widget, _callback(RGestureCallback, _adapt_RGestureCallback, callback), user_data)
+
+
+_lib.Rwindow_get_touch_count.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_touch_count.restype = ctypes.c_int
+
+
+def Rwindow_get_touch_count(window):
+    """Fingers on the window now."""
+    return _lib.Rwindow_get_touch_count(window)
+
+
+_lib.Rwindow_is_pen_in_range.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_pen_in_range.restype = ctypes.c_int
+
+
+def Rwindow_is_pen_in_range(window):
+    """R_TRUE while a pen is near the screen over the window."""
+    return _lib.Rwindow_is_pen_in_range(window)
+
+
+_lib.Rwindow_is_touch_active.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_touch_active.restype = ctypes.c_int
+
+
+def Rwindow_is_touch_active(window):
+    """R_TRUE when the pointer last used in the window was a finger (the interface may then be made larger)."""
+    return _lib.Rwindow_is_touch_active(window)
+
+
+_lib.Rwindow_inject_touch.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_float]
+_lib.Rwindow_inject_touch.restype = None
+
+
+def Rwindow_inject_touch(window, id_, phase, x, y):
+    """A finger: R_TOUCH_DOWN, then R_TOUCH_MOVE..., then R_TOUCH_UP, with the same `id`."""
+    _lib.Rwindow_inject_touch(window, id_, int(phase), x, y)
+
+
+_lib.Rwindow_inject_pen.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_inject_pen.restype = None
+
+
+def Rwindow_inject_pen(window, phase, x, y, pressure, tilt_x, tilt_y, buttons, eraser):
+    """A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton."""
+    _lib.Rwindow_inject_pen(window, int(phase), x, y, pressure, tilt_x, tilt_y, buttons, eraser)
+
+
+_lib.Rwindow_advance_touch.argtypes = [ctypes.c_uint32, ctypes.c_double]
+_lib.Rwindow_advance_touch.restype = None
+
+
+def Rwindow_advance_touch(window, seconds):
+    """Advances the inertia of flicked content by `seconds` at once,
+    and fires a long press that is due, without waiting (tests)."""
+    _lib.Rwindow_advance_touch(window, seconds)
 
 
 _lib.Rlook_set.argtypes = [ctypes.c_int]

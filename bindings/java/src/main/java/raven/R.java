@@ -467,6 +467,76 @@ public final class R {
      */
     public static final int R_DROP_DROPPED = 0x00E3;
 
+    // RTouchMode: What a finger does on a widget (Rwidget_set_touch_mode).
+    /**
+     * The finger scrolls what scrolls under it, and is a mouse elsewhere (default).
+     */
+    public static final int R_TOUCH_MODE_AUTO = 0x0480;
+    /**
+     * A finger moving on the widget always scrolls what contains it, even over a control that drags.
+     */
+    public static final int R_TOUCH_MODE_SCROLL = 0x0481;
+    /**
+     * The finger is a mouse on the widget: pressing presses at once, moving drags, nothing scrolls.
+     */
+    public static final int R_TOUCH_MODE_MOUSE = 0x0482;
+    /**
+     * Fingers are ignored on the widget (only its touch callback sees them): a surface for the pen.
+     */
+    public static final int R_TOUCH_MODE_NONE = 0x0483;
+
+    // RTouchPhase
+    /**
+     * A finger came down.
+     */
+    public static final int R_TOUCH_DOWN = 0x0490;
+    public static final int R_TOUCH_MOVE = 0x0491;
+    /**
+     * The finger was lifted.
+     */
+    public static final int R_TOUCH_UP = 0x0492;
+    /**
+     * The system took the finger away (a gesture of its own, the window lost it): nothing must happen as for a lift.
+     */
+    public static final int R_TOUCH_CANCEL = 0x0493;
+
+    // RPenPhase
+    /**
+     * The tip touched the screen.
+     */
+    public static final int R_PEN_DOWN = 0x04A0;
+    /**
+     * The pen moves while touching.
+     */
+    public static final int R_PEN_MOVE = 0x04A1;
+    /**
+     * The tip left the screen.
+     */
+    public static final int R_PEN_UP = 0x04A2;
+    /**
+     * The pen moves near the screen without touching it.
+     */
+    public static final int R_PEN_HOVER = 0x04A3;
+    /**
+     * The pen went out of reach.
+     */
+    public static final int R_PEN_LEAVE = 0x04A4;
+
+    // RPenButton: Buttons on the side of a pen (RPenEvent::buttons).
+    public static final int R_PEN_BUTTON_BARREL = 1;
+    public static final int R_PEN_BUTTON_BARREL2 = 2;
+
+    // RGesturePhase
+    /**
+     * A second finger came down.
+     */
+    public static final int R_GESTURE_BEGIN = 0x04B0;
+    public static final int R_GESTURE_UPDATE = 0x04B1;
+    /**
+     * Fewer than two fingers remain.
+     */
+    public static final int R_GESTURE_END = 0x04B2;
+
     // RLook: The looks. Each one comes dark and light.
     /**
      * Raven, flat and dense, for tools. The look at start.
@@ -1936,6 +2006,424 @@ public final class R {
     }
 
     /**
+     * How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings).
+     */
+    public static final class RTouchSettings {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 40;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RTouchSettings x = {0};` is in C). */
+        public RTouchSettings() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 4);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RTouchSettings(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RTouchSettings(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RTouchSettings[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 4);
+            RTouchSettings[] items = new RTouchSettings[count];
+            for (int i = 0; i < count; i++) items[i] = new RTouchSettings(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * R_TRUE (default): one finger drives the widgets as the mouse does: a tap clicks, a drag drags.
+         */
+        public int mouse_emulation() { return s.get(JAVA_INT, 0); }
+        public RTouchSettings mouse_emulation(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        /**
+         * How far a finger moves (logical units) before a press becomes a drag or a scroll. Default 8.
+         */
+        public float slop() { return s.get(JAVA_FLOAT, 4); }
+        public RTouchSettings slop(float value) { s.set(JAVA_FLOAT, 4, value); return this; }
+
+        /**
+         * Seconds a finger rests before the press is a right click (the context menu); 0 turns it off. Default 0.5.
+         */
+        public float long_press() { return s.get(JAVA_FLOAT, 8); }
+        public RTouchSettings long_press(float value) { s.set(JAVA_FLOAT, 8, value); return this; }
+
+        /**
+         * R_TRUE (default): flicked content keeps going and slows down.
+         */
+        public int inertia() { return s.get(JAVA_INT, 12); }
+        public RTouchSettings inertia(int value) { s.set(JAVA_INT, 12, value); return this; }
+
+        /**
+         * How fast it slows down, in logical units per second per second. Default 2400.
+         */
+        public float deceleration() { return s.get(JAVA_FLOAT, 16); }
+        public RTouchSettings deceleration(float value) { s.set(JAVA_FLOAT, 16, value); return this; }
+
+        /**
+         * R_TRUE (default): two fingers pinch to zoom and pan.
+         */
+        public int gestures() { return s.get(JAVA_INT, 20); }
+        public RTouchSettings gestures(int value) { s.set(JAVA_INT, 20, value); return this; }
+
+        /**
+         * R_TRUE (default): the pen drives the widgets as the mouse does (its barrel button: the right button).
+         */
+        public int pen_mouse_emulation() { return s.get(JAVA_INT, 24); }
+        public RTouchSettings pen_mouse_emulation(int value) { s.set(JAVA_INT, 24, value); return this; }
+
+        /**
+         * The pressure given to the application is the one of the pen to this power: 1 (default) as it is, below 1 softer, above 1 harder.
+         */
+        public float pressure_curve() { return s.get(JAVA_FLOAT, 28); }
+        public RTouchSettings pressure_curve(float value) { s.set(JAVA_FLOAT, 28, value); return this; }
+
+        /**
+         * Pressure (0..1, after the curve) the tip needs before it presses. Default 0.
+         */
+        public float pressure_threshold() { return s.get(JAVA_FLOAT, 32); }
+        public RTouchSettings pressure_threshold(float value) { s.set(JAVA_FLOAT, 32, value); return this; }
+
+        /**
+         * R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
+         */
+        public int palm_rejection() { return s.get(JAVA_INT, 36); }
+        public RTouchSettings palm_rejection(int value) { s.set(JAVA_INT, 36, value); return this; }
+    }
+
+    public static final class RTouchEvent {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 52;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RTouchEvent x = {0};` is in C). */
+        public RTouchEvent() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 4);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RTouchEvent(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RTouchEvent(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RTouchEvent[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 4);
+            RTouchEvent[] items = new RTouchEvent[count];
+            for (int i = 0; i < count; i++) items[i] = new RTouchEvent(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        public int phase() { return s.get(JAVA_INT, 0); }
+        public RTouchEvent phase(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        public int window() { return s.get(JAVA_INT, 4); }
+        public RTouchEvent window(int value) { s.set(JAVA_INT, 4, value); return this; }
+
+        /**
+         * Widget the finger came down on.
+         */
+        public int target() { return s.get(JAVA_INT, 8); }
+        public RTouchEvent target(int value) { s.set(JAVA_INT, 8, value); return this; }
+
+        /**
+         * Number of the finger, the same from its down to its up.
+         */
+        public int id() { return s.get(JAVA_INT, 12); }
+        public RTouchEvent id(int value) { s.set(JAVA_INT, 12, value); return this; }
+
+        /**
+         * Position in the window, and relative to the widget receiving the event.
+         */
+        public float x() { return s.get(JAVA_FLOAT, 16); }
+        public RTouchEvent x(float value) { s.set(JAVA_FLOAT, 16, value); return this; }
+
+        /**
+         * Position in the window, and relative to the widget receiving the event.
+         */
+        public float y() { return s.get(JAVA_FLOAT, 20); }
+        public RTouchEvent y(float value) { s.set(JAVA_FLOAT, 20, value); return this; }
+
+        public float local_x() { return s.get(JAVA_FLOAT, 24); }
+        public RTouchEvent local_x(float value) { s.set(JAVA_FLOAT, 24, value); return this; }
+
+        public float local_y() { return s.get(JAVA_FLOAT, 28); }
+        public RTouchEvent local_y(float value) { s.set(JAVA_FLOAT, 28, value); return this; }
+
+        /**
+         * 0..1; 1 when the screen does not tell.
+         */
+        public float pressure() { return s.get(JAVA_FLOAT, 32); }
+        public RTouchEvent pressure(float value) { s.set(JAVA_FLOAT, 32, value); return this; }
+
+        /**
+         * Size of the contact, 0 when the screen does not tell.
+         */
+        public float width() { return s.get(JAVA_FLOAT, 36); }
+        public RTouchEvent width(float value) { s.set(JAVA_FLOAT, 36, value); return this; }
+
+        /**
+         * Size of the contact, 0 when the screen does not tell.
+         */
+        public float height() { return s.get(JAVA_FLOAT, 40); }
+        public RTouchEvent height(float value) { s.set(JAVA_FLOAT, 40, value); return this; }
+
+        /**
+         * Fingers on the window, this one included (0 after the last up).
+         */
+        public int count() { return s.get(JAVA_INT, 44); }
+        public RTouchEvent count(int value) { s.set(JAVA_INT, 44, value); return this; }
+
+        /**
+         * Bitmask of RModifier.
+         */
+        public int modifiers() { return s.get(JAVA_INT, 48); }
+        public RTouchEvent modifiers(int value) { s.set(JAVA_INT, 48, value); return this; }
+    }
+
+    public static final class RPenEvent {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 60;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RPenEvent x = {0};` is in C). */
+        public RPenEvent() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 4);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RPenEvent(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RPenEvent(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RPenEvent[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 4);
+            RPenEvent[] items = new RPenEvent[count];
+            for (int i = 0; i < count; i++) items[i] = new RPenEvent(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        public int phase() { return s.get(JAVA_INT, 0); }
+        public RPenEvent phase(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        public int window() { return s.get(JAVA_INT, 4); }
+        public RPenEvent window(int value) { s.set(JAVA_INT, 4, value); return this; }
+
+        /**
+         * Widget under the pen; during a stroke, the one it started on.
+         */
+        public int target() { return s.get(JAVA_INT, 8); }
+        public RPenEvent target(int value) { s.set(JAVA_INT, 8, value); return this; }
+
+        public float x() { return s.get(JAVA_FLOAT, 12); }
+        public RPenEvent x(float value) { s.set(JAVA_FLOAT, 12, value); return this; }
+
+        public float y() { return s.get(JAVA_FLOAT, 16); }
+        public RPenEvent y(float value) { s.set(JAVA_FLOAT, 16, value); return this; }
+
+        public float local_x() { return s.get(JAVA_FLOAT, 20); }
+        public RPenEvent local_x(float value) { s.set(JAVA_FLOAT, 20, value); return this; }
+
+        public float local_y() { return s.get(JAVA_FLOAT, 24); }
+        public RPenEvent local_y(float value) { s.set(JAVA_FLOAT, 24, value); return this; }
+
+        /**
+         * 0..1, after the pressure curve; 0 while hovering.
+         */
+        public float pressure() { return s.get(JAVA_FLOAT, 28); }
+        public RPenEvent pressure(float value) { s.set(JAVA_FLOAT, 28, value); return this; }
+
+        /**
+         * As the pen gives it, 0..1.
+         */
+        public float raw_pressure() { return s.get(JAVA_FLOAT, 32); }
+        public RPenEvent raw_pressure(float value) { s.set(JAVA_FLOAT, 32, value); return this; }
+
+        /**
+         * Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+         */
+        public float tilt_x() { return s.get(JAVA_FLOAT, 36); }
+        public RPenEvent tilt_x(float value) { s.set(JAVA_FLOAT, 36, value); return this; }
+
+        /**
+         * Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+         */
+        public float tilt_y() { return s.get(JAVA_FLOAT, 40); }
+        public RPenEvent tilt_y(float value) { s.set(JAVA_FLOAT, 40, value); return this; }
+
+        /**
+         * Rotation around its axis in degrees, 0..360 (when the pen tells).
+         */
+        public float rotation() { return s.get(JAVA_FLOAT, 44); }
+        public RPenEvent rotation(float value) { s.set(JAVA_FLOAT, 44, value); return this; }
+
+        /**
+         * R_TRUE when the eraser end touches (or the eraser button is held).
+         */
+        public int eraser() { return s.get(JAVA_INT, 48); }
+        public RPenEvent eraser(int value) { s.set(JAVA_INT, 48, value); return this; }
+
+        /**
+         * Bitmask of RPenButton.
+         */
+        public int buttons() { return s.get(JAVA_INT, 52); }
+        public RPenEvent buttons(int value) { s.set(JAVA_INT, 52, value); return this; }
+
+        public int modifiers() { return s.get(JAVA_INT, 56); }
+        public RPenEvent modifiers(int value) { s.set(JAVA_INT, 56, value); return this; }
+    }
+
+    public static final class RGestureEvent {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 48;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RGestureEvent x = {0};` is in C). */
+        public RGestureEvent() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 4);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RGestureEvent(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RGestureEvent(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RGestureEvent[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 4);
+            RGestureEvent[] items = new RGestureEvent[count];
+            for (int i = 0; i < count; i++) items[i] = new RGestureEvent(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        public int phase() { return s.get(JAVA_INT, 0); }
+        public RGestureEvent phase(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        public int window() { return s.get(JAVA_INT, 4); }
+        public RGestureEvent window(int value) { s.set(JAVA_INT, 4, value); return this; }
+
+        /**
+         * Widget under the center of the fingers when the gesture began.
+         */
+        public int target() { return s.get(JAVA_INT, 8); }
+        public RGestureEvent target(int value) { s.set(JAVA_INT, 8, value); return this; }
+
+        /**
+         * Center of the fingers, in the window and relative to the widget receiving the event.
+         */
+        public float x() { return s.get(JAVA_FLOAT, 12); }
+        public RGestureEvent x(float value) { s.set(JAVA_FLOAT, 12, value); return this; }
+
+        /**
+         * Center of the fingers, in the window and relative to the widget receiving the event.
+         */
+        public float y() { return s.get(JAVA_FLOAT, 16); }
+        public RGestureEvent y(float value) { s.set(JAVA_FLOAT, 16, value); return this; }
+
+        public float local_x() { return s.get(JAVA_FLOAT, 20); }
+        public RGestureEvent local_x(float value) { s.set(JAVA_FLOAT, 20, value); return this; }
+
+        public float local_y() { return s.get(JAVA_FLOAT, 24); }
+        public RGestureEvent local_y(float value) { s.set(JAVA_FLOAT, 24, value); return this; }
+
+        /**
+         * Distance between the fingers relative to when the gesture began (2 = twice as far apart).
+         */
+        public float scale() { return s.get(JAVA_FLOAT, 28); }
+        public RGestureEvent scale(float value) { s.set(JAVA_FLOAT, 28, value); return this; }
+
+        /**
+         * The same since the previous event: what a zoom multiplies by.
+         */
+        public float scale_delta() { return s.get(JAVA_FLOAT, 32); }
+        public RGestureEvent scale_delta(float value) { s.set(JAVA_FLOAT, 32, value); return this; }
+
+        /**
+         * Movement of the center since the previous event.
+         */
+        public float pan_x() { return s.get(JAVA_FLOAT, 36); }
+        public RGestureEvent pan_x(float value) { s.set(JAVA_FLOAT, 36, value); return this; }
+
+        /**
+         * Movement of the center since the previous event.
+         */
+        public float pan_y() { return s.get(JAVA_FLOAT, 40); }
+        public RGestureEvent pan_y(float value) { s.set(JAVA_FLOAT, 40, value); return this; }
+
+        /**
+         * Turn of the fingers since the gesture began, in degrees, clockwise.
+         */
+        public float rotation() { return s.get(JAVA_FLOAT, 44); }
+        public RGestureEvent rotation(float value) { s.set(JAVA_FLOAT, 44, value); return this; }
+    }
+
+    /**
      * What a tile shows, filled by the application when the tile is drawn.
      */
     public static final class RTileItem {
@@ -3063,6 +3551,72 @@ public final class R {
 
     private static MemorySegment upcall(RWindowEventHook f) {
         return stub(f, RWindowEventHook.class, "RWindowEventHook$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Return R_TRUE to take the finger: the library then neither clicks nor scrolls with it.
+     */
+    @FunctionalInterface
+    public interface RTouchCallback {
+        int invoke(int widget, RTouchEvent event, MemorySegment user_data);
+    }
+
+    private static int RTouchCallback$raw(RTouchCallback f, int widget, MemorySegment event, MemorySegment user_data) {
+        try {
+            return f.invoke(widget, event.equals(MemorySegment.NULL) ? null : new RTouchEvent(event), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTouchCallback f) {
+        return stub(f, RTouchCallback.class, "RTouchCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
+     */
+    @FunctionalInterface
+    public interface RPenCallback {
+        int invoke(int widget, RPenEvent event, MemorySegment user_data);
+    }
+
+    private static int RPenCallback$raw(RPenCallback f, int widget, MemorySegment event, MemorySegment user_data) {
+        try {
+            return f.invoke(widget, event.equals(MemorySegment.NULL) ? null : new RPenEvent(event), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RPenCallback f) {
+        return stub(f, RPenCallback.class, "RPenCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+     */
+    @FunctionalInterface
+    public interface RGestureCallback {
+        int invoke(int widget, RGestureEvent event, MemorySegment user_data);
+    }
+
+    private static int RGestureCallback$raw(RGestureCallback f, int widget, MemorySegment event, MemorySegment user_data) {
+        try {
+            return f.invoke(widget, event.equals(MemorySegment.NULL) ? null : new RGestureEvent(event), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RGestureCallback f) {
+        return stub(f, RGestureCallback.class, "RGestureCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
     }
 
     /**
@@ -6071,6 +6625,307 @@ public final class R {
         if ($h == null) Rwindow_unregister_shortcut$ = $h = find("Rwindow_unregister_shortcut", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(window, key, modifiers);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtouch_get_settings$;
+
+    /**
+     * The settings every window follows, unless it has its own.
+     */
+    public static void Rtouch_get_settings(RTouchSettings settings) {
+        MethodHandle $h = Rtouch_get_settings$;
+        if ($h == null) Rtouch_get_settings$ = $h = find("Rtouch_get_settings", FunctionDescriptor.ofVoid(ADDRESS));
+        try {
+            $h.invokeExact((MemorySegment) (settings == null ? MemorySegment.NULL : settings.segment()));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtouch_set_settings$;
+
+    /**
+     * Changes them; NULL puts back the defaults.
+     */
+    public static void Rtouch_set_settings(RTouchSettings settings) {
+        MethodHandle $h = Rtouch_set_settings$;
+        if ($h == null) Rtouch_set_settings$ = $h = find("Rtouch_set_settings", FunctionDescriptor.ofVoid(ADDRESS));
+        try {
+            $h.invokeExact((MemorySegment) (settings == null ? MemorySegment.NULL : settings.segment()));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtouch_get_default_settings$;
+
+    /**
+     * The defaults, to start from.
+     */
+    public static void Rtouch_get_default_settings(RTouchSettings settings) {
+        MethodHandle $h = Rtouch_get_default_settings$;
+        if ($h == null) Rtouch_get_default_settings$ = $h = find("Rtouch_get_default_settings", FunctionDescriptor.ofVoid(ADDRESS));
+        try {
+            $h.invokeExact((MemorySegment) (settings == null ? MemorySegment.NULL : settings.segment()));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_set_touch_settings$;
+
+    /**
+     * Settings of one window; NULL: it follows Rtouch_set_settings again.
+     */
+    public static void Rwindow_set_touch_settings(int window, RTouchSettings settings) {
+        MethodHandle $h = Rwindow_set_touch_settings$;
+        if ($h == null) Rwindow_set_touch_settings$ = $h = find("Rwindow_set_touch_settings", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try {
+            $h.invokeExact(window, (MemorySegment) (settings == null ? MemorySegment.NULL : settings.segment()));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_touch_settings$;
+
+    /**
+     * The settings the window follows (its own, or those of the application).
+     */
+    public static void Rwindow_get_touch_settings(int window, RTouchSettings settings) {
+        MethodHandle $h = Rwindow_get_touch_settings$;
+        if ($h == null) Rwindow_get_touch_settings$ = $h = find("Rwindow_get_touch_settings", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try {
+            $h.invokeExact(window, (MemorySegment) (settings == null ? MemorySegment.NULL : settings.segment()));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_set_touch_mode$;
+
+    /**
+     * What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says).
+     */
+    public static void Rwidget_set_touch_mode(int widget, int mode) {
+        MethodHandle $h = Rwidget_set_touch_mode$;
+        if ($h == null) Rwidget_set_touch_mode$ = $h = find("Rwidget_set_touch_mode", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(widget, mode);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_get_touch_mode$;
+
+    public static int Rwidget_get_touch_mode(int widget) {
+        MethodHandle $h = Rwidget_get_touch_mode$;
+        if ($h == null) Rwidget_get_touch_mode$ = $h = find("Rwidget_get_touch_mode", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_set_touch_gestures$;
+
+    /**
+     * R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+     */
+    public static void Rwidget_set_touch_gestures(int widget, int enabled) {
+        MethodHandle $h = Rwidget_set_touch_gestures$;
+        if ($h == null) Rwidget_set_touch_gestures$ = $h = find("Rwidget_set_touch_gestures", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(widget, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_get_touch_gestures$;
+
+    public static int Rwidget_get_touch_gestures(int widget) {
+        MethodHandle $h = Rwidget_get_touch_gestures$;
+        if ($h == null) Rwidget_get_touch_gestures$ = $h = find("Rwidget_get_touch_gestures", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_set_pen_mouse$;
+
+    /**
+     * R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE).
+     */
+    public static void Rwidget_set_pen_mouse(int widget, int enabled) {
+        MethodHandle $h = Rwidget_set_pen_mouse$;
+        if ($h == null) Rwidget_set_pen_mouse$ = $h = find("Rwidget_set_pen_mouse", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(widget, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_get_pen_mouse$;
+
+    public static int Rwidget_get_pen_mouse(int widget) {
+        MethodHandle $h = Rwidget_get_pen_mouse$;
+        if ($h == null) Rwidget_get_pen_mouse$ = $h = find("Rwidget_get_pen_mouse", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_set_touch_callback$;
+
+    public static void Rwidget_set_touch_callback(int widget, RTouchCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rwidget_set_touch_callback$;
+        if ($h == null) Rwidget_set_touch_callback$ = $h = find("Rwidget_set_touch_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(widget, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rwidget_set_touch_callback(int widget, RTouchCallback callback) {
+        Rwidget_set_touch_callback(widget, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwidget_set_pen_callback$;
+
+    public static void Rwidget_set_pen_callback(int widget, RPenCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rwidget_set_pen_callback$;
+        if ($h == null) Rwidget_set_pen_callback$ = $h = find("Rwidget_set_pen_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(widget, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rwidget_set_pen_callback(int widget, RPenCallback callback) {
+        Rwidget_set_pen_callback(widget, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwidget_set_gesture_callback$;
+
+    public static void Rwidget_set_gesture_callback(int widget, RGestureCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rwidget_set_gesture_callback$;
+        if ($h == null) Rwidget_set_gesture_callback$ = $h = find("Rwidget_set_gesture_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(widget, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rwidget_set_gesture_callback(int widget, RGestureCallback callback) {
+        Rwidget_set_gesture_callback(widget, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwindow_get_touch_count$;
+
+    /**
+     * Fingers on the window now.
+     */
+    public static int Rwindow_get_touch_count(int window) {
+        MethodHandle $h = Rwindow_get_touch_count$;
+        if ($h == null) Rwindow_get_touch_count$ = $h = find("Rwindow_get_touch_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_is_pen_in_range$;
+
+    /**
+     * R_TRUE while a pen is near the screen over the window.
+     */
+    public static int Rwindow_is_pen_in_range(int window) {
+        MethodHandle $h = Rwindow_is_pen_in_range$;
+        if ($h == null) Rwindow_is_pen_in_range$ = $h = find("Rwindow_is_pen_in_range", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_is_touch_active$;
+
+    /**
+     * R_TRUE when the pointer last used in the window was a finger (the interface may then be made larger).
+     */
+    public static int Rwindow_is_touch_active(int window) {
+        MethodHandle $h = Rwindow_is_touch_active$;
+        if ($h == null) Rwindow_is_touch_active$ = $h = find("Rwindow_is_touch_active", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_inject_touch$;
+
+    /**
+     * A finger: R_TOUCH_DOWN, then R_TOUCH_MOVE..., then R_TOUCH_UP, with the same `id`.
+     */
+    public static void Rwindow_inject_touch(int window, int id, int phase, float x, float y) {
+        MethodHandle $h = Rwindow_inject_touch$;
+        if ($h == null) Rwindow_inject_touch$ = $h = find("Rwindow_inject_touch", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(window, id, phase, x, y);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_inject_pen$;
+
+    /**
+     * A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
+     */
+    public static void Rwindow_inject_pen(int window, int phase, float x, float y, float pressure, float tilt_x, float tilt_y, int buttons, int eraser) {
+        MethodHandle $h = Rwindow_inject_pen$;
+        if ($h == null) Rwindow_inject_pen$ = $h = find("Rwindow_inject_pen", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(window, phase, x, y, pressure, tilt_x, tilt_y, buttons, eraser);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_advance_touch$;
+
+    /**
+     * Advances the inertia of flicked content by `seconds` at once,
+     * and fires a long press that is due, without waiting (tests).
+     */
+    public static void Rwindow_advance_touch(int window, double seconds) {
+        MethodHandle $h = Rwindow_advance_touch$;
+        if ($h == null) Rwindow_advance_touch$ = $h = find("Rwindow_advance_touch", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(window, seconds);
         } catch (Throwable $t) {
             throw fail($t);
         }

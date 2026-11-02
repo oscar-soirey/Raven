@@ -236,6 +236,34 @@ typedef enum RDropPhase {
 	R_DROP_LEAVE = 226,
 	R_DROP_DROPPED = 227,
 } RDropPhase;
+typedef enum RTouchMode {
+	R_TOUCH_MODE_AUTO = 1152,
+	R_TOUCH_MODE_SCROLL = 1153,
+	R_TOUCH_MODE_MOUSE = 1154,
+	R_TOUCH_MODE_NONE = 1155,
+} RTouchMode;
+typedef enum RTouchPhase {
+	R_TOUCH_DOWN = 1168,
+	R_TOUCH_MOVE = 1169,
+	R_TOUCH_UP = 1170,
+	R_TOUCH_CANCEL = 1171,
+} RTouchPhase;
+typedef enum RPenPhase {
+	R_PEN_DOWN = 1184,
+	R_PEN_MOVE = 1185,
+	R_PEN_UP = 1186,
+	R_PEN_HOVER = 1187,
+	R_PEN_LEAVE = 1188,
+} RPenPhase;
+typedef enum RPenButton {
+	R_PEN_BUTTON_BARREL = 1,
+	R_PEN_BUTTON_BARREL2 = 2,
+} RPenButton;
+typedef enum RGesturePhase {
+	R_GESTURE_BEGIN = 1200,
+	R_GESTURE_UPDATE = 1201,
+	R_GESTURE_END = 1202,
+} RGesturePhase;
 typedef enum RLook {
 	R_LOOK_RAVEN_DARK = 224,
 	R_LOOK_RAVEN_LIGHT = 225,
@@ -633,6 +661,10 @@ typedef struct RFrameStats RFrameStats;
 typedef struct RNativeWindow RNativeWindow;
 typedef struct REvent REvent;
 typedef struct RDropEvent RDropEvent;
+typedef struct RTouchSettings RTouchSettings;
+typedef struct RTouchEvent RTouchEvent;
+typedef struct RPenEvent RPenEvent;
+typedef struct RGestureEvent RGestureEvent;
 typedef struct RTileItem RTileItem;
 typedef struct RLanguageDesc RLanguageDesc;
 typedef struct RFileFilter RFileFilter;
@@ -655,6 +687,9 @@ typedef int (*RDropCallback)(Rid target, const RDropEvent* event, void* user_dat
 typedef int (*RWindowCloseCallback)(Rid window, void* user_data);
 typedef void (*RWindowResizeCallback)(Rid window, int width, int height, void* user_data);
 typedef int (*RWindowEventHook)(Rid window, const REvent* event, void* user_data);
+typedef int (*RTouchCallback)(Rid widget, const RTouchEvent* event, void* user_data);
+typedef int (*RPenCallback)(Rid widget, const RPenEvent* event, void* user_data);
+typedef int (*RGestureCallback)(Rid widget, const RGestureEvent* event, void* user_data);
 typedef void (*RWidgetDestroyCallback)(Rid widget, void* user_data);
 typedef int (*RWidgetEventCallback)(Rid widget, const REvent* event, void* user_data);
 typedef void (*RTabChangedCallback)(Rid tab_view, int index, void* user_data);
@@ -772,6 +807,64 @@ struct RDropEvent {
 	const char* text;
 	const char* drag_type;
 	Rid drag_source;
+};
+struct RTouchSettings {
+	int mouse_emulation;
+	float slop;
+	float long_press;
+	int inertia;
+	float deceleration;
+	int gestures;
+	int pen_mouse_emulation;
+	float pressure_curve;
+	float pressure_threshold;
+	int palm_rejection;
+};
+struct RTouchEvent {
+	RTouchPhase phase;
+	Rid window;
+	Rid target;
+	int id;
+	float x;
+	float y;
+	float local_x;
+	float local_y;
+	float pressure;
+	float width;
+	float height;
+	int count;
+	Ruint modifiers;
+};
+struct RPenEvent {
+	RPenPhase phase;
+	Rid window;
+	Rid target;
+	float x;
+	float y;
+	float local_x;
+	float local_y;
+	float pressure;
+	float raw_pressure;
+	float tilt_x;
+	float tilt_y;
+	float rotation;
+	int eraser;
+	Ruint buttons;
+	Ruint modifiers;
+};
+struct RGestureEvent {
+	RGesturePhase phase;
+	Rid window;
+	Rid target;
+	float x;
+	float y;
+	float local_x;
+	float local_y;
+	float scale;
+	float scale_delta;
+	float pan_x;
+	float pan_y;
+	float rotation;
 };
 struct RTileItem {
 	const char* text;
@@ -1000,6 +1093,26 @@ const char* Rdrag_get_data(Rid window);
 void Rdrag_cancel(Rid window);
 void Rwindow_register_shortcut(Rid window, RKey key, Ruint modifiers, const char* action);
 void Rwindow_unregister_shortcut(Rid window, RKey key, Ruint modifiers);
+void Rtouch_get_settings(RTouchSettings* settings);
+void Rtouch_set_settings(const RTouchSettings* settings);
+void Rtouch_get_default_settings(RTouchSettings* settings);
+void Rwindow_set_touch_settings(Rid window, const RTouchSettings* settings);
+void Rwindow_get_touch_settings(Rid window, RTouchSettings* settings);
+void Rwidget_set_touch_mode(Rid widget, RTouchMode mode);
+RTouchMode Rwidget_get_touch_mode(Rid widget);
+void Rwidget_set_touch_gestures(Rid widget, int enabled);
+int Rwidget_get_touch_gestures(Rid widget);
+void Rwidget_set_pen_mouse(Rid widget, int enabled);
+int Rwidget_get_pen_mouse(Rid widget);
+void Rwidget_set_touch_callback(Rid widget, RTouchCallback callback, void* user_data);
+void Rwidget_set_pen_callback(Rid widget, RPenCallback callback, void* user_data);
+void Rwidget_set_gesture_callback(Rid widget, RGestureCallback callback, void* user_data);
+int Rwindow_get_touch_count(Rid window);
+int Rwindow_is_pen_in_range(Rid window);
+int Rwindow_is_touch_active(Rid window);
+void Rwindow_inject_touch(Rid window, int id, RTouchPhase phase, float x, float y);
+void Rwindow_inject_pen(Rid window, RPenPhase phase, float x, float y, float pressure, float tilt_x, float tilt_y, Ruint buttons, int eraser);
+void Rwindow_advance_touch(Rid window, double seconds);
 void Rlook_set(RLook look);
 RLook Rlook_get(void);
 void Rtheme_apply(RTheme theme);

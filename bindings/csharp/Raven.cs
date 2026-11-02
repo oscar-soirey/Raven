@@ -356,6 +356,93 @@ namespace Raven
     }
 
     /// <summary>
+    /// What a finger does on a widget (Rwidget_set_touch_mode).
+    /// </summary>
+    public enum RTouchMode : int
+    {
+        /// <summary>
+        /// The finger scrolls what scrolls under it, and is a mouse elsewhere (default).
+        /// </summary>
+        R_TOUCH_MODE_AUTO = 0x0480,
+        /// <summary>
+        /// A finger moving on the widget always scrolls what contains it, even over a control that drags.
+        /// </summary>
+        R_TOUCH_MODE_SCROLL = 0x0481,
+        /// <summary>
+        /// The finger is a mouse on the widget: pressing presses at once, moving drags, nothing scrolls.
+        /// </summary>
+        R_TOUCH_MODE_MOUSE = 0x0482,
+        /// <summary>
+        /// Fingers are ignored on the widget (only its touch callback sees them): a surface for the pen.
+        /// </summary>
+        R_TOUCH_MODE_NONE = 0x0483,
+    }
+
+    public enum RTouchPhase : int
+    {
+        /// <summary>
+        /// A finger came down.
+        /// </summary>
+        R_TOUCH_DOWN = 0x0490,
+        R_TOUCH_MOVE = 0x0491,
+        /// <summary>
+        /// The finger was lifted.
+        /// </summary>
+        R_TOUCH_UP = 0x0492,
+        /// <summary>
+        /// The system took the finger away (a gesture of its own, the window lost it): nothing must happen as for a lift.
+        /// </summary>
+        R_TOUCH_CANCEL = 0x0493,
+    }
+
+    public enum RPenPhase : int
+    {
+        /// <summary>
+        /// The tip touched the screen.
+        /// </summary>
+        R_PEN_DOWN = 0x04A0,
+        /// <summary>
+        /// The pen moves while touching.
+        /// </summary>
+        R_PEN_MOVE = 0x04A1,
+        /// <summary>
+        /// The tip left the screen.
+        /// </summary>
+        R_PEN_UP = 0x04A2,
+        /// <summary>
+        /// The pen moves near the screen without touching it.
+        /// </summary>
+        R_PEN_HOVER = 0x04A3,
+        /// <summary>
+        /// The pen went out of reach.
+        /// </summary>
+        R_PEN_LEAVE = 0x04A4,
+    }
+
+    /// <summary>
+    /// Buttons on the side of a pen (RPenEvent::buttons).
+    /// </summary>
+    [Flags]
+    public enum RPenButton : int
+    {
+        R_PEN_BUTTON_BARREL = 1,
+        R_PEN_BUTTON_BARREL2 = 2,
+    }
+
+    public enum RGesturePhase : int
+    {
+        /// <summary>
+        /// A second finger came down.
+        /// </summary>
+        R_GESTURE_BEGIN = 0x04B0,
+        R_GESTURE_UPDATE = 0x04B1,
+        /// <summary>
+        /// Fewer than two fingers remain.
+        /// </summary>
+        R_GESTURE_END = 0x04B2,
+    }
+
+    /// <summary>
     /// The looks. Each one comes dark and light.
     /// 
     /// Raven's looks are the default; the ones of the platforms imitate them
@@ -1616,6 +1703,184 @@ namespace Raven
     }
 
     /// <summary>
+    /// How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RTouchSettings
+    {
+        /// <summary>
+        /// R_TRUE (default): one finger drives the widgets as the mouse does: a tap clicks, a drag drags.
+        /// </summary>
+        public int mouse_emulation;
+        /// <summary>
+        /// How far a finger moves (logical units) before a press becomes a drag or a scroll. Default 8.
+        /// </summary>
+        public float slop;
+        /// <summary>
+        /// Seconds a finger rests before the press is a right click (the context menu); 0 turns it off. Default 0.5.
+        /// </summary>
+        public float long_press;
+        /// <summary>
+        /// R_TRUE (default): flicked content keeps going and slows down.
+        /// </summary>
+        public int inertia;
+        /// <summary>
+        /// How fast it slows down, in logical units per second per second. Default 2400.
+        /// </summary>
+        public float deceleration;
+        /// <summary>
+        /// R_TRUE (default): two fingers pinch to zoom and pan.
+        /// </summary>
+        public int gestures;
+        /// <summary>
+        /// R_TRUE (default): the pen drives the widgets as the mouse does (its barrel button: the right button).
+        /// </summary>
+        public int pen_mouse_emulation;
+        /// <summary>
+        /// The pressure given to the application is the one of the pen to this power: 1 (default) as it is, below 1 softer, above 1 harder.
+        /// </summary>
+        public float pressure_curve;
+        /// <summary>
+        /// Pressure (0..1, after the curve) the tip needs before it presses. Default 0.
+        /// </summary>
+        public float pressure_threshold;
+        /// <summary>
+        /// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
+        /// </summary>
+        public int palm_rejection;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RTouchEvent
+    {
+        public RTouchPhase phase;
+        public uint window;
+        /// <summary>
+        /// Widget the finger came down on.
+        /// </summary>
+        public uint target;
+        /// <summary>
+        /// Number of the finger, the same from its down to its up.
+        /// </summary>
+        public int id;
+        /// <summary>
+        /// Position in the window, and relative to the widget receiving the event.
+        /// </summary>
+        public float x;
+        /// <summary>
+        /// Position in the window, and relative to the widget receiving the event.
+        /// </summary>
+        public float y;
+        public float local_x;
+        public float local_y;
+        /// <summary>
+        /// 0..1; 1 when the screen does not tell.
+        /// </summary>
+        public float pressure;
+        /// <summary>
+        /// Size of the contact, 0 when the screen does not tell.
+        /// </summary>
+        public float width;
+        /// <summary>
+        /// Size of the contact, 0 when the screen does not tell.
+        /// </summary>
+        public float height;
+        /// <summary>
+        /// Fingers on the window, this one included (0 after the last up).
+        /// </summary>
+        public int count;
+        /// <summary>
+        /// Bitmask of RModifier.
+        /// </summary>
+        public uint modifiers;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RPenEvent
+    {
+        public RPenPhase phase;
+        public uint window;
+        /// <summary>
+        /// Widget under the pen; during a stroke, the one it started on.
+        /// </summary>
+        public uint target;
+        public float x;
+        public float y;
+        public float local_x;
+        public float local_y;
+        /// <summary>
+        /// 0..1, after the pressure curve; 0 while hovering.
+        /// </summary>
+        public float pressure;
+        /// <summary>
+        /// As the pen gives it, 0..1.
+        /// </summary>
+        public float raw_pressure;
+        /// <summary>
+        /// Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+        /// </summary>
+        public float tilt_x;
+        /// <summary>
+        /// Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+        /// </summary>
+        public float tilt_y;
+        /// <summary>
+        /// Rotation around its axis in degrees, 0..360 (when the pen tells).
+        /// </summary>
+        public float rotation;
+        /// <summary>
+        /// R_TRUE when the eraser end touches (or the eraser button is held).
+        /// </summary>
+        public int eraser;
+        /// <summary>
+        /// Bitmask of RPenButton.
+        /// </summary>
+        public uint buttons;
+        public uint modifiers;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RGestureEvent
+    {
+        public RGesturePhase phase;
+        public uint window;
+        /// <summary>
+        /// Widget under the center of the fingers when the gesture began.
+        /// </summary>
+        public uint target;
+        /// <summary>
+        /// Center of the fingers, in the window and relative to the widget receiving the event.
+        /// </summary>
+        public float x;
+        /// <summary>
+        /// Center of the fingers, in the window and relative to the widget receiving the event.
+        /// </summary>
+        public float y;
+        public float local_x;
+        public float local_y;
+        /// <summary>
+        /// Distance between the fingers relative to when the gesture began (2 = twice as far apart).
+        /// </summary>
+        public float scale;
+        /// <summary>
+        /// The same since the previous event: what a zoom multiplies by.
+        /// </summary>
+        public float scale_delta;
+        /// <summary>
+        /// Movement of the center since the previous event.
+        /// </summary>
+        public float pan_x;
+        /// <summary>
+        /// Movement of the center since the previous event.
+        /// </summary>
+        public float pan_y;
+        /// <summary>
+        /// Turn of the fingers since the gesture began, in degrees, clockwise.
+        /// </summary>
+        public float rotation;
+    }
+
+    /// <summary>
     /// What a tile shows, filled by the application when the tile is drawn.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -2041,6 +2306,24 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RWindowEventHook(uint window, ref REvent @event, IntPtr user_data);
+
+    /// <summary>
+    /// Return R_TRUE to take the finger: the library then neither clicks nor scrolls with it.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTouchCallback(uint widget, ref RTouchEvent @event, IntPtr user_data);
+
+    /// <summary>
+    /// Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RPenCallback(uint widget, ref RPenEvent @event, IntPtr user_data);
+
+    /// <summary>
+    /// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RGestureCallback(uint widget, ref RGestureEvent @event, IntPtr user_data);
 
     /// <summary>
     /// Called once when the widget is gone: deleted by the application,
@@ -3124,6 +3407,139 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_unregister_shortcut(uint window, RKey key, uint modifiers);
+
+        /// <summary>
+        /// The settings every window follows, unless it has its own.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtouch_get_settings(ref RTouchSettings settings);
+
+        /// <summary>
+        /// The settings every window follows, unless it has its own.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtouch_get_settings(IntPtr settings);
+
+        /// <summary>
+        /// Changes them; NULL puts back the defaults.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtouch_set_settings(ref RTouchSettings settings);
+
+        /// <summary>
+        /// Changes them; NULL puts back the defaults.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtouch_set_settings(IntPtr settings);
+
+        /// <summary>
+        /// The defaults, to start from.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtouch_get_default_settings(ref RTouchSettings settings);
+
+        /// <summary>
+        /// The defaults, to start from.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtouch_get_default_settings(IntPtr settings);
+
+        /// <summary>
+        /// Settings of one window; NULL: it follows Rtouch_set_settings again.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_set_touch_settings(uint window, ref RTouchSettings settings);
+
+        /// <summary>
+        /// Settings of one window; NULL: it follows Rtouch_set_settings again.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_set_touch_settings(uint window, IntPtr settings);
+
+        /// <summary>
+        /// The settings the window follows (its own, or those of the application).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_get_touch_settings(uint window, ref RTouchSettings settings);
+
+        /// <summary>
+        /// The settings the window follows (its own, or those of the application).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_get_touch_settings(uint window, IntPtr settings);
+
+        /// <summary>
+        /// What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_touch_mode(uint widget, RTouchMode mode);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RTouchMode Rwidget_get_touch_mode(uint widget);
+
+        /// <summary>
+        /// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_touch_gestures(uint widget, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwidget_get_touch_gestures(uint widget);
+
+        /// <summary>
+        /// R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_pen_mouse(uint widget, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwidget_get_pen_mouse(uint widget);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_touch_callback(uint widget, RTouchCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_pen_callback(uint widget, RPenCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_gesture_callback(uint widget, RGestureCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Fingers on the window now.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_get_touch_count(uint window);
+
+        /// <summary>
+        /// R_TRUE while a pen is near the screen over the window.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_is_pen_in_range(uint window);
+
+        /// <summary>
+        /// R_TRUE when the pointer last used in the window was a finger (the interface may then be made larger).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_is_touch_active(uint window);
+
+        /// <summary>
+        /// A finger: R_TOUCH_DOWN, then R_TOUCH_MOVE..., then R_TOUCH_UP, with the same `id`.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_touch(uint window, int id, RTouchPhase phase, float x, float y);
+
+        /// <summary>
+        /// A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_pen(uint window, RPenPhase phase, float x, float y, float pressure, float tilt_x, float tilt_y, uint buttons, int eraser);
+
+        /// <summary>
+        /// Advances the inertia of flicked content by `seconds` at once,
+        /// and fires a long press that is due, without waiting (tests).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_advance_touch(uint window, double seconds);
 
         /// <summary>
         /// Changes the look of the application. The theme file in use, if
