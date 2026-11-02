@@ -2390,6 +2390,22 @@ foreign lib {
 	Rlabel_set_link_callback :: proc(label: Rid, callback: RLabelLinkCallback, user_data: rawptr) ---
 	// The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
 	Rlabel_get_plain_text :: proc(label: Rid) -> cstring ---
+	// R_TRUE lets the user select the text of the label with the
+	// mouse, as on a web page (Selectable="true" in XML): drag to select, a
+	// double click selects a word, a triple click a paragraph, Shift + click
+	// extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects
+	// everything. A click elsewhere takes the selection away. Plain and
+	// Markdown labels alike: a copy of a Markdown label is its text without
+	// the marks, and its links are still clicked, not selected. The label
+	// takes the mouse (what holds it no longer receives the clicks on it) and
+	// the keyboard after a click; Tab passes it by. Default R_FALSE.
+	Rlabel_set_selectable :: proc(label: Rid, selectable: i32) ---
+	Rlabel_get_selectable :: proc(label: Rid) -> i32 ---
+	// The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next call.
+	Rlabel_get_selected_text :: proc(label: Rid) -> cstring ---
+	// Selects the whole text of a selectable label.
+	Rlabel_select_all :: proc(label: Rid) ---
+	Rlabel_clear_selection :: proc(label: Rid) ---
 	// Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
 	Rbutton_create :: proc(text: cstring) -> Rid ---
 	// Sets the content of the button to a label. A button can instead

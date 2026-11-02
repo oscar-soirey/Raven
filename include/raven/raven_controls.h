@@ -104,6 +104,25 @@ extern "C" {
 	/** @brief The text of a Markdown label without its marks, as a reader sees it. Valid until the next call. */
 	RAVEN_API const char* Rlabel_get_plain_text(Rid label);
 
+	/**
+	 * @brief R_TRUE lets the user select the text of the label with the
+	 * mouse, as on a web page (Selectable="true" in XML): drag to select, a
+	 * double click selects a word, a triple click a paragraph, Shift + click
+	 * extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects
+	 * everything. A click elsewhere takes the selection away. Plain and
+	 * Markdown labels alike: a copy of a Markdown label is its text without
+	 * the marks, and its links are still clicked, not selected. The label
+	 * takes the mouse (what holds it no longer receives the clicks on it) and
+	 * the keyboard after a click; Tab passes it by. Default R_FALSE.
+	 */
+	RAVEN_API void Rlabel_set_selectable(Rid label, int selectable);
+	RAVEN_API int Rlabel_get_selectable(Rid label);
+	/** @brief The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next call. */
+	RAVEN_API const char* Rlabel_get_selected_text(Rid label);
+	/** @brief Selects the whole text of a selectable label. */
+	RAVEN_API void Rlabel_select_all(Rid label);
+	RAVEN_API void Rlabel_clear_selection(Rid label);
+
 
 	/* ============================================================================
 	 *  BUTTON

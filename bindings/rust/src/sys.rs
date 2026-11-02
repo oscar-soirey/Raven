@@ -2403,6 +2403,22 @@ extern "C" {
     pub fn Rlabel_set_link_callback(label: Rid, callback: RLabelLinkCallback, user_data: *mut c_void);
     /// The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
     pub fn Rlabel_get_plain_text(label: Rid) -> *const c_char;
+    /// R_TRUE lets the user select the text of the label with the
+    /// mouse, as on a web page (Selectable="true" in XML): drag to select, a
+    /// double click selects a word, a triple click a paragraph, Shift + click
+    /// extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects
+    /// everything. A click elsewhere takes the selection away. Plain and
+    /// Markdown labels alike: a copy of a Markdown label is its text without
+    /// the marks, and its links are still clicked, not selected. The label
+    /// takes the mouse (what holds it no longer receives the clicks on it) and
+    /// the keyboard after a click; Tab passes it by. Default R_FALSE.
+    pub fn Rlabel_set_selectable(label: Rid, selectable: c_int);
+    pub fn Rlabel_get_selectable(label: Rid) -> c_int;
+    /// The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next call.
+    pub fn Rlabel_get_selected_text(label: Rid) -> *const c_char;
+    /// Selects the whole text of a selectable label.
+    pub fn Rlabel_select_all(label: Rid);
+    pub fn Rlabel_clear_selection(label: Rid);
     /// Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
     pub fn Rbutton_create(text: *const c_char) -> Rid;
     /// Sets the content of the button to a label. A button can instead

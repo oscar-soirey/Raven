@@ -655,9 +655,11 @@ int Rwidget_is_hovered(Rid id) {
 void Rwidget_set_focusable(Rid id, int focusable) {
 	RVN_WIDGET_VOID(widget, id, 0);
 	if (focusable) {
+		/* (asked for: Tab reaches it, even a selectable label) */
 		widget->flags |= RVN_WF_FOCUSABLE;
+		widget->flags &= ~RVN_WF_NO_TAB;
 	} else {
-		widget->flags &= ~RVN_WF_FOCUSABLE;
+		widget->flags &= ~(RVN_WF_FOCUSABLE | RVN_WF_NO_TAB);
 		if (widget->window && widget->window->focus == widget) rvn_window_set_focus(widget->window, NULL);
 	}
 }

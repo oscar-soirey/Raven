@@ -256,7 +256,7 @@ panel uses the attributes that make sense for it.
 
 | Tag (aliases) | Attributes |
 |---|---|
-| `Label` (`Text`, `TextBlock`) | `Text`, `TextSize` (or `FontSize`), `Font` (path of a .ttf), `TextAlign` (`Left Center Right`), `Wrap`, `Color`, `Markdown` (`true`: the text is Markdown, see below) |
+| `Label` (`Text`, `TextBlock`) | `Text`, `TextSize` (or `FontSize`), `Font` (path of a .ttf), `TextAlign` (`Left Center Right`), `Wrap`, `Color`, `Markdown` (`true`: the text is Markdown, see below), `Selectable` (`true`: the mouse selects the text and Ctrl+C copies it, as on a web page) |
 | `Button` | `Text`, `Style` (`Default`, `Primary`, `Flat`) |
 | `Checkbox` (`CheckBox`) | `Text`, `Checked`, `Style` (`Check`, `Radio`, `Switch`). Radio boxes of the same parent are exclusive |
 | `Slider` | `Min`, `Max`, `Value`, `Step`, `Orientation` |

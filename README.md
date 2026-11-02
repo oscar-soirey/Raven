@@ -197,7 +197,8 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   **Windows 11**, **macOS** (Sequoia, and macOS 26 with Liquid Glass) and **GNOME** imitated closely (their controls,
   colors, accent, font and motion). Theme files laid over them, styles for a type of widget, a class,
   a **part of a widget and its states**, a theme for a window or a part of one. **Markdown** in labels and in the
-  text editor. Interface and theme files are **loaded again while the
+  text editor, and labels whose text the mouse **selects and copies** as on a
+  web page (`Selectable="true"`). Interface and theme files are **loaded again while the
   application runs** when they are saved.
 - **Web pages** (`raven_web.h`, built into the same library) shown by driving
   a browser already installed.

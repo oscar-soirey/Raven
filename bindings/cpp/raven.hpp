@@ -494,6 +494,27 @@ public:
 
 	/// The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
 	const char* get_plain_text() const { return Rlabel_get_plain_text(id_); }
+
+	/// R_TRUE lets the user select the text of the label with the
+	/// mouse, as on a web page (Selectable="true" in XML): drag to select, a
+	/// double click selects a word, a triple click a paragraph, Shift + click
+	/// extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects
+	/// everything. A click elsewhere takes the selection away. Plain and
+	/// Markdown labels alike: a copy of a Markdown label is its text without
+	/// the marks, and its links are still clicked, not selected. The label
+	/// takes the mouse (what holds it no longer receives the clicks on it) and
+	/// the keyboard after a click; Tab passes it by. Default R_FALSE.
+	void set_selectable(int selectable) const { Rlabel_set_selectable(id_, selectable); }
+
+	int get_selectable() const { return Rlabel_get_selectable(id_); }
+
+	/// The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next call.
+	const char* get_selected_text() const { return Rlabel_get_selected_text(id_); }
+
+	/// Selects the whole text of a selectable label.
+	void select_all() const { Rlabel_select_all(id_); }
+
+	void clear_selection() const { Rlabel_clear_selection(id_); }
 };
 
 class Button : public Widget {

@@ -3,7 +3,7 @@
 Raven is a C library, so any language that can call C can use it. This folder
 holds ready-made bindings for nine of them. They are written by a script,
 `tools/bindgen`, that reads the public headers: every binding has the whole
-API (932 functions, 56 enumerations, 22 structures, 59 kinds of callback),
+API (937 functions, 56 enumerations, 22 structures, 59 kinds of callback),
 under the same names, with the same documentation comments.
 
 | Language | Files | What it is | Tested by the build |

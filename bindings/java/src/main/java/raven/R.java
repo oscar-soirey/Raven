@@ -10074,6 +10074,85 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rlabel_set_selectable$;
+
+    /**
+     * R_TRUE lets the user select the text of the label with the
+     * mouse, as on a web page (Selectable="true" in XML): drag to select, a
+     * double click selects a word, a triple click a paragraph, Shift + click
+     * extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects
+     * everything. A click elsewhere takes the selection away. Plain and
+     * Markdown labels alike: a copy of a Markdown label is its text without
+     * the marks, and its links are still clicked, not selected. The label
+     * takes the mouse (what holds it no longer receives the clicks on it) and
+     * the keyboard after a click; Tab passes it by. Default R_FALSE.
+     */
+    public static void Rlabel_set_selectable(int label, int selectable) {
+        MethodHandle $h = Rlabel_set_selectable$;
+        if ($h == null) Rlabel_set_selectable$ = $h = find("Rlabel_set_selectable", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(label, selectable);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlabel_get_selectable$;
+
+    public static int Rlabel_get_selectable(int label) {
+        MethodHandle $h = Rlabel_get_selectable$;
+        if ($h == null) Rlabel_get_selectable$ = $h = find("Rlabel_get_selectable", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(label);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlabel_get_selected_text$;
+
+    /**
+     * The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next call.
+     */
+    public static String Rlabel_get_selected_text(int label) {
+        MethodHandle $h = Rlabel_get_selected_text$;
+        if ($h == null) Rlabel_get_selected_text$ = $h = find("Rlabel_get_selected_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(label);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlabel_select_all$;
+
+    /**
+     * Selects the whole text of a selectable label.
+     */
+    public static void Rlabel_select_all(int label) {
+        MethodHandle $h = Rlabel_select_all$;
+        if ($h == null) Rlabel_select_all$ = $h = find("Rlabel_select_all", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(label);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlabel_clear_selection$;
+
+    public static void Rlabel_clear_selection(int label) {
+        MethodHandle $h = Rlabel_clear_selection$;
+        if ($h == null) Rlabel_clear_selection$ = $h = find("Rlabel_clear_selection", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(label);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rbutton_create$;
 
     /**

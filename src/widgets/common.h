@@ -282,6 +282,19 @@ const char* rvn_md_link(const rvn_md_t* md, int link);
 int rvn_md_link_count(const rvn_md_t* md);
 /** The text without its marks, appended to `out`. */
 void rvn_md_plain_text(const rvn_md_t* md, rvn_text_t* out);
+/*
+ * Selection of a selectable label, as offsets into the text shown
+ * (rvn_md_text): the offset at a point of the laid out text (the nearest
+ * one), the selection painted behind the text, the text selected as it is
+ * copied (line breaks between the blocks, tabs between the cells), and the
+ * paragraph around an offset (a triple click).
+ */
+const char* rvn_md_text(const rvn_md_t* md);
+int rvn_md_text_length(const rvn_md_t* md);
+int rvn_md_offset_at(const rvn_md_t* md, float x, float y);
+void rvn_md_paint_selection(const rvn_md_t* md, RPainter* painter, float x, float y, int from, int to, rvn_color_t color);
+void rvn_md_selected_text(const rvn_md_t* md, int from, int to, rvn_text_t* out);
+void rvn_md_paragraph_at(const rvn_md_t* md, int offset, int* from, int* to);
 
 /* ---------------------------------------------------------------------------
  *  Syntax colors (widgets/syntax.c), used by the text editor

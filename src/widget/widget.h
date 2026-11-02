@@ -39,6 +39,7 @@ struct rvn_xml_node_t;
 #define RVN_WF_POPUP         (1u << 10) /* shown as a popup: rect is in window coordinates */
 #define RVN_WF_INTERNAL      (1u << 11) /* owned by another widget without being its child */
 #define RVN_WF_WINDOW_DRAG   (1u << 12) /* part of the title bar of a window with a custom header */
+#define RVN_WF_NO_TAB        (1u << 13) /* focusable with a click, but Tab passes it by (a selectable label) */
 #define RVN_WF_LAYOUT_DIRTY  (RVN_WF_MEASURE_DIRTY | RVN_WF_ARRANGE_DIRTY)
 
 /* class traits (rvn_widget_class_t::flags) */

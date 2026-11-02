@@ -626,7 +626,18 @@ Rlabel_set_text_size(title, 22);
 Rlabel_set_wrap(title, R_TRUE);
 Rlabel_set_text_align(title, R_TEXT_ALIGN_CENTER);
 Rlabel_set_color(title, 0.6f, 0.6f, 0.65f, 1);
-Rlabel_set_markdown(title, R_TRUE);           /* the text is Markdown: **bold**, lists, tables, links */</pre>
+Rlabel_set_markdown(title, R_TRUE);           /* the text is Markdown: **bold**, lists, tables, links */
+Rlabel_set_selectable(title, R_TRUE);         /* the mouse selects the text, Ctrl+C copies it: Selectable="true" */</pre>
+<p>A selectable label behaves as the text of a web page: a drag selects, a double
+click selects a word, a triple click a paragraph, Shift + click extends; Ctrl+C
+(Cmd+C) copies, Ctrl+A selects everything, and a click elsewhere takes the
+selection away. A Markdown label is copied without its marks, a line break
+between its paragraphs, and its links are still clicked. The label takes the
+clicks on it (what holds it no longer receives them) and the keyboard after a
+click, but Tab passes it by. <code>Rlabel_get_selected_text</code>,
+<code>Rlabel_select_all</code> and <code>Rlabel_clear_selection</code> do the same from code.
+For text the user edits, or a long read-only text with scrolling, there is the
+text editor (<code>Rtext_editor_set_read_only</code>).</p>
 
 <h3 id="button">Button, checkbox</h3>
 <pre>static void on_save(Rid button, void* user_data) { save_document(); }

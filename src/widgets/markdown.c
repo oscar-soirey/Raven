@@ -1619,6 +1619,145 @@ int rvn_md_link_count(const rvn_md_t* md) {
 	return (int)md->link_count;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Selection (selectable labels): offsets into the text shown
+ * ------------------------------------------------------------------------- */
+
+/* (the numbers of the lists are added after the text by the layout: they are not selected) */
+static int rvn_md_selectable(const rvn_md_t* md, const rvn_md_run_t* run) {
+	return run->length > 0 && run->start < md->parsed_length;
+}
+
+int rvn_md_text_length(const rvn_md_t* md) {
+	return (int)md->parsed_length;
+}
+
+const char* rvn_md_text(const rvn_md_t* md) {
+	return md->text.data ? md->text.data : "";
+}
+
+/* Where an offset of a run is across. */
+static float rvn_md_run_x(const rvn_md_t* md, const rvn_md_run_t* run, uint32_t offset) {
+	rvn_font_t* font;
+	if (offset <= run->start) return run->x;
+	if (offset >= run->start + run->length) return run->x + run->w;
+	font = rvn_font_resolve(run->font);
+	if (!font) return run->x;
+	return run->x + rvn_text_width(font, run->size, md->text.data + run->start, (int)(offset - run->start));
+}
+
+int rvn_md_offset_at(const rvn_md_t* md, float x, float y) {
+	const rvn_md_run_t* line = NULL;
+	const rvn_md_run_t* pick = NULL;
+	float best = 1e30f;
+	rvn_font_t* font;
+	uint32_t i;
+	/* the line under the point, else the nearest one */
+	for (i = 0; i < md->run_count; i++) {
+		const rvn_md_run_t* run = &md->runs[i];
+		float distance;
+		if (!rvn_md_selectable(md, run)) continue;
+		distance = y < run->line_y ? run->line_y - y : (y >= run->line_y + run->line_h ? y - run->line_y - run->line_h + 0.001f : 0.0f);
+		if (distance < best) {
+			best = distance;
+			line = run;
+		}
+	}
+	if (!line) return 0;
+	/* on it, the run under the point, else the nearest one */
+	best = 1e30f;
+	for (i = 0; i < md->run_count; i++) {
+		const rvn_md_run_t* run = &md->runs[i];
+		float distance;
+		if (!rvn_md_selectable(md, run) || fabsf(run->line_y - line->line_y) > 0.01f) continue;
+		distance = x < run->x ? run->x - x : (x >= run->x + run->w ? x - run->x - run->w + 0.001f : 0.0f);
+		if (distance < best) {
+			best = distance;
+			pick = run;
+		}
+	}
+	if (x <= pick->x) return (int)pick->start;
+	if (x >= pick->x + pick->w) return (int)(pick->start + pick->length);
+	font = rvn_font_resolve(pick->font);
+	if (!font) return (int)pick->start;
+	return (int)pick->start + rvn_text_offset_at(font, pick->size, md->text.data + pick->start, (int)pick->length, x - pick->x);
+}
+
+/*
+ * What separates two runs that follow each other, in a copy: nothing in a
+ * line, a tab between the cells of a table, nothing where a line was wrapped
+ * (the space it was cut on ends the first run), a line break otherwise.
+ */
+static const char* rvn_md_between(const rvn_md_t* md, const rvn_md_run_t* a, const rvn_md_run_t* b) {
+	uint32_t end = a->start + a->length, i;
+	if (b->start > end) {
+		for (i = end; i < b->start; i++) if (md->text.data[i] == '\n') return "\n";
+	}
+	if (fabsf(a->line_y - b->line_y) <= 0.01f) return b->x > a->x + a->w + 4.0f ? "\t" : "";
+	if (end > a->start && md->text.data[end - 1] == ' ') return "";
+	return "\n";
+}
+
+void rvn_md_paint_selection(const rvn_md_t* md, RPainter* painter, float ox, float oy, int from, int to, rvn_color_t color) {
+	uint32_t i;
+	if (from >= to) return;
+	for (i = 0; i < md->run_count; i++) {
+		const rvn_md_run_t* run = &md->runs[i];
+		uint32_t start, end;
+		float x0, x1;
+		if (!rvn_md_selectable(md, run)) continue;
+		start = rvn_maxi(from, (int)run->start);
+		end = rvn_mini(to, (int)(run->start + run->length));
+		if (start >= end) continue;
+		x0 = rvn_md_run_x(md, run, start);
+		x1 = rvn_md_run_x(md, run, end);
+		rvn_paint_rect(painter, rvn_rect(ox + x0, oy + run->line_y, x1 - x0, run->line_h), color);
+	}
+}
+
+void rvn_md_selected_text(const rvn_md_t* md, int from, int to, rvn_text_t* out) {
+	const rvn_md_run_t* previous = NULL;
+	uint32_t i;
+	for (i = 0; i < md->run_count; i++) {
+		const rvn_md_run_t* run = &md->runs[i];
+		int start, end;
+		if (!rvn_md_selectable(md, run)) continue;
+		start = rvn_maxi(from, (int)run->start);
+		end = rvn_mini(to, (int)(run->start + run->length));
+		if (start >= end) continue;
+		if (previous) rvn_text_add(out, rvn_md_between(md, previous, run));
+		rvn_text_append(out, md->text.data + start, (size_t)(end - start));
+		previous = run;
+	}
+	if (!out->data) rvn_text_append(out, "", 0);
+}
+
+void rvn_md_paragraph_at(const rvn_md_t* md, int offset, int* from, int* to) {
+	int at = -1, first, last, i;
+	for (i = 0; i < (int)md->run_count && at < 0; i++) {
+		const rvn_md_run_t* run = &md->runs[i];
+		if (rvn_md_selectable(md, run) && offset >= (int)run->start && offset <= (int)(run->start + run->length)) at = i;
+	}
+	if (at < 0) {
+		*from = *to = offset;
+		return;
+	}
+	/* the runs on both sides, until a line break */
+	first = last = at;
+	for (i = at - 1; i >= 0; i--) {
+		if (!rvn_md_selectable(md, &md->runs[i])) continue;
+		if (rvn_md_between(md, &md->runs[i], &md->runs[first])[0] == '\n') break;
+		first = i;
+	}
+	for (i = at + 1; i < (int)md->run_count; i++) {
+		if (!rvn_md_selectable(md, &md->runs[i])) continue;
+		if (rvn_md_between(md, &md->runs[last], &md->runs[i])[0] == '\n') break;
+		last = i;
+	}
+	*from = (int)md->runs[first].start;
+	*to = (int)(md->runs[last].start + md->runs[last].length);
+}
+
 void rvn_md_plain_text(const rvn_md_t* md, rvn_text_t* out) {
 	uint32_t b, s;
 	for (b = 0; b < md->block_count; b++) {

@@ -202,6 +202,7 @@ static const rvn_schema_attribute_t g_label[] = {
 	K("Color", "Color of the text."),
 	F("Font", "Font file, or \"monospace\"."),
 	B("Markdown", "The text is Markdown: headings, emphasis, lists, quotes, code, tables, links."),
+	B("Selectable", "The text can be selected with the mouse and copied, as on a web page."),
 };
 static const rvn_schema_attribute_t g_button[] = {
 	T("Text", "The text of the button."),

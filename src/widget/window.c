@@ -399,7 +399,7 @@ typedef struct rvn_focus_list_t {
 static void rvn_focus_collect(rvn_widget_t* widget, rvn_focus_list_t* list) {
 	uint32_t i;
 	if (widget->visibility != R_VISIBLE || (widget->flags & RVN_WF_DISABLED)) return;
-	if (widget->flags & RVN_WF_FOCUSABLE) {
+	if ((widget->flags & RVN_WF_FOCUSABLE) && !(widget->flags & RVN_WF_NO_TAB)) {
 		RVN_ARRAY_RESERVE(list->items, list->cap, list->count + 1);
 		list->items[list->count++] = widget;
 	}

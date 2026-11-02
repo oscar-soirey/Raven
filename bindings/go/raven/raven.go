@@ -2665,6 +2665,35 @@ func LabelGetPlainText(label ID) string {
 	return C.GoString(C.Rlabel_get_plain_text(C.Rid(label)))
 }
 
+// LabelSetSelectable: R_TRUE lets the user select the text of the label with the mouse, as on a web page
+// (Selectable="true" in XML): drag to select, a double click selects a word, a triple click a paragraph,
+// Shift + click extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects everything. A click
+// elsewhere takes the selection away. Plain and Markdown labels alike: a copy of a Markdown label is its text
+// without the marks, and its links are still clicked, not selected. The label takes the mouse (what holds it
+// no longer receives the clicks on it) and the keyboard after a click; Tab passes it by. Default R_FALSE.
+func LabelSetSelectable(label ID, selectable int) {
+	C.Rlabel_set_selectable(C.Rid(label), C.int(selectable))
+}
+
+func LabelGetSelectable(label ID) int {
+	return int(C.Rlabel_get_selectable(C.Rid(label)))
+}
+
+// LabelGetSelectedText: The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next
+// call.
+func LabelGetSelectedText(label ID) string {
+	return C.GoString(C.Rlabel_get_selected_text(C.Rid(label)))
+}
+
+// LabelSelectAll: Selects the whole text of a selectable label.
+func LabelSelectAll(label ID) {
+	C.Rlabel_select_all(C.Rid(label))
+}
+
+func LabelClearSelection(label ID) {
+	C.Rlabel_clear_selection(C.Rid(label))
+}
+
 // ButtonCreate: Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
 func ButtonCreate(text string) ID {
 	text_ := C.CString(text)

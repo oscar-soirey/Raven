@@ -647,6 +647,150 @@ static void test_device_lost(void) {
 	Rtexture_destroy(texture);
 }
 
+/* A selectable label: the mouse selects its text as on a web page, Ctrl+C copies it. */
+static void test_selectable_label(void) {
+	Rid box = column();
+	Rid before = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rid label = Rwidget_add_child(box, Rlabel_create("Hello brave world"));
+	Rid lines = Rwidget_add_child(box, Rlabel_create("First line\nSecond line"));
+	Rid md = Rwidget_add_child(box, Rlabel_create("Hello **bold** world\n\nSecond *para* [here](action:md.link)"));
+	Rid after = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rid plain = Rwidget_add_child(box, Rlabel_create("Not selectable"));
+	float x, y, w, h;
+	Rslot_set_halign(label, R_HALIGN_LEFT);
+	Rslot_set_halign(lines, R_HALIGN_LEFT);
+	Rlabel_set_markdown(md, R_TRUE);
+	Rlabel_set_wrap(md, R_FALSE);
+	Rslot_set_halign(md, R_HALIGN_LEFT);
+	CHECK(!Rlabel_get_selectable(label));
+	Rlabel_set_selectable(label, R_TRUE);
+	Rlabel_set_selectable(lines, R_TRUE);
+	Rlabel_set_selectable(md, R_TRUE);
+	CHECK(Rlabel_get_selectable(label));
+	Rdraw_frame();
+	CHECK_STR(Rlabel_get_selected_text(label), "");
+
+	/* a drag over the whole text */
+	Rwidget_get_rect(label, &x, &y, &w, &h);
+	Rwindow_inject_mouse_move(g_window, x + 0.5f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(g_window, x + w * 0.5f, y + h * 0.5f);
+	Rwindow_inject_mouse_move(g_window, x + w + 40.0f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_STR(Rlabel_get_selected_text(label), "Hello brave world");
+	CHECK(Rwidget_is_focused(label));
+	test_key(g_window, R_KEY_C, R_MOD_CTRL);
+	CHECK_STR(Rclipboard_get_text(), "Hello brave world");
+
+	/* half of it, then Shift + click extends it */
+	Rwindow_inject_mouse_move(g_window, x + 0.5f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(g_window, x + w * 0.25f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK(strlen(Rlabel_get_selected_text(label)) > 0 && strlen(Rlabel_get_selected_text(label)) < 9);
+	CHECK(strncmp(Rlabel_get_selected_text(label), "Hello", strlen(Rlabel_get_selected_text(label))) == 0);
+	Rwindow_inject_key(g_window, R_KEY_LEFT_SHIFT, R_TRUE, R_MOD_SHIFT);
+	Rwindow_inject_mouse_move(g_window, x + w - 0.5f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	Rwindow_inject_key(g_window, R_KEY_LEFT_SHIFT, R_FALSE, 0);
+	CHECK(strncmp(Rlabel_get_selected_text(label), "Hello brave worl", 16) == 0);
+
+	/* a double click selects a word (away from the last click: not a triple click) */
+	Rwindow_inject_mouse_move(g_window, x + w * 0.5f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_STR(Rlabel_get_selected_text(label), "brave");
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	CHECK_STR(Rlabel_get_selected_text(label), "");
+
+	/* a triple click, a paragraph: here a line */
+	Rwidget_get_rect(lines, &x, &y, &w, &h);
+	Rwindow_inject_mouse_move(g_window, x + 4.0f, y + h * 0.75f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_STR(Rlabel_get_selected_text(lines), "Second line");
+	/* a drag over both lines keeps the line break */
+	Rwindow_inject_mouse_move(g_window, x + 0.5f, y + 2.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(g_window, x + w + 30.0f, y + h + 30.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_STR(Rlabel_get_selected_text(lines), "First line\nSecond line");
+	/* the selection of the other label went away with the focus */
+	CHECK_STR(Rlabel_get_selected_text(label), "");
+
+	/* Markdown: copied without its marks, a line break between the paragraphs */
+	Rwidget_get_rect(md, &x, &y, &w, &h);
+	/* a drag over the first paragraph */
+	Rwindow_inject_mouse_move(g_window, x + 0.5f, y + 4.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(g_window, x + w + 30.0f, y + 4.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_STR(Rlabel_get_selected_text(md), "Hello bold world");
+	test_key(g_window, R_KEY_A, R_MOD_CTRL);
+	CHECK_STR(Rlabel_get_selected_text(md), "Hello bold world\nSecond para here");
+	test_key(g_window, R_KEY_C, R_MOD_CTRL);
+	CHECK_STR(Rclipboard_get_text(), "Hello bold world\nSecond para here");
+	/* a double click on the end of a paragraph: its last word, not the first of the next one */
+	Rwindow_inject_mouse_move(g_window, x + w - 1.0f, y + 4.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_STR(Rlabel_get_selected_text(md), "world");
+	/* its links are still clicked */
+	Raction_bind("md.link", on_action, NULL);
+	g_actions = 0;
+	Rwindow_inject_mouse_move(g_window, x + w - 3.0f, y + h - 4.0f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK(g_actions == 1);
+	CHECK_STR(Rlabel_get_selected_text(md), "");
+	Raction_unbind("md.link");
+
+	/* a click elsewhere takes the selection away */
+	Rlabel_select_all(label);
+	CHECK_STR(Rlabel_get_selected_text(label), "Hello brave world");
+	test_click(g_window, label);
+	test_click(g_window, after);
+	CHECK(Rwidget_is_focused(after));
+	CHECK_STR(Rlabel_get_selected_text(label), "");
+
+	/* Tab passes the selectable labels by */
+	test_click(g_window, before);
+	test_key(g_window, R_KEY_TAB, 0);
+	CHECK(Rwidget_is_focused(after));
+
+	/* a label that is not selectable does not take the mouse */
+	Rwidget_get_rect(plain, &x, &y, &w, &h);
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
+	Rlabel_select_all(plain);
+	CHECK_STR(Rlabel_get_selected_text(plain), "");
+
+	/* and no longer selectable: the selection goes */
+	Rlabel_select_all(label);
+	Rlabel_set_selectable(label, R_FALSE);
+	CHECK_STR(Rlabel_get_selected_text(label), "");
+	Rwidget_get_rect(label, &x, &y, &w, &h);
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != label);
+	Rlabel_clear_selection(md);
+	Rdraw_frame();
+
+	/* in XML */
+	{
+		static const char xml[] = "<Label Text=\"From XML\" Selectable=\"true\"/>";
+		Rid from_xml = Rwidget_create_from_xml(xml, strlen(xml));
+		CHECK(Rlabel_get_selectable(from_xml));
+		Rwidget_destroy(from_xml);
+	}
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
@@ -658,6 +802,7 @@ int main(void) {
 	RUN(test_checkbox_and_radio);
 	RUN(test_slider_and_spin_box);
 	RUN(test_text_input);
+	RUN(test_selectable_label);
 	RUN(test_combo_box);
 	RUN(test_list_and_tree);
 	RUN(test_menus);

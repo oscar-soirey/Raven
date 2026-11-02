@@ -5504,6 +5504,57 @@ def Rlabel_get_plain_text(label):
     return _r(_lib.Rlabel_get_plain_text(label))
 
 
+_lib.Rlabel_set_selectable.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rlabel_set_selectable.restype = None
+
+
+def Rlabel_set_selectable(label, selectable):
+    """R_TRUE lets the user select the text of the label with the
+    mouse, as on a web page (Selectable="true" in XML): drag to select, a
+    double click selects a word, a triple click a paragraph, Shift + click
+    extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects
+    everything. A click elsewhere takes the selection away. Plain and
+    Markdown labels alike: a copy of a Markdown label is its text without
+    the marks, and its links are still clicked, not selected. The label
+    takes the mouse (what holds it no longer receives the clicks on it) and
+    the keyboard after a click; Tab passes it by. Default R_FALSE."""
+    _lib.Rlabel_set_selectable(label, selectable)
+
+
+_lib.Rlabel_get_selectable.argtypes = [ctypes.c_uint32]
+_lib.Rlabel_get_selectable.restype = ctypes.c_int
+
+
+def Rlabel_get_selectable(label):
+    return _lib.Rlabel_get_selectable(label)
+
+
+_lib.Rlabel_get_selected_text.argtypes = [ctypes.c_uint32]
+_lib.Rlabel_get_selected_text.restype = ctypes.c_char_p
+
+
+def Rlabel_get_selected_text(label):
+    """The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next call."""
+    return _r(_lib.Rlabel_get_selected_text(label))
+
+
+_lib.Rlabel_select_all.argtypes = [ctypes.c_uint32]
+_lib.Rlabel_select_all.restype = None
+
+
+def Rlabel_select_all(label):
+    """Selects the whole text of a selectable label."""
+    _lib.Rlabel_select_all(label)
+
+
+_lib.Rlabel_clear_selection.argtypes = [ctypes.c_uint32]
+_lib.Rlabel_clear_selection.restype = None
+
+
+def Rlabel_clear_selection(label):
+    _lib.Rlabel_clear_selection(label)
+
+
 _lib.Rbutton_create.argtypes = [ctypes.c_char_p]
 _lib.Rbutton_create.restype = ctypes.c_uint32
 
