@@ -32,13 +32,15 @@
 <h1>Raven in other languages</h1>
 
 <p>Raven is a C library, so any language that can call C can use it. Raven
-comes with bindings for seven of them: C++, Python, Rust, Go, C#, Zig and
-LuaJIT. This page explains, for each one, how to install it, how the C API
+comes with bindings for nine of them: C++, Python, Rust, Go, C#, Zig,
+LuaJIT, Java and Odin. This page explains, for each one, how to install it, how the C API
 looks from that language, how callbacks and texts are handled, and what to
 watch for. The functions themselves are documented once, in
 <a href="reference.html">the C API reference</a>: every binding uses the same names.</p>
 
-<p><small>Raven 0.2 packages (generated from the 0.1 API). The public API may still change before 1.0.</small></p>
+<p><small>Raven 0.2 packages (generated from the 0.1 API). The public API may still change before 1.0.
+The packages follow the releases: for the latest features, clone the repository, build Raven yourself
+(<a href="guide.html#build-latest">how</a>) and use the bindings of <code>bindings/</code> with that library.</small></p>
 
 <h2 id="contents">Contents</h2>
 <ul class="toc">
@@ -54,10 +56,12 @@ watch for. The functions themselves are documented once, in
 <li><a href="#csharp">7. C#</a></li>
 <li><a href="#zig">8. Zig</a></li>
 <li><a href="#lua">9. LuaJIT</a></li>
-<li><a href="#rosetta">10. One call in every language</a></li>
-<li><a href="#testing">11. Testing without a screen</a></li>
-<li><a href="#packages">12. Packages and publishing</a></li>
-<li><a href="#bindgen">13. How the bindings are made</a></li>
+<li><a href="#java">10. Java</a></li>
+<li><a href="#odin">11. Odin</a></li>
+<li><a href="#rosetta">12. One call in every language</a></li>
+<li><a href="#testing">13. Testing without a screen</a></li>
+<li><a href="#packages">14. Packages and publishing</a></li>
+<li><a href="#bindgen">15. How the bindings are made</a></li>
 </ul>
 
 <!-- ======================================================================= -->
@@ -72,10 +76,12 @@ watch for. The functions themselves are documented once, in
 <tr><td><a href="#csharp">C#</a></td><td><code>bindings/csharp/Raven.cs</code></td><td><code>dotnet add package Raven.Gui</code></td><td>P/Invoke in the static class <code>Raven.R</code>; <code>string</code>, <code>out</code>, <code>ref</code>, delegates.</td><td>none</td></tr>
 <tr><td><a href="#zig">Zig</a></td><td><code>bindings/zig/raven.zig</code></td><td>the file</td><td><code>extern fn</code> and <code>extern struct</code> declarations.</td><td>none</td></tr>
 <tr><td><a href="#lua">LuaJIT</a></td><td><code>bindings/luajit/raven.lua</code></td><td><code>luarocks install raven-gui</code></td><td>The declarations of the headers for the FFI of LuaJIT.</td><td>none</td></tr>
+<tr><td><a href="#java">Java</a> (22+)</td><td><code>bindings/java/</code></td><td><code>io.github.oscar-soirey:raven-gui</code> (Maven Central)</td><td>The class <code>raven.R</code> over the Foreign Function &amp; Memory API: no JNI, no dependency. <code>String</code> texts, lambdas, arrays of one element for out-parameters.</td><td><code>binding_java</code></td></tr>
+<tr><td><a href="#odin">Odin</a></td><td><code>bindings/odin/raven/</code></td><td>the folder</td><td>Foreign declarations under the C names; <code>proc "c"</code> callbacks, zeroed structures.</td><td><code>binding_odin</code> (where <code>odin</code> is installed; not run yet)</td></tr>
 </table></div>
 
-<p>Every binding covers the whole of <code>Raven.h</code>: 500 functions, 39
-enumerations, 14 structures and 33 kinds of callback, with the documentation
+<p>Every binding covers the whole of <code>Raven.h</code>: 932 functions, 56
+enumerations, 22 structures and 59 kinds of callback, with the documentation
 comments of the headers. Three headers are left out everywhere, because they only make
 sense from C: <code>raven_backend.h</code> (writing a rendering backend),
 <code>raven_vulkan.h</code> (sharing the Vulkan device) and <code>raven_web.h</code>.</p>
@@ -115,7 +121,7 @@ cmake --build build --config Release</pre>
 environment variables tell the bindings where it is:</p>
 <div class="tw"><table>
 <tr><th>Variable</th><th>Read by</th><th></th></tr>
-<tr><td><code>RAVEN_LIBRARY</code></td><td>Python, LuaJIT</td><td>the path of the shared library</td></tr>
+<tr><td><code>RAVEN_LIBRARY</code></td><td>Python, LuaJIT, Java</td><td>the path of the shared library (Java also reads the system property <code>raven.library</code>)</td></tr>
 <tr><td><code>RAVEN_LIB_DIR</code></td><td>Rust (<code>build.rs</code>)</td><td>the folder of the library, for the linker</td></tr>
 <tr><td><code>RAVEN_STATIC=1</code></td><td>Rust</td><td>link <code>libraven.a</code> / <code>raven.lib</code> instead</td></tr>
 <tr><td><code>CGO_CFLAGS</code>, <code>CGO_LDFLAGS</code></td><td>Go</td><td><code>-I&lt;raven&gt;/include</code> and <code>-L&lt;folder of the library&gt;</code></td></tr>
@@ -826,7 +832,141 @@ the Lua code around the C call: catch it in the callback with
 </dl>
 
 <!-- ======================================================================= -->
-<h2 id="rosetta">10. One call in every language</h2>
+<h2 id="java">10. Java</h2>
+
+<h3 id="java-install">Install</h3>
+<p>From Maven Central, with Maven:</p>
+<pre>&lt;dependency&gt;
+  &lt;groupId&gt;io.github.oscar-soirey&lt;/groupId&gt;
+  &lt;artifactId&gt;raven-gui&lt;/artifactId&gt;
+  &lt;version&gt;0.2.0&lt;/version&gt;
+&lt;/dependency&gt;</pre>
+<p>or with Gradle: <code>implementation("io.github.oscar-soirey:raven-gui:0.2.0")</code>.
+It needs Java 22 or later: the binding uses the Foreign Function &amp; Memory API
+(<code>java.lang.foreign</code>), so there is no JNI and no C to compile. The jar holds the
+library for Windows x64, Linux x64 and macOS. Start the program with
+<code>--enable-native-access=ALL-UNNAMED</code> (Java warns without it; a jar started
+with <code>java -jar</code> can say it in its manifest: <code>Enable-Native-Access: ALL-UNNAMED</code>).</p>
+<p>Without Maven, compile the one file and give it the library:</p>
+<pre>javac -d classes bindings/java/src/main/java/raven/R.java
+RAVEN_LIBRARY=/path/to/libraven.so java --enable-native-access=ALL-UNNAMED -cp classes Hello.java</pre>
+
+<h3 id="java-hello">A program</h3>
+<pre>import static raven.R.*;
+
+public class Hello {
+    static final String XML = """
+        &lt;Window Title="Hello" Width="360" Height="200"&gt;
+            &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+                &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+                &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+                &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+            &lt;/VBox&gt;
+        &lt;/Window&gt;
+        """;
+
+    public static void main(String[] args) {
+        if (Rinit(R_BACKEND_VULKAN) == 0) return;
+        int window = Rwindow_create_from_xml(XML);
+        int title = Rwidget_find(window, "title");
+        int name = Rwidget_find(window, "name");
+        Raction_bind("greet", (sender, action, user) -&gt;
+            Rlabel_set_text(title, "Hello, " + Rtext_input_get_text(name) + "!"));
+        while (Rwait_frame(-1.0) != 0) { }
+        Rshutdown();
+    }
+}</pre>
+
+<h3 id="java-rules">How the C API looks</h3>
+<dl>
+<dt>Names</dt>
+<dd>The C API under its own names, as static members of <code>raven.R</code>:
+<code>import static raven.R.*;</code> and the code reads as in C. Enumerations and
+flags are <code>int</code> constants (<code>R_WIDGET_BUTTON</code>), a <code>Rid</code> is an <code>int</code>.</dd>
+<dt>Texts</dt>
+<dd><code>String</code> on both sides (UTF-8 underneath). The size that follows a text
+or bytes in C (<code>xml, size</code>) is not passed, nor the count that follows a list of texts.</dd>
+<dt>Out-parameters</dt>
+<dd>An array of one element, or <code>null</code> where C accepts NULL:
+<code>int[] w = {0}, h = {0}; Rwindow_get_size(window, w, h);</code></dd>
+<dt>Structures</dt>
+<dd>A class over its memory, zeroed, with an accessor per field that chains:
+<code>Rinit_ex(new RInitDesc().backend(R_BACKEND_NULL).headless(1));</code></dd>
+<dt>Callbacks</dt>
+<dd>Functional interfaces: a lambda passes. Each one stays alive as long as the
+program (the library keeps its address), so nothing has to be kept by hand.
+<code>user_data</code> can be left out; <code>void*</code> and the other addresses are
+<code>MemorySegment</code>.</dd>
+<dt>Thread</dt>
+<dd>Call Raven from the thread that called <code>Rinit</code> (the <code>main</code>
+thread), not from a thread pool or the thread of Swing.</dd>
+</dl>
+
+<!-- ======================================================================= -->
+<h2 id="odin">11. Odin</h2>
+
+<h3 id="odin-install">Install</h3>
+<p>Odin has no package registry (its authors chose not to have one): copy the folder
+<code>bindings/odin/raven</code> into the project, or point a collection at the
+folder of the bindings (<code>-collection:ext=&lt;Raven&gt;/bindings/odin</code>, then
+<code>import "ext:raven"</code>). It links the shared library of Raven, built with
+<code>-DRAVEN_BUILD_SHARED=ON</code> or taken from a release:</p>
+<pre>odin run . -extra-linker-flags:"-L/path/to/lib"              # Linux, macOS
+odin run . -extra-linker-flags:"/LIBPATH:C:\path\to\lib"     # Windows: raven.lib, and raven.dll beside the program</pre>
+
+<h3 id="odin-hello">A program</h3>
+<pre>package hello
+
+import "base:runtime"
+import "core:fmt"
+import r "raven"
+
+title, name: r.Rid
+
+greet :: proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
+    context = runtime.default_context()
+    r.Rlabel_set_text(title, fmt.ctprintf("Hello, %s!", r.Rtext_input_get_text(name)))
+}
+
+main :: proc() {
+    if r.Rinit(r.R_BACKEND_VULKAN) == 0 do return
+    XML :: `&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;`
+    window := r.Rwindow_create_from_xml(XML, len(XML))
+    title = r.Rwidget_find(window, "title")
+    name = r.Rwidget_find(window, "name")
+    r.Raction_bind("greet", greet, nil)
+    for r.Rwait_frame(-1.0) != 0 {}
+    r.Rshutdown()
+}</pre>
+
+<h3 id="odin-rules">How the C API looks</h3>
+<dl>
+<dt>Declarations</dt>
+<dd>The C API as it is, under its own names, in <code>foreign</code> blocks:
+<code>Rid :: u32</code>, enumerations as <code>i32</code> constants (<code>r.R_WIDGET_BUTTON</code>).</dd>
+<dt>Texts</dt>
+<dd><code>cstring</code>: an Odin string literal passes as it is; another string goes
+through <code>strings.clone_to_cstring</code> or <code>fmt.ctprintf</code>. A text returned
+by Raven is a <code>cstring</code>: <code>string(t)</code> makes an Odin string of it. Sizes
+are passed explicitly: <code>(xml, len(xml))</code>.</dd>
+<dt>Structures</dt>
+<dd>The layout of C, zeroed when declared: <code>desc: r.RInitDesc; desc.headless = 1</code>.</dd>
+<dt>Out-parameters</dt>
+<dd>Pointers: <code>w, h: i32; r.Rwindow_get_size(window, &amp;w, &amp;h)</code>.</dd>
+<dt>Callbacks</dt>
+<dd><code>proc "c"</code> with the parameters of the C type (<code>r.RActionCallback</code> and the
+others are declared). To use the context of Odin inside (<code>fmt</code>, allocations), start
+it with <code>context = runtime.default_context()</code>.</dd>
+</dl>
+
+<!-- ======================================================================= -->
+<h2 id="rosetta">12. One call in every language</h2>
 
 <p>Reading the bounds of a widget (a function with four out-parameters) and
 changing the text of a label, to see each convention side by side:</p>
@@ -840,6 +980,8 @@ changing the text of a label, to see each convention side by side:</p>
 <tr><td>C#</td><td><code>R.Rwidget_get_rect(b, out var x, out var y, out var w, out var h);</code></td><td><code>R.Rlabel_set_text(l, "Hi");</code></td></tr>
 <tr><td>Zig</td><td><code>r.Rwidget_get_rect(b, &amp;x, &amp;y, &amp;w, &amp;h);</code></td><td><code>r.Rlabel_set_text(l, "Hi");</code></td></tr>
 <tr><td>LuaJIT</td><td><code>local f = ffi.new("float[4]"); r.Rwidget_get_rect(b, f, f+1, f+2, f+3)</code></td><td><code>r.Rlabel_set_text(l, "Hi")</code></td></tr>
+<tr><td>Java</td><td><code>float[] x = {0}, y = {0}, w = {0}, h = {0}; Rwidget_get_rect(b, x, y, w, h);</code></td><td><code>Rlabel_set_text(l, "Hi");</code></td></tr>
+<tr><td>Odin</td><td><code>x, y, w, h: f32; r.Rwidget_get_rect(b, &amp;x, &amp;y, &amp;w, &amp;h)</code></td><td><code>r.Rlabel_set_text(l, "Hi")</code></td></tr>
 </table></div>
 
 <p>And binding an action, the one callback every binding makes easy:</p>
@@ -852,10 +994,12 @@ changing the text of a label, to see each convention side by side:</p>
 <tr><td>C#</td><td><code>R.Raction_bind("save", R.Keep&lt;RActionCallback&gt;((s, a, u) =&gt; Save()), IntPtr.Zero);</code></td></tr>
 <tr><td>Zig</td><td><code>r.Raction_bind("save", onSave, null);</code> with <code>fn onSave(...) callconv(.C) void</code></td></tr>
 <tr><td>LuaJIT</td><td><code>local cb = ffi.cast("RActionCallback", save); r.Raction_bind("save", cb, nil)</code></td></tr>
+<tr><td>Java</td><td><code>Raction_bind("save", (sender, action, user) -&gt; save());</code></td></tr>
+<tr><td>Odin</td><td><code>r.Raction_bind("save", on_save, nil)</code> with <code>on_save :: proc "c" (...)</code></td></tr>
 </table></div>
 
 <!-- ======================================================================= -->
-<h2 id="testing">11. Testing without a screen</h2>
+<h2 id="testing">13. Testing without a screen</h2>
 
 <p>Every binding can run Raven with the null backend and no window system,
 which is how the build checks them: each example, started with
@@ -876,15 +1020,16 @@ r.Rwindow_inject_mouse_button(window, r.R_MOUSE_LEFT, 0)
 assert r.Rlabel_get_text(title) == "Hello, you!"</pre>
 <p>In Go, <code>raven.InitHeadless()</code> does the first four lines. The
 examples (<code>cpp/example.cpp</code>, <code>python/example.py</code>,
-<code>rust/examples/hello.rs</code>, <code>go/example/main.go</code>) are complete tests
+<code>rust/examples/hello.rs</code>, <code>go/example/main.go</code>,
+<code>java/example/Example.java</code>, <code>odin/example/main.odin</code>) are complete tests
 to copy. With <code>-DRAVEN_BUILD_TESTS=ON</code>, <code>ctest</code> runs
 <code>bindings_up_to_date</code> and, where the tools are installed,
-<code>binding_cpp</code>, <code>binding_python</code>, <code>binding_rust</code> and
-<code>binding_go</code> (the last three need <code>RAVEN_BUILD_SHARED</code>, and are
-run by hand on Windows).</p>
+<code>binding_cpp</code>, <code>binding_python</code>, <code>binding_rust</code>,
+<code>binding_go</code>, <code>binding_java</code> (a JDK 22 or later) and <code>binding_odin</code>
+(all but the first need <code>RAVEN_BUILD_SHARED</code>, and are run by hand on Windows).</p>
 
 <!-- ======================================================================= -->
-<h2 id="packages">12. Packages and publishing</h2>
+<h2 id="packages">14. Packages and publishing</h2>
 
 <div class="tw"><table class="v">
 <tr><th>Registry</th><th>Package</th><th>In code</th><th>Contents</th></tr>
@@ -892,21 +1037,23 @@ run by hand on Windows).</p>
 <tr><td>NuGet</td><td><code>Raven.Gui</code></td><td><code>using Raven;</code></td><td><code>Raven.dll</code> (netstandard2.0) and the library under <code>runtimes/&lt;rid&gt;/native/</code></td></tr>
 <tr><td>crates.io</td><td><code>raven-gui</code></td><td><code>use raven::*;</code></td><td>the crate; the library comes from a release</td></tr>
 <tr><td>LuaRocks</td><td><code>raven-gui</code></td><td><code>require("raven")</code></td><td>the module; the library comes from a release</td></tr>
+<tr><td>Maven Central</td><td><code>io.github.oscar-soirey:raven-gui</code></td><td><code>import static raven.R.*;</code></td><td><code>raven.R</code> and the library under <code>raven/native/&lt;platform&gt;/</code> (Windows x64, Linux x64, macOS)</td></tr>
 </table></div>
-<p>C++, Go and Zig are used from the files of a release or of the sources
+<p>C++, Go, Zig and Odin are used from the files of a release or of the sources
 (<code>share/raven/bindings</code> in an installed package).</p>
 <p>For maintainers: <code>bindings\package.bat</code>, from a Developer Command
 Prompt for Visual Studio, builds Raven (shared, Release) and writes the four
-packages into <code>dist\bindings\</code> without publishing anything.
+packages into <code>dist\bindings\</code> without publishing anything
+(<code>dev\publish-java.bat --dry-run</code> builds and signs the jar the same way).
 <code>--linux &lt;folder&gt;</code> and <code>--macos &lt;folder&gt;</code> add the libraries of
 those platforms from the shared packages of a release;
 <code>python bindings/set_version.py X.Y.Z</code> changes the version everywhere
-(CMake, Cargo, NuGet, rockspec). The publishing commands are in
+(CMake, Cargo, NuGet, rockspec, Maven). The publishing commands are in
 <code>bindings/PUBLISHING.md</code>. A version can be published only once on each
 registry.</p>
 
 <!-- ======================================================================= -->
-<h2 id="bindgen">13. How the bindings are made</h2>
+<h2 id="bindgen">15. How the bindings are made</h2>
 
 <p>The bindings are not written by hand: <code>tools/bindgen</code> reads the public
 headers (<code>cparse.py</code>) and writes every file of <code>bindings/</code>, one

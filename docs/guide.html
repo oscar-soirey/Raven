@@ -46,7 +46,7 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <li><a href="#intro">1. A first program</a>
 </li>
 <li><a href="#build">2. Building Raven</a>
-<ul><li><a href="#build-windows">Windows</a></li><li><a href="#build-linux">Linux</a></li><li><a href="#build-macos">macOS</a></li><li><a href="#build-options">Options</a></li><li><a href="#build-using">Using Raven from a project</a></li></ul>
+<ul><li><a href="#build-latest">The latest version: from the sources</a></li><li><a href="#build-windows">Windows</a></li><li><a href="#build-linux">Linux</a></li><li><a href="#build-macos">macOS</a></li><li><a href="#build-options">Options</a></li><li><a href="#build-using">Using Raven from a project</a></li></ul>
 </li>
 <li><a href="#concepts">3. Concepts</a>
 <ul><li><a href="#names">Names</a></li><li><a href="#handles">Handles and errors</a></li><li><a href="#loop">The loop</a></li><li><a href="#ui-thread">One thread for the interface</a></li></ul>
@@ -63,7 +63,7 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <ul><li><a href="#label">Label</a></li><li><a href="#button">Button, checkbox</a></li><li><a href="#numbers">Slider, spin box, progress bar</a></li><li><a href="#text-input">Text input</a></li><li><a href="#lists">Combo box, list, tree, tiles</a></li><li><a href="#menus">Menus</a></li><li><a href="#image">Image, separator</a></li></ul>
 </li>
 <li><a href="#events">8. Events and actions</a>
-<ul><li><a href="#callbacks">Callbacks</a></li><li><a href="#actions">Actions</a></li><li><a href="#shortcuts">Keyboard shortcuts</a></li><li><a href="#raw-events">Raw input</a></li><li><a href="#timers">Timers</a></li><li><a href="#clipboard">Clipboard and links</a></li><li><a href="#drop">Drag and drop</a></li></ul>
+<ul><li><a href="#callbacks">Callbacks</a></li><li><a href="#actions">Actions</a></li><li><a href="#shortcuts">Keyboard shortcuts</a></li><li><a href="#raw-events">Raw input</a></li><li><a href="#timers">Timers</a></li><li><a href="#clipboard">Clipboard and links</a></li><li><a href="#drop">Drag and drop</a></li><li><a href="#touch">Fingers and pens</a></li></ul>
 </li>
 <li><a href="#xml">9. Interfaces in XML</a>
 <ul><li><a href="#xml-reload">Live reload</a></li><li><a href="#xml-tags">Tags of your own</a></li></ul>
@@ -83,7 +83,7 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <ul><li><a href="#color-picker">Color picker</a></li><li><a href="#timeline">Timeline</a></li><li><a href="#node-graph">Node graph</a></li><li><a href="#block-editor">Block editor</a></li></ul>
 </li>
 <li><a href="#themes">15. Themes, styles and materials</a>
-<ul><li><a href="#styles">Styles and classes</a></li><li><a href="#theme-files">Theme files</a></li><li><a href="#materials">Materials, glass and blur</a></li><li><a href="#theme-editor">The theme editor</a></li></ul>
+<ul><li><a href="#styles">Styles and classes</a></li><li><a href="#theme-files">Theme files</a></li><li><a href="#window-theme">A theme for one window</a></li><li><a href="#materials">Materials, glass and blur</a></li><li><a href="#theme-editor">The theme editor</a></li></ul>
 </li>
 <li><a href="#drawing">16. Custom widgets, drawing and animation</a>
 <ul><li><a href="#springs">Springs</a></li><li><a href="#transitions">Transitions</a></li></ul>
@@ -105,7 +105,7 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <li><a href="#memory">24. Memory</a>
 </li>
 <li><a href="#languages">25. Other languages</a>
-<ul><li><a href="#lang-cpp">C++</a></li><li><a href="#lang-python">Python</a></li><li><a href="#lang-rust">Rust</a></li><li><a href="#lang-go">Go</a></li><li><a href="#lang-csharp">C#</a></li><li><a href="#lang-zig">Zig</a></li><li><a href="#lang-lua">LuaJIT</a></li></ul>
+<ul><li><a href="#lang-cpp">C++</a></li><li><a href="#lang-python">Python</a></li><li><a href="#lang-rust">Rust</a></li><li><a href="#lang-go">Go</a></li><li><a href="#lang-csharp">C#</a></li><li><a href="#lang-zig">Zig</a></li><li><a href="#lang-lua">LuaJIT</a></li><li><a href="#lang-java">Java</a></li><li><a href="#lang-odin">Odin</a></li></ul>
 </li>
 <li><a href="#ide">26. The designer</a>
 <ul><li><a href="#ide-folder">A folder</a></li><li><a href="#ide-visual">The visual editor</a></li><li><a href="#ide-preview">The preview: devices, themes, languages</a></li><li><a href="#ide-island">The island: Ctrl+K</a></li><li><a href="#ide-scripts">Driving it from a script</a></li></ul>
@@ -197,6 +197,20 @@ the X11 development package. The Vulkan <i>headers</i> are taken from the
 Vulkan SDK when it is installed and downloaded during the configuration
 otherwise; no Vulkan library is linked (it is loaded when the program runs).
 Each build gives the library, the designer, the theme editor, the examples and the tests.</p>
+
+<h3 id="build-latest">The latest version: from the sources</h3>
+<p>The <a href="https://github.com/oscar-soirey/Raven/releases">releases</a> and the
+packages of the bindings (PyPI, NuGet, crates.io, LuaRocks, Maven Central) are made from
+time to time; the repository moves every day. <b>To have the latest features, clone the
+repository and build Raven yourself</b> rather than downloading a release: what this
+manual describes may not be in the last release yet. It takes a few minutes:</p>
+<pre>git clone https://github.com/oscar-soirey/Raven.git
+cd Raven
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release --parallel</pre>
+<p><code>git pull</code> and the same <code>cmake --build</code> bring it up to date later.
+Add <code>-DRAVEN_BUILD_SHARED=ON</code> for the shared library the bindings load. The
+sections below give the details for each system.</p>
 
 <h3 id="build-windows">Windows</h3>
 
@@ -837,6 +851,56 @@ static int on_asset_drop(Rid target, const RDropEvent* e, void* user_data) {
 }</pre>
 <p>Dragging out of a Raven window to another application is not implemented.</p>
 
+<h3 id="touch">Fingers and pens</h3>
+<p>Touch screens and pens work with nothing written: Raven reads them on every platform
+(Windows: <code>WM_POINTER</code>; Linux: XInput 2 on X11, the touch and tablet protocols on
+Wayland; macOS: the pressure of tablets and the pinch of the trackpad) and makes them drive
+the widgets as they are:</p>
+<ul>
+<li>a tap clicks; a finger that moves drags as the mouse would, except over what scrolls
+(<code>ScrollBox</code>, lists, trees, tiles, the text editor, the timeline, the graphs): there
+the content follows the finger and keeps going when it is flicked;</li>
+<li>a finger that rests opens the context menu (a right click);</li>
+<li>two fingers pinch to zoom and pan where a widget zooms (<code>NodeGraph</code>,
+<code>TextEditor</code>, <code>Timeline</code>, <code>BlockEditor</code>) or scrolls;</li>
+<li>a pen is a mouse with a pressure, its barrel button is the right button, and the palm
+resting on the screen while a pen is near is ignored.</li>
+</ul>
+<p>What changes it: the settings of the application or of one window, the mode of a widget,
+and the events themselves for a widget that wants them (drawing with the pressure, a
+gesture of its own). A callback that returns <code>R_TRUE</code> takes the finger, the stroke
+or the gesture: the library does nothing else with it.</p>
+<pre>RTouchSettings settings;
+Rtouch_get_settings(&amp;settings);
+settings.long_press = 0.0f;               /* no context menu from a resting finger */
+settings.pressure_curve = 0.7f;           /* softer pen */
+Rtouch_set_settings(&amp;settings);           /* or Rwindow_set_touch_settings(window, &amp;settings) */
+
+Rwidget_set_touch_mode(canvas, R_TOUCH_MODE_NONE);   /* fingers ignored: a surface for the pen */
+Rwidget_set_pen_mouse(canvas, R_FALSE);              /* and the pen is not a mouse there */
+
+static int on_pen(Rid widget, const RPenEvent* e, void* user_data) {
+    if (e-&gt;phase == R_PEN_DOWN || e-&gt;phase == R_PEN_MOVE)
+        add_point(e-&gt;local_x, e-&gt;local_y, e-&gt;pressure, e-&gt;tilt_x, e-&gt;tilt_y, e-&gt;eraser);
+    return R_TRUE;                        /* the stroke is ours */
+}
+Rwidget_set_pen_callback(canvas, on_pen, NULL);
+
+static int on_gesture(Rid widget, const RGestureEvent* e, void* user_data) {
+    zoom_by(e-&gt;scale_delta, e-&gt;x, e-&gt;y);
+    pan_by(e-&gt;pan_x, e-&gt;pan_y);
+    return R_TRUE;
+}
+Rwidget_set_gesture_callback(map, on_gesture, NULL);</pre>
+<p>In XML: the <code>Touch.*</code> and <code>Pen.*</code> attributes of <code>&lt;Window&gt;</code>
+(<code>Touch.LongPress="0"</code>, <code>Pen.PressureCurve="0.7"</code>...), and on any widget
+<code>Touch.Mode</code>, <code>Touch.Gestures</code> and <code>Pen.Mouse</code>; the designer has them
+in Properties. Events bubble from the widget under the finger to its parents, and a finger
+or a stroke stays with the widget it started on until it is lifted.
+<code>Rwindow_inject_touch</code>, <code>Rwindow_inject_pen</code> and <code>Rwindow_advance_touch</code>
+play them in tests. Everything is in <a href="reference.html#raven_touch_h">raven_touch.h</a>.</p>
+
+
 <!-- ======================================================================= -->
 <h2 id="xml">9. Interfaces in XML</h2>
 
@@ -1338,6 +1402,16 @@ and <code>&lt;Style Widget="..." Class="..."&gt;</code>. Theme files are loaded 
 they are saved. The color roles and metrics are listed in the
 <a href="xml.html#color-attributes">XML reference</a>.</p>
 
+<h3 id="window-theme">A theme for one window</h3>
+<pre>Rwindow_set_theme(preview, "Ocean");    /* &lt;Window Theme="Ocean"&gt; or Theme="themes/ocean.xml" */
+Rwindow_set_theme(preview, NULL);       /* the theme of the application again */</pre>
+<p>Everything the window shows wears it: its content, its island, its menus, lists,
+tooltips and dialogs, its background and the material the system puts behind it. The
+other windows keep the theme of the application (<code>Rtheme_use</code>), and a widget
+given <code>Rwidget_set_theme</code> keeps its own. <code>&lt;Window Theme="..."&gt;</code> sets the
+theme of that window only: it no longer changes the one of the application.
+<code>Rwindow_get_theme</code> and <code>Rwindow_has_own_theme</code> tell which one it wears.</p>
+
 <h3 id="materials">Materials, glass and blur</h3>
 <div class="tw"><table>
 <tr><th>Material</th><th></th></tr>
@@ -1704,7 +1778,7 @@ in a build with AddressSanitizer). After <code>Rshutdown</code>,
 <h2 id="languages">25. Other languages</h2>
 
 <p><code>bindings/</code> holds bindings generated from the headers by <code>tools/bindgen</code>,
-for C++, Python, Rust, Go, C#, Zig and LuaJIT. They cover everything in
+for C++, Python, Rust, Go, C#, Zig, LuaJIT, Java and Odin. They cover everything in
 <code>Raven.h</code> (<code>raven_web.h</code>, <code>raven_vulkan.h</code> and <code>raven_backend.h</code> are C only).
 Run <code>python3 tools/bindgen/bindgen.py</code> after changing a public header; the
 test <code>bindings_up_to_date</code> checks it was done.</p>
@@ -1816,6 +1890,42 @@ r.Raction_bind("quit", quit, nil)
 while r.Rwait_frame(-1.0) ~= 0 do end
 r.Rshutdown()</pre>
 
+<h3 id="lang-java">Java</h3>
+<pre>import static raven.R.*;
+
+public class Hello {
+    public static void main(String[] args) {
+        Rinit(R_BACKEND_VULKAN);
+        Rwindow_create_from_xml("&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;");
+        Raction_bind("quit", (sender, action, user) -&gt; Rquit(0));
+        while (Rwait_frame(-1.0) != 0) { }
+        Rshutdown();
+    }
+}</pre>
+<p>Java 22 or later, over the Foreign Function &amp; Memory API: no JNI, nothing to compile in C.
+From Maven Central, <code>io.github.oscar-soirey:raven-gui</code> (the jar holds the library);
+start with <code>--enable-native-access=ALL-UNNAMED</code>. Texts are <code>String</code>, out-parameters
+arrays of one element, callbacks lambdas.</p>
+
+<h3 id="lang-odin">Odin</h3>
+<pre>package hello
+
+import r "raven"
+
+main :: proc() {
+    r.Rinit(r.R_BACKEND_VULKAN)
+    xml :: "&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;"
+    r.Rwindow_create_from_xml(xml, len(xml))
+    r.Raction_bind("quit", proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
+        r.Rquit(0)
+    }, nil)
+    for r.Rwait_frame(-1.0) != 0 {}
+    r.Rshutdown()
+}</pre>
+<p>Foreign declarations under the C names, in <code>bindings/odin/raven</code>: copy the folder
+(Odin has no package registry) and link the shared library
+(<code>-extra-linker-flags:"-L&lt;folder of the library&gt;"</code>).</p>
+
 <!-- ======================================================================= -->
 <h2 id="ide">26. The designer</h2>
 
@@ -1858,6 +1968,10 @@ Raven, and the themes of the folder), and its language (the columns of the table
 right to left included). <b>Open in a window</b> (or F7) shows the interface in a
 window of its own, at its real size, following every change live; its bar chooses
 the device, the theme and the language, and goes back to the designer.</p>
+<p>The theme of a <code>&lt;Window&gt;</code> is written in it: choosing one sets its
+<code>Theme</code> attribute (a look by its name, a theme of the folder by the path of its file),
+and the preview and the window of F7 wear it while the designer keeps its own appearance.
+<i>Same as the designer</i> removes the attribute.</p>
 
 <h3 id="ide-island">The island: Ctrl+K</h3>
 <p>The island at the top of the window is the command center of the designer. It

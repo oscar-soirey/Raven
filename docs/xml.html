@@ -182,6 +182,9 @@ glass (<code>Color.Control="#FF375F60"</code> is a pink glass button).</p>
 <tr><td><code>AccessibleDescription</code></td><td>text</td><td>A longer explanation, read after the name.</td></tr>
 <tr><td><code>AccessibleRole</code></td><td><code>Auto</code> | <code>None</code> | <code>Group</code> | <code>Text</code> | <code>Heading</code> | <code>Link</code> | <code>Button</code> | <code>ToggleButton</code> | <code>CheckBox</code> | <code>RadioButton</code> | <code>Slider</code> | <code>ProgressBar</code> | <code>SpinButton</code> | <code>TextField</code> | <code>Document</code> | <code>ComboBox</code> | <code>List</code> | <code>ListItem</code> | <code>Tree</code> | <code>TreeItem</code> | <code>Table</code> | <code>MenuBar</code> | <code>Menu</code> | <code>MenuItem</code> | <code>TabList</code> | <code>Tab</code> | <code>TabPanel</code> | <code>Toolbar</code> | <code>StatusBar</code> | <code>Dialog</code> | <code>Alert</code> | <code>Image</code> | <code>Canvas</code> | <code>Separator</code> | <code>ScrollBar</code> | <code>Pane</code></td><td>What the widget is for a screen reader.</td></tr>
 <tr><td><code>AccessibleHidden</code></td><td>boolean</td><td>Hidden from screen readers, with what it contains (decoration).</td></tr>
+<tr><td><code>Touch.Mode</code></td><td><code>Auto</code> | <code>Scroll</code> | <code>Mouse</code> | <code>None</code></td><td>What a finger does here: Auto scrolls what scrolls and is a mouse elsewhere, Scroll always scrolls, Mouse is a mouse (no scrolling), None ignores fingers (a surface for the pen).</td></tr>
+<tr><td><code>Touch.Gestures</code></td><td>boolean</td><td>false: two fingers neither zoom nor pan the widget.</td></tr>
+<tr><td><code>Pen.Mouse</code></td><td>boolean</td><td>false: the pen is not a mouse here; only the pen callback of the application sees it.</td></tr>
 </table></div>
 <h3 id="slot-attributes">Slot attributes: the place of a widget in its parent</h3>
 <div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
@@ -339,7 +342,17 @@ the same.</p>
 <tr><td><code>Background</code></td><td>file path</td><td>Image behind the content (what glass refracts).</td></tr>
 <tr><td><code>Transparent</code></td><td>boolean</td><td>The window can be seen through where nothing is drawn (needs a compositing window system).</td></tr>
 <tr><td><code>Backdrop</code></td><td><code>None</code> | <code>Transparent</code> | <code>Blur</code> | <code>Acrylic</code> | <code>Mica</code></td><td>What the system shows behind a window that is seen through: the desktop as it is, blurred, or a material of Windows 11.</td></tr>
-<tr><td><code>Theme</code></td><td><code>Dark</code> | <code>Light</code> | <code>GlassDark</code> | <code>GlassLight</code> | <code>HighContrastDark</code> | <code>HighContrastLight</code></td><td>Theme of the window: a name, or a theme file.</td></tr>
+<tr><td><code>Theme</code></td><td><code>Default</code> | <code>Dark</code> | <code>Light</code> | <code>GlassDark</code> | <code>GlassLight</code> | <code>HighContrastDark</code> | <code>HighContrastLight</code></td><td>Theme of this window only (its content, island, menus and background): a name, or a theme file; the other windows keep the one of the application. Default: the one of the application.</td></tr>
+<tr><td><code>Touch.MouseEmulation</code></td><td>boolean</td><td>A finger drives the widgets as the mouse does: a tap clicks, a drag drags (default true).</td></tr>
+<tr><td><code>Touch.Slop</code></td><td>number</td><td>How far a finger moves before a press becomes a drag or a scroll (default 8).</td></tr>
+<tr><td><code>Touch.LongPress</code></td><td>number</td><td>Seconds a finger rests before the press is a right click; 0 turns it off (default 0.5).</td></tr>
+<tr><td><code>Touch.Inertia</code></td><td>boolean</td><td>Flicked content keeps going and slows down (default true).</td></tr>
+<tr><td><code>Touch.Deceleration</code></td><td>number</td><td>How fast flicked content slows down, units per second per second (default 2400).</td></tr>
+<tr><td><code>Touch.Gestures</code></td><td>boolean</td><td>Two fingers pinch to zoom and pan (default true).</td></tr>
+<tr><td><code>Touch.PalmRejection</code></td><td>boolean</td><td>Fingers are ignored while a pen is near the screen (default true).</td></tr>
+<tr><td><code>Pen.MouseEmulation</code></td><td>boolean</td><td>The pen drives the widgets as the mouse does; its barrel button is the right button (default true).</td></tr>
+<tr><td><code>Pen.PressureCurve</code></td><td>number</td><td>The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder.</td></tr>
+<tr><td><code>Pen.PressureThreshold</code></td><td>number</td><td>Pressure, 0 to 1, the tip needs before it presses (default 0).</td></tr>
 </table></div>
 <h3 id="tag-HeaderBar">&lt;HeaderBar&gt;</h3>
 <p>The title bar of a window with a custom header; holds any widgets. <small>(also written <code>TitleBar</code>; any number of child widgets)</small></p>

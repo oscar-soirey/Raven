@@ -35,6 +35,21 @@
 
 ## Build from source
 
+> **For the latest features, clone and build Raven yourself** rather than
+> downloading a release: the [releases](https://github.com/oscar-soirey/Raven/releases)
+> and the packages of the bindings (PyPI, NuGet, crates.io, LuaRocks, Maven
+> Central) are made from time to time, while the repository moves every day,
+> so what this page describes may not be in the last release yet.
+>
+> ```
+> git clone https://github.com/oscar-soirey/Raven.git
+> cd Raven
+> cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+> cmake --build build --config Release --parallel
+> ```
+>
+> `git pull` and the same `cmake --build` bring it up to date later.
+
 Raven builds with CMake and a C11 compiler, and has no dependency to install
 besides the X11 development package on Linux. The Vulkan *headers* are
 downloaded automatically during the configuration (git and an internet
@@ -181,7 +196,7 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
 - **Looks and themes you write.** The looks of Raven, or the ones of
   **Windows 11**, **macOS** (Sequoia, and macOS 26 with Liquid Glass) and **GNOME** imitated closely (their controls,
   colors, accent, font and motion). Theme files laid over them, styles for a type of widget, a class,
-  a **part of a widget and its states**, a theme for a part of a window. **Markdown** in labels and in the
+  a **part of a widget and its states**, a theme for a window or a part of one. **Markdown** in labels and in the
   text editor. Interface and theme files are **loaded again while the
   application runs** when they are saved.
 - **Web pages** (`raven_web.h`, built into the same library) shown by driving
@@ -1148,8 +1163,10 @@ A theme file that names no look (`Look="WindowsDark"`) follows the look in
 use. Styles reach the parts of widgets (`Part="Thumb"`) in their states
 (`State="Hovered Pressed"`).
 
-`Theme="Ocean"` (or `Theme="themes/ocean.xml"`) on a widget or on a window
-gives a theme to that part of the interface only. Colors and metrics can
+`Theme="Ocean"` (or `Theme="themes/ocean.xml"`) on a widget gives a theme to
+that part of the interface only; on a `<Window>` (or `Rwindow_set_theme`), to
+that window only, its menus, dialogs and background included, while the other
+windows keep the theme of the application (`Rtheme_use`). Colors and metrics can
 still be set on one widget (`Rwidget_set_color`, `Color.Accent="..."`).
 [docs/THEMES.md](docs/THEMES.md) is the guide.
 

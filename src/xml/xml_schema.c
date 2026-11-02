@@ -148,7 +148,7 @@ static const rvn_schema_attribute_t g_window[] = {
 	F("Background", "Image behind the content (what glass refracts)."),
 	B("Transparent", "The window can be seen through where nothing is drawn (needs a compositing window system)."),
 	C("Backdrop", "None|Transparent|Blur|Acrylic|Mica", "What the system shows behind a window that is seen through: the desktop as it is, blurred, or a material of Windows 11."),
-	C("Theme", "Dark|Light|GlassDark|GlassLight|HighContrastDark|HighContrastLight", "Theme of the window: a name, or a theme file."),
+	C("Theme", "Default|Dark|Light|GlassDark|GlassLight|HighContrastDark|HighContrastLight", "Theme of this window only (its content, island, menus and background): a name, or a theme file; the other windows keep the one of the application. Default: the one of the application."),
 };
 
 static const rvn_schema_attribute_t g_box[] = { N("Spacing", "Space between the children.") };
