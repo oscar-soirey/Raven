@@ -39,6 +39,7 @@
 #define RVN_XI_GestureSwipeBegin  30
 #define RVN_XI_GestureSwipeUpdate 31
 #define RVN_XI_GestureSwipeEnd    32
+/* (the last event number: a mask needs (RVN_XI_LASTEVENT >> 3) + 1 bytes, as XIMaskLen says) */
 #define RVN_XI_LASTEVENT        32
 /* (XIGesturePinchEventCancelled, XIGestureSwipeEventCancelled) */
 #define RVN_XIGestureCancelled  1
@@ -235,7 +236,7 @@ void rvn_x11_xi2_init(Display* display, Window root) {
 	/* (2.4 for the gestures of trackpads; the server answers with what it has, 2.2 for the fingers) */
 	int event, error, major = 2, minor = 4;
 	rvn_xi_event_mask_t mask;
-	unsigned char bits[(RVN_XI_LASTEVENT + 7) / 8];
+	unsigned char bits[(RVN_XI_LASTEVENT >> 3) + 1];
 
 	memset(&g_xi2, 0, sizeof(g_xi2));
 	if (!XQueryExtension(display, "XInputExtension", &g_xi2.opcode, &event, &error)) return;
@@ -278,7 +279,7 @@ void rvn_x11_xi2_shutdown(void) {
 
 void rvn_x11_xi2_select(Display* display, Window window) {
 	rvn_xi_event_mask_t mask;
-	unsigned char bits[(RVN_XI_LASTEVENT + 7) / 8];
+	unsigned char bits[(RVN_XI_LASTEVENT >> 3) + 1];
 	if (!g_xi2.library || !g_xi2.touch) return;
 	memset(bits, 0, sizeof(bits));
 	/* (the three together, or the server refuses) */
