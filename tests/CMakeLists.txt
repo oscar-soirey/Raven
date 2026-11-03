@@ -69,6 +69,14 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 	endif()
 endif()
 
+# bindings/ is what tools/bindgen/bindgen.py writes from the public headers: a header changed
+# without running it again leaves the bindings behind
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_FOUND)
+	add_test(NAME bindings_up_to_date
+		COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/bindgen/bindgen.py --check)
+endif()
+
 if(RAVEN_BACKEND_VULKAN)
 	raven_add_test(test_render)
 	set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77)

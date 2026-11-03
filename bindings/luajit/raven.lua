@@ -264,6 +264,14 @@ typedef enum RGesturePhase {
 	R_GESTURE_UPDATE = 1201,
 	R_GESTURE_END = 1202,
 } RGesturePhase;
+typedef enum RGestureKind {
+	R_GESTURE_PINCH = 1216,
+	R_GESTURE_SWIPE = 1217,
+} RGestureKind;
+typedef enum RGestureDevice {
+	R_GESTURE_DEVICE_TOUCHSCREEN = 1232,
+	R_GESTURE_DEVICE_TRACKPAD = 1233,
+} RGestureDevice;
 typedef enum RLook {
 	R_LOOK_RAVEN_DARK = 224,
 	R_LOOK_RAVEN_LIGHT = 225,
@@ -794,6 +802,7 @@ struct REvent {
 	Ruint modifiers;
 	int repeat;
 	Ruint codepoint;
+	int wheel_precise;
 };
 struct RDropEvent {
 	RDropPhase phase;
@@ -819,6 +828,9 @@ struct RTouchSettings {
 	float pressure_curve;
 	float pressure_threshold;
 	int palm_rejection;
+	int trackpad_gestures;
+	int swipe_navigation;
+	float swipe_distance;
 };
 struct RTouchEvent {
 	RTouchPhase phase;
@@ -865,6 +877,13 @@ struct RGestureEvent {
 	float pan_x;
 	float pan_y;
 	float rotation;
+	RGestureKind kind;
+	RGestureDevice device;
+	int fingers;
+	float total_x;
+	float total_y;
+	float rotation_delta;
+	int cancelled;
 };
 struct RTileItem {
 	const char* text;
@@ -1115,6 +1134,9 @@ int Rwindow_is_pen_in_range(Rid window);
 int Rwindow_is_touch_active(Rid window);
 void Rwindow_inject_touch(Rid window, int id, RTouchPhase phase, float x, float y);
 void Rwindow_inject_pen(Rid window, RPenPhase phase, float x, float y, float pressure, float tilt_x, float tilt_y, Ruint buttons, int eraser);
+void Rwindow_inject_trackpad_gesture(Rid window, RGestureKind kind, RGesturePhase phase, float x, float y, float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers);
+void Rwindow_inject_trackpad_scroll(Rid window, float dx, float dy);
+void Rwindow_inject_trackpad_scroll_end(Rid window);
 void Rwindow_advance_touch(Rid window, double seconds);
 void Rlook_set(RLook look);
 RLook Rlook_get(void);

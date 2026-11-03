@@ -101,7 +101,7 @@ public:
 
 	RTouchMode get_touch_mode() const { return Rwidget_get_touch_mode(id_); }
 
-	/// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+	/// R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
 	void set_touch_gestures(int enabled) const { Rwidget_set_touch_gestures(id_, enabled); }
 
 	int get_touch_gestures() const { return Rwidget_get_touch_gestures(id_); }
@@ -1335,8 +1335,10 @@ public:
 	/// buttons Bitmask of RHeaderButtons. All by default; the maximize button only shows on a resizable window.
 	void set_buttons(Ruint buttons) const { Rheader_bar_set_buttons(id_, buttons); }
 
-	/// side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-	/// Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+	/// side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+	/// R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+	/// set, the side is the one of the system the program runs on (left on
+	/// macOS, right elsewhere), whatever the look.
 	void set_button_side(RHAlign side) const { Rheader_bar_set_button_side(id_, side); }
 
 	/// align R_HALIGN_CENTER (default) or R_HALIGN_LEFT.
@@ -1895,6 +1897,22 @@ public:
 
 	/// A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
 	void inject_pen(RPenPhase phase, float x, float y, float pressure, float tilt_x, float tilt_y, Ruint buttons, int eraser) const { Rwindow_inject_pen(id_, phase, x, y, pressure, tilt_x, tilt_y, buttons, eraser); }
+
+	/// A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+	/// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+	/// and `rotation_delta` (degrees, clockwise) what changed since the previous
+	/// event, `pan_x`, `pan_y` how far the fingers moved since then.
+	void inject_trackpad_gesture(RGestureKind kind, RGesturePhase phase, float x, float y, float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers) const { Rwindow_inject_trackpad_gesture(id_, kind, phase, x, y, scale_delta, rotation_delta, pan_x, pan_y, fingers); }
+
+	/// Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+	/// (logical units), the content following them. Sent as a precise wheel
+	/// (REvent::wheel_precise) at the pointer.
+	void inject_trackpad_scroll(float dx, float dy) const { Rwindow_inject_trackpad_scroll(id_, dx, dy); }
+
+	/// The fingers that scrolled left the trackpad, on a system that
+	/// leaves the inertia to the application (Wayland): flicked content keeps
+	/// going (Touch.Inertia).
+	void inject_trackpad_scroll_end() const { Rwindow_inject_trackpad_scroll_end(id_); }
 
 	/// Advances the inertia of flicked content by `seconds` at once,
 	/// and fires a long press that is due, without waiting (tests).

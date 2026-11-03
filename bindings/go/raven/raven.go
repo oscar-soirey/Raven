@@ -415,6 +415,22 @@ const (
 	R_GESTURE_END    RGesturePhase = 0x04B2
 )
 
+// RGestureKind: What the fingers of a gesture do (RGestureEvent::kind).
+type RGestureKind int32
+
+const (
+	R_GESTURE_PINCH RGestureKind = 0x04C0
+	R_GESTURE_SWIPE RGestureKind = 0x04C1
+)
+
+// RGestureDevice: Where the fingers of a gesture are (RGestureEvent::device).
+type RGestureDevice int32
+
+const (
+	R_GESTURE_DEVICE_TOUCHSCREEN RGestureDevice = 0x04D0
+	R_GESTURE_DEVICE_TRACKPAD    RGestureDevice = 0x04D1
+)
+
 // RLook: The looks. Each one comes dark and light. Raven's looks are the default; the ones of the platforms
 // imitate them closely (their shapes, colors, sizes, states and motion), without using their widgets. The
 // looks of the platforms are opaque, except macOS Glass (macOS 26), whose bars, menus and floating surfaces
@@ -1547,7 +1563,8 @@ func WidgetGetTouchMode(widget ID) RTouchMode {
 	return RTouchMode(C.Rwidget_get_touch_mode(C.Rid(widget)))
 }
 
-// WidgetSetTouchGestures: R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+// WidgetSetTouchGestures: R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget
+// (default R_TRUE).
 func WidgetSetTouchGestures(widget ID, enabled int) {
 	C.Rwidget_set_touch_gestures(C.Rid(widget), C.int(enabled))
 }
@@ -1590,6 +1607,26 @@ func WindowInjectTouch(window ID, id int, phase RTouchPhase, x float32, y float3
 // WindowInjectPen: A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
 func WindowInjectPen(window ID, phase RPenPhase, x float32, y float32, pressure float32, tilt_x float32, tilt_y float32, buttons uint32, eraser int) {
 	C.Rwindow_inject_pen(C.Rid(window), C.RPenPhase(phase), C.float(x), C.float(y), C.float(pressure), C.float(tilt_x), C.float(tilt_y), C.Ruint(buttons), C.int(eraser))
+}
+
+// WindowInjectTrackpadGesture: A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta` and `rotation_delta`
+// (degrees, clockwise) what changed since the previous event, `pan_x`, `pan_y` how far the fingers moved
+// since then.
+func WindowInjectTrackpadGesture(window ID, kind RGestureKind, phase RGesturePhase, x float32, y float32, scale_delta float32, rotation_delta float32, pan_x float32, pan_y float32, fingers int) {
+	C.Rwindow_inject_trackpad_gesture(C.Rid(window), C.RGestureKind(kind), C.RGesturePhase(phase), C.float(x), C.float(y), C.float(scale_delta), C.float(rotation_delta), C.float(pan_x), C.float(pan_y), C.int(fingers))
+}
+
+// WindowInjectTrackpadScroll: Two fingers scrolling on a trackpad: (dx, dy) is how far they moved (logical
+// units), the content following them. Sent as a precise wheel (REvent::wheel_precise) at the pointer.
+func WindowInjectTrackpadScroll(window ID, dx float32, dy float32) {
+	C.Rwindow_inject_trackpad_scroll(C.Rid(window), C.float(dx), C.float(dy))
+}
+
+// WindowInjectTrackpadScrollEnd: The fingers that scrolled left the trackpad, on a system that leaves the
+// inertia to the application (Wayland): flicked content keeps going (Touch.Inertia).
+func WindowInjectTrackpadScrollEnd(window ID) {
+	C.Rwindow_inject_trackpad_scroll_end(C.Rid(window))
 }
 
 // WindowAdvanceTouch: Advances the inertia of flicked content by `seconds` at once, and fires a long press
@@ -3542,8 +3579,9 @@ func HeaderBarSetButtons(bar ID, buttons uint32) {
 	C.Rheader_bar_set_buttons(C.Rid(bar), C.Ruint(buttons))
 }
 
-// HeaderBarSetButtonSide: side R_HALIGN_RIGHT (default): minimize, maximize, close, as on Windows.
-// R_HALIGN_LEFT: three round colored buttons, as on macOS.
+// HeaderBarSetButtonSide: side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows. R_HALIGN_LEFT: three
+// round colored buttons, as on macOS. Until it is set, the side is the one of the system the program runs on
+// (left on macOS, right elsewhere), whatever the look.
 func HeaderBarSetButtonSide(bar ID, side RHAlign) {
 	C.Rheader_bar_set_button_side(C.Rid(bar), C.RHAlign(side))
 }

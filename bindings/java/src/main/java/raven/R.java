@@ -528,14 +528,35 @@ public final class R {
 
     // RGesturePhase
     /**
-     * A second finger came down.
+     * A second finger came down (a touch screen), or the system recognized a gesture (a trackpad).
      */
     public static final int R_GESTURE_BEGIN = 0x04B0;
     public static final int R_GESTURE_UPDATE = 0x04B1;
     /**
-     * Fewer than two fingers remain.
+     * Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back).
      */
     public static final int R_GESTURE_END = 0x04B2;
+
+    // RGestureKind: What the fingers of a gesture do (RGestureEvent::kind).
+    /**
+     * Two fingers that pinch, turn and move together: scale, rotation and pan.
+     */
+    public static final int R_GESTURE_PINCH = 0x04C0;
+    /**
+     * Three or more fingers that move together on a trackpad: only the pan
+     * (scale stays 1). By default, a swipe across goes back or forward.
+     */
+    public static final int R_GESTURE_SWIPE = 0x04C1;
+
+    // RGestureDevice: Where the fingers of a gesture are (RGestureEvent::device).
+    /**
+     * On the screen: the library recognized the gesture.
+     */
+    public static final int R_GESTURE_DEVICE_TOUCHSCREEN = 0x04D0;
+    /**
+     * On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer).
+     */
+    public static final int R_GESTURE_DEVICE_TRACKPAD = 0x04D1;
 
     // RLook: The looks. Each one comes dark and light.
     /**
@@ -1785,7 +1806,7 @@ public final class R {
      */
     public static final class REvent {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 68;
+        public static final long SIZE = 72;
         private final MemorySegment s;
         private Arena arena;
 
@@ -1908,6 +1929,15 @@ public final class R {
 
         public int codepoint() { return s.get(JAVA_INT, 64); }
         public REvent codepoint(int value) { s.set(JAVA_INT, 64, value); return this; }
+
+        /**
+         * R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+         * mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+         * a line, a line being 48 logical units the fingers moved: what follows the
+         * fingers moves 48 units per line, and a canvas pans rather than zooms.
+         */
+        public int wheel_precise() { return s.get(JAVA_INT, 68); }
+        public REvent wheel_precise(int value) { s.set(JAVA_INT, 68, value); return this; }
     }
 
     /**
@@ -2010,7 +2040,7 @@ public final class R {
      */
     public static final class RTouchSettings {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 40;
+        public static final long SIZE = 52;
         private final MemorySegment s;
         private Arena arena;
 
@@ -2106,6 +2136,24 @@ public final class R {
          */
         public int palm_rejection() { return s.get(JAVA_INT, 36); }
         public RTouchSettings palm_rejection(int value) { s.set(JAVA_INT, 36, value); return this; }
+
+        /**
+         * R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do.
+         */
+        public int trackpad_gestures() { return s.get(JAVA_INT, 40); }
+        public RTouchSettings trackpad_gestures(int value) { s.set(JAVA_INT, 40, value); return this; }
+
+        /**
+         * R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
+         */
+        public int swipe_navigation() { return s.get(JAVA_INT, 44); }
+        public RTouchSettings swipe_navigation(int value) { s.set(JAVA_INT, 44, value); return this; }
+
+        /**
+         * How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+         */
+        public float swipe_distance() { return s.get(JAVA_FLOAT, 48); }
+        public RTouchSettings swipe_distance(float value) { s.set(JAVA_FLOAT, 48, value); return this; }
     }
 
     public static final class RTouchEvent {
@@ -2325,7 +2373,7 @@ public final class R {
 
     public static final class RGestureEvent {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 48;
+        public static final long SIZE = 76;
         private final MemorySegment s;
         private Arena arena;
 
@@ -2421,6 +2469,48 @@ public final class R {
          */
         public float rotation() { return s.get(JAVA_FLOAT, 44); }
         public RGestureEvent rotation(float value) { s.set(JAVA_FLOAT, 44, value); return this; }
+
+        /**
+         * R_GESTURE_PINCH or R_GESTURE_SWIPE.
+         */
+        public int kind() { return s.get(JAVA_INT, 48); }
+        public RGestureEvent kind(int value) { s.set(JAVA_INT, 48, value); return this; }
+
+        /**
+         * R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD.
+         */
+        public int device() { return s.get(JAVA_INT, 52); }
+        public RGestureEvent device(int value) { s.set(JAVA_INT, 52, value); return this; }
+
+        /**
+         * Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell).
+         */
+        public int fingers() { return s.get(JAVA_INT, 56); }
+        public RGestureEvent fingers(int value) { s.set(JAVA_INT, 56, value); return this; }
+
+        /**
+         * Movement of the center since the gesture began.
+         */
+        public float total_x() { return s.get(JAVA_FLOAT, 60); }
+        public RGestureEvent total_x(float value) { s.set(JAVA_FLOAT, 60, value); return this; }
+
+        /**
+         * Movement of the center since the gesture began.
+         */
+        public float total_y() { return s.get(JAVA_FLOAT, 64); }
+        public RGestureEvent total_y(float value) { s.set(JAVA_FLOAT, 64, value); return this; }
+
+        /**
+         * The same turn as `rotation`, since the previous event.
+         */
+        public float rotation_delta() { return s.get(JAVA_FLOAT, 68); }
+        public RGestureEvent rotation_delta(float value) { s.set(JAVA_FLOAT, 68, value); return this; }
+
+        /**
+         * R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+         */
+        public int cancelled() { return s.get(JAVA_INT, 72); }
+        public RGestureEvent cancelled(int value) { s.set(JAVA_INT, 72, value); return this; }
     }
 
     /**
@@ -3598,7 +3688,7 @@ public final class R {
     }
 
     /**
-     * Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+     * Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
      */
     @FunctionalInterface
     public interface RGestureCallback {
@@ -6792,7 +6882,7 @@ public final class R {
     private static MethodHandle Rwidget_set_touch_gestures$;
 
     /**
-     * R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+     * R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
      */
     public static void Rwidget_set_touch_gestures(int widget, int enabled) {
         MethodHandle $h = Rwidget_set_touch_gestures$;
@@ -6966,6 +7056,58 @@ public final class R {
         if ($h == null) Rwindow_inject_pen$ = $h = find("Rwindow_inject_pen", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(window, phase, x, y, pressure, tilt_x, tilt_y, buttons, eraser);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_inject_trackpad_gesture$;
+
+    /**
+     * A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+     * R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+     * and `rotation_delta` (degrees, clockwise) what changed since the previous
+     * event, `pan_x`, `pan_y` how far the fingers moved since then.
+     */
+    public static void Rwindow_inject_trackpad_gesture(int window, int kind, int phase, float x, float y, float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers) {
+        MethodHandle $h = Rwindow_inject_trackpad_gesture$;
+        if ($h == null) Rwindow_inject_trackpad_gesture$ = $h = find("Rwindow_inject_trackpad_gesture", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_INT));
+        try {
+            $h.invokeExact(window, kind, phase, x, y, scale_delta, rotation_delta, pan_x, pan_y, fingers);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_inject_trackpad_scroll$;
+
+    /**
+     * Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+     * (logical units), the content following them. Sent as a precise wheel
+     * (REvent::wheel_precise) at the pointer.
+     */
+    public static void Rwindow_inject_trackpad_scroll(int window, float dx, float dy) {
+        MethodHandle $h = Rwindow_inject_trackpad_scroll$;
+        if ($h == null) Rwindow_inject_trackpad_scroll$ = $h = find("Rwindow_inject_trackpad_scroll", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(window, dx, dy);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_inject_trackpad_scroll_end$;
+
+    /**
+     * The fingers that scrolled left the trackpad, on a system that
+     * leaves the inertia to the application (Wayland): flicked content keeps
+     * going (Touch.Inertia).
+     */
+    public static void Rwindow_inject_trackpad_scroll_end(int window) {
+        MethodHandle $h = Rwindow_inject_trackpad_scroll_end$;
+        if ($h == null) Rwindow_inject_trackpad_scroll_end$ = $h = find("Rwindow_inject_trackpad_scroll_end", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(window);
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -12903,8 +13045,10 @@ public final class R {
     private static MethodHandle Rheader_bar_set_button_side$;
 
     /**
-     * side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-     * Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+     * side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+     * R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+     * set, the side is the one of the system the program runs on (left on
+     * macOS, right elsewhere), whatever the look.
      */
     public static void Rheader_bar_set_button_side(int bar, int side) {
         MethodHandle $h = Rheader_bar_set_button_side$;

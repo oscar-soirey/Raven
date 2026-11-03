@@ -580,6 +580,22 @@ R_GESTURE_BEGIN = RGesturePhase.R_GESTURE_BEGIN
 R_GESTURE_UPDATE = RGesturePhase.R_GESTURE_UPDATE
 R_GESTURE_END = RGesturePhase.R_GESTURE_END
 
+class RGestureKind(enum.IntEnum):
+    """What the fingers of a gesture do (RGestureEvent::kind)."""
+    R_GESTURE_PINCH = 0x04C0
+    R_GESTURE_SWIPE = 0x04C1
+
+R_GESTURE_PINCH = RGestureKind.R_GESTURE_PINCH
+R_GESTURE_SWIPE = RGestureKind.R_GESTURE_SWIPE
+
+class RGestureDevice(enum.IntEnum):
+    """Where the fingers of a gesture are (RGestureEvent::device)."""
+    R_GESTURE_DEVICE_TOUCHSCREEN = 0x04D0
+    R_GESTURE_DEVICE_TRACKPAD = 0x04D1
+
+R_GESTURE_DEVICE_TOUCHSCREEN = RGestureDevice.R_GESTURE_DEVICE_TOUCHSCREEN
+R_GESTURE_DEVICE_TRACKPAD = RGestureDevice.R_GESTURE_DEVICE_TRACKPAD
+
 class RLook(enum.IntEnum):
     """The looks. Each one comes dark and light.
     
@@ -1452,6 +1468,7 @@ class REvent(ctypes.Structure):
         ("modifiers", ctypes.c_uint32),
         ("repeat", ctypes.c_int),
         ("codepoint", ctypes.c_uint32),
+        ("wheel_precise", ctypes.c_int),
     ]
 
 
@@ -1486,6 +1503,9 @@ class RTouchSettings(ctypes.Structure):
         ("pressure_curve", ctypes.c_float),
         ("pressure_threshold", ctypes.c_float),
         ("palm_rejection", ctypes.c_int),
+        ("trackpad_gestures", ctypes.c_int),
+        ("swipe_navigation", ctypes.c_int),
+        ("swipe_distance", ctypes.c_float),
     ]
 
 
@@ -1541,6 +1561,13 @@ class RGestureEvent(ctypes.Structure):
         ("pan_x", ctypes.c_float),
         ("pan_y", ctypes.c_float),
         ("rotation", ctypes.c_float),
+        ("kind", ctypes.c_int),
+        ("device", ctypes.c_int),
+        ("fingers", ctypes.c_int),
+        ("total_x", ctypes.c_float),
+        ("total_y", ctypes.c_float),
+        ("rotation_delta", ctypes.c_float),
+        ("cancelled", ctypes.c_int),
     ]
 
 
@@ -3495,7 +3522,7 @@ _lib.Rwidget_set_touch_gestures.restype = None
 
 
 def Rwidget_set_touch_gestures(widget, enabled):
-    """R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE)."""
+    """R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE)."""
     _lib.Rwidget_set_touch_gestures(widget, enabled)
 
 
@@ -3591,6 +3618,40 @@ _lib.Rwindow_inject_pen.restype = None
 def Rwindow_inject_pen(window, phase, x, y, pressure, tilt_x, tilt_y, buttons, eraser):
     """A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton."""
     _lib.Rwindow_inject_pen(window, int(phase), x, y, pressure, tilt_x, tilt_y, buttons, eraser)
+
+
+_lib.Rwindow_inject_trackpad_gesture.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_int]
+_lib.Rwindow_inject_trackpad_gesture.restype = None
+
+
+def Rwindow_inject_trackpad_gesture(window, kind, phase, x, y, scale_delta, rotation_delta, pan_x, pan_y, fingers):
+    """A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+    R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+    and `rotation_delta` (degrees, clockwise) what changed since the previous
+    event, `pan_x`, `pan_y` how far the fingers moved since then."""
+    _lib.Rwindow_inject_trackpad_gesture(window, int(kind), int(phase), x, y, scale_delta, rotation_delta, pan_x, pan_y, fingers)
+
+
+_lib.Rwindow_inject_trackpad_scroll.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rwindow_inject_trackpad_scroll.restype = None
+
+
+def Rwindow_inject_trackpad_scroll(window, dx, dy):
+    """Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+    (logical units), the content following them. Sent as a precise wheel
+    (REvent::wheel_precise) at the pointer."""
+    _lib.Rwindow_inject_trackpad_scroll(window, dx, dy)
+
+
+_lib.Rwindow_inject_trackpad_scroll_end.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_inject_trackpad_scroll_end.restype = None
+
+
+def Rwindow_inject_trackpad_scroll_end(window):
+    """The fingers that scrolled left the trackpad, on a system that
+    leaves the inertia to the application (Wayland): flicked content keeps
+    going (Touch.Inertia)."""
+    _lib.Rwindow_inject_trackpad_scroll_end(window)
 
 
 _lib.Rwindow_advance_touch.argtypes = [ctypes.c_uint32, ctypes.c_double]
@@ -7190,8 +7251,10 @@ _lib.Rheader_bar_set_button_side.restype = None
 
 
 def Rheader_bar_set_button_side(bar, side):
-    """side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-    Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS."""
+    """side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+    R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+    set, the side is the one of the system the program runs on (left on
+    macOS, right elsewhere), whatever the look."""
     _lib.Rheader_bar_set_button_side(bar, int(side))
 
 

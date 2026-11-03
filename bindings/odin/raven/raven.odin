@@ -334,11 +334,26 @@ R_PEN_BUTTON_BARREL :: 1
 R_PEN_BUTTON_BARREL2 :: 2
 
 RGesturePhase :: i32
-// A second finger came down.
+// A second finger came down (a touch screen), or the system recognized a gesture (a trackpad).
 R_GESTURE_BEGIN :: 0x04B0
 R_GESTURE_UPDATE :: 0x04B1
-// Fewer than two fingers remain.
+// Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back).
 R_GESTURE_END :: 0x04B2
+
+// What the fingers of a gesture do (RGestureEvent::kind).
+RGestureKind :: i32
+// Two fingers that pinch, turn and move together: scale, rotation and pan.
+R_GESTURE_PINCH :: 0x04C0
+// Three or more fingers that move together on a trackpad: only the pan
+// (scale stays 1). By default, a swipe across goes back or forward.
+R_GESTURE_SWIPE :: 0x04C1
+
+// Where the fingers of a gesture are (RGestureEvent::device).
+RGestureDevice :: i32
+// On the screen: the library recognized the gesture.
+R_GESTURE_DEVICE_TOUCHSCREEN :: 0x04D0
+// On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer).
+R_GESTURE_DEVICE_TRACKPAD :: 0x04D1
 
 // The looks. Each one comes dark and light.
 //
@@ -1014,7 +1029,7 @@ RWindowEventHook :: #type proc "c" (window: Rid, event: ^REvent, user_data: rawp
 RTouchCallback :: #type proc "c" (widget: Rid, event: ^RTouchEvent, user_data: rawptr) -> i32
 // Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
 RPenCallback :: #type proc "c" (widget: Rid, event: ^RPenEvent, user_data: rawptr) -> i32
-// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
 RGestureCallback :: #type proc "c" (widget: Rid, event: ^RGestureEvent, user_data: rawptr) -> i32
 // Called once when the widget is gone: deleted by the application,
 // with its parent or its window, or by Rshutdown. The place to release
@@ -1247,6 +1262,11 @@ REvent :: struct {
 	// R_TRUE when the key event comes from auto-repeat.
 	repeat: i32,
 	codepoint: u32,
+	// R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+	// mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+	// a line, a line being 48 logical units the fingers moved: what follows the
+	// fingers moves 48 units per line, and a canvas pans rather than zooms.
+	wheel_precise: i32,
 }
 
 // What a drop target receives. The files and the text are only known when
@@ -1293,6 +1313,12 @@ RTouchSettings :: struct {
 	pressure_threshold: f32,
 	// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
 	palm_rejection: i32,
+	// R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do.
+	trackpad_gestures: i32,
+	// R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
+	swipe_navigation: i32,
+	// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+	swipe_distance: f32,
 }
 
 RTouchEvent :: struct {
@@ -1367,6 +1393,20 @@ RGestureEvent :: struct {
 	pan_y: f32,
 	// Turn of the fingers since the gesture began, in degrees, clockwise.
 	rotation: f32,
+	// R_GESTURE_PINCH or R_GESTURE_SWIPE.
+	kind: RGestureKind,
+	// R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD.
+	device: RGestureDevice,
+	// Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell).
+	fingers: i32,
+	// Movement of the center since the gesture began.
+	total_x: f32,
+	// Movement of the center since the gesture began.
+	total_y: f32,
+	// The same turn as `rotation`, since the previous event.
+	rotation_delta: f32,
+	// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+	cancelled: i32,
 }
 
 // What a tile shows, filled by the application when the tile is drawn.
@@ -1895,7 +1935,7 @@ foreign lib {
 	// What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says).
 	Rwidget_set_touch_mode :: proc(widget: Rid, mode: RTouchMode) ---
 	Rwidget_get_touch_mode :: proc(widget: Rid) -> RTouchMode ---
-	// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+	// R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
 	Rwidget_set_touch_gestures :: proc(widget: Rid, enabled: i32) ---
 	Rwidget_get_touch_gestures :: proc(widget: Rid) -> i32 ---
 	// R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE).
@@ -1914,6 +1954,19 @@ foreign lib {
 	Rwindow_inject_touch :: proc(window: Rid, id: i32, phase: RTouchPhase, x: f32, y: f32) ---
 	// A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
 	Rwindow_inject_pen :: proc(window: Rid, phase: RPenPhase, x: f32, y: f32, pressure: f32, tilt_x: f32, tilt_y: f32, buttons: u32, eraser: i32) ---
+	// A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+	// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+	// and `rotation_delta` (degrees, clockwise) what changed since the previous
+	// event, `pan_x`, `pan_y` how far the fingers moved since then.
+	Rwindow_inject_trackpad_gesture :: proc(window: Rid, kind: RGestureKind, phase: RGesturePhase, x: f32, y: f32, scale_delta: f32, rotation_delta: f32, pan_x: f32, pan_y: f32, fingers: i32) ---
+	// Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+	// (logical units), the content following them. Sent as a precise wheel
+	// (REvent::wheel_precise) at the pointer.
+	Rwindow_inject_trackpad_scroll :: proc(window: Rid, dx: f32, dy: f32) ---
+	// The fingers that scrolled left the trackpad, on a system that
+	// leaves the inertia to the application (Wayland): flicked content keeps
+	// going (Touch.Inertia).
+	Rwindow_inject_trackpad_scroll_end :: proc(window: Rid) ---
 	// Advances the inertia of flicked content by `seconds` at once,
 	// and fires a long press that is due, without waiting (tests).
 	Rwindow_advance_touch :: proc(window: Rid, seconds: f64) ---
@@ -2713,8 +2766,10 @@ foreign lib {
 	Rheader_bar_set_title :: proc(bar: Rid, title: cstring) ---
 	// buttons Bitmask of RHeaderButtons. All by default; the maximize button only shows on a resizable window.
 	Rheader_bar_set_buttons :: proc(bar: Rid, buttons: u32) ---
-	// side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-	// Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+	// side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+	// R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+	// set, the side is the one of the system the program runs on (left on
+	// macOS, right elsewhere), whatever the look.
 	Rheader_bar_set_button_side :: proc(bar: Rid, side: RHAlign) ---
 	// align R_HALIGN_CENTER (default) or R_HALIGN_LEFT.
 	Rheader_bar_set_title_align :: proc(bar: Rid, align: RHAlign) ---

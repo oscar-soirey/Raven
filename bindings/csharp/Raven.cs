@@ -432,14 +432,45 @@ namespace Raven
     public enum RGesturePhase : int
     {
         /// <summary>
-        /// A second finger came down.
+        /// A second finger came down (a touch screen), or the system recognized a gesture (a trackpad).
         /// </summary>
         R_GESTURE_BEGIN = 0x04B0,
         R_GESTURE_UPDATE = 0x04B1,
         /// <summary>
-        /// Fewer than two fingers remain.
+        /// Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back).
         /// </summary>
         R_GESTURE_END = 0x04B2,
+    }
+
+    /// <summary>
+    /// What the fingers of a gesture do (RGestureEvent::kind).
+    /// </summary>
+    public enum RGestureKind : int
+    {
+        /// <summary>
+        /// Two fingers that pinch, turn and move together: scale, rotation and pan.
+        /// </summary>
+        R_GESTURE_PINCH = 0x04C0,
+        /// <summary>
+        /// Three or more fingers that move together on a trackpad: only the pan
+        /// (scale stays 1). By default, a swipe across goes back or forward.
+        /// </summary>
+        R_GESTURE_SWIPE = 0x04C1,
+    }
+
+    /// <summary>
+    /// Where the fingers of a gesture are (RGestureEvent::device).
+    /// </summary>
+    public enum RGestureDevice : int
+    {
+        /// <summary>
+        /// On the screen: the library recognized the gesture.
+        /// </summary>
+        R_GESTURE_DEVICE_TOUCHSCREEN = 0x04D0,
+        /// <summary>
+        /// On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer).
+        /// </summary>
+        R_GESTURE_DEVICE_TRACKPAD = 0x04D1,
     }
 
     /// <summary>
@@ -1662,6 +1693,13 @@ namespace Raven
         /// </summary>
         public int repeat;
         public uint codepoint;
+        /// <summary>
+        /// R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+        /// mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+        /// a line, a line being 48 logical units the fingers moved: what follows the
+        /// fingers moves 48 units per line, and a canvas pans rather than zooms.
+        /// </summary>
+        public int wheel_precise;
     }
 
     /// <summary>
@@ -1748,6 +1786,18 @@ namespace Raven
         /// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
         /// </summary>
         public int palm_rejection;
+        /// <summary>
+        /// R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do.
+        /// </summary>
+        public int trackpad_gestures;
+        /// <summary>
+        /// R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
+        /// </summary>
+        public int swipe_navigation;
+        /// <summary>
+        /// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+        /// </summary>
+        public float swipe_distance;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -1878,6 +1928,34 @@ namespace Raven
         /// Turn of the fingers since the gesture began, in degrees, clockwise.
         /// </summary>
         public float rotation;
+        /// <summary>
+        /// R_GESTURE_PINCH or R_GESTURE_SWIPE.
+        /// </summary>
+        public RGestureKind kind;
+        /// <summary>
+        /// R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD.
+        /// </summary>
+        public RGestureDevice device;
+        /// <summary>
+        /// Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell).
+        /// </summary>
+        public int fingers;
+        /// <summary>
+        /// Movement of the center since the gesture began.
+        /// </summary>
+        public float total_x;
+        /// <summary>
+        /// Movement of the center since the gesture began.
+        /// </summary>
+        public float total_y;
+        /// <summary>
+        /// The same turn as `rotation`, since the previous event.
+        /// </summary>
+        public float rotation_delta;
+        /// <summary>
+        /// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+        /// </summary>
+        public int cancelled;
     }
 
     /// <summary>
@@ -2320,7 +2398,7 @@ namespace Raven
     public delegate int RPenCallback(uint widget, ref RPenEvent @event, IntPtr user_data);
 
     /// <summary>
-    /// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+    /// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RGestureCallback(uint widget, ref RGestureEvent @event, IntPtr user_data);
@@ -3504,7 +3582,7 @@ namespace Raven
         public static extern RTouchMode Rwidget_get_touch_mode(uint widget);
 
         /// <summary>
-        /// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+        /// R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_touch_gestures(uint widget, int enabled);
@@ -3559,6 +3637,31 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_inject_pen(uint window, RPenPhase phase, float x, float y, float pressure, float tilt_x, float tilt_y, uint buttons, int eraser);
+
+        /// <summary>
+        /// A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+        /// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+        /// and `rotation_delta` (degrees, clockwise) what changed since the previous
+        /// event, `pan_x`, `pan_y` how far the fingers moved since then.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_trackpad_gesture(uint window, RGestureKind kind, RGesturePhase phase, float x, float y, float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers);
+
+        /// <summary>
+        /// Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+        /// (logical units), the content following them. Sent as a precise wheel
+        /// (REvent::wheel_precise) at the pointer.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_trackpad_scroll(uint window, float dx, float dy);
+
+        /// <summary>
+        /// The fingers that scrolled left the trackpad, on a system that
+        /// leaves the inertia to the application (Wayland): flicked content keeps
+        /// going (Touch.Inertia).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_trackpad_scroll_end(uint window);
 
         /// <summary>
         /// Advances the inertia of flicked content by `seconds` at once,
@@ -5593,8 +5696,10 @@ namespace Raven
         public static extern void Rheader_bar_set_buttons(uint bar, uint buttons);
 
         /// <summary>
-        /// side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-        /// Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+        /// side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+        /// R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+        /// set, the side is the one of the system the program runs on (left on
+        /// macOS, right elsewhere), whatever the look.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rheader_bar_set_button_side(uint bar, RHAlign side);
