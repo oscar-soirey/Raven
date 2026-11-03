@@ -83,6 +83,7 @@ static struct {
 	uint32_t (*proxy_get_version)(struct wl_proxy* proxy);
 	void (*proxy_set_user_data)(struct wl_proxy* proxy, void* data);
 	void* (*proxy_get_user_data)(struct wl_proxy* proxy);
+	const void* (*proxy_get_listener)(struct wl_proxy* proxy);
 	struct wl_display* (*display_connect)(const char* name);
 	void (*display_disconnect)(struct wl_display* display);
 	int (*display_get_fd)(struct wl_display* display);
@@ -249,6 +250,7 @@ static int rvn_wl_load_client(void) {
 	RVN_LOAD(proxy_get_version, "wl_proxy_get_version");
 	RVN_LOAD(proxy_set_user_data, "wl_proxy_set_user_data");
 	RVN_LOAD(proxy_get_user_data, "wl_proxy_get_user_data");
+	RVN_LOAD(proxy_get_listener, "wl_proxy_get_listener");
 	RVN_LOAD(display_connect, "wl_display_connect");
 	RVN_LOAD(display_disconnect, "wl_display_disconnect");
 	RVN_LOAD(display_get_fd, "wl_display_get_fd");
@@ -928,10 +930,14 @@ static void rvn_wl_apply_cursor(void) {
  *  Pointer
  * ------------------------------------------------------------------------- */
 
-/* The window of a surface (a sub-surface counts as its parent: its input region is empty). */
+/*
+ * The window of a surface (a sub-surface counts as its parent: its input region
+ * is empty), or NULL for a surface that is not ours: the title bar drawn by
+ * libdecor gets the same input events, and its user data belongs to libdecor.
+ */
 static rvn_pwindow_t* rvn_wl_window_of(struct wl_surface* surface) {
 	rvn_pwindow_t* window;
-	if (!surface) return NULL;
+	if (!surface || g_wlc.proxy_get_listener((struct wl_proxy*)surface) != &g_wl_surface_listener) return NULL;
 	window = (rvn_pwindow_t*)wl_surface_get_user_data(surface);
 	while (window && window->is_child) window = window->parent;
 	return window;
