@@ -352,14 +352,14 @@ Open: none blocking. New questions will come from phase 0.
 
 ## 10. Phase 0 results (spike)
 
-`spikes/sokol_phase0`: a standalone sokol_gfx (GLES 3.0, headless EGL on Mesa llvmpipe) backend of
+`spikes/sokol_phase0` (removed from the tree once the backend was in the library; see the git history): a standalone sokol_gfx (GLES 3.0, headless EGL on Mesa llvmpipe) backend of
 about 880 lines against the public `RBackendVTable`, compared with the Vulkan backend (lavapipe) on
 16 frames: the shapes, clipping, text, light and dark controls, glass, glass theme, background blur,
 the 8 built-in effects, two user-written effects, and a stress sequence (re-draw, partial
 backdrop re-capture, grow, shrink, a second window). All identical except the built-in effects
 scene (max 1/255 on a few pixels). It ran on Raven's render thread. Both sides use llvmpipe, so
 real GPUs will add normal rounding differences, which `test_render` already tolerates (3/255).
-Details, reproduction steps and the list of what is not covered: `spikes/sokol_phase0/README.md`.
+Details, reproduction steps and the list of what is not covered were in `spikes/sokol_phase0/README.md` (git history).
 Not covered: Metal, D3D11, WebGL2/WebGPU runs, presentation, viewport draw callback, transparency.
 
 ## 11. Phase 1 results (interface, plumbing, and the offscreen core in the library)
