@@ -1,7 +1,7 @@
 /**
  * Raven for Bun.
  *
- * Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+ * Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
  * Every function of the C API is here under its own name, with a few
  * conveniences:
  *
@@ -295,6 +295,9 @@ const _symbols = {
 	Rwindow_is_touch_active: { args: ["u32"], returns: "i32" },
 	Rwindow_inject_touch: { args: ["u32", "i32", "i32", "f32", "f32"], returns: "void" },
 	Rwindow_inject_pen: { args: ["u32", "i32", "f32", "f32", "f32", "f32", "f32", "u32", "i32"], returns: "void" },
+	Rwindow_inject_trackpad_gesture: { args: ["u32", "i32", "i32", "f32", "f32", "f32", "f32", "f32", "f32", "i32"], returns: "void" },
+	Rwindow_inject_trackpad_scroll: { args: ["u32", "f32", "f32"], returns: "void" },
+	Rwindow_inject_trackpad_scroll_end: { args: ["u32"], returns: "void" },
 	Rwindow_advance_touch: { args: ["u32", "f64"], returns: "void" },
 	Rlook_set: { args: ["i32"], returns: "void" },
 	Rlook_get: { args: [], returns: "i32" },
@@ -1104,9 +1107,9 @@ function _load() {
 const _lib = _load();
 
 export const RAVEN_VERSION_MAJOR = 0;
-export const RAVEN_VERSION_MINOR = 1;
-export const RAVEN_VERSION_PATCH = 0;
-export const RAVEN_API_VERSION = "0.1";
+export const RAVEN_VERSION_MINOR = 2;
+export const RAVEN_VERSION_PATCH = 1;
+export const RAVEN_API_VERSION = "0.2";
 export const R_FALSE = 0;
 export const R_TRUE = 1;
 export const R_INVALID_ID = 0xffffffff;
@@ -1636,16 +1639,41 @@ export const R_PEN_BUTTON_BARREL = RPenButton.R_PEN_BUTTON_BARREL;
 export const R_PEN_BUTTON_BARREL2 = RPenButton.R_PEN_BUTTON_BARREL2;
 
 export enum RGesturePhase {
-	/** A second finger came down. */
+	/** A second finger came down (a touch screen), or the system recognized a gesture (a trackpad). */
 	R_GESTURE_BEGIN = 0x04B0,
 	R_GESTURE_UPDATE = 0x04B1,
-	/** Fewer than two fingers remain. */
+	/** Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back). */
 	R_GESTURE_END = 0x04B2,
 }
 
 export const R_GESTURE_BEGIN = RGesturePhase.R_GESTURE_BEGIN;
 export const R_GESTURE_UPDATE = RGesturePhase.R_GESTURE_UPDATE;
 export const R_GESTURE_END = RGesturePhase.R_GESTURE_END;
+
+/** What the fingers of a gesture do (RGestureEvent::kind). */
+export enum RGestureKind {
+	/** Two fingers that pinch, turn and move together: scale, rotation and pan. */
+	R_GESTURE_PINCH = 0x04C0,
+	/**
+	 * Three or more fingers that move together on a trackpad: only the pan
+	 * (scale stays 1). By default, a swipe across goes back or forward.
+	 */
+	R_GESTURE_SWIPE = 0x04C1,
+}
+
+export const R_GESTURE_PINCH = RGestureKind.R_GESTURE_PINCH;
+export const R_GESTURE_SWIPE = RGestureKind.R_GESTURE_SWIPE;
+
+/** Where the fingers of a gesture are (RGestureEvent::device). */
+export enum RGestureDevice {
+	/** On the screen: the library recognized the gesture. */
+	R_GESTURE_DEVICE_TOUCHSCREEN = 0x04D0,
+	/** On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer). */
+	R_GESTURE_DEVICE_TRACKPAD = 0x04D1,
+}
+
+export const R_GESTURE_DEVICE_TOUCHSCREEN = RGestureDevice.R_GESTURE_DEVICE_TOUCHSCREEN;
+export const R_GESTURE_DEVICE_TRACKPAD = RGestureDevice.R_GESTURE_DEVICE_TRACKPAD;
 
 /**
  * The looks. Each one comes dark and light.
@@ -3025,7 +3053,7 @@ export class RNativeWindow extends RStruct {
  * target widget to its parents until one of them handles the event.
  */
 export class REvent extends RStruct {
-	static readonly SIZE = 68;
+	static readonly SIZE = 72;
 
 	constructor(pointer?: Pointer) {
 		super(REvent.SIZE, pointer);
@@ -3166,6 +3194,19 @@ export class REvent extends RStruct {
 	set codepoint(value: number) {
 		this._view.setUint32(64, value, true);
 	}
+
+	/**
+	 * R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+	 * mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+	 * a line, a line being 48 logical units the fingers moved: what follows the
+	 * fingers moves 48 units per line, and a canvas pans rather than zooms.
+	 */
+	get wheel_precise(): number {
+		return this._view.getInt32(68, true);
+	}
+	set wheel_precise(value: number) {
+		this._view.setInt32(68, value, true);
+	}
 }
 
 /**
@@ -3267,7 +3308,7 @@ export class RDropEvent extends RStruct {
 
 /** How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings). */
 export class RTouchSettings extends RStruct {
-	static readonly SIZE = 40;
+	static readonly SIZE = 52;
 
 	constructor(pointer?: Pointer) {
 		super(RTouchSettings.SIZE, pointer);
@@ -3356,6 +3397,30 @@ export class RTouchSettings extends RStruct {
 	}
 	set palm_rejection(value: number) {
 		this._view.setInt32(36, value, true);
+	}
+
+	/** R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do. */
+	get trackpad_gestures(): number {
+		return this._view.getInt32(40, true);
+	}
+	set trackpad_gestures(value: number) {
+		this._view.setInt32(40, value, true);
+	}
+
+	/** R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse). */
+	get swipe_navigation(): number {
+		return this._view.getInt32(44, true);
+	}
+	set swipe_navigation(value: number) {
+		this._view.setInt32(44, value, true);
+	}
+
+	/** How far (logical units) the fingers of a swipe go across before it navigates. Default 120. */
+	get swipe_distance(): number {
+		return this._view.getFloat32(48, true);
+	}
+	set swipe_distance(value: number) {
+		this._view.setFloat32(48, value, true);
 	}
 }
 
@@ -3599,7 +3664,7 @@ export class RPenEvent extends RStruct {
 }
 
 export class RGestureEvent extends RStruct {
-	static readonly SIZE = 48;
+	static readonly SIZE = 76;
 
 	constructor(pointer?: Pointer) {
 		super(RGestureEvent.SIZE, pointer);
@@ -3700,6 +3765,62 @@ export class RGestureEvent extends RStruct {
 	}
 	set rotation(value: number) {
 		this._view.setFloat32(44, value, true);
+	}
+
+	/** R_GESTURE_PINCH or R_GESTURE_SWIPE. */
+	get kind(): RGestureKind {
+		return this._view.getInt32(48, true) as RGestureKind;
+	}
+	set kind(value: RGestureKind) {
+		this._view.setInt32(48, value, true);
+	}
+
+	/** R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD. */
+	get device(): RGestureDevice {
+		return this._view.getInt32(52, true) as RGestureDevice;
+	}
+	set device(value: RGestureDevice) {
+		this._view.setInt32(52, value, true);
+	}
+
+	/** Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell). */
+	get fingers(): number {
+		return this._view.getInt32(56, true);
+	}
+	set fingers(value: number) {
+		this._view.setInt32(56, value, true);
+	}
+
+	/** Movement of the center since the gesture began. */
+	get total_x(): number {
+		return this._view.getFloat32(60, true);
+	}
+	set total_x(value: number) {
+		this._view.setFloat32(60, value, true);
+	}
+
+	/** Movement of the center since the gesture began. */
+	get total_y(): number {
+		return this._view.getFloat32(64, true);
+	}
+	set total_y(value: number) {
+		this._view.setFloat32(64, value, true);
+	}
+
+	/** The same turn as `rotation`, since the previous event. */
+	get rotation_delta(): number {
+		return this._view.getFloat32(68, true);
+	}
+	set rotation_delta(value: number) {
+		this._view.setFloat32(68, value, true);
+	}
+
+	/** R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end). */
+	get cancelled(): number {
+		return this._view.getInt32(72, true);
+	}
+	set cancelled(value: number) {
+		this._view.setInt32(72, value, true);
 	}
 }
 
@@ -4731,7 +4852,7 @@ function _adapt_RPenCallback(function_: RPenCallback | Pointer | null, threadsaf
 	}, { args: ["u32", "ptr", "ptr"], returns: "i32", threadsafe }));
 }
 
-/** Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself. */
+/** Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself. */
 export type RGestureCallback = (widget: Rid, event: RGestureEvent | null, user_data: Pointer | null) => number | boolean;
 
 function _adapt_RGestureCallback(function_: RGestureCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -6405,7 +6526,7 @@ export function Rwidget_get_touch_mode(widget: Rid): RTouchMode {
 	return _lib.Rwidget_get_touch_mode(widget) as RTouchMode;
 }
 
-/** R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE). */
+/** R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE). */
 export function Rwidget_set_touch_gestures(widget: Rid, enabled: number): void {
 	_lib.Rwidget_set_touch_gestures(widget, enabled);
 }
@@ -6458,6 +6579,34 @@ export function Rwindow_inject_touch(window: Rid, id: number, phase: RTouchPhase
 /** A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton. */
 export function Rwindow_inject_pen(window: Rid, phase: RPenPhase, x: number, y: number, pressure: number, tilt_x: number, tilt_y: number, buttons: number, eraser: number): void {
 	_lib.Rwindow_inject_pen(window, phase, x, y, pressure, tilt_x, tilt_y, buttons, eraser);
+}
+
+/**
+ * A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+ * R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+ * and `rotation_delta` (degrees, clockwise) what changed since the previous
+ * event, `pan_x`, `pan_y` how far the fingers moved since then.
+ */
+export function Rwindow_inject_trackpad_gesture(window: Rid, kind: RGestureKind, phase: RGesturePhase, x: number, y: number, scale_delta: number, rotation_delta: number, pan_x: number, pan_y: number, fingers: number): void {
+	_lib.Rwindow_inject_trackpad_gesture(window, kind, phase, x, y, scale_delta, rotation_delta, pan_x, pan_y, fingers);
+}
+
+/**
+ * Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+ * (logical units), the content following them. Sent as a precise wheel
+ * (REvent::wheel_precise) at the pointer.
+ */
+export function Rwindow_inject_trackpad_scroll(window: Rid, dx: number, dy: number): void {
+	_lib.Rwindow_inject_trackpad_scroll(window, dx, dy);
+}
+
+/**
+ * The fingers that scrolled left the trackpad, on a system that
+ * leaves the inertia to the application (Wayland): flicked content keeps
+ * going (Touch.Inertia).
+ */
+export function Rwindow_inject_trackpad_scroll_end(window: Rid): void {
+	_lib.Rwindow_inject_trackpad_scroll_end(window);
 }
 
 /**
@@ -8624,8 +8773,10 @@ export function Rheader_bar_set_buttons(bar: Rid, buttons: number): void {
 }
 
 /**
- * side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
- * Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+ * side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+ * R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+ * set, the side is the one of the system the program runs on (left on
+ * macOS, right elsewhere), whatever the look.
  */
 export function Rheader_bar_set_button_side(bar: Rid, side: RHAlign): void {
 	_lib.Rheader_bar_set_button_side(bar, side);
