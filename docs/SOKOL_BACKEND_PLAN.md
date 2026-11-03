@@ -567,3 +567,17 @@ What changed for this branch:
 - **Tests:** the device-loss test is Vulkan-only and is skipped on the other backends. The dock leak that `test_single_window` had to avoid is fixed upstream (the control now calls `Rdock_area_float_panel`).
 - **Not done:** device loss for the Sokol backend (`Rbackend_device_lost`), Wayland on the Sokol/EGL path (X11 only for now), the macOS Glass look has no Sokol-specific work to do (materials are drawn by the core).
 
+## 23. Effect bundles (.rfx)
+
+An effect of the application now runs on every backend from one file:
+- **Format** (`src/render/rfx.h`): `"RFX1"`, flags (backdrop, animated), a table of chunks (tag, offset, size), then the chunks: `SPV ` (SPIR-V, for Vulkan), `ES30` (GLSL ES 3.00: GLES 3 and WebGL 2) and `MSL ` (Metal, entry point
+  `main0`). The tags leave room for HLSL, WGSL and desktop GLSL when those backends come. The parser checks every chunk against the size of the file (without adding offset and size, which could wrap).
+- **Tool** `tools/rfx/rfx.py wave.frag -o wave.rfx [--animated] [--backdrop]` (or from a `.spv`): glslang, then SPIRV-Cross with the same adjustments as the built-ins of the Sokol backend (varying names for GL, descriptor numbers for MSL; it reuses
+  `gen_shaders.py`). glslang and SPIRV-Cross are needed when a bundle is made, never at run time.
+- **Core:** `Rshader_create` / `Rshader_create_from_file` / `Effect="x.rfx"` take a bundle wherever they take SPIR-V; the shader gets the bundle's flags too. The backend is given the SPIR-V chunk (Vulkan, custom backends: nothing changed
+  for them) or, for the Sokol backend, the whole bundle, which picks its chunk (`rvn_sg_shader_create_bundle`). A damaged bundle, or one without the variant of the backend, is an error and the effect is drawn as a rectangle, as before.
+  A plain `.spv` on the Sokol backend is still refused (with a message that names the tool), except the built-ins, which keep their hash lookup.
+- **Verified:** `tests/test_rfx.c` (what is accepted and refused, headless), `test_render` (`tests/data/solid.rfx` drawn on Vulkan and on Sokol/GL), the `effects` example with its two application effects as bundles on Sokol/GL and in Chromium (WebGL 2); it builds
+  for iOS too. The Metal variant is made the same way as the built-ins', which run on Metal; the first bundle on a Mac is the check still to do.
+- **Not done:** the built-in effects are still found by hash instead of being bundles; `.rfx` for a custom backend's own API.
+

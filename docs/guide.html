@@ -1595,6 +1595,12 @@ vec4 raven_effect(RavenEffect fx) {
 <pre>glslangValidator -V -I&lt;raven package&gt;/include/raven/shaders stripes.frag -o stripes.spv</pre>
 <pre>Rid stripes = Rshader_create_from_file("stripes.spv", R_SHADER_ANIMATED);
 Rdraw_shader(painter, stripes, 0, 0, width, height, &amp;look);     /* in a paint callback */</pre>
+<p>A <code>.spv</code> runs on the Vulkan backend. To run on every backend &mdash; also the Sokol backend (OpenGL ES 3 and WebGL 2, Metal), so
+iOS, macOS and the web &mdash; make an <b>effect bundle</b> from the same GLSL: the effect compiled for each of them in one file. The tool
+(<code>tools/rfx/rfx.py</code>) needs <code>glslangValidator</code> and <code>spirv-cross</code> when the bundle is made, and nothing at run time:</p>
+<pre>python3 tools/rfx/rfx.py stripes.frag -o stripes.rfx --animated [--backdrop]
+Rid stripes = Rshader_create_from_file("stripes.rfx", 0);        /* or Effect="stripes.rfx" in XML */</pre>
+<p>The flags of the bundle (<code>--animated</code>, <code>--backdrop</code>) are added to the ones given when it is loaded.</p>
 <p>The <a href="../shaders.html">guide to effects</a> describes everything an
 effect receives (<code>fx.uv</code>, <code>fx.pixel</code>, <code>fx.time</code>, <code>fx.pointer</code>, <code>fx.hover</code>,
 the backdrop...), its helpers and its limits.</p>

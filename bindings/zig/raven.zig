@@ -3287,11 +3287,13 @@ pub extern fn Rspring_set(spring: ?*RSpring, value: f32) void;
 pub extern fn Rdraw_push_clip_rect(painter: ?*RPainter, x: f32, y: f32, width: f32, height: f32) void;
 pub extern fn Rdraw_pop_clip_rect(painter: ?*RPainter) void;
 /// A shader from SPIR-V code (a fragment shader written with
-/// raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
-/// when the code is not SPIR-V; a backend that refuses it reports an error
-/// and the effect is drawn as a rectangle.
+/// raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+/// file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+/// neither, or a bundle is damaged; a backend that cannot run it (the
+/// Sokol backend with SPIR-V, a bundle without the variant of its graphics
+/// API) reports an error and the effect is drawn as a rectangle.
 pub extern fn Rshader_create(spirv: ?*const anyopaque, size: usize, flags: u32) Rid;
-/// The same, from a .spv file (UTF-8 path, relative to the current folder).
+/// The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder).
 pub extern fn Rshader_create_from_file(path: ?[*:0]const u8, flags: u32) Rid;
 pub extern fn Rshader_destroy(shader: Rid) void;
 pub extern fn Rshader_is_valid(shader: Rid) c_int;

@@ -14,6 +14,7 @@
  */
 
 #include "sg_backend.h"
+#include "../rfx.h"
 
 /* (the shader sources are strings of up to 16 KB: longer than the 4 KB ISO C promises, fine for every compiler Raven supports) */
 #if defined(__GNUC__) || defined(__clang__)
@@ -204,24 +205,61 @@ static uint64_t rvn_sg_hash(const void* data, size_t size) {
 	return hash;
 }
 
+/* The shader of an effect from its source (a bundle's chunk for this graphics API, or a built-in's). */
+static int rvn_sg_effect_make(rvn_sg_effect_t* effect, const char* source, const char* label) {
+	memset(effect, 0, sizeof(*effect));
+	effect->shader = rvn_sg_shader_make_ui(source, g_effect_samplers, label);
+	if (sg_query_shader_state(effect->shader) != SG_RESOURCESTATE_VALID) return R_FALSE;
+	effect->pipeline = rvn_sg_pipeline_make_ui(effect->shader, R_FALSE, label);
+	effect->used = sg_query_pipeline_state(effect->pipeline) == SG_RESOURCESTATE_VALID;
+	return effect->used;
+}
+
+/* The chunk of an effect bundle (rfx.h) that holds the source for the graphics API this library was built for. */
+#if defined(RAVEN_SOKOL_GLES3)
+#define RVN_SG_BUNDLE_TAG "ES30"
+#elif defined(RAVEN_SOKOL_METAL)
+#define RVN_SG_BUNDLE_TAG "MSL "
+#endif
+
+static int rvn_sg_shader_create_bundle(rvn_sg_effect_t* effect, const void* bundle, size_t size) {
+	size_t chunk_size = 0;
+	const char* source;
+	char* text;
+	int ok;
+	if (!rvn_rfx_validate(bundle, size)) {
+		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Sokol: this effect bundle (.rfx) is damaged");
+		return R_FALSE;
+	}
+	source = (const char*)rvn_rfx_chunk(bundle, size, RVN_SG_BUNDLE_TAG, &chunk_size);
+	if (!source || chunk_size == 0) {
+		rvn_error(R_ERROR_BACKEND, R_SEVERITY_ERROR,
+			"Sokol: this effect bundle has no variant for the graphics API of this build (%s); make it again with tools/rfx/rfx.py: it is drawn as a rectangle", RVN_SG_BUNDLE_TAG);
+		return R_FALSE;
+	}
+	/* (the source in the file is not required to end with a zero) */
+	text = (char*)rvn_alloc(chunk_size + 1);
+	memcpy(text, source, chunk_size);
+	text[chunk_size] = 0;
+	ok = rvn_sg_effect_make(effect, text, "raven-bundle");
+	rvn_free(text);
+	return ok;
+}
+
 int rvn_sg_shader_create(Rid shader, const uint32_t* spirv, size_t size) {
-	uint64_t hash = rvn_sg_hash(spirv, size);
+	uint64_t hash;
 	uint32_t index = R_ID_INDEX(shader);
 	size_t i;
 	rvn_sg_effect_t* effect;
 	if (index >= RVN_SG_MAX_EFFECTS) return R_FALSE;
 	effect = &g_sg.effects[index];
+	if (rvn_rfx_is_bundle(spirv, size)) return rvn_sg_shader_create_bundle(effect, spirv, size);
+	hash = rvn_sg_hash(spirv, size);
 	for (i = 0; i < sizeof(rvn_sg_effects) / sizeof(rvn_sg_effects[0]); i++) {
-		if (rvn_sg_effects[i].hash != hash) continue;
-		memset(effect, 0, sizeof(*effect));
-		effect->shader = rvn_sg_shader_make_ui(rvn_sg_effects[i].source, g_effect_samplers, rvn_sg_effects[i].name);
-		if (sg_query_shader_state(effect->shader) != SG_RESOURCESTATE_VALID) return R_FALSE;
-		effect->pipeline = rvn_sg_pipeline_make_ui(effect->shader, R_FALSE, rvn_sg_effects[i].name);
-		effect->used = sg_query_pipeline_state(effect->pipeline) == SG_RESOURCESTATE_VALID;
-		return effect->used;
+		if (rvn_sg_effects[i].hash == hash) return rvn_sg_effect_make(effect, rvn_sg_effects[i].source, rvn_sg_effects[i].name);
 	}
 	rvn_error(R_ERROR_BACKEND, R_SEVERITY_ERROR,
-		"Sokol: this effect has no precompiled variant for the graphics API (only the effects of Raven do until effect bundles exist): it is drawn as a rectangle");
+		"Sokol: this SPIR-V effect has no variant for the graphics API (only the effects of Raven do): make an effect bundle with tools/rfx/rfx.py and use the .rfx file; it is drawn as a rectangle");
 	return R_FALSE;
 }
 

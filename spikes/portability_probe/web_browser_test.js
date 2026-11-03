@@ -141,7 +141,7 @@ function check(ok, what) { console.log((ok ? 'ok   ' : 'FAIL ') + what); if (!ok
   }
 
   // every other example that was built: it starts, draws something and reports nothing
-  for (const name of ['editor', 'animations', 'components', 'studio', 'themes']) {
+  for (const name of ['editor', 'animations', 'components', 'studio', 'themes', 'effects']) {
     if (!fs.existsSync(path.join(dir, `raven_${name}.html`))) continue;
     const other = await context.newPage();
     const otherLogs = [];

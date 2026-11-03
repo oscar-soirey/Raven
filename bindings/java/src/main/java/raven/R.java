@@ -17273,9 +17273,11 @@ public final class R {
 
     /**
      * A shader from SPIR-V code (a fragment shader written with
-     * raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
-     * when the code is not SPIR-V; a backend that refuses it reports an error
-     * and the effect is drawn as a rectangle.
+     * raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+     * file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+     * neither, or a bundle is damaged; a backend that cannot run it (the
+     * Sokol backend with SPIR-V, a bundle without the variant of its graphics
+     * API) reports an error and the effect is drawn as a rectangle.
      */
     public static int Rshader_create(byte[] spirv, int flags) {
         MethodHandle $h = Rshader_create$;
@@ -17292,7 +17294,7 @@ public final class R {
     private static MethodHandle Rshader_create_from_file$;
 
     /**
-     * The same, from a .spv file (UTF-8 path, relative to the current folder).
+     * The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder).
      */
     public static int Rshader_create_from_file(String path, int flags) {
         MethodHandle $h = Rshader_create_from_file$;

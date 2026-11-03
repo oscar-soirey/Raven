@@ -3,12 +3,14 @@
  * The effects that come with Raven, and two effects of the application.
  *
  *   <Border Effect="aurora" EffectColor="#30D158" EffectParams="1,1,1.5"/>
- *   <Border Effect="wave.spv"/>                     a shader of the application (wave.frag)
- *   <Border Effect="liquid.spv" EffectBackdrop="true"/>   one that reads what is behind it
+ *   <Border Effect="wave.rfx"/>                     a shader of the application (wave.frag)
+ *   <Border Effect="liquid.rfx" EffectBackdrop="true"/>   one that reads what is behind it
  *
- * The .spv files are compiled from the .frag files next to them:
- *   glslangValidator -V -I../../include/raven/shaders wave.frag -o wave.spv
- * docs/shaders.html is the guide.
+ * The .rfx files are effect bundles (the effect compiled for Vulkan, GLES 3 / WebGL 2 and Metal in one file), made from the
+ * .frag files next to them:
+ *   python3 tools/rfx/rfx.py wave.frag -o wave.rfx --animated
+ *   python3 tools/rfx/rfx.py liquid.frag -o liquid.rfx --animated --backdrop
+ * A .spv from glslangValidator still works with the Vulkan backend; the Sokol backend needs the bundle.
  */
 
 #include "../common/example.h"
@@ -16,6 +18,13 @@
 #ifndef RAVEN_EXAMPLE_DIR
 #define RAVEN_EXAMPLE_DIR "."
 #endif
+
+/* the application has quit: releases every window, widget and resource of Raven */
+static void on_finished(int exit_code, void* user_data) {
+	(void)exit_code;
+	(void)user_data;
+	Rshutdown();
+}
 
 int main(void) {
 	Rid window;
@@ -26,10 +35,10 @@ int main(void) {
 		Rshutdown();
 		return 1;
 	}
-	if (!example_automated(window)) {
-		while (Rwait_frame(-1.0)) {
-		}
+	/* Rrun is the loop (see examples/hello) */
+	if (example_automated(window)) {
+		Rshutdown();
+		return 0;
 	}
-	Rshutdown();
-	return 0;
+	return Rrun(on_finished, NULL);
 }

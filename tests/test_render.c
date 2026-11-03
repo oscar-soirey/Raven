@@ -322,6 +322,22 @@ static void test_custom_drawing(void) {
 	Rwindow_destroy(window);
 }
 
+/* An effect of the application as a bundle (tools/rfx/rfx.py): one file for every backend (Vulkan: its SPIR-V; Sokol: its source). */
+static void test_effect_bundle(void) {
+	Rid window = window_from(
+		"<Window Width=\"200\" Height=\"100\" ClearColor=\"#000000\">"
+		"  <Canvas>"
+		"    <Border Slot.Position=\"10,10\" Slot.Size=\"60,60\" Effect=\"" RAVEN_TEST_DATA "/solid.rfx\" EffectColor=\"#FF0000\"/>"
+		"    <Border Slot.Position=\"110,10\" Slot.Size=\"60,60\" Effect=\"" RAVEN_TEST_DATA "/solid.rfx\" EffectColor=\"#00FF00\"/>"
+		"  </Canvas>"
+		"</Window>");
+	capture(window);
+	CHECK_PIXEL(40, 40, 255, 0, 0);
+	CHECK_PIXEL(140, 40, 0, 255, 0);
+	CHECK_PIXEL(90, 40, 0, 0, 0);
+	Rwindow_destroy(window);
+}
+
 static void paint_glass(Rid widget, RPainter* painter, float width, float height, void* user_data) {
 	(void)widget;
 	(void)width;
@@ -983,6 +999,7 @@ int main(void) {
 	RUN(test_windows_look);
 	RUN(test_glass_theme);
 	RUN(test_materials);
+	RUN(test_effect_bundle);
 	RUN(test_curves_and_blur);
 	RUN(test_node_graph);
 	RUN(test_viewport);

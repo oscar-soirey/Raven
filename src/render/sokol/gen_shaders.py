@@ -139,4 +139,5 @@ def main():
     open(os.path.join(OUT, "sg_effects.h"), "w").write("\n".join(fx))
     print("wrote", os.path.join(OUT, "sg_shaders.h"), "and sg_effects.h")
 
-main()
+if __name__ == "__main__":
+    main()

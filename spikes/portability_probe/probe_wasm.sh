@@ -17,7 +17,7 @@ if [ "$MODE" = threads ]; then
   CFLAGS="-pthread"
   LINK="$LINK -pthread -sPTHREAD_POOL_SIZE=8 -sINITIAL_MEMORY=128MB"
 fi
-TESTS="test_layout test_widgets test_xml test_memory test_animation test_text_editor test_shell test_dialogs test_themes test_markdown test_tools test_locale test_run test_touch test_touch_focus test_single_window test_threads test_editor_features"
+TESTS="test_layout test_widgets test_xml test_memory test_animation test_text_editor test_shell test_dialogs test_themes test_markdown test_tools test_locale test_run test_touch test_touch_focus test_rfx test_single_window test_threads test_editor_features"
 
 emcmake cmake -S "$ROOT" -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DRAVEN_PLATFORM=null -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BUILD_WEB=OFF \
