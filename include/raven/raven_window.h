@@ -238,6 +238,13 @@ typedef struct REvent {
 	/** R_TRUE when the key event comes from auto-repeat. */
 	int repeat;
 	Ruint codepoint;
+	/**
+	 * R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+	 * mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+	 * a line, a line being 48 logical units the fingers moved: what follows the
+	 * fingers moves 48 units per line, and a canvas pans rather than zooms.
+	 */
+	int wheel_precise;
 } REvent;
 
 /** Moments of a drag coming from another application (files from the file manager, text...). */

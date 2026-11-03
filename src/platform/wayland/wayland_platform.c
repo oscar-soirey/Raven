@@ -476,6 +476,15 @@ static struct {
 	float wheel_x, wheel_y;       /* gathered until wl_pointer.frame */
 	int wheel_discrete_x, wheel_discrete_y;
 	int wheel_pending;
+	uint32_t wheel_source;        /* WL_POINTER_AXIS_SOURCE_* of the frame */
+	int wheel_stop;               /* axis_stop in the frame: the fingers left the trackpad */
+	/* the gestures of a trackpad (pointer-gestures-unstable-v1) */
+	struct zwp_pointer_gestures_v1* pointer_gestures;
+	struct zwp_pointer_gesture_swipe_v1* swipe;
+	struct zwp_pointer_gesture_pinch_v1* pinch;
+	struct zwp_pointer_gesture_hold_v1* hold;
+	rvn_pwindow_t* gesture_window;
+	double pinch_scale;           /* the scale of the last update: the compositor gives it since the beginning */
 
 	/* fingers: the window each one came down on */
 	struct wl_touch* touch;
@@ -1047,21 +1056,49 @@ static void rvn_wl_pointer_button(void* data, struct wl_pointer* pointer, uint32
 	rvn_wl_emit(g_wl.pointer_window, &event);
 }
 
+/* (WL_POINTER_AXIS_SOURCE_FINGER, _CONTINUOUS: a trackpad, or a device that scrolls by pixels) */
+#define RVN_WL_AXIS_SOURCE_FINGER 1
+#define RVN_WL_AXIS_SOURCE_CONTINUOUS 2
+
 static void rvn_wl_wheel_flush(void) {
 	rvn_pevent_t event;
+	int precise = g_wl.wheel_source == RVN_WL_AXIS_SOURCE_FINGER || g_wl.wheel_source == RVN_WL_AXIS_SOURCE_CONTINUOUS;
+	int stop = g_wl.wheel_stop && g_wl.wheel_source == RVN_WL_AXIS_SOURCE_FINGER;
 	if (!g_wl.wheel_pending) return;
 	g_wl.wheel_pending = R_FALSE;
 	memset(&event, 0, sizeof(event));
 	event.type = RVN_PEVENT_MOUSE_WHEEL;
-	/* one notch of a wheel is 1, as on X11 and Win32; Wayland counts down and right as positive */
-	event.wheel_x = g_wl.wheel_discrete_x ? (float)g_wl.wheel_discrete_x / 120.0f : g_wl.wheel_x / 10.0f;
-	event.wheel_y = g_wl.wheel_discrete_y ? -(float)g_wl.wheel_discrete_y / 120.0f : -g_wl.wheel_y / 10.0f;
+	/*
+	 * One notch of a wheel is 1, as on X11 and Win32, positive up and left;
+	 * Wayland counts down and right as positive. A trackpad scrolls by pixels
+	 * of the surface (logical units): RVN_WHEEL_LINE of them make a line.
+	 */
+	if (precise) {
+		event.wheel_x = -g_wl.wheel_x / RVN_WHEEL_LINE;
+		event.wheel_y = -g_wl.wheel_y / RVN_WHEEL_LINE;
+		event.wheel_precise = R_TRUE;
+	} else {
+		event.wheel_x = g_wl.wheel_discrete_x ? -(float)g_wl.wheel_discrete_x / 120.0f : -g_wl.wheel_x / 10.0f;
+		event.wheel_y = g_wl.wheel_discrete_y ? -(float)g_wl.wheel_discrete_y / 120.0f : -g_wl.wheel_y / 10.0f;
+	}
 	g_wl.wheel_x = g_wl.wheel_y = 0.0f;
 	g_wl.wheel_discrete_x = g_wl.wheel_discrete_y = 0;
-	if (!g_wl.pointer_window || (event.wheel_x == 0.0f && event.wheel_y == 0.0f)) return;
+	g_wl.wheel_source = 0;
+	g_wl.wheel_stop = R_FALSE;
+	if (!g_wl.pointer_window) return;
 	rvn_wl_pointer_position(&event);
 	event.modifiers = g_wl.modifiers;
-	rvn_wl_emit(g_wl.pointer_window, &event);
+	if (event.wheel_x != 0.0f || event.wheel_y != 0.0f) {
+		rvn_wl_emit(g_wl.pointer_window, &event);
+		if (!g_wl.pointer_window) return;
+	}
+	if (stop) {
+		/* the fingers left the trackpad: the inertia is the application's to make */
+		event.wheel_x = event.wheel_y = 0.0f;
+		event.wheel_precise = R_TRUE;
+		event.wheel_stop = R_TRUE;
+		rvn_wl_emit(g_wl.pointer_window, &event);
+	}
 }
 
 static void rvn_wl_pointer_axis(void* data, struct wl_pointer* pointer, uint32_t time, uint32_t axis, int32_t value) {
@@ -1079,11 +1116,15 @@ static void rvn_wl_pointer_frame(void* data, struct wl_pointer* pointer) {
 }
 
 static void rvn_wl_pointer_axis_source(void* data, struct wl_pointer* pointer, uint32_t source) {
-	RVN_UNUSED(data); RVN_UNUSED(pointer); RVN_UNUSED(source);
+	RVN_UNUSED(data); RVN_UNUSED(pointer);
+	g_wl.wheel_source = source;
 }
 
 static void rvn_wl_pointer_axis_stop(void* data, struct wl_pointer* pointer, uint32_t time, uint32_t axis) {
 	RVN_UNUSED(data); RVN_UNUSED(pointer); RVN_UNUSED(time); RVN_UNUSED(axis);
+	/* (sent in a frame of its own, once per axis that stopped) */
+	g_wl.wheel_stop = R_TRUE;
+	g_wl.wheel_pending = R_TRUE;
 }
 
 static void rvn_wl_pointer_axis_discrete(void* data, struct wl_pointer* pointer, uint32_t axis, int32_t discrete) {
@@ -1116,6 +1157,126 @@ static const struct wl_pointer_listener g_wl_pointer_listener = {
 	rvn_wl_pointer_frame, rvn_wl_pointer_axis_source, rvn_wl_pointer_axis_stop, rvn_wl_pointer_axis_discrete,
 	rvn_wl_pointer_axis_value120, rvn_wl_pointer_axis_relative_direction, rvn_wl_pointer_warp
 };
+
+/* ---------------------------------------------------------------------------
+ *  The gestures of a trackpad (pointer-gestures-unstable-v1): they happen
+ *  where the pointer is, on the window it is over when they begin
+ * ------------------------------------------------------------------------- */
+
+static void rvn_wl_gesture_emit(int kind, int phase, float dx, float dy, float scale, float rotation, int fingers, int cancelled) {
+	rvn_pwindow_t* window = g_wl.gesture_window;
+	rvn_pevent_t event;
+	if (!window) return;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_GESTURE;
+	event.gesture_kind = kind;
+	event.phase = phase;
+	event.fx = (float)(g_wl.pointer_x * (double)window->scale);
+	event.fy = (float)(g_wl.pointer_y * (double)window->scale);
+	/* (the core wants pixels: the compositor gives logical units) */
+	event.wheel_x = dx * window->scale;
+	event.wheel_y = dy * window->scale;
+	event.gesture_scale = scale;
+	event.rotation = rotation;
+	event.gesture_fingers = fingers;
+	event.gesture_cancelled = cancelled;
+	event.modifiers = g_wl.modifiers;
+	rvn_wl_emit(window, &event);
+	if (phase == R_GESTURE_END) g_wl.gesture_window = NULL;
+}
+
+static void rvn_wl_gesture_begin(struct wl_surface* surface) {
+	rvn_pwindow_t* window = rvn_wl_window_of(surface);
+	g_wl.gesture_window = window && window == g_wl.pointer_window ? window : NULL;
+}
+
+static void rvn_wl_swipe_begin(void* data, struct zwp_pointer_gesture_swipe_v1* swipe, uint32_t serial, uint32_t time, struct wl_surface* surface, uint32_t fingers) {
+	RVN_UNUSED(data); RVN_UNUSED(swipe); RVN_UNUSED(time);
+	g_wl.input_serial = serial;
+	rvn_wl_gesture_begin(surface);
+	rvn_wl_gesture_emit(R_GESTURE_SWIPE, R_GESTURE_BEGIN, 0.0f, 0.0f, 1.0f, 0.0f, (int)fingers, R_FALSE);
+}
+
+static void rvn_wl_swipe_update(void* data, struct zwp_pointer_gesture_swipe_v1* swipe, uint32_t time, int32_t dx, int32_t dy) {
+	RVN_UNUSED(data); RVN_UNUSED(swipe); RVN_UNUSED(time);
+	rvn_wl_gesture_emit(R_GESTURE_SWIPE, R_GESTURE_UPDATE, (float)rvn_wl_fixed(dx), (float)rvn_wl_fixed(dy), 1.0f, 0.0f, 0, R_FALSE);
+}
+
+static void rvn_wl_swipe_end(void* data, struct zwp_pointer_gesture_swipe_v1* swipe, uint32_t serial, uint32_t time, int32_t cancelled) {
+	RVN_UNUSED(data); RVN_UNUSED(swipe); RVN_UNUSED(serial); RVN_UNUSED(time);
+	rvn_wl_gesture_emit(R_GESTURE_SWIPE, R_GESTURE_END, 0.0f, 0.0f, 1.0f, 0.0f, 0, cancelled != 0);
+}
+
+static const struct zwp_pointer_gesture_swipe_v1_listener g_wl_swipe_listener = { rvn_wl_swipe_begin, rvn_wl_swipe_update, rvn_wl_swipe_end };
+
+static void rvn_wl_pinch_begin(void* data, struct zwp_pointer_gesture_pinch_v1* pinch, uint32_t serial, uint32_t time, struct wl_surface* surface, uint32_t fingers) {
+	RVN_UNUSED(data); RVN_UNUSED(pinch); RVN_UNUSED(time);
+	g_wl.input_serial = serial;
+	g_wl.pinch_scale = 1.0;
+	rvn_wl_gesture_begin(surface);
+	rvn_wl_gesture_emit(R_GESTURE_PINCH, R_GESTURE_BEGIN, 0.0f, 0.0f, 1.0f, 0.0f, (int)fingers, R_FALSE);
+}
+
+static void rvn_wl_pinch_update(void* data, struct zwp_pointer_gesture_pinch_v1* pinch, uint32_t time, int32_t dx, int32_t dy, int32_t scale, int32_t rotation) {
+	double absolute = rvn_wl_fixed(scale), relative;
+	RVN_UNUSED(data); RVN_UNUSED(pinch); RVN_UNUSED(time);
+	/* the scale is since the beginning, the rotation since the previous event (degrees, clockwise) */
+	relative = g_wl.pinch_scale > 0.0 && absolute > 0.0 ? absolute / g_wl.pinch_scale : 1.0;
+	if (absolute > 0.0) g_wl.pinch_scale = absolute;
+	rvn_wl_gesture_emit(R_GESTURE_PINCH, R_GESTURE_UPDATE, (float)rvn_wl_fixed(dx), (float)rvn_wl_fixed(dy), (float)relative,
+		(float)rvn_wl_fixed(rotation), 0, R_FALSE);
+}
+
+static void rvn_wl_pinch_end(void* data, struct zwp_pointer_gesture_pinch_v1* pinch, uint32_t serial, uint32_t time, int32_t cancelled) {
+	RVN_UNUSED(data); RVN_UNUSED(pinch); RVN_UNUSED(serial); RVN_UNUSED(time);
+	rvn_wl_gesture_emit(R_GESTURE_PINCH, R_GESTURE_END, 0.0f, 0.0f, 1.0f, 0.0f, 0, cancelled != 0);
+}
+
+static const struct zwp_pointer_gesture_pinch_v1_listener g_wl_pinch_listener = { rvn_wl_pinch_begin, rvn_wl_pinch_update, rvn_wl_pinch_end };
+
+/* Fingers that rest on the trackpad: what they flicked stops (a precise wheel that does not move). */
+static void rvn_wl_hold_begin(void* data, struct zwp_pointer_gesture_hold_v1* hold, uint32_t serial, uint32_t time, struct wl_surface* surface, uint32_t fingers) {
+	rvn_pwindow_t* window = rvn_wl_window_of(surface);
+	rvn_pevent_t event;
+	RVN_UNUSED(data); RVN_UNUSED(hold); RVN_UNUSED(serial); RVN_UNUSED(time); RVN_UNUSED(fingers);
+	if (!window || window != g_wl.pointer_window) return;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_MOUSE_WHEEL;
+	event.wheel_precise = R_TRUE;
+	rvn_wl_pointer_position(&event);
+	event.modifiers = g_wl.modifiers;
+	rvn_wl_emit(window, &event);
+}
+
+static void rvn_wl_hold_end(void* data, struct zwp_pointer_gesture_hold_v1* hold, uint32_t serial, uint32_t time, int32_t cancelled) {
+	RVN_UNUSED(data); RVN_UNUSED(hold); RVN_UNUSED(serial); RVN_UNUSED(time); RVN_UNUSED(cancelled);
+}
+
+static const struct zwp_pointer_gesture_hold_v1_listener g_wl_hold_listener = { rvn_wl_hold_begin, rvn_wl_hold_end };
+
+/* Once there are both a pointer and the gestures manager: the gestures of the pointer. */
+static void rvn_wl_gestures_start(void) {
+	if (!g_wl.pointer || !g_wl.pointer_gestures || g_wl.pinch) return;
+	g_wl.swipe = zwp_pointer_gestures_v1_get_swipe_gesture(g_wl.pointer_gestures, g_wl.pointer);
+	zwp_pointer_gesture_swipe_v1_add_listener(g_wl.swipe, &g_wl_swipe_listener, NULL);
+	g_wl.pinch = zwp_pointer_gestures_v1_get_pinch_gesture(g_wl.pointer_gestures, g_wl.pointer);
+	zwp_pointer_gesture_pinch_v1_add_listener(g_wl.pinch, &g_wl_pinch_listener, NULL);
+	if (zwp_pointer_gestures_v1_get_version(g_wl.pointer_gestures) >= 3) {
+		g_wl.hold = zwp_pointer_gestures_v1_get_hold_gesture(g_wl.pointer_gestures, g_wl.pointer);
+		zwp_pointer_gesture_hold_v1_add_listener(g_wl.hold, &g_wl_hold_listener, NULL);
+	}
+}
+
+/* (before the pointer they belong to goes) */
+static void rvn_wl_gestures_stop(void) {
+	if (g_wl.swipe) zwp_pointer_gesture_swipe_v1_destroy(g_wl.swipe);
+	if (g_wl.pinch) zwp_pointer_gesture_pinch_v1_destroy(g_wl.pinch);
+	if (g_wl.hold) zwp_pointer_gesture_hold_v1_destroy(g_wl.hold);
+	g_wl.swipe = NULL;
+	g_wl.pinch = NULL;
+	g_wl.hold = NULL;
+	g_wl.gesture_window = NULL;
+}
 
 /* ---------------------------------------------------------------------------
  *  Keyboard
@@ -1626,7 +1787,9 @@ static void rvn_wl_seat_capabilities(void* data, struct wl_seat* seat, uint32_t 
 		g_wl.pointer = wl_seat_get_pointer(seat);
 		wl_pointer_add_listener(g_wl.pointer, &g_wl_pointer_listener, NULL);
 		if (g_wl.cursor_shape_manager) g_wl.cursor_shape = wp_cursor_shape_manager_v1_get_pointer(g_wl.cursor_shape_manager, g_wl.pointer);
+		rvn_wl_gestures_start();
 	} else if (!(capabilities & WL_SEAT_CAPABILITY_POINTER) && g_wl.pointer) {
+		rvn_wl_gestures_stop();
 		if (g_wl.cursor_shape) wp_cursor_shape_device_v1_destroy(g_wl.cursor_shape);
 		g_wl.cursor_shape = NULL;
 		if (wl_pointer_get_version(g_wl.pointer) >= 3) wl_pointer_release(g_wl.pointer);
@@ -2028,6 +2191,9 @@ static void rvn_wl_registry_global(void* data, struct wl_registry* registry, uin
 	} else if (strcmp(interface, "zwp_tablet_manager_v2") == 0) {
 		RVN_BIND(g_wl.tablet_manager, zwp_tablet_manager_v2, 1);
 		rvn_wl_tablet_seat();
+	} else if (strcmp(interface, "zwp_pointer_gestures_v1") == 0) {
+		RVN_BIND(g_wl.pointer_gestures, zwp_pointer_gestures_v1, 3);
+		rvn_wl_gestures_start();
 	}
 #undef RVN_BIND
 }
@@ -2065,6 +2231,11 @@ static void rvn_wl_disconnect(void) {
 	if (g_wl.data_device) {
 		if (wl_data_device_get_version(g_wl.data_device) >= 2) wl_data_device_release(g_wl.data_device);
 		else wl_data_device_destroy(g_wl.data_device);
+	}
+	rvn_wl_gestures_stop();
+	if (g_wl.pointer_gestures) {
+		if (zwp_pointer_gestures_v1_get_version(g_wl.pointer_gestures) >= 2) zwp_pointer_gestures_v1_release(g_wl.pointer_gestures);
+		else zwp_pointer_gestures_v1_destroy(g_wl.pointer_gestures);
 	}
 	if (g_wl.pointer) {
 		if (wl_pointer_get_version(g_wl.pointer) >= 3) wl_pointer_release(g_wl.pointer);
@@ -2374,6 +2545,7 @@ static void rvn_wl_window_destroy(rvn_pwindow_t* window) {
 	int i;
 	rvn_wl_forget_close(window);
 	if (g_wl.pointer_window == window) g_wl.pointer_window = NULL;
+	if (g_wl.gesture_window == window) g_wl.gesture_window = NULL;
 	for (i = 0; i < RVN_WL_MAX_TOUCHES; i++) if (g_wl.touches[i].window == window) g_wl.touches[i].window = NULL;
 	for (tool = g_wl.tools; tool; tool = tool->next) if (tool->window == window) tool->window = NULL;
 	if (g_wl.keyboard_window == window) {

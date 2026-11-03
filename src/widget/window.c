@@ -1577,13 +1577,14 @@ static void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, i
 	if (!window->dead) rvn_window_update_cursor(window);
 }
 
-static void rvn_window_mouse_wheel(rvn_window_t* window, float wheel_x, float wheel_y) {
+static void rvn_window_mouse_wheel(rvn_window_t* window, float wheel_x, float wheel_y, int precise) {
 	REvent event;
 	rvn_widget_t* target = window->capture ? window->capture : rvn_window_hit(window, window->mouse_x, window->mouse_y, NULL);
 	rvn_window_tooltip_hide(window);
 	event = rvn_window_event(window, R_EVENT_MOUSE_WHEEL);
 	event.wheel_x = wheel_x;
 	event.wheel_y = wheel_y;
+	event.wheel_precise = precise ? R_TRUE : R_FALSE;
 	if (rvn_window_hook(window, &event) || window->dead) return;
 	if (!target || !rvn_widget_is_enabled(target)) return;
 	rvn_widget_dispatch(target, &event);
@@ -1699,6 +1700,10 @@ void rvn_window_emulate_leave(rvn_window_t* window) {
 	if (!window->dead) rvn_window_update_cursor(window);
 }
 
+void rvn_window_emulate_wheel(rvn_window_t* window, float wheel_x, float wheel_y, int precise) {
+	if (!window->dead) rvn_window_mouse_wheel(window, wheel_x, wheel_y, precise);
+}
+
 rvn_widget_t* rvn_window_widget_at(rvn_window_t* window, float x, float y) {
 	return rvn_window_hit(window, x, y, NULL);
 }
@@ -1759,7 +1764,9 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			break;
 		case RVN_PEVENT_MOUSE_WHEEL:
 			window->modifiers = pevent->modifiers;
-			rvn_window_mouse_wheel(window, pevent->wheel_x, pevent->wheel_y);
+			/* (a trackpad: measured for the inertia; the end of a scroll is no wheel) */
+			if (rvn_touch_on_wheel(window, pevent) || window->dead) break;
+			rvn_window_mouse_wheel(window, pevent->wheel_x, pevent->wheel_y, pevent->wheel_precise);
 			break;
 		case RVN_PEVENT_MOUSE_LEAVE:
 			rvn_window_mouse_leave(window);
@@ -2484,8 +2491,14 @@ void Rwindow_inject_mouse_button(Rid id, RMouseButton button, int pressed) {
 
 void Rwindow_inject_mouse_wheel(Rid id, float wheel_x, float wheel_y) {
 	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
+	rvn_pevent_t wheel;
 	if (!window) return;
-	rvn_window_mouse_wheel(window, wheel_x, wheel_y);
+	/* (a wheel stops what a trackpad flicked) */
+	memset(&wheel, 0, sizeof(wheel));
+	wheel.type = RVN_PEVENT_MOUSE_WHEEL;
+	wheel.wheel_x = wheel_x;
+	wheel.wheel_y = wheel_y;
+	if (!rvn_touch_on_wheel(window, &wheel) && !window->dead) rvn_window_mouse_wheel(window, wheel_x, wheel_y, R_FALSE);
 	rvn_dispatch_end();
 }
 

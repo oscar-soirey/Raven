@@ -265,6 +265,8 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	list(APPEND RAVEN_PLATFORM_SOURCES
 		src/platform/win32/win32_platform.c
 		src/platform/win32/win32_uia.c
+		src/platform/win32/win32_manipulation.c
+		src/platform/win32/win32_manipulation.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WIN32)
 	list(APPEND RAVEN_LIBRARIES user32 gdi32 shell32 comdlg32 ole32)

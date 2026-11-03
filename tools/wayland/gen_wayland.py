@@ -36,6 +36,7 @@ FILES = [
     "ext-background-effect-v1.xml",
     "xdg-toplevel-icon-v1.xml",
     "tablet-v2.xml",
+    "pointer-gestures-unstable-v1.xml",
 ]
 
 C_TYPES = {

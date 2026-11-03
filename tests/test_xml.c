@@ -808,10 +808,10 @@ static void test_schema(void) {
 		for (index = 0; index < count; index++) {
 			int touch;
 			CHECK(Rxml_get_attribute_info("window", index, &info));
-			/* its own attributes, then those of fingers and pens */
+			/* its own attributes, then those of fingers, pens and trackpads */
 			touch = strcmp(info.group, "Touch") == 0;
 			CHECK(touch || strcmp(info.group, "Window") == 0);
-			CHECK(!touch || strncmp(info.name, "Touch.", 6) == 0 || strncmp(info.name, "Pen.", 4) == 0);
+			CHECK(!touch || strncmp(info.name, "Touch.", 6) == 0 || strncmp(info.name, "Pen.", 4) == 0 || strncmp(info.name, "Trackpad.", 9) == 0);
 			if (info.type == R_XML_FILE) continue;
 			length += snprintf(xml + length, sizeof(xml) - (size_t)length, " %s=\"%s\"", info.name,
 				info.type == R_XML_NUMBER ? (touch ? "0.5" : "300") : schema_sample(&info, buffer, sizeof(buffer)));

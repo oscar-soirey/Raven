@@ -1401,18 +1401,30 @@ static void rvn_x11_process(XEvent* xevent) {
 		return;
 	}
 
-	/* fingers, and the pressure of pens (x11_xi2.c) */
+	/* fingers, the gestures of trackpads, and the pressure of pens (x11_xi2.c) */
 	if (xevent->type == GenericEvent) {
 		rvn_x11_touch_t touch;
-		if (rvn_x11_xi2_event(g_x11.display, xevent, &touch) == 2 && (window = rvn_x11_find(touch.window)) != NULL) {
+		int kind = rvn_x11_xi2_event(g_x11.display, xevent, &touch);
+		if (kind >= 2 && (window = rvn_x11_find(touch.window)) != NULL) {
 			memset(&event, 0, sizeof(event));
-			event.type = RVN_PEVENT_TOUCH;
-			event.touch_id = touch.id;
 			event.phase = touch.phase;
 			event.fx = touch.x;
 			event.fy = touch.y;
-			event.pressure = 1.0f;
 			event.modifiers = touch.modifiers;
+			if (kind == 2) {
+				event.type = RVN_PEVENT_TOUCH;
+				event.touch_id = touch.id;
+				event.pressure = 1.0f;
+			} else {
+				event.type = RVN_PEVENT_GESTURE;
+				event.gesture_kind = touch.gesture_kind;
+				event.gesture_scale = touch.scale;
+				event.rotation = touch.rotation;
+				event.wheel_x = touch.dx;
+				event.wheel_y = touch.dy;
+				event.gesture_fingers = touch.fingers;
+				event.gesture_cancelled = touch.cancelled;
+			}
 			rvn_x11_emit(window, &event);
 		}
 		return;

@@ -1,7 +1,8 @@
 /**
  * Raven tests - fingers and pens (raven_touch.h), injected as the platforms
  * would send them: taps, scrolling and its inertia, the long press, the
- * pinch, the pen and its pressure, the palm, the settings, XML.
+ * pinch, the pen and its pressure, the palm, the gestures and the scrolling
+ * of a trackpad (pinch, swipe, inertia), the settings, XML.
  */
 
 #include "test.h"
@@ -360,10 +361,287 @@ static void test_pen(void) {
 	Rwindow_destroy(window);
 }
 
+/* ---- trackpads ---- */
+
+static RGestureEvent g_tp_last;
+static int g_tp_events, g_tp_taken;
+static int on_trackpad_gesture(Rid widget, const RGestureEvent* event, void* user_data) {
+	(void)widget;
+	(void)user_data;
+	g_tp_events++;
+	g_tp_last = *event;
+	return g_tp_taken;
+}
+
+static int g_back, g_forward, g_precise_wheels, g_wheels;
+static int on_window_event(Rid window, const REvent* event, void* user_data) {
+	(void)window;
+	(void)user_data;
+	if (event->type == R_EVENT_MOUSE_DOWN && event->button == R_MOUSE_X1) g_back++;
+	if (event->type == R_EVENT_MOUSE_DOWN && event->button == R_MOUSE_X2) g_forward++;
+	if (event->type == R_EVENT_MOUSE_WHEEL) {
+		g_wheels++;
+		if (event->wheel_precise) g_precise_wheels++;
+	}
+	return R_FALSE;
+}
+
+static void test_trackpad_pinch(void) {
+	const char* xml = "<Window Width='400' Height='300'><TextEditor Name='editor' Text='hello'/></Window>";
+	Rid window = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid editor = Rwidget_find(window, "editor");
+	RTouchSettings settings;
+	float zoom;
+	Rdraw_frame();
+	CHECK_NEAR(Rtext_editor_get_zoom(editor) * 100.0f, 100.0f);
+
+	/* the pinch of a trackpad zooms as two fingers on the screen do */
+	g_tp_events = 0;
+	Rwidget_set_gesture_callback(editor, on_trackpad_gesture, NULL);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	CHECK(g_tp_events == 1 && g_tp_last.phase == R_GESTURE_BEGIN);
+	CHECK(g_tp_last.kind == R_GESTURE_PINCH && g_tp_last.device == R_GESTURE_DEVICE_TRACKPAD && g_tp_last.fingers == 2);
+	CHECK(g_tp_last.target == editor);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_UPDATE, 200, 150, 1.25f, 10.0f, 0.0f, 0.0f, 2);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_UPDATE, 200, 150, 1.25f, 5.0f, 0.0f, 0.0f, 2);
+	zoom = Rtext_editor_get_zoom(editor);
+	CHECK(zoom > 1.3f && zoom < 1.8f);
+	/* scale and rotation since the beginning, and since the previous event */
+	CHECK_NEAR(g_tp_last.scale * 100.0f, 156.0f);
+	CHECK_NEAR(g_tp_last.scale_delta * 100.0f, 125.0f);
+	CHECK_NEAR(g_tp_last.rotation, 15.0f);
+	CHECK_NEAR(g_tp_last.rotation_delta, 5.0f);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	CHECK(g_tp_last.phase == R_GESTURE_END && !g_tp_last.cancelled);
+	CHECK(g_tp_events == 4);
+	/* an end without a beginning is nothing */
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	CHECK(g_tp_events == 4);
+
+	/* a gesture taken by the application zooms nothing by itself */
+	g_tp_taken = R_TRUE;
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_UPDATE, 200, 150, 2.0f, 0.0f, 0.0f, 0.0f, 2);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	CHECK_NEAR(Rtext_editor_get_zoom(editor) * 100.0f, zoom * 100.0f);
+	g_tp_taken = R_FALSE;
+
+	/* an update without a beginning begins it (the system lost the beginning) */
+	g_tp_events = 0;
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_UPDATE, 200, 150, 0.8f, 0.0f, 0.0f, 0.0f, 2);
+	CHECK(g_tp_events == 2);
+	CHECK(Rtext_editor_get_zoom(editor) < zoom);
+	/* a swipe that begins in the middle of a pinch takes the pinch back */
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	CHECK(g_tp_last.kind == R_GESTURE_SWIPE && g_tp_last.phase == R_GESTURE_BEGIN && g_tp_last.fingers == 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+
+	/* Trackpad.Gestures="false": the pinch is not seen at all */
+	Rwindow_get_touch_settings(window, &settings);
+	CHECK(settings.trackpad_gestures && settings.swipe_navigation);
+	settings.trackpad_gestures = R_FALSE;
+	Rwindow_set_touch_settings(window, &settings);
+	g_tp_events = 0;
+	zoom = Rtext_editor_get_zoom(editor);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_UPDATE, 200, 150, 2.0f, 0.0f, 0.0f, 0.0f, 2);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	CHECK(g_tp_events == 0);
+	CHECK_NEAR(Rtext_editor_get_zoom(editor) * 100.0f, zoom * 100.0f);
+	Rwindow_set_touch_settings(window, NULL);
+
+	/* a pinch on the node graph zooms around the pointer and pans with the fingers */
+	Rwindow_destroy(window);
+	{
+		const char* graph_xml = "<Window Width='400' Height='300'><NodeGraph Name='graph'/></Window>";
+		float cx, cy, z, cx2, cy2, z2;
+		Rid graph;
+		window = Rwindow_create_from_xml(graph_xml, strlen(graph_xml));
+		graph = Rwidget_find(window, "graph");
+		Rdraw_frame();
+		Rnode_graph_get_view(graph, &cx, &cy, &z);
+		Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+		Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_UPDATE, 200, 150, 2.0f, 0.0f, 0.0f, 0.0f, 2);
+		Rnode_graph_get_view(graph, &cx2, &cy2, &z2);
+		CHECK(z2 > z * 1.8f);
+		Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 40.0f, 0.0f, 2);
+		Rnode_graph_get_view(graph, &cx, &cy, &z);
+		CHECK_NEAR(cx, cx2 - 40.0f / z2);
+		Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+
+		/* two fingers that scroll pan the canvas: they do not zoom it as a wheel does */
+		Rnode_graph_get_view(graph, &cx, &cy, &z);
+		Rwindow_inject_trackpad_scroll(window, 0.0f, 30.0f);
+		Rnode_graph_get_view(graph, &cx2, &cy2, &z2);
+		CHECK_NEAR(z2 * 100.0f, z * 100.0f);
+		CHECK_NEAR(cy2, cy - 30.0f / z);
+		/* a wheel that turns by halves of a notch zooms one stop every two of them (not one each) */
+		Rwindow_inject_mouse_wheel(window, 0.0f, -0.5f);
+		Rdraw_frame();
+		Rnode_graph_get_view(graph, &cx, &cy, &z);
+		CHECK_NEAR(z * 100.0f, z2 * 100.0f);
+		Rwindow_inject_mouse_wheel(window, 0.0f, -0.5f);
+		Rdraw_frame();
+		Rnode_graph_get_view(graph, &cx, &cy, &z);
+		CHECK(z < z2 * 0.95f && z > z2 * 0.6f);
+		Rwindow_destroy(window);
+	}
+}
+
+static void test_trackpad_swipe(void) {
+	const char* xml = "<Window Width='400' Height='300'><Button Name='label' Text='x' Width='400' Height='300'/></Window>";
+	Rid window = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid label = Rwidget_find(window, "label");
+	RTouchSettings settings;
+	Rdraw_frame();
+	Rwindow_set_event_hook(window, on_window_event, NULL);
+
+	/* three fingers that swipe toward the right go back, toward the left forward */
+	g_back = g_forward = 0;
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 80.0f, 4.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 80.0f, -2.0f, 3);
+	CHECK(g_back == 0);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	CHECK(g_back == 1 && g_forward == 0);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, -150.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	CHECK(g_back == 1 && g_forward == 1);
+	/* too short, or rather down than across: nothing */
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 60.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 150.0f, 200.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	CHECK(g_back == 1 && g_forward == 1);
+	/* the callback sees the swipe, its total and its fingers; taking it, nothing navigates */
+	Rwidget_set_gesture_callback(label, on_trackpad_gesture, NULL);
+	g_tp_taken = R_TRUE;
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 4);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 200.0f, 0.0f, 4);
+	CHECK(g_tp_last.kind == R_GESTURE_SWIPE && g_tp_last.fingers == 4);
+	CHECK_NEAR(g_tp_last.total_x, 200.0f);
+	CHECK_NEAR(g_tp_last.scale * 100.0f, 100.0f);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 4);
+	CHECK(g_back == 1);
+	g_tp_taken = R_FALSE;
+	Rwidget_set_gesture_callback(label, NULL, NULL);
+	/* the settings turn it off, or make it longer */
+	Rwindow_get_touch_settings(window, &settings);
+	settings.swipe_navigation = R_FALSE;
+	Rwindow_set_touch_settings(window, &settings);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 200.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	CHECK(g_back == 1);
+	settings.swipe_navigation = R_TRUE;
+	settings.swipe_distance = 300.0f;
+	Rwindow_set_touch_settings(window, &settings);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 200.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	CHECK(g_back == 1);
+	/* a gesture the window loses in its middle is taken back */
+	Rwidget_set_gesture_callback(label, on_trackpad_gesture, NULL);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_SWIPE, R_GESTURE_UPDATE, 200, 150, 1.0f, 0.0f, 400.0f, 0.0f, 3);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_BEGIN, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	CHECK(g_back == 1);
+	Rwindow_inject_trackpad_gesture(window, R_GESTURE_PINCH, R_GESTURE_END, 200, 150, 1.0f, 0.0f, 0.0f, 0.0f, 2);
+	Rwindow_destroy(window);
+}
+
+static void test_trackpad_scroll(void) {
+	Rid scroll, first;
+	Rid window = make_list(&scroll, &first);
+	RTouchSettings settings;
+	float before, after_flick, later;
+	int i;
+	Rwindow_set_event_hook(window, on_window_event, NULL);
+	Rwindow_inject_mouse_move(window, 100, 100);
+
+	/* two fingers scroll: the content follows them, small moves included */
+	g_wheels = g_precise_wheels = 0;
+	for (i = 0; i < 10; i++) Rwindow_inject_trackpad_scroll(window, 0.0f, -0.4f);
+	CHECK(g_wheels == 10 && g_precise_wheels == 10);
+	CHECK_NEAR(scroll_y(scroll), 4.0f);
+	Rwindow_inject_trackpad_scroll(window, 0.0f, -60.0f);
+	CHECK_NEAR(scroll_y(scroll), 64.0f);
+	Rwindow_inject_trackpad_scroll(window, 0.0f, 24.0f);
+	CHECK_NEAR(scroll_y(scroll), 40.0f);
+	/* a wheel is not precise */
+	Rwindow_inject_mouse_wheel(window, 0.0f, -1.0f);
+	CHECK(g_wheels == 13 && g_precise_wheels == 12);
+
+	/* flicked, and the fingers lifted (a system that leaves the inertia to the application): it keeps going */
+	Rwindow_advance_touch(window, 1.0);
+	before = scroll_y(scroll);
+	for (i = 0; i < 4; i++) {
+		Rwindow_advance_touch(window, 0.016);
+		Rwindow_inject_trackpad_scroll(window, 0.0f, -20.0f);
+	}
+	Rwindow_inject_trackpad_scroll_end(window);
+	after_flick = scroll_y(scroll);
+	CHECK_NEAR(after_flick, before + 80.0f);
+	Rwindow_advance_touch(window, 0.05);
+	later = scroll_y(scroll);
+	CHECK(later > after_flick + 5.0f);
+	/* fingers back on the trackpad stop it */
+	Rwindow_inject_trackpad_scroll(window, 0.0f, 0.0f);
+	later = scroll_y(scroll);
+	Rwindow_advance_touch(window, 0.1);
+	CHECK_NEAR(scroll_y(scroll), later);
+	/* fingers that rested before they were lifted do not flick */
+	Rwindow_advance_touch(window, 1.0);
+	Rwindow_inject_trackpad_scroll(window, 0.0f, -20.0f);
+	Rwindow_advance_touch(window, 0.016);
+	Rwindow_inject_trackpad_scroll(window, 0.0f, -20.0f);
+	Rwindow_advance_touch(window, 0.3);
+	Rwindow_inject_trackpad_scroll_end(window);
+	later = scroll_y(scroll);
+	Rwindow_advance_touch(window, 0.1);
+	CHECK_NEAR(scroll_y(scroll), later);
+	/* without inertia, nothing keeps going */
+	Rwindow_get_touch_settings(window, &settings);
+	settings.inertia = R_FALSE;
+	Rwindow_set_touch_settings(window, &settings);
+	for (i = 0; i < 4; i++) {
+		Rwindow_advance_touch(window, 0.016);
+		Rwindow_inject_trackpad_scroll(window, 0.0f, 20.0f);
+	}
+	Rwindow_inject_trackpad_scroll_end(window);
+	later = scroll_y(scroll);
+	Rwindow_advance_touch(window, 0.1);
+	CHECK_NEAR(scroll_y(scroll), later);
+	Rwindow_destroy(window);
+
+	/* a spin box steps once per notch, the small turns of a trackpad adding up to one */
+	{
+		const char* xml = "<Window Width='300' Height='100'><SpinBox Name='spin' Min='0' Max='100' Step='1' Value='5'/></Window>";
+		Rid spin;
+		window = Rwindow_create_from_xml(xml, strlen(xml));
+		spin = Rwidget_find(window, "spin");
+		Rdraw_frame();
+		Rwidget_focus(spin);
+		{
+			float x, y, w, h;
+			Rwidget_get_rect(spin, &x, &y, &w, &h);
+			Rwindow_inject_mouse_move(window, x + w * 0.5f, y + h * 0.5f);
+		}
+		for (i = 0; i < 4; i++) Rwindow_inject_trackpad_scroll(window, 0.0f, 12.0f);
+		CHECK_NEAR(Rspin_box_get_value(spin), 6.0);
+		Rwindow_inject_trackpad_scroll(window, 0.0f, 6.0f);
+		CHECK_NEAR(Rspin_box_get_value(spin), 6.0);
+		Rwindow_destroy(window);
+	}
+}
+
 static void test_xml_settings(void) {
 	const char* xml =
 		"<Window Width='300' Height='200' Touch.LongPress='0.8' Touch.Inertia='false' Pen.PressureCurve='0.5'"
-		" Touch.PalmRejection='false'>"
+		" Touch.PalmRejection='false' Trackpad.SwipeNavigation='false' Trackpad.SwipeDistance='200'>"
 		"  <Label Text='x' Touch.Mode='None' Pen.Mouse='false' Touch.Gestures='false'/>"
 		"</Window>";
 	Rid window = Rwindow_create_from_xml(xml, strlen(xml));
@@ -375,11 +653,23 @@ static void test_xml_settings(void) {
 	CHECK(!settings.inertia && !settings.palm_rejection);
 	CHECK_NEAR(settings.pressure_curve * 10.0f, 5.0f);
 	CHECK(settings.mouse_emulation);
+	CHECK(settings.trackpad_gestures && !settings.swipe_navigation);
+	CHECK_NEAR(settings.swipe_distance, 200.0f);
 	label = Rwindow_get_content(window);
 	CHECK(Rwidget_get_touch_mode(label) == R_TOUCH_MODE_NONE);
 	CHECK(!Rwidget_get_pen_mouse(label) && !Rwidget_get_touch_gestures(label));
 	CHECK(!Rwidget_set_attribute(label, "Touch.Mode", "Sideways"));
 	Rwindow_destroy(window);
+	/* a Trackpad.* attribute that is not one, or a bad value: the window still opens, the setting is refused */
+	{
+		const char* bad = "<Window Width='300' Height='200' Trackpad.SwipeDistance='0'/>";
+		EXPECT_ERRORS_BEGIN();
+		window = Rwindow_create_from_xml(bad, strlen(bad));
+		EXPECT_ERRORS_END(0);
+		Rwindow_get_touch_settings(window, &settings);
+		CHECK_NEAR(settings.swipe_distance, 120.0f);
+		Rwindow_destroy(window);
+	}
 
 	/* the settings of the application */
 	Rtouch_get_default_settings(&defaults);
@@ -402,6 +692,9 @@ int main(void) {
 	RUN(test_long_press);
 	RUN(test_pinch);
 	RUN(test_pen);
+	RUN(test_trackpad_pinch);
+	RUN(test_trackpad_swipe);
+	RUN(test_trackpad_scroll);
 	RUN(test_xml_settings);
 	Rshutdown();
 	return test_report("test_touch");

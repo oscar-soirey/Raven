@@ -87,15 +87,15 @@ static const rvn_schema_attribute_t g_slot[] = {
 	B("Slot.Closable", "DockArea: the tab has a close button."),
 };
 
-/* ---- fingers and pens on one widget (raven_touch.h) ---- */
+/* ---- fingers, pens and trackpads on one widget (raven_touch.h) ---- */
 
 static const rvn_schema_attribute_t g_touch[] = {
 	C("Touch.Mode", "Auto|Scroll|Mouse|None", "What a finger does here: Auto scrolls what scrolls and is a mouse elsewhere, Scroll always scrolls, Mouse is a mouse (no scrolling), None ignores fingers (a surface for the pen)."),
-	B("Touch.Gestures", "false: two fingers neither zoom nor pan the widget."),
+	B("Touch.Gestures", "false: two fingers, on the screen or a trackpad, neither zoom nor pan the widget."),
 	B("Pen.Mouse", "false: the pen is not a mouse here; only the pen callback of the application sees it."),
 };
 
-/* ---- fingers and pens in a window ---- */
+/* ---- fingers, pens and trackpads in a window ---- */
 
 static const rvn_schema_attribute_t g_window_touch[] = {
 	B("Touch.MouseEmulation", "A finger drives the widgets as the mouse does: a tap clicks, a drag drags (default true)."),
@@ -108,6 +108,9 @@ static const rvn_schema_attribute_t g_window_touch[] = {
 	B("Pen.MouseEmulation", "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."),
 	N("Pen.PressureCurve", "The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder."),
 	N("Pen.PressureThreshold", "Pressure, 0 to 1, the tip needs before it presses (default 0)."),
+	B("Trackpad.Gestures", "The pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do (default true)."),
+	B("Trackpad.SwipeNavigation", "Three or more fingers swiped across a trackpad go back or forward, as the side buttons of a mouse (default true)."),
+	N("Trackpad.SwipeDistance", "How far the fingers of a swipe go across before it navigates (default 120)."),
 };
 
 /* ---- colors and metrics of the theme, for one widget and what it contains ---- */
@@ -313,7 +316,7 @@ static const rvn_schema_attribute_t g_text_editor[] = {
 static const rvn_schema_attribute_t g_header_bar[] = {
 	T("Title", "Text of the bar."),
 	C("Buttons", "All|None|Close|Close,Minimize|Close,Maximize", "The window buttons the bar shows."),
-	C("ButtonSide", "Right|Left", "Where the window buttons are."),
+	C("ButtonSide", "Right|Left", "Where the window buttons are (default: the side of the system, whatever the look)."),
 	C("TitleAlign", "Center|Left", "Where the title is."),
 	B("Background", "false leaves the bar without a surface, over what is behind."),
 };

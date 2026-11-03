@@ -11,6 +11,8 @@
  *     Windows still moves, snaps and resizes them, from the answers to
  *     WM_NCHITTEST,
  *   - files dropped from the Explorer (WM_DROPFILES),
+ *   - precision touchpads through Direct Manipulation (win32_manipulation.c):
+ *     scrolling by pixels, its inertia and the pinch,
  *   - an event object so that other threads can wake the event loop.
  */
 
@@ -35,6 +37,7 @@
 #include <windowsx.h>
 #include <shellapi.h>
 #include "win32_uia.h"
+#include "win32_manipulation.h"
 
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
@@ -156,6 +159,8 @@ struct rvn_pwindow_t {
 	rvn_pwindow_state_t state;
 	/** Created to be seen through, with a desktop that composes windows. */
 	int transparent;
+	/** Its precision touchpad (Direct Manipulation), or NULL: the touchpad is then the wheel. */
+	rvn_win32_manipulation_t* manipulation;
 	struct rvn_pwindow_t* next;
 };
 
@@ -640,6 +645,34 @@ static int rvn_win32_pointer(rvn_pwindow_t* window, UINT message, WPARAM wparam)
 	return R_FALSE;
 }
 
+/* What the precision touchpad did (win32_manipulation.c): a precise wheel, or a pinch, where the pointer is. */
+static void rvn_win32_on_manipulation(void* user, const rvn_win32_manipulation_event_t* manipulation) {
+	rvn_pwindow_t* window = (rvn_pwindow_t*)user;
+	float scale = window->scale > 0.0f ? window->scale : 1.0f;
+	rvn_pevent_t event;
+	POINT cursor;
+	memset(&event, 0, sizeof(event));
+	event.modifiers = rvn_win32_modifiers();
+	if (manipulation->scroll) {
+		/* (the content follows the fingers: down and right are positive, as the wheel up and left) */
+		event.type = RVN_PEVENT_MOUSE_WHEEL;
+		event.wheel_x = manipulation->dx / scale / RVN_WHEEL_LINE;
+		event.wheel_y = manipulation->dy / scale / RVN_WHEEL_LINE;
+		event.wheel_precise = R_TRUE;
+	} else {
+		event.type = RVN_PEVENT_GESTURE;
+		event.gesture_kind = R_GESTURE_PINCH;
+		event.gesture_fingers = 2;
+		event.phase = manipulation->pinch_phase;
+		event.gesture_scale = manipulation->scale;
+		if (GetCursorPos(&cursor) && ScreenToClient(window->handle, &cursor)) {
+			event.fx = (float)cursor.x;
+			event.fy = (float)cursor.y;
+		}
+	}
+	rvn_win32_emit(window, &event);
+}
+
 static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
 	rvn_pwindow_t* window = (rvn_pwindow_t*)GetWindowLongPtrW(handle, GWLP_USERDATA);
 	rvn_pevent_t event;
@@ -773,6 +806,15 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 				rvn_win32_emit_modal_tick();
 				return 0;
 			}
+			if (wparam == RVN_WIN32_MANIPULATION_TIMER) {
+				rvn_win32_manipulation_tick(window->manipulation);
+				return 0;
+			}
+			break;
+
+		/* a contact of the touchpad begins: Direct Manipulation takes it (and Windows makes no wheel of it) */
+		case RVN_DM_POINTERHITTEST:
+			if (window->manipulation && rvn_win32_manipulation_hit_test(window->manipulation, wparam)) return 0;
 			break;
 
 		case WM_MOUSEMOVE:
@@ -987,6 +1029,7 @@ static int rvn_win32_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 
 static void rvn_win32_shutdown(void) {
 	rvn_uia_shutdown();
+	rvn_win32_manipulation_shutdown();
 	if (g_win32.wake_event) CloseHandle(g_win32.wake_event);
 	UnregisterClassW(RVN_WIN32_CHILD_CLASS, g_win32.instance);
 	UnregisterClassW(RVN_WIN32_CLASS, g_win32.instance);
@@ -1067,6 +1110,7 @@ static rvn_pwindow_t* rvn_win32_window_create(const rvn_pwindow_desc_t* desc) {
 	SetWindowLongPtrW(window->handle, GWLP_USERDATA, (LONG_PTR)window);
 	window->next = g_win32.windows;
 	g_win32.windows = window;
+	window->manipulation = rvn_win32_manipulation_create(window->handle, rvn_win32_on_manipulation, window);
 	return window;
 }
 
@@ -1269,6 +1313,8 @@ static void rvn_win32_window_destroy(rvn_pwindow_t* window) {
 	}
 	/* the screen readers forget its providers */
 	rvn_uia_window_destroyed(window->handle);
+	rvn_win32_manipulation_destroy(window->manipulation);
+	window->manipulation = NULL;
 	/* DestroyWindow sends messages: they must not reach the core any more */
 	SetWindowLongPtrW(window->handle, GWLP_USERDATA, 0);
 	rvn_win32_forget_events(window);

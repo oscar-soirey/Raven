@@ -24,6 +24,10 @@ typedef struct rvn_x11_touch_t {
 	int phase;
 	float x, y;
 	uint32_t modifiers;
+	/* a gesture of a trackpad (XInput 2.4): its RGestureKind, the movement since the previous event (pixels), the scale relative to it, the turn (degrees, clockwise) */
+	int gesture_kind;
+	float dx, dy, scale, rotation;
+	int fingers, cancelled;
 } rvn_x11_touch_t;
 
 typedef struct rvn_x11_pen_t {
@@ -39,7 +43,7 @@ void rvn_x11_xi2_init(Display* display, Window root);
 void rvn_x11_xi2_shutdown(void);
 /** The window receives fingers as such. */
 void rvn_x11_xi2_select(Display* display, Window window);
-/** A GenericEvent: 0 when not one of XInput 2, 1 when taken, 2 when it is a finger (*touch filled). */
+/** A GenericEvent: 0 when not one of XInput 2, 1 when taken, 2 when it is a finger, 3 a gesture of a trackpad (*touch filled). */
 int  rvn_x11_xi2_event(Display* display, XEvent* xevent, rvn_x11_touch_t* touch);
 /** R_TRUE when the core pointer event of this moment came from a pen: its pressure, tilt and buttons. */
 int  rvn_x11_xi2_pen(Time time, rvn_x11_pen_t* pen);

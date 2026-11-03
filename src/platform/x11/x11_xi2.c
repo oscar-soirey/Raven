@@ -10,7 +10,10 @@
  *   - pens: they stay the mouse of the core protocol (selecting the XI2
  *     pointer events would take the core ones away), and XI_RawMotion /
  *     RawButton on the root window give their pressure and tilt; a core
- *     pointer event of the same moment is then also a pen event.
+ *     pointer event of the same moment is then also a pen event;
+ *   - trackpads: XI_GesturePinch* / GestureSwipe* (XInput 2.4, servers from
+ *     Xorg 21.1 with the libinput driver) selected on each window. Scrolling
+ *     with two fingers stays the wheel of the core protocol (buttons 4 to 7).
  */
 
 #include "x11_internal.h"
@@ -30,7 +33,15 @@
 #define RVN_XI_TouchBegin       18
 #define RVN_XI_TouchUpdate      19
 #define RVN_XI_TouchEnd         20
-#define RVN_XI_LASTEVENT        26
+#define RVN_XI_GesturePinchBegin  27
+#define RVN_XI_GesturePinchUpdate 28
+#define RVN_XI_GesturePinchEnd    29
+#define RVN_XI_GestureSwipeBegin  30
+#define RVN_XI_GestureSwipeUpdate 31
+#define RVN_XI_GestureSwipeEnd    32
+#define RVN_XI_LASTEVENT        32
+/* (XIGesturePinchEventCancelled, XIGestureSwipeEventCancelled) */
+#define RVN_XIGestureCancelled  1
 #define RVN_XIAllDevices        0
 #define RVN_XIAllMasterDevices  1
 #define RVN_XIValuatorClass     2
@@ -82,6 +93,55 @@ typedef struct {
 	double* raw_values;
 } rvn_xi_raw_event_t;
 
+/* XIGesturePinchEvent; XIGestureSwipeEvent is the same without scale and delta_angle */
+typedef struct {
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display* display;
+	int extension;
+	int evtype;
+	Time time;
+	int deviceid;
+	int sourceid;
+	int detail;
+	Window root;
+	Window event;
+	Window child;
+	double root_x, root_y;
+	double event_x, event_y;
+	double delta_x, delta_y;
+	double delta_unaccel_x, delta_unaccel_y;
+	double scale;
+	double delta_angle;
+	int flags;
+	rvn_xi_modifier_state_t mods;
+	rvn_xi_modifier_state_t group;
+} rvn_xi_gesture_pinch_event_t;
+
+typedef struct {
+	int type;
+	unsigned long serial;
+	Bool send_event;
+	Display* display;
+	int extension;
+	int evtype;
+	Time time;
+	int deviceid;
+	int sourceid;
+	int detail;
+	Window root;
+	Window event;
+	Window child;
+	double root_x, root_y;
+	double event_x, event_y;
+	double delta_x, delta_y;
+	double delta_unaccel_x, delta_unaccel_y;
+	int flags;
+	rvn_xi_modifier_state_t mods;
+	rvn_xi_modifier_state_t group;
+} rvn_xi_gesture_swipe_event_t;
+
 typedef struct { int type; int sourceid; } rvn_xi_any_class_t;
 typedef struct { int type; int sourceid; int mode; int num_touches; } rvn_xi_touch_class_t;
 typedef struct {
@@ -131,6 +191,10 @@ static struct {
 	void* library;
 	int opcode;
 	int touch;
+	/** XInput 2.4: the gestures of trackpads. */
+	int gestures;
+	/** The scale of the pinch at its previous event (the server gives it since the beginning). */
+	double pinch_scale;
 	rvn_xi_query_version_fn query_version;
 	rvn_xi_select_events_fn select_events;
 	rvn_xi_query_device_fn query_device;
@@ -168,7 +232,8 @@ static void rvn_xi2_symbol(const char* name, void* function) {
 }
 
 void rvn_x11_xi2_init(Display* display, Window root) {
-	int event, error, major = 2, minor = 2;
+	/* (2.4 for the gestures of trackpads; the server answers with what it has, 2.2 for the fingers) */
+	int event, error, major = 2, minor = 4;
 	rvn_xi_event_mask_t mask;
 	unsigned char bits[(RVN_XI_LASTEVENT + 7) / 8];
 
@@ -188,6 +253,7 @@ void rvn_x11_xi2_init(Display* display, Window root) {
 		return;
 	}
 	g_xi2.touch = major > 2 || minor >= 2;
+	g_xi2.gestures = major > 2 || minor >= 4;
 	g_xi2.pressure_label = XInternAtom(display, "Abs Pressure", False);
 	g_xi2.tilt_x_label = XInternAtom(display, "Abs Tilt X", False);
 	g_xi2.tilt_y_label = XInternAtom(display, "Abs Tilt Y", False);
@@ -219,6 +285,15 @@ void rvn_x11_xi2_select(Display* display, Window window) {
 	rvn_xi2_set(bits, RVN_XI_TouchBegin);
 	rvn_xi2_set(bits, RVN_XI_TouchUpdate);
 	rvn_xi2_set(bits, RVN_XI_TouchEnd);
+	if (g_xi2.gestures) {
+		/* (the same for each kind of gesture) */
+		rvn_xi2_set(bits, RVN_XI_GesturePinchBegin);
+		rvn_xi2_set(bits, RVN_XI_GesturePinchUpdate);
+		rvn_xi2_set(bits, RVN_XI_GesturePinchEnd);
+		rvn_xi2_set(bits, RVN_XI_GestureSwipeBegin);
+		rvn_xi2_set(bits, RVN_XI_GestureSwipeUpdate);
+		rvn_xi2_set(bits, RVN_XI_GestureSwipeEnd);
+	}
 	mask.deviceid = RVN_XIAllMasterDevices;
 	mask.mask_len = (int)sizeof(bits);
 	mask.mask = bits;
@@ -341,14 +416,57 @@ int rvn_x11_xi2_event(Display* display, XEvent* xevent, rvn_x11_touch_t* touch) 
 			touch->x = (float)event->event_x;
 			touch->y = (float)event->event_y;
 			touch->modifiers = rvn_x11_translate_modifiers((unsigned int)event->mods.effective);
-			handled = R_TRUE;
+			handled = 2;
+			break;
+		}
+		case RVN_XI_GesturePinchBegin:
+		case RVN_XI_GesturePinchUpdate:
+		case RVN_XI_GesturePinchEnd: {
+			const rvn_xi_gesture_pinch_event_t* event = (const rvn_xi_gesture_pinch_event_t*)cookie->data;
+			double scale = event->scale > 0.0 ? event->scale : 1.0;
+			memset(touch, 0, sizeof(*touch));
+			touch->window = event->event;
+			touch->gesture_kind = R_GESTURE_PINCH;
+			touch->phase = cookie->evtype == RVN_XI_GesturePinchBegin ? R_GESTURE_BEGIN : cookie->evtype == RVN_XI_GesturePinchEnd ? R_GESTURE_END : R_GESTURE_UPDATE;
+			if (touch->phase == R_GESTURE_BEGIN) g_xi2.pinch_scale = 1.0;
+			touch->x = (float)event->event_x;
+			touch->y = (float)event->event_y;
+			touch->dx = (float)event->delta_x;
+			touch->dy = (float)event->delta_y;
+			/* (the scale since the beginning made relative to the previous event) */
+			touch->scale = g_xi2.pinch_scale > 0.0 ? (float)(scale / g_xi2.pinch_scale) : 1.0f;
+			g_xi2.pinch_scale = scale;
+			touch->rotation = (float)event->delta_angle;
+			touch->fingers = event->detail;
+			touch->cancelled = (event->flags & RVN_XIGestureCancelled) != 0;
+			touch->modifiers = rvn_x11_translate_modifiers((unsigned int)event->mods.effective);
+			handled = 3;
+			break;
+		}
+		case RVN_XI_GestureSwipeBegin:
+		case RVN_XI_GestureSwipeUpdate:
+		case RVN_XI_GestureSwipeEnd: {
+			const rvn_xi_gesture_swipe_event_t* event = (const rvn_xi_gesture_swipe_event_t*)cookie->data;
+			memset(touch, 0, sizeof(*touch));
+			touch->window = event->event;
+			touch->gesture_kind = R_GESTURE_SWIPE;
+			touch->phase = cookie->evtype == RVN_XI_GestureSwipeBegin ? R_GESTURE_BEGIN : cookie->evtype == RVN_XI_GestureSwipeEnd ? R_GESTURE_END : R_GESTURE_UPDATE;
+			touch->x = (float)event->event_x;
+			touch->y = (float)event->event_y;
+			touch->dx = (float)event->delta_x;
+			touch->dy = (float)event->delta_y;
+			touch->scale = 1.0f;
+			touch->fingers = event->detail;
+			touch->cancelled = (event->flags & RVN_XIGestureCancelled) != 0;
+			touch->modifiers = rvn_x11_translate_modifiers((unsigned int)event->mods.effective);
+			handled = 3;
 			break;
 		}
 		default:
 			break;
 	}
 	XFreeEventData(display, cookie);
-	return handled ? 2 : R_TRUE;
+	return handled ? handled : R_TRUE;
 }
 
 int rvn_x11_xi2_pen(Time time, rvn_x11_pen_t* pen) {
