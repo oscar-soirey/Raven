@@ -26,8 +26,7 @@ Toolchain notes: this old Emscripten does not link a `main(int, char**)` (it fin
 `tests/test_dock_tearing.c` and `tests/benchmark.c` need a `main(void)` copy (the script does this). Node 22 needs
 `-sWASM_ASYNC_COMPILATION=0` with it. A current emsdk (6.0.13) ran the script fine; the script still uses the `main(void)` copy for `test_dock_tearing`, so whether
 the new Emscripten links `main(int, char**)` is not known. Emscripten 6 suggests `-sGROWABLE_ARRAYBUFFERS=2` instead of plain
-memory growth for threaded builds (slower non-wasm paths otherwise), to try for the real web build. `ravenc` runs on the host in
-a cross build, so `test_xmlc` / `test_xmlcpp` are not built here.
+memory growth for threaded builds (slower non-wasm paths otherwise), to try for the real web build. (`ravenc` and the XML compiler no longer exist upstream.)
 
 ```sh
 ./probe_wasm.sh threads        # or: nothreads

@@ -23,7 +23,7 @@ cmake -S "$ROOT" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release \
 cmake --build "$BUILD" --target raven --parallel
 echo "== the library builds for the iOS simulator"
 
-# ravenc runs on the host at build time (test_xmlc), so only the plain tests are built
+# only the plain tests are built (a cross build cannot run what it builds)
 for t in $TESTS; do cmake --build "$BUILD" --target $t --parallel >/dev/null; done
 BIN="$BUILD/bin"; [ -d "$BIN" ] || BIN="$BUILD/tests"
 FAIL=0

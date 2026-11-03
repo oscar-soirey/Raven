@@ -5,7 +5,7 @@
 #
 # Needs Emscripten (emcmake on the PATH; tested with the 3.1.6 of Ubuntu 24.04: apt install emscripten) and Node.
 # Node 22 and this old Emscripten need synchronous instantiation (-sWASM_ASYNC_COMPILATION=0): a current emsdk does not.
-# A cross build cannot run ravenc, so only the targets listed below are built (not test_xmlc / test_xmlcpp).
+# Only the targets listed below are built (a cross build cannot run what it builds).
 set -e
 MODE=${1:-threads}
 HERE=$(cd "$(dirname "$0")" && pwd)
