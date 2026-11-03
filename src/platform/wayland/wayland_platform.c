@@ -2379,9 +2379,13 @@ static int rvn_wl_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regio
 		g_wl.cursor_shape = wp_cursor_shape_manager_v1_get_pointer(g_wl.cursor_shape_manager, g_wl.pointer);
 	}
 	if (!g_wl.cursor_shape_manager) rvn_wl_load_cursor();
-	if (!g_wl.decoration_manager && rvn_wl_load_decor()) {
-		g_wl.decor = g_decor.create(g_wl.display, &g_wl_decor_interface);
-	}
+	/*
+	 * libdecor is not started here but by the first window that needs a title
+	 * bar from it (rvn_wl_make_toplevel): starting it loads a plugin (GTK on
+	 * GNOME) and asks the desktop portal for its settings, which costs a
+	 * whole toolkit, and up to 25 s when the portal is slow, to applications
+	 * whose windows all draw their own header.
+	 */
 
 	g_wl.repeat_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
 	if (pipe(g_wl.wake_pipe) == 0) {
@@ -2459,6 +2463,9 @@ static void rvn_wl_apply_size_limits(rvn_pwindow_t* window) {
 static void rvn_wl_make_toplevel(rvn_pwindow_t* window) {
 	int undecorated = (window->flags & (R_WINDOW_BORDERLESS | R_WINDOW_CUSTOM_HEADER)) != 0;
 	window->configured = R_FALSE;
+	if (!undecorated && !g_wl.decoration_manager && !g_wl.decor && rvn_wl_load_decor()) {
+		g_wl.decor = g_decor.create(g_wl.display, &g_wl_decor_interface);
+	}
 	if (!undecorated && !g_wl.decoration_manager && g_wl.decor) {
 		window->frame = g_decor.decorate(g_wl.decor, window->surface, &g_wl_decor_frame_interface, window);
 	}
