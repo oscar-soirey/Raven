@@ -377,6 +377,8 @@ typedef struct rvn_scrollbar_t {
 	RSpring expand;
 	/** What a finger moved that did not make a whole unit yet (rvn_scrollbar_pan). */
 	float pan_rest;
+	/** The same for the wheel (a trackpad scrolls by fractions of a unit). */
+	float wheel_rest;
 } rvn_scrollbar_t;
 
 float rvn_scrollbar_max(const rvn_scrollbar_t* bar);
@@ -387,9 +389,16 @@ int   rvn_scrollbar_set(rvn_scrollbar_t* bar, float offset);
 /**
  * Scrolls by `delta` logical units (the wheel). Returns R_TRUE when the
  * offset changed; at an end of the range it returns R_FALSE and makes the
- * content bounce, which only needs a repaint.
+ * content bounce, which only needs a repaint. The fractions of a unit add up
+ * (the small steps of a trackpad).
  */
 int   rvn_scrollbar_wheel(rvn_scrollbar_t* bar, float delta);
+/**
+ * Whole notches of a wheel that may turn by fractions (a trackpad, a wheel
+ * that scrolls smoothly), for what steps (a value, a zoom by stops): the
+ * fractions add up in *rest, and a turn the other way starts again.
+ */
+int   rvn_wheel_notches(float* rest, float amount);
 /**
  * Scrolls by `delta` logical units under a finger: what is drawn follows at
  * once (no gliding), the fractions of a unit add up. `coasting` (the
