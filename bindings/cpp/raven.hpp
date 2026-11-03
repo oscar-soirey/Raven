@@ -2494,6 +2494,13 @@ inline int open_url(const char* url) { return Ropen_url(url); }
 
 inline void clipboard_set_text(const char* text) { Rclipboard_set_text(text); }
 
+/// Copies one content in two formats: `html` for the programs that
+/// paste formatting (word processors, chat, mail) and `text` for the
+/// others (editors, terminals). Each program takes the format it prefers.
+/// Where the window system has no clipboard formats (Win32 and macOS for
+/// now), or `html` is NULL, it is Rclipboard_set_text(text).
+inline void clipboard_set_html(const char* text, const char* html) { Rclipboard_set_html(text, html); }
+
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
 inline const char* clipboard_get_text() { return Rclipboard_get_text(); }
 

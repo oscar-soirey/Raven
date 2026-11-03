@@ -1783,6 +1783,12 @@ pub extern fn Raction_is_builtin(name: ?[*:0]const u8) c_int;
 /// a program then really opened it).
 pub extern fn Ropen_url(url: ?[*:0]const u8) c_int;
 pub extern fn Rclipboard_set_text(text: ?[*:0]const u8) void;
+/// Copies one content in two formats: `html` for the programs that
+/// paste formatting (word processors, chat, mail) and `text` for the
+/// others (editors, terminals). Each program takes the format it prefers.
+/// Where the window system has no clipboard formats (Win32 and macOS for
+/// now), or `html` is NULL, it is Rclipboard_set_text(text).
+pub extern fn Rclipboard_set_html(text: ?[*:0]const u8, html: ?[*:0]const u8) void;
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
 pub extern fn Rclipboard_get_text() ?[*:0]const u8;
 /// Retrieves and clears the last recorded error.

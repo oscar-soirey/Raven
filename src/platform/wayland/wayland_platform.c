@@ -516,6 +516,7 @@ static struct {
 
 	/* clipboard */
 	char* clipboard;
+	char* clipboard_html;          /* NULL: the selection is text only */
 	struct wl_data_source* source;
 	struct wl_data_offer* selection;
 
@@ -2066,8 +2067,10 @@ static void rvn_wl_source_target(void* data, struct wl_data_source* source, cons
 
 static void rvn_wl_source_send(void* data, struct wl_data_source* source, const char* mime, int32_t fd) {
 	const char* text = g_wl.clipboard ? g_wl.clipboard : "";
-	size_t size = strlen(text), written = 0;
-	RVN_UNUSED(data); RVN_UNUSED(source); RVN_UNUSED(mime);
+	size_t size, written = 0;
+	RVN_UNUSED(data); RVN_UNUSED(source);
+	if (g_wl.clipboard_html && mime && strcmp(mime, "text/html") == 0) text = g_wl.clipboard_html;
+	size = strlen(text);
 	/* (a reader that stops reading must not hang us forever: the pipe is non-blocking and given a deadline) */
 	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 	while (written < size) {
@@ -2108,12 +2111,16 @@ static const struct wl_data_source_listener g_wl_source_listener = {
 	rvn_wl_source_dnd_drop_performed, rvn_wl_source_dnd_finished, rvn_wl_source_action
 };
 
-static void rvn_wl_clipboard_set(const char* text) {
+static void rvn_wl_clipboard_offer(const char* text, const char* html) {
 	rvn_str_set(&g_wl.clipboard, text);
+	rvn_free(g_wl.clipboard_html);
+	g_wl.clipboard_html = html ? rvn_strdup(html) : NULL;
 	if (!g_wl.data_device || g_wl.failed) return;
 	if (g_wl.source) wl_data_source_destroy(g_wl.source);
 	g_wl.source = wl_data_device_manager_create_data_source(g_wl.data_device_manager);
 	wl_data_source_add_listener(g_wl.source, &g_wl_source_listener, NULL);
+	/* (first: the programs that paste formatting look for it) */
+	if (html) wl_data_source_offer(g_wl.source, "text/html");
 	wl_data_source_offer(g_wl.source, "text/plain;charset=utf-8");
 	wl_data_source_offer(g_wl.source, "UTF8_STRING");
 	wl_data_source_offer(g_wl.source, "text/plain");
@@ -2122,6 +2129,14 @@ static void rvn_wl_clipboard_set(const char* text) {
 	/* (the compositor only takes it when the serial is the one of a recent input event of a focused window) */
 	wl_data_device_set_selection(g_wl.data_device, g_wl.source, g_wl.input_serial);
 	g_wlc.display_flush(g_wl.display);
+}
+
+static void rvn_wl_clipboard_set(const char* text) {
+	rvn_wl_clipboard_offer(text, NULL);
+}
+
+static void rvn_wl_clipboard_set_html(const char* text, const char* html) {
+	rvn_wl_clipboard_offer(text, html);
 }
 
 static char* rvn_wl_clipboard_get(void) {
@@ -2293,6 +2308,7 @@ static void rvn_wl_disconnect(void) {
 	if (g_wl.wake_pipe[0] >= 0) close(g_wl.wake_pipe[0]);
 	if (g_wl.wake_pipe[1] >= 0) close(g_wl.wake_pipe[1]);
 	rvn_free(g_wl.clipboard);
+	rvn_free(g_wl.clipboard_html);
 	rvn_free(g_wl.app_id);
 	memset(&g_wl, 0, sizeof(g_wl));
 	g_wl.repeat_fd = g_wl.wake_pipe[0] = g_wl.wake_pipe[1] = -1;
@@ -2992,6 +3008,7 @@ const rvn_platform_t* rvn_platform_wayland(void) {
 		.pump = rvn_wl_pump,
 		.wake = rvn_wl_wake,
 		.clipboard_set = rvn_wl_clipboard_set,
+		.clipboard_set_html = rvn_wl_clipboard_set_html,
 		.clipboard_get = rvn_wl_clipboard_get,
 		.a11y_event = rvn_atspi_event,
 		.a11y_announce = rvn_atspi_announce,

@@ -831,6 +831,7 @@ Rtimer_destroy(autosave_timer);</pre>
 
 <h3 id="clipboard">Clipboard and links</h3>
 <pre>Rclipboard_set_text("copied");
+Rclipboard_set_html("**bold**", "&lt;b&gt;bold&lt;/b&gt;");  /* rich text where it is pasted with formatting, plain text elsewhere */
 const char* pasted = Rclipboard_get_text();
 Ropen_url("https://example.org");              /* the browser of the system; a file opens in its application */</pre>
 

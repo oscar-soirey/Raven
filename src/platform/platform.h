@@ -232,6 +232,8 @@ typedef struct rvn_platform_t {
 	void  (*wake)(void);
 
 	void  (*clipboard_set)(const char* text);
+	/** Optional (may be NULL): the same text, also offered as text/html. */
+	void  (*clipboard_set_html)(const char* text, const char* html);
 	/** Returns a rvn_alloc'ed string, or NULL. */
 	char* (*clipboard_get)(void);
 

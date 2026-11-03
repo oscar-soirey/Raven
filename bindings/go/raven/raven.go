@@ -1197,6 +1197,18 @@ func ClipboardSetText(text string) {
 	C.Rclipboard_set_text(text_)
 }
 
+// ClipboardSetHtml: Copies one content in two formats: `html` for the programs that paste formatting (word
+// processors, chat, mail) and `text` for the others (editors, terminals). Each program takes the format it
+// prefers. Where the window system has no clipboard formats (Win32 and macOS for now), or `html` is NULL, it
+// is Rclipboard_set_text(text).
+func ClipboardSetHtml(text string, html string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	html_ := C.CString(html)
+	defer C.free(unsafe.Pointer(html_))
+	C.Rclipboard_set_html(text_, html_)
+}
+
 // ClipboardGetText: Returns: The clipboard text, or "" when empty. Valid until the next call.
 func ClipboardGetText() string {
 	return C.GoString(C.Rclipboard_get_text())
