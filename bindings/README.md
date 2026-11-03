@@ -1,7 +1,7 @@
 # Raven from other languages
 
 Raven is a C library, so any language that can call C can use it. This folder
-holds ready-made bindings for nine of them. They are written by a script,
+holds ready-made bindings for ten of them. They are written by a script,
 `tools/bindgen`, that reads the public headers: every binding has the whole
 API (937 functions, 56 enumerations, 22 structures, 59 kinds of callback),
 under the same names, with the same documentation comments.
@@ -17,6 +17,7 @@ under the same names, with the same documentation comments.
 | LuaJIT | `luajit/raven.lua` | The declarations for the FFI of LuaJIT. | yes (tested on Windows, macOS and Linux) |
 | Java | `java/` | One class, `raven.R`, over the Foreign Function & Memory API (Java 22+): no dependency, no JNI. Texts are `String`, callbacks are lambdas, structures are classes with an accessor per field. | yes (`binding_java`) |
 | Odin | `odin/raven/raven.odin` | A package of `foreign` declarations; structures have the layout of C. | `binding_odin`, not run yet |
+| Bun | `bun/src/raven.ts` | One TypeScript module, `bun:ffi`, no dependency. Texts are strings, callbacks are functions, values written through pointers are returned. See `bun/README.md` for threads and the event loop. | yes (`binding_bun`) |
 
 "Tested" means that the example of the binding, started with `--test`, runs
 Raven without a window system and without a GPU, clicks a button of its own
@@ -157,6 +158,13 @@ jar of Maven Central holds the library; from this folder, compile
 
     import r "raven"          // the folder odin/raven, copied into the project
     // odin run . -extra-linker-flags:"-L/path/to/lib"   (Windows: "/LIBPATH:C:\path\to\lib", raven.lib)
+
+**Bun** (1.4 or later)
+
+    RAVEN_LIBRARY=/path/to/libraven.so bun run app.ts
+
+or put the library beside `raven.ts`. Use `await r.runLoop()` rather than
+`Rwait_frame(-1)`, which stops timers and promises while it sleeps.
 
 ## Regenerating
 
