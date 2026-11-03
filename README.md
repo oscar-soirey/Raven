@@ -614,7 +614,7 @@ The build trees are in `build\dist\`.
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
-on Maven Central) and Odin. All but Odin are tested. See
+on Maven Central), Odin and Bun (`bun:ffi`). All but Odin are tested. See
 [bindings/README.md](bindings/README.md). They cover everything in
 `Raven.h`; `raven_web.h` is C only.
 

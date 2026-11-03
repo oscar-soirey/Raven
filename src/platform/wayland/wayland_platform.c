@@ -83,6 +83,7 @@ static struct {
 	uint32_t (*proxy_get_version)(struct wl_proxy* proxy);
 	void (*proxy_set_user_data)(struct wl_proxy* proxy, void* data);
 	void* (*proxy_get_user_data)(struct wl_proxy* proxy);
+	const void* (*proxy_get_listener)(struct wl_proxy* proxy);
 	struct wl_display* (*display_connect)(const char* name);
 	void (*display_disconnect)(struct wl_display* display);
 	int (*display_get_fd)(struct wl_display* display);
@@ -249,6 +250,7 @@ static int rvn_wl_load_client(void) {
 	RVN_LOAD(proxy_get_version, "wl_proxy_get_version");
 	RVN_LOAD(proxy_set_user_data, "wl_proxy_set_user_data");
 	RVN_LOAD(proxy_get_user_data, "wl_proxy_get_user_data");
+	RVN_LOAD(proxy_get_listener, "wl_proxy_get_listener");
 	RVN_LOAD(display_connect, "wl_display_connect");
 	RVN_LOAD(display_disconnect, "wl_display_disconnect");
 	RVN_LOAD(display_get_fd, "wl_display_get_fd");
@@ -409,6 +411,9 @@ struct rvn_pwindow_t {
 
 	/* a native viewport: a sub-surface of its parent */
 	int is_child;
+	/* the title bar asked to close it: see rvn_wl_decor_close */
+	int close_pending;
+	rvn_pwindow_t* close_next;
 	rvn_pwindow_t* parent;
 	struct wl_subsurface* subsurface;
 	int child_x, child_y;
@@ -508,6 +513,7 @@ static struct {
 	/* drag and drop from other applications */
 	struct wl_data_offer* drag_offer;
 	rvn_pwindow_t* drag_window;
+	rvn_pwindow_t* close_first;
 	uint32_t drag_serial;
 	int drag_accepted;
 	double drag_x, drag_y;
@@ -831,12 +837,44 @@ static void rvn_wl_decor_configure(struct libdecor_frame* frame, struct libdecor
 	rvn_wl_apply_configure(window, width, height, maximized);
 }
 
+/*
+ * Only remembered: closing usually destroys the window and its frame, and this
+ * is called from inside the handler of libdecor for the button of its title
+ * bar, which goes on using the frame when it returns.
+ * rvn_wl_deliver_closes tells the core afterwards.
+ */
 static void rvn_wl_decor_close(struct libdecor_frame* frame, void* user) {
-	rvn_pevent_t event;
+	rvn_pwindow_t* window = (rvn_pwindow_t*)user;
 	RVN_UNUSED(frame);
-	memset(&event, 0, sizeof(event));
-	event.type = RVN_PEVENT_CLOSE;
-	rvn_wl_emit((rvn_pwindow_t*)user, &event);
+	if (window->close_pending) return;
+	window->close_pending = R_TRUE;
+	window->close_next = g_wl.close_first;
+	g_wl.close_first = window;
+}
+
+static void rvn_wl_deliver_closes(void) {
+	while (g_wl.close_first) {
+		rvn_pwindow_t* window = g_wl.close_first;
+		rvn_pevent_t event;
+		g_wl.close_first = window->close_next;
+		window->close_next = NULL;
+		window->close_pending = R_FALSE;
+		memset(&event, 0, sizeof(event));
+		event.type = RVN_PEVENT_CLOSE;
+		rvn_wl_emit(window, &event);
+	}
+}
+
+static void rvn_wl_forget_close(rvn_pwindow_t* window) {
+	rvn_pwindow_t** link;
+	if (!window->close_pending) return;
+	for (link = &g_wl.close_first; *link; link = &(*link)->close_next) {
+		if (*link == window) {
+			*link = window->close_next;
+			break;
+		}
+	}
+	window->close_pending = R_FALSE;
 }
 
 static void rvn_wl_decor_commit(struct libdecor_frame* frame, void* user) {
@@ -928,10 +966,14 @@ static void rvn_wl_apply_cursor(void) {
  *  Pointer
  * ------------------------------------------------------------------------- */
 
-/* The window of a surface (a sub-surface counts as its parent: its input region is empty). */
+/*
+ * The window of a surface (a sub-surface counts as its parent: its input region
+ * is empty), or NULL for a surface that is not ours: the title bar drawn by
+ * libdecor gets the same input events, and its user data belongs to libdecor.
+ */
 static rvn_pwindow_t* rvn_wl_window_of(struct wl_surface* surface) {
 	rvn_pwindow_t* window;
-	if (!surface) return NULL;
+	if (!surface || g_wlc.proxy_get_listener((struct wl_proxy*)surface) != &g_wl_surface_listener) return NULL;
 	window = (rvn_pwindow_t*)wl_surface_get_user_data(surface);
 	while (window && window->is_child) window = window->parent;
 	return window;
@@ -2330,6 +2372,7 @@ static rvn_pwindow_t* rvn_wl_window_create(const rvn_pwindow_desc_t* desc) {
 static void rvn_wl_window_destroy(rvn_pwindow_t* window) {
 	rvn_wl_tool_t* tool;
 	int i;
+	rvn_wl_forget_close(window);
 	if (g_wl.pointer_window == window) g_wl.pointer_window = NULL;
 	for (i = 0; i < RVN_WL_MAX_TOUCHES; i++) if (g_wl.touches[i].window == window) g_wl.touches[i].window = NULL;
 	for (tool = g_wl.tools; tool; tool = tool->next) if (tool->window == window) tool->window = NULL;
@@ -2644,6 +2687,11 @@ static void rvn_wl_lost(void) {
 static void rvn_wl_pump(double timeout_seconds) {
 	struct pollfd fds[5];
 	int count = 0, i, timeout_ms, a11y, decor_fd = -1, display_fd;
+	/* (what a roundtrip outside this function dispatched: not worth sleeping over) */
+	if (g_wl.close_first) {
+		rvn_wl_deliver_closes();
+		timeout_seconds = 0.0;
+	}
 	if (!g_wl.display || g_wl.failed) {
 		if (timeout_seconds != 0.0) {
 			struct timespec pause = { 0, 10000000 };
@@ -2716,6 +2764,7 @@ static void rvn_wl_pump(double timeout_seconds) {
 		return;
 	}
 	if (g_wl.decor) g_decor.dispatch(g_wl.decor, 0);
+	rvn_wl_deliver_closes();
 	for (i = 1; i < count; i++) {
 		if (fds[i].fd == g_wl.repeat_fd && (fds[i].revents & POLLIN)) rvn_wl_repeat_fire();
 	}
