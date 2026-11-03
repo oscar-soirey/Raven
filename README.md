@@ -451,7 +451,7 @@ Questions: oscarsoirey.contact@gmail.com.
 
 ## Status
 
-Version 0.2.0. Everything in this README has been tested: the headless test
+Version 0.2.1. Everything in this README has been tested: the headless test
 programs (layout, widgets, XML, threads, memory, animations, text editor,
 shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
 under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
@@ -557,7 +557,7 @@ dist.bat --test       :: also runs the tests of each build
 ```
 
 ```
-dist\raven-0.2.0\
+dist\raven-0.2.1\
     msvc-static\     include\, lib\raven.lib, lib\cmake\raven, bin\raven_designer.exe, share\raven\
     msvc-shared\     bin\raven.dll, lib\raven.lib (to link with the DLL), the rest as above
     mingw-static\    lib\libraven.a, the rest as above
