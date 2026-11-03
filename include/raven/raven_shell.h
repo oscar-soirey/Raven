@@ -108,8 +108,10 @@ extern "C" {
 	/** @param buttons Bitmask of RHeaderButtons. All by default; the maximize button only shows on a resizable window. */
 	RAVEN_API void Rheader_bar_set_buttons(Rid bar, Ruint buttons);
 	/**
-	 * @param side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-	 * Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+	 * @param side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+	 * R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+	 * set, the side is the one of the system the program runs on (left on
+	 * macOS, right elsewhere), whatever the look.
 	 */
 	RAVEN_API void Rheader_bar_set_button_side(Rid bar, RHAlign side);
 	/** @param align R_HALIGN_CENTER (default) or R_HALIGN_LEFT. */

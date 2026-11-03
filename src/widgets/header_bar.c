@@ -27,7 +27,7 @@ typedef struct rvn_header_bar_t {
 	Ruint buttons;
 	/** R_HALIGN_RIGHT: glyph buttons (Windows). R_HALIGN_LEFT: colored lights (macOS). */
 	RHAlign side;
-	/** R_TRUE when the application chose the side (ButtonSide, Rheader_bar_set_button_side); else it follows the look. */
+	/** R_TRUE when the application chose the side (ButtonSide, Rheader_bar_set_button_side); else it follows the system. */
 	int side_given;
 	RHAlign title_align;
 	int no_background;
@@ -44,13 +44,19 @@ typedef struct rvn_header_bar_t {
 	float gap_x0, gap_x1;
 } rvn_header_bar_t;
 
-/* The side of the window buttons: the one chosen, else the one of the look (macOS: left). */
+/*
+ * The side of the window buttons: the one chosen, else the one of the system
+ * the program runs on (macOS: left; Windows, Linux: right), whatever the look:
+ * a window with the macOS look on Windows keeps its buttons where Windows has them.
+ */
 static RHAlign rvn_header_bar_side(const rvn_widget_t* widget) {
 	const rvn_header_bar_t* bar = (const rvn_header_bar_t*)widget;
 	if (bar->side_given) return bar->side;
-	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return R_HALIGN_LEFT;
-	if (rvn_widget_family(widget) == RVN_FAMILY_WINDOWS || rvn_widget_family(widget) == RVN_FAMILY_GNOME) return R_HALIGN_RIGHT;
-	return bar->side;
+#if defined(__APPLE__)
+	return R_HALIGN_LEFT;
+#else
+	return R_HALIGN_RIGHT;
+#endif
 }
 
 #define RVN_HB_SPACING 6.0f
