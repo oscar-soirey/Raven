@@ -677,8 +677,9 @@ static void test_viewport(void) {
 	CHECK(g_callback_info.backend == R_BACKEND_VULKAN);
 	CHECK(g_callback_info.window == window);
 	CHECK(g_callback_info.command_buffer != NULL && g_callback_info.render_pass != NULL);
-	CHECK(g_callback_info.x == (int)(150 * g_scale) && g_callback_info.y == (int)(20 * g_scale));
-	CHECK(g_callback_info.width == (int)(120 * g_scale) && g_callback_info.height == (int)(80 * g_scale));
+	/* (at a fractional scale, 150 * 1.25 = 187.5: the place on the pixel grid may be either pixel) */
+	CHECK(abs(g_callback_info.x - (int)floorf(150 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.y - (int)floorf(20 * g_scale + 0.5f)) <= 1);
+	CHECK(abs(g_callback_info.width - (int)floorf(120 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.height - (int)floorf(80 * g_scale + 0.5f)) <= 1);
 	CHECK(g_callback_info.clip_width == g_callback_info.width);
 
 	Rtexture_destroy(texture);
