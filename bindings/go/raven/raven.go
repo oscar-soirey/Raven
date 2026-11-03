@@ -1,6 +1,6 @@
 // Package raven is Raven for Go.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // Each C function whose parameters Go can express directly has a Go function:
 // Rwindow_set_title is WindowSetTitle. The enumerations keep their C names

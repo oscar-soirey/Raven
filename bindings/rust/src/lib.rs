@@ -1,6 +1,6 @@
 //! Raven for Rust.
 //!
-//! Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+//! Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //!
 //! [`sys`] is the C API as it is: the same names, raw pointers, `unsafe`.
 //! Everything in it is also at the root of the crate. Around it, a few helpers

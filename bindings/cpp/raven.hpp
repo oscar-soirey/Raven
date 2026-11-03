@@ -1,6 +1,6 @@
 // Raven for C++.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // The C API is used as it is (same enumerations, same structures); this header
 // adds, in the namespace raven:

@@ -1,6 +1,6 @@
 // Raven for Odin.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // The C API as it is, under its own names. Enumerations are i32 with constants
 // (R_BACKEND_VULKAN), structures have the layout of C and are zeroed when
@@ -39,9 +39,9 @@ Rid :: u32
 Ruint :: u32
 
 RAVEN_VERSION_MAJOR :: 0
-RAVEN_VERSION_MINOR :: 1
-RAVEN_VERSION_PATCH :: 0
-RAVEN_API_VERSION :: "0.1"
+RAVEN_VERSION_MINOR :: 2
+RAVEN_VERSION_PATCH :: 1
+RAVEN_API_VERSION :: "0.2"
 R_FALSE :: 0
 R_TRUE :: 1
 R_INVALID_ID : Rid : 0xFFFFFFFF

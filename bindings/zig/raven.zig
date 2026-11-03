@@ -1,6 +1,6 @@
 // Raven for Zig.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // The C API as it is. Enumerations are c_int with constants, structures are
 // extern structs whose fields default to zero (`.{}` is the zeroed structure
@@ -28,9 +28,9 @@
 pub const Rid = u32;
 pub const Ruint = u32;
 pub const RAVEN_VERSION_MAJOR: c_int = 0;
-pub const RAVEN_VERSION_MINOR: c_int = 1;
-pub const RAVEN_VERSION_PATCH: c_int = 0;
-pub const RAVEN_API_VERSION = "0.1";
+pub const RAVEN_VERSION_MINOR: c_int = 2;
+pub const RAVEN_VERSION_PATCH: c_int = 1;
+pub const RAVEN_API_VERSION = "0.2";
 pub const R_FALSE: c_int = 0;
 pub const R_TRUE: c_int = 1;
 pub const R_INVALID_ID: Rid = 0xFFFFFFFF;

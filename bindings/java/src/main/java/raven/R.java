@@ -1,6 +1,6 @@
 // Raven for Java.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // The C API under its own names, in the class raven.R, over the Foreign
 // Function & Memory API of Java 22 and later (java.lang.foreign): no
@@ -193,9 +193,9 @@ public final class R {
     // ---- constants
 
     public static final int RAVEN_VERSION_MAJOR = 0;
-    public static final int RAVEN_VERSION_MINOR = 1;
-    public static final int RAVEN_VERSION_PATCH = 0;
-    public static final String RAVEN_API_VERSION = "0.1";
+    public static final int RAVEN_VERSION_MINOR = 2;
+    public static final int RAVEN_VERSION_PATCH = 1;
+    public static final String RAVEN_API_VERSION = "0.2";
     public static final int R_FALSE = 0;
     public static final int R_TRUE = 1;
     public static final int R_INVALID_ID = 0xFFFFFFFF;
