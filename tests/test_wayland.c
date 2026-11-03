@@ -203,6 +203,7 @@ static struct {
 	int ready, stop;
 
 	struct wl_resource* surface;          /* of the toplevel */
+	struct wl_resource* last_surface;     /* the last one made, whatever it is for */
 	struct wl_resource* xdg_surface;
 	struct wl_resource* toplevel;
 	struct wl_resource* fractional;
@@ -261,7 +262,7 @@ static void surface_commit(struct wl_client* client, struct wl_resource* resourc
 }
 
 static void compositor_create_surface(struct wl_client* client, struct wl_resource* resource, uint32_t id) {
-	test_create(client, &I_surface, (uint32_t)S.resource_get_version(resource), id, NULL);
+	C.last_surface = test_create(client, &I_surface, (uint32_t)S.resource_get_version(resource), id, NULL);
 }
 
 static void compositor_create_region(struct wl_client* client, struct wl_resource* resource, uint32_t id) {
@@ -567,6 +568,60 @@ static void do_pointer_click(void* unused) {
 	EVENT0(C.pointer, wl_pointer, "frame");
 }
 
+static void do_pointer_enter_last_surface(void* unused) {
+	(void)unused;
+	EVENT(C.pointer, wl_pointer, "enter", S.display_next_serial(C.display), C.last_surface, 0, 0);
+	EVENT0(C.pointer, wl_pointer, "frame");
+}
+
+/* ---------------------------------------------------------------------------
+ *  A surface that is not Raven's, on the connection of Raven
+ *
+ *  The title bar drawn by libdecor is one: it gets the same input events as
+ *  the windows, and its user data belongs to libdecor. This one has user data
+ *  that crashes whoever takes it for a window (a pointer made of 0x41 where a
+ *  window has its parent). Only this part needs the client side of Wayland.
+ * ------------------------------------------------------------------------- */
+
+static char g_not_a_window[4096];
+static struct wl_proxy* g_foreign_compositor;
+static struct wl_proxy* (*g_marshal)(struct wl_proxy* proxy, uint32_t opcode, const struct wl_interface* interface, uint32_t version, uint32_t flags, ...);
+
+static void foreign_global(void* data, struct wl_registry* registry, uint32_t name, const char* interface_, uint32_t version) {
+	(void)data; (void)version;
+	if (strcmp(interface_, "wl_compositor") == 0) {
+		g_foreign_compositor = g_marshal((struct wl_proxy*)registry, 0, &rvn_wl_compositor_interface, 1, 0,
+			name, rvn_wl_compositor_interface.name, 1u, NULL);
+	}
+}
+
+static void foreign_global_remove(void* data, struct wl_registry* registry, uint32_t name) {
+	(void)data; (void)registry; (void)name;
+}
+
+static int make_foreign_surface(void* display) {
+	static const struct wl_registry_listener listener = { foreign_global, foreign_global_remove };
+	int (*add_listener)(struct wl_proxy* proxy, const void* implementation, void* data);
+	void (*set_user_data)(struct wl_proxy* proxy, void* data);
+	int (*roundtrip)(void* display);
+	struct wl_proxy* registry;
+	struct wl_proxy* surface;
+	void* client = dlopen("libwayland-client.so.0", RTLD_NOW);
+	if (!client || !test_symbol(client, "wl_proxy_marshal_flags", &g_marshal) || !test_symbol(client, "wl_proxy_add_listener", &add_listener)
+			|| !test_symbol(client, "wl_proxy_set_user_data", &set_user_data) || !test_symbol(client, "wl_display_roundtrip", &roundtrip)) {
+		return 0;
+	}
+	registry = g_marshal((struct wl_proxy*)display, 1, &rvn_wl_registry_interface, 1, 0, NULL);
+	add_listener(registry, &listener, NULL);
+	roundtrip(display);
+	if (!g_foreign_compositor) return 0;
+	surface = g_marshal(g_foreign_compositor, 0, &rvn_wl_surface_interface, 1, 0, NULL);
+	memset(g_not_a_window, 0x41, sizeof(g_not_a_window));
+	set_user_data(surface, g_not_a_window);
+	roundtrip(display);
+	return 1;
+}
+
 /* A pen comes near, presses at a point with half of its pressure, and goes away. */
 static void do_pen_stroke(void* argument) {
 	point* p = (point*)argument;
@@ -840,6 +895,19 @@ static void test_wayland(void) {
 	compositor_do(do_pointer_click, NULL);
 	settle(20);
 	CHECK(g_clicks == 1);
+
+	/* the pointer on a surface that is not ours: no window gets its click, and it does no harm */
+	CHECK(make_foreign_surface(native.display));
+	compositor_do(do_pointer_enter_last_surface, NULL);
+	compositor_do(do_pointer_click, NULL);
+	settle(20);
+	CHECK(g_clicks == 1);
+	/* ...and back on the window, the window has the pointer again */
+	compositor_do(do_pointer_enter, &p);
+	compositor_do(do_pointer_click, NULL);
+	settle(20);
+	CHECK(g_clicks == 2);
+	g_clicks = 1;
 
 	/* a tap of a finger clicks it too */
 	compositor_do(do_touch_tap, &p);
