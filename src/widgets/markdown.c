@@ -1676,6 +1676,8 @@ int rvn_md_offset_at(const rvn_md_t* md, float x, float y) {
 			pick = run;
 		}
 	}
+	/* (an x that is not a number is near nothing: the line itself) */
+	if (!pick) pick = line;
 	if (x <= pick->x) return (int)pick->start;
 	if (x >= pick->x + pick->w) return (int)(pick->start + pick->length);
 	font = rvn_font_resolve(pick->font);
