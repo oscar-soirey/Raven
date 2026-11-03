@@ -9,6 +9,7 @@
 #   binding_go            needs go, a C compiler for cgo, and the shared library; not on Windows
 #   binding_java          needs a JDK 22 or later and the shared library; not on Windows
 #   binding_odin          needs odin and the shared library; not on Windows
+#   binding_bun           needs bun and the shared library; not on Windows
 #
 # C#, Zig and LuaJIT have no test here.
 
@@ -79,5 +80,12 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} run example
 				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven>" -- --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
+	endif()
+
+	find_program(RAVEN_BUN bun)
+	if(RAVEN_BUN)
+		add_test(NAME binding_bun
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_BUN} run ${CMAKE_CURRENT_SOURCE_DIR}/bun/src/example.ts --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 	endif()
 endif()

@@ -9,6 +9,7 @@ so that a new shape in a header is noticed instead of silently left out.
 
 import os
 import re
+from typing import Any, Tuple
 
 # The parts of the API that only make sense from C: writing a rendering
 # backend, and sharing the Vulkan device of Raven.
@@ -296,9 +297,10 @@ SCALARS = {
 }
 
 
-def classify(ctype, api):
+def classify(ctype, api) -> Tuple[str, Any]:
     """
-    What a C type is, for the generators: a (kind, detail) pair.
+    What a C type is, for the generators: a (kind, detail) pair. What the detail
+    is depends on the kind, which a type cannot say, so it is left open.
 
       ("void", None)            ("scalar", "int" | "float" | "double" | "char" | "size_t" | "uint64" | "uintptr" | "uint32" | "id")
       ("enum", name)            ("callback", name)        ("fnptr", None)

@@ -1,0 +1,22 @@
+{
+  "name": "raven-gui-bun",
+  "version": "0.2.0",
+  "description": "Bun bindings for Raven, a lightweight multithreaded GUI library in C for editors and tools",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "module": "src/raven.ts",
+  "exports": "./src/raven.ts",
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "scripts": {
+    "example": "bun run src/example.ts",
+    "test": "bun run src/example.ts --test",
+    "typecheck": "bun check"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^6"
+  }
+}
