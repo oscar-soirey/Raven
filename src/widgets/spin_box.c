@@ -19,6 +19,8 @@ typedef struct rvn_spin_box_t {
 	int decimals;
 	int editing;
 	int dragging;
+	/** What the wheel turned that did not make a step yet (a trackpad turns it by fractions). */
+	float wheel_rest;
 	float press_x;
 	double press_value;
 	/* Windows: the button under the pointer (+1 up, -1 down, 0 none) */
@@ -309,7 +311,11 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 		case R_EVENT_MOUSE_WHEEL:
 			/* only a focused field steps with the wheel: it must not hijack the scrolling of a panel */
 			if (!(widget->flags & RVN_WF_FOCUSED) || spin->editing || event->wheel_y == 0.0f) return R_FALSE;
-			rvn_spin_box_set(widget, spin->value + (event->wheel_y > 0.0f ? spin->step : -spin->step), R_TRUE);
+			{
+				/* a step per notch: the small turns of a trackpad add up to one */
+				int steps = rvn_wheel_notches(&spin->wheel_rest, event->wheel_y);
+				if (steps != 0) rvn_spin_box_set(widget, spin->value + (double)steps * spin->step, R_TRUE);
+			}
 			return R_TRUE;
 		case R_EVENT_KEY_DOWN:
 			if (spin->editing) {
