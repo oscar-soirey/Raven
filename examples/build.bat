@@ -3,22 +3,25 @@ rem ---------------------------------------------------------------------------
 rem  Raven - examples\build.bat
 rem  Builds the example projects that are not part of the CMake build of Raven:
 rem
-rem    languages\hello_c        main.xmlc       CMake
-rem    languages\hello_cpp      main.xmlc++     CMake
-rem    languages\hello_rust     main.xmlrs      Cargo
-rem    languages\hello_python   main.xmlpy      ravenc (checked, Python runs it)
-rem    languages\hello_go       main.xmlgo      go generate + go build
-rem    languages\hello_csharp   main.xmlcs      dotnet
-rem    languages\hello_zig      main.xmlzig     zig build
-rem    languages\hello_lua      main.xmllua     ravenc (checked, LuaJIT runs it)
-rem    bevy_editor              editor.xmlrs    Cargo (Bevy 0.16)
+rem    languages\hello_c        main.c           CMake
+rem    languages\hello_cpp      main.cpp         CMake
+rem    languages\hello_rust     src\main.rs      Cargo
+rem    languages\hello_python   main.py          checked (Python runs it)
+rem    languages\hello_go       main.go          go build
+rem    languages\hello_csharp   Program.cs       dotnet
+rem    languages\hello_zig      src\main.zig     zig build
+rem    languages\hello_lua      main.lua         checked (LuaJIT runs it)
+rem    bevy_editor              ui\src\editor.rs Cargo (Bevy 0.16)
+rem
+rem  Each one loads its interface, main.xml (editor.xml for the Bevy editor),
+rem  when it starts.
 rem
 rem  (The C examples - studio, editor, glass... - are built by ..\build.bat.)
 rem
 rem    build.bat [configuration] [options]
 rem
 rem    configuration     Debug or Release (default)
-rem    --raven DIR       a Raven package (bin\ravenc.exe, bin\raven.dll, lib\, include\).
+rem    --raven DIR       a Raven package (bin\raven.dll, lib\, include\).
 rem                      Default: RAVEN_PACKAGE if set, else Raven is built with
 rem                      ..\build.bat and installed into ..\build\package
 rem    --only NAMES      build these only, separated by commas:
@@ -93,13 +96,12 @@ cmake --install "%ROOT%\build" --config %CONFIG% --prefix "%PKG%"
 if errorlevel 1 goto failed
 :have_package
 if "%PKG:~-1%"=="\" set "PKG=%PKG:~0,-1%"
-if not exist "%PKG%\bin\ravenc.exe" (
-	echo [examples] "%PKG%" is not a Raven package: bin\ravenc.exe is missing.
+if not exist "%PKG%\lib\cmake\raven\ravenConfig.cmake" (
+	echo [examples] "%PKG%" is not a Raven package: lib\cmake\raven\ravenConfig.cmake is missing.
 	goto failed
 )
 
-rem  What every tool needs: ravenc, the library, the headers, the CMake package
-set "RAVENC=%PKG%\bin\ravenc.exe"
+rem  What every tool needs: the library, the headers, the CMake package
 set "RAVEN_LIB_DIR=%PKG%\lib"
 set "PATH=%PKG%\bin;%PATH%"
 set "CMAKE_PREFIX_PATH=%PKG%;%CMAKE_PREFIX_PATH%"
@@ -180,33 +182,33 @@ goto :eof
 
 :build_python
 set "P=%LANG_DIR%\hello_python"
-echo [examples] hello_python ^(ravenc^)
-if not exist "%P%\build" mkdir "%P%\build"
-"%RAVENC%" "%P%\main.xmlpy" -o "%P%\build\main.py"
+echo [examples] hello_python ^(checked^)
+where python >nul 2>nul
+if errorlevel 1 ( set "R_python=skipped: python not found" & goto :eof )
+python -m py_compile "%P%\main.py"
 if errorlevel 1 ( set "R_python=FAILED" & set "FAILED=1" & goto :eof )
 set "R_python=OK (run it: --run python)"
 goto :eof
 
 :build_lua
 set "P=%LANG_DIR%\hello_lua"
-echo [examples] hello_lua ^(ravenc^)
-if not exist "%P%\build" mkdir "%P%\build"
-"%RAVENC%" "%P%\main.xmllua" -o "%P%\build\main.lua"
+echo [examples] hello_lua ^(checked^)
+where luajit >nul 2>nul
+if errorlevel 1 ( set "R_lua=skipped: luajit not found" & goto :eof )
+luajit -e "assert(loadfile([[%P%\main.lua]]))"
 if errorlevel 1 ( set "R_lua=FAILED" & set "FAILED=1" & goto :eof )
 set "R_lua=OK (run it: --run lua)"
 goto :eof
 
 :build_go
 set "P=%LANG_DIR%\hello_go"
-echo [examples] hello_go ^(go generate, go build^)
+echo [examples] hello_go ^(go build^)
 where go >nul 2>nul
 if errorlevel 1 ( set "R_go=skipped: go not found (https://go.dev/dl)" & goto :eof )
 where gcc >nul 2>nul
 if errorlevel 1 ( set "R_go=skipped: cgo needs gcc in the PATH (MinGW-w64)" & goto :eof )
 pushd "%P%"
 if "%CLEAN%"=="1" if exist hello_go.exe del /q hello_go.exe
-go generate
-if errorlevel 1 ( popd & set "R_go=FAILED (go generate)" & set "FAILED=1" & goto :eof )
 go build -o hello_go.exe .
 set "E=%ERRORLEVEL%"
 popd
@@ -290,10 +292,10 @@ if /I "%RUN%"=="csharp" (
 	pushd "%LANG_DIR%\hello_csharp" & dotnet run -c %CONFIG% --no-build & set "E=!ERRORLEVEL!" & popd
 )
 if /I "%RUN%"=="python" (
-	pushd "%LANG_DIR%\hello_python" & python -m raven_xmlpy main.xmlpy & set "E=!ERRORLEVEL!" & popd
+	pushd "%LANG_DIR%\hello_python" & python main.py & set "E=!ERRORLEVEL!" & popd
 )
 if /I "%RUN%"=="lua" (
-	pushd "%LANG_DIR%\hello_lua" & luajit -e "require('raven_xmllua').run('main.xmllua')" & set "E=!ERRORLEVEL!" & popd
+	pushd "%LANG_DIR%\hello_lua" & luajit main.lua & set "E=!ERRORLEVEL!" & popd
 )
 if "%FAILED%"=="1" goto failed
 exit /b %E%

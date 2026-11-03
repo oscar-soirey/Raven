@@ -30,11 +30,24 @@
 #include "common.h"
 #include "../xml/xml.h"
 
+/*
+ * Sizes for the flat theme, whose text is 13 units high. They are scaled by
+ * rvn_tl_unit: the ruler, the tracks and their labels follow the size of the
+ * text of the theme and the text scale of the accessibility settings. The
+ * application can set the ruler, the header and the tracks itself
+ * (Rtimeline_set_ruler_height...).
+ */
+#define RVN_TL_BASE_FONT 13.0f
 #define RVN_TL_RULER 30.0f
 #define RVN_TL_TRACK 38.0f
 #define RVN_TL_EDGE 7.0f
 #define RVN_TL_SNAP_PIXELS 8.0f
 #define RVN_TL_KEY 11.0f
+#define RVN_TL_TOGGLE 20.0f
+#define RVN_TL_FLAG 15.0f
+#define RVN_TL_HEADER_MIN 96.0f
+#define RVN_TL_HEADER_MAX 240.0f
+#define RVN_TL_MIN_TRACK 16.0f
 
 typedef enum rvn_tl_drag_t {
 	RVN_TL_DRAG_NONE,
@@ -88,8 +101,12 @@ typedef struct rvn_timeline_t {
 	RSpring shown_start, shown_span;
 	/** What the last paint drew: the mouse works with this. */
 	double draw_start, draw_span;
+	/** 0: automatic (fits the names of the tracks). */
 	float header_width;
+	/** Height of the tracks that have none of their own; 0: automatic. */
 	float track_height;
+	/** 0: automatic. */
+	float ruler_height;
 
 	rvn_tl_track_t* tracks;
 	uint32_t track_count, track_cap;
@@ -187,8 +204,34 @@ static void rvn_tl_remove_item_at(rvn_timeline_t* tl, uint32_t index) {
 	tl->item_count--;
 }
 
+/* How much bigger than the flat theme the sizes of the timeline are. */
+static float rvn_tl_unit(const rvn_timeline_t* tl) {
+	float font = rvn_widget_metric(&tl->base, R_METRIC_FONT_SIZE);
+	return rvn_maxf(font / RVN_TL_BASE_FONT * rvn_a11y_text_scale(), 0.5f);
+}
+
+static float rvn_tl_ruler_height(const rvn_timeline_t* tl) {
+	return tl->ruler_height > 0.0f ? tl->ruler_height : roundf(RVN_TL_RULER * rvn_tl_unit(tl));
+}
+
+static float rvn_tl_default_track_height(const rvn_timeline_t* tl) {
+	return tl->track_height > 0.0f ? tl->track_height : roundf(RVN_TL_TRACK * rvn_tl_unit(tl));
+}
+
 static float rvn_tl_track_height(const rvn_timeline_t* tl, const rvn_tl_track_t* track) {
-	return track->height > 0.0f ? track->height : tl->track_height;
+	return track->height > 0.0f ? track->height : rvn_tl_default_track_height(tl);
+}
+
+/* Text on a colored clip or flag: the darker (or lighter) of the text and window colors of the theme. */
+static rvn_color_t rvn_tl_ink(const rvn_widget_t* widget, int dark) {
+	rvn_color_t text = rvn_widget_color(widget, R_COLOR_TEXT), window = rvn_widget_color(widget, R_COLOR_WINDOW);
+	float r, g, b, a, text_light, window_light;
+	rvn_color_to_floats(text, &r, &g, &b, &a);
+	text_light = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+	rvn_color_to_floats(window, &r, &g, &b, &a);
+	window_light = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+	/* (opaque: the window color of a glass theme is see-through) */
+	return ((text_light < window_light) == (dark != 0) ? text : window) | 0xFF000000u;
 }
 
 static float rvn_tl_tracks_height(const rvn_timeline_t* tl) {
@@ -221,35 +264,52 @@ typedef struct rvn_tl_layout_t {
 	rvn_rect_t time_track;
 	rvn_rect_t track_track;
 	float bar;
+	/* sizes for the theme and the text scale (see rvn_tl_unit) */
+	float unit;
+	float ruler_h;
+	float key;
+	float edge;
+	float toggle;
+	float flag;
 } rvn_tl_layout_t;
 
 static void rvn_tl_layout(const rvn_timeline_t* tl, rvn_tl_layout_t* layout) {
 	const rvn_widget_t* widget = &tl->base;
 	float bar = rvn_widget_metric(widget, R_METRIC_SCROLLBAR_SIZE);
 	float header = tl->header_width;
+	float unit = rvn_tl_unit(tl);
+	float ruler = rvn_tl_ruler_height(tl);
 	float lanes_height, lanes_width;
 	int scroll;
+	layout->unit = unit;
+	layout->ruler_h = ruler;
+	layout->key = RVN_TL_KEY * unit;
+	layout->edge = RVN_TL_EDGE * unit;
+	layout->toggle = roundf(RVN_TL_TOGGLE * unit);
+	layout->flag = roundf(RVN_TL_FLAG * unit);
 	if (header <= 0.0f) {
 		/* as wide as the longest name asks, within reason */
 		rvn_font_t* font = rvn_font_resolve(R_INVALID_ID);
 		float size = rvn_widget_font_size(widget, 0.0f);
 		uint32_t i;
-		header = 96.0f;
+		/* the dot before the name, then the two toggles after it */
+		float around = 26.0f * unit + layout->toggle * 2.0f + 22.0f * unit;
+		header = RVN_TL_HEADER_MIN * unit;
 		for (i = 0; i < tl->track_count; i++) {
-			if (tl->tracks[i].name) header = rvn_maxf(header, rvn_text_width(font, size, tl->tracks[i].name, -1) + 26.0f + 62.0f);
+			if (tl->tracks[i].name) header = rvn_maxf(header, rvn_text_width(font, size, tl->tracks[i].name, -1) + around);
 		}
-		header = ceilf(rvn_minf(header, 240.0f));
+		header = ceilf(rvn_minf(header, RVN_TL_HEADER_MAX * unit));
 	}
 	header = rvn_minf(header, widget->rect.w * 0.5f);
-	lanes_height = rvn_maxf(0.0f, widget->rect.h - RVN_TL_RULER - bar);
+	lanes_height = rvn_maxf(0.0f, widget->rect.h - ruler - bar);
 	scroll = rvn_tl_tracks_height(tl) > lanes_height + 0.5f;
 	lanes_width = rvn_maxf(1.0f, widget->rect.w - header - (scroll ? bar : 0.0f));
 	layout->bar = bar;
-	layout->ruler = rvn_rect(header, 0.0f, lanes_width, RVN_TL_RULER);
-	layout->lanes = rvn_rect(header, RVN_TL_RULER, lanes_width, lanes_height);
-	layout->headers = rvn_rect(0.0f, RVN_TL_RULER, header, lanes_height);
+	layout->ruler = rvn_rect(header, 0.0f, lanes_width, ruler);
+	layout->lanes = rvn_rect(header, ruler, lanes_width, lanes_height);
+	layout->headers = rvn_rect(0.0f, ruler, header, lanes_height);
 	layout->time_track = rvn_rect(header, widget->rect.h - bar, lanes_width, bar);
-	layout->track_track = rvn_rect(widget->rect.w - bar, RVN_TL_RULER, bar, lanes_height);
+	layout->track_track = rvn_rect(widget->rect.w - bar, ruler, bar, lanes_height);
 }
 
 static double rvn_tl_span(const rvn_timeline_t* tl) {
@@ -273,7 +333,7 @@ static float rvn_tl_track_y(const rvn_timeline_t* tl, const rvn_tl_layout_t* lay
 	float y = layout->lanes.y - tl->track_bar.offset;
 	int i;
 	for (i = 0; i < index && i < (int)tl->track_count; i++) y += rvn_tl_track_height(tl, &tl->tracks[i]);
-	if (height) *height = index >= 0 && index < (int)tl->track_count ? rvn_tl_track_height(tl, &tl->tracks[index]) : tl->track_height;
+	if (height) *height = index >= 0 && index < (int)tl->track_count ? rvn_tl_track_height(tl, &tl->tracks[index]) : rvn_tl_default_track_height(tl);
 	return y;
 }
 
@@ -507,7 +567,6 @@ static void rvn_timeline_init(rvn_widget_t* widget) {
 	tl->view_start = 0.0;
 	tl->view_span = 10.0;
 	tl->draw_span = 10.0;
-	tl->track_height = RVN_TL_TRACK;
 	tl->next_id = 1;
 	tl->guide = -1.0;
 	tl->hot_toggle = -1;
@@ -534,8 +593,9 @@ static void rvn_timeline_destroy(rvn_widget_t* widget) {
 
 static rvn_vec2_t rvn_timeline_measure(rvn_widget_t* widget) {
 	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
-	float tracks = rvn_clampf(rvn_tl_tracks_height(tl), tl->track_height * 2.0f, tl->track_height * 8.0f);
-	return rvn_vec2(480.0f, RVN_TL_RULER + tracks + rvn_widget_metric(widget, R_METRIC_SCROLLBAR_SIZE));
+	float track = rvn_tl_default_track_height(tl);
+	float tracks = rvn_clampf(rvn_tl_tracks_height(tl), track * 2.0f, track * 8.0f);
+	return rvn_vec2(480.0f * rvn_tl_unit(tl), rvn_tl_ruler_height(tl) + tracks + rvn_widget_metric(widget, R_METRIC_SCROLLBAR_SIZE));
 }
 
 static void rvn_timeline_arrange(rvn_widget_t* widget) {
@@ -547,6 +607,11 @@ static int rvn_tl_light(rvn_color_t color) {
 	float r, g, b, a;
 	rvn_color_to_floats(color, &r, &g, &b, &a);
 	return 0.2126f * r + 0.7152f * g + 0.0722f * b > 0.62f;
+}
+
+/* Width of the flag of a marker: the paint and the pointer use the same. */
+static float rvn_tl_flag_width(const rvn_tl_layout_t* layout, rvn_font_t* font, float size, const rvn_tl_item_t* item) {
+	return item->label ? rvn_text_width(font, size, item->label, -1) + 12.0f * layout->unit : 10.0f * layout->unit;
 }
 
 static void rvn_tl_paint_diamond(RPainter* painter, float cx, float cy, float half, rvn_color_t color) {
@@ -567,6 +632,7 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_color_t back = rvn_widget_color(widget, R_COLOR_INPUT);
 	rvn_color_t panel = rvn_widget_color(widget, R_COLOR_HEADER);
 	rvn_color_t head = rvn_widget_color(widget, R_COLOR_DANGER);
+	rvn_color_t dark_ink = rvn_tl_ink(widget, R_TRUE), light_ink = rvn_tl_ink(widget, R_FALSE);
 	float radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
 	double per_pixel, major, first;
 	int minor = 1, k;
@@ -633,8 +699,9 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 
 			if (item->type == R_TIMELINE_CLIP) {
 				float x0 = rvn_tl_x(tl, &layout, item->start), x1 = rvn_tl_x(tl, &layout, item->start + item->length);
-				rvn_rect_t rect = rvn_rect(x0, y + 4.0f - lift * 1.5f, rvn_maxf(x1 - x0, 3.0f), height - 9.0f);
-				float clip_radius = rvn_minf(7.0f, rect.w * 0.5f);
+				float inset = rvn_minf(4.0f * layout.unit, height * 0.2f);
+				rvn_rect_t rect = rvn_rect(x0, y + inset - lift * 1.5f, rvn_maxf(x1 - x0, 3.0f), height - inset * 2.0f - 1.0f);
+				float clip_radius = rvn_minf(rvn_minf(7.0f * layout.unit, rect.h * 0.5f), rect.w * 0.5f);
 				rvn_color_t fill = rvn_color_fade(rvn_color_mix(color, rvn_hex(0x000000, 255), 0.12f), opacity * (item->selected ? 1.0f : 0.86f));
 				if (x1 < layout.lanes.x || x0 > layout.lanes.x + layout.lanes.w) continue;
 				if (lift > 0.02f || item->selected) {
@@ -642,7 +709,7 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 						rvn_color_fade(item->selected ? color : rvn_hex(0x000000, 255), (item->selected ? 0.45f : 0.3f) * opacity));
 				}
 				rvn_paint_box(painter, rect, clip_radius, fill, item->selected ? 1.5f : 1.0f,
-					item->selected ? rvn_hex(0xFFFFFF, (uint32_t)(235.0f * opacity)) : rvn_color_fade(rvn_color_mix(color, rvn_hex(0xFFFFFF, 255), 0.35f), opacity));
+					item->selected ? rvn_color_fade(light_ink, 0.92f * opacity) : rvn_color_fade(rvn_color_mix(color, rvn_hex(0xFFFFFF, 255), 0.35f), opacity));
 				/* a band of light along the top: the clip is a little raised */
 				if (rect.h > 12.0f && rect.w > 8.0f) {
 					rvn_paint_box(painter, rvn_rect(rect.x + 2.0f, rect.y + 2.0f, rect.w - 4.0f, rvn_minf(rect.h * 0.42f, 12.0f)), rvn_maxf(clip_radius - 2.0f, 1.0f),
@@ -653,7 +720,7 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 					float left = rvn_minf(rvn_maxf(rect.x, layout.lanes.x), rect.x + rect.w - 40.0f);
 					rvn_paint_push_clip(painter, rvn_rect(rect.x + 7.0f, rect.y, rect.w - 14.0f, rect.h));
 					rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(left + 9.0f, rect.y, rect.w, rect.h), 0.0f, item->label, -1,
-						rvn_color_fade(rvn_tl_light(color) ? rvn_hex(0x101014, 255) : rvn_hex(0xFFFFFF, 255), opacity));
+						rvn_color_fade(rvn_tl_light(color) ? dark_ink : light_ink, opacity));
 					rvn_paint_pop_clip(painter);
 				}
 				/* the ends that stretch it show under the pointer */
@@ -664,14 +731,14 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 				}
 			} else {
 				float x = rvn_tl_x(tl, &layout, item->start), cy = y + height * 0.5f - lift * 1.5f;
-				float half = RVN_TL_KEY * 0.5f + lift * 2.0f + (item->selected ? 1.0f : 0.0f);
+				float half = layout.key * 0.5f + lift * 2.0f + (item->selected ? 1.0f : 0.0f);
 				if (x < layout.lanes.x - 12.0f || x > layout.lanes.x + layout.lanes.w + 12.0f) continue;
 				rvn_tl_paint_diamond(painter, x, cy + 1.5f, half + 2.0f, rvn_rgba(0.0f, 0.0f, 0.0f, 0.3f * opacity));
-				rvn_tl_paint_diamond(painter, x, cy, half + 1.5f, item->selected ? rvn_hex(0xFFFFFF, (uint32_t)(255.0f * opacity)) : rvn_color_fade(rvn_color_mix(color, rvn_hex(0x000000, 255), 0.45f), opacity));
+				rvn_tl_paint_diamond(painter, x, cy, half + 1.5f, item->selected ? rvn_color_fade(light_ink, opacity) : rvn_color_fade(rvn_color_mix(color, rvn_hex(0x000000, 255), 0.45f), opacity));
 				rvn_tl_paint_diamond(painter, x, cy, half - 0.5f, rvn_color_fade(color, opacity));
 				rvn_tl_paint_diamond(painter, x, cy - half * 0.28f, half * 0.34f, rvn_rgba(1.0f, 1.0f, 1.0f, 0.4f * opacity));
 				if (item->label && item->label[0]) {
-					rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(x + half + 6.0f, y, 200.0f, height), 0.0f, item->label, -1,
+					rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(x + half + 6.0f, y, rvn_maxf(layout.lanes.x + layout.lanes.w - (x + half + 6.0f), 0.0f), height), 0.0f, item->label, -1,
 						rvn_color_fade(item->selected ? text : dim, opacity));
 				}
 			}
@@ -697,29 +764,30 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 		/* the column of the headers goes down to the bottom of the widget */
 		float corners[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		corners[3] = rvn_maxf(radius - 1.0f, 0.0f);
-		rvn_paint_box4(painter, rvn_rect(1.0f, RVN_TL_RULER, layout.headers.w - 1.0f, widget->rect.h - RVN_TL_RULER - 1.0f), corners, panel, 0.0f, 0);
+		rvn_paint_box4(painter, rvn_rect(1.0f, layout.ruler_h, layout.headers.w - 1.0f, widget->rect.h - layout.ruler_h - 1.0f), corners, panel, 0.0f, 0);
 	}
 	rvn_paint_push_clip(painter, layout.headers);
 	for (i = 0; i < tl->track_count; i++) {
 		const rvn_tl_track_t* track = &tl->tracks[i];
 		float height, y = rvn_tl_track_y(tl, &layout, (int)i, &height);
 		rvn_color_t color = rvn_tl_track_color(tl, (int)i);
-		float toggle = 20.0f, right = layout.headers.w - 8.0f;
+		float toggle = layout.toggle, right = layout.headers.w - 8.0f * layout.unit;
+		float dot = 10.0f * layout.unit;
 		int t;
 		if (y > layout.headers.y + layout.headers.h || y + height < layout.headers.y) continue;
-		rvn_paint_box(painter, rvn_rect(8.0f, y + height * 0.5f - 5.0f, 10.0f, 10.0f), 5.0f, rvn_color_fade(color, track->muted ? 0.4f : 1.0f), 0.0f, 0);
-		rvn_paint_push_clip(painter, rvn_rect(24.0f, y, rvn_maxf(right - toggle * 2.0f - 8.0f - 24.0f, 0.0f), height));
-		rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(26.0f, y, layout.headers.w, height), 0.0f, track->name ? track->name : "", -1,
+		rvn_paint_box(painter, rvn_rect(8.0f * layout.unit, y + (height - dot) * 0.5f, dot, dot), dot * 0.5f, rvn_color_fade(color, track->muted ? 0.4f : 1.0f), 0.0f, 0);
+		rvn_paint_push_clip(painter, rvn_rect(24.0f * layout.unit, y, rvn_maxf(right - toggle * 2.0f - 32.0f * layout.unit, 0.0f), height));
+		rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(26.0f * layout.unit, y, layout.headers.w, height), 0.0f, track->name ? track->name : "", -1,
 			track->muted ? dim : text);
 		rvn_paint_pop_clip(painter);
 		/* mute and lock: two small toggles */
 		for (t = 0; t < 2; t++) {
 			int on = t == 0 ? track->muted : track->locked;
 			int hot = tl->hot_toggle == (int)i * 2 + t && painter->enabled;
-			rvn_rect_t rect = rvn_rect(right - toggle * (float)(2 - t) - (t == 0 ? 3.0f : 0.0f), y + (height - toggle) * 0.5f, toggle, toggle);
+			rvn_rect_t rect = rvn_rect(right - toggle * (float)(2 - t) - (t == 0 ? 3.0f * layout.unit : 0.0f), y + (height - toggle) * 0.5f, toggle, toggle);
 			rvn_color_t fill = on ? (t == 0 ? rvn_widget_color(widget, R_COLOR_WARNING) : accent) : rvn_color_fade(text, hot ? 0.16f : 0.07f);
-			rvn_paint_box(painter, rect, 6.0f, fill, 0.0f, 0);
-			rvn_paint_text_in(painter, R_INVALID_ID, small, rect, 0.5f, t == 0 ? "M" : "L", 1, on ? rvn_hex(0x101014, 255) : (hot ? text : dim));
+			rvn_paint_box(painter, rect, 6.0f * layout.unit, fill, 0.0f, 0);
+			rvn_paint_text_in(painter, R_INVALID_ID, small, rect, 0.5f, t == 0 ? "M" : "L", 1, on ? (rvn_tl_light(fill) ? dark_ink : light_ink) : (hot ? text : dim));
 		}
 		rvn_paint_rect(painter, rvn_rect(0.0f, y + height - 1.0f, layout.headers.w, 1.0f), rvn_color_fade(line, 0.6f));
 	}
@@ -727,16 +795,16 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_paint_rect(painter, rvn_rect(layout.headers.w - 1.0f, 0.0f, 1.0f, widget->rect.h), line);
 
 	/* ---- the ruler ---- */
-	rvn_paint_push_clip(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, RVN_TL_RULER));
+	rvn_paint_push_clip(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, layout.ruler_h));
 	{
 		float corners[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		corners[0] = corners[1] = rvn_maxf(radius - 1.0f, 0.0f);
-		rvn_paint_box4(painter, rvn_rect(1.0f, 1.0f, widget->rect.w - 2.0f, RVN_TL_RULER - 1.0f), corners, panel, 0.0f, 0);
+		rvn_paint_box4(painter, rvn_rect(1.0f, 1.0f, widget->rect.w - 2.0f, layout.ruler_h - 1.0f), corners, panel, 0.0f, 0);
 	}
-	rvn_paint_rect(painter, rvn_rect(0.0f, RVN_TL_RULER - 1.0f, widget->rect.w, 1.0f), line);
+	rvn_paint_rect(painter, rvn_rect(0.0f, layout.ruler_h - 1.0f, widget->rect.w, 1.0f), line);
 	/* the time of the playhead, where the headers leave room for it */
 	rvn_tl_format_time(tl, tl->time, tl->fps > 0.0 ? 1.0 : 0.01, label, sizeof(label));
-	rvn_paint_text_in(painter, g_rvn.mono_font, size, rvn_rect(10.0f, 0.0f, layout.headers.w - 16.0f, RVN_TL_RULER), 0.0f, label, -1, text);
+	rvn_paint_text_in(painter, g_rvn.mono_font, size, rvn_rect(10.0f * layout.unit, 0.0f, layout.headers.w - 16.0f * layout.unit, layout.ruler_h), 0.0f, label, -1, text);
 	rvn_paint_pop_clip(painter);
 
 	rvn_paint_push_clip(painter, layout.ruler);
@@ -744,11 +812,12 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 		double time = first + (double)k * major / (double)minor;
 		float x = floorf(rvn_tl_x(tl, &layout, time));
 		int labelled = k % minor == 0;
-		if (x < layout.ruler.x - 60.0f) continue;
-		rvn_paint_rect(painter, rvn_rect(x, RVN_TL_RULER - (labelled ? 11.0f : 5.0f), 1.0f, labelled ? 11.0f : 5.0f), labelled ? dim : rvn_color_fade(dim, 0.6f));
+		float tick = (labelled ? 11.0f : 5.0f) * layout.unit;
+		if (x < layout.ruler.x - 60.0f * layout.unit) continue;
+		rvn_paint_rect(painter, rvn_rect(x, layout.ruler_h - tick, 1.0f, tick), labelled ? dim : rvn_color_fade(dim, 0.6f));
 		if (labelled) {
 			rvn_tl_format_time(tl, time, major, label, sizeof(label));
-			rvn_paint_text(painter, R_INVALID_ID, small, x + 4.0f, 4.0f, label, -1, dim);
+			rvn_paint_text(painter, R_INVALID_ID, small, x + 4.0f * layout.unit, 4.0f * layout.unit, label, -1, dim);
 		}
 	}
 	for (i = 0; i < tl->item_count; i++) {
@@ -758,19 +827,20 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 		if (item->type != R_TIMELINE_MARKER) continue;
 		color = rvn_tl_item_color(tl, item);
 		x = floorf(rvn_tl_x(tl, &layout, item->start));
-		width = item->label ? rvn_text_width(font, small, item->label, -1) + 12.0f : 10.0f;
+		width = rvn_tl_flag_width(&layout, font, small, item);
 		/* a flag on its pole */
-		rvn_paint_rect(painter, rvn_rect(x, 3.0f, 1.0f, RVN_TL_RULER - 3.0f), color);
-		rvn_paint_box(painter, rvn_rect(x, 3.0f, width, 15.0f), 4.0f, color, item->selected ? 1.5f : 0.0f, rvn_hex(0xFFFFFF, 255));
-		if (item->label) rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(x + 6.0f, 3.0f, width, 15.0f), 0.0f, item->label, -1,
-			rvn_tl_light(color) ? rvn_hex(0x101014, 255) : rvn_hex(0xFFFFFF, 255));
+		rvn_paint_rect(painter, rvn_rect(x, 3.0f, 1.0f, layout.ruler_h - 3.0f), color);
+		rvn_paint_box(painter, rvn_rect(x, 3.0f, width, layout.flag), rvn_minf(4.0f * layout.unit, layout.flag * 0.5f), color, item->selected ? 1.5f : 0.0f, light_ink);
+		if (item->label) rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(x + 6.0f * layout.unit, 3.0f, width, layout.flag), 0.0f, item->label, -1,
+			rvn_tl_light(color) ? dark_ink : light_ink);
 	}
 	{
 		/* the head of the playhead: a tab that points down */
 		float x = floorf(rvn_tl_x(tl, &layout, tl->time)) + 0.5f;
-		float grow = tl->drag == RVN_TL_DRAG_SCRUB ? 1.5f : 0.0f;
-		rvn_paint_box(painter, rvn_rect(x - 6.0f - grow, RVN_TL_RULER - 17.0f - grow, 12.0f + grow * 2.0f, 11.0f + grow), 3.0f, head, 0.0f, 0);
-		rvn_paint_triangle(painter, x - 6.0f - grow, RVN_TL_RULER - 7.0f, x + 6.0f + grow, RVN_TL_RULER - 7.0f, x, RVN_TL_RULER - 0.5f, head);
+		float u = layout.unit, r = layout.ruler_h;
+		float grow = tl->drag == RVN_TL_DRAG_SCRUB ? 1.5f * u : 0.0f;
+		rvn_paint_box(painter, rvn_rect(x - 6.0f * u - grow, r - 17.0f * u - grow, 12.0f * u + grow * 2.0f, 11.0f * u + grow), 3.0f * u, head, 0.0f, 0);
+		rvn_paint_triangle(painter, x - 6.0f * u - grow, r - 7.0f * u, x + 6.0f * u + grow, r - 7.0f * u, x, r - 0.5f, head);
 	}
 	rvn_paint_pop_clip(painter);
 	RVN_UNUSED(metrics);
@@ -797,7 +867,7 @@ static int rvn_tl_hit(const rvn_timeline_t* tl, const rvn_tl_layout_t* layout, f
 	uint32_t i;
 	int pass;
 	*part = RVN_TL_PART_NONE;
-	if (y < RVN_TL_RULER) {
+	if (y < layout->ruler_h) {
 		rvn_font_t* font = rvn_font_resolve(R_INVALID_ID);
 		float small = floorf(rvn_widget_font_size(&tl->base, 0.0f) * 0.86f);
 		if (x < layout->ruler.x) return 0;
@@ -806,8 +876,9 @@ static int rvn_tl_hit(const rvn_timeline_t* tl, const rvn_tl_layout_t* layout, f
 			float mx, width;
 			if (item->type != R_TIMELINE_MARKER) continue;
 			mx = rvn_tl_x(tl, layout, item->start);
-			width = item->label ? rvn_text_width(font, small, item->label, -1) + 12.0f : 10.0f;
-			if (x >= mx - 3.0f && x <= mx + width && y >= 2.0f && y <= 19.0f) {
+			width = rvn_tl_flag_width(layout, font, small, item);
+			/* the flag as it is painted, and a little around it */
+			if (x >= mx - 3.0f && x <= mx + width && y >= 2.0f && y <= 4.0f + layout->flag) {
 				*part = RVN_TL_PART_BODY;
 				return item->id;
 			}
@@ -825,7 +896,7 @@ static int rvn_tl_hit(const rvn_timeline_t* tl, const rvn_tl_layout_t* layout, f
 			top = rvn_tl_track_y(tl, layout, index, &height);
 			if (y < top || y >= top + height) continue;
 			if (item->type == R_TIMELINE_KEY) {
-				if (fabsf(x - rvn_tl_x(tl, layout, item->start)) <= RVN_TL_KEY * 0.5f + 3.0f) {
+				if (fabsf(x - rvn_tl_x(tl, layout, item->start)) <= layout->key * 0.5f + 3.0f) {
 					*part = RVN_TL_PART_BODY;
 					return item->id;
 				}
@@ -833,7 +904,7 @@ static int rvn_tl_hit(const rvn_timeline_t* tl, const rvn_tl_layout_t* layout, f
 				float x0 = rvn_tl_x(tl, layout, item->start), x1 = rvn_maxf(rvn_tl_x(tl, layout, item->start + item->length), x0 + 3.0f);
 				if (x >= x0 && x <= x1) {
 					/* a narrow clip is all body: it can always be moved */
-					float edge = x1 - x0 > RVN_TL_EDGE * 3.0f ? RVN_TL_EDGE : 0.0f;
+					float edge = x1 - x0 > layout->edge * 3.0f ? layout->edge : 0.0f;
 					*part = x < x0 + edge ? RVN_TL_PART_LEFT : (x > x1 - edge ? RVN_TL_PART_RIGHT : RVN_TL_PART_BODY);
 					return item->id;
 				}
@@ -844,14 +915,14 @@ static int rvn_tl_hit(const rvn_timeline_t* tl, const rvn_tl_layout_t* layout, f
 }
 
 static int rvn_tl_toggle_at(const rvn_timeline_t* tl, const rvn_tl_layout_t* layout, float x, float y) {
-	float toggle = 20.0f, right = layout->headers.w - 8.0f, height, top;
+	float toggle = layout->toggle, right = layout->headers.w - 8.0f * layout->unit, height, top;
 	int row;
 	if (!rvn_rect_contains(layout->headers, x, y)) return -1;
 	row = rvn_tl_row_at(tl, layout, y);
 	if (row < 0 || row >= (int)tl->track_count) return -1;
 	top = rvn_tl_track_y(tl, layout, row, &height);
 	if (y < top + (height - toggle) * 0.5f || y > top + (height + toggle) * 0.5f) return -1;
-	if (x >= right - toggle * 2.0f - 3.0f && x < right - toggle - 3.0f) return row * 2;
+	if (x >= right - toggle * 2.0f - 3.0f * layout->unit && x < right - toggle - 3.0f * layout->unit) return row * 2;
 	if (x >= right - toggle && x < right) return row * 2 + 1;
 	return -1;
 }
@@ -1121,7 +1192,7 @@ static int rvn_timeline_event(rvn_widget_t* widget, const REvent* event) {
 			}
 			/* the wheel scrolls the tracks when there are more than fit, else it moves along the time */
 			if (!(event->modifiers & R_MOD_SHIFT) && event->wheel_y != 0.0f && rvn_scrollbar_needed(&tl->track_bar)) {
-				changed = rvn_scrollbar_wheel(&tl->track_bar, -event->wheel_y * 40.0f);
+				changed = rvn_scrollbar_wheel(&tl->track_bar, -event->wheel_y * rvn_tl_default_track_height(tl));
 				rvn_widget_invalidate_paint(widget);
 				return changed;
 			}
@@ -1194,7 +1265,7 @@ static int rvn_timeline_event(rvn_widget_t* widget, const REvent* event) {
 					return R_TRUE;
 				}
 			}
-			if (y < RVN_TL_RULER && x >= layout.ruler.x) {
+			if (y < layout.ruler_h && x >= layout.ruler.x) {
 				/* the ruler: the playhead comes under the pointer and follows it */
 				double time = tl->press_time, found = 0.0;
 				tl->drag = RVN_TL_DRAG_SCRUB;
@@ -1448,11 +1519,13 @@ static int rvn_timeline_set_attribute(rvn_widget_t* widget, const char* name, co
 		rvn_tl_set_playing(widget, flag);
 	} else if (RVN_ATTR("HeaderWidth")) {
 		if (!rvn_parse_float(value, &number) || number < 0.0f) return R_FALSE;
-		tl->header_width = number;
+		Rtimeline_set_header_width(widget->id, number);
 	} else if (RVN_ATTR("TrackHeight")) {
-		if (!rvn_parse_float(value, &number) || number <= 0.0f) return R_FALSE;
-		tl->track_height = rvn_maxf(number, 16.0f);
-		rvn_widget_invalidate_layout(widget);
+		if (!rvn_parse_float(value, &number) || number < 0.0f) return R_FALSE;
+		Rtimeline_set_default_track_height(widget->id, number);
+	} else if (RVN_ATTR("RulerHeight")) {
+		if (!rvn_parse_float(value, &number) || number < 0.0f) return R_FALSE;
+		Rtimeline_set_ruler_height(widget->id, number);
 	} else {
 		return R_FALSE;
 	}
@@ -1461,11 +1534,48 @@ static int rvn_timeline_set_attribute(rvn_widget_t* widget, const char* name, co
 	return R_TRUE;
 }
 
+/* A finger moves along the time and through the tracks; two fingers zoom the time. */
+static int rvn_timeline_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
+	rvn_tl_layout_t layout;
+	double before = tl->view_start;
+	int moved = R_FALSE;
+	rvn_tl_layout(tl, &layout);
+	if (dx != 0.0f && layout.lanes.w > 1.0f) {
+		rvn_tl_set_view(tl, tl->view_start - (double)dx * tl->view_span / (double)layout.lanes.w, tl->view_span, R_FALSE);
+		moved = tl->view_start != before;
+	}
+	if (dy != 0.0f && rvn_scrollbar_needed(&tl->track_bar)) moved |= rvn_scrollbar_pan(&tl->track_bar, -dy, coasting);
+	return moved;
+}
+
+static int rvn_timeline_zoom(rvn_widget_t* widget, float factor, float x, float y) {
+	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
+	rvn_tl_layout_t layout;
+	double before = tl->view_span;
+	RVN_UNUSED(y);
+	if (!(factor > 0.0f)) return R_FALSE;
+	rvn_tl_layout(tl, &layout);
+	rvn_tl_zoom(tl, &layout, x, 1.0f / factor);
+	return tl->view_span != before;
+}
+
+/* The ruler (the playhead), the items and the scrollbars drag; the empty lanes pan. */
+static int rvn_timeline_touch_drags(rvn_widget_t* widget, float x, float y) {
+	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
+	rvn_tl_layout_t layout;
+	int part;
+	rvn_tl_layout(tl, &layout);
+	if (y < layout.ruler_h || rvn_rect_contains(layout.time_track, x, y) || rvn_rect_contains(layout.track_track, x, y)) return R_TRUE;
+	if (rvn_rect_contains(layout.headers, x, y)) return R_FALSE;
+	return rvn_tl_hit(tl, &layout, x, y, &part) != 0 || part != RVN_TL_PART_NONE;
+}
+
 const rvn_widget_class_t rvn_class_timeline = {
 	.type = R_WIDGET_TIMELINE,
 	.name = "Timeline",
 	.size = sizeof(rvn_timeline_t),
-	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_CLIP | RVN_CF_SURFACE | RVN_CF_NO_MIRROR | RVN_CF_TOUCH_DRAG,
+	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_CLIP | RVN_CF_SURFACE | RVN_CF_NO_MIRROR,
 	.init = rvn_timeline_init,
 	.destroy = rvn_timeline_destroy,
 	.measure = rvn_timeline_measure,
@@ -1474,7 +1584,10 @@ const rvn_widget_class_t rvn_class_timeline = {
 	.paint_overlay = rvn_timeline_paint_overlay,
 	.event = rvn_timeline_event,
 	.set_attribute = rvn_timeline_set_attribute,
-	.xml_child = rvn_timeline_xml_child
+	.xml_child = rvn_timeline_xml_child,
+	.pan = rvn_timeline_pan,
+	.zoom = rvn_timeline_zoom,
+	.touch_drags = rvn_timeline_touch_drags
 };
 
 /* ---------------------------------------------------------------------------
@@ -1638,12 +1751,50 @@ void Rtimeline_set_track_color(Rid id, int track_id, float r, float g, float b) 
 	rvn_widget_invalidate_paint(&tl->base);
 }
 
+void Rtimeline_set_header_width(Rid id, float width) {
+	RVN_TIMELINE_VOID(tl, id);
+	tl->header_width = width > 0.0f ? width : 0.0f;
+	rvn_tl_sync_bars(tl);
+	rvn_widget_invalidate_layout(&tl->base);
+}
+
+float Rtimeline_get_header_width(Rid id) {
+	rvn_tl_layout_t layout;
+	RVN_TIMELINE(tl, id, 0.0f);
+	rvn_tl_layout(tl, &layout);
+	return layout.headers.w;
+}
+
+void Rtimeline_set_ruler_height(Rid id, float height) {
+	RVN_TIMELINE_VOID(tl, id);
+	tl->ruler_height = height > 0.0f ? rvn_maxf(height, RVN_TL_MIN_TRACK) : 0.0f;
+	rvn_tl_sync_bars(tl);
+	rvn_widget_invalidate_layout(&tl->base);
+}
+
+float Rtimeline_get_ruler_height(Rid id) {
+	RVN_TIMELINE(tl, id, 0.0f);
+	return rvn_tl_ruler_height(tl);
+}
+
+void Rtimeline_set_default_track_height(Rid id, float height) {
+	RVN_TIMELINE_VOID(tl, id);
+	tl->track_height = height > 0.0f ? rvn_maxf(height, RVN_TL_MIN_TRACK) : 0.0f;
+	rvn_tl_sync_bars(tl);
+	rvn_widget_invalidate_layout(&tl->base);
+}
+
+float Rtimeline_get_default_track_height(Rid id) {
+	RVN_TIMELINE(tl, id, 0.0f);
+	return rvn_tl_default_track_height(tl);
+}
+
 void Rtimeline_set_track_height(Rid id, int track_id, float height) {
 	rvn_tl_track_t* track;
 	RVN_TIMELINE_VOID(tl, id);
 	track = rvn_tl_track(tl, track_id);
 	if (!track) return;
-	track->height = height > 0.0f ? rvn_maxf(height, 16.0f) : 0.0f;
+	track->height = height > 0.0f ? rvn_maxf(height, RVN_TL_MIN_TRACK) : 0.0f;
 	rvn_tl_sync_bars(tl);
 	rvn_widget_invalidate_layout(&tl->base);
 }

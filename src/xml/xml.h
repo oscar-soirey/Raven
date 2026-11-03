@@ -110,6 +110,9 @@ typedef struct rvn_xml_window_t {
 	/** RBackdrop, or 0 when not given. */
 	int backdrop;
 	const char* theme;
+	/** The Touch.* and Pen.* attributes, applied to the settings of the application. */
+	int has_touch;
+	RTouchSettings touch;
 } rvn_xml_window_t;
 void rvn_xml_window_read(const rvn_xml_node_t* root, rvn_xml_window_t* description, int report);
 /** The element of a <Window> that is its content, and the one that is its island (NULL when missing). R_FALSE when it has several contents. */
@@ -118,6 +121,9 @@ int  rvn_xml_window_parts(const rvn_xml_node_t* root, const rvn_xml_node_t** con
 void rvn_xml_window_shortcuts(struct rvn_window_t* window, const rvn_xml_node_t* root, int add);
 /** Same as rvn_xml_build_window / rvn_xml_build_widget, leaving the document to the caller. */
 Rid rvn_xml_make_window(rvn_xml_document_t* document);
+/** The theme a <Window Theme="..."> names (a name, or a file next to the document); NULL for none, "Default" or "Inherit": the one of the application. */
+struct rvn_theme_t;
+const struct rvn_theme_t* rvn_xml_window_theme(const char* value);
 Rid rvn_xml_make_widget(rvn_xml_document_t* document, int window_content);
 
 /** Runs `load` with the paths of the documents relative to the folder of `path` (NULL: the base path). */

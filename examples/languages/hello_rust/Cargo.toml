@@ -5,6 +5,3 @@ edition = "2021"
 
 [dependencies]
 raven = { package = "raven-gui", path = "../../../bindings/rust" }
-
-[build-dependencies]
-raven-build = { package = "raven-gui-build", path = "../../../bindings/rust-build" }

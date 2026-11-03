@@ -39,6 +39,8 @@ int rvn_sg_target_create(rvn_sg_target_t* target, int width, int height, const c
 	image.height = height;
 	image.pixel_format = SG_PIXELFORMAT_RGBA8;
 	image.usage.color_attachment = true;
+	/* (a level of a texture is made in one of these, then copied: sg_copy_image_to_image) */
+	image.usage.copy_src = true;
 	image.label = label;
 	target->image = sg_make_image(&image);
 	if (sg_query_image_state(target->image) != SG_RESOURCESTATE_VALID) {
@@ -91,7 +93,7 @@ failed:
  * Filters `source` into `target`: all of it, or only `area` (pixels of the target), the rest keeping its
  * content. mode: 0 = reduce, 1 = enlarge, 2 = copy (blur.frag).
  */
-static void rvn_sg_glass_filter(const rvn_sg_target_t* source, const rvn_sg_target_t* target, int mode, float spread, const int* area) {
+void rvn_sg_glass_filter(const rvn_sg_target_t* source, const rvn_sg_target_t* target, int mode, float spread, const int* area) {
 	sg_pass pass;
 	sg_bindings bindings;
 	float params[4];

@@ -1101,8 +1101,10 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 		float x = rvn_paint_spring(painter, &ed->caret_x, point.x, R_MOTION_SNAPPY);
 		float caret_y = rvn_paint_spring(painter, &ed->caret_y, point.y, R_MOTION_SNAPPY);
 		int moving = rvn_spring_moving(&ed->caret_x, point.x) || rvn_spring_moving(&ed->caret_y, point.y);
+		rvn_rect_t caret = rvn_rect(m.area.x + x - scroll_x - 1.0f, m.area.y + caret_y - scroll_y + 1.0f, 2.0f, m.line_height - 2.0f);
+		rvn_text_input_rect(widget, painter, caret);
 		if (moving || fmod(rvn_clock_seconds() - ed->blink_start, 1.0) < 0.55) {
-			rvn_paint_box(painter, rvn_rect(m.area.x + x - scroll_x - 1.0f, m.area.y + caret_y - scroll_y + 1.0f, 2.0f, m.line_height - 2.0f),
+			rvn_paint_box(painter, caret,
 				1.0f, rvn_widget_color(widget, R_COLOR_ACCENT_HOVERED), 0.0f, 0);
 		}
 	} else {
@@ -2477,6 +2479,23 @@ static int rvn_text_editor_set_attribute(rvn_widget_t* widget, const char* name,
 	return R_TRUE;
 }
 
+/* A finger scrolls the text; two fingers zoom it, as Ctrl + wheel does. */
+static int rvn_text_editor_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
+	int moved = rvn_scrollbar_pan(&ed->vbar, -dy, coasting);
+	if (!ed->wrap) moved |= rvn_scrollbar_pan(&ed->hbar, -dx, coasting);
+	if (moved) rvn_ed_complete_close(ed);
+	return moved;
+}
+
+static int rvn_text_editor_zoom(rvn_widget_t* widget, float factor, float x, float y) {
+	rvn_text_editor_t* ed = (rvn_text_editor_t*)widget;
+	float zoom = ed->zoom > 0.0f ? ed->zoom : 1.0f;
+	if (ed->no_zoom) return R_FALSE;
+	rvn_ed_complete_close(ed);
+	return rvn_ed_set_zoom(ed, zoom * factor, x, y, R_TRUE);
+}
+
 const rvn_widget_class_t rvn_class_text_editor = {
 	.type = R_WIDGET_TEXT_EDITOR,
 	.name = "TextEditor",
@@ -2488,7 +2507,9 @@ const rvn_widget_class_t rvn_class_text_editor = {
 	.arrange = rvn_text_editor_arrange,
 	.paint = rvn_text_editor_paint,
 	.event = rvn_text_editor_event,
-	.set_attribute = rvn_text_editor_set_attribute
+	.set_attribute = rvn_text_editor_set_attribute,
+	.pan = rvn_text_editor_pan,
+	.zoom = rvn_text_editor_zoom
 };
 
 /* ---------------------------------------------------------------------------

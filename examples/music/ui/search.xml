@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: Search. While nothing is typed, the genres; then
+  what matches, found by main.c as the text changes.
+-->
+<ScrollBox Name="page.search">
+	<Switcher Name="search.view" Slot.Padding="24,20,24,32">
+		<VBox Spacing="14">
+			<Heading Text="Browse all" TextSize="26"/>
+			<WrapBox Name="search.genres" Spacing="16"/>
+		</VBox>
+		<VBox Spacing="14">
+			<HBox Spacing="24">
+				<VBox Spacing="12" Width="300">
+					<Heading Text="Top result" TextSize="22"/>
+					<Button Name="search.top" Style="Default" Class="card top" OnClicked="search.top" Cursor="Hand">
+						<VBox Spacing="14" Slot.Padding="20">
+							<Cover Name="search.top.cover" Album="0" Size="96" CornerRadius="8" Slot.HAlign="Left"/>
+							<Heading Name="search.top.title" Text="" TextSize="26" Wrap="true"/>
+							<HBox Spacing="8">
+								<Label Name="search.top.kind" Class="muted" Text="Album"/>
+								<Label Text="·" Class="muted"/>
+								<Label Name="search.top.artist" Text=""/>
+							</HBox>
+						</VBox>
+					</Button>
+				</VBox>
+				<VBox Spacing="6" Slot.Fill="1">
+					<Heading Text="Songs" TextSize="22" Slot.Padding="0,0,0,6"/>
+					<VBox Name="search.songs"/>
+				</VBox>
+			</HBox>
+			<SectionHeader Title="Albums"/>
+			<ScrollBox Orientation="Horizontal" Height="286">
+				<HBox Name="search.albums" Spacing="4"/>
+			</ScrollBox>
+			<Label Name="search.none" Text="" Class="muted" TextSize="16" Visibility="Collapsed"/>
+		</VBox>
+	</Switcher>
+</ScrollBox>

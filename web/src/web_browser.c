@@ -33,6 +33,8 @@ static struct {
 	int next_id;
 	char* profile;
 	int profile_temporary;
+	/** Where the browser writes its own log (in its profile). */
+	char* log_path;
 	char error[256];
 } g_rw;
 
@@ -219,6 +221,62 @@ const char* rw_browser_error(void) {
 	return g_rw.error;
 }
 
+/*
+ * The log of a browser that stopped by itself is kept out of its profile
+ * (which goes away with it): "raven_web_browser.log" in the temporary folder.
+ * Returns where it went, or "" when there was none.
+ */
+static const char* rw_keep_log(void) {
+	static char kept[600];
+	const char* base = getenv("TEMP");
+	FILE* from;
+	FILE* to;
+	char buffer[8192];
+	size_t got;
+	kept[0] = 0;
+	if (!g_rw.log_path || !(from = fopen(g_rw.log_path, "rb"))) return kept;
+	if (!base || !base[0]) base = getenv("TMPDIR");
+	if (!base || !base[0]) base = getenv("TMP");
+#if defined(_WIN32)
+	snprintf(kept, sizeof(kept), "%s\\raven_web_browser.log", base && base[0] ? base : ".");
+#else
+	snprintf(kept, sizeof(kept), "%s/raven_web_browser.log", base && base[0] ? base : "/tmp");
+#endif
+	to = fopen(kept, "wb");
+	if (!to) {
+		fclose(from);
+		kept[0] = 0;
+		return kept;
+	}
+	while ((got = fread(buffer, 1, sizeof(buffer), from)) > 0) fwrite(buffer, 1, got, to);
+	fclose(from);
+	fclose(to);
+	return kept;
+}
+
+const char* rw_browser_stop_reason(void) {
+	static char reason[900];
+	const char* log;
+	long code = 0;
+	int length;
+	length = snprintf(reason, sizeof(reason), "The browser stopped");
+	/* (it closed its pipe: it is ending, or has ended) */
+	if (g_rw.process && rw_process_exit_code(g_rw.process, 1500, &code)) {
+#if defined(_WIN32)
+		length += snprintf(reason + length, sizeof(reason) - (size_t)length, " (exit code %ld, 0x%08lX)", code, (unsigned long)code);
+#else
+		if (code < 0) length += snprintf(reason + length, sizeof(reason) - (size_t)length, " (signal %ld)", -code);
+		else length += snprintf(reason + length, sizeof(reason) - (size_t)length, " (exit code %ld)", code);
+#endif
+	}
+	/* what it said about it */
+	log = rw_keep_log();
+	if (log[0]) snprintf(reason + length, sizeof(reason) - (size_t)length, ". Its log: %s", log);
+	else snprintf(reason + length, sizeof(reason) - (size_t)length, ".");
+	fprintf(stderr, "[raven_web] %s\n", reason);
+	return reason;
+}
+
 int rw_browser_running(void) {
 	return g_rw.process != NULL;
 }
@@ -246,7 +304,7 @@ int rw_browser_start(void) {
 	const char* arguments[64];
 	char* extra = NULL;
 	char* program;
-	rw_text_t profile;
+	rw_text_t profile, log;
 	int count = 0;
 
 	if (g_rw.process) return 1;
@@ -273,12 +331,30 @@ int rw_browser_start(void) {
 	}
 	memset(&profile, 0, sizeof(profile));
 	rw_text_printf(&profile, "--user-data-dir=%s", g_rw.profile);
+	memset(&log, 0, sizeof(log));
+	rw_free(g_rw.log_path);
+	g_rw.log_path = NULL;
+	{
+		rw_text_t path;
+		memset(&path, 0, sizeof(path));
+#if defined(_WIN32)
+		rw_text_printf(&path, "%s\\browser.log", g_rw.profile);
+#else
+		rw_text_printf(&path, "%s/browser.log", g_rw.profile);
+#endif
+		g_rw.log_path = path.data;
+	}
+	rw_text_printf(&log, "--log-file=%s", g_rw.log_path ? g_rw.log_path : "");
 
 	arguments[count++] = program;
 	/* hidden, driven through the pipe, with a profile that is not the one of the user */
 	arguments[count++] = "--headless";
 	arguments[count++] = "--remote-debugging-pipe";
 	arguments[count++] = profile.data;
+	/* its own log, in its profile: what it says when it stops by itself (rw_browser_stop_reason) */
+	arguments[count++] = "--enable-logging";
+	arguments[count++] = "--v=0";
+	arguments[count++] = log.data;
 	arguments[count++] = "--no-first-run";
 	arguments[count++] = "--no-default-browser-check";
 	arguments[count++] = "--disable-extensions";
@@ -334,6 +410,7 @@ int rw_browser_start(void) {
 	g_rw.process = g_rw.mutex ? rw_process_start(arguments) : NULL;
 	if (g_rw.process) g_rw.reader = rw_thread_start(rw_reader_main, NULL);
 	rw_text_free(&profile);
+	rw_text_free(&log);
 	rw_free(extra);
 	if (!g_rw.process || !g_rw.reader) {
 		snprintf(g_rw.error, sizeof(g_rw.error), "The browser \"%.180s\" could not be started.", program);
@@ -371,6 +448,8 @@ void rw_browser_stop(void) {
 	if (g_rw.profile && g_rw.profile_temporary) rw_remove_folder(g_rw.profile);
 	rw_free(g_rw.profile);
 	g_rw.profile = NULL;
+	rw_free(g_rw.log_path);
+	g_rw.log_path = NULL;
 }
 
 /* ---------------------------------------------------------------------------

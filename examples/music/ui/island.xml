@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the island at the top of the window.
+
+  Folded, it says what plays; unfolded (pointer over it), it is a small
+  player with the look of the player. On a MacBook it lives in the notch
+  (Notch="true") and stays there when the window moves.
+-->
+<Island Name="island" Attached="true" Notch="true" ExpandOnHover="true">
+	<!-- folded -->
+	<HBox Spacing="8" Slot.Padding="6,4">
+		<Cover Album="current" Size="20" CornerRadius="5" Slot.VAlign="Center"/>
+		<Label Name="island.title" Text="Raven Music" TextSize="12" Slot.VAlign="Center"/>
+		<Visualizer Bars="4" Gap="2" Width="16" Height="12" Slot.VAlign="Center"/>
+	</HBox>
+
+	<!-- unfolded -->
+	<VBox Spacing="12" Width="380" Slot.Padding="16,12,16,14">
+		<HBox Spacing="12">
+			<Cover Album="current" Size="60" CornerRadius="10"/>
+			<VBox Spacing="3" Slot.Fill="1" Slot.VAlign="Center">
+				<Heading Name="island.song" Text="" TextSize="16"/>
+				<Label Name="island.artist" Text="" Class="muted" TextSize="13"/>
+			</VBox>
+			<Visualizer Bars="6" Gap="2" Width="30" Height="24" Slot.VAlign="Center"/>
+		</HBox>
+		<HBox Spacing="8">
+			<Label Name="island.elapsed" Text="0:00" Class="muted" TextSize="11" Slot.VAlign="Center"/>
+			<Slider Name="island.seek" Class="seek" Min="0" Max="1" Value="0" OnChanged="player.seek" Slot.Fill="1" Slot.VAlign="Center"/>
+			<Label Name="island.length" Text="0:00" Class="muted" TextSize="11" Slot.VAlign="Center"/>
+		</HBox>
+		<HBox Spacing="14" Slot.HAlign="Center">
+			<IconButton Name="island.like" IconName="island.like.icon" Glyph="heart" Action="player.like" Tip="Save to Liked songs" Size="18" Slot.VAlign="Center"/>
+			<IconButton Glyph="previous" Action="player.previous" Tip="Previous" Size="22" Slot.VAlign="Center"/>
+			<PlayButton Name="island.play" IconName="island.play.icon" Classes="white" Size="44" IconSize="20"/>
+			<IconButton Glyph="next" Action="player.next" Tip="Next" Size="22" Slot.VAlign="Center"/>
+			<IconButton Glyph="panel" Action="settings.panel.toggle" Tip="Now playing panel" Size="18" Slot.VAlign="Center"/>
+		</HBox>
+		<Separator/>
+		<HBox Spacing="10">
+			<Icon Glyph="moon" Size="16" Opacity="0.8" Slot.VAlign="Center"/>
+			<Label Text="Look" Class="muted" Slot.VAlign="Center"/>
+			<ComboBox Name="island.look" OnChanged="look.choose" Slot.Fill="1"/>
+		</HBox>
+	</VBox>
+</Island>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music
+
+  The window of the player. Each part is in its own file, brought in with
+  <Include>: the header, the side bar, the five pages, the panel of the song
+  playing, the bar of the player and the island. The tags they use are
+  declared in widgets.xml.
+
+  Behind everything, a moving gradient (Effect="mesh") in the colors of the
+  cover playing: the panels in front of it are more or less see-through,
+  depending on the theme.
+-->
+<Window Title="Raven Music" Width="1360" Height="860" MinWidth="1040" MinHeight="660" CustomHeader="true">
+	<Include Source="widgets.xml"/>
+	<Include Source="island.xml"/>
+
+	<Shortcut Keys="Space" Action="player.toggle"/>
+	<Shortcut Keys="Ctrl+Right" Action="player.next"/>
+	<Shortcut Keys="Ctrl+Left" Action="player.previous"/>
+	<Shortcut Keys="Ctrl+L" Action="player.like"/>
+	<Shortcut Keys="Ctrl+F" Action="nav.search"/>
+	<Shortcut Keys="Ctrl+P" Action="nav.settings"/>
+	<Shortcut Keys="Alt+Left" Action="nav.back"/>
+
+	<Overlay>
+		<!-- the colors of the cover, moving slowly -->
+		<Border Name="backdrop" Effect="mesh" EffectColor="#3B2A6E" EffectColor2="#0E3B4A" EffectPointer="false" Opacity="0.85"/>
+
+		<VBox>
+			<Include Source="header.xml"/>
+			<HBox Spacing="8" Slot.Fill="1" Slot.Padding="8,0,8,8">
+				<Include Source="sidebar.xml"/>
+				<Border Class="surface" CornerRadius="12" Clip="true" Slot.Fill="1">
+					<Switcher Name="pages">
+						<Include Source="home.xml"/>
+						<Include Source="collection.xml"/>
+						<Include Source="search.xml"/>
+						<Include Source="library.xml"/>
+						<Include Source="settings.xml"/>
+					</Switcher>
+				</Border>
+				<Include Source="nowplaying.xml"/>
+			</HBox>
+			<Include Source="player.xml"/>
+		</VBox>
+	</Overlay>
+</Window>

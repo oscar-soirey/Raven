@@ -2,28 +2,32 @@
 
 The same small program — a title, a button, a label that counts the clicks in
 the language of the system (`strings.csv`, English and French) — written once
-per language, each as **one file holding the interface and its code**. These
-are exactly the projects that the IDE writes with *Project > New project*.
+per language. These are exactly the projects that the IDE writes with
+*Project > New project*.
 
-| Folder | File | Build and run |
+Each one has its interface in **`main.xml`**, the same file in every language,
+and a short program that loads it when it starts
+(`Rwindow_create_from_xml_file("main.xml")`), binds the action of the button
+(`OnClicked="hello.clicked"`, `Raction_bind`) and finds the label by its name
+(`Rwidget_find(window, "status")`). Save `main.xml` while the program runs and
+its window follows, without building again.
+
+| Folder | Program | Build and run |
 |---|---|---|
-| `hello_c` | `main.xmlc` | `cmake -S . -B build -DCMAKE_PREFIX_PATH=<Raven package> && cmake --build build` |
-| `hello_cpp` | `main.xmlc++` | the same |
-| `hello_rust` | `src/main.xmlrs` | `RAVENC=<package>/bin/ravenc RAVEN_LIB_DIR=<package>/lib cargo run` |
-| `hello_python` | `main.xmlpy` | `RAVENC=... PYTHONPATH=<bindings>/python python -m raven_xmlpy main.xmlpy` |
-| `hello_go` | `main.xmlgo` | `go generate && go run .` (ravenc on the `PATH`, cgo finds the library) |
-| `hello_csharp` | `main.xmlcs` | `dotnet run` (ravenc on the `PATH`) |
-| `hello_zig` | `main.xmlzig` | `RAVEN_LIB_DIR=<package>/lib zig build run` |
-| `hello_lua` | `main.xmllua` | `luajit -e "require('raven_xmllua').run('main.xmllua')"` |
+| `hello_c` | `main.c` | `cmake -S . -B build -DCMAKE_PREFIX_PATH=<Raven package> && cmake --build build`, then `build/hello_c` from this folder |
+| `hello_cpp` | `main.cpp` | the same |
+| `hello_rust` | `src/main.rs` | `RAVEN_LIB_DIR=<package>/lib cargo run` |
+| `hello_python` | `main.py` | `PYTHONPATH=<bindings>/python python main.py` |
+| `hello_go` | `main.go` | `go run .` (cgo finds the library: `CGO_CFLAGS`, `CGO_LDFLAGS`) |
+| `hello_csharp` | `Program.cs` | `dotnet run` |
+| `hello_zig` | `src/main.zig` | `RAVEN_LIB_DIR=<package>/lib zig build run` |
+| `hello_lua` | `main.lua` | `LUA_PATH="<bindings>/luajit/?.lua;;" luajit main.lua` |
 
 The easiest way: open the folder in the IDE (`raven_designer hello_rust`) and
-press F5. The IDE sets `RAVENC`, `RAVEN_LIB_DIR` and the rest from the Raven
-package it runs from.
+press F5. The IDE sets `RAVEN_LIB_DIR`, `PYTHONPATH`, `LUA_PATH` and the rest
+from the Raven package it runs from, and runs the program in the folder of
+the project, where `main.xml` and `strings.csv` are.
 
 The Rust, Go, C# projects find the bindings in `../../../bindings` (in a
-package: `share/raven/bindings`). `hello_zig/raven/` holds copies of
+package: `share/raven/bindings`). `hello_zig/raven/` holds a copy of
 `bindings/zig` because a `build.zig` only imports files of its own project.
-
-In every language, `OnClicked="{on_hello}"` names a function of the scripts
-and the compiler of the language checks it; a mistake in a script is
-reported at its line in the `main.xml…` file.

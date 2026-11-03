@@ -203,11 +203,6 @@ extern "C" {
 	RAVEN_API void Rshutdown(void);
 
 	RAVEN_API int Ris_initialized(void);
-	/**
-	 * @deprecated Raven no longer has editions: it is open source (Apache
-	 * License 2.0) and never shows a watermark. Always R_FALSE.
-	 */
-	RAVEN_API int Ris_free_edition(void);
 
 	/** @return The library version, e.g. "0.1.0". */
 	RAVEN_API const char* Rget_version(void);
@@ -485,8 +480,38 @@ extern "C" {
 	 */
 	RAVEN_API void Raction_fire(const char* name, Rid sender);
 
-	/** @brief Receives every action that has no bound function (e.g. a script bridge). */
+	/** @brief Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge). */
 	RAVEN_API void Raction_set_default_handler(RActionCallback callback, void* user_data);
+
+	/**
+	 * @brief The actions Raven knows by itself: an interface written in XML
+	 * uses them with no C at all (OnClicked="app.quit").
+	 *
+	 *   app.quit                          quits (Rquit(0))
+	 *   window.close, window.minimize,    the window of the widget
+	 *   window.maximize, window.restore   (maximize goes back when it already is)
+	 *   island.expand, island.fold,       the island of that window
+	 *   island.toggle
+	 *   theme.dark, theme.light,          the look of Raven, dark or light
+	 *   theme.toggle
+	 *   theme:NAME                        Rtheme_use(NAME): a theme loaded or built in
+	 *   language:CODE                     Rlocale_set_language(CODE)
+	 *   open:ADDRESS                      Ropen_url (https:, mailto:, a file)
+	 *   copy:TEXT                         the text to the clipboard
+	 *   show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
+	 *   enable:NAME, disable:NAME
+	 *   focus:NAME
+	 *   page:NAME=2, page:NAME=+1         what a Switcher, a TabView, a ComboBox or a ListView
+	 *                                     shows; +1 and -1 step, and go round
+	 *
+	 * A function bound to one of these names (Raction_bind) replaces it; the
+	 * default handler receives the others only.
+	 * @param enabled R_FALSE turns them all off: a design tool that shows
+	 * interfaces without running them. On by default.
+	 */
+	RAVEN_API void Raction_set_builtins(int enabled);
+	/** @return R_TRUE when the name is one of the built-in actions (Raction_set_builtins), whether they are on or not. */
+	RAVEN_API int Raction_is_builtin(const char* name);
 
 
 	/* ============================================================================
@@ -531,6 +556,25 @@ extern "C" {
 	 */
 	typedef void (*RErrorCallback)(RError code, RSeverity severity, const char* detail);
 	RAVEN_API void Rerror_set_callback(RErrorCallback callback);
+
+	/**
+	 * @brief Registers a function called after Raven recovered from the loss
+	 * of the GPU device (a driver reset or update, a GPU removed, a long sleep).
+	 *
+	 * Raven then starts the backend again and remakes what it can by itself:
+	 * the surfaces of the windows, the fonts, the shaders, the textures made
+	 * from image files and the small textures (up to 256 x 256). The pixels of
+	 * the larger textures made from pixels are lost: the textures keep their
+	 * handle and size but are transparent until Rtexture_update fills them
+	 * again, which is what this function is for. Textures that wrap objects of
+	 * the backend (raven_vulkan.h) must be made again, and the Vulkan handles
+	 * returned by Rvulkan_get_device... have changed.
+	 *
+	 * Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
+	 * Rinit; NULL removes it.
+	 */
+	typedef void (*RDeviceResetCallback)(void* user_data);
+	RAVEN_API void Rset_device_reset_callback(RDeviceResetCallback callback, void* user_data);
 
 
 	/* ============================================================================

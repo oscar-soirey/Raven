@@ -8,11 +8,4 @@ endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/ravenTargets.cmake")
 
-# XMLC: raven_target_xmlc(<target>) compiles the .xmlc files of a target with ravenc
-set(RAVEN_RAVENC "@PACKAGE_RAVEN_CONFIG_BINDIR@/ravenc")
-if(CMAKE_HOST_WIN32)
-	string(APPEND RAVEN_RAVENC ".exe")
-endif()
-include("${CMAKE_CURRENT_LIST_DIR}/RavenXMLC.cmake")
-
 check_required_components(raven)

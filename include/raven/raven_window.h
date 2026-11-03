@@ -76,6 +76,8 @@ typedef enum RWindowSystem{
  * Native handles of a window or of a native viewport.
  *   Win32 : display = HINSTANCE, window = HWND
  *   X11   : display = Display*,  window = Window (XID), visual = VisualID
+ *   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
+ *           Wayland or X11 when Rinit runs: check `system`)
  *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
  *   UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
  *   Web   : display = the CSS selector of the canvas (const char*, "#canvas")
@@ -113,13 +115,6 @@ typedef enum RMouseButton{
 	R_MOUSE_X1,
 	R_MOUSE_X2
 }RMouseButton;
-
-typedef enum RTouchPhase{
-	R_TOUCH_BEGIN = 0,
-	R_TOUCH_MOVE,
-	R_TOUCH_END,
-	R_TOUCH_CANCEL
-}RTouchPhase;
 
 typedef enum RModifier{
 	R_MOD_SHIFT = (1 << 0),
@@ -383,6 +378,22 @@ extern "C" {
 	 */
 	RAVEN_API int Rwindow_set_backdrop(Rid window, RBackdrop backdrop);
 	RAVEN_API RBackdrop Rwindow_get_backdrop(Rid window);
+
+	/**
+	 * @brief Gives the window a theme of its own, by name ("Dark",
+	 * "WindowsLight", or a theme of Rtheme_load): everything inside it (its
+	 * content, its island, its menus, lists and dialogs, its background) is
+	 * drawn with that theme, while the other windows keep the one of the
+	 * application (Rtheme_use). A widget given Rwidget_set_theme keeps its own.
+	 * In XML: <Window Theme="...">.
+	 * @param name NULL or "": the theme of the application again.
+	 * @return R_FALSE, after reporting an error, when no theme has that name.
+	 */
+	RAVEN_API int Rwindow_set_theme(Rid window, const char* name);
+	/** @return Name of the theme the window is drawn with (the one of the application when it has none of its own). */
+	RAVEN_API const char* Rwindow_get_theme(Rid window);
+	/** @return R_TRUE when the window has a theme of its own (Rwindow_set_theme). */
+	RAVEN_API int Rwindow_has_own_theme(Rid window);
 	/**
 	 * @brief Opacity of the whole window, its frame included, from 0 to 1:
 	 * a window that fades, a tool that lets what is under it show.
@@ -449,10 +460,6 @@ extern "C" {
 	/** @brief Deepest widget under the cursor, or R_INVALID_ID. */
 	RAVEN_API Rid Rwindow_get_hovered_widget(Rid window);
 	RAVEN_API void Rwindow_get_mouse_position(Rid window, float* x, float* y);
-	/**
-	 * @deprecated Raven no longer shows a watermark. Always R_FALSE, with zeros.
-	 */
-	RAVEN_API int Rwindow_get_watermark_rect(Rid window, float* x, float* y, float* width, float* height);
 
 	/**
 	 * Inject input as if it came from the OS. Positions are in logical units.
@@ -462,8 +469,6 @@ extern "C" {
 	RAVEN_API void Rwindow_inject_mouse_move(Rid window, float x, float y);
 	RAVEN_API void Rwindow_inject_mouse_button(Rid window, RMouseButton button, int pressed);
 	RAVEN_API void Rwindow_inject_mouse_wheel(Rid window, float wheel_x, float wheel_y);
-	/** A finger of a touch screen (see RTouchPhase); x, y in logical units. One finger taps, long-presses (right click), pans (wheel, with inertia) or drags; two fingers pan and pinch (wheel with Ctrl). */
-	RAVEN_API void Rwindow_inject_touch(Rid window, Ruint touch_id, RTouchPhase phase, float x, float y);
 	RAVEN_API void Rwindow_inject_key(Rid window, RKey key, int pressed, Ruint modifiers);
 	RAVEN_API void Rwindow_inject_text(Rid window, const char* text);
 	/**
@@ -494,6 +499,18 @@ extern "C" {
 	RAVEN_API int Rwindow_wants_text_input(Rid window);
 	/** @brief R_TRUE while a menu, list or dialog is open over the window. */
 	RAVEN_API int Rwindow_has_popup(Rid window);
+	/**
+	 * Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
+	 * Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
+	 * outputs when there is no visible editable caret, the window is inactive, or focus changed
+	 * since painting. Any output pointer may be NULL.
+	 */
+	RAVEN_API int Rwindow_get_text_input_rect(Rid window, int* x, int* y, int* width, int* height);
+	/** @return Number of open in-window popups (menus, combo lists, pickers), bottom to top. */
+	RAVEN_API int Rwindow_get_popup_count(Rid window);
+	/** @return Root widget of popup `index`, whose rect is in window coordinates; R_INVALID_ID out of range. */
+	RAVEN_API Rid Rwindow_get_popup(Rid window, int index);
+
 	/** @brief R_FALSE: Tab no longer moves the keyboard focus (the application uses it as a shortcut). Default R_TRUE. */
 	RAVEN_API void Rwindow_set_tab_navigation(Rid window, int enabled);
 

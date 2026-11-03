@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(raven VERSION 0.1.0 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
+project(raven VERSION 0.2.0 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
 
 if(APPLE)
 	# Cocoa is the native macOS window API; almost all Raven code remains C.
@@ -36,6 +36,7 @@ option(RAVEN_REBUILD_SHADERS "Recompile the GLSL shaders (needs glslangValidator
 option(RAVEN_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(RAVEN_MSVC_STATIC_RUNTIME "Visual C++: link the C runtime statically (/MT) instead of using its DLL (/MD)" OFF)
 set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa, uikit (iOS), web (Emscripten) or null")
+option(RAVEN_WAYLAND "Linux and BSD: compile native Wayland beside X11 (nothing of Wayland is needed to build: its libraries are opened at run time)" ON)
 set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa uikit web null)
 
 if(RAVEN_IS_TOP_LEVEL)
@@ -94,6 +95,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/Raven.h
 	include/raven/raven_core.h
 	include/raven/raven_window.h
+	include/raven/raven_touch.h
 	include/raven/raven_style.h
 	include/raven/raven_resources.h
 	include/raven/raven_widget.h
@@ -108,6 +110,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/raven/raven_locale.h
 	include/raven/raven_accessibility.h
 	include/raven/raven_backend.h
+	include/raven/raven_host.h
 	include/raven/raven_vulkan.h
 )
 
@@ -140,6 +143,7 @@ set(RAVEN_PLATFORM_SOURCES
 	src/platform/platform.c
 	src/platform/platform.h
 	src/platform/null/null_platform.c
+	src/platform/host/host_platform.c
 )
 
 set(RAVEN_RENDER_SOURCES
@@ -155,20 +159,25 @@ set(RAVEN_RENDER_SOURCES
 	src/render/renderer.h
 	src/render/texture.c
 	src/render/shader.c
+	src/render/device.c
 	src/render/null/null_backend.c
 	src/resources/default_font.c
 	src/resources/mono_font.c
 )
 
 set(RAVEN_WIDGET_SOURCES
+	src/widget/actions.c
 	src/widget/anim.c
 	src/widget/events.c
+	src/widget/touch.c
 	src/widget/layout.c
 	src/widget/direction.c
 	src/widget/paint.c
 	src/widget/registry.c
 	src/widget/style.c
 	src/widget/theme.c
+	src/widget/look.c
+	src/widgets/platform_looks.c
 	src/widget/widget.c
 	src/widget/widget.h
 	src/widget/touch.c
@@ -229,13 +238,18 @@ set(RAVEN_XML_SOURCES
 	src/xml/xml_dom.c
 	src/xml/xml_schema.c
 	src/xml/xml_loader.c
-	src/xml/xml_compiled.c
 	src/xml/xml_watch.c
 	src/xml/xml_parser.c
 )
 
 set(RAVEN_DEFINITIONS "")
 set(RAVEN_LIBRARIES "")
+
+# core/file.c uses CoreFoundation even with the null or host platform.
+if(APPLE)
+	find_library(RAVEN_COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_COREFOUNDATION_FRAMEWORK})
+endif()
 
 # The HTTP(S) image loader uses WinHTTP even in a headless Windows build.
 if(WIN32)
@@ -278,10 +292,18 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "x11")
 		src/platform/x11/x11_platform.c
 		src/platform/atspi.c
 		src/platform/x11/x11_keys.c
+		src/platform/x11/x11_xi2.c
 		src/platform/x11/x11_internal.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_X11)
 	list(APPEND RAVEN_LIBRARIES ${X11_X11_LIB})
+	if(RAVEN_WAYLAND)
+		list(APPEND RAVEN_PLATFORM_SOURCES
+			src/platform/wayland/wayland_platform.c
+			src/platform/wayland/wayland_protocols.h
+		)
+		list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WAYLAND)
+	endif()
 elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	if(NOT APPLE)
 		message(FATAL_ERROR "Raven: the cocoa platform is only available on macOS")
@@ -471,7 +493,7 @@ target_include_directories(raven
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
-target_compile_definitions(raven PRIVATE ${RAVEN_DEFINITIONS})
+target_compile_definitions(raven PRIVATE ${RAVEN_DEFINITIONS} RVN_VERSION_STRING="${PROJECT_VERSION}")
 target_link_libraries(raven PRIVATE ${RAVEN_LIBRARIES})
 set_target_properties(raven PROPERTIES
 	C_STANDARD 11
@@ -503,15 +525,16 @@ if(RAVEN_BACKEND_SOKOL AND RAVEN_SOKOL_API_SELECTED STREQUAL "gles3" AND NOT EMS
 	target_include_directories(raven PRIVATE ${RAVEN_EGL_INCLUDE_DIR} ${RAVEN_GLES_INCLUDE_DIR})
 endif()
 
-message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SELECTED} vulkan=${RAVEN_BACKEND_VULKAN} sokol=${RAVEN_BACKEND_SOKOL} shared=${RAVEN_BUILD_SHARED}")
+if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
+	set(RAVEN_PLATFORM_SUMMARY "x11+wayland")
+else()
+	set(RAVEN_PLATFORM_SUMMARY "${RAVEN_PLATFORM_SELECTED}")
+endif()
+message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} sokol=${RAVEN_BACKEND_SOKOL} shared=${RAVEN_BUILD_SHARED}")
 
 # ---------------------------------------------------------------------------
 #  Examples, tools and tests
 # ---------------------------------------------------------------------------
-
-# ravenc, the XMLC compiler, and raven_target_xmlc() (cmake/RavenXMLC.cmake)
-add_subdirectory(tools/ravenc)
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/RavenXMLC.cmake")
 
 if(RAVEN_BUILD_TESTS)
 	enable_testing()
@@ -550,13 +573,11 @@ install(DIRECTORY include/raven DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(FILES include/Raven.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(EXPORT ravenTargets NAMESPACE raven:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/raven)
 
-set(RAVEN_CONFIG_BINDIR "${CMAKE_INSTALL_BINDIR}")
 configure_package_config_file(cmake/ravenConfig.cmake.in "${CMAKE_CURRENT_BINARY_DIR}/ravenConfig.cmake"
-	INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/raven
-	PATH_VARS RAVEN_CONFIG_BINDIR)
+	INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/raven)
 write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/ravenConfigVersion.cmake"
 	VERSION ${PROJECT_VERSION} COMPATIBILITY SameMinorVersion)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ravenConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/ravenConfigVersion.cmake" cmake/RavenXMLC.cmake
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/ravenConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/ravenConfigVersion.cmake"
 	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/raven)
 
 # ---------------------------------------------------------------------------

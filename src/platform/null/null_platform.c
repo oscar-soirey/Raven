@@ -229,6 +229,47 @@ static int rvn_null_run(int (*tick)(void* user), void* user) {
 #define RVN_NULL_RUN
 #endif
 
+/*
+ * A camera housing for the tests: RAVEN_FAKE_NOTCH="200x32" gives every
+ * screen one of that size in pixels (none without it). The overlay of an
+ * island in it is only a size, as the other windows here.
+ */
+static int rvn_null_screen_notch(rvn_pwindow_t* window, int* width, int* height) {
+	const char* fake = getenv("RAVEN_FAKE_NOTCH");
+	RVN_UNUSED(window);
+	if (!fake || sscanf(fake, "%dx%d", width, height) != 2) return R_FALSE;
+	return *width > 0 && *height > 0;
+}
+
+static void rvn_null_overlay_place(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int width, int height) {
+	RVN_UNUSED(owner);
+	overlay->x = overlay->y = 0;
+	rvn_null_window_set_size(overlay, width, height);
+}
+
+static void rvn_null_overlay_set_input(rvn_pwindow_t* overlay, int x, int y, int width, int height) {
+	RVN_UNUSED(overlay);
+	RVN_UNUSED(x);
+	RVN_UNUSED(y);
+	RVN_UNUSED(width);
+	RVN_UNUSED(height);
+}
+
+static void rvn_null_focus_event(rvn_pwindow_t* window, int focused) {
+	rvn_pevent_t event;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_FOCUS;
+	event.user = window->user;
+	event.focused = focused;
+	g_null.handler(&event);
+}
+
+/* As a window system does: the one that takes the keyboard says so, the one that loses it too. */
+static void rvn_null_overlay_set_key(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key) {
+	rvn_null_focus_event(key ? owner : overlay, R_FALSE);
+	rvn_null_focus_event(key ? overlay : owner, R_TRUE);
+}
+
 const rvn_platform_t* rvn_platform_null(void) {
 	static const rvn_platform_t platform = {
 		.name = "null",
@@ -260,7 +301,11 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.pump = rvn_null_pump,
 		.wake = rvn_null_wake,
 		.clipboard_set = rvn_null_clipboard_set,
-		.clipboard_get = rvn_null_clipboard_get
+		.clipboard_get = rvn_null_clipboard_get,
+		.screen_notch = rvn_null_screen_notch,
+		.overlay_place = rvn_null_overlay_place,
+		.overlay_set_input = rvn_null_overlay_set_input,
+		.overlay_set_key = rvn_null_overlay_set_key
 	};
 	return &platform;
 }

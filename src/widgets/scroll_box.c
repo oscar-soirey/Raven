@@ -193,6 +193,24 @@ static int rvn_scroll_box_set_attribute(rvn_widget_t* widget, const char* name, 
 	return R_TRUE;
 }
 
+/* A finger drags the content; on the scrollbars, it drags the thumb. */
+static int rvn_scroll_box_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	rvn_scroll_box_t* box = (rvn_scroll_box_t*)widget;
+	int vertical = rvn_scroll_box_vertical(widget);
+	int moved = rvn_scrollbar_pan(&box->main_bar, -(vertical ? dy : dx), coasting);
+	moved |= rvn_scrollbar_pan(&box->cross_bar, -(vertical ? dx : dy), coasting);
+	if (moved) rvn_scroll_box_apply(widget);
+	return moved;
+}
+
+static int rvn_scroll_box_touch_drags(rvn_widget_t* widget, float x, float y) {
+	rvn_scroll_box_t* box = (rvn_scroll_box_t*)widget;
+	rvn_rect_t main_track, cross_track;
+	rvn_scroll_box_tracks(widget, &main_track, &cross_track);
+	return (rvn_scrollbar_needed(&box->main_bar) && rvn_rect_contains(main_track, x, y)) ||
+		(rvn_scrollbar_needed(&box->cross_bar) && rvn_rect_contains(cross_track, x, y));
+}
+
 const rvn_widget_class_t rvn_class_scroll_box = {
 	.type = R_WIDGET_SCROLL_BOX,
 	.name = "ScrollBox",
@@ -204,7 +222,9 @@ const rvn_widget_class_t rvn_class_scroll_box = {
 	.paint = rvn_scroll_box_paint,
 	.paint_overlay = rvn_scroll_box_paint_overlay,
 	.event = rvn_scroll_box_event,
-	.set_attribute = rvn_scroll_box_set_attribute
+	.set_attribute = rvn_scroll_box_set_attribute,
+	.pan = rvn_scroll_box_pan,
+	.touch_drags = rvn_scroll_box_touch_drags
 };
 
 /* ---------------------------------------------------------------------------

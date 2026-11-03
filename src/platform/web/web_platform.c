@@ -275,14 +275,15 @@ static EM_BOOL rvn_web_on_touch(int type, const EmscriptenTouchEvent* touch, voi
 		const EmscriptenTouchPoint* point = &touch->touches[i];
 		if (!point->isChanged) continue;
 		rvn_web_pevent(&event, RVN_PEVENT_TOUCH);
-		event.touch_id = (uint32_t)point->identifier;
-		event.x = (int)lroundf((float)point->targetX * scale);
-		event.y = (int)lroundf((float)point->targetY * scale);
+		event.touch_id = (int)point->identifier;
+		event.fx = (float)point->targetX * scale;
+		event.fy = (float)point->targetY * scale;
+		event.pressure = 1.0f;
 		switch (type) {
-			case EMSCRIPTEN_EVENT_TOUCHSTART: event.touch_phase = R_TOUCH_BEGIN; break;
-			case EMSCRIPTEN_EVENT_TOUCHMOVE: event.touch_phase = R_TOUCH_MOVE; break;
-			case EMSCRIPTEN_EVENT_TOUCHEND: event.touch_phase = R_TOUCH_END; break;
-			default: event.touch_phase = R_TOUCH_CANCEL; break;
+			case EMSCRIPTEN_EVENT_TOUCHSTART: event.phase = R_TOUCH_DOWN; break;
+			case EMSCRIPTEN_EVENT_TOUCHMOVE: event.phase = R_TOUCH_MOVE; break;
+			case EMSCRIPTEN_EVENT_TOUCHEND: event.phase = R_TOUCH_UP; break;
+			default: event.phase = R_TOUCH_CANCEL; break;
 		}
 		rvn_web_send(&event);
 	}

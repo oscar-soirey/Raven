@@ -21,6 +21,7 @@
  *
  *     raven/raven_core.h         lifecycle, the loop, memory, threads, actions, errors
  *     raven/raven_window.h       windows, input events, drag and drop
+ *     raven/raven_touch.h        fingers and pens: settings, events, gestures
  *     raven/raven_style.h        themes, colors, metrics, materials
  *     raven/raven_resources.h    fonts, textures
  *     raven/raven_widget.h       widget tree, slots, common properties, transitions
@@ -42,6 +43,7 @@
 
 #include "raven/raven_core.h"
 #include "raven/raven_window.h"
+#include "raven/raven_touch.h"
 #include "raven/raven_style.h"
 #include "raven/raven_resources.h"
 #include "raven/raven_widget.h"
@@ -59,5 +61,6 @@
 #include "raven/raven_accessibility.h"
 #include "raven/raven_vulkan.h"
 #include "raven/raven_backend.h"
+#include "raven/raven_host.h"
 
 #endif /* RAVEN_H */

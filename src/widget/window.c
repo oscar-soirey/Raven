@@ -17,6 +17,12 @@
 #define RVN_TOOLTIP_DELAY 0.6
 #define RVN_MAX_PATH_DEPTH 128
 
+/* the island in the camera housing of the screen (at the end of this file) */
+static void rvn_window_notch_update(rvn_window_t* window);
+static void rvn_window_notch_leave(rvn_window_t* owner);
+static void rvn_window_overlay_fit(rvn_window_t* overlay);
+static void rvn_window_notch_focus(rvn_window_t* window);
+
 /* ---------------------------------------------------------------------------
  *  Lookup
  * ------------------------------------------------------------------------- */
@@ -114,18 +120,84 @@ void rvn_window_rearm_tooltip(rvn_window_t* window) {
 	if (!window->dead) rvn_window_tooltip_arm(window);
 }
 
+/* The tooltip of a platform: a small flyout that fades in where it is. Windows: text at 12; macOS: 11; GNOME: dark, 13. */
+static void rvn_window_paint_tooltip_fluent(rvn_window_t* window, RPainter* painter) {
+	const rvn_widget_t* owner = window->tooltip_widget;
+	const char* text = owner->tooltip;
+	const char* line;
+	rvn_font_t* font = rvn_font_resolve(R_INVALID_ID);
+	rvn_font_metrics_t metrics;
+	rvn_vec2_t size = rvn_window_size(window);
+	const int family = rvn_widget_family(owner);
+	float font_size = family == RVN_FAMILY_MACOS ? 11.0f : family == RVN_FAMILY_GNOME ? 13.0f : 12.0f;
+	float pad_x = family == RVN_FAMILY_MACOS ? 6.0f : family == RVN_FAMILY_GNOME ? 10.0f : 9.0f;
+	float pad_y = family == RVN_FAMILY_MACOS ? 3.0f : family == RVN_FAMILY_GNOME ? 6.0f : 6.0f;
+	float width = 0.0f, height, x, y, shown, opacity = painter->opacity;
+	rvn_part_look_t look;
+	int lines = 0;
+
+	if (!font) return;
+	shown = rvn_paint_spring_from(painter, &window->tooltip_shown, 1.0f, R_MOTION_SMOOTH);
+	painter->opacity *= rvn_clampf(shown, 0.0f, 1.0f);
+	rvn_font_metrics(font, font_size, &metrics);
+	for (line = text;;) {
+		const char* newline = strchr(line, '\n');
+		int length = newline ? (int)(newline - line) : (int)strlen(line);
+		width = rvn_maxf(width, rvn_text_width(font, font_size, line, length));
+		lines++;
+		if (!newline) break;
+		line = newline + 1;
+	}
+	width = ceilf(width) + pad_x * 2.0f;
+	height = ceilf(metrics.line_height * (float)lines) + pad_y * 2.0f + 2.0f;
+	x = rvn_clampf(window->tooltip_x + 12.0f, 0.0f, rvn_maxf(0.0f, size.x - width));
+	y = window->tooltip_y + 22.0f;
+	if (y + height > size.y) y = window->tooltip_y - height - 6.0f;
+	if (y < 0.0f) y = 0.0f;
+	rvn_part_look(owner, RVN_PART_TOOLTIP, 0, rvn_platform_popup_look, NULL, &look);
+	if (rvn_widget_liquid(owner) && !rvn_part_styled(owner, RVN_PART_TOOLTIP)) {
+		/* macOS 26: a drop of glass of the color of tooltips */
+		rvn_glass_t glass;
+		float radii[4];
+		rvn_glass_style(owner, RVN_SURFACE_POPUP, 0.0f, 0.0f, &glass);
+		glass.tint = look.background;
+		if (rvn_color_a(glass.tint) > 210) glass.tint = (glass.tint & 0x00FFFFFFu) | (210u << 24);
+		glass.shadow = 8.0f;
+		radii[0] = radii[1] = radii[2] = radii[3] = look.radius;
+		rvn_paint_glass(painter, rvn_rect(x, y, width, height), radii, &glass);
+	} else {
+		rvn_paint_part(painter, rvn_rect(x, y, width, height), &look);
+	}
+	y += pad_y + 1.0f;
+	for (line = text;;) {
+		const char* newline = strchr(line, '\n');
+		int length = newline ? (int)(newline - line) : (int)strlen(line);
+		rvn_paint_text(painter, R_INVALID_ID, font_size, x + pad_x, y, line, length, look.foreground);
+		y += metrics.line_height;
+		if (!newline) break;
+		line = newline + 1;
+	}
+	painter->opacity = opacity;
+}
+
 static void rvn_window_paint_tooltip(rvn_window_t* window, RPainter* painter) {
+	/* (the theme of the widget the tooltip is about: a part of the window may wear another one) */
+	const rvn_theme_t* theme = window->tooltip_widget ? rvn_widget_theme(window->tooltip_widget) : rvn_window_theme(window);
 	const char* text;
 	const char* line;
 	rvn_font_t* font;
 	rvn_font_metrics_t metrics;
 	rvn_vec2_t size = rvn_window_size(window);
-	float font_size = RVN_THEME_METRIC(R_METRIC_FONT_SIZE);
+	float font_size = RVN_THEME_METRIC_OF(theme, R_METRIC_FONT_SIZE);
 	float width = 0.0f, height, x, y, shown, opacity = painter->opacity;
 	uint32_t first_instance = painter->list->instance_count, first_command = painter->list->command_count;
 	int lines = 0;
 
 	if (!window->tooltip_visible || !window->tooltip_widget || !window->tooltip_widget->tooltip) return;
+	if (rvn_widget_family(window->tooltip_widget) != RVN_FAMILY_RAVEN) {
+		rvn_window_paint_tooltip_fluent(window, painter);
+		return;
+	}
 	shown = rvn_paint_spring_from(painter, &window->tooltip_shown, 1.0f, R_MOTION_BOUNCY);
 	painter->opacity *= rvn_clampf(shown * 2.0f, 0.0f, 1.0f);
 	text = window->tooltip_widget->tooltip;
@@ -148,29 +220,29 @@ static void rvn_window_paint_tooltip(rvn_window_t* window, RPainter* painter) {
 	if (y + height > size.y) y = window->tooltip_y - height - 6.0f;
 	if (y < 0.0f) y = 0.0f;
 
-	if (g_rvn.theme.glass) {
+	if (theme->glass) {
 		rvn_glass_t glass;
 		float radii[4];
 		memset(&glass, 0, sizeof(glass));
-		glass.tint = RVN_THEME_COLOR(R_COLOR_TOOLTIP);
-		glass.rim = rvn_rgba(1.0f, 1.0f, 1.0f, g_rvn.theme.dark ? 0.5f : 0.8f);
+		glass.tint = RVN_THEME_COLOR_OF(theme, R_COLOR_TOOLTIP);
+		glass.rim = rvn_rgba(1.0f, 1.0f, 1.0f, theme->dark ? 0.5f : 0.8f);
 		glass.frost = 1.0f;
 		glass.refraction = 8.0f;
 		glass.saturation = 1.6f;
 		glass.shadow = 12.0f;
-		glass.shadow_color = RVN_THEME_COLOR(R_COLOR_SHADOW);
+		glass.shadow_color = RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW);
 		radii[0] = radii[1] = radii[2] = radii[3] = rvn_minf(height * 0.5f, 12.0f);
 		rvn_paint_glass(painter, rvn_rect(x, y, width, height), radii, &glass);
 	} else {
-		rvn_paint_shadow(painter, rvn_rect(x, y + 2.0f, width, height), 4.0f, 8.0f, RVN_THEME_COLOR(R_COLOR_SHADOW));
-		rvn_paint_box(painter, rvn_rect(x, y, width, height), 4.0f, RVN_THEME_COLOR(R_COLOR_TOOLTIP),
-			1.0f, RVN_THEME_COLOR(R_COLOR_POPUP_BORDER));
+		rvn_paint_shadow(painter, rvn_rect(x, y + 2.0f, width, height), 4.0f, 8.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW));
+		rvn_paint_box(painter, rvn_rect(x, y, width, height), 4.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_TOOLTIP),
+			1.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP_BORDER));
 	}
 	y += 5.0f;
 	for (line = text;;) {
 		const char* newline = strchr(line, '\n');
 		int length = newline ? (int)(newline - line) : (int)strlen(line);
-		rvn_paint_text(painter, R_INVALID_ID, font_size, x + 8.0f, y, line, length, RVN_THEME_COLOR(R_COLOR_TOOLTIP_TEXT));
+		rvn_paint_text(painter, R_INVALID_ID, font_size, x + 8.0f, y, line, length, RVN_THEME_COLOR_OF(theme, R_COLOR_TOOLTIP_TEXT));
 		y += metrics.line_height;
 		if (!newline) break;
 		line = newline + 1;
@@ -254,8 +326,8 @@ rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int* popup_
 		}
 	}
 	if (popup_index) *popup_index = -1;
-	/* the island floats above the content */
-	if (window->island) {
+	/* the island floats above the content (unless it lives in the camera housing, in an overlay) */
+	if (window->island && !window->notch_overlay) {
 		rvn_widget_t* hit = rvn_widget_hit_test(window->island, x, y);
 		if (hit) return hit;
 	}
@@ -301,6 +373,7 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 	REvent event;
 	if (old == widget) return;
 	window->focus = widget;
+	window->text_input_owner = R_INVALID_ID;
 	window->needs_paint = R_TRUE;
 	if (old) {
 		old->flags &= ~RVN_WF_FOCUSED;
@@ -313,6 +386,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 		event = rvn_window_event(window, R_EVENT_FOCUS_GAINED);
 		rvn_widget_send(widget, &event);
 	}
+	/* an island in the camera housing: its overlay takes the keyboard while something in it has the focus */
+	if (window->notch_owner) rvn_window_notch_focus(window);
 }
 
 typedef struct rvn_focus_list_t {
@@ -324,7 +399,7 @@ typedef struct rvn_focus_list_t {
 static void rvn_focus_collect(rvn_widget_t* widget, rvn_focus_list_t* list) {
 	uint32_t i;
 	if (widget->visibility != R_VISIBLE || (widget->flags & RVN_WF_DISABLED)) return;
-	if (widget->flags & RVN_WF_FOCUSABLE) {
+	if ((widget->flags & RVN_WF_FOCUSABLE) && !(widget->flags & RVN_WF_NO_TAB)) {
 		RVN_ARRAY_RESERVE(list->items, list->cap, list->count + 1);
 		list->items[list->count++] = widget;
 	}
@@ -400,6 +475,7 @@ void rvn_window_open_popup(rvn_window_t* window, rvn_widget_t* root, rvn_widget_
 	if (root->window != window) rvn_widget_set_window(root, window);
 	/* a menu or a list opened from a part of the window that has its own theme wears it too */
 	if (owner) rvn_widget_inherit_theme(root, owner->theme);
+	if (owner) rvn_widget_spread_font(root, owner->font_scope);
 	rvn_window_tooltip_hide(window);
 	window->needs_layout = R_TRUE;
 	window->needs_paint = R_TRUE;
@@ -575,6 +651,7 @@ void rvn_window_forget_widget(rvn_window_t* window, rvn_widget_t* widget) {
 		window->drop_target = NULL;
 		window->drop_accepted = R_FALSE;
 	}
+	rvn_touch_forget_widget(window, widget);
 	/* a spring of the layout that stops being stepped must not stay half-way */
 	for (i = 0; i < window->layout_spring_count;) {
 		rvn_layout_spring_t* entry = &window->layout_springs[i];
@@ -635,16 +712,18 @@ void rvn_window_layout(rvn_window_t* window) {
 			/* the content obeys its slot like any child: padding and alignment in the window */
 			rvn_widget_arrange_slot(window->root, rvn_rect(0.0f, 0.0f, size.x, size.y));
 		}
-		if (window->island) {
-			/* at the top, in the middle, at its own size */
+		if (window->island && !window->notch_overlay) {
+			/* at the top, in the middle, at its own size (in an overlay of the camera housing: against the top of the screen) */
 			rvn_vec2_t desired = rvn_widget_measure(window->island);
 			float width = rvn_minf(desired.x, size.x), height = rvn_minf(desired.y, size.y);
-			rvn_widget_arrange(window->island, floorf((size.x - width) * 0.5f), window->island->slot.padding.t, width, height);
+			rvn_widget_arrange(window->island, floorf((size.x - width) * 0.5f), window->notch_owner ? 0.0f : window->island->slot.padding.t, width, height);
 		}
 		for (i = 0; i < window->popup_count; i++) rvn_window_layout_popup(window, &window->popups[i]);
 	}
 	window->needs_layout = R_FALSE;
 	window->needs_paint = R_TRUE;
+	/* an overlay of the camera housing: its size and the part of it that takes the mouse follow the island */
+	if (window->notch_owner) rvn_window_overlay_fit(window);
 	window->stats.layout_ms = (rvn_clock_seconds() - start) * 1000.0;
 	rvn_window_refresh_hover(window);
 }
@@ -659,13 +738,14 @@ int rvn_window_see_through(const rvn_window_t* window) {
 
 /* The image behind the content: the one of the window, else the wallpaper of a glass theme. */
 static void rvn_window_paint_background(rvn_window_t* window, RPainter* painter) {
+	const rvn_theme_t* theme = rvn_window_theme(window);
 	Rid texture = rvn_texture_get(window->background) ? window->background : R_INVALID_ID;
 	rvn_texture_t* object;
 	rvn_vec2_t size = rvn_window_size(window);
 	float scale, visible_u, visible_v, uv[4];
 
 	/* a window with its own clear color keeps it; one that is seen through has the screen for a wallpaper */
-	if (texture == R_INVALID_ID && !window->has_clear_color && !rvn_window_see_through(window)) texture = g_rvn.theme.wallpaper;
+	if (texture == R_INVALID_ID && !window->has_clear_color && !rvn_window_see_through(window)) texture = theme->wallpaper;
 	object = rvn_texture_get(texture);
 	if (!object || !object->created || object->width <= 0 || object->height <= 0 || size.x <= 0.0f || size.y <= 0.0f) return;
 
@@ -733,18 +813,19 @@ static void rvn_window_paint_popup(RPainter* painter, rvn_widget_t* root, rvn_re
  * and settles with a bounce.
  */
 static void rvn_window_paint_dialog(rvn_window_t* window, RPainter* painter, rvn_widget_t* root, float shown) {
+	const rvn_theme_t* theme = rvn_widget_theme(root);
 	rvn_vec2_t size = rvn_window_size(window);
 	rvn_rect_t frame = rvn_rect(root->rect.x - RVN_DIALOG_PADDING, root->rect.y - RVN_DIALOG_PADDING,
 		root->rect.w + RVN_DIALOG_PADDING * 2.0f, root->rect.h + RVN_DIALOG_PADDING * 2.0f);
 	float veil = rvn_clampf(shown, 0.0f, 1.0f), opacity = painter->opacity;
 	uint32_t first_instance, first_command;
 
-	if (g_rvn.theme.glass) {
+	if (theme->glass) {
 		/* the window goes out of focus behind the sheet */
 		rvn_glass_t glass;
 		float radii[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		memset(&glass, 0, sizeof(glass));
-		glass.tint = rvn_rgba(0.0f, 0.0f, 0.0f, g_rvn.theme.dark ? 0.34f : 0.16f);
+		glass.tint = rvn_rgba(0.0f, 0.0f, 0.0f, theme->dark ? 0.34f : 0.16f);
 		glass.frost = 1.0f;
 		glass.saturation = 1.0f;
 		painter->opacity *= veil;
@@ -757,11 +838,14 @@ static void rvn_window_paint_dialog(rvn_window_t* window, RPainter* painter, rvn
 	first_instance = painter->list->instance_count;
 	first_command = painter->list->command_count;
 	painter->opacity *= rvn_clampf(shown * 2.2f, 0.0f, 1.0f);
-	if (g_rvn.theme.glass) {
+	if (theme->glass) {
 		rvn_paint_surface(painter, root, frame, 26.0f, RVN_SURFACE_POPUP, 0.0f, 0.0f);
+	} else if (theme->liquid) {
+		/* macOS 26: sheets are glass too, with the corners of its windows */
+		rvn_paint_surface(painter, root, frame, 16.0f, RVN_SURFACE_POPUP, 0.0f, 0.0f);
 	} else {
-		rvn_paint_shadow(painter, rvn_rect(frame.x, frame.y + 6.0f, frame.w, frame.h), 10.0f, 28.0f, RVN_THEME_COLOR(R_COLOR_SHADOW));
-		rvn_paint_box(painter, frame, 10.0f, RVN_THEME_COLOR(R_COLOR_POPUP), 1.0f, RVN_THEME_COLOR(R_COLOR_POPUP_BORDER));
+		rvn_paint_shadow(painter, rvn_rect(frame.x, frame.y + 6.0f, frame.w, frame.h), 10.0f, 28.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW));
+		rvn_paint_box(painter, frame, 10.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP), 1.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP_BORDER));
 	}
 	rvn_widget_paint(root, painter);
 	painter->opacity = opacity;
@@ -775,7 +859,8 @@ static void rvn_window_paint_dialog(rvn_window_t* window, RPainter* painter, rvn
 
 /* What would take the drop of a drag coming from another application lights up. */
 static void rvn_window_paint_drop(rvn_window_t* window, RPainter* painter) {
-	rvn_color_t accent = RVN_THEME_COLOR(R_COLOR_ACCENT);
+	const rvn_theme_t* theme = window->drop_target ? rvn_widget_theme(window->drop_target) : rvn_window_theme(window);
+	rvn_color_t accent = RVN_THEME_COLOR_OF(theme, R_COLOR_ACCENT);
 	rvn_rect_t rect = window->drop_rect;
 	float shown, opacity, grow;
 
@@ -797,6 +882,7 @@ static int rvn_window_can_paint(const rvn_window_t* window) {
 }
 
 static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
+	const rvn_theme_t* theme = rvn_window_theme(window);
 	rvn_frame_t* frame;
 	RPainter painter;
 	double start;
@@ -804,6 +890,8 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	rvn_color_t clear;
 
 	window->needs_paint = R_FALSE;
+	window->text_input_owner = R_INVALID_ID;
+	window->text_input_rect = rvn_box(0.0f, 0.0f, 0.0f, 0.0f);
 	if (!rvn_window_can_paint(window) || (!window->visible && !capture)) return;
 
 	/* never queue more than a couple of frames: this is what paces a busy UI thread */
@@ -818,7 +906,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	painter.scale = window->scale;
 	painter.clip = rvn_box(0.0f, 0.0f, (float)window->width_px, (float)window->height_px);
 	painter.opacity = 1.0f;
-	painter.text_color = RVN_THEME_COLOR(R_COLOR_TEXT);
+	painter.text_color = RVN_THEME_COLOR_OF(theme, R_COLOR_TEXT);
 	painter.enabled = R_TRUE;
 	/* animations advance by the time since the last frame */
 	painter.dt = rvn_animation_dt(start - window->paint_time);
@@ -831,7 +919,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 		rvn_widget_paint(window->root, &painter);
 		widgets += window->root->subtree_count;
 	}
-	if (window->island) {
+	if (window->island && !window->notch_overlay) {
 		rvn_widget_paint(window->island, &painter);
 		widgets += window->island->subtree_count;
 	}
@@ -878,7 +966,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	window->stats.paint_job_count = (Ruint)rvn_paint_take_job_count();
 	window->stats.frame_index = window->frame_index;
 
-	clear = RVN_THEME_COLOR(R_COLOR_WINDOW);
+	clear = RVN_THEME_COLOR_OF(theme, R_COLOR_WINDOW);
 	frame->data.window = window->id;
 	frame->data.framebuffer_width = (Ruint)window->width_px;
 	frame->data.framebuffer_height = (Ruint)window->height_px;
@@ -915,7 +1003,7 @@ int rvn_window_wants_frame(rvn_window_t* window) {
 	if (window->dead) return R_FALSE;
 	if (window->needs_layout || window->layout_spring_count > 0) return R_TRUE;
 	if (!rvn_window_can_paint(window) || !window->visible) return R_FALSE;
-	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 ||
+	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 || rvn_touch_animating(window) ||
 		rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->redraw_requested) != 0;
 }
 
@@ -981,6 +1069,8 @@ void rvn_window_update(rvn_window_t* window) {
 	if (window->dead) return;
 	if (rvn_atomic_exchange(&window->redraw_requested, 0)) window->needs_paint = R_TRUE;
 	rvn_window_step_layout_springs(window);
+	if (window->touch && rvn_touch_step(window)) window->needs_paint = R_TRUE;
+	if (window->dead) return;
 	if (window->continuous || rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->animating) != 0) {
 		window->needs_paint = R_TRUE;
 	}
@@ -1010,10 +1100,12 @@ void rvn_windows_theme_changed(void) {
 	if (!g_rvn.platform || !g_rvn.platform->window_set_backdrop) return;
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		const rvn_theme_t* theme;
 		if (!window || window->dead || !window->transparent || !window->backdrop_wanted) continue;
-		if (window->backdrop_dark == g_rvn.theme.dark) continue;
-		window->backdrop_dark = g_rvn.theme.dark;
-		window->backdrop = (RBackdrop)g_rvn.platform->window_set_backdrop(window->platform, (int)window->backdrop_wanted, g_rvn.theme.dark);
+		theme = rvn_window_theme(window);
+		if (window->backdrop_dark == theme->dark) continue;
+		window->backdrop_dark = theme->dark;
+		window->backdrop = (RBackdrop)g_rvn.platform->window_set_backdrop(window->platform, (int)window->backdrop_wanted, theme->dark);
 	}
 }
 
@@ -1092,6 +1184,8 @@ void rvn_window_toggle_maximized(rvn_window_t* window) {
 
 void rvn_window_request_close(rvn_window_t* window) {
 	int close;
+	/* (Cmd+W on the island in the camera housing closes the window it belongs to) */
+	if (window->notch_owner) window = window->notch_owner;
 	rvn_dispatch_begin();
 	close = !window->close_callback || window->close_callback(window->id, window->close_user);
 	if (close && !window->dead) rvn_window_destroy(window);
@@ -1268,22 +1362,23 @@ static void rvn_window_drag_cancel(rvn_window_t* window) {
 }
 
 static void rvn_window_paint_drag(rvn_window_t* window, RPainter* painter) {
+	const rvn_theme_t* theme = rvn_window_theme(window);
 	const char* label;
 	float size, width, x, y;
 	rvn_font_t* font;
 	if (!window->drag_active || !window->mouse_inside) return;
 	label = window->drag_label && window->drag_label[0] ? window->drag_label : NULL;
 	if (!label) return;
-	size = RVN_THEME_METRIC(R_METRIC_FONT_SIZE);
+	size = RVN_THEME_METRIC_OF(theme, R_METRIC_FONT_SIZE);
 	font = rvn_font_resolve(R_INVALID_ID);
 	width = (font ? rvn_text_width(font, size, label, -1) : 80.0f) + 20.0f;
 	x = window->mouse_x + 14.0f;
 	y = window->mouse_y + 10.0f;
-	rvn_paint_shadow(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, 12.0f, rvn_color_fade(RVN_THEME_COLOR(R_COLOR_SHADOW), 0.6f));
-	rvn_paint_box(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, RVN_THEME_COLOR(R_COLOR_POPUP),
-		1.0f, RVN_THEME_COLOR(window->drop_accepted ? R_COLOR_ACCENT : R_COLOR_POPUP_BORDER));
+	rvn_paint_shadow(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, 12.0f, rvn_color_fade(RVN_THEME_COLOR_OF(theme, R_COLOR_SHADOW), 0.6f));
+	rvn_paint_box(painter, rvn_rect(x, y, width, size + 12.0f), 6.0f, RVN_THEME_COLOR_OF(theme, R_COLOR_POPUP),
+		1.0f, RVN_THEME_COLOR_OF(theme, window->drop_accepted ? R_COLOR_ACCENT : R_COLOR_POPUP_BORDER));
 	rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(x + 10.0f, y, width - 20.0f, size + 12.0f), 0.0f, label, -1,
-		RVN_THEME_COLOR(R_COLOR_TEXT));
+		RVN_THEME_COLOR_OF(theme, R_COLOR_TEXT));
 }
 
 /* The hook of the window sees the event before the widgets; R_TRUE consumes it. */
@@ -1546,6 +1641,8 @@ static void rvn_window_key(rvn_window_t* window, RKey key, int pressed, uint32_t
 		rvn_window_set_focus(window, NULL);
 		return;
 	}
+	/* in the island of the camera housing, the shortcuts are those of the window it belongs to */
+	if (window->notch_owner) window = window->notch_owner;
 	for (i = 0; i < window->shortcut_count; i++) {
 		rvn_shortcut_t* shortcut = &window->shortcuts[i];
 		char* action;
@@ -1586,6 +1683,28 @@ static void rvn_window_resized(rvn_window_t* window, int width_px, int height_px
 		size = rvn_window_size(window);
 		window->resize_callback(window->id, (int)(size.x + 0.5f), (int)(size.y + 0.5f), window->resize_user);
 	}
+}
+
+/* ---------------------------------------------------------------------------
+ *  The mouse as fingers and pens drive it (widget/touch.c)
+ * ------------------------------------------------------------------------- */
+
+void rvn_window_emulate_move(rvn_window_t* window, float x, float y) {
+	if (!window->dead) rvn_window_mouse_move(window, x, y);
+}
+
+void rvn_window_emulate_button(rvn_window_t* window, RMouseButton button, int pressed) {
+	if (!window->dead) rvn_window_mouse_button(window, button, pressed);
+}
+
+void rvn_window_emulate_leave(rvn_window_t* window) {
+	if (window->dead) return;
+	rvn_window_mouse_leave(window);
+	if (!window->dead) rvn_window_update_cursor(window);
+}
+
+rvn_widget_t* rvn_window_widget_at(rvn_window_t* window, float x, float y) {
+	return rvn_window_hit(window, x, y, NULL);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1654,6 +1773,8 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			break;
 		case RVN_PEVENT_RESIZE:
 			rvn_window_resized(window, pevent->width, pevent->height, pevent->scale);
+			/* (moved to another screen: the scale changed) */
+			if (!window->notch_owner && window->island) rvn_window_notch_update(window);
 			break;
 		case RVN_PEVENT_EXPOSE:
 			window->needs_paint = R_TRUE;
@@ -1674,10 +1795,6 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		case RVN_PEVENT_MOUSE_LEAVE:
 			rvn_window_mouse_leave(window);
 			break;
-		case RVN_PEVENT_TOUCH:
-			window->modifiers = pevent->modifiers;
-			rvn_window_touch(window, pevent->touch_id, pevent->touch_phase, (float)pevent->x / scale, (float)pevent->y / scale);
-			break;
 		case RVN_PEVENT_KEY:
 			rvn_window_key(window, pevent->key, pevent->pressed, pevent->modifiers, pevent->repeat);
 			break;
@@ -1692,11 +1809,14 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 				window->modifiers = 0;
 				memset(window->keys, 0, sizeof(window->keys));
 				rvn_window_drag_cancel(window);
+				rvn_touch_cancel(window);
 				rvn_window_close_popups(window);
 				rvn_window_tooltip_hide(window);
 			}
 			window->active = pevent->focused;
 			window->needs_paint = R_TRUE;
+			/* the window the user works in takes the camera housing for its island */
+			rvn_window_notch_focus(window);
 			break;
 		case RVN_PEVENT_STATE:
 			if (window->state != pevent->state) {
@@ -1704,6 +1824,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 				window->edge = RVN_PREGION_CLIENT;
 				window->needs_layout = R_TRUE;
 				window->needs_paint = R_TRUE;
+				rvn_window_notch_update(window);
 			}
 			break;
 		case RVN_PEVENT_DRAG: {
@@ -1717,6 +1838,12 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			if (pevent->accepted) *pevent->accepted = taken;
 			break;
 		}
+		case RVN_PEVENT_TOUCH:
+		case RVN_PEVENT_PEN:
+		case RVN_PEVENT_GESTURE:
+			window->modifiers = pevent->modifiers;
+			rvn_touch_on_event(window, pevent, scale);
+			break;
 		case RVN_PEVENT_MODAL_TICK:
 			break;
 	}
@@ -1751,6 +1878,30 @@ void rvn_window_add_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers,
 }
 
 /* ---------------------------------------------------------------------------
+ *  Loss of the device
+ * ------------------------------------------------------------------------- */
+
+void rvn_windows_device_reset(void) {
+	uint32_t i;
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		RNativeWindow native;
+		if (!window || !window->platform || !window->surface_ready) continue;
+		/* the backend was started again: the surface of the window is to be made again, as at its creation */
+		memset(&native, 0, sizeof(native));
+		g_rvn.platform->window_get_native(window->platform, &native);
+		if (!rvn_renderer_create_surface(window->id, &native, (uint32_t)rvn_maxi(window->width_px, 1),
+			(uint32_t)rvn_maxi(window->height_px, 1))) {
+			rvn_error(R_ERROR_BACKEND, R_SEVERITY_ERROR, "after the loss of the device: cannot make the surface of a window again");
+			window->surface_ready = R_FALSE;
+			continue;
+		}
+		window->needs_layout = R_TRUE;
+		window->needs_paint = R_TRUE;
+	}
+}
+
+/* ---------------------------------------------------------------------------
  *  Destruction
  * ------------------------------------------------------------------------- */
 
@@ -1765,22 +1916,29 @@ static void rvn_window_free(rvn_window_t* window) {
 	rvn_free(window->native_viewports);
 	rvn_free(window->popups);
 	rvn_free(window->ghosts);
-	rvn_touch_release(window);
 	rvn_free(window->layout_springs);
 	rvn_free(window->title);
 	rvn_free(window->drag_type);
 	rvn_free(window->drag_data);
 	rvn_free(window->drag_label);
+	rvn_touch_window_free(window);
 	rvn_free(window);
 }
 
 void rvn_window_destroy(rvn_window_t* window) {
 	rvn_widget_t* root;
 	if (window->dead) return;
+	/* an overlay of the camera housing goes with the island going back into its window; a window takes its overlay with it */
+	if (window->notch_owner) {
+		rvn_window_notch_leave(window->notch_owner);
+		return;
+	}
+	if (window->notch_overlay) rvn_window_notch_leave(window);
 	rvn_window_close_all_popups(window);
 	if (window->dead) return;
 	while (window->ghost_count > 0) rvn_window_remove_ghost(window, 0);
 	rvn_window_tooltip_hide(window);
+	rvn_touch_cancel(window);
 	root = window->root;
 	if (root) rvn_widget_destroy(root);
 	window->root = NULL;
@@ -1931,8 +2089,10 @@ void Rwindow_set_content(Rid id, Rid widget_id) {
 }
 
 int Rwindow_set_backdrop(Rid id, RBackdrop backdrop) {
+	const rvn_theme_t* theme;
 	int given;
 	RVN_WINDOW(window, id, R_FALSE);
+	theme = rvn_window_theme(window);
 	if (backdrop < R_BACKDROP_NONE || backdrop > R_BACKDROP_MICA) {
 		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rwindow_set_backdrop: invalid backdrop");
 		return R_FALSE;
@@ -1943,15 +2103,67 @@ int Rwindow_set_backdrop(Rid id, RBackdrop backdrop) {
 	}
 	given = (int)R_BACKDROP_NONE;
 	if (backdrop != R_BACKDROP_NONE && window->transparent && g_rvn.platform->window_set_backdrop) {
-		given = g_rvn.platform->window_set_backdrop(window->platform, (int)backdrop, g_rvn.theme.dark);
+		given = g_rvn.platform->window_set_backdrop(window->platform, (int)backdrop, theme->dark);
 	} else if (g_rvn.platform->window_set_backdrop && window->transparent) {
-		g_rvn.platform->window_set_backdrop(window->platform, (int)R_BACKDROP_NONE, g_rvn.theme.dark);
+		g_rvn.platform->window_set_backdrop(window->platform, (int)R_BACKDROP_NONE, theme->dark);
 	}
 	window->backdrop_wanted = backdrop;
 	window->backdrop = (RBackdrop)given;
-	window->backdrop_dark = g_rvn.theme.dark;
+	window->backdrop_dark = theme->dark;
 	window->needs_paint = R_TRUE;
 	return backdrop == R_BACKDROP_NONE || given != (int)R_BACKDROP_NONE;
+}
+
+/* every widget of the subtree looks for its styles again, and is measured again */
+static void rvn_window_restyle_tree(rvn_widget_t* widget) {
+	uint32_t i;
+	if (!widget) return;
+	widget->style_generation = 0;
+	widget->flags |= RVN_WF_LAYOUT_DIRTY;
+	for (i = 0; i < widget->child_count; i++) rvn_window_restyle_tree(widget->children[i]);
+}
+
+void rvn_window_set_theme(rvn_window_t* window, const rvn_theme_t* theme) {
+	uint32_t i;
+	const rvn_theme_t* now;
+	if (window->theme == theme) return;
+	window->theme = theme;
+	now = rvn_window_theme(window);
+	rvn_window_restyle_tree(window->root);
+	rvn_window_restyle_tree(window->island);
+	for (i = 0; i < window->popup_count; i++) rvn_window_restyle_tree(window->popups[i].root);
+	/* the material the OS puts behind follows the window, light or dark */
+	if (window->transparent && window->backdrop_wanted && g_rvn.platform->window_set_backdrop && window->backdrop_dark != now->dark) {
+		window->backdrop_dark = now->dark;
+		window->backdrop = (RBackdrop)g_rvn.platform->window_set_backdrop(window->platform, (int)window->backdrop_wanted, now->dark);
+	}
+	window->needs_layout = R_TRUE;
+	window->needs_paint = R_TRUE;
+}
+
+int Rwindow_set_theme(Rid id, const char* name) {
+	const rvn_theme_t* theme = NULL;
+	RVN_WINDOW(window, id, R_FALSE);
+	if (name && name[0]) {
+		theme = rvn_theme_find(name);
+		if (!theme) {
+			rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rwindow_set_theme: no theme is called '%s'", name);
+			return R_FALSE;
+		}
+	}
+	rvn_window_set_theme(window, theme);
+	return R_TRUE;
+}
+
+const char* Rwindow_get_theme(Rid id) {
+	RVN_WINDOW(window, id, "");
+	if (window->theme && window->theme->name) return window->theme->name;
+	return g_rvn.theme_name ? g_rvn.theme_name : "";
+}
+
+int Rwindow_has_own_theme(Rid id) {
+	RVN_WINDOW(window, id, R_FALSE);
+	return window->theme != NULL;
 }
 
 RBackdrop Rwindow_get_backdrop(Rid id) {
@@ -1991,6 +2203,7 @@ void Rwindow_set_island(Rid id, Rid widget_id) {
 		if (!widget) return;
 	}
 	if (window->island == widget) return;
+	if (window->notch_overlay) rvn_window_notch_leave(window);
 	if (window->island) rvn_widget_destroy(window->island);
 	window->island = NULL;
 	if (widget) {
@@ -2002,6 +2215,7 @@ void Rwindow_set_island(Rid id, Rid widget_id) {
 	}
 	window->needs_layout = R_TRUE;
 	window->needs_paint = R_TRUE;
+	rvn_window_notch_changed(window);
 }
 
 Rid Rwindow_get_island(Rid id) {
@@ -2092,12 +2306,16 @@ void Rwindow_show(Rid id) {
 	window->visible = R_TRUE;
 	window->needs_paint = R_TRUE;
 	g_rvn.platform->window_show(window->platform, R_TRUE);
+	rvn_window_notch_update(window);
 }
 
 void Rwindow_hide(Rid id) {
 	RVN_WINDOW_VOID(window, id);
 	window->visible = R_FALSE;
+	/* a frame still queued must not be presented once the window is hidden (on Wayland that would show it again) */
+	rvn_renderer_sync();
 	g_rvn.platform->window_show(window->platform, R_FALSE);
+	rvn_window_notch_update(window);
 }
 
 void Rwindow_maximize(Rid id) {
@@ -2315,13 +2533,6 @@ void Rwindow_inject_mouse_wheel(Rid id, float wheel_x, float wheel_y) {
 	rvn_dispatch_end();
 }
 
-void Rwindow_inject_touch(Rid id, Ruint touch_id, RTouchPhase phase, float x, float y) {
-	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
-	if (!window) return;
-	rvn_window_touch(window, touch_id, (int)phase, x, y);
-	rvn_dispatch_end();
-}
-
 void Rwindow_inject_key(Rid id, RKey key, int pressed, Ruint modifiers) {
 	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
 	if (!window) return;
@@ -2421,12 +2632,42 @@ int Rwindow_has_popup(Rid id) {
 	return window && window->popup_count > 0 ? R_TRUE : R_FALSE;
 }
 
+int Rwindow_get_popup_count(Rid id) {
+	rvn_window_t* window = rvn_window_check(id, "Rwindow_get_popup_count");
+	return window ? (int)window->popup_count : 0;
+}
+
+Rid Rwindow_get_popup(Rid id, int index) {
+	rvn_window_t* window = rvn_window_check(id, "Rwindow_get_popup");
+	if (!window || index < 0 || (uint32_t)index >= window->popup_count || !window->popups[index].root) return R_INVALID_ID;
+	return window->popups[index].root->id;
+}
+
 int Rwindow_wants_text_input(Rid id) {
 	rvn_window_t* window = rvn_window_check(id, "Rwindow_wants_text_input");
 	RWidgetType type;
 	if (!window || !window->focus || (window->focus->flags & RVN_WF_DEAD)) return R_FALSE;
 	type = window->focus->cls->type;
 	return type == R_WIDGET_TEXT_INPUT || type == R_WIDGET_TEXT_EDITOR || type == R_WIDGET_SPIN_BOX ? R_TRUE : R_FALSE;
+}
+
+int Rwindow_get_text_input_rect(Rid id, int* x, int* y, int* width, int* height) {
+	rvn_window_t* window;
+	rvn_box_t box;
+	if (x) *x = 0;
+	if (y) *y = 0;
+	if (width) *width = 0;
+	if (height) *height = 0;
+	window = rvn_window_check(id, "Rwindow_get_text_input_rect");
+	if (!window || !window->active || !window->visible || !window->focus ||
+		!rvn_widget_is_enabled(window->focus) || window->focus->id != window->text_input_owner) return R_FALSE;
+	box = window->text_input_rect;
+	if (rvn_box_empty(box)) return R_FALSE;
+	if (x) *x = (int)floorf(box.x0);
+	if (y) *y = (int)floorf(box.y0);
+	if (width) *width = (int)(ceilf(box.x1) - floorf(box.x0));
+	if (height) *height = (int)(ceilf(box.y1) - floorf(box.y0));
+	return R_TRUE;
 }
 
 /* ---------------------------------------------------------------------------
@@ -2547,20 +2788,202 @@ void rvn_windows_throttle(void) {
 }
 
 /* ---------------------------------------------------------------------------
- *  Deprecated: Raven no longer has editions nor a watermark (it is open source,
- *  Apache License 2.0). Kept so that programs and bindings built against older
- *  versions still compile and link.
+ *  The island in the camera housing of the screen
+ *
+ * On a screen with a camera housing at its top (a MacBook), an island that
+ * asked for it (Risland_set_notch) leaves its window for an overlay: a
+ * window of its own, without frame nor background, anchored to the top of
+ * that screen around the housing (the window system places it: platform.h,
+ * screen_notch). Moving the window does not move the island away from the
+ * camera. The window keeps it as its island (Rwindow_get_island, the search
+ * by name); the overlay lays it out, paints it and gives it the input, and
+ * the pointer goes through the rest of the overlay to what is under it.
+ *
+ * One window of the application has the housing at a time: the last one
+ * the user worked in whose island wants it, while it is shown and on a screen
+ * with a housing. Everything else keeps its island in its window, and so do
+ * the window systems without a housing (screen_notch NULL): nothing changes
+ * there. Whether the window went to another screen is looked at twice a
+ * second while such an island exists (a move is not an event of every
+ * window system).
  * ------------------------------------------------------------------------- */
 
-int Ris_free_edition(void) {
-	return R_FALSE;
+/** The window whose island has (or may have) the housing. */
+static Rid g_notch_holder = R_INVALID_ID;
+static Rid g_notch_timer = R_INVALID_ID;
+
+static int rvn_window_notch_candidate(const rvn_window_t* window) {
+	return window && !window->dead && !window->notch_owner && window->island && rvn_island_wants_notch(window->island);
 }
 
-int Rwindow_get_watermark_rect(Rid id, float* x, float* y, float* width, float* height) {
-	(void)id;
-	if (x) *x = 0.0f;
-	if (y) *y = 0.0f;
-	if (width) *width = 0.0f;
-	if (height) *height = 0.0f;
-	return R_FALSE;
+/* The island goes back into its window; the overlay goes away. */
+static void rvn_window_notch_leave(rvn_window_t* owner) {
+	rvn_window_t* overlay = owner->notch_overlay;
+	rvn_widget_t* island = owner->island;
+	if (!overlay) return;
+	/* (the keyboard first: the overlay had it for a text in the island) */
+	if (overlay->active && g_rvn.platform->overlay_set_key) g_rvn.platform->overlay_set_key(overlay->platform, owner->platform, R_FALSE);
+	owner->notch_overlay = NULL;
+	overlay->notch_owner = NULL;
+	if (island) {
+		rvn_window_forget_widget(overlay, island);
+		rvn_window_release_natives(overlay, island);
+		overlay->island = NULL;
+		rvn_island_set_notch(island, 0.0f, 0.0f);
+		rvn_widget_set_window(island, owner);
+		island->flags |= RVN_WF_LAYOUT_DIRTY;
+	}
+	overlay->island = NULL;
+	owner->needs_layout = R_TRUE;
+	owner->needs_paint = R_TRUE;
+	rvn_window_destroy(overlay);
+}
+
+/* The island leaves its window for an overlay (shown once it was laid out and placed: rvn_window_overlay_fit). */
+static void rvn_window_notch_enter(rvn_window_t* owner) {
+	rvn_widget_t* island = owner->island;
+	rvn_window_t* overlay;
+	Rid id = Rwindow_create("", 64, 64, R_WINDOW_BORDERLESS | R_WINDOW_NO_RESIZE | R_WINDOW_TRANSPARENT | R_WINDOW_HIDDEN | RVN_PWINDOW_OVERLAY);
+	overlay = rvn_window_get(id);
+	if (!overlay) return;
+	/* (it takes the keyboard only when something in it is given the focus) */
+	overlay->active = R_FALSE;
+	overlay->visible = R_FALSE;
+	overlay->overlay_w = overlay->overlay_h = 0;
+	overlay->overlay_input[2] = overlay->overlay_input[3] = -1;
+	overlay->notch_owner = owner;
+	owner->notch_overlay = overlay;
+	rvn_window_forget_widget(owner, island);
+	rvn_window_release_natives(owner, island);
+	overlay->island = island;
+	rvn_widget_set_window(island, overlay);
+	island->flags |= RVN_WF_LAYOUT_DIRTY;
+	overlay->needs_layout = R_TRUE;
+	overlay->needs_paint = R_TRUE;
+	owner->needs_layout = R_TRUE;
+	owner->needs_paint = R_TRUE;
+}
+
+/* Does the island of this window go into the housing, or come back from it? */
+static void rvn_window_notch_update(rvn_window_t* window) {
+	rvn_window_t* holder;
+	int width = 0, height = 0, wanted;
+	float scale;
+	if (!window || window->dead || window->notch_owner) return;
+	holder = rvn_window_get(g_notch_holder);
+	if (rvn_window_notch_candidate(window) && !rvn_window_notch_candidate(holder)) {
+		g_notch_holder = window->id;
+		holder = window;
+	}
+	wanted = holder == window && rvn_window_notch_candidate(window) && window->visible && window->state != RVN_PWINDOW_MINIMIZED &&
+		g_rvn.platform->screen_notch && g_rvn.platform->overlay_place &&
+		g_rvn.platform->screen_notch(window->platform, &width, &height) && width > 0 && height > 0;
+	if (!wanted) {
+		if (window->notch_overlay) rvn_window_notch_leave(window);
+		return;
+	}
+	if (!window->notch_overlay) rvn_window_notch_enter(window);
+	if (!window->notch_overlay) return;
+	/* the housing in logical units (the window is on the screen that has it) */
+	scale = window->scale > 0.0f ? window->scale : 1.0f;
+	rvn_island_set_notch(window->island, (float)width / scale, (float)height / scale);
+	window->notch_overlay->needs_layout = R_TRUE;
+	rvn_wake();
+}
+
+static void rvn_window_notch_timer(Rid timer, void* user_data) {
+	uint32_t i, watched = 0;
+	RVN_UNUSED(user_data);
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		if (!window || window->dead || window->notch_owner) continue;
+		if (!rvn_window_notch_candidate(window) && !window->notch_overlay) continue;
+		watched++;
+		rvn_window_notch_update(window);
+	}
+	/* no island wants the housing any more: nothing to look at */
+	if (!watched && Rtimer_is_valid(timer)) {
+		Rtimer_destroy(timer);
+		g_notch_timer = R_INVALID_ID;
+	}
+}
+
+void rvn_window_notch_changed(rvn_window_t* window) {
+	if (!window || window->dead) return;
+	/* an island in an overlay: its window decides */
+	if (window->notch_owner) window = window->notch_owner;
+	if (!g_rvn.platform->screen_notch) return;
+	if (rvn_window_notch_candidate(window) && (g_notch_timer == R_INVALID_ID || !Rtimer_is_valid(g_notch_timer)))
+		g_notch_timer = Rtimer_create(0.5, R_TRUE, rvn_window_notch_timer, NULL);
+	rvn_window_notch_update(window);
+}
+
+/*
+ * The keyboard and the housing follow the user. A window that becomes the
+ * one the user works in takes the housing for its island; an overlay takes
+ * the keyboard while something in it has the focus (a search typed in the
+ * island) and gives it back to its window otherwise.
+ */
+static void rvn_window_notch_focus(rvn_window_t* window) {
+	if (window->dead) return;
+	if (window->notch_owner) {
+		if (!g_rvn.platform->overlay_set_key) return;
+		if (window->focus && !window->active) g_rvn.platform->overlay_set_key(window->platform, window->notch_owner->platform, R_TRUE);
+		else if (!window->focus && window->active) g_rvn.platform->overlay_set_key(window->platform, window->notch_owner->platform, R_FALSE);
+		return;
+	}
+	if (window->active && rvn_window_notch_candidate(window) && g_notch_holder != window->id) {
+		rvn_window_t* previous = rvn_window_get(g_notch_holder);
+		g_notch_holder = window->id;
+		if (previous && previous != window) rvn_window_notch_update(previous);
+	}
+	if (window->island) rvn_window_notch_update(window);
+}
+
+/*
+ * After a layout of an overlay: large enough for the island unfolded, its
+ * shadow and the lists opened from it (placed by the window system around
+ * the housing), and the mouse taken only by the island, or by all of it
+ * while a list or a menu is open.
+ */
+static void rvn_window_overlay_fit(rvn_window_t* overlay) {
+	rvn_widget_t* island = overlay->island;
+	rvn_vec2_t extent;
+	float scale = overlay->scale > 0.0f ? overlay->scale : 1.0f;
+	int width, height, input[4];
+	if (!island || !overlay->notch_owner) return;
+	extent = rvn_island_extent(island);
+	if (extent.x <= 0.0f || extent.y <= 0.0f) return;
+	width = (int)ceilf((extent.x + 96.0f) * scale);
+	height = (int)ceilf((extent.y + 380.0f) * scale);
+	if (width != overlay->overlay_w || height != overlay->overlay_h) {
+		overlay->overlay_w = width;
+		overlay->overlay_h = height;
+		g_rvn.platform->overlay_place(overlay->platform, overlay->notch_owner->platform, width, height);
+		/* (the window system tells the new size by an event; the island is laid out again then) */
+		overlay->needs_layout = R_TRUE;
+	}
+	if (overlay->popup_count > 0) {
+		input[0] = input[1] = 0;
+		input[2] = overlay->width_px;
+		input[3] = overlay->height_px;
+	} else {
+		/* the capsule, and a little around it: the pointer that leaves it a little does not fall through at once */
+		input[0] = (int)floorf((island->rect.x - 6.0f) * scale);
+		input[1] = 0;
+		input[2] = (int)ceilf((island->rect.w + 12.0f) * scale);
+		input[3] = (int)ceilf((island->rect.y + island->rect.h + 8.0f) * scale);
+	}
+	if (memcmp(input, overlay->overlay_input, sizeof(input)) != 0) {
+		memcpy(overlay->overlay_input, input, sizeof(input));
+		if (g_rvn.platform->overlay_set_input) g_rvn.platform->overlay_set_input(overlay->platform, input[0], input[1], input[2], input[3]);
+	}
+	/* placed and laid out: it shows (without taking the keyboard) */
+	if (!overlay->visible) {
+		overlay->visible = R_TRUE;
+		overlay->needs_paint = R_TRUE;
+		g_rvn.platform->window_show(overlay->platform, R_TRUE);
+	}
+	/* (an island that folded let go of what had the focus: the keyboard goes back) */
+	rvn_window_notch_focus(overlay);
 }

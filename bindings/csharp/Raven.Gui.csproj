@@ -4,17 +4,16 @@
     dotnet pack bindings/csharp/Raven.Gui.csproj -c Release -o dist
 
   bindings\package.bat does all of this. By hand: put the shared library of
-  each platform (and ravenc) in native/ first:
+  each platform in native/ first:
 
-    native/win-x64/raven.dll        native/win-x64/ravenc.exe
-    native/linux-x64/libraven.so    native/linux-x64/ravenc
-    native/osx/libraven.dylib       native/osx/ravenc          (universal: arm64 + x86_64)
+    native/win-x64/raven.dll
+    native/linux-x64/libraven.so
+    native/osx/libraven.dylib       (universal: arm64 + x86_64)
 
   A platform whose folder is empty is simply left out of the package.
-  The package holds Raven.dll (the bindings, netstandard2.0), the native
+  The package holds Raven.dll (the bindings, netstandard2.0) and the native
   libraries under runtimes/<rid>/native/ (copied beside the program by the
-  .NET SDK), ravenc under tools/<rid>/, and build/Raven.Gui.targets, which
-  compiles the .xmlcs files of the project with that ravenc.
+  .NET SDK).
 -->
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -32,7 +31,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 
     <PackageId>Raven.Gui</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>Oscar Soirey</Authors>
     <Copyright>Copyright 2026 Oscar Soirey</Copyright>
     <Description>C# bindings for Raven, a lightweight, multithreaded GUI library in C for editors and tools. The native library is included for Windows x64, Linux x64 and macOS (arm64 and x64).</Description>
@@ -52,19 +51,10 @@
   <ItemGroup>
     <None Include="nuget/README.md" Pack="true" PackagePath="/" />
 
-    <!-- .xmlcs support: build/Raven.Gui.targets is imported by NuGet into the projects that use the package -->
-    <None Include="nuget/Raven.Gui.targets" Pack="true" PackagePath="build/Raven.Gui.targets;buildTransitive/Raven.Gui.targets" />
-    <None Include="Raven.XmlCs.targets" Pack="true" PackagePath="build/Raven.XmlCs.targets;buildTransitive/Raven.XmlCs.targets" />
-
     <!-- the native library of each platform -->
     <None Include="native/win-x64/raven.dll" Condition="Exists('native/win-x64/raven.dll')" Pack="true" PackagePath="runtimes/win-x64/native/" />
     <None Include="native/linux-x64/libraven.so" Condition="Exists('native/linux-x64/libraven.so')" Pack="true" PackagePath="runtimes/linux-x64/native/" />
     <None Include="native/osx/libraven.dylib" Condition="Exists('native/osx/libraven.dylib')" Pack="true" PackagePath="runtimes/osx/native/" />
-
-    <!-- ravenc, for the .xmlcs files -->
-    <None Include="native/win-x64/ravenc.exe" Condition="Exists('native/win-x64/ravenc.exe')" Pack="true" PackagePath="tools/win-x64/" />
-    <None Include="native/linux-x64/ravenc" Condition="Exists('native/linux-x64/ravenc')" Pack="true" PackagePath="tools/linux-x64/" />
-    <None Include="native/osx/ravenc" Condition="Exists('native/osx/ravenc')" Pack="true" PackagePath="tools/osx/" />
   </ItemGroup>
 
 </Project>

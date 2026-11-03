@@ -251,7 +251,7 @@ static uint32_t rvn_uikit_modifiers(UIKeyModifierFlags flags) {
 	UITouch* touch;
 	if (!window) return;
 	for (touch in touches) {
-		int slot = [self slotForTouch:touch create:phase == R_TOUCH_BEGIN];
+		int slot = [self slotForTouch:touch create:phase == R_TOUCH_DOWN];
 		CGPoint point;
 		rvn_pevent_t event;
 		if (slot < 0) continue;
@@ -259,19 +259,36 @@ static uint32_t rvn_uikit_modifiers(UIKeyModifierFlags flags) {
 		point = [touch locationInView:self];
 		point.x -= window->layer.frame.origin.x;
 		point.y -= window->layer.frame.origin.y;
-		rvn_uikit_pevent(&event, RVN_PEVENT_TOUCH);
-		event.touch_id = (uint32_t)slot;
-		event.touch_phase = phase;
-		event.x = (int)lround(point.x * window->scale);
-		event.y = (int)lround(point.y * window->scale);
-		rvn_uikit_send(&event);
-		if (phase == R_TOUCH_END || phase == R_TOUCH_CANCEL) touchSlots[slot] = nil;
+		if (touch.type == UITouchTypePencil) {
+			/* the Apple Pencil: a pen with pressure and tilt (it does not hover here), not a finger */
+			CGFloat force = touch.maximumPossibleForce > 0.0 ? touch.force / touch.maximumPossibleForce : 1.0;
+			CGFloat tilt = M_PI_2 - touch.altitudeAngle;
+			CGFloat azimuth = [touch azimuthAngleInView:self];
+			rvn_uikit_pevent(&event, RVN_PEVENT_PEN);
+			event.touch_id = slot;
+			event.phase = phase == R_TOUCH_DOWN ? R_PEN_DOWN : phase == R_TOUCH_MOVE ? R_PEN_MOVE : R_PEN_UP;
+			event.fx = (float)(point.x * window->scale);
+			event.fy = (float)(point.y * window->scale);
+			event.pressure = (float)force;
+			event.tilt_x = (float)(tilt * cos(azimuth) * 180.0 / M_PI);
+			event.tilt_y = (float)(tilt * sin(azimuth) * 180.0 / M_PI);
+			rvn_uikit_send(&event);
+		} else {
+			rvn_uikit_pevent(&event, RVN_PEVENT_TOUCH);
+			event.touch_id = slot;
+			event.phase = phase;
+			event.fx = (float)(point.x * window->scale);
+			event.fy = (float)(point.y * window->scale);
+			event.pressure = touch.maximumPossibleForce > 0.0 ? (float)(touch.force / touch.maximumPossibleForce) : 1.0f;
+			rvn_uikit_send(&event);
+		}
+		if (phase == R_TOUCH_UP || phase == R_TOUCH_CANCEL) touchSlots[slot] = nil;
 	}
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
 	(void)event;
-	[self sendTouches:touches phase:R_TOUCH_BEGIN];
+	[self sendTouches:touches phase:R_TOUCH_DOWN];
 }
 
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
@@ -281,7 +298,7 @@ static uint32_t rvn_uikit_modifiers(UIKeyModifierFlags flags) {
 
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
 	(void)event;
-	[self sendTouches:touches phase:R_TOUCH_END];
+	[self sendTouches:touches phase:R_TOUCH_UP];
 }
 
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {

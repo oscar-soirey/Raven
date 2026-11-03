@@ -1,10 +1,12 @@
 # Raven Bevy Editor
 
 A visual editor of 3D scenes for [Bevy](https://bevyengine.org), in Rust. Its
-whole interface — window, menus, docked panels, hierarchy, inspector, and all
-the code behind them — is **one file, [`ui/src/editor.xmlrs`](ui/src/editor.xmlrs)**:
-Raven XML with its Rust in `<script>`, turned into Rust by `ravenc` when Cargo
-builds the crate. Bevy draws the scene into the viewport of the interface.
+whole interface — window, menus, docked panels, hierarchy, inspector — is
+described in **[`ui/src/editor.xml`](ui/src/editor.xml)**, and the code behind
+it is the Rust of [`ui/src/editor.rs`](ui/src/editor.rs), which builds the
+window from that XML (compiled into the program with `include_str!`), binds
+the actions it names (`OnClicked="editor.save"` calls `on_save`) and finds its
+widgets by name. Bevy draws the scene into the viewport of the interface.
 
 ![The viewport](../../docs/images/bevy_editor_viewport.png)
 
@@ -35,7 +37,7 @@ builds the crate. Bevy draws the scene into the viewport of the interface.
 
 ```
 core/   editor_core: the scene, the history, the file, the camera, picking, the gizmos (no dependency)
-ui/     editor_ui: the interface (src/editor.xmlrs) and a software renderer
+ui/     editor_ui: the interface (src/editor.xml, src/editor.rs) and a software renderer
 app/    raven-bevy-editor: Bevy renders the scene
 ```
 
@@ -53,10 +55,9 @@ app/    raven-bevy-editor: Bevy renders the scene
 
 ## Build and run
 
-The Raven package gives `ravenc` and the library:
+The Raven package gives the library:
 
 ```sh
-export RAVENC=<Raven package>/bin/ravenc
 export RAVEN_LIB_DIR=<Raven package>/lib          # and on Linux: LD_LIBRARY_PATH=$RAVEN_LIB_DIR
 
 cargo run --release -p raven-bevy-editor                      # the scene drawn by Bevy

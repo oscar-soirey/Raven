@@ -1,12 +1,13 @@
 /**
  * Raven Designer - strings.c
- * The Translations panel: a CSV table of the project as a grid, one row per
+ * The Translations panel: a CSV table of the folder as a grid, one row per
  * key, one column per language. A cell left empty is marked (the fallback
  * language shows instead). Changes show in the preview while typing; the
  * language of the preview is chosen above it, right to left included.
  */
 
-#include "ide.h"
+#include "designer.h"
+#include "../crash_report.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -47,7 +48,7 @@ static struct {
 
 /* One record: the fields, as CSV quotes them. Returns the start of the next record. */
 static const char* read_record(const char* p, char** fields, int max, int* count) {
-	ide_buffer_t field = { 0 };
+	ds_buffer_t field = { 0 };
 	*count = 0;
 	for (;;) {
 		field.size = 0;
@@ -57,26 +58,26 @@ static const char* read_record(const char* p, char** fields, int max, int* count
 			for (;;) {
 				if (!*p) break;
 				if (*p == '"') {
-					if (p[1] == '"') { ide_buffer_add(&field, "\"", 1); p += 2; continue; }
+					if (p[1] == '"') { ds_buffer_add(&field, "\"", 1); p += 2; continue; }
 					p++;
 					break;
 				}
-				ide_buffer_add(&field, p, 1);
+				ds_buffer_add(&field, p, 1);
 				p++;
 			}
 			while (*p && *p != ',' && *p != '\n' && *p != '\r') p++;
 		} else {
 			const char* start = p;
 			while (*p && *p != ',' && *p != '\n' && *p != '\r') p++;
-			ide_buffer_add(&field, start, (size_t)(p - start));
+			ds_buffer_add(&field, start, (size_t)(p - start));
 		}
-		if (*count < max) fields[(*count)++] = ide_strdup(field.data ? field.data : "");
+		if (*count < max) fields[(*count)++] = ds_strdup(field.data ? field.data : "");
 		if (*p == ',') { p++; continue; }
 		if (*p == '\r') p++;
 		if (*p == '\n') p++;
 		break;
 	}
-	ide_buffer_free(&field);
+	ds_buffer_free(&field);
 	return p;
 }
 
@@ -95,7 +96,7 @@ static int load_table(table_t* t, const char* path) {
 	const char* p;
 	memset(t, 0, sizeof(*t));
 	if (!text) return R_FALSE;
-	t->path = ide_strdup(path);
+	t->path = ds_strdup(path);
 	p = text;
 	if ((unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) p += 3;
 	/* the first record names the columns */
@@ -120,55 +121,55 @@ static int load_table(table_t* t, const char* path) {
 		} else {
 			p = read_record(p, row.cells, MAX_COLUMNS, &count);
 		}
-		for (i = 0; i < t->columns; i++) if (!row.cells[i]) row.cells[i] = ide_strdup("");
+		for (i = 0; i < t->columns; i++) if (!row.cells[i]) row.cells[i] = ds_strdup("");
 		t->rows = (row_t*)realloc(t->rows, sizeof(row_t) * (size_t)(t->row_count + 1));
 		t->rows[t->row_count++] = row;
 	}
 	Rmemory_free(text);
 	if (t->columns == 0) {
-		t->headers[0] = ide_strdup("key");
-		t->headers[1] = ide_strdup("en");
+		t->headers[0] = ds_strdup("key");
+		t->headers[1] = ds_strdup("en");
 		t->columns = 2;
 	}
 	return R_TRUE;
 }
 
-static void write_field(ide_buffer_t* out, const char* text) {
+static void write_field(ds_buffer_t* out, const char* text) {
 	const char* p;
 	int quote = strpbrk(text, ",\"\n\r") != NULL || (text[0] == ' ') || (text[0] && text[strlen(text) - 1] == ' ') || text[0] == '#';
 	if (!quote) {
-		ide_buffer_add(out, text, strlen(text));
+		ds_buffer_add(out, text, strlen(text));
 		return;
 	}
-	ide_buffer_add(out, "\"", 1);
+	ds_buffer_add(out, "\"", 1);
 	for (p = text; *p; p++) {
-		if (*p == '"') ide_buffer_add(out, "\"\"", 2);
-		else ide_buffer_add(out, p, 1);
+		if (*p == '"') ds_buffer_add(out, "\"\"", 2);
+		else ds_buffer_add(out, p, 1);
 	}
-	ide_buffer_add(out, "\"", 1);
+	ds_buffer_add(out, "\"", 1);
 }
 
 static int save_table(table_t* t) {
-	ide_buffer_t out = { 0 };
+	ds_buffer_t out = { 0 };
 	int i, j, ok;
 	for (i = 0; i < t->columns; i++) {
-		if (i) ide_buffer_add(&out, ",", 1);
+		if (i) ds_buffer_add(&out, ",", 1);
 		write_field(&out, t->headers[i]);
 	}
-	ide_buffer_add(&out, "\n", 1);
+	ds_buffer_add(&out, "\n", 1);
 	for (i = 0; i < t->row_count; i++) {
 		if (t->rows[i].comment) {
-			ide_buffer_add(&out, t->rows[i].cells[0], strlen(t->rows[i].cells[0]));
+			ds_buffer_add(&out, t->rows[i].cells[0], strlen(t->rows[i].cells[0]));
 		} else {
 			for (j = 0; j < t->columns; j++) {
-				if (j) ide_buffer_add(&out, ",", 1);
+				if (j) ds_buffer_add(&out, ",", 1);
 				write_field(&out, t->rows[i].cells[j] ? t->rows[i].cells[j] : "");
 			}
 		}
-		ide_buffer_add(&out, "\n", 1);
+		ds_buffer_add(&out, "\n", 1);
 	}
 	ok = Rfile_write(t->path, out.data, out.size);
-	ide_buffer_free(&out);
+	ds_buffer_free(&out);
 	if (ok) t->modified = 0;
 	return ok;
 }
@@ -184,8 +185,9 @@ static table_t* current(void) {
 static void update_title(void) {
 	table_t* t = current();
 	char title[300];
-	snprintf(title, sizeof(title), "Translations%s%s%s", t ? " - " : "", t ? ide_basename(t->path) : "", t && t->modified ? " *" : "");
-	Rdock_area_set_panel_title(g_ide_dock, g_s.panel, title);
+	/* (the tab says when a table has unsaved changes) */
+	snprintf(title, sizeof(title), "Translations%s", t && t->modified ? " \xE2\x80\xA2" : "");
+	Rbutton_set_text(Rwidget_find(g_ds_window, "tab.strings"), title);
 }
 
 static void mark_cell(Rid input, int missing) {
@@ -222,7 +224,7 @@ static void on_cell(Rid input, const char* text, void* user_data) {
 	int code = (int)(size_t)user_data, row = code / MAX_COLUMNS, column = code % MAX_COLUMNS;
 	if (g_s.syncing || !t || row >= t->row_count || column >= t->columns) return;
 	free(t->rows[row].cells[column]);
-	t->rows[row].cells[column] = ide_strdup(text);
+	t->rows[row].cells[column] = ds_strdup(text);
 	if (column > 0) {
 		mark_cell(input, !text[0] && column > 1);
 		/* the preview shows it at once */
@@ -277,8 +279,8 @@ static void rebuild_grid(void) {
 	g_s.syncing++;
 	Rwidget_clear_children(g_s.grid);
 	if (!t) {
-		Rwidget_add_child(g_s.grid, Rlabel_create(g_project_dir ? "The project has no .csv table: Add table creates strings.csv."
-			: "Open a project to edit its translations."));
+		Rwidget_add_child(g_s.grid, Rlabel_create(g_folder ? "The folder has no .csv table: New table creates strings.csv."
+			: "Open a folder to edit its translations."));
 		g_s.syncing--;
 		update_title();
 		return;
@@ -334,7 +336,7 @@ static void rebuild_grid(void) {
 }
 
 /* ---------------------------------------------------------------------------
- *  Tables of the project
+ *  Tables of the folder
  * ------------------------------------------------------------------------- */
 
 static void collect_keys(void) {
@@ -348,7 +350,7 @@ static void collect_keys(void) {
 			const row_t* row = &g_s.tables[i].rows[j];
 			if (row->comment || !row->cells[0] || !row->cells[0][0]) continue;
 			g_s.keys = (char**)realloc(g_s.keys, sizeof(char*) * (size_t)(g_s.key_count + 1));
-			g_s.keys[g_s.key_count++] = ide_strdup(row->cells[0]);
+			g_s.keys[g_s.key_count++] = ds_strdup(row->cells[0]);
 		}
 	}
 }
@@ -362,15 +364,16 @@ const char* strings_key(int index) {
 }
 
 static void find_tables(const char* folder, int depth) {
-	ide_entry_t* entries;
-	int count = ide_list_dir(folder, &entries), i;
+	ds_entry_t* entries;
+	int count = ds_list_dir(folder, &entries), i;
 	for (i = 0; i < count; i++) {
 		char* full;
-		if (entries[i].name[0] == '.' || ide_iequal(entries[i].name, "build") || !strncmp(entries[i].name, "build-", 6)) continue;
-		full = ide_join(folder, entries[i].name);
+		if (entries[i].name[0] == '.' || ds_iequal(entries[i].name, "build") || !strncmp(entries[i].name, "build-", 6)) continue;
+		full = ds_join(folder, entries[i].name);
 		if (entries[i].is_dir) {
-			if (depth < 3) find_tables(full, depth + 1);
-		} else if (ide_iequal(ide_extension(entries[i].name), "csv")) {
+			/* (as deep as Files looks) */
+			if (depth < 4) find_tables(full, depth + 1);
+		} else if (ds_iequal(ds_extension(entries[i].name), "csv")) {
 			table_t t;
 			if (load_table(&t, full)) {
 				g_s.tables = (table_t*)realloc(g_s.tables, sizeof(table_t) * (size_t)(g_s.table_count + 1));
@@ -386,11 +389,11 @@ static void fill_language_combo(void) {
 	int i, count = Rlocale_get_language_count(), selected = 0;
 	g_s.syncing++;
 	Rcombo_box_clear_items(g_s.language_combo);
-	Rcombo_box_add_item(g_s.language_combo, "Language: first column");
+	Rcombo_box_add_item(g_s.language_combo, "First column of the tables");
 	for (i = 0; i < count; i++) {
 		const char* code = Rlocale_get_language_at(i);
 		char item[96];
-		snprintf(item, sizeof(item), "Language: %s", code);
+		snprintf(item, sizeof(item), "%s", code);
 		Rcombo_box_add_item(g_s.language_combo, item);
 		if (g_s.language[0] && !strcmp(code, g_s.language)) selected = i + 1;
 	}
@@ -409,23 +412,23 @@ static void apply_language(void) {
 
 void strings_reload(void) {
 	int i;
-	char* previous_path = current() ? ide_strdup(current()->path) : NULL;
+	char* previous_path = current() ? ds_strdup(current()->path) : NULL;
 	for (i = 0; i < g_s.table_count; i++) free_table(&g_s.tables[i]);
 	free(g_s.tables);
 	g_s.tables = NULL;
 	g_s.table_count = 0;
 	g_s.current = -1;
 	Rlocale_clear();
-	if (g_project_dir) find_tables(g_project_dir, 0);
+	if (g_folder) find_tables(g_folder, 0);
 	for (i = 0; i < g_s.table_count; i++) {
 		Rlocale_load_csv(g_s.tables[i].path);
-		if (previous_path && ide_same_path(previous_path, g_s.tables[i].path)) g_s.current = i;
+		if (previous_path && ds_same_path(previous_path, g_s.tables[i].path)) g_s.current = i;
 	}
 	free(previous_path);
 	if (g_s.current < 0 && g_s.table_count) g_s.current = 0;
 	g_s.syncing++;
 	Rcombo_box_clear_items(g_s.file_combo);
-	for (i = 0; i < g_s.table_count; i++) Rcombo_box_add_item(g_s.file_combo, ide_basename(g_s.tables[i].path));
+	for (i = 0; i < g_s.table_count; i++) Rcombo_box_add_item(g_s.file_combo, ds_basename(g_s.tables[i].path));
 	if (g_s.current >= 0) Rcombo_box_set_selected(g_s.file_combo, g_s.current);
 	g_s.syncing--;
 	collect_keys();
@@ -438,18 +441,34 @@ void strings_reload(void) {
 void strings_open(const char* path) {
 	int i;
 	for (i = 0; i < g_s.table_count; i++) {
-		if (ide_same_path(g_s.tables[i].path, path)) {
+		if (ds_same_path(g_s.tables[i].path, path)) {
 			g_s.current = i;
 			g_s.syncing++;
 			Rcombo_box_set_selected(g_s.file_combo, i);
 			g_s.syncing--;
 			rebuild_grid();
-			Rdock_area_open_panel(g_ide_dock, g_s.panel);
 			return;
 		}
 	}
-	/* a table outside of the project: as text */
-	editors_open(path, 0);
+	/* a table the folder did not list (deeper, or new): read now and shown */
+	{
+		table_t t;
+		if (!load_table(&t, path)) {
+			ds_status("Cannot read %s.", ds_basename(path));
+			return;
+		}
+		g_s.tables = (table_t*)realloc(g_s.tables, sizeof(table_t) * (size_t)(g_s.table_count + 1));
+		g_s.tables[g_s.table_count++] = t;
+		Rlocale_load_csv(path);
+		g_s.current = g_s.table_count - 1;
+		g_s.syncing++;
+		Rcombo_box_add_item(g_s.file_combo, ds_basename(path));
+		Rcombo_box_set_selected(g_s.file_combo, g_s.current);
+		g_s.syncing--;
+		collect_keys();
+		fill_language_combo();
+		rebuild_grid();
+	}
 }
 
 int strings_any_modified(void) {
@@ -462,7 +481,7 @@ int strings_save(void) {
 	int i, ok = R_TRUE;
 	for (i = 0; i < g_s.table_count; i++) {
 		if (g_s.tables[i].modified && !save_table(&g_s.tables[i])) {
-			ide_status("Cannot write %s", g_s.tables[i].path);
+			ds_status("Cannot write %s", g_s.tables[i].path);
 			ok = R_FALSE;
 		}
 	}
@@ -486,15 +505,15 @@ static void add_key(void) {
 		for (i = 0; i < t->row_count; i++) if (t->rows[i].cells[0] && !strcmp(t->rows[i].cells[0], key)) taken = 1;
 	} while (taken);
 	memset(&row, 0, sizeof(row));
-	row.cells[0] = ide_strdup(key);
-	for (i = 1; i < t->columns; i++) row.cells[i] = ide_strdup("");
+	row.cells[0] = ds_strdup(key);
+	for (i = 1; i < t->columns; i++) row.cells[i] = ds_strdup("");
 	t->rows = (row_t*)realloc(t->rows, sizeof(row_t) * (size_t)(t->row_count + 1));
 	t->rows[t->row_count++] = row;
 	t->modified = 1;
 	Rtext_input_set_text(g_s.filter, "");
 	collect_keys();
 	rebuild_grid();
-	ide_status("Key %s added: rename it in the first column.", key);
+	ds_status("Key %s added: rename it in the first column.", key);
 }
 
 static void add_language(void) {
@@ -503,39 +522,38 @@ static void add_language(void) {
 	int i;
 	if (!t) return;
 	if (!code[0] || strchr(code, ',') || strchr(code, '"')) {
-		ide_status("Type the code of the language first (fr, de, ar, pt-BR...).");
+		ds_status("Type the code of the language first (fr, de, ar, pt-BR...).");
 		return;
 	}
 	for (i = 0; i < t->columns; i++) {
-		if (ide_iequal(t->headers[i], code)) {
-			ide_status("The table already has %s.", code);
+		if (ds_iequal(t->headers[i], code)) {
+			ds_status("The table already has %s.", code);
 			return;
 		}
 	}
 	if (t->columns >= MAX_COLUMNS) return;
-	t->headers[t->columns] = ide_strdup(code);
-	for (i = 0; i < t->row_count; i++) if (!t->rows[i].comment) t->rows[i].cells[t->columns] = ide_strdup("");
+	t->headers[t->columns] = ds_strdup(code);
+	for (i = 0; i < t->row_count; i++) if (!t->rows[i].comment) t->rows[i].cells[t->columns] = ds_strdup("");
 	t->columns++;
 	t->modified = 1;
 	Rtext_input_set_text(g_s.new_language, "");
 	rebuild_grid();
-	ide_status("Language %s added: its empty cells are marked.", code);
+	ds_status("Language %s added: its empty cells are marked.", code);
 }
 
 static void add_table(void) {
 	char* path;
-	if (!g_project_dir) {
-		ide_status("Open a project first.");
+	if (!g_folder) {
+		ds_status("Open a folder first.");
 		return;
 	}
-	path = ide_join(g_project_dir, "strings.csv");
-	if (!ide_file_exists(path)) Rfile_write(path, "key,en\n", 7);
-	free(path);
-	strings_reload();
-	project_refresh_explorer();
+	/* (in the folder chosen in Files, with a name that is free) */
+	(void)path;
+	folder_new_interface("table");
 }
 
 static void action_strings(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "strings.add_key")) add_key();
@@ -543,7 +561,7 @@ static void action_strings(Rid sender, const char* action, void* user_data) {
 	else if (!strcmp(action, "strings.add_table")) add_table();
 	else if (!strcmp(action, "strings.save")) {
 		if (strings_save()) {
-			ide_status("Translations saved.");
+			ds_status("Translations saved.");
 			strings_reload();
 		}
 	} else if (!strcmp(action, "strings.filter")) {
@@ -569,17 +587,134 @@ static void on_language_changed(Rid combo, int index, void* user_data) {
 	else snprintf(g_s.language, sizeof(g_s.language), "%s", Rlocale_get_language_at(index - 1));
 	apply_language();
 	designer_refresh_preview();
-	ide_status(g_s.language[0] ? "The preview is in %s%s." : "The preview is in the first language.", g_s.language,
+	ds_status(g_s.language[0] ? "The preview is in %s%s." : "The preview is in the first language.", g_s.language,
 		g_s.language[0] && Rlocale_is_rtl() ? ", right to left" : "");
 }
 
+/* ---------------------------------------------------------------------------
+ *  The keys under an input: its text starts with '@', the keys of the tables
+ *  that hold what follows are offered (those that start with it first)
+ * ------------------------------------------------------------------------- */
+
+#define PICKER_MAX 14
+
+static struct {
+	Rid menu, input;
+	/* the window of the input (an island in the camera housing has a window of its own) */
+	Rid window;
+	ds_key_applied_t applied;
+	void* user_data;
+	char keys[PICKER_MAX][128];
+	int count;
+	/* set while a key chosen is written: the input changes, the list does not come back */
+	int picking;
+} g_kp;
+
+static int picker_shown(void) {
+	int i, count;
+	if (g_kp.menu == R_INVALID_ID || !Rwidget_is_valid(g_kp.menu)) return R_FALSE;
+	if (!Rwindow_is_valid(g_kp.window)) return R_FALSE;
+	count = Rwindow_get_popup_count(g_kp.window);
+	for (i = 0; i < count; i++) if (Rwindow_get_popup(g_kp.window, i) == g_kp.menu) return R_TRUE;
+	return R_FALSE;
+}
+
+static void picker_close(void) {
+	if (picker_shown()) Rwindow_close_popups(g_kp.window);
+}
+
+static void on_key_picked(Rid item, void* user_data) {
+	int index = (int)(size_t)user_data;
+	char text[160];
+	(void)item;
+	if (index < 0 || index >= g_kp.count || g_kp.input == R_INVALID_ID || !Rwidget_is_valid(g_kp.input)) return;
+	snprintf(text, sizeof(text), "@%s", g_kp.keys[index]);
+	g_kp.picking++;
+	Rtext_input_set_text(g_kp.input, text);
+	if (g_kp.applied) g_kp.applied(g_kp.input, text, g_kp.user_data);
+	g_kp.picking--;
+	/* (the keyboard stays in the input, to go on) */
+	if (Rwidget_is_valid(g_kp.input)) Rwidget_focus(g_kp.input);
+}
+
+static int key_starts_with(const char* key, const char* start) {
+	for (; *start; key++, start++) {
+		char x = *key, y = *start;
+		if (!x) return R_FALSE;
+		if (x >= 'A' && x <= 'Z') x = (char)(x + 32);
+		if (y >= 'A' && y <= 'Z') y = (char)(y + 32);
+		if (x != y) return R_FALSE;
+	}
+	return R_TRUE;
+}
+
+void strings_key_picker(Rid input, const char* text, ds_key_applied_t applied, void* user_data) {
+	const char* filter;
+	int i, pass, total = 0, exact = R_FALSE;
+	float x, y, w, h;
+	if (g_kp.picking) return;
+	if (!text || text[0] != '@' || g_s.key_count == 0 || !Rwidget_is_focused(input)) {
+		if (g_kp.input == input) picker_close();
+		return;
+	}
+	filter = text + 1;
+	g_kp.count = 0;
+	for (pass = 0; pass < 2; pass++) {
+		for (i = 0; i < g_s.key_count; i++) {
+			const char* key = g_s.keys[i];
+			int starts = key_starts_with(key, filter);
+			if (pass == 0 ? !starts : (starts || !ds_contains(key, filter))) continue;
+			if (ds_iequal(key, filter)) exact = R_TRUE;
+			total++;
+			if (g_kp.count < PICKER_MAX) snprintf(g_kp.keys[g_kp.count++], sizeof(g_kp.keys[0]), "%s", key);
+		}
+	}
+	picker_close();
+	/* nothing holds it, or the key is written in full */
+	if (g_kp.count == 0 || (total == 1 && exact)) return;
+	if (g_kp.menu != R_INVALID_ID && Rwidget_is_valid(g_kp.menu)) Rwidget_destroy(g_kp.menu);
+	g_kp.menu = Rwidget_create(R_WIDGET_MENU);
+	for (i = 0; i < g_kp.count; i++) {
+		char label[300];
+		const char* shown = Rtr(g_kp.keys[i]);
+		Rid item;
+		/* the key, and what it says in the language of the preview */
+		if (shown && shown[0] && strcmp(shown, g_kp.keys[i]) != 0) snprintf(label, sizeof(label), "%s      \xE2\x80\x9C%.60s\xE2\x80\x9D", g_kp.keys[i], shown);
+		else snprintf(label, sizeof(label), "%s", g_kp.keys[i]);
+		item = Rmenu_add_item(g_kp.menu, label);
+		Rmenu_item_set_clicked_callback(item, on_key_picked, (void*)(size_t)i);
+	}
+	if (total > g_kp.count) {
+		char more[96];
+		Rid item;
+		snprintf(more, sizeof(more), "%d more: type to narrow", total - g_kp.count);
+		Rmenu_add_separator(g_kp.menu);
+		item = Rmenu_add_item(g_kp.menu, more);
+		Rwidget_set_enabled(item, R_FALSE);
+	}
+	g_kp.input = input;
+	g_kp.window = Rwidget_get_window(input) != R_INVALID_ID ? Rwidget_get_window(input) : g_ds_window;
+	g_kp.applied = applied;
+	g_kp.user_data = user_data;
+	/* under the input; the keyboard stays in it (Up, Down and Enter choose, Escape closes) */
+	Rwidget_get_rect(input, &x, &y, &w, &h);
+	Rmenu_open(g_kp.menu, g_kp.window, x, y + h + 2.0f);
+}
+
+int strings_key_picker_count(void) {
+	return picker_shown() ? g_kp.count : 0;
+}
+
 void strings_init(void) {
-	g_s.panel = Rwidget_find(g_ide_window, "panel.strings");
-	g_s.grid = Rwidget_find(g_ide_window, "strings.grid");
-	g_s.file_combo = Rwidget_find(g_ide_window, "strings.file");
-	g_s.filter = Rwidget_find(g_ide_window, "strings.filter");
-	g_s.new_language = Rwidget_find(g_ide_window, "strings.language");
-	g_s.language_combo = Rwidget_find(g_ide_window, "preview.language");
+	g_kp.menu = R_INVALID_ID;
+	g_kp.input = R_INVALID_ID;
+	g_kp.window = R_INVALID_ID;
+	g_s.panel = Rwidget_find(g_ds_window, "panel.strings");
+	g_s.grid = Rwidget_find(g_ds_window, "strings.grid");
+	g_s.file_combo = Rwidget_find(g_ds_window, "strings.file");
+	g_s.filter = Rwidget_find(g_ds_window, "strings.filter");
+	g_s.new_language = Rwidget_find(g_ds_window, "strings.language");
+	g_s.language_combo = Rwidget_find(g_ds_window, "preview.language");
 	g_s.refresh_timer = R_INVALID_ID;
 	g_s.current = -1;
 	Rcombo_box_set_changed_callback(g_s.file_combo, on_file_changed, NULL);
@@ -596,11 +731,24 @@ void strings_init(void) {
 
 void strings_shutdown(void) {
 	int i;
+	if (g_kp.menu != R_INVALID_ID && Rwidget_is_valid(g_kp.menu)) {
+		picker_close();
+		Rwidget_destroy(g_kp.menu);
+	}
+	g_kp.menu = R_INVALID_ID;
 	for (i = 0; i < g_s.table_count; i++) free_table(&g_s.tables[i]);
 	free(g_s.tables);
 	for (i = 0; i < g_s.key_count; i++) free(g_s.keys[i]);
 	free(g_s.keys);
 	memset(&g_s, 0, sizeof(g_s));
+}
+
+int strings_language_count(void) {
+	return Rlocale_get_language_count();
+}
+
+const char* strings_language_at(int index) {
+	return Rlocale_get_language_at(index);
 }
 
 void strings_set_preview_language(const char* code) {
@@ -618,7 +766,7 @@ int strings_set_cell(const char* key, int column, const char* text) {
 	for (i = 0; i < t->row_count; i++) {
 		if (!t->rows[i].comment && t->rows[i].cells[0] && !strcmp(t->rows[i].cells[0], key)) {
 			free(t->rows[i].cells[column]);
-			t->rows[i].cells[column] = ide_strdup(text);
+			t->rows[i].cells[column] = ds_strdup(text);
 			Rlocale_set_text(t->headers[column], key, text);
 			t->modified = 1;
 			rebuild_grid();

@@ -481,7 +481,7 @@ executables are not app bundles (`ravenc`), and CoreFoundation is linked on ever
 - Found on the way, **not caused by this work**: floating a dock panel into a window (`Rdock_area_float_panel`) leaves one allocation alive at `Rshutdown`;
   the control in `test_single_window` does not call it until that is fixed.
 
-## 16. Phase 3b, second part: touch (done in the core, no platform produces it yet)
+## 16. Phase 3b, second part: touch (superseded by the upstream touch layer, see §22)
 
 - **Event and API:** `RVN_PEVENT_TOUCH` (id, phase, x, y) for platform layers, and `Rwindow_inject_touch(window, id, RTouchPhase, x, y)` in the public API (like the
   other `inject` functions, for tests and for hosts that own the window system).
@@ -554,4 +554,16 @@ Fingers need larger targets than a mouse: a platform can give the UI scale an ap
 iOS: 1.35 on a phone, 1.2 on an iPad (controls of about 38 pt, text about 19 pt). Web: the same when the main pointer is coarse (`pointer: coarse`: phones and tablets; a laptop with a touch screen and a mouse stays at 1.0).
 It is the global scale already in Raven, so every widget, font, gap and the touch slop follow, and layouts keep their proportions. A finer step later: a separate "touch" metrics set (44 pt minimum height for controls, taller list rows) instead of a uniform factor.
 Checked in Chromium with phone emulation (the controls and text are visibly larger); on desktop and in the tests nothing changed.
+
+## 22. Merge with upstream (November 2026)
+
+The fork was brought up to date with `oscar-soirey/Raven` (108 commits: touch and pens, native Wayland, looks of the platforms and macOS Glass, a theme per window, XML actions, device-loss recovery, mipmaps, the designer, Java and Odin bindings; XMLC and `ravenc` removed).
+What changed for this branch:
+- **Touch:** upstream wrote the same layer at the same time (`raven_touch.h`, `src/widget/touch.c`: taps, scrolling with inertia, long press, pinch, pens, palm rejection, `Touch.*` attributes). Ours was dropped; the web and iOS platforms now produce
+  upstream's `RVN_PEVENT_TOUCH` (`phase`, `touch_id`, `fx`, `fy`, `pressure`), and iOS sends the Apple Pencil as `RVN_PEVENT_PEN` (pressure, tilt). One addition to upstream's layer: a tap on nothing takes the focus away, as a click does
+  (`tests/test_touch_focus.c`; without it a soft keyboard would stay up). The touch density (§21) and the text-input hook (§18) are unchanged.
+- **Mipmaps** (`R_FILTER_MIPMAP`) are implemented in the Sokol backend: textures of at least 16 x 16 have room for the chain, the levels are made on the GPU after the uploads (a bilinear copy of each level into an image of half the size, then
+  `sg_copy_image_to_image`, which needs nothing the glass does not already use), and the first-level samplers are limited to level 0. `ui.frag` now uses `textureGrad`; the Sokol shaders were regenerated.
+- **Tests:** the device-loss test is Vulkan-only and is skipped on the other backends. The dock leak that `test_single_window` had to avoid is fixed upstream (the control now calls `Rdock_area_float_panel`).
+- **Not done:** device loss for the Sokol backend (`Rbackend_device_lost`), Wayland on the Sokol/EGL path (X11 only for now), the macOS Glass look has no Sokol-specific work to do (materials are drawn by the core).
 

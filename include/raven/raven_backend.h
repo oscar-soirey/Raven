@@ -305,6 +305,15 @@ extern "C" {
 	/** @brief The R_BACKEND_CAP_* flags of the backend in use; 0 before Rinit. */
 	RAVEN_API Ruint Rbackend_get_caps(void);
 
+	/**
+	 * @brief Tells Raven that the device of the backend was lost. Thread-safe:
+	 * call it from the backend (render thread) when the API reports it. At the
+	 * next frame Raven calls Shutdown and Init again, then remakes the
+	 * surfaces, the textures and the shaders (see Rset_device_reset_callback).
+	 * Until then RenderFrame may simply return.
+	 */
+	RAVEN_API void Rbackend_device_lost(void);
+
 	/** @brief Allocates a pixel buffer released by Rpixels_free. Thread-safe. */
 	RAVEN_API uint8_t* Rpixels_alloc(size_t size);
 

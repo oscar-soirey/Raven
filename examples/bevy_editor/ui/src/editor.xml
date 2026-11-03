@@ -1,0 +1,209 @@
+<!--
+  The Raven Bevy Editor: its interface. src/editor.rs builds it (editor_create, with the
+  file compiled into the program by include_str!), binds the actions it names
+  (OnClicked="editor.save" calls on_save) and finds the widgets it uses by their Name
+  (ui().viewport is the widget named viewport).
+-->
+<Window Title="Raven Bevy Editor" Width="1500" Height="920" MinWidth="980" MinHeight="620" CustomHeader="true">
+	<Widget Name="AddButton" Text="" Tip="" Do="">
+		<Button Text="{Text}" Tooltip="{Tip}" OnClicked="{Do}" Slot.Padding="0,2"/>
+	</Widget>
+	<VBox>
+		<HeaderBar Name="header" Title="Raven Bevy Editor">
+			<MenuBar>
+				<Menu Text="File">
+					<MenuItem Text="New scene" Shortcut="Ctrl+N" OnClicked="editor.new"/>
+					<MenuItem Text="Open..." Shortcut="Ctrl+O" OnClicked="editor.open"/>
+					<Separator/>
+					<MenuItem Text="Save" Shortcut="Ctrl+S" OnClicked="editor.save"/>
+					<MenuItem Text="Save as..." Shortcut="Ctrl+Shift+S" OnClicked="editor.save_as"/>
+					<Separator/>
+					<MenuItem Text="Quit" Shortcut="Ctrl+Q" OnClicked="editor.quit"/>
+				</Menu>
+				<Menu Text="Edit">
+					<MenuItem Name="menu_undo" Text="Undo" Shortcut="Ctrl+Z" OnClicked="editor.undo"/>
+					<MenuItem Name="menu_redo" Text="Redo" Shortcut="Ctrl+Y" OnClicked="editor.redo"/>
+					<Separator/>
+					<MenuItem Text="Duplicate" Shortcut="Ctrl+D" OnClicked="editor.duplicate"/>
+					<MenuItem Text="Delete (Del in the scene)" OnClicked="editor.delete"/>
+					<Separator/>
+					<MenuItem Text="Move up" Shortcut="Alt+Up" OnClicked="editor.move_up"/>
+					<MenuItem Text="Move down" Shortcut="Alt+Down" OnClicked="editor.move_down"/>
+					<MenuItem Text="Into the one above" Shortcut="Alt+Right" OnClicked="editor.indent"/>
+					<MenuItem Text="Out of its parent" Shortcut="Alt+Left" OnClicked="editor.outdent"/>
+				</Menu>
+				<Menu Text="Add">
+					<MenuItem Text="Empty" OnClicked="add.empty"/>
+					<Separator/>
+					<MenuItem Text="Cube" OnClicked="add.cube"/>
+					<MenuItem Text="Sphere" OnClicked="add.sphere"/>
+					<MenuItem Text="Plane" OnClicked="add.plane"/>
+					<MenuItem Text="Cylinder" OnClicked="add.cylinder"/>
+					<MenuItem Text="Capsule" OnClicked="add.capsule"/>
+					<MenuItem Text="Torus" OnClicked="add.torus"/>
+					<Separator/>
+					<MenuItem Text="Point light" OnClicked="add.point_light"/>
+					<MenuItem Text="Directional light" OnClicked="add.directional_light"/>
+					<MenuItem Text="Camera" OnClicked="add.camera"/>
+				</Menu>
+				<Menu Text="View">
+					<MenuItem Text="Move (W)" OnClicked="editor.mode_move"/>
+					<MenuItem Text="Rotate (E)" OnClicked="editor.mode_rotate"/>
+					<MenuItem Text="Scale (R)" OnClicked="editor.mode_scale"/>
+					<MenuItem Name="menu_snap" Text="Snap to steps" Checkable="true" OnClicked="editor.snap"/>
+					<Separator/>
+					<MenuItem Text="Frame the selection (F)" OnClicked="editor.frame"/>
+					<MenuItem Text="Reset the camera" OnClicked="editor.reset_camera"/>
+					<MenuItem Name="menu_grid" Text="Grid (G)" Checkable="true" Checked="true" OnClicked="editor.toggle_grid"/>
+					<Separator/>
+					<MenuItem Text="Reset the panels" OnClicked="editor.reset_panels"/>
+				</Menu>
+				<Menu Text="Help">
+					<MenuItem Text="About the editor" OnClicked="editor.about"/>
+				</Menu>
+			</MenuBar>
+			<HBox Spacing="4" Slot.HAlign="Right" Slot.VAlign="Center" Slot.Padding="8,0">
+				<Button Name="mode_move" Text="Move" Style="Primary" Tooltip="Arrows to move the selection (W)" OnClicked="editor.mode_move" Metric.ControlHeight="26"/>
+				<Button Name="mode_rotate" Text="Rotate" Style="Flat" Tooltip="Rings to turn it (E)" OnClicked="editor.mode_rotate" Metric.ControlHeight="26"/>
+				<Button Name="mode_scale" Text="Scale" Style="Flat" Tooltip="Boxes to scale it; the middle scales it the same on every axis (R)" OnClicked="editor.mode_scale" Metric.ControlHeight="26"/>
+				<Checkbox Name="snap" Text="Snap" Style="Switch" Tooltip="By steps: 0.5 m, 15 degrees, 0.1 (Ctrl while dragging does the opposite)" OnChanged="editor.snap" Slot.VAlign="Center" Slot.Padding="8,0"/>
+			</HBox>
+		</HeaderBar>
+		<DockArea Name="dock" Slot.Fill="1">
+			<VBox Name="panel_scene" Slot.Title="Scene" Slot.Closable="false">
+				<Viewport Name="viewport" Focusable="true" Slot.Fill="1" Cursor="Crosshair"
+					AccessibleName="The scene" AccessibleDescription="Right button turns, middle button moves, the wheel zooms, a click selects"/>
+			</VBox>
+			<VBox Name="panel_hierarchy" Slot.Title="Hierarchy" Slot.Dock="Left" Slot.DockSize="0.19" Slot.Closable="false">
+				<TreeView Name="tree" Slot.Fill="1" OnChanged="editor.tree_select" OnActivated="editor.frame" Tooltip="Double click: look at it. Del: delete it."/>
+				<Separator/>
+				<WrapBox Spacing="0" Slot.Padding="4,2">
+					<Button Name="btn_up" Text="Up" Style="Flat" Tooltip="Before the one above (Alt+Up)" OnClicked="editor.move_up"/>
+					<Button Name="btn_down" Text="Down" Style="Flat" Tooltip="After the one below (Alt+Down)" OnClicked="editor.move_down"/>
+					<Button Name="btn_in" Text="In" Style="Flat" Tooltip="Inside the one above (Alt+Right)" OnClicked="editor.indent"/>
+					<Button Name="btn_out" Text="Out" Style="Flat" Tooltip="Out of its parent (Alt+Left)" OnClicked="editor.outdent"/>
+					<Button Name="btn_duplicate" Text="Duplicate" Style="Flat" Tooltip="Ctrl+D" OnClicked="editor.duplicate"/>
+					<Button Name="btn_delete" Text="Delete" Style="Flat" Tooltip="Del" OnClicked="editor.delete"/>
+				</WrapBox>
+			</VBox>
+			<VBox Name="panel_add" Slot.Title="Add" Slot.Dock="Bottom" Slot.DockTo="panel_hierarchy" Slot.DockSize="0.42" Slot.Closable="false">
+				<ScrollBox Slot.Fill="1">
+					<VBox Spacing="2" Slot.Padding="8,6">
+						<Checkbox Name="add_inside" Text="Inside the selection" Tooltip="What is added becomes a child of the selected entity" Slot.Padding="0,0,0,6"/>
+						<Label Text="Meshes" Opacity="0.6"/>
+						<UniformGrid Columns="2" Spacing="4">
+							<AddButton Text="Cube" Tip="1 x 1 x 1" Do="add.cube"/>
+							<AddButton Text="Sphere" Tip="1 across" Do="add.sphere"/>
+							<AddButton Text="Plane" Tip="1 x 1, lying down" Do="add.plane"/>
+							<AddButton Text="Cylinder" Tip="1 across, 1 tall" Do="add.cylinder"/>
+							<AddButton Text="Capsule" Tip="1 across, 2 tall" Do="add.capsule"/>
+							<AddButton Text="Torus" Tip="1 across" Do="add.torus"/>
+						</UniformGrid>
+						<Label Text="Lights and the rest" Opacity="0.6" Slot.Padding="0,8,0,0"/>
+						<UniformGrid Columns="2" Spacing="4">
+							<AddButton Text="Point light" Tip="Shines all around" Do="add.point_light"/>
+							<AddButton Text="Sun" Tip="A directional light: shines one way, everywhere" Do="add.directional_light"/>
+							<AddButton Text="Camera" Tip="A camera of the game, where the view is now" Do="add.camera"/>
+							<AddButton Text="Empty" Tip="Groups other entities" Do="add.empty"/>
+						</UniformGrid>
+					</VBox>
+				</ScrollBox>
+			</VBox>
+			<VBox Name="panel_inspector" Slot.Title="Inspector" Slot.Dock="Right" Slot.DockSize="0.24" Slot.Closable="false">
+				<VBox Slot.Padding="10,8" Spacing="2">
+					<Label Name="inspector_title" Text="Scene" TextSize="17"/>
+					<Label Name="inspector_kind" Opacity="0.6" Wrap="true"/>
+				</VBox>
+				<Separator/>
+				<ScrollBox Slot.Fill="1">
+					<VBox Spacing="6" Slot.Padding="8,6">
+						<Grid Name="section_entity" Columns="0,1" Spacing="6">
+							<Label Text="Name" Width="78" Slot.Column="0" Slot.Row="0" Slot.VAlign="Center"/>
+							<TextInput Name="name_input" OnChanged="editor.name" Slot.Column="1" Slot.Row="0"/>
+							<Label Text="Visible" Slot.Column="0" Slot.Row="1" Slot.VAlign="Center"/>
+							<Checkbox Name="visible_check" Style="Switch" OnChanged="editor.visible" Slot.Column="1" Slot.Row="1"/>
+							<Label Text="Parent" Slot.Column="0" Slot.Row="2" Slot.VAlign="Center"/>
+							<ComboBox Name="parent_combo" OnChanged="editor.parent" Tooltip="It keeps its place in the world" Slot.Column="1" Slot.Row="2"/>
+						</Grid>
+						<Expander Name="section_transform" Title="Transform" Expanded="true">
+							<VBox Spacing="4" Slot.Padding="4,4,0,6">
+								<Grid Columns="0,1,1,1" Spacing="4">
+									<Label Text="Position" Width="78" Slot.Column="0" Slot.Row="0" Slot.VAlign="Center"/>
+									<SpinBox Name="pos_x" Min="-100000" Max="100000" Step="0.1" Decimals="3" Tooltip="X (m)" OnChanged="editor.transform" Slot.Column="1" Slot.Row="0"/>
+									<SpinBox Name="pos_y" Min="-100000" Max="100000" Step="0.1" Decimals="3" Tooltip="Y (m), up" OnChanged="editor.transform" Slot.Column="2" Slot.Row="0"/>
+									<SpinBox Name="pos_z" Min="-100000" Max="100000" Step="0.1" Decimals="3" Tooltip="Z (m)" OnChanged="editor.transform" Slot.Column="3" Slot.Row="0"/>
+									<Label Text="Rotation" Slot.Column="0" Slot.Row="1" Slot.VAlign="Center"/>
+									<SpinBox Name="rot_x" Min="-36000" Max="36000" Step="5" Decimals="2" Tooltip="Around X (degrees)" OnChanged="editor.transform" Slot.Column="1" Slot.Row="1"/>
+									<SpinBox Name="rot_y" Min="-36000" Max="36000" Step="5" Decimals="2" Tooltip="Around Y (degrees)" OnChanged="editor.transform" Slot.Column="2" Slot.Row="1"/>
+									<SpinBox Name="rot_z" Min="-36000" Max="36000" Step="5" Decimals="2" Tooltip="Around Z (degrees)" OnChanged="editor.transform" Slot.Column="3" Slot.Row="1"/>
+									<Label Text="Scale" Slot.Column="0" Slot.Row="2" Slot.VAlign="Center"/>
+									<SpinBox Name="scl_x" Min="-10000" Max="10000" Step="0.1" Decimals="3" OnChanged="editor.transform" Slot.Column="1" Slot.Row="2"/>
+									<SpinBox Name="scl_y" Min="-10000" Max="10000" Step="0.1" Decimals="3" OnChanged="editor.transform" Slot.Column="2" Slot.Row="2"/>
+									<SpinBox Name="scl_z" Min="-10000" Max="10000" Step="0.1" Decimals="3" OnChanged="editor.transform" Slot.Column="3" Slot.Row="2"/>
+								</Grid>
+								<Button Text="Reset" Style="Flat" Tooltip="Back to the origin, not turned, a scale of 1" OnClicked="editor.reset_transform" Slot.HAlign="Right"/>
+							</VBox>
+						</Expander>
+						<Expander Name="section_mesh" Title="Mesh and material" Expanded="true">
+							<Grid Columns="0,1" Spacing="6" Slot.Padding="4,4,0,6">
+								<Label Text="Shape" Width="78" Slot.Column="0" Slot.Row="0" Slot.VAlign="Center"/>
+								<ComboBox Name="shape_combo" Items="Cube|Sphere|Plane|Cylinder|Capsule|Torus" OnChanged="editor.mesh" Slot.Column="1" Slot.Row="0"/>
+								<Label Text="Color" Slot.Column="0" Slot.Row="1" Slot.VAlign="Center"/>
+								<ColorPicker Name="mesh_color" Popup="true" Alpha="true" Swatches="#4A7DFF, #FF453A, #30D158, #FFD60A, #BF5AF2, #F2F2F7, #1C1C1E" OnChanged="editor.mesh" Slot.Column="1" Slot.Row="1" Slot.HAlign="Left"/>
+								<Label Text="Metallic" Slot.Column="0" Slot.Row="2" Slot.VAlign="Center"/>
+								<Slider Name="mesh_metallic" Min="0" Max="1" OnChanged="editor.mesh" Slot.Column="1" Slot.Row="2"/>
+								<Label Text="Roughness" Slot.Column="0" Slot.Row="3" Slot.VAlign="Center"/>
+								<Slider Name="mesh_roughness" Min="0" Max="1" Value="0.5" OnChanged="editor.mesh" Slot.Column="1" Slot.Row="3"/>
+							</Grid>
+						</Expander>
+						<Expander Name="section_point" Title="Point light" Expanded="true">
+							<Grid Columns="0,1" Spacing="6" Slot.Padding="4,4,0,6">
+								<Label Text="Color" Width="78" Slot.Column="0" Slot.Row="0" Slot.VAlign="Center"/>
+								<ColorPicker Name="point_color" Popup="true" Alpha="false" OnChanged="editor.point" Slot.Column="1" Slot.Row="0" Slot.HAlign="Left"/>
+								<Label Text="Intensity" Slot.Column="0" Slot.Row="1" Slot.VAlign="Center"/>
+								<SpinBox Name="point_intensity" Min="0" Max="100000000" Step="50000" Decimals="0" Tooltip="Lumens" OnChanged="editor.point" Slot.Column="1" Slot.Row="1"/>
+								<Label Text="Range" Slot.Column="0" Slot.Row="2" Slot.VAlign="Center"/>
+								<SpinBox Name="point_range" Min="0.1" Max="10000" Step="1" Decimals="1" Tooltip="Meters" OnChanged="editor.point" Slot.Column="1" Slot.Row="2"/>
+								<Label Text="Shadows" Slot.Column="0" Slot.Row="3" Slot.VAlign="Center"/>
+								<Checkbox Name="point_shadows" Style="Switch" OnChanged="editor.point" Slot.Column="1" Slot.Row="3"/>
+							</Grid>
+						</Expander>
+						<Expander Name="section_sun" Title="Directional light" Expanded="true">
+							<Grid Columns="0,1" Spacing="6" Slot.Padding="4,4,0,6">
+								<Label Text="Color" Width="78" Slot.Column="0" Slot.Row="0" Slot.VAlign="Center"/>
+								<ColorPicker Name="sun_color" Popup="true" Alpha="false" OnChanged="editor.sun" Slot.Column="1" Slot.Row="0" Slot.HAlign="Left"/>
+								<Label Text="Illuminance" Slot.Column="0" Slot.Row="1" Slot.VAlign="Center"/>
+								<SpinBox Name="sun_illuminance" Min="0" Max="200000" Step="1000" Decimals="0" Tooltip="Lux: 10 000 is a bright day" OnChanged="editor.sun" Slot.Column="1" Slot.Row="1"/>
+								<Label Text="Shadows" Slot.Column="0" Slot.Row="2" Slot.VAlign="Center"/>
+								<Checkbox Name="sun_shadows" Style="Switch" OnChanged="editor.sun" Slot.Column="1" Slot.Row="2"/>
+							</Grid>
+						</Expander>
+						<Expander Name="section_camera" Title="Camera" Expanded="true">
+							<Grid Columns="0,1" Spacing="6" Slot.Padding="4,4,0,6">
+								<Label Text="Field of view" Width="78" Slot.Column="0" Slot.Row="0" Slot.VAlign="Center"/>
+								<SpinBox Name="camera_fov" Min="5" Max="150" Step="1" Decimals="1" Tooltip="Degrees, from top to bottom" OnChanged="editor.camera" Slot.Column="1" Slot.Row="0"/>
+								<Button Text="Look through it" OnClicked="editor.look_through" Slot.Column="1" Slot.Row="1" Slot.HAlign="Left"/>
+							</Grid>
+						</Expander>
+						<Expander Name="section_scene" Title="Scene" Expanded="true">
+							<Grid Columns="0,1" Spacing="6" Slot.Padding="4,4,0,6">
+								<Label Text="Background" Width="78" Slot.Column="0" Slot.Row="0" Slot.VAlign="Center"/>
+								<ColorPicker Name="scene_background" Popup="true" Alpha="false" OnChanged="editor.scene_settings" Slot.Column="1" Slot.Row="0" Slot.HAlign="Left"/>
+								<Label Text="Ambient" Slot.Column="0" Slot.Row="1" Slot.VAlign="Center"/>
+								<ColorPicker Name="scene_ambient" Popup="true" Alpha="false" OnChanged="editor.scene_settings" Slot.Column="1" Slot.Row="1" Slot.HAlign="Left"/>
+								<Label Text="Brightness" Slot.Column="0" Slot.Row="2" Slot.VAlign="Center"/>
+								<SpinBox Name="scene_ambient_brightness" Min="0" Max="100000" Step="50" Decimals="0" Tooltip="Of the ambient light" OnChanged="editor.scene_settings" Slot.Column="1" Slot.Row="2"/>
+							</Grid>
+						</Expander>
+					</VBox>
+				</ScrollBox>
+			</VBox>
+			<TextEditor Name="console" ReadOnly="true" Slot.Title="Console" Slot.Dock="Bottom" Slot.DockTo="panel_scene" Slot.DockSize="0.18" Slot.Closable="false"/>
+		</DockArea>
+		<Separator/>
+		<HBox Spacing="12" Slot.Padding="10,4">
+			<Label Name="status" Text="Ready" Slot.Fill="1" Opacity="0.8"/>
+			<Label Name="stats" Opacity="0.6"/>
+		</HBox>
+	</VBox>
+</Window>

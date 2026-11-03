@@ -66,6 +66,8 @@ typedef struct rvn_vk_texture_t {
 	VkDeviceSize allocation_size;
 	/** R_FALSE until the first pixels are written: the image has no layout yet. */
 	int initialized;
+	/** Mip levels of the image: 1, or a full chain down to 1 x 1 (R_FILTER_MIPMAP). */
+	uint32_t levels;
 } rvn_vk_texture_t;
 
 /**
@@ -173,6 +175,11 @@ typedef struct rvn_vk_shader_t {
 typedef struct rvn_vk_state_t {
 	int initialized;
 	RBackendInitInfo info;
+	/**
+	 * A call answered VK_ERROR_DEVICE_LOST: nothing is sent to the GPU any
+	 * more until Raven starts the backend again (render/device.c).
+	 */
+	int device_lost;
 
 	VkInstance instance;
 	VkPhysicalDevice physical_device;
@@ -186,6 +193,8 @@ typedef struct rvn_vk_state_t {
 	uint32_t api_version;
 	/** Memory of textures can be exported (external memory fd / win32). */
 	int can_share;
+	/** RGBA8 images can be blitted with linear filtering: mipmaps are made on the GPU. */
+	int can_mipmap;
 
 	/* vk_pipeline.c */
 	VkShaderModule vertex_shader;
@@ -194,6 +203,8 @@ typedef struct rvn_vk_state_t {
 	VkPipelineLayout pipeline_layout;
 	VkSampler sampler_linear;
 	VkSampler sampler_nearest;
+	/** Trilinear: for the textures that have mipmaps. */
+	VkSampler sampler_mipmap;
 	rvn_vk_pass_t passes[RVN_VK_MAX_PASSES];
 	uint32_t pass_count;
 	VkDescriptorPool* pools;
@@ -235,6 +246,10 @@ extern rvn_vk_state_t g_vk;
 
 /** Reports a failed Vulkan call and evaluates to R_TRUE when `result` is an error. */
 int rvn_vk_failed(VkResult result, const char* what);
+/** The device is lost (a call answered VK_ERROR_DEVICE_LOST, or Rvulkan_simulate_device_lost). */
+void rvn_vk_device_lost(void);
+/** R_FALSE while nothing may be sent to the GPU: not started, or the device is lost. */
+int rvn_vk_usable(void);
 
 /* ---------------------------------------------------------------------------
  *  vk_device.c

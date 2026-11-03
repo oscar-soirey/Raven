@@ -364,6 +364,19 @@ static void test_with_browser(void) {
 		remove(second);
 	}
 
+	/* a page given as text over another page; two in a row: only the last one shows */
+	g_messages = 0;
+	Rweb_view_load_html(view, "<script>window.raven.postMessage('text again')</script>", NULL);
+	CHECK(pump(&g_messages, 1, 15.0));
+	CHECK_STR(g_message, "text again");
+	Rweb_view_load_html(view, "<script>window.raven.postMessage('not shown')</script>", NULL);
+	Rweb_view_load_html(view, "<script>window.raven.postMessage('last text')</script>", NULL);
+	CHECK(pump(&g_messages, 2, 15.0));
+	CHECK_STR(g_message, "last text");
+	pump_for(0.5);
+	CHECK(g_messages == 2);
+	CHECK_STR(Rweb_view_get_error(view), "");
+
 	/* a second view shares the browser; deleting one leaves the other working */
 	{
 		Rid other = Rweb_view_create();

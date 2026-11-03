@@ -3,6 +3,11 @@
  * Whole-file reading with UTF-8 paths on every platform.
  */
 
+/* fileno() is POSIX: a strict C11 libc (Emscripten) hides it unless asked */
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && !defined(__APPLE__)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "base.h"
 #include "thread.h"
 #include "context.h"
@@ -19,8 +24,17 @@ static FILE* rvn_fopen_read(const char* path) {
 	return _wfopen(wide, L"rb");
 }
 #else
+#include <sys/stat.h>
+
 static FILE* rvn_fopen_read(const char* path) {
-	return fopen(path, "rb");
+	struct stat info;
+	FILE* file = fopen(path, "rb");
+	/* (a folder opens too, and then says it is LONG_MAX bytes long: only regular files are read) */
+	if (file && (fstat(fileno(file), &info) != 0 || !S_ISREG(info.st_mode))) {
+		fclose(file);
+		return NULL;
+	}
+	return file;
 }
 #endif
 
@@ -195,7 +209,8 @@ char* rvn_read_file(const char* path, size_t* size) {
 	}
 	file = rvn_fopen_read(path);
 	if (!file) return NULL;
-	if (fseek(file, 0, SEEK_END) != 0 || (length = ftell(file)) < 0 || fseek(file, 0, SEEK_SET) != 0) {
+	if (fseek(file, 0, SEEK_END) != 0 || (length = ftell(file)) < 0 || (unsigned long)length >= (unsigned long)(SIZE_MAX / 2) ||
+		fseek(file, 0, SEEK_SET) != 0) {
 		fclose(file);
 		return NULL;
 	}

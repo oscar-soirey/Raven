@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the classes of the player, over any look.
+
+  This theme names no look (no Base): laid over the look chosen in the
+  settings (Windows, macOS, GNOME...), it keeps the colors of that look and
+  only gives the classes of the interface their shapes.
+-->
+<Theme Name="Player over the look">
+	<Style Class="surface" Material="Solid"/>
+	<Style Widget="Label" Class="muted" Opacity="0.7"/>
+	<Style Widget="Label" Class="eyebrow" Opacity="0.85" FontSize="12"/>
+	<Style Widget="Button" Class="nav" Opacity="0.75"/>
+	<Style Widget="Button" Class="active" Opacity="1"/>
+	<Style Widget="Button" Class="icon" CornerRadius="100"/>
+	<Style Widget="Button" Class="round" CornerRadius="100"/>
+	<Style Widget="Button" Class="chip" CornerRadius="100"/>
+	<Style Widget="Button" Class="link" Opacity="0.75"/>
+	<Style Class="search" Material="Solid"/>
+	<Style Widget="TextInput" Class="bare" Input="#00000000" ControlBorder="#00000000" Border="#00000000"/>
+</Theme>

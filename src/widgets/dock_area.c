@@ -1195,6 +1195,7 @@ static Rid rvn_dock_tear(rvn_widget_t* widget, rvn_widget_t* panel, float x, flo
 	entry.panel = panel;
 	floating->returns[floating->return_count++] = entry;
 	/* (it becomes the first tab of the new area) */
+	rvn_free(panel->slot.dock_to);
 	panel->slot.dock_to = NULL;
 	rvn_widget_add_child(&floating->base, panel, -1);
 	RVN_ARRAY_RESERVE(h->floats, h->float_cap, h->float_count + 1);

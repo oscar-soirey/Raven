@@ -35,11 +35,14 @@ static void test_normal(void) {
 	Rwindow_destroy(first);
 	Rwindow_destroy(second);
 
-	/* the control for the dock: it tears (Rdock_area_float_panel is not run here: a floating window leaks 1 allocation, an old bug of the dock) */
+	/* the control for the dock: it tears, and a panel can be put in a window */
 	{
 		Rid window = Rwindow_create_from_xml(dock_xml, strlen(dock_xml));
 		Rid dock = Rwidget_find(window, "dock");
+		Rid floating;
 		CHECK(Rdock_area_is_tearable(dock));
+		floating = Rdock_area_float_panel(dock, Rwidget_find(window, "b"), 700, 100);
+		CHECK(floating != R_INVALID_ID);
 		Rdraw_frame();
 	}
 	Rshutdown();

@@ -1,6 +1,6 @@
 //! The Raven Bevy Editor.
 //!
-//! The interface is Raven (editor_ui, written in editor.xmlrs). The scene is drawn by Bevy:
+//! The interface is Raven (editor_ui: editor.xml and the Rust that drives it). The scene is drawn by Bevy:
 //! a Bevy app without a window renders the scene with its own camera into a picture, the
 //! picture is read back from the GPU and shown in the viewport of the interface. Bevy only
 //! works when the editor asks for a picture (the scene changed, the camera moved), so an

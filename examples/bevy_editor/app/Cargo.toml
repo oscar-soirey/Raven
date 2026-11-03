@@ -2,7 +2,7 @@
 name = "raven-bevy-editor"
 version = "0.1.0"
 edition = "2021"
-description = "A visual editor of Bevy scenes: the interface is Raven (editor.xmlrs), the scene is drawn by Bevy"
+description = "A visual editor of Bevy scenes: the interface is Raven (editor.xml), the scene is drawn by Bevy"
 
 [[bin]]
 name = "raven-bevy-editor"

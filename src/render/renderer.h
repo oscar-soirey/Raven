@@ -34,6 +34,15 @@ typedef struct rvn_texture_t {
 	int created;
 	/** Created by a backend-specific function (wrapped image view, shared memory). */
 	int external;
+	/*
+	 * What remakes the texture after the loss of the device (render/device.c):
+	 * the file it was read from, or a copy of the encoded file, or a copy of
+	 * the pixels of a small texture. None: it comes back transparent.
+	 */
+	char* source_path;
+	uint8_t* source_data;
+	size_t source_size;
+	uint8_t* kept_pixels;
 } rvn_texture_t;
 
 rvn_texture_t* rvn_texture_get(Rid id);
@@ -42,6 +51,8 @@ rvn_texture_t* rvn_texture_register(void);
 /** Creates a texture from raw pixels. Takes ownership of `pixels` (rvn_alloc'ed, may be NULL). */
 Rid rvn_texture_create_raw(int width, int height, RTextureFormat format, RFilterType filter, void* pixels);
 void rvn_textures_shutdown(void);
+/** After the loss of the device: makes the backend texture again (see rvn_texture_t). */
+void rvn_texture_restore(rvn_texture_t* texture);
 
 /* ---------------------------------------------------------------------------
  *  Shaders (render/shader.c): fragment shaders of effects
@@ -55,10 +66,15 @@ typedef struct rvn_shader_t {
 	int created;
 	/** Built-in effect it stands for, or -1. */
 	int effect;
+	/** Its SPIR-V, to make it again after the loss of the device. */
+	uint32_t* spirv;
+	size_t spirv_size;
 } rvn_shader_t;
 
 rvn_shader_t* rvn_shader_get(Rid id);
 void rvn_shaders_shutdown(void);
+/** After the loss of the device: gives the shader to the backend again. */
+void rvn_shader_restore(rvn_shader_t* shader);
 /** The shader of a .spv file, made once per path and flags and kept until the end (the Effect attribute). */
 Rid rvn_shader_from_file_cached(const char* path, Ruint flags);
 /** The SPIR-V words are rvn_alloc'ed; the renderer takes ownership. */
@@ -100,6 +116,17 @@ typedef void (*rvn_render_fn)(void* arg);
 void rvn_renderer_call(rvn_render_fn function, void* arg, int wait);
 /** Blocks until every command queued so far has been executed. */
 void rvn_renderer_sync(void);
+
+/** R_TRUE once the backend reported the loss of its device (Rbackend_device_lost). */
+int rvn_renderer_device_lost(void);
+/**
+ * Shuts the backend down and initializes it again (after the loss of its
+ * device). Every surface, texture and shader of the backend is gone
+ * afterwards: the caller makes them again (render/device.c).
+ */
+int rvn_renderer_restart(const RBackendInitInfo* info);
+/** Remakes everything after the loss of the device, if it was lost (render/device.c). UI thread. */
+void rvn_device_check(void);
 
 /** One frame of one window travelling from the UI thread to the render thread. */
 typedef struct rvn_frame_t {

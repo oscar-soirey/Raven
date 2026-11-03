@@ -211,15 +211,6 @@ const (
 	R_MOUSE_X2     RMouseButton = 4
 )
 
-type RTouchPhase int32
-
-const (
-	R_TOUCH_BEGIN  RTouchPhase = 0
-	R_TOUCH_MOVE   RTouchPhase = 1
-	R_TOUCH_END    RTouchPhase = 2
-	R_TOUCH_CANCEL RTouchPhase = 3
-)
-
 type RModifier int32
 
 const (
@@ -382,6 +373,79 @@ const (
 	R_DROP_DROPPED RDropPhase = 0x00E3
 )
 
+// RTouchMode: What a finger does on a widget (Rwidget_set_touch_mode).
+type RTouchMode int32
+
+const (
+	R_TOUCH_MODE_AUTO   RTouchMode = 0x0480
+	R_TOUCH_MODE_SCROLL RTouchMode = 0x0481
+	R_TOUCH_MODE_MOUSE  RTouchMode = 0x0482
+	R_TOUCH_MODE_NONE   RTouchMode = 0x0483
+)
+
+type RTouchPhase int32
+
+const (
+	R_TOUCH_DOWN   RTouchPhase = 0x0490
+	R_TOUCH_MOVE   RTouchPhase = 0x0491
+	R_TOUCH_UP     RTouchPhase = 0x0492
+	R_TOUCH_CANCEL RTouchPhase = 0x0493
+)
+
+type RPenPhase int32
+
+const (
+	R_PEN_DOWN  RPenPhase = 0x04A0
+	R_PEN_MOVE  RPenPhase = 0x04A1
+	R_PEN_UP    RPenPhase = 0x04A2
+	R_PEN_HOVER RPenPhase = 0x04A3
+	R_PEN_LEAVE RPenPhase = 0x04A4
+)
+
+// RPenButton: Buttons on the side of a pen (RPenEvent::buttons).
+type RPenButton int32
+
+const (
+	R_PEN_BUTTON_BARREL  RPenButton = 1
+	R_PEN_BUTTON_BARREL2 RPenButton = 2
+)
+
+type RGesturePhase int32
+
+const (
+	R_GESTURE_BEGIN  RGesturePhase = 0x04B0
+	R_GESTURE_UPDATE RGesturePhase = 0x04B1
+	R_GESTURE_END    RGesturePhase = 0x04B2
+)
+
+// RLook: The looks. Each one comes dark and light. Raven's looks are the default; the ones of the platforms
+// imitate them closely (their shapes, colors, sizes, states and motion), without using their widgets. The
+// looks of the platforms are opaque, except macOS Glass (macOS 26), whose bars, menus and floating surfaces
+// are glass as on the system; the glass materials themselves (Rtheme_set_material) belong to the glass looks
+// of Raven.
+type RLook int32
+
+const (
+	R_LOOK_RAVEN_DARK                RLook = 0x00E0
+	R_LOOK_RAVEN_LIGHT               RLook = 0x00E1
+	R_LOOK_RAVEN_GLASS_DARK          RLook = 0x00E2
+	R_LOOK_RAVEN_GLASS_LIGHT         RLook = 0x00E3
+	R_LOOK_RAVEN_HIGH_CONTRAST_DARK  RLook = 0x00E4
+	R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT RLook = 0x00E5
+	R_LOOK_WINDOWS_DARK              RLook = 0x00E6
+	R_LOOK_WINDOWS_LIGHT             RLook = 0x00E7
+	R_LOOK_MACOS_DARK                RLook = 0x00E8
+	R_LOOK_MACOS_LIGHT               RLook = 0x00E9
+	R_LOOK_GNOME_DARK                RLook = 0x00EA
+	R_LOOK_GNOME_LIGHT               RLook = 0x00EB
+	R_LOOK_NATIVE_DARK               RLook = 0x00EC
+	R_LOOK_NATIVE_LIGHT              RLook = 0x00ED
+	R_LOOK_MACOS_GLASS_DARK          RLook = 0x00EE
+	R_LOOK_MACOS_GLASS_LIGHT         RLook = 0x00EF
+)
+
+// RTheme: @deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is R_LOOK_RAVEN_DARK and so
+// on, and Rtheme_apply is Rlook_set.
 type RTheme int32
 
 const (
@@ -492,6 +556,7 @@ type RFilterType int32
 const (
 	R_FILTER_LINEAR  RFilterType = 0x02C0
 	R_FILTER_NEAREST RFilterType = 0x02C1
+	R_FILTER_MIPMAP  RFilterType = 0x02C2
 )
 
 type RWidgetType int32
@@ -911,12 +976,6 @@ func IsInitialized() int {
 	return int(C.Ris_initialized())
 }
 
-// IsFreeEdition: @deprecated Raven no longer has editions: it is open source (Apache License 2.0) and never
-// shows a watermark. Always R_FALSE.
-func IsFreeEdition() int {
-	return int(C.Ris_free_edition())
-}
-
 // GetVersion: Returns: The library version, e.g. "0.1.0".
 func GetVersion() string {
 	return C.GoString(C.Rget_version())
@@ -1071,6 +1130,29 @@ func ActionFire(name string, sender ID) {
 	name_ := C.CString(name)
 	defer C.free(unsafe.Pointer(name_))
 	C.Raction_fire(name_, C.Rid(sender))
+}
+
+// ActionSetBuiltins: The actions Raven knows by itself: an interface written in XML uses them with no C at
+// all (OnClicked="app.quit"). app.quit quits (Rquit(0)) window.close, window.minimize, the window of the
+// widget window.maximize, window.restore (maximize goes back when it already is) island.expand, island.fold,
+// the island of that window island.toggle theme.dark, theme.light, the look of Raven, dark or light
+// theme.toggle theme:NAME Rtheme_use(NAME): a theme loaded or built in language:CODE
+// Rlocale_set_language(CODE) open:ADDRESS Ropen_url (https:, mailto:, a file) copy:TEXT the text to the
+// clipboard show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
+// enable:NAME, disable:NAME focus:NAME page:NAME=2, page:NAME=+1 what a Switcher, a TabView, a ComboBox or a
+// ListView shows; +1 and -1 step, and go round A function bound to one of these names (Raction_bind) replaces
+// it; the default handler receives the others only. enabled R_FALSE turns them all off: a design tool that
+// shows interfaces without running them. On by default.
+func ActionSetBuiltins(enabled int) {
+	C.Raction_set_builtins(C.int(enabled))
+}
+
+// ActionIsBuiltin: Returns: R_TRUE when the name is one of the built-in actions (Raction_set_builtins),
+// whether they are on or not.
+func ActionIsBuiltin(name string) int {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Raction_is_builtin(name_))
 }
 
 // OpenUrl: Opens an address with the program the user has for it: a web page in the browser, a mailto: in the
@@ -1256,6 +1338,28 @@ func WindowGetBackdrop(window ID) RBackdrop {
 	return RBackdrop(C.Rwindow_get_backdrop(C.Rid(window)))
 }
 
+// WindowSetTheme: Gives the window a theme of its own, by name ("Dark", "WindowsLight", or a theme of
+// Rtheme_load): everything inside it (its content, its island, its menus, lists and dialogs, its background)
+// is drawn with that theme, while the other windows keep the one of the application (Rtheme_use). A widget
+// given Rwidget_set_theme keeps its own. In XML: <Window Theme="...">. name NULL or "": the theme of the
+// application again. Returns: R_FALSE, after reporting an error, when no theme has that name.
+func WindowSetTheme(window ID, name string) int {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Rwindow_set_theme(C.Rid(window), name_))
+}
+
+// WindowGetTheme: Returns: Name of the theme the window is drawn with (the one of the application when it has
+// none of its own).
+func WindowGetTheme(window ID) string {
+	return C.GoString(C.Rwindow_get_theme(C.Rid(window)))
+}
+
+// WindowHasOwnTheme: Returns: R_TRUE when the window has a theme of its own (Rwindow_set_theme).
+func WindowHasOwnTheme(window ID) int {
+	return int(C.Rwindow_has_own_theme(C.Rid(window)))
+}
+
 // WindowSetOpacity: Opacity of the whole window, its frame included, from 0 to 1: a window that fades, a tool
 // that lets what is under it show. Returns: R_FALSE when the window system cannot do it.
 func WindowSetOpacity(window ID, opacity float32) int {
@@ -1306,20 +1410,6 @@ func WindowGetMousePosition(window ID) (x float32, y float32) {
 	return
 }
 
-// WindowGetWatermarkRect: @deprecated Raven no longer shows a watermark. Always R_FALSE, with zeros.
-func WindowGetWatermarkRect(window ID) (result int, x float32, y float32, width float32, height float32) {
-	var x_ C.float
-	var y_ C.float
-	var width_ C.float
-	var height_ C.float
-	result = int(C.Rwindow_get_watermark_rect(C.Rid(window), &x_, &y_, &width_, &height_))
-	x = float32(x_)
-	y = float32(y_)
-	width = float32(width_)
-	height = float32(height_)
-	return
-}
-
 // WindowInjectMouseMove: Inject input as if it came from the OS. Positions are in logical units. Useful for
 // automated tests, replays and when Raven is driven by a host application.
 func WindowInjectMouseMove(window ID, x float32, y float32) {
@@ -1332,13 +1422,6 @@ func WindowInjectMouseButton(window ID, button RMouseButton, pressed int) {
 
 func WindowInjectMouseWheel(window ID, wheel_x float32, wheel_y float32) {
 	C.Rwindow_inject_mouse_wheel(C.Rid(window), C.float(wheel_x), C.float(wheel_y))
-}
-
-// WindowInjectTouch: A finger of a touch screen (see RTouchPhase); x, y in logical units. One finger taps,
-// long-presses (right click), pans (wheel, with inertia) or drags; two fingers pan and pinch (wheel with
-// Ctrl).
-func WindowInjectTouch(window ID, touch_id uint32, phase RTouchPhase, x float32, y float32) {
-	C.Rwindow_inject_touch(C.Rid(window), C.Ruint(touch_id), C.RTouchPhase(phase), C.float(x), C.float(y))
 }
 
 func WindowInjectKey(window ID, key RKey, pressed int, modifiers uint32) {
@@ -1386,6 +1469,34 @@ func WindowWantsTextInput(window ID) int {
 // WindowHasPopup: R_TRUE while a menu, list or dialog is open over the window.
 func WindowHasPopup(window ID) int {
 	return int(C.Rwindow_has_popup(C.Rid(window)))
+}
+
+// WindowGetTextInputRect: Last painted caret in window pixels (x, y, width, height), including scrolling and
+// scale. Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the outputs when
+// there is no visible editable caret, the window is inactive, or focus changed since painting. Any output
+// pointer may be NULL.
+func WindowGetTextInputRect(window ID) (result int, x int, y int, width int, height int) {
+	var x_ C.int
+	var y_ C.int
+	var width_ C.int
+	var height_ C.int
+	result = int(C.Rwindow_get_text_input_rect(C.Rid(window), &x_, &y_, &width_, &height_))
+	x = int(x_)
+	y = int(y_)
+	width = int(width_)
+	height = int(height_)
+	return
+}
+
+// WindowGetPopupCount: Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
+func WindowGetPopupCount(window ID) int {
+	return int(C.Rwindow_get_popup_count(C.Rid(window)))
+}
+
+// WindowGetPopup: Returns: Root widget of popup `index`, whose rect is in window coordinates; R_INVALID_ID
+// out of range.
+func WindowGetPopup(window ID, index int) ID {
+	return ID(C.Rwindow_get_popup(C.Rid(window), C.int(index)))
 }
 
 // WindowSetTabNavigation: R_FALSE: Tab no longer moves the keyboard focus (the application uses it as a
@@ -1440,8 +1551,82 @@ func WindowUnregisterShortcut(window ID, key RKey, modifiers uint32) {
 	C.Rwindow_unregister_shortcut(C.Rid(window), C.RKey(key), C.Ruint(modifiers))
 }
 
-// ThemeApply: Switches to a built-in theme: replaces every theme color and metric. Colors and metrics changed
-// with Rtheme_set_color and Rtheme_set_metric are lost; per-widget overrides are kept.
+// WidgetSetTouchMode: What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as
+// its parent says).
+func WidgetSetTouchMode(widget ID, mode RTouchMode) {
+	C.Rwidget_set_touch_mode(C.Rid(widget), C.RTouchMode(mode))
+}
+
+func WidgetGetTouchMode(widget ID) RTouchMode {
+	return RTouchMode(C.Rwidget_get_touch_mode(C.Rid(widget)))
+}
+
+// WidgetSetTouchGestures: R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+func WidgetSetTouchGestures(widget ID, enabled int) {
+	C.Rwidget_set_touch_gestures(C.Rid(widget), C.int(enabled))
+}
+
+func WidgetGetTouchGestures(widget ID) int {
+	return int(C.Rwidget_get_touch_gestures(C.Rid(widget)))
+}
+
+// WidgetSetPenMouse: R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen
+// callback sees it (default R_TRUE).
+func WidgetSetPenMouse(widget ID, enabled int) {
+	C.Rwidget_set_pen_mouse(C.Rid(widget), C.int(enabled))
+}
+
+func WidgetGetPenMouse(widget ID) int {
+	return int(C.Rwidget_get_pen_mouse(C.Rid(widget)))
+}
+
+// WindowGetTouchCount: Fingers on the window now.
+func WindowGetTouchCount(window ID) int {
+	return int(C.Rwindow_get_touch_count(C.Rid(window)))
+}
+
+// WindowIsPenInRange: R_TRUE while a pen is near the screen over the window.
+func WindowIsPenInRange(window ID) int {
+	return int(C.Rwindow_is_pen_in_range(C.Rid(window)))
+}
+
+// WindowIsTouchActive: R_TRUE when the pointer last used in the window was a finger (the interface may then
+// be made larger).
+func WindowIsTouchActive(window ID) int {
+	return int(C.Rwindow_is_touch_active(C.Rid(window)))
+}
+
+// WindowInjectTouch: A finger: R_TOUCH_DOWN, then R_TOUCH_MOVE..., then R_TOUCH_UP, with the same `id`.
+func WindowInjectTouch(window ID, id int, phase RTouchPhase, x float32, y float32) {
+	C.Rwindow_inject_touch(C.Rid(window), C.int(id), C.RTouchPhase(phase), C.float(x), C.float(y))
+}
+
+// WindowInjectPen: A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
+func WindowInjectPen(window ID, phase RPenPhase, x float32, y float32, pressure float32, tilt_x float32, tilt_y float32, buttons uint32, eraser int) {
+	C.Rwindow_inject_pen(C.Rid(window), C.RPenPhase(phase), C.float(x), C.float(y), C.float(pressure), C.float(tilt_x), C.float(tilt_y), C.Ruint(buttons), C.int(eraser))
+}
+
+// WindowAdvanceTouch: Advances the inertia of flicked content by `seconds` at once, and fires a long press
+// that is due, without waiting (tests).
+func WindowAdvanceTouch(window ID, seconds float64) {
+	C.Rwindow_advance_touch(C.Rid(window), C.double(seconds))
+}
+
+// LookSet: Changes the look of the application. The theme file in use, if it names no look of its own, is
+// laid again over the new one; colors and metrics changed with Rtheme_set_... are lost; what was given to
+// widgets (Rwidget_set_color...) is kept. Rlook_set(R_LOOK_NATIVE_LIGHT); the look of the platform, light
+// Theme files that name no look (no Look attribute) follow it too, so a part of a window given one
+// (Theme="paper.xml") changes with it.
+func LookSet(look RLook) {
+	C.Rlook_set(C.RLook(look))
+}
+
+// LookGet: The look given to Rlook_set (R_LOOK_RAVEN_DARK at start).
+func LookGet() RLook {
+	return RLook(C.Rlook_get())
+}
+
+// ThemeApply: @deprecated Rlook_set: a built-in theme is a look of Raven.
 func ThemeApply(theme RTheme) {
 	C.Rtheme_apply(C.RTheme(theme))
 }
@@ -1568,9 +1753,10 @@ func ThemeLoadFromMemory(xml string) string {
 	return C.GoString(C.Rtheme_load_from_memory(xml_, C.size_t(len(xml))))
 }
 
-// ThemeUse: Makes a named theme the theme of the application: "Dark", "Light", "GlassDark", "GlassLight", or
-// a theme given by Rtheme_load. Values changed with Rtheme_set_... are lost. Returns: R_FALSE, after
-// reporting an error, when no theme has that name.
+// ThemeUse: Makes a named theme the theme of the application: a theme given by Rtheme_load (laid over the
+// look in use when it names no look), or the name of a look ("WindowsLight", "RavenDark"; the old "Dark",
+// "Light", "GlassDark"... too), which is then Rlook_set. Values changed with Rtheme_set_... are lost.
+// Returns: R_FALSE, after reporting an error, when no theme has that name.
 func ThemeUse(name string) int {
 	name_ := C.CString(name)
 	defer C.free(unsafe.Pointer(name_))
@@ -1733,6 +1919,8 @@ func TextureGetSize(texture ID) (width int, height int) {
 	return
 }
 
+// TextureSetFilter: How the texture is smoothed when it is scaled. The textures made from image files start
+// with R_FILTER_MIPMAP, the others with R_FILTER_LINEAR.
 func TextureSetFilter(texture ID, filter RFilterType) {
 	C.Rtexture_set_filter(C.Rid(texture), C.RFilterType(filter))
 }
@@ -2134,6 +2322,19 @@ func WidgetGetTheme(widget ID) string {
 	return C.GoString(C.Rwidget_get_theme(C.Rid(widget)))
 }
 
+// WidgetSetFont: Gives the widget and everything inside it a font, for the texts that have none of their own
+// (a label given Rlabel_set_font keeps its own): a tool whose panels wear one font while the interface it
+// shows keeps the font of the application. Menus and lists opened from inside follow. font R_INVALID_ID: the
+// font of the parent (in the end, the one of the theme, Rtheme_set_font) again.
+func WidgetSetFont(widget ID, font ID) {
+	C.Rwidget_set_font(C.Rid(widget), C.Rid(font))
+}
+
+// WidgetGetFont: Returns: The font given to the widget itself, or R_INVALID_ID.
+func WidgetGetFont(widget ID) ID {
+	return ID(C.Rwidget_get_font(C.Rid(widget)))
+}
+
 // PanelSetSpacing: Gap inserted between neighbouring children.
 func PanelSetSpacing(panel ID, spacing float32) {
 	C.Rpanel_set_spacing(C.Rid(panel), C.float(spacing))
@@ -2476,6 +2677,35 @@ func LabelGetMarkdown(label ID) int {
 // next call.
 func LabelGetPlainText(label ID) string {
 	return C.GoString(C.Rlabel_get_plain_text(C.Rid(label)))
+}
+
+// LabelSetSelectable: R_TRUE lets the user select the text of the label with the mouse, as on a web page
+// (Selectable="true" in XML): drag to select, a double click selects a word, a triple click a paragraph,
+// Shift + click extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects everything. A click
+// elsewhere takes the selection away. Plain and Markdown labels alike: a copy of a Markdown label is its text
+// without the marks, and its links are still clicked, not selected. The label takes the mouse (what holds it
+// no longer receives the clicks on it) and the keyboard after a click; Tab passes it by. Default R_FALSE.
+func LabelSetSelectable(label ID, selectable int) {
+	C.Rlabel_set_selectable(C.Rid(label), C.int(selectable))
+}
+
+func LabelGetSelectable(label ID) int {
+	return int(C.Rlabel_get_selectable(C.Rid(label)))
+}
+
+// LabelGetSelectedText: The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next
+// call.
+func LabelGetSelectedText(label ID) string {
+	return C.GoString(C.Rlabel_get_selected_text(C.Rid(label)))
+}
+
+// LabelSelectAll: Selects the whole text of a selectable label.
+func LabelSelectAll(label ID) {
+	C.Rlabel_select_all(C.Rid(label))
+}
+
+func LabelClearSelection(label ID) {
+	C.Rlabel_clear_selection(C.Rid(label))
 }
 
 // ButtonCreate: Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
@@ -3514,6 +3744,27 @@ func IslandSetAttached(island ID, attached int) {
 	C.Risland_set_attached(C.Rid(island), C.int(attached))
 }
 
+// IslandSetNotch: R_TRUE: on a screen with a camera housing at its top (the notch of a MacBook), the island
+// of a window (Rwindow_set_island) lives in the housing itself, in a window of its own anchored to the
+// screen: it stays there when the window is moved, and takes the mouse and the keyboard as usual. Folded, it
+// is the housing grown into two ears: the first Spacer of its folded content becomes the room of the camera
+// (what is before it shows on the left, what is after on the right). Unfolded, its content starts under the
+// camera. It is in the housing while its window is the last one of the application the user worked in, is
+// shown, and is on that screen; it goes back into its window otherwise, and on the window systems and screens
+// without a housing (where nothing changes). XML: Notch="true".
+func IslandSetNotch(island ID, enabled int) {
+	C.Risland_set_notch(C.Rid(island), C.int(enabled))
+}
+
+func IslandGetNotch(island ID) int {
+	return int(C.Risland_get_notch(C.Rid(island)))
+}
+
+// IslandIsInNotch: R_TRUE while the island is in the camera housing of the screen.
+func IslandIsInNotch(island ID) int {
+	return int(C.Risland_is_in_notch(C.Rid(island)))
+}
+
 // WindowSetIsland: Shows a widget (usually an island) floating at the top of a window, in the middle, above
 // its content. The window takes ownership; the previous one is deleted. R_INVALID_ID removes it. The padding
 // of its slot (Rslot_set_padding) is its distance from the top edge.
@@ -3703,6 +3954,36 @@ func TimelineIsPlaying(timeline ID) int {
 
 func TimelineSetLoop(timeline ID, loop int) {
 	C.Rtimeline_set_loop(C.Rid(timeline), C.int(loop))
+}
+
+// TimelineSetHeaderWidth: Width of the column of the names of the tracks. 0 (default): fits the longest name.
+func TimelineSetHeaderWidth(timeline ID, width float32) {
+	C.Rtimeline_set_header_width(C.Rid(timeline), C.float(width))
+}
+
+// TimelineGetHeaderWidth: Returns: The width of the column of the names, as laid out now.
+func TimelineGetHeaderWidth(timeline ID) float32 {
+	return float32(C.Rtimeline_get_header_width(C.Rid(timeline)))
+}
+
+// TimelineSetRulerHeight: Height of the ruler of time (and of the markers' flags band). 0 (default):
+// automatic.
+func TimelineSetRulerHeight(timeline ID, height float32) {
+	C.Rtimeline_set_ruler_height(C.Rid(timeline), C.float(height))
+}
+
+func TimelineGetRulerHeight(timeline ID) float32 {
+	return float32(C.Rtimeline_get_ruler_height(C.Rid(timeline)))
+}
+
+// TimelineSetDefaultTrackHeight: Height of the tracks that have none of their own
+// (Rtimeline_set_track_height). 0 (default): automatic.
+func TimelineSetDefaultTrackHeight(timeline ID, height float32) {
+	C.Rtimeline_set_default_track_height(C.Rid(timeline), C.float(height))
+}
+
+func TimelineGetDefaultTrackHeight(timeline ID) float32 {
+	return float32(C.Rtimeline_get_default_track_height(C.Rid(timeline)))
 }
 
 // TimelineAddTrack: Returns: The track, or 0. Tracks are shown in the order they were added.
@@ -5175,23 +5456,72 @@ func AccessibilityIsScreenReaderActive() int {
 	return int(C.Raccessibility_is_screen_reader_active())
 }
 
+// HostPlatformIsActive: Returns: R_TRUE while the running library uses the host platform.
+func HostPlatformIsActive() int {
+	return int(C.Rhost_platform_is_active())
+}
+
+// HostWindowSetSize: Size of a host window in pixels, and pixels per logical unit.
+func HostWindowSetSize(window ID, width int, height int, scale float32) {
+	C.Rhost_window_set_size(C.Rid(window), C.int(width), C.int(height), C.float(scale))
+}
+
+func HostInjectMouseMove(window ID, x int, y int, modifiers uint32) {
+	C.Rhost_inject_mouse_move(C.Rid(window), C.int(x), C.int(y), C.Ruint(modifiers))
+}
+
+func HostInjectMouseButton(window ID, x int, y int, button RMouseButton, pressed int, modifiers uint32) {
+	C.Rhost_inject_mouse_button(C.Rid(window), C.int(x), C.int(y), C.RMouseButton(button), C.int(pressed), C.Ruint(modifiers))
+}
+
+func HostInjectMouseWheel(window ID, wheel_x float32, wheel_y float32, modifiers uint32) {
+	C.Rhost_inject_mouse_wheel(C.Rid(window), C.float(wheel_x), C.float(wheel_y), C.Ruint(modifiers))
+}
+
+// HostInjectMouseLeave: The pointer left the window: hover states end.
+func HostInjectMouseLeave(window ID) {
+	C.Rhost_inject_mouse_leave(C.Rid(window))
+}
+
+// HostInjectKey: repeat R_TRUE for a key held down (auto-repeat).
+func HostInjectKey(window ID, key RKey, pressed int, modifiers uint32, repeat int) {
+	C.Rhost_inject_key(C.Rid(window), C.RKey(key), C.int(pressed), C.Ruint(modifiers), C.int(repeat))
+}
+
+// HostInjectText: One typed Unicode code point.
+func HostInjectText(window ID, codepoint uint32) {
+	C.Rhost_inject_text(C.Rid(window), C.Ruint(codepoint))
+}
+
+// HostInjectFocus: The window gained or lost the keyboard. Losing it closes popups and drops captures.
+func HostInjectFocus(window ID, focused int) {
+	C.Rhost_inject_focus(C.Rid(window), C.int(focused))
+}
+
+// HostInjectClose: The user asked to close the window (its close callback decides).
+func HostInjectClose(window ID) {
+	C.Rhost_inject_close(C.Rid(window))
+}
+
 // Left to cgo (a pointer to a structure, a void* or a C callback among the parameters):
 // Rinit_ex, Rset_allocator, Rallocator_get_system, Rmemory_alloc, Rmemory_realloc, Rmemory_free
 // Rmemory_get_stats, Rrun, Rset_frame_callback, Rtask_post, Rtask_run_async, Rparallel_for, Rtimer_create
-// Raction_bind, Raction_set_default_handler, Rerror_get_last, Rerror_set_callback, Rwindow_get_frame_stats
-// Rwindow_set_icon, Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
-// Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle, Rwindow_capture
-// Rwindow_inject_drop, Rwindow_set_event_hook, Rtexture_create_from_pixels, Rtexture_update, Rimage_decode
-// Rpixels_free, Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback
-// Rwidget_set_event_callback, Rwidget_set_drop_callback, Rtab_view_set_changed_callback
-// Rtab_view_set_close_callback, Rexpander_set_changed_callback, Rlabel_set_link_callback
-// Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback, Rslider_set_changed_callback
-// Rtext_input_set_changed_callback, Rtext_input_set_committed_callback, Rspin_box_set_changed_callback
-// Rcombo_box_set_changed_callback, Rlist_view_set_virtual_items, Rlist_view_set_selection_changed_callback
-// Rlist_view_set_activated_callback, Rtree_item_set_user_handle, Rtree_item_get_user_handle
-// Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
-// Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
-// Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
+// Raction_bind, Raction_set_default_handler, Rerror_get_last, Rerror_set_callback
+// Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_set_icon, Rwindow_set_close_callback
+// Rwindow_set_resize_callback, Rwindow_set_drop_callback, Rwindow_set_user_handle, Rwindow_get_user_handle
+// Rwindow_get_native_handle, Rwindow_capture, Rwindow_inject_drop, Rwindow_set_event_hook
+// Rtouch_get_settings, Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings
+// Rwindow_get_touch_settings, Rwidget_set_touch_callback, Rwidget_set_pen_callback
+// Rwidget_set_gesture_callback, Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free
+// Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
+// Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
+// Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
+// Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback
+// Rtext_input_set_committed_callback, Rspin_box_set_changed_callback, Rcombo_box_set_changed_callback
+// Rlist_view_set_virtual_items, Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback
+// Rtree_item_set_user_handle, Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback
+// Rtree_view_set_activated_callback, Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback
+// Rtile_view_set_items, Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
 // Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtext_editor_set_zoom_callback
 // Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback, Rtext_editor_set_changed_callback
 // Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
@@ -5208,6 +5538,6 @@ func AccessibilityIsScreenReaderActive() int {
 // Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect, Rdraw_rect_outline, Rdraw_circle
 // Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick
 // Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init
-// Rshader_look_defaults, Rdraw_shader, Rborder_set_effect, Rwindow_create_from_compiled
-// Rwidget_create_from_compiled, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
-// Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
+// Rshader_look_defaults, Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag
+// Rxml_document_parse, Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format
+// Raccessibility_get_system_settings, Rhost_platform_register

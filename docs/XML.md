@@ -74,10 +74,26 @@ number of `<Shortcut>` and `<Widget>` declarations.
 | `CustomHeader` | boolean: no title bar from the system; a `HeaderBar` in the content replaces it (see below). The window keeps its shadow, its resizing edges and its snapping |
 | `Transparent` | boolean: the window can be seen through. Where nothing is drawn, what is behind the window on the screen shows. Needs a window system that composes windows (Windows 10 and 11; X11 with a compositor) |
 | `Backdrop` | what the system does to what shows through a `Transparent` window: `Transparent` (nothing), `Blur`, `Acrylic`, `Mica` (Windows 11), `None`. Giving it implies `Transparent` |
-| `Theme` | the theme of the window: a name (`Dark`, `Light`, `GlassDark`, `GlassLight`, one given by `Rtheme_load`) or a theme file. See [THEMES.md](THEMES.md) |
+| `Theme` | the theme of this window only (`Rwindow_set_theme`): a name (a look: `RavenDark`, `WindowsLight`, `MacOSDark`, `GnomeLight`, `NativeDark`..., the old `Dark`, `Light`, `GlassDark`, `GlassLight`; or one given by `Rtheme_load`) or a theme file, named from the document. Its content, island, menus, dialogs and background wear it; the other windows keep the theme of the application (`Rtheme_use`), which it no longer changes. `Default` or nothing: the theme of the application. See [THEMES.md](THEMES.md) |
 
 `<Shortcut Keys="Ctrl+S" Action="file.save"/>` fires an action when the keys
 are pressed anywhere in the window.
+
+Fingers and pens work without anything written (see `raven_touch.h`); these
+attributes change how, for the window (`Rwindow_set_touch_settings`):
+
+| Attribute | Value |
+|---|---|
+| `Touch.MouseEmulation` | boolean (default true): a finger drives the widgets as the mouse does, a tap clicks, a drag drags |
+| `Touch.Slop` | how far a finger moves before a press becomes a drag or a scroll (default 8) |
+| `Touch.LongPress` | seconds a finger rests before the press is a right click, the context menu; 0 turns it off (default 0.5) |
+| `Touch.Inertia` | boolean (default true): flicked content keeps going and slows down |
+| `Touch.Deceleration` | how fast it slows down, units per second per second (default 2400) |
+| `Touch.Gestures` | boolean (default true): two fingers pinch to zoom and pan |
+| `Touch.PalmRejection` | boolean (default true): fingers are ignored while a pen is near the screen |
+| `Pen.MouseEmulation` | boolean (default true): the pen drives the widgets as the mouse does; its barrel button is the right button |
+| `Pen.PressureCurve` | the pressure given to the application is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder |
+| `Pen.PressureThreshold` | pressure, 0 to 1, the tip needs before it presses (default 0) |
 
 ## Attributes of every widget
 
@@ -139,10 +155,53 @@ Raction_bind("file.save", on_save, NULL);
 Raction_set_default_handler(on_any_action, NULL);
 ```
 
+#### Actions that need no C
+
+Some names are actions of Raven itself: an interface written in XML quits,
+closes its window, shows a panel, turns a page or changes its theme with no
+line of C. They apply when no function is bound to the name (`Raction_bind`
+replaces one); the default handler only receives the other names. A name of a
+widget (`show:details`) is looked up in the window of the widget that fires it.
+
+| Action | What it does |
+|---|---|
+| `app.quit` | quits (`Rquit(0)`) |
+| `window.close`, `window.minimize`, `window.restore` | the window of the widget |
+| `window.maximize` | maximizes it; restores it when it already is |
+| `island.expand`, `island.fold`, `island.toggle` | the island of the window |
+| `theme.dark`, `theme.light`, `theme.toggle` | the look of Raven, dark or light |
+| `theme:NAME` | `Rtheme_use(NAME)`: built in, or loaded with `Rtheme_load` |
+| `language:CODE` | the language of the translations |
+| `open:ADDRESS` | opens a web page, a `mailto:`, a file |
+| `copy:TEXT` | the text to the clipboard |
+| `show:NAME`, `hide:NAME`, `toggle:NAME` | the widget named NAME (hidden: `Collapsed`) |
+| `enable:NAME`, `disable:NAME`, `focus:NAME` | the widget named NAME |
+| `page:NAME=2`, `page:NAME=+1`, `page:NAME=-1` | what a Switcher, TabView, ComboBox or ListView shows; the steps go round |
+
+```xml
+<Button Text="Next" Style="Primary" OnClicked="page:steps=+1"/>
+<Button Text="Help" Style="Flat" OnClicked="toggle:help"/>
+<Shortcut Keys="Ctrl+Q" Action="app.quit"/>
+```
+
+`Raction_set_builtins(R_FALSE)` turns them off (the designer does: its
+preview shows an interface without running it); `Raction_is_builtin(name)`
+tells whether a name is one of them.
+
 Callbacks set from C work alongside actions and cover the other events:
 every keystroke of a text input (`Rtext_input_set_changed_callback`), the
 selection of a list or tree (`Rlist_view_set_selection_changed_callback`,
 `Rtree_view_set_selection_changed_callback`), raw input (`Rwidget_set_event_callback`).
+
+### Fingers and pens
+
+| Attribute | Value |
+|---|---|
+| `Touch.Mode` | `Auto` (default: a finger scrolls what scrolls, and is a mouse elsewhere), `Scroll` (it always scrolls what contains the widget), `Mouse` (it is a mouse: pressing presses at once, nothing scrolls), `None` (fingers are ignored: a surface for the pen) |
+| `Touch.Gestures` | boolean (default true): `false`, two fingers neither zoom nor pan the widget |
+| `Pen.Mouse` | boolean (default true): `false`, the pen is not a mouse on the widget; only its pen callback (`Rwidget_set_pen_callback`) sees it |
+
+The mode and `Pen.Mouse` are inherited by what the widget contains.
 
 ## Slot attributes
 
@@ -197,7 +256,7 @@ panel uses the attributes that make sense for it.
 
 | Tag (aliases) | Attributes |
 |---|---|
-| `Label` (`Text`, `TextBlock`) | `Text`, `TextSize` (or `FontSize`), `Font` (path of a .ttf), `TextAlign` (`Left Center Right`), `Wrap`, `Color`, `Markdown` (`true`: the text is Markdown, see below) |
+| `Label` (`Text`, `TextBlock`) | `Text`, `TextSize` (or `FontSize`), `Font` (path of a .ttf), `TextAlign` (`Left Center Right`), `Wrap`, `Color`, `Markdown` (`true`: the text is Markdown, see below), `Selectable` (`true`: the mouse selects the text and Ctrl+C copies it, as on a web page) |
 | `Button` | `Text`, `Style` (`Default`, `Primary`, `Flat`) |
 | `Checkbox` (`CheckBox`) | `Text`, `Checked`, `Style` (`Check`, `Radio`, `Switch`). Radio boxes of the same parent are exclusive |
 | `Slider` | `Min`, `Max`, `Value`, `Step`, `Orientation` |
@@ -225,7 +284,7 @@ looks for it in its menus when the keys are pressed.
 | Tag | Attributes and elements |
 |---|---|
 | `ColorPicker` | `Color`, `Previous` (the color shown beside it, to compare), `Alpha` (`false`: no opacity), `Popup` (`true`: a swatch that opens the picker), `Compact` (`true`: no code, no numbers), `Numbers` (`RGB` or `HSV`), `Swatches` (`"#FF453A, #0A84FF, white"`), `OnChanged` |
-| `Timeline` | `Duration` (seconds), `Time`, `FrameRate` (0: none), `Snapping`, `ViewStart`, `ViewEnd`, `Loop`, `Playing`, `HeaderWidth` (0: fits the names), `TrackHeight`, `OnChanged`. Contains `<Track>` and `<Marker>` elements |
+| `Timeline` | `Duration` (seconds), `Time`, `FrameRate` (0: none), `Snapping`, `ViewStart`, `ViewEnd`, `Loop`, `Playing`, `HeaderWidth` (0: fits the names), `TrackHeight` (0: follows the theme), `RulerHeight` (0: follows the theme), `OnChanged`. Contains `<Track>` and `<Marker>` elements |
 | `<Track>` | `Name`, `Color`, `Height`, `Locked`, `Muted`. Contains `<Clip>` and `<Key>` elements |
 | `<Clip>` | `Start`, `Length` or `End`, `Label` (or the text of the element), `Color`, `Selected` |
 | `<Key>` | `Time`, `Label`, `Color` |

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the panel of the song playing, on the right.
+-->
+<Border Name="nowplaying" Class="surface" CornerRadius="12" Width="320" Clip="true">
+	<ScrollBox>
+		<VBox Spacing="14" Slot.Padding="16">
+			<HBox Spacing="6">
+				<Heading Name="np.context" Text="" TextSize="15" Slot.Fill="1" Slot.VAlign="Center"/>
+				<IconButton Glyph="more" Action="np.more" Tip="More options" Size="18"/>
+				<IconButton Glyph="close" Action="np.close" Tip="Hide the panel" Size="18"/>
+			</HBox>
+			<Border CornerRadius="10" Shadow="30,0,10">
+				<Cover Album="current" Size="288" CornerRadius="10"/>
+			</Border>
+			<HBox Spacing="8">
+				<VBox Spacing="3" Slot.Fill="1">
+					<Heading Name="np.title" Text="" TextSize="22"/>
+					<Label Name="np.artist" Text="" Class="muted" TextSize="15"/>
+				</VBox>
+				<IconButton Glyph="share" Action="np.share" Tip="Share" Size="20" Slot.VAlign="Center"/>
+				<IconButton Name="np.like" IconName="np.like.icon" Glyph="heart" Action="player.like" Tip="Save to Liked songs (Ctrl+L)" Size="22" Slot.VAlign="Center"/>
+			</HBox>
+			<Visualizer Bars="36" Gap="3" Height="56"/>
+
+			<!-- the artist, over the colors of the album -->
+			<Border Name="np.artistcard" Effect="aurora" EffectColor="#6D28D9" EffectColor2="#111117" EffectPointer="false" CornerRadius="10" Padding="16">
+				<VBox Spacing="6">
+					<Label Text="About the artist" Class="eyebrow" Color="white"/>
+					<Heading Name="np.artistname" Text="" TextSize="20" Color="white"/>
+					<Label Name="np.listeners" Text="" Color="white" Opacity="0.8"/>
+					<Label Name="np.bio" Text="" Wrap="true" Color="white" Opacity="0.85" TextSize="13"/>
+				</VBox>
+			</Border>
+
+			<Border Class="card-flat" CornerRadius="10" Padding="14">
+				<VBox Spacing="6">
+					<HBox>
+						<Heading Text="Next in queue" TextSize="15" Slot.Fill="1"/>
+						<Button Style="Flat" Class="link" Text="Open queue" OnClicked="np.queue"/>
+					</HBox>
+					<VBox Name="np.queue" Spacing="0"/>
+				</VBox>
+			</Border>
+		</VBox>
+	</ScrollBox>
+</Border>

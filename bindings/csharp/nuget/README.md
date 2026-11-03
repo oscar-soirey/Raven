@@ -23,9 +23,6 @@ are strings; a parameter the C function writes through is an `out`; a
 callback is a delegate (pass it through `R.Keep` so that the garbage collector
 leaves it alone).
 
-`.xmlcs` files (an interface in Raven XML with its C# code) in the project are
-compiled automatically before the C# compiler runs.
-
 Raven draws with Vulkan: the machine needs a Vulkan driver (on macOS,
 [MoltenVK](https://github.com/KhronosGroup/MoltenVK)). Targets .NET Standard
 2.0: .NET 5 and later, .NET Core 3, .NET Framework 4.7.2. License: Apache 2.0.

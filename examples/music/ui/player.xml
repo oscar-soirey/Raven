@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the bar of the player, at the bottom: the song,
+  the transport and its progress, the volume.
+-->
+<Border Class="bar" Height="88" Padding="16,0">
+	<Grid Columns="1,1.3,1" Spacing="16">
+		<!-- the song -->
+		<HBox Spacing="14" Slot.Column="0" Slot.VAlign="Center">
+			<Cover Album="current" Size="58" CornerRadius="6"/>
+			<VBox Spacing="3" Slot.VAlign="Center">
+				<Label Name="player.title" Text="" TextSize="15"/>
+				<Label Name="player.artist" Text="" Class="muted" TextSize="13"/>
+			</VBox>
+			<IconButton Name="player.like" IconName="player.like.icon" Glyph="heart" Action="player.like" Tip="Save to Liked songs (Ctrl+L)" Size="18" Slot.VAlign="Center"/>
+		</HBox>
+
+		<!-- the transport -->
+		<VBox Spacing="4" Slot.Column="1" Slot.VAlign="Center">
+			<HBox Spacing="12" Slot.HAlign="Center">
+				<IconButton Name="player.shuffle" IconName="player.shuffle.icon" Glyph="shuffle" Action="player.shuffle" Tip="Shuffle" Size="18" Slot.VAlign="Center"/>
+				<IconButton Glyph="previous" Action="player.previous" Tip="Previous (Ctrl+Left)" Size="20" Slot.VAlign="Center"/>
+				<PlayButton Name="player.play" IconName="player.play.icon" Classes="white" Size="40" IconSize="18"/>
+				<IconButton Glyph="next" Action="player.next" Tip="Next (Ctrl+Right)" Size="20" Slot.VAlign="Center"/>
+				<IconButton Name="player.repeat" IconName="player.repeat.icon" Glyph="repeat" Action="player.repeat" Tip="Repeat" Size="18" Slot.VAlign="Center"/>
+			</HBox>
+			<HBox Spacing="10">
+				<Label Name="player.elapsed" Text="0:00" Class="muted" TextSize="12" Width="40" TextAlign="Right" Slot.VAlign="Center"/>
+				<Slider Name="player.seek" Class="seek" Min="0" Max="1" Value="0" OnChanged="player.seek" Slot.Fill="1" Slot.VAlign="Center"/>
+				<Label Name="player.length" Text="0:00" Class="muted" TextSize="12" Width="40" Slot.VAlign="Center"/>
+			</HBox>
+		</VBox>
+
+		<!-- the rest -->
+		<HBox Spacing="6" Slot.Column="2" Slot.HAlign="Right" Slot.VAlign="Center">
+			<Visualizer Bars="5" Width="22" Height="16" Slot.VAlign="Center" Slot.Padding="0,0,8,0"/>
+			<IconButton Glyph="microphone" Action="player.lyrics" Tip="Lyrics" Size="18" Slot.VAlign="Center"/>
+			<IconButton Name="player.panel" Glyph="panel" Action="settings.panel.toggle" Tip="Now playing panel" Size="18" Slot.VAlign="Center"/>
+			<IconButton Glyph="queue" Action="np.queue" Tip="Queue" Size="18" Slot.VAlign="Center"/>
+			<IconButton Name="player.mute" IconName="player.mute.icon" Glyph="volume" Action="player.mute" Tip="Mute" Size="18" Slot.VAlign="Center"/>
+			<Slider Name="player.volume" Min="0" Max="1" Value="0.7" OnChanged="player.volume" Width="120" Slot.VAlign="Center"/>
+		</HBox>
+	</Grid>
+</Border>

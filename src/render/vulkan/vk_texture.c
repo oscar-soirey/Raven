@@ -10,6 +10,11 @@
  *
  * Textures can also wrap an image view owned by the application (zero-copy
  * viewports) or export their memory to another API (shared textures).
+ *
+ * Textures with the R_FILTER_MIPMAP filter have a full chain of mip levels,
+ * made on the GPU after each upload by blitting every level from the one
+ * above it, and are read with a trilinear sampler: an image shown much
+ * smaller than its size stays smooth instead of shimmering.
  */
 
 #include "vk_backend.h"
@@ -28,6 +33,7 @@ void rvn_vk_uploads_flush(void) {
 	if (!g_vk.upload_open) return;
 	g_vk.upload_open = R_FALSE;
 	g_vk.staging_used = 0;
+	if (g_vk.device_lost) return;
 	if (rvn_vk_failed(rvn_vk.EndCommandBuffer(g_vk.upload_commands), "vkEndCommandBuffer")) return;
 
 	memset(&submit, 0, sizeof(submit));
@@ -40,7 +46,7 @@ void rvn_vk_uploads_flush(void) {
 	if (rvn_vk_failed(result, "vkQueueSubmit")) return;
 
 	/* the staging buffer is reused right away, so the copies must be finished */
-	rvn_vk.WaitForFences(g_vk.device, 1, &g_vk.upload_fence, VK_TRUE, UINT64_MAX);
+	if (rvn_vk_failed(rvn_vk.WaitForFences(g_vk.device, 1, &g_vk.upload_fence, VK_TRUE, UINT64_MAX), "vkWaitForFences")) return;
 	rvn_vk.ResetFences(g_vk.device, 1, &g_vk.upload_fence);
 }
 
@@ -75,7 +81,8 @@ static void* rvn_vk_staging_reserve(VkDeviceSize size, VkDeviceSize* offset) {
 	return (uint8_t*)g_vk.staging.mapped + start;
 }
 
-static void rvn_vk_image_barrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to,
+static void rvn_vk_levels_barrier(VkCommandBuffer commands, VkImage image, uint32_t first_level, uint32_t level_count,
+	VkImageLayout from, VkImageLayout to,
 	VkAccessFlags source_access, VkAccessFlags target_access, VkPipelineStageFlags source_stage, VkPipelineStageFlags target_stage) {
 	VkImageMemoryBarrier barrier;
 	memset(&barrier, 0, sizeof(barrier));
@@ -88,9 +95,70 @@ static void rvn_vk_image_barrier(VkCommandBuffer commands, VkImage image, VkImag
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = image;
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseMipLevel = first_level;
+	barrier.subresourceRange.levelCount = level_count;
 	barrier.subresourceRange.layerCount = 1;
 	rvn_vk.CmdPipelineBarrier(commands, source_stage, target_stage, 0, 0, NULL, 0, NULL, 1, &barrier);
+}
+
+static void rvn_vk_image_barrier(VkCommandBuffer commands, VkImage image, VkImageLayout from, VkImageLayout to,
+	VkAccessFlags source_access, VkAccessFlags target_access, VkPipelineStageFlags source_stage, VkPipelineStageFlags target_stage) {
+	rvn_vk_levels_barrier(commands, image, 0, 1, from, to, source_access, target_access, source_stage, target_stage);
+}
+
+/* Number of levels of a full mip chain for a size. */
+static uint32_t rvn_vk_mip_count(uint32_t width, uint32_t height) {
+	uint32_t size = width > height ? width : height, levels = 1;
+	while (size > 1) {
+		size >>= 1;
+		levels++;
+	}
+	return levels;
+}
+
+/*
+ * Records the making of levels 1.. from level 0. On entry every level is in
+ * TRANSFER_DST_OPTIMAL (level 0 holds the pixels); on exit every level is
+ * SHADER_READ_ONLY_OPTIMAL.
+ */
+static void rvn_vk_record_mipmaps(VkCommandBuffer commands, VkImage image, uint32_t width, uint32_t height, uint32_t levels) {
+	int32_t w = (int32_t)width, h = (int32_t)height;
+	uint32_t level;
+	for (level = 1; level < levels; level++) {
+		VkImageBlit blit;
+		int32_t next_w = w > 1 ? w / 2 : 1, next_h = h > 1 ? h / 2 : 1;
+		/* the level above becomes the source, then is done */
+		rvn_vk_levels_barrier(commands, image, level - 1, 1,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		memset(&blit, 0, sizeof(blit));
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.srcSubresource.mipLevel = level - 1;
+		blit.srcSubresource.layerCount = 1;
+		blit.srcOffsets[1].x = w;
+		blit.srcOffsets[1].y = h;
+		blit.srcOffsets[1].z = 1;
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.mipLevel = level;
+		blit.dstSubresource.layerCount = 1;
+		blit.dstOffsets[1].x = next_w;
+		blit.dstOffsets[1].y = next_h;
+		blit.dstOffsets[1].z = 1;
+		rvn_vk.CmdBlitImage(commands, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &blit, VK_FILTER_LINEAR);
+		rvn_vk_levels_barrier(commands, image, level - 1, 1,
+			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+		w = next_w;
+		h = next_h;
+	}
+	/* the last level was only written */
+	rvn_vk_levels_barrier(commands, image, levels - 1, 1,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 /* ---------------------------------------------------------------------------
@@ -103,7 +171,13 @@ static uint32_t rvn_vk_texel_size(RTextureFormat format) {
 
 static VkSampler rvn_vk_texture_sampler(const rvn_vk_texture_t* texture) {
 	if (texture->sampler) return texture->sampler;
+	if (texture->filter == R_FILTER_MIPMAP && texture->levels > 1) return g_vk.sampler_mipmap;
 	return texture->filter == R_FILTER_NEAREST ? g_vk.sampler_nearest : g_vk.sampler_linear;
+}
+
+/* Does a texture with these properties get a mip chain? */
+static int rvn_vk_wants_mipmaps(uint32_t width, uint32_t height, RTextureFormat format, RFilterType filter, int shared) {
+	return filter == R_FILTER_MIPMAP && format == R_TEXTURE_RGBA8 && !shared && g_vk.can_mipmap && (width > 1 || height > 1);
 }
 
 static void rvn_vk_texture_release(rvn_vk_texture_t* texture) {
@@ -129,7 +203,8 @@ static void rvn_vk_texture_write(rvn_vk_texture_t* texture, uint32_t x, uint32_t
 	if (pixels) memcpy(staging, pixels, (size_t)size);
 	else memset(staging, 0, (size_t)size);
 
-	rvn_vk_image_barrier(g_vk.upload_commands, texture->image,
+	/* (every level: with mipmaps, all of them are written again below) */
+	rvn_vk_levels_barrier(g_vk.upload_commands, texture->image, 0, texture->levels,
 		texture->initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		texture->initialized ? VK_ACCESS_SHADER_READ_BIT : 0, VK_ACCESS_TRANSFER_WRITE_BIT,
@@ -148,10 +223,14 @@ static void rvn_vk_texture_write(rvn_vk_texture_t* texture, uint32_t x, uint32_t
 	rvn_vk.CmdCopyBufferToImage(g_vk.upload_commands, g_vk.staging.buffer, texture->image,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-	rvn_vk_image_barrier(g_vk.upload_commands, texture->image,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	if (texture->levels > 1) {
+		rvn_vk_record_mipmaps(g_vk.upload_commands, texture->image, texture->width, texture->height, texture->levels);
+	} else {
+		rvn_vk_image_barrier(g_vk.upload_commands, texture->image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+	}
 	texture->initialized = R_TRUE;
 }
 
@@ -177,6 +256,7 @@ static int rvn_vk_texture_build(rvn_vk_texture_t* texture, uint32_t width, uint3
 	texture->format = format;
 	texture->filter = filter;
 	texture->shared = shared;
+	texture->levels = rvn_vk_wants_mipmaps(width, height, format, filter, shared) ? rvn_vk_mip_count(width, height) : 1;
 
 	memset(&image, 0, sizeof(image));
 	image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -185,11 +265,13 @@ static int rvn_vk_texture_build(rvn_vk_texture_t* texture, uint32_t width, uint3
 	image.extent.width = width;
 	image.extent.height = height;
 	image.extent.depth = 1;
-	image.mipLevels = 1;
+	image.mipLevels = texture->levels;
 	image.arrayLayers = 1;
 	image.samples = VK_SAMPLE_COUNT_1_BIT;
 	image.tiling = VK_IMAGE_TILING_OPTIMAL;
-	image.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	/* (TRANSFER_SRC: the levels are made from each other, and an image that
+	 * switches to R_FILTER_MIPMAP is copied into one that has them) */
+	image.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	image.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	image.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	if (shared) {
@@ -232,7 +314,7 @@ static int rvn_vk_texture_build(rvn_vk_texture_t* texture, uint32_t width, uint3
 		view.components.a = VK_COMPONENT_SWIZZLE_R;
 	}
 	view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	view.subresourceRange.levelCount = 1;
+	view.subresourceRange.levelCount = texture->levels;
 	view.subresourceRange.layerCount = 1;
 	if (rvn_vk_failed(rvn_vk.CreateImageView(g_vk.device, &view, NULL, &texture->view), "vkCreateImageView")) goto failed;
 
@@ -275,7 +357,10 @@ static void rvn_vk_texture_quiesce(void) {
 }
 
 int rvn_vk_texture_create(Rid id, const RTextureDesc* desc, const void* pixels) {
-	rvn_vk_texture_t* texture = rvn_vk_texture_slot(id);
+	rvn_vk_texture_t* texture;
+	/* the device is lost: Raven makes every texture again once the backend is started again */
+	if (!rvn_vk_usable()) return R_TRUE;
+	texture = rvn_vk_texture_slot(id);
 	if (texture->used) {
 		rvn_vk_texture_quiesce();
 		rvn_vk_texture_release(texture);
@@ -286,14 +371,59 @@ int rvn_vk_texture_create(Rid id, const RTextureDesc* desc, const void* pixels) 
 }
 
 void rvn_vk_texture_update(Rid id, Ruint x, Ruint y, Ruint width, Ruint height, const void* pixels) {
-	rvn_vk_texture_t* texture = rvn_vk_texture_find(id);
+	rvn_vk_texture_t* texture = rvn_vk_usable() ? rvn_vk_texture_find(id) : NULL;
 	if (!texture || texture->wrapped || !pixels) return;
 	rvn_vk_texture_write(texture, x, y, width, height, pixels);
 }
 
+/*
+ * A texture that switches to R_FILTER_MIPMAP without having mip levels: a new
+ * image with the chain, whose first level is copied from the old image on the
+ * GPU (the pixels are not kept on the CPU).
+ */
+static void rvn_vk_texture_add_mipmaps(rvn_vk_texture_t* texture) {
+	rvn_vk_texture_t rebuilt;
+	VkImageCopy region;
+	if (!rvn_vk_texture_build(&rebuilt, texture->width, texture->height, texture->format, R_FILTER_MIPMAP, R_FALSE)) return;
+	if (rebuilt.levels <= 1) {
+		rvn_vk_texture_release(&rebuilt);
+		return;
+	}
+	if (texture->initialized && rvn_vk_upload_begin()) {
+		rvn_vk_image_barrier(g_vk.upload_commands, texture->image,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		rvn_vk_levels_barrier(g_vk.upload_commands, rebuilt.image, 0, rebuilt.levels,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			0, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		memset(&region, 0, sizeof(region));
+		region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.srcSubresource.layerCount = 1;
+		region.dstSubresource = region.srcSubresource;
+		region.extent.width = texture->width;
+		region.extent.height = texture->height;
+		region.extent.depth = 1;
+		rvn_vk.CmdCopyImage(g_vk.upload_commands, texture->image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			rebuilt.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+		rvn_vk_record_mipmaps(g_vk.upload_commands, rebuilt.image, rebuilt.width, rebuilt.height, rebuilt.levels);
+		rebuilt.initialized = R_TRUE;
+		/* the old image must outlive the copy */
+		rvn_vk_uploads_flush();
+	}
+	rvn_vk_texture_release(texture);
+	*texture = rebuilt;
+}
+
 void rvn_vk_texture_set_filter(Rid id, RFilterType filter) {
-	rvn_vk_texture_t* texture = rvn_vk_texture_find(id);
+	rvn_vk_texture_t* texture = rvn_vk_usable() ? rvn_vk_texture_find(id) : NULL;
 	if (!texture || texture->filter == filter) return;
+	if (texture->levels <= 1 && !texture->wrapped &&
+		rvn_vk_wants_mipmaps(texture->width, texture->height, texture->format, filter, texture->shared)) {
+		rvn_vk_texture_quiesce();
+		rvn_vk_texture_add_mipmaps(texture);
+		return;
+	}
 	texture->filter = filter;
 	/* a descriptor set must not change while a submitted frame uses it */
 	rvn_vk_texture_quiesce();
@@ -301,7 +431,7 @@ void rvn_vk_texture_set_filter(Rid id, RFilterType filter) {
 }
 
 void rvn_vk_texture_destroy(Rid id) {
-	rvn_vk_texture_t* texture = rvn_vk_texture_find(id);
+	rvn_vk_texture_t* texture = g_vk.initialized ? rvn_vk_texture_find(id) : NULL;
 	if (!texture) return;
 	rvn_vk_texture_quiesce();
 	rvn_vk_texture_release(texture);
@@ -325,6 +455,7 @@ int rvn_vk_texture_wrap(Rid id, VkImageView view, VkSampler sampler, uint32_t wi
 		texture->format = R_TEXTURE_RGBA8;
 		texture->filter = R_FILTER_LINEAR;
 		texture->initialized = R_TRUE;
+		texture->levels = 1;
 	} else {
 		/* replacing the view: frames in flight still read the previous one */
 		rvn_vk_texture_quiesce();

@@ -567,8 +567,26 @@ void rvn_fonts_shutdown(void) {
 	g_rvn.mono_font = R_INVALID_ID;
 }
 
+/* (per thread: the parts of the tree are painted on several threads at once) */
+#if defined(_MSC_VER)
+static __declspec(thread) Rid t_font_scope = R_INVALID_ID;
+#else
+static _Thread_local Rid t_font_scope = R_INVALID_ID;
+#endif
+
+Rid rvn_font_scope_enter(Rid font) {
+	Rid previous = t_font_scope;
+	t_font_scope = font;
+	return previous;
+}
+
+void rvn_font_scope_leave(Rid previous) {
+	t_font_scope = previous;
+}
+
 rvn_font_t* rvn_font_resolve(Rid id) {
 	rvn_font_t* font = (rvn_font_t*)rvn_pool_get(&g_rvn.fonts, id);
+	if (!font && t_font_scope != R_INVALID_ID) font = (rvn_font_t*)rvn_pool_get(&g_rvn.fonts, t_font_scope);
 	if (!font) font = (rvn_font_t*)rvn_pool_get(&g_rvn.fonts, g_rvn.theme.font);
 	if (!font) font = (rvn_font_t*)rvn_pool_get(&g_rvn.fonts, g_rvn.default_font);
 	return font;
@@ -805,6 +823,22 @@ void rvn_text_draw(rvn_drawlist_t* list, rvn_font_t* font, float size_px, float 
 /* ---------------------------------------------------------------------------
  *  Atlas upload (UI thread)
  * ------------------------------------------------------------------------- */
+
+void rvn_fonts_device_reset(void) {
+	uint32_t i;
+	if (!g_fonts.initialized) return;
+	rvn_mutex_lock(&g_fonts.mutex);
+	for (i = 0; i < g_fonts.page_count; i++) {
+		rvn_atlas_page_t* page = &g_fonts.pages[i];
+		/* the texture came back transparent: the whole page goes up again at the next flush */
+		page->dirty = R_TRUE;
+		page->dirty_x0 = 0;
+		page->dirty_y0 = 0;
+		page->dirty_x1 = RVN_ATLAS_SIZE;
+		page->dirty_y1 = RVN_ATLAS_SIZE;
+	}
+	rvn_mutex_unlock(&g_fonts.mutex);
+}
 
 void rvn_fonts_flush(void) {
 	uint32_t i;

@@ -1,9 +1,0 @@
-{
-	// IMPORTANT: "name" must be EXACTLY the name of your existing Worker in the Cloudflare dashboard,
-	// otherwise a second Worker is created.
-	"name": "raven-pages",
-	"compatibility_date": "2026-09-01",
-
-	// The website: static files only. docs/.assetsignore keeps docs/functions out of the public files.
-	"assets": { "directory": "./docs" }
-}

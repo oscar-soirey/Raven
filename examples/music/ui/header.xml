@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the header. The window has no title bar of the
+  system (CustomHeader="true"): this bar is dragged to move the window and
+  holds its buttons.
+-->
+<HeaderBar Title="" Background="false" Height="56">
+	<HBox Spacing="8" Slot.Fill="1" Slot.Padding="12,0">
+		<HBox Spacing="8" Slot.VAlign="Center">
+			<Border Class="logo" Background="#FFFFFF" CornerRadius="9" Width="30" Height="30" Slot.VAlign="Center">
+				<Icon Glyph="note" Size="18" Tint="#060609" TintText="false" Slot.HAlign="Center" Slot.VAlign="Center"/>
+			</Border>
+			<Heading Text="Raven Music" TextSize="16" Slot.VAlign="Center"/>
+		</HBox>
+		<Spacer Width="36"/>
+		<IconButton Name="nav.back" Glyph="back" Action="nav.back" Tip="Back (Alt+Left)" Size="18" Slot.VAlign="Center"/>
+		<IconButton Glyph="home" Action="nav.home" Tip="Home" Size="20" Slot.VAlign="Center"/>
+		<Border Class="search" CornerRadius="100" Width="280" Height="40" Padding="14,0" Slot.VAlign="Center">
+			<HBox Spacing="10">
+				<Icon Glyph="search" Size="18" Opacity="0.7" Slot.VAlign="Center"/>
+				<TextBox Name="search.query" Class="bare" Placeholder="What do you want to play?" OnChanged="search.changed" Slot.Fill="1" Slot.VAlign="Center"/>
+			</HBox>
+		</Border>
+		<Spacer Slot.Fill="1"/>
+		<IconButton Glyph="settings" Action="nav.settings" Tip="Settings (Ctrl+P)" Size="20" Slot.VAlign="Center"/>
+		<Button Style="Flat" Class="icon" Tooltip="Mira Solen" Slot.VAlign="Center" Slot.Padding="0,0,8,0">
+			<Border Background="#E8A93B" CornerRadius="100" Width="30" Height="30">
+				<Heading Text="M" TextSize="14" Color="#060609" Slot.HAlign="Center" Slot.VAlign="Center"/>
+			</Border>
+		</Button>
+	</HBox>
+</HeaderBar>

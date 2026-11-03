@@ -1,0 +1,48 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Theme Name="Sakura" Base="Light" Accent="#E98CA7" CornerRadius="10">
+  <Colors
+    Window="#FFF7F5" Panel="#FFFFFF" Border="#F0D8DC"
+    Text="#49323B" TextDisabled="#A58C95"
+    TextPlaceholder="#BBA5AC"
+    Accent="#E98CA7" AccentHovered="#F2A8BD"
+    AccentPressed="#CE6B8B" AccentText="#FFFFFF"
+    Control="#F9E9ED" ControlHovered="#F5DDE4"
+    ControlPressed="#EFCBD5" ControlBorder="#EAC8D2"
+    Input="#FFFFFF" Focus="#E98CA7"
+    Selection="#E98CA730" RowHovered="#FFF0F3"
+    Track="#F0E4E8" Handle="#D5A8B7"
+    HandleHovered="#CE6B8B" Separator="#F0D8DC"
+    Header="#F9E9ED" HeaderHovered="#F5DDE4"
+    TabActive="#FFFFFF" Popup="#FFFFFF"
+    PopupBorder="#EAC8D2" Shadow="#56303B20"
+    Tooltip="#49323B" TooltipText="#FFFFFF"
+    Switch="#E98CA7" Success="#4D9569"
+    Warning="#C28A32" Danger="#C94C62"
+    Link="#C05C7A" Code="#A04F70"
+  />
+  <Metrics FontSize="14" CornerRadius="10" BorderWidth="1" ControlHeight="31" PaddingX="11" PaddingY="8" Spacing="9" ScrollbarSize="12" RowHeight="29" Indent="18" SplitterSize="5" CheckSize="16" SliderHandleSize="14" PopupRadius="11" BlurRadius="14"/>
+  <Glass Frost="0.18" Refraction="0.06" Saturation="1.05" Rim="0.2" Shadow="0.18"/>
+  <Syntax Comment="#A58C95" String="#4D9569" Number="#C28A32" Keyword="#C05C7A" Type="#8A6BC1" Function="#A04F70" Tag="#C05C7A" Attribute="#8A6BC1" Punctuation="#765B65" Directive="#C94C62" Heading="#C05C7A" Strong="#49323B" Emphasis="#8A6BC1" Link="#C05C7A"/>
+  <Style Widget="Button" Class="tool" Background="#F9E9ED" Text="#765B65" CornerRadius="8"/>
+  <Style Widget="Button" Class="active" Background="#F5DDE4" Text="#A33F61" CornerRadius="8"/>
+  <Style Widget="Button" Class="play" Background="#E0F2E5" Text="#28633D" CornerRadius="8"/>
+  <Style Widget="Button" Class="stop" Background="#FBE1E5" Text="#A12D45" CornerRadius="8"/>
+  <Style Widget="Button" Class="simulate" Background="#FFF0D2" Text="#8A5B1D" CornerRadius="8"/>
+  <Style Widget="Panel" Class="toolbar" Background="#FFF1F3"/>
+  <Style Widget="Panel" Class="statusbar" Background="#F9E9ED" Text="#765B65"/>
+  <Style Widget="Text" Class="dim" Text="#A58C95"/>
+  <Style Widget="Text" Class="section" Text="#C05C7A"/>
+  <Style Widget="Text" Class="dialog-title" Text="#49323B"/>
+  <Style Widget="Text" Class="error" Text="#C94C62"/>
+  <Style Widget="Text" Class="warning" Text="#C28A32"/>
+  <Style Widget="Text" Class="success" Text="#4D9569"/>
+  <Style Widget="Text" Class="axis-x" Text="#C94C62"/>
+  <Style Widget="Text" Class="axis-y" Text="#4D9569"/>
+  <Style Widget="Text" Class="axis-z" Text="#4682B4"/>
+  <Style Widget="Text" Class="axis-w" Text="#8A6BC1"/>
+  <Style Widget="Text" Class="dirty" Text="#C28A32"/>
+  <Style Widget="Button" Class="mode-tile" Background="#F9E9ED" Text="#765B65"/>
+  <Style Widget="Button" Class="mode-on" Background="#F5DDE4" Text="#A33F61"/>
+  <Style Widget="Panel" Class="viewport-bar" Background="#FFF1F3"/>
+</Theme>

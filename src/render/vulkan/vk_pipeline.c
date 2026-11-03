@@ -27,13 +27,15 @@ static int rvn_vk_shader_create_module(const uint32_t* code, size_t size, VkShad
 	return !rvn_vk_failed(rvn_vk.CreateShaderModule(g_vk.device, &info, NULL, module), "vkCreateShaderModule");
 }
 
-static int rvn_vk_sampler_create(VkFilter filter, VkSampler* sampler) {
+static int rvn_vk_sampler_create(VkFilter filter, int mipmaps, VkSampler* sampler) {
 	VkSamplerCreateInfo info;
 	memset(&info, 0, sizeof(info));
 	info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	info.magFilter = filter;
 	info.minFilter = filter;
-	info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	/* without mipmaps maxLod stays 0: only the first level is read */
+	info.mipmapMode = mipmaps ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	if (mipmaps) info.maxLod = VK_LOD_CLAMP_NONE;
 	info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -57,8 +59,9 @@ int rvn_vk_pipeline_init(void) {
 	if (!rvn_vk_shader_create_module(rvn_ui_frag_spv, sizeof(rvn_ui_frag_spv), &g_vk.fragment_shader)) return R_FALSE;
 	if (!rvn_vk_shader_create_module(rvn_blur_vert_spv, sizeof(rvn_blur_vert_spv), &g_vk.blur_vertex_shader)) return R_FALSE;
 	if (!rvn_vk_shader_create_module(rvn_blur_frag_spv, sizeof(rvn_blur_frag_spv), &g_vk.blur_fragment_shader)) return R_FALSE;
-	if (!rvn_vk_sampler_create(VK_FILTER_LINEAR, &g_vk.sampler_linear)) return R_FALSE;
-	if (!rvn_vk_sampler_create(VK_FILTER_NEAREST, &g_vk.sampler_nearest)) return R_FALSE;
+	if (!rvn_vk_sampler_create(VK_FILTER_LINEAR, R_FALSE, &g_vk.sampler_linear)) return R_FALSE;
+	if (!rvn_vk_sampler_create(VK_FILTER_NEAREST, R_FALSE, &g_vk.sampler_nearest)) return R_FALSE;
+	if (!rvn_vk_sampler_create(VK_FILTER_LINEAR, R_TRUE, &g_vk.sampler_mipmap)) return R_FALSE;
 
 	memset(&binding, 0, sizeof(binding));
 	binding.binding = 0;
@@ -147,11 +150,12 @@ void rvn_vk_pipeline_shutdown(void) {
 	if (g_vk.set_layout) rvn_vk.DestroyDescriptorSetLayout(g_vk.device, g_vk.set_layout, NULL);
 	if (g_vk.sampler_linear) rvn_vk.DestroySampler(g_vk.device, g_vk.sampler_linear, NULL);
 	if (g_vk.sampler_nearest) rvn_vk.DestroySampler(g_vk.device, g_vk.sampler_nearest, NULL);
+	if (g_vk.sampler_mipmap) rvn_vk.DestroySampler(g_vk.device, g_vk.sampler_mipmap, NULL);
 	if (g_vk.vertex_shader) rvn_vk.DestroyShaderModule(g_vk.device, g_vk.vertex_shader, NULL);
 	if (g_vk.fragment_shader) rvn_vk.DestroyShaderModule(g_vk.device, g_vk.fragment_shader, NULL);
 	g_vk.pipeline_layout = VK_NULL_HANDLE;
 	g_vk.set_layout = VK_NULL_HANDLE;
-	g_vk.sampler_linear = g_vk.sampler_nearest = VK_NULL_HANDLE;
+	g_vk.sampler_linear = g_vk.sampler_nearest = g_vk.sampler_mipmap = VK_NULL_HANDLE;
 	g_vk.vertex_shader = g_vk.fragment_shader = VK_NULL_HANDLE;
 }
 
@@ -463,6 +467,8 @@ static rvn_vk_shader_t* rvn_vk_shader_find(Rid id) {
 int rvn_vk_shader_create(Rid id, const uint32_t* spirv, size_t size) {
 	uint32_t index = R_ID_INDEX(id);
 	rvn_vk_shader_t* shader;
+	/* the device is lost: Raven gives every shader again once the backend is started again */
+	if (!rvn_vk_usable()) return R_TRUE;
 	if (index >= g_vk.shader_cap) {
 		uint32_t cap = g_vk.shader_cap ? g_vk.shader_cap : 16;
 		while (cap <= index) cap *= 2;
@@ -480,7 +486,7 @@ int rvn_vk_shader_create(Rid id, const uint32_t* spirv, size_t size) {
 }
 
 void rvn_vk_shader_destroy(Rid id) {
-	rvn_vk_shader_t* shader = rvn_vk_shader_find(id);
+	rvn_vk_shader_t* shader = g_vk.initialized ? rvn_vk_shader_find(id) : NULL;
 	uint32_t i;
 	if (!shader) return;
 	/* (frames on the GPU may still draw with it) */

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the theme of the player.
+
+  Nearly black, with surfaces that let the colors of the background through.
+  The accent is only a start: while an album plays, main.c gives the theme
+  the color of its cover (Rtheme_set_accent), and the shades that follow.
+-->
+<Theme Name="Nocturne" Base="Dark" Accent="#B79CFF" CornerRadius="8">
+	<Colors Window="#060609" Panel="#111117" Popup="#1B1B24" PopupBorder="#FFFFFF1A" Header="#060609" Input="#1C1C25"
+		Text="#F4F4F8" TextPlaceholder="#8A8A99" Separator="#FFFFFF14" Border="#FFFFFF12"
+		Control="#FFFFFF12" ControlHovered="#FFFFFF1F" ControlPressed="#FFFFFF2B" ControlBorder="#00000000"
+		RowHovered="#FFFFFF10" Track="#FFFFFF33" Handle="#FFFFFF" HandleHovered="#FFFFFF" Tooltip="#26262F"/>
+	<Metrics ControlHeight="34" FontSize="14" SliderHandleSize="12"/>
+
+	<!-- the panels: dark glass over the colors of the background -->
+	<Style Class="surface" Background="#0D0D12C8" BorderColor="#FFFFFF0D" BorderWidth="1"/>
+	<Style Class="bar" Background="#050508E6"/>
+
+	<!-- texts -->
+	<Style Widget="Label" Class="muted" Text="#A3A3B4"/>
+	<Style Widget="Label" Class="eyebrow" Text="#D6D6E2" FontSize="12"/>
+
+	<!-- buttons -->
+	<Style Widget="Button" Class="nav" Text="#A3A3B4"/>
+	<Style Widget="Button" Class="active" Text="#FFFFFF"/>
+	<Style Widget="Button" Class="icon" Text="#C4C4D2" CornerRadius="100"/>
+	<Style Widget="Button" Class="icon" State="Hovered" Foreground="#FFFFFF"/>
+	<Style Widget="Button" Class="round" CornerRadius="100"/>
+	<Style Widget="Button" Class="white" Accent="#F4F4F8" AccentHovered="#FFFFFF" AccentPressed="#D9D9E3" AccentText="#060609"/>
+	<Style Widget="Button" Class="chip" CornerRadius="100" Control="#FFFFFF14" ControlHovered="#FFFFFF24"/>
+	<Style Widget="Button" Class="on" Control="#F4F4F8" ControlHovered="#FFFFFF" ControlPressed="#D9D9E3" Text="#060609"/>
+	<Style Widget="Button" Class="card" ControlHovered="#FFFFFF12" ControlPressed="#FFFFFF1C" CornerRadius="10"/>
+	<Style Widget="Button" Class="quick" Control="#FFFFFF14" ControlHovered="#FFFFFF26" CornerRadius="6"/>
+	<Style Widget="Button" Class="row" ControlHovered="#FFFFFF10" ControlPressed="#FFFFFF1A" CornerRadius="6"/>
+	<Style Widget="Button" Class="link" Text="#A3A3B4"/>
+
+	<!-- the progress of the song -->
+	<Style Widget="Slider" Class="seek" Track="#FFFFFF2E"/>
+	<!-- the search of the header, and its input without a frame -->
+	<Style Class="search" Background="#1E1E28"/>
+	<Style Class="search" State="Hovered" Background="#262632"/>
+	<Style Widget="TextInput" Class="bare" Input="#00000000" ControlBorder="#00000000" Border="#00000000" Focus="#00000000"/>
+	<Style Class="card-flat" Background="#FFFFFF0A"/>
+	<Style Widget="Button" Class="top" Control="#FFFFFF0D" ControlHovered="#FFFFFF17" CornerRadius="10"/>
+</Theme>

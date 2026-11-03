@@ -40,6 +40,14 @@ typedef struct rvn_sg_texture_t {
 	int width, height;
 	RTextureFormat format;
 	RFilterType filter;
+	/**
+	 * Mip levels of the image (1: only the first). Every RGBA8 texture of at least 16 x 16 pixels has room for the
+	 * whole chain, so that the filter can become R_FILTER_MIPMAP later; the levels are made (on the GPU, by
+	 * rvn_sg_mips_generate) only while it is.
+	 */
+	int mips;
+	/** The levels must be made again before the next frame. */
+	int mips_pending;
 	sg_image image;
 	sg_view view;
 } rvn_sg_texture_t;
@@ -100,6 +108,8 @@ typedef struct rvn_sg_state_t {
 	/** The same, drawing into the swapchain of a window (its pixel format is the one of the window system). */
 	sg_pipeline present_pipeline;
 	sg_sampler linear, nearest;
+	/** Trilinear: the levels of a texture with mipmaps. */
+	sg_sampler mipmap;
 	rvn_sg_effect_t effects[RVN_SG_MAX_EFFECTS];
 
 	/* sg_texture.c */
@@ -176,6 +186,8 @@ const rvn_sg_texture_t* rvn_sg_texture_find(Rid texture);
  * (sokol_gfx), so they are done together, outside a pass, at the start of a frame.
  */
 void rvn_sg_uploads_flush(void);
+/** The levels (after the first) of the textures whose pixels changed: halves of the previous level, made by passes of the GPU. */
+void rvn_sg_mips_generate(void);
 
 /* ---------------------------------------------------------------------------
  *  sg_pipeline.c
@@ -193,6 +205,11 @@ const rvn_sg_effect_t* rvn_sg_effect_find(Rid shader);
  * ------------------------------------------------------------------------- */
 
 int  rvn_sg_target_create(rvn_sg_target_t* target, int width, int height, const char* label);
+/**
+ * Filters `source` into `target`: all of it, or only `area` (pixels of the target), the rest keeping its content.
+ * mode: 0 = reduce, 1 = enlarge, 2 = copy with the linear sampler (blur.frag). Outside a pass.
+ */
+void rvn_sg_glass_filter(const rvn_sg_target_t* source, const rvn_sg_target_t* target, int mode, float spread, const int* area);
 void rvn_sg_target_destroy(rvn_sg_target_t* target);
 /** Creates the offscreen images of a window for its current size. R_FALSE: draw without glass. */
 int  rvn_sg_glass_prepare(rvn_sg_surface_t* surface);

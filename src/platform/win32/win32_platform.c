@@ -52,6 +52,75 @@
 #define PM_QS_SENDMESSAGE (QS_SENDMESSAGE << 16)
 #endif
 
+/*
+ * Fingers and pens (Windows 8 and later): the WM_POINTER messages, declared
+ * here with names of their own (the headers of older SDKs and of MinGW may
+ * lack them), the functions looked up at run time. On Windows 7 the system
+ * turns fingers and pens into the mouse by itself.
+ */
+#define RVN_WM_POINTERUPDATE         0x0245
+#define RVN_WM_POINTERDOWN           0x0246
+#define RVN_WM_POINTERUP             0x0247
+#define RVN_WM_POINTERENTER          0x0249
+#define RVN_WM_POINTERLEAVE          0x024A
+#define RVN_WM_POINTERCAPTURECHANGED 0x024C
+#define RVN_PT_TOUCH 2
+#define RVN_PT_PEN   3
+#define RVN_POINTER_FLAG_INCONTACT    0x00000004
+#define RVN_POINTER_FLAG_SECONDBUTTON 0x00000020
+#define RVN_POINTER_FLAG_CANCELED     0x00008000
+#define RVN_POINTER_FLAG_DOWN         0x00010000
+#define RVN_POINTER_FLAG_UP           0x00040000
+#define RVN_PEN_FLAG_BARREL   0x00000001
+#define RVN_PEN_FLAG_INVERTED 0x00000002
+#define RVN_PEN_FLAG_ERASER   0x00000004
+#define RVN_PEN_MASK_PRESSURE 0x00000001
+#define RVN_PEN_MASK_ROTATION 0x00000002
+#define RVN_PEN_MASK_TILT_X   0x00000004
+#define RVN_PEN_MASK_TILT_Y   0x00000008
+#define RVN_TOUCH_MASK_CONTACTAREA 0x00000001
+#define RVN_TOUCH_MASK_PRESSURE    0x00000004
+
+/* POINTER_INFO, POINTER_TOUCH_INFO, POINTER_PEN_INFO of winuser.h, field for field */
+typedef struct rvn_win32_pointer_info_t {
+	DWORD type;
+	UINT32 id;
+	UINT32 frame_id;
+	DWORD flags;
+	HANDLE source_device;
+	HWND target;
+	POINT pixel;
+	POINT himetric;
+	POINT pixel_raw;
+	POINT himetric_raw;
+	DWORD time;
+	UINT32 history_count;
+	INT32 input_data;
+	DWORD key_states;
+	UINT64 performance_count;
+	int button_change;
+} rvn_win32_pointer_info_t;
+
+typedef struct rvn_win32_touch_info_t {
+	rvn_win32_pointer_info_t info;
+	DWORD touch_flags;
+	DWORD touch_mask;
+	RECT contact;
+	RECT contact_raw;
+	UINT32 orientation;
+	UINT32 pressure;
+} rvn_win32_touch_info_t;
+
+typedef struct rvn_win32_pen_info_t {
+	rvn_win32_pointer_info_t info;
+	DWORD pen_flags;
+	DWORD pen_mask;
+	UINT32 pressure;
+	UINT32 rotation;
+	INT32 tilt_x;
+	INT32 tilt_y;
+} rvn_win32_pen_info_t;
+
 #define RVN_WIN32_CLASS L"Raven_Window"
 #define RVN_WIN32_CHILD_CLASS L"Raven_Viewport"
 #define RVN_WIN32_CURSOR_COUNT 11
@@ -97,6 +166,9 @@ typedef UINT (WINAPI *rvn_win32_get_dpi_for_window_fn)(HWND);
 typedef BOOL (WINAPI *rvn_win32_adjust_rect_for_dpi_fn)(LPRECT, DWORD, BOOL, DWORD, UINT);
 typedef BOOL (WINAPI *rvn_win32_set_awareness_context_fn)(HANDLE);
 typedef BOOL (WINAPI *rvn_win32_set_dpi_aware_fn)(void);
+typedef BOOL (WINAPI *rvn_win32_get_pointer_type_fn)(UINT32, DWORD*);
+typedef BOOL (WINAPI *rvn_win32_get_pointer_touch_info_fn)(UINT32, rvn_win32_touch_info_t*);
+typedef BOOL (WINAPI *rvn_win32_get_pointer_pen_info_fn)(UINT32, rvn_win32_pen_info_t*);
 
 static struct {
 	HINSTANCE instance;
@@ -116,6 +188,10 @@ static struct {
 	/* Windows 10 1607+; NULL on older systems */
 	rvn_win32_get_dpi_for_window_fn get_dpi_for_window;
 	rvn_win32_adjust_rect_for_dpi_fn adjust_rect_for_dpi;
+	/* Windows 8+; NULL on older systems */
+	rvn_win32_get_pointer_type_fn get_pointer_type;
+	rvn_win32_get_pointer_touch_info_fn get_pointer_touch_info;
+	rvn_win32_get_pointer_pen_info_fn get_pointer_pen_info;
 } g_win32;
 
 /* ---------------------------------------------------------------------------
@@ -169,9 +245,109 @@ static void rvn_win32_adjust(HWND handle, RECT* rect) {
 	if (GetPropW(handle, RVN_WIN32_CUSTOM_PROPERTY)) rect->top = top;
 }
 
-static void rvn_win32_emit(rvn_pwindow_t* window, rvn_pevent_t* event) {
-	event->user = window->user;
+/*
+ * Windows sends some messages at once, from inside the calls of the core:
+ * CreateWindow, ShowWindow, SetFocus, DestroyWindow, SetWindowPos answer with
+ * WM_SIZE, WM_ACTIVATE, WM_SETFOCUS, WM_KILLFOCUS... before they return. Told
+ * to the core then, they would run in the middle of what the core was doing
+ * (a window being destroyed, a click being handled, the dead widgets being
+ * collected), which the other systems never do: there the events wait in a
+ * queue. So does Win32 here: an event reaches the core at once only when it
+ * comes from the loop of messages (rvn_win32_pump) and no other event is being
+ * handled; otherwise it waits for the loop.
+ */
+#define RVN_WIN32_QUEUE_SIZE 256
+
+/* (core/context.c: what is deleted between the two is freed at the end) */
+void rvn_dispatch_begin(void);
+void rvn_dispatch_end(void);
+
+typedef struct rvn_win32_queued_t {
+	rvn_pwindow_t* window;
+	rvn_pevent_t event;
+} rvn_win32_queued_t;
+
+static struct {
+	/** Inside DispatchMessage of the loop of messages. */
+	int dispatching;
+	/** An event is being handled by the core. */
+	int handling;
+	rvn_win32_queued_t events[RVN_WIN32_QUEUE_SIZE];
+	/** The events waiting are events[head..count[ (a loop inside an event goes on from the same head). */
+	int head, count;
+} g_win32_queue;
+
+static void rvn_win32_deliver(rvn_pwindow_t* window, rvn_pevent_t* event) {
+	event->user = window ? window->user : NULL;
+	g_win32_queue.handling++;
 	g_win32.handler(event);
+	g_win32_queue.handling--;
+}
+
+static void rvn_win32_flush_events(void);
+
+static void rvn_win32_emit(rvn_pwindow_t* window, rvn_pevent_t* event) {
+	rvn_win32_queued_t* queued;
+	int i;
+	if (g_win32_queue.dispatching && !g_win32_queue.handling) {
+		/* (what waited first goes first; it may have destroyed this window) */
+		if (g_win32_queue.head < g_win32_queue.count) {
+			rvn_pwindow_t* alive;
+			rvn_win32_flush_events();
+			for (alive = g_win32.windows; alive && alive != window; alive = alive->next) {}
+			if (!alive) return;
+		}
+		rvn_win32_deliver(window, event);
+		return;
+	}
+	/* a new size replaces the one still waiting */
+	if (event->type == RVN_PEVENT_RESIZE) {
+		for (i = g_win32_queue.head; i < g_win32_queue.count; i++) {
+			queued = &g_win32_queue.events[i];
+			if (queued->window == window && queued->event.type == RVN_PEVENT_RESIZE) {
+				queued->event = *event;
+				return;
+			}
+		}
+	}
+	if (g_win32_queue.count == RVN_WIN32_QUEUE_SIZE && g_win32_queue.head > 0) {
+		/* room at the front: what waits moves there */
+		memmove(g_win32_queue.events, g_win32_queue.events + g_win32_queue.head,
+			sizeof(rvn_win32_queued_t) * (size_t)(g_win32_queue.count - g_win32_queue.head));
+		g_win32_queue.count -= g_win32_queue.head;
+		g_win32_queue.head = 0;
+	}
+	/* what points into the memory of the caller is answered now (files dropped) */
+	if (event->drop_paths || event->drop_text || event->accepted || g_win32_queue.count == RVN_WIN32_QUEUE_SIZE) {
+		/* (the queue is full: a pointer that moved does not matter, the rest is told now) */
+		if (event->type == RVN_PEVENT_MOUSE_MOVE) return;
+		rvn_win32_deliver(window, event);
+		return;
+	}
+	queued = &g_win32_queue.events[g_win32_queue.count++];
+	queued->window = window;
+	queued->event = *event;
+}
+
+/* What waited reaches the core, in order (it may destroy windows: their events are dropped then). */
+static void rvn_win32_flush_events(void) {
+	if (g_win32_queue.handling) return;
+	g_win32_queue.dispatching++;
+	while (g_win32_queue.head < g_win32_queue.count) {
+		rvn_win32_queued_t queued = g_win32_queue.events[g_win32_queue.head++];
+		/* (the events told now may queue others: they go after) */
+		if (queued.window) rvn_win32_deliver(queued.window, &queued.event);
+	}
+	g_win32_queue.head = g_win32_queue.count = 0;
+	g_win32_queue.dispatching--;
+}
+
+/* A window goes: what it still had to say is forgotten. */
+static void rvn_win32_forget_events(rvn_pwindow_t* window) {
+	int i;
+	for (i = g_win32_queue.head; i < g_win32_queue.count; i++) {
+		if (g_win32_queue.events[i].window == window) g_win32_queue.events[i].window = NULL;
+	}
 }
 
 static void rvn_win32_emit_resize(rvn_pwindow_t* window) {
@@ -186,9 +362,11 @@ static void rvn_win32_emit_resize(rvn_pwindow_t* window) {
 
 static void rvn_win32_emit_modal_tick(void) {
 	rvn_pevent_t event;
+	/* (a frame in the middle of an event is not drawn: the next tick will) */
+	if (!g_win32_queue.dispatching || g_win32_queue.handling) return;
 	memset(&event, 0, sizeof(event));
 	event.type = RVN_PEVENT_MODAL_TICK;
-	g_win32.handler(&event);
+	rvn_win32_deliver(NULL, &event);
 }
 
 static uint32_t rvn_win32_modifiers(void) {
@@ -394,6 +572,74 @@ static LRESULT rvn_win32_custom_hit_test(rvn_pwindow_t* window, WPARAM wparam, L
 	return HTCLIENT;
 }
 
+/*
+ * A WM_POINTER message of a finger or a pen: sent to the core as such, and
+ * answered so that Windows does not make mouse messages of it as well.
+ * R_FALSE for the mouse and the touchpad, which stay WM_MOUSE messages.
+ */
+static int rvn_win32_pointer(rvn_pwindow_t* window, UINT message, WPARAM wparam) {
+	UINT32 id = (UINT32)LOWORD(wparam);
+	DWORD type = 0;
+	rvn_pevent_t event;
+	POINT point;
+
+	if (!g_win32.get_pointer_type || !g_win32.get_pointer_type(id, &type)) return R_FALSE;
+	memset(&event, 0, sizeof(event));
+	event.modifiers = rvn_win32_modifiers();
+
+	if (type == RVN_PT_TOUCH && g_win32.get_pointer_touch_info) {
+		rvn_win32_touch_info_t touch;
+		memset(&touch, 0, sizeof(touch));
+		if (!g_win32.get_pointer_touch_info(id, &touch)) return R_FALSE;
+		if (message == RVN_WM_POINTERENTER || message == RVN_WM_POINTERLEAVE) return R_TRUE;
+		event.type = RVN_PEVENT_TOUCH;
+		event.touch_id = (int)id;
+		if (message == RVN_WM_POINTERCAPTURECHANGED || (touch.info.flags & RVN_POINTER_FLAG_CANCELED)) event.phase = R_TOUCH_CANCEL;
+		else if (message == RVN_WM_POINTERDOWN) event.phase = R_TOUCH_DOWN;
+		else if (message == RVN_WM_POINTERUP) event.phase = R_TOUCH_UP;
+		else event.phase = R_TOUCH_MOVE;
+		point = touch.info.pixel;
+		ScreenToClient(window->handle, &point);
+		event.fx = (float)point.x;
+		event.fy = (float)point.y;
+		event.pressure = (touch.touch_mask & RVN_TOUCH_MASK_PRESSURE) ? (float)touch.pressure / 1024.0f : 1.0f;
+		if (touch.touch_mask & RVN_TOUCH_MASK_CONTACTAREA) {
+			event.contact_w = (float)(touch.contact.right - touch.contact.left);
+			event.contact_h = (float)(touch.contact.bottom - touch.contact.top);
+		}
+		rvn_win32_emit(window, &event);
+		return R_TRUE;
+	}
+	if (type == RVN_PT_PEN && g_win32.get_pointer_pen_info) {
+		rvn_win32_pen_info_t pen;
+		int contact;
+		memset(&pen, 0, sizeof(pen));
+		if (!g_win32.get_pointer_pen_info(id, &pen)) return R_FALSE;
+		contact = (pen.info.flags & RVN_POINTER_FLAG_INCONTACT) != 0;
+		event.type = RVN_PEVENT_PEN;
+		if (message == RVN_WM_POINTERLEAVE || message == RVN_WM_POINTERCAPTURECHANGED || (pen.info.flags & RVN_POINTER_FLAG_CANCELED)) event.phase = R_PEN_LEAVE;
+		else if (message == RVN_WM_POINTERDOWN || (pen.info.flags & RVN_POINTER_FLAG_DOWN)) event.phase = R_PEN_DOWN;
+		else if (message == RVN_WM_POINTERUP || (pen.info.flags & RVN_POINTER_FLAG_UP)) event.phase = R_PEN_UP;
+		else event.phase = contact ? R_PEN_MOVE : R_PEN_HOVER;
+		point = pen.info.pixel;
+		ScreenToClient(window->handle, &point);
+		event.fx = (float)point.x;
+		event.fy = (float)point.y;
+		/* (the pressure goes from 0 to 1024; a pen without one presses fully) */
+		event.pressure = (pen.pen_mask & RVN_PEN_MASK_PRESSURE) ? (float)pen.pressure / 1024.0f : (contact ? 1.0f : 0.0f);
+		if (event.phase == R_PEN_UP) event.pressure = 0.0f;
+		if (pen.pen_mask & RVN_PEN_MASK_TILT_X) event.tilt_x = (float)pen.tilt_x;
+		if (pen.pen_mask & RVN_PEN_MASK_TILT_Y) event.tilt_y = (float)pen.tilt_y;
+		if (pen.pen_mask & RVN_PEN_MASK_ROTATION) event.rotation = (float)pen.rotation;
+		event.eraser = (pen.pen_flags & (RVN_PEN_FLAG_ERASER | RVN_PEN_FLAG_INVERTED)) != 0;
+		if (pen.pen_flags & RVN_PEN_FLAG_BARREL) event.pen_buttons |= R_PEN_BUTTON_BARREL;
+		if (pen.info.flags & RVN_POINTER_FLAG_SECONDBUTTON) event.pen_buttons |= R_PEN_BUTTON_BARREL2;
+		rvn_win32_emit(window, &event);
+		return R_TRUE;
+	}
+	return R_FALSE;
+}
+
 static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
 	rvn_pwindow_t* window = (rvn_pwindow_t*)GetWindowLongPtrW(handle, GWLP_USERDATA);
 	rvn_pevent_t event;
@@ -546,6 +792,15 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 			rvn_win32_emit(window, &event);
 			return 0;
 
+		case RVN_WM_POINTERDOWN:
+		case RVN_WM_POINTERUPDATE:
+		case RVN_WM_POINTERUP:
+		case RVN_WM_POINTERENTER:
+		case RVN_WM_POINTERLEAVE:
+		case RVN_WM_POINTERCAPTURECHANGED:
+			if (!window->is_child && rvn_win32_pointer(window, message, wparam)) return 0;
+			break;
+
 		case WM_MOUSELEAVE:
 			window->tracking = R_FALSE;
 			event.type = RVN_PEVENT_MOUSE_LEAVE;
@@ -691,6 +946,9 @@ static int rvn_win32_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 	}
 	g_win32.get_dpi_for_window = RVN_WIN32_FUNCTION(rvn_win32_get_dpi_for_window_fn, rvn_win32_user32("GetDpiForWindow"));
 	g_win32.adjust_rect_for_dpi = RVN_WIN32_FUNCTION(rvn_win32_adjust_rect_for_dpi_fn, rvn_win32_user32("AdjustWindowRectExForDpi"));
+	g_win32.get_pointer_type = RVN_WIN32_FUNCTION(rvn_win32_get_pointer_type_fn, rvn_win32_user32("GetPointerType"));
+	g_win32.get_pointer_touch_info = RVN_WIN32_FUNCTION(rvn_win32_get_pointer_touch_info_fn, rvn_win32_user32("GetPointerTouchInfo"));
+	g_win32.get_pointer_pen_info = RVN_WIN32_FUNCTION(rvn_win32_get_pointer_pen_info_fn, rvn_win32_user32("GetPointerPenInfo"));
 
 	for (i = 0; i < RVN_WIN32_CURSOR_COUNT; i++) g_win32.cursors[i] = cursor_names[i] ? LoadCursorW(NULL, cursor_names[i]) : NULL;
 
@@ -733,6 +991,7 @@ static void rvn_win32_shutdown(void) {
 	UnregisterClassW(RVN_WIN32_CHILD_CLASS, g_win32.instance);
 	UnregisterClassW(RVN_WIN32_CLASS, g_win32.instance);
 	memset(&g_win32, 0, sizeof(g_win32));
+	memset(&g_win32_queue, 0, sizeof(g_win32_queue));
 }
 
 static void* rvn_win32_native_display(void) {
@@ -1012,6 +1271,7 @@ static void rvn_win32_window_destroy(rvn_pwindow_t* window) {
 	rvn_uia_window_destroyed(window->handle);
 	/* DestroyWindow sends messages: they must not reach the core any more */
 	SetWindowLongPtrW(window->handle, GWLP_USERDATA, 0);
+	rvn_win32_forget_events(window);
 	RemovePropW(window->handle, RVN_WIN32_CUSTOM_PROPERTY);
 	DestroyWindow(window->handle);
 	if (window->icon) DestroyIcon(window->icon);
@@ -1258,6 +1518,9 @@ static char* rvn_win32_clipboard_get(void) {
 static void rvn_win32_pump(double timeout_seconds) {
 	rvn_pwindow_t* window;
 	MSG message;
+	/* a loop inside an event (a dialog of Raven waits for its answer): its own events are told at once */
+	int handling = g_win32_queue.handling;
+	g_win32_queue.handling = 0;
 
 	if (timeout_seconds != 0.0) {
 		DWORD timeout = timeout_seconds < 0.0 ? INFINITE : (DWORD)(timeout_seconds * 1000.0 + 0.999);
@@ -1265,7 +1528,18 @@ static void rvn_win32_pump(double timeout_seconds) {
 		MsgWaitForMultipleObjectsEx(g_win32.wake_event ? 1 : 0, &g_win32.wake_event, timeout, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
 	}
 
+	/*
+	 * Until the loop is done, what the events delete (widgets, windows) stays
+	 * in memory: the window procedure goes on using its window after it told
+	 * the core, and Windows may still be inside it (a window moved, a menu).
+	 */
+	rvn_dispatch_begin();
+
+	/* what Windows said while the core was busy */
+	rvn_win32_flush_events();
+
 	/* sizes that changed while the core could not be told */
+	g_win32_queue.dispatching++;
 	for (window = g_win32.windows; window; window = window->next) {
 		if (window->size_dirty) {
 			int width = window->width, height = window->height;
@@ -1278,13 +1552,19 @@ static void rvn_win32_pump(double timeout_seconds) {
 			}
 		}
 	}
+	g_win32_queue.dispatching--;
 
 	while (PeekMessageW(&message, NULL, 0, 0, PM_REMOVE)) {
 		/* WM_QUIT is not used: the application stops with Rquit */
 		if (message.message == WM_QUIT) continue;
 		TranslateMessage(&message);
+		g_win32_queue.dispatching++;
 		DispatchMessageW(&message);
+		g_win32_queue.dispatching--;
+		rvn_win32_flush_events();
 	}
+	g_win32_queue.handling = handling;
+	rvn_dispatch_end();
 }
 
 static void rvn_win32_wake(void) {

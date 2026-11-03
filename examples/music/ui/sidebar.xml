@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the side bar. The places of the player above,
+  "Your library" below: main.c fills the list with <LibraryRow> elements.
+-->
+<VBox Spacing="8" Width="300">
+	<Border Class="surface" CornerRadius="12" Padding="10,8">
+		<VBox Spacing="2">
+			<NavItem Name="nav.home" Glyph="home" Text="Home" Action="nav.home"/>
+			<NavItem Name="nav.search" Glyph="search" Text="Search" Action="nav.search"/>
+			<NavItem Name="nav.settings" Glyph="settings" Text="Settings" Action="nav.settings"/>
+		</VBox>
+	</Border>
+	<Border Class="surface" CornerRadius="12" Padding="10,10,6,10" Slot.Fill="1">
+		<VBox Spacing="10">
+			<HBox Spacing="6">
+				<NavItem Name="nav.library" Glyph="library" Text="Your library" Action="nav.library" Slot.Fill="1"/>
+				<IconButton Glyph="plus" Action="library.new" Tip="Create a playlist" Size="18" Slot.VAlign="Center"/>
+			</HBox>
+			<HBox Spacing="8" Slot.Padding="6,0">
+				<Chip Name="filter.all" Text="All" Action="library.filter.all" Active="true"/>
+				<Chip Name="filter.playlists" Text="Playlists" Action="library.filter.playlists"/>
+				<Chip Name="filter.albums" Text="Albums" Action="library.filter.albums"/>
+			</HBox>
+			<ScrollBox Slot.Fill="1">
+				<VBox Name="sidebar.list" Spacing="2" Slot.Padding="0,0,6,0"/>
+			</ScrollBox>
+		</VBox>
+	</Border>
+</VBox>

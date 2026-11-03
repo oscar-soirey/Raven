@@ -3,12 +3,13 @@
  * Windowing interface implemented once per window system.
  *
  *   platform/x11/     Xlib               (Linux, BSD)
+ *   platform/wayland/ Wayland            (Linux, BSD; compiled beside X11)
  *   platform/win32/   Win32              (Windows)
  *   platform/cocoa/   Cocoa + Metal      (macOS)
  *   platform/null/    no window at all   (headless runs, tests)
  *
- * To port Raven to another window system (for example Wayland), implement this
- * table and return it from rvn_platform_select.
+ * To port Raven to another window system, implement this table and return
+ * it from rvn_platform_select.
  *
  * Unless noted, sizes and positions are in pixels of the client area and all
  * functions are called from the UI thread.
@@ -33,8 +34,6 @@ typedef enum rvn_pevent_type_t {
 	RVN_PEVENT_MOUSE_BUTTON,
 	RVN_PEVENT_MOUSE_WHEEL,
 	RVN_PEVENT_MOUSE_LEAVE,
-	/** A finger: touch_id, touch_phase (RTouchPhase), x, y in pixels. */
-	RVN_PEVENT_TOUCH,
 	RVN_PEVENT_KEY,
 	/** A character was typed: codepoint. */
 	RVN_PEVENT_TEXT,
@@ -53,7 +52,25 @@ typedef enum rvn_pevent_type_t {
 	 */
 	RVN_PEVENT_DRAG,
 	/** Files or text were dropped: x, y, drop_paths / drop_count, drop_text. */
-	RVN_PEVENT_DROP
+	RVN_PEVENT_DROP,
+	/**
+	 * A finger: touch_id, phase (RTouchPhase), fx, fy (pixels of the client
+	 * area, with their fraction), pressure (1 when unknown), contact_w, contact_h.
+	 * The platform does not turn fingers into mouse events itself.
+	 */
+	RVN_PEVENT_TOUCH,
+	/**
+	 * A pen: phase (RPenPhase), fx, fy, pressure (0..1, as the pen gives it),
+	 * tilt_x, tilt_y, rotation, eraser, pen_buttons (RPenButton). The platform
+	 * does not turn it into mouse events itself.
+	 */
+	RVN_PEVENT_PEN,
+	/**
+	 * A gesture recognized by the system (the pinch of a trackpad): phase
+	 * (RGesturePhase), fx, fy, gesture_scale (relative to the previous event),
+	 * wheel_x, wheel_y (pan in pixels since the previous event).
+	 */
+	RVN_PEVENT_GESTURE
 } rvn_pevent_type_t;
 
 /** Parts of a window whose title bar is drawn by the application (R_WINDOW_CUSTOM_HEADER). */
@@ -85,8 +102,6 @@ typedef struct rvn_pevent_t {
 	int width, height;
 	float scale;
 	float wheel_x, wheel_y;
-	uint32_t touch_id;
-	int touch_phase;
 	int button;
 	int pressed;
 	RKey key;
@@ -102,6 +117,19 @@ typedef struct rvn_pevent_t {
 	int drop_count;
 	/** Dropped text when it is not files, or NULL. */
 	const char* drop_text;
+	/* fingers and pens (RVN_PEVENT_TOUCH, _PEN, _GESTURE) */
+	int phase;
+	int touch_id;
+	float fx, fy;
+	float pressure;
+	float contact_w, contact_h;
+	float tilt_x, tilt_y;
+	float rotation;
+	int eraser;
+	uint32_t pen_buttons;
+	/** RVN_PEVENT_PEN: the platform also sent the pen as the mouse (X11): the core must not do it again. */
+	int pen_native_mouse;
+	float gesture_scale;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);
@@ -236,14 +264,57 @@ typedef struct rvn_platform_t {
 	int   (*a11y_active)(void);
 	/** What the user asked the system for: text size, contrast, motion. */
 	void  (*a11y_settings)(struct RAccessibilitySettings* settings);
+	/** The accent color the user chose for the system (0..1); R_FALSE when it does not tell. NULL: none (widget/look.c reads Windows and GNOME itself). */
+	int   (*accent_color)(float rgb[3]);
+
+	/*
+	 * ---- the island in the camera housing of the screen (optional, NULL when the window system has none) ----
+	 *
+	 * On a screen with a camera housing at its top (the "notch" of a MacBook),
+	 * an island asked to (Risland_set_notch) lives in it: in a window of its
+	 * own, an overlay created with RVN_PWINDOW_OVERLAY, anchored to the screen
+	 * and not to the window it belongs to (its owner), so that moving the
+	 * owner does not move it away from the notch.
+	 */
+
+	/** The camera housing of the screen that shows `window`: its size in pixels of that screen. R_FALSE when that screen has none. */
+	int   (*screen_notch)(rvn_pwindow_t* window, int* width, int* height);
+	/** Places an overlay at the top of the screen that shows `owner`, centered on its notch: `width` x `height` pixels. */
+	void  (*overlay_place)(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int width, int height);
+	/** The part of an overlay that takes the mouse (pixels of its client area); elsewhere the pointer goes to what is under it. */
+	void  (*overlay_set_input)(rvn_pwindow_t* overlay, int x, int y, int width, int height);
+	/** `key`: the overlay takes the keyboard (something in it was given the focus); 0: the keyboard goes back to `owner`. */
+	void  (*overlay_set_key)(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key);
 } rvn_platform_t;
+
+/**
+ * rvn_pwindow_desc_t::flags: a window that floats above everything, the
+ * menu bar included, without frame, shadow nor background, out of the lists
+ * of windows, shown on every space and hidden while the application is not
+ * in front. See screen_notch.
+ */
+#define RVN_PWINDOW_OVERLAY (1u << 24)
 
 /** Picks the platform compiled in for this OS, or the null platform. */
 const rvn_platform_t* rvn_platform_select(int headless);
 
 const rvn_platform_t* rvn_platform_null(void);
+/** The window system supplied by the application (raven_host.h). Compiled on every OS. */
+const rvn_platform_t* rvn_platform_host(void);
+/** R_TRUE after Rhost_platform_register: rvn_platform_select returns the host platform. */
+int rvn_host_platform_registered(void);
+
 #if defined(RAVEN_PLATFORM_X11)
 const rvn_platform_t* rvn_platform_x11(void);
+#endif
+#if defined(RAVEN_PLATFORM_WAYLAND)
+const rvn_platform_t* rvn_platform_wayland(void);
+/**
+ * Connects to the Wayland compositor and checks that Raven can run there
+ * (libwayland-client, libxkbcommon, decorations). The connection is kept for
+ * init. `forced`: the user asked for Wayland, decorations or not.
+ */
+int rvn_wayland_probe(int forced);
 #endif
 #if defined(RAVEN_PLATFORM_WIN32)
 const rvn_platform_t* rvn_platform_win32(void);

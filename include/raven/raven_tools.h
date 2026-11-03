@@ -161,6 +161,24 @@ extern "C" {
 	RAVEN_API int Rtimeline_is_playing(Rid timeline);
 	RAVEN_API void Rtimeline_set_loop(Rid timeline, int loop);
 
+	/* ---- sizes ---- */
+
+	/*
+	 * By default the sizes of the timeline follow the theme (its row height)
+	 * and the text scale of the accessibility settings. These set them in
+	 * logical units; 0 goes back to the automatic size.
+	 */
+	/** @brief Width of the column of the names of the tracks. 0 (default): fits the longest name. */
+	RAVEN_API void Rtimeline_set_header_width(Rid timeline, float width);
+	/** @return The width of the column of the names, as laid out now. */
+	RAVEN_API float Rtimeline_get_header_width(Rid timeline);
+	/** @brief Height of the ruler of time (and of the markers' flags band). 0 (default): automatic. */
+	RAVEN_API void Rtimeline_set_ruler_height(Rid timeline, float height);
+	RAVEN_API float Rtimeline_get_ruler_height(Rid timeline);
+	/** @brief Height of the tracks that have none of their own (Rtimeline_set_track_height). 0 (default): automatic. */
+	RAVEN_API void Rtimeline_set_default_track_height(Rid timeline, float height);
+	RAVEN_API float Rtimeline_get_default_track_height(Rid timeline);
+
 	/* ---- tracks ---- */
 
 	/** @return The track, or 0. Tracks are shown in the order they were added. */

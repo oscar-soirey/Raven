@@ -308,6 +308,13 @@ void rvn_textedit_mouse_drag(rvn_textedit_t* edit, const rvn_widget_t* widget, R
  *  Paint
  * ------------------------------------------------------------------------- */
 
+void rvn_text_input_rect(const rvn_widget_t* widget, const RPainter* painter, rvn_rect_t caret) {
+	rvn_window_t* window = widget->window;
+	if (!window || window->focus != widget || !painter->enabled) return;
+	window->text_input_rect = rvn_box_intersect(rvn_paint_snap(painter, caret), painter->clip);
+	window->text_input_owner = widget->id;
+}
+
 void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
 	rvn_rect_t area, Rid font_id, float size, rvn_color_t color, int focused) {
 
@@ -347,8 +354,10 @@ void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPaint
 	} else {
 		rvn_paint_text(painter, font_id, size, area.x - edit->scroll, text_y, edit->text, edit->length, color);
 	}
-	if (focused && !edit->read_only && fmod(rvn_clock_seconds() - edit->blink_start, 1.0) < 0.5) {
-		rvn_paint_rect(painter, rvn_rect(area.x + caret_x - edit->scroll, text_y, 1.0f, metrics.line_height), color);
+	if (focused && !edit->read_only) {
+		rvn_rect_t caret = rvn_rect(area.x + caret_x - edit->scroll, text_y, 1.0f, metrics.line_height);
+		rvn_text_input_rect(widget, painter, caret);
+		if (fmod(rvn_clock_seconds() - edit->blink_start, 1.0) < 0.5) rvn_paint_rect(painter, caret, color);
 	}
 	rvn_paint_pop_clip(painter);
 }

@@ -1,6 +1,0 @@
-TweetNaCl (Daniel J. Bernstein, Bernard van Gastel, Wesley Janssen,
-Tanja Lange, Peter Schwabe, Sjaak Smetsers) is in the public domain:
-https://tweetnacl.cr.yp.to/
-
-Raven uses it in its license tools only (tools/license): Ed25519 signatures
-and XSalsa20-Poly1305. It is not part of the Raven library.

@@ -339,6 +339,97 @@ static void rvn_menu_step(rvn_widget_t* widget, int direction) {
 	}
 }
 
+/*
+ * A menu of a platform: a flyout, rows inset and rounded. Windows
+ * (MenuFlyout): a soft background under the pointer, the glyphs of Segoe
+ * Fluent Icons. macOS: the entry under the pointer in the accent, its text
+ * white, a column for the check marks always. GNOME (a popover menu): large
+ * corners, a soft background under the pointer.
+ */
+static void rvn_menu_paint_fluent(rvn_widget_t* widget, RPainter* painter) {
+	rvn_menu_t* menu = (rvn_menu_t*)widget;
+	rvn_rect_t rect = rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
+	float font_size = rvn_widget_font_size(widget, 0.0f);
+	const int icons = rvn_menu_has_icons(widget);
+	const int family = rvn_widget_family(widget);
+	/* (the rows of the menu are laid out 4 from its edges; macOS and GNOME keep a little more) */
+	const float more = family == RVN_FAMILY_MACOS ? 1.0f : family == RVN_FAMILY_GNOME ? 2.0f : 0.0f;
+	int checks = R_FALSE;
+	float text_x;
+	uint32_t i;
+
+	for (i = 0; i < widget->child_count; i++) {
+		const rvn_widget_t* child = widget->children[i];
+		if (child->cls->type == R_WIDGET_MENU_ITEM && ((const rvn_menu_item_t*)child)->checkable) checks = R_TRUE;
+	}
+	/* the text starts after the column of the check marks and the icons, when there is one */
+	text_x = 12.0f + ((icons || checks) ? 28.0f : 0.0f);
+	if (family == RVN_FAMILY_MACOS) text_x = icons ? 40.0f : 20.0f;
+	else if (family == RVN_FAMILY_GNOME) text_x = 12.0f + ((icons || checks) ? 24.0f : 0.0f);
+	rvn_paint_popup_surface(painter, widget, rect, rvn_widget_metric(widget, R_METRIC_POPUP_RADIUS), 16.0f);
+
+	{
+		rvn_rect_t row;
+		if (menu->hot >= 0 && menu->hot < (int)widget->child_count && rvn_menu_entry_rect(widget, menu->hot, &row) &&
+			!(widget->children[menu->hot]->flags & RVN_WF_DISABLED) && !rvn_menu_entry_is_separator(widget->children[menu->hot])) {
+			row.y = rvn_paint_spring(painter, &menu->hot_y, row.y, R_MOTION_SNAPPY);
+			row.h = rvn_paint_spring(painter, &menu->hot_h, row.h, R_MOTION_SNAPPY);
+			rvn_platform_paint_item(painter, widget, rvn_rect(row.x + more, row.y + (family == RVN_FAMILY_MACOS ? 0.0f : 1.0f), row.w - more * 2.0f,
+				row.h - (family == RVN_FAMILY_MACOS ? 0.0f : 2.0f)), RVN_STATE_HOVERED, RVN_ITEM_MENU, 0.0f);
+		} else {
+			menu->hot_y.started = R_FALSE;
+			menu->hot_h.started = R_FALSE;
+		}
+	}
+	for (i = 0; i < widget->child_count; i++) {
+		rvn_widget_t* child = widget->children[i];
+		rvn_rect_t row;
+		int enabled = !(child->flags & RVN_WF_DISABLED);
+		uint32_t states = ((int)i == menu->hot ? RVN_STATE_HOVERED : 0) | (enabled ? 0 : RVN_STATE_DISABLED) |
+			(menu->open_sub == child ? RVN_STATE_OPEN : 0);
+		rvn_part_look_t look;
+		rvn_color_t secondary;
+
+		if (!rvn_menu_entry_rect(widget, (int)i, &row)) continue;
+		if (rvn_menu_entry_is_separator(child)) {
+			/* (the line runs from edge to edge of the flyout) */
+			float margin = family == RVN_FAMILY_MACOS ? 10.0f : family == RVN_FAMILY_GNOME ? 6.0f : 0.0f;
+			rvn_paint_rect(painter, rvn_rect(margin, row.y + floorf(row.h * 0.5f), rect.w - margin * 2.0f, 1.0f), rvn_widget_color(widget, R_COLOR_SEPARATOR));
+			continue;
+		}
+		if ((int)i != menu->hot && menu->open_sub == child && enabled) {
+			rvn_platform_paint_item(painter, widget, rvn_rect(row.x + more, row.y + 1.0f, row.w - more * 2.0f, row.h - 2.0f), RVN_STATE_OPEN, RVN_ITEM_MENU, 0.0f);
+		}
+		rvn_platform_item_look(widget, RVN_PART_ITEM, states, RVN_ITEM_MENU, &look);
+		if (!rvn_color_a(look.foreground)) look.foreground = enabled ? rvn_widget_color(widget, R_COLOR_TEXT) : rvn_widget_color(widget, R_COLOR_TEXT_DISABLED);
+		secondary = enabled ? rvn_platform_secondary(widget) : look.foreground;
+		/* (on the accent of macOS, everything is white) */
+		if (family == RVN_FAMILY_MACOS && (states & (RVN_STATE_HOVERED | RVN_STATE_OPEN)) && enabled) secondary = look.foreground;
+		if (child->cls->type == R_WIDGET_MENU_ITEM && ((rvn_menu_item_t*)child)->has_icon) {
+			const rvn_menu_item_t* item = (const rvn_menu_item_t*)child;
+			rvn_color_t tint = item->icon_tint ? look.foreground : rvn_rgba(1.0f, 1.0f, 1.0f, enabled ? 1.0f : 0.45f);
+			rvn_paint_image(painter, rvn_rect(row.x + 12.0f, floorf(row.y + (row.h - 16.0f) * 0.5f), 16.0f, 16.0f), item->icon, item->icon_uv, tint, 0.0f);
+		}
+		rvn_paint_text_in(painter, R_INVALID_ID, font_size, rvn_rect(row.x + text_x, row.y, row.w - text_x, row.h), 0.0f,
+			rvn_menu_entry_text(child), -1, look.foreground);
+		if (child->cls->type == R_WIDGET_MENU) {
+			rvn_platform_paint_chevron(painter, widget, row.x + row.w - 16.0f, row.y + row.h * 0.5f, 12.0f, 0.0f, secondary);
+		} else {
+			rvn_menu_item_t* item = (rvn_menu_item_t*)child;
+			if (item->checked) {
+				float cx = family == RVN_FAMILY_MACOS ? row.x + 11.0f : 20.0f + row.x;
+				if (!rvn_paint_look_icon(painter, widget, 0xE73E, cx, row.y + row.h * 0.5f, 12.0f, look.foreground)) {
+					rvn_paint_icon(painter, RVN_ICON_CHECK, cx, row.y + row.h * 0.5f, 9.0f, look.foreground);
+				}
+			}
+			if (item->shortcut_text) {
+				rvn_paint_text_in(painter, R_INVALID_ID, font_size - 2.0f, rvn_rect(row.x, row.y, row.w - 12.0f, row.h), 1.0f,
+					item->shortcut_text, -1, secondary);
+			}
+		}
+	}
+}
+
 static void rvn_menu_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_menu_t* menu = (rvn_menu_t*)widget;
 	rvn_rect_t rect = rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
@@ -350,12 +441,11 @@ static void rvn_menu_paint(rvn_widget_t* widget, RPainter* painter) {
 	const int icons = rvn_menu_has_icons(widget);
 	uint32_t i;
 
-	if (rvn_widget_glass(widget)) {
-		rvn_paint_surface(painter, widget, rect, radius, RVN_SURFACE_POPUP, 0.0f, 0.0f);
-	} else {
-		rvn_paint_shadow(painter, rvn_rect(0.0f, 4.0f, rect.w, rect.h), radius, 16.0f, rvn_widget_color(widget, R_COLOR_SHADOW));
-		rvn_paint_box(painter, rect, radius, rvn_widget_color(widget, R_COLOR_POPUP), 1.0f, rvn_widget_color(widget, R_COLOR_POPUP_BORDER));
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		rvn_menu_paint_fluent(widget, painter);
+		return;
 	}
+	rvn_paint_popup_surface(painter, widget, rect, radius, 16.0f);
 
 	/* the highlight slides under the pointer from entry to entry */
 	{
@@ -651,6 +741,25 @@ static void rvn_menu_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 	float title_radius = rvn_widget_glass(widget) ? 100.0f : 3.0f;
 	uint32_t i;
 
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/* the platforms (MenuBar): titles on the window, a soft rounded background under the pointer and under the open one */
+		for (i = 0; i < widget->child_count; i++) {
+			rvn_widget_t* child = widget->children[i];
+			rvn_rect_t rect;
+			int enabled = painter->enabled && !(child->flags & RVN_WF_DISABLED);
+			int hot = (int)i == bar->hot && (widget->flags & RVN_WF_HOVERED) && enabled;
+			uint32_t states = (hot ? RVN_STATE_HOVERED : 0) | ((int)i == bar->open ? RVN_STATE_OPEN | RVN_STATE_PRESSED : 0) |
+				(enabled ? 0 : RVN_STATE_DISABLED);
+			rvn_part_look_t look;
+			if (!rvn_menu_bar_title_rect(widget, (int)i, &rect)) continue;
+			rect = rvn_rect(rect.x + 2.0f, rect.y + 3.0f, rect.w - 4.0f, rect.h - 6.0f);
+			if (states & (RVN_STATE_HOVERED | RVN_STATE_OPEN)) rvn_platform_paint_item(painter, widget, rect, states, RVN_ITEM_BAR, 0.0f);
+			rvn_platform_item_look(widget, RVN_PART_ITEM, states, RVN_ITEM_BAR, &look);
+			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), rect, 0.5f, rvn_menu_entry_text(child), -1,
+				rvn_color_a(look.foreground) ? look.foreground : enabled ? text : rvn_widget_color(widget, R_COLOR_TEXT_DISABLED));
+		}
+		return;
+	}
 	if (widget->parent && widget->parent->cls->type == R_WIDGET_HEADER_BAR) {
 		/* inside a header bar, the bar is the background */
 	} else if (rvn_widget_glass(widget)) {

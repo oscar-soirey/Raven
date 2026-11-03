@@ -64,6 +64,8 @@ static struct {
 	int free_frame_count;
 	/** Called while the UI thread waits for the render thread, or NULL. */
 	void (*wait_service)(void);
+	/** Set by the backend (any thread) when its device is lost; handled by the UI thread. */
+	rvn_atomic_t device_lost;
 } g_renderer;
 
 Ruint Rbackend_get_caps(void) {
@@ -374,6 +376,33 @@ void rvn_renderer_create_shader(Rid shader, uint32_t* spirv, size_t size) {
 
 void rvn_renderer_destroy_shader(Rid shader) {
 	rvn_rcmd_submit(rvn_rcmd_new(RVN_RCMD_DESTROY_SHADER, shader), R_FALSE);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Loss of the device
+ * ------------------------------------------------------------------------- */
+
+void Rbackend_device_lost(void) {
+	if (!g_renderer.running) return;
+	if (rvn_atomic_exchange(&g_renderer.device_lost, 1) == 0) {
+		/* the UI thread may be waiting for events: it recovers at its next update */
+		rvn_wake();
+	}
+}
+
+int rvn_renderer_device_lost(void) {
+	return g_renderer.running && rvn_atomic_load(&g_renderer.device_lost) != 0;
+}
+
+int rvn_renderer_restart(const RBackendInitInfo* info) {
+	rvn_rcmd_t* cmd;
+	if (!g_renderer.running) return R_FALSE;
+	/* (a loss during the restart is seen again afterwards) */
+	rvn_atomic_store(&g_renderer.device_lost, 0);
+	rvn_rcmd_submit(rvn_rcmd_new(RVN_RCMD_SHUTDOWN, R_INVALID_ID), R_TRUE);
+	cmd = rvn_rcmd_new(RVN_RCMD_INIT, R_INVALID_ID);
+	cmd->init = *info;
+	return rvn_rcmd_submit(cmd, R_TRUE);
 }
 
 void rvn_renderer_call(rvn_render_fn function, void* arg, int wait) {

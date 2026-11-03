@@ -1,0 +1,78 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Theme Name="Nord" Base="Dark" Accent="#88C0D0" CornerRadius="7">
+  <Colors
+    Window="#2E3440"
+    Panel="#3B4252"
+    Border="#4C566A"
+    Text="#ECEFF4"
+    TextDisabled="#A3ACBA"
+    TextPlaceholder="#8792A5"
+    Accent="#88C0D0"
+    AccentHovered="#8FBCBB"
+    AccentPressed="#5E9DAF"
+    AccentText="#202832"
+    Control="#434C5E"
+    ControlHovered="#4C566A"
+    ControlPressed="#596579"
+    ControlBorder="#596579"
+    Input="#343B49"
+    Focus="#88C0D0"
+    Selection="#88C0D044"
+    RowHovered="#434C5E"
+    Track="#272C36"
+    Handle="#68758A"
+    HandleHovered="#8FBCBB"
+    Separator="#4C566A"
+    Header="#3B4252"
+    HeaderHovered="#4C566A"
+    TabActive="#434C5E"
+    Popup="#3B4252"
+    PopupBorder="#616D82"
+    Shadow="#00000066"
+    Tooltip="#434C5E"
+    TooltipText="#ECEFF4"
+    Switch="#88C0D0"
+    Success="#A3BE8C"
+    Warning="#EBCB8B"
+    Danger="#BF616A"
+    Link="#8FBCBB"
+    Code="#D8DEE9"
+  />
+  <Metrics
+    FontSize="14" CornerRadius="7" BorderWidth="1"
+    ControlHeight="30" PaddingX="10" PaddingY="7"
+    Spacing="8" ScrollbarSize="12" RowHeight="28"
+    Indent="18" SplitterSize="5" CheckSize="16"
+    SliderHandleSize="14" PopupRadius="8" BlurRadius="12"
+  />
+  <Glass Frost="0.16" Refraction="0.06" Saturation="0.95" Rim="0.22" Shadow="0.28"/>
+  <Syntax
+    Comment="#A3ACBA" String="#A3BE8C" Number="#D08770"
+    Keyword="#81A1C1" Type="#8FBCBB" Function="#EBCB8B"
+    Tag="#81A1C1" Attribute="#B48EAD" Punctuation="#D8DEE9"
+    Directive="#B48EAD" Heading="#88C0D0" Strong="#ECEFF4"
+    Emphasis="#B48EAD" Link="#8FBCBB"
+  />
+  <Style Widget="Button" Class="tool" Background="#434C5E" Text="#ECEFF4" CornerRadius="5"/>
+  <Style Widget="Button" Class="active" Background="#5E81AC" Text="#ECEFF4" CornerRadius="5"/>
+  <Style Widget="Button" Class="play" Background="#3F6B57" Text="#E5F4E8" CornerRadius="5"/>
+  <Style Widget="Button" Class="stop" Background="#8F3E49" Text="#FFE9EA" CornerRadius="5"/>
+  <Style Widget="Button" Class="simulate" Background="#806B3C" Text="#FFF4D6" CornerRadius="5"/>
+  <Style Widget="Panel" Class="toolbar" Background="#343B49"/>
+  <Style Widget="Panel" Class="statusbar" Background="#292F3A" Text="#D8DEE9"/>
+  <Style Widget="Text" Class="dim" Text="#A3ACBA"/>
+  <Style Widget="Text" Class="section" Text="#88C0D0"/>
+  <Style Widget="Text" Class="dialog-title" Text="#ECEFF4"/>
+  <Style Widget="Text" Class="error" Text="#BF616A"/>
+  <Style Widget="Text" Class="warning" Text="#EBCB8B"/>
+  <Style Widget="Text" Class="success" Text="#A3BE8C"/>
+  <Style Widget="Text" Class="axis-x" Text="#BF616A"/>
+  <Style Widget="Text" Class="axis-y" Text="#A3BE8C"/>
+  <Style Widget="Text" Class="axis-z" Text="#81A1C1"/>
+  <Style Widget="Text" Class="axis-w" Text="#B48EAD"/>
+  <Style Widget="Text" Class="dirty" Text="#EBCB8B"/>
+  <Style Widget="Button" Class="mode-tile" Background="#3B4252" Text="#D8DEE9"/>
+  <Style Widget="Button" Class="mode-on" Background="#5E81AC" Text="#ECEFF4"/>
+  <Style Widget="Panel" Class="viewport-bar" Background="#3B4252"/>
+</Theme>

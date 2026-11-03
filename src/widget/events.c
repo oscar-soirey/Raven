@@ -20,7 +20,20 @@ static int rvn_event_bubbles(REventType type) {
 	}
 }
 
+static int rvn_widget_deliver_scoped(rvn_widget_t* target, REvent* event, int bubbles);
+
+/* A widget handles an event with the font of its part of the tree (where a click falls in a text). */
 static int rvn_widget_deliver(rvn_widget_t* target, REvent* event, int bubbles) {
+	Rid previous;
+	int handled;
+	if (!target || (target->flags & RVN_WF_DEAD)) return R_FALSE;
+	previous = rvn_font_scope_enter(target->font_scope);
+	handled = rvn_widget_deliver_scoped(target, event, bubbles);
+	rvn_font_scope_leave(previous);
+	return handled;
+}
+
+static int rvn_widget_deliver_scoped(rvn_widget_t* target, REvent* event, int bubbles) {
 	rvn_widget_t* widget = target;
 	int handled = R_FALSE;
 	float window_x = event->x, window_y = event->y;

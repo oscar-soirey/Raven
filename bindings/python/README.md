@@ -30,10 +30,6 @@ Every function of the C API is there under its own name. Texts are `str`,
 callbacks are Python functions, and the values a C function writes through
 pointers are returned.
 
-Interfaces written in Raven XML with their Python code (`.xmlpy` files) can
-be imported directly after `import raven_xmlpy`; the `ravenc` compiler they
-need is included.
-
 Raven draws with Vulkan: the machine needs a Vulkan driver (current graphics
 drivers include one on Windows and Linux; on macOS, install
 [MoltenVK](https://github.com/KhronosGroup/MoltenVK)). On Linux, libX11 is

@@ -57,7 +57,12 @@ rvn_vec2_t rvn_widget_measure(rvn_widget_t* widget) {
 
 	/* cleared first: an invalidation raised while measuring must survive */
 	widget->flags &= ~RVN_WF_MEASURE_DIRTY;
-	desired = widget->cls->measure ? widget->cls->measure(widget) : rvn_widget_measure_default(widget);
+	{
+		/* (its texts are measured in the font of its part of the tree) */
+		Rid previous = rvn_font_scope_enter(widget->font_scope);
+		desired = widget->cls->measure ? widget->cls->measure(widget) : rvn_widget_measure_default(widget);
+		rvn_font_scope_leave(previous);
+	}
 
 	if (widget->fixed_size.x >= 0.0f) desired.x = widget->fixed_size.x;
 	if (widget->fixed_size.y >= 0.0f) desired.y = widget->fixed_size.y;
@@ -104,9 +109,12 @@ void rvn_widget_arrange(rvn_widget_t* widget, float x, float y, float width, flo
 	widget->rect = rvn_rect(x, y, width, height);
 	if (resized || (widget->flags & RVN_WF_ARRANGE_DIRTY)) {
 		/* cleared first: an invalidation raised while arranging must survive */
+		Rid previous;
 		widget->flags &= ~RVN_WF_ARRANGE_DIRTY;
+		previous = rvn_font_scope_enter(widget->font_scope);
 		if (widget->cls->arrange) widget->cls->arrange(widget);
 		else rvn_widget_arrange_default(widget);
+		rvn_font_scope_leave(previous);
 	}
 }
 

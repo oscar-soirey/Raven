@@ -20,7 +20,14 @@ typedef enum RFontStyle{
 typedef enum RFilterType{
 	R_FILTER_LINEAR = 0x02C0,
 	/** No smoothing: keeps pixel art sharp. */
-	R_FILTER_NEAREST
+	R_FILTER_NEAREST,
+	/**
+	 * Smooth, with mipmaps: an image shown much smaller than its size stays
+	 * clean instead of shimmering, for a third more GPU memory. The default
+	 * of the textures made from image files (Rtexture_create...). Backends
+	 * without mipmaps treat it as R_FILTER_LINEAR.
+	 */
+	R_FILTER_MIPMAP
 }RFilterType;
 
 
@@ -107,7 +114,7 @@ extern "C" {
 	/** @brief Reads and decodes the file on a worker thread. */
 	RAVEN_API Rid Rtexture_create_from_file_async(const char* path);
 
-	/** @brief Creates a texture from tightly packed RGBA8 pixels (straight alpha). */
+	/** @brief Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR. */
 	RAVEN_API Rid Rtexture_create_from_pixels(const uint8_t* rgba, int width, int height);
 
 	/**
@@ -136,6 +143,11 @@ extern "C" {
 	RAVEN_API void Rtexture_destroy(Rid texture);
 	RAVEN_API int Rtexture_is_valid(Rid texture);
 	RAVEN_API void Rtexture_get_size(Rid texture, int* width, int* height);
+	/**
+	 * @brief How the texture is smoothed when it is scaled. The textures made
+	 * from image files start with R_FILTER_MIPMAP, the others with
+	 * R_FILTER_LINEAR.
+	 */
 	RAVEN_API void Rtexture_set_filter(Rid texture, RFilterType filter);
 
 #ifdef __cplusplus

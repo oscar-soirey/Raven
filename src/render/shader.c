@@ -71,9 +71,22 @@ static Rid rvn_shader_make(const void* spirv, size_t size, Ruint flags, int effe
 	}
 	copy = (uint32_t*)rvn_alloc(size);
 	memcpy(copy, spirv, size);
+	shader->spirv = (uint32_t*)rvn_alloc(size);
+	memcpy(shader->spirv, spirv, size);
+	shader->spirv_size = size;
 	rvn_renderer_create_shader(shader->id, copy, size);
 	shader->created = R_TRUE;
 	return shader->id;
+}
+
+void rvn_shader_restore(rvn_shader_t* shader) {
+	uint32_t* copy;
+	shader->created = R_FALSE;
+	if (!shader->spirv) return;
+	copy = (uint32_t*)rvn_alloc(shader->spirv_size);
+	memcpy(copy, shader->spirv, shader->spirv_size);
+	rvn_renderer_create_shader(shader->id, copy, shader->spirv_size);
+	shader->created = R_TRUE;
 }
 
 Rid Rshader_create(const void* spirv, size_t size, Ruint flags) {
@@ -133,6 +146,7 @@ void Rshader_destroy(Rid id) {
 	/* (the frames already queued were drawn with it before the command arrives: the render thread keeps the order) */
 	if (shader->created) rvn_renderer_destroy_shader(id);
 	rvn_pool_remove(&g_rvn.shaders, id);
+	rvn_free(shader->spirv);
 	rvn_free(shader);
 }
 
@@ -152,6 +166,7 @@ void rvn_shaders_shutdown(void) {
 		if (!shader) continue;
 		if (shader->created) rvn_renderer_destroy_shader(shader->id);
 		rvn_pool_remove(&g_rvn.shaders, shader->id);
+		rvn_free(shader->spirv);
 		rvn_free(shader);
 	}
 	memset(g_effect_ids, 0, sizeof(g_effect_ids));

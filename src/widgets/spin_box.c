@@ -21,6 +21,8 @@ typedef struct rvn_spin_box_t {
 	int dragging;
 	float press_x;
 	double press_value;
+	/* Windows: the button under the pointer (+1 up, -1 down, 0 none) */
+	int hot;
 	RSpinBoxChangedCallback callback;
 	void* user_data;
 } rvn_spin_box_t;
@@ -59,9 +61,58 @@ static void rvn_spin_box_set(rvn_widget_t* widget, double value, int notify) {
 	}
 }
 
+/*
+ * The buttons of the platforms, on the right: Windows (NumberBox) up then
+ * down, side by side in the field; GNOME (SpinButton) minus then plus, in
+ * the field; macOS a stepper next to the field, up above down. Their width
+ * each (the stepper: its whole width); 0 for the looks of Raven, which drag.
+ */
+static float rvn_spin_box_button_width(const rvn_widget_t* widget) {
+	switch (rvn_widget_family(widget)) {
+		case RVN_FAMILY_WINDOWS: return rvn_minf(26.0f, floorf(widget->rect.w * 0.22f));
+		case RVN_FAMILY_GNOME: return rvn_minf(rvn_widget_metric(widget, R_METRIC_CONTROL_HEIGHT), floorf(widget->rect.w * 0.24f));
+		case RVN_FAMILY_MACOS: return 15.0f;
+		default: return 0.0f;
+	}
+}
+
+/* The field itself: all the widget, but the stepper of macOS. */
+static rvn_rect_t rvn_spin_box_field(const rvn_widget_t* widget) {
+	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return rvn_rect(0.0f, 0.0f, rvn_maxf(0.0f, widget->rect.w - 19.0f), widget->rect.h);
+	return rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
+}
+
 static rvn_rect_t rvn_spin_box_area(const rvn_widget_t* widget) {
 	float px = rvn_widget_metric(widget, R_METRIC_PADDING_X) * 0.7f;
-	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f), widget->rect.h);
+	float buttons = rvn_spin_box_button_width(widget) * 2.0f;
+	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return rvn_rect(5.0f, 0.0f, rvn_maxf(0.0f, rvn_spin_box_field(widget).w - 10.0f), widget->rect.h);
+	if (buttons > 0.0f) px = rvn_widget_metric(widget, R_METRIC_PADDING_X) - 1.0f;
+	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f - buttons), widget->rect.h);
+}
+
+/* Where a button of a platform is: `up` 1 for the one that adds, 0 for the one that takes away. */
+static rvn_rect_t rvn_spin_box_button_rect(const rvn_widget_t* widget, int up) {
+	float width = rvn_spin_box_button_width(widget), h = widget->rect.h, w = widget->rect.w;
+	switch (rvn_widget_family(widget)) {
+		case RVN_FAMILY_MACOS:
+			return rvn_rect(w - width, up ? 0.0f : floorf(h * 0.5f), width, floorf(h * 0.5f));
+		case RVN_FAMILY_GNOME:
+			/* minus, then plus at the end */
+			return rvn_rect(w - width * (up ? 1.0f : 2.0f), 0.0f, width, h);
+		default:
+			return rvn_rect(w - width * (up ? 2.0f : 1.0f) - 2.0f, 4.0f, width - 2.0f, h - 8.0f);
+	}
+}
+
+/* Which button of a platform is at (x, y): +1 the one that adds, -1 the other one, 0 none. */
+static int rvn_spin_box_button_at(const rvn_widget_t* widget, float x, float y) {
+	int up;
+	if (rvn_spin_box_button_width(widget) <= 0.0f) return 0;
+	for (up = 0; up < 2; up++) {
+		rvn_rect_t rect = rvn_spin_box_button_rect(widget, up);
+		if (x >= rect.x - 1.0f && x < rect.x + rect.w + 1.0f && y >= rect.y && y < rect.y + rect.h) return up ? 1 : -1;
+	}
+	return 0;
 }
 
 static void rvn_spin_box_begin_edit(rvn_widget_t* widget, int select_all) {
@@ -110,6 +161,60 @@ static void rvn_spin_box_paint(rvn_widget_t* widget, RPainter* painter) {
 	char buffer[64];
 
 	if (!painter->enabled) fill = rvn_color_fade(fill, 0.5f);
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/* a field of a platform, the value on the left, its buttons on the right (see rvn_spin_box_button_rect) */
+		const int family = rvn_widget_family(widget);
+		int hovered = (widget->flags & RVN_WF_HOVERED) && painter->enabled;
+		rvn_rect_t field = rvn_spin_box_field(widget);
+		int hot = 0, up;
+		rvn_part_look_t look;
+		rvn_part_look_eased(widget, RVN_PART_BODY, rvn_widget_states(widget, painter, hovered, R_FALSE),
+			rvn_widget_hover(widget, painter, hovered), 0.0f, rvn_platform_field_look, NULL, &look);
+		rvn_paint_part(painter, field, &look);
+		rvn_platform_paint_field_focus(painter, widget, field, focused ? 1.0f : 0.0f, look.radius);
+		if (hovered) hot = spin->hot;
+		if (family == RVN_FAMILY_MACOS) {
+			/* the stepper: one small button cut in two */
+			rvn_rect_t stepper = rvn_rect(rect.w - 15.0f, floorf((rect.h - 22.0f) * 0.5f), 15.0f, rvn_minf(22.0f, rect.h));
+			rvn_part_look_t box;
+			rvn_part_look(widget, RVN_PART_ARROW, rvn_widget_states(widget, painter, R_FALSE, R_FALSE), rvn_platform_button_look, NULL, &box);
+			rvn_paint_part(painter, stepper, &box);
+			rvn_paint_rect(painter, rvn_rect(stepper.x + 2.0f, stepper.y + floorf(stepper.h * 0.5f), stepper.w - 4.0f, 1.0f),
+				rvn_widget_color(widget, R_COLOR_SEPARATOR));
+		}
+		for (up = 1; up >= 0; up--) {
+			rvn_rect_t button = rvn_spin_box_button_rect(widget, up);
+			uint32_t states = rvn_widget_states(widget, painter, hot == (up ? 1 : -1), R_FALSE) | RVN_STATE_FLAT;
+			rvn_color_t glyph = painter->enabled ? rvn_platform_secondary(widget) : text;
+			float cx = button.x + button.w * 0.5f, cy = button.y + button.h * 0.5f;
+			rvn_part_look_t arrow;
+			if (family != RVN_FAMILY_MACOS) {
+				rvn_part_look(widget, RVN_PART_ARROW, states, rvn_platform_button_look, NULL, &arrow);
+				if (family == RVN_FAMILY_GNOME) arrow.radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+				rvn_paint_part(painter, button, &arrow);
+				if (rvn_color_a(arrow.foreground) && family == RVN_FAMILY_GNOME) glyph = arrow.foreground;
+			}
+			if (family == RVN_FAMILY_GNOME) {
+				/* list-remove and list-add, the symbolic icons */
+				rvn_paint_line(painter, cx - 6.0f, cy, cx + 6.0f, cy, 1.5f, glyph);
+				if (up) rvn_paint_line(painter, cx, cy - 6.0f, cx, cy + 6.0f, 1.5f, glyph);
+			} else if (family == RVN_FAMILY_MACOS) {
+				rvn_platform_paint_chevron(painter, widget, cx, cy + (up ? 1.0f : -1.0f), 9.0f, up ? -1.5707964f : 1.5707964f,
+					hot == (up ? 1 : -1) ? rvn_widget_color(widget, R_COLOR_TEXT) : glyph);
+			} else {
+				rvn_platform_paint_chevron(painter, widget, cx, cy, 12.0f, up ? -1.5707964f : 1.5707964f, glyph);
+			}
+		}
+		if (spin->editing) {
+			rvn_textedit_paint(&spin->edit, widget, painter, rvn_spin_box_area(widget), R_INVALID_ID, 0.0f, text, R_TRUE);
+			return;
+		}
+		rvn_spin_box_format(spin, buffer, sizeof(buffer));
+		rvn_paint_push_clip(painter, rvn_spin_box_area(widget));
+		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), rvn_spin_box_area(widget), 0.0f, buffer, -1, text);
+		rvn_paint_pop_clip(painter);
+		return;
+	}
 	if (rvn_widget_glass(widget)) {
 		float radius = rvn_control_radius(widget, rect.h);
 		rvn_paint_surface(painter, widget, rect, radius, RVN_SURFACE_INPUT, 0.0f, 0.0f);
@@ -143,6 +248,15 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 			return R_TRUE;
 		case R_EVENT_MOUSE_DOWN:
 			if (event->button != R_MOUSE_LEFT) return R_FALSE;
+			/* Windows: the buttons step the value */
+			{
+				int button = rvn_spin_box_button_at(widget, event->local_x, event->local_y);
+				if (button) {
+					if (spin->editing) rvn_spin_box_end_edit(widget, R_TRUE);
+					rvn_spin_box_set(widget, spin->value + (button > 0 ? spin->step : -spin->step), R_TRUE);
+					return R_TRUE;
+				}
+			}
 			rvn_widget_capture_mouse(widget);
 			if (spin->editing) {
 				rvn_textedit_mouse_down(&spin->edit, widget, R_INVALID_ID, 0.0f, event->local_x - area.x,
@@ -156,6 +270,13 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 			rvn_widget_invalidate_paint(widget);
 			return R_TRUE;
 		case R_EVENT_MOUSE_MOVE:
+			{
+				int hot = rvn_spin_box_button_at(widget, event->local_x, event->local_y);
+				if (hot != spin->hot) {
+					spin->hot = hot;
+					rvn_widget_invalidate_paint(widget);
+				}
+			}
 			if (spin->editing) {
 				if (!spin->edit.mouse_selecting) return R_FALSE;
 				rvn_textedit_mouse_drag(&spin->edit, widget, R_INVALID_ID, 0.0f, event->local_x - area.x);

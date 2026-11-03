@@ -34,6 +34,13 @@ void rvn_fonts_shutdown(void);
 
 /** Resolves a font handle; R_INVALID_ID or a stale handle gives the theme / default font. */
 rvn_font_t* rvn_font_resolve(Rid font);
+/**
+ * The font R_INVALID_ID stands for on this thread, besides the theme's: the
+ * font of the part of the tree being laid out, painted or given an event
+ * (Rwidget_set_font). Returns the one it replaces, for rvn_font_scope_leave.
+ */
+Rid rvn_font_scope_enter(Rid font);
+void rvn_font_scope_leave(Rid previous);
 #define RVN_FONT_BOLD   1u
 #define RVN_FONT_ITALIC 2u
 /**
@@ -74,6 +81,8 @@ void rvn_text_draw(rvn_drawlist_t* list, rvn_font_t* font, float size_px, float 
 
 /** Creates and updates the GPU textures of the atlas pages changed since the last call. UI thread. */
 void rvn_fonts_flush(void);
+/** After the loss of the device (the atlas textures are back, transparent): uploads every page again. */
+void rvn_fonts_device_reset(void);
 
 /** Replaces the atlas pseudo-handles of a finished draw list by real texture handles. UI thread. */
 void rvn_fonts_resolve_pages(rvn_drawlist_t* list);

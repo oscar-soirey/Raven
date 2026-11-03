@@ -195,13 +195,17 @@ float sd_triangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
 }
 
 void main() {
+	/* the derivatives of the coordinates are taken while the whole quad runs
+	 * (before the discard and the branches): they choose the mip level of the
+	 * textures that have mipmaps; the samplers of the others read level 0 only */
+	vec2 uv_dx = dFdx(v_uv), uv_dy = dFdy(v_uv);
 	vec2 p = gl_FragCoord.xy;
 	if (p.x < v_clip.x || p.y < v_clip.y || p.x >= v_clip.z || p.y >= v_clip.w) discard;
 
 	uint kind = v_flags & PRIM_MASK;
 	vec4 color = v_color;
 	if ((v_flags & FLAG_TEXTURED) != 0u) {
-		vec4 texel = textureLod(u_texture, v_uv, 0.0);
+		vec4 texel = textureGrad(u_texture, v_uv, uv_dx, uv_dy);
 		/* textures are straight alpha, v_color is already premultiplied */
 		color *= vec4(texel.rgb * texel.a, texel.a);
 	}

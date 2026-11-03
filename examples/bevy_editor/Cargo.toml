@@ -1,11 +1,11 @@
 # Raven Bevy Editor: a visual editor of Bevy scenes, its interface written in
-# Raven XML with its Rust code (.xmlrs), the scene drawn by Bevy.
+# Raven XML (editor.xml) and driven from Rust, the scene drawn by Bevy.
 #
 #   core/   the scene, its history, its file, the camera, picking and gizmos (no dependency)
-#   ui/     the interface (src/editor.xmlrs) and a software renderer; runs without Bevy
+#   ui/     the interface (src/editor.xml, src/editor.rs) and a software renderer; runs without Bevy
 #   app/    the program: Bevy renders the scene into the viewport of the interface
 #
-#   RAVEN_LIB_DIR=<Raven package>/lib RAVENC=<Raven package>/bin/ravenc cargo run -p raven-bevy-editor --release
+#   RAVEN_LIB_DIR=<Raven package>/lib cargo run -p raven-bevy-editor --release
 [workspace]
 members = ["core", "ui", "app"]
 resolver = "2"

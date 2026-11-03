@@ -555,6 +555,11 @@ static int rvn_tile_view_set_attribute(rvn_widget_t* widget, const char* name, c
 	return R_TRUE;
 }
 
+static int rvn_touch_tile_view_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	RVN_UNUSED(dx);
+	return rvn_scrollbar_pan(&((rvn_tile_view_t*)widget)->bar, -dy, coasting);
+}
+
 const rvn_widget_class_t rvn_class_tile_view = {
 	.type = R_WIDGET_TILE_VIEW,
 	.name = "TileView",
@@ -566,6 +571,7 @@ const rvn_widget_class_t rvn_class_tile_view = {
 	.arrange = rvn_tile_view_arrange,
 	.paint = rvn_tile_view_paint,
 	.event = rvn_tile_view_event,
+	.pan = rvn_touch_tile_view_pan,
 	.set_attribute = rvn_tile_view_set_attribute
 };
 

@@ -36,8 +36,6 @@ set RAVEN_LIB_DIR=C:\path\to\raven\lib && cargo run   # Windows (raven.lib; rave
 `RAVEN_STATIC=1` links the static library (`libraven.a` / `raven.lib`) instead.
 
 `sys` is the whole C API, unchanged; the crate root adds `text`, `cstr`,
-`action_bind`, `window_from_xml` and `widget_find`. Interfaces written in
-Raven XML with their Rust code (`.xmlrs`) are compiled from `build.rs` by
-[`raven-gui-build`](https://crates.io/crates/raven-gui-build).
+`action_bind`, `window_from_xml` and `widget_find`.
 
 License: Apache 2.0.

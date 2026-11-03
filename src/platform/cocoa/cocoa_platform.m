@@ -22,6 +22,13 @@ struct rvn_pwindow_t {
     int min_width, min_height;
     rvn_pwindow_state_t state;
     NSCursor* cursor;
+    /* an overlay of the camera housing (RVN_PWINDOW_OVERLAY): may it take the keyboard now, the part of
+       it that takes the mouse (pixels of its client area), and the timer that watches the pointer */
+    int overlay;
+    int overlay_key;
+    NSRect overlay_input;
+    int pointer_inside;
+    NSTimer* overlay_poll;
 };
 
 static struct {
@@ -31,6 +38,8 @@ static struct {
     int initialized;
     rvn_pwindow_t* resize_window;
     rvn_pregion_t resize_region;
+    /* the end of the pen near the tablet is its eraser (tabletProximity) */
+    int pen_eraser;
     NSPoint resize_start;
     NSRect resize_frame;
 } g_cocoa;
@@ -163,6 +172,22 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     [window->handle setFrame:frame display:YES];
 }
 
+/*
+ * The window of an island in the camera housing: a panel above the menu
+ * bar, without frame, that never becomes the main window and becomes the key
+ * window only when the core asks (a text typed in the island).
+ */
+@interface RavenCocoaPanel : NSPanel {
+@public rvn_pwindow_t* ravenWindow;
+}
+@end
+@implementation RavenCocoaPanel
+- (BOOL)canBecomeKeyWindow { return ravenWindow && ravenWindow->overlay_key; }
+- (BOOL)canBecomeMainWindow { return NO; }
+/* (AppKit keeps windows under the menu bar; this one is meant to be in it, around the camera) */
+- (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen*)screen { (void)screen; return frameRect; }
+@end
+
 @interface RavenCocoaView : NSView <NSDraggingDestination> {
 @public rvn_pwindow_t* ravenWindow;
     NSTrackingArea* trackingArea;
@@ -179,6 +204,8 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
 }
 - (void)dealloc { if (trackingArea) [trackingArea release]; [super dealloc]; }
 - (BOOL)acceptsFirstResponder { return YES; }
+/* (the island of the camera housing takes the click at once, without becoming the key window first) */
+- (BOOL)acceptsFirstMouse:(NSEvent*)event { (void)event; return ravenWindow && ravenWindow->overlay; }
 - (BOOL)wantsUpdateLayer { return YES; }
 - (void)drawRect:(NSRect)dirtyRect {
     (void)dirtyRect;
@@ -189,9 +216,47 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     rvn_pevent_t event; memset(&event, 0, sizeof(event)); event.type = RVN_PEVENT_EXPOSE;
     rvn_cocoa_emit(ravenWindow, &event);
 }
+/*
+ * A pen on a tablet: macOS makes it the mouse itself, with a pressure and a
+ * tilt on the events (subtype tablet point). The core is told about the pen
+ * as well, for the pressure and the palm (pen_native_mouse: it does not make
+ * a second mouse of it).
+ */
+- (void)rvnPen:(NSEvent*)event phase:(int)phase {
+    if ([event type] != NSEventTypeTabletPoint && [event subtype] != NSEventSubtypeTabletPoint) return;
+    NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_PEN; e.phase = phase; e.pen_native_mouse = 1;
+    e.fx = (float)(p.x * s); e.fy = (float)(p.y * s);
+    e.pressure = (phase == R_PEN_DOWN || phase == R_PEN_MOVE) ? (float)[event pressure] : 0.0f;
+    /* (the tilt goes from -1 to 1, about 60 degrees at the ends; up is negative on the screen) */
+    e.tilt_x = (float)[event tilt].x * 60.0f; e.tilt_y = (float)-[event tilt].y * 60.0f;
+    e.rotation = (float)[event rotation];
+    e.eraser = g_cocoa.pen_eraser;
+    if ([event buttonMask] & NSEventButtonMaskPenLowerSide) e.pen_buttons |= R_PEN_BUTTON_BARREL;
+    if ([event buttonMask] & NSEventButtonMaskPenUpperSide) e.pen_buttons |= R_PEN_BUTTON_BARREL2;
+    e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+}
+- (void)tabletProximity:(NSEvent*)event {
+    g_cocoa.pen_eraser = [event pointingDeviceType] == NSPointingDeviceTypeEraser;
+    if (![event isEnteringProximity]) {
+        rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_PEN; e.phase = R_PEN_LEAVE; e.pen_native_mouse = 1; rvn_cocoa_emit(ravenWindow, &e);
+    }
+}
+- (void)tabletPoint:(NSEvent*)event { [self rvnPen:event phase:[event pressure] > 0.0 ? R_PEN_MOVE : R_PEN_HOVER]; }
+/* the pinch of the trackpad: a gesture of two fingers for the core */
+- (void)magnifyWithEvent:(NSEvent*)event {
+    NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
+    NSEventPhase phase = [event phase];
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_GESTURE;
+    e.phase = (phase & NSEventPhaseBegan) ? R_GESTURE_BEGIN : (phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) ? R_GESTURE_END : R_GESTURE_UPDATE;
+    e.fx = (float)(p.x * s); e.fy = (float)(p.y * s);
+    e.gesture_scale = (float)(1.0 + [event magnification]);
+    e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+}
 - (void)mouseMoved:(NSEvent*)event {
     NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_MOUSE_MOVE; e.x = (int)lrint(p.x * s); e.y = (int)lrint(p.y * s); e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+    [self rvnPen:event phase:[event type] == NSEventTypeLeftMouseDragged ? R_PEN_MOVE : R_PEN_HOVER];
 }
 - (void)mouseDragged:(NSEvent*)event { rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
 - (void)rightMouseDragged:(NSEvent*)event { rvn_cocoa_resize_drag(ravenWindow); [self mouseMoved:event]; }
@@ -206,8 +271,8 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     e.button = button; e.pressed = pressed; e.x = (int)lrint(p.x * s); e.y = (int)lrint(p.y * s);
     e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
 }
-- (void)mouseDown:(NSEvent*)event { [self rvnMouse:event button:0 pressed:1]; }
-- (void)mouseUp:(NSEvent*)event { [self rvnMouse:event button:0 pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
+- (void)mouseDown:(NSEvent*)event { [self rvnMouse:event button:0 pressed:1]; [self rvnPen:event phase:R_PEN_DOWN]; }
+- (void)mouseUp:(NSEvent*)event { [self rvnMouse:event button:0 pressed:0]; [self rvnPen:event phase:R_PEN_UP]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
 - (void)rightMouseDown:(NSEvent*)event { [self rvnMouse:event button:1 pressed:1]; }
 - (void)rightMouseUp:(NSEvent*)event { [self rvnMouse:event button:1 pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
 - (void)otherMouseDown:(NSEvent*)event { [self rvnMouse:event button:(int)[event buttonNumber] pressed:1]; }
@@ -344,7 +409,16 @@ static rvn_pwindow_t* rvn_cocoa_window_create(const rvn_pwindow_desc_t* desc) {
     window->flags = desc->flags; window->user = desc->user;
     window->transparent = (desc->flags & R_WINDOW_TRANSPARENT) != 0;
     window->state = RVN_PWINDOW_NORMAL;
-    window->handle = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
+    window->overlay = (desc->flags & RVN_PWINDOW_OVERLAY) != 0;
+    if (window->overlay) {
+        RavenCocoaPanel* panel = [[RavenCocoaPanel alloc] initWithContentRect:rect styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+            backing:NSBackingStoreBuffered defer:NO];
+        if (panel) panel->ravenWindow = window;
+        window->handle = panel;
+        window->transparent = R_TRUE;
+    } else {
+        window->handle = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
+    }
     if (!window->handle) { rvn_free(window); return NULL; }
     [window->handle setReleasedWhenClosed:NO];
     [window->handle setTitle:[NSString stringWithUTF8String:desc->title ? desc->title : "Raven"]];
@@ -362,6 +436,24 @@ static rvn_pwindow_t* rvn_cocoa_window_create(const rvn_pwindow_desc_t* desc) {
     window->delegate = [[RavenCocoaDelegate alloc] init];
     ((RavenCocoaDelegate*)window->delegate)->ravenWindow = window;
     [window->handle setDelegate:window->delegate];
+    if (window->overlay) {
+        NSPanel* panel = (NSPanel*)window->handle;
+        /* above the menu bar, on every space (full screen ones too), out of the lists of windows, hidden while the application is behind */
+        [panel setFloatingPanel:YES];
+        [panel setLevel:NSMainMenuWindowLevel + 2];
+        [panel setHidesOnDeactivate:YES];
+        [panel setBecomesKeyOnlyIfNeeded:YES];
+        [panel setHasShadow:NO];
+        [panel setOpaque:NO];
+        [panel setBackgroundColor:[NSColor clearColor]];
+        [panel setMovable:NO];
+        [panel setExcludedFromWindowsMenu:YES];
+        [panel setCollectionBehavior:NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorStationary |
+            NSWindowCollectionBehaviorFullScreenAuxiliary | NSWindowCollectionBehaviorIgnoresCycle];
+        /* the pointer goes through until the core says which part takes it (overlay_set_input) */
+        [panel setIgnoresMouseEvents:YES];
+        return window;
+    }
     if (!(desc->flags & R_WINDOW_HIDDEN)) [window->handle makeKeyAndOrderFront:nil];
     if (desc->flags & R_WINDOW_MAXIMIZED) [window->handle zoom:nil];
     return window;
@@ -370,6 +462,7 @@ static void rvn_cocoa_a11y_forget(rvn_pwindow_t* window);
 static void rvn_cocoa_window_destroy(rvn_pwindow_t* window) {
     if (!window) return;
     rvn_cocoa_a11y_forget(window);
+    if (window->overlay_poll) { [window->overlay_poll invalidate]; window->overlay_poll = nil; }
     if (window->handle) { [window->handle setDelegate:nil]; [window->handle close]; [window->handle release]; }
     if (window->delegate) [window->delegate release];
     if (window->view) {
@@ -403,7 +496,12 @@ static void rvn_cocoa_window_get_position(rvn_pwindow_t* window, int* x, int* y)
     *x = (int)lrint(frame.origin.x); *y = (int)lrint(screen_h - frame.origin.y - frame.size.height);
 }
 static float rvn_cocoa_window_get_scale(rvn_pwindow_t* window) { return rvn_cocoa_scale(window); }
-static void rvn_cocoa_window_show(rvn_pwindow_t* window, int visible) { if (visible) [window->handle makeKeyAndOrderFront:nil]; else [window->handle orderOut:nil]; }
+static void rvn_cocoa_window_show(rvn_pwindow_t* window, int visible) {
+    /* (an overlay shows without taking the keyboard: overlay_set_key gives it) */
+    if (visible && window->overlay) [window->handle orderFront:nil];
+    else if (visible) [window->handle makeKeyAndOrderFront:nil];
+    else [window->handle orderOut:nil];
+}
 static void rvn_cocoa_window_set_state(rvn_pwindow_t* window, rvn_pwindow_state_t state) {
     if (state == RVN_PWINDOW_MINIMIZED) { [window->handle miniaturize:nil]; window->state = state; }
     else if (state == RVN_PWINDOW_MAXIMIZED) { if (![window->handle isZoomed]) [window->handle zoom:nil]; window->state = state; }
@@ -498,6 +596,100 @@ static void rvn_cocoa_pump(double timeout_seconds) {
 static void rvn_cocoa_wake(void) {
     NSEvent* event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined location:NSZeroPoint modifierFlags:0 timestamp:0 windowNumber:0 context:nil subtype:0 data1:0 data2:0];
     [NSApp postEvent:event atStart:YES];
+}
+
+/* ---------------------------------------------------------------------------
+ *  The island in the camera housing (platform.h, screen_notch)
+ * ------------------------------------------------------------------------- */
+
+static NSScreen* rvn_cocoa_screen_of(rvn_pwindow_t* window) {
+    NSScreen* screen = window && window->handle ? [window->handle screen] : nil;
+    return screen ? screen : [NSScreen mainScreen];
+}
+
+/* The housing of the screen: what the menu bar leaves between its two parts (macOS 12 and later). */
+static int rvn_cocoa_screen_notch(rvn_pwindow_t* window, int* width, int* height) {
+    NSScreen* screen = rvn_cocoa_screen_of(window);
+    *width = *height = 0;
+    if (!screen) return R_FALSE;
+    if (@available(macOS 12.0, *)) {
+        NSEdgeInsets insets = [screen safeAreaInsets];
+        NSRect left = [screen auxiliaryTopLeftArea], right = [screen auxiliaryTopRightArea];
+        CGFloat scale = [screen backingScaleFactor];
+        /* (the housing is in the middle of the top edge: what the two areas beside it leave) */
+        CGFloat w = [screen frame].size.width - left.size.width - right.size.width;
+        if (insets.top <= 0.0 || NSIsEmptyRect(left) || NSIsEmptyRect(right) || w <= 0.0) return R_FALSE;
+        *width = (int)lrint(w * (scale > 0.0 ? scale : 1.0));
+        *height = (int)lrint(insets.top * (scale > 0.0 ? scale : 1.0));
+        return R_TRUE;
+    }
+    return R_FALSE;
+}
+
+/* Against the top edge of the screen of the owner, centered on the housing. */
+static void rvn_cocoa_overlay_place(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int width, int height) {
+    NSScreen* screen = rvn_cocoa_screen_of(owner);
+    CGFloat scale;
+    NSRect bounds, frame;
+    if (!screen || !overlay->handle) return;
+    scale = [screen backingScaleFactor];
+    if (scale <= 0.0) scale = 1.0;
+    bounds = [screen frame];
+    frame.size = NSMakeSize(rvn_maxi(width, 1) / scale, rvn_maxi(height, 1) / scale);
+    frame.origin = NSMakePoint(floor(NSMidX(bounds) - frame.size.width * 0.5), NSMaxY(bounds) - frame.size.height);
+    [overlay->handle setFrame:frame display:YES];
+}
+
+/*
+ * The pointer over an overlay: in the part that takes the mouse, the panel
+ * takes it; elsewhere it goes through to what is under it (and the core is
+ * told that the pointer left, as when it leaves a window). Looked at sixty
+ * times a second: a panel that lets the mouse through hears nothing of it.
+ */
+static void rvn_cocoa_overlay_poll(rvn_pwindow_t* window) {
+    NSPoint mouse = [NSEvent mouseLocation];
+    NSRect frame = [window->handle frame];
+    CGFloat scale = rvn_cocoa_scale(window);
+    CGFloat x = (mouse.x - frame.origin.x) * scale, y = (NSMaxY(frame) - mouse.y) * scale;
+    int inside = [window->handle isVisible] && x >= NSMinX(window->overlay_input) && y >= NSMinY(window->overlay_input) &&
+        x < NSMaxX(window->overlay_input) && y < NSMaxY(window->overlay_input);
+    rvn_pevent_t e;
+    /* (a button held since a press inside: the panel keeps the pointer until it is released) */
+    if (!inside && window->pointer_inside && [NSEvent pressedMouseButtons] != 0) return;
+    if (inside == window->pointer_inside) return;
+    window->pointer_inside = inside;
+    [window->handle setIgnoresMouseEvents:inside ? NO : YES];
+    memset(&e, 0, sizeof(e));
+    if (inside) {
+        /* the pointer is over the island now: no need to wait for it to move */
+        e.type = RVN_PEVENT_MOUSE_MOVE; e.x = (int)lrint(x); e.y = (int)lrint(y);
+        e.modifiers = rvn_cocoa_modifiers([NSEvent modifierFlags]);
+    } else {
+        e.type = RVN_PEVENT_MOUSE_LEAVE;
+    }
+    rvn_cocoa_emit(window, &e);
+    /* (the loop of the application waits for an event: this one came from a timer) */
+    rvn_cocoa_wake();
+}
+
+static void rvn_cocoa_overlay_set_input(rvn_pwindow_t* overlay, int x, int y, int width, int height) {
+    overlay->overlay_input = NSMakeRect(x, y, width, height);
+    if (!overlay->overlay_poll) {
+        rvn_pwindow_t* window = overlay;
+        overlay->overlay_poll = [NSTimer timerWithTimeInterval:1.0 / 60.0 repeats:YES block:^(NSTimer* timer) { (void)timer; rvn_cocoa_overlay_poll(window); }];
+        [[NSRunLoop currentRunLoop] addTimer:overlay->overlay_poll forMode:NSRunLoopCommonModes];
+    }
+    rvn_cocoa_overlay_poll(overlay);
+}
+
+static void rvn_cocoa_overlay_set_key(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key) {
+    if (key) {
+        overlay->overlay_key = 1;
+        [overlay->handle makeKeyWindow];
+    } else {
+        overlay->overlay_key = 0;
+        if (owner && owner->handle && [overlay->handle isKeyWindow] && [owner->handle isVisible]) [owner->handle makeKeyWindow];
+    }
 }
 static void rvn_cocoa_clipboard_set(const char* text) {
     NSPasteboard* board = [NSPasteboard generalPasteboard]; [board clearContents];
@@ -793,6 +985,21 @@ static void rvn_cocoa_a11y_settings(RAccessibilitySettings* settings) {
         settings->reduce_motion = [workspace accessibilityDisplayShouldReduceMotion] ? R_TRUE : R_FALSE;
 }
 
+/* The accent color chosen in the System Settings (Appearance), for the look of macOS. */
+static int rvn_cocoa_accent_color(float rgb[3]) {
+    @autoreleasepool {
+        NSColor* color = nil;
+        if (@available(macOS 10.14, *)) color = [NSColor controlAccentColor];
+        if (!color) return R_FALSE;
+        color = [color colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+        if (!color) return R_FALSE;
+        rgb[0] = (float)[color redComponent];
+        rgb[1] = (float)[color greenComponent];
+        rgb[2] = (float)[color blueComponent];
+        return R_TRUE;
+    }
+}
+
 const rvn_platform_t* rvn_platform_cocoa(void) {
     static const rvn_platform_t platform = {
         .name = "Cocoa", .system = R_WINDOW_SYSTEM_COCOA,
@@ -810,7 +1017,10 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .child_set_rect = rvn_cocoa_child_set_rect, .pump = rvn_cocoa_pump, .wake = rvn_cocoa_wake,
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,
         .a11y_event = rvn_cocoa_a11y_event, .a11y_announce = rvn_cocoa_a11y_announce,
-        .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings
+        .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
+        .accent_color = rvn_cocoa_accent_color,
+        .screen_notch = rvn_cocoa_screen_notch, .overlay_place = rvn_cocoa_overlay_place,
+        .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key
     };
     return &platform;
 }

@@ -1,0 +1,78 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Theme Name="Frost" Base="GlassDark" Accent="#67E8F9" CornerRadius="12">
+  <Colors
+    Window="#101827CC"
+    Panel="#18253BCC"
+    Border="#7890B844"
+    Text="#F0F9FF"
+    TextDisabled="#A0B1C6"
+    TextPlaceholder="#7D91AA"
+    Accent="#67E8F9"
+    AccentHovered="#A5F3FC"
+    AccentPressed="#22D3EE"
+    AccentText="#08252B"
+    Control="#23344BCC"
+    ControlHovered="#30465FCC"
+    ControlPressed="#3B5572CC"
+    ControlBorder="#8BA7C044"
+    Input="#0D1726CC"
+    Focus="#67E8F9"
+    Selection="#67E8F944"
+    RowHovered="#2B425BCC"
+    Track="#0A1422"
+    Handle="#5E7D9D"
+    HandleHovered="#A5F3FC"
+    Separator="#8BA7C044"
+    Header="#203149CC"
+    HeaderHovered="#2D4563CC"
+    TabActive="#2B405BCC"
+    Popup="#18253BEE"
+    PopupBorder="#8BA7C066"
+    Shadow="#00000070"
+    Tooltip="#1D3048EE"
+    TooltipText="#F0F9FF"
+    Switch="#67E8F9"
+    Success="#6EE7B7"
+    Warning="#FCD34D"
+    Danger="#FDA4AF"
+    Link="#A5F3FC"
+    Code="#CFFAFE"
+  />
+  <Metrics
+    FontSize="14" CornerRadius="12" BorderWidth="1"
+    ControlHeight="31" PaddingX="11" PaddingY="8"
+    Spacing="9" ScrollbarSize="12" RowHeight="29"
+    Indent="18" SplitterSize="5" CheckSize="16"
+    SliderHandleSize="14" PopupRadius="12" BlurRadius="22"
+  />
+  <Glass Frost="0.72" Refraction="0.24" Saturation="1.22" Rim="0.48" Shadow="0.48"/>
+  <Syntax
+    Comment="#A0B1C6" String="#A7F3D0" Number="#FDA4AF"
+    Keyword="#67E8F9" Type="#C4B5FD" Function="#FDE68A"
+    Tag="#67E8F9" Attribute="#C4B5FD" Punctuation="#DCEAF5"
+    Directive="#F9A8D4" Heading="#A5F3FC" Strong="#F8FAFC"
+    Emphasis="#C4B5FD" Link="#A5F3FC"
+  />
+  <Style Widget="Button" Class="tool" Background="#23344BCC" Text="#E0F2FE" CornerRadius="9" Material="FrostedGlass"/>
+  <Style Widget="Button" Class="active" Background="#164E63CC" Text="#CFFAFE" CornerRadius="9" Material="FrostedGlass"/>
+  <Style Widget="Button" Class="play" Background="#065F46CC" Text="#D1FAE5" CornerRadius="9" Material="FrostedGlass"/>
+  <Style Widget="Button" Class="stop" Background="#9F1239CC" Text="#FFE4E6" CornerRadius="9" Material="FrostedGlass"/>
+  <Style Widget="Button" Class="simulate" Background="#854D0ECC" Text="#FEF3C7" CornerRadius="9" Material="FrostedGlass"/>
+  <Style Widget="Panel" Class="toolbar" Background="#18253BCC" Material="FrostedGlass"/>
+  <Style Widget="Panel" Class="statusbar" Background="#101827CC" Text="#A0B1C6" Material="FrostedGlass"/>
+  <Style Widget="Text" Class="dim" Text="#A0B1C6"/>
+  <Style Widget="Text" Class="section" Text="#A5F3FC"/>
+  <Style Widget="Text" Class="dialog-title" Text="#F8FAFC"/>
+  <Style Widget="Text" Class="error" Text="#FDA4AF"/>
+  <Style Widget="Text" Class="warning" Text="#FCD34D"/>
+  <Style Widget="Text" Class="success" Text="#6EE7B7"/>
+  <Style Widget="Text" Class="axis-x" Text="#FB7185"/>
+  <Style Widget="Text" Class="axis-y" Text="#4ADE80"/>
+  <Style Widget="Text" Class="axis-z" Text="#60A5FA"/>
+  <Style Widget="Text" Class="axis-w" Text="#C084FC"/>
+  <Style Widget="Text" Class="dirty" Text="#FCD34D"/>
+  <Style Widget="Button" Class="mode-tile" Background="#203149CC" Text="#DCEAF5" Material="FrostedGlass"/>
+  <Style Widget="Button" Class="mode-on" Background="#164E63CC" Text="#CFFAFE" Material="FrostedGlass"/>
+  <Style Widget="Panel" Class="viewport-bar" Background="#18253BCC" Material="FrostedGlass"/>
+</Theme>

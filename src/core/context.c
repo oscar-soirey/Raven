@@ -186,7 +186,9 @@ int Rinit_ex(const RInitDesc* user_desc) {
 
 	/* rendering */
 	memset(&info, 0, sizeof(info));
-	info.app_name = desc.app_name ? desc.app_name : "Raven application";
+	g_rvn.app_name = rvn_strdup(desc.app_name ? desc.app_name : "Raven application");
+	g_rvn.enable_validation = desc.enable_validation;
+	info.app_name = g_rvn.app_name;
 	info.enable_validation = desc.enable_validation;
 	info.vsync = g_rvn.vsync;
 	info.window_system = g_rvn.platform->system;
@@ -207,6 +209,8 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	return R_TRUE;
 
 fail_renderer:
+	rvn_free(g_rvn.app_name);
+	g_rvn.app_name = NULL;
 	rvn_jobs_shutdown();
 	g_rvn.platform->shutdown();
 fail_platform:
@@ -256,6 +260,7 @@ void Rshutdown(void) {
 	rvn_locale_shutdown();
 	rvn_a11y_shutdown();
 	rvn_themes_shutdown();
+	rvn_look_shutdown();
 	rvn_dialogs_shutdown();
 	rvn_islands_shutdown();
 	rvn_languages_shutdown();
@@ -274,6 +279,7 @@ void Rshutdown(void) {
 	rvn_free(g_rvn.dead_windows);
 	rvn_free(g_rvn.clipboard);
 	rvn_free(g_rvn.xml_base_path);
+	rvn_free(g_rvn.app_name);
 	rvn_mutex_destroy(&g_rvn.task_mutex);
 	rvn_pool_free(&g_rvn.windows);
 	rvn_pool_free(&g_rvn.widgets);
@@ -518,6 +524,14 @@ void Raction_set_default_handler(RActionCallback callback, void* user_data) {
 	g_rvn.default_action_user = user_data;
 }
 
+void Raction_set_builtins(int enabled) {
+	RVN_API_GUARD_VOID();
+	g_rvn.builtins_off = !enabled;
+}
+
+/* (widget/actions.c: "app.quit", "show:name"...) */
+int rvn_builtin_action(Rid sender, const char* name);
+
 void rvn_fire_action(Rid sender, const char* name) {
 	rvn_action_t* action;
 	if (!name || !name[0]) return;
@@ -527,6 +541,8 @@ void rvn_fire_action(Rid sender, const char* name) {
 		RActionCallback callback = action->callback;
 		void* user_data = action->user_data;
 		callback(sender, name, user_data);
+	} else if (!g_rvn.builtins_off && rvn_builtin_action(sender, name)) {
+		/* one of the actions Raven knows by itself */
 	} else if (g_rvn.default_action) {
 		g_rvn.default_action(sender, name, g_rvn.default_action_user);
 	}
@@ -568,6 +584,12 @@ int Ris_running(void) {
 		if (window && !window->dead) return R_TRUE;
 	}
 	return R_FALSE;
+}
+
+void Rset_device_reset_callback(RDeviceResetCallback callback, void* user_data) {
+	RVN_API_GUARD_VOID();
+	g_rvn.device_reset_callback = callback;
+	g_rvn.device_reset_user = user_data;
 }
 
 void Rset_frame_callback(RFrameCallback callback, void* user_data) {
@@ -612,6 +634,8 @@ void rvn_update(void) {
 
 	rvn_tasks_run();
 	rvn_timers_run();
+	/* the GPU device was lost: everything of the backend is made again first */
+	rvn_device_check();
 
 	now = rvn_clock_seconds();
 	g_rvn.delta_time = now - g_rvn.last_update_time;

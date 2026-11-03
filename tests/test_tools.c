@@ -975,9 +975,70 @@ static void test_hooks(void) {
 	CHECK(g_destroyed == 6);
 }
 
+/* The sizes of the timeline follow the theme and the text scale, or what the application sets. */
+static void test_timeline_sizes(void) {
+	Rid window, tl;
+	int marker = 0, i;
+	float x, y, w, h;
+
+	CHECK(test_init(0));
+	window = make_window("<Window Width=\"900\" Height=\"400\">"
+		"<Timeline Name=\"t\" Duration=\"10\" HeaderWidth=\"100\">"
+		"<Track Name=\"A\"><Clip Start=\"1\" Length=\"2\" Label=\"one\"/></Track>"
+		"<Marker Time=\"8\" Label=\"m\"/></Timeline></Window>");
+	tl = Rwidget_find(window, "t");
+	/* the flat theme: the sizes of version 0.1.2 */
+	CHECK(Rtimeline_get_ruler_height(tl) == 30.0f);
+	CHECK(Rtimeline_get_default_track_height(tl) == 38.0f);
+	CHECK(Rtimeline_get_header_width(tl) == 100.0f);
+
+	/* larger texts: the ruler and the tracks grow with them */
+	Raccessibility_set_text_scale(1.5f);
+	Rdraw_frame();
+	CHECK(Rtimeline_get_ruler_height(tl) == 45.0f);
+	CHECK(Rtimeline_get_default_track_height(tl) == 57.0f);
+	/* the flag of the marker is hit where it is painted, below the old 19 units */
+	for (i = 0; i < Rtimeline_get_item_count(tl); i++) {
+		int item = Rtimeline_get_item(tl, i);
+		if (Rtimeline_get_item_type(tl, item) == R_TIMELINE_MARKER) marker = item;
+	}
+	CHECK(marker != 0);
+	Rwidget_get_rect(tl, &x, &y, &w, &h);
+	click_at(window, x + 100.0f + 80.0f * 8.0f + 4.0f, y + 22.0f);
+	Rdraw_frame();
+	CHECK(Rtimeline_is_selected(tl, marker));
+	Raccessibility_set_text_scale(1.0f);
+
+	/* set by the application, and back to automatic with 0 */
+	Rtimeline_set_ruler_height(tl, 40.0f);
+	Rtimeline_set_default_track_height(tl, 50.0f);
+	CHECK(Rtimeline_get_ruler_height(tl) == 40.0f);
+	CHECK(Rtimeline_get_default_track_height(tl) == 50.0f);
+	Rtimeline_set_default_track_height(tl, 4.0f);
+	CHECK(Rtimeline_get_default_track_height(tl) == 16.0f);
+	Rtimeline_set_ruler_height(tl, 0.0f);
+	Rtimeline_set_default_track_height(tl, 0.0f);
+	CHECK(Rtimeline_get_ruler_height(tl) == 30.0f);
+	CHECK(Rtimeline_get_default_track_height(tl) == 38.0f);
+	Rtimeline_set_header_width(tl, 0.0f);
+	Rdraw_frame();
+	CHECK(Rtimeline_get_header_width(tl) >= 96.0f);
+	Rwindow_destroy(window);
+
+	/* in XML */
+	window = make_window("<Window Width=\"600\" Height=\"300\">"
+		"<Timeline Name=\"t\" RulerHeight=\"36\" TrackHeight=\"44\"/></Window>");
+	tl = Rwidget_find(window, "t");
+	CHECK(Rtimeline_get_ruler_height(tl) == 36.0f);
+	CHECK(Rtimeline_get_default_track_height(tl) == 44.0f);
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+
 int main(void) {
 	RUN(test_color_picker);
 	RUN(test_timeline);
+	RUN(test_timeline_sizes);
 	RUN(test_node_graph);
 	RUN(test_zoomed_content);
 	RUN(test_blur_and_transparency);

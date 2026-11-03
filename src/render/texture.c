@@ -26,6 +26,48 @@ rvn_texture_t* rvn_texture_register(void) {
 	return texture;
 }
 
+/* Textures up to this many pixels keep a copy of their pixels, to be made again after the loss of the device. */
+#define RVN_TEXTURE_KEEP_PIXELS (256 * 256)
+/* Encoded files up to this size are kept for the same reason (Rtexture_create from memory). */
+#define RVN_TEXTURE_KEEP_ENCODED ((size_t)4 * 1024 * 1024)
+
+/* Keeps (or forgets) the copy of the pixels of a small RGBA8 texture. */
+static void rvn_texture_keep_pixels(rvn_texture_t* texture, int width, int height, const void* pixels) {
+	size_t size = (size_t)width * (size_t)height * 4;
+	if (!pixels || texture->format != R_TEXTURE_RGBA8 || texture->external || (size_t)width * (size_t)height > RVN_TEXTURE_KEEP_PIXELS) {
+		rvn_free(texture->kept_pixels);
+		texture->kept_pixels = NULL;
+		return;
+	}
+	texture->kept_pixels = (uint8_t*)rvn_realloc(texture->kept_pixels, size);
+	if (texture->kept_pixels) memcpy(texture->kept_pixels, pixels, size);
+}
+
+static void rvn_texture_keep_source(rvn_texture_t* texture, const char* path, const void* data, size_t size) {
+	if (path) texture->source_path = rvn_strdup(path);
+	if (data && size > 0 && size <= RVN_TEXTURE_KEEP_ENCODED) {
+		texture->source_data = (uint8_t*)rvn_alloc(size);
+		memcpy(texture->source_data, data, size);
+		texture->source_size = size;
+	}
+}
+
+static void rvn_texture_free(rvn_texture_t* texture) {
+	rvn_free(texture->source_path);
+	rvn_free(texture->source_data);
+	rvn_free(texture->kept_pixels);
+	rvn_free(texture);
+}
+
+/*
+ * The filter given to the backend: a backend supplied by the application was
+ * written for the filters it knew, and R_FILTER_MIPMAP came later.
+ */
+static RFilterType rvn_texture_backend_filter(RFilterType filter) {
+	if (filter == R_FILTER_MIPMAP && g_rvn.backend == R_BACKEND_CUSTOM) return R_FILTER_LINEAR;
+	return filter;
+}
+
 /* Sends the pixels to the renderer. Takes ownership of `pixels`. */
 static void rvn_texture_upload(rvn_texture_t* texture, int width, int height, void* pixels) {
 	RTextureDesc desc;
@@ -35,7 +77,8 @@ static void rvn_texture_upload(rvn_texture_t* texture, int width, int height, vo
 	desc.width = (Ruint)width;
 	desc.height = (Ruint)height;
 	desc.format = texture->format;
-	desc.filter = texture->filter;
+	desc.filter = rvn_texture_backend_filter(texture->filter);
+	rvn_texture_keep_pixels(texture, width, height, pixels);
 	rvn_renderer_create_texture(texture->id, &desc, pixels);
 	texture->created = R_TRUE;
 	rvn_atomic_store(&texture->ready, 1);
@@ -66,8 +109,41 @@ void rvn_textures_shutdown(void) {
 		if (!texture) continue;
 		if (texture->created) rvn_renderer_destroy_texture(texture->id);
 		rvn_pool_remove(&g_rvn.textures, texture->id);
-		rvn_free(texture);
+		rvn_texture_free(texture);
 	}
+}
+
+/*
+ * After the loss of the device: the backend texture is gone; makes it again
+ * from what the texture kept, or transparent with the same size.
+ */
+void rvn_texture_restore(rvn_texture_t* texture) {
+	uint8_t* pixels = NULL;
+	int width = texture->width, height = texture->height;
+	texture->created = R_FALSE;
+	if (texture->external || width <= 0 || height <= 0) return;
+	if (texture->kept_pixels) {
+		size_t size = (size_t)width * (size_t)height * 4;
+		pixels = (uint8_t*)rvn_alloc(size);
+		memcpy(pixels, texture->kept_pixels, size);
+	} else if (texture->source_data || texture->source_path) {
+		int w = 0, h = 0;
+		if (texture->source_data) {
+			pixels = rvn_image_decode(texture->source_data, texture->source_size, &w, &h);
+		} else if (!rvn_is_http_url(texture->source_path)) {
+			size_t size = 0;
+			char* data = rvn_read_file(texture->source_path, &size);
+			if (data) pixels = rvn_image_decode((const uint8_t*)data, size, &w, &h);
+			rvn_free(data);
+		}
+		/* (the file changed size meanwhile: what was shown keeps its size, transparent) */
+		if (pixels && (w != width || h != height)) {
+			rvn_free(pixels);
+			pixels = NULL;
+		}
+	}
+	/* no pixels: the backend makes it transparent */
+	rvn_texture_upload(texture, width, height, pixels);
 }
 
 /* ---------------------------------------------------------------------------
@@ -124,8 +200,11 @@ static Rid rvn_texture_create_async(const char* data, size_t size, const char* p
 	rvn_texture_t* texture = rvn_texture_register();
 	rvn_texture_job_t* job;
 	if (!texture) return R_INVALID_ID;
+	/* a picture from a file: it may well be shown smaller than it is */
+	texture->filter = R_FILTER_MIPMAP;
 	job = (rvn_texture_job_t*)rvn_calloc(sizeof(rvn_texture_job_t));
 	job->id = texture->id;
+	rvn_texture_keep_source(texture, path, data, size);
 	if (path) {
 		job->path = rvn_strdup(path);
 	} else {
@@ -150,7 +229,12 @@ Rid Rtexture_create(const char* data, size_t data_size) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rtexture_create: cannot decode the image");
 		return R_INVALID_ID;
 	}
-	return rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_LINEAR, pixels);
+	{
+		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
+		rvn_texture_t* texture = rvn_texture_get(id);
+		if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, NULL, data, data_size);
+		return id;
+	}
 }
 
 Rid Rtexture_create_async(const char* data, size_t data_size) {
@@ -189,7 +273,12 @@ Rid Rtexture_create_from_file(const char* path) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rtexture_create_from_file: cannot decode '%s'", path);
 		return R_INVALID_ID;
 	}
-	return rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_LINEAR, pixels);
+	{
+		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
+		rvn_texture_t* texture = rvn_texture_get(id);
+		if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, path, NULL, 0);
+		return id;
+	}
 }
 
 Rid Rtexture_create_from_file_async(const char* path) {
@@ -236,7 +325,14 @@ void Rtexture_update(Rid id, const uint8_t* rgba, int width, int height) {
 	size = (size_t)width * (size_t)height * 4;
 	copy = (uint8_t*)rvn_alloc(size);
 	memcpy(copy, rgba, size);
+	/* the pixels come from the application now: the file is no longer what it shows */
+	rvn_free(texture->source_path);
+	rvn_free(texture->source_data);
+	texture->source_path = NULL;
+	texture->source_data = NULL;
+	texture->source_size = 0;
 	if (texture->created && texture->width == width && texture->height == height) {
+		rvn_texture_keep_pixels(texture, width, height, copy);
 		rvn_renderer_update_texture(id, 0, 0, (uint32_t)width, (uint32_t)height, copy);
 		rvn_repaint_all_windows();
 	} else {
@@ -277,7 +373,7 @@ void Rtexture_destroy(Rid id) {
 	 * about to destroy it: return only once the backend no longer uses it */
 	if (texture->external) rvn_renderer_sync();
 	rvn_pool_remove(&g_rvn.textures, id);
-	rvn_free(texture);
+	rvn_texture_free(texture);
 	rvn_invalidate_all_windows();
 }
 
@@ -299,13 +395,13 @@ void Rtexture_set_filter(Rid id, RFilterType filter) {
 		rvn_error(R_ERROR_INVALID_ID, R_SEVERITY_ERROR, "Rtexture_set_filter: invalid texture");
 		return;
 	}
-	if (filter != R_FILTER_LINEAR && filter != R_FILTER_NEAREST) {
+	if (filter != R_FILTER_LINEAR && filter != R_FILTER_NEAREST && filter != R_FILTER_MIPMAP) {
 		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rtexture_set_filter: invalid filter");
 		return;
 	}
 	if (texture->filter == filter) return;
 	texture->filter = filter;
-	if (texture->created) rvn_renderer_set_texture_filter(id, filter);
+	if (texture->created) rvn_renderer_set_texture_filter(id, rvn_texture_backend_filter(filter));
 	rvn_repaint_all_windows();
 }
 

@@ -195,7 +195,7 @@ const rvn_widget_class_t rvn_class_viewport = {
 	.name = "Viewport",
 	.size = sizeof(rvn_viewport_t),
 	/* painting updates the state of the native child window: UI thread only */
-	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_UI_PAINT | RVN_CF_SURFACE | RVN_CF_NO_MIRROR | RVN_CF_TOUCH_DRAG,
+	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_UI_PAINT | RVN_CF_SURFACE | RVN_CF_NO_MIRROR,
 	.init = rvn_viewport_init,
 	.destroy = rvn_viewport_destroy,
 	.measure = rvn_viewport_measure,

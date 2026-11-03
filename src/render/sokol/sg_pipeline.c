@@ -164,9 +164,17 @@ int rvn_sg_pipelines_init(void) {
 	memset(&sampler, 0, sizeof(sampler));
 	sampler.min_filter = sampler.mag_filter = SG_FILTER_LINEAR;
 	sampler.wrap_u = sampler.wrap_v = sampler.wrap_w = SG_WRAP_CLAMP_TO_EDGE;
+	/* the first level only: a texture has room for mip levels, which only the mipmap sampler reads (0 would mean "no limit") */
+	sampler.max_lod = 0.001f;
 	g_sg.linear = sg_make_sampler(&sampler);
 	sampler.min_filter = sampler.mag_filter = SG_FILTER_NEAREST;
 	g_sg.nearest = sg_make_sampler(&sampler);
+	sampler.min_filter = SG_FILTER_LINEAR;
+	sampler.mag_filter = SG_FILTER_LINEAR;
+	sampler.mipmap_filter = SG_FILTER_LINEAR;
+	sampler.max_lod = 0.0f;
+	sampler.label = "raven-mipmap";
+	g_sg.mipmap = sg_make_sampler(&sampler);
 
 	g_sg.ui_shader = rvn_sg_shader_make_ui(RVN_SG_UI_FRAG, g_ui_samplers, "raven-ui");
 	if (sg_query_shader_state(g_sg.ui_shader) != SG_RESOURCESTATE_VALID) return R_FALSE;

@@ -24,8 +24,32 @@ rvn_vk_config_t g_vk_config;
 
 int rvn_vk_failed(VkResult result, const char* what) {
 	if (result >= 0) return R_FALSE;
+	/* once the device is lost every call fails: that was reported once */
+	if (g_vk.device_lost) return R_TRUE;
+	if (result == VK_ERROR_DEVICE_LOST) {
+		rvn_error(R_ERROR_BACKEND, R_SEVERITY_WARNING, "Vulkan: %s: the device was lost (driver reset, GPU removed)", what);
+		rvn_vk_device_lost();
+		return R_TRUE;
+	}
 	rvn_error(R_ERROR_BACKEND, R_SEVERITY_ERROR, "Vulkan: %s failed (%s)", what, rvn_vk_result_name(result));
 	return R_TRUE;
+}
+
+void rvn_vk_device_lost(void) {
+	if (g_vk.device_lost || !g_vk.initialized) return;
+	g_vk.device_lost = R_TRUE;
+	if (g_vk.external) {
+		/* the device belongs to the application: Raven cannot make another one */
+		rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL,
+			"Vulkan: the device of the application was lost: Raven stops drawing (Rshutdown, then Rinit with a new device)");
+		return;
+	}
+	/* the UI thread starts the backend again at its next update */
+	Rbackend_device_lost();
+}
+
+int rvn_vk_usable(void) {
+	return g_vk.initialized && !g_vk.device_lost;
 }
 
 void rvn_vk_queue_lock(void) {
@@ -60,6 +84,7 @@ static VkExtensionProperties* rvn_vk_enumerate_instance_extensions(uint32_t* cou
 /*
  * Surface extensions of the window systems Raven can run on. X11 windows work
  * with either the Xlib or the XCB flavor: drivers do not all expose both.
+ * Linux and BSD enable Wayland too: the window system is chosen at run time.
  */
 static const char* const g_vk_surface_extensions[] = {
 #if defined(_WIN32)
@@ -70,6 +95,7 @@ static const char* const g_vk_surface_extensions[] = {
 #else
 	"VK_KHR_xlib_surface",
 	"VK_KHR_xcb_surface",
+	"VK_KHR_wayland_surface",
 #endif
 	"VK_EXT_headless_surface"
 };
@@ -370,6 +396,15 @@ int rvn_vk_device_init(void) {
 #endif
 	if (!g_vk.external && !(properties.apiVersion >= VK_API_VERSION_1_1 && g_vk.api_version >= VK_API_VERSION_1_1)) {
 		g_vk.can_share = R_FALSE;
+	}
+	{
+		/* mipmaps are made by blitting each level from the one above it */
+		VkFormatProperties format;
+		const VkFormatFeatureFlags needed = VK_FORMAT_FEATURE_BLIT_SRC_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT |
+			VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+		memset(&format, 0, sizeof(format));
+		rvn_vk.GetPhysicalDeviceFormatProperties(g_vk.physical_device, VK_FORMAT_R8G8B8A8_UNORM, &format);
+		g_vk.can_mipmap = (format.optimalTilingFeatures & needed) == needed;
 	}
 	return R_TRUE;
 }

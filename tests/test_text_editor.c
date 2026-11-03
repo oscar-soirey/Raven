@@ -747,10 +747,20 @@ static void test_languages(void) {
 	CHECK(tok_of(3, "font-family") == R_TOKEN_ATTRIBUTE);
 	CHECK(tok_of(3, "'Inter'") == R_TOKEN_STRING);
 
-	/* an interface with its code (ravenc): the code of the scripts in the language of the file */
-	CHECK_STR(Rlanguage_for_file("main.xmlc"), "XMLC");
-	CHECK_STR(Rlanguage_for_file("main.xmlrs"), "XMLRS");
-	Rtext_editor_set_language(g_editor, "XMLC");
+	/* a markup language of the program whose <script> blocks are in another language (script_language) */
+	{
+		RLanguageDesc markup;
+		memset(&markup, 0, sizeof(markup));
+		markup.name = "MarkupC";
+		markup.extensions = "markupc";
+		markup.block_comment_start = "<!--";
+		markup.block_comment_end = "-->";
+		markup.flags = R_LANGUAGE_MARKUP | R_LANGUAGE_EMBEDS;
+		markup.script_language = "C";
+		CHECK(Rlanguage_register(&markup));
+		CHECK_STR(Rlanguage_for_file("page.markupc"), "MarkupC");
+	}
+	Rtext_editor_set_language(g_editor, "MarkupC");
 	Rtext_editor_set_text(g_editor,
 		"<script>\n"
 		"static int n = 42; /* c */\n"
@@ -765,9 +775,6 @@ static void test_languages(void) {
 	CHECK(tok_of(3, "script") == R_TOKEN_TAG);
 	CHECK(tok_of(4, "Window") == R_TOKEN_TAG);
 	CHECK(tok_of(4, "Title") == R_TOKEN_ATTRIBUTE);
-	Rtext_editor_set_language(g_editor, "XMLPY");
-	Rtext_editor_set_text(g_editor, "<script>\ndef f(): return None\n</script>");
-	CHECK(tok_of(1, "def") == R_TOKEN_KEYWORD);
 
 	/* HTML, with a script and a style inside */
 	Rtext_editor_set_language(g_editor, "HTML");

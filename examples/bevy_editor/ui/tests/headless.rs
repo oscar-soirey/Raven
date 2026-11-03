@@ -50,7 +50,7 @@ fn fire(action: &str) {
 }
 
 /// What a widget does when the user changes it (setting it from code fires nothing):
-/// the action of `{on_x}` in editor.xmlrs is "ravenc.editor.on_x".
+/// the action of `on_x` in src/editor.xml is "editor.x".
 fn fire_from(action: &str, sender: Rid) {
     let a = cstr(action);
     unsafe { Raction_fire(a.as_ptr(), sender) };
@@ -117,7 +117,7 @@ fn edit_a_scene_with_the_mouse_and_the_keys() {
     key(window, R_KEY_R, 0);
     assert_eq!(editor_ui::with(|e| e.gizmo.mode).unwrap(), GizmoMode::Scale);
     unsafe { Rspin_box_set_value(ui.scl_y, 3.0) };
-    fire_from("ravenc.editor.on_transform", ui.scl_y);
+    fire_from("editor.transform", ui.scl_y);
     assert_eq!(editor_ui::with(|e| e.scene.get(cube).unwrap().transform.scale.y).unwrap(), 3.0);
 
     // the Add panel: a sphere, inside the cube when asked
@@ -139,7 +139,7 @@ fn edit_a_scene_with_the_mouse_and_the_keys() {
     // the parent combo: out of the cube, where it is in the world staying the same
     let world_before = editor_ui::with(|e| e.scene.world_matrix(sphere).origin()).unwrap();
     unsafe { Rcombo_box_set_selected(ui.parent_combo, 0) };
-    fire_from("ravenc.editor.on_parent", ui.parent_combo);
+    fire_from("editor.parent", ui.parent_combo);
     let (parent, world_after) = editor_ui::with(|e| (e.scene.get(sphere).unwrap().parent, e.scene.world_matrix(sphere).origin())).unwrap();
     assert_eq!(parent, None);
     assert!((world_after - world_before).length() < 1e-4);
@@ -148,7 +148,7 @@ fn edit_a_scene_with_the_mouse_and_the_keys() {
     unsafe { Rcheckbox_set_checked(ui.add_inside, 0) };
     fire("add.point_light");
     unsafe { Rspin_box_set_value(ui.point_intensity, 250000.0) };
-    fire_from("ravenc.editor.on_point", ui.point_intensity);
+    fire_from("editor.point", ui.point_intensity);
     let light = editor_ui::with(|e| e.scene.get(e.selection.unwrap()).unwrap().kind.clone()).unwrap();
     assert!(matches!(light, Kind::PointLight { intensity, .. } if (intensity - 250000.0).abs() < 1.0), "{:?}", light);
 

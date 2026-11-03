@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: the same player on paper.
+-->
+<Theme Name="Daylight" Base="Light" Accent="#7C3AED" CornerRadius="8">
+	<Colors Window="#F3F1EC" Panel="#FFFFFF" Header="#F3F1EC" Text="#16161D" TextPlaceholder="#7A7A88" Separator="#0000001A"
+		Control="#0000000D" ControlHovered="#00000017" ControlPressed="#00000021" ControlBorder="#00000000"
+		RowHovered="#0000000D" Track="#00000026" Handle="#16161D" HandleHovered="#16161D"/>
+	<Metrics ControlHeight="34" FontSize="14" SliderHandleSize="12"/>
+
+	<Style Class="surface" Background="#FFFFFFD9" BorderColor="#0000000F" BorderWidth="1"/>
+	<Style Class="bar" Background="#FFFFFFE6"/>
+
+	<Style Widget="Label" Class="muted" Text="#5E5E6C"/>
+	<Style Widget="Label" Class="eyebrow" Text="#3A3A46" FontSize="12"/>
+
+	<Style Widget="Button" Class="nav" Text="#5E5E6C"/>
+	<Style Widget="Button" Class="active" Text="#16161D"/>
+	<Style Widget="Button" Class="icon" Text="#3A3A46" CornerRadius="100"/>
+	<Style Widget="Button" Class="round" CornerRadius="100"/>
+	<Style Widget="Button" Class="white" Accent="#16161D" AccentHovered="#2A2A35" AccentPressed="#000000" AccentText="#FFFFFF"/>
+	<Style Widget="Button" Class="chip" CornerRadius="100"/>
+	<Style Widget="Button" Class="on" Control="#16161D" ControlHovered="#2A2A35" Text="#FFFFFF"/>
+	<Style Widget="Button" Class="card" CornerRadius="10"/>
+	<Style Widget="Button" Class="quick" Control="#FFFFFFB3" ControlHovered="#FFFFFF" CornerRadius="6"/>
+	<Style Widget="Button" Class="row" CornerRadius="6"/>
+	<Style Widget="Button" Class="link" Text="#5E5E6C"/>
+	<Style Class="search" Background="#FFFFFF" BorderColor="#00000014" BorderWidth="1"/>
+	<Style Widget="TextInput" Class="bare" Input="#00000000" ControlBorder="#00000000" Border="#00000000" Focus="#00000000"/>
+	<Style Class="card-flat" Background="#0000000A"/>
+	<Style Widget="Button" Class="top" Control="#FFFFFF" ControlHovered="#FAFAFA" CornerRadius="10"/>
+</Theme>

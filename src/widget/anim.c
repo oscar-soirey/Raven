@@ -79,6 +79,8 @@ static void rvn_spring_step(RSpring* spring, float target, RMotion motion, float
 
 float rvn_paint_spring_from(RPainter* painter, RSpring* spring, float target, RMotion motion) {
 	spring->started = R_TRUE;
+	/* the looks of the platforms do not bounce */
+	if (painter->calm && (motion == R_MOTION_BOUNCY || motion == R_MOTION_WOBBLY)) motion = R_MOTION_SNAPPY;
 	if (!g_rvn.animations_disabled && rvn_spring_moving(spring, target)) {
 		rvn_spring_step(spring, target, motion, painter->dt);
 		if (rvn_spring_moving(spring, target)) {

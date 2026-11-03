@@ -30,7 +30,48 @@ static void rvn_progress_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 	float filled = floorf(widget->rect.w * rvn_clampf(shown, 0.0f, 1.0f) + 0.5f);
 	rvn_color_t fill = rvn_widget_color(widget, R_COLOR_ACCENT);
 
+	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
+		/*
+		 * Windows: a hairline for the track, a bar of the accent, three high
+		 * and rounded, for the progress. macOS: a groove 6 high; GNOME: 8.
+		 */
+		const int family = rvn_widget_family(widget);
+		rvn_part_look_t track, done;
+		float middle = floorf(widget->rect.h * 0.5f);
+		rvn_part_look_clear(&track);
+		track.background = family == RVN_FAMILY_WINDOWS ? rvn_fluent(widget, RVN_FLUENT_STRONG_STROKE) : rvn_widget_color(widget, R_COLOR_TRACK);
+		track.size = family == RVN_FAMILY_WINDOWS ? 1.0f : rvn_minf(family == RVN_FAMILY_MACOS ? 6.0f : 8.0f, widget->rect.h);
+		track.radius = family == RVN_FAMILY_WINDOWS ? 0.0f : track.size * 0.5f;
+		rvn_part_apply_styles(widget, RVN_PART_TRACK, rvn_widget_states(widget, painter, R_FALSE, R_FALSE), &track);
+		rvn_part_look_clear(&done);
+		done.background = painter->enabled ? rvn_widget_color(widget, R_COLOR_ACCENT) :
+			family == RVN_FAMILY_WINDOWS ? rvn_fluent(widget, RVN_FLUENT_ACCENT_DISABLED) : rvn_color_fade(rvn_widget_color(widget, R_COLOR_ACCENT), 0.4f);
+		done.size = family == RVN_FAMILY_WINDOWS ? rvn_minf(3.0f, widget->rect.h) : track.size;
+		done.radius = done.size * 0.5f;
+		rvn_part_apply_styles(widget, RVN_PART_FILL, rvn_widget_states(widget, painter, R_FALSE, R_FALSE), &done);
+		rvn_paint_part(painter, rvn_rect(0.0f, middle - floorf(track.size * 0.5f), widget->rect.w, rvn_maxf(track.size, 1.0f)), &track);
+		if (filled > 0.0f) rvn_paint_part(painter, rvn_rect(0.0f, middle - done.size * 0.5f, rvn_maxf(filled, done.size), done.size), &done);
+		return;
+	}
 	if (!painter->enabled) fill = rvn_color_fade(fill, 0.4f);
+	if (rvn_part_styled(widget, RVN_PART_TRACK) || rvn_part_styled(widget, RVN_PART_FILL)) {
+		rvn_part_look_t track, done;
+		uint32_t states = rvn_widget_states(widget, painter, R_FALSE, R_FALSE);
+		rvn_part_look_clear(&track);
+		track.background = rvn_widget_color(widget, R_COLOR_TRACK);
+		track.radius = radius;
+		rvn_part_apply_styles(widget, RVN_PART_TRACK, states, &track);
+		done = track;
+		done.background = fill;
+		rvn_part_apply_styles(widget, RVN_PART_FILL, states, &done);
+		rvn_paint_part(painter, rect, &track);
+		if (filled > 0.0f) {
+			rvn_paint_push_clip(painter, rvn_rect(0.0f, 0.0f, filled, widget->rect.h));
+			rvn_paint_part(painter, rect, &done);
+			rvn_paint_pop_clip(painter);
+		}
+		return;
+	}
 	rvn_paint_box(painter, rect, radius, rvn_widget_color(widget, R_COLOR_TRACK), 0.0f, 0);
 	if (filled > 0.0f) {
 		/* clipping the full-size shape keeps the rounded ends at any progress */

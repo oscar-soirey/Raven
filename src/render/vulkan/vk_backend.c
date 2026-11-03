@@ -30,6 +30,7 @@ static int rvn_vk_init(const RBackendInitInfo* info) {
 }
 
 static void rvn_vk_wait_idle(void) {
+	if (!rvn_vk_usable()) return;
 	rvn_vk_uploads_flush();
 	rvn_vk_wait_frames();
 }

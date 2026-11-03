@@ -6,14 +6,9 @@ version = 4
 name = "hello_rust"
 version = "0.1.0"
 dependencies = [
- "raven",
- "raven-build",
+ "raven-gui",
 ]
 
 [[package]]
-name = "raven"
-version = "0.1.0"
-
-[[package]]
-name = "raven-build"
-version = "0.1.0"
+name = "raven-gui"
+version = "0.2.0"

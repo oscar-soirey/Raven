@@ -1248,23 +1248,6 @@ static void rvn_languages_built_in(void) {
 	d.flags = R_LANGUAGE_MARKUP | R_LANGUAGE_EMBEDS | R_LANGUAGE_IGNORE_CASE;
 	rvn_language_add(&d);
 
-	/* an interface and its code in one file (ravenc): the code between <script> and </script> in the language of the file */
-	{
-		static const struct { const char* name; const char* extensions; const char* script; } xml_code[] = {
-			{ "XMLC", "xmlc", "C" }, { "XMLC++", "xmlc++;xmlcpp", "C++" }, { "XMLRS", "xmlrs", "Rust" }, { "XMLPY", "xmlpy", "Python" },
-			{ "XMLCS", "xmlcs", "C#" }, { "XMLGO", "xmlgo", "Go" }, { "XMLZIG", "xmlzig", "Zig" }, { "XMLLUA", "xmllua", "Lua" }
-		};
-		size_t k;
-		for (k = 0; k < RVN_COUNT_OF(xml_code); k++) {
-			d.name = xml_code[k].name;
-			d.extensions = xml_code[k].extensions;
-			d.flags = R_LANGUAGE_MARKUP | R_LANGUAGE_EMBEDS;
-			d.script_language = xml_code[k].script;
-			rvn_language_add(&d);
-		}
-		d.script_language = NULL;
-	}
-
 	memset(&d, 0, sizeof(d));
 	d.name = "Markdown";
 	d.extensions = "md;markdown;mdown;mkd";

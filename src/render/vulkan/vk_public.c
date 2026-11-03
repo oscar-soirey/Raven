@@ -81,6 +81,17 @@ Ruint Rvulkan_get_graphics_queue_family(void) {
 	return rvn_vk_active(NULL) ? g_vk.queue_family : 0;
 }
 
+/* Render thread: the same path as a call that answered VK_ERROR_DEVICE_LOST. */
+static void rvn_vk_simulate_lost(void* arg) {
+	RVN_UNUSED(arg);
+	if (!g_vk.external) rvn_vk_device_lost();
+}
+
+void Rvulkan_simulate_device_lost(void) {
+	if (!rvn_vk_active("Rvulkan_simulate_device_lost")) return;
+	rvn_renderer_call(rvn_vk_simulate_lost, NULL, R_TRUE);
+}
+
 /* ---------------------------------------------------------------------------
  *  Textures
  * ------------------------------------------------------------------------- */

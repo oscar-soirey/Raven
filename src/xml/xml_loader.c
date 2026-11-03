@@ -397,12 +397,17 @@ void rvn_xml_window_read(const rvn_xml_node_t* root, rvn_xml_window_t* window, i
 	window->height = 600;
 	window->flags = R_WINDOW_DEFAULT;
 	window->background = R_INVALID_ID;
+	Rtouch_get_settings(&window->touch);
 
 	for (attribute = root->attributes; attribute; attribute = attribute->next) {
 		const char* name = attribute->name;
 		const char* value = attribute->value;
 		int ok = R_TRUE;
-		if (RVN_ATTR("Title")) window->title = value;
+		int touch = rvn_touch_window_attribute(&window->touch, name, value);
+		if (touch >= 0) {
+			ok = touch;
+			window->has_touch = R_TRUE;
+		} else if (RVN_ATTR("Title")) window->title = value;
 		else if (RVN_ATTR("Width")) ok = rvn_parse_int(value, &window->width) && window->width > 0;
 		else if (RVN_ATTR("Height")) ok = rvn_parse_int(value, &window->height) && window->height > 0;
 		else if (RVN_ATTR("MinWidth")) ok = rvn_parse_int(value, &window->min_width);
@@ -468,6 +473,11 @@ void rvn_xml_window_shortcuts(rvn_window_t* window, const rvn_xml_node_t* root, 
 	}
 }
 
+const rvn_theme_t* rvn_xml_window_theme(const char* value) {
+	if (!value || !value[0] || rvn_stricmp(value, "Default") == 0 || rvn_stricmp(value, "Inherit") == 0) return NULL;
+	return rvn_xml_theme(value);
+}
+
 Rid rvn_xml_make_window(rvn_xml_document_t* document) {
 	const rvn_xml_node_t* root = document->root;
 	const rvn_xml_node_t* content_node;
@@ -483,11 +493,6 @@ Rid rvn_xml_make_window(rvn_xml_document_t* document) {
 		return R_INVALID_ID;
 	}
 	rvn_xml_window_read(root, &description, R_TRUE);
-	if (description.theme && description.theme[0]) {
-		/* a window names the theme of the application: the name of one, or its file */
-		const rvn_theme_t* theme = rvn_xml_theme(description.theme);
-		if (theme) Rtheme_use(theme->name);
-	}
 
 	/* the content is built first: a mistake in it must not leave an empty window behind */
 	if (!rvn_xml_window_parts(root, &content_node, &island_node)) return R_INVALID_ID;
@@ -511,6 +516,10 @@ Rid rvn_xml_make_window(rvn_xml_document_t* document) {
 	}
 	window_object = rvn_window_get(window);
 	if (window_object) window_object->xml_node = root->source;
+	if (window_object && description.theme && description.theme[0]) {
+		/* the theme of this window (the name of one, or its file): the other windows keep the one of the application */
+		rvn_window_set_theme(window_object, rvn_xml_window_theme(description.theme));
+	}
 	if (description.min_width > 0 || description.min_height > 0) Rwindow_set_min_size(window, description.min_width, description.min_height);
 	if (description.has_clear) {
 		float r, g, b, a;
@@ -519,6 +528,7 @@ Rid rvn_xml_make_window(rvn_xml_document_t* document) {
 	}
 	if (description.background != R_INVALID_ID) Rwindow_set_background(window, description.background);
 	if (description.backdrop) Rwindow_set_backdrop(window, (RBackdrop)description.backdrop);
+	if (description.has_touch) Rwindow_set_touch_settings(window, &description.touch);
 	if (content) Rwindow_set_content(window, content->id);
 	if (island) Rwindow_set_island(window, island->id);
 	if (window_object) rvn_xml_window_shortcuts(window_object, root, R_TRUE);

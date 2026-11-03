@@ -4,13 +4,11 @@ Builds the pip package of Raven (a wheel) for one platform.
     python build_wheel.py --prefix <Raven package> [--plat <tag>] [--out dist]
 
 <Raven package> is a shared build of Raven, installed (cmake --install) or
-unzipped from a release: the folder that holds lib/ (or bin/ on Windows) and
-bin/ravenc. The wheel holds:
+unzipped from a release: the folder that holds lib/ (or bin/ on Windows).
+The wheel holds:
 
     raven/__init__.py        bindings/python/raven.py
     raven/<library>          raven.dll, libraven.so or libraven.dylib
-    raven/bin/ravenc         the XMLC compiler, for the .xmlpy files
-    raven_xmlpy.py           bindings/python/raven_xmlpy.py
 
 `import raven` then works with nothing else installed: raven.py looks for the
 library beside itself first.
@@ -136,14 +134,9 @@ def main():
     library = find(prefix, ["raven.dll", "libraven.dll", "libraven.dylib", "libraven.so"], ["bin", "lib", "lib64", "."])
     if not library:
         sys.exit("build_wheel: no shared library of Raven in %s (build Raven with -DRAVEN_BUILD_SHARED=ON)" % prefix)
-    ravenc = find(prefix, ["ravenc.exe", "ravenc"], ["bin", "."])
 
     kind, guessed = library_format(library)
     library_name = {"pe": "raven.dll", "elf": "libraven.so", "macho": "libraven.dylib"}[kind]
-    if kind != "pe" and ravenc and ravenc.endswith(".exe"):
-        ravenc = None
-    if kind == "pe" and ravenc and not ravenc.endswith(".exe"):
-        ravenc = None
 
     ver = version()
     plat = args.plat or guessed
@@ -155,12 +148,7 @@ def main():
             files.append((arcname, f.read(), executable))
 
     add_file("raven/__init__.py", os.path.join(HERE, "raven.py"))
-    add_file("raven_xmlpy.py", os.path.join(HERE, "raven_xmlpy.py"))
     add_file("raven/" + library_name, library)
-    if ravenc:
-        add_file("raven/bin/" + os.path.basename(ravenc), ravenc, executable=True)
-    else:
-        print("build_wheel: warning: ravenc not found in %s/bin, the .xmlpy files will need it in the PATH" % prefix)
     for license_name in ("LICENSE", "NOTICE"):
         path = os.path.join(ROOT, license_name)
         if os.path.isfile(path):
@@ -169,7 +157,7 @@ def main():
     info = "%s-%s.dist-info" % (DIST, ver)
     files.append((info + "/METADATA", metadata(ver).encode("utf-8"), False))
     files.append((info + "/WHEEL", ("Wheel-Version: 1.0\nGenerator: raven build_wheel.py\nRoot-Is-Purelib: false\nTag: %s\n" % tag).encode(), False))
-    files.append((info + "/top_level.txt", b"raven\nraven_xmlpy\n", False))
+    files.append((info + "/top_level.txt", b"raven\n", False))
 
     record = io.StringIO()
     for arcname, data, _ in files:

@@ -4,7 +4,7 @@
  *
  * The window-system headers are not included: the create-info structures of
  * the surface extensions are declared here with their exact layout, which
- * keeps <windows.h> and <X11/Xlib.h> out of the renderer.
+ * keeps <windows.h>, <X11/Xlib.h> and <wayland-client.h> out of the renderer.
  */
 
 #include "vk_backend.h"
@@ -36,6 +36,15 @@ typedef struct rvn_vk_xcb_surface_info_t {
 	void* connection;
 	uint32_t window;
 } rvn_vk_xcb_surface_info_t;
+
+/* VkWaylandSurfaceCreateInfoKHR */
+typedef struct rvn_vk_wayland_surface_info_t {
+	VkStructureType sType;
+	const void* pNext;
+	VkFlags flags;
+	void* display;
+	void* surface;
+} rvn_vk_wayland_surface_info_t;
 
 /* VkMetalSurfaceCreateInfoEXT: declared locally so Metal headers/platform macros stay out of the C renderer. */
 typedef struct rvn_vk_metal_surface_info_t {
@@ -99,6 +108,13 @@ static int rvn_vk_native_surface_create(const RNativeWindow* native, VkSurfaceKH
 				return R_FALSE;
 			}
 		}
+	} else if (native->system == R_WINDOW_SYSTEM_WAYLAND && rvn_vk.CreateWaylandSurfaceKHR) {
+		rvn_vk_wayland_surface_info_t info;
+		memset(&info, 0, sizeof(info));
+		info.sType = (VkStructureType)1000006000; /* VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR */
+		info.display = native->display;
+		info.surface = (void*)native->window;
+		result = rvn_vk.CreateWaylandSurfaceKHR(g_vk.instance, &info, NULL, out);
 	} else if (native->system == R_WINDOW_SYSTEM_NONE && rvn_vk.CreateHeadlessSurfaceEXT) {
 		/* no window system (headless runs): frames are rendered and can be captured */
 		VkHeadlessSurfaceCreateInfoEXT info;
@@ -133,9 +149,10 @@ void rvn_vk_wait_frames(void) {
 		for (f = 0; f < RVN_VK_FRAMES; f++) {
 			rvn_vk_frame_t* frame = &surface->frames[f];
 			if (!frame->submitted) continue;
-			rvn_vk.WaitForFences(g_vk.device, 1, &frame->fence, VK_TRUE, UINT64_MAX);
-			rvn_vk.ResetFences(g_vk.device, 1, &frame->fence);
 			frame->submitted = R_FALSE;
+			/* (a lost device signals nothing any more: there is nothing to wait for) */
+			if (g_vk.device_lost || rvn_vk_failed(rvn_vk.WaitForFences(g_vk.device, 1, &frame->fence, VK_TRUE, UINT64_MAX), "vkWaitForFences")) continue;
+			rvn_vk.ResetFences(g_vk.device, 1, &frame->fence);
 		}
 	}
 }
@@ -392,6 +409,9 @@ int rvn_vk_surface_create(Rid window, const RNativeWindow* native, Ruint width, 
 	uint32_t index = R_ID_INDEX(window), i;
 	rvn_vk_surface_t* surface;
 	VkBool32 supported = VK_FALSE;
+
+	/* the device is lost: the surface is made when Raven starts the backend again (render/device.c) */
+	if (!rvn_vk_usable()) return R_TRUE;
 
 	if (index >= g_vk.surface_cap) {
 		uint32_t cap = g_vk.surface_cap ? g_vk.surface_cap : 8;

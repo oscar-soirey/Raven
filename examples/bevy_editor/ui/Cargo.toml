@@ -2,8 +2,7 @@
 name = "editor_ui"
 version = "0.1.0"
 edition = "2021"
-description = "The interface of the Raven Bevy Editor, written in Raven XML with its Rust code (src/editor.xmlrs)"
-build = "build.rs"
+description = "The interface of the Raven Bevy Editor: Raven XML (src/editor.xml) and the Rust that drives it (src/editor.rs)"
 
 [lib]
 path = "src/lib.rs"
@@ -11,10 +10,6 @@ path = "src/lib.rs"
 [dependencies]
 raven = { package = "raven-gui", path = "../../../bindings/rust" }
 editor_core = { path = "../core" }
-
-[build-dependencies]
-# runs ravenc on src/editor.xmlrs (RAVENC, or ravenc on the PATH)
-raven-build = { package = "raven-gui-build", path = "../../../bindings/rust-build" }
 
 [[bin]]
 # the editor without Bevy: the scene drawn on the CPU (to try it anywhere)

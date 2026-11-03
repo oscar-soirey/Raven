@@ -81,6 +81,15 @@ extern "C" {
 	RAVEN_API void* Rvulkan_get_graphics_queue(void);
 	RAVEN_API Ruint Rvulkan_get_graphics_queue_family(void);
 
+	/**
+	 * @brief Behaves as if the GPU had answered VK_ERROR_DEVICE_LOST, to test
+	 * how an application recovers (Rset_device_reset_callback). Raven
+	 * recovers at the next frame by making a new device: every handle
+	 * returned above changes. Does nothing with an external device
+	 * (Rvulkan_set_external_device), whose loss the application handles.
+	 */
+	RAVEN_API void Rvulkan_simulate_device_lost(void);
+
 
 	/* ============================================================================
 	 *  TEXTURES

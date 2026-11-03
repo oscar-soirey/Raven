@@ -1147,6 +1147,11 @@ static int rvn_file_browser_set_attribute(rvn_widget_t* widget, const char* name
 	return R_TRUE;
 }
 
+static int rvn_touch_file_browser_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
+	RVN_UNUSED(dx);
+	return rvn_scrollbar_pan(&((rvn_file_browser_t*)widget)->bar, -dy, coasting);
+}
+
 const rvn_widget_class_t rvn_class_file_browser = {
 	.type = R_WIDGET_FILE_BROWSER,
 	.name = "FileBrowser",
@@ -1158,6 +1163,7 @@ const rvn_widget_class_t rvn_class_file_browser = {
 	.arrange = rvn_file_browser_arrange,
 	.paint = rvn_file_browser_paint,
 	.event = rvn_file_browser_event,
+	.pan = rvn_touch_file_browser_pan,
 	.set_attribute = rvn_file_browser_set_attribute,
 	.child_active = rvn_file_browser_child_active
 };

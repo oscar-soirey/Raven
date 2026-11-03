@@ -105,8 +105,7 @@ typedef struct RLanguageDesc {
 	/**
 	 * Markup with R_LANGUAGE_EMBEDS: the language of what is between
 	 * <script> and </script> (the name of a language: "C", "Rust"...).
-	 * NULL: JavaScript, as in HTML. The XMLC, XMLRS, XMLPY... languages of
-	 * Raven use it for the code of their files.
+	 * NULL: JavaScript, as in HTML.
 	 */
 	const char* script_language;
 } RLanguageDesc;

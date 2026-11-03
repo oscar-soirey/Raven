@@ -7,8 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../../bindings/csharp/Raven.cs" Link="Raven.cs" />
+    <None Update="main.xml" CopyToOutputDirectory="PreserveNewest" />
     <None Update="strings.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <!-- ravenc turns every .xmlcs of the project into C# before the compiler runs -->
-  <Import Project="../../../bindings/csharp/Raven.XmlCs.targets" />
 </Project>

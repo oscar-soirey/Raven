@@ -289,6 +289,8 @@ void rvn_vk_render_frame(const RDrawData* data, RCapture* capture) {
 	VkResult result;
 
 	if (capture) memset(capture, 0, sizeof(*capture));
+	/* the device is lost: nothing is drawn until Raven started the backend again */
+	if (!rvn_vk_usable()) return;
 	if (!surface || data->framebuffer_width == 0 || data->framebuffer_height == 0) return;
 
 	/* textures changed since the last frame must be complete before they are sampled */
@@ -298,9 +300,9 @@ void rvn_vk_render_frame(const RDrawData* data, RCapture* capture) {
 
 	frame = &surface->frames[surface->frame_cursor++ % RVN_VK_FRAMES];
 	if (frame->submitted) {
-		rvn_vk.WaitForFences(g_vk.device, 1, &frame->fence, VK_TRUE, UINT64_MAX);
-		rvn_vk.ResetFences(g_vk.device, 1, &frame->fence);
 		frame->submitted = R_FALSE;
+		if (rvn_vk_failed(rvn_vk.WaitForFences(g_vk.device, 1, &frame->fence, VK_TRUE, UINT64_MAX), "vkWaitForFences")) return;
+		rvn_vk.ResetFences(g_vk.device, 1, &frame->fence);
 	}
 
 	result = rvn_vk.AcquireNextImageKHR(g_vk.device, surface->swapchain, UINT64_MAX, frame->acquired, VK_NULL_HANDLE, &image_index);
@@ -402,8 +404,7 @@ void rvn_vk_render_frame(const RDrawData* data, RCapture* capture) {
 	rvn_vk_queue_unlock();
 
 	if (capturing) {
-		if (frame->submitted) {
-			rvn_vk.WaitForFences(g_vk.device, 1, &frame->fence, VK_TRUE, UINT64_MAX);
+		if (frame->submitted && !rvn_vk_failed(rvn_vk.WaitForFences(g_vk.device, 1, &frame->fence, VK_TRUE, UINT64_MAX), "vkWaitForFences")) {
 			rvn_vk_finish_capture(surface, (const uint8_t*)capture_buffer.mapped, capture_width, capture_height, capture);
 		}
 		rvn_vk_buffer_destroy(&capture_buffer);

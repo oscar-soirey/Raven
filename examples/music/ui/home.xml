@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: Home. The rows of cards are empty here: main.c
+  writes them as <QuickCard> and <AlbumCard> elements and adds them.
+-->
+<ScrollBox Name="page.home">
+	<VBox Spacing="14" Slot.Padding="24,20,24,32">
+		<HBox Spacing="8">
+			<Chip Text="All" Active="true" Action="home.chip"/>
+			<Chip Text="Music" Action="home.chip"/>
+			<Chip Text="Podcasts" Action="home.chip"/>
+			<Chip Text="Audiobooks" Action="home.chip"/>
+		</HBox>
+		<Heading Name="home.greeting" Text="Good evening" TextSize="30" Appear="FlyUp" Slot.Padding="0,8,0,0"/>
+		<Grid Name="home.quick" Columns="1,1,1" Spacing="10" Appear="Fade" AppearDelay="0.05"/>
+
+		<SectionHeader Title="Made for you" Action="nav.library"/>
+		<ScrollBox Orientation="Horizontal" Height="286">
+			<HBox Name="home.mixes" Spacing="4"/>
+		</ScrollBox>
+
+		<SectionHeader Title="Recently played" Action="nav.library"/>
+		<ScrollBox Orientation="Horizontal" Height="286">
+			<HBox Name="home.recent" Spacing="4"/>
+		</ScrollBox>
+
+		<SectionHeader Title="Your favorite artists"/>
+		<ScrollBox Orientation="Horizontal" Height="286">
+			<HBox Name="home.artists" Spacing="4"/>
+		</ScrollBox>
+
+		<SectionHeader Title="New releases" Action="nav.library"/>
+		<ScrollBox Orientation="Horizontal" Height="286">
+			<HBox Name="home.new" Spacing="4"/>
+		</ScrollBox>
+	</VBox>
+</ScrollBox>

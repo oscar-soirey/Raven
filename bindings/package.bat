@@ -6,8 +6,8 @@ rem  publishes nothing.
 rem
 rem    bindings\package.bat [options]
 rem
-rem    --prefix DIR     a shared build of Raven for Windows (bin\raven.dll,
-rem                     bin\ravenc.exe) instead of building one
+rem    --prefix DIR     a shared build of Raven for Windows (bin\raven.dll)
+rem                     instead of building one
 rem    --linux DIR      also the Linux packages, from a shared Raven package for
 rem                     Linux (raven-linux-x64-shared of a release, unzipped)
 rem    --macos DIR      also the macOS packages, from a shared Raven package for
@@ -18,8 +18,9 @@ rem  Result, in dist\bindings\:
 rem    pypi\       raven_gui-<version>-py3-none-win_amd64.whl (and the Linux and
 rem                macOS wheels with --linux / --macos)     needs Python
 rem    nuget\      Raven.Gui.<version>.nupkg                  needs the .NET SDK
-rem    crates\     raven-gui-<version>.crate, raven-gui-build-<version>.crate
-rem                                                           needs cargo (Rust)
+rem    crates\     raven-gui-<version>.crate                 needs cargo (Rust)
+rem    maven\      raven-gui-<version>.jar (and -sources, -javadoc; the
+rem                libraries inside)                          needs Maven and a JDK 22+
 rem    luarocks\   raven-gui-<version>-1.rockspec
 rem  A part whose tool is not installed is skipped, with a message.
 rem
@@ -135,7 +136,6 @@ set "NATIVE=%BINDINGS%\csharp\native"
 for %%r in (win-x64 linux-x64 osx) do if exist "%NATIVE%\%%r" rmdir /s /q "%NATIVE%\%%r"
 mkdir "%NATIVE%\win-x64"
 copy /y "%PREFIX%\bin\raven.dll" "%NATIVE%\win-x64\" >nul
-if exist "%PREFIX%\bin\ravenc.exe" copy /y "%PREFIX%\bin\ravenc.exe" "%NATIVE%\win-x64\" >nul
 if defined LINUX call :native_unix "%LINUX%" linux-x64 libraven.so
 if errorlevel 1 goto failed
 if defined MACOS call :native_unix "%MACOS%" osx libraven.dylib
@@ -156,10 +156,6 @@ if errorlevel 1 (
 )
 set "CARGO_TARGET=%ROOT%\build\bindings-cargo"
 if exist "%CARGO_TARGET%\package" rmdir /s /q "%CARGO_TARGET%\package"
-pushd "%BINDINGS%\rust-build"
-cargo package --allow-dirty --target-dir "%CARGO_TARGET%"
-if errorlevel 1 ( popd & goto failed )
-popd
 pushd "%BINDINGS%\rust"
 cargo package --allow-dirty --target-dir "%CARGO_TARGET%"
 if errorlevel 1 ( popd & goto failed )
@@ -168,6 +164,24 @@ mkdir "%OUT%\crates"
 copy /y "%CARGO_TARGET%\package\*.crate" "%OUT%\crates\" >nul
 set "MADE=%MADE% crates"
 :crates_done
+
+rem ---- Maven -------------------------------------------------------------------
+echo.
+echo [package] Maven
+where mvn >nul 2>nul
+if errorlevel 1 (
+	echo [package] Maven was not found ^(https://maven.apache.org, and a JDK 22 or later^): the jar is skipped.
+	set "SKIPPED=%SKIPPED% maven"
+	goto maven_done
+)
+call :java_natives
+if errorlevel 1 goto failed
+call mvn -B -q -f "%BINDINGS%\java\pom.xml" clean package
+if errorlevel 1 goto failed
+mkdir "%OUT%\maven"
+copy /y "%BINDINGS%\java\target\raven-gui-*.jar" "%OUT%\maven\" >nul
+set "MADE=%MADE% maven"
+:maven_done
 
 rem ---- LuaRocks ----------------------------------------------------------------
 echo.
@@ -189,7 +203,8 @@ exit /b 0
 
 rem ---------------------------------------------------------------------------
 rem  :native_unix <Raven package> <rid> <library name>
-rem  Copies the library and ravenc of a Linux or macOS package to csharp\native\<rid>\
+rem  Copies the library of a Linux or macOS package to %NATIVE%\<rid>\
+rem  (csharp\native\ or the resources of the jar)
 rem  (a package unzipped on Windows may have lost the links libraven.so -> libraven.so.0.1.0)
 rem ---------------------------------------------------------------------------
 :native_unix
@@ -216,7 +231,23 @@ if not defined FOUND (
 	echo [package] no %LIB% in "%SRC%" ^(it must be a shared build of Raven^)
 	exit /b 1
 )
-if exist "%SRC%\bin\ravenc" copy /y "%SRC%\bin\ravenc" "%NATIVE%\%RID%\ravenc" >nul
+exit /b 0
+
+rem ---------------------------------------------------------------------------
+rem  :java_natives
+rem  The libraries of the jar: java\src\main\resources\raven\native\<platform>\
+rem  (R.java copies the one of its platform out of the jar when it starts)
+rem ---------------------------------------------------------------------------
+:java_natives
+set "NATIVE=%BINDINGS%\java\src\main\resources\raven\native"
+for %%r in (windows-x64 linux-x64 macos) do if exist "%NATIVE%\%%r" rmdir /s /q "%NATIVE%\%%r"
+mkdir "%NATIVE%\windows-x64"
+copy /y "%PREFIX%\bin\raven.dll" "%NATIVE%\windows-x64\" >nul
+if errorlevel 1 exit /b 1
+if defined LINUX call :native_unix "%LINUX%" linux-x64 libraven.so
+if errorlevel 1 exit /b 1
+if defined MACOS call :native_unix "%MACOS%" macos libraven.dylib
+if errorlevel 1 exit /b 1
 exit /b 0
 
 :failed
@@ -230,7 +261,7 @@ exit /b 1
 echo Usage: bindings\package.bat [--prefix DIR] [--linux DIR] [--macos DIR] [--no-pause]
 echo.
 echo   Makes the packages of the bindings in dist\bindings\ ^(pypi, nuget, crates,
-echo   luarocks^). Publishes nothing.
+echo   maven, luarocks^). Publishes nothing.
 echo.
 echo   --prefix DIR   a shared build of Raven for Windows, instead of building one
 echo   --linux DIR    also the Linux packages, from a shared Raven package for Linux

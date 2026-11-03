@@ -427,6 +427,11 @@ pub const RFilterType = c_int;
 pub const R_FILTER_LINEAR: RFilterType = 0x02C0;
 /// No smoothing: keeps pixel art sharp.
 pub const R_FILTER_NEAREST: RFilterType = 0x02C1;
+/// Smooth, with mipmaps: an image shown much smaller than its size stays
+/// clean instead of shimmering, for a third more GPU memory. The default
+/// of the textures made from image files (Rtexture_create...). Backends
+/// without mipmaps treat it as R_FILTER_LINEAR.
+pub const R_FILTER_MIPMAP: RFilterType = 0x02C2;
 
 pub const RWidgetType = c_int;
 /// Stacks children top to bottom. Slate: SVerticalBox.
@@ -865,6 +870,21 @@ pub const RActionCallback = ?*const fn (sender: Rid, action: ?[*:0]const u8, use
 /// thread that raised the error: errors of the renderer (and the messages
 /// of the Vulkan validation layers) come from the render thread.
 pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail: ?[*:0]const u8) callconv(.C) void;
+/// Registers a function called after Raven recovered from the loss
+/// of the GPU device (a driver reset or update, a GPU removed, a long sleep).
+///
+/// Raven then starts the backend again and remakes what it can by itself:
+/// the surfaces of the windows, the fonts, the shaders, the textures made
+/// from image files and the small textures (up to 256 x 256). The pixels of
+/// the larger textures made from pixels are lost: the textures keep their
+/// handle and size but are transparent until Rtexture_update fills them
+/// again, which is what this function is for. Textures that wrap objects of
+/// the backend (raven_vulkan.h) must be made again, and the Vulkan handles
+/// returned by Rvulkan_get_device... have changed.
+///
+/// Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
+/// Rinit; NULL removes it.
+pub const RDeviceResetCallback = ?*const fn (user_data: ?*anyopaque) callconv(.C) void;
 /// Called for a drop target (a widget, or a window: `target` is its
 /// handle). Return R_TRUE to accept: while the pointer is over the target this
 /// shows the "can drop here" cursor and highlights the target; for
@@ -929,6 +949,8 @@ pub const RTileContextCallback = ?*const fn (tile_view: Rid, index: c_int, x: f3
 /// (Rtile_view_get_selection). The text returned is copied; NULL keeps
 /// the indices.
 pub const RTileDragDataCallback = ?*const fn (tile_view: Rid, user_data: ?*anyopaque) callconv(.C) ?[*:0]const u8;
+/// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
+pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.C) void;
 /// Called each time the editor gathers its proposals, with the
 /// start of the word being typed: add your own with
 /// Rtext_editor_add_completion (the fields of a structure, the answers of
@@ -1180,8 +1202,7 @@ pub const RLanguageDesc = extern struct {
     flags: u32 = 0,
     /// Markup with R_LANGUAGE_EMBEDS: the language of what is between
     /// <script> and </script> (the name of a language: "C", "Rust"...).
-    /// NULL: JavaScript, as in HTML. The XMLC, XMLRS, XMLPY... languages of
-    /// Raven use it for the code of their files.
+    /// NULL: JavaScript, as in HTML.
     script_language: ?[*:0]const u8 = null,
 };
 
@@ -1293,20 +1314,6 @@ pub const RXmlAttributeInfo = extern struct {
     description: ?[*:0]const u8 = null,
 };
 
-pub const RXmlCompiledNode = extern struct {
-    /// Tag of the element ("VBox", "Button", "Item"...).
-    tag: ?[*:0]const u8 = null,
-    /// Its text content ("" when none).
-    text: ?[*:0]const u8 = null,
-    /// name, value, name, value... (attribute_count pairs).
-    attributes: ?[*]const ?[*:0]const u8 = null,
-    attribute_count: c_int = 0,
-    /// Index of the parent in the table, -1 for the root. The table lists a parent before its children, children in order.
-    parent: c_int = 0,
-    /// Line in the source file, for the errors.
-    line: c_int = 0,
-};
-
 /// What the system asks for.
 pub const RAccessibilitySettings = extern struct {
     /// Size of the texts asked by the user (1 = normal).
@@ -1315,6 +1322,18 @@ pub const RAccessibilitySettings = extern struct {
     reduce_motion: c_int = 0,
     /// R_TRUE when a screen reader is running.
     screen_reader: c_int = 0,
+};
+
+pub const RHostPlatformDesc = extern struct {
+    /// The pointer over `window` should look like `cursor`. May be NULL.
+    set_cursor: ?*const anyopaque = null,
+    /// Copies UTF-8 text to the clipboard of the application. NULL: the clipboard stays in the process.
+    clipboard_set: ?*const anyopaque = null,
+    /// The clipboard text, valid until the next call, or NULL. NULL: the clipboard stays in the process.
+    clipboard_get: ?*const anyopaque = null,
+    /// Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
+    wake: ?*const anyopaque = null,
+    user_data: ?*anyopaque = null,
 };
 
 /// Starts the library with default settings on the given backend.
@@ -1328,11 +1347,6 @@ pub extern fn Rinit_ex(desc: ?*const RInitDesc) c_int;
 /// render threads and releases the backend.
 pub extern fn Rshutdown() void;
 pub extern fn Ris_initialized() c_int;
-/// R_TRUE in the free edition of Raven (the default build): every
-/// window shows a small watermark in its bottom right corner. R_FALSE in the
-/// paid edition (the library built with -DRAVEN_PAID=ON), which shows none.
-/// Nothing else differs; what you make with either one is yours.
-pub extern fn Ris_free_edition() c_int;
 /// Returns: The library version, e.g. "0.1.0".
 pub extern fn Rget_version() ?[*:0]const u8;
 /// Replaces the allocator of Raven with the functions of the
@@ -1458,6 +1472,7 @@ pub extern fn Rerror_get_last(detail: ?*?[*:0]const u8, severity: ?*RSeverity) R
 pub extern fn Rerror_to_string(error_: RError) ?[*:0]const u8;
 pub extern fn Rseverity_to_string(severity: RSeverity) ?[*:0]const u8;
 pub extern fn Rerror_set_callback(callback: RErrorCallback) void;
+pub extern fn Rset_device_reset_callback(callback: RDeviceResetCallback, user_data: ?*anyopaque) void;
 pub extern fn Rwindow_get_frame_stats(window: Rid, stats: ?*RFrameStats) void;
 /// Opens a top-level window.
 /// width,height Client size in logical units.
@@ -1552,10 +1567,6 @@ pub extern fn Rwindow_get_focused_widget(window: Rid) Rid;
 /// Deepest widget under the cursor, or R_INVALID_ID.
 pub extern fn Rwindow_get_hovered_widget(window: Rid) Rid;
 pub extern fn Rwindow_get_mouse_position(window: Rid, x: ?*f32, y: ?*f32) void;
-/// Where the watermark of the free edition is drawn in the
-/// window (logical units). R_FALSE, and zeros, in the paid edition.
-/// It never takes the mouse; this is for layouts and tests that read pixels.
-pub extern fn Rwindow_get_watermark_rect(window: Rid, x: ?*f32, y: ?*f32, width: ?*f32, height: ?*f32) c_int;
 /// Inject input as if it came from the OS. Positions are in logical units.
 /// Useful for automated tests, replays and when Raven is driven by a host
 /// application.
@@ -1582,6 +1593,15 @@ pub extern fn Rwindow_is_mouse_inside(window: Rid) c_int;
 pub extern fn Rwindow_wants_text_input(window: Rid) c_int;
 /// R_TRUE while a menu, list or dialog is open over the window.
 pub extern fn Rwindow_has_popup(window: Rid) c_int;
+/// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
+/// Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
+/// outputs when there is no visible editable caret, the window is inactive, or focus changed
+/// since painting. Any output pointer may be NULL.
+pub extern fn Rwindow_get_text_input_rect(window: Rid, x: ?*c_int, y: ?*c_int, width: ?*c_int, height: ?*c_int) c_int;
+/// Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
+pub extern fn Rwindow_get_popup_count(window: Rid) c_int;
+/// Returns: Root widget of popup `index`, whose rect is in window coordinates; R_INVALID_ID out of range.
+pub extern fn Rwindow_get_popup(window: Rid, index: c_int) Rid;
 /// R_FALSE: Tab no longer moves the keyboard focus (the application uses it as a shortcut). Default R_TRUE.
 pub extern fn Rwindow_set_tab_navigation(window: Rid, enabled: c_int) void;
 pub extern fn Rwindow_set_event_hook(window: Rid, hook: RWindowEventHook, user_data: ?*anyopaque) void;
@@ -1718,7 +1738,7 @@ pub extern fn Rtexture_create_async(data: ?[*:0]const u8, data_size: usize) Rid;
 pub extern fn Rtexture_create_from_file(path: ?[*:0]const u8) Rid;
 /// Reads and decodes the file on a worker thread.
 pub extern fn Rtexture_create_from_file_async(path: ?[*:0]const u8) Rid;
-/// Creates a texture from tightly packed RGBA8 pixels (straight alpha).
+/// Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
 pub extern fn Rtexture_create_from_pixels(rgba: ?[*]const u8, width: c_int, height: c_int) Rid;
 /// Replaces the pixels of a texture. The size may change. Use it to
 /// show frames produced on the CPU or read back from another renderer.
@@ -1739,6 +1759,9 @@ pub extern fn Rtexture_wait(texture: Rid) void;
 pub extern fn Rtexture_destroy(texture: Rid) void;
 pub extern fn Rtexture_is_valid(texture: Rid) c_int;
 pub extern fn Rtexture_get_size(texture: Rid, width: ?*c_int, height: ?*c_int) void;
+/// How the texture is smoothed when it is scaled. The textures made
+/// from image files start with R_FILTER_MIPMAP, the others with
+/// R_FILTER_LINEAR.
 pub extern fn Rtexture_set_filter(texture: Rid, filter: RFilterType) void;
 /// Creates a widget. It is not shown until it is added to a parent
 /// that belongs to a window (Rwidget_add_child, Rwindow_set_content).
@@ -2286,6 +2309,16 @@ pub extern fn Rtext_editor_set_syntax(editor: Rid, syntax: RSyntax) void;
 pub extern fn Rtext_editor_set_font(editor: Rid, font: Rid, size: f32) void;
 /// Text shown, dimmed, while the editor is empty.
 pub extern fn Rtext_editor_set_placeholder(editor: Rid, text: ?[*:0]const u8) void;
+/// Zoom of the text: a factor of its font size, 1 = 100 % (0.5 .. 4).
+/// The user zooms with Ctrl + wheel (around the pointer), Ctrl + '+',
+/// Ctrl + '-' and Ctrl + 0 (back to 100 %), keypad included. Set by the
+/// program, the top of the view stays and the zoom callback is not called.
+/// XML: Zoom="1.25".
+pub extern fn Rtext_editor_set_zoom(editor: Rid, zoom: f32) void;
+pub extern fn Rtext_editor_get_zoom(editor: Rid) f32;
+/// R_FALSE: Ctrl + wheel and the keys do not zoom (the wheel scrolls). On by default. XML: Zoomable="false".
+pub extern fn Rtext_editor_set_zoomable(editor: Rid, zoomable: c_int) void;
+pub extern fn Rtext_editor_set_zoom_callback(editor: Rid, callback: RTextEditorZoomCallback, user_data: ?*anyopaque) void;
 /// Declares a language, or replaces the one that has this name: to
 /// add words to a built-in language, read it with Rlanguage_get, change
 /// what you want and register it again. The strings are copied.
@@ -2507,6 +2540,16 @@ pub extern fn Rtimeline_get_view(timeline: Rid, start: ?*f64, end: ?*f64) void;
 pub extern fn Rtimeline_set_playing(timeline: Rid, playing: c_int) void;
 pub extern fn Rtimeline_is_playing(timeline: Rid) c_int;
 pub extern fn Rtimeline_set_loop(timeline: Rid, loop: c_int) void;
+/// Width of the column of the names of the tracks. 0 (default): fits the longest name.
+pub extern fn Rtimeline_set_header_width(timeline: Rid, width: f32) void;
+/// Returns: The width of the column of the names, as laid out now.
+pub extern fn Rtimeline_get_header_width(timeline: Rid) f32;
+/// Height of the ruler of time (and of the markers' flags band). 0 (default): automatic.
+pub extern fn Rtimeline_set_ruler_height(timeline: Rid, height: f32) void;
+pub extern fn Rtimeline_get_ruler_height(timeline: Rid) f32;
+/// Height of the tracks that have none of their own (Rtimeline_set_track_height). 0 (default): automatic.
+pub extern fn Rtimeline_set_default_track_height(timeline: Rid, height: f32) void;
+pub extern fn Rtimeline_get_default_track_height(timeline: Rid) f32;
 /// Returns: The track, or 0. Tracks are shown in the order they were added.
 pub extern fn Rtimeline_add_track(timeline: Rid, name: ?[*:0]const u8) c_int;
 /// Removes a track and everything on it.
@@ -2912,10 +2955,6 @@ pub extern fn Rwindow_create_from_xml_file(path: ?[*:0]const u8) Rid;
 /// widget. The caller owns the returned widget until it is added to a parent.
 pub extern fn Rwidget_create_from_xml(xml: ?[*:0]const u8, size: usize) Rid;
 pub extern fn Rwidget_create_from_xml_file(path: ?[*:0]const u8) Rid;
-/// Builds the window described by a compiled table whose root is <Window>. `source` names the file in the errors.
-pub extern fn Rwindow_create_from_compiled(nodes: ?*const RXmlCompiledNode, count: c_int, source: ?[*:0]const u8) Rid;
-/// Builds the widget tree described by a compiled table.
-pub extern fn Rwidget_create_from_compiled(nodes: ?*const RXmlCompiledNode, count: c_int, source: ?[*:0]const u8) Rid;
 /// Folder used to resolve relative paths found in XML (Source="...",
 /// Font="..."). The *FromXmlFile functions use the folder of the file.
 pub extern fn Rxml_set_base_path(path: ?[*:0]const u8) void;
@@ -3127,3 +3166,22 @@ pub extern fn Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid) void;
 pub extern fn Raccessibility_announce(text: ?[*:0]const u8, assertive: c_int) void;
 /// R_TRUE when a screen reader is reading the windows of the application.
 pub extern fn Raccessibility_is_screen_reader_active() c_int;
+/// Makes the next Rinit use the host platform. The structure is copied; NULL restores the default.
+pub extern fn Rhost_platform_register(desc: ?*const RHostPlatformDesc) void;
+/// Returns: R_TRUE while the running library uses the host platform.
+pub extern fn Rhost_platform_is_active() c_int;
+/// Size of a host window in pixels, and pixels per logical unit.
+pub extern fn Rhost_window_set_size(window: Rid, width: c_int, height: c_int, scale: f32) void;
+pub extern fn Rhost_inject_mouse_move(window: Rid, x: c_int, y: c_int, modifiers: u32) void;
+pub extern fn Rhost_inject_mouse_button(window: Rid, x: c_int, y: c_int, button: RMouseButton, pressed: c_int, modifiers: u32) void;
+pub extern fn Rhost_inject_mouse_wheel(window: Rid, wheel_x: f32, wheel_y: f32, modifiers: u32) void;
+/// The pointer left the window: hover states end.
+pub extern fn Rhost_inject_mouse_leave(window: Rid) void;
+/// repeat R_TRUE for a key held down (auto-repeat).
+pub extern fn Rhost_inject_key(window: Rid, key: RKey, pressed: c_int, modifiers: u32, repeat: c_int) void;
+/// One typed Unicode code point.
+pub extern fn Rhost_inject_text(window: Rid, codepoint: u32) void;
+/// The window gained or lost the keyboard. Losing it closes popups and drops captures.
+pub extern fn Rhost_inject_focus(window: Rid, focused: c_int) void;
+/// The user asked to close the window (its close callback decides).
+pub extern fn Rhost_inject_close(window: Rid) void;

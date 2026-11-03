@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven example - music: an album or a playlist. The same page shows them
+  all: main.c changes its texts, its cover and its colors, and writes the
+  songs as <TrackRow> elements.
+-->
+<ScrollBox Name="page.collection">
+	<VBox>
+		<!-- the top of the page, in the color of the cover -->
+		<Border Name="collection.hero" Effect="aurora" EffectColor="#6D28D9" EffectColor2="#111117" EffectPointer="false" Padding="28,40,28,26">
+			<HBox Spacing="26">
+				<Border CornerRadius="8" Shadow="40,0,14" Slot.VAlign="Bottom">
+					<Cover Name="collection.cover" Album="0" Size="232" CornerRadius="8" Appear="Zoom"/>
+				</Border>
+				<VBox Spacing="8" Slot.Fill="1" Slot.VAlign="Bottom">
+					<Label Name="collection.kind" Class="eyebrow" Text="ALBUM"/>
+					<Heading Name="collection.title" Text="Album" TextSize="56" Wrap="true" Color="white" Appear="FlyUp"/>
+					<Label Name="collection.description" Text="" Wrap="true" Opacity="0.8" Color="white"/>
+					<HBox Spacing="8">
+						<Cover Name="collection.avatar" Album="0" Size="24" CornerRadius="12" Slot.VAlign="Center"/>
+						<Heading Name="collection.artist" Text="" TextSize="14" Color="white" Slot.VAlign="Center"/>
+						<Label Name="collection.meta" Text="" Opacity="0.75" Color="white" Slot.VAlign="Center"/>
+					</HBox>
+				</VBox>
+			</HBox>
+		</Border>
+
+		<VBox Spacing="6" Slot.Padding="24,20,24,32">
+			<HBox Spacing="14">
+				<PlayButton Name="collection.play" Action="collection.play" Size="56" IconSize="24" IconName="collection.play.icon"/>
+				<IconButton Glyph="shuffle" Action="collection.shuffle" Tip="Play in random order" Size="26" Slot.VAlign="Center"/>
+				<IconButton Name="collection.like" IconName="collection.like.icon" Glyph="heart" Action="collection.like" Tip="Save to your library" Size="26" Slot.VAlign="Center"/>
+				<IconButton Glyph="download" Action="collection.download" Tip="Download" Size="24" Slot.VAlign="Center"/>
+				<IconButton Glyph="more" Action="collection.more" Tip="More options" Size="24" Slot.VAlign="Center"/>
+				<Spacer Slot.Fill="1"/>
+				<Label Text="List" Class="muted" Slot.VAlign="Center"/>
+				<Icon Glyph="queue" Size="18" Opacity="0.7" Slot.VAlign="Center"/>
+			</HBox>
+			<!-- the heads of the columns, as the rows are laid out -->
+			<Grid Columns="0,4,3,0,0" Spacing="14" Slot.Padding="12,10,12,0">
+				<Label Text="#" Class="muted" Width="26" TextAlign="Right" Slot.Column="0"/>
+				<Label Text="Title" Class="muted" Width="1" Slot.Column="1"/>
+				<Label Name="collection.column" Text="Album" Class="muted" Width="1" Slot.Column="2"/>
+				<Spacer Width="32" Slot.Column="3"/>
+				<HBox Width="44" Slot.Column="4">
+					<Spacer Slot.Fill="1"/>
+					<Icon Glyph="clock" Size="16" Opacity="0.7"/>
+				</HBox>
+			</Grid>
+			<Separator Slot.Padding="0,4,0,6"/>
+			<VBox Name="collection.tracks" Spacing="0"/>
+			<Label Name="collection.footer" Class="muted" TextSize="12" Wrap="true" Slot.Padding="12,18,12,0"/>
+		</VBox>
+	</VBox>
+</ScrollBox>

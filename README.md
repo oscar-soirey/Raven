@@ -1,10 +1,54 @@
-# Raven
+<p align="center">
+  <img src="docs/images/logo-com.png" alt="Raven logo" width="80">
+</p>
 
-A lightweight, multithreaded GUI library in C for editors and tools.
+<h1 align="center">Raven</h1>
+
+<p align="center">
+  A lightweight, multithreaded GUI library in C for editors and tools.
+</p>
+
+<p align="center">
+<p align="center">
+  <a href="docs/">
+    <img alt="Documentation" src="https://img.shields.io/badge/Documentation-Read-2EA44F?style=for-the-badge&logo=readthedocs&logoColor=white">
+  </a>
+  <a href="https://github.com/oscar-soirey/Raven/issues">
+    <img alt="Issues" src="https://img.shields.io/badge/Issues-Report- D93F0B?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+  <a href="https://github.com/oscar-soirey/Raven/releases">
+    <img alt="Releases" src="https://img.shields.io/badge/Releases-Download-6F42C1?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+  <a href="https://github.com/oscar-soirey/Raven/issues/15">
+    <img alt="Development Process" src="https://img.shields.io/badge/Development_Process-View-0078D4?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+  <a href="https://oscar-soirey.github.io/Raven/">
+    <img alt="Official Website" src="https://img.shields.io/badge/Official_Website-Visit-0EA5E9?style=for-the-badge&logo=googlechrome&logoColor=white">
+  </a>
+  <a href="https://www.youtube.com/@oscar-soirey">
+    <img alt="YouTube" src="https://img.shields.io/badge/YouTube-Subscribe-FF0000?style=for-the-badge&logo=youtube&logoColor=white">
+  </a>
+</p>
+</p>
 
 ## Disclaimer : This project is still in active development and public API is subject to change.
 
 ## Build from source
+
+> **For the latest features, clone and build Raven yourself** rather than
+> downloading a release: the [releases](https://github.com/oscar-soirey/Raven/releases)
+> and the packages of the bindings (PyPI, NuGet, crates.io, LuaRocks, Maven
+> Central) are made from time to time, while the repository moves every day,
+> so what this page describes may not be in the last release yet.
+>
+> ```
+> git clone https://github.com/oscar-soirey/Raven.git
+> cd Raven
+> cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+> cmake --build build --config Release --parallel
+> ```
+>
+> `git pull` and the same `cmake --build` bring it up to date later.
 
 Raven builds with CMake and a C11 compiler, and has no dependency to install
 besides the X11 development package on Linux. The Vulkan *headers* are
@@ -12,8 +56,8 @@ downloaded automatically during the configuration (git and an internet
 connection are needed for that), unless the [Vulkan SDK](https://vulkan.lunarg.com)
 is installed. No Vulkan library is linked.
 
-Each build below gives the library, `ravenc` (the XMLC compiler), the
-designer, the examples and the tests. Add `-DRAVEN_BUILD_SHARED=ON` to the
+Each build below gives the library, the designer, the examples and the
+tests. Add `-DRAVEN_BUILD_SHARED=ON` to the
 configure command for a shared library (`raven.dll`, `libraven.so`,
 `libraven.dylib`) instead of a static one.
 
@@ -113,18 +157,21 @@ or, without installing, `add_subdirectory(Raven)` before the same
 `target_link_libraries`. Prebuilt packages for every platform are attached to
 the [releases](https://github.com/oscar-soirey/Raven/releases).
 
-- **The interface and its code in one file, in your language.** Write the
-  window in XML and its code in `<script>` beside it: `.xmlc` (C),
-  `.xmlc++`, `.xmlrs` (Rust), `.xmlpy`, `.xmlgo`, `.xmlcs` (C#), `.xmlzig`,
-  `.xmllua`. `ravenc` compiles the XML into your language, so everything is
-  checked by your compiler and built by your usual tools (CMake, Cargo,
-  `go generate`, MSBuild, `zig build`, a Python or Lua import). See
-  [XMLC](#one-file-any-language-xmlc).
-- **The official IDE** (`raven_designer`): new projects in all eight languages,
-  interfaces edited visually next to their code, completion of the Raven API,
-  translations in a table, build, run and compiler errors at their line in
-  the `.xml…` file. See [The IDE](#the-ide).
-- **C11, no dependency.** Raven opens its own native windows (Win32, X11, Cocoa on macOS), loads
+- **The interface in XML, the code in your language.** The window is a `.xml`
+  file; C, C++, Rust, Python, Go, C#, Zig or LuaJIT load it, bind the
+  actions it names and find its widgets by name, built by their usual tools.
+  Save the XML while the program runs and the window follows. See
+  [Any language](#any-language-the-interface-in-xml-the-code-in-yours).
+- **The designer** (`raven_designer`): the interfaces of a folder made by
+  looking at them, in the size of a phone or a desktop, in any look, theme or
+  language, with their translations; one search for everything (Ctrl+K). It
+  compiles nothing: the program is written in any language, elsewhere. See
+  [The designer](#the-designer).
+- **A theme editor** (`raven_theme_editor`): every color, size, glass setting,
+  syntax color and style rule of a theme, edited over a live preview of real
+  widgets, a palette worked out from one accent, contrast checked. See
+  [The theme editor](#the-theme-editor).
+- **C11, no dependency.** Raven opens its own native windows (Win32, X11 and Wayland, Cocoa on macOS), loads
   Vulkan at run time and has its own memory allocator. A stripped shared
   library is about 1.3 MB, two fonts included.
 - **Slate-style layout.** Boxes, grid, overlay, border, canvas, scroll box,
@@ -146,9 +193,12 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   top of the window.
 - **Tools of the trade.** A **graph of nodes** whose wires hang and swing, a
   **timeline** (tracks, clips, keys, markers), a complete **color picker**.
-- **Themes you write.** Theme files, styles for a type of widget or for a
-  class, a theme for a part of a window. **Markdown** in labels and in the
-  text editor. Interface and theme files are **loaded again while the
+- **Looks and themes you write.** The looks of Raven, or the ones of
+  **Windows 11**, **macOS** (Sequoia, and macOS 26 with Liquid Glass) and **GNOME** imitated closely (their controls,
+  colors, accent, font and motion). Theme files laid over them, styles for a type of widget, a class,
+  a **part of a widget and its states**, a theme for a window or a part of one. **Markdown** in labels and in the
+  text editor, and labels whose text the mouse **selects and copies** as on a
+  web page (`Selectable="true"`). Interface and theme files are **loaded again while the
   application runs** when they are saved.
 - **Web pages** (`raven_web.h`, built into the same library) shown by driving
   a browser already installed.
@@ -157,6 +207,12 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   conventions of each language. **Right-to-left** layouts that mirror
   themselves, bidirectional text, Arabic shaping, **emoji** in color and
   the fonts of the system for the scripts the bundled font lacks.
+- **Touch and pens, with nothing to do.** On Windows, X11, Wayland and macOS:
+  a tap clicks, a finger scrolls lists, trees, text and graphs and flicks
+  them, resting is a right click, two fingers pinch to zoom; a pen is a
+  mouse with a pressure and a tilt, and the palm resting on the screen is
+  ignored. Settings for the application, a window or a widget, from code,
+  XML or the designer, and events of their own (`raven_touch.h`).
 - **Accessible.** Native **screen readers** (Narrator and NVDA through UI
   Automation, VoiceOver, Orca through AT-SPI), a **text scale**,
   **high-contrast** themes, **color filters** for color blindness, a focus
@@ -228,144 +284,150 @@ The same window in XML (`Rwindow_create_from_xml_file("hello.xml")`):
 </Window>
 ```
 
-## One file, any language: XMLC
+## Any language: the interface in XML, the code in yours
 
-The interface in XML, the code that goes with it in `<script>`, in one file.
-`ravenc` turns the whole file into a source of your language: the scripts are
-copied as they are, the XML becomes tables built by `Rwindow_create_from_compiled`
-(no XML is read at run time). `OnClicked="{on_save}"` calls the function
-`on_save` of the scripts, `ui().status` is the widget named `status`, and the
-compiler of the language checks all of it.
+The interface is a `.xml` file; the program, in any language that has a
+binding, loads it, binds the actions it names and finds the widgets it needs
+by name. Save the XML while the program runs and the window follows, the
+code untouched (see [Files that are loaded again](#files-that-are-loaded-again)).
 
 ```xml
-<!-- src/main.xmlrs: a whole Rust program -->
-<script>
-use raven::*;
-use std::sync::atomic::{AtomicI32, Ordering};
-
-static CLICKS: AtomicI32 = AtomicI32::new(0);
-
-fn on_hello(_sender: Rid, _action: &str) {           // OnClicked="{on_hello}" below
-    let n = CLICKS.fetch_add(1, Ordering::SeqCst) + 1;
-    let text = cstr(&format!("{} clicks", n));
-    unsafe { Rlabel_set_text(ui().status, text.as_ptr()) };   // the widget Name="status"
-}
-
-fn main() {
-    unsafe { Rinit(R_BACKEND_VULKAN) };
-    main_create();                                     // made by ravenc from the file name
-    unsafe { while Rdraw_frame() != 0 {} Rshutdown() };
-}
-</script>
+<!-- main.xml -->
 <Window Title="Hello" Width="400" Height="200">
     <VBox Spacing="12" Slot.Padding="24">
         <Label Name="status">Not clicked yet</Label>
-        <Button Text="Click me" Style="Primary" OnClicked="{on_hello}"/>
+        <Button Text="Click me" Style="Primary" OnClicked="hello.clicked"/>
     </VBox>
 </Window>
 ```
 
 ```rust
-// build.rs: ravenc turns src/main.xmlrs into $OUT_DIR/main.xmlrs.rs
-fn main() { raven_build::compile("src/main.xmlrs"); }
+// src/main.rs: the same program exists in C, C++, Python, Go, C#, Zig and Lua
+use raven::*;
 
-// src/main.rs: the program is the .xmlrs
-include!(concat!(env!("OUT_DIR"), "/main.xmlrs.rs"));
+fn main() {
+    unsafe { Rinit(R_BACKEND_VULKAN) };
+    let window = unsafe { Rwindow_create_from_xml_file(cstr("main.xml").as_ptr()) };
+    let mut clicks = 0;
+    action_bind("hello.clicked", move |_sender, _action| {     // OnClicked="hello.clicked"
+        clicks += 1;
+        let text = cstr(&format!("{} clicks", clicks));
+        unsafe { Rlabel_set_text(widget_find(window, "status"), text.as_ptr()) };   // Name="status"
+    });
+    unsafe { while Rdraw_frame() != 0 {} Rshutdown() };
+}
 ```
 
-Each language is built by its own tools:
+| Language | Loads the XML | Binds an action | Finds a widget |
+|---|---|---|---|
+| C, C++ | `Rwindow_create_from_xml_file("main.xml")` | `Raction_bind("hello.clicked", f, NULL)` | `Rwidget_find(window, "status")` |
+| Rust | `Rwindow_create_from_xml_file(...)`, `window_from_xml(text)` | `action_bind("hello.clicked", closure)` | `widget_find(window, "status")` |
+| Python | `r.Rwindow_create_from_xml_file("main.xml")` | `r.Raction_bind("hello.clicked", f)` | `r.Rwidget_find(window, "status")` |
+| Go | `raven.WindowCreateFromXmlFile("main.xml")` | `raven.ActionBind("hello.clicked", f)` | `raven.WidgetFind(window, "status")` |
+| C# | `R.Rwindow_create_from_xml_file("main.xml")` | `R.Raction_bind("hello.clicked", R.Keep<RActionCallback>(F), IntPtr.Zero)` | `R.Rwidget_find(window, "status")` |
+| Zig | `r.Rwindow_create_from_xml_file("main.xml")` | `r.Raction_bind("hello.clicked", f, null)` | `r.Rwidget_find(window, "status")` |
+| LuaJIT | `r.Rwindow_create_from_xml_file("main.xml")` | `r.Raction_bind("hello.clicked", ffi.cast("RActionCallback", f), nil)` | `r.Rwidget_find(window, "status")` |
 
-| File | Language | Built by | `{f}` | Widgets |
-|---|---|---|---|---|
-| `.xmlc` | C | CMake: `raven_target_xmlc` | `void f(Rid, const char*, void*)` | `ui.x` |
-| `.xmlc++` `.xmlcpp` | C++ | CMake: `raven_target_xmlc` | the same, `void f(Rid, const char*)`, or a lambda | `ui.x` |
-| `.xmlrs` | Rust | Cargo: `raven_build::compile` in `build.rs` (`bindings/rust-build`) | `fn f(Rid, &str)` | `ui().x` |
-| `.xmlpy` | Python | `import raven_xmlpy`, then `import main` or `python -m raven_xmlpy main.xmlpy` | `def f(sender, action)` | `ui.x` |
-| `.xmlgo` | Go | `//go:generate ravenc main.xmlgo -o main.xmlgo.go` | `func f(raven.ID, string)` | `ui.x` |
-| `.xmlcs` | C# | MSBuild: `bindings/csharp/Raven.XmlCs.targets` | `static void F(uint, string)` | `MainUi.x` |
-| `.xmlzig` | Zig | `build.zig`: `xmlzig.compile` (`bindings/zig/xmlzig.zig`) | `fn f(Rid, ?[*:0]const u8, ?*anyopaque) callconv(.C) void` | `ui.x` |
-| `.xmllua` | LuaJIT | `require("raven_xmllua")`, then `require("main")` | `function f(sender, action)` (global) | `ui.x` |
-
-- The scripts are plain code: any header, crate, package or module; no XML
-  escaping (`a < b && c` is written as is). As many `<script>` as wanted.
-- **Errors point into your file.** In Rust, Go, C# and Zig the scripts keep
-  their line numbers in the generated file; C and C++ get `#line`. The
-  compiler reports `main.xmlrs:12`, and the IDE opens it at that line.
-- **No header, no glue.** Nothing is generated next to your file: in C, another
-  file only declares `Rid main_create(void);`.
-- Everything the XML of Raven does works the same compiled: declared tags
-  (`<Widget>`), `@keys` of the translations, themes, `Slot.*`...
-- Plain `.xml` files are still read at run time, with live reload: use them
-  while designing, `.xml…` to ship.
+- Each project is built by the tools of its language (CMake, Cargo, `go build`,
+  `dotnet`, `zig build`) or run by its interpreter (Python, LuaJIT): nothing
+  is generated, there is no extra step.
+- An interface that must not depend on a file at run time can be compiled
+  into the program as text (`include_str!`, a C string, an embedded resource)
+  and built with `Rwindow_create_from_xml`.
 - `examples/languages/` holds the same small program in the eight languages,
-  and `examples/bevy_editor/` a complete 3D scene editor whose interface is one
-  `.xmlrs` of about 1,450 lines (see [Examples](#examples)).
+  each one loading the same `main.xml`, and `examples/bevy_editor/` a complete 3D
+  scene editor: its interface is one `editor.xml`, driven from Rust (see
+  [Examples](#examples)).
 
-```cmake
-# C and C++: CMake
-find_package(raven REQUIRED)
-add_executable(hello main.xmlc)          # or main.xmlc++
-target_link_libraries(hello PRIVATE raven::raven)
-raven_target_xmlc(hello)                 # ravenc runs on every .xmlc / .xmlc++ of the target
-```
+## The designer
 
-## The IDE
+`raven_designer [folder | interface.xml]` makes the interfaces of Raven
+(`.xml`) by looking at them, in a folder. It is a tool, not an IDE: nothing
+is built or compiled there; the program that loads the interfaces is written
+in any language, with its own tools (see
+[Any language](#any-language-the-interface-in-xml-the-code-in-yours)).
 
-`raven_designer [project folder | file.xml | file.xml…]` is the official IDE
-of Raven, built on the library itself.
+**Four tabs, kept apart.** At the top of the window, each kind of file has
+its own tab, and each tab keeps its own file open and its own undo:
 
-**Projects in eight languages.** *Project > New project* asks a name and a
-language (C, C++, Rust, Python, Go, C#, Zig, Lua) and writes a project that
-builds as it is: the interface and its code in one `main.xml…`, the files of
-the language's own tools (`CMakeLists.txt`, `Cargo.toml` and `build.rs`,
-`go.mod`, `.csproj`, `build.zig`) and `strings.csv`. The **Explorer** shows
-the files; a double click opens each one where it belongs.
+- **Window**: the interfaces of the folder (`.xml` with a `<Window>`, a panel
+  or a form), in the visual editor.
+- **Widget**: the widget libraries of the folder (`<Widgets>` with `<Widget
+  Name="Card">`...). The preview shows one of each tag declared; the tags are
+  then offered to the windows of the folder.
+- **Theme**: the theme editor itself, built in: the themes of the folder in a
+  list, every color, size and rule, the preview, the contrast; saved, the
+  windows of the folder wear it.
+- **Translations**: the tables (`.csv`) as a grid: one row per key, one column
+  per language, an empty cell marked; what is typed shows in the preview at once.
 
-**Interfaces, visually, next to their code.** A `.xml`, or the interface of a
-`.xml…`, opens in the visual editor, the same document shown five ways and
-kept in step:
+`Ctrl+1` to `Ctrl+4` switch tabs. **Files** shows what the tab in front works
+on, the sub-folders included. The folder is followed live: a file that another
+program writes shows at once, the file open is read again when it has no
+unsaved changes here, a theme or a table that changes changes the preview.
+The combo at the top right dresses the designer itself: a look of Raven, or a
+theme of the folder.
+
+**The interface, five ways, kept in step:**
 
 - **Widgets**: what can be added, the tags of the library and those the
-  document declares with `<Widget>`. A double click adds inside the selection.
+  folder declares. Drag one into the preview, or double click to add it
+  inside the selection.
 - **Tree**: the elements. Move up, down, out, in; duplicate; delete; wrap in
   a panel or unwrap; copy and paste as XML.
-- **Preview**: the interface, built for real, in the language chosen above it
-  (right to left included). A click selects an element; with *Use the
-  preview* on, it reacts as the interface will.
+- **Preview**: the interface, built for real, in the size of a device (a
+  phone, a tablet, a laptop, a desktop, or the size of the XML), in any look
+  of Raven or theme of the folder, in any language of the tables, right to
+  left included. A click selects an element (an outline, the inside left
+  clear); drag it to move it: a line shows where it goes, Escape cancels.
+  With *Use it* on (F6), it reacts as the interface will.
 - **Properties**: every attribute of the selected element, by kind of value.
 - **XML**: the text, colored, with completion of the tags, the attributes and
-  the `@keys`; typing in it updates the rest, a mistake is underlined and
-  listed in **Problems** while the last good version stays shown.
+  the `@keys`; a mistake is underlined and listed in **Problems** while the
+  last good version stays shown.
 
-Each `<script>` opens in a code tab of its language next to the preview;
-saving writes the file back with its scripts, its comments and its layout.
+**Preview in a window** (the button above the preview, or `F7`) opens the
+interface in a window of its own, at its real size, that follows every change
+live. Its bar chooses the device, the theme and the language, and goes back
+to the designer.
 
-**Code.** Any other file opens in a code editor tab (C, C++, Rust, Python,
-Go, C#, Zig, Lua, CMake, CSV...), with completion of the Raven API (read from
-its headers), of the widgets of the interface (`ui.<Name>`) and of the keys
-in `Rtr("...")`.
+**The island**, at the top of the window, is the command center. It unfolds
+when the pointer is over it. Folded, it says which file is open, whether it
+has unsaved changes, what is selected and how many problems there are.
+`Ctrl+K` unfolds it on one search for everything: a widget to add (`add
+slider`), an interface to open (`open settings`), a tab, a command (`wrap in a
+vbox`, `preview in a window`, `undo`, `new theme`...), a language or a theme
+for the preview. Below the search, the Name and the Text of the selection are
+edited in place, with duplicate, wrap, delete and run.
 
-**Translations.** The CSV tables of the project as a grid: one row per key,
-one column per language; add keys and languages, search, delete. An empty
-cell is marked (the first language shows instead). What is typed shows in the
-preview at once.
+Undo and redo follow the tab in front; a folder or an interface dropped on
+the window opens. The visual editor uses the public API only. The files are in
+`tools/designer/` (`designer.h` says what each one does).
 
-**Build and run with the tools of the language.** `Ctrl+B` builds, `F5`
-builds and runs, `Ctrl+F5` stops: CMake and the compiler for C and C++,
-Cargo for Rust, `go generate` and `go build`, `dotnet`, `zig build`, Python
-and LuaJIT, with the environment set from the Raven package (`RAVENC`,
-`RAVEN_LIB_DIR`...). What they write goes to **Output**; the errors and
-warnings of GCC, Clang, MSVC, rustc, Go, CMake and ravenc go to **Build** and
-on the lines of the editors, brought back from the generated file to the
-line of the `.xml…`; a double click opens the file at that line. *Project >
-Build settings* sets the build type, the folder of the Raven package (found
-by itself when the IDE runs from one) and the generator,
-kept in `.raven-ide` in the project.
+## The theme editor
 
-Undo and redo cover the interface; `F7` opens it in a window of its own; the
-View menu switches the theme; a folder dropped on the window opens it as a
-project. The visual editor uses the public API only. The files are in
-`tools/designer/` (`ide.h` says what each one does).
+`raven_theme_editor [theme.xml]` makes theme files ([docs/THEMES.md](docs/THEMES.md))
+by looking at them: the theme on the left, a preview on the right made of real
+widgets (controls, an application, code, lists, a dialog) drawn with the theme
+as it changes, and alive.
+
+- **Theme**: the look it starts from (any of the sixteen), dark or light,
+  material, motion, accent, font, wallpaper; *Generate the palette* works out
+  every color from the accent (tint and depth adjustable), *Surprise me* tries
+  another one.
+- **Colors**, **Sizes**, **Code**: the 36 color roles, the metrics, the glass
+  multipliers and the syntax colors, each showing what the look gives until it
+  is set, with a button to go back to it.
+- **Styles**: the `<Style>` rules as text, with ready-made ones to add.
+- **Check**: the contrast of the pairs of colors people read, as WCAG 2
+  measures it, with a button that fixes a pair (or all of them).
+- **XML**: the file as it will be saved, editable, or copied as C code that
+  loads it.
+
+*Saved version* above the preview compares with the last saved theme.
+
+Undo and redo, open and save, `F7` for the preview in a window of its own.
+The files are in `tools/theme_editor/`.
 
 ## License
 
@@ -385,18 +447,44 @@ Questions: oscarsoirey.contact@gmail.com.
 
 ## Status
 
-Version 0.1. Everything in this README has been tested: the headless test
+Version 0.2.0. Everything in this README has been tested: the headless test
 programs (layout, widgets, XML, threads, memory, animations, text editor,
 shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
 under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
 real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 `raven_web`, the designer, the build scripts, `dist.sh`/`dist.bat`, the CMake
-package and every binding (C++, Python, Rust, Go, C#, Zig, LuaJIT).
+package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,
+Java). The native Wayland platform is newer: it is tested against a
+compositor written in its test (`test_wayland`: windows, scales, keyboard,
+pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
+or wlroots with a GPU.
+
+### Linux: Wayland and X11
+
+Raven speaks both. In a Wayland session it opens native Wayland windows;
+elsewhere, or where Wayland cannot be used, it opens X11 windows (through
+XWayland in a Wayland session). Nothing of Wayland is needed to build: its
+libraries are opened when the program starts.
+
+| On Wayland | |
+|---|---|
+| Needs | `libwayland-client` and `libxkbcommon` (installed on every Wayland desktop) |
+| Title bars | drawn by the compositor (KDE, wlroots, Hyprland...), or by `libdecor` where it draws none (GNOME). Without either, Raven uses X11 |
+| Scale | fractional scales (125 %, 150 %...) through `fractional-scale-v1`, sharp at any scale |
+| Keyboard | the layout of the compositor, key repeat, dead keys and compose sequences |
+| Cursors | `cursor-shape-v1`, or the cursor theme (`XCURSOR_THEME`, `XCURSOR_SIZE`) |
+| Also | clipboard, files dropped from other applications, native viewports (sub-surfaces), window icons (`xdg-toplevel-icon`), blur behind transparent windows (`ext-background-effect`) |
+
+`RAVEN_WINDOW_SYSTEM=x11` or `=wayland` overrides the choice;
+`RAVEN_APP_ID` names the application to the desktop (default: the name of
+the executable; it should match the `.desktop` file). `Rwindow_get_native_handle`
+tells which one a window got (`R_WINDOW_SYSTEM_WAYLAND`: `display` is the
+`wl_display*`, `window` the `wl_surface*`).
 
 ## Build options and scripts
 
 Requirements: CMake 3.16+, a C11 compiler. Linux also needs the X11
-development package (`libx11-dev`). The Vulkan *headers* are needed to build;
+development package (`libx11-dev`); nothing of Wayland is needed to build. The Vulkan *headers* are needed to build;
 they come from the Vulkan SDK when it is installed and are downloaded
 otherwise. No Vulkan library is linked.
 
@@ -432,13 +520,14 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_SHARED` | `OFF` | shared library instead of static |
 | `RAVEN_BUILD_EXAMPLES` | `ON` when top level | |
 | `RAVEN_BUILD_TESTS` | `ON` when top level | tests, tests of the bindings, `raven_benchmark` |
-| `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer` |
+| `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer`, `raven_theme_editor` |
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
 | `RAVEN_BACKEND_VULKAN` | `ON` | `OFF` builds without any GPU code (custom backend or headless) |
 | `RAVEN_BACKEND_SOKOL` | `OFF` | also compile the `sokol_gfx` backend, selected with `R_BACKEND_SOKOL` or `RAVEN_BACKEND=sokol` (in progress, offscreen only: [docs/SOKOL_BACKEND_PLAN.md](docs/SOKOL_BACKEND_PLAN.md)); needs the EGL and GLES development files on Linux, the Metal framework on macOS |
 | `RAVEN_BACKEND` (environment) | | `sokol` or `vulkan`: the backend of a program that does not choose one, including the examples (`RAVEN_BACKEND=sokol ./build/bin/raven_hello`) |
 | `RAVEN_SOKOL_API` | `auto` | graphics API of the Sokol backend, fixed at build time: `gles3` (Linux) or `metal` (macOS; written without a Mac, see the plan) |
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
+| `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
 | `RAVEN_FETCH_VULKAN_HEADERS` | `ON` | download the Khronos headers when no SDK is found |
 | `RAVEN_VULKAN_INCLUDE_DIR` | | folder containing `vulkan/vulkan.h`, to skip the search |
@@ -467,8 +556,8 @@ dist.bat --test       :: also runs the tests of each build
 ```
 
 ```
-dist\raven-0.1.0\
-    msvc-static\     include\, lib\raven.lib, lib\cmake\raven, bin\raven_designer.exe, bin\ravenc.exe, share\raven\
+dist\raven-0.2.0\
+    msvc-static\     include\, lib\raven.lib, lib\cmake\raven, bin\raven_designer.exe, share\raven\
     msvc-shared\     bin\raven.dll, lib\raven.lib (to link with the DLL), the rest as above
     mingw-static\    lib\libraven.a, the rest as above
     mingw-shared\    bin\raven.dll, lib\libraven.dll.a (to link with the DLL), the rest as above
@@ -493,7 +582,7 @@ The build trees are in `build\dist\`.
 
 ![The Raven Bevy Editor](docs/images/bevy_editor_viewport.png)
 
-*`examples/bevy_editor`: the viewport of the scene editor written in `.xmlrs`, with the move gizmo on the selected cube (here drawn by its software renderer).*
+*`examples/bevy_editor`: the viewport of the scene editor (its interface in `editor.xml`, driven from Rust), with the move gizmo on the selected cube (here drawn by its software renderer).*
 
 | | |
 |---|---|
@@ -505,14 +594,14 @@ The build trees are in `build\dist\`.
 | `examples/components` | tags declared with `<Widget>`, `<Repeat>`, `<ForEach>`, `<Include>`, and a piece of interface built from C as a document |
 | `examples/memory` | an allocator given by the application, the statistics of the library, the heap check |
 | `examples/studio` | a graph of nodes (widgets inside the nodes, links the application can refuse, nodes added from code), a timeline that plays, a color picker that colors the selected nodes; its XML is loaded again when saved |
-| `examples/themes` | two theme files, styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
+| `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
 | `examples/browser` | web pages with `raven_web`: an address bar, the history, a color picker of Raven that drives the CSS of the page, messages from the page |
 | `examples/glass` | the glass themes and the three glass materials. `raven_glass light` starts with the light glass |
 | `examples/viewport_vulkan` | a Vulkan scene in the UI, twice: offscreen image wrapped as a texture, and drawn in the render pass of Raven. Needs the Vulkan library |
 | `examples/viewport_opengl` | an OpenGL scene in a native child window (WGL / GLX) |
-| `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `.xmlrs`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
-| `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua, one `main.xml…` each, as the IDE creates them, built by the tools of each language |
+| `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
+| `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
 
 ![The notepad example](docs/images/notepad.png)
 
@@ -524,7 +613,8 @@ The build trees are in `build\dist\`.
 
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
-(P/Invoke), Zig and LuaJIT. all of them are tested. See
+(P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
+on Maven Central) and Odin. All but Odin are tested. See
 [bindings/README.md](bindings/README.md). They cover everything in
 `Raven.h`; `raven_web.h` is C only.
 
@@ -569,6 +659,14 @@ static void on_error(RError code, RSeverity severity, const char* detail) {
 }
 Rerror_set_callback(on_error);
 ```
+
+**Loss of the GPU.** When the device is lost (a driver reset or update, a
+GPU removed), Raven starts the backend again at the next frame and remakes
+the surfaces, the fonts, the shaders, the textures made from image files and
+the small textures. Larger textures made from pixels come back transparent:
+fill them again in the function given to `Rset_device_reset_callback`.
+`Rvulkan_simulate_device_lost` tests this path; a custom backend reports a
+loss with `Rbackend_device_lost`.
 
 ### The loop
 
@@ -709,8 +807,13 @@ onto another tab bar, onto a side of a panel or onto an edge of the area; the
 panels fly to their new place. `Slot.Dock`, `Slot.DockTo` and `Slot.DockSize`
 give the starting arrangement in XML; `Rdock_area_add_panel` adds panels from
 C, and `Rdock_area_save_layout` / `Rdock_area_load_layout` turn the
-arrangement into a short text and back. Panels stay inside their window:
-tearing one off into a window of its own is not implemented.
+arrangement into a short text and back.
+
+**Tearing.** A tab dragged out of the area takes its panel to a window of its
+own; dragged back over a dock area, it docks there again. A double click on
+the tab, or closing the window, puts the panel back where it was.
+`Rdock_area_set_tearable` (or `Tearable="false"` in XML) keeps the panels
+inside their window.
 
 ### Dialogs and files
 
@@ -752,7 +855,7 @@ A material is what the surface of a widget is made of:
 | `TintedGlass` | blurred and colored by the theme: the easiest to read on |
 
 ```c
-Rtheme_apply(R_THEME_GLASS_DARK);                     /* a theme comes with its material          */
+Rlook_set(R_LOOK_RAVEN_GLASS_DARK);                   /* a look comes with its material           */
 Rtheme_set_material(R_MATERIAL_FROSTED_GLASS);        /* every widget that was not given its own  */
 Rwidget_set_material(panel, R_MATERIAL_GLASS);        /* this widget and what it contains         */
 ```
@@ -802,7 +905,7 @@ filled: where no widget draws, what is behind it on the screen shows.
 nothing, a blur, or the acrylic and mica materials of Windows 11;
 `Rwindow_set_opacity` fades the whole window. All of it depends on the
 window system (Windows 10 and 11; X11 with a compositor, and KWin for the
-blur): `Rwindow_get_backdrop` tells what was obtained, and where nothing is
+blur; Wayland, and the blur where the compositor offers `ext-background-effect`): `Rwindow_get_backdrop` tells what was obtained, and where nothing is
 available the same interface shows on a plain background.
 
 ![The overlay example](docs/images/overlay.png)
@@ -1022,7 +1125,7 @@ Rviewport_set_texture(viewport, texture);
 /* 2. draw callback: your Vulkan draw calls in the render pass of the window */
 Rviewport_set_draw_callback(viewport, on_draw, user);
 
-/* 3. native child window: a HWND / X11 Window for OpenGL, Direct3D, anything */
+/* 3. native child window: a HWND / X11 Window / Wayland wl_surface for OpenGL, Direct3D, anything */
 Rviewport_set_native(viewport, R_TRUE);
 Rviewport_get_native_handle(viewport, &native);
 ```
@@ -1033,10 +1136,17 @@ by Raven, call `Rvulkan_set_external_device` (and
 
 ### Themes
 
-`Rtheme_apply` chooses one of four themes: `R_THEME_DARK`, `R_THEME_LIGHT`,
-`R_THEME_GLASS_DARK`, `R_THEME_GLASS_LIGHT`. From there:
+`Rlook_set` chooses the look: the ones of Raven (`R_LOOK_RAVEN_DARK`,
+`R_LOOK_RAVEN_LIGHT`, the glass and high contrast ones), the one of Windows 11
+(`R_LOOK_WINDOWS_DARK`, `R_LOOK_WINDOWS_LIGHT`), of macOS
+(`R_LOOK_MACOS_...` for Sequoia, `R_LOOK_MACOS_GLASS_...` for macOS 26 and
+its Liquid Glass) and of GNOME (`R_LOOK_GNOME_...`) — their controls,
+their colors, the accent and the font of the system — or the one of the
+platform the program runs on (`R_LOOK_NATIVE_DARK`, `R_LOOK_NATIVE_LIGHT`). A theme is
+laid over it:
 
 ```c
+Rlook_set(R_LOOK_NATIVE_LIGHT);                                         /* the look of the platform              */
 Rtheme_set_accent(0.13f, 0.83f, 0.93f);                                 /* one color, and the shades that follow */
 Rtheme_set_color(R_COLOR_PANEL, 0.07f, 0.10f, 0.17f, 1.0f);             /* any color or metric of the theme      */
 Rtheme_set_style_metric("Button", NULL, R_METRIC_CORNER_RADIUS, 16);    /* a style for a type of widget          */
@@ -1045,15 +1155,22 @@ Rtheme_load("themes/ocean.xml");  Rtheme_use("Ocean");                  /* a the
 ```
 
 ```xml
-<Theme Name="Ocean" Base="Dark" Accent="#22D3EE" CornerRadius="10">
+<Theme Name="Ocean" Accent="#22D3EE" CornerRadius="10">
     <Colors Panel="#111A2C" Text="#DCE7F5"/>
     <Style Widget="Button" CornerRadius="16"/>
     <Style Class="danger" Accent="#FB7185"/>
+    <Style Widget="Slider" Part="Thumb" State="Hovered" Background="#FFB340"/>
 </Theme>
 ```
 
-`Theme="Ocean"` (or `Theme="themes/ocean.xml"`) on a widget or on a window
-gives a theme to that part of the interface only. Colors and metrics can
+A theme file that names no look (`Look="WindowsDark"`) follows the look in
+use. Styles reach the parts of widgets (`Part="Thumb"`) in their states
+(`State="Hovered Pressed"`).
+
+`Theme="Ocean"` (or `Theme="themes/ocean.xml"`) on a widget gives a theme to
+that part of the interface only; on a `<Window>` (or `Rwindow_set_theme`), to
+that window only, its menus, dialogs and background included, while the other
+windows keep the theme of the application (`Rtheme_use`). Colors and metrics can
 still be set on one widget (`Rwidget_set_color`, `Color.Accent="..."`).
 [docs/THEMES.md](docs/THEMES.md) is the guide.
 
@@ -1099,18 +1216,18 @@ cost is the blur passes, but it has not been measured. Read
 include/Raven.h      the whole public API in one include
 include/raven/       ... one header per area
 src/core/            allocator, handles, threads, job system, files, main loop
-src/platform/        window systems behind one interface: win32/, x11/, null/
+src/platform/        window systems behind one interface: win32/, x11/, wayland/, cocoa/, null/
 src/render/          draw lists, fonts and glyph atlas, textures, render thread
 src/render/vulkan/   the Vulkan backend and its shaders (vk_glass.c: backdrop blur)
 src/widget/          widget base: tree, layout, events, painting, animation, windows, style, themes
 src/widgets/         one file per widget type (text_editor.c, markdown.c, node_graph.c, timeline.c, dialogs.c...)
 src/xml/             parser, loader, declared widgets, documents, watched files, the list of tags and attributes
 web/                 web pages (raven_web.h), compiled into the Raven library
-examples/            sixteen programs (bevy_editor: a scene editor in .xmlrs; languages: one program in eight languages)
-tools/designer/      raven_designer, the IDE (main.c: the visual editor; project, editors, xmlc, build, strings, os)
+examples/            sixteen programs (bevy_editor: a scene editor in Rust; languages: one program in eight languages)
+tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
+tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-tools/ravenc/        ravenc, the XMLC compiler (cmake/RavenXMLC.cmake: raven_target_xmlc)
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```
@@ -1123,7 +1240,10 @@ and how to add a widget, a window system or a backend.
 What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
-- Native Wayland (Wayland sessions work through XWayland and the X11 platform).
+- Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
+  one above the others and fading a whole window: the protocol does not let an
+  application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
+  are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
   installed Chromium-based browser instead.
 
@@ -1135,15 +1255,12 @@ What Raven does not do yet, by area. Contributions are welcome.
   language server client.
 
 **Windows and docking**
-- Tearing a docked panel off into its own window.
 - Dragging from a Raven window to another application.
 - Glass over a native child window.
 
 **Rendering**
-- Mipmaps for scaled-down images.
 - A GPU memory sub-allocator.
 - Presenting several windows in one call.
-- Recovery from a lost Vulkan device.
 
 **Widgets**
 - Node graph: knots on links, groups and comments, a minimap, undo (for now the

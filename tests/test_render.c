@@ -180,6 +180,79 @@ static void test_textures(void) {
 	Rwindow_destroy(window);
 }
 
+/* Pixels of a square of the capture far from mid-gray: what shimmers when an image is scaled down. */
+static int count_far_from_gray(float x0, float y0, float size) {
+	int far = 0;
+	float x, y;
+	for (y = y0 + 2.0f; y < y0 + size - 2.0f; y += 1.0f) {
+		for (x = x0 + 2.0f; x < x0 + size - 2.0f; x += 1.0f) {
+			const uint8_t* p = pixel_at(x, y);
+			if (abs((int)p[0] - 128) > 40) far++;
+		}
+	}
+	return far;
+}
+
+static void test_mipmaps(void) {
+	/* stripes one texel wide, shown about seven times smaller */
+	const int size = 256;
+	uint8_t* stripes = (uint8_t*)malloc((size_t)size * (size_t)size * 4);
+	Rid window = window_from(
+		"<Window Width=\"200\" Height=\"100\" ClearColor=\"#000000\">"
+		"  <Canvas><Image Name=\"image\" Slot.Position=\"20,20\" Slot.Size=\"37,37\"/></Canvas>"
+		"</Window>");
+	Rid image = Rwidget_find(window, "image");
+	Rid texture;
+	int i, far_linear, far_mipmap;
+	for (i = 0; i < size * size; i++) {
+		uint8_t v = (i % size) % 2 ? 255 : 0;
+		stripes[i * 4 + 0] = stripes[i * 4 + 1] = stripes[i * 4 + 2] = v;
+		stripes[i * 4 + 3] = 255;
+	}
+	texture = Rtexture_create_from_pixels(stripes, size, size);
+	Rimage_set_texture(image, texture);
+	Rimage_set_stretch(image, R_STRETCH_FILL);
+
+	/* without mipmaps: one sample of the stripes per pixel, black or white by chance */
+	capture(window);
+	far_linear = count_far_from_gray(20.0f, 20.0f, 37.0f);
+	CHECK(far_linear > 100);
+
+	/* the switch adds the mip levels on the GPU: the stripes average to gray */
+	Rtexture_set_filter(texture, R_FILTER_MIPMAP);
+	capture(window);
+	far_mipmap = count_far_from_gray(20.0f, 20.0f, 37.0f);
+	CHECK(far_mipmap == 0);
+	if (far_mipmap != 0) printf("  far from gray: %d with mipmaps, %d without\n", far_mipmap, far_linear);
+
+	/* new pixels: the levels are made again (white stripes on white: all white) */
+	for (i = 0; i < size * size * 4; i++) stripes[i] = 255;
+	Rtexture_update(texture, stripes, size, size);
+	capture(window);
+	CHECK_PIXEL(38, 38, 255, 255, 255);
+	Rtexture_destroy(texture);
+
+	/* created with mipmaps from the start (as the textures from image files are) */
+	for (i = 0; i < size * size; i++) {
+		uint8_t v = (i % size) % 2 ? 255 : 0;
+		stripes[i * 4 + 0] = stripes[i * 4 + 1] = stripes[i * 4 + 2] = v;
+	}
+	texture = Rtexture_create_from_pixels(stripes, size, size);
+	Rtexture_set_filter(texture, R_FILTER_MIPMAP);
+	Rtexture_update(texture, stripes, size, size);
+	Rimage_set_texture(image, texture);
+	capture(window);
+	CHECK(count_far_from_gray(20.0f, 20.0f, 37.0f) == 0);
+	/* back to plain smoothing: the first level only */
+	Rtexture_set_filter(texture, R_FILTER_LINEAR);
+	capture(window);
+	CHECK(count_far_from_gray(20.0f, 20.0f, 37.0f) > 100);
+
+	Rtexture_destroy(texture);
+	free(stripes);
+	Rwindow_destroy(window);
+}
+
 static void test_text(void) {
 	Rid window = window_from(
 		"<Window Width=\"300\" Height=\"120\" ClearColor=\"#000000\">"
@@ -711,6 +784,123 @@ static void test_vulkan_api(void) {
  *  Start-up
  * ------------------------------------------------------------------------- */
 
+#if defined(RAVEN_TEST_HAS_VULKAN)
+/* ---------------------------------------------------------------------------
+ *  Loss of the device
+ * ------------------------------------------------------------------------- */
+
+static int g_resets;
+static Rid g_big_texture;
+static uint8_t* g_big_pixels;
+
+static void on_device_reset(void* user_data) {
+	(void)user_data;
+	g_resets++;
+	/* the pixels only the application has: given again */
+	Rtexture_update(g_big_texture, g_big_pixels, 300, 300);
+}
+
+static int lit_pixels(float x0, float y0, float w, float h) {
+	int lit = 0;
+	float x, y;
+	for (y = y0; y < y0 + h; y += 1.0f) {
+		for (x = x0; x < x0 + w; x += 1.0f) {
+			if (pixel_at(x, y)[0] > 128) lit++;
+		}
+	}
+	return lit;
+}
+
+static void test_device_lost(void) {
+	static const uint8_t small[16] = {
+		255, 0, 0, 255,   255, 0, 0, 255,
+		255, 0, 0, 255,   255, 0, 0, 255
+	};
+	Rid window = window_from(
+		"<Window Width=\"400\" Height=\"200\" ClearColor=\"#000000\">"
+		"  <Canvas>"
+		"    <Image Name=\"small\" Slot.Position=\"10,10\" Slot.Size=\"40,40\"/>"
+		"    <Image Name=\"big\" Slot.Position=\"60,10\" Slot.Size=\"40,40\"/>"
+		"    <Label Name=\"label\" Slot.Position=\"120,10\" TextSize=\"40\" Color=\"#FFFFFF\">Raven</Label>"
+		"    <Border Name=\"effect\" Slot.Position=\"10,120\" Slot.Size=\"60,60\" Effect=\"plasma\"/>"
+		"  </Canvas>"
+		"</Window>");
+	Rid small_texture = Rtexture_create_from_pixels(small, 2, 2);
+	void* device_before = Rvulkan_get_device();
+	int i, lit_before, lit_after;
+	const uint8_t* p;
+
+	g_big_pixels = (uint8_t*)malloc(300 * 300 * 4);
+	for (i = 0; i < 300 * 300; i++) {
+		g_big_pixels[i * 4 + 0] = 0;
+		g_big_pixels[i * 4 + 1] = 255;
+		g_big_pixels[i * 4 + 2] = 0;
+		g_big_pixels[i * 4 + 3] = 255;
+	}
+	g_big_texture = Rtexture_create_from_pixels(g_big_pixels, 300, 300);
+	Rimage_set_texture(Rwidget_find(window, "small"), small_texture);
+	Rimage_set_texture(Rwidget_find(window, "big"), g_big_texture);
+	Rimage_set_stretch(Rwidget_find(window, "small"), R_STRETCH_FILL);
+	Rimage_set_stretch(Rwidget_find(window, "big"), R_STRETCH_FILL);
+	capture(window);
+	CHECK_PIXEL(30, 30, 255, 0, 0);
+	CHECK_PIXEL(80, 30, 0, 255, 0);
+	lit_before = lit_pixels(120.0f, 10.0f, 200.0f, 60.0f);
+	CHECK(lit_before > 300);
+	p = pixel_at(40, 150);
+	CHECK(p[0] + p[1] + p[2] > 60);
+
+	/* lost: Raven makes a new device at the next frame, and everything again */
+	g_resets = 0;
+	Rset_device_reset_callback(on_device_reset, NULL);
+	EXPECT_ERRORS_BEGIN();
+	Rvulkan_simulate_device_lost();
+	Rdraw_frame();
+	EXPECT_ERRORS_END(1);
+	CHECK(g_resets == 1);
+	CHECK(Rvulkan_get_device() != NULL);
+	if (Rvulkan_get_device() == device_before) printf("  (the driver gave the same VkDevice handle again)\n");
+
+	capture(window);
+	/* a small texture: from the copy of its pixels */
+	CHECK_PIXEL(30, 30, 255, 0, 0);
+	/* a large one: given again by the application in the callback */
+	CHECK_PIXEL(80, 30, 0, 255, 0);
+	/* the glyphs: from the copy the fonts keep */
+	lit_after = lit_pixels(120.0f, 10.0f, 200.0f, 60.0f);
+	CHECK(lit_after == lit_before);
+	/* the shader of the effect */
+	p = pixel_at(40, 150);
+	CHECK(p[0] + p[1] + p[2] > 60);
+
+	/* without the callback, the large texture comes back transparent */
+	Rset_device_reset_callback(NULL, NULL);
+	EXPECT_ERRORS_BEGIN();
+	Rvulkan_simulate_device_lost();
+	Rdraw_frame();
+	EXPECT_ERRORS_END(1);
+	capture(window);
+	CHECK_PIXEL(30, 30, 255, 0, 0);
+	CHECK_PIXEL(80, 30, 0, 0, 0);
+	/* and works as before when it is filled again */
+	Rtexture_update(g_big_texture, g_big_pixels, 300, 300);
+	capture(window);
+	CHECK_PIXEL(80, 30, 0, 255, 0);
+
+	/* a window opened after the recovery */
+	Rwindow_destroy(window);
+	window = window_from("<Window Width=\"100\" Height=\"100\" ClearColor=\"#0000FF\"/>");
+	capture(window);
+	CHECK_PIXEL(50, 50, 0, 0, 255);
+	Rwindow_destroy(window);
+
+	Rtexture_destroy(small_texture);
+	Rtexture_destroy(g_big_texture);
+	free(g_big_pixels);
+	g_big_pixels = NULL;
+}
+#endif /* RAVEN_TEST_HAS_VULKAN */
+
 /* Starts the backend (RAVEN_BACKEND, Vulkan by default) and checks that a window can really be rendered. */
 static int start(int headless) {
 	RInitDesc desc;
@@ -738,6 +928,34 @@ static int start(int headless) {
 	return 1;
 }
 
+/* The look of Windows, and a style given to a part: drawn as said. */
+static void test_windows_look(void) {
+	Rid window;
+	Rtheme_apply(R_THEME_DARK);
+	Rlook_set(R_LOOK_WINDOWS_LIGHT);
+	window = window_from(
+		"<Window Width=\"300\" Height=\"200\">"
+		"  <Canvas>"
+		"    <Button Text=\"\" Slot.Position=\"20,20\" Slot.Size=\"120,32\"/>"
+		"    <Button Text=\"\" Class=\"red\" Slot.Position=\"20,80\" Slot.Size=\"120,32\"/>"
+		"    <Button Text=\"\" Style=\"Primary\" Slot.Position=\"160,20\" Slot.Size=\"120,32\"/>"
+		"  </Canvas>"
+		"</Window>");
+	CHECK(Rtheme_load_from_memory("<Theme Name=\"RedButtons\"><Style Widget=\"Button\" Class=\"red\" Background=\"#FF0000\"/></Theme>", 0) != NULL);
+	CHECK(Rtheme_use("RedButtons"));
+	capture(window);
+	/* the window: Mica, light */
+	CHECK_PIXEL(5, 5, 0xF3, 0xF3, 0xF3);
+	/* a button: white at 70 % over it */
+	CHECK_PIXEL(80, 36, 0xFB, 0xFB, 0xFB);
+	/* the accent button: the accent of Windows (or the one of the system) */
+	CHECK(abs((int)pixel_at(220, 36)[0] - 0xF3) + abs((int)pixel_at(220, 36)[1] - 0xF3) + abs((int)pixel_at(220, 36)[2] - 0xF3) > 60);
+	/* the class "red": its Background */
+	CHECK_PIXEL(80, 96, 0xFF, 0x00, 0x00);
+	Rwindow_destroy(window);
+	Rtheme_apply(R_THEME_DARK);
+}
+
 int main(void) {
 	/* failures to start are expected on machines without Vulkan: stay quiet */
 	/* RAVEN_TEST_WINDOWED=1 forces a real window, to test the window system path too */
@@ -758,9 +976,11 @@ int main(void) {
 	RUN(test_shapes);
 	RUN(test_clipping);
 	RUN(test_textures);
+	RUN(test_mipmaps);
 	RUN(test_text);
 	RUN(test_custom_drawing);
 	RUN(test_glass);
+	RUN(test_windows_look);
 	RUN(test_glass_theme);
 	RUN(test_materials);
 	RUN(test_curves_and_blur);
@@ -768,6 +988,14 @@ int main(void) {
 	RUN(test_viewport);
 	RUN(test_windows);
 	RUN(test_vulkan_api);
+#if defined(RAVEN_TEST_HAS_VULKAN)
+	/* (a Vulkan device is lost: what the other backends have no way to do) */
+	if (Rget_backend() == R_BACKEND_VULKAN) RUN(test_device_lost);
+#endif
+	/* everything works on the new device */
+	RUN(test_shapes);
+	RUN(test_text);
+	RUN(test_glass);
 
 	Rpixels_free(g_pixels);
 	Rshutdown();

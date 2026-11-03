@@ -1,0 +1,8 @@
+<!-- hello_rust: the interface. The program loads it when it starts; save it while the program runs and the window follows. -->
+<Window Title="hello_rust" Width="480" Height="320">
+	<VBox Spacing="12" Slot.Padding="24">
+		<Label Text="@hello.title" TextSize="24"/>
+		<Label Name="status" Text="@hello.none" Opacity="0.7"/>
+		<Button Text="@hello.button" Style="Primary" OnClicked="hello.clicked" Slot.HAlign="Left"/>
+	</VBox>
+</Window>

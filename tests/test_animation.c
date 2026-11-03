@@ -178,7 +178,6 @@ static void test_transitions(void) {
 	/* the second label waits 0.2 s: it draws nothing during the first frames */
 	Rdraw_frame();
 	Rwindow_get_frame_stats(window, &stats);
-	/* (relative counts: the free edition adds its watermark to every frame) */
 	first = stats.instance_count;
 	CHECK(first >= 5);
 	/* both arrive, then the window is still */

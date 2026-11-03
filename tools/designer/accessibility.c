@@ -1,5 +1,5 @@
 /*
- * Raven IDE - accessibility.c
+ * Raven Designer - accessibility.c
  * View > Accessibility: every accessibility setting of Raven, live, in a
  * window of its own. It is also a showcase: what any application built with
  * Raven offers its users without writing a line for it.
@@ -14,11 +14,12 @@
  *   screen readers         Raccessibility_is_screen_reader_active, Raccessibility_announce
  *   the system             Raccessibility_get_system_settings, Raccessibility_follow_system
  *
- * The settings are kept in ide.ini (a11y.*) and applied again at the next
+ * The settings are kept in designer.ini (a11y.*) and applied again at the next
  * start. View > Reduce motion switches the one most asked for from the menu.
  */
 
-#include "ide.h"
+#include "designer.h"
+#include "../crash_report.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,10 +43,10 @@ static const char A11Y_XML[] =
 "<Window Title=\"Accessibility\" Width=\"520\" Height=\"640\" MinWidth=\"420\" MinHeight=\"360\">"
 "<ScrollBox>"
 "  <VBox Spacing=\"14\" Slot.Padding=\"22\">"
-"    <Label Text=\"Accessibility\" TextSize=\"22\" AccessibleRole=\"Heading\"/>"
-"    <Label Text=\"What every application made with Raven offers its users, with nothing to write: the settings apply at once, to every window. The IDE keeps them for the next time.\" Wrap=\"true\" Opacity=\"0.65\"/>"
+"    <Label Name=\"a11y.heading0\" Text=\"Accessibility\" TextSize=\"22\" AccessibleRole=\"Heading\"/>"
+"    <Label Text=\"What every application made with Raven offers its users, with nothing to write: the settings apply at once, to every window. The designer keeps them for the next time.\" Wrap=\"true\" Opacity=\"0.65\"/>"
 
-"    <Label Text=\"Sight\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading1\" Text=\"Sight\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Grid Columns=\"0,1\" Spacing=\"12\">"
 "      <Label Width=\"150\" Name=\"text.label\" Text=\"Text size\" Slot.VAlign=\"Center\"/>"
 "      <HBox Spacing=\"10\" Slot.Column=\"1\"><Slider Name=\"text\" Min=\"0.75\" Max=\"2\" Step=\"0.05\" Slot.Fill=\"1\" AccessibleName=\"Text size\"/><Label Name=\"text.value\" Width=\"52\" Slot.VAlign=\"Center\"/></HBox>"
@@ -59,7 +60,7 @@ static const char A11Y_XML[] =
 "      <Checkbox Name=\"focus\" Text=\"Always visible\" Style=\"Switch\" Slot.Row=\"4\" Slot.Column=\"1\"/>"
 "    </Grid>"
 
-"    <Label Text=\"Motion\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading2\" Text=\"Motion\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Grid Columns=\"0,1\" Spacing=\"12\">"
 "      <Label Width=\"150\" Text=\"Reduce motion\" Slot.VAlign=\"Center\" Tooltip=\"Nothing moves by itself: no spring, no slide, no bounce, and the effects stand still\"/>"
 "      <Checkbox Name=\"motion\" Style=\"Switch\" Slot.Column=\"1\" AccessibleName=\"Reduce motion\"/>"
@@ -70,11 +71,11 @@ static const char A11Y_XML[] =
 "      <Label Text=\"Move the pointer here\" Slot.Padding=\"14\" Slot.VAlign=\"Center\" AccessibleHidden=\"true\"/>"
 "    </Border>"
 
-"    <Label Text=\"Screen readers\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading3\" Text=\"Screen readers\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Label Name=\"reader\" Wrap=\"true\" Opacity=\"0.8\"/>"
 "    <HBox Spacing=\"8\"><Button Name=\"announce\" Text=\"Read a message\" Tooltip=\"Raccessibility_announce: what a screen reader says when something happens\"/></HBox>"
 
-"    <Label Text=\"The system\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
+"    <Label Name=\"a11y.heading4\" Text=\"The system\" TextSize=\"16\" AccessibleRole=\"Heading\"/>"
 "    <Label Name=\"system\" Wrap=\"true\" Opacity=\"0.8\"/>"
 "    <HBox Spacing=\"8\">"
 "      <Button Name=\"follow\" Text=\"Follow the system\" Tooltip=\"Text size, contrast and motion as the system asks\"/>"
@@ -212,7 +213,7 @@ static void on_button(Rid button, void* user_data) {
 	(void)button;
 	if (!strcmp(which, "announce")) {
 		Raccessibility_announce("This is Raven: the screen reader reads what the application announces.", R_FALSE);
-		ide_status("Announced to the screen reader%s.", Raccessibility_is_screen_reader_active() ? "" : " (none is running)");
+		ds_status("Announced to the screen reader%s.", Raccessibility_is_screen_reader_active() ? "" : " (none is running)");
 		return;
 	}
 	if (!strcmp(which, "close")) {
@@ -259,6 +260,11 @@ void accessibility_window(void) {
 	for (i = 0; i < sizeof(buttons) / sizeof(buttons[0]); i++) Rbutton_set_clicked_callback(find(buttons[i]), on_button, (void*)buttons[i]);
 	Rcombo_box_set_changed_callback(find("filter"), on_filter, NULL);
 	Rwindow_set_close_callback(g_a.window, on_close, NULL);
+	for (i = 0; i < 5; i++) {
+		char name[32];
+		snprintf(name, sizeof(name), "a11y.heading%d", (int)i);
+		fonts_title_on(find(name));
+	}
 	refresh();
 }
 
@@ -267,12 +273,13 @@ void accessibility_window(void) {
  * ------------------------------------------------------------------------- */
 
 void accessibility_sync_menu(void) {
-	Rid item = Rwidget_find(g_ide_window, "menu.reduce_motion");
+	Rid item = Rwidget_find(g_ds_window, "menu.reduce_motion");
 	if (item != R_INVALID_ID) Rmenu_item_set_checked(item, Raccessibility_get_reduce_motion());
 	refresh();
 }
 
 static void action_accessibility(Rid sender, const char* action, void* user_data) {
+	crash_report_note("action %s", action);
 	(void)sender;
 	(void)user_data;
 	if (!strcmp(action, "view.accessibility")) {
@@ -281,7 +288,7 @@ static void action_accessibility(Rid sender, const char* action, void* user_data
 		Raccessibility_set_reduce_motion(!Raccessibility_get_reduce_motion());
 		save_all();
 		accessibility_sync_menu();
-		ide_status(Raccessibility_get_reduce_motion() ? "Reduced motion: nothing moves by itself." : "Animations are back.");
+		ds_status(Raccessibility_get_reduce_motion() ? "Reduced motion: nothing moves by itself." : "Animations are back.");
 	}
 }
 

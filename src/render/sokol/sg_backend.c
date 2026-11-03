@@ -176,7 +176,7 @@ static void rvn_sg_draw_instances(const RDrawData* data, const RDrawCommand* com
 	bindings.views[0] = texture->view;
 	bindings.views[1] = sharp;
 	bindings.views[2] = blurred;
-	bindings.samplers[0] = texture->filter == R_FILTER_NEAREST ? g_sg.nearest : g_sg.linear;
+	bindings.samplers[0] = texture->filter == R_FILTER_NEAREST ? g_sg.nearest : (texture->filter == R_FILTER_MIPMAP && texture->mips > 1) ? g_sg.mipmap : g_sg.linear;
 	bindings.samplers[1] = g_sg.linear;
 	bindings.samplers[2] = g_sg.linear;
 	sg_apply_bindings(&bindings);
@@ -307,6 +307,7 @@ static void rvn_sg_render_frame(const RDrawData* data, RCapture* capture) {
 	if (glass && !rvn_sg_glass_prepare(surface)) glass = R_FALSE;
 
 	rvn_sg_uploads_flush();
+	rvn_sg_mips_generate();
 	if (!rvn_sg_upload_instances(data)) return;
 
 	clear.r = data->clear_color[0];

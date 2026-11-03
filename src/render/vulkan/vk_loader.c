@@ -126,6 +126,7 @@ int rvn_vk_load_instance(VkInstance instance) {
 	RVN_VK_ASSIGN(rvn_vk.CreateWin32SurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateWin32SurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateXlibSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateXlibSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateXcbSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateXcbSurfaceKHR"));
+	RVN_VK_ASSIGN(rvn_vk.CreateWaylandSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateWaylandSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateMetalSurfaceEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateMetalSurfaceEXT"));
 	RVN_VK_ASSIGN(rvn_vk.CreateHeadlessSurfaceEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
 	RVN_VK_ASSIGN(rvn_vk.CreateDebugUtilsMessengerEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));

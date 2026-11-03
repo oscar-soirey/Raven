@@ -40,7 +40,10 @@
 #define RVN_INLINE static inline
 #define RVN_UNUSED(x) ((void)(x))
 #define RVN_COUNT_OF(a) (sizeof(a) / sizeof((a)[0]))
-#define RVN_VERSION_STRING "0.1.0"
+/* Set by CMakeLists.txt from project(VERSION); this copy serves builds without CMake. */
+#ifndef RVN_VERSION_STRING
+#define RVN_VERSION_STRING "0.2.0"
+#endif
 
 /* ---------------------------------------------------------------------------
  *  Scalars

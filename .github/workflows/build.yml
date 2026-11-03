@@ -6,8 +6,11 @@
 #   Windows (Visual C++)   raven.lib             raven.dll + raven.lib
 #   Windows (MinGW-w64)    libraven.a            raven.dll + libraven.dll.a
 #
-# Every package is a CMake install prefix (include/, lib/, bin/ with ravenc and
+# Every package is a CMake install prefix (include/, lib/, bin/ with
 # raven_designer, share/raven/): find_package(raven) with CMAKE_PREFIX_PATH set to it.
+#
+# The tests run on Linux (headless; test_web drives the Chrome of the runner).
+# A tag is released only when they pass.
 #
 # Each run uploads the packages as artifacts (Actions tab > the run > Artifacts).
 # Pushing a tag v* (git tag v0.1.0 && git push origin v0.1.0) also attaches them
@@ -29,6 +32,46 @@ env:
   VULKAN_HEADERS_TAG: v1.3.290
 
 jobs:
+  # ---------------------------------------------------------------------------
+  #  Tests (Linux, headless)
+  # ---------------------------------------------------------------------------
+  test:
+    name: tests (linux)
+    runs-on: ubuntu-latest
+    env:
+      # the Chrome sandbox needs user namespaces, which the runner restricts
+      RAVEN_WEB_NO_SANDBOX: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DRAVEN_BUILD_TESTS=ON \
+            -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_BUILD_TOOLS=ON \
+            -DRAVEN_WARNINGS_AS_ERRORS=OFF \
+            -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 300
+
   # ---------------------------------------------------------------------------
   #  Linux, macOS, Windows (Visual C++)
   # ---------------------------------------------------------------------------
@@ -289,7 +332,7 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, mingw]
+    needs: [test, build, mingw]
     runs-on: ubuntu-latest
     permissions:
       contents: write

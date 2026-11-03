@@ -800,17 +800,21 @@ static void test_schema(void) {
 
 	/* the window: its own attributes only, each accepted */
 	{
-		char xml[1024];
+		char xml[2048];
 		int length = snprintf(xml, sizeof(xml), "<Window");
 		Rid window;
 		int count = Rxml_get_attribute_count("Window");
-		CHECK(count >= 10 && count < 20);
+		CHECK(count >= 20 && count < 30);
 		for (index = 0; index < count; index++) {
+			int touch;
 			CHECK(Rxml_get_attribute_info("window", index, &info));
-			CHECK_STR(info.group, "Window");
+			/* its own attributes, then those of fingers and pens */
+			touch = strcmp(info.group, "Touch") == 0;
+			CHECK(touch || strcmp(info.group, "Window") == 0);
+			CHECK(!touch || strncmp(info.name, "Touch.", 6) == 0 || strncmp(info.name, "Pen.", 4) == 0);
 			if (info.type == R_XML_FILE) continue;
 			length += snprintf(xml + length, sizeof(xml) - (size_t)length, " %s=\"%s\"", info.name,
-				info.type == R_XML_NUMBER ? "300" : schema_sample(&info, buffer, sizeof(buffer)));
+				info.type == R_XML_NUMBER ? (touch ? "0.5" : "300") : schema_sample(&info, buffer, sizeof(buffer)));
 		}
 		snprintf(xml + length, sizeof(xml) - (size_t)length, "/>");
 		/* (an attribute it does not know would be reported, and fail the test) */
@@ -851,17 +855,207 @@ static void test_schema(void) {
 	Rxml_unregister_widget("SchemaCard");
 }
 
+/*
+ * A <Widget> declared again while it is being used: inside its own body, or
+ * declarations made inside a use (the list of declarations grows while it is
+ * read). What is being expanded stays alive until the expansion is over.
+ */
+static void test_declared_again_inside(void) {
+	const char* again =
+		"<VBox>"
+		"<Widget Name=\"Card\"><Border><VBox><Widget Name=\"Card\"><Label Text=\"again\"/></Widget><Label Name=\"inside\" Text=\"first\"/></VBox></Border></Widget>"
+		"<Card/><Card/><Card/>"
+		"</VBox>";
+	char grows[4096];
+	int length = 0, i;
+	Rid widget;
+	widget = Rwidget_create_from_xml(again, strlen(again));
+	CHECK(widget != R_INVALID_ID);
+	if (widget != R_INVALID_ID) {
+		CHECK(Rwidget_get_child_count(widget) == 3);
+		Rwidget_destroy(widget);
+	}
+	/* a body that declares twenty more: the array of declarations is reallocated during the use */
+	length += snprintf(grows + length, sizeof(grows) - (size_t)length, "<VBox><Widget Name=\"Grower\"><VBox>");
+	for (i = 0; i < 20; i++) length += snprintf(grows + length, sizeof(grows) - (size_t)length, "<Widget Name=\"Made%d\"><Label/></Widget>", i);
+	length += snprintf(grows + length, sizeof(grows) - (size_t)length, "<Label Text=\"grown\"/></VBox></Widget><Grower/><Grower/><Made3/></VBox>");
+	widget = Rwidget_create_from_xml(grows, (size_t)length);
+	CHECK(widget != R_INVALID_ID);
+	if (widget != R_INVALID_ID) Rwidget_destroy(widget);
+	for (i = 0; i < 20; i++) {
+		char name[32];
+		snprintf(name, sizeof(name), "Made%d", i);
+		Rxml_unregister_widget(name);
+	}
+	Rxml_unregister_widget("Grower");
+	Rxml_unregister_widget("Card");
+}
+
+/* The actions Raven knows by itself: an interface that works with no C. */
+static int g_unbound_count;
+static void on_unbound(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_unbound_count++;
+}
+static void on_bound_hide(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(*(int*)user_data)++;
+}
+
+static void test_builtin_actions(void) {
+	static const char xml[] =
+		"<Window Width=\"300\" Height=\"200\">"
+		"  <VBox>"
+		"    <Button Name=\"go\" Text=\"Go\" OnClicked=\"page:pages=+1\"/>"
+		"    <Label Name=\"details\" Text=\"Details\"/>"
+		"    <TextInput Name=\"field\"/>"
+		"    <Switcher Name=\"pages\"><Label Text=\"One\"/><Label Text=\"Two\"/><Label Text=\"Three\"/></Switcher>"
+		"    <ComboBox Name=\"choice\" Items=\"a|b|c\" Selected=\"0\"/>"
+		"  </VBox>"
+		"</Window>";
+	Rid window = Rwindow_create_from_xml(xml, sizeof(xml) - 1);
+	Rid go, details, pages, choice, field;
+	int bound = 0;
+	CHECK(Rwindow_is_valid(window));
+	if (!Rwindow_is_valid(window)) return;
+	go = Rwidget_find(window, "go");
+	details = Rwidget_find(window, "details");
+	pages = Rwidget_find(window, "pages");
+	choice = Rwidget_find(window, "choice");
+	field = Rwidget_find(window, "field");
+	g_unbound_count = 0;
+	Raction_set_default_handler(on_unbound, NULL);
+
+	/* the names */
+	CHECK(Raction_is_builtin("app.quit"));
+	CHECK(Raction_is_builtin("show:details"));
+	CHECK(Raction_is_builtin("page:pages=2"));
+	CHECK(!Raction_is_builtin("show:"));
+	CHECK(!Raction_is_builtin("file.save"));
+
+	/* widgets of the window of the sender, by their names */
+	Raction_fire("hide:details", go);
+	CHECK(Rwidget_get_visibility(details) == R_COLLAPSED);
+	Raction_fire("toggle:details", go);
+	CHECK(Rwidget_get_visibility(details) == R_VISIBLE);
+	Raction_fire("disable:field", go);
+	CHECK(!Rwidget_is_enabled(field));
+	Raction_fire("enable:field", go);
+	CHECK(Rwidget_is_enabled(field));
+	Raction_fire("page:pages=2", go);
+	CHECK(Rswitcher_get_index(pages) == 2);
+	Raction_fire("page:pages=+1", go);
+	CHECK(Rswitcher_get_index(pages) == 0);
+	Raction_fire("page:pages=-1", go);
+	CHECK(Rswitcher_get_index(pages) == 2);
+	Raction_fire("page:choice=1", window);
+	CHECK(Rcombo_box_get_selected(choice) == 1);
+	/* a name that is no widget does nothing, and is not passed on */
+	Raction_fire("show:nothing", go);
+	CHECK(g_unbound_count == 0);
+	/* the look */
+	Raction_fire("theme.light", go);
+	CHECK(Rlook_get() == R_LOOK_RAVEN_LIGHT);
+	Raction_fire("theme.toggle", go);
+	CHECK(Rlook_get() == R_LOOK_RAVEN_DARK);
+	/* the clipboard */
+	Raction_fire("copy:Hello", go);
+	CHECK_STR(Rclipboard_get_text(), "Hello");
+
+	/* a function bound to the name wins */
+	Raction_bind("hide:details", on_bound_hide, &bound);
+	Raction_fire("hide:details", go);
+	CHECK(bound == 1 && Rwidget_get_visibility(details) == R_VISIBLE);
+	Raction_unbind("hide:details");
+	/* other names go to the default handler */
+	Raction_fire("test.not_bound", go);
+	CHECK(g_unbound_count == 1);
+	/* turned off: they all go to the default handler */
+	Raction_set_builtins(R_FALSE);
+	Raction_fire("hide:details", go);
+	CHECK(Rwidget_get_visibility(details) == R_VISIBLE && g_unbound_count == 2);
+	Raction_set_builtins(R_TRUE);
+	/* window.close closes the window of the widget */
+	Raction_fire("window.close", go);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_valid(window));
+	Raction_set_default_handler(NULL, NULL);
+}
+
+/* <Window Theme> and Rwindow_set_theme: the theme of that window only, never the one of the application. */
+static void test_window_theme(void) {
+	static const char xml[] =
+		"<Window Title=\"Dark one\" Width=\"300\" Height=\"200\" Theme=\"RavenDark\">\n"
+		"  <VBox><Label Name=\"label\" Text=\"a\"/><Button Name=\"own\" Text=\"b\" Theme=\"WindowsLight\"/></VBox>\n"
+		"</Window>\n";
+	static const char plain[] = "<Window Title=\"Plain\" Width=\"300\" Height=\"200\"><Label Name=\"label\" Text=\"c\"/></Window>";
+	char app[64], initial[64];
+	Rid dark, other, label, own, other_label, moved;
+	float r1, g1, b1, a1, r2, g2, b2, a2;
+	snprintf(initial, sizeof(initial), "%s", Rtheme_get_name());
+	CHECK(Rtheme_use("RavenLight"));
+	snprintf(app, sizeof(app), "%s", Rtheme_get_name());
+	dark = Rwindow_create_from_xml(xml, strlen(xml));
+	other = Rwindow_create_from_xml(plain, strlen(plain));
+	CHECK(dark != R_INVALID_ID && other != R_INVALID_ID);
+	label = Rwidget_find(dark, "label");
+	own = Rwidget_find(dark, "own");
+	other_label = Rwidget_find(other, "label");
+	Rdraw_frame();
+	/* the application keeps its theme */
+	CHECK_STR(Rtheme_get_name(), app);
+	CHECK(Rwindow_has_own_theme(dark));
+	CHECK(!Rwindow_has_own_theme(other));
+	CHECK_STR(Rwindow_get_theme(dark), "RavenDark");
+	CHECK_STR(Rwindow_get_theme(other), app);
+	CHECK_STR(Rwidget_get_theme(label), "RavenDark");
+	CHECK_STR(Rwidget_get_theme(own), "WindowsLight");
+	CHECK_STR(Rwidget_get_theme(other_label), app);
+	/* drawn with it: the text of the dark window is light, the one of the other dark */
+	Rwidget_get_color(label, R_COLOR_TEXT, &r1, &g1, &b1, &a1);
+	Rwidget_get_color(other_label, R_COLOR_TEXT, &r2, &g2, &b2, &a2);
+	CHECK(r1 + g1 + b1 > r2 + g2 + b2 + 0.5f);
+	/* a widget put in the window wears its theme, and the one of the next window when it moves */
+	moved = Rwidget_create(R_WIDGET_LABEL);
+	Rwindow_set_content(dark, moved);
+	CHECK_STR(Rwidget_get_theme(moved), "RavenDark");
+	/* the application changes its theme: the window keeps its own */
+	CHECK(Rtheme_use("WindowsLight"));
+	CHECK_STR(Rwindow_get_theme(dark), "RavenDark");
+	CHECK_STR(Rwidget_get_theme(moved), "RavenDark");
+	/* NULL: the theme of the application again */
+	CHECK(Rwindow_set_theme(dark, NULL));
+	CHECK(!Rwindow_has_own_theme(dark));
+	CHECK_STR(Rwidget_get_theme(moved), Rtheme_get_name());
+	CHECK(Rwindow_set_theme(dark, "GnomeDark"));
+	CHECK_STR(Rwidget_get_theme(moved), "GnomeDark");
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rwindow_set_theme(dark, "NoSuchTheme"));
+	EXPECT_ERRORS_END(1);
+	CHECK_STR(Rwindow_get_theme(dark), "GnomeDark");
+	Rdraw_frame();
+	Rwindow_destroy(dark);
+	Rwindow_destroy(other);
+	if (initial[0]) Rtheme_use(initial);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
 		return 1;
 	}
 	RUN(test_window);
+	RUN(test_window_theme);
 	RUN(test_widget_fragment);
 	RUN(test_errors);
 	RUN(test_components);
+	RUN(test_declared_again_inside);
 	RUN(test_documents);
 	RUN(test_schema);
+	RUN(test_builtin_actions);
 	Rshutdown();
 	return test_report("test_xml");
 }
