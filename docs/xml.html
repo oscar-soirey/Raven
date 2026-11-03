@@ -183,7 +183,7 @@ glass (<code>Color.Control="#FF375F60"</code> is a pink glass button).</p>
 <tr><td><code>AccessibleRole</code></td><td><code>Auto</code> | <code>None</code> | <code>Group</code> | <code>Text</code> | <code>Heading</code> | <code>Link</code> | <code>Button</code> | <code>ToggleButton</code> | <code>CheckBox</code> | <code>RadioButton</code> | <code>Slider</code> | <code>ProgressBar</code> | <code>SpinButton</code> | <code>TextField</code> | <code>Document</code> | <code>ComboBox</code> | <code>List</code> | <code>ListItem</code> | <code>Tree</code> | <code>TreeItem</code> | <code>Table</code> | <code>MenuBar</code> | <code>Menu</code> | <code>MenuItem</code> | <code>TabList</code> | <code>Tab</code> | <code>TabPanel</code> | <code>Toolbar</code> | <code>StatusBar</code> | <code>Dialog</code> | <code>Alert</code> | <code>Image</code> | <code>Canvas</code> | <code>Separator</code> | <code>ScrollBar</code> | <code>Pane</code></td><td>What the widget is for a screen reader.</td></tr>
 <tr><td><code>AccessibleHidden</code></td><td>boolean</td><td>Hidden from screen readers, with what it contains (decoration).</td></tr>
 <tr><td><code>Touch.Mode</code></td><td><code>Auto</code> | <code>Scroll</code> | <code>Mouse</code> | <code>None</code></td><td>What a finger does here: Auto scrolls what scrolls and is a mouse elsewhere, Scroll always scrolls, Mouse is a mouse (no scrolling), None ignores fingers (a surface for the pen).</td></tr>
-<tr><td><code>Touch.Gestures</code></td><td>boolean</td><td>false: two fingers neither zoom nor pan the widget.</td></tr>
+<tr><td><code>Touch.Gestures</code></td><td>boolean</td><td>false: two fingers, on the screen or a trackpad, neither zoom nor pan the widget.</td></tr>
 <tr><td><code>Pen.Mouse</code></td><td>boolean</td><td>false: the pen is not a mouse here; only the pen callback of the application sees it.</td></tr>
 </table></div>
 <h3 id="slot-attributes">Slot attributes: the place of a widget in its parent</h3>
@@ -353,6 +353,9 @@ the same.</p>
 <tr><td><code>Pen.MouseEmulation</code></td><td>boolean</td><td>The pen drives the widgets as the mouse does; its barrel button is the right button (default true).</td></tr>
 <tr><td><code>Pen.PressureCurve</code></td><td>number</td><td>The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder.</td></tr>
 <tr><td><code>Pen.PressureThreshold</code></td><td>number</td><td>Pressure, 0 to 1, the tip needs before it presses (default 0).</td></tr>
+<tr><td><code>Trackpad.Gestures</code></td><td>boolean</td><td>The pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do (default true).</td></tr>
+<tr><td><code>Trackpad.SwipeNavigation</code></td><td>boolean</td><td>Three or more fingers swiped across a trackpad go back or forward, as the side buttons of a mouse (default true).</td></tr>
+<tr><td><code>Trackpad.SwipeDistance</code></td><td>number</td><td>How far the fingers of a swipe go across before it navigates (default 120).</td></tr>
 </table></div>
 <h3 id="tag-HeaderBar">&lt;HeaderBar&gt;</h3>
 <p>The title bar of a window with a custom header; holds any widgets. <small>(also written <code>TitleBar</code>; any number of child widgets)</small></p>
