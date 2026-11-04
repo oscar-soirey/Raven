@@ -18,6 +18,9 @@ is a plan, not a promise: issues and pull requests can change the order.
   (notification area, shown as a toast), macOS (Notification Center, inside
   a bundle), Linux / BSD (`org.freedesktop.Notifications`, libdbus loaded at
   run time); a fallback for the application elsewhere.
+- [x] **Dispersion of glass**: the rim of glass splits what it bends into a
+  spectrum of seven wavelengths (it was a red / blue offset), on clear and
+  frosted glass, and faintly on the edges of `BackgroundBlur`.
 - [x] **Small widgets**: `DatePicker` (calendar popup, range, first day of the
   week, formats, translated names), `TimePicker`, `Toast`, `Breadcrumb`,
   `Rating`, `Pagination`.

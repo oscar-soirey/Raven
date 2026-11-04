@@ -867,8 +867,10 @@ popup is more opaque than the panel it comes from, and a panel than the bar
 above it, so that what is on top stays readable.
 
 With glass, controls are capsules that show a blurred, more vivid version of
-what is behind them; their rim bends it like a lens and catches a light
-placed at the top left; the knob of a slider turns into a clear lens while it
+what is behind them; their rim bends it like a lens, splits it into a thin
+rainbow where its colors change (violet bent more than red, seven wavelengths)
+and catches a light placed at the top left; the edge of a `BackgroundBlur`
+splits what is behind it the same way, more faintly; the knob of a slider turns into a clear lens while it
 is dragged. Glass needs something behind it: the glass themes put every
 window on a plain dark grey (dark) or plain white (light); `Rwindow_set_background`
 puts an image behind it instead, and a theme file can give colored blobs
