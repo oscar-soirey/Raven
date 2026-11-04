@@ -2,7 +2,7 @@
 #
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
-#   test_locale, test_fonts, test_touch
+#   test_locale, test_fonts, test_touch, test_more_widgets
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -50,6 +50,10 @@ raven_add_test(test_tools)
 raven_add_test(test_locale)
 raven_add_test(test_host_platform)
 raven_add_test(test_touch)
+raven_add_test(test_more_widgets)
+if(NOT RAVEN_WITH_SVG)
+	target_compile_definitions(test_more_widgets PRIVATE RAVEN_TEST_NO_SVG)
+endif()
 # damaged fonts: cut short and changed at random, loaded and drawn (meant to run under AddressSanitizer too)
 raven_add_test(test_fonts)
 target_compile_definitions(test_fonts PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")

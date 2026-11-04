@@ -715,7 +715,11 @@ static const char* schema_sample(const RXmlAttributeInfo* info, char* buffer, si
 			buffer[length] = '\0';
 			return buffer;
 		}
-		default: return "x";
+		default:
+			/* texts with a form of their own */
+			if (strcmp(info->name, "Date") == 0 || strcmp(info->name, "Min") == 0 || strcmp(info->name, "Max") == 0) return "2026-11-03";
+			if (strcmp(info->name, "Time") == 0) return "09:30";
+			return "x";
 	}
 }
 
