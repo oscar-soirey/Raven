@@ -197,6 +197,9 @@ static struct {
 	rvn_win32_get_pointer_type_fn get_pointer_type;
 	rvn_win32_get_pointer_touch_info_fn get_pointer_touch_info;
 	rvn_win32_get_pointer_pen_info_fn get_pointer_pen_info;
+	/** The hidden window that owns the icon of the notifications, and whether the icon was added. */
+	HWND notify_window;
+	int notify_icon;
 } g_win32;
 
 /* ---------------------------------------------------------------------------
@@ -1027,7 +1030,63 @@ static int rvn_win32_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 	return R_TRUE;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Notifications: a balloon of an icon of the notification area, which
+ *  Windows 10 and 11 show as a toast (and keep in the notification center).
+ * ------------------------------------------------------------------------- */
+
+static void rvn_win32_copy_wide(WCHAR* out, size_t capacity, const char* text) {
+	WCHAR* wide = rvn_win32_widen(text);
+	size_t i = 0;
+	if (wide) {
+		for (; i + 1 < capacity && wide[i]; i++) out[i] = wide[i];
+		rvn_free(wide);
+	}
+	out[i] = 0;
+}
+
+static int rvn_win32_notify(const char* app, const char* title, const char* body, int urgency) {
+	NOTIFYICONDATAW data;
+	if (!g_win32.notify_window) {
+		/* a message-only window: never shown, it only owns the icon */
+		g_win32.notify_window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, g_win32.instance, NULL);
+		if (!g_win32.notify_window) return R_FALSE;
+	}
+	memset(&data, 0, sizeof(data));
+	data.cbSize = sizeof(data);
+	data.hWnd = g_win32.notify_window;
+	data.uID = 1;
+	if (!g_win32.notify_icon) {
+		data.uFlags = NIF_ICON | NIF_TIP;
+		data.hIcon = g_win32.app_icon_small ? g_win32.app_icon_small : (g_win32.app_icon ? g_win32.app_icon : LoadIconW(NULL, IDI_APPLICATION));
+		rvn_win32_copy_wide(data.szTip, RVN_COUNT_OF(data.szTip), app);
+		if (!Shell_NotifyIconW(NIM_ADD, &data)) return R_FALSE;
+		g_win32.notify_icon = R_TRUE;
+	}
+	data.uFlags = NIF_INFO;
+	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), *title ? title : app);
+	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), *body ? body : " ");
+	/* low: no sound; critical: the error sign */
+	data.dwInfoFlags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	return Shell_NotifyIconW(NIM_MODIFY, &data) ? R_TRUE : R_FALSE;
+}
+
+static void rvn_win32_notify_shutdown(void) {
+	if (g_win32.notify_icon) {
+		NOTIFYICONDATAW data;
+		memset(&data, 0, sizeof(data));
+		data.cbSize = sizeof(data);
+		data.hWnd = g_win32.notify_window;
+		data.uID = 1;
+		Shell_NotifyIconW(NIM_DELETE, &data);
+	}
+	if (g_win32.notify_window) DestroyWindow(g_win32.notify_window);
+	g_win32.notify_window = NULL;
+	g_win32.notify_icon = R_FALSE;
+}
+
 static void rvn_win32_shutdown(void) {
+	rvn_win32_notify_shutdown();
 	rvn_uia_shutdown();
 	rvn_win32_manipulation_shutdown();
 	if (g_win32.wake_event) CloseHandle(g_win32.wake_event);
@@ -1681,7 +1740,8 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.a11y_event = rvn_win32_a11y_event,
 		.a11y_announce = rvn_win32_a11y_announce,
 		.a11y_active = rvn_uia_active,
-		.a11y_settings = rvn_uia_settings
+		.a11y_settings = rvn_uia_settings,
+		.notify = rvn_win32_notify
 	};
 	return &platform;
 }

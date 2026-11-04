@@ -323,6 +323,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 static void rvn_x11_shutdown(void) {
 	int i;
 	rvn_atspi_shutdown();
+	rvn_dbus_notify_shutdown();
 	if (!g_x11.display) return;
 	for (i = 0; i < RVN_X11_CURSOR_COUNT; i++) {
 		if (g_x11.cursors[i]) XFreeCursor(g_x11.display, g_x11.cursors[i]);
@@ -1650,7 +1651,8 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.a11y_event = rvn_atspi_event,
 		.a11y_announce = rvn_atspi_announce,
 		.a11y_active = rvn_atspi_active,
-		.a11y_settings = rvn_atspi_settings
+		.a11y_settings = rvn_atspi_settings,
+		.notify = rvn_dbus_notify
 	};
 	return &platform;
 }

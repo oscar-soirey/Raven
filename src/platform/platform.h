@@ -275,7 +275,20 @@ typedef struct rvn_platform_t {
 	void  (*overlay_set_input)(rvn_pwindow_t* overlay, int x, int y, int width, int height);
 	/** `key`: the overlay takes the keyboard (something in it was given the focus); 0: the keyboard goes back to `owner`. */
 	void  (*overlay_set_key)(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key);
+
+	/**
+	 * Optional (NULL: the system has none). Shows a notification of the
+	 * system (Rnotification_show); `urgency` 0 low, 1 normal, 2 critical.
+	 * R_FALSE when it could not be shown.
+	 */
+	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
 } rvn_platform_t;
+
+#if !defined(_WIN32) && !defined(__APPLE__)
+/** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */
+int  rvn_dbus_notify(const char* app, const char* title, const char* body, int urgency);
+void rvn_dbus_notify_shutdown(void);
+#endif
 
 /**
  * rvn_pwindow_desc_t::flags: a window that floats above everything, the

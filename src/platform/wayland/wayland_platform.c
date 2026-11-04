@@ -2408,6 +2408,7 @@ static int rvn_wl_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regio
 
 static void rvn_wl_shutdown(void) {
 	rvn_atspi_shutdown();
+	rvn_dbus_notify_shutdown();
 	rvn_wl_disconnect();
 }
 
@@ -2995,7 +2996,8 @@ const rvn_platform_t* rvn_platform_wayland(void) {
 		.a11y_event = rvn_atspi_event,
 		.a11y_announce = rvn_atspi_announce,
 		.a11y_active = rvn_atspi_active,
-		.a11y_settings = rvn_atspi_settings
+		.a11y_settings = rvn_atspi_settings,
+		.notify = rvn_dbus_notify
 	};
 	return &platform;
 }

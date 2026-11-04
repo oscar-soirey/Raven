@@ -1051,6 +1051,29 @@ static int rvn_cocoa_accent_color(float rgb[3]) {
     }
 }
 
+/*
+ * A notification of the Notification Center. NSUserNotification still works
+ * where UNUserNotificationCenter needs a signed bundle and a permission
+ * asked beforehand; outside of an application bundle the center drops what
+ * it is given, so that case reports R_FALSE (the fallback of the application then runs).
+ */
+static int rvn_cocoa_notify(const char* app, const char* title, const char* body, int urgency) {
+    @autoreleasepool {
+        NSUserNotification* notification;
+        if (![[NSBundle mainBundle] bundleIdentifier]) return R_FALSE;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        notification = [[NSUserNotification alloc] init];
+        [notification setTitle:[NSString stringWithUTF8String:(*title ? title : app)]];
+        [notification setInformativeText:[NSString stringWithUTF8String:body]];
+        if (urgency > 0) [notification setSoundName:NSUserNotificationDefaultSoundName];
+        [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
+        [notification release];
+#pragma clang diagnostic pop
+        return R_TRUE;
+    }
+}
+
 const rvn_platform_t* rvn_platform_cocoa(void) {
     static const rvn_platform_t platform = {
         .name = "Cocoa", .system = R_WINDOW_SYSTEM_COCOA,
@@ -1069,7 +1092,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,
         .a11y_event = rvn_cocoa_a11y_event, .a11y_announce = rvn_cocoa_a11y_announce,
         .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
-        .accent_color = rvn_cocoa_accent_color,
+        .accent_color = rvn_cocoa_accent_color, .notify = rvn_cocoa_notify,
         .screen_notch = rvn_cocoa_screen_notch, .overlay_place = rvn_cocoa_overlay_place,
         .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key
     };
