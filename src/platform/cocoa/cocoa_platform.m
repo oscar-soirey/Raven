@@ -345,7 +345,8 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     e.pressed = 0; e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
 }
 - (void)flagsChanged:(NSEvent*)event {
-    RKey key = rvn_cocoa_key([event keyCode], [event charactersIgnoringModifiers]);
+    /* a modifier key has no characters: asking a flagsChanged event for them raises an exception (macOS 15) */
+    RKey key = rvn_cocoa_key([event keyCode], nil);
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = key;
     e.modifiers = rvn_cocoa_modifiers([event modifierFlags]);
     e.pressed = (key == R_KEY_LEFT_SHIFT || key == R_KEY_RIGHT_SHIFT) ? ((e.modifiers & R_MOD_SHIFT) != 0) :
