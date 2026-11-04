@@ -5302,12 +5302,23 @@ func WidgetCreateFromXmlFile(path string) ID {
 	return ID(C.Rwidget_create_from_xml_file(path_))
 }
 
-// XmlSetBasePath: Folder used to resolve relative paths found in XML (Source="...", Font="..."). The
-// *FromXmlFile functions use the folder of the file.
+// XmlSetBasePath: A folder looked into after the one of the document (see above), and the first one for the
+// documents given from memory. NULL or "": none.
 func XmlSetBasePath(path string) {
 	path_ := C.CString(path)
 	defer C.free(unsafe.Pointer(path_))
 	C.Rxml_set_base_path(path_)
+}
+
+// XmlSetAutoLoad: Turns auto-loading on or off (see above). It is on by default; the environment variable
+// RAVEN_AUTO_LOAD=0 turns it off without rebuilding. Turned off, the register functions are the only way in;
+// the places where paths are looked for stay the same.
+func XmlSetAutoLoad(enabled int) {
+	C.Rxml_set_auto_load(C.int(enabled))
+}
+
+func XmlGetAutoLoad() int {
+	return int(C.Rxml_get_auto_load())
 }
 
 // XmlSetLiveReload: Turns live reload on or off. It is on by default; the environment variable
@@ -5374,9 +5385,11 @@ func XmlIsTagRegistered(tag string) int {
 	return int(C.Rxml_is_tag_registered(tag_))
 }
 
-// XmlResolvePath: The path of a file named in a document: as the attributes Source of Raven read it, relative
-// to the folder of the document being loaded (while it loads), else to the base path. For the attributes of
-// the tags made by code that name files. Returns: The path; valid until the next call.
+// XmlResolvePath: The path of a file named in a document: as the attributes Source of Raven read it, looked
+// for where files are looked for (see Rxml_set_base_path): the folder of the document being loaded (while it
+// loads) and its subfolders, the base path, the current folder, PATH. When no place holds it, the path it
+// would have next to the document (else in the base path). For the attributes of the tags made by code that
+// name files. Returns: The path; valid until the next call.
 func XmlResolvePath(path string) string {
 	path_ := C.CString(path)
 	defer C.free(unsafe.Pointer(path_))

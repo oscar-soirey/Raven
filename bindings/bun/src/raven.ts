@@ -1054,6 +1054,8 @@ const _symbols = {
 	Rwidget_create_from_xml: { args: ["ptr", "usize"], returns: "u32" },
 	Rwidget_create_from_xml_file: { args: ["ptr"], returns: "u32" },
 	Rxml_set_base_path: { args: ["ptr"], returns: "void" },
+	Rxml_set_auto_load: { args: ["i32"], returns: "void" },
+	Rxml_get_auto_load: { args: [], returns: "i32" },
 	Rxml_set_live_reload: { args: ["i32"], returns: "void" },
 	Rxml_get_live_reload: { args: [], returns: "i32" },
 	Rxml_set_reload_callback: { args: ["ptr", "ptr"], returns: "void" },
@@ -11033,11 +11035,25 @@ export function Rwidget_create_from_xml_file(path: string | null): Rid {
 }
 
 /**
- * Folder used to resolve relative paths found in XML (Source="...",
- * Font="..."). The *FromXmlFile functions use the folder of the file.
+ * A folder looked into after the one of the document (see above),
+ * and the first one for the documents given from memory. NULL or "": none.
  */
 export function Rxml_set_base_path(path: string | null): void {
 	_lib.Rxml_set_base_path(_s(path));
+}
+
+/**
+ * Turns auto-loading on or off (see above). It is on by default;
+ * the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+ * rebuilding. Turned off, the register functions are the only way in;
+ * the places where paths are looked for stay the same.
+ */
+export function Rxml_set_auto_load(enabled: number): void {
+	_lib.Rxml_set_auto_load(enabled);
+}
+
+export function Rxml_get_auto_load(): number {
+	return _lib.Rxml_get_auto_load();
 }
 
 /**
@@ -11116,9 +11132,12 @@ export function Rxml_is_tag_registered(tag: string | null): number {
 
 /**
  * The path of a file named in a document: as the attributes
- * Source of Raven read it, relative to the folder of the document being
- * loaded (while it loads), else to the base path. For the attributes of
- * the tags made by code that name files.
+ * Source of Raven read it, looked for where files are looked for (see
+ * Rxml_set_base_path): the folder of the document being loaded (while it
+ * loads) and its subfolders, the base path, the current folder, PATH.
+ * When no place holds it, the path it would have next to the document
+ * (else in the base path). For the attributes of the tags made by code
+ * that name files.
  * Returns: The path; valid until the next call.
  */
 export function Rxml_resolve_path(path: string | null): string | null {

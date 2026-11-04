@@ -3527,9 +3527,15 @@ foreign lib {
 	// widget. The caller owns the returned widget until it is added to a parent.
 	Rwidget_create_from_xml :: proc(xml: cstring, size: uint) -> Rid ---
 	Rwidget_create_from_xml_file :: proc(path: cstring) -> Rid ---
-	// Folder used to resolve relative paths found in XML (Source="...",
-	// Font="..."). The *FromXmlFile functions use the folder of the file.
+	// A folder looked into after the one of the document (see above),
+	// and the first one for the documents given from memory. NULL or "": none.
 	Rxml_set_base_path :: proc(path: cstring) ---
+	// Turns auto-loading on or off (see above). It is on by default;
+	// the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+	// rebuilding. Turned off, the register functions are the only way in;
+	// the places where paths are looked for stay the same.
+	Rxml_set_auto_load :: proc(enabled: i32) ---
+	Rxml_get_auto_load :: proc() -> i32 ---
 	// Turns live reload on or off. It is on by default; the
 	// environment variable RAVEN_LIVE_RELOAD=0 turns it off without
 	// rebuilding. When off, files are never looked at again.
@@ -3557,9 +3563,12 @@ foreign lib {
 	Rxml_unregister_tag :: proc(tag: cstring) ---
 	Rxml_is_tag_registered :: proc(tag: cstring) -> i32 ---
 	// The path of a file named in a document: as the attributes
-	// Source of Raven read it, relative to the folder of the document being
-	// loaded (while it loads), else to the base path. For the attributes of
-	// the tags made by code that name files.
+	// Source of Raven read it, looked for where files are looked for (see
+	// Rxml_set_base_path): the folder of the document being loaded (while it
+	// loads) and its subfolders, the base path, the current folder, PATH.
+	// When no place holds it, the path it would have next to the document
+	// (else in the base path). For the attributes of the tags made by code
+	// that name files.
 	// Returns: The path; valid until the next call.
 	Rxml_resolve_path :: proc(path: cstring) -> cstring ---
 	// Sets a property from text, with the names and value syntax of the

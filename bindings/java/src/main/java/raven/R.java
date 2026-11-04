@@ -18961,8 +18961,8 @@ public final class R {
     private static MethodHandle Rxml_set_base_path$;
 
     /**
-     * Folder used to resolve relative paths found in XML (Source="...",
-     * Font="..."). The *FromXmlFile functions use the folder of the file.
+     * A folder looked into after the one of the document (see above),
+     * and the first one for the documents given from memory. NULL or "": none.
      */
     public static void Rxml_set_base_path(String path) {
         MethodHandle $h = Rxml_set_base_path$;
@@ -18970,6 +18970,37 @@ public final class R {
         try (Arena $a = Arena.ofConfined()) {
             MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
             $h.invokeExact(path$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rxml_set_auto_load$;
+
+    /**
+     * Turns auto-loading on or off (see above). It is on by default;
+     * the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+     * rebuilding. Turned off, the register functions are the only way in;
+     * the places where paths are looked for stay the same.
+     */
+    public static void Rxml_set_auto_load(int enabled) {
+        MethodHandle $h = Rxml_set_auto_load$;
+        if ($h == null) Rxml_set_auto_load$ = $h = find("Rxml_set_auto_load", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rxml_get_auto_load$;
+
+    public static int Rxml_get_auto_load() {
+        MethodHandle $h = Rxml_get_auto_load$;
+        if ($h == null) Rxml_get_auto_load$ = $h = find("Rxml_get_auto_load", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -19186,9 +19217,12 @@ public final class R {
 
     /**
      * The path of a file named in a document: as the attributes
-     * Source of Raven read it, relative to the folder of the document being
-     * loaded (while it loads), else to the base path. For the attributes of
-     * the tags made by code that name files.
+     * Source of Raven read it, looked for where files are looked for (see
+     * Rxml_set_base_path): the folder of the document being loaded (while it
+     * loads) and its subfolders, the base path, the current folder, PATH.
+     * When no place holds it, the path it would have next to the document
+     * (else in the base path). For the attributes of the tags made by code
+     * that name files.
      * Returns: The path; valid until the next call.
      */
     public static String Rxml_resolve_path(String path) {

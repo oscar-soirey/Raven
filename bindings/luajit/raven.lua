@@ -1921,6 +1921,8 @@ Rid Rwindow_create_from_xml_file(const char* path);
 Rid Rwidget_create_from_xml(const char* xml, size_t size);
 Rid Rwidget_create_from_xml_file(const char* path);
 void Rxml_set_base_path(const char* path);
+void Rxml_set_auto_load(int enabled);
+int Rxml_get_auto_load(void);
 void Rxml_set_live_reload(int enabled);
 int Rxml_get_live_reload(void);
 void Rxml_set_reload_callback(RXmlReloadCallback callback, void* user_data);

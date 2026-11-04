@@ -10699,9 +10699,29 @@ _lib.Rxml_set_base_path.restype = None
 
 
 def Rxml_set_base_path(path):
-    """Folder used to resolve relative paths found in XML (Source="...",
-    Font="..."). The *FromXmlFile functions use the folder of the file."""
+    """A folder looked into after the one of the document (see above),
+    and the first one for the documents given from memory. NULL or "": none."""
     _lib.Rxml_set_base_path(_s(path))
+
+
+_lib.Rxml_set_auto_load.argtypes = [ctypes.c_int]
+_lib.Rxml_set_auto_load.restype = None
+
+
+def Rxml_set_auto_load(enabled):
+    """Turns auto-loading on or off (see above). It is on by default;
+    the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+    rebuilding. Turned off, the register functions are the only way in;
+    the places where paths are looked for stay the same."""
+    _lib.Rxml_set_auto_load(enabled)
+
+
+_lib.Rxml_get_auto_load.argtypes = []
+_lib.Rxml_get_auto_load.restype = ctypes.c_int
+
+
+def Rxml_get_auto_load():
+    return _lib.Rxml_get_auto_load()
 
 
 _lib.Rxml_set_live_reload.argtypes = [ctypes.c_int]
@@ -10828,9 +10848,12 @@ _lib.Rxml_resolve_path.restype = ctypes.c_char_p
 
 def Rxml_resolve_path(path):
     """The path of a file named in a document: as the attributes
-    Source of Raven read it, relative to the folder of the document being
-    loaded (while it loads), else to the base path. For the attributes of
-    the tags made by code that name files.
+    Source of Raven read it, looked for where files are looked for (see
+    Rxml_set_base_path): the folder of the document being loaded (while it
+    loads) and its subfolders, the base path, the current folder, PATH.
+    When no place holds it, the path it would have next to the document
+    (else in the base path). For the attributes of the tags made by code
+    that name files.
     Returns: The path; valid until the next call."""
     return _r(_lib.Rxml_resolve_path(_s(path)))
 

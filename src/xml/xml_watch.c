@@ -596,6 +596,8 @@ static int rvn_live_reload(rvn_live_t* live) {
 		}
 	}
 
+	/* (tables and declarations added beside the file since it was loaded come too) */
+	rvn_xml_search_enter(live->path);
 	rvn_xml_push_file_dir(live->path, &previous_dir);
 	rvn_live_begin();
 	if (rvn_xml_load(&document, text, size, live->path)) {

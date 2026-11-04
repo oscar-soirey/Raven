@@ -37,8 +37,429 @@ static struct {
 	char* resolved;
 } g_xml;
 
+/* ---------------------------------------------------------------------------
+ *  Where the files named in a document are looked for
+ *
+ *  A relative path (Source="logo.png", <Include>, <Strings>, Font="...",
+ *  Theme="dark.xml"...) is looked for, in this order:
+ *    1. the folder of the document being loaded, then its subfolders
+ *       (the closest first; hidden ones are skipped);
+ *    2. the base path (Rxml_set_base_path);
+ *    3. the current folder;
+ *    4. the folders of the PATH environment variable, in their order.
+ *  The first one that holds the file wins (a file of Rfile_register_memory
+ *  counts). When none does, the path is the one of the first place, as it
+ *  always was, so that the error names where the file was expected.
+ *
+ *  While auto-loading is on (Rxml_set_auto_load), the same folders also give
+ *  their translation tables (*.csv whose first column is "key") and their
+ *  files of widget declarations (*.xml whose root is <Widgets> or <Widget>),
+ *  and a tag that names nothing is looked for as the file <Tag>.xml.
+ * ------------------------------------------------------------------------- */
+
+/* How far below the folder of a document its subfolders are looked into. */
+#define RVN_SEARCH_DEPTH 8
+#define RVN_SEARCH_MAX_DIRS 1024
+/* (a larger file is not a table or declarations someone wrote: not even opened) */
+#define RVN_SEARCH_MAX_FILE (4u << 20)
+
+typedef struct rvn_strings_t {
+	char** items;
+	uint32_t count;
+	uint32_t cap;
+} rvn_strings_t;
+
+/* The subfolders of a folder, the closest first. */
+typedef struct rvn_search_tree_t {
+	char* root;
+	rvn_strings_t dirs;
+} rvn_search_tree_t;
+
+static struct {
+	rvn_search_tree_t* trees;
+	uint32_t tree_count;
+	uint32_t tree_cap;
+	/** Files already looked at by the auto-loading (absolute paths), loaded or not. */
+	rvn_strings_t seen;
+	/** Tags looked for as <Tag>.xml in vain, since the last document. */
+	rvn_strings_t missing;
+	int configured;
+	int disabled;
+	/** The current folder and the PATH were looked into. */
+	int globals_done;
+	/** Inside the auto-loading: what it loads does not start it again. */
+	int loading;
+} g_search;
+
+static int rvn_strings_find(const rvn_strings_t* list, const char* text, int ignore_case) {
+	uint32_t i;
+	for (i = 0; i < list->count; i++) {
+		if ((ignore_case ? rvn_stricmp(list->items[i], text) : strcmp(list->items[i], text)) == 0) return (int)i;
+	}
+	return -1;
+}
+
+static void rvn_strings_add(rvn_strings_t* list, const char* text) {
+	RVN_ARRAY_RESERVE(list->items, list->cap, list->count + 1);
+	list->items[list->count++] = rvn_strdup(text);
+}
+
+static void rvn_strings_free(rvn_strings_t* list) {
+	uint32_t i;
+	for (i = 0; i < list->count; i++) rvn_free(list->items[i]);
+	rvn_free(list->items);
+	memset(list, 0, sizeof(*list));
+}
+
+static void rvn_search_configure(void) {
+	char* value;
+	if (g_search.configured) return;
+	g_search.configured = R_TRUE;
+	value = rvn_env_get("RAVEN_AUTO_LOAD");
+	if (value && (value[0] == '0' || value[0] == 'n' || value[0] == 'N' || value[0] == 'f' || value[0] == 'F' || rvn_stricmp(value, "off") == 0)) {
+		g_search.disabled = R_TRUE;
+	}
+	rvn_free(value);
+}
+
+static int rvn_search_is_absolute(const char* path) {
+	return rvn_path_is_separator(path[0]) || path[0] == '/' || (path[0] && path[1] == ':');
+}
+
+static int rvn_search_is_file(const char* path) {
+	return rvn_memory_file_exists(path) || (rvn_path_exists(path) && !rvn_path_is_dir(path));
+}
+
+/* A name inside a folder; "" is the current folder. */
+static char* rvn_search_child(const char* folder, const char* name) {
+	return (folder && folder[0]) ? rvn_path_child(folder, name) : rvn_strdup(name);
+}
+
+static int rvn_search_compare_entries(const void* a, const void* b) {
+	return strcmp(((const rvn_dir_entry_t*)a)->name, ((const rvn_dir_entry_t*)b)->name);
+}
+
+/* Lists a folder in the order of the names, so that the result does not depend on the file system. */
+static int rvn_search_read_dir(const char* folder, rvn_dir_entry_t** entries, uint32_t* count) {
+	if (!rvn_dir_read((folder && folder[0]) ? folder : ".", entries, count)) return R_FALSE;
+	if (*count > 1) qsort(*entries, *count, sizeof(**entries), rvn_search_compare_entries);
+	return R_TRUE;
+}
+
+static void rvn_search_tree_add_children(rvn_search_tree_t* tree, const char* folder) {
+	rvn_dir_entry_t* entries;
+	uint32_t count, i;
+	if (!rvn_search_read_dir(folder, &entries, &count)) return;
+	for (i = 0; i < count && tree->dirs.count < RVN_SEARCH_MAX_DIRS; i++) {
+		const rvn_dir_entry_t* entry = &entries[i];
+		char* child;
+		if (!entry->is_dir || entry->hidden || entry->name[0] == '.' || strcmp(entry->name, "node_modules") == 0) continue;
+		child = rvn_search_child(folder, entry->name);
+		RVN_ARRAY_RESERVE(tree->dirs.items, tree->dirs.cap, tree->dirs.count + 1);
+		tree->dirs.items[tree->dirs.count++] = child;
+	}
+	rvn_dir_free(entries, count);
+}
+
+/* The subfolders of a folder (found once, kept until the next document is loaded from it). */
+static const rvn_strings_t* rvn_search_subfolders(const char* root) {
+	rvn_search_tree_t* tree;
+	uint32_t i, level_start = 0, depth;
+	if (!root) root = "";
+	for (i = 0; i < g_search.tree_count; i++) {
+		if (strcmp(g_search.trees[i].root, root) == 0) return &g_search.trees[i].dirs;
+	}
+	RVN_ARRAY_RESERVE(g_search.trees, g_search.tree_cap, g_search.tree_count + 1);
+	tree = &g_search.trees[g_search.tree_count++];
+	memset(tree, 0, sizeof(*tree));
+	tree->root = rvn_strdup(root);
+	/* level by level: the folders inside the root, then the ones inside those... */
+	rvn_search_tree_add_children(tree, root);
+	for (depth = 1; depth < RVN_SEARCH_DEPTH && level_start < tree->dirs.count; depth++) {
+		uint32_t level_end = tree->dirs.count;
+		for (i = level_start; i < level_end && tree->dirs.count < RVN_SEARCH_MAX_DIRS; i++) {
+			rvn_search_tree_add_children(tree, tree->dirs.items[i]);
+		}
+		level_start = level_end;
+	}
+	return &tree->dirs;
+}
+
+static void rvn_search_forget_subfolders(const char* root) {
+	uint32_t i;
+	for (i = 0; i < g_search.tree_count; i++) {
+		if (strcmp(g_search.trees[i].root, root) != 0) continue;
+		rvn_free(g_search.trees[i].root);
+		rvn_strings_free(&g_search.trees[i].dirs);
+		g_search.trees[i] = g_search.trees[--g_search.tree_count];
+		return;
+	}
+}
+
+/* The folders of the PATH variable, in their order. */
+static void rvn_search_path_folders(rvn_strings_t* folders) {
+	char* value = rvn_env_get("PATH");
+	const char* cursor = value;
+	while (cursor && *cursor) {
+		const char* end = strchr(cursor, RVN_PATH_LIST_SEPARATOR);
+		size_t length = end ? (size_t)(end - cursor) : strlen(cursor);
+		/* (Windows allows "C:\Program Files\x" in quotes) */
+		const char* start = cursor;
+		if (length >= 2 && start[0] == '"' && start[length - 1] == '"') {
+			start++;
+			length -= 2;
+		}
+		if (length > 0) {
+			char* folder = rvn_strndup(start, length);
+			if (rvn_strings_find(folders, folder, R_FALSE) < 0) {
+				RVN_ARRAY_RESERVE(folders->items, folders->cap, folders->count + 1);
+				folders->items[folders->count++] = folder;
+			} else {
+				rvn_free(folder);
+			}
+		}
+		cursor = end ? end + 1 : NULL;
+	}
+	rvn_free(value);
+}
+
+static char* rvn_search_try(const char* folder, const char* path) {
+	char* candidate = rvn_path_join(folder, path);
+	if (candidate && rvn_search_is_file(candidate)) return candidate;
+	rvn_free(candidate);
+	return NULL;
+}
+
+/* The first place where a relative path names a file, or NULL. */
+static char* rvn_search_find(const char* path) {
+	char* found = NULL;
+	uint32_t i;
+	if (g_xml.file_dir) {
+		const rvn_strings_t* subfolders;
+		if ((found = rvn_search_try(g_xml.file_dir, path)) != NULL) return found;
+		subfolders = rvn_search_subfolders(g_xml.file_dir);
+		for (i = 0; i < subfolders->count; i++) {
+			if ((found = rvn_search_try(subfolders->items[i], path)) != NULL) return found;
+		}
+	}
+	if (g_rvn.xml_base_path && (found = rvn_search_try(g_rvn.xml_base_path, path)) != NULL) return found;
+	if ((found = rvn_search_try("", path)) != NULL) return found;
+	{
+		rvn_strings_t folders;
+		memset(&folders, 0, sizeof(folders));
+		rvn_search_path_folders(&folders);
+		for (i = 0; i < folders.count && !found; i++) found = rvn_search_try(folders.items[i], path);
+		rvn_strings_free(&folders);
+	}
+	return found;
+}
+
 static char* rvn_xml_resolve(const char* path) {
-	return rvn_path_join(g_xml.file_dir ? g_xml.file_dir : g_rvn.xml_base_path, path);
+	char* first;
+	char* found;
+	if (!path) return NULL;
+	first = rvn_path_join(g_xml.file_dir ? g_xml.file_dir : g_rvn.xml_base_path, path);
+	/* (the usual case costs what it always cost: the file is next to the document) */
+	if (!path[0] || rvn_search_is_absolute(path) || rvn_is_http_url(path) || rvn_search_is_file(first)) return first;
+	found = rvn_search_find(path);
+	if (!found) return first;
+	rvn_free(first);
+	return found;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Auto-loading: the tables and the declarations found in those folders
+ * ------------------------------------------------------------------------- */
+
+static int rvn_search_has_extension(const char* name, const char* extension) {
+	size_t length = strlen(name), extension_length = strlen(extension);
+	return length > extension_length && rvn_stricmp(name + length - extension_length, extension) == 0;
+}
+
+static const char* rvn_search_skip_bom(const char* text, size_t size) {
+	if (size >= 3 && (uint8_t)text[0] == 0xEF && (uint8_t)text[1] == 0xBB && (uint8_t)text[2] == 0xBF) return text + 3;
+	return text;
+}
+
+/* A table of translations: its first row starts with the column "key" (raven_locale.h). */
+static int rvn_search_is_strings(const char* text, size_t size) {
+	const char* end = text + size;
+	const char* c = rvn_search_skip_bom(text, size);
+	/* (the comments and empty lines the reader of tables skips) */
+	while (c < end && (*c == '#' || *c == '\n' || *c == '\r')) {
+		while (c < end && *c != '\n') c++;
+		if (c < end) c++;
+	}
+	if (end - c >= 5 && c[0] == '"' && rvn_strnicmp(c + 1, "key\"", 4) == 0) c += 5;
+	else if (end - c >= 3 && rvn_strnicmp(c, "key", 3) == 0) c += 3;
+	else return R_FALSE;
+	return c < end && *c == ',';
+}
+
+/* A file of declarations: its root element is <Widgets> or <Widget>. `text` ends with a '\0'. */
+static int rvn_search_is_declarations(const char* text, size_t size) {
+	const char* end = text + size;
+	const char* c = rvn_search_skip_bom(text, size);
+	size_t length = 0;
+	for (;;) {
+		while (c < end && (*c == ' ' || *c == '\t' || *c == '\r' || *c == '\n')) c++;
+		if (end - c >= 4 && memcmp(c, "<!--", 4) == 0) {
+			c = strstr(c + 4, "-->");
+			if (!c) return R_FALSE;
+			c += 3;
+		} else if (end - c >= 2 && c[0] == '<' && (c[1] == '?' || c[1] == '!')) {
+			/* <?xml ...?>, <!DOCTYPE ...> */
+			c = strchr(c, '>');
+			if (!c) return R_FALSE;
+			c++;
+		} else {
+			break;
+		}
+	}
+	if (c >= end || *c != '<') return R_FALSE;
+	c++;
+	while (c + length < end) {
+		char k = c[length];
+		if (!((k >= 'a' && k <= 'z') || (k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9') || k == '_' || k == '-' || k == '.' || k == ':')) break;
+		length++;
+	}
+	return (length == 7 && rvn_strnicmp(c, "Widgets", 7) == 0) || (length == 6 && rvn_strnicmp(c, "Widget", 6) == 0);
+}
+
+/* Loads a file found in a folder when it is a table or declarations; once. */
+static void rvn_search_load_file(const char* path) {
+	int strings = rvn_search_has_extension(path, ".csv");
+	int declarations = rvn_search_has_extension(path, ".xml");
+	uint64_t modified, size;
+	char* absolute;
+	char* text;
+	size_t length = 0;
+	if (!strings && !declarations) return;
+	absolute = rvn_path_absolute(path);
+	if (!absolute) return;
+	if (rvn_strings_find(&g_search.seen, absolute, R_FALSE) >= 0) {
+		rvn_free(absolute);
+		return;
+	}
+	rvn_strings_add(&g_search.seen, absolute);
+	if (!rvn_file_stamp(absolute, &modified, &size) || size > RVN_SEARCH_MAX_FILE) {
+		rvn_free(absolute);
+		return;
+	}
+	text = rvn_read_file(absolute, &length);
+	if (text) {
+		/* (from its absolute path: it is still found, and watched, when the current folder changes) */
+		if (strings && rvn_search_is_strings(text, length)) Rlocale_load_csv(absolute);
+		else if (declarations && rvn_search_is_declarations(text, length)) Rxml_register_widgets_from_file(absolute);
+	}
+	rvn_free(text);
+	rvn_free(absolute);
+}
+
+/* The files of one folder (not of its subfolders), in the order of their names. */
+static void rvn_search_load_folder(const char* folder) {
+	rvn_dir_entry_t* entries;
+	uint32_t count, i;
+	if (!rvn_search_read_dir(folder, &entries, &count)) return;
+	for (i = 0; i < count; i++) {
+		char* path;
+		if (entries[i].is_dir) continue;
+		if (!rvn_search_has_extension(entries[i].name, ".csv") && !rvn_search_has_extension(entries[i].name, ".xml")) continue;
+		path = rvn_search_child(folder, entries[i].name);
+		rvn_search_load_file(path);
+		rvn_free(path);
+	}
+	rvn_dir_free(entries, count);
+}
+
+void rvn_xml_search_autoload(void) {
+	rvn_strings_t folders;
+	uint32_t i;
+	rvn_search_configure();
+	if (g_search.disabled || g_search.globals_done || g_search.loading) return;
+	g_search.globals_done = R_TRUE;
+	g_search.loading++;
+	/* the least important place first: a key or a widget loaded again replaces the one before */
+	memset(&folders, 0, sizeof(folders));
+	rvn_search_path_folders(&folders);
+	for (i = folders.count; i-- > 0;) rvn_search_load_folder(folders.items[i]);
+	rvn_strings_free(&folders);
+	rvn_search_load_folder("");
+	if (g_rvn.xml_base_path) rvn_search_load_folder(g_rvn.xml_base_path);
+	g_search.loading--;
+}
+
+void rvn_xml_search_enter(const char* file) {
+	char* folder;
+	rvn_search_configure();
+	if (!file) return;
+	folder = rvn_path_dir(file);
+	/* folders may have come or gone since the last document loaded from here */
+	rvn_search_forget_subfolders(folder);
+	rvn_strings_free(&g_search.missing);
+	if (!g_search.disabled && !g_search.loading) {
+		rvn_strings_t subfolders;
+		char* absolute = rvn_path_absolute(file);
+		uint32_t i;
+		rvn_xml_search_autoload();
+		/* the document itself is what is being loaded, not something to load beside it */
+		if (absolute && rvn_strings_find(&g_search.seen, absolute, R_FALSE) < 0) rvn_strings_add(&g_search.seen, absolute);
+		rvn_free(absolute);
+		/* (a copy: what is loaded may look for its own files, and the list of folders move) */
+		memset(&subfolders, 0, sizeof(subfolders));
+		{
+			const rvn_strings_t* found = rvn_search_subfolders(folder);
+			for (i = 0; i < found->count; i++) rvn_strings_add(&subfolders, found->items[i]);
+		}
+		g_search.loading++;
+		/* the deepest first, the folder of the document last: the closest wins */
+		for (i = subfolders.count; i-- > 0;) rvn_search_load_folder(subfolders.items[i]);
+		rvn_search_load_folder(folder);
+		g_search.loading--;
+		rvn_strings_free(&subfolders);
+	}
+	rvn_free(folder);
+}
+
+int rvn_xml_discover_widget(const char* tag) {
+	char name[160];
+	char* path;
+	int registered;
+	rvn_search_configure();
+	if (g_search.disabled || !tag || !tag[0] || strlen(tag) > 120) return R_FALSE;
+	if (rvn_strings_find(&g_search.missing, tag, R_TRUE) >= 0) return R_FALSE;
+	snprintf(name, sizeof(name), "%s.xml", tag);
+	path = rvn_search_find(name);
+	if (path) {
+		size_t size = 0;
+		char* text = rvn_read_file(path, &size);
+		if (text && rvn_search_is_declarations(text, size)) {
+			/* (a file held in memory keeps its name: it is found by it) */
+			char* from = rvn_memory_file_exists(path) ? rvn_strdup(path) : rvn_path_absolute(path);
+			if (from) {
+				if (rvn_strings_find(&g_search.seen, from, R_FALSE) < 0) rvn_strings_add(&g_search.seen, from);
+				Rxml_register_widgets_from_file(from);
+			}
+			rvn_free(from);
+		}
+		rvn_free(text);
+		rvn_free(path);
+	}
+	registered = Rxml_is_widget_registered(tag);
+	if (!registered) rvn_strings_add(&g_search.missing, tag);
+	return registered;
+}
+
+static void rvn_search_shutdown(void) {
+	uint32_t i;
+	for (i = 0; i < g_search.tree_count; i++) {
+		rvn_free(g_search.trees[i].root);
+		rvn_strings_free(&g_search.trees[i].dirs);
+	}
+	rvn_free(g_search.trees);
+	rvn_strings_free(&g_search.seen);
+	rvn_strings_free(&g_search.missing);
+	memset(&g_search, 0, sizeof(g_search));
 }
 
 char* rvn_xml_resolve_path(const char* path) {
@@ -128,6 +549,7 @@ void rvn_xml_shutdown(void) {
 	rvn_live_shutdown();
 	rvn_xml_components_shutdown();
 	rvn_xml_dom_shutdown();
+	rvn_search_shutdown();
 }
 
 /* ---------------------------------------------------------------------------
@@ -292,6 +714,8 @@ rvn_widget_t* rvn_xml_build_node(const rvn_xml_node_t* node) {
 }
 
 int rvn_xml_load(rvn_xml_document_t* document, const char* xml, size_t size, const char* function) {
+	/* the first document: the tables and declarations of the current folder and of the PATH come first */
+	rvn_xml_search_autoload();
 	if (!xml) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "%s: NULL text", function);
 		return R_FALSE;
@@ -576,6 +1000,8 @@ static Rid rvn_xml_create_from_file(const char* path, int is_window, const char*
 		rvn_error(R_ERROR_FILE_NOT_FOUND, R_SEVERITY_ERROR, "%s: cannot read '%s'", function, path ? path : "");
 		return R_INVALID_ID;
 	}
+	/* what lies beside the file and in its subfolders is loaded first */
+	rvn_xml_search_enter(path);
 	/* relative paths inside the file are relative to the file */
 	rvn_xml_push_file_dir(path, &previous_dir);
 	/* (the files it includes are noted: a change in one of them is a change in this one) */
@@ -626,4 +1052,24 @@ int Rxml_register_widgets_from_file(const char* path) {
 void Rxml_set_base_path(const char* path) {
 	RVN_API_GUARD_VOID();
 	rvn_str_set(&g_rvn.xml_base_path, (path && path[0]) ? path : NULL);
+	rvn_strings_free(&g_search.missing);
+	/* (once the first places were looked into, a new base path is looked into at once) */
+	if (g_rvn.xml_base_path && g_search.globals_done && !g_search.disabled && !g_search.loading) {
+		g_search.loading++;
+		rvn_search_load_folder(g_rvn.xml_base_path);
+		g_search.loading--;
+	}
+}
+
+void Rxml_set_auto_load(int enabled) {
+	RVN_API_GUARD_VOID();
+	rvn_search_configure();
+	g_search.disabled = !enabled;
+	rvn_strings_free(&g_search.missing);
+}
+
+int Rxml_get_auto_load(void) {
+	if (!g_rvn.initialized) return R_FALSE;
+	rvn_search_configure();
+	return !g_search.disabled;
 }

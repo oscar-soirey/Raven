@@ -926,6 +926,10 @@ static void rvn_xc_expand(rvn_xc_t* ctx, const rvn_xml_node_t* node, const rvn_x
 		else if (rvn_xv_truth(rvn_xv_text(test))) rvn_xc_expand_children(ctx, node, scope, holder);
 	} else if ((component = rvn_component_find(node->name)) != NULL) {
 		rvn_xc_instantiate(ctx, component, node, scope, holder);
+	} else if (!rvn_widget_class_by_name(node->name) && !rvn_xml_tag_find(node->name) && !rvn_xc_reserved(node->name) &&
+		rvn_xml_discover_widget(node->name) && (component = rvn_component_find(node->name)) != NULL) {
+		/* a tag that names nothing yet: declared by the file <Tag>.xml found where files are looked for */
+		rvn_xc_instantiate(ctx, component, node, scope, holder);
 	} else {
 		/* an ordinary element: itself, with what is inside rewritten */
 		copy = rvn_xc_node(arena, node, node->name);
@@ -983,6 +987,7 @@ int Rxml_register_widgets(const char* xml, size_t size) {
 	rvn_xml_document_t document;
 	int registered = 0;
 	RVN_API_GUARD(0);
+	rvn_xml_search_autoload();
 	if (!xml) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rxml_register_widgets: NULL text");
 		return 0;
