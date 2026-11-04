@@ -58,6 +58,32 @@ float sd_round_box_normal(vec2 p, vec2 half_size, vec4 radii, out vec2 normal) {
 }
 
 /*
+ * Dispersion: glass bends violet more than red, so what its rim shows is
+ * split into a thin rainbow. Seven wavelengths, from red (bent least) to
+ * violet (bent most), each read where it lands; their weights add up to
+ * white, so a plain backdrop stays plain and the colors only show where
+ * the backdrop changes: on edges, text, shapes passing under the rim.
+ */
+const vec3 SPECTRUM[7] = vec3[7](
+	vec3(0.2788, 0.0146, 0.0000),
+	vec3(0.3163, 0.0831, 0.0011),
+	vec3(0.2022, 0.2356, 0.0133),
+	vec3(0.0728, 0.3333, 0.0812),
+	vec3(0.0165, 0.2356, 0.2467),
+	vec3(0.0325, 0.0831, 0.3742),
+	vec3(0.0810, 0.0146, 0.2834));
+
+/* What lies behind p seen through a rim that bends it by `shift` pixels, each wavelength by `spread` more or less. */
+vec3 dispersed(sampler2D source, vec2 p, vec2 shift, float spread) {
+	vec3 sum = vec3(0.0);
+	for (int i = 0; i < 7; i++) {
+		float k = float(i) / 3.0 - 1.0;
+		sum += textureLod(source, (p + shift * (1.0 + spread * k)) * v_inv_size, 0.0).rgb * SPECTRUM[i];
+	}
+	return sum;
+}
+
+/*
  * Glass: a thick, rounded slab. Its flat middle shows the backdrop, more or
  * less frosted; its curved rim bends it like a lens, splits the colors a
  * little, and catches the light.
@@ -74,14 +100,16 @@ vec4 glass(vec2 p, float d, vec2 normal) {
 	/* the rim shows what lies further inside: content appears pulled toward the edge */
 	vec2 shift = -normal * bend * refraction;
 	vec2 uv = (p + shift) * v_inv_size;
-	vec2 spread = shift * 0.14 * v_inv_size;
 	vec4 middle = textureLod(u_backdrop, uv, 0.0);
-	vec3 sharp = vec3(
-		textureLod(u_backdrop, uv + spread, 0.0).r,
-		middle.g,
-		textureLod(u_backdrop, uv - spread, 0.0).b);
 	vec4 wide = textureLod(u_backdrop_blur, uv, 0.0);
+	vec3 sharp = middle.rgb;
 	vec3 blurred = wide.rgb;
+	/* the rim splits the colors (the flat middle reads one sample); a frosted
+	 * backdrop is softer, so it is spread a little further to keep its rainbow */
+	if (bend > 0.002 && refraction > 0.0) {
+		if (frost < 0.999) sharp = dispersed(u_backdrop, p, shift, 0.50);
+		if (frost > 0.001) blurred = dispersed(u_backdrop_blur, p, shift, 0.70);
+	}
 	vec3 color = mix(sharp, blurred, frost);
 	/* how much of the window there is behind: less than 1 where it lets the screen show (see-through windows) */
 	float behind = mix(middle.a, wide.a, frost);
@@ -131,7 +159,7 @@ float grain(vec2 p) {
  * ring of samples around the pixel; large ones come from the copy that is
  * already blurred wide, pushed further when the radius asks for more.
  */
-vec4 blur(vec2 p) {
+vec4 blur(vec2 p, float d, vec2 normal, float band) {
 	const float WIDE = 22.0;
 	float radius = max(v_params.x, 0.0);
 	vec2 uv = p * v_inv_size;
@@ -161,6 +189,15 @@ vec4 blur(vec2 p) {
 			far = mix(far, ring / 8.0, 0.75);
 		}
 		color = mix(near, far, smoothstep(WIDE * 0.45, WIDE, radius));
+	}
+	/* its edge is the edge of a pane: a narrow band that bends what is behind
+	 * toward the inside and splits it into a faint rainbow, as glass does */
+	float t = clamp(1.0 + d / band, 0.0, 1.0);
+	float bend = t * t * t;
+	if (bend > 0.002) {
+		/* (read from the sharp frame: in the blurred one, the colors would have nothing left to split) */
+		vec3 rim = dispersed(u_backdrop, p, -normal * bend * band * 1.2, 0.80);
+		color.rgb = mix(color.rgb, rim * color.a, bend * 0.55);
 	}
 	float luma = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
 	color.rgb = max(mix(vec3(luma), color.rgb, v_params.z), 0.0);
@@ -274,9 +311,10 @@ void main() {
 		color = glass(p, d, normal);
 	} else if (kind == PRIM_BLUR) {
 		vec2 half_size = (v_rect.zw - v_rect.xy) * 0.5;
-		float d = sd_round_box(p - (v_rect.xy + half_size), half_size, v_radii);
+		vec2 normal;
+		float d = sd_round_box_normal(p - (v_rect.xy + half_size), half_size, v_radii, normal);
 		coverage = clamp(0.5 - d, 0.0, 1.0);
-		color = blur(p);
+		color = blur(p, d, normal, clamp(min(half_size.x, half_size.y) * 0.12, 3.0, 12.0));
 		if (v_border_width > 0.0) {
 			/* a hairline around it, over the blur */
 			float inside = clamp(0.5 - (d + v_border_width), 0.0, 1.0);
