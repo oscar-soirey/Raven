@@ -751,7 +751,13 @@ static void rvn_uia_collect(void) {
 			i++;
 			continue;
 		}
-		if (!self->disconnected && g_uia.disconnect) g_uia.disconnect(&self->simple);
+		if (!self->disconnected && g_uia.disconnect) {
+			/* UI Automation may still hold the provider if COM disconnect fails. */
+			if (FAILED(g_uia.disconnect(&self->simple))) {
+				i++;
+				continue;
+			}
+		}
 		self->disconnected = R_TRUE;
 		g_uia.table[i] = g_uia.table[--g_uia.count];
 		rvn_uia_release(self);
