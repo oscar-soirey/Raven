@@ -176,13 +176,17 @@ fn main() {
             }
         }
         let target = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-        let libs: &[&str] = match target.as_str() {
-            "windows" => &["user32", "gdi32", "shell32", "comdlg32", "ole32"],
-            "linux" => &["X11", "dl", "pthread", "m"],
-            _ => &[],
+        let (libs, frameworks): (&[&str], &[&str]) = match target.as_str() {
+            "windows" => (&["user32", "gdi32", "shell32", "comdlg32", "ole32"], &[]),
+            "linux" => (&["X11", "dl", "pthread", "m"], &[]),
+            "macos" => (&["objc"], &["AppKit", "QuartzCore", "Metal", "Foundation", "CoreFoundation"]),
+            _ => (&[], &[]),
         };
         for lib in libs {
             println!("cargo:rustc-link-lib={}", lib);
+        }
+        for framework in frameworks {
+            println!("cargo:rustc-link-lib=framework={}", framework);
         }
     }
 }

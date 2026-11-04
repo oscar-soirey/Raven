@@ -389,7 +389,8 @@ package of a <a href="https://github.com/oscar-soirey/Raven/releases">release</a
 set RAVEN_LIB_DIR=C:\path\to\raven\lib &amp;&amp; cargo run     # Windows: raven.lib; raven.dll beside the program</pre>
 <p><code>RAVEN_STATIC=1</code> links the static library instead; <code>build.rs</code>
 then adds the system libraries it needs (<code>user32 gdi32 shell32 comdlg32 ole32</code>
-on Windows, <code>X11 dl pthread m</code> on Linux).</p>
+on Windows, <code>X11 dl pthread m</code> on Linux, <code>objc</code> and the
+<code>AppKit QuartzCore Metal Foundation CoreFoundation</code> frameworks on macOS).</p>
 
 <h3 id="rust-hello">A program</h3>
 <pre>use raven::*;
