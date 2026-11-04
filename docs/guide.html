@@ -278,6 +278,7 @@ cmake --install build --prefix install</pre>
 <tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code> or <code>null</code></td></tr>
 <tr><td><code>RAVEN_WAYLAND</code></td><td>ON</td><td>Linux and BSD: native Wayland beside X11 (<a href="#build-wayland">Wayland and X11</a>); nothing of Wayland is needed to build</td></tr>
 <tr><td><code>RAVEN_WITH_STB_IMAGE</code></td><td>ON</td><td>PNG, JPEG, BMP and TGA decoding</td></tr>
+<tr><td><code>RAVEN_WITH_SVG</code></td><td>ON</td><td>SVG images (icons), drawn by nanosvg</td></tr>
 <tr><td><code>RAVEN_FETCH_VULKAN_HEADERS</code></td><td>ON</td><td>download the Khronos headers when no SDK is found</td></tr>
 <tr><td><code>RAVEN_VULKAN_INCLUDE_DIR</code></td><td></td><td>the folder of <code>vulkan/vulkan.h</code>, to skip the search</td></tr>
 <tr><td><code>RAVEN_REBUILD_SHADERS</code></td><td>OFF</td><td>compile the GLSL again (needs <code>glslangValidator</code> or <code>glslc</code>); the SPIR-V is in the repository</td></tr>
@@ -1633,7 +1634,7 @@ the backdrop...), its helpers and its limits.</p>
 
 <!-- ======================================================================= -->
 <h2 id="resources">18. Images and fonts</h2>
-<pre>Rid logo  = Rtexture_create_from_file("logo.png");             /* PNG, JPEG, BMP, TGA */
+<pre>Rid logo  = Rtexture_create_from_file("logo.png");             /* PNG, JPEG, BMP, TGA, SVG */
 Rid photo = Rtexture_create_from_file_async("photo.jpg");      /* decoded on a worker; widgets update when ready */
 Rid pixels = Rtexture_create_from_pixels(rgba, 256, 256);
 Rtexture_update(pixels, rgba, 256, 256);                       /* new content */

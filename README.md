@@ -530,6 +530,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
+| `RAVEN_WITH_SVG` | `ON` | SVG images (icons), drawn by nanosvg |
 | `RAVEN_FETCH_VULKAN_HEADERS` | `ON` | download the Khronos headers when no SDK is found |
 | `RAVEN_VULKAN_INCLUDE_DIR` | | folder containing `vulkan/vulkan.h`, to skip the search |
 | `RAVEN_REBUILD_SHADERS` | `OFF` | recompile the GLSL (needs `glslangValidator` or `glslc`); the SPIR-V is committed |
@@ -971,6 +972,37 @@ On a label the text is rendered (headings, lists, quotes, code blocks, tables,
 links that open or fire actions); on the text editor it stays as typed and is
 styled where it stands.
 
+### Tables, dates and the small controls
+
+```xml
+<Table Name="people" Striped="true" Slot.Fill="1">
+    <Column Header="Name" Width="160"/>
+    <Column Header="Age" Width="60" Align="Right"/>
+    <Column Header="City" Fill="1"/>
+    <Row>Ada|36|London</Row>
+</Table>
+<HBox Spacing="8">
+    <DatePicker Date="Today" FirstDayOfWeek="Monday"/>
+    <TimePicker Time="09:30" MinuteStep="15"/>
+    <Rating Value="4" AllowHalf="true"/>
+</HBox>
+<Breadcrumb Items="Home|Documents|Report"/>
+<Pagination PageCount="20" Page="0"/>
+```
+
+A table virtualizes its rows as a list does (`Rtable_set_virtual_rows`); its
+columns are resized by their edges and sorted by their headers. A `Toast`, put
+in an `Overlay`, shows a short message for a few seconds (`Rtoast_show`), with
+an optional button ("Undo"). `Rnotification_show` asks the system for a
+notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
+where there is none, calls the fallback the application gave
+(`Rnotification_set_fallback`), to show it in a toast for instance.
+
+SVG files are read wherever an image is (`Image Source="icon.svg"`,
+`Rtexture_create_from_file`), drawn at 2 pixels per unit so that they stay
+sharp on high-density screens, and shown at the size the SVG gives;
+`Rtexture_create_from_svg` draws one at another scale.
+
 ### Files that are loaded again
 
 An interface created from a file is watched while the application runs:
@@ -1238,6 +1270,8 @@ and how to add a widget, a window system or a backend.
 
 ## Not implemented yet
 
+The plan for what comes next is in [ROADMAP.md](ROADMAP.md).
+
 What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
@@ -1271,7 +1305,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 ## Third-party code
 
-`stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), a subset
+`stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), `nanosvg`
+(zlib, Mikko Mononen), a subset
 of the Roboto font (Apache 2.0, Google) and a subset of Roboto Mono (SIL Open
 Font License 1.1) are included under `third_party/`; see
 [THIRD_PARTY.md](THIRD_PARTY.md). The Vulkan headers (Apache 2.0 / MIT,
