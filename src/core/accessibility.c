@@ -234,6 +234,13 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_COMBO_BOX: return R_ROLE_COMBO_BOX;
 		case R_WIDGET_SEPARATOR: return R_ROLE_SEPARATOR;
 		case R_WIDGET_LIST_VIEW: return R_ROLE_LIST;
+		case R_WIDGET_TABLE: return R_ROLE_TABLE;
+		case R_WIDGET_DATE_PICKER: return R_ROLE_COMBO_BOX;
+		case R_WIDGET_TIME_PICKER: return R_ROLE_SPIN_BUTTON;
+		case R_WIDGET_TOAST: return Rtoast_is_shown(widget->id) ? R_ROLE_ALERT : R_ROLE_NONE;
+		case R_WIDGET_BREADCRUMB: return R_ROLE_GROUP;
+		case R_WIDGET_RATING: return R_ROLE_SLIDER;
+		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
 		case R_WIDGET_TILE_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TREE_VIEW: return R_ROLE_TREE;
 		case R_WIDGET_MENU_BAR: return R_ROLE_MENU_BAR;
@@ -703,6 +710,40 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			rvn_text_printf(&g_a11y.value, "%g", node->number);
 			break;
 		}
+		case R_WIDGET_RATING:
+			node->number = Rrating_get_value(widget->id);
+			node->minimum = 0.0;
+			node->maximum = (double)Rrating_get_max(widget->id);
+			node->step = 1.0;
+			node->states |= RVN_A11Y_HAS_RANGE;
+			rvn_text_printf(&g_a11y.value, "%g / %g", node->number, node->maximum);
+			break;
+		case R_WIDGET_TABLE: {
+			int selected = Rtable_get_selected(widget->id), columns = Rtable_get_column_count(widget->id), c;
+			/* the selected row, cell after cell */
+			for (c = 0; selected >= 0 && c < columns; c++) {
+				if (c) rvn_text_add(&g_a11y.value, ", ");
+				rvn_text_add(&g_a11y.value, Rtable_get_cell(widget->id, selected, c));
+			}
+			break;
+		}
+		case R_WIDGET_DATE_PICKER:
+			node->states |= RVN_A11Y_EXPANDABLE | RVN_A11Y_INVOKABLE;
+			if (Rdate_picker_is_open(widget->id)) node->states |= RVN_A11Y_EXPANDED;
+			rvn_text_add(&g_a11y.value, Rdate_picker_get_text(widget->id));
+			break;
+		case R_WIDGET_TIME_PICKER: {
+			int hour = 0, minute = 0, second = 0;
+			Rtime_picker_get_time(widget->id, &hour, &minute, &second);
+			rvn_text_printf(&g_a11y.value, "%02d:%02d:%02d", hour, minute, second);
+			break;
+		}
+		case R_WIDGET_TOAST:
+			rvn_text_add(&g_a11y.name, Rtoast_get_text(widget->id));
+			break;
+		case R_WIDGET_PAGINATION:
+			rvn_text_printf(&g_a11y.value, "%d / %d", Rpagination_get_page(widget->id) + 1, Rpagination_get_page_count(widget->id));
+			break;
 		case R_WIDGET_PROGRESSBAR:
 			node->number = Rprogress_bar_get_value(widget->id) * 100.0;
 			node->minimum = 0.0;
@@ -858,6 +899,7 @@ int rvn_a11y_set_value(rvn_a11y_id_t id, const char* text) {
 			return R_TRUE;
 		case R_WIDGET_SLIDER:
 		case R_WIDGET_SPIN_BOX:
+		case R_WIDGET_RATING:
 			number = strtod(text, &end);
 			if (end == text) return R_FALSE;
 			return rvn_a11y_set_number(id, number);
@@ -875,6 +917,10 @@ int rvn_a11y_set_number(rvn_a11y_id_t id, double value) {
 	}
 	if (widget->cls->type == R_WIDGET_SPIN_BOX) {
 		Rspin_box_set_value(widget->id, value);
+		return R_TRUE;
+	}
+	if (widget->cls->type == R_WIDGET_RATING) {
+		Rrating_set_value(widget->id, (float)value);
 		return R_TRUE;
 	}
 	return R_FALSE;

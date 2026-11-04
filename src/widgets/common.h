@@ -57,10 +57,27 @@ extern const rvn_widget_class_t rvn_class_color_picker;
 extern const rvn_widget_class_t rvn_class_timeline;
 extern const rvn_widget_class_t rvn_class_node_graph;
 extern const rvn_widget_class_t rvn_class_block_editor;
+extern const rvn_widget_class_t rvn_class_table;
+extern const rvn_widget_class_t rvn_class_date_picker;
+extern const rvn_widget_class_t rvn_class_time_picker;
+extern const rvn_widget_class_t rvn_class_toast;
+extern const rvn_widget_class_t rvn_class_breadcrumb;
+extern const rvn_widget_class_t rvn_class_rating;
+extern const rvn_widget_class_t rvn_class_pagination;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
 #define RVN_WIDGET_INTERNAL_COMPLETION ((RWidgetType)((int)R_WIDGET_LAST_ + 2))
+#define RVN_WIDGET_INTERNAL_CALENDAR ((RWidgetType)((int)R_WIDGET_LAST_ + 3))
+
+/* ---- widgets/date_picker.c: dates of the Gregorian calendar (months 1..12, weekdays 0 = Sunday) ---- */
+int  rvn_date_days_in_month(int year, int month);
+int  rvn_date_valid(int year, int month, int day);
+int  rvn_date_weekday(int year, int month, int day);
+void rvn_date_today(int* year, int* month, int* day);
+/** The name of a month or of a day: the locale's (keys Raven.Month1.., Raven.Day0..) or English. */
+const char* rvn_date_month_name(int month);
+const char* rvn_date_day_name(int weekday);
 
 /** Panels sharing Rpanel_set_spacing start with this layout. */
 typedef struct rvn_spaced_panel_t {

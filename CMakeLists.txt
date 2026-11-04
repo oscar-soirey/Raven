@@ -28,6 +28,7 @@ option(RAVEN_BUILD_TOOLS "Build the tools (the designer)" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_WEB "Compile the web pages (raven_web.h: they drive an installed Chromium-based browser) into the library" ON)
 option(RAVEN_BACKEND_VULKAN "Compile the Vulkan backend" ON)
 option(RAVEN_WITH_STB_IMAGE "Decode PNG / JPEG / BMP / TGA textures with stb_image" ON)
+option(RAVEN_WITH_SVG "Draw SVG images (icons) with nanosvg" ON)
 option(RAVEN_FETCH_VULKAN_HEADERS "Download the Vulkan headers when no Vulkan SDK is found" ON)
 option(RAVEN_REBUILD_SHADERS "Recompile the GLSL shaders (needs glslangValidator or glslc)" OFF)
 option(RAVEN_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
@@ -134,6 +135,7 @@ set(RAVEN_CORE_SOURCES
 
 set(RAVEN_PLATFORM_SOURCES
 	src/platform/platform.c
+	src/platform/notify.c
 	src/platform/platform.h
 	src/platform/null/null_platform.c
 	src/platform/host/host_platform.c
@@ -148,6 +150,7 @@ set(RAVEN_RENDER_SOURCES
 	src/render/font.h
 	src/render/font_raster.c
 	src/render/image_decode.c
+	src/render/svg_decode.c
 	src/render/renderer.c
 	src/render/renderer.h
 	src/render/texture.c
@@ -221,6 +224,13 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/text_input.c
 	src/widgets/tree_view.c
 	src/widgets/viewport.c
+	src/widgets/table.c
+	src/widgets/date_picker.c
+	src/widgets/time_picker.c
+	src/widgets/toast.c
+	src/widgets/breadcrumb.c
+	src/widgets/rating.c
+	src/widgets/pagination.c
 )
 
 set(RAVEN_XML_SOURCES
@@ -343,6 +353,9 @@ if(RAVEN_BACKEND_VULKAN)
 	endif()
 endif()
 
+if(RAVEN_WITH_SVG)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_WITH_SVG)
+endif()
 if(RAVEN_WITH_STB_IMAGE)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_WITH_STB_IMAGE)
 endif()
