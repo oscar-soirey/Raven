@@ -67,7 +67,12 @@ int rvn_vk_load_library(void) {
 #if defined(_WIN32)
 		"vulkan-1.dll"
 #elif defined(__APPLE__)
-		"libvulkan.1.dylib", "libvulkan.dylib", "libMoltenVK.dylib"
+		"libvulkan.1.dylib", "libvulkan.dylib", "libMoltenVK.dylib",
+		/* the system looks for a bare name in no folder of a package manager: MoltenVK
+		 * from Homebrew or MacPorts would be found by no entry above */
+		"/opt/homebrew/lib/libvulkan.1.dylib", "/opt/homebrew/lib/libvulkan.dylib", "/opt/homebrew/lib/libMoltenVK.dylib",
+		"/usr/local/lib/libvulkan.1.dylib", "/usr/local/lib/libvulkan.dylib", "/usr/local/lib/libMoltenVK.dylib",
+		"/opt/local/lib/libvulkan.1.dylib", "/opt/local/lib/libvulkan.dylib", "/opt/local/lib/libMoltenVK.dylib"
 #else
 		"libvulkan.so.1", "libvulkan.so"
 #endif
