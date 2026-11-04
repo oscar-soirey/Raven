@@ -129,11 +129,11 @@ void rvn_texture_restore(rvn_texture_t* texture) {
 	} else if (texture->source_data || texture->source_path) {
 		int w = 0, h = 0;
 		if (texture->source_data) {
-			pixels = rvn_image_decode(texture->source_data, texture->source_size, &w, &h);
+			pixels = rvn_image_decode_at(texture->source_data, texture->source_size, texture->density, &w, &h, NULL);
 		} else if (!rvn_is_http_url(texture->source_path)) {
 			size_t size = 0;
 			char* data = rvn_read_file(texture->source_path, &size);
-			if (data) pixels = rvn_image_decode((const uint8_t*)data, size, &w, &h);
+			if (data) pixels = rvn_image_decode_at((const uint8_t*)data, size, texture->density, &w, &h, NULL);
 			rvn_free(data);
 		}
 		/* (the file changed size meanwhile: what was shown keeps its size, transparent) */
@@ -157,6 +157,7 @@ typedef struct rvn_texture_job_t {
 	char* path;
 	uint8_t* pixels;
 	int width, height;
+	float density;
 } rvn_texture_job_t;
 
 /* UI thread: the decoded pixels become the texture, unless it was deleted meanwhile. */
@@ -164,6 +165,7 @@ static void rvn_texture_job_finish(void* arg) {
 	rvn_texture_job_t* job = (rvn_texture_job_t*)arg;
 	rvn_texture_t* texture = g_rvn.initialized ? rvn_texture_get(job->id) : NULL;
 	if (texture && job->pixels) {
+		texture->density = job->density;
 		rvn_texture_upload(texture, job->width, job->height, job->pixels);
 		job->pixels = NULL;
 		rvn_invalidate_all_windows();
@@ -190,7 +192,7 @@ static void rvn_texture_job_run(void* arg) {
 			}
 		} else job->data = (uint8_t*)rvn_read_file(job->path, &job->size);
 	}
-	if (job->data) job->pixels = rvn_image_decode(job->data, job->size, &job->width, &job->height);
+	if (job->data) job->pixels = rvn_image_decode_at(job->data, job->size, 0.0f, &job->width, &job->height, &job->density);
 	rvn_free(job->data);
 	job->data = NULL;
 	Rtask_post(rvn_texture_job_finish, job);
@@ -220,21 +222,41 @@ static Rid rvn_texture_create_async(const char* data, size_t size, const char* p
  *  Public API
  * ------------------------------------------------------------------------- */
 
-Rid Rtexture_create(const char* data, size_t data_size) {
+/* An image file in memory; an SVG drawn at `svg_scale` (0: RVN_SVG_DENSITY). */
+static Rid rvn_texture_create_decoded(const char* data, size_t data_size, float svg_scale, const char* function) {
 	int width = 0, height = 0;
-	uint8_t* pixels;
-	RVN_API_GUARD(R_INVALID_ID);
-	pixels = rvn_image_decode((const uint8_t*)data, data_size, &width, &height);
+	float density = 1.0f;
+	uint8_t* pixels = rvn_image_decode_at((const uint8_t*)data, data_size, svg_scale, &width, &height, &density);
 	if (!pixels) {
-		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rtexture_create: cannot decode the image");
+		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "%s: cannot decode the image", function);
 		return R_INVALID_ID;
 	}
 	{
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
+		if (texture) texture->density = density;
 		if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, NULL, data, data_size);
 		return id;
 	}
+}
+
+Rid Rtexture_create(const char* data, size_t data_size) {
+	RVN_API_GUARD(R_INVALID_ID);
+	return rvn_texture_create_decoded(data, data_size, 0.0f, "Rtexture_create");
+}
+
+Rid Rtexture_create_from_svg(const char* svg, size_t svg_size, float scale) {
+	RVN_API_GUARD(R_INVALID_ID);
+	if (!svg || !rvn_svg_detect((const uint8_t*)svg, svg_size)) {
+		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rtexture_create_from_svg: not an SVG image");
+		return R_INVALID_ID;
+	}
+	return rvn_texture_create_decoded(svg, svg_size, scale > 0.0f ? scale : RVN_SVG_DENSITY, "Rtexture_create_from_svg");
+}
+
+float Rtexture_get_density(Rid id) {
+	rvn_texture_t* texture = g_rvn.initialized ? rvn_texture_get(id) : NULL;
+	return texture && texture->density > 0.0f ? texture->density : 1.0f;
 }
 
 Rid Rtexture_create_async(const char* data, size_t data_size) {
@@ -260,6 +282,7 @@ Rid Rtexture_create_from_file(const char* path) {
 	size_t size = 0;
 	char* data;
 	int width = 0, height = 0;
+	float density = 1.0f;
 	uint8_t* pixels;
 	RVN_API_GUARD(R_INVALID_ID);
 	data = rvn_read_file(path, &size);
@@ -267,7 +290,7 @@ Rid Rtexture_create_from_file(const char* path) {
 		rvn_error(R_ERROR_FILE_NOT_FOUND, R_SEVERITY_ERROR, "Rtexture_create_from_file: cannot read '%s'", path ? path : "");
 		return R_INVALID_ID;
 	}
-	pixels = rvn_image_decode((const uint8_t*)data, size, &width, &height);
+	pixels = rvn_image_decode_at((const uint8_t*)data, size, 0.0f, &width, &height, &density);
 	rvn_free(data);
 	if (!pixels) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rtexture_create_from_file: cannot decode '%s'", path);
@@ -276,6 +299,7 @@ Rid Rtexture_create_from_file(const char* path) {
 	{
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
+		if (texture) texture->density = density;
 		if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, path, NULL, 0);
 		return id;
 	}
@@ -325,6 +349,7 @@ void Rtexture_update(Rid id, const uint8_t* rgba, int width, int height) {
 	size = (size_t)width * (size_t)height * 4;
 	copy = (uint8_t*)rvn_alloc(size);
 	memcpy(copy, rgba, size);
+	texture->density = 1.0f;
 	/* the pixels come from the application now: the file is no longer what it shows */
 	rvn_free(texture->source_path);
 	rvn_free(texture->source_data);

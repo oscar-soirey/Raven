@@ -43,7 +43,7 @@
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
 
-uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* height) {
+static uint8_t* rvn_bitmap_decode(const uint8_t* data, size_t size, int* width, int* height) {
 	int w = 0, h = 0, channels = 0;
 	uint8_t* pixels;
 	if (!data || size == 0 || size > 0x7FFFFFFFu) return NULL;
@@ -56,7 +56,7 @@ uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* hei
 
 #else /* RAVEN_WITH_STB_IMAGE */
 
-uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* height) {
+static uint8_t* rvn_bitmap_decode(const uint8_t* data, size_t size, int* width, int* height) {
 	RVN_UNUSED(data);
 	RVN_UNUSED(size);
 	RVN_UNUSED(width);
@@ -65,3 +65,17 @@ uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* hei
 }
 
 #endif
+
+uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density) {
+	if (density) *density = 1.0f;
+	if (data && rvn_svg_detect(data, size)) {
+		float scale = svg_scale > 0.0f ? svg_scale : RVN_SVG_DENSITY;
+		if (density) *density = scale;
+		return rvn_svg_decode(data, size, scale, width, height);
+	}
+	return rvn_bitmap_decode(data, size, width, height);
+}
+
+uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* height) {
+	return rvn_image_decode_at(data, size, 0.0f, width, height, NULL);
+}

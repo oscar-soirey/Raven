@@ -29,9 +29,12 @@ static void rvn_image_init(rvn_widget_t* widget) {
 /* Size of the shown part of the texture, in texels. */
 static rvn_vec2_t rvn_image_source_size(const rvn_image_t* image) {
 	rvn_texture_t* texture = rvn_texture_get(image->texture);
+	float density;
 	if (!texture) return rvn_vec2(0.0f, 0.0f);
-	return rvn_vec2((float)texture->width * fabsf(image->uv[2] - image->uv[0]),
-		(float)texture->height * fabsf(image->uv[3] - image->uv[1]));
+	/* (an SVG drawn at a scale of 2 shows at the size it gives) */
+	density = texture->density > 0.0f ? texture->density : 1.0f;
+	return rvn_vec2((float)texture->width / density * fabsf(image->uv[2] - image->uv[0]),
+		(float)texture->height / density * fabsf(image->uv[3] - image->uv[1]));
 }
 
 static rvn_vec2_t rvn_image_measure(rvn_widget_t* widget) {
