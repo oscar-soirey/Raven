@@ -338,6 +338,8 @@ const _symbols = {
 	Rfont_measure_text: { args: ["u32", "f32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtexture_create: { args: ["ptr", "usize"], returns: "u32" },
 	Rtexture_create_async: { args: ["ptr", "usize"], returns: "u32" },
+	Rtexture_create_from_svg: { args: ["ptr", "usize", "f32"], returns: "u32" },
+	Rtexture_get_density: { args: ["u32"], returns: "f32" },
 	Rtexture_create_from_file: { args: ["ptr"], returns: "u32" },
 	Rtexture_create_from_file_async: { args: ["ptr"], returns: "u32" },
 	Rtexture_create_from_pixels: { args: ["ptr", "i32", "i32"], returns: "u32" },
@@ -633,6 +635,76 @@ const _symbols = {
 	Rtile_view_set_selection_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtile_view_set_activated_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtile_view_set_context_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_add_column: { args: ["u32", "ptr", "f32"], returns: "i32" },
+	Rtable_get_column_count: { args: ["u32"], returns: "i32" },
+	Rtable_clear_columns: { args: ["u32"], returns: "void" },
+	Rtable_set_column_header: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rtable_get_column_header: { args: ["u32", "i32"], returns: "cstring" },
+	Rtable_set_column_width: { args: ["u32", "i32", "f32"], returns: "void" },
+	Rtable_get_column_width: { args: ["u32", "i32"], returns: "f32" },
+	Rtable_set_column_fill: { args: ["u32", "i32", "f32"], returns: "void" },
+	Rtable_set_column_sortable: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtable_set_column_align: { args: ["u32", "i32", "f32"], returns: "void" },
+	Rtable_add_row: { args: ["u32", "ptr"], returns: "i32" },
+	Rtable_set_cell: { args: ["u32", "i32", "i32", "ptr"], returns: "void" },
+	Rtable_get_cell: { args: ["u32", "i32", "i32"], returns: "cstring" },
+	Rtable_remove_row: { args: ["u32", "i32"], returns: "void" },
+	Rtable_clear_rows: { args: ["u32"], returns: "void" },
+	Rtable_get_row_count: { args: ["u32"], returns: "i32" },
+	Rtable_set_virtual_rows: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_selected: { args: ["u32", "i32"], returns: "void" },
+	Rtable_get_selected: { args: ["u32"], returns: "i32" },
+	Rtable_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
+	Rtable_sort: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtable_get_sort_column: { args: ["u32"], returns: "i32" },
+	Rtable_is_sort_descending: { args: ["u32"], returns: "i32" },
+	Rtable_set_header_visible: { args: ["u32", "i32"], returns: "void" },
+	Rtable_set_grid_lines: { args: ["u32", "i32"], returns: "void" },
+	Rtable_set_striped: { args: ["u32", "i32"], returns: "void" },
+	Rtable_set_selection_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_activated_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_sort_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdate_picker_set_date: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rdate_picker_get_date: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
+	Rdate_picker_set_range: { args: ["u32", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "void" },
+	Rdate_picker_set_first_day_of_week: { args: ["u32", "i32"], returns: "void" },
+	Rdate_picker_set_format: { args: ["u32", "ptr"], returns: "void" },
+	Rdate_picker_get_text: { args: ["u32"], returns: "cstring" },
+	Rdate_picker_set_open: { args: ["u32", "i32"], returns: "void" },
+	Rdate_picker_is_open: { args: ["u32"], returns: "i32" },
+	Rdate_picker_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtime_picker_set_time: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rtime_picker_get_time: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
+	Rtime_picker_set_seconds_visible: { args: ["u32", "i32"], returns: "void" },
+	Rtime_picker_set_minute_step: { args: ["u32", "i32"], returns: "void" },
+	Rtime_picker_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtoast_show: { args: ["u32", "ptr", "f64"], returns: "void" },
+	Rtoast_hide: { args: ["u32"], returns: "void" },
+	Rtoast_is_shown: { args: ["u32"], returns: "i32" },
+	Rtoast_get_text: { args: ["u32"], returns: "cstring" },
+	Rtoast_set_kind: { args: ["u32", "i32"], returns: "void" },
+	Rtoast_set_action_text: { args: ["u32", "ptr"], returns: "void" },
+	Rtoast_set_action_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rbreadcrumb_set_items: { args: ["u32", "ptr"], returns: "void" },
+	Rbreadcrumb_add_item: { args: ["u32", "ptr"], returns: "i32" },
+	Rbreadcrumb_truncate: { args: ["u32", "i32"], returns: "void" },
+	Rbreadcrumb_get_item_count: { args: ["u32"], returns: "i32" },
+	Rbreadcrumb_get_item_text: { args: ["u32", "i32"], returns: "cstring" },
+	Rbreadcrumb_set_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rrating_set_value: { args: ["u32", "f32"], returns: "void" },
+	Rrating_get_value: { args: ["u32"], returns: "f32" },
+	Rrating_set_max: { args: ["u32", "i32"], returns: "void" },
+	Rrating_get_max: { args: ["u32"], returns: "i32" },
+	Rrating_set_allow_half: { args: ["u32", "i32"], returns: "void" },
+	Rrating_set_read_only: { args: ["u32", "i32"], returns: "void" },
+	Rrating_set_star_size: { args: ["u32", "f32"], returns: "void" },
+	Rrating_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rpagination_set_page_count: { args: ["u32", "i32"], returns: "void" },
+	Rpagination_get_page_count: { args: ["u32"], returns: "i32" },
+	Rpagination_set_page: { args: ["u32", "i32"], returns: "void" },
+	Rpagination_get_page: { args: ["u32"], returns: "i32" },
+	Rpagination_set_siblings: { args: ["u32", "i32"], returns: "void" },
+	Rpagination_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_editor_create: { args: ["ptr"], returns: "u32" },
 	Rtext_editor_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_editor_get_text: { args: ["u32"], returns: "cstring" },
@@ -935,6 +1007,9 @@ const _symbols = {
 	Rfile_browser_set_accepted_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rfile_browser_set_cancelled_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rfile_browser_set_selection_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rnotification_show: { args: ["ptr", "ptr", "i32"], returns: "i32" },
+	Rnotification_is_supported: { args: [], returns: "i32" },
+	Rnotification_set_fallback: { args: ["ptr", "ptr"], returns: "void" },
 	Rviewport_set_texture: { args: ["u32", "u32"], returns: "void" },
 	Rviewport_set_stretch: { args: ["u32", "i32"], returns: "void" },
 	Rviewport_set_flip_y: { args: ["u32", "i32"], returns: "void" },
@@ -2082,6 +2157,20 @@ export enum RWidgetType {
 	R_WIDGET_TILE_VIEW = 0x0229,
 	/** Blocks that snap into each other, in the style of Scratch. */
 	R_WIDGET_BLOCK_EDITOR = 0x022A,
+	/** Rows of cells under columns that can be resized and sorted, virtualized. */
+	R_WIDGET_TABLE = 0x022B,
+	/** A date, chosen in a calendar that drops down. */
+	R_WIDGET_DATE_PICKER = 0x022C,
+	/** A time of the day: hours, minutes, optionally seconds. */
+	R_WIDGET_TIME_PICKER = 0x022D,
+	/** A short message that rises for a few seconds, with an optional action ("Undo"). */
+	R_WIDGET_TOAST = 0x022E,
+	/** The path to the current place: links separated by chevrons. */
+	R_WIDGET_BREADCRUMB = 0x022F,
+	/** A score shown and chosen with stars. */
+	R_WIDGET_RATING = 0x0230,
+	/** Page numbers with previous and next. */
+	R_WIDGET_PAGINATION = 0x0231,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2127,6 +2216,13 @@ export const R_WIDGET_TIMELINE = RWidgetType.R_WIDGET_TIMELINE;
 export const R_WIDGET_NODE_GRAPH = RWidgetType.R_WIDGET_NODE_GRAPH;
 export const R_WIDGET_TILE_VIEW = RWidgetType.R_WIDGET_TILE_VIEW;
 export const R_WIDGET_BLOCK_EDITOR = RWidgetType.R_WIDGET_BLOCK_EDITOR;
+export const R_WIDGET_TABLE = RWidgetType.R_WIDGET_TABLE;
+export const R_WIDGET_DATE_PICKER = RWidgetType.R_WIDGET_DATE_PICKER;
+export const R_WIDGET_TIME_PICKER = RWidgetType.R_WIDGET_TIME_PICKER;
+export const R_WIDGET_TOAST = RWidgetType.R_WIDGET_TOAST;
+export const R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB;
+export const R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING;
+export const R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -2267,6 +2363,19 @@ export enum RTextAlign {
 export const R_TEXT_ALIGN_LEFT = RTextAlign.R_TEXT_ALIGN_LEFT;
 export const R_TEXT_ALIGN_CENTER = RTextAlign.R_TEXT_ALIGN_CENTER;
 export const R_TEXT_ALIGN_RIGHT = RTextAlign.R_TEXT_ALIGN_RIGHT;
+
+export enum RToastKind {
+	/** A neutral message (the accent of the theme). */
+	R_TOAST_INFO = 0x04E0,
+	R_TOAST_SUCCESS = 0x04E1,
+	R_TOAST_WARNING = 0x04E2,
+	R_TOAST_ERROR = 0x04E3,
+}
+
+export const R_TOAST_INFO = RToastKind.R_TOAST_INFO;
+export const R_TOAST_SUCCESS = RToastKind.R_TOAST_SUCCESS;
+export const R_TOAST_WARNING = RToastKind.R_TOAST_WARNING;
+export const R_TOAST_ERROR = RToastKind.R_TOAST_ERROR;
 
 export enum RButtonStyle {
 	/** Filled with R_COLOR_CONTROL. */
@@ -2480,6 +2589,19 @@ export enum RBlockPlace {
 export const R_BLOCK_NEXT = RBlockPlace.R_BLOCK_NEXT;
 export const R_BLOCK_BODY = RBlockPlace.R_BLOCK_BODY;
 export const R_BLOCK_INPUT = RBlockPlace.R_BLOCK_INPUT;
+
+/** How much a notification of the system asks for attention (Rnotification_show). */
+export enum RNotificationUrgency {
+	/** No sound; may only go to the list of notifications. */
+	R_NOTIFICATION_LOW = 0x04F0,
+	R_NOTIFICATION_NORMAL = 0x04F1,
+	/** Stays until the user dismisses it, where the system allows it. */
+	R_NOTIFICATION_CRITICAL = 0x04F2,
+}
+
+export const R_NOTIFICATION_LOW = RNotificationUrgency.R_NOTIFICATION_LOW;
+export const R_NOTIFICATION_NORMAL = RNotificationUrgency.R_NOTIFICATION_NORMAL;
+export const R_NOTIFICATION_CRITICAL = RNotificationUrgency.R_NOTIFICATION_CRITICAL;
 
 export enum RFileDialogFlags {
 	/** Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result. */
@@ -5234,6 +5356,156 @@ function _adapt_RTileDragDataCallback(function_: RTileDragDataCallback | Pointer
 	}, { args: ["u32", "ptr"], returns: "ptr", threadsafe }));
 }
 
+/**
+ * Virtual mode, for large or computed data: the table stores nothing and
+ * asks for the texts of the cells it draws. The returned string must stay
+ * valid until the next call.
+ */
+export type RTableCellTextCallback = (table: Rid, row: number, column: number, user_data: Pointer | null) => string | null;
+
+function _adapt_RTableCellTextCallback(function_: RTableCellTextCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	let text: Buffer = Buffer.from([0]);
+	return _keep(new _JSCallback((table: number, row: number, column: number, user_data: Pointer | null): Pointer | null => {
+		try {
+			text = Buffer.from((function_(table, row, column, user_data) ?? "") + "\0");
+			return _ptr(text);
+		} catch (error) {
+			_report(error as Error);
+			return _ptr(text);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
+}
+
+export type RTableEventCallback = (table: Rid, row: number, user_data: Pointer | null) => void;
+
+function _adapt_RTableEventCallback(function_: RTableEventCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((table: number, row: number, user_data: Pointer | null): void => {
+		try {
+			function_(table, row, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user clicks a header; `column` -1: not sorted. */
+export type RTableSortCallback = (table: Rid, column: number, descending: number, user_data: Pointer | null) => void;
+
+function _adapt_RTableSortCallback(function_: RTableSortCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((table: number, column: number, descending: number, user_data: Pointer | null): void => {
+		try {
+			function_(table, column, descending, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user chooses a date. This also fires the action of the widget. */
+export type RDateChangedCallback = (date_picker: Rid, year: number, month: number, day: number, user_data: Pointer | null) => void;
+
+function _adapt_RDateChangedCallback(function_: RDateChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((date_picker: number, year: number, month: number, day: number, user_data: Pointer | null): void => {
+		try {
+			function_(date_picker, year, month, day, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user changes the time. This also fires the action of the widget. */
+export type RTimeChangedCallback = (time_picker: Rid, hour: number, minute: number, second: number, user_data: Pointer | null) => void;
+
+function _adapt_RTimeChangedCallback(function_: RTimeChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((time_picker: number, hour: number, minute: number, second: number, user_data: Pointer | null): void => {
+		try {
+			function_(time_picker, hour, minute, second, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called by the button of the message, which then hides. This also fires the action of the widget. */
+export type RToastCallback = (toast: Rid, user_data: Pointer | null) => void;
+
+function _adapt_RToastCallback(function_: RToastCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((toast: number, user_data: Pointer | null): void => {
+		try {
+			function_(toast, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user clicks an item. This also fires the action of the widget. */
+export type RBreadcrumbCallback = (breadcrumb: Rid, index: number, user_data: Pointer | null) => void;
+
+function _adapt_RBreadcrumbCallback(function_: RBreadcrumbCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((breadcrumb: number, index: number, user_data: Pointer | null): void => {
+		try {
+			function_(breadcrumb, index, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user changes the score. This also fires the action of the widget. */
+export type RRatingChangedCallback = (rating: Rid, value: number, user_data: Pointer | null) => void;
+
+function _adapt_RRatingChangedCallback(function_: RRatingChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((rating: number, value: number, user_data: Pointer | null): void => {
+		try {
+			function_(rating, value, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "f32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user goes to another page. This also fires the action of the widget. */
+export type RPageChangedCallback = (pagination: Rid, page: number, user_data: Pointer | null) => void;
+
+function _adapt_RPageChangedCallback(function_: RPageChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((pagination: number, page: number, user_data: Pointer | null): void => {
+		try {
+			function_(pagination, page, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
 export type RTextEditorZoomCallback = (editor: Rid, zoom: number, user_data: Pointer | null) => void;
 
@@ -5518,6 +5790,21 @@ function _adapt_RFileBrowserCallback(function_: RFileBrowserCallback | Pointer |
 			_report(error as Error);
 		}
 	}, { args: ["u32", "ptr", "ptr"], returns: "void", threadsafe }));
+}
+
+export type RNotificationFallback = (title: string | null, body: string | null, urgency: RNotificationUrgency, user_data: Pointer | null) => void;
+
+function _adapt_RNotificationFallback(function_: RNotificationFallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((title: Pointer | null, body: Pointer | null, urgency: number, user_data: Pointer | null): void => {
+		try {
+			function_(_text(title), _text(body), urgency as RNotificationUrgency, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["ptr", "ptr", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -6885,7 +7172,7 @@ export function Rfont_measure_text(font: Rid, size: number, text: string | null)
 
 /**
  * Creates a texture from the content of an image file (PNG, JPEG,
- * BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+ * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
  * Returns: R_INVALID_ID on failure.
  */
 export function Rtexture_create(data: string | null): Rid {
@@ -6901,6 +7188,23 @@ export function Rtexture_create(data: string | null): Rid {
 export function Rtexture_create_async(data: string | null): Rid {
 	const data_ = _s(data);
 	return _lib.Rtexture_create_async(data_, data_ === null ? 0 : data_.length - 1);
+}
+
+/**
+ * Draws an SVG image (an icon) into a texture, at `scale` pixels per
+ * unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
+ * The widgets show it at the size the SVG gives, whatever the scale
+ * (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
+ * also read SVG files, at a scale of 2. Paths, fills, strokes and
+ * gradients are drawn; text, filters and masks are not.
+ */
+export function Rtexture_create_from_svg(svg: string | null, svg_size: number, scale: number): Rid {
+	return _lib.Rtexture_create_from_svg(_s(svg), svg_size, scale);
+}
+
+/** Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise. */
+export function Rtexture_get_density(texture: Rid): number {
+	return _lib.Rtexture_get_density(texture);
 }
 
 export function Rtexture_create_from_file(path: string | null): Rid {
@@ -8446,6 +8750,336 @@ export function Rtile_view_set_activated_callback(tile_view: Rid, callback: RTil
 
 export function Rtile_view_set_context_callback(tile_view: Rid, callback: RTileContextCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtile_view_set_context_callback(tile_view, _adapt_RTileContextCallback(callback), user_data);
+}
+
+/**
+ * Adds a column.
+ * width Width in logical units; 0 or less gives the default (120).
+ * Returns: The index of the column. The stored rows get an empty cell in it.
+ */
+export function Rtable_add_column(table: Rid, header: string | null, width: number): number {
+	return _lib.Rtable_add_column(table, _s(header), width);
+}
+
+export function Rtable_get_column_count(table: Rid): number {
+	return _lib.Rtable_get_column_count(table);
+}
+
+/** Removes the columns and the stored rows. */
+export function Rtable_clear_columns(table: Rid): void {
+	_lib.Rtable_clear_columns(table);
+}
+
+export function Rtable_set_column_header(table: Rid, column: number, header: string | null): void {
+	_lib.Rtable_set_column_header(table, column, _s(header));
+}
+
+export function Rtable_get_column_header(table: Rid, column: number): string | null {
+	return _lib.Rtable_get_column_header(table, column);
+}
+
+export function Rtable_set_column_width(table: Rid, column: number, width: number): void {
+	_lib.Rtable_set_column_width(table, column, width);
+}
+
+/** The width the column has on screen (a filling column takes more than its width). */
+export function Rtable_get_column_width(table: Rid, column: number): number {
+	return _lib.Rtable_get_column_width(table, column);
+}
+
+/** > 0: the column takes this share of the room the others leave; 0: its width only. */
+export function Rtable_set_column_fill(table: Rid, column: number, fill: number): void {
+	_lib.Rtable_set_column_fill(table, column, fill);
+}
+
+/** R_FALSE: a click on the header does not sort (default R_TRUE). */
+export function Rtable_set_column_sortable(table: Rid, column: number, sortable: number): void {
+	_lib.Rtable_set_column_sortable(table, column, sortable);
+}
+
+/** Where the texts sit in the cells: 0 left, 0.5 center, 1 right. */
+export function Rtable_set_column_align(table: Rid, column: number, align: number): void {
+	_lib.Rtable_set_column_align(table, column, align);
+}
+
+/**
+ * Adds a row.
+ * cells The texts of the cells, separated by '|' ("Ada|36|London"),
+ *              or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+ * Returns: The index of the row.
+ */
+export function Rtable_add_row(table: Rid, cells: string | null): number {
+	return _lib.Rtable_add_row(table, _s(cells));
+}
+
+export function Rtable_set_cell(table: Rid, row: number, column: number, text: string | null): void {
+	_lib.Rtable_set_cell(table, row, column, _s(text));
+}
+
+export function Rtable_get_cell(table: Rid, row: number, column: number): string | null {
+	return _lib.Rtable_get_cell(table, row, column);
+}
+
+export function Rtable_remove_row(table: Rid, row: number): void {
+	_lib.Rtable_remove_row(table, row);
+}
+
+export function Rtable_clear_rows(table: Rid): void {
+	_lib.Rtable_clear_rows(table);
+}
+
+export function Rtable_get_row_count(table: Rid): number {
+	return _lib.Rtable_get_row_count(table);
+}
+
+export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTableCellTextCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_virtual_rows(table, count, _adapt_RTableCellTextCallback(callback), user_data);
+}
+
+/** Selects a row. -1 selects nothing. */
+export function Rtable_set_selected(table: Rid, row: number): void {
+	_lib.Rtable_set_selected(table, row);
+}
+
+export function Rtable_get_selected(table: Rid): number {
+	return _lib.Rtable_get_selected(table);
+}
+
+export function Rtable_scroll_to_row(table: Rid, row: number): void {
+	_lib.Rtable_scroll_to_row(table, row);
+}
+
+/** Sorts by a column (stored rows are moved); -1 shows no sorted column. */
+export function Rtable_sort(table: Rid, column: number, descending: number): void {
+	_lib.Rtable_sort(table, column, descending);
+}
+
+export function Rtable_get_sort_column(table: Rid): number {
+	return _lib.Rtable_get_sort_column(table);
+}
+
+export function Rtable_is_sort_descending(table: Rid): number {
+	return _lib.Rtable_is_sort_descending(table);
+}
+
+export function Rtable_set_header_visible(table: Rid, visible: number): void {
+	_lib.Rtable_set_header_visible(table, visible);
+}
+
+export function Rtable_set_grid_lines(table: Rid, visible: number): void {
+	_lib.Rtable_set_grid_lines(table, visible);
+}
+
+/** Every other row a little darker. */
+export function Rtable_set_striped(table: Rid, striped: number): void {
+	_lib.Rtable_set_striped(table, striped);
+}
+
+export function Rtable_set_selection_changed_callback(table: Rid, callback: RTableEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_selection_changed_callback(table, _adapt_RTableEventCallback(callback), user_data);
+}
+
+/** Called on double click or Enter. This also fires the action of the widget. */
+export function Rtable_set_activated_callback(table: Rid, callback: RTableEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_activated_callback(table, _adapt_RTableEventCallback(callback), user_data);
+}
+
+export function Rtable_set_sort_callback(table: Rid, callback: RTableSortCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_sort_callback(table, _adapt_RTableSortCallback(callback), user_data);
+}
+
+/** Sets the date (today when the picker is created). An invalid date is refused. */
+export function Rdate_picker_set_date(date_picker: Rid, year: number, month: number, day: number): void {
+	_lib.Rdate_picker_set_date(date_picker, year, month, day);
+}
+
+export function Rdate_picker_get_date(date_picker: Rid): [year: number, month: number, day: number] {
+	const year_ = new Int32Array(1);
+	const month_ = new Int32Array(1);
+	const day_ = new Int32Array(1);
+	_lib.Rdate_picker_get_date(date_picker, year_, month_, day_);
+	return [year_[0]!, month_[0]!, day_[0]!];
+}
+
+/** The earliest and the latest dates that can be chosen; 0 for year leaves that side open. */
+export function Rdate_picker_set_range(date_picker: Rid, min_year: number, min_month: number, min_day: number, max_year: number, max_month: number, max_day: number): void {
+	_lib.Rdate_picker_set_range(date_picker, min_year, min_month, min_day, max_year, max_month, max_day);
+}
+
+/** 0 = Sunday (default), 1 = Monday... */
+export function Rdate_picker_set_first_day_of_week(date_picker: Rid, day: number): void {
+	_lib.Rdate_picker_set_first_day_of_week(date_picker, day);
+}
+
+/**
+ * How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+ * of the month), MMM (its first three letters), dddd (the name of the day),
+ * ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026".
+ */
+export function Rdate_picker_set_format(date_picker: Rid, format: string | null): void {
+	_lib.Rdate_picker_set_format(date_picker, _s(format));
+}
+
+/** The date as the field shows it (valid until the next call). */
+export function Rdate_picker_get_text(date_picker: Rid): string | null {
+	return _lib.Rdate_picker_get_text(date_picker);
+}
+
+/** Opens or closes the calendar. */
+export function Rdate_picker_set_open(date_picker: Rid, open: number): void {
+	_lib.Rdate_picker_set_open(date_picker, open);
+}
+
+export function Rdate_picker_is_open(date_picker: Rid): number {
+	return _lib.Rdate_picker_is_open(date_picker);
+}
+
+export function Rdate_picker_set_changed_callback(date_picker: Rid, callback: RDateChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rdate_picker_set_changed_callback(date_picker, _adapt_RDateChangedCallback(callback), user_data);
+}
+
+export function Rtime_picker_set_time(time_picker: Rid, hour: number, minute: number, second: number): void {
+	_lib.Rtime_picker_set_time(time_picker, hour, minute, second);
+}
+
+export function Rtime_picker_get_time(time_picker: Rid): [hour: number, minute: number, second: number] {
+	const hour_ = new Int32Array(1);
+	const minute_ = new Int32Array(1);
+	const second_ = new Int32Array(1);
+	_lib.Rtime_picker_get_time(time_picker, hour_, minute_, second_);
+	return [hour_[0]!, minute_[0]!, second_[0]!];
+}
+
+export function Rtime_picker_set_seconds_visible(time_picker: Rid, visible: number): void {
+	_lib.Rtime_picker_set_seconds_visible(time_picker, visible);
+}
+
+/** Step of the minutes for the arrows and the wheel (default 1). */
+export function Rtime_picker_set_minute_step(time_picker: Rid, step: number): void {
+	_lib.Rtime_picker_set_minute_step(time_picker, step);
+}
+
+export function Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtime_picker_set_changed_callback(time_picker, _adapt_RTimeChangedCallback(callback), user_data);
+}
+
+/** Shows a message for `seconds` (0 or less: until Rtoast_hide). */
+export function Rtoast_show(toast: Rid, text: string | null, seconds: number): void {
+	_lib.Rtoast_show(toast, _s(text), seconds);
+}
+
+export function Rtoast_hide(toast: Rid): void {
+	_lib.Rtoast_hide(toast);
+}
+
+export function Rtoast_is_shown(toast: Rid): number {
+	return _lib.Rtoast_is_shown(toast);
+}
+
+export function Rtoast_get_text(toast: Rid): string | null {
+	return _lib.Rtoast_get_text(toast);
+}
+
+export function Rtoast_set_kind(toast: Rid, kind: RToastKind): void {
+	_lib.Rtoast_set_kind(toast, kind);
+}
+
+/** A button at the end of the message ("Undo"); NULL or "" removes it. */
+export function Rtoast_set_action_text(toast: Rid, text: string | null): void {
+	_lib.Rtoast_set_action_text(toast, _s(text));
+}
+
+export function Rtoast_set_action_callback(toast: Rid, callback: RToastCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtoast_set_action_callback(toast, _adapt_RToastCallback(callback), user_data);
+}
+
+/** Replaces the items: their texts separated by '|'. */
+export function Rbreadcrumb_set_items(breadcrumb: Rid, items: string | null): void {
+	_lib.Rbreadcrumb_set_items(breadcrumb, _s(items));
+}
+
+/** Returns: The index of the new item, at the end. */
+export function Rbreadcrumb_add_item(breadcrumb: Rid, text: string | null): number {
+	return _lib.Rbreadcrumb_add_item(breadcrumb, _s(text));
+}
+
+/** Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked. */
+export function Rbreadcrumb_truncate(breadcrumb: Rid, count: number): void {
+	_lib.Rbreadcrumb_truncate(breadcrumb, count);
+}
+
+export function Rbreadcrumb_get_item_count(breadcrumb: Rid): number {
+	return _lib.Rbreadcrumb_get_item_count(breadcrumb);
+}
+
+export function Rbreadcrumb_get_item_text(breadcrumb: Rid, index: number): string | null {
+	return _lib.Rbreadcrumb_get_item_text(breadcrumb, index);
+}
+
+export function Rbreadcrumb_set_clicked_callback(breadcrumb: Rid, callback: RBreadcrumbCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rbreadcrumb_set_clicked_callback(breadcrumb, _adapt_RBreadcrumbCallback(callback), user_data);
+}
+
+/** The score, from 0 to the number of stars. */
+export function Rrating_set_value(rating: Rid, value: number): void {
+	_lib.Rrating_set_value(rating, value);
+}
+
+export function Rrating_get_value(rating: Rid): number {
+	return _lib.Rrating_get_value(rating);
+}
+
+/** Number of stars (default 5, at most 20). */
+export function Rrating_set_max(rating: Rid, max: number): void {
+	_lib.Rrating_set_max(rating, max);
+}
+
+export function Rrating_get_max(rating: Rid): number {
+	return _lib.Rrating_get_max(rating);
+}
+
+/** Half stars can be chosen (a whole star by default). */
+export function Rrating_set_allow_half(rating: Rid, allow: number): void {
+	_lib.Rrating_set_allow_half(rating, allow);
+}
+
+/** Shown only, the user cannot change it. */
+export function Rrating_set_read_only(rating: Rid, read_only: number): void {
+	_lib.Rrating_set_read_only(rating, read_only);
+}
+
+/** Size of a star (default 18). */
+export function Rrating_set_star_size(rating: Rid, size: number): void {
+	_lib.Rrating_set_star_size(rating, size);
+}
+
+export function Rrating_set_changed_callback(rating: Rid, callback: RRatingChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rrating_set_changed_callback(rating, _adapt_RRatingChangedCallback(callback), user_data);
+}
+
+export function Rpagination_set_page_count(pagination: Rid, count: number): void {
+	_lib.Rpagination_set_page_count(pagination, count);
+}
+
+export function Rpagination_get_page_count(pagination: Rid): number {
+	return _lib.Rpagination_get_page_count(pagination);
+}
+
+export function Rpagination_set_page(pagination: Rid, page: number): void {
+	_lib.Rpagination_set_page(pagination, page);
+}
+
+export function Rpagination_get_page(pagination: Rid): number {
+	return _lib.Rpagination_get_page(pagination);
+}
+
+/** Page numbers shown around the current one (default 1). */
+export function Rpagination_set_siblings(pagination: Rid, siblings: number): void {
+	_lib.Rpagination_set_siblings(pagination, siblings);
+}
+
+export function Rpagination_set_changed_callback(pagination: Rid, callback: RPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rpagination_set_changed_callback(pagination, _adapt_RPageChangedCallback(callback), user_data);
 }
 
 /** text Initial content, or NULL. */
@@ -10125,6 +10759,21 @@ export function Rfile_browser_set_cancelled_callback(browser: Rid, callback: RFi
 /** Called when the selection changes; `path` is the entry under the cursor, or NULL. */
 export function Rfile_browser_set_selection_changed_callback(browser: Rid, callback: RFileBrowserCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rfile_browser_set_selection_changed_callback(browser, _adapt_RFileBrowserCallback(callback), user_data);
+}
+
+/** Returns: R_TRUE when the system took the notification. */
+export function Rnotification_show(title: string | null, body: string | null, urgency: RNotificationUrgency): number {
+	return _lib.Rnotification_show(_s(title), _s(body), urgency);
+}
+
+/** R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback). */
+export function Rnotification_is_supported(): number {
+	return _lib.Rnotification_is_supported();
+}
+
+/** Called with the notifications the system could not show; NULL: none. */
+export function Rnotification_set_fallback(callback: RNotificationFallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rnotification_set_fallback(_adapt_RNotificationFallback(callback), user_data);
 }
 
 /** Shows a texture. R_INVALID_ID shows nothing. */

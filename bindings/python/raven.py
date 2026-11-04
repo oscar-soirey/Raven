@@ -864,6 +864,13 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_NODE_GRAPH = 0x0228
     R_WIDGET_TILE_VIEW = 0x0229
     R_WIDGET_BLOCK_EDITOR = 0x022A
+    R_WIDGET_TABLE = 0x022B
+    R_WIDGET_DATE_PICKER = 0x022C
+    R_WIDGET_TIME_PICKER = 0x022D
+    R_WIDGET_TOAST = 0x022E
+    R_WIDGET_BREADCRUMB = 0x022F
+    R_WIDGET_RATING = 0x0230
+    R_WIDGET_PAGINATION = 0x0231
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -908,6 +915,13 @@ R_WIDGET_TIMELINE = RWidgetType.R_WIDGET_TIMELINE
 R_WIDGET_NODE_GRAPH = RWidgetType.R_WIDGET_NODE_GRAPH
 R_WIDGET_TILE_VIEW = RWidgetType.R_WIDGET_TILE_VIEW
 R_WIDGET_BLOCK_EDITOR = RWidgetType.R_WIDGET_BLOCK_EDITOR
+R_WIDGET_TABLE = RWidgetType.R_WIDGET_TABLE
+R_WIDGET_DATE_PICKER = RWidgetType.R_WIDGET_DATE_PICKER
+R_WIDGET_TIME_PICKER = RWidgetType.R_WIDGET_TIME_PICKER
+R_WIDGET_TOAST = RWidgetType.R_WIDGET_TOAST
+R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB
+R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING
+R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1008,6 +1022,17 @@ class RTextAlign(enum.IntEnum):
 R_TEXT_ALIGN_LEFT = RTextAlign.R_TEXT_ALIGN_LEFT
 R_TEXT_ALIGN_CENTER = RTextAlign.R_TEXT_ALIGN_CENTER
 R_TEXT_ALIGN_RIGHT = RTextAlign.R_TEXT_ALIGN_RIGHT
+
+class RToastKind(enum.IntEnum):
+    R_TOAST_INFO = 0x04E0
+    R_TOAST_SUCCESS = 0x04E1
+    R_TOAST_WARNING = 0x04E2
+    R_TOAST_ERROR = 0x04E3
+
+R_TOAST_INFO = RToastKind.R_TOAST_INFO
+R_TOAST_SUCCESS = RToastKind.R_TOAST_SUCCESS
+R_TOAST_WARNING = RToastKind.R_TOAST_WARNING
+R_TOAST_ERROR = RToastKind.R_TOAST_ERROR
 
 class RButtonStyle(enum.IntEnum):
     R_BUTTON_DEFAULT = 0x0290
@@ -1174,6 +1199,16 @@ class RBlockPlace(enum.IntEnum):
 R_BLOCK_NEXT = RBlockPlace.R_BLOCK_NEXT
 R_BLOCK_BODY = RBlockPlace.R_BLOCK_BODY
 R_BLOCK_INPUT = RBlockPlace.R_BLOCK_INPUT
+
+class RNotificationUrgency(enum.IntEnum):
+    """How much a notification of the system asks for attention (Rnotification_show)."""
+    R_NOTIFICATION_LOW = 0x04F0
+    R_NOTIFICATION_NORMAL = 0x04F1
+    R_NOTIFICATION_CRITICAL = 0x04F2
+
+R_NOTIFICATION_LOW = RNotificationUrgency.R_NOTIFICATION_LOW
+R_NOTIFICATION_NORMAL = RNotificationUrgency.R_NOTIFICATION_NORMAL
+R_NOTIFICATION_CRITICAL = RNotificationUrgency.R_NOTIFICATION_CRITICAL
 
 class RFileDialogFlags(enum.IntFlag):
     R_FILE_DIALOG_MULTIPLE = 1
@@ -1999,6 +2034,80 @@ def _adapt_RTileDragDataCallback(function):
         return ctypes.cast(text, ctypes.c_void_p).value
     return call
 
+RTableCellTextCallback = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTableCellTextCallback(function):
+    def call(table, row, column, user_data):
+        text = ctypes.create_string_buffer(_s(function(table, row, column, user_data)) or b"")
+        call.text = text
+        return ctypes.cast(text, ctypes.c_void_p).value
+    return call
+
+RTableEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTableEventCallback(function):
+    def call(table, row, user_data):
+        function(table, row, user_data)
+    return call
+
+RTableSortCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTableSortCallback(function):
+    def call(table, column, descending, user_data):
+        function(table, column, descending, user_data)
+    return call
+
+RDateChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDateChangedCallback(function):
+    def call(date_picker, year, month, day, user_data):
+        function(date_picker, year, month, day, user_data)
+    return call
+
+RTimeChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTimeChangedCallback(function):
+    def call(time_picker, hour, minute, second, user_data):
+        function(time_picker, hour, minute, second, user_data)
+    return call
+
+RToastCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RToastCallback(function):
+    def call(toast, user_data):
+        function(toast, user_data)
+    return call
+
+RBreadcrumbCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RBreadcrumbCallback(function):
+    def call(breadcrumb, index, user_data):
+        function(breadcrumb, index, user_data)
+    return call
+
+RRatingChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
+
+
+def _adapt_RRatingChangedCallback(function):
+    def call(rating, value, user_data):
+        function(rating, value, user_data)
+    return call
+
+RPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RPageChangedCallback(function):
+    def call(pagination, page, user_data):
+        function(pagination, page, user_data)
+    return call
+
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
 
 
@@ -2125,6 +2234,14 @@ RFileBrowserCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_char_p, 
 def _adapt_RFileBrowserCallback(function):
     def call(browser, path, user_data):
         function(browser, _r(path), user_data)
+    return call
+
+RNotificationFallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RNotificationFallback(function):
+    def call(title, body, urgency, user_data):
+        function(_r(title), _r(body), _e(RNotificationUrgency, urgency), user_data)
     return call
 
 RViewportDrawCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RViewportDrawInfo), ctypes.c_void_p)
@@ -4054,7 +4171,7 @@ _lib.Rtexture_create.restype = ctypes.c_uint32
 
 def Rtexture_create(data):
     """Creates a texture from the content of an image file (PNG, JPEG,
-    BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+    BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
     Returns: R_INVALID_ID on failure."""
     data = _s(data)
     return _lib.Rtexture_create(data, len(data) if data is not None else 0)
@@ -4070,6 +4187,29 @@ def Rtexture_create_async(data):
     The buffer is copied."""
     data = _s(data)
     return _lib.Rtexture_create_async(data, len(data) if data is not None else 0)
+
+
+_lib.Rtexture_create_from_svg.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_float]
+_lib.Rtexture_create_from_svg.restype = ctypes.c_uint32
+
+
+def Rtexture_create_from_svg(svg, svg_size, scale):
+    """Draws an SVG image (an icon) into a texture, at `scale` pixels per
+    unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
+    The widgets show it at the size the SVG gives, whatever the scale
+    (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
+    also read SVG files, at a scale of 2. Paths, fills, strokes and
+    gradients are drawn; text, filters and masks are not."""
+    return _lib.Rtexture_create_from_svg(_s(svg), svg_size, scale)
+
+
+_lib.Rtexture_get_density.argtypes = [ctypes.c_uint32]
+_lib.Rtexture_get_density.restype = ctypes.c_float
+
+
+def Rtexture_get_density(texture):
+    """Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise."""
+    return _lib.Rtexture_get_density(texture)
 
 
 _lib.Rtexture_create_from_file.argtypes = [ctypes.c_char_p]
@@ -6718,6 +6858,610 @@ _lib.Rtile_view_set_context_callback.restype = None
 
 def Rtile_view_set_context_callback(tile_view, callback, user_data=None):
     _lib.Rtile_view_set_context_callback(tile_view, _callback(RTileContextCallback, _adapt_RTileContextCallback, callback), user_data)
+
+
+_lib.Rtable_add_column.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_float]
+_lib.Rtable_add_column.restype = ctypes.c_int
+
+
+def Rtable_add_column(table, header, width):
+    """Adds a column.
+    width Width in logical units; 0 or less gives the default (120).
+    Returns: The index of the column. The stored rows get an empty cell in it."""
+    return _lib.Rtable_add_column(table, _s(header), width)
+
+
+_lib.Rtable_get_column_count.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_column_count.restype = ctypes.c_int
+
+
+def Rtable_get_column_count(table):
+    return _lib.Rtable_get_column_count(table)
+
+
+_lib.Rtable_clear_columns.argtypes = [ctypes.c_uint32]
+_lib.Rtable_clear_columns.restype = None
+
+
+def Rtable_clear_columns(table):
+    """Removes the columns and the stored rows."""
+    _lib.Rtable_clear_columns(table)
+
+
+_lib.Rtable_set_column_header.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rtable_set_column_header.restype = None
+
+
+def Rtable_set_column_header(table, column, header):
+    _lib.Rtable_set_column_header(table, column, _s(header))
+
+
+_lib.Rtable_get_column_header.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_get_column_header.restype = ctypes.c_char_p
+
+
+def Rtable_get_column_header(table, column):
+    return _r(_lib.Rtable_get_column_header(table, column))
+
+
+_lib.Rtable_set_column_width.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float]
+_lib.Rtable_set_column_width.restype = None
+
+
+def Rtable_set_column_width(table, column, width):
+    _lib.Rtable_set_column_width(table, column, width)
+
+
+_lib.Rtable_get_column_width.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_get_column_width.restype = ctypes.c_float
+
+
+def Rtable_get_column_width(table, column):
+    """The width the column has on screen (a filling column takes more than its width)."""
+    return _lib.Rtable_get_column_width(table, column)
+
+
+_lib.Rtable_set_column_fill.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float]
+_lib.Rtable_set_column_fill.restype = None
+
+
+def Rtable_set_column_fill(table, column, fill):
+    """> 0: the column takes this share of the room the others leave; 0: its width only."""
+    _lib.Rtable_set_column_fill(table, column, fill)
+
+
+_lib.Rtable_set_column_sortable.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_column_sortable.restype = None
+
+
+def Rtable_set_column_sortable(table, column, sortable):
+    """R_FALSE: a click on the header does not sort (default R_TRUE)."""
+    _lib.Rtable_set_column_sortable(table, column, sortable)
+
+
+_lib.Rtable_set_column_align.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float]
+_lib.Rtable_set_column_align.restype = None
+
+
+def Rtable_set_column_align(table, column, align):
+    """Where the texts sit in the cells: 0 left, 0.5 center, 1 right."""
+    _lib.Rtable_set_column_align(table, column, align)
+
+
+_lib.Rtable_add_row.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtable_add_row.restype = ctypes.c_int
+
+
+def Rtable_add_row(table, cells):
+    """Adds a row.
+    cells The texts of the cells, separated by '|' ("Ada|36|London"),
+                 or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+    Returns: The index of the row."""
+    return _lib.Rtable_add_row(table, _s(cells))
+
+
+_lib.Rtable_set_cell.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_char_p]
+_lib.Rtable_set_cell.restype = None
+
+
+def Rtable_set_cell(table, row, column, text):
+    _lib.Rtable_set_cell(table, row, column, _s(text))
+
+
+_lib.Rtable_get_cell.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_get_cell.restype = ctypes.c_char_p
+
+
+def Rtable_get_cell(table, row, column):
+    return _r(_lib.Rtable_get_cell(table, row, column))
+
+
+_lib.Rtable_remove_row.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_remove_row.restype = None
+
+
+def Rtable_remove_row(table, row):
+    _lib.Rtable_remove_row(table, row)
+
+
+_lib.Rtable_clear_rows.argtypes = [ctypes.c_uint32]
+_lib.Rtable_clear_rows.restype = None
+
+
+def Rtable_clear_rows(table):
+    _lib.Rtable_clear_rows(table)
+
+
+_lib.Rtable_get_row_count.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_row_count.restype = ctypes.c_int
+
+
+def Rtable_get_row_count(table):
+    return _lib.Rtable_get_row_count(table)
+
+
+_lib.Rtable_set_virtual_rows.argtypes = [ctypes.c_uint32, ctypes.c_int, RTableCellTextCallback, ctypes.c_void_p]
+_lib.Rtable_set_virtual_rows.restype = None
+
+
+def Rtable_set_virtual_rows(table, count, callback, user_data=None):
+    _lib.Rtable_set_virtual_rows(table, count, _callback(RTableCellTextCallback, _adapt_RTableCellTextCallback, callback), user_data)
+
+
+_lib.Rtable_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_selected.restype = None
+
+
+def Rtable_set_selected(table, row):
+    """Selects a row. -1 selects nothing."""
+    _lib.Rtable_set_selected(table, row)
+
+
+_lib.Rtable_get_selected.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_selected.restype = ctypes.c_int
+
+
+def Rtable_get_selected(table):
+    return _lib.Rtable_get_selected(table)
+
+
+_lib.Rtable_scroll_to_row.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_scroll_to_row.restype = None
+
+
+def Rtable_scroll_to_row(table, row):
+    _lib.Rtable_scroll_to_row(table, row)
+
+
+_lib.Rtable_sort.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_sort.restype = None
+
+
+def Rtable_sort(table, column, descending):
+    """Sorts by a column (stored rows are moved); -1 shows no sorted column."""
+    _lib.Rtable_sort(table, column, descending)
+
+
+_lib.Rtable_get_sort_column.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_sort_column.restype = ctypes.c_int
+
+
+def Rtable_get_sort_column(table):
+    return _lib.Rtable_get_sort_column(table)
+
+
+_lib.Rtable_is_sort_descending.argtypes = [ctypes.c_uint32]
+_lib.Rtable_is_sort_descending.restype = ctypes.c_int
+
+
+def Rtable_is_sort_descending(table):
+    return _lib.Rtable_is_sort_descending(table)
+
+
+_lib.Rtable_set_header_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_header_visible.restype = None
+
+
+def Rtable_set_header_visible(table, visible):
+    _lib.Rtable_set_header_visible(table, visible)
+
+
+_lib.Rtable_set_grid_lines.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_grid_lines.restype = None
+
+
+def Rtable_set_grid_lines(table, visible):
+    _lib.Rtable_set_grid_lines(table, visible)
+
+
+_lib.Rtable_set_striped.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_striped.restype = None
+
+
+def Rtable_set_striped(table, striped):
+    """Every other row a little darker."""
+    _lib.Rtable_set_striped(table, striped)
+
+
+_lib.Rtable_set_selection_changed_callback.argtypes = [ctypes.c_uint32, RTableEventCallback, ctypes.c_void_p]
+_lib.Rtable_set_selection_changed_callback.restype = None
+
+
+def Rtable_set_selection_changed_callback(table, callback, user_data=None):
+    _lib.Rtable_set_selection_changed_callback(table, _callback(RTableEventCallback, _adapt_RTableEventCallback, callback), user_data)
+
+
+_lib.Rtable_set_activated_callback.argtypes = [ctypes.c_uint32, RTableEventCallback, ctypes.c_void_p]
+_lib.Rtable_set_activated_callback.restype = None
+
+
+def Rtable_set_activated_callback(table, callback, user_data=None):
+    """Called on double click or Enter. This also fires the action of the widget."""
+    _lib.Rtable_set_activated_callback(table, _callback(RTableEventCallback, _adapt_RTableEventCallback, callback), user_data)
+
+
+_lib.Rtable_set_sort_callback.argtypes = [ctypes.c_uint32, RTableSortCallback, ctypes.c_void_p]
+_lib.Rtable_set_sort_callback.restype = None
+
+
+def Rtable_set_sort_callback(table, callback, user_data=None):
+    _lib.Rtable_set_sort_callback(table, _callback(RTableSortCallback, _adapt_RTableSortCallback, callback), user_data)
+
+
+_lib.Rdate_picker_set_date.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rdate_picker_set_date.restype = None
+
+
+def Rdate_picker_set_date(date_picker, year, month, day):
+    """Sets the date (today when the picker is created). An invalid date is refused."""
+    _lib.Rdate_picker_set_date(date_picker, year, month, day)
+
+
+_lib.Rdate_picker_get_date.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rdate_picker_get_date.restype = None
+
+
+def Rdate_picker_get_date(date_picker):
+    year_ = ctypes.c_int()
+    month_ = ctypes.c_int()
+    day_ = ctypes.c_int()
+    _lib.Rdate_picker_get_date(date_picker, ctypes.byref(year_), ctypes.byref(month_), ctypes.byref(day_))
+    return (year_.value, month_.value, day_.value)
+
+
+_lib.Rdate_picker_set_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rdate_picker_set_range.restype = None
+
+
+def Rdate_picker_set_range(date_picker, min_year, min_month, min_day, max_year, max_month, max_day):
+    """The earliest and the latest dates that can be chosen; 0 for year leaves that side open."""
+    _lib.Rdate_picker_set_range(date_picker, min_year, min_month, min_day, max_year, max_month, max_day)
+
+
+_lib.Rdate_picker_set_first_day_of_week.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdate_picker_set_first_day_of_week.restype = None
+
+
+def Rdate_picker_set_first_day_of_week(date_picker, day):
+    """0 = Sunday (default), 1 = Monday..."""
+    _lib.Rdate_picker_set_first_day_of_week(date_picker, day)
+
+
+_lib.Rdate_picker_set_format.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rdate_picker_set_format.restype = None
+
+
+def Rdate_picker_set_format(date_picker, format_):
+    """How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+    of the month), MMM (its first three letters), dddd (the name of the day),
+    ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026"."""
+    _lib.Rdate_picker_set_format(date_picker, _s(format_))
+
+
+_lib.Rdate_picker_get_text.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_get_text.restype = ctypes.c_char_p
+
+
+def Rdate_picker_get_text(date_picker):
+    """The date as the field shows it (valid until the next call)."""
+    return _r(_lib.Rdate_picker_get_text(date_picker))
+
+
+_lib.Rdate_picker_set_open.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdate_picker_set_open.restype = None
+
+
+def Rdate_picker_set_open(date_picker, open):
+    """Opens or closes the calendar."""
+    _lib.Rdate_picker_set_open(date_picker, open)
+
+
+_lib.Rdate_picker_is_open.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_is_open.restype = ctypes.c_int
+
+
+def Rdate_picker_is_open(date_picker):
+    return _lib.Rdate_picker_is_open(date_picker)
+
+
+_lib.Rdate_picker_set_changed_callback.argtypes = [ctypes.c_uint32, RDateChangedCallback, ctypes.c_void_p]
+_lib.Rdate_picker_set_changed_callback.restype = None
+
+
+def Rdate_picker_set_changed_callback(date_picker, callback, user_data=None):
+    _lib.Rdate_picker_set_changed_callback(date_picker, _callback(RDateChangedCallback, _adapt_RDateChangedCallback, callback), user_data)
+
+
+_lib.Rtime_picker_set_time.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtime_picker_set_time.restype = None
+
+
+def Rtime_picker_set_time(time_picker, hour, minute, second):
+    _lib.Rtime_picker_set_time(time_picker, hour, minute, second)
+
+
+_lib.Rtime_picker_get_time.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtime_picker_get_time.restype = None
+
+
+def Rtime_picker_get_time(time_picker):
+    hour_ = ctypes.c_int()
+    minute_ = ctypes.c_int()
+    second_ = ctypes.c_int()
+    _lib.Rtime_picker_get_time(time_picker, ctypes.byref(hour_), ctypes.byref(minute_), ctypes.byref(second_))
+    return (hour_.value, minute_.value, second_.value)
+
+
+_lib.Rtime_picker_set_seconds_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtime_picker_set_seconds_visible.restype = None
+
+
+def Rtime_picker_set_seconds_visible(time_picker, visible):
+    _lib.Rtime_picker_set_seconds_visible(time_picker, visible)
+
+
+_lib.Rtime_picker_set_minute_step.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtime_picker_set_minute_step.restype = None
+
+
+def Rtime_picker_set_minute_step(time_picker, step):
+    """Step of the minutes for the arrows and the wheel (default 1)."""
+    _lib.Rtime_picker_set_minute_step(time_picker, step)
+
+
+_lib.Rtime_picker_set_changed_callback.argtypes = [ctypes.c_uint32, RTimeChangedCallback, ctypes.c_void_p]
+_lib.Rtime_picker_set_changed_callback.restype = None
+
+
+def Rtime_picker_set_changed_callback(time_picker, callback, user_data=None):
+    _lib.Rtime_picker_set_changed_callback(time_picker, _callback(RTimeChangedCallback, _adapt_RTimeChangedCallback, callback), user_data)
+
+
+_lib.Rtoast_show.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_double]
+_lib.Rtoast_show.restype = None
+
+
+def Rtoast_show(toast, text, seconds):
+    """Shows a message for `seconds` (0 or less: until Rtoast_hide)."""
+    _lib.Rtoast_show(toast, _s(text), seconds)
+
+
+_lib.Rtoast_hide.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_hide.restype = None
+
+
+def Rtoast_hide(toast):
+    _lib.Rtoast_hide(toast)
+
+
+_lib.Rtoast_is_shown.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_is_shown.restype = ctypes.c_int
+
+
+def Rtoast_is_shown(toast):
+    return _lib.Rtoast_is_shown(toast)
+
+
+_lib.Rtoast_get_text.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_get_text.restype = ctypes.c_char_p
+
+
+def Rtoast_get_text(toast):
+    return _r(_lib.Rtoast_get_text(toast))
+
+
+_lib.Rtoast_set_kind.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtoast_set_kind.restype = None
+
+
+def Rtoast_set_kind(toast, kind):
+    _lib.Rtoast_set_kind(toast, int(kind))
+
+
+_lib.Rtoast_set_action_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtoast_set_action_text.restype = None
+
+
+def Rtoast_set_action_text(toast, text):
+    """A button at the end of the message ("Undo"); NULL or "" removes it."""
+    _lib.Rtoast_set_action_text(toast, _s(text))
+
+
+_lib.Rtoast_set_action_callback.argtypes = [ctypes.c_uint32, RToastCallback, ctypes.c_void_p]
+_lib.Rtoast_set_action_callback.restype = None
+
+
+def Rtoast_set_action_callback(toast, callback, user_data=None):
+    _lib.Rtoast_set_action_callback(toast, _callback(RToastCallback, _adapt_RToastCallback, callback), user_data)
+
+
+_lib.Rbreadcrumb_set_items.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rbreadcrumb_set_items.restype = None
+
+
+def Rbreadcrumb_set_items(breadcrumb, items):
+    """Replaces the items: their texts separated by '|'."""
+    _lib.Rbreadcrumb_set_items(breadcrumb, _s(items))
+
+
+_lib.Rbreadcrumb_add_item.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rbreadcrumb_add_item.restype = ctypes.c_int
+
+
+def Rbreadcrumb_add_item(breadcrumb, text):
+    """Returns: The index of the new item, at the end."""
+    return _lib.Rbreadcrumb_add_item(breadcrumb, _s(text))
+
+
+_lib.Rbreadcrumb_truncate.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rbreadcrumb_truncate.restype = None
+
+
+def Rbreadcrumb_truncate(breadcrumb, count):
+    """Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked."""
+    _lib.Rbreadcrumb_truncate(breadcrumb, count)
+
+
+_lib.Rbreadcrumb_get_item_count.argtypes = [ctypes.c_uint32]
+_lib.Rbreadcrumb_get_item_count.restype = ctypes.c_int
+
+
+def Rbreadcrumb_get_item_count(breadcrumb):
+    return _lib.Rbreadcrumb_get_item_count(breadcrumb)
+
+
+_lib.Rbreadcrumb_get_item_text.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rbreadcrumb_get_item_text.restype = ctypes.c_char_p
+
+
+def Rbreadcrumb_get_item_text(breadcrumb, index):
+    return _r(_lib.Rbreadcrumb_get_item_text(breadcrumb, index))
+
+
+_lib.Rbreadcrumb_set_clicked_callback.argtypes = [ctypes.c_uint32, RBreadcrumbCallback, ctypes.c_void_p]
+_lib.Rbreadcrumb_set_clicked_callback.restype = None
+
+
+def Rbreadcrumb_set_clicked_callback(breadcrumb, callback, user_data=None):
+    _lib.Rbreadcrumb_set_clicked_callback(breadcrumb, _callback(RBreadcrumbCallback, _adapt_RBreadcrumbCallback, callback), user_data)
+
+
+_lib.Rrating_set_value.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rrating_set_value.restype = None
+
+
+def Rrating_set_value(rating, value):
+    """The score, from 0 to the number of stars."""
+    _lib.Rrating_set_value(rating, value)
+
+
+_lib.Rrating_get_value.argtypes = [ctypes.c_uint32]
+_lib.Rrating_get_value.restype = ctypes.c_float
+
+
+def Rrating_get_value(rating):
+    return _lib.Rrating_get_value(rating)
+
+
+_lib.Rrating_set_max.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrating_set_max.restype = None
+
+
+def Rrating_set_max(rating, max):
+    """Number of stars (default 5, at most 20)."""
+    _lib.Rrating_set_max(rating, max)
+
+
+_lib.Rrating_get_max.argtypes = [ctypes.c_uint32]
+_lib.Rrating_get_max.restype = ctypes.c_int
+
+
+def Rrating_get_max(rating):
+    return _lib.Rrating_get_max(rating)
+
+
+_lib.Rrating_set_allow_half.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrating_set_allow_half.restype = None
+
+
+def Rrating_set_allow_half(rating, allow):
+    """Half stars can be chosen (a whole star by default)."""
+    _lib.Rrating_set_allow_half(rating, allow)
+
+
+_lib.Rrating_set_read_only.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rrating_set_read_only.restype = None
+
+
+def Rrating_set_read_only(rating, read_only):
+    """Shown only, the user cannot change it."""
+    _lib.Rrating_set_read_only(rating, read_only)
+
+
+_lib.Rrating_set_star_size.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rrating_set_star_size.restype = None
+
+
+def Rrating_set_star_size(rating, size):
+    """Size of a star (default 18)."""
+    _lib.Rrating_set_star_size(rating, size)
+
+
+_lib.Rrating_set_changed_callback.argtypes = [ctypes.c_uint32, RRatingChangedCallback, ctypes.c_void_p]
+_lib.Rrating_set_changed_callback.restype = None
+
+
+def Rrating_set_changed_callback(rating, callback, user_data=None):
+    _lib.Rrating_set_changed_callback(rating, _callback(RRatingChangedCallback, _adapt_RRatingChangedCallback, callback), user_data)
+
+
+_lib.Rpagination_set_page_count.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpagination_set_page_count.restype = None
+
+
+def Rpagination_set_page_count(pagination, count):
+    _lib.Rpagination_set_page_count(pagination, count)
+
+
+_lib.Rpagination_get_page_count.argtypes = [ctypes.c_uint32]
+_lib.Rpagination_get_page_count.restype = ctypes.c_int
+
+
+def Rpagination_get_page_count(pagination):
+    return _lib.Rpagination_get_page_count(pagination)
+
+
+_lib.Rpagination_set_page.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpagination_set_page.restype = None
+
+
+def Rpagination_set_page(pagination, page):
+    _lib.Rpagination_set_page(pagination, page)
+
+
+_lib.Rpagination_get_page.argtypes = [ctypes.c_uint32]
+_lib.Rpagination_get_page.restype = ctypes.c_int
+
+
+def Rpagination_get_page(pagination):
+    return _lib.Rpagination_get_page(pagination)
+
+
+_lib.Rpagination_set_siblings.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpagination_set_siblings.restype = None
+
+
+def Rpagination_set_siblings(pagination, siblings):
+    """Page numbers shown around the current one (default 1)."""
+    _lib.Rpagination_set_siblings(pagination, siblings)
+
+
+_lib.Rpagination_set_changed_callback.argtypes = [ctypes.c_uint32, RPageChangedCallback, ctypes.c_void_p]
+_lib.Rpagination_set_changed_callback.restype = None
+
+
+def Rpagination_set_changed_callback(pagination, callback, user_data=None):
+    _lib.Rpagination_set_changed_callback(pagination, _callback(RPageChangedCallback, _adapt_RPageChangedCallback, callback), user_data)
 
 
 _lib.Rtext_editor_create.argtypes = [ctypes.c_char_p]
@@ -9513,6 +10257,33 @@ _lib.Rfile_browser_set_selection_changed_callback.restype = None
 def Rfile_browser_set_selection_changed_callback(browser, callback, user_data=None):
     """Called when the selection changes; `path` is the entry under the cursor, or NULL."""
     _lib.Rfile_browser_set_selection_changed_callback(browser, _callback(RFileBrowserCallback, _adapt_RFileBrowserCallback, callback), user_data)
+
+
+_lib.Rnotification_show.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
+_lib.Rnotification_show.restype = ctypes.c_int
+
+
+def Rnotification_show(title, body, urgency):
+    """Returns: R_TRUE when the system took the notification."""
+    return _lib.Rnotification_show(_s(title), _s(body), int(urgency))
+
+
+_lib.Rnotification_is_supported.argtypes = []
+_lib.Rnotification_is_supported.restype = ctypes.c_int
+
+
+def Rnotification_is_supported():
+    """R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback)."""
+    return _lib.Rnotification_is_supported()
+
+
+_lib.Rnotification_set_fallback.argtypes = [RNotificationFallback, ctypes.c_void_p]
+_lib.Rnotification_set_fallback.restype = None
+
+
+def Rnotification_set_fallback(callback, user_data=None):
+    """Called with the notifications the system could not show; NULL: none."""
+    _lib.Rnotification_set_fallback(_callback(RNotificationFallback, _adapt_RNotificationFallback, callback), user_data)
 
 
 _lib.Rviewport_set_texture.argtypes = [ctypes.c_uint32, ctypes.c_uint32]

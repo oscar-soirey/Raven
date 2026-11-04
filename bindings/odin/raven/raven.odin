@@ -630,6 +630,20 @@ R_WIDGET_NODE_GRAPH :: 0x0228
 R_WIDGET_TILE_VIEW :: 0x0229
 // Blocks that snap into each other, in the style of Scratch.
 R_WIDGET_BLOCK_EDITOR :: 0x022A
+// Rows of cells under columns that can be resized and sorted, virtualized.
+R_WIDGET_TABLE :: 0x022B
+// A date, chosen in a calendar that drops down.
+R_WIDGET_DATE_PICKER :: 0x022C
+// A time of the day: hours, minutes, optionally seconds.
+R_WIDGET_TIME_PICKER :: 0x022D
+// A short message that rises for a few seconds, with an optional action ("Undo").
+R_WIDGET_TOAST :: 0x022E
+// The path to the current place: links separated by chevrons.
+R_WIDGET_BREADCRUMB :: 0x022F
+// A score shown and chosen with stars.
+R_WIDGET_RATING :: 0x0230
+// Page numbers with previous and next.
+R_WIDGET_PAGINATION :: 0x0231
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -709,6 +723,13 @@ RTextAlign :: i32
 R_TEXT_ALIGN_LEFT :: 0x0280
 R_TEXT_ALIGN_CENTER :: 0x0281
 R_TEXT_ALIGN_RIGHT :: 0x0282
+
+RToastKind :: i32
+// A neutral message (the accent of the theme).
+R_TOAST_INFO :: 0x04E0
+R_TOAST_SUCCESS :: 0x04E1
+R_TOAST_WARNING :: 0x04E2
+R_TOAST_ERROR :: 0x04E3
 
 RButtonStyle :: i32
 // Filled with R_COLOR_CONTROL.
@@ -834,6 +855,14 @@ RBlockPlace :: i32
 R_BLOCK_NEXT :: 0x0710
 R_BLOCK_BODY :: 0x0711
 R_BLOCK_INPUT :: 0x0712
+
+// How much a notification of the system asks for attention (Rnotification_show).
+RNotificationUrgency :: i32
+// No sound; may only go to the list of notifications.
+R_NOTIFICATION_LOW :: 0x04F0
+R_NOTIFICATION_NORMAL :: 0x04F1
+// Stays until the user dismisses it, where the system allows it.
+R_NOTIFICATION_CRITICAL :: 0x04F2
 
 RFileDialogFlags :: i32
 // Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result.
@@ -1080,6 +1109,25 @@ RTileContextCallback :: #type proc "c" (tile_view: Rid, index: i32, x: f32, y: f
 // (Rtile_view_get_selection). The text returned is copied; NULL keeps
 // the indices.
 RTileDragDataCallback :: #type proc "c" (tile_view: Rid, user_data: rawptr) -> cstring
+// Virtual mode, for large or computed data: the table stores nothing and
+// asks for the texts of the cells it draws. The returned string must stay
+// valid until the next call.
+RTableCellTextCallback :: #type proc "c" (table: Rid, row: i32, column: i32, user_data: rawptr) -> cstring
+RTableEventCallback :: #type proc "c" (table: Rid, row: i32, user_data: rawptr)
+// Called when the user clicks a header; `column` -1: not sorted.
+RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, user_data: rawptr)
+// Called when the user chooses a date. This also fires the action of the widget.
+RDateChangedCallback :: #type proc "c" (date_picker: Rid, year: i32, month: i32, day: i32, user_data: rawptr)
+// Called when the user changes the time. This also fires the action of the widget.
+RTimeChangedCallback :: #type proc "c" (time_picker: Rid, hour: i32, minute: i32, second: i32, user_data: rawptr)
+// Called by the button of the message, which then hides. This also fires the action of the widget.
+RToastCallback :: #type proc "c" (toast: Rid, user_data: rawptr)
+// Called when the user clicks an item. This also fires the action of the widget.
+RBreadcrumbCallback :: #type proc "c" (breadcrumb: Rid, index: i32, user_data: rawptr)
+// Called when the user changes the score. This also fires the action of the widget.
+RRatingChangedCallback :: #type proc "c" (rating: Rid, value: f32, user_data: rawptr)
+// Called when the user goes to another page. This also fires the action of the widget.
+RPageChangedCallback :: #type proc "c" (pagination: Rid, page: i32, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -1126,6 +1174,7 @@ RDialogClosedCallback :: #type proc "c" (content: Rid, result: i32, user_data: r
 // files, read them with Rfile_browser_get_selection. The action of the
 // widget (OnActivated in XML) fires at the same time.
 RFileBrowserCallback :: #type proc "c" (browser: Rid, path: cstring, user_data: rawptr)
+RNotificationFallback :: #type proc "c" (title: cstring, body: cstring, urgency: RNotificationUrgency, user_data: rawptr)
 // Called on the render thread each time the window is rendered.
 // State you bind (pipeline, descriptor sets, viewport, scissor) does not
 // need to be restored. NULL removes the callback.
@@ -2086,13 +2135,22 @@ foreign lib {
 	// size Font size; 0 uses R_METRIC_FONT_SIZE.
 	Rfont_measure_text :: proc(font: Rid, size: f32, text: cstring, width: ^f32, height: ^f32) ---
 	// Creates a texture from the content of an image file (PNG, JPEG,
-	// BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+	// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
 	// Returns: R_INVALID_ID on failure.
 	Rtexture_create :: proc(data: cstring, data_size: uint) -> Rid ---
 	// Same as Rtexture_create, decoded on a worker thread. The handle
 	// is usable at once; widgets showing it draw nothing until it is ready.
 	// The buffer is copied.
 	Rtexture_create_async :: proc(data: cstring, data_size: uint) -> Rid ---
+	// Draws an SVG image (an icon) into a texture, at `scale` pixels per
+	// unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
+	// The widgets show it at the size the SVG gives, whatever the scale
+	// (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
+	// also read SVG files, at a scale of 2. Paths, fills, strokes and
+	// gradients are drawn; text, filters and masks are not.
+	Rtexture_create_from_svg :: proc(svg: cstring, svg_size: uint, scale: f32) -> Rid ---
+	// Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
+	Rtexture_get_density :: proc(texture: Rid) -> f32 ---
 	Rtexture_create_from_file :: proc(path: cstring) -> Rid ---
 	// Reads and decodes the file on a worker thread.
 	Rtexture_create_from_file_async :: proc(path: cstring) -> Rid ---
@@ -2645,6 +2703,112 @@ foreign lib {
 	Rtile_view_set_selection_changed_callback :: proc(tile_view: Rid, callback: RTileEventCallback, user_data: rawptr) ---
 	Rtile_view_set_activated_callback :: proc(tile_view: Rid, callback: RTileEventCallback, user_data: rawptr) ---
 	Rtile_view_set_context_callback :: proc(tile_view: Rid, callback: RTileContextCallback, user_data: rawptr) ---
+	// Adds a column.
+	// width Width in logical units; 0 or less gives the default (120).
+	// Returns: The index of the column. The stored rows get an empty cell in it.
+	Rtable_add_column :: proc(table: Rid, header: cstring, width: f32) -> i32 ---
+	Rtable_get_column_count :: proc(table: Rid) -> i32 ---
+	// Removes the columns and the stored rows.
+	Rtable_clear_columns :: proc(table: Rid) ---
+	Rtable_set_column_header :: proc(table: Rid, column: i32, header: cstring) ---
+	Rtable_get_column_header :: proc(table: Rid, column: i32) -> cstring ---
+	Rtable_set_column_width :: proc(table: Rid, column: i32, width: f32) ---
+	// The width the column has on screen (a filling column takes more than its width).
+	Rtable_get_column_width :: proc(table: Rid, column: i32) -> f32 ---
+	// > 0: the column takes this share of the room the others leave; 0: its width only.
+	Rtable_set_column_fill :: proc(table: Rid, column: i32, fill: f32) ---
+	// R_FALSE: a click on the header does not sort (default R_TRUE).
+	Rtable_set_column_sortable :: proc(table: Rid, column: i32, sortable: i32) ---
+	// Where the texts sit in the cells: 0 left, 0.5 center, 1 right.
+	Rtable_set_column_align :: proc(table: Rid, column: i32, align: f32) ---
+	// Adds a row.
+	// cells The texts of the cells, separated by '|' ("Ada|36|London"),
+	//              or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+	// Returns: The index of the row.
+	Rtable_add_row :: proc(table: Rid, cells: cstring) -> i32 ---
+	Rtable_set_cell :: proc(table: Rid, row: i32, column: i32, text: cstring) ---
+	Rtable_get_cell :: proc(table: Rid, row: i32, column: i32) -> cstring ---
+	Rtable_remove_row :: proc(table: Rid, row: i32) ---
+	Rtable_clear_rows :: proc(table: Rid) ---
+	Rtable_get_row_count :: proc(table: Rid) -> i32 ---
+	Rtable_set_virtual_rows :: proc(table: Rid, count: i32, callback: RTableCellTextCallback, user_data: rawptr) ---
+	// Selects a row. -1 selects nothing.
+	Rtable_set_selected :: proc(table: Rid, row: i32) ---
+	Rtable_get_selected :: proc(table: Rid) -> i32 ---
+	Rtable_scroll_to_row :: proc(table: Rid, row: i32) ---
+	// Sorts by a column (stored rows are moved); -1 shows no sorted column.
+	Rtable_sort :: proc(table: Rid, column: i32, descending: i32) ---
+	Rtable_get_sort_column :: proc(table: Rid) -> i32 ---
+	Rtable_is_sort_descending :: proc(table: Rid) -> i32 ---
+	Rtable_set_header_visible :: proc(table: Rid, visible: i32) ---
+	Rtable_set_grid_lines :: proc(table: Rid, visible: i32) ---
+	// Every other row a little darker.
+	Rtable_set_striped :: proc(table: Rid, striped: i32) ---
+	Rtable_set_selection_changed_callback :: proc(table: Rid, callback: RTableEventCallback, user_data: rawptr) ---
+	// Called on double click or Enter. This also fires the action of the widget.
+	Rtable_set_activated_callback :: proc(table: Rid, callback: RTableEventCallback, user_data: rawptr) ---
+	Rtable_set_sort_callback :: proc(table: Rid, callback: RTableSortCallback, user_data: rawptr) ---
+	// Sets the date (today when the picker is created). An invalid date is refused.
+	Rdate_picker_set_date :: proc(date_picker: Rid, year: i32, month: i32, day: i32) ---
+	Rdate_picker_get_date :: proc(date_picker: Rid, year: ^i32, month: ^i32, day: ^i32) ---
+	// The earliest and the latest dates that can be chosen; 0 for year leaves that side open.
+	Rdate_picker_set_range :: proc(date_picker: Rid, min_year: i32, min_month: i32, min_day: i32, max_year: i32, max_month: i32, max_day: i32) ---
+	// 0 = Sunday (default), 1 = Monday...
+	Rdate_picker_set_first_day_of_week :: proc(date_picker: Rid, day: i32) ---
+	// How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+	// of the month), MMM (its first three letters), dddd (the name of the day),
+	// ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026".
+	Rdate_picker_set_format :: proc(date_picker: Rid, format: cstring) ---
+	// The date as the field shows it (valid until the next call).
+	Rdate_picker_get_text :: proc(date_picker: Rid) -> cstring ---
+	// Opens or closes the calendar.
+	Rdate_picker_set_open :: proc(date_picker: Rid, open: i32) ---
+	Rdate_picker_is_open :: proc(date_picker: Rid) -> i32 ---
+	Rdate_picker_set_changed_callback :: proc(date_picker: Rid, callback: RDateChangedCallback, user_data: rawptr) ---
+	Rtime_picker_set_time :: proc(time_picker: Rid, hour: i32, minute: i32, second: i32) ---
+	Rtime_picker_get_time :: proc(time_picker: Rid, hour: ^i32, minute: ^i32, second: ^i32) ---
+	Rtime_picker_set_seconds_visible :: proc(time_picker: Rid, visible: i32) ---
+	// Step of the minutes for the arrows and the wheel (default 1).
+	Rtime_picker_set_minute_step :: proc(time_picker: Rid, step: i32) ---
+	Rtime_picker_set_changed_callback :: proc(time_picker: Rid, callback: RTimeChangedCallback, user_data: rawptr) ---
+	// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+	Rtoast_show :: proc(toast: Rid, text: cstring, seconds: f64) ---
+	Rtoast_hide :: proc(toast: Rid) ---
+	Rtoast_is_shown :: proc(toast: Rid) -> i32 ---
+	Rtoast_get_text :: proc(toast: Rid) -> cstring ---
+	Rtoast_set_kind :: proc(toast: Rid, kind: RToastKind) ---
+	// A button at the end of the message ("Undo"); NULL or "" removes it.
+	Rtoast_set_action_text :: proc(toast: Rid, text: cstring) ---
+	Rtoast_set_action_callback :: proc(toast: Rid, callback: RToastCallback, user_data: rawptr) ---
+	// Replaces the items: their texts separated by '|'.
+	Rbreadcrumb_set_items :: proc(breadcrumb: Rid, items: cstring) ---
+	// Returns: The index of the new item, at the end.
+	Rbreadcrumb_add_item :: proc(breadcrumb: Rid, text: cstring) -> i32 ---
+	// Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked.
+	Rbreadcrumb_truncate :: proc(breadcrumb: Rid, count: i32) ---
+	Rbreadcrumb_get_item_count :: proc(breadcrumb: Rid) -> i32 ---
+	Rbreadcrumb_get_item_text :: proc(breadcrumb: Rid, index: i32) -> cstring ---
+	Rbreadcrumb_set_clicked_callback :: proc(breadcrumb: Rid, callback: RBreadcrumbCallback, user_data: rawptr) ---
+	// The score, from 0 to the number of stars.
+	Rrating_set_value :: proc(rating: Rid, value: f32) ---
+	Rrating_get_value :: proc(rating: Rid) -> f32 ---
+	// Number of stars (default 5, at most 20).
+	Rrating_set_max :: proc(rating: Rid, max_: i32) ---
+	Rrating_get_max :: proc(rating: Rid) -> i32 ---
+	// Half stars can be chosen (a whole star by default).
+	Rrating_set_allow_half :: proc(rating: Rid, allow: i32) ---
+	// Shown only, the user cannot change it.
+	Rrating_set_read_only :: proc(rating: Rid, read_only: i32) ---
+	// Size of a star (default 18).
+	Rrating_set_star_size :: proc(rating: Rid, size: f32) ---
+	Rrating_set_changed_callback :: proc(rating: Rid, callback: RRatingChangedCallback, user_data: rawptr) ---
+	Rpagination_set_page_count :: proc(pagination: Rid, count: i32) ---
+	Rpagination_get_page_count :: proc(pagination: Rid) -> i32 ---
+	Rpagination_set_page :: proc(pagination: Rid, page: i32) ---
+	Rpagination_get_page :: proc(pagination: Rid) -> i32 ---
+	// Page numbers shown around the current one (default 1).
+	Rpagination_set_siblings :: proc(pagination: Rid, siblings: i32) ---
+	Rpagination_set_changed_callback :: proc(pagination: Rid, callback: RPageChangedCallback, user_data: rawptr) ---
 	// text Initial content, or NULL.
 	Rtext_editor_create :: proc(text: cstring) -> Rid ---
 	// Replaces the whole text. The history of undo is cleared; the changed callback is not called.
@@ -3256,6 +3420,12 @@ foreign lib {
 	Rfile_browser_set_cancelled_callback :: proc(browser: Rid, callback: RFileBrowserCallback, user_data: rawptr) ---
 	// Called when the selection changes; `path` is the entry under the cursor, or NULL.
 	Rfile_browser_set_selection_changed_callback :: proc(browser: Rid, callback: RFileBrowserCallback, user_data: rawptr) ---
+	// Returns: R_TRUE when the system took the notification.
+	Rnotification_show :: proc(title: cstring, body: cstring, urgency: RNotificationUrgency) -> i32 ---
+	// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+	Rnotification_is_supported :: proc() -> i32 ---
+	// Called with the notifications the system could not show; NULL: none.
+	Rnotification_set_fallback :: proc(callback: RNotificationFallback, user_data: rawptr) ---
 	// Shows a texture. R_INVALID_ID shows nothing.
 	Rviewport_set_texture :: proc(viewport: Rid, texture: Rid) ---
 	// How the texture is fitted in the widget. Default: R_STRETCH_FILL.
