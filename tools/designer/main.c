@@ -343,13 +343,26 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 	{ "Timeline", "<Timeline Duration=\"10\" Height=\"150\"><Track Name=\"Track\"><Clip Start=\"1\" Length=\"3\" Label=\"Clip\"/><Key Time=\"6\"/></Track><Marker Time=\"5\" Label=\"Mark\"/></Timeline>" },
 	{ "NodeGraph", "<NodeGraph Height=\"220\"><Node Name=\"a\" Title=\"Source\" X=\"30\" Y=\"40\"><Output Name=\"out\" Label=\"Value\"/></Node>"
 		"<Node Name=\"b\" Title=\"Result\" X=\"260\" Y=\"70\"><Input Name=\"in\" Label=\"Value\"/></Node><Link From=\"a.out\" To=\"b.in\"/></NodeGraph>" },
+	{ "Table", "<Table Height=\"140\" Striped=\"true\"><Column Header=\"Name\" Width=\"120\"/><Column Header=\"Age\" Width=\"60\" Align=\"Right\"/>"
+		"<Column Header=\"City\" Fill=\"1\"/><Row>Ada|36|London</Row><Row>Grace|85|New York</Row><Row>Linus|56|Portland</Row></Table>" },
+	{ "DatePicker", "<DatePicker Date=\"Today\"/>" },
+	{ "TimePicker", "<TimePicker Time=\"09:30\"/>" },
+	{ "Toast", "<Toast Text=\"Saved\" Duration=\"0\" ActionText=\"Undo\" Kind=\"Success\"/>" },
+	{ "Breadcrumb", "<Breadcrumb Items=\"Home|Documents|Report\"/>" },
+	{ "Rating", "<Rating Value=\"3\"/>" },
+	{ "Pagination", "<Pagination PageCount=\"12\" Page=\"4\"/>" },
+	{ "Column", "<Column Header=\"Column\" Width=\"100\"/>" },
+	{ "Row", "<Row>a|b|c</Row>" },
 	{ "Item", "<Item Text=\"Item\"/>" },
 	{ "Shortcut", "<Shortcut Keys=\"Ctrl+S\" Action=\"file.save\"/>" }
 };
 
 /** Tags that are not widgets, and what can be written on them. */
 static const struct { const char* tag; const char* attributes; const char* about; } SPECIAL_TAGS[] = {
-	{ "Item", "Text", "A row of the list, tree or combo box it is in." },
+	{ "Item", "Text", "A row of the list, tree or combo box it is in, or an item of a Breadcrumb." },
+	{ "Column", "Header|Width|Fill|Sortable|Align", "A column of a Table: its header, its width, the share of the free width it takes." },
+	{ "Row", "Cells", "A row of a Table: its cells separated by '|', or Cell elements." },
+	{ "Cell", "Text", "A cell of a Row, for a text that holds a '|'." },
 	{ "Shortcut", "Keys|Action", "Keys that fire an action anywhere in the window." },
 	{ "Track", "Name|Color|Height|Locked|Muted", "A track of a Timeline: it holds Clip and Key elements." },
 	{ "Clip", "Start|Length|End|Label|Color|Selected", "Something that lasts, on a track of a Timeline." },
@@ -2227,7 +2240,7 @@ static int accepts_children(Rid node) {
 	tag = Rxml_node_get_tag(node);
 	if (special_tag(tag) >= 0) {
 		return same_text(tag, "Widget") || same_text(tag, "Widgets") || same_text(tag, "Repeat") || same_text(tag, "ForEach") ||
-			same_text(tag, "If") || same_text(tag, "Node") || same_text(tag, "Track") || same_text(tag, "Item");
+			same_text(tag, "If") || same_text(tag, "Node") || same_text(tag, "Track") || same_text(tag, "Item") || same_text(tag, "Row");
 	}
 	return Rxml_get_tag_children(tag) != 0;
 }

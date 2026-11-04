@@ -54,7 +54,8 @@ typedef enum glyph_t {
 	G_PAGES, G_TABS, G_CHEVRON, G_BUTTON, G_CHECK, G_SLIDER, G_PROGRESS, G_INPUT, G_SPIN, G_COMBO, G_LINE,
 	G_TEXT, G_PICTURE, G_LINES, G_LIST, G_TREE, G_TIMELINE, G_BLOCKS, G_NODES, G_ITEM, G_WINDOW, G_HEADER,
 	G_MENUBAR, G_MENU, G_MENUITEM, G_DOCK, G_ISLAND, G_BLUR, G_COLOR, G_VIEWPORT, G_SPARK, G_FOLDER, G_KEY,
-	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE
+	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE,
+	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER
 } glyph_t;
 
 /* Every picture: the tag (or "#..." for what is not a tag), its family, its glyph. The order of a family is the order of the palette. */
@@ -70,6 +71,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "Button", FAMILY_CONTROL, G_BUTTON }, { "Checkbox", FAMILY_CONTROL, G_CHECK }, { "Slider", FAMILY_CONTROL, G_SLIDER },
 	{ "TextInput", FAMILY_CONTROL, G_INPUT }, { "SpinBox", FAMILY_CONTROL, G_SPIN }, { "ComboBox", FAMILY_CONTROL, G_COMBO },
 	{ "ProgressBar", FAMILY_CONTROL, G_PROGRESS }, { "ColorPicker", FAMILY_CONTROL, G_COLOR },
+	{ "DatePicker", FAMILY_CONTROL, G_CALENDAR }, { "TimePicker", FAMILY_CONTROL, G_CLOCK }, { "Rating", FAMILY_CONTROL, G_STAR },
 	/* text and pictures */
 	{ "Label", FAMILY_TEXT, G_TEXT }, { "Image", FAMILY_TEXT, G_PICTURE }, { "TextEditor", FAMILY_TEXT, G_LINES },
 	{ "Separator", FAMILY_TEXT, G_LINE }, { "Viewport", FAMILY_TEXT, G_VIEWPORT }, { "Custom", FAMILY_TEXT, G_SPARK },
@@ -77,6 +79,8 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "ListView", FAMILY_DATA, G_LIST }, { "TreeView", FAMILY_DATA, G_TREE }, { "TileView", FAMILY_DATA, G_TILES },
 	{ "Item", FAMILY_DATA, G_ITEM }, { "Timeline", FAMILY_DATA, G_TIMELINE }, { "NodeGraph", FAMILY_DATA, G_NODES },
 	{ "BlockEditor", FAMILY_DATA, G_BLOCKS }, { "FileBrowser", FAMILY_DATA, G_FOLDER },
+	{ "Table", FAMILY_DATA, G_TABLE }, { "Column", FAMILY_DATA, G_ITEM }, { "Row", FAMILY_DATA, G_ITEM },
+	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER },
 	{ "Track", FAMILY_DATA, G_TIMELINE }, { "Clip", FAMILY_DATA, G_PROGRESS }, { "Key", FAMILY_DATA, G_ITEM },
 	{ "Marker", FAMILY_DATA, G_ITEM }, { "Node", FAMILY_DATA, G_NODES }, { "Input", FAMILY_DATA, G_ITEM },
 	{ "Output", FAMILY_DATA, G_ITEM }, { "Link", FAMILY_DATA, G_NODES }, { "Type", FAMILY_DATA, G_ITEM },
@@ -84,6 +88,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "Window", FAMILY_SHELL, G_WINDOW }, { "HeaderBar", FAMILY_SHELL, G_HEADER }, { "MenuBar", FAMILY_SHELL, G_MENUBAR },
 	{ "Menu", FAMILY_SHELL, G_MENU }, { "MenuItem", FAMILY_SHELL, G_MENUITEM }, { "Island", FAMILY_SHELL, G_ISLAND },
 	{ "BackgroundBlur", FAMILY_SHELL, G_BLUR }, { "Shortcut", FAMILY_SHELL, G_KEY },
+	{ "Toast", FAMILY_SHELL, G_TOAST }, { "Breadcrumb", FAMILY_SHELL, G_CRUMBS },
 	/* what is not a widget */
 	{ "Repeat", FAMILY_OTHER, G_REPEAT }, { "ForEach", FAMILY_OTHER, G_REPEAT }, { "If", FAMILY_OTHER, G_IF },
 	{ "Include", FAMILY_OTHER, G_INCLUDE }, { "Children", FAMILY_OTHER, G_CHILDREN }, { "Widget", FAMILY_OWN, G_PUZZLE },
@@ -413,6 +418,36 @@ static void draw_glyph(cell_t* c, glyph_t glyph) {
 		case G_TABLE:
 			outline(c, 7, 8, 25, 24, 2.5f, STROKE, 1); box(c, 7, 8, 25, 12.5f, 2.5f, 1); line(c, 16, 12, 16, 24, 1.6f, 0.8f);
 			line(c, 7, 18, 25, 18, 1.6f, 0.8f);
+			break;
+		case G_CALENDAR:
+			outline(c, 7, 9, 25, 25, 2.5f, STROKE, 1); box(c, 7, 9, 25, 13.5f, 2.5f, 1);
+			line(c, 12, 6.5f, 12, 10, 2, 1); line(c, 20, 6.5f, 20, 10, 2, 1);
+			box(c, 11, 17, 14, 20, 0.8f, 0.7f); box(c, 18, 17, 21, 20, 0.8f, 1);
+			break;
+		case G_CLOCK:
+			outline(c, 7, 7, 25, 25, 9, STROKE, 1); line(c, 16, 16, 16, 11, 2, 1); line(c, 16, 16, 20, 18.5f, 2, 1);
+			break;
+		case G_TOAST:
+			box(c, 6, 17, 26, 24, 3.5f, 1); line(c, 9, 12, 23, 12, STROKE, 0.4f); line(c, 9, 8, 19, 8, STROKE, 0.25f);
+			break;
+		case G_CRUMBS:
+			line(c, 6, 16, 9, 16, 2.4f, 0.6f); line(c, 11, 13, 13.5f, 16, 1.8f, 1); line(c, 13.5f, 16, 11, 19, 1.8f, 1);
+			line(c, 16, 16, 19, 16, 2.4f, 0.6f); line(c, 21, 13, 23.5f, 16, 1.8f, 1); line(c, 23.5f, 16, 21, 19, 1.8f, 1);
+			break;
+		case G_STAR: {
+			/* five spokes and a heart */
+			int k;
+			for (k = 0; k < 5; k++) {
+				float angle = -1.5707964f + (float)k * 1.2566371f;
+				line(c, 16, 17, 16 + cosf(angle) * 9.5f, 17 + sinf(angle) * 9.5f, 3.2f, 1);
+			}
+			disc(c, 16, 17, 4.2f, 1);
+			break;
+		}
+		case G_PAGER:
+			line(c, 7.5f, 13, 5, 16, 1.8f, 0.6f); line(c, 5, 16, 7.5f, 19, 1.8f, 0.6f);
+			box(c, 10, 12, 15, 20, 1.5f, 1); outline(c, 17, 12, 22, 20, 1.5f, 1.4f, 0.7f);
+			line(c, 24.5f, 13, 27, 16, 1.8f, 0.6f); line(c, 27, 16, 24.5f, 19, 1.8f, 0.6f);
 			break;
 		case G_FILE:
 			outline(c, 9, 7, 23, 25, 2.5f, STROKE, 1); line(c, 12.5f, 13, 19.5f, 13, 1.6f, 0.7f); line(c, 12.5f, 17, 19.5f, 17, 1.6f, 0.7f);
