@@ -15,6 +15,7 @@ licensed (see `COPYING`). `tools/wayland/gen_wayland.py` reads them and writes
 | `ext-background-effect-v1.xml` | wayland-protocols, staging | blur behind transparent windows |
 | `xdg-toplevel-icon-v1.xml` | wayland-protocols, staging | window icons |
 | `tablet-v2.xml` | wayland-protocols, stable | pens and tablets: pressure, tilt, eraser |
+| `pointer-gestures-unstable-v1.xml` | wayland-protocols, unstable | the gestures of a trackpad: pinch, swipe, hold |
 
 To speak another protocol: add its file here and to the list at the top of
 `gen_wayland.py`, and run it.

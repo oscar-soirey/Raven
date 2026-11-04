@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(raven VERSION 0.2.0 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
+project(raven VERSION 0.2.1 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
 
 if(APPLE)
 	# Cocoa is the native macOS window API; almost all Raven code remains C.
@@ -31,6 +31,7 @@ option(RAVEN_BACKEND_SOKOL "Compile the sokol_gfx backend, selectable with R_BAC
 set(RAVEN_SOKOL_API "auto" CACHE STRING "Graphics API of the Sokol backend (fixed when Raven is built): auto, gles3 (Linux) or metal (macOS, iOS)")
 set_property(CACHE RAVEN_SOKOL_API PROPERTY STRINGS auto gles3 metal)
 option(RAVEN_WITH_STB_IMAGE "Decode PNG / JPEG / BMP / TGA textures with stb_image" ON)
+option(RAVEN_WITH_SVG "Draw SVG images (icons) with nanosvg" ON)
 option(RAVEN_FETCH_VULKAN_HEADERS "Download the Vulkan headers when no Vulkan SDK is found" ON)
 option(RAVEN_REBUILD_SHADERS "Recompile the GLSL shaders (needs glslangValidator or glslc)" OFF)
 option(RAVEN_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
@@ -141,6 +142,7 @@ set(RAVEN_CORE_SOURCES
 
 set(RAVEN_PLATFORM_SOURCES
 	src/platform/platform.c
+	src/platform/notify.c
 	src/platform/platform.h
 	src/platform/null/null_platform.c
 	src/platform/host/host_platform.c
@@ -155,6 +157,7 @@ set(RAVEN_RENDER_SOURCES
 	src/render/font.h
 	src/render/font_raster.c
 	src/render/image_decode.c
+	src/render/svg_decode.c
 	src/render/renderer.c
 	src/render/renderer.h
 	src/render/texture.c
@@ -231,6 +234,13 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/text_input.c
 	src/widgets/tree_view.c
 	src/widgets/viewport.c
+	src/widgets/table.c
+	src/widgets/date_picker.c
+	src/widgets/time_picker.c
+	src/widgets/toast.c
+	src/widgets/breadcrumb.c
+	src/widgets/rating.c
+	src/widgets/pagination.c
 )
 
 set(RAVEN_XML_SOURCES
@@ -281,6 +291,8 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	list(APPEND RAVEN_PLATFORM_SOURCES
 		src/platform/win32/win32_platform.c
 		src/platform/win32/win32_uia.c
+		src/platform/win32/win32_manipulation.c
+		src/platform/win32/win32_manipulation.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WIN32)
 	list(APPEND RAVEN_LIBRARIES user32 gdi32 shell32 comdlg32 ole32)
@@ -437,6 +449,9 @@ if(RAVEN_BACKEND_SOKOL)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_SOKOL_ENABLED)
 endif()
 
+if(RAVEN_WITH_SVG)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_WITH_SVG)
+endif()
 if(RAVEN_WITH_STB_IMAGE)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_WITH_STB_IMAGE)
 endif()

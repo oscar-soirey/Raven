@@ -50,7 +50,7 @@ says can also be said from C, and the other way round.</p>
   <a href="#color-attributes">colors</a> &middot; <a href="#metric-attributes">metrics</a></li>
 <li><a href="#shell">Windows and their shell</a> &mdash; <a href="#tag-Window">Window</a> &middot; <a href="#tag-HeaderBar">HeaderBar</a> &middot; <a href="#tag-DockArea">DockArea</a> &middot; <a href="#tag-Island">Island</a> &middot; <a href="#tag-MenuBar">MenuBar</a> &middot; <a href="#tag-Menu">Menu</a> &middot; <a href="#tag-MenuItem">MenuItem</a></li>
 <li><a href="#panels">Panels</a> &mdash; <a href="#tag-VBox">VBox</a> &middot; <a href="#tag-HBox">HBox</a> &middot; <a href="#tag-Grid">Grid</a> &middot; <a href="#tag-UniformGrid">UniformGrid</a> &middot; <a href="#tag-Overlay">Overlay</a> &middot; <a href="#tag-Border">Border</a> &middot; <a href="#tag-SizeBox">SizeBox</a> &middot; <a href="#tag-Spacer">Spacer</a> &middot; <a href="#tag-ScrollBox">ScrollBox</a> &middot; <a href="#tag-Splitter">Splitter</a> &middot; <a href="#tag-WrapBox">WrapBox</a> &middot; <a href="#tag-Canvas">Canvas</a> &middot; <a href="#tag-Switcher">Switcher</a> &middot; <a href="#tag-TabView">TabView</a> &middot; <a href="#tag-Expander">Expander</a> &middot; <a href="#tag-BackgroundBlur">BackgroundBlur</a></li>
-<li><a href="#controls">Controls</a> &mdash; <a href="#tag-Label">Label</a> &middot; <a href="#tag-Button">Button</a> &middot; <a href="#tag-Checkbox">Checkbox</a> &middot; <a href="#tag-Slider">Slider</a> &middot; <a href="#tag-ProgressBar">ProgressBar</a> &middot; <a href="#tag-Image">Image</a> &middot; <a href="#tag-TextInput">TextInput</a> &middot; <a href="#tag-SpinBox">SpinBox</a> &middot; <a href="#tag-ComboBox">ComboBox</a> &middot; <a href="#tag-Separator">Separator</a> &middot; <a href="#tag-ListView">ListView</a> &middot; <a href="#tag-TreeView">TreeView</a> &middot; <a href="#tag-TileView">TileView</a> &middot; <a href="#tag-TextEditor">TextEditor</a></li>
+<li><a href="#controls">Controls</a> &mdash; <a href="#tag-Label">Label</a> &middot; <a href="#tag-Button">Button</a> &middot; <a href="#tag-Checkbox">Checkbox</a> &middot; <a href="#tag-Slider">Slider</a> &middot; <a href="#tag-ProgressBar">ProgressBar</a> &middot; <a href="#tag-Image">Image</a> &middot; <a href="#tag-TextInput">TextInput</a> &middot; <a href="#tag-SpinBox">SpinBox</a> &middot; <a href="#tag-ComboBox">ComboBox</a> &middot; <a href="#tag-Separator">Separator</a> &middot; <a href="#tag-ListView">ListView</a> &middot; <a href="#tag-TreeView">TreeView</a> &middot; <a href="#tag-TileView">TileView</a> &middot; <a href="#tag-TextEditor">TextEditor</a> &middot; <a href="#tag-Table">Table</a> &middot; <a href="#tag-DatePicker">DatePicker</a> &middot; <a href="#tag-TimePicker">TimePicker</a> &middot; <a href="#tag-Toast">Toast</a> &middot; <a href="#tag-Breadcrumb">Breadcrumb</a> &middot; <a href="#tag-Rating">Rating</a> &middot; <a href="#tag-Pagination">Pagination</a></li>
 <li><a href="#tools">Tools</a> &mdash; <a href="#tag-ColorPicker">ColorPicker</a> &middot; <a href="#tag-Timeline">Timeline</a> &middot; <a href="#tag-NodeGraph">NodeGraph</a> &middot; <a href="#tag-BlockEditor">BlockEditor</a> &middot; <a href="#tag-FileBrowser">FileBrowser</a> &middot; <a href="#tag-Viewport">Viewport</a> &middot; <a href="#tag-Custom">Custom</a></li>
 <li><a href="#elements">Elements that are not widgets</a></li>
 <li><a href="#strings">Translations</a></li>
@@ -126,9 +126,10 @@ of it, kept for readability.</p>
 <div class="tw"><table>
 <tr><th>Widget</th><th>The action fires when</th></tr>
 <tr><td>Button, MenuItem</td><td>it is clicked</td></tr>
-<tr><td>Checkbox, Slider, SpinBox, ComboBox, TabView, Expander, ColorPicker, Timeline, NodeGraph</td><td>its value changes</td></tr>
+<tr><td>Checkbox, Slider, SpinBox, ComboBox, TabView, Expander, ColorPicker, Timeline, NodeGraph, DatePicker, TimePicker, Rating, Pagination</td><td>its value changes</td></tr>
 <tr><td>TextInput</td><td>Enter is pressed</td></tr>
-<tr><td>ListView, TreeView, TileView</td><td>a row is activated (double click or Enter)</td></tr>
+<tr><td>ListView, TreeView, TileView, Table</td><td>a row is activated (double click or Enter)</td></tr>
+<tr><td>Breadcrumb, Toast</td><td>an item, or the button of the message, is clicked</td></tr>
 </table></div>
 
 <pre>static void on_save(Rid sender, const char* action, void* user_data) {
@@ -183,7 +184,7 @@ glass (<code>Color.Control="#FF375F60"</code> is a pink glass button).</p>
 <tr><td><code>AccessibleRole</code></td><td><code>Auto</code> | <code>None</code> | <code>Group</code> | <code>Text</code> | <code>Heading</code> | <code>Link</code> | <code>Button</code> | <code>ToggleButton</code> | <code>CheckBox</code> | <code>RadioButton</code> | <code>Slider</code> | <code>ProgressBar</code> | <code>SpinButton</code> | <code>TextField</code> | <code>Document</code> | <code>ComboBox</code> | <code>List</code> | <code>ListItem</code> | <code>Tree</code> | <code>TreeItem</code> | <code>Table</code> | <code>MenuBar</code> | <code>Menu</code> | <code>MenuItem</code> | <code>TabList</code> | <code>Tab</code> | <code>TabPanel</code> | <code>Toolbar</code> | <code>StatusBar</code> | <code>Dialog</code> | <code>Alert</code> | <code>Image</code> | <code>Canvas</code> | <code>Separator</code> | <code>ScrollBar</code> | <code>Pane</code></td><td>What the widget is for a screen reader.</td></tr>
 <tr><td><code>AccessibleHidden</code></td><td>boolean</td><td>Hidden from screen readers, with what it contains (decoration).</td></tr>
 <tr><td><code>Touch.Mode</code></td><td><code>Auto</code> | <code>Scroll</code> | <code>Mouse</code> | <code>None</code></td><td>What a finger does here: Auto scrolls what scrolls and is a mouse elsewhere, Scroll always scrolls, Mouse is a mouse (no scrolling), None ignores fingers (a surface for the pen).</td></tr>
-<tr><td><code>Touch.Gestures</code></td><td>boolean</td><td>false: two fingers neither zoom nor pan the widget.</td></tr>
+<tr><td><code>Touch.Gestures</code></td><td>boolean</td><td>false: two fingers, on the screen or a trackpad, neither zoom nor pan the widget.</td></tr>
 <tr><td><code>Pen.Mouse</code></td><td>boolean</td><td>false: the pen is not a mouse here; only the pen callback of the application sees it.</td></tr>
 </table></div>
 <h3 id="slot-attributes">Slot attributes: the place of a widget in its parent</h3>
@@ -353,6 +354,9 @@ the same.</p>
 <tr><td><code>Pen.MouseEmulation</code></td><td>boolean</td><td>The pen drives the widgets as the mouse does; its barrel button is the right button (default true).</td></tr>
 <tr><td><code>Pen.PressureCurve</code></td><td>number</td><td>The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder.</td></tr>
 <tr><td><code>Pen.PressureThreshold</code></td><td>number</td><td>Pressure, 0 to 1, the tip needs before it presses (default 0).</td></tr>
+<tr><td><code>Trackpad.Gestures</code></td><td>boolean</td><td>The pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do (default true).</td></tr>
+<tr><td><code>Trackpad.SwipeNavigation</code></td><td>boolean</td><td>Three or more fingers swiped across a trackpad go back or forward, as the side buttons of a mouse (default true).</td></tr>
+<tr><td><code>Trackpad.SwipeDistance</code></td><td>number</td><td>How far the fingers of a swipe go across before it navigates (default 120).</td></tr>
 </table></div>
 <h3 id="tag-HeaderBar">&lt;HeaderBar&gt;</h3>
 <p>The title bar of a window with a custom header; holds any widgets. <small>(also written <code>TitleBar</code>; any number of child widgets)</small></p>
@@ -693,6 +697,81 @@ child, in its slot (<a href="#slot-attributes">slot attributes</a>).</p>
 <tr><td><code>OnChanged</code></td><td>action name</td><td>Action fired at each change.</td></tr>
 </table></div>
 
+<h3 id="tag-Table">&lt;Table&gt;</h3>
+<p>Rows of cells under columns that can be resized and sorted; any number of rows. <code>&lt;Column&gt;</code> and <code>&lt;Row&gt;</code> elements give them (see <a href="#elements">10</a>). <small>(also written <code>DataGrid</code>, <code>TableView</code>; no child widget)</small></p>
+<div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>Columns</code></td><td>texts separated by <code>|</code></td><td>The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align).</td></tr>
+<tr><td><code>Selected</code></td><td>number</td><td>Which row is selected, from 0; -1 for none.</td></tr>
+<tr><td><code>SortColumn</code></td><td>number</td><td>The column the rows are sorted by, from 0; -1 for none.</td></tr>
+<tr><td><code>SortDescending</code></td><td>boolean</td><td>Sorted from the largest to the smallest.</td></tr>
+<tr><td><code>ShowHeader</code></td><td>boolean</td><td>Shows the row of the headers.</td></tr>
+<tr><td><code>GridLines</code></td><td>boolean</td><td>Lines between the rows and the columns.</td></tr>
+<tr><td><code>Striped</code></td><td>boolean</td><td>Every other row a little darker.</td></tr>
+<tr><td><code>OnActivated</code></td><td>action name</td><td>Action fired by a double click or Enter.</td></tr>
+</table></div>
+<h3 id="tag-DatePicker">&lt;DatePicker&gt;</h3>
+<p>A date, chosen in a calendar that drops down (arrows, Page Up / Down for the months, Enter). <small>(no child widget)</small></p>
+<div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>Date</code></td><td>text</td><td>The date, "YYYY-MM-DD" or Today.</td></tr>
+<tr><td><code>Min</code></td><td>text</td><td>The earliest date that can be chosen, "YYYY-MM-DD".</td></tr>
+<tr><td><code>Max</code></td><td>text</td><td>The latest date that can be chosen, "YYYY-MM-DD".</td></tr>
+<tr><td><code>FirstDayOfWeek</code></td><td><code>Sunday</code> | <code>Monday</code> | <code>Saturday</code></td><td>The day the weeks of the calendar start with (or 0 to 6).</td></tr>
+<tr><td><code>Format</code></td><td>text</td><td>How the date is written: YYYY, MM, M, DD, D, MMMM, MMM, dddd, ddd; default YYYY-MM-DD.</td></tr>
+<tr><td><code>OnChanged</code></td><td>action name</td><td>Action fired when the user chooses a date.</td></tr>
+</table></div>
+<h3 id="tag-TimePicker">&lt;TimePicker&gt;</h3>
+<p>A time of the day: hours, minutes, optionally seconds. A click selects a part; the arrows, the wheel and the digits change it. <small>(no child widget)</small></p>
+<div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>Time</code></td><td>text</td><td>The time, "HH:MM" or "HH:MM:SS".</td></tr>
+<tr><td><code>ShowSeconds</code></td><td>boolean</td><td>Shows the seconds.</td></tr>
+<tr><td><code>MinuteStep</code></td><td>number</td><td>Step of the minutes for the arrows and the wheel.</td></tr>
+<tr><td><code>OnChanged</code></td><td>action name</td><td>Action fired when the user changes the time.</td></tr>
+</table></div>
+<h3 id="tag-Toast">&lt;Toast&gt;</h3>
+<p>A short message that rises over the content for a few seconds; put it in an Overlay (<a href="reference.html#Rtoast_show">Rtoast_show</a>). Hidden, it lets the pointer through. <small>(also written <code>Snackbar</code>; no child widget)</small></p>
+<div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>Text</code></td><td>text</td><td>A message shown when the window opens.</td></tr>
+<tr><td><code>Duration</code></td><td>number</td><td>Seconds a message written here stays; 0: until hidden.</td></tr>
+<tr><td><code>Kind</code></td><td><code>Info</code> | <code>Success</code> | <code>Warning</code> | <code>Error</code></td><td>The color of the dot before the message.</td></tr>
+<tr><td><code>ActionText</code></td><td>text</td><td>A button at the end of the message ("Undo").</td></tr>
+<tr><td><code>OnClicked</code></td><td>action name</td><td>Action fired by the button of the message.</td></tr>
+</table></div>
+<h3 id="tag-Breadcrumb">&lt;Breadcrumb&gt;</h3>
+<p>The path to the current place: links separated by chevrons; the first ones fold into "..." when they do not fit. <small>(no child widget)</small></p>
+<div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>Items</code></td><td>texts separated by <code>|</code></td><td>The items, separated by '|' (or Item elements); the last one is the current place.</td></tr>
+<tr><td><code>OnClicked</code></td><td>action name</td><td>Action fired when the user clicks an item.</td></tr>
+</table></div>
+<h3 id="tag-Rating">&lt;Rating&gt;</h3>
+<p>A score shown and chosen with stars; a click on the score already given takes it back to 0. <small>(no child widget)</small></p>
+<div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>Value</code></td><td>number</td><td>The score, from 0 to Max.</td></tr>
+<tr><td><code>Max</code></td><td>number</td><td>Number of stars.</td></tr>
+<tr><td><code>AllowHalf</code></td><td>boolean</td><td>Half stars can be chosen.</td></tr>
+<tr><td><code>ReadOnly</code></td><td>boolean</td><td>Shown only.</td></tr>
+<tr><td><code>StarSize</code></td><td>number</td><td>Size of a star.</td></tr>
+<tr><td><code>OnChanged</code></td><td>action name</td><td>Action fired when the user changes the score.</td></tr>
+</table></div>
+<h3 id="tag-Pagination">&lt;Pagination&gt;</h3>
+<p>Page numbers with previous and next; the first and the last page always show. <small>(no child widget)</small></p>
+<div class="tw"><table class="v"><tr><th>Attribute</th><th>Value</th><th>Meaning</th></tr>
+<tr><td><code>PageCount</code></td><td>number</td><td>Number of pages.</td></tr>
+<tr><td><code>Page</code></td><td>number</td><td>The current page, from 0.</td></tr>
+<tr><td><code>Siblings</code></td><td>number</td><td>Page numbers shown on each side of the current one.</td></tr>
+<tr><td><code>OnChanged</code></td><td>action name</td><td>Action fired when the user goes to another page.</td></tr>
+</table></div>
+<pre>&lt;Table Name="people" Striped="true" Slot.Fill="1"&gt;
+    &lt;Column Header="Name" Width="160"/&gt;
+    &lt;Column Header="Age" Width="60" Align="Right"/&gt;
+    &lt;Column Header="City" Fill="1"/&gt;
+    &lt;Row&gt;Ada|36|London&lt;/Row&gt;
+    &lt;Row&gt;&lt;Cell&gt;Grace&lt;/Cell&gt;&lt;Cell&gt;85&lt;/Cell&gt;&lt;Cell&gt;New York&lt;/Cell&gt;&lt;/Row&gt;
+&lt;/Table&gt;
+&lt;DatePicker Date="Today" FirstDayOfWeek="Monday" Format="D MMMM YYYY"/&gt;
+&lt;Overlay&gt;
+    ...
+    &lt;Toast Name="toast" ActionText="Undo" Slot.HAlign="Center" Slot.VAlign="Bottom" Slot.Padding="16"/&gt;
+&lt;/Overlay&gt;</pre>
 <h2 id="tools">9. Tools</h2>
 
 <pre>&lt;NodeGraph Name="graph" FrameAll="true"&gt;
@@ -801,7 +880,9 @@ child, in its slot (<a href="#slot-attributes">slot attributes</a>).</p>
 <div class="tw"><table>
 <tr><th>Element</th><th>Inside</th><th>Attributes</th></tr>
 <tr><td><code>&lt;Shortcut&gt;</code></td><td>Window, or any element</td><td><code>Keys</code> (a shortcut), <code>Action</code>: fires the action when the keys are pressed anywhere in the window</td></tr>
-<tr><td><code>&lt;Item&gt;</code></td><td>ComboBox, ListView, TreeView (nested for a tree)</td><td><code>Text</code> (or the text of the element), <code>Expanded</code> (tree)</td></tr>
+<tr><td><code>&lt;Item&gt;</code></td><td>ComboBox, ListView, TreeView (nested for a tree), Breadcrumb</td><td><code>Text</code> (or the text of the element), <code>Expanded</code> (tree)</td></tr>
+<tr><td><code>&lt;Column&gt;</code></td><td>Table</td><td><code>Header</code> (or the text), <code>Width</code>, <code>Fill</code> (a share of the free width), <code>Sortable</code>, <code>Align</code> (<code>Left</code>, <code>Center</code>, <code>Right</code>)</td></tr>
+<tr><td><code>&lt;Row&gt;</code></td><td>Table, after the columns</td><td>the cells separated by <code>|</code>, as text or in <code>Cells</code>; or <code>&lt;Cell&gt;</code> elements (<code>Text</code> or the text), for a text holding a <code>|</code></td></tr>
 <tr><td><code>&lt;Strings&gt;</code></td><td>anywhere</td><td><code>Source</code>: a CSV table of translations, loaded with the document</td></tr>
 <tr><td><code>&lt;Track&gt;</code></td><td>Timeline</td><td><code>Name</code>, <code>Color</code>, <code>Height</code>, <code>Locked</code>, <code>Muted</code>; contains <code>&lt;Clip&gt;</code> and <code>&lt;Key&gt;</code></td></tr>
 <tr><td><code>&lt;Clip&gt;</code></td><td>Track</td><td><code>Start</code>, <code>Length</code> or <code>End</code>, <code>Label</code> (or the text), <code>Color</code>, <code>Selected</code></td></tr>

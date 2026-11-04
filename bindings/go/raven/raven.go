@@ -1,6 +1,6 @@
 // Package raven is Raven for Go.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // Each C function whose parameters Go can express directly has a Go function:
 // Rwindow_set_title is WindowSetTitle. The enumerations keep their C names
@@ -418,6 +418,22 @@ const (
 	R_GESTURE_END    RGesturePhase = 0x04B2
 )
 
+// RGestureKind: What the fingers of a gesture do (RGestureEvent::kind).
+type RGestureKind int32
+
+const (
+	R_GESTURE_PINCH RGestureKind = 0x04C0
+	R_GESTURE_SWIPE RGestureKind = 0x04C1
+)
+
+// RGestureDevice: Where the fingers of a gesture are (RGestureEvent::device).
+type RGestureDevice int32
+
+const (
+	R_GESTURE_DEVICE_TOUCHSCREEN RGestureDevice = 0x04D0
+	R_GESTURE_DEVICE_TRACKPAD    RGestureDevice = 0x04D1
+)
+
 // RLook: The looks. Each one comes dark and light. Raven's looks are the default; the ones of the platforms
 // imitate them closely (their shapes, colors, sizes, states and motion), without using their widgets. The
 // looks of the platforms are opaque, except macOS Glass (macOS 26), whose bars, menus and floating surfaces
@@ -605,6 +621,13 @@ const (
 	R_WIDGET_NODE_GRAPH      RWidgetType = 0x0228
 	R_WIDGET_TILE_VIEW       RWidgetType = 0x0229
 	R_WIDGET_BLOCK_EDITOR    RWidgetType = 0x022A
+	R_WIDGET_TABLE           RWidgetType = 0x022B
+	R_WIDGET_DATE_PICKER     RWidgetType = 0x022C
+	R_WIDGET_TIME_PICKER     RWidgetType = 0x022D
+	R_WIDGET_TOAST           RWidgetType = 0x022E
+	R_WIDGET_BREADCRUMB      RWidgetType = 0x022F
+	R_WIDGET_RATING          RWidgetType = 0x0230
+	R_WIDGET_PAGINATION      RWidgetType = 0x0231
 )
 
 type RHAlign int32
@@ -685,6 +708,15 @@ const (
 	R_TEXT_ALIGN_LEFT   RTextAlign = 0x0280
 	R_TEXT_ALIGN_CENTER RTextAlign = 0x0281
 	R_TEXT_ALIGN_RIGHT  RTextAlign = 0x0282
+)
+
+type RToastKind int32
+
+const (
+	R_TOAST_INFO    RToastKind = 0x04E0
+	R_TOAST_SUCCESS RToastKind = 0x04E1
+	R_TOAST_WARNING RToastKind = 0x04E2
+	R_TOAST_ERROR   RToastKind = 0x04E3
 )
 
 type RButtonStyle int32
@@ -813,6 +845,15 @@ const (
 	R_BLOCK_NEXT  RBlockPlace = 0x0710
 	R_BLOCK_BODY  RBlockPlace = 0x0711
 	R_BLOCK_INPUT RBlockPlace = 0x0712
+)
+
+// RNotificationUrgency: How much a notification of the system asks for attention (Rnotification_show).
+type RNotificationUrgency int32
+
+const (
+	R_NOTIFICATION_LOW      RNotificationUrgency = 0x04F0
+	R_NOTIFICATION_NORMAL   RNotificationUrgency = 0x04F1
+	R_NOTIFICATION_CRITICAL RNotificationUrgency = 0x04F2
 )
 
 type RFileDialogFlags int32
@@ -1561,7 +1602,8 @@ func WidgetGetTouchMode(widget ID) RTouchMode {
 	return RTouchMode(C.Rwidget_get_touch_mode(C.Rid(widget)))
 }
 
-// WidgetSetTouchGestures: R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+// WidgetSetTouchGestures: R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget
+// (default R_TRUE).
 func WidgetSetTouchGestures(widget ID, enabled int) {
 	C.Rwidget_set_touch_gestures(C.Rid(widget), C.int(enabled))
 }
@@ -1604,6 +1646,26 @@ func WindowInjectTouch(window ID, id int, phase RTouchPhase, x float32, y float3
 // WindowInjectPen: A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
 func WindowInjectPen(window ID, phase RPenPhase, x float32, y float32, pressure float32, tilt_x float32, tilt_y float32, buttons uint32, eraser int) {
 	C.Rwindow_inject_pen(C.Rid(window), C.RPenPhase(phase), C.float(x), C.float(y), C.float(pressure), C.float(tilt_x), C.float(tilt_y), C.Ruint(buttons), C.int(eraser))
+}
+
+// WindowInjectTrackpadGesture: A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta` and `rotation_delta`
+// (degrees, clockwise) what changed since the previous event, `pan_x`, `pan_y` how far the fingers moved
+// since then.
+func WindowInjectTrackpadGesture(window ID, kind RGestureKind, phase RGesturePhase, x float32, y float32, scale_delta float32, rotation_delta float32, pan_x float32, pan_y float32, fingers int) {
+	C.Rwindow_inject_trackpad_gesture(C.Rid(window), C.RGestureKind(kind), C.RGesturePhase(phase), C.float(x), C.float(y), C.float(scale_delta), C.float(rotation_delta), C.float(pan_x), C.float(pan_y), C.int(fingers))
+}
+
+// WindowInjectTrackpadScroll: Two fingers scrolling on a trackpad: (dx, dy) is how far they moved (logical
+// units), the content following them. Sent as a precise wheel (REvent::wheel_precise) at the pointer.
+func WindowInjectTrackpadScroll(window ID, dx float32, dy float32) {
+	C.Rwindow_inject_trackpad_scroll(C.Rid(window), C.float(dx), C.float(dy))
+}
+
+// WindowInjectTrackpadScrollEnd: The fingers that scrolled left the trackpad, on a system that leaves the
+// inertia to the application (Wayland): flicked content keeps going (Touch.Inertia).
+func WindowInjectTrackpadScrollEnd(window ID) {
+	C.Rwindow_inject_trackpad_scroll_end(C.Rid(window))
 }
 
 // WindowAdvanceTouch: Advances the inertia of flicked content by `seconds` at once, and fires a long press
@@ -1859,7 +1921,7 @@ func FontMeasureText(font ID, size float32, text string) (width float32, height 
 	return
 }
 
-// TextureCreate: Creates a texture from the content of an image file (PNG, JPEG, BMP, TGA, GIF, PSD).
+// TextureCreate: Creates a texture from the content of an image file (PNG, JPEG, BMP, TGA, GIF, PSD, SVG).
 // Decoding happens on the calling thread. Returns: R_INVALID_ID on failure.
 func TextureCreate(data []byte) ID {
 	var data_ *C.char
@@ -1877,6 +1939,21 @@ func TextureCreateAsync(data []byte) ID {
 		data_ = (*C.char)(unsafe.Pointer(&data[0]))
 	}
 	return ID(C.Rtexture_create_async(data_, C.size_t(len(data))))
+}
+
+// TextureCreateFromSvg: Draws an SVG image (an icon) into a texture, at `scale` pixels per unit of the SVG (0
+// or less: 2, sharp on screens up to a scale of 2). The widgets show it at the size the SVG gives, whatever
+// the scale (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file also read SVG files, at a
+// scale of 2. Paths, fills, strokes and gradients are drawn; text, filters and masks are not.
+func TextureCreateFromSvg(svg string, svg_size int, scale float32) ID {
+	svg_ := C.CString(svg)
+	defer C.free(unsafe.Pointer(svg_))
+	return ID(C.Rtexture_create_from_svg(svg_, C.size_t(svg_size), C.float(scale)))
+}
+
+// TextureGetDensity: Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
+func TextureGetDensity(texture ID) float32 {
+	return float32(C.Rtexture_get_density(C.Rid(texture)))
 }
 
 func TextureCreateFromFile(path string) ID {
@@ -3247,6 +3324,311 @@ func TileViewSetDragType(tile_view ID, type_ string) {
 	C.Rtile_view_set_drag_type(C.Rid(tile_view), type__)
 }
 
+// TableAddColumn: Adds a column. width Width in logical units; 0 or less gives the default (120). Returns:
+// The index of the column. The stored rows get an empty cell in it.
+func TableAddColumn(table ID, header string, width float32) int {
+	header_ := C.CString(header)
+	defer C.free(unsafe.Pointer(header_))
+	return int(C.Rtable_add_column(C.Rid(table), header_, C.float(width)))
+}
+
+func TableGetColumnCount(table ID) int {
+	return int(C.Rtable_get_column_count(C.Rid(table)))
+}
+
+// TableClearColumns: Removes the columns and the stored rows.
+func TableClearColumns(table ID) {
+	C.Rtable_clear_columns(C.Rid(table))
+}
+
+func TableSetColumnHeader(table ID, column int, header string) {
+	header_ := C.CString(header)
+	defer C.free(unsafe.Pointer(header_))
+	C.Rtable_set_column_header(C.Rid(table), C.int(column), header_)
+}
+
+func TableGetColumnHeader(table ID, column int) string {
+	return C.GoString(C.Rtable_get_column_header(C.Rid(table), C.int(column)))
+}
+
+func TableSetColumnWidth(table ID, column int, width float32) {
+	C.Rtable_set_column_width(C.Rid(table), C.int(column), C.float(width))
+}
+
+// TableGetColumnWidth: The width the column has on screen (a filling column takes more than its width).
+func TableGetColumnWidth(table ID, column int) float32 {
+	return float32(C.Rtable_get_column_width(C.Rid(table), C.int(column)))
+}
+
+// TableSetColumnFill: > 0: the column takes this share of the room the others leave; 0: its width only.
+func TableSetColumnFill(table ID, column int, fill float32) {
+	C.Rtable_set_column_fill(C.Rid(table), C.int(column), C.float(fill))
+}
+
+// TableSetColumnSortable: R_FALSE: a click on the header does not sort (default R_TRUE).
+func TableSetColumnSortable(table ID, column int, sortable int) {
+	C.Rtable_set_column_sortable(C.Rid(table), C.int(column), C.int(sortable))
+}
+
+// TableSetColumnAlign: Where the texts sit in the cells: 0 left, 0.5 center, 1 right.
+func TableSetColumnAlign(table ID, column int, align float32) {
+	C.Rtable_set_column_align(C.Rid(table), C.int(column), C.float(align))
+}
+
+// TableAddRow: Adds a row. cells The texts of the cells, separated by '|' ("Ada|36|London"), or NULL for an
+// empty row; Rtable_set_cell gives a text holding a '|'. Returns: The index of the row.
+func TableAddRow(table ID, cells string) int {
+	cells_ := C.CString(cells)
+	defer C.free(unsafe.Pointer(cells_))
+	return int(C.Rtable_add_row(C.Rid(table), cells_))
+}
+
+func TableSetCell(table ID, row int, column int, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtable_set_cell(C.Rid(table), C.int(row), C.int(column), text_)
+}
+
+func TableGetCell(table ID, row int, column int) string {
+	return C.GoString(C.Rtable_get_cell(C.Rid(table), C.int(row), C.int(column)))
+}
+
+func TableRemoveRow(table ID, row int) {
+	C.Rtable_remove_row(C.Rid(table), C.int(row))
+}
+
+func TableClearRows(table ID) {
+	C.Rtable_clear_rows(C.Rid(table))
+}
+
+func TableGetRowCount(table ID) int {
+	return int(C.Rtable_get_row_count(C.Rid(table)))
+}
+
+// TableSetSelected: Selects a row. -1 selects nothing.
+func TableSetSelected(table ID, row int) {
+	C.Rtable_set_selected(C.Rid(table), C.int(row))
+}
+
+func TableGetSelected(table ID) int {
+	return int(C.Rtable_get_selected(C.Rid(table)))
+}
+
+func TableScrollToRow(table ID, row int) {
+	C.Rtable_scroll_to_row(C.Rid(table), C.int(row))
+}
+
+// TableSort: Sorts by a column (stored rows are moved); -1 shows no sorted column.
+func TableSort(table ID, column int, descending int) {
+	C.Rtable_sort(C.Rid(table), C.int(column), C.int(descending))
+}
+
+func TableGetSortColumn(table ID) int {
+	return int(C.Rtable_get_sort_column(C.Rid(table)))
+}
+
+func TableIsSortDescending(table ID) int {
+	return int(C.Rtable_is_sort_descending(C.Rid(table)))
+}
+
+func TableSetHeaderVisible(table ID, visible int) {
+	C.Rtable_set_header_visible(C.Rid(table), C.int(visible))
+}
+
+func TableSetGridLines(table ID, visible int) {
+	C.Rtable_set_grid_lines(C.Rid(table), C.int(visible))
+}
+
+// TableSetStriped: Every other row a little darker.
+func TableSetStriped(table ID, striped int) {
+	C.Rtable_set_striped(C.Rid(table), C.int(striped))
+}
+
+// DatePickerSetDate: Sets the date (today when the picker is created). An invalid date is refused.
+func DatePickerSetDate(date_picker ID, year int, month int, day int) {
+	C.Rdate_picker_set_date(C.Rid(date_picker), C.int(year), C.int(month), C.int(day))
+}
+
+func DatePickerGetDate(date_picker ID) (year int, month int, day int) {
+	var year_ C.int
+	var month_ C.int
+	var day_ C.int
+	C.Rdate_picker_get_date(C.Rid(date_picker), &year_, &month_, &day_)
+	year = int(year_)
+	month = int(month_)
+	day = int(day_)
+	return
+}
+
+// DatePickerSetRange: The earliest and the latest dates that can be chosen; 0 for year leaves that side open.
+func DatePickerSetRange(date_picker ID, min_year int, min_month int, min_day int, max_year int, max_month int, max_day int) {
+	C.Rdate_picker_set_range(C.Rid(date_picker), C.int(min_year), C.int(min_month), C.int(min_day), C.int(max_year), C.int(max_month), C.int(max_day))
+}
+
+// DatePickerSetFirstDayOfWeek: 0 = Sunday (default), 1 = Monday...
+func DatePickerSetFirstDayOfWeek(date_picker ID, day int) {
+	C.Rdate_picker_set_first_day_of_week(C.Rid(date_picker), C.int(day))
+}
+
+// DatePickerSetFormat: How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name of the month), MMM
+// (its first three letters), dddd (the name of the day), ddd; anything else is kept. Default "YYYY-MM-DD"; "D
+// MMMM YYYY" gives "3 November 2026".
+func DatePickerSetFormat(date_picker ID, format string) {
+	format_ := C.CString(format)
+	defer C.free(unsafe.Pointer(format_))
+	C.Rdate_picker_set_format(C.Rid(date_picker), format_)
+}
+
+// DatePickerGetText: The date as the field shows it (valid until the next call).
+func DatePickerGetText(date_picker ID) string {
+	return C.GoString(C.Rdate_picker_get_text(C.Rid(date_picker)))
+}
+
+// DatePickerSetOpen: Opens or closes the calendar.
+func DatePickerSetOpen(date_picker ID, open int) {
+	C.Rdate_picker_set_open(C.Rid(date_picker), C.int(open))
+}
+
+func DatePickerIsOpen(date_picker ID) int {
+	return int(C.Rdate_picker_is_open(C.Rid(date_picker)))
+}
+
+func TimePickerSetTime(time_picker ID, hour int, minute int, second int) {
+	C.Rtime_picker_set_time(C.Rid(time_picker), C.int(hour), C.int(minute), C.int(second))
+}
+
+func TimePickerGetTime(time_picker ID) (hour int, minute int, second int) {
+	var hour_ C.int
+	var minute_ C.int
+	var second_ C.int
+	C.Rtime_picker_get_time(C.Rid(time_picker), &hour_, &minute_, &second_)
+	hour = int(hour_)
+	minute = int(minute_)
+	second = int(second_)
+	return
+}
+
+func TimePickerSetSecondsVisible(time_picker ID, visible int) {
+	C.Rtime_picker_set_seconds_visible(C.Rid(time_picker), C.int(visible))
+}
+
+// TimePickerSetMinuteStep: Step of the minutes for the arrows and the wheel (default 1).
+func TimePickerSetMinuteStep(time_picker ID, step int) {
+	C.Rtime_picker_set_minute_step(C.Rid(time_picker), C.int(step))
+}
+
+// ToastShow: Shows a message for `seconds` (0 or less: until Rtoast_hide).
+func ToastShow(toast ID, text string, seconds float64) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtoast_show(C.Rid(toast), text_, C.double(seconds))
+}
+
+func ToastHide(toast ID) {
+	C.Rtoast_hide(C.Rid(toast))
+}
+
+func ToastIsShown(toast ID) int {
+	return int(C.Rtoast_is_shown(C.Rid(toast)))
+}
+
+func ToastGetText(toast ID) string {
+	return C.GoString(C.Rtoast_get_text(C.Rid(toast)))
+}
+
+func ToastSetKind(toast ID, kind RToastKind) {
+	C.Rtoast_set_kind(C.Rid(toast), C.RToastKind(kind))
+}
+
+// ToastSetActionText: A button at the end of the message ("Undo"); NULL or "" removes it.
+func ToastSetActionText(toast ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtoast_set_action_text(C.Rid(toast), text_)
+}
+
+// BreadcrumbSetItems: Replaces the items: their texts separated by '|'.
+func BreadcrumbSetItems(breadcrumb ID, items string) {
+	items_ := C.CString(items)
+	defer C.free(unsafe.Pointer(items_))
+	C.Rbreadcrumb_set_items(C.Rid(breadcrumb), items_)
+}
+
+// BreadcrumbAddItem: Returns: The index of the new item, at the end.
+func BreadcrumbAddItem(breadcrumb ID, text string) int {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return int(C.Rbreadcrumb_add_item(C.Rid(breadcrumb), text_))
+}
+
+// BreadcrumbTruncate: Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item
+// clicked.
+func BreadcrumbTruncate(breadcrumb ID, count int) {
+	C.Rbreadcrumb_truncate(C.Rid(breadcrumb), C.int(count))
+}
+
+func BreadcrumbGetItemCount(breadcrumb ID) int {
+	return int(C.Rbreadcrumb_get_item_count(C.Rid(breadcrumb)))
+}
+
+func BreadcrumbGetItemText(breadcrumb ID, index int) string {
+	return C.GoString(C.Rbreadcrumb_get_item_text(C.Rid(breadcrumb), C.int(index)))
+}
+
+// RatingSetValue: The score, from 0 to the number of stars.
+func RatingSetValue(rating ID, value float32) {
+	C.Rrating_set_value(C.Rid(rating), C.float(value))
+}
+
+func RatingGetValue(rating ID) float32 {
+	return float32(C.Rrating_get_value(C.Rid(rating)))
+}
+
+// RatingSetMax: Number of stars (default 5, at most 20).
+func RatingSetMax(rating ID, max int) {
+	C.Rrating_set_max(C.Rid(rating), C.int(max))
+}
+
+func RatingGetMax(rating ID) int {
+	return int(C.Rrating_get_max(C.Rid(rating)))
+}
+
+// RatingSetAllowHalf: Half stars can be chosen (a whole star by default).
+func RatingSetAllowHalf(rating ID, allow int) {
+	C.Rrating_set_allow_half(C.Rid(rating), C.int(allow))
+}
+
+// RatingSetReadOnly: Shown only, the user cannot change it.
+func RatingSetReadOnly(rating ID, read_only int) {
+	C.Rrating_set_read_only(C.Rid(rating), C.int(read_only))
+}
+
+// RatingSetStarSize: Size of a star (default 18).
+func RatingSetStarSize(rating ID, size float32) {
+	C.Rrating_set_star_size(C.Rid(rating), C.float(size))
+}
+
+func PaginationSetPageCount(pagination ID, count int) {
+	C.Rpagination_set_page_count(C.Rid(pagination), C.int(count))
+}
+
+func PaginationGetPageCount(pagination ID) int {
+	return int(C.Rpagination_get_page_count(C.Rid(pagination)))
+}
+
+func PaginationSetPage(pagination ID, page int) {
+	C.Rpagination_set_page(C.Rid(pagination), C.int(page))
+}
+
+func PaginationGetPage(pagination ID) int {
+	return int(C.Rpagination_get_page(C.Rid(pagination)))
+}
+
+// PaginationSetSiblings: Page numbers shown around the current one (default 1).
+func PaginationSetSiblings(pagination ID, siblings int) {
+	C.Rpagination_set_siblings(C.Rid(pagination), C.int(siblings))
+}
+
 // TextEditorCreate: text Initial content, or NULL.
 func TextEditorCreate(text string) ID {
 	text_ := C.CString(text)
@@ -3556,8 +3938,9 @@ func HeaderBarSetButtons(bar ID, buttons uint32) {
 	C.Rheader_bar_set_buttons(C.Rid(bar), C.Ruint(buttons))
 }
 
-// HeaderBarSetButtonSide: side R_HALIGN_RIGHT (default): minimize, maximize, close, as on Windows.
-// R_HALIGN_LEFT: three round colored buttons, as on macOS.
+// HeaderBarSetButtonSide: side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows. R_HALIGN_LEFT: three
+// round colored buttons, as on macOS. Until it is set, the side is the one of the system the program runs on
+// (left on macOS, right elsewhere), whatever the look.
 func HeaderBarSetButtonSide(bar ID, side RHAlign) {
 	C.Rheader_bar_set_button_side(C.Rid(bar), C.RHAlign(side))
 }
@@ -4801,6 +5184,21 @@ func FileBrowserSelect(browser ID, name string) {
 	C.Rfile_browser_select(C.Rid(browser), name_)
 }
 
+// NotificationShow: Returns: R_TRUE when the system took the notification.
+func NotificationShow(title string, body string, urgency RNotificationUrgency) int {
+	title_ := C.CString(title)
+	defer C.free(unsafe.Pointer(title_))
+	body_ := C.CString(body)
+	defer C.free(unsafe.Pointer(body_))
+	return int(C.Rnotification_show(title_, body_, C.RNotificationUrgency(urgency)))
+}
+
+// NotificationIsSupported: R_FALSE when the platform has no notifications (Rnotification_show then always
+// uses the fallback).
+func NotificationIsSupported() int {
+	return int(C.Rnotification_is_supported())
+}
+
 // ViewportSetTexture: Shows a texture. R_INVALID_ID shows nothing.
 func ViewportSetTexture(viewport ID, texture ID) {
 	C.Rviewport_set_texture(C.Rid(viewport), C.Rid(texture))
@@ -5523,22 +5921,26 @@ func HostInjectClose(window ID) {
 // Rtree_item_set_user_handle, Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback
 // Rtree_view_set_activated_callback, Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback
 // Rtile_view_set_items, Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
-// Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtext_editor_set_zoom_callback
-// Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback, Rtext_editor_set_changed_callback
-// Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
-// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
-// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
-// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
-// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
-// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback
-// Rblock_editor_set_context_callback, Rdialog_open, Rfile_dialog_open, Rfile_dialog_save
-// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
-// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
-// Rviewport_set_draw_callback, Rviewport_get_native_handle, Rviewport_set_resize_callback
-// Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect, Rdraw_rect_outline, Rdraw_circle
-// Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick
-// Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init
-// Rshader_look_defaults, Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag
-// Rxml_document_parse, Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format
-// Raccessibility_get_system_settings, Rhost_platform_register
+// Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
+// Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
+// Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
+// Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
+// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
+// Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
+// Risland_set_changed_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
+// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
+// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
+// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
+// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
+// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback, Rblock_editor_set_changed_callback
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rfile_dialog_open
+// Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback, Rviewport_set_draw_callback
+// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
+// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve
+// Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
+// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
+// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
+// Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
+// Rhost_platform_register

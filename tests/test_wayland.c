@@ -1,9 +1,9 @@
 /**
  * Raven tests - test_wayland.c
  * The Wayland platform against a small compositor run in this process: a
- * window is made, configured, resized, scaled, clicked, typed into, given
- * the clipboard, dropped on, hidden and closed, and what Raven asked of the
- * compositor is checked.
+ * window is made, configured, resized, scaled, clicked, typed into, scrolled
+ * and pinched with a trackpad, given the clipboard, dropped on, hidden and
+ * closed, and what Raven asked of the compositor is checked.
  *
  * The compositor is written here on libwayland-server, opened at run time.
  * No GPU is used (null backend): what is tested is the dialogue with the
@@ -193,7 +193,8 @@ static struct wl_resource* test_create(struct wl_client* client, test_impl* impl
 static test_impl I_compositor, I_surface, I_region, I_subcompositor, I_subsurface, I_shm, I_seat, I_pointer, I_keyboard, I_touch,
 	I_output, I_wm_base, I_xdg_surface, I_toplevel, I_decoration_manager, I_decoration, I_viewporter, I_viewport,
 	I_fractional_manager, I_fractional, I_shape_manager, I_shape_device, I_ddm, I_data_device, I_data_source, I_data_offer,
-	I_tablet_manager, I_tablet_seat, I_tablet, I_tool, I_tool_shape;
+	I_tablet_manager, I_tablet_seat, I_tablet, I_tool, I_tool_shape,
+	I_gestures, I_swipe, I_pinch, I_hold;
 
 /* What the compositor saw, and what the test asks it to do: shared between the two threads. */
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -212,6 +213,9 @@ static struct {
 	struct wl_resource* touch;
 	struct wl_resource* tablet_seat;
 	int tool_shape_made;
+	struct wl_resource* swipe;
+	struct wl_resource* pinch;
+	struct wl_resource* hold;
 	struct wl_resource* data_device;
 	struct wl_resource* shape_device;
 	struct wl_resource* selection_source;
@@ -439,6 +443,25 @@ static void bind_tablet_manager(struct wl_client* client, void* data, uint32_t v
 	test_create(client, &I_tablet_manager, version, id, NULL);
 }
 
+/* ---- the gestures of a trackpad ---- */
+
+static void gestures_get_swipe(struct wl_client* client, struct wl_resource* resource, uint32_t id, struct wl_resource* pointer) {
+	(void)pointer;
+	C.swipe = test_create(client, &I_swipe, (uint32_t)S.resource_get_version(resource), id, NULL);
+}
+static void gestures_get_pinch(struct wl_client* client, struct wl_resource* resource, uint32_t id, struct wl_resource* pointer) {
+	(void)pointer;
+	C.pinch = test_create(client, &I_pinch, (uint32_t)S.resource_get_version(resource), id, NULL);
+}
+static void gestures_get_hold(struct wl_client* client, struct wl_resource* resource, uint32_t id, struct wl_resource* pointer) {
+	(void)pointer;
+	C.hold = test_create(client, &I_hold, (uint32_t)S.resource_get_version(resource), id, NULL);
+}
+static void bind_gestures(struct wl_client* client, void* data, uint32_t version, uint32_t id) {
+	(void)data;
+	test_create(client, &I_gestures, version, id, NULL);
+}
+
 static void bind_shape_manager(struct wl_client* client, void* data, uint32_t version, uint32_t id) {
 	(void)data;
 	test_create(client, &I_shape_manager, version, id, NULL);
@@ -497,6 +520,7 @@ static void* compositor_thread(void* unused) {
 	S.global_create(C.display, &rvn_wp_cursor_shape_manager_v1_interface, 1, NULL, bind_shape_manager);
 	S.global_create(C.display, &rvn_wl_data_device_manager_interface, 3, NULL, bind_ddm);
 	S.global_create(C.display, &rvn_zwp_tablet_manager_v2_interface, 1, NULL, bind_tablet_manager);
+	S.global_create(C.display, &rvn_zwp_pointer_gestures_v1_interface, 3, NULL, bind_gestures);
 
 	pthread_mutex_lock(&g_lock);
 	C.ready = 1;
@@ -672,6 +696,37 @@ static void do_wheel(void* unused) {
 	EVENT0(C.pointer, wl_pointer, "frame");
 }
 
+/* Two fingers on a trackpad that scroll toward the user (the content goes up) and to the left, then leave it. */
+static void do_finger_scroll(void* unused) {
+	(void)unused;
+	EVENT(C.pointer, wl_pointer, "axis_source", 1u);
+	EVENT(C.pointer, wl_pointer, "axis", 3u, 0u, 12 * 256);
+	EVENT(C.pointer, wl_pointer, "axis", 3u, 1u, -6 * 256);
+	EVENT0(C.pointer, wl_pointer, "frame");
+}
+static void do_finger_lift(void* unused) {
+	(void)unused;
+	EVENT(C.pointer, wl_pointer, "axis_source", 1u);
+	EVENT(C.pointer, wl_pointer, "axis_stop", 6u, 0u);
+	EVENT(C.pointer, wl_pointer, "axis_stop", 6u, 1u);
+	EVENT0(C.pointer, wl_pointer, "frame");
+}
+
+/* A pinch that doubles and turns 30 degrees, then a swipe of three fingers toward the right, then fingers that rest. */
+static void do_trackpad_gestures(void* unused) {
+	(void)unused;
+	EVENT(C.pinch, zwp_pointer_gesture_pinch_v1, "begin", S.display_next_serial(C.display), 10u, C.surface, 2u);
+	EVENT(C.pinch, zwp_pointer_gesture_pinch_v1, "update", 11u, 4 * 256, 0, (int32_t)(1.5 * 256), 20 * 256);
+	EVENT(C.pinch, zwp_pointer_gesture_pinch_v1, "update", 12u, 0, 0, 2 * 256, 10 * 256);
+	EVENT(C.pinch, zwp_pointer_gesture_pinch_v1, "end", S.display_next_serial(C.display), 13u, 0);
+	EVENT(C.swipe, zwp_pointer_gesture_swipe_v1, "begin", S.display_next_serial(C.display), 20u, C.surface, 3u);
+	EVENT(C.swipe, zwp_pointer_gesture_swipe_v1, "update", 21u, 90 * 256, 2 * 256);
+	EVENT(C.swipe, zwp_pointer_gesture_swipe_v1, "update", 22u, 90 * 256, 0);
+	EVENT(C.swipe, zwp_pointer_gesture_swipe_v1, "end", S.display_next_serial(C.display), 23u, 0);
+	EVENT(C.hold, zwp_pointer_gesture_hold_v1, "begin", S.display_next_serial(C.display), 30u, C.surface, 2u);
+	EVENT(C.hold, zwp_pointer_gesture_hold_v1, "end", S.display_next_serial(C.display), 31u, 0);
+}
+
 static void do_keyboard_enter(void* unused) {
 	struct wl_array keys = { 0, 0, NULL };
 	(void)unused;
@@ -818,14 +873,40 @@ static int on_drop(Rid target, const RDropEvent* event, void* user) {
 	return R_TRUE;
 }
 
-static float g_wheel_y;
+static float g_wheel_x, g_wheel_y, g_precise_x, g_precise_y;
+static int g_precise, g_backs;
 
 /* sees every event of the window before its widgets */
 static int on_event(Rid window, const REvent* event, void* user) {
 	(void)window; (void)user;
 	if (event->type == R_EVENT_MOUSE_WHEEL) {
 		g_wheels++;
+		g_wheel_x = event->wheel_x;
 		g_wheel_y = event->wheel_y;
+		if (event->wheel_precise) {
+			g_precise++;
+			g_precise_x += event->wheel_x;
+			g_precise_y += event->wheel_y;
+		}
+	}
+	if (event->type == R_EVENT_MOUSE_DOWN && event->button == R_MOUSE_X1) g_backs++;
+	return R_FALSE;
+}
+
+static int g_pinch_begins, g_pinch_ends, g_swipe_fingers;
+static float g_pinch_scale, g_pinch_rotation, g_pinch_pan, g_swipe_total;
+static int on_gesture(Rid widget, const RGestureEvent* event, void* user) {
+	(void)widget; (void)user;
+	if (event->device != R_GESTURE_DEVICE_TRACKPAD) return R_FALSE;
+	if (event->kind == R_GESTURE_PINCH) {
+		if (event->phase == R_GESTURE_BEGIN) g_pinch_begins++;
+		if (event->phase == R_GESTURE_END) g_pinch_ends++;
+		g_pinch_scale = event->scale;
+		g_pinch_rotation = event->rotation;
+		g_pinch_pan = event->total_x;
+	} else {
+		g_swipe_fingers = event->fingers;
+		g_swipe_total = event->total_x;
 	}
 	return R_FALSE;
 }
@@ -977,6 +1058,49 @@ static void test_wayland(void) {
 	settle(20);
 	CHECK(g_wheels == 1);
 	CHECK_NEAR(g_wheel_y, -1.0);   /* one notch toward the user: down */
+
+	/* two fingers on a trackpad: precise, by pixels (RVN_WHEEL_LINE of them a line), and they keep going once lifted */
+	g_precise = 0;
+	g_precise_x = g_precise_y = 0.0f;
+	{
+		int k;
+		for (k = 0; k < 3; k++) {
+			compositor_do(do_finger_scroll, NULL);
+			settle(16);
+		}
+	}
+	compositor_do(do_finger_lift, NULL);
+	settle(20);
+	CHECK(g_precise >= 3);
+	CHECK(g_precise_y < -0.74f);    /* 36 pixels toward the user, and the inertia after */
+	CHECK(g_precise_x > 0.37f);     /* 18 toward the left: positive, as on the other platforms */
+	{
+		int before = g_precise;
+		settle(120);
+		CHECK(g_precise > before);
+	}
+
+	/* the gestures of a trackpad, over the button (a label lets the pointer through) */
+	center_of(go, &p);
+	compositor_do(do_pointer_enter, &p);
+	Rwidget_set_gesture_callback(go, on_gesture, NULL);
+	g_backs = 0;
+	compositor_do(do_trackpad_gestures, NULL);
+	settle(20);
+	CHECK(g_pinch_begins == 1 && g_pinch_ends == 1);
+	CHECK_NEAR(g_pinch_scale * 10.0f, 20.0f);
+	CHECK_NEAR(g_pinch_rotation, 30.0f);
+	CHECK_NEAR(g_pinch_pan, 4.0f);
+	CHECK(g_swipe_fingers == 3);
+	CHECK_NEAR(g_swipe_total, 180.0f);
+	CHECK(g_backs == 1);            /* three fingers toward the right: back */
+	{
+		/* the fingers that rested stopped what was coasting */
+		int before = g_precise;
+		settle(60);
+		CHECK(g_precise == before);
+	}
+	Rwidget_set_gesture_callback(go, NULL, NULL);
 
 	/* the compositor resizes the window, maximizes it, restores it */
 	compositor_do(do_configure, &resize);
@@ -1136,6 +1260,13 @@ int main(void) {
 	test_impl_init(&I_tablet_seat, &rvn_zwp_tablet_seat_v2_interface);
 	test_impl_init(&I_tablet, &rvn_zwp_tablet_v2_interface);
 	test_impl_init(&I_tool, &rvn_zwp_tablet_tool_v2_interface);
+	test_impl_init(&I_gestures, &rvn_zwp_pointer_gestures_v1_interface);
+	test_on(&I_gestures, "get_swipe_gesture", (test_handler)gestures_get_swipe);
+	test_on(&I_gestures, "get_pinch_gesture", (test_handler)gestures_get_pinch);
+	test_on(&I_gestures, "get_hold_gesture", (test_handler)gestures_get_hold);
+	test_impl_init(&I_swipe, &rvn_zwp_pointer_gesture_swipe_v1_interface);
+	test_impl_init(&I_pinch, &rvn_zwp_pointer_gesture_pinch_v1_interface);
+	test_impl_init(&I_hold, &rvn_zwp_pointer_gesture_hold_v1_interface);
 	test_impl_init(&I_shape_device, &rvn_wp_cursor_shape_device_v1_interface);
 	test_on(&I_shape_device, "set_shape", (test_handler)shape_set_shape);
 	test_impl_init(&I_ddm, &rvn_wl_data_device_manager_interface);

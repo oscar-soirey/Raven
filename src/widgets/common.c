@@ -496,12 +496,34 @@ int rvn_scrollbar_clamp(rvn_scrollbar_t* bar) {
 }
 
 int rvn_scrollbar_wheel(rvn_scrollbar_t* bar, float delta) {
-	if (rvn_scrollbar_set(bar, bar->offset + delta)) return R_TRUE;
+	float max = rvn_scrollbar_max(bar), wanted, whole;
+	int at_end = (delta < 0.0f && bar->offset <= 0.0f) || (delta > 0.0f && bar->offset >= max);
+	if (delta == 0.0f) return R_FALSE;
+	if (!at_end) {
+		/* (the offset stays on whole units: what a small step leaves is kept for the next one, the other way it starts again) */
+		if (bar->wheel_rest * delta < 0.0f) bar->wheel_rest = 0.0f;
+		wanted = bar->wheel_rest + delta;
+		whole = wanted < 0.0f ? ceilf(wanted) : floorf(wanted);
+		bar->wheel_rest = wanted - whole;
+		if (whole == 0.0f) return R_TRUE;
+		if (rvn_scrollbar_set(bar, bar->offset + whole)) return R_TRUE;
+	}
+	bar->wheel_rest = 0.0f;
 	/* nowhere to go: the push becomes speed, and the spring brings the content back */
 	if (rvn_scrollbar_needed(bar) && bar->shown.started) {
 		rvn_spring_kick(&bar->shown, rvn_clampf(delta * 9.0f, -1400.0f, 1400.0f));
 	}
 	return R_FALSE;
+}
+
+int rvn_wheel_notches(float* rest, float amount) {
+	float wanted, whole;
+	if (amount == 0.0f) return 0;
+	if (*rest * amount < 0.0f) *rest = 0.0f;
+	wanted = *rest + amount;
+	whole = wanted < 0.0f ? ceilf(wanted) : floorf(wanted);
+	*rest = wanted - whole;
+	return (int)whole;
 }
 
 int rvn_scrollbar_pan(rvn_scrollbar_t* bar, float delta, int coasting) {

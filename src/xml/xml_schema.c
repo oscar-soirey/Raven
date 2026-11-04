@@ -87,15 +87,15 @@ static const rvn_schema_attribute_t g_slot[] = {
 	B("Slot.Closable", "DockArea: the tab has a close button."),
 };
 
-/* ---- fingers and pens on one widget (raven_touch.h) ---- */
+/* ---- fingers, pens and trackpads on one widget (raven_touch.h) ---- */
 
 static const rvn_schema_attribute_t g_touch[] = {
 	C("Touch.Mode", "Auto|Scroll|Mouse|None", "What a finger does here: Auto scrolls what scrolls and is a mouse elsewhere, Scroll always scrolls, Mouse is a mouse (no scrolling), None ignores fingers (a surface for the pen)."),
-	B("Touch.Gestures", "false: two fingers neither zoom nor pan the widget."),
+	B("Touch.Gestures", "false: two fingers, on the screen or a trackpad, neither zoom nor pan the widget."),
 	B("Pen.Mouse", "false: the pen is not a mouse here; only the pen callback of the application sees it."),
 };
 
-/* ---- fingers and pens in a window ---- */
+/* ---- fingers, pens and trackpads in a window ---- */
 
 static const rvn_schema_attribute_t g_window_touch[] = {
 	B("Touch.MouseEmulation", "A finger drives the widgets as the mouse does: a tap clicks, a drag drags (default true)."),
@@ -108,6 +108,9 @@ static const rvn_schema_attribute_t g_window_touch[] = {
 	B("Pen.MouseEmulation", "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."),
 	N("Pen.PressureCurve", "The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder."),
 	N("Pen.PressureThreshold", "Pressure, 0 to 1, the tip needs before it presses (default 0)."),
+	B("Trackpad.Gestures", "The pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do (default true)."),
+	B("Trackpad.SwipeNavigation", "Three or more fingers swiped across a trackpad go back or forward, as the side buttons of a mouse (default true)."),
+	N("Trackpad.SwipeDistance", "How far the fingers of a swipe go across before it navigates (default 120)."),
 };
 
 /* ---- colors and metrics of the theme, for one widget and what it contains ---- */
@@ -263,6 +266,55 @@ static const rvn_schema_attribute_t g_list_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
 };
+static const rvn_schema_attribute_t g_table[] = {
+	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."),
+	N("Selected", "Which row is selected, from 0; -1 for none."),
+	N("SortColumn", "The column the rows are sorted by, from 0; -1 for none."),
+	B("SortDescending", "Sorted from the largest to the smallest."),
+	B("ShowHeader", "Shows the row of the headers."),
+	B("GridLines", "Lines between the rows and the columns."),
+	B("Striped", "Every other row a little darker."),
+	A("OnActivated", "Action fired by a double click or Enter."),
+};
+static const rvn_schema_attribute_t g_date_picker[] = {
+	T("Date", "The date, \"YYYY-MM-DD\" or Today."),
+	T("Min", "The earliest date that can be chosen, \"YYYY-MM-DD\"."),
+	T("Max", "The latest date that can be chosen, \"YYYY-MM-DD\"."),
+	C("FirstDayOfWeek", "Sunday|Monday|Saturday", "The day the weeks of the calendar start with (or 0 to 6)."),
+	T("Format", "How the date is written: YYYY, MM, M, DD, D, MMMM, MMM, dddd, ddd; default YYYY-MM-DD."),
+	A("OnChanged", "Action fired when the user chooses a date."),
+};
+static const rvn_schema_attribute_t g_time_picker[] = {
+	T("Time", "The time, \"HH:MM\" or \"HH:MM:SS\"."),
+	B("ShowSeconds", "Shows the seconds."),
+	N("MinuteStep", "Step of the minutes for the arrows and the wheel."),
+	A("OnChanged", "Action fired when the user changes the time."),
+};
+static const rvn_schema_attribute_t g_toast[] = {
+	T("Text", "A message shown when the window opens."),
+	N("Duration", "Seconds a message written here stays; 0: until hidden."),
+	C("Kind", "Info|Success|Warning|Error", "The color of the dot before the message."),
+	T("ActionText", "A button at the end of the message (\"Undo\")."),
+	A("OnClicked", "Action fired by the button of the message."),
+};
+static const rvn_schema_attribute_t g_breadcrumb[] = {
+	L("Items", "The items, separated by '|' (or Item elements); the last one is the current place."),
+	A("OnClicked", "Action fired when the user clicks an item."),
+};
+static const rvn_schema_attribute_t g_rating[] = {
+	N("Value", "The score, from 0 to Max."),
+	N("Max", "Number of stars."),
+	B("AllowHalf", "Half stars can be chosen."),
+	B("ReadOnly", "Shown only."),
+	N("StarSize", "Size of a star."),
+	A("OnChanged", "Action fired when the user changes the score."),
+};
+static const rvn_schema_attribute_t g_pagination[] = {
+	N("PageCount", "Number of pages."),
+	N("Page", "The current page, from 0."),
+	N("Siblings", "Page numbers shown on each side of the current one."),
+	A("OnChanged", "Action fired when the user goes to another page."),
+};
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
@@ -313,7 +365,7 @@ static const rvn_schema_attribute_t g_text_editor[] = {
 static const rvn_schema_attribute_t g_header_bar[] = {
 	T("Title", "Text of the bar."),
 	C("Buttons", "All|None|Close|Close,Minimize|Close,Maximize", "The window buttons the bar shows."),
-	C("ButtonSide", "Right|Left", "Where the window buttons are."),
+	C("ButtonSide", "Right|Left", "Where the window buttons are (default: the side of the system, whatever the look)."),
 	C("TitleAlign", "Center|Left", "Where the title is."),
 	B("Background", "false leaves the bar without a surface, over what is behind."),
 };
@@ -445,6 +497,13 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("ColorPicker", g_color_picker, "Chooses a color: square, hues, opacity, code, numbers, swatches."),
 	TAG("Timeline", g_timeline, "A sequencer: Track elements holding Clip and Key elements, and Marker elements."),
 	TAG("BlockEditor", g_block_editor, "Blocks that snap into each other (Scratch): Kind elements (Name, Label, Shape, Category) and Category elements (Name, Color)."),
+	TAG("Table", g_table, "Rows of cells under columns that can be resized and sorted: Column and Row elements; any number of rows."),
+	TAG("DatePicker", g_date_picker, "A date, chosen in a calendar that drops down."),
+	TAG("TimePicker", g_time_picker, "A time of the day: hours, minutes, optionally seconds."),
+	TAG("Toast", g_toast, "A short message that rises over the content for a few seconds (in an Overlay)."),
+	TAG("Breadcrumb", g_breadcrumb, "The path to the current place: links separated by chevrons."),
+	TAG("Rating", g_rating, "A score shown and chosen with stars."),
+	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
 	TAG("NodeGraph", g_node_graph, "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements."),
 };
 

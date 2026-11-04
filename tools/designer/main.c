@@ -343,13 +343,26 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 	{ "Timeline", "<Timeline Duration=\"10\" Height=\"150\"><Track Name=\"Track\"><Clip Start=\"1\" Length=\"3\" Label=\"Clip\"/><Key Time=\"6\"/></Track><Marker Time=\"5\" Label=\"Mark\"/></Timeline>" },
 	{ "NodeGraph", "<NodeGraph Height=\"220\"><Node Name=\"a\" Title=\"Source\" X=\"30\" Y=\"40\"><Output Name=\"out\" Label=\"Value\"/></Node>"
 		"<Node Name=\"b\" Title=\"Result\" X=\"260\" Y=\"70\"><Input Name=\"in\" Label=\"Value\"/></Node><Link From=\"a.out\" To=\"b.in\"/></NodeGraph>" },
+	{ "Table", "<Table Height=\"140\" Striped=\"true\"><Column Header=\"Name\" Width=\"120\"/><Column Header=\"Age\" Width=\"60\" Align=\"Right\"/>"
+		"<Column Header=\"City\" Fill=\"1\"/><Row>Ada|36|London</Row><Row>Grace|85|New York</Row><Row>Linus|56|Portland</Row></Table>" },
+	{ "DatePicker", "<DatePicker Date=\"Today\"/>" },
+	{ "TimePicker", "<TimePicker Time=\"09:30\"/>" },
+	{ "Toast", "<Toast Text=\"Saved\" Duration=\"0\" ActionText=\"Undo\" Kind=\"Success\"/>" },
+	{ "Breadcrumb", "<Breadcrumb Items=\"Home|Documents|Report\"/>" },
+	{ "Rating", "<Rating Value=\"3\"/>" },
+	{ "Pagination", "<Pagination PageCount=\"12\" Page=\"4\"/>" },
+	{ "Column", "<Column Header=\"Column\" Width=\"100\"/>" },
+	{ "Row", "<Row>a|b|c</Row>" },
 	{ "Item", "<Item Text=\"Item\"/>" },
 	{ "Shortcut", "<Shortcut Keys=\"Ctrl+S\" Action=\"file.save\"/>" }
 };
 
 /** Tags that are not widgets, and what can be written on them. */
 static const struct { const char* tag; const char* attributes; const char* about; } SPECIAL_TAGS[] = {
-	{ "Item", "Text", "A row of the list, tree or combo box it is in." },
+	{ "Item", "Text", "A row of the list, tree or combo box it is in, or an item of a Breadcrumb." },
+	{ "Column", "Header|Width|Fill|Sortable|Align", "A column of a Table: its header, its width, the share of the free width it takes." },
+	{ "Row", "Cells", "A row of a Table: its cells separated by '|', or Cell elements." },
+	{ "Cell", "Text", "A cell of a Row, for a text that holds a '|'." },
 	{ "Shortcut", "Keys|Action", "Keys that fire an action anywhere in the window." },
 	{ "Track", "Name|Color|Height|Locked|Muted", "A track of a Timeline: it holds Clip and Key elements." },
 	{ "Clip", "Start|Length|End|Label|Color|Selected", "Something that lasts, on a track of a Timeline." },
@@ -1324,7 +1337,7 @@ static void stage_host(int fit) {
 
 static void rebuild_preview(void) {
 	Rid root = Rxml_document_get_root(g.document);
-	const char* tag = Rxml_node_get_tag(root);
+	const char* tag;
 	char size[64];
 
 	/* a <Window> says which theme it wears: the preview (and the window of F7) wear it too */
@@ -1357,6 +1370,8 @@ static void rebuild_preview(void) {
 			add_problem(note, 0, PROBLEM_NOTE);
 		}
 	}
+	/* (read once the preview is built: build_library renames the root for a moment and puts its tag back, which frees the text) */
+	tag = Rxml_node_get_tag(root);
 
 	/* the frame fits the panel: a window as it is when the user resizes it */
 	stage_host(g.device_width < 0 && same_text(tag, "Window") && g.tab == TAB_WINDOW);
@@ -1684,7 +1699,7 @@ static void rebuild_inspector_of_one(void) {
 					&& strcmp(info.group, "Colors") != 0 && strcmp(info.group, "Metrics") != 0 && strcmp(info.group, "Touch") != 0);
 				group = info.group;
 				box = add_group(strcmp(group, "Slot") == 0 ? "Place in the parent" : strcmp(group, "Widget") == 0 ? "Widget"
-					: strcmp(group, "Touch") == 0 ? "Touch and pen" : group,
+					: strcmp(group, "Touch") == 0 ? "Touch, pen and trackpad" : group,
 					own || strcmp(group, "Slot") == 0 || strcmp(group, "Widget") == 0);
 			}
 			/* "Slot.Fill" and "Color.Text" read better without what their group already says */
@@ -2225,7 +2240,7 @@ static int accepts_children(Rid node) {
 	tag = Rxml_node_get_tag(node);
 	if (special_tag(tag) >= 0) {
 		return same_text(tag, "Widget") || same_text(tag, "Widgets") || same_text(tag, "Repeat") || same_text(tag, "ForEach") ||
-			same_text(tag, "If") || same_text(tag, "Node") || same_text(tag, "Track") || same_text(tag, "Item");
+			same_text(tag, "If") || same_text(tag, "Node") || same_text(tag, "Track") || same_text(tag, "Item") || same_text(tag, "Row");
 	}
 	return Rxml_get_tag_children(tag) != 0;
 }
@@ -4022,6 +4037,9 @@ static void run_frames(int count) {
  *   search TEXT    types in the search of the island (Ctrl+K) and runs the first result
  *   expectpanel NAME 0|1    stops unless the panel NAME is open (1) or hidden (0)
  *   wheel DY       turns the wheel
+ *   scroll DX DY   two fingers scroll on a trackpad (logical units the fingers move: the content follows them)
+ *   pinch SCALE    two fingers pinch on a trackpad where the pointer is (2: twice as far apart)
+ *   swipe DX FINGERS       fingers swipe across a trackpad (toward the right: back)
  *   expectfile PATH TEXT   stops unless the file contains TEXT
  *   write PATH TEXT        writes a file, as another program would ('~' for spaces, '|' for new lines)
  *   cell KEY COLUMN TEXT   writes a cell of the Translations panel
@@ -4142,7 +4160,24 @@ static void fuzz(int steps, unsigned seed) {
 			Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
 		} else if (what < 47) {
 			Rwindow_inject_mouse_move(window, x, y);
-			Rwindow_inject_mouse_wheel(window, 0.0f, (float)(fuzz_int(7) - 3));
+			if (fuzz_int(3) == 0) {
+				/* a trackpad: two fingers that scroll, a pinch, or a swipe */
+				int gesture = fuzz_int(3), k;
+				if (gesture == 0) {
+					for (k = 0; k < 4; k++) Rwindow_inject_trackpad_scroll(window, (float)(fuzz_int(41) - 20), (float)(fuzz_int(81) - 40));
+					if (fuzz_int(2) == 0) Rwindow_inject_trackpad_scroll_end(window);
+				} else {
+					RGestureKind kind = gesture == 1 ? R_GESTURE_PINCH : R_GESTURE_SWIPE;
+					Rwindow_inject_trackpad_gesture(window, kind, R_GESTURE_BEGIN, x, y, 1.0f, 0.0f, 0.0f, 0.0f, gesture == 1 ? 2 : 3);
+					for (k = 0; k < 3; k++) {
+						Rwindow_inject_trackpad_gesture(window, kind, R_GESTURE_UPDATE, x, y, 0.8f + (float)fuzz_int(50) / 100.0f,
+							(float)(fuzz_int(21) - 10), (float)(fuzz_int(161) - 80), (float)(fuzz_int(41) - 20), 0);
+					}
+					Rwindow_inject_trackpad_gesture(window, kind, R_GESTURE_END, x, y, 1.0f, 0.0f, 0.0f, 0.0f, 0);
+				}
+			} else {
+				Rwindow_inject_mouse_wheel(window, 0.0f, (float)(fuzz_int(7) - 3));
+			}
 		} else if (what < 60) {
 			RKey key = keys[fuzz_int((int)(sizeof(keys) / sizeof(keys[0])))];
 			Ruint mods = fuzz_int(4) == 0 ? R_MOD_CTRL : fuzz_int(6) == 0 ? R_MOD_SHIFT : 0;
@@ -4437,6 +4472,24 @@ static int designer_script(char* script) {
 			}
 		} else if (strcmp(token, "wheel") == 0) {
 			Rwindow_inject_mouse_wheel(g.window, 0.0f, (float)atof(next_token(&cursor)));
+		} else if (strcmp(token, "scroll") == 0) {
+			float dx = (float)atof(next_token(&cursor));
+			Rwindow_inject_trackpad_scroll(g.window, dx, (float)atof(next_token(&cursor)));
+		} else if (strcmp(token, "pinch") == 0 || strcmp(token, "swipe") == 0) {
+			/* where the pointer is, in four steps, as the system would tell it */
+			int swipe = token[0] == 's', k;
+			float amount = (float)atof(next_token(&cursor));
+			int fingers = swipe ? atoi(next_token(&cursor)) : 2;
+			float x = 0.0f, y = 0.0f;
+			RGestureKind kind = swipe ? R_GESTURE_SWIPE : R_GESTURE_PINCH;
+			Rwindow_get_mouse_position(g.window, &x, &y);
+			Rwindow_inject_trackpad_gesture(g.window, kind, R_GESTURE_BEGIN, x, y, 1.0f, 0.0f, 0.0f, 0.0f, fingers);
+			for (k = 0; k < 4; k++) {
+				Rwindow_inject_trackpad_gesture(g.window, kind, R_GESTURE_UPDATE, x, y,
+					swipe || !(amount > 0.0f) ? 1.0f : powf(amount, 0.25f), 0.0f, swipe ? amount * 0.25f : 0.0f, 0.0f, fingers);
+				run_frames(1);
+			}
+			Rwindow_inject_trackpad_gesture(g.window, kind, R_GESTURE_END, x, y, 1.0f, 0.0f, 0.0f, 0.0f, fingers);
 		} else if (strcmp(token, "open") == 0) {
 			char* path = next_token(&cursor);
 			if (ds_is_dir(path)) folder_open(path);

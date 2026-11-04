@@ -1449,7 +1449,8 @@ rvn_vec2_t rvn_md_layout(rvn_md_t* md, const rvn_widget_t* widget, Rid font, flo
 				int image_width = 0, image_height = 0;
 				if (texture != R_INVALID_ID) Rtexture_get_size(texture, &image_width, &image_height);
 				if (image_width > 0 && image_height > 0) {
-					float w = (float)image_width, h = (float)image_height;
+					float density = Rtexture_get_density(texture);
+					float w = floorf((float)image_width / density), h = floorf((float)image_height / density);
 					rvn_md_box_t* box;
 					if (room > 0.0f && w > room) {
 						h = floorf(h * room / w);
@@ -1676,6 +1677,8 @@ int rvn_md_offset_at(const rvn_md_t* md, float x, float y) {
 			pick = run;
 		}
 	}
+	/* (an x that is not a number is near nothing: the line itself) */
+	if (!pick) pick = line;
 	if (x <= pick->x) return (int)pick->start;
 	if (x >= pick->x + pick->w) return (int)(pick->start + pick->length);
 	font = rvn_font_resolve(pick->font);

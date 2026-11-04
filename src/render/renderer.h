@@ -43,6 +43,8 @@ typedef struct rvn_texture_t {
 	uint8_t* source_data;
 	size_t source_size;
 	uint8_t* kept_pixels;
+	/** Texels per logical unit: 1 for a picture, the scale an SVG was drawn at (0 counts as 1). */
+	float density;
 } rvn_texture_t;
 
 rvn_texture_t* rvn_texture_get(Rid id);
@@ -83,6 +85,17 @@ void rvn_renderer_destroy_shader(Rid shader);
 
 /** Decodes an image file into RGBA8 (render/image_decode.c). Free with rvn_free. */
 uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* height);
+/**
+ * Same; an SVG is rasterized at `svg_scale` pixels per unit of the SVG (0 or
+ * less: RVN_SVG_DENSITY). `density`, when given, receives the pixels per
+ * logical unit of the result: the scale of an SVG, 1 for the other images.
+ */
+uint8_t* rvn_image_decode_at(const uint8_t* data, size_t size, float svg_scale, int* width, int* height, float* density);
+/** Pixels per unit an SVG is drawn at when nothing else is asked: sharp on a screen of scale 2, and below. */
+#define RVN_SVG_DENSITY 2.0f
+/* ---- render/svg_decode.c (nanosvg) ---- */
+int rvn_svg_detect(const uint8_t* data, size_t size);
+uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height);
 /** Downloads and decodes an HTTP(S) image asynchronously. Internal resource helper. */
 Rid rvn_texture_create_from_url_async(const char* url);
 

@@ -78,7 +78,14 @@ run them: the status bar says which action was fired.</p>
 <h2 id="preview">6. The preview and the island</h2>
 <p>Above the preview: the size it is shown at (the size of the XML, a phone, a tablet...),
 the theme it wears and its language. <b>F6</b> uses the preview as the interface will be used;
-<b>F7</b> opens the window itself, at its size, and it follows every change.</p>
+<b>F7</b> opens the window itself, at its size, and it follows every change.
+Used so (F6, F7), the interface answers fingers, pens and trackpads as it will in the
+program: two fingers on a trackpad scroll what scrolls and pan a node graph, a pinch zooms
+it, three fingers swiped across go back or forward. How it does is set on the
+<code>&lt;Window&gt;</code>, in the <b>Touch, pen and trackpad</b> group of Properties
+(<code>Touch.*</code>, <code>Pen.*</code>, <code>Trackpad.Gestures</code>,
+<code>Trackpad.SwipeNavigation</code>, <code>Trackpad.SwipeDistance</code>), and on any element
+(<code>Touch.Mode</code>, <code>Touch.Gestures</code>, <code>Pen.Mouse</code>).</p>
 <p>The theme of a window is written in it: choosing one above the preview sets
 <code>Theme</code> on the <code>&lt;Window&gt;</code> (a look by its name, a theme of the folder
 by the path of its file, <code>Theme="themes/ocean.xml"</code>; <i>Same as the designer</i> removes it,

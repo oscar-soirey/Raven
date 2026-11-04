@@ -63,7 +63,7 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <ul><li><a href="#label">Label</a></li><li><a href="#button">Button, checkbox</a></li><li><a href="#numbers">Slider, spin box, progress bar</a></li><li><a href="#text-input">Text input</a></li><li><a href="#lists">Combo box, list, tree, tiles</a></li><li><a href="#menus">Menus</a></li><li><a href="#image">Image, separator</a></li></ul>
 </li>
 <li><a href="#events">8. Events and actions</a>
-<ul><li><a href="#callbacks">Callbacks</a></li><li><a href="#actions">Actions</a></li><li><a href="#shortcuts">Keyboard shortcuts</a></li><li><a href="#raw-events">Raw input</a></li><li><a href="#timers">Timers</a></li><li><a href="#clipboard">Clipboard and links</a></li><li><a href="#drop">Drag and drop</a></li><li><a href="#touch">Fingers and pens</a></li></ul>
+<ul><li><a href="#callbacks">Callbacks</a></li><li><a href="#actions">Actions</a></li><li><a href="#shortcuts">Keyboard shortcuts</a></li><li><a href="#raw-events">Raw input</a></li><li><a href="#timers">Timers</a></li><li><a href="#clipboard">Clipboard and links</a></li><li><a href="#drop">Drag and drop</a></li><li><a href="#touch">Fingers, pens and trackpads</a></li></ul>
 </li>
 <li><a href="#xml">9. Interfaces in XML</a>
 <ul><li><a href="#xml-reload">Live reload</a></li><li><a href="#xml-tags">Tags of your own</a></li></ul>
@@ -278,6 +278,7 @@ cmake --install build --prefix install</pre>
 <tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code> or <code>null</code></td></tr>
 <tr><td><code>RAVEN_WAYLAND</code></td><td>ON</td><td>Linux and BSD: native Wayland beside X11 (<a href="#build-wayland">Wayland and X11</a>); nothing of Wayland is needed to build</td></tr>
 <tr><td><code>RAVEN_WITH_STB_IMAGE</code></td><td>ON</td><td>PNG, JPEG, BMP and TGA decoding</td></tr>
+<tr><td><code>RAVEN_WITH_SVG</code></td><td>ON</td><td>SVG images (icons), drawn by nanosvg</td></tr>
 <tr><td><code>RAVEN_FETCH_VULKAN_HEADERS</code></td><td>ON</td><td>download the Khronos headers when no SDK is found</td></tr>
 <tr><td><code>RAVEN_VULKAN_INCLUDE_DIR</code></td><td></td><td>the folder of <code>vulkan/vulkan.h</code>, to skip the search</td></tr>
 <tr><td><code>RAVEN_REBUILD_SHADERS</code></td><td>OFF</td><td>compile the GLSL again (needs <code>glslangValidator</code> or <code>glslc</code>); the SPIR-V is in the repository</td></tr>
@@ -862,11 +863,12 @@ static int on_asset_drop(Rid target, const RDropEvent* e, void* user_data) {
 }</pre>
 <p>Dragging out of a Raven window to another application is not implemented.</p>
 
-<h3 id="touch">Fingers and pens</h3>
-<p>Touch screens and pens work with nothing written: Raven reads them on every platform
-(Windows: <code>WM_POINTER</code>; Linux: XInput 2 on X11, the touch and tablet protocols on
-Wayland; macOS: the pressure of tablets and the pinch of the trackpad) and makes them drive
-the widgets as they are:</p>
+<h3 id="touch">Fingers, pens and trackpads</h3>
+<p>Touch screens, pens and trackpads work with nothing written: Raven reads them on every
+platform (Windows: <code>WM_POINTER</code> and Direct Manipulation for precision touchpads;
+Linux: XInput 2 on X11, the touch, tablet and pointer-gestures protocols on Wayland; macOS:
+the pressure of tablets and the gestures of the trackpad) and makes them drive the widgets
+as they are:</p>
 <ul>
 <li>a tap clicks; a finger that moves drags as the mouse would, except over what scrolls
 (<code>ScrollBox</code>, lists, trees, tiles, the text editor, the timeline, the graphs): there
@@ -876,6 +878,23 @@ the content follows the finger and keeps going when it is flicked;</li>
 <code>TextEditor</code>, <code>Timeline</code>, <code>BlockEditor</code>) or scrolls;</li>
 <li>a pen is a mouse with a pressure, its barrel button is the right button, and the palm
 resting on the screen while a pen is near is ignored.</li>
+</ul>
+<p>On a trackpad:</p>
+<ul>
+<li>two fingers that move scroll, the content following them by the pixel; a flick keeps
+going (made by the system on Windows and macOS, by Raven on Wayland). The wheel event says so:
+<code>REvent::wheel_precise</code> is set, and <code>wheel_x</code>, <code>wheel_y</code> are
+fractions of a line (48 logical units). Canvases pan instead of zooming
+(<code>NodeGraph</code>, <code>BlockEditor</code>), and what steps by notches (a focused
+<code>SpinBox</code>, the stops of the zoom of a graph) adds the fractions up;</li>
+<li>two fingers that pinch or turn zoom and rotate as on a touch screen: the same
+<code>RGestureEvent</code>, with <code>device</code> set to <code>R_GESTURE_DEVICE_TRACKPAD</code>
+and <code>x</code>, <code>y</code> at the pointer;</li>
+<li>three or more fingers swiped across go back (toward the right) or forward: the side
+buttons of a mouse, <code>R_MOUSE_X1</code> and <code>R_MOUSE_X2</code>, are pressed where the
+pointer is (a <code>FileBrowser</code> goes back and forward in its history). The gesture
+callback sees the swipe first (<code>kind</code> is <code>R_GESTURE_SWIPE</code>, with
+<code>fingers</code> and <code>total_x</code>, <code>total_y</code>) and may take it.</li>
 </ul>
 <p>What changes it: the settings of the application or of one window, the mode of a widget,
 and the events themselves for a widget that wants them (drawing with the pressure, a
@@ -898,18 +917,32 @@ static int on_pen(Rid widget, const RPenEvent* e, void* user_data) {
 Rwidget_set_pen_callback(canvas, on_pen, NULL);
 
 static int on_gesture(Rid widget, const RGestureEvent* e, void* user_data) {
+    if (e-&gt;kind == R_GESTURE_SWIPE) return R_FALSE;   /* a trackpad swipe: back / forward, as usual */
     zoom_by(e-&gt;scale_delta, e-&gt;x, e-&gt;y);
+    rotate_by(e-&gt;rotation_delta);
     pan_by(e-&gt;pan_x, e-&gt;pan_y);
+    return R_TRUE;                        /* a touch screen and a trackpad alike */
+}
+Rwidget_set_gesture_callback(map, on_gesture, NULL);
+
+static int on_event(Rid widget, const REvent* e, void* user_data) {
+    if (e-&gt;type != R_EVENT_MOUSE_WHEEL) return R_FALSE;
+    if (e-&gt;wheel_precise) pan_by(e-&gt;wheel_x * 48.0f, e-&gt;wheel_y * 48.0f);   /* a trackpad */
+    else zoom_by(powf(1.2f, e-&gt;wheel_y), e-&gt;local_x, e-&gt;local_y);           /* a wheel */
     return R_TRUE;
 }
-Rwidget_set_gesture_callback(map, on_gesture, NULL);</pre>
-<p>In XML: the <code>Touch.*</code> and <code>Pen.*</code> attributes of <code>&lt;Window&gt;</code>
-(<code>Touch.LongPress="0"</code>, <code>Pen.PressureCurve="0.7"</code>...), and on any widget
+Rwidget_set_event_callback(map, on_event, NULL);</pre>
+<p>In XML: the <code>Touch.*</code>, <code>Pen.*</code> and <code>Trackpad.*</code> attributes of
+<code>&lt;Window&gt;</code> (<code>Touch.LongPress="0"</code>, <code>Pen.PressureCurve="0.7"</code>,
+<code>Trackpad.SwipeNavigation="false"</code>...), and on any widget
 <code>Touch.Mode</code>, <code>Touch.Gestures</code> and <code>Pen.Mouse</code>; the designer has them
 in Properties. Events bubble from the widget under the finger to its parents, and a finger
 or a stroke stays with the widget it started on until it is lifted.
-<code>Rwindow_inject_touch</code>, <code>Rwindow_inject_pen</code> and <code>Rwindow_advance_touch</code>
-play them in tests. Everything is in <a href="reference.html#raven_touch_h">raven_touch.h</a>.</p>
+<code>Rwindow_inject_touch</code>, <code>Rwindow_inject_pen</code>,
+<code>Rwindow_inject_trackpad_gesture</code>, <code>Rwindow_inject_trackpad_scroll</code>
+and <code>Rwindow_advance_touch</code> play them in tests. On Windows,
+<code>RAVEN_DIRECT_MANIPULATION=0</code> in the environment leaves a precision touchpad to
+the wheel messages, as before. Everything is in <a href="reference.html#raven_touch_h">raven_touch.h</a>.</p>
 
 
 <!-- ======================================================================= -->
@@ -1607,7 +1640,7 @@ the backdrop...), its helpers and its limits.</p>
 
 <!-- ======================================================================= -->
 <h2 id="resources">18. Images and fonts</h2>
-<pre>Rid logo  = Rtexture_create_from_file("logo.png");             /* PNG, JPEG, BMP, TGA */
+<pre>Rid logo  = Rtexture_create_from_file("logo.png");             /* PNG, JPEG, BMP, TGA, SVG */
 Rid photo = Rtexture_create_from_file_async("photo.jpg");      /* decoded on a worker; widgets update when ready */
 Rid pixels = Rtexture_create_from_pixels(rgba, 256, 256);
 Rtexture_update(pixels, rgba, 256, 256);                       /* new content */
@@ -2006,10 +2039,13 @@ delete and run; the first problem is one click away.</p>
 <p>The designer can run without a window, which is how its tests work:</p>
 <pre>raven_designer --null --frames 2 --script "open /tmp/ui f 2 search add~button expect &lt;Button search wrap~in~a~vbox device 1 language fr do file.save"
 raven_designer --null --frames 2 --script "open /tmp/ui f 2 dropon Slider 0/0 after moveto 0/0 0/1 after do view.run tab theme"
+raven_designer --null --frames 2 --script "open /tmp/ui f 2 do view.interact clickin scroll 0 -40 pinch 1.5 swipe 200 3"
 raven_designer --null --frames 1 --script "open /tmp/ui fuzz 3000 42"</pre>
 <p>The commands are listed at the top of <code>designer_script</code> in
-<code>tools/designer/main.c</code>; <code>fuzz STEPS SEED</code> clicks, drags and types at
-random (the same seed replays the same run), to look for crashes under a sanitizer.</p>
+<code>tools/designer/main.c</code>; <code>scroll DX DY</code>, <code>pinch SCALE</code> and
+<code>swipe DX FINGERS</code> play a trackpad where the pointer is; <code>fuzz STEPS SEED</code>
+clicks, drags, types and plays the gestures of a trackpad at random (the same seed replays
+the same run), to look for crashes under a sanitizer.</p>
 
 <!-- ======================================================================= -->
 <h2 id="testing">27. Tests, headless runs and custom backends</h2>

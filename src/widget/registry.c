@@ -50,7 +50,14 @@ static const rvn_widget_class_t* const g_classes[] = {
 	&rvn_class_timeline,
 	&rvn_class_node_graph,
 	&rvn_class_tile_view,
-	&rvn_class_block_editor
+	&rvn_class_block_editor,
+	&rvn_class_table,
+	&rvn_class_date_picker,
+	&rvn_class_time_picker,
+	&rvn_class_toast,
+	&rvn_class_breadcrumb,
+	&rvn_class_rating,
+	&rvn_class_pagination
 };
 
 /** Other tags accepted in XML, for people coming from Slate / UMG. */
@@ -73,7 +80,10 @@ static const struct { const char* alias; RWidgetType type; } g_aliases[] = {
 	{ "MultiLineEditableText", R_WIDGET_TEXT_EDITOR },
 	{ "TitleBar", R_WIDGET_HEADER_BAR },
 	{ "Notch", R_WIDGET_ISLAND },
-	{ "DynamicIsland", R_WIDGET_ISLAND }
+	{ "DynamicIsland", R_WIDGET_ISLAND },
+	{ "DataGrid", R_WIDGET_TABLE },
+	{ "TableView", R_WIDGET_TABLE },
+	{ "Snackbar", R_WIDGET_TOAST }
 };
 
 const rvn_widget_class_t* rvn_widget_class_by_type(RWidgetType type) {

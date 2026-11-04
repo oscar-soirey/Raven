@@ -1,6 +1,6 @@
 // Raven for Odin.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // The C API as it is, under its own names. Enumerations are i32 with constants
 // (R_BACKEND_VULKAN), structures have the layout of C and are zeroed when
@@ -39,9 +39,9 @@ Rid :: u32
 Ruint :: u32
 
 RAVEN_VERSION_MAJOR :: 0
-RAVEN_VERSION_MINOR :: 1
-RAVEN_VERSION_PATCH :: 0
-RAVEN_API_VERSION :: "0.1"
+RAVEN_VERSION_MINOR :: 2
+RAVEN_VERSION_PATCH :: 1
+RAVEN_API_VERSION :: "0.2"
 R_FALSE :: 0
 R_TRUE :: 1
 R_INVALID_ID : Rid : 0xFFFFFFFF
@@ -339,11 +339,26 @@ R_PEN_BUTTON_BARREL :: 1
 R_PEN_BUTTON_BARREL2 :: 2
 
 RGesturePhase :: i32
-// A second finger came down.
+// A second finger came down (a touch screen), or the system recognized a gesture (a trackpad).
 R_GESTURE_BEGIN :: 0x04B0
 R_GESTURE_UPDATE :: 0x04B1
-// Fewer than two fingers remain.
+// Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back).
 R_GESTURE_END :: 0x04B2
+
+// What the fingers of a gesture do (RGestureEvent::kind).
+RGestureKind :: i32
+// Two fingers that pinch, turn and move together: scale, rotation and pan.
+R_GESTURE_PINCH :: 0x04C0
+// Three or more fingers that move together on a trackpad: only the pan
+// (scale stays 1). By default, a swipe across goes back or forward.
+R_GESTURE_SWIPE :: 0x04C1
+
+// Where the fingers of a gesture are (RGestureEvent::device).
+RGestureDevice :: i32
+// On the screen: the library recognized the gesture.
+R_GESTURE_DEVICE_TOUCHSCREEN :: 0x04D0
+// On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer).
+R_GESTURE_DEVICE_TRACKPAD :: 0x04D1
 
 // The looks. Each one comes dark and light.
 //
@@ -620,6 +635,20 @@ R_WIDGET_NODE_GRAPH :: 0x0228
 R_WIDGET_TILE_VIEW :: 0x0229
 // Blocks that snap into each other, in the style of Scratch.
 R_WIDGET_BLOCK_EDITOR :: 0x022A
+// Rows of cells under columns that can be resized and sorted, virtualized.
+R_WIDGET_TABLE :: 0x022B
+// A date, chosen in a calendar that drops down.
+R_WIDGET_DATE_PICKER :: 0x022C
+// A time of the day: hours, minutes, optionally seconds.
+R_WIDGET_TIME_PICKER :: 0x022D
+// A short message that rises for a few seconds, with an optional action ("Undo").
+R_WIDGET_TOAST :: 0x022E
+// The path to the current place: links separated by chevrons.
+R_WIDGET_BREADCRUMB :: 0x022F
+// A score shown and chosen with stars.
+R_WIDGET_RATING :: 0x0230
+// Page numbers with previous and next.
+R_WIDGET_PAGINATION :: 0x0231
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -699,6 +728,13 @@ RTextAlign :: i32
 R_TEXT_ALIGN_LEFT :: 0x0280
 R_TEXT_ALIGN_CENTER :: 0x0281
 R_TEXT_ALIGN_RIGHT :: 0x0282
+
+RToastKind :: i32
+// A neutral message (the accent of the theme).
+R_TOAST_INFO :: 0x04E0
+R_TOAST_SUCCESS :: 0x04E1
+R_TOAST_WARNING :: 0x04E2
+R_TOAST_ERROR :: 0x04E3
 
 RButtonStyle :: i32
 // Filled with R_COLOR_CONTROL.
@@ -824,6 +860,14 @@ RBlockPlace :: i32
 R_BLOCK_NEXT :: 0x0710
 R_BLOCK_BODY :: 0x0711
 R_BLOCK_INPUT :: 0x0712
+
+// How much a notification of the system asks for attention (Rnotification_show).
+RNotificationUrgency :: i32
+// No sound; may only go to the list of notifications.
+R_NOTIFICATION_LOW :: 0x04F0
+R_NOTIFICATION_NORMAL :: 0x04F1
+// Stays until the user dismisses it, where the system allows it.
+R_NOTIFICATION_CRITICAL :: 0x04F2
 
 RFileDialogFlags :: i32
 // Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result.
@@ -1039,7 +1083,7 @@ RWindowEventHook :: #type proc "c" (window: Rid, event: ^REvent, user_data: rawp
 RTouchCallback :: #type proc "c" (widget: Rid, event: ^RTouchEvent, user_data: rawptr) -> i32
 // Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
 RPenCallback :: #type proc "c" (widget: Rid, event: ^RPenEvent, user_data: rawptr) -> i32
-// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
 RGestureCallback :: #type proc "c" (widget: Rid, event: ^RGestureEvent, user_data: rawptr) -> i32
 // Called once when the widget is gone: deleted by the application,
 // with its parent or its window, or by Rshutdown. The place to release
@@ -1090,6 +1134,25 @@ RTileContextCallback :: #type proc "c" (tile_view: Rid, index: i32, x: f32, y: f
 // (Rtile_view_get_selection). The text returned is copied; NULL keeps
 // the indices.
 RTileDragDataCallback :: #type proc "c" (tile_view: Rid, user_data: rawptr) -> cstring
+// Virtual mode, for large or computed data: the table stores nothing and
+// asks for the texts of the cells it draws. The returned string must stay
+// valid until the next call.
+RTableCellTextCallback :: #type proc "c" (table: Rid, row: i32, column: i32, user_data: rawptr) -> cstring
+RTableEventCallback :: #type proc "c" (table: Rid, row: i32, user_data: rawptr)
+// Called when the user clicks a header; `column` -1: not sorted.
+RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, user_data: rawptr)
+// Called when the user chooses a date. This also fires the action of the widget.
+RDateChangedCallback :: #type proc "c" (date_picker: Rid, year: i32, month: i32, day: i32, user_data: rawptr)
+// Called when the user changes the time. This also fires the action of the widget.
+RTimeChangedCallback :: #type proc "c" (time_picker: Rid, hour: i32, minute: i32, second: i32, user_data: rawptr)
+// Called by the button of the message, which then hides. This also fires the action of the widget.
+RToastCallback :: #type proc "c" (toast: Rid, user_data: rawptr)
+// Called when the user clicks an item. This also fires the action of the widget.
+RBreadcrumbCallback :: #type proc "c" (breadcrumb: Rid, index: i32, user_data: rawptr)
+// Called when the user changes the score. This also fires the action of the widget.
+RRatingChangedCallback :: #type proc "c" (rating: Rid, value: f32, user_data: rawptr)
+// Called when the user goes to another page. This also fires the action of the widget.
+RPageChangedCallback :: #type proc "c" (pagination: Rid, page: i32, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -1136,6 +1199,7 @@ RDialogClosedCallback :: #type proc "c" (content: Rid, result: i32, user_data: r
 // files, read them with Rfile_browser_get_selection. The action of the
 // widget (OnActivated in XML) fires at the same time.
 RFileBrowserCallback :: #type proc "c" (browser: Rid, path: cstring, user_data: rawptr)
+RNotificationFallback :: #type proc "c" (title: cstring, body: cstring, urgency: RNotificationUrgency, user_data: rawptr)
 // Called on the render thread each time the window is rendered.
 // State you bind (pipeline, descriptor sets, viewport, scissor) does not
 // need to be restored. NULL removes the callback.
@@ -1279,6 +1343,11 @@ REvent :: struct {
 	// R_TRUE when the key event comes from auto-repeat.
 	repeat: i32,
 	codepoint: u32,
+	// R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+	// mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+	// a line, a line being 48 logical units the fingers moved: what follows the
+	// fingers moves 48 units per line, and a canvas pans rather than zooms.
+	wheel_precise: i32,
 }
 
 // What a drop target receives. The files and the text are only known when
@@ -1325,6 +1394,12 @@ RTouchSettings :: struct {
 	pressure_threshold: f32,
 	// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
 	palm_rejection: i32,
+	// R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do.
+	trackpad_gestures: i32,
+	// R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
+	swipe_navigation: i32,
+	// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+	swipe_distance: f32,
 }
 
 RTouchEvent :: struct {
@@ -1399,6 +1474,20 @@ RGestureEvent :: struct {
 	pan_y: f32,
 	// Turn of the fingers since the gesture began, in degrees, clockwise.
 	rotation: f32,
+	// R_GESTURE_PINCH or R_GESTURE_SWIPE.
+	kind: RGestureKind,
+	// R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD.
+	device: RGestureDevice,
+	// Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell).
+	fingers: i32,
+	// Movement of the center since the gesture began.
+	total_x: f32,
+	// Movement of the center since the gesture began.
+	total_y: f32,
+	// The same turn as `rotation`, since the previous event.
+	rotation_delta: f32,
+	// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+	cancelled: i32,
 }
 
 // What a tile shows, filled by the application when the tile is drawn.
@@ -1933,7 +2022,7 @@ foreign lib {
 	// What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says).
 	Rwidget_set_touch_mode :: proc(widget: Rid, mode: RTouchMode) ---
 	Rwidget_get_touch_mode :: proc(widget: Rid) -> RTouchMode ---
-	// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+	// R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
 	Rwidget_set_touch_gestures :: proc(widget: Rid, enabled: i32) ---
 	Rwidget_get_touch_gestures :: proc(widget: Rid) -> i32 ---
 	// R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE).
@@ -1952,6 +2041,19 @@ foreign lib {
 	Rwindow_inject_touch :: proc(window: Rid, id: i32, phase: RTouchPhase, x: f32, y: f32) ---
 	// A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
 	Rwindow_inject_pen :: proc(window: Rid, phase: RPenPhase, x: f32, y: f32, pressure: f32, tilt_x: f32, tilt_y: f32, buttons: u32, eraser: i32) ---
+	// A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+	// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+	// and `rotation_delta` (degrees, clockwise) what changed since the previous
+	// event, `pan_x`, `pan_y` how far the fingers moved since then.
+	Rwindow_inject_trackpad_gesture :: proc(window: Rid, kind: RGestureKind, phase: RGesturePhase, x: f32, y: f32, scale_delta: f32, rotation_delta: f32, pan_x: f32, pan_y: f32, fingers: i32) ---
+	// Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+	// (logical units), the content following them. Sent as a precise wheel
+	// (REvent::wheel_precise) at the pointer.
+	Rwindow_inject_trackpad_scroll :: proc(window: Rid, dx: f32, dy: f32) ---
+	// The fingers that scrolled left the trackpad, on a system that
+	// leaves the inertia to the application (Wayland): flicked content keeps
+	// going (Touch.Inertia).
+	Rwindow_inject_trackpad_scroll_end :: proc(window: Rid) ---
 	// Advances the inertia of flicked content by `seconds` at once,
 	// and fires a long press that is due, without waiting (tests).
 	Rwindow_advance_touch :: proc(window: Rid, seconds: f64) ---
@@ -2071,13 +2173,22 @@ foreign lib {
 	// size Font size; 0 uses R_METRIC_FONT_SIZE.
 	Rfont_measure_text :: proc(font: Rid, size: f32, text: cstring, width: ^f32, height: ^f32) ---
 	// Creates a texture from the content of an image file (PNG, JPEG,
-	// BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+	// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
 	// Returns: R_INVALID_ID on failure.
 	Rtexture_create :: proc(data: cstring, data_size: uint) -> Rid ---
 	// Same as Rtexture_create, decoded on a worker thread. The handle
 	// is usable at once; widgets showing it draw nothing until it is ready.
 	// The buffer is copied.
 	Rtexture_create_async :: proc(data: cstring, data_size: uint) -> Rid ---
+	// Draws an SVG image (an icon) into a texture, at `scale` pixels per
+	// unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
+	// The widgets show it at the size the SVG gives, whatever the scale
+	// (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
+	// also read SVG files, at a scale of 2. Paths, fills, strokes and
+	// gradients are drawn; text, filters and masks are not.
+	Rtexture_create_from_svg :: proc(svg: cstring, svg_size: uint, scale: f32) -> Rid ---
+	// Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
+	Rtexture_get_density :: proc(texture: Rid) -> f32 ---
 	Rtexture_create_from_file :: proc(path: cstring) -> Rid ---
 	// Reads and decodes the file on a worker thread.
 	Rtexture_create_from_file_async :: proc(path: cstring) -> Rid ---
@@ -2630,6 +2741,112 @@ foreign lib {
 	Rtile_view_set_selection_changed_callback :: proc(tile_view: Rid, callback: RTileEventCallback, user_data: rawptr) ---
 	Rtile_view_set_activated_callback :: proc(tile_view: Rid, callback: RTileEventCallback, user_data: rawptr) ---
 	Rtile_view_set_context_callback :: proc(tile_view: Rid, callback: RTileContextCallback, user_data: rawptr) ---
+	// Adds a column.
+	// width Width in logical units; 0 or less gives the default (120).
+	// Returns: The index of the column. The stored rows get an empty cell in it.
+	Rtable_add_column :: proc(table: Rid, header: cstring, width: f32) -> i32 ---
+	Rtable_get_column_count :: proc(table: Rid) -> i32 ---
+	// Removes the columns and the stored rows.
+	Rtable_clear_columns :: proc(table: Rid) ---
+	Rtable_set_column_header :: proc(table: Rid, column: i32, header: cstring) ---
+	Rtable_get_column_header :: proc(table: Rid, column: i32) -> cstring ---
+	Rtable_set_column_width :: proc(table: Rid, column: i32, width: f32) ---
+	// The width the column has on screen (a filling column takes more than its width).
+	Rtable_get_column_width :: proc(table: Rid, column: i32) -> f32 ---
+	// > 0: the column takes this share of the room the others leave; 0: its width only.
+	Rtable_set_column_fill :: proc(table: Rid, column: i32, fill: f32) ---
+	// R_FALSE: a click on the header does not sort (default R_TRUE).
+	Rtable_set_column_sortable :: proc(table: Rid, column: i32, sortable: i32) ---
+	// Where the texts sit in the cells: 0 left, 0.5 center, 1 right.
+	Rtable_set_column_align :: proc(table: Rid, column: i32, align: f32) ---
+	// Adds a row.
+	// cells The texts of the cells, separated by '|' ("Ada|36|London"),
+	//              or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+	// Returns: The index of the row.
+	Rtable_add_row :: proc(table: Rid, cells: cstring) -> i32 ---
+	Rtable_set_cell :: proc(table: Rid, row: i32, column: i32, text: cstring) ---
+	Rtable_get_cell :: proc(table: Rid, row: i32, column: i32) -> cstring ---
+	Rtable_remove_row :: proc(table: Rid, row: i32) ---
+	Rtable_clear_rows :: proc(table: Rid) ---
+	Rtable_get_row_count :: proc(table: Rid) -> i32 ---
+	Rtable_set_virtual_rows :: proc(table: Rid, count: i32, callback: RTableCellTextCallback, user_data: rawptr) ---
+	// Selects a row. -1 selects nothing.
+	Rtable_set_selected :: proc(table: Rid, row: i32) ---
+	Rtable_get_selected :: proc(table: Rid) -> i32 ---
+	Rtable_scroll_to_row :: proc(table: Rid, row: i32) ---
+	// Sorts by a column (stored rows are moved); -1 shows no sorted column.
+	Rtable_sort :: proc(table: Rid, column: i32, descending: i32) ---
+	Rtable_get_sort_column :: proc(table: Rid) -> i32 ---
+	Rtable_is_sort_descending :: proc(table: Rid) -> i32 ---
+	Rtable_set_header_visible :: proc(table: Rid, visible: i32) ---
+	Rtable_set_grid_lines :: proc(table: Rid, visible: i32) ---
+	// Every other row a little darker.
+	Rtable_set_striped :: proc(table: Rid, striped: i32) ---
+	Rtable_set_selection_changed_callback :: proc(table: Rid, callback: RTableEventCallback, user_data: rawptr) ---
+	// Called on double click or Enter. This also fires the action of the widget.
+	Rtable_set_activated_callback :: proc(table: Rid, callback: RTableEventCallback, user_data: rawptr) ---
+	Rtable_set_sort_callback :: proc(table: Rid, callback: RTableSortCallback, user_data: rawptr) ---
+	// Sets the date (today when the picker is created). An invalid date is refused.
+	Rdate_picker_set_date :: proc(date_picker: Rid, year: i32, month: i32, day: i32) ---
+	Rdate_picker_get_date :: proc(date_picker: Rid, year: ^i32, month: ^i32, day: ^i32) ---
+	// The earliest and the latest dates that can be chosen; 0 for year leaves that side open.
+	Rdate_picker_set_range :: proc(date_picker: Rid, min_year: i32, min_month: i32, min_day: i32, max_year: i32, max_month: i32, max_day: i32) ---
+	// 0 = Sunday (default), 1 = Monday...
+	Rdate_picker_set_first_day_of_week :: proc(date_picker: Rid, day: i32) ---
+	// How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+	// of the month), MMM (its first three letters), dddd (the name of the day),
+	// ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026".
+	Rdate_picker_set_format :: proc(date_picker: Rid, format: cstring) ---
+	// The date as the field shows it (valid until the next call).
+	Rdate_picker_get_text :: proc(date_picker: Rid) -> cstring ---
+	// Opens or closes the calendar.
+	Rdate_picker_set_open :: proc(date_picker: Rid, open: i32) ---
+	Rdate_picker_is_open :: proc(date_picker: Rid) -> i32 ---
+	Rdate_picker_set_changed_callback :: proc(date_picker: Rid, callback: RDateChangedCallback, user_data: rawptr) ---
+	Rtime_picker_set_time :: proc(time_picker: Rid, hour: i32, minute: i32, second: i32) ---
+	Rtime_picker_get_time :: proc(time_picker: Rid, hour: ^i32, minute: ^i32, second: ^i32) ---
+	Rtime_picker_set_seconds_visible :: proc(time_picker: Rid, visible: i32) ---
+	// Step of the minutes for the arrows and the wheel (default 1).
+	Rtime_picker_set_minute_step :: proc(time_picker: Rid, step: i32) ---
+	Rtime_picker_set_changed_callback :: proc(time_picker: Rid, callback: RTimeChangedCallback, user_data: rawptr) ---
+	// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+	Rtoast_show :: proc(toast: Rid, text: cstring, seconds: f64) ---
+	Rtoast_hide :: proc(toast: Rid) ---
+	Rtoast_is_shown :: proc(toast: Rid) -> i32 ---
+	Rtoast_get_text :: proc(toast: Rid) -> cstring ---
+	Rtoast_set_kind :: proc(toast: Rid, kind: RToastKind) ---
+	// A button at the end of the message ("Undo"); NULL or "" removes it.
+	Rtoast_set_action_text :: proc(toast: Rid, text: cstring) ---
+	Rtoast_set_action_callback :: proc(toast: Rid, callback: RToastCallback, user_data: rawptr) ---
+	// Replaces the items: their texts separated by '|'.
+	Rbreadcrumb_set_items :: proc(breadcrumb: Rid, items: cstring) ---
+	// Returns: The index of the new item, at the end.
+	Rbreadcrumb_add_item :: proc(breadcrumb: Rid, text: cstring) -> i32 ---
+	// Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked.
+	Rbreadcrumb_truncate :: proc(breadcrumb: Rid, count: i32) ---
+	Rbreadcrumb_get_item_count :: proc(breadcrumb: Rid) -> i32 ---
+	Rbreadcrumb_get_item_text :: proc(breadcrumb: Rid, index: i32) -> cstring ---
+	Rbreadcrumb_set_clicked_callback :: proc(breadcrumb: Rid, callback: RBreadcrumbCallback, user_data: rawptr) ---
+	// The score, from 0 to the number of stars.
+	Rrating_set_value :: proc(rating: Rid, value: f32) ---
+	Rrating_get_value :: proc(rating: Rid) -> f32 ---
+	// Number of stars (default 5, at most 20).
+	Rrating_set_max :: proc(rating: Rid, max_: i32) ---
+	Rrating_get_max :: proc(rating: Rid) -> i32 ---
+	// Half stars can be chosen (a whole star by default).
+	Rrating_set_allow_half :: proc(rating: Rid, allow: i32) ---
+	// Shown only, the user cannot change it.
+	Rrating_set_read_only :: proc(rating: Rid, read_only: i32) ---
+	// Size of a star (default 18).
+	Rrating_set_star_size :: proc(rating: Rid, size: f32) ---
+	Rrating_set_changed_callback :: proc(rating: Rid, callback: RRatingChangedCallback, user_data: rawptr) ---
+	Rpagination_set_page_count :: proc(pagination: Rid, count: i32) ---
+	Rpagination_get_page_count :: proc(pagination: Rid) -> i32 ---
+	Rpagination_set_page :: proc(pagination: Rid, page: i32) ---
+	Rpagination_get_page :: proc(pagination: Rid) -> i32 ---
+	// Page numbers shown around the current one (default 1).
+	Rpagination_set_siblings :: proc(pagination: Rid, siblings: i32) ---
+	Rpagination_set_changed_callback :: proc(pagination: Rid, callback: RPageChangedCallback, user_data: rawptr) ---
 	// text Initial content, or NULL.
 	Rtext_editor_create :: proc(text: cstring) -> Rid ---
 	// Replaces the whole text. The history of undo is cleared; the changed callback is not called.
@@ -2751,8 +2968,10 @@ foreign lib {
 	Rheader_bar_set_title :: proc(bar: Rid, title: cstring) ---
 	// buttons Bitmask of RHeaderButtons. All by default; the maximize button only shows on a resizable window.
 	Rheader_bar_set_buttons :: proc(bar: Rid, buttons: u32) ---
-	// side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-	// Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+	// side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+	// R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+	// set, the side is the one of the system the program runs on (left on
+	// macOS, right elsewhere), whatever the look.
 	Rheader_bar_set_button_side :: proc(bar: Rid, side: RHAlign) ---
 	// align R_HALIGN_CENTER (default) or R_HALIGN_LEFT.
 	Rheader_bar_set_title_align :: proc(bar: Rid, align: RHAlign) ---
@@ -3239,6 +3458,12 @@ foreign lib {
 	Rfile_browser_set_cancelled_callback :: proc(browser: Rid, callback: RFileBrowserCallback, user_data: rawptr) ---
 	// Called when the selection changes; `path` is the entry under the cursor, or NULL.
 	Rfile_browser_set_selection_changed_callback :: proc(browser: Rid, callback: RFileBrowserCallback, user_data: rawptr) ---
+	// Returns: R_TRUE when the system took the notification.
+	Rnotification_show :: proc(title: cstring, body: cstring, urgency: RNotificationUrgency) -> i32 ---
+	// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+	Rnotification_is_supported :: proc() -> i32 ---
+	// Called with the notifications the system could not show; NULL: none.
+	Rnotification_set_fallback :: proc(callback: RNotificationFallback, user_data: rawptr) ---
 	// Shows a texture. R_INVALID_ID shows nothing.
 	Rviewport_set_texture :: proc(viewport: Rid, texture: Rid) ---
 	// How the texture is fitted in the widget. Default: R_STRETCH_FILL.

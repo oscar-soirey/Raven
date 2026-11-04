@@ -323,6 +323,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 static void rvn_x11_shutdown(void) {
 	int i;
 	rvn_atspi_shutdown();
+	rvn_dbus_notify_shutdown();
 	if (!g_x11.display) return;
 	for (i = 0; i < RVN_X11_CURSOR_COUNT; i++) {
 		if (g_x11.cursors[i]) XFreeCursor(g_x11.display, g_x11.cursors[i]);
@@ -1401,18 +1402,30 @@ static void rvn_x11_process(XEvent* xevent) {
 		return;
 	}
 
-	/* fingers, and the pressure of pens (x11_xi2.c) */
+	/* fingers, the gestures of trackpads, and the pressure of pens (x11_xi2.c) */
 	if (xevent->type == GenericEvent) {
 		rvn_x11_touch_t touch;
-		if (rvn_x11_xi2_event(g_x11.display, xevent, &touch) == 2 && (window = rvn_x11_find(touch.window)) != NULL) {
+		int kind = rvn_x11_xi2_event(g_x11.display, xevent, &touch);
+		if (kind >= 2 && (window = rvn_x11_find(touch.window)) != NULL) {
 			memset(&event, 0, sizeof(event));
-			event.type = RVN_PEVENT_TOUCH;
-			event.touch_id = touch.id;
 			event.phase = touch.phase;
 			event.fx = touch.x;
 			event.fy = touch.y;
-			event.pressure = 1.0f;
 			event.modifiers = touch.modifiers;
+			if (kind == 2) {
+				event.type = RVN_PEVENT_TOUCH;
+				event.touch_id = touch.id;
+				event.pressure = 1.0f;
+			} else {
+				event.type = RVN_PEVENT_GESTURE;
+				event.gesture_kind = touch.gesture_kind;
+				event.gesture_scale = touch.scale;
+				event.rotation = touch.rotation;
+				event.wheel_x = touch.dx;
+				event.wheel_y = touch.dy;
+				event.gesture_fingers = touch.fingers;
+				event.gesture_cancelled = touch.cancelled;
+			}
 			rvn_x11_emit(window, &event);
 		}
 		return;
@@ -1638,7 +1651,8 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.a11y_event = rvn_atspi_event,
 		.a11y_announce = rvn_atspi_announce,
 		.a11y_active = rvn_atspi_active,
-		.a11y_settings = rvn_atspi_settings
+		.a11y_settings = rvn_atspi_settings,
+		.notify = rvn_dbus_notify
 	};
 	return &platform;
 }

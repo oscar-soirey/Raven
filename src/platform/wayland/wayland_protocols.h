@@ -65,6 +65,10 @@ struct zwp_tablet_pad_strip_v2;
 struct zwp_tablet_pad_group_v2;
 struct zwp_tablet_pad_v2;
 struct zwp_tablet_pad_dial_v2;
+struct zwp_pointer_gestures_v1;
+struct zwp_pointer_gesture_swipe_v1;
+struct zwp_pointer_gesture_pinch_v1;
+struct zwp_pointer_gesture_hold_v1;
 
 static const struct wl_interface rvn_wl_display_interface;
 static const struct wl_interface rvn_wl_registry_interface;
@@ -115,6 +119,10 @@ static const struct wl_interface rvn_zwp_tablet_pad_strip_v2_interface;
 static const struct wl_interface rvn_zwp_tablet_pad_group_v2_interface;
 static const struct wl_interface rvn_zwp_tablet_pad_v2_interface;
 static const struct wl_interface rvn_zwp_tablet_pad_dial_v2_interface;
+static const struct wl_interface rvn_zwp_pointer_gestures_v1_interface;
+static const struct wl_interface rvn_zwp_pointer_gesture_swipe_v1_interface;
+static const struct wl_interface rvn_zwp_pointer_gesture_pinch_v1_interface;
+static const struct wl_interface rvn_zwp_pointer_gesture_hold_v1_interface;
 
 static const struct wl_interface* rvn_types_wl_display_r_sync[] = { &rvn_wl_callback_interface };
 static const struct wl_interface* rvn_types_wl_display_r_get_registry[] = { &rvn_wl_registry_interface };
@@ -1048,6 +1056,70 @@ static const struct wl_interface rvn_zwp_tablet_pad_dial_v2_interface = {
 	2, rvn_zwp_tablet_pad_dial_v2_events
 };
 
+static const struct wl_interface* rvn_types_zwp_pointer_gestures_v1_r_get_swipe_gesture[] = { &rvn_zwp_pointer_gesture_swipe_v1_interface, &rvn_wl_pointer_interface };
+static const struct wl_interface* rvn_types_zwp_pointer_gestures_v1_r_get_pinch_gesture[] = { &rvn_zwp_pointer_gesture_pinch_v1_interface, &rvn_wl_pointer_interface };
+static const struct wl_interface* rvn_types_zwp_pointer_gestures_v1_r_get_hold_gesture[] = { &rvn_zwp_pointer_gesture_hold_v1_interface, &rvn_wl_pointer_interface };
+static const struct wl_message rvn_zwp_pointer_gestures_v1_requests[] = {
+	{ "get_swipe_gesture", "no", rvn_types_zwp_pointer_gestures_v1_r_get_swipe_gesture },
+	{ "get_pinch_gesture", "no", rvn_types_zwp_pointer_gestures_v1_r_get_pinch_gesture },
+	{ "release", "2", NULL },
+	{ "get_hold_gesture", "3no", rvn_types_zwp_pointer_gestures_v1_r_get_hold_gesture },
+};
+static const struct wl_interface rvn_zwp_pointer_gestures_v1_interface = {
+	"zwp_pointer_gestures_v1", 3,
+	4, rvn_zwp_pointer_gestures_v1_requests,
+	0, NULL
+};
+
+static const struct wl_message rvn_zwp_pointer_gesture_swipe_v1_requests[] = {
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_swipe_v1_e_begin[] = { NULL, NULL, &rvn_wl_surface_interface, NULL };
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_swipe_v1_e_update[] = { NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_swipe_v1_e_end[] = { NULL, NULL, NULL };
+static const struct wl_message rvn_zwp_pointer_gesture_swipe_v1_events[] = {
+	{ "begin", "uuou", rvn_types_zwp_pointer_gesture_swipe_v1_e_begin },
+	{ "update", "uff", rvn_types_zwp_pointer_gesture_swipe_v1_e_update },
+	{ "end", "uui", rvn_types_zwp_pointer_gesture_swipe_v1_e_end },
+};
+static const struct wl_interface rvn_zwp_pointer_gesture_swipe_v1_interface = {
+	"zwp_pointer_gesture_swipe_v1", 3,
+	1, rvn_zwp_pointer_gesture_swipe_v1_requests,
+	3, rvn_zwp_pointer_gesture_swipe_v1_events
+};
+
+static const struct wl_message rvn_zwp_pointer_gesture_pinch_v1_requests[] = {
+	{ "destroy", "", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_pinch_v1_e_begin[] = { NULL, NULL, &rvn_wl_surface_interface, NULL };
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_pinch_v1_e_update[] = { NULL, NULL, NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_pinch_v1_e_end[] = { NULL, NULL, NULL };
+static const struct wl_message rvn_zwp_pointer_gesture_pinch_v1_events[] = {
+	{ "begin", "uuou", rvn_types_zwp_pointer_gesture_pinch_v1_e_begin },
+	{ "update", "uffff", rvn_types_zwp_pointer_gesture_pinch_v1_e_update },
+	{ "end", "uui", rvn_types_zwp_pointer_gesture_pinch_v1_e_end },
+};
+static const struct wl_interface rvn_zwp_pointer_gesture_pinch_v1_interface = {
+	"zwp_pointer_gesture_pinch_v1", 3,
+	1, rvn_zwp_pointer_gesture_pinch_v1_requests,
+	3, rvn_zwp_pointer_gesture_pinch_v1_events
+};
+
+static const struct wl_message rvn_zwp_pointer_gesture_hold_v1_requests[] = {
+	{ "destroy", "3", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_hold_v1_e_begin[] = { NULL, NULL, &rvn_wl_surface_interface, NULL };
+static const struct wl_interface* rvn_types_zwp_pointer_gesture_hold_v1_e_end[] = { NULL, NULL, NULL };
+static const struct wl_message rvn_zwp_pointer_gesture_hold_v1_events[] = {
+	{ "begin", "3uuou", rvn_types_zwp_pointer_gesture_hold_v1_e_begin },
+	{ "end", "3uui", rvn_types_zwp_pointer_gesture_hold_v1_e_end },
+};
+static const struct wl_interface rvn_zwp_pointer_gesture_hold_v1_interface = {
+	"zwp_pointer_gesture_hold_v1", 3,
+	1, rvn_zwp_pointer_gesture_hold_v1_requests,
+	2, rvn_zwp_pointer_gesture_hold_v1_events
+};
+
 enum wl_display_error {
 	WL_DISPLAY_ERROR_INVALID_OBJECT = 0,
 	WL_DISPLAY_ERROR_INVALID_METHOD = 1,
@@ -1822,6 +1894,29 @@ struct zwp_tablet_pad_dial_v2_listener {
 static int zwp_tablet_pad_dial_v2_add_listener(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2, const struct zwp_tablet_pad_dial_v2_listener* listener, void* data) {
 	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_tablet_pad_dial_v2, (void (**)(void))listener, data);
 }
+struct zwp_pointer_gesture_swipe_v1_listener {
+	void (*begin)(void* data, struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1, uint32_t serial, uint32_t time, struct wl_surface* surface, uint32_t fingers);
+	void (*update)(void* data, struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1, uint32_t time, int32_t dx, int32_t dy);
+	void (*end)(void* data, struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1, uint32_t serial, uint32_t time, int32_t cancelled);
+};
+static int zwp_pointer_gesture_swipe_v1_add_listener(struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1, const struct zwp_pointer_gesture_swipe_v1_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_pointer_gesture_swipe_v1, (void (**)(void))listener, data);
+}
+struct zwp_pointer_gesture_pinch_v1_listener {
+	void (*begin)(void* data, struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1, uint32_t serial, uint32_t time, struct wl_surface* surface, uint32_t fingers);
+	void (*update)(void* data, struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1, uint32_t time, int32_t dx, int32_t dy, int32_t scale, int32_t rotation);
+	void (*end)(void* data, struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1, uint32_t serial, uint32_t time, int32_t cancelled);
+};
+static int zwp_pointer_gesture_pinch_v1_add_listener(struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1, const struct zwp_pointer_gesture_pinch_v1_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_pointer_gesture_pinch_v1, (void (**)(void))listener, data);
+}
+struct zwp_pointer_gesture_hold_v1_listener {
+	void (*begin)(void* data, struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1, uint32_t serial, uint32_t time, struct wl_surface* surface, uint32_t fingers);
+	void (*end)(void* data, struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1, uint32_t serial, uint32_t time, int32_t cancelled);
+};
+static int zwp_pointer_gesture_hold_v1_add_listener(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1, const struct zwp_pointer_gesture_hold_v1_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_pointer_gesture_hold_v1, (void (**)(void))listener, data);
+}
 
 static void wl_display_set_user_data(struct wl_display* wl_display, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)wl_display, data); }
 static void* wl_display_get_user_data(struct wl_display* wl_display) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)wl_display); }
@@ -2483,6 +2578,44 @@ static void zwp_tablet_pad_dial_v2_set_feedback(struct zwp_tablet_pad_dial_v2* z
 }
 static void zwp_tablet_pad_dial_v2_destroy(struct zwp_tablet_pad_dial_v2* zwp_tablet_pad_dial_v2) {
 	RVN_WL_MARSHAL((struct wl_proxy*)zwp_tablet_pad_dial_v2, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_tablet_pad_dial_v2), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_pointer_gestures_v1_set_user_data(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_pointer_gestures_v1, data); }
+static void* zwp_pointer_gestures_v1_get_user_data(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_pointer_gestures_v1); }
+static uint32_t zwp_pointer_gestures_v1_get_version(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gestures_v1); }
+static void zwp_pointer_gestures_v1_destroy(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1) { RVN_WL_PROXY_DESTROY((struct wl_proxy*)zwp_pointer_gestures_v1); }
+static struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gestures_v1_get_swipe_gesture(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1, struct wl_pointer* pointer) {
+	return (struct zwp_pointer_gesture_swipe_v1*)RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gestures_v1, 0, &rvn_zwp_pointer_gesture_swipe_v1_interface, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gestures_v1), 0, NULL, pointer);
+}
+static struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gestures_v1_get_pinch_gesture(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1, struct wl_pointer* pointer) {
+	return (struct zwp_pointer_gesture_pinch_v1*)RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gestures_v1, 1, &rvn_zwp_pointer_gesture_pinch_v1_interface, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gestures_v1), 0, NULL, pointer);
+}
+static void zwp_pointer_gestures_v1_release(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gestures_v1, 2, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gestures_v1), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+static struct zwp_pointer_gesture_hold_v1* zwp_pointer_gestures_v1_get_hold_gesture(struct zwp_pointer_gestures_v1* zwp_pointer_gestures_v1, struct wl_pointer* pointer) {
+	return (struct zwp_pointer_gesture_hold_v1*)RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gestures_v1, 3, &rvn_zwp_pointer_gesture_hold_v1_interface, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gestures_v1), 0, NULL, pointer);
+}
+
+static void zwp_pointer_gesture_swipe_v1_set_user_data(struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_pointer_gesture_swipe_v1, data); }
+static void* zwp_pointer_gesture_swipe_v1_get_user_data(struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_pointer_gesture_swipe_v1); }
+static uint32_t zwp_pointer_gesture_swipe_v1_get_version(struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_swipe_v1); }
+static void zwp_pointer_gesture_swipe_v1_destroy(struct zwp_pointer_gesture_swipe_v1* zwp_pointer_gesture_swipe_v1) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gesture_swipe_v1, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_swipe_v1), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_pointer_gesture_pinch_v1_set_user_data(struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_pointer_gesture_pinch_v1, data); }
+static void* zwp_pointer_gesture_pinch_v1_get_user_data(struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_pointer_gesture_pinch_v1); }
+static uint32_t zwp_pointer_gesture_pinch_v1_get_version(struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_pinch_v1); }
+static void zwp_pointer_gesture_pinch_v1_destroy(struct zwp_pointer_gesture_pinch_v1* zwp_pointer_gesture_pinch_v1) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gesture_pinch_v1, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_pinch_v1), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_pointer_gesture_hold_v1_set_user_data(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_pointer_gesture_hold_v1, data); }
+static void* zwp_pointer_gesture_hold_v1_get_user_data(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_pointer_gesture_hold_v1); }
+static uint32_t zwp_pointer_gesture_hold_v1_get_version(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_hold_v1); }
+static void zwp_pointer_gesture_hold_v1_destroy(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gesture_hold_v1, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_hold_v1), RVN_WL_MARSHAL_FLAG_DESTROY);
 }
 
 #if defined(__GNUC__)

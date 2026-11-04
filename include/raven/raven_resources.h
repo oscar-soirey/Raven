@@ -98,7 +98,7 @@ extern "C" {
 
 	/**
 	 * @brief Creates a texture from the content of an image file (PNG, JPEG,
-	 * BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+	 * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
 	 * @return R_INVALID_ID on failure.
 	 */
 	RAVEN_API Rid Rtexture_create(const char* data, size_t data_size);
@@ -109,6 +109,18 @@ extern "C" {
 	 * The buffer is copied.
 	 */
 	RAVEN_API Rid Rtexture_create_async(const char* data, size_t data_size);
+
+	/**
+	 * @brief Draws an SVG image (an icon) into a texture, at `scale` pixels per
+	 * unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
+	 * The widgets show it at the size the SVG gives, whatever the scale
+	 * (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
+	 * also read SVG files, at a scale of 2. Paths, fills, strokes and
+	 * gradients are drawn; text, filters and masks are not.
+	 */
+	RAVEN_API Rid Rtexture_create_from_svg(const char* svg, size_t svg_size, float scale);
+	/** @brief Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise. */
+	RAVEN_API float Rtexture_get_density(Rid texture);
 
 	RAVEN_API Rid Rtexture_create_from_file(const char* path);
 	/** @brief Reads and decodes the file on a worker thread. */

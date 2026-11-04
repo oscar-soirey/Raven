@@ -48,9 +48,15 @@ install(TARGETS raven_designer raven_theme_editor RUNTIME DESTINATION ${CMAKE_IN
 if(RAVEN_BUILD_TESTS)
 	set(_ds "${CMAKE_CURRENT_BINARY_DIR}/designer_test")
 	add_test(NAME designer_folder_clean COMMAND "${CMAKE_COMMAND}" -E remove_directory "${_ds}")
-	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch" "${_ds}/select" "${_ds}/clipboard" "${_ds}/tree" "${_ds}/files/ui/a/b" "${_ds}/other" "${_ds}/theme/themes")
+	add_test(NAME designer_folder_make COMMAND "${CMAKE_COMMAND}" -E make_directory "${_ds}/folder/sub" "${_ds}/script" "${_ds}/fuzz" "${_ds}/tabs" "${_ds}/layout" "${_ds}/library" "${_ds}/window" "${_ds}/keys" "${_ds}/notch" "${_ds}/select" "${_ds}/clipboard" "${_ds}/tree" "${_ds}/files/ui/a/b" "${_ds}/other" "${_ds}/theme/themes" "${_ds}/trackpad")
 	set_tests_properties(designer_folder_clean PROPERTIES FIXTURES_SETUP designer_folder_clean)
 	set_tests_properties(designer_folder_make PROPERTIES FIXTURES_SETUP designer_folder FIXTURES_REQUIRED designer_folder_clean)
+
+	# The gestures of a trackpad: the Trackpad.* attributes of a window in the panel of its properties,
+	# then two fingers that scroll, a pinch and a swipe of three fingers over the preview that runs.
+	add_test(NAME designer_trackpad COMMAND raven_designer --null --frames 2 --script
+		"open ${_ds}/trackpad do files.new.window f 2 path . set Trackpad.SwipeNavigation false expect Trackpad.SwipeNavigation=\"false\" set Trackpad.SwipeDistance 200 expect Trackpad.SwipeDistance=\"200\" do view.interact clickin scroll 0 -40 scroll 12 0 pinch 1.5 pinch 0.5 swipe 200 3 swipe -200 4 f 2 expectpage workspace")
+	set_tests_properties(designer_trackpad PROPERTIES FIXTURES_REQUIRED designer_folder)
 
 	# The designer driving itself, without a window system and without a GPU: a new window is empty,
 	# then adds, moves, wraps, deletes, undoes, and checks the XML after each step.

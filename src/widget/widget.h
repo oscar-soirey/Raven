@@ -882,7 +882,6 @@ rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int* popup_
 void rvn_window_mouse_move(rvn_window_t* window, float x, float y);
 void rvn_window_mouse_leave(rvn_window_t* window);
 void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, int pressed);
-int rvn_window_mouse_wheel(rvn_window_t* window, float wheel_x, float wheel_y);
 /** What a pixel of a window with a custom header is, for the window system (rvn_pregion_handler_t). */
 rvn_pregion_t rvn_window_region_at(void* user, int x, int y);
 /** Asks to close the window as the user would: the close callback may refuse. */
@@ -915,12 +914,20 @@ rvn_vec2_t rvn_window_size(const rvn_window_t* window);
 void rvn_window_emulate_move(rvn_window_t* window, float x, float y);
 void rvn_window_emulate_button(rvn_window_t* window, RMouseButton button, int pressed);
 void rvn_window_emulate_leave(rvn_window_t* window);
+/** A wheel at the pointer; `precise`: a trackpad (REvent::wheel_precise). */
+void rvn_window_emulate_wheel(rvn_window_t* window, float wheel_x, float wheel_y, int precise);
 /** The widget under a point of the window (popups first), or NULL. */
 rvn_widget_t* rvn_window_widget_at(rvn_window_t* window, float x, float y);
 
-/* ---- fingers and pens (widget/touch.c) ---- */
+/* ---- fingers, pens and trackpads (widget/touch.c) ---- */
 
 void rvn_touch_on_event(rvn_window_t* window, const rvn_pevent_t* event, float scale);
+/**
+ * A wheel of the platform, before it is delivered: a precise one (a trackpad)
+ * is measured for its inertia and stops content that coasts. R_TRUE when it is
+ * the end of a scroll (wheel_stop): nothing is to be delivered.
+ */
+int  rvn_touch_on_wheel(rvn_window_t* window, const rvn_pevent_t* event);
 /** Moves flicked content and fires a due long press; R_TRUE while something still moves. */
 int  rvn_touch_step(rvn_window_t* window);
 int  rvn_touch_animating(const rvn_window_t* window);
@@ -931,7 +938,7 @@ void rvn_touch_window_free(rvn_window_t* window);
 void rvn_touch_widget_free(rvn_widget_t* widget);
 /** Touch.* and Pen.* attributes of a widget. Returns -1 when the name is not one of them. */
 int  rvn_touch_attribute(rvn_widget_t* widget, const char* name, const char* value);
-/** Touch.* and Pen.* attributes of <Window>, applied to its settings. -1: not one of them. */
+/** Touch.*, Pen.* and Trackpad.* attributes of <Window>, applied to its settings. -1: not one of them. */
 int  rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const char* value);
 /** R_TRUE when what is behind the window on the screen shows where the window draws nothing. */
 int  rvn_window_see_through(const rvn_window_t* window);

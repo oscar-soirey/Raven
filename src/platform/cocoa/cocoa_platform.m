@@ -40,6 +40,8 @@ static struct {
     rvn_pregion_t resize_region;
     /* the end of the pen near the tablet is its eraser (tabletProximity) */
     int pen_eraser;
+    /* the pinch of the trackpad comes as two streams, the magnification and the rotation: the parts that are going on */
+    int pinch_parts;
     NSPoint resize_start;
     NSRect resize_frame;
 } g_cocoa;
@@ -243,15 +245,54 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     }
 }
 - (void)tabletPoint:(NSEvent*)event { [self rvnPen:event phase:[event pressure] > 0.0 ? R_PEN_MOVE : R_PEN_HOVER]; }
-/* the pinch of the trackpad: a gesture of two fingers for the core */
-- (void)magnifyWithEvent:(NSEvent*)event {
+/*
+ * The gestures of the trackpad, for the core. The pinch comes as two streams
+ * of events with their own phases, the magnification and the rotation: the
+ * core sees one gesture, which begins with the first and ends with the last.
+ */
+- (void)rvnPinch:(NSEvent*)event part:(int)part scale:(float)scale rotation:(float)rotation {
     NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
     NSEventPhase phase = [event phase];
-    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_GESTURE;
-    e.phase = (phase & NSEventPhaseBegan) ? R_GESTURE_BEGIN : (phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) ? R_GESTURE_END : R_GESTURE_UPDATE;
+    int was = g_cocoa.pinch_parts;
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_GESTURE; e.gesture_kind = R_GESTURE_PINCH; e.gesture_fingers = 2;
+    if (phase & NSEventPhaseBegan) g_cocoa.pinch_parts |= part;
+    if (phase & (NSEventPhaseEnded | NSEventPhaseCancelled)) g_cocoa.pinch_parts &= ~part;
+    if (!was && g_cocoa.pinch_parts) e.phase = R_GESTURE_BEGIN;
+    else if (was && !g_cocoa.pinch_parts) e.phase = R_GESTURE_END;
+    else e.phase = R_GESTURE_UPDATE;
+    e.gesture_cancelled = e.phase == R_GESTURE_END && (phase & NSEventPhaseCancelled) != 0;
     e.fx = (float)(p.x * s); e.fy = (float)(p.y * s);
-    e.gesture_scale = (float)(1.0 + [event magnification]);
+    e.gesture_scale = scale;
+    e.rotation = rotation;
     e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+}
+- (void)magnifyWithEvent:(NSEvent*)event {
+    [self rvnPinch:event part:1 scale:(float)(1.0 + [event magnification]) rotation:0.0f];
+}
+/* (AppKit turns counterclockwise; Raven clockwise) */
+- (void)rotateWithEvent:(NSEvent*)event {
+    [self rvnPinch:event part:2 scale:1.0f rotation:(float)-[event rotation]];
+}
+/*
+ * Three fingers swiped across (when the system is set to swipe between pages
+ * with three fingers): AppKit sends the swipe whole, once recognized. The core
+ * gets it as a swipe that went far, toward the right (back) when deltaX > 0.
+ */
+- (void)swipeWithEvent:(NSEvent*)event {
+    NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
+    float dx = (float)[event deltaX], dy = (float)[event deltaY];
+    int phases[3] = { R_GESTURE_BEGIN, R_GESTURE_UPDATE, R_GESTURE_END }, i;
+    if (dx == 0.0f && dy == 0.0f) return;
+    for (i = 0; i < 3; i++) {
+        rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_GESTURE; e.gesture_kind = R_GESTURE_SWIPE; e.gesture_fingers = 3;
+        e.phase = phases[i];
+        e.fx = (float)(p.x * s); e.fy = (float)(p.y * s);
+        e.gesture_scale = 1.0f;
+        /* (a whole swipe: far beyond any distance the settings may ask) */
+        if (phases[i] == R_GESTURE_UPDATE) { e.wheel_x = dx * 10000.0f * s; e.wheel_y = -dy * 10000.0f * s; }
+        e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
+        if (!ravenWindow) return;
+    }
 }
 - (void)mouseMoved:(NSEvent*)event {
     NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
@@ -277,10 +318,20 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
 - (void)rightMouseUp:(NSEvent*)event { [self rvnMouse:event button:1 pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
 - (void)otherMouseDown:(NSEvent*)event { [self rvnMouse:event button:(int)[event buttonNumber] pressed:1]; }
 - (void)otherMouseUp:(NSEvent*)event { [self rvnMouse:event button:(int)[event buttonNumber] pressed:0]; if (g_cocoa.resize_window == ravenWindow) g_cocoa.resize_window = NULL; }
+/*
+ * A trackpad (or a Magic Mouse) gives its deltas in points, the content
+ * following the fingers: RVN_WHEEL_LINE points make a line, and the wheel is
+ * precise. A wheel gives lines. The momentum after a flick is made by AppKit
+ * (events of its momentum phase): nothing for the core to make.
+ */
 - (void)scrollWheel:(NSEvent*)event {
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_MOUSE_WHEEL;
     e.wheel_x = (float)[event scrollingDeltaX]; e.wheel_y = (float)[event scrollingDeltaY];
-    if (![event hasPreciseScrollingDeltas]) { e.wheel_x *= 10.0f; e.wheel_y *= 10.0f; }
+    if ([event hasPreciseScrollingDeltas]) {
+        e.wheel_x /= RVN_WHEEL_LINE; e.wheel_y /= RVN_WHEEL_LINE;
+        e.wheel_precise = 1;
+    }
+    if (e.wheel_x == 0.0f && e.wheel_y == 0.0f) return;
     e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
 }
 - (void)keyDown:(NSEvent*)event {
@@ -294,7 +345,8 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     e.pressed = 0; e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
 }
 - (void)flagsChanged:(NSEvent*)event {
-    /* (a modifier key has no characters: asking a flagsChanged event for them raises an exception on macOS 15) */
+    /* a flags-changed event has no characters to ask for: AppKit asserts when the
+     * question is made, and the key of a modifier is known from its code alone */
     RKey key = rvn_cocoa_key([event keyCode], nil);
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = key;
     e.modifiers = rvn_cocoa_modifiers([event modifierFlags]);
@@ -1001,6 +1053,29 @@ static int rvn_cocoa_accent_color(float rgb[3]) {
     }
 }
 
+/*
+ * A notification of the Notification Center. NSUserNotification still works
+ * where UNUserNotificationCenter needs a signed bundle and a permission
+ * asked beforehand; outside of an application bundle the center drops what
+ * it is given, so that case reports R_FALSE (the fallback of the application then runs).
+ */
+static int rvn_cocoa_notify(const char* app, const char* title, const char* body, int urgency) {
+    @autoreleasepool {
+        NSUserNotification* notification;
+        if (![[NSBundle mainBundle] bundleIdentifier]) return R_FALSE;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        notification = [[NSUserNotification alloc] init];
+        [notification setTitle:[NSString stringWithUTF8String:(*title ? title : app)]];
+        [notification setInformativeText:[NSString stringWithUTF8String:body]];
+        if (urgency > 0) [notification setSoundName:NSUserNotificationDefaultSoundName];
+        [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
+        [notification release];
+#pragma clang diagnostic pop
+        return R_TRUE;
+    }
+}
+
 const rvn_platform_t* rvn_platform_cocoa(void) {
     static const rvn_platform_t platform = {
         .name = "Cocoa", .system = R_WINDOW_SYSTEM_COCOA,
@@ -1019,7 +1094,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,
         .a11y_event = rvn_cocoa_a11y_event, .a11y_announce = rvn_cocoa_a11y_announce,
         .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
-        .accent_color = rvn_cocoa_accent_color,
+        .accent_color = rvn_cocoa_accent_color, .notify = rvn_cocoa_notify,
         .screen_notch = rvn_cocoa_screen_notch, .overlay_place = rvn_cocoa_overlay_place,
         .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key
     };

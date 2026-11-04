@@ -155,6 +155,8 @@ typedef struct rvn_node_graph_t {
 	/* ---- the view asked for ---- */
 	float center_x, center_y;
 	float zoom;
+	/** What the wheel turned that did not make a stop of the zoom yet (wheels that turn by fractions). */
+	float wheel_rest;
 	/** Until the view is moved, the corner of the canvas is at the corner of the widget, whatever its size. */
 	int pinned;
 	RSpring shown_x, shown_y, shown_zoom;
@@ -1556,6 +1558,9 @@ static float rvn_ng_next_stop(float zoom, int direction) {
 	return g_ng_stops[0];
 }
 
+static int rvn_node_graph_pan(rvn_widget_t* widget, float dx, float dy, int coasting);
+static int rvn_node_graph_zoom(rvn_widget_t* widget, float factor, float x, float y);
+
 static int rvn_node_graph_event(rvn_widget_t* widget, const REvent* event) {
 	rvn_node_graph_t* graph = (rvn_node_graph_t*)widget;
 	rvn_vec2_t origin = rvn_widget_origin(widget);
@@ -1586,6 +1591,14 @@ static int rvn_node_graph_event(rvn_widget_t* widget, const REvent* event) {
 		case R_EVENT_MOUSE_WHEEL: {
 			float amount = event->wheel_y;
 			if (graph->drag != RVN_NG_DRAG_NONE && graph->drag != RVN_NG_DRAG_LINK) return R_TRUE;
+			if (event->wheel_precise) {
+				/* a trackpad: two fingers pan the canvas (they pinch to zoom); with Ctrl they zoom smoothly */
+				if (event->modifiers & R_MOD_CTRL) {
+					if (amount != 0.0f) rvn_node_graph_zoom(widget, powf(1.25f, amount), x, y);
+					return R_TRUE;
+				}
+				return rvn_node_graph_pan(widget, event->wheel_x * RVN_WHEEL_LINE, amount * RVN_WHEEL_LINE, R_FALSE);
+			}
 			if (event->wheel_x != 0.0f || (amount != 0.0f && (event->modifiers & R_MOD_SHIFT))) {
 				float slide = event->wheel_x != 0.0f ? event->wheel_x : amount;
 				rvn_ng_unpin(graph);
@@ -1593,10 +1606,13 @@ static int rvn_node_graph_event(rvn_widget_t* widget, const REvent* event) {
 				return R_TRUE;
 			}
 			if (amount != 0.0f) {
+				/* one stop of the zoom per notch; the fractions of a wheel that turns smoothly add up */
 				float zoom = graph->zoom;
-				int steps = (int)rvn_maxf(1.0f, floorf(fabsf(amount) + 0.5f));
-				while (steps-- > 0) zoom = rvn_ng_next_stop(zoom, amount > 0.0f ? 1 : -1);
-				rvn_ng_zoom_at(graph, x, y, zoom);
+				int steps = rvn_wheel_notches(&graph->wheel_rest, amount);
+				int direction = steps > 0 ? 1 : -1;
+				if (steps < 0) steps = -steps;
+				while (steps-- > 0) zoom = rvn_ng_next_stop(zoom, direction);
+				if (zoom != graph->zoom) rvn_ng_zoom_at(graph, x, y, zoom);
 				return R_TRUE;
 			}
 			return R_FALSE;

@@ -1,6 +1,6 @@
 -- LuaRocks package of Raven for LuaJIT.
 --
---   luarocks upload bindings/luajit/raven-gui-0.2.0-1.rockspec --api-key=<key>
+--   luarocks upload bindings/luajit/raven-gui-0.2.1-1.rockspec --api-key=<key>
 --
 -- The rock installs the module (require("raven")).
 -- They need LuaJIT (its FFI) and the Raven shared library: from a release of
@@ -9,11 +9,11 @@
 
 rockspec_format = "3.0"
 package = "raven-gui"
-version = "0.2.0-1"
+version = "0.2.1-1"
 
 source = {
    url = "git+https://github.com/oscar-soirey/Raven.git",
-   tag = "v0.2.0",
+   tag = "v0.2.1",
 }
 
 description = {

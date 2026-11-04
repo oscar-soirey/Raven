@@ -57,10 +57,27 @@ extern const rvn_widget_class_t rvn_class_color_picker;
 extern const rvn_widget_class_t rvn_class_timeline;
 extern const rvn_widget_class_t rvn_class_node_graph;
 extern const rvn_widget_class_t rvn_class_block_editor;
+extern const rvn_widget_class_t rvn_class_table;
+extern const rvn_widget_class_t rvn_class_date_picker;
+extern const rvn_widget_class_t rvn_class_time_picker;
+extern const rvn_widget_class_t rvn_class_toast;
+extern const rvn_widget_class_t rvn_class_breadcrumb;
+extern const rvn_widget_class_t rvn_class_rating;
+extern const rvn_widget_class_t rvn_class_pagination;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
 #define RVN_WIDGET_INTERNAL_COMPLETION ((RWidgetType)((int)R_WIDGET_LAST_ + 2))
+#define RVN_WIDGET_INTERNAL_CALENDAR ((RWidgetType)((int)R_WIDGET_LAST_ + 3))
+
+/* ---- widgets/date_picker.c: dates of the Gregorian calendar (months 1..12, weekdays 0 = Sunday) ---- */
+int  rvn_date_days_in_month(int year, int month);
+int  rvn_date_valid(int year, int month, int day);
+int  rvn_date_weekday(int year, int month, int day);
+void rvn_date_today(int* year, int* month, int* day);
+/** The name of a month or of a day: the locale's (keys Raven.Month1.., Raven.Day0..) or English. */
+const char* rvn_date_month_name(int month);
+const char* rvn_date_day_name(int weekday);
 
 /** Panels sharing Rpanel_set_spacing start with this layout. */
 typedef struct rvn_spaced_panel_t {
@@ -377,6 +394,8 @@ typedef struct rvn_scrollbar_t {
 	RSpring expand;
 	/** What a finger moved that did not make a whole unit yet (rvn_scrollbar_pan). */
 	float pan_rest;
+	/** The same for the wheel (a trackpad scrolls by fractions of a unit). */
+	float wheel_rest;
 } rvn_scrollbar_t;
 
 float rvn_scrollbar_max(const rvn_scrollbar_t* bar);
@@ -387,9 +406,16 @@ int   rvn_scrollbar_set(rvn_scrollbar_t* bar, float offset);
 /**
  * Scrolls by `delta` logical units (the wheel). Returns R_TRUE when the
  * offset changed; at an end of the range it returns R_FALSE and makes the
- * content bounce, which only needs a repaint.
+ * content bounce, which only needs a repaint. The fractions of a unit add up
+ * (the small steps of a trackpad).
  */
 int   rvn_scrollbar_wheel(rvn_scrollbar_t* bar, float delta);
+/**
+ * Whole notches of a wheel that may turn by fractions (a trackpad, a wheel
+ * that scrolls smoothly), for what steps (a value, a zoom by stops): the
+ * fractions add up in *rest, and a turn the other way starts again.
+ */
+int   rvn_wheel_notches(float* rest, float amount);
 /**
  * Scrolls by `delta` logical units under a finger: what is drawn follows at
  * once (no gliding), the fractions of a unit add up. `coasting` (the

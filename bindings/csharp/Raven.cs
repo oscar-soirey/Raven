@@ -1,6 +1,6 @@
 // Raven for C#.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // The C API under its own names, in the static class Raven.R:
 //
@@ -439,14 +439,45 @@ namespace Raven
     public enum RGesturePhase : int
     {
         /// <summary>
-        /// A second finger came down.
+        /// A second finger came down (a touch screen), or the system recognized a gesture (a trackpad).
         /// </summary>
         R_GESTURE_BEGIN = 0x04B0,
         R_GESTURE_UPDATE = 0x04B1,
         /// <summary>
-        /// Fewer than two fingers remain.
+        /// Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back).
         /// </summary>
         R_GESTURE_END = 0x04B2,
+    }
+
+    /// <summary>
+    /// What the fingers of a gesture do (RGestureEvent::kind).
+    /// </summary>
+    public enum RGestureKind : int
+    {
+        /// <summary>
+        /// Two fingers that pinch, turn and move together: scale, rotation and pan.
+        /// </summary>
+        R_GESTURE_PINCH = 0x04C0,
+        /// <summary>
+        /// Three or more fingers that move together on a trackpad: only the pan
+        /// (scale stays 1). By default, a swipe across goes back or forward.
+        /// </summary>
+        R_GESTURE_SWIPE = 0x04C1,
+    }
+
+    /// <summary>
+    /// Where the fingers of a gesture are (RGestureEvent::device).
+    /// </summary>
+    public enum RGestureDevice : int
+    {
+        /// <summary>
+        /// On the screen: the library recognized the gesture.
+        /// </summary>
+        R_GESTURE_DEVICE_TOUCHSCREEN = 0x04D0,
+        /// <summary>
+        /// On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer).
+        /// </summary>
+        R_GESTURE_DEVICE_TRACKPAD = 0x04D1,
     }
 
     /// <summary>
@@ -897,6 +928,34 @@ namespace Raven
         /// Blocks that snap into each other, in the style of Scratch.
         /// </summary>
         R_WIDGET_BLOCK_EDITOR = 0x022A,
+        /// <summary>
+        /// Rows of cells under columns that can be resized and sorted, virtualized.
+        /// </summary>
+        R_WIDGET_TABLE = 0x022B,
+        /// <summary>
+        /// A date, chosen in a calendar that drops down.
+        /// </summary>
+        R_WIDGET_DATE_PICKER = 0x022C,
+        /// <summary>
+        /// A time of the day: hours, minutes, optionally seconds.
+        /// </summary>
+        R_WIDGET_TIME_PICKER = 0x022D,
+        /// <summary>
+        /// A short message that rises for a few seconds, with an optional action ("Undo").
+        /// </summary>
+        R_WIDGET_TOAST = 0x022E,
+        /// <summary>
+        /// The path to the current place: links separated by chevrons.
+        /// </summary>
+        R_WIDGET_BREADCRUMB = 0x022F,
+        /// <summary>
+        /// A score shown and chosen with stars.
+        /// </summary>
+        R_WIDGET_RATING = 0x0230,
+        /// <summary>
+        /// Page numbers with previous and next.
+        /// </summary>
+        R_WIDGET_PAGINATION = 0x0231,
     }
 
     public enum RHAlign : int
@@ -1026,6 +1085,17 @@ namespace Raven
         R_TEXT_ALIGN_LEFT = 0x0280,
         R_TEXT_ALIGN_CENTER = 0x0281,
         R_TEXT_ALIGN_RIGHT = 0x0282,
+    }
+
+    public enum RToastKind : int
+    {
+        /// <summary>
+        /// A neutral message (the accent of the theme).
+        /// </summary>
+        R_TOAST_INFO = 0x04E0,
+        R_TOAST_SUCCESS = 0x04E1,
+        R_TOAST_WARNING = 0x04E2,
+        R_TOAST_ERROR = 0x04E3,
     }
 
     public enum RButtonStyle : int
@@ -1249,6 +1319,22 @@ namespace Raven
         R_BLOCK_NEXT = 0x0710,
         R_BLOCK_BODY = 0x0711,
         R_BLOCK_INPUT = 0x0712,
+    }
+
+    /// <summary>
+    /// How much a notification of the system asks for attention (Rnotification_show).
+    /// </summary>
+    public enum RNotificationUrgency : int
+    {
+        /// <summary>
+        /// No sound; may only go to the list of notifications.
+        /// </summary>
+        R_NOTIFICATION_LOW = 0x04F0,
+        R_NOTIFICATION_NORMAL = 0x04F1,
+        /// <summary>
+        /// Stays until the user dismisses it, where the system allows it.
+        /// </summary>
+        R_NOTIFICATION_CRITICAL = 0x04F2,
     }
 
     [Flags]
@@ -1678,6 +1764,13 @@ namespace Raven
         /// </summary>
         public int repeat;
         public uint codepoint;
+        /// <summary>
+        /// R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+        /// mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+        /// a line, a line being 48 logical units the fingers moved: what follows the
+        /// fingers moves 48 units per line, and a canvas pans rather than zooms.
+        /// </summary>
+        public int wheel_precise;
     }
 
     /// <summary>
@@ -1764,6 +1857,18 @@ namespace Raven
         /// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
         /// </summary>
         public int palm_rejection;
+        /// <summary>
+        /// R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do.
+        /// </summary>
+        public int trackpad_gestures;
+        /// <summary>
+        /// R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
+        /// </summary>
+        public int swipe_navigation;
+        /// <summary>
+        /// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+        /// </summary>
+        public float swipe_distance;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -1894,6 +1999,34 @@ namespace Raven
         /// Turn of the fingers since the gesture began, in degrees, clockwise.
         /// </summary>
         public float rotation;
+        /// <summary>
+        /// R_GESTURE_PINCH or R_GESTURE_SWIPE.
+        /// </summary>
+        public RGestureKind kind;
+        /// <summary>
+        /// R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD.
+        /// </summary>
+        public RGestureDevice device;
+        /// <summary>
+        /// Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell).
+        /// </summary>
+        public int fingers;
+        /// <summary>
+        /// Movement of the center since the gesture began.
+        /// </summary>
+        public float total_x;
+        /// <summary>
+        /// Movement of the center since the gesture began.
+        /// </summary>
+        public float total_y;
+        /// <summary>
+        /// The same turn as `rotation`, since the previous event.
+        /// </summary>
+        public float rotation_delta;
+        /// <summary>
+        /// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+        /// </summary>
+        public int cancelled;
     }
 
     /// <summary>
@@ -2360,7 +2493,7 @@ namespace Raven
     public delegate int RPenCallback(uint widget, ref RPenEvent @event, IntPtr user_data);
 
     /// <summary>
-    /// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+    /// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RGestureCallback(uint widget, ref RGestureEvent @event, IntPtr user_data);
@@ -2477,6 +2610,59 @@ namespace Raven
     public delegate IntPtr RTileDragDataCallback(uint tile_view, IntPtr user_data);
 
     /// <summary>
+    /// Virtual mode, for large or computed data: the table stores nothing and
+    /// asks for the texts of the cells it draws. The returned string must stay
+    /// valid until the next call.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate IntPtr RTableCellTextCallback(uint table, int row, int column, IntPtr user_data);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RTableEventCallback(uint table, int row, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user clicks a header; `column` -1: not sorted.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RTableSortCallback(uint table, int column, int descending, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user chooses a date. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RDateChangedCallback(uint date_picker, int year, int month, int day, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user changes the time. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RTimeChangedCallback(uint time_picker, int hour, int minute, int second, IntPtr user_data);
+
+    /// <summary>
+    /// Called by the button of the message, which then hides. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RToastCallback(uint toast, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user clicks an item. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RBreadcrumbCallback(uint breadcrumb, int index, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user changes the score. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RRatingChangedCallback(uint rating, float value, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user goes to another page. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RPageChangedCallback(uint pagination, int page, IntPtr user_data);
+
+    /// <summary>
     /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -2586,6 +2772,9 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RFileBrowserCallback(uint browser, IntPtr path, IntPtr user_data);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RNotificationFallback(IntPtr title, IntPtr body, RNotificationUrgency urgency, IntPtr user_data);
+
     /// <summary>
     /// Called on the render thread each time the window is rendered.
     /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -2643,9 +2832,9 @@ namespace Raven
         private const string Lib = "raven";
 
         public const int RAVEN_VERSION_MAJOR = 0;
-        public const int RAVEN_VERSION_MINOR = 1;
-        public const int RAVEN_VERSION_PATCH = 0;
-        public const string RAVEN_API_VERSION = "0.1";
+        public const int RAVEN_VERSION_MINOR = 2;
+        public const int RAVEN_VERSION_PATCH = 1;
+        public const string RAVEN_API_VERSION = "0.2";
         public const int R_FALSE = 0;
         public const int R_TRUE = 1;
         public const uint R_INVALID_ID = 0xFFFFFFFF;
@@ -3560,7 +3749,7 @@ namespace Raven
         public static extern RTouchMode Rwidget_get_touch_mode(uint widget);
 
         /// <summary>
-        /// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+        /// R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_touch_gestures(uint widget, int enabled);
@@ -3615,6 +3804,31 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_inject_pen(uint window, RPenPhase phase, float x, float y, float pressure, float tilt_x, float tilt_y, uint buttons, int eraser);
+
+        /// <summary>
+        /// A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+        /// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+        /// and `rotation_delta` (degrees, clockwise) what changed since the previous
+        /// event, `pan_x`, `pan_y` how far the fingers moved since then.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_trackpad_gesture(uint window, RGestureKind kind, RGesturePhase phase, float x, float y, float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers);
+
+        /// <summary>
+        /// Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+        /// (logical units), the content following them. Sent as a precise wheel
+        /// (REvent::wheel_precise) at the pointer.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_trackpad_scroll(uint window, float dx, float dy);
+
+        /// <summary>
+        /// The fingers that scrolled left the trackpad, on a system that
+        /// leaves the inertia to the application (Wayland): flicked content keeps
+        /// going (Touch.Inertia).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_trackpad_scroll_end(uint window);
 
         /// <summary>
         /// Advances the inertia of flicked content by `seconds` at once,
@@ -3868,7 +4082,7 @@ namespace Raven
 
         /// <summary>
         /// Creates a texture from the content of an image file (PNG, JPEG,
-        /// BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+        /// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
         /// Returns: R_INVALID_ID on failure.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -3881,6 +4095,23 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rtexture_create_async(byte[] data, UIntPtr data_size);
+
+        /// <summary>
+        /// Draws an SVG image (an icon) into a texture, at `scale` pixels per
+        /// unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
+        /// The widgets show it at the size the SVG gives, whatever the scale
+        /// (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
+        /// also read SVG files, at a scale of 2. Paths, fills, strokes and
+        /// gradients are drawn; text, filters and masks are not.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rtexture_create_from_svg([MarshalAs(Utf8.Str)] string svg, UIntPtr svg_size, float scale);
+
+        /// <summary>
+        /// Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rtexture_get_density(uint texture);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rtexture_create_from_file([MarshalAs(Utf8.Str)] string path);
@@ -5322,6 +5553,315 @@ namespace Raven
         public static extern void Rtile_view_set_context_callback(uint tile_view, RTileContextCallback callback, IntPtr user_data);
 
         /// <summary>
+        /// Adds a column.
+        /// width Width in logical units; 0 or less gives the default (120).
+        /// Returns: The index of the column. The stored rows get an empty cell in it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_add_column(uint table, [MarshalAs(Utf8.Str)] string header, float width);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_column_count(uint table);
+
+        /// <summary>
+        /// Removes the columns and the stored rows.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_clear_columns(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_column_header(uint table, int column, [MarshalAs(Utf8.Str)] string header);
+
+        [DllImport(Lib, EntryPoint = "Rtable_get_column_header", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtable_get_column_header_(uint table, int column);
+        public static string Rtable_get_column_header(uint table, int column) { return Text(Rtable_get_column_header_(table, column)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_column_width(uint table, int column, float width);
+
+        /// <summary>
+        /// The width the column has on screen (a filling column takes more than its width).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rtable_get_column_width(uint table, int column);
+
+        /// <summary>
+        /// &gt; 0: the column takes this share of the room the others leave; 0: its width only.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_column_fill(uint table, int column, float fill);
+
+        /// <summary>
+        /// R_FALSE: a click on the header does not sort (default R_TRUE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_column_sortable(uint table, int column, int sortable);
+
+        /// <summary>
+        /// Where the texts sit in the cells: 0 left, 0.5 center, 1 right.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_column_align(uint table, int column, float align);
+
+        /// <summary>
+        /// Adds a row.
+        /// cells The texts of the cells, separated by '|' ("Ada|36|London"),
+        ///              or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+        /// Returns: The index of the row.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_add_row(uint table, [MarshalAs(Utf8.Str)] string cells);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_cell(uint table, int row, int column, [MarshalAs(Utf8.Str)] string text);
+
+        [DllImport(Lib, EntryPoint = "Rtable_get_cell", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtable_get_cell_(uint table, int row, int column);
+        public static string Rtable_get_cell(uint table, int row, int column) { return Text(Rtable_get_cell_(table, row, column)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_remove_row(uint table, int row);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_clear_rows(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_row_count(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_virtual_rows(uint table, int count, RTableCellTextCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Selects a row. -1 selects nothing.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_selected(uint table, int row);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_selected(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_scroll_to_row(uint table, int row);
+
+        /// <summary>
+        /// Sorts by a column (stored rows are moved); -1 shows no sorted column.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_sort(uint table, int column, int descending);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_sort_column(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_is_sort_descending(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_header_visible(uint table, int visible);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_grid_lines(uint table, int visible);
+
+        /// <summary>
+        /// Every other row a little darker.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_striped(uint table, int striped);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_selection_changed_callback(uint table, RTableEventCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Called on double click or Enter. This also fires the action of the widget.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_activated_callback(uint table, RTableEventCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_sort_callback(uint table, RTableSortCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Sets the date (today when the picker is created). An invalid date is refused.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_date(uint date_picker, int year, int month, int day);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_get_date(uint date_picker, out int year, out int month, out int day);
+
+        /// <summary>
+        /// The earliest and the latest dates that can be chosen; 0 for year leaves that side open.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_range(uint date_picker, int min_year, int min_month, int min_day, int max_year, int max_month, int max_day);
+
+        /// <summary>
+        /// 0 = Sunday (default), 1 = Monday...
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_first_day_of_week(uint date_picker, int day);
+
+        /// <summary>
+        /// How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+        /// of the month), MMM (its first three letters), dddd (the name of the day),
+        /// ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026".
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_format(uint date_picker, [MarshalAs(Utf8.Str)] string format);
+
+        /// <summary>
+        /// The date as the field shows it (valid until the next call).
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rdate_picker_get_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rdate_picker_get_text_(uint date_picker);
+        public static string Rdate_picker_get_text(uint date_picker) { return Text(Rdate_picker_get_text_(date_picker)); }
+
+        /// <summary>
+        /// Opens or closes the calendar.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_open(uint date_picker, int open);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rdate_picker_is_open(uint date_picker);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdate_picker_set_changed_callback(uint date_picker, RDateChangedCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_time(uint time_picker, int hour, int minute, int second);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_get_time(uint time_picker, out int hour, out int minute, out int second);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_seconds_visible(uint time_picker, int visible);
+
+        /// <summary>
+        /// Step of the minutes for the arrows and the wheel (default 1).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_minute_step(uint time_picker, int step);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtime_picker_set_changed_callback(uint time_picker, RTimeChangedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_show(uint toast, [MarshalAs(Utf8.Str)] string text, double seconds);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_hide(uint toast);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtoast_is_shown(uint toast);
+
+        [DllImport(Lib, EntryPoint = "Rtoast_get_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rtoast_get_text_(uint toast);
+        public static string Rtoast_get_text(uint toast) { return Text(Rtoast_get_text_(toast)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_set_kind(uint toast, RToastKind kind);
+
+        /// <summary>
+        /// A button at the end of the message ("Undo"); NULL or "" removes it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_set_action_text(uint toast, [MarshalAs(Utf8.Str)] string text);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_set_action_callback(uint toast, RToastCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Replaces the items: their texts separated by '|'.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rbreadcrumb_set_items(uint breadcrumb, [MarshalAs(Utf8.Str)] string items);
+
+        /// <summary>
+        /// Returns: The index of the new item, at the end.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rbreadcrumb_add_item(uint breadcrumb, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rbreadcrumb_truncate(uint breadcrumb, int count);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rbreadcrumb_get_item_count(uint breadcrumb);
+
+        [DllImport(Lib, EntryPoint = "Rbreadcrumb_get_item_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rbreadcrumb_get_item_text_(uint breadcrumb, int index);
+        public static string Rbreadcrumb_get_item_text(uint breadcrumb, int index) { return Text(Rbreadcrumb_get_item_text_(breadcrumb, index)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rbreadcrumb_set_clicked_callback(uint breadcrumb, RBreadcrumbCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The score, from 0 to the number of stars.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrating_set_value(uint rating, float value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rrating_get_value(uint rating);
+
+        /// <summary>
+        /// Number of stars (default 5, at most 20).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrating_set_max(uint rating, int max);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrating_get_max(uint rating);
+
+        /// <summary>
+        /// Half stars can be chosen (a whole star by default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrating_set_allow_half(uint rating, int allow);
+
+        /// <summary>
+        /// Shown only, the user cannot change it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrating_set_read_only(uint rating, int read_only);
+
+        /// <summary>
+        /// Size of a star (default 18).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrating_set_star_size(uint rating, float size);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rrating_set_changed_callback(uint rating, RRatingChangedCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpagination_set_page_count(uint pagination, int count);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpagination_get_page_count(uint pagination);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpagination_set_page(uint pagination, int page);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpagination_get_page(uint pagination);
+
+        /// <summary>
+        /// Page numbers shown around the current one (default 1).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpagination_set_siblings(uint pagination, int siblings);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpagination_set_changed_callback(uint pagination, RPageChangedCallback callback, IntPtr user_data);
+
+        /// <summary>
         /// text Initial content, or NULL.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -5649,8 +6189,10 @@ namespace Raven
         public static extern void Rheader_bar_set_buttons(uint bar, uint buttons);
 
         /// <summary>
-        /// side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-        /// Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+        /// side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+        /// R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+        /// set, the side is the one of the system the program runs on (left on
+        /// macOS, right elsewhere), whatever the look.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rheader_bar_set_button_side(uint bar, RHAlign side);
@@ -6967,6 +7509,24 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rfile_browser_set_selection_changed_callback(uint browser, RFileBrowserCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Returns: R_TRUE when the system took the notification.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnotification_show([MarshalAs(Utf8.Str)] string title, [MarshalAs(Utf8.Str)] string body, RNotificationUrgency urgency);
+
+        /// <summary>
+        /// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnotification_is_supported();
+
+        /// <summary>
+        /// Called with the notifications the system could not show; NULL: none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnotification_set_fallback(RNotificationFallback callback, IntPtr user_data);
 
         /// <summary>
         /// Shows a texture. R_INVALID_ID shows nothing.

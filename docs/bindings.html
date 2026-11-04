@@ -80,7 +80,7 @@ The packages follow the releases: for the latest features, clone the repository,
 <tr><td><a href="#odin">Odin</a></td><td><code>bindings/odin/raven/</code></td><td>the folder</td><td>Foreign declarations under the C names; <code>proc "c"</code> callbacks, zeroed structures.</td><td><code>binding_odin</code> (where <code>odin</code> is installed; not run yet)</td></tr>
 </table></div>
 
-<p>Every binding covers the whole of <code>Raven.h</code>: 937 functions, 56
+<p>Every binding covers the whole of <code>Raven.h</code>: 940 functions, 58
 enumerations, 22 structures and 59 kinds of callback, with the documentation
 comments of the headers. Three headers are left out everywhere, because they only make
 sense from C: <code>raven_backend.h</code> (writing a rendering backend),
@@ -389,7 +389,8 @@ package of a <a href="https://github.com/oscar-soirey/Raven/releases">release</a
 set RAVEN_LIB_DIR=C:\path\to\raven\lib &amp;&amp; cargo run     # Windows: raven.lib; raven.dll beside the program</pre>
 <p><code>RAVEN_STATIC=1</code> links the static library instead; <code>build.rs</code>
 then adds the system libraries it needs (<code>user32 gdi32 shell32 comdlg32 ole32</code>
-on Windows, <code>X11 dl pthread m</code> on Linux).</p>
+on Windows, <code>X11 dl pthread m</code> on Linux, <code>objc</code> and the
+<code>AppKit QuartzCore Metal Foundation CoreFoundation</code> frameworks on macOS).</p>
 
 <h3 id="rust-hello">A program</h3>
 <pre>use raven::*;
@@ -839,9 +840,9 @@ the Lua code around the C call: catch it in the callback with
 <pre>&lt;dependency&gt;
   &lt;groupId&gt;io.github.oscar-soirey&lt;/groupId&gt;
   &lt;artifactId&gt;raven-gui&lt;/artifactId&gt;
-  &lt;version&gt;0.2.0&lt;/version&gt;
+  &lt;version&gt;0.2.1&lt;/version&gt;
 &lt;/dependency&gt;</pre>
-<p>or with Gradle: <code>implementation("io.github.oscar-soirey:raven-gui:0.2.0")</code>.
+<p>or with Gradle: <code>implementation("io.github.oscar-soirey:raven-gui:0.2.1")</code>.
 It needs Java 22 or later: the binding uses the Foreign Function &amp; Memory API
 (<code>java.lang.foreign</code>), so there is no JNI and no C to compile. The jar holds the
 library for Windows x64, Linux x64 and macOS. Start the program with

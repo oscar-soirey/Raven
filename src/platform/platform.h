@@ -32,6 +32,12 @@ typedef enum rvn_pevent_type_t {
 	RVN_PEVENT_EXPOSE,
 	RVN_PEVENT_MOUSE_MOVE,
 	RVN_PEVENT_MOUSE_BUTTON,
+	/**
+	 * wheel_x, wheel_y in lines (one notch of a wheel is 1, positive up and
+	 * left). A trackpad sets wheel_precise, with RVN_WHEEL_LINE pixels of the
+	 * fingers per line; wheel_stop (and no wheel) when its fingers left it and
+	 * the system does not make the content keep going itself (Wayland).
+	 */
 	RVN_PEVENT_MOUSE_WHEEL,
 	RVN_PEVENT_MOUSE_LEAVE,
 	RVN_PEVENT_KEY,
@@ -66,9 +72,12 @@ typedef enum rvn_pevent_type_t {
 	 */
 	RVN_PEVENT_PEN,
 	/**
-	 * A gesture recognized by the system (the pinch of a trackpad): phase
-	 * (RGesturePhase), fx, fy, gesture_scale (relative to the previous event),
-	 * wheel_x, wheel_y (pan in pixels since the previous event).
+	 * A gesture recognized by the system (a trackpad): gesture_kind
+	 * (RGestureKind, 0 is a pinch), phase (RGesturePhase), fx, fy (the
+	 * pointer), gesture_scale (relative to the previous event, 0 or 1 when it
+	 * did not change), rotation (degrees clockwise since the previous event),
+	 * wheel_x, wheel_y (pan in pixels since the previous event),
+	 * gesture_fingers (0 when unknown), gesture_cancelled (R_GESTURE_END).
 	 */
 	RVN_PEVENT_GESTURE
 } rvn_pevent_type_t;
@@ -93,6 +102,9 @@ typedef enum rvn_pwindow_state_t {
 	RVN_PWINDOW_MINIMIZED,
 	RVN_PWINDOW_MAXIMIZED
 } rvn_pwindow_state_t;
+
+/** Pixels the fingers move on a trackpad for one line of the wheel (logical units: the step of a ScrollBox). */
+#define RVN_WHEEL_LINE 48.0f
 
 typedef struct rvn_pevent_t {
 	rvn_pevent_type_t type;
@@ -130,6 +142,13 @@ typedef struct rvn_pevent_t {
 	/** RVN_PEVENT_PEN: the platform also sent the pen as the mouse (X11): the core must not do it again. */
 	int pen_native_mouse;
 	float gesture_scale;
+	/** RVN_PEVENT_GESTURE: an RGestureKind (0: R_GESTURE_PINCH), the fingers (0: unknown), R_TRUE when the system took it back. */
+	int gesture_kind;
+	int gesture_fingers;
+	int gesture_cancelled;
+	/** RVN_PEVENT_MOUSE_WHEEL: from a trackpad (fractions of lines); the fingers left it, inertia to be made by the core. */
+	int wheel_precise;
+	int wheel_stop;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);
@@ -285,7 +304,20 @@ typedef struct rvn_platform_t {
 	void  (*overlay_set_input)(rvn_pwindow_t* overlay, int x, int y, int width, int height);
 	/** `key`: the overlay takes the keyboard (something in it was given the focus); 0: the keyboard goes back to `owner`. */
 	void  (*overlay_set_key)(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key);
+
+	/**
+	 * Optional (NULL: the system has none). Shows a notification of the
+	 * system (Rnotification_show); `urgency` 0 low, 1 normal, 2 critical.
+	 * R_FALSE when it could not be shown.
+	 */
+	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
 } rvn_platform_t;
+
+#if !defined(_WIN32) && !defined(__APPLE__)
+/** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */
+int  rvn_dbus_notify(const char* app, const char* title, const char* body, int urgency);
+void rvn_dbus_notify_shutdown(void);
+#endif
 
 /**
  * rvn_pwindow_desc_t::flags: a window that floats above everything, the

@@ -114,6 +114,22 @@ typedef enum RWidgetType{
 	/** Blocks that snap into each other, in the style of Scratch. */
 	R_WIDGET_BLOCK_EDITOR,
 
+	/* ---- raven_controls.h ---- */
+	/** Rows of cells under columns that can be resized and sorted, virtualized. */
+	R_WIDGET_TABLE,
+	/** A date, chosen in a calendar that drops down. */
+	R_WIDGET_DATE_PICKER,
+	/** A time of the day: hours, minutes, optionally seconds. */
+	R_WIDGET_TIME_PICKER,
+	/** A short message that rises for a few seconds, with an optional action ("Undo"). */
+	R_WIDGET_TOAST,
+	/** The path to the current place: links separated by chevrons. */
+	R_WIDGET_BREADCRUMB,
+	/** A score shown and chosen with stars. */
+	R_WIDGET_RATING,
+	/** Page numbers with previous and next. */
+	R_WIDGET_PAGINATION,
+
 	R_WIDGET_LAST_
 }RWidgetType;
 

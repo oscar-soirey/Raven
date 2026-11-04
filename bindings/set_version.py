@@ -5,7 +5,7 @@ Sets the version of every binding package from the one of Raven.
     python bindings/set_version.py 0.2.0      # also writes it in CMakeLists.txt
 
 Updates: CMakeLists.txt (if a version is given), the fallback version of
-src/core/base.h, the Rust crate
+src/core/base.h, the version macros of include/raven/raven_core.h, the Rust crate
 (rust/Cargo.toml), the Bun package (bun/package.json), the NuGet package
 (csharp/Raven.Gui.csproj), the Maven package (java/pom.xml, its README) and
 the LuaRocks rockspec (luajit/*.rockspec,
@@ -56,6 +56,12 @@ def main():
     print("version " + version)
 
     replace(os.path.join(ROOT, "src", "core", "base.h"), r'^(#define RVN_VERSION_STRING ")[^"]*(")', r"\g<1>%s\g<2>" % version)
+    major, minor, patch = version.split(".")
+    core = os.path.join(ROOT, "include", "raven", "raven_core.h")
+    replace(core, r"^(#define RAVEN_VERSION_MAJOR )\d+", r"\g<1>" + major)
+    replace(core, r"^(#define RAVEN_VERSION_MINOR )\d+", r"\g<1>" + minor)
+    replace(core, r"^(#define RAVEN_VERSION_PATCH )\d+", r"\g<1>" + patch)
+    replace(core, r'^(#define RAVEN_API_VERSION ")[^"]*(")', r"\g<1>%s.%s\g<2>" % (major, minor))
     replace(os.path.join(HERE, "rust", "Cargo.toml"), r'^(version\s*=\s*")[^"]*(")', r"\g<1>%s\g<2>" % version)
     replace(os.path.join(HERE, "bun", "package.json"), r'^(\s*"version":\s*")[^"]*(")', r"\g<1>%s\g<2>" % version)
     replace(os.path.join(HERE, "csharp", "Raven.Gui.csproj"), r"(<Version>)[^<]*(</Version>)", r"\g<1>%s\g<2>" % version)

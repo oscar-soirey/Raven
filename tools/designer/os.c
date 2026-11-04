@@ -364,9 +364,12 @@ int ds_file_exists(const char* path) {
 }
 
 int ds_make_dirs(const char* path) {
-	char* copy = ds_strdup(path);
+	char* copy;
 	char* p;
 	int ok;
+	/* (an empty path is no folder: copy + 1 would be past its end) */
+	if (!path || !path[0]) return 0;
+	copy = ds_strdup(path);
 	for (p = copy + 1; *p; p++) {
 		if (*p == '/') {
 			*p = 0;

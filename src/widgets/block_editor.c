@@ -1697,11 +1697,16 @@ static int rvn_block_editor_event(rvn_widget_t* widget, const REvent* event) {
 				/* zoom around the pointer */
 				float before_x, before_y, after_x, after_y;
 				rvn_be_to_canvas(e, x, y, &before_x, &before_y);
-				e->zoom = rvn_clampf(e->zoom * (event->wheel_y > 0.0f ? 1.12f : 1.0f / 1.12f), 0.3f, 3.0f);
+				/* (as far as the wheel turned: the small turns of a trackpad zoom a little) */
+				e->zoom = rvn_clampf(e->zoom * powf(1.12f, rvn_clampf(event->wheel_y, -4.0f, 4.0f)), 0.3f, 3.0f);
 				rvn_spring_set(&e->shown_zoom, e->zoom);
 				rvn_be_to_canvas(e, x, y, &after_x, &after_y);
 				e->pan_x += before_x - after_x;
 				e->pan_y += before_y - after_y;
+			} else if (event->wheel_precise) {
+				/* a trackpad: the canvas follows the two fingers, both ways at once */
+				e->pan_x -= event->wheel_x * RVN_WHEEL_LINE / e->zoom;
+				e->pan_y -= event->wheel_y * RVN_WHEEL_LINE / e->zoom;
 			} else if (event->modifiers & R_MOD_SHIFT || event->wheel_x != 0.0f) {
 				e->pan_x -= (event->wheel_x != 0.0f ? event->wheel_x : event->wheel_y) * 48.0f / e->zoom;
 			} else {

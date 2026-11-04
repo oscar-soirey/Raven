@@ -79,8 +79,8 @@ number of `<Shortcut>` and `<Widget>` declarations.
 `<Shortcut Keys="Ctrl+S" Action="file.save"/>` fires an action when the keys
 are pressed anywhere in the window.
 
-Fingers and pens work without anything written (see `raven_touch.h`); these
-attributes change how, for the window (`Rwindow_set_touch_settings`):
+Fingers, pens and trackpads work without anything written (see `raven_touch.h`);
+these attributes change how, for the window (`Rwindow_set_touch_settings`):
 
 | Attribute | Value |
 |---|---|
@@ -94,6 +94,9 @@ attributes change how, for the window (`Rwindow_set_touch_settings`):
 | `Pen.MouseEmulation` | boolean (default true): the pen drives the widgets as the mouse does; its barrel button is the right button |
 | `Pen.PressureCurve` | the pressure given to the application is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder |
 | `Pen.PressureThreshold` | pressure, 0 to 1, the tip needs before it presses (default 0) |
+| `Trackpad.Gestures` | boolean (default true): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do |
+| `Trackpad.SwipeNavigation` | boolean (default true): three or more fingers swiped across a trackpad go back or forward, as the side buttons of a mouse |
+| `Trackpad.SwipeDistance` | how far the fingers of a swipe go across before it navigates (default 120) |
 
 ## Attributes of every widget
 
@@ -193,12 +196,12 @@ every keystroke of a text input (`Rtext_input_set_changed_callback`), the
 selection of a list or tree (`Rlist_view_set_selection_changed_callback`,
 `Rtree_view_set_selection_changed_callback`), raw input (`Rwidget_set_event_callback`).
 
-### Fingers and pens
+### Fingers, pens and trackpads
 
 | Attribute | Value |
 |---|---|
 | `Touch.Mode` | `Auto` (default: a finger scrolls what scrolls, and is a mouse elsewhere), `Scroll` (it always scrolls what contains the widget), `Mouse` (it is a mouse: pressing presses at once, nothing scrolls), `None` (fingers are ignored: a surface for the pen) |
-| `Touch.Gestures` | boolean (default true): `false`, two fingers neither zoom nor pan the widget |
+| `Touch.Gestures` | boolean (default true): `false`, two fingers, on the screen or a trackpad, neither zoom nor pan the widget |
 | `Pen.Mouse` | boolean (default true): `false`, the pen is not a mouse on the widget; only its pen callback (`Rwidget_set_pen_callback`) sees it |
 
 The mode and `Pen.Mouse` are inherited by what the widget contains.

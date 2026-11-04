@@ -32,6 +32,15 @@
 
 #include "raven_widget.h"
 
+/** How much a notification of the system asks for attention (Rnotification_show). */
+typedef enum RNotificationUrgency{
+	/** No sound; may only go to the list of notifications. */
+	R_NOTIFICATION_LOW = 0x04F0,
+	R_NOTIFICATION_NORMAL,
+	/** Stays until the user dismisses it, where the system allows it. */
+	R_NOTIFICATION_CRITICAL
+}RNotificationUrgency;
+
 /** A kind of file in a file dialog. */
 typedef struct RFileFilter {
 	/** Shown to the user: "Images". */
@@ -225,6 +234,30 @@ extern "C" {
 	RAVEN_API void Rfile_browser_set_cancelled_callback(Rid browser, RFileBrowserCallback callback, void* user_data);
 	/** @brief Called when the selection changes; `path` is the entry under the cursor, or NULL. */
 	RAVEN_API void Rfile_browser_set_selection_changed_callback(Rid browser, RFileBrowserCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  NOTIFICATIONS OF THE SYSTEM
+	 *
+	 * Rnotification_show asks the system to show a notification outside of the
+	 * windows: Windows (a toast of the notification area), macOS (the
+	 * Notification Center, for an application in a bundle), Linux and the
+	 * BSDs (org.freedesktop.Notifications: GNOME, KDE, mako, dunst...). It is
+	 * named after the application (RInitDesc::app_name).
+	 *
+	 * Where the system shows nothing (no notification server, the null
+	 * platform, an executable outside of a bundle on macOS), the fallback
+	 * given to Rnotification_set_fallback is called instead, for instance to
+	 * show the message in a Toast of the main window.
+	 * ============================================================================ */
+
+	/** @return R_TRUE when the system took the notification. */
+	RAVEN_API int Rnotification_show(const char* title, const char* body, RNotificationUrgency urgency);
+	/** @brief R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback). */
+	RAVEN_API int Rnotification_is_supported(void);
+	typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
+	/** @brief Called with the notifications the system could not show; NULL: none. */
+	RAVEN_API void Rnotification_set_fallback(RNotificationFallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

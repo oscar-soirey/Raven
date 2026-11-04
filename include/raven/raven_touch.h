@@ -1,11 +1,12 @@
 /**
  * Raven
- * raven_touch.h : fingers and pens.
+ * raven_touch.h : fingers, pens and trackpads.
  *
- * Nothing has to be done for a touch screen or a pen to work: the platforms
- * read them (Windows: WM_POINTER; Linux: XInput 2 and the touch and tablet
- * protocols of Wayland; macOS: the pressure of tablets and the pinch of the
- * trackpad), and the library makes them drive the widgets as they are:
+ * Nothing has to be done for a touch screen, a pen or a trackpad to work: the
+ * platforms read them (Windows: WM_POINTER and Direct Manipulation; Linux:
+ * XInput 2 and the touch, tablet and pointer-gestures protocols of Wayland;
+ * macOS: the pressure of tablets and the gestures of the trackpad), and the
+ * library makes them drive the widgets as they are:
  *
  *   - a tap clicks, a finger that moves drags as the mouse would, except
  *     over what scrolls (ScrollBox, lists, trees, tiles, the text editor,
@@ -16,11 +17,17 @@
  *     zooms (NodeGraph, TextEditor, Timeline, BlockEditor) or scrolls;
  *   - a pen is a mouse with a pressure; its barrel button makes a right
  *     click; while a pen is near the screen, the palm resting on it is
- *     ignored.
+ *     ignored;
+ *   - on a trackpad, two fingers that move scroll (REvent::wheel_precise
+ *     tells it from a wheel: the content follows the fingers, and keeps going
+ *     when they are flicked); two fingers that pinch or turn zoom and rotate
+ *     as on a touch screen (RGestureEvent::device is then
+ *     R_GESTURE_DEVICE_TRACKPAD); three or more fingers that swipe across go
+ *     back or forward, as the side buttons of a mouse (R_MOUSE_X1, X2) do.
  *
  * What changes it:
  *   - Rtouch_set_settings for the whole application, Rwindow_set_touch_settings
- *     for one window (XML: the Touch.* and Pen.* attributes of <Window>);
+ *     for one window (XML: the Touch.*, Pen.* and Trackpad.* attributes of <Window>);
  *   - for one widget: Rwidget_set_touch_mode, Rwidget_set_touch_gestures,
  *     Rwidget_set_pen_mouse (XML: Touch.Mode, Touch.Gestures, Pen.Mouse);
  *   - the events themselves, for a widget that wants them (drawing with the
@@ -83,12 +90,31 @@ typedef enum RPenButton{
 }RPenButton;
 
 typedef enum RGesturePhase{
-	/** A second finger came down. */
+	/** A second finger came down (a touch screen), or the system recognized a gesture (a trackpad). */
 	R_GESTURE_BEGIN = 0x04B0,
 	R_GESTURE_UPDATE,
-	/** Fewer than two fingers remain. */
+	/** Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back). */
 	R_GESTURE_END
 }RGesturePhase;
+
+/** What the fingers of a gesture do (RGestureEvent::kind). */
+typedef enum RGestureKind{
+	/** Two fingers that pinch, turn and move together: scale, rotation and pan. */
+	R_GESTURE_PINCH = 0x04C0,
+	/**
+	 * Three or more fingers that move together on a trackpad: only the pan
+	 * (scale stays 1). By default, a swipe across goes back or forward.
+	 */
+	R_GESTURE_SWIPE
+}RGestureKind;
+
+/** Where the fingers of a gesture are (RGestureEvent::device). */
+typedef enum RGestureDevice{
+	/** On the screen: the library recognized the gesture. */
+	R_GESTURE_DEVICE_TOUCHSCREEN = 0x04D0,
+	/** On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer). */
+	R_GESTURE_DEVICE_TRACKPAD
+}RGestureDevice;
 
 /** How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings). */
 typedef struct RTouchSettings {
@@ -112,6 +138,12 @@ typedef struct RTouchSettings {
 	float pressure_threshold;
 	/** R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it). */
 	int palm_rejection;
+	/** R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do. */
+	int trackpad_gestures;
+	/** R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse). */
+	int swipe_navigation;
+	/** How far (logical units) the fingers of a swipe go across before it navigates. Default 120. */
+	float swipe_distance;
 } RTouchSettings;
 
 typedef struct RTouchEvent {
@@ -172,13 +204,25 @@ typedef struct RGestureEvent {
 	float pan_x, pan_y;
 	/** Turn of the fingers since the gesture began, in degrees, clockwise. */
 	float rotation;
+	/** R_GESTURE_PINCH or R_GESTURE_SWIPE. */
+	RGestureKind kind;
+	/** R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD. */
+	RGestureDevice device;
+	/** Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell). */
+	int fingers;
+	/** Movement of the center since the gesture began. */
+	float total_x, total_y;
+	/** The same turn as `rotation`, since the previous event. */
+	float rotation_delta;
+	/** R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end). */
+	int cancelled;
 } RGestureEvent;
 
 /** Return R_TRUE to take the finger: the library then neither clicks nor scrolls with it. */
 typedef int (*RTouchCallback)(Rid widget, const RTouchEvent* event, void* user_data);
 /** Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted. */
 typedef int (*RPenCallback)(Rid widget, const RPenEvent* event, void* user_data);
-/** Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself. */
+/** Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself. */
 typedef int (*RGestureCallback)(Rid widget, const RGestureEvent* event, void* user_data);
 
 
@@ -204,7 +248,7 @@ extern "C" {
 	/** @brief What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says). */
 	RAVEN_API void Rwidget_set_touch_mode(Rid widget, RTouchMode mode);
 	RAVEN_API RTouchMode Rwidget_get_touch_mode(Rid widget);
-	/** @brief R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE). */
+	/** @brief R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE). */
 	RAVEN_API void Rwidget_set_touch_gestures(Rid widget, int enabled);
 	RAVEN_API int Rwidget_get_touch_gestures(Rid widget);
 	/** @brief R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE). */
@@ -231,6 +275,26 @@ extern "C" {
 	/** @brief A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton. */
 	RAVEN_API void Rwindow_inject_pen(Rid window, RPenPhase phase, float x, float y, float pressure,
 		float tilt_x, float tilt_y, Ruint buttons, int eraser);
+	/**
+	 * @brief A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+	 * R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+	 * and `rotation_delta` (degrees, clockwise) what changed since the previous
+	 * event, `pan_x`, `pan_y` how far the fingers moved since then.
+	 */
+	RAVEN_API void Rwindow_inject_trackpad_gesture(Rid window, RGestureKind kind, RGesturePhase phase, float x, float y,
+		float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers);
+	/**
+	 * @brief Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+	 * (logical units), the content following them. Sent as a precise wheel
+	 * (REvent::wheel_precise) at the pointer.
+	 */
+	RAVEN_API void Rwindow_inject_trackpad_scroll(Rid window, float dx, float dy);
+	/**
+	 * @brief The fingers that scrolled left the trackpad, on a system that
+	 * leaves the inertia to the application (Wayland): flicked content keeps
+	 * going (Touch.Inertia).
+	 */
+	RAVEN_API void Rwindow_inject_trackpad_scroll_end(Rid window);
 	/**
 	 * @brief Advances the inertia of flicked content by `seconds` at once,
 	 * and fires a long press that is due, without waiting (tests).

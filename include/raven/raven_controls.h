@@ -21,6 +21,14 @@ typedef enum RTextAlign{
 	R_TEXT_ALIGN_RIGHT
 }RTextAlign;
 
+typedef enum RToastKind{
+	/** A neutral message (the accent of the theme). */
+	R_TOAST_INFO = 0x04E0,
+	R_TOAST_SUCCESS,
+	R_TOAST_WARNING,
+	R_TOAST_ERROR
+}RToastKind;
+
 typedef enum RButtonStyle{
 	/** Filled with R_COLOR_CONTROL. */
 	R_BUTTON_DEFAULT = 0x0290,
@@ -470,6 +478,221 @@ extern "C" {
 	RAVEN_API void Rtile_view_set_selection_changed_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 	RAVEN_API void Rtile_view_set_activated_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 	RAVEN_API void Rtile_view_set_context_callback(Rid tile_view, RTileContextCallback callback, void* user_data);
+
+	/* ============================================================================
+	 *  TABLE (rows of cells under columns; virtualized)
+	 *
+	 *      <Table Name="people" Striped="true">
+	 *          <Column Header="Name" Width="160"/>
+	 *          <Column Header="Age" Width="60" Align="Right"/>
+	 *          <Column Header="City" Fill="1"/>
+	 *          <Row>Ada|36|London</Row>
+	 *          <Row><Cell>Grace</Cell><Cell>85</Cell><Cell>New York</Cell></Row>
+	 *      </Table>
+	 *
+	 * The user drags the edge of a header to resize its column (a double
+	 * click fits it to its texts) and clicks a header to sort. A stored table
+	 * sorts its rows itself (numbers by value, texts without regard to case):
+	 * the indices are always those of the order shown. A virtual table only
+	 * shows the sorted column and calls the sort callback, where the
+	 * application orders its data.
+	 * ============================================================================ */
+
+	/**
+	 * @brief Adds a column.
+	 * @param width Width in logical units; 0 or less gives the default (120).
+	 * @return The index of the column. The stored rows get an empty cell in it.
+	 */
+	RAVEN_API int Rtable_add_column(Rid table, const char* header, float width);
+	RAVEN_API int Rtable_get_column_count(Rid table);
+	/** @brief Removes the columns and the stored rows. */
+	RAVEN_API void Rtable_clear_columns(Rid table);
+	RAVEN_API void Rtable_set_column_header(Rid table, int column, const char* header);
+	RAVEN_API const char* Rtable_get_column_header(Rid table, int column);
+	RAVEN_API void Rtable_set_column_width(Rid table, int column, float width);
+	/** @brief The width the column has on screen (a filling column takes more than its width). */
+	RAVEN_API float Rtable_get_column_width(Rid table, int column);
+	/** @brief > 0: the column takes this share of the room the others leave; 0: its width only. */
+	RAVEN_API void Rtable_set_column_fill(Rid table, int column, float fill);
+	/** @brief R_FALSE: a click on the header does not sort (default R_TRUE). */
+	RAVEN_API void Rtable_set_column_sortable(Rid table, int column, int sortable);
+	/** @brief Where the texts sit in the cells: 0 left, 0.5 center, 1 right. */
+	RAVEN_API void Rtable_set_column_align(Rid table, int column, float align);
+
+	/**
+	 * @brief Adds a row.
+	 * @param cells The texts of the cells, separated by '|' ("Ada|36|London"),
+	 *              or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+	 * @return The index of the row.
+	 */
+	RAVEN_API int Rtable_add_row(Rid table, const char* cells);
+	RAVEN_API void Rtable_set_cell(Rid table, int row, int column, const char* text);
+	RAVEN_API const char* Rtable_get_cell(Rid table, int row, int column);
+	RAVEN_API void Rtable_remove_row(Rid table, int row);
+	RAVEN_API void Rtable_clear_rows(Rid table);
+	RAVEN_API int Rtable_get_row_count(Rid table);
+
+	/**
+	 * Virtual mode, for large or computed data: the table stores nothing and
+	 * asks for the texts of the cells it draws. The returned string must stay
+	 * valid until the next call.
+	 */
+	typedef const char* (*RTableCellTextCallback)(Rid table, int row, int column, void* user_data);
+	RAVEN_API void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+
+	/** @brief Selects a row. -1 selects nothing. */
+	RAVEN_API void Rtable_set_selected(Rid table, int row);
+	RAVEN_API int Rtable_get_selected(Rid table);
+	RAVEN_API void Rtable_scroll_to_row(Rid table, int row);
+	/** @brief Sorts by a column (stored rows are moved); -1 shows no sorted column. */
+	RAVEN_API void Rtable_sort(Rid table, int column, int descending);
+	RAVEN_API int Rtable_get_sort_column(Rid table);
+	RAVEN_API int Rtable_is_sort_descending(Rid table);
+	RAVEN_API void Rtable_set_header_visible(Rid table, int visible);
+	RAVEN_API void Rtable_set_grid_lines(Rid table, int visible);
+	/** @brief Every other row a little darker. */
+	RAVEN_API void Rtable_set_striped(Rid table, int striped);
+
+	typedef void (*RTableEventCallback)(Rid table, int row, void* user_data);
+	RAVEN_API void Rtable_set_selection_changed_callback(Rid table, RTableEventCallback callback, void* user_data);
+	/** @brief Called on double click or Enter. This also fires the action of the widget. */
+	RAVEN_API void Rtable_set_activated_callback(Rid table, RTableEventCallback callback, void* user_data);
+	/** @brief Called when the user clicks a header; `column` -1: not sorted. */
+	typedef void (*RTableSortCallback)(Rid table, int column, int descending, void* user_data);
+	RAVEN_API void Rtable_set_sort_callback(Rid table, RTableSortCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  DATE PICKER (a date and the calendar that drops down from it)
+	 *
+	 *      <DatePicker Date="2026-11-03" FirstDayOfWeek="1"/>
+	 *
+	 * Months are 1 to 12, days 1 to 31. The names of the months and of the days
+	 * are English unless the locale has the keys Raven.Month1 to Raven.Month12
+	 * and Raven.Day0 (Sunday) to Raven.Day6.
+	 * ============================================================================ */
+
+	/** @brief Sets the date (today when the picker is created). An invalid date is refused. */
+	RAVEN_API void Rdate_picker_set_date(Rid date_picker, int year, int month, int day);
+	RAVEN_API void Rdate_picker_get_date(Rid date_picker, int* year, int* month, int* day);
+	/** @brief The earliest and the latest dates that can be chosen; 0 for year leaves that side open. */
+	RAVEN_API void Rdate_picker_set_range(Rid date_picker, int min_year, int min_month, int min_day, int max_year, int max_month, int max_day);
+	/** @brief 0 = Sunday (default), 1 = Monday... */
+	RAVEN_API void Rdate_picker_set_first_day_of_week(Rid date_picker, int day);
+	/**
+	 * @brief How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+	 * of the month), MMM (its first three letters), dddd (the name of the day),
+	 * ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026".
+	 */
+	RAVEN_API void Rdate_picker_set_format(Rid date_picker, const char* format);
+	/** @brief The date as the field shows it (valid until the next call). */
+	RAVEN_API const char* Rdate_picker_get_text(Rid date_picker);
+	/** @brief Opens or closes the calendar. */
+	RAVEN_API void Rdate_picker_set_open(Rid date_picker, int open);
+	RAVEN_API int Rdate_picker_is_open(Rid date_picker);
+	/** @brief Called when the user chooses a date. This also fires the action of the widget. */
+	typedef void (*RDateChangedCallback)(Rid date_picker, int year, int month, int day, void* user_data);
+	RAVEN_API void Rdate_picker_set_changed_callback(Rid date_picker, RDateChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  TIME PICKER (hours : minutes [: seconds], 24 hours)
+	 *
+	 * A click on a part selects it; the arrows, the wheel or the digits change it.
+	 * ============================================================================ */
+
+	RAVEN_API void Rtime_picker_set_time(Rid time_picker, int hour, int minute, int second);
+	RAVEN_API void Rtime_picker_get_time(Rid time_picker, int* hour, int* minute, int* second);
+	RAVEN_API void Rtime_picker_set_seconds_visible(Rid time_picker, int visible);
+	/** @brief Step of the minutes for the arrows and the wheel (default 1). */
+	RAVEN_API void Rtime_picker_set_minute_step(Rid time_picker, int step);
+	/** @brief Called when the user changes the time. This also fires the action of the widget. */
+	typedef void (*RTimeChangedCallback)(Rid time_picker, int hour, int minute, int second, void* user_data);
+	RAVEN_API void Rtime_picker_set_changed_callback(Rid time_picker, RTimeChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  TOAST (a short message that rises over the content, then goes)
+	 *
+	 * Put it over the content, where it should appear:
+	 *
+	 *      <Overlay>
+	 *          ...the content...
+	 *          <Toast Name="toast" Slot.HAlign="Center" Slot.VAlign="Bottom" Slot.Padding="16"/>
+	 *      </Overlay>
+	 *
+	 * Hidden, it takes no click. Rtoast_show replaces the message shown.
+	 * ============================================================================ */
+
+	/** @brief Shows a message for `seconds` (0 or less: until Rtoast_hide). */
+	RAVEN_API void Rtoast_show(Rid toast, const char* text, double seconds);
+	RAVEN_API void Rtoast_hide(Rid toast);
+	RAVEN_API int Rtoast_is_shown(Rid toast);
+	RAVEN_API const char* Rtoast_get_text(Rid toast);
+	RAVEN_API void Rtoast_set_kind(Rid toast, RToastKind kind);
+	/** @brief A button at the end of the message ("Undo"); NULL or "" removes it. */
+	RAVEN_API void Rtoast_set_action_text(Rid toast, const char* text);
+	/** @brief Called by the button of the message, which then hides. This also fires the action of the widget. */
+	typedef void (*RToastCallback)(Rid toast, void* user_data);
+	RAVEN_API void Rtoast_set_action_callback(Rid toast, RToastCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  BREADCRUMB (Home > Documents > Report)
+	 *
+	 * The items before the last one are links; the last one is where the user is.
+	 * When they do not fit, the first ones give their place to "...".
+	 * ============================================================================ */
+
+	/** @brief Replaces the items: their texts separated by '|'. */
+	RAVEN_API void Rbreadcrumb_set_items(Rid breadcrumb, const char* items);
+	/** @return The index of the new item, at the end. */
+	RAVEN_API int Rbreadcrumb_add_item(Rid breadcrumb, const char* text);
+	/** @brief Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked. */
+	RAVEN_API void Rbreadcrumb_truncate(Rid breadcrumb, int count);
+	RAVEN_API int Rbreadcrumb_get_item_count(Rid breadcrumb);
+	RAVEN_API const char* Rbreadcrumb_get_item_text(Rid breadcrumb, int index);
+	/** @brief Called when the user clicks an item. This also fires the action of the widget. */
+	typedef void (*RBreadcrumbCallback)(Rid breadcrumb, int index, void* user_data);
+	RAVEN_API void Rbreadcrumb_set_clicked_callback(Rid breadcrumb, RBreadcrumbCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  RATING (stars)
+	 * ============================================================================ */
+
+	/** @brief The score, from 0 to the number of stars. */
+	RAVEN_API void Rrating_set_value(Rid rating, float value);
+	RAVEN_API float Rrating_get_value(Rid rating);
+	/** @brief Number of stars (default 5, at most 20). */
+	RAVEN_API void Rrating_set_max(Rid rating, int max);
+	RAVEN_API int Rrating_get_max(Rid rating);
+	/** @brief Half stars can be chosen (a whole star by default). */
+	RAVEN_API void Rrating_set_allow_half(Rid rating, int allow);
+	/** @brief Shown only, the user cannot change it. */
+	RAVEN_API void Rrating_set_read_only(Rid rating, int read_only);
+	/** @brief Size of a star (default 18). */
+	RAVEN_API void Rrating_set_star_size(Rid rating, float size);
+	/** @brief Called when the user changes the score. This also fires the action of the widget. */
+	typedef void (*RRatingChangedCallback)(Rid rating, float value, void* user_data);
+	RAVEN_API void Rrating_set_changed_callback(Rid rating, RRatingChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  PAGINATION (< 1 ... 4 5 6 ... 20 >)
+	 *
+	 * Pages are counted from 0; they are shown from 1.
+	 * ============================================================================ */
+
+	RAVEN_API void Rpagination_set_page_count(Rid pagination, int count);
+	RAVEN_API int Rpagination_get_page_count(Rid pagination);
+	RAVEN_API void Rpagination_set_page(Rid pagination, int page);
+	RAVEN_API int Rpagination_get_page(Rid pagination);
+	/** @brief Page numbers shown around the current one (default 1). */
+	RAVEN_API void Rpagination_set_siblings(Rid pagination, int siblings);
+	/** @brief Called when the user goes to another page. This also fires the action of the widget. */
+	typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
+	RAVEN_API void Rpagination_set_changed_callback(Rid pagination, RPageChangedCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

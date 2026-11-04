@@ -21,9 +21,9 @@
 #define RAVEN_CORE_H
 
 #define RAVEN_VERSION_MAJOR 0
-#define RAVEN_VERSION_MINOR 1
-#define RAVEN_VERSION_PATCH 0
-#define RAVEN_API_VERSION "0.1"
+#define RAVEN_VERSION_MINOR 2
+#define RAVEN_VERSION_PATCH 1
+#define RAVEN_API_VERSION "0.2"
 
 #ifdef __cplusplus
  #include <cstdint>

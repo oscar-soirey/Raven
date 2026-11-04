@@ -956,6 +956,13 @@ static int rvn_file_browser_event(rvn_widget_t* widget, const REvent* event) {
 			return R_FALSE;
 		case R_EVENT_MOUSE_DOWN: {
 			int nav, column;
+			/* the side buttons of a mouse (and a swipe of three fingers on a trackpad) go back and forward */
+			if (event->button == R_MOUSE_X1 || event->button == R_MOUSE_X2) {
+				int which = event->button == R_MOUSE_X1 ? RVN_FB_BACK : RVN_FB_FORWARD;
+				if (!rvn_fb_nav_enabled(browser, which)) return R_FALSE;
+				rvn_fb_nav(widget, which);
+				return R_TRUE;
+			}
 			if (!own || event->button != R_MOUSE_LEFT) return R_FALSE;
 			nav = rvn_fb_nav_at(widget, event->local_x, event->local_y);
 			if (nav >= 0) {

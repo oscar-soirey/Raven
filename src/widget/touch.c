@@ -1,8 +1,10 @@
 /**
  * Raven - widget/touch.c
- * Fingers and pens (raven_touch.h): what the platforms report becomes the
- * events of the callbacks, a mouse for the widgets, scrolling that follows
- * the finger and keeps going, the long press and the gestures of two fingers.
+ * Fingers, pens and trackpads (raven_touch.h): what the platforms report
+ * becomes the events of the callbacks, a mouse for the widgets, scrolling that
+ * follows the finger and keeps going, the long press and the gestures of two
+ * fingers; the gestures a trackpad recognizes (pinch, swipe) and the inertia
+ * of its scrolling where the system leaves it to the application.
  *
  * One finger goes through these states:
  *
@@ -26,6 +28,8 @@
 #define RVN_TOUCH_REST 0.08
 /* how long after a pen the fingers are still taken for the palm */
 #define RVN_TOUCH_PALM_DELAY 0.5
+/* the fingers of a trackpad that scrolled and were lifted later than this after their last move do not flick */
+#define RVN_TRACKPAD_REST 0.1
 
 enum {
 	RVN_TS_IDLE,
@@ -73,12 +77,33 @@ struct rvn_touch_state_t {
 	int gesture_owned;
 	rvn_widget_t* gesture_widget;
 	float g_start_dist, g_last_dist, g_cx, g_cy, g_start_angle;
+	float g_start_cx, g_start_cy, g_last_angle;
+	/** The R_GESTURE_END being sent is a cancel. */
+	int g_cancelled;
 	/** The zoom the widget did not take yet (it moves by steps): it adds up. */
 	float g_zoom_rest;
 	/* inertia */
 	rvn_widget_t* coast;
 	float coast_vx, coast_vy;
 	double coast_time;
+	/* a gesture of the trackpad (the system recognized it) */
+	int tp_active;
+	int tp_kind;
+	int tp_fingers;
+	int tp_owned;
+	rvn_widget_t* tp_target;
+	rvn_widget_t* tp_widget;
+	float tp_scale, tp_rotation, tp_total_x, tp_total_y, tp_zoom_rest;
+	/* a trackpad that scrolls: its speed (lines per second), and the inertia made here when the system leaves it (Wayland) */
+	float wheel_vx, wheel_vy;
+	/** When the speed was last measured, and what moved since (events that come together are measured together). */
+	double wheel_last;
+	float wheel_acc_x, wheel_acc_y;
+	/** When the fingers last moved. */
+	double wheel_moved;
+	int wheel_coasting;
+	float wheel_coast_vx, wheel_coast_vy;
+	double wheel_coast_time;
 	/* the pen */
 	int pen_in_range;
 	int pen_contact;
@@ -112,6 +137,9 @@ static void rvn_touch_defaults(RTouchSettings* settings) {
 	settings->pressure_curve = 1.0f;
 	settings->pressure_threshold = 0.0f;
 	settings->palm_rejection = R_TRUE;
+	settings->trackpad_gestures = R_TRUE;
+	settings->swipe_navigation = R_TRUE;
+	settings->swipe_distance = 120.0f;
 }
 
 static void rvn_touch_sanitize(RTouchSettings* settings) {
@@ -120,6 +148,7 @@ static void rvn_touch_sanitize(RTouchSettings* settings) {
 	if (!(settings->deceleration > 0.0f)) settings->deceleration = 2400.0f;
 	if (!(settings->pressure_curve > 0.0f)) settings->pressure_curve = 1.0f;
 	settings->pressure_threshold = rvn_clampf(settings->pressure_threshold, 0.0f, 1.0f);
+	if (!(settings->swipe_distance > 0.0f)) settings->swipe_distance = 120.0f;
 }
 
 static const RTouchSettings* rvn_touch_global(void) {
@@ -518,6 +547,9 @@ static void rvn_gesture_fill(rvn_window_t* window, RGestureEvent* event, RGestur
 	event->y = cy;
 	event->scale = 1.0f;
 	event->scale_delta = 1.0f;
+	event->kind = R_GESTURE_PINCH;
+	event->device = R_GESTURE_DEVICE_TOUCHSCREEN;
+	event->fingers = 2;
 }
 
 /* What the gesture moves by itself: the nearest widget that zooms or pans and lets fingers do it. */
@@ -528,6 +560,20 @@ static rvn_widget_t* rvn_gesture_find(rvn_widget_t* widget) {
 		if (rvn_touch_stops_at(widget)) break;
 	}
 	return NULL;
+}
+
+/* What a pinch does by itself to the widget it moves: the zoom (by steps the widget takes: what it leaves adds up) and the pan. */
+static void rvn_gesture_zoom_pan(rvn_widget_t* widget, float* zoom_rest, float scale_delta, float cx, float cy, float pan_x, float pan_y) {
+	if (widget->cls->zoom && fabsf(scale_delta - 1.0f) > 0.0005f) {
+		float lx, ly;
+		*zoom_rest = rvn_clampf((*zoom_rest > 0.0f ? *zoom_rest : 1.0f) * scale_delta, 0.2f, 5.0f);
+		rvn_touch_local(widget, cx, cy, &lx, &ly);
+		if (widget->cls->zoom(widget, *zoom_rest, lx, ly)) {
+			*zoom_rest = 1.0f;
+			rvn_widget_invalidate_paint(widget);
+		}
+	}
+	if (!(widget->flags & RVN_WF_DEAD) && (pan_x != 0.0f || pan_y != 0.0f)) rvn_touch_pan(widget, pan_x, pan_y, R_FALSE);
 }
 
 static void rvn_gesture_apply(rvn_window_t* window, rvn_touch_state_t* state, RGesturePhase phase, float cx, float cy, float dist, float angle) {
@@ -541,7 +587,15 @@ static void rvn_gesture_apply(rvn_window_t* window, rvn_touch_state_t* state, RG
 	event.pan_x = pan_x;
 	event.pan_y = pan_y;
 	event.rotation = angle - state->g_start_angle;
+	event.rotation_delta = angle - state->g_last_angle;
+	/* (atan2 jumps by a turn between -180 and 180) */
+	if (event.rotation_delta > 180.0f) event.rotation_delta -= 360.0f;
+	if (event.rotation_delta < -180.0f) event.rotation_delta += 360.0f;
+	event.total_x = cx - state->g_start_cx;
+	event.total_y = cy - state->g_start_cy;
+	event.cancelled = phase == R_GESTURE_END && state->g_cancelled;
 	state->g_last_dist = dist;
+	state->g_last_angle = angle;
 	state->g_cx = cx;
 	state->g_cy = cy;
 	if (state->gesture_owned) {
@@ -551,16 +605,7 @@ static void rvn_gesture_apply(rvn_window_t* window, rvn_touch_state_t* state, RG
 	/* (callbacks that do not take the gesture still see it) */
 	if (state->gesture_target) rvn_gesture_deliver(state->gesture_target, &event, R_TRUE);
 	if (window->dead || !state->gesture_widget || phase == R_GESTURE_END) return;
-	if (state->gesture_widget->cls->zoom && fabsf(scale_delta - 1.0f) > 0.0005f) {
-		float lx, ly;
-		state->g_zoom_rest = rvn_clampf((state->g_zoom_rest > 0.0f ? state->g_zoom_rest : 1.0f) * scale_delta, 0.2f, 5.0f);
-		rvn_touch_local(state->gesture_widget, cx, cy, &lx, &ly);
-		if (state->gesture_widget->cls->zoom(state->gesture_widget, state->g_zoom_rest, lx, ly)) {
-			state->g_zoom_rest = 1.0f;
-			rvn_widget_invalidate_paint(state->gesture_widget);
-		}
-	}
-	if (state->gesture_widget && (pan_x != 0.0f || pan_y != 0.0f)) rvn_touch_pan(state->gesture_widget, pan_x, pan_y, R_FALSE);
+	rvn_gesture_zoom_pan(state->gesture_widget, &state->g_zoom_rest, scale_delta, cx, cy, pan_x, pan_y);
 }
 
 static void rvn_gesture_begin(rvn_window_t* window, rvn_touch_state_t* state, int a, int b) {
@@ -575,9 +620,9 @@ static void rvn_gesture_begin(rvn_window_t* window, rvn_touch_state_t* state, in
 	state->pan = NULL;
 	rvn_gesture_measure(state, &cx, &cy, &dist, &angle);
 	state->g_start_dist = state->g_last_dist = dist;
-	state->g_cx = cx;
-	state->g_cy = cy;
-	state->g_start_angle = angle;
+	state->g_cx = state->g_start_cx = cx;
+	state->g_cy = state->g_start_cy = cy;
+	state->g_start_angle = state->g_last_angle = angle;
 	state->g_zoom_rest = 1.0f;
 	under = rvn_window_widget_at(window, cx, cy);
 	state->gesture_target = under;
@@ -597,12 +642,14 @@ static void rvn_gesture_begin(rvn_window_t* window, rvn_touch_state_t* state, in
 	}
 }
 
-static void rvn_gesture_end(rvn_window_t* window, rvn_touch_state_t* state) {
-	float cx = state->g_cx, cy = state->g_cy, dist = state->g_last_dist, angle = state->g_start_angle;
+static void rvn_gesture_end(rvn_window_t* window, rvn_touch_state_t* state, int cancelled) {
+	float cx = state->g_cx, cy = state->g_cy, dist = state->g_last_dist, angle = state->g_last_angle;
 	if (state->ga >= 0 && state->gb >= 0 && state->fingers[state->ga].used && state->fingers[state->gb].used) {
 		rvn_gesture_measure(state, &cx, &cy, &dist, &angle);
 	}
+	state->g_cancelled = cancelled;
 	rvn_gesture_apply(window, state, R_GESTURE_END, cx, cy, dist, angle);
+	state->g_cancelled = R_FALSE;
 	state->ga = state->gb = -1;
 	state->gesture_target = state->gesture_widget = NULL;
 	state->gesture_owned = R_FALSE;
@@ -711,7 +758,7 @@ static void rvn_touch_finger(rvn_window_t* window, int id, RTouchPhase phase, fl
 		} else {
 			/* (the finger is already free: measured with where it was lifted) */
 			finger->used = R_TRUE;
-			rvn_gesture_end(window, state);
+			rvn_gesture_end(window, state, phase == R_TOUCH_CANCEL);
 			finger->used = R_FALSE;
 		}
 	} else if (index == state->primary) {
@@ -819,39 +866,218 @@ static void rvn_pen(rvn_window_t* window, RPenPhase phase, float x, float y, flo
 }
 
 /* ---------------------------------------------------------------------------
- *  A gesture of the system (the pinch of a trackpad)
+ *  A trackpad: the gestures the system recognizes, and its scrolling
  * ------------------------------------------------------------------------- */
 
-static void rvn_touch_system_gesture(rvn_window_t* window, RGesturePhase phase, float x, float y, float scale_delta, float pan_x, float pan_y) {
-	rvn_touch_state_t* state = rvn_touch_state(window);
+static void rvn_wheel_stop_coast(rvn_touch_state_t* state) {
+	state->wheel_coasting = R_FALSE;
+	state->wheel_coast_vx = state->wheel_coast_vy = 0.0f;
+}
+
+static void rvn_trackpad_fill(rvn_window_t* window, const rvn_touch_state_t* state, RGestureEvent* event, RGesturePhase phase, float x, float y) {
+	rvn_gesture_fill(window, event, phase, x, y);
+	event->target = state->tp_target ? state->tp_target->id : R_INVALID_ID;
+	event->kind = (RGestureKind)state->tp_kind;
+	event->device = R_GESTURE_DEVICE_TRACKPAD;
+	event->fingers = state->tp_fingers;
+	event->scale = state->tp_scale;
+	event->rotation = state->tp_rotation;
+	event->total_x = state->tp_total_x;
+	event->total_y = state->tp_total_y;
+}
+
+/* The callbacks see the gesture: the one that took it alone, else every one from the target up. */
+static void rvn_trackpad_deliver(rvn_touch_state_t* state, RGestureEvent* event) {
+	if (state->tp_owned) {
+		if (state->tp_widget) rvn_gesture_deliver(state->tp_widget, event, R_FALSE);
+	} else if (state->tp_target) {
+		rvn_gesture_deliver(state->tp_target, event, R_TRUE);
+	}
+}
+
+static void rvn_trackpad_forget(rvn_touch_state_t* state) {
+	state->tp_active = R_FALSE;
+	state->tp_owned = R_FALSE;
+	state->tp_target = state->tp_widget = NULL;
+}
+
+static void rvn_trackpad_begin(rvn_window_t* window, rvn_touch_state_t* state, int kind, float x, float y, int fingers) {
 	RGestureEvent event;
-	if (phase == R_GESTURE_BEGIN || !state->gesture_target) {
-		state->gesture_target = rvn_window_widget_at(window, x, y);
-		state->gesture_owned = R_FALSE;
-		state->gesture_widget = NULL;
-		state->g_start_dist = state->g_last_dist = 100.0f;
-		state->g_zoom_rest = 1.0f;
-		if (state->gesture_target) {
-			rvn_widget_t* taken;
-			rvn_gesture_fill(window, &event, R_GESTURE_BEGIN, x, y);
-			event.target = state->gesture_target->id;
-			taken = rvn_gesture_deliver(state->gesture_target, &event, R_TRUE);
-			if (window->dead) return;
-			state->gesture_owned = taken != NULL;
-			state->gesture_widget = taken ? taken : rvn_gesture_find(state->gesture_target);
+	rvn_widget_t* taken = NULL;
+	state->tp_active = R_TRUE;
+	state->tp_kind = kind;
+	state->tp_fingers = fingers > 0 ? fingers : kind == R_GESTURE_PINCH ? 2 : 0;
+	state->tp_owned = R_FALSE;
+	state->tp_scale = 1.0f;
+	state->tp_rotation = state->tp_total_x = state->tp_total_y = 0.0f;
+	state->tp_zoom_rest = 1.0f;
+	state->tp_widget = NULL;
+	state->tp_target = rvn_window_widget_at(window, x, y);
+	/* (the fingers came back on the trackpad: what they flicked stops) */
+	rvn_touch_stop_coast(state);
+	rvn_wheel_stop_coast(state);
+	if (!state->tp_target) return;
+	rvn_trackpad_fill(window, state, &event, R_GESTURE_BEGIN, x, y);
+	taken = rvn_gesture_deliver(state->tp_target, &event, R_TRUE);
+	if (window->dead || !window->touch) return;
+	state->tp_owned = taken != NULL;
+	/* what a pinch zooms by itself; a swipe moves nothing, it navigates when it ends */
+	state->tp_widget = taken ? taken : kind == R_GESTURE_PINCH ? rvn_gesture_find(state->tp_target) : NULL;
+}
+
+/* Three or more fingers that went far enough across: back (toward the right) or forward, as the side buttons of a mouse. */
+static void rvn_trackpad_navigate(rvn_window_t* window, const rvn_touch_state_t* state, const RTouchSettings* settings) {
+	RMouseButton button;
+	if (!settings->swipe_navigation || fabsf(state->tp_total_x) < settings->swipe_distance) return;
+	if (fabsf(state->tp_total_x) < 2.0f * fabsf(state->tp_total_y)) return;
+	button = state->tp_total_x > 0.0f ? R_MOUSE_X1 : R_MOUSE_X2;
+	rvn_window_emulate_button(window, button, R_TRUE);
+	rvn_window_emulate_button(window, button, R_FALSE);
+}
+
+static void rvn_trackpad_gesture(rvn_window_t* window, int kind, RGesturePhase phase, float x, float y,
+	float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers, int cancelled) {
+	rvn_touch_state_t* state = rvn_touch_state(window);
+	const RTouchSettings* settings = rvn_touch_settings(window);
+	RGestureEvent event;
+
+	if (kind != R_GESTURE_SWIPE) kind = R_GESTURE_PINCH;
+	/* (a pinch that the settings turn off is not seen at all, as two fingers on the screen with Touch.Gestures off) */
+	if (kind == R_GESTURE_PINCH && !settings->trackpad_gestures) {
+		if (state->tp_active && state->tp_kind == R_GESTURE_PINCH) rvn_trackpad_forget(state);
+		return;
+	}
+	if (state->tp_active && (phase == R_GESTURE_BEGIN || state->tp_kind != kind)) {
+		/* a gesture began before the last one ended (the system lost its end, or it changed its mind): that one is taken back */
+		if (phase == R_GESTURE_BEGIN && state->tp_kind == kind) {
+			phase = R_GESTURE_UPDATE;
+		} else {
+			RGestureEvent end;
+			rvn_trackpad_fill(window, state, &end, R_GESTURE_END, x, y);
+			end.cancelled = R_TRUE;
+			rvn_trackpad_deliver(state, &end);
+			if (window->dead || !window->touch) return;
+			rvn_trackpad_forget(state);
 		}
-		state->g_cx = x;
-		state->g_cy = y;
-		if (phase == R_GESTURE_BEGIN) return;
 	}
+	if (!state->tp_active) {
+		/* (an end without a beginning: nothing to end) */
+		if (phase == R_GESTURE_END) return;
+		rvn_trackpad_begin(window, state, kind, x, y, fingers);
+		if (window->dead || !window->touch || phase == R_GESTURE_BEGIN) return;
+	}
+	if (fingers > 0) state->tp_fingers = fingers;
 	if (!(scale_delta > 0.0f)) scale_delta = 1.0f;
-	state->g_cx = x - pan_x;
-	state->g_cy = y - pan_y;
-	rvn_gesture_apply(window, state, phase == R_GESTURE_END ? R_GESTURE_END : R_GESTURE_UPDATE, x, y, state->g_last_dist * scale_delta, 0.0f);
-	if (phase == R_GESTURE_END) {
-		state->gesture_target = state->gesture_widget = NULL;
-		state->gesture_owned = R_FALSE;
+	if (kind == R_GESTURE_SWIPE) scale_delta = 1.0f, rotation_delta = 0.0f;
+	state->tp_scale *= scale_delta;
+	state->tp_rotation += rotation_delta;
+	state->tp_total_x += pan_x;
+	state->tp_total_y += pan_y;
+
+	rvn_trackpad_fill(window, state, &event, phase == R_GESTURE_END ? R_GESTURE_END : R_GESTURE_UPDATE, x, y);
+	event.scale_delta = scale_delta;
+	event.rotation_delta = rotation_delta;
+	event.pan_x = pan_x;
+	event.pan_y = pan_y;
+	event.cancelled = phase == R_GESTURE_END && cancelled;
+	rvn_trackpad_deliver(state, &event);
+	if (window->dead || !window->touch) return;
+
+	if (!state->tp_owned) {
+		if (phase != R_GESTURE_END && kind == R_GESTURE_PINCH && state->tp_widget && !(state->tp_widget->flags & RVN_WF_DEAD)) {
+			rvn_gesture_zoom_pan(state->tp_widget, &state->tp_zoom_rest, scale_delta, x, y, pan_x, pan_y);
+		} else if (phase == R_GESTURE_END && kind == R_GESTURE_SWIPE && !cancelled) {
+			rvn_trackpad_navigate(window, state, settings);
+		}
 	}
+	if (phase == R_GESTURE_END && window->touch) rvn_trackpad_forget(window->touch);
+}
+
+/* The window lost the input in the middle of a gesture of the trackpad: it is taken back. */
+static void rvn_trackpad_cancel(rvn_window_t* window, rvn_touch_state_t* state) {
+	rvn_wheel_stop_coast(state);
+	if (!state->tp_active) return;
+	rvn_trackpad_gesture(window, state->tp_kind, R_GESTURE_END, window->mouse_x, window->mouse_y, 1.0f, 0.0f, 0.0f, 0.0f, 0, R_TRUE);
+}
+
+int rvn_touch_on_wheel(rvn_window_t* window, const rvn_pevent_t* event) {
+	rvn_touch_state_t* state;
+	const RTouchSettings* settings;
+	double now;
+	if (!window->touch && !event->wheel_precise && !event->wheel_stop) return R_FALSE;
+	state = rvn_touch_state(window);
+	now = rvn_touch_now(state);
+	if (event->wheel_stop) {
+		/* the fingers left the trackpad: flicked, the content keeps going as it would under a finger */
+		float speed = sqrtf(state->wheel_vx * state->wheel_vx + state->wheel_vy * state->wheel_vy) * RVN_WHEEL_LINE;
+		settings = rvn_touch_settings(window);
+		rvn_wheel_stop_coast(state);
+		if (settings->inertia && now - state->wheel_moved < RVN_TRACKPAD_REST && speed > RVN_TOUCH_COAST_MIN) {
+			state->wheel_coasting = R_TRUE;
+			state->wheel_coast_vx = state->wheel_vx;
+			state->wheel_coast_vy = state->wheel_vy;
+			state->wheel_coast_time = now;
+			window->needs_paint = R_TRUE;
+		}
+		state->wheel_vx = state->wheel_vy = 0.0f;
+		state->wheel_acc_x = state->wheel_acc_y = 0.0f;
+		return R_TRUE;
+	}
+	/* a wheel, or fingers that came back on the trackpad: what was flicked stops */
+	rvn_wheel_stop_coast(state);
+	if (!event->wheel_precise) {
+		state->wheel_vx = state->wheel_vy = 0.0f;
+		return R_FALSE;
+	}
+	/* (fingers that rest on the trackpad without moving: only the stop) */
+	if (event->wheel_x == 0.0f && event->wheel_y == 0.0f) return R_TRUE;
+	{
+		double dt = now - state->wheel_last;
+		if (now - state->wheel_moved > 0.2) {
+			/* (a new scroll: its speed starts from nothing) */
+			state->wheel_vx = state->wheel_vy = 0.0f;
+			state->wheel_acc_x = state->wheel_acc_y = 0.0f;
+			state->wheel_last = now;
+			dt = 0.0;
+		}
+		state->wheel_acc_x += event->wheel_x;
+		state->wheel_acc_y += event->wheel_y;
+		state->wheel_moved = now;
+		/* (the speed of the last moments, smoothed, as for a finger on the screen) */
+		if (dt >= 0.004) {
+			float keep = dt > 0.05 ? 0.0f : 0.35f;
+			state->wheel_vx = state->wheel_vx * keep + (state->wheel_acc_x / (float)dt) * (1.0f - keep);
+			state->wheel_vy = state->wheel_vy * keep + (state->wheel_acc_y / (float)dt) * (1.0f - keep);
+			state->wheel_acc_x = state->wheel_acc_y = 0.0f;
+			state->wheel_last = now;
+		}
+	}
+	return R_FALSE;
+}
+
+/* The inertia of a trackpad that was flicked (where the system does not make it): precise wheels that slow down. */
+static int rvn_wheel_coast_step(rvn_window_t* window, rvn_touch_state_t* state, double now) {
+	const RTouchSettings* settings = rvn_touch_settings(window);
+	double dt;
+	float speed, slower;
+	if (!state->wheel_coasting) return R_FALSE;
+	dt = rvn_minf((float)(now - state->wheel_coast_time), 0.1f);
+	state->wheel_coast_time = now;
+	if (dt <= 0.0) return R_TRUE;
+	rvn_dispatch_begin();
+	rvn_window_emulate_wheel(window, state->wheel_coast_vx * (float)dt, state->wheel_coast_vy * (float)dt, R_TRUE);
+	rvn_dispatch_end();
+	if (window->dead || !window->touch || !state->wheel_coasting) return R_TRUE;
+	/* (the speed in lines per second; the deceleration of the settings is in units) */
+	speed = sqrtf(state->wheel_coast_vx * state->wheel_coast_vx + state->wheel_coast_vy * state->wheel_coast_vy);
+	slower = speed - settings->deceleration / RVN_WHEEL_LINE * (float)dt;
+	if (slower * RVN_WHEEL_LINE <= RVN_TOUCH_COAST_MIN * 0.25f) {
+		rvn_wheel_stop_coast(state);
+	} else {
+		state->wheel_coast_vx *= slower / speed;
+		state->wheel_coast_vy *= slower / speed;
+	}
+	return R_TRUE;
 }
 
 /* ---------------------------------------------------------------------------
@@ -872,8 +1098,9 @@ void rvn_touch_on_event(rvn_window_t* window, const rvn_pevent_t* event, float s
 				event->eraser, event->pen_buttons, event->pen_native_mouse);
 			break;
 		case RVN_PEVENT_GESTURE:
-			rvn_touch_system_gesture(window, (RGesturePhase)event->phase, x, y, event->gesture_scale,
-				event->wheel_x / scale, event->wheel_y / scale);
+			rvn_trackpad_gesture(window, event->gesture_kind == R_GESTURE_SWIPE ? R_GESTURE_SWIPE : R_GESTURE_PINCH,
+				(RGesturePhase)event->phase, x, y, event->gesture_scale, event->rotation,
+				event->wheel_x / scale, event->wheel_y / scale, event->gesture_fingers, event->gesture_cancelled);
 			break;
 		default:
 			break;
@@ -881,7 +1108,7 @@ void rvn_touch_on_event(rvn_window_t* window, const rvn_pevent_t* event, float s
 }
 
 int rvn_touch_animating(const rvn_window_t* window) {
-	return window->touch && window->touch->coast != NULL;
+	return window->touch && (window->touch->coast != NULL || window->touch->wheel_coasting);
 }
 
 int rvn_touch_step(rvn_window_t* window) {
@@ -896,6 +1123,10 @@ int rvn_touch_step(rvn_window_t* window) {
 		rvn_touch_long_press(window);
 		rvn_dispatch_end();
 		if (window->dead) return R_FALSE;
+	}
+	if (rvn_wheel_coast_step(window, state, now)) {
+		if (window->dead || !window->touch) return R_FALSE;
+		if (!state->coast) return R_TRUE;
 	}
 	if (!state->coast) return R_FALSE;
 	settings = rvn_touch_settings(window);
@@ -930,6 +1161,8 @@ void rvn_touch_forget_widget(rvn_window_t* window, rvn_widget_t* widget) {
 	if (state->gesture_target && rvn_widget_is_inside(state->gesture_target, widget)) state->gesture_target = NULL;
 	if (state->gesture_widget && rvn_widget_is_inside(state->gesture_widget, widget)) state->gesture_widget = NULL;
 	if (state->pen_target && rvn_widget_is_inside(state->pen_target, widget)) state->pen_target = NULL;
+	if (state->tp_target && rvn_widget_is_inside(state->tp_target, widget)) state->tp_target = NULL;
+	if (state->tp_widget && rvn_widget_is_inside(state->tp_widget, widget)) state->tp_widget = NULL;
 }
 
 void rvn_touch_cancel(rvn_window_t* window) {
@@ -938,8 +1171,10 @@ void rvn_touch_cancel(rvn_window_t* window) {
 	if (!state) return;
 	rvn_touch_stop_long_press(state);
 	rvn_touch_stop_coast(state);
-	if (state->state == RVN_TS_GESTURE) rvn_gesture_end(window, state);
+	if (state->state == RVN_TS_GESTURE) rvn_gesture_end(window, state, R_TRUE);
 	if (window->dead) return;
+	rvn_trackpad_cancel(window, state);
+	if (window->dead || !window->touch) return;
 	for (i = 0; i < RVN_TOUCH_MAX; i++) {
 		rvn_finger_t* finger = &state->fingers[i];
 		if (!finger->used) continue;
@@ -997,7 +1232,7 @@ int rvn_touch_attribute(rvn_widget_t* widget, const char* name, const char* valu
 int rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const char* value) {
 	float number;
 	int flag;
-	if (rvn_strnicmp(name, "Touch.", 6) != 0 && rvn_strnicmp(name, "Pen.", 4) != 0) return -1;
+	if (rvn_strnicmp(name, "Touch.", 6) != 0 && rvn_strnicmp(name, "Pen.", 4) != 0 && rvn_strnicmp(name, "Trackpad.", 9) != 0) return -1;
 #define RVN_TOUCH_BOOL(attribute, field) \
 	if (rvn_stricmp(name, attribute) == 0) { \
 		if (!rvn_parse_bool(value, &flag)) return R_FALSE; \
@@ -1019,6 +1254,9 @@ int rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const
 	RVN_TOUCH_BOOL("Touch.PalmRejection", palm_rejection)
 	RVN_TOUCH_BOOL("Pen.MouseEmulation", pen_mouse_emulation)
 	RVN_TOUCH_NUMBER("Pen.PressureCurve", pressure_curve, 0.01f)
+	RVN_TOUCH_BOOL("Trackpad.Gestures", trackpad_gestures)
+	RVN_TOUCH_BOOL("Trackpad.SwipeNavigation", swipe_navigation)
+	RVN_TOUCH_NUMBER("Trackpad.SwipeDistance", swipe_distance, 0.01f)
 	if (rvn_stricmp(name, "Pen.PressureThreshold") == 0) {
 		if (!rvn_parse_float(value, &number) || number < 0.0f || number > 1.0f) return R_FALSE;
 		settings->pressure_threshold = number;
@@ -1172,6 +1410,52 @@ void Rwindow_inject_pen(Rid id, RPenPhase phase, float x, float y, float pressur
 	}
 	rvn_dispatch_begin();
 	rvn_pen(window, phase, x, y, pressure, tilt_x, tilt_y, 0.0f, eraser, buttons, R_FALSE);
+	rvn_dispatch_end();
+}
+
+void Rwindow_inject_trackpad_gesture(Rid id, RGestureKind kind, RGesturePhase phase, float x, float y,
+	float scale_delta, float rotation_delta, float pan_x, float pan_y, int fingers) {
+	rvn_window_t* window = rvn_touch_inject_begin(id, __func__);
+	if (!window) return;
+	if (kind != R_GESTURE_PINCH && kind != R_GESTURE_SWIPE) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "%s: %d is not a RGestureKind", __func__, (int)kind);
+		return;
+	}
+	if (phase < R_GESTURE_BEGIN || phase > R_GESTURE_END) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "%s: %d is not a RGesturePhase", __func__, (int)phase);
+		return;
+	}
+	rvn_dispatch_begin();
+	/* (a gesture of the trackpad happens where the pointer is) */
+	if (window->mouse_x != x || window->mouse_y != y) rvn_window_emulate_move(window, x, y);
+	if (!window->dead) rvn_trackpad_gesture(window, kind, phase, x, y, scale_delta, rotation_delta, pan_x, pan_y, fingers, R_FALSE);
+	rvn_dispatch_end();
+}
+
+void Rwindow_inject_trackpad_scroll(Rid id, float dx, float dy) {
+	rvn_window_t* window = rvn_touch_inject_begin(id, __func__);
+	rvn_pevent_t event;
+	if (!window) return;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_MOUSE_WHEEL;
+	event.wheel_x = dx / RVN_WHEEL_LINE;
+	event.wheel_y = dy / RVN_WHEEL_LINE;
+	event.wheel_precise = R_TRUE;
+	rvn_dispatch_begin();
+	if (!rvn_touch_on_wheel(window, &event) && !window->dead) rvn_window_emulate_wheel(window, event.wheel_x, event.wheel_y, R_TRUE);
+	rvn_dispatch_end();
+}
+
+void Rwindow_inject_trackpad_scroll_end(Rid id) {
+	rvn_window_t* window = rvn_touch_inject_begin(id, __func__);
+	rvn_pevent_t event;
+	if (!window) return;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_MOUSE_WHEEL;
+	event.wheel_precise = R_TRUE;
+	event.wheel_stop = R_TRUE;
+	rvn_dispatch_begin();
+	rvn_touch_on_wheel(window, &event);
 	rvn_dispatch_end();
 }
 

@@ -207,12 +207,16 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   conventions of each language. **Right-to-left** layouts that mirror
   themselves, bidirectional text, Arabic shaping, **emoji** in color and
   the fonts of the system for the scripts the bundled font lacks.
-- **Touch and pens, with nothing to do.** On Windows, X11, Wayland and macOS:
-  a tap clicks, a finger scrolls lists, trees, text and graphs and flicks
-  them, resting is a right click, two fingers pinch to zoom; a pen is a
+- **Touch, pens and trackpads, with nothing to do.** On Windows, X11, Wayland
+  and macOS: a tap clicks, a finger scrolls lists, trees, text and graphs and
+  flicks them, resting is a right click, two fingers pinch to zoom; a pen is a
   mouse with a pressure and a tilt, and the palm resting on the screen is
-  ignored. Settings for the application, a window or a widget, from code,
-  XML or the designer, and events of their own (`raven_touch.h`).
+  ignored. On a trackpad, two fingers scroll by the pixel (with inertia) and
+  pan canvases, a pinch zooms and turns, three fingers swiped across go back
+  and forward (Direct Manipulation on Windows, pointer gestures on Wayland,
+  XInput 2.4 on X11, AppKit on macOS). Settings for the application, a window
+  or a widget, from code, XML or the designer, and events of their own
+  (`raven_touch.h`).
 - **Accessible.** Native **screen readers** (Narrator and NVDA through UI
   Automation, VoiceOver, Orca through AT-SPI), a **text scale**,
   **high-contrast** themes, **color filters** for color blindness, a focus
@@ -447,7 +451,7 @@ Questions: oscarsoirey.contact@gmail.com.
 
 ## Status
 
-Version 0.2.0. Everything in this README has been tested: the headless test
+Version 0.2.1. Everything in this README has been tested: the headless test
 programs (layout, widgets, XML, threads, memory, animations, text editor,
 shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
 under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
@@ -529,6 +533,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
+| `RAVEN_WITH_SVG` | `ON` | SVG images (icons), drawn by nanosvg |
 | `RAVEN_FETCH_VULKAN_HEADERS` | `ON` | download the Khronos headers when no SDK is found |
 | `RAVEN_VULKAN_INCLUDE_DIR` | | folder containing `vulkan/vulkan.h`, to skip the search |
 | `RAVEN_REBUILD_SHADERS` | `OFF` | recompile the GLSL (needs `glslangValidator` or `glslc`); the SPIR-V is committed |
@@ -556,7 +561,7 @@ dist.bat --test       :: also runs the tests of each build
 ```
 
 ```
-dist\raven-0.2.0\
+dist\raven-0.2.1\
     msvc-static\     include\, lib\raven.lib, lib\cmake\raven, bin\raven_designer.exe, share\raven\
     msvc-shared\     bin\raven.dll, lib\raven.lib (to link with the DLL), the rest as above
     mingw-static\    lib\libraven.a, the rest as above
@@ -865,8 +870,10 @@ popup is more opaque than the panel it comes from, and a panel than the bar
 above it, so that what is on top stays readable.
 
 With glass, controls are capsules that show a blurred, more vivid version of
-what is behind them; their rim bends it like a lens and catches a light
-placed at the top left; the knob of a slider turns into a clear lens while it
+what is behind them; their rim bends it like a lens, splits it into a thin
+rainbow where its colors change (violet bent more than red, seven wavelengths)
+and catches a light placed at the top left; the edge of a `BackgroundBlur`
+splits what is behind it the same way, more faintly; the knob of a slider turns into a clear lens while it
 is dragged. Glass needs something behind it: the glass themes put every
 window on a plain dark grey (dark) or plain white (light); `Rwindow_set_background`
 puts an image behind it instead, and a theme file can give colored blobs
@@ -969,6 +976,37 @@ and work at any zoom.
 On a label the text is rendered (headings, lists, quotes, code blocks, tables,
 links that open or fire actions); on the text editor it stays as typed and is
 styled where it stands.
+
+### Tables, dates and the small controls
+
+```xml
+<Table Name="people" Striped="true" Slot.Fill="1">
+    <Column Header="Name" Width="160"/>
+    <Column Header="Age" Width="60" Align="Right"/>
+    <Column Header="City" Fill="1"/>
+    <Row>Ada|36|London</Row>
+</Table>
+<HBox Spacing="8">
+    <DatePicker Date="Today" FirstDayOfWeek="Monday"/>
+    <TimePicker Time="09:30" MinuteStep="15"/>
+    <Rating Value="4" AllowHalf="true"/>
+</HBox>
+<Breadcrumb Items="Home|Documents|Report"/>
+<Pagination PageCount="20" Page="0"/>
+```
+
+A table virtualizes its rows as a list does (`Rtable_set_virtual_rows`); its
+columns are resized by their edges and sorted by their headers. A `Toast`, put
+in an `Overlay`, shows a short message for a few seconds (`Rtoast_show`), with
+an optional button ("Undo"). `Rnotification_show` asks the system for a
+notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
+where there is none, calls the fallback the application gave
+(`Rnotification_set_fallback`), to show it in a toast for instance.
+
+SVG files are read wherever an image is (`Image Source="icon.svg"`,
+`Rtexture_create_from_file`), drawn at 2 pixels per unit so that they stay
+sharp on high-density screens, and shown at the size the SVG gives;
+`Rtexture_create_from_svg` draws one at another scale.
 
 ### Files that are loaded again
 
@@ -1237,6 +1275,8 @@ and how to add a widget, a window system or a backend.
 
 ## Not implemented yet
 
+The plan for what comes next is in [ROADMAP.md](ROADMAP.md).
+
 What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
@@ -1270,7 +1310,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 ## Third-party code
 
-`stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), a subset
+`stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), `nanosvg`
+(zlib, Mikko Mononen), a subset
 of the Roboto font (Apache 2.0, Google) and a subset of Roboto Mono (SIL Open
 Font License 1.1) are included under `third_party/`; see
 [THIRD_PARTY.md](THIRD_PARTY.md). The Vulkan headers (Apache 2.0 / MIT,

@@ -8,6 +8,7 @@ in the repository and compiled into the library.
 | stb_truetype 1.26 (Sean Barrett) | `third_party/stb/stb_truetype.h` | public domain or MIT, see `third_party/stb/LICENSE` | glyph outlines and rasterization |
 | stb_image 2.30 (Sean Barrett) | `third_party/stb/stb_image.h` | public domain or MIT, see `third_party/stb/LICENSE` | PNG / JPEG / BMP / TGA decoding; optional (`RAVEN_WITH_STB_IMAGE`) |
 | sokol_gfx (Andre Weissflog) | `third_party/sokol/sokol_gfx.h` | zlib, see the header | renderer of the optional Sokol backend (`RAVEN_BACKEND_SOKOL`); compiled once with its functions renamed `rvn_sokol_*`; pinned commit in `third_party/sokol/README.md` |
+| nanosvg and nanosvgrast (Mikko Mononen), master of November 2026 | `third_party/nanosvg/nanosvg.h`, `nanosvgrast.h` | zlib, see `third_party/nanosvg/LICENSE.txt` | SVG parsing and rasterization; optional (`RAVEN_WITH_SVG`) |
 | Roboto Regular (Google) | `third_party/roboto/Roboto-Regular-subset.ttf`, embedded as `src/resources/default_font.c` | Apache License 2.0, see `third_party/roboto/LICENSE` | default font |
 | Wayland protocol descriptions (Wayland, wayland-protocols) | `third_party/wayland-protocols/*.xml`, turned into `src/platform/wayland/wayland_protocols.h` by `tools/wayland/gen_wayland.py` | MIT, see `third_party/wayland-protocols/COPYING` | the protocols of the Wayland platform (Linux, BSD) |
 | Roboto Mono Regular (The Roboto Mono Project Authors) | `third_party/roboto-mono/RobotoMono-Regular-subset.ttf`, embedded as `src/resources/mono_font.c` | SIL Open Font License 1.1, see `third_party/roboto-mono/LICENSE` | fixed-width font of the text editor (`Rfont_get_monospace`) |
@@ -24,6 +25,13 @@ Open Font License these are modified versions of the original fonts.
 Both stb files are compiled as `static` functions inside a single source
 file each (`src/render/font_raster.c`, `src/render/image_decode.c`), so they
 cannot clash with another copy of stb in the application.
+
+nanosvg is compiled in a single source file (`src/render/svg_decode.c`)
+whose `#define`s give its public names the prefix `rvn_`, so that it cannot
+clash with another copy in the application. It is not changed; before it
+draws, `svg_decode.c` leaves out the shapes far outside the picture and
+dashes much smaller than a pixel, which a damaged file could otherwise make
+it draw for minutes.
 
 `stb_truetype.h` has one change, marked `Raven:`: the CFF table of an
 OpenType font is read within its length (the original reads up to 512 MB

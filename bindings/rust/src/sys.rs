@@ -6,9 +6,9 @@ use std::os::raw::{c_char, c_int, c_void};
 pub type Rid = u32;
 pub type Ruint = u32;
 pub const RAVEN_VERSION_MAJOR: c_int = 0;
-pub const RAVEN_VERSION_MINOR: c_int = 1;
-pub const RAVEN_VERSION_PATCH: c_int = 0;
-pub const RAVEN_API_VERSION: &str = "0.1";
+pub const RAVEN_VERSION_MINOR: c_int = 2;
+pub const RAVEN_VERSION_PATCH: c_int = 1;
+pub const RAVEN_API_VERSION: &str = "0.2";
 pub const R_FALSE: c_int = 0;
 pub const R_TRUE: c_int = 1;
 pub const R_INVALID_ID: Rid = 0xFFFFFFFF;
@@ -309,11 +309,26 @@ pub const R_PEN_BUTTON_BARREL: RPenButton = 1;
 pub const R_PEN_BUTTON_BARREL2: RPenButton = 2;
 
 pub type RGesturePhase = c_int;
-/// A second finger came down.
+/// A second finger came down (a touch screen), or the system recognized a gesture (a trackpad).
 pub const R_GESTURE_BEGIN: RGesturePhase = 0x04B0;
 pub const R_GESTURE_UPDATE: RGesturePhase = 0x04B1;
-/// Fewer than two fingers remain.
+/// Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back).
 pub const R_GESTURE_END: RGesturePhase = 0x04B2;
+
+/// What the fingers of a gesture do (RGestureEvent::kind).
+pub type RGestureKind = c_int;
+/// Two fingers that pinch, turn and move together: scale, rotation and pan.
+pub const R_GESTURE_PINCH: RGestureKind = 0x04C0;
+/// Three or more fingers that move together on a trackpad: only the pan
+/// (scale stays 1). By default, a swipe across goes back or forward.
+pub const R_GESTURE_SWIPE: RGestureKind = 0x04C1;
+
+/// Where the fingers of a gesture are (RGestureEvent::device).
+pub type RGestureDevice = c_int;
+/// On the screen: the library recognized the gesture.
+pub const R_GESTURE_DEVICE_TOUCHSCREEN: RGestureDevice = 0x04D0;
+/// On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer).
+pub const R_GESTURE_DEVICE_TRACKPAD: RGestureDevice = 0x04D1;
 
 /// The looks. Each one comes dark and light.
 ///
@@ -590,6 +605,20 @@ pub const R_WIDGET_NODE_GRAPH: RWidgetType = 0x0228;
 pub const R_WIDGET_TILE_VIEW: RWidgetType = 0x0229;
 /// Blocks that snap into each other, in the style of Scratch.
 pub const R_WIDGET_BLOCK_EDITOR: RWidgetType = 0x022A;
+/// Rows of cells under columns that can be resized and sorted, virtualized.
+pub const R_WIDGET_TABLE: RWidgetType = 0x022B;
+/// A date, chosen in a calendar that drops down.
+pub const R_WIDGET_DATE_PICKER: RWidgetType = 0x022C;
+/// A time of the day: hours, minutes, optionally seconds.
+pub const R_WIDGET_TIME_PICKER: RWidgetType = 0x022D;
+/// A short message that rises for a few seconds, with an optional action ("Undo").
+pub const R_WIDGET_TOAST: RWidgetType = 0x022E;
+/// The path to the current place: links separated by chevrons.
+pub const R_WIDGET_BREADCRUMB: RWidgetType = 0x022F;
+/// A score shown and chosen with stars.
+pub const R_WIDGET_RATING: RWidgetType = 0x0230;
+/// Page numbers with previous and next.
+pub const R_WIDGET_PAGINATION: RWidgetType = 0x0231;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -669,6 +698,13 @@ pub type RTextAlign = c_int;
 pub const R_TEXT_ALIGN_LEFT: RTextAlign = 0x0280;
 pub const R_TEXT_ALIGN_CENTER: RTextAlign = 0x0281;
 pub const R_TEXT_ALIGN_RIGHT: RTextAlign = 0x0282;
+
+pub type RToastKind = c_int;
+/// A neutral message (the accent of the theme).
+pub const R_TOAST_INFO: RToastKind = 0x04E0;
+pub const R_TOAST_SUCCESS: RToastKind = 0x04E1;
+pub const R_TOAST_WARNING: RToastKind = 0x04E2;
+pub const R_TOAST_ERROR: RToastKind = 0x04E3;
 
 pub type RButtonStyle = c_int;
 /// Filled with R_COLOR_CONTROL.
@@ -794,6 +830,14 @@ pub type RBlockPlace = c_int;
 pub const R_BLOCK_NEXT: RBlockPlace = 0x0710;
 pub const R_BLOCK_BODY: RBlockPlace = 0x0711;
 pub const R_BLOCK_INPUT: RBlockPlace = 0x0712;
+
+/// How much a notification of the system asks for attention (Rnotification_show).
+pub type RNotificationUrgency = c_int;
+/// No sound; may only go to the list of notifications.
+pub const R_NOTIFICATION_LOW: RNotificationUrgency = 0x04F0;
+pub const R_NOTIFICATION_NORMAL: RNotificationUrgency = 0x04F1;
+/// Stays until the user dismisses it, where the system allows it.
+pub const R_NOTIFICATION_CRITICAL: RNotificationUrgency = 0x04F2;
 
 pub type RFileDialogFlags = c_int;
 /// Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result.
@@ -1009,7 +1053,7 @@ pub type RWindowEventHook = Option<unsafe extern "C" fn(window: Rid, event: *con
 pub type RTouchCallback = Option<unsafe extern "C" fn(widget: Rid, event: *const RTouchEvent, user_data: *mut c_void) -> c_int>;
 /// Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
 pub type RPenCallback = Option<unsafe extern "C" fn(widget: Rid, event: *const RPenEvent, user_data: *mut c_void) -> c_int>;
-/// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms or pans by itself.
+/// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
 pub type RGestureCallback = Option<unsafe extern "C" fn(widget: Rid, event: *const RGestureEvent, user_data: *mut c_void) -> c_int>;
 /// Called once when the widget is gone: deleted by the application,
 /// with its parent or its window, or by Rshutdown. The place to release
@@ -1060,6 +1104,25 @@ pub type RTileContextCallback = Option<unsafe extern "C" fn(tile_view: Rid, inde
 /// (Rtile_view_get_selection). The text returned is copied; NULL keeps
 /// the indices.
 pub type RTileDragDataCallback = Option<unsafe extern "C" fn(tile_view: Rid, user_data: *mut c_void) -> *const c_char>;
+/// Virtual mode, for large or computed data: the table stores nothing and
+/// asks for the texts of the cells it draws. The returned string must stay
+/// valid until the next call.
+pub type RTableCellTextCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, column: c_int, user_data: *mut c_void) -> *const c_char>;
+pub type RTableEventCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, user_data: *mut c_void)>;
+/// Called when the user clicks a header; `column` -1: not sorted.
+pub type RTableSortCallback = Option<unsafe extern "C" fn(table: Rid, column: c_int, descending: c_int, user_data: *mut c_void)>;
+/// Called when the user chooses a date. This also fires the action of the widget.
+pub type RDateChangedCallback = Option<unsafe extern "C" fn(date_picker: Rid, year: c_int, month: c_int, day: c_int, user_data: *mut c_void)>;
+/// Called when the user changes the time. This also fires the action of the widget.
+pub type RTimeChangedCallback = Option<unsafe extern "C" fn(time_picker: Rid, hour: c_int, minute: c_int, second: c_int, user_data: *mut c_void)>;
+/// Called by the button of the message, which then hides. This also fires the action of the widget.
+pub type RToastCallback = Option<unsafe extern "C" fn(toast: Rid, user_data: *mut c_void)>;
+/// Called when the user clicks an item. This also fires the action of the widget.
+pub type RBreadcrumbCallback = Option<unsafe extern "C" fn(breadcrumb: Rid, index: c_int, user_data: *mut c_void)>;
+/// Called when the user changes the score. This also fires the action of the widget.
+pub type RRatingChangedCallback = Option<unsafe extern "C" fn(rating: Rid, value: f32, user_data: *mut c_void)>;
+/// Called when the user goes to another page. This also fires the action of the widget.
+pub type RPageChangedCallback = Option<unsafe extern "C" fn(pagination: Rid, page: c_int, user_data: *mut c_void)>;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 pub type RTextEditorZoomCallback = Option<unsafe extern "C" fn(editor: Rid, zoom: f32, user_data: *mut c_void)>;
 /// Called each time the editor gathers its proposals, with the
@@ -1106,6 +1169,7 @@ pub type RDialogClosedCallback = Option<unsafe extern "C" fn(content: Rid, resul
 /// files, read them with Rfile_browser_get_selection. The action of the
 /// widget (OnActivated in XML) fires at the same time.
 pub type RFileBrowserCallback = Option<unsafe extern "C" fn(browser: Rid, path: *const c_char, user_data: *mut c_void)>;
+pub type RNotificationFallback = Option<unsafe extern "C" fn(title: *const c_char, body: *const c_char, urgency: RNotificationUrgency, user_data: *mut c_void)>;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -1261,6 +1325,11 @@ pub struct REvent {
     /// R_TRUE when the key event comes from auto-repeat.
     pub repeat: c_int,
     pub codepoint: u32,
+    /// R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+    /// mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+    /// a line, a line being 48 logical units the fingers moved: what follows the
+    /// fingers moves 48 units per line, and a canvas pans rather than zooms.
+    pub wheel_precise: c_int,
 }
 
 /// What a drop target receives. The files and the text are only known when
@@ -1311,6 +1380,12 @@ pub struct RTouchSettings {
     pub pressure_threshold: f32,
     /// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
     pub palm_rejection: c_int,
+    /// R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do.
+    pub trackpad_gestures: c_int,
+    /// R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
+    pub swipe_navigation: c_int,
+    /// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+    pub swipe_distance: f32,
 }
 
 #[repr(C)]
@@ -1391,6 +1466,20 @@ pub struct RGestureEvent {
     pub pan_y: f32,
     /// Turn of the fingers since the gesture began, in degrees, clockwise.
     pub rotation: f32,
+    /// R_GESTURE_PINCH or R_GESTURE_SWIPE.
+    pub kind: RGestureKind,
+    /// R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD.
+    pub device: RGestureDevice,
+    /// Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell).
+    pub fingers: c_int,
+    /// Movement of the center since the gesture began.
+    pub total_x: f32,
+    /// Movement of the center since the gesture began.
+    pub total_y: f32,
+    /// The same turn as `rotation`, since the previous event.
+    pub rotation_delta: f32,
+    /// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+    pub cancelled: c_int,
 }
 
 /// What a tile shows, filled by the application when the tile is drawn.
@@ -1946,7 +2035,7 @@ extern "C" {
     /// What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says).
     pub fn Rwidget_set_touch_mode(widget: Rid, mode: RTouchMode);
     pub fn Rwidget_get_touch_mode(widget: Rid) -> RTouchMode;
-    /// R_FALSE: two fingers neither zoom nor pan the widget (default R_TRUE).
+    /// R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
     pub fn Rwidget_set_touch_gestures(widget: Rid, enabled: c_int);
     pub fn Rwidget_get_touch_gestures(widget: Rid) -> c_int;
     /// R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE).
@@ -1965,6 +2054,19 @@ extern "C" {
     pub fn Rwindow_inject_touch(window: Rid, id: c_int, phase: RTouchPhase, x: f32, y: f32);
     /// A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
     pub fn Rwindow_inject_pen(window: Rid, phase: RPenPhase, x: f32, y: f32, pressure: f32, tilt_x: f32, tilt_y: f32, buttons: u32, eraser: c_int);
+    /// A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+    /// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+    /// and `rotation_delta` (degrees, clockwise) what changed since the previous
+    /// event, `pan_x`, `pan_y` how far the fingers moved since then.
+    pub fn Rwindow_inject_trackpad_gesture(window: Rid, kind: RGestureKind, phase: RGesturePhase, x: f32, y: f32, scale_delta: f32, rotation_delta: f32, pan_x: f32, pan_y: f32, fingers: c_int);
+    /// Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+    /// (logical units), the content following them. Sent as a precise wheel
+    /// (REvent::wheel_precise) at the pointer.
+    pub fn Rwindow_inject_trackpad_scroll(window: Rid, dx: f32, dy: f32);
+    /// The fingers that scrolled left the trackpad, on a system that
+    /// leaves the inertia to the application (Wayland): flicked content keeps
+    /// going (Touch.Inertia).
+    pub fn Rwindow_inject_trackpad_scroll_end(window: Rid);
     /// Advances the inertia of flicked content by `seconds` at once,
     /// and fires a long press that is due, without waiting (tests).
     pub fn Rwindow_advance_touch(window: Rid, seconds: f64);
@@ -2084,13 +2186,22 @@ extern "C" {
     /// size Font size; 0 uses R_METRIC_FONT_SIZE.
     pub fn Rfont_measure_text(font: Rid, size: f32, text: *const c_char, width: *mut f32, height: *mut f32);
     /// Creates a texture from the content of an image file (PNG, JPEG,
-    /// BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+    /// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
     /// Returns: R_INVALID_ID on failure.
     pub fn Rtexture_create(data: *const c_char, data_size: usize) -> Rid;
     /// Same as Rtexture_create, decoded on a worker thread. The handle
     /// is usable at once; widgets showing it draw nothing until it is ready.
     /// The buffer is copied.
     pub fn Rtexture_create_async(data: *const c_char, data_size: usize) -> Rid;
+    /// Draws an SVG image (an icon) into a texture, at `scale` pixels per
+    /// unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
+    /// The widgets show it at the size the SVG gives, whatever the scale
+    /// (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
+    /// also read SVG files, at a scale of 2. Paths, fills, strokes and
+    /// gradients are drawn; text, filters and masks are not.
+    pub fn Rtexture_create_from_svg(svg: *const c_char, svg_size: usize, scale: f32) -> Rid;
+    /// Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
+    pub fn Rtexture_get_density(texture: Rid) -> f32;
     pub fn Rtexture_create_from_file(path: *const c_char) -> Rid;
     /// Reads and decodes the file on a worker thread.
     pub fn Rtexture_create_from_file_async(path: *const c_char) -> Rid;
@@ -2643,6 +2754,112 @@ extern "C" {
     pub fn Rtile_view_set_selection_changed_callback(tile_view: Rid, callback: RTileEventCallback, user_data: *mut c_void);
     pub fn Rtile_view_set_activated_callback(tile_view: Rid, callback: RTileEventCallback, user_data: *mut c_void);
     pub fn Rtile_view_set_context_callback(tile_view: Rid, callback: RTileContextCallback, user_data: *mut c_void);
+    /// Adds a column.
+    /// width Width in logical units; 0 or less gives the default (120).
+    /// Returns: The index of the column. The stored rows get an empty cell in it.
+    pub fn Rtable_add_column(table: Rid, header: *const c_char, width: f32) -> c_int;
+    pub fn Rtable_get_column_count(table: Rid) -> c_int;
+    /// Removes the columns and the stored rows.
+    pub fn Rtable_clear_columns(table: Rid);
+    pub fn Rtable_set_column_header(table: Rid, column: c_int, header: *const c_char);
+    pub fn Rtable_get_column_header(table: Rid, column: c_int) -> *const c_char;
+    pub fn Rtable_set_column_width(table: Rid, column: c_int, width: f32);
+    /// The width the column has on screen (a filling column takes more than its width).
+    pub fn Rtable_get_column_width(table: Rid, column: c_int) -> f32;
+    /// > 0: the column takes this share of the room the others leave; 0: its width only.
+    pub fn Rtable_set_column_fill(table: Rid, column: c_int, fill: f32);
+    /// R_FALSE: a click on the header does not sort (default R_TRUE).
+    pub fn Rtable_set_column_sortable(table: Rid, column: c_int, sortable: c_int);
+    /// Where the texts sit in the cells: 0 left, 0.5 center, 1 right.
+    pub fn Rtable_set_column_align(table: Rid, column: c_int, align: f32);
+    /// Adds a row.
+    /// cells The texts of the cells, separated by '|' ("Ada|36|London"),
+    ///              or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+    /// Returns: The index of the row.
+    pub fn Rtable_add_row(table: Rid, cells: *const c_char) -> c_int;
+    pub fn Rtable_set_cell(table: Rid, row: c_int, column: c_int, text: *const c_char);
+    pub fn Rtable_get_cell(table: Rid, row: c_int, column: c_int) -> *const c_char;
+    pub fn Rtable_remove_row(table: Rid, row: c_int);
+    pub fn Rtable_clear_rows(table: Rid);
+    pub fn Rtable_get_row_count(table: Rid) -> c_int;
+    pub fn Rtable_set_virtual_rows(table: Rid, count: c_int, callback: RTableCellTextCallback, user_data: *mut c_void);
+    /// Selects a row. -1 selects nothing.
+    pub fn Rtable_set_selected(table: Rid, row: c_int);
+    pub fn Rtable_get_selected(table: Rid) -> c_int;
+    pub fn Rtable_scroll_to_row(table: Rid, row: c_int);
+    /// Sorts by a column (stored rows are moved); -1 shows no sorted column.
+    pub fn Rtable_sort(table: Rid, column: c_int, descending: c_int);
+    pub fn Rtable_get_sort_column(table: Rid) -> c_int;
+    pub fn Rtable_is_sort_descending(table: Rid) -> c_int;
+    pub fn Rtable_set_header_visible(table: Rid, visible: c_int);
+    pub fn Rtable_set_grid_lines(table: Rid, visible: c_int);
+    /// Every other row a little darker.
+    pub fn Rtable_set_striped(table: Rid, striped: c_int);
+    pub fn Rtable_set_selection_changed_callback(table: Rid, callback: RTableEventCallback, user_data: *mut c_void);
+    /// Called on double click or Enter. This also fires the action of the widget.
+    pub fn Rtable_set_activated_callback(table: Rid, callback: RTableEventCallback, user_data: *mut c_void);
+    pub fn Rtable_set_sort_callback(table: Rid, callback: RTableSortCallback, user_data: *mut c_void);
+    /// Sets the date (today when the picker is created). An invalid date is refused.
+    pub fn Rdate_picker_set_date(date_picker: Rid, year: c_int, month: c_int, day: c_int);
+    pub fn Rdate_picker_get_date(date_picker: Rid, year: *mut c_int, month: *mut c_int, day: *mut c_int);
+    /// The earliest and the latest dates that can be chosen; 0 for year leaves that side open.
+    pub fn Rdate_picker_set_range(date_picker: Rid, min_year: c_int, min_month: c_int, min_day: c_int, max_year: c_int, max_month: c_int, max_day: c_int);
+    /// 0 = Sunday (default), 1 = Monday...
+    pub fn Rdate_picker_set_first_day_of_week(date_picker: Rid, day: c_int);
+    /// How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+    /// of the month), MMM (its first three letters), dddd (the name of the day),
+    /// ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026".
+    pub fn Rdate_picker_set_format(date_picker: Rid, format: *const c_char);
+    /// The date as the field shows it (valid until the next call).
+    pub fn Rdate_picker_get_text(date_picker: Rid) -> *const c_char;
+    /// Opens or closes the calendar.
+    pub fn Rdate_picker_set_open(date_picker: Rid, open: c_int);
+    pub fn Rdate_picker_is_open(date_picker: Rid) -> c_int;
+    pub fn Rdate_picker_set_changed_callback(date_picker: Rid, callback: RDateChangedCallback, user_data: *mut c_void);
+    pub fn Rtime_picker_set_time(time_picker: Rid, hour: c_int, minute: c_int, second: c_int);
+    pub fn Rtime_picker_get_time(time_picker: Rid, hour: *mut c_int, minute: *mut c_int, second: *mut c_int);
+    pub fn Rtime_picker_set_seconds_visible(time_picker: Rid, visible: c_int);
+    /// Step of the minutes for the arrows and the wheel (default 1).
+    pub fn Rtime_picker_set_minute_step(time_picker: Rid, step: c_int);
+    pub fn Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback, user_data: *mut c_void);
+    /// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+    pub fn Rtoast_show(toast: Rid, text: *const c_char, seconds: f64);
+    pub fn Rtoast_hide(toast: Rid);
+    pub fn Rtoast_is_shown(toast: Rid) -> c_int;
+    pub fn Rtoast_get_text(toast: Rid) -> *const c_char;
+    pub fn Rtoast_set_kind(toast: Rid, kind: RToastKind);
+    /// A button at the end of the message ("Undo"); NULL or "" removes it.
+    pub fn Rtoast_set_action_text(toast: Rid, text: *const c_char);
+    pub fn Rtoast_set_action_callback(toast: Rid, callback: RToastCallback, user_data: *mut c_void);
+    /// Replaces the items: their texts separated by '|'.
+    pub fn Rbreadcrumb_set_items(breadcrumb: Rid, items: *const c_char);
+    /// Returns: The index of the new item, at the end.
+    pub fn Rbreadcrumb_add_item(breadcrumb: Rid, text: *const c_char) -> c_int;
+    /// Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked.
+    pub fn Rbreadcrumb_truncate(breadcrumb: Rid, count: c_int);
+    pub fn Rbreadcrumb_get_item_count(breadcrumb: Rid) -> c_int;
+    pub fn Rbreadcrumb_get_item_text(breadcrumb: Rid, index: c_int) -> *const c_char;
+    pub fn Rbreadcrumb_set_clicked_callback(breadcrumb: Rid, callback: RBreadcrumbCallback, user_data: *mut c_void);
+    /// The score, from 0 to the number of stars.
+    pub fn Rrating_set_value(rating: Rid, value: f32);
+    pub fn Rrating_get_value(rating: Rid) -> f32;
+    /// Number of stars (default 5, at most 20).
+    pub fn Rrating_set_max(rating: Rid, max: c_int);
+    pub fn Rrating_get_max(rating: Rid) -> c_int;
+    /// Half stars can be chosen (a whole star by default).
+    pub fn Rrating_set_allow_half(rating: Rid, allow: c_int);
+    /// Shown only, the user cannot change it.
+    pub fn Rrating_set_read_only(rating: Rid, read_only: c_int);
+    /// Size of a star (default 18).
+    pub fn Rrating_set_star_size(rating: Rid, size: f32);
+    pub fn Rrating_set_changed_callback(rating: Rid, callback: RRatingChangedCallback, user_data: *mut c_void);
+    pub fn Rpagination_set_page_count(pagination: Rid, count: c_int);
+    pub fn Rpagination_get_page_count(pagination: Rid) -> c_int;
+    pub fn Rpagination_set_page(pagination: Rid, page: c_int);
+    pub fn Rpagination_get_page(pagination: Rid) -> c_int;
+    /// Page numbers shown around the current one (default 1).
+    pub fn Rpagination_set_siblings(pagination: Rid, siblings: c_int);
+    pub fn Rpagination_set_changed_callback(pagination: Rid, callback: RPageChangedCallback, user_data: *mut c_void);
     /// text Initial content, or NULL.
     pub fn Rtext_editor_create(text: *const c_char) -> Rid;
     /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.
@@ -2764,8 +2981,10 @@ extern "C" {
     pub fn Rheader_bar_set_title(bar: Rid, title: *const c_char);
     /// buttons Bitmask of RHeaderButtons. All by default; the maximize button only shows on a resizable window.
     pub fn Rheader_bar_set_buttons(bar: Rid, buttons: u32);
-    /// side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-    /// Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+    /// side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+    /// R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+    /// set, the side is the one of the system the program runs on (left on
+    /// macOS, right elsewhere), whatever the look.
     pub fn Rheader_bar_set_button_side(bar: Rid, side: RHAlign);
     /// align R_HALIGN_CENTER (default) or R_HALIGN_LEFT.
     pub fn Rheader_bar_set_title_align(bar: Rid, align: RHAlign);
@@ -3252,6 +3471,12 @@ extern "C" {
     pub fn Rfile_browser_set_cancelled_callback(browser: Rid, callback: RFileBrowserCallback, user_data: *mut c_void);
     /// Called when the selection changes; `path` is the entry under the cursor, or NULL.
     pub fn Rfile_browser_set_selection_changed_callback(browser: Rid, callback: RFileBrowserCallback, user_data: *mut c_void);
+    /// Returns: R_TRUE when the system took the notification.
+    pub fn Rnotification_show(title: *const c_char, body: *const c_char, urgency: RNotificationUrgency) -> c_int;
+    /// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+    pub fn Rnotification_is_supported() -> c_int;
+    /// Called with the notifications the system could not show; NULL: none.
+    pub fn Rnotification_set_fallback(callback: RNotificationFallback, user_data: *mut c_void);
     /// Shows a texture. R_INVALID_ID shows nothing.
     pub fn Rviewport_set_texture(viewport: Rid, texture: Rid);
     /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.

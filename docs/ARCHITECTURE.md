@@ -292,6 +292,13 @@ specific to Windows:
   the render thread, it therefore keeps answering *sent* messages
   (`rvn_platform_t::wait_service`, `rvn_renderer_wait`), without dispatching
   anything to the core.
+- Precision touchpads go through Direct Manipulation (`win32_manipulation.c`):
+  on `DM_POINTERHITTEST` the contact is given to a viewport of the window,
+  updated by hand from a timer while the fingers act; the changes of its
+  transform become precise wheels (then the inertia of the system) or a pinch,
+  and the transform is put back when the fingers are done. Without it
+  (no header, Windows 7, COM already in another apartment,
+  `RAVEN_DIRECT_MANIPULATION=0`) the touchpad stays the wheel.
 
 **X11.** Xlib only. Text input goes through an X input context (dead keys,
 compose). The scale comes from the `Xft.dpi` resource. A self-pipe wakes the
@@ -320,13 +327,32 @@ Things that differ from the other systems:
   `wl_surface.set_buffer_scale`.
 - *Input.* Key repeat is the client's job (a `timerfd` in the poll of the
   pump). Moving and resizing a window with a custom header hand the serial of
-  the last button press to `xdg_toplevel.move` / `.resize`.
+  the last button press to `xdg_toplevel.move` / `.resize`. So is the inertia
+  of a trackpad: `wl_pointer.axis_source` tells fingers from a wheel (a precise
+  wheel), `axis_stop` that they left, and the core keeps the content going.
+  The pinch, the swipe and the hold of `zwp_pointer_gestures_v1` become the
+  gestures of the trackpad (the hold stops what coasts).
 - *The clipboard* is read through a pipe from the other application; a
   selection of our own is answered without going through the compositor.
 
 `tests/test_wayland.c` runs a small compositor of its own (on
 `libwayland-server`) and checks the dialogue: configure, resize, scale,
-pointer, keyboard, clipboard, drops, hide and show, close.
+pointer, trackpad (scrolling, inertia, pinch, swipe, hold), keyboard,
+clipboard, drops, hide and show, close.
+
+**Fingers, pens and trackpads.** Every platform turns what it reads into
+`RVN_PEVENT_TOUCH`, `_PEN`, `_GESTURE` (a gesture the system recognized: the
+pinch, rotation or swipe of a trackpad) or a precise `RVN_PEVENT_MOUSE_WHEEL`
+(`wheel_precise`, `RVN_WHEEL_LINE` pixels of the fingers per line;
+`wheel_stop` when the system leaves the inertia to the application).
+`widget/touch.c` does the rest, the same everywhere: one finger becomes the
+mouse or a scroll (`rvn_widget_class_t::pan`), two a gesture; a gesture of
+the trackpad goes to the gesture callbacks, then zooms and pans what zooms
+(`rvn_widget_class_t::zoom`) or, for a swipe, presses the side buttons of the
+mouse; a precise wheel is measured, and flicked, coasts as precise wheels.
+The X11 platform reads the gestures of XInput 2.4 (`XI_GesturePinch*`,
+`XI_GestureSwipe*`), macOS those of AppKit (`magnifyWithEvent`,
+`rotateWithEvent`, `swipeWithEvent`).
 
 ## Memory
 
