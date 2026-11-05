@@ -223,7 +223,9 @@ static void open_path(const char* path) {
 
 static int save(int ask) {
 	const char* text;
-	if (ask || !app.path[0]) {
+	char target[sizeof(app.path)];
+	snprintf(target, sizeof(target), "%s", app.path);
+	if (ask || !target[0]) {
 		RFileDialogDesc desc;
 		const char* chosen;
 		memset(&desc, 0, sizeof(desc));
@@ -235,13 +237,17 @@ static int save(int ask) {
 		desc.default_extension = "txt";
 		chosen = Rfile_dialog_save(&desc);
 		if (!chosen) return R_FALSE;
-		snprintf(app.path, sizeof(app.path), "%s", chosen);
-		set_language(Rlanguage_for_file(app.path));
+		snprintf(target, sizeof(target), "%s", chosen);
 	}
 	text = Rtext_editor_get_text(app.editor);
-	if (!Rfile_write(app.path, text, (size_t)Rtext_editor_get_length(app.editor))) {
-		set_status("Cannot write %s", app.path);
+	if (!Rfile_write(target, text, (size_t)Rtext_editor_get_length(app.editor))) {
+		set_status("Cannot write %s", target);
 		return R_FALSE;
+	}
+	/* only once it is written: a failed Save As leaves the text with the file it had */
+	if (strcmp(target, app.path) != 0) {
+		memcpy(app.path, target, sizeof(app.path));
+		set_language(Rlanguage_for_file(app.path));
 	}
 	app.modified = R_FALSE;
 	update_title();

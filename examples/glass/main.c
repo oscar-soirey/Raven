@@ -91,6 +91,16 @@ static void add_card(Rid grid, int index) {
 	Rwidget_set_transition(card, R_TRANSITION_POP, 0.30f + 0.06f * (float)index);
 }
 
+/* Shows where the player is: the time, the slider and the progress. */
+static void show_time(void) {
+	char text[16];
+	int total = (int)app.seconds;
+	snprintf(text, sizeof(text), "%d:%02d", total / 60, total % 60);
+	Rlabel_set_text(app.time, text);
+	Rslider_set_value(app.position, (float)(app.seconds / 240.0));
+	Rprogress_bar_set_value(app.progress, (float)(app.seconds / 240.0));
+}
+
 static void on_action(Rid sender, const char* action, void* user_data) {
 	(void)user_data;
 	if (strcmp(action, "theme.toggle") == 0) {
@@ -98,6 +108,12 @@ static void on_action(Rid sender, const char* action, void* user_data) {
 	} else if (strcmp(action, "player.toggle") == 0) {
 		app.playing = !app.playing;
 		Rbutton_set_text(app.play, app.playing ? "Pause" : "Play");
+		/* frames are only needed while the time moves */
+		Rwindow_set_continuous_redraw(app.window, app.playing);
+	} else if (strcmp(action, "player.seek") == 0) {
+		/* the slider was dragged: the time goes where it was left */
+		app.seconds = Rslider_get_value(sender) * 240.0;
+		show_time();
 	} else if (strcmp(action, "menu.open") == 0) {
 		/* a menu is a popup of glass: it opens under the button */
 		float x, y, width, height;
@@ -110,17 +126,11 @@ static void on_action(Rid sender, const char* action, void* user_data) {
 
 /* Called once per frame: the player advances while it plays. */
 static void on_frame(double delta_seconds, void* user_data) {
-	char text[16];
-	int total;
 	(void)user_data;
 	if (!app.playing || !Rwindow_is_valid(app.window)) return;
 	app.seconds += delta_seconds;
 	if (app.seconds > 240.0) app.seconds = 0.0;
-	total = (int)app.seconds;
-	snprintf(text, sizeof(text), "%d:%02d", total / 60, total % 60);
-	Rlabel_set_text(app.time, text);
-	Rslider_set_value(app.position, (float)(app.seconds / 240.0));
-	Rprogress_bar_set_value(app.progress, (float)(app.seconds / 240.0));
+	show_time();
 }
 
 int main(int argc, char** argv) {

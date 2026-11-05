@@ -400,7 +400,13 @@ static void set_nav(void) {
 }
 
 static void show_page(int page, int remember) {
-	if (remember && page != app.page && app.history_count < (int)(sizeof(app.history) / sizeof(app.history[0]))) {
+	if (remember && page != app.page) {
+		int capacity = (int)(sizeof(app.history) / sizeof(app.history[0]));
+		/* when it is full the oldest page goes: Back always goes to the page before */
+		if (app.history_count == capacity) {
+			memmove(app.history, app.history + 1, sizeof(app.history[0]) * (size_t)(capacity - 1));
+			app.history_count--;
+		}
 		app.history[app.history_count++] = app.page;
 	}
 	app.page = page;

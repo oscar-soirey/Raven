@@ -23,7 +23,7 @@
 
 static struct {
 	Rid window, graph, timeline, tint, selected, time, play;
-	int added;
+	int added, playing;
 } app;
 
 /* Widgets are found again after a reload: the file may have replaced them. */
@@ -38,27 +38,50 @@ static void find_widgets(void) {
 
 /* ---- the graph ---- */
 
-/* Does a path of links lead from `node` to `target`? */
-static int reaches(Rid graph, int node, int target, int depth) {
-	int i, k;
-	if (node == target) return R_TRUE;
-	if (depth > 64) return R_FALSE;
-	for (i = 0; ; i++) {
-		int output = Rnode_graph_get_output(graph, node, i);
-		if (!output) break;
-		for (k = 0; k < Rnode_graph_get_link_count(graph); k++) {
-			int link = Rnode_graph_get_link(graph, k);
-			if (Rnode_graph_get_link_output(graph, link) != output) continue;
-			if (reaches(graph, Rnode_graph_get_pin_node(graph, Rnode_graph_get_link_input(graph, link)), target, depth + 1)) return R_TRUE;
+/* Does a path of links lead from `node` to `target`? Each node is looked at once,
+ * however long the path: a node is expanded once and a link pushed once per expansion,
+ * so the nodes to look at never outnumber the links plus the first one. */
+static int reaches(Rid graph, int node, int target) {
+	int links = Rnode_graph_get_link_count(graph);
+	int nodes = Rnode_graph_get_node_count(graph);
+	int* pending = (int*)malloc(sizeof(int) * (size_t)(links + 1));
+	int* seen = (int*)malloc(sizeof(int) * (size_t)(nodes + 1));
+	int pending_count = 0, seen_count = 0, found = R_FALSE;
+	if (!pending || !seen) {
+		free(pending);
+		free(seen);
+		return R_TRUE; /* (when unsure, the link is refused) */
+	}
+	pending[pending_count++] = node;
+	while (pending_count > 0) {
+		int current = pending[--pending_count], known = R_FALSE, i, k;
+		if (current == target) {
+			found = R_TRUE;
+			break;
+		}
+		for (i = 0; i < seen_count && !known; i++) known = seen[i] == current;
+		if (known || seen_count > nodes) continue;
+		seen[seen_count++] = current;
+		for (i = 0; ; i++) {
+			int output = Rnode_graph_get_output(graph, current, i);
+			if (!output) break;
+			for (k = 0; k < links; k++) {
+				int link = Rnode_graph_get_link(graph, k);
+				if (Rnode_graph_get_link_output(graph, link) == output) {
+					pending[pending_count++] = Rnode_graph_get_pin_node(graph, Rnode_graph_get_link_input(graph, link));
+				}
+			}
 		}
 	}
-	return R_FALSE;
+	free(pending);
+	free(seen);
+	return found;
 }
 
 /* A link is allowed unless what it feeds already feeds where it comes from. */
 static int on_connect(Rid graph, int output_pin, int input_pin, void* user_data) {
 	(void)user_data;
-	return !reaches(graph, Rnode_graph_get_pin_node(graph, input_pin), Rnode_graph_get_pin_node(graph, output_pin), 0);
+	return !reaches(graph, Rnode_graph_get_pin_node(graph, input_pin), Rnode_graph_get_pin_node(graph, output_pin));
 }
 
 static void on_selection(Rid graph, int node, void* user_data) {
@@ -137,6 +160,17 @@ static void action_play(Rid sender, const char* action, void* user_data) {
 	(void)user_data;
 	if (playing && Rtimeline_get_time(app.timeline) >= Rtimeline_get_duration(app.timeline)) Rtimeline_set_time(app.timeline, 0.0);
 	Rtimeline_set_playing(app.timeline, playing);
+	app.playing = playing;
+	Rbutton_set_text(app.play, playing ? "Pause" : "Play");
+}
+
+/* Space in the timeline plays and pauses too, and tells nobody: the button follows it at each frame. */
+static void on_frame(double delta_seconds, void* user_data) {
+	int playing = Rtimeline_is_playing(app.timeline) ? R_TRUE : R_FALSE;
+	(void)delta_seconds;
+	(void)user_data;
+	if (playing == app.playing) return;
+	app.playing = playing;
 	Rbutton_set_text(app.play, playing ? "Pause" : "Play");
 }
 
@@ -191,6 +225,7 @@ int main(void) {
 	Raction_bind("studio.add", action_add, NULL);
 	Raction_bind("studio.frame", action_frame, NULL);
 	Raction_bind("studio.play", action_play, NULL);
+	Rset_frame_callback(on_frame, NULL);
 	Raction_bind("studio.theme", action_theme, NULL);
 	Raction_bind("studio.look", action_look, NULL);
 

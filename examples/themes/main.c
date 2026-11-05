@@ -89,7 +89,11 @@ static void on_reload(const char* path, int ok, void* user_data) {
 	char text[300];
 	(void)user_data;
 	snprintf(text, sizeof(text), ok ? "Loaded again: %.200s" : "Not loaded (see the error): %.200s", path);
-	if (ok) find_widgets();
+	if (ok) {
+		find_widgets();
+		/* a theme file loaded again can have another name */
+		fill_themes();
+	}
 	Rlabel_set_text(app.status, text);
 }
 
