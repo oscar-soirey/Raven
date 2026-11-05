@@ -260,6 +260,18 @@ static void rvn_null_focus_event(rvn_pwindow_t* window, int focused) {
 	g_null.handler(&event);
 }
 
+/* Centered on the same work area of 1920 x 1080 pixels. */
+static void rvn_null_window_center(rvn_pwindow_t* window) {
+	window->x = (1920 - window->width) / 2;
+	window->y = (1080 - window->height) / 2;
+}
+
+static int rvn_null_window_set_topmost(rvn_pwindow_t* window, int topmost) {
+	(void)window;
+	(void)topmost;
+	return R_TRUE;
+}
+
 /* Picture in picture, on a work area of 1920 x 1080 pixels as a monitor would give: the core can be tested with it. */
 static int rvn_null_window_set_picture_in_picture(rvn_pwindow_t* window, int enabled, int width, int height, int corner) {
 	const int area_width = 1920, area_height = 1080, margin = 16;
@@ -382,6 +394,8 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.window_set_backdrop = rvn_null_window_set_backdrop,
 		.window_set_opacity = rvn_null_window_set_opacity,
 		.window_set_picture_in_picture = rvn_null_window_set_picture_in_picture,
+		.window_center = rvn_null_window_center,
+		.window_set_topmost = rvn_null_window_set_topmost,
 		.window_set_menu_bar = rvn_null_window_set_menu_bar,
 		.window_set_progress = rvn_null_window_set_progress,
 		.window_request_attention = rvn_null_window_request_attention,

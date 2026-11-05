@@ -877,6 +877,12 @@ static rvn_pwindow_t* rvn_cocoa_window_create(const rvn_pwindow_desc_t* desc) {
         [panel setIgnoresMouseEvents:YES];
         return window;
     }
+    if (desc->flags & R_WINDOW_SPLASH_SCREEN) {
+        /* out of the Window menu and of Cmd+`, on the space the user is on (the level comes with window_set_topmost) */
+        [window->handle setExcludedFromWindowsMenu:YES];
+        [window->handle setCollectionBehavior:NSWindowCollectionBehaviorMoveToActiveSpace | NSWindowCollectionBehaviorIgnoresCycle |
+            NSWindowCollectionBehaviorTransient];
+    }
     if (!(desc->flags & R_WINDOW_HIDDEN)) [window->handle makeKeyAndOrderFront:nil];
     if (desc->flags & R_WINDOW_MAXIMIZED) [window->handle zoom:nil];
     return window;

@@ -718,6 +718,36 @@ static void test_island(void) {
 }
 
 /* Picture in picture: the null platform has a work area of 1920 x 1080 pixels. */
+static void test_splash_screen(void) {
+	static const char xml[] =
+		"<Window Title=\"Loading\" Width=\"400\" Height=\"240\" IsSplashScreen=\"true\" Maximized=\"true\">"
+		"  <Label Text=\"Starting...\"/>"
+		"</Window>";
+	Rid splash = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid plain = Rwindow_create("main", 640, 360, R_WINDOW_HIDDEN);
+	int x = 0, y = 0, width = 0, height = 0;
+	CHECK(splash != R_INVALID_ID);
+	CHECK(Rwindow_is_splash_screen(splash));
+	CHECK(!Rwindow_is_splash_screen(plain));
+	CHECK(!Rwindow_is_splash_screen(R_INVALID_ID));
+	/* centered before it shows, at its size (Maximized is cancelled) */
+	Rdraw_frame();
+	Rwindow_get_size(splash, &width, &height);
+	CHECK(width == 400 && height == 240);
+	Rwindow_get_position(splash, &x, &y);
+	CHECK(x == (1920 - 400) / 2 && y == (1080 - 240) / 2);
+	/* and again when its size changes */
+	Rwindow_set_size(splash, 600, 300);
+	Rwindow_get_position(splash, &x, &y);
+	CHECK(x == (1920 - 600) / 2 && y == (1080 - 300) / 2);
+	/* the usual swap: the main window first, then the splash goes */
+	Rwindow_show(plain);
+	Rwindow_destroy(splash);
+	Rdraw_frame();
+	CHECK(Ris_running());
+	Rwindow_destroy(plain);
+}
+
 static void test_picture_in_picture(void) {
 	static const char xml[] =
 		"<VBox Name=\"root\">"
@@ -863,6 +893,7 @@ int main(void) {
 	RUN(test_dock_animated);
 	RUN(test_island);
 	RUN(test_picture_in_picture);
+	RUN(test_splash_screen);
 	RUN(test_taskbar);
 	RUN(test_tray);
 	Rshutdown();

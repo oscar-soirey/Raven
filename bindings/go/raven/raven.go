@@ -157,6 +157,7 @@ const (
 	R_WINDOW_MAXIMIZED     RWindowFlags = 8
 	R_WINDOW_CUSTOM_HEADER RWindowFlags = 0x0010
 	R_WINDOW_TRANSPARENT   RWindowFlags = 0x0020
+	R_WINDOW_SPLASH_SCREEN RWindowFlags = 0x0040
 )
 
 // RPictureInPictureCorner: Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
@@ -1461,6 +1462,12 @@ func WindowSetPictureInPictureLayout(window ID, width int, height int, corner RP
 // WindowCenter: Centers the window on the work area of its monitor (no task bar).
 func WindowCenter(window ID) {
 	C.Rwindow_center(C.Rid(window))
+}
+
+// WindowIsSplashScreen: Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in
+// XML).
+func WindowIsSplashScreen(window ID) int {
+	return int(C.Rwindow_is_splash_screen(C.Rid(window)))
 }
 
 // WindowRequestRedraw: Asks for a new frame even if no widget changed. Thread-safe.

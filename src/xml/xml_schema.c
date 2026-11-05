@@ -147,6 +147,7 @@ static const rvn_schema_attribute_t g_window[] = {
 	B("Borderless", "No frame at all."),
 	B("Maximized", "Starts maximized."),
 	B("Hidden", "Starts hidden, until Rwindow_show."),
+	B("IsSplashScreen", "A splash screen: no frame, a fixed size, centered on the screen, above the other windows, out of the taskbar."),
 	K("ClearColor", "Color behind the content."),
 	F("Background", "Image behind the content (what glass refracts)."),
 	B("Transparent", "The window can be seen through where nothing is drawn (needs a compositing window system)."),

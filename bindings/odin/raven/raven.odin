@@ -95,6 +95,16 @@ R_WINDOW_CUSTOM_HEADER :: 0x0010
 // chosen with Rwindow_set_backdrop. See RBackdrop for what each window
 // system can do.
 R_WINDOW_TRANSPARENT :: 0x0020
+// A splash screen: shown while the application starts. No frame (it
+// implies R_WINDOW_BORDERLESS and R_WINDOW_NO_RESIZE, and cancels
+// R_WINDOW_MAXIMIZED and R_WINDOW_CUSTOM_HEADER), centered on the screen
+// before it is first shown and again when its size changes, above the
+// other windows, out of the taskbar and of Alt+Tab (Windows), of the
+// Window menu and of Cmd+` (macOS), typed _NET_WM_WINDOW_TYPE_SPLASH on
+// X11. Wayland gives it no place of its own: it is a window without frame
+// there. The application destroys it once its main window is ready
+// (creating the main window first keeps Ris_running true).
+R_WINDOW_SPLASH_SCREEN :: 0x0040
 
 // Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
 RPictureInPictureCorner :: i32
@@ -1945,6 +1955,8 @@ foreign lib {
 	Rwindow_set_picture_in_picture_layout :: proc(window: Rid, width: i32, height: i32, corner: RPictureInPictureCorner) ---
 	// Centers the window on the work area of its monitor (no task bar).
 	Rwindow_center :: proc(window: Rid) ---
+	// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
+	Rwindow_is_splash_screen :: proc(window: Rid) -> i32 ---
 	// Asks for a new frame even if no widget changed. Thread-safe.
 	Rwindow_request_redraw :: proc(window: Rid) ---
 	// R_TRUE redraws the window every frame (games, live viewports).

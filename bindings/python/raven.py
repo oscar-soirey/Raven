@@ -162,6 +162,7 @@ class RWindowFlags(enum.IntFlag):
     R_WINDOW_MAXIMIZED = 8
     R_WINDOW_CUSTOM_HEADER = 0x0010
     R_WINDOW_TRANSPARENT = 0x0020
+    R_WINDOW_SPLASH_SCREEN = 0x0040
 
 R_WINDOW_DEFAULT = RWindowFlags.R_WINDOW_DEFAULT
 R_WINDOW_NO_RESIZE = RWindowFlags.R_WINDOW_NO_RESIZE
@@ -170,6 +171,7 @@ R_WINDOW_BORDERLESS = RWindowFlags.R_WINDOW_BORDERLESS
 R_WINDOW_MAXIMIZED = RWindowFlags.R_WINDOW_MAXIMIZED
 R_WINDOW_CUSTOM_HEADER = RWindowFlags.R_WINDOW_CUSTOM_HEADER
 R_WINDOW_TRANSPARENT = RWindowFlags.R_WINDOW_TRANSPARENT
+R_WINDOW_SPLASH_SCREEN = RWindowFlags.R_WINDOW_SPLASH_SCREEN
 
 class RPictureInPictureCorner(enum.IntEnum):
     """Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout)."""
@@ -3313,6 +3315,15 @@ _lib.Rwindow_center.restype = None
 def Rwindow_center(window):
     """Centers the window on the work area of its monitor (no task bar)."""
     _lib.Rwindow_center(window)
+
+
+_lib.Rwindow_is_splash_screen.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_splash_screen.restype = ctypes.c_int
+
+
+def Rwindow_is_splash_screen(window):
+    """Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML)."""
+    return _lib.Rwindow_is_splash_screen(window)
 
 
 _lib.Rwindow_request_redraw.argtypes = [ctypes.c_uint32]

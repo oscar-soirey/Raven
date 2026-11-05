@@ -59,6 +59,7 @@ typedef enum RWindowFlags {
 	R_WINDOW_MAXIMIZED = 8,
 	R_WINDOW_CUSTOM_HEADER = 16,
 	R_WINDOW_TRANSPARENT = 32,
+	R_WINDOW_SPLASH_SCREEN = 64,
 } RWindowFlags;
 typedef enum RPictureInPictureCorner {
 	R_PIP_BOTTOM_RIGHT = 1920,
@@ -1130,6 +1131,7 @@ int Rwindow_set_picture_in_picture(Rid window, int enabled);
 int Rwindow_is_picture_in_picture(Rid window);
 void Rwindow_set_picture_in_picture_layout(Rid window, int width, int height, RPictureInPictureCorner corner);
 void Rwindow_center(Rid window);
+int Rwindow_is_splash_screen(Rid window);
 void Rwindow_request_redraw(Rid window);
 void Rwindow_set_continuous_redraw(Rid window, int enabled);
 void Rwindow_set_close_callback(Rid window, RWindowCloseCallback callback, void* user_data);

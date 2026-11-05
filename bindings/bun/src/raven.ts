@@ -243,6 +243,7 @@ const _symbols = {
 	Rwindow_is_picture_in_picture: { args: ["u32"], returns: "i32" },
 	Rwindow_set_picture_in_picture_layout: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rwindow_center: { args: ["u32"], returns: "void" },
+	Rwindow_is_splash_screen: { args: ["u32"], returns: "i32" },
 	Rwindow_request_redraw: { args: ["u32"], returns: "void" },
 	Rwindow_set_continuous_redraw: { args: ["u32", "i32"], returns: "void" },
 	Rwindow_set_close_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
@@ -1286,6 +1287,18 @@ export enum RWindowFlags {
 	 * system can do.
 	 */
 	R_WINDOW_TRANSPARENT = 0x0020,
+	/**
+	 * A splash screen: shown while the application starts. No frame (it
+	 * implies R_WINDOW_BORDERLESS and R_WINDOW_NO_RESIZE, and cancels
+	 * R_WINDOW_MAXIMIZED and R_WINDOW_CUSTOM_HEADER), centered on the screen
+	 * before it is first shown and again when its size changes, above the
+	 * other windows, out of the taskbar and of Alt+Tab (Windows), of the
+	 * Window menu and of Cmd+` (macOS), typed _NET_WM_WINDOW_TYPE_SPLASH on
+	 * X11. Wayland gives it no place of its own: it is a window without frame
+	 * there. The application destroys it once its main window is ready
+	 * (creating the main window first keeps Ris_running true).
+	 */
+	R_WINDOW_SPLASH_SCREEN = 0x0040,
 }
 
 export const R_WINDOW_DEFAULT = RWindowFlags.R_WINDOW_DEFAULT;
@@ -1295,6 +1308,7 @@ export const R_WINDOW_BORDERLESS = RWindowFlags.R_WINDOW_BORDERLESS;
 export const R_WINDOW_MAXIMIZED = RWindowFlags.R_WINDOW_MAXIMIZED;
 export const R_WINDOW_CUSTOM_HEADER = RWindowFlags.R_WINDOW_CUSTOM_HEADER;
 export const R_WINDOW_TRANSPARENT = RWindowFlags.R_WINDOW_TRANSPARENT;
+export const R_WINDOW_SPLASH_SCREEN = RWindowFlags.R_WINDOW_SPLASH_SCREEN;
 
 /** Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout). */
 export enum RPictureInPictureCorner {
@@ -6711,6 +6725,11 @@ export function Rwindow_set_picture_in_picture_layout(window: Rid, width: number
 /** Centers the window on the work area of its monitor (no task bar). */
 export function Rwindow_center(window: Rid): void {
 	_lib.Rwindow_center(window);
+}
+
+/** Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML). */
+export function Rwindow_is_splash_screen(window: Rid): number {
+	return _lib.Rwindow_is_splash_screen(window);
 }
 
 /** Asks for a new frame even if no widget changed. Thread-safe. */

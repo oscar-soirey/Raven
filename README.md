@@ -1130,6 +1130,22 @@ corner; a button with `OnClicked="window.picture_in_picture"` goes in and out.
 Wayland does not let an application keep a window above the others: the call
 returns `R_FALSE` there.
 
+### Splash screen
+
+```xml
+<Window Title="Loading" Width="480" Height="280" IsSplashScreen="true">
+    <Image Source="splash.png"/>
+</Window>
+```
+
+`IsSplashScreen="true"` (or `R_WINDOW_SPLASH_SCREEN` given to
+`Rwindow_create`) makes a splash screen: no frame and a fixed size, centered
+on the screen before it is first shown and again when its size changes, above
+the other windows, out of the taskbar and of Alt+Tab on Windows, out of the
+Window menu on macOS, typed as a splash for the window manager on X11. On
+Wayland it is a window without frame. Create the main window, then destroy
+the splash: the application keeps running between the two.
+
 ### The menu bar of macOS
 
 On macOS, the first `MenuBar` of a window goes to the menu bar at the top of

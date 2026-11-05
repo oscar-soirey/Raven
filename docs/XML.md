@@ -71,6 +71,7 @@ number of `<Shortcut>` and `<Widget>` declarations.
 | `MinWidth`, `MinHeight` | smallest size the user can give the window |
 | `Resizable` | boolean (default true) |
 | `Borderless`, `Maximized`, `Hidden` | boolean |
+| `IsSplashScreen` | boolean: a splash screen (`R_WINDOW_SPLASH_SCREEN`). No frame and a fixed size, centered on the screen before it shows (and again when its size changes), above the other windows, out of the taskbar and of Alt+Tab (Windows), of the Window menu (macOS), typed as a splash for the window manager (X11). On Wayland, a window without frame |
 | `ClearColor` | color behind the content (default: the theme color `Window`) |
 | `Background` | path of an image drawn behind the content, scaled to cover the window. With a glass theme it replaces the wallpaper of the theme |
 | `CustomHeader` | boolean: no title bar from the system; a `HeaderBar` in the content replaces it (see below). The window keeps its shadow, its resizing edges and its snapping |

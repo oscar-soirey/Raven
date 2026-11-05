@@ -1199,7 +1199,9 @@ static rvn_pwindow_t* rvn_win32_window_create(const rvn_pwindow_desc_t* desc) {
 
 	window->user = desc->user;
 	window->flags = desc->flags;
-	window->handle = CreateWindowExW(WS_EX_APPWINDOW, RVN_WIN32_CLASS, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
+	/* (a splash screen is a tool window: out of the taskbar and of Alt+Tab) */
+	window->handle = CreateWindowExW((desc->flags & R_WINDOW_SPLASH_SCREEN) ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW,
+		RVN_WIN32_CLASS, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
 		CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, g_win32.instance, NULL);
 	rvn_free(title);
 	if (!window->handle) {

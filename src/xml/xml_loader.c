@@ -848,6 +848,9 @@ void rvn_xml_window_read(const rvn_xml_node_t* root, rvn_xml_window_t* window, i
 		} else if (RVN_ATTR("Maximized")) {
 			ok = rvn_parse_bool(value, &flag);
 			if (ok && flag) window->flags |= R_WINDOW_MAXIMIZED;
+		} else if (RVN_ATTR("IsSplashScreen")) {
+			ok = rvn_parse_bool(value, &flag);
+			if (ok && flag) window->flags |= R_WINDOW_SPLASH_SCREEN;
 		} else if (RVN_ATTR("Hidden")) {
 			ok = rvn_parse_bool(value, &flag);
 			if (ok && flag) window->flags |= R_WINDOW_HIDDEN;

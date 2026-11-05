@@ -1997,10 +1997,16 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 		return R_INVALID_ID;
 	}
 
+	if (flags & R_WINDOW_SPLASH_SCREEN) {
+		/* no frame, a fixed size; the core places it before it is seen */
+		flags |= R_WINDOW_BORDERLESS | R_WINDOW_NO_RESIZE;
+		flags &= ~(Ruint)(R_WINDOW_MAXIMIZED | R_WINDOW_CUSTOM_HEADER);
+	}
 	desc.title = window->title;
 	desc.width = (int)((float)width * g_rvn.ui_scale + 0.5f);
 	desc.height = (int)((float)height * g_rvn.ui_scale + 0.5f);
-	desc.flags = flags;
+	/* (a splash screen is made hidden whatever was asked, so that it never shows before it is centered) */
+	desc.flags = (flags & R_WINDOW_SPLASH_SCREEN) ? (flags | R_WINDOW_HIDDEN) : flags;
 	desc.user = window;
 	window->platform = g_rvn.platform->window_create(&desc);
 	if (!window->platform) {
@@ -2042,6 +2048,10 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 	window->state = g_rvn.platform->window_get_state(window->platform);
 	window->active = R_TRUE;
 	g_rvn.had_window = R_TRUE;
+	if (flags & R_WINDOW_SPLASH_SCREEN) {
+		if (g_rvn.platform->window_center) g_rvn.platform->window_center(window->platform);
+		if (g_rvn.platform->window_set_topmost) g_rvn.platform->window_set_topmost(window->platform, R_TRUE);
+	}
 	if (window->visible) g_rvn.platform->window_show(window->platform, R_TRUE);
 	return window->id;
 }
@@ -2227,6 +2237,11 @@ void Rwindow_set_picture_in_picture_layout(Rid id, int width, int height, RPictu
 	if (window->pip) rvn_window_apply_pip(window, R_TRUE);
 }
 
+int Rwindow_is_splash_screen(Rid id) {
+	rvn_window_t* window = rvn_window_get(id);
+	return window && (window->window_flags & R_WINDOW_SPLASH_SCREEN) ? R_TRUE : R_FALSE;
+}
+
 void Rwindow_center(Rid id) {
 	RVN_WINDOW_VOID(window, id);
 	if (g_rvn.platform->window_center) g_rvn.platform->window_center(window->platform);
@@ -2291,6 +2306,8 @@ void Rwindow_set_size(Rid id, int width, int height) {
 	}
 	g_rvn.platform->window_set_size(window->platform, (int)((float)width * window->scale + 0.5f),
 		(int)((float)height * window->scale + 0.5f));
+	/* a splash screen stays in the middle of the screen */
+	if ((window->window_flags & R_WINDOW_SPLASH_SCREEN) && g_rvn.platform->window_center) g_rvn.platform->window_center(window->platform);
 }
 
 void Rwindow_get_size(Rid id, int* width, int* height) {

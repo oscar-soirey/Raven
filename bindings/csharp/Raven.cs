@@ -104,6 +104,18 @@ namespace Raven
         /// system can do.
         /// </summary>
         R_WINDOW_TRANSPARENT = 0x0020,
+        /// <summary>
+        /// A splash screen: shown while the application starts. No frame (it
+        /// implies R_WINDOW_BORDERLESS and R_WINDOW_NO_RESIZE, and cancels
+        /// R_WINDOW_MAXIMIZED and R_WINDOW_CUSTOM_HEADER), centered on the screen
+        /// before it is first shown and again when its size changes, above the
+        /// other windows, out of the taskbar and of Alt+Tab (Windows), of the
+        /// Window menu and of Cmd+` (macOS), typed _NET_WM_WINDOW_TYPE_SPLASH on
+        /// X11. Wayland gives it no place of its own: it is a window without frame
+        /// there. The application destroys it once its main window is ready
+        /// (creating the main window first keeps Ris_running true).
+        /// </summary>
+        R_WINDOW_SPLASH_SCREEN = 0x0040,
     }
 
     /// <summary>
@@ -3506,6 +3518,12 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_center(uint window);
+
+        /// <summary>
+        /// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_is_splash_screen(uint window);
 
         /// <summary>
         /// Asks for a new frame even if no widget changed. Thread-safe.

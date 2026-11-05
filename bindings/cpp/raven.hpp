@@ -1802,6 +1802,9 @@ public:
 	/// Centers the window on the work area of its monitor (no task bar).
 	void center() const { Rwindow_center(id_); }
 
+	/// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
+	int is_splash_screen() const { return Rwindow_is_splash_screen(id_); }
+
 	/// Asks for a new frame even if no widget changed. Thread-safe.
 	void request_redraw() const { Rwindow_request_redraw(id_); }
 

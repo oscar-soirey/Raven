@@ -257,6 +257,18 @@ public final class R {
      * system can do.
      */
     public static final int R_WINDOW_TRANSPARENT = 0x0020;
+    /**
+     * A splash screen: shown while the application starts. No frame (it
+     * implies R_WINDOW_BORDERLESS and R_WINDOW_NO_RESIZE, and cancels
+     * R_WINDOW_MAXIMIZED and R_WINDOW_CUSTOM_HEADER), centered on the screen
+     * before it is first shown and again when its size changes, above the
+     * other windows, out of the taskbar and of Alt+Tab (Windows), of the
+     * Window menu and of Cmd+` (macOS), typed _NET_WM_WINDOW_TYPE_SPLASH on
+     * X11. Wayland gives it no place of its own: it is a window without frame
+     * there. The application destroys it once its main window is ready
+     * (creating the main window first keeps Ris_running true).
+     */
+    public static final int R_WINDOW_SPLASH_SCREEN = 0x0040;
 
     // RPictureInPictureCorner: Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
     public static final int R_PIP_BOTTOM_RIGHT = 0x0780;
@@ -6612,6 +6624,22 @@ public final class R {
         if ($h == null) Rwindow_center$ = $h = find("Rwindow_center", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_is_splash_screen$;
+
+    /**
+     * Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
+     */
+    public static int Rwindow_is_splash_screen(int window) {
+        MethodHandle $h = Rwindow_is_splash_screen$;
+        if ($h == null) Rwindow_is_splash_screen$ = $h = find("Rwindow_is_splash_screen", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
