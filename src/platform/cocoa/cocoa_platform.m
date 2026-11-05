@@ -1228,11 +1228,6 @@ static NSMutableDictionary* g_cocoa_elements;
 
 static id rvn_cocoa_a11y_object(rvn_pwindow_t* window, rvn_a11y_id_t node);
 
-static NSString* rvn_cocoa_string(const char* text) {
-    NSString* string = text ? [NSString stringWithUTF8String:text] : nil;
-    return string ? string : @"";
-}
-
 /* Logical units of the window (top-left origin) -> screen (bottom-left origin). */
 static NSRect rvn_cocoa_a11y_screen_rect(rvn_pwindow_t* window, const rvn_a11y_node_t* node) {
     NSRect local = NSMakeRect(node->x, node->y, node->width, node->height);
