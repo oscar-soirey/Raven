@@ -15,6 +15,7 @@
  *   fonts.c           the fonts of the designer (fonts/), embedded: font_*.c
  *   strings.c         the Translations panel (CSV tables) and the language of the preview
  *   welcome.c         the start page (recent folders) and the preferences
+ *   splash.c          the splash screen (splash.xml, images/SplashScreen.png), embedded
  *   accessibility.c   View > Accessibility
  *   os.c              folders and files
  */
@@ -66,6 +67,18 @@ int  ds_remove_empty_dir(const char* path);
 int  ds_remove_tree(const char* path);
 /** Renames or moves a file or a folder (never over one that is there). */
 int  ds_rename(const char* from, const char* to);
+
+/* ---- splash.c ---- */
+
+/** How long the splash stays alone on the screen, in milliseconds, before the window of the designer is made. */
+#define SPLASH_MIN_MS 1500
+
+/** Shows the splash screen at once (nothing happens when it cannot be made: the designer starts without it). */
+void splash_show(void);
+/** Waits (the splash keeps being drawn) until minimum_ms have passed since it was shown. Does nothing when it is not shown. */
+void splash_wait(int minimum_ms);
+/** Closes it, after minimum_ms since it was shown at least (0: now). Does nothing when it is not shown. */
+void splash_close(int minimum_ms);
 
 /* ---- main.c (the visual editor) ---- */
 

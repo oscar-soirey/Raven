@@ -5152,6 +5152,8 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "raven_designer: cannot start Raven (is a Vulkan driver installed?)\n");
 		return 1;
 	}
+	/* the splash screen (splash.xml) comes first, alone: the window of the designer is made after it; not for the scripted runs and the tests */
+	if (!(frames >= 0 || script || desc.headless)) splash_show();
 	/* scripted runs do not depend on how long a frame takes */
 	if (frames >= 0 || script) {
 		Rset_animation_time_step(1.0 / 60.0);
@@ -5163,7 +5165,10 @@ int main(int argc, char** argv) {
 	Raction_set_builtins(R_FALSE);
 	/* the fonts of the designer (embedded) */
 	fonts_init();
+	/* the window of the designer appears when it is built: the splash has been alone on the screen for SPLASH_MIN_MS by then */
+	splash_wait(SPLASH_MIN_MS);
 	if (!build_interface()) {
+		splash_close(0);
 		Rshutdown();
 		return 1;
 	}
@@ -5182,6 +5187,8 @@ int main(int argc, char** argv) {
 		if (report) ds_status("The designer stopped on a crash last time. What happened is in %s: send it with the .dmp next to it.", report);
 	}
 	update_title();
+	/* the designer is ready: the splash goes away */
+	splash_close(0);
 
 	if (script) ok = designer_script(script);
 	if (frames >= 0) {
