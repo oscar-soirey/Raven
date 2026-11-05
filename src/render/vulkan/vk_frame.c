@@ -249,6 +249,34 @@ static int rvn_vk_capture_supported(const rvn_vk_surface_t* surface) {
  * ------------------------------------------------------------------------- */
 
 /* Makes the swapchain match the frame. Returns R_FALSE when the window cannot be rendered now. */
+/*
+ * VK_SUBOPTIMAL_KHR: the image can still be shown, but the swapchain no longer
+ * fits the surface exactly. It is made again for the next frame, once: when
+ * the driver still says it with the new one, the swapchain is only made again
+ * when the size of the surface changed (see suboptimal_recreated).
+ */
+static void rvn_vk_note_suboptimal(rvn_vk_surface_t* surface) {
+	VkSurfaceCapabilitiesKHR caps;
+	if (!surface->suboptimal_recreated) {
+		surface->suboptimal_recreated = R_TRUE;
+		surface->out_of_date = R_TRUE;
+		return;
+	}
+	if (rvn_vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(g_vk.physical_device, surface->surface, &caps) < 0) return;
+	if (caps.currentExtent.width != UINT32_MAX &&
+		(caps.currentExtent.width != surface->extent.width || caps.currentExtent.height != surface->extent.height)) {
+		surface->out_of_date = R_TRUE;
+		return;
+	}
+	if (!g_vk.suboptimal_reported) {
+		/* (said once: it helps to understand a report of flickering, and changes nothing) */
+		g_vk.suboptimal_reported = R_TRUE;
+		rvn_error(R_ERROR_BACKEND, R_SEVERITY_WEAK_WARNING,
+			"Vulkan: the driver says VK_SUBOPTIMAL_KHR for a swapchain of the size of the window (%ux%u): it is kept",
+			surface->extent.width, surface->extent.height);
+	}
+}
+
 static int rvn_vk_prepare_swapchain(rvn_vk_surface_t* surface, const RDrawData* data) {
 	int matches;
 	g_vk.info.vsync = data->vsync;
@@ -285,7 +313,7 @@ void rvn_vk_render_frame(const RDrawData* data, RCapture* capture) {
 	VkPresentInfoKHR present;
 	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	uint32_t image_index = 0, capture_width = 0, capture_height = 0;
-	int capturing = R_FALSE, glass;
+	int capturing = R_FALSE, glass, suboptimal;
 	VkResult result;
 
 	if (capture) memset(capture, 0, sizeof(*capture));
@@ -312,9 +340,10 @@ void rvn_vk_render_frame(const RDrawData* data, RCapture* capture) {
 		if (!rvn_vk_prepare_swapchain(surface, data)) return;
 		result = rvn_vk.AcquireNextImageKHR(g_vk.device, surface->swapchain, UINT64_MAX, frame->acquired, VK_NULL_HANDLE, &image_index);
 	}
-	if (result == VK_SUBOPTIMAL_KHR) {
-		/* still presentable: draw this frame, recreate for the next one */
-		surface->out_of_date = R_TRUE;
+	suboptimal = result == VK_SUBOPTIMAL_KHR;
+	if (suboptimal) {
+		/* still presentable: draw this frame (the swapchain may be made again for the next one) */
+		rvn_vk_note_suboptimal(surface);
 	} else if (result != VK_SUCCESS) {
 		if (result != VK_ERROR_OUT_OF_DATE_KHR) rvn_vk_failed(result, "vkAcquireNextImageKHR");
 		surface->out_of_date = R_TRUE;
@@ -393,8 +422,13 @@ void rvn_vk_render_frame(const RDrawData* data, RCapture* capture) {
 	if (result == VK_SUCCESS) {
 		frame->submitted = R_TRUE;
 		result = rvn_vk.QueuePresentKHR(g_vk.queue, &present);
-		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 			surface->out_of_date = R_TRUE;
+		} else if (result == VK_SUBOPTIMAL_KHR) {
+			rvn_vk_note_suboptimal(surface);
+		} else if (result == VK_SUCCESS) {
+			/* a frame shown without complaint: the next VK_SUBOPTIMAL_KHR makes the swapchain again */
+			if (!suboptimal) surface->suboptimal_recreated = R_FALSE;
 		} else {
 			rvn_vk_failed(result, "vkQueuePresentKHR");
 		}

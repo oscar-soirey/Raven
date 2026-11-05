@@ -137,6 +137,14 @@ typedef struct rvn_vk_surface_t {
 	uint32_t frame_cursor;
 	/** The swapchain no longer matches the window. */
 	int out_of_date;
+	/**
+	 * The swapchain was made again because the driver said VK_SUBOPTIMAL_KHR,
+	 * and no frame was presented without it since. Some drivers (Intel on
+	 * Windows, with some monitors) say it at every frame for a swapchain that
+	 * still fits the window: it is then kept until the window changes size,
+	 * instead of being made again at each frame, which flickers.
+	 */
+	int suboptimal_recreated;
 	int present_vsync;   /* vsync of the present mode of the swapchain */
 	/** The swapchain images can be read back (Rwindow_capture). */
 	int can_capture;
@@ -240,6 +248,8 @@ typedef struct rvn_vk_state_t {
 	rvn_vk_surface_t* surfaces;
 	uint32_t surface_cap;
 	void* xcb_library;
+	/** A swapchain was kept despite VK_SUBOPTIMAL_KHR (vk_frame.c): said once. */
+	int suboptimal_reported;
 } rvn_vk_state_t;
 
 extern rvn_vk_state_t g_vk;
