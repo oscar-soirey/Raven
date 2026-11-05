@@ -476,4 +476,75 @@ void rvn_text_input_rect(const rvn_widget_t* widget, const RPainter* painter, rv
 void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
 	rvn_rect_t area, Rid font, float size, rvn_color_t color, int focused);
 
+/* ---------------------------------------------------------------------------
+ *  Looks of the editors drawn on a canvas: NodeGraph, Timeline (canvas_look.c)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * The look a NodeGraph or a Timeline starts from (RVisualPreset): AUTO
+ * follows the family of the theme of the widget (Raven, Windows, macOS,
+ * GNOME) and whether it is dark; the others are looks of their own.
+ */
+typedef enum rvn_canvas_preset_t {
+	RVN_CANVAS_RAVEN = 0,
+	RVN_CANVAS_WINDOWS,
+	RVN_CANVAS_MACOS,
+	RVN_CANVAS_GNOME,
+	RVN_CANVAS_MODERN,
+	RVN_CANVAS_BLUEPRINT,
+	RVN_CANVAS_BLENDER,
+	RVN_CANVAS_NEON
+} rvn_canvas_preset_t;
+
+/** What a look is drawn with: its preset (AUTO resolved), whether it is dark, the colors of the theme it reads. */
+typedef struct rvn_canvas_look_t {
+	rvn_canvas_preset_t preset;
+	int dark;
+	rvn_color_t text, accent, window, input, panel, popup, popup_border, border, separator, success, danger, warning;
+} rvn_canvas_look_t;
+
+/** The preset given (RVisualPreset, R_PRESET_AUTO and 0 meaning the theme) made concrete for a widget. */
+void rvn_canvas_look(const rvn_widget_t* widget, int preset, rvn_canvas_look_t* look);
+/** RVisualPreset by name ("Auto", "Modern", "Blueprint", "Blender", "Neon"); R_FALSE when unknown. */
+int  rvn_canvas_preset_by_name(const char* name, int* preset);
+const char* rvn_canvas_preset_name(int preset);
+
+/** What was given to the parts of one widget or of one item (attributes, Rnode_graph_set_node_style...): laid over the styles. */
+typedef struct rvn_look_overrides_t {
+	rvn_part_look_t look[RVN_PART_COUNT];
+	uint32_t mask[RVN_PART_COUNT];
+} rvn_look_overrides_t;
+
+/** What was given to one item (a node, a type of pin, a track, a clip): up to three of its parts. */
+typedef struct rvn_item_look_t {
+	rvn_part_look_t look[3];
+	uint32_t mask[3];
+} rvn_item_look_t;
+
+/** Sets a property of slot `slot` of an item; R_FALSE when the property or the value is not one. */
+int  rvn_item_look_set(rvn_item_look_t* item, int slot, const char* property, const char* value);
+/** Lays slot `slot` of an item (may be NULL) over a look. */
+void rvn_item_look_apply(const rvn_item_look_t* item, int slot, rvn_part_look_t* look);
+
+/** Sets a property of a part (a name of rvn_part_property: "Shape", "Background"...); R_FALSE when the name or the value is not one. */
+int  rvn_look_override(rvn_look_overrides_t* over, int part, const char* property, const char* value);
+/** "Link.Shape", "Pin.Size", "Header.Background": a part, a dot, a property. R_TRUE when it is one (and it was set). */
+int  rvn_look_override_dotted(rvn_look_overrides_t* over, const char* name, const char* value, int* handled);
+/** A part as the look gives it, then the styles of the theme, then what was given to the widget (`over`, may be NULL). */
+void rvn_canvas_part(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_base_t base, const void* context,
+	const rvn_look_overrides_t* over, rvn_part_look_t* look);
+
+/** A rectangle shading from `from` to `to`, left to right or top to bottom (corners as rvn_paint_box4). */
+void rvn_paint_gradient(RPainter* painter, rvn_rect_t rect, const float radii[4], rvn_color_t from, rvn_color_t to, int horizontal);
+/**
+ * A mark centered on (cx, cy), `half` from its middle to its edge: RVN_SHAPE_CIRCLE,
+ * RING, SQUARE, DIAMOND, TRIANGLE, ARROW (pointing right). `hollow`: only
+ * its outline, `ring` wide, the inside of the color `inside`.
+ */
+void rvn_paint_mark(RPainter* painter, int shape, float cx, float cy, float half, rvn_color_t color, int hollow, float ring, rvn_color_t inside);
+/** The same mark, a little larger, as light around it (Glow). */
+void rvn_paint_mark_glow(RPainter* painter, int shape, float cx, float cy, float half, rvn_color_t color, float glow);
+/** 0..1: how light a color is (to put dark or light text on it). */
+float rvn_color_lightness(rvn_color_t color);
+
 #endif /* RVN_WIDGETS_COMMON_H */

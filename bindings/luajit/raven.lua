@@ -571,6 +571,13 @@ typedef enum RDockSide {
 	R_DOCK_BOTTOM = 867,
 	R_DOCK_TAB = 868,
 } RDockSide;
+typedef enum RVisualPreset {
+	R_PRESET_AUTO = 1296,
+	R_PRESET_MODERN = 1297,
+	R_PRESET_BLUEPRINT = 1298,
+	R_PRESET_BLENDER = 1299,
+	R_PRESET_NEON = 1300,
+} RVisualPreset;
 typedef enum RTimelineItem {
 	R_TIMELINE_NONE = 1120,
 	R_TIMELINE_CLIP = 1121,
@@ -1769,6 +1776,7 @@ void Rtimeline_set_track_color(Rid timeline, int track, float r, float g, float 
 void Rtimeline_set_track_height(Rid timeline, int track, float height);
 void Rtimeline_set_track_locked(Rid timeline, int track, int locked);
 void Rtimeline_set_track_muted(Rid timeline, int track, int muted);
+int Rtimeline_set_track_style(Rid timeline, int track, const char* property, const char* value);
 int Rtimeline_is_track_muted(Rid timeline, int track);
 int Rtimeline_add_clip(Rid timeline, int track, double start, double length, const char* label);
 int Rtimeline_add_key(Rid timeline, int track, double time);
@@ -1783,6 +1791,9 @@ void Rtimeline_set_item(Rid timeline, int item, int track, double start, double 
 void Rtimeline_set_item_label(Rid timeline, int item, const char* label);
 const char* Rtimeline_get_item_label(Rid timeline, int item);
 void Rtimeline_set_item_color(Rid timeline, int item, float r, float g, float b);
+int Rtimeline_set_item_style(Rid timeline, int item, const char* property, const char* value);
+void Rtimeline_set_preset(Rid timeline, RVisualPreset preset);
+RVisualPreset Rtimeline_get_preset(Rid timeline);
 int Rtimeline_get_item_count(Rid timeline);
 int Rtimeline_get_item(Rid timeline, int index);
 void Rtimeline_select(Rid timeline, int item, int add);
@@ -1807,6 +1818,7 @@ void Rnode_graph_set_node_position(Rid graph, int node, float x, float y);
 void Rnode_graph_get_node_position(Rid graph, int node, float* x, float* y);
 void Rnode_graph_get_node_size(Rid graph, int node, float* width, float* height);
 void Rnode_graph_set_node_color(Rid graph, int node, float r, float g, float b);
+int Rnode_graph_set_node_style(Rid graph, int node, const char* property, const char* value);
 void Rnode_graph_set_node_content(Rid graph, int node, Rid widget);
 Rid Rnode_graph_get_node_content(Rid graph, int node);
 void Rnode_graph_set_node_name(Rid graph, int node, const char* name);
@@ -1827,6 +1839,8 @@ void Rnode_graph_get_pin_position(Rid graph, int pin, float* x, float* y);
 int Rnode_graph_get_input(Rid graph, int node, int index);
 int Rnode_graph_get_output(Rid graph, int node, int index);
 void Rnode_graph_set_type_color(Rid graph, const char* type, float r, float g, float b);
+int Rnode_graph_set_type_style(Rid graph, const char* type, const char* property, const char* value);
+int Rnode_graph_set_pin_style(Rid graph, int pin, const char* property, const char* value);
 int Rnode_graph_connect(Rid graph, int output_pin, int input_pin);
 void Rnode_graph_disconnect(Rid graph, int link);
 int Rnode_graph_get_link_count(Rid graph);
@@ -1842,6 +1856,8 @@ void Rnode_graph_frame_all(Rid graph);
 void Rnode_graph_set_grid_visible(Rid graph, int visible);
 void Rnode_graph_set_flow_visible(Rid graph, int visible);
 void Rnode_graph_set_read_only(Rid graph, int read_only);
+void Rnode_graph_set_preset(Rid graph, RVisualPreset preset);
+RVisualPreset Rnode_graph_get_preset(Rid graph);
 void Rnode_graph_select_node(Rid graph, int node, int add);
 void Rnode_graph_clear_selection(Rid graph);
 int Rnode_graph_is_node_selected(Rid graph, int node);

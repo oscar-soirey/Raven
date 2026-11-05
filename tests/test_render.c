@@ -587,8 +587,8 @@ static void test_node_graph(void) {
 		"<Window Width=\"520\" Height=\"220\" ClearColor=\"#000000\">"
 		"  <NodeGraph Name=\"g\" Grid=\"false\" Flow=\"false\" Color.Input=\"#000000\">"
 		"    <Type Name=\"signal\" Color=\"#00FF00\"/>"
-		"    <Node Name=\"a\" Title=\"A\" X=\"30\" Y=\"40\" Color=\"#FF0000\"><Output Name=\"o\" Label=\"Out\" Type=\"signal\"/></Node>"
-		"    <Node Name=\"b\" Title=\"B\" X=\"330\" Y=\"40\" Color=\"#0000FF\"><Input Name=\"i\" Label=\"In\" Type=\"signal\"/></Node>"
+		"    <Node Name=\"a\" Title=\"A\" X=\"30\" Y=\"40\" Color=\"#FF0000\" HeaderStyle=\"Solid\"><Output Name=\"o\" Label=\"Out\" Type=\"signal\"/></Node>"
+		"    <Node Name=\"b\" Title=\"B\" X=\"330\" Y=\"40\" Color=\"#0000FF\" HeaderStyle=\"Solid\"><Input Name=\"i\" Label=\"In\" Type=\"signal\"/></Node>"
 		"    <Link From=\"a.o\" To=\"b.i\"/>"
 		"  </NodeGraph>"
 		"</Window>");
@@ -599,7 +599,7 @@ static void test_node_graph(void) {
 
 	capture(window);
 	Rnode_graph_get_node_size(graph, Rnode_graph_find_node(graph, "a"), &w, &h);
-	/* the headers wear the colors of their nodes */
+	/* the headers wear the colors of their nodes (filled with it: HeaderStyle="Solid") */
 	p = pixel_at(30.0f + w - 20.0f, 40.0f + 15.0f);
 	CHECK(p[0] > 150 && p[1] < 90 && p[2] < 90);
 	p = pixel_at(330.0f + w - 20.0f, 40.0f + 15.0f);

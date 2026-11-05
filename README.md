@@ -975,6 +975,36 @@ run along the links while the pointer is over the graph
 (`Rnode_graph_set_flow_visible`). Widgets inside nodes are ordinary widgets
 and work at any zoom.
 
+**Looks.** The graph and the timeline start from a look: `Auto` (the
+default) follows the theme of the window, its platform (Raven, Windows,
+macOS, GNOME) and whether it is dark; `Modern`, `Blueprint`, `Blender` and
+`Neon` are looks of their own. Any part can then be changed, the most
+specific last: by the styles of the theme for every graph, by the widget,
+by one of its items.
+
+```xml
+<NodeGraph Preset="Blueprint" Link.Shape="Step" Pin.Size="6" Grid.Shape="Lines" Node.CornerRadius="4">
+    <Type Name="exec" Color="#FFFFFF" Shape="Arrow" LinkWidth="3"/>
+    <Node Title="Noise" Color="#FF9F0A" HeaderStyle="Gradient" Icon="noise.svg" Glow="0.6"> ... </Node>
+</NodeGraph>
+<Timeline Preset="Neon" KeyShape="Circle" PlayheadColor="#FF375F">
+    <Track Name="Audio" ClipStyle="Gradient"> <Clip Start="0" Length="4" Style="Outline"/> </Track>
+</Timeline>
+<!-- in a theme -->
+<Style Widget="NodeGraph" Part="Link" State="Selected" Glow="1" Size="4"/>
+```
+
+The parts are the grid, the nodes, their headers, the pins, the links and
+the badges of a graph; the ruler, the headers of the tracks, the tracks,
+the lines of time, the clips, the keys, the markers and the playhead of a
+timeline. Besides the properties of every style they take `Shape` (pins and
+keys: `Circle`, `Ring`, `Square`, `Diamond`, `Triangle`, `Arrow`; links:
+`Bezier`, `Straight`, `Step`, `Angled`; grids: `Dots`, `Lines`, `Cross`,
+`None`; headers and clips: `Solid`, `Gradient`, `Stripe`, `Tint`, `Outline`,
+`None`), `Glow` and `Gradient`. In C: `Rnode_graph_set_preset`,
+`Rnode_graph_set_node_style`, `Rnode_graph_set_type_style`,
+`Rtimeline_set_track_style`... `examples/studio` switches between the looks.
+
 ### Markdown
 
 ```xml

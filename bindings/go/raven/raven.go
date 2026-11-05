@@ -846,6 +846,16 @@ const (
 	R_DOCK_TAB    RDockSide = 0x0364
 )
 
+type RVisualPreset int32
+
+const (
+	R_PRESET_AUTO      RVisualPreset = 0x0510
+	R_PRESET_MODERN    RVisualPreset = 0x0511
+	R_PRESET_BLUEPRINT RVisualPreset = 0x0512
+	R_PRESET_BLENDER   RVisualPreset = 0x0513
+	R_PRESET_NEON      RVisualPreset = 0x0514
+)
+
 // RTimelineItem: What an item of a timeline is.
 type RTimelineItem int32
 
@@ -4621,6 +4631,18 @@ func TimelineSetTrackMuted(timeline ID, track int, muted int) {
 	C.Rtimeline_set_track_muted(C.Rid(timeline), C.int(track), C.int(muted))
 }
 
+// TimelineSetTrackStyle: A property of the look of a track: "ClipStyle" (Solid, Gradient, Tint, Outline),
+// "KeyShape" (Diamond, Circle, Square...), "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+// property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back the one of the timeline. Returns:
+// R_FALSE when the name or the value is not one.
+func TimelineSetTrackStyle(timeline ID, track int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rtimeline_set_track_style(C.Rid(timeline), C.int(track), property_, value_))
+}
+
 func TimelineIsTrackMuted(timeline ID, track int) int {
 	return int(C.Rtimeline_is_track_muted(C.Rid(timeline), C.int(track)))
 }
@@ -4689,6 +4711,26 @@ func TimelineGetItemLabel(timeline ID, item int) string {
 
 func TimelineSetItemColor(timeline ID, item int, r float32, g float32, b float32) {
 	C.Rtimeline_set_item_color(C.Rid(timeline), C.int(item), C.float(r), C.float(g), C.float(b))
+}
+
+// TimelineSetItemStyle: A property of the look of one clip, key or marker: "Style" (Solid, Gradient, Tint,
+// Outline: clips), "Shape" (keys), or any property of its part ("Background", "BorderColor", "Glow",
+// "CornerRadius", "Foreground" for its label...).
+func TimelineSetItemStyle(timeline ID, item int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rtimeline_set_item_style(C.Rid(timeline), C.int(item), property_, value_))
+}
+
+// TimelineSetPreset: The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+func TimelineSetPreset(timeline ID, preset RVisualPreset) {
+	C.Rtimeline_set_preset(C.Rid(timeline), C.RVisualPreset(preset))
+}
+
+func TimelineGetPreset(timeline ID) RVisualPreset {
+	return RVisualPreset(C.Rtimeline_get_preset(C.Rid(timeline)))
 }
 
 func TimelineGetItemCount(timeline ID) int {
@@ -4786,6 +4828,19 @@ func NodeGraphGetNodeSize(graph ID, node int) (width float32, height float32) {
 // NodeGraphSetNodeColor: Color of the header of the node; without one it takes the accent color of the theme.
 func NodeGraphSetNodeColor(graph ID, node int, r float32, g float32, b float32) {
 	C.Rnode_graph_set_node_color(C.Rid(graph), C.int(node), C.float(r), C.float(g), C.float(b))
+}
+
+// NodeGraphSetNodeStyle: A property of the look of one node: "HeaderStyle" (Solid, Gradient, Stripe, Tint,
+// None), "HeaderColor", "TitleColor", "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+// "Icon" (an image file shown before its title), or a part and a property ("Header.Gradient",
+// "Node.ShadowSize"). "" or "Default" gives back the one of the graph. Returns: R_FALSE when the name or the
+// value is not one.
+func NodeGraphSetNodeStyle(graph ID, node int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rnode_graph_set_node_style(C.Rid(graph), C.int(node), property_, value_))
 }
 
 // NodeGraphSetNodeContent: Puts a widget inside the node, under its pins: the graph owns it from now on.
@@ -4895,6 +4950,28 @@ func NodeGraphSetTypeColor(graph ID, type_ string, r float32, g float32, b float
 	C.Rnode_graph_set_type_color(C.Rid(graph), type__, C.float(r), C.float(g), C.float(b))
 }
 
+// NodeGraphSetTypeStyle: A property of the pins of a type and of their links: "Shape" (Circle, Ring, Square,
+// Diamond, Triangle, Arrow), "Size", "Glow", "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth",
+// "LinkGlow".
+func NodeGraphSetTypeStyle(graph ID, type_ string, property string, value string) int {
+	type__ := C.CString(type_)
+	defer C.free(unsafe.Pointer(type__))
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rnode_graph_set_type_style(C.Rid(graph), type__, property_, value_))
+}
+
+// NodeGraphSetPinStyle: The same for one pin ("Shape", "Size", "Glow", "Color").
+func NodeGraphSetPinStyle(graph ID, pin int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rnode_graph_set_pin_style(C.Rid(graph), C.int(pin), property_, value_))
+}
+
 // NodeGraphConnect: Links an output to an input, as the user does by dragging. The connect callback is not
 // asked. Returns: The link; 0 when the pins cannot be linked (two inputs, the same node, different types).
 func NodeGraphConnect(graph ID, output_pin int, input_pin int) int {
@@ -4983,6 +5060,15 @@ func NodeGraphSetFlowVisible(graph ID, visible int) {
 // NodeGraphSetReadOnly: R_TRUE: the user can look but not move, link or delete.
 func NodeGraphSetReadOnly(graph ID, read_only int) {
 	C.Rnode_graph_set_read_only(C.Rid(graph), C.int(read_only))
+}
+
+// NodeGraphSetPreset: The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+func NodeGraphSetPreset(graph ID, preset RVisualPreset) {
+	C.Rnode_graph_set_preset(C.Rid(graph), C.RVisualPreset(preset))
+}
+
+func NodeGraphGetPreset(graph ID) RVisualPreset {
+	return RVisualPreset(C.Rnode_graph_get_preset(C.Rid(graph)))
 }
 
 func NodeGraphSelectNode(graph ID, node int, add int) {

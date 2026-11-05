@@ -8,6 +8,8 @@
  *   Rnode_graph_add_node / add_input   nodes built from code, with any widget inside
  *   Rtimeline_set_time_callback        the playhead, scrubbed or playing
  *   Rcolor_picker_...                  a color, given to the selected nodes
+ *   Rnode_graph_set_preset             the look of the graph and of the timeline
+ *   Rtimeline_set_preset               (Auto follows the theme of the window)
  *
  * studio.xml is watched while the example runs (live reload): edit it, save,
  * and the window follows.
@@ -142,10 +144,23 @@ static void action_play(Rid sender, const char* action, void* user_data) {
 
 static void action_theme(Rid sender, const char* action, void* user_data) {
 	static const RTheme themes[] = { R_THEME_DARK, R_THEME_LIGHT, R_THEME_GLASS_DARK, R_THEME_GLASS_LIGHT };
+	/* the looks of the platforms: with the look Auto, the graph and the timeline follow them */
+	static const char* const platforms[] = { "WindowsDark", "MacOSDark", "GnomeDark" };
 	int index = Rcombo_box_get_selected(sender);
 	(void)action;
 	(void)user_data;
 	if (index >= 0 && index < 4) Rtheme_apply(themes[index]);
+	else if (index >= 4 && index < 7) Rtheme_use(platforms[index - 4]);
+}
+
+/* The look of the graph and of the timeline: Auto, Modern, Blueprint, Blender, Neon. */
+static void action_look(Rid sender, const char* action, void* user_data) {
+	int index = Rcombo_box_get_selected(sender);
+	(void)action;
+	(void)user_data;
+	if (index < 0 || index > 4) return;
+	Rnode_graph_set_preset(app.graph, (RVisualPreset)((int)R_PRESET_AUTO + index));
+	Rtimeline_set_preset(app.timeline, (RVisualPreset)((int)R_PRESET_AUTO + index));
 }
 
 static void connect_widgets(void) {
@@ -156,6 +171,8 @@ static void connect_widgets(void) {
 	Rtimeline_set_time_callback(app.timeline, on_time, NULL);
 	Rtimeline_set_loop(app.timeline, R_TRUE);
 	on_time(app.timeline, Rtimeline_get_time(app.timeline), NULL);
+	/* (a graph or a timeline built again by a reload takes the look chosen) */
+	action_look(Rwidget_find(app.window, "look"), "studio.look", NULL);
 }
 
 /* The file changed and the window followed: widgets that were replaced need their callbacks again. */
@@ -175,6 +192,7 @@ int main(void) {
 	Raction_bind("studio.frame", action_frame, NULL);
 	Raction_bind("studio.play", action_play, NULL);
 	Raction_bind("studio.theme", action_theme, NULL);
+	Raction_bind("studio.look", action_look, NULL);
 
 	app.window = Rwindow_create_from_xml_file(RAVEN_EXAMPLE_DIR "/studio.xml");
 	if (app.window == R_INVALID_ID) {
@@ -183,11 +201,16 @@ int main(void) {
 	}
 	connect_widgets();
 	Rxml_set_reload_callback(on_reload, NULL);
-	/* (for the pictures of the documentation: RAVEN_EXAMPLE_THEME=2 starts with the third theme) */
+	/* (for the pictures of the documentation: RAVEN_EXAMPLE_THEME=2 starts with the third theme, RAVEN_EXAMPLE_LOOK=3 with the fourth look) */
 	if (theme) {
 		Rid combo = Rwidget_find(app.window, "theme");
 		Rcombo_box_set_selected(combo, atoi(theme));
 		action_theme(combo, "studio.theme", NULL);
+	}
+	if (getenv("RAVEN_EXAMPLE_LOOK")) {
+		Rid combo = Rwidget_find(app.window, "look");
+		Rcombo_box_set_selected(combo, atoi(getenv("RAVEN_EXAMPLE_LOOK")));
+		action_look(combo, "studio.look", NULL);
 	}
 	Rwindow_show(app.window);
 

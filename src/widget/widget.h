@@ -487,8 +487,43 @@ typedef enum rvn_part_t {
 	RVN_PART_CLOSE_BUTTON,
 	/** The ring of the keyboard focus. */
 	RVN_PART_FOCUS,
+	/** NodeGraph, Timeline: the lines or dots of the canvas, the lines of time. */
+	RVN_PART_GRID,
+	/** NodeGraph: a node, its pins, the links between them. */
+	RVN_PART_NODE,
+	RVN_PART_PIN,
+	RVN_PART_LINK,
+	/** Timeline: the ruler of time, a clip, a key, the playhead, a marker. */
+	RVN_PART_RULER,
+	RVN_PART_CLIP,
+	RVN_PART_KEY,
+	RVN_PART_PLAYHEAD,
+	RVN_PART_MARKER,
 	RVN_PART_COUNT
 } rvn_part_t;
+
+/**
+ * Forms a part can take (<Style Part="Pin" Shape="Diamond">, rvn_part_look_t::shape).
+ * Each part reads the ones that mean something for it; 0 is the one of the look.
+ */
+enum {
+	RVN_SHAPE_DEFAULT = 0,
+	/* pins, keys */
+	RVN_SHAPE_CIRCLE, RVN_SHAPE_RING, RVN_SHAPE_SQUARE, RVN_SHAPE_DIAMOND, RVN_SHAPE_TRIANGLE, RVN_SHAPE_ARROW,
+	/* links */
+	RVN_SHAPE_BEZIER, RVN_SHAPE_STRAIGHT, RVN_SHAPE_STEP, RVN_SHAPE_ANGLED,
+	/* grids */
+	RVN_SHAPE_DOTS, RVN_SHAPE_LINES, RVN_SHAPE_CROSS,
+	/* headers of nodes, clips */
+	RVN_SHAPE_SOLID, RVN_SHAPE_GRADIENT, RVN_SHAPE_STRIPE, RVN_SHAPE_TINT, RVN_SHAPE_OUTLINE,
+	RVN_SHAPE_NONE,
+	RVN_SHAPE_COUNT
+};
+/** RVN_SHAPE_ by name ("Diamond", "Step"...); R_FALSE when unknown. */
+int rvn_shape_by_name(const char* name, int* shape);
+const char* rvn_shape_name(int shape);
+/** Lays the values of `mask` (RVN_LOOK_ bits) of `from` over `look`. */
+void rvn_part_look_apply(rvn_part_look_t* look, const rvn_part_look_t* from, uint32_t mask);
 
 /** States a style can ask for (<Style State="Hovered Checked">). */
 #define RVN_STATE_HOVERED  (1u << 0)

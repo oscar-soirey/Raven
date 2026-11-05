@@ -867,6 +867,18 @@ R_DOCK_BOTTOM :: 0x0363
 // Behind the same tabs as the other panel.
 R_DOCK_TAB :: 0x0364
 
+RVisualPreset :: i32
+// The look of the theme of the window: its platform, dark or light.
+R_PRESET_AUTO :: 0x0510
+// Cards with soft shadows, few lines (follows dark or light).
+R_PRESET_MODERN :: 0x0511
+// Headers in gradients, a grid of lines, thick links that glow; pins of the type "exec" are arrows.
+R_PRESET_BLUEPRINT :: 0x0512
+// Compact nodes, flat headers in muted colors, thin links.
+R_PRESET_BLENDER :: 0x0513
+// Almost black, outlines and links of light.
+R_PRESET_NEON :: 0x0514
+
 // What an item of a timeline is.
 RTimelineItem :: i32
 R_TIMELINE_NONE :: 0x0460
@@ -3311,6 +3323,13 @@ foreign lib {
 	Rtimeline_set_track_locked :: proc(timeline: Rid, track: i32, locked: i32) ---
 	// A muted track is drawn dimmed; what muting means is up to the application.
 	Rtimeline_set_track_muted :: proc(timeline: Rid, track: i32, muted: i32) ---
+	// A property of the look of a track: "ClipStyle" (Solid,
+	// Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+	// "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+	// property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+	// the one of the timeline.
+	// Returns: R_FALSE when the name or the value is not one.
+	Rtimeline_set_track_style :: proc(timeline: Rid, track: i32, property: cstring, value: cstring) -> i32 ---
 	Rtimeline_is_track_muted :: proc(timeline: Rid, track: i32) -> i32 ---
 	// Returns: The clip, or 0 when the track does not exist.
 	Rtimeline_add_clip :: proc(timeline: Rid, track: i32, start: f64, length: f64, label: cstring) -> i32 ---
@@ -3332,6 +3351,14 @@ foreign lib {
 	Rtimeline_set_item_label :: proc(timeline: Rid, item: i32, label: cstring) ---
 	Rtimeline_get_item_label :: proc(timeline: Rid, item: i32) -> cstring ---
 	Rtimeline_set_item_color :: proc(timeline: Rid, item: i32, r: f32, g: f32, b: f32) ---
+	// A property of the look of one clip, key or marker: "Style"
+	// (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+	// property of its part ("Background", "BorderColor", "Glow",
+	// "CornerRadius", "Foreground" for its label...).
+	Rtimeline_set_item_style :: proc(timeline: Rid, item: i32, property: cstring, value: cstring) -> i32 ---
+	// The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+	Rtimeline_set_preset :: proc(timeline: Rid, preset: RVisualPreset) ---
+	Rtimeline_get_preset :: proc(timeline: Rid) -> RVisualPreset ---
 	Rtimeline_get_item_count :: proc(timeline: Rid) -> i32 ---
 	// Returns: The index-th item, in the order they were added, or 0.
 	Rtimeline_get_item :: proc(timeline: Rid, index: i32) -> i32 ---
@@ -3370,6 +3397,14 @@ foreign lib {
 	Rnode_graph_get_node_size :: proc(graph: Rid, node: i32, width: ^f32, height: ^f32) ---
 	// Color of the header of the node; without one it takes the accent color of the theme.
 	Rnode_graph_set_node_color :: proc(graph: Rid, node: i32, r: f32, g: f32, b: f32) ---
+	// A property of the look of one node: "HeaderStyle" (Solid,
+	// Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+	// "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+	// "Icon" (an image file shown before its title), or a part and a property
+	// ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+	// one of the graph.
+	// Returns: R_FALSE when the name or the value is not one.
+	Rnode_graph_set_node_style :: proc(graph: Rid, node: i32, property: cstring, value: cstring) -> i32 ---
 	// Puts a widget inside the node, under its pins: the graph owns
 	// it from now on. R_INVALID_ID removes (and deletes) the one it had.
 	Rnode_graph_set_node_content :: proc(graph: Rid, node: i32, widget: Rid) ---
@@ -3402,6 +3437,12 @@ foreign lib {
 	Rnode_graph_get_output :: proc(graph: Rid, node: i32, index: i32) -> i32 ---
 	// Color of the pins of a type and of the links between them.
 	Rnode_graph_set_type_color :: proc(graph: Rid, type: cstring, r: f32, g: f32, b: f32) ---
+	// A property of the pins of a type and of their links: "Shape"
+	// (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+	// "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+	Rnode_graph_set_type_style :: proc(graph: Rid, type: cstring, property: cstring, value: cstring) -> i32 ---
+	// The same for one pin ("Shape", "Size", "Glow", "Color").
+	Rnode_graph_set_pin_style :: proc(graph: Rid, pin: i32, property: cstring, value: cstring) -> i32 ---
 	// Links an output to an input, as the user does by dragging.
 	// The connect callback is not asked.
 	// Returns: The link; 0 when the pins cannot be linked (two inputs, the
@@ -3431,6 +3472,9 @@ foreign lib {
 	Rnode_graph_set_flow_visible :: proc(graph: Rid, visible: i32) ---
 	// R_TRUE: the user can look but not move, link or delete.
 	Rnode_graph_set_read_only :: proc(graph: Rid, read_only: i32) ---
+	// The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+	Rnode_graph_set_preset :: proc(graph: Rid, preset: RVisualPreset) ---
+	Rnode_graph_get_preset :: proc(graph: Rid) -> RVisualPreset ---
 	Rnode_graph_select_node :: proc(graph: Rid, node: i32, add: i32) ---
 	Rnode_graph_clear_selection :: proc(graph: Rid) ---
 	Rnode_graph_is_node_selected :: proc(graph: Rid, node: i32) -> i32 ---

@@ -37,8 +37,43 @@
 
 static const char* const g_part_names[RVN_PART_COUNT] = {
 	"Body", "Box", "Mark", "Radio", "Dot", "Track", "Fill", "Thumb", "Knob", "Arrow", "Popup", "Item",
-	"Indicator", "Tab", "Header", "Scrollbar", "ScrollThumb", "Tooltip", "CaptionButton", "CloseButton", "Focus"
+	"Indicator", "Tab", "Header", "Scrollbar", "ScrollThumb", "Tooltip", "CaptionButton", "CloseButton", "Focus",
+	"Grid", "Node", "Pin", "Link", "Ruler", "Clip", "Key", "Playhead", "Marker"
 };
+
+static const char* const g_shape_names[RVN_SHAPE_COUNT] = {
+	"Default", "Circle", "Ring", "Square", "Diamond", "Triangle", "Arrow",
+	"Bezier", "Straight", "Step", "Angled",
+	"Dots", "Lines", "Cross",
+	"Solid", "Gradient", "Stripe", "Tint", "Outline",
+	"None"
+};
+
+int rvn_shape_by_name(const char* name, int* shape) {
+	int i;
+	if (!name) return R_FALSE;
+	for (i = 0; i < RVN_SHAPE_COUNT; i++) {
+		if (rvn_stricmp(g_shape_names[i], name) == 0) {
+			*shape = i;
+			return R_TRUE;
+		}
+	}
+	/* (other words for the same) */
+	if (rvn_stricmp(name, "Curve") == 0 || rvn_stricmp(name, "Curved") == 0 || rvn_stricmp(name, "Spline") == 0) *shape = RVN_SHAPE_BEZIER;
+	else if (rvn_stricmp(name, "Line") == 0 || rvn_stricmp(name, "Linear") == 0) *shape = RVN_SHAPE_STRAIGHT;
+	else if (rvn_stricmp(name, "Orthogonal") == 0 || rvn_stricmp(name, "Steps") == 0) *shape = RVN_SHAPE_STEP;
+	else if (rvn_stricmp(name, "Diagonal") == 0) *shape = RVN_SHAPE_ANGLED;
+	else if (rvn_stricmp(name, "Dot") == 0) *shape = RVN_SHAPE_DOTS;
+	else if (rvn_stricmp(name, "Hollow") == 0) *shape = RVN_SHAPE_RING;
+	else if (rvn_stricmp(name, "Flat") == 0) *shape = RVN_SHAPE_SOLID;
+	else if (rvn_stricmp(name, "Hidden") == 0 || rvn_stricmp(name, "Off") == 0) *shape = RVN_SHAPE_NONE;
+	else return R_FALSE;
+	return R_TRUE;
+}
+
+const char* rvn_shape_name(int shape) {
+	return shape >= 0 && shape < RVN_SHAPE_COUNT ? g_shape_names[shape] : "Default";
+}
 
 int rvn_part_by_name(const char* name, int* part) {
 	int i;
@@ -54,7 +89,12 @@ int rvn_part_by_name(const char* name, int* part) {
 	else if (rvn_stricmp(name, "Check") == 0 || rvn_stricmp(name, "CheckMark") == 0) *part = RVN_PART_MARK;
 	else if (rvn_stricmp(name, "Row") == 0) *part = RVN_PART_ITEM;
 	else if (rvn_stricmp(name, "Chevron") == 0) *part = RVN_PART_ARROW;
-	else if (rvn_stricmp(name, "Rail") == 0 || rvn_stricmp(name, "Groove") == 0) *part = RVN_PART_TRACK;
+	else if (rvn_stricmp(name, "Rail") == 0 || rvn_stricmp(name, "Groove") == 0 || rvn_stricmp(name, "Lane") == 0) *part = RVN_PART_TRACK;
+	else if (rvn_stricmp(name, "Wire") == 0 || rvn_stricmp(name, "Connection") == 0) *part = RVN_PART_LINK;
+	else if (rvn_stricmp(name, "Port") == 0 || rvn_stricmp(name, "Socket") == 0) *part = RVN_PART_PIN;
+	else if (rvn_stricmp(name, "Keyframe") == 0) *part = RVN_PART_KEY;
+	else if (rvn_stricmp(name, "Cursor") == 0) *part = RVN_PART_PLAYHEAD;
+	else if (rvn_stricmp(name, "Badge") == 0) *part = RVN_PART_INDICATOR;
 	else return R_FALSE;
 	return R_TRUE;
 }
@@ -118,14 +158,15 @@ void rvn_states_write(uint32_t states, rvn_text_t* out) {
 }
 
 /* In the order of the RVN_LOOK_ bits. */
-static const char* const g_property_names[12] = {
+static const char* const g_property_names[RVN_LOOK_COUNT] = {
 	"Background", "Foreground", "BorderColor", "BorderTopColor", "BorderBottomColor", "ShadowColor",
-	"BorderWidth", "BorderBottomWidth", "CornerRadius", "Size", "Opacity", "ShadowSize"
+	"BorderWidth", "BorderBottomWidth", "CornerRadius", "Size", "Opacity", "ShadowSize",
+	"Shape", "Glow", "Gradient"
 };
 
 const char* rvn_part_property_name(uint32_t bit) {
 	int i;
-	for (i = 0; i < 12; i++) {
+	for (i = 0; i < RVN_LOOK_COUNT; i++) {
 		if (bit == (1u << i)) return g_property_names[i];
 	}
 	return "";
@@ -153,6 +194,24 @@ int rvn_part_property(const char* name, const char* value, rvn_part_look_t* look
 	else if (rvn_stricmp(name, "Border") == 0) name = "BorderColor";
 	else if (rvn_stricmp(name, "Radius") == 0) name = "CornerRadius";
 	else if (rvn_stricmp(name, "Shadow") == 0) name = "ShadowSize";
+	else if (rvn_stricmp(name, "Width") == 0 || rvn_stricmp(name, "Thickness") == 0) name = "Size";
+	else if (rvn_stricmp(name, "Style") == 0 || rvn_stricmp(name, "Form") == 0) name = "Shape";
+	if (rvn_stricmp(name, "Shape") == 0) {
+		*bit = RVN_LOOK_SHAPE;
+		if (!rvn_shape_by_name(value, &look->shape)) *bad_value = R_TRUE;
+		return R_TRUE;
+	}
+	if (rvn_stricmp(name, "Glow") == 0) {
+		*bit = RVN_LOOK_GLOW;
+		if (!rvn_parse_float(value, &look->glow) || look->glow < 0.0f) *bad_value = R_TRUE;
+		return R_TRUE;
+	}
+	if (rvn_stricmp(name, "Gradient") == 0) {
+		*bit = RVN_LOOK_GRADIENT;
+		if (rvn_stricmp(value, "None") == 0) look->gradient = 0;
+		else if (!rvn_parse_color(value, &look->gradient)) *bad_value = R_TRUE;
+		return R_TRUE;
+	}
 	for (i = 0; i < 12; i++) {
 		if (rvn_stricmp(g_property_names[i], name) != 0) continue;
 		*bit = 1u << i;
@@ -204,26 +263,32 @@ void rvn_part_apply_styles(const rvn_widget_t* widget, int part, uint32_t states
 	if (!match) return;
 	for (i = 0; i < match->part_rule_count; i++) {
 		const rvn_style_rule_t* rule = &theme->rules[match->part_rules[i]];
-		uint32_t mask = rule->look_mask;
 		if (rule->part != part || (rule->states & ~states)) continue;
-		if (mask & RVN_LOOK_BACKGROUND) look->background = rule->look.background;
-		if (mask & RVN_LOOK_FOREGROUND) look->foreground = rule->look.foreground;
-		if (mask & RVN_LOOK_BORDER) look->border = rule->look.border;
-		if (mask & RVN_LOOK_BORDER_TOP) look->border_top = rule->look.border_top;
-		if (mask & RVN_LOOK_BORDER_BOTTOM) look->border_bottom = rule->look.border_bottom;
-		if (mask & RVN_LOOK_SHADOW_COLOR) look->shadow_color = rule->look.shadow_color;
-		if (mask & RVN_LOOK_BORDER_WIDTH) look->border_width = rule->look.border_width;
-		if (mask & RVN_LOOK_BOTTOM_WIDTH) look->border_bottom_width = rule->look.border_bottom_width;
-		if (mask & RVN_LOOK_RADIUS) look->radius = rule->look.radius;
-		if (mask & RVN_LOOK_SIZE) look->size = rule->look.size;
-		if (mask & RVN_LOOK_OPACITY) look->opacity = rule->look.opacity;
-		if (mask & RVN_LOOK_SHADOW) look->shadow = rule->look.shadow;
-		/* a border color given alone is the whole border: the edges of the look do not stay */
-		if ((mask & RVN_LOOK_BORDER) && !(mask & RVN_LOOK_BORDER_TOP)) look->border_top = 0;
-		if ((mask & RVN_LOOK_BORDER) && !(mask & RVN_LOOK_BORDER_BOTTOM)) look->border_bottom = 0;
-		if ((mask & (RVN_LOOK_BORDER | RVN_LOOK_BORDER_TOP | RVN_LOOK_BORDER_BOTTOM)) && !(mask & RVN_LOOK_BORDER_WIDTH) &&
-			look->border_width <= 0.0f) look->border_width = 1.0f;
+		rvn_part_look_apply(look, &rule->look, rule->look_mask);
 	}
+}
+
+void rvn_part_look_apply(rvn_part_look_t* look, const rvn_part_look_t* from, uint32_t mask) {
+	if (mask & RVN_LOOK_BACKGROUND) look->background = from->background;
+	if (mask & RVN_LOOK_FOREGROUND) look->foreground = from->foreground;
+	if (mask & RVN_LOOK_BORDER) look->border = from->border;
+	if (mask & RVN_LOOK_BORDER_TOP) look->border_top = from->border_top;
+	if (mask & RVN_LOOK_BORDER_BOTTOM) look->border_bottom = from->border_bottom;
+	if (mask & RVN_LOOK_SHADOW_COLOR) look->shadow_color = from->shadow_color;
+	if (mask & RVN_LOOK_BORDER_WIDTH) look->border_width = from->border_width;
+	if (mask & RVN_LOOK_BOTTOM_WIDTH) look->border_bottom_width = from->border_bottom_width;
+	if (mask & RVN_LOOK_RADIUS) look->radius = from->radius;
+	if (mask & RVN_LOOK_SIZE) look->size = from->size;
+	if (mask & RVN_LOOK_OPACITY) look->opacity = from->opacity;
+	if (mask & RVN_LOOK_SHADOW) look->shadow = from->shadow;
+	if (mask & RVN_LOOK_SHAPE) look->shape = from->shape;
+	if (mask & RVN_LOOK_GLOW) look->glow = from->glow;
+	if (mask & RVN_LOOK_GRADIENT) look->gradient = from->gradient;
+	/* a border color given alone is the whole border: the edges of the look do not stay */
+	if ((mask & RVN_LOOK_BORDER) && !(mask & RVN_LOOK_BORDER_TOP)) look->border_top = 0;
+	if ((mask & RVN_LOOK_BORDER) && !(mask & RVN_LOOK_BORDER_BOTTOM)) look->border_bottom = 0;
+	if ((mask & (RVN_LOOK_BORDER | RVN_LOOK_BORDER_TOP | RVN_LOOK_BORDER_BOTTOM)) && !(mask & RVN_LOOK_BORDER_WIDTH) &&
+		look->border_width <= 0.0f) look->border_width = 1.0f;
 }
 
 void rvn_part_look(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_base_t base, const void* context, rvn_part_look_t* look) {
@@ -259,6 +324,10 @@ void rvn_part_look_mix(rvn_part_look_t* a, const rvn_part_look_t* b, float t) {
 	a->size += (b->size - a->size) * t;
 	a->opacity += (b->opacity - a->opacity) * t;
 	a->shadow += (b->shadow - a->shadow) * t;
+	a->glow += (b->glow - a->glow) * t;
+	a->gradient = rvn_look_mix_color(a->gradient, b->gradient, t);
+	/* (a form does not blend: it changes half way) */
+	if (t >= 0.5f) a->shape = b->shape;
 }
 
 void rvn_part_look_eased(const rvn_widget_t* widget, int part, uint32_t states, float hover, float press,

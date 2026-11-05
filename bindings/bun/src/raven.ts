@@ -876,6 +876,7 @@ const _symbols = {
 	Rtimeline_set_track_height: { args: ["u32", "i32", "f32"], returns: "void" },
 	Rtimeline_set_track_locked: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rtimeline_set_track_muted: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtimeline_set_track_style: { args: ["u32", "i32", "ptr", "ptr"], returns: "i32" },
 	Rtimeline_is_track_muted: { args: ["u32", "i32"], returns: "i32" },
 	Rtimeline_add_clip: { args: ["u32", "i32", "f64", "f64", "ptr"], returns: "i32" },
 	Rtimeline_add_key: { args: ["u32", "i32", "f64"], returns: "i32" },
@@ -890,6 +891,9 @@ const _symbols = {
 	Rtimeline_set_item_label: { args: ["u32", "i32", "ptr"], returns: "void" },
 	Rtimeline_get_item_label: { args: ["u32", "i32"], returns: "cstring" },
 	Rtimeline_set_item_color: { args: ["u32", "i32", "f32", "f32", "f32"], returns: "void" },
+	Rtimeline_set_item_style: { args: ["u32", "i32", "ptr", "ptr"], returns: "i32" },
+	Rtimeline_set_preset: { args: ["u32", "i32"], returns: "void" },
+	Rtimeline_get_preset: { args: ["u32"], returns: "i32" },
 	Rtimeline_get_item_count: { args: ["u32"], returns: "i32" },
 	Rtimeline_get_item: { args: ["u32", "i32"], returns: "i32" },
 	Rtimeline_select: { args: ["u32", "i32", "i32"], returns: "void" },
@@ -914,6 +918,7 @@ const _symbols = {
 	Rnode_graph_get_node_position: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
 	Rnode_graph_get_node_size: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
 	Rnode_graph_set_node_color: { args: ["u32", "i32", "f32", "f32", "f32"], returns: "void" },
+	Rnode_graph_set_node_style: { args: ["u32", "i32", "ptr", "ptr"], returns: "i32" },
 	Rnode_graph_set_node_content: { args: ["u32", "i32", "u32"], returns: "void" },
 	Rnode_graph_get_node_content: { args: ["u32", "i32"], returns: "u32" },
 	Rnode_graph_set_node_name: { args: ["u32", "i32", "ptr"], returns: "void" },
@@ -934,6 +939,8 @@ const _symbols = {
 	Rnode_graph_get_input: { args: ["u32", "i32", "i32"], returns: "i32" },
 	Rnode_graph_get_output: { args: ["u32", "i32", "i32"], returns: "i32" },
 	Rnode_graph_set_type_color: { args: ["u32", "ptr", "f32", "f32", "f32"], returns: "void" },
+	Rnode_graph_set_type_style: { args: ["u32", "ptr", "ptr", "ptr"], returns: "i32" },
+	Rnode_graph_set_pin_style: { args: ["u32", "i32", "ptr", "ptr"], returns: "i32" },
 	Rnode_graph_connect: { args: ["u32", "i32", "i32"], returns: "i32" },
 	Rnode_graph_disconnect: { args: ["u32", "i32"], returns: "void" },
 	Rnode_graph_get_link_count: { args: ["u32"], returns: "i32" },
@@ -949,6 +956,8 @@ const _symbols = {
 	Rnode_graph_set_grid_visible: { args: ["u32", "i32"], returns: "void" },
 	Rnode_graph_set_flow_visible: { args: ["u32", "i32"], returns: "void" },
 	Rnode_graph_set_read_only: { args: ["u32", "i32"], returns: "void" },
+	Rnode_graph_set_preset: { args: ["u32", "i32"], returns: "void" },
+	Rnode_graph_get_preset: { args: ["u32"], returns: "i32" },
 	Rnode_graph_select_node: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_clear_selection: { args: ["u32"], returns: "void" },
 	Rnode_graph_is_node_selected: { args: ["u32", "i32"], returns: "i32" },
@@ -2633,6 +2642,25 @@ export const R_DOCK_RIGHT = RDockSide.R_DOCK_RIGHT;
 export const R_DOCK_TOP = RDockSide.R_DOCK_TOP;
 export const R_DOCK_BOTTOM = RDockSide.R_DOCK_BOTTOM;
 export const R_DOCK_TAB = RDockSide.R_DOCK_TAB;
+
+export enum RVisualPreset {
+	/** The look of the theme of the window: its platform, dark or light. */
+	R_PRESET_AUTO = 0x0510,
+	/** Cards with soft shadows, few lines (follows dark or light). */
+	R_PRESET_MODERN = 0x0511,
+	/** Headers in gradients, a grid of lines, thick links that glow; pins of the type "exec" are arrows. */
+	R_PRESET_BLUEPRINT = 0x0512,
+	/** Compact nodes, flat headers in muted colors, thin links. */
+	R_PRESET_BLENDER = 0x0513,
+	/** Almost black, outlines and links of light. */
+	R_PRESET_NEON = 0x0514,
+}
+
+export const R_PRESET_AUTO = RVisualPreset.R_PRESET_AUTO;
+export const R_PRESET_MODERN = RVisualPreset.R_PRESET_MODERN;
+export const R_PRESET_BLUEPRINT = RVisualPreset.R_PRESET_BLUEPRINT;
+export const R_PRESET_BLENDER = RVisualPreset.R_PRESET_BLENDER;
+export const R_PRESET_NEON = RVisualPreset.R_PRESET_NEON;
 
 /** What an item of a timeline is. */
 export enum RTimelineItem {
@@ -10314,6 +10342,18 @@ export function Rtimeline_set_track_muted(timeline: Rid, track: number, muted: n
 	_lib.Rtimeline_set_track_muted(timeline, track, muted);
 }
 
+/**
+ * A property of the look of a track: "ClipStyle" (Solid,
+ * Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+ * "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+ * property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+ * the one of the timeline.
+ * Returns: R_FALSE when the name or the value is not one.
+ */
+export function Rtimeline_set_track_style(timeline: Rid, track: number, property: string | null, value: string | null): number {
+	return _lib.Rtimeline_set_track_style(timeline, track, _s(property), _s(value));
+}
+
 export function Rtimeline_is_track_muted(timeline: Rid, track: number): number {
 	return _lib.Rtimeline_is_track_muted(timeline, track);
 }
@@ -10375,6 +10415,25 @@ export function Rtimeline_get_item_label(timeline: Rid, item: number): string | 
 
 export function Rtimeline_set_item_color(timeline: Rid, item: number, r: number, g: number, b: number): void {
 	_lib.Rtimeline_set_item_color(timeline, item, r, g, b);
+}
+
+/**
+ * A property of the look of one clip, key or marker: "Style"
+ * (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+ * property of its part ("Background", "BorderColor", "Glow",
+ * "CornerRadius", "Foreground" for its label...).
+ */
+export function Rtimeline_set_item_style(timeline: Rid, item: number, property: string | null, value: string | null): number {
+	return _lib.Rtimeline_set_item_style(timeline, item, _s(property), _s(value));
+}
+
+/** The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML). */
+export function Rtimeline_set_preset(timeline: Rid, preset: RVisualPreset): void {
+	_lib.Rtimeline_set_preset(timeline, preset);
+}
+
+export function Rtimeline_get_preset(timeline: Rid): RVisualPreset {
+	return _lib.Rtimeline_get_preset(timeline) as RVisualPreset;
 }
 
 export function Rtimeline_get_item_count(timeline: Rid): number {
@@ -10498,6 +10557,19 @@ export function Rnode_graph_set_node_color(graph: Rid, node: number, r: number, 
 }
 
 /**
+ * A property of the look of one node: "HeaderStyle" (Solid,
+ * Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+ * "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+ * "Icon" (an image file shown before its title), or a part and a property
+ * ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+ * one of the graph.
+ * Returns: R_FALSE when the name or the value is not one.
+ */
+export function Rnode_graph_set_node_style(graph: Rid, node: number, property: string | null, value: string | null): number {
+	return _lib.Rnode_graph_set_node_style(graph, node, _s(property), _s(value));
+}
+
+/**
  * Puts a widget inside the node, under its pins: the graph owns
  * it from now on. R_INVALID_ID removes (and deletes) the one it had.
  */
@@ -10597,6 +10669,20 @@ export function Rnode_graph_set_type_color(graph: Rid, type: string | null, r: n
 }
 
 /**
+ * A property of the pins of a type and of their links: "Shape"
+ * (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+ * "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+ */
+export function Rnode_graph_set_type_style(graph: Rid, type: string | null, property: string | null, value: string | null): number {
+	return _lib.Rnode_graph_set_type_style(graph, _s(type), _s(property), _s(value));
+}
+
+/** The same for one pin ("Shape", "Size", "Glow", "Color"). */
+export function Rnode_graph_set_pin_style(graph: Rid, pin: number, property: string | null, value: string | null): number {
+	return _lib.Rnode_graph_set_pin_style(graph, pin, _s(property), _s(value));
+}
+
+/**
  * Links an output to an input, as the user does by dragging.
  * The connect callback is not asked.
  * Returns: The link; 0 when the pins cannot be linked (two inputs, the
@@ -10682,6 +10768,15 @@ export function Rnode_graph_set_flow_visible(graph: Rid, visible: number): void 
 /** R_TRUE: the user can look but not move, link or delete. */
 export function Rnode_graph_set_read_only(graph: Rid, read_only: number): void {
 	_lib.Rnode_graph_set_read_only(graph, read_only);
+}
+
+/** The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML). */
+export function Rnode_graph_set_preset(graph: Rid, preset: RVisualPreset): void {
+	_lib.Rnode_graph_set_preset(graph, preset);
+}
+
+export function Rnode_graph_get_preset(graph: Rid): RVisualPreset {
+	return _lib.Rnode_graph_get_preset(graph) as RVisualPreset;
 }
 
 export function Rnode_graph_select_node(graph: Rid, node: number, add: number): void {

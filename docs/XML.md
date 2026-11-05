@@ -290,16 +290,24 @@ looks for it in its menus when the keys are pressed.
 | Tag | Attributes and elements |
 |---|---|
 | `ColorPicker` | `Color`, `Previous` (the color shown beside it, to compare), `Alpha` (`false`: no opacity), `Popup` (`true`: a swatch that opens the picker), `Compact` (`true`: no code, no numbers), `Numbers` (`RGB` or `HSV`), `Swatches` (`"#FF453A, #0A84FF, white"`), `OnChanged` |
-| `Timeline` | `Duration` (seconds), `Time`, `FrameRate` (0: none), `Snapping`, `ViewStart`, `ViewEnd`, `Loop`, `Playing`, `HeaderWidth` (0: fits the names), `TrackHeight` (0: follows the theme), `RulerHeight` (0: follows the theme), `OnChanged`. Contains `<Track>` and `<Marker>` elements |
-| `<Track>` | `Name`, `Color`, `Height`, `Locked`, `Muted`. Contains `<Clip>` and `<Key>` elements |
-| `<Clip>` | `Start`, `Length` or `End`, `Label` (or the text of the element), `Color`, `Selected` |
-| `<Key>` | `Time`, `Label`, `Color` |
-| `<Marker>` | `Time`, `Label`, `Color`: a flag on the ruler |
-| `NodeGraph` | `Zoom`, `CenterX`, `CenterY`, `Grid` (`false`: no dots), `Flow` (`Auto`: the pulses along the links run while the pointer is over the graph; `true`: always; `false`: never), `ReadOnly`, `FrameAll` (`true`: starts with every node in view), `OnChanged`. Contains `<Node>`, `<Link>` and `<Type>` elements |
-| `<Node>` | `Name` (for the links and `Rnode_graph_find_node`), `Title`, `X`, `Y`, `Color` (of its header), `Selected`. Contains `<Input>` and `<Output>` elements, and any widgets: they are shown inside the node (several are stacked) |
-| `<Input>`, `<Output>` | `Name`, `Label`, `Type` (free text; pins of different types do not link, a pin without a type links to any) |
+| `Timeline` | `Duration` (seconds), `Time`, `FrameRate` (0: none), `Snapping`, `ViewStart`, `ViewEnd`, `Loop`, `Playing`, `HeaderWidth` (0: fits the names), `TrackHeight` (0: follows the theme), `RulerHeight` (0: follows the theme), `OnChanged`; its look (below): `Preset`, `ClipStyle`, `ClipRadius`, `KeyShape`, `KeySize`, `GridStyle`, `PlayheadColor`, `PlayheadWidth`, and any part with a dot (`Clip.Glow`, `Ruler.Background`). Contains `<Track>` and `<Marker>` elements |
+| `<Track>` | `Name`, `Color`, `Height`, `Locked`, `Muted`; `ClipStyle`, `KeyShape`, `KeySize`, `Background` (its lane), `Clip.X`, `Key.X`. Contains `<Clip>` and `<Key>` elements |
+| `<Clip>` | `Start`, `Length` or `End`, `Label` (or the text of the element), `Color`, `Selected`; `Style` (`Solid`, `Gradient`, `Tint`, `Outline`) and the properties of the part `Clip` (`Glow`, `BorderColor`, `CornerRadius`, `Foreground`...) |
+| `<Key>` | `Time`, `Label`, `Color`; `Shape` and the properties of the part `Key` |
+| `<Marker>` | `Time`, `Label`, `Color`: a flag on the ruler; the properties of the part `Marker` |
+| `NodeGraph` | `Zoom`, `CenterX`, `CenterY`, `Grid` (`false`: no dots), `Flow` (`Auto`: the pulses along the links run while the pointer is over the graph; `true`: always; `false`: never), `ReadOnly`, `FrameAll` (`true`: starts with every node in view), `OnChanged`; its look (below): `Preset`, `LinkShape`, `LinkWidth`, `LinkGlow`, `PinShape`, `PinSize`, `GridStyle`, `GridSize`, `NodeRadius`, `HeaderStyle`, `HeaderHeight`, and any part with a dot (`Link.Glow`, `Node.ShadowSize`, `Header.Gradient`). Contains `<Node>`, `<Link>` and `<Type>` elements |
+| `<Node>` | `Name` (for the links and `Rnode_graph_find_node`), `Title`, `X`, `Y`, `Color` (of its header), `Selected`; `HeaderStyle`, `HeaderColor`, `HeaderGradient`, `TitleColor`, `Icon` (an image before the title), `Background`, `BorderColor`, `BorderWidth`, `CornerRadius`, `Glow`. Contains `<Input>` and `<Output>` elements, and any widgets: they are shown inside the node (several are stacked) |
+| `<Input>`, `<Output>` | `Name`, `Label`, `Type` (free text; pins of different types do not link, a pin without a type links to any); `Shape`, `Size`, `Color`, `Glow`, `LinkShape`, `LinkWidth`, `LinkColor` |
 | `<Link>` | `From="node.output"`, `To="node.input"`, after the nodes it links |
-| `<Type>` | `Name`, `Color`: the color of the pins of a type and of their links (without it, Raven picks one from the name) |
+| `<Type>` | `Name`, `Color`: the color of the pins of a type and of their links (without it, Raven picks one from the name); `Shape`, `Size`, `Glow`, `LinkShape`, `LinkWidth`, `LinkGlow` |
+
+**Looks.** `Preset` is the look the graph or the timeline starts from:
+`Auto` (the theme of the window and its platform), `Modern`, `Blueprint`,
+`Blender`, `Neon`. The styles of the theme are laid over it
+(`<Style Widget="NodeGraph" Part="Link" Shape="Step"/>`, see
+[THEMES.md](THEMES.md#parts-and-states)), then the attributes of the widget,
+then those of an item. `Part.Property` names any part and any property:
+`Grid.Shape="Lines"`, `Pin.Glow="0.8"`, `Clip.Gradient="#102030"`.
 
 ```xml
 <NodeGraph Name="graph">

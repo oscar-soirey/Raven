@@ -30,6 +30,12 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [x] **`test_web` no longer flaky**: a page drawn before the screencast
   started, or a picture of another size arriving late, made it wait for a
   picture that never came; the view now asks the browser for one.
+- [x] **Looks of the node graph and of the timeline**: `Auto` (the theme
+  and its platform), `Modern`, `Blueprint`, `Blender`, `Neon`; every part
+  (nodes, headers, pins, links, grid, clips, keys, playhead...) styled by
+  the theme, the attributes of the widget or one item; forms of links
+  (Bezier, Straight, Step, Angled), of pins and keys, gradients, glow, icons
+  on nodes. The studio switches between them.
 - [x] **Small widgets**: `DatePicker` (calendar popup, range, first day of the
   week, formats, translated names), `TimePicker`, `Toast`, `Breadcrumb`,
   `Rating`, `Pagination`.

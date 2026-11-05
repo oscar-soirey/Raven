@@ -1202,6 +1202,19 @@ R_DOCK_TOP = RDockSide.R_DOCK_TOP
 R_DOCK_BOTTOM = RDockSide.R_DOCK_BOTTOM
 R_DOCK_TAB = RDockSide.R_DOCK_TAB
 
+class RVisualPreset(enum.IntEnum):
+    R_PRESET_AUTO = 0x0510
+    R_PRESET_MODERN = 0x0511
+    R_PRESET_BLUEPRINT = 0x0512
+    R_PRESET_BLENDER = 0x0513
+    R_PRESET_NEON = 0x0514
+
+R_PRESET_AUTO = RVisualPreset.R_PRESET_AUTO
+R_PRESET_MODERN = RVisualPreset.R_PRESET_MODERN
+R_PRESET_BLUEPRINT = RVisualPreset.R_PRESET_BLUEPRINT
+R_PRESET_BLENDER = RVisualPreset.R_PRESET_BLENDER
+R_PRESET_NEON = RVisualPreset.R_PRESET_NEON
+
 class RTimelineItem(enum.IntEnum):
     """What an item of a timeline is."""
     R_TIMELINE_NONE = 0x0460
@@ -9202,6 +9215,20 @@ def Rtimeline_set_track_muted(timeline, track, muted):
     _lib.Rtimeline_set_track_muted(timeline, track, muted)
 
 
+_lib.Rtimeline_set_track_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rtimeline_set_track_style.restype = ctypes.c_int
+
+
+def Rtimeline_set_track_style(timeline, track, property, value):
+    """A property of the look of a track: "ClipStyle" (Solid,
+    Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+    "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+    property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+    the one of the timeline.
+    Returns: R_FALSE when the name or the value is not one."""
+    return _lib.Rtimeline_set_track_style(timeline, track, _s(property), _s(value))
+
+
 _lib.Rtimeline_is_track_muted.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtimeline_is_track_muted.restype = ctypes.c_int
 
@@ -9319,6 +9346,35 @@ _lib.Rtimeline_set_item_color.restype = None
 
 def Rtimeline_set_item_color(timeline, item, r, g, b):
     _lib.Rtimeline_set_item_color(timeline, item, r, g, b)
+
+
+_lib.Rtimeline_set_item_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rtimeline_set_item_style.restype = ctypes.c_int
+
+
+def Rtimeline_set_item_style(timeline, item, property, value):
+    """A property of the look of one clip, key or marker: "Style"
+    (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+    property of its part ("Background", "BorderColor", "Glow",
+    "CornerRadius", "Foreground" for its label...)."""
+    return _lib.Rtimeline_set_item_style(timeline, item, _s(property), _s(value))
+
+
+_lib.Rtimeline_set_preset.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtimeline_set_preset.restype = None
+
+
+def Rtimeline_set_preset(timeline, preset):
+    """The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML)."""
+    _lib.Rtimeline_set_preset(timeline, int(preset))
+
+
+_lib.Rtimeline_get_preset.argtypes = [ctypes.c_uint32]
+_lib.Rtimeline_get_preset.restype = ctypes.c_int
+
+
+def Rtimeline_get_preset(timeline):
+    return _e(RVisualPreset, _lib.Rtimeline_get_preset(timeline))
 
 
 _lib.Rtimeline_get_item_count.argtypes = [ctypes.c_uint32]
@@ -9533,6 +9589,21 @@ def Rnode_graph_set_node_color(graph, node, r, g, b):
     _lib.Rnode_graph_set_node_color(graph, node, r, g, b)
 
 
+_lib.Rnode_graph_set_node_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rnode_graph_set_node_style.restype = ctypes.c_int
+
+
+def Rnode_graph_set_node_style(graph, node, property, value):
+    """A property of the look of one node: "HeaderStyle" (Solid,
+    Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+    "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+    "Icon" (an image file shown before its title), or a part and a property
+    ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+    one of the graph.
+    Returns: R_FALSE when the name or the value is not one."""
+    return _lib.Rnode_graph_set_node_style(graph, node, _s(property), _s(value))
+
+
 _lib.Rnode_graph_set_node_content.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
 _lib.Rnode_graph_set_node_content.restype = None
 
@@ -9708,6 +9779,26 @@ def Rnode_graph_set_type_color(graph, type_, r, g, b):
     _lib.Rnode_graph_set_type_color(graph, _s(type_), r, g, b)
 
 
+_lib.Rnode_graph_set_type_style.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rnode_graph_set_type_style.restype = ctypes.c_int
+
+
+def Rnode_graph_set_type_style(graph, type_, property, value):
+    """A property of the pins of a type and of their links: "Shape"
+    (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+    "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow"."""
+    return _lib.Rnode_graph_set_type_style(graph, _s(type_), _s(property), _s(value))
+
+
+_lib.Rnode_graph_set_pin_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rnode_graph_set_pin_style.restype = ctypes.c_int
+
+
+def Rnode_graph_set_pin_style(graph, pin, property, value):
+    """The same for one pin ("Shape", "Size", "Glow", "Color")."""
+    return _lib.Rnode_graph_set_pin_style(graph, pin, _s(property), _s(value))
+
+
 _lib.Rnode_graph_connect.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
 _lib.Rnode_graph_connect.restype = ctypes.c_int
 
@@ -9850,6 +9941,23 @@ _lib.Rnode_graph_set_read_only.restype = None
 def Rnode_graph_set_read_only(graph, read_only):
     """R_TRUE: the user can look but not move, link or delete."""
     _lib.Rnode_graph_set_read_only(graph, read_only)
+
+
+_lib.Rnode_graph_set_preset.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rnode_graph_set_preset.restype = None
+
+
+def Rnode_graph_set_preset(graph, preset):
+    """The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML)."""
+    _lib.Rnode_graph_set_preset(graph, int(preset))
+
+
+_lib.Rnode_graph_get_preset.argtypes = [ctypes.c_uint32]
+_lib.Rnode_graph_get_preset.restype = ctypes.c_int
+
+
+def Rnode_graph_get_preset(graph):
+    return _e(RVisualPreset, _lib.Rnode_graph_get_preset(graph))
 
 
 _lib.Rnode_graph_select_node.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]

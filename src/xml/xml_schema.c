@@ -432,6 +432,14 @@ static const rvn_schema_attribute_t g_timeline[] = {
 	N("TrackHeight", "Height of the tracks that have none of their own; 0 follows the theme."),
 	N("RulerHeight", "Height of the ruler of time; 0 follows the theme."),
 	A("OnChanged", "Action fired when the user moves, stretches or removes something."),
+	C("Preset", "Auto|Modern|Blueprint|Blender|Neon", "The look it starts from; Auto follows the theme of the window. Any part can then be changed: Clip.Glow=\"0.5\", Key.Shape=\"Circle\"..."),
+	C("ClipStyle", "Solid|Gradient|Tint|Outline", "How the clips are filled (also ClipStyle on a Track, Style on a Clip)."),
+	N("ClipRadius", "Corners of the clips."),
+	C("KeyShape", "Diamond|Circle|Ring|Square|Triangle", "The form of the keys (also on a Track)."),
+	N("KeySize", "Half the size of the keys."),
+	C("GridStyle", "Lines|Dots|None", "The lines of time across the tracks."),
+	K("PlayheadColor", "Color of the playhead."),
+	N("PlayheadWidth", "Width of its line."),
 };
 static const rvn_schema_attribute_t g_block_editor[] = {
 	N("Zoom", "Size of the canvas: 1 = life size."),
@@ -447,6 +455,17 @@ static const rvn_schema_attribute_t g_node_graph[] = {
 	B("ReadOnly", "The user can look, select and move the view, but not change the graph."),
 	B("FrameAll", "Starts with every node in view."),
 	A("OnChanged", "Action fired when the user links, unlinks, moves or removes something."),
+	C("Preset", "Auto|Modern|Blueprint|Blender|Neon", "The look it starts from; Auto follows the theme of the window. Any part can then be changed: Link.Glow=\"1\", Node.CornerRadius=\"4\", Header.Gradient=\"#000\"..."),
+	C("LinkShape", "Bezier|Straight|Step|Angled", "The form of the links (also LinkShape on a Type)."),
+	N("LinkWidth", "Thickness of the links."),
+	N("LinkGlow", "Light around the links, 0..1."),
+	C("PinShape", "Circle|Ring|Square|Diamond|Triangle|Arrow", "The form of the pins (also Shape on a Type, an Input, an Output)."),
+	N("PinSize", "Half the size of the pins."),
+	C("GridStyle", "Dots|Lines|Cross|None", "The grid of the canvas."),
+	N("GridSize", "Space between the points of the grid."),
+	N("NodeRadius", "Corners of the nodes."),
+	C("HeaderStyle", "Solid|Gradient|Stripe|Tint|Outline|None", "How the headers wear the color of their node (also on a Node)."),
+	N("HeaderHeight", "Height of the headers of the nodes."),
 };
 
 typedef struct rvn_schema_tag_t {

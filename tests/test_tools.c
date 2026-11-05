@@ -7,6 +7,8 @@
 
 #include "test.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 static Rid make_window(const char* xml) {
@@ -1035,6 +1037,181 @@ static void test_timeline_sizes(void) {
 	Rshutdown();
 }
 
+/* ---------------------------------------------------------------------------
+ *  Looks of the node graph and of the timeline
+ * ------------------------------------------------------------------------- */
+
+/* Clicks a point of the canvas of a graph, then Delete: R_TRUE when a link went (the click selected it). */
+static int click_removes_link(Rid window, Rid graph, float cx, float cy) {
+	float gx, gy, gw, gh, x, y;
+	int before = Rnode_graph_get_link_count(graph);
+	Rwidget_get_rect(graph, &gx, &gy, &gw, &gh);
+	Rnode_graph_from_canvas(graph, cx, cy, &x, &y);
+	click_at(window, gx + x, gy + y);
+	press_key(window, R_KEY_DELETE, 0);
+	Rdraw_frame();
+	return Rnode_graph_get_link_count(graph) < before;
+}
+
+static const char g_looks_graph[] =
+	"<Window Width=\"900\" Height=\"600\"><NodeGraph Name=\"g\" %s>"
+	"<Type Name=\"number\" Color=\"#00FF00\" Shape=\"Diamond\" LinkWidth=\"3\"/>"
+	"<Type Name=\"exec\"/>"
+	"<Node Name=\"a\" Title=\"Source\" X=\"50\" Y=\"50\" HeaderStyle=\"Gradient\" HeaderColor=\"#334455\" Glow=\"0.5\">"
+	"<Output Name=\"o\" Label=\"Out\" Type=\"number\"/><Output Name=\"x\" Label=\"Then\" Type=\"exec\" Shape=\"Arrow\"/></Node>"
+	"<Node Name=\"b\" Title=\"Mix\" X=\"500\" Y=\"250\"><Input Name=\"i\" Label=\"In\" Type=\"number\"/><Input Name=\"x\" Label=\"Do\" Type=\"exec\"/></Node>"
+	"<Link From=\"a.o\" To=\"b.i\"/>"
+	"</NodeGraph></Window>";
+
+static Rid looks_window(const char* attributes, Rid* graph) {
+	char xml[2048];
+	snprintf(xml, sizeof(xml), g_looks_graph, attributes);
+	{
+		Rid window = make_window(xml);
+		*graph = Rwidget_find(window, "g");
+		Rdraw_frame();
+		return window;
+	}
+}
+
+static void test_looks(void) {
+	static const char* const presets[] = { "Auto", "Modern", "Blueprint", "Blender", "Neon" };
+	static const char* const shapes[] = { "Bezier", "Straight", "Step", "Angled" };
+	Rid window, graph, tl;
+	int a, b, a_out, b_in, i, k;
+	float w, h, w2, h2, x0, y0, x1, y1;
+
+	CHECK(test_init(0));
+	/* every look and every form of link is painted (under the sanitizers) */
+	for (i = 0; i < 5; i++) {
+		for (k = 0; k < 4; k++) {
+			char attributes[160];
+			snprintf(attributes, sizeof(attributes), "Preset=\"%s\" LinkShape=\"%s\" Grid.Shape=\"%s\"", presets[i], shapes[k], k % 2 ? "Lines" : "Cross");
+			window = looks_window(attributes, &graph);
+			CHECK(Rnode_graph_get_preset(graph) == (RVisualPreset)((int)R_PRESET_AUTO + i));
+			Rnode_graph_select_node(graph, Rnode_graph_find_node(graph, "a"), R_FALSE);
+			Rdraw_frame();
+			Rwindow_destroy(window);
+		}
+	}
+
+	/* the header follows its height: a node of the Blender look is shorter */
+	window = looks_window("", &graph);
+	a = Rnode_graph_find_node(graph, "a");
+	Rnode_graph_get_node_size(graph, a, &w, &h);
+	Rnode_graph_set_preset(graph, R_PRESET_BLENDER);
+	Rdraw_frame();
+	Rnode_graph_get_node_size(graph, a, &w2, &h2);
+	CHECK(h2 < h);
+	CHECK(Rwidget_set_attribute(graph, "HeaderHeight", "50"));
+	Rdraw_frame();
+	Rnode_graph_get_node_size(graph, a, &w2, &h2);
+	CHECK(h2 > h);
+	Rwindow_destroy(window);
+
+	/* the form of the links is the one the pointer finds: a Step link turns at the middle */
+	window = looks_window("", &graph);
+	a = Rnode_graph_find_node(graph, "a");
+	b = Rnode_graph_find_node(graph, "b");
+	a_out = Rnode_graph_find_pin(graph, a, "o");
+	b_in = Rnode_graph_find_pin(graph, b, "i");
+	Rnode_graph_get_pin_position(graph, a_out, &x0, &y0);
+	Rnode_graph_get_pin_position(graph, b_in, &x1, &y1);
+	/* (a curve does not pass there: nothing is selected, nothing goes) */
+	CHECK(!click_removes_link(window, graph, floorf((x0 + x1) * 0.5f), y0 + 30.0f));
+	CHECK(Rwidget_set_attribute(graph, "Link.Shape", "Step"));
+	Rdraw_frame();
+	CHECK(click_removes_link(window, graph, floorf((x0 + x1) * 0.5f), y0 + 30.0f));
+	Rwindow_destroy(window);
+
+	/* the same from a style of the theme */
+	{
+		static const char theme[] = "<Theme Name=\"Steps\"><Style Widget=\"NodeGraph\" Part=\"Link\" Shape=\"Step\" Glow=\"0.5\"/>"
+			"<Style Widget=\"Timeline\" Part=\"Clip\" State=\"Selected\" Gradient=\"#102030\" Shape=\"Gradient\"/></Theme>";
+		CHECK(Rtheme_load_from_memory(theme, sizeof(theme) - 1) != NULL);
+	}
+	CHECK(Rtheme_use("Steps"));
+	window = looks_window("", &graph);
+	CHECK(click_removes_link(window, graph, floorf((x0 + x1) * 0.5f), y0 + 30.0f));
+	Rwindow_destroy(window);
+	{
+		/* written back as it was read */
+		const char* path = "test_looks_theme.xml";
+		char text[4096];
+		size_t size;
+		FILE* file;
+		CHECK(Rtheme_save(path, "Steps"));
+		file = fopen(path, "rb");
+		CHECK(file != NULL);
+		if (file) {
+			size = fread(text, 1, sizeof(text) - 1, file);
+			text[size] = '\0';
+			fclose(file);
+			CHECK(strstr(text, "Shape=\"Step\"") != NULL);
+			CHECK(strstr(text, "Glow=\"0.5\"") != NULL);
+			CHECK(strstr(text, "Gradient=\"#102030\"") != NULL);
+		}
+		remove(path);
+	}
+	Rtheme_apply(R_THEME_DARK);
+
+	/* items: in C, and what is not one */
+	window = looks_window("", &graph);
+	a = Rnode_graph_find_node(graph, "a");
+	a_out = Rnode_graph_find_pin(graph, a, "o");
+	CHECK(Rnode_graph_set_node_style(graph, a, "HeaderStyle", "Stripe"));
+	CHECK(Rnode_graph_set_node_style(graph, a, "Header.Gradient", "#FF0000"));
+	CHECK(Rnode_graph_set_node_style(graph, a, "HeaderStyle", "Default"));
+	CHECK(Rnode_graph_set_type_style(graph, "number", "LinkShape", "Angled"));
+	CHECK(Rnode_graph_set_pin_style(graph, a_out, "Color", "#FF00FF"));
+	Rdraw_frame();
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rnode_graph_set_node_style(graph, a, "HeaderStyle", "Wavy"));
+	CHECK(!Rnode_graph_set_node_style(graph, a, "Nonsense", "1"));
+	CHECK(!Rnode_graph_set_type_style(graph, "number", "Shape", "Blob"));
+	CHECK(!Rnode_graph_set_pin_style(graph, a_out, "Size", "-3"));
+	CHECK(!Rwidget_set_attribute(graph, "Preset", "Rococo"));
+	CHECK(!Rwidget_set_attribute(graph, "Link.Shape", "Spiral"));
+	Rnode_graph_set_preset(graph, (RVisualPreset)0);
+	/* (Rwidget_set_attribute answers R_FALSE without an error) */
+	EXPECT_ERRORS_END(5);
+	CHECK(Rwidget_set_attribute(graph, "Preset", "Neon"));
+	CHECK(Rnode_graph_get_preset(graph) == R_PRESET_NEON);
+	Rwindow_destroy(window);
+
+	/* the timeline */
+	for (i = 0; i < 5; i++) {
+		char xml[1024];
+		snprintf(xml, sizeof(xml), "<Window Width=\"700\" Height=\"300\"><Timeline Name=\"t\" Preset=\"%s\" Duration=\"10\" KeyShape=\"%s\">"
+			"<Track Name=\"A\" Color=\"#0A84FF\" ClipStyle=\"Outline\"><Clip Start=\"0\" Length=\"3\" Label=\"One\" Selected=\"true\"/>"
+			"<Clip Start=\"4\" Length=\"2\" Style=\"Gradient\" Glow=\"0.5\"/></Track>"
+			"<Track Name=\"B\" KeyShape=\"Ring\" Background=\"#202020\"><Key Time=\"1\"/><Key Time=\"2\" Shape=\"Square\" Selected=\"true\"/></Track>"
+			"<Marker Time=\"5\" Label=\"M\" Glow=\"1\"/></Timeline></Window>", presets[i], i % 2 ? "Circle" : "Triangle");
+		window = make_window(xml);
+		tl = Rwidget_find(window, "t");
+		CHECK(Rtimeline_get_preset(tl) == (RVisualPreset)((int)R_PRESET_AUTO + i));
+		Rdraw_frame();
+		Rwindow_destroy(window);
+	}
+	window = make_window("<Window Width=\"700\" Height=\"300\"><Timeline Name=\"t\"><Track Name=\"A\"><Clip Start=\"0\" Length=\"2\"/></Track></Timeline></Window>");
+	tl = Rwidget_find(window, "t");
+	CHECK(Rtimeline_set_track_style(tl, Rtimeline_get_track(tl, 0), "ClipStyle", "Solid"));
+	CHECK(Rtimeline_set_track_style(tl, Rtimeline_get_track(tl, 0), "Key.Glow", "0.4"));
+	CHECK(Rtimeline_set_item_style(tl, Rtimeline_get_item(tl, 0), "Style", "Tint"));
+	CHECK(Rwidget_set_attribute(tl, "Clip.CornerRadius", "2"));
+	Rtimeline_set_preset(tl, R_PRESET_BLENDER);
+	CHECK(Rtimeline_get_preset(tl) == R_PRESET_BLENDER);
+	Rdraw_frame();
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rtimeline_set_track_style(tl, Rtimeline_get_track(tl, 0), "ClipStyle", "Plaid"));
+	CHECK(!Rtimeline_set_item_style(tl, Rtimeline_get_item(tl, 0), "Nonsense", "1"));
+	CHECK(!Rtimeline_set_track_style(tl, 9999, "ClipStyle", "Solid"));
+	CHECK(!Rwidget_set_attribute(tl, "KeyShape", "Star"));
+	EXPECT_ERRORS_END(3);
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+
 int main(void) {
 	RUN(test_color_picker);
 	RUN(test_timeline);
@@ -1043,5 +1220,6 @@ int main(void) {
 	RUN(test_zoomed_content);
 	RUN(test_blur_and_transparency);
 	RUN(test_hooks);
+	RUN(test_looks);
 	return test_report("test_tools");
 }

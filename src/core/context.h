@@ -45,6 +45,12 @@ typedef struct rvn_part_look_t {
 	float opacity;
 	/** Blur radius of the shadow; 0 = none. */
 	float shadow;
+	/** RVN_SHAPE_...: the form of a part that can take several (a pin, a link, a grid, a header); 0 = the one of the look. */
+	int shape;
+	/** How much light it gives around it, 0..1 (a halo of its color): links, pins, the outlines of the Neon look. */
+	float glow;
+	/** The color it fades to (a header, a clip), or 0: no gradient. */
+	rvn_color_t gradient;
 } rvn_part_look_t;
 
 /** Bits of the values a style gives to a part (rvn_style_rule_t::look_mask), in the order of rvn_part_look_t. */
@@ -60,6 +66,11 @@ typedef struct rvn_part_look_t {
 #define RVN_LOOK_SIZE          (1u << 9)
 #define RVN_LOOK_OPACITY       (1u << 10)
 #define RVN_LOOK_SHADOW        (1u << 11)
+#define RVN_LOOK_SHAPE         (1u << 12)
+#define RVN_LOOK_GLOW          (1u << 13)
+#define RVN_LOOK_GRADIENT      (1u << 14)
+/** Number of the RVN_LOOK_ bits. */
+#define RVN_LOOK_COUNT         15
 
 /** A style of a theme: values for the widgets of a type and / or of a class; or for a part of them, in some states. */
 typedef struct rvn_style_rule_t {

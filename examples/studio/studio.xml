@@ -11,6 +11,18 @@
   position, save, and the window follows. What the file did not change stays
   as it is (its state, its scroll, what you typed); a widget whose content
   changed is built again.
+
+  Looks: "Look" in the bar gives the graph and the timeline one of the looks
+  of Raven (Preset="Modern", "Blueprint", "Blender", "Neon"); "Auto" follows
+  the theme, and "Theme" switches between the looks of the platforms. Any
+  part can be changed here too, for the whole widget or for one item:
+
+      <NodeGraph Link.Shape="Step" Pin.Size="6" Grid.Shape="Lines" HeaderStyle="Gradient">
+      <Type Name="color" Shape="Diamond"/>     <Node ... HeaderColor="#334155" Icon="clock.svg">
+      <Timeline ClipStyle="Outline" KeyShape="Circle" PlayheadColor="#FF375F">
+      <Track ... ClipStyle="Gradient">         <Clip ... Style="Solid" Glow="0.5">
+
+  or in a theme, for every graph: <Style Widget="NodeGraph" Part="Link" Shape="Angled"/>.
 -->
 <Window Title="Raven - studio" Width="1280" Height="800" MinWidth="900" MinHeight="560">
 	<VBox>
@@ -22,21 +34,26 @@
 			<Button Text="Add a node" OnClicked="studio.add"/>
 			<Button Text="Show all" Style="Flat" OnClicked="studio.frame" Tooltip="Every node in view (F, or a double click on the canvas)"/>
 			<Spacer Slot.Fill="1"/>
+			<Label Text="Look" Slot.VAlign="Center" Opacity="0.7"/>
+			<ComboBox Name="look" Items="Auto|Modern|Blueprint|Blender|Neon" Selected="0" Width="130" OnChanged="studio.look"
+				Tooltip="The look of the graph and of the timeline; Auto follows the theme"/>
+			<Spacer Width="8"/>
 			<Label Text="Theme" Slot.VAlign="Center" Opacity="0.7"/>
-			<ComboBox Name="theme" Items="Dark|Light|Glass dark|Glass light" Selected="0" Width="140" OnChanged="studio.theme"/>
+			<ComboBox Name="theme" Items="Dark|Light|Glass dark|Glass light|Windows|macOS|GNOME" Selected="0" Width="140" OnChanged="studio.theme"/>
 		</HBox>
 		<Separator/>
 		<Splitter Orientation="Vertical" Slot.Fill="1">
 			<HBox Slot.Fill="5">
 				<NodeGraph Name="graph" Slot.Fill="1" Slot.Padding="10,10,0,6">
-					<Type Name="vector" Color="#BF5AF2"/>
+					<!-- a shape for each type of data: it reads at a glance, in every look -->
+					<Type Name="vector" Color="#BF5AF2" Shape="Square"/>
 					<Type Name="number" Color="#64D2FF"/>
-					<Type Name="color" Color="#FFD60A"/>
+					<Type Name="color" Color="#FFD60A" Shape="Diamond"/>
 
 					<Node Name="uv" Title="Texture coordinates" X="40" Y="60" Color="#FF375F">
 						<Output Name="uv" Label="UV" Type="vector"/>
 					</Node>
-					<Node Name="time" Title="Time" X="60" Y="260" Color="#30D158">
+					<Node Name="time" Title="Time" X="60" Y="260" Color="#30D158" Icon="clock.svg">
 						<Output Name="seconds" Label="Seconds" Type="number"/>
 					</Node>
 					<Node Name="noise" Title="Noise" X="300" Y="40" Color="#FF9F0A">

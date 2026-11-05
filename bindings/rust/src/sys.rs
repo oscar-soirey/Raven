@@ -837,6 +837,18 @@ pub const R_DOCK_BOTTOM: RDockSide = 0x0363;
 /// Behind the same tabs as the other panel.
 pub const R_DOCK_TAB: RDockSide = 0x0364;
 
+pub type RVisualPreset = c_int;
+/// The look of the theme of the window: its platform, dark or light.
+pub const R_PRESET_AUTO: RVisualPreset = 0x0510;
+/// Cards with soft shadows, few lines (follows dark or light).
+pub const R_PRESET_MODERN: RVisualPreset = 0x0511;
+/// Headers in gradients, a grid of lines, thick links that glow; pins of the type "exec" are arrows.
+pub const R_PRESET_BLUEPRINT: RVisualPreset = 0x0512;
+/// Compact nodes, flat headers in muted colors, thin links.
+pub const R_PRESET_BLENDER: RVisualPreset = 0x0513;
+/// Almost black, outlines and links of light.
+pub const R_PRESET_NEON: RVisualPreset = 0x0514;
+
 /// What an item of a timeline is.
 pub type RTimelineItem = c_int;
 pub const R_TIMELINE_NONE: RTimelineItem = 0x0460;
@@ -3326,6 +3338,13 @@ extern "C" {
     pub fn Rtimeline_set_track_locked(timeline: Rid, track: c_int, locked: c_int);
     /// A muted track is drawn dimmed; what muting means is up to the application.
     pub fn Rtimeline_set_track_muted(timeline: Rid, track: c_int, muted: c_int);
+    /// A property of the look of a track: "ClipStyle" (Solid,
+    /// Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+    /// "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+    /// property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+    /// the one of the timeline.
+    /// Returns: R_FALSE when the name or the value is not one.
+    pub fn Rtimeline_set_track_style(timeline: Rid, track: c_int, property: *const c_char, value: *const c_char) -> c_int;
     pub fn Rtimeline_is_track_muted(timeline: Rid, track: c_int) -> c_int;
     /// Returns: The clip, or 0 when the track does not exist.
     pub fn Rtimeline_add_clip(timeline: Rid, track: c_int, start: f64, length: f64, label: *const c_char) -> c_int;
@@ -3347,6 +3366,14 @@ extern "C" {
     pub fn Rtimeline_set_item_label(timeline: Rid, item: c_int, label: *const c_char);
     pub fn Rtimeline_get_item_label(timeline: Rid, item: c_int) -> *const c_char;
     pub fn Rtimeline_set_item_color(timeline: Rid, item: c_int, r: f32, g: f32, b: f32);
+    /// A property of the look of one clip, key or marker: "Style"
+    /// (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+    /// property of its part ("Background", "BorderColor", "Glow",
+    /// "CornerRadius", "Foreground" for its label...).
+    pub fn Rtimeline_set_item_style(timeline: Rid, item: c_int, property: *const c_char, value: *const c_char) -> c_int;
+    /// The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+    pub fn Rtimeline_set_preset(timeline: Rid, preset: RVisualPreset);
+    pub fn Rtimeline_get_preset(timeline: Rid) -> RVisualPreset;
     pub fn Rtimeline_get_item_count(timeline: Rid) -> c_int;
     /// Returns: The index-th item, in the order they were added, or 0.
     pub fn Rtimeline_get_item(timeline: Rid, index: c_int) -> c_int;
@@ -3385,6 +3412,14 @@ extern "C" {
     pub fn Rnode_graph_get_node_size(graph: Rid, node: c_int, width: *mut f32, height: *mut f32);
     /// Color of the header of the node; without one it takes the accent color of the theme.
     pub fn Rnode_graph_set_node_color(graph: Rid, node: c_int, r: f32, g: f32, b: f32);
+    /// A property of the look of one node: "HeaderStyle" (Solid,
+    /// Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+    /// "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+    /// "Icon" (an image file shown before its title), or a part and a property
+    /// ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+    /// one of the graph.
+    /// Returns: R_FALSE when the name or the value is not one.
+    pub fn Rnode_graph_set_node_style(graph: Rid, node: c_int, property: *const c_char, value: *const c_char) -> c_int;
     /// Puts a widget inside the node, under its pins: the graph owns
     /// it from now on. R_INVALID_ID removes (and deletes) the one it had.
     pub fn Rnode_graph_set_node_content(graph: Rid, node: c_int, widget: Rid);
@@ -3417,6 +3452,12 @@ extern "C" {
     pub fn Rnode_graph_get_output(graph: Rid, node: c_int, index: c_int) -> c_int;
     /// Color of the pins of a type and of the links between them.
     pub fn Rnode_graph_set_type_color(graph: Rid, type_: *const c_char, r: f32, g: f32, b: f32);
+    /// A property of the pins of a type and of their links: "Shape"
+    /// (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+    /// "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+    pub fn Rnode_graph_set_type_style(graph: Rid, type_: *const c_char, property: *const c_char, value: *const c_char) -> c_int;
+    /// The same for one pin ("Shape", "Size", "Glow", "Color").
+    pub fn Rnode_graph_set_pin_style(graph: Rid, pin: c_int, property: *const c_char, value: *const c_char) -> c_int;
     /// Links an output to an input, as the user does by dragging.
     /// The connect callback is not asked.
     /// Returns: The link; 0 when the pins cannot be linked (two inputs, the
@@ -3446,6 +3487,9 @@ extern "C" {
     pub fn Rnode_graph_set_flow_visible(graph: Rid, visible: c_int);
     /// R_TRUE: the user can look but not move, link or delete.
     pub fn Rnode_graph_set_read_only(graph: Rid, read_only: c_int);
+    /// The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+    pub fn Rnode_graph_set_preset(graph: Rid, preset: RVisualPreset);
+    pub fn Rnode_graph_get_preset(graph: Rid) -> RVisualPreset;
     pub fn Rnode_graph_select_node(graph: Rid, node: c_int, add: c_int);
     pub fn Rnode_graph_clear_selection(graph: Rid);
     pub fn Rnode_graph_is_node_selected(graph: Rid, node: c_int) -> c_int;

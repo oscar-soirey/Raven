@@ -3297,6 +3297,14 @@ inline void timeline_set_track_locked(Rid timeline, int track, int locked) { Rti
 /// A muted track is drawn dimmed; what muting means is up to the application.
 inline void timeline_set_track_muted(Rid timeline, int track, int muted) { Rtimeline_set_track_muted(timeline, track, muted); }
 
+/// A property of the look of a track: "ClipStyle" (Solid,
+/// Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+/// "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+/// property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+/// the one of the timeline.
+/// Returns: R_FALSE when the name or the value is not one.
+inline int timeline_set_track_style(Rid timeline, int track, const char* property, const char* value) { return Rtimeline_set_track_style(timeline, track, property, value); }
+
 inline int timeline_is_track_muted(Rid timeline, int track) { return Rtimeline_is_track_muted(timeline, track); }
 
 /// Returns: The clip, or 0 when the track does not exist.
@@ -3331,6 +3339,17 @@ inline void timeline_set_item_label(Rid timeline, int item, const char* label) {
 inline const char* timeline_get_item_label(Rid timeline, int item) { return Rtimeline_get_item_label(timeline, item); }
 
 inline void timeline_set_item_color(Rid timeline, int item, float r, float g, float b) { Rtimeline_set_item_color(timeline, item, r, g, b); }
+
+/// A property of the look of one clip, key or marker: "Style"
+/// (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+/// property of its part ("Background", "BorderColor", "Glow",
+/// "CornerRadius", "Foreground" for its label...).
+inline int timeline_set_item_style(Rid timeline, int item, const char* property, const char* value) { return Rtimeline_set_item_style(timeline, item, property, value); }
+
+/// The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+inline void timeline_set_preset(Rid timeline, RVisualPreset preset) { Rtimeline_set_preset(timeline, preset); }
+
+inline RVisualPreset timeline_get_preset(Rid timeline) { return Rtimeline_get_preset(timeline); }
 
 inline int timeline_get_item_count(Rid timeline) { return Rtimeline_get_item_count(timeline); }
 
@@ -3409,6 +3428,15 @@ inline void node_graph_get_node_size(Rid graph, int node, float* width, float* h
 /// Color of the header of the node; without one it takes the accent color of the theme.
 inline void node_graph_set_node_color(Rid graph, int node, float r, float g, float b) { Rnode_graph_set_node_color(graph, node, r, g, b); }
 
+/// A property of the look of one node: "HeaderStyle" (Solid,
+/// Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+/// "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+/// "Icon" (an image file shown before its title), or a part and a property
+/// ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+/// one of the graph.
+/// Returns: R_FALSE when the name or the value is not one.
+inline int node_graph_set_node_style(Rid graph, int node, const char* property, const char* value) { return Rnode_graph_set_node_style(graph, node, property, value); }
+
 /// Puts a widget inside the node, under its pins: the graph owns
 /// it from now on. R_INVALID_ID removes (and deletes) the one it had.
 inline void node_graph_set_node_content(Rid graph, int node, Rid widget) { Rnode_graph_set_node_content(graph, node, widget); }
@@ -3461,6 +3489,14 @@ inline int node_graph_get_output(Rid graph, int node, int index) { return Rnode_
 /// Color of the pins of a type and of the links between them.
 inline void node_graph_set_type_color(Rid graph, const char* type, float r, float g, float b) { Rnode_graph_set_type_color(graph, type, r, g, b); }
 
+/// A property of the pins of a type and of their links: "Shape"
+/// (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+/// "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+inline int node_graph_set_type_style(Rid graph, const char* type, const char* property, const char* value) { return Rnode_graph_set_type_style(graph, type, property, value); }
+
+/// The same for one pin ("Shape", "Size", "Glow", "Color").
+inline int node_graph_set_pin_style(Rid graph, int pin, const char* property, const char* value) { return Rnode_graph_set_pin_style(graph, pin, property, value); }
+
 /// Links an output to an input, as the user does by dragging.
 /// The connect callback is not asked.
 /// Returns: The link; 0 when the pins cannot be linked (two inputs, the
@@ -3504,6 +3540,11 @@ inline void node_graph_set_flow_visible(Rid graph, int visible) { Rnode_graph_se
 
 /// R_TRUE: the user can look but not move, link or delete.
 inline void node_graph_set_read_only(Rid graph, int read_only) { Rnode_graph_set_read_only(graph, read_only); }
+
+/// The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+inline void node_graph_set_preset(Rid graph, RVisualPreset preset) { Rnode_graph_set_preset(graph, preset); }
+
+inline RVisualPreset node_graph_get_preset(Rid graph) { return Rnode_graph_get_preset(graph); }
 
 inline void node_graph_select_node(Rid graph, int node, int add) { Rnode_graph_select_node(graph, node, add); }
 

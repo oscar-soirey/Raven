@@ -206,6 +206,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/color_picker.c
 	src/widgets/timeline.c
 	src/widgets/node_graph.c
+	src/widgets/canvas_look.c
 	src/widgets/block_editor.c
 	src/widgets/tile_view.c
 	src/widgets/combo_box.c

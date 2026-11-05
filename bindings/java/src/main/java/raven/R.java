@@ -1287,6 +1287,28 @@ public final class R {
      */
     public static final int R_DOCK_TAB = 0x0364;
 
+    // RVisualPreset
+    /**
+     * The look of the theme of the window: its platform, dark or light.
+     */
+    public static final int R_PRESET_AUTO = 0x0510;
+    /**
+     * Cards with soft shadows, few lines (follows dark or light).
+     */
+    public static final int R_PRESET_MODERN = 0x0511;
+    /**
+     * Headers in gradients, a grid of lines, thick links that glow; pins of the type "exec" are arrows.
+     */
+    public static final int R_PRESET_BLUEPRINT = 0x0512;
+    /**
+     * Compact nodes, flat headers in muted colors, thin links.
+     */
+    public static final int R_PRESET_BLENDER = 0x0513;
+    /**
+     * Almost black, outlines and links of light.
+     */
+    public static final int R_PRESET_NEON = 0x0514;
+
     // RTimelineItem: What an item of a timeline is.
     public static final int R_TIMELINE_NONE = 0x0460;
     public static final int R_TIMELINE_CLIP = 0x0461;
@@ -16363,6 +16385,29 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rtimeline_set_track_style$;
+
+    /**
+     * A property of the look of a track: "ClipStyle" (Solid,
+     * Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+     * "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+     * property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+     * the one of the timeline.
+     * Returns: R_FALSE when the name or the value is not one.
+     */
+    public static int Rtimeline_set_track_style(int timeline, int track, String property, String value) {
+        MethodHandle $h = Rtimeline_set_track_style$;
+        if ($h == null) Rtimeline_set_track_style$ = $h = find("Rtimeline_set_track_style", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment property$ = property == null ? MemorySegment.NULL : utf8($a, property);
+            MemorySegment value$ = value == null ? MemorySegment.NULL : utf8($a, value);
+            int $r = (int) $h.invokeExact(timeline, track, property$, value$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtimeline_is_track_muted$;
 
     public static int Rtimeline_is_track_muted(int timeline, int track) {
@@ -16559,6 +16604,55 @@ public final class R {
         if ($h == null) Rtimeline_set_item_color$ = $h = find("Rtimeline_set_item_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
         try {
             $h.invokeExact(timeline, item, r, g, b);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimeline_set_item_style$;
+
+    /**
+     * A property of the look of one clip, key or marker: "Style"
+     * (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+     * property of its part ("Background", "BorderColor", "Glow",
+     * "CornerRadius", "Foreground" for its label...).
+     */
+    public static int Rtimeline_set_item_style(int timeline, int item, String property, String value) {
+        MethodHandle $h = Rtimeline_set_item_style$;
+        if ($h == null) Rtimeline_set_item_style$ = $h = find("Rtimeline_set_item_style", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment property$ = property == null ? MemorySegment.NULL : utf8($a, property);
+            MemorySegment value$ = value == null ? MemorySegment.NULL : utf8($a, value);
+            int $r = (int) $h.invokeExact(timeline, item, property$, value$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimeline_set_preset$;
+
+    /**
+     * The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+     */
+    public static void Rtimeline_set_preset(int timeline, int preset) {
+        MethodHandle $h = Rtimeline_set_preset$;
+        if ($h == null) Rtimeline_set_preset$ = $h = find("Rtimeline_set_preset", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(timeline, preset);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimeline_get_preset$;
+
+    public static int Rtimeline_get_preset(int timeline) {
+        MethodHandle $h = Rtimeline_get_preset$;
+        if ($h == null) Rtimeline_get_preset$ = $h = find("Rtimeline_get_preset", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(timeline);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -16942,6 +17036,30 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rnode_graph_set_node_style$;
+
+    /**
+     * A property of the look of one node: "HeaderStyle" (Solid,
+     * Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+     * "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+     * "Icon" (an image file shown before its title), or a part and a property
+     * ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+     * one of the graph.
+     * Returns: R_FALSE when the name or the value is not one.
+     */
+    public static int Rnode_graph_set_node_style(int graph, int node, String property, String value) {
+        MethodHandle $h = Rnode_graph_set_node_style$;
+        if ($h == null) Rnode_graph_set_node_style$ = $h = find("Rnode_graph_set_node_style", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment property$ = property == null ? MemorySegment.NULL : utf8($a, property);
+            MemorySegment value$ = value == null ? MemorySegment.NULL : utf8($a, value);
+            int $r = (int) $h.invokeExact(graph, node, property$, value$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rnode_graph_set_node_content$;
 
     /**
@@ -17247,6 +17365,45 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rnode_graph_set_type_style$;
+
+    /**
+     * A property of the pins of a type and of their links: "Shape"
+     * (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+     * "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+     */
+    public static int Rnode_graph_set_type_style(int graph, String type, String property, String value) {
+        MethodHandle $h = Rnode_graph_set_type_style$;
+        if ($h == null) Rnode_graph_set_type_style$ = $h = find("Rnode_graph_set_type_style", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment type$ = type == null ? MemorySegment.NULL : utf8($a, type);
+            MemorySegment property$ = property == null ? MemorySegment.NULL : utf8($a, property);
+            MemorySegment value$ = value == null ? MemorySegment.NULL : utf8($a, value);
+            int $r = (int) $h.invokeExact(graph, type$, property$, value$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_pin_style$;
+
+    /**
+     * The same for one pin ("Shape", "Size", "Glow", "Color").
+     */
+    public static int Rnode_graph_set_pin_style(int graph, int pin, String property, String value) {
+        MethodHandle $h = Rnode_graph_set_pin_style$;
+        if ($h == null) Rnode_graph_set_pin_style$ = $h = find("Rnode_graph_set_pin_style", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment property$ = property == null ? MemorySegment.NULL : utf8($a, property);
+            MemorySegment value$ = value == null ? MemorySegment.NULL : utf8($a, value);
+            int $r = (int) $h.invokeExact(graph, pin, property$, value$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rnode_graph_connect$;
 
     /**
@@ -17472,6 +17629,34 @@ public final class R {
         if ($h == null) Rnode_graph_set_read_only$ = $h = find("Rnode_graph_set_read_only", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(graph, read_only);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_preset$;
+
+    /**
+     * The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+     */
+    public static void Rnode_graph_set_preset(int graph, int preset) {
+        MethodHandle $h = Rnode_graph_set_preset$;
+        if ($h == null) Rnode_graph_set_preset$ = $h = find("Rnode_graph_set_preset", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(graph, preset);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_get_preset$;
+
+    public static int Rnode_graph_get_preset(int graph) {
+        MethodHandle $h = Rnode_graph_get_preset$;
+        if ($h == null) Rnode_graph_get_preset$ = $h = find("Rnode_graph_get_preset", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(graph);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }

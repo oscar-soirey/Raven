@@ -1331,6 +1331,30 @@ namespace Raven
         R_DOCK_TAB = 0x0364,
     }
 
+    public enum RVisualPreset : int
+    {
+        /// <summary>
+        /// The look of the theme of the window: its platform, dark or light.
+        /// </summary>
+        R_PRESET_AUTO = 0x0510,
+        /// <summary>
+        /// Cards with soft shadows, few lines (follows dark or light).
+        /// </summary>
+        R_PRESET_MODERN = 0x0511,
+        /// <summary>
+        /// Headers in gradients, a grid of lines, thick links that glow; pins of the type "exec" are arrows.
+        /// </summary>
+        R_PRESET_BLUEPRINT = 0x0512,
+        /// <summary>
+        /// Compact nodes, flat headers in muted colors, thin links.
+        /// </summary>
+        R_PRESET_BLENDER = 0x0513,
+        /// <summary>
+        /// Almost black, outlines and links of light.
+        /// </summary>
+        R_PRESET_NEON = 0x0514,
+    }
+
     /// <summary>
     /// What an item of a timeline is.
     /// </summary>
@@ -6962,6 +6986,17 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtimeline_set_track_muted(uint timeline, int track, int muted);
 
+        /// <summary>
+        /// A property of the look of a track: "ClipStyle" (Solid,
+        /// Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+        /// "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+        /// property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+        /// the one of the timeline.
+        /// Returns: R_FALSE when the name or the value is not one.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtimeline_set_track_style(uint timeline, int track, [MarshalAs(Utf8.Str)] string property, [MarshalAs(Utf8.Str)] string value);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtimeline_is_track_muted(uint timeline, int track);
 
@@ -7025,6 +7060,24 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtimeline_set_item_color(uint timeline, int item, float r, float g, float b);
+
+        /// <summary>
+        /// A property of the look of one clip, key or marker: "Style"
+        /// (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+        /// property of its part ("Background", "BorderColor", "Glow",
+        /// "CornerRadius", "Foreground" for its label...).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtimeline_set_item_style(uint timeline, int item, [MarshalAs(Utf8.Str)] string property, [MarshalAs(Utf8.Str)] string value);
+
+        /// <summary>
+        /// The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtimeline_set_preset(uint timeline, RVisualPreset preset);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RVisualPreset Rtimeline_get_preset(uint timeline);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtimeline_get_item_count(uint timeline);
@@ -7134,6 +7187,18 @@ namespace Raven
         public static extern void Rnode_graph_set_node_color(uint graph, int node, float r, float g, float b);
 
         /// <summary>
+        /// A property of the look of one node: "HeaderStyle" (Solid,
+        /// Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+        /// "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+        /// "Icon" (an image file shown before its title), or a part and a property
+        /// ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+        /// one of the graph.
+        /// Returns: R_FALSE when the name or the value is not one.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_set_node_style(uint graph, int node, [MarshalAs(Utf8.Str)] string property, [MarshalAs(Utf8.Str)] string value);
+
+        /// <summary>
         /// Puts a widget inside the node, under its pins: the graph owns
         /// it from now on. R_INVALID_ID removes (and deletes) the one it had.
         /// </summary>
@@ -7229,6 +7294,20 @@ namespace Raven
         public static extern void Rnode_graph_set_type_color(uint graph, [MarshalAs(Utf8.Str)] string type, float r, float g, float b);
 
         /// <summary>
+        /// A property of the pins of a type and of their links: "Shape"
+        /// (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+        /// "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_set_type_style(uint graph, [MarshalAs(Utf8.Str)] string type, [MarshalAs(Utf8.Str)] string property, [MarshalAs(Utf8.Str)] string value);
+
+        /// <summary>
+        /// The same for one pin ("Shape", "Size", "Glow", "Color").
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_set_pin_style(uint graph, int pin, [MarshalAs(Utf8.Str)] string property, [MarshalAs(Utf8.Str)] string value);
+
+        /// <summary>
         /// Links an output to an input, as the user does by dragging.
         /// The connect callback is not asked.
         /// Returns: The link; 0 when the pins cannot be linked (two inputs, the
@@ -7302,6 +7381,15 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_set_read_only(uint graph, int read_only);
+
+        /// <summary>
+        /// The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_preset(uint graph, RVisualPreset preset);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RVisualPreset Rnode_graph_get_preset(uint graph);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_select_node(uint graph, int node, int add);

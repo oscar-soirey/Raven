@@ -96,6 +96,51 @@ extern "C" {
 
 
 	/* ============================================================================
+	 *  LOOKS OF THE TIMELINE AND OF THE NODE GRAPH
+	 *
+	 *  Both start from a look (Preset="..." in XML): AUTO follows the theme
+	 *  of the window, its platform (Raven, Windows, macOS, GNOME) and whether
+	 *  it is dark; the others are looks of their own. Then three levels,
+	 *  the most specific last, change any part of it:
+	 *
+	 *  - the styles of the theme, for every graph or timeline (or a class):
+	 *      <Style Widget="NodeGraph" Part="Link" Shape="Step" Size="2"/>
+	 *      <Style Widget="Timeline" Part="Clip" State="Selected" BorderColor="#FFF"/>
+	 *  - the attributes of the widget: a part, a dot, a property
+	 *      <NodeGraph Preset="Blueprint" Link.Shape="Angled" Pin.Size="6" Grid.Shape="Lines">
+	 *  - one item: a node, a type of pin, a pin, a track, a clip, a key
+	 *      <Node Title="Noise" Color="#FF9F0A" HeaderStyle="Gradient" Icon="noise.svg">
+	 *      <Type Name="exec" Color="#FFFFFF" Shape="Arrow"/>
+	 *      <Track Name="Audio" ClipStyle="Outline" KeyShape="Circle">
+	 *
+	 *  Parts: NodeGraph: the widget itself (Body), Grid, Node, Header, Pin,
+	 *  Link, Indicator (the badge); Timeline: Body, Ruler, Header (the column
+	 *  of the names of the tracks), Track, Grid, Clip, Key, Marker,
+	 *  Playhead. States: Hovered, Selected (nodes, links, clips, keys).
+	 *  Properties: those of every style (Background, Foreground,
+	 *  BorderColor, BorderWidth, CornerRadius, Size, Opacity, ShadowColor,
+	 *  ShadowSize) and Shape, Glow (0..1, light around it), Gradient (the
+	 *  color it fades to). Shapes: Circle, Ring, Square, Diamond, Triangle,
+	 *  Arrow (pins, keys); Bezier, Straight, Step, Angled (links); Dots,
+	 *  Lines, Cross, None (grids); Solid, Gradient, Stripe, Tint, Outline,
+	 *  None (headers of nodes, clips).
+	 * ============================================================================ */
+
+	typedef enum RVisualPreset{
+		/** The look of the theme of the window: its platform, dark or light. */
+		R_PRESET_AUTO = 0x0510,
+		/** Cards with soft shadows, few lines (follows dark or light). */
+		R_PRESET_MODERN,
+		/** Headers in gradients, a grid of lines, thick links that glow; pins of the type "exec" are arrows. */
+		R_PRESET_BLUEPRINT,
+		/** Compact nodes, flat headers in muted colors, thin links. */
+		R_PRESET_BLENDER,
+		/** Almost black, outlines and links of light. */
+		R_PRESET_NEON
+	}RVisualPreset;
+
+
+	/* ============================================================================
 	 *  TIMELINE
 	 *
 	 *  A sequencer: a ruler of time at the top, a playhead, and tracks one
@@ -198,6 +243,15 @@ extern "C" {
 	RAVEN_API void Rtimeline_set_track_locked(Rid timeline, int track, int locked);
 	/** @brief A muted track is drawn dimmed; what muting means is up to the application. */
 	RAVEN_API void Rtimeline_set_track_muted(Rid timeline, int track, int muted);
+	/**
+	 * @brief A property of the look of a track: "ClipStyle" (Solid,
+	 * Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+	 * "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+	 * property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+	 * the one of the timeline.
+	 * @return R_FALSE when the name or the value is not one.
+	 */
+	RAVEN_API int Rtimeline_set_track_style(Rid timeline, int track, const char* property, const char* value);
 	RAVEN_API int Rtimeline_is_track_muted(Rid timeline, int track);
 
 	/* ---- items ---- */
@@ -223,6 +277,16 @@ extern "C" {
 	RAVEN_API void Rtimeline_set_item_label(Rid timeline, int item, const char* label);
 	RAVEN_API const char* Rtimeline_get_item_label(Rid timeline, int item);
 	RAVEN_API void Rtimeline_set_item_color(Rid timeline, int item, float r, float g, float b);
+	/**
+	 * @brief A property of the look of one clip, key or marker: "Style"
+	 * (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+	 * property of its part ("Background", "BorderColor", "Glow",
+	 * "CornerRadius", "Foreground" for its label...).
+	 */
+	RAVEN_API int Rtimeline_set_item_style(Rid timeline, int item, const char* property, const char* value);
+	/** @brief The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML). */
+	RAVEN_API void Rtimeline_set_preset(Rid timeline, RVisualPreset preset);
+	RAVEN_API RVisualPreset Rtimeline_get_preset(Rid timeline);
 	RAVEN_API int Rtimeline_get_item_count(Rid timeline);
 	/** @return The index-th item, in the order they were added, or 0. */
 	RAVEN_API int Rtimeline_get_item(Rid timeline, int index);
@@ -317,6 +381,16 @@ extern "C" {
 	/** @brief Color of the header of the node; without one it takes the accent color of the theme. */
 	RAVEN_API void Rnode_graph_set_node_color(Rid graph, int node, float r, float g, float b);
 	/**
+	 * @brief A property of the look of one node: "HeaderStyle" (Solid,
+	 * Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+	 * "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+	 * "Icon" (an image file shown before its title), or a part and a property
+	 * ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+	 * one of the graph.
+	 * @return R_FALSE when the name or the value is not one.
+	 */
+	RAVEN_API int Rnode_graph_set_node_style(Rid graph, int node, const char* property, const char* value);
+	/**
 	 * @brief Puts a widget inside the node, under its pins: the graph owns
 	 * it from now on. R_INVALID_ID removes (and deletes) the one it had.
 	 */
@@ -355,6 +429,14 @@ extern "C" {
 	RAVEN_API int Rnode_graph_get_output(Rid graph, int node, int index);
 	/** @brief Color of the pins of a type and of the links between them. */
 	RAVEN_API void Rnode_graph_set_type_color(Rid graph, const char* type, float r, float g, float b);
+	/**
+	 * @brief A property of the pins of a type and of their links: "Shape"
+	 * (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+	 * "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+	 */
+	RAVEN_API int Rnode_graph_set_type_style(Rid graph, const char* type, const char* property, const char* value);
+	/** @brief The same for one pin ("Shape", "Size", "Glow", "Color"). */
+	RAVEN_API int Rnode_graph_set_pin_style(Rid graph, int pin, const char* property, const char* value);
 
 	/* ---- links ---- */
 
@@ -394,6 +476,9 @@ extern "C" {
 	RAVEN_API void Rnode_graph_set_flow_visible(Rid graph, int visible);
 	/** @brief R_TRUE: the user can look but not move, link or delete. */
 	RAVEN_API void Rnode_graph_set_read_only(Rid graph, int read_only);
+	/** @brief The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML). */
+	RAVEN_API void Rnode_graph_set_preset(Rid graph, RVisualPreset preset);
+	RAVEN_API RVisualPreset Rnode_graph_get_preset(Rid graph);
 
 	RAVEN_API void Rnode_graph_select_node(Rid graph, int node, int add);
 	RAVEN_API void Rnode_graph_clear_selection(Rid graph);
