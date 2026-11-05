@@ -662,6 +662,27 @@ rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modi
 	return NULL;
 }
 
+/*
+ * The enabled menu item bound to a shortcut for a window: in its menu bars
+ * first, then in the menus kept apart from any widget tree (opened with
+ * Rmenu_open, or given as context menus), which are only in a window while
+ * they are open. Those last open in another window are left to it.
+ */
+rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers) {
+	rvn_widget_t* found = rvn_menu_find_shortcut(window->root, key, modifiers);
+	uint32_t i;
+	if (found || key == R_KEY_UNKNOWN) return found;
+	for (i = 0; i < g_rvn.widgets.used; i++) {
+		rvn_widget_t* menu = (rvn_widget_t*)rvn_pool_at(&g_rvn.widgets, i);
+		if (!menu || menu->cls->type != R_WIDGET_MENU || menu->parent) continue;
+		if (menu->flags & (RVN_WF_DEAD | RVN_WF_INTERNAL)) continue;
+		if (menu->window && menu->window != window) continue;
+		found = rvn_menu_find_shortcut(menu, key, modifiers);
+		if (found) return found;
+	}
+	return NULL;
+}
+
 /* ===========================================================================
  *  MenuBar
  * ========================================================================= */

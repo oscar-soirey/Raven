@@ -1002,6 +1002,8 @@ void rvn_viewport_native_sync(rvn_widget_t* widget, uint64_t frame);
 
 /** Enabled menu item bound to a shortcut anywhere below `root`, or NULL. Implemented in widgets/menu.c. */
 rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modifiers);
+/** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
+rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */
 int rvn_parse_shortcut(const char* text, RKey* key, uint32_t* modifiers);
 /** Opens a menu as a popup at a window position. Implemented in widgets/menu.c. */

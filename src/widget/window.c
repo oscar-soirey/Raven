@@ -1650,9 +1650,9 @@ static void rvn_window_key(rvn_window_t* window, RKey key, int pressed, uint32_t
 		rvn_free(action);
 		return;
 	}
-	/* shortcuts shown in the menus of the window */
+	/* shortcuts shown in the menus of the window, those it opens as popups included */
 	{
-		rvn_widget_t* item = rvn_menu_find_shortcut(window->root, key, modifiers & 0xFu);
+		rvn_widget_t* item = rvn_menu_find_window_shortcut(window, key, modifiers & 0xFu);
 		if (item) rvn_menu_item_trigger(item);
 	}
 }
