@@ -1765,6 +1765,28 @@ public:
 	/// Returns: R_FALSE when the window system cannot do it.
 	int set_topmost(int topmost) const { return Rwindow_set_topmost(id_, topmost); }
 
+	/// Picture in picture: the window becomes a small floating window
+	/// that stays above the other windows, on every desktop (every space of
+	/// macOS, over the applications in full screen too), in a corner of the
+	/// work area of its monitor. It loses its title bar where the system
+	/// allows: the empty parts of its content move it, its edges resize it,
+	/// and its size keeps the proportions it was given. Leaving it gives back
+	/// the size, place, frame and state the window had.
+	///
+	/// Raven does not add a button to leave it: the content shows one, with
+	/// the built-in action "window.picture_in_picture" (it goes in and out).
+	/// Returns: R_FALSE when the window system cannot keep a window above the
+	/// others (Wayland): the window is left as it is.
+	int set_picture_in_picture(int enabled) const { return Rwindow_set_picture_in_picture(id_, enabled); }
+
+	int is_picture_in_picture() const { return Rwindow_is_picture_in_picture(id_); }
+
+	/// Size (logical units) and corner of the window in picture in
+	/// picture, for the next time it goes in (now, when it is in). 0, 0 (the
+	/// default): 320 wide, with the proportions the content has when it goes
+	/// in. The proportions of width / height are kept while the user resizes.
+	void set_picture_in_picture_layout(int width, int height, RPictureInPictureCorner corner) const { Rwindow_set_picture_in_picture_layout(id_, width, height, corner); }
+
 	/// Centers the window on the work area of its monitor (no task bar).
 	void center() const { Rwindow_center(id_); }
 
@@ -2462,6 +2484,7 @@ inline void action_set_default_handler(std::function<void(Rid, const char*)> cal
 ///   app.quit                          quits (Rquit(0))
 ///   window.close, window.minimize,    the window of the widget
 ///   window.maximize, window.restore   (maximize goes back when it already is)
+///   window.picture_in_picture         in and out of picture in picture
 ///   island.expand, island.fold,       the island of that window
 ///   island.toggle
 ///   theme.dark, theme.light,          the look of Raven, dark or light

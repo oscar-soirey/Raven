@@ -96,6 +96,13 @@ R_WINDOW_CUSTOM_HEADER :: 0x0010
 // system can do.
 R_WINDOW_TRANSPARENT :: 0x0020
 
+// Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
+RPictureInPictureCorner :: i32
+R_PIP_BOTTOM_RIGHT :: 0x0780
+R_PIP_BOTTOM_LEFT :: 0x0781
+R_PIP_TOP_RIGHT :: 0x0782
+R_PIP_TOP_LEFT :: 0x0783
+
 // What is seen behind a window created with R_WINDOW_TRANSPARENT.
 //
 //   Windows 11          every value
@@ -1768,6 +1775,7 @@ foreign lib {
 	//   app.quit                          quits (Rquit(0))
 	//   window.close, window.minimize,    the window of the widget
 	//   window.maximize, window.restore   (maximize goes back when it already is)
+	//   window.picture_in_picture         in and out of picture in picture
 	//   island.expand, island.fold,       the island of that window
 	//   island.toggle
 	//   theme.dark, theme.light,          the look of Raven, dark or light
@@ -1893,6 +1901,25 @@ foreign lib {
 	// Keeps the window above the other windows (splash screens, tools).
 	// Returns: R_FALSE when the window system cannot do it.
 	Rwindow_set_topmost :: proc(window: Rid, topmost: i32) -> i32 ---
+	// Picture in picture: the window becomes a small floating window
+	// that stays above the other windows, on every desktop (every space of
+	// macOS, over the applications in full screen too), in a corner of the
+	// work area of its monitor. It loses its title bar where the system
+	// allows: the empty parts of its content move it, its edges resize it,
+	// and its size keeps the proportions it was given. Leaving it gives back
+	// the size, place, frame and state the window had.
+	//
+	// Raven does not add a button to leave it: the content shows one, with
+	// the built-in action "window.picture_in_picture" (it goes in and out).
+	// Returns: R_FALSE when the window system cannot keep a window above the
+	// others (Wayland): the window is left as it is.
+	Rwindow_set_picture_in_picture :: proc(window: Rid, enabled: i32) -> i32 ---
+	Rwindow_is_picture_in_picture :: proc(window: Rid) -> i32 ---
+	// Size (logical units) and corner of the window in picture in
+	// picture, for the next time it goes in (now, when it is in). 0, 0 (the
+	// default): 320 wide, with the proportions the content has when it goes
+	// in. The proportions of width / height are kept while the user resizes.
+	Rwindow_set_picture_in_picture_layout :: proc(window: Rid, width: i32, height: i32, corner: RPictureInPictureCorner) ---
 	// Centers the window on the work area of its monitor (no task bar).
 	Rwindow_center :: proc(window: Rid) ---
 	// Asks for a new frame even if no widget changed. Thread-safe.

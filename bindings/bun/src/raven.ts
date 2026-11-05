@@ -239,6 +239,9 @@ const _symbols = {
 	Rwindow_set_opacity: { args: ["u32", "f32"], returns: "i32" },
 	Rwindow_get_opacity: { args: ["u32"], returns: "f32" },
 	Rwindow_set_topmost: { args: ["u32", "i32"], returns: "i32" },
+	Rwindow_set_picture_in_picture: { args: ["u32", "i32"], returns: "i32" },
+	Rwindow_is_picture_in_picture: { args: ["u32"], returns: "i32" },
+	Rwindow_set_picture_in_picture_layout: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rwindow_center: { args: ["u32"], returns: "void" },
 	Rwindow_request_redraw: { args: ["u32"], returns: "void" },
 	Rwindow_set_continuous_redraw: { args: ["u32", "i32"], returns: "void" },
@@ -1277,6 +1280,19 @@ export const R_WINDOW_BORDERLESS = RWindowFlags.R_WINDOW_BORDERLESS;
 export const R_WINDOW_MAXIMIZED = RWindowFlags.R_WINDOW_MAXIMIZED;
 export const R_WINDOW_CUSTOM_HEADER = RWindowFlags.R_WINDOW_CUSTOM_HEADER;
 export const R_WINDOW_TRANSPARENT = RWindowFlags.R_WINDOW_TRANSPARENT;
+
+/** Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout). */
+export enum RPictureInPictureCorner {
+	R_PIP_BOTTOM_RIGHT = 0x0780,
+	R_PIP_BOTTOM_LEFT = 0x0781,
+	R_PIP_TOP_RIGHT = 0x0782,
+	R_PIP_TOP_LEFT = 0x0783,
+}
+
+export const R_PIP_BOTTOM_RIGHT = RPictureInPictureCorner.R_PIP_BOTTOM_RIGHT;
+export const R_PIP_BOTTOM_LEFT = RPictureInPictureCorner.R_PIP_BOTTOM_LEFT;
+export const R_PIP_TOP_RIGHT = RPictureInPictureCorner.R_PIP_TOP_RIGHT;
+export const R_PIP_TOP_LEFT = RPictureInPictureCorner.R_PIP_TOP_LEFT;
 
 /**
  * What is seen behind a window created with R_WINDOW_TRANSPARENT.
@@ -6264,6 +6280,7 @@ export function Raction_set_default_handler(callback: RActionCallback | Pointer 
  *   app.quit                          quits (Rquit(0))
  *   window.close, window.minimize,    the window of the widget
  *   window.maximize, window.restore   (maximize goes back when it already is)
+ *   window.picture_in_picture         in and out of picture in picture
  *   island.expand, island.fold,       the island of that window
  *   island.toggle
  *   theme.dark, theme.light,          the look of Raven, dark or light
@@ -6570,6 +6587,38 @@ export function Rwindow_get_opacity(window: Rid): number {
  */
 export function Rwindow_set_topmost(window: Rid, topmost: number): number {
 	return _lib.Rwindow_set_topmost(window, topmost);
+}
+
+/**
+ * Picture in picture: the window becomes a small floating window
+ * that stays above the other windows, on every desktop (every space of
+ * macOS, over the applications in full screen too), in a corner of the
+ * work area of its monitor. It loses its title bar where the system
+ * allows: the empty parts of its content move it, its edges resize it,
+ * and its size keeps the proportions it was given. Leaving it gives back
+ * the size, place, frame and state the window had.
+ *
+ * Raven does not add a button to leave it: the content shows one, with
+ * the built-in action "window.picture_in_picture" (it goes in and out).
+ * Returns: R_FALSE when the window system cannot keep a window above the
+ * others (Wayland): the window is left as it is.
+ */
+export function Rwindow_set_picture_in_picture(window: Rid, enabled: number): number {
+	return _lib.Rwindow_set_picture_in_picture(window, enabled);
+}
+
+export function Rwindow_is_picture_in_picture(window: Rid): number {
+	return _lib.Rwindow_is_picture_in_picture(window);
+}
+
+/**
+ * Size (logical units) and corner of the window in picture in
+ * picture, for the next time it goes in (now, when it is in). 0, 0 (the
+ * default): 320 wide, with the proportions the content has when it goes
+ * in. The proportions of width / height are kept while the user resizes.
+ */
+export function Rwindow_set_picture_in_picture_layout(window: Rid, width: number, height: number, corner: RPictureInPictureCorner): void {
+	_lib.Rwindow_set_picture_in_picture_layout(window, width, height, corner);
 }
 
 /** Centers the window on the work area of its monitor (no task bar). */

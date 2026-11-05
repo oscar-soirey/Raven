@@ -764,6 +764,10 @@ struct rvn_window_t {
 	/** The theme was dark when the window system was last told about the backdrop. */
 	int backdrop_dark;
 	float opacity;
+	/** Picture in picture (Rwindow_set_picture_in_picture), its size (logical units; 0: from the content) and corner. */
+	int pip;
+	int pip_width, pip_height;
+	RPictureInPictureCorner pip_corner;
 
 	/* input state */
 	rvn_widget_t* hover;

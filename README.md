@@ -1115,6 +1115,21 @@ the theme, as the notch of a phone is (`Theme="Default"` gives it the theme
 of the window). It is optional, and an `Island` can also be used as an
 ordinary widget anywhere.
 
+### Picture in picture
+
+```c
+Rwindow_set_picture_in_picture(player, R_TRUE);   /* and R_FALSE to come back */
+```
+
+The window becomes a small floating window above all the others, on every
+desktop (every space of macOS, over full-screen applications too), in a
+corner of the work area. It loses its title bar: its empty parts move it, its
+edges resize it, its proportions are kept. Leaving gives back its size, place,
+frame and state. `Rwindow_set_picture_in_picture_layout` chooses its size and
+corner; a button with `OnClicked="window.picture_in_picture"` goes in and out.
+Wayland does not let an application keep a window above the others: the call
+returns `R_FALSE` there.
+
 ### Memory
 
 Raven does not call `malloc`. It takes memory from the system by regions of
@@ -1278,8 +1293,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
-  one above the others and fading a whole window: the protocol does not let an
-  application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
+  one above the others (so picture in picture too) and fading a whole window:
+  the protocol does not let an application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
   are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
   installed Chromium-based browser instead.

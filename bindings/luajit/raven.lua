@@ -60,6 +60,12 @@ typedef enum RWindowFlags {
 	R_WINDOW_CUSTOM_HEADER = 16,
 	R_WINDOW_TRANSPARENT = 32,
 } RWindowFlags;
+typedef enum RPictureInPictureCorner {
+	R_PIP_BOTTOM_RIGHT = 1920,
+	R_PIP_BOTTOM_LEFT = 1921,
+	R_PIP_TOP_RIGHT = 1922,
+	R_PIP_TOP_LEFT = 1923,
+} RPictureInPictureCorner;
 typedef enum RBackdrop {
 	R_BACKDROP_NONE = 1024,
 	R_BACKDROP_TRANSPARENT = 1025,
@@ -1106,6 +1112,9 @@ int Rwindow_has_own_theme(Rid window);
 int Rwindow_set_opacity(Rid window, float opacity);
 float Rwindow_get_opacity(Rid window);
 int Rwindow_set_topmost(Rid window, int topmost);
+int Rwindow_set_picture_in_picture(Rid window, int enabled);
+int Rwindow_is_picture_in_picture(Rid window);
+void Rwindow_set_picture_in_picture_layout(Rid window, int width, int height, RPictureInPictureCorner corner);
 void Rwindow_center(Rid window);
 void Rwindow_request_redraw(Rid window);
 void Rwindow_set_continuous_redraw(Rid window, int enabled);

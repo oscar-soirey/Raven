@@ -63,6 +63,11 @@ struct rvn_pwindow_t {
 	Visual* visual;
 	Colormap colormap;
 	int transparent;
+	/* picture in picture: the proportions it keeps, and what the window had before */
+	int pip;
+	int pip_ratio_width, pip_ratio_height;
+	int pip_x, pip_y, pip_width, pip_height;
+	int pip_was_maximized, pip_was_above;
 };
 
 static struct {
@@ -173,6 +178,12 @@ static void rvn_x11_set_size_hints(rvn_pwindow_t* window, int width, int height)
 		hints->flags |= PMinSize;
 		hints->min_width = window->min_width;
 		hints->min_height = window->min_height;
+	}
+	if (window->pip && window->pip_ratio_width > 0 && window->pip_ratio_height > 0) {
+		/* picture in picture: the window manager keeps the proportions while the user resizes */
+		hints->flags |= PAspect;
+		hints->min_aspect.x = hints->max_aspect.x = window->pip_ratio_width;
+		hints->min_aspect.y = hints->max_aspect.y = window->pip_ratio_height;
 	}
 	XSetWMNormalHints(g_x11.display, window->handle, hints);
 	XFree(hints);
@@ -507,6 +518,125 @@ static int rvn_x11_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 	event.xclient.data.l[3] = 1;
 	XSendEvent(g_x11.display, DefaultRootWindow(g_x11.display), False,
 		SubstructureRedirectMask | SubstructureNotifyMask, &event);
+	XFlush(g_x11.display);
+	return R_TRUE;
+}
+
+/* Adds or removes one or two states of _NET_WM_STATE (the window is mapped: the window manager is asked). */
+static void rvn_x11_send_states(rvn_pwindow_t* window, int add, Atom first, Atom second) {
+	XEvent event;
+	memset(&event, 0, sizeof(event));
+	event.xclient.type = ClientMessage;
+	event.xclient.window = window->handle;
+	event.xclient.message_type = g_x11.net_wm_state;
+	event.xclient.format = 32;
+	event.xclient.data.l[0] = add ? 1 : 0;
+	event.xclient.data.l[1] = (long)first;
+	event.xclient.data.l[2] = (long)second;
+	event.xclient.data.l[3] = 1;
+	XSendEvent(g_x11.display, g_x11.root, False, SubstructureRedirectMask | SubstructureNotifyMask, &event);
+}
+
+static int rvn_x11_has_state(rvn_pwindow_t* window, Atom state) {
+	Atom type;
+	int format, found = R_FALSE;
+	unsigned long count, i;
+	unsigned char* data = rvn_x11_property(window->handle, g_x11.net_wm_state, &type, &format, &count, False);
+	if (data && type == XA_ATOM && format == 32) {
+		for (i = 0; i < count && !found; i++) found = ((const Atom*)data)[i] == state;
+	}
+	if (data) XFree(data);
+	return found;
+}
+
+/* The work area of the current desktop (_NET_WORKAREA), else the screen. */
+static void rvn_x11_work_area(int* x, int* y, int* width, int* height) {
+	Screen* screen = DefaultScreenOfDisplay(g_x11.display);
+	Atom type;
+	int format;
+	unsigned long count, desktop = 0;
+	unsigned char* data = rvn_x11_property(g_x11.root, XInternAtom(g_x11.display, "_NET_CURRENT_DESKTOP", False), &type, &format, &count, False);
+	*x = *y = 0;
+	*width = WidthOfScreen(screen);
+	*height = HeightOfScreen(screen);
+	if (data && format == 32 && count >= 1) desktop = ((const unsigned long*)data)[0];
+	if (data) XFree(data);
+	data = rvn_x11_property(g_x11.root, XInternAtom(g_x11.display, "_NET_WORKAREA", False), &type, &format, &count, False);
+	if (data && format == 32 && count >= 4) {
+		const unsigned long* area = (const unsigned long*)data;
+		if (desktop * 4 + 3 >= count) desktop = 0;
+		*x = (int)area[desktop * 4];
+		*y = (int)area[desktop * 4 + 1];
+		*width = (int)area[desktop * 4 + 2];
+		*height = (int)area[desktop * 4 + 3];
+	}
+	if (data) XFree(data);
+}
+
+/* The title bar and borders of the window manager (Motif hints), as the window was created, or none. */
+static void rvn_x11_set_decorated(rvn_pwindow_t* window, int decorated) {
+	long hints[5] = { 2, 0, 0, 0, 0 };
+	hints[2] = decorated ? 1 : 0;
+	XChangeProperty(g_x11.display, window->handle, g_x11.motif_wm_hints, g_x11.motif_wm_hints, 32, PropModeReplace,
+		(const unsigned char*)hints, 5);
+}
+
+static void rvn_x11_window_get_position(rvn_pwindow_t* window, int* x, int* y);
+static rvn_pwindow_state_t rvn_x11_window_get_state(rvn_pwindow_t* window);
+
+/*
+ * Picture in picture: no decorations, above the others on every desktop
+ * (_NET_WM_STATE_ABOVE, _STICKY), in a corner of the work area, the
+ * proportions kept by the size hints.
+ */
+static int rvn_x11_window_set_picture_in_picture(rvn_pwindow_t* window, int enabled, int width, int height, int corner) {
+	Atom above = XInternAtom(g_x11.display, "_NET_WM_STATE_ABOVE", False);
+	Atom sticky = XInternAtom(g_x11.display, "_NET_WM_STATE_STICKY", False);
+	if (enabled) {
+		int left = corner == (int)R_PIP_BOTTOM_LEFT || corner == (int)R_PIP_TOP_LEFT;
+		int top = corner == (int)R_PIP_TOP_RIGHT || corner == (int)R_PIP_TOP_LEFT;
+		int area_x, area_y, area_width, area_height, margin;
+		if (!window->pip) {
+			Atom type;
+			int format;
+			unsigned long count;
+			/* where the client area is, and where the frame of the window manager starts around it */
+			unsigned char* extents = rvn_x11_property(window->handle, XInternAtom(g_x11.display, "_NET_FRAME_EXTENTS", False),
+				&type, &format, &count, False);
+			rvn_x11_window_get_position(window, &window->pip_x, &window->pip_y);
+			if (extents && format == 32 && count >= 4) {
+				window->pip_x -= (int)((const long*)extents)[0];
+				window->pip_y -= (int)((const long*)extents)[2];
+			}
+			if (extents) XFree(extents);
+			window->pip_width = window->width;
+			window->pip_height = window->height;
+			window->pip_was_maximized = rvn_x11_window_get_state(window) == RVN_PWINDOW_MAXIMIZED;
+			window->pip_was_above = rvn_x11_has_state(window, above);
+			if (window->pip_was_maximized) rvn_x11_send_maximize(window, R_FALSE);
+			if (!(window->flags & (R_WINDOW_BORDERLESS | R_WINDOW_CUSTOM_HEADER))) rvn_x11_set_decorated(window, R_FALSE);
+			rvn_x11_send_states(window, R_TRUE, above, sticky);
+			window->pip = R_TRUE;
+		}
+		window->pip_ratio_width = rvn_maxi(width, 1);
+		window->pip_ratio_height = rvn_maxi(height, 1);
+		rvn_x11_set_size_hints(window, width, height);
+		rvn_x11_work_area(&area_x, &area_y, &area_width, &area_height);
+		margin = (int)(16.0f * g_x11.scale + 0.5f);
+		XMoveResizeWindow(g_x11.display, window->handle,
+			left ? area_x + margin : area_x + area_width - width - margin,
+			top ? area_y + margin : area_y + area_height - height - margin, (unsigned int)width, (unsigned int)height);
+		XFlush(g_x11.display);
+		return R_TRUE;
+	}
+	if (!window->pip) return R_TRUE;
+	window->pip = R_FALSE;
+	rvn_x11_set_size_hints(window, window->pip_width, window->pip_height);
+	if (!(window->flags & (R_WINDOW_BORDERLESS | R_WINDOW_CUSTOM_HEADER))) rvn_x11_set_decorated(window, R_TRUE);
+	rvn_x11_send_states(window, R_FALSE, window->pip_was_above ? None : above, sticky);
+	XMoveResizeWindow(g_x11.display, window->handle, window->pip_x, window->pip_y,
+		(unsigned int)rvn_maxi(window->pip_width, 1), (unsigned int)rvn_maxi(window->pip_height, 1));
+	if (window->pip_was_maximized) rvn_x11_send_maximize(window, R_TRUE);
 	XFlush(g_x11.display);
 	return R_TRUE;
 }
@@ -1654,6 +1784,7 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.window_set_backdrop = rvn_x11_window_set_backdrop,
 		.window_set_opacity = rvn_x11_window_set_opacity,
 		.window_set_topmost = rvn_x11_window_set_topmost,
+		.window_set_picture_in_picture = rvn_x11_window_set_picture_in_picture,
 		.window_center = rvn_x11_window_center,
 		.window_set_cursor = rvn_x11_window_set_cursor,
 		.window_get_native = rvn_x11_window_get_native,

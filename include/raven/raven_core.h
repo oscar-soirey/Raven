@@ -443,6 +443,7 @@ extern "C" {
 	 *   app.quit                          quits (Rquit(0))
 	 *   window.close, window.minimize,    the window of the widget
 	 *   window.maximize, window.restore   (maximize goes back when it already is)
+	 *   window.picture_in_picture         in and out of picture in picture
 	 *   island.expand, island.fold,       the island of that window
 	 *   island.toggle
 	 *   theme.dark, theme.light,          the look of Raven, dark or light

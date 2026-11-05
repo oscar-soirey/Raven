@@ -15,6 +15,9 @@ struct rvn_pwindow_t {
 	char* title;
 	rvn_pwindow_state_t state;
 	int transparent;
+	/* picture in picture, and what to come back to */
+	int pip;
+	int pip_x, pip_y, pip_width, pip_height;
 };
 
 static struct {
@@ -239,6 +242,31 @@ static void rvn_null_focus_event(rvn_pwindow_t* window, int focused) {
 	g_null.handler(&event);
 }
 
+/* Picture in picture, on a work area of 1920 x 1080 pixels as a monitor would give: the core can be tested with it. */
+static int rvn_null_window_set_picture_in_picture(rvn_pwindow_t* window, int enabled, int width, int height, int corner) {
+	const int area_width = 1920, area_height = 1080, margin = 16;
+	if (enabled) {
+		int left = corner == (int)R_PIP_BOTTOM_LEFT || corner == (int)R_PIP_TOP_LEFT;
+		int top = corner == (int)R_PIP_TOP_RIGHT || corner == (int)R_PIP_TOP_LEFT;
+		if (!window->pip) {
+			window->pip = R_TRUE;
+			window->pip_x = window->x;
+			window->pip_y = window->y;
+			window->pip_width = window->width;
+			window->pip_height = window->height;
+		}
+		window->x = left ? margin : area_width - width - margin;
+		window->y = top ? margin : area_height - height - margin;
+		rvn_null_window_set_size(window, width, height);
+	} else if (window->pip) {
+		window->pip = R_FALSE;
+		window->x = window->pip_x;
+		window->y = window->pip_y;
+		rvn_null_window_set_size(window, window->pip_width, window->pip_height);
+	}
+	return R_TRUE;
+}
+
 /* As a window system does: the one that takes the keyboard says so, the one that loses it too. */
 static void rvn_null_overlay_set_key(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key) {
 	rvn_null_focus_event(key ? owner : overlay, R_FALSE);
@@ -269,6 +297,7 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.window_set_cursor = rvn_null_window_set_cursor,
 		.window_set_backdrop = rvn_null_window_set_backdrop,
 		.window_set_opacity = rvn_null_window_set_opacity,
+		.window_set_picture_in_picture = rvn_null_window_set_picture_in_picture,
 		.window_get_native = rvn_null_window_get_native,
 		.child_create = rvn_null_child_create,
 		.child_set_rect = rvn_null_child_set_rect,

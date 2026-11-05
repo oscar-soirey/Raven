@@ -213,6 +213,19 @@ typedef struct rvn_platform_t {
 	/** Optional (may be NULL). Opacity of the whole window, 0..1. Returns R_FALSE when it cannot. */
 	int   (*window_set_opacity)(rvn_pwindow_t* window, float opacity);
 	int   (*window_set_topmost)(rvn_pwindow_t* window, int topmost);
+	/**
+	 * Optional (may be NULL). Picture in picture (Rwindow_set_picture_in_picture).
+	 * Entering: the platform keeps what it needs to come back (frame, style,
+	 * level, place, state), removes the title bar where it can (the core then
+	 * answers the regions as for a custom header), keeps the window above the
+	 * others and on every desktop, and gives its client area `width` x
+	 * `height` pixels in `corner` (an RPictureInPictureCorner) of the work
+	 * area of its monitor, a margin away from its edges; resizing keeps the
+	 * proportions width / height. Called again while in, it only moves and
+	 * resizes. Leaving (`enabled` R_FALSE): everything as it was.
+	 * Returns R_FALSE when the window cannot be kept above the others.
+	 */
+	int   (*window_set_picture_in_picture)(rvn_pwindow_t* window, int enabled, int width, int height, int corner);
 	void  (*window_center)(rvn_pwindow_t* window);
 	/** Optional (may be NULL). Icon from RGBA8 pixels; NULL rgba restores the default. */
 	void  (*window_set_icon)(rvn_pwindow_t* window, const uint8_t* rgba, int width, int height);

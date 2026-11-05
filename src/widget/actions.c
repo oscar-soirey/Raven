@@ -102,7 +102,9 @@ int rvn_builtin_action(Rid sender, const char* name) {
 			if (Rwindow_is_maximized(window)) Rwindow_restore(window);
 			else Rwindow_maximize(window);
 		} else if (strcmp(name, "window.restore") == 0) Rwindow_restore(window);
-		else return 0;
+		else if (strcmp(name, "window.picture_in_picture") == 0) {
+			Rwindow_set_picture_in_picture(window, !Rwindow_is_picture_in_picture(window));
+		} else return 0;
 		return 1;
 	}
 	if (strncmp(name, "island.", 7) == 0) {
@@ -172,7 +174,7 @@ int rvn_builtin_action(Rid sender, const char* name) {
 
 int Raction_is_builtin(const char* name) {
 	static const char* const names[] = {
-		"app.quit", "window.close", "window.minimize", "window.maximize", "window.restore", "island.expand", "island.fold",
+		"app.quit", "window.close", "window.minimize", "window.maximize", "window.restore", "window.picture_in_picture", "island.expand", "island.fold",
 		"island.toggle", "theme.dark", "theme.light", "theme.toggle"
 	};
 	static const char* const prefixes[] = {

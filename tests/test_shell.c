@@ -717,6 +717,62 @@ static void test_island(void) {
 	Rwindow_destroy(window);
 }
 
+/* Picture in picture: the null platform has a work area of 1920 x 1080 pixels. */
+static void test_picture_in_picture(void) {
+	static const char xml[] =
+		"<VBox Name=\"root\">"
+		"  <Label Name=\"video\" Text=\"a video\" Slot.Fill=\"1\"/>"
+		"  <Button Name=\"back\" Text=\"Back\" OnClicked=\"window.picture_in_picture\"/>"
+		"</VBox>";
+	Rid window = Rwindow_create("player", 640, 360, R_WINDOW_DEFAULT);
+	Rid root = Rwidget_create_from_xml(xml, strlen(xml));
+	int width = 0, height = 0, x = 0, y = 0;
+	Rwindow_set_content(window, root);
+	Rwindow_set_position(window, 100, 120);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_picture_in_picture(window));
+
+	/* in: 320 wide with the proportions of the content, in the bottom right corner */
+	CHECK(Rwindow_set_picture_in_picture(window, R_TRUE));
+	Rdraw_frame();
+	CHECK(Rwindow_is_picture_in_picture(window));
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 320 && height == 180);
+	Rwindow_get_position(window, &x, &y);
+	CHECK(x == 1920 - 320 - 16 && y == 1080 - 180 - 16);
+	/* asking again changes nothing */
+	CHECK(Rwindow_set_picture_in_picture(window, R_TRUE));
+
+	/* another size and corner, at once while in */
+	Rwindow_set_picture_in_picture_layout(window, 400, 0, R_PIP_TOP_LEFT);
+	Rdraw_frame();
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 400 && height == 225);
+	Rwindow_get_position(window, &x, &y);
+	CHECK(x == 16 && y == 16);
+
+	/* the button of the content takes it out (built-in action): size and place come back */
+	test_click(window, Rwidget_find(root, "back"));
+	Rdraw_frame();
+	CHECK(!Rwindow_is_picture_in_picture(window));
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 640 && height == 360);
+	Rwindow_get_position(window, &x, &y);
+	CHECK(x == 100 && y == 120);
+	CHECK(Rwindow_set_picture_in_picture(window, R_FALSE));
+
+	/* the layout is kept for the next time; an invalid corner is refused */
+	CHECK(Rwindow_set_picture_in_picture(window, R_TRUE));
+	Rdraw_frame();
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 400 && height == 225);
+	EXPECT_ERRORS_BEGIN();
+	Rwindow_set_picture_in_picture_layout(window, 0, 0, (RPictureInPictureCorner)0);
+	EXPECT_ERRORS_END(1);
+	CHECK(Raction_is_builtin("window.picture_in_picture"));
+	Rwindow_destroy(window);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("test_shell: cannot initialize Raven\n");
@@ -729,6 +785,7 @@ int main(void) {
 	RUN(test_dock);
 	RUN(test_dock_animated);
 	RUN(test_island);
+	RUN(test_picture_in_picture);
 	Rshutdown();
 	return test_report("test_shell");
 }

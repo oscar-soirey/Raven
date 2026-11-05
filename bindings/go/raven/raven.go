@@ -159,6 +159,16 @@ const (
 	R_WINDOW_TRANSPARENT   RWindowFlags = 0x0020
 )
 
+// RPictureInPictureCorner: Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
+type RPictureInPictureCorner int32
+
+const (
+	R_PIP_BOTTOM_RIGHT RPictureInPictureCorner = 0x0780
+	R_PIP_BOTTOM_LEFT  RPictureInPictureCorner = 0x0781
+	R_PIP_TOP_RIGHT    RPictureInPictureCorner = 0x0782
+	R_PIP_TOP_LEFT     RPictureInPictureCorner = 0x0783
+)
+
 // RBackdrop: What is seen behind a window created with R_WINDOW_TRANSPARENT. Windows 11 every value Windows
 // 10 TRANSPARENT, BLUR, ACRYLIC (MICA gives ACRYLIC) macOS TRANSPARENT; other backdrops fall back to
 // transparency X11 TRANSPARENT with any compositing manager; BLUR where the compositor blurs on request
@@ -1161,15 +1171,15 @@ func ActionFire(name string, sender ID) {
 
 // ActionSetBuiltins: The actions Raven knows by itself: an interface written in XML uses them with no C at
 // all (OnClicked="app.quit"). app.quit quits (Rquit(0)) window.close, window.minimize, the window of the
-// widget window.maximize, window.restore (maximize goes back when it already is) island.expand, island.fold,
-// the island of that window island.toggle theme.dark, theme.light, the look of Raven, dark or light
-// theme.toggle theme:NAME Rtheme_use(NAME): a theme loaded or built in language:CODE
-// Rlocale_set_language(CODE) open:ADDRESS Ropen_url (https:, mailto:, a file) copy:TEXT the text to the
-// clipboard show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
-// enable:NAME, disable:NAME focus:NAME page:NAME=2, page:NAME=+1 what a Switcher, a TabView, a ComboBox or a
-// ListView shows; +1 and -1 step, and go round A function bound to one of these names (Raction_bind) replaces
-// it; the default handler receives the others only. enabled R_FALSE turns them all off: a design tool that
-// shows interfaces without running them. On by default.
+// widget window.maximize, window.restore (maximize goes back when it already is) window.picture_in_picture in
+// and out of picture in picture island.expand, island.fold, the island of that window island.toggle
+// theme.dark, theme.light, the look of Raven, dark or light theme.toggle theme:NAME Rtheme_use(NAME): a theme
+// loaded or built in language:CODE Rlocale_set_language(CODE) open:ADDRESS Ropen_url (https:, mailto:, a
+// file) copy:TEXT the text to the clipboard show:NAME, hide:NAME, toggle:NAME the widget named NAME in the
+// window (hidden: Collapsed) enable:NAME, disable:NAME focus:NAME page:NAME=2, page:NAME=+1 what a Switcher,
+// a TabView, a ComboBox or a ListView shows; +1 and -1 step, and go round A function bound to one of these
+// names (Raction_bind) replaces it; the default handler receives the others only. enabled R_FALSE turns them
+// all off: a design tool that shows interfaces without running them. On by default.
 func ActionSetBuiltins(enabled int) {
 	C.Raction_set_builtins(C.int(enabled))
 }
@@ -1413,6 +1423,28 @@ func WindowGetOpacity(window ID) float32 {
 // the window system cannot do it.
 func WindowSetTopmost(window ID, topmost int) int {
 	return int(C.Rwindow_set_topmost(C.Rid(window), C.int(topmost)))
+}
+
+// WindowSetPictureInPicture: Picture in picture: the window becomes a small floating window that stays above
+// the other windows, on every desktop (every space of macOS, over the applications in full screen too), in a
+// corner of the work area of its monitor. It loses its title bar where the system allows: the empty parts of
+// its content move it, its edges resize it, and its size keeps the proportions it was given. Leaving it gives
+// back the size, place, frame and state the window had. Raven does not add a button to leave it: the content
+// shows one, with the built-in action "window.picture_in_picture" (it goes in and out). Returns: R_FALSE when
+// the window system cannot keep a window above the others (Wayland): the window is left as it is.
+func WindowSetPictureInPicture(window ID, enabled int) int {
+	return int(C.Rwindow_set_picture_in_picture(C.Rid(window), C.int(enabled)))
+}
+
+func WindowIsPictureInPicture(window ID) int {
+	return int(C.Rwindow_is_picture_in_picture(C.Rid(window)))
+}
+
+// WindowSetPictureInPictureLayout: Size (logical units) and corner of the window in picture in picture, for
+// the next time it goes in (now, when it is in). 0, 0 (the default): 320 wide, with the proportions the
+// content has when it goes in. The proportions of width / height are kept while the user resizes.
+func WindowSetPictureInPictureLayout(window ID, width int, height int, corner RPictureInPictureCorner) {
+	C.Rwindow_set_picture_in_picture_layout(C.Rid(window), C.int(width), C.int(height), C.RPictureInPictureCorner(corner))
 }
 
 // WindowCenter: Centers the window on the work area of its monitor (no task bar).

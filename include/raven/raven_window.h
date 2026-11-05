@@ -37,6 +37,14 @@ typedef enum RWindowFlags{
 	R_WINDOW_TRANSPARENT = (1 << 5)
 }RWindowFlags;
 
+/** Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout). */
+typedef enum RPictureInPictureCorner {
+	R_PIP_BOTTOM_RIGHT = 0x0780,
+	R_PIP_BOTTOM_LEFT,
+	R_PIP_TOP_RIGHT,
+	R_PIP_TOP_LEFT
+} RPictureInPictureCorner;
+
 /**
  * What is seen behind a window created with R_WINDOW_TRANSPARENT.
  *
@@ -410,6 +418,30 @@ extern "C" {
 	 * @return R_FALSE when the window system cannot do it.
 	 */
 	RAVEN_API int Rwindow_set_topmost(Rid window, int topmost);
+
+	/**
+	 * @brief Picture in picture: the window becomes a small floating window
+	 * that stays above the other windows, on every desktop (every space of
+	 * macOS, over the applications in full screen too), in a corner of the
+	 * work area of its monitor. It loses its title bar where the system
+	 * allows: the empty parts of its content move it, its edges resize it,
+	 * and its size keeps the proportions it was given. Leaving it gives back
+	 * the size, place, frame and state the window had.
+	 *
+	 * Raven does not add a button to leave it: the content shows one, with
+	 * the built-in action "window.picture_in_picture" (it goes in and out).
+	 * @return R_FALSE when the window system cannot keep a window above the
+	 * others (Wayland): the window is left as it is.
+	 */
+	RAVEN_API int Rwindow_set_picture_in_picture(Rid window, int enabled);
+	RAVEN_API int Rwindow_is_picture_in_picture(Rid window);
+	/**
+	 * @brief Size (logical units) and corner of the window in picture in
+	 * picture, for the next time it goes in (now, when it is in). 0, 0 (the
+	 * default): 320 wide, with the proportions the content has when it goes
+	 * in. The proportions of width / height are kept while the user resizes.
+	 */
+	RAVEN_API void Rwindow_set_picture_in_picture_layout(Rid window, int width, int height, RPictureInPictureCorner corner);
 
 	/** @brief Centers the window on the work area of its monitor (no task bar). */
 	RAVEN_API void Rwindow_center(Rid window);

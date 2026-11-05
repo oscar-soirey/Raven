@@ -171,6 +171,18 @@ R_WINDOW_MAXIMIZED = RWindowFlags.R_WINDOW_MAXIMIZED
 R_WINDOW_CUSTOM_HEADER = RWindowFlags.R_WINDOW_CUSTOM_HEADER
 R_WINDOW_TRANSPARENT = RWindowFlags.R_WINDOW_TRANSPARENT
 
+class RPictureInPictureCorner(enum.IntEnum):
+    """Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout)."""
+    R_PIP_BOTTOM_RIGHT = 0x0780
+    R_PIP_BOTTOM_LEFT = 0x0781
+    R_PIP_TOP_RIGHT = 0x0782
+    R_PIP_TOP_LEFT = 0x0783
+
+R_PIP_BOTTOM_RIGHT = RPictureInPictureCorner.R_PIP_BOTTOM_RIGHT
+R_PIP_BOTTOM_LEFT = RPictureInPictureCorner.R_PIP_BOTTOM_LEFT
+R_PIP_TOP_RIGHT = RPictureInPictureCorner.R_PIP_TOP_RIGHT
+R_PIP_TOP_LEFT = RPictureInPictureCorner.R_PIP_TOP_LEFT
+
 class RBackdrop(enum.IntEnum):
     """What is seen behind a window created with R_WINDOW_TRANSPARENT.
     
@@ -2754,6 +2766,7 @@ def Raction_set_builtins(enabled):
       app.quit                          quits (Rquit(0))
       window.close, window.minimize,    the window of the widget
       window.maximize, window.restore   (maximize goes back when it already is)
+      window.picture_in_picture         in and out of picture in picture
       island.expand, island.fold,       the island of that window
       island.toggle
       theme.dark, theme.light,          the look of Raven, dark or light
@@ -3220,6 +3233,46 @@ def Rwindow_set_topmost(window, topmost):
     """Keeps the window above the other windows (splash screens, tools).
     Returns: R_FALSE when the window system cannot do it."""
     return _lib.Rwindow_set_topmost(window, topmost)
+
+
+_lib.Rwindow_set_picture_in_picture.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_set_picture_in_picture.restype = ctypes.c_int
+
+
+def Rwindow_set_picture_in_picture(window, enabled):
+    """Picture in picture: the window becomes a small floating window
+    that stays above the other windows, on every desktop (every space of
+    macOS, over the applications in full screen too), in a corner of the
+    work area of its monitor. It loses its title bar where the system
+    allows: the empty parts of its content move it, its edges resize it,
+    and its size keeps the proportions it was given. Leaving it gives back
+    the size, place, frame and state the window had.
+    
+    Raven does not add a button to leave it: the content shows one, with
+    the built-in action "window.picture_in_picture" (it goes in and out).
+    Returns: R_FALSE when the window system cannot keep a window above the
+    others (Wayland): the window is left as it is."""
+    return _lib.Rwindow_set_picture_in_picture(window, enabled)
+
+
+_lib.Rwindow_is_picture_in_picture.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_picture_in_picture.restype = ctypes.c_int
+
+
+def Rwindow_is_picture_in_picture(window):
+    return _lib.Rwindow_is_picture_in_picture(window)
+
+
+_lib.Rwindow_set_picture_in_picture_layout.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rwindow_set_picture_in_picture_layout.restype = None
+
+
+def Rwindow_set_picture_in_picture_layout(window, width, height, corner):
+    """Size (logical units) and corner of the window in picture in
+    picture, for the next time it goes in (now, when it is in). 0, 0 (the
+    default): 320 wide, with the proportions the content has when it goes
+    in. The proportions of width / height are kept while the user resizes."""
+    _lib.Rwindow_set_picture_in_picture_layout(window, width, height, int(corner))
 
 
 _lib.Rwindow_center.argtypes = [ctypes.c_uint32]

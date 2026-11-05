@@ -161,6 +161,11 @@ struct rvn_pwindow_t {
 	int transparent;
 	/** Its precision touchpad (Direct Manipulation), or NULL: the touchpad is then the wheel. */
 	rvn_win32_manipulation_t* manipulation;
+	/** Picture in picture: the proportions it keeps, and what the window had before. */
+	int pip;
+	int pip_ratio_width, pip_ratio_height;
+	WINDOWPLACEMENT pip_placement;
+	int pip_was_custom, pip_was_topmost;
 	struct rvn_pwindow_t* next;
 };
 
@@ -725,7 +730,31 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 			return 0;
 
 		case WM_NCHITTEST:
-			if (window->flags & R_WINDOW_CUSTOM_HEADER) return rvn_win32_custom_hit_test(window, wparam, lparam);
+			if ((window->flags & R_WINDOW_CUSTOM_HEADER) || window->pip) return rvn_win32_custom_hit_test(window, wparam, lparam);
+			break;
+
+		case WM_SIZING:
+			/* picture in picture: the edge the user drags decides, the other side follows the proportions */
+			if (window->pip && window->pip_ratio_width > 0 && window->pip_ratio_height > 0) {
+				RECT* rect = (RECT*)lparam;
+				RECT frame;
+				int extra_width, extra_height, width, height;
+				frame.left = frame.top = frame.right = frame.bottom = 0;
+				rvn_win32_adjust(handle, &frame);
+				extra_width = frame.right - frame.left;
+				extra_height = frame.bottom - frame.top;
+				width = rect->right - rect->left - extra_width;
+				height = rect->bottom - rect->top - extra_height;
+				if (wparam == WMSZ_TOP || wparam == WMSZ_BOTTOM) {
+					width = MulDiv(height, window->pip_ratio_width, window->pip_ratio_height);
+					rect->right = rect->left + width + extra_width;
+				} else {
+					height = MulDiv(width, window->pip_ratio_height, window->pip_ratio_width);
+					if (wparam == WMSZ_TOPLEFT || wparam == WMSZ_TOPRIGHT) rect->top = rect->bottom - height - extra_height;
+					else rect->bottom = rect->top + height + extra_height;
+				}
+				return TRUE;
+			}
 			break;
 
 		case WM_DROPFILES:
@@ -1348,6 +1377,57 @@ static int rvn_win32_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) != 0;
 }
 
+/*
+ * Picture in picture. The title bar goes as for a custom header (the borders,
+ * the shadow and the resizing stay, the core answers the regions); the window
+ * stays on top, in a corner of the work area of its monitor.
+ */
+static int rvn_win32_window_set_picture_in_picture(rvn_pwindow_t* window, int enabled, int width, int height, int corner) {
+	HWND handle = window->handle;
+	if (enabled) {
+		MONITORINFO info;
+		RECT frame;
+		int left = corner == (int)R_PIP_BOTTOM_LEFT || corner == (int)R_PIP_TOP_LEFT;
+		int top = corner == (int)R_PIP_TOP_RIGHT || corner == (int)R_PIP_TOP_LEFT;
+		int margin, frame_width, frame_height, x, y;
+		if (!window->pip) {
+			window->pip_placement.length = sizeof(window->pip_placement);
+			if (!GetWindowPlacement(handle, &window->pip_placement)) return R_FALSE;
+			window->pip_was_topmost = (GetWindowLongW(handle, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+			window->pip_was_custom = GetPropW(handle, RVN_WIN32_CUSTOM_PROPERTY) != NULL;
+			/* a maximized or minimized window first becomes a normal one */
+			if (IsZoomed(handle) || IsIconic(handle)) ShowWindow(handle, SW_RESTORE);
+			if (!window->pip_was_custom && !(window->flags & R_WINDOW_BORDERLESS)) {
+				SetPropW(handle, RVN_WIN32_CUSTOM_PROPERTY, (HANDLE)(INT_PTR)1);
+			}
+			window->pip = R_TRUE;
+		}
+		window->pip_ratio_width = rvn_maxi(width, 1);
+		window->pip_ratio_height = rvn_maxi(height, 1);
+		info.cbSize = sizeof(info);
+		if (!GetMonitorInfoW(MonitorFromWindow(handle, MONITOR_DEFAULTTONEAREST), &info)) return R_TRUE;
+		frame.left = frame.top = 0;
+		frame.right = width;
+		frame.bottom = height;
+		rvn_win32_adjust(handle, &frame);
+		frame_width = frame.right - frame.left;
+		frame_height = frame.bottom - frame.top;
+		margin = (int)(16.0f * window->scale + 0.5f);
+		x = left ? info.rcWork.left + margin : info.rcWork.right - frame_width - margin;
+		y = top ? info.rcWork.top + margin : info.rcWork.bottom - frame_height - margin;
+		SetWindowPos(handle, HWND_TOPMOST, x, y, frame_width, frame_height, SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+		return R_TRUE;
+	}
+	if (!window->pip) return R_TRUE;
+	window->pip = R_FALSE;
+	if (!window->pip_was_custom) RemovePropW(handle, RVN_WIN32_CUSTOM_PROPERTY);
+	SetWindowPos(handle, window->pip_was_topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+	/* the place, the size and the state it had (maximized too) */
+	SetWindowPlacement(handle, &window->pip_placement);
+	return R_TRUE;
+}
+
 static void rvn_win32_window_center(rvn_pwindow_t* window) {
 	MONITORINFO info;
 	RECT rect;
@@ -1726,6 +1806,7 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.window_set_backdrop = rvn_win32_window_set_backdrop,
 		.window_set_opacity = rvn_win32_window_set_opacity,
 		.window_set_topmost = rvn_win32_window_set_topmost,
+		.window_set_picture_in_picture = rvn_win32_window_set_picture_in_picture,
 		.window_center = rvn_win32_window_center,
 		.window_set_icon = rvn_win32_window_set_icon,
 		.window_set_cursor = rvn_win32_window_set_cursor,

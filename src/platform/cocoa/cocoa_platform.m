@@ -29,6 +29,16 @@ struct rvn_pwindow_t {
     NSRect overlay_input;
     int pointer_inside;
     NSTimer* overlay_poll;
+    /* picture in picture, and what the window had before it */
+    int pip;
+    int pip_was_zoomed;
+    NSRect pip_frame;
+    NSWindowStyleMask pip_style;
+    NSInteger pip_level;
+    NSWindowCollectionBehavior pip_behavior;
+    BOOL pip_title_transparent;
+    NSWindowTitleVisibility pip_title_visibility;
+    NSSize pip_aspect;
 };
 
 static struct {
@@ -584,6 +594,85 @@ static int rvn_cocoa_window_set_backdrop(rvn_pwindow_t* window, int backdrop, in
     return (int)R_BACKDROP_TRANSPARENT;
 }
 static int rvn_cocoa_window_set_opacity(rvn_pwindow_t* window, float opacity) { [window->handle setAlphaValue:rvn_clampf(opacity, 0.0f, 1.0f)]; return R_TRUE; }
+static int rvn_cocoa_window_set_topmost(rvn_pwindow_t* window, int topmost) {
+    if (!window->handle || window->overlay || window->is_child) return R_FALSE;
+    [window->handle setLevel:topmost ? NSFloatingWindowLevel : NSNormalWindowLevel];
+    return R_TRUE;
+}
+static void rvn_cocoa_window_center(rvn_pwindow_t* window) {
+    if (window->handle && !window->overlay && !window->is_child) [window->handle center];
+}
+static void rvn_cocoa_window_buttons_hidden(NSWindow* handle, BOOL hidden) {
+    [[handle standardWindowButton:NSWindowCloseButton] setHidden:hidden];
+    [[handle standardWindowButton:NSWindowMiniaturizeButton] setHidden:hidden];
+    [[handle standardWindowButton:NSWindowZoomButton] setHidden:hidden];
+}
+/*
+ * Picture in picture: a floating window on every space (over the applications
+ * in full screen too), its title bar see-through and without its buttons (the
+ * content covers it: the core moves the window from the empty parts), in a
+ * corner of the visible frame of its screen, the proportions of its content
+ * kept by AppKit while the user resizes it.
+ */
+static int rvn_cocoa_window_set_picture_in_picture(rvn_pwindow_t* window, int enabled, int width, int height, int corner) {
+    NSWindow* handle = window->handle;
+    if (!handle || window->overlay || window->is_child) return R_FALSE;
+    if (enabled) {
+        CGFloat scale = rvn_cocoa_scale(window);
+        NSSize size = NSMakeSize(rvn_maxi(width, 1) / scale, rvn_maxi(height, 1) / scale);
+        int left = corner == (int)R_PIP_BOTTOM_LEFT || corner == (int)R_PIP_TOP_LEFT;
+        int top = corner == (int)R_PIP_TOP_RIGHT || corner == (int)R_PIP_TOP_LEFT;
+        const CGFloat margin = 16.0;
+        NSScreen* screen;
+        NSRect area, frame;
+        if (!window->pip) {
+            if ([handle isMiniaturized]) [handle deminiaturize:nil];
+            window->pip_was_zoomed = [handle isZoomed];
+            if (window->pip_was_zoomed) [handle zoom:nil];
+            window->pip_frame = [handle frame];
+            window->pip_style = [handle styleMask];
+            window->pip_level = [handle level];
+            window->pip_behavior = [handle collectionBehavior];
+            window->pip_title_transparent = [handle titlebarAppearsTransparent];
+            window->pip_title_visibility = [handle titleVisibility];
+            window->pip_aspect = [handle contentAspectRatio];
+            if ([handle styleMask] & NSWindowStyleMaskTitled) {
+                [handle setStyleMask:[handle styleMask] | NSWindowStyleMaskFullSizeContentView];
+                [handle setTitlebarAppearsTransparent:YES];
+                [handle setTitleVisibility:NSWindowTitleHidden];
+                rvn_cocoa_window_buttons_hidden(handle, YES);
+            }
+            [handle setLevel:NSFloatingWindowLevel];
+            [handle setCollectionBehavior:(window->pip_behavior | NSWindowCollectionBehaviorCanJoinAllSpaces |
+                NSWindowCollectionBehaviorFullScreenAuxiliary) & ~(NSWindowCollectionBehaviorMoveToActiveSpace)];
+            window->pip = R_TRUE;
+        }
+        [handle setContentAspectRatio:size];
+        screen = [handle screen] ? [handle screen] : [NSScreen mainScreen];
+        area = screen ? [screen visibleFrame] : NSMakeRect(0, 0, 1440, 900);
+        frame = [handle frameRectForContentRect:NSMakeRect(0, 0, size.width, size.height)];
+        /* (AppKit counts from the bottom of the screen) */
+        frame.origin.x = left ? NSMinX(area) + margin : NSMaxX(area) - frame.size.width - margin;
+        frame.origin.y = top ? NSMaxY(area) - frame.size.height - margin : NSMinY(area) + margin;
+        [handle setFrame:frame display:YES animate:YES];
+        [handle orderFront:nil];
+        return R_TRUE;
+    }
+    if (!window->pip) return R_TRUE;
+    window->pip = R_FALSE;
+    if (window->pip_style & NSWindowStyleMaskTitled) rvn_cocoa_window_buttons_hidden(handle, NO);
+    [handle setStyleMask:window->pip_style];
+    [handle setTitlebarAppearsTransparent:window->pip_title_transparent];
+    [handle setTitleVisibility:window->pip_title_visibility];
+    [handle setLevel:window->pip_level];
+    [handle setCollectionBehavior:window->pip_behavior];
+    /* (resize increments put back free proportions; an aspect ratio it had is given again) */
+    if (window->pip_aspect.width > 0.0 && window->pip_aspect.height > 0.0) [handle setContentAspectRatio:window->pip_aspect];
+    else [handle setContentResizeIncrements:NSMakeSize(1.0, 1.0)];
+    [handle setFrame:window->pip_frame display:YES animate:YES];
+    if (window->pip_was_zoomed && ![handle isZoomed]) [handle zoom:nil];
+    return R_TRUE;
+}
 static void rvn_cocoa_window_set_cursor(rvn_pwindow_t* window, RCursor cursor) {
     NSCursor* native = [NSCursor arrowCursor];
     switch (cursor) {
@@ -1089,6 +1178,8 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .window_begin_move = rvn_cocoa_window_begin_move, .window_begin_resize = rvn_cocoa_window_begin_resize,
         .native_regions = R_FALSE, .window_set_backdrop = rvn_cocoa_window_set_backdrop,
         .window_set_opacity = rvn_cocoa_window_set_opacity, .window_set_cursor = rvn_cocoa_window_set_cursor,
+        .window_set_topmost = rvn_cocoa_window_set_topmost, .window_center = rvn_cocoa_window_center,
+        .window_set_picture_in_picture = rvn_cocoa_window_set_picture_in_picture,
         .window_get_native = rvn_cocoa_window_get_native, .child_create = rvn_cocoa_child_create,
         .child_set_rect = rvn_cocoa_child_set_rect, .pump = rvn_cocoa_pump, .wake = rvn_cocoa_wake,
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,

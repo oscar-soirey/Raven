@@ -1128,7 +1128,8 @@ static rvn_pregion_t rvn_window_region(rvn_window_t* window, float x, float y) {
 	rvn_widget_t* walk;
 	int popup_index = -1;
 
-	if (!(window->window_flags & R_WINDOW_CUSTOM_HEADER)) return RVN_PREGION_CLIENT;
+	/* (a window in picture in picture has lost its title bar: it is answered as a custom header) */
+	if (!(window->window_flags & R_WINDOW_CUSTOM_HEADER) && !window->pip) return RVN_PREGION_CLIENT;
 	if (!(window->window_flags & R_WINDOW_NO_RESIZE) && window->state != RVN_PWINDOW_MAXIMIZED) {
 		int left = x < RVN_RESIZE_GRIP, right = x >= size.x - RVN_RESIZE_GRIP;
 		int top = y < RVN_RESIZE_GRIP, bottom = y >= size.y - RVN_RESIZE_GRIP;
@@ -1160,9 +1161,10 @@ static rvn_pregion_t rvn_window_region(rvn_window_t* window, float x, float y) {
 			return RVN_PREGION_CAPTION;
 		}
 		/* a control inside the title bar keeps the mouse; what only shows something lets it through */
-		if (walk->cls->event || walk->event_callback || (walk->flags & RVN_WF_FOCUSABLE)) break;
+		if (walk->cls->event || walk->event_callback || (walk->flags & RVN_WF_FOCUSABLE)) return RVN_PREGION_CLIENT;
 	}
-	return RVN_PREGION_CLIENT;
+	/* in picture in picture, what is not a control moves the window: it has nothing else to be held by */
+	return window->pip ? RVN_PREGION_CAPTION : RVN_PREGION_CLIENT;
 }
 
 rvn_pregion_t rvn_window_region_at(void* user, int x, int y) {
@@ -1398,7 +1400,7 @@ static void rvn_window_mouse_move(rvn_window_t* window, float x, float y) {
 	}
 
 	/* custom header: the edges resize the window and are not part of the content */
-	if ((window->window_flags & R_WINDOW_CUSTOM_HEADER) && !g_rvn.platform->native_regions && !window->capture) {
+	if (((window->window_flags & R_WINDOW_CUSTOM_HEADER) || window->pip) && !g_rvn.platform->native_regions && !window->capture) {
 		rvn_pregion_t region = window->buttons ? RVN_PREGION_CLIENT : rvn_window_region(window, x, y);
 		window->edge = region == RVN_PREGION_CAPTION ? RVN_PREGION_CLIENT : region;
 		if (window->edge != RVN_PREGION_CLIENT) {
@@ -1528,7 +1530,7 @@ static void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, i
 			return;
 		}
 
-		if (button == R_MOUSE_LEFT && (window->window_flags & R_WINDOW_CUSTOM_HEADER) && rvn_window_press_region(window, x, y)) {
+		if (button == R_MOUSE_LEFT && ((window->window_flags & R_WINDOW_CUSTOM_HEADER) || window->pip) && rvn_window_press_region(window, x, y)) {
 			return;
 		}
 
@@ -2146,6 +2148,61 @@ int Rwindow_set_topmost(Rid id, int topmost) {
 	RVN_WINDOW(window, id, R_FALSE);
 	if (!g_rvn.platform->window_set_topmost) return R_FALSE;
 	return g_rvn.platform->window_set_topmost(window->platform, topmost ? R_TRUE : R_FALSE);
+}
+
+/* The size in picture in picture, in pixels: the one asked for, else 320 wide with the proportions of the content. */
+static void rvn_window_pip_size(const rvn_window_t* window, int* width_px, int* height_px) {
+	rvn_vec2_t size = rvn_window_size(window);
+	float width = (float)window->pip_width, height = (float)window->pip_height;
+	float ratio = size.x > 1.0f && size.y > 1.0f ? size.y / size.x : 9.0f / 16.0f;
+	if (width <= 0.0f && height <= 0.0f) width = 320.0f;
+	if (width <= 0.0f) width = height / ratio;
+	if (height <= 0.0f) height = width * ratio;
+	/* (still something to see and to hold) */
+	width = rvn_maxf(width, 120.0f);
+	height = rvn_maxf(height, 68.0f);
+	*width_px = (int)(width * window->scale + 0.5f);
+	*height_px = (int)(height * window->scale + 0.5f);
+}
+
+static int rvn_window_apply_pip(rvn_window_t* window, int enabled) {
+	int width = 0, height = 0;
+	if (!g_rvn.platform->window_set_picture_in_picture) return R_FALSE;
+	if (enabled) rvn_window_pip_size(window, &width, &height);
+	return g_rvn.platform->window_set_picture_in_picture(window->platform, enabled, width, height,
+		(int)(window->pip_corner ? window->pip_corner : R_PIP_BOTTOM_RIGHT));
+}
+
+int Rwindow_set_picture_in_picture(Rid id, int enabled) {
+	RVN_WINDOW(window, id, R_FALSE);
+	enabled = enabled ? R_TRUE : R_FALSE;
+	if (window->pip == enabled) return R_TRUE;
+	/* the menus and lists open in the window belong to the size it had */
+	rvn_window_close_popups(window);
+	if (!rvn_window_apply_pip(window, enabled)) return R_FALSE;
+	window->pip = enabled;
+	window->edge = RVN_PREGION_CLIENT;
+	window->needs_layout = R_TRUE;
+	window->needs_paint = R_TRUE;
+	rvn_window_update_cursor(window);
+	return R_TRUE;
+}
+
+int Rwindow_is_picture_in_picture(Rid id) {
+	RVN_WINDOW(window, id, R_FALSE);
+	return window->pip;
+}
+
+void Rwindow_set_picture_in_picture_layout(Rid id, int width, int height, RPictureInPictureCorner corner) {
+	RVN_WINDOW_VOID(window, id);
+	if (corner < R_PIP_BOTTOM_RIGHT || corner > R_PIP_TOP_LEFT) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rwindow_set_picture_in_picture_layout: invalid corner");
+		return;
+	}
+	window->pip_width = rvn_maxi(width, 0);
+	window->pip_height = rvn_maxi(height, 0);
+	window->pip_corner = corner;
+	if (window->pip) rvn_window_apply_pip(window, R_TRUE);
 }
 
 void Rwindow_center(Rid id) {
