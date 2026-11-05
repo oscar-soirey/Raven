@@ -594,7 +594,8 @@ static void test_looks(void) {
 #if defined(_WIN32)
 	CHECK_STR(Rtheme_get_name(), "WindowsLight");
 #elif defined(__APPLE__)
-	CHECK_STR(Rtheme_get_name(), "MacOSLight");
+	/* (Liquid Glass from macOS 26 on, the flat look before) */
+	CHECK(strcmp(Rtheme_get_name(), "MacOSLight") == 0 || strcmp(Rtheme_get_name(), "MacOSGlassLight") == 0);
 #else
 	CHECK_STR(Rtheme_get_name(), "GnomeLight");
 #endif
