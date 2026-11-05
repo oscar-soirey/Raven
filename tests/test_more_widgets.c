@@ -377,6 +377,17 @@ static const char g_svg[] =
 	"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"16\" viewBox=\"0 0 24 16\">"
 	"<rect x=\"0\" y=\"0\" width=\"12\" height=\"16\" fill=\"#ff0000\"/></svg>";
 
+/* Draws frames until the worker has drawn the SVG again at `width` pixels (or 2 seconds pass). */
+static void test_wait_texture_size(Rid texture, int width) {
+	int i, w = 0, h = 0;
+	for (i = 0; i < 400; i++) {
+		Rdraw_frame();
+		Rtexture_get_size(texture, &w, &h);
+		if (w == width) return;
+		Rwait_events(0.005);
+	}
+}
+
 static void test_svg(void) {
 	Rid texture, image;
 	int width = 0, height = 0;
@@ -406,6 +417,48 @@ static void test_svg(void) {
 		Rwidget_get_rect(image, &x, &y, &w, &h);
 		/* (the row gives it its height) */
 		CHECK_NEAR(w, 24.0f);
+		/* shown at 1 pixel per unit: drawn again with 1 pixel per unit, its size unchanged */
+		test_wait_texture_size(texture, 24);
+		Rtexture_get_size(texture, &width, &height);
+		CHECK(width == 24 && height == 16);
+		CHECK_NEAR(Rtexture_get_density(texture), 1.0f);
+		Rdraw_frame();
+		Rwidget_get_rect(image, &x, &y, &w, &h);
+		CHECK_NEAR(w, 24.0f);
+		/* stretched 4 times: drawn again with 4 pixels per unit, sharp */
+		Rimage_set_stretch(image, R_STRETCH_FILL);
+		Rwidget_set_size(image, 96.0f, 64.0f);
+		Rslot_set_valign(image, R_VALIGN_TOP);
+		test_wait_texture_size(texture, 96);
+		Rtexture_get_size(texture, &width, &height);
+		CHECK(width == 96 && height == 64);
+		CHECK_NEAR(Rtexture_get_density(texture), 4.0f);
+		/* a scale asked for stays */
+		{
+			Rid fixed = Rtexture_create_from_svg(g_svg, sizeof(g_svg) - 1, 3.0f);
+			Rimage_set_texture(image, fixed);
+			int i;
+			for (i = 0; i < 5; i++) {
+				Rdraw_frame();
+				Rwait_events(0.01);
+			}
+			Rtexture_get_size(fixed, &width, &height);
+			CHECK(width == 72 && height == 48);
+			Rimage_set_texture(image, texture);
+			Rtexture_destroy(fixed);
+		}
+		/* destroyed while being drawn again: nothing happens when the worker is done */
+		Rwidget_set_size(image, 48.0f, 32.0f);
+		Rdraw_frame();
+		Rdraw_frame();
+		Rimage_set_texture(image, R_INVALID_ID);
+		Rtexture_destroy(texture);
+		{
+			int i;
+			for (i = 0; i < 20; i++) Rwait_events(0.005);
+		}
+		Rdraw_frame();
+		texture = Rtexture_create(g_svg, sizeof(g_svg) - 1);
 	}
 	/* the pixels: red on the left, transparent on the right */
 	pixels = Rimage_decode(g_svg, sizeof(g_svg) - 1, &width, &height);

@@ -631,6 +631,7 @@ void rvn_update(void) {
 	/* the menu of the icon of the application follows its Menu */
 	rvn_taskbar_update();
 	rvn_tray_update();
+	rvn_textures_update_svg();
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window) rvn_window_update(window);

@@ -158,14 +158,29 @@ typedef struct rvn_texture_job_t {
 	uint8_t* pixels;
 	int width, height;
 	float density;
+	/** The scale an SVG is drawn at (0: RVN_SVG_DENSITY); R_TRUE when the file is an SVG. */
+	float svg_scale;
+	int svg;
+	/** Drawing an SVG again at another scale (rvn_textures_update_svg), not making the texture. */
+	int redraw;
 } rvn_texture_job_t;
 
 /* UI thread: the decoded pixels become the texture, unless it was deleted meanwhile. */
 static void rvn_texture_job_finish(void* arg) {
 	rvn_texture_job_t* job = (rvn_texture_job_t*)arg;
 	rvn_texture_t* texture = g_rvn.initialized ? rvn_texture_get(job->id) : NULL;
-	if (texture && job->pixels) {
+	if (job->redraw) {
+		/* (a failure leaves the pixels it had: they still show the image) */
+		if (texture) texture->svg_pending = R_FALSE;
+		if (texture && job->pixels && texture->svg_auto) {
+			texture->density = job->density;
+			rvn_texture_upload(texture, job->width, job->height, job->pixels);
+			job->pixels = NULL;
+			rvn_invalidate_all_windows();
+		}
+	} else if (texture && job->pixels) {
 		texture->density = job->density;
+		texture->svg_auto = job->svg;
 		rvn_texture_upload(texture, job->width, job->height, job->pixels);
 		job->pixels = NULL;
 		rvn_invalidate_all_windows();
@@ -192,7 +207,10 @@ static void rvn_texture_job_run(void* arg) {
 			}
 		} else job->data = (uint8_t*)rvn_read_file(job->path, &job->size);
 	}
-	if (job->data) job->pixels = rvn_image_decode_at(job->data, job->size, 0.0f, &job->width, &job->height, &job->density);
+	if (job->data) {
+		job->svg = rvn_svg_detect(job->data, job->size);
+		job->pixels = rvn_image_decode_at(job->data, job->size, job->svg_scale, &job->width, &job->height, &job->density);
+	}
 	rvn_free(job->data);
 	job->data = NULL;
 	Rtask_post(rvn_texture_job_finish, job);
@@ -222,7 +240,15 @@ static Rid rvn_texture_create_async(const char* data, size_t size, const char* p
  *  Public API
  * ------------------------------------------------------------------------- */
 
-/* An image file in memory; an SVG drawn at `svg_scale` (0: RVN_SVG_DENSITY). */
+/* An SVG drawn at the size it is shown keeps its file, to be drawn again. */
+static void rvn_texture_set_svg_auto(rvn_texture_t* texture, const char* path, const char* data, size_t data_size) {
+	texture->svg_auto = R_TRUE;
+	if (!texture->source_path && !texture->source_data) rvn_texture_keep_source(texture, path, data, data_size);
+	/* (a file too big to keep in memory, and not read from a path: it stays at its first scale) */
+	if (!texture->source_path && !texture->source_data) texture->svg_auto = R_FALSE;
+}
+
+/* An image file in memory; an SVG drawn at `svg_scale` (0: at the size it is shown). */
 static Rid rvn_texture_create_decoded(const char* data, size_t data_size, float svg_scale, const char* function) {
 	int width = 0, height = 0;
 	float density = 1.0f;
@@ -235,7 +261,8 @@ static Rid rvn_texture_create_decoded(const char* data, size_t data_size, float 
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
 		if (texture) texture->density = density;
-		if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, NULL, data, data_size);
+		if (texture && svg_scale <= 0.0f && rvn_svg_detect((const uint8_t*)data, data_size)) rvn_texture_set_svg_auto(texture, NULL, data, data_size);
+		else if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, NULL, data, data_size);
 		return id;
 	}
 }
@@ -251,7 +278,7 @@ Rid Rtexture_create_from_svg(const char* svg, size_t svg_size, float scale) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rtexture_create_from_svg: not an SVG image");
 		return R_INVALID_ID;
 	}
-	return rvn_texture_create_decoded(svg, svg_size, scale > 0.0f ? scale : RVN_SVG_DENSITY, "Rtexture_create_from_svg");
+	return rvn_texture_create_decoded(svg, svg_size, scale > 0.0f ? scale : 0.0f, "Rtexture_create_from_svg");
 }
 
 float Rtexture_get_density(Rid id) {
@@ -284,6 +311,7 @@ Rid Rtexture_create_from_file(const char* path) {
 	int width = 0, height = 0;
 	float density = 1.0f;
 	uint8_t* pixels;
+	int svg;
 	RVN_API_GUARD(R_INVALID_ID);
 	data = rvn_read_file(path, &size);
 	if (!data) {
@@ -291,6 +319,7 @@ Rid Rtexture_create_from_file(const char* path) {
 		return R_INVALID_ID;
 	}
 	pixels = rvn_image_decode_at((const uint8_t*)data, size, 0.0f, &width, &height, &density);
+	svg = rvn_svg_detect((const uint8_t*)data, size);
 	rvn_free(data);
 	if (!pixels) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rtexture_create_from_file: cannot decode '%s'", path);
@@ -300,7 +329,8 @@ Rid Rtexture_create_from_file(const char* path) {
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
 		if (texture) texture->density = density;
-		if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, path, NULL, 0);
+		if (texture && svg) rvn_texture_set_svg_auto(texture, path, NULL, 0);
+		else if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, path, NULL, 0);
 		return id;
 	}
 }
@@ -350,6 +380,7 @@ void Rtexture_update(Rid id, const uint8_t* rgba, int width, int height) {
 	copy = (uint8_t*)rvn_alloc(size);
 	memcpy(copy, rgba, size);
 	texture->density = 1.0f;
+	texture->svg_auto = R_FALSE;
 	/* the pixels come from the application now: the file is no longer what it shows */
 	rvn_free(texture->source_path);
 	rvn_free(texture->source_data);
@@ -436,4 +467,50 @@ uint8_t* Rimage_decode(const void* data, size_t data_size, int* width, int* heig
 	if (width) *width = pixels ? w : 0;
 	if (height) *height = pixels ? h : 0;
 	return pixels;
+}
+
+/* ---------------------------------------------------------------------------
+ *  SVGs drawn at the size they are shown
+ * ------------------------------------------------------------------------- */
+
+/* Scales an SVG is drawn at: quarters of a pixel per unit, from 1/4 to 16. */
+static float rvn_svg_quantize(float scale) {
+	return rvn_clampf(ceilf(scale * 4.0f - 0.01f) / 4.0f, 0.25f, 16.0f);
+}
+
+/* The biggest side an SVG is drawn with, in pixels. */
+#define RVN_SVG_MAX_PIXELS 4096.0f
+
+void rvn_textures_update_svg(void) {
+	uint32_t i;
+	for (i = 0; i < g_rvn.textures.used; i++) {
+		rvn_texture_t* texture = (rvn_texture_t*)rvn_pool_at(&g_rvn.textures, i);
+		float density, wanted, target, logical;
+		rvn_texture_job_t* job;
+		if (!texture || !texture->svg_auto) continue;
+		wanted = texture->svg_wanted;
+		texture->svg_wanted = 0.0f;
+		/* (not shown this frame, or already being drawn again) */
+		if (wanted <= 0.0f || texture->svg_pending || !texture->created) continue;
+		density = texture->density > 0.0f ? texture->density : 1.0f;
+		/* blurred when shown bigger than its pixels; drawn again smaller only when it is far too big */
+		if (wanted <= density * 1.01f && wanted >= density * 0.6f) continue;
+		target = rvn_svg_quantize(wanted);
+		logical = rvn_maxf((float)texture->width, (float)texture->height) / density;
+		if (logical > 0.0f && logical * target > RVN_SVG_MAX_PIXELS) target = rvn_maxf(0.25f, floorf(RVN_SVG_MAX_PIXELS / logical * 4.0f) / 4.0f);
+		if (fabsf(target - density) < 0.01f) continue;
+		job = (rvn_texture_job_t*)rvn_calloc(sizeof(rvn_texture_job_t));
+		job->id = texture->id;
+		job->redraw = R_TRUE;
+		job->svg_scale = target;
+		if (texture->source_data) {
+			job->data = (uint8_t*)rvn_alloc(texture->source_size);
+			memcpy(job->data, texture->source_data, texture->source_size);
+			job->size = texture->source_size;
+		} else {
+			job->path = rvn_strdup(texture->source_path);
+		}
+		texture->svg_pending = R_TRUE;
+		rvn_jobs_submit(NULL, rvn_texture_job_run, job);
+	}
 }

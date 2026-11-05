@@ -21,6 +21,8 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [x] **Dispersion of glass**: the rim of glass splits what it bends into a
   spectrum of seven wavelengths (it was a red / blue offset), on clear and
   frosted glass, and faintly on the edges of `BackgroundBlur`.
+- [x] **SVG at the size it is shown**: drawn again for the density of the
+  screen, a stretched `Image` or a zoom, on a worker thread.
 - [x] **Small widgets**: `DatePicker` (calendar popup, range, first day of the
   week, formats, translated names), `TimePicker`, `Toast`, `Breadcrumb`,
   `Rating`, `Pagination`.
@@ -92,8 +94,6 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Images
 
-- [ ] SVG at the scale of the screen: draw the SVG again when the window
-  moves to a screen of another density, instead of a fixed 2.
 - [ ] SVG icons tinted with the theme (`currentColor`), with a set of icons
   shipped with Raven.
 - [ ] Animated images (GIF, APNG).

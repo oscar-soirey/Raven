@@ -1001,9 +1001,11 @@ where there is none, calls the fallback the application gave
 (`Rnotification_set_fallback`), to show it in a toast for instance.
 
 SVG files are read wherever an image is (`Image Source="icon.svg"`,
-`Rtexture_create_from_file`), drawn at 2 pixels per unit so that they stay
-sharp on high-density screens, and shown at the size the SVG gives;
-`Rtexture_create_from_svg` draws one at another scale.
+`Rtexture_create_from_file`) and shown at the size the SVG gives. They are
+drawn with as many pixels as they are shown with: once painted, an SVG is
+drawn again on a worker thread for the density of the screen, an `Image` that
+stretches it or a zoom, and again when the window moves to another monitor.
+`Rtexture_create_from_svg` with a scale draws one at that scale only.
 
 ### Files that are loaded again
 
