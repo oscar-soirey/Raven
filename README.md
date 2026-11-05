@@ -1130,6 +1130,17 @@ corner; a button with `OnClicked="window.picture_in_picture"` goes in and out.
 Wayland does not let an application keep a window above the others: the call
 returns `R_FALSE` there.
 
+### The menu bar of macOS
+
+On macOS, the first `MenuBar` of a window goes to the menu bar at the top of
+the screen while the window is the active one, after the menu of the
+application (About, Hide, Hide Others, Show All, Quit). It then takes no room
+in the window; its entries, check marks and shortcuts are those of the system
+(`R_MOD_SUPER` is Command, `R_MOD_CTRL` Control). Quit, and Cmd+Q, fire the
+action `app.quit`, which an application may bind to ask first. Elsewhere the
+bar is drawn in the window; `Rmenu_bar_set_native(bar, R_FALSE)` or
+`<MenuBar Native="false">` keeps it there on macOS too.
+
 ### Memory
 
 Raven does not call `malloc`. It takes memory from the system by regions of

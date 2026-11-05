@@ -1072,6 +1072,8 @@ void rvn_window_update(rvn_window_t* window) {
 	if (window->continuous || rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->animating) != 0) {
 		window->needs_paint = R_TRUE;
 	}
+	/* the menu bar of the system follows the MenuBar of the window */
+	if (g_rvn.platform->window_set_menu_bar) rvn_menu_bar_sync(window);
 	if (window->needs_layout) rvn_window_layout(window);
 	if (window->needs_paint) rvn_window_paint(window, NULL);
 }
@@ -1722,6 +1724,15 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		rvn_update();
 		return;
 	}
+	/* the menus of the system and the requests to quit do not need a window */
+	if (pevent->type == RVN_PEVENT_COMMAND || pevent->type == RVN_PEVENT_QUIT) {
+		if (g_rvn.input_blocked > 0) return;
+		rvn_dispatch_begin();
+		if (pevent->type == RVN_PEVENT_COMMAND) rvn_menu_command(pevent->command);
+		else Raction_fire("app.quit", R_INVALID_ID);
+		rvn_dispatch_end();
+		return;
+	}
 	if (!window || window->dead) return;
 	scale = window->scale > 0.0f ? window->scale : 1.0f;
 
@@ -1823,6 +1834,8 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			rvn_touch_on_event(window, pevent, scale);
 			break;
 		case RVN_PEVENT_MODAL_TICK:
+		case RVN_PEVENT_COMMAND:
+		case RVN_PEVENT_QUIT:
 			break;
 	}
 	rvn_dispatch_end();

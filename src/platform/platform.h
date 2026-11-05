@@ -79,8 +79,37 @@ typedef enum rvn_pevent_type_t {
 	 * wheel_x, wheel_y (pan in pixels since the previous event),
 	 * gesture_fingers (0 when unknown), gesture_cancelled (R_GESTURE_END).
 	 */
-	RVN_PEVENT_GESTURE
+	RVN_PEVENT_GESTURE,
+	/**
+	 * An entry of a menu of the system (rvn_pmenu_t: the menu bar of macOS,
+	 * the menu of the Dock, of a tray icon) was chosen: `command` is its id.
+	 * `user` may be NULL: it does not need a window.
+	 */
+	RVN_PEVENT_COMMAND,
+	/** The system asks the application to quit (Quit in the application menu of macOS, in the Dock). `user` may be NULL. */
+	RVN_PEVENT_QUIT
 } rvn_pevent_type_t;
+
+/**
+ * An entry of a menu the system draws itself (window_set_menu_bar): a copy of
+ * a MenuItem, or of a Menu (`submenu`) with its own entries. Valid during the
+ * call only: the platform builds its menus from it.
+ */
+typedef struct rvn_pmenu_t {
+	/** The MenuItem (or Menu) it stands for: given back as `command` in RVN_PEVENT_COMMAND. */
+	Rid id;
+	const char* text;
+	int submenu;
+	const struct rvn_pmenu_t* items;
+	uint32_t count;
+	int separator;
+	int enabled;
+	int checkable;
+	int checked;
+	/** The shortcut (R_KEY_UNKNOWN: none) and its RModifier, shown by the system and handled by it. */
+	RKey key;
+	uint32_t modifiers;
+} rvn_pmenu_t;
 
 /** Parts of a window whose title bar is drawn by the application (R_WINDOW_CUSTOM_HEADER). */
 typedef enum rvn_pregion_t {
@@ -108,6 +137,8 @@ typedef enum rvn_pwindow_state_t {
 
 typedef struct rvn_pevent_t {
 	rvn_pevent_type_t type;
+	/** RVN_PEVENT_COMMAND: the id of the entry chosen. */
+	Rid command;
 	/** User pointer given when the window was created. */
 	void* user;
 	int x, y;
@@ -226,6 +257,16 @@ typedef struct rvn_platform_t {
 	 * Returns R_FALSE when the window cannot be kept above the others.
 	 */
 	int   (*window_set_picture_in_picture)(rvn_pwindow_t* window, int enabled, int width, int height, int corner);
+	/**
+	 * Optional (may be NULL). The menu bar of the system (macOS): `menus` are
+	 * the menus (submenu entries) of the MenuBar of the window, shown in the
+	 * bar of the system while the window is the active one, after the menu of
+	 * the application. count 0: the window has none any more. Called again
+	 * whenever something in them changes. An entry chosen comes back as
+	 * RVN_PEVENT_COMMAND. Returns R_FALSE when the system has no such bar:
+	 * the MenuBar stays drawn in the window.
+	 */
+	int   (*window_set_menu_bar)(rvn_pwindow_t* window, const rvn_pmenu_t* menus, uint32_t count);
 	void  (*window_center)(rvn_pwindow_t* window);
 	/** Optional (may be NULL). Icon from RGBA8 pixels; NULL rgba restores the default. */
 	void  (*window_set_icon)(rvn_pwindow_t* window, const uint8_t* rgba, int width, int height);

@@ -12054,6 +12054,43 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rmenu_bar_set_native$;
+
+    /**
+     * The menu bar of the system. On macOS, the first MenuBar of a
+     * window is shown in the bar at the top of the screen while the window is
+     * the active one, after the menu of the application (About, Hide, Quit);
+     * it then takes no room in the window. Its shortcuts are those of the
+     * system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+     * drawn in the window. On by default; R_FALSE keeps it in the window
+     * everywhere. In XML: &lt;MenuBar Native="false"&gt;.
+     */
+    public static void Rmenu_bar_set_native(int menu_bar, int native_) {
+        MethodHandle $h = Rmenu_bar_set_native$;
+        if ($h == null) Rmenu_bar_set_native$ = $h = find("Rmenu_bar_set_native", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(menu_bar, native_);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmenu_bar_is_native$;
+
+    /**
+     * Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+     */
+    public static int Rmenu_bar_is_native(int menu_bar) {
+        MethodHandle $h = Rmenu_bar_is_native$;
+        if ($h == null) Rmenu_bar_is_native$ = $h = find("Rmenu_bar_is_native", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(menu_bar);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rmenu_add_menu$;
 
     /**

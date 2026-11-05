@@ -6637,6 +6637,30 @@ def Rtree_view_set_drop_highlight(tree_view, item, whole_tree):
     _lib.Rtree_view_set_drop_highlight(tree_view, item, whole_tree)
 
 
+_lib.Rmenu_bar_set_native.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rmenu_bar_set_native.restype = None
+
+
+def Rmenu_bar_set_native(menu_bar, native):
+    """The menu bar of the system. On macOS, the first MenuBar of a
+    window is shown in the bar at the top of the screen while the window is
+    the active one, after the menu of the application (About, Hide, Quit);
+    it then takes no room in the window. Its shortcuts are those of the
+    system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+    drawn in the window. On by default; R_FALSE keeps it in the window
+    everywhere. In XML: <MenuBar Native="false">."""
+    _lib.Rmenu_bar_set_native(menu_bar, native)
+
+
+_lib.Rmenu_bar_is_native.argtypes = [ctypes.c_uint32]
+_lib.Rmenu_bar_is_native.restype = ctypes.c_int
+
+
+def Rmenu_bar_is_native(menu_bar):
+    """Returns: R_TRUE while the menu bar is shown by the system instead of the window."""
+    return _lib.Rmenu_bar_is_native(menu_bar)
+
+
 _lib.Rmenu_add_menu.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
 _lib.Rmenu_add_menu.restype = ctypes.c_uint32
 

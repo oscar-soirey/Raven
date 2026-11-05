@@ -2672,6 +2672,16 @@ pub extern fn Rtree_view_set_drag_type(tree_view: Rid, type_: ?[*:0]const u8) vo
 pub extern fn Rtree_view_get_item_at(tree_view: Rid, local_x: f32, local_y: f32) Rid;
 /// Highlights where a drop would go: an item, or the whole tree (`whole_tree`). R_INVALID_ID, 0 removes it.
 pub extern fn Rtree_view_set_drop_highlight(tree_view: Rid, item: Rid, whole_tree: c_int) void;
+/// The menu bar of the system. On macOS, the first MenuBar of a
+/// window is shown in the bar at the top of the screen while the window is
+/// the active one, after the menu of the application (About, Hide, Quit);
+/// it then takes no room in the window. Its shortcuts are those of the
+/// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+/// drawn in the window. On by default; R_FALSE keeps it in the window
+/// everywhere. In XML: <MenuBar Native="false">.
+pub extern fn Rmenu_bar_set_native(menu_bar: Rid, native: c_int) void;
+/// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+pub extern fn Rmenu_bar_is_native(menu_bar: Rid) c_int;
 /// Creates a menu inside a menu bar or as a sub-menu of another menu.
 pub extern fn Rmenu_add_menu(menu_bar_or_menu: Rid, title: ?[*:0]const u8) Rid;
 pub extern fn Rmenu_set_title(menu: Rid, title: ?[*:0]const u8) void;

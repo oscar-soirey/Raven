@@ -273,7 +273,7 @@ panel uses the attributes that make sense for it.
 | `TreeView` | nested `<Item Text="..." Expanded="true">` children |
 | `Image` | `Source` (path of an image), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |
 | `Separator` | `Orientation` (`Horizontal` line by default) |
-| `MenuBar` | `<Menu>` children |
+| `MenuBar` | `<Menu>` children; `Native` (`false`: drawn in the window on macOS too, instead of the menu bar of the system) |
 | `Menu` | `Text`; children `<MenuItem>`, `<Separator/>` and nested `<Menu>` |
 | `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked` |
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |

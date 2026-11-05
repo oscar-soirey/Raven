@@ -1478,6 +1478,8 @@ void Rtree_view_set_context_callback(Rid tree_view, RTreeContextCallback callbac
 void Rtree_view_set_drag_type(Rid tree_view, const char* type);
 Rid Rtree_view_get_item_at(Rid tree_view, float local_x, float local_y);
 void Rtree_view_set_drop_highlight(Rid tree_view, Rid item, int whole_tree);
+void Rmenu_bar_set_native(Rid menu_bar, int native);
+int Rmenu_bar_is_native(Rid menu_bar);
 Rid Rmenu_add_menu(Rid menu_bar_or_menu, const char* title);
 void Rmenu_set_title(Rid menu, const char* title);
 Rid Rmenu_add_item(Rid menu, const char* text);

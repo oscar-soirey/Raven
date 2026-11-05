@@ -768,6 +768,10 @@ struct rvn_window_t {
 	int pip;
 	int pip_width, pip_height;
 	RPictureInPictureCorner pip_corner;
+	/** The MenuBar shown in the menu bar of the system (window_set_menu_bar), and what it looked like then. */
+	Rid native_menu_bar;
+	uint32_t native_menu_hash;
+	int native_menu_sent;
 
 	/* input state */
 	rvn_widget_t* hover;
@@ -1006,6 +1010,14 @@ void rvn_viewport_native_sync(rvn_widget_t* widget, uint64_t frame);
 
 /** Enabled menu item bound to a shortcut anywhere below `root`, or NULL. Implemented in widgets/menu.c. */
 rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modifiers);
+/**
+ * The menu bar of the system (widgets/menu.c): gives the first MenuBar of the
+ * window to window_set_menu_bar when it changed, and hides it in the window
+ * while the system shows it.
+ */
+void rvn_menu_bar_sync(rvn_window_t* window);
+/** An entry of a menu of the system was chosen (RVN_PEVENT_COMMAND). */
+void rvn_menu_command(Rid item);
 /** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
 rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */

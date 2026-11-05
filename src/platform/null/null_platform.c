@@ -26,12 +26,19 @@ static struct {
 	rvn_cond_t cond;
 	int woken;
 	char* clipboard;
+	/* RAVEN_NULL_SYSTEM_MENU_BAR=1: a menu bar of the system, as macOS has (for the tests of the core) */
+	int system_menu_bar;
+	uint32_t system_menu_count;
 } g_null;
 
 static int rvn_null_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regions) {
 	RVN_UNUSED(regions);
 	memset(&g_null, 0, sizeof(g_null));
 	g_null.handler = handler;
+	{
+		const char* value = getenv("RAVEN_NULL_SYSTEM_MENU_BAR");
+		g_null.system_menu_bar = value && value[0] == '1';
+	}
 	rvn_mutex_init(&g_null.mutex);
 	rvn_cond_init(&g_null.cond);
 	return R_TRUE;
@@ -267,6 +274,15 @@ static int rvn_null_window_set_picture_in_picture(rvn_pwindow_t* window, int ena
 	return R_TRUE;
 }
 
+/* The menu bar of the system, when asked for by RAVEN_NULL_SYSTEM_MENU_BAR: only the number of menus is kept. */
+static int rvn_null_window_set_menu_bar(rvn_pwindow_t* window, const rvn_pmenu_t* menus, uint32_t count) {
+	RVN_UNUSED(window);
+	RVN_UNUSED(menus);
+	if (!g_null.system_menu_bar) return R_FALSE;
+	g_null.system_menu_count = count;
+	return R_TRUE;
+}
+
 /* As a window system does: the one that takes the keyboard says so, the one that loses it too. */
 static void rvn_null_overlay_set_key(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key) {
 	rvn_null_focus_event(key ? owner : overlay, R_FALSE);
@@ -298,6 +314,7 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.window_set_backdrop = rvn_null_window_set_backdrop,
 		.window_set_opacity = rvn_null_window_set_opacity,
 		.window_set_picture_in_picture = rvn_null_window_set_picture_in_picture,
+		.window_set_menu_bar = rvn_null_window_set_menu_bar,
 		.window_get_native = rvn_null_window_get_native,
 		.child_create = rvn_null_child_create,
 		.child_set_rect = rvn_null_child_set_rect,

@@ -910,6 +910,18 @@ public:
 
 	static Menu create() { return Menu(Rwidget_create(R_WIDGET_MENU)); }
 
+	/// The menu bar of the system. On macOS, the first MenuBar of a
+	/// window is shown in the bar at the top of the screen while the window is
+	/// the active one, after the menu of the application (About, Hide, Quit);
+	/// it then takes no room in the window. Its shortcuts are those of the
+	/// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+	/// drawn in the window. On by default; R_FALSE keeps it in the window
+	/// everywhere. In XML: <MenuBar Native="false">.
+	void bar_set_native(int native) const { Rmenu_bar_set_native(id_, native); }
+
+	/// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+	int bar_is_native() const { return Rmenu_bar_is_native(id_); }
+
 	/// Creates a menu inside a menu bar or as a sub-menu of another menu.
 	Rid add_menu(const char* title) const { return Rmenu_add_menu(id_, title); }
 

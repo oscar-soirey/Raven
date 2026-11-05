@@ -3214,6 +3214,20 @@ func TreeViewSetDropHighlight(tree_view ID, item ID, whole_tree int) {
 	C.Rtree_view_set_drop_highlight(C.Rid(tree_view), C.Rid(item), C.int(whole_tree))
 }
 
+// MenuBarSetNative: The menu bar of the system. On macOS, the first MenuBar of a window is shown in the bar
+// at the top of the screen while the window is the active one, after the menu of the application (About,
+// Hide, Quit); it then takes no room in the window. Its shortcuts are those of the system: R_MOD_SUPER is
+// Command, R_MOD_CTRL is Control. Elsewhere it is drawn in the window. On by default; R_FALSE keeps it in the
+// window everywhere. In XML: <MenuBar Native="false">.
+func MenuBarSetNative(menu_bar ID, native int) {
+	C.Rmenu_bar_set_native(C.Rid(menu_bar), C.int(native))
+}
+
+// MenuBarIsNative: Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+func MenuBarIsNative(menu_bar ID) int {
+	return int(C.Rmenu_bar_is_native(C.Rid(menu_bar)))
+}
+
 // MenuAddMenu: Creates a menu inside a menu bar or as a sub-menu of another menu.
 func MenuAddMenu(menu_bar_or_menu ID, title string) ID {
 	title_ := C.CString(title)

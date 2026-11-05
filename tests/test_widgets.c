@@ -5,6 +5,8 @@
 
 #include "test.h"
 
+#include <stdlib.h>
+
 static Rid g_window;
 static int g_clicks;
 static int g_last_int;
@@ -831,6 +833,67 @@ static void test_selectable_label(void) {
 	}
 }
 
+/*
+ * A second session whose window system has a menu bar of its own (as macOS):
+ * the MenuBar goes there and takes no room in the window; its shortcuts still work.
+ */
+static void test_system_menu_bar(void) {
+	static const char xml[] =
+		"<VBox>"
+		"  <MenuBar Name=\"bar\">"
+		"    <Menu Title=\"File\"><MenuItem Name=\"save\" Text=\"Save\" Shortcut=\"Ctrl+S\"/></Menu>"
+		"  </MenuBar>"
+		"  <Button Name=\"below\" Text=\"Below\"/>"
+		"</VBox>";
+	Rid window, root, bar, below, save;
+	float x, y, w, h;
+#if defined(_WIN32)
+	_putenv_s("RAVEN_NULL_SYSTEM_MENU_BAR", "1");
+#else
+	setenv("RAVEN_NULL_SYSTEM_MENU_BAR", "1", 1);
+#endif
+	if (!test_init(0)) {
+		CHECK(!"cannot initialize Raven again");
+		return;
+	}
+	window = Rwindow_create("system menu bar", 400, 300, R_WINDOW_DEFAULT);
+	root = Rwidget_create_from_xml(xml, strlen(xml));
+	bar = Rwidget_find(root, "bar");
+	below = Rwidget_find(root, "below");
+	save = Rwidget_find(root, "save");
+	Rwindow_set_content(window, root);
+	Rmenu_item_set_clicked_callback(save, on_menu_item, NULL);
+	Rdraw_frame();
+	Rdraw_frame();
+	CHECK(Rmenu_bar_is_native(bar));
+	Rwidget_get_rect(bar, &x, &y, &w, &h);
+	CHECK(h == 0.0f);
+	Rwidget_get_rect(below, &x, &y, &w, &h);
+	CHECK(y == 0.0f);
+	/* the shortcut of an entry still works */
+	g_clicks = 0;
+	test_key(window, R_KEY_S, R_MOD_CTRL);
+	CHECK(g_clicks == 1 && g_last_id == save);
+
+	/* kept in the window when asked */
+	Rmenu_bar_set_native(bar, R_FALSE);
+	Rdraw_frame();
+	Rdraw_frame();
+	CHECK(!Rmenu_bar_is_native(bar));
+	Rwidget_get_rect(below, &x, &y, &w, &h);
+	CHECK(y > 10.0f);
+	Rmenu_bar_set_native(bar, R_TRUE);
+	Rdraw_frame();
+	Rdraw_frame();
+	CHECK(Rmenu_bar_is_native(bar));
+	Rshutdown();
+#if defined(_WIN32)
+	_putenv_s("RAVEN_NULL_SYSTEM_MENU_BAR", "");
+#else
+	unsetenv("RAVEN_NULL_SYSTEM_MENU_BAR");
+#endif
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
@@ -854,5 +917,6 @@ int main(void) {
 	/* everything still paints */
 	Rdraw_frame();
 	Rshutdown();
+	RUN(test_system_menu_bar);
 	return test_report("test_widgets");
 }

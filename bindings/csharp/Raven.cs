@@ -5402,6 +5402,24 @@ namespace Raven
         public static extern void Rtree_view_set_drop_highlight(uint tree_view, uint item, int whole_tree);
 
         /// <summary>
+        /// The menu bar of the system. On macOS, the first MenuBar of a
+        /// window is shown in the bar at the top of the screen while the window is
+        /// the active one, after the menu of the application (About, Hide, Quit);
+        /// it then takes no room in the window. Its shortcuts are those of the
+        /// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+        /// drawn in the window. On by default; R_FALSE keeps it in the window
+        /// everywhere. In XML: &lt;MenuBar Native="false"&gt;.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmenu_bar_set_native(uint menu_bar, int native);
+
+        /// <summary>
+        /// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmenu_bar_is_native(uint menu_bar);
+
+        /// <summary>
         /// Creates a menu inside a menu bar or as a sub-menu of another menu.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]

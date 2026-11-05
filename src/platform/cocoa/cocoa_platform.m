@@ -39,6 +39,8 @@ struct rvn_pwindow_t {
     BOOL pip_title_transparent;
     NSWindowTitleVisibility pip_title_visibility;
     NSSize pip_aspect;
+    /* its menus in the menu bar of the system (window_set_menu_bar), after the menu of the application; nil: none */
+    NSMenu* menu_bar;
 };
 
 static struct {
@@ -54,6 +56,9 @@ static struct {
     int pinch_parts;
     NSPoint resize_start;
     NSRect resize_frame;
+    /* the menu bar of the system: what its entries call, and the bar of the windows that give none */
+    id menu_target;
+    NSMenu* default_menu;
 } g_cocoa;
 
 static float rvn_cocoa_scale(rvn_pwindow_t* window) {
@@ -398,6 +403,161 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
 }
 @end
 
+/* ---------------------------------------------------------------------------
+ *  The menu bar of the system
+ *
+ *  The bar shows the menu of the application (About, Hide, Quit), then the
+ *  menus of the MenuBar of the key window. Each window keeps its own NSMenu:
+ *  the bar changes when another window becomes the key one. An entry chosen
+ *  is sent to the core as RVN_PEVENT_COMMAND with the id of its MenuItem.
+ * ------------------------------------------------------------------------- */
+
+@interface RavenCocoaMenuTarget : NSObject
+- (void)ravenCommand:(id)sender;
+- (void)ravenQuit:(id)sender;
+@end
+@implementation RavenCocoaMenuTarget
+- (void)ravenCommand:(id)sender {
+    rvn_pevent_t e; memset(&e, 0, sizeof(e));
+    e.type = RVN_PEVENT_COMMAND; e.command = (Rid)[(NSMenuItem*)sender tag];
+    if (g_cocoa.handler) g_cocoa.handler(&e);
+}
+- (void)ravenQuit:(id)sender {
+    rvn_pevent_t e; (void)sender; memset(&e, 0, sizeof(e));
+    e.type = RVN_PEVENT_QUIT;
+    if (g_cocoa.handler) g_cocoa.handler(&e);
+}
+@end
+
+/* The key of a shortcut as AppKit writes it (lower case: Shift is a modifier), or "" for none. */
+static NSString* rvn_cocoa_key_equivalent(RKey key) {
+    unichar c = 0;
+    if (key > R_KEY_UNKNOWN && key < 128) c = (unichar)((key >= R_KEY_A && key <= R_KEY_Z) ? key - R_KEY_A + 'a' : key);
+    else if (key >= R_KEY_F1 && key <= R_KEY_F12) c = (unichar)(NSF1FunctionKey + (key - R_KEY_F1));
+    else switch (key) {
+        case R_KEY_ENTER: case R_KEY_KP_ENTER: c = '\r'; break;
+        case R_KEY_TAB: c = '\t'; break;
+        case R_KEY_ESCAPE: c = 0x1B; break;
+        case R_KEY_BACKSPACE: c = NSBackspaceCharacter; break;
+        case R_KEY_DELETE: c = NSDeleteFunctionKey; break;
+        case R_KEY_UP: c = NSUpArrowFunctionKey; break;
+        case R_KEY_DOWN: c = NSDownArrowFunctionKey; break;
+        case R_KEY_LEFT: c = NSLeftArrowFunctionKey; break;
+        case R_KEY_RIGHT: c = NSRightArrowFunctionKey; break;
+        case R_KEY_HOME: c = NSHomeFunctionKey; break;
+        case R_KEY_END: c = NSEndFunctionKey; break;
+        case R_KEY_PAGE_UP: c = NSPageUpFunctionKey; break;
+        case R_KEY_PAGE_DOWN: c = NSPageDownFunctionKey; break;
+        default: break;
+    }
+    return c ? [NSString stringWithCharacters:&c length:1] : @"";
+}
+
+static NSEventModifierFlags rvn_cocoa_modifier_mask(uint32_t modifiers) {
+    NSEventModifierFlags mask = 0;
+    if (modifiers & R_MOD_SUPER) mask |= NSEventModifierFlagCommand;
+    if (modifiers & R_MOD_CTRL) mask |= NSEventModifierFlagControl;
+    if (modifiers & R_MOD_ALT) mask |= NSEventModifierFlagOption;
+    if (modifiers & R_MOD_SHIFT) mask |= NSEventModifierFlagShift;
+    return mask;
+}
+
+static NSString* rvn_cocoa_string(const char* text) {
+    NSString* string = text ? [NSString stringWithUTF8String:text] : nil;
+    return string ? string : @"";
+}
+
+/* A menu of AppKit made from the entries of Raven (retained: the caller releases it). */
+static NSMenu* rvn_cocoa_menu_from(NSString* title, const rvn_pmenu_t* items, uint32_t count) {
+    NSMenu* menu = [[NSMenu alloc] initWithTitle:title];
+    uint32_t i;
+    [menu setAutoenablesItems:NO];
+    for (i = 0; i < count; i++) {
+        const rvn_pmenu_t* entry = &items[i];
+        NSString* text = rvn_cocoa_string(entry->text);
+        NSMenuItem* item;
+        if (entry->separator) { [menu addItem:[NSMenuItem separatorItem]]; continue; }
+        if (entry->submenu) {
+            NSMenu* sub = rvn_cocoa_menu_from(text, entry->items, entry->count);
+            item = [[NSMenuItem alloc] initWithTitle:text action:nil keyEquivalent:@""];
+            [item setSubmenu:sub];
+            [sub release];
+        } else {
+            /* a plain letter, digit or space would take the typing away from the window: only with a modifier */
+            int printable = entry->key > R_KEY_UNKNOWN && entry->key < 128;
+            NSString* key = (printable && !(entry->modifiers & (R_MOD_SUPER | R_MOD_CTRL | R_MOD_ALT))) ? @"" : rvn_cocoa_key_equivalent(entry->key);
+            item = [[NSMenuItem alloc] initWithTitle:text action:@selector(ravenCommand:) keyEquivalent:key];
+            if ([key length]) [item setKeyEquivalentModifierMask:rvn_cocoa_modifier_mask(entry->modifiers)];
+            [item setTarget:g_cocoa.menu_target];
+            [item setTag:(NSInteger)entry->id];
+            if (entry->checkable) [item setState:entry->checked ? NSControlStateValueOn : NSControlStateValueOff];
+        }
+        [item setEnabled:entry->enabled ? YES : NO];
+        [menu addItem:item];
+        [item release];
+    }
+    return menu;
+}
+
+/* The menu of the application, first in the bar (an entry belongs to one menu: one per bar). */
+static NSMenuItem* rvn_cocoa_app_menu_item(void) {
+    NSString* name = [[NSProcessInfo processInfo] processName];
+    NSMenu* app = [[NSMenu alloc] initWithTitle:name];
+    NSMenuItem* holder = [[NSMenuItem alloc] initWithTitle:name action:nil keyEquivalent:@""];
+    NSMenuItem* item;
+    [app addItemWithTitle:[@"About " stringByAppendingString:name] action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+    [app addItem:[NSMenuItem separatorItem]];
+    [app addItemWithTitle:[@"Hide " stringByAppendingString:name] action:@selector(hide:) keyEquivalent:@"h"];
+    item = [app addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
+    [item setKeyEquivalentModifierMask:NSEventModifierFlagOption | NSEventModifierFlagCommand];
+    [app addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""];
+    [app addItem:[NSMenuItem separatorItem]];
+    /* (through the core: the application may ask before it quits, with the action app.quit) */
+    item = [app addItemWithTitle:[@"Quit " stringByAppendingString:name] action:@selector(ravenQuit:) keyEquivalent:@"q"];
+    [item setTarget:g_cocoa.menu_target];
+    [holder setSubmenu:app];
+    [app release];
+    return holder;
+}
+
+/* A whole bar: the menu of the application, then `menus` (retained). */
+static NSMenu* rvn_cocoa_main_menu(const rvn_pmenu_t* menus, uint32_t count) {
+    NSMenu* bar = [[NSMenu alloc] initWithTitle:@"Main"];
+    NSMenuItem* app = rvn_cocoa_app_menu_item();
+    uint32_t i;
+    [bar addItem:app];
+    [app release];
+    for (i = 0; i < count; i++) {
+        NSString* title = rvn_cocoa_string(menus[i].text);
+        NSMenuItem* holder;
+        NSMenu* menu;
+        if (!menus[i].submenu) continue;
+        menu = rvn_cocoa_menu_from(title, menus[i].items, menus[i].count);
+        holder = [[NSMenuItem alloc] initWithTitle:title action:nil keyEquivalent:@""];
+        [holder setSubmenu:menu];
+        [holder setEnabled:menus[i].enabled ? YES : NO];
+        [bar addItem:holder];
+        [menu release];
+        [holder release];
+    }
+    return bar;
+}
+
+/* The bar shows the menus of this window (the key one). */
+static void rvn_cocoa_show_menu_of(rvn_pwindow_t* window) {
+    if (!g_cocoa.default_menu || (window && (window->overlay || window->is_child))) return;
+    [NSApp setMainMenu:window && window->menu_bar ? window->menu_bar : g_cocoa.default_menu];
+}
+
+static int rvn_cocoa_window_set_menu_bar(rvn_pwindow_t* window, const rvn_pmenu_t* menus, uint32_t count) {
+    if (!window->handle || window->overlay || window->is_child) return R_FALSE;
+    if ([NSApp mainMenu] == window->menu_bar && window->menu_bar) [NSApp setMainMenu:g_cocoa.default_menu];
+    if (window->menu_bar) { [window->menu_bar release]; window->menu_bar = nil; }
+    if (count > 0) window->menu_bar = rvn_cocoa_main_menu(menus, count);
+    if ([window->handle isKeyWindow]) rvn_cocoa_show_menu_of(window);
+    return R_TRUE;
+}
+
 @interface RavenCocoaDelegate : NSObject <NSWindowDelegate> {
 @public rvn_pwindow_t* ravenWindow;
 }
@@ -422,7 +582,7 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_RESIZE;
     e.width = (int)lrint(bounds.size.width * s); e.height = (int)lrint(bounds.size.height * s); e.scale = (float)s; rvn_cocoa_emit(ravenWindow, &e);
 }
-- (void)windowDidBecomeKey:(NSNotification*)notification { (void)notification; rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_FOCUS; e.focused = 1; rvn_cocoa_emit(ravenWindow, &e); }
+- (void)windowDidBecomeKey:(NSNotification*)notification { (void)notification; rvn_cocoa_show_menu_of(ravenWindow); rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_FOCUS; e.focused = 1; rvn_cocoa_emit(ravenWindow, &e); }
 - (void)windowDidResignKey:(NSNotification*)notification { (void)notification; rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_FOCUS; e.focused = 0; rvn_cocoa_emit(ravenWindow, &e); }
 - (void)windowDidMiniaturize:(NSNotification*)notification { (void)notification; ravenWindow->state = RVN_PWINDOW_MINIMIZED; rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_STATE; e.state = ravenWindow->state; rvn_cocoa_emit(ravenWindow, &e); }
 - (void)windowDidDeminiaturize:(NSNotification*)notification { (void)notification; ravenWindow->state = RVN_PWINDOW_NORMAL; rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_STATE; e.state = ravenWindow->state; rvn_cocoa_emit(ravenWindow, &e); }
@@ -435,12 +595,19 @@ static int rvn_cocoa_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
     g_cocoa.pool = [[NSAutoreleasePool alloc] init];
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    /* a bar with the menu of the application until a window gives its own (Cmd+Q quits through the core) */
+    g_cocoa.menu_target = [[RavenCocoaMenuTarget alloc] init];
+    g_cocoa.default_menu = rvn_cocoa_main_menu(NULL, 0);
+    [NSApp setMainMenu:g_cocoa.default_menu];
     [NSApp finishLaunching];
     [NSApp activateIgnoringOtherApps:YES];
     g_cocoa.initialized = R_TRUE;
     return R_TRUE;
 }
 static void rvn_cocoa_shutdown(void) {
+    [NSApp setMainMenu:nil];
+    if (g_cocoa.default_menu) { [g_cocoa.default_menu release]; g_cocoa.default_menu = nil; }
+    if (g_cocoa.menu_target) { [g_cocoa.menu_target release]; g_cocoa.menu_target = nil; }
     g_cocoa.handler = NULL; g_cocoa.regions = NULL; g_cocoa.initialized = R_FALSE;
     [g_cocoa.pool drain]; g_cocoa.pool = nil;
 }
@@ -525,6 +692,10 @@ static void rvn_cocoa_a11y_forget(rvn_pwindow_t* window);
 static void rvn_cocoa_window_destroy(rvn_pwindow_t* window) {
     if (!window) return;
     rvn_cocoa_a11y_forget(window);
+    if (window->menu_bar) {
+        if ([NSApp mainMenu] == window->menu_bar) [NSApp setMainMenu:g_cocoa.default_menu];
+        [window->menu_bar release]; window->menu_bar = nil;
+    }
     if (window->overlay_poll) { [window->overlay_poll invalidate]; window->overlay_poll = nil; }
     if (window->handle) { [window->handle setDelegate:nil]; [window->handle close]; [window->handle release]; }
     if (window->delegate) [window->delegate release];
@@ -1180,6 +1351,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .window_set_opacity = rvn_cocoa_window_set_opacity, .window_set_cursor = rvn_cocoa_window_set_cursor,
         .window_set_topmost = rvn_cocoa_window_set_topmost, .window_center = rvn_cocoa_window_center,
         .window_set_picture_in_picture = rvn_cocoa_window_set_picture_in_picture,
+        .window_set_menu_bar = rvn_cocoa_window_set_menu_bar,
         .window_get_native = rvn_cocoa_window_get_native, .child_create = rvn_cocoa_child_create,
         .child_set_rect = rvn_cocoa_child_set_rect, .pump = rvn_cocoa_pump, .wake = rvn_cocoa_wake,
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,

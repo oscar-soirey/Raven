@@ -605,6 +605,8 @@ const _symbols = {
 	Rtree_view_set_drag_type: { args: ["u32", "ptr"], returns: "void" },
 	Rtree_view_get_item_at: { args: ["u32", "f32", "f32"], returns: "u32" },
 	Rtree_view_set_drop_highlight: { args: ["u32", "u32", "i32"], returns: "void" },
+	Rmenu_bar_set_native: { args: ["u32", "i32"], returns: "void" },
+	Rmenu_bar_is_native: { args: ["u32"], returns: "i32" },
 	Rmenu_add_menu: { args: ["u32", "ptr"], returns: "u32" },
 	Rmenu_set_title: { args: ["u32", "ptr"], returns: "void" },
 	Rmenu_add_item: { args: ["u32", "ptr"], returns: "u32" },
@@ -8654,6 +8656,24 @@ export function Rtree_view_get_item_at(tree_view: Rid, local_x: number, local_y:
 /** Highlights where a drop would go: an item, or the whole tree (`whole_tree`). R_INVALID_ID, 0 removes it. */
 export function Rtree_view_set_drop_highlight(tree_view: Rid, item: Rid, whole_tree: number): void {
 	_lib.Rtree_view_set_drop_highlight(tree_view, item, whole_tree);
+}
+
+/**
+ * The menu bar of the system. On macOS, the first MenuBar of a
+ * window is shown in the bar at the top of the screen while the window is
+ * the active one, after the menu of the application (About, Hide, Quit);
+ * it then takes no room in the window. Its shortcuts are those of the
+ * system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+ * drawn in the window. On by default; R_FALSE keeps it in the window
+ * everywhere. In XML: <MenuBar Native="false">.
+ */
+export function Rmenu_bar_set_native(menu_bar: Rid, native: number): void {
+	_lib.Rmenu_bar_set_native(menu_bar, native);
+}
+
+/** Returns: R_TRUE while the menu bar is shown by the system instead of the window. */
+export function Rmenu_bar_is_native(menu_bar: Rid): number {
+	return _lib.Rmenu_bar_is_native(menu_bar);
 }
 
 /** Creates a menu inside a menu bar or as a sub-menu of another menu. */

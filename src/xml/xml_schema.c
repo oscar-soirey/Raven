@@ -329,6 +329,9 @@ static const rvn_schema_attribute_t g_tile_view[] = {
 	T("DragType", "Type given to Rdrag_begin when tiles are dragged; empty: no drag."),
 	A("OnActivated", "Action fired by a double click or Enter."),
 };
+static const rvn_schema_attribute_t g_menu_bar[] = {
+	B("Native", "false keeps the bar in the window on macOS too, instead of the menu bar of the system."),
+};
 static const rvn_schema_attribute_t g_menu[] = { T("Title", "Text of the menu in its bar, or in the menu that holds it.") };
 static const rvn_schema_attribute_t g_menu_item[] = {
 	T("Text", "Text of the item."),
@@ -483,7 +486,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("ListView", g_list_view, "Rows of text, one selected; any number of them."),
 	TAG("TreeView", g_tree_view, "Rows inside rows, made of Item elements."),
 	TAG("TileView", g_tile_view, "A grid of tiles, an icon over a name, given by the application (Rtile_view_set_items)."),
-	TAG_PLAIN("MenuBar", "A bar of Menu elements."),
+	TAG("MenuBar", g_menu_bar, "A bar of Menu elements; on macOS, shown in the menu bar of the system."),
 	TAG("Menu", g_menu, "A menu: MenuItem, Separator and Menu elements."),
 	TAG("MenuItem", g_menu_item, "An item of a menu."),
 	TAG("Viewport", g_viewport, "A place the application draws in with its own renderer."),
