@@ -1363,7 +1363,7 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
-  one above the others (so picture in picture too) and fading a whole window:
+  one above the others (so picture in picture and splash screens too) and fading a whole window:
   the protocol does not let an application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
   are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
