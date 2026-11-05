@@ -490,6 +490,7 @@ extern "C" {
 	 *   app.quit                          quits (Rquit(0))
 	 *   window.close, window.minimize,    the window of the widget
 	 *   window.maximize, window.restore   (maximize goes back when it already is)
+	 *   window.picture_in_picture         in and out of picture in picture
 	 *   island.expand, island.fold,       the island of that window
 	 *   island.toggle
 	 *   theme.dark, theme.light,          the look of Raven, dark or light
@@ -528,6 +529,15 @@ extern "C" {
 	RAVEN_API int Ropen_url(const char* url);
 
 	RAVEN_API void Rclipboard_set_text(const char* text);
+
+	/**
+	 * @brief Copies one content in two formats: `html` for the programs that
+	 * paste formatting (word processors, chat, mail) and `text` for the
+	 * others (editors, terminals). Each program takes the format it prefers.
+	 * Where the window system has no clipboard formats (Win32 and macOS for
+	 * now), or `html` is NULL, it is Rclipboard_set_text(text).
+	 */
+	RAVEN_API void Rclipboard_set_html(const char* text, const char* html);
 
 	/** @return The clipboard text, or "" when empty. Valid until the next call. */
 	RAVEN_API const char* Rclipboard_get_text(void);

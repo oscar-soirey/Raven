@@ -203,6 +203,12 @@ typedef struct rvn_calendar_t {
 	int hot_cell;
 	/** -1: the previous month button, 1: the next one, 0: none. */
 	int hot_arrow;
+	/**
+	 * The left button went down on the calendar itself. The click that opens
+	 * it ends (button up) on the calendar when it opens over the field: that
+	 * release picks nothing.
+	 */
+	int pressed;
 	/** What the wheel of a trackpad moved that did not make a month yet. */
 	float wheel_rest;
 } rvn_calendar_t;
@@ -372,11 +378,14 @@ static int rvn_calendar_event(rvn_widget_t* widget, const REvent* event) {
 			return R_FALSE;
 		case R_EVENT_MOUSE_DOWN:
 			if (event->button != R_MOUSE_LEFT) return R_TRUE;
+			calendar->pressed = R_TRUE;
 			if (rvn_rect_contains(rvn_calendar_arrow_rect(widget, -1), event->local_x, event->local_y)) rvn_calendar_step_month(calendar, -1);
 			else if (rvn_rect_contains(rvn_calendar_arrow_rect(widget, 1), event->local_x, event->local_y)) rvn_calendar_step_month(calendar, 1);
 			return R_TRUE;
 		case R_EVENT_MOUSE_UP:
 			if (event->button != R_MOUSE_LEFT) return R_TRUE;
+			if (!calendar->pressed) return R_TRUE;
+			calendar->pressed = R_FALSE;
 			cell = rvn_calendar_cell_at(widget, event->local_x, event->local_y);
 			if (cell >= 0) {
 				rvn_calendar_cell_date(calendar, cell, &year, &month, &day);
@@ -473,6 +482,7 @@ static void rvn_date_picker_open(rvn_widget_t* widget) {
 	calendar->cursor_day = picker->day;
 	calendar->hot_cell = -1;
 	calendar->hot_arrow = 0;
+	calendar->pressed = R_FALSE;
 	calendar->base.material = widget->material;
 	rvn_window_open_popup(widget->window, &calendar->base, widget,
 		rvn_rect(origin.x, origin.y, widget->rect.w, widget->rect.h + 2.0f), RVN_POPUP_BELOW, 0.0f);

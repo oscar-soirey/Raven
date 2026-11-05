@@ -66,6 +66,34 @@
  *     </Window>
  *
  * An island is also a widget like any other, to place anywhere in a layout.
+ *
+ * TASKBAR AND DOCK
+ *
+ * What the system shows of the application outside of its windows: a
+ * progress bar and a badge on its icon (the taskbar of Windows, the Dock of
+ * macOS, the launcher of Linux desktops: KDE, Ubuntu Dock, Dash to Dock,
+ * Plank), a request for attention, the menu of the icon in the Dock and the
+ * tasks of the jump list of Windows.
+ *
+ *     Rwindow_set_taskbar_progress(window, R_TASKBAR_PROGRESS_NORMAL, 0.4f);
+ *     Rtaskbar_set_badge("3");
+ *     Rtaskbar_set_menu(menu);        (its MenuItems fire as when clicked in a window)
+ *
+ * Each call returns R_FALSE where the system has nothing to show it with.
+ *
+ * TRAY ICON
+ *
+ * An icon of the application beside the clock: in the notification area
+ * (Windows), in the menu bar (macOS, a status item), in the panel of Linux
+ * desktops through StatusNotifierItem (KDE, GNOME with the AppIndicator
+ * extension, Cinnamon, XFCE, waybar...). It lives without any window: an
+ * application can close its windows and stay there.
+ *
+ *     Rid tray = Rtray_create();
+ *     Rtray_set_icon(tray, pixels, 32, 32);
+ *     Rtray_set_tooltip(tray, "Raven Player");
+ *     Rtray_set_menu(tray, menu);              (shown by the system)
+ *     Rtray_set_clicked_callback(tray, on_tray, NULL);
  */
 
 #ifndef RAVEN_SHELL_H
@@ -81,6 +109,31 @@ typedef enum RHeaderButtons{
 	R_HEADER_MAXIMIZE   = (1 << 2),
 	R_HEADER_ALL_BUTTONS = R_HEADER_CLOSE | R_HEADER_MINIMIZE | R_HEADER_MAXIMIZE
 }RHeaderButtons;
+
+/** A progress bar on the icon of the application (Rwindow_set_taskbar_progress). */
+typedef enum RTaskbarProgress{
+	R_TASKBAR_PROGRESS_NONE = 0x07A0,
+	R_TASKBAR_PROGRESS_NORMAL,
+	/** Shown as paused (yellow on Windows). */
+	R_TASKBAR_PROGRESS_PAUSED,
+	/** Shown as failed (red on Windows). */
+	R_TASKBAR_PROGRESS_ERROR,
+	/** Something goes on, without knowing how far it is. */
+	R_TASKBAR_PROGRESS_INDETERMINATE
+}RTaskbarProgress;
+
+/** Called when the tray icon is clicked (Rtray_set_clicked_callback). */
+typedef void (*RTrayClickedCallback)(Rid tray, RMouseButton button, void* user_data);
+
+/** A task of the jump list of Windows (Rtaskbar_set_jump_list). */
+typedef struct RJumpTask{
+	/** What the list shows. */
+	const char* title;
+	/** The command line given to the application when it is chosen: it is started again with these arguments. */
+	const char* arguments;
+	/** The tooltip; NULL: none. */
+	const char* description;
+}RJumpTask;
 
 /** Where a panel goes in a dock area, relative to another panel or to the whole area. */
 typedef enum RDockSide{
@@ -289,6 +342,96 @@ extern "C" {
 	 */
 	RAVEN_API void Rwindow_set_island(Rid window, Rid widget);
 	RAVEN_API Rid Rwindow_get_island(Rid window);
+
+	/* ============================================================================
+	 *  TASKBAR AND DOCK
+	 * ============================================================================ */
+
+	/**
+	 * @brief A progress bar on the icon of the application: on the button of
+	 * the window in the taskbar (Windows), on the icon in the Dock (macOS),
+	 * on the launcher (Linux). There is one icon for the whole application in
+	 * the Dock and the launchers: the last window that set it is shown.
+	 * @param value From 0 to 1 (not used by NONE and INDETERMINATE).
+	 * @return R_FALSE where the system shows no progress.
+	 */
+	RAVEN_API int Rwindow_set_taskbar_progress(Rid window, RTaskbarProgress state, float value);
+
+	/**
+	 * @brief Asks the user to look at the window when it is not the active
+	 * one: its taskbar button flashes (Windows), the icon bounces in the
+	 * Dock (macOS), the window is marked urgent (X11, the launchers of
+	 * Linux). `critical`: until the user comes to the window; otherwise a few
+	 * times. Nothing happens when the window is already the active one.
+	 */
+	RAVEN_API int Rwindow_request_attention(Rid window, int critical);
+
+	/**
+	 * @brief A short text on the icon of the application: a number of unread
+	 * messages, "!". macOS: the badge of the Dock. Windows: a small round
+	 * icon on the taskbar buttons of the windows, drawn from the text (one
+	 * to three characters fit). Linux: a number only (the text is read as
+	 * one; anything else shows nothing). NULL or "": no badge.
+	 */
+	RAVEN_API int Rtaskbar_set_badge(const char* text);
+
+	/**
+	 * @brief The menu of the icon of the application in the Dock (macOS),
+	 * above the entries of the system. A MENU without a parent: its
+	 * MenuItems fire as when chosen in a window (clicked callback, action),
+	 * and what changes in it shows the next time the menu opens.
+	 * R_INVALID_ID: none. R_FALSE where the system has no such menu.
+	 */
+	RAVEN_API int Rtaskbar_set_menu(Rid menu);
+
+	/**
+	 * @brief The tasks of the jump list of Windows (right click on the button
+	 * of the application in the taskbar, or on its tile in the Start menu).
+	 * Choosing one starts the application again with its arguments: the
+	 * application reads them as any other command line. count 0: none.
+	 * R_FALSE where there is no jump list.
+	 */
+	RAVEN_API int Rtaskbar_set_jump_list(const RJumpTask* tasks, int count);
+
+	/* ============================================================================
+	 *  TRAY ICON
+	 * ============================================================================ */
+
+	/**
+	 * @return R_TRUE when the system shows tray icons: always on Windows and
+	 * macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+	 * the desktop). An icon made where none runs yet appears when one starts.
+	 */
+	RAVEN_API int Rtray_is_supported(void);
+	/**
+	 * @brief Puts an icon of the application beside the clock. While one
+	 * exists, the application goes on running when its last window closes
+	 * (Ris_running): Rquit (or the action app.quit) ends it.
+	 * @return R_INVALID_ID where the system has none.
+	 */
+	RAVEN_API Rid Rtray_create(void);
+	RAVEN_API void Rtray_destroy(Rid tray);
+	RAVEN_API int Rtray_is_valid(Rid tray);
+	/**
+	 * @brief The picture, from tightly packed RGBA8 pixels (straight alpha);
+	 * the system scales it (16 to 32 pixels square fit everywhere). Copied.
+	 */
+	RAVEN_API void Rtray_set_icon(Rid tray, const uint8_t* rgba, int width, int height);
+	/** @brief The text shown when the pointer rests on the icon (and its title for the Linux panels). */
+	RAVEN_API void Rtray_set_tooltip(Rid tray, const char* text);
+	/**
+	 * @brief The menu the system shows for the icon: on a right click
+	 * (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+	 * MenuItems fire as when chosen in a window; what changes in it shows
+	 * the next time it opens. R_INVALID_ID: none.
+	 */
+	RAVEN_API void Rtray_set_menu(Rid tray, Rid menu);
+	/**
+	 * @brief Called on a click: the left button (activate), the right one
+	 * when there is no menu, the middle one. On macOS an icon with a menu
+	 * opens it instead.
+	 */
+	RAVEN_API void Rtray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

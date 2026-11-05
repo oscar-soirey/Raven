@@ -717,6 +717,139 @@ static void test_island(void) {
 	Rwindow_destroy(window);
 }
 
+/* Picture in picture: the null platform has a work area of 1920 x 1080 pixels. */
+static void test_picture_in_picture(void) {
+	static const char xml[] =
+		"<VBox Name=\"root\">"
+		"  <Label Name=\"video\" Text=\"a video\" Slot.Fill=\"1\"/>"
+		"  <Button Name=\"back\" Text=\"Back\" OnClicked=\"window.picture_in_picture\"/>"
+		"</VBox>";
+	Rid window = Rwindow_create("player", 640, 360, R_WINDOW_DEFAULT);
+	Rid root = Rwidget_create_from_xml(xml, strlen(xml));
+	int width = 0, height = 0, x = 0, y = 0;
+	Rwindow_set_content(window, root);
+	Rwindow_set_position(window, 100, 120);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_picture_in_picture(window));
+
+	/* in: 320 wide with the proportions of the content, in the bottom right corner */
+	CHECK(Rwindow_set_picture_in_picture(window, R_TRUE));
+	Rdraw_frame();
+	CHECK(Rwindow_is_picture_in_picture(window));
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 320 && height == 180);
+	Rwindow_get_position(window, &x, &y);
+	CHECK(x == 1920 - 320 - 16 && y == 1080 - 180 - 16);
+	/* asking again changes nothing */
+	CHECK(Rwindow_set_picture_in_picture(window, R_TRUE));
+
+	/* another size and corner, at once while in */
+	Rwindow_set_picture_in_picture_layout(window, 400, 0, R_PIP_TOP_LEFT);
+	Rdraw_frame();
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 400 && height == 225);
+	Rwindow_get_position(window, &x, &y);
+	CHECK(x == 16 && y == 16);
+
+	/* the button of the content takes it out (built-in action): size and place come back */
+	test_click(window, Rwidget_find(root, "back"));
+	Rdraw_frame();
+	CHECK(!Rwindow_is_picture_in_picture(window));
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 640 && height == 360);
+	Rwindow_get_position(window, &x, &y);
+	CHECK(x == 100 && y == 120);
+	CHECK(Rwindow_set_picture_in_picture(window, R_FALSE));
+
+	/* the layout is kept for the next time; an invalid corner is refused */
+	CHECK(Rwindow_set_picture_in_picture(window, R_TRUE));
+	Rdraw_frame();
+	Rwindow_get_size(window, &width, &height);
+	CHECK(width == 400 && height == 225);
+	EXPECT_ERRORS_BEGIN();
+	Rwindow_set_picture_in_picture_layout(window, 0, 0, (RPictureInPictureCorner)0);
+	EXPECT_ERRORS_END(1);
+	CHECK(Raction_is_builtin("window.picture_in_picture"));
+	Rwindow_destroy(window);
+}
+
+/* The taskbar and the Dock: the null platform takes everything, as a system that shows it all. */
+static void test_taskbar(void) {
+	static const RJumpTask tasks[2] = { { "New window", "--new-window", "Opens another window" }, { "Settings", "--settings", NULL } };
+	static const RJumpTask untitled[1] = { { "", "--x", NULL } };
+	Rid window = Rwindow_create("taskbar", 300, 200, R_WINDOW_DEFAULT);
+	Rid menu = Rwidget_create(R_WIDGET_MENU);
+	Rid bar = Rwidget_create(R_WIDGET_MENU_BAR);
+	Rid inside = Rmenu_add_menu(bar, "File");
+	Rmenu_add_item(menu, "New window");
+
+	CHECK(Rwindow_set_taskbar_progress(window, R_TASKBAR_PROGRESS_NORMAL, 0.4f));
+	CHECK(Rwindow_set_taskbar_progress(window, R_TASKBAR_PROGRESS_INDETERMINATE, 0.0f));
+	CHECK(Rwindow_set_taskbar_progress(window, R_TASKBAR_PROGRESS_NONE, 0.0f));
+	CHECK(Rwindow_request_attention(window, R_TRUE));
+	CHECK(Rtaskbar_set_badge("3"));
+	CHECK(Rtaskbar_set_badge(NULL));
+	CHECK(Rtaskbar_set_jump_list(tasks, 2));
+	CHECK(Rtaskbar_set_jump_list(NULL, 0));
+
+	/* the menu of the icon follows its Menu, and is forgotten with it */
+	CHECK(Rtaskbar_set_menu(menu));
+	Rmenu_add_item(menu, "Settings");
+	Rdraw_frame();
+	Rwidget_destroy(menu);
+	Rdraw_frame();
+	CHECK(Rtaskbar_set_menu(R_INVALID_ID));
+
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rwindow_set_taskbar_progress(window, (RTaskbarProgress)0, 0.5f));
+	CHECK(!Rtaskbar_set_jump_list(untitled, 1));
+	CHECK(!Rtaskbar_set_jump_list(NULL, 2));
+	/* a menu of a bar is not the menu of the icon */
+	CHECK(!Rtaskbar_set_menu(inside));
+	CHECK(!Rtaskbar_set_menu(window));
+	EXPECT_ERRORS_END(5);
+	Rwidget_destroy(bar);
+	Rwindow_destroy(window);
+}
+
+/* Tray icons: handles, checks, and their menu that follows its Menu. */
+static void test_tray(void) {
+	static uint8_t pixels[16 * 16 * 4];
+	Rid tray, menu, bar, inside;
+	CHECK(Rtray_is_supported());
+	tray = Rtray_create();
+	CHECK(tray != R_INVALID_ID && Rtray_is_valid(tray));
+	Rtray_set_icon(tray, pixels, 16, 16);
+	Rtray_set_tooltip(tray, "Raven");
+	menu = Rwidget_create(R_WIDGET_MENU);
+	Rmenu_add_item(menu, "Show");
+	Rtray_set_menu(tray, menu);
+	Rmenu_add_item(menu, "Quit");
+	Rdraw_frame();
+	/* the menu deleted by the application: the icon has none any more */
+	Rwidget_destroy(menu);
+	Rdraw_frame();
+	Rtray_set_menu(tray, R_INVALID_ID);
+
+	bar = Rwidget_create(R_WIDGET_MENU_BAR);
+	inside = Rmenu_add_menu(bar, "File");
+	EXPECT_ERRORS_BEGIN();
+	Rtray_set_icon(tray, NULL, 16, 16);
+	Rtray_set_icon(tray, pixels, 0, 16);
+	Rtray_set_menu(tray, inside);
+	EXPECT_ERRORS_END(3);
+	Rwidget_destroy(bar);
+
+	Rtray_destroy(tray);
+	CHECK(!Rtray_is_valid(tray));
+	EXPECT_ERRORS_BEGIN();
+	Rtray_set_tooltip(tray, "gone");
+	EXPECT_ERRORS_END(1);
+	/* left at the end: Rshutdown takes it away */
+	tray = Rtray_create();
+	CHECK(Rtray_is_valid(tray));
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("test_shell: cannot initialize Raven\n");
@@ -729,6 +862,9 @@ int main(void) {
 	RUN(test_dock);
 	RUN(test_dock_animated);
 	RUN(test_island);
+	RUN(test_picture_in_picture);
+	RUN(test_taskbar);
+	RUN(test_tray);
 	Rshutdown();
 	return test_report("test_shell");
 }

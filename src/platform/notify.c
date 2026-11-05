@@ -58,6 +58,7 @@ int Rnotification_is_supported(void) {
 #if !defined(_WIN32) && !defined(__APPLE__)
 
 #include <dlfcn.h>
+#include <errno.h>
 
 typedef struct DBusConnection DBusConnection;
 typedef struct DBusMessage DBusMessage;
@@ -92,6 +93,9 @@ static struct {
 	dbus_bool_t (*iter_append_basic)(DBusMessageIter*, int, const void*);
 	dbus_bool_t (*iter_open_container)(DBusMessageIter*, int, const char*, DBusMessageIter*);
 	dbus_bool_t (*iter_close_container)(DBusMessageIter*, DBusMessageIter*);
+	DBusMessage* (*message_new_signal)(const char*, const char*, const char*);
+	dbus_bool_t (*connection_send)(DBusConnection*, DBusMessage*, uint32_t*);
+	void (*connection_flush)(DBusConnection*);
 } g_dbus;
 
 static int rvn_notify_connect(void) {
@@ -121,6 +125,9 @@ static int rvn_notify_connect(void) {
 	LOAD(iter_append_basic, "dbus_message_iter_append_basic");
 	LOAD(iter_open_container, "dbus_message_iter_open_container");
 	LOAD(iter_close_container, "dbus_message_iter_close_container");
+	LOAD(message_new_signal, "dbus_message_new_signal");
+	LOAD(connection_send, "dbus_connection_send");
+	LOAD(connection_flush, "dbus_connection_flush");
 #undef LOAD
 	g_dbus.error_init(&error);
 	g_dbus.bus = g_dbus.bus_get_private(DBUS_BUS_SESSION, &error);
@@ -174,6 +181,92 @@ int rvn_dbus_notify(const char* app, const char* title, const char* body, int ur
 	return R_TRUE;
 }
 
+/* ---------------------------------------------------------------------------
+ *  The launchers: com.canonical.Unity.LauncherEntry
+ *
+ *  A signal, Update(app_uri s, properties a{sv}), names the .desktop file of
+ *  the application ("application://ID.desktop", ID as the application id of
+ *  the windows: RAVEN_APP_ID, else the name of the program) with progress,
+ *  count and urgent. KDE, the Ubuntu Dock, Dash to Dock and Plank show it.
+ *  Nothing answers a signal: R_FALSE only when there is no session bus.
+ * ------------------------------------------------------------------------- */
+
+static struct {
+	double progress;
+	int progress_visible;
+	int64_t count;
+	int count_visible;
+	int urgent;
+} g_launcher;
+
+static void rvn_launcher_entry(DBusMessageIter* dict, const char* key, int type, const char* signature, const void* value) {
+	DBusMessageIter entry, variant;
+	g_dbus.iter_open_container(dict, 'e', NULL, &entry);
+	g_dbus.iter_append_basic(&entry, 's', &key);
+	g_dbus.iter_open_container(&entry, 'v', signature, &variant);
+	g_dbus.iter_append_basic(&variant, type, value);
+	g_dbus.iter_close_container(&entry, &variant);
+	g_dbus.iter_close_container(dict, &entry);
+}
+
+static int rvn_launcher_send(void) {
+	char uri[300], path[96];
+	const char* id = getenv("RAVEN_APP_ID");
+	const char* text = uri;
+	DBusMessage* signal;
+	DBusMessageIter args, dict;
+	dbus_bool_t progress_visible = g_launcher.progress_visible ? 1 : 0;
+	dbus_bool_t count_visible = g_launcher.count_visible ? 1 : 0;
+	dbus_bool_t urgent = g_launcher.urgent ? 1 : 0;
+	uint32_t hash = 5381;
+	const char* c;
+	if (!rvn_notify_connect()) return R_FALSE;
+#if defined(__GLIBC__)
+	if (!id || !id[0]) id = program_invocation_short_name;
+#endif
+	snprintf(uri, sizeof(uri), "application://%s.desktop", id && id[0] ? id : "raven");
+	/* (any object path will do: one per application) */
+	for (c = uri; *c; c++) hash = hash * 33u + (unsigned char)*c;
+	snprintf(path, sizeof(path), "/com/canonical/unity/launcherentry/%u", (unsigned)hash);
+	signal = g_dbus.message_new_signal(path, "com.canonical.Unity.LauncherEntry", "Update");
+	if (!signal) return R_FALSE;
+	g_dbus.iter_init_append(signal, &args);
+	g_dbus.iter_append_basic(&args, 's', &text);
+	g_dbus.iter_open_container(&args, 'a', "{sv}", &dict);
+	rvn_launcher_entry(&dict, "progress", 'd', "d", &g_launcher.progress);
+	rvn_launcher_entry(&dict, "progress-visible", 'b', "b", &progress_visible);
+	rvn_launcher_entry(&dict, "count", 'x', "x", &g_launcher.count);
+	rvn_launcher_entry(&dict, "count-visible", 'b', "b", &count_visible);
+	rvn_launcher_entry(&dict, "urgent", 'b', "b", &urgent);
+	g_dbus.iter_close_container(&args, &dict);
+	g_dbus.connection_send(g_dbus.bus, signal, NULL);
+	g_dbus.connection_flush(g_dbus.bus);
+	g_dbus.message_unref(signal);
+	return R_TRUE;
+}
+
+int rvn_dbus_launcher_progress(int state, float value) {
+	/* (the launchers know no paused, failed or indeterminate bar: a bar, full when indeterminate) */
+	g_launcher.progress_visible = state != 0;
+	g_launcher.progress = state == 4 ? 1.0 : (double)value;
+	return rvn_launcher_send();
+}
+
+int rvn_dbus_launcher_badge(const char* text) {
+	char* end = NULL;
+	long long count = text ? strtoll(text, &end, 10) : 0;
+	/* a number only: a text that is not one shows nothing */
+	g_launcher.count_visible = text && text[0] && end && *end == '\0' && count >= 0;
+	g_launcher.count = g_launcher.count_visible ? (int64_t)count : 0;
+	if (!rvn_launcher_send()) return R_FALSE;
+	return g_launcher.count_visible || !text;
+}
+
+int rvn_dbus_launcher_urgent(int urgent) {
+	g_launcher.urgent = urgent ? R_TRUE : R_FALSE;
+	return rvn_launcher_send();
+}
+
 void rvn_dbus_notify_shutdown(void) {
 	if (g_dbus.bus) {
 		g_dbus.connection_close(g_dbus.bus);
@@ -182,6 +275,7 @@ void rvn_dbus_notify_shutdown(void) {
 	}
 	/* (the library stays loaded: atspi.c may use it, and unloading libdbus is not safe) */
 	g_dbus.failed = R_FALSE;
+	memset(&g_launcher, 0, sizeof(g_launcher));
 }
 
 #endif

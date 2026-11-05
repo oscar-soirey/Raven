@@ -291,6 +291,25 @@ char* rvn_path_home(void) {
 	return rvn_fs_narrow(home);
 }
 
+char* rvn_env_get(const char* name) {
+	WCHAR* wide_name = rvn_fs_wide(name);
+	WCHAR* value;
+	DWORD length;
+	char* result;
+	if (!wide_name) return NULL;
+	length = GetEnvironmentVariableW(wide_name, NULL, 0);
+	if (length == 0) {
+		rvn_free(wide_name);
+		return NULL;
+	}
+	value = (WCHAR*)rvn_alloc(sizeof(WCHAR) * (size_t)length);
+	if (GetEnvironmentVariableW(wide_name, value, length) >= length) value[0] = 0;
+	rvn_free(wide_name);
+	result = value[0] ? rvn_fs_narrow(value) : NULL;
+	rvn_free(value);
+	return result;
+}
+
 int rvn_make_dir(const char* path) {
 	WCHAR* wide = rvn_fs_wide(path);
 	int ok;
@@ -431,6 +450,11 @@ char* rvn_path_absolute(const char* path) {
 char* rvn_path_home(void) {
 	const char* home = getenv("HOME");
 	return rvn_strdup(home && home[0] ? home : "/");
+}
+
+char* rvn_env_get(const char* name) {
+	const char* value = name ? getenv(name) : NULL;
+	return value && value[0] ? rvn_strdup(value) : NULL;
 }
 
 int rvn_make_dir(const char* path) {

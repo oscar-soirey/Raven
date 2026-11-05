@@ -143,6 +143,8 @@ set(RAVEN_CORE_SOURCES
 set(RAVEN_PLATFORM_SOURCES
 	src/platform/platform.c
 	src/platform/notify.c
+	src/platform/taskbar.c
+	src/platform/tray.c
 	src/platform/platform.h
 	src/platform/null/null_platform.c
 	src/platform/host/host_platform.c
@@ -292,6 +294,8 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 		src/platform/win32/win32_platform.c
 		src/platform/win32/win32_uia.c
 		src/platform/win32/win32_manipulation.c
+		src/platform/win32/win32_taskbar.c
+		src/platform/win32/win32_taskbar.h
 		src/platform/win32/win32_manipulation.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WIN32)
@@ -308,6 +312,8 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "x11")
 		src/platform/x11/x11_keys.c
 		src/platform/x11/x11_xi2.c
 		src/platform/x11/x11_internal.h
+		src/platform/sni.c
+		src/platform/sni.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_X11)
 	list(APPEND RAVEN_LIBRARIES ${X11_X11_LIB})

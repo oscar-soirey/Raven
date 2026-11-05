@@ -53,6 +53,10 @@ typedef struct rvn_menu_bar_t {
 	/** Left edge and width of the mark of the open menu: it slides from title to title. */
 	RSpring mark_x;
 	RSpring mark_w;
+	/** R_FALSE: always drawn in the window (Rmenu_bar_set_native). */
+	int native_wanted;
+	/** Shown in the menu bar of the system: nothing of it is in the window. */
+	int native;
 } rvn_menu_bar_t;
 
 #define RVN_MENU_PADDING 4.0f
@@ -662,6 +666,27 @@ rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modi
 	return NULL;
 }
 
+/*
+ * The enabled menu item bound to a shortcut for a window: in its menu bars
+ * first, then in the menus kept apart from any widget tree (opened with
+ * Rmenu_open, or given as context menus), which are only in a window while
+ * they are open. Those last open in another window are left to it.
+ */
+rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers) {
+	rvn_widget_t* found = rvn_menu_find_shortcut(window->root, key, modifiers);
+	uint32_t i;
+	if (found || key == R_KEY_UNKNOWN) return found;
+	for (i = 0; i < g_rvn.widgets.used; i++) {
+		rvn_widget_t* menu = (rvn_widget_t*)rvn_pool_at(&g_rvn.widgets, i);
+		if (!menu || menu->cls->type != R_WIDGET_MENU || menu->parent) continue;
+		if (menu->flags & (RVN_WF_DEAD | RVN_WF_INTERNAL)) continue;
+		if (menu->window && menu->window != window) continue;
+		found = rvn_menu_find_shortcut(menu, key, modifiers);
+		if (found) return found;
+	}
+	return NULL;
+}
+
 /* ===========================================================================
  *  MenuBar
  * ========================================================================= */
@@ -670,6 +695,7 @@ static void rvn_menu_bar_init(rvn_widget_t* widget) {
 	rvn_menu_bar_t* bar = (rvn_menu_bar_t*)widget;
 	bar->hot = -1;
 	bar->open = -1;
+	bar->native_wanted = R_TRUE;
 }
 
 static float rvn_menu_bar_title_width(const rvn_widget_t* widget, const rvn_widget_t* child) {
@@ -684,6 +710,8 @@ static int rvn_menu_bar_is_title(const rvn_widget_t* child) {
 static rvn_vec2_t rvn_menu_bar_measure(rvn_widget_t* widget) {
 	float width = 4.0f;
 	uint32_t i;
+	/* in the menu bar of the system: it takes no room in the window */
+	if (((rvn_menu_bar_t*)widget)->native) return rvn_vec2(0.0f, 0.0f);
 	for (i = 0; i < widget->child_count; i++) {
 		if (rvn_menu_bar_is_title(widget->children[i])) width += rvn_menu_bar_title_width(widget, widget->children[i]);
 	}
@@ -741,6 +769,7 @@ static void rvn_menu_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 	float title_radius = rvn_widget_glass(widget) ? 100.0f : 3.0f;
 	uint32_t i;
 
+	if (bar->native) return;
 	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
 		/* the platforms (MenuBar): titles on the window, a soft rounded background under the pointer and under the open one */
 		for (i = 0; i < widget->child_count; i++) {
@@ -800,6 +829,7 @@ static void rvn_menu_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 static int rvn_menu_bar_event(rvn_widget_t* widget, const REvent* event) {
 	rvn_menu_bar_t* bar = (rvn_menu_bar_t*)widget;
 	int index;
+	if (bar->native) return R_FALSE;
 	switch (event->type) {
 		case R_EVENT_MOUSE_MOVE:
 			index = rvn_menu_bar_title_at(widget, event->local_x, event->local_y);
@@ -824,6 +854,24 @@ static int rvn_menu_bar_event(rvn_widget_t* widget, const REvent* event) {
 	}
 }
 
+static void rvn_menu_bar_set_native_wanted(rvn_widget_t* widget, int wanted) {
+	rvn_menu_bar_t* bar = (rvn_menu_bar_t*)widget;
+	bar->native_wanted = wanted ? R_TRUE : R_FALSE;
+	/* (the next frame gives it to the system, or takes it back into the window) */
+	if (widget->window) widget->window->native_menu_hash = 0;
+	rvn_widget_invalidate_layout(widget);
+}
+
+static int rvn_menu_bar_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
+	int native;
+	if (RVN_ATTR("Native")) {
+		if (!rvn_parse_bool(value, &native)) return R_FALSE;
+		rvn_menu_bar_set_native_wanted(widget, native);
+		return R_TRUE;
+	}
+	return R_FALSE;
+}
+
 const rvn_widget_class_t rvn_class_menu_bar = {
 	.type = R_WIDGET_MENU_BAR,
 	.name = "MenuBar",
@@ -834,8 +882,150 @@ const rvn_widget_class_t rvn_class_menu_bar = {
 	.arrange = rvn_menu_arrange,
 	.paint = rvn_menu_bar_paint,
 	.event = rvn_menu_bar_event,
+	.set_attribute = rvn_menu_bar_set_attribute,
 	.child_active = rvn_menu_child_active
 };
+
+/* ===========================================================================
+ *  The menu bar of the system (macOS)
+ *
+ *  The first MenuBar of a window is given to the platform, which shows its
+ *  menus in the bar at the top of the screen while the window is the active
+ *  one; the MenuBar then takes no room in the window. It is given again
+ *  whenever something in it changes: a signature of what it shows is
+ *  compared at each frame. The entries chosen come back as RVN_PEVENT_COMMAND.
+ * ========================================================================= */
+
+static int rvn_menu_native_entry(const rvn_widget_t* child) {
+	return (child->cls->type == R_WIDGET_MENU_ITEM || child->cls->type == R_WIDGET_MENU) && !rvn_widget_collapsed(child);
+}
+
+static uint32_t rvn_menu_mix(uint32_t hash, uint32_t value) {
+	return (hash ^ value) * 16777619u;
+}
+
+/* What the entries below `menu` show, as one number. */
+uint32_t rvn_menu_signature(const rvn_widget_t* menu, uint32_t hash) {
+	uint32_t i;
+	for (i = 0; i < menu->child_count; i++) {
+		const rvn_widget_t* child = menu->children[i];
+		if (!rvn_menu_native_entry(child)) continue;
+		hash = rvn_menu_mix(hash, child->id);
+		hash = rvn_menu_mix(hash, rvn_hash_str(rvn_menu_entry_text(child)));
+		hash = rvn_menu_mix(hash, (child->flags & RVN_WF_DISABLED) ? 1u : 2u);
+		if (child->cls->type == R_WIDGET_MENU_ITEM) {
+			const rvn_menu_item_t* item = (const rvn_menu_item_t*)child;
+			hash = rvn_menu_mix(hash, (uint32_t)item->separator | ((uint32_t)item->checkable << 1) | ((uint32_t)item->checked << 2));
+			hash = rvn_menu_mix(hash, (uint32_t)item->key);
+			hash = rvn_menu_mix(hash, item->modifiers);
+		} else {
+			hash = rvn_menu_signature(child, rvn_menu_mix(hash, 0x4D454E55u));
+			hash = rvn_menu_mix(hash, 0x454E4455u);
+		}
+	}
+	return hash;
+}
+
+static uint32_t rvn_menu_native_count(const rvn_widget_t* menu) {
+	uint32_t i, count = 0;
+	for (i = 0; i < menu->child_count; i++) count += rvn_menu_native_entry(menu->children[i]) ? 1u : 0u;
+	return count;
+}
+
+/* The entries of a menu, as the platform takes them. Free with rvn_menu_native_free. */
+rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* count) {
+	rvn_pmenu_t* items;
+	uint32_t i, n = 0;
+	*count = rvn_menu_native_count(menu);
+	if (*count == 0) return NULL;
+	items = (rvn_pmenu_t*)rvn_calloc(sizeof(rvn_pmenu_t) * *count);
+	for (i = 0; i < menu->child_count; i++) {
+		const rvn_widget_t* child = menu->children[i];
+		rvn_pmenu_t* out;
+		if (!rvn_menu_native_entry(child)) continue;
+		out = &items[n++];
+		out->id = child->id;
+		out->text = rvn_menu_entry_text(child);
+		out->enabled = !(child->flags & RVN_WF_DISABLED);
+		out->key = R_KEY_UNKNOWN;
+		if (child->cls->type == R_WIDGET_MENU_ITEM) {
+			const rvn_menu_item_t* item = (const rvn_menu_item_t*)child;
+			out->separator = item->separator;
+			out->checkable = item->checkable;
+			out->checked = item->checked;
+			out->key = item->key;
+			out->modifiers = item->modifiers;
+		} else {
+			out->submenu = R_TRUE;
+			out->items = rvn_menu_native_items(child, &out->count);
+		}
+	}
+	return items;
+}
+
+void rvn_menu_native_free(rvn_pmenu_t* items, uint32_t count) {
+	uint32_t i;
+	for (i = 0; i < count; i++) {
+		if (items[i].submenu) rvn_menu_native_free((rvn_pmenu_t*)items[i].items, items[i].count);
+	}
+	rvn_free(items);
+}
+
+/* The first MenuBar of a tree that may go to the system. */
+static rvn_widget_t* rvn_menu_bar_find(rvn_widget_t* root) {
+	uint32_t i;
+	if (!root || rvn_widget_collapsed(root) || (root->flags & RVN_WF_DEAD)) return NULL;
+	if (root->cls->type == R_WIDGET_MENU_BAR) return ((rvn_menu_bar_t*)root)->native_wanted ? root : NULL;
+	/* (a menu holds entries, not bars) */
+	if (root->cls->type == R_WIDGET_MENU) return NULL;
+	for (i = 0; i < root->child_count; i++) {
+		rvn_widget_t* found = rvn_menu_bar_find(root->children[i]);
+		if (found) return found;
+	}
+	return NULL;
+}
+
+static void rvn_menu_bar_set_native(rvn_widget_t* widget, int native) {
+	rvn_menu_bar_t* bar = (rvn_menu_bar_t*)widget;
+	if (bar->native == native) return;
+	bar->native = native;
+	bar->hot = -1;
+	if (native && bar->open >= 0 && widget->window) rvn_window_close_popups(widget->window);
+	rvn_widget_invalidate_layout(widget);
+	rvn_widget_invalidate_paint(widget);
+}
+
+void rvn_menu_bar_sync(rvn_window_t* window) {
+	rvn_widget_t* bar = rvn_menu_bar_find(window->root);
+	rvn_widget_t* before = rvn_widget_get(window->native_menu_bar);
+	uint32_t hash = bar ? rvn_menu_signature(bar, rvn_menu_mix(2166136261u, bar->id)) : 0u;
+	int shown = R_FALSE;
+	if (bar == before && hash == window->native_menu_hash && (bar || !window->native_menu_sent)) return;
+	if (before && before != bar && before->cls->type == R_WIDGET_MENU_BAR) rvn_menu_bar_set_native(before, R_FALSE);
+	if (bar) {
+		uint32_t count;
+		rvn_pmenu_t* menus = rvn_menu_native_items(bar, &count);
+		shown = g_rvn.platform->window_set_menu_bar(window->platform, menus, count);
+		rvn_menu_native_free(menus, count);
+		rvn_menu_bar_set_native(bar, shown);
+	} else if (window->native_menu_sent) {
+		g_rvn.platform->window_set_menu_bar(window->platform, NULL, 0);
+	}
+	window->native_menu_bar = bar ? bar->id : R_INVALID_ID;
+	window->native_menu_hash = hash;
+	window->native_menu_sent = shown;
+}
+
+void rvn_menu_command(Rid id) {
+	rvn_widget_t* widget = rvn_widget_get(id);
+	rvn_widget_t* walk;
+	if (!widget || widget->cls->type != R_WIDGET_MENU_ITEM || (widget->flags & RVN_WF_DEAD)) return;
+	/* (what is disabled in Raven is not chosen, even if the system had not been told yet) */
+	for (walk = widget; walk; walk = walk->parent) {
+		if (walk->flags & RVN_WF_DISABLED) return;
+	}
+	rvn_menu_item_trigger(widget);
+}
 
 /* ===========================================================================
  *  Public API
@@ -885,6 +1075,16 @@ void Rmenu_item_set_text(Rid id, const char* text) {
 const char* Rmenu_item_get_text(Rid id) {
 	RVN_WIDGET(widget, id, R_WIDGET_MENU_ITEM, "");
 	return ((rvn_menu_item_t*)widget)->text ? ((rvn_menu_item_t*)widget)->text : "";
+}
+
+void Rmenu_bar_set_native(Rid id, int native) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_MENU_BAR);
+	rvn_menu_bar_set_native_wanted(widget, native);
+}
+
+int Rmenu_bar_is_native(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_MENU_BAR, R_FALSE);
+	return ((rvn_menu_bar_t*)widget)->native;
 }
 
 void Rmenu_item_set_shortcut(Rid id, RKey key, Ruint modifiers) {

@@ -173,6 +173,18 @@ R_WINDOW_MAXIMIZED = RWindowFlags.R_WINDOW_MAXIMIZED
 R_WINDOW_CUSTOM_HEADER = RWindowFlags.R_WINDOW_CUSTOM_HEADER
 R_WINDOW_TRANSPARENT = RWindowFlags.R_WINDOW_TRANSPARENT
 
+class RPictureInPictureCorner(enum.IntEnum):
+    """Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout)."""
+    R_PIP_BOTTOM_RIGHT = 0x0780
+    R_PIP_BOTTOM_LEFT = 0x0781
+    R_PIP_TOP_RIGHT = 0x0782
+    R_PIP_TOP_LEFT = 0x0783
+
+R_PIP_BOTTOM_RIGHT = RPictureInPictureCorner.R_PIP_BOTTOM_RIGHT
+R_PIP_BOTTOM_LEFT = RPictureInPictureCorner.R_PIP_BOTTOM_LEFT
+R_PIP_TOP_RIGHT = RPictureInPictureCorner.R_PIP_TOP_RIGHT
+R_PIP_TOP_LEFT = RPictureInPictureCorner.R_PIP_TOP_LEFT
+
 class RBackdrop(enum.IntEnum):
     """What is seen behind a window created with R_WINDOW_TRANSPARENT.
     
@@ -1156,6 +1168,20 @@ R_HEADER_MINIMIZE = RHeaderButtons.R_HEADER_MINIMIZE
 R_HEADER_MAXIMIZE = RHeaderButtons.R_HEADER_MAXIMIZE
 R_HEADER_ALL_BUTTONS = RHeaderButtons.R_HEADER_ALL_BUTTONS
 
+class RTaskbarProgress(enum.IntEnum):
+    """A progress bar on the icon of the application (Rwindow_set_taskbar_progress)."""
+    R_TASKBAR_PROGRESS_NONE = 0x07A0
+    R_TASKBAR_PROGRESS_NORMAL = 0x07A1
+    R_TASKBAR_PROGRESS_PAUSED = 0x07A2
+    R_TASKBAR_PROGRESS_ERROR = 0x07A3
+    R_TASKBAR_PROGRESS_INDETERMINATE = 0x07A4
+
+R_TASKBAR_PROGRESS_NONE = RTaskbarProgress.R_TASKBAR_PROGRESS_NONE
+R_TASKBAR_PROGRESS_NORMAL = RTaskbarProgress.R_TASKBAR_PROGRESS_NORMAL
+R_TASKBAR_PROGRESS_PAUSED = RTaskbarProgress.R_TASKBAR_PROGRESS_PAUSED
+R_TASKBAR_PROGRESS_ERROR = RTaskbarProgress.R_TASKBAR_PROGRESS_ERROR
+R_TASKBAR_PROGRESS_INDETERMINATE = RTaskbarProgress.R_TASKBAR_PROGRESS_INDETERMINATE
+
 class RDockSide(enum.IntEnum):
     """Where a panel goes in a dock area, relative to another panel or to the whole area."""
     R_DOCK_LEFT = 0x0360
@@ -1647,6 +1673,15 @@ class RLanguageDesc(ctypes.Structure):
         ("annotation", ctypes.c_char_p),
         ("flags", ctypes.c_uint32),
         ("script_language", ctypes.c_char_p),
+    ]
+
+
+class RJumpTask(ctypes.Structure):
+    """A task of the jump list of Windows (Rtaskbar_set_jump_list)."""
+    _fields_ = [
+        ("title", ctypes.c_char_p),
+        ("arguments", ctypes.c_char_p),
+        ("description", ctypes.c_char_p),
     ]
 
 
@@ -2147,6 +2182,14 @@ RTextEditorChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_vo
 def _adapt_RTextEditorChangedCallback(function):
     def call(editor, user_data):
         function(editor, user_data)
+    return call
+
+RTrayClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTrayClickedCallback(function):
+    def call(tray, button, user_data):
+        function(tray, _e(RMouseButton, button), user_data)
     return call
 
 RDockCloseCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p)
@@ -2798,6 +2841,7 @@ def Raction_set_builtins(enabled):
       app.quit                          quits (Rquit(0))
       window.close, window.minimize,    the window of the widget
       window.maximize, window.restore   (maximize goes back when it already is)
+      window.picture_in_picture         in and out of picture in picture
       island.expand, island.fold,       the island of that window
       island.toggle
       theme.dark, theme.light,          the look of Raven, dark or light
@@ -2847,6 +2891,19 @@ _lib.Rclipboard_set_text.restype = None
 
 def Rclipboard_set_text(text):
     _lib.Rclipboard_set_text(_s(text))
+
+
+_lib.Rclipboard_set_html.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rclipboard_set_html.restype = None
+
+
+def Rclipboard_set_html(text, html):
+    """Copies one content in two formats: `html` for the programs that
+    paste formatting (word processors, chat, mail) and `text` for the
+    others (editors, terminals). Each program takes the format it prefers.
+    Where the window system has no clipboard formats (Win32 and macOS for
+    now), or `html` is NULL, it is Rclipboard_set_text(text)."""
+    _lib.Rclipboard_set_html(_s(text), _s(html))
 
 
 _lib.Rclipboard_get_text.argtypes = []
@@ -3251,6 +3308,46 @@ def Rwindow_set_topmost(window, topmost):
     """Keeps the window above the other windows (splash screens, tools).
     Returns: R_FALSE when the window system cannot do it."""
     return _lib.Rwindow_set_topmost(window, topmost)
+
+
+_lib.Rwindow_set_picture_in_picture.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_set_picture_in_picture.restype = ctypes.c_int
+
+
+def Rwindow_set_picture_in_picture(window, enabled):
+    """Picture in picture: the window becomes a small floating window
+    that stays above the other windows, on every desktop (every space of
+    macOS, over the applications in full screen too), in a corner of the
+    work area of its monitor. It loses its title bar where the system
+    allows: the empty parts of its content move it, its edges resize it,
+    and its size keeps the proportions it was given. Leaving it gives back
+    the size, place, frame and state the window had.
+    
+    Raven does not add a button to leave it: the content shows one, with
+    the built-in action "window.picture_in_picture" (it goes in and out).
+    Returns: R_FALSE when the window system cannot keep a window above the
+    others (Wayland): the window is left as it is."""
+    return _lib.Rwindow_set_picture_in_picture(window, enabled)
+
+
+_lib.Rwindow_is_picture_in_picture.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_picture_in_picture.restype = ctypes.c_int
+
+
+def Rwindow_is_picture_in_picture(window):
+    return _lib.Rwindow_is_picture_in_picture(window)
+
+
+_lib.Rwindow_set_picture_in_picture_layout.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rwindow_set_picture_in_picture_layout.restype = None
+
+
+def Rwindow_set_picture_in_picture_layout(window, width, height, corner):
+    """Size (logical units) and corner of the window in picture in
+    picture, for the next time it goes in (now, when it is in). 0, 0 (the
+    default): 320 wide, with the proportions the content has when it goes
+    in. The proportions of width / height are kept while the user resizes."""
+    _lib.Rwindow_set_picture_in_picture_layout(window, width, height, int(corner))
 
 
 _lib.Rwindow_center.argtypes = [ctypes.c_uint32]
@@ -6615,6 +6712,30 @@ def Rtree_view_set_drop_highlight(tree_view, item, whole_tree):
     _lib.Rtree_view_set_drop_highlight(tree_view, item, whole_tree)
 
 
+_lib.Rmenu_bar_set_native.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rmenu_bar_set_native.restype = None
+
+
+def Rmenu_bar_set_native(menu_bar, native):
+    """The menu bar of the system. On macOS, the first MenuBar of a
+    window is shown in the bar at the top of the screen while the window is
+    the active one, after the menu of the application (About, Hide, Quit);
+    it then takes no room in the window. Its shortcuts are those of the
+    system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+    drawn in the window. On by default; R_FALSE keeps it in the window
+    everywhere. In XML: <MenuBar Native="false">."""
+    _lib.Rmenu_bar_set_native(menu_bar, native)
+
+
+_lib.Rmenu_bar_is_native.argtypes = [ctypes.c_uint32]
+_lib.Rmenu_bar_is_native.restype = ctypes.c_int
+
+
+def Rmenu_bar_is_native(menu_bar):
+    """Returns: R_TRUE while the menu bar is shown by the system instead of the window."""
+    return _lib.Rmenu_bar_is_native(menu_bar)
+
+
 _lib.Rmenu_add_menu.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
 _lib.Rmenu_add_menu.restype = ctypes.c_uint32
 
@@ -8431,6 +8552,153 @@ _lib.Rwindow_get_island.restype = ctypes.c_uint32
 
 def Rwindow_get_island(window):
     return _lib.Rwindow_get_island(window)
+
+
+_lib.Rwindow_set_taskbar_progress.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float]
+_lib.Rwindow_set_taskbar_progress.restype = ctypes.c_int
+
+
+def Rwindow_set_taskbar_progress(window, state, value):
+    """A progress bar on the icon of the application: on the button of
+    the window in the taskbar (Windows), on the icon in the Dock (macOS),
+    on the launcher (Linux). There is one icon for the whole application in
+    the Dock and the launchers: the last window that set it is shown.
+    value From 0 to 1 (not used by NONE and INDETERMINATE).
+    Returns: R_FALSE where the system shows no progress."""
+    return _lib.Rwindow_set_taskbar_progress(window, int(state), value)
+
+
+_lib.Rwindow_request_attention.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_request_attention.restype = ctypes.c_int
+
+
+def Rwindow_request_attention(window, critical):
+    """Asks the user to look at the window when it is not the active
+    one: its taskbar button flashes (Windows), the icon bounces in the
+    Dock (macOS), the window is marked urgent (X11, the launchers of
+    Linux). `critical`: until the user comes to the window; otherwise a few
+    times. Nothing happens when the window is already the active one."""
+    return _lib.Rwindow_request_attention(window, critical)
+
+
+_lib.Rtaskbar_set_badge.argtypes = [ctypes.c_char_p]
+_lib.Rtaskbar_set_badge.restype = ctypes.c_int
+
+
+def Rtaskbar_set_badge(text):
+    """A short text on the icon of the application: a number of unread
+    messages, "!". macOS: the badge of the Dock. Windows: a small round
+    icon on the taskbar buttons of the windows, drawn from the text (one
+    to three characters fit). Linux: a number only (the text is read as
+    one; anything else shows nothing). NULL or "": no badge."""
+    return _lib.Rtaskbar_set_badge(_s(text))
+
+
+_lib.Rtaskbar_set_menu.argtypes = [ctypes.c_uint32]
+_lib.Rtaskbar_set_menu.restype = ctypes.c_int
+
+
+def Rtaskbar_set_menu(menu):
+    """The menu of the icon of the application in the Dock (macOS),
+    above the entries of the system. A MENU without a parent: its
+    MenuItems fire as when chosen in a window (clicked callback, action),
+    and what changes in it shows the next time the menu opens.
+    R_INVALID_ID: none. R_FALSE where the system has no such menu."""
+    return _lib.Rtaskbar_set_menu(menu)
+
+
+_lib.Rtaskbar_set_jump_list.argtypes = [ctypes.POINTER(RJumpTask), ctypes.c_int]
+_lib.Rtaskbar_set_jump_list.restype = ctypes.c_int
+
+
+def Rtaskbar_set_jump_list(tasks, count):
+    """The tasks of the jump list of Windows (right click on the button
+    of the application in the taskbar, or on its tile in the Start menu).
+    Choosing one starts the application again with its arguments: the
+    application reads them as any other command line. count 0: none.
+    R_FALSE where there is no jump list."""
+    return _lib.Rtaskbar_set_jump_list(_p(tasks), count)
+
+
+_lib.Rtray_is_supported.argtypes = []
+_lib.Rtray_is_supported.restype = ctypes.c_int
+
+
+def Rtray_is_supported():
+    """Returns: R_TRUE when the system shows tray icons: always on Windows and
+    macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+    the desktop). An icon made where none runs yet appears when one starts."""
+    return _lib.Rtray_is_supported()
+
+
+_lib.Rtray_create.argtypes = []
+_lib.Rtray_create.restype = ctypes.c_uint32
+
+
+def Rtray_create():
+    """Puts an icon of the application beside the clock. While one
+    exists, the application goes on running when its last window closes
+    (Ris_running): Rquit (or the action app.quit) ends it.
+    Returns: R_INVALID_ID where the system has none."""
+    return _lib.Rtray_create()
+
+
+_lib.Rtray_destroy.argtypes = [ctypes.c_uint32]
+_lib.Rtray_destroy.restype = None
+
+
+def Rtray_destroy(tray):
+    _lib.Rtray_destroy(tray)
+
+
+_lib.Rtray_is_valid.argtypes = [ctypes.c_uint32]
+_lib.Rtray_is_valid.restype = ctypes.c_int
+
+
+def Rtray_is_valid(tray):
+    return _lib.Rtray_is_valid(tray)
+
+
+_lib.Rtray_set_icon.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_lib.Rtray_set_icon.restype = None
+
+
+def Rtray_set_icon(tray, rgba, width, height):
+    """The picture, from tightly packed RGBA8 pixels (straight alpha);
+    the system scales it (16 to 32 pixels square fit everywhere). Copied."""
+    _lib.Rtray_set_icon(tray, rgba, width, height)
+
+
+_lib.Rtray_set_tooltip.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtray_set_tooltip.restype = None
+
+
+def Rtray_set_tooltip(tray, text):
+    """The text shown when the pointer rests on the icon (and its title for the Linux panels)."""
+    _lib.Rtray_set_tooltip(tray, _s(text))
+
+
+_lib.Rtray_set_menu.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rtray_set_menu.restype = None
+
+
+def Rtray_set_menu(tray, menu):
+    """The menu the system shows for the icon: on a right click
+    (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+    MenuItems fire as when chosen in a window; what changes in it shows
+    the next time it opens. R_INVALID_ID: none."""
+    _lib.Rtray_set_menu(tray, menu)
+
+
+_lib.Rtray_set_clicked_callback.argtypes = [ctypes.c_uint32, RTrayClickedCallback, ctypes.c_void_p]
+_lib.Rtray_set_clicked_callback.restype = None
+
+
+def Rtray_set_clicked_callback(tray, callback, user_data=None):
+    """Called on a click: the left button (activate), the right one
+    when there is no menu, the middle one. On macOS an icon with a menu
+    opens it instead."""
+    _lib.Rtray_set_clicked_callback(tray, _callback(RTrayClickedCallback, _adapt_RTrayClickedCallback, callback), user_data)
 
 
 _lib.Rcolor_picker_create.argtypes = []
@@ -10745,9 +11013,29 @@ _lib.Rxml_set_base_path.restype = None
 
 
 def Rxml_set_base_path(path):
-    """Folder used to resolve relative paths found in XML (Source="...",
-    Font="..."). The *FromXmlFile functions use the folder of the file."""
+    """A folder looked into after the one of the document (see above),
+    and the first one for the documents given from memory. NULL or "": none."""
     _lib.Rxml_set_base_path(_s(path))
+
+
+_lib.Rxml_set_auto_load.argtypes = [ctypes.c_int]
+_lib.Rxml_set_auto_load.restype = None
+
+
+def Rxml_set_auto_load(enabled):
+    """Turns auto-loading on or off (see above). It is on by default;
+    the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+    rebuilding. Turned off, the register functions are the only way in;
+    the places where paths are looked for stay the same."""
+    _lib.Rxml_set_auto_load(enabled)
+
+
+_lib.Rxml_get_auto_load.argtypes = []
+_lib.Rxml_get_auto_load.restype = ctypes.c_int
+
+
+def Rxml_get_auto_load():
+    return _lib.Rxml_get_auto_load()
 
 
 _lib.Rxml_set_live_reload.argtypes = [ctypes.c_int]
@@ -10874,9 +11162,12 @@ _lib.Rxml_resolve_path.restype = ctypes.c_char_p
 
 def Rxml_resolve_path(path):
     """The path of a file named in a document: as the attributes
-    Source of Raven read it, relative to the folder of the document being
-    loaded (while it loads), else to the base path. For the attributes of
-    the tags made by code that name files.
+    Source of Raven read it, looked for where files are looked for (see
+    Rxml_set_base_path): the folder of the document being loaded (while it
+    loads) and its subfolders, the base path, the current folder, PATH.
+    When no place holds it, the path it would have next to the document
+    (else in the base path). For the attributes of the tags made by code
+    that name files.
     Returns: The path; valid until the next call."""
     return _r(_lib.Rxml_resolve_path(_s(path)))
 

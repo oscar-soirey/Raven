@@ -910,6 +910,18 @@ public:
 
 	static Menu create() { return Menu(Rwidget_create(R_WIDGET_MENU)); }
 
+	/// The menu bar of the system. On macOS, the first MenuBar of a
+	/// window is shown in the bar at the top of the screen while the window is
+	/// the active one, after the menu of the application (About, Hide, Quit);
+	/// it then takes no room in the window. Its shortcuts are those of the
+	/// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+	/// drawn in the window. On by default; R_FALSE keeps it in the window
+	/// everywhere. In XML: <MenuBar Native="false">.
+	void bar_set_native(int native) const { Rmenu_bar_set_native(id_, native); }
+
+	/// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+	int bar_is_native() const { return Rmenu_bar_is_native(id_); }
+
 	/// Creates a menu inside a menu bar or as a sub-menu of another menu.
 	Rid add_menu(const char* title) const { return Rmenu_add_menu(id_, title); }
 
@@ -1765,6 +1777,28 @@ public:
 	/// Returns: R_FALSE when the window system cannot do it.
 	int set_topmost(int topmost) const { return Rwindow_set_topmost(id_, topmost); }
 
+	/// Picture in picture: the window becomes a small floating window
+	/// that stays above the other windows, on every desktop (every space of
+	/// macOS, over the applications in full screen too), in a corner of the
+	/// work area of its monitor. It loses its title bar where the system
+	/// allows: the empty parts of its content move it, its edges resize it,
+	/// and its size keeps the proportions it was given. Leaving it gives back
+	/// the size, place, frame and state the window had.
+	///
+	/// Raven does not add a button to leave it: the content shows one, with
+	/// the built-in action "window.picture_in_picture" (it goes in and out).
+	/// Returns: R_FALSE when the window system cannot keep a window above the
+	/// others (Wayland): the window is left as it is.
+	int set_picture_in_picture(int enabled) const { return Rwindow_set_picture_in_picture(id_, enabled); }
+
+	int is_picture_in_picture() const { return Rwindow_is_picture_in_picture(id_); }
+
+	/// Size (logical units) and corner of the window in picture in
+	/// picture, for the next time it goes in (now, when it is in). 0, 0 (the
+	/// default): 320 wide, with the proportions the content has when it goes
+	/// in. The proportions of width / height are kept while the user resizes.
+	void set_picture_in_picture_layout(int width, int height, RPictureInPictureCorner corner) const { Rwindow_set_picture_in_picture_layout(id_, width, height, corner); }
+
 	/// Centers the window on the work area of its monitor (no task bar).
 	void center() const { Rwindow_center(id_); }
 
@@ -1928,6 +1962,21 @@ public:
 	void set_island(Rid widget) const { Rwindow_set_island(id_, widget); }
 
 	Rid get_island() const { return Rwindow_get_island(id_); }
+
+	/// A progress bar on the icon of the application: on the button of
+	/// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+	/// on the launcher (Linux). There is one icon for the whole application in
+	/// the Dock and the launchers: the last window that set it is shown.
+	/// value From 0 to 1 (not used by NONE and INDETERMINATE).
+	/// Returns: R_FALSE where the system shows no progress.
+	int set_taskbar_progress(RTaskbarProgress state, float value) const { return Rwindow_set_taskbar_progress(id_, state, value); }
+
+	/// Asks the user to look at the window when it is not the active
+	/// one: its taskbar button flashes (Windows), the icon bounces in the
+	/// Dock (macOS), the window is marked urgent (X11, the launchers of
+	/// Linux). `critical`: until the user comes to the window; otherwise a few
+	/// times. Nothing happens when the window is already the active one.
+	int request_attention(int critical) const { return Rwindow_request_attention(id_, critical); }
 
 	/// Returns: R_TRUE while a dialog is shown in the window.
 	int has_dialog() const { return Rwindow_has_dialog(id_); }
@@ -2474,6 +2523,7 @@ inline void action_set_default_handler(std::function<void(Rid, const char*)> cal
 ///   app.quit                          quits (Rquit(0))
 ///   window.close, window.minimize,    the window of the widget
 ///   window.maximize, window.restore   (maximize goes back when it already is)
+///   window.picture_in_picture         in and out of picture in picture
 ///   island.expand, island.fold,       the island of that window
 ///   island.toggle
 ///   theme.dark, theme.light,          the look of Raven, dark or light
@@ -2505,6 +2555,13 @@ inline int action_is_builtin(const char* name) { return Raction_is_builtin(name)
 inline int open_url(const char* url) { return Ropen_url(url); }
 
 inline void clipboard_set_text(const char* text) { Rclipboard_set_text(text); }
+
+/// Copies one content in two formats: `html` for the programs that
+/// paste formatting (word processors, chat, mail) and `text` for the
+/// others (editors, terminals). Each program takes the format it prefers.
+/// Where the window system has no clipboard formats (Win32 and macOS for
+/// now), or `html` is NULL, it is Rclipboard_set_text(text).
+inline void clipboard_set_html(const char* text, const char* html) { Rclipboard_set_html(text, html); }
 
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
 inline const char* clipboard_get_text() { return Rclipboard_get_text(); }
@@ -3014,6 +3071,63 @@ inline void theme_get_token_color(RToken token, float* r, float* g, float* b, fl
 
 /// Back to the colors Raven picks.
 inline void theme_clear_token_colors() { Rtheme_clear_token_colors(); }
+
+/// A short text on the icon of the application: a number of unread
+/// messages, "!". macOS: the badge of the Dock. Windows: a small round
+/// icon on the taskbar buttons of the windows, drawn from the text (one
+/// to three characters fit). Linux: a number only (the text is read as
+/// one; anything else shows nothing). NULL or "": no badge.
+inline int taskbar_set_badge(const char* text) { return Rtaskbar_set_badge(text); }
+
+/// The menu of the icon of the application in the Dock (macOS),
+/// above the entries of the system. A MENU without a parent: its
+/// MenuItems fire as when chosen in a window (clicked callback, action),
+/// and what changes in it shows the next time the menu opens.
+/// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+inline int taskbar_set_menu(Rid menu) { return Rtaskbar_set_menu(menu); }
+
+/// The tasks of the jump list of Windows (right click on the button
+/// of the application in the taskbar, or on its tile in the Start menu).
+/// Choosing one starts the application again with its arguments: the
+/// application reads them as any other command line. count 0: none.
+/// R_FALSE where there is no jump list.
+inline int taskbar_set_jump_list(const RJumpTask* tasks, int count) { return Rtaskbar_set_jump_list(tasks, count); }
+
+/// Returns: R_TRUE when the system shows tray icons: always on Windows and
+/// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+/// the desktop). An icon made where none runs yet appears when one starts.
+inline int tray_is_supported() { return Rtray_is_supported(); }
+
+/// Puts an icon of the application beside the clock. While one
+/// exists, the application goes on running when its last window closes
+/// (Ris_running): Rquit (or the action app.quit) ends it.
+/// Returns: R_INVALID_ID where the system has none.
+inline Rid tray_create() { return Rtray_create(); }
+
+inline void tray_destroy(Rid tray) { Rtray_destroy(tray); }
+
+inline int tray_is_valid(Rid tray) { return Rtray_is_valid(tray); }
+
+/// The picture, from tightly packed RGBA8 pixels (straight alpha);
+/// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+inline void tray_set_icon(Rid tray, const uint8_t* rgba, int width, int height) { Rtray_set_icon(tray, rgba, width, height); }
+
+/// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+inline void tray_set_tooltip(Rid tray, const char* text) { Rtray_set_tooltip(tray, text); }
+
+/// The menu the system shows for the icon: on a right click
+/// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+/// MenuItems fire as when chosen in a window; what changes in it shows
+/// the next time it opens. R_INVALID_ID: none.
+inline void tray_set_menu(Rid tray, Rid menu) { Rtray_set_menu(tray, menu); }
+
+/// Called on a click: the left button (activate), the right one
+/// when there is no menu, the middle one. On macOS an icon with a menu
+/// opens it instead.
+inline void tray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data) { Rtray_set_clicked_callback(tray, callback, user_data); }
+inline void tray_set_clicked_callback(Rid tray, std::function<void(Rid, RMouseButton)> callback) {
+	Rtray_set_clicked_callback(tray, [](Rid tray, RMouseButton button, void* kept_) -> void { return (*static_cast<std::function<void(Rid, RMouseButton)>*>(kept_))(tray, button); }, detail::keep(tray, 65, std::move(callback)));
+}
 
 inline Rid color_picker_create() { return Rcolor_picker_create(); }
 
@@ -3646,9 +3760,17 @@ inline void shader_look_init(RShaderLook* look) { Rshader_look_init(look); }
 /// Fills a look with the defaults of the shader when it is a built-in effect (else Rshader_look_init).
 inline void shader_look_defaults(Rid shader, RShaderLook* look) { Rshader_look_defaults(shader, look); }
 
-/// Folder used to resolve relative paths found in XML (Source="...",
-/// Font="..."). The *FromXmlFile functions use the folder of the file.
+/// A folder looked into after the one of the document (see above),
+/// and the first one for the documents given from memory. NULL or "": none.
 inline void xml_set_base_path(const char* path) { Rxml_set_base_path(path); }
+
+/// Turns auto-loading on or off (see above). It is on by default;
+/// the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+/// rebuilding. Turned off, the register functions are the only way in;
+/// the places where paths are looked for stay the same.
+inline void xml_set_auto_load(int enabled) { Rxml_set_auto_load(enabled); }
+
+inline int xml_get_auto_load() { return Rxml_get_auto_load(); }
 
 /// Turns live reload on or off. It is on by default; the
 /// environment variable RAVEN_LIVE_RELOAD=0 turns it off without
@@ -3696,9 +3818,12 @@ inline void xml_unregister_tag(const char* tag) { Rxml_unregister_tag(tag); }
 inline int xml_is_tag_registered(const char* tag) { return Rxml_is_tag_registered(tag); }
 
 /// The path of a file named in a document: as the attributes
-/// Source of Raven read it, relative to the folder of the document being
-/// loaded (while it loads), else to the base path. For the attributes of
-/// the tags made by code that name files.
+/// Source of Raven read it, looked for where files are looked for (see
+/// Rxml_set_base_path): the folder of the document being loaded (while it
+/// loads) and its subfolders, the base path, the current folder, PATH.
+/// When no place holds it, the path it would have next to the document
+/// (else in the base path). For the attributes of the tags made by code
+/// that name files.
 /// Returns: The path; valid until the next call.
 inline const char* xml_resolve_path(const char* path) { return Rxml_resolve_path(path); }
 

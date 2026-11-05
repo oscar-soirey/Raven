@@ -69,6 +69,13 @@ pub const R_WINDOW_CUSTOM_HEADER: RWindowFlags = 0x0010;
 /// system can do.
 pub const R_WINDOW_TRANSPARENT: RWindowFlags = 0x0020;
 
+/// Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
+pub type RPictureInPictureCorner = c_int;
+pub const R_PIP_BOTTOM_RIGHT: RPictureInPictureCorner = 0x0780;
+pub const R_PIP_BOTTOM_LEFT: RPictureInPictureCorner = 0x0781;
+pub const R_PIP_TOP_RIGHT: RPictureInPictureCorner = 0x0782;
+pub const R_PIP_TOP_LEFT: RPictureInPictureCorner = 0x0783;
+
 /// What is seen behind a window created with R_WINDOW_TRANSPARENT.
 ///
 ///   Windows 11          every value
@@ -796,6 +803,17 @@ pub const R_HEADER_MINIMIZE: RHeaderButtons = 2;
 pub const R_HEADER_MAXIMIZE: RHeaderButtons = 4;
 pub const R_HEADER_ALL_BUTTONS: RHeaderButtons = 7;
 
+/// A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+pub type RTaskbarProgress = c_int;
+pub const R_TASKBAR_PROGRESS_NONE: RTaskbarProgress = 0x07A0;
+pub const R_TASKBAR_PROGRESS_NORMAL: RTaskbarProgress = 0x07A1;
+/// Shown as paused (yellow on Windows).
+pub const R_TASKBAR_PROGRESS_PAUSED: RTaskbarProgress = 0x07A2;
+/// Shown as failed (red on Windows).
+pub const R_TASKBAR_PROGRESS_ERROR: RTaskbarProgress = 0x07A3;
+/// Something goes on, without knowing how far it is.
+pub const R_TASKBAR_PROGRESS_INDETERMINATE: RTaskbarProgress = 0x07A4;
+
 /// Where a panel goes in a dock area, relative to another panel or to the whole area.
 pub type RDockSide = c_int;
 pub const R_DOCK_LEFT: RDockSide = 0x0360;
@@ -1134,6 +1152,8 @@ pub type RCompletionCallback = Option<unsafe extern "C" fn(editor: Rid, prefix: 
 /// undoing...) or by Rtext_editor_insert_text. The action of the widget
 /// (OnChanged in XML) fires at the same time.
 pub type RTextEditorChangedCallback = Option<unsafe extern "C" fn(editor: Rid, user_data: *mut c_void)>;
+/// Called when the tray icon is clicked (Rtray_set_clicked_callback).
+pub type RTrayClickedCallback = Option<unsafe extern "C" fn(tray: Rid, button: RMouseButton, user_data: *mut c_void)>;
 /// Called when the user closes a panel, before it is deleted.
 /// Return R_FALSE to keep the panel.
 pub type RDockCloseCallback = Option<unsafe extern "C" fn(area: Rid, panel: Rid, user_data: *mut c_void) -> c_int>;
@@ -1539,6 +1559,18 @@ pub struct RLanguageDesc {
     pub script_language: *const c_char,
 }
 
+/// A task of the jump list of Windows (Rtaskbar_set_jump_list).
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RJumpTask {
+    /// What the list shows.
+    pub title: *const c_char,
+    /// The command line given to the application when it is chosen: it is started again with these arguments.
+    pub arguments: *const c_char,
+    /// The tooltip; NULL: none.
+    pub description: *const c_char,
+}
+
 /// A kind of file in a file dialog.
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -1819,6 +1851,7 @@ extern "C" {
     ///   app.quit                          quits (Rquit(0))
     ///   window.close, window.minimize,    the window of the widget
     ///   window.maximize, window.restore   (maximize goes back when it already is)
+    ///   window.picture_in_picture         in and out of picture in picture
     ///   island.expand, island.fold,       the island of that window
     ///   island.toggle
     ///   theme.dark, theme.light,          the look of Raven, dark or light
@@ -1847,6 +1880,12 @@ extern "C" {
     /// a program then really opened it).
     pub fn Ropen_url(url: *const c_char) -> c_int;
     pub fn Rclipboard_set_text(text: *const c_char);
+    /// Copies one content in two formats: `html` for the programs that
+    /// paste formatting (word processors, chat, mail) and `text` for the
+    /// others (editors, terminals). Each program takes the format it prefers.
+    /// Where the window system has no clipboard formats (Win32 and macOS for
+    /// now), or `html` is NULL, it is Rclipboard_set_text(text).
+    pub fn Rclipboard_set_html(text: *const c_char, html: *const c_char);
     /// Returns: The clipboard text, or "" when empty. Valid until the next call.
     pub fn Rclipboard_get_text() -> *const c_char;
     /// Retrieves and clears the last recorded error.
@@ -1938,6 +1977,25 @@ extern "C" {
     /// Keeps the window above the other windows (splash screens, tools).
     /// Returns: R_FALSE when the window system cannot do it.
     pub fn Rwindow_set_topmost(window: Rid, topmost: c_int) -> c_int;
+    /// Picture in picture: the window becomes a small floating window
+    /// that stays above the other windows, on every desktop (every space of
+    /// macOS, over the applications in full screen too), in a corner of the
+    /// work area of its monitor. It loses its title bar where the system
+    /// allows: the empty parts of its content move it, its edges resize it,
+    /// and its size keeps the proportions it was given. Leaving it gives back
+    /// the size, place, frame and state the window had.
+    ///
+    /// Raven does not add a button to leave it: the content shows one, with
+    /// the built-in action "window.picture_in_picture" (it goes in and out).
+    /// Returns: R_FALSE when the window system cannot keep a window above the
+    /// others (Wayland): the window is left as it is.
+    pub fn Rwindow_set_picture_in_picture(window: Rid, enabled: c_int) -> c_int;
+    pub fn Rwindow_is_picture_in_picture(window: Rid) -> c_int;
+    /// Size (logical units) and corner of the window in picture in
+    /// picture, for the next time it goes in (now, when it is in). 0, 0 (the
+    /// default): 320 wide, with the proportions the content has when it goes
+    /// in. The proportions of width / height are kept while the user resizes.
+    pub fn Rwindow_set_picture_in_picture_layout(window: Rid, width: c_int, height: c_int, corner: RPictureInPictureCorner);
     /// Centers the window on the work area of its monitor (no task bar).
     pub fn Rwindow_center(window: Rid);
     /// Asks for a new frame even if no widget changed. Thread-safe.
@@ -2703,6 +2761,16 @@ extern "C" {
     pub fn Rtree_view_get_item_at(tree_view: Rid, local_x: f32, local_y: f32) -> Rid;
     /// Highlights where a drop would go: an item, or the whole tree (`whole_tree`). R_INVALID_ID, 0 removes it.
     pub fn Rtree_view_set_drop_highlight(tree_view: Rid, item: Rid, whole_tree: c_int);
+    /// The menu bar of the system. On macOS, the first MenuBar of a
+    /// window is shown in the bar at the top of the screen while the window is
+    /// the active one, after the menu of the application (About, Hide, Quit);
+    /// it then takes no room in the window. Its shortcuts are those of the
+    /// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+    /// drawn in the window. On by default; R_FALSE keeps it in the window
+    /// everywhere. In XML: <MenuBar Native="false">.
+    pub fn Rmenu_bar_set_native(menu_bar: Rid, native: c_int);
+    /// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+    pub fn Rmenu_bar_is_native(menu_bar: Rid) -> c_int;
     /// Creates a menu inside a menu bar or as a sub-menu of another menu.
     pub fn Rmenu_add_menu(menu_bar_or_menu: Rid, title: *const c_char) -> Rid;
     pub fn Rmenu_set_title(menu: Rid, title: *const c_char);
@@ -3100,6 +3168,62 @@ extern "C" {
     /// its slot (Rslot_set_padding) is its distance from the top edge.
     pub fn Rwindow_set_island(window: Rid, widget: Rid);
     pub fn Rwindow_get_island(window: Rid) -> Rid;
+    /// A progress bar on the icon of the application: on the button of
+    /// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+    /// on the launcher (Linux). There is one icon for the whole application in
+    /// the Dock and the launchers: the last window that set it is shown.
+    /// value From 0 to 1 (not used by NONE and INDETERMINATE).
+    /// Returns: R_FALSE where the system shows no progress.
+    pub fn Rwindow_set_taskbar_progress(window: Rid, state: RTaskbarProgress, value: f32) -> c_int;
+    /// Asks the user to look at the window when it is not the active
+    /// one: its taskbar button flashes (Windows), the icon bounces in the
+    /// Dock (macOS), the window is marked urgent (X11, the launchers of
+    /// Linux). `critical`: until the user comes to the window; otherwise a few
+    /// times. Nothing happens when the window is already the active one.
+    pub fn Rwindow_request_attention(window: Rid, critical: c_int) -> c_int;
+    /// A short text on the icon of the application: a number of unread
+    /// messages, "!". macOS: the badge of the Dock. Windows: a small round
+    /// icon on the taskbar buttons of the windows, drawn from the text (one
+    /// to three characters fit). Linux: a number only (the text is read as
+    /// one; anything else shows nothing). NULL or "": no badge.
+    pub fn Rtaskbar_set_badge(text: *const c_char) -> c_int;
+    /// The menu of the icon of the application in the Dock (macOS),
+    /// above the entries of the system. A MENU without a parent: its
+    /// MenuItems fire as when chosen in a window (clicked callback, action),
+    /// and what changes in it shows the next time the menu opens.
+    /// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+    pub fn Rtaskbar_set_menu(menu: Rid) -> c_int;
+    /// The tasks of the jump list of Windows (right click on the button
+    /// of the application in the taskbar, or on its tile in the Start menu).
+    /// Choosing one starts the application again with its arguments: the
+    /// application reads them as any other command line. count 0: none.
+    /// R_FALSE where there is no jump list.
+    pub fn Rtaskbar_set_jump_list(tasks: *const RJumpTask, count: c_int) -> c_int;
+    /// Returns: R_TRUE when the system shows tray icons: always on Windows and
+    /// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+    /// the desktop). An icon made where none runs yet appears when one starts.
+    pub fn Rtray_is_supported() -> c_int;
+    /// Puts an icon of the application beside the clock. While one
+    /// exists, the application goes on running when its last window closes
+    /// (Ris_running): Rquit (or the action app.quit) ends it.
+    /// Returns: R_INVALID_ID where the system has none.
+    pub fn Rtray_create() -> Rid;
+    pub fn Rtray_destroy(tray: Rid);
+    pub fn Rtray_is_valid(tray: Rid) -> c_int;
+    /// The picture, from tightly packed RGBA8 pixels (straight alpha);
+    /// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+    pub fn Rtray_set_icon(tray: Rid, rgba: *const u8, width: c_int, height: c_int);
+    /// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+    pub fn Rtray_set_tooltip(tray: Rid, text: *const c_char);
+    /// The menu the system shows for the icon: on a right click
+    /// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+    /// MenuItems fire as when chosen in a window; what changes in it shows
+    /// the next time it opens. R_INVALID_ID: none.
+    pub fn Rtray_set_menu(tray: Rid, menu: Rid);
+    /// Called on a click: the left button (activate), the right one
+    /// when there is no menu, the middle one. On macOS an icon with a menu
+    /// opens it instead.
+    pub fn Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback, user_data: *mut c_void);
     pub fn Rcolor_picker_create() -> Rid;
     /// Sets the color (0..1 each). The callback is not called.
     pub fn Rcolor_picker_set_color(picker: Rid, r: f32, g: f32, b: f32, a: f32);
@@ -3580,9 +3704,15 @@ extern "C" {
     /// widget. The caller owns the returned widget until it is added to a parent.
     pub fn Rwidget_create_from_xml(xml: *const c_char, size: usize) -> Rid;
     pub fn Rwidget_create_from_xml_file(path: *const c_char) -> Rid;
-    /// Folder used to resolve relative paths found in XML (Source="...",
-    /// Font="..."). The *FromXmlFile functions use the folder of the file.
+    /// A folder looked into after the one of the document (see above),
+    /// and the first one for the documents given from memory. NULL or "": none.
     pub fn Rxml_set_base_path(path: *const c_char);
+    /// Turns auto-loading on or off (see above). It is on by default;
+    /// the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+    /// rebuilding. Turned off, the register functions are the only way in;
+    /// the places where paths are looked for stay the same.
+    pub fn Rxml_set_auto_load(enabled: c_int);
+    pub fn Rxml_get_auto_load() -> c_int;
     /// Turns live reload on or off. It is on by default; the
     /// environment variable RAVEN_LIVE_RELOAD=0 turns it off without
     /// rebuilding. When off, files are never looked at again.
@@ -3610,9 +3740,12 @@ extern "C" {
     pub fn Rxml_unregister_tag(tag: *const c_char);
     pub fn Rxml_is_tag_registered(tag: *const c_char) -> c_int;
     /// The path of a file named in a document: as the attributes
-    /// Source of Raven read it, relative to the folder of the document being
-    /// loaded (while it loads), else to the base path. For the attributes of
-    /// the tags made by code that name files.
+    /// Source of Raven read it, looked for where files are looked for (see
+    /// Rxml_set_base_path): the folder of the document being loaded (while it
+    /// loads) and its subfolders, the base path, the current folder, PATH.
+    /// When no place holds it, the path it would have next to the document
+    /// (else in the base path). For the attributes of the tags made by code
+    /// that name files.
     /// Returns: The path; valid until the next call.
     pub fn Rxml_resolve_path(path: *const c_char) -> *const c_char;
     /// Sets a property from text, with the names and value syntax of the

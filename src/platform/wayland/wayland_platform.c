@@ -29,6 +29,7 @@
 
 #include "../platform.h"
 #include "../atspi.h"
+#include "../sni.h"
 #include "../x11/x11_internal.h"   /* the key symbols of X11 and of xkbcommon are the same numbers */
 
 #include <dlfcn.h>
@@ -516,6 +517,7 @@ static struct {
 
 	/* clipboard */
 	char* clipboard;
+	char* clipboard_html;          /* NULL: the selection is text only */
 	struct wl_data_source* source;
 	struct wl_data_offer* selection;
 
@@ -1406,6 +1408,9 @@ static void rvn_wl_keyboard_keymap(void* data, struct wl_keyboard* keyboard, uin
 	g_wl.mod_super = g_xkb.keymap_mod_get_index(keymap, "Mod4");
 }
 
+/* Attention was asked through the launchers (Wayland itself has no way without xdg-activation). */
+static int g_wl_urgent;
+
 static void rvn_wl_keyboard_enter(void* data, struct wl_keyboard* keyboard, uint32_t serial, struct wl_surface* surface, struct wl_array* keys) {
 	rvn_pwindow_t* window = rvn_wl_window_of(surface);
 	rvn_pevent_t event;
@@ -1413,6 +1418,11 @@ static void rvn_wl_keyboard_enter(void* data, struct wl_keyboard* keyboard, uint
 	g_wl.input_serial = serial;
 	g_wl.keyboard_window = window;
 	if (!window) return;
+	/* the user came: the launchers stop asking */
+	if (g_wl_urgent) {
+		g_wl_urgent = R_FALSE;
+		rvn_dbus_launcher_urgent(R_FALSE);
+	}
 	memset(&event, 0, sizeof(event));
 	event.type = RVN_PEVENT_FOCUS;
 	event.focused = R_TRUE;
@@ -2066,8 +2076,10 @@ static void rvn_wl_source_target(void* data, struct wl_data_source* source, cons
 
 static void rvn_wl_source_send(void* data, struct wl_data_source* source, const char* mime, int32_t fd) {
 	const char* text = g_wl.clipboard ? g_wl.clipboard : "";
-	size_t size = strlen(text), written = 0;
-	RVN_UNUSED(data); RVN_UNUSED(source); RVN_UNUSED(mime);
+	size_t size, written = 0;
+	RVN_UNUSED(data); RVN_UNUSED(source);
+	if (g_wl.clipboard_html && mime && strcmp(mime, "text/html") == 0) text = g_wl.clipboard_html;
+	size = strlen(text);
 	/* (a reader that stops reading must not hang us forever: the pipe is non-blocking and given a deadline) */
 	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 	while (written < size) {
@@ -2108,12 +2120,16 @@ static const struct wl_data_source_listener g_wl_source_listener = {
 	rvn_wl_source_dnd_drop_performed, rvn_wl_source_dnd_finished, rvn_wl_source_action
 };
 
-static void rvn_wl_clipboard_set(const char* text) {
+static void rvn_wl_clipboard_offer(const char* text, const char* html) {
 	rvn_str_set(&g_wl.clipboard, text);
+	rvn_free(g_wl.clipboard_html);
+	g_wl.clipboard_html = html ? rvn_strdup(html) : NULL;
 	if (!g_wl.data_device || g_wl.failed) return;
 	if (g_wl.source) wl_data_source_destroy(g_wl.source);
 	g_wl.source = wl_data_device_manager_create_data_source(g_wl.data_device_manager);
 	wl_data_source_add_listener(g_wl.source, &g_wl_source_listener, NULL);
+	/* (first: the programs that paste formatting look for it) */
+	if (html) wl_data_source_offer(g_wl.source, "text/html");
 	wl_data_source_offer(g_wl.source, "text/plain;charset=utf-8");
 	wl_data_source_offer(g_wl.source, "UTF8_STRING");
 	wl_data_source_offer(g_wl.source, "text/plain");
@@ -2122,6 +2138,14 @@ static void rvn_wl_clipboard_set(const char* text) {
 	/* (the compositor only takes it when the serial is the one of a recent input event of a focused window) */
 	wl_data_device_set_selection(g_wl.data_device, g_wl.source, g_wl.input_serial);
 	g_wlc.display_flush(g_wl.display);
+}
+
+static void rvn_wl_clipboard_set(const char* text) {
+	rvn_wl_clipboard_offer(text, NULL);
+}
+
+static void rvn_wl_clipboard_set_html(const char* text, const char* html) {
+	rvn_wl_clipboard_offer(text, html);
 }
 
 static char* rvn_wl_clipboard_get(void) {
@@ -2293,6 +2317,7 @@ static void rvn_wl_disconnect(void) {
 	if (g_wl.wake_pipe[0] >= 0) close(g_wl.wake_pipe[0]);
 	if (g_wl.wake_pipe[1] >= 0) close(g_wl.wake_pipe[1]);
 	rvn_free(g_wl.clipboard);
+	rvn_free(g_wl.clipboard_html);
 	rvn_free(g_wl.app_id);
 	memset(&g_wl, 0, sizeof(g_wl));
 	g_wl.repeat_fd = g_wl.wake_pipe[0] = g_wl.wake_pipe[1] = -1;
@@ -2357,6 +2382,7 @@ static int rvn_wl_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regio
 	}
 	g_wl.probed = R_FALSE;
 	g_wl.handler = handler;
+	rvn_sni_set_handler(handler);
 	g_wl.cursor = R_CURSOR_ARROW;
 
 	/* text input needs the character encoding of the user (compose tables are per locale) */
@@ -2412,6 +2438,7 @@ static int rvn_wl_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regio
 
 static void rvn_wl_shutdown(void) {
 	rvn_atspi_shutdown();
+	rvn_sni_shutdown();
 	rvn_dbus_notify_shutdown();
 	rvn_wl_disconnect();
 }
@@ -2724,6 +2751,18 @@ static int rvn_wl_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 	return R_FALSE;
 }
 
+static int rvn_wl_window_request_attention(rvn_pwindow_t* window, int critical) {
+	RVN_UNUSED(critical);
+	if (g_wl.keyboard_window == window) return R_TRUE;
+	g_wl_urgent = R_TRUE;
+	return rvn_dbus_launcher_urgent(R_TRUE);
+}
+
+static int rvn_wl_window_set_progress(rvn_pwindow_t* window, int state, float value) {
+	RVN_UNUSED(window);
+	return rvn_dbus_launcher_progress(state, value);
+}
+
 static void rvn_wl_window_center(rvn_pwindow_t* window) {
 	/* the compositor places new windows itself, usually in the middle */
 	RVN_UNUSED(window);
@@ -2865,8 +2904,8 @@ static void rvn_wl_lost(void) {
 }
 
 static void rvn_wl_pump(double timeout_seconds) {
-	struct pollfd fds[5];
-	int count = 0, i, timeout_ms, a11y, decor_fd = -1, display_fd;
+	struct pollfd fds[6];
+	int count = 0, i, timeout_ms, a11y, tray, decor_fd = -1, display_fd;
 	/* (what a roundtrip outside this function dispatched: not worth sleeping over) */
 	if (g_wl.close_first) {
 		rvn_wl_deliver_closes();
@@ -2917,6 +2956,13 @@ static void rvn_wl_pump(double timeout_seconds) {
 		fds[count].events = POLLIN;
 		fds[count++].revents = 0;
 	}
+	/* and the panel that shows the tray icons, on the session bus */
+	tray = rvn_sni_fd();
+	if (tray >= 0) {
+		fds[count].fd = tray;
+		fds[count].events = POLLIN;
+		fds[count++].revents = 0;
+	}
 	if (g_wl.decor) {
 		decor_fd = g_decor.get_fd(g_wl.decor);
 		if (decor_fd >= 0 && decor_fd != display_fd) {
@@ -2949,6 +2995,7 @@ static void rvn_wl_pump(double timeout_seconds) {
 		if (fds[i].fd == g_wl.repeat_fd && (fds[i].revents & POLLIN)) rvn_wl_repeat_fire();
 	}
 	rvn_atspi_dispatch();
+	rvn_sni_dispatch();
 	/* empty the wake-up pipe, whether we slept or not */
 	if (g_wl.wake_pipe[0] >= 0) {
 		char buffer[64];
@@ -2999,12 +3046,22 @@ const rvn_platform_t* rvn_platform_wayland(void) {
 		.pump = rvn_wl_pump,
 		.wake = rvn_wl_wake,
 		.clipboard_set = rvn_wl_clipboard_set,
+		.clipboard_set_html = rvn_wl_clipboard_set_html,
 		.clipboard_get = rvn_wl_clipboard_get,
 		.a11y_event = rvn_atspi_event,
 		.a11y_announce = rvn_atspi_announce,
 		.a11y_active = rvn_atspi_active,
 		.a11y_settings = rvn_atspi_settings,
-		.notify = rvn_dbus_notify
+		.notify = rvn_dbus_notify,
+		.window_set_progress = rvn_wl_window_set_progress,
+		.window_request_attention = rvn_wl_window_request_attention,
+		.app_set_badge = rvn_dbus_launcher_badge,
+		.tray_supported = rvn_sni_supported,
+		.tray_create = rvn_sni_create,
+		.tray_destroy = rvn_sni_destroy,
+		.tray_set_icon = rvn_sni_set_icon,
+		.tray_set_tooltip = rvn_sni_set_tooltip,
+		.tray_set_menu = rvn_sni_set_menu
 	};
 	return &platform;
 }

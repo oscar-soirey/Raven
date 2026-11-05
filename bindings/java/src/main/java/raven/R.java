@@ -263,6 +263,12 @@ public final class R {
      */
     public static final int R_WINDOW_TRANSPARENT = 0x0020;
 
+    // RPictureInPictureCorner: Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
+    public static final int R_PIP_BOTTOM_RIGHT = 0x0780;
+    public static final int R_PIP_BOTTOM_LEFT = 0x0781;
+    public static final int R_PIP_TOP_RIGHT = 0x0782;
+    public static final int R_PIP_TOP_LEFT = 0x0783;
+
     // RBackdrop: What is seen behind a window created with R_WINDOW_TRANSPARENT.
     /**
      * Opaque: the window color, or the wallpaper of the theme.
@@ -1235,6 +1241,22 @@ public final class R {
     public static final int R_HEADER_MINIMIZE = 2;
     public static final int R_HEADER_MAXIMIZE = 4;
     public static final int R_HEADER_ALL_BUTTONS = 7;
+
+    // RTaskbarProgress: A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+    public static final int R_TASKBAR_PROGRESS_NONE = 0x07A0;
+    public static final int R_TASKBAR_PROGRESS_NORMAL = 0x07A1;
+    /**
+     * Shown as paused (yellow on Windows).
+     */
+    public static final int R_TASKBAR_PROGRESS_PAUSED = 0x07A2;
+    /**
+     * Shown as failed (red on Windows).
+     */
+    public static final int R_TASKBAR_PROGRESS_ERROR = 0x07A3;
+    /**
+     * Something goes on, without knowing how far it is.
+     */
+    public static final int R_TASKBAR_PROGRESS_INDETERMINATE = 0x07A4;
 
     // RDockSide: Where a panel goes in a dock area, relative to another panel or to the whole area.
     public static final int R_DOCK_LEFT = 0x0360;
@@ -2788,6 +2810,67 @@ public final class R {
          */
         public String script_language() { return R.text(s.get(ADDRESS, 104)); }
         public RLanguageDesc script_language(String value) { s.set(ADDRESS, 104, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+    }
+
+    /**
+     * A task of the jump list of Windows (Rtaskbar_set_jump_list).
+     */
+    public static final class RJumpTask {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 24;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RJumpTask x = {0};` is in C). */
+        public RJumpTask() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RJumpTask(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RJumpTask(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RJumpTask[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RJumpTask[] items = new RJumpTask[count];
+            for (int i = 0; i < count; i++) items[i] = new RJumpTask(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * What the list shows.
+         */
+        public String title() { return R.text(s.get(ADDRESS, 0)); }
+        public RJumpTask title(String value) { s.set(ADDRESS, 0, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * The command line given to the application when it is chosen: it is started again with these arguments.
+         */
+        public String arguments() { return R.text(s.get(ADDRESS, 8)); }
+        public RJumpTask arguments(String value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * The tooltip; NULL: none.
+         */
+        public String description() { return R.text(s.get(ADDRESS, 16)); }
+        public RJumpTask description(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
     }
 
     /**
@@ -4514,6 +4597,27 @@ public final class R {
     }
 
     /**
+     * Called when the tray icon is clicked (Rtray_set_clicked_callback).
+     */
+    @FunctionalInterface
+    public interface RTrayClickedCallback {
+        void invoke(int tray, int button, MemorySegment user_data);
+    }
+
+    private static void RTrayClickedCallback$raw(RTrayClickedCallback f, int tray, int button, MemorySegment user_data) {
+        try {
+            f.invoke(tray, button, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RTrayClickedCallback f) {
+        return stub(f, RTrayClickedCallback.class, "RTrayClickedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
      * Called when the user closes a panel, before it is deleted.
      * Return R_FALSE to keep the panel.
      */
@@ -5801,6 +5905,7 @@ public final class R {
      *   app.quit                          quits (Rquit(0))
      *   window.close, window.minimize,    the window of the widget
      *   window.maximize, window.restore   (maximize goes back when it already is)
+     *   window.picture_in_picture         in and out of picture in picture
      *   island.expand, island.fold,       the island of that window
      *   island.toggle
      *   theme.dark, theme.light,          the look of Raven, dark or light
@@ -5876,6 +5981,27 @@ public final class R {
         try (Arena $a = Arena.ofConfined()) {
             MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
             $h.invokeExact(text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_set_html$;
+
+    /**
+     * Copies one content in two formats: `html` for the programs that
+     * paste formatting (word processors, chat, mail) and `text` for the
+     * others (editors, terminals). Each program takes the format it prefers.
+     * Where the window system has no clipboard formats (Win32 and macOS for
+     * now), or `html` is NULL, it is Rclipboard_set_text(text).
+     */
+    public static void Rclipboard_set_html(String text, String html) {
+        MethodHandle $h = Rclipboard_set_html$;
+        if ($h == null) Rclipboard_set_html$ = $h = find("Rclipboard_set_html", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            MemorySegment html$ = html == null ? MemorySegment.NULL : utf8($a, html);
+            $h.invokeExact(text$, html$);
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -6520,6 +6646,64 @@ public final class R {
         try {
             int $r = (int) $h.invokeExact(window, topmost);
             return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_set_picture_in_picture$;
+
+    /**
+     * Picture in picture: the window becomes a small floating window
+     * that stays above the other windows, on every desktop (every space of
+     * macOS, over the applications in full screen too), in a corner of the
+     * work area of its monitor. It loses its title bar where the system
+     * allows: the empty parts of its content move it, its edges resize it,
+     * and its size keeps the proportions it was given. Leaving it gives back
+     * the size, place, frame and state the window had.
+     *
+     * Raven does not add a button to leave it: the content shows one, with
+     * the built-in action "window.picture_in_picture" (it goes in and out).
+     * Returns: R_FALSE when the window system cannot keep a window above the
+     * others (Wayland): the window is left as it is.
+     */
+    public static int Rwindow_set_picture_in_picture(int window, int enabled) {
+        MethodHandle $h = Rwindow_set_picture_in_picture$;
+        if ($h == null) Rwindow_set_picture_in_picture$ = $h = find("Rwindow_set_picture_in_picture", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window, enabled);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_is_picture_in_picture$;
+
+    public static int Rwindow_is_picture_in_picture(int window) {
+        MethodHandle $h = Rwindow_is_picture_in_picture$;
+        if ($h == null) Rwindow_is_picture_in_picture$ = $h = find("Rwindow_is_picture_in_picture", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_set_picture_in_picture_layout$;
+
+    /**
+     * Size (logical units) and corner of the window in picture in
+     * picture, for the next time it goes in (now, when it is in). 0, 0 (the
+     * default): 320 wide, with the proportions the content has when it goes
+     * in. The proportions of width / height are kept while the user resizes.
+     */
+    public static void Rwindow_set_picture_in_picture_layout(int window, int width, int height, int corner) {
+        MethodHandle $h = Rwindow_set_picture_in_picture_layout$;
+        if ($h == null) Rwindow_set_picture_in_picture_layout$ = $h = find("Rwindow_set_picture_in_picture_layout", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(window, width, height, corner);
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -12075,6 +12259,43 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rmenu_bar_set_native$;
+
+    /**
+     * The menu bar of the system. On macOS, the first MenuBar of a
+     * window is shown in the bar at the top of the screen while the window is
+     * the active one, after the menu of the application (About, Hide, Quit);
+     * it then takes no room in the window. Its shortcuts are those of the
+     * system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+     * drawn in the window. On by default; R_FALSE keeps it in the window
+     * everywhere. In XML: &lt;MenuBar Native="false"&gt;.
+     */
+    public static void Rmenu_bar_set_native(int menu_bar, int native_) {
+        MethodHandle $h = Rmenu_bar_set_native$;
+        if ($h == null) Rmenu_bar_set_native$ = $h = find("Rmenu_bar_set_native", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(menu_bar, native_);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmenu_bar_is_native$;
+
+    /**
+     * Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+     */
+    public static int Rmenu_bar_is_native(int menu_bar) {
+        MethodHandle $h = Rmenu_bar_is_native$;
+        if ($h == null) Rmenu_bar_is_native$ = $h = find("Rmenu_bar_is_native", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(menu_bar);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rmenu_add_menu$;
 
     /**
@@ -15110,6 +15331,247 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rwindow_set_taskbar_progress$;
+
+    /**
+     * A progress bar on the icon of the application: on the button of
+     * the window in the taskbar (Windows), on the icon in the Dock (macOS),
+     * on the launcher (Linux). There is one icon for the whole application in
+     * the Dock and the launchers: the last window that set it is shown.
+     * value From 0 to 1 (not used by NONE and INDETERMINATE).
+     * Returns: R_FALSE where the system shows no progress.
+     */
+    public static int Rwindow_set_taskbar_progress(int window, int state, float value) {
+        MethodHandle $h = Rwindow_set_taskbar_progress$;
+        if ($h == null) Rwindow_set_taskbar_progress$ = $h = find("Rwindow_set_taskbar_progress", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(window, state, value);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_request_attention$;
+
+    /**
+     * Asks the user to look at the window when it is not the active
+     * one: its taskbar button flashes (Windows), the icon bounces in the
+     * Dock (macOS), the window is marked urgent (X11, the launchers of
+     * Linux). `critical`: until the user comes to the window; otherwise a few
+     * times. Nothing happens when the window is already the active one.
+     */
+    public static int Rwindow_request_attention(int window, int critical) {
+        MethodHandle $h = Rwindow_request_attention$;
+        if ($h == null) Rwindow_request_attention$ = $h = find("Rwindow_request_attention", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window, critical);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtaskbar_set_badge$;
+
+    /**
+     * A short text on the icon of the application: a number of unread
+     * messages, "!". macOS: the badge of the Dock. Windows: a small round
+     * icon on the taskbar buttons of the windows, drawn from the text (one
+     * to three characters fit). Linux: a number only (the text is read as
+     * one; anything else shows nothing). NULL or "": no badge.
+     */
+    public static int Rtaskbar_set_badge(String text) {
+        MethodHandle $h = Rtaskbar_set_badge$;
+        if ($h == null) Rtaskbar_set_badge$ = $h = find("Rtaskbar_set_badge", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            int $r = (int) $h.invokeExact(text$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtaskbar_set_menu$;
+
+    /**
+     * The menu of the icon of the application in the Dock (macOS),
+     * above the entries of the system. A MENU without a parent: its
+     * MenuItems fire as when chosen in a window (clicked callback, action),
+     * and what changes in it shows the next time the menu opens.
+     * R_INVALID_ID: none. R_FALSE where the system has no such menu.
+     */
+    public static int Rtaskbar_set_menu(int menu) {
+        MethodHandle $h = Rtaskbar_set_menu$;
+        if ($h == null) Rtaskbar_set_menu$ = $h = find("Rtaskbar_set_menu", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(menu);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtaskbar_set_jump_list$;
+
+    /**
+     * The tasks of the jump list of Windows (right click on the button
+     * of the application in the taskbar, or on its tile in the Start menu).
+     * Choosing one starts the application again with its arguments: the
+     * application reads them as any other command line. count 0: none.
+     * R_FALSE where there is no jump list.
+     */
+    public static int Rtaskbar_set_jump_list(RJumpTask tasks, int count) {
+        MethodHandle $h = Rtaskbar_set_jump_list$;
+        if ($h == null) Rtaskbar_set_jump_list$ = $h = find("Rtaskbar_set_jump_list", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact((MemorySegment) (tasks == null ? MemorySegment.NULL : tasks.segment()), count);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_is_supported$;
+
+    /**
+     * Returns: R_TRUE when the system shows tray icons: always on Windows and
+     * macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+     * the desktop). An icon made where none runs yet appears when one starts.
+     */
+    public static int Rtray_is_supported() {
+        MethodHandle $h = Rtray_is_supported$;
+        if ($h == null) Rtray_is_supported$ = $h = find("Rtray_is_supported", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_create$;
+
+    /**
+     * Puts an icon of the application beside the clock. While one
+     * exists, the application goes on running when its last window closes
+     * (Ris_running): Rquit (or the action app.quit) ends it.
+     * Returns: R_INVALID_ID where the system has none.
+     */
+    public static int Rtray_create() {
+        MethodHandle $h = Rtray_create$;
+        if ($h == null) Rtray_create$ = $h = find("Rtray_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_destroy$;
+
+    public static void Rtray_destroy(int tray) {
+        MethodHandle $h = Rtray_destroy$;
+        if ($h == null) Rtray_destroy$ = $h = find("Rtray_destroy", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(tray);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_is_valid$;
+
+    public static int Rtray_is_valid(int tray) {
+        MethodHandle $h = Rtray_is_valid$;
+        if ($h == null) Rtray_is_valid$ = $h = find("Rtray_is_valid", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tray);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_set_icon$;
+
+    /**
+     * The picture, from tightly packed RGBA8 pixels (straight alpha);
+     * the system scales it (16 to 32 pixels square fit everywhere). Copied.
+     */
+    public static void Rtray_set_icon(int tray, byte[] rgba, int width, int height) {
+        MethodHandle $h = Rtray_set_icon$;
+        if ($h == null) Rtray_set_icon$ = $h = find("Rtray_set_icon", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment rgba$ = rgba == null ? MemorySegment.NULL : bytes($a, rgba);
+            $h.invokeExact(tray, rgba$, width, height);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_set_tooltip$;
+
+    /**
+     * The text shown when the pointer rests on the icon (and its title for the Linux panels).
+     */
+    public static void Rtray_set_tooltip(int tray, String text) {
+        MethodHandle $h = Rtray_set_tooltip$;
+        if ($h == null) Rtray_set_tooltip$ = $h = find("Rtray_set_tooltip", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(tray, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_set_menu$;
+
+    /**
+     * The menu the system shows for the icon: on a right click
+     * (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+     * MenuItems fire as when chosen in a window; what changes in it shows
+     * the next time it opens. R_INVALID_ID: none.
+     */
+    public static void Rtray_set_menu(int tray, int menu) {
+        MethodHandle $h = Rtray_set_menu$;
+        if ($h == null) Rtray_set_menu$ = $h = find("Rtray_set_menu", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tray, menu);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_set_clicked_callback$;
+
+    /**
+     * Called on a click: the left button (activate), the right one
+     * when there is no menu, the middle one. On macOS an icon with a menu
+     * opens it instead.
+     */
+    public static void Rtray_set_clicked_callback(int tray, RTrayClickedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtray_set_clicked_callback$;
+        if ($h == null) Rtray_set_clicked_callback$ = $h = find("Rtray_set_clicked_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(tray, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called on a click: the left button (activate), the right one
+     * when there is no menu, the middle one. On macOS an icon with a menu
+     * opens it instead.
+     */
+    public static void Rtray_set_clicked_callback(int tray, RTrayClickedCallback callback) {
+        Rtray_set_clicked_callback(tray, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rcolor_picker_create$;
@@ -19070,8 +19532,8 @@ public final class R {
     private static MethodHandle Rxml_set_base_path$;
 
     /**
-     * Folder used to resolve relative paths found in XML (Source="...",
-     * Font="..."). The *FromXmlFile functions use the folder of the file.
+     * A folder looked into after the one of the document (see above),
+     * and the first one for the documents given from memory. NULL or "": none.
      */
     public static void Rxml_set_base_path(String path) {
         MethodHandle $h = Rxml_set_base_path$;
@@ -19079,6 +19541,37 @@ public final class R {
         try (Arena $a = Arena.ofConfined()) {
             MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
             $h.invokeExact(path$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rxml_set_auto_load$;
+
+    /**
+     * Turns auto-loading on or off (see above). It is on by default;
+     * the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+     * rebuilding. Turned off, the register functions are the only way in;
+     * the places where paths are looked for stay the same.
+     */
+    public static void Rxml_set_auto_load(int enabled) {
+        MethodHandle $h = Rxml_set_auto_load$;
+        if ($h == null) Rxml_set_auto_load$ = $h = find("Rxml_set_auto_load", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rxml_get_auto_load$;
+
+    public static int Rxml_get_auto_load() {
+        MethodHandle $h = Rxml_get_auto_load$;
+        if ($h == null) Rxml_get_auto_load$ = $h = find("Rxml_get_auto_load", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -19295,9 +19788,12 @@ public final class R {
 
     /**
      * The path of a file named in a document: as the attributes
-     * Source of Raven read it, relative to the folder of the document being
-     * loaded (while it loads), else to the base path. For the attributes of
-     * the tags made by code that name files.
+     * Source of Raven read it, looked for where files are looked for (see
+     * Rxml_set_base_path): the folder of the document being loaded (while it
+     * loads) and its subfolders, the base path, the current folder, PATH.
+     * When no place holds it, the path it would have next to the document
+     * (else in the base path). For the attributes of the tags made by code
+     * that name files.
      * Returns: The path; valid until the next call.
      */
     public static String Rxml_resolve_path(String path) {

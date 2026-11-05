@@ -1118,6 +1118,75 @@ the theme, as the notch of a phone is (`Theme="Default"` gives it the theme
 of the window). It is optional, and an `Island` can also be used as an
 ordinary widget anywhere.
 
+### Picture in picture
+
+```c
+Rwindow_set_picture_in_picture(player, R_TRUE);   /* and R_FALSE to come back */
+```
+
+The window becomes a small floating window above all the others, on every
+desktop (every space of macOS, over full-screen applications too), in a
+corner of the work area. It loses its title bar: its empty parts move it, its
+edges resize it, its proportions are kept. Leaving gives back its size, place,
+frame and state. `Rwindow_set_picture_in_picture_layout` chooses its size and
+corner; a button with `OnClicked="window.picture_in_picture"` goes in and out.
+Wayland does not let an application keep a window above the others: the call
+returns `R_FALSE` there.
+
+### The menu bar of macOS
+
+On macOS, the first `MenuBar` of a window goes to the menu bar at the top of
+the screen while the window is the active one, after the menu of the
+application (About, Hide, Hide Others, Show All, Quit). It then takes no room
+in the window; its entries, check marks and shortcuts are those of the system
+(`R_MOD_SUPER` is Command, `R_MOD_CTRL` Control). Quit, and Cmd+Q, fire the
+action `app.quit`, which an application may bind to ask first. Elsewhere the
+bar is drawn in the window; `Rmenu_bar_set_native(bar, R_FALSE)` or
+`<MenuBar Native="false">` keeps it there on macOS too.
+
+### Taskbar and Dock
+
+```c
+Rwindow_set_taskbar_progress(window, R_TASKBAR_PROGRESS_NORMAL, 0.4f);
+Rtaskbar_set_badge("3");                      /* NULL removes it */
+Rwindow_request_attention(window, R_FALSE);   /* R_TRUE: until the user comes */
+Rtaskbar_set_menu(menu);                      /* the menu of the icon in the Dock */
+```
+
+A progress bar and a badge on the icon of the application: on the taskbar
+button of the window (Windows; the badge is a small round icon drawn from its
+text), on the Dock icon (macOS), on the launchers of Linux desktops that
+listen to `com.canonical.Unity.LauncherEntry` (KDE, Ubuntu Dock, Dash to
+Dock, Plank; the badge is a number there). A request for attention flashes
+the taskbar button, bounces the Dock icon or marks the window urgent. On
+macOS a `Menu` becomes the menu of the Dock icon, whose entries fire as when
+clicked; Quit from the Dock goes through `app.quit`. On Windows,
+`Rtaskbar_set_jump_list` fills the tasks of the jump list: each starts the
+application again with its arguments. Each call returns `R_FALSE` where the
+system has nothing to show it with.
+
+### Tray icon
+
+```c
+Rid tray = Rtray_create();                    /* R_INVALID_ID where there is no tray */
+Rtray_set_icon(tray, rgba, 32, 32);           /* RGBA pixels, copied */
+Rtray_set_tooltip(tray, "Sync: up to date");
+Rtray_set_menu(tray, menu);                   /* a Menu: shown on a click */
+Rtray_set_clicked_callback(tray, on_tray, NULL);
+```
+
+An icon beside the clock: in the notification area of Windows, as a status
+item in the menu bar of macOS, as a `StatusNotifierItem` on Linux (KDE,
+GNOME with the AppIndicator extension, XFCE, waybar...), its menu served over
+`com.canonical.dbusmenu`. The menu is a `Menu` like the others: its entries
+fire their callbacks and actions, and changes to it reach the system on the
+next frame. The callback receives the button: the left one for a click (also
+on Linux when the panel calls `Activate`), the right one when the icon has no
+menu. On macOS, an icon with a menu opens it and does not call the callback.
+While an icon exists, the application keeps running after its last window
+is closed: `app.quit` (or a Quit entry in the menu) ends it.
+`Rtray_is_supported` says whether the desktop shows such icons now.
+
 ### Memory
 
 Raven does not call `malloc`. It takes memory from the system by regions of
@@ -1281,8 +1350,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
-  one above the others and fading a whole window: the protocol does not let an
-  application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
+  one above the others (so picture in picture too) and fading a whole window:
+  the protocol does not let an application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
   are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
   installed Chromium-based browser instead.

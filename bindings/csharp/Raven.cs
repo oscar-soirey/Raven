@@ -112,6 +112,17 @@ namespace Raven
     }
 
     /// <summary>
+    /// Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
+    /// </summary>
+    public enum RPictureInPictureCorner : int
+    {
+        R_PIP_BOTTOM_RIGHT = 0x0780,
+        R_PIP_BOTTOM_LEFT = 0x0781,
+        R_PIP_TOP_RIGHT = 0x0782,
+        R_PIP_TOP_LEFT = 0x0783,
+    }
+
+    /// <summary>
     /// What is seen behind a window created with R_WINDOW_TRANSPARENT.
     /// 
     ///   Windows 11          every value
@@ -1261,6 +1272,27 @@ namespace Raven
     }
 
     /// <summary>
+    /// A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+    /// </summary>
+    public enum RTaskbarProgress : int
+    {
+        R_TASKBAR_PROGRESS_NONE = 0x07A0,
+        R_TASKBAR_PROGRESS_NORMAL = 0x07A1,
+        /// <summary>
+        /// Shown as paused (yellow on Windows).
+        /// </summary>
+        R_TASKBAR_PROGRESS_PAUSED = 0x07A2,
+        /// <summary>
+        /// Shown as failed (red on Windows).
+        /// </summary>
+        R_TASKBAR_PROGRESS_ERROR = 0x07A3,
+        /// <summary>
+        /// Something goes on, without knowing how far it is.
+        /// </summary>
+        R_TASKBAR_PROGRESS_INDETERMINATE = 0x07A4,
+    }
+
+    /// <summary>
     /// Where a panel goes in a dock area, relative to another panel or to the whole area.
     /// </summary>
     public enum RDockSide : int
@@ -2130,6 +2162,26 @@ namespace Raven
     }
 
     /// <summary>
+    /// A task of the jump list of Windows (Rtaskbar_set_jump_list).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RJumpTask
+    {
+        /// <summary>
+        /// What the list shows.
+        /// </summary>
+        public IntPtr title;
+        /// <summary>
+        /// The command line given to the application when it is chosen: it is started again with these arguments.
+        /// </summary>
+        public IntPtr arguments;
+        /// <summary>
+        /// The tooltip; NULL: none.
+        /// </summary>
+        public IntPtr description;
+    }
+
+    /// <summary>
     /// A kind of file in a file dialog.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -2686,6 +2738,12 @@ namespace Raven
     public delegate void RTextEditorChangedCallback(uint editor, IntPtr user_data);
 
     /// <summary>
+    /// Called when the tray icon is clicked (Rtray_set_clicked_callback).
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RTrayClickedCallback(uint tray, RMouseButton button, IntPtr user_data);
+
+    /// <summary>
     /// Called when the user closes a panel, before it is deleted.
     /// Return R_FALSE to keep the panel.
     /// </summary>
@@ -3197,6 +3255,7 @@ namespace Raven
         ///   app.quit                          quits (Rquit(0))
         ///   window.close, window.minimize,    the window of the widget
         ///   window.maximize, window.restore   (maximize goes back when it already is)
+        ///   window.picture_in_picture         in and out of picture in picture
         ///   island.expand, island.fold,       the island of that window
         ///   island.toggle
         ///   theme.dark, theme.light,          the look of Raven, dark or light
@@ -3237,6 +3296,16 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rclipboard_set_text([MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Copies one content in two formats: `html` for the programs that
+        /// paste formatting (word processors, chat, mail) and `text` for the
+        /// others (editors, terminals). Each program takes the format it prefers.
+        /// Where the window system has no clipboard formats (Win32 and macOS for
+        /// now), or `html` is NULL, it is Rclipboard_set_text(text).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rclipboard_set_html([MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string html);
 
         /// <summary>
         /// Returns: The clipboard text, or "" when empty. Valid until the next call.
@@ -3458,6 +3527,35 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rwindow_set_topmost(uint window, int topmost);
+
+        /// <summary>
+        /// Picture in picture: the window becomes a small floating window
+        /// that stays above the other windows, on every desktop (every space of
+        /// macOS, over the applications in full screen too), in a corner of the
+        /// work area of its monitor. It loses its title bar where the system
+        /// allows: the empty parts of its content move it, its edges resize it,
+        /// and its size keeps the proportions it was given. Leaving it gives back
+        /// the size, place, frame and state the window had.
+        /// 
+        /// Raven does not add a button to leave it: the content shows one, with
+        /// the built-in action "window.picture_in_picture" (it goes in and out).
+        /// Returns: R_FALSE when the window system cannot keep a window above the
+        /// others (Wayland): the window is left as it is.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_set_picture_in_picture(uint window, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_is_picture_in_picture(uint window);
+
+        /// <summary>
+        /// Size (logical units) and corner of the window in picture in
+        /// picture, for the next time it goes in (now, when it is in). 0, 0 (the
+        /// default): 320 wide, with the proportions the content has when it goes
+        /// in. The proportions of width / height are kept while the user resizes.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_set_picture_in_picture_layout(uint window, int width, int height, RPictureInPictureCorner corner);
 
         /// <summary>
         /// Centers the window on the work area of its monitor (no task bar).
@@ -5407,6 +5505,24 @@ namespace Raven
         public static extern void Rtree_view_set_drop_highlight(uint tree_view, uint item, int whole_tree);
 
         /// <summary>
+        /// The menu bar of the system. On macOS, the first MenuBar of a
+        /// window is shown in the bar at the top of the screen while the window is
+        /// the active one, after the menu of the application (About, Hide, Quit);
+        /// it then takes no room in the window. Its shortcuts are those of the
+        /// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+        /// drawn in the window. On by default; R_FALSE keeps it in the window
+        /// everywhere. In XML: &lt;MenuBar Native="false"&gt;.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmenu_bar_set_native(uint menu_bar, int native);
+
+        /// <summary>
+        /// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmenu_bar_is_native(uint menu_bar);
+
+        /// <summary>
         /// Creates a menu inside a menu bar or as a sub-menu of another menu.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -6447,6 +6563,120 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rwindow_get_island(uint window);
+
+        /// <summary>
+        /// A progress bar on the icon of the application: on the button of
+        /// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+        /// on the launcher (Linux). There is one icon for the whole application in
+        /// the Dock and the launchers: the last window that set it is shown.
+        /// value From 0 to 1 (not used by NONE and INDETERMINATE).
+        /// Returns: R_FALSE where the system shows no progress.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_set_taskbar_progress(uint window, RTaskbarProgress state, float value);
+
+        /// <summary>
+        /// Asks the user to look at the window when it is not the active
+        /// one: its taskbar button flashes (Windows), the icon bounces in the
+        /// Dock (macOS), the window is marked urgent (X11, the launchers of
+        /// Linux). `critical`: until the user comes to the window; otherwise a few
+        /// times. Nothing happens when the window is already the active one.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_request_attention(uint window, int critical);
+
+        /// <summary>
+        /// A short text on the icon of the application: a number of unread
+        /// messages, "!". macOS: the badge of the Dock. Windows: a small round
+        /// icon on the taskbar buttons of the windows, drawn from the text (one
+        /// to three characters fit). Linux: a number only (the text is read as
+        /// one; anything else shows nothing). NULL or "": no badge.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_badge([MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// The menu of the icon of the application in the Dock (macOS),
+        /// above the entries of the system. A MENU without a parent: its
+        /// MenuItems fire as when chosen in a window (clicked callback, action),
+        /// and what changes in it shows the next time the menu opens.
+        /// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_menu(uint menu);
+
+        /// <summary>
+        /// The tasks of the jump list of Windows (right click on the button
+        /// of the application in the taskbar, or on its tile in the Start menu).
+        /// Choosing one starts the application again with its arguments: the
+        /// application reads them as any other command line. count 0: none.
+        /// R_FALSE where there is no jump list.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_jump_list(ref RJumpTask tasks, int count);
+
+        /// <summary>
+        /// The tasks of the jump list of Windows (right click on the button
+        /// of the application in the taskbar, or on its tile in the Start menu).
+        /// Choosing one starts the application again with its arguments: the
+        /// application reads them as any other command line. count 0: none.
+        /// R_FALSE where there is no jump list.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_jump_list(IntPtr tasks, int count);
+
+        /// <summary>
+        /// Returns: R_TRUE when the system shows tray icons: always on Windows and
+        /// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+        /// the desktop). An icon made where none runs yet appears when one starts.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtray_is_supported();
+
+        /// <summary>
+        /// Puts an icon of the application beside the clock. While one
+        /// exists, the application goes on running when its last window closes
+        /// (Ris_running): Rquit (or the action app.quit) ends it.
+        /// Returns: R_INVALID_ID where the system has none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rtray_create();
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_destroy(uint tray);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtray_is_valid(uint tray);
+
+        /// <summary>
+        /// The picture, from tightly packed RGBA8 pixels (straight alpha);
+        /// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_icon(uint tray, byte[] rgba, int width, int height);
+
+        /// <summary>
+        /// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_tooltip(uint tray, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// The menu the system shows for the icon: on a right click
+        /// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+        /// MenuItems fire as when chosen in a window; what changes in it shows
+        /// the next time it opens. R_INVALID_ID: none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_menu(uint tray, uint menu);
+
+        /// <summary>
+        /// Called on a click: the left button (activate), the right one
+        /// when there is no menu, the middle one. On macOS an icon with a menu
+        /// opens it instead.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_clicked_callback(uint tray, RTrayClickedCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rcolor_picker_create();
@@ -7846,11 +8076,23 @@ namespace Raven
         public static extern uint Rwidget_create_from_xml_file([MarshalAs(Utf8.Str)] string path);
 
         /// <summary>
-        /// Folder used to resolve relative paths found in XML (Source="...",
-        /// Font="..."). The *FromXmlFile functions use the folder of the file.
+        /// A folder looked into after the one of the document (see above),
+        /// and the first one for the documents given from memory. NULL or "": none.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rxml_set_base_path([MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Turns auto-loading on or off (see above). It is on by default;
+        /// the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+        /// rebuilding. Turned off, the register functions are the only way in;
+        /// the places where paths are looked for stay the same.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rxml_set_auto_load(int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rxml_get_auto_load();
 
         /// <summary>
         /// Turns live reload on or off. It is on by default; the
@@ -7918,9 +8160,12 @@ namespace Raven
 
         /// <summary>
         /// The path of a file named in a document: as the attributes
-        /// Source of Raven read it, relative to the folder of the document being
-        /// loaded (while it loads), else to the base path. For the attributes of
-        /// the tags made by code that name files.
+        /// Source of Raven read it, looked for where files are looked for (see
+        /// Rxml_set_base_path): the folder of the document being loaded (while it
+        /// loads) and its subfolders, the base path, the current folder, PATH.
+        /// When no place holds it, the path it would have next to the document
+        /// (else in the base path). For the attributes of the tags made by code
+        /// that name files.
         /// Returns: The path; valid until the next call.
         /// </summary>
         [DllImport(Lib, EntryPoint = "Rxml_resolve_path", CallingConvention = CallingConvention.Cdecl)]

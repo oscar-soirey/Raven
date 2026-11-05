@@ -5,6 +5,16 @@
 #include "test.h"
 
 #include <stdlib.h>
+#include <sys/stat.h>
+#if defined(_WIN32)
+#include <direct.h>
+#define test_mkdir(path) _mkdir(path)
+#define test_rmdir(path) _rmdir(path)
+#else
+#include <unistd.h>
+#define test_mkdir(path) mkdir(path, 0755)
+#define test_rmdir(path) rmdir(path)
+#endif
 
 static int g_actions;
 static Rid g_sender;
@@ -1046,6 +1056,242 @@ static void test_window_theme(void) {
 	if (initial[0]) Rtheme_use(initial);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Where files are looked for, and what is loaded without being registered
+ * ------------------------------------------------------------------------- */
+
+static const char* test_temp_folder(void) {
+	const char* temp = getenv("TMPDIR") ? getenv("TMPDIR") : (getenv("TEMP") ? getenv("TEMP") : "/tmp");
+	return temp;
+}
+
+/* Writes `text` into `root`/`name` (the folders of `name` are made). */
+static void put_file(const char* root, const char* name, const char* text) {
+	char path[600];
+	size_t i;
+	snprintf(path, sizeof(path), "%s/%s", root, name);
+	for (i = strlen(root) + 1; path[i]; i++) {
+		if (path[i] != '/') continue;
+		path[i] = 0;
+		test_mkdir(path);
+		path[i] = '/';
+	}
+	CHECK(Rfile_write(path, text, strlen(text)));
+}
+
+static void drop_file(const char* root, const char* name) {
+	char path[600];
+	snprintf(path, sizeof(path), "%s/%s", root, name);
+	remove(path);
+}
+
+static void drop_folder(const char* root, const char* name) {
+	char path[600];
+	if (name) snprintf(path, sizeof(path), "%s/%s", root, name);
+	else snprintf(path, sizeof(path), "%s", root);
+	test_rmdir(path);
+}
+
+static void set_path_variable(const char* value) {
+#if defined(_WIN32)
+	_putenv_s("PATH", value ? value : "");
+#else
+	if (value) setenv("PATH", value, 1);
+	else unsetenv("PATH");
+#endif
+}
+
+static void test_search_paths(void) {
+	char root[512], app[600], other[600], main_path[700], quiet_path[700];
+	Rid widget;
+
+	snprintf(root, sizeof(root), "%s/raven_test_search", test_temp_folder());
+	test_mkdir(root);
+	snprintf(app, sizeof(app), "%s/app", root);
+	snprintf(other, sizeof(other), "%s/other", root);
+	snprintf(main_path, sizeof(main_path), "%s/main.xml", app);
+	snprintf(quiet_path, sizeof(quiet_path), "%s/quiet.xml", other);
+
+	/* a document, what it includes deep below it, and tables and declarations it never names */
+	put_file(root, "app/main.xml",
+		"<VBox>"
+		"  <Include Source=\"part.xml\"/>"
+		"  <Include Source=\"twice.xml\"/>"
+		"  <SearchCard Name=\"card\" Title=\"hi\"/>"
+		"  <Label Name=\"hello\" Text=\"@search.hello\"/>"
+		"</VBox>");
+	put_file(root, "app/parts/deep/part.xml", "<Label Name=\"part\">from a subfolder</Label>");
+	put_file(root, "app/twice.xml", "<Label Name=\"twice\">next to the document</Label>");
+	put_file(root, "app/parts/twice.xml", "<Label Name=\"twice\">in a subfolder</Label>");
+	put_file(root, "app/ui/library.xml",
+		"<?xml version=\"1.0\"?>\n<!-- found, not named -->\n"
+		"<Widgets><Widget Name=\"SearchCard\" Title=\"\"><Label Text=\"card {Title}\"/></Widget></Widgets>");
+	/* the same key twice: the table closest to the document wins */
+	put_file(root, "app/lang/strings.csv", "key,en,fr\nsearch.hello,Hello (subfolder),Bonjour\nsearch.only,Only here,Seulement\n");
+	put_file(root, "app/strings.csv", "# comment\nkey,en,fr\nsearch.hello,Hello,Bonjour\n");
+	/* not a table, not declarations: left alone */
+	put_file(root, "app/data.csv", "name,value\nsearch.data,1\n");
+	put_file(root, "app/window.xml", "<Window Title=\"not a library\"><SearchNever/></Window>");
+	/* hidden folders are not looked into */
+	put_file(root, "app/.hidden/secret.csv", "key,en\nsearch.secret,secret\n");
+
+	widget = Rwidget_create_from_xml_file(main_path);
+	CHECK(widget != R_INVALID_ID);
+	if (widget != R_INVALID_ID) {
+		CHECK_STR(label_of(widget, "part"), "from a subfolder");
+		CHECK_STR(label_of(widget, "twice"), "next to the document");
+		CHECK_STR(label_of(widget, "hello"), "Hello");
+		CHECK(Rwidget_get_child_count(widget) == 4);
+		Rwidget_destroy(widget);
+	}
+	CHECK(Rxml_is_widget_registered("SearchCard"));
+	CHECK_STR(Rtr("search.only"), "Only here");
+	CHECK_STR(Rtr("search.data"), "search.data");
+	CHECK_STR(Rtr("search.secret"), "search.secret");
+	CHECK(!Rxml_is_widget_registered("SearchNever"));
+
+	/* while the document loads, Rxml_resolve_path looks the same way; outside, the base path */
+	CHECK(strstr(Rxml_resolve_path("part.xml"), "part.xml") != NULL);
+
+	/* a table added beside the file is taken the next time the file is loaded */
+	put_file(root, "app/more/added.csv", "key,en\nsearch.added,Added\n");
+	CHECK_STR(Rtr("search.added"), "search.added");
+	widget = Rwidget_create_from_xml_file(main_path);
+	CHECK(widget != R_INVALID_ID);
+	Rwidget_destroy(widget);
+	CHECK_STR(Rtr("search.added"), "Added");
+
+	/* the base path is looked into after the folder of the document */
+	put_file(root, "other/quiet.xml", "<VBox><Include Source=\"based.xml\"/></VBox>");
+	put_file(root, "base/based.xml", "<Label Name=\"based\">from the base path</Label>");
+	{
+		char base[600];
+		snprintf(base, sizeof(base), "%s/base", root);
+		Rxml_set_base_path(base);
+		widget = Rwidget_create_from_xml_file(quiet_path);
+		CHECK_STR(label_of(widget, "based"), "from the base path");
+		Rwidget_destroy(widget);
+		/* and first for a document given from memory */
+		widget = widget_from("<VBox><Include Source=\"based.xml\"/></VBox>");
+		CHECK_STR(label_of(widget, "based"), "from the base path");
+		Rwidget_destroy(widget);
+		Rxml_set_base_path(NULL);
+		put_file(root, "other/quiet.xml", "<Label>quiet</Label>");
+	}
+
+	/* the folders of PATH come last */
+	{
+		char* saved = getenv("PATH") ? strdup(getenv("PATH")) : NULL;
+		char path_value[1400];
+		put_file(root, "bin/from_path.xml", "<Label Name=\"path\">from PATH</Label>");
+#if defined(_WIN32)
+		snprintf(path_value, sizeof(path_value), "%s\\nowhere;%s\\bin;%s", root, root, saved ? saved : "");
+#else
+		snprintf(path_value, sizeof(path_value), "%s/nowhere:%s/bin:%s", root, root, saved ? saved : "");
+#endif
+		set_path_variable(path_value);
+		widget = widget_from("<VBox><Include Source=\"from_path.xml\"/></VBox>");
+		CHECK_STR(label_of(widget, "path"), "from PATH");
+		Rwidget_destroy(widget);
+		set_path_variable(saved);
+		free(saved);
+		EXPECT_ERRORS_BEGIN();
+		widget = widget_from("<VBox><Include Source=\"from_path.xml\"/></VBox>");
+		EXPECT_ERRORS_END(1);
+		Rwidget_destroy(widget);
+		drop_file(root, "bin/from_path.xml");
+		drop_folder(root, "bin");
+	}
+
+	/* a tag that names nothing is looked for as <Tag>.xml (here a file held in memory) */
+	{
+		static const char badge[] = "<Widget Name=\"SearchBadge\" Text=\"?\"><Label Text=\"badge {Text}\"/></Widget>";
+		CHECK(Rfile_register_memory("SearchBadge.xml", badge, strlen(badge), R_FALSE));
+		widget = widget_from("<SearchBadge Name=\"b\" Text=\"7\"/>");
+		CHECK(widget != R_INVALID_ID);
+		if (widget != R_INVALID_ID) CHECK_STR(Rlabel_get_text(widget), "badge 7");
+		Rwidget_destroy(widget);
+		CHECK(Rxml_is_widget_registered("SearchBadge"));
+		Rfile_unregister_memory("SearchBadge.xml");
+		Rxml_unregister_widget("SearchBadge");
+		/* still an error when no file has that name */
+		EXPECT_ERRORS_BEGIN();
+		CHECK(widget_from("<SearchNowhere/>") == R_INVALID_ID);
+		EXPECT_ERRORS_END(1);
+	}
+
+	/* turned off: only what is registered */
+	CHECK(Rxml_get_auto_load());
+	Rxml_set_auto_load(R_FALSE);
+	CHECK(!Rxml_get_auto_load());
+	put_file(root, "other/off.csv", "key,en\nsearch.off,Off\n");
+	widget = Rwidget_create_from_xml_file(quiet_path);
+	Rwidget_destroy(widget);
+	CHECK_STR(Rtr("search.off"), "search.off");
+	Rxml_set_auto_load(R_TRUE);
+	widget = Rwidget_create_from_xml_file(quiet_path);
+	Rwidget_destroy(widget);
+	CHECK_STR(Rtr("search.off"), "Off");
+
+	Rxml_unregister_widget("SearchCard");
+	drop_file(root, "app/main.xml");
+	drop_file(root, "app/parts/deep/part.xml");
+	drop_file(root, "app/twice.xml");
+	drop_file(root, "app/parts/twice.xml");
+	drop_file(root, "app/ui/library.xml");
+	drop_file(root, "app/lang/strings.csv");
+	drop_file(root, "app/strings.csv");
+	drop_file(root, "app/data.csv");
+	drop_file(root, "app/window.xml");
+	drop_file(root, "app/.hidden/secret.csv");
+	drop_file(root, "app/more/added.csv");
+	drop_file(root, "other/quiet.xml");
+	drop_file(root, "other/off.csv");
+	drop_file(root, "base/based.xml");
+	drop_folder(root, "app/parts/deep");
+	drop_folder(root, "app/parts");
+	drop_folder(root, "app/ui");
+	drop_folder(root, "app/lang");
+	drop_folder(root, "app/.hidden");
+	drop_folder(root, "app/more");
+	drop_folder(root, "app");
+	drop_folder(root, "other");
+	drop_folder(root, "base");
+	drop_folder(root, NULL);
+}
+
+/* A second session whose PATH holds a table and declarations: they are there before the first document. */
+static void test_auto_load_from_path(void) {
+	char root[512], path_value[1400];
+	char* saved = getenv("PATH") ? strdup(getenv("PATH")) : NULL;
+	Rid widget;
+	snprintf(root, sizeof(root), "%s/raven_test_search_path", test_temp_folder());
+	test_mkdir(root);
+	put_file(root, "tables.csv", "key,en\nsearch.path,From PATH\n");
+	put_file(root, "PathLibrary.xml", "<Widgets><Widget Name=\"SearchPathCard\"><Label Text=\"path card\"/></Widget></Widgets>");
+#if defined(_WIN32)
+	snprintf(path_value, sizeof(path_value), "%s;%s", root, saved ? saved : "");
+#else
+	snprintf(path_value, sizeof(path_value), "%s:%s", root, saved ? saved : "");
+#endif
+	set_path_variable(path_value);
+	if (!test_init(0)) {
+		CHECK(!"cannot initialize Raven again");
+	} else {
+		widget = widget_from("<SearchPathCard/>");
+		CHECK(widget != R_INVALID_ID);
+		if (widget != R_INVALID_ID) CHECK_STR(Rlabel_get_text(widget), "path card");
+		Rwidget_destroy(widget);
+		CHECK_STR(Rtr("search.path"), "From PATH");
+		Rshutdown();
+	}
+	set_path_variable(saved);
+	free(saved);
+	drop_file(root, "tables.csv");
+	drop_file(root, "PathLibrary.xml");
+	drop_folder(root, NULL);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot initialize Raven\n");
@@ -1060,6 +1306,8 @@ int main(void) {
 	RUN(test_documents);
 	RUN(test_schema);
 	RUN(test_builtin_actions);
+	RUN(test_search_paths);
 	Rshutdown();
+	RUN(test_auto_load_from_path);
 	return test_report("test_xml");
 }

@@ -257,6 +257,8 @@ void Rshutdown(void) {
 	}
 
 	rvn_xml_shutdown();
+	rvn_taskbar_shutdown();
+	rvn_tray_shutdown();
 	rvn_locale_shutdown();
 	rvn_a11y_shutdown();
 	rvn_themes_shutdown();
@@ -557,6 +559,15 @@ void Rclipboard_set_text(const char* text) {
 	g_rvn.platform->clipboard_set(text ? text : "");
 }
 
+void Rclipboard_set_html(const char* text, const char* html) {
+	RVN_API_GUARD_VOID();
+	if (html && g_rvn.platform->clipboard_set_html) {
+		g_rvn.platform->clipboard_set_html(text ? text : "", html);
+	} else {
+		g_rvn.platform->clipboard_set(text ? text : "");
+	}
+}
+
 const char* Rclipboard_get_text(void) {
 	RVN_API_GUARD("");
 	rvn_free(g_rvn.clipboard);
@@ -579,6 +590,8 @@ int Ris_running(void) {
 	uint32_t i;
 	if (!g_rvn.initialized || rvn_atomic_load(&g_rvn.quit_requested)) return R_FALSE;
 	if (!g_rvn.had_window) return R_TRUE;
+	/* an application with a tray icon lives on without windows, until Rquit */
+	if (rvn_tray_count() > 0) return R_TRUE;
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window && !window->dead) return R_TRUE;
@@ -647,6 +660,9 @@ void rvn_update(void) {
 	g_rvn.last_update_time = now;
 
 	if (rvn_atomic_exchange(&g_rvn.redraw_all, 0)) rvn_repaint_all_windows();
+	/* the menu of the icon of the application follows its Menu */
+	rvn_taskbar_update();
+	rvn_tray_update();
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window) rvn_window_update(window);

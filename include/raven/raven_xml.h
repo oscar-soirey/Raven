@@ -143,11 +143,51 @@ extern "C" {
 	RAVEN_API Rid Rwidget_create_from_xml(const char* xml, size_t size);
 	RAVEN_API Rid Rwidget_create_from_xml_file(const char* path);
 
+	/* -----------------------------------------------------------------------
+	 *  Where files are looked for
+	 *
+	 *  A relative path written in a document (Source="...", Font="...",
+	 *  <Include>, <Strings>, Theme="file.xml") is looked for, in this order:
+	 *    1. the folder of the document being loaded (the *FromXmlFile
+	 *       functions), then its subfolders, the closest first (8 levels at
+	 *       most; hidden folders and node_modules are skipped);
+	 *    2. the base path (Rxml_set_base_path);
+	 *    3. the current folder;
+	 *    4. the folders of the PATH environment variable, in their order.
+	 *  The first place that holds the file wins; a file of
+	 *  Rfile_register_memory counts. An absolute path or a URL is used as it is.
+	 *
+	 *  Auto-loading, on by default, also takes from these places what a
+	 *  document may need before it is read, without any register call:
+	 *  - the translation tables: the *.csv files whose first column is
+	 *    "key" (as with Rlocale_load_csv);
+	 *  - the widget declarations: the *.xml files whose root is <Widgets>
+	 *    or <Widget> (as with Rxml_register_widgets_from_file).
+	 *  Those of PATH, of the current folder and of the base path are loaded
+	 *  before the first document; those of the folder of a file and of its
+	 *  subfolders before that file (again when it is reloaded, for the files
+	 *  added since). Each file is loaded once, in the order of the places
+	 *  from the last to the first, so that the closest one wins when two of
+	 *  them give the same key or the same widget. A tag that still names
+	 *  nothing, <Card/>, is then looked for as the file Card.xml.
+	 *  The register functions keep working as before, and load what they are
+	 *  given wherever it is.
+	 * --------------------------------------------------------------------- */
+
 	/**
-	 * @brief Folder used to resolve relative paths found in XML (Source="...",
-	 * Font="..."). The *FromXmlFile functions use the folder of the file.
+	 * @brief A folder looked into after the one of the document (see above),
+	 * and the first one for the documents given from memory. NULL or "": none.
 	 */
 	RAVEN_API void Rxml_set_base_path(const char* path);
+
+	/**
+	 * @brief Turns auto-loading on or off (see above). It is on by default;
+	 * the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+	 * rebuilding. Turned off, the register functions are the only way in;
+	 * the places where paths are looked for stay the same.
+	 */
+	RAVEN_API void Rxml_set_auto_load(int enabled);
+	RAVEN_API int Rxml_get_auto_load(void);
 
 	/* -----------------------------------------------------------------------
 	 *  Live reload
@@ -230,9 +270,12 @@ extern "C" {
 	RAVEN_API int Rxml_is_tag_registered(const char* tag);
 	/**
 	 * @brief The path of a file named in a document: as the attributes
-	 * Source of Raven read it, relative to the folder of the document being
-	 * loaded (while it loads), else to the base path. For the attributes of
-	 * the tags made by code that name files.
+	 * Source of Raven read it, looked for where files are looked for (see
+	 * Rxml_set_base_path): the folder of the document being loaded (while it
+	 * loads) and its subfolders, the base path, the current folder, PATH.
+	 * When no place holds it, the path it would have next to the document
+	 * (else in the base path). For the attributes of the tags made by code
+	 * that name files.
 	 * @return The path; valid until the next call.
 	 */
 	RAVEN_API const char* Rxml_resolve_path(const char* path);

@@ -17,6 +17,7 @@
 
 #include "x11_internal.h"
 #include "../atspi.h"
+#include "../sni.h"
 
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
@@ -63,6 +64,13 @@ struct rvn_pwindow_t {
 	Visual* visual;
 	Colormap colormap;
 	int transparent;
+	/* picture in picture: the proportions it keeps, and what the window had before */
+	int pip;
+	int pip_ratio_width, pip_ratio_height;
+	int pip_x, pip_y, pip_width, pip_height;
+	int pip_was_maximized, pip_was_above;
+	/* asked for attention (XUrgencyHint): cleared when it takes the keyboard */
+	int urgent;
 };
 
 static struct {
@@ -90,6 +98,7 @@ static struct {
 	/* never mapped: owns the clipboard selection and receives pasted data */
 	Window helper;
 	char* clipboard;
+	char* clipboard_html;   /* NULL: the selection is text only */
 	rvn_x11_transfer_t transfers[RVN_X11_INCR_MAX_TRANSFERS];
 	uint8_t keys_down[(R_KEY_COUNT + 7) / 8];
 
@@ -101,6 +110,7 @@ static struct {
 	Atom net_wm_state_maximized_horz;
 	Atom motif_wm_hints;
 	Atom utf8_string;
+	Atom text_html;
 	Atom clipboard_atom;
 	Atom targets;
 	Atom incr;
@@ -171,6 +181,12 @@ static void rvn_x11_set_size_hints(rvn_pwindow_t* window, int width, int height)
 		hints->flags |= PMinSize;
 		hints->min_width = window->min_width;
 		hints->min_height = window->min_height;
+	}
+	if (window->pip && window->pip_ratio_width > 0 && window->pip_ratio_height > 0) {
+		/* picture in picture: the window manager keeps the proportions while the user resizes */
+		hints->flags |= PAspect;
+		hints->min_aspect.x = hints->max_aspect.x = window->pip_ratio_width;
+		hints->min_aspect.y = hints->max_aspect.y = window->pip_ratio_height;
 	}
 	XSetWMNormalHints(g_x11.display, window->handle, hints);
 	XFree(hints);
@@ -244,6 +260,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 	RVN_UNUSED(regions);
 	memset(&g_x11, 0, sizeof(g_x11));
 	g_x11.handler = handler;
+	rvn_sni_set_handler(handler);
 	g_x11.wake_pipe[0] = g_x11.wake_pipe[1] = -1;
 
 	/* the render thread talks to the X server too (Vulkan presentation) */
@@ -272,6 +289,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 	g_x11.motif_wm_hints = XInternAtom(g_x11.display, "_MOTIF_WM_HINTS", False);
 	g_x11.utf8_string = XInternAtom(g_x11.display, "UTF8_STRING", False);
 	g_x11.clipboard_atom = XInternAtom(g_x11.display, "CLIPBOARD", False);
+	g_x11.text_html = XInternAtom(g_x11.display, "text/html", False);
 	g_x11.targets = XInternAtom(g_x11.display, "TARGETS", False);
 	g_x11.incr = XInternAtom(g_x11.display, "INCR", False);
 	g_x11.paste_property = XInternAtom(g_x11.display, "RVN_PASTE", False);
@@ -323,6 +341,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 static void rvn_x11_shutdown(void) {
 	int i;
 	rvn_atspi_shutdown();
+	rvn_sni_shutdown();
 	rvn_dbus_notify_shutdown();
 	if (!g_x11.display) return;
 	for (i = 0; i < RVN_X11_CURSOR_COUNT; i++) {
@@ -337,6 +356,7 @@ static void rvn_x11_shutdown(void) {
 	if (g_x11.wake_pipe[0] >= 0) close(g_x11.wake_pipe[0]);
 	if (g_x11.wake_pipe[1] >= 0) close(g_x11.wake_pipe[1]);
 	rvn_free(g_x11.clipboard);
+	rvn_free(g_x11.clipboard_html);
 	memset(&g_x11, 0, sizeof(g_x11));
 }
 
@@ -505,6 +525,156 @@ static int rvn_x11_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 		SubstructureRedirectMask | SubstructureNotifyMask, &event);
 	XFlush(g_x11.display);
 	return R_TRUE;
+}
+
+/* Adds or removes one or two states of _NET_WM_STATE (the window is mapped: the window manager is asked). */
+static void rvn_x11_send_states(rvn_pwindow_t* window, int add, Atom first, Atom second) {
+	XEvent event;
+	memset(&event, 0, sizeof(event));
+	event.xclient.type = ClientMessage;
+	event.xclient.window = window->handle;
+	event.xclient.message_type = g_x11.net_wm_state;
+	event.xclient.format = 32;
+	event.xclient.data.l[0] = add ? 1 : 0;
+	event.xclient.data.l[1] = (long)first;
+	event.xclient.data.l[2] = (long)second;
+	event.xclient.data.l[3] = 1;
+	XSendEvent(g_x11.display, g_x11.root, False, SubstructureRedirectMask | SubstructureNotifyMask, &event);
+}
+
+static int rvn_x11_has_state(rvn_pwindow_t* window, Atom state) {
+	Atom type;
+	int format, found = R_FALSE;
+	unsigned long count, i;
+	unsigned char* data = rvn_x11_property(window->handle, g_x11.net_wm_state, &type, &format, &count, False);
+	if (data && type == XA_ATOM && format == 32) {
+		for (i = 0; i < count && !found; i++) found = ((const Atom*)data)[i] == state;
+	}
+	if (data) XFree(data);
+	return found;
+}
+
+/* The work area of the current desktop (_NET_WORKAREA), else the screen. */
+static void rvn_x11_work_area(int* x, int* y, int* width, int* height) {
+	Screen* screen = DefaultScreenOfDisplay(g_x11.display);
+	Atom type;
+	int format;
+	unsigned long count, desktop = 0;
+	unsigned char* data = rvn_x11_property(g_x11.root, XInternAtom(g_x11.display, "_NET_CURRENT_DESKTOP", False), &type, &format, &count, False);
+	*x = *y = 0;
+	*width = WidthOfScreen(screen);
+	*height = HeightOfScreen(screen);
+	if (data && format == 32 && count >= 1) desktop = ((const unsigned long*)data)[0];
+	if (data) XFree(data);
+	data = rvn_x11_property(g_x11.root, XInternAtom(g_x11.display, "_NET_WORKAREA", False), &type, &format, &count, False);
+	if (data && format == 32 && count >= 4) {
+		const unsigned long* area = (const unsigned long*)data;
+		if (desktop * 4 + 3 >= count) desktop = 0;
+		*x = (int)area[desktop * 4];
+		*y = (int)area[desktop * 4 + 1];
+		*width = (int)area[desktop * 4 + 2];
+		*height = (int)area[desktop * 4 + 3];
+	}
+	if (data) XFree(data);
+}
+
+/* The title bar and borders of the window manager (Motif hints), as the window was created, or none. */
+static void rvn_x11_set_decorated(rvn_pwindow_t* window, int decorated) {
+	long hints[5] = { 2, 0, 0, 0, 0 };
+	hints[2] = decorated ? 1 : 0;
+	XChangeProperty(g_x11.display, window->handle, g_x11.motif_wm_hints, g_x11.motif_wm_hints, 32, PropModeReplace,
+		(const unsigned char*)hints, 5);
+}
+
+static void rvn_x11_window_get_position(rvn_pwindow_t* window, int* x, int* y);
+static rvn_pwindow_state_t rvn_x11_window_get_state(rvn_pwindow_t* window);
+
+/*
+ * Picture in picture: no decorations, above the others on every desktop
+ * (_NET_WM_STATE_ABOVE, _STICKY), in a corner of the work area, the
+ * proportions kept by the size hints.
+ */
+static int rvn_x11_window_set_picture_in_picture(rvn_pwindow_t* window, int enabled, int width, int height, int corner) {
+	Atom above = XInternAtom(g_x11.display, "_NET_WM_STATE_ABOVE", False);
+	Atom sticky = XInternAtom(g_x11.display, "_NET_WM_STATE_STICKY", False);
+	if (enabled) {
+		int left = corner == (int)R_PIP_BOTTOM_LEFT || corner == (int)R_PIP_TOP_LEFT;
+		int top = corner == (int)R_PIP_TOP_RIGHT || corner == (int)R_PIP_TOP_LEFT;
+		int area_x, area_y, area_width, area_height, margin;
+		if (!window->pip) {
+			Atom type;
+			int format;
+			unsigned long count;
+			/* where the client area is, and where the frame of the window manager starts around it */
+			unsigned char* extents = rvn_x11_property(window->handle, XInternAtom(g_x11.display, "_NET_FRAME_EXTENTS", False),
+				&type, &format, &count, False);
+			rvn_x11_window_get_position(window, &window->pip_x, &window->pip_y);
+			if (extents && format == 32 && count >= 4) {
+				window->pip_x -= (int)((const long*)extents)[0];
+				window->pip_y -= (int)((const long*)extents)[2];
+			}
+			if (extents) XFree(extents);
+			window->pip_width = window->width;
+			window->pip_height = window->height;
+			window->pip_was_maximized = rvn_x11_window_get_state(window) == RVN_PWINDOW_MAXIMIZED;
+			window->pip_was_above = rvn_x11_has_state(window, above);
+			if (window->pip_was_maximized) rvn_x11_send_maximize(window, R_FALSE);
+			if (!(window->flags & (R_WINDOW_BORDERLESS | R_WINDOW_CUSTOM_HEADER))) rvn_x11_set_decorated(window, R_FALSE);
+			rvn_x11_send_states(window, R_TRUE, above, sticky);
+			window->pip = R_TRUE;
+		}
+		window->pip_ratio_width = rvn_maxi(width, 1);
+		window->pip_ratio_height = rvn_maxi(height, 1);
+		rvn_x11_set_size_hints(window, width, height);
+		rvn_x11_work_area(&area_x, &area_y, &area_width, &area_height);
+		margin = (int)(16.0f * g_x11.scale + 0.5f);
+		XMoveResizeWindow(g_x11.display, window->handle,
+			left ? area_x + margin : area_x + area_width - width - margin,
+			top ? area_y + margin : area_y + area_height - height - margin, (unsigned int)width, (unsigned int)height);
+		XFlush(g_x11.display);
+		return R_TRUE;
+	}
+	if (!window->pip) return R_TRUE;
+	window->pip = R_FALSE;
+	rvn_x11_set_size_hints(window, window->pip_width, window->pip_height);
+	if (!(window->flags & (R_WINDOW_BORDERLESS | R_WINDOW_CUSTOM_HEADER))) rvn_x11_set_decorated(window, R_TRUE);
+	rvn_x11_send_states(window, R_FALSE, window->pip_was_above ? None : above, sticky);
+	XMoveResizeWindow(g_x11.display, window->handle, window->pip_x, window->pip_y,
+		(unsigned int)rvn_maxi(window->pip_width, 1), (unsigned int)rvn_maxi(window->pip_height, 1));
+	if (window->pip_was_maximized) rvn_x11_send_maximize(window, R_TRUE);
+	XFlush(g_x11.display);
+	return R_TRUE;
+}
+
+/* The urgency hint of the window manager, and the mark of the launchers. */
+static void rvn_x11_set_urgent(rvn_pwindow_t* window, int urgent) {
+	XWMHints* hints = XGetWMHints(g_x11.display, window->handle);
+	if (!hints) hints = XAllocWMHints();
+	if (!hints) return;
+	if (urgent) hints->flags |= XUrgencyHint;
+	else hints->flags &= ~XUrgencyHint;
+	XSetWMHints(g_x11.display, window->handle, hints);
+	XFree(hints);
+	window->urgent = urgent;
+	rvn_dbus_launcher_urgent(urgent);
+	XFlush(g_x11.display);
+}
+
+static int rvn_x11_window_request_attention(rvn_pwindow_t* window, int critical) {
+	Window focused = None;
+	int revert;
+	RVN_UNUSED(critical);
+	if (window->is_child) return R_FALSE;
+	/* (the window the user is in needs nothing) */
+	XGetInputFocus(g_x11.display, &focused, &revert);
+	if (focused == window->handle) return R_TRUE;
+	rvn_x11_set_urgent(window, R_TRUE);
+	return R_TRUE;
+}
+
+static int rvn_x11_window_set_progress(rvn_pwindow_t* window, int state, float value) {
+	RVN_UNUSED(window);
+	return rvn_dbus_launcher_progress(state, value);
 }
 
 static void rvn_x11_window_center(rvn_pwindow_t* window) {
@@ -788,10 +958,16 @@ static void rvn_x11_child_set_rect(rvn_pwindow_t* child, int x, int y, int width
  *  Clipboard
  * ------------------------------------------------------------------------- */
 
-static void rvn_x11_clipboard_set(const char* text) {
+static void rvn_x11_clipboard_set_html(const char* text, const char* html) {
 	rvn_str_set(&g_x11.clipboard, text);
+	rvn_free(g_x11.clipboard_html);
+	g_x11.clipboard_html = html ? rvn_strdup(html) : NULL;
 	XSetSelectionOwner(g_x11.display, g_x11.clipboard_atom, g_x11.helper, CurrentTime);
 	XFlush(g_x11.display);
+}
+
+static void rvn_x11_clipboard_set(const char* text) {
+	rvn_x11_clipboard_set_html(text, NULL);
 }
 
 /* Largest piece of a property that fits in one request of this server. */
@@ -927,14 +1103,19 @@ static void rvn_x11_selection_request(const XSelectionRequestEvent* request) {
 	reply.xselection.time = request->time;
 	reply.xselection.property = request->property != None ? request->property : request->target;
 
+	if (request->target == g_x11.text_html && g_x11.clipboard_html) text = g_x11.clipboard_html;
+
 	if (request->target == g_x11.targets) {
-		Atom targets[3];
-		targets[0] = g_x11.targets;
-		targets[1] = g_x11.utf8_string;
-		targets[2] = XA_STRING;
+		Atom targets[4];
+		int count = 0;
+		targets[count++] = g_x11.targets;
+		if (g_x11.clipboard_html) targets[count++] = g_x11.text_html;
+		targets[count++] = g_x11.utf8_string;
+		targets[count++] = XA_STRING;
 		XChangeProperty(g_x11.display, request->requestor, reply.xselection.property, XA_ATOM, 32, PropModeReplace,
-			(const unsigned char*)targets, 3);
-	} else if (request->target == g_x11.utf8_string || request->target == XA_STRING) {
+			(const unsigned char*)targets, count);
+	} else if (request->target == g_x11.utf8_string || request->target == XA_STRING
+		|| (request->target == g_x11.text_html && g_x11.clipboard_html)) {
 		size_t size = strlen(text);
 		if (size > rvn_x11_chunk_size()) {
 			/* too large for one request: sent in pieces (INCR) */
@@ -1544,6 +1725,7 @@ static void rvn_x11_process(XEvent* xevent) {
 			break;
 		case FocusIn:
 			if (window->input_context) XSetICFocus(window->input_context);
+			if (window->urgent) rvn_x11_set_urgent(window, R_FALSE);
 			event.type = RVN_PEVENT_FOCUS;
 			event.focused = R_TRUE;
 			rvn_x11_emit(window, &event);
@@ -1565,9 +1747,9 @@ static void rvn_x11_pump(double timeout_seconds) {
 	XFlush(g_x11.display);
 
 	if (!XPending(g_x11.display) && timeout_seconds != 0.0) {
-		struct pollfd fds[3];
+		struct pollfd fds[4];
 		int timeout_ms = timeout_seconds < 0.0 ? -1 : (int)(timeout_seconds * 1000.0 + 0.999);
-		int count, a11y = rvn_atspi_fd();
+		int count, a11y = rvn_atspi_fd(), tray = rvn_sni_fd();
 		fds[0].fd = ConnectionNumber(g_x11.display);
 		fds[0].events = POLLIN;
 		fds[0].revents = 0;
@@ -1582,9 +1764,17 @@ static void rvn_x11_pump(double timeout_seconds) {
 			fds[count].revents = 0;
 			count++;
 		}
+		/* and the panel that shows the tray icons, on the session bus */
+		if (tray >= 0) {
+			fds[count].fd = tray;
+			fds[count].events = POLLIN;
+			fds[count].revents = 0;
+			count++;
+		}
 		while (poll(fds, (nfds_t)count, timeout_ms) < 0 && errno == EINTR) {}
 	}
 	rvn_atspi_dispatch();
+	rvn_sni_dispatch();
 	/* empty the wake-up pipe, whether we slept or not */
 	if (g_x11.wake_pipe[0] >= 0) {
 		char buffer[64];
@@ -1639,6 +1829,7 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.window_set_backdrop = rvn_x11_window_set_backdrop,
 		.window_set_opacity = rvn_x11_window_set_opacity,
 		.window_set_topmost = rvn_x11_window_set_topmost,
+		.window_set_picture_in_picture = rvn_x11_window_set_picture_in_picture,
 		.window_center = rvn_x11_window_center,
 		.window_set_cursor = rvn_x11_window_set_cursor,
 		.window_get_native = rvn_x11_window_get_native,
@@ -1647,12 +1838,22 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.pump = rvn_x11_pump,
 		.wake = rvn_x11_wake,
 		.clipboard_set = rvn_x11_clipboard_set,
+		.clipboard_set_html = rvn_x11_clipboard_set_html,
 		.clipboard_get = rvn_x11_clipboard_get,
 		.a11y_event = rvn_atspi_event,
 		.a11y_announce = rvn_atspi_announce,
 		.a11y_active = rvn_atspi_active,
 		.a11y_settings = rvn_atspi_settings,
-		.notify = rvn_dbus_notify
+		.notify = rvn_dbus_notify,
+		.window_set_progress = rvn_x11_window_set_progress,
+		.window_request_attention = rvn_x11_window_request_attention,
+		.app_set_badge = rvn_dbus_launcher_badge,
+		.tray_supported = rvn_sni_supported,
+		.tray_create = rvn_sni_create,
+		.tray_destroy = rvn_sni_destroy,
+		.tray_set_icon = rvn_sni_set_icon,
+		.tray_set_tooltip = rvn_sni_set_tooltip,
+		.tray_set_menu = rvn_sni_set_menu
 	};
 	return &platform;
 }

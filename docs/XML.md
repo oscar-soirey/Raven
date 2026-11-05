@@ -40,9 +40,11 @@ attribute can be set at run time with `Rwidget_set_attribute(widget, "Text", "He
   so `Selected="1"` or `ActiveTab="2"` can refer to children.
 - An unknown tag or attribute, or an invalid value, raises a warning through
   the error callback (with line and column) and loading continues.
-- Paths (`Source`, `Font`) are relative to the XML file, or to
-  `Rxml_set_base_path` when loading from memory. A file is loaded once and
-  shared by every widget that names it.
+- Paths (`Source`, `Font`, `<Include>`, `<Strings>`...) are looked for next
+  to the XML file and in its subfolders, then in `Rxml_set_base_path`, the
+  current folder and the folders of `PATH` (see
+  [Where files are looked for](#where-files-are-looked-for)). A file is
+  loaded once and shared by every widget that names it.
 
 ## Value types
 
@@ -271,7 +273,7 @@ panel uses the attributes that make sense for it.
 | `TreeView` | nested `<Item Text="..." Expanded="true">` children |
 | `Image` | `Source` (path of an image), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |
 | `Separator` | `Orientation` (`Horizontal` line by default) |
-| `MenuBar` | `<Menu>` children |
+| `MenuBar` | `<Menu>` children; `Native` (`false`: drawn in the window on macOS too, instead of the menu bar of the system) |
 | `Menu` | `Text`; children `<MenuItem>`, `<Separator/>` and nested `<Menu>` |
 | `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked` |
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |
@@ -340,6 +342,49 @@ unless the application gives real ones (`Rfont_set_variant`).
 On a `TextEditor`, the same flag keeps the text as typed and styles it where
 it stands (headings larger in color, strong and emphasis in bold and italic,
 code and links in their colors).
+
+## Where files are looked for
+
+A relative path written in a document is looked for, in this order:
+
+1. the folder of the XML file, then its subfolders, the closest first
+   (8 levels at most; hidden folders and `node_modules` are skipped);
+2. the base path, `Rxml_set_base_path` (the first place for a document given
+   from memory);
+3. the current folder;
+4. the folders of the `PATH` environment variable, in their order.
+
+The first place that holds the file wins; a file held in memory
+(`Rfile_register_memory`) counts. An absolute path or a URL is used as it is.
+
+The same places give what a document needs without any register call
+(auto-loading, on by default):
+
+- **translation tables**: the `*.csv` files whose first column is `key`, as
+  `Rlocale_load_csv` would load them;
+- **declared tags**: the `*.xml` files whose root is `<Widgets>` or
+  `<Widget>`, as `Rxml_register_widgets_from_file` would read them.
+
+Those of `PATH`, of the current folder and of the base path are loaded before
+the first document; those of the folder of a file and of its subfolders before
+the file is built (and again when it is reloaded, for the files added since).
+Each file is loaded once, from the farthest place to the closest, so that the
+closest wins when two give the same key or the same tag. Finally, a tag that
+still names nothing, `<Card/>`, is looked for as the file `Card.xml`.
+
+```
+app/
+  main.xml            <VBox><Card Title="@greeting"/></VBox>
+  strings.csv         key,en,fr / greeting,Hello,Bonjour
+  widgets/cards.xml   <Widgets><Widget Name="Card" ...>...</Widgets>
+  icons/logo.png      <Image Source="logo.png"/> finds it here
+```
+
+`Rwindow_create_from_xml_file("app/main.xml")` is enough: no
+`Rlocale_load_csv`, no `Rxml_register_widgets_from_file`. Those functions
+keep working, for files kept anywhere else. `Rxml_set_auto_load(R_FALSE)`, or
+the environment variable `RAVEN_AUTO_LOAD=0`, turns auto-loading off; the
+places where paths are looked for stay the same.
 
 ## Files that are loaded again when they change
 

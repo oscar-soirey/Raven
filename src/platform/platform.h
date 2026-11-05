@@ -20,6 +20,9 @@
 
 #include "../core/base.h"
 
+/** An icon beside the clock (tray_create). Each platform defines its own structure. */
+typedef struct rvn_ptray_t rvn_ptray_t;
+
 /** A native window. Each platform defines its own structure. */
 typedef struct rvn_pwindow_t rvn_pwindow_t;
 
@@ -79,8 +82,39 @@ typedef enum rvn_pevent_type_t {
 	 * wheel_x, wheel_y (pan in pixels since the previous event),
 	 * gesture_fingers (0 when unknown), gesture_cancelled (R_GESTURE_END).
 	 */
-	RVN_PEVENT_GESTURE
+	RVN_PEVENT_GESTURE,
+	/**
+	 * An entry of a menu of the system (rvn_pmenu_t: the menu bar of macOS,
+	 * the menu of the Dock, of a tray icon) was chosen: `command` is its id.
+	 * `user` may be NULL: it does not need a window.
+	 */
+	RVN_PEVENT_COMMAND,
+	/** The system asks the application to quit (Quit in the application menu of macOS, in the Dock). `user` may be NULL. */
+	RVN_PEVENT_QUIT,
+	/** A tray icon was clicked: `user` is the one given to tray_create (not a window), `button` an RMouseButton. */
+	RVN_PEVENT_TRAY
 } rvn_pevent_type_t;
+
+/**
+ * An entry of a menu the system draws itself (window_set_menu_bar): a copy of
+ * a MenuItem, or of a Menu (`submenu`) with its own entries. Valid during the
+ * call only: the platform builds its menus from it.
+ */
+typedef struct rvn_pmenu_t {
+	/** The MenuItem (or Menu) it stands for: given back as `command` in RVN_PEVENT_COMMAND. */
+	Rid id;
+	const char* text;
+	int submenu;
+	const struct rvn_pmenu_t* items;
+	uint32_t count;
+	int separator;
+	int enabled;
+	int checkable;
+	int checked;
+	/** The shortcut (R_KEY_UNKNOWN: none) and its RModifier, shown by the system and handled by it. */
+	RKey key;
+	uint32_t modifiers;
+} rvn_pmenu_t;
 
 /** Parts of a window whose title bar is drawn by the application (R_WINDOW_CUSTOM_HEADER). */
 typedef enum rvn_pregion_t {
@@ -108,6 +142,8 @@ typedef enum rvn_pwindow_state_t {
 
 typedef struct rvn_pevent_t {
 	rvn_pevent_type_t type;
+	/** RVN_PEVENT_COMMAND: the id of the entry chosen. */
+	Rid command;
 	/** User pointer given when the window was created. */
 	void* user;
 	int x, y;
@@ -213,6 +249,59 @@ typedef struct rvn_platform_t {
 	/** Optional (may be NULL). Opacity of the whole window, 0..1. Returns R_FALSE when it cannot. */
 	int   (*window_set_opacity)(rvn_pwindow_t* window, float opacity);
 	int   (*window_set_topmost)(rvn_pwindow_t* window, int topmost);
+	/**
+	 * Optional (may be NULL). Picture in picture (Rwindow_set_picture_in_picture).
+	 * Entering: the platform keeps what it needs to come back (frame, style,
+	 * level, place, state), removes the title bar where it can (the core then
+	 * answers the regions as for a custom header), keeps the window above the
+	 * others and on every desktop, and gives its client area `width` x
+	 * `height` pixels in `corner` (an RPictureInPictureCorner) of the work
+	 * area of its monitor, a margin away from its edges; resizing keeps the
+	 * proportions width / height. Called again while in, it only moves and
+	 * resizes. Leaving (`enabled` R_FALSE): everything as it was.
+	 * Returns R_FALSE when the window cannot be kept above the others.
+	 */
+	int   (*window_set_picture_in_picture)(rvn_pwindow_t* window, int enabled, int width, int height, int corner);
+	/**
+	 * Optional (may be NULL). The menu bar of the system (macOS): `menus` are
+	 * the menus (submenu entries) of the MenuBar of the window, shown in the
+	 * bar of the system while the window is the active one, after the menu of
+	 * the application. count 0: the window has none any more. Called again
+	 * whenever something in them changes. An entry chosen comes back as
+	 * RVN_PEVENT_COMMAND. Returns R_FALSE when the system has no such bar:
+	 * the MenuBar stays drawn in the window.
+	 */
+	int   (*window_set_menu_bar)(rvn_pwindow_t* window, const rvn_pmenu_t* menus, uint32_t count);
+
+	/* ---- the taskbar and the Dock (all optional, may be NULL) ---- */
+
+	/**
+	 * Progress on the icon: on the taskbar button of the window (Windows), on
+	 * the icon of the application (Dock, launchers). `state`: 0 none, 1 normal,
+	 * 2 paused, 3 error, 4 indeterminate; value 0..1.
+	 */
+	int   (*window_set_progress)(rvn_pwindow_t* window, int state, float value);
+	/** Asks the user to look at the window; `critical`: until the user comes. */
+	int   (*window_request_attention)(rvn_pwindow_t* window, int critical);
+	/** A short text on the icon of the application; NULL: none. */
+	int   (*app_set_badge)(const char* text);
+	/** The menu of the icon of the application (the Dock): entries come back as RVN_PEVENT_COMMAND. count 0: none. */
+	int   (*app_set_icon_menu)(const rvn_pmenu_t* items, uint32_t count);
+	/** The tasks of the jump list (Windows). count 0: none. */
+	int   (*app_set_jump_list)(const RJumpTask* tasks, int count);
+
+	/* ---- tray icons (all optional, may be NULL: the platform has none) ---- */
+
+	/** R_TRUE when the system shows them now (Linux: a host of StatusNotifierItem runs). */
+	int   (*tray_supported)(void);
+	/** A new icon, empty; its clicks come as RVN_PEVENT_TRAY with this `user`. NULL when it cannot be made. */
+	rvn_ptray_t* (*tray_create)(void* user);
+	void  (*tray_destroy)(rvn_ptray_t* tray);
+	/** RGBA8 pixels, straight alpha (copied). */
+	void  (*tray_set_icon)(rvn_ptray_t* tray, const uint8_t* rgba, int width, int height);
+	void  (*tray_set_tooltip)(rvn_ptray_t* tray, const char* text);
+	/** The menu the system shows for it (copied); its entries come back as RVN_PEVENT_COMMAND. count 0: none. */
+	void  (*tray_set_menu)(rvn_ptray_t* tray, const rvn_pmenu_t* items, uint32_t count);
 	void  (*window_center)(rvn_pwindow_t* window);
 	/** Optional (may be NULL). Icon from RGBA8 pixels; NULL rgba restores the default. */
 	void  (*window_set_icon)(rvn_pwindow_t* window, const uint8_t* rgba, int width, int height);
@@ -261,6 +350,8 @@ typedef struct rvn_platform_t {
 	void  (*wake)(void);
 
 	void  (*clipboard_set)(const char* text);
+	/** Optional (may be NULL): the same text, also offered as text/html. */
+	void  (*clipboard_set_html)(const char* text, const char* html);
 	/** Returns a rvn_alloc'ed string, or NULL. */
 	char* (*clipboard_get)(void);
 
@@ -317,6 +408,15 @@ typedef struct rvn_platform_t {
 /** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */
 int  rvn_dbus_notify(const char* app, const char* title, const char* body, int urgency);
 void rvn_dbus_notify_shutdown(void);
+/*
+ * The launchers of Linux desktops (notify.c): com.canonical.Unity.LauncherEntry,
+ * which KDE, the Ubuntu Dock, Dash to Dock and Plank listen to. The whole
+ * state is sent each time: progress (shown when progress >= 0), count (shown
+ * when count >= 0), urgent.
+ */
+int  rvn_dbus_launcher_progress(int state, float value);
+int  rvn_dbus_launcher_badge(const char* text);
+int  rvn_dbus_launcher_urgent(int urgent);
 #endif
 
 /**

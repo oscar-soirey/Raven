@@ -99,6 +99,13 @@ R_WINDOW_CUSTOM_HEADER :: 0x0010
 // system can do.
 R_WINDOW_TRANSPARENT :: 0x0020
 
+// Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
+RPictureInPictureCorner :: i32
+R_PIP_BOTTOM_RIGHT :: 0x0780
+R_PIP_BOTTOM_LEFT :: 0x0781
+R_PIP_TOP_RIGHT :: 0x0782
+R_PIP_TOP_LEFT :: 0x0783
+
 // What is seen behind a window created with R_WINDOW_TRANSPARENT.
 //
 //   Windows 11          every value
@@ -826,6 +833,17 @@ R_HEADER_MINIMIZE :: 2
 R_HEADER_MAXIMIZE :: 4
 R_HEADER_ALL_BUTTONS :: 7
 
+// A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+RTaskbarProgress :: i32
+R_TASKBAR_PROGRESS_NONE :: 0x07A0
+R_TASKBAR_PROGRESS_NORMAL :: 0x07A1
+// Shown as paused (yellow on Windows).
+R_TASKBAR_PROGRESS_PAUSED :: 0x07A2
+// Shown as failed (red on Windows).
+R_TASKBAR_PROGRESS_ERROR :: 0x07A3
+// Something goes on, without knowing how far it is.
+R_TASKBAR_PROGRESS_INDETERMINATE :: 0x07A4
+
 // Where a panel goes in a dock area, relative to another panel or to the whole area.
 RDockSide :: i32
 R_DOCK_LEFT :: 0x0360
@@ -1164,6 +1182,8 @@ RCompletionCallback :: #type proc "c" (editor: Rid, prefix: cstring, user_data: 
 // undoing...) or by Rtext_editor_insert_text. The action of the widget
 // (OnChanged in XML) fires at the same time.
 RTextEditorChangedCallback :: #type proc "c" (editor: Rid, user_data: rawptr)
+// Called when the tray icon is clicked (Rtray_set_clicked_callback).
+RTrayClickedCallback :: #type proc "c" (tray: Rid, button: RMouseButton, user_data: rawptr)
 // Called when the user closes a panel, before it is deleted.
 // Return R_FALSE to keep the panel.
 RDockCloseCallback :: #type proc "c" (area: Rid, panel: Rid, user_data: rawptr) -> i32
@@ -1543,6 +1563,16 @@ RLanguageDesc :: struct {
 	script_language: cstring,
 }
 
+// A task of the jump list of Windows (Rtaskbar_set_jump_list).
+RJumpTask :: struct {
+	// What the list shows.
+	title: cstring,
+	// The command line given to the application when it is chosen: it is started again with these arguments.
+	arguments: cstring,
+	// The tooltip; NULL: none.
+	description: cstring,
+}
+
 // A kind of file in a file dialog.
 RFileFilter :: struct {
 	// Shown to the user: "Images".
@@ -1806,6 +1836,7 @@ foreign lib {
 	//   app.quit                          quits (Rquit(0))
 	//   window.close, window.minimize,    the window of the widget
 	//   window.maximize, window.restore   (maximize goes back when it already is)
+	//   window.picture_in_picture         in and out of picture in picture
 	//   island.expand, island.fold,       the island of that window
 	//   island.toggle
 	//   theme.dark, theme.light,          the look of Raven, dark or light
@@ -1834,6 +1865,12 @@ foreign lib {
 	// a program then really opened it).
 	Ropen_url :: proc(url: cstring) -> i32 ---
 	Rclipboard_set_text :: proc(text: cstring) ---
+	// Copies one content in two formats: `html` for the programs that
+	// paste formatting (word processors, chat, mail) and `text` for the
+	// others (editors, terminals). Each program takes the format it prefers.
+	// Where the window system has no clipboard formats (Win32 and macOS for
+	// now), or `html` is NULL, it is Rclipboard_set_text(text).
+	Rclipboard_set_html :: proc(text: cstring, html: cstring) ---
 	// Returns: The clipboard text, or "" when empty. Valid until the next call.
 	Rclipboard_get_text :: proc() -> cstring ---
 	// Retrieves and clears the last recorded error.
@@ -1925,6 +1962,25 @@ foreign lib {
 	// Keeps the window above the other windows (splash screens, tools).
 	// Returns: R_FALSE when the window system cannot do it.
 	Rwindow_set_topmost :: proc(window: Rid, topmost: i32) -> i32 ---
+	// Picture in picture: the window becomes a small floating window
+	// that stays above the other windows, on every desktop (every space of
+	// macOS, over the applications in full screen too), in a corner of the
+	// work area of its monitor. It loses its title bar where the system
+	// allows: the empty parts of its content move it, its edges resize it,
+	// and its size keeps the proportions it was given. Leaving it gives back
+	// the size, place, frame and state the window had.
+	//
+	// Raven does not add a button to leave it: the content shows one, with
+	// the built-in action "window.picture_in_picture" (it goes in and out).
+	// Returns: R_FALSE when the window system cannot keep a window above the
+	// others (Wayland): the window is left as it is.
+	Rwindow_set_picture_in_picture :: proc(window: Rid, enabled: i32) -> i32 ---
+	Rwindow_is_picture_in_picture :: proc(window: Rid) -> i32 ---
+	// Size (logical units) and corner of the window in picture in
+	// picture, for the next time it goes in (now, when it is in). 0, 0 (the
+	// default): 320 wide, with the proportions the content has when it goes
+	// in. The proportions of width / height are kept while the user resizes.
+	Rwindow_set_picture_in_picture_layout :: proc(window: Rid, width: i32, height: i32, corner: RPictureInPictureCorner) ---
 	// Centers the window on the work area of its monitor (no task bar).
 	Rwindow_center :: proc(window: Rid) ---
 	// Asks for a new frame even if no widget changed. Thread-safe.
@@ -2690,6 +2746,16 @@ foreign lib {
 	Rtree_view_get_item_at :: proc(tree_view: Rid, local_x: f32, local_y: f32) -> Rid ---
 	// Highlights where a drop would go: an item, or the whole tree (`whole_tree`). R_INVALID_ID, 0 removes it.
 	Rtree_view_set_drop_highlight :: proc(tree_view: Rid, item: Rid, whole_tree: i32) ---
+	// The menu bar of the system. On macOS, the first MenuBar of a
+	// window is shown in the bar at the top of the screen while the window is
+	// the active one, after the menu of the application (About, Hide, Quit);
+	// it then takes no room in the window. Its shortcuts are those of the
+	// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+	// drawn in the window. On by default; R_FALSE keeps it in the window
+	// everywhere. In XML: <MenuBar Native="false">.
+	Rmenu_bar_set_native :: proc(menu_bar: Rid, native: i32) ---
+	// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+	Rmenu_bar_is_native :: proc(menu_bar: Rid) -> i32 ---
 	// Creates a menu inside a menu bar or as a sub-menu of another menu.
 	Rmenu_add_menu :: proc(menu_bar_or_menu: Rid, title: cstring) -> Rid ---
 	Rmenu_set_title :: proc(menu: Rid, title: cstring) ---
@@ -3087,6 +3153,62 @@ foreign lib {
 	// its slot (Rslot_set_padding) is its distance from the top edge.
 	Rwindow_set_island :: proc(window: Rid, widget: Rid) ---
 	Rwindow_get_island :: proc(window: Rid) -> Rid ---
+	// A progress bar on the icon of the application: on the button of
+	// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+	// on the launcher (Linux). There is one icon for the whole application in
+	// the Dock and the launchers: the last window that set it is shown.
+	// value From 0 to 1 (not used by NONE and INDETERMINATE).
+	// Returns: R_FALSE where the system shows no progress.
+	Rwindow_set_taskbar_progress :: proc(window: Rid, state: RTaskbarProgress, value: f32) -> i32 ---
+	// Asks the user to look at the window when it is not the active
+	// one: its taskbar button flashes (Windows), the icon bounces in the
+	// Dock (macOS), the window is marked urgent (X11, the launchers of
+	// Linux). `critical`: until the user comes to the window; otherwise a few
+	// times. Nothing happens when the window is already the active one.
+	Rwindow_request_attention :: proc(window: Rid, critical: i32) -> i32 ---
+	// A short text on the icon of the application: a number of unread
+	// messages, "!". macOS: the badge of the Dock. Windows: a small round
+	// icon on the taskbar buttons of the windows, drawn from the text (one
+	// to three characters fit). Linux: a number only (the text is read as
+	// one; anything else shows nothing). NULL or "": no badge.
+	Rtaskbar_set_badge :: proc(text: cstring) -> i32 ---
+	// The menu of the icon of the application in the Dock (macOS),
+	// above the entries of the system. A MENU without a parent: its
+	// MenuItems fire as when chosen in a window (clicked callback, action),
+	// and what changes in it shows the next time the menu opens.
+	// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+	Rtaskbar_set_menu :: proc(menu: Rid) -> i32 ---
+	// The tasks of the jump list of Windows (right click on the button
+	// of the application in the taskbar, or on its tile in the Start menu).
+	// Choosing one starts the application again with its arguments: the
+	// application reads them as any other command line. count 0: none.
+	// R_FALSE where there is no jump list.
+	Rtaskbar_set_jump_list :: proc(tasks: ^RJumpTask, count: i32) -> i32 ---
+	// Returns: R_TRUE when the system shows tray icons: always on Windows and
+	// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+	// the desktop). An icon made where none runs yet appears when one starts.
+	Rtray_is_supported :: proc() -> i32 ---
+	// Puts an icon of the application beside the clock. While one
+	// exists, the application goes on running when its last window closes
+	// (Ris_running): Rquit (or the action app.quit) ends it.
+	// Returns: R_INVALID_ID where the system has none.
+	Rtray_create :: proc() -> Rid ---
+	Rtray_destroy :: proc(tray: Rid) ---
+	Rtray_is_valid :: proc(tray: Rid) -> i32 ---
+	// The picture, from tightly packed RGBA8 pixels (straight alpha);
+	// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+	Rtray_set_icon :: proc(tray: Rid, rgba: [^]u8, width: i32, height: i32) ---
+	// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+	Rtray_set_tooltip :: proc(tray: Rid, text: cstring) ---
+	// The menu the system shows for the icon: on a right click
+	// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+	// MenuItems fire as when chosen in a window; what changes in it shows
+	// the next time it opens. R_INVALID_ID: none.
+	Rtray_set_menu :: proc(tray: Rid, menu: Rid) ---
+	// Called on a click: the left button (activate), the right one
+	// when there is no menu, the middle one. On macOS an icon with a menu
+	// opens it instead.
+	Rtray_set_clicked_callback :: proc(tray: Rid, callback: RTrayClickedCallback, user_data: rawptr) ---
 	Rcolor_picker_create :: proc() -> Rid ---
 	// Sets the color (0..1 each). The callback is not called.
 	Rcolor_picker_set_color :: proc(picker: Rid, r: f32, g: f32, b: f32, a: f32) ---
@@ -3567,9 +3689,15 @@ foreign lib {
 	// widget. The caller owns the returned widget until it is added to a parent.
 	Rwidget_create_from_xml :: proc(xml: cstring, size: uint) -> Rid ---
 	Rwidget_create_from_xml_file :: proc(path: cstring) -> Rid ---
-	// Folder used to resolve relative paths found in XML (Source="...",
-	// Font="..."). The *FromXmlFile functions use the folder of the file.
+	// A folder looked into after the one of the document (see above),
+	// and the first one for the documents given from memory. NULL or "": none.
 	Rxml_set_base_path :: proc(path: cstring) ---
+	// Turns auto-loading on or off (see above). It is on by default;
+	// the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+	// rebuilding. Turned off, the register functions are the only way in;
+	// the places where paths are looked for stay the same.
+	Rxml_set_auto_load :: proc(enabled: i32) ---
+	Rxml_get_auto_load :: proc() -> i32 ---
 	// Turns live reload on or off. It is on by default; the
 	// environment variable RAVEN_LIVE_RELOAD=0 turns it off without
 	// rebuilding. When off, files are never looked at again.
@@ -3597,9 +3725,12 @@ foreign lib {
 	Rxml_unregister_tag :: proc(tag: cstring) ---
 	Rxml_is_tag_registered :: proc(tag: cstring) -> i32 ---
 	// The path of a file named in a document: as the attributes
-	// Source of Raven read it, relative to the folder of the document being
-	// loaded (while it loads), else to the base path. For the attributes of
-	// the tags made by code that name files.
+	// Source of Raven read it, looked for where files are looked for (see
+	// Rxml_set_base_path): the folder of the document being loaded (while it
+	// loads) and its subfolders, the base path, the current folder, PATH.
+	// When no place holds it, the path it would have next to the document
+	// (else in the base path). For the attributes of the tags made by code
+	// that name files.
 	// Returns: The path; valid until the next call.
 	Rxml_resolve_path :: proc(path: cstring) -> cstring ---
 	// Sets a property from text, with the names and value syntax of the

@@ -61,6 +61,12 @@ typedef enum RWindowFlags {
 	R_WINDOW_CUSTOM_HEADER = 16,
 	R_WINDOW_TRANSPARENT = 32,
 } RWindowFlags;
+typedef enum RPictureInPictureCorner {
+	R_PIP_BOTTOM_RIGHT = 1920,
+	R_PIP_BOTTOM_LEFT = 1921,
+	R_PIP_TOP_RIGHT = 1922,
+	R_PIP_TOP_LEFT = 1923,
+} RPictureInPictureCorner;
 typedef enum RBackdrop {
 	R_BACKDROP_NONE = 1024,
 	R_BACKDROP_TRANSPARENT = 1025,
@@ -548,6 +554,13 @@ typedef enum RHeaderButtons {
 	R_HEADER_MAXIMIZE = 4,
 	R_HEADER_ALL_BUTTONS = 7,
 } RHeaderButtons;
+typedef enum RTaskbarProgress {
+	R_TASKBAR_PROGRESS_NONE = 1952,
+	R_TASKBAR_PROGRESS_NORMAL = 1953,
+	R_TASKBAR_PROGRESS_PAUSED = 1954,
+	R_TASKBAR_PROGRESS_ERROR = 1955,
+	R_TASKBAR_PROGRESS_INDETERMINATE = 1956,
+} RTaskbarProgress;
 typedef enum RDockSide {
 	R_DOCK_LEFT = 864,
 	R_DOCK_RIGHT = 865,
@@ -696,6 +709,7 @@ typedef struct RPenEvent RPenEvent;
 typedef struct RGestureEvent RGestureEvent;
 typedef struct RTileItem RTileItem;
 typedef struct RLanguageDesc RLanguageDesc;
+typedef struct RJumpTask RJumpTask;
 typedef struct RFileFilter RFileFilter;
 typedef struct RFileDialogDesc RFileDialogDesc;
 typedef struct RViewportDrawInfo RViewportDrawInfo;
@@ -753,6 +767,7 @@ typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef void (*RTextEditorChangedCallback)(Rid editor, void* user_data);
+typedef void (*RTrayClickedCallback)(Rid tray, RMouseButton button, void* user_data);
 typedef int (*RDockCloseCallback)(Rid area, Rid panel, void* user_data);
 typedef void (*RDockChangedCallback)(Rid area, void* user_data);
 typedef void (*RIslandChangedCallback)(Rid island, int expanded, void* user_data);
@@ -944,6 +959,11 @@ struct RLanguageDesc {
 	Ruint flags;
 	const char* script_language;
 };
+struct RJumpTask {
+	const char* title;
+	const char* arguments;
+	const char* description;
+};
 struct RFileFilter {
 	const char* name;
 	const char* patterns;
@@ -1070,6 +1090,7 @@ void Raction_set_builtins(int enabled);
 int Raction_is_builtin(const char* name);
 int Ropen_url(const char* url);
 void Rclipboard_set_text(const char* text);
+void Rclipboard_set_html(const char* text, const char* html);
 const char* Rclipboard_get_text(void);
 RError Rerror_get_last(const char** detail, RSeverity* severity);
 const char* Rerror_to_string(RError error);
@@ -1113,6 +1134,9 @@ int Rwindow_has_own_theme(Rid window);
 int Rwindow_set_opacity(Rid window, float opacity);
 float Rwindow_get_opacity(Rid window);
 int Rwindow_set_topmost(Rid window, int topmost);
+int Rwindow_set_picture_in_picture(Rid window, int enabled);
+int Rwindow_is_picture_in_picture(Rid window);
+void Rwindow_set_picture_in_picture_layout(Rid window, int width, int height, RPictureInPictureCorner corner);
 void Rwindow_center(Rid window);
 void Rwindow_request_redraw(Rid window);
 void Rwindow_set_continuous_redraw(Rid window, int enabled);
@@ -1476,6 +1500,8 @@ void Rtree_view_set_context_callback(Rid tree_view, RTreeContextCallback callbac
 void Rtree_view_set_drag_type(Rid tree_view, const char* type);
 Rid Rtree_view_get_item_at(Rid tree_view, float local_x, float local_y);
 void Rtree_view_set_drop_highlight(Rid tree_view, Rid item, int whole_tree);
+void Rmenu_bar_set_native(Rid menu_bar, int native);
+int Rmenu_bar_is_native(Rid menu_bar);
 Rid Rmenu_add_menu(Rid menu_bar_or_menu, const char* title);
 void Rmenu_set_title(Rid menu, const char* title);
 Rid Rmenu_add_item(Rid menu, const char* text);
@@ -1676,6 +1702,19 @@ int Risland_is_in_notch(Rid island);
 void Risland_set_changed_callback(Rid island, RIslandChangedCallback callback, void* user_data);
 void Rwindow_set_island(Rid window, Rid widget);
 Rid Rwindow_get_island(Rid window);
+int Rwindow_set_taskbar_progress(Rid window, RTaskbarProgress state, float value);
+int Rwindow_request_attention(Rid window, int critical);
+int Rtaskbar_set_badge(const char* text);
+int Rtaskbar_set_menu(Rid menu);
+int Rtaskbar_set_jump_list(const RJumpTask* tasks, int count);
+int Rtray_is_supported(void);
+Rid Rtray_create(void);
+void Rtray_destroy(Rid tray);
+int Rtray_is_valid(Rid tray);
+void Rtray_set_icon(Rid tray, const uint8_t* rgba, int width, int height);
+void Rtray_set_tooltip(Rid tray, const char* text);
+void Rtray_set_menu(Rid tray, Rid menu);
+void Rtray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data);
 Rid Rcolor_picker_create(void);
 void Rcolor_picker_set_color(Rid picker, float r, float g, float b, float a);
 void Rcolor_picker_get_color(Rid picker, float* r, float* g, float* b, float* a);
@@ -1929,6 +1968,8 @@ Rid Rwindow_create_from_xml_file(const char* path);
 Rid Rwidget_create_from_xml(const char* xml, size_t size);
 Rid Rwidget_create_from_xml_file(const char* path);
 void Rxml_set_base_path(const char* path);
+void Rxml_set_auto_load(int enabled);
+int Rxml_get_auto_load(void);
 void Rxml_set_live_reload(int enabled);
 int Rxml_get_live_reload(void);
 void Rxml_set_reload_callback(RXmlReloadCallback callback, void* user_data);

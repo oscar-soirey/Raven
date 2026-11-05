@@ -235,6 +235,7 @@ static struct {
 	char copied[256];
 	int copied_done;
 	char selection_mimes[256];
+	const char* read_mime;     /* what do_read_selection asks for (NULL: plain text) */
 
 	const char* offer_text;    /* what our offers hold when they are read */
 
@@ -783,7 +784,7 @@ static void do_read_selection(void* unused) {
 		C.copied_done = 1;
 		return;
 	}
-	EVENT(C.selection_source, wl_data_source, "send", "text/plain;charset=utf-8", fds[1]);
+	EVENT(C.selection_source, wl_data_source, "send", C.read_mime ? C.read_mime : "text/plain;charset=utf-8", fds[1]);
 	close(fds[1]);
 	S.display_flush_clients(C.display);
 	/* (Raven writes it when it dispatches the event, on the test thread: wait for it) */
@@ -1151,6 +1152,35 @@ static void test_wayland(void) {
 		}
 	}
 	CHECK_STR(C.copied, "copi\xC3\xA9");
+
+	/* the same content as HTML and as plain text: each reader gets its own */
+	pthread_mutex_lock(&g_lock);
+	C.selection_mimes[0] = '\0';
+	pthread_mutex_unlock(&g_lock);
+	Rclipboard_set_html("**bold**", "<b>bold</b>");
+	settle(20);
+	pthread_mutex_lock(&g_lock);
+	CHECK(strstr(C.selection_mimes, "text/html") != NULL);
+	CHECK(strstr(C.selection_mimes, "text/plain;charset=utf-8") != NULL);
+	pthread_mutex_unlock(&g_lock);
+	{
+		static const char* const mimes[2] = {"text/html", "text/plain;charset=utf-8"};
+		static const char* const expected[2] = {"<b>bold</b>", "**bold**"};
+		int m;
+		for (m = 0; m < 2; m++) {
+			int done = 0;
+			C.read_mime = mimes[m];
+			compositor_do(do_read_selection, NULL);
+			for (i = 0; i < 200 && !done; i++) {
+				settle(5);
+				pthread_mutex_lock(&g_lock);
+				done = C.copied_done;
+				pthread_mutex_unlock(&g_lock);
+			}
+			CHECK_STR(C.copied, expected[m]);
+		}
+		C.read_mime = NULL;
+	}
 	C.offer_text = "from another application";
 	compositor_do(do_offer_selection, NULL);
 	settle(20);

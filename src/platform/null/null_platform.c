@@ -8,6 +8,14 @@
 #include "../platform.h"
 #include "../../core/thread.h"
 
+/* A tray icon: only what it was given. */
+struct rvn_ptray_t {
+	void* user;
+	int width, height;
+	char* tooltip;
+	uint32_t menu_count;
+};
+
 struct rvn_pwindow_t {
 	int width, height;
 	int x, y;
@@ -15,6 +23,9 @@ struct rvn_pwindow_t {
 	char* title;
 	rvn_pwindow_state_t state;
 	int transparent;
+	/* picture in picture, and what to come back to */
+	int pip;
+	int pip_x, pip_y, pip_width, pip_height;
 };
 
 static struct {
@@ -23,12 +34,22 @@ static struct {
 	rvn_cond_t cond;
 	int woken;
 	char* clipboard;
+	/* RAVEN_NULL_SYSTEM_MENU_BAR=1: a menu bar of the system, as macOS has (for the tests of the core) */
+	int system_menu_bar;
+	uint32_t system_menu_count;
+	/* the taskbar, as a system would keep it */
+	uint32_t icon_menu_count;
+	int jump_tasks;
 } g_null;
 
 static int rvn_null_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regions) {
 	RVN_UNUSED(regions);
 	memset(&g_null, 0, sizeof(g_null));
 	g_null.handler = handler;
+	{
+		const char* value = getenv("RAVEN_NULL_SYSTEM_MENU_BAR");
+		g_null.system_menu_bar = value && value[0] == '1';
+	}
 	rvn_mutex_init(&g_null.mutex);
 	rvn_cond_init(&g_null.cond);
 	return R_TRUE;
@@ -264,6 +285,97 @@ static void rvn_null_focus_event(rvn_pwindow_t* window, int focused) {
 	g_null.handler(&event);
 }
 
+/* Picture in picture, on a work area of 1920 x 1080 pixels as a monitor would give: the core can be tested with it. */
+static int rvn_null_window_set_picture_in_picture(rvn_pwindow_t* window, int enabled, int width, int height, int corner) {
+	const int area_width = 1920, area_height = 1080, margin = 16;
+	if (enabled) {
+		int left = corner == (int)R_PIP_BOTTOM_LEFT || corner == (int)R_PIP_TOP_LEFT;
+		int top = corner == (int)R_PIP_TOP_RIGHT || corner == (int)R_PIP_TOP_LEFT;
+		if (!window->pip) {
+			window->pip = R_TRUE;
+			window->pip_x = window->x;
+			window->pip_y = window->y;
+			window->pip_width = window->width;
+			window->pip_height = window->height;
+		}
+		window->x = left ? margin : area_width - width - margin;
+		window->y = top ? margin : area_height - height - margin;
+		rvn_null_window_set_size(window, width, height);
+	} else if (window->pip) {
+		window->pip = R_FALSE;
+		window->x = window->pip_x;
+		window->y = window->pip_y;
+		rvn_null_window_set_size(window, window->pip_width, window->pip_height);
+	}
+	return R_TRUE;
+}
+
+/* The menu bar of the system, when asked for by RAVEN_NULL_SYSTEM_MENU_BAR: only the number of menus is kept. */
+static int rvn_null_window_set_menu_bar(rvn_pwindow_t* window, const rvn_pmenu_t* menus, uint32_t count) {
+	RVN_UNUSED(window);
+	RVN_UNUSED(menus);
+	if (!g_null.system_menu_bar) return R_FALSE;
+	g_null.system_menu_count = count;
+	return R_TRUE;
+}
+
+/* The taskbar: taken as a system that shows everything would take it. */
+static int rvn_null_window_set_progress(rvn_pwindow_t* window, int state, float value) {
+	RVN_UNUSED(window);
+	RVN_UNUSED(state);
+	RVN_UNUSED(value);
+	return R_TRUE;
+}
+
+static int rvn_null_window_request_attention(rvn_pwindow_t* window, int critical) {
+	RVN_UNUSED(window);
+	RVN_UNUSED(critical);
+	return R_TRUE;
+}
+
+static int rvn_null_app_set_badge(const char* text) {
+	RVN_UNUSED(text);
+	return R_TRUE;
+}
+
+static int rvn_null_app_set_icon_menu(const rvn_pmenu_t* items, uint32_t count) {
+	RVN_UNUSED(items);
+	g_null.icon_menu_count = count;
+	return R_TRUE;
+}
+
+static int rvn_null_app_set_jump_list(const RJumpTask* tasks, int count) {
+	RVN_UNUSED(tasks);
+	g_null.jump_tasks = count;
+	return R_TRUE;
+}
+
+static rvn_ptray_t* rvn_null_tray_create(void* user) {
+	rvn_ptray_t* tray = (rvn_ptray_t*)rvn_calloc(sizeof(rvn_ptray_t));
+	tray->user = user;
+	return tray;
+}
+
+static void rvn_null_tray_destroy(rvn_ptray_t* tray) {
+	rvn_free(tray->tooltip);
+	rvn_free(tray);
+}
+
+static void rvn_null_tray_set_icon(rvn_ptray_t* tray, const uint8_t* rgba, int width, int height) {
+	RVN_UNUSED(rgba);
+	tray->width = width;
+	tray->height = height;
+}
+
+static void rvn_null_tray_set_tooltip(rvn_ptray_t* tray, const char* text) {
+	rvn_str_set(&tray->tooltip, text);
+}
+
+static void rvn_null_tray_set_menu(rvn_ptray_t* tray, const rvn_pmenu_t* items, uint32_t count) {
+	RVN_UNUSED(items);
+	tray->menu_count = count;
+}
+
 /* As a window system does: the one that takes the keyboard says so, the one that loses it too. */
 static void rvn_null_overlay_set_key(rvn_pwindow_t* overlay, rvn_pwindow_t* owner, int key) {
 	rvn_null_focus_event(key ? owner : overlay, R_FALSE);
@@ -294,6 +406,18 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.window_set_cursor = rvn_null_window_set_cursor,
 		.window_set_backdrop = rvn_null_window_set_backdrop,
 		.window_set_opacity = rvn_null_window_set_opacity,
+		.window_set_picture_in_picture = rvn_null_window_set_picture_in_picture,
+		.window_set_menu_bar = rvn_null_window_set_menu_bar,
+		.window_set_progress = rvn_null_window_set_progress,
+		.window_request_attention = rvn_null_window_request_attention,
+		.app_set_badge = rvn_null_app_set_badge,
+		.app_set_icon_menu = rvn_null_app_set_icon_menu,
+		.app_set_jump_list = rvn_null_app_set_jump_list,
+		.tray_create = rvn_null_tray_create,
+		.tray_destroy = rvn_null_tray_destroy,
+		.tray_set_icon = rvn_null_tray_set_icon,
+		.tray_set_tooltip = rvn_null_tray_set_tooltip,
+		.tray_set_menu = rvn_null_tray_set_menu,
 		.window_get_native = rvn_null_window_get_native,
 		.child_create = rvn_null_child_create,
 		.child_set_rect = rvn_null_child_set_rect,

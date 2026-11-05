@@ -11,8 +11,11 @@
 
 #if defined(_WIN32)
 #define RVN_PATH_SEPARATOR '\\'
+/** Between the folders of a list such as the PATH variable. */
+#define RVN_PATH_LIST_SEPARATOR ';'
 #else
 #define RVN_PATH_SEPARATOR '/'
+#define RVN_PATH_LIST_SEPARATOR ':'
 #endif
 
 typedef struct rvn_dir_entry_t {
@@ -48,6 +51,8 @@ char* rvn_path_child(const char* folder, const char* name);
 const char* rvn_path_name(const char* path);
 /** Home folder of the user. Free with rvn_free. */
 char* rvn_path_home(void);
+/** Value of an environment variable in UTF-8 (also on Windows), or NULL when it is not set or empty. Free with rvn_free. */
+char* rvn_env_get(const char* name);
 /**
  * When a file was last written (finer than a second where the file system
  * allows) and its size: both change when the file does. R_FALSE when it

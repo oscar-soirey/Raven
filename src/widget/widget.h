@@ -765,6 +765,14 @@ struct rvn_window_t {
 	/** The theme was dark when the window system was last told about the backdrop. */
 	int backdrop_dark;
 	float opacity;
+	/** Picture in picture (Rwindow_set_picture_in_picture), its size (logical units; 0: from the content) and corner. */
+	int pip;
+	int pip_width, pip_height;
+	RPictureInPictureCorner pip_corner;
+	/** The MenuBar shown in the menu bar of the system (window_set_menu_bar), and what it looked like then. */
+	Rid native_menu_bar;
+	uint32_t native_menu_hash;
+	int native_menu_sent;
 
 	/* input state */
 	rvn_widget_t* hover;
@@ -1013,6 +1021,30 @@ void rvn_viewport_native_sync(rvn_widget_t* widget, uint64_t frame);
 
 /** Enabled menu item bound to a shortcut anywhere below `root`, or NULL. Implemented in widgets/menu.c. */
 rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modifiers);
+/**
+ * The menu bar of the system (widgets/menu.c): gives the first MenuBar of the
+ * window to window_set_menu_bar when it changed, and hides it in the window
+ * while the system shows it.
+ */
+void rvn_menu_bar_sync(rvn_window_t* window);
+/** An entry of a menu of the system was chosen (RVN_PEVENT_COMMAND). */
+void rvn_menu_command(Rid item);
+/** What the entries below a menu show, as one number (it changes when they do). */
+uint32_t rvn_menu_signature(const rvn_widget_t* menu, uint32_t hash);
+/** The entries of a menu as the platform takes them (struct rvn_pmenu_t of platform.h). Free with rvn_menu_native_free. */
+struct rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* count);
+void rvn_menu_native_free(struct rvn_pmenu_t* items, uint32_t count);
+/** The menu of the icon of the application follows its Menu (platform/taskbar.c); called once per update. */
+void rvn_taskbar_update(void);
+void rvn_taskbar_shutdown(void);
+/** The tray icons (platform/tray.c): their menus follow their Menus; a click on one (RVN_PEVENT_TRAY). */
+void rvn_tray_update(void);
+/** The icons there are: while there is one, the application runs without windows (Ris_running). */
+int  rvn_tray_count(void);
+void rvn_tray_on_event(const struct rvn_pevent_t* event);
+void rvn_tray_shutdown(void);
+/** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
+rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */
 int rvn_parse_shortcut(const char* text, RKey* key, uint32_t* modifiers);
 /** Opens a menu as a popup at a window position. Implemented in widgets/menu.c. */

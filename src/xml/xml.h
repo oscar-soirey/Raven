@@ -130,7 +130,22 @@ Rid rvn_xml_make_widget(rvn_xml_document_t* document, int window_content);
 void rvn_xml_push_file_dir(const char* path, char** previous);
 void rvn_xml_pop_file_dir(char* previous);
 
-/** Path of a file named in a document, relative to the document or to the base path. Free with rvn_free. */
+/**
+ * Path of a file named in a document: the first that exists of the folder of
+ * the document and its subfolders, the base path, the current folder, the
+ * folders of PATH (else the place it was expected at). Free with rvn_free.
+ */
 char* rvn_xml_resolve_path(const char* path);
+
+/**
+ * Auto-loading (Rxml_set_auto_load): rvn_xml_search_autoload loads, once, the
+ * tables (*.csv) and declarations (*.xml) of the folders of PATH, of the
+ * current folder and of the base path; rvn_xml_search_enter, before a file
+ * is loaded, those of its folder and subfolders.
+ */
+void rvn_xml_search_autoload(void);
+void rvn_xml_search_enter(const char* file);
+/** Looks for <tag>.xml where files are looked for, and declares what it holds. R_TRUE when the tag is now a declared widget. */
+int  rvn_xml_discover_widget(const char* tag);
 
 #endif /* RVN_XML_INTERNAL_H */
