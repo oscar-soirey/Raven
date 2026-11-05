@@ -5152,6 +5152,8 @@ int main(int argc, char** argv) {
 		fprintf(stderr, "raven_designer: cannot start Raven (is a Vulkan driver installed?)\n");
 		return 1;
 	}
+
+
 	/* the splash screen (splash.xml) comes first, alone: the window of the designer is made after it; not for the scripted runs and the tests */
 	if (!(frames >= 0 || script || desc.headless)) splash_show();
 	/* scripted runs do not depend on how long a frame takes */
