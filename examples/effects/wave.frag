@@ -12,6 +12,6 @@ vec4 raven_effect(RavenEffect fx) {
 	}
 	float wave = sin(fx.uv.x * 9.0 + fx.time * 2.0) * (0.04 + 0.08 * swell);
 	float band = fract((fx.uv.y + wave) * 6.0 - fx.time * 0.3);
-	float stripe = smoothstep(0.0, 0.5, band) * smoothstep(1.0, 0.5, band);
+	float stripe = smoothstep(0.0, 0.5, band) * (1.0 - smoothstep(0.5, 1.0, band));
 	return mix(fx.color, fx.color2, stripe);
 }
