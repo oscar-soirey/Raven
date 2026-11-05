@@ -203,6 +203,8 @@ void Rshutdown(void) {
 	/* Stop native filesystem notifications before draining posted UI tasks. */
 	rvn_fs_watch_stop();
 	/* windows first: this deletes every widget that is shown */
+	/* (the inspectors first: they are windows that follow other windows) */
+	rvn_inspector_shutdown();
 	rvn_windows_destroy_all();
 	/* then the widgets the application created but never attached */
 	for (i = 0; i < g_rvn.widgets.used; i++) {
@@ -632,6 +634,7 @@ void rvn_update(void) {
 	rvn_taskbar_update();
 	rvn_tray_update();
 	rvn_textures_update_svg();
+	rvn_inspector_update();
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window) rvn_window_update(window);

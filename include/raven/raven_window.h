@@ -457,6 +457,23 @@ extern "C" {
 
 	/** @brief Centers the window on the work area of its monitor (no task bar). */
 	RAVEN_API void Rwindow_center(Rid window);
+	/**
+	 * @brief Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+	 * window beside it that lists its widgets as a tree, says what the
+	 * selected one is (type, name, classes, place and size in the window,
+	 * desired size, constraints, slot, visibility, state, style, action,
+	 * children) and what the last frame cost (layout, paint and render
+	 * times, widgets, instances, draw calls). The selected widget is
+	 * outlined in the window, with its type and size. "Pick" selects the
+	 * next widget clicked in the window (that click goes to the inspector
+	 * only). It follows the window as it changes; closing it hides it, and
+	 * it goes with the window. Nothing opens it but this function.
+	 */
+	RAVEN_API void Rwindow_set_inspector(Rid window, int shown);
+	RAVEN_API int Rwindow_is_inspector_shown(Rid window);
+	/** @return The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden. */
+	RAVEN_API Rid Rwindow_get_inspector(Rid window);
+
 	/** @return R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML). */
 	RAVEN_API int Rwindow_is_splash_screen(Rid window);
 

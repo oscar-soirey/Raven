@@ -179,6 +179,7 @@ set(RAVEN_WIDGET_SOURCES
 	src/widget/widget.c
 	src/widget/widget.h
 	src/widget/window.c
+	src/widget/inspector.c
 )
 
 set(RAVEN_WIDGETS_SOURCES

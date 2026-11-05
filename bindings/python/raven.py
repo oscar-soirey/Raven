@@ -1048,6 +1048,16 @@ R_TOAST_SUCCESS = RToastKind.R_TOAST_SUCCESS
 R_TOAST_WARNING = RToastKind.R_TOAST_WARNING
 R_TOAST_ERROR = RToastKind.R_TOAST_ERROR
 
+class RToastQueue(enum.IntEnum):
+    """What a Toast does with a message that comes while another one is shown."""
+    R_TOAST_REPLACE = 0x0500
+    R_TOAST_SEQUENCE = 0x0501
+    R_TOAST_STACK = 0x0502
+
+R_TOAST_REPLACE = RToastQueue.R_TOAST_REPLACE
+R_TOAST_SEQUENCE = RToastQueue.R_TOAST_SEQUENCE
+R_TOAST_STACK = RToastQueue.R_TOAST_STACK
+
 class RButtonStyle(enum.IntEnum):
     R_BUTTON_DEFAULT = 0x0290
     R_BUTTON_PRIMARY = 0x0291
@@ -3315,6 +3325,41 @@ _lib.Rwindow_center.restype = None
 def Rwindow_center(window):
     """Centers the window on the work area of its monitor (no task bar)."""
     _lib.Rwindow_center(window)
+
+
+_lib.Rwindow_set_inspector.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_set_inspector.restype = None
+
+
+def Rwindow_set_inspector(window, shown):
+    """Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+    window beside it that lists its widgets as a tree, says what the
+    selected one is (type, name, classes, place and size in the window,
+    desired size, constraints, slot, visibility, state, style, action,
+    children) and what the last frame cost (layout, paint and render
+    times, widgets, instances, draw calls). The selected widget is
+    outlined in the window, with its type and size. "Pick" selects the
+    next widget clicked in the window (that click goes to the inspector
+    only). It follows the window as it changes; closing it hides it, and
+    it goes with the window. Nothing opens it but this function."""
+    _lib.Rwindow_set_inspector(window, shown)
+
+
+_lib.Rwindow_is_inspector_shown.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_inspector_shown.restype = ctypes.c_int
+
+
+def Rwindow_is_inspector_shown(window):
+    return _lib.Rwindow_is_inspector_shown(window)
+
+
+_lib.Rwindow_get_inspector.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_inspector.restype = ctypes.c_uint32
+
+
+def Rwindow_get_inspector(window):
+    """Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden."""
+    return _lib.Rwindow_get_inspector(window)
 
 
 _lib.Rwindow_is_splash_screen.argtypes = [ctypes.c_uint32]
@@ -7382,8 +7427,17 @@ _lib.Rtoast_show.restype = None
 
 
 def Rtoast_show(toast, text, seconds):
-    """Shows a message for `seconds` (0 or less: until Rtoast_hide)."""
+    """Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now."""
     _lib.Rtoast_show(toast, _s(text), seconds)
+
+
+_lib.Rtoast_show_kind.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_double]
+_lib.Rtoast_show_kind.restype = None
+
+
+def Rtoast_show_kind(toast, text, kind, seconds):
+    """Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is)."""
+    _lib.Rtoast_show_kind(toast, _s(text), int(kind), seconds)
 
 
 _lib.Rtoast_hide.argtypes = [ctypes.c_uint32]
@@ -7391,7 +7445,17 @@ _lib.Rtoast_hide.restype = None
 
 
 def Rtoast_hide(toast):
+    """Hides the newest message shown; the next one waiting comes."""
     _lib.Rtoast_hide(toast)
+
+
+_lib.Rtoast_clear.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_clear.restype = None
+
+
+def Rtoast_clear(toast):
+    """Hides every message, and forgets those waiting."""
+    _lib.Rtoast_clear(toast)
 
 
 _lib.Rtoast_is_shown.argtypes = [ctypes.c_uint32]
@@ -7402,12 +7466,47 @@ def Rtoast_is_shown(toast):
     return _lib.Rtoast_is_shown(toast)
 
 
+_lib.Rtoast_get_count.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_get_count.restype = ctypes.c_int
+
+
+def Rtoast_get_count(toast):
+    """Returns: The messages shown and waiting."""
+    return _lib.Rtoast_get_count(toast)
+
+
 _lib.Rtoast_get_text.argtypes = [ctypes.c_uint32]
 _lib.Rtoast_get_text.restype = ctypes.c_char_p
 
 
 def Rtoast_get_text(toast):
+    """Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback)."""
     return _r(_lib.Rtoast_get_text(toast))
+
+
+_lib.Rtoast_set_queue.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtoast_set_queue.restype = None
+
+
+def Rtoast_set_queue(toast, queue):
+    _lib.Rtoast_set_queue(toast, int(queue))
+
+
+_lib.Rtoast_get_queue.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_get_queue.restype = ctypes.c_int
+
+
+def Rtoast_get_queue(toast):
+    return _e(RToastQueue, _lib.Rtoast_get_queue(toast))
+
+
+_lib.Rtoast_set_max_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtoast_set_max_visible.restype = None
+
+
+def Rtoast_set_max_visible(toast, count):
+    """How many messages a R_TOAST_STACK shows at once (default 3)."""
+    _lib.Rtoast_set_max_visible(toast, count)
 
 
 _lib.Rtoast_set_kind.argtypes = [ctypes.c_uint32, ctypes.c_int]
@@ -7415,6 +7514,7 @@ _lib.Rtoast_set_kind.restype = None
 
 
 def Rtoast_set_kind(toast, kind):
+    """The kind of the next messages (and of the message shown, with R_TOAST_REPLACE)."""
     _lib.Rtoast_set_kind(toast, int(kind))
 
 
@@ -7423,7 +7523,7 @@ _lib.Rtoast_set_action_text.restype = None
 
 
 def Rtoast_set_action_text(toast, text):
-    """A button at the end of the message ("Undo"); NULL or "" removes it."""
+    """A button at the end of the next messages ("Undo"); NULL or "" removes it."""
     _lib.Rtoast_set_action_text(toast, _s(text))
 
 

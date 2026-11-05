@@ -748,6 +748,15 @@ R_TOAST_SUCCESS :: 0x04E1
 R_TOAST_WARNING :: 0x04E2
 R_TOAST_ERROR :: 0x04E3
 
+// What a Toast does with a message that comes while another one is shown.
+RToastQueue :: i32
+// The new message takes the place of the one shown (the default).
+R_TOAST_REPLACE :: 0x0500
+// The messages are shown one after the other, each for its own time.
+R_TOAST_SEQUENCE :: 0x0501
+// Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait.
+R_TOAST_STACK :: 0x0502
+
 RButtonStyle :: i32
 // Filled with R_COLOR_CONTROL.
 R_BUTTON_DEFAULT :: 0x0290
@@ -1148,7 +1157,7 @@ RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, 
 RDateChangedCallback :: #type proc "c" (date_picker: Rid, year: i32, month: i32, day: i32, user_data: rawptr)
 // Called when the user changes the time. This also fires the action of the widget.
 RTimeChangedCallback :: #type proc "c" (time_picker: Rid, hour: i32, minute: i32, second: i32, user_data: rawptr)
-// Called by the button of the message, which then hides. This also fires the action of the widget.
+// Called by the button of a message, which then hides. This also fires the action of the widget.
 RToastCallback :: #type proc "c" (toast: Rid, user_data: rawptr)
 // Called when the user clicks an item. This also fires the action of the widget.
 RBreadcrumbCallback :: #type proc "c" (breadcrumb: Rid, index: i32, user_data: rawptr)
@@ -1955,6 +1964,20 @@ foreign lib {
 	Rwindow_set_picture_in_picture_layout :: proc(window: Rid, width: i32, height: i32, corner: RPictureInPictureCorner) ---
 	// Centers the window on the work area of its monitor (no task bar).
 	Rwindow_center :: proc(window: Rid) ---
+	// Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+	// window beside it that lists its widgets as a tree, says what the
+	// selected one is (type, name, classes, place and size in the window,
+	// desired size, constraints, slot, visibility, state, style, action,
+	// children) and what the last frame cost (layout, paint and render
+	// times, widgets, instances, draw calls). The selected widget is
+	// outlined in the window, with its type and size. "Pick" selects the
+	// next widget clicked in the window (that click goes to the inspector
+	// only). It follows the window as it changes; closing it hides it, and
+	// it goes with the window. Nothing opens it but this function.
+	Rwindow_set_inspector :: proc(window: Rid, shown: i32) ---
+	Rwindow_is_inspector_shown :: proc(window: Rid) -> i32 ---
+	// Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden.
+	Rwindow_get_inspector :: proc(window: Rid) -> Rid ---
 	// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
 	Rwindow_is_splash_screen :: proc(window: Rid) -> i32 ---
 	// Asks for a new frame even if no widget changed. Thread-safe.
@@ -2857,13 +2880,26 @@ foreign lib {
 	// Step of the minutes for the arrows and the wheel (default 1).
 	Rtime_picker_set_minute_step :: proc(time_picker: Rid, step: i32) ---
 	Rtime_picker_set_changed_callback :: proc(time_picker: Rid, callback: RTimeChangedCallback, user_data: rawptr) ---
-	// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+	// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 	Rtoast_show :: proc(toast: Rid, text: cstring, seconds: f64) ---
+	// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+	Rtoast_show_kind :: proc(toast: Rid, text: cstring, kind: RToastKind, seconds: f64) ---
+	// Hides the newest message shown; the next one waiting comes.
 	Rtoast_hide :: proc(toast: Rid) ---
+	// Hides every message, and forgets those waiting.
+	Rtoast_clear :: proc(toast: Rid) ---
 	Rtoast_is_shown :: proc(toast: Rid) -> i32 ---
+	// Returns: The messages shown and waiting.
+	Rtoast_get_count :: proc(toast: Rid) -> i32 ---
+	// Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback).
 	Rtoast_get_text :: proc(toast: Rid) -> cstring ---
+	Rtoast_set_queue :: proc(toast: Rid, queue: RToastQueue) ---
+	Rtoast_get_queue :: proc(toast: Rid) -> RToastQueue ---
+	// How many messages a R_TOAST_STACK shows at once (default 3).
+	Rtoast_set_max_visible :: proc(toast: Rid, count: i32) ---
+	// The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
 	Rtoast_set_kind :: proc(toast: Rid, kind: RToastKind) ---
-	// A button at the end of the message ("Undo"); NULL or "" removes it.
+	// A button at the end of the next messages ("Undo"); NULL or "" removes it.
 	Rtoast_set_action_text :: proc(toast: Rid, text: cstring) ---
 	Rtoast_set_action_callback :: proc(toast: Rid, callback: RToastCallback, user_data: rawptr) ---
 	// Replaces the items: their texts separated by '|'.

@@ -433,6 +433,23 @@ as it changes, and alive.
 Undo and redo, open and save, `F7` for the preview in a window of its own.
 The files are in `tools/theme_editor/`.
 
+## The inspector
+
+```c
+Rwindow_set_inspector(window, R_TRUE);   /* R_FALSE hides it */
+```
+
+A window beside the application that shows what a window is made of while it
+runs: its widgets as a tree (type, name, classes), what the selected one is
+(place and size in the window, desired size, constraints, slot, visibility,
+state, style, action, children) and what the last frame cost (layout, paint
+and render times, widgets, instances, draw calls). The selected widget is
+outlined in the window with its type and size; *Pick* selects the next widget
+clicked in the window, and that click goes to the inspector only. The tree
+follows the window as widgets come and go. No key opens it: the application
+calls the function (behind a debug menu, a command line option...), and
+`Rwindow_get_inspector` gives its window, to place it.
+
 ## License
 
 **Raven is open source**, under the [Apache License 2.0](LICENSE) (see also
@@ -995,7 +1012,10 @@ styled where it stands.
 A table virtualizes its rows as a list does (`Rtable_set_virtual_rows`); its
 columns are resized by their edges and sorted by their headers. A `Toast`, put
 in an `Overlay`, shows a short message for a few seconds (`Rtoast_show`), with
-an optional button ("Undo"). `Rnotification_show` asks the system for a
+an optional button ("Undo"). Messages that come while one is shown replace it,
+wait their turn (`Queue="Sequence"`) or stack up, the newest at the bottom
+(`Queue="Stack" MaxVisible="3"`), each with its own kind, button and time.
+`Rnotification_show` asks the system for a
 notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
 where there is none, calls the fallback the application gave
 (`Rnotification_set_fallback`), to show it in a toast for instance.

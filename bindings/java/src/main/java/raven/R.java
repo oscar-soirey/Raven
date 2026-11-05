@@ -1115,6 +1115,20 @@ public final class R {
     public static final int R_TOAST_WARNING = 0x04E2;
     public static final int R_TOAST_ERROR = 0x04E3;
 
+    // RToastQueue: What a Toast does with a message that comes while another one is shown.
+    /**
+     * The new message takes the place of the one shown (the default).
+     */
+    public static final int R_TOAST_REPLACE = 0x0500;
+    /**
+     * The messages are shown one after the other, each for its own time.
+     */
+    public static final int R_TOAST_SEQUENCE = 0x0501;
+    /**
+     * Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait.
+     */
+    public static final int R_TOAST_STACK = 0x0502;
+
     // RButtonStyle
     /**
      * Filled with R_COLOR_CONTROL.
@@ -4400,7 +4414,7 @@ public final class R {
     }
 
     /**
-     * Called by the button of the message, which then hides. This also fires the action of the widget.
+     * Called by the button of a message, which then hides. This also fires the action of the widget.
      */
     @FunctionalInterface
     public interface RToastCallback {
@@ -6624,6 +6638,59 @@ public final class R {
         if ($h == null) Rwindow_center$ = $h = find("Rwindow_center", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_set_inspector$;
+
+    /**
+     * Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+     * window beside it that lists its widgets as a tree, says what the
+     * selected one is (type, name, classes, place and size in the window,
+     * desired size, constraints, slot, visibility, state, style, action,
+     * children) and what the last frame cost (layout, paint and render
+     * times, widgets, instances, draw calls). The selected widget is
+     * outlined in the window, with its type and size. "Pick" selects the
+     * next widget clicked in the window (that click goes to the inspector
+     * only). It follows the window as it changes; closing it hides it, and
+     * it goes with the window. Nothing opens it but this function.
+     */
+    public static void Rwindow_set_inspector(int window, int shown) {
+        MethodHandle $h = Rwindow_set_inspector$;
+        if ($h == null) Rwindow_set_inspector$ = $h = find("Rwindow_set_inspector", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(window, shown);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_is_inspector_shown$;
+
+    public static int Rwindow_is_inspector_shown(int window) {
+        MethodHandle $h = Rwindow_is_inspector_shown$;
+        if ($h == null) Rwindow_is_inspector_shown$ = $h = find("Rwindow_is_inspector_shown", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_inspector$;
+
+    /**
+     * Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden.
+     */
+    public static int Rwindow_get_inspector(int window) {
+        MethodHandle $h = Rwindow_get_inspector$;
+        if ($h == null) Rwindow_get_inspector$ = $h = find("Rwindow_get_inspector", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -13356,7 +13423,7 @@ public final class R {
     private static MethodHandle Rtoast_show$;
 
     /**
-     * Shows a message for `seconds` (0 or less: until Rtoast_hide).
+     * Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
      */
     public static void Rtoast_show(int toast, String text, double seconds) {
         MethodHandle $h = Rtoast_show$;
@@ -13369,11 +13436,45 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rtoast_show_kind$;
+
+    /**
+     * Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+     */
+    public static void Rtoast_show_kind(int toast, String text, int kind, double seconds) {
+        MethodHandle $h = Rtoast_show_kind$;
+        if ($h == null) Rtoast_show_kind$ = $h = find("Rtoast_show_kind", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, JAVA_DOUBLE));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(toast, text$, kind, seconds);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtoast_hide$;
 
+    /**
+     * Hides the newest message shown; the next one waiting comes.
+     */
     public static void Rtoast_hide(int toast) {
         MethodHandle $h = Rtoast_hide$;
         if ($h == null) Rtoast_hide$ = $h = find("Rtoast_hide", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(toast);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtoast_clear$;
+
+    /**
+     * Hides every message, and forgets those waiting.
+     */
+    public static void Rtoast_clear(int toast) {
+        MethodHandle $h = Rtoast_clear$;
+        if ($h == null) Rtoast_clear$ = $h = find("Rtoast_clear", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(toast);
         } catch (Throwable $t) {
@@ -13394,8 +13495,27 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rtoast_get_count$;
+
+    /**
+     * Returns: The messages shown and waiting.
+     */
+    public static int Rtoast_get_count(int toast) {
+        MethodHandle $h = Rtoast_get_count$;
+        if ($h == null) Rtoast_get_count$ = $h = find("Rtoast_get_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(toast);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtoast_get_text$;
 
+    /**
+     * Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback).
+     */
     public static String Rtoast_get_text(int toast) {
         MethodHandle $h = Rtoast_get_text$;
         if ($h == null) Rtoast_get_text$ = $h = find("Rtoast_get_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
@@ -13407,8 +13527,51 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rtoast_set_queue$;
+
+    public static void Rtoast_set_queue(int toast, int queue) {
+        MethodHandle $h = Rtoast_set_queue$;
+        if ($h == null) Rtoast_set_queue$ = $h = find("Rtoast_set_queue", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(toast, queue);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtoast_get_queue$;
+
+    public static int Rtoast_get_queue(int toast) {
+        MethodHandle $h = Rtoast_get_queue$;
+        if ($h == null) Rtoast_get_queue$ = $h = find("Rtoast_get_queue", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(toast);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtoast_set_max_visible$;
+
+    /**
+     * How many messages a R_TOAST_STACK shows at once (default 3).
+     */
+    public static void Rtoast_set_max_visible(int toast, int count) {
+        MethodHandle $h = Rtoast_set_max_visible$;
+        if ($h == null) Rtoast_set_max_visible$ = $h = find("Rtoast_set_max_visible", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(toast, count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtoast_set_kind$;
 
+    /**
+     * The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
+     */
     public static void Rtoast_set_kind(int toast, int kind) {
         MethodHandle $h = Rtoast_set_kind$;
         if ($h == null) Rtoast_set_kind$ = $h = find("Rtoast_set_kind", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
@@ -13422,7 +13585,7 @@ public final class R {
     private static MethodHandle Rtoast_set_action_text$;
 
     /**
-     * A button at the end of the message ("Undo"); NULL or "" removes it.
+     * A button at the end of the next messages ("Undo"); NULL or "" removes it.
      */
     public static void Rtoast_set_action_text(int toast, String text) {
         MethodHandle $h = Rtoast_set_action_text$;

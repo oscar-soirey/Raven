@@ -23,6 +23,13 @@ is a plan, not a promise: issues and pull requests can change the order.
   frosted glass, and faintly on the edges of `BackgroundBlur`.
 - [x] **SVG at the size it is shown**: drawn again for the density of the
   screen, a stretched `Image` or a zoom, on a worker thread.
+- [x] **Toast queue**: messages one after the other (`Queue="Sequence"`) or
+  stacked (`Queue="Stack"`), each with its kind, button and time.
+- [x] **Inspector** (`Rwindow_set_inspector`): the tree of the widgets of a
+  window, what the selected one is, the cost of the frame, picking.
+- [x] **`test_web` no longer flaky**: a page drawn before the screencast
+  started, or a picture of another size arriving late, made it wait for a
+  picture that never came; the view now asks the browser for one.
 - [x] **Small widgets**: `DatePicker` (calendar popup, range, first day of the
   week, formats, translated names), `TimePicker`, `Toast`, `Breadcrumb`,
   `Rating`, `Pagination`.
@@ -51,9 +58,6 @@ is a plan, not a promise: issues and pull requests can change the order.
   only; the Win32 and Cocoa platforms are only compiled. Run the headless
   tests on `windows-latest` and `macos-latest`, and the platform tests where
   a display is available.
-- [ ] **`test_web` is flaky** (it drives an installed Chromium and depends
-  on its start time). Give it a longer wait and a retry, or mark it
-  `DISABLED` in CI and run it on its own job that may fail.
 - [ ] **Win32 event queue.** The queue of events gathered while Windows runs
   its modal loops (moving, resizing) has a fixed size; make it grow, and
   test it with injected bursts.
@@ -85,7 +89,6 @@ is a plan, not a promise: issues and pull requests can change the order.
   holding a widget (a checkbox, a progress bar), frozen first column.
 - [ ] Date picker: a range of two dates; a time zone aware time picker; a
   12-hour clock where the locale uses one.
-- [ ] Toast queue: several messages one after the other, or stacked.
 - [ ] Notifications: actions (buttons), a click that brings the window
   back, replacing a notification, an icon; UNUserNotificationCenter on macOS.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.
@@ -129,9 +132,6 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ## 6. For the people who use Raven
 
-- [ ] **Runtime inspector**: a key (F12) that opens a panel listing the
-  widget tree of a window, the layout rectangles, the styles that apply, the
-  time spent in layout and paint.
 - [ ] **Packages**: vcpkg, Conan, Homebrew, a `pkg-config` file, and the
   CMake config already installed.
 - [ ] **CONTRIBUTING.md**, issue and pull request templates, a code of

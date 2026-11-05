@@ -243,6 +243,9 @@ const _symbols = {
 	Rwindow_is_picture_in_picture: { args: ["u32"], returns: "i32" },
 	Rwindow_set_picture_in_picture_layout: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rwindow_center: { args: ["u32"], returns: "void" },
+	Rwindow_set_inspector: { args: ["u32", "i32"], returns: "void" },
+	Rwindow_is_inspector_shown: { args: ["u32"], returns: "i32" },
+	Rwindow_get_inspector: { args: ["u32"], returns: "u32" },
 	Rwindow_is_splash_screen: { args: ["u32"], returns: "i32" },
 	Rwindow_request_redraw: { args: ["u32"], returns: "void" },
 	Rwindow_set_continuous_redraw: { args: ["u32", "i32"], returns: "void" },
@@ -686,9 +689,15 @@ const _symbols = {
 	Rtime_picker_set_minute_step: { args: ["u32", "i32"], returns: "void" },
 	Rtime_picker_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtoast_show: { args: ["u32", "ptr", "f64"], returns: "void" },
+	Rtoast_show_kind: { args: ["u32", "ptr", "i32", "f64"], returns: "void" },
 	Rtoast_hide: { args: ["u32"], returns: "void" },
+	Rtoast_clear: { args: ["u32"], returns: "void" },
 	Rtoast_is_shown: { args: ["u32"], returns: "i32" },
+	Rtoast_get_count: { args: ["u32"], returns: "i32" },
 	Rtoast_get_text: { args: ["u32"], returns: "cstring" },
+	Rtoast_set_queue: { args: ["u32", "i32"], returns: "void" },
+	Rtoast_get_queue: { args: ["u32"], returns: "i32" },
+	Rtoast_set_max_visible: { args: ["u32", "i32"], returns: "void" },
 	Rtoast_set_kind: { args: ["u32", "i32"], returns: "void" },
 	Rtoast_set_action_text: { args: ["u32", "ptr"], returns: "void" },
 	Rtoast_set_action_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
@@ -2424,6 +2433,20 @@ export const R_TOAST_INFO = RToastKind.R_TOAST_INFO;
 export const R_TOAST_SUCCESS = RToastKind.R_TOAST_SUCCESS;
 export const R_TOAST_WARNING = RToastKind.R_TOAST_WARNING;
 export const R_TOAST_ERROR = RToastKind.R_TOAST_ERROR;
+
+/** What a Toast does with a message that comes while another one is shown. */
+export enum RToastQueue {
+	/** The new message takes the place of the one shown (the default). */
+	R_TOAST_REPLACE = 0x0500,
+	/** The messages are shown one after the other, each for its own time. */
+	R_TOAST_SEQUENCE = 0x0501,
+	/** Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait. */
+	R_TOAST_STACK = 0x0502,
+}
+
+export const R_TOAST_REPLACE = RToastQueue.R_TOAST_REPLACE;
+export const R_TOAST_SEQUENCE = RToastQueue.R_TOAST_SEQUENCE;
+export const R_TOAST_STACK = RToastQueue.R_TOAST_STACK;
 
 export enum RButtonStyle {
 	/** Filled with R_COLOR_CONTROL. */
@@ -5546,7 +5569,7 @@ function _adapt_RTimeChangedCallback(function_: RTimeChangedCallback | Pointer |
 	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
-/** Called by the button of the message, which then hides. This also fires the action of the widget. */
+/** Called by the button of a message, which then hides. This also fires the action of the widget. */
 export type RToastCallback = (toast: Rid, user_data: Pointer | null) => void;
 
 function _adapt_RToastCallback(function_: RToastCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -6725,6 +6748,31 @@ export function Rwindow_set_picture_in_picture_layout(window: Rid, width: number
 /** Centers the window on the work area of its monitor (no task bar). */
 export function Rwindow_center(window: Rid): void {
 	_lib.Rwindow_center(window);
+}
+
+/**
+ * Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+ * window beside it that lists its widgets as a tree, says what the
+ * selected one is (type, name, classes, place and size in the window,
+ * desired size, constraints, slot, visibility, state, style, action,
+ * children) and what the last frame cost (layout, paint and render
+ * times, widgets, instances, draw calls). The selected widget is
+ * outlined in the window, with its type and size. "Pick" selects the
+ * next widget clicked in the window (that click goes to the inspector
+ * only). It follows the window as it changes; closing it hides it, and
+ * it goes with the window. Nothing opens it but this function.
+ */
+export function Rwindow_set_inspector(window: Rid, shown: number): void {
+	_lib.Rwindow_set_inspector(window, shown);
+}
+
+export function Rwindow_is_inspector_shown(window: Rid): number {
+	return _lib.Rwindow_is_inspector_shown(window);
+}
+
+/** Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden. */
+export function Rwindow_get_inspector(window: Rid): Rid {
+	return _lib.Rwindow_get_inspector(window);
 }
 
 /** Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML). */
@@ -9158,28 +9206,59 @@ export function Rtime_picker_set_changed_callback(time_picker: Rid, callback: RT
 	_lib.Rtime_picker_set_changed_callback(time_picker, _adapt_RTimeChangedCallback(callback), user_data);
 }
 
-/** Shows a message for `seconds` (0 or less: until Rtoast_hide). */
+/** Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now. */
 export function Rtoast_show(toast: Rid, text: string | null, seconds: number): void {
 	_lib.Rtoast_show(toast, _s(text), seconds);
 }
 
+/** Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is). */
+export function Rtoast_show_kind(toast: Rid, text: string | null, kind: RToastKind, seconds: number): void {
+	_lib.Rtoast_show_kind(toast, _s(text), kind, seconds);
+}
+
+/** Hides the newest message shown; the next one waiting comes. */
 export function Rtoast_hide(toast: Rid): void {
 	_lib.Rtoast_hide(toast);
+}
+
+/** Hides every message, and forgets those waiting. */
+export function Rtoast_clear(toast: Rid): void {
+	_lib.Rtoast_clear(toast);
 }
 
 export function Rtoast_is_shown(toast: Rid): number {
 	return _lib.Rtoast_is_shown(toast);
 }
 
+/** Returns: The messages shown and waiting. */
+export function Rtoast_get_count(toast: Rid): number {
+	return _lib.Rtoast_get_count(toast);
+}
+
+/** Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback). */
 export function Rtoast_get_text(toast: Rid): string | null {
 	return _lib.Rtoast_get_text(toast);
 }
 
+export function Rtoast_set_queue(toast: Rid, queue: RToastQueue): void {
+	_lib.Rtoast_set_queue(toast, queue);
+}
+
+export function Rtoast_get_queue(toast: Rid): RToastQueue {
+	return _lib.Rtoast_get_queue(toast) as RToastQueue;
+}
+
+/** How many messages a R_TOAST_STACK shows at once (default 3). */
+export function Rtoast_set_max_visible(toast: Rid, count: number): void {
+	_lib.Rtoast_set_max_visible(toast, count);
+}
+
+/** The kind of the next messages (and of the message shown, with R_TOAST_REPLACE). */
 export function Rtoast_set_kind(toast: Rid, kind: RToastKind): void {
 	_lib.Rtoast_set_kind(toast, kind);
 }
 
-/** A button at the end of the message ("Undo"); NULL or "" removes it. */
+/** A button at the end of the next messages ("Undo"); NULL or "" removes it. */
 export function Rtoast_set_action_text(toast: Rid, text: string | null): void {
 	_lib.Rtoast_set_action_text(toast, _s(text));
 }

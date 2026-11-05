@@ -718,6 +718,89 @@ static void test_island(void) {
 }
 
 /* Picture in picture: the null platform has a work area of 1920 x 1080 pixels. */
+static void test_inspector(void) {
+	static const char xml[] =
+		"<Window Title=\"Editor\" Width=\"500\" Height=\"300\">"
+		"  <VBox Name=\"root\">"
+		"    <Label Text=\"Hello\"/>"
+		"    <Button Name=\"save\" Class=\"primary big\" Text=\"Save\"/>"
+		"  </VBox>"
+		"</Window>";
+	Rid window = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid save = Rwidget_find(window, "save"), inspector, tree, props, pick, item;
+	int i;
+	Rbutton_set_clicked_callback(save, on_clicked, NULL);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_inspector_shown(window));
+	CHECK(Rwindow_get_inspector(window) == R_INVALID_ID);
+
+	/* shown: a window of its own, with the tree of the widgets */
+	Rwindow_set_inspector(window, R_TRUE);
+	CHECK(Rwindow_is_inspector_shown(window));
+	inspector = Rwindow_get_inspector(window);
+	CHECK(Rwindow_is_valid(inspector));
+	/* (asking again changes nothing) */
+	Rwindow_set_inspector(window, R_TRUE);
+	CHECK(Rwindow_get_inspector(window) == inspector);
+	tree = Rwidget_find(Rwindow_get_content(inspector), "tree");
+	props = Rwidget_find(Rwindow_get_content(inspector), "props");
+	pick = Rwidget_find(Rwindow_get_content(inspector), "pick");
+	CHECK(Rtree_view_get_item_count(tree) == 1);
+	item = Rtree_view_get_item(tree, 0);
+	CHECK_STR(Rtree_item_get_text(item), "VBox  \"root\"");
+	CHECK(Rtree_item_get_child_count(item) == 2);
+	CHECK_STR(Rtree_item_get_text(Rtree_item_get_child(item, 1)), "Button  \"save\"  .primary  .big");
+
+	/* selecting the button in the tree tells what it is */
+	Rtree_view_set_selected_item(tree, Rtree_item_get_child(item, 1));
+	Rdraw_frame();
+	CHECK(strstr(Rlabel_get_text(props), "Type        Button") != NULL);
+	CHECK(strstr(Rlabel_get_text(props), "Classes     primary big") != NULL);
+	Rdraw_frame();
+
+	/* the tree follows the window */
+	Rwidget_add_child(Rwidget_find(window, "root"), Rwidget_create(R_WIDGET_SLIDER));
+	for (i = 0; i < 100 && Rtree_item_get_child_count(Rtree_view_get_item(tree, 0)) != 3; i++) {
+		Rdraw_frame();
+		Rwait_events(0.01);
+	}
+	CHECK(Rtree_item_get_child_count(Rtree_view_get_item(tree, 0)) == 3);
+	/* (the selection stays) */
+	CHECK(strstr(Rlabel_get_text(props), "Type        Button") != NULL);
+
+	/* Pick: the next click in the window selects, and does not reach the widget */
+	Rtree_view_set_selected_item(tree, R_INVALID_ID);
+	Rcheckbox_set_checked(pick, R_TRUE);
+	Rdraw_frame();
+	g_clicked = 0;
+	test_click(window, save);
+	CHECK(g_clicked == 0);
+	CHECK(!Rcheckbox_is_checked(pick));
+	CHECK(strstr(Rlabel_get_text(props), "Type        Button") != NULL);
+	CHECK_STR(Rtree_item_get_text(Rtree_view_get_selected_item(tree)), "Button  \"save\"  .primary  .big");
+	/* then the clicks go to the window again */
+	test_click(window, save);
+	CHECK(g_clicked == 1);
+
+	/* an inspector has no inspector */
+	EXPECT_ERRORS_BEGIN();
+	Rwindow_set_inspector(inspector, R_TRUE);
+	EXPECT_ERRORS_END(1);
+
+	/* hidden by the same function; then shown again, it goes with its window */
+	Rwindow_set_inspector(window, R_FALSE);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_inspector_shown(window));
+	CHECK(!Rwindow_is_valid(inspector));
+	Rwindow_set_inspector(window, R_TRUE);
+	inspector = Rwindow_get_inspector(window);
+	Rdraw_frame();
+	Rwindow_destroy(window);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_valid(inspector));
+	CHECK(!Rwindow_is_inspector_shown(window));
+}
+
 static void test_splash_screen(void) {
 	static const char xml[] =
 		"<Window Title=\"Loading\" Width=\"400\" Height=\"240\" IsSplashScreen=\"true\" Maximized=\"true\">"
@@ -894,6 +977,7 @@ int main(void) {
 	RUN(test_island);
 	RUN(test_picture_in_picture);
 	RUN(test_splash_screen);
+	RUN(test_inspector);
 	RUN(test_taskbar);
 	RUN(test_tray);
 	Rshutdown();

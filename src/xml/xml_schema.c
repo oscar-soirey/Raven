@@ -297,6 +297,8 @@ static const rvn_schema_attribute_t g_toast[] = {
 	C("Kind", "Info|Success|Warning|Error", "The color of the dot before the message."),
 	T("ActionText", "A button at the end of the message (\"Undo\")."),
 	A("OnClicked", "Action fired by the button of the message."),
+	C("Queue", "Replace|Sequence|Stack", "A message that comes while another is shown: takes its place, waits its turn, or stacks up."),
+	N("MaxVisible", "How many messages a Stack shows at once (default 3)."),
 };
 static const rvn_schema_attribute_t g_breadcrumb[] = {
 	L("Items", "The items, separated by '|' (or Item elements); the last one is the current place."),

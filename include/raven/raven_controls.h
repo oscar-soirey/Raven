@@ -29,6 +29,16 @@ typedef enum RToastKind{
 	R_TOAST_ERROR
 }RToastKind;
 
+/** What a Toast does with a message that comes while another one is shown. */
+typedef enum RToastQueue{
+	/** The new message takes the place of the one shown (the default). */
+	R_TOAST_REPLACE = 0x0500,
+	/** The messages are shown one after the other, each for its own time. */
+	R_TOAST_SEQUENCE,
+	/** Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait. */
+	R_TOAST_STACK
+}RToastQueue;
+
 typedef enum RButtonStyle{
 	/** Filled with R_COLOR_CONTROL. */
 	R_BUTTON_DEFAULT = 0x0290,
@@ -634,18 +644,36 @@ extern "C" {
 	 *          <Toast Name="toast" Slot.HAlign="Center" Slot.VAlign="Bottom" Slot.Padding="16"/>
 	 *      </Overlay>
 	 *
-	 * Hidden, it takes no click. Rtoast_show replaces the message shown.
+	 * Hidden, it takes no click. By default Rtoast_show replaces the message
+	 * shown; Rtoast_set_queue makes the messages wait their turn
+	 * (R_TOAST_SEQUENCE) or stack up (R_TOAST_STACK: the oldest at the top,
+	 * the newest at the bottom; put the toast against the bottom of the
+	 * Overlay so that the stack grows upwards). Each message keeps the kind
+	 * and the button it was shown with, and its own time.
 	 * ============================================================================ */
 
-	/** @brief Shows a message for `seconds` (0 or less: until Rtoast_hide). */
+	/** @brief Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now. */
 	RAVEN_API void Rtoast_show(Rid toast, const char* text, double seconds);
+	/** @brief Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is). */
+	RAVEN_API void Rtoast_show_kind(Rid toast, const char* text, RToastKind kind, double seconds);
+	/** @brief Hides the newest message shown; the next one waiting comes. */
 	RAVEN_API void Rtoast_hide(Rid toast);
+	/** @brief Hides every message, and forgets those waiting. */
+	RAVEN_API void Rtoast_clear(Rid toast);
 	RAVEN_API int Rtoast_is_shown(Rid toast);
+	/** @return The messages shown and waiting. */
+	RAVEN_API int Rtoast_get_count(Rid toast);
+	/** @return The newest message shown (the last one, once hidden; the clicked one in the action callback). */
 	RAVEN_API const char* Rtoast_get_text(Rid toast);
+	RAVEN_API void Rtoast_set_queue(Rid toast, RToastQueue queue);
+	RAVEN_API RToastQueue Rtoast_get_queue(Rid toast);
+	/** @brief How many messages a R_TOAST_STACK shows at once (default 3). */
+	RAVEN_API void Rtoast_set_max_visible(Rid toast, int count);
+	/** @brief The kind of the next messages (and of the message shown, with R_TOAST_REPLACE). */
 	RAVEN_API void Rtoast_set_kind(Rid toast, RToastKind kind);
-	/** @brief A button at the end of the message ("Undo"); NULL or "" removes it. */
+	/** @brief A button at the end of the next messages ("Undo"); NULL or "" removes it. */
 	RAVEN_API void Rtoast_set_action_text(Rid toast, const char* text);
-	/** @brief Called by the button of the message, which then hides. This also fires the action of the widget. */
+	/** @brief Called by the button of a message, which then hides. This also fires the action of the widget. */
 	typedef void (*RToastCallback)(Rid toast, void* user_data);
 	RAVEN_API void Rtoast_set_action_callback(Rid toast, RToastCallback callback, void* user_data);
 

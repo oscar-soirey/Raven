@@ -1802,6 +1802,23 @@ public:
 	/// Centers the window on the work area of its monitor (no task bar).
 	void center() const { Rwindow_center(id_); }
 
+	/// Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+	/// window beside it that lists its widgets as a tree, says what the
+	/// selected one is (type, name, classes, place and size in the window,
+	/// desired size, constraints, slot, visibility, state, style, action,
+	/// children) and what the last frame cost (layout, paint and render
+	/// times, widgets, instances, draw calls). The selected widget is
+	/// outlined in the window, with its type and size. "Pick" selects the
+	/// next widget clicked in the window (that click goes to the inspector
+	/// only). It follows the window as it changes; closing it hides it, and
+	/// it goes with the window. Nothing opens it but this function.
+	void set_inspector(int shown) const { Rwindow_set_inspector(id_, shown); }
+
+	int is_inspector_shown() const { return Rwindow_is_inspector_shown(id_); }
+
+	/// Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden.
+	Rid get_inspector() const { return Rwindow_get_inspector(id_); }
+
 	/// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
 	int is_splash_screen() const { return Rwindow_is_splash_screen(id_); }
 
@@ -2969,18 +2986,37 @@ inline void time_picker_set_changed_callback(Rid time_picker, std::function<void
 	Rtime_picker_set_changed_callback(time_picker, [](Rid time_picker, int hour, int minute, int second, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(time_picker, hour, minute, second); }, detail::keep(time_picker, 60, std::move(callback)));
 }
 
-/// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+/// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 inline void toast_show(Rid toast, const char* text, double seconds) { Rtoast_show(toast, text, seconds); }
 
+/// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+inline void toast_show_kind(Rid toast, const char* text, RToastKind kind, double seconds) { Rtoast_show_kind(toast, text, kind, seconds); }
+
+/// Hides the newest message shown; the next one waiting comes.
 inline void toast_hide(Rid toast) { Rtoast_hide(toast); }
+
+/// Hides every message, and forgets those waiting.
+inline void toast_clear(Rid toast) { Rtoast_clear(toast); }
 
 inline int toast_is_shown(Rid toast) { return Rtoast_is_shown(toast); }
 
+/// Returns: The messages shown and waiting.
+inline int toast_get_count(Rid toast) { return Rtoast_get_count(toast); }
+
+/// Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback).
 inline const char* toast_get_text(Rid toast) { return Rtoast_get_text(toast); }
 
+inline void toast_set_queue(Rid toast, RToastQueue queue) { Rtoast_set_queue(toast, queue); }
+
+inline RToastQueue toast_get_queue(Rid toast) { return Rtoast_get_queue(toast); }
+
+/// How many messages a R_TOAST_STACK shows at once (default 3).
+inline void toast_set_max_visible(Rid toast, int count) { Rtoast_set_max_visible(toast, count); }
+
+/// The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
 inline void toast_set_kind(Rid toast, RToastKind kind) { Rtoast_set_kind(toast, kind); }
 
-/// A button at the end of the message ("Undo"); NULL or "" removes it.
+/// A button at the end of the next messages ("Undo"); NULL or "" removes it.
 inline void toast_set_action_text(Rid toast, const char* text) { Rtoast_set_action_text(toast, text); }
 
 inline void toast_set_action_callback(Rid toast, RToastCallback callback, void* user_data) { Rtoast_set_action_callback(toast, callback, user_data); }

@@ -1032,6 +1032,18 @@ void rvn_tray_update(void);
 int  rvn_tray_count(void);
 void rvn_tray_on_event(const struct rvn_pevent_t* event);
 void rvn_tray_shutdown(void);
+
+/* ---- widget/inspector.c (Rwindow_set_inspector) ---- */
+/** Once a frame: the inspectors follow the windows they inspect. */
+void rvn_inspector_update(void);
+/** A window goes: its inspector with it, or it was the window of an inspector. */
+void rvn_inspector_window_destroyed(rvn_window_t* window);
+/** Outlines, over the window, the widget selected in its inspector. */
+void rvn_inspector_paint(rvn_window_t* window, RPainter* painter);
+/** While "Pick" is on: the pointer shows which widget a click selects, and the click goes to the inspector only. */
+int  rvn_inspector_pick_move(rvn_window_t* window, float x, float y);
+int  rvn_inspector_pick_button(rvn_window_t* window, int pressed);
+void rvn_inspector_shutdown(void);
 /** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
 rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */

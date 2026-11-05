@@ -727,6 +727,15 @@ const (
 	R_TOAST_ERROR   RToastKind = 0x04E3
 )
 
+// RToastQueue: What a Toast does with a message that comes while another one is shown.
+type RToastQueue int32
+
+const (
+	R_TOAST_REPLACE  RToastQueue = 0x0500
+	R_TOAST_SEQUENCE RToastQueue = 0x0501
+	R_TOAST_STACK    RToastQueue = 0x0502
+)
+
 type RButtonStyle int32
 
 const (
@@ -1462,6 +1471,27 @@ func WindowSetPictureInPictureLayout(window ID, width int, height int, corner RP
 // WindowCenter: Centers the window on the work area of its monitor (no task bar).
 func WindowCenter(window ID) {
 	C.Rwindow_center(C.Rid(window))
+}
+
+// WindowSetInspector: Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a window beside it that
+// lists its widgets as a tree, says what the selected one is (type, name, classes, place and size in the
+// window, desired size, constraints, slot, visibility, state, style, action, children) and what the last
+// frame cost (layout, paint and render times, widgets, instances, draw calls). The selected widget is
+// outlined in the window, with its type and size. "Pick" selects the next widget clicked in the window (that
+// click goes to the inspector only). It follows the window as it changes; closing it hides it, and it goes
+// with the window. Nothing opens it but this function.
+func WindowSetInspector(window ID, shown int) {
+	C.Rwindow_set_inspector(C.Rid(window), C.int(shown))
+}
+
+func WindowIsInspectorShown(window ID) int {
+	return int(C.Rwindow_is_inspector_shown(C.Rid(window)))
+}
+
+// WindowGetInspector: Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it
+// is hidden.
+func WindowGetInspector(window ID) ID {
+	return ID(C.Rwindow_get_inspector(C.Rid(window)))
 }
 
 // WindowIsSplashScreen: Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in
@@ -3584,30 +3614,64 @@ func TimePickerSetMinuteStep(time_picker ID, step int) {
 	C.Rtime_picker_set_minute_step(C.Rid(time_picker), C.int(step))
 }
 
-// ToastShow: Shows a message for `seconds` (0 or less: until Rtoast_hide).
+// ToastShow: Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 func ToastShow(toast ID, text string, seconds float64) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
 	C.Rtoast_show(C.Rid(toast), text_, C.double(seconds))
 }
 
+// ToastShowKind: Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+func ToastShowKind(toast ID, text string, kind RToastKind, seconds float64) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtoast_show_kind(C.Rid(toast), text_, C.RToastKind(kind), C.double(seconds))
+}
+
+// ToastHide: Hides the newest message shown; the next one waiting comes.
 func ToastHide(toast ID) {
 	C.Rtoast_hide(C.Rid(toast))
+}
+
+// ToastClear: Hides every message, and forgets those waiting.
+func ToastClear(toast ID) {
+	C.Rtoast_clear(C.Rid(toast))
 }
 
 func ToastIsShown(toast ID) int {
 	return int(C.Rtoast_is_shown(C.Rid(toast)))
 }
 
+// ToastGetCount: Returns: The messages shown and waiting.
+func ToastGetCount(toast ID) int {
+	return int(C.Rtoast_get_count(C.Rid(toast)))
+}
+
+// ToastGetText: Returns: The newest message shown (the last one, once hidden; the clicked one in the action
+// callback).
 func ToastGetText(toast ID) string {
 	return C.GoString(C.Rtoast_get_text(C.Rid(toast)))
 }
 
+func ToastSetQueue(toast ID, queue RToastQueue) {
+	C.Rtoast_set_queue(C.Rid(toast), C.RToastQueue(queue))
+}
+
+func ToastGetQueue(toast ID) RToastQueue {
+	return RToastQueue(C.Rtoast_get_queue(C.Rid(toast)))
+}
+
+// ToastSetMaxVisible: How many messages a R_TOAST_STACK shows at once (default 3).
+func ToastSetMaxVisible(toast ID, count int) {
+	C.Rtoast_set_max_visible(C.Rid(toast), C.int(count))
+}
+
+// ToastSetKind: The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
 func ToastSetKind(toast ID, kind RToastKind) {
 	C.Rtoast_set_kind(C.Rid(toast), C.RToastKind(kind))
 }
 
-// ToastSetActionText: A button at the end of the message ("Undo"); NULL or "" removes it.
+// ToastSetActionText: A button at the end of the next messages ("Undo"); NULL or "" removes it.
 func ToastSetActionText(toast ID, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))

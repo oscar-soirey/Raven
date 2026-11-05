@@ -283,6 +283,68 @@ static void test_toast(void) {
 	Rtoast_hide(toast);
 	CHECK(!Rtoast_is_shown(toast));
 	Rdraw_frame();
+	/* replace (the default): one message at a time */
+	CHECK(Rtoast_get_queue(toast) == R_TOAST_REPLACE);
+	Rtoast_show(toast, "One", 0.0);
+	Rtoast_show(toast, "Two", 0.0);
+	CHECK(Rtoast_get_count(toast) == 1);
+	CHECK_STR(Rtoast_get_text(toast), "Two");
+	Rtoast_clear(toast);
+
+	/* one after the other */
+	Rtoast_set_queue(toast, R_TOAST_SEQUENCE);
+	Rtoast_show(toast, "First", 0.0);
+	Rtoast_show_kind(toast, "Second", R_TOAST_ERROR, 0.0);
+	Rtoast_show(toast, "Third", 0.0);
+	Rdraw_frame();
+	CHECK(Rtoast_get_count(toast) == 3);
+	CHECK_STR(Rtoast_get_text(toast), "First");
+	Rtoast_hide(toast);
+	CHECK_STR(Rtoast_get_text(toast), "Second");
+	CHECK(Rtoast_get_count(toast) == 2);
+	/* the button of the message shown: the callback sees its text, the next one comes */
+	Rdraw_frame();
+	g_calls = 0;
+	Rwidget_get_rect(toast, &x, &y, &w, &h);
+	test_click_at(g_window, x + w - 20, y + h * 0.5f);
+	CHECK(g_calls == 1);
+	CHECK_STR(Rtoast_get_text(toast), "Third");
+	Rtoast_clear(toast);
+	CHECK(Rtoast_get_count(toast) == 0);
+	CHECK(!Rtoast_is_shown(toast));
+
+	/* stacked: up to 2 at once, the others wait */
+	Rtoast_set_queue(toast, R_TOAST_STACK);
+	Rtoast_set_max_visible(toast, 2);
+	Rtoast_show(toast, "A", 0.0);
+	Rdraw_frame();
+	Rwidget_get_rect(toast, &x, &y, &w, &h);
+	{
+		float one = h, x2, y2, w2, h2;
+		Rtoast_show(toast, "B", 0.0);
+		Rtoast_show(toast, "C", 0.0);
+		Rdraw_frame();
+		Rwidget_get_rect(toast, &x2, &y2, &w2, &h2);
+		CHECK_NEAR(h2, one * 2.0f + 8.0f);
+		/* (against the bottom of the Overlay, it grows upwards) */
+		CHECK_NEAR(y2 + h2, y + h);
+		CHECK(Rtoast_get_count(toast) == 3);
+		CHECK_STR(Rtoast_get_text(toast), "B");
+		/* the button of the lower one (B): it goes, C comes */
+		g_calls = 0;
+		test_click_at(g_window, x2 + w2 - 20, y2 + h2 - one * 0.5f);
+		CHECK(g_calls == 1);
+		CHECK(Rtoast_get_count(toast) == 2);
+		CHECK_STR(Rtoast_get_text(toast), "C");
+	}
+	Rtoast_clear(toast);
+	Rdraw_frame();
+	CHECK(!Rtoast_is_shown(toast));
+	EXPECT_ERRORS_BEGIN();
+	Rtoast_set_max_visible(toast, 0);
+	Rtoast_set_queue(toast, (RToastQueue)0);
+	EXPECT_ERRORS_END(2);
+	Rtoast_set_queue(toast, R_TOAST_REPLACE);
 }
 
 static void on_crumb(Rid crumbs, int index, void* user_data) {

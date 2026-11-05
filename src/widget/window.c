@@ -945,6 +945,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 		widgets += popup->root->subtree_count;
 	}
 	rvn_window_paint_tooltip(window, &painter);
+	rvn_inspector_paint(window, &painter);
 	/* color filters for the color blind (core/accessibility.c) */
 	rvn_a11y_filter_instances(frame->list.instances, frame->list.instance_count);
 	/* what the screen reader must be told after this frame */
@@ -1776,10 +1777,13 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			break;
 		case RVN_PEVENT_MOUSE_MOVE:
 			window->modifiers = pevent->modifiers;
+			/* (picking for the inspector: the window sees nothing of the pointer) */
+			if (rvn_inspector_pick_move(window, (float)pevent->x / scale, (float)pevent->y / scale)) break;
 			rvn_window_mouse_move(window, (float)pevent->x / scale, (float)pevent->y / scale);
 			break;
 		case RVN_PEVENT_MOUSE_BUTTON:
 			window->modifiers = pevent->modifiers;
+			if (rvn_inspector_pick_move(window, (float)pevent->x / scale, (float)pevent->y / scale) | rvn_inspector_pick_button(window, pevent->pressed)) break;
 			rvn_window_mouse_move(window, (float)pevent->x / scale, (float)pevent->y / scale);
 			if (!window->dead) rvn_window_mouse_button(window, (RMouseButton)pevent->button, pevent->pressed);
 			break;
@@ -1925,6 +1929,8 @@ static void rvn_window_free(rvn_window_t* window) {
 
 void rvn_window_destroy(rvn_window_t* window) {
 	rvn_widget_t* root;
+	if (window->dead) return;
+	rvn_inspector_window_destroyed(window);
 	if (window->dead) return;
 	/* an overlay of the camera housing goes with the island going back into its window; a window takes its overlay with it */
 	if (window->notch_owner) {
@@ -2574,14 +2580,14 @@ static rvn_window_t* rvn_window_inject_begin(Rid id, const char* function) {
 void Rwindow_inject_mouse_move(Rid id, float x, float y) {
 	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
 	if (!window) return;
-	rvn_window_mouse_move(window, x, y);
+	if (!rvn_inspector_pick_move(window, x, y)) rvn_window_mouse_move(window, x, y);
 	rvn_dispatch_end();
 }
 
 void Rwindow_inject_mouse_button(Rid id, RMouseButton button, int pressed) {
 	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
 	if (!window) return;
-	rvn_window_mouse_button(window, button, pressed);
+	if (!rvn_inspector_pick_button(window, pressed)) rvn_window_mouse_button(window, button, pressed);
 	rvn_dispatch_end();
 }
 

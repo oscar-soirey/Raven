@@ -492,6 +492,11 @@ typedef enum RToastKind {
 	R_TOAST_WARNING = 1250,
 	R_TOAST_ERROR = 1251,
 } RToastKind;
+typedef enum RToastQueue {
+	R_TOAST_REPLACE = 1280,
+	R_TOAST_SEQUENCE = 1281,
+	R_TOAST_STACK = 1282,
+} RToastQueue;
 typedef enum RButtonStyle {
 	R_BUTTON_DEFAULT = 656,
 	R_BUTTON_PRIMARY = 657,
@@ -1131,6 +1136,9 @@ int Rwindow_set_picture_in_picture(Rid window, int enabled);
 int Rwindow_is_picture_in_picture(Rid window);
 void Rwindow_set_picture_in_picture_layout(Rid window, int width, int height, RPictureInPictureCorner corner);
 void Rwindow_center(Rid window);
+void Rwindow_set_inspector(Rid window, int shown);
+int Rwindow_is_inspector_shown(Rid window);
+Rid Rwindow_get_inspector(Rid window);
 int Rwindow_is_splash_screen(Rid window);
 void Rwindow_request_redraw(Rid window);
 void Rwindow_set_continuous_redraw(Rid window, int enabled);
@@ -1574,9 +1582,15 @@ void Rtime_picker_set_seconds_visible(Rid time_picker, int visible);
 void Rtime_picker_set_minute_step(Rid time_picker, int step);
 void Rtime_picker_set_changed_callback(Rid time_picker, RTimeChangedCallback callback, void* user_data);
 void Rtoast_show(Rid toast, const char* text, double seconds);
+void Rtoast_show_kind(Rid toast, const char* text, RToastKind kind, double seconds);
 void Rtoast_hide(Rid toast);
+void Rtoast_clear(Rid toast);
 int Rtoast_is_shown(Rid toast);
+int Rtoast_get_count(Rid toast);
 const char* Rtoast_get_text(Rid toast);
+void Rtoast_set_queue(Rid toast, RToastQueue queue);
+RToastQueue Rtoast_get_queue(Rid toast);
+void Rtoast_set_max_visible(Rid toast, int count);
 void Rtoast_set_kind(Rid toast, RToastKind kind);
 void Rtoast_set_action_text(Rid toast, const char* text);
 void Rtoast_set_action_callback(Rid toast, RToastCallback callback, void* user_data);

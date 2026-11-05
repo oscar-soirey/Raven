@@ -718,6 +718,15 @@ pub const R_TOAST_SUCCESS: RToastKind = 0x04E1;
 pub const R_TOAST_WARNING: RToastKind = 0x04E2;
 pub const R_TOAST_ERROR: RToastKind = 0x04E3;
 
+/// What a Toast does with a message that comes while another one is shown.
+pub type RToastQueue = c_int;
+/// The new message takes the place of the one shown (the default).
+pub const R_TOAST_REPLACE: RToastQueue = 0x0500;
+/// The messages are shown one after the other, each for its own time.
+pub const R_TOAST_SEQUENCE: RToastQueue = 0x0501;
+/// Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait.
+pub const R_TOAST_STACK: RToastQueue = 0x0502;
+
 pub type RButtonStyle = c_int;
 /// Filled with R_COLOR_CONTROL.
 pub const R_BUTTON_DEFAULT: RButtonStyle = 0x0290;
@@ -1118,7 +1127,7 @@ pub type RTableSortCallback = Option<unsafe extern "C" fn(table: Rid, column: c_
 pub type RDateChangedCallback = Option<unsafe extern "C" fn(date_picker: Rid, year: c_int, month: c_int, day: c_int, user_data: *mut c_void)>;
 /// Called when the user changes the time. This also fires the action of the widget.
 pub type RTimeChangedCallback = Option<unsafe extern "C" fn(time_picker: Rid, hour: c_int, minute: c_int, second: c_int, user_data: *mut c_void)>;
-/// Called by the button of the message, which then hides. This also fires the action of the widget.
+/// Called by the button of a message, which then hides. This also fires the action of the widget.
 pub type RToastCallback = Option<unsafe extern "C" fn(toast: Rid, user_data: *mut c_void)>;
 /// Called when the user clicks an item. This also fires the action of the widget.
 pub type RBreadcrumbCallback = Option<unsafe extern "C" fn(breadcrumb: Rid, index: c_int, user_data: *mut c_void)>;
@@ -1970,6 +1979,20 @@ extern "C" {
     pub fn Rwindow_set_picture_in_picture_layout(window: Rid, width: c_int, height: c_int, corner: RPictureInPictureCorner);
     /// Centers the window on the work area of its monitor (no task bar).
     pub fn Rwindow_center(window: Rid);
+    /// Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+    /// window beside it that lists its widgets as a tree, says what the
+    /// selected one is (type, name, classes, place and size in the window,
+    /// desired size, constraints, slot, visibility, state, style, action,
+    /// children) and what the last frame cost (layout, paint and render
+    /// times, widgets, instances, draw calls). The selected widget is
+    /// outlined in the window, with its type and size. "Pick" selects the
+    /// next widget clicked in the window (that click goes to the inspector
+    /// only). It follows the window as it changes; closing it hides it, and
+    /// it goes with the window. Nothing opens it but this function.
+    pub fn Rwindow_set_inspector(window: Rid, shown: c_int);
+    pub fn Rwindow_is_inspector_shown(window: Rid) -> c_int;
+    /// Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden.
+    pub fn Rwindow_get_inspector(window: Rid) -> Rid;
     /// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
     pub fn Rwindow_is_splash_screen(window: Rid) -> c_int;
     /// Asks for a new frame even if no widget changed. Thread-safe.
@@ -2872,13 +2895,26 @@ extern "C" {
     /// Step of the minutes for the arrows and the wheel (default 1).
     pub fn Rtime_picker_set_minute_step(time_picker: Rid, step: c_int);
     pub fn Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback, user_data: *mut c_void);
-    /// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+    /// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
     pub fn Rtoast_show(toast: Rid, text: *const c_char, seconds: f64);
+    /// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+    pub fn Rtoast_show_kind(toast: Rid, text: *const c_char, kind: RToastKind, seconds: f64);
+    /// Hides the newest message shown; the next one waiting comes.
     pub fn Rtoast_hide(toast: Rid);
+    /// Hides every message, and forgets those waiting.
+    pub fn Rtoast_clear(toast: Rid);
     pub fn Rtoast_is_shown(toast: Rid) -> c_int;
+    /// Returns: The messages shown and waiting.
+    pub fn Rtoast_get_count(toast: Rid) -> c_int;
+    /// Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback).
     pub fn Rtoast_get_text(toast: Rid) -> *const c_char;
+    pub fn Rtoast_set_queue(toast: Rid, queue: RToastQueue);
+    pub fn Rtoast_get_queue(toast: Rid) -> RToastQueue;
+    /// How many messages a R_TOAST_STACK shows at once (default 3).
+    pub fn Rtoast_set_max_visible(toast: Rid, count: c_int);
+    /// The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
     pub fn Rtoast_set_kind(toast: Rid, kind: RToastKind);
-    /// A button at the end of the message ("Undo"); NULL or "" removes it.
+    /// A button at the end of the next messages ("Undo"); NULL or "" removes it.
     pub fn Rtoast_set_action_text(toast: Rid, text: *const c_char);
     pub fn Rtoast_set_action_callback(toast: Rid, callback: RToastCallback, user_data: *mut c_void);
     /// Replaces the items: their texts separated by '|'.

@@ -1114,6 +1114,25 @@ namespace Raven
         R_TOAST_ERROR = 0x04E3,
     }
 
+    /// <summary>
+    /// What a Toast does with a message that comes while another one is shown.
+    /// </summary>
+    public enum RToastQueue : int
+    {
+        /// <summary>
+        /// The new message takes the place of the one shown (the default).
+        /// </summary>
+        R_TOAST_REPLACE = 0x0500,
+        /// <summary>
+        /// The messages are shown one after the other, each for its own time.
+        /// </summary>
+        R_TOAST_SEQUENCE = 0x0501,
+        /// <summary>
+        /// Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait.
+        /// </summary>
+        R_TOAST_STACK = 0x0502,
+    }
+
     public enum RButtonStyle : int
     {
         /// <summary>
@@ -2663,7 +2682,7 @@ namespace Raven
     public delegate void RTimeChangedCallback(uint time_picker, int hour, int minute, int second, IntPtr user_data);
 
     /// <summary>
-    /// Called by the button of the message, which then hides. This also fires the action of the widget.
+    /// Called by the button of a message, which then hides. This also fires the action of the widget.
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RToastCallback(uint toast, IntPtr user_data);
@@ -3518,6 +3537,30 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_center(uint window);
+
+        /// <summary>
+        /// Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+        /// window beside it that lists its widgets as a tree, says what the
+        /// selected one is (type, name, classes, place and size in the window,
+        /// desired size, constraints, slot, visibility, state, style, action,
+        /// children) and what the last frame cost (layout, paint and render
+        /// times, widgets, instances, draw calls). The selected widget is
+        /// outlined in the window, with its type and size. "Pick" selects the
+        /// next widget clicked in the window (that click goes to the inspector
+        /// only). It follows the window as it changes; closing it hides it, and
+        /// it goes with the window. Nothing opens it but this function.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_set_inspector(uint window, int shown);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_is_inspector_shown(uint window);
+
+        /// <summary>
+        /// Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rwindow_get_inspector(uint window);
 
         /// <summary>
         /// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
@@ -5832,26 +5875,65 @@ namespace Raven
         public static extern void Rtime_picker_set_changed_callback(uint time_picker, RTimeChangedCallback callback, IntPtr user_data);
 
         /// <summary>
-        /// Shows a message for `seconds` (0 or less: until Rtoast_hide).
+        /// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtoast_show(uint toast, [MarshalAs(Utf8.Str)] string text, double seconds);
 
+        /// <summary>
+        /// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_show_kind(uint toast, [MarshalAs(Utf8.Str)] string text, RToastKind kind, double seconds);
+
+        /// <summary>
+        /// Hides the newest message shown; the next one waiting comes.
+        /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtoast_hide(uint toast);
+
+        /// <summary>
+        /// Hides every message, and forgets those waiting.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_clear(uint toast);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtoast_is_shown(uint toast);
 
+        /// <summary>
+        /// Returns: The messages shown and waiting.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtoast_get_count(uint toast);
+
+        /// <summary>
+        /// Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback).
+        /// </summary>
         [DllImport(Lib, EntryPoint = "Rtoast_get_text", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rtoast_get_text_(uint toast);
         public static string Rtoast_get_text(uint toast) { return Text(Rtoast_get_text_(toast)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_set_queue(uint toast, RToastQueue queue);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RToastQueue Rtoast_get_queue(uint toast);
+
+        /// <summary>
+        /// How many messages a R_TOAST_STACK shows at once (default 3).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtoast_set_max_visible(uint toast, int count);
+
+        /// <summary>
+        /// The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtoast_set_kind(uint toast, RToastKind kind);
 
         /// <summary>
-        /// A button at the end of the message ("Undo"); NULL or "" removes it.
+        /// A button at the end of the next messages ("Undo"); NULL or "" removes it.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtoast_set_action_text(uint toast, [MarshalAs(Utf8.Str)] string text);
