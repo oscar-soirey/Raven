@@ -335,6 +335,22 @@ typedef struct rvn_platform_t {
 	 */
 	void  (*wait_service)(void);
 
+	/*
+	 * ---- frame pacing by the window system (optional, both NULL when it has none) ----
+	 *
+	 * A compositor that tells when it wants the next frame of a window
+	 * (Wayland: wl_surface.frame) paces drawing itself. The renderer then
+	 * presents without the driver's vertical synchronization (see
+	 * rvn_present_vsync): a driver waiting for the compositor inside the
+	 * present waits without limit when the compositor never answers, which
+	 * it is free not to do for a window it does not show.
+	 */
+
+	/** Seconds before `window` should present again: 0 = now. Always bounded: a compositor that never answers costs a slow frame, never a stuck window. */
+	double (*window_frame_wait)(rvn_pwindow_t* window);
+	/** A frame of `window` is about to be presented: ask the compositor when it wants the next one. */
+	void  (*window_frame_begin)(rvn_pwindow_t* window);
+
 	/* ---- accessibility (optional, NULL when the platform has none; core/accessibility.h) ---- */
 
 	/** Something changed in the tree a screen reader sees (rvn_a11y_event_t), at a node. */

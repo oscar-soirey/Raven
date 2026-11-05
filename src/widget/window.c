@@ -970,7 +970,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	frame->data.window = window->id;
 	frame->data.framebuffer_width = (Ruint)window->width_px;
 	frame->data.framebuffer_height = (Ruint)window->height_px;
-	frame->data.vsync = g_rvn.vsync;
+	frame->data.vsync = rvn_present_vsync();
 	if (rvn_window_see_through(window)) {
 		/* only what the widgets draw hides the screen; a clear color of the window, if any, veils it (premultiplied) */
 		float alpha = window->has_clear_color ? window->clear_color[3] : 0.0f;
@@ -991,6 +991,8 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	frame->capture = capture;
 	frame->frames_in_flight = &window->frames_in_flight;
 	frame->render_us = &window->render_us;
+	/* (asked before the frame is queued, so that the commit presenting it carries the request) */
+	if (window->visible && rvn_frame_pacing()) g_rvn.platform->window_frame_begin(window->platform);
 	rvn_renderer_submit_frame(frame);
 
 	/* native child windows follow the viewports that were just painted, the others hide */
@@ -999,12 +1001,28 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	}
 }
 
-int rvn_window_wants_frame(rvn_window_t* window) {
-	if (window->dead) return R_FALSE;
-	if (window->needs_layout || window->layout_spring_count > 0) return R_TRUE;
+/* Seconds before the window system wants the next frame of this window: 0 = now (rvn_platform_t::window_frame_wait). */
+static double rvn_window_frame_wait(rvn_window_t* window) {
+	if (!rvn_frame_pacing() || !window->platform || !window->visible) return 0.0;
+	return g_rvn.platform->window_frame_wait(window->platform);
+}
+
+static int rvn_window_wants_paint(rvn_window_t* window) {
 	if (!rvn_window_can_paint(window) || !window->visible) return R_FALSE;
 	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 || rvn_touch_animating(window) ||
 		rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->redraw_requested) != 0;
+}
+
+double rvn_window_frame_in(rvn_window_t* window) {
+	if (window->dead) return -1.0;
+	if (window->needs_layout) return 0.0;
+	/* what moves is only worth stepping when it can be shown */
+	if (window->layout_spring_count > 0 || rvn_window_wants_paint(window)) return rvn_window_frame_wait(window);
+	return -1.0;
+}
+
+int rvn_window_wants_frame(rvn_window_t* window) {
+	return rvn_window_frame_in(window) == 0.0;
 }
 
 void rvn_widget_animate_layout(rvn_widget_t* widget, RSpring* spring, float target, RMotion motion) {
@@ -1075,7 +1093,8 @@ void rvn_window_update(rvn_window_t* window) {
 	/* the menu bar of the system follows the MenuBar of the window */
 	if (g_rvn.platform->window_set_menu_bar) rvn_menu_bar_sync(window);
 	if (window->needs_layout) rvn_window_layout(window);
-	if (window->needs_paint) rvn_window_paint(window, NULL);
+	/* (the compositor did not ask for a frame yet: it is painted when it does, with all that changed meanwhile) */
+	if (window->needs_paint && rvn_window_frame_wait(window) <= 0.0) rvn_window_paint(window, NULL);
 }
 
 void rvn_invalidate_all_windows(void) {

@@ -28,6 +28,7 @@
  */
 
 #include "../platform.h"
+#include "../../core/thread.h"
 #include "../atspi.h"
 #include "../sni.h"
 #include "../x11/x11_internal.h"   /* the key symbols of X11 and of xkbcommon are the same numbers */
@@ -433,6 +434,9 @@ struct rvn_pwindow_t {
 	int shown;
 	int configured;
 	int maximized;
+	/* the compositor was asked when it wants the next frame (wl_surface.frame), and has not answered yet */
+	struct wl_callback* frame_callback;
+	double frame_asked;          /* rvn_clock_seconds */
 	int transparent;
 	int blur;
 	/* from the last xdg_toplevel.configure, applied on xdg_surface.configure */
@@ -728,6 +732,53 @@ static void rvn_wl_surface_preferred_buffer_transform(void* data, struct wl_surf
 static const struct wl_surface_listener g_wl_surface_listener = {
 	rvn_wl_surface_enter, rvn_wl_surface_leave, rvn_wl_surface_preferred_buffer_scale, rvn_wl_surface_preferred_buffer_transform
 };
+
+/* ---------------------------------------------------------------------------
+ *  Frame pacing: the compositor says when it wants the next frame
+ *
+ * The renderer presents without the driver's vertical synchronization on
+ * Wayland (rvn_present_vsync): a FIFO present waits, inside the driver and
+ * without limit, for the compositor to answer the previous one, and a
+ * compositor need not answer for a surface it does not show. NVIDIA's driver
+ * then never returns once a window was hidden right after a frame. Here the
+ * same wait happens on the UI thread, where it is bounded: the window simply
+ * paints later, with everything that changed meanwhile.
+ * ------------------------------------------------------------------------- */
+
+/* A compositor that does not answer (it does not show the window) gets a frame this often anyway. */
+#define RVN_WL_FRAME_WAIT_MAX 1.0
+
+static void rvn_wl_frame_forget(rvn_pwindow_t* window) {
+	if (window->frame_callback) wl_callback_destroy(window->frame_callback);
+	window->frame_callback = NULL;
+}
+
+static void rvn_wl_frame_done(void* data, struct wl_callback* callback, uint32_t time) {
+	rvn_pwindow_t* window = (rvn_pwindow_t*)data;
+	RVN_UNUSED(time);
+	if (window->frame_callback == callback) window->frame_callback = NULL;
+	wl_callback_destroy(callback);
+}
+
+static const struct wl_callback_listener g_wl_frame_listener = { rvn_wl_frame_done };
+
+static double rvn_wl_window_frame_wait(rvn_pwindow_t* window) {
+	double waited;
+	if (!window->frame_callback || g_wl.failed) return 0.0;
+	waited = rvn_clock_seconds() - window->frame_asked;
+	return waited >= RVN_WL_FRAME_WAIT_MAX ? 0.0 : RVN_WL_FRAME_WAIT_MAX - waited;
+}
+
+static void rvn_wl_window_frame_begin(rvn_pwindow_t* window) {
+	if (g_wl.failed || window->is_child || !window->shown) return;
+	/* (an answer that never came is not waited for twice) */
+	rvn_wl_frame_forget(window);
+	window->frame_callback = wl_surface_frame(window->surface);
+	if (!window->frame_callback) return;
+	wl_callback_add_listener(window->frame_callback, &g_wl_frame_listener, window);
+	window->frame_asked = rvn_clock_seconds();
+	/* (no commit: the renderer's present commits the request with the frame) */
+}
 
 static void rvn_wl_fractional_preferred_scale(void* data, struct wp_fractional_scale_v1* fractional, uint32_t scale) {
 	rvn_pwindow_t* window = (rvn_pwindow_t*)data;
@@ -2589,6 +2640,7 @@ static void rvn_wl_window_destroy(rvn_pwindow_t* window) {
 	}
 	if (g_wl.drag_window == window) g_wl.drag_window = NULL;
 	if (!g_wl.failed) {
+		rvn_wl_frame_forget(window);
 		if (window->subsurface) wl_subsurface_destroy(window->subsurface);
 		if (window->effect) ext_background_effect_surface_v1_destroy(window->effect);
 		rvn_wl_drop_toplevel(window);
@@ -2658,6 +2710,8 @@ static float rvn_wl_window_get_scale(rvn_pwindow_t* window) {
 
 static void rvn_wl_window_show(rvn_pwindow_t* window, int visible) {
 	if (g_wl.failed || window->is_child) return;
+	/* an unmapped surface's request may never be answered: the next show starts afresh */
+	rvn_wl_frame_forget(window);
 	if (visible) {
 		if (window->shown) return;
 		window->shown = R_TRUE;
@@ -3045,6 +3099,8 @@ const rvn_platform_t* rvn_platform_wayland(void) {
 		.child_set_rect = rvn_wl_child_set_rect,
 		.pump = rvn_wl_pump,
 		.wake = rvn_wl_wake,
+		.window_frame_wait = rvn_wl_window_frame_wait,
+		.window_frame_begin = rvn_wl_window_frame_begin,
 		.clipboard_set = rvn_wl_clipboard_set,
 		.clipboard_set_html = rvn_wl_clipboard_set_html,
 		.clipboard_get = rvn_wl_clipboard_get,
