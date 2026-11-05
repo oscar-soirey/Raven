@@ -90,6 +90,7 @@ static struct {
 	/* never mapped: owns the clipboard selection and receives pasted data */
 	Window helper;
 	char* clipboard;
+	char* clipboard_html;   /* NULL: the selection is text only */
 	rvn_x11_transfer_t transfers[RVN_X11_INCR_MAX_TRANSFERS];
 	uint8_t keys_down[(R_KEY_COUNT + 7) / 8];
 
@@ -101,6 +102,7 @@ static struct {
 	Atom net_wm_state_maximized_horz;
 	Atom motif_wm_hints;
 	Atom utf8_string;
+	Atom text_html;
 	Atom clipboard_atom;
 	Atom targets;
 	Atom incr;
@@ -272,6 +274,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 	g_x11.motif_wm_hints = XInternAtom(g_x11.display, "_MOTIF_WM_HINTS", False);
 	g_x11.utf8_string = XInternAtom(g_x11.display, "UTF8_STRING", False);
 	g_x11.clipboard_atom = XInternAtom(g_x11.display, "CLIPBOARD", False);
+	g_x11.text_html = XInternAtom(g_x11.display, "text/html", False);
 	g_x11.targets = XInternAtom(g_x11.display, "TARGETS", False);
 	g_x11.incr = XInternAtom(g_x11.display, "INCR", False);
 	g_x11.paste_property = XInternAtom(g_x11.display, "RVN_PASTE", False);
@@ -337,6 +340,7 @@ static void rvn_x11_shutdown(void) {
 	if (g_x11.wake_pipe[0] >= 0) close(g_x11.wake_pipe[0]);
 	if (g_x11.wake_pipe[1] >= 0) close(g_x11.wake_pipe[1]);
 	rvn_free(g_x11.clipboard);
+	rvn_free(g_x11.clipboard_html);
 	memset(&g_x11, 0, sizeof(g_x11));
 }
 
@@ -788,10 +792,16 @@ static void rvn_x11_child_set_rect(rvn_pwindow_t* child, int x, int y, int width
  *  Clipboard
  * ------------------------------------------------------------------------- */
 
-static void rvn_x11_clipboard_set(const char* text) {
+static void rvn_x11_clipboard_set_html(const char* text, const char* html) {
 	rvn_str_set(&g_x11.clipboard, text);
+	rvn_free(g_x11.clipboard_html);
+	g_x11.clipboard_html = html ? rvn_strdup(html) : NULL;
 	XSetSelectionOwner(g_x11.display, g_x11.clipboard_atom, g_x11.helper, CurrentTime);
 	XFlush(g_x11.display);
+}
+
+static void rvn_x11_clipboard_set(const char* text) {
+	rvn_x11_clipboard_set_html(text, NULL);
 }
 
 /* Largest piece of a property that fits in one request of this server. */
@@ -927,14 +937,19 @@ static void rvn_x11_selection_request(const XSelectionRequestEvent* request) {
 	reply.xselection.time = request->time;
 	reply.xselection.property = request->property != None ? request->property : request->target;
 
+	if (request->target == g_x11.text_html && g_x11.clipboard_html) text = g_x11.clipboard_html;
+
 	if (request->target == g_x11.targets) {
-		Atom targets[3];
-		targets[0] = g_x11.targets;
-		targets[1] = g_x11.utf8_string;
-		targets[2] = XA_STRING;
+		Atom targets[4];
+		int count = 0;
+		targets[count++] = g_x11.targets;
+		if (g_x11.clipboard_html) targets[count++] = g_x11.text_html;
+		targets[count++] = g_x11.utf8_string;
+		targets[count++] = XA_STRING;
 		XChangeProperty(g_x11.display, request->requestor, reply.xselection.property, XA_ATOM, 32, PropModeReplace,
-			(const unsigned char*)targets, 3);
-	} else if (request->target == g_x11.utf8_string || request->target == XA_STRING) {
+			(const unsigned char*)targets, count);
+	} else if (request->target == g_x11.utf8_string || request->target == XA_STRING
+		|| (request->target == g_x11.text_html && g_x11.clipboard_html)) {
 		size_t size = strlen(text);
 		if (size > rvn_x11_chunk_size()) {
 			/* too large for one request: sent in pieces (INCR) */
@@ -1647,6 +1662,7 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.pump = rvn_x11_pump,
 		.wake = rvn_x11_wake,
 		.clipboard_set = rvn_x11_clipboard_set,
+		.clipboard_set_html = rvn_x11_clipboard_set_html,
 		.clipboard_get = rvn_x11_clipboard_get,
 		.a11y_event = rvn_atspi_event,
 		.a11y_announce = rvn_atspi_announce,

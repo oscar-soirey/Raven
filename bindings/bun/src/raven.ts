@@ -195,6 +195,7 @@ const _symbols = {
 	Raction_is_builtin: { args: ["ptr"], returns: "i32" },
 	Ropen_url: { args: ["ptr"], returns: "i32" },
 	Rclipboard_set_text: { args: ["ptr"], returns: "void" },
+	Rclipboard_set_html: { args: ["ptr", "ptr"], returns: "void" },
 	Rclipboard_get_text: { args: [], returns: "cstring" },
 	Rerror_get_last: { args: ["ptr", "ptr"], returns: "i32" },
 	Rerror_to_string: { args: ["i32"], returns: "cstring" },
@@ -6304,6 +6305,17 @@ export function Ropen_url(url: string | null): number {
 
 export function Rclipboard_set_text(text: string | null): void {
 	_lib.Rclipboard_set_text(_s(text));
+}
+
+/**
+ * Copies one content in two formats: `html` for the programs that
+ * paste formatting (word processors, chat, mail) and `text` for the
+ * others (editors, terminals). Each program takes the format it prefers.
+ * Where the window system has no clipboard formats (Win32 and macOS for
+ * now), or `html` is NULL, it is Rclipboard_set_text(text).
+ */
+export function Rclipboard_set_html(text: string | null, html: string | null): void {
+	_lib.Rclipboard_set_html(_s(text), _s(html));
 }
 
 /** Returns: The clipboard text, or "" when empty. Valid until the next call. */

@@ -2805,6 +2805,19 @@ def Rclipboard_set_text(text):
     _lib.Rclipboard_set_text(_s(text))
 
 
+_lib.Rclipboard_set_html.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rclipboard_set_html.restype = None
+
+
+def Rclipboard_set_html(text, html):
+    """Copies one content in two formats: `html` for the programs that
+    paste formatting (word processors, chat, mail) and `text` for the
+    others (editors, terminals). Each program takes the format it prefers.
+    Where the window system has no clipboard formats (Win32 and macOS for
+    now), or `html` is NULL, it is Rclipboard_set_text(text)."""
+    _lib.Rclipboard_set_html(_s(text), _s(html))
+
+
 _lib.Rclipboard_get_text.argtypes = []
 _lib.Rclipboard_get_text.restype = ctypes.c_char_p
 

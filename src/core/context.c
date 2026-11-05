@@ -525,6 +525,15 @@ void Rclipboard_set_text(const char* text) {
 	g_rvn.platform->clipboard_set(text ? text : "");
 }
 
+void Rclipboard_set_html(const char* text, const char* html) {
+	RVN_API_GUARD_VOID();
+	if (html && g_rvn.platform->clipboard_set_html) {
+		g_rvn.platform->clipboard_set_html(text ? text : "", html);
+	} else {
+		g_rvn.platform->clipboard_set(text ? text : "");
+	}
+}
+
 const char* Rclipboard_get_text(void) {
 	RVN_API_GUARD("");
 	rvn_free(g_rvn.clipboard);

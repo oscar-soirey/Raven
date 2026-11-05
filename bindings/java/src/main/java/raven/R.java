@@ -5774,6 +5774,27 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rclipboard_set_html$;
+
+    /**
+     * Copies one content in two formats: `html` for the programs that
+     * paste formatting (word processors, chat, mail) and `text` for the
+     * others (editors, terminals). Each program takes the format it prefers.
+     * Where the window system has no clipboard formats (Win32 and macOS for
+     * now), or `html` is NULL, it is Rclipboard_set_text(text).
+     */
+    public static void Rclipboard_set_html(String text, String html) {
+        MethodHandle $h = Rclipboard_set_html$;
+        if ($h == null) Rclipboard_set_html$ = $h = find("Rclipboard_set_html", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            MemorySegment html$ = html == null ? MemorySegment.NULL : utf8($a, html);
+            $h.invokeExact(text$, html$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rclipboard_get_text$;
 
     /**

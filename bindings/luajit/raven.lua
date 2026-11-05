@@ -1062,6 +1062,7 @@ void Raction_set_builtins(int enabled);
 int Raction_is_builtin(const char* name);
 int Ropen_url(const char* url);
 void Rclipboard_set_text(const char* text);
+void Rclipboard_set_html(const char* text, const char* html);
 const char* Rclipboard_get_text(void);
 RError Rerror_get_last(const char** detail, RSeverity* severity);
 const char* Rerror_to_string(RError error);
