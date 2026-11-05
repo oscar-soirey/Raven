@@ -26,7 +26,9 @@ typedef enum rvn_handle_type_t {
 	/** Pseudo-handle naming a glyph atlas page inside draw lists (never in a pool). */
 	RVN_HANDLE_ATLAS_PAGE,
 	/** A fragment shader of the application or a built-in effect (raven_shader.h). */
-	RVN_HANDLE_SHADER
+	RVN_HANDLE_SHADER,
+	/** An icon beside the clock (raven_shell.h, platform/tray.c). */
+	RVN_HANDLE_TRAY
 } rvn_handle_type_t;
 
 #define RVN_HANDLE_INDEX_BITS 20u

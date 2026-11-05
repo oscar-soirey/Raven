@@ -1162,6 +1162,20 @@ R_HEADER_MINIMIZE = RHeaderButtons.R_HEADER_MINIMIZE
 R_HEADER_MAXIMIZE = RHeaderButtons.R_HEADER_MAXIMIZE
 R_HEADER_ALL_BUTTONS = RHeaderButtons.R_HEADER_ALL_BUTTONS
 
+class RTaskbarProgress(enum.IntEnum):
+    """A progress bar on the icon of the application (Rwindow_set_taskbar_progress)."""
+    R_TASKBAR_PROGRESS_NONE = 0x07A0
+    R_TASKBAR_PROGRESS_NORMAL = 0x07A1
+    R_TASKBAR_PROGRESS_PAUSED = 0x07A2
+    R_TASKBAR_PROGRESS_ERROR = 0x07A3
+    R_TASKBAR_PROGRESS_INDETERMINATE = 0x07A4
+
+R_TASKBAR_PROGRESS_NONE = RTaskbarProgress.R_TASKBAR_PROGRESS_NONE
+R_TASKBAR_PROGRESS_NORMAL = RTaskbarProgress.R_TASKBAR_PROGRESS_NORMAL
+R_TASKBAR_PROGRESS_PAUSED = RTaskbarProgress.R_TASKBAR_PROGRESS_PAUSED
+R_TASKBAR_PROGRESS_ERROR = RTaskbarProgress.R_TASKBAR_PROGRESS_ERROR
+R_TASKBAR_PROGRESS_INDETERMINATE = RTaskbarProgress.R_TASKBAR_PROGRESS_INDETERMINATE
+
 class RDockSide(enum.IntEnum):
     """Where a panel goes in a dock area, relative to another panel or to the whole area."""
     R_DOCK_LEFT = 0x0360
@@ -1650,6 +1664,15 @@ class RLanguageDesc(ctypes.Structure):
         ("annotation", ctypes.c_char_p),
         ("flags", ctypes.c_uint32),
         ("script_language", ctypes.c_char_p),
+    ]
+
+
+class RJumpTask(ctypes.Structure):
+    """A task of the jump list of Windows (Rtaskbar_set_jump_list)."""
+    _fields_ = [
+        ("title", ctypes.c_char_p),
+        ("arguments", ctypes.c_char_p),
+        ("description", ctypes.c_char_p),
     ]
 
 
@@ -2142,6 +2165,14 @@ RTextEditorChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_vo
 def _adapt_RTextEditorChangedCallback(function):
     def call(editor, user_data):
         function(editor, user_data)
+    return call
+
+RTrayClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTrayClickedCallback(function):
+    def call(tray, button, user_data):
+        function(tray, _e(RMouseButton, button), user_data)
     return call
 
 RDockCloseCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p)
@@ -8477,6 +8508,153 @@ _lib.Rwindow_get_island.restype = ctypes.c_uint32
 
 def Rwindow_get_island(window):
     return _lib.Rwindow_get_island(window)
+
+
+_lib.Rwindow_set_taskbar_progress.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float]
+_lib.Rwindow_set_taskbar_progress.restype = ctypes.c_int
+
+
+def Rwindow_set_taskbar_progress(window, state, value):
+    """A progress bar on the icon of the application: on the button of
+    the window in the taskbar (Windows), on the icon in the Dock (macOS),
+    on the launcher (Linux). There is one icon for the whole application in
+    the Dock and the launchers: the last window that set it is shown.
+    value From 0 to 1 (not used by NONE and INDETERMINATE).
+    Returns: R_FALSE where the system shows no progress."""
+    return _lib.Rwindow_set_taskbar_progress(window, int(state), value)
+
+
+_lib.Rwindow_request_attention.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_request_attention.restype = ctypes.c_int
+
+
+def Rwindow_request_attention(window, critical):
+    """Asks the user to look at the window when it is not the active
+    one: its taskbar button flashes (Windows), the icon bounces in the
+    Dock (macOS), the window is marked urgent (X11, the launchers of
+    Linux). `critical`: until the user comes to the window; otherwise a few
+    times. Nothing happens when the window is already the active one."""
+    return _lib.Rwindow_request_attention(window, critical)
+
+
+_lib.Rtaskbar_set_badge.argtypes = [ctypes.c_char_p]
+_lib.Rtaskbar_set_badge.restype = ctypes.c_int
+
+
+def Rtaskbar_set_badge(text):
+    """A short text on the icon of the application: a number of unread
+    messages, "!". macOS: the badge of the Dock. Windows: a small round
+    icon on the taskbar buttons of the windows, drawn from the text (one
+    to three characters fit). Linux: a number only (the text is read as
+    one; anything else shows nothing). NULL or "": no badge."""
+    return _lib.Rtaskbar_set_badge(_s(text))
+
+
+_lib.Rtaskbar_set_menu.argtypes = [ctypes.c_uint32]
+_lib.Rtaskbar_set_menu.restype = ctypes.c_int
+
+
+def Rtaskbar_set_menu(menu):
+    """The menu of the icon of the application in the Dock (macOS),
+    above the entries of the system. A MENU without a parent: its
+    MenuItems fire as when chosen in a window (clicked callback, action),
+    and what changes in it shows the next time the menu opens.
+    R_INVALID_ID: none. R_FALSE where the system has no such menu."""
+    return _lib.Rtaskbar_set_menu(menu)
+
+
+_lib.Rtaskbar_set_jump_list.argtypes = [ctypes.POINTER(RJumpTask), ctypes.c_int]
+_lib.Rtaskbar_set_jump_list.restype = ctypes.c_int
+
+
+def Rtaskbar_set_jump_list(tasks, count):
+    """The tasks of the jump list of Windows (right click on the button
+    of the application in the taskbar, or on its tile in the Start menu).
+    Choosing one starts the application again with its arguments: the
+    application reads them as any other command line. count 0: none.
+    R_FALSE where there is no jump list."""
+    return _lib.Rtaskbar_set_jump_list(_p(tasks), count)
+
+
+_lib.Rtray_is_supported.argtypes = []
+_lib.Rtray_is_supported.restype = ctypes.c_int
+
+
+def Rtray_is_supported():
+    """Returns: R_TRUE when the system shows tray icons: always on Windows and
+    macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+    the desktop). An icon made where none runs yet appears when one starts."""
+    return _lib.Rtray_is_supported()
+
+
+_lib.Rtray_create.argtypes = []
+_lib.Rtray_create.restype = ctypes.c_uint32
+
+
+def Rtray_create():
+    """Puts an icon of the application beside the clock. While one
+    exists, the application goes on running when its last window closes
+    (Ris_running): Rquit (or the action app.quit) ends it.
+    Returns: R_INVALID_ID where the system has none."""
+    return _lib.Rtray_create()
+
+
+_lib.Rtray_destroy.argtypes = [ctypes.c_uint32]
+_lib.Rtray_destroy.restype = None
+
+
+def Rtray_destroy(tray):
+    _lib.Rtray_destroy(tray)
+
+
+_lib.Rtray_is_valid.argtypes = [ctypes.c_uint32]
+_lib.Rtray_is_valid.restype = ctypes.c_int
+
+
+def Rtray_is_valid(tray):
+    return _lib.Rtray_is_valid(tray)
+
+
+_lib.Rtray_set_icon.argtypes = [ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_lib.Rtray_set_icon.restype = None
+
+
+def Rtray_set_icon(tray, rgba, width, height):
+    """The picture, from tightly packed RGBA8 pixels (straight alpha);
+    the system scales it (16 to 32 pixels square fit everywhere). Copied."""
+    _lib.Rtray_set_icon(tray, rgba, width, height)
+
+
+_lib.Rtray_set_tooltip.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtray_set_tooltip.restype = None
+
+
+def Rtray_set_tooltip(tray, text):
+    """The text shown when the pointer rests on the icon (and its title for the Linux panels)."""
+    _lib.Rtray_set_tooltip(tray, _s(text))
+
+
+_lib.Rtray_set_menu.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rtray_set_menu.restype = None
+
+
+def Rtray_set_menu(tray, menu):
+    """The menu the system shows for the icon: on a right click
+    (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+    MenuItems fire as when chosen in a window; what changes in it shows
+    the next time it opens. R_INVALID_ID: none."""
+    _lib.Rtray_set_menu(tray, menu)
+
+
+_lib.Rtray_set_clicked_callback.argtypes = [ctypes.c_uint32, RTrayClickedCallback, ctypes.c_void_p]
+_lib.Rtray_set_clicked_callback.restype = None
+
+
+def Rtray_set_clicked_callback(tray, callback, user_data=None):
+    """Called on a click: the left button (activate), the right one
+    when there is no menu, the middle one. On macOS an icon with a menu
+    opens it instead."""
+    _lib.Rtray_set_clicked_callback(tray, _callback(RTrayClickedCallback, _adapt_RTrayClickedCallback, callback), user_data)
 
 
 _lib.Rcolor_picker_create.argtypes = []

@@ -59,6 +59,13 @@ static struct {
     /* the menu bar of the system: what its entries call, and the bar of the windows that give none */
     id menu_target;
     NSMenu* default_menu;
+    /* the Dock: the delegate of the application (its menu, Quit), the menu of its icon, the progress drawn on it */
+    id app_delegate;
+    NSMenu* dock_menu;
+    int progress_state;
+    float progress_value;
+    /* AppKit asked to quit and waits for the answer (NSTerminateLater) */
+    int terminate_pending;
 } g_cocoa;
 
 static float rvn_cocoa_scale(rvn_pwindow_t* window) {
@@ -558,6 +565,179 @@ static int rvn_cocoa_window_set_menu_bar(rvn_pwindow_t* window, const rvn_pmenu_
     return R_TRUE;
 }
 
+/* ---------------------------------------------------------------------------
+ *  The Dock
+ *
+ *  The badge is the one of the tile; the progress is drawn by a view that
+ *  replaces the tile (the icon of the application, a bar under it); the menu
+ *  of the icon is given by the delegate of the application, which also sends
+ *  Quit (from the Dock, at log out) to the core instead of ending at once.
+ * ------------------------------------------------------------------------- */
+
+@interface RavenCocoaDockView : NSView
+@end
+@implementation RavenCocoaDockView
+- (void)drawRect:(NSRect)dirty {
+    NSRect bounds = [self bounds], track, fill;
+    NSColor* color;
+    CGFloat radius;
+    (void)dirty;
+    [[NSApp applicationIconImage] drawInRect:bounds fromRect:NSZeroRect operation:NSCompositingOperationSourceOver fraction:1.0];
+    if (g_cocoa.progress_state == 0) return;
+    track = NSMakeRect(NSMinX(bounds) + bounds.size.width * 0.1, NSMinY(bounds) + bounds.size.height * 0.08,
+        bounds.size.width * 0.8, bounds.size.height * 0.11);
+    radius = track.size.height * 0.5;
+    [[NSColor colorWithCalibratedWhite:0.0 alpha:0.55] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:track xRadius:radius yRadius:radius] fill];
+    color = g_cocoa.progress_state == 2 ? [NSColor systemYellowColor] : g_cocoa.progress_state == 3 ? [NSColor systemRedColor] : [NSColor controlAccentColor];
+    fill = NSInsetRect(track, 2.0, 2.0);
+    /* (indeterminate: the whole bar, a little dimmer) */
+    if (g_cocoa.progress_state == 4) color = [color colorWithAlphaComponent:0.6];
+    else fill.size.width *= rvn_clampf(g_cocoa.progress_value, 0.0f, 1.0f);
+    if (fill.size.width < fill.size.height) return;
+    [color setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:fill xRadius:fill.size.height * 0.5 yRadius:fill.size.height * 0.5] fill];
+}
+@end
+
+@interface RavenCocoaAppDelegate : NSObject <NSApplicationDelegate>
+@end
+@implementation RavenCocoaAppDelegate
+- (NSMenu*)applicationDockMenu:(NSApplication*)sender { (void)sender; return g_cocoa.dock_menu; }
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender {
+    rvn_pevent_t e; (void)sender; memset(&e, 0, sizeof(e));
+    /* the core decides (app.quit, which the application may bind) */
+    e.type = RVN_PEVENT_QUIT;
+    if (g_cocoa.handler) g_cocoa.handler(&e);
+    if (Ris_running()) return NSTerminateCancel;
+    /* it quits: AppKit is told it may end once Raven has shut down (rvn_cocoa_shutdown), so a log out goes on */
+    g_cocoa.terminate_pending = R_TRUE;
+    return NSTerminateLater;
+}
+@end
+
+static int rvn_cocoa_window_set_progress(rvn_pwindow_t* window, int state, float value) {
+    NSDockTile* tile = [NSApp dockTile];
+    (void)window;
+    g_cocoa.progress_state = state;
+    g_cocoa.progress_value = value;
+    if (state == 0) {
+        [tile setContentView:nil];
+    } else if (![[tile contentView] isKindOfClass:[RavenCocoaDockView class]]) {
+        RavenCocoaDockView* view = [[RavenCocoaDockView alloc] initWithFrame:NSMakeRect(0, 0, [tile size].width, [tile size].height)];
+        [tile setContentView:view];
+        [view release];
+    }
+    [tile display];
+    return R_TRUE;
+}
+
+static int rvn_cocoa_window_request_attention(rvn_pwindow_t* window, int critical) {
+    if ([NSApp isActive] && window->handle && [window->handle isKeyWindow]) return R_TRUE;
+    /* (critical: it bounces until the application is activated; otherwise once) */
+    [NSApp requestUserAttention:critical ? NSCriticalRequest : NSInformationalRequest];
+    return R_TRUE;
+}
+
+static int rvn_cocoa_app_set_badge(const char* text) {
+    [[NSApp dockTile] setBadgeLabel:text ? [NSString stringWithUTF8String:text] : nil];
+    return R_TRUE;
+}
+
+static int rvn_cocoa_app_set_icon_menu(const rvn_pmenu_t* items, uint32_t count) {
+    if (g_cocoa.dock_menu) { [g_cocoa.dock_menu release]; g_cocoa.dock_menu = nil; }
+    if (count > 0) g_cocoa.dock_menu = rvn_cocoa_menu_from(@"Dock", items, count);
+    return R_TRUE;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Tray icons: a status item in the menu bar each. With a menu, AppKit shows
+ *  it on a click; without one, the click goes to the core as RVN_PEVENT_TRAY.
+ * ------------------------------------------------------------------------- */
+
+struct rvn_ptray_t {
+    void* user;
+    NSStatusItem* item;
+    NSMenu* menu;
+    id target;
+};
+
+@interface RavenCocoaTrayTarget : NSObject {
+@public rvn_ptray_t* ravenTray;
+}
+- (void)ravenClicked:(id)sender;
+@end
+@implementation RavenCocoaTrayTarget
+- (void)ravenClicked:(id)sender {
+    NSEvent* event = [NSApp currentEvent];
+    rvn_pevent_t e; (void)sender; memset(&e, 0, sizeof(e));
+    e.type = RVN_PEVENT_TRAY; e.user = ravenTray->user;
+    if ([event type] == NSEventTypeRightMouseUp || ([event modifierFlags] & NSEventModifierFlagControl)) e.button = R_MOUSE_RIGHT;
+    else if ([event type] == NSEventTypeOtherMouseUp) e.button = R_MOUSE_MIDDLE;
+    else e.button = R_MOUSE_LEFT;
+    if (g_cocoa.handler) g_cocoa.handler(&e);
+}
+@end
+
+static rvn_ptray_t* rvn_cocoa_tray_create(void* user) {
+    rvn_ptray_t* tray = (rvn_ptray_t*)calloc(1, sizeof(rvn_ptray_t));
+    RavenCocoaTrayTarget* target;
+    NSStatusBarButton* button;
+    if (!tray) return NULL;
+    tray->user = user;
+    tray->item = [[[NSStatusBar systemStatusBar] statusItemWithLength:NSSquareStatusItemLength] retain];
+    target = [[RavenCocoaTrayTarget alloc] init];
+    target->ravenTray = tray;
+    tray->target = target;
+    button = [tray->item button];
+    [button setTarget:target];
+    [button setAction:@selector(ravenClicked:)];
+    [button sendActionOn:NSEventMaskLeftMouseUp | NSEventMaskRightMouseUp | NSEventMaskOtherMouseUp];
+    /* (until an icon is given: the first letter of the application) */
+    [button setTitle:[[[NSProcessInfo processInfo] processName] substringToIndex:1]];
+    return tray;
+}
+
+static void rvn_cocoa_tray_destroy(rvn_ptray_t* tray) {
+    [[NSStatusBar systemStatusBar] removeStatusItem:tray->item];
+    [tray->item setMenu:nil];
+    [tray->item release];
+    if (tray->menu) [tray->menu release];
+    [tray->target release];
+    free(tray);
+}
+
+static void rvn_cocoa_tray_set_icon(rvn_ptray_t* tray, const uint8_t* rgba, int width, int height) {
+    NSBitmapImageRep* rep = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:NULL pixelsWide:width pixelsHigh:height
+        bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace
+        bitmapFormat:NSBitmapFormatAlphaNonpremultiplied bytesPerRow:width * 4 bitsPerPixel:32];
+    NSImage* image;
+    CGFloat side = 18.0, w = side, h = side;
+    if (!rep) return;
+    memcpy([rep bitmapData], rgba, (size_t)width * (size_t)height * 4);
+    /* the height of the bar, keeping the proportions */
+    if (width > height) h = side * height / width; else w = side * width / height;
+    image = [[NSImage alloc] initWithSize:NSMakeSize(w, h)];
+    [image addRepresentation:rep];
+    [rep release];
+    [[tray->item button] setTitle:@""];
+    [[tray->item button] setImage:image];
+    [image release];
+}
+
+static void rvn_cocoa_tray_set_tooltip(rvn_ptray_t* tray, const char* text) {
+    [[tray->item button] setToolTip:(text && text[0]) ? rvn_cocoa_string(text) : nil];
+}
+
+static void rvn_cocoa_tray_set_menu(rvn_ptray_t* tray, const rvn_pmenu_t* items, uint32_t count) {
+    [tray->item setMenu:nil];
+    if (tray->menu) { [tray->menu release]; tray->menu = nil; }
+    if (count > 0) {
+        tray->menu = rvn_cocoa_menu_from(@"", items, count);
+        [tray->item setMenu:tray->menu];
+    }
+}
+
 @interface RavenCocoaDelegate : NSObject <NSWindowDelegate> {
 @public rvn_pwindow_t* ravenWindow;
 }
@@ -599,6 +779,8 @@ static int rvn_cocoa_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
     g_cocoa.menu_target = [[RavenCocoaMenuTarget alloc] init];
     g_cocoa.default_menu = rvn_cocoa_main_menu(NULL, 0);
     [NSApp setMainMenu:g_cocoa.default_menu];
+    g_cocoa.app_delegate = [[RavenCocoaAppDelegate alloc] init];
+    [NSApp setDelegate:g_cocoa.app_delegate];
     [NSApp finishLaunching];
     [NSApp activateIgnoringOtherApps:YES];
     g_cocoa.initialized = R_TRUE;
@@ -606,10 +788,21 @@ static int rvn_cocoa_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 }
 static void rvn_cocoa_shutdown(void) {
     [NSApp setMainMenu:nil];
+    [NSApp setDelegate:nil];
+    if (g_cocoa.app_delegate) { [g_cocoa.app_delegate release]; g_cocoa.app_delegate = nil; }
+    if (g_cocoa.dock_menu) { [g_cocoa.dock_menu release]; g_cocoa.dock_menu = nil; }
+    [[NSApp dockTile] setBadgeLabel:nil];
+    [[NSApp dockTile] setContentView:nil];
+    g_cocoa.progress_state = 0;
     if (g_cocoa.default_menu) { [g_cocoa.default_menu release]; g_cocoa.default_menu = nil; }
     if (g_cocoa.menu_target) { [g_cocoa.menu_target release]; g_cocoa.menu_target = nil; }
     g_cocoa.handler = NULL; g_cocoa.regions = NULL; g_cocoa.initialized = R_FALSE;
     [g_cocoa.pool drain]; g_cocoa.pool = nil;
+    if (g_cocoa.terminate_pending) {
+        /* AppKit asked to quit (the Dock, a log out) and waits: it ends the process now, Raven being shut down */
+        g_cocoa.terminate_pending = R_FALSE;
+        [NSApp replyToApplicationShouldTerminate:YES];
+    }
 }
 static void* rvn_cocoa_native_display(void) { return NULL; }
 
@@ -1352,6 +1545,12 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .window_set_topmost = rvn_cocoa_window_set_topmost, .window_center = rvn_cocoa_window_center,
         .window_set_picture_in_picture = rvn_cocoa_window_set_picture_in_picture,
         .window_set_menu_bar = rvn_cocoa_window_set_menu_bar,
+        .window_set_progress = rvn_cocoa_window_set_progress,
+        .window_request_attention = rvn_cocoa_window_request_attention,
+        .app_set_badge = rvn_cocoa_app_set_badge, .app_set_icon_menu = rvn_cocoa_app_set_icon_menu,
+        .tray_create = rvn_cocoa_tray_create, .tray_destroy = rvn_cocoa_tray_destroy,
+        .tray_set_icon = rvn_cocoa_tray_set_icon, .tray_set_tooltip = rvn_cocoa_tray_set_tooltip,
+        .tray_set_menu = rvn_cocoa_tray_set_menu,
         .window_get_native = rvn_cocoa_window_get_native, .child_create = rvn_cocoa_child_create,
         .child_set_rect = rvn_cocoa_child_set_rect, .pump = rvn_cocoa_pump, .wake = rvn_cocoa_wake,
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,

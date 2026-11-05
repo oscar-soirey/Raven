@@ -814,6 +814,17 @@ const (
 	R_HEADER_ALL_BUTTONS RHeaderButtons = 7
 )
 
+// RTaskbarProgress: A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+type RTaskbarProgress int32
+
+const (
+	R_TASKBAR_PROGRESS_NONE          RTaskbarProgress = 0x07A0
+	R_TASKBAR_PROGRESS_NORMAL        RTaskbarProgress = 0x07A1
+	R_TASKBAR_PROGRESS_PAUSED        RTaskbarProgress = 0x07A2
+	R_TASKBAR_PROGRESS_ERROR         RTaskbarProgress = 0x07A3
+	R_TASKBAR_PROGRESS_INDETERMINATE RTaskbarProgress = 0x07A4
+)
+
 // RDockSide: Where a panel goes in a dock area, relative to another panel or to the whole area.
 type RDockSide int32
 
@@ -4203,6 +4214,76 @@ func WindowGetIsland(window ID) ID {
 	return ID(C.Rwindow_get_island(C.Rid(window)))
 }
 
+// WindowSetTaskbarProgress: A progress bar on the icon of the application: on the button of the window in the
+// taskbar (Windows), on the icon in the Dock (macOS), on the launcher (Linux). There is one icon for the
+// whole application in the Dock and the launchers: the last window that set it is shown. value From 0 to 1
+// (not used by NONE and INDETERMINATE). Returns: R_FALSE where the system shows no progress.
+func WindowSetTaskbarProgress(window ID, state RTaskbarProgress, value float32) int {
+	return int(C.Rwindow_set_taskbar_progress(C.Rid(window), C.RTaskbarProgress(state), C.float(value)))
+}
+
+// WindowRequestAttention: Asks the user to look at the window when it is not the active one: its taskbar
+// button flashes (Windows), the icon bounces in the Dock (macOS), the window is marked urgent (X11, the
+// launchers of Linux). `critical`: until the user comes to the window; otherwise a few times. Nothing happens
+// when the window is already the active one.
+func WindowRequestAttention(window ID, critical int) int {
+	return int(C.Rwindow_request_attention(C.Rid(window), C.int(critical)))
+}
+
+// TaskbarSetBadge: A short text on the icon of the application: a number of unread messages, "!". macOS: the
+// badge of the Dock. Windows: a small round icon on the taskbar buttons of the windows, drawn from the text
+// (one to three characters fit). Linux: a number only (the text is read as one; anything else shows nothing).
+// NULL or "": no badge.
+func TaskbarSetBadge(text string) int {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return int(C.Rtaskbar_set_badge(text_))
+}
+
+// TaskbarSetMenu: The menu of the icon of the application in the Dock (macOS), above the entries of the
+// system. A MENU without a parent: its MenuItems fire as when chosen in a window (clicked callback, action),
+// and what changes in it shows the next time the menu opens. R_INVALID_ID: none. R_FALSE where the system has
+// no such menu.
+func TaskbarSetMenu(menu ID) int {
+	return int(C.Rtaskbar_set_menu(C.Rid(menu)))
+}
+
+// TrayIsSupported: Returns: R_TRUE when the system shows tray icons: always on Windows and macOS; on Linux,
+// when a host of StatusNotifierItem runs (the panel of the desktop). An icon made where none runs yet appears
+// when one starts.
+func TrayIsSupported() int {
+	return int(C.Rtray_is_supported())
+}
+
+// TrayCreate: Puts an icon of the application beside the clock. While one exists, the application goes on
+// running when its last window closes (Ris_running): Rquit (or the action app.quit) ends it. Returns:
+// R_INVALID_ID where the system has none.
+func TrayCreate() ID {
+	return ID(C.Rtray_create())
+}
+
+func TrayDestroy(tray ID) {
+	C.Rtray_destroy(C.Rid(tray))
+}
+
+func TrayIsValid(tray ID) int {
+	return int(C.Rtray_is_valid(C.Rid(tray)))
+}
+
+// TraySetTooltip: The text shown when the pointer rests on the icon (and its title for the Linux panels).
+func TraySetTooltip(tray ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtray_set_tooltip(C.Rid(tray), text_)
+}
+
+// TraySetMenu: The menu the system shows for the icon: on a right click (Windows, Linux), on a click (macOS).
+// A MENU without a parent, whose MenuItems fire as when chosen in a window; what changes in it shows the next
+// time it opens. R_INVALID_ID: none.
+func TraySetMenu(tray ID, menu ID) {
+	C.Rtray_set_menu(C.Rid(tray), C.Rid(menu))
+}
+
 func ColorPickerCreate() ID {
 	return ID(C.Rcolor_picker_create())
 }
@@ -5983,20 +6064,20 @@ func HostInjectClose(window ID) {
 // Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
 // Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
-// Risland_set_changed_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
-// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
-// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
-// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
-// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
-// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rfile_dialog_open
-// Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
-// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
-// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback, Rviewport_set_draw_callback
-// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
-// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve
-// Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
-// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
-// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
-// Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rhost_platform_register
+// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
+// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
+// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
+// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
+// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
+// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
+// Rnode_graph_set_context_callback, Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback
+// Rblock_editor_set_context_callback, Rdialog_open, Rfile_dialog_open, Rfile_dialog_save
+// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
+// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
+// Rnotification_set_fallback, Rviewport_set_draw_callback, Rviewport_get_native_handle
+// Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
+// Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text
+// Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect
+// Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader, Rborder_set_effect
+// Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse, Rxml_get_attribute_info
+// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings, Rhost_platform_register

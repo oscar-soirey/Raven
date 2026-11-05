@@ -551,6 +551,13 @@ typedef enum RHeaderButtons {
 	R_HEADER_MAXIMIZE = 4,
 	R_HEADER_ALL_BUTTONS = 7,
 } RHeaderButtons;
+typedef enum RTaskbarProgress {
+	R_TASKBAR_PROGRESS_NONE = 1952,
+	R_TASKBAR_PROGRESS_NORMAL = 1953,
+	R_TASKBAR_PROGRESS_PAUSED = 1954,
+	R_TASKBAR_PROGRESS_ERROR = 1955,
+	R_TASKBAR_PROGRESS_INDETERMINATE = 1956,
+} RTaskbarProgress;
 typedef enum RDockSide {
 	R_DOCK_LEFT = 864,
 	R_DOCK_RIGHT = 865,
@@ -699,6 +706,7 @@ typedef struct RPenEvent RPenEvent;
 typedef struct RGestureEvent RGestureEvent;
 typedef struct RTileItem RTileItem;
 typedef struct RLanguageDesc RLanguageDesc;
+typedef struct RJumpTask RJumpTask;
 typedef struct RFileFilter RFileFilter;
 typedef struct RFileDialogDesc RFileDialogDesc;
 typedef struct RViewportDrawInfo RViewportDrawInfo;
@@ -755,6 +763,7 @@ typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef void (*RTextEditorChangedCallback)(Rid editor, void* user_data);
+typedef void (*RTrayClickedCallback)(Rid tray, RMouseButton button, void* user_data);
 typedef int (*RDockCloseCallback)(Rid area, Rid panel, void* user_data);
 typedef void (*RDockChangedCallback)(Rid area, void* user_data);
 typedef void (*RIslandChangedCallback)(Rid island, int expanded, void* user_data);
@@ -944,6 +953,11 @@ struct RLanguageDesc {
 	const char* annotation;
 	Ruint flags;
 	const char* script_language;
+};
+struct RJumpTask {
+	const char* title;
+	const char* arguments;
+	const char* description;
 };
 struct RFileFilter {
 	const char* name;
@@ -1680,6 +1694,19 @@ int Risland_is_in_notch(Rid island);
 void Risland_set_changed_callback(Rid island, RIslandChangedCallback callback, void* user_data);
 void Rwindow_set_island(Rid window, Rid widget);
 Rid Rwindow_get_island(Rid window);
+int Rwindow_set_taskbar_progress(Rid window, RTaskbarProgress state, float value);
+int Rwindow_request_attention(Rid window, int critical);
+int Rtaskbar_set_badge(const char* text);
+int Rtaskbar_set_menu(Rid menu);
+int Rtaskbar_set_jump_list(const RJumpTask* tasks, int count);
+int Rtray_is_supported(void);
+Rid Rtray_create(void);
+void Rtray_destroy(Rid tray);
+int Rtray_is_valid(Rid tray);
+void Rtray_set_icon(Rid tray, const uint8_t* rgba, int width, int height);
+void Rtray_set_tooltip(Rid tray, const char* text);
+void Rtray_set_menu(Rid tray, Rid menu);
+void Rtray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data);
 Rid Rcolor_picker_create(void);
 void Rcolor_picker_set_color(Rid picker, float r, float g, float b, float a);
 void Rcolor_picker_get_color(Rid picker, float* r, float* g, float* b, float* a);

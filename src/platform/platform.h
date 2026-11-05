@@ -20,6 +20,9 @@
 
 #include "../core/base.h"
 
+/** An icon beside the clock (tray_create). Each platform defines its own structure. */
+typedef struct rvn_ptray_t rvn_ptray_t;
+
 /** A native window. Each platform defines its own structure. */
 typedef struct rvn_pwindow_t rvn_pwindow_t;
 
@@ -87,7 +90,9 @@ typedef enum rvn_pevent_type_t {
 	 */
 	RVN_PEVENT_COMMAND,
 	/** The system asks the application to quit (Quit in the application menu of macOS, in the Dock). `user` may be NULL. */
-	RVN_PEVENT_QUIT
+	RVN_PEVENT_QUIT,
+	/** A tray icon was clicked: `user` is the one given to tray_create (not a window), `button` an RMouseButton. */
+	RVN_PEVENT_TRAY
 } rvn_pevent_type_t;
 
 /**
@@ -267,6 +272,36 @@ typedef struct rvn_platform_t {
 	 * the MenuBar stays drawn in the window.
 	 */
 	int   (*window_set_menu_bar)(rvn_pwindow_t* window, const rvn_pmenu_t* menus, uint32_t count);
+
+	/* ---- the taskbar and the Dock (all optional, may be NULL) ---- */
+
+	/**
+	 * Progress on the icon: on the taskbar button of the window (Windows), on
+	 * the icon of the application (Dock, launchers). `state`: 0 none, 1 normal,
+	 * 2 paused, 3 error, 4 indeterminate; value 0..1.
+	 */
+	int   (*window_set_progress)(rvn_pwindow_t* window, int state, float value);
+	/** Asks the user to look at the window; `critical`: until the user comes. */
+	int   (*window_request_attention)(rvn_pwindow_t* window, int critical);
+	/** A short text on the icon of the application; NULL: none. */
+	int   (*app_set_badge)(const char* text);
+	/** The menu of the icon of the application (the Dock): entries come back as RVN_PEVENT_COMMAND. count 0: none. */
+	int   (*app_set_icon_menu)(const rvn_pmenu_t* items, uint32_t count);
+	/** The tasks of the jump list (Windows). count 0: none. */
+	int   (*app_set_jump_list)(const RJumpTask* tasks, int count);
+
+	/* ---- tray icons (all optional, may be NULL: the platform has none) ---- */
+
+	/** R_TRUE when the system shows them now (Linux: a host of StatusNotifierItem runs). */
+	int   (*tray_supported)(void);
+	/** A new icon, empty; its clicks come as RVN_PEVENT_TRAY with this `user`. NULL when it cannot be made. */
+	rvn_ptray_t* (*tray_create)(void* user);
+	void  (*tray_destroy)(rvn_ptray_t* tray);
+	/** RGBA8 pixels, straight alpha (copied). */
+	void  (*tray_set_icon)(rvn_ptray_t* tray, const uint8_t* rgba, int width, int height);
+	void  (*tray_set_tooltip)(rvn_ptray_t* tray, const char* text);
+	/** The menu the system shows for it (copied); its entries come back as RVN_PEVENT_COMMAND. count 0: none. */
+	void  (*tray_set_menu)(rvn_ptray_t* tray, const rvn_pmenu_t* items, uint32_t count);
 	void  (*window_center)(rvn_pwindow_t* window);
 	/** Optional (may be NULL). Icon from RGBA8 pixels; NULL rgba restores the default. */
 	void  (*window_set_icon)(rvn_pwindow_t* window, const uint8_t* rgba, int width, int height);
@@ -344,6 +379,15 @@ typedef struct rvn_platform_t {
 /** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */
 int  rvn_dbus_notify(const char* app, const char* title, const char* body, int urgency);
 void rvn_dbus_notify_shutdown(void);
+/*
+ * The launchers of Linux desktops (notify.c): com.canonical.Unity.LauncherEntry,
+ * which KDE, the Ubuntu Dock, Dash to Dock and Plank listen to. The whole
+ * state is sent each time: progress (shown when progress >= 0), count (shown
+ * when count >= 0), urgent.
+ */
+int  rvn_dbus_launcher_progress(int state, float value);
+int  rvn_dbus_launcher_badge(const char* text);
+int  rvn_dbus_launcher_urgent(int urgent);
 #endif
 
 /**

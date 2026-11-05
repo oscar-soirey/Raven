@@ -17,6 +17,7 @@
 
 #include "x11_internal.h"
 #include "../atspi.h"
+#include "../sni.h"
 
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
@@ -68,6 +69,8 @@ struct rvn_pwindow_t {
 	int pip_ratio_width, pip_ratio_height;
 	int pip_x, pip_y, pip_width, pip_height;
 	int pip_was_maximized, pip_was_above;
+	/* asked for attention (XUrgencyHint): cleared when it takes the keyboard */
+	int urgent;
 };
 
 static struct {
@@ -257,6 +260,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 	RVN_UNUSED(regions);
 	memset(&g_x11, 0, sizeof(g_x11));
 	g_x11.handler = handler;
+	rvn_sni_set_handler(handler);
 	g_x11.wake_pipe[0] = g_x11.wake_pipe[1] = -1;
 
 	/* the render thread talks to the X server too (Vulkan presentation) */
@@ -337,6 +341,7 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 static void rvn_x11_shutdown(void) {
 	int i;
 	rvn_atspi_shutdown();
+	rvn_sni_shutdown();
 	rvn_dbus_notify_shutdown();
 	if (!g_x11.display) return;
 	for (i = 0; i < RVN_X11_CURSOR_COUNT; i++) {
@@ -639,6 +644,37 @@ static int rvn_x11_window_set_picture_in_picture(rvn_pwindow_t* window, int enab
 	if (window->pip_was_maximized) rvn_x11_send_maximize(window, R_TRUE);
 	XFlush(g_x11.display);
 	return R_TRUE;
+}
+
+/* The urgency hint of the window manager, and the mark of the launchers. */
+static void rvn_x11_set_urgent(rvn_pwindow_t* window, int urgent) {
+	XWMHints* hints = XGetWMHints(g_x11.display, window->handle);
+	if (!hints) hints = XAllocWMHints();
+	if (!hints) return;
+	if (urgent) hints->flags |= XUrgencyHint;
+	else hints->flags &= ~XUrgencyHint;
+	XSetWMHints(g_x11.display, window->handle, hints);
+	XFree(hints);
+	window->urgent = urgent;
+	rvn_dbus_launcher_urgent(urgent);
+	XFlush(g_x11.display);
+}
+
+static int rvn_x11_window_request_attention(rvn_pwindow_t* window, int critical) {
+	Window focused = None;
+	int revert;
+	RVN_UNUSED(critical);
+	if (window->is_child) return R_FALSE;
+	/* (the window the user is in needs nothing) */
+	XGetInputFocus(g_x11.display, &focused, &revert);
+	if (focused == window->handle) return R_TRUE;
+	rvn_x11_set_urgent(window, R_TRUE);
+	return R_TRUE;
+}
+
+static int rvn_x11_window_set_progress(rvn_pwindow_t* window, int state, float value) {
+	RVN_UNUSED(window);
+	return rvn_dbus_launcher_progress(state, value);
 }
 
 static void rvn_x11_window_center(rvn_pwindow_t* window) {
@@ -1689,6 +1725,7 @@ static void rvn_x11_process(XEvent* xevent) {
 			break;
 		case FocusIn:
 			if (window->input_context) XSetICFocus(window->input_context);
+			if (window->urgent) rvn_x11_set_urgent(window, R_FALSE);
 			event.type = RVN_PEVENT_FOCUS;
 			event.focused = R_TRUE;
 			rvn_x11_emit(window, &event);
@@ -1710,9 +1747,9 @@ static void rvn_x11_pump(double timeout_seconds) {
 	XFlush(g_x11.display);
 
 	if (!XPending(g_x11.display) && timeout_seconds != 0.0) {
-		struct pollfd fds[3];
+		struct pollfd fds[4];
 		int timeout_ms = timeout_seconds < 0.0 ? -1 : (int)(timeout_seconds * 1000.0 + 0.999);
-		int count, a11y = rvn_atspi_fd();
+		int count, a11y = rvn_atspi_fd(), tray = rvn_sni_fd();
 		fds[0].fd = ConnectionNumber(g_x11.display);
 		fds[0].events = POLLIN;
 		fds[0].revents = 0;
@@ -1727,9 +1764,17 @@ static void rvn_x11_pump(double timeout_seconds) {
 			fds[count].revents = 0;
 			count++;
 		}
+		/* and the panel that shows the tray icons, on the session bus */
+		if (tray >= 0) {
+			fds[count].fd = tray;
+			fds[count].events = POLLIN;
+			fds[count].revents = 0;
+			count++;
+		}
 		while (poll(fds, (nfds_t)count, timeout_ms) < 0 && errno == EINTR) {}
 	}
 	rvn_atspi_dispatch();
+	rvn_sni_dispatch();
 	/* empty the wake-up pipe, whether we slept or not */
 	if (g_x11.wake_pipe[0] >= 0) {
 		char buffer[64];
@@ -1799,7 +1844,16 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.a11y_announce = rvn_atspi_announce,
 		.a11y_active = rvn_atspi_active,
 		.a11y_settings = rvn_atspi_settings,
-		.notify = rvn_dbus_notify
+		.notify = rvn_dbus_notify,
+		.window_set_progress = rvn_x11_window_set_progress,
+		.window_request_attention = rvn_x11_window_request_attention,
+		.app_set_badge = rvn_dbus_launcher_badge,
+		.tray_supported = rvn_sni_supported,
+		.tray_create = rvn_sni_create,
+		.tray_destroy = rvn_sni_destroy,
+		.tray_set_icon = rvn_sni_set_icon,
+		.tray_set_tooltip = rvn_sni_set_tooltip,
+		.tray_set_menu = rvn_sni_set_menu
 	};
 	return &platform;
 }

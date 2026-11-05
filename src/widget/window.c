@@ -1724,6 +1724,14 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		rvn_update();
 		return;
 	}
+	/* a tray icon: `user` is the icon, not a window */
+	if (pevent->type == RVN_PEVENT_TRAY) {
+		if (g_rvn.input_blocked > 0) return;
+		rvn_dispatch_begin();
+		rvn_tray_on_event(pevent);
+		rvn_dispatch_end();
+		return;
+	}
 	/* the menus of the system and the requests to quit do not need a window */
 	if (pevent->type == RVN_PEVENT_COMMAND || pevent->type == RVN_PEVENT_QUIT) {
 		if (g_rvn.input_blocked > 0) return;
@@ -1836,6 +1844,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		case RVN_PEVENT_MODAL_TICK:
 		case RVN_PEVENT_COMMAND:
 		case RVN_PEVENT_QUIT:
+		case RVN_PEVENT_TRAY:
 			break;
 	}
 	rvn_dispatch_end();

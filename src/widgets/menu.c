@@ -905,7 +905,7 @@ static uint32_t rvn_menu_mix(uint32_t hash, uint32_t value) {
 }
 
 /* What the entries below `menu` show, as one number. */
-static uint32_t rvn_menu_signature(const rvn_widget_t* menu, uint32_t hash) {
+uint32_t rvn_menu_signature(const rvn_widget_t* menu, uint32_t hash) {
 	uint32_t i;
 	for (i = 0; i < menu->child_count; i++) {
 		const rvn_widget_t* child = menu->children[i];
@@ -933,7 +933,7 @@ static uint32_t rvn_menu_native_count(const rvn_widget_t* menu) {
 }
 
 /* The entries of a menu, as the platform takes them. Free with rvn_menu_native_free. */
-static rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* count) {
+rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* count) {
 	rvn_pmenu_t* items;
 	uint32_t i, n = 0;
 	*count = rvn_menu_native_count(menu);
@@ -963,7 +963,7 @@ static rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* co
 	return items;
 }
 
-static void rvn_menu_native_free(rvn_pmenu_t* items, uint32_t count) {
+void rvn_menu_native_free(rvn_pmenu_t* items, uint32_t count) {
 	uint32_t i;
 	for (i = 0; i < count; i++) {
 		if (items[i].submenu) rvn_menu_native_free((rvn_pmenu_t*)items[i].items, items[i].count);

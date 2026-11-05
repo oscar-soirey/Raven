@@ -828,6 +828,17 @@ R_HEADER_MINIMIZE :: 2
 R_HEADER_MAXIMIZE :: 4
 R_HEADER_ALL_BUTTONS :: 7
 
+// A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+RTaskbarProgress :: i32
+R_TASKBAR_PROGRESS_NONE :: 0x07A0
+R_TASKBAR_PROGRESS_NORMAL :: 0x07A1
+// Shown as paused (yellow on Windows).
+R_TASKBAR_PROGRESS_PAUSED :: 0x07A2
+// Shown as failed (red on Windows).
+R_TASKBAR_PROGRESS_ERROR :: 0x07A3
+// Something goes on, without knowing how far it is.
+R_TASKBAR_PROGRESS_INDETERMINATE :: 0x07A4
+
 // Where a panel goes in a dock area, relative to another panel or to the whole area.
 RDockSide :: i32
 R_DOCK_LEFT :: 0x0360
@@ -1146,6 +1157,8 @@ RCompletionCallback :: #type proc "c" (editor: Rid, prefix: cstring, user_data: 
 // undoing...) or by Rtext_editor_insert_text. The action of the widget
 // (OnChanged in XML) fires at the same time.
 RTextEditorChangedCallback :: #type proc "c" (editor: Rid, user_data: rawptr)
+// Called when the tray icon is clicked (Rtray_set_clicked_callback).
+RTrayClickedCallback :: #type proc "c" (tray: Rid, button: RMouseButton, user_data: rawptr)
 // Called when the user closes a panel, before it is deleted.
 // Return R_FALSE to keep the panel.
 RDockCloseCallback :: #type proc "c" (area: Rid, panel: Rid, user_data: rawptr) -> i32
@@ -1516,6 +1529,16 @@ RLanguageDesc :: struct {
 	// <script> and </script> (the name of a language: "C", "Rust"...).
 	// NULL: JavaScript, as in HTML.
 	script_language: cstring,
+}
+
+// A task of the jump list of Windows (Rtaskbar_set_jump_list).
+RJumpTask :: struct {
+	// What the list shows.
+	title: cstring,
+	// The command line given to the application when it is chosen: it is started again with these arguments.
+	arguments: cstring,
+	// The tooltip; NULL: none.
+	description: cstring,
 }
 
 // A kind of file in a file dialog.
@@ -3092,6 +3115,62 @@ foreign lib {
 	// its slot (Rslot_set_padding) is its distance from the top edge.
 	Rwindow_set_island :: proc(window: Rid, widget: Rid) ---
 	Rwindow_get_island :: proc(window: Rid) -> Rid ---
+	// A progress bar on the icon of the application: on the button of
+	// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+	// on the launcher (Linux). There is one icon for the whole application in
+	// the Dock and the launchers: the last window that set it is shown.
+	// value From 0 to 1 (not used by NONE and INDETERMINATE).
+	// Returns: R_FALSE where the system shows no progress.
+	Rwindow_set_taskbar_progress :: proc(window: Rid, state: RTaskbarProgress, value: f32) -> i32 ---
+	// Asks the user to look at the window when it is not the active
+	// one: its taskbar button flashes (Windows), the icon bounces in the
+	// Dock (macOS), the window is marked urgent (X11, the launchers of
+	// Linux). `critical`: until the user comes to the window; otherwise a few
+	// times. Nothing happens when the window is already the active one.
+	Rwindow_request_attention :: proc(window: Rid, critical: i32) -> i32 ---
+	// A short text on the icon of the application: a number of unread
+	// messages, "!". macOS: the badge of the Dock. Windows: a small round
+	// icon on the taskbar buttons of the windows, drawn from the text (one
+	// to three characters fit). Linux: a number only (the text is read as
+	// one; anything else shows nothing). NULL or "": no badge.
+	Rtaskbar_set_badge :: proc(text: cstring) -> i32 ---
+	// The menu of the icon of the application in the Dock (macOS),
+	// above the entries of the system. A MENU without a parent: its
+	// MenuItems fire as when chosen in a window (clicked callback, action),
+	// and what changes in it shows the next time the menu opens.
+	// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+	Rtaskbar_set_menu :: proc(menu: Rid) -> i32 ---
+	// The tasks of the jump list of Windows (right click on the button
+	// of the application in the taskbar, or on its tile in the Start menu).
+	// Choosing one starts the application again with its arguments: the
+	// application reads them as any other command line. count 0: none.
+	// R_FALSE where there is no jump list.
+	Rtaskbar_set_jump_list :: proc(tasks: ^RJumpTask, count: i32) -> i32 ---
+	// Returns: R_TRUE when the system shows tray icons: always on Windows and
+	// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+	// the desktop). An icon made where none runs yet appears when one starts.
+	Rtray_is_supported :: proc() -> i32 ---
+	// Puts an icon of the application beside the clock. While one
+	// exists, the application goes on running when its last window closes
+	// (Ris_running): Rquit (or the action app.quit) ends it.
+	// Returns: R_INVALID_ID where the system has none.
+	Rtray_create :: proc() -> Rid ---
+	Rtray_destroy :: proc(tray: Rid) ---
+	Rtray_is_valid :: proc(tray: Rid) -> i32 ---
+	// The picture, from tightly packed RGBA8 pixels (straight alpha);
+	// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+	Rtray_set_icon :: proc(tray: Rid, rgba: [^]u8, width: i32, height: i32) ---
+	// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+	Rtray_set_tooltip :: proc(tray: Rid, text: cstring) ---
+	// The menu the system shows for the icon: on a right click
+	// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+	// MenuItems fire as when chosen in a window; what changes in it shows
+	// the next time it opens. R_INVALID_ID: none.
+	Rtray_set_menu :: proc(tray: Rid, menu: Rid) ---
+	// Called on a click: the left button (activate), the right one
+	// when there is no menu, the middle one. On macOS an icon with a menu
+	// opens it instead.
+	Rtray_set_clicked_callback :: proc(tray: Rid, callback: RTrayClickedCallback, user_data: rawptr) ---
 	Rcolor_picker_create :: proc() -> Rid ---
 	// Sets the color (0..1 each). The callback is not called.
 	Rcolor_picker_set_color :: proc(picker: Rid, r: f32, g: f32, b: f32, a: f32) ---

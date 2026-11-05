@@ -38,6 +38,7 @@
 #include <shellapi.h>
 #include "win32_uia.h"
 #include "win32_manipulation.h"
+#include "win32_taskbar.h"
 
 #ifndef WM_DPICHANGED
 #define WM_DPICHANGED 0x02E0
@@ -166,6 +167,9 @@ struct rvn_pwindow_t {
 	int pip_ratio_width, pip_ratio_height;
 	WINDOWPLACEMENT pip_placement;
 	int pip_was_custom, pip_was_topmost;
+	/** The progress on its taskbar button, given again when the button is made (0: none). */
+	int progress_state;
+	float progress_value;
 	struct rvn_pwindow_t* next;
 };
 
@@ -277,6 +281,8 @@ void rvn_dispatch_end(void);
 
 typedef struct rvn_win32_queued_t {
 	rvn_pwindow_t* window;
+	/** An event of the application, of no window (a tray icon, a menu of the system): `user` is its own. */
+	int app;
 	rvn_pevent_t event;
 } rvn_win32_queued_t;
 
@@ -291,7 +297,7 @@ static struct {
 } g_win32_queue;
 
 static void rvn_win32_deliver(rvn_pwindow_t* window, rvn_pevent_t* event) {
-	event->user = window ? window->user : NULL;
+	if (window) event->user = window->user;
 	g_win32_queue.handling++;
 	g_win32.handler(event);
 	g_win32_queue.handling--;
@@ -339,7 +345,21 @@ static void rvn_win32_emit(rvn_pwindow_t* window, rvn_pevent_t* event) {
 	}
 	queued = &g_win32_queue.events[g_win32_queue.count++];
 	queued->window = window;
+	queued->app = R_FALSE;
 	queued->event = *event;
+}
+
+/* An event of no window (win32_taskbar.c: a tray icon), in its turn with the others. */
+static void rvn_win32_emit_app(rvn_pevent_t* event) {
+	if ((g_win32_queue.dispatching && !g_win32_queue.handling) || g_win32_queue.count == RVN_WIN32_QUEUE_SIZE) {
+		if (g_win32_queue.head < g_win32_queue.count && !g_win32_queue.handling) rvn_win32_flush_events();
+		rvn_win32_deliver(NULL, event);
+		return;
+	}
+	g_win32_queue.events[g_win32_queue.count].window = NULL;
+	g_win32_queue.events[g_win32_queue.count].app = R_TRUE;
+	g_win32_queue.events[g_win32_queue.count].event = *event;
+	g_win32_queue.count++;
 }
 
 /* What waited reaches the core, in order (it may destroy windows: their events are dropped then). */
@@ -349,7 +369,7 @@ static void rvn_win32_flush_events(void) {
 	while (g_win32_queue.head < g_win32_queue.count) {
 		rvn_win32_queued_t queued = g_win32_queue.events[g_win32_queue.head++];
 		/* (the events told now may queue others: they go after) */
-		if (queued.window) rvn_win32_deliver(queued.window, &queued.event);
+		if (queued.window || queued.app) rvn_win32_deliver(queued.window, &queued.event);
 	}
 	g_win32_queue.head = g_win32_queue.count = 0;
 	g_win32_queue.dispatching--;
@@ -713,6 +733,13 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 		}
 	}
 
+	/* the taskbar button of the window exists (again, when Explorer restarted): what it shows is given now */
+	if (message == rvn_win32_taskbar_created_message() && message != 0) {
+		if (window->progress_state) rvn_win32_taskbar_progress(handle, window->progress_state, window->progress_value);
+		rvn_win32_taskbar_overlay(handle);
+		return 0;
+	}
+
 	/* screen readers (win32_uia.c) */
 	if (rvn_uia_handle_message(message, wparam, lparam)) return 0;
 	if (message == WM_GETOBJECT) {
@@ -1005,6 +1032,7 @@ static int rvn_win32_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 
 	memset(&g_win32, 0, sizeof(g_win32));
 	g_win32.handler = handler;
+	rvn_win32_tray_set_emit(rvn_win32_emit_app);
 	g_win32.regions = regions;
 	g_win32.instance = GetModuleHandleW(NULL);
 	g_win32.thread_id = GetCurrentThreadId();
@@ -1118,6 +1146,8 @@ static void rvn_win32_shutdown(void) {
 	rvn_win32_notify_shutdown();
 	rvn_uia_shutdown();
 	rvn_win32_manipulation_shutdown();
+	rvn_win32_taskbar_shutdown();
+	rvn_win32_tray_shutdown();
 	if (g_win32.wake_event) CloseHandle(g_win32.wake_event);
 	UnregisterClassW(RVN_WIN32_CHILD_CLASS, g_win32.instance);
 	UnregisterClassW(RVN_WIN32_CLASS, g_win32.instance);
@@ -1425,6 +1455,30 @@ static int rvn_win32_window_set_picture_in_picture(rvn_pwindow_t* window, int en
 		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 	/* the place, the size and the state it had (maximized too) */
 	SetWindowPlacement(handle, &window->pip_placement);
+	return R_TRUE;
+}
+
+/* ---- the taskbar (win32_taskbar.c) ---- */
+
+static int rvn_win32_window_set_progress(rvn_pwindow_t* window, int state, float value) {
+	if (window->is_child) return R_FALSE;
+	window->progress_state = state;
+	window->progress_value = value;
+	return rvn_win32_taskbar_progress(window->handle, state, value);
+}
+
+static int rvn_win32_window_request_attention(rvn_pwindow_t* window, int critical) {
+	if (window->is_child) return R_FALSE;
+	return rvn_win32_taskbar_flash(window->handle, critical);
+}
+
+/* The badge goes on the button of every window of the application. */
+static int rvn_win32_app_set_badge(const char* text) {
+	rvn_pwindow_t* window;
+	if (!rvn_win32_taskbar_set_badge(text)) return R_FALSE;
+	for (window = g_win32.windows; window; window = window->next) {
+		if (!window->is_child && !rvn_win32_taskbar_overlay(window->handle)) return R_FALSE;
+	}
 	return R_TRUE;
 }
 
@@ -1807,6 +1861,15 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.window_set_opacity = rvn_win32_window_set_opacity,
 		.window_set_topmost = rvn_win32_window_set_topmost,
 		.window_set_picture_in_picture = rvn_win32_window_set_picture_in_picture,
+		.window_set_progress = rvn_win32_window_set_progress,
+		.window_request_attention = rvn_win32_window_request_attention,
+		.app_set_badge = rvn_win32_app_set_badge,
+		.app_set_jump_list = rvn_win32_taskbar_jump_list,
+		.tray_create = rvn_win32_tray_create,
+		.tray_destroy = rvn_win32_tray_destroy,
+		.tray_set_icon = rvn_win32_tray_set_icon,
+		.tray_set_tooltip = rvn_win32_tray_set_tooltip,
+		.tray_set_menu = rvn_win32_tray_set_menu,
 		.window_center = rvn_win32_window_center,
 		.window_set_icon = rvn_win32_window_set_icon,
 		.window_set_cursor = rvn_win32_window_set_cursor,

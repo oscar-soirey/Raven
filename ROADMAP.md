@@ -86,8 +86,6 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [ ] Toast queue: several messages one after the other, or stacked.
 - [ ] Notifications: actions (buttons), a click that brings the window
   back, replacing a notification, an icon; UNUserNotificationCenter on macOS.
-- [ ] Tray icon (notification area, status item, StatusNotifierItem) with
-  its menu.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.
 - [ ] Timeline: nested tracks, curves between keys.
 - [ ] Markdown: images from the network, HTML, footnotes.

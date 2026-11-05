@@ -29,6 +29,7 @@
 
 #include "../platform.h"
 #include "../atspi.h"
+#include "../sni.h"
 #include "../x11/x11_internal.h"   /* the key symbols of X11 and of xkbcommon are the same numbers */
 
 #include <dlfcn.h>
@@ -1407,6 +1408,9 @@ static void rvn_wl_keyboard_keymap(void* data, struct wl_keyboard* keyboard, uin
 	g_wl.mod_super = g_xkb.keymap_mod_get_index(keymap, "Mod4");
 }
 
+/* Attention was asked through the launchers (Wayland itself has no way without xdg-activation). */
+static int g_wl_urgent;
+
 static void rvn_wl_keyboard_enter(void* data, struct wl_keyboard* keyboard, uint32_t serial, struct wl_surface* surface, struct wl_array* keys) {
 	rvn_pwindow_t* window = rvn_wl_window_of(surface);
 	rvn_pevent_t event;
@@ -1414,6 +1418,11 @@ static void rvn_wl_keyboard_enter(void* data, struct wl_keyboard* keyboard, uint
 	g_wl.input_serial = serial;
 	g_wl.keyboard_window = window;
 	if (!window) return;
+	/* the user came: the launchers stop asking */
+	if (g_wl_urgent) {
+		g_wl_urgent = R_FALSE;
+		rvn_dbus_launcher_urgent(R_FALSE);
+	}
 	memset(&event, 0, sizeof(event));
 	event.type = RVN_PEVENT_FOCUS;
 	event.focused = R_TRUE;
@@ -2373,6 +2382,7 @@ static int rvn_wl_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regio
 	}
 	g_wl.probed = R_FALSE;
 	g_wl.handler = handler;
+	rvn_sni_set_handler(handler);
 	g_wl.cursor = R_CURSOR_ARROW;
 
 	/* text input needs the character encoding of the user (compose tables are per locale) */
@@ -2428,6 +2438,7 @@ static int rvn_wl_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regio
 
 static void rvn_wl_shutdown(void) {
 	rvn_atspi_shutdown();
+	rvn_sni_shutdown();
 	rvn_dbus_notify_shutdown();
 	rvn_wl_disconnect();
 }
@@ -2740,6 +2751,18 @@ static int rvn_wl_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 	return R_FALSE;
 }
 
+static int rvn_wl_window_request_attention(rvn_pwindow_t* window, int critical) {
+	RVN_UNUSED(critical);
+	if (g_wl.keyboard_window == window) return R_TRUE;
+	g_wl_urgent = R_TRUE;
+	return rvn_dbus_launcher_urgent(R_TRUE);
+}
+
+static int rvn_wl_window_set_progress(rvn_pwindow_t* window, int state, float value) {
+	RVN_UNUSED(window);
+	return rvn_dbus_launcher_progress(state, value);
+}
+
 static void rvn_wl_window_center(rvn_pwindow_t* window) {
 	/* the compositor places new windows itself, usually in the middle */
 	RVN_UNUSED(window);
@@ -2881,8 +2904,8 @@ static void rvn_wl_lost(void) {
 }
 
 static void rvn_wl_pump(double timeout_seconds) {
-	struct pollfd fds[5];
-	int count = 0, i, timeout_ms, a11y, decor_fd = -1, display_fd;
+	struct pollfd fds[6];
+	int count = 0, i, timeout_ms, a11y, tray, decor_fd = -1, display_fd;
 	/* (what a roundtrip outside this function dispatched: not worth sleeping over) */
 	if (g_wl.close_first) {
 		rvn_wl_deliver_closes();
@@ -2933,6 +2956,13 @@ static void rvn_wl_pump(double timeout_seconds) {
 		fds[count].events = POLLIN;
 		fds[count++].revents = 0;
 	}
+	/* and the panel that shows the tray icons, on the session bus */
+	tray = rvn_sni_fd();
+	if (tray >= 0) {
+		fds[count].fd = tray;
+		fds[count].events = POLLIN;
+		fds[count++].revents = 0;
+	}
 	if (g_wl.decor) {
 		decor_fd = g_decor.get_fd(g_wl.decor);
 		if (decor_fd >= 0 && decor_fd != display_fd) {
@@ -2965,6 +2995,7 @@ static void rvn_wl_pump(double timeout_seconds) {
 		if (fds[i].fd == g_wl.repeat_fd && (fds[i].revents & POLLIN)) rvn_wl_repeat_fire();
 	}
 	rvn_atspi_dispatch();
+	rvn_sni_dispatch();
 	/* empty the wake-up pipe, whether we slept or not */
 	if (g_wl.wake_pipe[0] >= 0) {
 		char buffer[64];
@@ -3021,7 +3052,16 @@ const rvn_platform_t* rvn_platform_wayland(void) {
 		.a11y_announce = rvn_atspi_announce,
 		.a11y_active = rvn_atspi_active,
 		.a11y_settings = rvn_atspi_settings,
-		.notify = rvn_dbus_notify
+		.notify = rvn_dbus_notify,
+		.window_set_progress = rvn_wl_window_set_progress,
+		.window_request_attention = rvn_wl_window_request_attention,
+		.app_set_badge = rvn_dbus_launcher_badge,
+		.tray_supported = rvn_sni_supported,
+		.tray_create = rvn_sni_create,
+		.tray_destroy = rvn_sni_destroy,
+		.tray_set_icon = rvn_sni_set_icon,
+		.tray_set_tooltip = rvn_sni_set_tooltip,
+		.tray_set_menu = rvn_sni_set_menu
 	};
 	return &platform;
 }

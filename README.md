@@ -1141,6 +1141,49 @@ action `app.quit`, which an application may bind to ask first. Elsewhere the
 bar is drawn in the window; `Rmenu_bar_set_native(bar, R_FALSE)` or
 `<MenuBar Native="false">` keeps it there on macOS too.
 
+### Taskbar and Dock
+
+```c
+Rwindow_set_taskbar_progress(window, R_TASKBAR_PROGRESS_NORMAL, 0.4f);
+Rtaskbar_set_badge("3");                      /* NULL removes it */
+Rwindow_request_attention(window, R_FALSE);   /* R_TRUE: until the user comes */
+Rtaskbar_set_menu(menu);                      /* the menu of the icon in the Dock */
+```
+
+A progress bar and a badge on the icon of the application: on the taskbar
+button of the window (Windows; the badge is a small round icon drawn from its
+text), on the Dock icon (macOS), on the launchers of Linux desktops that
+listen to `com.canonical.Unity.LauncherEntry` (KDE, Ubuntu Dock, Dash to
+Dock, Plank; the badge is a number there). A request for attention flashes
+the taskbar button, bounces the Dock icon or marks the window urgent. On
+macOS a `Menu` becomes the menu of the Dock icon, whose entries fire as when
+clicked; Quit from the Dock goes through `app.quit`. On Windows,
+`Rtaskbar_set_jump_list` fills the tasks of the jump list: each starts the
+application again with its arguments. Each call returns `R_FALSE` where the
+system has nothing to show it with.
+
+### Tray icon
+
+```c
+Rid tray = Rtray_create();                    /* R_INVALID_ID where there is no tray */
+Rtray_set_icon(tray, rgba, 32, 32);           /* RGBA pixels, copied */
+Rtray_set_tooltip(tray, "Sync: up to date");
+Rtray_set_menu(tray, menu);                   /* a Menu: shown on a click */
+Rtray_set_clicked_callback(tray, on_tray, NULL);
+```
+
+An icon beside the clock: in the notification area of Windows, as a status
+item in the menu bar of macOS, as a `StatusNotifierItem` on Linux (KDE,
+GNOME with the AppIndicator extension, XFCE, waybar...), its menu served over
+`com.canonical.dbusmenu`. The menu is a `Menu` like the others: its entries
+fire their callbacks and actions, and changes to it reach the system on the
+next frame. The callback receives the button: the left one for a click (also
+on Linux when the panel calls `Activate`), the right one when the icon has no
+menu. On macOS, an icon with a menu opens it and does not call the callback.
+While an icon exists, the application keeps running after its last window
+is closed: `app.quit` (or a Quit entry in the menu) ends it.
+`Rtray_is_supported` says whether the desktop shows such icons now.
+
 ### Memory
 
 Raven does not call `malloc`. It takes memory from the system by regions of

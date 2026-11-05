@@ -807,6 +807,19 @@ const _symbols = {
 	Risland_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rwindow_set_island: { args: ["u32", "u32"], returns: "void" },
 	Rwindow_get_island: { args: ["u32"], returns: "u32" },
+	Rwindow_set_taskbar_progress: { args: ["u32", "i32", "f32"], returns: "i32" },
+	Rwindow_request_attention: { args: ["u32", "i32"], returns: "i32" },
+	Rtaskbar_set_badge: { args: ["ptr"], returns: "i32" },
+	Rtaskbar_set_menu: { args: ["u32"], returns: "i32" },
+	Rtaskbar_set_jump_list: { args: ["ptr", "i32"], returns: "i32" },
+	Rtray_is_supported: { args: [], returns: "i32" },
+	Rtray_create: { args: [], returns: "u32" },
+	Rtray_destroy: { args: ["u32"], returns: "void" },
+	Rtray_is_valid: { args: ["u32"], returns: "i32" },
+	Rtray_set_icon: { args: ["u32", "ptr", "i32", "i32"], returns: "void" },
+	Rtray_set_tooltip: { args: ["u32", "ptr"], returns: "void" },
+	Rtray_set_menu: { args: ["u32", "u32"], returns: "void" },
+	Rtray_set_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rcolor_picker_create: { args: [], returns: "u32" },
 	Rcolor_picker_set_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rcolor_picker_get_color: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
@@ -2550,6 +2563,24 @@ export const R_HEADER_MINIMIZE = RHeaderButtons.R_HEADER_MINIMIZE;
 export const R_HEADER_MAXIMIZE = RHeaderButtons.R_HEADER_MAXIMIZE;
 export const R_HEADER_ALL_BUTTONS = RHeaderButtons.R_HEADER_ALL_BUTTONS;
 
+/** A progress bar on the icon of the application (Rwindow_set_taskbar_progress). */
+export enum RTaskbarProgress {
+	R_TASKBAR_PROGRESS_NONE = 0x07A0,
+	R_TASKBAR_PROGRESS_NORMAL = 0x07A1,
+	/** Shown as paused (yellow on Windows). */
+	R_TASKBAR_PROGRESS_PAUSED = 0x07A2,
+	/** Shown as failed (red on Windows). */
+	R_TASKBAR_PROGRESS_ERROR = 0x07A3,
+	/** Something goes on, without knowing how far it is. */
+	R_TASKBAR_PROGRESS_INDETERMINATE = 0x07A4,
+}
+
+export const R_TASKBAR_PROGRESS_NONE = RTaskbarProgress.R_TASKBAR_PROGRESS_NONE;
+export const R_TASKBAR_PROGRESS_NORMAL = RTaskbarProgress.R_TASKBAR_PROGRESS_NORMAL;
+export const R_TASKBAR_PROGRESS_PAUSED = RTaskbarProgress.R_TASKBAR_PROGRESS_PAUSED;
+export const R_TASKBAR_PROGRESS_ERROR = RTaskbarProgress.R_TASKBAR_PROGRESS_ERROR;
+export const R_TASKBAR_PROGRESS_INDETERMINATE = RTaskbarProgress.R_TASKBAR_PROGRESS_INDETERMINATE;
+
 /** Where a panel goes in a dock area, relative to another panel or to the whole area. */
 export enum RDockSide {
 	R_DOCK_LEFT = 0x0360,
@@ -4178,6 +4209,44 @@ export class RLanguageDesc extends RStruct {
 	}
 }
 
+/** A task of the jump list of Windows (Rtaskbar_set_jump_list). */
+export class RJumpTask extends RStruct {
+	static readonly SIZE = 24;
+
+	constructor(pointer?: Pointer) {
+		super(RJumpTask.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RJumpTask | null {
+		return pointer ? new RJumpTask(pointer) : null;
+	}
+
+	/** What the list shows. */
+	get title(): string | null {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set title(value: string | null) {
+		this._point("title", 0, _s(value));
+	}
+
+	/** The command line given to the application when it is chosen: it is started again with these arguments. */
+	get arguments(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set arguments(value: string | null) {
+		this._point("arguments", 8, _s(value));
+	}
+
+	/** The tooltip; NULL: none. */
+	get description(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set description(value: string | null) {
+		this._point("description", 16, _s(value));
+	}
+}
+
 /** A kind of file in a file dialog. */
 export class RFileFilter extends RStruct {
 	static readonly SIZE = 16;
@@ -5582,6 +5651,22 @@ function _adapt_RTextEditorChangedCallback(function_: RTextEditorChangedCallback
 			_report(error as Error);
 		}
 	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the tray icon is clicked (Rtray_set_clicked_callback). */
+export type RTrayClickedCallback = (tray: Rid, button: RMouseButton, user_data: Pointer | null) => void;
+
+function _adapt_RTrayClickedCallback(function_: RTrayClickedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tray: number, button: number, user_data: Pointer | null): void => {
+		try {
+			function_(tray, button as RMouseButton, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -9754,6 +9839,121 @@ export function Rwindow_set_island(window: Rid, widget: Rid): void {
 
 export function Rwindow_get_island(window: Rid): Rid {
 	return _lib.Rwindow_get_island(window);
+}
+
+/**
+ * A progress bar on the icon of the application: on the button of
+ * the window in the taskbar (Windows), on the icon in the Dock (macOS),
+ * on the launcher (Linux). There is one icon for the whole application in
+ * the Dock and the launchers: the last window that set it is shown.
+ * value From 0 to 1 (not used by NONE and INDETERMINATE).
+ * Returns: R_FALSE where the system shows no progress.
+ */
+export function Rwindow_set_taskbar_progress(window: Rid, state: RTaskbarProgress, value: number): number {
+	return _lib.Rwindow_set_taskbar_progress(window, state, value);
+}
+
+/**
+ * Asks the user to look at the window when it is not the active
+ * one: its taskbar button flashes (Windows), the icon bounces in the
+ * Dock (macOS), the window is marked urgent (X11, the launchers of
+ * Linux). `critical`: until the user comes to the window; otherwise a few
+ * times. Nothing happens when the window is already the active one.
+ */
+export function Rwindow_request_attention(window: Rid, critical: number): number {
+	return _lib.Rwindow_request_attention(window, critical);
+}
+
+/**
+ * A short text on the icon of the application: a number of unread
+ * messages, "!". macOS: the badge of the Dock. Windows: a small round
+ * icon on the taskbar buttons of the windows, drawn from the text (one
+ * to three characters fit). Linux: a number only (the text is read as
+ * one; anything else shows nothing). NULL or "": no badge.
+ */
+export function Rtaskbar_set_badge(text: string | null): number {
+	return _lib.Rtaskbar_set_badge(_s(text));
+}
+
+/**
+ * The menu of the icon of the application in the Dock (macOS),
+ * above the entries of the system. A MENU without a parent: its
+ * MenuItems fire as when chosen in a window (clicked callback, action),
+ * and what changes in it shows the next time the menu opens.
+ * R_INVALID_ID: none. R_FALSE where the system has no such menu.
+ */
+export function Rtaskbar_set_menu(menu: Rid): number {
+	return _lib.Rtaskbar_set_menu(menu);
+}
+
+/**
+ * The tasks of the jump list of Windows (right click on the button
+ * of the application in the taskbar, or on its tile in the Start menu).
+ * Choosing one starts the application again with its arguments: the
+ * application reads them as any other command line. count 0: none.
+ * R_FALSE where there is no jump list.
+ */
+export function Rtaskbar_set_jump_list(tasks: readonly RJumpTask[] | null): number {
+	return _lib.Rtaskbar_set_jump_list(_structs(tasks, RJumpTask.SIZE), tasks?.length ?? 0);
+}
+
+/**
+ * Returns: R_TRUE when the system shows tray icons: always on Windows and
+ * macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+ * the desktop). An icon made where none runs yet appears when one starts.
+ */
+export function Rtray_is_supported(): number {
+	return _lib.Rtray_is_supported();
+}
+
+/**
+ * Puts an icon of the application beside the clock. While one
+ * exists, the application goes on running when its last window closes
+ * (Ris_running): Rquit (or the action app.quit) ends it.
+ * Returns: R_INVALID_ID where the system has none.
+ */
+export function Rtray_create(): Rid {
+	return _lib.Rtray_create();
+}
+
+export function Rtray_destroy(tray: Rid): void {
+	_lib.Rtray_destroy(tray);
+}
+
+export function Rtray_is_valid(tray: Rid): number {
+	return _lib.Rtray_is_valid(tray);
+}
+
+/**
+ * The picture, from tightly packed RGBA8 pixels (straight alpha);
+ * the system scales it (16 to 32 pixels square fit everywhere). Copied.
+ */
+export function Rtray_set_icon(tray: Rid, rgba: RPointer, width: number, height: number): void {
+	_lib.Rtray_set_icon(tray, rgba, width, height);
+}
+
+/** The text shown when the pointer rests on the icon (and its title for the Linux panels). */
+export function Rtray_set_tooltip(tray: Rid, text: string | null): void {
+	_lib.Rtray_set_tooltip(tray, _s(text));
+}
+
+/**
+ * The menu the system shows for the icon: on a right click
+ * (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+ * MenuItems fire as when chosen in a window; what changes in it shows
+ * the next time it opens. R_INVALID_ID: none.
+ */
+export function Rtray_set_menu(tray: Rid, menu: Rid): void {
+	_lib.Rtray_set_menu(tray, menu);
+}
+
+/**
+ * Called on a click: the left button (activate), the right one
+ * when there is no menu, the middle one. On macOS an icon with a menu
+ * opens it instead.
+ */
+export function Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtray_set_clicked_callback(tray, _adapt_RTrayClickedCallback(callback), user_data);
 }
 
 export function Rcolor_picker_create(): Rid {

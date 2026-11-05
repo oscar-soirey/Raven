@@ -1018,6 +1018,20 @@ rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modi
 void rvn_menu_bar_sync(rvn_window_t* window);
 /** An entry of a menu of the system was chosen (RVN_PEVENT_COMMAND). */
 void rvn_menu_command(Rid item);
+/** What the entries below a menu show, as one number (it changes when they do). */
+uint32_t rvn_menu_signature(const rvn_widget_t* menu, uint32_t hash);
+/** The entries of a menu as the platform takes them (struct rvn_pmenu_t of platform.h). Free with rvn_menu_native_free. */
+struct rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* count);
+void rvn_menu_native_free(struct rvn_pmenu_t* items, uint32_t count);
+/** The menu of the icon of the application follows its Menu (platform/taskbar.c); called once per update. */
+void rvn_taskbar_update(void);
+void rvn_taskbar_shutdown(void);
+/** The tray icons (platform/tray.c): their menus follow their Menus; a click on one (RVN_PEVENT_TRAY). */
+void rvn_tray_update(void);
+/** The icons there are: while there is one, the application runs without windows (Ris_running). */
+int  rvn_tray_count(void);
+void rvn_tray_on_event(const struct rvn_pevent_t* event);
+void rvn_tray_shutdown(void);
 /** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
 rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */

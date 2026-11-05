@@ -798,6 +798,17 @@ pub const R_HEADER_MINIMIZE: RHeaderButtons = 2;
 pub const R_HEADER_MAXIMIZE: RHeaderButtons = 4;
 pub const R_HEADER_ALL_BUTTONS: RHeaderButtons = 7;
 
+/// A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+pub type RTaskbarProgress = c_int;
+pub const R_TASKBAR_PROGRESS_NONE: RTaskbarProgress = 0x07A0;
+pub const R_TASKBAR_PROGRESS_NORMAL: RTaskbarProgress = 0x07A1;
+/// Shown as paused (yellow on Windows).
+pub const R_TASKBAR_PROGRESS_PAUSED: RTaskbarProgress = 0x07A2;
+/// Shown as failed (red on Windows).
+pub const R_TASKBAR_PROGRESS_ERROR: RTaskbarProgress = 0x07A3;
+/// Something goes on, without knowing how far it is.
+pub const R_TASKBAR_PROGRESS_INDETERMINATE: RTaskbarProgress = 0x07A4;
+
 /// Where a panel goes in a dock area, relative to another panel or to the whole area.
 pub type RDockSide = c_int;
 pub const R_DOCK_LEFT: RDockSide = 0x0360;
@@ -1116,6 +1127,8 @@ pub type RCompletionCallback = Option<unsafe extern "C" fn(editor: Rid, prefix: 
 /// undoing...) or by Rtext_editor_insert_text. The action of the widget
 /// (OnChanged in XML) fires at the same time.
 pub type RTextEditorChangedCallback = Option<unsafe extern "C" fn(editor: Rid, user_data: *mut c_void)>;
+/// Called when the tray icon is clicked (Rtray_set_clicked_callback).
+pub type RTrayClickedCallback = Option<unsafe extern "C" fn(tray: Rid, button: RMouseButton, user_data: *mut c_void)>;
 /// Called when the user closes a panel, before it is deleted.
 /// Return R_FALSE to keep the panel.
 pub type RDockCloseCallback = Option<unsafe extern "C" fn(area: Rid, panel: Rid, user_data: *mut c_void) -> c_int>;
@@ -1512,6 +1525,18 @@ pub struct RLanguageDesc {
     /// <script> and </script> (the name of a language: "C", "Rust"...).
     /// NULL: JavaScript, as in HTML.
     pub script_language: *const c_char,
+}
+
+/// A task of the jump list of Windows (Rtaskbar_set_jump_list).
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RJumpTask {
+    /// What the list shows.
+    pub title: *const c_char,
+    /// The command line given to the application when it is chosen: it is started again with these arguments.
+    pub arguments: *const c_char,
+    /// The tooltip; NULL: none.
+    pub description: *const c_char,
 }
 
 /// A kind of file in a file dialog.
@@ -3105,6 +3130,62 @@ extern "C" {
     /// its slot (Rslot_set_padding) is its distance from the top edge.
     pub fn Rwindow_set_island(window: Rid, widget: Rid);
     pub fn Rwindow_get_island(window: Rid) -> Rid;
+    /// A progress bar on the icon of the application: on the button of
+    /// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+    /// on the launcher (Linux). There is one icon for the whole application in
+    /// the Dock and the launchers: the last window that set it is shown.
+    /// value From 0 to 1 (not used by NONE and INDETERMINATE).
+    /// Returns: R_FALSE where the system shows no progress.
+    pub fn Rwindow_set_taskbar_progress(window: Rid, state: RTaskbarProgress, value: f32) -> c_int;
+    /// Asks the user to look at the window when it is not the active
+    /// one: its taskbar button flashes (Windows), the icon bounces in the
+    /// Dock (macOS), the window is marked urgent (X11, the launchers of
+    /// Linux). `critical`: until the user comes to the window; otherwise a few
+    /// times. Nothing happens when the window is already the active one.
+    pub fn Rwindow_request_attention(window: Rid, critical: c_int) -> c_int;
+    /// A short text on the icon of the application: a number of unread
+    /// messages, "!". macOS: the badge of the Dock. Windows: a small round
+    /// icon on the taskbar buttons of the windows, drawn from the text (one
+    /// to three characters fit). Linux: a number only (the text is read as
+    /// one; anything else shows nothing). NULL or "": no badge.
+    pub fn Rtaskbar_set_badge(text: *const c_char) -> c_int;
+    /// The menu of the icon of the application in the Dock (macOS),
+    /// above the entries of the system. A MENU without a parent: its
+    /// MenuItems fire as when chosen in a window (clicked callback, action),
+    /// and what changes in it shows the next time the menu opens.
+    /// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+    pub fn Rtaskbar_set_menu(menu: Rid) -> c_int;
+    /// The tasks of the jump list of Windows (right click on the button
+    /// of the application in the taskbar, or on its tile in the Start menu).
+    /// Choosing one starts the application again with its arguments: the
+    /// application reads them as any other command line. count 0: none.
+    /// R_FALSE where there is no jump list.
+    pub fn Rtaskbar_set_jump_list(tasks: *const RJumpTask, count: c_int) -> c_int;
+    /// Returns: R_TRUE when the system shows tray icons: always on Windows and
+    /// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+    /// the desktop). An icon made where none runs yet appears when one starts.
+    pub fn Rtray_is_supported() -> c_int;
+    /// Puts an icon of the application beside the clock. While one
+    /// exists, the application goes on running when its last window closes
+    /// (Ris_running): Rquit (or the action app.quit) ends it.
+    /// Returns: R_INVALID_ID where the system has none.
+    pub fn Rtray_create() -> Rid;
+    pub fn Rtray_destroy(tray: Rid);
+    pub fn Rtray_is_valid(tray: Rid) -> c_int;
+    /// The picture, from tightly packed RGBA8 pixels (straight alpha);
+    /// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+    pub fn Rtray_set_icon(tray: Rid, rgba: *const u8, width: c_int, height: c_int);
+    /// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+    pub fn Rtray_set_tooltip(tray: Rid, text: *const c_char);
+    /// The menu the system shows for the icon: on a right click
+    /// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+    /// MenuItems fire as when chosen in a window; what changes in it shows
+    /// the next time it opens. R_INVALID_ID: none.
+    pub fn Rtray_set_menu(tray: Rid, menu: Rid);
+    /// Called on a click: the left button (activate), the right one
+    /// when there is no menu, the middle one. On macOS an icon with a menu
+    /// opens it instead.
+    pub fn Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback, user_data: *mut c_void);
     pub fn Rcolor_picker_create() -> Rid;
     /// Sets the color (0..1 each). The callback is not called.
     pub fn Rcolor_picker_set_color(picker: Rid, r: f32, g: f32, b: f32, a: f32);

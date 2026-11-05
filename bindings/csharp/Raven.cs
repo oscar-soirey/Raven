@@ -1265,6 +1265,27 @@ namespace Raven
     }
 
     /// <summary>
+    /// A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+    /// </summary>
+    public enum RTaskbarProgress : int
+    {
+        R_TASKBAR_PROGRESS_NONE = 0x07A0,
+        R_TASKBAR_PROGRESS_NORMAL = 0x07A1,
+        /// <summary>
+        /// Shown as paused (yellow on Windows).
+        /// </summary>
+        R_TASKBAR_PROGRESS_PAUSED = 0x07A2,
+        /// <summary>
+        /// Shown as failed (red on Windows).
+        /// </summary>
+        R_TASKBAR_PROGRESS_ERROR = 0x07A3,
+        /// <summary>
+        /// Something goes on, without knowing how far it is.
+        /// </summary>
+        R_TASKBAR_PROGRESS_INDETERMINATE = 0x07A4,
+    }
+
+    /// <summary>
     /// Where a panel goes in a dock area, relative to another panel or to the whole area.
     /// </summary>
     public enum RDockSide : int
@@ -2125,6 +2146,26 @@ namespace Raven
     }
 
     /// <summary>
+    /// A task of the jump list of Windows (Rtaskbar_set_jump_list).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RJumpTask
+    {
+        /// <summary>
+        /// What the list shows.
+        /// </summary>
+        public IntPtr title;
+        /// <summary>
+        /// The command line given to the application when it is chosen: it is started again with these arguments.
+        /// </summary>
+        public IntPtr arguments;
+        /// <summary>
+        /// The tooltip; NULL: none.
+        /// </summary>
+        public IntPtr description;
+    }
+
+    /// <summary>
     /// A kind of file in a file dialog.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -2655,6 +2696,12 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTextEditorChangedCallback(uint editor, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the tray icon is clicked (Rtray_set_clicked_callback).
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RTrayClickedCallback(uint tray, RMouseButton button, IntPtr user_data);
 
     /// <summary>
     /// Called when the user closes a panel, before it is deleted.
@@ -6460,6 +6507,120 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rwindow_get_island(uint window);
+
+        /// <summary>
+        /// A progress bar on the icon of the application: on the button of
+        /// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+        /// on the launcher (Linux). There is one icon for the whole application in
+        /// the Dock and the launchers: the last window that set it is shown.
+        /// value From 0 to 1 (not used by NONE and INDETERMINATE).
+        /// Returns: R_FALSE where the system shows no progress.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_set_taskbar_progress(uint window, RTaskbarProgress state, float value);
+
+        /// <summary>
+        /// Asks the user to look at the window when it is not the active
+        /// one: its taskbar button flashes (Windows), the icon bounces in the
+        /// Dock (macOS), the window is marked urgent (X11, the launchers of
+        /// Linux). `critical`: until the user comes to the window; otherwise a few
+        /// times. Nothing happens when the window is already the active one.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_request_attention(uint window, int critical);
+
+        /// <summary>
+        /// A short text on the icon of the application: a number of unread
+        /// messages, "!". macOS: the badge of the Dock. Windows: a small round
+        /// icon on the taskbar buttons of the windows, drawn from the text (one
+        /// to three characters fit). Linux: a number only (the text is read as
+        /// one; anything else shows nothing). NULL or "": no badge.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_badge([MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// The menu of the icon of the application in the Dock (macOS),
+        /// above the entries of the system. A MENU without a parent: its
+        /// MenuItems fire as when chosen in a window (clicked callback, action),
+        /// and what changes in it shows the next time the menu opens.
+        /// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_menu(uint menu);
+
+        /// <summary>
+        /// The tasks of the jump list of Windows (right click on the button
+        /// of the application in the taskbar, or on its tile in the Start menu).
+        /// Choosing one starts the application again with its arguments: the
+        /// application reads them as any other command line. count 0: none.
+        /// R_FALSE where there is no jump list.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_jump_list(ref RJumpTask tasks, int count);
+
+        /// <summary>
+        /// The tasks of the jump list of Windows (right click on the button
+        /// of the application in the taskbar, or on its tile in the Start menu).
+        /// Choosing one starts the application again with its arguments: the
+        /// application reads them as any other command line. count 0: none.
+        /// R_FALSE where there is no jump list.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtaskbar_set_jump_list(IntPtr tasks, int count);
+
+        /// <summary>
+        /// Returns: R_TRUE when the system shows tray icons: always on Windows and
+        /// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+        /// the desktop). An icon made where none runs yet appears when one starts.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtray_is_supported();
+
+        /// <summary>
+        /// Puts an icon of the application beside the clock. While one
+        /// exists, the application goes on running when its last window closes
+        /// (Ris_running): Rquit (or the action app.quit) ends it.
+        /// Returns: R_INVALID_ID where the system has none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rtray_create();
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_destroy(uint tray);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtray_is_valid(uint tray);
+
+        /// <summary>
+        /// The picture, from tightly packed RGBA8 pixels (straight alpha);
+        /// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_icon(uint tray, byte[] rgba, int width, int height);
+
+        /// <summary>
+        /// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_tooltip(uint tray, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// The menu the system shows for the icon: on a right click
+        /// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+        /// MenuItems fire as when chosen in a window; what changes in it shows
+        /// the next time it opens. R_INVALID_ID: none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_menu(uint tray, uint menu);
+
+        /// <summary>
+        /// Called on a click: the left button (activate), the right one
+        /// when there is no menu, the middle one. On macOS an icon with a menu
+        /// opens it instead.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_clicked_callback(uint tray, RTrayClickedCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rcolor_picker_create();
