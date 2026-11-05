@@ -176,6 +176,44 @@ static void test_date_picker(void) {
 	CHECK(!Rdate_picker_is_open(picker));
 }
 
+/*
+ * A window too short for the calendar below the field: it opens over it. The
+ * click that opened it ends on a day; that day is not picked. The next click is.
+ */
+static void test_date_picker_opens_over(void) {
+	static const char xml[] = "<Overlay><DatePicker Name=\"d\" Date=\"2026-11-03\" Slot.HAlign=\"Center\" Slot.VAlign=\"Center\" Width=\"200\"/></Overlay>";
+	Rid window = Rwindow_create("short", 320, 180, R_WINDOW_DEFAULT);
+	Rid root = Rwidget_create_from_xml(xml, strlen(xml));
+	Rid picker = Rwidget_find(root, "d");
+	float x, y, w, h;
+	int year = 0, month = 0, day = 0;
+	Rwindow_set_content(window, root);
+	Rdraw_frame();
+	Rdate_picker_set_changed_callback(picker, on_date, NULL);
+	g_calls = 0;
+
+	Rwidget_get_rect(picker, &x, &y, &w, &h);
+	Rwindow_inject_mouse_move(window, x + w * 0.5f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_TRUE);
+	Rdraw_frame();
+	CHECK(Rdate_picker_is_open(picker));
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
+	Rdraw_frame();
+	/* the release of the opening click picked nothing */
+	CHECK(Rdate_picker_is_open(picker));
+	CHECK(g_calls == 0);
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2026 && month == 11 && day == 3);
+
+	/* a click of its own, at the same place, picks the day under the pointer */
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
+	Rdraw_frame();
+	CHECK(!Rdate_picker_is_open(picker));
+	CHECK(g_calls == 1);
+	Rwindow_destroy(window);
+}
+
 static void on_time(Rid picker, int hour, int minute, int second, void* user_data) {
 	(void)picker;
 	(void)user_data;
@@ -419,6 +457,7 @@ int main(void) {
 
 	RUN(test_table);
 	RUN(test_date_picker);
+	RUN(test_date_picker_opens_over);
 	RUN(test_time_picker);
 	RUN(test_toast);
 	RUN(test_breadcrumb);
