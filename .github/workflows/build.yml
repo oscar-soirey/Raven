@@ -257,7 +257,9 @@ jobs:
       - name: Test
         env:
           VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
-        run: xvfb-run -a ctest --test-dir build --output-on-failure
+        # (test_web drives the Chrome of the runner and does not touch the backend: the "tests (linux)" job runs
+        #  it. Under Xvfb with the Vulkan ICD forced, that Chrome aborts.)
+        run: xvfb-run -a ctest --test-dir build --output-on-failure -E '^test_web$'
 
       - name: Test with real windows (windows presented through EGL on Xvfb)
         run: RAVEN_TEST_WINDOWED=1 RAVEN_BACKEND=sokol xvfb-run -a build/bin/test_render
