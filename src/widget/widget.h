@@ -926,6 +926,8 @@ void rvn_window_update(rvn_window_t* window);
 void rvn_window_layout(rvn_window_t* window);
 /** R_TRUE when the window will produce a frame at the next update. */
 int  rvn_window_wants_frame(rvn_window_t* window);
+/** Seconds until the window wants a frame: 0 = now, negative = nothing to do (it waits for an event). */
+double rvn_window_frame_in(rvn_window_t* window);
 /*
  * Waits until the windows that will paint can take a frame (the previous one
  * left for the renderer). Called before the input is read: the frame that

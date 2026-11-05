@@ -158,7 +158,7 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	g_rvn.enable_validation = desc.enable_validation;
 	info.app_name = g_rvn.app_name;
 	info.enable_validation = desc.enable_validation;
-	info.vsync = g_rvn.vsync;
+	info.vsync = rvn_present_vsync();
 	info.window_system = g_rvn.platform->system;
 	info.native_display = g_rvn.platform->native_display();
 	if (!rvn_renderer_init(backend, &info, threaded)) {
@@ -601,7 +601,9 @@ void Rwait_events(double timeout_seconds) {
 	}
 	for (i = 0; i < g_rvn.windows.used && timeout_seconds != 0.0; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
-		if (window && rvn_window_wants_frame(window)) timeout_seconds = 0.0;
+		/* (a window waiting for the compositor sleeps until it answers, or until its wait runs out) */
+		double frame_in = window ? rvn_window_frame_in(window) : -1.0;
+		if (frame_in >= 0.0 && (timeout_seconds < 0.0 || frame_in < timeout_seconds)) timeout_seconds = frame_in;
 	}
 	timer_delay = rvn_timers_next_delay();
 	if (timer_delay >= 0.0 && (timeout_seconds < 0.0 || timer_delay < timeout_seconds)) timeout_seconds = timer_delay;
@@ -640,6 +642,16 @@ void rvn_update(void) {
 		if (window) rvn_window_update(window);
 	}
 	g_rvn.in_update = R_FALSE;
+}
+
+int rvn_frame_pacing(void) {
+	/* (only the Vulkan backend presents to the window: a frame of the null backend would never be answered) */
+	return g_rvn.backend == R_BACKEND_VULKAN && g_rvn.platform &&
+		g_rvn.platform->window_frame_wait && g_rvn.platform->window_frame_begin;
+}
+
+int rvn_present_vsync(void) {
+	return g_rvn.vsync && !rvn_frame_pacing();
 }
 
 int Rdraw_frame(void) {

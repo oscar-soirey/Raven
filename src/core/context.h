@@ -319,6 +319,10 @@ void rvn_dispatch_end(void);
 
 /** Tasks, timers, frame callback, then layout and paint of the windows that changed (one frame). */
 void rvn_update(void);
+/** Whether the window system paces the frames of the windows (rvn_platform_t::window_frame_wait). */
+int rvn_frame_pacing(void);
+/** Whether the renderer presents with the driver's vertical synchronization: not when the window system paces frames itself. */
+int rvn_present_vsync(void);
 
 /** Wakes the event loop so that a frame is produced soon. Thread-safe. */
 void rvn_wake(void);
