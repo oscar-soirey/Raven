@@ -86,12 +86,12 @@ Install the `.vsix` with *Extensions → ... → Install from VSIX*, or
 
 ## Publishing
 
-1. Create the publisher `oscar-soirey` on
+1. Create the publisher `OscarSoirey` on
    [marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage)
    (or change `publisher` in `package.json` to yours).
 2. Create a Personal Access Token in Azure DevOps (organization *All accessible
    organizations*, scope *Marketplace → Manage*).
-3. `npx vsce login oscar-soirey`, then `npm run publish`
+3. `npx vsce login OscarSoirey`, then `npm run publish`
    (or upload the `.vsix` on the page of the publisher).
 
 For [Open VSX](https://open-vsx.org) (VSCodium, Cursor...):

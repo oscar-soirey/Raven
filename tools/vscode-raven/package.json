@@ -3,7 +3,7 @@
 	"displayName": "Raven XML",
 	"description": "Completion, hovers and diagnostics for the XML interfaces of Raven: widgets, attributes, values and actions.",
 	"version": "0.1.0",
-	"publisher": "oscar-soirey",
+	"publisher": "OscarSoirey",
 	"license": "Apache-2.0",
 	"icon": "images/icon.png",
 	"repository": {
