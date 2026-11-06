@@ -8,6 +8,12 @@
 -- parameter has the type of the enumeration. A Lua function passes where
 -- a callback is expected; keep it referenced while the library may call it.
 --
+-- LuaJIT may not run a Lua callback from a C function that compiled code
+-- called ("PANIC: bad callback"). The functions that run the events, and so
+-- the callbacks (Rdraw_frame, Rwait_frame, Rpoll_events, the dialogs), are
+-- called here through Lua functions the compiler leaves alone: the loop that
+-- calls them runs in the interpreter, the callbacks are compiled as usual.
+--
 --   local r = require("raven")
 --   r.Rinit(r.R_BACKEND_VULKAN)
 --   local xml = [[<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>]]
@@ -2116,10 +2122,21 @@ local constants = {
 	R_INVALID_ID = 0xFFFFFFFF,
 }
 
+-- the functions that may call back into Lua: never compiled (see above)
+local pumps = {}
+for _, name in ipairs({ "Rdraw_frame", "Rwait_frame", "Rpoll_events", "Rdialog_run", "Rmessage_box", "Rfile_dialog_open", "Rfile_dialog_save", "Rfile_dialog_select_folder" }) do
+	local fn = library[name]
+	local pump = function(...) return fn(...) end
+	if jit then jit.off(pump) end
+	pumps[name] = pump
+end
+
 return setmetatable({ ffi = ffi, C = library }, {
 	__index = function(_, name)
 		local constant = constants[name]
 		if constant ~= nil then return constant end
+		local pump = pumps[name]
+		if pump ~= nil then return pump end
 		return library[name]
 	end
 })
