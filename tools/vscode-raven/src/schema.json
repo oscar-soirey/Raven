@@ -1,0 +1,2645 @@
+{
+	"generated": "by scripts/generate-schema.js from src/xml/xml_schema.c, src/widget/registry.c and src/widgets/*.c of Raven: do not edit",
+	"shared": {
+		"Widget": [
+			{
+				"name": "Name",
+				"kind": "text",
+				"description": "Name of the widget, for Rwidget_find."
+			},
+			{
+				"name": "Width",
+				"kind": "number",
+				"description": "Fixed width; a negative value lets the content decide."
+			},
+			{
+				"name": "Height",
+				"kind": "number",
+				"description": "Fixed height; a negative value lets the content decide."
+			},
+			{
+				"name": "MinWidth",
+				"kind": "number",
+				"description": "The width never goes below this."
+			},
+			{
+				"name": "MinHeight",
+				"kind": "number",
+				"description": "The height never goes below this."
+			},
+			{
+				"name": "MaxWidth",
+				"kind": "number",
+				"description": "The width never goes above this."
+			},
+			{
+				"name": "MaxHeight",
+				"kind": "number",
+				"description": "The height never goes above this."
+			},
+			{
+				"name": "Visibility",
+				"kind": "choice",
+				"choices": [
+					"Visible",
+					"Hidden",
+					"Collapsed"
+				],
+				"description": "Hidden keeps the place of the widget, Collapsed gives it back."
+			},
+			{
+				"name": "Enabled",
+				"kind": "bool",
+				"description": "A disabled widget is dimmed and does not react."
+			},
+			{
+				"name": "Opacity",
+				"kind": "number",
+				"description": "From 0 (invisible) to 1."
+			},
+			{
+				"name": "Material",
+				"kind": "choice",
+				"choices": [
+					"Default",
+					"Solid",
+					"Glass",
+					"FrostedGlass",
+					"TintedGlass"
+				],
+				"description": "What the surface of the widget is made of; Default follows the theme."
+			},
+			{
+				"name": "Tooltip",
+				"kind": "text",
+				"description": "Text shown when the pointer rests on the widget."
+			},
+			{
+				"name": "Cursor",
+				"kind": "choice",
+				"choices": [
+					"Arrow",
+					"IBeam",
+					"Hand",
+					"Crosshair",
+					"ResizeH",
+					"ResizeV",
+					"ResizeNWSE",
+					"ResizeNESW",
+					"Move",
+					"NotAllowed",
+					"None"
+				],
+				"description": "Pointer shown over the widget."
+			},
+			{
+				"name": "Appear",
+				"kind": "choice",
+				"choices": [
+					"None",
+					"Fade",
+					"Pop",
+					"Zoom",
+					"FlyUp",
+					"FlyDown",
+					"FlyLeft",
+					"FlyRight",
+					"Drop",
+					"SlideLeft",
+					"SlideRight"
+				],
+				"description": "How the widget comes in when it is first shown."
+			},
+			{
+				"name": "AppearDelay",
+				"kind": "number",
+				"description": "Seconds before the widget comes in."
+			},
+			{
+				"name": "Action",
+				"kind": "action",
+				"description": "Name of the action the widget fires."
+			},
+			{
+				"name": "HitTestable",
+				"kind": "bool",
+				"description": "false lets the pointer through to what is behind."
+			},
+			{
+				"name": "Focusable",
+				"kind": "bool",
+				"description": "Can take the keyboard."
+			},
+			{
+				"name": "Clip",
+				"kind": "bool",
+				"description": "Cuts what is inside at the bounds of the widget."
+			},
+			{
+				"name": "WindowDrag",
+				"kind": "bool",
+				"description": "Dragging the widget moves the window (custom header)."
+			},
+			{
+				"name": "Class",
+				"kind": "text",
+				"description": "Style classes of the widget, separated by spaces: the styles of the theme that name one of them apply."
+			},
+			{
+				"name": "Theme",
+				"kind": "choice",
+				"choices": [
+					"Default",
+					"Dark",
+					"Light",
+					"GlassDark",
+					"GlassLight",
+					"HighContrastDark",
+					"HighContrastLight"
+				],
+				"description": "Theme of the widget and of what it contains: a name, or a theme file; Default follows what is around."
+			},
+			{
+				"name": "Direction",
+				"kind": "choice",
+				"choices": [
+					"Inherit",
+					"LTR",
+					"RTL"
+				],
+				"description": "Right to left: the children placed as in a mirror, the texts aligned on the right (raven_layout.h)."
+			},
+			{
+				"name": "AccessibleName",
+				"kind": "text",
+				"description": "What a screen reader says of the widget (its text by default)."
+			},
+			{
+				"name": "AccessibleDescription",
+				"kind": "text",
+				"description": "A longer explanation, read after the name."
+			},
+			{
+				"name": "AccessibleRole",
+				"kind": "choice",
+				"choices": [
+					"Auto",
+					"None",
+					"Group",
+					"Text",
+					"Heading",
+					"Link",
+					"Button",
+					"ToggleButton",
+					"CheckBox",
+					"RadioButton",
+					"Slider",
+					"ProgressBar",
+					"SpinButton",
+					"TextField",
+					"Document",
+					"ComboBox",
+					"List",
+					"ListItem",
+					"Tree",
+					"TreeItem",
+					"Table",
+					"MenuBar",
+					"Menu",
+					"MenuItem",
+					"TabList",
+					"Tab",
+					"TabPanel",
+					"Toolbar",
+					"StatusBar",
+					"Dialog",
+					"Alert",
+					"Image",
+					"Canvas",
+					"Separator",
+					"ScrollBar",
+					"Pane"
+				],
+				"description": "What the widget is for a screen reader."
+			},
+			{
+				"name": "AccessibleHidden",
+				"kind": "bool",
+				"description": "Hidden from screen readers, with what it contains (decoration)."
+			}
+		],
+		"Slot": [
+			{
+				"name": "Slot.Fill",
+				"kind": "number",
+				"description": "Share of the free space of the panel the widget takes; 0 keeps its own size."
+			},
+			{
+				"name": "Slot.Padding",
+				"kind": "numbers",
+				"description": "Space around the widget: one number, \"x,y\" or \"left,top,right,bottom\"."
+			},
+			{
+				"name": "Slot.HAlign",
+				"kind": "choice",
+				"choices": [
+					"Fill",
+					"Left",
+					"Center",
+					"Right"
+				],
+				"description": "Where the widget sits across its place."
+			},
+			{
+				"name": "Slot.VAlign",
+				"kind": "choice",
+				"choices": [
+					"Fill",
+					"Top",
+					"Center",
+					"Bottom"
+				],
+				"description": "Where the widget sits down its place."
+			},
+			{
+				"name": "Slot.Auto",
+				"kind": "bool",
+				"description": "Takes its own size (the opposite of Slot.Fill)."
+			},
+			{
+				"name": "Slot.MaxSize",
+				"kind": "number",
+				"description": "The most a filling widget takes along the panel."
+			},
+			{
+				"name": "Slot.Column",
+				"kind": "number",
+				"description": "Grid: column, from 0."
+			},
+			{
+				"name": "Slot.Row",
+				"kind": "number",
+				"description": "Grid: row, from 0."
+			},
+			{
+				"name": "Slot.ColumnSpan",
+				"kind": "number",
+				"description": "Grid: number of columns taken."
+			},
+			{
+				"name": "Slot.RowSpan",
+				"kind": "number",
+				"description": "Grid: number of rows taken."
+			},
+			{
+				"name": "Slot.Anchors",
+				"kind": "numbers",
+				"description": "Canvas: \"x,y\" or \"minx,miny,maxx,maxy\", from 0 to 1 across the canvas."
+			},
+			{
+				"name": "Slot.Position",
+				"kind": "numbers",
+				"description": "Canvas: \"x,y\" from the anchor."
+			},
+			{
+				"name": "Slot.Size",
+				"kind": "numbers",
+				"description": "Canvas: \"width,height\"."
+			},
+			{
+				"name": "Slot.Alignment",
+				"kind": "numbers",
+				"description": "Canvas: \"x,y\", the point of the widget placed at the position, from 0 to 1."
+			},
+			{
+				"name": "Slot.Title",
+				"kind": "text",
+				"description": "Title of the tab or of the docked panel that holds the widget."
+			},
+			{
+				"name": "Slot.Dock",
+				"kind": "choice",
+				"choices": [
+					"Left",
+					"Right",
+					"Top",
+					"Bottom",
+					"Tab"
+				],
+				"description": "DockArea: the side of the area, or of Slot.DockTo, the panel takes."
+			},
+			{
+				"name": "Slot.DockTo",
+				"kind": "text",
+				"description": "DockArea: name of the panel the panel is placed against."
+			},
+			{
+				"name": "Slot.DockSize",
+				"kind": "number",
+				"description": "DockArea: share of the place it is cut from, between 0 and 1."
+			},
+			{
+				"name": "Slot.Closable",
+				"kind": "bool",
+				"description": "DockArea: the tab has a close button."
+			}
+		],
+		"Touch": [
+			{
+				"name": "Touch.Mode",
+				"kind": "choice",
+				"choices": [
+					"Auto",
+					"Scroll",
+					"Mouse",
+					"None"
+				],
+				"description": "What a finger does here: Auto scrolls what scrolls and is a mouse elsewhere, Scroll always scrolls, Mouse is a mouse (no scrolling), None ignores fingers (a surface for the pen)."
+			},
+			{
+				"name": "Touch.Gestures",
+				"kind": "bool",
+				"description": "false: two fingers, on the screen or a trackpad, neither zoom nor pan the widget."
+			},
+			{
+				"name": "Pen.Mouse",
+				"kind": "bool",
+				"description": "false: the pen is not a mouse here; only the pen callback of the application sees it."
+			}
+		],
+		"Colors": [
+			{
+				"name": "Color.Window",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Panel",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Border",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Text",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.TextDisabled",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.TextPlaceholder",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Accent",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.AccentHovered",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.AccentPressed",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.AccentText",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Control",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.ControlHovered",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.ControlPressed",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.ControlBorder",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Input",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Focus",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Selection",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.RowHovered",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Track",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Handle",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.HandleHovered",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Separator",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Header",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.HeaderHovered",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.TabActive",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Popup",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.PopupBorder",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Shadow",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Tooltip",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.TooltipText",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Switch",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Success",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Warning",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Danger",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Link",
+				"kind": "color",
+				"description": ""
+			},
+			{
+				"name": "Color.Code",
+				"kind": "color",
+				"description": ""
+			}
+		],
+		"Metrics": [
+			{
+				"name": "Metric.FontSize",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.CornerRadius",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.BorderWidth",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.ControlHeight",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.PaddingX",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.PaddingY",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.Spacing",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.ScrollbarSize",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.RowHeight",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.Indent",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.SplitterSize",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.CheckSize",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.SliderHandleSize",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.PopupRadius",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.GlassFrost",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.GlassRefraction",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.GlassSaturation",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.GlassRim",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.GlassShadow",
+				"kind": "number",
+				"description": ""
+			},
+			{
+				"name": "Metric.BlurRadius",
+				"kind": "number",
+				"description": ""
+			}
+		]
+	},
+	"windowTouch": [
+		{
+			"name": "Touch.MouseEmulation",
+			"kind": "bool",
+			"description": "A finger drives the widgets as the mouse does: a tap clicks, a drag drags (default true)."
+		},
+		{
+			"name": "Touch.Slop",
+			"kind": "number",
+			"description": "How far a finger moves before a press becomes a drag or a scroll (default 8)."
+		},
+		{
+			"name": "Touch.LongPress",
+			"kind": "number",
+			"description": "Seconds a finger rests before the press is a right click; 0 turns it off (default 0.5)."
+		},
+		{
+			"name": "Touch.Inertia",
+			"kind": "bool",
+			"description": "Flicked content keeps going and slows down (default true)."
+		},
+		{
+			"name": "Touch.Deceleration",
+			"kind": "number",
+			"description": "How fast flicked content slows down, units per second per second (default 2400)."
+		},
+		{
+			"name": "Touch.Gestures",
+			"kind": "bool",
+			"description": "Two fingers pinch to zoom and pan (default true)."
+		},
+		{
+			"name": "Touch.PalmRejection",
+			"kind": "bool",
+			"description": "Fingers are ignored while a pen is near the screen (default true)."
+		},
+		{
+			"name": "Pen.MouseEmulation",
+			"kind": "bool",
+			"description": "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."
+		},
+		{
+			"name": "Pen.PressureCurve",
+			"kind": "number",
+			"description": "The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder."
+		},
+		{
+			"name": "Pen.PressureThreshold",
+			"kind": "number",
+			"description": "Pressure, 0 to 1, the tip needs before it presses (default 0)."
+		},
+		{
+			"name": "Trackpad.Gestures",
+			"kind": "bool",
+			"description": "The pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do (default true)."
+		},
+		{
+			"name": "Trackpad.SwipeNavigation",
+			"kind": "bool",
+			"description": "Three or more fingers swiped across a trackpad go back or forward, as the side buttons of a mouse (default true)."
+		},
+		{
+			"name": "Trackpad.SwipeDistance",
+			"kind": "number",
+			"description": "How far the fingers of a swipe go across before it navigates (default 120)."
+		}
+	],
+	"tags": [
+		{
+			"name": "Window",
+			"description": "A window; it contains one element, and optionally an Island and Shortcut elements.",
+			"children": "single",
+			"attributes": [
+				{
+					"name": "Title",
+					"kind": "text",
+					"description": "Title of the window."
+				},
+				{
+					"name": "Width",
+					"kind": "number",
+					"description": "Width of the content, in logical units."
+				},
+				{
+					"name": "Height",
+					"kind": "number",
+					"description": "Height of the content."
+				},
+				{
+					"name": "MinWidth",
+					"kind": "number",
+					"description": "The user cannot make the window narrower."
+				},
+				{
+					"name": "MinHeight",
+					"kind": "number",
+					"description": "The user cannot make the window shorter."
+				},
+				{
+					"name": "Resizable",
+					"kind": "bool",
+					"description": "false fixes the size."
+				},
+				{
+					"name": "CustomHeader",
+					"kind": "bool",
+					"description": "No title bar from the system: a HeaderBar of the interface replaces it."
+				},
+				{
+					"name": "Borderless",
+					"kind": "bool",
+					"description": "No frame at all."
+				},
+				{
+					"name": "Maximized",
+					"kind": "bool",
+					"description": "Starts maximized."
+				},
+				{
+					"name": "Hidden",
+					"kind": "bool",
+					"description": "Starts hidden, until Rwindow_show."
+				},
+				{
+					"name": "IsSplashScreen",
+					"kind": "bool",
+					"description": "A splash screen: no frame, a fixed size, centered on the screen, above the other windows, out of the taskbar."
+				},
+				{
+					"name": "ClearColor",
+					"kind": "color",
+					"description": "Color behind the content."
+				},
+				{
+					"name": "Background",
+					"kind": "file",
+					"description": "Image behind the content (what glass refracts)."
+				},
+				{
+					"name": "Transparent",
+					"kind": "bool",
+					"description": "The window can be seen through where nothing is drawn (needs a compositing window system)."
+				},
+				{
+					"name": "Backdrop",
+					"kind": "choice",
+					"choices": [
+						"None",
+						"Transparent",
+						"Blur",
+						"Acrylic",
+						"Mica"
+					],
+					"description": "What the system shows behind a window that is seen through: the desktop as it is, blurred, or a material of Windows 11."
+				},
+				{
+					"name": "Theme",
+					"kind": "choice",
+					"choices": [
+						"Default",
+						"Dark",
+						"Light",
+						"GlassDark",
+						"GlassLight",
+						"HighContrastDark",
+						"HighContrastLight"
+					],
+					"description": "Theme of this window only (its content, island, menus and background): a name, or a theme file; the other windows keep the one of the application. Default: the one of the application."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "VBox",
+			"description": "Stacks its children from top to bottom.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Spacing",
+					"kind": "number",
+					"description": "Space between the children."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "HBox",
+			"description": "Lines its children up from left to right.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Spacing",
+					"kind": "number",
+					"description": "Space between the children."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Grid",
+			"description": "Places its children in rows and columns (Slot.Column, Slot.Row).",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Columns",
+					"kind": "text",
+					"description": "Share of the width of each column: \"0,1,2\" (0 = the size of its content)."
+				},
+				{
+					"name": "Rows",
+					"kind": "text",
+					"description": "Share of the height of each row."
+				},
+				{
+					"name": "Spacing",
+					"kind": "number",
+					"description": "Space between the cells."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "UniformGrid",
+			"description": "Cells of the same size, filled in order.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Columns",
+					"kind": "number",
+					"description": "Number of columns; 0 fits as many as the width allows."
+				},
+				{
+					"name": "MinCellSize",
+					"kind": "numbers",
+					"description": "\"width,height\" every cell has at least."
+				},
+				{
+					"name": "Spacing",
+					"kind": "number",
+					"description": "Space between the cells."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Overlay",
+			"description": "Puts its children on top of each other.",
+			"children": "many",
+			"attributes": [],
+			"accepted": []
+		},
+		{
+			"name": "Border",
+			"description": "A surface with padding around one child.",
+			"children": "single",
+			"attributes": [
+				{
+					"name": "Padding",
+					"kind": "numbers",
+					"description": "Space between the border and its content."
+				},
+				{
+					"name": "Background",
+					"kind": "color",
+					"description": "Color of the surface."
+				},
+				{
+					"name": "BorderColor",
+					"kind": "color",
+					"description": "Color of the outline."
+				},
+				{
+					"name": "BorderWidth",
+					"kind": "number",
+					"description": "Width of the outline."
+				},
+				{
+					"name": "CornerRadius",
+					"kind": "numbers",
+					"description": "One number, or \"top-left,top-right,bottom-right,bottom-left\"."
+				},
+				{
+					"name": "Shadow",
+					"kind": "numbers",
+					"description": "\"blur\" or \"blur,x,y\"."
+				},
+				{
+					"name": "Effect",
+					"kind": "text",
+					"description": "An effect as its background: aurora, shimmer, neon, ripple, plasma, grain, spotlight, mesh, or a .spv file (raven_shader.h)."
+				},
+				{
+					"name": "EffectColor",
+					"kind": "color",
+					"description": "First color of the effect."
+				},
+				{
+					"name": "EffectColor2",
+					"kind": "color",
+					"description": "Second color of the effect."
+				},
+				{
+					"name": "EffectParams",
+					"kind": "numbers",
+					"description": "The four parameters of the effect: \"a,b,c,d\" (fewer keep the defaults of the others)."
+				},
+				{
+					"name": "EffectAnimate",
+					"kind": "bool",
+					"description": "Draws frames while it is shown (the animated effects do by default)."
+				},
+				{
+					"name": "EffectPointer",
+					"kind": "bool",
+					"description": "The effect follows the pointer: where it is, over the border and pressing it (true by default)."
+				},
+				{
+					"name": "EffectBackdrop",
+					"kind": "bool",
+					"description": "The .spv effect reads what is behind it (R_SHADER_BACKDROP)."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "SizeBox",
+			"description": "Gives one child a size or a shape.",
+			"children": "single",
+			"attributes": [
+				{
+					"name": "AspectRatio",
+					"kind": "numbers",
+					"description": "Width over height: \"1.5\" or \"16,9\"."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Spacer",
+			"description": "Empty space.",
+			"children": "none",
+			"attributes": [],
+			"accepted": []
+		},
+		{
+			"name": "ScrollBox",
+			"description": "Scrolls content that is larger than its place.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Orientation",
+					"kind": "choice",
+					"choices": [
+						"Horizontal",
+						"Vertical"
+					],
+					"description": "The way the content scrolls and is stacked."
+				},
+				{
+					"name": "ScrollBoth",
+					"kind": "bool",
+					"description": "Scrolls both ways."
+				},
+				{
+					"name": "Spacing",
+					"kind": "number",
+					"description": "Space between the children."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Splitter",
+			"description": "Panes separated by bars the user drags.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Orientation",
+					"kind": "choice",
+					"choices": [
+						"Horizontal",
+						"Vertical"
+					],
+					"description": "Horizontal puts the panes side by side."
+				},
+				{
+					"name": "MinPaneSize",
+					"kind": "number",
+					"description": "The smallest a pane can be dragged to."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "WrapBox",
+			"description": "Lines its children up and continues on the next line.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Spacing",
+					"kind": "number",
+					"description": "Space between the children."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Canvas",
+			"description": "Places its children freely (Slot.Position, Slot.Size, Slot.Anchors).",
+			"children": "many",
+			"attributes": [],
+			"accepted": []
+		},
+		{
+			"name": "Switcher",
+			"description": "Shows one of its children.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Index",
+					"kind": "number",
+					"description": "Which child is shown, from 0."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "TabView",
+			"description": "Its children as tabs (Slot.Title).",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "ActiveTab",
+					"kind": "number",
+					"description": "Which tab is shown, from 0."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the tab changes."
+				}
+			],
+			"accepted": [
+				"Documents"
+			]
+		},
+		{
+			"name": "Expander",
+			"description": "A header that shows and hides one child.",
+			"children": "single",
+			"attributes": [
+				{
+					"name": "Title",
+					"kind": "text",
+					"description": "Text of the header."
+				},
+				{
+					"name": "Expanded",
+					"kind": "bool",
+					"description": "The content is shown."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when it opens or closes."
+				}
+			],
+			"accepted": [
+				"Text"
+			]
+		},
+		{
+			"name": "Label",
+			"description": "Text.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The text."
+				},
+				{
+					"name": "TextSize",
+					"kind": "number",
+					"description": "Size of the text; 0 uses the theme."
+				},
+				{
+					"name": "TextAlign",
+					"kind": "choice",
+					"choices": [
+						"Left",
+						"Center",
+						"Right"
+					],
+					"description": "Where the lines sit across the label."
+				},
+				{
+					"name": "Wrap",
+					"kind": "bool",
+					"description": "Long lines continue on the next one."
+				},
+				{
+					"name": "Color",
+					"kind": "color",
+					"description": "Color of the text."
+				},
+				{
+					"name": "Font",
+					"kind": "file",
+					"description": "Font file, or \"monospace\"."
+				},
+				{
+					"name": "Markdown",
+					"kind": "bool",
+					"description": "The text is Markdown: headings, emphasis, lists, quotes, code, tables, links."
+				},
+				{
+					"name": "Selectable",
+					"kind": "bool",
+					"description": "The text can be selected with the mouse and copied, as on a web page."
+				}
+			],
+			"accepted": [
+				"FontSize",
+				"Align"
+			]
+		},
+		{
+			"name": "Button",
+			"description": "A button, with a text or with one child.",
+			"children": "single",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The text of the button."
+				},
+				{
+					"name": "Style",
+					"kind": "choice",
+					"choices": [
+						"Default",
+						"Primary",
+						"Flat"
+					],
+					"description": "Primary is the button of the main action; Flat has no surface until hovered."
+				},
+				{
+					"name": "OnClicked",
+					"kind": "action",
+					"description": "Action fired by a click."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Checkbox",
+			"description": "A box to check, a radio button or a switch.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The text beside the box."
+				},
+				{
+					"name": "Checked",
+					"kind": "bool",
+					"description": "Its state."
+				},
+				{
+					"name": "Style",
+					"kind": "choice",
+					"choices": [
+						"Check",
+						"Radio",
+						"Switch"
+					],
+					"description": "What it looks like."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the state changes."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Slider",
+			"description": "A value chosen by dragging.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Min",
+					"kind": "number",
+					"description": "Lowest value."
+				},
+				{
+					"name": "Max",
+					"kind": "number",
+					"description": "Highest value."
+				},
+				{
+					"name": "Value",
+					"kind": "number",
+					"description": "The value."
+				},
+				{
+					"name": "Step",
+					"kind": "number",
+					"description": "The value moves by this much; 0 moves freely."
+				},
+				{
+					"name": "Orientation",
+					"kind": "choice",
+					"choices": [
+						"Horizontal",
+						"Vertical"
+					],
+					"description": "The way the slider lies."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the value changes."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "ProgressBar",
+			"description": "How far something is.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Value",
+					"kind": "number",
+					"description": "How far, from 0 to 1."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Image",
+			"description": "A picture.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Source",
+					"kind": "file",
+					"description": "Image file."
+				},
+				{
+					"name": "Stretch",
+					"kind": "choice",
+					"choices": [
+						"Fill",
+						"Fit",
+						"Cover",
+						"None"
+					],
+					"description": "How the image fills its place."
+				},
+				{
+					"name": "Tint",
+					"kind": "color",
+					"description": "Color the image is multiplied by."
+				},
+				{
+					"name": "CornerRadius",
+					"kind": "number",
+					"description": "Rounds the corners."
+				},
+				{
+					"name": "Region",
+					"kind": "numbers",
+					"description": "Part of the image shown: \"minu,minv,maxu,maxv\" from 0 to 1."
+				},
+				{
+					"name": "TintText",
+					"kind": "bool",
+					"description": "Tinted with the color of the text around it: white icons that follow the theme."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "TextInput",
+			"description": "One line of text to type.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The text."
+				},
+				{
+					"name": "Placeholder",
+					"kind": "text",
+					"description": "Shown, dimmed, while the input is empty."
+				},
+				{
+					"name": "Password",
+					"kind": "bool",
+					"description": "Shows dots."
+				},
+				{
+					"name": "ReadOnly",
+					"kind": "bool",
+					"description": "Can be selected and copied, not changed."
+				},
+				{
+					"name": "MaxLength",
+					"kind": "number",
+					"description": "Most characters accepted; 0 for no limit."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired at each change."
+				},
+				{
+					"name": "OnCommitted",
+					"kind": "action",
+					"description": "Action fired by Enter."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "SpinBox",
+			"description": "A number to type or to step.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Min",
+					"kind": "number",
+					"description": "Lowest value."
+				},
+				{
+					"name": "Max",
+					"kind": "number",
+					"description": "Highest value."
+				},
+				{
+					"name": "Value",
+					"kind": "number",
+					"description": "The value."
+				},
+				{
+					"name": "Step",
+					"kind": "number",
+					"description": "What the arrows add."
+				},
+				{
+					"name": "Decimals",
+					"kind": "number",
+					"description": "Digits shown after the point."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the value changes."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "ComboBox",
+			"description": "One choice in a list that drops down.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Items",
+					"kind": "list",
+					"description": "The choices, separated by '|'."
+				},
+				{
+					"name": "Selected",
+					"kind": "number",
+					"description": "Which one is chosen, from 0; -1 for none."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the choice changes."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Separator",
+			"description": "A line between things.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Orientation",
+					"kind": "choice",
+					"choices": [
+						"Horizontal",
+						"Vertical"
+					],
+					"description": "Horizontal is a line across."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "ListView",
+			"description": "Rows of text, one selected; any number of them.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Items",
+					"kind": "list",
+					"description": "The rows, separated by '|'."
+				},
+				{
+					"name": "Selected",
+					"kind": "number",
+					"description": "Which row is selected, from 0; -1 for none."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the selection changes."
+				},
+				{
+					"name": "OnActivated",
+					"kind": "action",
+					"description": "Action fired by a double click or Enter."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "TreeView",
+			"description": "Rows inside rows, made of Item elements.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the selection changes."
+				},
+				{
+					"name": "OnActivated",
+					"kind": "action",
+					"description": "Action fired by a double click or Enter."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "TileView",
+			"description": "A grid of tiles, an icon over a name, given by the application (Rtile_view_set_items).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "TileWidth",
+					"kind": "number",
+					"description": "Width of a tile."
+				},
+				{
+					"name": "Layout",
+					"kind": "choice",
+					"choices": [
+						"Tiles",
+						"Rows"
+					],
+					"description": "Tiles: a grid. Rows: one item per line, as wide as the view, the icon on the left."
+				},
+				{
+					"name": "TileHeight",
+					"kind": "number",
+					"description": "Height of a tile, name included."
+				},
+				{
+					"name": "IconSize",
+					"kind": "number",
+					"description": "Size of the icon of a tile."
+				},
+				{
+					"name": "Spacing",
+					"kind": "number",
+					"description": "Space between the tiles."
+				},
+				{
+					"name": "EmptyText",
+					"kind": "text",
+					"description": "Text shown when there is no tile."
+				},
+				{
+					"name": "DragType",
+					"kind": "text",
+					"description": "Type given to Rdrag_begin when tiles are dragged; empty: no drag."
+				},
+				{
+					"name": "OnActivated",
+					"kind": "action",
+					"description": "Action fired by a double click or Enter."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "MenuBar",
+			"description": "A bar of Menu elements; on macOS, shown in the menu bar of the system.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Native",
+					"kind": "bool",
+					"description": "false keeps the bar in the window on macOS too, instead of the menu bar of the system."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Menu",
+			"description": "A menu: MenuItem, Separator and Menu elements.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Title",
+					"kind": "text",
+					"description": "Text of the menu in its bar, or in the menu that holds it."
+				}
+			],
+			"accepted": [
+				"Text"
+			]
+		},
+		{
+			"name": "MenuItem",
+			"description": "An item of a menu.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "Text of the item."
+				},
+				{
+					"name": "Shortcut",
+					"kind": "text",
+					"description": "Keys shown beside it and that fire it: \"Ctrl+S\"."
+				},
+				{
+					"name": "Checkable",
+					"kind": "bool",
+					"description": "Clicking it checks and unchecks it."
+				},
+				{
+					"name": "Checked",
+					"kind": "bool",
+					"description": "Its state."
+				},
+				{
+					"name": "Separator",
+					"kind": "bool",
+					"description": "A line instead of an item."
+				},
+				{
+					"name": "OnClicked",
+					"kind": "action",
+					"description": "Action fired by the item."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Viewport",
+			"description": "A place the application draws in with its own renderer.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Stretch",
+					"kind": "choice",
+					"choices": [
+						"Fill",
+						"Fit",
+						"Cover",
+						"None"
+					],
+					"description": "How the picture fills its place."
+				},
+				{
+					"name": "FlipY",
+					"kind": "bool",
+					"description": "Turns the picture upside down (some renderers draw that way)."
+				},
+				{
+					"name": "Realtime",
+					"kind": "bool",
+					"description": "Drawn again at every frame."
+				},
+				{
+					"name": "Source",
+					"kind": "file",
+					"description": "Image shown until the application draws."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Custom",
+			"description": "A widget painted and measured by the application.",
+			"children": "many",
+			"attributes": [],
+			"accepted": []
+		},
+		{
+			"name": "TextEditor",
+			"description": "Text of several lines: notes, code.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The text."
+				},
+				{
+					"name": "Language",
+					"kind": "choice",
+					"choices": [
+						"None",
+						"C",
+						"C++",
+						"C#",
+						"Java",
+						"JavaScript",
+						"TypeScript",
+						"Python",
+						"Rust",
+						"GLSL",
+						"JSON",
+						"CSS",
+						"XML",
+						"HTML"
+					],
+					"description": "Colors the text and helps while typing."
+				},
+				{
+					"name": "LineNumbers",
+					"kind": "bool",
+					"description": "Shows the line numbers in a margin."
+				},
+				{
+					"name": "Wrap",
+					"kind": "bool",
+					"description": "Long lines continue on the next row."
+				},
+				{
+					"name": "ReadOnly",
+					"kind": "bool",
+					"description": "Can be scrolled, selected and copied, not changed."
+				},
+				{
+					"name": "Placeholder",
+					"kind": "text",
+					"description": "Shown, dimmed, while the editor is empty."
+				},
+				{
+					"name": "TabSize",
+					"kind": "number",
+					"description": "Width of a tab, in spaces."
+				},
+				{
+					"name": "TabSpaces",
+					"kind": "bool",
+					"description": "The Tab key writes spaces."
+				},
+				{
+					"name": "Completion",
+					"kind": "bool",
+					"description": "Proposes words while typing."
+				},
+				{
+					"name": "AutoPairs",
+					"kind": "bool",
+					"description": "Closes brackets and quotes, indents after them."
+				},
+				{
+					"name": "TextSize",
+					"kind": "number",
+					"description": "Size of the text; 0 uses the theme."
+				},
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "Zoom of the text, 1 = 100 % (0.5 .. 4): Ctrl + wheel changes it."
+				},
+				{
+					"name": "Zoomable",
+					"kind": "bool",
+					"description": "Ctrl + wheel, Ctrl + '+' / '-' / 0 zoom the text (on by default)."
+				},
+				{
+					"name": "Font",
+					"kind": "file",
+					"description": "Font file, or \"monospace\"."
+				},
+				{
+					"name": "Markdown",
+					"kind": "bool",
+					"description": "The text is Markdown, styled where it is typed (the same as Language=\"Markdown\")."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired at each change."
+				}
+			],
+			"accepted": [
+				"WordWrap",
+				"Syntax",
+				"FontSize"
+			]
+		},
+		{
+			"name": "HeaderBar",
+			"description": "The title bar of a window with a custom header; holds any widgets.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Title",
+					"kind": "text",
+					"description": "Text of the bar."
+				},
+				{
+					"name": "Buttons",
+					"kind": "choice",
+					"choices": [
+						"All",
+						"None",
+						"Close",
+						"Close,Minimize",
+						"Close,Maximize"
+					],
+					"description": "The window buttons the bar shows."
+				},
+				{
+					"name": "ButtonSide",
+					"kind": "choice",
+					"choices": [
+						"Right",
+						"Left"
+					],
+					"description": "Where the window buttons are (default: the side of the system, whatever the look)."
+				},
+				{
+					"name": "TitleAlign",
+					"kind": "choice",
+					"choices": [
+						"Center",
+						"Left"
+					],
+					"description": "Where the title is."
+				},
+				{
+					"name": "Background",
+					"kind": "bool",
+					"description": "false leaves the bar without a surface, over what is behind."
+				}
+			],
+			"accepted": [
+				"Text",
+				"TitleStyle"
+			]
+		},
+		{
+			"name": "FileBrowser",
+			"description": "Folders and files to choose from.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Directory",
+					"kind": "text",
+					"description": "Folder shown first."
+				},
+				{
+					"name": "Mode",
+					"kind": "choice",
+					"choices": [
+						"Open",
+						"Save",
+						"Folder"
+					],
+					"description": "What is being chosen."
+				},
+				{
+					"name": "Filter",
+					"kind": "text",
+					"description": "Patterns of the files shown: \"*.png;*.jpg\"."
+				},
+				{
+					"name": "FileName",
+					"kind": "text",
+					"description": "Save: the name proposed."
+				},
+				{
+					"name": "DefaultExtension",
+					"kind": "text",
+					"description": "Save: added to a name typed without one."
+				},
+				{
+					"name": "ShowHidden",
+					"kind": "bool",
+					"description": "Shows the hidden files."
+				},
+				{
+					"name": "Multiple",
+					"kind": "bool",
+					"description": "Open: several files can be chosen."
+				},
+				{
+					"name": "Controls",
+					"kind": "bool",
+					"description": "false hides the name, the filter and the buttons."
+				},
+				{
+					"name": "Places",
+					"kind": "bool",
+					"description": "false hides the list of places."
+				}
+			],
+			"accepted": [
+				"Path"
+			]
+		},
+		{
+			"name": "DockArea",
+			"description": "Panels the user arranges by dragging their tabs.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Movable",
+					"kind": "bool",
+					"description": "false keeps the panels where they are."
+				},
+				{
+					"name": "Layout",
+					"kind": "text",
+					"description": "An arrangement saved with Rdock_area_save_layout."
+				},
+				{
+					"name": "CloseHides",
+					"kind": "bool",
+					"description": "The close button of a tab hides its panel (Rdock_area_open_panel brings it back) instead of deleting it."
+				},
+				{
+					"name": "Tearable",
+					"kind": "bool",
+					"description": "false: a tab dragged out of the area does not take its panel to a window of its own."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Island",
+			"description": "A pill at the top of the window that unfolds: first child folded, second unfolded.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Expanded",
+					"kind": "bool",
+					"description": "Unfolded."
+				},
+				{
+					"name": "ExpandOnHover",
+					"kind": "bool",
+					"description": "Unfolds while the pointer is over it."
+				},
+				{
+					"name": "ExpandOnClick",
+					"kind": "bool",
+					"description": "A click unfolds it and folds it back."
+				},
+				{
+					"name": "Attached",
+					"kind": "bool",
+					"description": "Hangs from the top edge, like a notch, instead of floating below it."
+				},
+				{
+					"name": "Notch",
+					"kind": "bool",
+					"description": "On a screen with a camera housing (a MacBook), lives in it, outside of the window: it stays there when the window moves. Elsewhere it stays in the window."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "BackgroundBlur",
+			"description": "A panel that shows what is behind it out of focus, around one child.",
+			"children": "single",
+			"attributes": [
+				{
+					"name": "Style",
+					"kind": "choice",
+					"choices": [
+						"Plain",
+						"Frosted",
+						"Glass",
+						"Native"
+					],
+					"description": "Plain only blurs; Frosted adds a veil and grain; Glass bends light at its rim; Native shows the desktop, blurred by the system, through a window that is seen through."
+				},
+				{
+					"name": "Radius",
+					"kind": "number",
+					"description": "How far the blur spreads; 0 uses the theme."
+				},
+				{
+					"name": "Tint",
+					"kind": "color",
+					"description": "Color laid over what is blurred; its alpha is its strength."
+				},
+				{
+					"name": "Saturation",
+					"kind": "number",
+					"description": "Colors of what is behind: 1 unchanged, 0 gray, more than 1 vivid."
+				},
+				{
+					"name": "Grain",
+					"kind": "number",
+					"description": "Fine noise, from 0 to 1 (what keeps a blur from banding)."
+				},
+				{
+					"name": "Shadow",
+					"kind": "number",
+					"description": "Blur of the shadow under the panel; 0 = none."
+				},
+				{
+					"name": "Padding",
+					"kind": "numbers",
+					"description": "Space around the child."
+				},
+				{
+					"name": "CornerRadius",
+					"kind": "number",
+					"description": "Radius of the corners."
+				}
+			],
+			"accepted": [
+				"Kind",
+				"Blur"
+			]
+		},
+		{
+			"name": "ColorPicker",
+			"description": "Chooses a color: square, hues, opacity, code, numbers, swatches.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Color",
+					"kind": "color",
+					"description": "The color."
+				},
+				{
+					"name": "Previous",
+					"kind": "color",
+					"description": "The color shown next to it, to compare."
+				},
+				{
+					"name": "Alpha",
+					"kind": "bool",
+					"description": "Shows the opacity strip; false makes colors opaque."
+				},
+				{
+					"name": "Popup",
+					"kind": "bool",
+					"description": "A swatch the size of a button, that opens the picker when clicked."
+				},
+				{
+					"name": "Compact",
+					"kind": "bool",
+					"description": "Only the square, the hues and the opacity."
+				},
+				{
+					"name": "Numbers",
+					"kind": "choice",
+					"choices": [
+						"RGB",
+						"HSV"
+					],
+					"description": "The numbers shown under the square."
+				},
+				{
+					"name": "Swatches",
+					"kind": "text",
+					"description": "Colors proposed under the picker: \"#FF453A, #0A84FF, white\"."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user changes the color."
+				}
+			],
+			"accepted": [
+				"Value",
+				"PreviousColor",
+				"Opacity.Enabled"
+			]
+		},
+		{
+			"name": "Timeline",
+			"description": "A sequencer: Track elements holding Clip and Key elements, and Marker elements.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Duration",
+					"kind": "number",
+					"description": "Length of the sequence, in seconds."
+				},
+				{
+					"name": "Time",
+					"kind": "number",
+					"description": "Where the playhead is, in seconds."
+				},
+				{
+					"name": "FrameRate",
+					"kind": "number",
+					"description": "Frames per second: times snap to frames and show as seconds:frames; 0 = none."
+				},
+				{
+					"name": "Snapping",
+					"kind": "bool",
+					"description": "Items snap to frames, to the playhead and to each other."
+				},
+				{
+					"name": "ViewStart",
+					"kind": "number",
+					"description": "First second shown."
+				},
+				{
+					"name": "ViewEnd",
+					"kind": "number",
+					"description": "Last second shown."
+				},
+				{
+					"name": "Loop",
+					"kind": "bool",
+					"description": "Playing starts again at the end."
+				},
+				{
+					"name": "Playing",
+					"kind": "bool",
+					"description": "The playhead runs."
+				},
+				{
+					"name": "HeaderWidth",
+					"kind": "number",
+					"description": "Width of the names of the tracks; 0 fits the longest."
+				},
+				{
+					"name": "TrackHeight",
+					"kind": "number",
+					"description": "Height of the tracks that have none of their own; 0 follows the theme."
+				},
+				{
+					"name": "RulerHeight",
+					"kind": "number",
+					"description": "Height of the ruler of time; 0 follows the theme."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user moves, stretches or removes something."
+				},
+				{
+					"name": "Preset",
+					"kind": "choice",
+					"choices": [
+						"Auto",
+						"Modern",
+						"Blueprint",
+						"Blender",
+						"Neon"
+					],
+					"description": "The look it starts from; Auto follows the theme of the window. Any part can then be changed: Clip.Glow=\"0.5\", Key.Shape=\"Circle\"..."
+				},
+				{
+					"name": "ClipStyle",
+					"kind": "choice",
+					"choices": [
+						"Solid",
+						"Gradient",
+						"Tint",
+						"Outline"
+					],
+					"description": "How the clips are filled (also ClipStyle on a Track, Style on a Clip)."
+				},
+				{
+					"name": "ClipRadius",
+					"kind": "number",
+					"description": "Corners of the clips."
+				},
+				{
+					"name": "KeyShape",
+					"kind": "choice",
+					"choices": [
+						"Diamond",
+						"Circle",
+						"Ring",
+						"Square",
+						"Triangle"
+					],
+					"description": "The form of the keys (also on a Track)."
+				},
+				{
+					"name": "KeySize",
+					"kind": "number",
+					"description": "Half the size of the keys."
+				},
+				{
+					"name": "GridStyle",
+					"kind": "choice",
+					"choices": [
+						"Lines",
+						"Dots",
+						"None"
+					],
+					"description": "The lines of time across the tracks."
+				},
+				{
+					"name": "PlayheadColor",
+					"kind": "color",
+					"description": "Color of the playhead."
+				},
+				{
+					"name": "PlayheadWidth",
+					"kind": "number",
+					"description": "Width of its line."
+				}
+			],
+			"accepted": [
+				"Fps",
+				"Snap"
+			]
+		},
+		{
+			"name": "BlockEditor",
+			"description": "Blocks that snap into each other (Scratch): Kind elements (Name, Label, Shape, Category) and Category elements (Name, Color).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "Size of the canvas: 1 = life size."
+				},
+				{
+					"name": "Palette",
+					"kind": "bool",
+					"description": "The column of blocks to drag from, on the left."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user snaps, moves, edits or deletes blocks."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Table",
+			"description": "Rows of cells under columns that can be resized and sorted: Column and Row elements; any number of rows.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Columns",
+					"kind": "list",
+					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."
+				},
+				{
+					"name": "Selected",
+					"kind": "number",
+					"description": "Which row is selected, from 0; -1 for none."
+				},
+				{
+					"name": "SortColumn",
+					"kind": "number",
+					"description": "The column the rows are sorted by, from 0; -1 for none."
+				},
+				{
+					"name": "SortDescending",
+					"kind": "bool",
+					"description": "Sorted from the largest to the smallest."
+				},
+				{
+					"name": "ShowHeader",
+					"kind": "bool",
+					"description": "Shows the row of the headers."
+				},
+				{
+					"name": "GridLines",
+					"kind": "bool",
+					"description": "Lines between the rows and the columns."
+				},
+				{
+					"name": "Striped",
+					"kind": "bool",
+					"description": "Every other row a little darker."
+				},
+				{
+					"name": "OnActivated",
+					"kind": "action",
+					"description": "Action fired by a double click or Enter."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "DatePicker",
+			"description": "A date, chosen in a calendar that drops down.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Date",
+					"kind": "text",
+					"description": "The date, \"YYYY-MM-DD\" or Today."
+				},
+				{
+					"name": "Min",
+					"kind": "text",
+					"description": "The earliest date that can be chosen, \"YYYY-MM-DD\"."
+				},
+				{
+					"name": "Max",
+					"kind": "text",
+					"description": "The latest date that can be chosen, \"YYYY-MM-DD\"."
+				},
+				{
+					"name": "FirstDayOfWeek",
+					"kind": "choice",
+					"choices": [
+						"Sunday",
+						"Monday",
+						"Saturday"
+					],
+					"description": "The day the weeks of the calendar start with (or 0 to 6)."
+				},
+				{
+					"name": "Format",
+					"kind": "text",
+					"description": "How the date is written: YYYY, MM, M, DD, D, MMMM, MMM, dddd, ddd; default YYYY-MM-DD."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user chooses a date."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "TimePicker",
+			"description": "A time of the day: hours, minutes, optionally seconds.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Time",
+					"kind": "text",
+					"description": "The time, \"HH:MM\" or \"HH:MM:SS\"."
+				},
+				{
+					"name": "ShowSeconds",
+					"kind": "bool",
+					"description": "Shows the seconds."
+				},
+				{
+					"name": "MinuteStep",
+					"kind": "number",
+					"description": "Step of the minutes for the arrows and the wheel."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user changes the time."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Toast",
+			"description": "A short message that rises over the content for a few seconds (in an Overlay).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "A message shown when the window opens."
+				},
+				{
+					"name": "Duration",
+					"kind": "number",
+					"description": "Seconds a message written here stays; 0: until hidden."
+				},
+				{
+					"name": "Kind",
+					"kind": "choice",
+					"choices": [
+						"Info",
+						"Success",
+						"Warning",
+						"Error"
+					],
+					"description": "The color of the dot before the message."
+				},
+				{
+					"name": "ActionText",
+					"kind": "text",
+					"description": "A button at the end of the message (\"Undo\")."
+				},
+				{
+					"name": "OnClicked",
+					"kind": "action",
+					"description": "Action fired by the button of the message."
+				},
+				{
+					"name": "Queue",
+					"kind": "choice",
+					"choices": [
+						"Replace",
+						"Sequence",
+						"Stack"
+					],
+					"description": "A message that comes while another is shown: takes its place, waits its turn, or stacks up."
+				},
+				{
+					"name": "MaxVisible",
+					"kind": "number",
+					"description": "How many messages a Stack shows at once (default 3)."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Breadcrumb",
+			"description": "The path to the current place: links separated by chevrons.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Items",
+					"kind": "list",
+					"description": "The items, separated by '|' (or Item elements); the last one is the current place."
+				},
+				{
+					"name": "OnClicked",
+					"kind": "action",
+					"description": "Action fired when the user clicks an item."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Rating",
+			"description": "A score shown and chosen with stars.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Value",
+					"kind": "number",
+					"description": "The score, from 0 to Max."
+				},
+				{
+					"name": "Max",
+					"kind": "number",
+					"description": "Number of stars."
+				},
+				{
+					"name": "AllowHalf",
+					"kind": "bool",
+					"description": "Half stars can be chosen."
+				},
+				{
+					"name": "ReadOnly",
+					"kind": "bool",
+					"description": "Shown only."
+				},
+				{
+					"name": "StarSize",
+					"kind": "number",
+					"description": "Size of a star."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user changes the score."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "Pagination",
+			"description": "Page numbers with previous and next.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "PageCount",
+					"kind": "number",
+					"description": "Number of pages."
+				},
+				{
+					"name": "Page",
+					"kind": "number",
+					"description": "The current page, from 0."
+				},
+				{
+					"name": "Siblings",
+					"kind": "number",
+					"description": "Page numbers shown on each side of the current one."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user goes to another page."
+				}
+			],
+			"accepted": []
+		},
+		{
+			"name": "NodeGraph",
+			"description": "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "Size of the canvas: 1 = life size."
+				},
+				{
+					"name": "CenterX",
+					"kind": "number",
+					"description": "What the middle of the widget shows, across the canvas."
+				},
+				{
+					"name": "CenterY",
+					"kind": "number",
+					"description": "What the middle of the widget shows, down the canvas."
+				},
+				{
+					"name": "Grid",
+					"kind": "bool",
+					"description": "The dots of the canvas."
+				},
+				{
+					"name": "Flow",
+					"kind": "choice",
+					"choices": [
+						"Auto",
+						"true",
+						"false"
+					],
+					"description": "The pulses that run along the links: while the pointer is over the graph, always, or never."
+				},
+				{
+					"name": "ReadOnly",
+					"kind": "bool",
+					"description": "The user can look, select and move the view, but not change the graph."
+				},
+				{
+					"name": "FrameAll",
+					"kind": "bool",
+					"description": "Starts with every node in view."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user links, unlinks, moves or removes something."
+				},
+				{
+					"name": "Preset",
+					"kind": "choice",
+					"choices": [
+						"Auto",
+						"Modern",
+						"Blueprint",
+						"Blender",
+						"Neon"
+					],
+					"description": "The look it starts from; Auto follows the theme of the window. Any part can then be changed: Link.Glow=\"1\", Node.CornerRadius=\"4\", Header.Gradient=\"#000\"..."
+				},
+				{
+					"name": "LinkShape",
+					"kind": "choice",
+					"choices": [
+						"Bezier",
+						"Straight",
+						"Step",
+						"Angled"
+					],
+					"description": "The form of the links (also LinkShape on a Type)."
+				},
+				{
+					"name": "LinkWidth",
+					"kind": "number",
+					"description": "Thickness of the links."
+				},
+				{
+					"name": "LinkGlow",
+					"kind": "number",
+					"description": "Light around the links, 0..1."
+				},
+				{
+					"name": "PinShape",
+					"kind": "choice",
+					"choices": [
+						"Circle",
+						"Ring",
+						"Square",
+						"Diamond",
+						"Triangle",
+						"Arrow"
+					],
+					"description": "The form of the pins (also Shape on a Type, an Input, an Output)."
+				},
+				{
+					"name": "PinSize",
+					"kind": "number",
+					"description": "Half the size of the pins."
+				},
+				{
+					"name": "GridStyle",
+					"kind": "choice",
+					"choices": [
+						"Dots",
+						"Lines",
+						"Cross",
+						"None"
+					],
+					"description": "The grid of the canvas."
+				},
+				{
+					"name": "GridSize",
+					"kind": "number",
+					"description": "Space between the points of the grid."
+				},
+				{
+					"name": "NodeRadius",
+					"kind": "number",
+					"description": "Corners of the nodes."
+				},
+				{
+					"name": "HeaderStyle",
+					"kind": "choice",
+					"choices": [
+						"Solid",
+						"Gradient",
+						"Stripe",
+						"Tint",
+						"Outline",
+						"None"
+					],
+					"description": "How the headers wear the color of their node (also on a Node)."
+				},
+				{
+					"name": "HeaderHeight",
+					"kind": "number",
+					"description": "Height of the headers of the nodes."
+				}
+			],
+			"accepted": []
+		}
+	],
+	"aliases": {
+		"VerticalBox": "VBox",
+		"HorizontalBox": "HBox",
+		"GridPanel": "Grid",
+		"UniformGridPanel": "UniformGrid",
+		"Box": "SizeBox",
+		"CanvasPanel": "Canvas",
+		"WidgetSwitcher": "Switcher",
+		"Tabs": "TabView",
+		"ExpandableArea": "Expander",
+		"Text": "Label",
+		"TextBlock": "Label",
+		"CheckBox": "Checkbox",
+		"EditableText": "TextInput",
+		"TextBox": "TextInput",
+		"TextArea": "TextEditor",
+		"MultiLineEditableText": "TextEditor",
+		"TitleBar": "HeaderBar",
+		"Notch": "Island",
+		"DynamicIsland": "Island",
+		"DataGrid": "Table",
+		"TableView": "Table",
+		"Snackbar": "Toast"
+	}
+}

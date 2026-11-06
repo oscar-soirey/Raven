@@ -1,0 +1,95 @@
+{
+	"name": "raven-xml",
+	"displayName": "Raven XML",
+	"description": "Completion, hovers and diagnostics for the XML interfaces of Raven: widgets, attributes, values and actions.",
+	"version": "0.1.0",
+	"publisher": "oscar-soirey",
+	"license": "Apache-2.0",
+	"icon": "images/icon.png",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/oscar-soirey/Raven",
+		"directory": "tools/vscode-raven"
+	},
+	"bugs": {
+		"url": "https://github.com/oscar-soirey/Raven/issues"
+	},
+	"homepage": "https://github.com/oscar-soirey/Raven/tree/main/tools/vscode-raven#readme",
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"categories": [
+		"Programming Languages",
+		"Linters"
+	],
+	"keywords": [
+		"raven",
+		"xml",
+		"ui",
+		"gui",
+		"widgets"
+	],
+	"main": "./dist/extension.js",
+	"activationEvents": [
+		"onLanguage:xml"
+	],
+	"contributes": {
+		"configuration": {
+			"title": "Raven XML",
+			"properties": {
+				"raven.xml.enable": {
+					"type": "boolean",
+					"default": true,
+					"description": "Completion, hovers and diagnostics in the XML files of Raven."
+				},
+				"raven.xml.files": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [],
+					"markdownDescription": "Glob patterns of XML files always treated as Raven files, whatever their root element (e.g. `**/ui/*.xml`). Others are recognized by their root: `<Window>`, `<Widgets>`, `<Widget>` or a widget of Raven."
+				},
+				"raven.xml.exclude": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [],
+					"markdownDescription": "Glob patterns of XML files never treated as Raven files."
+				},
+				"raven.xml.customTags": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [
+						"WebView"
+					],
+					"markdownDescription": "Tags registered from C with `Rxml_register_tag`: they are accepted, with any attribute."
+				},
+				"raven.xml.diagnostics": {
+					"type": "boolean",
+					"default": true,
+					"description": "Report the unknown tags and attributes, the invalid values and the mistakes of structure."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"schema": "node scripts/generate-schema.js",
+		"check": "tsc --noEmit -p .",
+		"build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js --minify --sourcemap",
+		"test": "esbuild test/run.ts --bundle --platform=node --format=cjs --outfile=out/test.js && node out/test.js",
+		"vscode:prepublish": "npm run check && npm run build",
+		"package": "vsce package",
+		"publish": "vsce publish"
+	},
+	"devDependencies": {
+		"typescript": "^7.0.2",
+		"esbuild": "^0.28.2",
+		"@types/vscode": "~1.85.0",
+		"@types/node": "^20.19.43",
+		"@vscode/vsce": "^4.1.0"
+	}
+}

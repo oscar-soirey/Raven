@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "commonjs",
+		"lib": ["ES2022"],
+		"strict": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"noUnusedLocals": true,
+		"types": ["node", "vscode"]
+	},
+	"include": ["src", "test"]
+}
