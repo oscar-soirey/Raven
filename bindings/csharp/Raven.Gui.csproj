@@ -31,7 +31,7 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 
     <PackageId>Raven.Gui</PackageId>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
     <Authors>Oscar Soirey</Authors>
     <Copyright>Copyright 2026 Oscar Soirey</Copyright>
     <Description>C# bindings for Raven, a lightweight, multithreaded GUI library in C for editors and tools. The native library is included for Windows x64, Linux x64 and macOS (arm64 and x64).</Description>

@@ -4,7 +4,7 @@ What comes next for Raven, by priority. Each item says why it matters and
 roughly what it takes. `[x]` is done, `[~]` started, `[ ]` to do. The list
 is a plan, not a promise: issues and pull requests can change the order.
 
-## Done since 0.2.1 (for the next version)
+## Done in 0.2.2
 
 - [x] **Table widget** (`R_WIDGET_TABLE`, `<Table>`): columns that are resized
   (double click on an edge fits the column) and sorted, filling columns,

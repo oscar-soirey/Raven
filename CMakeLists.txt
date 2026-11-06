@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(raven VERSION 0.2.1 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
+project(raven VERSION 0.2.2 DESCRIPTION "Raven - lightweight multithreaded GUI library in C" LANGUAGES C)
 
 if(APPLE)
 	# Cocoa is the native macOS window API; almost all Raven code remains C.

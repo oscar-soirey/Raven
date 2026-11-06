@@ -1,6 +1,6 @@
 [package]
 name = "raven-gui"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2018"
 description = "Rust bindings for Raven, a lightweight multithreaded GUI library in C for editors and tools"
 license = "Apache-2.0"
