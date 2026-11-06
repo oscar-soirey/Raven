@@ -2906,7 +2906,7 @@ namespace Raven
 
         public const int RAVEN_VERSION_MAJOR = 0;
         public const int RAVEN_VERSION_MINOR = 2;
-        public const int RAVEN_VERSION_PATCH = 1;
+        public const int RAVEN_VERSION_PATCH = 2;
         public const string RAVEN_API_VERSION = "0.2";
         public const int R_FALSE = 0;
         public const int R_TRUE = 1;

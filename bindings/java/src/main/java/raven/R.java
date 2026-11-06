@@ -194,7 +194,7 @@ public final class R {
 
     public static final int RAVEN_VERSION_MAJOR = 0;
     public static final int RAVEN_VERSION_MINOR = 2;
-    public static final int RAVEN_VERSION_PATCH = 1;
+    public static final int RAVEN_VERSION_PATCH = 2;
     public static final String RAVEN_API_VERSION = "0.2";
     public static final int R_FALSE = 0;
     public static final int R_TRUE = 1;

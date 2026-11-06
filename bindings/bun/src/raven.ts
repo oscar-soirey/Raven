@@ -1223,7 +1223,7 @@ const _lib = _load();
 
 export const RAVEN_VERSION_MAJOR = 0;
 export const RAVEN_VERSION_MINOR = 2;
-export const RAVEN_VERSION_PATCH = 1;
+export const RAVEN_VERSION_PATCH = 2;
 export const RAVEN_API_VERSION = "0.2";
 export const R_FALSE = 0;
 export const R_TRUE = 1;
