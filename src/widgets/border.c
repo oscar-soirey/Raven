@@ -80,23 +80,65 @@ static void rvn_border_arrange(rvn_widget_t* widget) {
 	}
 }
 
+/* The shadow and the glow of the border: its own Shadow, then what a theme gives it
+ * (<Style Widget="Border" ShadowColor="#f00" ShadowSize="20" Glow="1"/>). */
+typedef struct rvn_border_drop_t {
+	float blur;
+	rvn_vec2_t offset;
+	rvn_color_t color;
+	float glow;
+} rvn_border_drop_t;
+
+static void rvn_border_drop(rvn_widget_t* widget, RPainter* painter, rvn_border_drop_t* drop) {
+	rvn_border_t* border = (rvn_border_t*)widget;
+	drop->blur = border->shadow_blur;
+	drop->offset = border->shadow_offset;
+	drop->color = rvn_widget_color(widget, R_COLOR_SHADOW);
+	drop->glow = 0.0f;
+	if (rvn_part_styled(widget, RVN_PART_BODY)) {
+		rvn_part_look_t look;
+		rvn_part_look_clear(&look);
+		look.shadow_color = drop->color;
+		rvn_part_apply_styles(widget, RVN_PART_BODY, rvn_widget_states(widget, painter, (widget->flags & RVN_WF_HOVERED) != 0, R_FALSE), &look);
+		drop->color = look.shadow_color;
+		/* (the Shadow of the element comes first) */
+		if (drop->blur <= 0.0f && look.shadow > 0.0f) {
+			drop->blur = look.shadow;
+			drop->offset = rvn_vec2(0.0f, 2.0f);
+		}
+		drop->glow = look.glow;
+	}
+}
+
+static void rvn_border_paint_drop(rvn_widget_t* widget, RPainter* painter, const rvn_border_drop_t* drop, rvn_rect_t rect, float radius) {
+	if (drop->blur > 0.0f) {
+		rvn_paint_shadow(painter, rvn_rect(drop->offset.x, drop->offset.y, rect.w, rect.h), radius, drop->blur, drop->color);
+	}
+	if (drop->glow > 0.0f) {
+		/* a light of its color around it (the accent when it has none) */
+		float glow = rvn_minf(drop->glow, 1.0f);
+		rvn_color_t color = rvn_widget_color(widget, R_COLOR_PANEL);
+		if (rvn_color_a(color) == 0) color = rvn_widget_color(widget, R_COLOR_ACCENT);
+		rvn_paint_shadow(painter, rect, radius, 6.0f + 12.0f * glow, rvn_color_fade(color | 0xFF000000u, rvn_clampf(0.6f * glow, 0.0f, 0.9f)));
+	}
+}
+
 static void rvn_border_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_border_t* border = (rvn_border_t*)widget;
 	rvn_rect_t rect = rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
+	rvn_border_drop_t drop;
 	float radii[4];
 	int i;
 
 	/* (a border without a color is only a padding) */
 	if (rvn_color_a(rvn_widget_color(widget, R_COLOR_PANEL)) == 0 && border->outline_width <= 0.0f && border->effect == R_INVALID_ID) return;
+	rvn_border_drop(widget, painter, &drop);
 	if (border->effect != R_INVALID_ID && Rshader_is_valid(border->effect)) {
 		/* the effect is the background: corners as given (else those of a style), the outline over it */
 		for (i = 0; i < 4; i++) {
 			radii[i] = border->has_radii ? border->radii[i] : (rvn_widget_has_metric(widget, R_METRIC_CORNER_RADIUS) ? rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) : 0.0f);
 		}
-		if (border->shadow_blur > 0.0f) {
-			rvn_paint_shadow(painter, rvn_rect(border->shadow_offset.x, border->shadow_offset.y, rect.w, rect.h),
-				radii[0], border->shadow_blur, rvn_widget_color(widget, R_COLOR_SHADOW));
-		}
+		rvn_border_paint_drop(widget, painter, &drop, rect, radii[0]);
 		if (rvn_widget_has_color(widget, R_COLOR_PANEL)) rvn_paint_box4(painter, rect, radii, rvn_widget_color(widget, R_COLOR_PANEL), 0.0f, 0);
 		{
 			/* the pointer: over the border (or what it holds) and pressing it, eased */
@@ -121,7 +163,7 @@ static void rvn_border_paint(rvn_widget_t* widget, RPainter* painter) {
 		for (i = 0; i < 4; i++) {
 			radii[i] = border->has_radii ? border->radii[i] : (rvn_widget_has_metric(widget, R_METRIC_CORNER_RADIUS) ? rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) : 20.0f);
 		}
-		glass.shadow = border->shadow_blur;
+		glass.shadow = drop.blur;
 		rvn_paint_glass(painter, rect, radii, &glass);
 		return;
 	}
@@ -129,10 +171,7 @@ static void rvn_border_paint(rvn_widget_t* widget, RPainter* painter) {
 	for (i = 0; i < 4; i++) {
 		radii[i] = border->has_radii ? border->radii[i] : (rvn_widget_has_metric(widget, R_METRIC_CORNER_RADIUS) ? rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) : 0.0f);
 	}
-	if (border->shadow_blur > 0.0f) {
-		rvn_paint_shadow(painter, rvn_rect(border->shadow_offset.x, border->shadow_offset.y, rect.w, rect.h),
-			radii[0], border->shadow_blur, rvn_widget_color(widget, R_COLOR_SHADOW));
-	}
+	rvn_border_paint_drop(widget, painter, &drop, rect, radii[0]);
 	rvn_paint_box4(painter, rect, radii, rvn_widget_color(widget, R_COLOR_PANEL),
 		border->outline_width, border->outline_width > 0.0f ? border->outline_color : 0);
 }

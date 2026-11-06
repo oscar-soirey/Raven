@@ -217,9 +217,9 @@ properties. It is how a theme changes the look of a control without code:
 | `CornerRadius` | its corners |
 | `Size` | the size of a part that has one of its own: a knob, a dot, a pill |
 | `Opacity` | 0..1 |
-| `ShadowColor`, `ShadowSize` | the shadow it drops (popups) |
+| `ShadowColor`, `ShadowSize` | the shadow it drops (popups, `Border`: the `Shadow` of the element comes before `ShadowSize`) |
 | `Shape` | the form of a part that can take several: `Circle`, `Ring`, `Square`, `Diamond`, `Triangle`, `Arrow` (pins, keys), `Bezier`, `Straight`, `Step`, `Angled` (links), `Dots`, `Lines`, `Cross` (grids), `Solid`, `Gradient`, `Stripe`, `Tint`, `Outline` (headers of nodes, clips), `None` |
-| `Glow` | light of its color around it, 0..1 |
+| `Glow` | light of its color around it, 0..1 (`Label`, `Border`, and the pins, links, nodes, clips and keys of node graphs and timelines) |
 | `Gradient` | the color it fades to (a header of a node, a clip of the `Gradient` form) |
 
 | `Part` | of | |
