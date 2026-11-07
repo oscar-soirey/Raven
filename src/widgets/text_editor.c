@@ -2072,6 +2072,8 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			return R_TRUE;
 		case R_KEY_UP:
 		case R_KEY_DOWN:
+			/* Alt+Up / Alt+Down are left to the window shortcuts (previous / next...) */
+			if (alt) return R_FALSE;
 			if (command) {
 				/* Ctrl + arrows scroll without moving the caret */
 				rvn_scrollbar_wheel(&ed->vbar, event->key == R_KEY_UP ? -m.line_height : m.line_height);
