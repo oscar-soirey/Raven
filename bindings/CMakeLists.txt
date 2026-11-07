@@ -10,13 +10,22 @@
 #   binding_java          needs a JDK 22 or later and the shared library; not on Windows
 #   binding_odin          needs odin and the shared library; not on Windows
 #   binding_bun           needs bun and the shared library; not on Windows
+#   binding_zig           needs zig: compiles every declaration of zig/raven.zig (nothing is linked or run)
 #
-# C#, Zig and LuaJIT have no test here.
+# C# and LuaJIT have no test here.
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)
 	add_test(NAME bindings_up_to_date
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/bindgen/bindgen.py --check)
+endif()
+
+find_program(RAVEN_ZIG zig)
+if(RAVEN_ZIG)
+	add_test(NAME binding_zig
+		COMMAND ${RAVEN_ZIG} test ${CMAKE_CURRENT_SOURCE_DIR}/zig/check.zig --test-no-exec
+			--cache-dir ${CMAKE_CURRENT_BINARY_DIR}/zig-cache
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
 include(CheckLanguage)
