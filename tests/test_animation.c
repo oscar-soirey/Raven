@@ -308,6 +308,38 @@ static void test_scrolling(void) {
 	Rwindow_destroy(window);
 }
 
+static void test_scrolling_shorter_content(void) {
+	Rid window = window_from(
+		"<Window Width=\"200\" Height=\"100\"><ScrollBox Name=\"s\"><Border Name=\"c\" Height=\"400\"/></ScrollBox></Window>");
+	Rid scroll = Rwidget_find(window, "s");
+	Rid content = Rwidget_find(window, "c");
+	float x, y;
+	int frames;
+
+	Rdraw_frame();
+	Rscroll_box_scroll_to_end(scroll);
+	run_until_still(window, 600);
+	Rscroll_box_get_offset(scroll, &x, &y);
+	CHECK_NEAR(y, 300.0f);
+
+	/* the content gets shorter under a view at its end (a row of a chat folds
+	 * up): the offset comes back with it, and so does what is drawn, at once.
+	 * Gliding there would draw past the end of the content, a blank band. */
+	Rwidget_set_size(content, -1.0f, 150.0f);
+	Rdraw_frame();
+	Rscroll_box_get_offset(scroll, &x, &y);
+	CHECK_NEAR(y, 50.0f);
+	frames = run_until_still(window, 600);
+	CHECK(frames < 3);
+
+	/* scrolling toward the start is still smooth */
+	Rscroll_box_set_offset(scroll, 0.0f, 0.0f);
+	frames = run_until_still(window, 600);
+	CHECK(frames > 5);
+
+	Rwindow_destroy(window);
+}
+
 int main(void) {
 	if (!test_init(0)) return 1;
 	Rset_animations_enabled(R_TRUE);
@@ -318,6 +350,7 @@ int main(void) {
 	RUN(test_transitions);
 	RUN(test_popups);
 	RUN(test_scrolling);
+	RUN(test_scrolling_shorter_content);
 
 	Rshutdown();
 	return test_report("test_animation");

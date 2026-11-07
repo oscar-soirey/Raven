@@ -75,7 +75,16 @@ static void rvn_scroll_box_arrange(rvn_widget_t* widget) {
 
 	box->main_bar.content = content.x;
 	box->main_bar.viewport = view_main;
-	rvn_scrollbar_clamp(&box->main_bar);
+	{
+		float before = box->main_bar.offset;
+		rvn_scrollbar_clamp(&box->main_bar);
+		/* the content got shorter under a view at its end, and the offset came
+		 * back with it: what is drawn comes back at once too. The smooth scroll
+		 * would draw past the end of the content (a blank band) for a few frames. */
+		if (box->main_bar.offset < before && box->main_bar.shown.started && box->main_bar.shown.value > box->main_bar.offset) {
+			rvn_spring_set(&box->main_bar.shown, box->main_bar.offset);
+		}
+	}
 	/* without cross scrolling the children are simply as wide as the view */
 	cross_size = box->scroll_both ? rvn_maxf(content.y, view_cross) : view_cross;
 	box->cross_bar.content = cross_size;
