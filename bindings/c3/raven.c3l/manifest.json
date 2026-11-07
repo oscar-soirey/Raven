@@ -1,0 +1,23 @@
+{
+  "provides" : "raven",
+  "sources" : [ "src/**" ],
+  "linklib-dir" : "linked-libs",
+  "targets" : {
+
+    "linux-x64" : {
+      "link-args" : [],
+      "dependencies" : [],
+      "linked-libraries" : [ "libraven" ]
+    },
+    "macos-x64" : {
+      "link-args" : [],
+      "dependencies" : [],
+      "linked-libraries" : [ "libraven" ]
+    },
+    "windows-x64" : {
+      "link-args" : [],
+      "dependencies" : [],
+      "linked-libraries" : [ "raven" ]
+    }
+  }
+}
