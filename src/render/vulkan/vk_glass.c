@@ -232,8 +232,9 @@ static int rvn_vk_glass_area(const rvn_vk_surface_t* surface, const rvn_vk_targe
 }
 
 void rvn_vk_glass_capture(VkCommandBuffer commands, rvn_vk_surface_t* surface, float scale, const int rect[4]) {
-	/* the blur is sized in pixels: follow the scale of the window, within reason */
-	float spread = rvn_clampf(0.5f + scale * 0.5f, 1.0f, 2.5f);
+	/* the blur is sized in pixels: follow the scale of the window, so frosted
+	 * glass melts what is behind it as much at 225% as at 100% (within reason) */
+	float spread = rvn_clampf(scale, 1.0f, 3.0f);
 	/*
 	 * A pixel of the blurred image depends on the frame up to about 18 x
 	 * spread pixels away (1 + 2 + 4 + 8 + 4, minus the first step that does
