@@ -417,6 +417,8 @@ int rvn_parse_material(const char* text, RMaterial* material);
 rvn_color_t rvn_widget_color(const rvn_widget_t* widget, RColorRole role);
 float rvn_widget_metric(const rvn_widget_t* widget, RMetric metric);
 int   rvn_widget_has_color(const rvn_widget_t* widget, RColorRole role);
+/** R_TRUE when the widget itself gives the color (its XML or the code), not a style of its theme. */
+int   rvn_widget_own_color(const rvn_widget_t* widget, RColorRole role);
 /** R_TRUE when the widget itself, or a style of the theme for it, gives the metric (not only the theme). */
 int   rvn_widget_has_metric(const rvn_widget_t* widget, RMetric metric);
 void  rvn_widget_set_color(rvn_widget_t* widget, RColorRole role, rvn_color_t color);

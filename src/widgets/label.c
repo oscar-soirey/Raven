@@ -367,7 +367,8 @@ static void rvn_label_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_part_look_clear(&look);
 		look.foreground = color;
 		rvn_part_apply_styles(widget, RVN_PART_BODY, rvn_widget_states(widget, painter, (widget->flags & RVN_WF_HOVERED) != 0, R_FALSE), &look);
-		color = look.foreground;
+		/* a color given to the label itself (Color, Rlabel_set_color) comes before the styles, as with Text */
+		if (!rvn_widget_own_color(widget, R_COLOR_TEXT)) color = look.foreground;
 		glow = look.glow;
 	}
 	/* text larger than the space it received is cut at the bounds of the label */
