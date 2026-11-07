@@ -1120,8 +1120,24 @@ static LRESULT CALLBACK rvn_win32_notify_proc(HWND handle, UINT message, WPARAM 
 	return CallWindowProcW(g_rvn_notify_static_proc, handle, message, wparam, lparam);
 }
 
+static void rvn_win32_notify_shutdown(void);
+
 static int rvn_win32_notify(const char* app, const char* title, const char* body, int urgency) {
 	NOTIFYICONDATAW data;
+	/* low: no sound; critical: the error sign */
+	DWORD info_flags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	{
+		/* the application has a tray icon: the notification is shown on it
+		 * (one icon in the notification area, not two) */
+		WCHAR info_title[64], info_text[256];
+		rvn_win32_copy_wide(info_title, RVN_COUNT_OF(info_title), *title ? title : app);
+		rvn_win32_copy_wide(info_text, RVN_COUNT_OF(info_text), *body ? body : " ");
+		if (rvn_win32_tray_balloon(info_title, info_text, info_flags)) {
+			/* (an icon of its own made before the tray icon came: gone) */
+			if (g_win32.notify_icon) rvn_win32_notify_shutdown();
+			return R_TRUE;
+		}
+	}
 	if (!g_win32.notify_window) {
 		/* a message-only window: never shown, it only owns the icon and hears its clicks */
 		g_win32.notify_window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, g_win32.instance, NULL);
@@ -1143,8 +1159,7 @@ static int rvn_win32_notify(const char* app, const char* title, const char* body
 	data.uFlags = NIF_INFO;
 	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), *title ? title : app);
 	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), *body ? body : " ");
-	/* low: no sound; critical: the error sign */
-	data.dwInfoFlags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	data.dwInfoFlags = info_flags;
 	return Shell_NotifyIconW(NIM_MODIFY, &data) ? R_TRUE : R_FALSE;
 }
 
