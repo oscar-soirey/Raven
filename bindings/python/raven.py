@@ -2312,6 +2312,14 @@ def _adapt_RNotificationFallback(function):
         function(_r(title), _r(body), _e(RNotificationUrgency, urgency), user_data)
     return call
 
+RNotificationClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+
+
+def _adapt_RNotificationClickedCallback(function):
+    def call(user_data):
+        function(user_data)
+    return call
+
 RViewportDrawCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RViewportDrawInfo), ctypes.c_void_p)
 
 
@@ -10779,6 +10787,19 @@ _lib.Rnotification_set_fallback.restype = None
 def Rnotification_set_fallback(callback, user_data=None):
     """Called with the notifications the system could not show; NULL: none."""
     _lib.Rnotification_set_fallback(_callback(RNotificationFallback, _adapt_RNotificationFallback, callback), user_data)
+
+
+_lib.Rnotification_set_clicked_callback.argtypes = [RNotificationClickedCallback, ctypes.c_void_p]
+_lib.Rnotification_set_clicked_callback.restype = None
+
+
+def Rnotification_set_clicked_callback(callback, user_data=None):
+    """Called when the user clicks a notification of Rnotification_show
+    (on the UI thread; the application may then bring its window to the
+    front: the system lets it). It is the last one shown that was clicked:
+    the application remembers what it was about. NULL: none.
+    Windows only for now (elsewhere it is never called)."""
+    _lib.Rnotification_set_clicked_callback(_callback(RNotificationClickedCallback, _adapt_RNotificationClickedCallback, callback), user_data)
 
 
 _lib.Rviewport_set_texture.argtypes = [ctypes.c_uint32, ctypes.c_uint32]

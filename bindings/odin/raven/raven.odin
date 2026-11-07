@@ -1226,6 +1226,7 @@ RDialogClosedCallback :: #type proc "c" (content: Rid, result: i32, user_data: r
 // widget (OnActivated in XML) fires at the same time.
 RFileBrowserCallback :: #type proc "c" (browser: Rid, path: cstring, user_data: rawptr)
 RNotificationFallback :: #type proc "c" (title: cstring, body: cstring, urgency: RNotificationUrgency, user_data: rawptr)
+RNotificationClickedCallback :: #type proc "c" (user_data: rawptr)
 // Called on the render thread each time the window is rendered.
 // State you bind (pipeline, descriptor sets, viewport, scissor) does not
 // need to be restored. NULL removes the callback.
@@ -3648,6 +3649,12 @@ foreign lib {
 	Rnotification_is_supported :: proc() -> i32 ---
 	// Called with the notifications the system could not show; NULL: none.
 	Rnotification_set_fallback :: proc(callback: RNotificationFallback, user_data: rawptr) ---
+	// Called when the user clicks a notification of Rnotification_show
+	// (on the UI thread; the application may then bring its window to the
+	// front: the system lets it). It is the last one shown that was clicked:
+	// the application remembers what it was about. NULL: none.
+	// Windows only for now (elsewhere it is never called).
+	Rnotification_set_clicked_callback :: proc(callback: RNotificationClickedCallback, user_data: rawptr) ---
 	// Shows a texture. R_INVALID_ID shows nothing.
 	Rviewport_set_texture :: proc(viewport: Rid, texture: Rid) ---
 	// How the texture is fitted in the widget. Default: R_STRETCH_FILL.

@@ -1215,6 +1215,7 @@ pub const RDialogClosedCallback = ?*const fn (content: Rid, result: c_int, user_
 /// widget (OnActivated in XML) fires at the same time.
 pub const RFileBrowserCallback = ?*const fn (browser: Rid, path: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
 pub const RNotificationFallback = ?*const fn (title: ?[*:0]const u8, body: ?[*:0]const u8, urgency: RNotificationUrgency, user_data: ?*anyopaque) callconv(.C) void;
+pub const RNotificationClickedCallback = ?*const fn (user_data: ?*anyopaque) callconv(.C) void;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -3635,6 +3636,12 @@ pub extern fn Rnotification_show(title: ?[*:0]const u8, body: ?[*:0]const u8, ur
 pub extern fn Rnotification_is_supported() c_int;
 /// Called with the notifications the system could not show; NULL: none.
 pub extern fn Rnotification_set_fallback(callback: RNotificationFallback, user_data: ?*anyopaque) void;
+/// Called when the user clicks a notification of Rnotification_show
+/// (on the UI thread; the application may then bring its window to the
+/// front: the system lets it). It is the last one shown that was clicked:
+/// the application remembers what it was about. NULL: none.
+/// Windows only for now (elsewhere it is never called).
+pub extern fn Rnotification_set_clicked_callback(callback: RNotificationClickedCallback, user_data: ?*anyopaque) void;
 /// Shows a texture. R_INVALID_ID shows nothing.
 pub extern fn Rviewport_set_texture(viewport: Rid, texture: Rid) void;
 /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.

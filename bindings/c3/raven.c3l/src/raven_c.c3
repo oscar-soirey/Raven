@@ -911,6 +911,7 @@ extern fn void file_browser_set_selection_changed_callback(Id browser, FileBrows
 extern fn CInt notification_show(ZString title, ZString body, NotificationUrgency urgency) @cname("Rnotification_show");
 extern fn CInt notification_is_supported() @cname("Rnotification_is_supported");
 extern fn void notification_set_fallback(NotificationFallback callback, void* user_data) @cname("Rnotification_set_fallback");
+extern fn void notification_set_clicked_callback(NotificationClickedCallback callback, void* user_data) @cname("Rnotification_set_clicked_callback");
 extern fn void viewport_set_texture(Id viewport, Id texture) @cname("Rviewport_set_texture");
 extern fn void viewport_set_stretch(Id viewport, Stretch stretch) @cname("Rviewport_set_stretch");
 extern fn void viewport_set_flip_y(Id viewport, CInt flip) @cname("Rviewport_set_flip_y");

@@ -2848,6 +2848,9 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RNotificationFallback(IntPtr title, IntPtr body, RNotificationUrgency urgency, IntPtr user_data);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RNotificationClickedCallback(IntPtr user_data);
+
     /// <summary>
     /// Called on the render thread each time the window is rendered.
     /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -7897,6 +7900,16 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnotification_set_fallback(RNotificationFallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Called when the user clicks a notification of Rnotification_show
+        /// (on the UI thread; the application may then bring its window to the
+        /// front: the system lets it). It is the last one shown that was clicked:
+        /// the application remembers what it was about. NULL: none.
+        /// Windows only for now (elsewhere it is never called).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Shows a texture. R_INVALID_ID shows nothing.

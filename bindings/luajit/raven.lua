@@ -797,6 +797,7 @@ typedef void (*RBlockEditorContextCallback)(Rid editor, int block, float x, floa
 typedef void (*RDialogClosedCallback)(Rid content, int result, void* user_data);
 typedef void (*RFileBrowserCallback)(Rid browser, const char* path, void* user_data);
 typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
+typedef void (*RNotificationClickedCallback)(void* user_data);
 typedef void (*RViewportDrawCallback)(const RViewportDrawInfo* info, void* user_data);
 typedef void (*RViewportResizeCallback)(Rid viewport, int width, int height, void* user_data);
 typedef void (*RPaintCallback)(Rid widget, RPainter* painter, float width, float height, void* user_data);
@@ -1954,6 +1955,7 @@ void Rfile_browser_set_selection_changed_callback(Rid browser, RFileBrowserCallb
 int Rnotification_show(const char* title, const char* body, RNotificationUrgency urgency);
 int Rnotification_is_supported(void);
 void Rnotification_set_fallback(RNotificationFallback callback, void* user_data);
+void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data);
 void Rviewport_set_texture(Rid viewport, Rid texture);
 void Rviewport_set_stretch(Rid viewport, RStretch stretch);
 void Rviewport_set_flip_y(Rid viewport, int flip);

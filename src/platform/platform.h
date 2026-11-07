@@ -391,6 +391,9 @@ typedef struct rvn_platform_t {
 	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
 } rvn_platform_t;
 
+/** The user clicked a notification of Rnotification_show: the platform tells the core (notify.c), on the UI thread. */
+void rvn_notification_clicked(void);
+
 #if !defined(_WIN32) && !defined(__APPLE__)
 /** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */
 int  rvn_dbus_notify(const char* app, const char* title, const char* body, int urgency);

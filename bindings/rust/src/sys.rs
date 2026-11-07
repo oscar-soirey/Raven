@@ -1196,6 +1196,7 @@ pub type RDialogClosedCallback = Option<unsafe extern "C" fn(content: Rid, resul
 /// widget (OnActivated in XML) fires at the same time.
 pub type RFileBrowserCallback = Option<unsafe extern "C" fn(browser: Rid, path: *const c_char, user_data: *mut c_void)>;
 pub type RNotificationFallback = Option<unsafe extern "C" fn(title: *const c_char, body: *const c_char, urgency: RNotificationUrgency, user_data: *mut c_void)>;
+pub type RNotificationClickedCallback = Option<unsafe extern "C" fn(user_data: *mut c_void)>;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -3663,6 +3664,12 @@ extern "C" {
     pub fn Rnotification_is_supported() -> c_int;
     /// Called with the notifications the system could not show; NULL: none.
     pub fn Rnotification_set_fallback(callback: RNotificationFallback, user_data: *mut c_void);
+    /// Called when the user clicks a notification of Rnotification_show
+    /// (on the UI thread; the application may then bring its window to the
+    /// front: the system lets it). It is the last one shown that was clicked:
+    /// the application remembers what it was about. NULL: none.
+    /// Windows only for now (elsewhere it is never called).
+    pub fn Rnotification_set_clicked_callback(callback: RNotificationClickedCallback, user_data: *mut c_void);
     /// Shows a texture. R_INVALID_ID shows nothing.
     pub fn Rviewport_set_texture(viewport: Rid, texture: Rid);
     /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.

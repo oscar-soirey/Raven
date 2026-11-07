@@ -22,6 +22,8 @@
 static struct {
 	RNotificationFallback fallback;
 	void* fallback_user;
+	RNotificationClickedCallback clicked;
+	void* clicked_user;
 } g_notify;
 
 int Rnotification_show(const char* title, const char* body, RNotificationUrgency urgency) {
@@ -44,6 +46,16 @@ void Rnotification_set_fallback(RNotificationFallback callback, void* user_data)
 	RVN_API_GUARD_VOID();
 	g_notify.fallback = callback;
 	g_notify.fallback_user = user_data;
+}
+
+void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data) {
+	RVN_API_GUARD_VOID();
+	g_notify.clicked = callback;
+	g_notify.clicked_user = user_data;
+}
+
+void rvn_notification_clicked(void) {
+	if (g_notify.clicked) g_notify.clicked(g_notify.clicked_user);
 }
 
 int Rnotification_is_supported(void) {
