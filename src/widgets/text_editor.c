@@ -2130,6 +2130,8 @@ static int rvn_ed_key(rvn_widget_t* widget, const REvent* event) {
 			break;
 		case R_KEY_ENTER:
 		case R_KEY_KP_ENTER:
+			/* Ctrl/Alt+Enter is left to the window shortcuts (send, run...) */
+			if (command || alt) return R_FALSE;
 			if (ed->read_only) return R_TRUE;
 			rvn_ed_new_line(ed);
 			changed = R_TRUE;
