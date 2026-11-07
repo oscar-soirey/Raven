@@ -4910,6 +4910,24 @@ public final class R {
         return stub(f, RNotificationFallback.class, "RNotificationFallback$raw", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_INT, ADDRESS));
     }
 
+    @FunctionalInterface
+    public interface RNotificationClickedCallback {
+        void invoke(MemorySegment user_data);
+    }
+
+    private static void RNotificationClickedCallback$raw(RNotificationClickedCallback f, MemorySegment user_data) {
+        try {
+            f.invoke(user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RNotificationClickedCallback f) {
+        return stub(f, RNotificationClickedCallback.class, "RNotificationClickedCallback$raw", FunctionDescriptor.ofVoid(ADDRESS));
+    }
+
     /**
      * Called on the render thread each time the window is rendered.
      * State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -19122,6 +19140,36 @@ public final class R {
      */
     public static void Rnotification_set_fallback(RNotificationFallback callback) {
         Rnotification_set_fallback(callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rnotification_set_clicked_callback$;
+
+    /**
+     * Called when the user clicks a notification of Rnotification_show
+     * (on the UI thread; the application may then bring its window to the
+     * front: the system lets it). It is the last one shown that was clicked:
+     * the application remembers what it was about. NULL: none.
+     * Windows only for now (elsewhere it is never called).
+     */
+    public static void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rnotification_set_clicked_callback$;
+        if ($h == null) Rnotification_set_clicked_callback$ = $h = find("Rnotification_set_clicked_callback", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when the user clicks a notification of Rnotification_show
+     * (on the UI thread; the application may then bring its window to the
+     * front: the system lets it). It is the last one shown that was clicked:
+     * the application remembers what it was about. NULL: none.
+     * Windows only for now (elsewhere it is never called).
+     */
+    public static void Rnotification_set_clicked_callback(RNotificationClickedCallback callback) {
+        Rnotification_set_clicked_callback(callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rviewport_set_texture$;

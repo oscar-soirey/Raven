@@ -1048,7 +1048,8 @@ wait their turn (`Queue="Sequence"`) or stack up, the newest at the bottom
 `Rnotification_show` asks the system for a
 notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
 where there is none, calls the fallback the application gave
-(`Rnotification_set_fallback`), to show it in a toast for instance.
+(`Rnotification_set_fallback`), to show it in a toast for instance. A click on
+a notification calls `Rnotification_set_clicked_callback` (Windows for now).
 
 SVG files are read wherever an image is (`Image Source="icon.svg"`,
 `Rtexture_create_from_file`) and shown at the size the SVG gives. They are

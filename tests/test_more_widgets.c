@@ -547,16 +547,28 @@ static void on_notification(const char* title, const char* body, RNotificationUr
 	g_calls++;
 }
 
+static int g_clicks;
+
+static void on_notification_clicked(void* user_data) {
+	(void)user_data;
+	g_clicks++;
+}
+
 static void test_notifications(void) {
 	/* the null platform has none: the fallback gets them */
 	CHECK(!Rnotification_is_supported());
 	g_calls = 0;
+	g_clicks = 0;
+	Rnotification_set_clicked_callback(on_notification_clicked, NULL);
 	CHECK(!Rnotification_show("Title", "Body", R_NOTIFICATION_CRITICAL));
 	CHECK(g_calls == 0);
 	Rnotification_set_fallback(on_notification, NULL);
 	CHECK(!Rnotification_show("Done", "The export is finished", R_NOTIFICATION_CRITICAL));
 	CHECK(g_calls == 1);
 	CHECK_STR(g_last_text, "Done/The export is finished/1");
+	/* only a click of the user on a notification of the system calls it: never the fallback */
+	CHECK(g_clicks == 0);
+	Rnotification_set_clicked_callback(NULL, NULL);
 	Rnotification_set_fallback(NULL, NULL);
 	EXPECT_ERRORS_BEGIN();
 	Rnotification_show(NULL, "", R_NOTIFICATION_NORMAL);

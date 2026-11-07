@@ -1048,6 +1048,7 @@ const _symbols = {
 	Rnotification_show: { args: ["ptr", "ptr", "i32"], returns: "i32" },
 	Rnotification_is_supported: { args: [], returns: "i32" },
 	Rnotification_set_fallback: { args: ["ptr", "ptr"], returns: "void" },
+	Rnotification_set_clicked_callback: { args: ["ptr", "ptr"], returns: "void" },
 	Rviewport_set_texture: { args: ["u32", "u32"], returns: "void" },
 	Rviewport_set_stretch: { args: ["u32", "i32"], returns: "void" },
 	Rviewport_set_flip_y: { args: ["u32", "i32"], returns: "void" },
@@ -5976,6 +5977,21 @@ function _adapt_RNotificationFallback(function_: RNotificationFallback | Pointer
 			_report(error as Error);
 		}
 	}, { args: ["ptr", "ptr", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+export type RNotificationClickedCallback = (user_data: Pointer | null) => void;
+
+function _adapt_RNotificationClickedCallback(function_: RNotificationClickedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((user_data: Pointer | null): void => {
+		try {
+			function_(user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -11258,6 +11274,17 @@ export function Rnotification_is_supported(): number {
 /** Called with the notifications the system could not show; NULL: none. */
 export function Rnotification_set_fallback(callback: RNotificationFallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rnotification_set_fallback(_adapt_RNotificationFallback(callback), user_data);
+}
+
+/**
+ * Called when the user clicks a notification of Rnotification_show
+ * (on the UI thread; the application may then bring its window to the
+ * front: the system lets it). It is the last one shown that was clicked:
+ * the application remembers what it was about. NULL: none.
+ * Windows only for now (elsewhere it is never called).
+ */
+export function Rnotification_set_clicked_callback(callback: RNotificationClickedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rnotification_set_clicked_callback(_adapt_RNotificationClickedCallback(callback), user_data);
 }
 
 /** Shows a texture. R_INVALID_ID shows nothing. */

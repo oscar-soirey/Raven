@@ -258,6 +258,15 @@ extern "C" {
 	typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
 	/** @brief Called with the notifications the system could not show; NULL: none. */
 	RAVEN_API void Rnotification_set_fallback(RNotificationFallback callback, void* user_data);
+	typedef void (*RNotificationClickedCallback)(void* user_data);
+	/**
+	 * @brief Called when the user clicks a notification of Rnotification_show
+	 * (on the UI thread; the application may then bring its window to the
+	 * front: the system lets it). It is the last one shown that was clicked:
+	 * the application remembers what it was about. NULL: none.
+	 * Windows only for now (elsewhere it is never called).
+	 */
+	RAVEN_API void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

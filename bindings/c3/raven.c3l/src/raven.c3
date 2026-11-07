@@ -1530,6 +1530,7 @@ alias DialogClosedCallback = fn void(Id content, CInt result, void* user_data);
 *>
 alias FileBrowserCallback = fn void(Id browser, ZString path, void* user_data);
 alias NotificationFallback = fn void(ZString title, ZString body, NotificationUrgency urgency, void* user_data);
+alias NotificationClickedCallback = fn void(void* user_data);
 <*
  Called on the render thread each time the window is rendered.
  State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -6004,6 +6005,15 @@ alias notification_is_supported = c::notification_is_supported;
 
 <* Called with the notifications the system could not show; NULL: none. *>
 alias notification_set_fallback = c::notification_set_fallback;
+
+<*
+ Called when the user clicks a notification of Rnotification_show
+ (on the UI thread; the application may then bring its window to the
+ front: the system lets it). It is the last one shown that was clicked:
+ the application remembers what it was about. NULL: none.
+ Windows only for now (elsewhere it is never called).
+*>
+alias notification_set_clicked_callback = c::notification_set_clicked_callback;
 
 <* Pushes a spring away from its target (units per second): it bounces back. *>
 alias spring_kick = c::spring_kick;

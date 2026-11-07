@@ -1102,19 +1102,55 @@ static void rvn_win32_copy_wide(WCHAR* out, size_t capacity, const char* text) {
 	out[i] = 0;
 }
 
+/* The message of the notification icon: a click on a balloon (or on the
+ * notification Windows makes of it). */
+#define RVN_WM_NOTIFY_ICON (WM_APP + 0x52)
+#ifndef NIN_BALLOONUSERCLICK
+#define NIN_BALLOONUSERCLICK (WM_USER + 5)
+#endif
+
+static WNDPROC g_rvn_notify_static_proc;
+
+static LRESULT CALLBACK rvn_win32_notify_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
+	if (message == RVN_WM_NOTIFY_ICON) {
+		/* the event is lparam (or its low word, with NOTIFYICON_VERSION_4) */
+		if (LOWORD(lparam) == NIN_BALLOONUSERCLICK) rvn_notification_clicked();
+		return 0;
+	}
+	return CallWindowProcW(g_rvn_notify_static_proc, handle, message, wparam, lparam);
+}
+
+static void rvn_win32_notify_shutdown(void);
+
 static int rvn_win32_notify(const char* app, const char* title, const char* body, int urgency) {
 	NOTIFYICONDATAW data;
+	/* low: no sound; critical: the error sign */
+	DWORD info_flags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	{
+		/* the application has a tray icon: the notification is shown on it
+		 * (one icon in the notification area, not two) */
+		WCHAR info_title[64], info_text[256];
+		rvn_win32_copy_wide(info_title, RVN_COUNT_OF(info_title), *title ? title : app);
+		rvn_win32_copy_wide(info_text, RVN_COUNT_OF(info_text), *body ? body : " ");
+		if (rvn_win32_tray_balloon(info_title, info_text, info_flags)) {
+			/* (an icon of its own made before the tray icon came: gone) */
+			if (g_win32.notify_icon) rvn_win32_notify_shutdown();
+			return R_TRUE;
+		}
+	}
 	if (!g_win32.notify_window) {
-		/* a message-only window: never shown, it only owns the icon */
+		/* a message-only window: never shown, it only owns the icon and hears its clicks */
 		g_win32.notify_window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, g_win32.instance, NULL);
 		if (!g_win32.notify_window) return R_FALSE;
+		g_rvn_notify_static_proc = (WNDPROC)SetWindowLongPtrW(g_win32.notify_window, GWLP_WNDPROC, (LONG_PTR)rvn_win32_notify_proc);
 	}
 	memset(&data, 0, sizeof(data));
 	data.cbSize = sizeof(data);
 	data.hWnd = g_win32.notify_window;
 	data.uID = 1;
 	if (!g_win32.notify_icon) {
-		data.uFlags = NIF_ICON | NIF_TIP;
+		data.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+		data.uCallbackMessage = RVN_WM_NOTIFY_ICON;
 		data.hIcon = g_win32.app_icon_small ? g_win32.app_icon_small : (g_win32.app_icon ? g_win32.app_icon : LoadIconW(NULL, IDI_APPLICATION));
 		rvn_win32_copy_wide(data.szTip, RVN_COUNT_OF(data.szTip), app);
 		if (!Shell_NotifyIconW(NIM_ADD, &data)) return R_FALSE;
@@ -1123,8 +1159,7 @@ static int rvn_win32_notify(const char* app, const char* title, const char* body
 	data.uFlags = NIF_INFO;
 	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), *title ? title : app);
 	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), *body ? body : " ");
-	/* low: no sound; critical: the error sign */
-	data.dwInfoFlags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	data.dwInfoFlags = info_flags;
 	return Shell_NotifyIconW(NIM_MODIFY, &data) ? R_TRUE : R_FALSE;
 }
 
