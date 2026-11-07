@@ -5,6 +5,7 @@
 // The C API as it is. Enumerations are c_int with constants, structures are
 // extern structs whose fields default to zero (`.{}` is the zeroed structure
 // of C), texts are `?[*:0]const u8`: a Zig string literal passes as it is.
+// Needs Zig 0.14 or later (tested up to 0.17).
 //
 //   const r = @import("raven.zig");
 //
@@ -17,7 +18,7 @@
 //       r.Rshutdown();
 //   }
 //
-//   fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void {
+//   fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void {
 //       _ = sender; _ = action; _ = user_data;
 //       r.Rquit(0);
 //   }
@@ -1047,21 +1048,21 @@ pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
 /// The body of your loop does the same job; the callback is also called
 /// while the OS keeps the thread in a loop of its own (on Windows, while
 /// the user moves or resizes a window), when your loop is not running.
-pub const RFrameCallback = ?*const fn (delta_seconds: f64, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTaskCallback = ?*const fn (user_data: ?*anyopaque) callconv(.C) void;
-pub const RParallelRangeCallback = ?*const fn (begin: u32, end: u32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTimerCallback = ?*const fn (timer: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RFrameCallback = ?*const fn (delta_seconds: f64, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTaskCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
+pub const RParallelRangeCallback = ?*const fn (begin: u32, end: u32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTimerCallback = ?*const fn (timer: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Actions connect widgets to application code by name. A widget carries an
 /// action name (set from XML with OnClicked="file.save", or from C with
 /// Rwidget_set_action); when its main event fires, the function bound to that
 /// name is called. Names are resolved when the event fires, so actions can be
 /// bound before or after the widgets are created.
-pub const RActionCallback = ?*const fn (sender: Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
+pub const RActionCallback = ?*const fn (sender: Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
 /// Registers a function called whenever an error is raised.
 /// The function may be registered before Rinit. It is called on the
 /// thread that raised the error: errors of the renderer (and the messages
 /// of the Vulkan validation layers) come from the render thread.
-pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail: ?[*:0]const u8) callconv(.C) void;
+pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail: ?[*:0]const u8) callconv(.c) void;
 /// Registers a function called after Raven recovered from the loss
 /// of the GPU device (a driver reset or update, a GPU removed, a long sleep).
 ///
@@ -1076,160 +1077,160 @@ pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail
 ///
 /// Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
 /// Rinit; NULL removes it.
-pub const RDeviceResetCallback = ?*const fn (user_data: ?*anyopaque) callconv(.C) void;
+pub const RDeviceResetCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
 /// Called for a drop target (a widget, or a window: `target` is its
 /// handle). Return R_TRUE to accept: while the pointer is over the target this
 /// shows the "can drop here" cursor and highlights the target; for
 /// R_DROP_DROPPED it tells the source that the data was taken.
-pub const RDropCallback = ?*const fn (target: Rid, event: ?*const RDropEvent, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RDropCallback = ?*const fn (target: Rid, event: ?*const RDropEvent, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called when the user asks to close the window.
 /// Return R_TRUE to let the window close, R_FALSE to keep it open.
-pub const RWindowCloseCallback = ?*const fn (window: Rid, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RWindowCloseCallback = ?*const fn (window: Rid, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called after the window was resized. Sizes are in logical units.
-pub const RWindowResizeCallback = ?*const fn (window: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RWindowResizeCallback = ?*const fn (window: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Sees every input event of the window (mouse, wheel, keys, text)
 /// before any widget, with `target` set to the widget under the pointer.
 /// Returning R_TRUE consumes the event: the widgets do not get it. The
 /// state read by Rwindow_is_key_down is updated either way.
-pub const RWindowEventHook = ?*const fn (window: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RWindowEventHook = ?*const fn (window: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Return R_TRUE to take the finger: the library then neither clicks nor scrolls with it.
-pub const RTouchCallback = ?*const fn (widget: Rid, event: ?*const RTouchEvent, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RTouchCallback = ?*const fn (widget: Rid, event: ?*const RTouchEvent, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
-pub const RPenCallback = ?*const fn (widget: Rid, event: ?*const RPenEvent, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RPenCallback = ?*const fn (widget: Rid, event: ?*const RPenEvent, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
-pub const RGestureCallback = ?*const fn (widget: Rid, event: ?*const RGestureEvent, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RGestureCallback = ?*const fn (widget: Rid, event: ?*const RGestureEvent, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called once when the widget is gone: deleted by the application,
 /// with its parent or its window, or by Rshutdown. The place to release
 /// what belonged to it (a texture, a connection). The handle it receives
 /// names nothing any more: it is only there to tell widgets apart.
 /// Called on the UI thread, shortly after the deletion.
-pub const RWidgetDestroyCallback = ?*const fn (widget: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RWidgetDestroyCallback = ?*const fn (widget: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Receives the input events of a widget before the widget itself.
 /// Return R_TRUE to consume the event (the widget and its parents will
 /// not see it), R_FALSE to let it continue.
-pub const RWidgetEventCallback = ?*const fn (widget: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.C) c_int;
-pub const RTabChangedCallback = ?*const fn (tab_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RWidgetEventCallback = ?*const fn (widget: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RTabChangedCallback = ?*const fn (tab_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// The user closes a tab (its button, a middle click). Return R_TRUE
 /// to delete its page now, R_FALSE to keep it (the application may ask to
 /// save, then delete the page itself with Rwidget_destroy).
-pub const RTabCloseCallback = ?*const fn (tab_view: Rid, index: c_int, content: Rid, user_data: ?*anyopaque) callconv(.C) c_int;
-pub const RExpanderChangedCallback = ?*const fn (expander: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTabCloseCallback = ?*const fn (tab_view: Rid, index: c_int, content: Rid, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RExpanderChangedCallback = ?*const fn (expander: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user clicks a link of a Markdown label.
 ///
 /// Without a callback, a link written [Save](action:file.save) fires the
 /// action "file.save" (Raction_bind), and http, https and mailto links
 /// open in the browser or the mail program of the user (Ropen_url).
-pub const RLabelLinkCallback = ?*const fn (label: Rid, url: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
-pub const RButtonClickedCallback = ?*const fn (button: Rid, user_data: ?*anyopaque) callconv(.C) void;
-pub const RCheckboxChangedCallback = ?*const fn (checkbox: Rid, checked: c_int, user_data: ?*anyopaque) callconv(.C) void;
-pub const RSliderChangedCallback = ?*const fn (slider: Rid, value: f32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTextChangedCallback = ?*const fn (text_input: Rid, text: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
-pub const RSpinBoxChangedCallback = ?*const fn (spin_box: Rid, value: f64, user_data: ?*anyopaque) callconv(.C) void;
-pub const RComboBoxChangedCallback = ?*const fn (combo_box: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RLabelLinkCallback = ?*const fn (label: Rid, url: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RButtonClickedCallback = ?*const fn (button: Rid, user_data: ?*anyopaque) callconv(.c) void;
+pub const RCheckboxChangedCallback = ?*const fn (checkbox: Rid, checked: c_int, user_data: ?*anyopaque) callconv(.c) void;
+pub const RSliderChangedCallback = ?*const fn (slider: Rid, value: f32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTextChangedCallback = ?*const fn (text_input: Rid, text: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RSpinBoxChangedCallback = ?*const fn (spin_box: Rid, value: f64, user_data: ?*anyopaque) callconv(.c) void;
+pub const RComboBoxChangedCallback = ?*const fn (combo_box: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Virtual mode, for large or computed data: the list stores nothing and
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
-pub const RListItemTextCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) ?[*:0]const u8;
-pub const RListEventCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTreeEventCallback = ?*const fn (tree_view: Rid, item: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RListItemTextCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) ?[*:0]const u8;
+pub const RListEventCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTreeEventCallback = ?*const fn (tree_view: Rid, item: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: `item` is the item under the pointer (selected
 /// first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
-pub const RTreeContextCallback = ?*const fn (tree_view: Rid, item: Rid, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RMenuItemClickedCallback = ?*const fn (item: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTreeContextCallback = ?*const fn (tree_view: Rid, item: Rid, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RMenuItemClickedCallback = ?*const fn (item: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
-pub const RTileItemCallback = ?*const fn (tile_view: Rid, index: c_int, item: ?*RTileItem, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTileItemCallback = ?*const fn (tile_view: Rid, index: c_int, item: ?*RTileItem, user_data: ?*anyopaque) callconv(.c) void;
 /// Selection change (`index`: the current tile, or -1) and activation (double click, Enter).
-pub const RTileEventCallback = ?*const fn (tile_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTileEventCallback = ?*const fn (tile_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: the tile under the pointer (selected first), or -1 in the empty space; x, y in the window.
-pub const RTileContextCallback = ?*const fn (tile_view: Rid, index: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTileContextCallback = ?*const fn (tile_view: Rid, index: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// The data of a drag, given by the application (paths of files...)
 /// instead of the indices: the dragged tiles are the selected ones
 /// (Rtile_view_get_selection). The text returned is copied; NULL keeps
 /// the indices.
-pub const RTileDragDataCallback = ?*const fn (tile_view: Rid, user_data: ?*anyopaque) callconv(.C) ?[*:0]const u8;
+pub const RTileDragDataCallback = ?*const fn (tile_view: Rid, user_data: ?*anyopaque) callconv(.c) ?[*:0]const u8;
 /// Virtual mode, for large or computed data: the table stores nothing and
 /// asks for the texts of the cells it draws. The returned string must stay
 /// valid until the next call.
-pub const RTableCellTextCallback = ?*const fn (table: Rid, row: c_int, column: c_int, user_data: ?*anyopaque) callconv(.C) ?[*:0]const u8;
-pub const RTableEventCallback = ?*const fn (table: Rid, row: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTableCellTextCallback = ?*const fn (table: Rid, row: c_int, column: c_int, user_data: ?*anyopaque) callconv(.c) ?[*:0]const u8;
+pub const RTableEventCallback = ?*const fn (table: Rid, row: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user clicks a header; `column` -1: not sorted.
-pub const RTableSortCallback = ?*const fn (table: Rid, column: c_int, descending: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTableSortCallback = ?*const fn (table: Rid, column: c_int, descending: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user chooses a date. This also fires the action of the widget.
-pub const RDateChangedCallback = ?*const fn (date_picker: Rid, year: c_int, month: c_int, day: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RDateChangedCallback = ?*const fn (date_picker: Rid, year: c_int, month: c_int, day: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user changes the time. This also fires the action of the widget.
-pub const RTimeChangedCallback = ?*const fn (time_picker: Rid, hour: c_int, minute: c_int, second: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTimeChangedCallback = ?*const fn (time_picker: Rid, hour: c_int, minute: c_int, second: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called by the button of a message, which then hides. This also fires the action of the widget.
-pub const RToastCallback = ?*const fn (toast: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RToastCallback = ?*const fn (toast: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user clicks an item. This also fires the action of the widget.
-pub const RBreadcrumbCallback = ?*const fn (breadcrumb: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RBreadcrumbCallback = ?*const fn (breadcrumb: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user changes the score. This also fires the action of the widget.
-pub const RRatingChangedCallback = ?*const fn (rating: Rid, value: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RRatingChangedCallback = ?*const fn (rating: Rid, value: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user goes to another page. This also fires the action of the widget.
-pub const RPageChangedCallback = ?*const fn (pagination: Rid, page: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RPageChangedCallback = ?*const fn (pagination: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
-pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the editor gathers its proposals, with the
 /// start of the word being typed: add your own with
 /// Rtext_editor_add_completion (the fields of a structure, the answers of
 /// a language server...). They are listed before the others.
-pub const RCompletionCallback = ?*const fn (editor: Rid, prefix: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
+pub const RCompletionCallback = ?*const fn (editor: Rid, prefix: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
 /// Called after each change made by the user (typing, pasting,
 /// undoing...) or by Rtext_editor_insert_text. The action of the widget
 /// (OnChanged in XML) fires at the same time.
-pub const RTextEditorChangedCallback = ?*const fn (editor: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTextEditorChangedCallback = ?*const fn (editor: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the tray icon is clicked (Rtray_set_clicked_callback).
-pub const RTrayClickedCallback = ?*const fn (tray: Rid, button: RMouseButton, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTrayClickedCallback = ?*const fn (tray: Rid, button: RMouseButton, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user closes a panel, before it is deleted.
 /// Return R_FALSE to keep the panel.
-pub const RDockCloseCallback = ?*const fn (area: Rid, panel: Rid, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RDockCloseCallback = ?*const fn (area: Rid, panel: Rid, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called after the user moved, resized, showed or closed a panel.
-pub const RDockChangedCallback = ?*const fn (area: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RDockChangedCallback = ?*const fn (area: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user unfolds or folds the island. The action of the widget (OnChanged) fires too.
-pub const RIslandChangedCallback = ?*const fn (island: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RIslandChangedCallback = ?*const fn (island: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the user changes the color: while dragging,
 /// and when a code or a number is entered. The action of the widget
 /// (OnChanged in XML) fires too.
-pub const RColorChangedCallback = ?*const fn (picker: Rid, r: f32, g: f32, b: f32, a: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RColorChangedCallback = ?*const fn (picker: Rid, r: f32, g: f32, b: f32, a: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// The playhead moved: scrubbed by the user, or running by itself.
-pub const RTimelineTimeCallback = ?*const fn (timeline: Rid, seconds: f64, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTimelineTimeCallback = ?*const fn (timeline: Rid, seconds: f64, user_data: ?*anyopaque) callconv(.c) void;
 /// Something happened to an item; which thing depends on the function the callback was given to.
-pub const RTimelineItemCallback = ?*const fn (timeline: Rid, item: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTimelineItemCallback = ?*const fn (timeline: Rid, item: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Asked when the user is about to link two pins that may be
 /// linked: return R_FALSE to refuse (a loop, a rule of the application).
-pub const RNodeGraphConnectCallback = ?*const fn (graph: Rid, output_pin: c_int, input_pin: c_int, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RNodeGraphConnectCallback = ?*const fn (graph: Rid, output_pin: c_int, input_pin: c_int, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Something happened to a link or to a node; which thing depends on the function the callback was given to.
-pub const RNodeGraphItemCallback = ?*const fn (graph: Rid, item: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RNodeGraphItemCallback = ?*const fn (graph: Rid, item: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: `node` is the node under the pointer (selected first),
 /// or 0 on the empty canvas; x, y are in the widget (Rnode_graph_to_canvas).
 /// Without this callback the right button does nothing.
-pub const RNodeGraphContextCallback = ?*const fn (graph: Rid, node: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RNodeGraphContextCallback = ?*const fn (graph: Rid, node: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// A block changed (0: several, or one was deleted), or a script was clicked (its top block).
-pub const RBlockEditorCallback = ?*const fn (editor: Rid, block: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RBlockEditorCallback = ?*const fn (editor: Rid, block: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: on a block (0 on the canvas), at x, y in the widget.
-pub const RBlockEditorContextCallback = ?*const fn (editor: Rid, block: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RBlockEditorContextCallback = ?*const fn (editor: Rid, block: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
-pub const RDialogClosedCallback = ?*const fn (content: Rid, result: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RDialogClosedCallback = ?*const fn (content: Rid, result: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user chooses: a double click or Enter on a file,
 /// the Open / Save button. `path` is the first chosen path; with several
 /// files, read them with Rfile_browser_get_selection. The action of the
 /// widget (OnActivated in XML) fires at the same time.
-pub const RFileBrowserCallback = ?*const fn (browser: Rid, path: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
-pub const RNotificationFallback = ?*const fn (title: ?[*:0]const u8, body: ?[*:0]const u8, urgency: RNotificationUrgency, user_data: ?*anyopaque) callconv(.C) void;
+pub const RFileBrowserCallback = ?*const fn (browser: Rid, path: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RNotificationFallback = ?*const fn (title: ?[*:0]const u8, body: ?[*:0]const u8, urgency: RNotificationUrgency, user_data: ?*anyopaque) callconv(.c) void;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
-pub const RViewportDrawCallback = ?*const fn (info: ?*const RViewportDrawInfo, user_data: ?*anyopaque) callconv(.C) void;
+pub const RViewportDrawCallback = ?*const fn (info: ?*const RViewportDrawInfo, user_data: ?*anyopaque) callconv(.c) void;
 /// Called on the UI thread when the pixel size changes: resize your render target here.
-pub const RViewportResizeCallback = ?*const fn (viewport: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.C) void;
-pub const RPaintCallback = ?*const fn (widget: Rid, painter: ?*RPainter, width: f32, height: f32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RMeasureCallback = ?*const fn (widget: Rid, width: ?*f32, height: ?*f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RViewportResizeCallback = ?*const fn (viewport: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.c) void;
+pub const RPaintCallback = ?*const fn (widget: Rid, painter: ?*RPainter, width: f32, height: f32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RMeasureCallback = ?*const fn (widget: Rid, width: ?*f32, height: ?*f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time a file was loaded again.
 /// path The file given when the interface was created.
 /// ok   R_FALSE when the file could not be used (the interface is unchanged).
 ///
 /// Widgets that had to be built again have new handles: this is the
 /// place to look them up again (Rwidget_find).
-pub const RXmlReloadCallback = ?*const fn (path: ?[*:0]const u8, ok: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RXmlReloadCallback = ?*const fn (path: ?[*:0]const u8, ok: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Tags made by code. A library or an application that builds a widget of
 /// its own (a R_WIDGET_CUSTOM with its callbacks, or an assembly of
 /// widgets) can give it a tag: documents then write <MyWidget .../> as
@@ -1240,9 +1241,9 @@ pub const RXmlReloadCallback = ?*const fn (path: ?[*:0]const u8, ok: c_int, user
 /// them: it returns R_TRUE for those it understands, R_FALSE to leave
 /// them to the widget (Name, Width, Slot..., and what its type knows).
 /// Rwidget_set_attribute goes through it too.
-pub const RXmlTagCreateCallback = ?*const fn (tag: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) Rid;
-pub const RXmlTagAttributeCallback = ?*const fn (widget: Rid, name: ?[*:0]const u8, value: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) c_int;
-pub const RLocaleChangedCallback = ?*const fn (language: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
+pub const RXmlTagCreateCallback = ?*const fn (tag: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) Rid;
+pub const RXmlTagAttributeCallback = ?*const fn (widget: Rid, name: ?[*:0]const u8, value: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RLocaleChangedCallback = ?*const fn (language: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
 
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
@@ -1508,11 +1509,11 @@ pub const RTileItem = extern struct {
     badge: ?[*:0]const u8 = null,
     /// Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default).
     icon: Rid = 0,
-    uv: [4]f32 = [_]f32{0} ** 4,
-    tint: [4]f32 = [_]f32{0} ** 4,
+    uv: [4]f32 = @splat(0),
+    tint: [4]f32 = @splat(0),
     icon_radius: f32 = 0,
     /// Color of the name; alpha 0 = the theme.
-    text_color: [4]f32 = [_]f32{0} ** 4,
+    text_color: [4]f32 = @splat(0),
 };
 
 /// What the editor knows of a language. Every field but the name may be NULL.
@@ -1629,10 +1630,10 @@ pub const RSpring = extern struct {
 /// How an effect is drawn. Start from Rshader_look_init.
 pub const RShaderLook = extern struct {
     /// First and second color, 0..1, straight alpha.
-    color: [4]f32 = [_]f32{0} ** 4,
-    color2: [4]f32 = [_]f32{0} ** 4,
+    color: [4]f32 = @splat(0),
+    color2: [4]f32 = @splat(0),
     /// Four numbers the effect reads as fx.params (their meaning is the effect's).
-    params: [4]f32 = [_]f32{0} ** 4,
+    params: [4]f32 = @splat(0),
     /// Radius of the corners, in logical units.
     radius: f32 = 0,
     /// Texture the effect reads with raven_texture(), or R_INVALID_ID.
@@ -1654,7 +1655,7 @@ pub const RXmlError = extern struct {
     /// Both start at 1.
     line: c_int = 0,
     column: c_int = 0,
-    message: [160]u8 = [_]u8{0} ** 160,
+    message: [160]u8 = @splat(0),
 };
 
 /// One attribute of a tag (Rxml_get_attribute_info). The strings belong to the library.

@@ -56,7 +56,8 @@ def zero(api, f):
     """The default value of a field: a structure written `.{}` is the zeroed structure of C."""
     kind, detail = classify(f.ctype, api)
     if f.array:
-        return "[_]%s{0} ** %d" % (zig_type(api, f.ctype), f.array)
+        # (Zig 0.17 has no `**` any more; @splat fills an array since 0.14)
+        return "@splat(0)"
     if kind == "scalar":
         return "0"
     if kind == "enum":
@@ -81,6 +82,7 @@ def generate(api):
     w("// The C API as it is. Enumerations are c_int with constants, structures are")
     w("// extern structs whose fields default to zero (`.{}` is the zeroed structure")
     w("// of C), texts are `?[*:0]const u8`: a Zig string literal passes as it is.")
+    w("// Needs Zig 0.14 or later (tested up to 0.17).")
     w("//")
     w("//   const r = @import(\"raven.zig\");")
     w("//")
@@ -93,7 +95,7 @@ def generate(api):
     w("//       r.Rshutdown();")
     w("//   }")
     w("//")
-    w("//   fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void {")
+    w("//   fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void {")
     w("//       _ = sender; _ = action; _ = user_data;")
     w("//       r.Rquit(0);")
     w("//   }")
@@ -124,7 +126,7 @@ def generate(api):
     for c in api.callbacks:
         emit_doc(out, c.doc)
         params = ", ".join("%s: %s" % (safe(p.name), zig_type(api, p.ctype)) for p in c.params)
-        w("pub const %s = ?*const fn (%s) callconv(.C) %s;" % (c.name, params, zig_type(api, c.ret)))
+        w("pub const %s = ?*const fn (%s) callconv(.c) %s;" % (c.name, params, zig_type(api, c.ret)))
     w("")
     for s in api.structs:
         emit_doc(out, s.doc)
