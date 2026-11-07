@@ -221,7 +221,7 @@ static float rvn_toast_action_width(const rvn_widget_t* widget, const rvn_toast_
 
 static float rvn_toast_message_width(const rvn_widget_t* widget, const rvn_toast_message_t* message) {
 	float padding = rvn_toast_padding(widget);
-	float width = ceilf(rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, message->text ? message->text : "")) + padding * 2.0f + 12.0f;
+	float width = ceilf(rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, message->text ? message->text : "")) + padding * 2.0f + 14.0f;
 	return width + rvn_toast_action_width(widget, message);
 }
 
