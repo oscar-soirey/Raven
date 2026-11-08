@@ -246,6 +246,97 @@ const PARTS: Record<string, Omit<TagInfo, "kind" | "shared" | "aliases" | "dotte
 		attributes: [t("Name", "Name of the category."), k("Color", "Its color.")],
 		strict: true,
 	},
+	"Plot/Series": {
+		name: "Series",
+		description: "A series of the plot: its points (X and Y, or Points) and how they are drawn.",
+		children: "none",
+		parts: [],
+		attributes: [
+			t("Name", "Its name in the legend (none: not in the legend)."),
+			k("Color", "Its color (by default the next one of a palette of ten)."),
+			c("Line", "Solid|Dashed|Dotted|DashDot|None", "How its line is drawn."),
+			n("LineWidth", "Width of its line (default 1.75)."),
+			c("Marker", "None|Circle|Square|Diamond|TriangleUp|TriangleDown|Cross|Plus|Asterisk", "The mark on each point."),
+			n("MarkerSize", "Radius of the marks (default 4)."),
+			b("MarkerFilled", "Filled marks (or only their outline)."),
+			b("Step", "The line goes in steps."),
+			t("Fill", "Shades down to zero: true, or an opacity from 0 to 1."),
+			c("XAxis", "X|X2", "The horizontal axis it is drawn against."),
+			c("Axis", "Y|Y2", "The vertical axis it is drawn against (YAxis is another name)."),
+			c("YAxis", "Y|Y2", "The vertical axis it is drawn against."),
+			n("MaxPoints", "Keeps only the last points (data that streams)."),
+			b("Visible", "Shown (a click on its name in the legend hides it)."),
+			t("X", "The X of its points, separated by spaces or commas (none: 0, 1, 2...)."),
+			t("Y", "The Y of its points, separated by spaces or commas."),
+			t("Points", "Its points as pairs: \"x,y x,y ...\" (or the text inside the element)."),
+		],
+		strict: true,
+	},
+	"Plot/Line": {
+		name: "Line",
+		description: "Another name of Series.",
+		children: "none",
+		parts: [],
+		attributes: [
+			t("Name", "Its name in the legend (none: not in the legend)."),
+			k("Color", "Its color (by default the next one of a palette of ten)."),
+			c("Line", "Solid|Dashed|Dotted|DashDot|None", "How its line is drawn."),
+			n("LineWidth", "Width of its line (default 1.75)."),
+			c("Marker", "None|Circle|Square|Diamond|TriangleUp|TriangleDown|Cross|Plus|Asterisk", "The mark on each point."),
+			n("MarkerSize", "Radius of the marks (default 4)."),
+			b("MarkerFilled", "Filled marks (or only their outline)."),
+			b("Step", "The line goes in steps."),
+			t("Fill", "Shades down to zero: true, or an opacity from 0 to 1."),
+			c("XAxis", "X|X2", "The horizontal axis it is drawn against."),
+			c("Axis", "Y|Y2", "The vertical axis it is drawn against (YAxis is another name)."),
+			c("YAxis", "Y|Y2", "The vertical axis it is drawn against."),
+			n("MaxPoints", "Keeps only the last points (data that streams)."),
+			b("Visible", "Shown (a click on its name in the legend hides it)."),
+			t("X", "The X of its points, separated by spaces or commas (none: 0, 1, 2...)."),
+			t("Y", "The Y of its points, separated by spaces or commas."),
+			t("Points", "Its points as pairs: \"x,y x,y ...\" (or the text inside the element)."),
+		],
+		strict: true,
+	},
+	"Plot/Scatter": {
+		name: "Scatter",
+		description: "A series drawn as markers only (circles unless Marker says otherwise).",
+		children: "none",
+		parts: [],
+		attributes: [
+			t("Name", "Its name in the legend (none: not in the legend)."),
+			k("Color", "Its color (by default the next one of a palette of ten)."),
+			c("Line", "Solid|Dashed|Dotted|DashDot|None", "How its line is drawn."),
+			n("LineWidth", "Width of its line (default 1.75)."),
+			c("Marker", "None|Circle|Square|Diamond|TriangleUp|TriangleDown|Cross|Plus|Asterisk", "The mark on each point."),
+			n("MarkerSize", "Radius of the marks (default 4)."),
+			b("MarkerFilled", "Filled marks (or only their outline)."),
+			b("Step", "The line goes in steps."),
+			t("Fill", "Shades down to zero: true, or an opacity from 0 to 1."),
+			c("XAxis", "X|X2", "The horizontal axis it is drawn against."),
+			c("Axis", "Y|Y2", "The vertical axis it is drawn against (YAxis is another name)."),
+			c("YAxis", "Y|Y2", "The vertical axis it is drawn against."),
+			n("MaxPoints", "Keeps only the last points (data that streams)."),
+			b("Visible", "Shown (a click on its name in the legend hides it)."),
+			t("X", "The X of its points, separated by spaces or commas (none: 0, 1, 2...)."),
+			t("Y", "The Y of its points, separated by spaces or commas."),
+			t("Points", "Its points as pairs: \"x,y x,y ...\" (or the text inside the element)."),
+		],
+		strict: true,
+	},
+	"Plot/DragLine": {
+		name: "DragLine",
+		description: "A line across the plot that the user drags: vertical at an X, horizontal at a Y.",
+		children: "none",
+		parts: [],
+		attributes: [
+			c("Axis", "X|X2|Y|Y2", "X or X2: a vertical line at an X; Y or Y2: a horizontal line at a Y."),
+			n("Value", "Where the line is."),
+			t("Label", "Written before its value (or the text inside the element)."),
+			k("Color", "Its color (by default the accent of the theme)."),
+		],
+		strict: true,
+	},
 	"Window/Shortcut": {
 		name: "Shortcut",
 		description: "Fires an action when the keys are pressed anywhere in the window.",
@@ -380,6 +471,17 @@ for (const tag of schema.tags) {
 		synonyms: tag.accepted || [],
 	};
 	tagsByName.set(tag.name.toLowerCase(), info);
+}
+/* <Plot> reads the attributes of its four axes as a prefix and a name (XLabel, Y2Min...); xml_schema.c describes a few of them. */
+{
+	const plot = tagsByName.get("plot");
+	const properties = ["Label", "Scale", "LinearThreshold", "Threshold", "Min", "Max", "Range", "Format", "Grid", "Inverted", "Locked", "Visible", "AutoFit"];
+	for (const prefix of plot ? ["X", "Y", "X2", "Y2"] : []) {
+		for (const property of properties) {
+			const name = prefix + property;
+			if (!plot!.attributes.some((a) => a.name === name) && !plot!.synonyms.includes(name)) plot!.synonyms.push(name);
+		}
+	}
 }
 for (const [alias, target] of Object.entries(schema.aliases)) {
 	const info = tagsByName.get(target.toLowerCase());

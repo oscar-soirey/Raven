@@ -2475,6 +2475,148 @@
 			"accepted": []
 		},
 		{
+			"name": "Plot",
+			"description": "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Title",
+					"kind": "text",
+					"description": "The title over the data."
+				},
+				{
+					"name": "Legend",
+					"kind": "choice",
+					"choices": [
+						"Hidden",
+						"TopLeft",
+						"Top",
+						"TopRight",
+						"Right",
+						"BottomRight",
+						"Bottom",
+						"BottomLeft",
+						"Left",
+						"Outside"
+					],
+					"description": "Where the legend is."
+				},
+				{
+					"name": "Crosshair",
+					"kind": "bool",
+					"description": "Lines across the data through the pointer."
+				},
+				{
+					"name": "MouseText",
+					"kind": "bool",
+					"description": "The coordinates of the pointer in a corner of the data."
+				},
+				{
+					"name": "Tooltips",
+					"kind": "bool",
+					"description": "The values of the point under the pointer, next to it."
+				},
+				{
+					"name": "Grid",
+					"kind": "bool",
+					"description": "Lines at the ticks of X and Y."
+				},
+				{
+					"name": "XLabel",
+					"kind": "text",
+					"description": "The name of the horizontal axis (YLabel, X2Label, Y2Label for the others)."
+				},
+				{
+					"name": "XScale",
+					"kind": "choice",
+					"choices": [
+						"Linear",
+						"Log",
+						"SymLog"
+					],
+					"description": "How X spreads its values (YScale, X2Scale, Y2Scale)."
+				},
+				{
+					"name": "XMin",
+					"kind": "number",
+					"description": "The lowest X shown (YMin, X2Min, Y2Min); the axis then stops following the data."
+				},
+				{
+					"name": "XMax",
+					"kind": "number",
+					"description": "The highest X shown (YMax, X2Max, Y2Max)."
+				},
+				{
+					"name": "XFormat",
+					"kind": "text",
+					"description": "A printf format for the labels of X, \"%.1f s\" (YFormat...)."
+				},
+				{
+					"name": "XLinearThreshold",
+					"kind": "number",
+					"description": "SymLog: X is linear from minus this to this (default 1)."
+				},
+				{
+					"name": "XGrid",
+					"kind": "bool",
+					"description": "Lines at the ticks of X (YGrid, X2Grid, Y2Grid)."
+				},
+				{
+					"name": "XInverted",
+					"kind": "bool",
+					"description": "X grows to the left (YInverted: Y grows down)."
+				},
+				{
+					"name": "XLocked",
+					"kind": "bool",
+					"description": "The user cannot move or zoom X (YLocked...)."
+				},
+				{
+					"name": "XVisible",
+					"kind": "bool",
+					"description": "Shows or hides X (Y2Visible shows the right axis without a series on it)."
+				},
+				{
+					"name": "YLabel",
+					"kind": "text",
+					"description": "The name of the vertical axis on the left."
+				},
+				{
+					"name": "YScale",
+					"kind": "choice",
+					"choices": [
+						"Linear",
+						"Log",
+						"SymLog"
+					],
+					"description": "How Y spreads its values."
+				},
+				{
+					"name": "Y2Label",
+					"kind": "text",
+					"description": "The name of the vertical axis on the right."
+				},
+				{
+					"name": "Y2Scale",
+					"kind": "choice",
+					"choices": [
+						"Linear",
+						"Log",
+						"SymLog"
+					],
+					"description": "How the right axis spreads its values."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired while the user drags a drag line."
+				}
+			],
+			"accepted": [
+				"ShowCoordinates"
+			]
+		},
+		{
 			"name": "NodeGraph",
 			"description": "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements.",
 			"children": "none",
@@ -2640,6 +2782,9 @@
 		"DynamicIsland": "Island",
 		"DataGrid": "Table",
 		"TableView": "Table",
-		"Snackbar": "Toast"
+		"Snackbar": "Toast",
+		"Chart": "Plot",
+		"LinePlot": "Plot",
+		"XYPlot": "Plot"
 	}
 }
