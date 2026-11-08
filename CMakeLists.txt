@@ -235,6 +235,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/breadcrumb.c
 	src/widgets/rating.c
 	src/widgets/pagination.c
+	src/widgets/plot.c
 )
 
 set(RAVEN_XML_SOURCES

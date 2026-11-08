@@ -241,6 +241,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_BREADCRUMB: return R_ROLE_GROUP;
 		case R_WIDGET_RATING: return R_ROLE_SLIDER;
 		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
+		case R_WIDGET_PLOT: return R_ROLE_IMAGE;
 		case R_WIDGET_TILE_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TREE_VIEW: return R_ROLE_TREE;
 		case R_WIDGET_MENU_BAR: return R_ROLE_MENU_BAR;
@@ -744,6 +745,22 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 		case R_WIDGET_PAGINATION:
 			rvn_text_printf(&g_a11y.value, "%d / %d", Rpagination_get_page(widget->id) + 1, Rpagination_get_page_count(widget->id));
 			break;
+		case R_WIDGET_PLOT: {
+			/* the title as the name; the series and the ranges shown as the value */
+			int count = Rplot_get_series_count(widget->id), i;
+			double x0 = 0.0, x1 = 0.0, y0 = 0.0, y1 = 0.0;
+			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rplot_get_title(widget->id));
+			Rplot_get_axis_range(widget->id, R_PLOT_X, &x0, &x1);
+			Rplot_get_axis_range(widget->id, R_PLOT_Y, &y0, &y1);
+			rvn_text_printf(&g_a11y.value, "%d series", count);
+			for (i = 0; i < count; i++) {
+				const char* name = Rplot_get_series_name(widget->id, i);
+				if (!Rplot_is_series_visible(widget->id, i)) continue;
+				rvn_text_printf(&g_a11y.value, "%s %s (%d points)", i ? "," : ":", name[0] ? name : "unnamed", Rplot_get_point_count(widget->id, i));
+			}
+			rvn_text_printf(&g_a11y.value, "; X from %g to %g, Y from %g to %g", x0, x1, y0, y1);
+			break;
+		}
 		case R_WIDGET_PROGRESSBAR:
 			node->number = Rprogress_bar_get_value(widget->id) * 100.0;
 			node->minimum = 0.0;

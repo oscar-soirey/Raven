@@ -67,6 +67,69 @@ typedef enum RStretch{
 	R_STRETCH_NONE
 }RStretch;
 
+/** The axes of a Plot. */
+typedef enum RPlotAxis{
+	/** The horizontal axis under the data. */
+	R_PLOT_X = 0x0520,
+	/** The vertical axis on the left. */
+	R_PLOT_Y,
+	/** A second horizontal axis, over the data: shown when a series or a drag line uses it. */
+	R_PLOT_X2,
+	/** A second vertical axis, on the right: shown when a series or a drag line uses it. */
+	R_PLOT_Y2
+}RPlotAxis;
+
+/** How an axis of a Plot spreads its values. */
+typedef enum RPlotScale{
+	R_PLOT_SCALE_LINEAR = 0x0530,
+	/** Powers of ten at even distances; only values above zero are shown. */
+	R_PLOT_SCALE_LOG,
+	/**
+	 * Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+	 * 1 by default), logarithmic beyond on both sides: shows zero and the
+	 * negative values a logarithm cannot.
+	 */
+	R_PLOT_SCALE_SYMLOG
+}RPlotScale;
+
+/** How the line of a series of a Plot is drawn. */
+typedef enum RPlotLine{
+	R_PLOT_LINE_SOLID = 0x0540,
+	R_PLOT_LINE_DASHED,
+	R_PLOT_LINE_DOTTED,
+	R_PLOT_LINE_DASH_DOT,
+	/** No line: only the markers (a scatter plot). */
+	R_PLOT_LINE_NONE
+}RPlotLine;
+
+/** The mark drawn on each point of a series of a Plot. */
+typedef enum RPlotMarker{
+	R_PLOT_MARKER_NONE = 0x0550,
+	R_PLOT_MARKER_CIRCLE,
+	R_PLOT_MARKER_SQUARE,
+	R_PLOT_MARKER_DIAMOND,
+	R_PLOT_MARKER_TRIANGLE_UP,
+	R_PLOT_MARKER_TRIANGLE_DOWN,
+	R_PLOT_MARKER_CROSS,
+	R_PLOT_MARKER_PLUS,
+	R_PLOT_MARKER_ASTERISK
+}RPlotMarker;
+
+/** Where the legend of a Plot is. */
+typedef enum RPlotLegend{
+	R_PLOT_LEGEND_HIDDEN = 0x0560,
+	R_PLOT_LEGEND_TOP_LEFT,
+	R_PLOT_LEGEND_TOP,
+	R_PLOT_LEGEND_TOP_RIGHT,
+	R_PLOT_LEGEND_RIGHT,
+	R_PLOT_LEGEND_BOTTOM_RIGHT,
+	R_PLOT_LEGEND_BOTTOM,
+	R_PLOT_LEGEND_BOTTOM_LEFT,
+	R_PLOT_LEGEND_LEFT,
+	/** To the right of the data, outside it. */
+	R_PLOT_LEGEND_OUTSIDE
+}RPlotLegend;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -734,6 +797,136 @@ extern "C" {
 	/** @brief Called when the user goes to another page. This also fires the action of the widget. */
 	typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
 	RAVEN_API void Rpagination_set_changed_callback(Rid pagination, RPageChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  PLOT (curves of X / Y data)
+	 *
+	 * Series of points drawn as lines and markers over two horizontal axes
+	 * (R_PLOT_X under the data, R_PLOT_X2 over it) and two vertical ones
+	 * (R_PLOT_Y on the left, R_PLOT_Y2 on the right). Each axis is linear,
+	 * logarithmic or symmetric logarithmic, and follows the data until the
+	 * user or the application moves it.
+	 *
+	 * The user moves the view with the left (or middle) button, zooms into a
+	 * rectangle drawn with the right button, zooms around the pointer with
+	 * the wheel, and fits the data again with a double click. Over an axis,
+	 * the button and the wheel move only that axis. A click in the legend
+	 * hides or shows a series; drag lines are dragged. Fingers move and pinch
+	 * the view; the arrows, + / - and Home do the same from the keyboard.
+	 *
+	 * Series and drag lines are counted from 0, in the order they were added.
+	 * ============================================================================ */
+
+	RAVEN_API void Rplot_set_title(Rid plot, const char* title);
+	RAVEN_API const char* Rplot_get_title(Rid plot);
+
+	/** @brief Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index. */
+	RAVEN_API int Rplot_add_series(Rid plot, const char* name);
+	RAVEN_API void Rplot_remove_series(Rid plot, int series);
+	/** @brief Removes every series and every drag line. */
+	RAVEN_API void Rplot_clear(Rid plot);
+	RAVEN_API int Rplot_get_series_count(Rid plot);
+	RAVEN_API void Rplot_set_series_name(Rid plot, int series, const char* name);
+	RAVEN_API const char* Rplot_get_series_name(Rid plot, int series);
+	/**
+	 * @brief Replaces the points of a series with `count` points, copied.
+	 * @param x The X of the points, or NULL: 0, 1, 2...
+	 * @param y The Y of the points. NaN leaves a gap in the line.
+	 */
+	RAVEN_API void Rplot_set_series_data(Rid plot, int series, const double* x, const double* y, int count);
+	/** @brief Adds points after those of a series (x NULL: numbered after the last one). */
+	RAVEN_API void Rplot_append_series_data(Rid plot, int series, const double* x, const double* y, int count);
+	/** @brief Adds one point after those of a series. */
+	RAVEN_API void Rplot_add_point(Rid plot, int series, double x, double y);
+	RAVEN_API void Rplot_clear_series_data(Rid plot, int series);
+	RAVEN_API int Rplot_get_point_count(Rid plot, int series);
+	/** @brief One point of a series. Returns R_FALSE when there is no such point. */
+	RAVEN_API int Rplot_get_point(Rid plot, int series, int index, double* x, double* y);
+	/** @brief Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default). */
+	RAVEN_API void Rplot_set_series_max_points(Rid plot, int series, int max);
+	/** @brief The color of a series (by default the next one of a palette of ten). */
+	RAVEN_API void Rplot_set_series_color(Rid plot, int series, float r, float g, float b, float a);
+	/** @brief How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width). */
+	RAVEN_API void Rplot_set_series_line(Rid plot, int series, RPlotLine line, float width);
+	/** @brief The mark on each point and its radius (default none, 4; size 0 keeps the size). */
+	RAVEN_API void Rplot_set_series_marker(Rid plot, int series, RPlotMarker marker, float size);
+	/** @brief Filled markers (the default) or only their outline. */
+	RAVEN_API void Rplot_set_series_marker_filled(Rid plot, int series, int filled);
+	/** @brief Draws the line in steps: along at the height of a point, then up or down to the next. */
+	RAVEN_API void Rplot_set_series_step(Rid plot, int series, int step);
+	/** @brief Shades the area between the line and zero, at this opacity (0: none, the default). */
+	RAVEN_API void Rplot_set_series_fill(Rid plot, int series, float opacity);
+	/** @brief The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2. */
+	RAVEN_API void Rplot_set_series_axes(Rid plot, int series, RPlotAxis x_axis, RPlotAxis y_axis);
+	/** @brief Shows or hides a series (the user does it with a click on its name in the legend). */
+	RAVEN_API void Rplot_set_series_visible(Rid plot, int series, int visible);
+	RAVEN_API int Rplot_is_series_visible(Rid plot, int series);
+
+	/** @brief The name written along an axis. */
+	RAVEN_API void Rplot_set_axis_label(Rid plot, RPlotAxis axis, const char* label);
+	RAVEN_API const char* Rplot_get_axis_label(Rid plot, RPlotAxis axis);
+	RAVEN_API void Rplot_set_axis_scale(Rid plot, RPlotAxis axis, RPlotScale scale);
+	RAVEN_API RPlotScale Rplot_get_axis_scale(Rid plot, RPlotAxis axis);
+	/** @brief R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1). */
+	RAVEN_API void Rplot_set_axis_linear_threshold(Rid plot, RPlotAxis axis, double threshold);
+	/** @brief Shows this range of an axis; the axis then stops following the data. */
+	RAVEN_API void Rplot_set_axis_range(Rid plot, RPlotAxis axis, double min, double max);
+	/** @brief The range an axis shows now (after the user moved or zoomed it). */
+	RAVEN_API void Rplot_get_axis_range(Rid plot, RPlotAxis axis, double* min, double* max);
+	/** @brief The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again). */
+	RAVEN_API void Rplot_set_axis_auto_fit(Rid plot, RPlotAxis axis, int auto_fit);
+	RAVEN_API int Rplot_is_axis_auto_fit(Rid plot, RPlotAxis axis);
+	/** @brief How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks. */
+	RAVEN_API void Rplot_set_axis_format(Rid plot, RPlotAxis axis, const char* format);
+	/** @brief 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default). */
+	RAVEN_API void Rplot_set_axis_visible(Rid plot, RPlotAxis axis, int visible);
+	/** @brief Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y). */
+	RAVEN_API void Rplot_set_axis_grid(Rid plot, RPlotAxis axis, int grid);
+	/** @brief The values grow the other way (to the left, or down). */
+	RAVEN_API void Rplot_set_axis_inverted(Rid plot, RPlotAxis axis, int inverted);
+	/** @brief The user cannot move or zoom this axis (the application still can). */
+	RAVEN_API void Rplot_set_axis_locked(Rid plot, RPlotAxis axis, int locked);
+	/** @brief Fits every axis that is not locked to the data, and has them follow it again (what a double click does). */
+	RAVEN_API void Rplot_fit(Rid plot);
+
+	/** @brief Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT). */
+	RAVEN_API void Rplot_set_legend(Rid plot, RPlotLegend legend);
+	/** @brief Lines across the data through the pointer. */
+	RAVEN_API void Rplot_set_crosshair(Rid plot, int crosshair);
+	/** @brief The coordinates of the pointer in a corner of the data (on by default). */
+	RAVEN_API void Rplot_set_mouse_text(Rid plot, int shown);
+	/** @brief The values of the point under the pointer, written next to it (on by default). */
+	RAVEN_API void Rplot_set_tooltips(Rid plot, int shown);
+	/** @brief Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data. */
+	RAVEN_API int Rplot_get_mouse_position(Rid plot, double* x, double* y);
+	/** @brief Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner. */
+	RAVEN_API void Rplot_data_to_point(Rid plot, double x, double y, float* point_x, float* point_y);
+	/** @brief The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner. */
+	RAVEN_API void Rplot_point_to_data(Rid plot, float point_x, float point_y, double* x, double* y);
+
+	/**
+	 * @brief Adds a line across the data that the user drags: vertical at an X
+	 * (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+	 * Its value is written on it, after `label` (may be NULL). Returns its index.
+	 */
+	RAVEN_API int Rplot_add_drag_line(Rid plot, RPlotAxis axis, double value, const char* label);
+	RAVEN_API void Rplot_remove_drag_line(Rid plot, int line);
+	RAVEN_API int Rplot_get_drag_line_count(Rid plot);
+	RAVEN_API void Rplot_set_drag_line_value(Rid plot, int line, double value);
+	RAVEN_API double Rplot_get_drag_line_value(Rid plot, int line);
+	/** @brief The color of a drag line (by default the accent of the theme). */
+	RAVEN_API void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, float a);
+
+	/** @brief Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is). */
+	typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
+	RAVEN_API void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
+	/** @brief Called while the user drags a drag line. This also fires the action of the widget. */
+	typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
+	RAVEN_API void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
+	/** @brief Called when the user hides or shows a series from the legend. */
+	typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
+	RAVEN_API void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

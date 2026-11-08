@@ -129,6 +129,8 @@ typedef enum RWidgetType{
 	R_WIDGET_RATING,
 	/** Page numbers with previous and next. */
 	R_WIDGET_PAGINATION,
+	/** Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. */
+	R_WIDGET_PLOT,
 
 	R_WIDGET_LAST_
 }RWidgetType;

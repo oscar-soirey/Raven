@@ -318,6 +318,29 @@ static const rvn_schema_attribute_t g_pagination[] = {
 	N("Siblings", "Page numbers shown on each side of the current one."),
 	A("OnChanged", "Action fired when the user goes to another page."),
 };
+static const rvn_schema_attribute_t g_plot[] = {
+	T("Title", "The title over the data."),
+	C("Legend", "Hidden|TopLeft|Top|TopRight|Right|BottomRight|Bottom|BottomLeft|Left|Outside", "Where the legend is."),
+	B("Crosshair", "Lines across the data through the pointer."),
+	B("MouseText", "The coordinates of the pointer in a corner of the data."),
+	B("Tooltips", "The values of the point under the pointer, next to it."),
+	B("Grid", "Lines at the ticks of X and Y."),
+	T("XLabel", "The name of the horizontal axis (YLabel, X2Label, Y2Label for the others)."),
+	C("XScale", "Linear|Log|SymLog", "How X spreads its values (YScale, X2Scale, Y2Scale)."),
+	N("XMin", "The lowest X shown (YMin, X2Min, Y2Min); the axis then stops following the data."),
+	N("XMax", "The highest X shown (YMax, X2Max, Y2Max)."),
+	T("XFormat", "A printf format for the labels of X, \"%.1f s\" (YFormat...)."),
+	N("XLinearThreshold", "SymLog: X is linear from minus this to this (default 1)."),
+	B("XGrid", "Lines at the ticks of X (YGrid, X2Grid, Y2Grid)."),
+	B("XInverted", "X grows to the left (YInverted: Y grows down)."),
+	B("XLocked", "The user cannot move or zoom X (YLocked...)."),
+	B("XVisible", "Shows or hides X (Y2Visible shows the right axis without a series on it)."),
+	T("YLabel", "The name of the vertical axis on the left."),
+	C("YScale", "Linear|Log|SymLog", "How Y spreads its values."),
+	T("Y2Label", "The name of the vertical axis on the right."),
+	C("Y2Scale", "Linear|Log|SymLog", "How the right axis spreads its values."),
+	A("OnChanged", "Action fired while the user drags a drag line."),
+};
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
@@ -529,6 +552,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Breadcrumb", g_breadcrumb, "The path to the current place: links separated by chevrons."),
 	TAG("Rating", g_rating, "A score shown and chosen with stars."),
 	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
+	TAG("Plot", g_plot, "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color)."),
 	TAG("NodeGraph", g_node_graph, "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements."),
 };
 
