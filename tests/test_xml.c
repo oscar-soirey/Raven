@@ -785,6 +785,8 @@ static void test_schema(void) {
 				continue;
 			}
 			value = schema_sample(&info, buffer, sizeof(buffer));
+			/* (the formats of the labels of a Plot are printf formats of one number) */
+			if (strlen(info.name) > 6 && strcmp(info.name + strlen(info.name) - 6, "Format") == 0 && strcmp(name, "Plot") == 0) value = "%g";
 			/* (some take a share below 1, some two numbers, some four) */
 			if (!Rwidget_set_attribute(widget, info.name, value) &&
 				!(info.type == R_XML_NUMBER && Rwidget_set_attribute(widget, info.name, "0.5")) &&
