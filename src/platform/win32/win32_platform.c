@@ -701,6 +701,30 @@ static void rvn_win32_on_manipulation(void* user, const rvn_win32_manipulation_e
 	rvn_win32_emit(window, &event);
 }
 
+/*
+ * The surface Windows keeps for the GDI drawing of a window (its
+ * redirection surface) lies under what the renderer presents. Raven never
+ * drew in it, and Windows fills it with white. On the screen a window seen
+ * through does not show it (the alpha of the frame is what counts), but the
+ * copies of the screen that Snipping Tool and Win + Print Screen take
+ * compose the frame over it: there, everything the window lets through was
+ * white (issue #53). Painted black it is fully transparent (GDI writes an
+ * alpha of 0, which the desktop keeps once rvn_win32_set_alpha is on), so
+ * the copies show what the screen shows. Opaque windows are left alone: the
+ * frame covers the surface, and erasing would only flicker.
+ *
+ * A device context of the cache, not the own one of the window (CS_OWNDC):
+ * the driver may present through that one, from the thread that renders.
+ */
+static void rvn_win32_clear_surface(rvn_pwindow_t* window) {
+	RECT client;
+	HDC dc = GetDCEx(window->handle, NULL, DCX_CACHE);
+	if (!dc) return;
+	GetClientRect(window->handle, &client);
+	FillRect(dc, &client, (HBRUSH)GetStockObject(BLACK_BRUSH));
+	ReleaseDC(window->handle, dc);
+}
+
 static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
 	rvn_pwindow_t* window = (rvn_pwindow_t*)GetWindowLongPtrW(handle, GWLP_USERDATA);
 	rvn_pevent_t event;
@@ -727,6 +751,7 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 				PostMessageW(handle, WM_CLOSE, 0, 0);
 				return 0;
 			case WM_ERASEBKGND:
+				if (window->transparent) rvn_win32_clear_surface(window);
 				return 1;
 			default:
 				return DefWindowProcW(handle, message, wparam, lparam);
@@ -804,6 +829,8 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 			if (width != window->width || height != window->height) {
 				window->width = width;
 				window->height = height;
+				/* the part of the surface that is new is white again (rvn_win32_clear_surface) */
+				if (window->transparent) rvn_win32_clear_surface(window);
 				rvn_win32_emit_resize(window);
 				/* live resize: the loop of the application is not running, draw the new size now */
 				if (g_win32.modal_loop) rvn_win32_emit_modal_tick();
@@ -836,10 +863,12 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 			break;
 
 		case WM_ERASEBKGND:
-			/* the renderer covers the whole client area: erasing would only flicker */
+			/* the renderer covers the whole client area: erasing would only flicker (seen through: see rvn_win32_clear_surface) */
+			if (window->transparent) rvn_win32_clear_surface(window);
 			return 1;
 
 		case WM_PAINT:
+			if (window->transparent) rvn_win32_clear_surface(window);
 			ValidateRect(handle, NULL);
 			event.type = RVN_PEVENT_EXPOSE;
 			rvn_win32_emit(window, &event);
@@ -1395,6 +1424,8 @@ static int rvn_win32_window_set_backdrop(rvn_pwindow_t* window, int backdrop, in
 
 	if (backdrop == (int)R_BACKDROP_MICA && g_dwm.build < 22000u) given = backdrop = (int)R_BACKDROP_ACRYLIC;
 	rvn_win32_set_alpha(window, backdrop != (int)R_BACKDROP_NONE);
+	/* the surface under the frame no longer white: the copies of the screen show the backdrop, not white */
+	if (backdrop != (int)R_BACKDROP_NONE) rvn_win32_clear_surface(window);
 	rvn_win32_set_accent(window, 0, 0);
 
 	if (backdrop == (int)R_BACKDROP_BLUR) {
