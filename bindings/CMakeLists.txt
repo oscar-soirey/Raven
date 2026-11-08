@@ -87,7 +87,7 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 	if(RAVEN_ODIN)
 		add_test(NAME binding_odin
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} run example
-				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven>" -- --test
+				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven> -Wl,-rpath,$<TARGET_FILE_DIR:raven>" -- --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
 	endif()
 

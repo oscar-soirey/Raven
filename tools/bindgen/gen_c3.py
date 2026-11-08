@@ -5,13 +5,14 @@ Based on gen_cpp.py of Raven's tools/bindgen, and written against the same
 reader of the headers (cparse.py). It can be used two ways:
 
   - as one more generator of Raven's bindgen: copy it next to bindgen.py and
-    add "c3" to the list of languages there; it writes bindings/c3/;
-  - on its own, from this library:
+    add "c3" to the list of languages there; it writes bindings/c3/raven.c3l/src/;
+  - on its own:
 
-        python tools/gen_c3.py                    clones Raven, writes ./src
-        python tools/gen_c3.py path/to/Raven      uses a checkout of Raven
-        python tools/gen_c3.py --ref v0.2.2       clones that tag or branch
-        python tools/gen_c3.py --check            fails when ./src is stale
+        python tools/bindgen/gen_c3.py                  clones Raven, writes bindings/c3/raven.c3l/src
+        python tools/bindgen/gen_c3.py path/to/Raven    uses a checkout of Raven
+        python tools/bindgen/gen_c3.py --ref v0.2.2     clones that tag or branch
+        python tools/bindgen/gen_c3.py --check          fails when the output is stale
+        python tools/bindgen/gen_c3.py -o some/dir      writes somewhere else
 
 It writes two files:
 
@@ -606,7 +607,8 @@ def generate(api, module="raven"):
         out.extend(lines)
         w("")
 
-    return {"c3/raven.c3": "\n".join(out).rstrip() + "\n", "c3/raven_c.c3": "\n".join(ext) + "\n"}
+    return {"c3/raven.c3l/src/raven.c3": "\n".join(out).rstrip() + "\n",
+            "c3/raven.c3l/src/raven_c.c3": "\n".join(ext) + "\n"}
 
 
 # ---------------------------------------------------------------------------
@@ -617,7 +619,8 @@ def main():
     here = os.path.dirname(os.path.abspath(__file__))
     parser = argparse.ArgumentParser(description="Writes the C3 bindings of Raven from its C headers.")
     parser.add_argument("raven", nargs="?", help="a checkout of Raven (cloned from %s when not given)" % RAVEN_REPOSITORY)
-    parser.add_argument("-o", "--out", default=os.path.join(os.path.dirname(here), "src"), help="where to write (default: src/ of this library)")
+    default_out = os.path.normpath(os.path.join(here, "..", "..", "bindings", "c3", "raven.c3l", "src"))
+    parser.add_argument("-o", "--out", default=default_out, help="where to write (default: bindings/c3/raven.c3l/src)")
     parser.add_argument("--ref", help="the tag or branch of Raven to clone")
     parser.add_argument("--module", default="raven", help="the name of the C3 module (default: raven)")
     parser.add_argument("--check", action="store_true", help="fail when the files are not what would be written")
@@ -656,7 +659,7 @@ def main():
             with open(full, "w", encoding="utf-8", newline="\n") as handle:
                 handle.write(text)
     if args.check and stale:
-        print("out of date (run tools/gen_c3.py): " + ", ".join(stale))
+        print("out of date (run tools/bindgen/gen_c3.py): " + ", ".join(stale))
         return 1
     print("%d functions, %d enums, %d structures, %d callbacks -> %s%s" % (
         len(api.functions), len(api.enums), len(api.structs), len(api.callbacks), args.out,
