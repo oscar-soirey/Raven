@@ -157,7 +157,7 @@ jar of Maven Central holds the library; from this folder, compile
 **Odin**
 
     import r "raven"          // the folder odin/raven, copied into the project
-    // odin run . -extra-linker-flags:"-L/path/to/lib"   (Windows: "/LIBPATH:C:\path\to\lib", raven.lib)
+    // odin run . -extra-linker-flags:"-L/path/to/lib -Wl,-rpath,/path/to/lib"   (Windows: "/LIBPATH:C:\path\to\lib", raven.lib)
 
 **Bun** (1.4 or later)
 
