@@ -19,13 +19,20 @@ Installing the library into a c3 binary project is straight forward. Copy the `r
 you do need the shared libs for your platform to be included into `linked-libs\platform` folder
 
 ## Generating the bindings (if they're outdated)
-If there's a library update that isn't pushed to these bindings yet, you can build them yourself with `tools/gen_c3.py`. It only needs Python 3 and git: it reuses the header reader of Raven's own binding generator (`tools/bindgen/cparse.py`), so no libclang is required.
+The bindings are written by `tools/bindgen/gen_c3.py`, one of the generators of Raven's `tools/bindgen`, and are regenerated with the others (`python tools/bindgen/bindgen.py`). It only needs Python 3: it uses the header reader of the other generators (`tools/bindgen/cparse.py`), so no libclang is required. From a checkout of Raven:
 
 ```bash
-python tools/gen_c3.py                      # clones Raven (latest), writes src/
-python tools/gen_c3.py --ref v0.2.2         # clones a tag or branch
-python tools/gen_c3.py path/to/Raven        # uses a checkout you already have
-python tools/gen_c3.py --check              # fails when src/ is out of date
+python tools/bindgen/bindgen.py c3              # writes bindings/c3/raven.c3l/src
+python tools/bindgen/bindgen.py --check         # fails when any binding is out of date
+```
+
+It can also run on its own:
+
+```bash
+python tools/bindgen/gen_c3.py .                # uses this checkout
+python tools/bindgen/gen_c3.py                  # clones Raven (latest)
+python tools/bindgen/gen_c3.py --ref v0.2.2     # clones a tag or branch
+python tools/bindgen/gen_c3.py -o some/dir      # writes somewhere else
 ```
 
 It writes two files into `src/`:

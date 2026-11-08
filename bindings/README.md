@@ -18,6 +18,7 @@ under the same names, with the same documentation comments.
 | Java | `java/` | One class, `raven.R`, over the Foreign Function & Memory API (Java 22+): no dependency, no JNI. Texts are `String`, callbacks are lambdas, structures are classes with an accessor per field. | yes (`binding_java`) |
 | Odin | `odin/raven/raven.odin` | A package of `foreign` declarations; structures have the layout of C. | `binding_odin`, not run yet |
 | Bun | `bun/src/raven.ts` | One TypeScript module, `bun:ffi`, no dependency. Texts are strings, callbacks are functions, values written through pointers are returned. See `bun/README.md` for threads and the event loop. | yes (`binding_bun`) |
+| C3 | `c3/raven.c3l/` | A library: `raven::c` is the C API, `raven` adds typed handles with methods (`button.set_text(...)`), faults and Optionals. See `c3/raven.c3l/README.md`. | no |
 
 "Tested" means that the example of the binding, started with `--test`, runs
 Raven without a window system and without a GPU, clicks a button of its own
