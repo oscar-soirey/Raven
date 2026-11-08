@@ -50,6 +50,8 @@ def rust_type(api, ctype):
         return "*const u8"
     if kind == "out":
         return "*mut %s" % (SCALAR[detail[1]] if detail[0] == "scalar" else detail[1])
+    if kind == "carray":
+        return "*const %s" % SCALAR[detail]
     if kind == "struct":
         return detail
     if kind == "struct_ptr":

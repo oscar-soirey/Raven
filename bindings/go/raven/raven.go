@@ -636,6 +636,7 @@ const (
 	R_WIDGET_BREADCRUMB      RWidgetType = 0x022F
 	R_WIDGET_RATING          RWidgetType = 0x0230
 	R_WIDGET_PAGINATION      RWidgetType = 0x0231
+	R_WIDGET_PLOT            RWidgetType = 0x0232
 )
 
 type RHAlign int32
@@ -759,6 +760,67 @@ const (
 	R_STRETCH_FIT   RStretch = 0x02B1
 	R_STRETCH_COVER RStretch = 0x02B2
 	R_STRETCH_NONE  RStretch = 0x02B3
+)
+
+// RPlotAxis: The axes of a Plot.
+type RPlotAxis int32
+
+const (
+	R_PLOT_X  RPlotAxis = 0x0520
+	R_PLOT_Y  RPlotAxis = 0x0521
+	R_PLOT_X2 RPlotAxis = 0x0522
+	R_PLOT_Y2 RPlotAxis = 0x0523
+)
+
+// RPlotScale: How an axis of a Plot spreads its values.
+type RPlotScale int32
+
+const (
+	R_PLOT_SCALE_LINEAR RPlotScale = 0x0530
+	R_PLOT_SCALE_LOG    RPlotScale = 0x0531
+	R_PLOT_SCALE_SYMLOG RPlotScale = 0x0532
+)
+
+// RPlotLine: How the line of a series of a Plot is drawn.
+type RPlotLine int32
+
+const (
+	R_PLOT_LINE_SOLID    RPlotLine = 0x0540
+	R_PLOT_LINE_DASHED   RPlotLine = 0x0541
+	R_PLOT_LINE_DOTTED   RPlotLine = 0x0542
+	R_PLOT_LINE_DASH_DOT RPlotLine = 0x0543
+	R_PLOT_LINE_NONE     RPlotLine = 0x0544
+)
+
+// RPlotMarker: The mark drawn on each point of a series of a Plot.
+type RPlotMarker int32
+
+const (
+	R_PLOT_MARKER_NONE          RPlotMarker = 0x0550
+	R_PLOT_MARKER_CIRCLE        RPlotMarker = 0x0551
+	R_PLOT_MARKER_SQUARE        RPlotMarker = 0x0552
+	R_PLOT_MARKER_DIAMOND       RPlotMarker = 0x0553
+	R_PLOT_MARKER_TRIANGLE_UP   RPlotMarker = 0x0554
+	R_PLOT_MARKER_TRIANGLE_DOWN RPlotMarker = 0x0555
+	R_PLOT_MARKER_CROSS         RPlotMarker = 0x0556
+	R_PLOT_MARKER_PLUS          RPlotMarker = 0x0557
+	R_PLOT_MARKER_ASTERISK      RPlotMarker = 0x0558
+)
+
+// RPlotLegend: Where the legend of a Plot is.
+type RPlotLegend int32
+
+const (
+	R_PLOT_LEGEND_HIDDEN       RPlotLegend = 0x0560
+	R_PLOT_LEGEND_TOP_LEFT     RPlotLegend = 0x0561
+	R_PLOT_LEGEND_TOP          RPlotLegend = 0x0562
+	R_PLOT_LEGEND_TOP_RIGHT    RPlotLegend = 0x0563
+	R_PLOT_LEGEND_RIGHT        RPlotLegend = 0x0564
+	R_PLOT_LEGEND_BOTTOM_RIGHT RPlotLegend = 0x0565
+	R_PLOT_LEGEND_BOTTOM       RPlotLegend = 0x0566
+	R_PLOT_LEGEND_BOTTOM_LEFT  RPlotLegend = 0x0567
+	R_PLOT_LEGEND_LEFT         RPlotLegend = 0x0568
+	R_PLOT_LEGEND_OUTSIDE      RPlotLegend = 0x0569
 )
 
 // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
@@ -3770,6 +3832,313 @@ func PaginationSetSiblings(pagination ID, siblings int) {
 	C.Rpagination_set_siblings(C.Rid(pagination), C.int(siblings))
 }
 
+func PlotSetTitle(plot ID, title string) {
+	title_ := C.CString(title)
+	defer C.free(unsafe.Pointer(title_))
+	C.Rplot_set_title(C.Rid(plot), title_)
+}
+
+func PlotGetTitle(plot ID) string {
+	return C.GoString(C.Rplot_get_title(C.Rid(plot)))
+}
+
+// PlotAddSeries: Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index.
+func PlotAddSeries(plot ID, name string) int {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Rplot_add_series(C.Rid(plot), name_))
+}
+
+func PlotRemoveSeries(plot ID, series int) {
+	C.Rplot_remove_series(C.Rid(plot), C.int(series))
+}
+
+// PlotClear: Removes every series and every drag line.
+func PlotClear(plot ID) {
+	C.Rplot_clear(C.Rid(plot))
+}
+
+func PlotGetSeriesCount(plot ID) int {
+	return int(C.Rplot_get_series_count(C.Rid(plot)))
+}
+
+func PlotSetSeriesName(plot ID, series int, name string) {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	C.Rplot_set_series_name(C.Rid(plot), C.int(series), name_)
+}
+
+func PlotGetSeriesName(plot ID, series int) string {
+	return C.GoString(C.Rplot_get_series_name(C.Rid(plot), C.int(series)))
+}
+
+// PlotSetSeriesData: Replaces the points of a series with `count` points, copied. x The X of the points, or
+// NULL: 0, 1, 2... y The Y of the points. NaN leaves a gap in the line.
+func PlotSetSeriesData(plot ID, series int, x []float64, y []float64, count int) {
+	var x_ *C.double
+	if len(x) > 0 {
+		x_ = (*C.double)(unsafe.Pointer(&x[0]))
+	}
+	var y_ *C.double
+	if len(y) > 0 {
+		y_ = (*C.double)(unsafe.Pointer(&y[0]))
+	}
+	C.Rplot_set_series_data(C.Rid(plot), C.int(series), x_, y_, C.int(count))
+}
+
+// PlotAppendSeriesData: Adds points after those of a series (x NULL: numbered after the last one).
+func PlotAppendSeriesData(plot ID, series int, x []float64, y []float64, count int) {
+	var x_ *C.double
+	if len(x) > 0 {
+		x_ = (*C.double)(unsafe.Pointer(&x[0]))
+	}
+	var y_ *C.double
+	if len(y) > 0 {
+		y_ = (*C.double)(unsafe.Pointer(&y[0]))
+	}
+	C.Rplot_append_series_data(C.Rid(plot), C.int(series), x_, y_, C.int(count))
+}
+
+// PlotAddPoint: Adds one point after those of a series.
+func PlotAddPoint(plot ID, series int, x float64, y float64) {
+	C.Rplot_add_point(C.Rid(plot), C.int(series), C.double(x), C.double(y))
+}
+
+func PlotClearSeriesData(plot ID, series int) {
+	C.Rplot_clear_series_data(C.Rid(plot), C.int(series))
+}
+
+func PlotGetPointCount(plot ID, series int) int {
+	return int(C.Rplot_get_point_count(C.Rid(plot), C.int(series)))
+}
+
+// PlotGetPoint: One point of a series. Returns R_FALSE when there is no such point.
+func PlotGetPoint(plot ID, series int, index int) (result int, x float64, y float64) {
+	var x_ C.double
+	var y_ C.double
+	result = int(C.Rplot_get_point(C.Rid(plot), C.int(series), C.int(index), &x_, &y_))
+	x = float64(x_)
+	y = float64(y_)
+	return
+}
+
+// PlotSetSeriesMaxPoints: Keeps only the last `max` points of a series, for data that streams in (0: all of
+// them, the default).
+func PlotSetSeriesMaxPoints(plot ID, series int, max int) {
+	C.Rplot_set_series_max_points(C.Rid(plot), C.int(series), C.int(max))
+}
+
+// PlotSetSeriesColor: The color of a series (by default the next one of a palette of ten).
+func PlotSetSeriesColor(plot ID, series int, r float32, g float32, b float32, a float32) {
+	C.Rplot_set_series_color(C.Rid(plot), C.int(series), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// PlotSetSeriesLine: How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width).
+func PlotSetSeriesLine(plot ID, series int, line RPlotLine, width float32) {
+	C.Rplot_set_series_line(C.Rid(plot), C.int(series), C.RPlotLine(line), C.float(width))
+}
+
+// PlotSetSeriesMarker: The mark on each point and its radius (default none, 4; size 0 keeps the size).
+func PlotSetSeriesMarker(plot ID, series int, marker RPlotMarker, size float32) {
+	C.Rplot_set_series_marker(C.Rid(plot), C.int(series), C.RPlotMarker(marker), C.float(size))
+}
+
+// PlotSetSeriesMarkerFilled: Filled markers (the default) or only their outline.
+func PlotSetSeriesMarkerFilled(plot ID, series int, filled int) {
+	C.Rplot_set_series_marker_filled(C.Rid(plot), C.int(series), C.int(filled))
+}
+
+// PlotSetSeriesStep: Draws the line in steps: along at the height of a point, then up or down to the next.
+func PlotSetSeriesStep(plot ID, series int, step int) {
+	C.Rplot_set_series_step(C.Rid(plot), C.int(series), C.int(step))
+}
+
+// PlotSetSeriesFill: Shades the area between the line and zero, at this opacity (0: none, the default).
+func PlotSetSeriesFill(plot ID, series int, opacity float32) {
+	C.Rplot_set_series_fill(C.Rid(plot), C.int(series), C.float(opacity))
+}
+
+// PlotSetSeriesAxes: The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2.
+func PlotSetSeriesAxes(plot ID, series int, x_axis RPlotAxis, y_axis RPlotAxis) {
+	C.Rplot_set_series_axes(C.Rid(plot), C.int(series), C.RPlotAxis(x_axis), C.RPlotAxis(y_axis))
+}
+
+// PlotSetSeriesVisible: Shows or hides a series (the user does it with a click on its name in the legend).
+func PlotSetSeriesVisible(plot ID, series int, visible int) {
+	C.Rplot_set_series_visible(C.Rid(plot), C.int(series), C.int(visible))
+}
+
+func PlotIsSeriesVisible(plot ID, series int) int {
+	return int(C.Rplot_is_series_visible(C.Rid(plot), C.int(series)))
+}
+
+// PlotSetAxisLabel: The name written along an axis.
+func PlotSetAxisLabel(plot ID, axis RPlotAxis, label string) {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	C.Rplot_set_axis_label(C.Rid(plot), C.RPlotAxis(axis), label_)
+}
+
+func PlotGetAxisLabel(plot ID, axis RPlotAxis) string {
+	return C.GoString(C.Rplot_get_axis_label(C.Rid(plot), C.RPlotAxis(axis)))
+}
+
+func PlotSetAxisScale(plot ID, axis RPlotAxis, scale RPlotScale) {
+	C.Rplot_set_axis_scale(C.Rid(plot), C.RPlotAxis(axis), C.RPlotScale(scale))
+}
+
+func PlotGetAxisScale(plot ID, axis RPlotAxis) RPlotScale {
+	return RPlotScale(C.Rplot_get_axis_scale(C.Rid(plot), C.RPlotAxis(axis)))
+}
+
+// PlotSetAxisLinearThreshold: R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default
+// 1).
+func PlotSetAxisLinearThreshold(plot ID, axis RPlotAxis, threshold float64) {
+	C.Rplot_set_axis_linear_threshold(C.Rid(plot), C.RPlotAxis(axis), C.double(threshold))
+}
+
+// PlotSetAxisRange: Shows this range of an axis; the axis then stops following the data.
+func PlotSetAxisRange(plot ID, axis RPlotAxis, min float64, max float64) {
+	C.Rplot_set_axis_range(C.Rid(plot), C.RPlotAxis(axis), C.double(min), C.double(max))
+}
+
+// PlotGetAxisRange: The range an axis shows now (after the user moved or zoomed it).
+func PlotGetAxisRange(plot ID, axis RPlotAxis) (min float64, max float64) {
+	var min_ C.double
+	var max_ C.double
+	C.Rplot_get_axis_range(C.Rid(plot), C.RPlotAxis(axis), &min_, &max_)
+	min = float64(min_)
+	max = float64(max_)
+	return
+}
+
+// PlotSetAxisAutoFit: The axis is fitted to the data whenever it changes (the default, until the view is
+// moved; a double click turns it on again).
+func PlotSetAxisAutoFit(plot ID, axis RPlotAxis, auto_fit int) {
+	C.Rplot_set_axis_auto_fit(C.Rid(plot), C.RPlotAxis(axis), C.int(auto_fit))
+}
+
+func PlotIsAxisAutoFit(plot ID, axis RPlotAxis) int {
+	return int(C.Rplot_is_axis_auto_fit(C.Rid(plot), C.RPlotAxis(axis)))
+}
+
+// PlotSetAxisFormat: How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"),
+// NULL: chosen from the ticks.
+func PlotSetAxisFormat(plot ID, axis RPlotAxis, format string) {
+	format_ := C.CString(format)
+	defer C.free(unsafe.Pointer(format_))
+	C.Rplot_set_axis_format(C.Rid(plot), C.RPlotAxis(axis), format_)
+}
+
+// PlotSetAxisVisible: 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something
+// uses them (the default).
+func PlotSetAxisVisible(plot ID, axis RPlotAxis, visible int) {
+	C.Rplot_set_axis_visible(C.Rid(plot), C.RPlotAxis(axis), C.int(visible))
+}
+
+// PlotSetAxisGrid: Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y).
+func PlotSetAxisGrid(plot ID, axis RPlotAxis, grid int) {
+	C.Rplot_set_axis_grid(C.Rid(plot), C.RPlotAxis(axis), C.int(grid))
+}
+
+// PlotSetAxisInverted: The values grow the other way (to the left, or down).
+func PlotSetAxisInverted(plot ID, axis RPlotAxis, inverted int) {
+	C.Rplot_set_axis_inverted(C.Rid(plot), C.RPlotAxis(axis), C.int(inverted))
+}
+
+// PlotSetAxisLocked: The user cannot move or zoom this axis (the application still can).
+func PlotSetAxisLocked(plot ID, axis RPlotAxis, locked int) {
+	C.Rplot_set_axis_locked(C.Rid(plot), C.RPlotAxis(axis), C.int(locked))
+}
+
+// PlotFit: Fits every axis that is not locked to the data, and has them follow it again (what a double click
+// does).
+func PlotFit(plot ID) {
+	C.Rplot_fit(C.Rid(plot))
+}
+
+// PlotSetLegend: Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT).
+func PlotSetLegend(plot ID, legend RPlotLegend) {
+	C.Rplot_set_legend(C.Rid(plot), C.RPlotLegend(legend))
+}
+
+// PlotSetCrosshair: Lines across the data through the pointer.
+func PlotSetCrosshair(plot ID, crosshair int) {
+	C.Rplot_set_crosshair(C.Rid(plot), C.int(crosshair))
+}
+
+// PlotSetMouseText: The coordinates of the pointer in a corner of the data (on by default).
+func PlotSetMouseText(plot ID, shown int) {
+	C.Rplot_set_mouse_text(C.Rid(plot), C.int(shown))
+}
+
+// PlotSetTooltips: The values of the point under the pointer, written next to it (on by default).
+func PlotSetTooltips(plot ID, shown int) {
+	C.Rplot_set_tooltips(C.Rid(plot), C.int(shown))
+}
+
+// PlotGetMousePosition: Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it
+// is over the data.
+func PlotGetMousePosition(plot ID) (result int, x float64, y float64) {
+	var x_ C.double
+	var y_ C.double
+	result = int(C.Rplot_get_mouse_position(C.Rid(plot), &x_, &y_))
+	x = float64(x_)
+	y = float64(y_)
+	return
+}
+
+// PlotDataToPoint: Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its
+// corner.
+func PlotDataToPoint(plot ID, x float64, y float64) (point_x float32, point_y float32) {
+	var point_x_ C.float
+	var point_y_ C.float
+	C.Rplot_data_to_point(C.Rid(plot), C.double(x), C.double(y), &point_x_, &point_y_)
+	point_x = float32(point_x_)
+	point_y = float32(point_y_)
+	return
+}
+
+// PlotPointToData: The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner.
+func PlotPointToData(plot ID, point_x float32, point_y float32) (x float64, y float64) {
+	var x_ C.double
+	var y_ C.double
+	C.Rplot_point_to_data(C.Rid(plot), C.float(point_x), C.float(point_y), &x_, &y_)
+	x = float64(x_)
+	y = float64(y_)
+	return
+}
+
+// PlotAddDragLine: Adds a line across the data that the user drags: vertical at an X (axis R_PLOT_X or
+// R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2). Its value is written on it, after `label` (may be
+// NULL). Returns its index.
+func PlotAddDragLine(plot ID, axis RPlotAxis, value float64, label string) int {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	return int(C.Rplot_add_drag_line(C.Rid(plot), C.RPlotAxis(axis), C.double(value), label_))
+}
+
+func PlotRemoveDragLine(plot ID, line int) {
+	C.Rplot_remove_drag_line(C.Rid(plot), C.int(line))
+}
+
+func PlotGetDragLineCount(plot ID) int {
+	return int(C.Rplot_get_drag_line_count(C.Rid(plot)))
+}
+
+func PlotSetDragLineValue(plot ID, line int, value float64) {
+	C.Rplot_set_drag_line_value(C.Rid(plot), C.int(line), C.double(value))
+}
+
+func PlotGetDragLineValue(plot ID, line int) float64 {
+	return float64(C.Rplot_get_drag_line_value(C.Rid(plot), C.int(line)))
+}
+
+// PlotSetDragLineColor: The color of a drag line (by default the accent of the theme).
+func PlotSetDragLineColor(plot ID, line int, r float32, g float32, b float32, a float32) {
+	C.Rplot_set_drag_line_color(C.Rid(plot), C.int(line), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
 // TextEditorCreate: text Initial content, or NULL.
 func TextEditorCreate(text string) ID {
 	text_ := C.CString(text)
@@ -6224,6 +6593,7 @@ func HostInjectClose(window ID) {
 // Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
 // Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
 // Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
+// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
 // Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
 // Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback

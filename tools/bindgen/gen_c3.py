@@ -223,6 +223,8 @@ def generate(api, module="raven"):
             return "char*"
         if kind == "out":
             return "%s*" % (SCALAR[detail[1]] if detail[0] == "scalar" else type_name(detail[1]))
+        if kind == "carray":
+            return "%s*" % SCALAR[detail]
         if kind in ("struct_ptr", "cstruct_ptr", "opaque_ptr"):
             return "%s*" % type_name(detail)
         raise ValueError(ctype)

@@ -440,6 +440,7 @@ typedef enum RWidgetType {
 	R_WIDGET_BREADCRUMB = 559,
 	R_WIDGET_RATING = 560,
 	R_WIDGET_PAGINATION = 561,
+	R_WIDGET_PLOT = 562,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -519,6 +520,47 @@ typedef enum RStretch {
 	R_STRETCH_COVER = 690,
 	R_STRETCH_NONE = 691,
 } RStretch;
+typedef enum RPlotAxis {
+	R_PLOT_X = 1312,
+	R_PLOT_Y = 1313,
+	R_PLOT_X2 = 1314,
+	R_PLOT_Y2 = 1315,
+} RPlotAxis;
+typedef enum RPlotScale {
+	R_PLOT_SCALE_LINEAR = 1328,
+	R_PLOT_SCALE_LOG = 1329,
+	R_PLOT_SCALE_SYMLOG = 1330,
+} RPlotScale;
+typedef enum RPlotLine {
+	R_PLOT_LINE_SOLID = 1344,
+	R_PLOT_LINE_DASHED = 1345,
+	R_PLOT_LINE_DOTTED = 1346,
+	R_PLOT_LINE_DASH_DOT = 1347,
+	R_PLOT_LINE_NONE = 1348,
+} RPlotLine;
+typedef enum RPlotMarker {
+	R_PLOT_MARKER_NONE = 1360,
+	R_PLOT_MARKER_CIRCLE = 1361,
+	R_PLOT_MARKER_SQUARE = 1362,
+	R_PLOT_MARKER_DIAMOND = 1363,
+	R_PLOT_MARKER_TRIANGLE_UP = 1364,
+	R_PLOT_MARKER_TRIANGLE_DOWN = 1365,
+	R_PLOT_MARKER_CROSS = 1366,
+	R_PLOT_MARKER_PLUS = 1367,
+	R_PLOT_MARKER_ASTERISK = 1368,
+} RPlotMarker;
+typedef enum RPlotLegend {
+	R_PLOT_LEGEND_HIDDEN = 1376,
+	R_PLOT_LEGEND_TOP_LEFT = 1377,
+	R_PLOT_LEGEND_TOP = 1378,
+	R_PLOT_LEGEND_TOP_RIGHT = 1379,
+	R_PLOT_LEGEND_RIGHT = 1380,
+	R_PLOT_LEGEND_BOTTOM_RIGHT = 1381,
+	R_PLOT_LEGEND_BOTTOM = 1382,
+	R_PLOT_LEGEND_BOTTOM_LEFT = 1383,
+	R_PLOT_LEGEND_LEFT = 1384,
+	R_PLOT_LEGEND_OUTSIDE = 1385,
+} RPlotLegend;
 typedef enum RSyntax {
 	R_SYNTAX_NONE = 832,
 	R_SYNTAX_XML = 833,
@@ -779,6 +821,9 @@ typedef void (*RToastCallback)(Rid toast, void* user_data);
 typedef void (*RBreadcrumbCallback)(Rid breadcrumb, int index, void* user_data);
 typedef void (*RRatingChangedCallback)(Rid rating, float value, void* user_data);
 typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
+typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
+typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
+typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef void (*RTextEditorChangedCallback)(Rid editor, void* user_data);
@@ -1628,6 +1673,61 @@ void Rpagination_set_page(Rid pagination, int page);
 int Rpagination_get_page(Rid pagination);
 void Rpagination_set_siblings(Rid pagination, int siblings);
 void Rpagination_set_changed_callback(Rid pagination, RPageChangedCallback callback, void* user_data);
+void Rplot_set_title(Rid plot, const char* title);
+const char* Rplot_get_title(Rid plot);
+int Rplot_add_series(Rid plot, const char* name);
+void Rplot_remove_series(Rid plot, int series);
+void Rplot_clear(Rid plot);
+int Rplot_get_series_count(Rid plot);
+void Rplot_set_series_name(Rid plot, int series, const char* name);
+const char* Rplot_get_series_name(Rid plot, int series);
+void Rplot_set_series_data(Rid plot, int series, const double* x, const double* y, int count);
+void Rplot_append_series_data(Rid plot, int series, const double* x, const double* y, int count);
+void Rplot_add_point(Rid plot, int series, double x, double y);
+void Rplot_clear_series_data(Rid plot, int series);
+int Rplot_get_point_count(Rid plot, int series);
+int Rplot_get_point(Rid plot, int series, int index, double* x, double* y);
+void Rplot_set_series_max_points(Rid plot, int series, int max);
+void Rplot_set_series_color(Rid plot, int series, float r, float g, float b, float a);
+void Rplot_set_series_line(Rid plot, int series, RPlotLine line, float width);
+void Rplot_set_series_marker(Rid plot, int series, RPlotMarker marker, float size);
+void Rplot_set_series_marker_filled(Rid plot, int series, int filled);
+void Rplot_set_series_step(Rid plot, int series, int step);
+void Rplot_set_series_fill(Rid plot, int series, float opacity);
+void Rplot_set_series_axes(Rid plot, int series, RPlotAxis x_axis, RPlotAxis y_axis);
+void Rplot_set_series_visible(Rid plot, int series, int visible);
+int Rplot_is_series_visible(Rid plot, int series);
+void Rplot_set_axis_label(Rid plot, RPlotAxis axis, const char* label);
+const char* Rplot_get_axis_label(Rid plot, RPlotAxis axis);
+void Rplot_set_axis_scale(Rid plot, RPlotAxis axis, RPlotScale scale);
+RPlotScale Rplot_get_axis_scale(Rid plot, RPlotAxis axis);
+void Rplot_set_axis_linear_threshold(Rid plot, RPlotAxis axis, double threshold);
+void Rplot_set_axis_range(Rid plot, RPlotAxis axis, double min, double max);
+void Rplot_get_axis_range(Rid plot, RPlotAxis axis, double* min, double* max);
+void Rplot_set_axis_auto_fit(Rid plot, RPlotAxis axis, int auto_fit);
+int Rplot_is_axis_auto_fit(Rid plot, RPlotAxis axis);
+void Rplot_set_axis_format(Rid plot, RPlotAxis axis, const char* format);
+void Rplot_set_axis_visible(Rid plot, RPlotAxis axis, int visible);
+void Rplot_set_axis_grid(Rid plot, RPlotAxis axis, int grid);
+void Rplot_set_axis_inverted(Rid plot, RPlotAxis axis, int inverted);
+void Rplot_set_axis_locked(Rid plot, RPlotAxis axis, int locked);
+void Rplot_fit(Rid plot);
+void Rplot_set_legend(Rid plot, RPlotLegend legend);
+void Rplot_set_crosshair(Rid plot, int crosshair);
+void Rplot_set_mouse_text(Rid plot, int shown);
+void Rplot_set_tooltips(Rid plot, int shown);
+int Rplot_get_mouse_position(Rid plot, double* x, double* y);
+void Rplot_data_to_point(Rid plot, double x, double y, float* point_x, float* point_y);
+void Rplot_point_to_data(Rid plot, float point_x, float point_y, double* x, double* y);
+int Rplot_add_drag_line(Rid plot, RPlotAxis axis, double value, const char* label);
+void Rplot_remove_drag_line(Rid plot, int line);
+int Rplot_get_drag_line_count(Rid plot);
+void Rplot_set_drag_line_value(Rid plot, int line, double value);
+double Rplot_get_drag_line_value(Rid plot, int line);
+void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, float a);
+void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
+void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
+void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
 Rid Rtext_editor_create(const char* text);
 void Rtext_editor_set_text(Rid editor, const char* text);
 const char* Rtext_editor_get_text(Rid editor);

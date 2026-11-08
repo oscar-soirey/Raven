@@ -651,6 +651,8 @@ pub const R_WIDGET_BREADCRUMB: RWidgetType = 0x022F;
 pub const R_WIDGET_RATING: RWidgetType = 0x0230;
 /// Page numbers with previous and next.
 pub const R_WIDGET_PAGINATION: RWidgetType = 0x0231;
+/// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
+pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
 
 pub const RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -771,6 +773,62 @@ pub const R_STRETCH_FIT: RStretch = 0x02B1;
 pub const R_STRETCH_COVER: RStretch = 0x02B2;
 /// Original size, centered.
 pub const R_STRETCH_NONE: RStretch = 0x02B3;
+
+/// The axes of a Plot.
+pub const RPlotAxis = c_int;
+/// The horizontal axis under the data.
+pub const R_PLOT_X: RPlotAxis = 0x0520;
+/// The vertical axis on the left.
+pub const R_PLOT_Y: RPlotAxis = 0x0521;
+/// A second horizontal axis, over the data: shown when a series or a drag line uses it.
+pub const R_PLOT_X2: RPlotAxis = 0x0522;
+/// A second vertical axis, on the right: shown when a series or a drag line uses it.
+pub const R_PLOT_Y2: RPlotAxis = 0x0523;
+
+/// How an axis of a Plot spreads its values.
+pub const RPlotScale = c_int;
+pub const R_PLOT_SCALE_LINEAR: RPlotScale = 0x0530;
+/// Powers of ten at even distances; only values above zero are shown.
+pub const R_PLOT_SCALE_LOG: RPlotScale = 0x0531;
+/// Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+/// 1 by default), logarithmic beyond on both sides: shows zero and the
+/// negative values a logarithm cannot.
+pub const R_PLOT_SCALE_SYMLOG: RPlotScale = 0x0532;
+
+/// How the line of a series of a Plot is drawn.
+pub const RPlotLine = c_int;
+pub const R_PLOT_LINE_SOLID: RPlotLine = 0x0540;
+pub const R_PLOT_LINE_DASHED: RPlotLine = 0x0541;
+pub const R_PLOT_LINE_DOTTED: RPlotLine = 0x0542;
+pub const R_PLOT_LINE_DASH_DOT: RPlotLine = 0x0543;
+/// No line: only the markers (a scatter plot).
+pub const R_PLOT_LINE_NONE: RPlotLine = 0x0544;
+
+/// The mark drawn on each point of a series of a Plot.
+pub const RPlotMarker = c_int;
+pub const R_PLOT_MARKER_NONE: RPlotMarker = 0x0550;
+pub const R_PLOT_MARKER_CIRCLE: RPlotMarker = 0x0551;
+pub const R_PLOT_MARKER_SQUARE: RPlotMarker = 0x0552;
+pub const R_PLOT_MARKER_DIAMOND: RPlotMarker = 0x0553;
+pub const R_PLOT_MARKER_TRIANGLE_UP: RPlotMarker = 0x0554;
+pub const R_PLOT_MARKER_TRIANGLE_DOWN: RPlotMarker = 0x0555;
+pub const R_PLOT_MARKER_CROSS: RPlotMarker = 0x0556;
+pub const R_PLOT_MARKER_PLUS: RPlotMarker = 0x0557;
+pub const R_PLOT_MARKER_ASTERISK: RPlotMarker = 0x0558;
+
+/// Where the legend of a Plot is.
+pub const RPlotLegend = c_int;
+pub const R_PLOT_LEGEND_HIDDEN: RPlotLegend = 0x0560;
+pub const R_PLOT_LEGEND_TOP_LEFT: RPlotLegend = 0x0561;
+pub const R_PLOT_LEGEND_TOP: RPlotLegend = 0x0562;
+pub const R_PLOT_LEGEND_TOP_RIGHT: RPlotLegend = 0x0563;
+pub const R_PLOT_LEGEND_RIGHT: RPlotLegend = 0x0564;
+pub const R_PLOT_LEGEND_BOTTOM_RIGHT: RPlotLegend = 0x0565;
+pub const R_PLOT_LEGEND_BOTTOM: RPlotLegend = 0x0566;
+pub const R_PLOT_LEGEND_BOTTOM_LEFT: RPlotLegend = 0x0567;
+pub const R_PLOT_LEGEND_LEFT: RPlotLegend = 0x0568;
+/// To the right of the data, outside it.
+pub const R_PLOT_LEGEND_OUTSIDE: RPlotLegend = 0x0569;
 
 /// Shorthands of Rtext_editor_set_language for two languages.
 pub const RSyntax = c_int;
@@ -1167,6 +1225,12 @@ pub const RBreadcrumbCallback = ?*const fn (breadcrumb: Rid, index: c_int, user_
 pub const RRatingChangedCallback = ?*const fn (rating: Rid, value: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user goes to another page. This also fires the action of the widget.
 pub const RPageChangedCallback = ?*const fn (pagination: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is).
+pub const RPlotViewCallback = ?*const fn (plot: Rid, user_data: ?*anyopaque) callconv(.c) void;
+/// Called while the user drags a drag line. This also fires the action of the widget.
+pub const RPlotDragLineCallback = ?*const fn (plot: Rid, line: c_int, value: f64, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user hides or shows a series from the legend.
+pub const RPlotSeriesCallback = ?*const fn (plot: Rid, series: c_int, visible: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the editor gathers its proposals, with the
@@ -1216,6 +1280,7 @@ pub const RDialogClosedCallback = ?*const fn (content: Rid, result: c_int, user_
 /// widget (OnActivated in XML) fires at the same time.
 pub const RFileBrowserCallback = ?*const fn (browser: Rid, path: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
 pub const RNotificationFallback = ?*const fn (title: ?[*:0]const u8, body: ?[*:0]const u8, urgency: RNotificationUrgency, user_data: ?*anyopaque) callconv(.c) void;
+pub const RNotificationClickedCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -2931,6 +2996,100 @@ pub extern fn Rpagination_get_page(pagination: Rid) c_int;
 /// Page numbers shown around the current one (default 1).
 pub extern fn Rpagination_set_siblings(pagination: Rid, siblings: c_int) void;
 pub extern fn Rpagination_set_changed_callback(pagination: Rid, callback: RPageChangedCallback, user_data: ?*anyopaque) void;
+pub extern fn Rplot_set_title(plot: Rid, title: ?[*:0]const u8) void;
+pub extern fn Rplot_get_title(plot: Rid) ?[*:0]const u8;
+/// Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index.
+pub extern fn Rplot_add_series(plot: Rid, name: ?[*:0]const u8) c_int;
+pub extern fn Rplot_remove_series(plot: Rid, series: c_int) void;
+/// Removes every series and every drag line.
+pub extern fn Rplot_clear(plot: Rid) void;
+pub extern fn Rplot_get_series_count(plot: Rid) c_int;
+pub extern fn Rplot_set_series_name(plot: Rid, series: c_int, name: ?[*:0]const u8) void;
+pub extern fn Rplot_get_series_name(plot: Rid, series: c_int) ?[*:0]const u8;
+/// Replaces the points of a series with `count` points, copied.
+/// x The X of the points, or NULL: 0, 1, 2...
+/// y The Y of the points. NaN leaves a gap in the line.
+pub extern fn Rplot_set_series_data(plot: Rid, series: c_int, x: ?[*]const f64, y: ?[*]const f64, count: c_int) void;
+/// Adds points after those of a series (x NULL: numbered after the last one).
+pub extern fn Rplot_append_series_data(plot: Rid, series: c_int, x: ?[*]const f64, y: ?[*]const f64, count: c_int) void;
+/// Adds one point after those of a series.
+pub extern fn Rplot_add_point(plot: Rid, series: c_int, x: f64, y: f64) void;
+pub extern fn Rplot_clear_series_data(plot: Rid, series: c_int) void;
+pub extern fn Rplot_get_point_count(plot: Rid, series: c_int) c_int;
+/// One point of a series. Returns R_FALSE when there is no such point.
+pub extern fn Rplot_get_point(plot: Rid, series: c_int, index: c_int, x: ?*f64, y: ?*f64) c_int;
+/// Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default).
+pub extern fn Rplot_set_series_max_points(plot: Rid, series: c_int, max: c_int) void;
+/// The color of a series (by default the next one of a palette of ten).
+pub extern fn Rplot_set_series_color(plot: Rid, series: c_int, r: f32, g: f32, b: f32, a: f32) void;
+/// How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width).
+pub extern fn Rplot_set_series_line(plot: Rid, series: c_int, line: RPlotLine, width: f32) void;
+/// The mark on each point and its radius (default none, 4; size 0 keeps the size).
+pub extern fn Rplot_set_series_marker(plot: Rid, series: c_int, marker: RPlotMarker, size: f32) void;
+/// Filled markers (the default) or only their outline.
+pub extern fn Rplot_set_series_marker_filled(plot: Rid, series: c_int, filled: c_int) void;
+/// Draws the line in steps: along at the height of a point, then up or down to the next.
+pub extern fn Rplot_set_series_step(plot: Rid, series: c_int, step: c_int) void;
+/// Shades the area between the line and zero, at this opacity (0: none, the default).
+pub extern fn Rplot_set_series_fill(plot: Rid, series: c_int, opacity: f32) void;
+/// The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2.
+pub extern fn Rplot_set_series_axes(plot: Rid, series: c_int, x_axis: RPlotAxis, y_axis: RPlotAxis) void;
+/// Shows or hides a series (the user does it with a click on its name in the legend).
+pub extern fn Rplot_set_series_visible(plot: Rid, series: c_int, visible: c_int) void;
+pub extern fn Rplot_is_series_visible(plot: Rid, series: c_int) c_int;
+/// The name written along an axis.
+pub extern fn Rplot_set_axis_label(plot: Rid, axis: RPlotAxis, label: ?[*:0]const u8) void;
+pub extern fn Rplot_get_axis_label(plot: Rid, axis: RPlotAxis) ?[*:0]const u8;
+pub extern fn Rplot_set_axis_scale(plot: Rid, axis: RPlotAxis, scale: RPlotScale) void;
+pub extern fn Rplot_get_axis_scale(plot: Rid, axis: RPlotAxis) RPlotScale;
+/// R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1).
+pub extern fn Rplot_set_axis_linear_threshold(plot: Rid, axis: RPlotAxis, threshold: f64) void;
+/// Shows this range of an axis; the axis then stops following the data.
+pub extern fn Rplot_set_axis_range(plot: Rid, axis: RPlotAxis, min: f64, max: f64) void;
+/// The range an axis shows now (after the user moved or zoomed it).
+pub extern fn Rplot_get_axis_range(plot: Rid, axis: RPlotAxis, min: ?*f64, max: ?*f64) void;
+/// The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again).
+pub extern fn Rplot_set_axis_auto_fit(plot: Rid, axis: RPlotAxis, auto_fit: c_int) void;
+pub extern fn Rplot_is_axis_auto_fit(plot: Rid, axis: RPlotAxis) c_int;
+/// How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks.
+pub extern fn Rplot_set_axis_format(plot: Rid, axis: RPlotAxis, format: ?[*:0]const u8) void;
+/// 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default).
+pub extern fn Rplot_set_axis_visible(plot: Rid, axis: RPlotAxis, visible: c_int) void;
+/// Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y).
+pub extern fn Rplot_set_axis_grid(plot: Rid, axis: RPlotAxis, grid: c_int) void;
+/// The values grow the other way (to the left, or down).
+pub extern fn Rplot_set_axis_inverted(plot: Rid, axis: RPlotAxis, inverted: c_int) void;
+/// The user cannot move or zoom this axis (the application still can).
+pub extern fn Rplot_set_axis_locked(plot: Rid, axis: RPlotAxis, locked: c_int) void;
+/// Fits every axis that is not locked to the data, and has them follow it again (what a double click does).
+pub extern fn Rplot_fit(plot: Rid) void;
+/// Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT).
+pub extern fn Rplot_set_legend(plot: Rid, legend: RPlotLegend) void;
+/// Lines across the data through the pointer.
+pub extern fn Rplot_set_crosshair(plot: Rid, crosshair: c_int) void;
+/// The coordinates of the pointer in a corner of the data (on by default).
+pub extern fn Rplot_set_mouse_text(plot: Rid, shown: c_int) void;
+/// The values of the point under the pointer, written next to it (on by default).
+pub extern fn Rplot_set_tooltips(plot: Rid, shown: c_int) void;
+/// Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data.
+pub extern fn Rplot_get_mouse_position(plot: Rid, x: ?*f64, y: ?*f64) c_int;
+/// Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner.
+pub extern fn Rplot_data_to_point(plot: Rid, x: f64, y: f64, point_x: ?*f32, point_y: ?*f32) void;
+/// The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner.
+pub extern fn Rplot_point_to_data(plot: Rid, point_x: f32, point_y: f32, x: ?*f64, y: ?*f64) void;
+/// Adds a line across the data that the user drags: vertical at an X
+/// (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+/// Its value is written on it, after `label` (may be NULL). Returns its index.
+pub extern fn Rplot_add_drag_line(plot: Rid, axis: RPlotAxis, value: f64, label: ?[*:0]const u8) c_int;
+pub extern fn Rplot_remove_drag_line(plot: Rid, line: c_int) void;
+pub extern fn Rplot_get_drag_line_count(plot: Rid) c_int;
+pub extern fn Rplot_set_drag_line_value(plot: Rid, line: c_int, value: f64) void;
+pub extern fn Rplot_get_drag_line_value(plot: Rid, line: c_int) f64;
+/// The color of a drag line (by default the accent of the theme).
+pub extern fn Rplot_set_drag_line_color(plot: Rid, line: c_int, r: f32, g: f32, b: f32, a: f32) void;
+pub extern fn Rplot_set_view_changed_callback(plot: Rid, callback: RPlotViewCallback, user_data: ?*anyopaque) void;
+pub extern fn Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineCallback, user_data: ?*anyopaque) void;
+pub extern fn Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback, user_data: ?*anyopaque) void;
 /// text Initial content, or NULL.
 pub extern fn Rtext_editor_create(text: ?[*:0]const u8) Rid;
 /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.

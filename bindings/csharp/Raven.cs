@@ -972,6 +972,10 @@ namespace Raven
         /// Page numbers with previous and next.
         /// </summary>
         R_WIDGET_PAGINATION = 0x0231,
+        /// <summary>
+        /// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
+        /// </summary>
+        R_WIDGET_PLOT = 0x0232,
     }
 
     public enum RHAlign : int
@@ -1180,6 +1184,98 @@ namespace Raven
         /// Original size, centered.
         /// </summary>
         R_STRETCH_NONE = 0x02B3,
+    }
+
+    /// <summary>
+    /// The axes of a Plot.
+    /// </summary>
+    public enum RPlotAxis : int
+    {
+        /// <summary>
+        /// The horizontal axis under the data.
+        /// </summary>
+        R_PLOT_X = 0x0520,
+        /// <summary>
+        /// The vertical axis on the left.
+        /// </summary>
+        R_PLOT_Y = 0x0521,
+        /// <summary>
+        /// A second horizontal axis, over the data: shown when a series or a drag line uses it.
+        /// </summary>
+        R_PLOT_X2 = 0x0522,
+        /// <summary>
+        /// A second vertical axis, on the right: shown when a series or a drag line uses it.
+        /// </summary>
+        R_PLOT_Y2 = 0x0523,
+    }
+
+    /// <summary>
+    /// How an axis of a Plot spreads its values.
+    /// </summary>
+    public enum RPlotScale : int
+    {
+        R_PLOT_SCALE_LINEAR = 0x0530,
+        /// <summary>
+        /// Powers of ten at even distances; only values above zero are shown.
+        /// </summary>
+        R_PLOT_SCALE_LOG = 0x0531,
+        /// <summary>
+        /// Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+        /// 1 by default), logarithmic beyond on both sides: shows zero and the
+        /// negative values a logarithm cannot.
+        /// </summary>
+        R_PLOT_SCALE_SYMLOG = 0x0532,
+    }
+
+    /// <summary>
+    /// How the line of a series of a Plot is drawn.
+    /// </summary>
+    public enum RPlotLine : int
+    {
+        R_PLOT_LINE_SOLID = 0x0540,
+        R_PLOT_LINE_DASHED = 0x0541,
+        R_PLOT_LINE_DOTTED = 0x0542,
+        R_PLOT_LINE_DASH_DOT = 0x0543,
+        /// <summary>
+        /// No line: only the markers (a scatter plot).
+        /// </summary>
+        R_PLOT_LINE_NONE = 0x0544,
+    }
+
+    /// <summary>
+    /// The mark drawn on each point of a series of a Plot.
+    /// </summary>
+    public enum RPlotMarker : int
+    {
+        R_PLOT_MARKER_NONE = 0x0550,
+        R_PLOT_MARKER_CIRCLE = 0x0551,
+        R_PLOT_MARKER_SQUARE = 0x0552,
+        R_PLOT_MARKER_DIAMOND = 0x0553,
+        R_PLOT_MARKER_TRIANGLE_UP = 0x0554,
+        R_PLOT_MARKER_TRIANGLE_DOWN = 0x0555,
+        R_PLOT_MARKER_CROSS = 0x0556,
+        R_PLOT_MARKER_PLUS = 0x0557,
+        R_PLOT_MARKER_ASTERISK = 0x0558,
+    }
+
+    /// <summary>
+    /// Where the legend of a Plot is.
+    /// </summary>
+    public enum RPlotLegend : int
+    {
+        R_PLOT_LEGEND_HIDDEN = 0x0560,
+        R_PLOT_LEGEND_TOP_LEFT = 0x0561,
+        R_PLOT_LEGEND_TOP = 0x0562,
+        R_PLOT_LEGEND_TOP_RIGHT = 0x0563,
+        R_PLOT_LEGEND_RIGHT = 0x0564,
+        R_PLOT_LEGEND_BOTTOM_RIGHT = 0x0565,
+        R_PLOT_LEGEND_BOTTOM = 0x0566,
+        R_PLOT_LEGEND_BOTTOM_LEFT = 0x0567,
+        R_PLOT_LEGEND_LEFT = 0x0568,
+        /// <summary>
+        /// To the right of the data, outside it.
+        /// </summary>
+        R_PLOT_LEGEND_OUTSIDE = 0x0569,
     }
 
     /// <summary>
@@ -2728,6 +2824,24 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RPageChangedCallback(uint pagination, int page, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is).
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RPlotViewCallback(uint plot, IntPtr user_data);
+
+    /// <summary>
+    /// Called while the user drags a drag line. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RPlotDragLineCallback(uint plot, int line, double value, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user hides or shows a series from the legend.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RPlotSeriesCallback(uint plot, int series, int visible, IntPtr user_data);
 
     /// <summary>
     /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -6055,6 +6169,283 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rpagination_set_changed_callback(uint pagination, RPageChangedCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_title(uint plot, [MarshalAs(Utf8.Str)] string title);
+
+        [DllImport(Lib, EntryPoint = "Rplot_get_title", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rplot_get_title_(uint plot);
+        public static string Rplot_get_title(uint plot) { return Text(Rplot_get_title_(plot)); }
+
+        /// <summary>
+        /// Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_add_series(uint plot, [MarshalAs(Utf8.Str)] string name);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_remove_series(uint plot, int series);
+
+        /// <summary>
+        /// Removes every series and every drag line.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_clear(uint plot);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_get_series_count(uint plot);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_name(uint plot, int series, [MarshalAs(Utf8.Str)] string name);
+
+        [DllImport(Lib, EntryPoint = "Rplot_get_series_name", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rplot_get_series_name_(uint plot, int series);
+        public static string Rplot_get_series_name(uint plot, int series) { return Text(Rplot_get_series_name_(plot, series)); }
+
+        /// <summary>
+        /// Replaces the points of a series with `count` points, copied.
+        /// x The X of the points, or NULL: 0, 1, 2...
+        /// y The Y of the points. NaN leaves a gap in the line.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_data(uint plot, int series, double[] x, double[] y, int count);
+
+        /// <summary>
+        /// Adds points after those of a series (x NULL: numbered after the last one).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_append_series_data(uint plot, int series, double[] x, double[] y, int count);
+
+        /// <summary>
+        /// Adds one point after those of a series.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_add_point(uint plot, int series, double x, double y);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_clear_series_data(uint plot, int series);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_get_point_count(uint plot, int series);
+
+        /// <summary>
+        /// One point of a series. Returns R_FALSE when there is no such point.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_get_point(uint plot, int series, int index, out double x, out double y);
+
+        /// <summary>
+        /// Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_max_points(uint plot, int series, int max);
+
+        /// <summary>
+        /// The color of a series (by default the next one of a palette of ten).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_color(uint plot, int series, float r, float g, float b, float a);
+
+        /// <summary>
+        /// How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_line(uint plot, int series, RPlotLine line, float width);
+
+        /// <summary>
+        /// The mark on each point and its radius (default none, 4; size 0 keeps the size).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_marker(uint plot, int series, RPlotMarker marker, float size);
+
+        /// <summary>
+        /// Filled markers (the default) or only their outline.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_marker_filled(uint plot, int series, int filled);
+
+        /// <summary>
+        /// Draws the line in steps: along at the height of a point, then up or down to the next.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_step(uint plot, int series, int step);
+
+        /// <summary>
+        /// Shades the area between the line and zero, at this opacity (0: none, the default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_fill(uint plot, int series, float opacity);
+
+        /// <summary>
+        /// The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_axes(uint plot, int series, RPlotAxis x_axis, RPlotAxis y_axis);
+
+        /// <summary>
+        /// Shows or hides a series (the user does it with a click on its name in the legend).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_visible(uint plot, int series, int visible);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_is_series_visible(uint plot, int series);
+
+        /// <summary>
+        /// The name written along an axis.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_label(uint plot, RPlotAxis axis, [MarshalAs(Utf8.Str)] string label);
+
+        [DllImport(Lib, EntryPoint = "Rplot_get_axis_label", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rplot_get_axis_label_(uint plot, RPlotAxis axis);
+        public static string Rplot_get_axis_label(uint plot, RPlotAxis axis) { return Text(Rplot_get_axis_label_(plot, axis)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_scale(uint plot, RPlotAxis axis, RPlotScale scale);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RPlotScale Rplot_get_axis_scale(uint plot, RPlotAxis axis);
+
+        /// <summary>
+        /// R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_linear_threshold(uint plot, RPlotAxis axis, double threshold);
+
+        /// <summary>
+        /// Shows this range of an axis; the axis then stops following the data.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_range(uint plot, RPlotAxis axis, double min, double max);
+
+        /// <summary>
+        /// The range an axis shows now (after the user moved or zoomed it).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_get_axis_range(uint plot, RPlotAxis axis, out double min, out double max);
+
+        /// <summary>
+        /// The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_auto_fit(uint plot, RPlotAxis axis, int auto_fit);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_is_axis_auto_fit(uint plot, RPlotAxis axis);
+
+        /// <summary>
+        /// How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_format(uint plot, RPlotAxis axis, [MarshalAs(Utf8.Str)] string format);
+
+        /// <summary>
+        /// 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_visible(uint plot, RPlotAxis axis, int visible);
+
+        /// <summary>
+        /// Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_grid(uint plot, RPlotAxis axis, int grid);
+
+        /// <summary>
+        /// The values grow the other way (to the left, or down).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_inverted(uint plot, RPlotAxis axis, int inverted);
+
+        /// <summary>
+        /// The user cannot move or zoom this axis (the application still can).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_axis_locked(uint plot, RPlotAxis axis, int locked);
+
+        /// <summary>
+        /// Fits every axis that is not locked to the data, and has them follow it again (what a double click does).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_fit(uint plot);
+
+        /// <summary>
+        /// Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_legend(uint plot, RPlotLegend legend);
+
+        /// <summary>
+        /// Lines across the data through the pointer.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_crosshair(uint plot, int crosshair);
+
+        /// <summary>
+        /// The coordinates of the pointer in a corner of the data (on by default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_mouse_text(uint plot, int shown);
+
+        /// <summary>
+        /// The values of the point under the pointer, written next to it (on by default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_tooltips(uint plot, int shown);
+
+        /// <summary>
+        /// Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_get_mouse_position(uint plot, out double x, out double y);
+
+        /// <summary>
+        /// Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_data_to_point(uint plot, double x, double y, out float point_x, out float point_y);
+
+        /// <summary>
+        /// The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_point_to_data(uint plot, float point_x, float point_y, out double x, out double y);
+
+        /// <summary>
+        /// Adds a line across the data that the user drags: vertical at an X
+        /// (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+        /// Its value is written on it, after `label` (may be NULL). Returns its index.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_add_drag_line(uint plot, RPlotAxis axis, double value, [MarshalAs(Utf8.Str)] string label);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_remove_drag_line(uint plot, int line);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rplot_get_drag_line_count(uint plot);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_drag_line_value(uint plot, int line, double value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rplot_get_drag_line_value(uint plot, int line);
+
+        /// <summary>
+        /// The color of a drag line (by default the accent of the theme).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_drag_line_color(uint plot, int line, float r, float g, float b, float a);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_view_changed_callback(uint plot, RPlotViewCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_drag_line_callback(uint plot, RPlotDragLineCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rplot_set_series_toggled_callback(uint plot, RPlotSeriesCallback callback, IntPtr user_data);
 
         /// <summary>
         /// text Initial content, or NULL.

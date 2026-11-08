@@ -77,6 +77,13 @@ def _p(value):
     return value
 
 
+def _a(ctype, values):
+    """Numbers for the library (a list, a tuple, any sequence): copied into a C array. None and C arrays pass as they are."""
+    if values is None or isinstance(values, (ctypes.Array, ctypes._Pointer)):
+        return values
+    return (ctype * len(values))(*values)
+
+
 def _e(cls, value):
     """A number as a member of an enumeration, when it is one."""
     try:
@@ -885,6 +892,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_BREADCRUMB = 0x022F
     R_WIDGET_RATING = 0x0230
     R_WIDGET_PAGINATION = 0x0231
+    R_WIDGET_PLOT = 0x0232
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -936,6 +944,7 @@ R_WIDGET_TOAST = RWidgetType.R_WIDGET_TOAST
 R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB
 R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING
 R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
+R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1086,6 +1095,88 @@ R_STRETCH_FILL = RStretch.R_STRETCH_FILL
 R_STRETCH_FIT = RStretch.R_STRETCH_FIT
 R_STRETCH_COVER = RStretch.R_STRETCH_COVER
 R_STRETCH_NONE = RStretch.R_STRETCH_NONE
+
+class RPlotAxis(enum.IntEnum):
+    """The axes of a Plot."""
+    R_PLOT_X = 0x0520
+    R_PLOT_Y = 0x0521
+    R_PLOT_X2 = 0x0522
+    R_PLOT_Y2 = 0x0523
+
+R_PLOT_X = RPlotAxis.R_PLOT_X
+R_PLOT_Y = RPlotAxis.R_PLOT_Y
+R_PLOT_X2 = RPlotAxis.R_PLOT_X2
+R_PLOT_Y2 = RPlotAxis.R_PLOT_Y2
+
+class RPlotScale(enum.IntEnum):
+    """How an axis of a Plot spreads its values."""
+    R_PLOT_SCALE_LINEAR = 0x0530
+    R_PLOT_SCALE_LOG = 0x0531
+    R_PLOT_SCALE_SYMLOG = 0x0532
+
+R_PLOT_SCALE_LINEAR = RPlotScale.R_PLOT_SCALE_LINEAR
+R_PLOT_SCALE_LOG = RPlotScale.R_PLOT_SCALE_LOG
+R_PLOT_SCALE_SYMLOG = RPlotScale.R_PLOT_SCALE_SYMLOG
+
+class RPlotLine(enum.IntEnum):
+    """How the line of a series of a Plot is drawn."""
+    R_PLOT_LINE_SOLID = 0x0540
+    R_PLOT_LINE_DASHED = 0x0541
+    R_PLOT_LINE_DOTTED = 0x0542
+    R_PLOT_LINE_DASH_DOT = 0x0543
+    R_PLOT_LINE_NONE = 0x0544
+
+R_PLOT_LINE_SOLID = RPlotLine.R_PLOT_LINE_SOLID
+R_PLOT_LINE_DASHED = RPlotLine.R_PLOT_LINE_DASHED
+R_PLOT_LINE_DOTTED = RPlotLine.R_PLOT_LINE_DOTTED
+R_PLOT_LINE_DASH_DOT = RPlotLine.R_PLOT_LINE_DASH_DOT
+R_PLOT_LINE_NONE = RPlotLine.R_PLOT_LINE_NONE
+
+class RPlotMarker(enum.IntEnum):
+    """The mark drawn on each point of a series of a Plot."""
+    R_PLOT_MARKER_NONE = 0x0550
+    R_PLOT_MARKER_CIRCLE = 0x0551
+    R_PLOT_MARKER_SQUARE = 0x0552
+    R_PLOT_MARKER_DIAMOND = 0x0553
+    R_PLOT_MARKER_TRIANGLE_UP = 0x0554
+    R_PLOT_MARKER_TRIANGLE_DOWN = 0x0555
+    R_PLOT_MARKER_CROSS = 0x0556
+    R_PLOT_MARKER_PLUS = 0x0557
+    R_PLOT_MARKER_ASTERISK = 0x0558
+
+R_PLOT_MARKER_NONE = RPlotMarker.R_PLOT_MARKER_NONE
+R_PLOT_MARKER_CIRCLE = RPlotMarker.R_PLOT_MARKER_CIRCLE
+R_PLOT_MARKER_SQUARE = RPlotMarker.R_PLOT_MARKER_SQUARE
+R_PLOT_MARKER_DIAMOND = RPlotMarker.R_PLOT_MARKER_DIAMOND
+R_PLOT_MARKER_TRIANGLE_UP = RPlotMarker.R_PLOT_MARKER_TRIANGLE_UP
+R_PLOT_MARKER_TRIANGLE_DOWN = RPlotMarker.R_PLOT_MARKER_TRIANGLE_DOWN
+R_PLOT_MARKER_CROSS = RPlotMarker.R_PLOT_MARKER_CROSS
+R_PLOT_MARKER_PLUS = RPlotMarker.R_PLOT_MARKER_PLUS
+R_PLOT_MARKER_ASTERISK = RPlotMarker.R_PLOT_MARKER_ASTERISK
+
+class RPlotLegend(enum.IntEnum):
+    """Where the legend of a Plot is."""
+    R_PLOT_LEGEND_HIDDEN = 0x0560
+    R_PLOT_LEGEND_TOP_LEFT = 0x0561
+    R_PLOT_LEGEND_TOP = 0x0562
+    R_PLOT_LEGEND_TOP_RIGHT = 0x0563
+    R_PLOT_LEGEND_RIGHT = 0x0564
+    R_PLOT_LEGEND_BOTTOM_RIGHT = 0x0565
+    R_PLOT_LEGEND_BOTTOM = 0x0566
+    R_PLOT_LEGEND_BOTTOM_LEFT = 0x0567
+    R_PLOT_LEGEND_LEFT = 0x0568
+    R_PLOT_LEGEND_OUTSIDE = 0x0569
+
+R_PLOT_LEGEND_HIDDEN = RPlotLegend.R_PLOT_LEGEND_HIDDEN
+R_PLOT_LEGEND_TOP_LEFT = RPlotLegend.R_PLOT_LEGEND_TOP_LEFT
+R_PLOT_LEGEND_TOP = RPlotLegend.R_PLOT_LEGEND_TOP
+R_PLOT_LEGEND_TOP_RIGHT = RPlotLegend.R_PLOT_LEGEND_TOP_RIGHT
+R_PLOT_LEGEND_RIGHT = RPlotLegend.R_PLOT_LEGEND_RIGHT
+R_PLOT_LEGEND_BOTTOM_RIGHT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_RIGHT
+R_PLOT_LEGEND_BOTTOM = RPlotLegend.R_PLOT_LEGEND_BOTTOM
+R_PLOT_LEGEND_BOTTOM_LEFT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_LEFT
+R_PLOT_LEGEND_LEFT = RPlotLegend.R_PLOT_LEGEND_LEFT
+R_PLOT_LEGEND_OUTSIDE = RPlotLegend.R_PLOT_LEGEND_OUTSIDE
 
 class RSyntax(enum.IntEnum):
     """Shorthands of Rtext_editor_set_language for two languages."""
@@ -2166,6 +2257,30 @@ RPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, cty
 def _adapt_RPageChangedCallback(function):
     def call(pagination, page, user_data):
         function(pagination, page, user_data)
+    return call
+
+RPlotViewCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RPlotViewCallback(function):
+    def call(plot, user_data):
+        function(plot, user_data)
+    return call
+
+RPlotDragLineCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_void_p)
+
+
+def _adapt_RPlotDragLineCallback(function):
+    def call(plot, line, value, user_data):
+        function(plot, line, value, user_data)
+    return call
+
+RPlotSeriesCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RPlotSeriesCallback(function):
+    def call(plot, series, visible, user_data):
+        function(plot, series, visible, user_data)
     return call
 
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
@@ -7723,6 +7838,500 @@ _lib.Rpagination_set_changed_callback.restype = None
 
 def Rpagination_set_changed_callback(pagination, callback, user_data=None):
     _lib.Rpagination_set_changed_callback(pagination, _callback(RPageChangedCallback, _adapt_RPageChangedCallback, callback), user_data)
+
+
+_lib.Rplot_set_title.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rplot_set_title.restype = None
+
+
+def Rplot_set_title(plot, title):
+    _lib.Rplot_set_title(plot, _s(title))
+
+
+_lib.Rplot_get_title.argtypes = [ctypes.c_uint32]
+_lib.Rplot_get_title.restype = ctypes.c_char_p
+
+
+def Rplot_get_title(plot):
+    return _r(_lib.Rplot_get_title(plot))
+
+
+_lib.Rplot_add_series.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rplot_add_series.restype = ctypes.c_int
+
+
+def Rplot_add_series(plot, name):
+    """Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index."""
+    return _lib.Rplot_add_series(plot, _s(name))
+
+
+_lib.Rplot_remove_series.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_remove_series.restype = None
+
+
+def Rplot_remove_series(plot, series):
+    _lib.Rplot_remove_series(plot, series)
+
+
+_lib.Rplot_clear.argtypes = [ctypes.c_uint32]
+_lib.Rplot_clear.restype = None
+
+
+def Rplot_clear(plot):
+    """Removes every series and every drag line."""
+    _lib.Rplot_clear(plot)
+
+
+_lib.Rplot_get_series_count.argtypes = [ctypes.c_uint32]
+_lib.Rplot_get_series_count.restype = ctypes.c_int
+
+
+def Rplot_get_series_count(plot):
+    return _lib.Rplot_get_series_count(plot)
+
+
+_lib.Rplot_set_series_name.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rplot_set_series_name.restype = None
+
+
+def Rplot_set_series_name(plot, series, name):
+    _lib.Rplot_set_series_name(plot, series, _s(name))
+
+
+_lib.Rplot_get_series_name.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_series_name.restype = ctypes.c_char_p
+
+
+def Rplot_get_series_name(plot, series):
+    return _r(_lib.Rplot_get_series_name(plot, series))
+
+
+_lib.Rplot_set_series_data.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+_lib.Rplot_set_series_data.restype = None
+
+
+def Rplot_set_series_data(plot, series, x, y, count):
+    """Replaces the points of a series with `count` points, copied.
+    x The X of the points, or NULL: 0, 1, 2...
+    y The Y of the points. NaN leaves a gap in the line."""
+    _lib.Rplot_set_series_data(plot, series, _a(ctypes.c_double, x), _a(ctypes.c_double, y), count)
+
+
+_lib.Rplot_append_series_data.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+_lib.Rplot_append_series_data.restype = None
+
+
+def Rplot_append_series_data(plot, series, x, y, count):
+    """Adds points after those of a series (x NULL: numbered after the last one)."""
+    _lib.Rplot_append_series_data(plot, series, _a(ctypes.c_double, x), _a(ctypes.c_double, y), count)
+
+
+_lib.Rplot_add_point.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_double]
+_lib.Rplot_add_point.restype = None
+
+
+def Rplot_add_point(plot, series, x, y):
+    """Adds one point after those of a series."""
+    _lib.Rplot_add_point(plot, series, x, y)
+
+
+_lib.Rplot_clear_series_data.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_clear_series_data.restype = None
+
+
+def Rplot_clear_series_data(plot, series):
+    _lib.Rplot_clear_series_data(plot, series)
+
+
+_lib.Rplot_get_point_count.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_point_count.restype = ctypes.c_int
+
+
+def Rplot_get_point_count(plot, series):
+    return _lib.Rplot_get_point_count(plot, series)
+
+
+_lib.Rplot_get_point.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_get_point.restype = ctypes.c_int
+
+
+def Rplot_get_point(plot, series, index):
+    """One point of a series. Returns R_FALSE when there is no such point."""
+    x_ = ctypes.c_double()
+    y_ = ctypes.c_double()
+    result = _lib.Rplot_get_point(plot, series, index, ctypes.byref(x_), ctypes.byref(y_))
+    return (result, x_.value, y_.value)
+
+
+_lib.Rplot_set_series_max_points.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_max_points.restype = None
+
+
+def Rplot_set_series_max_points(plot, series, max):
+    """Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default)."""
+    _lib.Rplot_set_series_max_points(plot, series, max)
+
+
+_lib.Rplot_set_series_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rplot_set_series_color.restype = None
+
+
+def Rplot_set_series_color(plot, series, r, g, b, a):
+    """The color of a series (by default the next one of a palette of ten)."""
+    _lib.Rplot_set_series_color(plot, series, r, g, b, a)
+
+
+_lib.Rplot_set_series_line.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float]
+_lib.Rplot_set_series_line.restype = None
+
+
+def Rplot_set_series_line(plot, series, line, width):
+    """How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width)."""
+    _lib.Rplot_set_series_line(plot, series, int(line), width)
+
+
+_lib.Rplot_set_series_marker.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float]
+_lib.Rplot_set_series_marker.restype = None
+
+
+def Rplot_set_series_marker(plot, series, marker, size):
+    """The mark on each point and its radius (default none, 4; size 0 keeps the size)."""
+    _lib.Rplot_set_series_marker(plot, series, int(marker), size)
+
+
+_lib.Rplot_set_series_marker_filled.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_marker_filled.restype = None
+
+
+def Rplot_set_series_marker_filled(plot, series, filled):
+    """Filled markers (the default) or only their outline."""
+    _lib.Rplot_set_series_marker_filled(plot, series, filled)
+
+
+_lib.Rplot_set_series_step.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_step.restype = None
+
+
+def Rplot_set_series_step(plot, series, step):
+    """Draws the line in steps: along at the height of a point, then up or down to the next."""
+    _lib.Rplot_set_series_step(plot, series, step)
+
+
+_lib.Rplot_set_series_fill.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float]
+_lib.Rplot_set_series_fill.restype = None
+
+
+def Rplot_set_series_fill(plot, series, opacity):
+    """Shades the area between the line and zero, at this opacity (0: none, the default)."""
+    _lib.Rplot_set_series_fill(plot, series, opacity)
+
+
+_lib.Rplot_set_series_axes.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_axes.restype = None
+
+
+def Rplot_set_series_axes(plot, series, x_axis, y_axis):
+    """The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2."""
+    _lib.Rplot_set_series_axes(plot, series, int(x_axis), int(y_axis))
+
+
+_lib.Rplot_set_series_visible.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_visible.restype = None
+
+
+def Rplot_set_series_visible(plot, series, visible):
+    """Shows or hides a series (the user does it with a click on its name in the legend)."""
+    _lib.Rplot_set_series_visible(plot, series, visible)
+
+
+_lib.Rplot_is_series_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_is_series_visible.restype = ctypes.c_int
+
+
+def Rplot_is_series_visible(plot, series):
+    return _lib.Rplot_is_series_visible(plot, series)
+
+
+_lib.Rplot_set_axis_label.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rplot_set_axis_label.restype = None
+
+
+def Rplot_set_axis_label(plot, axis, label):
+    """The name written along an axis."""
+    _lib.Rplot_set_axis_label(plot, int(axis), _s(label))
+
+
+_lib.Rplot_get_axis_label.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_axis_label.restype = ctypes.c_char_p
+
+
+def Rplot_get_axis_label(plot, axis):
+    return _r(_lib.Rplot_get_axis_label(plot, int(axis)))
+
+
+_lib.Rplot_set_axis_scale.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_scale.restype = None
+
+
+def Rplot_set_axis_scale(plot, axis, scale):
+    _lib.Rplot_set_axis_scale(plot, int(axis), int(scale))
+
+
+_lib.Rplot_get_axis_scale.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_axis_scale.restype = ctypes.c_int
+
+
+def Rplot_get_axis_scale(plot, axis):
+    return _e(RPlotScale, _lib.Rplot_get_axis_scale(plot, int(axis)))
+
+
+_lib.Rplot_set_axis_linear_threshold.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double]
+_lib.Rplot_set_axis_linear_threshold.restype = None
+
+
+def Rplot_set_axis_linear_threshold(plot, axis, threshold):
+    """R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1)."""
+    _lib.Rplot_set_axis_linear_threshold(plot, int(axis), threshold)
+
+
+_lib.Rplot_set_axis_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_double]
+_lib.Rplot_set_axis_range.restype = None
+
+
+def Rplot_set_axis_range(plot, axis, min, max):
+    """Shows this range of an axis; the axis then stops following the data."""
+    _lib.Rplot_set_axis_range(plot, int(axis), min, max)
+
+
+_lib.Rplot_get_axis_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_get_axis_range.restype = None
+
+
+def Rplot_get_axis_range(plot, axis):
+    """The range an axis shows now (after the user moved or zoomed it)."""
+    min_ = ctypes.c_double()
+    max_ = ctypes.c_double()
+    _lib.Rplot_get_axis_range(plot, int(axis), ctypes.byref(min_), ctypes.byref(max_))
+    return (min_.value, max_.value)
+
+
+_lib.Rplot_set_axis_auto_fit.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_auto_fit.restype = None
+
+
+def Rplot_set_axis_auto_fit(plot, axis, auto_fit):
+    """The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again)."""
+    _lib.Rplot_set_axis_auto_fit(plot, int(axis), auto_fit)
+
+
+_lib.Rplot_is_axis_auto_fit.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_is_axis_auto_fit.restype = ctypes.c_int
+
+
+def Rplot_is_axis_auto_fit(plot, axis):
+    return _lib.Rplot_is_axis_auto_fit(plot, int(axis))
+
+
+_lib.Rplot_set_axis_format.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rplot_set_axis_format.restype = None
+
+
+def Rplot_set_axis_format(plot, axis, format_):
+    """How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks."""
+    _lib.Rplot_set_axis_format(plot, int(axis), _s(format_))
+
+
+_lib.Rplot_set_axis_visible.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_visible.restype = None
+
+
+def Rplot_set_axis_visible(plot, axis, visible):
+    """1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default)."""
+    _lib.Rplot_set_axis_visible(plot, int(axis), visible)
+
+
+_lib.Rplot_set_axis_grid.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_grid.restype = None
+
+
+def Rplot_set_axis_grid(plot, axis, grid):
+    """Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y)."""
+    _lib.Rplot_set_axis_grid(plot, int(axis), grid)
+
+
+_lib.Rplot_set_axis_inverted.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_inverted.restype = None
+
+
+def Rplot_set_axis_inverted(plot, axis, inverted):
+    """The values grow the other way (to the left, or down)."""
+    _lib.Rplot_set_axis_inverted(plot, int(axis), inverted)
+
+
+_lib.Rplot_set_axis_locked.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_locked.restype = None
+
+
+def Rplot_set_axis_locked(plot, axis, locked):
+    """The user cannot move or zoom this axis (the application still can)."""
+    _lib.Rplot_set_axis_locked(plot, int(axis), locked)
+
+
+_lib.Rplot_fit.argtypes = [ctypes.c_uint32]
+_lib.Rplot_fit.restype = None
+
+
+def Rplot_fit(plot):
+    """Fits every axis that is not locked to the data, and has them follow it again (what a double click does)."""
+    _lib.Rplot_fit(plot)
+
+
+_lib.Rplot_set_legend.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_legend.restype = None
+
+
+def Rplot_set_legend(plot, legend):
+    """Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT)."""
+    _lib.Rplot_set_legend(plot, int(legend))
+
+
+_lib.Rplot_set_crosshair.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_crosshair.restype = None
+
+
+def Rplot_set_crosshair(plot, crosshair):
+    """Lines across the data through the pointer."""
+    _lib.Rplot_set_crosshair(plot, crosshair)
+
+
+_lib.Rplot_set_mouse_text.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_mouse_text.restype = None
+
+
+def Rplot_set_mouse_text(plot, shown):
+    """The coordinates of the pointer in a corner of the data (on by default)."""
+    _lib.Rplot_set_mouse_text(plot, shown)
+
+
+_lib.Rplot_set_tooltips.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_tooltips.restype = None
+
+
+def Rplot_set_tooltips(plot, shown):
+    """The values of the point under the pointer, written next to it (on by default)."""
+    _lib.Rplot_set_tooltips(plot, shown)
+
+
+_lib.Rplot_get_mouse_position.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_get_mouse_position.restype = ctypes.c_int
+
+
+def Rplot_get_mouse_position(plot):
+    """Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data."""
+    x_ = ctypes.c_double()
+    y_ = ctypes.c_double()
+    result = _lib.Rplot_get_mouse_position(plot, ctypes.byref(x_), ctypes.byref(y_))
+    return (result, x_.value, y_.value)
+
+
+_lib.Rplot_data_to_point.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float)]
+_lib.Rplot_data_to_point.restype = None
+
+
+def Rplot_data_to_point(plot, x, y):
+    """Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner."""
+    point_x_ = ctypes.c_float()
+    point_y_ = ctypes.c_float()
+    _lib.Rplot_data_to_point(plot, x, y, ctypes.byref(point_x_), ctypes.byref(point_y_))
+    return (point_x_.value, point_y_.value)
+
+
+_lib.Rplot_point_to_data.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_point_to_data.restype = None
+
+
+def Rplot_point_to_data(plot, point_x, point_y):
+    """The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner."""
+    x_ = ctypes.c_double()
+    y_ = ctypes.c_double()
+    _lib.Rplot_point_to_data(plot, point_x, point_y, ctypes.byref(x_), ctypes.byref(y_))
+    return (x_.value, y_.value)
+
+
+_lib.Rplot_add_drag_line.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_char_p]
+_lib.Rplot_add_drag_line.restype = ctypes.c_int
+
+
+def Rplot_add_drag_line(plot, axis, value, label):
+    """Adds a line across the data that the user drags: vertical at an X
+    (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+    Its value is written on it, after `label` (may be NULL). Returns its index."""
+    return _lib.Rplot_add_drag_line(plot, int(axis), value, _s(label))
+
+
+_lib.Rplot_remove_drag_line.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_remove_drag_line.restype = None
+
+
+def Rplot_remove_drag_line(plot, line):
+    _lib.Rplot_remove_drag_line(plot, line)
+
+
+_lib.Rplot_get_drag_line_count.argtypes = [ctypes.c_uint32]
+_lib.Rplot_get_drag_line_count.restype = ctypes.c_int
+
+
+def Rplot_get_drag_line_count(plot):
+    return _lib.Rplot_get_drag_line_count(plot)
+
+
+_lib.Rplot_set_drag_line_value.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double]
+_lib.Rplot_set_drag_line_value.restype = None
+
+
+def Rplot_set_drag_line_value(plot, line, value):
+    _lib.Rplot_set_drag_line_value(plot, line, value)
+
+
+_lib.Rplot_get_drag_line_value.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_drag_line_value.restype = ctypes.c_double
+
+
+def Rplot_get_drag_line_value(plot, line):
+    return _lib.Rplot_get_drag_line_value(plot, line)
+
+
+_lib.Rplot_set_drag_line_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rplot_set_drag_line_color.restype = None
+
+
+def Rplot_set_drag_line_color(plot, line, r, g, b, a):
+    """The color of a drag line (by default the accent of the theme)."""
+    _lib.Rplot_set_drag_line_color(plot, line, r, g, b, a)
+
+
+_lib.Rplot_set_view_changed_callback.argtypes = [ctypes.c_uint32, RPlotViewCallback, ctypes.c_void_p]
+_lib.Rplot_set_view_changed_callback.restype = None
+
+
+def Rplot_set_view_changed_callback(plot, callback, user_data=None):
+    _lib.Rplot_set_view_changed_callback(plot, _callback(RPlotViewCallback, _adapt_RPlotViewCallback, callback), user_data)
+
+
+_lib.Rplot_set_drag_line_callback.argtypes = [ctypes.c_uint32, RPlotDragLineCallback, ctypes.c_void_p]
+_lib.Rplot_set_drag_line_callback.restype = None
+
+
+def Rplot_set_drag_line_callback(plot, callback, user_data=None):
+    _lib.Rplot_set_drag_line_callback(plot, _callback(RPlotDragLineCallback, _adapt_RPlotDragLineCallback, callback), user_data)
+
+
+_lib.Rplot_set_series_toggled_callback.argtypes = [ctypes.c_uint32, RPlotSeriesCallback, ctypes.c_void_p]
+_lib.Rplot_set_series_toggled_callback.restype = None
+
+
+def Rplot_set_series_toggled_callback(plot, callback, user_data=None):
+    _lib.Rplot_set_series_toggled_callback(plot, _callback(RPlotSeriesCallback, _adapt_RPlotSeriesCallback, callback), user_data)
 
 
 _lib.Rtext_editor_create.argtypes = [ctypes.c_char_p]

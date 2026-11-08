@@ -311,6 +311,7 @@ def classify(ctype, api) -> Tuple[str, Any]:
       ("ptr", None)             void*                     ("cptr", None)            const void*
       ("bytes", None)           uint8_t*                  ("cbytes", None)          const uint8_t*
       ("out", scalar | enum)    a pointer the function writes through: int*, float*, size_t*, RSeverity*
+      ("carray", scalar)        a pointer to numbers the function reads: const double* (an array, its length given apart)
       ("struct", name)          a structure by value (fields only)
       ("struct_ptr", name)      a structure the function may write       ("cstruct_ptr", name)   one it only reads
       ("opaque_ptr", name)      RPainter*
@@ -348,6 +349,8 @@ def classify(ctype, api) -> Tuple[str, Any]:
         base = ctype[6:-1] if const else ctype[:-1]
         if base in SCALARS and not const:
             return ("out", ("scalar", SCALARS[base]))
+        if base in SCALARS and const:
+            return ("carray", SCALARS[base])
         if api.enum(base) and not const:
             return ("out", ("enum", base))
         if api.struct(base):

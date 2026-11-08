@@ -115,6 +115,14 @@ function _b(bytes: NodeJS.TypedArray | null): NodeJS.TypedArray | null {
 	return bytes !== null && bytes.byteLength > 0 ? bytes : null;
 }
 
+/** Numbers for the library: a typed array as it is, a list copied into one; nothing for no numbers. */
+function _n<T extends Float64Array | Float32Array | Int32Array | Uint32Array>(values: T | readonly number[] | null, make: (list: readonly number[]) => T): T | null {
+	if (values === null || values.length === 0) {
+		return null;
+	}
+	return ArrayBuffer.isView(values) ? (values as T) : make(values as readonly number[]);
+}
+
 /** Several texts for the library: one block, its addresses first and then the texts, alive as one argument. */
 function _strings(texts: readonly string[] | null): Uint8Array | null {
 	if (texts === null || texts.length === 0) {
@@ -267,6 +275,8 @@ def param_type(api, p):
         return "%s | null" % detail
     if kind in ("ptr", "cptr", "bytes", "cbytes", "opaque_ptr"):
         return "RPointer"
+    if kind == "carray":
+        return "%s | readonly number[] | null" % ACCESS[detail][1]
     raise ValueError("no parameter of the type %s in Bun (%s)" % (p.ctype, kind))
 
 
@@ -549,6 +559,10 @@ def generate_function(api, f, out):
             args.append("%s?.byteLength ?? 0" % n)
             signature.append("%s: NodeJS.TypedArray | null" % n)
             skip = True
+        elif kind == "carray":
+            array = ACCESS[detail][1]
+            args.append("_n(%s, (list) => new %s(list))" % (n, array))
+            signature.append("%s: %s" % (n, param_type(api, p)))
         elif kind == "callback" and f.name in NATIVE_ONLY:
             args.append(n)
             signature.append("%s: Pointer | null" % n)

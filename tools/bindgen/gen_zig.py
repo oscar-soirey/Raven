@@ -43,6 +43,8 @@ def zig_type(api, ctype):
         return "?[*]const u8"
     if kind == "out":
         return "?*%s" % (SCALAR[detail[1]] if detail[0] == "scalar" else detail[1])
+    if kind == "carray":
+        return "?[*]const %s" % SCALAR[detail]
     if kind == "struct_ptr":
         return "?*%s" % detail
     if kind == "cstruct_ptr":

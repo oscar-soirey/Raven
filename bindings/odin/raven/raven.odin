@@ -661,6 +661,8 @@ R_WIDGET_BREADCRUMB :: 0x022F
 R_WIDGET_RATING :: 0x0230
 // Page numbers with previous and next.
 R_WIDGET_PAGINATION :: 0x0231
+// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
+R_WIDGET_PLOT :: 0x0232
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -781,6 +783,62 @@ R_STRETCH_FIT :: 0x02B1
 R_STRETCH_COVER :: 0x02B2
 // Original size, centered.
 R_STRETCH_NONE :: 0x02B3
+
+// The axes of a Plot.
+RPlotAxis :: i32
+// The horizontal axis under the data.
+R_PLOT_X :: 0x0520
+// The vertical axis on the left.
+R_PLOT_Y :: 0x0521
+// A second horizontal axis, over the data: shown when a series or a drag line uses it.
+R_PLOT_X2 :: 0x0522
+// A second vertical axis, on the right: shown when a series or a drag line uses it.
+R_PLOT_Y2 :: 0x0523
+
+// How an axis of a Plot spreads its values.
+RPlotScale :: i32
+R_PLOT_SCALE_LINEAR :: 0x0530
+// Powers of ten at even distances; only values above zero are shown.
+R_PLOT_SCALE_LOG :: 0x0531
+// Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+// 1 by default), logarithmic beyond on both sides: shows zero and the
+// negative values a logarithm cannot.
+R_PLOT_SCALE_SYMLOG :: 0x0532
+
+// How the line of a series of a Plot is drawn.
+RPlotLine :: i32
+R_PLOT_LINE_SOLID :: 0x0540
+R_PLOT_LINE_DASHED :: 0x0541
+R_PLOT_LINE_DOTTED :: 0x0542
+R_PLOT_LINE_DASH_DOT :: 0x0543
+// No line: only the markers (a scatter plot).
+R_PLOT_LINE_NONE :: 0x0544
+
+// The mark drawn on each point of a series of a Plot.
+RPlotMarker :: i32
+R_PLOT_MARKER_NONE :: 0x0550
+R_PLOT_MARKER_CIRCLE :: 0x0551
+R_PLOT_MARKER_SQUARE :: 0x0552
+R_PLOT_MARKER_DIAMOND :: 0x0553
+R_PLOT_MARKER_TRIANGLE_UP :: 0x0554
+R_PLOT_MARKER_TRIANGLE_DOWN :: 0x0555
+R_PLOT_MARKER_CROSS :: 0x0556
+R_PLOT_MARKER_PLUS :: 0x0557
+R_PLOT_MARKER_ASTERISK :: 0x0558
+
+// Where the legend of a Plot is.
+RPlotLegend :: i32
+R_PLOT_LEGEND_HIDDEN :: 0x0560
+R_PLOT_LEGEND_TOP_LEFT :: 0x0561
+R_PLOT_LEGEND_TOP :: 0x0562
+R_PLOT_LEGEND_TOP_RIGHT :: 0x0563
+R_PLOT_LEGEND_RIGHT :: 0x0564
+R_PLOT_LEGEND_BOTTOM_RIGHT :: 0x0565
+R_PLOT_LEGEND_BOTTOM :: 0x0566
+R_PLOT_LEGEND_BOTTOM_LEFT :: 0x0567
+R_PLOT_LEGEND_LEFT :: 0x0568
+// To the right of the data, outside it.
+R_PLOT_LEGEND_OUTSIDE :: 0x0569
 
 // Shorthands of Rtext_editor_set_language for two languages.
 RSyntax :: i32
@@ -1177,6 +1235,12 @@ RBreadcrumbCallback :: #type proc "c" (breadcrumb: Rid, index: i32, user_data: r
 RRatingChangedCallback :: #type proc "c" (rating: Rid, value: f32, user_data: rawptr)
 // Called when the user goes to another page. This also fires the action of the widget.
 RPageChangedCallback :: #type proc "c" (pagination: Rid, page: i32, user_data: rawptr)
+// Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is).
+RPlotViewCallback :: #type proc "c" (plot: Rid, user_data: rawptr)
+// Called while the user drags a drag line. This also fires the action of the widget.
+RPlotDragLineCallback :: #type proc "c" (plot: Rid, line: i32, value: f64, user_data: rawptr)
+// Called when the user hides or shows a series from the legend.
+RPlotSeriesCallback :: #type proc "c" (plot: Rid, series: i32, visible: i32, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -2944,6 +3008,100 @@ foreign lib {
 	// Page numbers shown around the current one (default 1).
 	Rpagination_set_siblings :: proc(pagination: Rid, siblings: i32) ---
 	Rpagination_set_changed_callback :: proc(pagination: Rid, callback: RPageChangedCallback, user_data: rawptr) ---
+	Rplot_set_title :: proc(plot: Rid, title: cstring) ---
+	Rplot_get_title :: proc(plot: Rid) -> cstring ---
+	// Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index.
+	Rplot_add_series :: proc(plot: Rid, name: cstring) -> i32 ---
+	Rplot_remove_series :: proc(plot: Rid, series: i32) ---
+	// Removes every series and every drag line.
+	Rplot_clear :: proc(plot: Rid) ---
+	Rplot_get_series_count :: proc(plot: Rid) -> i32 ---
+	Rplot_set_series_name :: proc(plot: Rid, series: i32, name: cstring) ---
+	Rplot_get_series_name :: proc(plot: Rid, series: i32) -> cstring ---
+	// Replaces the points of a series with `count` points, copied.
+	// x The X of the points, or NULL: 0, 1, 2...
+	// y The Y of the points. NaN leaves a gap in the line.
+	Rplot_set_series_data :: proc(plot: Rid, series: i32, x: [^]f64, y: [^]f64, count: i32) ---
+	// Adds points after those of a series (x NULL: numbered after the last one).
+	Rplot_append_series_data :: proc(plot: Rid, series: i32, x: [^]f64, y: [^]f64, count: i32) ---
+	// Adds one point after those of a series.
+	Rplot_add_point :: proc(plot: Rid, series: i32, x: f64, y: f64) ---
+	Rplot_clear_series_data :: proc(plot: Rid, series: i32) ---
+	Rplot_get_point_count :: proc(plot: Rid, series: i32) -> i32 ---
+	// One point of a series. Returns R_FALSE when there is no such point.
+	Rplot_get_point :: proc(plot: Rid, series: i32, index: i32, x: ^f64, y: ^f64) -> i32 ---
+	// Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default).
+	Rplot_set_series_max_points :: proc(plot: Rid, series: i32, max_: i32) ---
+	// The color of a series (by default the next one of a palette of ten).
+	Rplot_set_series_color :: proc(plot: Rid, series: i32, r: f32, g: f32, b: f32, a: f32) ---
+	// How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width).
+	Rplot_set_series_line :: proc(plot: Rid, series: i32, line: RPlotLine, width: f32) ---
+	// The mark on each point and its radius (default none, 4; size 0 keeps the size).
+	Rplot_set_series_marker :: proc(plot: Rid, series: i32, marker: RPlotMarker, size: f32) ---
+	// Filled markers (the default) or only their outline.
+	Rplot_set_series_marker_filled :: proc(plot: Rid, series: i32, filled: i32) ---
+	// Draws the line in steps: along at the height of a point, then up or down to the next.
+	Rplot_set_series_step :: proc(plot: Rid, series: i32, step: i32) ---
+	// Shades the area between the line and zero, at this opacity (0: none, the default).
+	Rplot_set_series_fill :: proc(plot: Rid, series: i32, opacity: f32) ---
+	// The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2.
+	Rplot_set_series_axes :: proc(plot: Rid, series: i32, x_axis: RPlotAxis, y_axis: RPlotAxis) ---
+	// Shows or hides a series (the user does it with a click on its name in the legend).
+	Rplot_set_series_visible :: proc(plot: Rid, series: i32, visible: i32) ---
+	Rplot_is_series_visible :: proc(plot: Rid, series: i32) -> i32 ---
+	// The name written along an axis.
+	Rplot_set_axis_label :: proc(plot: Rid, axis: RPlotAxis, label: cstring) ---
+	Rplot_get_axis_label :: proc(plot: Rid, axis: RPlotAxis) -> cstring ---
+	Rplot_set_axis_scale :: proc(plot: Rid, axis: RPlotAxis, scale: RPlotScale) ---
+	Rplot_get_axis_scale :: proc(plot: Rid, axis: RPlotAxis) -> RPlotScale ---
+	// R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1).
+	Rplot_set_axis_linear_threshold :: proc(plot: Rid, axis: RPlotAxis, threshold: f64) ---
+	// Shows this range of an axis; the axis then stops following the data.
+	Rplot_set_axis_range :: proc(plot: Rid, axis: RPlotAxis, min_: f64, max_: f64) ---
+	// The range an axis shows now (after the user moved or zoomed it).
+	Rplot_get_axis_range :: proc(plot: Rid, axis: RPlotAxis, min_: ^f64, max_: ^f64) ---
+	// The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again).
+	Rplot_set_axis_auto_fit :: proc(plot: Rid, axis: RPlotAxis, auto_fit: i32) ---
+	Rplot_is_axis_auto_fit :: proc(plot: Rid, axis: RPlotAxis) -> i32 ---
+	// How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks.
+	Rplot_set_axis_format :: proc(plot: Rid, axis: RPlotAxis, format: cstring) ---
+	// 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default).
+	Rplot_set_axis_visible :: proc(plot: Rid, axis: RPlotAxis, visible: i32) ---
+	// Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y).
+	Rplot_set_axis_grid :: proc(plot: Rid, axis: RPlotAxis, grid: i32) ---
+	// The values grow the other way (to the left, or down).
+	Rplot_set_axis_inverted :: proc(plot: Rid, axis: RPlotAxis, inverted: i32) ---
+	// The user cannot move or zoom this axis (the application still can).
+	Rplot_set_axis_locked :: proc(plot: Rid, axis: RPlotAxis, locked: i32) ---
+	// Fits every axis that is not locked to the data, and has them follow it again (what a double click does).
+	Rplot_fit :: proc(plot: Rid) ---
+	// Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT).
+	Rplot_set_legend :: proc(plot: Rid, legend: RPlotLegend) ---
+	// Lines across the data through the pointer.
+	Rplot_set_crosshair :: proc(plot: Rid, crosshair: i32) ---
+	// The coordinates of the pointer in a corner of the data (on by default).
+	Rplot_set_mouse_text :: proc(plot: Rid, shown: i32) ---
+	// The values of the point under the pointer, written next to it (on by default).
+	Rplot_set_tooltips :: proc(plot: Rid, shown: i32) ---
+	// Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data.
+	Rplot_get_mouse_position :: proc(plot: Rid, x: ^f64, y: ^f64) -> i32 ---
+	// Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner.
+	Rplot_data_to_point :: proc(plot: Rid, x: f64, y: f64, point_x: ^f32, point_y: ^f32) ---
+	// The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner.
+	Rplot_point_to_data :: proc(plot: Rid, point_x: f32, point_y: f32, x: ^f64, y: ^f64) ---
+	// Adds a line across the data that the user drags: vertical at an X
+	// (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+	// Its value is written on it, after `label` (may be NULL). Returns its index.
+	Rplot_add_drag_line :: proc(plot: Rid, axis: RPlotAxis, value: f64, label: cstring) -> i32 ---
+	Rplot_remove_drag_line :: proc(plot: Rid, line: i32) ---
+	Rplot_get_drag_line_count :: proc(plot: Rid) -> i32 ---
+	Rplot_set_drag_line_value :: proc(plot: Rid, line: i32, value: f64) ---
+	Rplot_get_drag_line_value :: proc(plot: Rid, line: i32) -> f64 ---
+	// The color of a drag line (by default the accent of the theme).
+	Rplot_set_drag_line_color :: proc(plot: Rid, line: i32, r: f32, g: f32, b: f32, a: f32) ---
+	Rplot_set_view_changed_callback :: proc(plot: Rid, callback: RPlotViewCallback, user_data: rawptr) ---
+	Rplot_set_drag_line_callback :: proc(plot: Rid, callback: RPlotDragLineCallback, user_data: rawptr) ---
+	Rplot_set_series_toggled_callback :: proc(plot: Rid, callback: RPlotSeriesCallback, user_data: rawptr) ---
 	// text Initial content, or NULL.
 	Rtext_editor_create :: proc(text: cstring) -> Rid ---
 	// Replaces the whole text. The history of undo is cleared; the changed callback is not called.

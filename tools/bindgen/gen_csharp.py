@@ -215,6 +215,9 @@ def generate(api):
                     t = "out IntPtr"
                 elif kind == "out":
                     t = "out " + (SCALAR[detail[1]] if detail[0] == "scalar" else detail[1])
+                elif kind == "carray":
+                    # (an array of numbers passes as the address of its first one; null as NULL)
+                    t = SCALAR[detail] + "[]"
                 elif kind in ("struct_ptr", "cstruct_ptr"):
                     t = "IntPtr" if null_form else "ref " + detail
                 else:

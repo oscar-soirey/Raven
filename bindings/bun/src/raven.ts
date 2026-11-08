@@ -73,6 +73,14 @@ function _b(bytes: NodeJS.TypedArray | null): NodeJS.TypedArray | null {
 	return bytes !== null && bytes.byteLength > 0 ? bytes : null;
 }
 
+/** Numbers for the library: a typed array as it is, a list copied into one; nothing for no numbers. */
+function _n<T extends Float64Array | Float32Array | Int32Array | Uint32Array>(values: T | readonly number[] | null, make: (list: readonly number[]) => T): T | null {
+	if (values === null || values.length === 0) {
+		return null;
+	}
+	return ArrayBuffer.isView(values) ? (values as T) : make(values as readonly number[]);
+}
+
 /** Several texts for the library: one block, its addresses first and then the texts, alive as one argument. */
 function _strings(texts: readonly string[] | null): Uint8Array | null {
 	if (texts === null || texts.length === 0) {
@@ -721,6 +729,61 @@ const _symbols = {
 	Rpagination_get_page: { args: ["u32"], returns: "i32" },
 	Rpagination_set_siblings: { args: ["u32", "i32"], returns: "void" },
 	Rpagination_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rplot_set_title: { args: ["u32", "ptr"], returns: "void" },
+	Rplot_get_title: { args: ["u32"], returns: "cstring" },
+	Rplot_add_series: { args: ["u32", "ptr"], returns: "i32" },
+	Rplot_remove_series: { args: ["u32", "i32"], returns: "void" },
+	Rplot_clear: { args: ["u32"], returns: "void" },
+	Rplot_get_series_count: { args: ["u32"], returns: "i32" },
+	Rplot_set_series_name: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rplot_get_series_name: { args: ["u32", "i32"], returns: "cstring" },
+	Rplot_set_series_data: { args: ["u32", "i32", "ptr", "ptr", "i32"], returns: "void" },
+	Rplot_append_series_data: { args: ["u32", "i32", "ptr", "ptr", "i32"], returns: "void" },
+	Rplot_add_point: { args: ["u32", "i32", "f64", "f64"], returns: "void" },
+	Rplot_clear_series_data: { args: ["u32", "i32"], returns: "void" },
+	Rplot_get_point_count: { args: ["u32", "i32"], returns: "i32" },
+	Rplot_get_point: { args: ["u32", "i32", "i32", "ptr", "ptr"], returns: "i32" },
+	Rplot_set_series_max_points: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_set_series_color: { args: ["u32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rplot_set_series_line: { args: ["u32", "i32", "i32", "f32"], returns: "void" },
+	Rplot_set_series_marker: { args: ["u32", "i32", "i32", "f32"], returns: "void" },
+	Rplot_set_series_marker_filled: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_set_series_step: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_set_series_fill: { args: ["u32", "i32", "f32"], returns: "void" },
+	Rplot_set_series_axes: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rplot_set_series_visible: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_is_series_visible: { args: ["u32", "i32"], returns: "i32" },
+	Rplot_set_axis_label: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rplot_get_axis_label: { args: ["u32", "i32"], returns: "cstring" },
+	Rplot_set_axis_scale: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_get_axis_scale: { args: ["u32", "i32"], returns: "i32" },
+	Rplot_set_axis_linear_threshold: { args: ["u32", "i32", "f64"], returns: "void" },
+	Rplot_set_axis_range: { args: ["u32", "i32", "f64", "f64"], returns: "void" },
+	Rplot_get_axis_range: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rplot_set_axis_auto_fit: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_is_axis_auto_fit: { args: ["u32", "i32"], returns: "i32" },
+	Rplot_set_axis_format: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rplot_set_axis_visible: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_set_axis_grid: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_set_axis_inverted: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_set_axis_locked: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rplot_fit: { args: ["u32"], returns: "void" },
+	Rplot_set_legend: { args: ["u32", "i32"], returns: "void" },
+	Rplot_set_crosshair: { args: ["u32", "i32"], returns: "void" },
+	Rplot_set_mouse_text: { args: ["u32", "i32"], returns: "void" },
+	Rplot_set_tooltips: { args: ["u32", "i32"], returns: "void" },
+	Rplot_get_mouse_position: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rplot_data_to_point: { args: ["u32", "f64", "f64", "ptr", "ptr"], returns: "void" },
+	Rplot_point_to_data: { args: ["u32", "f32", "f32", "ptr", "ptr"], returns: "void" },
+	Rplot_add_drag_line: { args: ["u32", "i32", "f64", "ptr"], returns: "i32" },
+	Rplot_remove_drag_line: { args: ["u32", "i32"], returns: "void" },
+	Rplot_get_drag_line_count: { args: ["u32"], returns: "i32" },
+	Rplot_set_drag_line_value: { args: ["u32", "i32", "f64"], returns: "void" },
+	Rplot_get_drag_line_value: { args: ["u32", "i32"], returns: "f64" },
+	Rplot_set_drag_line_color: { args: ["u32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rplot_set_view_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rplot_set_drag_line_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rplot_set_series_toggled_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_editor_create: { args: ["ptr"], returns: "u32" },
 	Rtext_editor_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_editor_get_text: { args: ["u32"], returns: "cstring" },
@@ -2238,6 +2301,8 @@ export enum RWidgetType {
 	R_WIDGET_RATING = 0x0230,
 	/** Page numbers with previous and next. */
 	R_WIDGET_PAGINATION = 0x0231,
+	/** Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. */
+	R_WIDGET_PLOT = 0x0232,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2290,6 +2355,7 @@ export const R_WIDGET_TOAST = RWidgetType.R_WIDGET_TOAST;
 export const R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB;
 export const R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING;
 export const R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION;
+export const R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -2498,6 +2564,105 @@ export const R_STRETCH_FILL = RStretch.R_STRETCH_FILL;
 export const R_STRETCH_FIT = RStretch.R_STRETCH_FIT;
 export const R_STRETCH_COVER = RStretch.R_STRETCH_COVER;
 export const R_STRETCH_NONE = RStretch.R_STRETCH_NONE;
+
+/** The axes of a Plot. */
+export enum RPlotAxis {
+	/** The horizontal axis under the data. */
+	R_PLOT_X = 0x0520,
+	/** The vertical axis on the left. */
+	R_PLOT_Y = 0x0521,
+	/** A second horizontal axis, over the data: shown when a series or a drag line uses it. */
+	R_PLOT_X2 = 0x0522,
+	/** A second vertical axis, on the right: shown when a series or a drag line uses it. */
+	R_PLOT_Y2 = 0x0523,
+}
+
+export const R_PLOT_X = RPlotAxis.R_PLOT_X;
+export const R_PLOT_Y = RPlotAxis.R_PLOT_Y;
+export const R_PLOT_X2 = RPlotAxis.R_PLOT_X2;
+export const R_PLOT_Y2 = RPlotAxis.R_PLOT_Y2;
+
+/** How an axis of a Plot spreads its values. */
+export enum RPlotScale {
+	R_PLOT_SCALE_LINEAR = 0x0530,
+	/** Powers of ten at even distances; only values above zero are shown. */
+	R_PLOT_SCALE_LOG = 0x0531,
+	/**
+	 * Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+	 * 1 by default), logarithmic beyond on both sides: shows zero and the
+	 * negative values a logarithm cannot.
+	 */
+	R_PLOT_SCALE_SYMLOG = 0x0532,
+}
+
+export const R_PLOT_SCALE_LINEAR = RPlotScale.R_PLOT_SCALE_LINEAR;
+export const R_PLOT_SCALE_LOG = RPlotScale.R_PLOT_SCALE_LOG;
+export const R_PLOT_SCALE_SYMLOG = RPlotScale.R_PLOT_SCALE_SYMLOG;
+
+/** How the line of a series of a Plot is drawn. */
+export enum RPlotLine {
+	R_PLOT_LINE_SOLID = 0x0540,
+	R_PLOT_LINE_DASHED = 0x0541,
+	R_PLOT_LINE_DOTTED = 0x0542,
+	R_PLOT_LINE_DASH_DOT = 0x0543,
+	/** No line: only the markers (a scatter plot). */
+	R_PLOT_LINE_NONE = 0x0544,
+}
+
+export const R_PLOT_LINE_SOLID = RPlotLine.R_PLOT_LINE_SOLID;
+export const R_PLOT_LINE_DASHED = RPlotLine.R_PLOT_LINE_DASHED;
+export const R_PLOT_LINE_DOTTED = RPlotLine.R_PLOT_LINE_DOTTED;
+export const R_PLOT_LINE_DASH_DOT = RPlotLine.R_PLOT_LINE_DASH_DOT;
+export const R_PLOT_LINE_NONE = RPlotLine.R_PLOT_LINE_NONE;
+
+/** The mark drawn on each point of a series of a Plot. */
+export enum RPlotMarker {
+	R_PLOT_MARKER_NONE = 0x0550,
+	R_PLOT_MARKER_CIRCLE = 0x0551,
+	R_PLOT_MARKER_SQUARE = 0x0552,
+	R_PLOT_MARKER_DIAMOND = 0x0553,
+	R_PLOT_MARKER_TRIANGLE_UP = 0x0554,
+	R_PLOT_MARKER_TRIANGLE_DOWN = 0x0555,
+	R_PLOT_MARKER_CROSS = 0x0556,
+	R_PLOT_MARKER_PLUS = 0x0557,
+	R_PLOT_MARKER_ASTERISK = 0x0558,
+}
+
+export const R_PLOT_MARKER_NONE = RPlotMarker.R_PLOT_MARKER_NONE;
+export const R_PLOT_MARKER_CIRCLE = RPlotMarker.R_PLOT_MARKER_CIRCLE;
+export const R_PLOT_MARKER_SQUARE = RPlotMarker.R_PLOT_MARKER_SQUARE;
+export const R_PLOT_MARKER_DIAMOND = RPlotMarker.R_PLOT_MARKER_DIAMOND;
+export const R_PLOT_MARKER_TRIANGLE_UP = RPlotMarker.R_PLOT_MARKER_TRIANGLE_UP;
+export const R_PLOT_MARKER_TRIANGLE_DOWN = RPlotMarker.R_PLOT_MARKER_TRIANGLE_DOWN;
+export const R_PLOT_MARKER_CROSS = RPlotMarker.R_PLOT_MARKER_CROSS;
+export const R_PLOT_MARKER_PLUS = RPlotMarker.R_PLOT_MARKER_PLUS;
+export const R_PLOT_MARKER_ASTERISK = RPlotMarker.R_PLOT_MARKER_ASTERISK;
+
+/** Where the legend of a Plot is. */
+export enum RPlotLegend {
+	R_PLOT_LEGEND_HIDDEN = 0x0560,
+	R_PLOT_LEGEND_TOP_LEFT = 0x0561,
+	R_PLOT_LEGEND_TOP = 0x0562,
+	R_PLOT_LEGEND_TOP_RIGHT = 0x0563,
+	R_PLOT_LEGEND_RIGHT = 0x0564,
+	R_PLOT_LEGEND_BOTTOM_RIGHT = 0x0565,
+	R_PLOT_LEGEND_BOTTOM = 0x0566,
+	R_PLOT_LEGEND_BOTTOM_LEFT = 0x0567,
+	R_PLOT_LEGEND_LEFT = 0x0568,
+	/** To the right of the data, outside it. */
+	R_PLOT_LEGEND_OUTSIDE = 0x0569,
+}
+
+export const R_PLOT_LEGEND_HIDDEN = RPlotLegend.R_PLOT_LEGEND_HIDDEN;
+export const R_PLOT_LEGEND_TOP_LEFT = RPlotLegend.R_PLOT_LEGEND_TOP_LEFT;
+export const R_PLOT_LEGEND_TOP = RPlotLegend.R_PLOT_LEGEND_TOP;
+export const R_PLOT_LEGEND_TOP_RIGHT = RPlotLegend.R_PLOT_LEGEND_TOP_RIGHT;
+export const R_PLOT_LEGEND_RIGHT = RPlotLegend.R_PLOT_LEGEND_RIGHT;
+export const R_PLOT_LEGEND_BOTTOM_RIGHT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_RIGHT;
+export const R_PLOT_LEGEND_BOTTOM = RPlotLegend.R_PLOT_LEGEND_BOTTOM;
+export const R_PLOT_LEGEND_BOTTOM_LEFT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_LEFT;
+export const R_PLOT_LEGEND_LEFT = RPlotLegend.R_PLOT_LEGEND_LEFT;
+export const R_PLOT_LEGEND_OUTSIDE = RPlotLegend.R_PLOT_LEGEND_OUTSIDE;
 
 /** Shorthands of Rtext_editor_set_language for two languages. */
 export enum RSyntax {
@@ -5660,6 +5825,54 @@ function _adapt_RPageChangedCallback(function_: RPageChangedCallback | Pointer |
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is). */
+export type RPlotViewCallback = (plot: Rid, user_data: Pointer | null) => void;
+
+function _adapt_RPlotViewCallback(function_: RPlotViewCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((plot: number, user_data: Pointer | null): void => {
+		try {
+			function_(plot, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called while the user drags a drag line. This also fires the action of the widget. */
+export type RPlotDragLineCallback = (plot: Rid, line: number, value: number, user_data: Pointer | null) => void;
+
+function _adapt_RPlotDragLineCallback(function_: RPlotDragLineCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((plot: number, line: number, value: number, user_data: Pointer | null): void => {
+		try {
+			function_(plot, line, value, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "f64", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user hides or shows a series from the legend. */
+export type RPlotSeriesCallback = (plot: Rid, series: number, visible: number, user_data: Pointer | null) => void;
+
+function _adapt_RPlotSeriesCallback(function_: RPlotSeriesCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((plot: number, series: number, visible: number, user_data: Pointer | null): void => {
+		try {
+			function_(plot, series, visible, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
@@ -9398,6 +9611,284 @@ export function Rpagination_set_siblings(pagination: Rid, siblings: number): voi
 
 export function Rpagination_set_changed_callback(pagination: Rid, callback: RPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rpagination_set_changed_callback(pagination, _adapt_RPageChangedCallback(callback), user_data);
+}
+
+export function Rplot_set_title(plot: Rid, title: string | null): void {
+	_lib.Rplot_set_title(plot, _s(title));
+}
+
+export function Rplot_get_title(plot: Rid): string | null {
+	return _lib.Rplot_get_title(plot);
+}
+
+/** Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index. */
+export function Rplot_add_series(plot: Rid, name: string | null): number {
+	return _lib.Rplot_add_series(plot, _s(name));
+}
+
+export function Rplot_remove_series(plot: Rid, series: number): void {
+	_lib.Rplot_remove_series(plot, series);
+}
+
+/** Removes every series and every drag line. */
+export function Rplot_clear(plot: Rid): void {
+	_lib.Rplot_clear(plot);
+}
+
+export function Rplot_get_series_count(plot: Rid): number {
+	return _lib.Rplot_get_series_count(plot);
+}
+
+export function Rplot_set_series_name(plot: Rid, series: number, name: string | null): void {
+	_lib.Rplot_set_series_name(plot, series, _s(name));
+}
+
+export function Rplot_get_series_name(plot: Rid, series: number): string | null {
+	return _lib.Rplot_get_series_name(plot, series);
+}
+
+/**
+ * Replaces the points of a series with `count` points, copied.
+ * x The X of the points, or NULL: 0, 1, 2...
+ * y The Y of the points. NaN leaves a gap in the line.
+ */
+export function Rplot_set_series_data(plot: Rid, series: number, x: Float64Array | readonly number[] | null, y: Float64Array | readonly number[] | null, count: number): void {
+	_lib.Rplot_set_series_data(plot, series, _n(x, (list) => new Float64Array(list)), _n(y, (list) => new Float64Array(list)), count);
+}
+
+/** Adds points after those of a series (x NULL: numbered after the last one). */
+export function Rplot_append_series_data(plot: Rid, series: number, x: Float64Array | readonly number[] | null, y: Float64Array | readonly number[] | null, count: number): void {
+	_lib.Rplot_append_series_data(plot, series, _n(x, (list) => new Float64Array(list)), _n(y, (list) => new Float64Array(list)), count);
+}
+
+/** Adds one point after those of a series. */
+export function Rplot_add_point(plot: Rid, series: number, x: number, y: number): void {
+	_lib.Rplot_add_point(plot, series, x, y);
+}
+
+export function Rplot_clear_series_data(plot: Rid, series: number): void {
+	_lib.Rplot_clear_series_data(plot, series);
+}
+
+export function Rplot_get_point_count(plot: Rid, series: number): number {
+	return _lib.Rplot_get_point_count(plot, series);
+}
+
+/** One point of a series. Returns R_FALSE when there is no such point. */
+export function Rplot_get_point(plot: Rid, series: number, index: number): [result: number, x: number, y: number] {
+	const x_ = new Float64Array(1);
+	const y_ = new Float64Array(1);
+	const result_ = _lib.Rplot_get_point(plot, series, index, x_, y_);
+	return [result_, x_[0]!, y_[0]!];
+}
+
+/** Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default). */
+export function Rplot_set_series_max_points(plot: Rid, series: number, max: number): void {
+	_lib.Rplot_set_series_max_points(plot, series, max);
+}
+
+/** The color of a series (by default the next one of a palette of ten). */
+export function Rplot_set_series_color(plot: Rid, series: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rplot_set_series_color(plot, series, r, g, b, a);
+}
+
+/** How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width). */
+export function Rplot_set_series_line(plot: Rid, series: number, line: RPlotLine, width: number): void {
+	_lib.Rplot_set_series_line(plot, series, line, width);
+}
+
+/** The mark on each point and its radius (default none, 4; size 0 keeps the size). */
+export function Rplot_set_series_marker(plot: Rid, series: number, marker: RPlotMarker, size: number): void {
+	_lib.Rplot_set_series_marker(plot, series, marker, size);
+}
+
+/** Filled markers (the default) or only their outline. */
+export function Rplot_set_series_marker_filled(plot: Rid, series: number, filled: number): void {
+	_lib.Rplot_set_series_marker_filled(plot, series, filled);
+}
+
+/** Draws the line in steps: along at the height of a point, then up or down to the next. */
+export function Rplot_set_series_step(plot: Rid, series: number, step: number): void {
+	_lib.Rplot_set_series_step(plot, series, step);
+}
+
+/** Shades the area between the line and zero, at this opacity (0: none, the default). */
+export function Rplot_set_series_fill(plot: Rid, series: number, opacity: number): void {
+	_lib.Rplot_set_series_fill(plot, series, opacity);
+}
+
+/** The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2. */
+export function Rplot_set_series_axes(plot: Rid, series: number, x_axis: RPlotAxis, y_axis: RPlotAxis): void {
+	_lib.Rplot_set_series_axes(plot, series, x_axis, y_axis);
+}
+
+/** Shows or hides a series (the user does it with a click on its name in the legend). */
+export function Rplot_set_series_visible(plot: Rid, series: number, visible: number): void {
+	_lib.Rplot_set_series_visible(plot, series, visible);
+}
+
+export function Rplot_is_series_visible(plot: Rid, series: number): number {
+	return _lib.Rplot_is_series_visible(plot, series);
+}
+
+/** The name written along an axis. */
+export function Rplot_set_axis_label(plot: Rid, axis: RPlotAxis, label: string | null): void {
+	_lib.Rplot_set_axis_label(plot, axis, _s(label));
+}
+
+export function Rplot_get_axis_label(plot: Rid, axis: RPlotAxis): string | null {
+	return _lib.Rplot_get_axis_label(plot, axis);
+}
+
+export function Rplot_set_axis_scale(plot: Rid, axis: RPlotAxis, scale: RPlotScale): void {
+	_lib.Rplot_set_axis_scale(plot, axis, scale);
+}
+
+export function Rplot_get_axis_scale(plot: Rid, axis: RPlotAxis): RPlotScale {
+	return _lib.Rplot_get_axis_scale(plot, axis) as RPlotScale;
+}
+
+/** R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1). */
+export function Rplot_set_axis_linear_threshold(plot: Rid, axis: RPlotAxis, threshold: number): void {
+	_lib.Rplot_set_axis_linear_threshold(plot, axis, threshold);
+}
+
+/** Shows this range of an axis; the axis then stops following the data. */
+export function Rplot_set_axis_range(plot: Rid, axis: RPlotAxis, min: number, max: number): void {
+	_lib.Rplot_set_axis_range(plot, axis, min, max);
+}
+
+/** The range an axis shows now (after the user moved or zoomed it). */
+export function Rplot_get_axis_range(plot: Rid, axis: RPlotAxis): [min: number, max: number] {
+	const min_ = new Float64Array(1);
+	const max_ = new Float64Array(1);
+	_lib.Rplot_get_axis_range(plot, axis, min_, max_);
+	return [min_[0]!, max_[0]!];
+}
+
+/** The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again). */
+export function Rplot_set_axis_auto_fit(plot: Rid, axis: RPlotAxis, auto_fit: number): void {
+	_lib.Rplot_set_axis_auto_fit(plot, axis, auto_fit);
+}
+
+export function Rplot_is_axis_auto_fit(plot: Rid, axis: RPlotAxis): number {
+	return _lib.Rplot_is_axis_auto_fit(plot, axis);
+}
+
+/** How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks. */
+export function Rplot_set_axis_format(plot: Rid, axis: RPlotAxis, format: string | null): void {
+	_lib.Rplot_set_axis_format(plot, axis, _s(format));
+}
+
+/** 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default). */
+export function Rplot_set_axis_visible(plot: Rid, axis: RPlotAxis, visible: number): void {
+	_lib.Rplot_set_axis_visible(plot, axis, visible);
+}
+
+/** Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y). */
+export function Rplot_set_axis_grid(plot: Rid, axis: RPlotAxis, grid: number): void {
+	_lib.Rplot_set_axis_grid(plot, axis, grid);
+}
+
+/** The values grow the other way (to the left, or down). */
+export function Rplot_set_axis_inverted(plot: Rid, axis: RPlotAxis, inverted: number): void {
+	_lib.Rplot_set_axis_inverted(plot, axis, inverted);
+}
+
+/** The user cannot move or zoom this axis (the application still can). */
+export function Rplot_set_axis_locked(plot: Rid, axis: RPlotAxis, locked: number): void {
+	_lib.Rplot_set_axis_locked(plot, axis, locked);
+}
+
+/** Fits every axis that is not locked to the data, and has them follow it again (what a double click does). */
+export function Rplot_fit(plot: Rid): void {
+	_lib.Rplot_fit(plot);
+}
+
+/** Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT). */
+export function Rplot_set_legend(plot: Rid, legend: RPlotLegend): void {
+	_lib.Rplot_set_legend(plot, legend);
+}
+
+/** Lines across the data through the pointer. */
+export function Rplot_set_crosshair(plot: Rid, crosshair: number): void {
+	_lib.Rplot_set_crosshair(plot, crosshair);
+}
+
+/** The coordinates of the pointer in a corner of the data (on by default). */
+export function Rplot_set_mouse_text(plot: Rid, shown: number): void {
+	_lib.Rplot_set_mouse_text(plot, shown);
+}
+
+/** The values of the point under the pointer, written next to it (on by default). */
+export function Rplot_set_tooltips(plot: Rid, shown: number): void {
+	_lib.Rplot_set_tooltips(plot, shown);
+}
+
+/** Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data. */
+export function Rplot_get_mouse_position(plot: Rid): [result: number, x: number, y: number] {
+	const x_ = new Float64Array(1);
+	const y_ = new Float64Array(1);
+	const result_ = _lib.Rplot_get_mouse_position(plot, x_, y_);
+	return [result_, x_[0]!, y_[0]!];
+}
+
+/** Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner. */
+export function Rplot_data_to_point(plot: Rid, x: number, y: number): [point_x: number, point_y: number] {
+	const point_x_ = new Float32Array(1);
+	const point_y_ = new Float32Array(1);
+	_lib.Rplot_data_to_point(plot, x, y, point_x_, point_y_);
+	return [point_x_[0]!, point_y_[0]!];
+}
+
+/** The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner. */
+export function Rplot_point_to_data(plot: Rid, point_x: number, point_y: number): [x: number, y: number] {
+	const x_ = new Float64Array(1);
+	const y_ = new Float64Array(1);
+	_lib.Rplot_point_to_data(plot, point_x, point_y, x_, y_);
+	return [x_[0]!, y_[0]!];
+}
+
+/**
+ * Adds a line across the data that the user drags: vertical at an X
+ * (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+ * Its value is written on it, after `label` (may be NULL). Returns its index.
+ */
+export function Rplot_add_drag_line(plot: Rid, axis: RPlotAxis, value: number, label: string | null): number {
+	return _lib.Rplot_add_drag_line(plot, axis, value, _s(label));
+}
+
+export function Rplot_remove_drag_line(plot: Rid, line: number): void {
+	_lib.Rplot_remove_drag_line(plot, line);
+}
+
+export function Rplot_get_drag_line_count(plot: Rid): number {
+	return _lib.Rplot_get_drag_line_count(plot);
+}
+
+export function Rplot_set_drag_line_value(plot: Rid, line: number, value: number): void {
+	_lib.Rplot_set_drag_line_value(plot, line, value);
+}
+
+export function Rplot_get_drag_line_value(plot: Rid, line: number): number {
+	return _lib.Rplot_get_drag_line_value(plot, line);
+}
+
+/** The color of a drag line (by default the accent of the theme). */
+export function Rplot_set_drag_line_color(plot: Rid, line: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rplot_set_drag_line_color(plot, line, r, g, b, a);
+}
+
+export function Rplot_set_view_changed_callback(plot: Rid, callback: RPlotViewCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rplot_set_view_changed_callback(plot, _adapt_RPlotViewCallback(callback), user_data);
+}
+
+export function Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rplot_set_drag_line_callback(plot, _adapt_RPlotDragLineCallback(callback), user_data);
+}
+
+export function Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rplot_set_series_toggled_callback(plot, _adapt_RPlotSeriesCallback(callback), user_data);
 }
 
 /** text Initial content, or NULL. */

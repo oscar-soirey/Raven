@@ -821,6 +821,8 @@ constset WidgetType : CInt
 	RATING = 0x0230,
 	<* Page numbers with previous and next. *>
 	PAGINATION = 0x0231,
+	<* Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. *>
+	PLOT = 0x0232,
 }
 
 constset HAlign : CInt
@@ -977,6 +979,74 @@ constset Stretch : CInt
 	COVER = 0x02B2,
 	<* Original size, centered. *>
 	NONE = 0x02B3,
+}
+
+<* The axes of a Plot. *>
+constset PlotAxis : CInt
+{
+	<* The horizontal axis under the data. *>
+	X = 0x0520,
+	<* The vertical axis on the left. *>
+	Y = 0x0521,
+	<* A second horizontal axis, over the data: shown when a series or a drag line uses it. *>
+	X2 = 0x0522,
+	<* A second vertical axis, on the right: shown when a series or a drag line uses it. *>
+	Y2 = 0x0523,
+}
+
+<* How an axis of a Plot spreads its values. *>
+constset PlotScale : CInt
+{
+	LINEAR = 0x0530,
+	<* Powers of ten at even distances; only values above zero are shown. *>
+	LOG = 0x0531,
+	<*
+	 Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+	 1 by default), logarithmic beyond on both sides: shows zero and the
+	 negative values a logarithm cannot.
+	*>
+	SYMLOG = 0x0532,
+}
+
+<* How the line of a series of a Plot is drawn. *>
+constset PlotLine : CInt
+{
+	SOLID = 0x0540,
+	DASHED = 0x0541,
+	DOTTED = 0x0542,
+	DASH_DOT = 0x0543,
+	<* No line: only the markers (a scatter plot). *>
+	NONE = 0x0544,
+}
+
+<* The mark drawn on each point of a series of a Plot. *>
+constset PlotMarker : CInt
+{
+	NONE = 0x0550,
+	CIRCLE = 0x0551,
+	SQUARE = 0x0552,
+	DIAMOND = 0x0553,
+	TRIANGLE_UP = 0x0554,
+	TRIANGLE_DOWN = 0x0555,
+	CROSS = 0x0556,
+	PLUS = 0x0557,
+	ASTERISK = 0x0558,
+}
+
+<* Where the legend of a Plot is. *>
+constset PlotLegend : CInt
+{
+	HIDDEN = 0x0560,
+	TOP_LEFT = 0x0561,
+	TOP = 0x0562,
+	TOP_RIGHT = 0x0563,
+	RIGHT = 0x0564,
+	BOTTOM_RIGHT = 0x0565,
+	BOTTOM = 0x0566,
+	BOTTOM_LEFT = 0x0567,
+	LEFT = 0x0568,
+	<* To the right of the data, outside it. *>
+	OUTSIDE = 0x0569,
 }
 
 <* Shorthands of Rtext_editor_set_language for two languages. *>
@@ -1467,6 +1537,12 @@ alias BreadcrumbCallback = fn void(Id breadcrumb, CInt index, void* user_data);
 alias RatingChangedCallback = fn void(Id rating, float value, void* user_data);
 <* Called when the user goes to another page. This also fires the action of the widget. *>
 alias PageChangedCallback = fn void(Id pagination, CInt page, void* user_data);
+<* Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is). *>
+alias PlotViewCallback = fn void(Id plot, void* user_data);
+<* Called while the user drags a drag line. This also fires the action of the widget. *>
+alias PlotDragLineCallback = fn void(Id plot, CInt line, double value, void* user_data);
+<* Called when the user hides or shows a series from the legend. *>
+alias PlotSeriesCallback = fn void(Id plot, CInt series, CInt visible, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 <*
@@ -4485,6 +4561,166 @@ fn CInt Pagination.get_page(self) @inline => c::pagination_get_page(self);
 fn void Pagination.set_siblings(self, CInt siblings) @inline => c::pagination_set_siblings(self, siblings);
 
 fn void Pagination.set_changed_callback(self, PageChangedCallback callback, void* user_data) @inline => c::pagination_set_changed_callback(self, callback, user_data);
+
+// ---- Plot
+
+typedef Plot = inline Widget;
+
+<* A new Plot (widget_create(WidgetType.PLOT)). *>
+fn Plot plot_create() @inline => (Plot)c::widget_create(WidgetType.PLOT);
+
+fn void Plot.set_title(self, ZString title) @inline => c::plot_set_title(self, title);
+
+fn ZString Plot.get_title(self) @inline => c::plot_get_title(self);
+
+<* Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index. *>
+fn CInt Plot.add_series(self, ZString name) @inline => c::plot_add_series(self, name);
+
+fn void Plot.remove_series(self, CInt series) @inline => c::plot_remove_series(self, series);
+
+<* Removes every series and every drag line. *>
+fn void Plot.clear(self) @inline => c::plot_clear(self);
+
+fn CInt Plot.get_series_count(self) @inline => c::plot_get_series_count(self);
+
+fn void Plot.set_series_name(self, CInt series, ZString name) @inline => c::plot_set_series_name(self, series, name);
+
+fn ZString Plot.get_series_name(self, CInt series) @inline => c::plot_get_series_name(self, series);
+
+<*
+ Replaces the points of a series with `count` points, copied.
+ x The X of the points, or NULL: 0, 1, 2...
+ y The Y of the points. NaN leaves a gap in the line.
+*>
+fn void Plot.set_series_data(self, CInt series, double* x, double* y, CInt count) @inline => c::plot_set_series_data(self, series, x, y, count);
+
+<* Adds points after those of a series (x NULL: numbered after the last one). *>
+fn void Plot.append_series_data(self, CInt series, double* x, double* y, CInt count) @inline => c::plot_append_series_data(self, series, x, y, count);
+
+<* Adds one point after those of a series. *>
+fn void Plot.add_point(self, CInt series, double x, double y) @inline => c::plot_add_point(self, series, x, y);
+
+fn void Plot.clear_series_data(self, CInt series) @inline => c::plot_clear_series_data(self, series);
+
+fn CInt Plot.get_point_count(self, CInt series) @inline => c::plot_get_point_count(self, series);
+
+<* One point of a series. Returns R_FALSE when there is no such point. *>
+fn CInt Plot.get_point(self, CInt series, CInt index, double* x, double* y) @inline => c::plot_get_point(self, series, index, x, y);
+
+<* Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default). *>
+fn void Plot.set_series_max_points(self, CInt series, CInt max) @inline => c::plot_set_series_max_points(self, series, max);
+
+<* The color of a series (by default the next one of a palette of ten). *>
+fn void Plot.set_series_color(self, CInt series, float r, float g, float b, float a) @inline => c::plot_set_series_color(self, series, r, g, b, a);
+
+<* How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width). *>
+fn void Plot.set_series_line(self, CInt series, PlotLine line, float width) @inline => c::plot_set_series_line(self, series, line, width);
+
+<* The mark on each point and its radius (default none, 4; size 0 keeps the size). *>
+fn void Plot.set_series_marker(self, CInt series, PlotMarker marker, float size) @inline => c::plot_set_series_marker(self, series, marker, size);
+
+<* Filled markers (the default) or only their outline. *>
+fn void Plot.set_series_marker_filled(self, CInt series, CInt filled) @inline => c::plot_set_series_marker_filled(self, series, filled);
+
+<* Draws the line in steps: along at the height of a point, then up or down to the next. *>
+fn void Plot.set_series_step(self, CInt series, CInt step) @inline => c::plot_set_series_step(self, series, step);
+
+<* Shades the area between the line and zero, at this opacity (0: none, the default). *>
+fn void Plot.set_series_fill(self, CInt series, float opacity) @inline => c::plot_set_series_fill(self, series, opacity);
+
+<* The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2. *>
+fn void Plot.set_series_axes(self, CInt series, PlotAxis x_axis, PlotAxis y_axis) @inline => c::plot_set_series_axes(self, series, x_axis, y_axis);
+
+<* Shows or hides a series (the user does it with a click on its name in the legend). *>
+fn void Plot.set_series_visible(self, CInt series, bool visible) @inline => c::plot_set_series_visible(self, series, (CInt)visible);
+
+fn bool Plot.is_series_visible(self, CInt series) @inline => c::plot_is_series_visible(self, series) != 0;
+
+<* The name written along an axis. *>
+fn void Plot.set_axis_label(self, PlotAxis axis, ZString label) @inline => c::plot_set_axis_label(self, axis, label);
+
+fn ZString Plot.get_axis_label(self, PlotAxis axis) @inline => c::plot_get_axis_label(self, axis);
+
+fn void Plot.set_axis_scale(self, PlotAxis axis, PlotScale scale) @inline => c::plot_set_axis_scale(self, axis, scale);
+
+fn PlotScale Plot.get_axis_scale(self, PlotAxis axis) @inline => c::plot_get_axis_scale(self, axis);
+
+<* R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1). *>
+fn void Plot.set_axis_linear_threshold(self, PlotAxis axis, double threshold) @inline => c::plot_set_axis_linear_threshold(self, axis, threshold);
+
+<* Shows this range of an axis; the axis then stops following the data. *>
+fn void Plot.set_axis_range(self, PlotAxis axis, double min, double max) @inline => c::plot_set_axis_range(self, axis, min, max);
+
+<* The range an axis shows now (after the user moved or zoomed it). *>
+fn void Plot.get_axis_range(self, PlotAxis axis, double* min, double* max) @inline => c::plot_get_axis_range(self, axis, min, max);
+
+<* The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again). *>
+fn void Plot.set_axis_auto_fit(self, PlotAxis axis, CInt auto_fit) @inline => c::plot_set_axis_auto_fit(self, axis, auto_fit);
+
+fn bool Plot.is_axis_auto_fit(self, PlotAxis axis) @inline => c::plot_is_axis_auto_fit(self, axis) != 0;
+
+<* How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks. *>
+fn void Plot.set_axis_format(self, PlotAxis axis, ZString format) @inline => c::plot_set_axis_format(self, axis, format);
+
+<* 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default). *>
+fn void Plot.set_axis_visible(self, PlotAxis axis, bool visible) @inline => c::plot_set_axis_visible(self, axis, (CInt)visible);
+
+<* Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y). *>
+fn void Plot.set_axis_grid(self, PlotAxis axis, CInt grid) @inline => c::plot_set_axis_grid(self, axis, grid);
+
+<* The values grow the other way (to the left, or down). *>
+fn void Plot.set_axis_inverted(self, PlotAxis axis, CInt inverted) @inline => c::plot_set_axis_inverted(self, axis, inverted);
+
+<* The user cannot move or zoom this axis (the application still can). *>
+fn void Plot.set_axis_locked(self, PlotAxis axis, CInt locked) @inline => c::plot_set_axis_locked(self, axis, locked);
+
+<* Fits every axis that is not locked to the data, and has them follow it again (what a double click does). *>
+fn void Plot.fit(self) @inline => c::plot_fit(self);
+
+<* Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT). *>
+fn void Plot.set_legend(self, PlotLegend legend) @inline => c::plot_set_legend(self, legend);
+
+<* Lines across the data through the pointer. *>
+fn void Plot.set_crosshair(self, CInt crosshair) @inline => c::plot_set_crosshair(self, crosshair);
+
+<* The coordinates of the pointer in a corner of the data (on by default). *>
+fn void Plot.set_mouse_text(self, bool shown) @inline => c::plot_set_mouse_text(self, (CInt)shown);
+
+<* The values of the point under the pointer, written next to it (on by default). *>
+fn void Plot.set_tooltips(self, bool shown) @inline => c::plot_set_tooltips(self, (CInt)shown);
+
+<* Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data. *>
+fn CInt Plot.get_mouse_position(self, double* x, double* y) @inline => c::plot_get_mouse_position(self, x, y);
+
+<* Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner. *>
+fn void Plot.data_to_point(self, double x, double y, float* point_x, float* point_y) @inline => c::plot_data_to_point(self, x, y, point_x, point_y);
+
+<* The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner. *>
+fn void Plot.point_to_data(self, float point_x, float point_y, double* x, double* y) @inline => c::plot_point_to_data(self, point_x, point_y, x, y);
+
+<*
+ Adds a line across the data that the user drags: vertical at an X
+ (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+ Its value is written on it, after `label` (may be NULL). Returns its index.
+*>
+fn CInt Plot.add_drag_line(self, PlotAxis axis, double value, ZString label) @inline => c::plot_add_drag_line(self, axis, value, label);
+
+fn void Plot.remove_drag_line(self, CInt line) @inline => c::plot_remove_drag_line(self, line);
+
+fn CInt Plot.get_drag_line_count(self) @inline => c::plot_get_drag_line_count(self);
+
+fn void Plot.set_drag_line_value(self, CInt line, double value) @inline => c::plot_set_drag_line_value(self, line, value);
+
+fn double Plot.get_drag_line_value(self, CInt line) @inline => c::plot_get_drag_line_value(self, line);
+
+<* The color of a drag line (by default the accent of the theme). *>
+fn void Plot.set_drag_line_color(self, CInt line, float r, float g, float b, float a) @inline => c::plot_set_drag_line_color(self, line, r, g, b, a);
+
+fn void Plot.set_view_changed_callback(self, PlotViewCallback callback, void* user_data) @inline => c::plot_set_view_changed_callback(self, callback, user_data);
+
+fn void Plot.set_drag_line_callback(self, PlotDragLineCallback callback, void* user_data) @inline => c::plot_set_drag_line_callback(self, callback, user_data);
+
+fn void Plot.set_series_toggled_callback(self, PlotSeriesCallback callback, void* user_data) @inline => c::plot_set_series_toggled_callback(self, callback, user_data);
 
 // ---- Window
 

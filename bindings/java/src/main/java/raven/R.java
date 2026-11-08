@@ -1002,6 +1002,10 @@ public final class R {
      * Page numbers with previous and next.
      */
     public static final int R_WIDGET_PAGINATION = 0x0231;
+    /**
+     * Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
+     */
+    public static final int R_WIDGET_PLOT = 0x0232;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1171,6 +1175,73 @@ public final class R {
      * Original size, centered.
      */
     public static final int R_STRETCH_NONE = 0x02B3;
+
+    // RPlotAxis: The axes of a Plot.
+    /**
+     * The horizontal axis under the data.
+     */
+    public static final int R_PLOT_X = 0x0520;
+    /**
+     * The vertical axis on the left.
+     */
+    public static final int R_PLOT_Y = 0x0521;
+    /**
+     * A second horizontal axis, over the data: shown when a series or a drag line uses it.
+     */
+    public static final int R_PLOT_X2 = 0x0522;
+    /**
+     * A second vertical axis, on the right: shown when a series or a drag line uses it.
+     */
+    public static final int R_PLOT_Y2 = 0x0523;
+
+    // RPlotScale: How an axis of a Plot spreads its values.
+    public static final int R_PLOT_SCALE_LINEAR = 0x0530;
+    /**
+     * Powers of ten at even distances; only values above zero are shown.
+     */
+    public static final int R_PLOT_SCALE_LOG = 0x0531;
+    /**
+     * Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+     * 1 by default), logarithmic beyond on both sides: shows zero and the
+     * negative values a logarithm cannot.
+     */
+    public static final int R_PLOT_SCALE_SYMLOG = 0x0532;
+
+    // RPlotLine: How the line of a series of a Plot is drawn.
+    public static final int R_PLOT_LINE_SOLID = 0x0540;
+    public static final int R_PLOT_LINE_DASHED = 0x0541;
+    public static final int R_PLOT_LINE_DOTTED = 0x0542;
+    public static final int R_PLOT_LINE_DASH_DOT = 0x0543;
+    /**
+     * No line: only the markers (a scatter plot).
+     */
+    public static final int R_PLOT_LINE_NONE = 0x0544;
+
+    // RPlotMarker: The mark drawn on each point of a series of a Plot.
+    public static final int R_PLOT_MARKER_NONE = 0x0550;
+    public static final int R_PLOT_MARKER_CIRCLE = 0x0551;
+    public static final int R_PLOT_MARKER_SQUARE = 0x0552;
+    public static final int R_PLOT_MARKER_DIAMOND = 0x0553;
+    public static final int R_PLOT_MARKER_TRIANGLE_UP = 0x0554;
+    public static final int R_PLOT_MARKER_TRIANGLE_DOWN = 0x0555;
+    public static final int R_PLOT_MARKER_CROSS = 0x0556;
+    public static final int R_PLOT_MARKER_PLUS = 0x0557;
+    public static final int R_PLOT_MARKER_ASTERISK = 0x0558;
+
+    // RPlotLegend: Where the legend of a Plot is.
+    public static final int R_PLOT_LEGEND_HIDDEN = 0x0560;
+    public static final int R_PLOT_LEGEND_TOP_LEFT = 0x0561;
+    public static final int R_PLOT_LEGEND_TOP = 0x0562;
+    public static final int R_PLOT_LEGEND_TOP_RIGHT = 0x0563;
+    public static final int R_PLOT_LEGEND_RIGHT = 0x0564;
+    public static final int R_PLOT_LEGEND_BOTTOM_RIGHT = 0x0565;
+    public static final int R_PLOT_LEGEND_BOTTOM = 0x0566;
+    public static final int R_PLOT_LEGEND_BOTTOM_LEFT = 0x0567;
+    public static final int R_PLOT_LEGEND_LEFT = 0x0568;
+    /**
+     * To the right of the data, outside it.
+     */
+    public static final int R_PLOT_LEGEND_OUTSIDE = 0x0569;
 
     // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
     public static final int R_SYNTAX_NONE = 0x0340;
@@ -4517,6 +4588,69 @@ public final class R {
 
     private static MemorySegment upcall(RPageChangedCallback f) {
         return stub(f, RPageChangedCallback.class, "RPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is).
+     */
+    @FunctionalInterface
+    public interface RPlotViewCallback {
+        void invoke(int plot, MemorySegment user_data);
+    }
+
+    private static void RPlotViewCallback$raw(RPlotViewCallback f, int plot, MemorySegment user_data) {
+        try {
+            f.invoke(plot, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RPlotViewCallback f) {
+        return stub(f, RPlotViewCallback.class, "RPlotViewCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called while the user drags a drag line. This also fires the action of the widget.
+     */
+    @FunctionalInterface
+    public interface RPlotDragLineCallback {
+        void invoke(int plot, int line, double value, MemorySegment user_data);
+    }
+
+    private static void RPlotDragLineCallback$raw(RPlotDragLineCallback f, int plot, int line, double value, MemorySegment user_data) {
+        try {
+            f.invoke(plot, line, value, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RPlotDragLineCallback f) {
+        return stub(f, RPlotDragLineCallback.class, "RPlotDragLineCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_DOUBLE, ADDRESS));
+    }
+
+    /**
+     * Called when the user hides or shows a series from the legend.
+     */
+    @FunctionalInterface
+    public interface RPlotSeriesCallback {
+        void invoke(int plot, int series, int visible, MemorySegment user_data);
+    }
+
+    private static void RPlotSeriesCallback$raw(RPlotSeriesCallback f, int plot, int series, int visible, MemorySegment user_data) {
+        try {
+            f.invoke(plot, series, visible, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RPlotSeriesCallback f) {
+        return stub(f, RPlotSeriesCallback.class, "RPlotSeriesCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -13940,6 +14074,831 @@ public final class R {
 
     public static void Rpagination_set_changed_callback(int pagination, RPageChangedCallback callback) {
         Rpagination_set_changed_callback(pagination, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rplot_set_title$;
+
+    public static void Rplot_set_title(int plot, String title) {
+        MethodHandle $h = Rplot_set_title$;
+        if ($h == null) Rplot_set_title$ = $h = find("Rplot_set_title", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment title$ = title == null ? MemorySegment.NULL : utf8($a, title);
+            $h.invokeExact(plot, title$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_title$;
+
+    public static String Rplot_get_title(int plot) {
+        MethodHandle $h = Rplot_get_title$;
+        if ($h == null) Rplot_get_title$ = $h = find("Rplot_get_title", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(plot);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_add_series$;
+
+    /**
+     * Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index.
+     */
+    public static int Rplot_add_series(int plot, String name) {
+        MethodHandle $h = Rplot_add_series$;
+        if ($h == null) Rplot_add_series$ = $h = find("Rplot_add_series", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            int $r = (int) $h.invokeExact(plot, name$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_remove_series$;
+
+    public static void Rplot_remove_series(int plot, int series) {
+        MethodHandle $h = Rplot_remove_series$;
+        if ($h == null) Rplot_remove_series$ = $h = find("Rplot_remove_series", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, series);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_clear$;
+
+    /**
+     * Removes every series and every drag line.
+     */
+    public static void Rplot_clear(int plot) {
+        MethodHandle $h = Rplot_clear$;
+        if ($h == null) Rplot_clear$ = $h = find("Rplot_clear", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(plot);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_series_count$;
+
+    public static int Rplot_get_series_count(int plot) {
+        MethodHandle $h = Rplot_get_series_count$;
+        if ($h == null) Rplot_get_series_count$ = $h = find("Rplot_get_series_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(plot);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_name$;
+
+    public static void Rplot_set_series_name(int plot, int series, String name) {
+        MethodHandle $h = Rplot_set_series_name$;
+        if ($h == null) Rplot_set_series_name$ = $h = find("Rplot_set_series_name", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            $h.invokeExact(plot, series, name$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_series_name$;
+
+    public static String Rplot_get_series_name(int plot, int series) {
+        MethodHandle $h = Rplot_get_series_name$;
+        if ($h == null) Rplot_get_series_name$ = $h = find("Rplot_get_series_name", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(plot, series);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_data$;
+
+    /**
+     * Replaces the points of a series with `count` points, copied.
+     * x The X of the points, or NULL: 0, 1, 2...
+     * y The Y of the points. NaN leaves a gap in the line.
+     */
+    public static void Rplot_set_series_data(int plot, int series, double[] x, double[] y, int count) {
+        MethodHandle $h = Rplot_set_series_data$;
+        if ($h == null) Rplot_set_series_data$ = $h = find("Rplot_set_series_data", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocateFrom(JAVA_DOUBLE, x);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocateFrom(JAVA_DOUBLE, y);
+            $h.invokeExact(plot, series, x$, y$, count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_append_series_data$;
+
+    /**
+     * Adds points after those of a series (x NULL: numbered after the last one).
+     */
+    public static void Rplot_append_series_data(int plot, int series, double[] x, double[] y, int count) {
+        MethodHandle $h = Rplot_append_series_data$;
+        if ($h == null) Rplot_append_series_data$ = $h = find("Rplot_append_series_data", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocateFrom(JAVA_DOUBLE, x);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocateFrom(JAVA_DOUBLE, y);
+            $h.invokeExact(plot, series, x$, y$, count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_add_point$;
+
+    /**
+     * Adds one point after those of a series.
+     */
+    public static void Rplot_add_point(int plot, int series, double x, double y) {
+        MethodHandle $h = Rplot_add_point$;
+        if ($h == null) Rplot_add_point$ = $h = find("Rplot_add_point", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(plot, series, x, y);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_clear_series_data$;
+
+    public static void Rplot_clear_series_data(int plot, int series) {
+        MethodHandle $h = Rplot_clear_series_data$;
+        if ($h == null) Rplot_clear_series_data$ = $h = find("Rplot_clear_series_data", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, series);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_point_count$;
+
+    public static int Rplot_get_point_count(int plot, int series) {
+        MethodHandle $h = Rplot_get_point_count$;
+        if ($h == null) Rplot_get_point_count$ = $h = find("Rplot_get_point_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(plot, series);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_point$;
+
+    /**
+     * One point of a series. Returns R_FALSE when there is no such point.
+     */
+    public static int Rplot_get_point(int plot, int series, int index, double[] x, double[] y) {
+        MethodHandle $h = Rplot_get_point$;
+        if ($h == null) Rplot_get_point$ = $h = find("Rplot_get_point", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            int $r = (int) $h.invokeExact(plot, series, index, x$, y$);
+            if (x != null && x.length > 0) x[0] = x$.get(JAVA_DOUBLE, 0);
+            if (y != null && y.length > 0) y[0] = y$.get(JAVA_DOUBLE, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_max_points$;
+
+    /**
+     * Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default).
+     */
+    public static void Rplot_set_series_max_points(int plot, int series, int max) {
+        MethodHandle $h = Rplot_set_series_max_points$;
+        if ($h == null) Rplot_set_series_max_points$ = $h = find("Rplot_set_series_max_points", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, series, max);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_color$;
+
+    /**
+     * The color of a series (by default the next one of a palette of ten).
+     */
+    public static void Rplot_set_series_color(int plot, int series, float r, float g, float b, float a) {
+        MethodHandle $h = Rplot_set_series_color$;
+        if ($h == null) Rplot_set_series_color$ = $h = find("Rplot_set_series_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(plot, series, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_line$;
+
+    /**
+     * How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width).
+     */
+    public static void Rplot_set_series_line(int plot, int series, int line, float width) {
+        MethodHandle $h = Rplot_set_series_line$;
+        if ($h == null) Rplot_set_series_line$ = $h = find("Rplot_set_series_line", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(plot, series, line, width);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_marker$;
+
+    /**
+     * The mark on each point and its radius (default none, 4; size 0 keeps the size).
+     */
+    public static void Rplot_set_series_marker(int plot, int series, int marker, float size) {
+        MethodHandle $h = Rplot_set_series_marker$;
+        if ($h == null) Rplot_set_series_marker$ = $h = find("Rplot_set_series_marker", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(plot, series, marker, size);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_marker_filled$;
+
+    /**
+     * Filled markers (the default) or only their outline.
+     */
+    public static void Rplot_set_series_marker_filled(int plot, int series, int filled) {
+        MethodHandle $h = Rplot_set_series_marker_filled$;
+        if ($h == null) Rplot_set_series_marker_filled$ = $h = find("Rplot_set_series_marker_filled", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, series, filled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_step$;
+
+    /**
+     * Draws the line in steps: along at the height of a point, then up or down to the next.
+     */
+    public static void Rplot_set_series_step(int plot, int series, int step) {
+        MethodHandle $h = Rplot_set_series_step$;
+        if ($h == null) Rplot_set_series_step$ = $h = find("Rplot_set_series_step", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, series, step);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_fill$;
+
+    /**
+     * Shades the area between the line and zero, at this opacity (0: none, the default).
+     */
+    public static void Rplot_set_series_fill(int plot, int series, float opacity) {
+        MethodHandle $h = Rplot_set_series_fill$;
+        if ($h == null) Rplot_set_series_fill$ = $h = find("Rplot_set_series_fill", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(plot, series, opacity);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_axes$;
+
+    /**
+     * The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2.
+     */
+    public static void Rplot_set_series_axes(int plot, int series, int x_axis, int y_axis) {
+        MethodHandle $h = Rplot_set_series_axes$;
+        if ($h == null) Rplot_set_series_axes$ = $h = find("Rplot_set_series_axes", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, series, x_axis, y_axis);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_series_visible$;
+
+    /**
+     * Shows or hides a series (the user does it with a click on its name in the legend).
+     */
+    public static void Rplot_set_series_visible(int plot, int series, int visible) {
+        MethodHandle $h = Rplot_set_series_visible$;
+        if ($h == null) Rplot_set_series_visible$ = $h = find("Rplot_set_series_visible", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, series, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_is_series_visible$;
+
+    public static int Rplot_is_series_visible(int plot, int series) {
+        MethodHandle $h = Rplot_is_series_visible$;
+        if ($h == null) Rplot_is_series_visible$ = $h = find("Rplot_is_series_visible", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(plot, series);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_label$;
+
+    /**
+     * The name written along an axis.
+     */
+    public static void Rplot_set_axis_label(int plot, int axis, String label) {
+        MethodHandle $h = Rplot_set_axis_label$;
+        if ($h == null) Rplot_set_axis_label$ = $h = find("Rplot_set_axis_label", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment label$ = label == null ? MemorySegment.NULL : utf8($a, label);
+            $h.invokeExact(plot, axis, label$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_axis_label$;
+
+    public static String Rplot_get_axis_label(int plot, int axis) {
+        MethodHandle $h = Rplot_get_axis_label$;
+        if ($h == null) Rplot_get_axis_label$ = $h = find("Rplot_get_axis_label", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(plot, axis);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_scale$;
+
+    public static void Rplot_set_axis_scale(int plot, int axis, int scale) {
+        MethodHandle $h = Rplot_set_axis_scale$;
+        if ($h == null) Rplot_set_axis_scale$ = $h = find("Rplot_set_axis_scale", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, axis, scale);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_axis_scale$;
+
+    public static int Rplot_get_axis_scale(int plot, int axis) {
+        MethodHandle $h = Rplot_get_axis_scale$;
+        if ($h == null) Rplot_get_axis_scale$ = $h = find("Rplot_get_axis_scale", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(plot, axis);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_linear_threshold$;
+
+    /**
+     * R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1).
+     */
+    public static void Rplot_set_axis_linear_threshold(int plot, int axis, double threshold) {
+        MethodHandle $h = Rplot_set_axis_linear_threshold$;
+        if ($h == null) Rplot_set_axis_linear_threshold$ = $h = find("Rplot_set_axis_linear_threshold", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(plot, axis, threshold);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_range$;
+
+    /**
+     * Shows this range of an axis; the axis then stops following the data.
+     */
+    public static void Rplot_set_axis_range(int plot, int axis, double min, double max) {
+        MethodHandle $h = Rplot_set_axis_range$;
+        if ($h == null) Rplot_set_axis_range$ = $h = find("Rplot_set_axis_range", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(plot, axis, min, max);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_axis_range$;
+
+    /**
+     * The range an axis shows now (after the user moved or zoomed it).
+     */
+    public static void Rplot_get_axis_range(int plot, int axis, double[] min, double[] max) {
+        MethodHandle $h = Rplot_get_axis_range$;
+        if ($h == null) Rplot_get_axis_range$ = $h = find("Rplot_get_axis_range", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment min$ = min == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment max$ = max == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            $h.invokeExact(plot, axis, min$, max$);
+            if (min != null && min.length > 0) min[0] = min$.get(JAVA_DOUBLE, 0);
+            if (max != null && max.length > 0) max[0] = max$.get(JAVA_DOUBLE, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_auto_fit$;
+
+    /**
+     * The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again).
+     */
+    public static void Rplot_set_axis_auto_fit(int plot, int axis, int auto_fit) {
+        MethodHandle $h = Rplot_set_axis_auto_fit$;
+        if ($h == null) Rplot_set_axis_auto_fit$ = $h = find("Rplot_set_axis_auto_fit", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, axis, auto_fit);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_is_axis_auto_fit$;
+
+    public static int Rplot_is_axis_auto_fit(int plot, int axis) {
+        MethodHandle $h = Rplot_is_axis_auto_fit$;
+        if ($h == null) Rplot_is_axis_auto_fit$ = $h = find("Rplot_is_axis_auto_fit", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(plot, axis);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_format$;
+
+    /**
+     * How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks.
+     */
+    public static void Rplot_set_axis_format(int plot, int axis, String format) {
+        MethodHandle $h = Rplot_set_axis_format$;
+        if ($h == null) Rplot_set_axis_format$ = $h = find("Rplot_set_axis_format", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment format$ = format == null ? MemorySegment.NULL : utf8($a, format);
+            $h.invokeExact(plot, axis, format$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_visible$;
+
+    /**
+     * 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default).
+     */
+    public static void Rplot_set_axis_visible(int plot, int axis, int visible) {
+        MethodHandle $h = Rplot_set_axis_visible$;
+        if ($h == null) Rplot_set_axis_visible$ = $h = find("Rplot_set_axis_visible", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, axis, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_grid$;
+
+    /**
+     * Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y).
+     */
+    public static void Rplot_set_axis_grid(int plot, int axis, int grid) {
+        MethodHandle $h = Rplot_set_axis_grid$;
+        if ($h == null) Rplot_set_axis_grid$ = $h = find("Rplot_set_axis_grid", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, axis, grid);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_inverted$;
+
+    /**
+     * The values grow the other way (to the left, or down).
+     */
+    public static void Rplot_set_axis_inverted(int plot, int axis, int inverted) {
+        MethodHandle $h = Rplot_set_axis_inverted$;
+        if ($h == null) Rplot_set_axis_inverted$ = $h = find("Rplot_set_axis_inverted", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, axis, inverted);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_axis_locked$;
+
+    /**
+     * The user cannot move or zoom this axis (the application still can).
+     */
+    public static void Rplot_set_axis_locked(int plot, int axis, int locked) {
+        MethodHandle $h = Rplot_set_axis_locked$;
+        if ($h == null) Rplot_set_axis_locked$ = $h = find("Rplot_set_axis_locked", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, axis, locked);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_fit$;
+
+    /**
+     * Fits every axis that is not locked to the data, and has them follow it again (what a double click does).
+     */
+    public static void Rplot_fit(int plot) {
+        MethodHandle $h = Rplot_fit$;
+        if ($h == null) Rplot_fit$ = $h = find("Rplot_fit", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(plot);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_legend$;
+
+    /**
+     * Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT).
+     */
+    public static void Rplot_set_legend(int plot, int legend) {
+        MethodHandle $h = Rplot_set_legend$;
+        if ($h == null) Rplot_set_legend$ = $h = find("Rplot_set_legend", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, legend);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_crosshair$;
+
+    /**
+     * Lines across the data through the pointer.
+     */
+    public static void Rplot_set_crosshair(int plot, int crosshair) {
+        MethodHandle $h = Rplot_set_crosshair$;
+        if ($h == null) Rplot_set_crosshair$ = $h = find("Rplot_set_crosshair", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, crosshair);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_mouse_text$;
+
+    /**
+     * The coordinates of the pointer in a corner of the data (on by default).
+     */
+    public static void Rplot_set_mouse_text(int plot, int shown) {
+        MethodHandle $h = Rplot_set_mouse_text$;
+        if ($h == null) Rplot_set_mouse_text$ = $h = find("Rplot_set_mouse_text", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, shown);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_tooltips$;
+
+    /**
+     * The values of the point under the pointer, written next to it (on by default).
+     */
+    public static void Rplot_set_tooltips(int plot, int shown) {
+        MethodHandle $h = Rplot_set_tooltips$;
+        if ($h == null) Rplot_set_tooltips$ = $h = find("Rplot_set_tooltips", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, shown);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_mouse_position$;
+
+    /**
+     * Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data.
+     */
+    public static int Rplot_get_mouse_position(int plot, double[] x, double[] y) {
+        MethodHandle $h = Rplot_get_mouse_position$;
+        if ($h == null) Rplot_get_mouse_position$ = $h = find("Rplot_get_mouse_position", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            int $r = (int) $h.invokeExact(plot, x$, y$);
+            if (x != null && x.length > 0) x[0] = x$.get(JAVA_DOUBLE, 0);
+            if (y != null && y.length > 0) y[0] = y$.get(JAVA_DOUBLE, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_data_to_point$;
+
+    /**
+     * Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner.
+     */
+    public static void Rplot_data_to_point(int plot, double x, double y, float[] point_x, float[] point_y) {
+        MethodHandle $h = Rplot_data_to_point$;
+        if ($h == null) Rplot_data_to_point$ = $h = find("Rplot_data_to_point", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment point_x$ = point_x == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            MemorySegment point_y$ = point_y == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            $h.invokeExact(plot, x, y, point_x$, point_y$);
+            if (point_x != null && point_x.length > 0) point_x[0] = point_x$.get(JAVA_FLOAT, 0);
+            if (point_y != null && point_y.length > 0) point_y[0] = point_y$.get(JAVA_FLOAT, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_point_to_data$;
+
+    /**
+     * The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner.
+     */
+    public static void Rplot_point_to_data(int plot, float point_x, float point_y, double[] x, double[] y) {
+        MethodHandle $h = Rplot_point_to_data$;
+        if ($h == null) Rplot_point_to_data$ = $h = find("Rplot_point_to_data", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            $h.invokeExact(plot, point_x, point_y, x$, y$);
+            if (x != null && x.length > 0) x[0] = x$.get(JAVA_DOUBLE, 0);
+            if (y != null && y.length > 0) y[0] = y$.get(JAVA_DOUBLE, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_add_drag_line$;
+
+    /**
+     * Adds a line across the data that the user drags: vertical at an X
+     * (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+     * Its value is written on it, after `label` (may be NULL). Returns its index.
+     */
+    public static int Rplot_add_drag_line(int plot, int axis, double value, String label) {
+        MethodHandle $h = Rplot_add_drag_line$;
+        if ($h == null) Rplot_add_drag_line$ = $h = find("Rplot_add_drag_line", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_DOUBLE, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment label$ = label == null ? MemorySegment.NULL : utf8($a, label);
+            int $r = (int) $h.invokeExact(plot, axis, value, label$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_remove_drag_line$;
+
+    public static void Rplot_remove_drag_line(int plot, int line) {
+        MethodHandle $h = Rplot_remove_drag_line$;
+        if ($h == null) Rplot_remove_drag_line$ = $h = find("Rplot_remove_drag_line", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(plot, line);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_drag_line_count$;
+
+    public static int Rplot_get_drag_line_count(int plot) {
+        MethodHandle $h = Rplot_get_drag_line_count$;
+        if ($h == null) Rplot_get_drag_line_count$ = $h = find("Rplot_get_drag_line_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(plot);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_drag_line_value$;
+
+    public static void Rplot_set_drag_line_value(int plot, int line, double value) {
+        MethodHandle $h = Rplot_set_drag_line_value$;
+        if ($h == null) Rplot_set_drag_line_value$ = $h = find("Rplot_set_drag_line_value", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(plot, line, value);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_get_drag_line_value$;
+
+    public static double Rplot_get_drag_line_value(int plot, int line) {
+        MethodHandle $h = Rplot_get_drag_line_value$;
+        if ($h == null) Rplot_get_drag_line_value$ = $h = find("Rplot_get_drag_line_value", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(plot, line);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_drag_line_color$;
+
+    /**
+     * The color of a drag line (by default the accent of the theme).
+     */
+    public static void Rplot_set_drag_line_color(int plot, int line, float r, float g, float b, float a) {
+        MethodHandle $h = Rplot_set_drag_line_color$;
+        if ($h == null) Rplot_set_drag_line_color$ = $h = find("Rplot_set_drag_line_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(plot, line, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rplot_set_view_changed_callback$;
+
+    public static void Rplot_set_view_changed_callback(int plot, RPlotViewCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rplot_set_view_changed_callback$;
+        if ($h == null) Rplot_set_view_changed_callback$ = $h = find("Rplot_set_view_changed_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(plot, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rplot_set_view_changed_callback(int plot, RPlotViewCallback callback) {
+        Rplot_set_view_changed_callback(plot, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rplot_set_drag_line_callback$;
+
+    public static void Rplot_set_drag_line_callback(int plot, RPlotDragLineCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rplot_set_drag_line_callback$;
+        if ($h == null) Rplot_set_drag_line_callback$ = $h = find("Rplot_set_drag_line_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(plot, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rplot_set_drag_line_callback(int plot, RPlotDragLineCallback callback) {
+        Rplot_set_drag_line_callback(plot, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rplot_set_series_toggled_callback$;
+
+    public static void Rplot_set_series_toggled_callback(int plot, RPlotSeriesCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rplot_set_series_toggled_callback$;
+        if ($h == null) Rplot_set_series_toggled_callback$ = $h = find("Rplot_set_series_toggled_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(plot, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rplot_set_series_toggled_callback(int plot, RPlotSeriesCallback callback) {
+        Rplot_set_series_toggled_callback(plot, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtext_editor_create$;
