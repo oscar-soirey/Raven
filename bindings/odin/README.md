@@ -25,8 +25,8 @@ main :: proc() {
 It links the shared library of Raven (build Raven with
 `-DRAVEN_BUILD_SHARED=ON`, or take it from a release):
 
-    odin run . -extra-linker-flags:"-L/path/to/lib"              # Linux, macOS
-    odin run . -extra-linker-flags:"/LIBPATH:C:\path\to\lib"     # Windows: raven.lib, raven.dll beside the program
+    odin run . -extra-linker-flags:"-L/path/to/lib -Wl,-rpath,/path/to/lib"   # Linux, macOS
+    odin run . -extra-linker-flags:"/LIBPATH:C:\path\to\lib"                  # Windows: raven.lib, raven.dll beside the program
 
 `example/main.odin` is the program of the other bindings
 (`odin run example -- --test` checks the binding without a window).
