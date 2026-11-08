@@ -1,0 +1,42 @@
+<!-- Plots: four of them, one per thing they do. The first one is all XML; main.c fills the others. -->
+<Window Title="Raven plots" Width="1280" Height="820">
+	<VBox Spacing="14" Slot.Padding="20">
+		<HBox Spacing="12">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Plots" TextSize="26"/>
+				<Label Text="Drag to move  -  right drag to zoom into a rectangle  -  wheel to zoom (over an axis: that axis only)  -  double click to fit  -  click a name in the legend to hide it" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="crosshair" Text="Crosshair" Style="Switch" OnChanged="plot.crosshair" Slot.VAlign="Center"/>
+			<Checkbox Name="symlog" Text="Symmetric log" Style="Switch" Checked="true" OnChanged="plot.symlog" Slot.VAlign="Center"/>
+			<Button Name="pause" Text="Pause" OnClicked="plot.pause" Slot.VAlign="Center"/>
+			<Button Text="Fit all" Style="Primary" OnClicked="plot.fit" Slot.VAlign="Center"/>
+		</HBox>
+
+		<UniformGrid Columns="2" Spacing="16" Slot.Fill="1">
+			<!-- 1. Written in XML: series with markers, a scatter, a limit the user drags -->
+			<Plot Name="readings" Title="Readings (XML only)" XLabel="week" YLabel="value" Legend="TopLeft" XFormat="%.0f">
+				<Series Name="Sensor A" Marker="Circle" LineWidth="2"
+					X="1 2 3 4 5 6 7 8 9 10 11 12" Y="12.1 13.4 15.2 17.8 20.3 23.1 24.6 24.0 21.7 18.2 14.9 12.8"/>
+				<Series Name="Sensor B" Marker="Square" MarkerFilled="false" Line="Dashed"
+					X="1 2 3 4 5 6 7 8 9 10 11 12" Y="8.4 9.1 11.6 14.0 17.2 20.5 22.9 22.4 19.0 15.1 11.3 9.0"/>
+				<Scatter Name="Spot checks" Marker="Diamond" MarkerSize="5"
+					Points="2.5,14.8 4.2,18.9 6.1,24.4 7.8,26.1 9.4,20.7 11.6,13.0"/>
+				<DragLine Axis="Y" Value="25" Label="limit" Color="#E5484D"/>
+			</Plot>
+
+			<!-- 2. Data that streams in: the last 10 seconds, a second vertical axis -->
+			<Plot Name="stream" Title="Live signal" XLabel="time (s)" YLabel="signal" Y2Label="temperature" Legend="TopLeft" Y2Format="%.1f"/>
+
+			<!-- 3. Logarithmic X: the response of two filters; drag the cutoff -->
+			<Plot Name="bode" Title="Frequency response (drag the cutoff)" XScale="Log" XLabel="frequency (Hz)" YLabel="gain (dB)"
+				Y2Label="phase (deg)" Legend="BottomLeft"/>
+
+			<!-- 4. A million points, thinned as they are drawn; Y on a symmetric logarithm -->
+			<VBox Spacing="6">
+				<Plot Name="large" Title="A million points" YScale="SymLog" YLinearThreshold="10" XLabel="step" YLabel="position"
+					Legend="TopLeft" Slot.Fill="1"/>
+				<Label Name="large.view" Text="" Opacity="0.6"/>
+			</VBox>
+		</UniformGrid>
+	</VBox>
+</Window>

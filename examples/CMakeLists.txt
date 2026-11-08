@@ -14,6 +14,7 @@
 #   themes           looks (Raven, Windows 11), theme files, styles of parts and states, Markdown
 #   overlay          a window that is seen through, and the four ways to blur what is behind
 #   effects          the effects (shaders) of Raven, and two written by the application
+#   plot             curves of X / Y data: XML, streaming data, logarithmic axes, drag lines, a million points
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
@@ -45,6 +46,7 @@ raven_add_example(studio studio/main.c studio/studio.xml studio/clock.svg)
 raven_add_example(themes themes/main.c themes/themes.xml themes/ocean.xml themes/paper.xml themes/tweaks.xml themes/notes.md)
 raven_add_example(overlay overlay/main.c overlay/overlay.xml)
 raven_add_example(effects effects/main.c effects/effects.xml effects/wave.frag effects/liquid.frag)
+raven_add_example(plot plot/main.c plot/plot.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml
