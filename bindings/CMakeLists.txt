@@ -10,6 +10,8 @@
 #   binding_java          needs a JDK 22 or later and the shared library; not on Windows
 #   binding_odin          needs odin and the shared library; not on Windows
 #   binding_bun           needs bun and the shared library; not on Windows
+#   binding_node          needs node and node_api.h (the addon is built here) and the shared library; not on Windows
+#   binding_node_bun      the same addon and test, run by bun instead
 #   binding_zig           needs zig: compiles every declaration of zig/raven.zig (nothing is linked or run)
 #
 # C# and LuaJIT have no test here.
@@ -96,5 +98,20 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 		add_test(NAME binding_bun
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_BUN} run ${CMAKE_CURRENT_SOURCE_DIR}/bun/src/example.ts --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+	endif()
+
+	add_subdirectory(node)
+	if(TARGET raven_node)
+		set(RAVEN_NODE_ENV "RAVEN_ADDON=$<TARGET_FILE:raven_node>" ${RAVEN_BINDING_ENV})
+		if(RAVEN_NODE)
+			add_test(NAME binding_node
+				COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_NODE_ENV} ${RAVEN_NODE} --expose-gc ${CMAKE_CURRENT_SOURCE_DIR}/node/src/example.mjs --test
+				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+		endif()
+		if(RAVEN_BUN)
+			add_test(NAME binding_node_bun
+				COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_NODE_ENV} ${RAVEN_BUN} run ${CMAKE_CURRENT_SOURCE_DIR}/node/src/example.mjs --test
+				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+		endif()
 	endif()
 endif()

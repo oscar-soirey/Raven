@@ -1,7 +1,7 @@
 # Raven from other languages
 
 Raven is a C library, so any language that can call C can use it. This folder
-holds ready-made bindings for ten of them. They are written by a script,
+holds ready-made bindings for eleven of them. They are written by a script,
 `tools/bindgen`, that reads the public headers: every binding has the whole
 API (937 functions, 56 enumerations, 22 structures, 59 kinds of callback),
 under the same names, with the same documentation comments.
@@ -18,6 +18,7 @@ under the same names, with the same documentation comments.
 | Java | `java/` | One class, `raven.R`, over the Foreign Function & Memory API (Java 22+): no dependency, no JNI. Texts are `String`, callbacks are lambdas, structures are classes with an accessor per field. | yes (`binding_java`) |
 | Odin | `odin/raven/raven.odin` | A package of `foreign` declarations; structures have the layout of C. | `binding_odin`, not run yet |
 | Bun | `bun/src/raven.ts` | One TypeScript module, `bun:ffi`, no dependency. Texts are strings, callbacks are functions, values written through pointers are returned. See `bun/README.md` for threads and the event loop. | yes (`binding_bun`) |
+| Node.js | `node/` | A Node-API addon in C and an ES module with typings, the same surface as Bun's. One `.node` per platform runs on any Node.js, and on Bun and Deno. See `node/README.md`. | yes (`binding_node`, `binding_node_bun`) |
 | C3 | `c3/raven.c3l/` | A library: `raven::c` is the C API, `raven` adds typed handles with methods (`button.set_text(...)`), faults and Optionals. See `c3/raven.c3l/README.md`. | no |
 
 "Tested" means that the example of the binding, started with `--test`, runs
@@ -87,7 +88,7 @@ r.Rshutdown()
 
 The same program is in each folder (`example.py`, `example.cpp`,
 `examples/hello.rs`, `example/main.go`, `example/Example.java`,
-`example/main.odin`), and the designer (`raven_designer`) edits the XML.
+`example/main.odin`, `src/example.mjs`), and the designer (`raven_designer`) edits the XML.
 
 The XML can also stay in a file of its own, loaded when the program starts
 (`Rwindow_create_from_xml_file("main.xml")`): save it while the program runs
@@ -159,6 +160,12 @@ jar of Maven Central holds the library; from this folder, compile
 
     import r "raven"          // the folder odin/raven, copied into the project
     // odin run . -extra-linker-flags:"-L/path/to/lib -Wl,-rpath,/path/to/lib"   (Windows: "/LIBPATH:C:\path\to\lib", raven.lib)
+
+**Node.js** (18 or later)
+
+    RAVEN_LIBRARY=/path/to/libraven.so RAVEN_ADDON=/path/to/raven_napi.node node app.mjs
+
+after building the addon (`bindings/node/README.md`). Use `await r.runLoop()`.
 
 **Bun** (1.4 or later)
 
