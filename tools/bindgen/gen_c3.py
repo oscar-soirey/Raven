@@ -58,7 +58,7 @@ HANDLE_PREFIXES = ["window", "tree_item", "font", "texture", "timer", "xml_docum
 
 # int functions where R_FALSE is a failure (and not an answer): void? in C3
 FALLIBLE_BOOL = {
-    "Rinit", "Ropen_url", "Rwindow_set_theme", "Rtheme_use", "Rwidget_set_theme", "Rdock_area_load_layout",
+    "Rinit", "Rinit_ex", "Ropen_url", "Rwindow_set_theme", "Rtheme_use", "Rwidget_set_theme", "Rdock_area_load_layout",
     "Rcolor_picker_set_hex", "Rtimeline_set_track_style", "Rnode_graph_set_node_style", "Rfile_browser_set_directory",
     "Rviewport_set_native", "Rxml_register_tag", "Rxml_node_move",
 }
@@ -112,6 +112,14 @@ def type_name(cname):
     return cname[1:] if cname.startswith("R") and cname[1:2].isupper() else cname
 
 
+def c_function(function_name):
+    """The name of a C function in raven::c: as it is, but a C3 function cannot
+    start with a capital: Rinit is r_init, Rbutton_set_text r_button_set_text."""
+    if function_name[:1].isupper():
+        return function_name[0].lower() + "_" + function_name[1:]
+    return function_name
+
+
 def snake(function_name):
     """Rbutton_set_text -> button_set_text"""
     return function_name[1:] if function_name.startswith("R") else function_name
@@ -159,19 +167,58 @@ def enum_member_names(enum):
 # Documentation
 # ---------------------------------------------------------------------------
 
+def doc_text(doc):
+    """
+    The lines of a documentation comment of the headers, as plain text: the
+    description and what is returned, without the @param lines (the names are
+    in the signature) and without any @ that C3 would read as a contract.
+    """
+    if not doc:
+        return []
+    lines = []
+    skipping = False
+    for raw in doc.split("\n"):
+        line = raw.rstrip()
+        stripped = line.strip()
+        tag = re.match(r"@(\w+)\s*(.*)", stripped)
+        if tag:
+            skipping = False
+            name, rest = tag.groups()
+            if name == "return":
+                line = "Returns " + rest if rest else ""
+            elif name == "deprecated":
+                line = "Deprecated" + (": " + rest if rest else ".")
+            else:
+                skipping = True             # @param and its continuation lines
+                continue
+        elif skipping:
+            if stripped:
+                continue
+            skipping = False
+        line = line.replace("*>", "* >").replace("<*", "< *").replace("/*", "/ *").replace("*/", "* /")
+        if line.lstrip().startswith("@"):
+            line = line.replace("@", "", 1)
+        lines.append(line)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    return lines
+
+
 def doc_block(doc, indent=""):
-    from cparse import doc_lines
-    lines = doc_lines(doc)
+    """A C3 documentation comment, <* ... *>, from one of the headers."""
+    lines = doc_text(doc)
     if not lines:
         return []
-    clean = []
-    for line in lines:
-        line = line.replace("*>", "* >").replace("<*", "< *").replace("/*", "/ *").replace("*/", "* /")
-        line = re.sub(r"(^|\s)@(\w)", r"\1\2", line)     # no contract directives in the text
-        clean.append(line)
-    if len(clean) == 1:
-        return ["%s<* %s *>" % (indent, clean[0])]
-    return ["%s<*" % indent] + [("%s %s" % (indent, line)).rstrip() for line in clean] + ["%s*>" % indent]
+    if len(lines) == 1:
+        return ["%s<* %s *>" % (indent, lines[0].strip())]
+    return ["%s<*" % indent] + [("%s %s" % (indent, line)).rstrip() for line in lines] + ["%s*>" % indent]
+
+
+# the C types as they are, for raven::c
+C_BASE = {"int": "CInt", "float": "float", "double": "double", "char": "char", "size_t": "usz", "uint64_t": "ulong",
+          "uintptr_t": "uptr", "uint32_t": "uint", "uint8_t": "char", "void": "void"}
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +280,52 @@ def generate(api, module="raven"):
     def ret_type(f):
         """Rwindow_get_modifiers returns Modifier, Rshader_get_flags ShaderFlags."""
         return c3_type(f.ret, f.name.split("_")[-1], f.name)
+
+    c_named = ({"Rid", "Ruint"} | {e.name for e in api.enums} | {s.name for s in api.structs}
+               | {cb.name for cb in api.callbacks} | set(api.opaque))
+    enum_names = {e.name for e in api.enums}
+
+    def c_type(ctype, qualifier="", resolve=False):
+        """
+        The C type as it is, for raven::c: Rid, RWidgetType, const char* is char*.
+        With a qualifier (c::), the same type named from the module raven; with
+        resolve, the type it is an alias of (CInt for an enumeration).
+        """
+        if ctype == "fnptr":
+            return "void*"
+        bare = re.sub(r"\bconst\b", "", ctype).replace(" ", "")
+        stars = len(bare) - len(bare.rstrip("*"))
+        base = bare.rstrip("*")
+        if base in C_BASE:
+            name = C_BASE[base]
+        elif resolve and base in ("Rid", "Ruint"):
+            name = "uint"
+        elif resolve and base in enum_names:
+            name = "CInt"
+        elif base in c_named:
+            name = qualifier + base
+        else:
+            raise ValueError("no C3 type for the C type '%s'" % ctype)
+        return name + "*" * stars
+
+    def is_struct_value(ctype):
+        return classify(ctype, api)[0] == "struct"
+
+    def to_c(expr, c3t, ctype):
+        """expr, of the C3 type c3t, as the C type of raven::c."""
+        if c3t == c_type(ctype, "c::", resolve=True):
+            return expr
+        if is_struct_value(ctype):
+            return "bitcast(%s, %s)" % (expr, c_type(ctype, "c::"))
+        return "(%s)%s" % (c_type(ctype, "c::"), expr)
+
+    def from_c(expr, c3t, ctype):
+        """expr, a value of raven::c of the C type ctype, as the C3 type c3t."""
+        if c3t == c_type(ctype, "c::", resolve=True):
+            return expr
+        if is_struct_value(ctype):
+            return "bitcast(%s, %s)" % (expr, c3t)
+        return "(%s)%s" % (c3t, expr)
 
     function_names = {f.name for f in api.functions}
 
@@ -320,6 +413,8 @@ def generate(api, module="raven"):
             # "panel" of a dock area is any widget, not a Panel
             if prefix not in ("slot", "panel") and (rest == prefix or rest.endswith("_" + prefix)):
                 return class_name[prefix]
+        if re.search(r"(^|_)content$", rest):
+            return "Widget"
         if re.search(r"(^|_)(child|children|parent|sibling)", rest) or rest in ("find", "hit_test"):
             return class_name[owner] if owner in handle_prefixes else "Widget"
         item_class = owner.split("_")[0] + "_item"
@@ -327,23 +422,73 @@ def generate(api, module="raven"):
             return class_name[item_class]
         return "Id"
 
-    # ---- the externs
+    # ---- raven::c: the C API as it is
     ext = []
     x = ext.append
     x("// Raven for C3: the C API.")
     x("//")
-    x("// Generated from the C headers by tools/gen_c3.py (Raven %s): do not edit." % api.version)
+    x("// Generated from the C headers by tools/bindgen/gen_c3.py (Raven %s): do not edit." % api.version)
     x("//")
-    x("// Every function of Raven as it is, under its name without the R:")
-    x("// Rbutton_set_text is %s::c::button_set_text. The types are the ones of the" % module)
-    x("// module %s (Id, the constsets, the structures); `int` of C is CInt." % module)
+    x("// The C API of Raven as it is in the headers, for anything the module %s" % module)
+    x("// does not cover: its types (Rid, RWidgetType, RRect...), its constants")
+    x("// (R_INVALID_ID, R_WIDGET_BUTTON...) and its functions as `extern fn`, each")
+    x("// bound to the C function by @cname. The names are the ones of C, except where")
+    x("// C3 does not allow them: a function cannot start with a capital, so Rinit is")
+    x("// r_init and Rbutton_set_text is r_button_set_text; a parameter named like a")
+    x("// keyword of C3 takes a _ at its end. An enumeration of C is a CInt, a text a char*.")
+    x("//")
+    x("//   import %s::c;" % module)
+    x("//")
+    x("//   if (!c::r_init(c::R_BACKEND_VULKAN)) return 1;")
+    x("//   Rid window = c::r_window_create(\"Hello\", 420, 220, c::R_WINDOW_DEFAULT);")
     x("module %s::c;" % module)
     x("")
-    x("import %s;" % module)
+    x("<* The handle of an object of the library: a window, a widget, a font... *>")
+    x("alias Rid = uint;")
+    x("<* An unsigned 32-bit integer: flags, colors. *>")
+    x("alias Ruint = uint;")
     x("")
+    for name, kind, value in api.defines:
+        if kind == "str":
+            x("const char* %s = \"%s\";" % (name, value))
+        elif kind == "id":
+            x("const Rid %s = 0x%08X;" % (name, value))
+        else:
+            x("const CInt %s = %d;" % (name, value))
+    x("")
+    for e in api.enums:
+        ext.extend(doc_block(e.doc))
+        x("alias %s = CInt;" % e.name)
+        for item, value, doc in e.items:
+            ext.extend(doc_block(doc))
+            x("const %s %s = %s;" % (e.name, item, "0x%04X" % value if value > 9 else str(value)))
+        x("")
+    for name in api.opaque:
+        x("<* Only seen through a pointer. *>")
+        x("alias %s = void;" % name)
+        x("")
+    for cb in api.callbacks:
+        ext.extend(doc_block(cb.doc))
+        params = ", ".join("%s %s" % (c_type(p.ctype), safe(p.name)) for p in cb.params)
+        x("alias %s = fn %s(%s);" % (cb.name, c_type(cb.ret), params))
+    x("")
+    for s in api.structs:
+        ext.extend(doc_block(s.doc))
+        x("struct %s" % s.name)
+        x("{")
+        for field in s.fields:
+            ext.extend(doc_block(field.doc, "\t"))
+            t = c_type(field.ctype)
+            if field.array:
+                t = "%s[%d]" % (t, field.array)
+            x("\t%s %s;" % (t, safe(field.name)))
+        x("}")
+        x("")
     for f in api.functions:
-        params = ", ".join("%s %s" % (c3_type(p.ctype, p.name, f.name), safe(p.name)) for p in f.params)
-        x("extern fn %s %s(%s) @cname(\"%s\");" % (ret_type(f), snake(f.name), params, f.name))
+        ext.extend(doc_block(f.doc))
+        params = ", ".join("%s %s" % (c_type(p.ctype), safe(p.name)) for p in f.params)
+        x("extern fn %s %s(%s) @cname(\"%s\");" % (c_type(f.ret), c_function(f.name), params, f.name))
+        x("")
 
     # ---- the module
     out = []
@@ -351,14 +496,15 @@ def generate(api, module="raven"):
     version = ".".join(str(v) for n, k, v in api.defines if n in ("RAVEN_VERSION_MAJOR", "RAVEN_VERSION_MINOR", "RAVEN_VERSION_PATCH")) or api.version
     w("// Raven for C3.")
     w("//")
-    w("// Generated from the C headers by tools/gen_c3.py (Raven %s): do not edit." % version)
+    w("// Generated from the C headers by tools/bindgen/gen_c3.py (Raven %s): do not edit." % version)
     w("//")
     w("// The C API with the names of C3: types and constsets in PascalCase without")
     w("// the R (RWidgetType is WidgetType), their values without their common prefix")
     w("// (R_WIDGET_BUTTON is WidgetType.BUTTON), constants in MACRO_CASE (R_INVALID_ID")
     w("// is INVALID_ID), functions in snake_case. Texts are ZString: a string literal")
     w("// passes as it is, a String through .zstr_tcopy() (or any zero-terminated copy).")
-    w("// The extern functions themselves are in %s::c." % module)
+    w("// It is written over %s::c, the C API as it is, which is there for anything" % module)
+    w("// this module does not cover.")
     w("//")
     w("//   - a type for each kind of handle (Window, Widget, Button, TextEditor,")
     w("//     XmlNode...), whose methods are the C functions of that object:")
@@ -432,7 +578,7 @@ def generate(api, module="raven"):
         w("<* The last error recorded (and cleared) as a fault, ERROR_FAILED when there is none. *>")
         w("fn fault last_fault()")
         w("{")
-        w("\tError error = c::error_get_last(null, null);")
+        w("\tError error = (Error)c::r_error_get_last(null, null);")
         w("\treturn error.to_fault();")
         w("}")
         w("")
@@ -442,7 +588,7 @@ def generate(api, module="raven"):
         w("*>")
         w("fn void? check()")
         w("{")
-        w("\tError error = c::error_get_last(null, null);")
+        w("\tError error = (Error)c::r_error_get_last(null, null);")
         w("\tif (error != Error.NO_ERROR) return error.to_fault()~;")
         w("}")
         w("")
@@ -497,18 +643,20 @@ def generate(api, module="raven"):
         while result_var in own:
             result_var += "_"
         signature = []
-        args = ["self"] if is_method else []
+        args = []
         converted = False
+        if is_method:
+            self_type = "Painter*" if receiver == "Painter" else receiver
+            args.append(to_c("self", self_type, f.params[0].ctype))
         for p in params:
             t = c3_type(p.ctype, p.name, f.name)
             if p.ctype == "int" and p.name in BOOL_PARAMS:
                 t = "bool"
-                args.append("(CInt)%s" % safe(p.name))
-                converted = True
-            else:
-                args.append(safe(p.name))
+            arg = to_c(safe(p.name), t, p.ctype)
+            converted = converted or arg != safe(p.name)
+            args.append(arg)
             signature.append("%s %s" % (t, safe(p.name)))
-        call = "c::%s(%s)" % (snake(f.name), ", ".join(args))
+        call = "c::%s(%s)" % (c_function(f.name), ", ".join(args))
 
         fallible = is_fallible(f)
         ret = ret_type(f)
@@ -517,19 +665,20 @@ def generate(api, module="raven"):
             ret = returned_class(owner, rest, not is_method)
         if fallible and f.ret == "int":
             ret = "void?"
-            body = ["\tif (!%s) return last_fault()~;" % call]
+            body = ["	if (!%s) return last_fault()~;" % call]
         elif fallible:
-            body = ["\tId %s = %s;" % (result_var, call),
-                    "\tif (%s == INVALID_ID) return last_fault()~;" % result_var,
-                    "\treturn %s;" % (result_var if ret == "Id" else "(%s)%s" % (ret, result_var))]
+            body = ["	Id %s = (Id)%s;" % (result_var, call),
+                    "	if (%s == INVALID_ID) return last_fault()~;" % result_var,
+                    "	return %s;" % (result_var if ret == "Id" else "(%s)%s" % (ret, result_var))]
             ret += "?"
         elif returns_bool(f, rest):
             ret = "bool"
             call = "%s != 0" % call
-        elif ret not in ("Id", ret_type(f)):
-            call = "(%s)%s" % (ret, call)
-        elif not converted and not is_method:
-            return None
+        else:
+            returned = from_c(call, ret, f.ret)
+            if returned == call and not converted and not is_method:
+                return None
+            call = returned
 
         if receiver == "Painter":
             head = "fn %s Painter.%s(&self%s)" % (ret, name, "".join(", " + s for s in signature))
@@ -556,8 +705,8 @@ def generate(api, module="raven"):
         has_create = any(rest == "create" for f, rest in members)
         if base == "Widget" and not has_create and prefix in widget_type_items:
             w("<* A new %s (widget_create(WidgetType.%s)). *>" % (name, enum_names_widget[widget_type_items[prefix]]))
-            w("fn %s %s_create() @inline => (%s)c::widget_create(WidgetType.%s);" % (
-                name, prefix, name, enum_names_widget[widget_type_items[prefix]]))
+            w("fn %s %s_create() @inline => (%s)c::r_widget_create(c::%s);" % (
+                name, prefix, name, widget_type_items[prefix]))
             w("")
         for f, rest in members:
             is_method = bool(f.params) and f.params[0].ctype == "Rid"
@@ -565,7 +714,7 @@ def generate(api, module="raven"):
                 lines = wrapper(f, safe(rest), prefix, rest, name)
             else:
                 lines = wrapper(f, safe(snake(f.name)), prefix, rest) or (
-                    doc_block(f.doc) + ["alias %s = c::%s;" % (safe(snake(f.name)), snake(f.name))])
+                    doc_block(f.doc) + ["alias %s = c::%s;" % (safe(snake(f.name)), c_function(f.name))])
             out.extend(lines)
             w("")
 
@@ -585,7 +734,7 @@ def generate(api, module="raven"):
         for prefix, item in extra:
             cls = class_name.get(WIDGET_TYPE_CLASS.get(prefix, "widget"), "Widget")
             w("<* A new %s widget (widget_create(WidgetType.%s)). *>" % (prefix, enum_names_widget[item]))
-            w("fn %s %s_create() @inline => (%s)c::widget_create(WidgetType.%s);" % (cls, prefix, cls, enum_names_widget[item]))
+            w("fn %s %s_create() @inline => (%s)c::r_widget_create(c::%s);" % (cls, prefix, cls, item))
             w("")
 
     # ---- painter
@@ -603,7 +752,7 @@ def generate(api, module="raven"):
     for f in free:
         lines = wrapper(f, safe(snake(f.name)))
         if lines is None:
-            lines = doc_block(f.doc) + ["alias %s = c::%s;" % (safe(snake(f.name)), snake(f.name))]
+            lines = doc_block(f.doc) + ["alias %s = c::%s;" % (safe(snake(f.name)), c_function(f.name))]
         out.extend(lines)
         w("")
 
