@@ -1,0 +1,29 @@
+{
+  "name": "raven-gui-node",
+  "version": "0.2.2",
+  "description": "Node.js bindings for Raven, a lightweight multithreaded GUI library in C for editors and tools",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "main": "src/raven.js",
+  "types": "src/raven.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/raven.d.ts",
+      "default": "./src/raven.js"
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --parallel",
+    "example": "node src/example.mjs",
+    "test": "node --expose-gc src/example.mjs --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^6"
+  }
+}
