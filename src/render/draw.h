@@ -120,6 +120,14 @@ struct RPainter {
 float rvn_paint_spring(RPainter* painter, RSpring* spring, float target, RMotion motion);
 /** Same, starting from where the spring is even on the first call (appearances). */
 float rvn_paint_spring_from(RPainter* painter, RSpring* spring, float target, RMotion motion);
+/**
+ * A highlight that follows the pointer: like rvn_paint_spring, but when the
+ * target last moved because the pointer did (`by_pointer`), the spring jumps
+ * straight to it instead of sliding. The pointer is already where the user is
+ * looking, so animating the bar behind it only reads as lag; keyboard
+ * navigation, which has no pointer to anchor to, keeps the glide.
+ */
+float rvn_paint_track(RPainter* painter, RSpring* spring, float target, RMotion motion, int by_pointer);
 /** Gives the spring a push, in units per second: it leaves its target and comes back. */
 void rvn_spring_kick(RSpring* spring, float velocity);
 /** Puts the spring at rest on a value. */

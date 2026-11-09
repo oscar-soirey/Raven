@@ -307,6 +307,67 @@ static void test_combo_box(void) {
 	CHECK(Rcombo_box_get_selected(combo) == 1);
 }
 
+/* Frames the window keeps producing before it settles (nothing left to animate). */
+static int animated_frames(Rid window, int limit) {
+	int frames = 0, quiet = 0;
+	while (frames < limit && quiet < 3) {
+		RFrameStats a, b;
+		Rwindow_get_frame_stats(window, &a);
+		Rdraw_frame();
+		Rwindow_get_frame_stats(window, &b);
+		if (b.frame_index == a.frame_index) quiet++; else quiet = 0;
+		frames++;
+	}
+	return frames - quiet;
+}
+
+/*
+ * The highlight under the pointer must not slide behind it: a pointer move to
+ * another row jumps the highlight straight there (the window settles at once),
+ * while keyboard navigation keeps its glide (the window animates for a while).
+ */
+static void test_highlight_follows_pointer(void) {
+	Rid box = column();
+	Rid combo = Rwidget_add_child(box, Rwidget_create(R_WIDGET_COMBO_BOX));
+	float x, y, w, h, row = Rtheme_get_metric(R_METRIC_ROW_HEIGHT);
+	int i, pointer_frames, key_frames;
+	Rslot_set_halign(combo, R_HALIGN_LEFT);
+	for (i = 0; i < 5; i++) {
+		char label[16];
+		snprintf(label, sizeof(label), "Item %d", i);
+		Rcombo_box_add_item(combo, label);
+	}
+	Rcombo_box_set_selected(combo, 0);
+	Rwidget_get_rect(combo, &x, &y, &w, &h);
+
+	/* this behaviour is only visible with the animations running on a fixed clock */
+	Rset_animations_enabled(R_TRUE);
+	Rset_animation_time_step(1.0 / 60.0);
+
+	/* open the list; rest the pointer on the first row and let everything settle */
+	test_click(g_window, combo);
+	Rwindow_inject_mouse_move(g_window, x + 10.0f, y + h + 3.0f + row * 0.5f);
+	animated_frames(g_window, 120);
+
+	/* a pointer move to a far row: the highlight jumps there, so nothing is left to animate */
+	Rwindow_inject_mouse_move(g_window, x + 10.0f, y + h + 3.0f + row * 4.5f);
+	pointer_frames = animated_frames(g_window, 120);
+	CHECK(pointer_frames <= 1);
+
+	/* the same move by keyboard keeps the glide: the window animates for several frames */
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	animated_frames(g_window, 120);
+	test_click(g_window, combo);        /* a fresh list, highlight on the selected row */
+	animated_frames(g_window, 120);     /* let the open animation settle */
+	for (i = 0; i < 4; i++) test_key(g_window, R_KEY_DOWN, 0);
+	key_frames = animated_frames(g_window, 120);
+	CHECK(key_frames >= 2);
+	CHECK(key_frames > pointer_frames);
+
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	Rset_animations_enabled(R_FALSE);   /* restore the harness default for the tests that follow */
+}
+
 static const char* virtual_row(Rid list, int index, void* user_data) {
 	static char buffer[32];
 	(void)list;
@@ -907,6 +968,7 @@ int main(void) {
 	RUN(test_text_input);
 	RUN(test_selectable_label);
 	RUN(test_combo_box);
+	RUN(test_highlight_follows_pointer);
 	RUN(test_list_and_tree);
 	RUN(test_menus);
 	RUN(test_tabs_and_expander);
