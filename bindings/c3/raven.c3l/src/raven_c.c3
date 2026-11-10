@@ -5453,6 +5453,11 @@ extern fn Rid r_xml_node_get_child(Rid node, CInt index) @cname("Rxml_node_get_c
 <* Returns The place of a node among the children of its parent; 0 for the root. *>
 extern fn CInt r_xml_node_get_index(Rid node) @cname("Rxml_node_get_index");
 
+<*
+ Returns The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+         deeper than a document can be: 256 levels under the root, as
+         when a text is read. The same holds for the functions below.
+*>
 extern fn Rid r_xml_node_add_child(Rid parent, char* tag, CInt index) @cname("Rxml_node_add_child");
 
 extern fn Rid r_xml_node_add_comment(Rid parent, char* text, CInt index) @cname("Rxml_node_add_comment");
@@ -5469,7 +5474,7 @@ extern fn void r_xml_node_remove(Rid node) @cname("Rxml_node_remove");
 <*
  Moves a node, with what it contains, under another parent of
  the same document or elsewhere under its own.
- Returns R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+ Returns R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
 *>
 extern fn CInt r_xml_node_move(Rid node, Rid new_parent, CInt index) @cname("Rxml_node_move");
 

@@ -339,7 +339,12 @@ extern "C" {
 	/** @return The place of a node among the children of its parent; 0 for the root. */
 	RAVEN_API int Rxml_node_get_index(Rid node);
 
-	/** @param index Where among the children; -1 for the end. */
+	/**
+	 * @param index Where among the children; -1 for the end.
+	 * @return The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+	 *         deeper than a document can be: 256 levels under the root, as
+	 *         when a text is read. The same holds for the functions below.
+	 */
 	RAVEN_API Rid Rxml_node_add_child(Rid parent, const char* tag, int index);
 	RAVEN_API Rid Rxml_node_add_comment(Rid parent, const char* text, int index);
 	/**
@@ -353,7 +358,7 @@ extern "C" {
 	 * @brief Moves a node, with what it contains, under another parent of
 	 * the same document or elsewhere under its own.
 	 * @param index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-	 * @return R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+	 * @return R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
 	 */
 	RAVEN_API int Rxml_node_move(Rid node, Rid new_parent, int index);
 	/** @brief Copies a node and what it contains, right after it. Returns the copy. */

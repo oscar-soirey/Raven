@@ -8838,6 +8838,9 @@ namespace Raven
 
         /// <summary>
         /// index Where among the children; -1 for the end.
+        /// Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+        ///         deeper than a document can be: 256 levels under the root, as
+        ///         when a text is read. The same holds for the functions below.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rxml_node_add_child(uint parent, [MarshalAs(Utf8.Str)] string tag, int index);
@@ -8863,7 +8866,7 @@ namespace Raven
         /// Moves a node, with what it contains, under another parent of
         /// the same document or elsewhere under its own.
         /// index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-        /// Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+        /// Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rxml_node_move(uint node, uint new_parent, int index);

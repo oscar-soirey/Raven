@@ -6568,7 +6568,12 @@ export function Rxml_node_get_child(node: Rid, index: number): Rid;
 /** Returns: The place of a node among the children of its parent; 0 for the root. */
 export function Rxml_node_get_index(node: Rid): number;
 
-/** index Where among the children; -1 for the end. */
+/**
+ * index Where among the children; -1 for the end.
+ * Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+ *         deeper than a document can be: 256 levels under the root, as
+ *         when a text is read. The same holds for the functions below.
+ */
 export function Rxml_node_add_child(parent: Rid, tag: string | null, index: number): Rid;
 
 export function Rxml_node_add_comment(parent: Rid, text: string | null, index: number): Rid;
@@ -6586,7 +6591,7 @@ export function Rxml_node_remove(node: Rid): void;
  * Moves a node, with what it contains, under another parent of
  * the same document or elsewhere under its own.
  * index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
- * Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+ * Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
  */
 export function Rxml_node_move(node: Rid, new_parent: Rid, index: number): number;
 

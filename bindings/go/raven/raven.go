@@ -6179,7 +6179,9 @@ func XmlNodeGetIndex(node ID) int {
 	return int(C.Rxml_node_get_index(C.Rid(node)))
 }
 
-// XmlNodeAddChild: index Where among the children; -1 for the end.
+// XmlNodeAddChild: index Where among the children; -1 for the end. Returns: The new node; R_INVALID_ID
+// (R_ERROR_XML) when it would be nested deeper than a document can be: 256 levels under the root, as when a
+// text is read. The same holds for the functions below.
 func XmlNodeAddChild(parent ID, tag string, index int) ID {
 	tag_ := C.CString(tag)
 	defer C.free(unsafe.Pointer(tag_))
@@ -6207,7 +6209,8 @@ func XmlNodeRemove(node ID) {
 
 // XmlNodeMove: Moves a node, with what it contains, under another parent of the same document or elsewhere
 // under its own. index Where among the children of the new parent, counted once the node has left its place;
-// -1 for the end. Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+// -1 for the end. Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a
+// place too deep).
 func XmlNodeMove(node ID, new_parent ID, index int) int {
 	return int(C.Rxml_node_move(C.Rid(node), C.Rid(new_parent), C.int(index)))
 }

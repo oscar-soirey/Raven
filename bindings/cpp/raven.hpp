@@ -2253,6 +2253,9 @@ public:
 	int get_index() const { return Rxml_node_get_index(id_); }
 
 	/// index Where among the children; -1 for the end.
+	/// Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+	///         deeper than a document can be: 256 levels under the root, as
+	///         when a text is read. The same holds for the functions below.
 	Rid add_child(const char* tag, int index) const { return Rxml_node_add_child(id_, tag, index); }
 
 	Rid add_comment(const char* text, int index) const { return Rxml_node_add_comment(id_, text, index); }
@@ -2267,7 +2270,7 @@ public:
 	/// Moves a node, with what it contains, under another parent of
 	/// the same document or elsewhere under its own.
 	/// index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-	/// Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+	/// Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
 	int move(Rid new_parent, int index) const { return Rxml_node_move(id_, new_parent, index); }
 
 	/// Copies a node and what it contains, right after it. Returns the copy.

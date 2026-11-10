@@ -5365,6 +5365,11 @@ fn XmlNode XmlNode.get_child(self, CInt index) @inline => (XmlNode)c::r_xml_node
 <* Returns The place of a node among the children of its parent; 0 for the root. *>
 fn CInt XmlNode.get_index(self) @inline => c::r_xml_node_get_index((c::Rid)self);
 
+<*
+ Returns The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+         deeper than a document can be: 256 levels under the root, as
+         when a text is read. The same holds for the functions below.
+*>
 fn XmlNode XmlNode.add_child(self, ZString tag, CInt index) @inline => (XmlNode)c::r_xml_node_add_child((c::Rid)self, (char*)tag, index);
 
 fn Id XmlNode.add_comment(self, ZString text, CInt index) @inline => (Id)c::r_xml_node_add_comment((c::Rid)self, (char*)text, index);
@@ -5381,7 +5386,7 @@ fn void XmlNode.remove(self) @inline => c::r_xml_node_remove((c::Rid)self);
 <*
  Moves a node, with what it contains, under another parent of
  the same document or elsewhere under its own.
- Returns R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+ Returns R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
 *>
 fn void? XmlNode.move(self, Id new_parent, CInt index)
 {
