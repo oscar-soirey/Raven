@@ -20,7 +20,6 @@ if(EMSCRIPTEN)
     set(RAVEN_BUILD_WEB OFF CACHE BOOL "Native Chromium embedding")
     set(RAVEN_BUILD_TOOLS OFF CACHE BOOL "Desktop tools")
     set(RAVEN_BUILD_TESTS OFF CACHE BOOL "Native tests")
-    set(RAVEN_BUILD_EXAMPLES OFF CACHE BOOL "Native examples")
 endif()
 option(RAVEN_BACKEND_WEBGL "Compile the WebGL 2 backend" ${EMSCRIPTEN})
 

@@ -6,7 +6,8 @@ application; it is a separate feature and is disabled in browser builds.
 
 ## Build and run
 
-Install and activate the official [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html).
+Install and activate the official [Emscripten
+SDK](https://emscripten.org/docs/getting_started/downloads.html).
 The browser integration suite is verified with Emscripten 7.0.0.
 `emcmake` comes with that SDK, not with CMake. On Linux/macOS, load the SDK
 environment in each new terminal before building:
@@ -18,22 +19,49 @@ source /path/to/emsdk/emsdk_env.sh
 Replace `/path/to/emsdk` with your SDK installation directory.
 
 ```sh
-emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
+emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DRAVEN_BUILD_EXAMPLES=ON
 cmake --build build-web --parallel
 python3 -m http.server 8000 --directory build-web/bin
 ```
 
-Open `http://localhost:8000/raven_web_demo.html`. Serve the HTML, JavaScript
+Open `http://localhost:8000/index.html` for the example gallery. The browser
+build includes all 14 portable desktop examples: hello, editor, glass,
+notepad, animations, workspace, components, memory, studio, themes, overlay,
+effects, plot and music. Each also has its own `raven_<name>.html` URL. The
+additional `raven_web_demo.html` shows browser file import and persistence.
+Serve the HTML, JavaScript, `.data` asset bundles
 and WebAssembly files together; opening the HTML through `file://` is not
 supported. Production hosts should serve `.wasm` as `application/wasm`.
 
 CMake detects Emscripten before checking desktop operating systems.
 `RAVEN_PLATFORM=emscripten` and `RAVEN_BACKEND_WEBGL=ON` are the defaults.
 Vulkan, shared-library builds, native Chromium embedding, desktop tools,
-desktop examples, and native tests are disabled by default. Incompatible
+and native tests are disabled by default. Portable examples are enabled for
+top-level builds; `RAVEN_BUILD_EXAMPLES=OFF` omits the gallery and these
+examples. Incompatible
 Vulkan, shared-library, or Chromium settings produce a configuration error.
-`RAVEN_BUILD_WEB_EXAMPLE=OFF` omits the demo.
+`RAVEN_BUILD_WEB_EXAMPLE=OFF` omits the standalone browser-services demo.
+The native Chromium browser example and Vulkan/native-child OpenGL viewport
+examples require desktop APIs and are excluded. XML, themes, shader sources
+and other runtime assets are preloaded into each example’s virtual filesystem.
 `RAVEN_BUILD_WEB_TESTS=ON` builds the browser integration fixture.
+Use `-DRAVEN_BUILD_EXAMPLES=ON` when reusing a build directory created before
+the gallery was enabled by default.
+
+On Fedora/Nobara, install the build prerequisites and use the official SDK
+(the distribution repositories may not provide Emscripten):
+
+```sh
+sudo dnf install git python3 cmake make
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install 7.0.0
+./emsdk activate 7.0.0
+source ./emsdk_env.sh
+```
+
+Return to the Raven checkout before running the build commands above. Source
+`emsdk_env.sh` in each new terminal that builds browser applications.
 
 ## Application lifecycle
 
@@ -174,6 +202,8 @@ RAVEN_BROWSER_ENGINE=webkit npm test
 `RAVEN_WEB_URL` changes the test URL and `RAVEN_BROWSER` selects an installed
 browser executable. `RAVEN_WEB_BYPASS_PROXY=1` bypasses desktop proxy
 settings for the loopback test server. `RAVEN_WEB_SCREENSHOT` changes the screenshot destination.
+Tests also open every gallery example, verify bundled assets load and visible
+UI renders, then exercise pointer movement, wheel input and resizing.
 Tests exercise actual browser input, composition, paste, ARIA state, all
 built-in effects, custom effects, GPU capture, HTTP images, multiple windows,
 file import/export, IndexedDB across reloads, high DPI, resizing, context

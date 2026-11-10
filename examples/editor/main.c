@@ -451,6 +451,11 @@ static void on_frame(double delta_seconds, void* user_data) {
 	}
 }
 
+static void example_shutdown(void) {
+	free(g_render.pixels);
+	Rshutdown();
+}
+
 int main(void) {
 	if (!example_init("editor")) return 1;
 
@@ -493,12 +498,6 @@ int main(void) {
 
 	/* the loop belongs to the application: Raven draws one frame per call,
 	 * and Rwait_frame sleeps until there is something to draw */
-	if (!example_automated(ui.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-
-	free(g_render.pixels);
-	Rshutdown();
+	example_run(ui.window, NULL, example_shutdown);
 	return 0;
 }

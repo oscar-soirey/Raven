@@ -180,11 +180,6 @@ int main(int argc, char** argv) {
 
 	/* the loop belongs to the application: Raven draws one frame per call,
 	 * and Rwait_frame sleeps until there is something to draw */
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-
-	Rshutdown();
+	example_run(app.window, NULL, NULL);
 	return 0;
 }

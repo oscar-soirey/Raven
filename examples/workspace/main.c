@@ -135,6 +135,11 @@ static void action_look(Rid sender, const char* action, void* user_data) {
 	}
 }
 
+static void example_shutdown(void) {
+	free(app.saved_layout);
+	Rshutdown();
+}
+
 int main(void) {
 	static const char WELCOME[] =
 		"/*\n"
@@ -180,11 +185,6 @@ int main(void) {
 	Rdock_area_show_panel(app.dock, app.log);
 	Rlist_view_add_item(app.log, "Ready.");
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	free(app.saved_layout);
-	Rshutdown();
+	example_run(app.window, NULL, example_shutdown);
 	return 0;
 }

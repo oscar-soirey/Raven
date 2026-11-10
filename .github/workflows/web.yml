@@ -39,7 +39,7 @@ jobs:
           python3 src/render/webgl/generate_shaders.py
           git diff --exit-code -- src/render/webgl/shaders.h src/render/webgl/effects.h
           python3 tools/bindgen/bindgen.py --check
-      - name: Run browser integration
+      - name: Run browser integration and example gallery
         env:
           RAVEN_BROWSER_ENGINE: ${{ matrix.browser }}
           RAVEN_WEB_SCREENSHOT: ${{ github.workspace }}/build-web/browser.png
