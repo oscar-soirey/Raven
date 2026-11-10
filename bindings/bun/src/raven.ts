@@ -1270,7 +1270,7 @@ const _symbols = {
 /** Opens the library: RAVEN_LIBRARY, then beside this file, then where the system looks. */
 function _load() {
 	const names = process.platform === "win32" ? ["raven.dll", "libraven.dll"] : process.platform === "darwin" ? ["libraven.dylib"] : ["libraven.so", "libraven.so.0"];
-	const explicit = process.env.RAVEN_LIBRARY;
+	const explicit = process.env["RAVEN_LIBRARY"];
 	const candidates = [...(explicit ? [explicit] : []), ...names.map((name) => `${import.meta.dir}/${name}`), ...names];
 	const tried: string[] = [];
 	for (const candidate of candidates) {
@@ -5079,19 +5079,6 @@ function _adapt_RTaskCallback(function_: RTaskCallback | Pointer | null, threads
 
 export type RParallelRangeCallback = (begin: number, end: number, user_data: Pointer | null) => void;
 
-function _adapt_RParallelRangeCallback(function_: RParallelRangeCallback | Pointer | null, threadsafe = false): Pointer | null {
-	if (typeof function_ !== "function") {
-		return function_;
-	}
-	return _keep(new _JSCallback((begin: number, end: number, user_data: Pointer | null): void => {
-		try {
-			function_(begin, end, user_data);
-		} catch (error) {
-			_report(error as Error);
-		}
-	}, { args: ["u32", "u32", "ptr"], returns: "void", threadsafe }));
-}
-
 export type RTimerCallback = (timer: Rid, user_data: Pointer | null) => void;
 
 function _adapt_RTimerCallback(function_: RTimerCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -6213,19 +6200,6 @@ function _adapt_RNotificationClickedCallback(function_: RNotificationClickedCall
  * need to be restored. NULL removes the callback.
  */
 export type RViewportDrawCallback = (info: RViewportDrawInfo | null, user_data: Pointer | null) => void;
-
-function _adapt_RViewportDrawCallback(function_: RViewportDrawCallback | Pointer | null, threadsafe = false): Pointer | null {
-	if (typeof function_ !== "function") {
-		return function_;
-	}
-	return _keep(new _JSCallback((info: Pointer | null, user_data: Pointer | null): void => {
-		try {
-			function_(RViewportDrawInfo.from(info), user_data);
-		} catch (error) {
-			_report(error as Error);
-		}
-	}, { args: ["ptr", "ptr"], returns: "void", threadsafe }));
-}
 
 /** Called on the UI thread when the pixel size changes: resize your render target here. */
 export type RViewportResizeCallback = (viewport: Rid, width: number, height: number, user_data: Pointer | null) => void;
