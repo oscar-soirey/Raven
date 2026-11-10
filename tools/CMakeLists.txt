@@ -16,7 +16,7 @@ add_executable(raven_designer designer/main.c designer/designer.h designer/os.c 
 	designer/splash.c designer/splash_xml.c designer/splash_png.c
 	crash_report.c crash_report.h)
 
-# The splash screen (designer/splash.xml and designer/images/SplashScreen.png) is embedded in the program:
+# The splash screen (designer/splash.xml and designer/images/SplashScreenNew.png) is embedded in the program:
 # splash_xml.c and splash_png.c are made again when one of them changes (when Python is there; the
 # generated files are kept in the folder, so the designer also builds without it).
 find_package(Python3 QUIET COMPONENTS Interpreter)
@@ -25,7 +25,7 @@ if(Python3_FOUND)
 	add_custom_command(
 		OUTPUT "${_splash_dir}/splash_xml.c" "${_splash_dir}/splash_png.c"
 		COMMAND "${Python3_EXECUTABLE}" "${_splash_dir}/embed_splash.py"
-		DEPENDS "${_splash_dir}/splash.xml" "${_splash_dir}/images/SplashScreen.png" "${_splash_dir}/embed_splash.py"
+		DEPENDS "${_splash_dir}/splash.xml" "${_splash_dir}/images/SplashScreenNew.png" "${_splash_dir}/embed_splash.py"
 		COMMENT "Embedding the splash screen"
 		VERBATIM)
 endif()

@@ -1,18 +1,18 @@
 /**
  * Raven Designer - splash.c
  * The splash screen: a window (splash.xml) with the picture of
- * images/SplashScreen.png, shown while the designer starts and closed when it
+ * images/SplashScreenNew.png, shown while the designer starts and closed when it
  * is ready. Both files are embedded in the program at the build:
  *
  *   splash.xml              -> splash_xml.c  (ds_splash_xml_data)
- *   images/SplashScreen.png -> splash_png.c  (ds_splash_png_data)
+ *   images/SplashScreenNew.png -> splash_png.c  (ds_splash_png_data)
  *
  * made by embed_splash.py, to run before the compilation (the generated .c
  * files are kept in the folder, so the designer also builds without Python):
  *
  *   CMake:  add_custom_command(OUTPUT splash_xml.c splash_png.c
  *             COMMAND python3 embed_splash.py
- *             DEPENDS splash.xml images/SplashScreen.png embed_splash.py
+ *             DEPENDS splash.xml images/SplashScreenNew.png embed_splash.py
  *             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
  *           and add splash.c splash_xml.c splash_png.c to the sources.
  *
@@ -390,7 +390,7 @@ static void pause_ms(int ms) {
 /*
  * Puts the window in the middle of the screen. Raven's public header was not available when this file was
  * written, so no call is made here: put the one that moves a window and the one that gives the size of the
- * screen (the window of the splash is 640 x 320 points) in this function; it is called once, before the window is shown.
+ * screen (the window of the splash is 640 x 350 points) in this function; it is called once, before the window is shown.
  */
 static void center_on_screen(Rid window) {
 	(void)window;

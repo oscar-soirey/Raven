@@ -4,7 +4,7 @@ Raven Designer - embed_splash.py
 Embeds the splash screen in the program, like tools/embed.py does for the fonts:
 
     splash.xml              -> splash_xml.c   (ds_splash_xml_data / ds_splash_xml_size)
-    images/SplashScreen.png -> splash_png.c   (ds_splash_png_data / ds_splash_png_size)
+    images/SplashScreenNew.png -> splash_png.c   (ds_splash_png_data / ds_splash_png_size)
 
 Run it from the designer folder whenever one of the two files changes:
 
@@ -21,8 +21,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 JOBS = [
     ("splash.xml", "splash_xml.c", "ds_splash_xml", True,
      "The splash screen window (splash.xml)"),
-    (os.path.join("images", "SplashScreen.png"), "splash_png.c", "ds_splash_png", False,
-     "The picture of the splash screen (images/SplashScreen.png), a PNG"),
+    (os.path.join("images", "SplashScreenNew.png"), "splash_png.c", "ds_splash_png", False,
+     "The picture of the splash screen (images/SplashScreenNew.png), a PNG"),
 ]
 
 

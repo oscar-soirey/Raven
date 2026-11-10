@@ -15,7 +15,7 @@
  *   fonts.c           the fonts of the designer (fonts/), embedded: font_*.c
  *   strings.c         the Translations panel (CSV tables) and the language of the preview
  *   welcome.c         the start page (recent folders) and the preferences
- *   splash.c          the splash screen (splash.xml, images/SplashScreen.png), embedded
+ *   splash.c          the splash screen (splash.xml, images/SplashScreenNew.png), embedded
  *   accessibility.c   View > Accessibility
  *   os.c              folders and files
  */
