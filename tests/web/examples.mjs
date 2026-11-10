@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {browserDiagnostics} from './diagnostics.mjs';
 import {readFile} from 'node:fs/promises';
 import {chromium, firefox, webkit} from 'playwright';
 const engine = process.env.RAVEN_BROWSER_ENGINE || 'chromium';
@@ -13,6 +14,7 @@ const base = new URL('.',process.env.RAVEN_WEB_URL ||
   'http://127.0.0.1:8765/raven_web_test.html');
 const names = ['hello','editor','glass','notepad','animations','workspace',
   'components','memory','studio','themes','overlay','effects','plot','music'];
+let diagnose=async()=>{};
 try {
   const context = await browser.newContext({viewport:{width:1000,height:800},
     ...(process.env.RAVEN_WEB_BYPASS_PROXY==='1' ? {
@@ -25,11 +27,13 @@ try {
     },true));
   }
   const gallery = await context.newPage();
+  diagnose=browserDiagnostics(gallery);
   await gallery.goto(new URL('index.html',base).href);
   assert.equal(await gallery.locator('nav a').count(),names.length);
   await gallery.close();
   for (const name of names) {
     const page = await context.newPage();
+    diagnose=browserDiagnostics(page);
     const errors = [];
     page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{
@@ -84,6 +88,7 @@ try {
     await page.close();
   }
   const automated=await context.newPage();
+  diagnose=browserDiagnostics(automated);
   await automated.route('**/raven_hello.html',async route=>{
     const response=await route.fetch();
     const html=(await response.text()).replace('var Module = {',
@@ -99,4 +104,7 @@ try {
   assert.equal(await automated.locator('textarea').count(),0,'automated shutdown cleanup');
   await automated.close();
   console.log('Automated example lifecycle passed.');
+} catch(error) {
+  await diagnose();
+  throw error;
 } finally { await browser.close(); }

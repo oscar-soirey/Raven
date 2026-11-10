@@ -2,6 +2,7 @@
  * RAVEN_WEB_URL defaults to http://127.0.0.1:8765/raven_web_test.html.
  * RAVEN_BROWSER optionally selects an installed Chromium executable. */
 import assert from 'node:assert/strict';
+import {browserDiagnostics} from './diagnostics.mjs';
 import {readFile} from 'node:fs/promises';
 import { chromium, firefox, webkit } from 'playwright';
 const engine = process.env.RAVEN_BROWSER_ENGINE || 'chromium';
@@ -20,6 +21,7 @@ const context = await browser.newContext({
   viewport:{width:800,height:600},
                                           hasTouch:engine === 'chromium',deviceScaleFactor:2});
 const page = await context.newPage();
+const diagnose = browserDiagnostics(page);
 if (engine === 'firefox') {
   // Headless Firefox emits native 'cancel' before Playwright setFiles delivers
   // 'change', even for a plain HTML input. Ignore that automation-only event.
@@ -182,6 +184,9 @@ try {
   assert.equal(await page.locator('textarea').count(),0,'shutdown removes listeners/input');
   assert.deepEqual(errors,[]);
   console.log('Browser integration checks passed.');
+} catch(error) {
+  await diagnose();
+  throw error;
 } finally {
   await browser.close();
 }

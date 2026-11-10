@@ -34,6 +34,9 @@ jobs:
         run: |
           npm ci
           npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install software-rendered Firefox display
+        if: matrix.browser == 'firefox'
+        run: sudo apt-get install --yes xvfb xauth libgl1-mesa-dri
       - name: Verify generated shaders
         run: |
           python3 src/render/webgl/generate_shaders.py
@@ -46,7 +49,11 @@ jobs:
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 --directory build-web/bin > /tmp/raven-web-server.log 2>&1 &
           curl --retry 10 --retry-connrefused --retry-delay 1 --fail --silent http://127.0.0.1:8765/raven_web_test.html > /dev/null
-          npm test --prefix tests/web
+          if [ "${RAVEN_BROWSER_ENGINE}" = firefox ]; then
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm test --prefix tests/web
+          else
+            npm test --prefix tests/web
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

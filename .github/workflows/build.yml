@@ -41,6 +41,8 @@ jobs:
     env:
       # the Chrome sandbox needs user namespaces, which the runner restricts
       RAVEN_WEB_NO_SANDBOX: "1"
+      # ctest prints this protocol trace only when the embedding test fails.
+      RAVEN_WEB_TRACE: "1"
     steps:
       - uses: actions/checkout@v4
 
