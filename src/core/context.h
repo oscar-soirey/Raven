@@ -316,6 +316,8 @@ double rvn_timers_next_delay(void);
 /** Brackets code that calls application callbacks (see dispatch_depth). */
 void rvn_dispatch_begin(void);
 void rvn_dispatch_end(void);
+/** Frees the widgets and windows deleted during the dispatch; safe to reach again from what it runs. */
+void rvn_collect_dead(void);
 
 /** Tasks, timers, frame callback, then layout and paint of the windows that changed (one frame). */
 void rvn_update(void);

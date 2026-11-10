@@ -21427,6 +21427,9 @@ public final class R {
 
     /**
      * index Where among the children; -1 for the end.
+     * Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+     *         deeper than a document can be: 256 levels under the root, as
+     *         when a text is read. The same holds for the functions below.
      */
     public static int Rxml_node_add_child(int parent, String tag, int index) {
         MethodHandle $h = Rxml_node_add_child$;
@@ -21493,7 +21496,7 @@ public final class R {
      * Moves a node, with what it contains, under another parent of
      * the same document or elsewhere under its own.
      * index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-     * Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+     * Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
      */
     public static int Rxml_node_move(int node, int new_parent, int index) {
         MethodHandle $h = Rxml_node_move$;

@@ -5,8 +5,6 @@
 
 #include "xml.h"
 
-#define RVN_XML_MAX_DEPTH 256
-
 typedef struct rvn_xml_reader_t {
 	rvn_xml_document_t* document;
 	const char* cursor;

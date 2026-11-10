@@ -14,6 +14,17 @@
 struct rvn_widget_t;
 struct rvn_window_t;
 
+/**
+ * How deeply elements can be nested (the root is level 0). The reader and
+ * what walks a document go down one call per level: a document, which may
+ * come from anywhere, is refused past this (R_ERROR_XML) instead of
+ * overflowing the stack. A build can choose another limit
+ * (-DRVN_XML_MAX_DEPTH=...).
+ */
+#ifndef RVN_XML_MAX_DEPTH
+#define RVN_XML_MAX_DEPTH 256
+#endif
+
 typedef struct rvn_xml_attribute_t {
 	const char* name;
 	const char* value;

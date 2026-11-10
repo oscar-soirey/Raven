@@ -41,8 +41,15 @@ void rvn_dispatch_end(void) {
 	if (--g_rvn.dispatch_depth > 0) return;
 	g_rvn.dispatch_depth = 0;
 	/* nobody up the stack holds pointers any more: release what was deleted */
-	if (g_rvn.dead_widget_count) rvn_widgets_collect();
-	if (g_rvn.dead_window_count) rvn_windows_collect();
+	rvn_collect_dead();
+}
+
+void rvn_collect_dead(void) {
+	/* (freeing a widget can close a window, and a window going takes widgets with it) */
+	while (g_rvn.dead_widget_count || g_rvn.dead_window_count) {
+		rvn_widgets_collect();
+		rvn_windows_collect();
+	}
 }
 
 void rvn_wake(void) {
@@ -212,7 +219,7 @@ void Rshutdown(void) {
 		/* internal widgets are destroyed by the widget that owns them */
 		if (widget && !widget->parent && !(widget->flags & RVN_WF_INTERNAL)) rvn_widget_destroy(widget);
 	}
-	rvn_widgets_collect();
+	rvn_collect_dead();
 
 	/* let the running jobs finish and deliver their results */
 	rvn_jobs_shutdown();

@@ -1,0 +1,6 @@
+<Window Title="Hello" Width="420" Height="220">
+    <VBox Spacing="12" Slot.HAlign="Center" Slot.VAlign="Center">
+        <Label>Hello from Raven</Label>
+        <Button Text="Quit" OnClicked="app.quit"/>
+    </VBox>
+</Window>

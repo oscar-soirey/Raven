@@ -3989,6 +3989,9 @@ pub extern fn Rxml_node_get_child(node: Rid, index: c_int) Rid;
 /// Returns: The place of a node among the children of its parent; 0 for the root.
 pub extern fn Rxml_node_get_index(node: Rid) c_int;
 /// index Where among the children; -1 for the end.
+/// Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+///         deeper than a document can be: 256 levels under the root, as
+///         when a text is read. The same holds for the functions below.
 pub extern fn Rxml_node_add_child(parent: Rid, tag: ?[*:0]const u8, index: c_int) Rid;
 pub extern fn Rxml_node_add_comment(parent: Rid, text: ?[*:0]const u8, index: c_int) Rid;
 /// Reads a piece of XML (one element and what it contains) and
@@ -3999,7 +4002,7 @@ pub extern fn Rxml_node_remove(node: Rid) void;
 /// Moves a node, with what it contains, under another parent of
 /// the same document or elsewhere under its own.
 /// index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-/// Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+/// Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
 pub extern fn Rxml_node_move(node: Rid, new_parent: Rid, index: c_int) c_int;
 /// Copies a node and what it contains, right after it. Returns the copy.
 pub extern fn Rxml_node_duplicate(node: Rid) Rid;

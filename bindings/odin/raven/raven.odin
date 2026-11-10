@@ -4001,6 +4001,9 @@ foreign lib {
 	// Returns: The place of a node among the children of its parent; 0 for the root.
 	Rxml_node_get_index :: proc(node: Rid) -> i32 ---
 	// index Where among the children; -1 for the end.
+	// Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+	//         deeper than a document can be: 256 levels under the root, as
+	//         when a text is read. The same holds for the functions below.
 	Rxml_node_add_child :: proc(parent: Rid, tag: cstring, index: i32) -> Rid ---
 	Rxml_node_add_comment :: proc(parent: Rid, text: cstring, index: i32) -> Rid ---
 	// Reads a piece of XML (one element and what it contains) and
@@ -4011,7 +4014,7 @@ foreign lib {
 	// Moves a node, with what it contains, under another parent of
 	// the same document or elsewhere under its own.
 	// index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-	// Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+	// Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
 	Rxml_node_move :: proc(node: Rid, new_parent: Rid, index: i32) -> i32 ---
 	// Copies a node and what it contains, right after it. Returns the copy.
 	Rxml_node_duplicate :: proc(node: Rid) -> Rid ---

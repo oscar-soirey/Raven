@@ -307,6 +307,67 @@ static void test_combo_box(void) {
 	CHECK(Rcombo_box_get_selected(combo) == 1);
 }
 
+/* Frames the window keeps producing before it settles (nothing left to animate). */
+static int animated_frames(Rid window, int limit) {
+	int frames = 0, quiet = 0;
+	while (frames < limit && quiet < 3) {
+		RFrameStats a, b;
+		Rwindow_get_frame_stats(window, &a);
+		Rdraw_frame();
+		Rwindow_get_frame_stats(window, &b);
+		if (b.frame_index == a.frame_index) quiet++; else quiet = 0;
+		frames++;
+	}
+	return frames - quiet;
+}
+
+/*
+ * The highlight under the pointer must not slide behind it: a pointer move to
+ * another row jumps the highlight straight there (the window settles at once),
+ * while keyboard navigation keeps its glide (the window animates for a while).
+ */
+static void test_highlight_follows_pointer(void) {
+	Rid box = column();
+	Rid combo = Rwidget_add_child(box, Rwidget_create(R_WIDGET_COMBO_BOX));
+	float x, y, w, h, row = Rtheme_get_metric(R_METRIC_ROW_HEIGHT);
+	int i, pointer_frames, key_frames;
+	Rslot_set_halign(combo, R_HALIGN_LEFT);
+	for (i = 0; i < 5; i++) {
+		char label[16];
+		snprintf(label, sizeof(label), "Item %d", i);
+		Rcombo_box_add_item(combo, label);
+	}
+	Rcombo_box_set_selected(combo, 0);
+	Rwidget_get_rect(combo, &x, &y, &w, &h);
+
+	/* this behaviour is only visible with the animations running on a fixed clock */
+	Rset_animations_enabled(R_TRUE);
+	Rset_animation_time_step(1.0 / 60.0);
+
+	/* open the list; rest the pointer on the first row and let everything settle */
+	test_click(g_window, combo);
+	Rwindow_inject_mouse_move(g_window, x + 10.0f, y + h + 3.0f + row * 0.5f);
+	animated_frames(g_window, 120);
+
+	/* a pointer move to a far row: the highlight jumps there, so nothing is left to animate */
+	Rwindow_inject_mouse_move(g_window, x + 10.0f, y + h + 3.0f + row * 4.5f);
+	pointer_frames = animated_frames(g_window, 120);
+	CHECK(pointer_frames <= 1);
+
+	/* the same move by keyboard keeps the glide: the window animates for several frames */
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	animated_frames(g_window, 120);
+	test_click(g_window, combo);        /* a fresh list, highlight on the selected row */
+	animated_frames(g_window, 120);     /* let the open animation settle */
+	for (i = 0; i < 4; i++) test_key(g_window, R_KEY_DOWN, 0);
+	key_frames = animated_frames(g_window, 120);
+	CHECK(key_frames >= 2);
+	CHECK(key_frames > pointer_frames);
+
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	Rset_animations_enabled(R_FALSE);   /* restore the harness default for the tests that follow */
+}
+
 static const char* virtual_row(Rid list, int index, void* user_data) {
 	static char buffer[32];
 	(void)list;
@@ -612,6 +673,77 @@ static void test_deletion_and_events(void) {
 	CHECK(g_clicks == 1);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Destroy callbacks that dispatch (issue #62)
+ * ------------------------------------------------------------------------- */
+
+static Rid g_doomed[4];
+static Rid g_doomed_window;
+static int g_doomed_seen;
+
+/* Rwindow_begin_move begins and ends a dispatch of its own: the deleted widgets are collected from inside the collection. */
+static void dispatch_from_destroy(Rid widget, void* user_data) {
+	(void)widget;
+	g_doomed_seen++;
+	if (user_data) Rwidget_destroy((Rid)(uintptr_t)user_data);
+	Rwindow_begin_move(g_window);
+}
+
+static void count_destroyed(Rid widget, void* user_data) {
+	(void)widget;
+	(void)user_data;
+	g_doomed_seen++;
+}
+
+static void tear_down(Rid timer, void* user_data) {
+	int i;
+	(void)timer;
+	(void)user_data;
+	for (i = 0; i < 4; i++) Rwidget_destroy(g_doomed[i]);
+	if (g_doomed_window != R_INVALID_ID) Rwindow_destroy(g_doomed_window);
+}
+
+static void test_destroy_callback_dispatches(void) {
+	Rid extra, window_label;
+	int i;
+
+	/* deleted during a dispatch (a timer), the second one's callback dispatches again */
+	for (i = 0; i < 4; i++) {
+		g_doomed[i] = Rwidget_create(R_WIDGET_LABEL);
+		Rwidget_set_destroy_callback(g_doomed[i], count_destroyed, NULL);
+	}
+	Rwidget_set_destroy_callback(g_doomed[1], dispatch_from_destroy, NULL);
+	g_doomed_window = R_INVALID_ID;
+	g_doomed_seen = 0;
+	Rtimer_create(0.0, R_FALSE, tear_down, NULL);
+	Rdraw_frame();
+	CHECK(g_doomed_seen == 4);
+	for (i = 0; i < 4; i++) CHECK(!Rwidget_is_valid(g_doomed[i]));
+
+	/* the same, with a widget and a window deleted by the callback itself, and a window deleted beside them */
+	extra = Rwidget_create(R_WIDGET_LABEL);
+	Rwidget_set_destroy_callback(extra, dispatch_from_destroy, NULL);
+	for (i = 0; i < 4; i++) {
+		g_doomed[i] = Rwidget_create(R_WIDGET_LABEL);
+		Rwidget_set_destroy_callback(g_doomed[i], count_destroyed, NULL);
+	}
+	Rwidget_set_destroy_callback(g_doomed[0], dispatch_from_destroy, (void*)(uintptr_t)extra);
+	Rwidget_set_destroy_callback(g_doomed[2], dispatch_from_destroy, NULL);
+	g_doomed_window = Rwindow_create("doomed", 200, 100, R_WINDOW_DEFAULT);
+	window_label = Rlabel_create("in a closing window");
+	Rwindow_set_content(g_doomed_window, window_label);
+	Rwidget_set_destroy_callback(window_label, dispatch_from_destroy, NULL);
+	g_doomed_seen = 0;
+	Rtimer_create(0.0, R_FALSE, tear_down, NULL);
+	Rdraw_frame();
+	CHECK(g_doomed_seen == 6);
+	CHECK(!Rwidget_is_valid(extra) && !Rwidget_is_valid(window_label));
+	CHECK(!Rwindow_is_valid(g_doomed_window));
+	for (i = 0; i < 4; i++) CHECK(!Rwidget_is_valid(g_doomed[i]));
+	g_doomed_window = R_INVALID_ID;
+	Rdraw_frame();
+}
+
 static void on_timer(Rid timer, void* user_data) {
 	(void)timer;
 	(*(int*)user_data)++;
@@ -907,10 +1039,12 @@ int main(void) {
 	RUN(test_text_input);
 	RUN(test_selectable_label);
 	RUN(test_combo_box);
+	RUN(test_highlight_follows_pointer);
 	RUN(test_list_and_tree);
 	RUN(test_menus);
 	RUN(test_tabs_and_expander);
 	RUN(test_deletion_and_events);
+	RUN(test_destroy_callback_dispatches);
 	RUN(test_timers_theme_and_attributes);
 	RUN(test_device_lost);
 

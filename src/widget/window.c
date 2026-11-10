@@ -1979,9 +1979,16 @@ void rvn_window_destroy(rvn_window_t* window) {
 }
 
 void rvn_windows_collect(void) {
-	uint32_t i;
-	for (i = 0; i < g_rvn.dead_window_count; i++) rvn_window_free(g_rvn.dead_windows[i]);
-	g_rvn.dead_window_count = 0;
+	/* (as rvn_widgets_collect: destroying a native window can deliver its last messages, and they dispatch) */
+	while (g_rvn.dead_window_count > 0) {
+		rvn_window_t** list = g_rvn.dead_windows;
+		uint32_t count = g_rvn.dead_window_count, i;
+		g_rvn.dead_windows = NULL;
+		g_rvn.dead_window_count = 0;
+		g_rvn.dead_window_cap = 0;
+		for (i = 0; i < count; i++) rvn_window_free(list[i]);
+		rvn_free(list);
+	}
 }
 
 void rvn_windows_destroy_all(void) {
@@ -1990,7 +1997,7 @@ void rvn_windows_destroy_all(void) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window && !window->dead) rvn_window_destroy(window);
 	}
-	rvn_windows_collect();
+	rvn_collect_dead();
 }
 
 /* ---------------------------------------------------------------------------
