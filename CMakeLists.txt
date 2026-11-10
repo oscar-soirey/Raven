@@ -14,6 +14,16 @@ endif()
 #  Options
 # ---------------------------------------------------------------------------
 
+if(EMSCRIPTEN)
+    set(RAVEN_PLATFORM "emscripten" CACHE STRING "Window system")
+    set(RAVEN_BACKEND_VULKAN OFF CACHE BOOL "Vulkan")
+    set(RAVEN_BUILD_WEB OFF CACHE BOOL "Native Chromium embedding")
+    set(RAVEN_BUILD_TOOLS OFF CACHE BOOL "Desktop tools")
+    set(RAVEN_BUILD_TESTS OFF CACHE BOOL "Native tests")
+    set(RAVEN_BUILD_EXAMPLES OFF CACHE BOOL "Native examples")
+endif()
+option(RAVEN_BACKEND_WEBGL "Compile the WebGL 2 backend" ${EMSCRIPTEN})
+
 # ON when Raven is the project being built, OFF when it is added with add_subdirectory
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 	set(RAVEN_IS_TOP_LEVEL ON)
@@ -33,9 +43,9 @@ option(RAVEN_FETCH_VULKAN_HEADERS "Download the Vulkan headers when no Vulkan SD
 option(RAVEN_REBUILD_SHADERS "Recompile the GLSL shaders (needs glslangValidator or glslc)" OFF)
 option(RAVEN_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(RAVEN_MSVC_STATIC_RUNTIME "Visual C++: link the C runtime statically (/MT) instead of using its DLL (/MD)" OFF)
-set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa or null")
+set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa, emscripten or null")
 option(RAVEN_WAYLAND "Linux and BSD: compile native Wayland beside X11 (nothing of Wayland is needed to build: its libraries are opened at run time)" ON)
-set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa null)
+set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa null emscripten)
 
 if(RAVEN_IS_TOP_LEVEL)
 	# one folder for the programs and the DLL, so that a shared build runs in place
@@ -62,12 +72,20 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(RavenCompilerOptions)
 
+if(EMSCRIPTEN)
+    if(RAVEN_BACKEND_VULKAN OR RAVEN_BUILD_WEB OR RAVEN_BUILD_SHARED)
+        message(FATAL_ERROR "Browser builds require RAVEN_BACKEND_VULKAN=OFF, RAVEN_BUILD_WEB=OFF and RAVEN_BUILD_SHARED=OFF")
+    endif()
+endif()
+
 # ---------------------------------------------------------------------------
 #  Window system
 # ---------------------------------------------------------------------------
 
 if(RAVEN_PLATFORM STREQUAL "auto")
-	if(WIN32)
+	if(EMSCRIPTEN)
+        set(RAVEN_PLATFORM_SELECTED "emscripten")
+	elseif(WIN32)
 		set(RAVEN_PLATFORM_SELECTED "win32")
 	elseif(APPLE)
 		set(RAVEN_PLATFORM_SELECTED "cocoa")
@@ -324,8 +342,24 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 		message(FATAL_ERROR "Raven: Cocoa builds require the AppKit, QuartzCore and Metal frameworks")
 	endif()
 	list(APPEND RAVEN_LIBRARIES ${RAVEN_APPKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK})
+elseif(RAVEN_PLATFORM_SELECTED STREQUAL "emscripten")
+    if(NOT EMSCRIPTEN)
+        message(FATAL_ERROR "The emscripten platform requires the Emscripten toolchain")
+    endif()
+    list(APPEND RAVEN_PLATFORM_SOURCES src/platform/emscripten/emscripten_platform.c
+        src/platform/emscripten/emscripten_services.c
+        src/platform/emscripten/emscripten_accessibility.c)
+    list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_EMSCRIPTEN)
 elseif(NOT RAVEN_PLATFORM_SELECTED STREQUAL "null")
-	message(FATAL_ERROR "Raven: unknown RAVEN_PLATFORM '${RAVEN_PLATFORM_SELECTED}' (expected auto, win32, x11, cocoa or null)")
+	message(FATAL_ERROR "Raven: unknown RAVEN_PLATFORM '${RAVEN_PLATFORM_SELECTED}' (expected auto, win32, x11, cocoa, emscripten or null)")
+endif()
+
+if(RAVEN_BACKEND_WEBGL)
+    if(NOT EMSCRIPTEN)
+        message(FATAL_ERROR "The WebGL backend requires Emscripten")
+    endif()
+    list(APPEND RAVEN_RENDER_SOURCES src/render/webgl/webgl_backend.c)
+    list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_WEBGL_ENABLED)
 endif()
 
 # Vulkan backend: only the headers are needed, the library is loaded at run time
@@ -434,6 +468,17 @@ set_target_properties(raven PROPERTIES
 	SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 raven_set_compiler_options(raven)
+if(EMSCRIPTEN)
+    set_target_properties(raven PROPERTIES C_EXTENSIONS ON)
+    target_compile_options(raven PRIVATE -Wno-overlength-strings -Wno-dollar-in-identifier-extension
+        -Wno-variadic-macro-arguments-omitted
+        -Wno-gnu-zero-variadic-macro-arguments)
+    target_compile_definitions(raven PRIVATE _POSIX_C_SOURCE=200809L)
+    target_link_options(raven PUBLIC
+        "-sMIN_WEBGL_VERSION=2" "-sMAX_WEBGL_VERSION=2"
+        "-sEXPORTED_FUNCTIONS=['_main','_malloc','_free']" "-lidbfs.js" "-sFETCH=1" "-sALLOW_MEMORY_GROWTH=1" "-sENVIRONMENT=web"
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','UTF8ToString']")
+endif()
 
 if(MINGW AND RAVEN_BUILD_SHARED)
 	# the DLL is raven.dll, as with Visual C++ (libraven.dll.a is what programs link with),
@@ -454,7 +499,7 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 else()
 	set(RAVEN_PLATFORM_SUMMARY "${RAVEN_PLATFORM_SELECTED}")
 endif()
-message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} shared=${RAVEN_BUILD_SHARED}")
+message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} webgl=${RAVEN_BACKEND_WEBGL} shared=${RAVEN_BUILD_SHARED}")
 
 # ---------------------------------------------------------------------------
 #  Examples, tools and tests
@@ -544,4 +589,36 @@ if(RAVEN_IS_TOP_LEVEL)
 		set(CPACK_GENERATOR "TGZ")
 	endif()
 	include(CPack)
+endif()
+
+if(EMSCRIPTEN)
+    option(RAVEN_BUILD_WEB_TESTS "Build browser integration fixtures" OFF)
+    if(RAVEN_BUILD_WEB_TESTS)
+        if(CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+            set(RAVEN_WEB_TEST_OUTPUT "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+        else()
+            set(RAVEN_WEB_TEST_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/bin")
+        endif()
+        add_executable(raven_web_test tests/web/app.c)
+        target_link_libraries(raven_web_test PRIVATE raven::raven)
+        set_target_properties(raven_web_test PROPERTIES SUFFIX ".html"
+            RUNTIME_OUTPUT_DIRECTORY "${RAVEN_WEB_TEST_OUTPUT}")
+        configure_file(tests/web/asset.svg "${RAVEN_WEB_TEST_OUTPUT}/asset.svg" COPYONLY)
+        raven_set_compiler_options(raven_web_test)
+        target_link_options(raven_web_test PRIVATE
+            "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+        set_property(TARGET raven_web_test APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+    endif()
+    option(RAVEN_BUILD_WEB_EXAMPLE "Build the standalone browser example" ${RAVEN_IS_TOP_LEVEL})
+    if(RAVEN_BUILD_WEB_EXAMPLE)
+        add_executable(raven_web_demo examples/web/main.c)
+        target_link_libraries(raven_web_demo PRIVATE raven::raven)
+        raven_set_compiler_options(raven_web_demo)
+        set_target_properties(raven_web_demo PROPERTIES SUFFIX ".html")
+        target_link_options(raven_web_demo PRIVATE
+            "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+        set_property(TARGET raven_web_demo APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/examples/web/shell.html")
+    endif()
 endif()

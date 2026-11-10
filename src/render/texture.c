@@ -7,6 +7,9 @@
 #include "renderer.h"
 #include "../core/context.h"
 #include "../core/fs.h"
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/fetch.h>
+#endif
 
 void rvn_tasks_run(void); /* core/context.c */
 
@@ -216,6 +219,86 @@ static void rvn_texture_job_run(void* arg) {
 	Rtask_post(rvn_texture_job_finish, job);
 }
 
+#if defined(__EMSCRIPTEN__)
+typedef struct rvn_web_image_request_t {
+    emscripten_fetch_t* fetch;
+    rvn_texture_job_t* job;
+    struct rvn_web_image_request_t* next;
+} rvn_web_image_request_t;
+static rvn_web_image_request_t* g_image_requests;
+
+static void rvn_web_image_complete(emscripten_fetch_t* fetch, int success) {
+    rvn_web_image_request_t* request = fetch->userData;
+    rvn_web_image_request_t** link = &g_image_requests;
+    rvn_texture_job_t* job = request->job;
+    while (*link && *link != request) link = &(*link)->next;
+    if (*link) *link = request->next;
+    if (success && fetch->status >= 200 && fetch->status < 300 &&
+        fetch->numBytes > 0 && fetch->numBytes <= 33554432) {
+        rvn_texture_t* texture = rvn_texture_get(job->id);
+        job->svg = rvn_svg_detect((const uint8_t*)fetch->data,
+                                  (size_t)fetch->numBytes);
+        job->pixels = rvn_image_decode_at((const uint8_t*)fetch->data,
+            (size_t)fetch->numBytes, job->svg_scale,
+            &job->width, &job->height, &job->density);
+        if (texture && job->pixels) {
+            /* Recovery and SVG rescaling must not need synchronous networking. */
+            rvn_free(texture->source_path); texture->source_path = NULL;
+            rvn_free(texture->source_data);
+            texture->source_size = (size_t)fetch->numBytes;
+            texture->source_data = rvn_alloc(texture->source_size);
+            memcpy(texture->source_data, fetch->data, texture->source_size);
+        }
+    }
+    emscripten_fetch_close(fetch);
+    rvn_free(request);
+    rvn_texture_job_finish(job);
+}
+
+static void rvn_web_image_done(emscripten_fetch_t* fetch) {
+    rvn_web_image_complete(fetch, R_TRUE);
+}
+static void rvn_web_image_progress(emscripten_fetch_t* fetch) {
+    const uint64_t limit = 33554432;
+    if (fetch->totalBytes > limit || fetch->dataOffset > limit ||
+        fetch->numBytes > limit - fetch->dataOffset)
+        rvn_web_image_complete(fetch, R_FALSE);
+}
+
+void rvn_web_images_shutdown(void) {
+    while (g_image_requests) {
+        rvn_web_image_request_t* request = g_image_requests;
+        g_image_requests = request->next;
+        emscripten_fetch_close(request->fetch);
+        rvn_free(request->job->path);
+        rvn_free(request->job);
+        rvn_free(request);
+    }
+}
+
+static void rvn_web_image_start(rvn_texture_job_t* job) {
+    emscripten_fetch_attr_t attrs;
+    rvn_web_image_request_t* request = rvn_calloc(sizeof(*request));
+    request->job = job;
+    request->next = g_image_requests;
+    g_image_requests = request;
+    emscripten_fetch_attr_init(&attrs);
+    strcpy(attrs.requestMethod, "GET");
+    attrs.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+    attrs.timeoutMSecs = 20000;
+    attrs.onsuccess = rvn_web_image_done;
+    attrs.onerror = rvn_web_image_done;
+    attrs.onprogress = rvn_web_image_progress;
+    attrs.userData = request;
+    request->fetch = emscripten_fetch(&attrs, job->path);
+    if (!request->fetch) {
+        g_image_requests = request->next;
+        rvn_free(request);
+        rvn_texture_job_finish(job);
+    }
+}
+#endif
+
 static Rid rvn_texture_create_async(const char* data, size_t size, const char* path) {
 	rvn_texture_t* texture = rvn_texture_register();
 	rvn_texture_job_t* job;
@@ -232,8 +315,12 @@ static Rid rvn_texture_create_async(const char* data, size_t size, const char* p
 		memcpy(job->data, data, size);
 		job->size = size;
 	}
-	rvn_jobs_submit(NULL, rvn_texture_job_run, job);
-	return texture->id;
+#if defined(__EMSCRIPTEN__)
+    if (path && rvn_is_http_url(path)) rvn_web_image_start(job);
+    else
+#endif
+    rvn_jobs_submit(NULL, rvn_texture_job_run, job);
+    return texture->id;
 }
 
 /* ---------------------------------------------------------------------------
@@ -411,8 +498,14 @@ void Rtexture_wait(Rid id) {
 		/* the result is delivered by a task posted to this thread */
 		rvn_tasks_run();
 		texture = rvn_texture_get(id);
-		if (!texture || rvn_atomic_load(&texture->ready)) return;
-		rvn_sleep_ms(1);
+        if (!texture || rvn_atomic_load(&texture->ready)) return;
+#if defined(__EMSCRIPTEN__)
+        rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR,
+                  "Rtexture_wait cannot block the browser: poll Rtexture_is_ready");
+        return;
+#else
+        rvn_sleep_ms(1);
+#endif
 	}
 }
 

@@ -162,6 +162,8 @@ static const RTouchSettings* rvn_touch_global(void) {
 static rvn_touch_state_t* rvn_touch_state(rvn_window_t* window) {
 	if (!window->touch) {
 		window->touch = (rvn_touch_state_t*)rvn_calloc(sizeof(rvn_touch_state_t));
+        /* No pen has been seen. Browser monotonic clocks start near zero. */
+        window->touch->pen_seen = -1.0e30;
 		window->touch->primary = -1;
 		window->touch->ga = window->touch->gb = -1;
 		window->touch->long_press_timer = R_INVALID_ID;

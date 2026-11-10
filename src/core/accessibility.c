@@ -1013,6 +1013,15 @@ void rvn_a11y_frame(rvn_window_t* window) {
 	rvn_a11y_node_t node;
 	uint32_t hash;
 	if (!window->platform || !rvn_a11y_platform_active()) return;
+#if defined(__EMSCRIPTEN__)
+    /* Browser accessibility is a materialized DOM tree; unlike native
+     * providers, it cannot query an unfocused node lazily when AT reads it. */
+    if (g_rvn.platform->system == R_WINDOW_SYSTEM_EMSCRIPTEN) {
+        g_rvn.platform->a11y_event(window->platform,
+            RVN_A11Y_EVENT_STRUCTURE, (uint64_t)window->id);
+        return;
+    }
+#endif
 	focus = rvn_a11y_focus(window->id);
 	if (g_a11y.generation != window->a11y_generation) {
 		window->a11y_generation = g_a11y.generation;

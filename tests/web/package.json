@@ -1,0 +1,7 @@
+{
+  "name": "raven-browser-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node platform-events.cjs && node test.mjs" },
+  "devDependencies": { "playwright": "1.65.0" }
+}

@@ -45,6 +45,8 @@ pub const R_BACKEND_VULKAN: RBackend = 1;
 pub const R_BACKEND_NULL: RBackend = 2;
 /// Backend supplied with Rbackend_register (see raven_backend.h).
 pub const R_BACKEND_CUSTOM: RBackend = 3;
+/// Browser renderer (Emscripten, WebGL 2).
+pub const R_BACKEND_WEBGL: RBackend = 4;
 
 pub const RError = c_int;
 pub const R_NO_ERROR: RError = 0x0070;
@@ -131,6 +133,7 @@ pub const R_WINDOW_SYSTEM_WIN32: RWindowSystem = 0x0091;
 pub const R_WINDOW_SYSTEM_X11: RWindowSystem = 0x0092;
 pub const R_WINDOW_SYSTEM_WAYLAND: RWindowSystem = 0x0093;
 pub const R_WINDOW_SYSTEM_COCOA: RWindowSystem = 0x0094;
+pub const R_WINDOW_SYSTEM_EMSCRIPTEN: RWindowSystem = 0x0095;
 
 /// Edges and corners of a window, for Rwindow_begin_resize.
 pub const RWindowEdge = c_int;
@@ -1313,7 +1316,7 @@ pub const RLocaleChangedCallback = ?*const fn (language: ?[*:0]const u8, user_da
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
 pub const RInitDesc = extern struct {
-    /// Rendering backend. 0 selects R_BACKEND_VULKAN.
+    /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
     backend: RBackend = 0,
     /// Application name reported to the graphics driver. May be NULL.
     app_name: ?[*:0]const u8 = null,
@@ -1373,6 +1376,7 @@ pub const RFrameStats = extern struct {
 ///   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
 ///           Wayland or X11 when Rinit runs: check `system`)
 ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+///   Emscripten: window = opaque browser surface token (no OS window handle)
 pub const RNativeWindow = extern struct {
     system: RWindowSystem = 0,
     display: ?*anyopaque = null,

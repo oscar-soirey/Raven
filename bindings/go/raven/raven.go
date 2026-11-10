@@ -119,6 +119,7 @@ const (
 	R_BACKEND_VULKAN RBackend = 1
 	R_BACKEND_NULL   RBackend = 2
 	R_BACKEND_CUSTOM RBackend = 3
+	R_BACKEND_WEBGL  RBackend = 4
 )
 
 type RError int32
@@ -188,11 +189,12 @@ const (
 type RWindowSystem int32
 
 const (
-	R_WINDOW_SYSTEM_NONE    RWindowSystem = 0x0090
-	R_WINDOW_SYSTEM_WIN32   RWindowSystem = 0x0091
-	R_WINDOW_SYSTEM_X11     RWindowSystem = 0x0092
-	R_WINDOW_SYSTEM_WAYLAND RWindowSystem = 0x0093
-	R_WINDOW_SYSTEM_COCOA   RWindowSystem = 0x0094
+	R_WINDOW_SYSTEM_NONE       RWindowSystem = 0x0090
+	R_WINDOW_SYSTEM_WIN32      RWindowSystem = 0x0091
+	R_WINDOW_SYSTEM_X11        RWindowSystem = 0x0092
+	R_WINDOW_SYSTEM_WAYLAND    RWindowSystem = 0x0093
+	R_WINDOW_SYSTEM_COCOA      RWindowSystem = 0x0094
+	R_WINDOW_SYSTEM_EMSCRIPTEN RWindowSystem = 0x0095
 )
 
 // RWindowEdge: Edges and corners of a window, for Rwindow_begin_resize.

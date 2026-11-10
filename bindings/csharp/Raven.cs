@@ -53,6 +53,10 @@ namespace Raven
         /// Backend supplied with Rbackend_register (see raven_backend.h).
         /// </summary>
         R_BACKEND_CUSTOM = 3,
+        /// <summary>
+        /// Browser renderer (Emscripten, WebGL 2).
+        /// </summary>
+        R_BACKEND_WEBGL = 4,
     }
 
     public enum RError : int
@@ -172,6 +176,7 @@ namespace Raven
         R_WINDOW_SYSTEM_X11 = 0x0092,
         R_WINDOW_SYSTEM_WAYLAND = 0x0093,
         R_WINDOW_SYSTEM_COCOA = 0x0094,
+        R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
     }
 
     /// <summary>
@@ -1754,7 +1759,7 @@ namespace Raven
     public struct RInitDesc
     {
         /// <summary>
-        /// Rendering backend. 0 selects R_BACKEND_VULKAN.
+        /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
         /// </summary>
         public RBackend backend;
         /// <summary>
@@ -1854,6 +1859,7 @@ namespace Raven
     ///   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
     ///           Wayland or X11 when Rinit runs: check `system`)
     ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+    ///   Emscripten: window = opaque browser surface token (no OS window handle)
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct RNativeWindow

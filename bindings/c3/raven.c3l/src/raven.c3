@@ -113,6 +113,8 @@ constset Backend : CInt
 	NULL = 2,
 	<* Backend supplied with Rbackend_register (see raven_backend.h). *>
 	CUSTOM = 3,
+	<* Browser renderer (Emscripten, WebGL 2). *>
+	WEBGL = 4,
 }
 
 constset Error : CInt
@@ -222,6 +224,7 @@ constset WindowSystem : CInt
 	X11 = 0x0092,
 	WAYLAND = 0x0093,
 	COCOA = 0x0094,
+	EMSCRIPTEN = 0x0095,
 }
 
 <* Edges and corners of a window, for Rwindow_begin_resize. *>
@@ -1647,7 +1650,7 @@ alias LocaleChangedCallback = fn void(ZString language, void* user_data);
 *>
 struct InitDesc
 {
-	<* Rendering backend. 0 selects R_BACKEND_VULKAN. *>
+	<* Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. *>
 	Backend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	ZString app_name;
@@ -1711,6 +1714,7 @@ struct FrameStats
    Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
            Wayland or X11 when Rinit runs: check `system`)
    Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+   Emscripten: window = opaque browser surface token (no OS window handle)
 *>
 struct NativeWindow
 {
