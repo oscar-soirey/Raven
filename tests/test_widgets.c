@@ -673,6 +673,77 @@ static void test_deletion_and_events(void) {
 	CHECK(g_clicks == 1);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Destroy callbacks that dispatch (issue #62)
+ * ------------------------------------------------------------------------- */
+
+static Rid g_doomed[4];
+static Rid g_doomed_window;
+static int g_doomed_seen;
+
+/* Rwindow_begin_move begins and ends a dispatch of its own: the deleted widgets are collected from inside the collection. */
+static void dispatch_from_destroy(Rid widget, void* user_data) {
+	(void)widget;
+	g_doomed_seen++;
+	if (user_data) Rwidget_destroy((Rid)(uintptr_t)user_data);
+	Rwindow_begin_move(g_window);
+}
+
+static void count_destroyed(Rid widget, void* user_data) {
+	(void)widget;
+	(void)user_data;
+	g_doomed_seen++;
+}
+
+static void tear_down(Rid timer, void* user_data) {
+	int i;
+	(void)timer;
+	(void)user_data;
+	for (i = 0; i < 4; i++) Rwidget_destroy(g_doomed[i]);
+	if (g_doomed_window != R_INVALID_ID) Rwindow_destroy(g_doomed_window);
+}
+
+static void test_destroy_callback_dispatches(void) {
+	Rid extra, window_label;
+	int i;
+
+	/* deleted during a dispatch (a timer), the second one's callback dispatches again */
+	for (i = 0; i < 4; i++) {
+		g_doomed[i] = Rwidget_create(R_WIDGET_LABEL);
+		Rwidget_set_destroy_callback(g_doomed[i], count_destroyed, NULL);
+	}
+	Rwidget_set_destroy_callback(g_doomed[1], dispatch_from_destroy, NULL);
+	g_doomed_window = R_INVALID_ID;
+	g_doomed_seen = 0;
+	Rtimer_create(0.0, R_FALSE, tear_down, NULL);
+	Rdraw_frame();
+	CHECK(g_doomed_seen == 4);
+	for (i = 0; i < 4; i++) CHECK(!Rwidget_is_valid(g_doomed[i]));
+
+	/* the same, with a widget and a window deleted by the callback itself, and a window deleted beside them */
+	extra = Rwidget_create(R_WIDGET_LABEL);
+	Rwidget_set_destroy_callback(extra, dispatch_from_destroy, NULL);
+	for (i = 0; i < 4; i++) {
+		g_doomed[i] = Rwidget_create(R_WIDGET_LABEL);
+		Rwidget_set_destroy_callback(g_doomed[i], count_destroyed, NULL);
+	}
+	Rwidget_set_destroy_callback(g_doomed[0], dispatch_from_destroy, (void*)(uintptr_t)extra);
+	Rwidget_set_destroy_callback(g_doomed[2], dispatch_from_destroy, NULL);
+	g_doomed_window = Rwindow_create("doomed", 200, 100, R_WINDOW_DEFAULT);
+	window_label = Rlabel_create("in a closing window");
+	Rwindow_set_content(g_doomed_window, window_label);
+	Rwidget_set_destroy_callback(window_label, dispatch_from_destroy, NULL);
+	g_doomed_seen = 0;
+	Rtimer_create(0.0, R_FALSE, tear_down, NULL);
+	Rdraw_frame();
+	CHECK(g_doomed_seen == 6);
+	CHECK(!Rwidget_is_valid(extra) && !Rwidget_is_valid(window_label));
+	CHECK(!Rwindow_is_valid(g_doomed_window));
+	for (i = 0; i < 4; i++) CHECK(!Rwidget_is_valid(g_doomed[i]));
+	g_doomed_window = R_INVALID_ID;
+	Rdraw_frame();
+}
+
 static void on_timer(Rid timer, void* user_data) {
 	(void)timer;
 	(*(int*)user_data)++;
@@ -973,6 +1044,7 @@ int main(void) {
 	RUN(test_menus);
 	RUN(test_tabs_and_expander);
 	RUN(test_deletion_and_events);
+	RUN(test_destroy_callback_dispatches);
 	RUN(test_timers_theme_and_attributes);
 	RUN(test_device_lost);
 

@@ -203,10 +203,22 @@ void rvn_widget_destroy(rvn_widget_t* widget) {
 }
 
 void rvn_widgets_collect(void) {
-	/* destroy callbacks may delete more widgets: the array can grow while we walk it */
-	uint32_t i;
-	for (i = 0; i < g_rvn.dead_widget_count; i++) rvn_widget_free(g_rvn.dead_widgets[i]);
-	g_rvn.dead_widget_count = 0;
+	/*
+	 * Destroy callbacks run application code: it may delete more widgets, or
+	 * begin and end a dispatch of its own (Rwindow_begin_move...), which
+	 * collects again. Each round takes the list it frees first, so a
+	 * collection started from there never sees it; what the callbacks add
+	 * makes a new list, freed by the next round.
+	 */
+	while (g_rvn.dead_widget_count > 0) {
+		rvn_widget_t** list = g_rvn.dead_widgets;
+		uint32_t count = g_rvn.dead_widget_count, i;
+		g_rvn.dead_widgets = NULL;
+		g_rvn.dead_widget_count = 0;
+		g_rvn.dead_widget_cap = 0;
+		for (i = 0; i < count; i++) rvn_widget_free(list[i]);
+		rvn_free(list);
+	}
 }
 
 /* ---------------------------------------------------------------------------
