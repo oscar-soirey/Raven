@@ -21,6 +21,8 @@ const context = await browser.newContext({
   viewport:{width:800,height:600},
                                           hasTouch:engine === 'chromium',deviceScaleFactor:2});
 const page = await context.newPage();
+// Arm picker interception before interaction; enabling it at keypress can race.
+page.on('filechooser',()=>{});
 const diagnose = browserDiagnostics(page);
 if (engine === 'firefox') {
   // Headless Firefox emits native 'cancel' before Playwright setFiles delivers

@@ -33,6 +33,8 @@ try {
   await gallery.close();
   for (const name of names) {
     const page = await context.newPage();
+    // Arm picker interception before interaction; enabling it at keypress can race.
+    page.on('filechooser',()=>{});
     diagnose=browserDiagnostics(page);
     const errors = [];
     page.on('pageerror',error=>errors.push(error.message));

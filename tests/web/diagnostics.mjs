@@ -22,6 +22,8 @@ export function browserDiagnostics(page) {
         const gl=canvas.getContext('webgl2');
         return {url:location.href,status:document.querySelector('#status')?.textContent,
           textboxes:document.querySelectorAll('[role=textbox]').length,
+          focused:document.hasFocus(),activeElement:document.activeElement?.tagName,
+          activeElementId:document.activeElement?.id,
           runtimeStarted:typeof Module!=='undefined' && !!Module.ravenLifecycle,
           webgl2:!!gl,renderer:gl?.getParameter(gl.RENDERER),failures};
       });
