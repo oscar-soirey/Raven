@@ -1,6 +1,6 @@
 // Raven for C3.
 //
-// Generated from the C headers by tools/bindgen/gen_c3.py (Raven 0.2.2): do not edit.
+// Generated from the C headers by tools/bindgen/gen_c3.py (Raven 0.2.3): do not edit.
 //
 // The C API with the names of C3: types and constsets in PascalCase without
 // the R (RWidgetType is WidgetType), their values without their common prefix

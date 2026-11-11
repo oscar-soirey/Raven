@@ -33,7 +33,7 @@ It can also run on its own:
 ```bash
 python tools/bindgen/gen_c3.py .                # uses this checkout
 python tools/bindgen/gen_c3.py                  # clones Raven (latest)
-python tools/bindgen/gen_c3.py --ref v0.2.2     # clones a tag or branch
+python tools/bindgen/gen_c3.py --ref v0.2.3     # clones a tag or branch
 python tools/bindgen/gen_c3.py -o some/dir      # writes somewhere else
 ```
 

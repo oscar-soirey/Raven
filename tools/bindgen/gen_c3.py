@@ -10,7 +10,7 @@ reader of the headers (cparse.py). It can be used two ways:
 
         python tools/bindgen/gen_c3.py                  clones Raven, writes bindings/c3/raven.c3l/src
         python tools/bindgen/gen_c3.py path/to/Raven    uses a checkout of Raven
-        python tools/bindgen/gen_c3.py --ref v0.2.2     clones that tag or branch
+        python tools/bindgen/gen_c3.py --ref v0.2.3     clones that tag or branch
         python tools/bindgen/gen_c3.py --check          fails when the output is stale
         python tools/bindgen/gen_c3.py -o some/dir      writes somewhere else
 

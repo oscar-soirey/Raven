@@ -7,11 +7,11 @@ multithreaded GUI library in C for editors and tools.
 <dependency>
   <groupId>io.github.oscar-soirey</groupId>
   <artifactId>raven-gui</artifactId>
-  <version>0.2.2</version>
+  <version>0.2.3</version>
 </dependency>
 ```
 
-or, with Gradle, `implementation("io.github.oscar-soirey:raven-gui:0.2.2")`.
+or, with Gradle, `implementation("io.github.oscar-soirey:raven-gui:0.2.3")`.
 
 Java 22 or later: the binding uses the Foreign Function & Memory API
 (`java.lang.foreign`), so it has no dependency and no JNI. The jar of Maven
