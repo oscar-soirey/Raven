@@ -10730,6 +10730,24 @@ def Rnode_graph_set_node_deletable(graph, node, deletable):
     _lib.Rnode_graph_set_node_deletable(graph, node, deletable)
 
 
+_lib.Rnode_graph_set_node_shown.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rnode_graph_set_node_shown.restype = None
+
+
+def Rnode_graph_set_node_shown(graph, node):
+    """Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph)."""
+    _lib.Rnode_graph_set_node_shown(graph, node)
+
+
+_lib.Rnode_graph_set_link_shown.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rnode_graph_set_link_shown.restype = None
+
+
+def Rnode_graph_set_link_shown(graph, link):
+    """The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output."""
+    _lib.Rnode_graph_set_link_shown(graph, link)
+
+
 _lib.Rnode_graph_set_node_badge.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
 _lib.Rnode_graph_set_node_badge.restype = None
 

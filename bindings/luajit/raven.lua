@@ -1984,6 +1984,8 @@ void Rnode_graph_set_pin_multiple(Rid graph, int pin, int multiple);
 void Rnode_graph_set_node_active(Rid graph, int node, int active);
 void Rnode_graph_set_node_active_color(Rid graph, int node, float r, float g, float b);
 void Rnode_graph_set_node_deletable(Rid graph, int node, int deletable);
+void Rnode_graph_set_node_shown(Rid graph, int node);
+void Rnode_graph_set_link_shown(Rid graph, int link);
 void Rnode_graph_set_node_badge(Rid graph, int node, const char* text);
 Rid Rblock_editor_create(void);
 int Rblock_editor_add_kind(Rid editor, const char* name, const char* label, RBlockShape shape, const char* category);

@@ -3667,6 +3667,10 @@ foreign lib {
 	Rnode_graph_set_node_active_color :: proc(graph: Rid, node: i32, r: f32, g: f32, b: f32) ---
 	// R_FALSE: the Delete key does not remove this node (the root of a tree, the output of a graph).
 	Rnode_graph_set_node_deletable :: proc(graph: Rid, node: i32, deletable: i32) ---
+	// Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph).
+	Rnode_graph_set_node_shown :: proc(graph: Rid, node: i32) ---
+	// The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
+	Rnode_graph_set_link_shown :: proc(graph: Rid, link: i32) ---
 	// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
 	Rnode_graph_set_node_badge :: proc(graph: Rid, node: i32, text: cstring) ---
 	Rblock_editor_create :: proc() -> Rid ---

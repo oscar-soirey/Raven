@@ -18931,6 +18931,36 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rnode_graph_set_node_shown$;
+
+    /**
+     * Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph).
+     */
+    public static void Rnode_graph_set_node_shown(int graph, int node) {
+        MethodHandle $h = Rnode_graph_set_node_shown$;
+        if ($h == null) Rnode_graph_set_node_shown$ = $h = find("Rnode_graph_set_node_shown", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(graph, node);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_link_shown$;
+
+    /**
+     * The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
+     */
+    public static void Rnode_graph_set_link_shown(int graph, int link) {
+        MethodHandle $h = Rnode_graph_set_link_shown$;
+        if ($h == null) Rnode_graph_set_link_shown$ = $h = find("Rnode_graph_set_link_shown", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(graph, link);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rnode_graph_set_node_badge$;
 
     /**

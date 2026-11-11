@@ -3682,6 +3682,10 @@ extern "C" {
     pub fn Rnode_graph_set_node_active_color(graph: Rid, node: c_int, r: f32, g: f32, b: f32);
     /// R_FALSE: the Delete key does not remove this node (the root of a tree, the output of a graph).
     pub fn Rnode_graph_set_node_deletable(graph: Rid, node: c_int, deletable: c_int);
+    /// Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph).
+    pub fn Rnode_graph_set_node_shown(graph: Rid, node: c_int);
+    /// The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
+    pub fn Rnode_graph_set_link_shown(graph: Rid, link: c_int);
     /// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
     pub fn Rnode_graph_set_node_badge(graph: Rid, node: c_int, text: *const c_char);
     pub fn Rblock_editor_create() -> Rid;

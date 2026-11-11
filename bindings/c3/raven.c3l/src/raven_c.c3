@@ -4919,6 +4919,12 @@ extern fn void r_node_graph_set_node_active_color(Rid graph, CInt node, float r,
 <* R_FALSE: the Delete key does not remove this node (the root of a tree, the output of a graph). *>
 extern fn void r_node_graph_set_node_deletable(Rid graph, CInt node, CInt deletable) @cname("Rnode_graph_set_node_deletable");
 
+<* Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph). *>
+extern fn void r_node_graph_set_node_shown(Rid graph, CInt node) @cname("Rnode_graph_set_node_shown");
+
+<* The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output. *>
+extern fn void r_node_graph_set_link_shown(Rid graph, CInt link) @cname("Rnode_graph_set_link_shown");
+
 <* A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it. *>
 extern fn void r_node_graph_set_node_badge(Rid graph, CInt node, char* text) @cname("Rnode_graph_set_node_badge");
 

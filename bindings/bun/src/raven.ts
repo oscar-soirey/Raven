@@ -1038,6 +1038,8 @@ const _symbols = {
 	Rnode_graph_set_node_active: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_set_node_active_color: { args: ["u32", "i32", "f32", "f32", "f32"], returns: "void" },
 	Rnode_graph_set_node_deletable: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_set_node_shown: { args: ["u32", "i32"], returns: "void" },
+	Rnode_graph_set_link_shown: { args: ["u32", "i32"], returns: "void" },
 	Rnode_graph_set_node_badge: { args: ["u32", "i32", "ptr"], returns: "void" },
 	Rblock_editor_create: { args: [], returns: "u32" },
 	Rblock_editor_add_kind: { args: ["u32", "ptr", "ptr", "i32", "ptr"], returns: "i32" },
@@ -11348,6 +11350,16 @@ export function Rnode_graph_set_node_active_color(graph: Rid, node: number, r: n
 /** R_FALSE: the Delete key does not remove this node (the root of a tree, the output of a graph). */
 export function Rnode_graph_set_node_deletable(graph: Rid, node: number, deletable: number): void {
 	_lib.Rnode_graph_set_node_deletable(graph, node, deletable);
+}
+
+/** Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph). */
+export function Rnode_graph_set_node_shown(graph: Rid, node: number): void {
+	_lib.Rnode_graph_set_node_shown(graph, node);
+}
+
+/** The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output. */
+export function Rnode_graph_set_link_shown(graph: Rid, link: number): void {
+	_lib.Rnode_graph_set_link_shown(graph, link);
 }
 
 /** A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it. */
