@@ -9,6 +9,7 @@
 #   binding_go            needs go, a C compiler for cgo, and the shared library; not on Windows
 #   binding_java          needs a JDK 22 or later and the shared library; not on Windows
 #   binding_odin          needs odin and the shared library; not on Windows
+#   binding_odin_wrapper, binding_odin_wrapper_test    the same needs: the example and the tests of odin/raven_odin
 #   binding_bun           needs bun and the shared library; not on Windows
 #   binding_node          needs node and node_api.h (the addon is built here) and the shared library; not on Windows
 #   binding_node_bun      the same addon and test, run by bun instead
@@ -90,6 +91,17 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 		add_test(NAME binding_odin
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} run example
 				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven> -Wl,-rpath,$<TARGET_FILE_DIR:raven>" -- --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
+		# raven_odin, the layer over the generated package: its example, and its tests
+		# (one at a time: Raven has one UI thread)
+		add_test(NAME binding_odin_wrapper
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} run raven_odin/example
+				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin_wrapper "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven> -Wl,-rpath,$<TARGET_FILE_DIR:raven>" -- --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
+		add_test(NAME binding_odin_wrapper_test
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} test raven_odin
+				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin_wrapper_test -define:ODIN_TEST_THREADS=1
+				"-extra-linker-flags:-L$<TARGET_FILE_DIR:raven> -Wl,-rpath,$<TARGET_FILE_DIR:raven>"
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
 	endif()
 
