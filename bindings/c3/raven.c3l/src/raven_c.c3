@@ -23,7 +23,7 @@ alias Ruint = uint;
 
 const CInt RAVEN_VERSION_MAJOR = 0;
 const CInt RAVEN_VERSION_MINOR = 2;
-const CInt RAVEN_VERSION_PATCH = 2;
+const CInt RAVEN_VERSION_PATCH = 3;
 const char* RAVEN_API_VERSION = "0.2";
 const CInt R_FALSE = 0;
 const CInt R_TRUE = 1;

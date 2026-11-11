@@ -44,7 +44,7 @@ typedef Id = uint;
 
 const CInt VERSION_MAJOR = 0;
 const CInt VERSION_MINOR = 2;
-const CInt VERSION_PATCH = 2;
+const CInt VERSION_PATCH = 3;
 const ZString API_VERSION = "0.2";
 const CInt FALSE = 0;
 const CInt TRUE = 1;
