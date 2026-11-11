@@ -279,7 +279,7 @@ panel uses the attributes that make sense for it.
 | `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked` |
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |
 | `Custom` | drawn by the application: `Rcustom_set_paint_callback` |
-| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |
+| `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |
 | `FileBrowser` | `Directory`, `Mode` (`Open`, `Save`, `Folder`), `Filter` (`*.png;*.jpg`), `FileName`, `DefaultExtension`, `ShowHidden`, `Multiple`, `Controls` (`false` hides the name, the filter and the buttons), `Places` (`false` hides the list of places) |
 
 A `MenuItem` shortcut works without any `<Shortcut>` element: the window
