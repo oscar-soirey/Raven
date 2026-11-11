@@ -31,5 +31,9 @@ It links the shared library of Raven (build Raven with
 `example/main.odin` is the program of the other bindings
 (`odin run example -- --test` checks the binding without a window).
 
+`raven_odin/` is an optional layer over this binding with Odin strings,
+booleans, enums, results instead of out-parameters and callbacks without
+`proc "c"`; see [raven_odin/README.md](raven_odin/README.md).
+
 Odin has no package registry: its authors choose not to have one. Packages
 are folders, copied or fetched with git.
