@@ -249,10 +249,6 @@ int main(void) {
 	}
 	Rwindow_show(app.window);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rshutdown();
+	example_run(app.window, NULL, NULL);
 	return Rget_exit_code();
 }

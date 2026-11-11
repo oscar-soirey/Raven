@@ -14,6 +14,8 @@ Backend :: enum i32 {
 	Null = 2,
 	// Backend supplied with Rbackend_register (see raven_backend.h).
 	Custom = 3,
+	// Browser renderer (Emscripten, WebGL 2).
+	Webgl = 4,
 }
 
 Error :: enum i32 {
@@ -107,6 +109,7 @@ Window_System :: enum i32 {
 	X11 = 0x0092,
 	Wayland = 0x0093,
 	Cocoa = 0x0094,
+	Emscripten = 0x0095,
 }
 
 // Edges and corners of a window, for Rwindow_begin_resize.

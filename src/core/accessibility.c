@@ -655,12 +655,12 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			}
 			case R_WIDGET_TREE_VIEW: {
 				Rid tree_item = Rtree_view_get_item(widget->id, item);
-				const char* text = tree_item ? Rtree_item_get_text(tree_item) : NULL;
+				const char* text = tree_item != R_INVALID_ID ? Rtree_item_get_text(tree_item) : NULL;
 				node->role = R_ROLE_TREE_ITEM;
 				if (text) rvn_text_add(&g_a11y.name, text);
 				node->states |= RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE | RVN_A11Y_EXPANDABLE;
-				if (tree_item && Rtree_item_is_expanded(tree_item)) node->states |= RVN_A11Y_EXPANDED;
-				if (tree_item && Rtree_view_get_selected_item(widget->id) == tree_item) node->states |= RVN_A11Y_SELECTED;
+				if (tree_item != R_INVALID_ID && Rtree_item_is_expanded(tree_item)) node->states |= RVN_A11Y_EXPANDED;
+				if (tree_item != R_INVALID_ID && Rtree_view_get_selected_item(widget->id) == tree_item) node->states |= RVN_A11Y_SELECTED;
 				break;
 			}
 			case R_WIDGET_TAB_VIEW: {
@@ -813,7 +813,7 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 		}
 		case R_WIDGET_TREE_VIEW: {
 			Rid selected = Rtree_view_get_selected_item(widget->id);
-			const char* text = selected ? Rtree_item_get_text(selected) : NULL;
+			const char* text = selected != R_INVALID_ID ? Rtree_item_get_text(selected) : NULL;
 			if (text) rvn_text_add(&g_a11y.value, text);
 			break;
 		}
@@ -871,7 +871,7 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 			case R_WIDGET_TAB_VIEW: Rtab_view_set_active(widget->id, item); return R_TRUE;
 			case R_WIDGET_TREE_VIEW: {
 				Rid tree_item = Rtree_view_get_item(widget->id, item);
-				if (!tree_item) return R_FALSE;
+				if (tree_item == R_INVALID_ID) return R_FALSE;
 				if (action == RVN_A11Y_EXPAND || action == RVN_A11Y_COLLAPSE) Rtree_item_set_expanded(tree_item, action == RVN_A11Y_EXPAND);
 				else Rtree_view_set_selected_item(widget->id, tree_item);
 				return R_TRUE;
@@ -1013,6 +1013,15 @@ void rvn_a11y_frame(rvn_window_t* window) {
 	rvn_a11y_node_t node;
 	uint32_t hash;
 	if (!window->platform || !rvn_a11y_platform_active()) return;
+#if defined(__EMSCRIPTEN__)
+    /* Browser accessibility is a materialized DOM tree; unlike native
+     * providers, it cannot query an unfocused node lazily when AT reads it. */
+    if (g_rvn.platform->system == R_WINDOW_SYSTEM_EMSCRIPTEN) {
+        g_rvn.platform->a11y_event(window->platform,
+            RVN_A11Y_EVENT_STRUCTURE, (uint64_t)window->id);
+        return;
+    }
+#endif
 	focus = rvn_a11y_focus(window->id);
 	if (g_a11y.generation != window->a11y_generation) {
 		window->a11y_generation = g_a11y.generation;

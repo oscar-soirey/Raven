@@ -1,0 +1,61 @@
+name: Browser backend
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/web/package-lock.json
+      - name: Emscripten 7.0.0
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git /tmp/emsdk
+          /tmp/emsdk/emsdk install 7.0.0
+          /tmp/emsdk/emsdk activate 7.0.0
+      - name: Build WebAssembly
+        run: |
+          source /tmp/emsdk/emsdk_env.sh
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Debug -DRAVEN_WARNINGS_AS_ERRORS=ON -DRAVEN_BUILD_WEB_TESTS=ON
+          cmake --build build-web --parallel
+      - name: Install browser tests
+        working-directory: tests/web
+        run: |
+          npm ci
+          npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Install software-rendered Firefox display
+        if: matrix.browser == 'firefox'
+        run: sudo apt-get install --yes xvfb xauth libgl1-mesa-dri
+      - name: Verify generated shaders
+        run: |
+          python3 src/render/webgl/generate_shaders.py
+          git diff --exit-code -- src/render/webgl/shaders.h src/render/webgl/effects.h
+          python3 tools/bindgen/bindgen.py --check
+      - name: Run browser integration and example gallery
+        env:
+          RAVEN_BROWSER_ENGINE: ${{ matrix.browser }}
+          RAVEN_WEB_SCREENSHOT: ${{ github.workspace }}/build-web/browser.png
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory build-web/bin > /tmp/raven-web-server.log 2>&1 &
+          curl --retry 10 --retry-connrefused --retry-delay 1 --fail --silent http://127.0.0.1:8765/raven_web_test.html > /dev/null
+          if [ "${RAVEN_BROWSER_ENGINE}" = firefox ]; then
+            LIBGL_ALWAYS_SOFTWARE=1 xvfb-run --auto-servernum --server-args="-screen 0 1280x1024x24" npm test --prefix tests/web
+          else
+            npm test --prefix tests/web
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-${{ matrix.browser }}
+          path: build-web/browser.png

@@ -13,7 +13,7 @@ from typing import Any, Tuple
 
 # The parts of the API that only make sense from C: writing a rendering
 # backend, and sharing the Vulkan device of Raven.
-SKIPPED_HEADERS = ("raven_vulkan.h", "raven_backend.h")
+SKIPPED_HEADERS = ("raven_vulkan.h", "raven_backend.h", "raven_emscripten.h")
 
 
 class Param:

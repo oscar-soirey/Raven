@@ -16,3 +16,6 @@ dev/
 bindings/**/bin/
 bindings/**/obj/
 target/
+
+# Browser integration test dependencies
+tests/web/node_modules/

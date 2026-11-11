@@ -72,7 +72,9 @@ typedef enum RBackend{
 	/** Renders nothing. Used for headless runs and unit tests. */
 	R_BACKEND_NULL,
 	/** Backend supplied with Rbackend_register (see raven_backend.h). */
-	R_BACKEND_CUSTOM
+	R_BACKEND_CUSTOM,
+    /** Browser renderer (Emscripten, WebGL 2). */
+    R_BACKEND_WEBGL
 }RBackend;
 
 typedef enum RError{
@@ -103,7 +105,7 @@ typedef enum RSeverity{
  * default for every field, so new fields can be added without breaking code.
  */
 typedef struct RInitDesc {
-	/** Rendering backend. 0 selects R_BACKEND_VULKAN. */
+	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
 	RBackend backend;
 	/** Application name reported to the graphics driver. May be NULL. */
 	const char* app_name;

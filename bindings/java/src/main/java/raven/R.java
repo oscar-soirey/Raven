@@ -213,6 +213,10 @@ public final class R {
      * Backend supplied with Rbackend_register (see raven_backend.h).
      */
     public static final int R_BACKEND_CUSTOM = 3;
+    /**
+     * Browser renderer (Emscripten, WebGL 2).
+     */
+    public static final int R_BACKEND_WEBGL = 4;
 
     // RError
     public static final int R_NO_ERROR = 0x0070;
@@ -304,6 +308,7 @@ public final class R {
     public static final int R_WINDOW_SYSTEM_X11 = 0x0092;
     public static final int R_WINDOW_SYSTEM_WAYLAND = 0x0093;
     public static final int R_WINDOW_SYSTEM_COCOA = 0x0094;
+    public static final int R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095;
 
     // RWindowEdge: Edges and corners of a window, for Rwindow_begin_resize.
     public static final int R_EDGE_LEFT = 0x00D0;
@@ -1671,7 +1676,7 @@ public final class R {
         }
 
         /**
-         * Rendering backend. 0 selects R_BACKEND_VULKAN.
+         * Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
          */
         public int backend() { return s.get(JAVA_INT, 0); }
         public RInitDesc backend(int value) { s.set(JAVA_INT, 0, value); return this; }
@@ -1927,6 +1932,7 @@ public final class R {
      *   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
      *           Wayland or X11 when Rinit runs: check `system`)
      *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+     *   Emscripten: window = opaque browser surface token (no OS window handle)
      */
     public static final class RNativeWindow {
         /** The size of the structure in C, in bytes. */

@@ -55,6 +55,8 @@ R_BACKEND_VULKAN :: 1
 R_BACKEND_NULL :: 2
 // Backend supplied with Rbackend_register (see raven_backend.h).
 R_BACKEND_CUSTOM :: 3
+// Browser renderer (Emscripten, WebGL 2).
+R_BACKEND_WEBGL :: 4
 
 RError :: i32
 R_NO_ERROR :: 0x0070
@@ -141,6 +143,7 @@ R_WINDOW_SYSTEM_WIN32 :: 0x0091
 R_WINDOW_SYSTEM_X11 :: 0x0092
 R_WINDOW_SYSTEM_WAYLAND :: 0x0093
 R_WINDOW_SYSTEM_COCOA :: 0x0094
+R_WINDOW_SYSTEM_EMSCRIPTEN :: 0x0095
 
 // Edges and corners of a window, for Rwindow_begin_resize.
 RWindowEdge :: i32
@@ -1323,7 +1326,7 @@ RLocaleChangedCallback :: #type proc "c" (language: cstring, user_data: rawptr)
 // Optional settings for Rinit_ex. A zero-initialized structure selects the
 // default for every field, so new fields can be added without breaking code.
 RInitDesc :: struct {
-	// Rendering backend. 0 selects R_BACKEND_VULKAN.
+	// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
 	backend: RBackend,
 	// Application name reported to the graphics driver. May be NULL.
 	app_name: cstring,
@@ -1383,6 +1386,7 @@ RFrameStats :: struct {
 //   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
 //           Wayland or X11 when Rinit runs: check `system`)
 //   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+//   Emscripten: window = opaque browser surface token (no OS window handle)
 RNativeWindow :: struct {
 	system: RWindowSystem,
 	display: rawptr,

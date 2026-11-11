@@ -87,7 +87,8 @@ typedef enum RWindowSystem{
 	R_WINDOW_SYSTEM_WIN32,
 	R_WINDOW_SYSTEM_X11,
 	R_WINDOW_SYSTEM_WAYLAND,
-	R_WINDOW_SYSTEM_COCOA
+	R_WINDOW_SYSTEM_COCOA,
+    R_WINDOW_SYSTEM_EMSCRIPTEN
 }RWindowSystem;
 
 /**
@@ -97,6 +98,7 @@ typedef enum RWindowSystem{
  *   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
  *           Wayland or X11 when Rinit runs: check `system`)
  *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+ *   Emscripten: window = opaque browser surface token (no OS window handle)
  */
 typedef struct RNativeWindow {
 	RWindowSystem system;

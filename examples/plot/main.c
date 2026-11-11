@@ -224,6 +224,11 @@ static void on_action(Rid sender, const char* action, void* user_data) {
 	}
 }
 
+static void example_shutdown(void) {
+	Rtimer_destroy(app.timer);
+	Rshutdown();
+}
+
 int main(void) {
 	if (!example_init("Raven plots")) return 1;
 	Rtheme_apply(R_THEME_DARK);
@@ -247,11 +252,6 @@ int main(void) {
 	Raction_bind("plot.pause", on_action, NULL);
 	Raction_bind("plot.fit", on_action, NULL);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rtimer_destroy(app.timer);
-	Rshutdown();
+	example_run(app.window, NULL, example_shutdown);
 	return 0;
 }

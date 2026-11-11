@@ -84,7 +84,15 @@ static const RBackendVTable* rvn_select_backend(RBackend backend) {
 			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the Vulkan backend");
 			return NULL;
 #endif
-		case R_BACKEND_NULL:
+		        case R_BACKEND_WEBGL:
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+            return rvn_backend_webgl();
+#else
+            rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL,
+                      "Raven was built without the WebGL backend");
+            return NULL;
+#endif
+        case R_BACKEND_NULL:
 			return rvn_backend_null();
 		case R_BACKEND_CUSTOM:
 			if (!g_custom_backend_set) {
@@ -116,7 +124,20 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	}
 	memset(&desc, 0, sizeof(desc));
 	if (user_desc) desc = *user_desc;
-	if (desc.backend == 0) desc.backend = R_BACKEND_VULKAN;
+	if (desc.backend == 0) {
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+        desc.backend = R_BACKEND_WEBGL;
+#else
+        desc.backend = R_BACKEND_VULKAN;
+#endif
+    }
+#if defined(__EMSCRIPTEN__)
+    /* DOM and WebGL contexts belong to the browser main thread. */
+    desc.disable_render_thread = R_TRUE;
+#if !defined(__EMSCRIPTEN_PTHREADS__)
+    desc.worker_threads = -1;
+#endif
+#endif
 
 	backend = rvn_select_backend(desc.backend);
 	if (!backend) return R_FALSE;
@@ -203,11 +224,17 @@ fail_platform:
 	return R_FALSE;
 }
 
+#if defined(__EMSCRIPTEN__)
+void rvn_web_images_shutdown(void);
+#endif
 void Rshutdown(void) {
 	uint32_t i;
 	if (!rvn_api_check(__func__)) return;
 
-	/* Stop native filesystem notifications before draining posted UI tasks. */
+	#if defined(__EMSCRIPTEN__)
+    rvn_web_images_shutdown();
+#endif
+    /* Stop native filesystem notifications before draining posted UI tasks. */
 	rvn_fs_watch_stop();
 	/* windows first: this deletes every widget that is shown */
 	/* (the inspectors first: they are windows that follow other windows) */

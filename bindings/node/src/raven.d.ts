@@ -57,10 +57,13 @@ export enum RBackend {
 	R_BACKEND_NULL = 2,
 	/** Backend supplied with Rbackend_register (see raven_backend.h). */
 	R_BACKEND_CUSTOM = 3,
+	/** Browser renderer (Emscripten, WebGL 2). */
+	R_BACKEND_WEBGL = 4,
 }
 export const R_BACKEND_VULKAN: RBackend.R_BACKEND_VULKAN;
 export const R_BACKEND_NULL: RBackend.R_BACKEND_NULL;
 export const R_BACKEND_CUSTOM: RBackend.R_BACKEND_CUSTOM;
+export const R_BACKEND_WEBGL: RBackend.R_BACKEND_WEBGL;
 
 export enum RError {
 	R_NO_ERROR = 0x0070,
@@ -193,12 +196,14 @@ export enum RWindowSystem {
 	R_WINDOW_SYSTEM_X11 = 0x0092,
 	R_WINDOW_SYSTEM_WAYLAND = 0x0093,
 	R_WINDOW_SYSTEM_COCOA = 0x0094,
+	R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
 }
 export const R_WINDOW_SYSTEM_NONE: RWindowSystem.R_WINDOW_SYSTEM_NONE;
 export const R_WINDOW_SYSTEM_WIN32: RWindowSystem.R_WINDOW_SYSTEM_WIN32;
 export const R_WINDOW_SYSTEM_X11: RWindowSystem.R_WINDOW_SYSTEM_X11;
 export const R_WINDOW_SYSTEM_WAYLAND: RWindowSystem.R_WINDOW_SYSTEM_WAYLAND;
 export const R_WINDOW_SYSTEM_COCOA: RWindowSystem.R_WINDOW_SYSTEM_COCOA;
+export const R_WINDOW_SYSTEM_EMSCRIPTEN: RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN;
 
 /** Edges and corners of a window, for Rwindow_begin_resize. */
 export enum RWindowEdge {
@@ -1830,7 +1835,7 @@ export class RInitDesc extends RStruct {
 	constructor(pointer?: Pointer);
 	/** The structure at an address of the library, or null. */
 	static from(pointer: Pointer | null): RInitDesc | null;
-	/** Rendering backend. 0 selects R_BACKEND_VULKAN. */
+	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
 	get backend(): RBackend;
 	set backend(value: RBackend);
 	/** Application name reported to the graphics driver. May be NULL. */
@@ -1929,6 +1934,7 @@ export class RFrameStats extends RStruct {
  *   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
  *           Wayland or X11 when Rinit runs: check `system`)
  *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+ *   Emscripten: window = opaque browser surface token (no OS window handle)
  */
 export class RNativeWindow extends RStruct {
 	static readonly SIZE = 40;

@@ -36,6 +36,7 @@ typedef enum RBackend {
 	R_BACKEND_VULKAN = 1,
 	R_BACKEND_NULL = 2,
 	R_BACKEND_CUSTOM = 3,
+	R_BACKEND_WEBGL = 4,
 } RBackend;
 typedef enum RError {
 	R_NO_ERROR = 112,
@@ -86,6 +87,7 @@ typedef enum RWindowSystem {
 	R_WINDOW_SYSTEM_X11 = 146,
 	R_WINDOW_SYSTEM_WAYLAND = 147,
 	R_WINDOW_SYSTEM_COCOA = 148,
+	R_WINDOW_SYSTEM_EMSCRIPTEN = 149,
 } RWindowSystem;
 typedef enum RWindowEdge {
 	R_EDGE_LEFT = 208,

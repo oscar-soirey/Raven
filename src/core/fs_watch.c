@@ -10,6 +10,14 @@
 #include "fs.h"
 #include "thread.h"
 
+#if defined(__EMSCRIPTEN__)
+int rvn_fs_watch_start(rvn_fs_watch_callback_t callback, void* user) {
+    RVN_UNUSED(callback); RVN_UNUSED(user);
+    return R_FALSE;
+}
+int rvn_fs_watch_add(const char* path) { RVN_UNUSED(path); return R_FALSE; }
+void rvn_fs_watch_stop(void) {}
+#else
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -486,3 +494,5 @@ void rvn_fs_watch_stop(void) {
     if (g_fs_watch.mutex_ready) rvn_mutex_destroy(&g_fs_watch.mutex);
     memset(&g_fs_watch, 0, sizeof(g_fs_watch));
 }
+
+#endif /* !__EMSCRIPTEN__ */

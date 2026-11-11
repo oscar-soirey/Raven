@@ -195,6 +195,7 @@ int rw_browser_send(const char* session, const char* method, const char* params)
 	memset(&text, 0, sizeof(text));
 	rw_mutex_lock(g_rw.mutex);
 	id = ++g_rw.next_id;
+	if (getenv("RAVEN_WEB_TRACE")) fprintf(stderr, "[raven_web] > %d %s\n", id, method);
 	rw_text_printf(&text, "{\"id\":%d,\"method\":", id);
 	rw_text_json(&text, method);
 	if (params && params[0]) {

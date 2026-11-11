@@ -442,6 +442,10 @@ static Rid rvn_look_open_path(const char* path) {
 #if !defined(_WIN32) && !defined(__APPLE__)
 /* The first line a command writes, without its end; R_FALSE when it fails or writes nothing. */
 static int rvn_look_run(const char* command, char* out, size_t size) {
+#if defined(__EMSCRIPTEN__)
+    RVN_UNUSED(command); RVN_UNUSED(out); RVN_UNUSED(size);
+    return R_FALSE;
+#else
 	FILE* pipe = popen(command, "r");
 	size_t length;
 	if (!pipe) return R_FALSE;
@@ -450,6 +454,7 @@ static int rvn_look_run(const char* command, char* out, size_t size) {
 	length = strlen(out);
 	while (length > 0 && (out[length - 1] == '\n' || out[length - 1] == '\r' || out[length - 1] == ' ')) out[--length] = '\0';
 	return length > 0;
+#endif
 }
 
 /* A key of the settings of GNOME, without the quotes gsettings writes around strings. */

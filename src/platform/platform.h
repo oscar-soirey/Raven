@@ -391,6 +391,10 @@ typedef struct rvn_platform_t {
 	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
 } rvn_platform_t;
 
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+const rvn_platform_t* rvn_platform_emscripten(void);
+#endif
+
 /** The user clicked a notification of Rnotification_show: the platform tells the core (notify.c), on the UI thread. */
 void rvn_notification_clicked(void);
 

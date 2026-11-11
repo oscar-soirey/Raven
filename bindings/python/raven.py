@@ -118,10 +118,12 @@ class RBackend(enum.IntEnum):
     R_BACKEND_VULKAN = 1
     R_BACKEND_NULL = 2
     R_BACKEND_CUSTOM = 3
+    R_BACKEND_WEBGL = 4
 
 R_BACKEND_VULKAN = RBackend.R_BACKEND_VULKAN
 R_BACKEND_NULL = RBackend.R_BACKEND_NULL
 R_BACKEND_CUSTOM = RBackend.R_BACKEND_CUSTOM
+R_BACKEND_WEBGL = RBackend.R_BACKEND_WEBGL
 
 class RError(enum.IntEnum):
     R_NO_ERROR = 0x0070
@@ -221,12 +223,14 @@ class RWindowSystem(enum.IntEnum):
     R_WINDOW_SYSTEM_X11 = 0x0092
     R_WINDOW_SYSTEM_WAYLAND = 0x0093
     R_WINDOW_SYSTEM_COCOA = 0x0094
+    R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095
 
 R_WINDOW_SYSTEM_NONE = RWindowSystem.R_WINDOW_SYSTEM_NONE
 R_WINDOW_SYSTEM_WIN32 = RWindowSystem.R_WINDOW_SYSTEM_WIN32
 R_WINDOW_SYSTEM_X11 = RWindowSystem.R_WINDOW_SYSTEM_X11
 R_WINDOW_SYSTEM_WAYLAND = RWindowSystem.R_WINDOW_SYSTEM_WAYLAND
 R_WINDOW_SYSTEM_COCOA = RWindowSystem.R_WINDOW_SYSTEM_COCOA
+R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN
 
 class RWindowEdge(enum.IntEnum):
     """Edges and corners of a window, for Rwindow_begin_resize."""
@@ -1614,7 +1618,8 @@ class RNativeWindow(ctypes.Structure):
       X11   : display = Display*,  window = Window (XID), visual = VisualID
       Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
               Wayland or X11 when Rinit runs: check `system`)
-      Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation"""
+      Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+      Emscripten: window = opaque browser surface token (no OS window handle)"""
     _fields_ = [
         ("system", ctypes.c_int),
         ("display", ctypes.c_void_p),

@@ -110,10 +110,6 @@ int main(void) {
 	Rlabel_set_text(app.status, text);
 	Rtext_editor_set_text(app.source, "<!-- press \"Add a card\" -->");
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rshutdown();
+	example_run(app.window, NULL, NULL);
 	return 0;
 }

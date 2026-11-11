@@ -216,10 +216,6 @@ int main(void) {
 	for (i = 0; i < 3; i++) add_card(0.35f + 0.08f * (float)i);
 	Rwidget_set_transition(app.card, R_TRANSITION_POP, 0.3f);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rshutdown();
+	example_run(app.window, NULL, NULL);
 	return 0;
 }

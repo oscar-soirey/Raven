@@ -26,7 +26,9 @@ static int rvn_platform_wants_wayland(void) {
 const rvn_platform_t* rvn_platform_select(int headless) {
 	if (rvn_host_platform_registered()) return rvn_platform_host();
 	if (headless) return rvn_platform_null();
-#if defined(RAVEN_PLATFORM_WIN32)
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+    return rvn_platform_emscripten();
+#elif defined(RAVEN_PLATFORM_WIN32)
 	return rvn_platform_win32();
 #elif defined(RAVEN_PLATFORM_X11)
 #if defined(RAVEN_PLATFORM_WAYLAND)

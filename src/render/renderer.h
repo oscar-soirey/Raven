@@ -77,6 +77,7 @@ typedef struct rvn_shader_t {
 	/** Built-in effect it stands for, or -1. */
 	int effect;
 	/** Its SPIR-V, to make it again after the loss of the device. */
+	char* source_glsl; /* Browser effect source, when supplied instead of SPIR-V. */
 	uint32_t* spirv;
 	size_t spirv_size;
 } rvn_shader_t;
@@ -175,6 +176,9 @@ void rvn_renderer_throttle(rvn_atomic_t* frames_in_flight, int max_frames);
 void rvn_renderer_submit_frame(rvn_frame_t* frame);
 
 /* Built-in backends */
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+const RBackendVTable* rvn_backend_webgl(void);
+#endif
 const RBackendVTable* rvn_backend_null(void);
 #if defined(RAVEN_BACKEND_VULKAN_ENABLED)
 const RBackendVTable* rvn_backend_vulkan(void);

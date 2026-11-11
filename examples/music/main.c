@@ -997,6 +997,13 @@ static void action_settings(Rid sender, const char* action, void* user_data) {
 
 /* ============================================================================ */
 
+static void example_shutdown(void) {
+	Rtimer_destroy(app.ticker);
+	tags_shutdown();
+	library_shutdown();
+	Rshutdown();
+}
+
 int main(void) {
 	static const char* const player_actions[] = {
 		"player.toggle", "player.next", "player.previous", "player.seek", "player.shuffle", "player.repeat",
@@ -1096,13 +1103,6 @@ int main(void) {
 	app.ticker = Rtimer_create(0.25, R_TRUE, on_tick, NULL);
 	Rwindow_show(app.window);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rtimer_destroy(app.ticker);
-	tags_shutdown();
-	library_shutdown();
-	Rshutdown();
+	example_run(app.window, NULL, example_shutdown);
 	return Rget_exit_code();
 }

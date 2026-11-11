@@ -626,7 +626,7 @@ void rw_views_incoming(rw_incoming_t* incoming) {
 	}
 	if (!incoming->message) return;
 	/* RAVEN_WEB_TRACE=1 shows what the browser says */
-	if (getenv("RAVEN_WEB_TRACE")) fprintf(stderr, "[raven_web] < %.300s\n", incoming->message);
+	if (getenv("RAVEN_WEB_TRACE")) fprintf(stderr, "[raven_web] %.3f < %.300s\n", Rget_time(), incoming->message);
 	if (!rw_json_parse(&document, incoming->message, incoming->size)) return;
 	{
 		const rw_json_t* id = rw_json_get(document.root, "id");
