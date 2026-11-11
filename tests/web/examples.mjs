@@ -93,7 +93,9 @@ try {
   diagnose=browserDiagnostics(automated);
   await automated.route('**/raven_hello.html',async route=>{
     const response=await route.fetch();
-    const html=(await response.text()).replace('var Module = {',
+    const source=await response.text();
+    assert.match(source,/var\s+Module\s*=\s*\{/,'example shell Module initializer');
+    const html=source.replace(/var\s+Module\s*=\s*\{/,
       "var Module = { preRun:[function(){ENV.RAVEN_EXAMPLE_FRAMES='3';}],");
     await route.fulfill({response,body:html});
   });

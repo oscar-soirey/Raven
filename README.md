@@ -31,6 +31,8 @@
 </p>
 </p>
 
+Try the [web demo gallery](https://oscar-soirey.github.io/Raven/demos/) (WebAssembly and WebGL 2), or [build and preview it locally](docs/emscripten.md).
+
 ## Disclaimer : This project is still in active development and public API is subject to change.
 
 ## Build from source

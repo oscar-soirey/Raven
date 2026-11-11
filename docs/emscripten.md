@@ -212,3 +212,22 @@ keyboard and assistive-technology checks. Headless Firefox sends a native
 file-picker cancellation before Playwright supplies a selected file; the
 test harness suppresses that automation artifact. Production cancellation
 handling remains enabled.
+
+## Published previews
+
+The `Web demos and website` workflow builds Release versions of all 14 portable
+examples and the browser-services demo. It tests the packaged gallery in
+Chromium and uploads `raven-web-demos`, a downloadable static-site artifact,
+on pull requests as well as main-branch builds. Extract that artifact and serve
+it with `python3 -m http.server 8000` to preview it locally.
+
+On `main`, the workflow also publishes the existing `docs/` website with the
+gallery at `demos/` using GitHub Pages. A repository administrator must first
+select **Settings → Pages → Build and deployment → Source → GitHub Actions**
+instead of the legacy `main` / `docs` source. No generated WebAssembly binaries
+need to be committed. Forks can use the same workflow and their own Pages URL;
+pull requests only build and test, and do not deploy.
+
+The upstream gallery URL is <https://oscar-soirey.github.io/Raven/demos/> once
+this workflow is merged and Pages is configured. The browser-services demo is
+available at `demos/raven_web_demo.html`.
