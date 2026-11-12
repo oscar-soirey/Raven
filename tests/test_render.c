@@ -373,8 +373,9 @@ static void test_glass(void) {
 	CHECK(p[0] > 235 && p[1] < 25 && p[2] < 25);
 	p = pixel_at(270, 100);
 	CHECK(p[2] > 235 && p[0] < 25 && p[1] < 25);
-	/* the rim catches the light: a bright line on the upper edge */
-	p = pixel_at(130, 50.5f);
+	/* the rim catches the light: a bright line on the upper edge, about one pixel of the screen
+	   thick, so the first row of pixels under the edge (50.5 at 100%, 50.25 at 200%) */
+	p = pixel_at(130, 50.0f + 0.5f / g_scale);
 	CHECK(p[1] > 40);
 
 	/* without the glass, the frame is drawn straight to the window again */
