@@ -406,7 +406,9 @@ static void test_live_reload(void) {
 		"<Include Source=\"raven_test_live_part.xml\"/>"
 		"<LiveCard Name=\"card\" Title=\"A\"/>"
 		"</VBox><Shortcut Keys=\"Ctrl+J\" Action=\"j\"/></Window>");
-	CHECK(Rxml_check_files() == 1);
+	/* (at least the file just written: on NTFS the new time of a file written just
+	 * before can show up late, and that file is then counted too) */
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reloads == 1 && g_reload_ok);
 	CHECK_STR(g_reload_path, path);
 	CHECK_STR(Rwindow_get_title(window), "Two");
@@ -437,7 +439,7 @@ static void test_live_reload(void) {
 		"<Include Source=\"raven_test_live_part.xml\"/>"
 		"<LiveCard Name=\"card\" Title=\"A\"/>"
 		"</VBox></Window>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reloads == 2 && g_reload_ok);
 	CHECK(Rwidget_find(window, "go") == button);
 	CHECK(Rwidget_find(window, "title") == title);
@@ -467,14 +469,14 @@ static void test_live_reload(void) {
 	/* a file it includes changes */
 	extra = Rwidget_find(window, "part");
 	write_text(part, "<Label Name=\"part\">Part two</Label>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reloads == 3);
 	CHECK(Rwidget_find(window, "part") == extra);
 	CHECK_STR(Rlabel_get_text(extra), "Part two");
 
 	/* the file of a widget it uses changes */
 	write_text(library, "<Widgets><Widget Name=\"LiveCard\" Title=\"t\"><Border><Label Name=\"inner\" Text=\"new card {Title}\"/></Border></Widget></Widgets>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK_STR(Rlabel_get_text(Rwidget_find(window, "inner")), "new card A");
 	CHECK(Rwidget_find(window, "go") == button);
 
@@ -495,7 +497,7 @@ static void test_live_reload(void) {
 
 	/* and the next good one is taken */
 	write_text(path, "<Window Title=\"Three\" Width=\"400\" Height=\"300\"><HBox Name=\"box\"><Button Name=\"go\" Text=\"Again\"/></HBox></Window>");
-	CHECK(Rxml_check_files() == 1);
+	CHECK(Rxml_check_files() != 0);
 	CHECK(g_reload_ok);
 	CHECK_STR(Rwindow_get_title(window), "Three");
 	CHECK(!Rwidget_is_valid(button));

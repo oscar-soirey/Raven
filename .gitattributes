@@ -1,5 +1,30 @@
+# Line endings: LF in the repository and in every checkout, on every machine,
+# whatever core.autocrlf says. Compilers, CMake, Python and the editors of the
+# three systems all read LF.
+* text=auto eol=lf
+
 # The Windows scripts keep CRLF line endings: cmd.exe mis-parses labels in LF-only files.
 *.bat text eol=crlf
-*.png binary
-*.ttf binary
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
 *.sh text eol=lf
+
+# Binary files: never converted, never diffed as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.icns binary
+*.psd binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.spv binary
+*.zip binary
+*.gz binary
+*.pdf binary
+*.whl binary

@@ -35,7 +35,7 @@ void rvn_device_check(void) {
 	memset(&info, 0, sizeof(info));
 	info.app_name = g_rvn.app_name ? g_rvn.app_name : "Raven application";
 	info.enable_validation = g_rvn.enable_validation;
-	info.vsync = g_rvn.vsync;
+	info.vsync = rvn_present_vsync();
 	info.window_system = g_rvn.platform->system;
 	info.native_display = g_rvn.platform->native_display();
 

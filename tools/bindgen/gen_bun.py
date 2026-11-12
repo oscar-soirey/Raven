@@ -1,5 +1,7 @@
 """Bun: one TypeScript module over bun:ffi, no dependency."""
 
+import re
+
 from cparse import classify, doc_lines
 
 # name -> (type of bun:ffi, size in bytes)
@@ -113,6 +115,14 @@ function _address(value: bigint): Pointer | null {
 /** Bytes for the library: the library does not get an address for no bytes. */
 function _b(bytes: NodeJS.TypedArray | null): NodeJS.TypedArray | null {
 	return bytes !== null && bytes.byteLength > 0 ? bytes : null;
+}
+
+/** Numbers for the library: a typed array as it is, a list copied into one; nothing for no numbers. */
+function _n<T extends Float64Array | Float32Array | Int32Array | Uint32Array>(values: T | readonly number[] | null, make: (list: readonly number[]) => T): T | null {
+	if (values === null || values.length === 0) {
+		return null;
+	}
+	return ArrayBuffer.isView(values) ? (values as T) : make(values as readonly number[]);
 }
 
 /** Several texts for the library: one block, its addresses first and then the texts, alive as one argument. */
@@ -267,6 +277,8 @@ def param_type(api, p):
         return "%s | null" % detail
     if kind in ("ptr", "cptr", "bytes", "cbytes", "opaque_ptr"):
         return "RPointer"
+    if kind == "carray":
+        return "%s | readonly number[] | null" % ACCESS[detail][1]
     raise ValueError("no parameter of the type %s in Bun (%s)" % (p.ctype, kind))
 
 
@@ -409,7 +421,7 @@ def generate_struct(api, s, out):
 
 # ---- callbacks
 
-def generate_callback(api, c, out):
+def generate_callback(api, c, out, adapted=True):
     ret_kind, ret_detail = classify(c.ret, api)
     public = []     # what the JavaScript function receives
     native = []     # what the JSCallback receives
@@ -461,6 +473,9 @@ def generate_callback(api, c, out):
     out.append("")
     out.extend(comment(doc_lines(c.doc)))
     out.append("export type %s = (%s) => %s;" % (c.name, ", ".join(public), ret))
+    if not adapted:
+        # no function takes it: an adapter would be an unused function (noUnusedLocals)
+        return
     out.append("")
     out.append("function _adapt_%s(function_: %s | Pointer | null, threadsafe = false): Pointer | null {" % (c.name, c.name))
     out.append('\tif (typeof function_ !== "function") {')
@@ -549,6 +564,10 @@ def generate_function(api, f, out):
             args.append("%s?.byteLength ?? 0" % n)
             signature.append("%s: NodeJS.TypedArray | null" % n)
             skip = True
+        elif kind == "carray":
+            array = ACCESS[detail][1]
+            args.append("_n(%s, (list) => new %s(list))" % (n, array))
+            signature.append("%s: %s" % (n, param_type(api, p)))
         elif kind == "callback" and f.name in NATIVE_ONLY:
             args.append(n)
             signature.append("%s: Pointer | null" % n)
@@ -655,7 +674,7 @@ def generate(api):
     out.append("/** Opens the library: RAVEN_LIBRARY, then beside this file, then where the system looks. */")
     out.append("function _load() {")
     out.append('\tconst names = process.platform === "win32" ? ["raven.dll", "libraven.dll"] : process.platform === "darwin" ? ["libraven.dylib"] : ["libraven.so", "libraven.so.0"];')
-    out.append("\tconst explicit = process.env.RAVEN_LIBRARY;")
+    out.append('\tconst explicit = process.env["RAVEN_LIBRARY"];')
     out.append("\tconst candidates = [...(explicit ? [explicit] : []), ...names.map((name) => `${import.meta.dir}/${name}`), ...names];")
     out.append("\tconst tried: string[] = [];")
     out.append("\tfor (const candidate of candidates) {")
@@ -694,10 +713,13 @@ def generate(api):
     # ---- structures, callbacks, functions
     for s in api.structs:
         generate_struct(api, s, out)
-    for c in api.callbacks:
-        generate_callback(api, c, out)
+    functions = []
     for f in api.functions:
-        generate_function(api, f, out)
+        generate_function(api, f, functions)
+    used = set(re.findall(r"\b_adapt_(\w+)\(", "\n".join(functions)))
+    for c in api.callbacks:
+        generate_callback(api, c, out, c.name in used)
+    out.extend(functions)
 
     out.append(RUN_LOOP)
     return {"bun/src/raven.ts": "\n".join(out)}

@@ -69,7 +69,13 @@ typedef struct rvn_tl_track_t {
 	float height;
 	int locked;
 	int muted;
+	/** Given to its clips (slot RVN_TL_SLOT_CLIP), its keys, its lane. */
+	rvn_item_look_t style;
 } rvn_tl_track_t;
+
+#define RVN_TL_SLOT_CLIP 0
+#define RVN_TL_SLOT_KEY 1
+#define RVN_TL_SLOT_TRACK 2
 
 typedef struct rvn_tl_item_t {
 	int id;
@@ -87,6 +93,8 @@ typedef struct rvn_tl_item_t {
 	int from_track;
 	/** How much it stands out: under the pointer, selected, held. */
 	RSpring lift;
+	/** Given to this item (slot 0: the part of a clip, a key or a marker). */
+	rvn_item_look_t style;
 } rvn_tl_item_t;
 
 typedef struct rvn_timeline_t {
@@ -107,6 +115,9 @@ typedef struct rvn_timeline_t {
 	float track_height;
 	/** 0: automatic. */
 	float ruler_height;
+	/** RVisualPreset (0: AUTO); what was given to the parts by attributes, allocated on first use. */
+	int preset;
+	rvn_look_overrides_t* over;
 
 	rvn_tl_track_t* tracks;
 	uint32_t track_count, track_cap;
@@ -222,17 +233,6 @@ static float rvn_tl_track_height(const rvn_timeline_t* tl, const rvn_tl_track_t*
 	return track->height > 0.0f ? track->height : rvn_tl_default_track_height(tl);
 }
 
-/* Text on a colored clip or flag: the darker (or lighter) of the text and window colors of the theme. */
-static rvn_color_t rvn_tl_ink(const rvn_widget_t* widget, int dark) {
-	rvn_color_t text = rvn_widget_color(widget, R_COLOR_TEXT), window = rvn_widget_color(widget, R_COLOR_WINDOW);
-	float r, g, b, a, text_light, window_light;
-	rvn_color_to_floats(text, &r, &g, &b, &a);
-	text_light = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-	rvn_color_to_floats(window, &r, &g, &b, &a);
-	window_light = 0.2126f * r + 0.7152f * g + 0.0722f * b;
-	/* (opaque: the window color of a glass theme is see-through) */
-	return ((text_light < window_light) == (dark != 0) ? text : window) | 0xFF000000u;
-}
 
 static float rvn_tl_tracks_height(const rvn_timeline_t* tl) {
 	float height = 0.0f;
@@ -589,6 +589,7 @@ static void rvn_timeline_destroy(rvn_widget_t* widget) {
 	rvn_tl_clear(tl);
 	rvn_free(tl->items);
 	rvn_free(tl->tracks);
+	rvn_free(tl->over);
 }
 
 static rvn_vec2_t rvn_timeline_measure(rvn_widget_t* widget) {
@@ -602,43 +603,241 @@ static void rvn_timeline_arrange(rvn_widget_t* widget) {
 	rvn_tl_sync_bars((rvn_timeline_t*)widget);
 }
 
-/* Is a color light enough for dark text on it? */
-static int rvn_tl_light(rvn_color_t color) {
-	float r, g, b, a;
-	rvn_color_to_floats(color, &r, &g, &b, &a);
-	return 0.2126f * r + 0.7152f * g + 0.0722f * b > 0.62f;
-}
 
 /* Width of the flag of a marker: the paint and the pointer use the same. */
 static float rvn_tl_flag_width(const rvn_tl_layout_t* layout, rvn_font_t* font, float size, const rvn_tl_item_t* item) {
 	return item->label ? rvn_text_width(font, size, item->label, -1) + 12.0f * layout->unit : 10.0f * layout->unit;
 }
 
-static void rvn_tl_paint_diamond(RPainter* painter, float cx, float cy, float half, rvn_color_t color) {
-	rvn_paint_triangle(painter, cx - half, cy, cx, cy - half, cx + half, cy, color);
-	rvn_paint_triangle(painter, cx - half, cy, cx, cy + half, cx + half, cy, color);
+/* ---------------------------------------------------------------------------
+ *  Looks
+ *
+ *  Each part (the widget, the ruler, the column of the headers, a track,
+ *  the lines of time, a clip, a key, a marker, the playhead) is what the
+ *  look gives it (rvn_tl_base, from the preset and the theme), then the
+ *  styles of the theme, then the attributes of the timeline, then what was
+ *  given to the track, then to the item.
+ * ------------------------------------------------------------------------- */
+
+static void rvn_tl_base(const rvn_widget_t* widget, int part, uint32_t states, rvn_part_look_t* look, const void* context) {
+	const rvn_canvas_look_t* c = (const rvn_canvas_look_t*)context;
+	int selected = (states & RVN_STATE_SELECTED) != 0, hovered = (states & RVN_STATE_HOVERED) != 0;
+	rvn_color_t black = rvn_hex(0x000000, 255), panel = rvn_widget_color(widget, R_COLOR_HEADER);
+	switch (part) {
+		case RVN_PART_BODY:
+			look->radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+			look->border_width = 1.0f;
+			switch (c->preset) {
+				case RVN_CANVAS_MODERN: look->background = c->dark ? rvn_hex(0x18181B, 255) : rvn_hex(0xF4F4F5, 255); look->border = rvn_color_fade(c->text, 0.08f); break;
+				case RVN_CANVAS_BLUEPRINT: look->background = rvn_hex(0x1C1F24, 255); look->border = rvn_color_fade(black, 0.7f); break;
+				case RVN_CANVAS_BLENDER: look->background = rvn_hex(0x1F1F1F, 255); look->border = rvn_hex(0x111111, 255); break;
+				case RVN_CANVAS_NEON: look->background = rvn_hex(0x06060B, 255); look->border = rvn_hex(0x8B5CF6, 70); break;
+				default: look->background = c->input; look->border = c->border; break;
+			}
+			break;
+		case RVN_PART_RULER:
+		case RVN_PART_HEADER:
+			look->border = c->separator;
+			look->foreground = c->text;
+			switch (c->preset) {
+				case RVN_CANVAS_MODERN: look->background = c->dark ? rvn_hex(0x1E1E22, 255) : rvn_hex(0xFFFFFF, 255); look->border = rvn_color_fade(c->text, 0.08f); break;
+				case RVN_CANVAS_BLUEPRINT: look->background = rvn_hex(0x15171B, 255); look->border = rvn_color_fade(black, 0.8f); look->foreground = rvn_hex(0xC9CED8, 255); break;
+				case RVN_CANVAS_BLENDER: look->background = part == RVN_PART_RULER ? rvn_hex(0x232323, 255) : rvn_hex(0x2B2B2B, 255); look->border = rvn_hex(0x161616, 255); look->foreground = rvn_hex(0xD6D6D6, 255); break;
+				case RVN_CANVAS_NEON: look->background = rvn_hex(0x0B0B14, 255); look->border = rvn_hex(0x8B5CF6, 60); look->foreground = rvn_hex(0xD8D4FF, 255); break;
+				default: look->background = panel; break;
+			}
+			break;
+		case RVN_PART_TRACK:
+			/* the background of every other track, and the line between them */
+			look->background = rvn_color_fade(c->text, c->preset == RVN_CANVAS_MODERN ? 0.0f : 0.028f);
+			look->border = rvn_color_fade(c->separator, 0.6f);
+			if (c->preset == RVN_CANVAS_MODERN) look->border = rvn_color_fade(c->text, 0.05f);
+			if (c->preset == RVN_CANVAS_BLENDER) { look->background = rvn_hex(0xFFFFFF, 6); look->border = rvn_hex(0x151515, 255); }
+			if (c->preset == RVN_CANVAS_NEON) { look->background = 0; look->border = rvn_hex(0x8B5CF6, 36); }
+			if (c->preset == RVN_CANVAS_BLUEPRINT) { look->background = rvn_hex(0xFFFFFF, 5); look->border = rvn_color_fade(black, 0.6f); }
+			break;
+		case RVN_PART_GRID:
+			/* (from the text, faint: the separators of some themes are strong lines) */
+			look->shape = RVN_SHAPE_LINES;
+			look->foreground = c->text;
+			look->opacity = c->dark ? 0.11f : 0.13f;
+			if (c->preset == RVN_CANVAS_MODERN) { look->foreground = c->text; look->opacity = 0.07f; }
+			if (c->preset == RVN_CANVAS_BLUEPRINT) { look->foreground = rvn_hex(0xC8D4E8, 255); look->opacity = 0.1f; }
+			if (c->preset == RVN_CANVAS_BLENDER) { look->foreground = rvn_hex(0x000000, 255); look->opacity = 0.35f; }
+			if (c->preset == RVN_CANVAS_NEON) { look->foreground = rvn_hex(0xA78BFA, 255); look->opacity = 0.14f; }
+			break;
+		case RVN_PART_CLIP:
+			look->opacity = 1.0f;
+			look->border_width = 1.0f;
+			look->shadow_color = rvn_color_fade(black, 0.3f);
+			switch (c->preset) {
+				case RVN_CANVAS_WINDOWS: look->shape = RVN_SHAPE_TINT; look->radius = 4.0f; break;
+				case RVN_CANVAS_MACOS: look->shape = RVN_SHAPE_SOLID; look->radius = 6.0f; look->border_width = 0.0f; break;
+				case RVN_CANVAS_GNOME: look->shape = RVN_SHAPE_TINT; look->radius = 8.0f; break;
+				case RVN_CANVAS_MODERN: look->shape = RVN_SHAPE_TINT; look->radius = 9.0f; look->border_width = 0.0f; look->shadow = 6.0f; look->shadow_color = rvn_color_fade(black, c->dark ? 0.35f : 0.08f); break;
+				case RVN_CANVAS_BLUEPRINT: look->shape = RVN_SHAPE_GRADIENT; look->radius = 4.0f; look->border = rvn_color_fade(black, 0.7f); break;
+				case RVN_CANVAS_BLENDER: look->shape = RVN_SHAPE_SOLID; look->radius = 3.0f; look->border = rvn_hex(0x0E0E0E, 255); look->foreground = rvn_hex(0xEDEDED, 255); break;
+				case RVN_CANVAS_NEON: look->shape = RVN_SHAPE_OUTLINE; look->radius = 8.0f; look->border_width = 1.5f; look->glow = 0.5f; break;
+				default: look->shape = RVN_SHAPE_TINT; look->radius = 6.0f; break;
+			}
+			if (hovered && !selected) look->glow = rvn_maxf(look->glow, c->preset == RVN_CANVAS_NEON ? 0.8f : 0.0f);
+			if (selected) {
+				switch (c->preset) {
+					case RVN_CANVAS_BLENDER: look->border = rvn_hex(0xFFA733, 255); look->border_width = 1.5f; break;
+					case RVN_CANVAS_BLUEPRINT: look->border = rvn_hex(0xF5B342, 255); look->border_width = 1.5f; look->glow = 0.3f; break;
+					case RVN_CANVAS_NEON: look->border = rvn_hex(0xFFFFFF, 255); look->border_width = 2.0f; look->glow = 1.0f; break;
+					default: look->border = c->dark ? rvn_hex(0xFFFFFF, 235) : rvn_color_fade(c->text, 0.9f); look->border_width = 1.5f; look->glow = 0.3f; break;
+				}
+			}
+			break;
+		case RVN_PART_KEY:
+			look->shape = RVN_SHAPE_DIAMOND;
+			look->border = rvn_color_fade(black, 0.55f);
+			switch (c->preset) {
+				case RVN_CANVAS_MODERN: look->shape = RVN_SHAPE_CIRCLE; look->border = 0; break;
+				case RVN_CANVAS_BLENDER: look->background = rvn_hex(0xDADADA, 255); look->border = rvn_hex(0x0E0E0E, 255); look->size = 4.5f; break;
+				case RVN_CANVAS_NEON: look->shape = RVN_SHAPE_RING; look->border = 0; look->glow = 0.7f; break;
+				default: break;
+			}
+			if (selected) {
+				look->border = c->dark || c->preset >= RVN_CANVAS_BLUEPRINT ? rvn_hex(0xFFFFFF, 255) : rvn_color_fade(c->text, 0.9f);
+				if (c->preset == RVN_CANVAS_BLENDER) { look->background = rvn_hex(0xFFA733, 255); look->border = rvn_hex(0x0E0E0E, 255); }
+				if (c->preset == RVN_CANVAS_NEON) look->glow = 1.0f;
+			}
+			break;
+		case RVN_PART_MARKER:
+			look->radius = 4.0f;
+			if (c->preset == RVN_CANVAS_BLENDER) look->radius = 2.0f;
+			if (c->preset == RVN_CANVAS_NEON) look->glow = 0.6f;
+			break;
+		case RVN_PART_PLAYHEAD:
+			look->background = c->danger | 0xFF000000u;
+			look->size = 1.0f;
+			switch (c->preset) {
+				case RVN_CANVAS_MODERN: look->background = c->accent | 0xFF000000u; look->size = 2.0f; break;
+				case RVN_CANVAS_BLUEPRINT: look->background = rvn_hex(0xFF5A4E, 255); look->size = 1.0f; look->glow = 0.4f; break;
+				case RVN_CANVAS_BLENDER: look->background = rvn_hex(0x4772B3, 255); look->size = 2.0f; break;
+				case RVN_CANVAS_NEON: look->background = rvn_hex(0xEC4899, 255); look->size = 1.5f; look->glow = 1.0f; break;
+				default: break;
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+typedef struct rvn_tl_look_t {
+	rvn_canvas_look_t c;
+	rvn_part_look_t body, ruler, header, track, grid, clip, clip_hot, clip_sel, key, key_sel, marker, playhead;
+} rvn_tl_look_t;
+
+static void rvn_tl_part(const rvn_timeline_t* tl, const rvn_canvas_look_t* c, int part, uint32_t states, rvn_part_look_t* look) {
+	rvn_canvas_part(&tl->base, part, states, rvn_tl_base, c, tl->over, look);
+}
+
+static void rvn_tl_resolve(const rvn_timeline_t* tl, rvn_tl_look_t* look) {
+	memset(look, 0, sizeof(*look));
+	rvn_canvas_look(&tl->base, tl->preset, &look->c);
+	rvn_tl_part(tl, &look->c, RVN_PART_BODY, 0, &look->body);
+	rvn_tl_part(tl, &look->c, RVN_PART_RULER, 0, &look->ruler);
+	rvn_tl_part(tl, &look->c, RVN_PART_HEADER, 0, &look->header);
+	rvn_tl_part(tl, &look->c, RVN_PART_TRACK, 0, &look->track);
+	rvn_tl_part(tl, &look->c, RVN_PART_GRID, 0, &look->grid);
+	rvn_tl_part(tl, &look->c, RVN_PART_CLIP, 0, &look->clip);
+	rvn_tl_part(tl, &look->c, RVN_PART_CLIP, RVN_STATE_HOVERED, &look->clip_hot);
+	rvn_tl_part(tl, &look->c, RVN_PART_CLIP, RVN_STATE_SELECTED, &look->clip_sel);
+	rvn_tl_part(tl, &look->c, RVN_PART_KEY, 0, &look->key);
+	rvn_tl_part(tl, &look->c, RVN_PART_KEY, RVN_STATE_SELECTED, &look->key_sel);
+	rvn_tl_part(tl, &look->c, RVN_PART_MARKER, 0, &look->marker);
+	rvn_tl_part(tl, &look->c, RVN_PART_PLAYHEAD, 0, &look->playhead);
+}
+
+/* Text that reads on a color. */
+static rvn_color_t rvn_tl_ink_on(rvn_color_t color) {
+	return rvn_color_lightness(color) > 0.62f ? rvn_hex(0x15161A, 255) : rvn_hex(0xFFFFFF, 255);
+}
+
+/* A clip in its form: solid, gradient, tinted (a bar of its color on the left), outlined. */
+static void rvn_tl_paint_clip(rvn_timeline_t* tl, RPainter* painter, const rvn_tl_look_t* look, const rvn_tl_layout_t* layout,
+	const rvn_tl_item_t* item, const rvn_part_look_t* cl, rvn_rect_t rect, rvn_color_t color, float lift, float opacity, int hot, int locked, float small) {
+
+	float radius = rvn_minf(rvn_minf(cl->radius * layout->unit, rect.h * 0.5f), rect.w * 0.5f);
+	int shape = cl->shape ? cl->shape : RVN_SHAPE_TINT;
+	rvn_color_t back = look->body.background | 0xFF000000u, fill = 0, ink, border;
+	float radii[4];
+	opacity *= cl->opacity > 0.0f ? cl->opacity : 1.0f;
+	radii[0] = radii[1] = radii[2] = radii[3] = radius;
+	if (look->c.preset == RVN_CANVAS_BLENDER) color = rvn_color_mix(color | 0xFF000000u, rvn_hex(0x4A4A4A, 255), 0.4f);
+	if (rvn_color_a(cl->background)) color = cl->background;
+	switch (shape) {
+		case RVN_SHAPE_SOLID: fill = rvn_color_mix(color | 0xFF000000u, rvn_hex(0x000000, 255), 0.08f); break;
+		case RVN_SHAPE_OUTLINE: fill = rvn_color_mix(back, color | 0xFF000000u, 0.12f); break;
+		case RVN_SHAPE_GRADIENT: fill = color | 0xFF000000u; break;
+		default: fill = rvn_color_mix(back, color | 0xFF000000u, look->c.dark ? 0.3f : 0.2f); break;
+	}
+	border = rvn_color_a(cl->border) ? cl->border : (shape == RVN_SHAPE_TINT ? rvn_color_fade(color | 0xFF000000u, 0.55f) : rvn_color_mix(color | 0xFF000000u, rvn_hex(0xFFFFFF, 255), 0.3f));
+	if (shape == RVN_SHAPE_OUTLINE && !rvn_color_a(cl->border)) border = color | 0xFF000000u;
+
+	/* raised: under the pointer, carried, or the look's own */
+	if (cl->shadow > 0.0f || lift > 0.02f) {
+		rvn_paint_shadow(painter, rvn_rect(rect.x, rect.y + 2.0f + lift * 4.0f, rect.w, rect.h), radius, cl->shadow + 6.0f * lift,
+			rvn_color_fade(cl->shadow_color, (float)rvn_color_a(cl->shadow_color) / 255.0f * opacity));
+	}
+	if (cl->glow > 0.01f) {
+		rvn_paint_shadow(painter, rect, radius, 4.0f + 8.0f * cl->glow, rvn_color_fade(border | 0xFF000000u, rvn_clampf(0.5f * cl->glow, 0.0f, 0.8f) * opacity));
+	}
+	if (shape == RVN_SHAPE_GRADIENT) {
+		rvn_color_t end = rvn_color_a(cl->gradient) ? cl->gradient | 0xFF000000u : rvn_color_mix(color | 0xFF000000u, rvn_hex(0x000000, 255), 0.45f);
+		rvn_paint_gradient(painter, rect, radii, rvn_color_fade(rvn_color_mix(color | 0xFF000000u, rvn_hex(0xFFFFFF, 255), 0.08f), opacity), rvn_color_fade(end, opacity), R_FALSE);
+	} else {
+		rvn_paint_box(painter, rect, radius, rvn_color_fade(fill, opacity), 0.0f, 0);
+	}
+	if (shape == RVN_SHAPE_TINT && rect.w > 6.0f) {
+		/* a bar of its color on its left */
+		rvn_paint_push_clip(painter, rvn_rect(rect.x, rect.y, rvn_minf(3.0f * layout->unit, rect.w), rect.h));
+		rvn_paint_box(painter, rect, radius, rvn_color_fade(color | 0xFF000000u, opacity), 0.0f, 0);
+		rvn_paint_pop_clip(painter);
+	}
+	if (cl->border_width > 0.0f) rvn_paint_box(painter, rect, radius, 0, cl->border_width, rvn_color_fade(border, opacity));
+
+	if (item->label && rect.w > 26.0f) {
+		/* the name stays in sight while the clip starts before what is shown */
+		float left = rvn_minf(rvn_maxf(rect.x, layout->lanes.x), rect.x + rect.w - 40.0f);
+		if (rvn_color_a(cl->foreground)) ink = cl->foreground;
+		else if (shape == RVN_SHAPE_SOLID || shape == RVN_SHAPE_GRADIENT) ink = rvn_tl_ink_on(fill);
+		else if (look->c.preset == RVN_CANVAS_NEON) ink = rvn_color_mix(color | 0xFF000000u, rvn_hex(0xFFFFFF, 255), 0.35f);
+		else ink = look->c.dark ? rvn_color_mix(color | 0xFF000000u, rvn_hex(0xFFFFFF, 255), 0.72f) : rvn_color_mix(color | 0xFF000000u, rvn_hex(0x000000, 255), 0.55f);
+		rvn_paint_push_clip(painter, rvn_rect(rect.x + 7.0f, rect.y, rect.w - 14.0f, rect.h));
+		rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(left + 9.0f, rect.y, rect.w, rect.h), 0.0f, item->label, -1, rvn_color_fade(ink, opacity));
+		rvn_paint_pop_clip(painter);
+	}
+	/* the ends that stretch it show under the pointer */
+	if (hot && rect.w > 22.0f && !locked) {
+		rvn_color_t grip = rvn_color_fade(shape == RVN_SHAPE_SOLID || shape == RVN_SHAPE_GRADIENT ? rvn_tl_ink_on(fill) : (look->c.dark ? rvn_hex(0xFFFFFF, 255) : rvn_hex(0x000000, 255)),
+			tl->hot_part == RVN_TL_PART_BODY ? 0.35f : 0.9f);
+		if (tl->hot_part != RVN_TL_PART_RIGHT) rvn_paint_box(painter, rvn_rect(rect.x + 5.0f, rect.y + rect.h * 0.28f, 2.5f, rect.h * 0.44f), 1.25f, grip, 0.0f, 0);
+		if (tl->hot_part != RVN_TL_PART_LEFT) rvn_paint_box(painter, rvn_rect(rect.x + rect.w - 7.5f, rect.y + rect.h * 0.28f, 2.5f, rect.h * 0.44f), 1.25f, grip, 0.0f, 0);
+	}
 }
 
 static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_timeline_t* tl = (rvn_timeline_t*)widget;
 	rvn_tl_layout_t layout;
+	rvn_tl_look_t look;
 	rvn_font_t* font = rvn_font_resolve(R_INVALID_ID);
 	float size = rvn_widget_font_size(widget, 0.0f), small = floorf(size * 0.86f);
 	rvn_font_metrics_t metrics;
-	rvn_color_t text = rvn_widget_text_color(widget, painter);
-	rvn_color_t dim = rvn_color_fade(text, 0.55f);
-	rvn_color_t line = rvn_widget_color(widget, R_COLOR_SEPARATOR);
-	rvn_color_t accent = rvn_widget_color(widget, R_COLOR_ACCENT);
-	rvn_color_t back = rvn_widget_color(widget, R_COLOR_INPUT);
-	rvn_color_t panel = rvn_widget_color(widget, R_COLOR_HEADER);
-	rvn_color_t head = rvn_widget_color(widget, R_COLOR_DANGER);
-	rvn_color_t dark_ink = rvn_tl_ink(widget, R_TRUE), light_ink = rvn_tl_ink(widget, R_FALSE);
-	float radius = rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS);
+	rvn_color_t text, dim, line, accent = rvn_widget_color(widget, R_COLOR_ACCENT), head;
 	double per_pixel, major, first;
 	int minor = 1, k;
 	uint32_t i;
 	char label[48];
 
+	rvn_tl_resolve(tl, &look);
+	text = rvn_color_a(look.header.foreground) ? look.header.foreground : rvn_widget_text_color(widget, painter);
+	dim = rvn_color_fade(rvn_color_a(look.ruler.foreground) ? look.ruler.foreground : text, 0.55f);
+	line = look.ruler.border;
+	head = look.playhead.background;
 	rvn_tl_layout(tl, &layout);
 	/* the view glides to where it was asked to go */
 	tl->draw_start = (double)rvn_paint_spring(painter, &tl->shown_start, (float)tl->view_start, R_MOTION_SNAPPY);
@@ -648,29 +847,44 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_font_metrics(font, small, &metrics);
 
 	/* the whole widget is one rounded surface */
-	rvn_paint_box(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h), radius, back, 1.0f, rvn_widget_color(widget, R_COLOR_BORDER));
+	rvn_paint_box(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h), look.body.radius, look.body.background, look.body.border_width, look.body.border);
 
 	/* ---- the lanes ---- */
 	rvn_paint_push_clip(painter, layout.lanes);
 	for (i = 0; i < tl->track_count; i++) {
+		rvn_part_look_t lane = look.track;
 		float height, y = rvn_tl_track_y(tl, &layout, (int)i, &height);
 		if (y > layout.lanes.y + layout.lanes.h || y + height < layout.lanes.y) continue;
-		if (i % 2 == 1) rvn_paint_rect(painter, rvn_rect(layout.lanes.x, y, layout.lanes.w, height), rvn_color_fade(text, 0.028f));
-		rvn_paint_rect(painter, rvn_rect(layout.lanes.x, y + height - 1.0f, layout.lanes.w, 1.0f), rvn_color_fade(line, 0.6f));
+		rvn_item_look_apply(&tl->tracks[i].style, RVN_TL_SLOT_TRACK, &lane);
+		/* every other track a little lighter, unless the track has a background of its own */
+		if ((i % 2 == 1 || (tl->tracks[i].style.mask[RVN_TL_SLOT_TRACK] & RVN_LOOK_BACKGROUND)) && rvn_color_a(lane.background)) {
+			rvn_paint_rect(painter, rvn_rect(layout.lanes.x, y, layout.lanes.w, height), lane.background);
+		}
+		if (rvn_color_a(lane.border)) rvn_paint_rect(painter, rvn_rect(layout.lanes.x, y + height - 1.0f, layout.lanes.w, 1.0f), lane.border);
 	}
 	/* the marks of the ruler run down the lanes */
 	first = floor(tl->draw_start / major) * major;
-	for (k = 0; first + (double)k * major / (double)minor <= tl->draw_start + tl->draw_span; k++) {
-		double time = first + (double)k * major / (double)minor;
-		float x = floorf(rvn_tl_x(tl, &layout, time));
-		if (x < layout.lanes.x) continue;
-		rvn_paint_rect(painter, rvn_rect(x, layout.lanes.y, 1.0f, layout.lanes.h), rvn_color_fade(line, k % minor == 0 ? 0.75f : 0.3f));
+	if (look.grid.shape != RVN_SHAPE_NONE) {
+		rvn_color_t grid = rvn_color_fade(look.grid.foreground | 0xFF000000u, look.grid.opacity > 0.0f ? look.grid.opacity : 0.75f);
+		for (k = 0; first + (double)k * major / (double)minor <= tl->draw_start + tl->draw_span; k++) {
+			double time = first + (double)k * major / (double)minor;
+			float x = floorf(rvn_tl_x(tl, &layout, time));
+			if (x < layout.lanes.x) continue;
+			if (look.grid.shape == RVN_SHAPE_DOTS) {
+				float y;
+				for (y = layout.lanes.y + 6.0f; y < layout.lanes.y + layout.lanes.h; y += 12.0f) {
+					rvn_paint_box(painter, rvn_rect(x - 1.0f, y - 1.0f, 2.0f, 2.0f), 1.0f, k % minor == 0 ? grid : rvn_color_fade(grid, 0.45f), 0.0f, 0);
+				}
+			} else {
+				rvn_paint_rect(painter, rvn_rect(x, layout.lanes.y, 1.0f, layout.lanes.h), k % minor == 0 ? grid : rvn_color_fade(grid, 0.4f));
+			}
+		}
 	}
 	/* what is past the end of the sequence */
 	{
 		float end = rvn_tl_x(tl, &layout, tl->duration);
 		if (end < layout.lanes.x + layout.lanes.w) {
-			rvn_paint_rect(painter, rvn_rect(end, layout.lanes.y, layout.lanes.x + layout.lanes.w - end, layout.lanes.h), rvn_rgba(0.0f, 0.0f, 0.0f, 0.25f));
+			rvn_paint_rect(painter, rvn_rect(end, layout.lanes.y, layout.lanes.x + layout.lanes.w - end, layout.lanes.h), rvn_rgba(0.0f, 0.0f, 0.0f, look.c.dark ? 0.25f : 0.06f));
 		}
 	}
 	for (i = 0; i < tl->item_count; i++) {
@@ -701,42 +915,33 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 				float x0 = rvn_tl_x(tl, &layout, item->start), x1 = rvn_tl_x(tl, &layout, item->start + item->length);
 				float inset = rvn_minf(4.0f * layout.unit, height * 0.2f);
 				rvn_rect_t rect = rvn_rect(x0, y + inset - lift * 1.5f, rvn_maxf(x1 - x0, 3.0f), height - inset * 2.0f - 1.0f);
-				float clip_radius = rvn_minf(rvn_minf(7.0f * layout.unit, rect.h * 0.5f), rect.w * 0.5f);
-				rvn_color_t fill = rvn_color_fade(rvn_color_mix(color, rvn_hex(0x000000, 255), 0.12f), opacity * (item->selected ? 1.0f : 0.86f));
+				rvn_part_look_t cl = look.clip;
 				if (x1 < layout.lanes.x || x0 > layout.lanes.x + layout.lanes.w) continue;
-				if (lift > 0.02f || item->selected) {
-					rvn_paint_shadow(painter, rvn_rect(rect.x, rect.y + 2.0f + lift * 4.0f, rect.w, rect.h), clip_radius, 6.0f + lift * 12.0f,
-						rvn_color_fade(item->selected ? color : rvn_hex(0x000000, 255), (item->selected ? 0.45f : 0.3f) * opacity));
-				}
-				rvn_paint_box(painter, rect, clip_radius, fill, item->selected ? 1.5f : 1.0f,
-					item->selected ? rvn_color_fade(light_ink, 0.92f * opacity) : rvn_color_fade(rvn_color_mix(color, rvn_hex(0xFFFFFF, 255), 0.35f), opacity));
-				/* a band of light along the top: the clip is a little raised */
-				if (rect.h > 12.0f && rect.w > 8.0f) {
-					rvn_paint_box(painter, rvn_rect(rect.x + 2.0f, rect.y + 2.0f, rect.w - 4.0f, rvn_minf(rect.h * 0.42f, 12.0f)), rvn_maxf(clip_radius - 2.0f, 1.0f),
-						rvn_rgba(1.0f, 1.0f, 1.0f, 0.09f * opacity), 0.0f, 0);
-				}
-				if (item->label && rect.w > 26.0f) {
-					/* the name stays in sight while the clip starts before what is shown */
-					float left = rvn_minf(rvn_maxf(rect.x, layout.lanes.x), rect.x + rect.w - 40.0f);
-					rvn_paint_push_clip(painter, rvn_rect(rect.x + 7.0f, rect.y, rect.w - 14.0f, rect.h));
-					rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(left + 9.0f, rect.y, rect.w, rect.h), 0.0f, item->label, -1,
-						rvn_color_fade(rvn_tl_light(color) ? dark_ink : light_ink, opacity));
-					rvn_paint_pop_clip(painter);
-				}
-				/* the ends that stretch it show under the pointer */
-				if (hot && rect.w > 22.0f && !tl->tracks[index].locked) {
-					rvn_color_t grip = rvn_rgba(1.0f, 1.0f, 1.0f, tl->hot_part == RVN_TL_PART_BODY ? 0.35f : 0.9f);
-					if (tl->hot_part != RVN_TL_PART_RIGHT) rvn_paint_box(painter, rvn_rect(rect.x + 3.0f, rect.y + rect.h * 0.28f, 2.5f, rect.h * 0.44f), 1.25f, grip, 0.0f, 0);
-					if (tl->hot_part != RVN_TL_PART_LEFT) rvn_paint_box(painter, rvn_rect(rect.x + rect.w - 5.5f, rect.y + rect.h * 0.28f, 2.5f, rect.h * 0.44f), 1.25f, grip, 0.0f, 0);
-				}
+				rvn_part_look_mix(&cl, &look.clip_hot, rvn_clampf(lift / 0.45f, 0.0f, 1.0f));
+				if (item->selected) cl = look.clip_sel;
+				rvn_item_look_apply(&tl->tracks[index].style, RVN_TL_SLOT_CLIP, &cl);
+				rvn_item_look_apply(&item->style, 0, &cl);
+				rvn_tl_paint_clip(tl, painter, &look, &layout, item, &cl, rect, color, lift, opacity, hot, tl->tracks[index].locked, small);
 			} else {
-				float x = rvn_tl_x(tl, &layout, item->start), cy = y + height * 0.5f - lift * 1.5f;
-				float half = layout.key * 0.5f + lift * 2.0f + (item->selected ? 1.0f : 0.0f);
+				rvn_part_look_t kl = item->selected ? look.key_sel : look.key;
+				float x = rvn_tl_x(tl, &layout, item->start), cy = y + height * 0.5f - lift * 1.5f, half;
+				int shape;
+				rvn_color_t fill;
+				rvn_item_look_apply(&tl->tracks[index].style, RVN_TL_SLOT_KEY, &kl);
+				rvn_item_look_apply(&item->style, 0, &kl);
+				shape = kl.shape ? kl.shape : RVN_SHAPE_DIAMOND;
+				half = (kl.size > 0.0f ? kl.size * layout.unit : layout.key * 0.5f) + lift * 2.0f + (item->selected ? 1.0f : 0.0f);
+				fill = rvn_color_a(kl.background) ? kl.background : color | 0xFF000000u;
+				opacity *= kl.opacity > 0.0f ? kl.opacity : 1.0f;
 				if (x < layout.lanes.x - 12.0f || x > layout.lanes.x + layout.lanes.w + 12.0f) continue;
-				rvn_tl_paint_diamond(painter, x, cy + 1.5f, half + 2.0f, rvn_rgba(0.0f, 0.0f, 0.0f, 0.3f * opacity));
-				rvn_tl_paint_diamond(painter, x, cy, half + 1.5f, item->selected ? rvn_color_fade(light_ink, opacity) : rvn_color_fade(rvn_color_mix(color, rvn_hex(0x000000, 255), 0.45f), opacity));
-				rvn_tl_paint_diamond(painter, x, cy, half - 0.5f, rvn_color_fade(color, opacity));
-				rvn_tl_paint_diamond(painter, x, cy - half * 0.28f, half * 0.34f, rvn_rgba(1.0f, 1.0f, 1.0f, 0.4f * opacity));
+				rvn_paint_mark_glow(painter, shape, x, cy, half, rvn_color_fade(fill, opacity), kl.glow);
+				if (rvn_color_a(kl.border)) rvn_paint_mark(painter, shape, x, cy, half + 1.5f, rvn_color_fade(kl.border, opacity), R_FALSE, 0.0f, 0);
+				rvn_paint_mark(painter, shape, x, cy, half, rvn_color_fade(fill, opacity), R_FALSE, 0.0f, 0);
+				if (shape == RVN_SHAPE_RING || (kl.border_width > 0.0f && shape != RVN_SHAPE_CIRCLE)) {
+					/* hollow: the color of the lane inside */
+					rvn_paint_mark(painter, shape == RVN_SHAPE_RING ? RVN_SHAPE_CIRCLE : shape, x, cy, half - rvn_maxf(kl.border_width, 1.6f),
+						rvn_color_fade(look.body.background | 0xFF000000u, opacity), R_FALSE, 0.0f, 0);
+				}
 				if (item->label && item->label[0]) {
 					rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(x + half + 6.0f, y, rvn_maxf(layout.lanes.x + layout.lanes.w - (x + half + 6.0f), 0.0f), height), 0.0f, item->label, -1,
 						rvn_color_fade(item->selected ? text : dim, opacity));
@@ -753,9 +958,10 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 	}
 	/* the playhead */
 	{
-		float x = floorf(rvn_tl_x(tl, &layout, tl->time));
-		rvn_paint_rect(painter, rvn_rect(x - 1.0f, layout.lanes.y, 3.0f, layout.lanes.h), rvn_color_fade(head, 0.18f));
-		rvn_paint_rect(painter, rvn_rect(x, layout.lanes.y, 1.0f, layout.lanes.h), head);
+		float x = floorf(rvn_tl_x(tl, &layout, tl->time)), width = rvn_maxf(look.playhead.size, 1.0f);
+		if (look.playhead.glow > 0.01f) rvn_paint_shadow(painter, rvn_rect(x, layout.lanes.y, width, layout.lanes.h), 0.0f, 4.0f + 6.0f * look.playhead.glow, rvn_color_fade(head, 0.5f * look.playhead.glow));
+		rvn_paint_rect(painter, rvn_rect(x - 1.0f, layout.lanes.y, width + 2.0f, layout.lanes.h), rvn_color_fade(head, 0.18f));
+		rvn_paint_rect(painter, rvn_rect(x - floorf((width - 1.0f) * 0.5f), layout.lanes.y, width, layout.lanes.h), head);
 	}
 	rvn_paint_pop_clip(painter);
 
@@ -763,8 +969,8 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 	{
 		/* the column of the headers goes down to the bottom of the widget */
 		float corners[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-		corners[3] = rvn_maxf(radius - 1.0f, 0.0f);
-		rvn_paint_box4(painter, rvn_rect(1.0f, layout.ruler_h, layout.headers.w - 1.0f, widget->rect.h - layout.ruler_h - 1.0f), corners, panel, 0.0f, 0);
+		corners[3] = rvn_maxf(look.body.radius - 1.0f, 0.0f);
+		rvn_paint_box4(painter, rvn_rect(1.0f, layout.ruler_h, layout.headers.w - 1.0f, widget->rect.h - layout.ruler_h - 1.0f), corners, look.header.background, 0.0f, 0);
 	}
 	rvn_paint_push_clip(painter, layout.headers);
 	for (i = 0; i < tl->track_count; i++) {
@@ -775,7 +981,13 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 		float dot = 10.0f * layout.unit;
 		int t;
 		if (y > layout.headers.y + layout.headers.h || y + height < layout.headers.y) continue;
-		rvn_paint_box(painter, rvn_rect(8.0f * layout.unit, y + (height - dot) * 0.5f, dot, dot), dot * 0.5f, rvn_color_fade(color, track->muted ? 0.4f : 1.0f), 0.0f, 0);
+		if (look.c.preset == RVN_CANVAS_BLENDER || look.c.preset == RVN_CANVAS_BLUEPRINT) {
+			/* a band of the color of the track along its edge */
+			rvn_paint_rect(painter, rvn_rect(1.0f, y + 1.0f, 3.0f * layout.unit, height - 2.0f), rvn_color_fade(color, track->muted ? 0.4f : 1.0f));
+		} else {
+			rvn_paint_box(painter, rvn_rect(8.0f * layout.unit, y + (height - dot) * 0.5f, dot, dot), dot * 0.5f, rvn_color_fade(color, track->muted ? 0.4f : 1.0f), 0.0f, 0);
+			if (look.c.preset == RVN_CANVAS_NEON) rvn_paint_mark_glow(painter, RVN_SHAPE_CIRCLE, 8.0f * layout.unit + dot * 0.5f, y + height * 0.5f, dot * 0.5f, color, 0.6f);
+		}
 		rvn_paint_push_clip(painter, rvn_rect(24.0f * layout.unit, y, rvn_maxf(right - toggle * 2.0f - 32.0f * layout.unit, 0.0f), height));
 		rvn_paint_text_in(painter, R_INVALID_ID, size, rvn_rect(26.0f * layout.unit, y, layout.headers.w, height), 0.0f, track->name ? track->name : "", -1,
 			track->muted ? dim : text);
@@ -786,25 +998,26 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 			int hot = tl->hot_toggle == (int)i * 2 + t && painter->enabled;
 			rvn_rect_t rect = rvn_rect(right - toggle * (float)(2 - t) - (t == 0 ? 3.0f * layout.unit : 0.0f), y + (height - toggle) * 0.5f, toggle, toggle);
 			rvn_color_t fill = on ? (t == 0 ? rvn_widget_color(widget, R_COLOR_WARNING) : accent) : rvn_color_fade(text, hot ? 0.16f : 0.07f);
-			rvn_paint_box(painter, rect, 6.0f * layout.unit, fill, 0.0f, 0);
-			rvn_paint_text_in(painter, R_INVALID_ID, small, rect, 0.5f, t == 0 ? "M" : "L", 1, on ? (rvn_tl_light(fill) ? dark_ink : light_ink) : (hot ? text : dim));
+			rvn_paint_box(painter, rect, rvn_minf(6.0f, look.clip.radius) * layout.unit, fill, 0.0f, 0);
+			rvn_paint_text_in(painter, R_INVALID_ID, small, rect, 0.5f, t == 0 ? "M" : "L", 1, on ? rvn_tl_ink_on(fill) : (hot ? text : dim));
 		}
-		rvn_paint_rect(painter, rvn_rect(0.0f, y + height - 1.0f, layout.headers.w, 1.0f), rvn_color_fade(line, 0.6f));
+		if (rvn_color_a(look.track.border)) rvn_paint_rect(painter, rvn_rect(0.0f, y + height - 1.0f, layout.headers.w, 1.0f), look.track.border);
 	}
 	rvn_paint_pop_clip(painter);
-	rvn_paint_rect(painter, rvn_rect(layout.headers.w - 1.0f, 0.0f, 1.0f, widget->rect.h), line);
+	rvn_paint_rect(painter, rvn_rect(layout.headers.w - 1.0f, 0.0f, 1.0f, widget->rect.h), look.header.border);
 
 	/* ---- the ruler ---- */
 	rvn_paint_push_clip(painter, rvn_rect(0.0f, 0.0f, widget->rect.w, layout.ruler_h));
 	{
 		float corners[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-		corners[0] = corners[1] = rvn_maxf(radius - 1.0f, 0.0f);
-		rvn_paint_box4(painter, rvn_rect(1.0f, 1.0f, widget->rect.w - 2.0f, layout.ruler_h - 1.0f), corners, panel, 0.0f, 0);
+		corners[0] = corners[1] = rvn_maxf(look.body.radius - 1.0f, 0.0f);
+		rvn_paint_box4(painter, rvn_rect(1.0f, 1.0f, widget->rect.w - 2.0f, layout.ruler_h - 1.0f), corners, look.ruler.background, 0.0f, 0);
 	}
 	rvn_paint_rect(painter, rvn_rect(0.0f, layout.ruler_h - 1.0f, widget->rect.w, 1.0f), line);
 	/* the time of the playhead, where the headers leave room for it */
 	rvn_tl_format_time(tl, tl->time, tl->fps > 0.0 ? 1.0 : 0.01, label, sizeof(label));
-	rvn_paint_text_in(painter, g_rvn.mono_font, size, rvn_rect(10.0f * layout.unit, 0.0f, layout.headers.w - 16.0f * layout.unit, layout.ruler_h), 0.0f, label, -1, text);
+	rvn_paint_text_in(painter, g_rvn.mono_font, size, rvn_rect(10.0f * layout.unit, 0.0f, layout.headers.w - 16.0f * layout.unit, layout.ruler_h), 0.0f, label, -1,
+		look.c.preset == RVN_CANVAS_BLENDER || look.c.preset == RVN_CANVAS_NEON ? head : text);
 	rvn_paint_pop_clip(painter);
 
 	rvn_paint_push_clip(painter, layout.ruler);
@@ -822,23 +1035,27 @@ static void rvn_timeline_paint(rvn_widget_t* widget, RPainter* painter) {
 	}
 	for (i = 0; i < tl->item_count; i++) {
 		rvn_tl_item_t* item = &tl->items[i];
+		rvn_part_look_t ml = look.marker;
 		rvn_color_t color;
 		float x, width;
 		if (item->type != R_TIMELINE_MARKER) continue;
-		color = rvn_tl_item_color(tl, item);
+		rvn_item_look_apply(&item->style, 0, &ml);
+		color = rvn_color_a(ml.background) ? ml.background : rvn_tl_item_color(tl, item);
 		x = floorf(rvn_tl_x(tl, &layout, item->start));
 		width = rvn_tl_flag_width(&layout, font, small, item);
 		/* a flag on its pole */
+		if (ml.glow > 0.01f) rvn_paint_shadow(painter, rvn_rect(x, 3.0f, width, layout.flag), 4.0f, 4.0f + 6.0f * ml.glow, rvn_color_fade(color, 0.5f * ml.glow));
 		rvn_paint_rect(painter, rvn_rect(x, 3.0f, 1.0f, layout.ruler_h - 3.0f), color);
-		rvn_paint_box(painter, rvn_rect(x, 3.0f, width, layout.flag), rvn_minf(4.0f * layout.unit, layout.flag * 0.5f), color, item->selected ? 1.5f : 0.0f, light_ink);
+		rvn_paint_box(painter, rvn_rect(x, 3.0f, width, layout.flag), rvn_minf(ml.radius * layout.unit, layout.flag * 0.5f), color, item->selected ? 1.5f : 0.0f, rvn_hex(0xFFFFFF, 255));
 		if (item->label) rvn_paint_text_in(painter, R_INVALID_ID, small, rvn_rect(x + 6.0f * layout.unit, 3.0f, width, layout.flag), 0.0f, item->label, -1,
-			rvn_tl_light(color) ? dark_ink : light_ink);
+			rvn_color_a(ml.foreground) ? ml.foreground : rvn_tl_ink_on(color));
 	}
 	{
 		/* the head of the playhead: a tab that points down */
 		float x = floorf(rvn_tl_x(tl, &layout, tl->time)) + 0.5f;
 		float u = layout.unit, r = layout.ruler_h;
 		float grow = tl->drag == RVN_TL_DRAG_SCRUB ? 1.5f * u : 0.0f;
+		if (look.playhead.glow > 0.01f) rvn_paint_shadow(painter, rvn_rect(x - 6.0f * u, r - 17.0f * u, 12.0f * u, 16.0f * u), 3.0f * u, 6.0f * look.playhead.glow + 3.0f, rvn_color_fade(head, 0.5f * look.playhead.glow));
 		rvn_paint_box(painter, rvn_rect(x - 6.0f * u - grow, r - 17.0f * u - grow, 12.0f * u + grow * 2.0f, 11.0f * u + grow), 3.0f * u, head, 0.0f, 0);
 		rvn_paint_triangle(painter, x - 6.0f * u - grow, r - 7.0f * u, x + 6.0f * u + grow, r - 7.0f * u, x, r - 0.5f, head);
 	}
@@ -1429,12 +1646,111 @@ static int rvn_tl_xml_double(const rvn_xml_node_t* node, const char* name, doubl
 	return R_TRUE;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Looks given to the timeline and to its items
+ * ------------------------------------------------------------------------- */
+
+/* "ClipStyle" and the other short names of the attributes of the timeline: a part and a property. */
+static int rvn_tl_short_name(const char* name, int* part, const char** property) {
+	static const struct { const char* name; int part; const char* property; } names[] = {
+		{ "ClipStyle", RVN_PART_CLIP, "Shape" }, { "ClipShape", RVN_PART_CLIP, "Shape" }, { "ClipRadius", RVN_PART_CLIP, "CornerRadius" },
+		{ "ClipGlow", RVN_PART_CLIP, "Glow" }, { "KeyShape", RVN_PART_KEY, "Shape" }, { "KeySize", RVN_PART_KEY, "Size" },
+		{ "GridStyle", RVN_PART_GRID, "Shape" }, { "GridColor", RVN_PART_GRID, "Foreground" },
+		{ "PlayheadColor", RVN_PART_PLAYHEAD, "Background" }, { "PlayheadWidth", RVN_PART_PLAYHEAD, "Size" },
+		{ "RulerColor", RVN_PART_RULER, "Background" }, { "HeaderColor", RVN_PART_HEADER, "Background" },
+		{ "StripeColor", RVN_PART_TRACK, "Background" }
+	};
+	size_t i;
+	for (i = 0; i < RVN_COUNT_OF(names); i++) {
+		if (rvn_stricmp(name, names[i].name) == 0) {
+			*part = names[i].part;
+			*property = names[i].property;
+			return R_TRUE;
+		}
+	}
+	return R_FALSE;
+}
+
+/* An attribute of the timeline about its look: -1 when it is none, else R_TRUE or R_FALSE (a value that is not one). */
+static int rvn_tl_look_attribute(rvn_timeline_t* tl, const char* name, const char* value) {
+	const char* property;
+	int part, preset, handled, ok;
+	if (rvn_stricmp(name, "Preset") == 0 || rvn_stricmp(name, "Look") == 0) {
+		if (!rvn_canvas_preset_by_name(value, &preset)) return R_FALSE;
+		tl->preset = preset;
+		rvn_widget_invalidate_paint(&tl->base);
+		return R_TRUE;
+	}
+	if (!tl->over && (strchr(name, '.') || rvn_tl_short_name(name, &part, &property))) tl->over = (rvn_look_overrides_t*)rvn_calloc(sizeof(rvn_look_overrides_t));
+	if (!tl->over) return -1;
+	if (rvn_tl_short_name(name, &part, &property)) ok = rvn_look_override(tl->over, part, property, value);
+	else {
+		ok = rvn_look_override_dotted(tl->over, name, value, &handled);
+		if (!handled) return -1;
+	}
+	if (ok) rvn_widget_invalidate_paint(&tl->base);
+	return ok;
+}
+
+/* A property of the look of a track: of its clips, its keys, its lane. */
+static int rvn_tl_track_style(rvn_tl_track_t* track, const char* name, const char* value) {
+	static const struct { const char* name; int slot; const char* property; } names[] = {
+		{ "ClipStyle", RVN_TL_SLOT_CLIP, "Shape" }, { "ClipShape", RVN_TL_SLOT_CLIP, "Shape" }, { "ClipRadius", RVN_TL_SLOT_CLIP, "CornerRadius" },
+		{ "ClipGlow", RVN_TL_SLOT_CLIP, "Glow" }, { "ClipBorder", RVN_TL_SLOT_CLIP, "BorderColor" }, { "TextColor", RVN_TL_SLOT_CLIP, "Foreground" },
+		{ "KeyShape", RVN_TL_SLOT_KEY, "Shape" }, { "KeySize", RVN_TL_SLOT_KEY, "Size" }, { "KeyGlow", RVN_TL_SLOT_KEY, "Glow" },
+		{ "Background", RVN_TL_SLOT_TRACK, "Background" }, { "LineColor", RVN_TL_SLOT_TRACK, "BorderColor" }
+	};
+	size_t i;
+	if (rvn_strnicmp(name, "Clip.", 5) == 0) return rvn_item_look_set(&track->style, RVN_TL_SLOT_CLIP, name + 5, value);
+	if (rvn_strnicmp(name, "Key.", 4) == 0) return rvn_item_look_set(&track->style, RVN_TL_SLOT_KEY, name + 4, value);
+	if (rvn_strnicmp(name, "Track.", 6) == 0) return rvn_item_look_set(&track->style, RVN_TL_SLOT_TRACK, name + 6, value);
+	for (i = 0; i < RVN_COUNT_OF(names); i++) {
+		if (rvn_stricmp(name, names[i].name) == 0) return rvn_item_look_set(&track->style, names[i].slot, names[i].property, value);
+	}
+	return -1;
+}
+
+/* A property of the look of one clip, key or marker. */
+static int rvn_tl_item_style(rvn_tl_item_t* item, const char* name, const char* value) {
+	int bad = R_FALSE;
+	uint32_t bit = 0;
+	rvn_part_look_t probe;
+	if (rvn_stricmp(name, "Style") == 0 || rvn_stricmp(name, "ClipStyle") == 0 || rvn_stricmp(name, "KeyShape") == 0) name = "Shape";
+	else if (rvn_stricmp(name, "TextColor") == 0) name = "Foreground";
+	memset(&probe, 0, sizeof(probe));
+	if (!rvn_part_property(rvn_stricmp(name, "Text") == 0 ? "Foreground" : name, "0", &probe, &bit, &bad)) return -1;
+	return rvn_item_look_set(&item->style, 0, name, value);
+}
+
+static void rvn_tl_xml_bad(const rvn_xml_node_t* element, const char* name, const char* value, int result) {
+	if (result < 0) rvn_error(R_ERROR_XML, R_SEVERITY_WARNING, "XML line %d: <%s> has no attribute %.40s", element->line, element->name, name);
+	else if (!result) rvn_error(R_ERROR_XML, R_SEVERITY_WARNING, "XML line %d: <%s %.40s=\"%.60s\">: not a valid value", element->line, element->name, name, value);
+}
+
+static int rvn_tl_xml_skip(const char* name, const char* skip) {
+	size_t length = strlen(name);
+	while (*skip) {
+		const char* end = strchr(skip, '|');
+		size_t n = end ? (size_t)(end - skip) : strlen(skip);
+		if (n == length && rvn_strnicmp(skip, name, n) == 0) return R_TRUE;
+		if (!end) break;
+		skip = end + 1;
+	}
+	return R_FALSE;
+}
+
 static void rvn_tl_xml_item(rvn_timeline_t* tl, const rvn_xml_node_t* node, rvn_tl_item_t* item) {
 	const char* text = rvn_xml_attribute(node, "Color");
+	const rvn_xml_attribute_t* attribute;
 	int flag;
 	if (text && rvn_parse_color(text, &item->color)) item->has_color = R_TRUE;
 	text = rvn_xml_attribute(node, "Selected");
 	if (text && rvn_parse_bool(text, &flag)) item->selected = flag;
+	/* the rest is its look */
+	for (attribute = node->attributes; attribute; attribute = attribute->next) {
+		if (rvn_tl_xml_skip(attribute->name, "Color|Selected|Start|End|Length|Time|Label")) continue;
+		rvn_tl_xml_bad(node, attribute->name, attribute->value, rvn_tl_item_style(item, attribute->name, attribute->value));
+	}
 	RVN_UNUSED(tl);
 }
 
@@ -1467,6 +1783,13 @@ static int rvn_timeline_xml_child(rvn_widget_t* widget, const rvn_xml_node_t* no
 		if (text && rvn_parse_bool(text, &flag)) track->locked = flag;
 		text = rvn_xml_attribute(node, "Muted");
 		if (text && rvn_parse_bool(text, &flag)) track->muted = flag;
+		{
+			const rvn_xml_attribute_t* attribute;
+			for (attribute = node->attributes; attribute; attribute = attribute->next) {
+				if (rvn_tl_xml_skip(attribute->name, "Name|Color|Height|Locked|Muted")) continue;
+				rvn_tl_xml_bad(node, attribute->name, attribute->value, rvn_tl_track_style(track, attribute->name, attribute->value));
+			}
+		}
 		for (child = node->first_child; child; child = child->next) {
 			if (rvn_stricmp(child->name, "Clip") == 0) {
 				start = 0.0;
@@ -1527,7 +1850,8 @@ static int rvn_timeline_set_attribute(rvn_widget_t* widget, const char* name, co
 		if (!rvn_parse_float(value, &number) || number < 0.0f) return R_FALSE;
 		Rtimeline_set_ruler_height(widget->id, number);
 	} else {
-		return R_FALSE;
+		int look = rvn_tl_look_attribute(tl, name, value);
+		return look < 0 ? R_FALSE : look;
 	}
 	rvn_tl_sync_bars(tl);
 	rvn_widget_invalidate_paint(widget);
@@ -2020,4 +2344,51 @@ void Rtimeline_set_removed_callback(Rid id, RTimelineItemCallback callback, void
 	RVN_TIMELINE_VOID(tl, id);
 	tl->removed_callback = callback;
 	tl->removed_user = user_data;
+}
+
+/* ---- looks ---- */
+
+int Rtimeline_set_track_style(Rid id, int track_id, const char* property, const char* value) {
+	rvn_tl_track_t* track;
+	int ok;
+	RVN_TIMELINE(tl, id, R_FALSE);
+	track = rvn_tl_track(tl, track_id);
+	if (!track || !property) {
+		rvn_error(R_ERROR_INVALID_ID, R_SEVERITY_ERROR, "Rtimeline_set_track_style: invalid track");
+		return R_FALSE;
+	}
+	ok = rvn_tl_track_style(track, property, value);
+	if (ok <= 0) rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtimeline_set_track_style: %s=\"%s\" is not a style of a track", property, value ? value : "");
+	rvn_widget_invalidate_paint(&tl->base);
+	return ok > 0;
+}
+
+int Rtimeline_set_item_style(Rid id, int item_id, const char* property, const char* value) {
+	rvn_tl_item_t* item;
+	int ok;
+	RVN_TIMELINE(tl, id, R_FALSE);
+	item = rvn_tl_item(tl, item_id);
+	if (!item || !property) {
+		rvn_error(R_ERROR_INVALID_ID, R_SEVERITY_ERROR, "Rtimeline_set_item_style: invalid item");
+		return R_FALSE;
+	}
+	ok = rvn_tl_item_style(item, property, value);
+	if (ok <= 0) rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtimeline_set_item_style: %s=\"%s\" is not a style of an item", property, value ? value : "");
+	rvn_widget_invalidate_paint(&tl->base);
+	return ok > 0;
+}
+
+void Rtimeline_set_preset(Rid id, RVisualPreset preset) {
+	RVN_TIMELINE_VOID(tl, id);
+	if (preset < R_PRESET_AUTO || preset > R_PRESET_NEON) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rtimeline_set_preset: invalid preset");
+		return;
+	}
+	tl->preset = preset;
+	rvn_widget_invalidate_paint(&tl->base);
+}
+
+RVisualPreset Rtimeline_get_preset(Rid id) {
+	RVN_TIMELINE(tl, id, R_PRESET_AUTO);
+	return tl->preset ? (RVisualPreset)tl->preset : R_PRESET_AUTO;
 }

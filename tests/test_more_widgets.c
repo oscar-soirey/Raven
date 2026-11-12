@@ -1,6 +1,6 @@
 /**
  * Raven tests - Table, DatePicker, TimePicker, Toast, Breadcrumb, Rating,
- * Pagination, SVG textures and the notifications of the system.
+ * Pagination, Plot, SVG textures and the notifications of the system.
  */
 
 #include "test.h"
@@ -283,6 +283,68 @@ static void test_toast(void) {
 	Rtoast_hide(toast);
 	CHECK(!Rtoast_is_shown(toast));
 	Rdraw_frame();
+	/* replace (the default): one message at a time */
+	CHECK(Rtoast_get_queue(toast) == R_TOAST_REPLACE);
+	Rtoast_show(toast, "One", 0.0);
+	Rtoast_show(toast, "Two", 0.0);
+	CHECK(Rtoast_get_count(toast) == 1);
+	CHECK_STR(Rtoast_get_text(toast), "Two");
+	Rtoast_clear(toast);
+
+	/* one after the other */
+	Rtoast_set_queue(toast, R_TOAST_SEQUENCE);
+	Rtoast_show(toast, "First", 0.0);
+	Rtoast_show_kind(toast, "Second", R_TOAST_ERROR, 0.0);
+	Rtoast_show(toast, "Third", 0.0);
+	Rdraw_frame();
+	CHECK(Rtoast_get_count(toast) == 3);
+	CHECK_STR(Rtoast_get_text(toast), "First");
+	Rtoast_hide(toast);
+	CHECK_STR(Rtoast_get_text(toast), "Second");
+	CHECK(Rtoast_get_count(toast) == 2);
+	/* the button of the message shown: the callback sees its text, the next one comes */
+	Rdraw_frame();
+	g_calls = 0;
+	Rwidget_get_rect(toast, &x, &y, &w, &h);
+	test_click_at(g_window, x + w - 20, y + h * 0.5f);
+	CHECK(g_calls == 1);
+	CHECK_STR(Rtoast_get_text(toast), "Third");
+	Rtoast_clear(toast);
+	CHECK(Rtoast_get_count(toast) == 0);
+	CHECK(!Rtoast_is_shown(toast));
+
+	/* stacked: up to 2 at once, the others wait */
+	Rtoast_set_queue(toast, R_TOAST_STACK);
+	Rtoast_set_max_visible(toast, 2);
+	Rtoast_show(toast, "A", 0.0);
+	Rdraw_frame();
+	Rwidget_get_rect(toast, &x, &y, &w, &h);
+	{
+		float one = h, x2, y2, w2, h2;
+		Rtoast_show(toast, "B", 0.0);
+		Rtoast_show(toast, "C", 0.0);
+		Rdraw_frame();
+		Rwidget_get_rect(toast, &x2, &y2, &w2, &h2);
+		CHECK_NEAR(h2, one * 2.0f + 8.0f);
+		/* (against the bottom of the Overlay, it grows upwards) */
+		CHECK_NEAR(y2 + h2, y + h);
+		CHECK(Rtoast_get_count(toast) == 3);
+		CHECK_STR(Rtoast_get_text(toast), "B");
+		/* the button of the lower one (B): it goes, C comes */
+		g_calls = 0;
+		test_click_at(g_window, x2 + w2 - 20, y2 + h2 - one * 0.5f);
+		CHECK(g_calls == 1);
+		CHECK(Rtoast_get_count(toast) == 2);
+		CHECK_STR(Rtoast_get_text(toast), "C");
+	}
+	Rtoast_clear(toast);
+	Rdraw_frame();
+	CHECK(!Rtoast_is_shown(toast));
+	EXPECT_ERRORS_BEGIN();
+	Rtoast_set_max_visible(toast, 0);
+	Rtoast_set_queue(toast, (RToastQueue)0);
+	EXPECT_ERRORS_END(2);
+	Rtoast_set_queue(toast, R_TOAST_REPLACE);
 }
 
 static void on_crumb(Rid crumbs, int index, void* user_data) {
@@ -377,6 +439,17 @@ static const char g_svg[] =
 	"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"16\" viewBox=\"0 0 24 16\">"
 	"<rect x=\"0\" y=\"0\" width=\"12\" height=\"16\" fill=\"#ff0000\"/></svg>";
 
+/* Draws frames until the worker has drawn the SVG again at `width` pixels (or 2 seconds pass). */
+static void test_wait_texture_size(Rid texture, int width) {
+	int i, w = 0, h = 0;
+	for (i = 0; i < 400; i++) {
+		Rdraw_frame();
+		Rtexture_get_size(texture, &w, &h);
+		if (w == width) return;
+		Rwait_events(0.005);
+	}
+}
+
 static void test_svg(void) {
 	Rid texture, image;
 	int width = 0, height = 0;
@@ -406,6 +479,48 @@ static void test_svg(void) {
 		Rwidget_get_rect(image, &x, &y, &w, &h);
 		/* (the row gives it its height) */
 		CHECK_NEAR(w, 24.0f);
+		/* shown at 1 pixel per unit: drawn again with 1 pixel per unit, its size unchanged */
+		test_wait_texture_size(texture, 24);
+		Rtexture_get_size(texture, &width, &height);
+		CHECK(width == 24 && height == 16);
+		CHECK_NEAR(Rtexture_get_density(texture), 1.0f);
+		Rdraw_frame();
+		Rwidget_get_rect(image, &x, &y, &w, &h);
+		CHECK_NEAR(w, 24.0f);
+		/* stretched 4 times: drawn again with 4 pixels per unit, sharp */
+		Rimage_set_stretch(image, R_STRETCH_FILL);
+		Rwidget_set_size(image, 96.0f, 64.0f);
+		Rslot_set_valign(image, R_VALIGN_TOP);
+		test_wait_texture_size(texture, 96);
+		Rtexture_get_size(texture, &width, &height);
+		CHECK(width == 96 && height == 64);
+		CHECK_NEAR(Rtexture_get_density(texture), 4.0f);
+		/* a scale asked for stays */
+		{
+			Rid fixed = Rtexture_create_from_svg(g_svg, sizeof(g_svg) - 1, 3.0f);
+			Rimage_set_texture(image, fixed);
+			int i;
+			for (i = 0; i < 5; i++) {
+				Rdraw_frame();
+				Rwait_events(0.01);
+			}
+			Rtexture_get_size(fixed, &width, &height);
+			CHECK(width == 72 && height == 48);
+			Rimage_set_texture(image, texture);
+			Rtexture_destroy(fixed);
+		}
+		/* destroyed while being drawn again: nothing happens when the worker is done */
+		Rwidget_set_size(image, 48.0f, 32.0f);
+		Rdraw_frame();
+		Rdraw_frame();
+		Rimage_set_texture(image, R_INVALID_ID);
+		Rtexture_destroy(texture);
+		{
+			int i;
+			for (i = 0; i < 20; i++) Rwait_events(0.005);
+		}
+		Rdraw_frame();
+		texture = Rtexture_create(g_svg, sizeof(g_svg) - 1);
 	}
 	/* the pixels: red on the left, transparent on the right */
 	pixels = Rimage_decode(g_svg, sizeof(g_svg) - 1, &width, &height);
@@ -432,20 +547,343 @@ static void on_notification(const char* title, const char* body, RNotificationUr
 	g_calls++;
 }
 
+static int g_clicks;
+
+static void on_notification_clicked(void* user_data) {
+	(void)user_data;
+	g_clicks++;
+}
+
 static void test_notifications(void) {
 	/* the null platform has none: the fallback gets them */
 	CHECK(!Rnotification_is_supported());
 	g_calls = 0;
+	g_clicks = 0;
+	Rnotification_set_clicked_callback(on_notification_clicked, NULL);
 	CHECK(!Rnotification_show("Title", "Body", R_NOTIFICATION_CRITICAL));
 	CHECK(g_calls == 0);
 	Rnotification_set_fallback(on_notification, NULL);
 	CHECK(!Rnotification_show("Done", "The export is finished", R_NOTIFICATION_CRITICAL));
 	CHECK(g_calls == 1);
 	CHECK_STR(g_last_text, "Done/The export is finished/1");
+	/* only a click of the user on a notification of the system calls it: never the fallback */
+	CHECK(g_clicks == 0);
+	Rnotification_set_clicked_callback(NULL, NULL);
 	Rnotification_set_fallback(NULL, NULL);
 	EXPECT_ERRORS_BEGIN();
 	Rnotification_show(NULL, "", R_NOTIFICATION_NORMAL);
 	EXPECT_ERRORS_END(1);
+}
+
+/* ---- Plot ---- */
+
+static int g_view_calls;
+static double g_line_value;
+static int g_toggled = -1;
+
+static void on_plot_view(Rid plot, void* user_data) {
+	(void)plot;
+	(void)user_data;
+	g_view_calls++;
+}
+
+static void on_plot_line(Rid plot, int line, double value, void* user_data) {
+	(void)plot;
+	(void)user_data;
+	g_last_int = line;
+	g_line_value = value;
+	g_calls++;
+}
+
+static void on_plot_toggled(Rid plot, int series, int visible, void* user_data) {
+	(void)plot;
+	(void)user_data;
+	g_toggled = series * 10 + visible;
+}
+
+/* Drags with a button from one point of the plot to another (points in the coordinates of the plot). */
+static void plot_drag(Rid plot, RMouseButton button, float from_x, float from_y, float to_x, float to_y) {
+	float x, y, w, h;
+	Rwidget_get_rect(plot, &x, &y, &w, &h);
+	Rwindow_inject_mouse_move(g_window, x + from_x, y + from_y);
+	Rwindow_inject_mouse_button(g_window, button, R_TRUE);
+	Rwindow_inject_mouse_move(g_window, x + (from_x + to_x) * 0.5f, y + (from_y + to_y) * 0.5f);
+	Rwindow_inject_mouse_move(g_window, x + to_x, y + to_y);
+	Rwindow_inject_mouse_button(g_window, button, R_FALSE);
+}
+
+static void test_plot(void) {
+	Rid root, plot;
+	double a, b, c, d, x, y;
+	float px, py, qx, qy, left, top, right, bottom, wx, wy, ww, wh;
+	static double xs[1000000], ys[1000000];
+	int s, i;
+
+	root = content(
+		"<VBox><Plot Name=\"p\" Height=\"300\" Title=\"Signal\" XLabel=\"t (s)\" YLabel=\"V\" Legend=\"TopLeft\" Crosshair=\"true\">"
+		"<Series Name=\"wave\" Line=\"Dashed\" LineWidth=\"2\" Marker=\"Circle\" X=\"0 1 2 3 4\" Y=\"0 1 0 -1 0\"/>"
+		"<Scatter Name=\"dots\" Color=\"#ff0000\" Points=\"0,2 4,3\"/>"
+		"<DragLine Axis=\"X\" Value=\"3.5\" Label=\"t0\"/>"
+		"</Plot></VBox>");
+	plot = Rwidget_find(root, "p");
+	CHECK(Rwidget_get_type(plot) == R_WIDGET_PLOT);
+	CHECK(Rplot_get_series_count(plot) == 2);
+	CHECK(Rplot_get_point_count(plot, 0) == 5);
+	CHECK(Rplot_get_point(plot, 1, 1, &x, &y) && x == 4.0 && y == 3.0);
+	CHECK(!Rplot_get_point(plot, 1, 2, &x, &y));
+	CHECK_STR(Rplot_get_title(plot), "Signal");
+	CHECK_STR(Rplot_get_series_name(plot, 1), "dots");
+	CHECK_STR(Rplot_get_axis_label(plot, R_PLOT_X), "t (s)");
+	CHECK(Rplot_get_drag_line_count(plot) == 1 && Rplot_get_drag_line_value(plot, 0) == 3.5);
+	/* tags of other libraries */
+	CHECK(Rwidget_get_type(Rwidget_find(content("<VBox><Chart Name=\"c\"/></VBox>"), "c")) == R_WIDGET_PLOT);
+	root = content(
+		"<VBox><Plot Name=\"p\" Height=\"300\" Title=\"Signal\" XLabel=\"t (s)\" YLabel=\"V\" Legend=\"TopLeft\" Crosshair=\"true\">"
+		"<Series Name=\"wave\" Line=\"Dashed\" LineWidth=\"2\" Marker=\"Circle\" X=\"0 1 2 3 4\" Y=\"0 1 0 -1 0\"/>"
+		"<Scatter Name=\"dots\" Color=\"#ff0000\" Points=\"0,2 4,3\"/>"
+		"<DragLine Axis=\"X\" Value=\"3.5\" Label=\"t0\"/>"
+		"</Plot></VBox>");
+	plot = Rwidget_find(root, "p");
+
+	/* fitted to the data, with a margin */
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(a < 0.0 && a > -0.5 && b > 4.0 && b < 4.5);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &a, &b);
+	CHECK(a < -1.0 && a > -1.6 && b > 3.0 && b < 3.6);
+	CHECK(Rplot_is_axis_auto_fit(plot, R_PLOT_X) && Rplot_is_axis_auto_fit(plot, R_PLOT_Y));
+	/* the data and the points of the widget agree */
+	Rplot_data_to_point(plot, 2.0, 1.0, &px, &py);
+	Rplot_point_to_data(plot, px, py, &x, &y);
+	CHECK(fabs(x - 2.0) < 1e-4 && fabs(y - 1.0) < 1e-4);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &c, &d);
+	Rplot_data_to_point(plot, a, d, &left, &top);
+	Rplot_data_to_point(plot, b, c, &right, &bottom);
+	Rwidget_get_rect(plot, &wx, &wy, &ww, &wh);
+	CHECK(left > 0.0f && top > 0.0f && right < ww && bottom < wh && right - left > ww * 0.6f && bottom - top > wh * 0.5f);
+
+	/* the pointer over the data */
+	Rwindow_inject_mouse_move(g_window, wx + px, wy + py);
+	CHECK(Rplot_get_mouse_position(plot, &x, &y));
+	CHECK(fabs(x - 2.0) < 1e-3 && fabs(y - 1.0) < 1e-3);
+	Rdraw_frame();
+
+	/* the left button drags the view: what was under the pointer follows it */
+	Rplot_set_view_changed_callback(plot, on_plot_view, NULL);
+	g_view_calls = 0;
+	Rplot_data_to_point(plot, 1.0, 0.0, &px, &py);
+	plot_drag(plot, R_MOUSE_LEFT, px, py, px + 40.0f, py - 30.0f);
+	Rplot_point_to_data(plot, px + 40.0f, py - 30.0f, &x, &y);
+	CHECK(fabs(x - 1.0) < 1e-3 && fabs(y) < 1e-3);
+	CHECK(g_view_calls > 0);
+	CHECK(!Rplot_is_axis_auto_fit(plot, R_PLOT_X) && !Rplot_is_axis_auto_fit(plot, R_PLOT_Y));
+
+	/* a double click fits the data again, and the axes follow it again */
+	Rplot_data_to_point(plot, 1.0, 0.0, &px, &py);
+	test_click_at(g_window, wx + px, wy + py);
+	test_click_at(g_window, wx + px, wy + py);
+	CHECK(Rplot_is_axis_auto_fit(plot, R_PLOT_X));
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(a < 0.0 && a > -0.5 && b > 4.0 && b < 4.5);
+	Rplot_add_point(plot, 1, 10.0, 3.0);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(b > 10.0 && b < 11.0);
+	Rplot_remove_series(plot, 1);
+	CHECK(Rplot_get_series_count(plot) == 1);
+	s = Rplot_add_series(plot, "dots");
+	CHECK(s == 1);
+	xs[0] = 0.0; ys[0] = 2.0; xs[1] = 4.0; ys[1] = 3.0;
+	Rplot_set_series_data(plot, s, xs, ys, 2);
+	Rplot_set_series_line(plot, s, R_PLOT_LINE_NONE, 0.0f);
+	Rplot_set_series_marker(plot, s, R_PLOT_MARKER_DIAMOND, 5.0f);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(b > 4.0 && b < 4.5);
+
+	/* the right button zooms into the rectangle drawn */
+	Rplot_data_to_point(plot, 1.0, 0.5, &px, &py);
+	Rplot_data_to_point(plot, 3.0, -0.5, &qx, &qy);
+	plot_drag(plot, R_MOUSE_RIGHT, px, py, qx, qy);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &c, &d);
+	CHECK(fabs(a - 1.0) < 1e-3 && fabs(b - 3.0) < 1e-3);
+	CHECK(fabs(c + 0.5) < 1e-3 && fabs(d - 0.5) < 1e-3);
+	/* a band thin across: only along it */
+	Rplot_data_to_point(plot, 1.5, 0.0, &px, &py);
+	Rplot_data_to_point(plot, 2.5, 0.0, &qx, &qy);
+	plot_drag(plot, R_MOUSE_RIGHT, px, py, qx, qy + 1.0f);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &x, &y);
+	CHECK(fabs(a - 1.5) < 1e-3 && fabs(b - 2.5) < 1e-3);
+	CHECK(x == c && y == d);
+	/* a right click without moving changes nothing */
+	plot_drag(plot, R_MOUSE_RIGHT, px, py, px, py);
+	Rplot_get_axis_range(plot, R_PLOT_X, &c, &d);
+	CHECK(c == a && d == b);
+
+	/* the wheel zooms around the pointer */
+	Rplot_set_axis_range(plot, R_PLOT_X, 0.0, 4.0);
+	Rplot_set_axis_range(plot, R_PLOT_Y, -2.0, 4.0);
+	Rplot_data_to_point(plot, 1.0, 1.0, &px, &py);
+	Rwindow_inject_mouse_move(g_window, wx + px, wy + py);
+	Rwindow_inject_mouse_wheel(g_window, 0.0f, 1.0f);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(fabs((b - a) - 4.0 * 0.85) < 1e-3);
+	Rplot_point_to_data(plot, px, py, &x, &y);
+	CHECK(fabs(x - 1.0) < 1e-3 && fabs(y - 1.0) < 1e-3);
+	/* over the X axis: only X */
+	Rplot_get_axis_range(plot, R_PLOT_Y, &c, &d);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	Rplot_data_to_point(plot, (a + b) * 0.5, c, &px, &py);
+	Rwindow_inject_mouse_move(g_window, wx + px, wy + py + 8.0f);
+	Rwindow_inject_mouse_wheel(g_window, 0.0f, -1.0f);
+	Rplot_get_axis_range(plot, R_PLOT_X, &x, &y);
+	CHECK(y - x > b - a);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &a, &b);
+	CHECK(a == c && b == d);
+	/* a locked axis does not move */
+	Rplot_set_axis_locked(plot, R_PLOT_Y, R_TRUE);
+	Rplot_data_to_point(plot, 1.0, 1.0, &px, &py);
+	plot_drag(plot, R_MOUSE_LEFT, px, py, px + 30.0f, py + 30.0f);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &a, &b);
+	CHECK(a == c && b == d);
+	Rplot_set_axis_locked(plot, R_PLOT_Y, R_FALSE);
+
+	/* the keyboard */
+	Rwidget_focus(plot);
+	Rplot_set_axis_range(plot, R_PLOT_X, 0.0, 4.0);
+	test_key(g_window, R_KEY_RIGHT, 0);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(fabs(a - 0.4) < 1e-3 && fabs(b - 4.4) < 1e-3);
+	test_key(g_window, R_KEY_EQUAL, 0);
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(fabs((b - a) - 3.2) < 1e-3);
+	test_key(g_window, R_KEY_HOME, 0);
+	CHECK(Rplot_is_axis_auto_fit(plot, R_PLOT_X));
+
+	/* a drag line is dragged */
+	Rplot_set_axis_range(plot, R_PLOT_X, 0.0, 4.0);
+	Rplot_set_axis_range(plot, R_PLOT_Y, -2.0, 4.0);
+	Rplot_set_drag_line_callback(plot, on_plot_line, NULL);
+	g_calls = 0;
+	Rplot_data_to_point(plot, 3.5, 1.0, &px, &py);
+	plot_drag(plot, R_MOUSE_LEFT, px, py, px - 25.0f, py + 10.0f);
+	Rplot_point_to_data(plot, px - 25.0f, py, &x, &y);
+	CHECK(g_calls >= 1 && g_last_int == 0);
+	CHECK(fabs(Rplot_get_drag_line_value(plot, 0) - x) < 1e-3 && fabs(g_line_value - x) < 1e-3);
+	/* the view did not move */
+	Rplot_get_axis_range(plot, R_PLOT_X, &a, &b);
+	CHECK(a == 0.0 && b == 4.0);
+	CHECK(Rplot_add_drag_line(plot, R_PLOT_Y, 1.0, NULL) == 1);
+	Rplot_set_drag_line_color(plot, 1, 0.2f, 0.6f, 0.2f, 1.0f);
+	Rdraw_frame();
+
+	/* a click on a name in the legend hides its series */
+	Rplot_set_series_toggled_callback(plot, on_plot_toggled, NULL);
+	Rplot_data_to_point(plot, 0.0, 4.0, &px, &py);
+	test_click_at(g_window, wx + px + 22.0f, wy + py + 8.0f + 5.0f + 6.0f);
+	CHECK(g_toggled == 0 && !Rplot_is_series_visible(plot, 0));
+	test_click_at(g_window, wx + px + 22.0f, wy + py + 8.0f + 5.0f + 6.0f);
+	CHECK(g_toggled == 1 && Rplot_is_series_visible(plot, 0));
+
+	/* logarithmic axes leave out what is not above zero */
+	Rplot_clear(plot);
+	CHECK(Rplot_get_series_count(plot) == 0 && Rplot_get_drag_line_count(plot) == 0);
+	Rplot_fit(plot);
+	s = Rplot_add_series(plot, "powers");
+	for (i = 0; i < 6; i++) {
+		xs[i] = (double)i;
+		ys[i] = pow(10.0, (double)i);
+	}
+	ys[6] = 0.0;
+	ys[7] = -5.0;
+	xs[6] = 6.0;
+	xs[7] = 7.0;
+	Rplot_set_series_data(plot, s, xs, ys, 8);
+	Rplot_set_axis_scale(plot, R_PLOT_Y, R_PLOT_SCALE_LOG);
+	CHECK(Rplot_get_axis_scale(plot, R_PLOT_Y) == R_PLOT_SCALE_LOG);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &a, &b);
+	CHECK(a > 0.1 && a < 1.0 && b > 1.0e5 && b < 1.0e6);
+	/* the decades are at even distances */
+	Rplot_data_to_point(plot, 0.0, 10.0, &px, &py);
+	Rplot_data_to_point(plot, 0.0, 100.0, &qx, &qy);
+	Rplot_data_to_point(plot, 0.0, 1000.0, &left, &top);
+	CHECK(fabsf((py - qy) - (qy - top)) < 0.01f);
+	Rdraw_frame();
+	/* the symmetric logarithm shows zero and below */
+	Rplot_set_axis_scale(plot, R_PLOT_Y, R_PLOT_SCALE_SYMLOG);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &a, &b);
+	CHECK(a < -5.0 && b > 1.0e5);
+	Rplot_data_to_point(plot, 0.0, -50.0, &px, &py);
+	Rplot_point_to_data(plot, px, py, &x, &y);
+	CHECK(fabs(y + 50.0) < 0.05);
+	Rplot_set_axis_linear_threshold(plot, R_PLOT_Y, 10.0);
+	Rdraw_frame();
+	Rplot_set_axis_scale(plot, R_PLOT_Y, R_PLOT_SCALE_LINEAR);
+
+	/* the second axes: shown, and fitted to what is drawn against them */
+	s = Rplot_add_series(plot, "right");
+	xs[0] = 0.0; ys[0] = 500.0; xs[1] = 1.0; ys[1] = 600.0;
+	Rplot_set_series_data(plot, s, xs, ys, 2);
+	Rplot_set_series_axes(plot, s, R_PLOT_X, R_PLOT_Y2);
+	Rplot_set_axis_label(plot, R_PLOT_Y2, "right");
+	Rplot_get_axis_range(plot, R_PLOT_Y2, &a, &b);
+	CHECK(a < 500.0 && a > 490.0 && b > 600.0 && b < 610.0);
+	Rplot_get_axis_range(plot, R_PLOT_Y, &a, &b);
+	CHECK(b > 1.0e5);
+	Rplot_set_series_step(plot, s, R_TRUE);
+	Rplot_set_series_fill(plot, s, 0.3f);
+	Rplot_set_axis_inverted(plot, R_PLOT_X, R_TRUE);
+	Rplot_set_legend(plot, R_PLOT_LEGEND_OUTSIDE);
+	Rdraw_frame();
+	Rplot_set_axis_inverted(plot, R_PLOT_X, R_FALSE);
+
+	/* data that streams: the oldest points go */
+	s = Rplot_add_series(plot, "stream");
+	Rplot_set_series_max_points(plot, s, 100);
+	for (i = 0; i < 1000; i++) {
+		xs[i] = (double)i;
+		ys[i] = sin((double)i * 0.1);
+	}
+	Rplot_append_series_data(plot, s, xs, ys, 1000);
+	CHECK(Rplot_get_point_count(plot, s) == 100);
+	CHECK(Rplot_get_point(plot, s, 0, &x, &y) && x == 900.0);
+	Rplot_append_series_data(plot, s, NULL, ys, 10);
+	CHECK(Rplot_get_point(plot, s, 99, &x, &y) && x == 1009.0);
+
+	/* a million points: drawn thinned, column by column */
+	s = Rplot_add_series(plot, "million");
+	for (i = 0; i < 1000000; i++) {
+		xs[i] = (double)i * 0.001;
+		ys[i] = sin((double)i * 0.0001) + ((i % 7) ? 0.0 : 0.5);
+	}
+	Rplot_set_series_data(plot, s, xs, ys, 1000000);
+	CHECK(Rplot_get_point_count(plot, s) == 1000000);
+	Rplot_set_series_marker(plot, s, R_PLOT_MARKER_CIRCLE, 0.0f);
+	Rdraw_frame();
+	Rplot_data_to_point(plot, 500.0, 0.0, &px, &py);
+	Rwindow_inject_mouse_move(g_window, wx + px, wy + py);
+	Rdraw_frame();
+	/* NaN leaves a gap */
+	ys[10] = NAN;
+	Rplot_set_series_data(plot, s, xs, ys, 1000);
+	Rdraw_frame();
+
+	/* formats of the labels */
+	Rplot_set_axis_format(plot, R_PLOT_X, "%.1f s");
+	Rdraw_frame();
+	EXPECT_ERRORS_BEGIN();
+	Rplot_set_axis_format(plot, R_PLOT_X, "%s");
+	Rplot_set_axis_format(plot, R_PLOT_X, "%d %d");
+	Rplot_set_series_color(plot, 99, 1.0f, 0.0f, 0.0f, 1.0f);
+	Rplot_set_axis_range(plot, (RPlotAxis)0, 0.0, 1.0);
+	EXPECT_ERRORS_END(4);
+	CHECK(!Rwidget_set_attribute(plot, "XFormat", "%n"));
+	CHECK(Rwidget_set_attribute(plot, "YScale", "SymLog"));
+	CHECK(Rwidget_set_attribute(plot, "Y2Range", "0 10"));
+	Rplot_get_axis_range(plot, R_PLOT_Y2, &a, &b);
+	CHECK(a == 0.0 && b == 10.0 && !Rplot_is_axis_auto_fit(plot, R_PLOT_Y2));
+	Rwindow_set_content(g_window, R_INVALID_ID);
+	Rdraw_frame();
 }
 
 int main(void) {
@@ -465,6 +903,7 @@ int main(void) {
 	RUN(test_pagination);
 	RUN(test_svg);
 	RUN(test_notifications);
+	RUN(test_plot);
 
 	Rdraw_frame();
 	Rshutdown();

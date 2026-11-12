@@ -28,6 +28,8 @@ def ctype_of(api, ctype, in_struct=False):
     if kind == "out":
         inner = SCALAR[detail[1]] if detail[0] == "scalar" else "ctypes.c_int"
         return "ctypes.POINTER(%s)" % inner
+    if kind == "carray":
+        return "ctypes.POINTER(%s)" % SCALAR[detail]
     if kind == "struct":
         return detail
     if kind in ("struct_ptr", "cstruct_ptr"):
@@ -112,6 +114,13 @@ def _p(value):
     if isinstance(value, ctypes.Structure):
         return ctypes.byref(value)
     return value
+
+
+def _a(ctype, values):
+    """Numbers for the library (a list, a tuple, any sequence): copied into a C array. None and C arrays pass as they are."""
+    if values is None or isinstance(values, (ctypes.Array, ctypes._Pointer)):
+        return values
+    return (ctype * len(values))(*values)
 
 
 def _e(cls, value):
@@ -284,6 +293,8 @@ def generate(api):
                 args.append("_p(%s)" % n)
             elif kind == "enum":
                 args.append("int(%s)" % n)
+            elif kind == "carray":
+                args.append("_a(%s, %s)" % (SCALAR[detail], n))
             else:
                 args.append(n)
             signature.append("%s=None" % n if (kind == "ptr" and p.name == "user_data" and last) else n)

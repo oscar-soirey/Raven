@@ -241,6 +241,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_BREADCRUMB: return R_ROLE_GROUP;
 		case R_WIDGET_RATING: return R_ROLE_SLIDER;
 		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
+		case R_WIDGET_PLOT: return R_ROLE_IMAGE;
 		case R_WIDGET_TILE_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TREE_VIEW: return R_ROLE_TREE;
 		case R_WIDGET_MENU_BAR: return R_ROLE_MENU_BAR;
@@ -654,12 +655,12 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			}
 			case R_WIDGET_TREE_VIEW: {
 				Rid tree_item = Rtree_view_get_item(widget->id, item);
-				const char* text = tree_item ? Rtree_item_get_text(tree_item) : NULL;
+				const char* text = tree_item != R_INVALID_ID ? Rtree_item_get_text(tree_item) : NULL;
 				node->role = R_ROLE_TREE_ITEM;
 				if (text) rvn_text_add(&g_a11y.name, text);
 				node->states |= RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE | RVN_A11Y_EXPANDABLE;
-				if (tree_item && Rtree_item_is_expanded(tree_item)) node->states |= RVN_A11Y_EXPANDED;
-				if (tree_item && Rtree_view_get_selected_item(widget->id) == tree_item) node->states |= RVN_A11Y_SELECTED;
+				if (tree_item != R_INVALID_ID && Rtree_item_is_expanded(tree_item)) node->states |= RVN_A11Y_EXPANDED;
+				if (tree_item != R_INVALID_ID && Rtree_view_get_selected_item(widget->id) == tree_item) node->states |= RVN_A11Y_SELECTED;
 				break;
 			}
 			case R_WIDGET_TAB_VIEW: {
@@ -744,6 +745,22 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 		case R_WIDGET_PAGINATION:
 			rvn_text_printf(&g_a11y.value, "%d / %d", Rpagination_get_page(widget->id) + 1, Rpagination_get_page_count(widget->id));
 			break;
+		case R_WIDGET_PLOT: {
+			/* the title as the name; the series and the ranges shown as the value */
+			int count = Rplot_get_series_count(widget->id), i;
+			double x0 = 0.0, x1 = 0.0, y0 = 0.0, y1 = 0.0;
+			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rplot_get_title(widget->id));
+			Rplot_get_axis_range(widget->id, R_PLOT_X, &x0, &x1);
+			Rplot_get_axis_range(widget->id, R_PLOT_Y, &y0, &y1);
+			rvn_text_printf(&g_a11y.value, "%d series", count);
+			for (i = 0; i < count; i++) {
+				const char* name = Rplot_get_series_name(widget->id, i);
+				if (!Rplot_is_series_visible(widget->id, i)) continue;
+				rvn_text_printf(&g_a11y.value, "%s %s (%d points)", i ? "," : ":", name[0] ? name : "unnamed", Rplot_get_point_count(widget->id, i));
+			}
+			rvn_text_printf(&g_a11y.value, "; X from %g to %g, Y from %g to %g", x0, x1, y0, y1);
+			break;
+		}
 		case R_WIDGET_PROGRESSBAR:
 			node->number = Rprogress_bar_get_value(widget->id) * 100.0;
 			node->minimum = 0.0;
@@ -796,7 +813,7 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 		}
 		case R_WIDGET_TREE_VIEW: {
 			Rid selected = Rtree_view_get_selected_item(widget->id);
-			const char* text = selected ? Rtree_item_get_text(selected) : NULL;
+			const char* text = selected != R_INVALID_ID ? Rtree_item_get_text(selected) : NULL;
 			if (text) rvn_text_add(&g_a11y.value, text);
 			break;
 		}
@@ -854,7 +871,7 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 			case R_WIDGET_TAB_VIEW: Rtab_view_set_active(widget->id, item); return R_TRUE;
 			case R_WIDGET_TREE_VIEW: {
 				Rid tree_item = Rtree_view_get_item(widget->id, item);
-				if (!tree_item) return R_FALSE;
+				if (tree_item == R_INVALID_ID) return R_FALSE;
 				if (action == RVN_A11Y_EXPAND || action == RVN_A11Y_COLLAPSE) Rtree_item_set_expanded(tree_item, action == RVN_A11Y_EXPAND);
 				else Rtree_view_set_selected_item(widget->id, tree_item);
 				return R_TRUE;
@@ -996,6 +1013,15 @@ void rvn_a11y_frame(rvn_window_t* window) {
 	rvn_a11y_node_t node;
 	uint32_t hash;
 	if (!window->platform || !rvn_a11y_platform_active()) return;
+#if defined(__EMSCRIPTEN__)
+    /* Browser accessibility is a materialized DOM tree; unlike native
+     * providers, it cannot query an unfocused node lazily when AT reads it. */
+    if (g_rvn.platform->system == R_WINDOW_SYSTEM_EMSCRIPTEN) {
+        g_rvn.platform->a11y_event(window->platform,
+            RVN_A11Y_EVENT_STRUCTURE, (uint64_t)window->id);
+        return;
+    }
+#endif
 	focus = rvn_a11y_focus(window->id);
 	if (g_a11y.generation != window->a11y_generation) {
 		window->a11y_generation = g_a11y.generation;

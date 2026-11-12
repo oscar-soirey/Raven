@@ -317,6 +317,13 @@ def emit_function(out, api, f, without_user_data=False):
             before.append("MemorySegment %s = %s == null ? MemorySegment.NULL : $a.allocate(ADDRESS);" % (seg, n))
             after.append("if (%s != null && %s.length > 0) %s[0] = text(%s.get(ADDRESS, 0));" % (n, n, n, seg))
             args.append(seg)
+        elif kind == "carray":
+            # numbers the function reads: copied into the memory of the call
+            needs_arena = True
+            jt, lay = SCALAR[detail]
+            signature.append("%s %s" % (ARRAY[jt], n))
+            before.append("MemorySegment %s = %s == null ? MemorySegment.NULL : $a.allocateFrom(%s, %s);" % (seg, n, lay, n))
+            args.append(seg)
         elif kind == "out":
             needs_arena = True
             jt, lay = SCALAR[detail[1]] if detail[0] == "scalar" else ("int", "JAVA_INT")

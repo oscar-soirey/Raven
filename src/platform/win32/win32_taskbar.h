@@ -35,5 +35,11 @@ void rvn_win32_tray_set_icon(rvn_ptray_t* tray, const uint8_t* rgba, int width, 
 void rvn_win32_tray_set_tooltip(rvn_ptray_t* tray, const char* text);
 void rvn_win32_tray_set_menu(rvn_ptray_t* tray, const rvn_pmenu_t* items, uint32_t count);
 void rvn_win32_tray_shutdown(void);
+/**
+ * A notification (balloon) on the application's tray icon, rather than on an
+ * icon of its own: one icon in the notification area. A click on it calls
+ * rvn_notification_clicked. R_FALSE when there is no tray icon.
+ */
+int  rvn_win32_tray_balloon(const WCHAR* title, const WCHAR* text, DWORD info_flags);
 
 #endif /* RVN_WIN32_TASKBAR_H */

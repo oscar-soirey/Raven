@@ -400,7 +400,13 @@ static void set_nav(void) {
 }
 
 static void show_page(int page, int remember) {
-	if (remember && page != app.page && app.history_count < (int)(sizeof(app.history) / sizeof(app.history[0]))) {
+	if (remember && page != app.page) {
+		int capacity = (int)(sizeof(app.history) / sizeof(app.history[0]));
+		/* when it is full the oldest page goes: Back always goes to the page before */
+		if (app.history_count == capacity) {
+			memmove(app.history, app.history + 1, sizeof(app.history[0]) * (size_t)(capacity - 1));
+			app.history_count--;
+		}
 		app.history[app.history_count++] = app.page;
 	}
 	app.page = page;
@@ -991,6 +997,13 @@ static void action_settings(Rid sender, const char* action, void* user_data) {
 
 /* ============================================================================ */
 
+static void example_shutdown(void) {
+	Rtimer_destroy(app.ticker);
+	tags_shutdown();
+	library_shutdown();
+	Rshutdown();
+}
+
 int main(void) {
 	static const char* const player_actions[] = {
 		"player.toggle", "player.next", "player.previous", "player.seek", "player.shuffle", "player.repeat",
@@ -1090,13 +1103,6 @@ int main(void) {
 	app.ticker = Rtimer_create(0.25, R_TRUE, on_tick, NULL);
 	Rwindow_show(app.window);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rtimer_destroy(app.ticker);
-	tags_shutdown();
-	library_shutdown();
-	Rshutdown();
+	example_run(app.window, NULL, example_shutdown);
 	return Rget_exit_code();
 }

@@ -1,0 +1,10 @@
+{
+	"id": "bun",
+	"name": "Bun",
+	"order": 11,
+	"description": "TypeScript on Bun, with the bun:ffi binding of the SDK (no dependency).",
+	"needs": "shared",
+	"binding": "bun",
+	"run": "bun run main.ts",
+	"readme": "    bun run main.ts\n\nBun reads `.env`, which gives `RAVEN_LIBRARY`, the library of the SDK."
+}

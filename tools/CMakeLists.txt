@@ -5,15 +5,31 @@
 #   raven_theme_editor   makes theme files (tools/theme_editor): every color, size
 #                        and style of a theme, edited over a live preview
 #
-# embed.py and subset_font.py are the scripts that produce the files of
-# src/embedded; they are not needed to build.
+# embed.py, subset_font.py and designer/embed_splash.py are the scripts that
+# produce the embedded files (src/embedded, designer/splash_xml.c and
+# designer/splash_png.c); they are not needed to build.
 
 # (the Theme tab is the theme editor itself, built in: designer/theme_tab.c)
 add_executable(raven_designer designer/main.c designer/designer.h designer/os.c designer/files.c designer/island.c
 	designer/strings.c designer/welcome.c designer/accessibility.c designer/icons.c designer/theme_tab.c theme_editor/model.c theme_editor/editor.h
 	designer/fonts.c designer/font_body.c designer/font_body_bold.c designer/font_title.c designer/font_code.c
+	designer/splash.c designer/splash_xml.c designer/splash_png.c
 	crash_report.c crash_report.h)
-	
+
+# The splash screen (designer/splash.xml and designer/images/SplashScreenNew.png) is embedded in the program:
+# splash_xml.c and splash_png.c are made again when one of them changes (when Python is there; the
+# generated files are kept in the folder, so the designer also builds without it).
+find_package(Python3 QUIET COMPONENTS Interpreter)
+if(Python3_FOUND)
+	set(_splash_dir "${CMAKE_CURRENT_SOURCE_DIR}/designer")
+	add_custom_command(
+		OUTPUT "${_splash_dir}/splash_xml.c" "${_splash_dir}/splash_png.c"
+		COMMAND "${Python3_EXECUTABLE}" "${_splash_dir}/embed_splash.py"
+		DEPENDS "${_splash_dir}/splash.xml" "${_splash_dir}/images/SplashScreenNew.png" "${_splash_dir}/embed_splash.py"
+		COMMENT "Embedding the splash screen"
+		VERBATIM)
+endif()
+
 if(WIN32)
     target_sources(raven_designer PRIVATE designer/icon.rc)
 endif()

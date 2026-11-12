@@ -75,22 +75,85 @@ rvn_widget_t* rvn_widget_create_class(const rvn_widget_class_t* cls) {
 	return widget;
 }
 
+/*
+ * A subtree is walked with a stack of its own, not with the call stack: how
+ * deep a tree goes is up to the application, and a destruction must not be
+ * what overflows. Trees of an ordinary depth fit in `first`: nothing is
+ * allocated for them.
+ */
+typedef struct rvn_widget_step_t {
+	rvn_widget_t* widget;
+	/** Index of the next child to visit. */
+	uint32_t next;
+} rvn_widget_step_t;
+
+typedef struct rvn_widget_walk_t {
+	rvn_widget_step_t first[32];
+	rvn_widget_step_t* steps;
+	uint32_t count;
+	uint32_t cap;
+} rvn_widget_walk_t;
+
+static void rvn_widget_walk_begin(rvn_widget_walk_t* walk) {
+	walk->steps = walk->first;
+	walk->count = 0;
+	walk->cap = (uint32_t)(sizeof(walk->first) / sizeof(walk->first[0]));
+}
+
+static void rvn_widget_walk_push(rvn_widget_walk_t* walk, rvn_widget_t* widget) {
+	if (walk->count == walk->cap) {
+		uint32_t cap = walk->cap * 2;
+		if (walk->steps == walk->first) {
+			rvn_widget_step_t* steps = (rvn_widget_step_t*)rvn_alloc(sizeof(rvn_widget_step_t) * cap);
+			memcpy(steps, walk->first, sizeof(walk->first));
+			walk->steps = steps;
+		} else {
+			walk->steps = (rvn_widget_step_t*)rvn_realloc(walk->steps, sizeof(rvn_widget_step_t) * cap);
+		}
+		walk->cap = cap;
+	}
+	walk->steps[walk->count].widget = widget;
+	walk->steps[walk->count].next = 0;
+	walk->count++;
+}
+
+static void rvn_widget_walk_end(rvn_widget_walk_t* walk) {
+	if (walk->steps != walk->first) rvn_free(walk->steps);
+}
+
 /* First phase of a destruction: the subtree loses its handles and is marked dead. */
-static void rvn_widget_kill(rvn_widget_t* widget) {
-	uint32_t i;
+static void rvn_widget_kill_one(rvn_widget_t* widget) {
 	widget->flags |= RVN_WF_DEAD;
 	rvn_pool_remove(&g_rvn.widgets, widget->id);
 	widget->window = NULL;
-	for (i = 0; i < widget->child_count; i++) rvn_widget_kill(widget->children[i]);
 }
 
-/* Second phase: the memory of the subtree is released. */
-static void rvn_widget_free(rvn_widget_t* widget) {
-	uint32_t i;
+static void rvn_widget_kill(rvn_widget_t* widget) {
+	rvn_widget_walk_t walk;
+	rvn_widget_walk_begin(&walk);
+	rvn_widget_kill_one(widget);
+	rvn_widget_walk_push(&walk, widget);
+	while (walk.count > 0) {
+		rvn_widget_step_t* step = &walk.steps[walk.count - 1];
+		if (step->next < step->widget->child_count) {
+			rvn_widget_t* child = step->widget->children[step->next++];
+			rvn_widget_kill_one(child);
+			rvn_widget_walk_push(&walk, child);
+		} else {
+			walk.count--;
+		}
+	}
+	rvn_widget_walk_end(&walk);
+}
+
+/* Second phase: the memory of the subtree is released. A widget tells it is going before its children do, and is freed after them. */
+static void rvn_widget_free_enter(rvn_widget_t* widget) {
 	if (widget->cls->destroy) widget->cls->destroy(widget);
 	/* (the handle names nothing any more: it only tells the widgets apart) */
 	if (widget->destroy_callback) widget->destroy_callback(widget->id, widget->destroy_user);
-	for (i = 0; i < widget->child_count; i++) rvn_widget_free(widget->children[i]);
+}
+
+static void rvn_widget_free_leave(rvn_widget_t* widget) {
 	rvn_free(widget->children);
 	rvn_free(widget->style);
 	rvn_free(widget->fx);
@@ -103,6 +166,26 @@ static void rvn_widget_free(rvn_widget_t* widget) {
 	rvn_free(widget->slot.dock_to);
 	rvn_a11y_widget_destroyed(widget);
 	rvn_free(widget);
+}
+
+static void rvn_widget_free(rvn_widget_t* widget) {
+	rvn_widget_walk_t walk;
+	rvn_widget_walk_begin(&walk);
+	rvn_widget_free_enter(widget);
+	rvn_widget_walk_push(&walk, widget);
+	while (walk.count > 0) {
+		/* (read again at each turn: a destroy callback may delete other widgets, never these, which are dead already) */
+		rvn_widget_step_t* step = &walk.steps[walk.count - 1];
+		if (step->next < step->widget->child_count) {
+			rvn_widget_t* child = step->widget->children[step->next++];
+			rvn_widget_free_enter(child);
+			rvn_widget_walk_push(&walk, child);
+		} else {
+			rvn_widget_free_leave(step->widget);
+			walk.count--;
+		}
+	}
+	rvn_widget_walk_end(&walk);
 }
 
 void rvn_widget_destroy(rvn_widget_t* widget) {
@@ -120,10 +203,22 @@ void rvn_widget_destroy(rvn_widget_t* widget) {
 }
 
 void rvn_widgets_collect(void) {
-	/* destroy callbacks may delete more widgets: the array can grow while we walk it */
-	uint32_t i;
-	for (i = 0; i < g_rvn.dead_widget_count; i++) rvn_widget_free(g_rvn.dead_widgets[i]);
-	g_rvn.dead_widget_count = 0;
+	/*
+	 * Destroy callbacks run application code: it may delete more widgets, or
+	 * begin and end a dispatch of its own (Rwindow_begin_move...), which
+	 * collects again. Each round takes the list it frees first, so a
+	 * collection started from there never sees it; what the callbacks add
+	 * makes a new list, freed by the next round.
+	 */
+	while (g_rvn.dead_widget_count > 0) {
+		rvn_widget_t** list = g_rvn.dead_widgets;
+		uint32_t count = g_rvn.dead_widget_count, i;
+		g_rvn.dead_widgets = NULL;
+		g_rvn.dead_widget_count = 0;
+		g_rvn.dead_widget_cap = 0;
+		for (i = 0; i < count; i++) rvn_widget_free(list[i]);
+		rvn_free(list);
+	}
 }
 
 /* ---------------------------------------------------------------------------

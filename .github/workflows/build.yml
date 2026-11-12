@@ -41,6 +41,8 @@ jobs:
     env:
       # the Chrome sandbox needs user namespaces, which the runner restricts
       RAVEN_WEB_NO_SANDBOX: "1"
+      # ctest prints this protocol trace only when the embedding test fails.
+      RAVEN_WEB_TRACE: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -71,6 +73,56 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --timeout 300
+
+  # ---------------------------------------------------------------------------
+  #  Odin (Linux): the generated package and raven_odin, with the shared library
+  # ---------------------------------------------------------------------------
+  odin:
+    name: odin (linux)
+    runs-on: ubuntu-latest
+    env:
+      ODIN_VERSION: dev-2026-11
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build clang
+
+      - name: Odin (a release of odin-lang/Odin; it links with clang)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/odin.tar.gz" \
+            "https://github.com/odin-lang/Odin/releases/download/$ODIN_VERSION/odin-linux-amd64-$ODIN_VERSION.tar.gz"
+          mkdir "$RUNNER_TEMP/odin"
+          tar -xzf "$RUNNER_TEMP/odin.tar.gz" -C "$RUNNER_TEMP/odin"
+          dirname "$(find "$RUNNER_TEMP/odin" -type f -name odin | head -n 1)" >> "$GITHUB_PATH"
+
+      - name: Configure
+        run: |
+          odin version
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DRAVEN_BUILD_SHARED=ON \
+            -DRAVEN_BUILD_TESTS=ON \
+            -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_BUILD_TOOLS=OFF \
+            -DRAVEN_WARNINGS_AS_ERRORS=OFF \
+            -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+
+      - name: Build
+        run: cmake --build build --parallel --target raven
+
+      # --no-tests=error: without odin the tests do not exist, which must not pass
+      - name: Test
+        run: ctest --test-dir build -R '^binding_odin' --no-tests=error --output-on-failure --timeout 300
 
   # ---------------------------------------------------------------------------
   #  Linux, macOS, Windows (Visual C++)
@@ -220,9 +272,103 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  #  Sokol backend (Linux): GLES 3.0 on Mesa's software renderer, no GPU needed.
-  #  Runs the whole test suite, including test_render on both backends
-  #  (Vulkan on lavapipe, Sokol on llvmpipe). See docs/SOKOL_BACKEND_PLAN.md.
+  #  Raven SDK Installer: one program per platform (tools/installer/package.cmake),
+  #  then an installation, a project from a template and the uninstallation with it
+  # ---------------------------------------------------------------------------
+  installer:
+    name: installer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build
+
+      - name: Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install molten-vk ninja
+
+      - name: MinGW-w64 (Windows)
+        if: runner.os == 'Windows'
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-ninja
+
+      - name: MinGW-w64 in the PATH (Windows)
+        if: runner.os == 'Windows'
+        run: echo "${{ steps.msys2.outputs.msys2-location }}\mingw64\bin" >> "$GITHUB_PATH"
+
+      - name: Package
+        run: |
+          ROOT="$(pwd)"
+          if [ "$RUNNER_OS" = "Windows" ]; then ROOT="$(pwd -W)"; fi
+          FAMILIES=""
+          if [ "$RUNNER_OS" = "Windows" ]; then FAMILIES="-DFAMILIES=msvc;mingw"; fi
+          cmake "-DVULKAN_HEADERS=$ROOT/_vulkan-headers/include" $FAMILIES -P tools/installer/package.cmake
+
+      - name: Engine tests
+        run: |
+          ROOT="$(pwd)"
+          if [ "$RUNNER_OS" = "Windows" ]; then ROOT="$(pwd -W)"; fi
+          cmake -S . -B build-tests -DRAVEN_BUILD_INSTALLER=ON -DRAVEN_BUILD_TESTS=ON -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF "-DRAVEN_VULKAN_INCLUDE_DIR=$ROOT/_vulkan-headers/include"
+          cmake --build build-tests --config Release --target test_installer --parallel
+          ctest --test-dir build-tests -C Release -R installer_core --output-on-failure
+
+      - name: Install, make a project, uninstall
+        run: |
+          # every command in the log, and the log of the installation when one fails
+          set -x
+          trap 'echo "--- install.log"; cat "$RUNNER_TEMP/raven-sdk/.raven-install/install.log" 2>/dev/null || true' ERR
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            INSTALLER="dist-installer/RavenSDKInstaller.app/Contents/MacOS/RavenSDKInstaller"
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            INSTALLER="dist-installer/RavenSDKInstaller.exe"
+          else
+            INSTALLER="dist-installer/RavenSDKInstaller"
+          fi
+          "$INSTALLER" --list
+          "$INSTALLER" --detect
+          "$INSTALLER" --cli --yes --sdk-dir "$RUNNER_TEMP/raven-sdk" --designer-dir "$RUNNER_TEMP/raven-designer" --targets all
+          NEW="$RUNNER_TEMP/raven-sdk/bin/raven-new"
+          mkdir -p "$RUNNER_TEMP/project"
+          "$NEW" --list
+          "$NEW" --template c --dir "$RUNNER_TEMP/project"
+          cmake -S "$RUNNER_TEMP/project" -B "$RUNNER_TEMP/project/build"
+          cmake --build "$RUNNER_TEMP/project/build" --config Release
+          "$INSTALLER" --uninstall --quiet
+          test ! -e "$RUNNER_TEMP/raven-sdk/.raven-install/manifest.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raven-sdk-installer-${{ runner.os }}
+          path: |
+            dist-installer/RavenSDKInstaller.exe
+            dist-installer/RavenSDKInstaller
+            dist-installer/RavenSDKInstaller-macos.zip
+          if-no-files-found: error
+
   # ---------------------------------------------------------------------------
   sokol:
     name: linux (Sokol backend tests)
@@ -302,7 +448,8 @@ jobs:
       - name: Build the hello example for the browser
         run: |
           emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BACKEND_SOKOL=ON -DRAVEN_BUILD_WEB=OFF \
+            -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BACKEND_WEBGL=OFF -DRAVEN_PLATFORM=web \
+            -DRAVEN_BACKEND_SOKOL=ON -DRAVEN_BUILD_WEB=OFF \
             -DRAVEN_BUILD_EXAMPLES=ON -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_TESTS=OFF
           cmake --build build-web
 
@@ -334,7 +481,7 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, build, mingw]
+    needs: [test, build, mingw, installer]
     runs-on: ubuntu-latest
     permissions:
       contents: write

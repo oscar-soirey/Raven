@@ -451,7 +451,18 @@ static rvn_pwindow_t* rvn_x11_window_create(const rvn_pwindow_desc_t* desc) {
 		XChangeProperty(g_x11.display, window->handle, g_x11.motif_wm_hints, g_x11.motif_wm_hints, 32, PropModeReplace,
 			(const unsigned char*)hints, 5);
 	}
-	if (desc->flags & R_WINDOW_MAXIMIZED) {
+	if (desc->flags & R_WINDOW_SPLASH_SCREEN) {
+		/* the window manager centers it, keeps it above, leaves it out of the taskbar and of the pager */
+		Atom type = XInternAtom(g_x11.display, "_NET_WM_WINDOW_TYPE_SPLASH", False);
+		Atom states[3];
+		XChangeProperty(g_x11.display, window->handle, XInternAtom(g_x11.display, "_NET_WM_WINDOW_TYPE", False), XA_ATOM, 32,
+			PropModeReplace, (const unsigned char*)&type, 1);
+		states[0] = XInternAtom(g_x11.display, "_NET_WM_STATE_ABOVE", False);
+		states[1] = XInternAtom(g_x11.display, "_NET_WM_STATE_SKIP_TASKBAR", False);
+		states[2] = XInternAtom(g_x11.display, "_NET_WM_STATE_SKIP_PAGER", False);
+		XChangeProperty(g_x11.display, window->handle, g_x11.net_wm_state, XA_ATOM, 32, PropModeReplace,
+			(const unsigned char*)states, 3);
+	} else if (desc->flags & R_WINDOW_MAXIMIZED) {
 		/* before the window is mapped the state is set directly on the window */
 		Atom states[2];
 		states[0] = g_x11.net_wm_state_maximized_vert;

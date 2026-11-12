@@ -1,0 +1,29 @@
+<!-- Page 2: where the SDK and Raven Designer go. The program checks that each folder can be written. -->
+<ScrollBox>
+	<VBox Spacing="12" Slot.Padding="48,44">
+		<Label Text="Installation location" TextSize="26"/>
+		<Label Text="Both folders are for your user account; no administrator rights are needed." Opacity="0.6" Wrap="true"/>
+		<Spacer Height="10"/>
+
+		<Label Text="RavenGUI SDK" TextSize="16"/>
+		<Label Text="Headers, libraries, bindings and project templates. CMake finds a package of it with CMAKE_PREFIX_PATH." Opacity="0.6" Wrap="true"/>
+		<HBox Spacing="8">
+			<TextInput Name="location.sdk" Slot.Fill="1"/>
+			<Button Name="location.sdk.browse" Text="Browse..." OnClicked="location.sdk.browse" MinWidth="96"/>
+		</HBox>
+		<Label Name="location.sdk.status" Text="" Opacity="0.7" Wrap="true"/>
+
+		<Spacer Height="14"/>
+		<Label Text="Raven Designer" TextSize="16"/>
+		<Label Name="location.designer.hint" Text="" Opacity="0.6" Wrap="true"/>
+		<HBox Spacing="8">
+			<TextInput Name="location.designer" Slot.Fill="1"/>
+			<Button Name="location.designer.browse" Text="Browse..." OnClicked="location.designer.browse" MinWidth="96"/>
+		</HBox>
+		<Label Name="location.designer.status" Text="" Opacity="0.7" Wrap="true"/>
+
+		<Spacer Height="14"/>
+		<Label Name="location.locked" Visibility="Collapsed" Wrap="true" Opacity="0.7"
+			Text="An installation is updated where it is. To move it, uninstall it first, then install again."/>
+	</VBox>
+</ScrollBox>

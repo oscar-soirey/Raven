@@ -55,7 +55,7 @@ typedef enum glyph_t {
 	G_TEXT, G_PICTURE, G_LINES, G_LIST, G_TREE, G_TIMELINE, G_BLOCKS, G_NODES, G_ITEM, G_WINDOW, G_HEADER,
 	G_MENUBAR, G_MENU, G_MENUITEM, G_DOCK, G_ISLAND, G_BLUR, G_COLOR, G_VIEWPORT, G_SPARK, G_FOLDER, G_KEY,
 	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE,
-	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER
+	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT
 } glyph_t;
 
 /* Every picture: the tag (or "#..." for what is not a tag), its family, its glyph. The order of a family is the order of the palette. */
@@ -80,7 +80,8 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "Item", FAMILY_DATA, G_ITEM }, { "Timeline", FAMILY_DATA, G_TIMELINE }, { "NodeGraph", FAMILY_DATA, G_NODES },
 	{ "BlockEditor", FAMILY_DATA, G_BLOCKS }, { "FileBrowser", FAMILY_DATA, G_FOLDER },
 	{ "Table", FAMILY_DATA, G_TABLE }, { "Column", FAMILY_DATA, G_ITEM }, { "Row", FAMILY_DATA, G_ITEM },
-	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER },
+	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER }, { "Plot", FAMILY_DATA, G_PLOT },
+	{ "Series", FAMILY_DATA, G_ITEM }, { "Scatter", FAMILY_DATA, G_ITEM }, { "DragLine", FAMILY_DATA, G_ITEM },
 	{ "Track", FAMILY_DATA, G_TIMELINE }, { "Clip", FAMILY_DATA, G_PROGRESS }, { "Key", FAMILY_DATA, G_ITEM },
 	{ "Marker", FAMILY_DATA, G_ITEM }, { "Node", FAMILY_DATA, G_NODES }, { "Input", FAMILY_DATA, G_ITEM },
 	{ "Output", FAMILY_DATA, G_ITEM }, { "Link", FAMILY_DATA, G_NODES }, { "Type", FAMILY_DATA, G_ITEM },
@@ -448,6 +449,12 @@ static void draw_glyph(cell_t* c, glyph_t glyph) {
 			line(c, 7.5f, 13, 5, 16, 1.8f, 0.6f); line(c, 5, 16, 7.5f, 19, 1.8f, 0.6f);
 			box(c, 10, 12, 15, 20, 1.5f, 1); outline(c, 17, 12, 22, 20, 1.5f, 1.4f, 0.7f);
 			line(c, 24.5f, 13, 27, 16, 1.8f, 0.6f); line(c, 27, 16, 24.5f, 19, 1.8f, 0.6f);
+			break;
+		case G_PLOT:
+			/* two axes and a curve that climbs, a point on it */
+			line(c, 7.5f, 7, 7.5f, 24.5f, 1.8f, 0.7f); line(c, 7.5f, 24.5f, 26, 24.5f, 1.8f, 0.7f);
+			line(c, 10, 21, 14.5f, 15, 2.2f, 1); line(c, 14.5f, 15, 18.5f, 18, 2.2f, 1); line(c, 18.5f, 18, 24.5f, 9, 2.2f, 1);
+			disc(c, 18.5f, 18, 2.4f, 1);
 			break;
 		case G_FILE:
 			outline(c, 9, 7, 23, 25, 2.5f, STROKE, 1); line(c, 12.5f, 13, 19.5f, 13, 1.6f, 0.7f); line(c, 12.5f, 17, 19.5f, 17, 1.6f, 0.7f);

@@ -1,0 +1,8 @@
+module {{PROJECT_IDENT}}
+
+go 1.18
+
+require raven v0.0.0
+
+// the Go binding of the Raven SDK installed on this machine
+replace raven => {{RAVEN_BINDINGS}}/go

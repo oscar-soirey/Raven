@@ -1,0 +1,24 @@
+{
+	"id": "cpp",
+	"name": "C++",
+	"order": 2,
+	"description": "C++17 and CMake, with raven.hpp: lambdas for callbacks, a class per kind of widget.",
+	"needs": "any",
+	"binding": "cpp",
+	"extends": [
+		"_cmake"
+	],
+	"vars": {
+		"CMAKE_LANGUAGE": "CXX",
+		"MAIN_SOURCE": "main.cpp"
+	},
+	"copy": [
+		{
+			"from": "{{RAVEN_BINDINGS}}/cpp/raven.hpp",
+			"to": "raven.hpp"
+		}
+	],
+	"run_unix": "cmake -S . -B build && cmake --build build && ./build/{{PROJECT_IDENT}}",
+	"run_windows": "cmake -S . -B build && cmake --build build --config Release && build\\Release\\{{PROJECT_IDENT}}.exe",
+	"readme": "    cmake -S . -B build\n    cmake --build build --config Release\n\nthen run the program from this folder (`build/{{PROJECT_IDENT}}`, or `build\\Release\\{{PROJECT_IDENT}}.exe` with Visual Studio). `raven.hpp` is the C++ layer of Raven, copied from the SDK."
+}

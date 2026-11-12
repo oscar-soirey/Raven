@@ -1067,6 +1067,9 @@ static void rvn_theme_write_look(rvn_text_t* out, const rvn_style_rule_t* rule) 
 	for (i = 0; i < 6; i++) {
 		if (rule->look_mask & (1u << (i + 6))) rvn_text_printf(out, " %s=\"%g\"", rvn_part_property_name(1u << (i + 6)), (double)numbers[i]);
 	}
+	if (rule->look_mask & RVN_LOOK_SHAPE) rvn_text_printf(out, " Shape=\"%s\"", rvn_shape_name(look->shape));
+	if (rule->look_mask & RVN_LOOK_GLOW) rvn_text_printf(out, " Glow=\"%g\"", (double)look->glow);
+	if (rule->look_mask & RVN_LOOK_GRADIENT) rvn_theme_write_color(out, "Gradient", look->gradient);
 }
 
 static const char* rvn_material_name(RMaterial material) {

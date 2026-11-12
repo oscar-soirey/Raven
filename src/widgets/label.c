@@ -182,6 +182,8 @@ typedef struct rvn_label_paint_t {
 	rvn_color_t color;
 	int from, to;
 	rvn_color_t selection;
+	/* the light around the text (<Style Widget="Label" Glow="1"/>), 0 for none */
+	float glow;
 } rvn_label_paint_t;
 
 static void rvn_label_paint_line(const char* line, int length, float width, int index, void* context) {
@@ -189,6 +191,12 @@ static void rvn_label_paint_line(const char* line, int length, float width, int 
 	rvn_label_t* label = paint->label;
 	float x = (label->base.rect.w - width) * paint->align;
 	float y = paint->line_height * (float)index;
+	if (paint->glow > 0.0f && width > 0.0f) {
+		/* a soft light of the color of the text behind the line */
+		float glow = rvn_minf(paint->glow, 1.0f);
+		rvn_paint_shadow(paint->painter, rvn_rect(x, y + paint->line_height * 0.2f, width, paint->line_height * 0.6f),
+			paint->line_height * 0.3f, paint->size * (0.3f + 0.5f * glow), rvn_color_fade(paint->color, rvn_clampf(0.55f * glow, 0.0f, 0.9f)));
+	}
 	if (paint->from < paint->to) {
 		/* the selection, behind the text */
 		int start = (int)(line - label->text);
@@ -347,9 +355,22 @@ static void rvn_label_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_font_t* font = rvn_font_resolve(label->font);
 	rvn_font_metrics_t metrics;
 	rvn_label_paint_t paint;
+	rvn_color_t color;
+	float glow = 0.0f;
 	int clipped;
 
 	if (!font || !label->text || !label->text[0]) return;
+	color = rvn_widget_text_color(widget, painter);
+	/* the properties a theme gives the label itself (<Style Widget="Label" Foreground="#f80" Glow="1"/>) */
+	if (rvn_part_styled(widget, RVN_PART_BODY)) {
+		rvn_part_look_t look;
+		rvn_part_look_clear(&look);
+		look.foreground = color;
+		rvn_part_apply_styles(widget, RVN_PART_BODY, rvn_widget_states(widget, painter, (widget->flags & RVN_WF_HOVERED) != 0, R_FALSE), &look);
+		/* a color given to the label itself (Color, Rlabel_set_color) comes before the styles, as with Text */
+		if (!rvn_widget_own_color(widget, R_COLOR_TEXT)) color = look.foreground;
+		glow = look.glow;
+	}
 	/* text larger than the space it received is cut at the bounds of the label */
 	clipped = widget->desired.x > widget->rect.w + 0.5f || widget->desired.y > widget->rect.h + 0.5f;
 	if (label->markdown) {
@@ -361,7 +382,7 @@ static void rvn_label_paint(rvn_widget_t* widget, RPainter* painter) {
 		if (label->anchor != label->caret) {
 			rvn_md_paint_selection(label->md, painter, ox, 0.0f, rvn_label_sel_from(label), rvn_label_sel_to(label), rvn_widget_color(widget, R_COLOR_SELECTION));
 		}
-		rvn_md_paint(label->md, widget, painter, ox, 0.0f, rvn_widget_text_color(widget, painter),
+		rvn_md_paint(label->md, widget, painter, ox, 0.0f, color,
 			painter->enabled ? label->hot_link : -1);
 		if (clipped) rvn_paint_pop_clip(painter);
 		return;
@@ -373,7 +394,8 @@ static void rvn_label_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_font_metrics(font, paint.size, &metrics);
 	paint.line_height = metrics.line_height;
 	paint.align = rvn_label_align(label, painter->rtl);
-	paint.color = rvn_widget_text_color(widget, painter);
+	paint.color = color;
+	paint.glow = glow;
 	paint.from = rvn_label_sel_from(label);
 	paint.to = rvn_label_sel_to(label);
 	paint.selection = rvn_widget_color(widget, R_COLOR_SELECTION);

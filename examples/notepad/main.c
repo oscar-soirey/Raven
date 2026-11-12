@@ -190,16 +190,22 @@ static void on_changed(Rid editor, void* user_data) {
  *  Files
  * ------------------------------------------------------------------------- */
 
+#ifndef __EMSCRIPTEN__
 static const RFileFilter g_filters[] = {
 	{ "Text and code", "*.txt;*.md;*.c;*.h;*.cpp;*.hpp;*.cs;*.java;*.js;*.ts;*.py;*.rs;*.html;*.css;*.xml;*.json;*.ini" },
 	{ "All files", "*" }
 };
+#endif
 
 /* R_TRUE when the text can be replaced: nothing to lose, or the user agreed to lose it. */
 static int can_discard(void) {
 	if (!app.modified) return R_TRUE;
+#ifdef __EMSCRIPTEN__
+	return EM_ASM_INT({ return window.confirm("The text has changes that were not saved. Discard them?"); });
+#else
 	return Rmessage_box(app.window, "Unsaved changes", "The text has changes that were not saved. Discard them?", R_MESSAGE_OK_CANCEL)
 		== R_MESSAGE_RESULT_OK;
+#endif
 }
 
 static void open_path(const char* path) {
@@ -221,9 +227,27 @@ static void open_path(const char* path) {
 	Rwidget_focus(app.editor);
 }
 
+#ifdef __EMSCRIPTEN__
+static void imported(int success, const char* path, void* user) {
+	(void)user;
+	if (success && can_discard()) open_path(path);
+}
+#endif
+
 static int save(int ask) {
 	const char* text;
-	if (ask || !app.path[0]) {
+	char target[sizeof(app.path)];
+	snprintf(target, sizeof(target), "%s", app.path);
+	if (ask || !target[0]) {
+#ifdef __EMSCRIPTEN__
+		char* chosen = (char*)EM_ASM_PTR({
+			const name = window.prompt('Save the text as', UTF8ToString($0));
+			return name ? stringToNewUTF8(name) : 0;
+		}, app.path[0] ? file_name(app.path) : "untitled.txt");
+		if (!chosen) return R_FALSE;
+		snprintf(target, sizeof(target), "/%s", file_name(chosen));
+		free(chosen);
+#else
 		RFileDialogDesc desc;
 		const char* chosen;
 		memset(&desc, 0, sizeof(desc));
@@ -235,13 +259,24 @@ static int save(int ask) {
 		desc.default_extension = "txt";
 		chosen = Rfile_dialog_save(&desc);
 		if (!chosen) return R_FALSE;
-		snprintf(app.path, sizeof(app.path), "%s", chosen);
-		set_language(Rlanguage_for_file(app.path));
+		snprintf(target, sizeof(target), "%s", chosen);
+#endif
 	}
 	text = Rtext_editor_get_text(app.editor);
-	if (!Rfile_write(app.path, text, (size_t)Rtext_editor_get_length(app.editor))) {
-		set_status("Cannot write %s", app.path);
+	if (!Rfile_write(target, text, (size_t)Rtext_editor_get_length(app.editor))) {
+		set_status("Cannot write %s", target);
 		return R_FALSE;
+	}
+#ifdef __EMSCRIPTEN__
+	if (!Rweb_download_file(target, file_name(target))) {
+		set_status("Cannot download %s", target);
+		return R_FALSE;
+	}
+#endif
+	/* only once it is written: a failed Save As leaves the text with the file it had */
+	if (strcmp(target, app.path) != 0) {
+		memcpy(app.path, target, sizeof(app.path));
+		set_language(Rlanguage_for_file(app.path));
 	}
 	app.modified = R_FALSE;
 	update_title();
@@ -262,6 +297,9 @@ static void action_file(Rid sender, const char* action, void* user_data) {
 		scan_notes(R_INVALID_ID, NULL);
 		set_status("%s", "New text.");
 	} else if (strcmp(action, "file.open") == 0) {
+#ifdef __EMSCRIPTEN__
+		Rweb_import_file("", imported, NULL);
+#else
 		RFileDialogDesc desc;
 		const char* chosen;
 		if (!can_discard()) return;
@@ -272,6 +310,7 @@ static void action_file(Rid sender, const char* action, void* user_data) {
 		desc.filter_count = 2;
 		chosen = Rfile_dialog_open(&desc);
 		if (chosen) open_path(chosen);
+#endif
 	} else if (strcmp(action, "file.save") == 0) {
 		save(R_FALSE);
 	} else if (strcmp(action, "file.save_as") == 0) {
@@ -397,10 +436,6 @@ int main(int argc, char** argv) {
 	update_title();
 	Rwidget_focus(app.editor);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rshutdown();
+	example_run(app.window, NULL, NULL);
 	return 0;
 }

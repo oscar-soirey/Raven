@@ -31,6 +31,8 @@
 </p>
 </p>
 
+Try the [web demo gallery](https://oscar-soirey.github.io/Raven/demos/) (WebAssembly and WebGL 2), or [build and preview it locally](docs/emscripten.md).
+
 ## Disclaimer : This project is still in active development and public API is subject to change.
 
 ## Build from source
@@ -433,6 +435,23 @@ as it changes, and alive.
 Undo and redo, open and save, `F7` for the preview in a window of its own.
 The files are in `tools/theme_editor/`.
 
+## The inspector
+
+```c
+Rwindow_set_inspector(window, R_TRUE);   /* R_FALSE hides it */
+```
+
+A window beside the application that shows what a window is made of while it
+runs: its widgets as a tree (type, name, classes), what the selected one is
+(place and size in the window, desired size, constraints, slot, visibility,
+state, style, action, children) and what the last frame cost (layout, paint
+and render times, widgets, instances, draw calls). The selected widget is
+outlined in the window with its type and size; *Pick* selects the next widget
+clicked in the window, and that click goes to the inspector only. The tree
+follows the window as widgets come and go. No key opens it: the application
+calls the function (behind a debug menu, a command line option...), and
+`Rwindow_get_inspector` gives its window, to place it.
+
 ## License
 
 **Raven is open source**, under the [Apache License 2.0](LICENSE) (see also
@@ -451,7 +470,7 @@ Questions: oscarsoirey.contact@gmail.com.
 
 ## Status
 
-Version 0.2.1. Everything in this README has been tested: the headless test
+Version 0.2.3. Everything in this README has been tested: the headless test
 programs (layout, widgets, XML, threads, memory, animations, text editor,
 shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
 under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
@@ -561,7 +580,7 @@ dist.bat --test       :: also runs the tests of each build
 ```
 
 ```
-dist\raven-0.2.1\
+dist\raven-0.2.3\
     msvc-static\     include\, lib\raven.lib, lib\cmake\raven, bin\raven_designer.exe, share\raven\
     msvc-shared\     bin\raven.dll, lib\raven.lib (to link with the DLL), the rest as above
     mingw-static\    lib\libraven.a, the rest as above
@@ -961,6 +980,36 @@ run along the links while the pointer is over the graph
 (`Rnode_graph_set_flow_visible`). Widgets inside nodes are ordinary widgets
 and work at any zoom.
 
+**Looks.** The graph and the timeline start from a look: `Auto` (the
+default) follows the theme of the window, its platform (Raven, Windows,
+macOS, GNOME) and whether it is dark; `Modern`, `Blueprint`, `Blender` and
+`Neon` are looks of their own. Any part can then be changed, the most
+specific last: by the styles of the theme for every graph, by the widget,
+by one of its items.
+
+```xml
+<NodeGraph Preset="Blueprint" Link.Shape="Step" Pin.Size="6" Grid.Shape="Lines" Node.CornerRadius="4">
+    <Type Name="exec" Color="#FFFFFF" Shape="Arrow" LinkWidth="3"/>
+    <Node Title="Noise" Color="#FF9F0A" HeaderStyle="Gradient" Icon="noise.svg" Glow="0.6"> ... </Node>
+</NodeGraph>
+<Timeline Preset="Neon" KeyShape="Circle" PlayheadColor="#FF375F">
+    <Track Name="Audio" ClipStyle="Gradient"> <Clip Start="0" Length="4" Style="Outline"/> </Track>
+</Timeline>
+<!-- in a theme -->
+<Style Widget="NodeGraph" Part="Link" State="Selected" Glow="1" Size="4"/>
+```
+
+The parts are the grid, the nodes, their headers, the pins, the links and
+the badges of a graph; the ruler, the headers of the tracks, the tracks,
+the lines of time, the clips, the keys, the markers and the playhead of a
+timeline. Besides the properties of every style they take `Shape` (pins and
+keys: `Circle`, `Ring`, `Square`, `Diamond`, `Triangle`, `Arrow`; links:
+`Bezier`, `Straight`, `Step`, `Angled`; grids: `Dots`, `Lines`, `Cross`,
+`None`; headers and clips: `Solid`, `Gradient`, `Stripe`, `Tint`, `Outline`,
+`None`), `Glow` and `Gradient`. In C: `Rnode_graph_set_preset`,
+`Rnode_graph_set_node_style`, `Rnode_graph_set_type_style`,
+`Rtimeline_set_track_style`... `examples/studio` switches between the looks.
+
 ### Markdown
 
 ```xml
@@ -998,15 +1047,21 @@ styled where it stands.
 A table virtualizes its rows as a list does (`Rtable_set_virtual_rows`); its
 columns are resized by their edges and sorted by their headers. A `Toast`, put
 in an `Overlay`, shows a short message for a few seconds (`Rtoast_show`), with
-an optional button ("Undo"). `Rnotification_show` asks the system for a
+an optional button ("Undo"). Messages that come while one is shown replace it,
+wait their turn (`Queue="Sequence"`) or stack up, the newest at the bottom
+(`Queue="Stack" MaxVisible="3"`), each with its own kind, button and time.
+`Rnotification_show` asks the system for a
 notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
 where there is none, calls the fallback the application gave
-(`Rnotification_set_fallback`), to show it in a toast for instance.
+(`Rnotification_set_fallback`), to show it in a toast for instance. A click on
+a notification calls `Rnotification_set_clicked_callback` (Windows for now).
 
 SVG files are read wherever an image is (`Image Source="icon.svg"`,
-`Rtexture_create_from_file`), drawn at 2 pixels per unit so that they stay
-sharp on high-density screens, and shown at the size the SVG gives;
-`Rtexture_create_from_svg` draws one at another scale.
+`Rtexture_create_from_file`) and shown at the size the SVG gives. They are
+drawn with as many pixels as they are shown with: once painted, an SVG is
+drawn again on a worker thread for the density of the screen, an `Image` that
+stretches it or a zoom, and again when the window moves to another monitor.
+`Rtexture_create_from_svg` with a scale draws one at that scale only.
 
 ### Files that are loaded again
 
@@ -1132,6 +1187,22 @@ frame and state. `Rwindow_set_picture_in_picture_layout` chooses its size and
 corner; a button with `OnClicked="window.picture_in_picture"` goes in and out.
 Wayland does not let an application keep a window above the others: the call
 returns `R_FALSE` there.
+
+### Splash screen
+
+```xml
+<Window Title="Loading" Width="480" Height="280" IsSplashScreen="true">
+    <Image Source="splash.png"/>
+</Window>
+```
+
+`IsSplashScreen="true"` (or `R_WINDOW_SPLASH_SCREEN` given to
+`Rwindow_create`) makes a splash screen: no frame and a fixed size, centered
+on the screen before it is first shown and again when its size changes, above
+the other windows, out of the taskbar and of Alt+Tab on Windows, out of the
+Window menu on macOS, typed as a splash for the window manager on X11. On
+Wayland it is a window without frame. Create the main window, then destroy
+the splash: the application keeps running between the two.
 
 ### The menu bar of macOS
 
@@ -1350,7 +1421,7 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
-  one above the others (so picture in picture too) and fading a whole window:
+  one above the others (so picture in picture and splash screens too) and fading a whole window:
   the protocol does not let an application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
   are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an

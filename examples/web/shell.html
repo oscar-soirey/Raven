@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raven Web</title>
+<style>
+html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#161820; }
+#canvas { display:block; width:100%; height:100%; outline:none; }
+#status { position:absolute; padding:1rem; color:white; font:16px system-ui; }
+</style>
+</head>
+<body>
+<div id="status" role="status">Loading Raven…</div>
+<canvas id="canvas" aria-label="Raven application"></canvas>
+<script>
+var Module = {
+    canvas: document.getElementById("canvas"),
+    onRuntimeInitialized: function() {
+        document.getElementById("status").hidden = true;
+    },
+    onAbort: function(reason) {
+        document.getElementById("status").hidden = false;
+        document.getElementById("status").textContent = "Unable to start Raven: " + reason;
+    }
+};
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

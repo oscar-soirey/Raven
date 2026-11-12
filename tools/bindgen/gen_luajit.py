@@ -3,6 +3,11 @@
 from cparse import classify
 
 
+# They run the loop of the events, and so the Lua callbacks.
+PUMPS = ("Rdraw_frame", "Rwait_frame", "Rpoll_events", "Rdialog_run", "Rmessage_box",
+         "Rfile_dialog_open", "Rfile_dialog_save", "Rfile_dialog_select_folder")
+
+
 def c_decl(ctype, name):
     return "%s %s" % (ctype.replace("*const*", "* const*"), name)
 
@@ -19,6 +24,12 @@ def generate(api):
     w("-- found both in the module (raven.R_WIDGET_BUTTON) and as strings where a")
     w("-- parameter has the type of the enumeration. A Lua function passes where")
     w("-- a callback is expected; keep it referenced while the library may call it.")
+    w("--")
+    w("-- LuaJIT may not run a Lua callback from a C function that compiled code")
+    w("-- called (\"PANIC: bad callback\"). The functions that run the events, and so")
+    w("-- the callbacks (Rdraw_frame, Rwait_frame, Rpoll_events, the dialogs), are")
+    w("-- called here through Lua functions the compiler leaves alone: the loop that")
+    w("-- calls them runs in the interpreter, the callbacks are compiled as usual.")
     w("--")
     w("--   local r = require(\"raven\")")
     w("--   r.Rinit(r.R_BACKEND_VULKAN)")
@@ -76,10 +87,21 @@ def generate(api):
             w("\t%s = %d," % (name, value))
     w("}")
     w("")
+    w("-- the functions that may call back into Lua: never compiled (see above)")
+    w("local pumps = {}")
+    w("for _, name in ipairs({ %s }) do" % ", ".join('"%s"' % n for n in PUMPS))
+    w("\tlocal fn = library[name]")
+    w("\tlocal pump = function(...) return fn(...) end")
+    w("\tif jit then jit.off(pump) end")
+    w("\tpumps[name] = pump")
+    w("end")
+    w("")
     w("return setmetatable({ ffi = ffi, C = library }, {")
     w("\t__index = function(_, name)")
     w("\t\tlocal constant = constants[name]")
     w("\t\tif constant ~= nil then return constant end")
+    w("\t\tlocal pump = pumps[name]")
+    w("\t\tif pump ~= nil then return pump end")
     w("\t\treturn library[name]")
     w("\tend")
     w("})")

@@ -112,11 +112,19 @@ extern "C" {
 
 	/**
 	 * @brief Draws an SVG image (an icon) into a texture, at `scale` pixels per
-	 * unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
-	 * The widgets show it at the size the SVG gives, whatever the scale
-	 * (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
-	 * also read SVG files, at a scale of 2. Paths, fills, strokes and
-	 * gradients are drawn; text, filters and masks are not.
+	 * unit of the SVG. The widgets show it at the size the SVG gives, whatever
+	 * the scale (Rtexture_get_density).
+	 *
+	 * 0 or less: at the size it is shown. It is first drawn at a scale of 2;
+	 * once painted, it is drawn again (on a worker thread) with as many pixels
+	 * as the screen shows it with: the scale of the monitor of the window, an
+	 * Image that stretches it, a zoom. It follows when the window moves to a
+	 * screen of another density or the image grows, and comes down when it is
+	 * shown much smaller (sides of at most 4096 pixels). Its width and height
+	 * in pixels (Rtexture_get_size) change then; its size in logical units
+	 * does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
+	 * ones read SVG files this way. Paths, fills, strokes and gradients are
+	 * drawn; text, filters and masks are not.
 	 */
 	RAVEN_API Rid Rtexture_create_from_svg(const char* svg, size_t svg_size, float scale);
 	/** @brief Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise. */

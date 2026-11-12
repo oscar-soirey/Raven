@@ -119,7 +119,8 @@ const (
 	R_BACKEND_VULKAN RBackend = 1
 	R_BACKEND_NULL   RBackend = 2
 	R_BACKEND_CUSTOM RBackend = 3
-	R_BACKEND_SOKOL  RBackend = 4
+	R_BACKEND_WEBGL  RBackend = 4
+	R_BACKEND_SOKOL  RBackend = 5
 )
 
 type RError int32
@@ -158,6 +159,7 @@ const (
 	R_WINDOW_MAXIMIZED     RWindowFlags = 8
 	R_WINDOW_CUSTOM_HEADER RWindowFlags = 0x0010
 	R_WINDOW_TRANSPARENT   RWindowFlags = 0x0020
+	R_WINDOW_SPLASH_SCREEN RWindowFlags = 0x0040
 )
 
 // RPictureInPictureCorner: Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
@@ -188,13 +190,14 @@ const (
 type RWindowSystem int32
 
 const (
-	R_WINDOW_SYSTEM_NONE    RWindowSystem = 0x0090
-	R_WINDOW_SYSTEM_WIN32   RWindowSystem = 0x0091
-	R_WINDOW_SYSTEM_X11     RWindowSystem = 0x0092
-	R_WINDOW_SYSTEM_WAYLAND RWindowSystem = 0x0093
-	R_WINDOW_SYSTEM_COCOA   RWindowSystem = 0x0094
-	R_WINDOW_SYSTEM_WEB     RWindowSystem = 0x0095
-	R_WINDOW_SYSTEM_UIKIT   RWindowSystem = 0x0096
+	R_WINDOW_SYSTEM_NONE       RWindowSystem = 0x0090
+	R_WINDOW_SYSTEM_WIN32      RWindowSystem = 0x0091
+	R_WINDOW_SYSTEM_X11        RWindowSystem = 0x0092
+	R_WINDOW_SYSTEM_WAYLAND    RWindowSystem = 0x0093
+	R_WINDOW_SYSTEM_COCOA      RWindowSystem = 0x0094
+	R_WINDOW_SYSTEM_EMSCRIPTEN RWindowSystem = 0x0095
+	R_WINDOW_SYSTEM_WEB        RWindowSystem = 0x0096
+	R_WINDOW_SYSTEM_UIKIT      RWindowSystem = 0x0097
 )
 
 // RWindowEdge: Edges and corners of a window, for Rwindow_begin_resize.
@@ -638,6 +641,7 @@ const (
 	R_WIDGET_BREADCRUMB      RWidgetType = 0x022F
 	R_WIDGET_RATING          RWidgetType = 0x0230
 	R_WIDGET_PAGINATION      RWidgetType = 0x0231
+	R_WIDGET_PLOT            RWidgetType = 0x0232
 )
 
 type RHAlign int32
@@ -729,6 +733,15 @@ const (
 	R_TOAST_ERROR   RToastKind = 0x04E3
 )
 
+// RToastQueue: What a Toast does with a message that comes while another one is shown.
+type RToastQueue int32
+
+const (
+	R_TOAST_REPLACE  RToastQueue = 0x0500
+	R_TOAST_SEQUENCE RToastQueue = 0x0501
+	R_TOAST_STACK    RToastQueue = 0x0502
+)
+
 type RButtonStyle int32
 
 const (
@@ -752,6 +765,67 @@ const (
 	R_STRETCH_FIT   RStretch = 0x02B1
 	R_STRETCH_COVER RStretch = 0x02B2
 	R_STRETCH_NONE  RStretch = 0x02B3
+)
+
+// RPlotAxis: The axes of a Plot.
+type RPlotAxis int32
+
+const (
+	R_PLOT_X  RPlotAxis = 0x0520
+	R_PLOT_Y  RPlotAxis = 0x0521
+	R_PLOT_X2 RPlotAxis = 0x0522
+	R_PLOT_Y2 RPlotAxis = 0x0523
+)
+
+// RPlotScale: How an axis of a Plot spreads its values.
+type RPlotScale int32
+
+const (
+	R_PLOT_SCALE_LINEAR RPlotScale = 0x0530
+	R_PLOT_SCALE_LOG    RPlotScale = 0x0531
+	R_PLOT_SCALE_SYMLOG RPlotScale = 0x0532
+)
+
+// RPlotLine: How the line of a series of a Plot is drawn.
+type RPlotLine int32
+
+const (
+	R_PLOT_LINE_SOLID    RPlotLine = 0x0540
+	R_PLOT_LINE_DASHED   RPlotLine = 0x0541
+	R_PLOT_LINE_DOTTED   RPlotLine = 0x0542
+	R_PLOT_LINE_DASH_DOT RPlotLine = 0x0543
+	R_PLOT_LINE_NONE     RPlotLine = 0x0544
+)
+
+// RPlotMarker: The mark drawn on each point of a series of a Plot.
+type RPlotMarker int32
+
+const (
+	R_PLOT_MARKER_NONE          RPlotMarker = 0x0550
+	R_PLOT_MARKER_CIRCLE        RPlotMarker = 0x0551
+	R_PLOT_MARKER_SQUARE        RPlotMarker = 0x0552
+	R_PLOT_MARKER_DIAMOND       RPlotMarker = 0x0553
+	R_PLOT_MARKER_TRIANGLE_UP   RPlotMarker = 0x0554
+	R_PLOT_MARKER_TRIANGLE_DOWN RPlotMarker = 0x0555
+	R_PLOT_MARKER_CROSS         RPlotMarker = 0x0556
+	R_PLOT_MARKER_PLUS          RPlotMarker = 0x0557
+	R_PLOT_MARKER_ASTERISK      RPlotMarker = 0x0558
+)
+
+// RPlotLegend: Where the legend of a Plot is.
+type RPlotLegend int32
+
+const (
+	R_PLOT_LEGEND_HIDDEN       RPlotLegend = 0x0560
+	R_PLOT_LEGEND_TOP_LEFT     RPlotLegend = 0x0561
+	R_PLOT_LEGEND_TOP          RPlotLegend = 0x0562
+	R_PLOT_LEGEND_TOP_RIGHT    RPlotLegend = 0x0563
+	R_PLOT_LEGEND_RIGHT        RPlotLegend = 0x0564
+	R_PLOT_LEGEND_BOTTOM_RIGHT RPlotLegend = 0x0565
+	R_PLOT_LEGEND_BOTTOM       RPlotLegend = 0x0566
+	R_PLOT_LEGEND_BOTTOM_LEFT  RPlotLegend = 0x0567
+	R_PLOT_LEGEND_LEFT         RPlotLegend = 0x0568
+	R_PLOT_LEGEND_OUTSIDE      RPlotLegend = 0x0569
 )
 
 // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
@@ -837,6 +911,16 @@ const (
 	R_DOCK_TOP    RDockSide = 0x0362
 	R_DOCK_BOTTOM RDockSide = 0x0363
 	R_DOCK_TAB    RDockSide = 0x0364
+)
+
+type RVisualPreset int32
+
+const (
+	R_PRESET_AUTO      RVisualPreset = 0x0510
+	R_PRESET_MODERN    RVisualPreset = 0x0511
+	R_PRESET_BLUEPRINT RVisualPreset = 0x0512
+	R_PRESET_BLENDER   RVisualPreset = 0x0513
+	R_PRESET_NEON      RVisualPreset = 0x0514
 )
 
 // RTimelineItem: What an item of a timeline is.
@@ -1347,6 +1431,14 @@ func WindowHide(window ID) {
 	C.Rwindow_hide(C.Rid(window))
 }
 
+// WindowFocus: Shows the window in front of the others with the keyboard, and makes the application the
+// active one. Rwindow_show alone does not take the keyboard from another application (a prompt that appears
+// while the user types elsewhere); this is for a window the user just asked for (a card opened from a tray
+// icon). Where the system has no such request, the same as Rwindow_show.
+func WindowFocus(window ID) {
+	C.Rwindow_focus(C.Rid(window))
+}
+
 func WindowMaximize(window ID) {
 	C.Rwindow_maximize(C.Rid(window))
 }
@@ -1475,6 +1567,33 @@ func WindowSetPictureInPictureLayout(window ID, width int, height int, corner RP
 // WindowCenter: Centers the window on the work area of its monitor (no task bar).
 func WindowCenter(window ID) {
 	C.Rwindow_center(C.Rid(window))
+}
+
+// WindowSetInspector: Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a window beside it that
+// lists its widgets as a tree, says what the selected one is (type, name, classes, place and size in the
+// window, desired size, constraints, slot, visibility, state, style, action, children) and what the last
+// frame cost (layout, paint and render times, widgets, instances, draw calls). The selected widget is
+// outlined in the window, with its type and size. "Pick" selects the next widget clicked in the window (that
+// click goes to the inspector only). It follows the window as it changes; closing it hides it, and it goes
+// with the window. Nothing opens it but this function.
+func WindowSetInspector(window ID, shown int) {
+	C.Rwindow_set_inspector(C.Rid(window), C.int(shown))
+}
+
+func WindowIsInspectorShown(window ID) int {
+	return int(C.Rwindow_is_inspector_shown(C.Rid(window)))
+}
+
+// WindowGetInspector: Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it
+// is hidden.
+func WindowGetInspector(window ID) ID {
+	return ID(C.Rwindow_get_inspector(C.Rid(window)))
+}
+
+// WindowIsSplashScreen: Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in
+// XML).
+func WindowIsSplashScreen(window ID) int {
+	return int(C.Rwindow_is_splash_screen(C.Rid(window)))
 }
 
 // WindowRequestRedraw: Asks for a new frame even if no widget changed. Thread-safe.
@@ -1996,10 +2115,15 @@ func TextureCreateAsync(data []byte) ID {
 	return ID(C.Rtexture_create_async(data_, C.size_t(len(data))))
 }
 
-// TextureCreateFromSvg: Draws an SVG image (an icon) into a texture, at `scale` pixels per unit of the SVG (0
-// or less: 2, sharp on screens up to a scale of 2). The widgets show it at the size the SVG gives, whatever
-// the scale (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file also read SVG files, at a
-// scale of 2. Paths, fills, strokes and gradients are drawn; text, filters and masks are not.
+// TextureCreateFromSvg: Draws an SVG image (an icon) into a texture, at `scale` pixels per unit of the SVG.
+// The widgets show it at the size the SVG gives, whatever the scale (Rtexture_get_density). 0 or less: at the
+// size it is shown. It is first drawn at a scale of 2; once painted, it is drawn again (on a worker thread)
+// with as many pixels as the screen shows it with: the scale of the monitor of the window, an Image that
+// stretches it, a zoom. It follows when the window moves to a screen of another density or the image grows,
+// and comes down when it is shown much smaller (sides of at most 4096 pixels). Its width and height in pixels
+// (Rtexture_get_size) change then; its size in logical units does not. Rtexture_create,
+// Rtexture_create_from_file and the asynchronous ones read SVG files this way. Paths, fills, strokes and
+// gradients are drawn; text, filters and masks are not.
 func TextureCreateFromSvg(svg string, svg_size int, scale float32) ID {
 	svg_ := C.CString(svg)
 	defer C.free(unsafe.Pointer(svg_))
@@ -3586,30 +3710,64 @@ func TimePickerSetMinuteStep(time_picker ID, step int) {
 	C.Rtime_picker_set_minute_step(C.Rid(time_picker), C.int(step))
 }
 
-// ToastShow: Shows a message for `seconds` (0 or less: until Rtoast_hide).
+// ToastShow: Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 func ToastShow(toast ID, text string, seconds float64) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
 	C.Rtoast_show(C.Rid(toast), text_, C.double(seconds))
 }
 
+// ToastShowKind: Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+func ToastShowKind(toast ID, text string, kind RToastKind, seconds float64) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtoast_show_kind(C.Rid(toast), text_, C.RToastKind(kind), C.double(seconds))
+}
+
+// ToastHide: Hides the newest message shown; the next one waiting comes.
 func ToastHide(toast ID) {
 	C.Rtoast_hide(C.Rid(toast))
+}
+
+// ToastClear: Hides every message, and forgets those waiting.
+func ToastClear(toast ID) {
+	C.Rtoast_clear(C.Rid(toast))
 }
 
 func ToastIsShown(toast ID) int {
 	return int(C.Rtoast_is_shown(C.Rid(toast)))
 }
 
+// ToastGetCount: Returns: The messages shown and waiting.
+func ToastGetCount(toast ID) int {
+	return int(C.Rtoast_get_count(C.Rid(toast)))
+}
+
+// ToastGetText: Returns: The newest message shown (the last one, once hidden; the clicked one in the action
+// callback).
 func ToastGetText(toast ID) string {
 	return C.GoString(C.Rtoast_get_text(C.Rid(toast)))
 }
 
+func ToastSetQueue(toast ID, queue RToastQueue) {
+	C.Rtoast_set_queue(C.Rid(toast), C.RToastQueue(queue))
+}
+
+func ToastGetQueue(toast ID) RToastQueue {
+	return RToastQueue(C.Rtoast_get_queue(C.Rid(toast)))
+}
+
+// ToastSetMaxVisible: How many messages a R_TOAST_STACK shows at once (default 3).
+func ToastSetMaxVisible(toast ID, count int) {
+	C.Rtoast_set_max_visible(C.Rid(toast), C.int(count))
+}
+
+// ToastSetKind: The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
 func ToastSetKind(toast ID, kind RToastKind) {
 	C.Rtoast_set_kind(C.Rid(toast), C.RToastKind(kind))
 }
 
-// ToastSetActionText: A button at the end of the message ("Undo"); NULL or "" removes it.
+// ToastSetActionText: A button at the end of the next messages ("Undo"); NULL or "" removes it.
 func ToastSetActionText(toast ID, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
@@ -3696,6 +3854,313 @@ func PaginationGetPage(pagination ID) int {
 // PaginationSetSiblings: Page numbers shown around the current one (default 1).
 func PaginationSetSiblings(pagination ID, siblings int) {
 	C.Rpagination_set_siblings(C.Rid(pagination), C.int(siblings))
+}
+
+func PlotSetTitle(plot ID, title string) {
+	title_ := C.CString(title)
+	defer C.free(unsafe.Pointer(title_))
+	C.Rplot_set_title(C.Rid(plot), title_)
+}
+
+func PlotGetTitle(plot ID) string {
+	return C.GoString(C.Rplot_get_title(C.Rid(plot)))
+}
+
+// PlotAddSeries: Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index.
+func PlotAddSeries(plot ID, name string) int {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Rplot_add_series(C.Rid(plot), name_))
+}
+
+func PlotRemoveSeries(plot ID, series int) {
+	C.Rplot_remove_series(C.Rid(plot), C.int(series))
+}
+
+// PlotClear: Removes every series and every drag line.
+func PlotClear(plot ID) {
+	C.Rplot_clear(C.Rid(plot))
+}
+
+func PlotGetSeriesCount(plot ID) int {
+	return int(C.Rplot_get_series_count(C.Rid(plot)))
+}
+
+func PlotSetSeriesName(plot ID, series int, name string) {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	C.Rplot_set_series_name(C.Rid(plot), C.int(series), name_)
+}
+
+func PlotGetSeriesName(plot ID, series int) string {
+	return C.GoString(C.Rplot_get_series_name(C.Rid(plot), C.int(series)))
+}
+
+// PlotSetSeriesData: Replaces the points of a series with `count` points, copied. x The X of the points, or
+// NULL: 0, 1, 2... y The Y of the points. NaN leaves a gap in the line.
+func PlotSetSeriesData(plot ID, series int, x []float64, y []float64, count int) {
+	var x_ *C.double
+	if len(x) > 0 {
+		x_ = (*C.double)(unsafe.Pointer(&x[0]))
+	}
+	var y_ *C.double
+	if len(y) > 0 {
+		y_ = (*C.double)(unsafe.Pointer(&y[0]))
+	}
+	C.Rplot_set_series_data(C.Rid(plot), C.int(series), x_, y_, C.int(count))
+}
+
+// PlotAppendSeriesData: Adds points after those of a series (x NULL: numbered after the last one).
+func PlotAppendSeriesData(plot ID, series int, x []float64, y []float64, count int) {
+	var x_ *C.double
+	if len(x) > 0 {
+		x_ = (*C.double)(unsafe.Pointer(&x[0]))
+	}
+	var y_ *C.double
+	if len(y) > 0 {
+		y_ = (*C.double)(unsafe.Pointer(&y[0]))
+	}
+	C.Rplot_append_series_data(C.Rid(plot), C.int(series), x_, y_, C.int(count))
+}
+
+// PlotAddPoint: Adds one point after those of a series.
+func PlotAddPoint(plot ID, series int, x float64, y float64) {
+	C.Rplot_add_point(C.Rid(plot), C.int(series), C.double(x), C.double(y))
+}
+
+func PlotClearSeriesData(plot ID, series int) {
+	C.Rplot_clear_series_data(C.Rid(plot), C.int(series))
+}
+
+func PlotGetPointCount(plot ID, series int) int {
+	return int(C.Rplot_get_point_count(C.Rid(plot), C.int(series)))
+}
+
+// PlotGetPoint: One point of a series. Returns R_FALSE when there is no such point.
+func PlotGetPoint(plot ID, series int, index int) (result int, x float64, y float64) {
+	var x_ C.double
+	var y_ C.double
+	result = int(C.Rplot_get_point(C.Rid(plot), C.int(series), C.int(index), &x_, &y_))
+	x = float64(x_)
+	y = float64(y_)
+	return
+}
+
+// PlotSetSeriesMaxPoints: Keeps only the last `max` points of a series, for data that streams in (0: all of
+// them, the default).
+func PlotSetSeriesMaxPoints(plot ID, series int, max int) {
+	C.Rplot_set_series_max_points(C.Rid(plot), C.int(series), C.int(max))
+}
+
+// PlotSetSeriesColor: The color of a series (by default the next one of a palette of ten).
+func PlotSetSeriesColor(plot ID, series int, r float32, g float32, b float32, a float32) {
+	C.Rplot_set_series_color(C.Rid(plot), C.int(series), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// PlotSetSeriesLine: How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width).
+func PlotSetSeriesLine(plot ID, series int, line RPlotLine, width float32) {
+	C.Rplot_set_series_line(C.Rid(plot), C.int(series), C.RPlotLine(line), C.float(width))
+}
+
+// PlotSetSeriesMarker: The mark on each point and its radius (default none, 4; size 0 keeps the size).
+func PlotSetSeriesMarker(plot ID, series int, marker RPlotMarker, size float32) {
+	C.Rplot_set_series_marker(C.Rid(plot), C.int(series), C.RPlotMarker(marker), C.float(size))
+}
+
+// PlotSetSeriesMarkerFilled: Filled markers (the default) or only their outline.
+func PlotSetSeriesMarkerFilled(plot ID, series int, filled int) {
+	C.Rplot_set_series_marker_filled(C.Rid(plot), C.int(series), C.int(filled))
+}
+
+// PlotSetSeriesStep: Draws the line in steps: along at the height of a point, then up or down to the next.
+func PlotSetSeriesStep(plot ID, series int, step int) {
+	C.Rplot_set_series_step(C.Rid(plot), C.int(series), C.int(step))
+}
+
+// PlotSetSeriesFill: Shades the area between the line and zero, at this opacity (0: none, the default).
+func PlotSetSeriesFill(plot ID, series int, opacity float32) {
+	C.Rplot_set_series_fill(C.Rid(plot), C.int(series), C.float(opacity))
+}
+
+// PlotSetSeriesAxes: The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2.
+func PlotSetSeriesAxes(plot ID, series int, x_axis RPlotAxis, y_axis RPlotAxis) {
+	C.Rplot_set_series_axes(C.Rid(plot), C.int(series), C.RPlotAxis(x_axis), C.RPlotAxis(y_axis))
+}
+
+// PlotSetSeriesVisible: Shows or hides a series (the user does it with a click on its name in the legend).
+func PlotSetSeriesVisible(plot ID, series int, visible int) {
+	C.Rplot_set_series_visible(C.Rid(plot), C.int(series), C.int(visible))
+}
+
+func PlotIsSeriesVisible(plot ID, series int) int {
+	return int(C.Rplot_is_series_visible(C.Rid(plot), C.int(series)))
+}
+
+// PlotSetAxisLabel: The name written along an axis.
+func PlotSetAxisLabel(plot ID, axis RPlotAxis, label string) {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	C.Rplot_set_axis_label(C.Rid(plot), C.RPlotAxis(axis), label_)
+}
+
+func PlotGetAxisLabel(plot ID, axis RPlotAxis) string {
+	return C.GoString(C.Rplot_get_axis_label(C.Rid(plot), C.RPlotAxis(axis)))
+}
+
+func PlotSetAxisScale(plot ID, axis RPlotAxis, scale RPlotScale) {
+	C.Rplot_set_axis_scale(C.Rid(plot), C.RPlotAxis(axis), C.RPlotScale(scale))
+}
+
+func PlotGetAxisScale(plot ID, axis RPlotAxis) RPlotScale {
+	return RPlotScale(C.Rplot_get_axis_scale(C.Rid(plot), C.RPlotAxis(axis)))
+}
+
+// PlotSetAxisLinearThreshold: R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default
+// 1).
+func PlotSetAxisLinearThreshold(plot ID, axis RPlotAxis, threshold float64) {
+	C.Rplot_set_axis_linear_threshold(C.Rid(plot), C.RPlotAxis(axis), C.double(threshold))
+}
+
+// PlotSetAxisRange: Shows this range of an axis; the axis then stops following the data.
+func PlotSetAxisRange(plot ID, axis RPlotAxis, min float64, max float64) {
+	C.Rplot_set_axis_range(C.Rid(plot), C.RPlotAxis(axis), C.double(min), C.double(max))
+}
+
+// PlotGetAxisRange: The range an axis shows now (after the user moved or zoomed it).
+func PlotGetAxisRange(plot ID, axis RPlotAxis) (min float64, max float64) {
+	var min_ C.double
+	var max_ C.double
+	C.Rplot_get_axis_range(C.Rid(plot), C.RPlotAxis(axis), &min_, &max_)
+	min = float64(min_)
+	max = float64(max_)
+	return
+}
+
+// PlotSetAxisAutoFit: The axis is fitted to the data whenever it changes (the default, until the view is
+// moved; a double click turns it on again).
+func PlotSetAxisAutoFit(plot ID, axis RPlotAxis, auto_fit int) {
+	C.Rplot_set_axis_auto_fit(C.Rid(plot), C.RPlotAxis(axis), C.int(auto_fit))
+}
+
+func PlotIsAxisAutoFit(plot ID, axis RPlotAxis) int {
+	return int(C.Rplot_is_axis_auto_fit(C.Rid(plot), C.RPlotAxis(axis)))
+}
+
+// PlotSetAxisFormat: How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"),
+// NULL: chosen from the ticks.
+func PlotSetAxisFormat(plot ID, axis RPlotAxis, format string) {
+	format_ := C.CString(format)
+	defer C.free(unsafe.Pointer(format_))
+	C.Rplot_set_axis_format(C.Rid(plot), C.RPlotAxis(axis), format_)
+}
+
+// PlotSetAxisVisible: 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something
+// uses them (the default).
+func PlotSetAxisVisible(plot ID, axis RPlotAxis, visible int) {
+	C.Rplot_set_axis_visible(C.Rid(plot), C.RPlotAxis(axis), C.int(visible))
+}
+
+// PlotSetAxisGrid: Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y).
+func PlotSetAxisGrid(plot ID, axis RPlotAxis, grid int) {
+	C.Rplot_set_axis_grid(C.Rid(plot), C.RPlotAxis(axis), C.int(grid))
+}
+
+// PlotSetAxisInverted: The values grow the other way (to the left, or down).
+func PlotSetAxisInverted(plot ID, axis RPlotAxis, inverted int) {
+	C.Rplot_set_axis_inverted(C.Rid(plot), C.RPlotAxis(axis), C.int(inverted))
+}
+
+// PlotSetAxisLocked: The user cannot move or zoom this axis (the application still can).
+func PlotSetAxisLocked(plot ID, axis RPlotAxis, locked int) {
+	C.Rplot_set_axis_locked(C.Rid(plot), C.RPlotAxis(axis), C.int(locked))
+}
+
+// PlotFit: Fits every axis that is not locked to the data, and has them follow it again (what a double click
+// does).
+func PlotFit(plot ID) {
+	C.Rplot_fit(C.Rid(plot))
+}
+
+// PlotSetLegend: Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT).
+func PlotSetLegend(plot ID, legend RPlotLegend) {
+	C.Rplot_set_legend(C.Rid(plot), C.RPlotLegend(legend))
+}
+
+// PlotSetCrosshair: Lines across the data through the pointer.
+func PlotSetCrosshair(plot ID, crosshair int) {
+	C.Rplot_set_crosshair(C.Rid(plot), C.int(crosshair))
+}
+
+// PlotSetMouseText: The coordinates of the pointer in a corner of the data (on by default).
+func PlotSetMouseText(plot ID, shown int) {
+	C.Rplot_set_mouse_text(C.Rid(plot), C.int(shown))
+}
+
+// PlotSetTooltips: The values of the point under the pointer, written next to it (on by default).
+func PlotSetTooltips(plot ID, shown int) {
+	C.Rplot_set_tooltips(C.Rid(plot), C.int(shown))
+}
+
+// PlotGetMousePosition: Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it
+// is over the data.
+func PlotGetMousePosition(plot ID) (result int, x float64, y float64) {
+	var x_ C.double
+	var y_ C.double
+	result = int(C.Rplot_get_mouse_position(C.Rid(plot), &x_, &y_))
+	x = float64(x_)
+	y = float64(y_)
+	return
+}
+
+// PlotDataToPoint: Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its
+// corner.
+func PlotDataToPoint(plot ID, x float64, y float64) (point_x float32, point_y float32) {
+	var point_x_ C.float
+	var point_y_ C.float
+	C.Rplot_data_to_point(C.Rid(plot), C.double(x), C.double(y), &point_x_, &point_y_)
+	point_x = float32(point_x_)
+	point_y = float32(point_y_)
+	return
+}
+
+// PlotPointToData: The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner.
+func PlotPointToData(plot ID, point_x float32, point_y float32) (x float64, y float64) {
+	var x_ C.double
+	var y_ C.double
+	C.Rplot_point_to_data(C.Rid(plot), C.float(point_x), C.float(point_y), &x_, &y_)
+	x = float64(x_)
+	y = float64(y_)
+	return
+}
+
+// PlotAddDragLine: Adds a line across the data that the user drags: vertical at an X (axis R_PLOT_X or
+// R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2). Its value is written on it, after `label` (may be
+// NULL). Returns its index.
+func PlotAddDragLine(plot ID, axis RPlotAxis, value float64, label string) int {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	return int(C.Rplot_add_drag_line(C.Rid(plot), C.RPlotAxis(axis), C.double(value), label_))
+}
+
+func PlotRemoveDragLine(plot ID, line int) {
+	C.Rplot_remove_drag_line(C.Rid(plot), C.int(line))
+}
+
+func PlotGetDragLineCount(plot ID) int {
+	return int(C.Rplot_get_drag_line_count(C.Rid(plot)))
+}
+
+func PlotSetDragLineValue(plot ID, line int, value float64) {
+	C.Rplot_set_drag_line_value(C.Rid(plot), C.int(line), C.double(value))
+}
+
+func PlotGetDragLineValue(plot ID, line int) float64 {
+	return float64(C.Rplot_get_drag_line_value(C.Rid(plot), C.int(line)))
+}
+
+// PlotSetDragLineColor: The color of a drag line (by default the accent of the theme).
+func PlotSetDragLineColor(plot ID, line int, r float32, g float32, b float32, a float32) {
+	C.Rplot_set_drag_line_color(C.Rid(plot), C.int(line), C.float(r), C.float(g), C.float(b), C.float(a))
 }
 
 // TextEditorCreate: text Initial content, or NULL.
@@ -4559,6 +5024,18 @@ func TimelineSetTrackMuted(timeline ID, track int, muted int) {
 	C.Rtimeline_set_track_muted(C.Rid(timeline), C.int(track), C.int(muted))
 }
 
+// TimelineSetTrackStyle: A property of the look of a track: "ClipStyle" (Solid, Gradient, Tint, Outline),
+// "KeyShape" (Diamond, Circle, Square...), "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+// property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back the one of the timeline. Returns:
+// R_FALSE when the name or the value is not one.
+func TimelineSetTrackStyle(timeline ID, track int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rtimeline_set_track_style(C.Rid(timeline), C.int(track), property_, value_))
+}
+
 func TimelineIsTrackMuted(timeline ID, track int) int {
 	return int(C.Rtimeline_is_track_muted(C.Rid(timeline), C.int(track)))
 }
@@ -4627,6 +5104,26 @@ func TimelineGetItemLabel(timeline ID, item int) string {
 
 func TimelineSetItemColor(timeline ID, item int, r float32, g float32, b float32) {
 	C.Rtimeline_set_item_color(C.Rid(timeline), C.int(item), C.float(r), C.float(g), C.float(b))
+}
+
+// TimelineSetItemStyle: A property of the look of one clip, key or marker: "Style" (Solid, Gradient, Tint,
+// Outline: clips), "Shape" (keys), or any property of its part ("Background", "BorderColor", "Glow",
+// "CornerRadius", "Foreground" for its label...).
+func TimelineSetItemStyle(timeline ID, item int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rtimeline_set_item_style(C.Rid(timeline), C.int(item), property_, value_))
+}
+
+// TimelineSetPreset: The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+func TimelineSetPreset(timeline ID, preset RVisualPreset) {
+	C.Rtimeline_set_preset(C.Rid(timeline), C.RVisualPreset(preset))
+}
+
+func TimelineGetPreset(timeline ID) RVisualPreset {
+	return RVisualPreset(C.Rtimeline_get_preset(C.Rid(timeline)))
 }
 
 func TimelineGetItemCount(timeline ID) int {
@@ -4724,6 +5221,19 @@ func NodeGraphGetNodeSize(graph ID, node int) (width float32, height float32) {
 // NodeGraphSetNodeColor: Color of the header of the node; without one it takes the accent color of the theme.
 func NodeGraphSetNodeColor(graph ID, node int, r float32, g float32, b float32) {
 	C.Rnode_graph_set_node_color(C.Rid(graph), C.int(node), C.float(r), C.float(g), C.float(b))
+}
+
+// NodeGraphSetNodeStyle: A property of the look of one node: "HeaderStyle" (Solid, Gradient, Stripe, Tint,
+// None), "HeaderColor", "TitleColor", "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+// "Icon" (an image file shown before its title), or a part and a property ("Header.Gradient",
+// "Node.ShadowSize"). "" or "Default" gives back the one of the graph. Returns: R_FALSE when the name or the
+// value is not one.
+func NodeGraphSetNodeStyle(graph ID, node int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rnode_graph_set_node_style(C.Rid(graph), C.int(node), property_, value_))
 }
 
 // NodeGraphSetNodeContent: Puts a widget inside the node, under its pins: the graph owns it from now on.
@@ -4833,6 +5343,28 @@ func NodeGraphSetTypeColor(graph ID, type_ string, r float32, g float32, b float
 	C.Rnode_graph_set_type_color(C.Rid(graph), type__, C.float(r), C.float(g), C.float(b))
 }
 
+// NodeGraphSetTypeStyle: A property of the pins of a type and of their links: "Shape" (Circle, Ring, Square,
+// Diamond, Triangle, Arrow), "Size", "Glow", "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth",
+// "LinkGlow".
+func NodeGraphSetTypeStyle(graph ID, type_ string, property string, value string) int {
+	type__ := C.CString(type_)
+	defer C.free(unsafe.Pointer(type__))
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rnode_graph_set_type_style(C.Rid(graph), type__, property_, value_))
+}
+
+// NodeGraphSetPinStyle: The same for one pin ("Shape", "Size", "Glow", "Color").
+func NodeGraphSetPinStyle(graph ID, pin int, property string, value string) int {
+	property_ := C.CString(property)
+	defer C.free(unsafe.Pointer(property_))
+	value_ := C.CString(value)
+	defer C.free(unsafe.Pointer(value_))
+	return int(C.Rnode_graph_set_pin_style(C.Rid(graph), C.int(pin), property_, value_))
+}
+
 // NodeGraphConnect: Links an output to an input, as the user does by dragging. The connect callback is not
 // asked. Returns: The link; 0 when the pins cannot be linked (two inputs, the same node, different types).
 func NodeGraphConnect(graph ID, output_pin int, input_pin int) int {
@@ -4923,6 +5455,15 @@ func NodeGraphSetReadOnly(graph ID, read_only int) {
 	C.Rnode_graph_set_read_only(C.Rid(graph), C.int(read_only))
 }
 
+// NodeGraphSetPreset: The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+func NodeGraphSetPreset(graph ID, preset RVisualPreset) {
+	C.Rnode_graph_set_preset(C.Rid(graph), C.RVisualPreset(preset))
+}
+
+func NodeGraphGetPreset(graph ID) RVisualPreset {
+	return RVisualPreset(C.Rnode_graph_get_preset(C.Rid(graph)))
+}
+
 func NodeGraphSelectNode(graph ID, node int, add int) {
 	C.Rnode_graph_select_node(C.Rid(graph), C.int(node), C.int(add))
 }
@@ -4941,6 +5482,23 @@ func NodeGraphGetSelectionCount(graph ID) int {
 
 func NodeGraphGetSelectedNode(graph ID, index int) int {
 	return int(C.Rnode_graph_get_selected_node(C.Rid(graph), C.int(index)))
+}
+
+// NodeGraphGetNodeAt: The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or
+// 0.
+func NodeGraphGetNodeAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_node_at(C.Rid(graph), C.float(x), C.float(y)))
+}
+
+// NodeGraphGetPinAt: The pin near a point of the widget (or whose tag is under it: Rnode_graph_set_pin_tag),
+// or 0 (a menu for a pin).
+func NodeGraphGetPinAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_pin_at(C.Rid(graph), C.float(x), C.float(y)))
+}
+
+// NodeGraphGetLinkAt: The link under a point of the widget, or 0 (hidden links are never under it).
+func NodeGraphGetLinkAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_link_at(C.Rid(graph), C.float(x), C.float(y)))
 }
 
 // NodeGraphSetPinMultiple: R_TRUE: this input keeps every link made to it (a state that several transitions
@@ -4965,12 +5523,52 @@ func NodeGraphSetNodeDeletable(graph ID, node int, deletable int) {
 	C.Rnode_graph_set_node_deletable(C.Rid(graph), C.int(node), C.int(deletable))
 }
 
+// NodeGraphSetNodeShown: Shows a node at once, without the animation a node added to a shown graph pops in
+// with (an application that rebuilds its graph).
+func NodeGraphSetNodeShown(graph ID, node int) {
+	C.Rnode_graph_set_node_shown(C.Rid(graph), C.int(node))
+}
+
+// NodeGraphSetLinkShown: The same for a link made with Rnode_graph_connect: drawn whole at once instead of
+// growing from its output.
+func NodeGraphSetLinkShown(graph ID, link int) {
+	C.Rnode_graph_set_link_shown(C.Rid(graph), C.int(link))
+}
+
+// NodeGraphSetNodeIcon: An icon before the title: a texture of the application, shared by many nodes and not
+// deleted with them (the "Icon" style loads one per node from a file). R_INVALID_ID removes it.
+func NodeGraphSetNodeIcon(graph ID, node int, texture ID) {
+	C.Rnode_graph_set_node_icon(C.Rid(graph), C.int(node), C.Rid(texture))
+}
+
 // NodeGraphSetNodeBadge: A short text in a pill on the top right corner of the node ("1", "!"...); NULL or ""
 // removes it.
 func NodeGraphSetNodeBadge(graph ID, node int, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
 	C.Rnode_graph_set_node_badge(C.Rid(graph), C.int(node), text_)
+}
+
+// NodeGraphSetPinTag: A short text in a chip of the pin's color outside the node, beside the pin (left of an
+// input, right of an output): the name of what goes out or comes in there, as a net label of a schematic.
+// NULL or "" removes it.
+func NodeGraphSetPinTag(graph ID, pin int, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rnode_graph_set_pin_tag(C.Rid(graph), C.int(pin), text_)
+}
+
+// NodeGraphSetLinkHidden: R_TRUE: the link stays (its pins are linked, the application keeps it) but is not
+// drawn and not picked: its two ends are shown otherwise (pin tags naming it, as the labels of a schematic
+// stand for a wire).
+func NodeGraphSetLinkHidden(graph ID, link int, hidden int) {
+	C.Rnode_graph_set_link_hidden(C.Rid(graph), C.int(link), C.int(hidden))
+}
+
+// NodeGraphSetPinEmphasis: How much a pin stands out, as while a wire is pulled: 1 shows it as a pin to go
+// to, -1 steps it back, 0 as usual (an application that links in two clicks).
+func NodeGraphSetPinEmphasis(graph ID, pin int, emphasis int) {
+	C.Rnode_graph_set_pin_emphasis(C.Rid(graph), C.int(pin), C.int(emphasis))
 }
 
 func BlockEditorCreate() ID {
@@ -5181,6 +5779,16 @@ func DialogClose(widget ID, result int) {
 // DialogRun: Shows a dialog and waits until it closes. Returns its result.
 func DialogRun(window ID, content ID) int {
 	return int(C.Rdialog_run(C.Rid(window), C.Rid(content)))
+}
+
+// PopupClose: Closes the popup that contains a widget (the content or anything inside it).
+func PopupClose(widget ID, result int) {
+	C.Rpopup_close(C.Rid(widget), C.int(result))
+}
+
+// PopupIsOpen: Returns: R_TRUE while the widget is shown as a popup.
+func PopupIsOpen(content ID) int {
+	return int(C.Rpopup_is_open(C.Rid(content)))
 }
 
 // WindowHasDialog: Returns: R_TRUE while a dialog is shown in the window.
@@ -5663,7 +6271,9 @@ func XmlNodeGetIndex(node ID) int {
 	return int(C.Rxml_node_get_index(C.Rid(node)))
 }
 
-// XmlNodeAddChild: index Where among the children; -1 for the end.
+// XmlNodeAddChild: index Where among the children; -1 for the end. Returns: The new node; R_INVALID_ID
+// (R_ERROR_XML) when it would be nested deeper than a document can be: 256 levels under the root, as when a
+// text is read. The same holds for the functions below.
 func XmlNodeAddChild(parent ID, tag string, index int) ID {
 	tag_ := C.CString(tag)
 	defer C.free(unsafe.Pointer(tag_))
@@ -5691,7 +6301,8 @@ func XmlNodeRemove(node ID) {
 
 // XmlNodeMove: Moves a node, with what it contains, under another parent of the same document or elsewhere
 // under its own. index Where among the children of the new parent, counted once the node has left its place;
-// -1 for the end. Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+// -1 for the end. Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a
+// place too deep).
 func XmlNodeMove(node ID, new_parent ID, index int) int {
 	return int(C.Rxml_node_move(C.Rid(node), C.Rid(new_parent), C.int(index)))
 }
@@ -6077,6 +6688,7 @@ func HostInjectClose(window ID) {
 // Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
 // Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
 // Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
+// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
 // Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
 // Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
@@ -6085,11 +6697,13 @@ func HostInjectClose(window ID) {
 // Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
 // Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
 // Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback
-// Rblock_editor_set_context_callback, Rdialog_open, Rfile_dialog_open, Rfile_dialog_save
-// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
-// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
-// Rnotification_set_fallback, Rviewport_set_draw_callback, Rviewport_get_native_handle
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
+// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
+// Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
 // Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text
 // Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect

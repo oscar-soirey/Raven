@@ -1,0 +1,52 @@
+<!--
+  Raven SDK Installer: the window. The pages are files of their own (page_*.xml), brought in by
+  <Include>; the rows that are repeated (compilers, packages, options) are row_*.xml, created by
+  the program once per item. Every file of this folder is embedded in the installer.
+-->
+<Window Title="Raven SDK Installer" Width="960" Height="640" MinWidth="860" MinHeight="580" Theme="theme.xml">
+	<Shortcut Keys="Escape" Action="nav.cancel"/>
+	<HBox>
+		<!-- the steps -->
+		<Border Name="sidebar" Width="250" Background="#0E0F13" Padding="24,28">
+			<VBox Spacing="4">
+				<HBox Spacing="12">
+					<Image Source="logo.png" Width="40" Height="40" Stretch="Fit"/>
+					<VBox Slot.VAlign="Center">
+						<Label Text="Raven SDK" TextSize="19"/>
+						<Label Name="sidebar.version" Text="" Opacity="0.5"/>
+					</VBox>
+				</HBox>
+				<Spacer Height="32"/>
+				<Label Name="step.0" Text="Welcome" Slot.Padding="10,7"/>
+				<Label Name="step.1" Text="Location" Slot.Padding="10,7"/>
+				<Label Name="step.2" Text="Development environment" Slot.Padding="10,7"/>
+				<Label Name="step.3" Text="Components" Slot.Padding="10,7"/>
+				<Label Name="step.4" Text="Summary" Slot.Padding="10,7"/>
+				<Label Name="step.5" Text="Installation" Slot.Padding="10,7"/>
+				<Label Name="step.6" Text="Finish" Slot.Padding="10,7"/>
+				<Spacer Slot.Fill="1"/>
+				<Label Name="sidebar.platform" Text="" Opacity="0.45" Wrap="true"/>
+				<Label Text="RavenGUI - Apache License 2.0" Opacity="0.35"/>
+			</VBox>
+		</Border>
+
+		<VBox Slot.Fill="1">
+			<Switcher Name="pages" Slot.Fill="1">
+				<Include Source="page_welcome.xml"/>
+				<Include Source="page_location.xml"/>
+				<Include Source="page_environment.xml"/>
+				<Include Source="page_components.xml"/>
+				<Include Source="page_summary.xml"/>
+				<Include Source="page_progress.xml"/>
+				<Include Source="page_done.xml"/>
+			</Switcher>
+			<Separator/>
+			<HBox Spacing="10" Slot.Padding="24,14">
+				<Label Name="footer.status" Text="" Opacity="0.6" Wrap="true" Slot.Fill="1" Slot.VAlign="Center"/>
+				<Button Name="nav.cancel" Text="Cancel" Style="Flat" OnClicked="nav.cancel" MinWidth="96"/>
+				<Button Name="nav.back" Text="Back" OnClicked="nav.back" MinWidth="96"/>
+				<Button Name="nav.next" Text="Next" Style="Primary" OnClicked="nav.next" MinWidth="120"/>
+			</HBox>
+		</VBox>
+	</HBox>
+</Window>

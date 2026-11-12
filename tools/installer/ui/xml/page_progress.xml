@@ -1,0 +1,14 @@
+<!-- Page 6: the installation (or the uninstallation) as it runs. -->
+<VBox Spacing="12" Slot.Padding="48,44">
+	<Label Name="progress.title" Text="Installing" TextSize="26"/>
+	<Label Name="progress.operation" Text="" Opacity="0.7"/>
+	<ProgressBar Name="progress.bar" Value="0"/>
+	<Label Name="progress.detail" Text="" Opacity="0.5"/>
+	<VBox Name="progress.components" Spacing="4" Slot.Padding="0,6"/>
+	<Border Name="progress.error" Visibility="Collapsed" Background="#3A1216" CornerRadius="8" Padding="14,10">
+		<Label Name="progress.error.text" Text="" Wrap="true" Selectable="true"/>
+	</Border>
+	<Expander Title="Details" Expanded="false" Slot.Fill="1">
+		<TextEditor Name="progress.log" ReadOnly="true" LineNumbers="false" Wrap="true" Language="None" TextSize="12" MinHeight="160"/>
+	</Expander>
+</VBox>

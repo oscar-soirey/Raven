@@ -728,6 +728,38 @@ static void test_dialog_animated(void) {
 	Rset_animation_time_step(0.0);
 }
 
+static int g_popup_closed = -1;
+static void on_popup_closed(Rid content, int result, void* user_data) {
+	(void)content;
+	(void)user_data;
+	g_popup_closed = result;
+}
+
+/* A popup: shown at a point, kept by the application, closed by a click outside or by the application. */
+static void test_popup(void) {
+	Rid window, popup;
+
+	const char* xml = "<Window Width=\"900\" Height=\"600\"><Label Text=\"under\"/></Window>";
+	window = Rwindow_create_from_xml(xml, strlen(xml));
+	CHECK(Rwindow_is_valid(window));
+	Rdraw_frame();
+	popup = Rwidget_create_from_xml("<Border Background=\"#202020\" Padding=\"8\"><TextInput Name=\"q\" Width=\"200\"/></Border>", strlen("<Border Background=\"#202020\" Padding=\"8\"><TextInput Name=\"q\" Width=\"200\"/></Border>"));
+	CHECK(popup != R_INVALID_ID);
+	Rpopup_open(window, popup, 300.0f, 200.0f, on_popup_closed, NULL);
+	Rdraw_frame();
+	CHECK(Rpopup_is_open(popup));
+	test_click_at(window, 850.0f, 550.0f);
+	Rdraw_frame();
+	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 0 && Rwidget_is_valid(popup));
+	Rpopup_open(window, popup, 300.0f, 200.0f, on_popup_closed, NULL);
+	Rdraw_frame();
+	Rpopup_close(Rwidget_find(popup, "q"), 7);
+	Rdraw_frame();
+	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 7 && Rwidget_is_valid(popup));
+	Rwidget_destroy(popup);
+	Rwindow_destroy(window);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("test_dialogs: cannot initialize Raven\n");
@@ -741,6 +773,7 @@ int main(void) {
 	RUN(test_file_browser);
 	RUN(test_file_browser_xml);
 	RUN(test_file_dialogs);
+	RUN(test_popup);
 	remove_tree();
 	Rshutdown();
 	return test_report("test_dialogs");

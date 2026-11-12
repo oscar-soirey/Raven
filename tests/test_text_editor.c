@@ -164,6 +164,110 @@ static void test_typing(void) {
 	Rwindow_destroy(g_window);
 }
 
+static int g_sends;
+
+static void on_send(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_sends++;
+}
+
+/* Ctrl+Enter and Alt+Enter are left to the shortcuts of the window (send, run...) */
+static void test_enter_shortcuts(void) {
+	open_editor("");
+	Raction_bind("test.send", on_send, NULL);
+	Rwindow_register_shortcut(g_window, R_KEY_ENTER, R_MOD_CTRL, "test.send");
+	Rwindow_register_shortcut(g_window, R_KEY_ENTER, R_MOD_ALT, "test.send");
+	g_sends = 0;
+
+	type("hi");
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi");
+	CHECK(g_sends == 1);
+	key(R_KEY_ENTER, R_MOD_ALT);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi");
+	CHECK(g_sends == 2);
+	key(R_KEY_KP_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi");
+
+	/* Enter and Shift+Enter still break the line */
+	key(R_KEY_ENTER, 0);
+	key(R_KEY_ENTER, R_MOD_SHIFT);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi\n\n");
+	CHECK(g_sends == 2);
+
+	/* without a shortcut, Ctrl+Enter does nothing */
+	Rwindow_unregister_shortcut(g_window, R_KEY_ENTER, R_MOD_CTRL);
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi\n\n");
+	CHECK(g_sends == 2);
+
+	/* a read-only editor lets the shortcut through too */
+	Rwindow_register_shortcut(g_window, R_KEY_ENTER, R_MOD_CTRL, "test.send");
+	Rtext_editor_set_read_only(g_editor, R_TRUE);
+	key(R_KEY_ENTER, R_MOD_CTRL);
+	CHECK(g_sends == 3);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hi\n\n");
+
+	Raction_unbind("test.send");
+	Rwindow_destroy(g_window);
+}
+
+static int g_prev, g_next;
+
+static void on_prev(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_prev++;
+}
+
+static void on_next(Rid sender, const char* action, void* user_data) {
+	(void)sender;
+	(void)action;
+	(void)user_data;
+	g_next++;
+}
+
+/* Alt+Up and Alt+Down are left to the shortcuts of the window (previous / next...) */
+static void test_alt_arrow_shortcuts(void) {
+	open_editor("");
+	Raction_bind("test.prev", on_prev, NULL);
+	Raction_bind("test.next", on_next, NULL);
+	Rwindow_register_shortcut(g_window, R_KEY_UP, R_MOD_ALT, "test.prev");
+	Rwindow_register_shortcut(g_window, R_KEY_DOWN, R_MOD_ALT, "test.next");
+	g_prev = 0;
+	g_next = 0;
+
+	Rtext_editor_set_text(g_editor, "one\ntwo\nthree");
+	Rtext_editor_set_cursor(g_editor, 1, 1);
+	key(R_KEY_UP, R_MOD_ALT);
+	CHECK(g_prev == 1);
+	CHECK_CURSOR(1, 1);
+	key(R_KEY_DOWN, R_MOD_ALT);
+	CHECK(g_next == 1);
+	CHECK_CURSOR(1, 1);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "one\ntwo\nthree");
+
+	/* the arrows alone still move the caret, and fire nothing */
+	key(R_KEY_UP, 0);
+	CHECK_CURSOR(0, 1);
+	key(R_KEY_DOWN, 0);
+	CHECK_CURSOR(1, 1);
+	CHECK(g_prev == 1 && g_next == 1);
+
+	/* without a shortcut, Alt+Up does nothing */
+	Rwindow_unregister_shortcut(g_window, R_KEY_UP, R_MOD_ALT);
+	key(R_KEY_UP, R_MOD_ALT);
+	CHECK_CURSOR(1, 1);
+	CHECK(g_prev == 1);
+
+	Raction_unbind("test.prev");
+	Raction_unbind("test.next");
+	Rwindow_destroy(g_window);
+}
+
 static void test_navigation(void) {
 	int a, b, c, d;
 	/* a fixed-width font: columns line up from one line to the next */
@@ -537,6 +641,8 @@ static void test_languages(void) {
 	EXPECT_ERRORS_END(1);
 	CHECK_STR(Rtext_editor_get_language(g_editor), "");
 	CHECK_STR(Rlanguage_for_file("/src/main.rs"), "Rust");
+	CHECK_STR(Rlanguage_for_file("build.zig"), "Zig");
+	CHECK_STR(Rlanguage_for_file("build.zig.zon"), "Zig");
 	CHECK_STR(Rlanguage_for_file("a.b/Thing.CS"), "C#");
 	CHECK_STR(Rlanguage_for_file("index.html"), "HTML");
 	CHECK_STR(Rlanguage_for_file("x.hpp"), "C++");
@@ -1492,6 +1598,8 @@ int main(void) {
 
 	RUN(test_content);
 	RUN(test_typing);
+	RUN(test_enter_shortcuts);
+	RUN(test_alt_arrow_shortcuts);
 	RUN(test_navigation);
 	RUN(test_clipboard_and_history);
 	RUN(test_indent);

@@ -217,7 +217,10 @@ properties. It is how a theme changes the look of a control without code:
 | `CornerRadius` | its corners |
 | `Size` | the size of a part that has one of its own: a knob, a dot, a pill |
 | `Opacity` | 0..1 |
-| `ShadowColor`, `ShadowSize` | the shadow it drops (popups) |
+| `ShadowColor`, `ShadowSize` | the shadow it drops (popups, `Border`: the `Shadow` of the element comes before `ShadowSize`) |
+| `Shape` | the form of a part that can take several: `Circle`, `Ring`, `Square`, `Diamond`, `Triangle`, `Arrow` (pins, keys), `Bezier`, `Straight`, `Step`, `Angled` (links), `Dots`, `Lines`, `Cross` (grids), `Solid`, `Gradient`, `Stripe`, `Tint`, `Outline` (headers of nodes, clips), `None` |
+| `Glow` | light of its color around it, 0..1 (`Label`, `Border`, and the pins, links, nodes, clips and keys of node graphs and timelines) |
+| `Gradient` | the color it fades to (a header of a node, a clip of the `Gradient` form) |
 
 | `Part` | of | |
 |---|---|---|
@@ -235,6 +238,14 @@ properties. It is how a theme changes the look of a control without code:
 | `Tooltip` | every widget | its tooltip |
 | `CaptionButton`, `CloseButton` | HeaderBar | the buttons of the window |
 | `Focus` | every widget | the ring of the keyboard focus |
+| `Grid`, `Node`, `Header`, `Pin`, `Link`, `Indicator` | NodeGraph | the grid of the canvas, a node, its header, a pin, a link, the badge of a node (the widget itself: the canvas) |
+| `Ruler`, `Header`, `Track`, `Grid`, `Clip`, `Key`, `Marker`, `Playhead` | Timeline | the ruler, the column of the names of the tracks, a track (`Background`: every other one; `BorderColor`: the line under it), the lines of time, a clip, a key, a marker, the playhead |
+
+The NodeGraph and the Timeline start from a look of their own (`Preset`:
+`Auto`, which follows the theme, `Modern`, `Blueprint`, `Blender`, `Neon`);
+the styles are laid over it, then their attributes (`Link.Shape="Step"`),
+then what is given to one of their items (raven_tools.h). Nodes, links,
+clips and keys take the states `Hovered` and `Selected`.
 
 `State` lists states that must all hold: `Hovered`, `Pressed`, `Focused`,
 `Disabled`, `Checked` (a check box, a switch, a radio button that is on),

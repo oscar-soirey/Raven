@@ -150,6 +150,12 @@ static void on_check(Rid button, void* user_data) {
 	Rlabel_set_text(app.check, Rmemory_check() ? "Rmemory_check: the heap is consistent." : "Rmemory_check: the heap is damaged!");
 }
 
+static void example_shutdown(void) {
+	Rshutdown();
+	if (app.custom)
+		printf("blocks still allocated after Rshutdown: %u\n", (unsigned)g_counter.blocks);
+}
+
 int main(int argc, char** argv) {
 	RAllocator allocator;
 	Rid box, row, scroll, button;
@@ -192,15 +198,10 @@ int main(int argc, char** argv) {
 	on_add(R_INVALID_ID, NULL);
 	Rtimer_create(0.5, R_TRUE, refresh, NULL);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rshutdown();
-	if (app.custom) {
-		/* what an application checks at exit: everything the library took, it gave back */
-		printf("blocks still allocated after Rshutdown: %u\n", (unsigned)g_counter.blocks);
-		return g_counter.blocks == 0 ? 0 : 1;
-	}
+	example_run(app.window, NULL, example_shutdown);
+#ifdef __EMSCRIPTEN__
 	return 0;
+#else
+	return app.custom && g_counter.blocks != 0 ? 1 : 0;
+#endif
 }

@@ -98,6 +98,15 @@ float rvn_paint_spring(RPainter* painter, RSpring* spring, float target, RMotion
 	return rvn_paint_spring_from(painter, spring, target, motion);
 }
 
+float rvn_paint_track(RPainter* painter, RSpring* spring, float target, RMotion motion, int by_pointer) {
+	if (by_pointer) {
+		/* snap to the pointer; stay in sync so a later keyboard move glides from here */
+		rvn_spring_set(spring, target);
+		return target;
+	}
+	return rvn_paint_spring(painter, spring, target, motion);
+}
+
 float Rdraw_spring(RPainter* painter, RSpring* spring, float target, RMotion motion) {
 	if (!painter || !spring) return target;
 	if (motion < R_MOTION_SNAPPY || motion > R_MOTION_WOBBLY) motion = R_MOTION_SMOOTH;

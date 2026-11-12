@@ -181,13 +181,6 @@ static void action_motion(Rid sender, const char* action, void* user_data) {
 	}
 }
 
-/* the application has quit: releases what it holds, then every window, widget and resource of Raven */
-static void on_finished(int exit_code, void* user_data) {
-	(void)exit_code;
-	(void)user_data;
-	Rshutdown();
-}
-
 int main(void) {
 	int i;
 	char action[32];
@@ -223,11 +216,6 @@ int main(void) {
 	for (i = 0; i < 3; i++) add_card(0.35f + 0.08f * (float)i);
 	Rwidget_set_transition(app.card, R_TRANSITION_POP, 0.3f);
 
-	/* Rrun is the loop (see examples/hello): it returns when the application quits, or at once in a browser or on iOS,
-	 * where on_finished runs later */
-	if (example_automated(app.window)) {
-		Rshutdown();
-		return 0;
-	}
-	return Rrun(on_finished, NULL);
+	example_run(app.window, NULL, NULL);
+	return 0;
 }

@@ -77,6 +77,13 @@ def _p(value):
     return value
 
 
+def _a(ctype, values):
+    """Numbers for the library (a list, a tuple, any sequence): copied into a C array. None and C arrays pass as they are."""
+    if values is None or isinstance(values, (ctypes.Array, ctypes._Pointer)):
+        return values
+    return (ctype * len(values))(*values)
+
+
 def _e(cls, value):
     """A number as a member of an enumeration, when it is one."""
     try:
@@ -100,7 +107,7 @@ Rid = ctypes.c_uint32
 
 RAVEN_VERSION_MAJOR = 0
 RAVEN_VERSION_MINOR = 2
-RAVEN_VERSION_PATCH = 1
+RAVEN_VERSION_PATCH = 3
 RAVEN_API_VERSION = "0.2"
 R_FALSE = 0
 R_TRUE = 1
@@ -111,11 +118,13 @@ class RBackend(enum.IntEnum):
     R_BACKEND_VULKAN = 1
     R_BACKEND_NULL = 2
     R_BACKEND_CUSTOM = 3
-    R_BACKEND_SOKOL = 4
+    R_BACKEND_WEBGL = 4
+    R_BACKEND_SOKOL = 5
 
 R_BACKEND_VULKAN = RBackend.R_BACKEND_VULKAN
 R_BACKEND_NULL = RBackend.R_BACKEND_NULL
 R_BACKEND_CUSTOM = RBackend.R_BACKEND_CUSTOM
+R_BACKEND_WEBGL = RBackend.R_BACKEND_WEBGL
 R_BACKEND_SOKOL = RBackend.R_BACKEND_SOKOL
 
 class RError(enum.IntEnum):
@@ -164,6 +173,7 @@ class RWindowFlags(enum.IntFlag):
     R_WINDOW_MAXIMIZED = 8
     R_WINDOW_CUSTOM_HEADER = 0x0010
     R_WINDOW_TRANSPARENT = 0x0020
+    R_WINDOW_SPLASH_SCREEN = 0x0040
 
 R_WINDOW_DEFAULT = RWindowFlags.R_WINDOW_DEFAULT
 R_WINDOW_NO_RESIZE = RWindowFlags.R_WINDOW_NO_RESIZE
@@ -172,6 +182,7 @@ R_WINDOW_BORDERLESS = RWindowFlags.R_WINDOW_BORDERLESS
 R_WINDOW_MAXIMIZED = RWindowFlags.R_WINDOW_MAXIMIZED
 R_WINDOW_CUSTOM_HEADER = RWindowFlags.R_WINDOW_CUSTOM_HEADER
 R_WINDOW_TRANSPARENT = RWindowFlags.R_WINDOW_TRANSPARENT
+R_WINDOW_SPLASH_SCREEN = RWindowFlags.R_WINDOW_SPLASH_SCREEN
 
 class RPictureInPictureCorner(enum.IntEnum):
     """Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout)."""
@@ -214,14 +225,16 @@ class RWindowSystem(enum.IntEnum):
     R_WINDOW_SYSTEM_X11 = 0x0092
     R_WINDOW_SYSTEM_WAYLAND = 0x0093
     R_WINDOW_SYSTEM_COCOA = 0x0094
-    R_WINDOW_SYSTEM_WEB = 0x0095
-    R_WINDOW_SYSTEM_UIKIT = 0x0096
+    R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095
+    R_WINDOW_SYSTEM_WEB = 0x0096
+    R_WINDOW_SYSTEM_UIKIT = 0x0097
 
 R_WINDOW_SYSTEM_NONE = RWindowSystem.R_WINDOW_SYSTEM_NONE
 R_WINDOW_SYSTEM_WIN32 = RWindowSystem.R_WINDOW_SYSTEM_WIN32
 R_WINDOW_SYSTEM_X11 = RWindowSystem.R_WINDOW_SYSTEM_X11
 R_WINDOW_SYSTEM_WAYLAND = RWindowSystem.R_WINDOW_SYSTEM_WAYLAND
 R_WINDOW_SYSTEM_COCOA = RWindowSystem.R_WINDOW_SYSTEM_COCOA
+R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN
 R_WINDOW_SYSTEM_WEB = RWindowSystem.R_WINDOW_SYSTEM_WEB
 R_WINDOW_SYSTEM_UIKIT = RWindowSystem.R_WINDOW_SYSTEM_UIKIT
 
@@ -889,6 +902,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_BREADCRUMB = 0x022F
     R_WIDGET_RATING = 0x0230
     R_WIDGET_PAGINATION = 0x0231
+    R_WIDGET_PLOT = 0x0232
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -940,6 +954,7 @@ R_WIDGET_TOAST = RWidgetType.R_WIDGET_TOAST
 R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB
 R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING
 R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
+R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1052,6 +1067,16 @@ R_TOAST_SUCCESS = RToastKind.R_TOAST_SUCCESS
 R_TOAST_WARNING = RToastKind.R_TOAST_WARNING
 R_TOAST_ERROR = RToastKind.R_TOAST_ERROR
 
+class RToastQueue(enum.IntEnum):
+    """What a Toast does with a message that comes while another one is shown."""
+    R_TOAST_REPLACE = 0x0500
+    R_TOAST_SEQUENCE = 0x0501
+    R_TOAST_STACK = 0x0502
+
+R_TOAST_REPLACE = RToastQueue.R_TOAST_REPLACE
+R_TOAST_SEQUENCE = RToastQueue.R_TOAST_SEQUENCE
+R_TOAST_STACK = RToastQueue.R_TOAST_STACK
+
 class RButtonStyle(enum.IntEnum):
     R_BUTTON_DEFAULT = 0x0290
     R_BUTTON_PRIMARY = 0x0291
@@ -1080,6 +1105,88 @@ R_STRETCH_FILL = RStretch.R_STRETCH_FILL
 R_STRETCH_FIT = RStretch.R_STRETCH_FIT
 R_STRETCH_COVER = RStretch.R_STRETCH_COVER
 R_STRETCH_NONE = RStretch.R_STRETCH_NONE
+
+class RPlotAxis(enum.IntEnum):
+    """The axes of a Plot."""
+    R_PLOT_X = 0x0520
+    R_PLOT_Y = 0x0521
+    R_PLOT_X2 = 0x0522
+    R_PLOT_Y2 = 0x0523
+
+R_PLOT_X = RPlotAxis.R_PLOT_X
+R_PLOT_Y = RPlotAxis.R_PLOT_Y
+R_PLOT_X2 = RPlotAxis.R_PLOT_X2
+R_PLOT_Y2 = RPlotAxis.R_PLOT_Y2
+
+class RPlotScale(enum.IntEnum):
+    """How an axis of a Plot spreads its values."""
+    R_PLOT_SCALE_LINEAR = 0x0530
+    R_PLOT_SCALE_LOG = 0x0531
+    R_PLOT_SCALE_SYMLOG = 0x0532
+
+R_PLOT_SCALE_LINEAR = RPlotScale.R_PLOT_SCALE_LINEAR
+R_PLOT_SCALE_LOG = RPlotScale.R_PLOT_SCALE_LOG
+R_PLOT_SCALE_SYMLOG = RPlotScale.R_PLOT_SCALE_SYMLOG
+
+class RPlotLine(enum.IntEnum):
+    """How the line of a series of a Plot is drawn."""
+    R_PLOT_LINE_SOLID = 0x0540
+    R_PLOT_LINE_DASHED = 0x0541
+    R_PLOT_LINE_DOTTED = 0x0542
+    R_PLOT_LINE_DASH_DOT = 0x0543
+    R_PLOT_LINE_NONE = 0x0544
+
+R_PLOT_LINE_SOLID = RPlotLine.R_PLOT_LINE_SOLID
+R_PLOT_LINE_DASHED = RPlotLine.R_PLOT_LINE_DASHED
+R_PLOT_LINE_DOTTED = RPlotLine.R_PLOT_LINE_DOTTED
+R_PLOT_LINE_DASH_DOT = RPlotLine.R_PLOT_LINE_DASH_DOT
+R_PLOT_LINE_NONE = RPlotLine.R_PLOT_LINE_NONE
+
+class RPlotMarker(enum.IntEnum):
+    """The mark drawn on each point of a series of a Plot."""
+    R_PLOT_MARKER_NONE = 0x0550
+    R_PLOT_MARKER_CIRCLE = 0x0551
+    R_PLOT_MARKER_SQUARE = 0x0552
+    R_PLOT_MARKER_DIAMOND = 0x0553
+    R_PLOT_MARKER_TRIANGLE_UP = 0x0554
+    R_PLOT_MARKER_TRIANGLE_DOWN = 0x0555
+    R_PLOT_MARKER_CROSS = 0x0556
+    R_PLOT_MARKER_PLUS = 0x0557
+    R_PLOT_MARKER_ASTERISK = 0x0558
+
+R_PLOT_MARKER_NONE = RPlotMarker.R_PLOT_MARKER_NONE
+R_PLOT_MARKER_CIRCLE = RPlotMarker.R_PLOT_MARKER_CIRCLE
+R_PLOT_MARKER_SQUARE = RPlotMarker.R_PLOT_MARKER_SQUARE
+R_PLOT_MARKER_DIAMOND = RPlotMarker.R_PLOT_MARKER_DIAMOND
+R_PLOT_MARKER_TRIANGLE_UP = RPlotMarker.R_PLOT_MARKER_TRIANGLE_UP
+R_PLOT_MARKER_TRIANGLE_DOWN = RPlotMarker.R_PLOT_MARKER_TRIANGLE_DOWN
+R_PLOT_MARKER_CROSS = RPlotMarker.R_PLOT_MARKER_CROSS
+R_PLOT_MARKER_PLUS = RPlotMarker.R_PLOT_MARKER_PLUS
+R_PLOT_MARKER_ASTERISK = RPlotMarker.R_PLOT_MARKER_ASTERISK
+
+class RPlotLegend(enum.IntEnum):
+    """Where the legend of a Plot is."""
+    R_PLOT_LEGEND_HIDDEN = 0x0560
+    R_PLOT_LEGEND_TOP_LEFT = 0x0561
+    R_PLOT_LEGEND_TOP = 0x0562
+    R_PLOT_LEGEND_TOP_RIGHT = 0x0563
+    R_PLOT_LEGEND_RIGHT = 0x0564
+    R_PLOT_LEGEND_BOTTOM_RIGHT = 0x0565
+    R_PLOT_LEGEND_BOTTOM = 0x0566
+    R_PLOT_LEGEND_BOTTOM_LEFT = 0x0567
+    R_PLOT_LEGEND_LEFT = 0x0568
+    R_PLOT_LEGEND_OUTSIDE = 0x0569
+
+R_PLOT_LEGEND_HIDDEN = RPlotLegend.R_PLOT_LEGEND_HIDDEN
+R_PLOT_LEGEND_TOP_LEFT = RPlotLegend.R_PLOT_LEGEND_TOP_LEFT
+R_PLOT_LEGEND_TOP = RPlotLegend.R_PLOT_LEGEND_TOP
+R_PLOT_LEGEND_TOP_RIGHT = RPlotLegend.R_PLOT_LEGEND_TOP_RIGHT
+R_PLOT_LEGEND_RIGHT = RPlotLegend.R_PLOT_LEGEND_RIGHT
+R_PLOT_LEGEND_BOTTOM_RIGHT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_RIGHT
+R_PLOT_LEGEND_BOTTOM = RPlotLegend.R_PLOT_LEGEND_BOTTOM
+R_PLOT_LEGEND_BOTTOM_LEFT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_LEFT
+R_PLOT_LEGEND_LEFT = RPlotLegend.R_PLOT_LEGEND_LEFT
+R_PLOT_LEGEND_OUTSIDE = RPlotLegend.R_PLOT_LEGEND_OUTSIDE
 
 class RSyntax(enum.IntEnum):
     """Shorthands of Rtext_editor_set_language for two languages."""
@@ -1195,6 +1302,19 @@ R_DOCK_RIGHT = RDockSide.R_DOCK_RIGHT
 R_DOCK_TOP = RDockSide.R_DOCK_TOP
 R_DOCK_BOTTOM = RDockSide.R_DOCK_BOTTOM
 R_DOCK_TAB = RDockSide.R_DOCK_TAB
+
+class RVisualPreset(enum.IntEnum):
+    R_PRESET_AUTO = 0x0510
+    R_PRESET_MODERN = 0x0511
+    R_PRESET_BLUEPRINT = 0x0512
+    R_PRESET_BLENDER = 0x0513
+    R_PRESET_NEON = 0x0514
+
+R_PRESET_AUTO = RVisualPreset.R_PRESET_AUTO
+R_PRESET_MODERN = RVisualPreset.R_PRESET_MODERN
+R_PRESET_BLUEPRINT = RVisualPreset.R_PRESET_BLUEPRINT
+R_PRESET_BLENDER = RVisualPreset.R_PRESET_BLENDER
+R_PRESET_NEON = RVisualPreset.R_PRESET_NEON
 
 class RTimelineItem(enum.IntEnum):
     """What an item of a timeline is."""
@@ -1507,7 +1627,8 @@ class RNativeWindow(ctypes.Structure):
               Wayland or X11 when Rinit runs: check `system`)
       Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
       UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
-      Web   : display = the CSS selector of the canvas (const char*, "#canvas")"""
+      Web   : display = the CSS selector of the canvas (const char*, "#canvas")
+      Emscripten: window = opaque browser surface token (no OS window handle)"""
     _fields_ = [
         ("system", ctypes.c_int),
         ("display", ctypes.c_void_p),
@@ -2160,6 +2281,30 @@ def _adapt_RPageChangedCallback(function):
         function(pagination, page, user_data)
     return call
 
+RPlotViewCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RPlotViewCallback(function):
+    def call(plot, user_data):
+        function(plot, user_data)
+    return call
+
+RPlotDragLineCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_void_p)
+
+
+def _adapt_RPlotDragLineCallback(function):
+    def call(plot, line, value, user_data):
+        function(plot, line, value, user_data)
+    return call
+
+RPlotSeriesCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RPlotSeriesCallback(function):
+    def call(plot, series, visible, user_data):
+        function(plot, series, visible, user_data)
+    return call
+
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
 
 
@@ -2264,6 +2409,14 @@ def _adapt_RNodeGraphContextCallback(function):
         function(graph, node, x, y, user_data)
     return call
 
+RNodeGraphPointCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_void_p)
+
+
+def _adapt_RNodeGraphPointCallback(function):
+    def call(graph, item, x, y, user_data):
+        function(graph, item, x, y, user_data)
+    return call
+
 RBlockEditorCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
 
 
@@ -2302,6 +2455,14 @@ RNotificationFallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_char_p,
 def _adapt_RNotificationFallback(function):
     def call(title, body, urgency, user_data):
         function(_r(title), _r(body), _e(RNotificationUrgency, urgency), user_data)
+    return call
+
+RNotificationClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+
+
+def _adapt_RNotificationClickedCallback(function):
+    def call(user_data):
+        function(user_data)
     return call
 
 RViewportDrawCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RViewportDrawInfo), ctypes.c_void_p)
@@ -3115,6 +3276,20 @@ def Rwindow_hide(window):
     _lib.Rwindow_hide(window)
 
 
+_lib.Rwindow_focus.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_focus.restype = None
+
+
+def Rwindow_focus(window):
+    """Shows the window in front of the others with the keyboard, and
+    makes the application the active one. Rwindow_show alone does not take
+    the keyboard from another application (a prompt that appears while the
+    user types elsewhere); this is for a window the user just asked for (a
+    card opened from a tray icon). Where the system has no such request,
+    the same as Rwindow_show."""
+    _lib.Rwindow_focus(window)
+
+
 _lib.Rwindow_maximize.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_maximize.restype = None
 
@@ -3357,6 +3532,50 @@ _lib.Rwindow_center.restype = None
 def Rwindow_center(window):
     """Centers the window on the work area of its monitor (no task bar)."""
     _lib.Rwindow_center(window)
+
+
+_lib.Rwindow_set_inspector.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_set_inspector.restype = None
+
+
+def Rwindow_set_inspector(window, shown):
+    """Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+    window beside it that lists its widgets as a tree, says what the
+    selected one is (type, name, classes, place and size in the window,
+    desired size, constraints, slot, visibility, state, style, action,
+    children) and what the last frame cost (layout, paint and render
+    times, widgets, instances, draw calls). The selected widget is
+    outlined in the window, with its type and size. "Pick" selects the
+    next widget clicked in the window (that click goes to the inspector
+    only). It follows the window as it changes; closing it hides it, and
+    it goes with the window. Nothing opens it but this function."""
+    _lib.Rwindow_set_inspector(window, shown)
+
+
+_lib.Rwindow_is_inspector_shown.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_inspector_shown.restype = ctypes.c_int
+
+
+def Rwindow_is_inspector_shown(window):
+    return _lib.Rwindow_is_inspector_shown(window)
+
+
+_lib.Rwindow_get_inspector.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_inspector.restype = ctypes.c_uint32
+
+
+def Rwindow_get_inspector(window):
+    """Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden."""
+    return _lib.Rwindow_get_inspector(window)
+
+
+_lib.Rwindow_is_splash_screen.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_is_splash_screen.restype = ctypes.c_int
+
+
+def Rwindow_is_splash_screen(window):
+    """Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML)."""
+    return _lib.Rwindow_is_splash_screen(window)
 
 
 _lib.Rwindow_request_redraw.argtypes = [ctypes.c_uint32]
@@ -4336,11 +4555,19 @@ _lib.Rtexture_create_from_svg.restype = ctypes.c_uint32
 
 def Rtexture_create_from_svg(svg, svg_size, scale):
     """Draws an SVG image (an icon) into a texture, at `scale` pixels per
-    unit of the SVG (0 or less: 2, sharp on screens up to a scale of 2).
-    The widgets show it at the size the SVG gives, whatever the scale
-    (Rtexture_get_density). Rtexture_create and Rtexture_create_from_file
-    also read SVG files, at a scale of 2. Paths, fills, strokes and
-    gradients are drawn; text, filters and masks are not."""
+    unit of the SVG. The widgets show it at the size the SVG gives, whatever
+    the scale (Rtexture_get_density).
+    
+    0 or less: at the size it is shown. It is first drawn at a scale of 2;
+    once painted, it is drawn again (on a worker thread) with as many pixels
+    as the screen shows it with: the scale of the monitor of the window, an
+    Image that stretches it, a zoom. It follows when the window moves to a
+    screen of another density or the image grows, and comes down when it is
+    shown much smaller (sides of at most 4096 pixels). Its width and height
+    in pixels (Rtexture_get_size) change then; its size in logical units
+    does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
+    ones read SVG files this way. Paths, fills, strokes and gradients are
+    drawn; text, filters and masks are not."""
     return _lib.Rtexture_create_from_svg(_s(svg), svg_size, scale)
 
 
@@ -7407,8 +7634,17 @@ _lib.Rtoast_show.restype = None
 
 
 def Rtoast_show(toast, text, seconds):
-    """Shows a message for `seconds` (0 or less: until Rtoast_hide)."""
+    """Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now."""
     _lib.Rtoast_show(toast, _s(text), seconds)
+
+
+_lib.Rtoast_show_kind.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_double]
+_lib.Rtoast_show_kind.restype = None
+
+
+def Rtoast_show_kind(toast, text, kind, seconds):
+    """Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is)."""
+    _lib.Rtoast_show_kind(toast, _s(text), int(kind), seconds)
 
 
 _lib.Rtoast_hide.argtypes = [ctypes.c_uint32]
@@ -7416,7 +7652,17 @@ _lib.Rtoast_hide.restype = None
 
 
 def Rtoast_hide(toast):
+    """Hides the newest message shown; the next one waiting comes."""
     _lib.Rtoast_hide(toast)
+
+
+_lib.Rtoast_clear.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_clear.restype = None
+
+
+def Rtoast_clear(toast):
+    """Hides every message, and forgets those waiting."""
+    _lib.Rtoast_clear(toast)
 
 
 _lib.Rtoast_is_shown.argtypes = [ctypes.c_uint32]
@@ -7427,12 +7673,47 @@ def Rtoast_is_shown(toast):
     return _lib.Rtoast_is_shown(toast)
 
 
+_lib.Rtoast_get_count.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_get_count.restype = ctypes.c_int
+
+
+def Rtoast_get_count(toast):
+    """Returns: The messages shown and waiting."""
+    return _lib.Rtoast_get_count(toast)
+
+
 _lib.Rtoast_get_text.argtypes = [ctypes.c_uint32]
 _lib.Rtoast_get_text.restype = ctypes.c_char_p
 
 
 def Rtoast_get_text(toast):
+    """Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback)."""
     return _r(_lib.Rtoast_get_text(toast))
+
+
+_lib.Rtoast_set_queue.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtoast_set_queue.restype = None
+
+
+def Rtoast_set_queue(toast, queue):
+    _lib.Rtoast_set_queue(toast, int(queue))
+
+
+_lib.Rtoast_get_queue.argtypes = [ctypes.c_uint32]
+_lib.Rtoast_get_queue.restype = ctypes.c_int
+
+
+def Rtoast_get_queue(toast):
+    return _e(RToastQueue, _lib.Rtoast_get_queue(toast))
+
+
+_lib.Rtoast_set_max_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtoast_set_max_visible.restype = None
+
+
+def Rtoast_set_max_visible(toast, count):
+    """How many messages a R_TOAST_STACK shows at once (default 3)."""
+    _lib.Rtoast_set_max_visible(toast, count)
 
 
 _lib.Rtoast_set_kind.argtypes = [ctypes.c_uint32, ctypes.c_int]
@@ -7440,6 +7721,7 @@ _lib.Rtoast_set_kind.restype = None
 
 
 def Rtoast_set_kind(toast, kind):
+    """The kind of the next messages (and of the message shown, with R_TOAST_REPLACE)."""
     _lib.Rtoast_set_kind(toast, int(kind))
 
 
@@ -7448,7 +7730,7 @@ _lib.Rtoast_set_action_text.restype = None
 
 
 def Rtoast_set_action_text(toast, text):
-    """A button at the end of the message ("Undo"); NULL or "" removes it."""
+    """A button at the end of the next messages ("Undo"); NULL or "" removes it."""
     _lib.Rtoast_set_action_text(toast, _s(text))
 
 
@@ -7627,6 +7909,500 @@ _lib.Rpagination_set_changed_callback.restype = None
 
 def Rpagination_set_changed_callback(pagination, callback, user_data=None):
     _lib.Rpagination_set_changed_callback(pagination, _callback(RPageChangedCallback, _adapt_RPageChangedCallback, callback), user_data)
+
+
+_lib.Rplot_set_title.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rplot_set_title.restype = None
+
+
+def Rplot_set_title(plot, title):
+    _lib.Rplot_set_title(plot, _s(title))
+
+
+_lib.Rplot_get_title.argtypes = [ctypes.c_uint32]
+_lib.Rplot_get_title.restype = ctypes.c_char_p
+
+
+def Rplot_get_title(plot):
+    return _r(_lib.Rplot_get_title(plot))
+
+
+_lib.Rplot_add_series.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rplot_add_series.restype = ctypes.c_int
+
+
+def Rplot_add_series(plot, name):
+    """Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index."""
+    return _lib.Rplot_add_series(plot, _s(name))
+
+
+_lib.Rplot_remove_series.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_remove_series.restype = None
+
+
+def Rplot_remove_series(plot, series):
+    _lib.Rplot_remove_series(plot, series)
+
+
+_lib.Rplot_clear.argtypes = [ctypes.c_uint32]
+_lib.Rplot_clear.restype = None
+
+
+def Rplot_clear(plot):
+    """Removes every series and every drag line."""
+    _lib.Rplot_clear(plot)
+
+
+_lib.Rplot_get_series_count.argtypes = [ctypes.c_uint32]
+_lib.Rplot_get_series_count.restype = ctypes.c_int
+
+
+def Rplot_get_series_count(plot):
+    return _lib.Rplot_get_series_count(plot)
+
+
+_lib.Rplot_set_series_name.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rplot_set_series_name.restype = None
+
+
+def Rplot_set_series_name(plot, series, name):
+    _lib.Rplot_set_series_name(plot, series, _s(name))
+
+
+_lib.Rplot_get_series_name.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_series_name.restype = ctypes.c_char_p
+
+
+def Rplot_get_series_name(plot, series):
+    return _r(_lib.Rplot_get_series_name(plot, series))
+
+
+_lib.Rplot_set_series_data.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+_lib.Rplot_set_series_data.restype = None
+
+
+def Rplot_set_series_data(plot, series, x, y, count):
+    """Replaces the points of a series with `count` points, copied.
+    x The X of the points, or NULL: 0, 1, 2...
+    y The Y of the points. NaN leaves a gap in the line."""
+    _lib.Rplot_set_series_data(plot, series, _a(ctypes.c_double, x), _a(ctypes.c_double, y), count)
+
+
+_lib.Rplot_append_series_data.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+_lib.Rplot_append_series_data.restype = None
+
+
+def Rplot_append_series_data(plot, series, x, y, count):
+    """Adds points after those of a series (x NULL: numbered after the last one)."""
+    _lib.Rplot_append_series_data(plot, series, _a(ctypes.c_double, x), _a(ctypes.c_double, y), count)
+
+
+_lib.Rplot_add_point.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_double]
+_lib.Rplot_add_point.restype = None
+
+
+def Rplot_add_point(plot, series, x, y):
+    """Adds one point after those of a series."""
+    _lib.Rplot_add_point(plot, series, x, y)
+
+
+_lib.Rplot_clear_series_data.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_clear_series_data.restype = None
+
+
+def Rplot_clear_series_data(plot, series):
+    _lib.Rplot_clear_series_data(plot, series)
+
+
+_lib.Rplot_get_point_count.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_point_count.restype = ctypes.c_int
+
+
+def Rplot_get_point_count(plot, series):
+    return _lib.Rplot_get_point_count(plot, series)
+
+
+_lib.Rplot_get_point.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_get_point.restype = ctypes.c_int
+
+
+def Rplot_get_point(plot, series, index):
+    """One point of a series. Returns R_FALSE when there is no such point."""
+    x_ = ctypes.c_double()
+    y_ = ctypes.c_double()
+    result = _lib.Rplot_get_point(plot, series, index, ctypes.byref(x_), ctypes.byref(y_))
+    return (result, x_.value, y_.value)
+
+
+_lib.Rplot_set_series_max_points.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_max_points.restype = None
+
+
+def Rplot_set_series_max_points(plot, series, max):
+    """Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default)."""
+    _lib.Rplot_set_series_max_points(plot, series, max)
+
+
+_lib.Rplot_set_series_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rplot_set_series_color.restype = None
+
+
+def Rplot_set_series_color(plot, series, r, g, b, a):
+    """The color of a series (by default the next one of a palette of ten)."""
+    _lib.Rplot_set_series_color(plot, series, r, g, b, a)
+
+
+_lib.Rplot_set_series_line.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float]
+_lib.Rplot_set_series_line.restype = None
+
+
+def Rplot_set_series_line(plot, series, line, width):
+    """How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width)."""
+    _lib.Rplot_set_series_line(plot, series, int(line), width)
+
+
+_lib.Rplot_set_series_marker.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float]
+_lib.Rplot_set_series_marker.restype = None
+
+
+def Rplot_set_series_marker(plot, series, marker, size):
+    """The mark on each point and its radius (default none, 4; size 0 keeps the size)."""
+    _lib.Rplot_set_series_marker(plot, series, int(marker), size)
+
+
+_lib.Rplot_set_series_marker_filled.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_marker_filled.restype = None
+
+
+def Rplot_set_series_marker_filled(plot, series, filled):
+    """Filled markers (the default) or only their outline."""
+    _lib.Rplot_set_series_marker_filled(plot, series, filled)
+
+
+_lib.Rplot_set_series_step.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_step.restype = None
+
+
+def Rplot_set_series_step(plot, series, step):
+    """Draws the line in steps: along at the height of a point, then up or down to the next."""
+    _lib.Rplot_set_series_step(plot, series, step)
+
+
+_lib.Rplot_set_series_fill.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float]
+_lib.Rplot_set_series_fill.restype = None
+
+
+def Rplot_set_series_fill(plot, series, opacity):
+    """Shades the area between the line and zero, at this opacity (0: none, the default)."""
+    _lib.Rplot_set_series_fill(plot, series, opacity)
+
+
+_lib.Rplot_set_series_axes.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_axes.restype = None
+
+
+def Rplot_set_series_axes(plot, series, x_axis, y_axis):
+    """The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2."""
+    _lib.Rplot_set_series_axes(plot, series, int(x_axis), int(y_axis))
+
+
+_lib.Rplot_set_series_visible.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_series_visible.restype = None
+
+
+def Rplot_set_series_visible(plot, series, visible):
+    """Shows or hides a series (the user does it with a click on its name in the legend)."""
+    _lib.Rplot_set_series_visible(plot, series, visible)
+
+
+_lib.Rplot_is_series_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_is_series_visible.restype = ctypes.c_int
+
+
+def Rplot_is_series_visible(plot, series):
+    return _lib.Rplot_is_series_visible(plot, series)
+
+
+_lib.Rplot_set_axis_label.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rplot_set_axis_label.restype = None
+
+
+def Rplot_set_axis_label(plot, axis, label):
+    """The name written along an axis."""
+    _lib.Rplot_set_axis_label(plot, int(axis), _s(label))
+
+
+_lib.Rplot_get_axis_label.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_axis_label.restype = ctypes.c_char_p
+
+
+def Rplot_get_axis_label(plot, axis):
+    return _r(_lib.Rplot_get_axis_label(plot, int(axis)))
+
+
+_lib.Rplot_set_axis_scale.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_scale.restype = None
+
+
+def Rplot_set_axis_scale(plot, axis, scale):
+    _lib.Rplot_set_axis_scale(plot, int(axis), int(scale))
+
+
+_lib.Rplot_get_axis_scale.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_axis_scale.restype = ctypes.c_int
+
+
+def Rplot_get_axis_scale(plot, axis):
+    return _e(RPlotScale, _lib.Rplot_get_axis_scale(plot, int(axis)))
+
+
+_lib.Rplot_set_axis_linear_threshold.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double]
+_lib.Rplot_set_axis_linear_threshold.restype = None
+
+
+def Rplot_set_axis_linear_threshold(plot, axis, threshold):
+    """R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1)."""
+    _lib.Rplot_set_axis_linear_threshold(plot, int(axis), threshold)
+
+
+_lib.Rplot_set_axis_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_double]
+_lib.Rplot_set_axis_range.restype = None
+
+
+def Rplot_set_axis_range(plot, axis, min, max):
+    """Shows this range of an axis; the axis then stops following the data."""
+    _lib.Rplot_set_axis_range(plot, int(axis), min, max)
+
+
+_lib.Rplot_get_axis_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_get_axis_range.restype = None
+
+
+def Rplot_get_axis_range(plot, axis):
+    """The range an axis shows now (after the user moved or zoomed it)."""
+    min_ = ctypes.c_double()
+    max_ = ctypes.c_double()
+    _lib.Rplot_get_axis_range(plot, int(axis), ctypes.byref(min_), ctypes.byref(max_))
+    return (min_.value, max_.value)
+
+
+_lib.Rplot_set_axis_auto_fit.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_auto_fit.restype = None
+
+
+def Rplot_set_axis_auto_fit(plot, axis, auto_fit):
+    """The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again)."""
+    _lib.Rplot_set_axis_auto_fit(plot, int(axis), auto_fit)
+
+
+_lib.Rplot_is_axis_auto_fit.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_is_axis_auto_fit.restype = ctypes.c_int
+
+
+def Rplot_is_axis_auto_fit(plot, axis):
+    return _lib.Rplot_is_axis_auto_fit(plot, int(axis))
+
+
+_lib.Rplot_set_axis_format.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rplot_set_axis_format.restype = None
+
+
+def Rplot_set_axis_format(plot, axis, format_):
+    """How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks."""
+    _lib.Rplot_set_axis_format(plot, int(axis), _s(format_))
+
+
+_lib.Rplot_set_axis_visible.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_visible.restype = None
+
+
+def Rplot_set_axis_visible(plot, axis, visible):
+    """1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default)."""
+    _lib.Rplot_set_axis_visible(plot, int(axis), visible)
+
+
+_lib.Rplot_set_axis_grid.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_grid.restype = None
+
+
+def Rplot_set_axis_grid(plot, axis, grid):
+    """Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y)."""
+    _lib.Rplot_set_axis_grid(plot, int(axis), grid)
+
+
+_lib.Rplot_set_axis_inverted.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_inverted.restype = None
+
+
+def Rplot_set_axis_inverted(plot, axis, inverted):
+    """The values grow the other way (to the left, or down)."""
+    _lib.Rplot_set_axis_inverted(plot, int(axis), inverted)
+
+
+_lib.Rplot_set_axis_locked.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rplot_set_axis_locked.restype = None
+
+
+def Rplot_set_axis_locked(plot, axis, locked):
+    """The user cannot move or zoom this axis (the application still can)."""
+    _lib.Rplot_set_axis_locked(plot, int(axis), locked)
+
+
+_lib.Rplot_fit.argtypes = [ctypes.c_uint32]
+_lib.Rplot_fit.restype = None
+
+
+def Rplot_fit(plot):
+    """Fits every axis that is not locked to the data, and has them follow it again (what a double click does)."""
+    _lib.Rplot_fit(plot)
+
+
+_lib.Rplot_set_legend.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_legend.restype = None
+
+
+def Rplot_set_legend(plot, legend):
+    """Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT)."""
+    _lib.Rplot_set_legend(plot, int(legend))
+
+
+_lib.Rplot_set_crosshair.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_crosshair.restype = None
+
+
+def Rplot_set_crosshair(plot, crosshair):
+    """Lines across the data through the pointer."""
+    _lib.Rplot_set_crosshair(plot, crosshair)
+
+
+_lib.Rplot_set_mouse_text.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_mouse_text.restype = None
+
+
+def Rplot_set_mouse_text(plot, shown):
+    """The coordinates of the pointer in a corner of the data (on by default)."""
+    _lib.Rplot_set_mouse_text(plot, shown)
+
+
+_lib.Rplot_set_tooltips.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_set_tooltips.restype = None
+
+
+def Rplot_set_tooltips(plot, shown):
+    """The values of the point under the pointer, written next to it (on by default)."""
+    _lib.Rplot_set_tooltips(plot, shown)
+
+
+_lib.Rplot_get_mouse_position.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_get_mouse_position.restype = ctypes.c_int
+
+
+def Rplot_get_mouse_position(plot):
+    """Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data."""
+    x_ = ctypes.c_double()
+    y_ = ctypes.c_double()
+    result = _lib.Rplot_get_mouse_position(plot, ctypes.byref(x_), ctypes.byref(y_))
+    return (result, x_.value, y_.value)
+
+
+_lib.Rplot_data_to_point.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float)]
+_lib.Rplot_data_to_point.restype = None
+
+
+def Rplot_data_to_point(plot, x, y):
+    """Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner."""
+    point_x_ = ctypes.c_float()
+    point_y_ = ctypes.c_float()
+    _lib.Rplot_data_to_point(plot, x, y, ctypes.byref(point_x_), ctypes.byref(point_y_))
+    return (point_x_.value, point_y_.value)
+
+
+_lib.Rplot_point_to_data.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rplot_point_to_data.restype = None
+
+
+def Rplot_point_to_data(plot, point_x, point_y):
+    """The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner."""
+    x_ = ctypes.c_double()
+    y_ = ctypes.c_double()
+    _lib.Rplot_point_to_data(plot, point_x, point_y, ctypes.byref(x_), ctypes.byref(y_))
+    return (x_.value, y_.value)
+
+
+_lib.Rplot_add_drag_line.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_char_p]
+_lib.Rplot_add_drag_line.restype = ctypes.c_int
+
+
+def Rplot_add_drag_line(plot, axis, value, label):
+    """Adds a line across the data that the user drags: vertical at an X
+    (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+    Its value is written on it, after `label` (may be NULL). Returns its index."""
+    return _lib.Rplot_add_drag_line(plot, int(axis), value, _s(label))
+
+
+_lib.Rplot_remove_drag_line.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_remove_drag_line.restype = None
+
+
+def Rplot_remove_drag_line(plot, line):
+    _lib.Rplot_remove_drag_line(plot, line)
+
+
+_lib.Rplot_get_drag_line_count.argtypes = [ctypes.c_uint32]
+_lib.Rplot_get_drag_line_count.restype = ctypes.c_int
+
+
+def Rplot_get_drag_line_count(plot):
+    return _lib.Rplot_get_drag_line_count(plot)
+
+
+_lib.Rplot_set_drag_line_value.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double]
+_lib.Rplot_set_drag_line_value.restype = None
+
+
+def Rplot_set_drag_line_value(plot, line, value):
+    _lib.Rplot_set_drag_line_value(plot, line, value)
+
+
+_lib.Rplot_get_drag_line_value.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rplot_get_drag_line_value.restype = ctypes.c_double
+
+
+def Rplot_get_drag_line_value(plot, line):
+    return _lib.Rplot_get_drag_line_value(plot, line)
+
+
+_lib.Rplot_set_drag_line_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rplot_set_drag_line_color.restype = None
+
+
+def Rplot_set_drag_line_color(plot, line, r, g, b, a):
+    """The color of a drag line (by default the accent of the theme)."""
+    _lib.Rplot_set_drag_line_color(plot, line, r, g, b, a)
+
+
+_lib.Rplot_set_view_changed_callback.argtypes = [ctypes.c_uint32, RPlotViewCallback, ctypes.c_void_p]
+_lib.Rplot_set_view_changed_callback.restype = None
+
+
+def Rplot_set_view_changed_callback(plot, callback, user_data=None):
+    _lib.Rplot_set_view_changed_callback(plot, _callback(RPlotViewCallback, _adapt_RPlotViewCallback, callback), user_data)
+
+
+_lib.Rplot_set_drag_line_callback.argtypes = [ctypes.c_uint32, RPlotDragLineCallback, ctypes.c_void_p]
+_lib.Rplot_set_drag_line_callback.restype = None
+
+
+def Rplot_set_drag_line_callback(plot, callback, user_data=None):
+    _lib.Rplot_set_drag_line_callback(plot, _callback(RPlotDragLineCallback, _adapt_RPlotDragLineCallback, callback), user_data)
+
+
+_lib.Rplot_set_series_toggled_callback.argtypes = [ctypes.c_uint32, RPlotSeriesCallback, ctypes.c_void_p]
+_lib.Rplot_set_series_toggled_callback.restype = None
+
+
+def Rplot_set_series_toggled_callback(plot, callback, user_data=None):
+    _lib.Rplot_set_series_toggled_callback(plot, _callback(RPlotSeriesCallback, _adapt_RPlotSeriesCallback, callback), user_data)
 
 
 _lib.Rtext_editor_create.argtypes = [ctypes.c_char_p]
@@ -9127,6 +9903,20 @@ def Rtimeline_set_track_muted(timeline, track, muted):
     _lib.Rtimeline_set_track_muted(timeline, track, muted)
 
 
+_lib.Rtimeline_set_track_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rtimeline_set_track_style.restype = ctypes.c_int
+
+
+def Rtimeline_set_track_style(timeline, track, property, value):
+    """A property of the look of a track: "ClipStyle" (Solid,
+    Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+    "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+    property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+    the one of the timeline.
+    Returns: R_FALSE when the name or the value is not one."""
+    return _lib.Rtimeline_set_track_style(timeline, track, _s(property), _s(value))
+
+
 _lib.Rtimeline_is_track_muted.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtimeline_is_track_muted.restype = ctypes.c_int
 
@@ -9244,6 +10034,35 @@ _lib.Rtimeline_set_item_color.restype = None
 
 def Rtimeline_set_item_color(timeline, item, r, g, b):
     _lib.Rtimeline_set_item_color(timeline, item, r, g, b)
+
+
+_lib.Rtimeline_set_item_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rtimeline_set_item_style.restype = ctypes.c_int
+
+
+def Rtimeline_set_item_style(timeline, item, property, value):
+    """A property of the look of one clip, key or marker: "Style"
+    (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+    property of its part ("Background", "BorderColor", "Glow",
+    "CornerRadius", "Foreground" for its label...)."""
+    return _lib.Rtimeline_set_item_style(timeline, item, _s(property), _s(value))
+
+
+_lib.Rtimeline_set_preset.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtimeline_set_preset.restype = None
+
+
+def Rtimeline_set_preset(timeline, preset):
+    """The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML)."""
+    _lib.Rtimeline_set_preset(timeline, int(preset))
+
+
+_lib.Rtimeline_get_preset.argtypes = [ctypes.c_uint32]
+_lib.Rtimeline_get_preset.restype = ctypes.c_int
+
+
+def Rtimeline_get_preset(timeline):
+    return _e(RVisualPreset, _lib.Rtimeline_get_preset(timeline))
 
 
 _lib.Rtimeline_get_item_count.argtypes = [ctypes.c_uint32]
@@ -9458,6 +10277,21 @@ def Rnode_graph_set_node_color(graph, node, r, g, b):
     _lib.Rnode_graph_set_node_color(graph, node, r, g, b)
 
 
+_lib.Rnode_graph_set_node_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rnode_graph_set_node_style.restype = ctypes.c_int
+
+
+def Rnode_graph_set_node_style(graph, node, property, value):
+    """A property of the look of one node: "HeaderStyle" (Solid,
+    Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+    "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+    "Icon" (an image file shown before its title), or a part and a property
+    ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+    one of the graph.
+    Returns: R_FALSE when the name or the value is not one."""
+    return _lib.Rnode_graph_set_node_style(graph, node, _s(property), _s(value))
+
+
 _lib.Rnode_graph_set_node_content.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
 _lib.Rnode_graph_set_node_content.restype = None
 
@@ -9633,6 +10467,26 @@ def Rnode_graph_set_type_color(graph, type_, r, g, b):
     _lib.Rnode_graph_set_type_color(graph, _s(type_), r, g, b)
 
 
+_lib.Rnode_graph_set_type_style.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rnode_graph_set_type_style.restype = ctypes.c_int
+
+
+def Rnode_graph_set_type_style(graph, type_, property, value):
+    """A property of the pins of a type and of their links: "Shape"
+    (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+    "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow"."""
+    return _lib.Rnode_graph_set_type_style(graph, _s(type_), _s(property), _s(value))
+
+
+_lib.Rnode_graph_set_pin_style.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rnode_graph_set_pin_style.restype = ctypes.c_int
+
+
+def Rnode_graph_set_pin_style(graph, pin, property, value):
+    """The same for one pin ("Shape", "Size", "Glow", "Color")."""
+    return _lib.Rnode_graph_set_pin_style(graph, pin, _s(property), _s(value))
+
+
 _lib.Rnode_graph_connect.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
 _lib.Rnode_graph_connect.restype = ctypes.c_int
 
@@ -9777,6 +10631,23 @@ def Rnode_graph_set_read_only(graph, read_only):
     _lib.Rnode_graph_set_read_only(graph, read_only)
 
 
+_lib.Rnode_graph_set_preset.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rnode_graph_set_preset.restype = None
+
+
+def Rnode_graph_set_preset(graph, preset):
+    """The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML)."""
+    _lib.Rnode_graph_set_preset(graph, int(preset))
+
+
+_lib.Rnode_graph_get_preset.argtypes = [ctypes.c_uint32]
+_lib.Rnode_graph_get_preset.restype = ctypes.c_int
+
+
+def Rnode_graph_get_preset(graph):
+    return _e(RVisualPreset, _lib.Rnode_graph_get_preset(graph))
+
+
 _lib.Rnode_graph_select_node.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
 _lib.Rnode_graph_select_node.restype = None
 
@@ -9888,6 +10759,66 @@ def Rnode_graph_set_context_callback(graph, callback, user_data=None):
     _lib.Rnode_graph_set_context_callback(graph, _callback(RNodeGraphContextCallback, _adapt_RNodeGraphContextCallback, callback), user_data)
 
 
+_lib.Rnode_graph_set_canvas_activated_callback.argtypes = [ctypes.c_uint32, RNodeGraphPointCallback, ctypes.c_void_p]
+_lib.Rnode_graph_set_canvas_activated_callback.restype = None
+
+
+def Rnode_graph_set_canvas_activated_callback(graph, callback, user_data=None):
+    """Double click on the empty canvas (`item` 0): the application acts
+    there (a search to add a node...). Without this callback it frames all nodes."""
+    _lib.Rnode_graph_set_canvas_activated_callback(graph, _callback(RNodeGraphPointCallback, _adapt_RNodeGraphPointCallback, callback), user_data)
+
+
+_lib.Rnode_graph_set_wire_dropped_callback.argtypes = [ctypes.c_uint32, RNodeGraphPointCallback, ctypes.c_void_p]
+_lib.Rnode_graph_set_wire_dropped_callback.restype = None
+
+
+def Rnode_graph_set_wire_dropped_callback(graph, callback, user_data=None):
+    """A wire the user pulled from a pin was released on nothing: `item` is
+    that pin, x, y where it was dropped (to offer a node to connect it to). The
+    wire draws back as usual."""
+    _lib.Rnode_graph_set_wire_dropped_callback(graph, _callback(RNodeGraphPointCallback, _adapt_RNodeGraphPointCallback, callback), user_data)
+
+
+_lib.Rnode_graph_set_pin_clicked_callback.argtypes = [ctypes.c_uint32, RNodeGraphPointCallback, ctypes.c_void_p]
+_lib.Rnode_graph_set_pin_clicked_callback.restype = None
+
+
+def Rnode_graph_set_pin_clicked_callback(graph, callback, user_data=None):
+    """A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+    the application may link in two clicks (Rnode_graph_set_pin_emphasis shows where
+    the second may go). With this callback such a click neither detaches the wire
+    of an input nor counts as a wire dropped on nothing."""
+    _lib.Rnode_graph_set_pin_clicked_callback(graph, _callback(RNodeGraphPointCallback, _adapt_RNodeGraphPointCallback, callback), user_data)
+
+
+_lib.Rnode_graph_get_node_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_node_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_node_at(graph, x, y):
+    """The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0."""
+    return _lib.Rnode_graph_get_node_at(graph, x, y)
+
+
+_lib.Rnode_graph_get_pin_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_pin_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_pin_at(graph, x, y):
+    """The pin near a point of the widget (or whose tag is under it: Rnode_graph_set_pin_tag), or 0 (a menu for a pin)."""
+    return _lib.Rnode_graph_get_pin_at(graph, x, y)
+
+
+_lib.Rnode_graph_get_link_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_link_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_link_at(graph, x, y):
+    """The link under a point of the widget, or 0 (hidden links are never under it)."""
+    return _lib.Rnode_graph_get_link_at(graph, x, y)
+
+
 _lib.Rnode_graph_set_pin_multiple.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
 _lib.Rnode_graph_set_pin_multiple.restype = None
 
@@ -9925,6 +10856,33 @@ def Rnode_graph_set_node_deletable(graph, node, deletable):
     _lib.Rnode_graph_set_node_deletable(graph, node, deletable)
 
 
+_lib.Rnode_graph_set_node_shown.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rnode_graph_set_node_shown.restype = None
+
+
+def Rnode_graph_set_node_shown(graph, node):
+    """Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph)."""
+    _lib.Rnode_graph_set_node_shown(graph, node)
+
+
+_lib.Rnode_graph_set_link_shown.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rnode_graph_set_link_shown.restype = None
+
+
+def Rnode_graph_set_link_shown(graph, link):
+    """The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output."""
+    _lib.Rnode_graph_set_link_shown(graph, link)
+
+
+_lib.Rnode_graph_set_node_icon.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+_lib.Rnode_graph_set_node_icon.restype = None
+
+
+def Rnode_graph_set_node_icon(graph, node, texture):
+    """An icon before the title: a texture of the application, shared by many nodes and not deleted with them (the "Icon" style loads one per node from a file). R_INVALID_ID removes it."""
+    _lib.Rnode_graph_set_node_icon(graph, node, texture)
+
+
 _lib.Rnode_graph_set_node_badge.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
 _lib.Rnode_graph_set_node_badge.restype = None
 
@@ -9932,6 +10890,38 @@ _lib.Rnode_graph_set_node_badge.restype = None
 def Rnode_graph_set_node_badge(graph, node, text):
     """A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it."""
     _lib.Rnode_graph_set_node_badge(graph, node, _s(text))
+
+
+_lib.Rnode_graph_set_pin_tag.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rnode_graph_set_pin_tag.restype = None
+
+
+def Rnode_graph_set_pin_tag(graph, pin, text):
+    """A short text in a chip of the pin's color outside the node, beside the pin
+    (left of an input, right of an output): the name of what goes out or comes in
+    there, as a net label of a schematic. NULL or "" removes it."""
+    _lib.Rnode_graph_set_pin_tag(graph, pin, _s(text))
+
+
+_lib.Rnode_graph_set_link_hidden.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rnode_graph_set_link_hidden.restype = None
+
+
+def Rnode_graph_set_link_hidden(graph, link, hidden):
+    """R_TRUE: the link stays (its pins are linked, the application keeps
+    it) but is not drawn and not picked: its two ends are shown otherwise (pin
+    tags naming it, as the labels of a schematic stand for a wire)."""
+    _lib.Rnode_graph_set_link_hidden(graph, link, hidden)
+
+
+_lib.Rnode_graph_set_pin_emphasis.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rnode_graph_set_pin_emphasis.restype = None
+
+
+def Rnode_graph_set_pin_emphasis(graph, pin, emphasis):
+    """How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
+    to go to, -1 steps it back, 0 as usual (an application that links in two clicks)."""
+    _lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis)
 
 
 _lib.Rblock_editor_create.argtypes = []
@@ -10286,6 +11276,39 @@ def Rdialog_run(window, content):
     return _lib.Rdialog_run(window, content)
 
 
+_lib.Rpopup_open.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_float, ctypes.c_float, RDialogClosedCallback, ctypes.c_void_p]
+_lib.Rpopup_open.restype = None
+
+
+def Rpopup_open(window, content, x, y, closed, user_data=None):
+    """Shows a widget as a popup over the window, its top-left corner at
+    x, y (window coordinates; moved to stay inside the window): a search box,
+    a palette, a picker. Unlike a dialog it does not block the window: a click
+    outside it, or Escape, closes it. The application keeps the content (it is
+    not deleted on close) and can open it again. `closed` (may be NULL) is
+    called when it closes, with the result given to Rpopup_close (0 when dismissed).
+    The content draws its own background (a Border with a Background...)."""
+    _lib.Rpopup_open(window, content, x, y, _callback(RDialogClosedCallback, _adapt_RDialogClosedCallback, closed), user_data)
+
+
+_lib.Rpopup_close.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpopup_close.restype = None
+
+
+def Rpopup_close(widget, result):
+    """Closes the popup that contains a widget (the content or anything inside it)."""
+    _lib.Rpopup_close(widget, result)
+
+
+_lib.Rpopup_is_open.argtypes = [ctypes.c_uint32]
+_lib.Rpopup_is_open.restype = ctypes.c_int
+
+
+def Rpopup_is_open(content):
+    """Returns: R_TRUE while the widget is shown as a popup."""
+    return _lib.Rpopup_is_open(content)
+
+
 _lib.Rwindow_has_dialog.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_has_dialog.restype = ctypes.c_int
 
@@ -10596,6 +11619,19 @@ _lib.Rnotification_set_fallback.restype = None
 def Rnotification_set_fallback(callback, user_data=None):
     """Called with the notifications the system could not show; NULL: none."""
     _lib.Rnotification_set_fallback(_callback(RNotificationFallback, _adapt_RNotificationFallback, callback), user_data)
+
+
+_lib.Rnotification_set_clicked_callback.argtypes = [RNotificationClickedCallback, ctypes.c_void_p]
+_lib.Rnotification_set_clicked_callback.restype = None
+
+
+def Rnotification_set_clicked_callback(callback, user_data=None):
+    """Called when the user clicks a notification of Rnotification_show
+    (on the UI thread; the application may then bring its window to the
+    front: the system lets it). It is the last one shown that was clicked:
+    the application remembers what it was about. NULL: none.
+    Windows only for now (elsewhere it is never called)."""
+    _lib.Rnotification_set_clicked_callback(_callback(RNotificationClickedCallback, _adapt_RNotificationClickedCallback, callback), user_data)
 
 
 _lib.Rviewport_set_texture.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
@@ -11374,7 +12410,10 @@ _lib.Rxml_node_add_child.restype = ctypes.c_uint32
 
 
 def Rxml_node_add_child(parent, tag, index):
-    """index Where among the children; -1 for the end."""
+    """index Where among the children; -1 for the end.
+    Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+            deeper than a document can be: 256 levels under the root, as
+            when a text is read. The same holds for the functions below."""
     return _lib.Rxml_node_add_child(parent, _s(tag), index)
 
 
@@ -11414,7 +12453,7 @@ def Rxml_node_move(node, new_parent, index):
     """Moves a node, with what it contains, under another parent of
     the same document or elsewhere under its own.
     index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-    Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node)."""
+    Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep)."""
     return _lib.Rxml_node_move(node, new_parent, index)
 
 

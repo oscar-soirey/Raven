@@ -1,0 +1,19 @@
+// The program. Its interface is main.xml, loaded when it starts:
+// save main.xml while it runs and the window follows.
+import * as r from "{{RAVEN_BINDINGS}}/bun/src/raven.ts";
+
+if (!r.Rinit(r.R_BACKEND_VULKAN)) process.exit(1);
+r.Rlocale_load_csv("strings.csv");
+r.Rlocale_set_language(r.Rlocale_get_system_language());
+const window = r.Rwindow_create_from_xml_file("main.xml");
+let clicks = 0;
+
+// OnClicked="hello.clicked" in main.xml fires this action
+r.Raction_bind("hello.clicked", () => {
+	clicks++;
+	// the widget with Name="status"
+	r.Rlabel_set_text(r.Rwidget_find(window, "status"), r.Rtr_plural("clicks", clicks));
+});
+
+while (r.Rdraw_frame()) {}
+r.Rshutdown();

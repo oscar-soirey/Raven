@@ -1,0 +1,23 @@
+<!-- Page 7: the end. -->
+<ScrollBox>
+	<VBox Spacing="12" Slot.Padding="48,44">
+		<Label Name="done.title" Text="Raven SDK is installed" TextSize="28" Appear="FlyUp"/>
+		<Label Name="done.detail" Text="" Opacity="0.7" Wrap="true"/>
+		<Border Name="done.box" Background="#1B1D24" CornerRadius="10" Padding="18,14">
+			<VBox Name="done.components" Spacing="6"/>
+		</Border>
+		<Label Name="done.warnings" Text="" Wrap="true" Opacity="0.8" Color="#FFB454" Visibility="Collapsed"/>
+
+		<VBox Name="done.next" Spacing="10">
+			<Spacer Height="6"/>
+			<Label Text="Next" TextSize="16"/>
+			<WrapBox Spacing="8">
+				<Button Text="Documentation" OnClicked="open:https://oscar-soirey.github.io/Raven/"/>
+				<Button Text="Bindings" OnClicked="open:https://oscar-soirey.github.io/Raven/bindings.html"/>
+				<Button Name="done.open.sdk" Text="Open the SDK folder" OnClicked="done.open.sdk"/>
+				<Button Name="done.open.log" Text="Open the log" Style="Flat" OnClicked="done.open.log"/>
+			</WrapBox>
+			<Checkbox Name="done.launch" Checked="true" Text="Start Raven Designer"/>
+		</VBox>
+	</VBox>
+</ScrollBox>

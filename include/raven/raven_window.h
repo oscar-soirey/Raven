@@ -34,7 +34,19 @@ typedef enum RWindowFlags{
 	 * chosen with Rwindow_set_backdrop. See RBackdrop for what each window
 	 * system can do.
 	 */
-	R_WINDOW_TRANSPARENT = (1 << 5)
+	R_WINDOW_TRANSPARENT = (1 << 5),
+	/**
+	 * A splash screen: shown while the application starts. No frame (it
+	 * implies R_WINDOW_BORDERLESS and R_WINDOW_NO_RESIZE, and cancels
+	 * R_WINDOW_MAXIMIZED and R_WINDOW_CUSTOM_HEADER), centered on the screen
+	 * before it is first shown and again when its size changes, above the
+	 * other windows, out of the taskbar and of Alt+Tab (Windows), of the
+	 * Window menu and of Cmd+` (macOS), typed _NET_WM_WINDOW_TYPE_SPLASH on
+	 * X11. Wayland gives it no place of its own: it is a window without frame
+	 * there. The application destroys it once its main window is ready
+	 * (creating the main window first keeps Ris_running true).
+	 */
+	R_WINDOW_SPLASH_SCREEN = (1 << 6)
 }RWindowFlags;
 
 /** Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout). */
@@ -76,6 +88,7 @@ typedef enum RWindowSystem{
 	R_WINDOW_SYSTEM_X11,
 	R_WINDOW_SYSTEM_WAYLAND,
 	R_WINDOW_SYSTEM_COCOA,
+	R_WINDOW_SYSTEM_EMSCRIPTEN,
 	R_WINDOW_SYSTEM_WEB,
 	R_WINDOW_SYSTEM_UIKIT
 }RWindowSystem;
@@ -89,6 +102,7 @@ typedef enum RWindowSystem{
  *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
  *   UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
  *   Web   : display = the CSS selector of the canvas (const char*, "#canvas")
+ *   Emscripten: window = opaque browser surface token (no OS window handle)
  */
 typedef struct RNativeWindow {
 	RWindowSystem system;
@@ -341,6 +355,15 @@ extern "C" {
 
 	RAVEN_API void Rwindow_show(Rid window);
 	RAVEN_API void Rwindow_hide(Rid window);
+	/**
+	 * @brief Shows the window in front of the others with the keyboard, and
+	 * makes the application the active one. Rwindow_show alone does not take
+	 * the keyboard from another application (a prompt that appears while the
+	 * user types elsewhere); this is for a window the user just asked for (a
+	 * card opened from a tray icon). Where the system has no such request,
+	 * the same as Rwindow_show.
+	 */
+	RAVEN_API void Rwindow_focus(Rid window);
 	RAVEN_API void Rwindow_maximize(Rid window);
 	RAVEN_API void Rwindow_minimize(Rid window);
 	RAVEN_API void Rwindow_restore(Rid window);
@@ -449,6 +472,25 @@ extern "C" {
 
 	/** @brief Centers the window on the work area of its monitor (no task bar). */
 	RAVEN_API void Rwindow_center(Rid window);
+	/**
+	 * @brief Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+	 * window beside it that lists its widgets as a tree, says what the
+	 * selected one is (type, name, classes, place and size in the window,
+	 * desired size, constraints, slot, visibility, state, style, action,
+	 * children) and what the last frame cost (layout, paint and render
+	 * times, widgets, instances, draw calls). The selected widget is
+	 * outlined in the window, with its type and size. "Pick" selects the
+	 * next widget clicked in the window (that click goes to the inspector
+	 * only). It follows the window as it changes; closing it hides it, and
+	 * it goes with the window. Nothing opens it but this function.
+	 */
+	RAVEN_API void Rwindow_set_inspector(Rid window, int shown);
+	RAVEN_API int Rwindow_is_inspector_shown(Rid window);
+	/** @return The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden. */
+	RAVEN_API Rid Rwindow_get_inspector(Rid window);
+
+	/** @return R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML). */
+	RAVEN_API int Rwindow_is_splash_screen(Rid window);
 
 	/** @brief Asks for a new frame even if no widget changed. Thread-safe. */
 	RAVEN_API void Rwindow_request_redraw(Rid window);

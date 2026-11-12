@@ -1,0 +1,72 @@
+name: Web demos and website
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/web/package-lock.json
+      - name: Install Emscripten 7.0.0
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 7.0.0
+          "$RUNNER_TEMP/emsdk/emsdk" activate 7.0.0
+      - name: Build all portable demos
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release \
+            -DRAVEN_BUILD_EXAMPLES=ON -DRAVEN_BUILD_WEB_EXAMPLE=ON
+          cmake --build build-web --parallel
+      - name: Assemble website and demo download
+        run: |
+          mkdir -p build-web/site/demos
+          cp -a docs/. build-web/site/
+          cp build-web/bin/*.html build-web/bin/*.js build-web/bin/*.wasm build-web/bin/*.data build-web/site/demos/
+          cp LICENSE NOTICE build-web/site/demos/
+          touch build-web/site/.nojekyll
+      - name: Test the packaged gallery
+        run: |
+          npm ci --prefix tests/web
+          npx --prefix tests/web playwright install --with-deps chromium
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory build-web/site > "$RUNNER_TEMP/raven-pages.log" 2>&1 &
+          curl --retry 10 --retry-connrefused --retry-delay 1 --fail --silent http://127.0.0.1:8765/demos/index.html > /dev/null
+          RAVEN_WEB_URL=http://127.0.0.1:8765/demos/index.html node tests/web/examples.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raven-web-demos
+          path: build-web/site/demos/
+          if-no-files-found: error
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build-web/site
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy website and demos
+        id: deployment
+        uses: actions/deploy-pages@v4

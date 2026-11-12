@@ -22,7 +22,7 @@
 
 #define RAVEN_VERSION_MAJOR 0
 #define RAVEN_VERSION_MINOR 2
-#define RAVEN_VERSION_PATCH 1
+#define RAVEN_VERSION_PATCH 3
 #define RAVEN_API_VERSION "0.2"
 
 #ifdef __cplusplus
@@ -73,6 +73,8 @@ typedef enum RBackend{
 	R_BACKEND_NULL,
 	/** Backend supplied with Rbackend_register (see raven_backend.h). */
 	R_BACKEND_CUSTOM,
+	/** Browser renderer (Emscripten, WebGL 2). */
+	R_BACKEND_WEBGL,
 	/**
 	 * Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
 	 * Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
@@ -110,7 +112,7 @@ typedef enum RSeverity{
 typedef struct RInitDesc {
 	/**
 	 * Rendering backend. 0 selects the one named by the environment variable RAVEN_BACKEND (vulkan,
-	 * sokol or null) when it is set, else R_BACKEND_VULKAN.
+	 * sokol, webgl or null) when it is set, else WebGL in browser builds and Vulkan otherwise.
 	 */
 	RBackend backend;
 	/** Application name reported to the graphics driver. May be NULL. */

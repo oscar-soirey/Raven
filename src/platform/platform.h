@@ -224,6 +224,8 @@ typedef struct rvn_platform_t {
 	/** Pixels per logical unit on the monitor showing the window. */
 	float (*window_get_scale)(rvn_pwindow_t* window);
 	void  (*window_show)(rvn_pwindow_t* window, int visible);
+	/** Optional (may be NULL): in front, with the keyboard, the application activated. */
+	void  (*window_focus)(rvn_pwindow_t* window);
 	void  (*window_set_state)(rvn_pwindow_t* window, rvn_pwindow_state_t state);
 	rvn_pwindow_state_t (*window_get_state)(rvn_pwindow_t* window);
 	/**
@@ -364,6 +366,22 @@ typedef struct rvn_platform_t {
 	 */
 	void  (*wait_service)(void);
 
+	/*
+	 * ---- frame pacing by the window system (optional, both NULL when it has none) ----
+	 *
+	 * A compositor that tells when it wants the next frame of a window
+	 * (Wayland: wl_surface.frame) paces drawing itself. The renderer then
+	 * presents without the driver's vertical synchronization (see
+	 * rvn_present_vsync): a driver waiting for the compositor inside the
+	 * present waits without limit when the compositor never answers, which
+	 * it is free not to do for a window it does not show.
+	 */
+
+	/** Seconds before `window` should present again: 0 = now. Always bounded: a compositor that never answers costs a slow frame, never a stuck window. */
+	double (*window_frame_wait)(rvn_pwindow_t* window);
+	/** A frame of `window` is about to be presented: ask the compositor when it wants the next one. */
+	void  (*window_frame_begin)(rvn_pwindow_t* window);
+
 	/* ---- accessibility (optional, NULL when the platform has none; core/accessibility.h) ---- */
 
 	/** Something changed in the tree a screen reader sees (rvn_a11y_event_t), at a node. */
@@ -403,6 +421,13 @@ typedef struct rvn_platform_t {
 	 */
 	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
 } rvn_platform_t;
+
+#if defined(RAVEN_PLATFORM_EMSCRIPTEN)
+const rvn_platform_t* rvn_platform_emscripten(void);
+#endif
+
+/** The user clicked a notification of Rnotification_show: the platform tells the core (notify.c), on the UI thread. */
+void rvn_notification_clicked(void);
 
 #if !defined(_WIN32) && !defined(__APPLE__)
 /** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */

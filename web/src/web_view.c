@@ -44,8 +44,14 @@ typedef enum rw_kind_t {
 	/** The title of the page, asked when it has loaded. */
 	RW_KIND_TITLE,
 	/** A command that prepares the page: the view is ready once all of them are answered. */
-	RW_KIND_SETUP
+	RW_KIND_SETUP,
+	/** A picture of the page asked for when the screencast sent none (rw_view_want_picture). */
+	RW_KIND_CAPTURE
 } rw_kind_t;
+
+/* How long the view waits for a picture of the screencast before it asks the browser for one, and how many times. */
+#define RW_PICTURE_WAIT 0.3
+#define RW_PICTURE_TRIES 10
 
 /** A command whose answer is awaited. */
 typedef struct rw_request_t {
@@ -102,6 +108,20 @@ typedef struct rw_view_t {
 	void* event_user;
 	/** Mouse buttons held, as the protocol counts them. */
 	int buttons;
+	/*
+	 * The screencast only sends a picture when the page is drawn again: one
+	 * drawn before it started, or before its size was set, sends none. When
+	 * the picture was asked (picture_wanted) and none came since
+	 * (picture_time), the view asks for one (capturing, picture_asked).
+	 */
+	double picture_wanted;
+	double picture_time;
+	double picture_asked;
+	int capturing;
+	/** Pictures asked since one last came: the view stops asking after RW_PICTURE_TRIES. */
+	int picture_tries;
+	/** R_TRUE while a timer will look whether a picture came. */
+	int picture_timer;
 	char error[256];
 } rw_view_t;
 
@@ -244,6 +264,8 @@ static void rw_view_drop_html(rw_view_t* view) {
 	view->html_started = 0;
 }
 
+static void rw_view_want_picture(rw_view_t* view);
+
 /* Tells the browser how large the page is shown. */
 static void rw_view_metrics(rw_view_t* view, float width, float height, float scale) {
 	char params[200];
@@ -257,6 +279,7 @@ static void rw_view_metrics(rw_view_t* view, float width, float height, float sc
 	view->sent_zoom = zoom;
 	snprintf(params, sizeof(params), "{\"width\":%d,\"height\":%d,\"deviceScaleFactor\":%.4f,\"mobile\":false}", w, h, (double)(scale * zoom));
 	rw_view_send(view, "Emulation.setDeviceMetricsOverride", params, RW_KIND_NONE, NULL, NULL);
+	if (view->state == RW_STATE_READY) rw_view_want_picture(view);
 }
 
 static void rw_view_cast(rw_view_t* view) {
@@ -352,6 +375,67 @@ static rw_view_t* rw_view_by_target(const char* target) {
 	return NULL;
 }
 
+static rw_view_t* rw_view_by_widget(Rid widget) {
+	rw_view_t* view;
+	for (view = g_rw_views; view; view = view->next) {
+		if (view->widget == widget) return view;
+	}
+	return NULL;
+}
+
+/* The pixels of the page become its texture. */
+static void rw_view_show_picture(rw_view_t* view, const uint8_t* pixels, int width, int height) {
+	int expected_width = (int)floorf(view->sent_width * view->sent_scale + 0.5f);
+	int expected_height = (int)floorf(view->sent_height * view->sent_scale + 0.5f);
+	if (view->texture != R_INVALID_ID && Rtexture_is_valid(view->texture)) Rtexture_update(view->texture, pixels, width, height);
+	else view->texture = Rtexture_create_from_pixels(pixels, width, height);
+	Rwidget_invalidate(view->widget);
+	/*
+	 * A picture drawn at another size than the one asked (one made before
+	 * the size was set, that arrives late): shown until the right one comes,
+	 * which is asked for.
+	 */
+	if (view->sent_width > 0.0f && (abs(width - expected_width) > 1 || abs(height - expected_height) > 1)) {
+		if (view->state == RW_STATE_READY && view->picture_time >= view->picture_wanted) rw_view_want_picture(view);
+		return;
+	}
+	view->picture_time = Rget_time();
+	view->picture_tries = 0;
+}
+
+static void rw_view_picture_timer(Rid timer, void* user_data);
+
+static void rw_view_picture_later(rw_view_t* view) {
+	if (view->picture_timer) return;
+	view->picture_timer = 1;
+	Rtimer_create(RW_PICTURE_WAIT, R_FALSE, rw_view_picture_timer, (void*)(uintptr_t)view->widget);
+}
+
+static void rw_view_picture_timer(Rid timer, void* user_data) {
+	rw_view_t* view = rw_view_by_widget((Rid)(uintptr_t)user_data);
+	(void)timer;
+	if (!view) return;
+	view->picture_timer = 0;
+	/* (a picture came since it was wanted: nothing to do) */
+	if (view->state == RW_STATE_FAILED || view->picture_time >= view->picture_wanted) return;
+	if (view->picture_tries >= RW_PICTURE_TRIES) return;
+	/* not ready yet, or a picture already asked: looked at again later */
+	if (view->state == RW_STATE_READY && !view->capturing) {
+		view->capturing = 1;
+		view->picture_tries++;
+		view->picture_asked = Rget_time();
+		rw_view_send(view, "Page.captureScreenshot", "{\"format\":\"png\"}", RW_KIND_CAPTURE, NULL, NULL);
+	}
+	rw_view_picture_later(view);
+}
+
+/* Something that changes the picture was asked (the size, a new page): a picture should come. */
+static void rw_view_want_picture(rw_view_t* view) {
+	view->picture_wanted = Rget_time();
+	view->picture_tries = 0;
+	rw_view_picture_later(view);
+}
+
 static void rw_view_navigated(rw_view_t* view, const char* url) {
 	Rid widget = view->widget;
 	if (!url || (view->url && strcmp(view->url, url) == 0)) return;
@@ -390,6 +474,24 @@ static void rw_answer(rw_view_t* view, rw_request_t* request, const rw_json_t* m
 			}
 			rw_view_set(&view->session, session);
 			rw_view_attached(view);
+			break;
+		}
+		case RW_KIND_CAPTURE: {
+			const rw_json_t* data = rw_json_get(result, "data");
+			view->capturing = 0;
+			/* (a picture of the screencast came meanwhile: it is newer) */
+			if (!data || data->type != RW_JSON_STRING || view->picture_time >= view->picture_asked) break;
+			{
+				size_t bytes = 0;
+				uint8_t* file = rw_base64_decode(data->string, data->length, &bytes);
+				int width = 0, height = 0;
+				uint8_t* pixels = file ? Rimage_decode(file, bytes, &width, &height) : NULL;
+				rw_free(file);
+				if (pixels) {
+					rw_view_show_picture(view, pixels, width, height);
+					Rpixels_free(pixels);
+				}
+			}
 			break;
 		}
 		case RW_KIND_SETUP:
@@ -476,6 +578,7 @@ static void rw_event(rw_view_t* view, const char* method, const rw_json_t* param
 	} else if (strcmp(method, "Page.navigatedWithinDocument") == 0) {
 		if (view->target && strcmp(rw_json_string(params, "frameId", ""), view->target) == 0) rw_view_navigated(view, rw_json_string(params, "url", NULL));
 	} else if (strcmp(method, "Page.domContentEventFired") == 0 || strcmp(method, "Page.loadEventFired") == 0) {
+		rw_view_want_picture(view);
 		/* (the browser only tells the titles of the pages it loaded itself, not of those written into the view) */
 		rw_view_script(view, "document.title || location.href", RW_KIND_TITLE, NULL, NULL);
 		/* (asked again here: when the page has only just been reached, the history may not hold it yet) */
@@ -518,14 +621,12 @@ void rw_views_incoming(rw_incoming_t* incoming) {
 	if (incoming->pixels) {
 		view = rw_view_by_session(incoming->session);
 		if (!view || !Rwidget_is_valid(view->widget)) return;
-		if (view->texture != R_INVALID_ID && Rtexture_is_valid(view->texture)) Rtexture_update(view->texture, incoming->pixels, incoming->width, incoming->height);
-		else view->texture = Rtexture_create_from_pixels(incoming->pixels, incoming->width, incoming->height);
-		Rwidget_invalidate(view->widget);
+		rw_view_show_picture(view, incoming->pixels, incoming->width, incoming->height);
 		return;
 	}
 	if (!incoming->message) return;
 	/* RAVEN_WEB_TRACE=1 shows what the browser says */
-	if (getenv("RAVEN_WEB_TRACE")) fprintf(stderr, "[raven_web] < %.300s\n", incoming->message);
+	if (getenv("RAVEN_WEB_TRACE")) fprintf(stderr, "[raven_web] %.3f < %.300s\n", Rget_time(), incoming->message);
 	if (!rw_json_parse(&document, incoming->message, incoming->size)) return;
 	{
 		const rw_json_t* id = rw_json_get(document.root, "id");

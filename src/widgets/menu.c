@@ -38,9 +38,11 @@ typedef struct rvn_menu_t {
 	char* title;
 	/** Index of the highlighted child, or -1. */
 	int hot;
+	/** R_TRUE when `hot` last moved because the pointer did: the highlight then snaps instead of sliding. */
+	int hot_by_pointer;
 	/** Sub-menu currently open, or NULL. */
 	rvn_widget_t* open_sub;
-	/** Top and height of the highlight as drawn: it slides from entry to entry. */
+	/** Top and height of the highlight as drawn: it slides from entry to entry (but snaps to the pointer). */
 	RSpring hot_y;
 	RSpring hot_h;
 } rvn_menu_t;
@@ -316,9 +318,10 @@ static void rvn_menu_open_sub(rvn_widget_t* widget, int index) {
 		rvn_rect(origin.x, origin.y + rect.y - RVN_MENU_PADDING, widget->rect.w - 2.0f, rect.h), RVN_POPUP_RIGHT, 0.0f);
 }
 
-static void rvn_menu_set_hot(rvn_widget_t* widget, int index, int open_sub) {
+static void rvn_menu_set_hot(rvn_widget_t* widget, int index, int open_sub, int from_pointer) {
 	rvn_menu_t* menu = (rvn_menu_t*)widget;
 	if (index >= 0 && !rvn_menu_entry_selectable(widget->children[index])) index = -1;
+	menu->hot_by_pointer = from_pointer;
 	if (menu->hot != index) {
 		menu->hot = index;
 		rvn_widget_invalidate_paint(widget);
@@ -337,7 +340,7 @@ static void rvn_menu_step(rvn_widget_t* widget, int direction) {
 	for (i = 0; i < count; i++) {
 		index = index < 0 ? (direction > 0 ? 0 : count - 1) : (index + direction + count) % count;
 		if (rvn_menu_entry_selectable(widget->children[index])) {
-			rvn_menu_set_hot(widget, index, R_FALSE);
+			rvn_menu_set_hot(widget, index, R_FALSE, R_FALSE);
 			return;
 		}
 	}
@@ -376,8 +379,8 @@ static void rvn_menu_paint_fluent(rvn_widget_t* widget, RPainter* painter) {
 		rvn_rect_t row;
 		if (menu->hot >= 0 && menu->hot < (int)widget->child_count && rvn_menu_entry_rect(widget, menu->hot, &row) &&
 			!(widget->children[menu->hot]->flags & RVN_WF_DISABLED) && !rvn_menu_entry_is_separator(widget->children[menu->hot])) {
-			row.y = rvn_paint_spring(painter, &menu->hot_y, row.y, R_MOTION_SNAPPY);
-			row.h = rvn_paint_spring(painter, &menu->hot_h, row.h, R_MOTION_SNAPPY);
+			row.y = rvn_paint_track(painter, &menu->hot_y, row.y, R_MOTION_SNAPPY, menu->hot_by_pointer);
+			row.h = rvn_paint_track(painter, &menu->hot_h, row.h, R_MOTION_SNAPPY, menu->hot_by_pointer);
 			rvn_platform_paint_item(painter, widget, rvn_rect(row.x + more, row.y + (family == RVN_FAMILY_MACOS ? 0.0f : 1.0f), row.w - more * 2.0f,
 				row.h - (family == RVN_FAMILY_MACOS ? 0.0f : 2.0f)), RVN_STATE_HOVERED, RVN_ITEM_MENU, 0.0f);
 		} else {
@@ -456,8 +459,8 @@ static void rvn_menu_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_rect_t row;
 		if (menu->hot >= 0 && menu->hot < (int)widget->child_count && rvn_menu_entry_rect(widget, menu->hot, &row) &&
 			!(widget->children[menu->hot]->flags & RVN_WF_DISABLED) && !rvn_menu_entry_is_separator(widget->children[menu->hot])) {
-			row.y = rvn_paint_spring(painter, &menu->hot_y, row.y, R_MOTION_SNAPPY);
-			row.h = rvn_paint_spring(painter, &menu->hot_h, row.h, R_MOTION_SNAPPY);
+			row.y = rvn_paint_track(painter, &menu->hot_y, row.y, R_MOTION_SNAPPY, menu->hot_by_pointer);
+			row.h = rvn_paint_track(painter, &menu->hot_h, row.h, R_MOTION_SNAPPY, menu->hot_by_pointer);
 			rvn_paint_box(painter, row, row_radius, rvn_widget_color(widget, R_COLOR_SELECTION), 0.0f, 0);
 		} else {
 			menu->hot_y.started = R_FALSE;
@@ -517,7 +520,7 @@ static int rvn_menu_event(rvn_widget_t* widget, const REvent* event) {
 	switch (event->type) {
 		case R_EVENT_MOUSE_MOVE:
 			index = rvn_menu_entry_at(widget, event->local_x, event->local_y);
-			if (index >= 0) rvn_menu_set_hot(widget, index, R_TRUE);
+			if (index >= 0) rvn_menu_set_hot(widget, index, R_TRUE, R_TRUE);
 			return R_TRUE;
 		case R_EVENT_MOUSE_DOWN:
 			return R_TRUE;
@@ -525,7 +528,7 @@ static int rvn_menu_event(rvn_widget_t* widget, const REvent* event) {
 			if (event->button != R_MOUSE_LEFT) return R_TRUE;
 			index = rvn_menu_entry_at(widget, event->local_x, event->local_y);
 			if (index < 0 || !rvn_menu_entry_selectable(widget->children[index])) return R_TRUE;
-			if (widget->children[index]->cls->type == R_WIDGET_MENU) rvn_menu_set_hot(widget, index, R_TRUE);
+			if (widget->children[index]->cls->type == R_WIDGET_MENU) rvn_menu_set_hot(widget, index, R_TRUE, R_TRUE);
 			else rvn_menu_item_trigger(widget->children[index]);
 			return R_TRUE;
 		case R_EVENT_MOUSE_WHEEL:

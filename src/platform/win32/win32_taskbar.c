@@ -317,6 +317,9 @@ void rvn_win32_taskbar_shutdown(void) {
 #ifndef NOTIFYICON_VERSION_4
 #define NOTIFYICON_VERSION_4 4
 #endif
+#ifndef NIN_BALLOONUSERCLICK
+#define NIN_BALLOONUSERCLICK (WM_USER + 5)
+#endif
 
 #define RVN_TRAY_MESSAGE (WM_APP + 0x52)
 #define RVN_TRAY_CLASS L"RavenTray"
@@ -412,6 +415,10 @@ static LRESULT CALLBACK rvn_tray_proc(HWND handle, UINT message, WPARAM wparam, 
 			case WM_MBUTTONUP:
 				rvn_tray_click(tray, R_MOUSE_MIDDLE);
 				break;
+			case NIN_BALLOONUSERCLICK:
+				/* a notification shown on this icon (rvn_win32_tray_balloon) */
+				rvn_notification_clicked();
+				break;
 			default:
 				break;
 		}
@@ -423,6 +430,23 @@ static LRESULT CALLBACK rvn_tray_proc(HWND handle, UINT message, WPARAM wparam, 
 		return 0;
 	}
 	return DefWindowProcW(handle, message, wparam, lparam);
+}
+
+int rvn_win32_tray_balloon(const WCHAR* title, const WCHAR* text, DWORD info_flags) {
+	NOTIFYICONDATAW data;
+	rvn_ptray_t* tray = g_tray.trays;
+	if (!tray || !g_tray.window) return 0;
+	/* the oldest icon: the application's main one */
+	while (tray->next) tray = tray->next;
+	memset(&data, 0, sizeof(data));
+	data.cbSize = sizeof(data);
+	data.hWnd = g_tray.window;
+	data.uID = tray->id;
+	data.uFlags = NIF_INFO;
+	lstrcpynW(data.szInfoTitle, title, (int)(sizeof(data.szInfoTitle) / sizeof(data.szInfoTitle[0])));
+	lstrcpynW(data.szInfo, text, (int)(sizeof(data.szInfo) / sizeof(data.szInfo[0])));
+	data.dwInfoFlags = info_flags;
+	return Shell_NotifyIconW(NIM_MODIFY, &data) ? 1 : 0;
 }
 
 /* The hidden window of the icons: a top-level one (a message-only window does not hear TaskbarCreated). */

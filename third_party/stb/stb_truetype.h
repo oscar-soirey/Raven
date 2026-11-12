@@ -1685,6 +1685,15 @@ static int stbtt__close_shape(stbtt_vertex *vertices, int num_vertices, int was_
    return num_vertices;
 }
 
+// Raven: a component placed outside the range of a vertex (a damaged composite) is clamped to it;
+// converting the float to short directly is undefined when it does not fit
+static stbtt_vertex_type stbtt__clamp_vertex(float v)
+{
+   if (!(v > -32768.0f)) return -32768; // NaN as well
+   if (v > 32767.0f) return 32767;
+   return (stbtt_vertex_type) v;
+}
+
 static int stbtt__GetGlyphShapeTT(const stbtt_fontinfo *info, int glyph_index, stbtt_vertex **pvertices)
 {
    stbtt_int16 numberOfContours;
@@ -1877,11 +1886,11 @@ static int stbtt__GetGlyphShapeTT(const stbtt_fontinfo *info, int glyph_index, s
                stbtt_vertex* v = &comp_verts[i];
                stbtt_vertex_type x,y;
                x=v->x; y=v->y;
-               v->x = (stbtt_vertex_type)(m * (mtx[0]*x + mtx[2]*y + mtx[4]));
-               v->y = (stbtt_vertex_type)(n * (mtx[1]*x + mtx[3]*y + mtx[5]));
+               v->x = stbtt__clamp_vertex(m * (mtx[0]*x + mtx[2]*y + mtx[4]));
+               v->y = stbtt__clamp_vertex(n * (mtx[1]*x + mtx[3]*y + mtx[5]));
                x=v->cx; y=v->cy;
-               v->cx = (stbtt_vertex_type)(m * (mtx[0]*x + mtx[2]*y + mtx[4]));
-               v->cy = (stbtt_vertex_type)(n * (mtx[1]*x + mtx[3]*y + mtx[5]));
+               v->cx = stbtt__clamp_vertex(m * (mtx[0]*x + mtx[2]*y + mtx[4]));
+               v->cy = stbtt__clamp_vertex(n * (mtx[1]*x + mtx[3]*y + mtx[5]));
             }
             // Append vertices.
             tmp = (stbtt_vertex*)STBTT_malloc((num_vertices+comp_num_verts)*sizeof(stbtt_vertex), info->userdata);

@@ -62,7 +62,7 @@ body{
   background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
   background-size:28px 28px;
 }
-main{max-width:880px; margin:0; padding:0 clamp(20px,6vw,80px)}
+main{max-width:880px; margin:0 auto; padding:0 clamp(20px,6vw,80px)}
 a{color:inherit}
 a:focus-visible,button:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
 nav{display:flex; align-items:center; gap:26px; padding:28px 0; flex-wrap:wrap}
@@ -70,11 +70,11 @@ nav .brand{display:flex; align-items:center; gap:10px; margin-right:auto; font:8
 nav .brand img{height:34px; width:auto; display:block}
 nav a.l{text-decoration:none; font-size:17px}
 nav a.l:hover{text-decoration:underline wavy var(--accent); text-underline-offset:5px}
-header{padding:48px 0 44px}
-.stamp{display:inline-block; font:700 24px/1 var(--hand); color:var(--accent); border:2.5px solid var(--accent); outline:1px solid var(--accent); outline-offset:3px; border-radius:6px 10px 7px 9px; padding:6px 16px 4px; transform:rotate(-3deg); margin:0 0 30px 4px}
-h1{font:800 clamp(40px,8vw,68px)/1.02 var(--head); letter-spacing:-.03em; margin:0 0 22px; max-width:11em}
-header p.lead{font-size:22px; line-height:1.55; color:var(--muted); margin:0 0 34px; max-width:28em}
-.btn{display:inline-block; font:700 17px var(--head); padding:11px 24px; margin:0 14px 14px 0; text-decoration:none; color:var(--accent-fg); background:var(--accent); border:2px solid var(--fg); border-radius:12px 9px 13px 10px; box-shadow:3px 3px 0 var(--fg); transition:transform .12s, box-shadow .12s}
+header{padding:48px 0 44px; text-align:center}
+.stamp{display:inline-block; font:700 24px/1 var(--hand); color:var(--accent); border:2.5px solid var(--accent); outline:1px solid var(--accent); outline-offset:3px; border-radius:6px 10px 7px 9px; padding:6px 16px 4px; transform:rotate(-3deg); margin:0 0 30px}
+h1{font:800 clamp(40px,8vw,68px)/1.02 var(--head); letter-spacing:-.03em; margin:0 auto 22px; max-width:11em}
+header p.lead{font-size:22px; line-height:1.55; color:var(--muted); margin:0 auto 34px; max-width:28em}
+.btn{display:inline-block; font:700 17px var(--head); padding:11px 24px; margin:0 7px 14px; text-decoration:none; color:var(--accent-fg); background:var(--accent); border:2px solid var(--fg); border-radius:12px 9px 13px 10px; box-shadow:3px 3px 0 var(--fg); transition:transform .12s, box-shadow .12s}
 .btn.alt{background:var(--card); color:var(--fg)}
 .btn:hover{transform:translate(2px,2px); box-shadow:1px 1px 0 var(--fg)}
 section{padding:46px 0}
@@ -101,7 +101,7 @@ code{font-family:var(--mono); font-size:.82em; background:color-mix(in srgb,var(
 .codebox:hover .copy,.copy:focus-visible{opacity:1}
 .copy:hover{background:var(--accent); color:var(--accent-fg)}
 @media (hover:none){.copy{opacity:1}}
-.langs{display:flex; flex-wrap:wrap; gap:10px}
+.langs{display:flex; flex-wrap:wrap; gap:10px; justify-content:center}
 .langs span{font:400 14px var(--mono); background:var(--card); border:1.5px solid var(--fg); border-radius:8px 12px 9px 11px; padding:3px 13px}
 .langs span:nth-child(odd){transform:rotate(-1.5deg)}
 .langs span:nth-child(even){transform:rotate(1.2deg)}
@@ -164,6 +164,7 @@ footer{padding:44px 0 60px; color:var(--muted); font-size:16px; border-top:2px d
   <nav>
     <a class="brand" href="#"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a>
     <a class="l" href="guide.html">Docs</a>
+    <a class="l" href="demos/">Demos</a>
     <a class="l" href="#releases">Releases</a>
     <a class="l" href="#contributors">Contributors</a>
     <a class="l" href="https://github.com/oscar-soirey/Raven">GitHub</a>

@@ -35,13 +35,6 @@ static void on_quit(Rid button, void* user_data) {
 	Rquit(0);
 }
 
-/* the application has quit: releases every window, widget and resource that is still alive */
-static void on_finished(int exit_code, void* user_data) {
-	(void)exit_code;
-	(void)user_data;
-	Rshutdown();
-}
-
 int main(void) {
 	Rid window, box, title, input, row, button, quit;
 
@@ -82,11 +75,8 @@ int main(void) {
 	quit = Rwidget_add_child(row, Rbutton_create("Quit"));
 	Rbutton_set_clicked_callback(quit, on_quit, NULL);
 
-	/* Rrun is the loop: here on a desktop, where it returns when the application quits, and in a browser, where
-	 * it returns at once and the page calls the frames. `on_finished` runs in both cases when the application ends */
-	if (example_automated(window)) {
-		Rshutdown();
-		return 0;
-	}
-	return Rrun(on_finished, NULL);
+	/* the loop belongs to the application: Raven draws one frame per call,
+	 * and Rwait_frame sleeps until there is something to draw */
+	example_run(window, NULL, NULL);
+	return 0;
 }

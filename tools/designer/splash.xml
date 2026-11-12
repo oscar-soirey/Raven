@@ -1,0 +1,11 @@
+<!--
+  Raven Designer - splash.xml
+  The splash screen: a window with the picture of images/SplashScreen.png,
+  shown while the designer starts. The picture itself is put in the Image
+  named "splash.image" by splash.c (the pixels come from the PNG embedded in
+  the program). This file is embedded too (embed_splash.py -> splash_xml.c):
+  nothing is read from the disk when the designer runs.
+-->
+<Window Title="Raven Designer" Width="840" Height="460" CustomHeader="true" IsSplashScreen="true">
+  <Image Name="splash.image" Width="640" Height="350"/>
+</Window>

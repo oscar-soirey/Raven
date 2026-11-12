@@ -418,6 +418,8 @@ int rvn_parse_material(const char* text, RMaterial* material);
 rvn_color_t rvn_widget_color(const rvn_widget_t* widget, RColorRole role);
 float rvn_widget_metric(const rvn_widget_t* widget, RMetric metric);
 int   rvn_widget_has_color(const rvn_widget_t* widget, RColorRole role);
+/** R_TRUE when the widget itself gives the color (its XML or the code), not a style of its theme. */
+int   rvn_widget_own_color(const rvn_widget_t* widget, RColorRole role);
 /** R_TRUE when the widget itself, or a style of the theme for it, gives the metric (not only the theme). */
 int   rvn_widget_has_metric(const rvn_widget_t* widget, RMetric metric);
 void  rvn_widget_set_color(rvn_widget_t* widget, RColorRole role, rvn_color_t color);
@@ -488,8 +490,43 @@ typedef enum rvn_part_t {
 	RVN_PART_CLOSE_BUTTON,
 	/** The ring of the keyboard focus. */
 	RVN_PART_FOCUS,
+	/** NodeGraph, Timeline: the lines or dots of the canvas, the lines of time. */
+	RVN_PART_GRID,
+	/** NodeGraph: a node, its pins, the links between them. */
+	RVN_PART_NODE,
+	RVN_PART_PIN,
+	RVN_PART_LINK,
+	/** Timeline: the ruler of time, a clip, a key, the playhead, a marker. */
+	RVN_PART_RULER,
+	RVN_PART_CLIP,
+	RVN_PART_KEY,
+	RVN_PART_PLAYHEAD,
+	RVN_PART_MARKER,
 	RVN_PART_COUNT
 } rvn_part_t;
+
+/**
+ * Forms a part can take (<Style Part="Pin" Shape="Diamond">, rvn_part_look_t::shape).
+ * Each part reads the ones that mean something for it; 0 is the one of the look.
+ */
+enum {
+	RVN_SHAPE_DEFAULT = 0,
+	/* pins, keys */
+	RVN_SHAPE_CIRCLE, RVN_SHAPE_RING, RVN_SHAPE_SQUARE, RVN_SHAPE_DIAMOND, RVN_SHAPE_TRIANGLE, RVN_SHAPE_ARROW,
+	/* links */
+	RVN_SHAPE_BEZIER, RVN_SHAPE_STRAIGHT, RVN_SHAPE_STEP, RVN_SHAPE_ANGLED,
+	/* grids */
+	RVN_SHAPE_DOTS, RVN_SHAPE_LINES, RVN_SHAPE_CROSS,
+	/* headers of nodes, clips */
+	RVN_SHAPE_SOLID, RVN_SHAPE_GRADIENT, RVN_SHAPE_STRIPE, RVN_SHAPE_TINT, RVN_SHAPE_OUTLINE,
+	RVN_SHAPE_NONE,
+	RVN_SHAPE_COUNT
+};
+/** RVN_SHAPE_ by name ("Diamond", "Step"...); R_FALSE when unknown. */
+int rvn_shape_by_name(const char* name, int* shape);
+const char* rvn_shape_name(int shape);
+/** Lays the values of `mask` (RVN_LOOK_ bits) of `from` over `look`. */
+void rvn_part_look_apply(rvn_part_look_t* look, const rvn_part_look_t* from, uint32_t mask);
 
 /** States a style can ask for (<Style State="Hovered Checked">). */
 #define RVN_STATE_HOVERED  (1u << 0)
@@ -902,6 +939,8 @@ void rvn_window_update(rvn_window_t* window);
 void rvn_window_layout(rvn_window_t* window);
 /** R_TRUE when the window will produce a frame at the next update. */
 int  rvn_window_wants_frame(rvn_window_t* window);
+/** Seconds until the window wants a frame: 0 = now, negative = nothing to do (it waits for an event). */
+double rvn_window_frame_in(rvn_window_t* window);
 /*
  * Waits until the windows that will paint can take a frame (the previous one
  * left for the renderer). Called before the input is read: the frame that
@@ -1043,6 +1082,18 @@ void rvn_tray_update(void);
 int  rvn_tray_count(void);
 void rvn_tray_on_event(const struct rvn_pevent_t* event);
 void rvn_tray_shutdown(void);
+
+/* ---- widget/inspector.c (Rwindow_set_inspector) ---- */
+/** Once a frame: the inspectors follow the windows they inspect. */
+void rvn_inspector_update(void);
+/** A window goes: its inspector with it, or it was the window of an inspector. */
+void rvn_inspector_window_destroyed(rvn_window_t* window);
+/** Outlines, over the window, the widget selected in its inspector. */
+void rvn_inspector_paint(rvn_window_t* window, RPainter* painter);
+/** While "Pick" is on: the pointer shows which widget a click selects, and the click goes to the inspector only. */
+int  rvn_inspector_pick_move(rvn_window_t* window, float x, float y);
+int  rvn_inspector_pick_button(rvn_window_t* window, int pressed);
+void rvn_inspector_shutdown(void);
 /** The same for a window: its menu bars, then the menus that belong to no tree (Rmenu_open, context menus). */
 rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint32_t modifiers);
 /** Parses "Ctrl+Shift+S". Implemented in widgets/menu.c. */

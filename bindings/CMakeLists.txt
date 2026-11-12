@@ -9,14 +9,26 @@
 #   binding_go            needs go, a C compiler for cgo, and the shared library; not on Windows
 #   binding_java          needs a JDK 22 or later and the shared library; not on Windows
 #   binding_odin          needs odin and the shared library; not on Windows
+#   binding_odin_wrapper, binding_odin_wrapper_test    the same needs: the example and the tests of odin/raven_odin
 #   binding_bun           needs bun and the shared library; not on Windows
+#   binding_node          needs node and node_api.h (the addon is built here) and the shared library; not on Windows
+#   binding_node_bun      the same addon and test, run by bun instead
+#   binding_zig           needs zig: compiles every declaration of zig/raven.zig (nothing is linked or run)
 #
-# C#, Zig and LuaJIT have no test here.
+# C# and LuaJIT have no test here.
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)
 	add_test(NAME bindings_up_to_date
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/bindgen/bindgen.py --check)
+endif()
+
+find_program(RAVEN_ZIG zig)
+if(RAVEN_ZIG)
+	add_test(NAME binding_zig
+		COMMAND ${RAVEN_ZIG} test ${CMAKE_CURRENT_SOURCE_DIR}/zig/check.zig --test-no-exec
+			--cache-dir ${CMAKE_CURRENT_BINARY_DIR}/zig-cache
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
 include(CheckLanguage)
@@ -78,7 +90,18 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 	if(RAVEN_ODIN)
 		add_test(NAME binding_odin
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} run example
-				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven>" -- --test
+				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven> -Wl,-rpath,$<TARGET_FILE_DIR:raven>" -- --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
+		# raven_odin, the layer over the generated package: its example, and its tests
+		# (one at a time: Raven has one UI thread)
+		add_test(NAME binding_odin_wrapper
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} run raven_odin/example
+				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin_wrapper "-extra-linker-flags:-L$<TARGET_FILE_DIR:raven> -Wl,-rpath,$<TARGET_FILE_DIR:raven>" -- --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
+		add_test(NAME binding_odin_wrapper_test
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_ODIN} test raven_odin
+				-out:${CMAKE_CURRENT_BINARY_DIR}/raven_binding_odin_wrapper_test -define:ODIN_TEST_THREADS=1
+				"-extra-linker-flags:-L$<TARGET_FILE_DIR:raven> -Wl,-rpath,$<TARGET_FILE_DIR:raven>"
 			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/odin)
 	endif()
 
@@ -87,5 +110,20 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 		add_test(NAME binding_bun
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_BUN} run ${CMAKE_CURRENT_SOURCE_DIR}/bun/src/example.ts --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+	endif()
+
+	add_subdirectory(node)
+	if(TARGET raven_node)
+		set(RAVEN_NODE_ENV "RAVEN_ADDON=$<TARGET_FILE:raven_node>" ${RAVEN_BINDING_ENV})
+		if(RAVEN_NODE)
+			add_test(NAME binding_node
+				COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_NODE_ENV} ${RAVEN_NODE} --expose-gc ${CMAKE_CURRENT_SOURCE_DIR}/node/src/example.mjs --test
+				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+		endif()
+		if(RAVEN_BUN)
+			add_test(NAME binding_node_bun
+				COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_NODE_ENV} ${RAVEN_BUN} run ${CMAKE_CURRENT_SOURCE_DIR}/node/src/example.mjs --test
+				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+		endif()
 	endif()
 endif()

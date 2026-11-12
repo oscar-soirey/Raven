@@ -4,7 +4,7 @@ What comes next for Raven, by priority. Each item says why it matters and
 roughly what it takes. `[x]` is done, `[~]` started, `[ ]` to do. The list
 is a plan, not a promise: issues and pull requests can change the order.
 
-## Done since 0.2.1 (for the next version)
+## Done in 0.2.2
 
 - [x] **Table widget** (`R_WIDGET_TABLE`, `<Table>`): columns that are resized
   (double click on an edge fits the column) and sorted, filling columns,
@@ -21,6 +21,21 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [x] **Dispersion of glass**: the rim of glass splits what it bends into a
   spectrum of seven wavelengths (it was a red / blue offset), on clear and
   frosted glass, and faintly on the edges of `BackgroundBlur`.
+- [x] **SVG at the size it is shown**: drawn again for the density of the
+  screen, a stretched `Image` or a zoom, on a worker thread.
+- [x] **Toast queue**: messages one after the other (`Queue="Sequence"`) or
+  stacked (`Queue="Stack"`), each with its kind, button and time.
+- [x] **Inspector** (`Rwindow_set_inspector`): the tree of the widgets of a
+  window, what the selected one is, the cost of the frame, picking.
+- [x] **`test_web` no longer flaky**: a page drawn before the screencast
+  started, or a picture of another size arriving late, made it wait for a
+  picture that never came; the view now asks the browser for one.
+- [x] **Looks of the node graph and of the timeline**: `Auto` (the theme
+  and its platform), `Modern`, `Blueprint`, `Blender`, `Neon`; every part
+  (nodes, headers, pins, links, grid, clips, keys, playhead...) styled by
+  the theme, the attributes of the widget or one item; forms of links
+  (Bezier, Straight, Step, Angled), of pins and keys, gradients, glow, icons
+  on nodes. The studio switches between them.
 - [x] **Small widgets**: `DatePicker` (calendar popup, range, first day of the
   week, formats, translated names), `TimePicker`, `Toast`, `Breadcrumb`,
   `Rating`, `Pagination`.
@@ -49,9 +64,6 @@ is a plan, not a promise: issues and pull requests can change the order.
   only; the Win32 and Cocoa platforms are only compiled. Run the headless
   tests on `windows-latest` and `macos-latest`, and the platform tests where
   a display is available.
-- [ ] **`test_web` is flaky** (it drives an installed Chromium and depends
-  on its start time). Give it a longer wait and a retry, or mark it
-  `DISABLED` in CI and run it on its own job that may fail.
 - [ ] **Win32 event queue.** The queue of events gathered while Windows runs
   its modal loops (moving, resizing) has a fixed size; make it grow, and
   test it with injected bursts.
@@ -83,7 +95,6 @@ is a plan, not a promise: issues and pull requests can change the order.
   holding a widget (a checkbox, a progress bar), frozen first column.
 - [ ] Date picker: a range of two dates; a time zone aware time picker; a
   12-hour clock where the locale uses one.
-- [ ] Toast queue: several messages one after the other, or stacked.
 - [ ] Notifications: actions (buttons), a click that brings the window
   back, replacing a notification, an icon; UNUserNotificationCenter on macOS.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.
@@ -92,8 +103,6 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Images
 
-- [ ] SVG at the scale of the screen: draw the SVG again when the window
-  moves to a screen of another density, instead of a fixed 2.
 - [ ] SVG icons tinted with the theme (`currentColor`), with a set of icons
   shipped with Raven.
 - [ ] Animated images (GIF, APNG).
@@ -129,9 +138,6 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ## 6. For the people who use Raven
 
-- [ ] **Runtime inspector**: a key (F12) that opens a panel listing the
-  widget tree of a window, the layout rectangles, the styles that apply, the
-  time spent in layout and paint.
 - [ ] **Packages**: vcpkg, Conan, Homebrew, a `pkg-config` file, and the
   CMake config already installed.
 - [ ] **CONTRIBUTING.md**, issue and pull request templates, a code of

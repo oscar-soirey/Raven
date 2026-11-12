@@ -27,6 +27,8 @@ typedef struct rvn_combo_list_t {
 	rvn_widget_t base;
 	rvn_combo_box_t* combo;
 	int hot;
+	/** R_TRUE when `hot` last moved because the pointer did: the highlight then snaps instead of sliding. */
+	int hot_by_pointer;
 	rvn_scrollbar_t bar;
 	/** Top of the highlighted row as drawn. */
 	RSpring hot_y;
@@ -147,7 +149,7 @@ static void rvn_combo_list_paint(rvn_widget_t* widget, RPainter* painter) {
 	}
 	if (list->hot >= 0) {
 		/* the highlight slides under the pointer from row to row */
-		float y = rvn_paint_spring(painter, &list->hot_y, row * (float)list->hot, R_MOTION_SNAPPY);
+		float y = rvn_paint_track(painter, &list->hot_y, row * (float)list->hot, R_MOTION_SNAPPY, list->hot_by_pointer);
 		rvn_paint_row(painter, widget, rvn_rect(1.0f, pad + y - offset, rect.w - 2.0f, row), rvn_widget_color(widget, R_COLOR_SELECTION));
 	} else {
 		list->hot_y.started = R_FALSE;
@@ -187,6 +189,7 @@ static int rvn_combo_list_event(rvn_widget_t* widget, const REvent* event) {
 			row = rvn_combo_list_row_at(widget, event->local_y);
 			if (row != list->hot && row >= 0) {
 				list->hot = row;
+				list->hot_by_pointer = R_TRUE;
 				rvn_widget_invalidate_paint(widget);
 			}
 			return R_TRUE;
@@ -225,6 +228,7 @@ static int rvn_combo_list_event(rvn_widget_t* widget, const REvent* event) {
 					/* Escape is left to the window, which closes the popup */
 					return R_FALSE;
 			}
+			list->hot_by_pointer = R_FALSE;
 			rvn_combo_list_reveal(widget, list->hot);
 			rvn_widget_invalidate_paint(widget);
 			return R_TRUE;
@@ -291,6 +295,7 @@ static void rvn_combo_box_open(rvn_widget_t* widget) {
 	if (!widget->window || !list || combo->count == 0 || rvn_combo_box_is_open(widget)) return;
 	origin = rvn_widget_origin(widget);
 	list->hot = combo->selected;
+	list->hot_by_pointer = R_FALSE;
 	list->hot_y.started = R_FALSE;
 	/* the list is made of what its button is made of */
 	list->base.material = widget->material;

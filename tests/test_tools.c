@@ -7,6 +7,8 @@
 
 #include "test.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 static Rid make_window(const char* xml) {
@@ -380,6 +382,157 @@ static int on_connect(Rid graph, int output_pin, int input_pin, void* user_data)
 	return g_connect_allowed;
 }
 
+/* What an editor hooks: a double click on the empty canvas, a wire dropped on nothing, a click on a pin, what is under a point. */
+static int g_point_calls[3];
+static int g_point_item;
+static float g_point_x, g_point_y;
+static void on_point(Rid graph, int item, float x, float y, void* user_data) {
+	(void)graph;
+	g_point_calls[(intptr_t)user_data]++;
+	g_point_item = item;
+	g_point_x = x;
+	g_point_y = y;
+}
+
+static void test_node_graph_editor_hooks(void) {
+	Rid window, graph;
+	int a, a_out;
+	float px, py, cx, cy, zoom;
+
+	CHECK(test_init(0));
+	window = make_window("<Window Width=\"900\" Height=\"600\"><NodeGraph Name=\"g\">"
+		"<Node Name=\"a\" Title=\"Source\" X=\"50\" Y=\"50\"><Output Name=\"o\" Label=\"Out\"/></Node>"
+		"</NodeGraph></Window>");
+	graph = Rwidget_find(window, "g");
+	a = Rnode_graph_find_node(graph, "a");
+	a_out = Rnode_graph_find_pin(graph, a, "o");
+	Rnode_graph_get_view(graph, &cx, &cy, &zoom);
+	CHECK(zoom == 1.0f); /* canvas units are window units until the view moves */
+
+	/* an icon shared by nodes stays the application's: removing a node keeps it */
+	{
+		static const unsigned char white[4 * 4] = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
+		Rid tex = Rtexture_create_from_pixels(white, 2, 2);
+		int b = Rnode_graph_add_node(graph, "Temp", 300.0f, 300.0f);
+		CHECK(tex != R_INVALID_ID && b != 0);
+		Rnode_graph_set_node_icon(graph, a, tex);
+		Rnode_graph_set_node_icon(graph, b, tex);
+		Rdraw_frame();
+		Rnode_graph_remove_node(graph, b);
+		Rdraw_frame();
+		CHECK(Rtexture_is_valid(tex));
+		Rnode_graph_set_node_icon(graph, a, R_INVALID_ID);
+		CHECK(Rtexture_is_valid(tex));
+		Rtexture_destroy(tex);
+	}
+
+	/* the node under a point */
+	CHECK(Rnode_graph_get_node_at(graph, 60.0f, 60.0f) == a);
+	CHECK(Rnode_graph_get_node_at(graph, 600.0f, 400.0f) == 0);
+
+	/* double click on the empty canvas: the application's, not "frame all" */
+	Rnode_graph_set_canvas_activated_callback(graph, on_point, (void*)(intptr_t)0);
+	click_at(window, 600.0f, 400.0f);
+	click_at(window, 600.0f, 400.0f);
+	Rdraw_frame();
+	CHECK(g_point_calls[0] == 1 && g_point_item == 0);
+	CHECK_NEAR(g_point_x, 600.0f);
+	CHECK_NEAR(g_point_y, 400.0f);
+	Rnode_graph_get_view(graph, &px, &py, &zoom);
+	CHECK(px == cx && py == cy && zoom == 1.0f);
+	/* a double click on a node is still the node's */
+	click_at(window, 60.0f, 60.0f);
+	click_at(window, 60.0f, 60.0f);
+	CHECK(g_point_calls[0] == 1);
+	/* without the callback, the double click frames all again */
+	Rnode_graph_set_canvas_activated_callback(graph, NULL, NULL);
+	click_at(window, 600.0f, 400.0f);
+	click_at(window, 600.0f, 400.0f);
+	CHECK(g_point_calls[0] == 1);
+
+	/* a wire released on nothing: told with its pin and the point */
+	Rnode_graph_frame_all(graph);
+	Rnode_graph_set_view(graph, cx, cy, 1.0f);
+	Rdraw_frame();
+	Rnode_graph_set_wire_dropped_callback(graph, on_point, (void*)(intptr_t)1);
+	Rnode_graph_get_pin_position(graph, a_out, &px, &py);
+	drag(window, px, py, 500.0f, 300.0f);
+	CHECK(g_point_calls[1] == 1 && g_point_item == a_out);
+	CHECK_NEAR(g_point_x, 500.0f);
+	CHECK_NEAR(g_point_y, 300.0f);
+	CHECK(Rnode_graph_get_link_count(graph) == 0);
+	/* Escape while pulling cancels: not a drop */
+	Rwindow_inject_mouse_move(window, px, py);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(window, 450.0f, 250.0f);
+	Rwindow_inject_mouse_move(window, 500.0f, 300.0f);
+	press_key(window, R_KEY_ESCAPE, 0);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
+	Rdraw_frame();
+	CHECK(g_point_calls[1] == 1);
+
+	/* what is under a point: a pin (and its tag), a link (not a hidden one) */
+	{
+		int b = Rnode_graph_add_node(graph, "Sink", 400.0f, 60.0f);
+		int b_in = Rnode_graph_add_input(graph, b, "In", NULL);
+		int link, tag_pin;
+		float bx, by, mx, my;
+		Rdraw_frame();
+		Rnode_graph_get_pin_position(graph, a_out, &px, &py);
+		CHECK(Rnode_graph_get_pin_at(graph, px, py) == a_out);
+		CHECK(Rnode_graph_get_pin_at(graph, 600.0f, 400.0f) == 0);
+		link = Rnode_graph_connect(graph, a_out, b_in);
+		CHECK(link != 0);
+		Rdraw_frame();
+		Rnode_graph_get_pin_position(graph, b_in, &bx, &by);
+		/* (pin positions are on the canvas; the points asked about are in the widget) */
+		Rnode_graph_from_canvas(graph, (px + bx) * 0.5f, (py + by) * 0.5f, &mx, &my);
+		/* the wire hangs a little below the line between its pins: find it under the middle */
+		{
+			int k;
+			for (k = 0; k < 30 && Rnode_graph_get_link_at(graph, mx, my) != link; k++) my += 1.0f;
+		}
+		CHECK(Rnode_graph_get_link_at(graph, mx, my) == link);
+		Rnode_graph_set_link_hidden(graph, link, R_TRUE);
+		Rdraw_frame();
+		CHECK(Rnode_graph_get_link_at(graph, mx, my) == 0);
+		CHECK(Rnode_graph_get_link_count(graph) == 1); /* hidden, not removed */
+		Rnode_graph_set_link_hidden(graph, link, R_FALSE);
+		CHECK(Rnode_graph_get_link_at(graph, mx, my) == link);
+		/* a tag sits left of an input, outside the node; it is the pin's under the pointer */
+		Rnode_graph_set_pin_tag(graph, b_in, "net 1");
+		Rdraw_frame();
+		Rnode_graph_from_canvas(graph, bx - 30.0f, by, &mx, &my);
+		tag_pin = Rnode_graph_get_pin_at(graph, mx, my);
+		CHECK(tag_pin == b_in);
+		Rnode_graph_set_pin_tag(graph, b_in, NULL);
+		Rdraw_frame();
+		CHECK(Rnode_graph_get_pin_at(graph, mx, my) == 0);
+		/* a click on a pin (no drag) with the callback: told, the wire of the input stays, not a drop */
+		Rnode_graph_set_pin_clicked_callback(graph, on_point, (void*)(intptr_t)2);
+		{
+			int dropped = g_point_calls[1];
+			Rnode_graph_from_canvas(graph, bx, by, &mx, &my);
+			click_at(window, mx, my);
+			Rdraw_frame();
+			CHECK(g_point_calls[2] == 1 && g_point_item == b_in);
+			CHECK(g_point_calls[1] == dropped);
+			CHECK(Rnode_graph_get_link_count(graph) == 1);
+		}
+		Rnode_graph_set_pin_clicked_callback(graph, NULL, NULL);
+		Rnode_graph_set_pin_emphasis(graph, b_in, 1);
+		Rnode_graph_set_pin_emphasis(graph, a_out, -1);
+		Rdraw_frame();
+		Rnode_graph_set_pin_emphasis(graph, b_in, 0);
+		Rnode_graph_set_pin_emphasis(graph, a_out, 0);
+		Rnode_graph_remove_node(graph, b);
+		Rdraw_frame();
+	}
+
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+
 static void test_node_graph(void) {
 	Rid window, graph, check;
 	int a, b, c, a_out, a_color, b_in, b_any, c_in, link, other;
@@ -659,7 +812,17 @@ static void test_node_graph(void) {
 		Rid slider = Rwidget_create(R_WIDGET_SLIDER), label = Rlabel_create("inside");
 		int user = 5;
 		CHECK(n1 && n2 && out && in);
-		CHECK(Rnode_graph_connect(graph, out, in) != 0);
+		int link = Rnode_graph_connect(graph, out, in);
+		CHECK(link != 0);
+		/* added to a shown graph: shown at once on request (an application that rebuilds its graph) */
+		Rnode_graph_set_node_shown(graph, n1);
+		Rnode_graph_set_node_shown(graph, n2);
+		Rnode_graph_set_link_shown(graph, link);
+		Rdraw_frame();
+		EXPECT_ERRORS_BEGIN();
+		Rnode_graph_set_node_shown(graph, 9999);
+		EXPECT_ERRORS_END(1);
+		Rnode_graph_set_link_shown(graph, 9999); /* an unknown link is ignored, as by the other link functions */
 		Rnode_graph_set_node_title(graph, n1, "First");
 		CHECK_STR(Rnode_graph_get_node_title(graph, n1), "First");
 		Rnode_graph_set_node_name(graph, n1, "first");
@@ -1035,13 +1198,190 @@ static void test_timeline_sizes(void) {
 	Rshutdown();
 }
 
+/* ---------------------------------------------------------------------------
+ *  Looks of the node graph and of the timeline
+ * ------------------------------------------------------------------------- */
+
+/* Clicks a point of the canvas of a graph, then Delete: R_TRUE when a link went (the click selected it). */
+static int click_removes_link(Rid window, Rid graph, float cx, float cy) {
+	float gx, gy, gw, gh, x, y;
+	int before = Rnode_graph_get_link_count(graph);
+	Rwidget_get_rect(graph, &gx, &gy, &gw, &gh);
+	Rnode_graph_from_canvas(graph, cx, cy, &x, &y);
+	click_at(window, gx + x, gy + y);
+	press_key(window, R_KEY_DELETE, 0);
+	Rdraw_frame();
+	return Rnode_graph_get_link_count(graph) < before;
+}
+
+static const char g_looks_graph[] =
+	"<Window Width=\"900\" Height=\"600\"><NodeGraph Name=\"g\" %s>"
+	"<Type Name=\"number\" Color=\"#00FF00\" Shape=\"Diamond\" LinkWidth=\"3\"/>"
+	"<Type Name=\"exec\"/>"
+	"<Node Name=\"a\" Title=\"Source\" X=\"50\" Y=\"50\" HeaderStyle=\"Gradient\" HeaderColor=\"#334455\" Glow=\"0.5\">"
+	"<Output Name=\"o\" Label=\"Out\" Type=\"number\"/><Output Name=\"x\" Label=\"Then\" Type=\"exec\" Shape=\"Arrow\"/></Node>"
+	"<Node Name=\"b\" Title=\"Mix\" X=\"500\" Y=\"250\"><Input Name=\"i\" Label=\"In\" Type=\"number\"/><Input Name=\"x\" Label=\"Do\" Type=\"exec\"/></Node>"
+	"<Link From=\"a.o\" To=\"b.i\"/>"
+	"</NodeGraph></Window>";
+
+static Rid looks_window(const char* attributes, Rid* graph) {
+	char xml[2048];
+	snprintf(xml, sizeof(xml), g_looks_graph, attributes);
+	{
+		Rid window = make_window(xml);
+		*graph = Rwidget_find(window, "g");
+		Rdraw_frame();
+		return window;
+	}
+}
+
+static void test_looks(void) {
+	static const char* const presets[] = { "Auto", "Modern", "Blueprint", "Blender", "Neon" };
+	static const char* const shapes[] = { "Bezier", "Straight", "Step", "Angled" };
+	Rid window, graph, tl;
+	int a, b, a_out, b_in, i, k;
+	float w, h, w2, h2, x0, y0, x1, y1;
+
+	CHECK(test_init(0));
+	/* every look and every form of link is painted (under the sanitizers) */
+	for (i = 0; i < 5; i++) {
+		for (k = 0; k < 4; k++) {
+			char attributes[160];
+			snprintf(attributes, sizeof(attributes), "Preset=\"%s\" LinkShape=\"%s\" Grid.Shape=\"%s\"", presets[i], shapes[k], k % 2 ? "Lines" : "Cross");
+			window = looks_window(attributes, &graph);
+			CHECK(Rnode_graph_get_preset(graph) == (RVisualPreset)((int)R_PRESET_AUTO + i));
+			Rnode_graph_select_node(graph, Rnode_graph_find_node(graph, "a"), R_FALSE);
+			Rdraw_frame();
+			Rwindow_destroy(window);
+		}
+	}
+
+	/* the header follows its height: a node of the Blender look is shorter */
+	window = looks_window("", &graph);
+	a = Rnode_graph_find_node(graph, "a");
+	Rnode_graph_get_node_size(graph, a, &w, &h);
+	Rnode_graph_set_preset(graph, R_PRESET_BLENDER);
+	Rdraw_frame();
+	Rnode_graph_get_node_size(graph, a, &w2, &h2);
+	CHECK(h2 < h);
+	CHECK(Rwidget_set_attribute(graph, "HeaderHeight", "50"));
+	Rdraw_frame();
+	Rnode_graph_get_node_size(graph, a, &w2, &h2);
+	CHECK(h2 > h);
+	Rwindow_destroy(window);
+
+	/* the form of the links is the one the pointer finds: a Step link turns at the middle */
+	window = looks_window("", &graph);
+	a = Rnode_graph_find_node(graph, "a");
+	b = Rnode_graph_find_node(graph, "b");
+	a_out = Rnode_graph_find_pin(graph, a, "o");
+	b_in = Rnode_graph_find_pin(graph, b, "i");
+	Rnode_graph_get_pin_position(graph, a_out, &x0, &y0);
+	Rnode_graph_get_pin_position(graph, b_in, &x1, &y1);
+	/* (a curve does not pass there: nothing is selected, nothing goes) */
+	CHECK(!click_removes_link(window, graph, floorf((x0 + x1) * 0.5f), y0 + 30.0f));
+	CHECK(Rwidget_set_attribute(graph, "Link.Shape", "Step"));
+	Rdraw_frame();
+	CHECK(click_removes_link(window, graph, floorf((x0 + x1) * 0.5f), y0 + 30.0f));
+	Rwindow_destroy(window);
+
+	/* the same from a style of the theme */
+	{
+		static const char theme[] = "<Theme Name=\"Steps\"><Style Widget=\"NodeGraph\" Part=\"Link\" Shape=\"Step\" Glow=\"0.5\"/>"
+			"<Style Widget=\"Timeline\" Part=\"Clip\" State=\"Selected\" Gradient=\"#102030\" Shape=\"Gradient\"/></Theme>";
+		CHECK(Rtheme_load_from_memory(theme, sizeof(theme) - 1) != NULL);
+	}
+	CHECK(Rtheme_use("Steps"));
+	window = looks_window("", &graph);
+	CHECK(click_removes_link(window, graph, floorf((x0 + x1) * 0.5f), y0 + 30.0f));
+	Rwindow_destroy(window);
+	{
+		/* written back as it was read */
+		const char* path = "test_looks_theme.xml";
+		char text[4096];
+		size_t size;
+		FILE* file;
+		CHECK(Rtheme_save(path, "Steps"));
+		file = fopen(path, "rb");
+		CHECK(file != NULL);
+		if (file) {
+			size = fread(text, 1, sizeof(text) - 1, file);
+			text[size] = '\0';
+			fclose(file);
+			CHECK(strstr(text, "Shape=\"Step\"") != NULL);
+			CHECK(strstr(text, "Glow=\"0.5\"") != NULL);
+			CHECK(strstr(text, "Gradient=\"#102030\"") != NULL);
+		}
+		remove(path);
+	}
+	Rtheme_apply(R_THEME_DARK);
+
+	/* items: in C, and what is not one */
+	window = looks_window("", &graph);
+	a = Rnode_graph_find_node(graph, "a");
+	a_out = Rnode_graph_find_pin(graph, a, "o");
+	CHECK(Rnode_graph_set_node_style(graph, a, "HeaderStyle", "Stripe"));
+	CHECK(Rnode_graph_set_node_style(graph, a, "Header.Gradient", "#FF0000"));
+	CHECK(Rnode_graph_set_node_style(graph, a, "HeaderStyle", "Default"));
+	CHECK(Rnode_graph_set_type_style(graph, "number", "LinkShape", "Angled"));
+	CHECK(Rnode_graph_set_pin_style(graph, a_out, "Color", "#FF00FF"));
+	Rdraw_frame();
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rnode_graph_set_node_style(graph, a, "HeaderStyle", "Wavy"));
+	CHECK(!Rnode_graph_set_node_style(graph, a, "Nonsense", "1"));
+	CHECK(!Rnode_graph_set_type_style(graph, "number", "Shape", "Blob"));
+	CHECK(!Rnode_graph_set_pin_style(graph, a_out, "Size", "-3"));
+	CHECK(!Rwidget_set_attribute(graph, "Preset", "Rococo"));
+	CHECK(!Rwidget_set_attribute(graph, "Link.Shape", "Spiral"));
+	Rnode_graph_set_preset(graph, (RVisualPreset)0);
+	/* (Rwidget_set_attribute answers R_FALSE without an error) */
+	EXPECT_ERRORS_END(5);
+	CHECK(Rwidget_set_attribute(graph, "Preset", "Neon"));
+	CHECK(Rnode_graph_get_preset(graph) == R_PRESET_NEON);
+	Rwindow_destroy(window);
+
+	/* the timeline */
+	for (i = 0; i < 5; i++) {
+		char xml[1024];
+		snprintf(xml, sizeof(xml), "<Window Width=\"700\" Height=\"300\"><Timeline Name=\"t\" Preset=\"%s\" Duration=\"10\" KeyShape=\"%s\">"
+			"<Track Name=\"A\" Color=\"#0A84FF\" ClipStyle=\"Outline\"><Clip Start=\"0\" Length=\"3\" Label=\"One\" Selected=\"true\"/>"
+			"<Clip Start=\"4\" Length=\"2\" Style=\"Gradient\" Glow=\"0.5\"/></Track>"
+			"<Track Name=\"B\" KeyShape=\"Ring\" Background=\"#202020\"><Key Time=\"1\"/><Key Time=\"2\" Shape=\"Square\" Selected=\"true\"/></Track>"
+			"<Marker Time=\"5\" Label=\"M\" Glow=\"1\"/></Timeline></Window>", presets[i], i % 2 ? "Circle" : "Triangle");
+		window = make_window(xml);
+		tl = Rwidget_find(window, "t");
+		CHECK(Rtimeline_get_preset(tl) == (RVisualPreset)((int)R_PRESET_AUTO + i));
+		Rdraw_frame();
+		Rwindow_destroy(window);
+	}
+	window = make_window("<Window Width=\"700\" Height=\"300\"><Timeline Name=\"t\"><Track Name=\"A\"><Clip Start=\"0\" Length=\"2\"/></Track></Timeline></Window>");
+	tl = Rwidget_find(window, "t");
+	CHECK(Rtimeline_set_track_style(tl, Rtimeline_get_track(tl, 0), "ClipStyle", "Solid"));
+	CHECK(Rtimeline_set_track_style(tl, Rtimeline_get_track(tl, 0), "Key.Glow", "0.4"));
+	CHECK(Rtimeline_set_item_style(tl, Rtimeline_get_item(tl, 0), "Style", "Tint"));
+	CHECK(Rwidget_set_attribute(tl, "Clip.CornerRadius", "2"));
+	Rtimeline_set_preset(tl, R_PRESET_BLENDER);
+	CHECK(Rtimeline_get_preset(tl) == R_PRESET_BLENDER);
+	Rdraw_frame();
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rtimeline_set_track_style(tl, Rtimeline_get_track(tl, 0), "ClipStyle", "Plaid"));
+	CHECK(!Rtimeline_set_item_style(tl, Rtimeline_get_item(tl, 0), "Nonsense", "1"));
+	CHECK(!Rtimeline_set_track_style(tl, 9999, "ClipStyle", "Solid"));
+	CHECK(!Rwidget_set_attribute(tl, "KeyShape", "Star"));
+	EXPECT_ERRORS_END(3);
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+
 int main(void) {
 	RUN(test_color_picker);
 	RUN(test_timeline);
 	RUN(test_timeline_sizes);
 	RUN(test_node_graph);
+	RUN(test_node_graph_editor_hooks);
 	RUN(test_zoomed_content);
 	RUN(test_blur_and_transparency);
 	RUN(test_hooks);
+	RUN(test_looks);
 	return test_report("test_tools");
 }

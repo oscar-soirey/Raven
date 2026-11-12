@@ -470,35 +470,24 @@ int rvn_write_file(const char* path, const void* data, size_t size) {
 	return ok;
 }
 
-#if defined(RVN_NO_SUBPROCESS)
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
 int Ropen_url(const char* url) {
-	/* the URL goes into a JavaScript string: percent-encoded, so that no character of it can end the string */
-	static const char hex[] = "0123456789ABCDEF";
-	size_t length = url ? strlen(url) : 0, i, at = 0;
-	char* script;
-	if (!url || !url[0] || !rvn_is_http_url(url)) return R_FALSE;
-	script = (char*)rvn_alloc(length * 3 + 64);
-	at += (size_t)sprintf(script, "window.open(decodeURIComponent('");
-	for (i = 0; i < length; i++) {
-		unsigned char c = (unsigned char)url[i];
-		script[at++] = '%';
-		script[at++] = hex[c >> 4];
-		script[at++] = hex[c & 15];
-	}
-	sprintf(script + at, "'), '_blank');");
-	emscripten_run_script(script);
-	rvn_free(script);
-	return R_TRUE;
+	if (!url || !url[0]) return R_FALSE;
+	return EM_ASM_INT({
+		try {
+			const url = new URL(UTF8ToString($0), location.href);
+			if (!['https:', 'http:', 'mailto:'].includes(url.protocol)) return 0;
+			window.open(url.href, '_blank', 'noopener,noreferrer'); return 1;
+		} catch (_) { return 0; }
+	}, url);
 }
-#else
+#elif defined(RVN_NO_SUBPROCESS)
 /* iOS: UIApplication openURL: belongs to the platform layer; not available yet */
 int Ropen_url(const char* url) {
 	RVN_UNUSED(url);
 	return R_FALSE;
 }
-#endif
 #else
 int Ropen_url(const char* url) {
 	pid_t child;
@@ -624,7 +613,7 @@ done:
 	rvn_free(wide_url); rvn_free(host); rvn_free(object); rvn_free(bytes);
 	return ok;
 }
-#elif defined(RVN_NO_SUBPROCESS)
+#elif defined(RVN_NO_SUBPROCESS) || defined(__EMSCRIPTEN__)
 /*
  * No curl to start (iOS, a browser), and a blocking download would freeze the only thread of a browser: URLs are
  * not available here yet. The web build will fetch asynchronously (emscripten_fetch / the fetch() of the

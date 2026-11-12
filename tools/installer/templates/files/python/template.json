@@ -1,0 +1,11 @@
+{
+	"id": "python",
+	"name": "Python",
+	"order": 3,
+	"description": "Python 3.7+, with the ctypes binding (no dependency).",
+	"needs": "shared",
+	"binding": "python",
+	"run": "python3 main.py",
+	"run_windows": "python main.py",
+	"readme": "    python main.py\n\n(`python3` on Linux and macOS). `main.py` finds the binding and the library of the SDK by itself; `RAVEN_LIBRARY` overrides the library."
+}

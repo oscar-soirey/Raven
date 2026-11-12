@@ -47,7 +47,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--accent); outline-of
 .side .extra a{font:400 15px var(--body); color:var(--muted); padding:3px 12px}
 .side .extra a:hover{color:var(--link)}
 .doc{padding:0 clamp(20px,5vw,72px) 90px; min-width:0}
-.doc article{max-width:46em}
+.doc article{max-width:46em; margin-inline:auto}
 
 /* text */
 .doc h1{font:800 clamp(34px,6vw,54px)/1.05 var(--head); letter-spacing:-.03em; margin:44px 0 18px}
@@ -87,6 +87,7 @@ td.num,th.num{text-align:right; white-space:nowrap}
 .doc nav h2{margin:16px 0 8px; font-size:22px}
 .doc nav h2::after{display:none}
 .doc nav ol{margin:0}
+.doc header{text-align:center}
 .doc header>p:first-of-type{font-size:21px; color:var(--muted)}
 .doc footer,.foot{margin-top:3em; padding-top:.8em; border-top:2px dashed var(--line); font-size:15px; color:var(--muted)}
 .doc section{margin:0}

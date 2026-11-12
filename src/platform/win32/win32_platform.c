@@ -701,6 +701,30 @@ static void rvn_win32_on_manipulation(void* user, const rvn_win32_manipulation_e
 	rvn_win32_emit(window, &event);
 }
 
+/*
+ * The surface Windows keeps for the GDI drawing of a window (its
+ * redirection surface) lies under what the renderer presents. Raven never
+ * drew in it, and Windows fills it with white. On the screen a window seen
+ * through does not show it (the alpha of the frame is what counts), but the
+ * copies of the screen that Snipping Tool and Win + Print Screen take
+ * compose the frame over it: there, everything the window lets through was
+ * white (issue #53). Painted black it is fully transparent (GDI writes an
+ * alpha of 0, which the desktop keeps once rvn_win32_set_alpha is on), so
+ * the copies show what the screen shows. Opaque windows are left alone: the
+ * frame covers the surface, and erasing would only flicker.
+ *
+ * A device context of the cache, not the own one of the window (CS_OWNDC):
+ * the driver may present through that one, from the thread that renders.
+ */
+static void rvn_win32_clear_surface(rvn_pwindow_t* window) {
+	RECT client;
+	HDC dc = GetDCEx(window->handle, NULL, DCX_CACHE);
+	if (!dc) return;
+	GetClientRect(window->handle, &client);
+	FillRect(dc, &client, (HBRUSH)GetStockObject(BLACK_BRUSH));
+	ReleaseDC(window->handle, dc);
+}
+
 static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
 	rvn_pwindow_t* window = (rvn_pwindow_t*)GetWindowLongPtrW(handle, GWLP_USERDATA);
 	rvn_pevent_t event;
@@ -727,6 +751,7 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 				PostMessageW(handle, WM_CLOSE, 0, 0);
 				return 0;
 			case WM_ERASEBKGND:
+				if (window->transparent) rvn_win32_clear_surface(window);
 				return 1;
 			default:
 				return DefWindowProcW(handle, message, wparam, lparam);
@@ -804,6 +829,8 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 			if (width != window->width || height != window->height) {
 				window->width = width;
 				window->height = height;
+				/* the part of the surface that is new is white again (rvn_win32_clear_surface) */
+				if (window->transparent) rvn_win32_clear_surface(window);
 				rvn_win32_emit_resize(window);
 				/* live resize: the loop of the application is not running, draw the new size now */
 				if (g_win32.modal_loop) rvn_win32_emit_modal_tick();
@@ -836,10 +863,12 @@ static LRESULT CALLBACK rvn_win32_window_proc(HWND handle, UINT message, WPARAM 
 			break;
 
 		case WM_ERASEBKGND:
-			/* the renderer covers the whole client area: erasing would only flicker */
+			/* the renderer covers the whole client area: erasing would only flicker (seen through: see rvn_win32_clear_surface) */
+			if (window->transparent) rvn_win32_clear_surface(window);
 			return 1;
 
 		case WM_PAINT:
+			if (window->transparent) rvn_win32_clear_surface(window);
 			ValidateRect(handle, NULL);
 			event.type = RVN_PEVENT_EXPOSE;
 			rvn_win32_emit(window, &event);
@@ -1102,19 +1131,55 @@ static void rvn_win32_copy_wide(WCHAR* out, size_t capacity, const char* text) {
 	out[i] = 0;
 }
 
+/* The message of the notification icon: a click on a balloon (or on the
+ * notification Windows makes of it). */
+#define RVN_WM_NOTIFY_ICON (WM_APP + 0x52)
+#ifndef NIN_BALLOONUSERCLICK
+#define NIN_BALLOONUSERCLICK (WM_USER + 5)
+#endif
+
+static WNDPROC g_rvn_notify_static_proc;
+
+static LRESULT CALLBACK rvn_win32_notify_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
+	if (message == RVN_WM_NOTIFY_ICON) {
+		/* the event is lparam (or its low word, with NOTIFYICON_VERSION_4) */
+		if (LOWORD(lparam) == NIN_BALLOONUSERCLICK) rvn_notification_clicked();
+		return 0;
+	}
+	return CallWindowProcW(g_rvn_notify_static_proc, handle, message, wparam, lparam);
+}
+
+static void rvn_win32_notify_shutdown(void);
+
 static int rvn_win32_notify(const char* app, const char* title, const char* body, int urgency) {
 	NOTIFYICONDATAW data;
+	/* low: no sound; critical: the error sign */
+	DWORD info_flags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	{
+		/* the application has a tray icon: the notification is shown on it
+		 * (one icon in the notification area, not two) */
+		WCHAR info_title[64], info_text[256];
+		rvn_win32_copy_wide(info_title, RVN_COUNT_OF(info_title), *title ? title : app);
+		rvn_win32_copy_wide(info_text, RVN_COUNT_OF(info_text), *body ? body : " ");
+		if (rvn_win32_tray_balloon(info_title, info_text, info_flags)) {
+			/* (an icon of its own made before the tray icon came: gone) */
+			if (g_win32.notify_icon) rvn_win32_notify_shutdown();
+			return R_TRUE;
+		}
+	}
 	if (!g_win32.notify_window) {
-		/* a message-only window: never shown, it only owns the icon */
+		/* a message-only window: never shown, it only owns the icon and hears its clicks */
 		g_win32.notify_window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, g_win32.instance, NULL);
 		if (!g_win32.notify_window) return R_FALSE;
+		g_rvn_notify_static_proc = (WNDPROC)SetWindowLongPtrW(g_win32.notify_window, GWLP_WNDPROC, (LONG_PTR)rvn_win32_notify_proc);
 	}
 	memset(&data, 0, sizeof(data));
 	data.cbSize = sizeof(data);
 	data.hWnd = g_win32.notify_window;
 	data.uID = 1;
 	if (!g_win32.notify_icon) {
-		data.uFlags = NIF_ICON | NIF_TIP;
+		data.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+		data.uCallbackMessage = RVN_WM_NOTIFY_ICON;
 		data.hIcon = g_win32.app_icon_small ? g_win32.app_icon_small : (g_win32.app_icon ? g_win32.app_icon : LoadIconW(NULL, IDI_APPLICATION));
 		rvn_win32_copy_wide(data.szTip, RVN_COUNT_OF(data.szTip), app);
 		if (!Shell_NotifyIconW(NIM_ADD, &data)) return R_FALSE;
@@ -1123,8 +1188,7 @@ static int rvn_win32_notify(const char* app, const char* title, const char* body
 	data.uFlags = NIF_INFO;
 	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), *title ? title : app);
 	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), *body ? body : " ");
-	/* low: no sound; critical: the error sign */
-	data.dwInfoFlags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	data.dwInfoFlags = info_flags;
 	return Shell_NotifyIconW(NIM_MODIFY, &data) ? R_TRUE : R_FALSE;
 }
 
@@ -1199,7 +1263,9 @@ static rvn_pwindow_t* rvn_win32_window_create(const rvn_pwindow_desc_t* desc) {
 
 	window->user = desc->user;
 	window->flags = desc->flags;
-	window->handle = CreateWindowExW(WS_EX_APPWINDOW, RVN_WIN32_CLASS, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
+	/* (a splash screen is a tool window: out of the taskbar and of Alt+Tab) */
+	window->handle = CreateWindowExW((desc->flags & R_WINDOW_SPLASH_SCREEN) ? WS_EX_TOOLWINDOW : WS_EX_APPWINDOW,
+		RVN_WIN32_CLASS, title, style, CW_USEDEFAULT, CW_USEDEFAULT,
 		CW_USEDEFAULT, CW_USEDEFAULT, NULL, NULL, g_win32.instance, NULL);
 	rvn_free(title);
 	if (!window->handle) {
@@ -1358,6 +1424,8 @@ static int rvn_win32_window_set_backdrop(rvn_pwindow_t* window, int backdrop, in
 
 	if (backdrop == (int)R_BACKDROP_MICA && g_dwm.build < 22000u) given = backdrop = (int)R_BACKDROP_ACRYLIC;
 	rvn_win32_set_alpha(window, backdrop != (int)R_BACKDROP_NONE);
+	/* the surface under the frame no longer white: the copies of the screen show the backdrop, not white */
+	if (backdrop != (int)R_BACKDROP_NONE) rvn_win32_clear_surface(window);
 	rvn_win32_set_accent(window, 0, 0);
 
 	if (backdrop == (int)R_BACKDROP_BLUR) {

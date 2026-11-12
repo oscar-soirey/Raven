@@ -1,0 +1,5 @@
+<!-- One shortcut or integration (page 4). -->
+<VBox Spacing="2" Slot.Padding="4,6">
+	<Checkbox Name="check" Text=""/>
+	<Label Name="detail" Text="" Opacity="0.55" Wrap="true" Slot.Padding="30,0,0,0"/>
+</VBox>

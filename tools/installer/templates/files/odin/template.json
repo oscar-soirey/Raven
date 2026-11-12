@@ -1,0 +1,12 @@
+{
+	"id": "odin",
+	"name": "Odin",
+	"order": 9,
+	"description": "An Odin package; the binding of the SDK is the collection raven.",
+	"needs": "shared",
+	"binding": "odin",
+	"library_path": true,
+	"run_unix": "odin run . -collection:raven=\"{{RAVEN_BINDINGS}}/odin\" -extra-linker-flags:\"-L{{RAVEN_LIB_DIR}} -Wl,-rpath,{{RAVEN_BIN_DIR}}\"",
+	"run_windows": "odin run . -collection:raven=\"{{RAVEN_BINDINGS}}/odin\" -extra-linker-flags:\"/LIBPATH:{{RAVEN_LIB_DIR_NATIVE}}\"",
+	"readme": "    ./run.sh        (run.bat on Windows)\n\nThe script runs `odin run .` with the binding of the SDK as the collection `raven` and the folder of its library."
+}

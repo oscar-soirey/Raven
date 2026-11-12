@@ -89,7 +89,11 @@ static void on_reload(const char* path, int ok, void* user_data) {
 	char text[300];
 	(void)user_data;
 	snprintf(text, sizeof(text), ok ? "Loaded again: %.200s" : "Not loaded (see the error): %.200s", path);
-	if (ok) find_widgets();
+	if (ok) {
+		find_widgets();
+		/* a theme file loaded again can have another name */
+		fill_themes();
+	}
 	Rlabel_set_text(app.status, text);
 }
 
@@ -130,10 +134,7 @@ static void action_docs(Rid sender, const char* action, void* user_data) {
 	Rlabel_set_text(app.status, "A link of the Markdown text fired the action \"themes.docs\".");
 }
 
-/* the application has quit: releases what it holds, then every window, widget and resource of Raven */
-static void on_finished(int exit_code, void* user_data) {
-	(void)exit_code;
-	(void)user_data;
+static void example_shutdown(void) {
 	Rmemory_free(app.notes_text);
 	Rshutdown();
 }
@@ -165,12 +166,6 @@ int main(void) {
 	app.watch = Rtimer_create(0.5, R_TRUE, on_notes_timer, NULL);
 	Rwindow_show(app.window);
 
-	/* Rrun is the loop (see examples/hello): it returns when the application quits, or at once in a browser or on iOS,
-	 * where on_finished runs later */
-	if (example_automated(app.window)) {
-		Rmemory_free(app.notes_text);
-		Rshutdown();
-		return Rget_exit_code();
-	}
-	return Rrun(on_finished, NULL);
+	example_run(app.window, NULL, example_shutdown);
+	return Rget_exit_code();
 }

@@ -1078,6 +1078,10 @@ int rvn_widget_has_color(const rvn_widget_t* widget, RColorRole role) {
 	return match && (match->style.color_mask & bit) != 0;
 }
 
+int rvn_widget_own_color(const rvn_widget_t* widget, RColorRole role) {
+	return widget->style && (widget->style->color_mask & ((uint64_t)1 << RVN_COLOR_INDEX(role))) != 0;
+}
+
 int rvn_widget_has_metric(const rvn_widget_t* widget, RMetric metric) {
 	uint32_t bit = 1u << RVN_METRIC_INDEX(metric);
 	const rvn_style_match_t* match;

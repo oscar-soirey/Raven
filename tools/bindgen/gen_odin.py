@@ -42,6 +42,8 @@ def odin_type(api, ctype):
         return "[^]u8"
     if kind == "out":
         return "^%s" % (SCALAR[detail[1]] if detail[0] == "scalar" else detail[1])
+    if kind == "carray":
+        return "[^]%s" % SCALAR[detail]
     if kind in ("struct_ptr", "cstruct_ptr", "opaque_ptr"):
         return "^%s" % detail
     raise ValueError(ctype)

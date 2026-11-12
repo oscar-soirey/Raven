@@ -119,7 +119,14 @@ static Rid rvn_shader_make(const void* data, size_t data_size, Ruint flags, int 
 void rvn_shader_restore(rvn_shader_t* shader) {
 	uint32_t* copy;
 	shader->created = R_FALSE;
-	if (!shader->spirv) return;
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+    if (shader->source_glsl) {
+        rvn_renderer_create_shader(shader->id, NULL, 0);
+        shader->created = R_TRUE;
+        return;
+    }
+#endif
+    if (!shader->spirv) return;
 	copy = (uint32_t*)rvn_alloc(shader->spirv_size);
 	memcpy(copy, shader->spirv, shader->spirv_size);
 	rvn_renderer_create_shader(shader->id, copy, shader->spirv_size);
@@ -183,6 +190,7 @@ void Rshader_destroy(Rid id) {
 	/* (the frames already queued were drawn with it before the command arrives: the render thread keeps the order) */
 	if (shader->created) rvn_renderer_destroy_shader(id);
 	rvn_pool_remove(&g_rvn.shaders, id);
+	rvn_free(shader->source_glsl);
 	rvn_free(shader->spirv);
 	rvn_free(shader);
 }
@@ -203,6 +211,7 @@ void rvn_shaders_shutdown(void) {
 		if (!shader) continue;
 		if (shader->created) rvn_renderer_destroy_shader(shader->id);
 		rvn_pool_remove(&g_rvn.shaders, shader->id);
+		rvn_free(shader->source_glsl);
 		rvn_free(shader->spirv);
 		rvn_free(shader);
 	}

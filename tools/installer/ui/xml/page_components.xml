@@ -1,0 +1,22 @@
+<!-- Page 4: components and integrations. The options are row_option.xml, one per integration. -->
+<ScrollBox>
+	<VBox Spacing="10" Slot.Padding="48,44">
+		<Label Text="Components" TextSize="26"/>
+		<Spacer Height="4"/>
+
+		<Border Background="#1B1D24" CornerRadius="10" Padding="16,14">
+			<VBox Spacing="10">
+				<Checkbox Name="comp.sdk" Style="Switch" Checked="true" Text="RavenGUI SDK"/>
+				<Label Name="comp.sdk.detail" Text="" Opacity="0.6" Wrap="true" Slot.Padding="44,0,0,0"/>
+				<Separator/>
+				<Checkbox Name="comp.designer" Style="Switch" Checked="true" Text="Raven Designer"/>
+				<Label Name="comp.designer.detail" Text="The visual editor of Raven interfaces: XML, translations and themes, with a live preview." Opacity="0.6" Wrap="true" Slot.Padding="44,0,0,0"/>
+			</VBox>
+		</Border>
+
+		<Spacer Height="8"/>
+		<Label Text="Shortcuts and system integration" TextSize="16"/>
+		<Label Text="Everything here is optional, and removed by the uninstaller." Opacity="0.6"/>
+		<VBox Name="comp.options" Spacing="4"/>
+	</VBox>
+</ScrollBox>

@@ -83,13 +83,6 @@ static void action_details(Rid sender, const char* action, void* user_data) {
 	Rlabel_set_text(app.status, "A button given to a card with Into=\"footer\" was clicked.");
 }
 
-/* the application has quit: releases what it holds, then every window, widget and resource of Raven */
-static void on_finished(int exit_code, void* user_data) {
-	(void)exit_code;
-	(void)user_data;
-	Rshutdown();
-}
-
 int main(void) {
 	char text[256];
 	int i, length;
@@ -117,11 +110,6 @@ int main(void) {
 	Rlabel_set_text(app.status, text);
 	Rtext_editor_set_text(app.source, "<!-- press \"Add a card\" -->");
 
-	/* Rrun is the loop (see examples/hello): it returns when the application quits, or at once in a browser or on iOS,
-	 * where on_finished runs later */
-	if (example_automated(app.window)) {
-		Rshutdown();
-		return 0;
-	}
-	return Rrun(on_finished, NULL);
+	example_run(app.window, NULL, NULL);
+	return 0;
 }

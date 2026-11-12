@@ -1,0 +1,23 @@
+const std = @import("std");
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+    // (a copy of bindings/zig of the Raven SDK: a build.zig only imports files of its project)
+    const raven = b.createModule(.{ .root_source_file = b.path("raven/raven.zig"), .target = target, .optimize = optimize });
+    const exe = b.addExecutable(.{
+        .name = "{{PROJECT_IDENT}}",
+        .root_module = b.createModule(.{ .root_source_file = b.path("src/main.zig"), .target = target, .optimize = optimize }),
+    });
+    exe.root_module.addImport("raven", raven);
+    exe.root_module.linkSystemLibrary("raven", .{});
+    exe.root_module.link_libc = true;
+    // the library of the Raven SDK (zig build -Draven-lib-dir=<folder> uses another one)
+    const lib_dir = b.option([]const u8, "raven-lib-dir", "Folder of the Raven library") orelse "{{RAVEN_LIB_DIR}}";
+    exe.root_module.addLibraryPath(.{ .cwd_relative = lib_dir });
+    b.installArtifact(exe);
+    const run = b.addRunArtifact(exe);
+    // main.xml and strings.csv are read from the folder of the project
+    run.setCwd(b.path("."));
+    b.step("run", "Run the program").dependOn(&run.step);
+}

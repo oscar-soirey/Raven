@@ -57,7 +57,8 @@ static void action_backdrop(Rid sender, const char* action, void* user_data) {
 static void action_opacity(Rid sender, const char* action, void* user_data) {
 	(void)action;
 	(void)user_data;
-	Rwindow_set_opacity(app.window, Rslider_get_value(sender));
+	/* when the system refuses, the slider goes back to what the window has */
+	if (!Rwindow_set_opacity(app.window, Rslider_get_value(sender))) Rslider_set_value(sender, Rwindow_get_opacity(app.window));
 }
 
 static void action_close(Rid sender, const char* action, void* user_data) {
@@ -95,10 +96,6 @@ int main(void) {
 	show_result();
 	Rwindow_show(app.window);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rshutdown();
+	example_run(app.window, NULL, NULL);
 	return Rget_exit_code();
 }

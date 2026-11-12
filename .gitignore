@@ -8,6 +8,7 @@ build-*/
 build/
 dist/
 dist-release/
+dist-installer/
 out/
 dev/
 *.patch
@@ -16,3 +17,6 @@ dev/
 bindings/**/bin/
 bindings/**/obj/
 target/
+
+# Browser integration test dependencies
+tests/web/node_modules/

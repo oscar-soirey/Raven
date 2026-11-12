@@ -1,0 +1,16 @@
+{
+	"id": "go",
+	"name": "Go",
+	"order": 7,
+	"description": "A Go module with the cgo binding of the SDK.",
+	"needs": "shared",
+	"binding": "go",
+	"library_path": true,
+	"env": {
+		"CGO_ENABLED": "1",
+		"CGO_CFLAGS": "-I{{RAVEN_INCLUDE}}",
+		"CGO_LDFLAGS": "{{GO_LDFLAGS}}"
+	},
+	"run": "go run .",
+	"readme": "    ./run.sh        (run.bat on Windows)\n\nThe script sets `CGO_CFLAGS` and `CGO_LDFLAGS` for the SDK, then `go run .`. cgo needs a C compiler (MinGW-w64 on Windows)."
+}

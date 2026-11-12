@@ -514,7 +514,7 @@ static void rvn_live_reload_window(rvn_live_t* live, rvn_window_t* window, rvn_x
 		Rwindow_set_touch_settings(id, NULL);
 	}
 	if ((before.flags ^ after.flags) & ~(Ruint)R_WINDOW_HIDDEN) {
-		rvn_error(R_ERROR_XML, R_SEVERITY_WARNING, "%s: the frame of a window (Borderless, CustomHeader, Resizable, Transparent...) is chosen when it is created; start the application again to see this change", live->path);
+		rvn_error(R_ERROR_XML, R_SEVERITY_WARNING, "%s: the frame of a window (Borderless, CustomHeader, IsSplashScreen, Resizable, Transparent...) is chosen when it is created; start the application again to see this change", live->path);
 	}
 
 	rvn_xml_window_parts(old_root, &old_content, &old_island);

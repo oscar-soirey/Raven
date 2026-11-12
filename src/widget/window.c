@@ -559,6 +559,11 @@ void rvn_window_close_popup(rvn_window_t* window, rvn_widget_t* root) {
 			rvn_widget_set_window(closed, NULL);
 		}
 		if (closed->cls->popup_closed) closed->cls->popup_closed(closed);
+		if (!dialog && popup.closed) {
+			/* a popup of the application (Rpopup_open): it keeps the content */
+			popup.closed(closed->id, popup.result, popup.closed_user);
+			if (window->dead) break;
+		}
 		if (dialog) {
 			Rid owner = popup.focus_back;
 			Rid closed_id = closed->id;
@@ -945,6 +950,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 		widgets += popup->root->subtree_count;
 	}
 	rvn_window_paint_tooltip(window, &painter);
+	rvn_inspector_paint(window, &painter);
 	/* color filters for the color blind (core/accessibility.c) */
 	rvn_a11y_filter_instances(frame->list.instances, frame->list.instance_count);
 	/* what the screen reader must be told after this frame */
@@ -970,7 +976,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	frame->data.window = window->id;
 	frame->data.framebuffer_width = (Ruint)window->width_px;
 	frame->data.framebuffer_height = (Ruint)window->height_px;
-	frame->data.vsync = g_rvn.vsync;
+	frame->data.vsync = rvn_present_vsync();
 	if (rvn_window_see_through(window)) {
 		/* only what the widgets draw hides the screen; a clear color of the window, if any, veils it (premultiplied) */
 		float alpha = window->has_clear_color ? window->clear_color[3] : 0.0f;
@@ -991,6 +997,8 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	frame->capture = capture;
 	frame->frames_in_flight = &window->frames_in_flight;
 	frame->render_us = &window->render_us;
+	/* (asked before the frame is queued, so that the commit presenting it carries the request) */
+	if (window->visible && rvn_frame_pacing()) g_rvn.platform->window_frame_begin(window->platform);
 	rvn_renderer_submit_frame(frame);
 
 	/* native child windows follow the viewports that were just painted, the others hide */
@@ -999,12 +1007,28 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	}
 }
 
-int rvn_window_wants_frame(rvn_window_t* window) {
-	if (window->dead) return R_FALSE;
-	if (window->needs_layout || window->layout_spring_count > 0) return R_TRUE;
+/* Seconds before the window system wants the next frame of this window: 0 = now (rvn_platform_t::window_frame_wait). */
+static double rvn_window_frame_wait(rvn_window_t* window) {
+	if (!rvn_frame_pacing() || !window->platform || !window->visible) return 0.0;
+	return g_rvn.platform->window_frame_wait(window->platform);
+}
+
+static int rvn_window_wants_paint(rvn_window_t* window) {
 	if (!rvn_window_can_paint(window) || !window->visible) return R_FALSE;
 	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 || rvn_touch_animating(window) ||
 		rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->redraw_requested) != 0;
+}
+
+double rvn_window_frame_in(rvn_window_t* window) {
+	if (window->dead) return -1.0;
+	if (window->needs_layout) return 0.0;
+	/* what moves is only worth stepping when it can be shown */
+	if (window->layout_spring_count > 0 || rvn_window_wants_paint(window)) return rvn_window_frame_wait(window);
+	return -1.0;
+}
+
+int rvn_window_wants_frame(rvn_window_t* window) {
+	return rvn_window_frame_in(window) == 0.0;
 }
 
 void rvn_widget_animate_layout(rvn_widget_t* widget, RSpring* spring, float target, RMotion motion) {
@@ -1077,7 +1101,8 @@ void rvn_window_update(rvn_window_t* window) {
 	/* the menu bar of the system follows the MenuBar of the window */
 	if (g_rvn.platform->window_set_menu_bar) rvn_menu_bar_sync(window);
 	if (window->needs_layout) rvn_window_layout(window);
-	if (window->needs_paint) rvn_window_paint(window, NULL);
+	/* (the compositor did not ask for a frame yet: it is painted when it does, with all that changed meanwhile) */
+	if (window->needs_paint && rvn_window_frame_wait(window) <= 0.0) rvn_window_paint(window, NULL);
 	rvn_window_sync_text_input(window, R_FALSE);
 }
 
@@ -1806,10 +1831,13 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			break;
 		case RVN_PEVENT_MOUSE_MOVE:
 			window->modifiers = pevent->modifiers;
+			/* (picking for the inspector: the window sees nothing of the pointer) */
+			if (rvn_inspector_pick_move(window, (float)pevent->x / scale, (float)pevent->y / scale)) break;
 			rvn_window_mouse_move(window, (float)pevent->x / scale, (float)pevent->y / scale);
 			break;
 		case RVN_PEVENT_MOUSE_BUTTON:
 			window->modifiers = pevent->modifiers;
+			if (rvn_inspector_pick_move(window, (float)pevent->x / scale, (float)pevent->y / scale) | rvn_inspector_pick_button(window, pevent->pressed)) break;
 			rvn_window_mouse_move(window, (float)pevent->x / scale, (float)pevent->y / scale);
 			if (!window->dead) rvn_window_mouse_button(window, (RMouseButton)pevent->button, pevent->pressed);
 			break;
@@ -1958,6 +1986,8 @@ static void rvn_window_free(rvn_window_t* window) {
 void rvn_window_destroy(rvn_window_t* window) {
 	rvn_widget_t* root;
 	if (window->dead) return;
+	rvn_inspector_window_destroyed(window);
+	if (window->dead) return;
 	/* an overlay of the camera housing goes with the island going back into its window; a window takes its overlay with it */
 	if (window->notch_owner) {
 		rvn_window_notch_leave(window->notch_owner);
@@ -1986,9 +2016,16 @@ void rvn_window_destroy(rvn_window_t* window) {
 }
 
 void rvn_windows_collect(void) {
-	uint32_t i;
-	for (i = 0; i < g_rvn.dead_window_count; i++) rvn_window_free(g_rvn.dead_windows[i]);
-	g_rvn.dead_window_count = 0;
+	/* (as rvn_widgets_collect: destroying a native window can deliver its last messages, and they dispatch) */
+	while (g_rvn.dead_window_count > 0) {
+		rvn_window_t** list = g_rvn.dead_windows;
+		uint32_t count = g_rvn.dead_window_count, i;
+		g_rvn.dead_windows = NULL;
+		g_rvn.dead_window_count = 0;
+		g_rvn.dead_window_cap = 0;
+		for (i = 0; i < count; i++) rvn_window_free(list[i]);
+		rvn_free(list);
+	}
 }
 
 void rvn_windows_destroy_all(void) {
@@ -1997,7 +2034,7 @@ void rvn_windows_destroy_all(void) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window && !window->dead) rvn_window_destroy(window);
 	}
-	rvn_windows_collect();
+	rvn_collect_dead();
 }
 
 /* ---------------------------------------------------------------------------
@@ -2040,10 +2077,16 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 		return R_INVALID_ID;
 	}
 
+	if (flags & R_WINDOW_SPLASH_SCREEN) {
+		/* no frame, a fixed size; the core places it before it is seen */
+		flags |= R_WINDOW_BORDERLESS | R_WINDOW_NO_RESIZE;
+		flags &= ~(Ruint)(R_WINDOW_MAXIMIZED | R_WINDOW_CUSTOM_HEADER);
+	}
 	desc.title = window->title;
 	desc.width = (int)((float)width * g_rvn.ui_scale + 0.5f);
 	desc.height = (int)((float)height * g_rvn.ui_scale + 0.5f);
-	desc.flags = flags;
+	/* (a splash screen is made hidden whatever was asked, so that it never shows before it is centered) */
+	desc.flags = (flags & R_WINDOW_SPLASH_SCREEN) ? (flags | R_WINDOW_HIDDEN) : flags;
 	desc.user = window;
 	window->platform = g_rvn.platform->window_create(&desc);
 	if (!window->platform) {
@@ -2085,6 +2128,10 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 	window->state = g_rvn.platform->window_get_state(window->platform);
 	window->active = R_TRUE;
 	g_rvn.had_window = R_TRUE;
+	if (flags & R_WINDOW_SPLASH_SCREEN) {
+		if (g_rvn.platform->window_center) g_rvn.platform->window_center(window->platform);
+		if (g_rvn.platform->window_set_topmost) g_rvn.platform->window_set_topmost(window->platform, R_TRUE);
+	}
 	if (window->visible) g_rvn.platform->window_show(window->platform, R_TRUE);
 	return window->id;
 }
@@ -2270,6 +2317,11 @@ void Rwindow_set_picture_in_picture_layout(Rid id, int width, int height, RPictu
 	if (window->pip) rvn_window_apply_pip(window, R_TRUE);
 }
 
+int Rwindow_is_splash_screen(Rid id) {
+	rvn_window_t* window = rvn_window_get(id);
+	return window && (window->window_flags & R_WINDOW_SPLASH_SCREEN) ? R_TRUE : R_FALSE;
+}
+
 void Rwindow_center(Rid id) {
 	RVN_WINDOW_VOID(window, id);
 	if (g_rvn.platform->window_center) g_rvn.platform->window_center(window->platform);
@@ -2334,6 +2386,8 @@ void Rwindow_set_size(Rid id, int width, int height) {
 	}
 	g_rvn.platform->window_set_size(window->platform, (int)((float)width * window->scale + 0.5f),
 		(int)((float)height * window->scale + 0.5f));
+	/* a splash screen stays in the middle of the screen */
+	if ((window->window_flags & R_WINDOW_SPLASH_SCREEN) && g_rvn.platform->window_center) g_rvn.platform->window_center(window->platform);
 }
 
 void Rwindow_get_size(Rid id, int* width, int* height) {
@@ -2392,6 +2446,12 @@ void Rwindow_show(Rid id) {
 	window->needs_paint = R_TRUE;
 	g_rvn.platform->window_show(window->platform, R_TRUE);
 	rvn_window_notch_update(window);
+}
+
+void Rwindow_focus(Rid id) {
+	RVN_WINDOW_VOID(window, id);
+	if (!window->visible) Rwindow_show(id);
+	if (g_rvn.platform->window_focus) g_rvn.platform->window_focus(window->platform);
 }
 
 void Rwindow_hide(Rid id) {
@@ -2600,14 +2660,14 @@ static rvn_window_t* rvn_window_inject_begin(Rid id, const char* function) {
 void Rwindow_inject_mouse_move(Rid id, float x, float y) {
 	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
 	if (!window) return;
-	rvn_window_mouse_move(window, x, y);
+	if (!rvn_inspector_pick_move(window, x, y)) rvn_window_mouse_move(window, x, y);
 	rvn_dispatch_end();
 }
 
 void Rwindow_inject_mouse_button(Rid id, RMouseButton button, int pressed) {
 	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
 	if (!window) return;
-	rvn_window_mouse_button(window, button, pressed);
+	if (!rvn_inspector_pick_button(window, pressed)) rvn_window_mouse_button(window, button, pressed);
 	rvn_dispatch_end();
 }
 

@@ -1,0 +1,14 @@
+{
+	"id": "luajit",
+	"name": "LuaJIT",
+	"order": 10,
+	"description": "LuaJIT with the FFI binding of the SDK.",
+	"needs": "shared",
+	"binding": "luajit",
+	"env": {
+		"RAVEN_LIBRARY": "{{RAVEN_LIBRARY}}",
+		"LUA_PATH": "{{RAVEN_BINDINGS}}/luajit/?.lua;;"
+	},
+	"run": "luajit main.lua",
+	"readme": "    ./run.sh        (run.bat on Windows)\n\nThe script sets `LUA_PATH` and `RAVEN_LIBRARY` for the SDK, then `luajit main.lua`."
+}

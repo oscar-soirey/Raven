@@ -22,11 +22,18 @@
 static struct {
 	Rid window, page, address, title, status, log, back, forward;
 	int messages;
+	/* the address the bar was last given by the page */
+	char shown_url[2048];
 } app;
 
 static void refresh(void) {
 	const char* error = Rweb_view_get_error(app.page);
-	Rtext_input_set_text(app.address, Rweb_view_get_url(app.page));
+	const char* url = Rweb_view_get_url(app.page);
+	/* the bar follows the page only when it goes elsewhere: what is typed stays while a page loads */
+	if (url && strcmp(url, app.shown_url) != 0) {
+		snprintf(app.shown_url, sizeof(app.shown_url), "%s", url);
+		Rtext_input_set_text(app.address, url);
+	}
 	Rlabel_set_text(app.title, Rweb_view_get_title(app.page));
 	Rlabel_set_text(app.status, error[0] ? error : (Rweb_view_is_loading(app.page) ? "Loading..." : "Loaded"));
 	Rwidget_set_enabled(app.back, Rweb_view_can_go_back(app.page));
@@ -124,10 +131,6 @@ int main(void) {
 	refresh();
 	Rwindow_show(app.window);
 
-	if (!example_automated(app.window)) {
-		while (Rwait_frame(-1.0)) {
-		}
-	}
-	Rshutdown();
+	example_run(app.window, NULL, NULL);
 	return Rget_exit_code();
 }

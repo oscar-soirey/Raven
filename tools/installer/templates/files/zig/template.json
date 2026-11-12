@@ -1,0 +1,17 @@
+{
+	"id": "zig",
+	"name": "Zig",
+	"order": 8,
+	"description": "A build.zig project (Zig 0.15 or later); the binding is copied into the project (a build.zig only imports its own files).",
+	"needs": "shared",
+	"binding": "zig",
+	"library_path": true,
+	"copy": [
+		{
+			"from": "{{RAVEN_BINDINGS}}/zig/raven.zig",
+			"to": "raven/raven.zig"
+		}
+	],
+	"run": "zig build run",
+	"readme": "    ./run.sh        (run.bat on Windows)\n\nor `zig build run`. `-Draven-lib-dir=<folder>` uses another Raven library than the one of the SDK."
+}
