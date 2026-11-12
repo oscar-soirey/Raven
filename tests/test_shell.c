@@ -943,7 +943,7 @@ static void test_taskbar(void) {
 	Rwindow_destroy(window);
 }
 
-/* Tray icons: handles, checks, and their menu that follows its Menu. */
+/* Tray icons: handles, checks, a title beside the icon, where it is, and their menu that follows its Menu. */
 static void test_tray(void) {
 	static uint8_t pixels[16 * 16 * 4];
 	Rid tray, menu, bar, inside;
@@ -952,6 +952,19 @@ static void test_tray(void) {
 	CHECK(tray != R_INVALID_ID && Rtray_is_valid(tray));
 	Rtray_set_icon(tray, pixels, 16, 16);
 	Rtray_set_tooltip(tray, "Raven");
+	/* a text beside the icon, then the icon alone again */
+	Rtray_set_title(tray, "1:05");
+	Rdraw_frame();
+	Rtray_set_title(tray, NULL);
+	Rtray_set_title(tray, "");
+	/* where it is: a real rectangle, or R_FALSE and zeros where the system does not tell */
+	{
+		int x = -1, y = -1, width = -1, height = -1;
+		int known = Rtray_get_rect(tray, &x, &y, &width, &height);
+		if (known) CHECK(width > 0 && height > 0);
+		else CHECK(x == 0 && y == 0 && width == 0 && height == 0);
+		CHECK(Rtray_get_rect(tray, NULL, NULL, NULL, NULL) == known);
+	}
 	menu = Rwidget_create(R_WIDGET_MENU);
 	Rmenu_add_item(menu, "Show");
 	Rtray_set_menu(tray, menu);
@@ -975,7 +988,13 @@ static void test_tray(void) {
 	CHECK(!Rtray_is_valid(tray));
 	EXPECT_ERRORS_BEGIN();
 	Rtray_set_tooltip(tray, "gone");
-	EXPECT_ERRORS_END(1);
+	Rtray_set_title(tray, "gone");
+	{
+		int x = -1, y = -1, width = -1, height = -1;
+		CHECK(!Rtray_get_rect(tray, &x, &y, &width, &height));
+		CHECK(x == 0 && y == 0 && width == 0 && height == 0);
+	}
+	EXPECT_ERRORS_END(3);
 	/* left at the end: Rshutdown takes it away */
 	tray = Rtray_create();
 	CHECK(Rtray_is_valid(tray));

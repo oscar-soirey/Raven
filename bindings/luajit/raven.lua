@@ -1841,6 +1841,8 @@ void Rtray_set_icon(Rid tray, const uint8_t* rgba, int width, int height);
 void Rtray_set_tooltip(Rid tray, const char* text);
 void Rtray_set_menu(Rid tray, Rid menu);
 void Rtray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data);
+void Rtray_set_title(Rid tray, const char* text);
+int Rtray_get_rect(Rid tray, int* x, int* y, int* width, int* height);
 Rid Rcolor_picker_create(void);
 void Rcolor_picker_set_color(Rid picker, float r, float g, float b, float a);
 void Rcolor_picker_get_color(Rid picker, float* r, float* g, float* b, float* a);

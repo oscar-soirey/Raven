@@ -5592,6 +5592,21 @@ export function Rtray_set_menu(tray: Rid, menu: Rid): void;
  */
 export function Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback | Pointer | null, user_data?: RPointer): void;
 
+/**
+ * A short text shown beside the icon (macOS menu bar), drawn by the
+ * system in its own font and colors; the item widens to fit it. NULL or
+ * "": the icon alone. Systems that show no text there ignore it (the
+ * tooltip is the place for it).
+ */
+export function Rtray_set_title(tray: Rid, text: string | null): void;
+
+/**
+ * Where the icon is on the screen, in the units and coordinates of
+ * Rwindow_set_position (a window can then open just under it).
+ * Returns: R_FALSE when the system does not tell (the outputs are then 0).
+ */
+export function Rtray_get_rect(tray: Rid): [result: number, x: number, y: number, width: number, height: number];
+
 export function Rcolor_picker_create(): Rid;
 
 /** Sets the color (0..1 each). The callback is not called. */

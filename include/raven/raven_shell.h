@@ -432,6 +432,19 @@ extern "C" {
 	 * opens it instead.
 	 */
 	RAVEN_API void Rtray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data);
+	/**
+	 * @brief A short text shown beside the icon (macOS menu bar), drawn by the
+	 * system in its own font and colors; the item widens to fit it. NULL or
+	 * "": the icon alone. Systems that show no text there ignore it (the
+	 * tooltip is the place for it).
+	 */
+	RAVEN_API void Rtray_set_title(Rid tray, const char* text);
+	/**
+	 * @brief Where the icon is on the screen, in the units and coordinates of
+	 * Rwindow_set_position (a window can then open just under it).
+	 * @return R_FALSE when the system does not tell (the outputs are then 0).
+	 */
+	RAVEN_API int Rtray_get_rect(Rid tray, int* x, int* y, int* width, int* height);
 
 #ifdef __cplusplus
 } /* extern "C" */

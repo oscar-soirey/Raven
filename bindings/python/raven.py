@@ -9433,6 +9433,34 @@ def Rtray_set_clicked_callback(tray, callback, user_data=None):
     _lib.Rtray_set_clicked_callback(tray, _callback(RTrayClickedCallback, _adapt_RTrayClickedCallback, callback), user_data)
 
 
+_lib.Rtray_set_title.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtray_set_title.restype = None
+
+
+def Rtray_set_title(tray, text):
+    """A short text shown beside the icon (macOS menu bar), drawn by the
+    system in its own font and colors; the item widens to fit it. NULL or
+    "": the icon alone. Systems that show no text there ignore it (the
+    tooltip is the place for it)."""
+    _lib.Rtray_set_title(tray, _s(text))
+
+
+_lib.Rtray_get_rect.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtray_get_rect.restype = ctypes.c_int
+
+
+def Rtray_get_rect(tray):
+    """Where the icon is on the screen, in the units and coordinates of
+    Rwindow_set_position (a window can then open just under it).
+    Returns: R_FALSE when the system does not tell (the outputs are then 0)."""
+    x_ = ctypes.c_int()
+    y_ = ctypes.c_int()
+    width_ = ctypes.c_int()
+    height_ = ctypes.c_int()
+    result = _lib.Rtray_get_rect(tray, ctypes.byref(x_), ctypes.byref(y_), ctypes.byref(width_), ctypes.byref(height_))
+    return (result, x_.value, y_.value, width_.value, height_.value)
+
+
 _lib.Rcolor_picker_create.argtypes = []
 _lib.Rcolor_picker_create.restype = ctypes.c_uint32
 
