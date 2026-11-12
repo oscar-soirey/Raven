@@ -7172,6 +7172,23 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtray_set_clicked_callback(uint tray, RTrayClickedCallback callback, IntPtr user_data);
 
+        /// <summary>
+        /// A short text shown beside the icon (macOS menu bar), drawn by the
+        /// system in its own font and colors; the item widens to fit it. NULL or
+        /// "": the icon alone. Systems that show no text there ignore it (the
+        /// tooltip is the place for it).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_title(uint tray, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Where the icon is on the screen, in the units and coordinates of
+        /// Rwindow_set_position (a window can then open just under it).
+        /// Returns: R_FALSE when the system does not tell (the outputs are then 0).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtray_get_rect(uint tray, out int x, out int y, out int width, out int height);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rcolor_picker_create();
 

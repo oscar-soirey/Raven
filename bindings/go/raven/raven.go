@@ -4749,6 +4749,31 @@ func TraySetMenu(tray ID, menu ID) {
 	C.Rtray_set_menu(C.Rid(tray), C.Rid(menu))
 }
 
+// TraySetTitle: A short text shown beside the icon (macOS menu bar), drawn by the system in its own font and
+// colors; the item widens to fit it. NULL or "": the icon alone. Systems that show no text there ignore it
+// (the tooltip is the place for it).
+func TraySetTitle(tray ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtray_set_title(C.Rid(tray), text_)
+}
+
+// TrayGetRect: Where the icon is on the screen, in the units and coordinates of Rwindow_set_position (a
+// window can then open just under it). Returns: R_FALSE when the system does not tell (the outputs are then
+// 0).
+func TrayGetRect(tray ID) (result int, x int, y int, width int, height int) {
+	var x_ C.int
+	var y_ C.int
+	var width_ C.int
+	var height_ C.int
+	result = int(C.Rtray_get_rect(C.Rid(tray), &x_, &y_, &width_, &height_))
+	x = int(x_)
+	y = int(y_)
+	width = int(width_)
+	height = int(height_)
+	return
+}
+
 func ColorPickerCreate() ID {
 	return ID(C.Rcolor_picker_create())
 }

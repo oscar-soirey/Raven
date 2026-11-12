@@ -4492,6 +4492,21 @@ extern fn void r_tray_set_menu(Rid tray, Rid menu) @cname("Rtray_set_menu");
 *>
 extern fn void r_tray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data) @cname("Rtray_set_clicked_callback");
 
+<*
+ A short text shown beside the icon (macOS menu bar), drawn by the
+ system in its own font and colors; the item widens to fit it. NULL or
+ "": the icon alone. Systems that show no text there ignore it (the
+ tooltip is the place for it).
+*>
+extern fn void r_tray_set_title(Rid tray, char* text) @cname("Rtray_set_title");
+
+<*
+ Where the icon is on the screen, in the units and coordinates of
+ Rwindow_set_position (a window can then open just under it).
+ Returns R_FALSE when the system does not tell (the outputs are then 0).
+*>
+extern fn CInt r_tray_get_rect(Rid tray, CInt* x, CInt* y, CInt* width, CInt* height) @cname("Rtray_get_rect");
+
 extern fn Rid r_color_picker_create() @cname("Rcolor_picker_create");
 
 <* Sets the color (0..1 each). The callback is not called. *>

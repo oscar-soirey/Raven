@@ -670,6 +670,7 @@ struct rvn_ptray_t {
     NSStatusItem* item;
     NSMenu* menu;
     id target;
+    NSString* title; /* beside the icon (Rtray_set_title), nil: none */
 };
 
 @interface RavenCocoaTrayTarget : NSObject {
@@ -714,7 +715,16 @@ static void rvn_cocoa_tray_destroy(rvn_ptray_t* tray) {
     [tray->item release];
     if (tray->menu) [tray->menu release];
     [tray->target release];
+    if (tray->title) [tray->title release];
     free(tray);
+}
+
+/* The title beside the image (or the image alone); the item is square for an image alone. */
+static void rvn_cocoa_tray_apply_title(rvn_ptray_t* tray) {
+    NSStatusBarButton* button = [tray->item button];
+    [tray->item setLength:tray->title ? NSVariableStatusItemLength : NSSquareStatusItemLength];
+    [button setTitle:tray->title ? tray->title : @""];
+    [button setImagePosition:tray->title ? NSImageLeading : NSImageOnly];
 }
 
 static void rvn_cocoa_tray_set_icon(rvn_ptray_t* tray, const uint8_t* rgba, int width, int height) {
@@ -730,9 +740,33 @@ static void rvn_cocoa_tray_set_icon(rvn_ptray_t* tray, const uint8_t* rgba, int 
     image = [[NSImage alloc] initWithSize:NSMakeSize(w, h)];
     [image addRepresentation:rep];
     [rep release];
-    [[tray->item button] setTitle:@""];
     [[tray->item button] setImage:image];
+    rvn_cocoa_tray_apply_title(tray);
     [image release];
+}
+
+static void rvn_cocoa_tray_set_title(rvn_ptray_t* tray, const char* text) {
+    if (tray->title) { [tray->title release]; tray->title = nil; }
+    if (text && text[0]) tray->title = [rvn_cocoa_string(text) retain];
+    rvn_cocoa_tray_apply_title(tray);
+}
+
+static int rvn_cocoa_tray_get_rect(rvn_ptray_t* tray, int* x, int* y, int* width, int* height) {
+    NSStatusBarButton* button = [tray->item button];
+    NSWindow* window = [button window];
+    NSScreen* screen;
+    NSRect rect;
+    CGFloat screen_h;
+    if (!button || !window) return R_FALSE;
+    rect = [window convertRectToScreen:[button convertRect:[button bounds] toView:nil]];
+    /* (top-left origin, as rvn_cocoa_window_set_position reads it) */
+    screen = [window screen] ? [window screen] : [NSScreen mainScreen];
+    screen_h = screen ? [screen frame].size.height : 0;
+    *x = (int)lrint(rect.origin.x);
+    *y = (int)lrint(screen_h - rect.origin.y - rect.size.height);
+    *width = (int)lrint(rect.size.width);
+    *height = (int)lrint(rect.size.height);
+    return R_TRUE;
 }
 
 static void rvn_cocoa_tray_set_tooltip(rvn_ptray_t* tray, const char* text) {
@@ -1575,6 +1609,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .tray_create = rvn_cocoa_tray_create, .tray_destroy = rvn_cocoa_tray_destroy,
         .tray_set_icon = rvn_cocoa_tray_set_icon, .tray_set_tooltip = rvn_cocoa_tray_set_tooltip,
         .tray_set_menu = rvn_cocoa_tray_set_menu,
+        .tray_set_title = rvn_cocoa_tray_set_title, .tray_get_rect = rvn_cocoa_tray_get_rect,
         .window_get_native = rvn_cocoa_window_get_native, .child_create = rvn_cocoa_child_create,
         .child_set_rect = rvn_cocoa_child_set_rect, .pump = rvn_cocoa_pump, .wake = rvn_cocoa_wake,
         .clipboard_set = rvn_cocoa_clipboard_set, .clipboard_get = rvn_cocoa_clipboard_get,

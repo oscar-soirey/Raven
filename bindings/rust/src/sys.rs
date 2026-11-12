@@ -3427,6 +3427,15 @@ extern "C" {
     /// when there is no menu, the middle one. On macOS an icon with a menu
     /// opens it instead.
     pub fn Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback, user_data: *mut c_void);
+    /// A short text shown beside the icon (macOS menu bar), drawn by the
+    /// system in its own font and colors; the item widens to fit it. NULL or
+    /// "": the icon alone. Systems that show no text there ignore it (the
+    /// tooltip is the place for it).
+    pub fn Rtray_set_title(tray: Rid, text: *const c_char);
+    /// Where the icon is on the screen, in the units and coordinates of
+    /// Rwindow_set_position (a window can then open just under it).
+    /// Returns: R_FALSE when the system does not tell (the outputs are then 0).
+    pub fn Rtray_get_rect(tray: Rid, x: *mut c_int, y: *mut c_int, width: *mut c_int, height: *mut c_int) -> c_int;
     pub fn Rcolor_picker_create() -> Rid;
     /// Sets the color (0..1 each). The callback is not called.
     pub fn Rcolor_picker_set_color(picker: Rid, r: f32, g: f32, b: f32, a: f32);

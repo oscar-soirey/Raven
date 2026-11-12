@@ -16713,6 +16713,51 @@ public final class R {
         Rtray_set_clicked_callback(tray, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rtray_set_title$;
+
+    /**
+     * A short text shown beside the icon (macOS menu bar), drawn by the
+     * system in its own font and colors; the item widens to fit it. NULL or
+     * "": the icon alone. Systems that show no text there ignore it (the
+     * tooltip is the place for it).
+     */
+    public static void Rtray_set_title(int tray, String text) {
+        MethodHandle $h = Rtray_set_title$;
+        if ($h == null) Rtray_set_title$ = $h = find("Rtray_set_title", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(tray, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtray_get_rect$;
+
+    /**
+     * Where the icon is on the screen, in the units and coordinates of
+     * Rwindow_set_position (a window can then open just under it).
+     * Returns: R_FALSE when the system does not tell (the outputs are then 0).
+     */
+    public static int Rtray_get_rect(int tray, int[] x, int[] y, int[] width, int[] height) {
+        MethodHandle $h = Rtray_get_rect$;
+        if ($h == null) Rtray_get_rect$ = $h = find("Rtray_get_rect", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(tray, x$, y$, width$, height$);
+            if (x != null && x.length > 0) x[0] = x$.get(JAVA_INT, 0);
+            if (y != null && y.length > 0) y[0] = y$.get(JAVA_INT, 0);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_INT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rcolor_picker_create$;
 
     public static int Rcolor_picker_create() {
