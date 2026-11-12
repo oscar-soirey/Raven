@@ -661,7 +661,17 @@ static void test_node_graph(void) {
 		Rid slider = Rwidget_create(R_WIDGET_SLIDER), label = Rlabel_create("inside");
 		int user = 5;
 		CHECK(n1 && n2 && out && in);
-		CHECK(Rnode_graph_connect(graph, out, in) != 0);
+		int link = Rnode_graph_connect(graph, out, in);
+		CHECK(link != 0);
+		/* added to a shown graph: shown at once on request (an application that rebuilds its graph) */
+		Rnode_graph_set_node_shown(graph, n1);
+		Rnode_graph_set_node_shown(graph, n2);
+		Rnode_graph_set_link_shown(graph, link);
+		Rdraw_frame();
+		EXPECT_ERRORS_BEGIN();
+		Rnode_graph_set_node_shown(graph, 9999);
+		EXPECT_ERRORS_END(1);
+		Rnode_graph_set_link_shown(graph, 9999); /* an unknown link is ignored, as by the other link functions */
 		Rnode_graph_set_node_title(graph, n1, "First");
 		CHECK_STR(Rnode_graph_get_node_title(graph, n1), "First");
 		Rnode_graph_set_node_name(graph, n1, "first");

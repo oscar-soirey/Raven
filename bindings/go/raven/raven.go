@@ -5484,6 +5484,18 @@ func NodeGraphSetNodeDeletable(graph ID, node int, deletable int) {
 	C.Rnode_graph_set_node_deletable(C.Rid(graph), C.int(node), C.int(deletable))
 }
 
+// NodeGraphSetNodeShown: Shows a node at once, without the animation a node added to a shown graph pops in
+// with (an application that rebuilds its graph).
+func NodeGraphSetNodeShown(graph ID, node int) {
+	C.Rnode_graph_set_node_shown(C.Rid(graph), C.int(node))
+}
+
+// NodeGraphSetLinkShown: The same for a link made with Rnode_graph_connect: drawn whole at once instead of
+// growing from its output.
+func NodeGraphSetLinkShown(graph ID, link int) {
+	C.Rnode_graph_set_link_shown(C.Rid(graph), C.int(link))
+}
+
 // NodeGraphSetNodeBadge: A short text in a pill on the top right corner of the node ("1", "!"...); NULL or ""
 // removes it.
 func NodeGraphSetNodeBadge(graph ID, node int, text string) {

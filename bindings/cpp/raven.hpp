@@ -3777,6 +3777,12 @@ inline void node_graph_set_node_active_color(Rid graph, int node, float r, float
 /// R_FALSE: the Delete key does not remove this node (the root of a tree, the output of a graph).
 inline void node_graph_set_node_deletable(Rid graph, int node, int deletable) { Rnode_graph_set_node_deletable(graph, node, deletable); }
 
+/// Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph).
+inline void node_graph_set_node_shown(Rid graph, int node) { Rnode_graph_set_node_shown(graph, node); }
+
+/// The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
+inline void node_graph_set_link_shown(Rid graph, int link) { Rnode_graph_set_link_shown(graph, link); }
+
 /// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
 inline void node_graph_set_node_badge(Rid graph, int node, const char* text) { Rnode_graph_set_node_badge(graph, node, text); }
 

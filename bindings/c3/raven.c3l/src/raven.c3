@@ -4109,6 +4109,12 @@ fn void NodeGraph.set_node_active_color(self, CInt node, float r, float g, float
 <* R_FALSE: the Delete key does not remove this node (the root of a tree, the output of a graph). *>
 fn void NodeGraph.set_node_deletable(self, CInt node, bool deletable) @inline => c::r_node_graph_set_node_deletable((c::Rid)self, node, (CInt)deletable);
 
+<* Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph). *>
+fn void NodeGraph.set_node_shown(self, CInt node) @inline => c::r_node_graph_set_node_shown((c::Rid)self, node);
+
+<* The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output. *>
+fn void NodeGraph.set_link_shown(self, CInt link) @inline => c::r_node_graph_set_link_shown((c::Rid)self, link);
+
 <* A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it. *>
 fn void NodeGraph.set_node_badge(self, CInt node, ZString text) @inline => c::r_node_graph_set_node_badge((c::Rid)self, node, (char*)text);
 

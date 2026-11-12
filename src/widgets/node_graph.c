@@ -3355,6 +3355,24 @@ void Rnode_graph_set_node_deletable(Rid id, int node_id, int deletable) {
 	if (node) node->undeletable = !deletable;
 }
 
+void Rnode_graph_set_node_shown(Rid id, int node_id) {
+	rvn_ng_node_t* node;
+	RVN_NODE_GRAPH_VOID(graph, id);
+	node = rvn_ng_node_checked(graph, node_id, __func__);
+	if (!node) return;
+	rvn_spring_set(&node->appear, 1.0f);
+	rvn_widget_invalidate_paint(&graph->base);
+}
+
+void Rnode_graph_set_link_shown(Rid id, int link_id) {
+	rvn_ng_link_t* link;
+	RVN_NODE_GRAPH_VOID(graph, id);
+	link = rvn_ng_link(graph, link_id);
+	if (!link) return;
+	rvn_spring_set(&link->grow, 1.0f);
+	rvn_widget_invalidate_paint(&graph->base);
+}
+
 void Rnode_graph_set_node_badge(Rid id, int node_id, const char* text) {
 	rvn_ng_node_t* node;
 	RVN_NODE_GRAPH_VOID(graph, id);

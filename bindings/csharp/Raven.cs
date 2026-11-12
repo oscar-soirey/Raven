@@ -7873,6 +7873,18 @@ namespace Raven
         public static extern void Rnode_graph_set_node_deletable(uint graph, int node, int deletable);
 
         /// <summary>
+        /// Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_node_shown(uint graph, int node);
+
+        /// <summary>
+        /// The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_link_shown(uint graph, int link);
+
+        /// <summary>
         /// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
