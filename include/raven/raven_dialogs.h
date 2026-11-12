@@ -129,6 +129,21 @@ extern "C" {
 	/** @brief Shows a dialog and waits until it closes. Returns its result. */
 	RAVEN_API int Rdialog_run(Rid window, Rid content);
 
+	/**
+	 * @brief Shows a widget as a popup over the window, its top-left corner at
+	 * x, y (window coordinates; moved to stay inside the window): a search box,
+	 * a palette, a picker. Unlike a dialog it does not block the window: a click
+	 * outside it, or Escape, closes it. The application keeps the content (it is
+	 * not deleted on close) and can open it again. `closed` (may be NULL) is
+	 * called when it closes, with the result given to Rpopup_close (0 when dismissed).
+	 * The content draws its own background (a Border with a Background...).
+	 */
+	RAVEN_API void Rpopup_open(Rid window, Rid content, float x, float y, RDialogClosedCallback closed, void* user_data);
+	/** @brief Closes the popup that contains a widget (the content or anything inside it). */
+	RAVEN_API void Rpopup_close(Rid widget, int result);
+	/** @return R_TRUE while the widget is shown as a popup. */
+	RAVEN_API int Rpopup_is_open(Rid content);
+
 	/** @return R_TRUE while a dialog is shown in the window. */
 	RAVEN_API int Rwindow_has_dialog(Rid window);
 

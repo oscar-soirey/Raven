@@ -8089,6 +8089,30 @@ namespace Raven
         public static extern int Rdialog_run(uint window, uint content);
 
         /// <summary>
+        /// Shows a widget as a popup over the window, its top-left corner at
+        /// x, y (window coordinates; moved to stay inside the window): a search box,
+        /// a palette, a picker. Unlike a dialog it does not block the window: a click
+        /// outside it, or Escape, closes it. The application keeps the content (it is
+        /// not deleted on close) and can open it again. `closed` (may be NULL) is
+        /// called when it closes, with the result given to Rpopup_close (0 when dismissed).
+        /// The content draws its own background (a Border with a Background...).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpopup_open(uint window, uint content, float x, float y, RDialogClosedCallback closed, IntPtr user_data);
+
+        /// <summary>
+        /// Closes the popup that contains a widget (the content or anything inside it).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpopup_close(uint widget, int result);
+
+        /// <summary>
+        /// Returns: R_TRUE while the widget is shown as a popup.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpopup_is_open(uint content);
+
+        /// <summary>
         /// Returns: R_TRUE while a dialog is shown in the window.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
