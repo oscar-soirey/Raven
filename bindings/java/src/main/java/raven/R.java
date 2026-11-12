@@ -6462,6 +6462,26 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_focus$;
+
+    /**
+     * Shows the window in front of the others with the keyboard, and
+     * makes the application the active one. Rwindow_show alone does not take
+     * the keyboard from another application (a prompt that appears while the
+     * user types elsewhere); this is for a window the user just asked for (a
+     * card opened from a tray icon). Where the system has no such request,
+     * the same as Rwindow_show.
+     */
+    public static void Rwindow_focus(int window) {
+        MethodHandle $h = Rwindow_focus$;
+        if ($h == null) Rwindow_focus$ = $h = find("Rwindow_focus", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_maximize$;
 
     public static void Rwindow_maximize(int window) {

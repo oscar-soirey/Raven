@@ -831,6 +831,24 @@ static void test_splash_screen(void) {
 	Rwindow_destroy(plain);
 }
 
+/* Rwindow_focus: shows a window and gives it the keyboard where the system has such a request. */
+static void test_window_focus(void) {
+	Rid window = Rwindow_create("focus", 320, 200, R_WINDOW_HIDDEN);
+	CHECK(Rwindow_is_valid(window));
+	Rwindow_focus(window);
+	Rdraw_frame();
+	CHECK(Rwindow_is_valid(window) && Ris_running());
+	/* already shown: shown again in front, nothing else */
+	Rwindow_focus(window);
+	Rdraw_frame();
+	CHECK(Rwindow_is_valid(window));
+	EXPECT_ERRORS_BEGIN();
+	Rwindow_focus(R_INVALID_ID);
+	EXPECT_ERRORS_END(1);
+	Rwindow_destroy(window);
+	CHECK(!Rwindow_is_valid(window));
+}
+
 static void test_picture_in_picture(void) {
 	static const char xml[] =
 		"<VBox Name=\"root\">"
@@ -977,6 +995,7 @@ int main(void) {
 	RUN(test_island);
 	RUN(test_picture_in_picture);
 	RUN(test_splash_screen);
+	RUN(test_window_focus);
 	RUN(test_inspector);
 	RUN(test_taskbar);
 	RUN(test_tray);

@@ -2405,6 +2405,12 @@ void Rwindow_show(Rid id) {
 	rvn_window_notch_update(window);
 }
 
+void Rwindow_focus(Rid id) {
+	RVN_WINDOW_VOID(window, id);
+	if (!window->visible) Rwindow_show(id);
+	if (g_rvn.platform->window_focus) g_rvn.platform->window_focus(window->platform);
+}
+
 void Rwindow_hide(Rid id) {
 	RVN_WINDOW_VOID(window, id);
 	window->visible = R_FALSE;

@@ -224,6 +224,8 @@ typedef struct rvn_platform_t {
 	/** Pixels per logical unit on the monitor showing the window. */
 	float (*window_get_scale)(rvn_pwindow_t* window);
 	void  (*window_show)(rvn_pwindow_t* window, int visible);
+	/** Optional (may be NULL): in front, with the keyboard, the application activated. */
+	void  (*window_focus)(rvn_pwindow_t* window);
 	void  (*window_set_state)(rvn_pwindow_t* window, rvn_pwindow_state_t state);
 	rvn_pwindow_state_t (*window_get_state)(rvn_pwindow_t* window);
 	/**

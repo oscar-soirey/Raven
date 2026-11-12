@@ -2898,6 +2898,7 @@ export const Rwindow_get_framebuffer_size = _lib.Rwindow_get_framebuffer_size;
 export const Rwindow_get_scale = _lib.Rwindow_get_scale;
 export const Rwindow_show = _lib.Rwindow_show;
 export const Rwindow_hide = _lib.Rwindow_hide;
+export const Rwindow_focus = _lib.Rwindow_focus;
 export const Rwindow_maximize = _lib.Rwindow_maximize;
 export const Rwindow_minimize = _lib.Rwindow_minimize;
 export const Rwindow_restore = _lib.Rwindow_restore;

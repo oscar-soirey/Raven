@@ -227,6 +227,7 @@ const _symbols = {
 	Rwindow_get_scale: { args: ["u32"], returns: "f32" },
 	Rwindow_show: { args: ["u32"], returns: "void" },
 	Rwindow_hide: { args: ["u32"], returns: "void" },
+	Rwindow_focus: { args: ["u32"], returns: "void" },
 	Rwindow_maximize: { args: ["u32"], returns: "void" },
 	Rwindow_minimize: { args: ["u32"], returns: "void" },
 	Rwindow_restore: { args: ["u32"], returns: "void" },
@@ -6851,6 +6852,18 @@ export function Rwindow_show(window: Rid): void {
 
 export function Rwindow_hide(window: Rid): void {
 	_lib.Rwindow_hide(window);
+}
+
+/**
+ * Shows the window in front of the others with the keyboard, and
+ * makes the application the active one. Rwindow_show alone does not take
+ * the keyboard from another application (a prompt that appears while the
+ * user types elsewhere); this is for a window the user just asked for (a
+ * card opened from a tray icon). Where the system has no such request,
+ * the same as Rwindow_show.
+ */
+export function Rwindow_focus(window: Rid): void {
+	_lib.Rwindow_focus(window);
 }
 
 export function Rwindow_maximize(window: Rid): void {

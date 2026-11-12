@@ -1960,6 +1960,13 @@ pub extern fn Rwindow_get_framebuffer_size(window: Rid, width: ?*c_int, height: 
 pub extern fn Rwindow_get_scale(window: Rid) f32;
 pub extern fn Rwindow_show(window: Rid) void;
 pub extern fn Rwindow_hide(window: Rid) void;
+/// Shows the window in front of the others with the keyboard, and
+/// makes the application the active one. Rwindow_show alone does not take
+/// the keyboard from another application (a prompt that appears while the
+/// user types elsewhere); this is for a window the user just asked for (a
+/// card opened from a tray icon). Where the system has no such request,
+/// the same as Rwindow_show.
+pub extern fn Rwindow_focus(window: Rid) void;
 pub extern fn Rwindow_maximize(window: Rid) void;
 pub extern fn Rwindow_minimize(window: Rid) void;
 pub extern fn Rwindow_restore(window: Rid) void;

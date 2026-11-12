@@ -212,6 +212,16 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
 - (NSRect)constrainFrameRect:(NSRect)frameRect toScreen:(NSScreen*)screen { (void)screen; return frameRect; }
 @end
 
+/* An ordinary window. AppKit never makes a window without a title bar the
+ * key window, so a borderless one (a popover, a card under a tray icon)
+ * would get no keyboard and never be active: this class allows it. */
+@interface RavenCocoaWindow : NSWindow
+@end
+@implementation RavenCocoaWindow
+- (BOOL)canBecomeKeyWindow { return YES; }
+- (BOOL)canBecomeMainWindow { return YES; }
+@end
+
 @interface RavenCocoaView : NSView <NSDraggingDestination> {
 @public rvn_pwindow_t* ravenWindow;
     NSTrackingArea* trackingArea;
@@ -840,7 +850,7 @@ static rvn_pwindow_t* rvn_cocoa_window_create(const rvn_pwindow_desc_t* desc) {
         window->handle = panel;
         window->transparent = R_TRUE;
     } else {
-        window->handle = [[NSWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
+        window->handle = [[RavenCocoaWindow alloc] initWithContentRect:rect styleMask:style backing:NSBackingStoreBuffered defer:NO];
     }
     if (!window->handle) { rvn_free(window); return NULL; }
     [window->handle setReleasedWhenClosed:NO];
@@ -934,6 +944,13 @@ static void rvn_cocoa_window_show(rvn_pwindow_t* window, int visible) {
     if (visible && window->overlay) [window->handle orderFront:nil];
     else if (visible) [window->handle makeKeyAndOrderFront:nil];
     else [window->handle orderOut:nil];
+}
+/* Rwindow_focus: in front, with the keyboard, the application made active
+ * (an agent, or any application in the background, is not by itself). */
+static void rvn_cocoa_window_focus(rvn_pwindow_t* window) {
+    if ([NSApp respondsToSelector:@selector(activate)]) [NSApp activate];
+    else [NSApp activateIgnoringOtherApps:YES];
+    [window->handle makeKeyAndOrderFront:nil];
 }
 static void rvn_cocoa_window_set_state(rvn_pwindow_t* window, rvn_pwindow_state_t state) {
     if (state == RVN_PWINDOW_MINIMIZED) { [window->handle miniaturize:nil]; window->state = state; }
@@ -1538,7 +1555,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .window_set_title = rvn_cocoa_window_set_title, .window_set_size = rvn_cocoa_window_set_size,
         .window_get_size = rvn_cocoa_window_get_size, .window_set_min_size = rvn_cocoa_window_set_min_size,
         .window_set_position = rvn_cocoa_window_set_position, .window_get_position = rvn_cocoa_window_get_position,
-        .window_get_scale = rvn_cocoa_window_get_scale, .window_show = rvn_cocoa_window_show,
+        .window_get_scale = rvn_cocoa_window_get_scale, .window_focus = rvn_cocoa_window_focus, .window_show = rvn_cocoa_window_show,
         .window_set_state = rvn_cocoa_window_set_state, .window_get_state = rvn_cocoa_window_get_state,
         .window_begin_move = rvn_cocoa_window_begin_move, .window_begin_resize = rvn_cocoa_window_begin_resize,
         .native_regions = R_FALSE, .window_set_backdrop = rvn_cocoa_window_set_backdrop,
