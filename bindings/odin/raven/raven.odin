@@ -3742,6 +3742,18 @@ foreign lib {
 	Rdialog_close :: proc(widget: Rid, result: i32) ---
 	// Shows a dialog and waits until it closes. Returns its result.
 	Rdialog_run :: proc(window: Rid, content: Rid) -> i32 ---
+	// Shows a widget as a popup over the window, its top-left corner at
+	// x, y (window coordinates; moved to stay inside the window): a search box,
+	// a palette, a picker. Unlike a dialog it does not block the window: a click
+	// outside it, or Escape, closes it. The application keeps the content (it is
+	// not deleted on close) and can open it again. `closed` (may be NULL) is
+	// called when it closes, with the result given to Rpopup_close (0 when dismissed).
+	// The content draws its own background (a Border with a Background...).
+	Rpopup_open :: proc(window: Rid, content: Rid, x: f32, y: f32, closed: RDialogClosedCallback, user_data: rawptr) ---
+	// Closes the popup that contains a widget (the content or anything inside it).
+	Rpopup_close :: proc(widget: Rid, result: i32) ---
+	// Returns: R_TRUE while the widget is shown as a popup.
+	Rpopup_is_open :: proc(content: Rid) -> i32 ---
 	// Returns: R_TRUE while a dialog is shown in the window.
 	Rwindow_has_dialog :: proc(window: Rid) -> i32 ---
 	// Shows a message with buttons and waits for the answer.

@@ -141,6 +141,45 @@ void Rdialog_close(Rid id, int result) {
 	rvn_window_close_dialog(widget, result);
 }
 
+void Rpopup_open(Rid window_id, Rid content_id, float x, float y, RDialogClosedCallback closed, void* user_data) {
+	rvn_window_t* window;
+	rvn_widget_t* content;
+	rvn_popup_t* popup;
+	RVN_API_GUARD_VOID();
+	window = rvn_window_check(window_id, __func__);
+	content = rvn_widget_check(content_id, 0, __func__);
+	if (!window || !content) return;
+	if (content->parent) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rpopup_open: the content is already inside another widget");
+		return;
+	}
+	rvn_window_open_popup(window, content, NULL, rvn_rect(x, y, 0.0f, 0.0f), RVN_POPUP_AT, 0.0f);
+	popup = &window->popups[window->popup_count - 1];
+	if (popup->root != content) return;
+	popup->closed = closed;
+	popup->closed_user = user_data;
+}
+
+void Rpopup_close(Rid id, int result) {
+	rvn_window_t* window;
+	uint32_t i;
+	RVN_WIDGET_VOID(widget, id, 0);
+	window = widget->window;
+	if (!window) return;
+	for (i = window->popup_count; i > 0; i--) {
+		rvn_popup_t* popup = &window->popups[i - 1];
+		if (popup->placement == RVN_POPUP_DIALOG || !rvn_widget_is_inside(widget, popup->root)) continue;
+		popup->result = result;
+		rvn_window_close_popup(window, popup->root);
+		return;
+	}
+}
+
+int Rpopup_is_open(Rid id) {
+	RVN_WIDGET(widget, id, 0, R_FALSE);
+	return (widget->flags & RVN_WF_POPUP) != 0;
+}
+
 int Rdialog_run(Rid window_id, Rid content_id) {
 	rvn_window_t* window;
 	rvn_widget_t* content;

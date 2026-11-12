@@ -6105,6 +6105,23 @@ fn void dialog_close(Id widget, CInt result) @inline => c::r_dialog_close((c::Ri
 <* Shows a dialog and waits until it closes. Returns its result. *>
 fn CInt dialog_run(Id window, Id content) @inline => c::r_dialog_run((c::Rid)window, (c::Rid)content);
 
+<*
+ Shows a widget as a popup over the window, its top-left corner at
+ x, y (window coordinates; moved to stay inside the window): a search box,
+ a palette, a picker. Unlike a dialog it does not block the window: a click
+ outside it, or Escape, closes it. The application keeps the content (it is
+ not deleted on close) and can open it again. `closed` (may be NULL) is
+ called when it closes, with the result given to Rpopup_close (0 when dismissed).
+ The content draws its own background (a Border with a Background...).
+*>
+fn void popup_open(Id window, Id content, float x, float y, DialogClosedCallback closed, void* user_data) @inline => c::r_popup_open((c::Rid)window, (c::Rid)content, x, y, (c::RDialogClosedCallback)closed, user_data);
+
+<* Closes the popup that contains a widget (the content or anything inside it). *>
+fn void popup_close(Id widget, CInt result) @inline => c::r_popup_close((c::Rid)widget, result);
+
+<* Returns R_TRUE while the widget is shown as a popup. *>
+fn bool popup_is_open(Id content) @inline => c::r_popup_is_open((c::Rid)content) != 0;
+
 <* Shows a message with buttons and waits for the answer. *>
 fn MessageResult message_box(Id window, ZString title, ZString text, MessageButtons buttons) @inline => (MessageResult)c::r_message_box((c::Rid)window, (char*)title, (char*)text, (c::RMessageButtons)buttons);
 

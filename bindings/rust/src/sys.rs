@@ -3757,6 +3757,18 @@ extern "C" {
     pub fn Rdialog_close(widget: Rid, result: c_int);
     /// Shows a dialog and waits until it closes. Returns its result.
     pub fn Rdialog_run(window: Rid, content: Rid) -> c_int;
+    /// Shows a widget as a popup over the window, its top-left corner at
+    /// x, y (window coordinates; moved to stay inside the window): a search box,
+    /// a palette, a picker. Unlike a dialog it does not block the window: a click
+    /// outside it, or Escape, closes it. The application keeps the content (it is
+    /// not deleted on close) and can open it again. `closed` (may be NULL) is
+    /// called when it closes, with the result given to Rpopup_close (0 when dismissed).
+    /// The content draws its own background (a Border with a Background...).
+    pub fn Rpopup_open(window: Rid, content: Rid, x: f32, y: f32, closed: RDialogClosedCallback, user_data: *mut c_void);
+    /// Closes the popup that contains a widget (the content or anything inside it).
+    pub fn Rpopup_close(widget: Rid, result: c_int);
+    /// Returns: R_TRUE while the widget is shown as a popup.
+    pub fn Rpopup_is_open(content: Rid) -> c_int;
     /// Returns: R_TRUE while a dialog is shown in the window.
     pub fn Rwindow_has_dialog(window: Rid) -> c_int;
     /// Shows a message with buttons and waits for the answer.

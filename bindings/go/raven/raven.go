@@ -5714,6 +5714,16 @@ func DialogRun(window ID, content ID) int {
 	return int(C.Rdialog_run(C.Rid(window), C.Rid(content)))
 }
 
+// PopupClose: Closes the popup that contains a widget (the content or anything inside it).
+func PopupClose(widget ID, result int) {
+	C.Rpopup_close(C.Rid(widget), C.int(result))
+}
+
+// PopupIsOpen: Returns: R_TRUE while the widget is shown as a popup.
+func PopupIsOpen(content ID) int {
+	return int(C.Rpopup_is_open(C.Rid(content)))
+}
+
 // WindowHasDialog: Returns: R_TRUE while a dialog is shown in the window.
 func WindowHasDialog(window ID) int {
 	return int(C.Rwindow_has_dialog(C.Rid(window)))
@@ -6620,7 +6630,7 @@ func HostInjectClose(window ID) {
 // Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
 // Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
 // Rnode_graph_set_context_callback, Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback
-// Rblock_editor_set_context_callback, Rdialog_open, Rfile_dialog_open, Rfile_dialog_save
+// Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save
 // Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
 // Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
 // Rnotification_set_fallback, Rnotification_set_clicked_callback, Rviewport_set_draw_callback

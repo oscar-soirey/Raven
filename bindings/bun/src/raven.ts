@@ -1080,6 +1080,9 @@ const _symbols = {
 	Rdialog_open: { args: ["u32", "u32", "ptr", "ptr"], returns: "void" },
 	Rdialog_close: { args: ["u32", "i32"], returns: "void" },
 	Rdialog_run: { args: ["u32", "u32"], returns: "i32" },
+	Rpopup_open: { args: ["u32", "u32", "f32", "f32", "ptr", "ptr"], returns: "void" },
+	Rpopup_close: { args: ["u32", "i32"], returns: "void" },
+	Rpopup_is_open: { args: ["u32"], returns: "i32" },
 	Rwindow_has_dialog: { args: ["u32"], returns: "i32" },
 	Rmessage_box: { args: ["u32", "ptr", "ptr", "i32"], returns: "i32" },
 	Rfile_dialog_open: { args: ["ptr"], returns: "cstring" },
@@ -11567,6 +11570,29 @@ export function Rdialog_close(widget: Rid, result: number): void {
 /** Shows a dialog and waits until it closes. Returns its result. */
 export function Rdialog_run(window: Rid, content: Rid): number {
 	return _lib.Rdialog_run(window, content);
+}
+
+/**
+ * Shows a widget as a popup over the window, its top-left corner at
+ * x, y (window coordinates; moved to stay inside the window): a search box,
+ * a palette, a picker. Unlike a dialog it does not block the window: a click
+ * outside it, or Escape, closes it. The application keeps the content (it is
+ * not deleted on close) and can open it again. `closed` (may be NULL) is
+ * called when it closes, with the result given to Rpopup_close (0 when dismissed).
+ * The content draws its own background (a Border with a Background...).
+ */
+export function Rpopup_open(window: Rid, content: Rid, x: number, y: number, closed: RDialogClosedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rpopup_open(window, content, x, y, _adapt_RDialogClosedCallback(closed), user_data);
+}
+
+/** Closes the popup that contains a widget (the content or anything inside it). */
+export function Rpopup_close(widget: Rid, result: number): void {
+	_lib.Rpopup_close(widget, result);
+}
+
+/** Returns: R_TRUE while the widget is shown as a popup. */
+export function Rpopup_is_open(content: Rid): number {
+	return _lib.Rpopup_is_open(content);
 }
 
 /** Returns: R_TRUE while a dialog is shown in the window. */
