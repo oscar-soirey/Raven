@@ -53,7 +53,7 @@ function(raven_add_example name)
 		foreach(asset IN LISTS assets)
 			file(RELATIVE_PATH relative "${CMAKE_CURRENT_SOURCE_DIR}" "${asset}")
 			target_link_options(raven_${name} PRIVATE
-				"SHELL:--preload-file "${asset}@/examples/${relative}"")
+				"SHELL:--preload-file \"${asset}@/examples/${relative}\"")
 			set_property(TARGET raven_${name} APPEND PROPERTY LINK_DEPENDS "${asset}")
 		endforeach()
 	else()

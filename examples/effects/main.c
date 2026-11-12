@@ -19,7 +19,9 @@
 #define RAVEN_EXAMPLE_DIR "."
 #endif
 
-#if defined(__EMSCRIPTEN__)
+/* the WebGL backend compiles the .frag files in the page (Rweb_shader_create); the Sokol web build loads the bundles */
+#if defined(__EMSCRIPTEN__) && !defined(RAVEN_EXAMPLE_SYSTEM_LOOP)
+#define EFFECTS_WEBGL 1
 #include <raven/raven_emscripten.h>
 
 /* Keep the native layout and its effect colors/parameters. WebGL receives the
@@ -27,8 +29,8 @@
 static void web_prepare_effects(Rid node) {
 	const char* effect = Rxml_node_get_attribute(node, "Effect");
 	int i, count;
-	if (effect && (strcmp(effect, "wave.spv") == 0 ||
-	               strcmp(effect, "liquid.spv") == 0)) {
+	if (effect && (strcmp(effect, "wave.rfx") == 0 ||
+	               strcmp(effect, "liquid.rfx") == 0)) {
 		Rxml_node_set_attribute(node, "Name", effect);
 		Rxml_node_set_attribute(node, "Effect", "");
 	}
@@ -73,9 +75,9 @@ static Rid web_create_effects(void) {
 	window = Rxml_document_create_window(document);
 	Rxml_document_destroy(document);
 	if (window == R_INVALID_ID) return R_INVALID_ID;
-	if (!web_attach_effect(window, "wave.spv",
+	if (!web_attach_effect(window, "wave.rfx",
 	                       RAVEN_EXAMPLE_DIR "/wave.frag", R_SHADER_ANIMATED) ||
-	    !web_attach_effect(window, "liquid.spv",
+	    !web_attach_effect(window, "liquid.rfx",
 	                       RAVEN_EXAMPLE_DIR "/liquid.frag",
 	                       R_SHADER_ANIMATED | R_SHADER_BACKDROP)) {
 		Rwindow_destroy(window);
@@ -89,7 +91,7 @@ int main(void) {
 	Rid window;
 	if (!example_init("Raven effects")) return 1;
 	Rtheme_apply(R_THEME_DARK);
-#if defined(__EMSCRIPTEN__)
+#if defined(EFFECTS_WEBGL)
 	window = web_create_effects();
 #else
 	window = Rwindow_create_from_xml_file(RAVEN_EXAMPLE_DIR "/effects.xml");
