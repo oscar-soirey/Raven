@@ -4946,6 +4946,28 @@ public final class R {
     }
 
     /**
+     * Something happened at a point of the canvas: `item` depends on the
+     * function the callback was given to; x, y are in canvas units (as node positions).
+     */
+    @FunctionalInterface
+    public interface RNodeGraphPointCallback {
+        void invoke(int graph, int item, float x, float y, MemorySegment user_data);
+    }
+
+    private static void RNodeGraphPointCallback$raw(RNodeGraphPointCallback f, int graph, int item, float x, float y, MemorySegment user_data) {
+        try {
+            f.invoke(graph, item, x, y, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RNodeGraphPointCallback f) {
+        return stub(f, RNodeGraphPointCallback.class, "RNodeGraphPointCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS));
+    }
+
+    /**
      * A block changed (0: several, or one was deleted), or a script was clicked (its top block).
      */
     @FunctionalInterface
@@ -18868,6 +18890,132 @@ public final class R {
 
     public static void Rnode_graph_set_context_callback(int graph, RNodeGraphContextCallback callback) {
         Rnode_graph_set_context_callback(graph, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rnode_graph_set_canvas_activated_callback$;
+
+    /**
+     * Double click on the empty canvas (`item` 0): the application acts
+     * there (a search to add a node...). Without this callback it frames all nodes.
+     */
+    public static void Rnode_graph_set_canvas_activated_callback(int graph, RNodeGraphPointCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rnode_graph_set_canvas_activated_callback$;
+        if ($h == null) Rnode_graph_set_canvas_activated_callback$ = $h = find("Rnode_graph_set_canvas_activated_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(graph, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Double click on the empty canvas (`item` 0): the application acts
+     * there (a search to add a node...). Without this callback it frames all nodes.
+     */
+    public static void Rnode_graph_set_canvas_activated_callback(int graph, RNodeGraphPointCallback callback) {
+        Rnode_graph_set_canvas_activated_callback(graph, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rnode_graph_set_wire_dropped_callback$;
+
+    /**
+     * A wire the user pulled from a pin was released on nothing: `item` is
+     * that pin, x, y where it was dropped (to offer a node to connect it to). The
+     * wire draws back as usual.
+     */
+    public static void Rnode_graph_set_wire_dropped_callback(int graph, RNodeGraphPointCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rnode_graph_set_wire_dropped_callback$;
+        if ($h == null) Rnode_graph_set_wire_dropped_callback$ = $h = find("Rnode_graph_set_wire_dropped_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(graph, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * A wire the user pulled from a pin was released on nothing: `item` is
+     * that pin, x, y where it was dropped (to offer a node to connect it to). The
+     * wire draws back as usual.
+     */
+    public static void Rnode_graph_set_wire_dropped_callback(int graph, RNodeGraphPointCallback callback) {
+        Rnode_graph_set_wire_dropped_callback(graph, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rnode_graph_set_pin_clicked_callback$;
+
+    /**
+     * A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+     * the application may link in two clicks, select the pin... With this callback
+     * such a click neither detaches the wire of an input nor counts as a wire
+     * dropped on nothing.
+     */
+    public static void Rnode_graph_set_pin_clicked_callback(int graph, RNodeGraphPointCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rnode_graph_set_pin_clicked_callback$;
+        if ($h == null) Rnode_graph_set_pin_clicked_callback$ = $h = find("Rnode_graph_set_pin_clicked_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(graph, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+     * the application may link in two clicks, select the pin... With this callback
+     * such a click neither detaches the wire of an input nor counts as a wire
+     * dropped on nothing.
+     */
+    public static void Rnode_graph_set_pin_clicked_callback(int graph, RNodeGraphPointCallback callback) {
+        Rnode_graph_set_pin_clicked_callback(graph, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rnode_graph_get_node_at$;
+
+    /**
+     * The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0.
+     */
+    public static int Rnode_graph_get_node_at(int graph, float x, float y) {
+        MethodHandle $h = Rnode_graph_get_node_at$;
+        if ($h == null) Rnode_graph_get_node_at$ = $h = find("Rnode_graph_get_node_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(graph, x, y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_get_pin_at$;
+
+    /**
+     * The pin near a point of the widget, or 0 (a menu for a pin).
+     */
+    public static int Rnode_graph_get_pin_at(int graph, float x, float y) {
+        MethodHandle $h = Rnode_graph_get_pin_at$;
+        if ($h == null) Rnode_graph_get_pin_at$ = $h = find("Rnode_graph_get_pin_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(graph, x, y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_get_link_at$;
+
+    /**
+     * The link under a point of the widget, or 0 (a menu for a wire).
+     */
+    public static int Rnode_graph_get_link_at(int graph, float x, float y) {
+        MethodHandle $h = Rnode_graph_get_link_at$;
+        if ($h == null) Rnode_graph_get_link_at$ = $h = find("Rnode_graph_get_link_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(graph, x, y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rnode_graph_set_pin_multiple$;

@@ -2392,6 +2392,14 @@ def _adapt_RNodeGraphContextCallback(function):
         function(graph, node, x, y, user_data)
     return call
 
+RNodeGraphPointCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_void_p)
+
+
+def _adapt_RNodeGraphPointCallback(function):
+    def call(graph, item, x, y, user_data):
+        function(graph, item, x, y, user_data)
+    return call
+
 RBlockEditorCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
 
 
@@ -10691,6 +10699,66 @@ _lib.Rnode_graph_set_context_callback.restype = None
 
 def Rnode_graph_set_context_callback(graph, callback, user_data=None):
     _lib.Rnode_graph_set_context_callback(graph, _callback(RNodeGraphContextCallback, _adapt_RNodeGraphContextCallback, callback), user_data)
+
+
+_lib.Rnode_graph_set_canvas_activated_callback.argtypes = [ctypes.c_uint32, RNodeGraphPointCallback, ctypes.c_void_p]
+_lib.Rnode_graph_set_canvas_activated_callback.restype = None
+
+
+def Rnode_graph_set_canvas_activated_callback(graph, callback, user_data=None):
+    """Double click on the empty canvas (`item` 0): the application acts
+    there (a search to add a node...). Without this callback it frames all nodes."""
+    _lib.Rnode_graph_set_canvas_activated_callback(graph, _callback(RNodeGraphPointCallback, _adapt_RNodeGraphPointCallback, callback), user_data)
+
+
+_lib.Rnode_graph_set_wire_dropped_callback.argtypes = [ctypes.c_uint32, RNodeGraphPointCallback, ctypes.c_void_p]
+_lib.Rnode_graph_set_wire_dropped_callback.restype = None
+
+
+def Rnode_graph_set_wire_dropped_callback(graph, callback, user_data=None):
+    """A wire the user pulled from a pin was released on nothing: `item` is
+    that pin, x, y where it was dropped (to offer a node to connect it to). The
+    wire draws back as usual."""
+    _lib.Rnode_graph_set_wire_dropped_callback(graph, _callback(RNodeGraphPointCallback, _adapt_RNodeGraphPointCallback, callback), user_data)
+
+
+_lib.Rnode_graph_set_pin_clicked_callback.argtypes = [ctypes.c_uint32, RNodeGraphPointCallback, ctypes.c_void_p]
+_lib.Rnode_graph_set_pin_clicked_callback.restype = None
+
+
+def Rnode_graph_set_pin_clicked_callback(graph, callback, user_data=None):
+    """A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+    the application may link in two clicks, select the pin... With this callback
+    such a click neither detaches the wire of an input nor counts as a wire
+    dropped on nothing."""
+    _lib.Rnode_graph_set_pin_clicked_callback(graph, _callback(RNodeGraphPointCallback, _adapt_RNodeGraphPointCallback, callback), user_data)
+
+
+_lib.Rnode_graph_get_node_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_node_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_node_at(graph, x, y):
+    """The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0."""
+    return _lib.Rnode_graph_get_node_at(graph, x, y)
+
+
+_lib.Rnode_graph_get_pin_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_pin_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_pin_at(graph, x, y):
+    """The pin near a point of the widget, or 0 (a menu for a pin)."""
+    return _lib.Rnode_graph_get_pin_at(graph, x, y)
+
+
+_lib.Rnode_graph_get_link_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_link_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_link_at(graph, x, y):
+    """The link under a point of the widget, or 0 (a menu for a wire)."""
+    return _lib.Rnode_graph_get_link_at(graph, x, y)
 
 
 _lib.Rnode_graph_set_pin_multiple.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]

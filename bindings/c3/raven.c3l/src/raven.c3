@@ -1596,6 +1596,11 @@ alias NodeGraphItemCallback = fn void(Id graph, CInt item, void* user_data);
  Without this callback the right button does nothing.
 *>
 alias NodeGraphContextCallback = fn void(Id graph, CInt node, float x, float y, void* user_data);
+<*
+ Something happened at a point of the canvas: `item` depends on the
+ function the callback was given to; x, y are in canvas units (as node positions).
+*>
+alias NodeGraphPointCallback = fn void(Id graph, CInt item, float x, float y, void* user_data);
 <* A block changed (0: several, or one was deleted), or a script was clicked (its top block). *>
 alias BlockEditorCallback = fn void(Id editor, CInt block, void* user_data);
 <* Right click: on a block (0 on the canvas), at x, y in the widget. *>
@@ -4093,6 +4098,36 @@ fn void NodeGraph.set_removed_callback(self, NodeGraphItemCallback callback, voi
 fn void NodeGraph.set_activated_callback(self, NodeGraphItemCallback callback, void* user_data) @inline => c::r_node_graph_set_activated_callback((c::Rid)self, (c::RNodeGraphItemCallback)callback, user_data);
 
 fn void NodeGraph.set_context_callback(self, NodeGraphContextCallback callback, void* user_data) @inline => c::r_node_graph_set_context_callback((c::Rid)self, (c::RNodeGraphContextCallback)callback, user_data);
+
+<*
+ Double click on the empty canvas (`item` 0): the application acts
+ there (a search to add a node...). Without this callback it frames all nodes.
+*>
+fn void NodeGraph.set_canvas_activated_callback(self, NodeGraphPointCallback callback, void* user_data) @inline => c::r_node_graph_set_canvas_activated_callback((c::Rid)self, (c::RNodeGraphPointCallback)callback, user_data);
+
+<*
+ A wire the user pulled from a pin was released on nothing: `item` is
+ that pin, x, y where it was dropped (to offer a node to connect it to). The
+ wire draws back as usual.
+*>
+fn void NodeGraph.set_wire_dropped_callback(self, NodeGraphPointCallback callback, void* user_data) @inline => c::r_node_graph_set_wire_dropped_callback((c::Rid)self, (c::RNodeGraphPointCallback)callback, user_data);
+
+<*
+ A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+ the application may link in two clicks, select the pin... With this callback
+ such a click neither detaches the wire of an input nor counts as a wire
+ dropped on nothing.
+*>
+fn void NodeGraph.set_pin_clicked_callback(self, NodeGraphPointCallback callback, void* user_data) @inline => c::r_node_graph_set_pin_clicked_callback((c::Rid)self, (c::RNodeGraphPointCallback)callback, user_data);
+
+<* The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0. *>
+fn CInt NodeGraph.get_node_at(self, float x, float y) @inline => c::r_node_graph_get_node_at((c::Rid)self, x, y);
+
+<* The pin near a point of the widget, or 0 (a menu for a pin). *>
+fn CInt NodeGraph.get_pin_at(self, float x, float y) @inline => c::r_node_graph_get_pin_at((c::Rid)self, x, y);
+
+<* The link under a point of the widget, or 0 (a menu for a wire). *>
+fn CInt NodeGraph.get_link_at(self, float x, float y) @inline => c::r_node_graph_get_link_at((c::Rid)self, x, y);
 
 <*
  R_TRUE: this input keeps every link made to it (a state that several

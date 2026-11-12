@@ -218,6 +218,8 @@ typedef struct rvn_node_graph_t {
 	int box_add;
 	/** The pin the wire being pulled is attached to. */
 	int wire_pin;
+	/** The pin the button went down on (the input end of a wire picked up: not wire_pin). */
+	int wire_pressed;
 	/** The link that was picked up by its input end, hidden meanwhile; 0 = a new wire. */
 	int wire_detached;
 	/** The pin the free end would link to if released now, or 0. */
@@ -249,6 +251,12 @@ typedef struct rvn_node_graph_t {
 	void* activated_user;
 	RNodeGraphContextCallback context_callback;
 	void* context_user;
+	RNodeGraphPointCallback canvas_activated_callback;
+	void* canvas_activated_user;
+	RNodeGraphPointCallback wire_dropped_callback;
+	void* wire_dropped_user;
+	RNodeGraphPointCallback pin_clicked_callback;
+	void* pin_clicked_user;
 	/** Clock of the breathing ring of the active nodes. */
 	float active_time;
 } rvn_node_graph_t;
@@ -1916,6 +1924,7 @@ static void rvn_ng_begin_wire(rvn_widget_t* widget, int pin_id, float cx, float 
 	/* an input that is linked gives the end of its wire: it can be plugged somewhere else, or let go */
 	graph->wire_detached = link ? link->id : 0;
 	graph->wire_pin = link ? link->from : pin_id;
+	graph->wire_pressed = pin_id;
 	graph->wire_target = link ? pin_id : 0;
 	graph->wire_x = cx;
 	graph->wire_y = cy;
@@ -1986,6 +1995,11 @@ static void rvn_ng_end_drag(rvn_widget_t* widget, int cancel) {
 		const rvn_ng_link_t* old = rvn_ng_link(graph, detached);
 		graph->wire_detached = 0;
 		graph->wire_target = 0;
+		if (!moved && graph->pin_clicked_callback) {
+			/* a click on the pin, not a wire pulled: the application's (linking in two clicks) */
+			if (!cancel) graph->pin_clicked_callback(widget->id, graph->wire_pressed, graph->press_cx, graph->press_cy, graph->pin_clicked_user);
+			return;
+		}
 		if (old && (cancel || target == old->to)) return;
 		if (old) {
 			/* the wire left its input */
@@ -1998,6 +2012,10 @@ static void rvn_ng_end_drag(rvn_widget_t* widget, int cancel) {
 		if (!target || !rvn_ng_user_link(widget, anchor, target)) {
 			if (rvn_widget_alive(widget)) rvn_ng_wire_ghost(graph);
 			if (old && rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
+			/* released on nothing: the application may offer what to connect it to */
+			if (!cancel && !target && rvn_widget_alive(widget) && graph->wire_dropped_callback) {
+				graph->wire_dropped_callback(widget->id, anchor, graph->wire_x, graph->wire_y, graph->wire_dropped_user);
+			}
 		}
 	} else if (drag == RVN_NG_DRAG_BOX) {
 		int changed = R_FALSE;
@@ -2236,7 +2254,11 @@ static int rvn_node_graph_event(rvn_widget_t* widget, const REvent* event) {
 				return R_TRUE;
 			}
 			if (event->clicks >= 2) {
-				rvn_ng_frame_all(graph, R_TRUE);
+				if (graph->canvas_activated_callback) {
+					graph->canvas_activated_callback(widget->id, 0, at.x, at.y, graph->canvas_activated_user);
+				} else {
+					rvn_ng_frame_all(graph, R_TRUE);
+				}
 				return R_TRUE;
 			}
 			/* the empty canvas: a selection rectangle */
@@ -3316,10 +3338,49 @@ void Rnode_graph_set_activated_callback(Rid id, RNodeGraphItemCallback callback,
 	graph->activated_user = user_data;
 }
 
+void Rnode_graph_set_canvas_activated_callback(Rid id, RNodeGraphPointCallback callback, void* user_data) {
+	RVN_NODE_GRAPH_VOID(graph, id);
+	graph->canvas_activated_callback = callback;
+	graph->canvas_activated_user = user_data;
+}
+
+void Rnode_graph_set_wire_dropped_callback(Rid id, RNodeGraphPointCallback callback, void* user_data) {
+	RVN_NODE_GRAPH_VOID(graph, id);
+	graph->wire_dropped_callback = callback;
+	graph->wire_dropped_user = user_data;
+}
+
+int Rnode_graph_get_node_at(Rid id, float x, float y) {
+	rvn_vec2_t at;
+	RVN_NODE_GRAPH(graph, id, 0);
+	at = rvn_ng_to_canvas(graph, x, y);
+	return rvn_ng_node_at(graph, at.x, at.y);
+}
+
 void Rnode_graph_set_context_callback(Rid id, RNodeGraphContextCallback callback, void* user_data) {
 	RVN_NODE_GRAPH_VOID(graph, id);
 	graph->context_callback = callback;
 	graph->context_user = user_data;
+}
+
+void Rnode_graph_set_pin_clicked_callback(Rid id, RNodeGraphPointCallback callback, void* user_data) {
+	RVN_NODE_GRAPH_VOID(graph, id);
+	graph->pin_clicked_callback = callback;
+	graph->pin_clicked_user = user_data;
+}
+
+int Rnode_graph_get_pin_at(Rid id, float x, float y) {
+	rvn_vec2_t at;
+	RVN_NODE_GRAPH(graph, id, 0);
+	at = rvn_ng_to_canvas(graph, x, y);
+	return rvn_ng_pin_near(graph, at.x, at.y);
+}
+
+int Rnode_graph_get_link_at(Rid id, float x, float y) {
+	rvn_vec2_t at;
+	RVN_NODE_GRAPH(graph, id, 0);
+	at = rvn_ng_to_canvas(graph, x, y);
+	return rvn_ng_link_at(graph, at.x, at.y);
 }
 
 void Rnode_graph_set_pin_multiple(Rid id, int pin_id, int multiple) {

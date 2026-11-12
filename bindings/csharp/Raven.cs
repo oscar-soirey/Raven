@@ -2939,6 +2939,13 @@ namespace Raven
     public delegate void RNodeGraphContextCallback(uint graph, int node, float x, float y, IntPtr user_data);
 
     /// <summary>
+    /// Something happened at a point of the canvas: `item` depends on the
+    /// function the callback was given to; x, y are in canvas units (as node positions).
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RNodeGraphPointCallback(uint graph, int item, float x, float y, IntPtr user_data);
+
+    /// <summary>
     /// A block changed (0: several, or one was deleted), or a script was clicked (its top block).
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -7846,6 +7853,48 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_set_context_callback(uint graph, RNodeGraphContextCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Double click on the empty canvas (`item` 0): the application acts
+        /// there (a search to add a node...). Without this callback it frames all nodes.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_canvas_activated_callback(uint graph, RNodeGraphPointCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// A wire the user pulled from a pin was released on nothing: `item` is
+        /// that pin, x, y where it was dropped (to offer a node to connect it to). The
+        /// wire draws back as usual.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_wire_dropped_callback(uint graph, RNodeGraphPointCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+        /// the application may link in two clicks, select the pin... With this callback
+        /// such a click neither detaches the wire of an input nor counts as a wire
+        /// dropped on nothing.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_pin_clicked_callback(uint graph, RNodeGraphPointCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_get_node_at(uint graph, float x, float y);
+
+        /// <summary>
+        /// The pin near a point of the widget, or 0 (a menu for a pin).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_get_pin_at(uint graph, float x, float y);
+
+        /// <summary>
+        /// The link under a point of the widget, or 0 (a menu for a wire).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_get_link_at(uint graph, float x, float y);
 
         /// <summary>
         /// R_TRUE: this input keeps every link made to it (a state that several

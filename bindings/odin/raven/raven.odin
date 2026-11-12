@@ -1281,6 +1281,9 @@ RNodeGraphItemCallback :: #type proc "c" (graph: Rid, item: i32, user_data: rawp
 // or 0 on the empty canvas; x, y are in the widget (Rnode_graph_to_canvas).
 // Without this callback the right button does nothing.
 RNodeGraphContextCallback :: #type proc "c" (graph: Rid, node: i32, x: f32, y: f32, user_data: rawptr)
+// Something happened at a point of the canvas: `item` depends on the
+// function the callback was given to; x, y are in canvas units (as node positions).
+RNodeGraphPointCallback :: #type proc "c" (graph: Rid, item: i32, x: f32, y: f32, user_data: rawptr)
 // A block changed (0: several, or one was deleted), or a script was clicked (its top block).
 RBlockEditorCallback :: #type proc "c" (editor: Rid, block: i32, user_data: rawptr)
 // Right click: on a block (0 on the canvas), at x, y in the widget.
@@ -3658,6 +3661,24 @@ foreign lib {
 	// Called when the user double-clicks a node (to open what it stands for).
 	Rnode_graph_set_activated_callback :: proc(graph: Rid, callback: RNodeGraphItemCallback, user_data: rawptr) ---
 	Rnode_graph_set_context_callback :: proc(graph: Rid, callback: RNodeGraphContextCallback, user_data: rawptr) ---
+	// Double click on the empty canvas (`item` 0): the application acts
+	// there (a search to add a node...). Without this callback it frames all nodes.
+	Rnode_graph_set_canvas_activated_callback :: proc(graph: Rid, callback: RNodeGraphPointCallback, user_data: rawptr) ---
+	// A wire the user pulled from a pin was released on nothing: `item` is
+	// that pin, x, y where it was dropped (to offer a node to connect it to). The
+	// wire draws back as usual.
+	Rnode_graph_set_wire_dropped_callback :: proc(graph: Rid, callback: RNodeGraphPointCallback, user_data: rawptr) ---
+	// A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+	// the application may link in two clicks, select the pin... With this callback
+	// such a click neither detaches the wire of an input nor counts as a wire
+	// dropped on nothing.
+	Rnode_graph_set_pin_clicked_callback :: proc(graph: Rid, callback: RNodeGraphPointCallback, user_data: rawptr) ---
+	// The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0.
+	Rnode_graph_get_node_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
+	// The pin near a point of the widget, or 0 (a menu for a pin).
+	Rnode_graph_get_pin_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
+	// The link under a point of the widget, or 0 (a menu for a wire).
+	Rnode_graph_get_link_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
 	// R_TRUE: this input keeps every link made to it (a state that several
 	// transitions enter) instead of one. Pulling a wire from it starts a new one.
 	Rnode_graph_set_pin_multiple :: proc(graph: Rid, pin: i32, multiple: i32) ---

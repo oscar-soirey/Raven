@@ -382,6 +382,120 @@ static int on_connect(Rid graph, int output_pin, int input_pin, void* user_data)
 	return g_connect_allowed;
 }
 
+/* What an editor hooks: a double click on the empty canvas, a wire dropped on nothing, a click on a pin, what is under a point. */
+static int g_point_calls[3];
+static int g_point_item;
+static float g_point_x, g_point_y;
+static void on_point(Rid graph, int item, float x, float y, void* user_data) {
+	(void)graph;
+	g_point_calls[(intptr_t)user_data]++;
+	g_point_item = item;
+	g_point_x = x;
+	g_point_y = y;
+}
+
+static void test_node_graph_editor_hooks(void) {
+	Rid window, graph;
+	int a, a_out;
+	float px, py, cx, cy, zoom;
+
+	CHECK(test_init(0));
+	window = make_window("<Window Width=\"900\" Height=\"600\"><NodeGraph Name=\"g\">"
+		"<Node Name=\"a\" Title=\"Source\" X=\"50\" Y=\"50\"><Output Name=\"o\" Label=\"Out\"/></Node>"
+		"</NodeGraph></Window>");
+	graph = Rwidget_find(window, "g");
+	a = Rnode_graph_find_node(graph, "a");
+	a_out = Rnode_graph_find_pin(graph, a, "o");
+	Rnode_graph_get_view(graph, &cx, &cy, &zoom);
+	CHECK(zoom == 1.0f); /* canvas units are window units until the view moves */
+
+	/* the node under a point */
+	CHECK(Rnode_graph_get_node_at(graph, 60.0f, 60.0f) == a);
+	CHECK(Rnode_graph_get_node_at(graph, 600.0f, 400.0f) == 0);
+
+	/* double click on the empty canvas: the application's, not "frame all" */
+	Rnode_graph_set_canvas_activated_callback(graph, on_point, (void*)(intptr_t)0);
+	click_at(window, 600.0f, 400.0f);
+	click_at(window, 600.0f, 400.0f);
+	Rdraw_frame();
+	CHECK(g_point_calls[0] == 1 && g_point_item == 0);
+	CHECK_NEAR(g_point_x, 600.0f);
+	CHECK_NEAR(g_point_y, 400.0f);
+	Rnode_graph_get_view(graph, &px, &py, &zoom);
+	CHECK(px == cx && py == cy && zoom == 1.0f);
+	/* a double click on a node is still the node's */
+	click_at(window, 60.0f, 60.0f);
+	click_at(window, 60.0f, 60.0f);
+	CHECK(g_point_calls[0] == 1);
+	/* without the callback, the double click frames all again */
+	Rnode_graph_set_canvas_activated_callback(graph, NULL, NULL);
+	click_at(window, 600.0f, 400.0f);
+	click_at(window, 600.0f, 400.0f);
+	CHECK(g_point_calls[0] == 1);
+
+	/* a wire released on nothing: told with its pin and the point */
+	Rnode_graph_frame_all(graph);
+	Rnode_graph_set_view(graph, cx, cy, 1.0f);
+	Rdraw_frame();
+	Rnode_graph_set_wire_dropped_callback(graph, on_point, (void*)(intptr_t)1);
+	Rnode_graph_get_pin_position(graph, a_out, &px, &py);
+	drag(window, px, py, 500.0f, 300.0f);
+	CHECK(g_point_calls[1] == 1 && g_point_item == a_out);
+	CHECK_NEAR(g_point_x, 500.0f);
+	CHECK_NEAR(g_point_y, 300.0f);
+	CHECK(Rnode_graph_get_link_count(graph) == 0);
+	/* Escape while pulling cancels: not a drop */
+	Rwindow_inject_mouse_move(window, px, py);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(window, 450.0f, 250.0f);
+	Rwindow_inject_mouse_move(window, 500.0f, 300.0f);
+	press_key(window, R_KEY_ESCAPE, 0);
+	Rwindow_inject_mouse_button(window, R_MOUSE_LEFT, R_FALSE);
+	Rdraw_frame();
+	CHECK(g_point_calls[1] == 1);
+
+	/* what is under a point: a pin, a link; a click on a pin */
+	{
+		int b = Rnode_graph_add_node(graph, "Sink", 400.0f, 60.0f);
+		int b_in = Rnode_graph_add_input(graph, b, "In", NULL);
+		int link;
+		float bx, by, mx, my;
+		Rdraw_frame();
+		Rnode_graph_get_pin_position(graph, a_out, &px, &py);
+		CHECK(Rnode_graph_get_pin_at(graph, px, py) == a_out);
+		CHECK(Rnode_graph_get_pin_at(graph, 600.0f, 400.0f) == 0);
+		link = Rnode_graph_connect(graph, a_out, b_in);
+		CHECK(link != 0);
+		Rdraw_frame();
+		Rnode_graph_get_pin_position(graph, b_in, &bx, &by);
+		/* (pin positions are on the canvas; the points asked about are in the widget) */
+		Rnode_graph_from_canvas(graph, (px + bx) * 0.5f, (py + by) * 0.5f, &mx, &my);
+		/* the wire hangs a little below the line between its pins: find it under the middle */
+		{
+			int k;
+			for (k = 0; k < 30 && Rnode_graph_get_link_at(graph, mx, my) != link; k++) my += 1.0f;
+		}
+		CHECK(Rnode_graph_get_link_at(graph, mx, my) == link);
+		/* a click on a pin (no drag) with the callback: told, the wire of the input stays, not a drop */
+		Rnode_graph_set_pin_clicked_callback(graph, on_point, (void*)(intptr_t)2);
+		{
+			int dropped = g_point_calls[1];
+			Rnode_graph_from_canvas(graph, bx, by, &mx, &my);
+			click_at(window, mx, my);
+			Rdraw_frame();
+			CHECK(g_point_calls[2] == 1 && g_point_item == b_in);
+			CHECK(g_point_calls[1] == dropped);
+			CHECK(Rnode_graph_get_link_count(graph) == 1);
+		}
+		Rnode_graph_set_pin_clicked_callback(graph, NULL, NULL);
+		Rnode_graph_remove_node(graph, b);
+		Rdraw_frame();
+	}
+
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+
 static void test_node_graph(void) {
 	Rid window, graph, check;
 	int a, b, c, a_out, a_color, b_in, b_any, c_in, link, other;
@@ -1227,6 +1341,7 @@ int main(void) {
 	RUN(test_timeline);
 	RUN(test_timeline_sizes);
 	RUN(test_node_graph);
+	RUN(test_node_graph_editor_hooks);
 	RUN(test_zoomed_content);
 	RUN(test_blur_and_transparency);
 	RUN(test_hooks);

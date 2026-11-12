@@ -2853,6 +2853,12 @@ export type RNodeGraphItemCallback = (graph: Rid, item: number, user_data: Point
  */
 export type RNodeGraphContextCallback = (graph: Rid, node: number, x: number, y: number, user_data: Pointer | null) => void;
 
+/**
+ * Something happened at a point of the canvas: `item` depends on the
+ * function the callback was given to; x, y are in canvas units (as node positions).
+ */
+export type RNodeGraphPointCallback = (graph: Rid, item: number, x: number, y: number, user_data: Pointer | null) => void;
+
 /** A block changed (0: several, or one was deleted), or a script was clicked (its top block). */
 export type RBlockEditorCallback = (editor: Rid, block: number, user_data: Pointer | null) => void;
 
@@ -6004,6 +6010,36 @@ export function Rnode_graph_set_removed_callback(graph: Rid, callback: RNodeGrap
 export function Rnode_graph_set_activated_callback(graph: Rid, callback: RNodeGraphItemCallback | Pointer | null, user_data?: RPointer): void;
 
 export function Rnode_graph_set_context_callback(graph: Rid, callback: RNodeGraphContextCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * Double click on the empty canvas (`item` 0): the application acts
+ * there (a search to add a node...). Without this callback it frames all nodes.
+ */
+export function Rnode_graph_set_canvas_activated_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * A wire the user pulled from a pin was released on nothing: `item` is
+ * that pin, x, y where it was dropped (to offer a node to connect it to). The
+ * wire draws back as usual.
+ */
+export function Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+ * the application may link in two clicks, select the pin... With this callback
+ * such a click neither detaches the wire of an input nor counts as a wire
+ * dropped on nothing.
+ */
+export function Rnode_graph_set_pin_clicked_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data?: RPointer): void;
+
+/** The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0. */
+export function Rnode_graph_get_node_at(graph: Rid, x: number, y: number): number;
+
+/** The pin near a point of the widget, or 0 (a menu for a pin). */
+export function Rnode_graph_get_pin_at(graph: Rid, x: number, y: number): number;
+
+/** The link under a point of the widget, or 0 (a menu for a wire). */
+export function Rnode_graph_get_link_at(graph: Rid, x: number, y: number): number;
 
 /**
  * R_TRUE: this input keeps every link made to it (a state that several

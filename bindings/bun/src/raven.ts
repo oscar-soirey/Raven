@@ -1034,6 +1034,12 @@ const _symbols = {
 	Rnode_graph_set_removed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rnode_graph_set_activated_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rnode_graph_set_context_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rnode_graph_set_canvas_activated_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rnode_graph_set_wire_dropped_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rnode_graph_set_pin_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rnode_graph_get_node_at: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rnode_graph_get_pin_at: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rnode_graph_get_link_at: { args: ["u32", "f32", "f32"], returns: "i32" },
 	Rnode_graph_set_pin_multiple: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_set_node_active: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_set_node_active_color: { args: ["u32", "i32", "f32", "f32", "f32"], returns: "void" },
@@ -6097,6 +6103,25 @@ function _adapt_RNodeGraphContextCallback(function_: RNodeGraphContextCallback |
 	return _keep(new _JSCallback((graph: number, node: number, x: number, y: number, user_data: Pointer | null): void => {
 		try {
 			function_(graph, node, x, y, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "f32", "f32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Something happened at a point of the canvas: `item` depends on the
+ * function the callback was given to; x, y are in canvas units (as node positions).
+ */
+export type RNodeGraphPointCallback = (graph: Rid, item: number, x: number, y: number, user_data: Pointer | null) => void;
+
+function _adapt_RNodeGraphPointCallback(function_: RNodeGraphPointCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((graph: number, item: number, x: number, y: number, user_data: Pointer | null): void => {
+		try {
+			function_(graph, item, x, y, user_data);
 		} catch (error) {
 			_report(error as Error);
 		}
@@ -11327,6 +11352,48 @@ export function Rnode_graph_set_activated_callback(graph: Rid, callback: RNodeGr
 
 export function Rnode_graph_set_context_callback(graph: Rid, callback: RNodeGraphContextCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rnode_graph_set_context_callback(graph, _adapt_RNodeGraphContextCallback(callback), user_data);
+}
+
+/**
+ * Double click on the empty canvas (`item` 0): the application acts
+ * there (a search to add a node...). Without this callback it frames all nodes.
+ */
+export function Rnode_graph_set_canvas_activated_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rnode_graph_set_canvas_activated_callback(graph, _adapt_RNodeGraphPointCallback(callback), user_data);
+}
+
+/**
+ * A wire the user pulled from a pin was released on nothing: `item` is
+ * that pin, x, y where it was dropped (to offer a node to connect it to). The
+ * wire draws back as usual.
+ */
+export function Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rnode_graph_set_wire_dropped_callback(graph, _adapt_RNodeGraphPointCallback(callback), user_data);
+}
+
+/**
+ * A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+ * the application may link in two clicks, select the pin... With this callback
+ * such a click neither detaches the wire of an input nor counts as a wire
+ * dropped on nothing.
+ */
+export function Rnode_graph_set_pin_clicked_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rnode_graph_set_pin_clicked_callback(graph, _adapt_RNodeGraphPointCallback(callback), user_data);
+}
+
+/** The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0. */
+export function Rnode_graph_get_node_at(graph: Rid, x: number, y: number): number {
+	return _lib.Rnode_graph_get_node_at(graph, x, y);
+}
+
+/** The pin near a point of the widget, or 0 (a menu for a pin). */
+export function Rnode_graph_get_pin_at(graph: Rid, x: number, y: number): number {
+	return _lib.Rnode_graph_get_pin_at(graph, x, y);
+}
+
+/** The link under a point of the widget, or 0 (a menu for a wire). */
+export function Rnode_graph_get_link_at(graph: Rid, x: number, y: number): number {
+	return _lib.Rnode_graph_get_link_at(graph, x, y);
 }
 
 /**

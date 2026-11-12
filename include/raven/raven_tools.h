@@ -518,6 +518,35 @@ extern "C" {
 	 */
 	typedef void (*RNodeGraphContextCallback)(Rid graph, int node, float x, float y, void* user_data);
 	RAVEN_API void Rnode_graph_set_context_callback(Rid graph, RNodeGraphContextCallback callback, void* user_data);
+	/**
+	 * @brief Something happened at a point of the canvas: `item` depends on the
+	 * function the callback was given to; x, y are in canvas units (as node positions).
+	 */
+	typedef void (*RNodeGraphPointCallback)(Rid graph, int item, float x, float y, void* user_data);
+	/**
+	 * @brief Double click on the empty canvas (`item` 0): the application acts
+	 * there (a search to add a node...). Without this callback it frames all nodes.
+	 */
+	RAVEN_API void Rnode_graph_set_canvas_activated_callback(Rid graph, RNodeGraphPointCallback callback, void* user_data);
+	/**
+	 * @brief A wire the user pulled from a pin was released on nothing: `item` is
+	 * that pin, x, y where it was dropped (to offer a node to connect it to). The
+	 * wire draws back as usual.
+	 */
+	RAVEN_API void Rnode_graph_set_wire_dropped_callback(Rid graph, RNodeGraphPointCallback callback, void* user_data);
+	/**
+	 * @brief A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+	 * the application may link in two clicks, select the pin... With this callback
+	 * such a click neither detaches the wire of an input nor counts as a wire
+	 * dropped on nothing.
+	 */
+	RAVEN_API void Rnode_graph_set_pin_clicked_callback(Rid graph, RNodeGraphPointCallback callback, void* user_data);
+	/** @brief The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0. */
+	RAVEN_API int Rnode_graph_get_node_at(Rid graph, float x, float y);
+	/** @brief The pin near a point of the widget, or 0 (a menu for a pin). */
+	RAVEN_API int Rnode_graph_get_pin_at(Rid graph, float x, float y);
+	/** @brief The link under a point of the widget, or 0 (a menu for a wire). */
+	RAVEN_API int Rnode_graph_get_link_at(Rid graph, float x, float y);
 
 	/* ---- more for editors ---- */
 

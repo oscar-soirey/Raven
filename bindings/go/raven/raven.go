@@ -5462,6 +5462,22 @@ func NodeGraphGetSelectedNode(graph ID, index int) int {
 	return int(C.Rnode_graph_get_selected_node(C.Rid(graph), C.int(index)))
 }
 
+// NodeGraphGetNodeAt: The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or
+// 0.
+func NodeGraphGetNodeAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_node_at(C.Rid(graph), C.float(x), C.float(y)))
+}
+
+// NodeGraphGetPinAt: The pin near a point of the widget, or 0 (a menu for a pin).
+func NodeGraphGetPinAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_pin_at(C.Rid(graph), C.float(x), C.float(y)))
+}
+
+// NodeGraphGetLinkAt: The link under a point of the widget, or 0 (a menu for a wire).
+func NodeGraphGetLinkAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_link_at(C.Rid(graph), C.float(x), C.float(y)))
+}
+
 // NodeGraphSetPinMultiple: R_TRUE: this input keeps every link made to it (a state that several transitions
 // enter) instead of one. Pulling a wire from it starts a new one.
 func NodeGraphSetPinMultiple(graph ID, pin int, multiple int) {
@@ -6619,15 +6635,16 @@ func HostInjectClose(window ID) {
 // Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
 // Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
 // Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback
-// Rblock_editor_set_context_callback, Rdialog_open, Rfile_dialog_open, Rfile_dialog_save
-// Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters, Rfile_browser_set_accepted_callback
-// Rfile_browser_set_cancelled_callback, Rfile_browser_set_selection_changed_callback
-// Rnotification_set_fallback, Rnotification_set_clicked_callback, Rviewport_set_draw_callback
-// Rviewport_get_native_handle, Rviewport_set_resize_callback, Rcustom_set_paint_callback
-// Rcustom_set_measure_callback, Rdraw_rect, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve
-// Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set
-// Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults
-// Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
-// Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rhost_platform_register
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdialog_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
+// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
+// Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
+// Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
+// Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text
+// Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect
+// Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader, Rborder_set_effect
+// Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse, Rxml_get_attribute_info
+// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings, Rhost_platform_register
