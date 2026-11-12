@@ -1,0 +1,11 @@
+{
+	"id": "rust",
+	"name": "Rust",
+	"order": 4,
+	"description": "A Cargo project with the raven-gui crate of the SDK.",
+	"needs": "shared",
+	"binding": "rust",
+	"library_path": true,
+	"run": "cargo run",
+	"readme": "    cargo run\n\n`.cargo/config.toml` tells the crate where the library of the SDK is (`RAVEN_LIB_DIR`). On Windows, use `run.bat`: it puts `raven.dll` in the PATH."
+}

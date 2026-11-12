@@ -1,0 +1,8 @@
+[package]
+name = "{{PROJECT_IDENT}}"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# the Rust binding of the Raven SDK installed on this machine
+raven = { package = "raven-gui", path = "{{RAVEN_BINDINGS}}/rust" }

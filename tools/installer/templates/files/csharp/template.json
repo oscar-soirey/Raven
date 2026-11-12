@@ -1,0 +1,10 @@
+{
+	"id": "csharp",
+	"name": "C#",
+	"order": 5,
+	"description": ".NET 8 console project with the P/Invoke binding; the native library is copied beside the program.",
+	"needs": "shared",
+	"binding": "csharp",
+	"run": "dotnet run",
+	"readme": "    dotnet run\n\nVisual Studio and Rider open `{{PROJECT_IDENT}}.csproj`. The project compiles `Raven.cs` from the SDK and copies the Raven library beside the program."
+}

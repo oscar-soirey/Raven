@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>{{PROJECT_CLASS}}</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- the C# binding and the library of the Raven SDK installed on this machine -->
+    <Compile Include="{{RAVEN_BINDINGS}}/csharp/Raven.cs" Link="Raven.cs" />
+    <None Include="{{RAVEN_LIBRARY}}" Link="{{RAVEN_LIBRARY_NAME}}" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Update="main.xml" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="strings.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,15 @@
+# {{PROJECT_NAME}}
+
+A {{LANGUAGE}} program made with [Raven](https://github.com/oscar-soirey/Raven) {{RAVEN_VERSION}}.
+
+- `main.xml` is the interface. Edit it in **Raven Designer** (open this folder), or by hand:
+  save it while the program runs and the window follows, without building again.
+- `strings.csv` holds the texts in each language (`@hello.title` in the XML).
+- The program loads both from its working folder, binds the action of the button
+  (`OnClicked="hello.clicked"`) and finds the label by its name (`Name="status"`).
+
+## Build and run
+
+{{RUN_INSTRUCTIONS}}
+
+The project uses the Raven SDK installed in `{{RAVEN_SDK}}`.

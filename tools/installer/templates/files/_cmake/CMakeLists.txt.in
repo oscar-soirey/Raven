@@ -1,0 +1,51 @@
+cmake_minimum_required(VERSION 3.16)
+project({{PROJECT_IDENT}} {{CMAKE_LANGUAGE}})
+
+# The Raven SDK, installed by the Raven SDK Installer. Another one: -DRAVEN_SDK=<folder>,
+# or the RAVEN_SDK environment variable. RAVEN_KIND chooses the static or the shared library.
+if(NOT DEFINED RAVEN_SDK)
+	if(DEFINED ENV{RAVEN_SDK})
+		set(RAVEN_SDK "$ENV{RAVEN_SDK}")
+	else()
+		set(RAVEN_SDK "{{RAVEN_SDK}}")
+	endif()
+endif()
+set(RAVEN_KIND "{{RAVEN_DEFAULT_KIND}}" CACHE STRING "The Raven library: static or shared")
+set_property(CACHE RAVEN_KIND PROPERTY STRINGS static shared)
+
+# the package of the compiler: the libraries of one compiler are not for the others
+if(MSVC)
+	set(RAVEN_FAMILY msvc)
+elseif(MINGW)
+	set(RAVEN_FAMILY mingw)
+elseif(APPLE)
+	set(RAVEN_FAMILY apple)
+else()
+	set(RAVEN_FAMILY gnu)
+endif()
+if(NOT EXISTS "${RAVEN_SDK}/${RAVEN_FAMILY}-${RAVEN_KIND}/lib/cmake/raven")
+	message(FATAL_ERROR "The Raven SDK in ${RAVEN_SDK} has no ${RAVEN_FAMILY}-${RAVEN_KIND} package. "
+		"Run the Raven SDK Installer again and select the libraries of this compiler.")
+endif()
+list(APPEND CMAKE_PREFIX_PATH "${RAVEN_SDK}/${RAVEN_FAMILY}-${RAVEN_KIND}")
+find_package(raven REQUIRED)
+
+add_executable({{PROJECT_IDENT}} {{MAIN_SOURCE}} main.xml strings.csv)
+target_link_libraries({{PROJECT_IDENT}} PRIVATE raven::raven)
+if(MSVC)
+	target_compile_definitions({{PROJECT_IDENT}} PRIVATE _CRT_SECURE_NO_WARNINGS)
+	set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT {{PROJECT_IDENT}})
+endif()
+
+# main.xml and strings.csv are read from the working folder: the debugger of Visual Studio
+# runs the program in the folder of the project, and they are copied beside the program
+# so that it also runs from the build folder.
+set_target_properties({{PROJECT_IDENT}} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+add_custom_command(TARGET {{PROJECT_IDENT}} POST_BUILD
+	COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/main.xml" "${CMAKE_CURRENT_SOURCE_DIR}/strings.csv"
+		"$<TARGET_FILE_DIR:{{PROJECT_IDENT}}>")
+# the DLL beside the program (Windows, shared library)
+if(WIN32 AND RAVEN_KIND STREQUAL "shared")
+	add_custom_command(TARGET {{PROJECT_IDENT}} POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:raven::raven>" "$<TARGET_FILE_DIR:{{PROJECT_IDENT}}>")
+endif()

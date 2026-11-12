@@ -1,0 +1,14 @@
+{
+	"id": "java",
+	"name": "Java",
+	"order": 6,
+	"description": "Java 22+ over the Foreign Function & Memory API: no JNI, no dependency.",
+	"needs": "shared",
+	"binding": "java",
+	"env": {
+		"RAVEN_LIBRARY": "{{RAVEN_LIBRARY}}"
+	},
+	"run_unix": "javac -d build \"{{RAVEN_BINDINGS}}/java/src/main/java/raven/R.java\" src/Main.java && java --enable-native-access=ALL-UNNAMED -cp build Main",
+	"run_windows": "javac -d build \"{{RAVEN_BINDINGS}}/java/src/main/java/raven/R.java\" src\\Main.java && java --enable-native-access=ALL-UNNAMED -cp build Main",
+	"readme": "    ./run.sh        (run.bat on Windows)\n\nThe script compiles `src/Main.java` with the binding of the SDK (`raven/R.java`) and runs it with `RAVEN_LIBRARY` set. Java 22 or later."
+}

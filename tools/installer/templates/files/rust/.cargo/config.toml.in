@@ -1,0 +1,7 @@
+# Where the Raven library is: bindings/rust/build.rs reads RAVEN_LIB_DIR.
+[env]
+RAVEN_LIB_DIR = "{{RAVEN_LIB_DIR}}"
+
+# Linux and macOS: the program finds the shared library where it is installed.
+[target.'cfg(unix)']
+rustflags = ["-C", "link-arg=-Wl,-rpath,{{RAVEN_BIN_DIR}}"]

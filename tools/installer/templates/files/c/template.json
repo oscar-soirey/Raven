@@ -1,0 +1,17 @@
+{
+	"id": "c",
+	"name": "C",
+	"order": 1,
+	"description": "C11 and CMake, linked to the static or the shared library.",
+	"needs": "any",
+	"extends": [
+		"_cmake"
+	],
+	"vars": {
+		"CMAKE_LANGUAGE": "C",
+		"MAIN_SOURCE": "main.c"
+	},
+	"run_unix": "cmake -S . -B build && cmake --build build && ./build/{{PROJECT_IDENT}}",
+	"run_windows": "cmake -S . -B build && cmake --build build --config Release && build\\Release\\{{PROJECT_IDENT}}.exe",
+	"readme": "    cmake -S . -B build\n    cmake --build build --config Release\n\nthen run the program from this folder (`build/{{PROJECT_IDENT}}`, or `build\\Release\\{{PROJECT_IDENT}}.exe` with Visual Studio). Visual Studio, CLion and VS Code (CMake Tools) open the folder directly."
+}
