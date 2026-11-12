@@ -3333,6 +3333,17 @@ inline void tray_set_clicked_callback(Rid tray, std::function<void(Rid, RMouseBu
 	Rtray_set_clicked_callback(tray, [](Rid tray, RMouseButton button, void* kept_) -> void { return (*static_cast<std::function<void(Rid, RMouseButton)>*>(kept_))(tray, button); }, detail::keep(tray, 68, std::move(callback)));
 }
 
+/// A short text shown beside the icon (macOS menu bar), drawn by the
+/// system in its own font and colors; the item widens to fit it. NULL or
+/// "": the icon alone. Systems that show no text there ignore it (the
+/// tooltip is the place for it).
+inline void tray_set_title(Rid tray, const char* text) { Rtray_set_title(tray, text); }
+
+/// Where the icon is on the screen, in the units and coordinates of
+/// Rwindow_set_position (a window can then open just under it).
+/// Returns: R_FALSE when the system does not tell (the outputs are then 0).
+inline int tray_get_rect(Rid tray, int* x, int* y, int* width, int* height) { return Rtray_get_rect(tray, x, y, width, height); }
+
 inline Rid color_picker_create() { return Rcolor_picker_create(); }
 
 /// Sets the color (0..1 each). The callback is not called.

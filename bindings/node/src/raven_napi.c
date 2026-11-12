@@ -770,6 +770,8 @@ static struct {
 	void (*Rtray_set_tooltip)(Rid, const char*);
 	void (*Rtray_set_menu)(Rid, Rid);
 	void (*Rtray_set_clicked_callback)(Rid, RTrayClickedCallback, void*);
+	void (*Rtray_set_title)(Rid, const char*);
+	int (*Rtray_get_rect)(Rid, int*, int*, int*, int*);
 	Rid (*Rcolor_picker_create)(void);
 	void (*Rcolor_picker_set_color)(Rid, float, float, float, float);
 	void (*Rcolor_picker_get_color)(Rid, float*, float*, float*, float*);
@@ -1903,6 +1905,8 @@ static const struct {
 	{"Rtray_set_tooltip", offsetof(__typeof__(rn), Rtray_set_tooltip)},
 	{"Rtray_set_menu", offsetof(__typeof__(rn), Rtray_set_menu)},
 	{"Rtray_set_clicked_callback", offsetof(__typeof__(rn), Rtray_set_clicked_callback)},
+	{"Rtray_set_title", offsetof(__typeof__(rn), Rtray_set_title)},
+	{"Rtray_get_rect", offsetof(__typeof__(rn), Rtray_get_rect)},
 	{"Rcolor_picker_create", offsetof(__typeof__(rn), Rcolor_picker_create)},
 	{"Rcolor_picker_set_color", offsetof(__typeof__(rn), Rcolor_picker_set_color)},
 	{"Rcolor_picker_get_color", offsetof(__typeof__(rn), Rcolor_picker_get_color)},
@@ -16152,6 +16156,54 @@ static napi_value rn_w_Rtray_set_clicked_callback(napi_env env, napi_callback_in
 	return result_;
 }
 
+static napi_value rn_w_Rtray_set_title(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rtray_set_title((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtray_get_rect(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1 = 0;
+	int a2 = 0;
+	int a3 = 0;
+	int a4 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtray_get_rect((Rid)a0, &a1, &a2, &a3, &a4);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a1, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a2, &o1_);
+		napi_value o2_;
+		napi_create_int32(env, (int32_t)a3, &o2_);
+		napi_value o3_;
+		napi_create_int32(env, (int32_t)a4, &o3_);
+		{
+			const napi_value values_[5] = {result_, o0_, o1_, o2_, o3_};
+			result_ = rn_tuple(env, 5, values_);
+		}
+	}
+	return result_;
+}
+
 static napi_value rn_w_Rcolor_picker_create(napi_env env, napi_callback_info info) {
 	napi_value result_ = NULL;
 	(void)env;
@@ -23581,6 +23633,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtray_set_tooltip", NULL, rn_w_Rtray_set_tooltip, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtray_set_menu", NULL, rn_w_Rtray_set_menu, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtray_set_clicked_callback", NULL, rn_w_Rtray_set_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtray_set_title", NULL, rn_w_Rtray_set_title, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtray_get_rect", NULL, rn_w_Rtray_get_rect, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rcolor_picker_create", NULL, rn_w_Rcolor_picker_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rcolor_picker_set_color", NULL, rn_w_Rcolor_picker_set_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rcolor_picker_get_color", NULL, rn_w_Rcolor_picker_get_color, NULL, NULL, NULL, napi_enumerable, NULL},

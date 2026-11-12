@@ -894,6 +894,8 @@ const _symbols = {
 	Rtray_set_tooltip: { args: ["u32", "ptr"], returns: "void" },
 	Rtray_set_menu: { args: ["u32", "u32"], returns: "void" },
 	Rtray_set_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtray_set_title: { args: ["u32", "ptr"], returns: "void" },
+	Rtray_get_rect: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
 	Rcolor_picker_create: { args: [], returns: "u32" },
 	Rcolor_picker_set_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rcolor_picker_get_color: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
@@ -10622,6 +10624,30 @@ export function Rtray_set_menu(tray: Rid, menu: Rid): void {
  */
 export function Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtray_set_clicked_callback(tray, _adapt_RTrayClickedCallback(callback), user_data);
+}
+
+/**
+ * A short text shown beside the icon (macOS menu bar), drawn by the
+ * system in its own font and colors; the item widens to fit it. NULL or
+ * "": the icon alone. Systems that show no text there ignore it (the
+ * tooltip is the place for it).
+ */
+export function Rtray_set_title(tray: Rid, text: string | null): void {
+	_lib.Rtray_set_title(tray, _s(text));
+}
+
+/**
+ * Where the icon is on the screen, in the units and coordinates of
+ * Rwindow_set_position (a window can then open just under it).
+ * Returns: R_FALSE when the system does not tell (the outputs are then 0).
+ */
+export function Rtray_get_rect(tray: Rid): [result: number, x: number, y: number, width: number, height: number] {
+	const x_ = new Int32Array(1);
+	const y_ = new Int32Array(1);
+	const width_ = new Int32Array(1);
+	const height_ = new Int32Array(1);
+	const result_ = _lib.Rtray_get_rect(tray, x_, y_, width_, height_);
+	return [result_, x_[0]!, y_[0]!, width_[0]!, height_[0]!];
 }
 
 export function Rcolor_picker_create(): Rid {

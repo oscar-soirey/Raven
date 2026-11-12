@@ -5555,6 +5555,21 @@ fn void Tray.set_menu(self, Id menu) @inline => c::r_tray_set_menu((c::Rid)self,
 *>
 fn void Tray.set_clicked_callback(self, TrayClickedCallback callback, void* user_data) @inline => c::r_tray_set_clicked_callback((c::Rid)self, (c::RTrayClickedCallback)callback, user_data);
 
+<*
+ A short text shown beside the icon (macOS menu bar), drawn by the
+ system in its own font and colors; the item widens to fit it. NULL or
+ "": the icon alone. Systems that show no text there ignore it (the
+ tooltip is the place for it).
+*>
+fn void Tray.set_title(self, ZString text) @inline => c::r_tray_set_title((c::Rid)self, (char*)text);
+
+<*
+ Where the icon is on the screen, in the units and coordinates of
+ Rwindow_set_position (a window can then open just under it).
+ Returns R_FALSE when the system does not tell (the outputs are then 0).
+*>
+fn bool Tray.get_rect(self, CInt* x, CInt* y, CInt* width, CInt* height) @inline => c::r_tray_get_rect((c::Rid)self, x, y, width, height) != 0;
+
 // ---- Shader
 
 typedef Shader = inline Id;
