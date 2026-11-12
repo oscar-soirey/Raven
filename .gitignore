@@ -8,6 +8,7 @@ build-*/
 build/
 dist/
 dist-release/
+dist-installer/
 out/
 dev/
 *.patch

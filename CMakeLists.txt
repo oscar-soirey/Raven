@@ -34,6 +34,7 @@ option(RAVEN_BUILD_SHARED "Build Raven as a shared library (raven.dll / libraven
 option(RAVEN_BUILD_EXAMPLES "Build the example programs" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TESTS "Build the tests and the benchmark" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_TOOLS "Build the tools (the designer)" ${RAVEN_IS_TOP_LEVEL})
+option(RAVEN_BUILD_INSTALLER "Build the Raven SDK Installer (tools/installer, C++17)" OFF)
 option(RAVEN_BUILD_WEB "Compile the web pages (raven_web.h: they drive an installed Chromium-based browser) into the library" ON)
 option(RAVEN_BACKEND_VULKAN "Compile the Vulkan backend" ON)
 option(RAVEN_WITH_STB_IMAGE "Decode PNG / JPEG / BMP / TGA textures with stb_image" ON)
@@ -523,6 +524,11 @@ endif()
 # (after enable_testing: the designer has a test of its own)
 if(RAVEN_BUILD_TOOLS)
 	add_subdirectory(tools)
+endif()
+
+# the installer of the SDK (its own CMakeLists: it is C++)
+if(RAVEN_BUILD_INSTALLER)
+	add_subdirectory(tools/installer)
 endif()
 
 # ---------------------------------------------------------------------------
