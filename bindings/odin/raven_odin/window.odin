@@ -28,6 +28,22 @@ window_get_size :: proc(window: Window) -> (width, height: i32) {
 	return
 }
 
+// The last rendered frame as RGBA8: 4 bytes per pixel, len(pixels) is
+// width * height * 4. Blocks until the frame is rendered. ok is false when the
+// backend cannot capture. Release the pixels with pixels_free.
+window_capture :: proc(window: Window) -> (pixels: []u8, width, height: i32, ok: bool) {
+	data := raw.Rwindow_capture(raw.Rid(window), &width, &height)
+	if data == nil {
+		return nil, 0, 0, false
+	}
+	return data[:int(width) * int(height) * 4], width, height, true
+}
+
+// Releases the pixels of window_capture.
+pixels_free :: proc(pixels: []u8) {
+	raw.Rpixels_free(raw_data(pixels))
+}
+
 // Input for tests and tools: as if the mouse of the user did it.
 window_inject_mouse_move :: proc(window: Window, x, y: f32) {
 	raw.Rwindow_inject_mouse_move(raw.Rid(window), x, y)
