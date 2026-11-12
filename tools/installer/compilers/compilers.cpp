@@ -338,11 +338,10 @@ void detect_apple(std::vector<Compiler>& out, std::set<std::string>& seen, bool 
 		out.push_back(c);
 		return;
 	}
-	fs::path clang = path_from_utf8(developer) / "usr" / "bin" / "clang";
-	if (!fs::exists(clang, ec)) {
-		platform::ProcessResult find = platform::run_process({"/usr/bin/xcrun", "--find", "clang"}, 15000);
-		clang = path_from_utf8(trim(find.out));
-	}
+	// the /usr/bin/clang shim, now that a developer folder is known: it passes the macOS SDK
+	// (headers, libraries) to the compiler, as it does for CMake and every build tool;
+	// the clang of the toolchain run directly finds no stdio.h
+	fs::path clang = "/usr/bin/clang";
 	Compiler c;
 	if (clang.empty() || !probe_gcc_like(clang, c, log)) {
 		c.family = "appleclang";

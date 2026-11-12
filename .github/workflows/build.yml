@@ -338,6 +338,9 @@ jobs:
 
       - name: Install, make a project, uninstall
         run: |
+          # every command in the log, and the log of the installation when one fails
+          set -x
+          trap 'echo "--- install.log"; cat "$RUNNER_TEMP/raven-sdk/.raven-install/install.log" 2>/dev/null || true' ERR
           if [ "$RUNNER_OS" = "macOS" ]; then
             INSTALLER="dist-installer/RavenSDKInstaller.app/Contents/MacOS/RavenSDKInstaller"
           else

@@ -17,6 +17,16 @@
 
 using namespace rinst;
 
+#if defined(__APPLE__)
+static const std::string kFamily = "apple";
+static const char* const kSharedName = "libraven.dylib";
+#else
+static const std::string kFamily = "gnu";
+static const char* const kSharedName = "libraven.so";
+#endif
+static const std::string kStatic = kFamily + "-static";
+static const std::string kShared = kFamily + "-shared";
+
 static int g_failures = 0;
 static int g_checks = 0;
 
@@ -114,7 +124,7 @@ static void make_package(const fs::path& prefix, const std::string& version, boo
 	write_text_file(prefix / "include" / "Raven.h", "/* Raven " + version + " */\n");
 	write_text_file(prefix / "include" / "raven" / "raven_core.h", "/* core */\n");
 	write_text_file(prefix / "lib" / "cmake" / "raven" / "ravenConfig.cmake", "# config " + version + "\n");
-	write_text_file(prefix / "lib" / (shared ? "libraven.so" : "libraven.a"), std::string(50000, shared ? 's' : 'a') + version);
+	write_text_file(prefix / "lib" / (shared ? kSharedName : "libraven.a"), std::string(50000, shared ? 's' : 'a') + version);
 	write_text_file(prefix / "share" / "raven" / "README.md", "readme\n");
 	for (const char* b : {"python", "rust", "go", "csharp", "java", "zig", "odin", "luajit", "bun", "cpp"})
 		write_text_file(prefix / "share" / "raven" / "bindings" / b / "binding.txt", b);
@@ -124,19 +134,19 @@ static void make_package(const fs::path& prefix, const std::string& version, boo
 #if !defined(_WIN32)
 	if (shared) {
 		std::error_code ec;
-		fs::create_symlink("libraven.so", prefix / "lib" / "libraven.so.0", ec);
+		fs::create_symlink(kSharedName, prefix / "lib" / "libraven.so.0", ec);
 	}
 #endif
 }
 
 static fs::path make_installer(const fs::path& work, const std::string& version) {
 	const fs::path pkg = work / ("pkg-" + version);
-	make_package(pkg / "gnu-static", version, false);
-	make_package(pkg / "gnu-shared", version, true);
+	make_package(pkg / kStatic, version, false);
+	make_package(pkg / kShared, version, true);
 	PayloadWriter w(6);
 	std::string why;
-	CHECK(w.add_tree("sdk/gnu-static", pkg / "gnu-static", &why));
-	CHECK(w.add_tree("sdk/gnu-shared", pkg / "gnu-shared", &why));
+	CHECK(w.add_tree("sdk/" + kStatic, pkg / kStatic, &why));
+	CHECK(w.add_tree("sdk/" + kShared, pkg / kShared, &why));
 	w.add("designer/raven_designer", bytes("#!/bin/sh\necho designer " + version + "\n"), true);
 	w.add("sdk-bin/raven-new", bytes("raven-new"), true);
 	CHECK(w.add_tree("templates", path_from_utf8(RAVEN_INSTALLER_TEMPLATES), &why));
@@ -145,11 +155,11 @@ static fs::path make_installer(const fs::path& work, const std::string& version)
 	m.set("version", version);
 	m.set("platform", platform::host_info().platform_id());
 	Json targets = Json::array();
-	for (const char* id : {"gnu-static", "gnu-shared"}) {
+	for (const std::string& id : {kStatic, kShared}) {
 		Json t = Json::object();
 		t.set("id", id);
-		t.set("family", "gnu");
-		t.set("kind", std::string(id).substr(4));
+		t.set("family", kFamily);
+		t.set("kind", id.substr(id.find('-') + 1));
 		targets.push(t);
 	}
 	m.set("targets", targets);
@@ -180,7 +190,7 @@ static void test_payload(const fs::path& work) {
 	CHECK(p.meta()["version"].as_string() == "9.9.9");
 	bool found = false;
 	for (const auto& f : p.files()) {
-		if (f.path != "sdk/gnu-static/include/Raven.h") continue;
+		if (f.path != "sdk/" + kStatic + "/include/Raven.h") continue;
 		std::vector<std::uint8_t> data;
 		CHECK(p.read_blob(f.blob, data, &why));
 		CHECK(std::string(data.begin(), data.end()) == "/* Raven 9.9.9 */\n");
@@ -224,7 +234,7 @@ static void test_install(const fs::path& work) {
 	InstallOptions o;
 	o.sdk_dir = sdk;
 	o.designer_dir = designer;
-	o.targets = {"gnu-static", "gnu-shared"};
+	o.targets = {kStatic, kShared};
 	o.integrations = {"menu_shortcut"};
 
 	// 1. fresh install of 0.1.0
@@ -239,35 +249,37 @@ static void test_install(const fs::path& work) {
 		CHECK(r.ok);
 		CHECK(calls > 0);
 	}
-	CHECK(read(sdk / "gnu-static" / "include" / "Raven.h") == "/* Raven 0.1.0 */\n");
+	CHECK(read(sdk / kStatic / "include" / "Raven.h") == "/* Raven 0.1.0 */\n");
 	CHECK(fs::exists(designer / "raven_designer"));
 	CHECK(fs::exists(sdk / "templates" / "python" / "template.json"));
 	CHECK(fs::exists(sdk / ".raven-install" / "manifest.json"));
 	// the maintenance program is the program without its payload
 	CHECK(read(sdk / ".raven-install" / "RavenSDKMaintenance") == "STUB PROGRAM 0.1.0");
+#if !defined(__APPLE__)
 	CHECK(fs::exists(work / "home" / ".local" / "share" / "applications" / "raven-designer.desktop"));
+#endif
 	ExistingInstall e = find_existing_install();
 	CHECK(e.found && e.manifest.version == "0.1.0");
 
 	// 2. the same again: nothing changes; a removed file is put back (repair)
-	fs::remove(sdk / "gnu-shared" / "include" / "Raven.h");
-	const fs::path user_file = sdk / "gnu-static" / "include" / "my_notes.txt";
+	fs::remove(sdk / kShared / "include" / "Raven.h");
+	const fs::path user_file = sdk / kStatic / "include" / "my_notes.txt";
 	write_text_file(user_file, "mine");
-	write_text_file(sdk / "gnu-static" / "include" / "raven" / "raven_core.h", "/* changed by the user */\n");
+	write_text_file(sdk / kStatic / "include" / "raven" / "raven_core.h", "/* changed by the user */\n");
 	{
 		Installer installer(p1, log, v1);
 		InstallReport r = installer.install(o, nullptr, cancel);
 		CHECK(r.ok);
 		CHECK(r.preserved.size() == 1); // raven_core.h, changed: kept beside
 	}
-	CHECK(fs::exists(sdk / "gnu-shared" / "include" / "Raven.h"));
+	CHECK(fs::exists(sdk / kShared / "include" / "Raven.h"));
 	CHECK(read(user_file) == "mine");
-	CHECK(read(sdk / "gnu-static" / "include" / "raven" / "raven_core.h") == "/* core */\n");
+	CHECK(read(sdk / kStatic / "include" / "raven" / "raven_core.h") == "/* core */\n");
 
 	// 3. an update that fails half way is undone: a folder where a file must go
 	Payload p2;
 	CHECK(p2.open(v2, &why));
-	const fs::path blocker = sdk / "gnu-static" / "lib" / "libraven.a";
+	const fs::path blocker = sdk / kStatic / "lib" / "libraven.a";
 	const std::string before = read(blocker);
 	fs::create_directories(designer / "raven_designer.raven-tmp" / "x"); // the temporary file cannot be made
 	{
@@ -276,7 +288,7 @@ static void test_install(const fs::path& work) {
 		CHECK(!r.ok);
 	}
 	CHECK(read(blocker) == before);
-	CHECK(read(sdk / "gnu-static" / "include" / "Raven.h") == "/* Raven 0.1.0 */\n");
+	CHECK(read(sdk / kStatic / "include" / "Raven.h") == "/* Raven 0.1.0 */\n");
 	CHECK(!fs::exists(sdk / ".raven-txn"));
 	fs::remove_all(designer / "raven_designer.raven-tmp");
 
@@ -290,21 +302,21 @@ static void test_install(const fs::path& work) {
 		}, stop);
 		CHECK(!r.ok && r.cancelled);
 	}
-	CHECK(read(sdk / "gnu-static" / "include" / "Raven.h") == "/* Raven 0.1.0 */\n");
+	CHECK(read(sdk / kStatic / "include" / "Raven.h") == "/* Raven 0.1.0 */\n");
 
 	// 5. the update: new files, the file 0.2.0 no longer has is removed, the files of the user stay
-	o.targets = {"gnu-shared"};
+	o.targets = {kShared};
 	{
 		Installer installer(p2, log, v2);
 		InstallReport r = installer.install(o, nullptr, cancel);
 		if (!r.ok) std::printf("  update: %s\n", r.error.c_str());
 		CHECK(r.ok);
 	}
-	CHECK(read(sdk / "gnu-shared" / "include" / "Raven.h") == "/* Raven 0.2.0 */\n");
-	CHECK(fs::is_symlink(sdk / "gnu-shared" / "lib" / "libraven.so.0"));
-	CHECK(read(sdk / "gnu-shared" / "lib" / "libraven.so.0") == read(sdk / "gnu-shared" / "lib" / "libraven.so"));
-	CHECK(!fs::exists(sdk / "gnu-shared" / "share" / "raven" / "old_only.txt"));
-	CHECK(!fs::exists(sdk / "gnu-static" / "lib" / "libraven.a")); // no longer selected
+	CHECK(read(sdk / kShared / "include" / "Raven.h") == "/* Raven 0.2.0 */\n");
+	CHECK(fs::is_symlink(sdk / kShared / "lib" / "libraven.so.0"));
+	CHECK(read(sdk / kShared / "lib" / "libraven.so.0") == read(sdk / kShared / "lib" / kSharedName));
+	CHECK(!fs::exists(sdk / kShared / "share" / "raven" / "old_only.txt"));
+	CHECK(!fs::exists(sdk / kStatic / "lib" / "libraven.a")); // no longer selected
 	CHECK(read(user_file) == "mine");
 	e = find_existing_install();
 	CHECK(e.found && e.manifest.version == "0.2.0");
@@ -313,7 +325,7 @@ static void test_install(const fs::path& work) {
 	// 6. projects from the templates of the installed SDK
 	SdkLayout layout;
 	CHECK(describe_sdk(sdk, layout, &why));
-	CHECK(layout.shared_target == "gnu-shared");
+	CHECK(layout.shared_target == kShared);
 	TemplateCatalog catalog;
 	CHECK(catalog.load(layout.templates_dir, &why));
 	CHECK(catalog.templates().size() >= 11);
