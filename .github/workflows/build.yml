@@ -343,8 +343,10 @@ jobs:
           trap 'echo "--- install.log"; cat "$RUNNER_TEMP/raven-sdk/.raven-install/install.log" 2>/dev/null || true' ERR
           if [ "$RUNNER_OS" = "macOS" ]; then
             INSTALLER="dist-installer/RavenSDKInstaller.app/Contents/MacOS/RavenSDKInstaller"
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            INSTALLER="dist-installer/RavenSDKInstaller.exe"
           else
-            INSTALLER="dist-installer/RavenSDKInstaller$([ "$RUNNER_OS" = "Windows" ] && echo .exe)"
+            INSTALLER="dist-installer/RavenSDKInstaller"
           fi
           "$INSTALLER" --list
           "$INSTALLER" --detect

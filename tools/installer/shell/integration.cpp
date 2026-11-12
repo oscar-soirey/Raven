@@ -95,6 +95,8 @@ bool undo_files(const Json& undo, std::string* error) {
 
 namespace {
 
+#if !defined(__APPLE__)
+
 std::string desktop_escape(const fs::path& path) {
 	// Exec= of a .desktop file: the path quoted, with \ " ` $ escaped
 	std::string out = "\"";
@@ -113,8 +115,6 @@ fs::path data_home() {
 	const std::string xdg = platform::get_env("XDG_DATA_HOME");
 	return xdg.empty() ? platform::home_dir() / ".local" / "share" : path_from_utf8(xdg);
 }
-
-#if !defined(__APPLE__)
 
 std::string designer_desktop_entry(const IntegrationContext& c) {
 	return "[Desktop Entry]\n"

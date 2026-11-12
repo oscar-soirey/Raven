@@ -118,11 +118,11 @@ bool contains(const std::vector<std::string>& list, const std::string& item) {
 	return std::find(list.begin(), list.end(), item) != list.end();
 }
 
-std::string maintenance_name() {
+/** A bundle when the installer runs from one (macOS), the program otherwise. */
+std::string maintenance_name(bool bundle) {
+	if (bundle) return "Raven SDK Maintenance.app";
 #if defined(_WIN32)
 	return "RavenSDKMaintenance.exe";
-#elif defined(__APPLE__)
-	return "Raven SDK Maintenance.app";
 #else
 	return "RavenSDKMaintenance";
 #endif
@@ -422,17 +422,17 @@ InstallReport Installer::install(const InstallOptions& o, const ProgressFn& prog
 		if (!create_directories_tracked(state_dir, made, &why)) return fail(why, journal);
 		remember_dirs(made);
 	}
-	const fs::path maintenance = state_dir / maintenance_name();
+#if defined(__APPLE__)
+	const bool in_bundle = self_.parent_path().filename() == "MacOS";
+#else
+	const bool in_bundle = false;
+#endif
+	const fs::path maintenance = state_dir / maintenance_name(in_bundle);
 	{
 		std::string why;
 		std::vector<std::pair<fs::path, fs::path>> copies; // source, destination
 		std::uint64_t stub = 0;
 		const fs::path bundle = self_.parent_path().parent_path().parent_path();
-#if defined(__APPLE__)
-		const bool in_bundle = self_.parent_path().filename() == "MacOS";
-#else
-		const bool in_bundle = false;
-#endif
 		if (in_bundle) {
 			for (fs::recursive_directory_iterator it(bundle, ec), end; it != end; it.increment(ec)) {
 				if (!it->is_regular_file() || it->path().filename() == "payload.rvnpk") continue;
@@ -474,10 +474,7 @@ InstallReport Installer::install(const InstallOptions& o, const ProgressFn& prog
 	if (designer["icon"].is_string()) context.icon = o.designer_dir / path_from_utf8(designer["icon"].as_string());
 	if (o.install_designer) manifest.designer = path_to_utf8(context.designer);
 	context.new_project_tool = o.sdk_dir / path_from_utf8(meta["tools"]["new_project"].as_string());
-	context.maintenance = maintenance;
-#if defined(__APPLE__)
-	context.maintenance = maintenance / "Contents" / "MacOS" / self_.filename();
-#endif
+	context.maintenance = in_bundle ? maintenance / "Contents" / "MacOS" / self_.filename() : maintenance;
 	for (const auto& t : meta["templates"].elements()) context.templates.push_back({t["id"].as_string(), t["name"].as_string()});
 	context.installed_size = total;
 	std::vector<std::string> integrations = o.integrations;
