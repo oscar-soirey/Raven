@@ -1281,6 +1281,9 @@ RNodeGraphItemCallback :: #type proc "c" (graph: Rid, item: i32, user_data: rawp
 // or 0 on the empty canvas; x, y are in the widget (Rnode_graph_to_canvas).
 // Without this callback the right button does nothing.
 RNodeGraphContextCallback :: #type proc "c" (graph: Rid, node: i32, x: f32, y: f32, user_data: rawptr)
+// Something happened at a point of the canvas: `item` depends on the
+// function the callback was given to; x, y are in canvas units (as node positions).
+RNodeGraphPointCallback :: #type proc "c" (graph: Rid, item: i32, x: f32, y: f32, user_data: rawptr)
 // A block changed (0: several, or one was deleted), or a script was clicked (its top block).
 RBlockEditorCallback :: #type proc "c" (editor: Rid, block: i32, user_data: rawptr)
 // Right click: on a block (0 on the canvas), at x, y in the widget.
@@ -3658,6 +3661,24 @@ foreign lib {
 	// Called when the user double-clicks a node (to open what it stands for).
 	Rnode_graph_set_activated_callback :: proc(graph: Rid, callback: RNodeGraphItemCallback, user_data: rawptr) ---
 	Rnode_graph_set_context_callback :: proc(graph: Rid, callback: RNodeGraphContextCallback, user_data: rawptr) ---
+	// Double click on the empty canvas (`item` 0): the application acts
+	// there (a search to add a node...). Without this callback it frames all nodes.
+	Rnode_graph_set_canvas_activated_callback :: proc(graph: Rid, callback: RNodeGraphPointCallback, user_data: rawptr) ---
+	// A wire the user pulled from a pin was released on nothing: `item` is
+	// that pin, x, y where it was dropped (to offer a node to connect it to). The
+	// wire draws back as usual.
+	Rnode_graph_set_wire_dropped_callback :: proc(graph: Rid, callback: RNodeGraphPointCallback, user_data: rawptr) ---
+	// A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+	// the application may link in two clicks (Rnode_graph_set_pin_emphasis shows where
+	// the second may go). With this callback such a click neither detaches the wire
+	// of an input nor counts as a wire dropped on nothing.
+	Rnode_graph_set_pin_clicked_callback :: proc(graph: Rid, callback: RNodeGraphPointCallback, user_data: rawptr) ---
+	// The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0.
+	Rnode_graph_get_node_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
+	// The pin near a point of the widget (or whose tag is under it: Rnode_graph_set_pin_tag), or 0 (a menu for a pin).
+	Rnode_graph_get_pin_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
+	// The link under a point of the widget, or 0 (hidden links are never under it).
+	Rnode_graph_get_link_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
 	// R_TRUE: this input keeps every link made to it (a state that several
 	// transitions enter) instead of one. Pulling a wire from it starts a new one.
 	Rnode_graph_set_pin_multiple :: proc(graph: Rid, pin: i32, multiple: i32) ---
@@ -3671,8 +3692,21 @@ foreign lib {
 	Rnode_graph_set_node_shown :: proc(graph: Rid, node: i32) ---
 	// The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
 	Rnode_graph_set_link_shown :: proc(graph: Rid, link: i32) ---
+	// An icon before the title: a texture of the application, shared by many nodes and not deleted with them (the "Icon" style loads one per node from a file). R_INVALID_ID removes it.
+	Rnode_graph_set_node_icon :: proc(graph: Rid, node: i32, texture: Rid) ---
 	// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
 	Rnode_graph_set_node_badge :: proc(graph: Rid, node: i32, text: cstring) ---
+	// A short text in a chip of the pin's color outside the node, beside the pin
+	// (left of an input, right of an output): the name of what goes out or comes in
+	// there, as a net label of a schematic. NULL or "" removes it.
+	Rnode_graph_set_pin_tag :: proc(graph: Rid, pin: i32, text: cstring) ---
+	// R_TRUE: the link stays (its pins are linked, the application keeps
+	// it) but is not drawn and not picked: its two ends are shown otherwise (pin
+	// tags naming it, as the labels of a schematic stand for a wire).
+	Rnode_graph_set_link_hidden :: proc(graph: Rid, link: i32, hidden: i32) ---
+	// How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
+	// to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
+	Rnode_graph_set_pin_emphasis :: proc(graph: Rid, pin: i32, emphasis: i32) ---
 	Rblock_editor_create :: proc() -> Rid ---
 	// A kind of block, and its block in the palette. Returns its index, -1 on an error.
 	Rblock_editor_add_kind :: proc(editor: Rid, name: cstring, label: cstring, shape: RBlockShape, category: cstring) -> i32 ---

@@ -910,13 +910,23 @@ static struct {
 	void (*Rnode_graph_set_removed_callback)(Rid, RNodeGraphItemCallback, void*);
 	void (*Rnode_graph_set_activated_callback)(Rid, RNodeGraphItemCallback, void*);
 	void (*Rnode_graph_set_context_callback)(Rid, RNodeGraphContextCallback, void*);
+	void (*Rnode_graph_set_canvas_activated_callback)(Rid, RNodeGraphPointCallback, void*);
+	void (*Rnode_graph_set_wire_dropped_callback)(Rid, RNodeGraphPointCallback, void*);
+	void (*Rnode_graph_set_pin_clicked_callback)(Rid, RNodeGraphPointCallback, void*);
+	int (*Rnode_graph_get_node_at)(Rid, float, float);
+	int (*Rnode_graph_get_pin_at)(Rid, float, float);
+	int (*Rnode_graph_get_link_at)(Rid, float, float);
 	void (*Rnode_graph_set_pin_multiple)(Rid, int, int);
 	void (*Rnode_graph_set_node_active)(Rid, int, int);
 	void (*Rnode_graph_set_node_active_color)(Rid, int, float, float, float);
 	void (*Rnode_graph_set_node_deletable)(Rid, int, int);
 	void (*Rnode_graph_set_node_shown)(Rid, int);
 	void (*Rnode_graph_set_link_shown)(Rid, int);
+	void (*Rnode_graph_set_node_icon)(Rid, int, Rid);
 	void (*Rnode_graph_set_node_badge)(Rid, int, const char*);
+	void (*Rnode_graph_set_pin_tag)(Rid, int, const char*);
+	void (*Rnode_graph_set_link_hidden)(Rid, int, int);
+	void (*Rnode_graph_set_pin_emphasis)(Rid, int, int);
 	Rid (*Rblock_editor_create)(void);
 	int (*Rblock_editor_add_kind)(Rid, const char*, const char*, RBlockShape, const char*);
 	void (*Rblock_editor_set_category_color)(Rid, const char*, float, float, float);
@@ -2032,13 +2042,23 @@ static const struct {
 	{"Rnode_graph_set_removed_callback", offsetof(__typeof__(rn), Rnode_graph_set_removed_callback)},
 	{"Rnode_graph_set_activated_callback", offsetof(__typeof__(rn), Rnode_graph_set_activated_callback)},
 	{"Rnode_graph_set_context_callback", offsetof(__typeof__(rn), Rnode_graph_set_context_callback)},
+	{"Rnode_graph_set_canvas_activated_callback", offsetof(__typeof__(rn), Rnode_graph_set_canvas_activated_callback)},
+	{"Rnode_graph_set_wire_dropped_callback", offsetof(__typeof__(rn), Rnode_graph_set_wire_dropped_callback)},
+	{"Rnode_graph_set_pin_clicked_callback", offsetof(__typeof__(rn), Rnode_graph_set_pin_clicked_callback)},
+	{"Rnode_graph_get_node_at", offsetof(__typeof__(rn), Rnode_graph_get_node_at)},
+	{"Rnode_graph_get_pin_at", offsetof(__typeof__(rn), Rnode_graph_get_pin_at)},
+	{"Rnode_graph_get_link_at", offsetof(__typeof__(rn), Rnode_graph_get_link_at)},
 	{"Rnode_graph_set_pin_multiple", offsetof(__typeof__(rn), Rnode_graph_set_pin_multiple)},
 	{"Rnode_graph_set_node_active", offsetof(__typeof__(rn), Rnode_graph_set_node_active)},
 	{"Rnode_graph_set_node_active_color", offsetof(__typeof__(rn), Rnode_graph_set_node_active_color)},
 	{"Rnode_graph_set_node_deletable", offsetof(__typeof__(rn), Rnode_graph_set_node_deletable)},
 	{"Rnode_graph_set_node_shown", offsetof(__typeof__(rn), Rnode_graph_set_node_shown)},
 	{"Rnode_graph_set_link_shown", offsetof(__typeof__(rn), Rnode_graph_set_link_shown)},
+	{"Rnode_graph_set_node_icon", offsetof(__typeof__(rn), Rnode_graph_set_node_icon)},
 	{"Rnode_graph_set_node_badge", offsetof(__typeof__(rn), Rnode_graph_set_node_badge)},
+	{"Rnode_graph_set_pin_tag", offsetof(__typeof__(rn), Rnode_graph_set_pin_tag)},
+	{"Rnode_graph_set_link_hidden", offsetof(__typeof__(rn), Rnode_graph_set_link_hidden)},
+	{"Rnode_graph_set_pin_emphasis", offsetof(__typeof__(rn), Rnode_graph_set_pin_emphasis)},
 	{"Rblock_editor_create", offsetof(__typeof__(rn), Rblock_editor_create)},
 	{"Rblock_editor_add_kind", offsetof(__typeof__(rn), Rblock_editor_add_kind)},
 	{"Rblock_editor_set_category_color", offsetof(__typeof__(rn), Rblock_editor_set_category_color)},
@@ -3169,6 +3189,7 @@ static void rn_t_RTimelineItemCallback(Rid, int, void*);
 static int rn_t_RNodeGraphConnectCallback(Rid, int, int, void*);
 static void rn_t_RNodeGraphItemCallback(Rid, int, void*);
 static void rn_t_RNodeGraphContextCallback(Rid, int, float, float, void*);
+static void rn_t_RNodeGraphPointCallback(Rid, int, float, float, void*);
 static void rn_t_RBlockEditorCallback(Rid, int, void*);
 static void rn_t_RBlockEditorContextCallback(Rid, int, float, float, void*);
 static void rn_t_RDialogClosedCallback(Rid, int, void*);
@@ -4082,6 +4103,23 @@ static void rn_t_RNodeGraphItemCallback(Rid a0, int a1, void* a2) {
 }
 
 static void rn_t_RNodeGraphContextCallback(Rid a0, int a1, float a2, float a3, void* a4) {
+	rn_cb* cb = (rn_cb*)a4;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[5];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	napi_create_double(env, (double)a2, &argv[2]);
+	napi_create_double(env, (double)a3, &argv[3]);
+	argv[4] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 5, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RNodeGraphPointCallback(Rid a0, int a1, float a2, float a3, void* a4) {
 	rn_cb* cb = (rn_cb*)a4;
 	napi_env env = cb->env;
 	napi_handle_scope scope;
@@ -18588,6 +18626,132 @@ static napi_value rn_w_Rnode_graph_set_context_callback(napi_env env, napi_callb
 	return result_;
 }
 
+static napi_value rn_w_Rnode_graph_set_canvas_activated_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rnode_graph_set_canvas_activated_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 76, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_wire_dropped_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rnode_graph_set_wire_dropped_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 77, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_pin_clicked_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rnode_graph_set_pin_clicked_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 78, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_get_node_at(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rnode_graph_get_node_at((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_get_pin_at(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rnode_graph_get_pin_at((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_get_link_at(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rnode_graph_get_link_at((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
 static napi_value rn_w_Rnode_graph_set_pin_multiple(napi_env env, napi_callback_info info) {
 	size_t argc = 3;
 	napi_value argv[3];
@@ -18684,6 +18848,22 @@ static napi_value rn_w_Rnode_graph_set_link_shown(napi_env env, napi_callback_in
 	return result_;
 }
 
+static napi_value rn_w_Rnode_graph_set_node_icon(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	uint32_t a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_uint32(env, argv[2], &a2)) return NULL;
+	rn.Rnode_graph_set_node_icon((Rid)a0, (int)a1, (Rid)a2);
+	return result_;
+}
+
 static napi_value rn_w_Rnode_graph_set_node_badge(napi_env env, napi_callback_info info) {
 	size_t argc = 3;
 	napi_value argv[3];
@@ -18700,6 +18880,57 @@ static napi_value rn_w_Rnode_graph_set_node_badge(napi_env env, napi_callback_in
 	rn.Rnode_graph_set_node_badge((Rid)a0, (int)a1, a2.p);
 done:
 	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_pin_tag(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	rn_str a2;
+	a2.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_str_get(env, argv[2], &a2)) goto done;
+	rn.Rnode_graph_set_pin_tag((Rid)a0, (int)a1, a2.p);
+done:
+	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_link_hidden(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rnode_graph_set_link_hidden((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_pin_emphasis(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rnode_graph_set_pin_emphasis((Rid)a0, (int)a1, (int)a2);
 	return result_;
 }
 
@@ -19142,7 +19373,7 @@ static napi_value rn_w_Rblock_editor_set_changed_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_changed_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 76, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 79, NULL, cb_);
 	return result_;
 }
 
@@ -19167,7 +19398,7 @@ static napi_value rn_w_Rblock_editor_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_clicked_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 77, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 80, NULL, cb_);
 	return result_;
 }
 
@@ -19192,7 +19423,7 @@ static napi_value rn_w_Rblock_editor_set_context_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_context_callback((Rid)a0, cb_ ? (RBlockEditorContextCallback)rn_t_RBlockEditorContextCallback : (RBlockEditorContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 78, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 81, NULL, cb_);
 	return result_;
 }
 
@@ -19383,14 +19614,14 @@ static napi_value rn_w_Rdialog_open(napi_env env, napi_callback_info info) {
 	k0_ = rn_callback_arg(env, argv[2], &n0_);
 	if (k0_ == RN_CALLBACK_THROWN) return NULL;
 	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
-	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 79)) {
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 82)) {
 		cb_ = rn_cb_new(env, &argv[2], 1, a3);
 		if (!cb_) return NULL;
 	}
 	rn.Rdialog_open((Rid)a0, (Rid)a1, cb_ ? (RDialogClosedCallback)rn_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a3);
 	if (cb_) {
 		cb_->once = 1;
-		rn_bind(a1, RN_OWNER_WIDGET, 79, NULL, cb_);
+		rn_bind(a1, RN_OWNER_WIDGET, 82, NULL, cb_);
 	}
 	return result_;
 }
@@ -19914,7 +20145,7 @@ static napi_value rn_w_Rfile_browser_set_accepted_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_accepted_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 81, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
 	return result_;
 }
 
@@ -19939,7 +20170,7 @@ static napi_value rn_w_Rfile_browser_set_cancelled_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_cancelled_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 82, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 84, NULL, cb_);
 	return result_;
 }
 
@@ -19964,7 +20195,7 @@ static napi_value rn_w_Rfile_browser_set_selection_changed_callback(napi_env env
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_selection_changed_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 85, NULL, cb_);
 	return result_;
 }
 
@@ -20018,7 +20249,7 @@ static napi_value rn_w_Rnotification_set_fallback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_fallback(cb_ ? (RNotificationFallback)rn_t_RNotificationFallback : (RNotificationFallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 84, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 86, NULL, cb_);
 	return result_;
 }
 
@@ -20041,7 +20272,7 @@ static napi_value rn_w_Rnotification_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_clicked_callback(cb_ ? (RNotificationClickedCallback)rn_t_RNotificationClickedCallback : (RNotificationClickedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 85, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 87, NULL, cb_);
 	return result_;
 }
 
@@ -20178,7 +20409,7 @@ static napi_value rn_w_Rviewport_set_resize_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rviewport_set_resize_callback((Rid)a0, cb_ ? (RViewportResizeCallback)rn_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 86, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
 	return result_;
 }
 
@@ -20217,7 +20448,7 @@ static napi_value rn_w_Rcustom_set_paint_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_paint_callback((Rid)a0, cb_ ? (RPaintCallback)rn_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 87, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 89, NULL, cb_);
 	return result_;
 }
 
@@ -20242,7 +20473,7 @@ static napi_value rn_w_Rcustom_set_measure_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_measure_callback((Rid)a0, cb_ ? (RMeasureCallback)rn_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 90, NULL, cb_);
 	return result_;
 }
 
@@ -20952,7 +21183,7 @@ static napi_value rn_w_Rxml_set_reload_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rxml_set_reload_callback(cb_ ? (RXmlReloadCallback)rn_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 89, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 91, NULL, cb_);
 	return result_;
 }
 
@@ -21087,7 +21318,7 @@ static napi_value rn_w_Rxml_register_tag(napi_env env, napi_callback_info info) 
 		rn_cb_release(cb_);
 		cb_ = NULL;
 	}
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 90, a0.p, cb_);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 92, a0.p, cb_);
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a0.heap);
@@ -21104,7 +21335,7 @@ static napi_value rn_w_Rxml_unregister_tag(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	rn.Rxml_unregister_tag(a0.p);
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 90, a0.p, NULL);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 92, a0.p, NULL);
 done:
 	free(a0.heap);
 	return result_;
@@ -21937,7 +22168,7 @@ static napi_value rn_w_Rlocale_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rlocale_set_changed_callback(cb_ ? (RLocaleChangedCallback)rn_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 91, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 93, NULL, cb_);
 	return result_;
 }
 
@@ -23476,13 +23707,23 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rnode_graph_set_removed_callback", NULL, rn_w_Rnode_graph_set_removed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_activated_callback", NULL, rn_w_Rnode_graph_set_activated_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_context_callback", NULL, rn_w_Rnode_graph_set_context_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_canvas_activated_callback", NULL, rn_w_Rnode_graph_set_canvas_activated_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_wire_dropped_callback", NULL, rn_w_Rnode_graph_set_wire_dropped_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_pin_clicked_callback", NULL, rn_w_Rnode_graph_set_pin_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_get_node_at", NULL, rn_w_Rnode_graph_get_node_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_get_pin_at", NULL, rn_w_Rnode_graph_get_pin_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_get_link_at", NULL, rn_w_Rnode_graph_get_link_at, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_pin_multiple", NULL, rn_w_Rnode_graph_set_pin_multiple, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_node_active", NULL, rn_w_Rnode_graph_set_node_active, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_node_active_color", NULL, rn_w_Rnode_graph_set_node_active_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_node_deletable", NULL, rn_w_Rnode_graph_set_node_deletable, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_node_shown", NULL, rn_w_Rnode_graph_set_node_shown, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_link_shown", NULL, rn_w_Rnode_graph_set_link_shown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_node_icon", NULL, rn_w_Rnode_graph_set_node_icon, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_node_badge", NULL, rn_w_Rnode_graph_set_node_badge, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_pin_tag", NULL, rn_w_Rnode_graph_set_pin_tag, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_link_hidden", NULL, rn_w_Rnode_graph_set_link_hidden, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_pin_emphasis", NULL, rn_w_Rnode_graph_set_pin_emphasis, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_create", NULL, rn_w_Rblock_editor_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_add_kind", NULL, rn_w_Rblock_editor_add_kind, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_set_category_color", NULL, rn_w_Rblock_editor_set_category_color, NULL, NULL, NULL, napi_enumerable, NULL},

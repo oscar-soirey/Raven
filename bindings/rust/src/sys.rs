@@ -1251,6 +1251,9 @@ pub type RNodeGraphItemCallback = Option<unsafe extern "C" fn(graph: Rid, item: 
 /// or 0 on the empty canvas; x, y are in the widget (Rnode_graph_to_canvas).
 /// Without this callback the right button does nothing.
 pub type RNodeGraphContextCallback = Option<unsafe extern "C" fn(graph: Rid, node: c_int, x: f32, y: f32, user_data: *mut c_void)>;
+/// Something happened at a point of the canvas: `item` depends on the
+/// function the callback was given to; x, y are in canvas units (as node positions).
+pub type RNodeGraphPointCallback = Option<unsafe extern "C" fn(graph: Rid, item: c_int, x: f32, y: f32, user_data: *mut c_void)>;
 /// A block changed (0: several, or one was deleted), or a script was clicked (its top block).
 pub type RBlockEditorCallback = Option<unsafe extern "C" fn(editor: Rid, block: c_int, user_data: *mut c_void)>;
 /// Right click: on a block (0 on the canvas), at x, y in the widget.
@@ -3673,6 +3676,24 @@ extern "C" {
     /// Called when the user double-clicks a node (to open what it stands for).
     pub fn Rnode_graph_set_activated_callback(graph: Rid, callback: RNodeGraphItemCallback, user_data: *mut c_void);
     pub fn Rnode_graph_set_context_callback(graph: Rid, callback: RNodeGraphContextCallback, user_data: *mut c_void);
+    /// Double click on the empty canvas (`item` 0): the application acts
+    /// there (a search to add a node...). Without this callback it frames all nodes.
+    pub fn Rnode_graph_set_canvas_activated_callback(graph: Rid, callback: RNodeGraphPointCallback, user_data: *mut c_void);
+    /// A wire the user pulled from a pin was released on nothing: `item` is
+    /// that pin, x, y where it was dropped (to offer a node to connect it to). The
+    /// wire draws back as usual.
+    pub fn Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNodeGraphPointCallback, user_data: *mut c_void);
+    /// A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+    /// the application may link in two clicks (Rnode_graph_set_pin_emphasis shows where
+    /// the second may go). With this callback such a click neither detaches the wire
+    /// of an input nor counts as a wire dropped on nothing.
+    pub fn Rnode_graph_set_pin_clicked_callback(graph: Rid, callback: RNodeGraphPointCallback, user_data: *mut c_void);
+    /// The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0.
+    pub fn Rnode_graph_get_node_at(graph: Rid, x: f32, y: f32) -> c_int;
+    /// The pin near a point of the widget (or whose tag is under it: Rnode_graph_set_pin_tag), or 0 (a menu for a pin).
+    pub fn Rnode_graph_get_pin_at(graph: Rid, x: f32, y: f32) -> c_int;
+    /// The link under a point of the widget, or 0 (hidden links are never under it).
+    pub fn Rnode_graph_get_link_at(graph: Rid, x: f32, y: f32) -> c_int;
     /// R_TRUE: this input keeps every link made to it (a state that several
     /// transitions enter) instead of one. Pulling a wire from it starts a new one.
     pub fn Rnode_graph_set_pin_multiple(graph: Rid, pin: c_int, multiple: c_int);
@@ -3686,8 +3707,21 @@ extern "C" {
     pub fn Rnode_graph_set_node_shown(graph: Rid, node: c_int);
     /// The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
     pub fn Rnode_graph_set_link_shown(graph: Rid, link: c_int);
+    /// An icon before the title: a texture of the application, shared by many nodes and not deleted with them (the "Icon" style loads one per node from a file). R_INVALID_ID removes it.
+    pub fn Rnode_graph_set_node_icon(graph: Rid, node: c_int, texture: Rid);
     /// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
     pub fn Rnode_graph_set_node_badge(graph: Rid, node: c_int, text: *const c_char);
+    /// A short text in a chip of the pin's color outside the node, beside the pin
+    /// (left of an input, right of an output): the name of what goes out or comes in
+    /// there, as a net label of a schematic. NULL or "" removes it.
+    pub fn Rnode_graph_set_pin_tag(graph: Rid, pin: c_int, text: *const c_char);
+    /// R_TRUE: the link stays (its pins are linked, the application keeps
+    /// it) but is not drawn and not picked: its two ends are shown otherwise (pin
+    /// tags naming it, as the labels of a schematic stand for a wire).
+    pub fn Rnode_graph_set_link_hidden(graph: Rid, link: c_int, hidden: c_int);
+    /// How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
+    /// to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
+    pub fn Rnode_graph_set_pin_emphasis(graph: Rid, pin: c_int, emphasis: c_int);
     pub fn Rblock_editor_create() -> Rid;
     /// A kind of block, and its block in the palette. Returns its index, -1 on an error.
     pub fn Rblock_editor_add_kind(editor: Rid, name: *const c_char, label: *const c_char, shape: RBlockShape, category: *const c_char) -> c_int;
