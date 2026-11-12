@@ -641,6 +641,8 @@ static void test_languages(void) {
 	EXPECT_ERRORS_END(1);
 	CHECK_STR(Rtext_editor_get_language(g_editor), "");
 	CHECK_STR(Rlanguage_for_file("/src/main.rs"), "Rust");
+	CHECK_STR(Rlanguage_for_file("build.zig"), "Zig");
+	CHECK_STR(Rlanguage_for_file("build.zig.zon"), "Zig");
 	CHECK_STR(Rlanguage_for_file("a.b/Thing.CS"), "C#");
 	CHECK_STR(Rlanguage_for_file("index.html"), "HTML");
 	CHECK_STR(Rlanguage_for_file("x.hpp"), "C++");
