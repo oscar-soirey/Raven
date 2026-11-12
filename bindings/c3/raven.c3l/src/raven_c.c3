@@ -1322,6 +1322,14 @@ alias RTextEditorZoomCallback = fn void(Rid editor, float zoom, void* user_data)
 *>
 alias RCompletionCallback = fn void(Rid editor, char* prefix, void* user_data);
 <*
+ Called while the pointer moves over the text where no marker
+ is, with the position under it: the text returned (NULL or "" for
+ none) is shown as the tooltip, as a marker's message is (what a name
+ stands for, the value of a variable). The text must stay valid until
+ the next call.
+*>
+alias RTextEditorHoverCallback = fn char*(Rid editor, CInt line, CInt column, void* user_data);
+<*
  Called after each change made by the user (typing, pasting,
  undoing...) or by Rtext_editor_insert_text. The action of the widget
  (OnChanged in XML) fires at the same time.
@@ -4201,6 +4209,20 @@ extern fn void r_text_editor_set_completion_callback(Rid editor, RCompletionCall
 extern fn void r_text_editor_add_completion(Rid editor, char* text, char* detail) @cname("Rtext_editor_add_completion");
 
 <*
+ Adds a proposal that writes another text than the one it shows
+ and is matched on: "Threshold", listed and filtered as such, that
+ writes "Threshold(" when chosen. Only from a completion callback.
+*>
+extern fn void r_text_editor_add_completion_insert(Rid editor, char* text, char* detail, char* insert) @cname("Rtext_editor_add_completion_insert");
+
+<*
+ R_FALSE leaves the words of the language and the names of the
+ text out of the proposals: only the completion callback's are listed
+ (a language server that knows better). On by default.
+*>
+extern fn void r_text_editor_set_completion_words(Rid editor, CInt enabled) @cname("Rtext_editor_set_completion_words");
+
+<*
  R_FALSE stops the editor from closing brackets and quotes and
  from indenting after them. On by default; it only acts with a language.
 *>
@@ -4217,6 +4239,8 @@ extern fn void r_text_editor_add_marker(Rid editor, CInt line, CInt from_column,
 extern fn void r_text_editor_clear_markers(Rid editor) @cname("Rtext_editor_clear_markers");
 
 extern fn CInt r_text_editor_get_marker_count(Rid editor) @cname("Rtext_editor_get_marker_count");
+
+extern fn void r_text_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data) @cname("Rtext_editor_set_hover_callback");
 
 <*
  Color of a kind of token in the theme in use, instead of the

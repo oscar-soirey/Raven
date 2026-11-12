@@ -4705,6 +4705,36 @@ public final class R {
     }
 
     /**
+     * Called while the pointer moves over the text where no marker
+     * is, with the position under it: the text returned (NULL or "" for
+     * none) is shown as the tooltip, as a marker's message is (what a name
+     * stands for, the value of a variable). The text must stay valid until
+     * the next call.
+     */
+    @FunctionalInterface
+    public interface RTextEditorHoverCallback {
+        String invoke(int editor, int line, int column, MemorySegment user_data);
+    }
+
+    private static MemorySegment RTextEditorHoverCallback$raw(RTextEditorHoverCallback f, int editor, int line, int column, MemorySegment user_data) {
+        try {
+            String text = f.invoke(editor, line, column, user_data);
+            if (text == null) return MemorySegment.NULL;
+            MemorySegment segment = utf8(Arena.ofAuto(), text);
+            synchronized (RETURNED) { RETURNED.put(f, segment); }
+            return segment;
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return MemorySegment.NULL;
+        }
+    }
+
+    private static MemorySegment upcall(RTextEditorHoverCallback f) {
+        return stub(f, RTextEditorHoverCallback.class, "RTextEditorHoverCallback$raw", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
      * Called after each change made by the user (typing, pasting,
      * undoing...) or by Rtext_editor_insert_text. The action of the widget
      * (OnChanged in XML) fires at the same time.
@@ -15648,6 +15678,44 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rtext_editor_add_completion_insert$;
+
+    /**
+     * Adds a proposal that writes another text than the one it shows
+     * and is matched on: "Threshold", listed and filtered as such, that
+     * writes "Threshold(" when chosen. Only from a completion callback.
+     * insert What replaces the word being typed; NULL or "" is `text`.
+     */
+    public static void Rtext_editor_add_completion_insert(int editor, String text, String detail, String insert) {
+        MethodHandle $h = Rtext_editor_add_completion_insert$;
+        if ($h == null) Rtext_editor_add_completion_insert$ = $h = find("Rtext_editor_add_completion_insert", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            MemorySegment detail$ = detail == null ? MemorySegment.NULL : utf8($a, detail);
+            MemorySegment insert$ = insert == null ? MemorySegment.NULL : utf8($a, insert);
+            $h.invokeExact(editor, text$, detail$, insert$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_set_completion_words$;
+
+    /**
+     * R_FALSE leaves the words of the language and the names of the
+     * text out of the proposals: only the completion callback's are listed
+     * (a language server that knows better). On by default.
+     */
+    public static void Rtext_editor_set_completion_words(int editor, int enabled) {
+        MethodHandle $h = Rtext_editor_set_completion_words$;
+        if ($h == null) Rtext_editor_set_completion_words$ = $h = find("Rtext_editor_set_completion_words", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtext_editor_set_auto_pairs$;
 
     /**
@@ -15707,6 +15775,22 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rtext_editor_set_hover_callback$;
+
+    public static void Rtext_editor_set_hover_callback(int editor, RTextEditorHoverCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtext_editor_set_hover_callback$;
+        if ($h == null) Rtext_editor_set_hover_callback$ = $h = find("Rtext_editor_set_hover_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(editor, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rtext_editor_set_hover_callback(int editor, RTextEditorHoverCallback callback) {
+        Rtext_editor_set_hover_callback(editor, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtheme_set_token_color$;

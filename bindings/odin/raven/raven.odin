@@ -1251,6 +1251,12 @@ RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: ra
 // Rtext_editor_add_completion (the fields of a structure, the answers of
 // a language server...). They are listed before the others.
 RCompletionCallback :: #type proc "c" (editor: Rid, prefix: cstring, user_data: rawptr)
+// Called while the pointer moves over the text where no marker
+// is, with the position under it: the text returned (NULL or "" for
+// none) is shown as the tooltip, as a marker's message is (what a name
+// stands for, the value of a variable). The text must stay valid until
+// the next call.
+RTextEditorHoverCallback :: #type proc "c" (editor: Rid, line: i32, column: i32, user_data: rawptr) -> cstring
 // Called after each change made by the user (typing, pasting,
 // undoing...) or by Rtext_editor_insert_text. The action of the widget
 // (OnChanged in XML) fires at the same time.
@@ -3212,6 +3218,15 @@ foreign lib {
 	// they were added in.
 	// detail A few words shown beside it ("function", "int"), or NULL.
 	Rtext_editor_add_completion :: proc(editor: Rid, text: cstring, detail: cstring) ---
+	// Adds a proposal that writes another text than the one it shows
+	// and is matched on: "Threshold", listed and filtered as such, that
+	// writes "Threshold(" when chosen. Only from a completion callback.
+	// insert What replaces the word being typed; NULL or "" is `text`.
+	Rtext_editor_add_completion_insert :: proc(editor: Rid, text: cstring, detail: cstring, insert: cstring) ---
+	// R_FALSE leaves the words of the language and the names of the
+	// text out of the proposals: only the completion callback's are listed
+	// (a language server that knows better). On by default.
+	Rtext_editor_set_completion_words :: proc(editor: Rid, enabled: i32) ---
 	// R_FALSE stops the editor from closing brackets and quotes and
 	// from indenting after them. On by default; it only acts with a language.
 	Rtext_editor_set_auto_pairs :: proc(editor: Rid, enabled: i32) ---
@@ -3223,6 +3238,7 @@ foreign lib {
 	Rtext_editor_add_marker :: proc(editor: Rid, line: i32, from_column: i32, to_column: i32, kind: RMarkerKind, message: cstring) ---
 	Rtext_editor_clear_markers :: proc(editor: Rid) ---
 	Rtext_editor_get_marker_count :: proc(editor: Rid) -> i32 ---
+	Rtext_editor_set_hover_callback :: proc(editor: Rid, callback: RTextEditorHoverCallback, user_data: rawptr) ---
 	// Color of a kind of token in the theme in use, instead of the
 	// one Raven picks for dark and for light themes. Theme files set them
 	// with <Syntax Keyword="#FF7AB2" String="..."/>.

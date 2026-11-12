@@ -830,10 +830,13 @@ const _symbols = {
 	Rtext_editor_is_completing: { args: ["u32"], returns: "i32" },
 	Rtext_editor_set_completion_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_editor_add_completion: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtext_editor_add_completion_insert: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
+	Rtext_editor_set_completion_words: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_set_auto_pairs: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_add_marker: { args: ["u32", "i32", "i32", "i32", "i32", "ptr"], returns: "void" },
 	Rtext_editor_clear_markers: { args: ["u32"], returns: "void" },
 	Rtext_editor_get_marker_count: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_hover_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtheme_set_token_color: { args: ["i32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rtheme_get_token_color: { args: ["i32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtheme_clear_token_colors: { args: [], returns: "void" },
@@ -5924,6 +5927,31 @@ function _adapt_RCompletionCallback(function_: RCompletionCallback | Pointer | n
 }
 
 /**
+ * Called while the pointer moves over the text where no marker
+ * is, with the position under it: the text returned (NULL or "" for
+ * none) is shown as the tooltip, as a marker's message is (what a name
+ * stands for, the value of a variable). The text must stay valid until
+ * the next call.
+ */
+export type RTextEditorHoverCallback = (editor: Rid, line: number, column: number, user_data: Pointer | null) => string | null;
+
+function _adapt_RTextEditorHoverCallback(function_: RTextEditorHoverCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	let text: Buffer = Buffer.from([0]);
+	return _keep(new _JSCallback((editor: number, line: number, column: number, user_data: Pointer | null): Pointer | null => {
+		try {
+			text = Buffer.from((function_(editor, line, column, user_data) ?? "") + "\0");
+			return _ptr(text);
+		} catch (error) {
+			_report(error as Error);
+			return _ptr(text);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
+}
+
+/**
  * Called after each change made by the user (typing, pasting,
  * undoing...) or by Rtext_editor_insert_text. The action of the widget
  * (OnChanged in XML) fires at the same time.
@@ -10176,6 +10204,25 @@ export function Rtext_editor_add_completion(editor: Rid, text: string | null, de
 }
 
 /**
+ * Adds a proposal that writes another text than the one it shows
+ * and is matched on: "Threshold", listed and filtered as such, that
+ * writes "Threshold(" when chosen. Only from a completion callback.
+ * insert What replaces the word being typed; NULL or "" is `text`.
+ */
+export function Rtext_editor_add_completion_insert(editor: Rid, text: string | null, detail: string | null, insert: string | null): void {
+	_lib.Rtext_editor_add_completion_insert(editor, _s(text), _s(detail), _s(insert));
+}
+
+/**
+ * R_FALSE leaves the words of the language and the names of the
+ * text out of the proposals: only the completion callback's are listed
+ * (a language server that knows better). On by default.
+ */
+export function Rtext_editor_set_completion_words(editor: Rid, enabled: number): void {
+	_lib.Rtext_editor_set_completion_words(editor, enabled);
+}
+
+/**
  * R_FALSE stops the editor from closing brackets and quotes and
  * from indenting after them. On by default; it only acts with a language.
  */
@@ -10200,6 +10247,10 @@ export function Rtext_editor_clear_markers(editor: Rid): void {
 
 export function Rtext_editor_get_marker_count(editor: Rid): number {
 	return _lib.Rtext_editor_get_marker_count(editor);
+}
+
+export function Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtext_editor_set_hover_callback(editor, _adapt_RTextEditorHoverCallback(callback), user_data);
 }
 
 /**

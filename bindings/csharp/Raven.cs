@@ -2865,6 +2865,16 @@ namespace Raven
     public delegate void RCompletionCallback(uint editor, IntPtr prefix, IntPtr user_data);
 
     /// <summary>
+    /// Called while the pointer moves over the text where no marker
+    /// is, with the position under it: the text returned (NULL or "" for
+    /// none) is shown as the tooltip, as a marker's message is (what a name
+    /// stands for, the value of a variable). The text must stay valid until
+    /// the next call.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate IntPtr RTextEditorHoverCallback(uint editor, int line, int column, IntPtr user_data);
+
+    /// <summary>
     /// Called after each change made by the user (typing, pasting,
     /// undoing...) or by Rtext_editor_insert_text. The action of the widget
     /// (OnChanged in XML) fires at the same time.
@@ -6738,6 +6748,23 @@ namespace Raven
         public static extern void Rtext_editor_add_completion(uint editor, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string detail);
 
         /// <summary>
+        /// Adds a proposal that writes another text than the one it shows
+        /// and is matched on: "Threshold", listed and filtered as such, that
+        /// writes "Threshold(" when chosen. Only from a completion callback.
+        /// insert What replaces the word being typed; NULL or "" is `text`.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_add_completion_insert(uint editor, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string detail, [MarshalAs(Utf8.Str)] string insert);
+
+        /// <summary>
+        /// R_FALSE leaves the words of the language and the names of the
+        /// text out of the proposals: only the completion callback's are listed
+        /// (a language server that knows better). On by default.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_completion_words(uint editor, int enabled);
+
+        /// <summary>
         /// R_FALSE stops the editor from closing brackets and quotes and
         /// from indenting after them. On by default; it only acts with a language.
         /// </summary>
@@ -6759,6 +6786,9 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtext_editor_get_marker_count(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_hover_callback(uint editor, RTextEditorHoverCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Color of a kind of token in the theme in use, instead of the
