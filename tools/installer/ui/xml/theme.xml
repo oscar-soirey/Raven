@@ -1,0 +1,3 @@
+<!-- The look of the installer: the dark look of Raven with the red of the Raven logo. -->
+<Theme Name="RavenInstaller" Look="RavenDark" Accent="#E3061B"
+	AccentHovered="#F21D31" AccentPressed="#C10417" Selection="#E3061B55"/>

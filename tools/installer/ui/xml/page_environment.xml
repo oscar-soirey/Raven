@@ -1,0 +1,28 @@
+<!-- Page 3: the machine, its compilers, and the library packages to install. -->
+<ScrollBox>
+	<VBox Spacing="12" Slot.Padding="48,44">
+		<Label Text="Development environment" TextSize="26"/>
+		<Border Background="#1B1D24" CornerRadius="10" Padding="16,12">
+			<Grid Columns="auto,1" Spacing="6">
+				<Label Text="System" Opacity="0.55" Slot.Column="0" Slot.Row="0"/>
+				<Label Name="env.os" Text="" Slot.Column="1" Slot.Row="0" Slot.Padding="16,0,0,0"/>
+				<Label Text="Architecture" Opacity="0.55" Slot.Column="0" Slot.Row="1"/>
+				<Label Name="env.arch" Text="" Slot.Column="1" Slot.Row="1" Slot.Padding="16,0,0,0"/>
+			</Grid>
+		</Border>
+
+		<Spacer Height="6"/>
+		<HBox Spacing="10">
+			<Label Text="Compilers" TextSize="16" Slot.Fill="1" Slot.VAlign="Center"/>
+			<Button Name="env.rescan" Text="Detect again" Style="Flat" OnClicked="env.rescan"/>
+		</HBox>
+		<Label Name="env.detecting" Text="Looking for compilers and building a test program with each..." Opacity="0.6" Wrap="true"/>
+		<ProgressBar Name="env.detecting.bar" Value="0.3" Visibility="Collapsed"/>
+		<VBox Name="env.compilers" Spacing="6"/>
+
+		<Spacer Height="10"/>
+		<Label Text="Library packages" TextSize="16"/>
+		<Label Text="The libraries of one compiler cannot be used by another: install the ones of the compilers you use. Packages whose compiler was not found can still be selected." Opacity="0.6" Wrap="true"/>
+		<VBox Name="env.targets" Spacing="4"/>
+	</VBox>
+</ScrollBox>

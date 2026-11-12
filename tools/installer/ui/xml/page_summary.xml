@@ -1,0 +1,26 @@
+<!-- Page 5: what is going to happen. -->
+<ScrollBox>
+	<VBox Spacing="12" Slot.Padding="48,44">
+		<Label Name="summary.title" Text="Ready to install" TextSize="26"/>
+		<Label Name="summary.mode" Text="" Opacity="0.6" Wrap="true"/>
+		<Border Background="#1B1D24" CornerRadius="10" Padding="18,16">
+			<Grid Columns="auto,1" Spacing="12">
+				<Label Text="Components" Opacity="0.55" Slot.Column="0" Slot.Row="0"/>
+				<Label Name="summary.components" Text="" Wrap="true" Slot.Column="1" Slot.Row="0" Slot.Padding="20,0,0,0"/>
+				<Label Text="Packages" Opacity="0.55" Slot.Column="0" Slot.Row="1"/>
+				<Label Name="summary.targets" Text="" Wrap="true" Slot.Column="1" Slot.Row="1" Slot.Padding="20,0,0,0"/>
+				<Label Text="Compilers" Opacity="0.55" Slot.Column="0" Slot.Row="2"/>
+				<Label Name="summary.compilers" Text="" Wrap="true" Slot.Column="1" Slot.Row="2" Slot.Padding="20,0,0,0"/>
+				<Label Text="SDK folder" Opacity="0.55" Slot.Column="0" Slot.Row="3"/>
+				<Label Name="summary.sdk" Text="" Wrap="true" Selectable="true" Slot.Column="1" Slot.Row="3" Slot.Padding="20,0,0,0"/>
+				<Label Text="Designer folder" Opacity="0.55" Slot.Column="0" Slot.Row="4"/>
+				<Label Name="summary.designer" Text="" Wrap="true" Selectable="true" Slot.Column="1" Slot.Row="4" Slot.Padding="20,0,0,0"/>
+				<Label Text="Integration" Opacity="0.55" Slot.Column="0" Slot.Row="5"/>
+				<Label Name="summary.integrations" Text="" Wrap="true" Slot.Column="1" Slot.Row="5" Slot.Padding="20,0,0,0"/>
+				<Label Text="Size" Opacity="0.55" Slot.Column="0" Slot.Row="6"/>
+				<Label Name="summary.size" Text="" Slot.Column="1" Slot.Row="6" Slot.Padding="20,0,0,0"/>
+			</Grid>
+		</Border>
+		<Label Name="summary.problems" Text="" Wrap="true" Color="#FF6B6B" Visibility="Collapsed"/>
+	</VBox>
+</ScrollBox>

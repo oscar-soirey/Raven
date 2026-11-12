@@ -1,0 +1,11 @@
+<!-- One compiler found on the machine (page 3). -->
+<Border Background="#1B1D24" CornerRadius="8" Padding="14,10">
+	<HBox Spacing="12">
+		<Border Name="badge" Width="10" Height="10" CornerRadius="5" Background="#5A5F6B" Slot.VAlign="Top" Slot.Padding="0,5,0,0"/>
+		<VBox Spacing="2" Slot.Fill="1">
+			<Label Name="name" Text="" Wrap="true"/>
+			<Label Name="detail" Text="" Opacity="0.55" Wrap="true" Selectable="true"/>
+		</VBox>
+		<Label Name="state" Text="" Opacity="0.75" Slot.VAlign="Center"/>
+	</HBox>
+</Border>

@@ -1,0 +1,28 @@
+<!-- Page 1: welcome, license, and what to do with an installation already there. -->
+<ScrollBox>
+	<VBox Spacing="14" Slot.Padding="48,44">
+		<Image Source="logo.png" Width="84" Height="84" Stretch="Fit" Slot.HAlign="Left" Appear="Pop"/>
+		<Label Text="Raven SDK Installer" TextSize="32" Appear="FlyUp"/>
+		<Label Name="welcome.subtitle" Text="" Opacity="0.6" TextSize="15"/>
+		<Label Wrap="true" Opacity="0.85" Markdown="true" MaxWidth="620">RavenGUI is a lightweight, multithreaded GUI library in C, with bindings for many languages. This installer sets up the **SDK** (headers, libraries and bindings for the compilers of this machine), **Raven Designer**, the visual editor of Raven interfaces, and their shortcuts and menus.</Label>
+
+		<!-- shown when an installation is found -->
+		<Border Name="welcome.existing" Visibility="Collapsed" Background="#1B1D24" CornerRadius="10" Padding="18" MaxWidth="620" Slot.HAlign="Left">
+			<VBox Spacing="10">
+				<Label Name="welcome.existing.title" Text="" TextSize="16"/>
+				<Label Name="welcome.existing.detail" Text="" Opacity="0.65" Wrap="true"/>
+				<Checkbox Name="mode.update" Style="Radio" Checked="true" Text="Update or repair this installation"/>
+				<Checkbox Name="mode.uninstall" Style="Radio" Text="Uninstall it"/>
+			</VBox>
+		</Border>
+
+		<Spacer Height="6"/>
+		<Expander Title="License" Expanded="false" MaxWidth="620" Slot.HAlign="Left">
+			<VBox Spacing="8" Slot.Padding="4,8">
+				<Label Wrap="true" Opacity="0.75" Markdown="true">RavenGUI and Raven Designer are distributed under the **Apache License, version 2.0**. The libraries contain third-party code (stb, nanosvg, Roboto) under their own permissive licenses, listed in `share/raven/THIRD_PARTY.md` and `share/raven/licenses` of the SDK.</Label>
+				<Button Text="Read the license" Style="Flat" OnClicked="open:https://www.apache.org/licenses/LICENSE-2.0" Slot.HAlign="Left"/>
+			</VBox>
+		</Expander>
+		<Label Name="welcome.payload" Text="" Opacity="0.45" Wrap="true"/>
+	</VBox>
+</ScrollBox>

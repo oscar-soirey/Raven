@@ -1,0 +1,8 @@
+<!-- One library package of the payload (page 3). -->
+<HBox Spacing="12" Slot.Padding="4,6">
+	<Checkbox Name="check" Text="" Slot.VAlign="Top"/>
+	<VBox Spacing="2" Slot.Fill="1">
+		<Label Name="detail" Text="" Opacity="0.55" Wrap="true"/>
+	</VBox>
+	<Label Name="size" Text="" Opacity="0.45" Slot.VAlign="Top"/>
+</HBox>

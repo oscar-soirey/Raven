@@ -1,0 +1,29 @@
+// Raven SDK Installer - Windows resources: the icon, the manifest (no elevation asked,
+// per-monitor DPI, UTF-8 code page, the controls of Windows 10/11) and the version.
+#include <winver.h>
+
+1 ICON "../../designer/logo-com.ico"
+1 24 "installer.manifest"
+
+1 VERSIONINFO
+FILEVERSION 0,2,3,0
+PRODUCTVERSION 0,2,3,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "CompanyName", "Raven"
+			VALUE "FileDescription", "Raven SDK Installer"
+			VALUE "ProductName", "RavenGUI SDK"
+			VALUE "OriginalFilename", "RavenSDKInstaller.exe"
+			VALUE "LegalCopyright", "Apache License 2.0"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x409, 1200
+	END
+END

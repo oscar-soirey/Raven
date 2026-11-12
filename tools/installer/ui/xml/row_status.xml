@@ -1,0 +1,9 @@
+<!-- The state of one component (pages 6 and 7). -->
+<HBox Spacing="10">
+	<Border Name="badge" Width="10" Height="10" CornerRadius="5" Background="#5A5F6B" Slot.VAlign="Top" Slot.Padding="0,5,0,0"/>
+	<VBox Slot.Fill="1">
+		<Label Name="name" Text=""/>
+		<Label Name="detail" Text="" Opacity="0.5" Wrap="true" Selectable="true" Visibility="Collapsed"/>
+	</VBox>
+	<Label Name="state" Text="" Opacity="0.6" Slot.VAlign="Top"/>
+</HBox>
