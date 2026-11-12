@@ -922,7 +922,11 @@ static struct {
 	void (*Rnode_graph_set_node_deletable)(Rid, int, int);
 	void (*Rnode_graph_set_node_shown)(Rid, int);
 	void (*Rnode_graph_set_link_shown)(Rid, int);
+	void (*Rnode_graph_set_node_icon)(Rid, int, Rid);
 	void (*Rnode_graph_set_node_badge)(Rid, int, const char*);
+	void (*Rnode_graph_set_pin_tag)(Rid, int, const char*);
+	void (*Rnode_graph_set_link_hidden)(Rid, int, int);
+	void (*Rnode_graph_set_pin_emphasis)(Rid, int, int);
 	Rid (*Rblock_editor_create)(void);
 	int (*Rblock_editor_add_kind)(Rid, const char*, const char*, RBlockShape, const char*);
 	void (*Rblock_editor_set_category_color)(Rid, const char*, float, float, float);
@@ -2047,7 +2051,11 @@ static const struct {
 	{"Rnode_graph_set_node_deletable", offsetof(__typeof__(rn), Rnode_graph_set_node_deletable)},
 	{"Rnode_graph_set_node_shown", offsetof(__typeof__(rn), Rnode_graph_set_node_shown)},
 	{"Rnode_graph_set_link_shown", offsetof(__typeof__(rn), Rnode_graph_set_link_shown)},
+	{"Rnode_graph_set_node_icon", offsetof(__typeof__(rn), Rnode_graph_set_node_icon)},
 	{"Rnode_graph_set_node_badge", offsetof(__typeof__(rn), Rnode_graph_set_node_badge)},
+	{"Rnode_graph_set_pin_tag", offsetof(__typeof__(rn), Rnode_graph_set_pin_tag)},
+	{"Rnode_graph_set_link_hidden", offsetof(__typeof__(rn), Rnode_graph_set_link_hidden)},
+	{"Rnode_graph_set_pin_emphasis", offsetof(__typeof__(rn), Rnode_graph_set_pin_emphasis)},
 	{"Rblock_editor_create", offsetof(__typeof__(rn), Rblock_editor_create)},
 	{"Rblock_editor_add_kind", offsetof(__typeof__(rn), Rblock_editor_add_kind)},
 	{"Rblock_editor_set_category_color", offsetof(__typeof__(rn), Rblock_editor_set_category_color)},
@@ -18834,6 +18842,22 @@ static napi_value rn_w_Rnode_graph_set_link_shown(napi_env env, napi_callback_in
 	return result_;
 }
 
+static napi_value rn_w_Rnode_graph_set_node_icon(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	uint32_t a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_uint32(env, argv[2], &a2)) return NULL;
+	rn.Rnode_graph_set_node_icon((Rid)a0, (int)a1, (Rid)a2);
+	return result_;
+}
+
 static napi_value rn_w_Rnode_graph_set_node_badge(napi_env env, napi_callback_info info) {
 	size_t argc = 3;
 	napi_value argv[3];
@@ -18850,6 +18874,57 @@ static napi_value rn_w_Rnode_graph_set_node_badge(napi_env env, napi_callback_in
 	rn.Rnode_graph_set_node_badge((Rid)a0, (int)a1, a2.p);
 done:
 	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_pin_tag(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	rn_str a2;
+	a2.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_str_get(env, argv[2], &a2)) goto done;
+	rn.Rnode_graph_set_pin_tag((Rid)a0, (int)a1, a2.p);
+done:
+	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_link_hidden(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rnode_graph_set_link_hidden((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_pin_emphasis(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rnode_graph_set_pin_emphasis((Rid)a0, (int)a1, (int)a2);
 	return result_;
 }
 
@@ -23580,7 +23655,11 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rnode_graph_set_node_deletable", NULL, rn_w_Rnode_graph_set_node_deletable, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_node_shown", NULL, rn_w_Rnode_graph_set_node_shown, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_link_shown", NULL, rn_w_Rnode_graph_set_link_shown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_node_icon", NULL, rn_w_Rnode_graph_set_node_icon, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_node_badge", NULL, rn_w_Rnode_graph_set_node_badge, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_pin_tag", NULL, rn_w_Rnode_graph_set_pin_tag, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_link_hidden", NULL, rn_w_Rnode_graph_set_link_hidden, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_pin_emphasis", NULL, rn_w_Rnode_graph_set_pin_emphasis, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_create", NULL, rn_w_Rblock_editor_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_add_kind", NULL, rn_w_Rblock_editor_add_kind, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_set_category_color", NULL, rn_w_Rblock_editor_set_category_color, NULL, NULL, NULL, napi_enumerable, NULL},

@@ -5468,12 +5468,13 @@ func NodeGraphGetNodeAt(graph ID, x float32, y float32) int {
 	return int(C.Rnode_graph_get_node_at(C.Rid(graph), C.float(x), C.float(y)))
 }
 
-// NodeGraphGetPinAt: The pin near a point of the widget, or 0 (a menu for a pin).
+// NodeGraphGetPinAt: The pin near a point of the widget (or whose tag is under it: Rnode_graph_set_pin_tag),
+// or 0 (a menu for a pin).
 func NodeGraphGetPinAt(graph ID, x float32, y float32) int {
 	return int(C.Rnode_graph_get_pin_at(C.Rid(graph), C.float(x), C.float(y)))
 }
 
-// NodeGraphGetLinkAt: The link under a point of the widget, or 0 (a menu for a wire).
+// NodeGraphGetLinkAt: The link under a point of the widget, or 0 (hidden links are never under it).
 func NodeGraphGetLinkAt(graph ID, x float32, y float32) int {
 	return int(C.Rnode_graph_get_link_at(C.Rid(graph), C.float(x), C.float(y)))
 }
@@ -5512,12 +5513,40 @@ func NodeGraphSetLinkShown(graph ID, link int) {
 	C.Rnode_graph_set_link_shown(C.Rid(graph), C.int(link))
 }
 
+// NodeGraphSetNodeIcon: An icon before the title: a texture of the application, shared by many nodes and not
+// deleted with them (the "Icon" style loads one per node from a file). R_INVALID_ID removes it.
+func NodeGraphSetNodeIcon(graph ID, node int, texture ID) {
+	C.Rnode_graph_set_node_icon(C.Rid(graph), C.int(node), C.Rid(texture))
+}
+
 // NodeGraphSetNodeBadge: A short text in a pill on the top right corner of the node ("1", "!"...); NULL or ""
 // removes it.
 func NodeGraphSetNodeBadge(graph ID, node int, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
 	C.Rnode_graph_set_node_badge(C.Rid(graph), C.int(node), text_)
+}
+
+// NodeGraphSetPinTag: A short text in a chip of the pin's color outside the node, beside the pin (left of an
+// input, right of an output): the name of what goes out or comes in there, as a net label of a schematic.
+// NULL or "" removes it.
+func NodeGraphSetPinTag(graph ID, pin int, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rnode_graph_set_pin_tag(C.Rid(graph), C.int(pin), text_)
+}
+
+// NodeGraphSetLinkHidden: R_TRUE: the link stays (its pins are linked, the application keeps it) but is not
+// drawn and not picked: its two ends are shown otherwise (pin tags naming it, as the labels of a schematic
+// stand for a wire).
+func NodeGraphSetLinkHidden(graph ID, link int, hidden int) {
+	C.Rnode_graph_set_link_hidden(C.Rid(graph), C.int(link), C.int(hidden))
+}
+
+// NodeGraphSetPinEmphasis: How much a pin stands out, as while a wire is pulled: 1 shows it as a pin to go
+// to, -1 steps it back, 0 as usual (an application that links in two clicks).
+func NodeGraphSetPinEmphasis(graph ID, pin int, emphasis int) {
+	C.Rnode_graph_set_pin_emphasis(C.Rid(graph), C.int(pin), C.int(emphasis))
 }
 
 func BlockEditorCreate() ID {

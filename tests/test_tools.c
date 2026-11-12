@@ -409,6 +409,23 @@ static void test_node_graph_editor_hooks(void) {
 	Rnode_graph_get_view(graph, &cx, &cy, &zoom);
 	CHECK(zoom == 1.0f); /* canvas units are window units until the view moves */
 
+	/* an icon shared by nodes stays the application's: removing a node keeps it */
+	{
+		static const unsigned char white[4 * 4] = { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 };
+		Rid tex = Rtexture_create_from_pixels(white, 2, 2);
+		int b = Rnode_graph_add_node(graph, "Temp", 300.0f, 300.0f);
+		CHECK(tex != R_INVALID_ID && b != 0);
+		Rnode_graph_set_node_icon(graph, a, tex);
+		Rnode_graph_set_node_icon(graph, b, tex);
+		Rdraw_frame();
+		Rnode_graph_remove_node(graph, b);
+		Rdraw_frame();
+		CHECK(Rtexture_is_valid(tex));
+		Rnode_graph_set_node_icon(graph, a, R_INVALID_ID);
+		CHECK(Rtexture_is_valid(tex));
+		Rtexture_destroy(tex);
+	}
+
 	/* the node under a point */
 	CHECK(Rnode_graph_get_node_at(graph, 60.0f, 60.0f) == a);
 	CHECK(Rnode_graph_get_node_at(graph, 600.0f, 400.0f) == 0);
@@ -454,11 +471,11 @@ static void test_node_graph_editor_hooks(void) {
 	Rdraw_frame();
 	CHECK(g_point_calls[1] == 1);
 
-	/* what is under a point: a pin, a link; a click on a pin */
+	/* what is under a point: a pin (and its tag), a link (not a hidden one) */
 	{
 		int b = Rnode_graph_add_node(graph, "Sink", 400.0f, 60.0f);
 		int b_in = Rnode_graph_add_input(graph, b, "In", NULL);
-		int link;
+		int link, tag_pin;
 		float bx, by, mx, my;
 		Rdraw_frame();
 		Rnode_graph_get_pin_position(graph, a_out, &px, &py);
@@ -476,6 +493,21 @@ static void test_node_graph_editor_hooks(void) {
 			for (k = 0; k < 30 && Rnode_graph_get_link_at(graph, mx, my) != link; k++) my += 1.0f;
 		}
 		CHECK(Rnode_graph_get_link_at(graph, mx, my) == link);
+		Rnode_graph_set_link_hidden(graph, link, R_TRUE);
+		Rdraw_frame();
+		CHECK(Rnode_graph_get_link_at(graph, mx, my) == 0);
+		CHECK(Rnode_graph_get_link_count(graph) == 1); /* hidden, not removed */
+		Rnode_graph_set_link_hidden(graph, link, R_FALSE);
+		CHECK(Rnode_graph_get_link_at(graph, mx, my) == link);
+		/* a tag sits left of an input, outside the node; it is the pin's under the pointer */
+		Rnode_graph_set_pin_tag(graph, b_in, "net 1");
+		Rdraw_frame();
+		Rnode_graph_from_canvas(graph, bx - 30.0f, by, &mx, &my);
+		tag_pin = Rnode_graph_get_pin_at(graph, mx, my);
+		CHECK(tag_pin == b_in);
+		Rnode_graph_set_pin_tag(graph, b_in, NULL);
+		Rdraw_frame();
+		CHECK(Rnode_graph_get_pin_at(graph, mx, my) == 0);
 		/* a click on a pin (no drag) with the callback: told, the wire of the input stays, not a drop */
 		Rnode_graph_set_pin_clicked_callback(graph, on_point, (void*)(intptr_t)2);
 		{
@@ -488,6 +520,11 @@ static void test_node_graph_editor_hooks(void) {
 			CHECK(Rnode_graph_get_link_count(graph) == 1);
 		}
 		Rnode_graph_set_pin_clicked_callback(graph, NULL, NULL);
+		Rnode_graph_set_pin_emphasis(graph, b_in, 1);
+		Rnode_graph_set_pin_emphasis(graph, a_out, -1);
+		Rdraw_frame();
+		Rnode_graph_set_pin_emphasis(graph, b_in, 0);
+		Rnode_graph_set_pin_emphasis(graph, a_out, 0);
 		Rnode_graph_remove_node(graph, b);
 		Rdraw_frame();
 	}

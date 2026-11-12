@@ -91,6 +91,12 @@ typedef struct rvn_ng_pin_t {
 	int multiple;
 	/** Given to this pin (slot 0) and to the links that leave it (slot 1). */
 	rvn_item_look_t style;
+	/** A short text in a chip outside the node, beside the pin (Rnode_graph_set_pin_tag), or NULL. */
+	char* tag;
+	/** Its width as last drawn (for the pointer). */
+	float tag_width;
+	/** Rnode_graph_set_pin_emphasis: 1 stands out as a pin to go to, -1 steps back, 0 as usual. */
+	int emphasis;
 } rvn_ng_pin_t;
 
 typedef struct rvn_ng_node_t {
@@ -126,6 +132,8 @@ typedef struct rvn_ng_node_t {
 	rvn_item_look_t style;
 	/** Image before its title (Icon), or R_INVALID_ID. */
 	Rid icon;
+	/** R_FALSE: the icon is the application's (Rnode_graph_set_node_icon), not deleted with the node. */
+	int icon_owned;
 } rvn_ng_node_t;
 
 typedef struct rvn_ng_link_t {
@@ -140,6 +148,8 @@ typedef struct rvn_ng_link_t {
 	RSpring sway_x, sway_y;
 	float last_x, last_y;
 	int has_last;
+	/** Rnode_graph_set_link_hidden: kept (its pins are linked) but not drawn, and not under the pointer. */
+	int hidden;
 } rvn_ng_link_t;
 
 /**
@@ -390,6 +400,7 @@ static int rvn_ng_add_link(rvn_node_graph_t* graph, int output_pin, int input_pi
 static void rvn_ng_free_pin(rvn_ng_pin_t* pin) {
 	rvn_free(pin->name);
 	rvn_free(pin->label);
+	rvn_free(pin->tag);
 }
 
 static void rvn_ng_remove_pin_at(rvn_node_graph_t* graph, uint32_t index) {
@@ -427,7 +438,7 @@ static void rvn_ng_remove_node(rvn_node_graph_t* graph, int id) {
 	rvn_free(graph->nodes[index].name);
 	rvn_free(graph->nodes[index].title);
 	rvn_free(graph->nodes[index].badge);
-	if (graph->nodes[index].icon != R_INVALID_ID && Rtexture_is_valid(graph->nodes[index].icon)) Rtexture_destroy(graph->nodes[index].icon);
+	if (graph->nodes[index].icon_owned && graph->nodes[index].icon != R_INVALID_ID && Rtexture_is_valid(graph->nodes[index].icon)) Rtexture_destroy(graph->nodes[index].icon);
 	memmove(&graph->nodes[index], &graph->nodes[index + 1], (graph->node_count - index - 1) * sizeof(rvn_ng_node_t));
 	graph->node_count--;
 	if (graph->hot_node == id) graph->hot_node = 0;
@@ -910,6 +921,7 @@ static int rvn_ng_link_at(const rvn_node_graph_t* graph, float cx, float cy) {
 	for (i = graph->link_count; i > 0; i--) {
 		const rvn_ng_link_t* link = &graph->links[i - 1];
 		if (link->id == graph->wire_detached && graph->drag == RVN_NG_DRAG_LINK) continue;
+		if (link->hidden) continue;
 		if (!rvn_ng_link_path(graph, link, &path)) continue;
 		if (rvn_ng_path_distance(&path, cx, cy) <= reach) return link->id;
 	}
@@ -945,6 +957,30 @@ static int rvn_ng_wire_target(const rvn_node_graph_t* graph, float cx, float cy)
 		if (pin->output || !rvn_ng_input_link(graph, pin->id)) return pin->id;
 	}
 	return found;
+}
+
+/* The chip of a pin's tag, on the canvas: outside the node, left of an input, right of an output. */
+static rvn_rect_t rvn_ng_tag_rect(const rvn_ng_node_t* node, const rvn_ng_pin_t* pin) {
+	float w = pin->tag_width > 0.0f ? pin->tag_width : 40.0f, h = 16.0f;
+	float cy = node->y + pin->y;
+	if (pin->output) return rvn_rect(node->x + node->w + 10.0f, cy - h * 0.5f, w, h);
+	return rvn_rect(node->x - 10.0f - w, cy - h * 0.5f, w, h);
+}
+
+/* The pin whose tag is under a point of the canvas, or 0. */
+static int rvn_ng_tag_at(const rvn_node_graph_t* graph, float cx, float cy) {
+	uint32_t i;
+	for (i = 0; i < graph->pin_count; i++) {
+		const rvn_ng_pin_t* pin = &graph->pins[i];
+		const rvn_ng_node_t* node;
+		rvn_rect_t r;
+		if (!pin->tag || !pin->tag[0]) continue;
+		node = rvn_ng_node(graph, pin->node);
+		if (!node) continue;
+		r = rvn_ng_tag_rect(node, pin);
+		if (cx >= r.x && cy >= r.y && cx < r.x + r.w && cy < r.y + r.h) return pin->id;
+	}
+	return 0;
 }
 
 static void rvn_ng_update_hot(rvn_widget_t* widget, float x, float y) {
@@ -986,7 +1022,7 @@ static void rvn_node_graph_destroy(rvn_widget_t* widget) {
 		rvn_free(graph->nodes[i].name);
 		rvn_free(graph->nodes[i].title);
 		rvn_free(graph->nodes[i].badge);
-		if (graph->nodes[i].icon != R_INVALID_ID && Rtexture_is_valid(graph->nodes[i].icon)) Rtexture_destroy(graph->nodes[i].icon);
+		if (graph->nodes[i].icon_owned && graph->nodes[i].icon != R_INVALID_ID && Rtexture_is_valid(graph->nodes[i].icon)) Rtexture_destroy(graph->nodes[i].icon);
 	}
 	for (i = 0; i < graph->pin_count; i++) rvn_ng_free_pin(&graph->pins[i]);
 	for (i = 0; i < graph->type_count; i++) rvn_free(graph->types[i].name);
@@ -1305,6 +1341,10 @@ static void rvn_ng_paint_pin(rvn_node_graph_t* graph, RPainter* painter, const r
 		else opacity = 0.3f;
 	} else if (pin->id == graph->hot_pin && painter->enabled && !graph->read_only) {
 		target = 1.0f;
+	} else if (pin->emphasis > 0) {
+		target = 0.5f;
+	} else if (pin->emphasis < 0) {
+		opacity = 0.3f;
 	}
 	opacity *= pl.opacity > 0.0f ? pl.opacity : 1.0f;
 	grow = rvn_paint_spring(painter, &pin->hot, target, R_MOTION_BOUNCY);
@@ -1334,6 +1374,19 @@ static void rvn_ng_paint_pin(rvn_node_graph_t* graph, RPainter* painter, const r
 		label_gap = rvn_maxf(13.0f, half + 8.0f);
 		if (pin->output) rvn_paint_text_in(painter, R_INVALID_ID, look->small, rvn_rect(node->x, cy - row * 0.5f, node->w - label_gap, row), 1.0f, pin->label, -1, text);
 		else rvn_paint_text_in(painter, R_INVALID_ID, look->small, rvn_rect(node->x + label_gap, cy - row * 0.5f, node->w - label_gap, row), 0.0f, pin->label, -1, text);
+	}
+	if (pin->tag && pin->tag[0]) {
+		/* the tag: a chip of the pin's color outside the node, joined to the pin by a short stem */
+		rvn_rect_t chip;
+		float stem_from, stem_to, hot = pin->id == graph->hot_pin ? 1.0f : 0.0f;
+		pin->tag_width = rvn_minf(rvn_widget_text_width(&graph->base, R_INVALID_ID, look->small, pin->tag), 170.0f) + 14.0f;
+		chip = rvn_ng_tag_rect(node, pin);
+		stem_from = pin->output ? cx + half + 1.0f : chip.x + chip.w;
+		stem_to = pin->output ? chip.x : cx - half - 1.0f;
+		if (stem_to > stem_from) rvn_paint_box(painter, rvn_rect(stem_from, cy - 0.7f, stem_to - stem_from, 1.4f), 0.0f, rvn_color_fade(color, opacity * 0.8f), 0.0f, 0);
+		rvn_paint_box(painter, chip, chip.h * 0.5f, rvn_color_fade(rvn_color_mix(body, color, 0.22f + 0.2f * hot), opacity), 1.4f, rvn_color_fade(color, opacity));
+		rvn_paint_text_in(painter, R_INVALID_ID, look->small, rvn_rect(chip.x + 7.0f, chip.y, chip.w - 14.0f, chip.h), 0.5f, pin->tag, -1,
+			rvn_color_fade(look->text, opacity));
 	}
 }
 
@@ -1684,6 +1737,7 @@ static void rvn_node_graph_paint(rvn_widget_t* widget, RPainter* painter) {
 		if (!from || !to) continue;
 		if (link->id == graph->wire_detached && graph->drag == RVN_NG_DRAG_LINK) continue;
 		from->linked = to->linked = R_TRUE;
+		if (link->hidden) continue;
 		a = rvn_ng_pin_at_canvas(graph, from);
 		b = rvn_ng_pin_at_canvas(graph, to);
 		hover = rvn_paint_spring(painter, &link->hover, (link->id == graph->hot_link && graph->drag == RVN_NG_DRAG_NONE) || link->selected ? 1.0f : 0.0f, R_MOTION_SNAPPY);
@@ -2491,11 +2545,12 @@ static int rvn_ng_node_style(rvn_node_graph_t* graph, rvn_ng_node_t* node, const
 	size_t i;
 	int ok = -1;
 	if (rvn_stricmp(name, "Icon") == 0) {
-		if (node->icon != R_INVALID_ID && Rtexture_is_valid(node->icon)) Rtexture_destroy(node->icon);
+		if (node->icon_owned && node->icon != R_INVALID_ID && Rtexture_is_valid(node->icon)) Rtexture_destroy(node->icon);
 		node->icon = R_INVALID_ID;
 		if (value && *value) {
 			char* path = rvn_xml_resolve_path(value);
 			node->icon = Rtexture_create_from_file(path ? path : value);
+			node->icon_owned = R_TRUE;
 			rvn_free(path);
 			if (node->icon == R_INVALID_ID) return R_FALSE;
 		}
@@ -3371,9 +3426,11 @@ void Rnode_graph_set_pin_clicked_callback(Rid id, RNodeGraphPointCallback callba
 
 int Rnode_graph_get_pin_at(Rid id, float x, float y) {
 	rvn_vec2_t at;
+	int pin;
 	RVN_NODE_GRAPH(graph, id, 0);
 	at = rvn_ng_to_canvas(graph, x, y);
-	return rvn_ng_pin_near(graph, at.x, at.y);
+	pin = rvn_ng_pin_near(graph, at.x, at.y);
+	return pin ? pin : rvn_ng_tag_at(graph, at.x, at.y);
 }
 
 int Rnode_graph_get_link_at(Rid id, float x, float y) {
@@ -3381,6 +3438,40 @@ int Rnode_graph_get_link_at(Rid id, float x, float y) {
 	RVN_NODE_GRAPH(graph, id, 0);
 	at = rvn_ng_to_canvas(graph, x, y);
 	return rvn_ng_link_at(graph, at.x, at.y);
+}
+
+void Rnode_graph_set_link_hidden(Rid id, int link_id, int hidden) {
+	rvn_ng_link_t* link;
+	RVN_NODE_GRAPH_VOID(graph, id);
+	link = rvn_ng_link(graph, link_id);
+	if (!link) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "%s: the graph has no link %d", __func__, link_id);
+		return;
+	}
+	if (link->hidden == (hidden != 0)) return;
+	link->hidden = hidden != 0;
+	if (link->hidden && graph->hot_link == link_id) graph->hot_link = 0;
+	rvn_widget_invalidate_paint(&graph->base);
+}
+
+void Rnode_graph_set_pin_tag(Rid id, int pin_id, const char* text) {
+	rvn_ng_pin_t* pin;
+	RVN_NODE_GRAPH_VOID(graph, id);
+	pin = rvn_ng_pin_checked(graph, pin_id, __func__);
+	if (!pin) return;
+	rvn_free(pin->tag);
+	pin->tag = text && text[0] ? rvn_strdup(text) : NULL;
+	pin->tag_width = 0.0f;
+	rvn_widget_invalidate_paint(&graph->base);
+}
+
+void Rnode_graph_set_pin_emphasis(Rid id, int pin_id, int emphasis) {
+	rvn_ng_pin_t* pin;
+	RVN_NODE_GRAPH_VOID(graph, id);
+	pin = rvn_ng_pin_checked(graph, pin_id, __func__);
+	if (!pin) return;
+	pin->emphasis = emphasis > 0 ? 1 : (emphasis < 0 ? -1 : 0);
+	rvn_widget_invalidate_paint(&graph->base);
 }
 
 void Rnode_graph_set_pin_multiple(Rid id, int pin_id, int multiple) {
@@ -3431,6 +3522,17 @@ void Rnode_graph_set_link_shown(Rid id, int link_id) {
 	link = rvn_ng_link(graph, link_id);
 	if (!link) return;
 	rvn_spring_set(&link->grow, 1.0f);
+	rvn_widget_invalidate_paint(&graph->base);
+}
+
+void Rnode_graph_set_node_icon(Rid id, int node_id, Rid texture) {
+	rvn_ng_node_t* node;
+	RVN_NODE_GRAPH_VOID(graph, id);
+	node = rvn_ng_node_checked(graph, node_id, __func__);
+	if (!node) return;
+	if (node->icon_owned && node->icon != R_INVALID_ID && Rtexture_is_valid(node->icon)) Rtexture_destroy(node->icon);
+	node->icon = texture;
+	node->icon_owned = R_FALSE;
 	rvn_widget_invalidate_paint(&graph->base);
 }
 

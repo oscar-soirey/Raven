@@ -1993,7 +1993,11 @@ void Rnode_graph_set_node_active_color(Rid graph, int node, float r, float g, fl
 void Rnode_graph_set_node_deletable(Rid graph, int node, int deletable);
 void Rnode_graph_set_node_shown(Rid graph, int node);
 void Rnode_graph_set_link_shown(Rid graph, int link);
+void Rnode_graph_set_node_icon(Rid graph, int node, Rid texture);
 void Rnode_graph_set_node_badge(Rid graph, int node, const char* text);
+void Rnode_graph_set_pin_tag(Rid graph, int pin, const char* text);
+void Rnode_graph_set_link_hidden(Rid graph, int link, int hidden);
+void Rnode_graph_set_pin_emphasis(Rid graph, int pin, int emphasis);
 Rid Rblock_editor_create(void);
 int Rblock_editor_add_kind(Rid editor, const char* name, const char* label, RBlockShape shape, const char* category);
 void Rblock_editor_set_category_color(Rid editor, const char* category, float r, float g, float b);

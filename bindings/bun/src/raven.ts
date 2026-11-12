@@ -1046,7 +1046,11 @@ const _symbols = {
 	Rnode_graph_set_node_deletable: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_set_node_shown: { args: ["u32", "i32"], returns: "void" },
 	Rnode_graph_set_link_shown: { args: ["u32", "i32"], returns: "void" },
+	Rnode_graph_set_node_icon: { args: ["u32", "i32", "u32"], returns: "void" },
 	Rnode_graph_set_node_badge: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rnode_graph_set_pin_tag: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rnode_graph_set_link_hidden: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_set_pin_emphasis: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rblock_editor_create: { args: [], returns: "u32" },
 	Rblock_editor_add_kind: { args: ["u32", "ptr", "ptr", "i32", "ptr"], returns: "i32" },
 	Rblock_editor_set_category_color: { args: ["u32", "ptr", "f32", "f32", "f32"], returns: "void" },
@@ -11373,9 +11377,9 @@ export function Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNod
 
 /**
  * A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
- * the application may link in two clicks, select the pin... With this callback
- * such a click neither detaches the wire of an input nor counts as a wire
- * dropped on nothing.
+ * the application may link in two clicks (Rnode_graph_set_pin_emphasis shows where
+ * the second may go). With this callback such a click neither detaches the wire
+ * of an input nor counts as a wire dropped on nothing.
  */
 export function Rnode_graph_set_pin_clicked_callback(graph: Rid, callback: RNodeGraphPointCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rnode_graph_set_pin_clicked_callback(graph, _adapt_RNodeGraphPointCallback(callback), user_data);
@@ -11386,12 +11390,12 @@ export function Rnode_graph_get_node_at(graph: Rid, x: number, y: number): numbe
 	return _lib.Rnode_graph_get_node_at(graph, x, y);
 }
 
-/** The pin near a point of the widget, or 0 (a menu for a pin). */
+/** The pin near a point of the widget (or whose tag is under it: Rnode_graph_set_pin_tag), or 0 (a menu for a pin). */
 export function Rnode_graph_get_pin_at(graph: Rid, x: number, y: number): number {
 	return _lib.Rnode_graph_get_pin_at(graph, x, y);
 }
 
-/** The link under a point of the widget, or 0 (a menu for a wire). */
+/** The link under a point of the widget, or 0 (hidden links are never under it). */
 export function Rnode_graph_get_link_at(graph: Rid, x: number, y: number): number {
 	return _lib.Rnode_graph_get_link_at(graph, x, y);
 }
@@ -11429,9 +11433,40 @@ export function Rnode_graph_set_link_shown(graph: Rid, link: number): void {
 	_lib.Rnode_graph_set_link_shown(graph, link);
 }
 
+/** An icon before the title: a texture of the application, shared by many nodes and not deleted with them (the "Icon" style loads one per node from a file). R_INVALID_ID removes it. */
+export function Rnode_graph_set_node_icon(graph: Rid, node: number, texture: Rid): void {
+	_lib.Rnode_graph_set_node_icon(graph, node, texture);
+}
+
 /** A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it. */
 export function Rnode_graph_set_node_badge(graph: Rid, node: number, text: string | null): void {
 	_lib.Rnode_graph_set_node_badge(graph, node, _s(text));
+}
+
+/**
+ * A short text in a chip of the pin's color outside the node, beside the pin
+ * (left of an input, right of an output): the name of what goes out or comes in
+ * there, as a net label of a schematic. NULL or "" removes it.
+ */
+export function Rnode_graph_set_pin_tag(graph: Rid, pin: number, text: string | null): void {
+	_lib.Rnode_graph_set_pin_tag(graph, pin, _s(text));
+}
+
+/**
+ * R_TRUE: the link stays (its pins are linked, the application keeps
+ * it) but is not drawn and not picked: its two ends are shown otherwise (pin
+ * tags naming it, as the labels of a schematic stand for a wire).
+ */
+export function Rnode_graph_set_link_hidden(graph: Rid, link: number, hidden: number): void {
+	_lib.Rnode_graph_set_link_hidden(graph, link, hidden);
+}
+
+/**
+ * How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
+ * to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
+ */
+export function Rnode_graph_set_pin_emphasis(graph: Rid, pin: number, emphasis: number): void {
+	_lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis);
 }
 
 export function Rblock_editor_create(): Rid {
