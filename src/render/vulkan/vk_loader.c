@@ -72,6 +72,8 @@ int rvn_vk_load_library(void) {
 #if defined(_WIN32)
 		"vulkan-1.dll"
 #elif defined(__APPLE__)
+		/* inside an .app (Contents/Frameworks), so it runs where nothing is installed */
+		"@executable_path/../Frameworks/libMoltenVK.dylib", "@executable_path/../Frameworks/libvulkan.1.dylib",
 		"libvulkan.1.dylib", "libvulkan.dylib", "libMoltenVK.dylib",
 		/* the system looks for a bare name in no folder of a package manager: MoltenVK
 		 * from Homebrew or MacPorts would be found by no entry above */
