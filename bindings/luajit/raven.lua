@@ -1174,6 +1174,7 @@ void Rwindow_get_framebuffer_size(Rid window, int* width, int* height);
 float Rwindow_get_scale(Rid window);
 void Rwindow_show(Rid window);
 void Rwindow_hide(Rid window);
+void Rwindow_focus(Rid window);
 void Rwindow_maximize(Rid window);
 void Rwindow_minimize(Rid window);
 void Rwindow_restore(Rid window);

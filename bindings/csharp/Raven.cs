@@ -3539,6 +3539,17 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_hide(uint window);
 
+        /// <summary>
+        /// Shows the window in front of the others with the keyboard, and
+        /// makes the application the active one. Rwindow_show alone does not take
+        /// the keyboard from another application (a prompt that appears while the
+        /// user types elsewhere); this is for a window the user just asked for (a
+        /// card opened from a tray icon). Where the system has no such request,
+        /// the same as Rwindow_show.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_focus(uint window);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_maximize(uint window);
 

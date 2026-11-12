@@ -2206,6 +2206,16 @@ extern fn void r_window_show(Rid window) @cname("Rwindow_show");
 
 extern fn void r_window_hide(Rid window) @cname("Rwindow_hide");
 
+<*
+ Shows the window in front of the others with the keyboard, and
+ makes the application the active one. Rwindow_show alone does not take
+ the keyboard from another application (a prompt that appears while the
+ user types elsewhere); this is for a window the user just asked for (a
+ card opened from a tray icon). Where the system has no such request,
+ the same as Rwindow_show.
+*>
+extern fn void r_window_focus(Rid window) @cname("Rwindow_focus");
+
 extern fn void r_window_maximize(Rid window) @cname("Rwindow_maximize");
 
 extern fn void r_window_minimize(Rid window) @cname("Rwindow_minimize");

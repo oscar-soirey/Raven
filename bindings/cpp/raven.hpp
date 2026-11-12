@@ -1702,6 +1702,14 @@ public:
 
 	void hide() const { Rwindow_hide(id_); }
 
+	/// Shows the window in front of the others with the keyboard, and
+	/// makes the application the active one. Rwindow_show alone does not take
+	/// the keyboard from another application (a prompt that appears while the
+	/// user types elsewhere); this is for a window the user just asked for (a
+	/// card opened from a tray icon). Where the system has no such request,
+	/// the same as Rwindow_show.
+	void focus() const { Rwindow_focus(id_); }
+
 	void maximize() const { Rwindow_maximize(id_); }
 
 	void minimize() const { Rwindow_minimize(id_); }

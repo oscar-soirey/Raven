@@ -1417,6 +1417,14 @@ func WindowHide(window ID) {
 	C.Rwindow_hide(C.Rid(window))
 }
 
+// WindowFocus: Shows the window in front of the others with the keyboard, and makes the application the
+// active one. Rwindow_show alone does not take the keyboard from another application (a prompt that appears
+// while the user types elsewhere); this is for a window the user just asked for (a card opened from a tray
+// icon). Where the system has no such request, the same as Rwindow_show.
+func WindowFocus(window ID) {
+	C.Rwindow_focus(C.Rid(window))
+}
+
 func WindowMaximize(window ID) {
 	C.Rwindow_maximize(C.Rid(window))
 }

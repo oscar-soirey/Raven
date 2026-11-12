@@ -351,6 +351,15 @@ extern "C" {
 
 	RAVEN_API void Rwindow_show(Rid window);
 	RAVEN_API void Rwindow_hide(Rid window);
+	/**
+	 * @brief Shows the window in front of the others with the keyboard, and
+	 * makes the application the active one. Rwindow_show alone does not take
+	 * the keyboard from another application (a prompt that appears while the
+	 * user types elsewhere); this is for a window the user just asked for (a
+	 * card opened from a tray icon). Where the system has no such request,
+	 * the same as Rwindow_show.
+	 */
+	RAVEN_API void Rwindow_focus(Rid window);
 	RAVEN_API void Rwindow_maximize(Rid window);
 	RAVEN_API void Rwindow_minimize(Rid window);
 	RAVEN_API void Rwindow_restore(Rid window);

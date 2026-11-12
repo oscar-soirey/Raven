@@ -4783,6 +4783,16 @@ fn void Window.show(self) @inline => c::r_window_show((c::Rid)self);
 
 fn void Window.hide(self) @inline => c::r_window_hide((c::Rid)self);
 
+<*
+ Shows the window in front of the others with the keyboard, and
+ makes the application the active one. Rwindow_show alone does not take
+ the keyboard from another application (a prompt that appears while the
+ user types elsewhere); this is for a window the user just asked for (a
+ card opened from a tray icon). Where the system has no such request,
+ the same as Rwindow_show.
+*>
+fn void Window.focus(self) @inline => c::r_window_focus((c::Rid)self);
+
 fn void Window.maximize(self) @inline => c::r_window_maximize((c::Rid)self);
 
 fn void Window.minimize(self) @inline => c::r_window_minimize((c::Rid)self);
