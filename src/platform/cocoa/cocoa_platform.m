@@ -784,7 +784,13 @@ static int rvn_cocoa_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
     g_cocoa.regions = regions;
     g_cocoa.pool = [[NSAutoreleasePool alloc] init];
     [NSApplication sharedApplication];
-    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    {
+        /* LSUIElement in the Info.plist of the bundle: an agent (menu bar
+         * only, no Dock icon, no menu bar of its own); else a regular app */
+        id ui_element = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"LSUIElement"];
+        BOOL agent = ui_element && [ui_element respondsToSelector:@selector(boolValue)] && [ui_element boolValue];
+        [NSApp setActivationPolicy:agent ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular];
+    }
     /* a bar with the menu of the application until a window gives its own (Cmd+Q quits through the core) */
     g_cocoa.menu_target = [[RavenCocoaMenuTarget alloc] init];
     g_cocoa.default_menu = rvn_cocoa_main_menu(NULL, 0);
