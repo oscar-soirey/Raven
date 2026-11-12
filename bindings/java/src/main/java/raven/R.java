@@ -19805,6 +19805,71 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rpopup_open$;
+
+    /**
+     * Shows a widget as a popup over the window, its top-left corner at
+     * x, y (window coordinates; moved to stay inside the window): a search box,
+     * a palette, a picker. Unlike a dialog it does not block the window: a click
+     * outside it, or Escape, closes it. The application keeps the content (it is
+     * not deleted on close) and can open it again. `closed` (may be NULL) is
+     * called when it closes, with the result given to Rpopup_close (0 when dismissed).
+     * The content draws its own background (a Border with a Background...).
+     */
+    public static void Rpopup_open(int window, int content, float x, float y, RDialogClosedCallback closed, MemorySegment user_data) {
+        MethodHandle $h = Rpopup_open$;
+        if ($h == null) Rpopup_open$ = $h = find("Rpopup_open", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(window, content, x, y, upcall(closed), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Shows a widget as a popup over the window, its top-left corner at
+     * x, y (window coordinates; moved to stay inside the window): a search box,
+     * a palette, a picker. Unlike a dialog it does not block the window: a click
+     * outside it, or Escape, closes it. The application keeps the content (it is
+     * not deleted on close) and can open it again. `closed` (may be NULL) is
+     * called when it closes, with the result given to Rpopup_close (0 when dismissed).
+     * The content draws its own background (a Border with a Background...).
+     */
+    public static void Rpopup_open(int window, int content, float x, float y, RDialogClosedCallback closed) {
+        Rpopup_open(window, content, x, y, closed, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rpopup_close$;
+
+    /**
+     * Closes the popup that contains a widget (the content or anything inside it).
+     */
+    public static void Rpopup_close(int widget, int result) {
+        MethodHandle $h = Rpopup_close$;
+        if ($h == null) Rpopup_close$ = $h = find("Rpopup_close", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(widget, result);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpopup_is_open$;
+
+    /**
+     * Returns: R_TRUE while the widget is shown as a popup.
+     */
+    public static int Rpopup_is_open(int content) {
+        MethodHandle $h = Rpopup_is_open$;
+        if ($h == null) Rpopup_is_open$ = $h = find("Rpopup_is_open", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(content);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_has_dialog$;
 
     /**

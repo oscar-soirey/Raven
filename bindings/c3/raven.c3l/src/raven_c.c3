@@ -5099,6 +5099,23 @@ extern fn void r_dialog_close(Rid widget, CInt result) @cname("Rdialog_close");
 <* Shows a dialog and waits until it closes. Returns its result. *>
 extern fn CInt r_dialog_run(Rid window, Rid content) @cname("Rdialog_run");
 
+<*
+ Shows a widget as a popup over the window, its top-left corner at
+ x, y (window coordinates; moved to stay inside the window): a search box,
+ a palette, a picker. Unlike a dialog it does not block the window: a click
+ outside it, or Escape, closes it. The application keeps the content (it is
+ not deleted on close) and can open it again. `closed` (may be NULL) is
+ called when it closes, with the result given to Rpopup_close (0 when dismissed).
+ The content draws its own background (a Border with a Background...).
+*>
+extern fn void r_popup_open(Rid window, Rid content, float x, float y, RDialogClosedCallback closed, void* user_data) @cname("Rpopup_open");
+
+<* Closes the popup that contains a widget (the content or anything inside it). *>
+extern fn void r_popup_close(Rid widget, CInt result) @cname("Rpopup_close");
+
+<* Returns R_TRUE while the widget is shown as a popup. *>
+extern fn CInt r_popup_is_open(Rid content) @cname("Rpopup_is_open");
+
 <* Returns R_TRUE while a dialog is shown in the window. *>
 extern fn CInt r_window_has_dialog(Rid window) @cname("Rwindow_has_dialog");
 

@@ -5759,6 +5759,16 @@ func DialogRun(window ID, content ID) int {
 	return int(C.Rdialog_run(C.Rid(window), C.Rid(content)))
 }
 
+// PopupClose: Closes the popup that contains a widget (the content or anything inside it).
+func PopupClose(widget ID, result int) {
+	C.Rpopup_close(C.Rid(widget), C.int(result))
+}
+
+// PopupIsOpen: Returns: R_TRUE while the widget is shown as a popup.
+func PopupIsOpen(content ID) int {
+	return int(C.Rpopup_is_open(C.Rid(content)))
+}
+
 // WindowHasDialog: Returns: R_TRUE while a dialog is shown in the window.
 func WindowHasDialog(window ID) int {
 	return int(C.Rwindow_has_dialog(C.Rid(window)))

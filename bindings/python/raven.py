@@ -11218,6 +11218,39 @@ def Rdialog_run(window, content):
     return _lib.Rdialog_run(window, content)
 
 
+_lib.Rpopup_open.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_float, ctypes.c_float, RDialogClosedCallback, ctypes.c_void_p]
+_lib.Rpopup_open.restype = None
+
+
+def Rpopup_open(window, content, x, y, closed, user_data=None):
+    """Shows a widget as a popup over the window, its top-left corner at
+    x, y (window coordinates; moved to stay inside the window): a search box,
+    a palette, a picker. Unlike a dialog it does not block the window: a click
+    outside it, or Escape, closes it. The application keeps the content (it is
+    not deleted on close) and can open it again. `closed` (may be NULL) is
+    called when it closes, with the result given to Rpopup_close (0 when dismissed).
+    The content draws its own background (a Border with a Background...)."""
+    _lib.Rpopup_open(window, content, x, y, _callback(RDialogClosedCallback, _adapt_RDialogClosedCallback, closed), user_data)
+
+
+_lib.Rpopup_close.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpopup_close.restype = None
+
+
+def Rpopup_close(widget, result):
+    """Closes the popup that contains a widget (the content or anything inside it)."""
+    _lib.Rpopup_close(widget, result)
+
+
+_lib.Rpopup_is_open.argtypes = [ctypes.c_uint32]
+_lib.Rpopup_is_open.restype = ctypes.c_int
+
+
+def Rpopup_is_open(content):
+    """Returns: R_TRUE while the widget is shown as a popup."""
+    return _lib.Rpopup_is_open(content)
+
+
 _lib.Rwindow_has_dialog.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_has_dialog.restype = ctypes.c_int
 

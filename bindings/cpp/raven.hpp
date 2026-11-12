@@ -3956,6 +3956,24 @@ inline void dialog_close(Rid widget, int result) { Rdialog_close(widget, result)
 /// Shows a dialog and waits until it closes. Returns its result.
 inline int dialog_run(Rid window, Rid content) { return Rdialog_run(window, content); }
 
+/// Shows a widget as a popup over the window, its top-left corner at
+/// x, y (window coordinates; moved to stay inside the window): a search box,
+/// a palette, a picker. Unlike a dialog it does not block the window: a click
+/// outside it, or Escape, closes it. The application keeps the content (it is
+/// not deleted on close) and can open it again. `closed` (may be NULL) is
+/// called when it closes, with the result given to Rpopup_close (0 when dismissed).
+/// The content draws its own background (a Border with a Background...).
+inline void popup_open(Rid window, Rid content, float x, float y, RDialogClosedCallback closed, void* user_data) { Rpopup_open(window, content, x, y, closed, user_data); }
+inline void popup_open(Rid window, Rid content, float x, float y, std::function<void(Rid, int)> closed) {
+	Rpopup_open(window, content, x, y, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 87, std::move(closed)));
+}
+
+/// Closes the popup that contains a widget (the content or anything inside it).
+inline void popup_close(Rid widget, int result) { Rpopup_close(widget, result); }
+
+/// Returns: R_TRUE while the widget is shown as a popup.
+inline int popup_is_open(Rid content) { return Rpopup_is_open(content); }
+
 /// Shows a message with buttons and waits for the answer.
 /// window R_INVALID_ID: the first window of the application.
 /// title  May be NULL.
