@@ -280,12 +280,16 @@ typedef struct rvn_table_sort_key_t {
 	uint32_t row;
 } rvn_table_sort_key_t;
 
+/* A plain decimal number ("12", "-3.5", "1e3", "40 %"): words strtod also reads, such as "Nan" or
+ * "Inf", and values that do not fit stay texts. */
 static int rvn_table_parse_number(const char* text, double* number) {
 	char* end = NULL;
+	const char* digits;
 	while (*text == ' ') text++;
-	if (!*text) return R_FALSE;
+	digits = (*text == '+' || *text == '-') ? text + 1 : text;
+	if (!((*digits >= '0' && *digits <= '9') || *digits == '.')) return R_FALSE;
 	*number = strtod(text, &end);
-	if (!end || end == text) return R_FALSE;
+	if (!end || end == text || !isfinite(*number)) return R_FALSE;
 	while (*end == ' ' || *end == '%') end++;
 	return *end == '\0';
 }
