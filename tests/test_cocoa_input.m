@@ -31,6 +31,41 @@ static void test_function_keys(Rid input, NSView* view) {
 	CHECK_STR(Rtext_input_get_text(input), "");
 }
 
+static void accessible_press(Rid widget, void* user) {
+	(*(int*)user)++;
+	Rwidget_set_accessible_checked(widget, R_TRUE);
+}
+
+static void test_accessible_action(Rid window, NSView* view) {
+	Rid custom = Rwidget_create(R_WIDGET_CUSTOM);
+	int presses = 0;
+	NSArray* children;
+	id element;
+	Rwindow_set_content(window, custom);
+	Rwidget_set_focusable(custom, R_TRUE);
+	Rwidget_set_accessible_role(custom, R_ROLE_TOGGLE_BUTTON);
+	Rwidget_set_accessible_name(custom, "Box tool");
+	Rwidget_set_accessible_checked(custom, 0);
+	Rwidget_set_accessible_action(custom, accessible_press, &presses);
+	Rdraw_frame();
+	children = [view accessibilityChildren];
+	CHECK([children count] == 1);
+	if ([children count] != 1) return;
+	element = [children objectAtIndex:0];
+	CHECK([element isAccessibilitySelectorAllowed:@selector(accessibilityPerformPress)]);
+	CHECK([[element accessibilityValue] intValue] == 0);
+	CHECK([element accessibilityPerformPress]);
+	CHECK(presses == 1);
+	CHECK([[element accessibilityValue] intValue] == 1);
+	Rwidget_set_enabled(custom, R_FALSE);
+	CHECK(![element accessibilityPerformPress]);
+	CHECK(presses == 1);
+	Rwidget_set_enabled(custom, R_TRUE);
+	Rwidget_set_accessible_action(custom, NULL, NULL);
+	Rwidget_set_accessible_checked(custom, -1);
+	CHECK(![element isAccessibilitySelectorAllowed:@selector(accessibilityPerformPress)]);
+}
+
 static void test_native_menu_headers(Rid window) {
 	Rid bar = Rwidget_create(R_WIDGET_MENU_BAR);
 	Rid menu;
@@ -79,6 +114,7 @@ int main(void) {
 	CHECK(Rwindow_get_native_handle(window, &native));
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
+	test_accessible_action(window, view);
 	test_native_menu_headers(window);
 	Rwindow_destroy(window);
 	Rshutdown();

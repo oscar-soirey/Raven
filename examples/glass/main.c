@@ -103,7 +103,7 @@ static void show_time(void) {
 
 static void on_action(Rid sender, const char* action, void* user_data) {
 	(void)user_data;
-	if (strcmp(action, "theme.toggle") == 0) {
+	if (strcmp(action, "glass.toggle") == 0) {
 		Rtheme_apply(Rcheckbox_is_checked(sender) ? R_THEME_GLASS_DARK : R_THEME_GLASS_LIGHT);
 	} else if (strcmp(action, "player.toggle") == 0) {
 		app.playing = !app.playing;

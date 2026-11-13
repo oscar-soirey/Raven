@@ -372,7 +372,7 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     uint32_t mods = rvn_cocoa_modifiers([event modifierFlags]);
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key([event keyCode], [event charactersIgnoringModifiers]);
     e.pressed = 1; e.repeat = [event isARepeat]; e.modifiers = mods; rvn_cocoa_emit(ravenWindow, &e);
-    if (!e.repeat) rvn_cocoa_emit_text(ravenWindow, [event characters], mods);
+    rvn_cocoa_emit_text(ravenWindow, [event characters], mods);
 }
 - (void)keyUp:(NSEvent*)event {
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key([event keyCode], [event charactersIgnoringModifiers]);
@@ -487,9 +487,33 @@ static NSString* rvn_cocoa_string(const char* text) {
 }
 
 /* A menu of AppKit made from the entries of Raven (retained: the caller releases it). */
+/* Display hints share one right-aligned column and do not become key equivalents. */
+static CGFloat rvn_cocoa_menu_hint_edge(const rvn_pmenu_t* items, uint32_t count) {
+    CGFloat text_width = 0, hint_width = 0;
+    NSDictionary* attributes = @{NSFontAttributeName: [NSFont menuFontOfSize:0]};
+    uint32_t i;
+    for (i = 0; i < count; i++) {
+        if (items[i].separator) continue;
+        text_width = MAX(text_width, [rvn_cocoa_string(items[i].text) sizeWithAttributes:attributes].width);
+        if (items[i].shortcut_hint)
+            hint_width = MAX(hint_width, [rvn_cocoa_string(items[i].shortcut_hint) sizeWithAttributes:attributes].width);
+    }
+    return ceil(text_width + 32 + hint_width);
+}
+
+static void rvn_cocoa_menu_hint(NSMenuItem* item, NSString* text, const char* hint, CGFloat edge) {
+    NSMutableParagraphStyle* style = [[[NSMutableParagraphStyle alloc] init] autorelease];
+    NSTextTab* tab = [[[NSTextTab alloc] initWithTextAlignment:NSTextAlignmentRight location:edge options:@{}] autorelease];
+    NSString* title = hint[0] ? [NSString stringWithFormat:@"%@\t%@", text, rvn_cocoa_string(hint)] : text;
+    [style setTabStops:@[tab]];
+    [item setAttributedTitle:[[[NSAttributedString alloc] initWithString:title attributes:@{
+        NSFontAttributeName: [NSFont menuFontOfSize:0], NSParagraphStyleAttributeName: style}] autorelease]];
+}
+
 static NSMenu* rvn_cocoa_menu_from(NSString* title, const rvn_pmenu_t* items, uint32_t count) {
     NSMenu* menu = [[NSMenu alloc] initWithTitle:title];
     uint32_t i;
+    CGFloat hint_edge = rvn_cocoa_menu_hint_edge(items, count);
     [menu setAutoenablesItems:NO];
     for (i = 0; i < count; i++) {
         const rvn_pmenu_t* entry = &items[i];
@@ -510,11 +534,13 @@ static NSMenu* rvn_cocoa_menu_from(NSString* title, const rvn_pmenu_t* items, ui
         } else {
             /* a plain letter, digit or space would take the typing away from the window: only with a modifier */
             int printable = entry->key > R_KEY_UNKNOWN && entry->key < 128;
-            NSString* key = (printable && !(entry->modifiers & (R_MOD_SUPER | R_MOD_CTRL | R_MOD_ALT))) ? @"" : rvn_cocoa_key_equivalent(entry->key);
+            /* Explicit hints replace the system's key label; Raven still dispatches any bound shortcut. */
+            NSString* key = (entry->shortcut_hint || (printable && !(entry->modifiers & (R_MOD_SUPER | R_MOD_CTRL | R_MOD_ALT)))) ? @"" : rvn_cocoa_key_equivalent(entry->key);
             item = [[NSMenuItem alloc] initWithTitle:text action:@selector(ravenCommand:) keyEquivalent:key];
             if ([key length]) [item setKeyEquivalentModifierMask:rvn_cocoa_modifier_mask(entry->modifiers)];
             [item setTarget:g_cocoa.menu_target];
             [item setTag:(NSInteger)entry->id];
+            if (entry->shortcut_hint) rvn_cocoa_menu_hint(item, text, entry->shortcut_hint, hint_edge);
             if (entry->checkable) [item setState:entry->checked ? NSControlStateValueOn : NSControlStateValueOff];
         }
         [item setEnabled:entry->enabled ? YES : NO];

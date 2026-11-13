@@ -635,7 +635,7 @@ The build trees are in `build\dist\`.
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
-on Maven Central), Odin and Bun (`bun:ffi`). All but Odin are tested. See
+on Maven Central), Odin, Bun (`bun:ffi`) and D (a dub package). All but Odin are tested. See
 [bindings/README.md](bindings/README.md). They cover everything in
 `Raven.h`; `raven_web.h` is C only.
 
@@ -863,6 +863,13 @@ Rwindow_set_drop_callback(window, on_drop, NULL);     /* or Rwidget_set_drop_cal
 
 Files and text dragged from other applications. Dragging *out* of a Raven
 window to another application is not implemented.
+
+During `R_DROP_ENTER` or `R_DROP_MOVE`, call
+`Rdrop_set_highlight_rect(x, y, width, height)` to highlight an insertion line,
+dock band or other part of the target. Coordinates are target-local logical
+units and the rectangle is clipped to the target. Zero width or height hides
+the highlight while a `R_TRUE` callback result still accepts the drop. Every
+callback starts with the default full-target highlight again.
 
 ### Materials and glass
 
@@ -1121,6 +1128,16 @@ Rwidget_set_accessible_name(close_button, "Close");
 Raccessibility_announce("File saved", R_FALSE);
 ```
 
+Custom controls can expose a screen-reader press action without changing their
+pointer or keyboard handlers. Set their role and name, then call
+`Rwidget_set_accessible_action(widget, press, user_data)`. The callback runs on
+the UI thread and may destroy the widget; disabled controls cannot be pressed.
+Pass `NULL` to restore the widget's default action. For a toggle, use
+`Rwidget_set_accessible_checked(widget, 0)` or `1`; the application updates that
+state from its callback. `-1` restores the class-derived checked state (a custom
+widget is not checkable by default). Both are exposed through native screen
+readers and the browser accessibility tree.
+
 ```xml
 <Button Icon="close.png" AccessibleName="Close" AccessibleDescription="Closes the document"/>
 ```
@@ -1211,6 +1228,13 @@ in the window; its entries, check marks and shortcuts are those of the system
 action `app.quit`, which an application may bind to ask first. Elsewhere the
 bar is drawn in the window; `Rmenu_bar_set_native(bar, R_FALSE)` or
 `<MenuBar Native="false">` keeps it there on macOS too.
+
+`Rmenu_item_set_shortcut_text(item, "G G")` (XML: `ShortcutText`) sets a copied,
+display-only hint, including chords or mouse gestures. It overrides the formatted
+shortcut label without adding or changing a binding. `NULL` restores the bound
+shortcut label; an empty string hides it. In native macOS menus, hints use a
+right-aligned text column; any independently configured binding is dispatched
+by Raven.
 
 In-window bars support `Rmenu_bar_add_divider(bar)` between menu titles and
 `Rmenu_set_title_color(menu, r, g, b, a)` for a title tint (alpha zero restores
@@ -1410,7 +1434,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, D
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```

@@ -1172,6 +1172,11 @@ pub type RComboBoxChangedCallback = Option<unsafe extern "C" fn(combo_box: Rid, 
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
 pub type RListItemTextCallback = Option<unsafe extern "C" fn(list_view: Rid, index: c_int, user_data: *mut c_void) -> *const c_char>;
+/// Colors the text of rows (a level, a verdict): the list asks for the color
+/// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+/// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+/// kept on a selected or hovered row. NULL removes the callback.
+pub type RListItemColorCallback = Option<unsafe extern "C" fn(list_view: Rid, index: c_int, r: *mut f32, g: *mut f32, b: *mut f32, a: *mut f32, user_data: *mut c_void) -> c_int>;
 pub type RListEventCallback = Option<unsafe extern "C" fn(list_view: Rid, index: c_int, user_data: *mut c_void)>;
 pub type RTreeEventCallback = Option<unsafe extern "C" fn(tree_view: Rid, item: Rid, user_data: *mut c_void)>;
 /// Right click: `item` is the item under the pointer (selected
@@ -1193,6 +1198,12 @@ pub type RTileDragDataCallback = Option<unsafe extern "C" fn(tile_view: Rid, use
 /// asks for the texts of the cells it draws. The returned string must stay
 /// valid until the next call.
 pub type RTableCellTextCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, column: c_int, user_data: *mut c_void) -> *const c_char>;
+/// Colors the text of cells (a verdict, a state): the table asks for the
+/// color of each cell it draws, stored or virtual (`row` is the index of the
+/// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+/// keeps the color of the theme. The color is kept on a selected or hovered
+/// row. NULL removes the callback.
+pub type RTableCellColorCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, column: c_int, r: *mut f32, g: *mut f32, b: *mut f32, a: *mut f32, user_data: *mut c_void) -> c_int>;
 pub type RTableEventCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, user_data: *mut c_void)>;
 /// Called when the user clicks a header; `column` -1: not sorted.
 pub type RTableSortCallback = Option<unsafe extern "C" fn(table: Rid, column: c_int, descending: c_int, user_data: *mut c_void)>;
@@ -1301,6 +1312,7 @@ pub type RXmlReloadCallback = Option<unsafe extern "C" fn(path: *const c_char, o
 pub type RXmlTagCreateCallback = Option<unsafe extern "C" fn(tag: *const c_char, user_data: *mut c_void) -> Rid>;
 pub type RXmlTagAttributeCallback = Option<unsafe extern "C" fn(widget: Rid, name: *const c_char, value: *const c_char, user_data: *mut c_void) -> c_int>;
 pub type RLocaleChangedCallback = Option<unsafe extern "C" fn(language: *const c_char, user_data: *mut c_void)>;
+pub type RAccessiblePressCallback = Option<unsafe extern "C" fn(widget: Rid, user_data: *mut c_void)>;
 
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
@@ -1741,7 +1753,8 @@ pub struct RShaderLook {
     /// How much the pointer is over it and how much it is pressed, 0..1, as
     /// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
     /// the pointer is in the rectangle, and while the left button is down
-    /// there; a Border eases them itself.
+    /// there; a Border eases them itself. The rectangle is clipped to the
+    /// visible painting area; overlaid siblings do not interrupt its hover.
     pub hover: f32,
     pub press: f32,
 }
@@ -2055,6 +2068,18 @@ extern "C" {
     /// Keeps the window above the other windows (splash screens, tools).
     /// Returns: R_FALSE when the window system cannot do it.
     pub fn Rwindow_set_topmost(window: Rid, topmost: c_int) -> c_int;
+    /// Gives the window an owner (a tool window or an inspector of the
+    /// main window): it stays above its owner, has no button of its own in the
+    /// taskbar, is minimized and restored with it (where the window system
+    /// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+    /// destroys the windows a window owns before the window). R_INVALID_ID
+    /// gives the window back its independence.
+    /// Returns: R_FALSE when the window system cannot keep the window with its
+    /// owner (it is still destroyed with it), or when the owner is not valid
+    /// or is owned by the window (nothing is changed then).
+    pub fn Rwindow_set_owner(window: Rid, owner: Rid) -> c_int;
+    /// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+    pub fn Rwindow_get_owner(window: Rid) -> Rid;
     /// Picture in picture: the window becomes a small floating window
     /// that stays above the other windows, on every desktop (every space of
     /// macOS, over the applications in full screen too), in a corner of the
@@ -2101,6 +2126,12 @@ extern "C" {
     /// Takes what is dropped on the window from other applications,
     /// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
     pub fn Rwindow_set_drop_callback(window: Rid, callback: RDropCallback, user_data: *mut c_void);
+    /// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+    /// in target-local logical units (window-local for a window callback).
+    /// Clipped to the target; zero width or height hides it without refusing
+    /// the drop. Each callback starts with the default highlight again.
+    /// Dimensions must be finite and nonnegative; coordinates must be finite.
+    pub fn Rdrop_set_highlight_rect(x: f32, y: f32, width: f32, height: f32);
     pub fn Rwindow_set_user_handle(window: Rid, handle: *mut c_void);
     pub fn Rwindow_get_user_handle(window: Rid) -> *mut c_void;
     /// Fills `native` with the OS handles of the window.
@@ -2805,6 +2836,7 @@ extern "C" {
     pub fn Rlist_view_clear_items(list_view: Rid);
     pub fn Rlist_view_get_item_count(list_view: Rid) -> c_int;
     pub fn Rlist_view_set_virtual_items(list_view: Rid, count: c_int, callback: RListItemTextCallback, user_data: *mut c_void);
+    pub fn Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback, user_data: *mut c_void);
     /// Selects a row. -1 selects nothing.
     pub fn Rlist_view_set_selected(list_view: Rid, index: c_int);
     pub fn Rlist_view_get_selected(list_view: Rid) -> c_int;
@@ -2889,6 +2921,10 @@ extern "C" {
     /// Shows a shortcut next to the item and triggers the item when the
     /// keys are pressed in the window of its menu bar.
     pub fn Rmenu_item_set_shortcut(item: Rid, key: RKey, modifiers: u32);
+    /// Display-only shortcut hint; copied, never binds a key. Overrides
+    /// the formatted shortcut without changing its binding. NULL restores the
+    /// formatted shortcut; an empty string hides it. XML: ShortcutText.
+    pub fn Rmenu_item_set_shortcut_text(item: Rid, text: *const c_char);
     pub fn Rmenu_item_set_checkable(item: Rid, checkable: c_int);
     pub fn Rmenu_item_set_checked(item: Rid, checked: c_int);
     /// Icon drawn before the text of a menu item (after the check mark column).
@@ -2959,6 +2995,7 @@ extern "C" {
     pub fn Rtable_clear_rows(table: Rid);
     pub fn Rtable_get_row_count(table: Rid) -> c_int;
     pub fn Rtable_set_virtual_rows(table: Rid, count: c_int, callback: RTableCellTextCallback, user_data: *mut c_void);
+    pub fn Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback, user_data: *mut c_void);
     /// Selects a row. -1 selects nothing.
     pub fn Rtable_set_selected(table: Rid, row: c_int);
     pub fn Rtable_get_selected(table: Rid) -> c_int;
@@ -4252,6 +4289,14 @@ extern "C" {
     pub fn Rwidget_set_accessible_hidden(widget: Rid, hidden: c_int);
     /// The widget is named by another one (a label): its text is the name.
     pub fn Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid);
+    /// Explicit screen-reader press action, including for custom widgets.
+    /// NULL removes the override. Does not change pointer or keyboard handling.
+    /// Disabled widgets (including disabled ancestors) cannot be pressed.
+    pub fn Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback, user_data: *mut c_void);
+    /// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+    /// widget's default (not checkable for a custom widget). The application owns
+    /// this state; a press callback updates it when appropriate.
+    pub fn Rwidget_set_accessible_checked(widget: Rid, checked: c_int);
     /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
     pub fn Raccessibility_announce(text: *const c_char, assertive: c_int);
     /// R_TRUE when a screen reader is reading the windows of the application.

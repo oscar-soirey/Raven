@@ -708,6 +708,8 @@ typedef struct rvn_popup_t {
 	void* closed_user;
 	/** Dialogs: the widget that had the keyboard before, which gets it back. */
 	Rid focus_back;
+	/** Being closed with the popups above it (one that a closed callback opens meanwhile stays open). */
+	int closing;
 } rvn_popup_t;
 
 /**
@@ -766,6 +768,8 @@ struct rvn_window_t {
 	int surface_ready;
 	/** RWindowFlags given at creation. */
 	uint32_t window_flags;
+	/** The window that owns this one (Rwindow_set_owner), or R_INVALID_ID. */
+	Rid owner;
 	rvn_pwindow_state_t state;
 	/** R_TRUE while the window is the one the user works in. */
 	int active;
@@ -840,6 +844,8 @@ struct rvn_window_t {
 	int drop_accepted;
 	/** Highlight of the target: where it is and how much of it shows. */
 	rvn_rect_t drop_rect;
+	int drop_custom;
+	rvn_rect_t drop_custom_rect;
 	float drop_radius;
 	RSpring drop_shown;
 
