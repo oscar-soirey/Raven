@@ -372,6 +372,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 	rvn_widget_t* old = window->focus;
 	REvent event;
 	if (old == widget) return;
+	/* (called from the application too: a callback that closes the window must not free it under us) */
+	rvn_dispatch_begin();
 	window->focus = widget;
 	window->text_input_owner = R_INVALID_ID;
 	window->needs_paint = R_TRUE;
@@ -380,14 +382,15 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 		event = rvn_window_event(window, R_EVENT_FOCUS_LOST);
 		rvn_widget_send(old, &event);
 	}
-	/* the callback above may have changed the focus again */
-	if (widget && window->focus == widget && !(widget->flags & RVN_WF_DEAD)) {
+	/* the callback above may have changed the focus again, or closed the window */
+	if (widget && !window->dead && window->focus == widget && !(widget->flags & RVN_WF_DEAD)) {
 		widget->flags |= RVN_WF_FOCUSED;
 		event = rvn_window_event(window, R_EVENT_FOCUS_GAINED);
 		rvn_widget_send(widget, &event);
 	}
 	/* an island in the camera housing: its overlay takes the keyboard while something in it has the focus */
-	if (window->notch_owner) rvn_window_notch_focus(window);
+	if (!window->dead && window->notch_owner) rvn_window_notch_focus(window);
+	rvn_dispatch_end();
 }
 
 typedef struct rvn_focus_list_t {
@@ -493,12 +496,17 @@ void rvn_window_open_dialog(rvn_window_t* window, rvn_widget_t* root, RDialogClo
 	rvn_popup_t* popup;
 	rvn_widget_t* focus = window->focus;
 	if (rvn_window_popup_index(window, root) >= 0) return;
+	/* (the callbacks of the focus and of the hover may close the window: it is freed when this returns) */
+	rvn_dispatch_begin();
 	/* menus and lists do not stay open under a dialog */
 	rvn_window_close_popups(window);
 	if (root->parent || root->window) rvn_widget_detach(root);
 	window->capture = NULL;
 	rvn_window_set_focus(window, NULL);
-	if (window->dead || (root->flags & RVN_WF_DEAD)) return;
+	if (window->dead || (root->flags & RVN_WF_DEAD)) {
+		rvn_dispatch_end();
+		return;
+	}
 	/* the widget that had the keyboard gets it back when the dialog closes */
 	rvn_window_open_popup(window, root, NULL, rvn_rect(0.0f, 0.0f, 0.0f, 0.0f), RVN_POPUP_DIALOG, 0.0f);
 	popup = &window->popups[window->popup_count - 1];
@@ -506,6 +514,7 @@ void rvn_window_open_dialog(rvn_window_t* window, rvn_widget_t* root, RDialogClo
 	popup->closed = closed;
 	popup->closed_user = user;
 	rvn_window_refresh_hover(window);
+	rvn_dispatch_end();
 }
 
 int rvn_window_close_dialog(rvn_widget_t* inside, int result) {
@@ -744,7 +753,10 @@ void rvn_window_layout(rvn_window_t* window) {
 	/* an overlay of the camera housing: its size and the part of it that takes the mouse follow the island */
 	if (window->notch_owner) rvn_window_overlay_fit(window);
 	window->stats.layout_ms = (rvn_clock_seconds() - start) * 1000.0;
+	/* (the widgets that the pointer leaves or enters are told: a callback may close the window) */
+	rvn_dispatch_begin();
 	rvn_window_refresh_hover(window);
+	rvn_dispatch_end();
 }
 
 /* ---------------------------------------------------------------------------
@@ -1113,6 +1125,7 @@ void rvn_window_update(rvn_window_t* window) {
 	/* the menu bar of the system follows the MenuBar of the window */
 	if (g_rvn.platform->window_set_menu_bar) rvn_menu_bar_sync(window);
 	if (window->needs_layout) rvn_window_layout(window);
+	if (window->dead) return;
 	/* (the compositor did not ask for a frame yet: it is painted when it does, with all that changed meanwhile) */
 	if (window->needs_paint && rvn_window_frame_wait(window) <= 0.0) rvn_window_paint(window, NULL);
 }
