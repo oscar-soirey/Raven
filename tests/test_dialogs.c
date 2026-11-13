@@ -735,6 +735,22 @@ static void on_popup_closed(Rid content, int result, void* user_data) {
 	g_popup_closed = result;
 }
 
+/* The closed callback of a popup opens the next one (issue #161). */
+static Rid g_popup_window, g_next_popup;
+static int g_next_closed;
+static void on_next_closed(Rid content, int result, void* user_data) {
+	(void)content;
+	(void)result;
+	(void)user_data;
+	g_next_closed++;
+}
+static void open_next_popup(Rid content, int result, void* user_data) {
+	(void)content;
+	(void)user_data;
+	g_popup_closed = result;
+	Rpopup_open(g_popup_window, g_next_popup, 50.0f, 50.0f, on_next_closed, NULL);
+}
+
 /* A popup: shown at a point, kept by the application, closed by a click outside or by the application. */
 static void test_popup(void) {
 	Rid window, popup;
@@ -756,6 +772,27 @@ static void test_popup(void) {
 	Rpopup_close(Rwidget_find(popup, "q"), 7);
 	Rdraw_frame();
 	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 7 && Rwidget_is_valid(popup));
+
+	/* a popup opened by the closed callback of another one stays open, by the application or by a click outside */
+	g_popup_window = window;
+	g_next_popup = Rlabel_create("next");
+	g_next_closed = 0;
+	Rpopup_open(window, popup, 300.0f, 200.0f, open_next_popup, NULL);
+	Rdraw_frame();
+	Rpopup_close(popup, 3);
+	Rdraw_frame();
+	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 3);
+	CHECK(Rpopup_is_open(g_next_popup) && g_next_closed == 0 && Rwindow_get_popup_count(window) == 1);
+	Rpopup_close(g_next_popup, 0);
+	Rpopup_open(window, popup, 300.0f, 200.0f, open_next_popup, NULL);
+	Rdraw_frame();
+	test_click_at(window, 850.0f, 550.0f);
+	Rdraw_frame();
+	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 0);
+	CHECK(Rpopup_is_open(g_next_popup) && g_next_closed == 1 && Rwindow_get_popup_count(window) == 1);
+	Rpopup_close(g_next_popup, 0);
+	CHECK(g_next_closed == 2 && Rwindow_get_popup_count(window) == 0);
+	Rwidget_destroy(g_next_popup);
 	Rwidget_destroy(popup);
 	Rwindow_destroy(window);
 }

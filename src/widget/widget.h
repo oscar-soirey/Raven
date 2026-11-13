@@ -708,6 +708,8 @@ typedef struct rvn_popup_t {
 	void* closed_user;
 	/** Dialogs: the widget that had the keyboard before, which gets it back. */
 	Rid focus_back;
+	/** Being closed with the popups above it (one that a closed callback opens meanwhile stays open). */
+	int closing;
 } rvn_popup_t;
 
 /**

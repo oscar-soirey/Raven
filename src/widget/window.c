@@ -522,12 +522,26 @@ int rvn_window_close_dialog(rvn_widget_t* inside, int result) {
 	return R_FALSE;
 }
 
+/* Takes out the topmost popup that is closing (those opened above it meanwhile keep their order). */
+static int rvn_window_take_closing_popup(rvn_window_t* window, rvn_popup_t* popup) {
+	uint32_t i;
+	for (i = window->popup_count; i > 0 && !window->popups[i - 1].closing; i--) {}
+	if (i == 0) return R_FALSE;
+	*popup = window->popups[i - 1];
+	memmove(&window->popups[i - 1], &window->popups[i], (window->popup_count - i) * sizeof(rvn_popup_t));
+	window->popup_count--;
+	return R_TRUE;
+}
+
 void rvn_window_close_popup(rvn_window_t* window, rvn_widget_t* root) {
 	int index = rvn_window_popup_index(window, root);
+	rvn_popup_t popup;
+	uint32_t i;
 	if (index < 0) return;
 	rvn_dispatch_begin();
-	while ((int)window->popup_count > index) {
-		rvn_popup_t popup = window->popups[--window->popup_count];
+	/* the popups open now close: one that a closed callback opens stays open */
+	for (i = (uint32_t)index; i < window->popup_count; i++) window->popups[i].closing = R_TRUE;
+	while (rvn_window_take_closing_popup(window, &popup)) {
 		rvn_widget_t* closed = popup.root;
 		int dialog = popup.placement == RVN_POPUP_DIALOG;
 		int ghost_shown = R_FALSE;
