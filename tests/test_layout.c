@@ -237,6 +237,29 @@ static void test_scroll_box(void) {
 	Rwindow_inject_mouse_wheel(g_window, 0, -1);
 	Rscroll_box_get_offset(scroll, &x, &y);
 	CHECK(y > 0);
+
+	/* a box that also scrolls across brings a widget into view along both axes */
+	{
+		Rid grid = Rwidget_create(R_WIDGET_SCROLL_BOX);
+		Rid target = R_INVALID_ID;
+		float w, h;
+		int row, column;
+		Rscroll_box_set_scroll_both(grid, R_TRUE);
+		for (row = 0; row < 5; row++) {
+			Rid line = Rwidget_add_child(grid, Rwidget_create(R_WIDGET_HBOX));
+			for (column = 0; column < 10; column++) {
+				Rid cell = Rwidget_add_child(line, block(100, 100));
+				if (row == 3 && column == 7) target = cell;
+			}
+		}
+		Rwindow_set_content(g_window, grid);
+		Rwidget_scroll_into_view(target);
+		Rscroll_box_get_offset(grid, &x, &y);
+		CHECK(x > 0 && y > 0);
+		Rwidget_get_rect(target, &x, &y, &w, &h);
+		CHECK(x >= 0 && x + w <= 400 - bar);
+		CHECK(y >= 0 && y + h <= 300 - bar);
+	}
 }
 
 static void test_splitter_and_wrap(void) {
