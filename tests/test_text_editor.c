@@ -403,6 +403,37 @@ static void test_clipboard_and_history(void) {
 		for (i = 0; i < 200; i++) Rtext_editor_redo(g_editor);
 		CHECK(strncmp(Rtext_editor_get_text(g_editor), expected, 200) == 0);
 	}
+
+	/* a lone carriage return is text like any other: undo gives it back, and the steps before it still line up */
+	Rtext_editor_set_text(g_editor, "a\rb");
+	Rtext_editor_set_cursor(g_editor, 0, 3);
+	key(R_KEY_BACKSPACE, 0);
+	key(R_KEY_BACKSPACE, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK(Rtext_editor_get_length(g_editor) == 2);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\r");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK(Rtext_editor_get_length(g_editor) == 3);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\rb");
+	Rtext_editor_redo(g_editor);
+	Rtext_editor_redo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a");
+	Rtext_editor_undo(g_editor);
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\rb");
+	/* one that ends up before a line break too */
+	Rtext_editor_set_text(g_editor, "x\ry");
+	Rtext_editor_set_cursor(g_editor, 0, 2);
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\r\ny");
+	key(R_KEY_A, R_MOD_CTRL);
+	key(R_KEY_DELETE, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\r\ny");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\ry");
 	Rwindow_destroy(g_window);
 }
 
