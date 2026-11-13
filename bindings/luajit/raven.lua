@@ -1197,6 +1197,8 @@ int Rwindow_has_own_theme(Rid window);
 int Rwindow_set_opacity(Rid window, float opacity);
 float Rwindow_get_opacity(Rid window);
 int Rwindow_set_topmost(Rid window, int topmost);
+int Rwindow_set_owner(Rid window, Rid owner);
+Rid Rwindow_get_owner(Rid window);
 int Rwindow_set_picture_in_picture(Rid window, int enabled);
 int Rwindow_is_picture_in_picture(Rid window);
 void Rwindow_set_picture_in_picture_layout(Rid window, int width, int height, RPictureInPictureCorner corner);

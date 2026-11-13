@@ -6840,6 +6840,46 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_set_owner$;
+
+    /**
+     * Gives the window an owner (a tool window or an inspector of the
+     * main window): it stays above its owner, has no button of its own in the
+     * taskbar, is minimized and restored with it (where the window system
+     * does it: Windows, X11), and is destroyed with it (everywhere: Raven
+     * destroys the windows a window owns before the window). R_INVALID_ID
+     * gives the window back its independence.
+     * Returns: R_FALSE when the window system cannot keep the window with its
+     * owner (it is still destroyed with it), or when the owner is not valid
+     * or is owned by the window (nothing is changed then).
+     */
+    public static int Rwindow_set_owner(int window, int owner) {
+        MethodHandle $h = Rwindow_set_owner$;
+        if ($h == null) Rwindow_set_owner$ = $h = find("Rwindow_set_owner", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window, owner);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_owner$;
+
+    /**
+     * Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+     */
+    public static int Rwindow_get_owner(int window) {
+        MethodHandle $h = Rwindow_get_owner$;
+        if ($h == null) Rwindow_get_owner$ = $h = find("Rwindow_get_owner", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_set_picture_in_picture$;
 
     /**

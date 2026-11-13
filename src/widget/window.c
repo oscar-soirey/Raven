@@ -1953,6 +1953,7 @@ static void rvn_window_free(rvn_window_t* window) {
 
 void rvn_window_destroy(rvn_window_t* window) {
 	rvn_widget_t* root;
+	uint32_t i;
 	if (window->dead) return;
 	rvn_inspector_window_destroyed(window);
 	if (window->dead) return;
@@ -1963,6 +1964,12 @@ void rvn_window_destroy(rvn_window_t* window) {
 	}
 	if (window->notch_overlay) rvn_window_notch_leave(window);
 	rvn_window_close_all_popups(window);
+	if (window->dead) return;
+	/* the windows it owns go first (the window system would take them with it) */
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* owned = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		if (owned && owned != window && !owned->dead && owned->owner == window->id) rvn_window_destroy(owned);
+	}
 	if (window->dead) return;
 	while (window->ghost_count > 0) rvn_window_remove_ghost(window, 0);
 	rvn_window_tooltip_hide(window);
@@ -2027,6 +2034,7 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 	window->click_button = -1;
 	window->opacity = 1.0f;
 	window->tab_navigation = R_TRUE;
+	window->owner = R_INVALID_ID;
 	window->id = rvn_pool_add(&g_rvn.windows, window);
 	if (window->id == R_INVALID_ID) {
 		rvn_free(window->title);
@@ -2217,6 +2225,35 @@ int Rwindow_set_topmost(Rid id, int topmost) {
 	RVN_WINDOW(window, id, R_FALSE);
 	if (!g_rvn.platform->window_set_topmost) return R_FALSE;
 	return g_rvn.platform->window_set_topmost(window->platform, topmost ? R_TRUE : R_FALSE);
+}
+
+int Rwindow_set_owner(Rid id, Rid owner_id) {
+	rvn_window_t* owner = NULL;
+	rvn_window_t* up;
+	RVN_WINDOW(window, id, R_FALSE);
+	if (owner_id != R_INVALID_ID) {
+		owner = rvn_window_get(owner_id);
+		if (!owner) {
+			rvn_error(R_ERROR_INVALID_ID, R_SEVERITY_ERROR, "Rwindow_set_owner: invalid owner window");
+			return R_FALSE;
+		}
+		/* (a window cannot own itself, nor a window that owns it) */
+		for (up = owner; up; up = up->owner != R_INVALID_ID ? rvn_window_get(up->owner) : NULL) {
+			if (up == window) {
+				rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rwindow_set_owner: the window would own itself");
+				return R_FALSE;
+			}
+		}
+	}
+	window->owner = owner ? owner->id : R_INVALID_ID;
+	if (!g_rvn.platform->window_set_owner) return R_FALSE;
+	return g_rvn.platform->window_set_owner(window->platform, owner ? owner->platform : NULL);
+}
+
+Rid Rwindow_get_owner(Rid id) {
+	RVN_WINDOW(window, id, R_INVALID_ID);
+	if (window->owner != R_INVALID_ID && !rvn_window_get(window->owner)) window->owner = R_INVALID_ID;
+	return window->owner;
 }
 
 /* The size in picture in picture, in pixels: the one asked for, else 320 wide with the proportions of the content. */

@@ -1814,6 +1814,20 @@ public:
 	/// Returns: R_FALSE when the window system cannot do it.
 	int set_topmost(int topmost) const { return Rwindow_set_topmost(id_, topmost); }
 
+	/// Gives the window an owner (a tool window or an inspector of the
+	/// main window): it stays above its owner, has no button of its own in the
+	/// taskbar, is minimized and restored with it (where the window system
+	/// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+	/// destroys the windows a window owns before the window). R_INVALID_ID
+	/// gives the window back its independence.
+	/// Returns: R_FALSE when the window system cannot keep the window with its
+	/// owner (it is still destroyed with it), or when the owner is not valid
+	/// or is owned by the window (nothing is changed then).
+	int set_owner(Rid owner) const { return Rwindow_set_owner(id_, owner); }
+
+	/// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+	Rid get_owner() const { return Rwindow_get_owner(id_); }
+
 	/// Picture in picture: the window becomes a small floating window
 	/// that stays above the other windows, on every desktop (every space of
 	/// macOS, over the applications in full screen too), in a corner of the

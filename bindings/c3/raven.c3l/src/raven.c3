@@ -4947,6 +4947,22 @@ fn float Window.get_opacity(self) @inline => c::r_window_get_opacity((c::Rid)sel
 fn bool Window.set_topmost(self, bool topmost) @inline => c::r_window_set_topmost((c::Rid)self, (CInt)topmost) != 0;
 
 <*
+ Gives the window an owner (a tool window or an inspector of the
+ main window): it stays above its owner, has no button of its own in the
+ taskbar, is minimized and restored with it (where the window system
+ does it: Windows, X11), and is destroyed with it (everywhere: Raven
+ destroys the windows a window owns before the window). R_INVALID_ID
+ gives the window back its independence.
+ Returns R_FALSE when the window system cannot keep the window with its
+ owner (it is still destroyed with it), or when the owner is not valid
+ or is owned by the window (nothing is changed then).
+*>
+fn bool Window.set_owner(self, Id owner) @inline => c::r_window_set_owner((c::Rid)self, (c::Rid)owner) != 0;
+
+<* Returns The owner of the window (Rwindow_set_owner), or R_INVALID_ID. *>
+fn Id Window.get_owner(self) @inline => (Id)c::r_window_get_owner((c::Rid)self);
+
+<*
  Picture in picture: the window becomes a small floating window
  that stays above the other windows, on every desktop (every space of
  macOS, over the applications in full screen too), in a corner of the
