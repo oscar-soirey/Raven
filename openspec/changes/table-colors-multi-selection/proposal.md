@@ -6,7 +6,7 @@ Table has a single selected index and theme-wide text color, while TreeView equi
 Issue: https://github.com/oscar-soirey/Raven/issues/97
 
 ## What Changes
-Add the cell-color setter and virtual color callback proposed in #97, plus set_multi_select, set_row_selected, is_row_selected, clear_selection, get_selection_count and get_selection. Single selection remains the default and Rtable_get_selected remains the primary row.
+Add the per-cell/row text-color setter proposed in #97 (the existing Rtable_set_cell_color_callback, added by #163, takes precedence over it), plus set_multi_select, set_row_selected, is_row_selected, clear_selection, get_selection_count and get_selection. Single selection remains the default and Rtable_get_selected remains the primary row.
 
 ## Capabilities
 

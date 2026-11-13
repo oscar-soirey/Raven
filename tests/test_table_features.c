@@ -80,6 +80,13 @@ static void test_selection(void) {
 	Rwindow_destroy(window);
 }
 
+static int stored_color(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user) {
+	(void)table; (void)user;
+	*r = 0; *g = 1; *b = 0; *a = 1;
+	if (row == 0 && column == 1) *a = 0; /* alpha 0: keep the fixed color */
+	return row == 0;
+}
+
 static void test_colors_and_sorting(void) {
 	Rid window = Rwindow_create("Colors", 400, 300, 0);
 	Rid table = Rwidget_create(R_WIDGET_TABLE);
@@ -97,6 +104,12 @@ static void test_colors_and_sorting(void) {
 	Rtable_set_cell_text_color(table, 0, 1, 0, 1, 0, 1);
 	Rdraw_frame();
 	CHECK(g_red == 1 && g_green == 1); /* explicit colors apply to selected rows too */
+	Rtable_set_cell_color_callback(table, stored_color, NULL);
+	Rdraw_frame();
+	CHECK(g_red == 0 && g_green == 2); /* the callback wins over the row color; alpha 0 keeps the cell color */
+	Rtable_set_cell_color_callback(table, NULL, NULL);
+	Rdraw_frame();
+	CHECK(g_red == 1 && g_green == 1);
 	Rtable_sort(table, 0, R_FALSE);
 	CHECK(Rtable_get_selection(table, 0) == 1 && Rtable_get_selection(table, 1) == 2);
 	CHECK_STR(Rtable_get_cell(table, Rtable_get_selected(table), 0), "c");

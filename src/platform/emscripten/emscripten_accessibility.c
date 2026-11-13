@@ -100,11 +100,12 @@ EM_JS(void, rvn_web_access_node, (uint32_t lo, uint32_t hi,
         node.readOnly = !!(states & 1024);
         node.disabled = !!(states & 4);
     }
-    for (const name of ['aria-disabled','aria-checked','aria-expanded',
+    for (const name of ['aria-disabled','aria-checked','aria-pressed','aria-expanded',
         'aria-selected','aria-readonly','aria-multiline','aria-modal','aria-multiselectable',
         'aria-valuenow','aria-valuemin','aria-valuemax']) node.removeAttribute(name);
     if (states & 4) node.setAttribute('aria-disabled', 'true');
-    if (states & 16) node.setAttribute('aria-checked', states & 8 ? 'true' : 'false');
+    if (states & 16) node.setAttribute(roleName === 'button' ? 'aria-pressed' : 'aria-checked',
+        states & 8 ? 'true' : 'false');
     if (states & 64) node.setAttribute('aria-expanded', states & 32 ? 'true' : 'false');
     if (states & 256) node.setAttribute('aria-selected', states & 128 ? 'true' : 'false');
     if (states & 1024) node.setAttribute('aria-readonly', 'true');

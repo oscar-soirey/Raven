@@ -67,6 +67,15 @@ void rvn_cond_broadcast(rvn_cond_t* cond);
 	/** Adds and returns the new value. */
 	RVN_INLINE int rvn_atomic_add(rvn_atomic_t* a, int v) { return (int)_InterlockedExchangeAdd(&a->value, (long)v) + v; }
 	RVN_INLINE int rvn_atomic_exchange(rvn_atomic_t* a, int v) { return (int)_InterlockedExchange(&a->value, (long)v); }
+	/** Raises the value to v when it is smaller. */
+	RVN_INLINE void rvn_atomic_max(rvn_atomic_t* a, int v) {
+		long seen = _InterlockedCompareExchange(&a->value, 0, 0);
+		while (seen < (long)v) {
+			long before = _InterlockedCompareExchange(&a->value, (long)v, seen);
+			if (before == seen) break;
+			seen = before;
+		}
+	}
 	/** Atomic pointer. */
 	typedef struct rvn_atomic_ptr_t { void* volatile value; } rvn_atomic_ptr_t;
 	RVN_INLINE void* rvn_atomic_ptr_load(rvn_atomic_ptr_t* a) { return _InterlockedCompareExchangePointer(&a->value, NULL, NULL); }
@@ -79,6 +88,11 @@ void rvn_cond_broadcast(rvn_cond_t* cond);
 	/** Adds and returns the new value. */
 	RVN_INLINE int rvn_atomic_add(rvn_atomic_t* a, int v) { return atomic_fetch_add(&a->value, v) + v; }
 	RVN_INLINE int rvn_atomic_exchange(rvn_atomic_t* a, int v) { return atomic_exchange(&a->value, v); }
+	/** Raises the value to v when it is smaller. */
+	RVN_INLINE void rvn_atomic_max(rvn_atomic_t* a, int v) {
+		int seen = atomic_load(&a->value);
+		while (seen < v && !atomic_compare_exchange_weak(&a->value, &seen, v)) {}
+	}
 	/** Atomic pointer. */
 	typedef struct rvn_atomic_ptr_t { _Atomic(void*) value; } rvn_atomic_ptr_t;
 	RVN_INLINE void* rvn_atomic_ptr_load(rvn_atomic_ptr_t* a) { return atomic_load(&a->value); }

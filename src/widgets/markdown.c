@@ -66,7 +66,8 @@ typedef struct rvn_md_block_t {
 	uint32_t language_start, language_length;
 	/** Table: its cells, row after row, in rvn_md_t::cells; the first row is the header. */
 	uint32_t first_cell;
-	uint16_t columns, rows;
+	uint16_t columns;
+	uint32_t rows;
 	/** Image: its address, in rvn_md_t::links. */
 	int16_t link;
 } rvn_md_block_t;
@@ -201,37 +202,68 @@ static int rvn_md_is_word(char c) {
 	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || ((unsigned char)c & 0x80u);
 }
 
-/* Is there, after `from`, the same run of `count` marks that could close what one opens here? */
-static int rvn_md_has_closer(const char* from, const char* end, char mark, int count) {
-	const char* p = from;
-	while (p < end) {
-		if (*p == '\\' && p + 1 < end) {
-			p += 2;
-			continue;
+/*
+ * The places, in the text of one rvn_md_inline, from where the search for a
+ * closer is known to find none: one bit per byte for each kind of mark (*, **,
+ * _, __, ~~). Without them, marks that close nothing ("*a *a *a ...") would
+ * each search to the end of the text.
+ */
+typedef struct rvn_md_closers_t {
+	const char* start;
+	size_t length;
+	uint8_t* none[5];
+} rvn_md_closers_t;
+
+/* One step of the search for a closer: where it goes on from `p`. */
+static const char* rvn_md_closer_step(const char* p, const char* end, char mark) {
+	if (*p == '\\' && p + 1 < end) return p + 2;
+	if (*p == '`') {
+		/* marks inside code do not count */
+		const char* close;
+		int ticks = 0;
+		while (p + ticks < end && p[ticks] == '`') ticks++;
+		close = p + ticks;
+		while (close < end) {
+			int run = 0;
+			while (close + run < end && close[run] == '`') run++;
+			if (run == ticks) break;
+			close += run ? run : 1;
 		}
-		if (*p == '`') {
-			/* marks inside code do not count */
-			const char* close;
-			int ticks = 0;
-			while (p + ticks < end && p[ticks] == '`') ticks++;
-			close = p + ticks;
-			while (close < end) {
-				int run = 0;
-				while (close + run < end && close[run] == '`') run++;
-				if (run == ticks) break;
-				close += run ? run : 1;
-			}
-			p = close < end ? close + ticks : p + ticks;
-			continue;
-		}
-		if (*p == mark) {
+		return close < end ? close + ticks : p + ticks;
+	}
+	if (*p == mark) {
+		while (p < end && *p == mark) p++;
+		return p;
+	}
+	return p + 1;
+}
+
+/*
+ * Is there, after `from`, the same run of `count` marks that could close what one opens here?
+ * The search only depends on where it is: once it reaches a place from where an
+ * earlier one found nothing, it finds nothing either.
+ */
+static int rvn_md_has_closer(rvn_md_closers_t* closers, const char* from, const char* end, char mark, int count) {
+	int kind = (mark == '*' ? 0 : mark == '_' ? 2 : 4) + (count >= 2 && mark != '~' ? 1 : 0);
+	uint8_t* none = closers->none[kind];
+	const char* p;
+	for (p = from; p < end; p = rvn_md_closer_step(p, end, mark)) {
+		size_t at = (size_t)(p - closers->start);
+		if (p > from && none && (none[at >> 3] & (1u << (at & 7u)))) break;
+		if (*p == mark && p > from && !rvn_md_is_space(p[-1])) {
 			int run = 0;
 			while (p + run < end && p[run] == mark) run++;
-			if (run >= count && p > from && !rvn_md_is_space(p[-1])) return R_TRUE;
-			p += run;
-			continue;
+			if (run >= count) return R_TRUE;
 		}
-		p++;
+	}
+	/* none: the places this search went through are remembered */
+	if (!none) none = closers->none[kind] = (uint8_t*)rvn_calloc(closers->length / 8 + 1);
+	for (p = from; p < end; p = rvn_md_closer_step(p, end, mark)) {
+		size_t at = (size_t)(p - closers->start);
+		if (p > from) {
+			if (none[at >> 3] & (1u << (at & 7u))) break;
+			none[at >> 3] |= (uint8_t)(1u << (at & 7u));
+		}
 	}
 	return R_FALSE;
 }
@@ -341,6 +373,12 @@ static const char* rvn_md_link_parts(const char* p, const char* end, const char*
 static void rvn_md_inline(rvn_md_inline_t* in, const char* p, const char* end, int depth) {
 	const char* start = p;
 	int space_pending = R_FALSE;
+	rvn_md_closers_t closers;
+	size_t k;
+
+	memset(&closers, 0, sizeof(closers));
+	closers.start = p;
+	closers.length = (size_t)(end - p);
 
 	while (p < end) {
 		char c = *p;
@@ -433,7 +471,7 @@ static void rvn_md_inline(rvn_md_inline_t* in, const char* p, const char* end, i
 					rvn_md_flush(in, 0);
 					in->flags &= ~flag;
 				} else {
-					if (rvn_md_is_space(next) || inside_word || !rvn_md_has_closer(p + run, end, c, count)) break;
+					if (rvn_md_is_space(next) || inside_word || !rvn_md_has_closer(&closers, p + run, end, c, count)) break;
 					rvn_md_flush(in, 0);
 					in->flags |= flag;
 				}
@@ -504,6 +542,7 @@ static void rvn_md_inline(rvn_md_inline_t* in, const char* p, const char* end, i
 		rvn_md_put(in, p, 1);
 		p++;
 	}
+	for (k = 0; k < RVN_COUNT_OF(closers.none); k++) rvn_free(closers.none[k]);
 }
 
 /* Reads the inline text of a block; returns its first span and their number. */
@@ -966,7 +1005,7 @@ rvn_md_t* rvn_md_parse(const char* source) {
 						p = row_end < end ? row_end + 1 : end;
 					}
 				}
-				md->blocks[table_index].rows = (uint16_t)rows;
+				md->blocks[table_index].rows = (uint32_t)rows;
 				blank_before = R_FALSE;
 				continue;
 			}
@@ -1319,7 +1358,7 @@ static float rvn_md_table(rvn_md_layout_t* layout, const rvn_md_block_t* block, 
 	float widths[RVN_MD_MAX_COLUMNS];
 	float pad_x = floorf(layout->size * 0.75f), pad_y = floorf(layout->size * 0.36f);
 	float total = 0.0f, top = y, x;
-	int columns = block->columns, rows = block->rows, r, c;
+	int columns = block->columns, rows = (int)block->rows, r, c;
 
 	if (columns <= 0 || rows <= 0) return 0.0f;
 	for (c = 0; c < columns; c++) {

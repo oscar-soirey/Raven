@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Table cell colors and multiple row selection
-The library SHALL provide the following behavior while preserving existing defaults: Add the cell-color setter and virtual color callback proposed in #97, plus set_multi_select, set_row_selected, is_row_selected, clear_selection, get_selection_count and get_selection. Single selection remains the default and Rtable_get_selected remains the primary row.
+The library SHALL provide the following behavior while preserving existing defaults: Add the per-cell/row text-color setter proposed in #97 (the existing Rtable_set_cell_color_callback, added by #163, takes precedence over it), plus set_multi_select, set_row_selected, is_row_selected, clear_selection, get_selection_count and get_selection. Single selection remains the default and Rtable_get_selected remains the primary row.
 
 #### Scenario: Application uses the new capability
 - **WHEN** the application configures this capability through the public API

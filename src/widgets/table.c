@@ -54,6 +54,7 @@ typedef struct rvn_table_t {
 	int virtual_count;
 	RTableCellTextCallback cell_callback;
 	void* cell_user;
+	/* the color of the text of a cell, asked of the application (NULL: the theme's) */
 	RTableCellColorCallback color_callback;
 	void* color_user;
 	int multi;
@@ -161,18 +162,6 @@ static rvn_color_t* rvn_table_repack_colors(rvn_color_t* colors, uint32_t old_co
 	return grown;
 }
 
-static rvn_color_t rvn_table_cell_color(rvn_table_t* table, int row, int column, rvn_color_t fallback) {
-	rvn_color_t color = 0;
-	if (table->is_virtual && table->color_callback) {
-		float r = 0, g = 0, b = 0, a = 1;
-		if (table->color_callback(table->base.id, row, column, &r, &g, &b, &a, table->color_user)) return rvn_rgba(r, g, b, a);
-	} else if (!table->is_virtual) {
-		if (table->cell_colors) color = table->cell_colors[(size_t)row * table->column_count + (size_t)column];
-		if (!rvn_color_a(color) && table->row_colors) color = table->row_colors[row];
-	}
-	return rvn_color_a(color) ? color : fallback;
-}
-
 static const char* rvn_table_cell(rvn_table_t* table, int row, int column) {
 	const char* text;
 	if (row < 0 || row >= rvn_table_count(table) || column < 0 || column >= (int)table->column_count) return "";
@@ -182,6 +171,20 @@ static const char* rvn_table_cell(rvn_table_t* table, int row, int column) {
 	}
 	text = table->cell_callback ? table->cell_callback(table->base.id, row, column, table->cell_user) : NULL;
 	return text ? text : "";
+}
+
+/* The color of the text of a cell: the callback's when it gives one, else the
+ * stored cell color, else the stored row color (stored rows only), else `fallback`. */
+static rvn_color_t rvn_table_cell_color(rvn_table_t* table, int row, int column, rvn_color_t fallback) {
+	float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
+	rvn_color_t color = 0;
+	if (table->color_callback && table->color_callback(table->base.id, row, column, &r, &g, &b, &a, table->color_user) && a > 0.0f)
+		return rvn_rgba(r, g, b, a);
+	if (!table->is_virtual) {
+		if (table->cell_colors) color = table->cell_colors[(size_t)row * table->column_count + (size_t)column];
+		if (!rvn_color_a(color) && table->row_colors) color = table->row_colors[row];
+	}
+	return rvn_color_a(color) ? color : fallback;
 }
 
 static float rvn_table_row_height(const rvn_widget_t* widget) {
@@ -365,12 +368,16 @@ typedef struct rvn_table_sort_key_t {
 	uint32_t row;
 } rvn_table_sort_key_t;
 
+/* A plain decimal number ("12", "-3.5", "1e3", "40 %"): words strtod also reads, such as "Nan" or
+ * "Inf", and values that do not fit stay texts. */
 static int rvn_table_parse_number(const char* text, double* number) {
 	char* end = NULL;
+	const char* digits;
 	while (*text == ' ') text++;
-	if (!*text) return R_FALSE;
+	digits = (*text == '+' || *text == '-') ? text + 1 : text;
+	if (!((*digits >= '0' && *digits <= '9') || *digits == '.')) return R_FALSE;
 	*number = strtod(text, &end);
-	if (!end || end == text) return R_FALSE;
+	if (!end || end == text || !isfinite(*number)) return R_FALSE;
 	while (*end == ' ' || *end == '%') end++;
 	return *end == '\0';
 }
@@ -574,8 +581,8 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 			rvn_rect_t cell = rvn_rect(x + padding, y, rvn_maxf(0.0f, column->shown - padding * 2.0f), row);
 			if (x + column->shown >= geometry.body.x && x <= geometry.body.x + geometry.body.w) {
 				rvn_paint_push_clip(painter, cell);
-				rvn_color_t cell_color = rvn_table_cell_color(table, i, (int)c, color);
-				rvn_paint_text_in(painter, R_INVALID_ID, font, cell, column->align, rvn_table_cell(table, i, (int)c), -1, cell_color);
+				rvn_paint_text_in(painter, R_INVALID_ID, font, cell, column->align, rvn_table_cell(table, i, (int)c), -1,
+					rvn_table_cell_color(table, i, (int)c, color));
 				rvn_paint_pop_clip(painter);
 			}
 			x += column->shown;
@@ -1152,6 +1159,13 @@ void Rtable_set_virtual_rows(Rid id, int count, RTableCellTextCallback callback,
 	rvn_widget_invalidate_layout(widget);
 }
 
+void Rtable_set_cell_color_callback(Rid id, RTableCellColorCallback callback, void* user_data) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	((rvn_table_t*)widget)->color_callback = callback;
+	((rvn_table_t*)widget)->color_user = user_data;
+	rvn_widget_invalidate_paint(widget);
+}
+
 void Rtable_set_selected(Rid id, int row) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
 	rvn_table_select(widget, row, R_FALSE);
@@ -1171,14 +1185,6 @@ void Rtable_set_cell_text_color(Rid id, int row, int column, float r, float g, f
 	index = column < 0 ? (size_t)row : (size_t)row * table->column_count + (size_t)column;
 	if (!*colors && a > 0) *colors = (rvn_color_t*)rvn_calloc(sizeof(rvn_color_t) * count);
 	if (*colors) (*colors)[index] = a > 0 ? rvn_rgba(r, g, b, a) : 0;
-	rvn_widget_invalidate_paint(widget);
-}
-
-void Rtable_set_cell_color_callback(Rid id, RTableCellColorCallback callback, void* user_data) {
-	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
-	rvn_table_t* table = (rvn_table_t*)widget;
-	table->color_callback = callback;
-	table->color_user = user_data;
 	rvn_widget_invalidate_paint(widget);
 }
 

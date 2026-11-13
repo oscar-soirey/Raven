@@ -363,6 +363,7 @@ static const rvn_schema_attribute_t g_menu[] = { T("Title", "Text of the menu in
 static const rvn_schema_attribute_t g_menu_item[] = {
 	T("Text", "Text of the item."),
 	T("Shortcut", "Keys shown beside it and that fire it: \"Ctrl+S\"."),
+	T("ShortcutText", "Display-only hint; overrides shortcut text without changing its binding."),
 	B("Checkable", "Clicking it checks and unchecks it."),
 	B("Checked", "Its state."),
 	B("Separator", "A line instead of an item."),

@@ -19,6 +19,7 @@ typedef struct rvn_menu_item_t {
 	rvn_widget_t base;
 	char* text;
 	char* shortcut_text;
+	char* shortcut_hint;
 	RKey key;
 	uint32_t modifiers;
 	int separator;
@@ -153,6 +154,11 @@ static void rvn_menu_item_destroy(rvn_widget_t* widget) {
 	rvn_menu_item_t* item = (rvn_menu_item_t*)widget;
 	rvn_free(item->text);
 	rvn_free(item->shortcut_text);
+	rvn_free(item->shortcut_hint);
+}
+
+static const char* rvn_menu_shortcut_text(const rvn_menu_item_t* item) {
+	return item->shortcut_hint ? item->shortcut_hint : item->shortcut_text;
 }
 
 static void rvn_menu_item_set_shortcut(rvn_widget_t* widget, RKey key, uint32_t modifiers) {
@@ -194,6 +200,8 @@ static int rvn_menu_item_set_attribute(rvn_widget_t* widget, const char* name, c
 	} else if (RVN_ATTR("Shortcut")) {
 		if (!rvn_parse_shortcut(value, &key, &modifiers)) return R_FALSE;
 		rvn_menu_item_set_shortcut(widget, key, modifiers);
+	} else if (RVN_ATTR("ShortcutText")) {
+		Rmenu_item_set_shortcut_text(widget->id, value);
 	} else if (RVN_ATTR("Checkable")) {
 		if (!rvn_parse_bool(value, &item->checkable)) return R_FALSE;
 	} else if (RVN_ATTR("Checked")) {
@@ -262,7 +270,7 @@ static rvn_vec2_t rvn_menu_measure(rvn_widget_t* widget) {
 		text_width = rvn_maxf(text_width, rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, rvn_menu_entry_text(child)));
 		if (child->cls->type == R_WIDGET_MENU_ITEM) {
 			shortcut_width = rvn_maxf(shortcut_width,
-				rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, ((rvn_menu_item_t*)child)->shortcut_text));
+				rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, rvn_menu_shortcut_text((rvn_menu_item_t*)child)));
 		}
 	}
 	/* check gutter | icons | text | gap | shortcut | room for the sub-menu arrow */
@@ -429,9 +437,9 @@ static void rvn_menu_paint_fluent(rvn_widget_t* widget, RPainter* painter) {
 					rvn_paint_icon(painter, RVN_ICON_CHECK, cx, row.y + row.h * 0.5f, 9.0f, look.foreground);
 				}
 			}
-			if (item->shortcut_text) {
+			if (rvn_menu_shortcut_text(item)) {
 				rvn_paint_text_in(painter, R_INVALID_ID, font_size - 2.0f, rvn_rect(row.x, row.y, row.w - 12.0f, row.h), 1.0f,
-					item->shortcut_text, -1, secondary);
+					rvn_menu_shortcut_text(item), -1, secondary);
 			}
 		}
 	}
@@ -502,9 +510,9 @@ static void rvn_menu_paint(rvn_widget_t* widget, RPainter* painter) {
 			if (item->checked) {
 				rvn_paint_icon(painter, RVN_ICON_CHECK, row.x + 10.0f, row.y + row.h * 0.5f, 8.0f, color);
 			}
-			if (item->shortcut_text) {
+			if (rvn_menu_shortcut_text(item)) {
 				rvn_paint_text_in(painter, R_INVALID_ID, font_size, rvn_rect(row.x, row.y, row.w - 10.0f, row.h), 1.0f,
-					item->shortcut_text, -1, rvn_color_mix(color, dim, 0.6f));
+					rvn_menu_shortcut_text(item), -1, rvn_color_mix(color, dim, 0.6f));
 			}
 		}
 	}
@@ -542,7 +550,8 @@ static int rvn_menu_event(rvn_widget_t* widget, const REvent* event) {
 					rvn_menu_step(widget, 1);
 					return R_TRUE;
 				case R_KEY_RIGHT:
-					if (menu->hot >= 0 && widget->children[menu->hot]->cls->type == R_WIDGET_MENU) {
+					if (menu->hot >= 0 && widget->children[menu->hot]->cls->type == R_WIDGET_MENU &&
+						rvn_menu_entry_selectable(widget->children[menu->hot])) {
 						rvn_widget_t* sub = widget->children[menu->hot];
 						rvn_menu_open_sub(widget, menu->hot);
 						rvn_menu_step(sub, 1);
@@ -557,7 +566,8 @@ static int rvn_menu_event(rvn_widget_t* widget, const REvent* event) {
 				case R_KEY_ENTER:
 				case R_KEY_KP_ENTER:
 				case R_KEY_SPACE:
-					if (menu->hot < 0) return R_TRUE;
+					/* the entry may have been disabled or hidden since it was highlighted */
+					if (menu->hot < 0 || !rvn_menu_entry_selectable(widget->children[menu->hot])) return R_TRUE;
 					if (widget->children[menu->hot]->cls->type == R_WIDGET_MENU) {
 						rvn_widget_t* sub = widget->children[menu->hot];
 						rvn_menu_open_sub(widget, menu->hot);
@@ -921,6 +931,8 @@ uint32_t rvn_menu_signature(const rvn_widget_t* menu, uint32_t hash) {
 			hash = rvn_menu_mix(hash, (uint32_t)item->separator | ((uint32_t)item->checkable << 1) | ((uint32_t)item->checked << 2));
 			hash = rvn_menu_mix(hash, (uint32_t)item->key);
 			hash = rvn_menu_mix(hash, item->modifiers);
+			hash = rvn_menu_mix(hash, item->shortcut_hint ? rvn_hash_str(item->shortcut_hint) : 0u);
+			hash = rvn_menu_mix(hash, item->shortcut_hint ? 1u : 0u);
 		} else {
 			hash = rvn_menu_signature(child, rvn_menu_mix(hash, 0x4D454E55u));
 			hash = rvn_menu_mix(hash, 0x454E4455u);
@@ -958,6 +970,7 @@ rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* count) {
 			out->checked = item->checked;
 			out->key = item->key;
 			out->modifiers = item->modifiers;
+			out->shortcut_hint = item->shortcut_hint;
 		} else {
 			out->submenu = R_TRUE;
 			out->items = rvn_menu_native_items(child, &out->count);
@@ -1093,6 +1106,13 @@ int Rmenu_bar_is_native(Rid id) {
 void Rmenu_item_set_shortcut(Rid id, RKey key, Ruint modifiers) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_MENU_ITEM);
 	rvn_menu_item_set_shortcut(widget, key, modifiers);
+}
+
+void Rmenu_item_set_shortcut_text(Rid id, const char* text) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_MENU_ITEM);
+	rvn_str_set(&((rvn_menu_item_t*)widget)->shortcut_hint, text);
+	if (widget->parent) rvn_widget_invalidate_layout(widget->parent);
+	rvn_widget_invalidate_paint(widget);
 }
 
 void Rmenu_item_set_checkable(Rid id, int checkable) {

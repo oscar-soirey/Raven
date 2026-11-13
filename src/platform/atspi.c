@@ -351,7 +351,7 @@ static int has_action(const rvn_a11y_node_t* node) {
 }
 
 static const char* action_name(const rvn_a11y_node_t* node) {
-	if (node->role == R_ROLE_CHECKBOX) return "toggle";
+	if (node->states & RVN_A11Y_CHECKABLE) return "toggle";
 	if (node->role == R_ROLE_TAB || node->role == R_ROLE_LIST_ITEM || node->role == R_ROLE_TREE_ITEM) return "activate";
 	if (node->states & RVN_A11Y_EXPANDABLE && !(node->states & RVN_A11Y_INVOKABLE)) return "expand or contract";
 	return "click";
@@ -696,7 +696,7 @@ static int handle(DBusConnection* connection, DBusMessage* message, void* user) 
 		if (strcmp(member, "GetName") == 0 || strcmp(member, "GetLocalizedName") == 0) { put_string(&out, index == 0 ? action_name(&node) : ""); goto send; }
 		if (strcmp(member, "GetDescription") == 0 || strcmp(member, "GetKeyBinding") == 0) { put_string(&out, ""); goto send; }
 		if (strcmp(member, "DoAction") == 0) {
-			rvn_a11y_action_t action = node.role == R_ROLE_CHECKBOX ? RVN_A11Y_TOGGLE :
+			rvn_a11y_action_t action = (node.states & RVN_A11Y_CHECKABLE) ? RVN_A11Y_TOGGLE :
 				((node.states & RVN_A11Y_EXPANDABLE) && !(node.states & RVN_A11Y_INVOKABLE)) ?
 					((node.states & RVN_A11Y_EXPANDED) ? RVN_A11Y_COLLAPSE : RVN_A11Y_EXPAND) : RVN_A11Y_PRESS;
 			put_bool(&out, index == 0 && rvn_a11y_act(id, action));
