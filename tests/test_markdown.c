@@ -5,6 +5,8 @@
 
 #include "test.h"
 
+#include <stdlib.h>
+
 static int g_links;
 static char g_link[256];
 static int g_actions;
@@ -274,6 +276,45 @@ static void test_editor(void) {
 	Rdraw_frame();
 }
 
+/*
+ * Marks that close nothing ("*a *a *a ..."): each one looked for a closer to
+ * the end of the text, so a long line took a time that grows with its square
+ * (seconds for these 90 KB, on every frame in the editor). The text is
+ * still the text, and both stay fast.
+ */
+static void test_unclosed_marks(void) {
+	static const char* const units[] = { "**a ", "__a ", "~~a ", "*a ", "_a " };
+	const int repeat = 5000;
+	size_t u, length = 0, unit_length;
+	char* text = (char*)malloc((size_t)repeat * 5 * 4 + 1);
+	Rid label, editor;
+	double start;
+	int r;
+	for (u = 0; u < sizeof(units) / sizeof(units[0]); u++) {
+		unit_length = strlen(units[u]);
+		for (r = 0; r < repeat; r++) {
+			memcpy(text + length, units[u], unit_length);
+			length += unit_length;
+		}
+	}
+	text[length - 1] = 0;
+
+	start = Rget_time();
+	label = markdown_label(text);
+	CHECK_STR(Rlabel_get_plain_text(label), text);
+	editor = Rwidget_create(R_WIDGET_TEXT_EDITOR);
+	Rtext_editor_set_markdown(editor, R_TRUE);
+	Rwindow_set_content(g_window, editor);
+	Rtext_editor_set_text(editor, text);
+	Rdraw_frame();
+	Rtext_editor_insert_text(editor, "x");
+	Rdraw_frame();
+	CHECK(Rtext_editor_get_token(editor, 0, 1) == R_TOKEN_TEXT);
+	CHECK(Rtext_editor_get_token(editor, 0, (int)length - 3) == R_TOKEN_TEXT);
+	CHECK(Rget_time() - start < 2.0);
+	free(text);
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("test_markdown: cannot initialize Raven\n");
@@ -285,6 +326,7 @@ int main(void) {
 	RUN(test_links);
 	RUN(test_fonts);
 	RUN(test_editor);
+	RUN(test_unclosed_marks);
 	Rwindow_destroy(g_window);
 	Rshutdown();
 	return test_report("test_markdown");
