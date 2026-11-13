@@ -374,6 +374,24 @@ static void test_breadcrumb(void) {
 	/* too narrow: the first items fold into "..." and it still paints */
 	Rwidget_set_size(crumbs, 60, -1);
 	Rdraw_frame();
+
+	/* right to left: "Home" is on the right, and the keys follow the screen */
+	root = content("<HBox><Breadcrumb Name=\"b\" Items=\"Home|Documents|Report\"/></HBox>");
+	crumbs = Rwidget_find(root, "b");
+	Rwidget_set_direction(crumbs, R_DIRECTION_RTL);
+	Rbreadcrumb_set_clicked_callback(crumbs, on_crumb, NULL);
+	Rwidget_get_rect(crumbs, &x, &y, &w, &h);
+	g_calls = 0;
+	test_click_at(g_window, x + w - 8, y + h * 0.5f);
+	CHECK(g_calls == 1 && g_last_int == 0);
+	test_click_at(g_window, x + 6, y + h * 0.5f);
+	CHECK(g_calls == 1);
+	/* (the focus starts on the last link, "Documents"; Right goes toward "Home") */
+	Rwidget_focus(crumbs);
+	test_key(g_window, R_KEY_RIGHT, 0);
+	test_key(g_window, R_KEY_ENTER, 0);
+	CHECK(g_calls == 2 && g_last_int == 0);
+	Rdraw_frame();
 }
 
 static void on_rating(Rid rating, float value, void* user_data) {
