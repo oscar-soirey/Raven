@@ -2852,12 +2852,9 @@ void Rtext_editor_set_hover_callback(Rid id, RTextEditorHoverCallback callback, 
 	ed->hover_callback = callback;
 	ed->hover_user = user_data;
 	if (!callback && ed->marker_tip) {
-		rvn_widget_t* widget = rvn_widget_get(id);
-		if (widget) {
-			rvn_str_set(&widget->tooltip, NULL);
-			ed->marker_tip = R_FALSE;
-			if (widget->window) rvn_window_rearm_tooltip(widget->window);
-		}
+		rvn_str_set(&widget->tooltip, NULL);
+		ed->marker_tip = R_FALSE;
+		if (widget->window) rvn_window_rearm_tooltip(widget->window);
 	}
 }
 
