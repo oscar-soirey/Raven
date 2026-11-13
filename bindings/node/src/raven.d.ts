@@ -3458,6 +3458,15 @@ export function Rwindow_set_resize_callback(window: Rid, callback: RWindowResize
  */
 export function Rwindow_set_drop_callback(window: Rid, callback: RDropCallback | Pointer | null, user_data?: RPointer): void;
 
+/**
+ * During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ * in target-local logical units (window-local for a window callback).
+ * Clipped to the target; zero width or height hides it without refusing
+ * the drop. Each callback starts with the default highlight again.
+ * Dimensions must be finite and nonnegative; coordinates must be finite.
+ */
+export function Rdrop_set_highlight_rect(x: number, y: number, width: number, height: number): void;
+
 export function Rwindow_set_user_handle(window: Rid, handle: RPointer): void;
 
 export function Rwindow_get_user_handle(window: Rid): Pointer | null;

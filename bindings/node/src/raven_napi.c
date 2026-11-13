@@ -139,6 +139,7 @@ static struct {
 	void (*Rwindow_set_close_callback)(Rid, RWindowCloseCallback, void*);
 	void (*Rwindow_set_resize_callback)(Rid, RWindowResizeCallback, void*);
 	void (*Rwindow_set_drop_callback)(Rid, RDropCallback, void*);
+	void (*Rdrop_set_highlight_rect)(float, float, float, float);
 	void (*Rwindow_set_user_handle)(Rid, void*);
 	void* (*Rwindow_get_user_handle)(Rid);
 	int (*Rwindow_get_native_handle)(Rid, RNativeWindow*);
@@ -1288,6 +1289,7 @@ static const struct {
 	{"Rwindow_set_close_callback", offsetof(__typeof__(rn), Rwindow_set_close_callback)},
 	{"Rwindow_set_resize_callback", offsetof(__typeof__(rn), Rwindow_set_resize_callback)},
 	{"Rwindow_set_drop_callback", offsetof(__typeof__(rn), Rwindow_set_drop_callback)},
+	{"Rdrop_set_highlight_rect", offsetof(__typeof__(rn), Rdrop_set_highlight_rect)},
 	{"Rwindow_set_user_handle", offsetof(__typeof__(rn), Rwindow_set_user_handle)},
 	{"Rwindow_get_user_handle", offsetof(__typeof__(rn), Rwindow_get_user_handle)},
 	{"Rwindow_get_native_handle", offsetof(__typeof__(rn), Rwindow_get_native_handle)},
@@ -6055,6 +6057,24 @@ static napi_value rn_w_Rwindow_set_drop_callback(napi_env env, napi_callback_inf
 	rn.Rwindow_set_drop_callback((Rid)a0, cb_ ? (RDropCallback)rn_t_RDropCallback : (RDropCallback)n0_, cb_ ? (void*)cb_ : a2);
 	rn_bind(a0, RN_OWNER_WINDOW, 11, NULL, cb_);
 	rn_windows_sweep();
+	return result_;
+}
+
+static napi_value rn_w_Rdrop_set_highlight_rect(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	float a0;
+	float a1;
+	float a2;
+	float a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_float(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	rn.Rdrop_set_highlight_rect((float)a0, (float)a1, (float)a2, (float)a3);
 	return result_;
 }
 
@@ -23376,6 +23396,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_set_close_callback", NULL, rn_w_Rwindow_set_close_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_resize_callback", NULL, rn_w_Rwindow_set_resize_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_drop_callback", NULL, rn_w_Rwindow_set_drop_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdrop_set_highlight_rect", NULL, rn_w_Rdrop_set_highlight_rect, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_user_handle", NULL, rn_w_Rwindow_set_user_handle, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_user_handle", NULL, rn_w_Rwindow_get_user_handle, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_native_handle", NULL, rn_w_Rwindow_get_native_handle, NULL, NULL, NULL, napi_enumerable, NULL},

@@ -864,6 +864,13 @@ Rwindow_set_drop_callback(window, on_drop, NULL);     /* or Rwidget_set_drop_cal
 Files and text dragged from other applications. Dragging *out* of a Raven
 window to another application is not implemented.
 
+During `R_DROP_ENTER` or `R_DROP_MOVE`, call
+`Rdrop_set_highlight_rect(x, y, width, height)` to highlight an insertion line,
+dock band or other part of the target. Coordinates are target-local logical
+units and the rectangle is clipped to the target. Zero width or height hides
+the highlight while a `R_TRUE` callback result still accepts the drop. Every
+callback starts with the default full-target highlight again.
+
 ### Materials and glass
 
 A material is what the surface of a widget is made of:

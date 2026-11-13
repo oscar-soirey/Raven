@@ -6040,6 +6040,15 @@ fn void error_set_callback(ErrorCallback callback) @inline => c::r_error_set_cal
 fn void set_device_reset_callback(DeviceResetCallback callback, void* user_data) @inline => c::r_set_device_reset_callback((c::RDeviceResetCallback)callback, user_data);
 
 <*
+ During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ in target-local logical units (window-local for a window callback).
+ Clipped to the target; zero width or height hides it without refusing
+ the drop. Each callback starts with the default highlight again.
+ Dimensions must be finite and nonnegative; coordinates must be finite.
+*>
+alias drop_set_highlight_rect = c::r_drop_set_highlight_rect;
+
+<*
  Starts dragging `data` from `source` (call it while a mouse button
  is held, typically from a mouse-move event once the pointer has moved
  a few units). Until the button is released, the widgets with a drop

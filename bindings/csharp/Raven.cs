@@ -3811,6 +3811,16 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_set_drop_callback(uint window, RDropCallback callback, IntPtr user_data);
 
+        /// <summary>
+        /// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+        /// in target-local logical units (window-local for a window callback).
+        /// Clipped to the target; zero width or height hides it without refusing
+        /// the drop. Each callback starts with the default highlight again.
+        /// Dimensions must be finite and nonnegative; coordinates must be finite.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdrop_set_highlight_rect(float x, float y, float width, float height);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_set_user_handle(uint window, IntPtr handle);
 

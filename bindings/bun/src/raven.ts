@@ -263,6 +263,7 @@ const _symbols = {
 	Rwindow_set_close_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rwindow_set_resize_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rwindow_set_drop_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdrop_set_highlight_rect: { args: ["f32", "f32", "f32", "f32"], returns: "void" },
 	Rwindow_set_user_handle: { args: ["u32", "ptr"], returns: "void" },
 	Rwindow_get_user_handle: { args: ["u32"], returns: "ptr" },
 	Rwindow_get_native_handle: { args: ["u32", "ptr"], returns: "i32" },
@@ -7210,6 +7211,17 @@ export function Rwindow_set_resize_callback(window: Rid, callback: RWindowResize
  */
 export function Rwindow_set_drop_callback(window: Rid, callback: RDropCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rwindow_set_drop_callback(window, _adapt_RDropCallback(callback), user_data);
+}
+
+/**
+ * During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ * in target-local logical units (window-local for a window callback).
+ * Clipped to the target; zero width or height hides it without refusing
+ * the drop. Each callback starts with the default highlight again.
+ * Dimensions must be finite and nonnegative; coordinates must be finite.
+ */
+export function Rdrop_set_highlight_rect(x: number, y: number, width: number, height: number): void {
+	_lib.Rdrop_set_highlight_rect(x, y, width, height);
 }
 
 export function Rwindow_set_user_handle(window: Rid, handle: RPointer): void {

@@ -2972,6 +2972,7 @@ export const Rwindow_set_resize_callback = _lib.Rwindow_set_resize_callback;
 export function Rwindow_set_drop_callback(window, callback, user_data = null) {
 	return _lib.Rwindow_set_drop_callback(window, _adapt_RDropCallback(callback), user_data);
 }
+export const Rdrop_set_highlight_rect = _lib.Rdrop_set_highlight_rect;
 export const Rwindow_set_user_handle = _lib.Rwindow_set_user_handle;
 export const Rwindow_get_user_handle = _lib.Rwindow_get_user_handle;
 export function Rwindow_get_native_handle(window, native) {

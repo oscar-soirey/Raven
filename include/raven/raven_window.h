@@ -525,6 +525,14 @@ extern "C" {
 	 * where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 	 */
 	RAVEN_API void Rwindow_set_drop_callback(Rid window, RDropCallback callback, void* user_data);
+	/**
+	 * @brief During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+	 * in target-local logical units (window-local for a window callback).
+	 * Clipped to the target; zero width or height hides it without refusing
+	 * the drop. Each callback starts with the default highlight again.
+	 * Dimensions must be finite and nonnegative; coordinates must be finite.
+	 */
+	RAVEN_API void Rdrop_set_highlight_rect(float x, float y, float width, float height);
 
 	RAVEN_API void Rwindow_set_user_handle(Rid window, void* handle);
 	RAVEN_API void* Rwindow_get_user_handle(Rid window);

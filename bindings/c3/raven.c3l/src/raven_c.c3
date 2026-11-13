@@ -2414,6 +2414,15 @@ extern fn void r_window_set_resize_callback(Rid window, RWindowResizeCallback ca
 *>
 extern fn void r_window_set_drop_callback(Rid window, RDropCallback callback, void* user_data) @cname("Rwindow_set_drop_callback");
 
+<*
+ During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ in target-local logical units (window-local for a window callback).
+ Clipped to the target; zero width or height hides it without refusing
+ the drop. Each callback starts with the default highlight again.
+ Dimensions must be finite and nonnegative; coordinates must be finite.
+*>
+extern fn void r_drop_set_highlight_rect(float x, float y, float width, float height) @cname("Rdrop_set_highlight_rect");
+
 extern fn void r_window_set_user_handle(Rid window, void* handle) @cname("Rwindow_set_user_handle");
 
 extern fn void* r_window_get_user_handle(Rid window) @cname("Rwindow_get_user_handle");
