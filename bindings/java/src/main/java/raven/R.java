@@ -20871,6 +20871,23 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rdraw_shadow$;
+
+    /**
+     * Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+     * Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+     * Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+     */
+    public static void Rdraw_shadow(MemorySegment painter, float x, float y, float width, float height, float radius, float blur, float r, float g, float b, float a) {
+        MethodHandle $h = Rdraw_shadow$;
+        if ($h == null) Rdraw_shadow$ = $h = find("Rdraw_shadow", FunctionDescriptor.ofVoid(ADDRESS, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact((MemorySegment) (painter == null ? MemorySegment.NULL : painter), x, y, width, height, radius, blur, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rdraw_rect_outline$;
 
     /**

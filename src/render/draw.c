@@ -837,6 +837,12 @@ void Rdraw_rect(RPainter* painter, float x, float y, float width, float height,
 	rvn_paint_box(painter, rvn_rect(x, y, width, height), radius, rvn_rgba(r, g, b, a), 0.0f, 0);
 }
 
+void Rdraw_shadow(RPainter* painter, float x, float y, float width, float height,
+	float radius, float blur, float r, float g, float b, float a) {
+	if (!painter || width <= 0.0f || height <= 0.0f) return;
+	rvn_paint_shadow(painter, rvn_rect(x, y, width, height), radius, blur, rvn_rgba(r, g, b, a));
+}
+
 void Rdraw_glass(RPainter* painter, float x, float y, float width, float height,
 	float radius, float r, float g, float b, float a) {
 	rvn_glass_t glass;

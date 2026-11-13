@@ -2335,6 +2335,11 @@ public:
 	/// Filled rectangle with rounded corners (radius 0 = sharp).
 	void rect(float x, float y, float width, float height, float radius, float r, float g, float b, float a) const { Rdraw_rect(painter_, x, y, width, height, radius, r, g, b, a); }
 
+	/// Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+	/// Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+	/// Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+	void shadow(float x, float y, float width, float height, float radius, float blur, float r, float g, float b, float a) const { Rdraw_shadow(painter_, x, y, width, height, radius, blur, r, g, b, a); }
+
 	/// Outline of a rounded rectangle, drawn inside its bounds.
 	void rect_outline(float x, float y, float width, float height, float radius, float thickness, float r, float g, float b, float a) const { Rdraw_rect_outline(painter_, x, y, width, height, radius, thickness, r, g, b, a); }
 

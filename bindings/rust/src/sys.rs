@@ -3950,6 +3950,10 @@ extern "C" {
     pub fn Rcustom_set_measure_callback(widget: Rid, callback: RMeasureCallback, user_data: *mut c_void);
     /// Filled rectangle with rounded corners (radius 0 = sharp).
     pub fn Rdraw_rect(painter: *mut RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, r: f32, g: f32, b: f32, a: f32);
+    /// Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+    /// Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+    /// Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+    pub fn Rdraw_shadow(painter: *mut RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, blur: f32, r: f32, g: f32, b: f32, a: f32);
     /// Outline of a rounded rectangle, drawn inside its bounds.
     pub fn Rdraw_rect_outline(painter: *mut RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, thickness: f32, r: f32, g: f32, b: f32, a: f32);
     pub fn Rdraw_circle(painter: *mut RPainter, center_x: f32, center_y: f32, radius: f32, r: f32, g: f32, b: f32, a: f32);

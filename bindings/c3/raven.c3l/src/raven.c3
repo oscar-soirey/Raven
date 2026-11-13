@@ -5674,6 +5674,13 @@ fn Widget canvas_create() @inline => (Widget)c::r_widget_create(c::R_WIDGET_CANV
 <* Filled rectangle with rounded corners (radius 0 = sharp). *>
 fn void Painter.rect(&self, float x, float y, float width, float height, float radius, float r, float g, float b, float a) @inline => c::r_draw_rect((c::RPainter*)self, x, y, width, height, radius, r, g, b, a);
 
+<*
+ Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+ Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+ Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+*>
+fn void Painter.shadow(&self, float x, float y, float width, float height, float radius, float blur, float r, float g, float b, float a) @inline => c::r_draw_shadow((c::RPainter*)self, x, y, width, height, radius, blur, r, g, b, a);
+
 <* Outline of a rounded rectangle, drawn inside its bounds. *>
 fn void Painter.rect_outline(&self, float x, float y, float width, float height, float radius, float thickness, float r, float g, float b, float a) @inline => c::r_draw_rect_outline((c::RPainter*)self, x, y, width, height, radius, thickness, r, g, b, a);
 

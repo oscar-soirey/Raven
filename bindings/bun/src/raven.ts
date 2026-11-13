@@ -1150,6 +1150,7 @@ const _symbols = {
 	Rcustom_set_paint_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rcustom_set_measure_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rdraw_rect: { args: ["ptr", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rdraw_shadow: { args: ["ptr", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rdraw_rect_outline: { args: ["ptr", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rdraw_circle: { args: ["ptr", "f32", "f32", "f32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rdraw_line: { args: ["ptr", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32"], returns: "void" },
@@ -12090,6 +12091,15 @@ export function Rcustom_set_measure_callback(widget: Rid, callback: RMeasureCall
 /** Filled rectangle with rounded corners (radius 0 = sharp). */
 export function Rdraw_rect(painter: RPointer, x: number, y: number, width: number, height: number, radius: number, r: number, g: number, b: number, a: number): void {
 	_lib.Rdraw_rect(painter, x, y, width, height, radius, r, g, b, a);
+}
+
+/**
+ * Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+ * Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+ * Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+ */
+export function Rdraw_shadow(painter: RPointer, x: number, y: number, width: number, height: number, radius: number, blur: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rdraw_shadow(painter, x, y, width, height, radius, blur, r, g, b, a);
 }
 
 /** Outline of a rounded rectangle, drawn inside its bounds. */

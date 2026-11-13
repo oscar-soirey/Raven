@@ -2098,6 +2098,7 @@ void Rviewport_set_realtime(Rid viewport, int realtime);
 void Rcustom_set_paint_callback(Rid widget, RPaintCallback callback, void* user_data);
 void Rcustom_set_measure_callback(Rid widget, RMeasureCallback callback, void* user_data);
 void Rdraw_rect(RPainter* painter, float x, float y, float width, float height, float radius, float r, float g, float b, float a);
+void Rdraw_shadow(RPainter* painter, float x, float y, float width, float height, float radius, float blur, float r, float g, float b, float a);
 void Rdraw_rect_outline(RPainter* painter, float x, float y, float width, float height, float radius, float thickness, float r, float g, float b, float a);
 void Rdraw_circle(RPainter* painter, float center_x, float center_y, float radius, float r, float g, float b, float a);
 void Rdraw_line(RPainter* painter, float x0, float y0, float x1, float y1, float thickness, float r, float g, float b, float a);

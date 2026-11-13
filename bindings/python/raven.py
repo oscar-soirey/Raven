@@ -11817,6 +11817,17 @@ def Rdraw_rect(painter, x, y, width, height, radius, r, g, b, a):
     _lib.Rdraw_rect(painter, x, y, width, height, radius, r, g, b, a)
 
 
+_lib.Rdraw_shadow.argtypes = [ctypes.c_void_p, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rdraw_shadow.restype = None
+
+
+def Rdraw_shadow(painter, x, y, width, height, radius, blur, r, g, b, a):
+    """Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+    Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+    Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows."""
+    _lib.Rdraw_shadow(painter, x, y, width, height, radius, blur, r, g, b, a)
+
+
 _lib.Rdraw_rect_outline.argtypes = [ctypes.c_void_p, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
 _lib.Rdraw_rect_outline.restype = None
 

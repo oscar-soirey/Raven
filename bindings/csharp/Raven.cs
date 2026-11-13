@@ -8583,6 +8583,14 @@ namespace Raven
         public static extern void Rdraw_rect(IntPtr painter, float x, float y, float width, float height, float radius, float r, float g, float b, float a);
 
         /// <summary>
+        /// Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+        /// Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+        /// Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdraw_shadow(IntPtr painter, float x, float y, float width, float height, float radius, float blur, float r, float g, float b, float a);
+
+        /// <summary>
         /// Outline of a rounded rectangle, drawn inside its bounds.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]

@@ -6457,6 +6457,13 @@ export function Rcustom_set_measure_callback(widget: Rid, callback: RMeasureCall
 /** Filled rectangle with rounded corners (radius 0 = sharp). */
 export function Rdraw_rect(painter: RPointer, x: number, y: number, width: number, height: number, radius: number, r: number, g: number, b: number, a: number): void;
 
+/**
+ * Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+ * Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+ * Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+ */
+export function Rdraw_shadow(painter: RPointer, x: number, y: number, width: number, height: number, radius: number, blur: number, r: number, g: number, b: number, a: number): void;
+
 /** Outline of a rounded rectangle, drawn inside its bounds. */
 export function Rdraw_rect_outline(painter: RPointer, x: number, y: number, width: number, height: number, radius: number, thickness: number, r: number, g: number, b: number, a: number): void;
 
