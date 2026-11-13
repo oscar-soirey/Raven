@@ -673,6 +673,26 @@ static void test_deletion_and_events(void) {
 	CHECK(g_clicks == 1);
 }
 
+/* A widget inside the content (or the island) can replace it: it is taken out before the old one is destroyed (issue #120). */
+static void test_set_content_descendant(void) {
+	Rid page = column();
+	Rid inner = Rwidget_add_child(page, Rlabel_create("keep me"));
+	Rwindow_set_content(g_window, inner);
+	CHECK(Rwidget_is_valid(inner) && !Rwidget_is_valid(page));
+	CHECK(Rwindow_get_content(g_window) == inner);
+	Rdraw_frame();
+
+	page = Rwidget_create(R_WIDGET_VBOX);
+	inner = Rwidget_add_child(page, Rlabel_create("keep me too"));
+	Rwindow_set_island(g_window, page);
+	Rwindow_set_island(g_window, inner);
+	CHECK(Rwidget_is_valid(inner) && !Rwidget_is_valid(page));
+	CHECK(Rwindow_get_island(g_window) == inner);
+	Rdraw_frame();
+	Rwindow_set_island(g_window, R_INVALID_ID);
+	CHECK(!Rwidget_is_valid(inner));
+}
+
 /* ---------------------------------------------------------------------------
  *  Destroy callbacks that dispatch (issue #62)
  * ------------------------------------------------------------------------- */
@@ -1044,6 +1064,7 @@ int main(void) {
 	RUN(test_menus);
 	RUN(test_tabs_and_expander);
 	RUN(test_deletion_and_events);
+	RUN(test_set_content_descendant);
 	RUN(test_destroy_callback_dispatches);
 	RUN(test_timers_theme_and_attributes);
 	RUN(test_device_lost);
