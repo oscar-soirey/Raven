@@ -724,6 +724,79 @@ static void test_tabs_and_expander(void) {
 	CHECK(g_clicks == 1);
 }
 
+static int g_allow_close;
+
+static int on_tab_close(Rid tab_view, int index, Rid content, void* user_data) {
+	(void)tab_view;
+	(void)index;
+	(void)content;
+	(void)user_data;
+	return g_allow_close;
+}
+
+/* Left edge of the tab `index` of a documents tab view filling the window: found by clicking (closing refused). */
+static float tab_x(Rid tabs, int index) {
+	float px;
+	g_allow_close = R_FALSE;
+	for (px = 1.0f; px < 400.0f; px += 1.0f) {
+		Rtab_view_set_active(tabs, index == 0 ? 1 : 0);
+		test_click_at(g_window, px, 10.0f);
+		if (Rtab_view_get_active(tabs) == index) return px + 2.0f;
+	}
+	return -1.0f;
+}
+
+static void middle_click_at(float x, float y) {
+	g_allow_close = R_TRUE;
+	Rwindow_inject_mouse_move(g_window, x, y);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_MIDDLE, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_MIDDLE, R_FALSE);
+}
+
+/* Closing tabs tells the application when the active tab changes (issue #128). */
+static void test_tab_close_changed(void) {
+	Rid tabs = Rwidget_create(R_WIDGET_TAB_VIEW);
+	Rid a = Rlabel_create("Document A"), b = Rlabel_create("Document B");
+	Rid c = Rlabel_create("Document C"), d = Rlabel_create("Document D");
+	float x;
+	Rwindow_set_content(g_window, tabs);
+	Rtab_view_set_documents(tabs, R_TRUE);
+	Rtab_view_add_tab(tabs, "A", a);
+	Rtab_view_add_tab(tabs, "B", b);
+	Rtab_view_add_tab(tabs, "C", c);
+	Rtab_view_add_tab(tabs, "D", d);
+	Rtab_view_set_changed_callback(tabs, on_index, NULL);
+	Rtab_view_set_close_callback(tabs, on_tab_close, NULL);
+
+	/* closing a tab after the active one changes nothing */
+	x = tab_x(tabs, 3);
+	Rtab_view_set_active(tabs, 1);
+	g_clicks = 0;
+	middle_click_at(x, 10.0f);
+	CHECK(!Rwidget_is_valid(d));
+	CHECK(Rtab_view_get_active(tabs) == 1 && g_clicks == 0);
+
+	/* closing the active tab shows the next one, as a click on it would */
+	x = tab_x(tabs, 1);
+	Rtab_view_set_active(tabs, 1);
+	g_clicks = 0;
+	g_last_int = -1;
+	middle_click_at(x, 10.0f);
+	CHECK(!Rwidget_is_valid(b));
+	CHECK(Rtab_view_get_tab(tabs, Rtab_view_get_active(tabs)) == c);
+	CHECK(g_clicks == 1 && g_last_int == 1);
+
+	/* closing a tab before the active one moves its index */
+	x = tab_x(tabs, 0);
+	Rtab_view_set_active(tabs, 1);
+	g_clicks = 0;
+	g_last_int = -1;
+	middle_click_at(x, 10.0f);
+	CHECK(!Rwidget_is_valid(a));
+	CHECK(Rtab_view_get_active(tabs) == 0 && Rtab_view_get_tab(tabs, 0) == c);
+	CHECK(g_clicks == 1 && g_last_int == 0);
+}
+
 /* Deleting widgets from their own callbacks must be safe. */
 static void delete_self(Rid button, void* user_data) {
 	(void)user_data;
@@ -1237,6 +1310,7 @@ int main(void) {
 	RUN(test_list_and_tree);
 	RUN(test_menus);
 	RUN(test_tabs_and_expander);
+	RUN(test_tab_close_changed);
 	RUN(test_deletion_and_events);
 	RUN(test_set_content_descendant);
 	RUN(test_destroy_callback_dispatches);
