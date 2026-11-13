@@ -230,6 +230,7 @@ RMessageResult Rmessage_box(Rid window_id, const char* title, const char* text, 
 	rvn_widget_t* label;
 	rvn_widget_t* row;
 	RMessageResult main_result = R_MESSAGE_RESULT_OK;
+	Rid id;
 	int created, result;
 
 	RVN_API_GUARD(R_MESSAGE_RESULT_CANCEL);
@@ -284,8 +285,11 @@ RMessageResult Rmessage_box(Rid window_id, const char* title, const char* text, 
 	box->event_callback = rvn_message_event;
 	box->event_user = (void*)(intptr_t)main_result;
 
+	id = window->id;
 	result = rvn_dialog_wait(window, box);
-	if (created && !window->dead) rvn_window_destroy(window);
+	/* (the user may have closed the window while it waited) */
+	window = rvn_window_get(id);
+	if (created && window && !window->dead) rvn_window_destroy(window);
 	/* a question dismissed with Escape is answered "no" when there is no Cancel */
 	if (result == 0 && buttons == R_MESSAGE_YES_NO) return R_MESSAGE_RESULT_NO;
 	return (RMessageResult)result;

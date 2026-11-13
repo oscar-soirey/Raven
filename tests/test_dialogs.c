@@ -7,6 +7,8 @@
  */
 
 #include "test.h"
+/* (the windows of the application, to find the one a message box made for itself) */
+#include "../src/widget/widget.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -296,6 +298,33 @@ static void test_dialog_run(void) {
 	EXPECT_ERRORS_BEGIN();
 	CHECK(Rdialog_run(g_window, R_INVALID_ID) == 0);
 	EXPECT_ERRORS_END(1);
+}
+
+static Rid g_box_window;
+
+/* The user closes the window a message box made for itself (its close button): the only window with a dialog. */
+static void close_box_window(Rid timer, void* user_data) {
+	uint32_t i;
+	(void)timer;
+	(void)user_data;
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		if (window && !window->dead && Rwindow_has_dialog(window->id)) g_box_window = window->id;
+	}
+	Rwindow_close(g_box_window);
+}
+
+/* No window is shown: the message box opens its own, and the user closes it (issue #121). */
+static void test_message_box_window_closed(void) {
+	uint32_t i;
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		CHECK(!window || window->dead || !window->visible);
+	}
+	g_box_window = R_INVALID_ID;
+	Rtimer_create(0.01, R_FALSE, close_box_window, NULL);
+	CHECK(Rmessage_box(R_INVALID_ID, "Title", "Closed with its window", R_MESSAGE_OK) == R_MESSAGE_RESULT_CANCEL);
+	CHECK(g_box_window != R_INVALID_ID && !Rwindow_is_valid(g_box_window));
 }
 
 /* ---------------------------------------------------------------------------
@@ -769,6 +798,7 @@ int main(void) {
 	RUN(test_files);
 	RUN(test_dialog);
 	RUN(test_dialog_run);
+	RUN(test_message_box_window_closed);
 	RUN(test_dialog_animated);
 	RUN(test_file_browser);
 	RUN(test_file_browser_xml);
