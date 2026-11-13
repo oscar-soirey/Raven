@@ -514,7 +514,27 @@ extern "C" {
 		float icon_radius;
 		/** Color of the name; alpha 0 = the theme. */
 		float text_color[4];
+		/** Layout="Rows": a third line under the detail, dimmer, or NULL. */
+		const char* note;
+		/** Color of the detail line; alpha 0 = the theme (dimmer than the name). */
+		float detail_color[4];
 	} RTileItem;
+
+	/** A section of a tile view: its first tile, and what its header shows. */
+	typedef struct RTileSection {
+		/** Index of the first tile of the section (read when the sections are given). */
+		int first;
+		/** Title of the header (valid until the callback returns). */
+		const char* text;
+		/** Dimmer text after the title (a count...), or NULL. */
+		const char* detail;
+	} RTileSection;
+
+	/**
+	 * Describes section `section`: when the sections are given (Rtile_view_set_sections,
+	 * `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+	 */
+	typedef void (*RTileSectionCallback)(Rid tile_view, int section, RTileSection* out, void* user_data);
 
 	/** Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view. */
 	typedef void (*RTileItemCallback)(Rid tile_view, int index, RTileItem* item, void* user_data);
@@ -531,6 +551,31 @@ extern "C" {
 	/** @brief Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64. */
 	RAVEN_API void Rtile_view_set_tile_size(Rid tile_view, float width, float height, float icon_size);
 	RAVEN_API void Rtile_view_set_empty_text(Rid tile_view, const char* text);
+	/**
+	 * @brief Layout="Rows": width of the box the icon is drawn in (its height is the
+	 * icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+	 */
+	RAVEN_API void Rtile_view_set_icon_width(Rid tile_view, float width);
+
+	/*
+	 * Sections: the tiles, in their order, are cut into runs under a header row (a
+	 * chevron, a title, a dimmer detail). A click on a header folds its section (its
+	 * tiles are neither drawn nor hit; the keys, Shift ranges and the rubber band pass
+	 * over them) or unfolds it. Tiles before the first section have no header.
+	 * The height of the headers: XML HeaderHeight (default 24).
+	 */
+	/** @brief `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles. */
+	RAVEN_API void Rtile_view_set_sections(Rid tile_view, int count, RTileSectionCallback callback, void* user_data);
+	RAVEN_API int Rtile_view_get_section_count(Rid tile_view);
+	/** @brief The section of a tile, or -1 (before the first section). */
+	RAVEN_API int Rtile_view_get_section_of(Rid tile_view, int index);
+	/** @brief Folds or unfolds a section (the toggled callback is not called). */
+	RAVEN_API void Rtile_view_set_section_folded(Rid tile_view, int section, int folded);
+	RAVEN_API int Rtile_view_is_section_folded(Rid tile_view, int section);
+	/** @brief The section whose header is at a point relative to the widget, or -1. */
+	RAVEN_API int Rtile_view_get_section_at(Rid tile_view, float local_x, float local_y);
+	/** @brief Called when the user folds or unfolds a section (`index`: the section). */
+	RAVEN_API void Rtile_view_set_section_toggled_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 
 	/* Several tiles can be selected: Ctrl + click, Shift + click, a rubber band from the empty space, Ctrl + A. */
 	RAVEN_API void Rtile_view_set_selected(Rid tile_view, int index, int selected);

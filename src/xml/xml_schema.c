@@ -350,6 +350,8 @@ static const rvn_schema_attribute_t g_tile_view[] = {
 	C("Layout", "Tiles|Rows", "Tiles: a grid. Rows: one item per line, as wide as the view, the icon on the left."),
 	N("TileHeight", "Height of a tile, name included."),
 	N("IconSize", "Size of the icon of a tile."),
+	N("IconWidth", "Rows layout: width of the box of the icon (0: square)."),
+	N("HeaderHeight", "Height of the header of a section (Rtile_view_set_sections)."),
 	N("Spacing", "Space between the tiles."),
 	T("EmptyText", "Text shown when there is no tile."),
 	T("DragType", "Type given to Rdrag_begin when tiles are dragged; empty: no drag."),

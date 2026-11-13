@@ -324,6 +324,82 @@ static void test_tile_view(void) {
 	Rwindow_destroy(window);
 }
 
+/* Sections: tiles 0..1 before any header, then "a" = 2..4, "b" = 5..6 */
+static const int g_section_first[] = { 2, 5 };
+static int g_section_toggled = -1;
+
+static void tile_section(Rid tiles, int section, RTileSection* out, void* user_data) {
+	(void)tiles;
+	(void)user_data;
+	out->first = g_section_first[section];
+	out->text = section == 0 ? "a" : "b";
+	out->detail = "(n)";
+}
+
+static void tile_section_toggled(Rid tiles, int section, void* user_data) {
+	(void)tiles;
+	(void)user_data;
+	g_section_toggled = section;
+}
+
+static void test_tile_view_sections(void) {
+	Rid window = window_from(
+		"<Window Width=\"400\" Height=\"600\"><TileView Name=\"tiles\" Layout=\"Rows\" TileHeight=\"40\" Spacing=\"10\" "
+		"HeaderHeight=\"20\" IconSize=\"30\" IconWidth=\"40\"/></Window>");
+	Rid tiles = Rwidget_find(window, "tiles");
+	float x, y, w, h;
+
+	Rtile_view_set_items(tiles, 7, tile_item, NULL);
+	Rtile_view_set_sections(tiles, 2, tile_section, NULL);
+	Rtile_view_set_section_toggled_callback(tiles, tile_section_toggled, NULL);
+	CHECK(Rtile_view_get_section_count(tiles) == 2);
+	CHECK(Rtile_view_get_section_of(tiles, 1) == -1);
+	CHECK(Rtile_view_get_section_of(tiles, 2) == 0);
+	CHECK(Rtile_view_get_section_of(tiles, 6) == 1);
+	Rdraw_frame();
+	Rwidget_get_rect(tiles, &x, &y, &w, &h);
+
+	/* rows of 40 + 10: tile 0 at 10, tile 1 at 60, header "a" at 110 (20 high), tile 2 at 140,
+	 * tile 4 at 240, header "b" at 290, tile 5 at 320 */
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 20.0f) == 0);
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 70.0f) == 1);
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 115.0f) == -1);
+	CHECK(Rtile_view_get_section_at(tiles, 20.0f, 115.0f) == 0);
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 150.0f) == 2);
+	CHECK(Rtile_view_get_section_at(tiles, 20.0f, 295.0f) == 1);
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 330.0f) == 5);
+
+	/* a click on header "a" folds it: its tiles go, "b" moves up to 140 */
+	test_click_at(window, x + 20.0f, y + 115.0f);
+	CHECK(g_section_toggled == 0);
+	CHECK(Rtile_view_is_section_folded(tiles, 0));
+	Rdraw_frame();
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 150.0f) == -1);
+	CHECK(Rtile_view_get_section_at(tiles, 20.0f, 145.0f) == 1);
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 180.0f) == 5);
+
+	/* Down from tile 1 passes over the folded tiles 2..4 */
+	Rtile_view_select_only(tiles, 1);
+	Rwidget_focus(tiles);
+	test_key(window, R_KEY_DOWN, 0);
+	CHECK(Rtile_view_get_current(tiles) == 5);
+
+	/* unfolded by the application: no callback */
+	g_section_toggled = -1;
+	Rtile_view_set_section_folded(tiles, 0, R_FALSE);
+	CHECK(!Rtile_view_is_section_folded(tiles, 0));
+	CHECK(g_section_toggled == -1);
+	Rdraw_frame();
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 150.0f) == 2);
+
+	/* new tiles drop the sections */
+	Rtile_view_set_items(tiles, 3, tile_item, NULL);
+	CHECK(Rtile_view_get_section_count(tiles) == 0);
+	Rdraw_frame();
+	CHECK(Rtile_view_get_item_at(tiles, 20.0f, 115.0f) == 2);
+	Rwindow_destroy(window);
+}
+
 /* ---------------------------------------------------------------------------
  *  Dock area: hidden panels
  * ------------------------------------------------------------------------- */
@@ -418,6 +494,7 @@ int main(void) {
 	RUN(test_internal_drag);
 	RUN(test_tree_multi);
 	RUN(test_tile_view);
+	RUN(test_tile_view_sections);
 	RUN(test_dock_hidden);
 	RUN(test_memory_files);
 	Rshutdown();

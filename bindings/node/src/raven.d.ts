@@ -2258,7 +2258,7 @@ export class RGestureEvent extends RStruct {
 
 /** What a tile shows, filled by the application when the tile is drawn. */
 export class RTileItem extends RStruct {
-	static readonly SIZE = 80;
+	static readonly SIZE = 104;
 	constructor(pointer?: Pointer);
 	/** The structure at an address of the library, or null. */
 	static from(pointer: Pointer | null): RTileItem | null;
@@ -2283,6 +2283,29 @@ export class RTileItem extends RStruct {
 	/** Color of the name; alpha 0 = the theme. */
 	get text_color(): Float32Array;
 	set text_color(value: ArrayLike<number>);
+	/** Layout="Rows": a third line under the detail, dimmer, or NULL. */
+	get note(): string | null;
+	set note(value: string | null);
+	/** Color of the detail line; alpha 0 = the theme (dimmer than the name). */
+	get detail_color(): Float32Array;
+	set detail_color(value: ArrayLike<number>);
+}
+
+/** A section of a tile view: its first tile, and what its header shows. */
+export class RTileSection extends RStruct {
+	static readonly SIZE = 24;
+	constructor(pointer?: Pointer);
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RTileSection | null;
+	/** Index of the first tile of the section (read when the sections are given). */
+	get first(): number;
+	set first(value: number);
+	/** Title of the header (valid until the callback returns). */
+	get text(): string | null;
+	set text(value: string | null);
+	/** Dimmer text after the title (a count...), or NULL. */
+	get detail(): string | null;
+	set detail(value: string | null);
 }
 
 /**
@@ -2734,6 +2757,12 @@ export type RTreeEventCallback = (tree_view: Rid, item: Rid, user_data: Pointer 
 export type RTreeContextCallback = (tree_view: Rid, item: Rid, x: number, y: number, user_data: Pointer | null) => void;
 
 export type RMenuItemClickedCallback = (item: Rid, user_data: Pointer | null) => void;
+
+/**
+ * Describes section `section`: when the sections are given (Rtile_view_set_sections,
+ * `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+ */
+export type RTileSectionCallback = (tile_view: Rid, section: number, out: RTileSection | null, user_data: Pointer | null) => void;
 
 /** Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view. */
 export type RTileItemCallback = (tile_view: Rid, index: number, item: RTileItem | null, user_data: Pointer | null) => void;
@@ -4735,6 +4764,31 @@ export function Rtile_view_get_count(tile_view: Rid): number;
 export function Rtile_view_set_tile_size(tile_view: Rid, width: number, height: number, icon_size: number): void;
 
 export function Rtile_view_set_empty_text(tile_view: Rid, text: string | null): void;
+
+/**
+ * Layout="Rows": width of the box the icon is drawn in (its height is the
+ * icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+ */
+export function Rtile_view_set_icon_width(tile_view: Rid, width: number): void;
+
+/** `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles. */
+export function Rtile_view_set_sections(tile_view: Rid, count: number, callback: RTileSectionCallback | Pointer | null, user_data?: RPointer): void;
+
+export function Rtile_view_get_section_count(tile_view: Rid): number;
+
+/** The section of a tile, or -1 (before the first section). */
+export function Rtile_view_get_section_of(tile_view: Rid, index: number): number;
+
+/** Folds or unfolds a section (the toggled callback is not called). */
+export function Rtile_view_set_section_folded(tile_view: Rid, section: number, folded: number): void;
+
+export function Rtile_view_is_section_folded(tile_view: Rid, section: number): number;
+
+/** The section whose header is at a point relative to the widget, or -1. */
+export function Rtile_view_get_section_at(tile_view: Rid, local_x: number, local_y: number): number;
+
+/** Called when the user folds or unfolds a section (`index`: the section). */
+export function Rtile_view_set_section_toggled_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data?: RPointer): void;
 
 export function Rtile_view_set_selected(tile_view: Rid, index: number, selected: number): void;
 

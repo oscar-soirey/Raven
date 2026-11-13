@@ -2713,7 +2713,7 @@ public final class R {
      */
     public static final class RTileItem {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 80;
+        public static final long SIZE = 104;
         private final MemorySegment s;
         private Arena arena;
 
@@ -2788,6 +2788,79 @@ public final class R {
          */
         public float text_color(int index) { return s.getAtIndex(JAVA_FLOAT, 64 / 4 + java.util.Objects.checkIndex(index, 4)); }
         public RTileItem text_color(int index, float value) { s.setAtIndex(JAVA_FLOAT, 64 / 4 + java.util.Objects.checkIndex(index, 4), value); return this; }
+
+        /**
+         * Layout="Rows": a third line under the detail, dimmer, or NULL.
+         */
+        public String note() { return R.text(s.get(ADDRESS, 80)); }
+        public RTileItem note(String value) { s.set(ADDRESS, 80, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Color of the detail line; alpha 0 = the theme (dimmer than the name).
+         */
+        public float detail_color(int index) { return s.getAtIndex(JAVA_FLOAT, 88 / 4 + java.util.Objects.checkIndex(index, 4)); }
+        public RTileItem detail_color(int index, float value) { s.setAtIndex(JAVA_FLOAT, 88 / 4 + java.util.Objects.checkIndex(index, 4), value); return this; }
+    }
+
+    /**
+     * A section of a tile view: its first tile, and what its header shows.
+     */
+    public static final class RTileSection {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 24;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RTileSection x = {0};` is in C). */
+        public RTileSection() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RTileSection(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RTileSection(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RTileSection[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RTileSection[] items = new RTileSection[count];
+            for (int i = 0; i < count; i++) items[i] = new RTileSection(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * Index of the first tile of the section (read when the sections are given).
+         */
+        public int first() { return s.get(JAVA_INT, 0); }
+        public RTileSection first(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        /**
+         * Title of the header (valid until the callback returns).
+         */
+        public String text() { return R.text(s.get(ADDRESS, 8)); }
+        public RTileSection text(String value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Dimmer text after the title (a count...), or NULL.
+         */
+        public String detail() { return R.text(s.get(ADDRESS, 16)); }
+        public RTileSection detail(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
     }
 
     /**
@@ -4309,6 +4382,28 @@ public final class R {
 
     private static MemorySegment upcall(RMenuItemClickedCallback f) {
         return stub(f, RMenuItemClickedCallback.class, "RMenuItemClickedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Describes section `section`: when the sections are given (Rtile_view_set_sections,
+     * `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+     */
+    @FunctionalInterface
+    public interface RTileSectionCallback {
+        void invoke(int tile_view, int section, RTileSection out, MemorySegment user_data);
+    }
+
+    private static void RTileSectionCallback$raw(RTileSectionCallback f, int tile_view, int section, MemorySegment out, MemorySegment user_data) {
+        try {
+            f.invoke(tile_view, section, out.equals(MemorySegment.NULL) ? null : new RTileSection(out), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RTileSectionCallback f) {
+        return stub(f, RTileSectionCallback.class, "RTileSectionCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
     }
 
     /**
@@ -12837,6 +12932,139 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rtile_view_set_icon_width$;
+
+    /**
+     * Layout="Rows": width of the box the icon is drawn in (its height is the
+     * icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+     */
+    public static void Rtile_view_set_icon_width(int tile_view, float width) {
+        MethodHandle $h = Rtile_view_set_icon_width$;
+        if ($h == null) Rtile_view_set_icon_width$ = $h = find("Rtile_view_set_icon_width", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(tile_view, width);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtile_view_set_sections$;
+
+    /**
+     * `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+     */
+    public static void Rtile_view_set_sections(int tile_view, int count, RTileSectionCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtile_view_set_sections$;
+        if ($h == null) Rtile_view_set_sections$ = $h = find("Rtile_view_set_sections", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(tile_view, count, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+     */
+    public static void Rtile_view_set_sections(int tile_view, int count, RTileSectionCallback callback) {
+        Rtile_view_set_sections(tile_view, count, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtile_view_get_section_count$;
+
+    public static int Rtile_view_get_section_count(int tile_view) {
+        MethodHandle $h = Rtile_view_get_section_count$;
+        if ($h == null) Rtile_view_get_section_count$ = $h = find("Rtile_view_get_section_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tile_view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtile_view_get_section_of$;
+
+    /**
+     * The section of a tile, or -1 (before the first section).
+     */
+    public static int Rtile_view_get_section_of(int tile_view, int index) {
+        MethodHandle $h = Rtile_view_get_section_of$;
+        if ($h == null) Rtile_view_get_section_of$ = $h = find("Rtile_view_get_section_of", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tile_view, index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtile_view_set_section_folded$;
+
+    /**
+     * Folds or unfolds a section (the toggled callback is not called).
+     */
+    public static void Rtile_view_set_section_folded(int tile_view, int section, int folded) {
+        MethodHandle $h = Rtile_view_set_section_folded$;
+        if ($h == null) Rtile_view_set_section_folded$ = $h = find("Rtile_view_set_section_folded", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(tile_view, section, folded);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtile_view_is_section_folded$;
+
+    public static int Rtile_view_is_section_folded(int tile_view, int section) {
+        MethodHandle $h = Rtile_view_is_section_folded$;
+        if ($h == null) Rtile_view_is_section_folded$ = $h = find("Rtile_view_is_section_folded", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(tile_view, section);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtile_view_get_section_at$;
+
+    /**
+     * The section whose header is at a point relative to the widget, or -1.
+     */
+    public static int Rtile_view_get_section_at(int tile_view, float local_x, float local_y) {
+        MethodHandle $h = Rtile_view_get_section_at$;
+        if ($h == null) Rtile_view_get_section_at$ = $h = find("Rtile_view_get_section_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(tile_view, local_x, local_y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtile_view_set_section_toggled_callback$;
+
+    /**
+     * Called when the user folds or unfolds a section (`index`: the section).
+     */
+    public static void Rtile_view_set_section_toggled_callback(int tile_view, RTileEventCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtile_view_set_section_toggled_callback$;
+        if ($h == null) Rtile_view_set_section_toggled_callback$ = $h = find("Rtile_view_set_section_toggled_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(tile_view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when the user folds or unfolds a section (`index`: the section).
+     */
+    public static void Rtile_view_set_section_toggled_callback(int tile_view, RTileEventCallback callback) {
+        Rtile_view_set_section_toggled_callback(tile_view, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtile_view_set_selected$;

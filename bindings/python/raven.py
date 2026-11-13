@@ -1764,6 +1764,17 @@ class RTileItem(ctypes.Structure):
         ("tint", ctypes.c_float * 4),
         ("icon_radius", ctypes.c_float),
         ("text_color", ctypes.c_float * 4),
+        ("note", ctypes.c_char_p),
+        ("detail_color", ctypes.c_float * 4),
+    ]
+
+
+class RTileSection(ctypes.Structure):
+    """A section of a tile view: its first tile, and what its header shows."""
+    _fields_ = [
+        ("first", ctypes.c_int),
+        ("text", ctypes.c_char_p),
+        ("detail", ctypes.c_char_p),
     ]
 
 
@@ -2154,6 +2165,14 @@ RMenuItemClickedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void
 def _adapt_RMenuItemClickedCallback(function):
     def call(item, user_data):
         function(item, user_data)
+    return call
+
+RTileSectionCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(RTileSection), ctypes.c_void_p)
+
+
+def _adapt_RTileSectionCallback(function):
+    def call(tile_view, section, out, user_data):
+        function(tile_view, section, out.contents if out else None, user_data)
     return call
 
 RTileItemCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(RTileItem), ctypes.c_void_p)
@@ -7098,6 +7117,77 @@ _lib.Rtile_view_set_empty_text.restype = None
 
 def Rtile_view_set_empty_text(tile_view, text):
     _lib.Rtile_view_set_empty_text(tile_view, _s(text))
+
+
+_lib.Rtile_view_set_icon_width.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rtile_view_set_icon_width.restype = None
+
+
+def Rtile_view_set_icon_width(tile_view, width):
+    """Layout="Rows": width of the box the icon is drawn in (its height is the
+    icon size), for icons that are not square; 0 = square (default). XML: IconWidth."""
+    _lib.Rtile_view_set_icon_width(tile_view, width)
+
+
+_lib.Rtile_view_set_sections.argtypes = [ctypes.c_uint32, ctypes.c_int, RTileSectionCallback, ctypes.c_void_p]
+_lib.Rtile_view_set_sections.restype = None
+
+
+def Rtile_view_set_sections(tile_view, count, callback, user_data=None):
+    """`count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles."""
+    _lib.Rtile_view_set_sections(tile_view, count, _callback(RTileSectionCallback, _adapt_RTileSectionCallback, callback), user_data)
+
+
+_lib.Rtile_view_get_section_count.argtypes = [ctypes.c_uint32]
+_lib.Rtile_view_get_section_count.restype = ctypes.c_int
+
+
+def Rtile_view_get_section_count(tile_view):
+    return _lib.Rtile_view_get_section_count(tile_view)
+
+
+_lib.Rtile_view_get_section_of.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtile_view_get_section_of.restype = ctypes.c_int
+
+
+def Rtile_view_get_section_of(tile_view, index):
+    """The section of a tile, or -1 (before the first section)."""
+    return _lib.Rtile_view_get_section_of(tile_view, index)
+
+
+_lib.Rtile_view_set_section_folded.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtile_view_set_section_folded.restype = None
+
+
+def Rtile_view_set_section_folded(tile_view, section, folded):
+    """Folds or unfolds a section (the toggled callback is not called)."""
+    _lib.Rtile_view_set_section_folded(tile_view, section, folded)
+
+
+_lib.Rtile_view_is_section_folded.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtile_view_is_section_folded.restype = ctypes.c_int
+
+
+def Rtile_view_is_section_folded(tile_view, section):
+    return _lib.Rtile_view_is_section_folded(tile_view, section)
+
+
+_lib.Rtile_view_get_section_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rtile_view_get_section_at.restype = ctypes.c_int
+
+
+def Rtile_view_get_section_at(tile_view, local_x, local_y):
+    """The section whose header is at a point relative to the widget, or -1."""
+    return _lib.Rtile_view_get_section_at(tile_view, local_x, local_y)
+
+
+_lib.Rtile_view_set_section_toggled_callback.argtypes = [ctypes.c_uint32, RTileEventCallback, ctypes.c_void_p]
+_lib.Rtile_view_set_section_toggled_callback.restype = None
+
+
+def Rtile_view_set_section_toggled_callback(tile_view, callback, user_data=None):
+    """Called when the user folds or unfolds a section (`index`: the section)."""
+    _lib.Rtile_view_set_section_toggled_callback(tile_view, _callback(RTileEventCallback, _adapt_RTileEventCallback, callback), user_data)
 
 
 _lib.Rtile_view_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]

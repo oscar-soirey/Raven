@@ -2234,6 +2234,35 @@ namespace Raven
         /// </summary>
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
         public float[] text_color;
+        /// <summary>
+        /// Layout="Rows": a third line under the detail, dimmer, or NULL.
+        /// </summary>
+        public IntPtr note;
+        /// <summary>
+        /// Color of the detail line; alpha 0 = the theme (dimmer than the name).
+        /// </summary>
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+        public float[] detail_color;
+    }
+
+    /// <summary>
+    /// A section of a tile view: its first tile, and what its header shows.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RTileSection
+    {
+        /// <summary>
+        /// Index of the first tile of the section (read when the sections are given).
+        /// </summary>
+        public int first;
+        /// <summary>
+        /// Title of the header (valid until the callback returns).
+        /// </summary>
+        public IntPtr text;
+        /// <summary>
+        /// Dimmer text after the title (a count...), or NULL.
+        /// </summary>
+        public IntPtr detail;
     }
 
     /// <summary>
@@ -2750,6 +2779,13 @@ namespace Raven
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RMenuItemClickedCallback(uint item, IntPtr user_data);
+
+    /// <summary>
+    /// Describes section `section`: when the sections are given (Rtile_view_set_sections,
+    /// `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RTileSectionCallback(uint tile_view, int section, ref RTileSection @out, IntPtr user_data);
 
     /// <summary>
     /// Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
@@ -5797,6 +5833,49 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtile_view_set_empty_text(uint tile_view, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Layout="Rows": width of the box the icon is drawn in (its height is the
+        /// icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtile_view_set_icon_width(uint tile_view, float width);
+
+        /// <summary>
+        /// `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtile_view_set_sections(uint tile_view, int count, RTileSectionCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtile_view_get_section_count(uint tile_view);
+
+        /// <summary>
+        /// The section of a tile, or -1 (before the first section).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtile_view_get_section_of(uint tile_view, int index);
+
+        /// <summary>
+        /// Folds or unfolds a section (the toggled callback is not called).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtile_view_set_section_folded(uint tile_view, int section, int folded);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtile_view_is_section_folded(uint tile_view, int section);
+
+        /// <summary>
+        /// The section whose header is at a point relative to the widget, or -1.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtile_view_get_section_at(uint tile_view, float local_x, float local_y);
+
+        /// <summary>
+        /// Called when the user folds or unfolds a section (`index`: the section).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtile_view_set_section_toggled_callback(uint tile_view, RTileEventCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtile_view_set_selected(uint tile_view, int index, int selected);
