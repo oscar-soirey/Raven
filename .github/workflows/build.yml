@@ -205,6 +205,19 @@ jobs:
             ${{ env.PACKAGE }}.tar.gz
           if-no-files-found: error
 
+  # The native Win32 backdrop regression needs DWM and a real window, but no GPU renderer.
+  windows-backdrop:
+    name: backdrop (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BUILD_WEB=OFF -DRAVEN_BUILD_TESTS=ON -DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TOOLS=OFF
+      - name: Build
+        run: cmake --build build --config Release --target test_win32_backdrop --parallel
+      - name: Test native backdrop surface
+        run: ctest --test-dir build -C Release -R '^test_win32_backdrop$' --no-tests=error --output-on-failure --timeout 60
+
   # ---------------------------------------------------------------------------
   #  Windows (MinGW-w64, through MSYS2)
   # ---------------------------------------------------------------------------
