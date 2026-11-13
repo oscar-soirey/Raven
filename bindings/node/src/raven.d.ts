@@ -2931,6 +2931,8 @@ export type RXmlTagAttributeCallback = (widget: Rid, name: string | null, value:
 
 export type RLocaleChangedCallback = (language: string | null, user_data: Pointer | null) => void;
 
+export type RAccessiblePressCallback = (widget: Rid, user_data: Pointer | null) => void;
+
 /**
  * Starts Raven, on this thread and without a render thread: Rinit_ex gives the choice.
  */
@@ -6944,6 +6946,20 @@ export function Rwidget_set_accessible_hidden(widget: Rid, hidden: number): void
 
 /** The widget is named by another one (a label): its text is the name. */
 export function Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid): void;
+
+/**
+ * Explicit screen-reader press action, including for custom widgets.
+ * NULL removes the override. Does not change pointer or keyboard handling.
+ * Disabled widgets (including disabled ancestors) cannot be pressed.
+ */
+export function Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * Override the checked state: 1 checked, 0 unchecked, -1 restores the
+ * widget's default (not checkable for a custom widget). The application owns
+ * this state; a press callback updates it when appropriate.
+ */
+export function Rwidget_set_accessible_checked(widget: Rid, checked: number): void;
 
 /** Has a message read (a save that ended, an error). `assertive`: interrupts what is being read. */
 export function Raccessibility_announce(text: string | null, assertive: number): void;

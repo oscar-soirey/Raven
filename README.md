@@ -1121,6 +1121,16 @@ Rwidget_set_accessible_name(close_button, "Close");
 Raccessibility_announce("File saved", R_FALSE);
 ```
 
+Custom controls can expose a screen-reader press action without changing their
+pointer or keyboard handlers. Set their role and name, then call
+`Rwidget_set_accessible_action(widget, press, user_data)`. The callback runs on
+the UI thread and may destroy the widget; disabled controls cannot be pressed.
+Pass `NULL` to restore the widget's default action. For a toggle, use
+`Rwidget_set_accessible_checked(widget, 0)` or `1`; the application updates that
+state from its callback. `-1` restores the class-derived checked state (a custom
+widget is not checkable by default). Both are exposed through native screen
+readers and the browser accessibility tree.
+
 ```xml
 <Button Icon="close.png" AccessibleName="Close" AccessibleDescription="Closes the document"/>
 ```

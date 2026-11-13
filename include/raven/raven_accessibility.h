@@ -161,6 +161,20 @@ extern "C" {
 	/** @brief The widget is named by another one (a label): its text is the name. */
 	RAVEN_API void Rwidget_set_accessible_labelled_by(Rid widget, Rid label);
 
+	typedef void (*RAccessiblePressCallback)(Rid widget, void* user_data);
+	/**
+	 * @brief Explicit screen-reader press action, including for custom widgets.
+	 * NULL removes the override. Does not change pointer or keyboard handling.
+	 * Disabled widgets (including disabled ancestors) cannot be pressed.
+	 */
+	RAVEN_API void Rwidget_set_accessible_action(Rid widget, RAccessiblePressCallback press, void* user_data);
+	/**
+	 * @brief Override the checked state: 1 checked, 0 unchecked, -1 restores the
+	 * widget's default (not checkable for a custom widget). The application owns
+	 * this state; a press callback updates it when appropriate.
+	 */
+	RAVEN_API void Rwidget_set_accessible_checked(Rid widget, int checked);
+
 	/** @brief Has a message read (a save that ended, an error). `assertive`: interrupts what is being read. */
 	RAVEN_API void Raccessibility_announce(const char* text, int assertive);
 	/** @brief R_TRUE when a screen reader is reading the windows of the application. */

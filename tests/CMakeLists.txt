@@ -48,6 +48,10 @@ raven_add_test(test_themes)
 raven_add_test(test_markdown)
 raven_add_test(test_tools)
 raven_add_test(test_locale)
+if(NOT RAVEN_BUILD_SHARED)
+	# Tests the shared screen-reader tree/actions used by all native platforms.
+	raven_add_test(test_accessibility)
+endif()
 raven_add_test(test_host_platform)
 if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	# Real AppKit key events through RavenCocoaView, with the null renderer (no Vulkan).

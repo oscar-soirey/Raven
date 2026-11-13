@@ -5294,6 +5294,24 @@ public final class R {
         return stub(f, RLocaleChangedCallback.class, "RLocaleChangedCallback$raw", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
     }
 
+    @FunctionalInterface
+    public interface RAccessiblePressCallback {
+        void invoke(int widget, MemorySegment user_data);
+    }
+
+    private static void RAccessiblePressCallback$raw(RAccessiblePressCallback f, int widget, MemorySegment user_data) {
+        try {
+            f.invoke(widget, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RAccessiblePressCallback f) {
+        return stub(f, RAccessiblePressCallback.class, "RAccessiblePressCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
     // ---- functions
 
     private static MethodHandle Rinit$;
@@ -22888,6 +22906,49 @@ public final class R {
         if ($h == null) Rwidget_set_accessible_labelled_by$ = $h = find("Rwidget_set_accessible_labelled_by", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(widget, label);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_set_accessible_action$;
+
+    /**
+     * Explicit screen-reader press action, including for custom widgets.
+     * NULL removes the override. Does not change pointer or keyboard handling.
+     * Disabled widgets (including disabled ancestors) cannot be pressed.
+     */
+    public static void Rwidget_set_accessible_action(int widget, RAccessiblePressCallback press, MemorySegment user_data) {
+        MethodHandle $h = Rwidget_set_accessible_action$;
+        if ($h == null) Rwidget_set_accessible_action$ = $h = find("Rwidget_set_accessible_action", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(widget, upcall(press), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Explicit screen-reader press action, including for custom widgets.
+     * NULL removes the override. Does not change pointer or keyboard handling.
+     * Disabled widgets (including disabled ancestors) cannot be pressed.
+     */
+    public static void Rwidget_set_accessible_action(int widget, RAccessiblePressCallback press) {
+        Rwidget_set_accessible_action(widget, press, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwidget_set_accessible_checked$;
+
+    /**
+     * Override the checked state: 1 checked, 0 unchecked, -1 restores the
+     * widget's default (not checkable for a custom widget). The application owns
+     * this state; a press callback updates it when appropriate.
+     */
+    public static void Rwidget_set_accessible_checked(int widget, int checked) {
+        MethodHandle $h = Rwidget_set_accessible_checked$;
+        if ($h == null) Rwidget_set_accessible_checked$ = $h = find("Rwidget_set_accessible_checked", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(widget, checked);
         } catch (Throwable $t) {
             throw fail($t);
         }
