@@ -437,9 +437,26 @@ static void test_list_and_tree(void) {
 	test_key(g_window, R_KEY_RIGHT, 0);
 	CHECK(Rtree_view_get_selected_item(tree) == child && g_last_id == child);
 
+	/* closing the branch of the selected item (its arrow) moves the selection to the branch, and says so */
+	g_clicks = 0;
+	test_click_at(g_window, x + 9, y + 1 + row * 0.5f);
+	CHECK(!Rtree_item_is_expanded(root));
+	CHECK(Rtree_view_get_selected_item(tree) == root && g_clicks == 1 && g_last_id == root);
+	/* with multiple selection too, and the hidden item is no longer selected */
+	Rtree_view_set_multi_select(tree, R_TRUE);
+	Rtree_view_set_selected_item(tree, child);
+	g_clicks = 0;
+	test_click_at(g_window, x + 9, y + 1 + row * 0.5f);
+	CHECK(Rtree_view_get_selected_item(tree) == root && g_clicks == 1 && g_last_id == root);
+	CHECK(Rtree_item_is_selected(root) && !Rtree_item_is_selected(child));
+	CHECK(Rtree_view_get_selection_count(tree) == 1);
+	Rtree_view_set_multi_select(tree, R_FALSE);
+	Rtree_view_set_selected_item(tree, child);
+
 	/* selecting a hidden item opens the branches above it */
+	g_clicks = 0;
 	Rtree_item_set_expanded(root, R_FALSE);
-	CHECK(Rtree_view_get_selected_item(tree) == root);
+	CHECK(Rtree_view_get_selected_item(tree) == root && g_clicks == 0);
 	Rtree_view_set_selected_item(tree, leaf);
 	CHECK(Rtree_item_is_expanded(root) && Rtree_item_is_expanded(child));
 

@@ -319,16 +319,21 @@ static void rvn_tree_select_range(rvn_widget_t* widget, rvn_tree_item_t* item, i
 	if (tree->selected == item) rvn_widget_invalidate_paint(widget);
 }
 
-static void rvn_tree_set_expanded(rvn_tree_item_t* item, int expanded) {
+/* `notify`: closing the branch of the selected item moves the selection, which the user is told of. */
+static void rvn_tree_set_expanded(rvn_tree_item_t* item, int expanded, int notify) {
 	rvn_tree_view_t* tree = item->tree;
 	expanded = expanded != 0;
 	if (item->expanded == expanded) return;
 	item->expanded = expanded;
-	/* the selection never stays inside a branch that is being closed */
-	if (!expanded && tree->selected && tree->selected != item && rvn_tree_item_is_inside(tree->selected, item)) {
-		tree->selected = item;
-	}
 	rvn_tree_changed(tree);
+	/* the selection never stays inside a branch that is being closed: it moves to the branch */
+	if (!expanded && tree->selected && tree->selected != item && rvn_tree_item_is_inside(tree->selected, item)) {
+		if (tree->multi) {
+			rvn_tree_clear_multi(item);
+			item->selected = R_TRUE;
+		}
+		rvn_tree_select_ex(&tree->base, item, notify, R_TRUE);
+	}
 }
 
 static void rvn_tree_activate(rvn_widget_t* widget) {
@@ -525,7 +530,7 @@ static int rvn_tree_view_event(rvn_widget_t* widget, const REvent* event) {
 			arrow_x = 5.0f + indent * (float)item->depth + (rvn_widget_family(widget) != RVN_FAMILY_RAVEN ? 8.0f : 0.0f);
 			if (item->child_count > 0 && event->local_x >= arrow_x && event->local_x < arrow_x + indent) {
 				/* the arrow only opens and closes the branch */
-				rvn_tree_set_expanded(item, !item->expanded);
+				rvn_tree_set_expanded(item, !item->expanded, R_TRUE);
 				return R_TRUE;
 			}
 			tree->press_pending = R_TRUE;
@@ -563,7 +568,7 @@ static int rvn_tree_view_event(rvn_widget_t* widget, const REvent* event) {
 			}
 			rvn_tree_select(widget, item, R_TRUE);
 			if (event->clicks == 2 && rvn_widget_alive(widget) && tree->selected == item) {
-				if (item->child_count > 0) rvn_tree_set_expanded(item, !item->expanded);
+				if (item->child_count > 0) rvn_tree_set_expanded(item, !item->expanded, R_TRUE);
 				rvn_tree_activate(widget);
 			}
 			return R_TRUE;
@@ -608,13 +613,13 @@ static int rvn_tree_view_event(rvn_widget_t* widget, const REvent* event) {
 				case R_KEY_LEFT:
 					/* close the branch, or go up to the parent */
 					if (!item) return R_FALSE;
-					if (item->expanded && item->child_count > 0) rvn_tree_set_expanded(item, R_FALSE);
+					if (item->expanded && item->child_count > 0) rvn_tree_set_expanded(item, R_FALSE, R_TRUE);
 					else if (item->parent && item->parent != &tree->root) rvn_tree_select(widget, item->parent, R_TRUE);
 					return R_TRUE;
 				case R_KEY_RIGHT:
 					/* open the branch, or go down to its first item */
 					if (!item || item->child_count == 0) return R_FALSE;
-					if (!item->expanded) rvn_tree_set_expanded(item, R_TRUE);
+					if (!item->expanded) rvn_tree_set_expanded(item, R_TRUE, R_TRUE);
 					else rvn_tree_select(widget, item->children[0], R_TRUE);
 					return R_TRUE;
 				case R_KEY_ENTER:
@@ -733,7 +738,7 @@ const char* Rtree_item_get_text(Rid id) {
 
 void Rtree_item_set_expanded(Rid id, int expanded) {
 	rvn_tree_item_t* item = rvn_tree_item_check(id, __func__);
-	if (item) rvn_tree_set_expanded(item, expanded);
+	if (item) rvn_tree_set_expanded(item, expanded, R_FALSE);
 }
 
 int Rtree_item_is_expanded(Rid id) {
