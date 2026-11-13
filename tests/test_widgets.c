@@ -940,6 +940,8 @@ static void test_selectable_label(void) {
 	Rid after = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
 	Rid plain = Rwidget_add_child(box, Rlabel_create("Not selectable"));
 	float x, y, w, h;
+	const char* selected;
+	size_t length;
 	Rslot_set_halign(label, R_HALIGN_LEFT);
 	Rslot_set_halign(lines, R_HALIGN_LEFT);
 	Rlabel_set_markdown(md, R_TRUE);
@@ -970,8 +972,11 @@ static void test_selectable_label(void) {
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
 	Rwindow_inject_mouse_move(g_window, x + w * 0.25f, y + h * 0.5f);
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
-	CHECK(strlen(Rlabel_get_selected_text(label)) > 0 && strlen(Rlabel_get_selected_text(label)) < 9);
-	CHECK(strncmp(Rlabel_get_selected_text(label), "Hello", strlen(Rlabel_get_selected_text(label))) == 0);
+	/* (one call: the text is valid until the next one) */
+	selected = Rlabel_get_selected_text(label);
+	length = strlen(selected);
+	CHECK(length > 0 && length < 9);
+	CHECK(strncmp(selected, "Hello", length) == 0);
 	Rwindow_inject_key(g_window, R_KEY_LEFT_SHIFT, R_TRUE, R_MOD_SHIFT);
 	Rwindow_inject_mouse_move(g_window, x + w - 0.5f, y + h * 0.5f);
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
