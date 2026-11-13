@@ -66,7 +66,8 @@ typedef struct rvn_md_block_t {
 	uint32_t language_start, language_length;
 	/** Table: its cells, row after row, in rvn_md_t::cells; the first row is the header. */
 	uint32_t first_cell;
-	uint16_t columns, rows;
+	uint16_t columns;
+	uint32_t rows;
 	/** Image: its address, in rvn_md_t::links. */
 	int16_t link;
 } rvn_md_block_t;
@@ -966,7 +967,7 @@ rvn_md_t* rvn_md_parse(const char* source) {
 						p = row_end < end ? row_end + 1 : end;
 					}
 				}
-				md->blocks[table_index].rows = (uint16_t)rows;
+				md->blocks[table_index].rows = (uint32_t)rows;
 				blank_before = R_FALSE;
 				continue;
 			}
@@ -1319,7 +1320,7 @@ static float rvn_md_table(rvn_md_layout_t* layout, const rvn_md_block_t* block, 
 	float widths[RVN_MD_MAX_COLUMNS];
 	float pad_x = floorf(layout->size * 0.75f), pad_y = floorf(layout->size * 0.36f);
 	float total = 0.0f, top = y, x;
-	int columns = block->columns, rows = block->rows, r, c;
+	int columns = block->columns, rows = (int)block->rows, r, c;
 
 	if (columns <= 0 || rows <= 0) return 0.0f;
 	for (c = 0; c < columns; c++) {

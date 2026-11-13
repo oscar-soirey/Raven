@@ -5,6 +5,8 @@
 
 #include "test.h"
 
+#include <stdlib.h>
+
 static int g_links;
 static char g_link[256];
 static int g_actions;
@@ -86,6 +88,27 @@ static void test_blocks(void) {
 	CHECK_STR(plain("~~~\n``` not a fence\n~~~"), "``` not a fence");
 	CHECK_STR(plain("a\n\n---\n\nb"), "a\n\nb");
 	CHECK_STR(plain("| A | B |\n|---|:-:|\n| 1 | **2** |\n| 3 | 4 |\n\nend"), "A\tB\n1\t2\n3\t4\nend");
+	/* a table of more rows than 16 bits can count keeps them all */
+	{
+		const int rows = 65537;
+		size_t length = 0;
+		int r, lines = 1;
+		char* text = (char*)malloc((size_t)rows * 6 + 16);
+		const char* out;
+		memcpy(text, "| h |\n|---|\n", 12);
+		length = 12;
+		for (r = 1; r < rows; r++) {
+			memcpy(text + length, "| r |\n", 6);
+			length += 6;
+		}
+		text[length] = 0;
+		label = markdown_label(text);
+		out = Rlabel_get_plain_text(label);
+		for (; *out; out++) lines += *out == '\n';
+		CHECK(lines == rows);
+		CHECK(height_of(label) > 100000.0f);
+		free(text);
+	}
 	/* indented with the XML element it is written in */
 	CHECK_STR(plain("\n\t\t# Title\n\n\t\t- item\n\t\t  - inner\n\t"), "Title\nitem\ninner");
 
