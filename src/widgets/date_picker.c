@@ -229,6 +229,18 @@ static void rvn_date_picker_set(rvn_widget_t* widget, int year, int month, int d
 	if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
 }
 
+/* After the range changed: the date moves inside it (without calling back, as for Rdate_picker_set_date). */
+static void rvn_date_picker_clamp(rvn_widget_t* widget) {
+	rvn_date_picker_t* picker = (rvn_date_picker_t*)widget;
+	int key = rvn_date_key(picker->year, picker->month, picker->day);
+	if (picker->min_key && key < picker->min_key) key = picker->min_key;
+	if (picker->max_key && key > picker->max_key) key = picker->max_key;
+	picker->year = key / 10000;
+	picker->month = key / 100 % 100;
+	picker->day = key % 100;
+	rvn_widget_invalidate_layout(widget);
+}
+
 /* ---- the calendar ---- */
 
 static float rvn_calendar_header(const rvn_widget_t* widget) {
@@ -608,6 +620,7 @@ static int rvn_date_picker_set_attribute(rvn_widget_t* widget, const char* name,
 		}
 		if (RVN_ATTR("Min")) picker->min_key = key;
 		else picker->max_key = key;
+		rvn_date_picker_clamp(widget);
 		return R_TRUE;
 	}
 	if (RVN_ATTR("FirstDayOfWeek")) {
@@ -672,18 +685,7 @@ void Rdate_picker_set_range(Rid id, int min_year, int min_month, int min_day, in
 	}
 	picker->min_key = min_year ? rvn_date_key(min_year, min_month, min_day) : 0;
 	picker->max_key = max_year ? rvn_date_key(max_year, max_month, max_day) : 0;
-	/* the date moves inside the range */
-	if (picker->min_key && rvn_date_key(picker->year, picker->month, picker->day) < picker->min_key) {
-		picker->year = min_year;
-		picker->month = min_month;
-		picker->day = min_day;
-	}
-	if (picker->max_key && rvn_date_key(picker->year, picker->month, picker->day) > picker->max_key) {
-		picker->year = max_year;
-		picker->month = max_month;
-		picker->day = max_day;
-	}
-	rvn_widget_invalidate_layout(widget);
+	rvn_date_picker_clamp(widget);
 }
 
 void Rdate_picker_set_first_day_of_week(Rid id, int day) {

@@ -166,6 +166,21 @@ static void test_date_picker(void) {
 	test_key(g_window, R_KEY_DOWN, 0);
 	Rdate_picker_get_date(picker, &year, &month, &day);
 	CHECK(day == 15);
+	/* ... and so does a range set by the Min and Max attributes; the keys move the date inside it */
+	CHECK(Rwidget_set_attribute(picker, "Min", "2030-01-01"));
+	CHECK(Rwidget_set_attribute(picker, "Max", "2030-12-31"));
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2030 && month == 1 && day == 1);
+	test_key(g_window, R_KEY_DOWN, 0);
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2030 && month == 1 && day == 2);
+	CHECK(Rwidget_set_attribute(picker, "Min", ""));
+	CHECK(Rwidget_set_attribute(picker, "Max", "2029-06-30"));
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2029 && month == 6 && day == 30);
+	CHECK(Rwidget_set_attribute(picker, "Max", ""));
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2029 && month == 6 && day == 30);
 
 	EXPECT_ERRORS_BEGIN();
 	Rdate_picker_set_date(picker, 2023, 2, 29);
