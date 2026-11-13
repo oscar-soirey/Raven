@@ -1731,6 +1731,7 @@ static int rvn_block_editor_event(rvn_widget_t* widget, const REvent* event) {
 				/* a pan if it moves, the context menu otherwise (on release) */
 				if (rvn_be_in_palette(e, x)) return R_TRUE;
 				rvn_be_finish_field(e);
+				if (!rvn_widget_alive(widget)) return R_TRUE;
 				e->drag = RVN_BE_PRESS_RIGHT;
 				e->pan_from_x = e->pan_x;
 				e->pan_from_y = e->pan_y;
@@ -1739,8 +1740,11 @@ static int rvn_block_editor_event(rvn_widget_t* widget, const REvent* event) {
 			}
 			if (event->button != R_MOUSE_LEFT) return R_FALSE;
 			id = rvn_be_block_at(e, x, y, &slot);
-			b = rvn_be_block(e, id);
+			/* closing the field calls the application back, which may add or remove blocks:
+			 * look the pressed block up again afterwards */
 			rvn_be_finish_field(e);
+			if (!rvn_widget_alive(widget)) return R_TRUE;
+			b = rvn_be_block(e, id);
 			if (!b) {
 				if (rvn_be_in_palette(e, x)) return R_TRUE;
 				/* a selection rectangle (Ctrl / Shift : added to the selection) */
