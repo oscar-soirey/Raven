@@ -166,6 +166,8 @@ static void rvn_cocoa_emit_text(rvn_pwindow_t* window, NSString* value, uint32_t
                 i++;
             }
         }
+        /* AppKit encodes arrows, navigation and function keys as private-use characters. */
+        if (codepoint >= 0xF700 && codepoint <= 0xF8FF) continue;
         rvn_pevent_t event;
         memset(&event, 0, sizeof(event));
         event.type = RVN_PEVENT_TEXT;
