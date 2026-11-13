@@ -635,7 +635,7 @@ The build trees are in `build\dist\`.
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
-on Maven Central), Odin, Bun (`bun:ffi`) and Swift (a Swift package). All but Odin are tested. See
+on Maven Central), Odin, Bun (`bun:ffi`), D (a dub package) and Swift (a Swift package). All but Odin are tested. See
 [bindings/README.md](bindings/README.md). They cover everything in
 `Raven.h`; `raven_web.h` is C only.
 
@@ -863,6 +863,13 @@ Rwindow_set_drop_callback(window, on_drop, NULL);     /* or Rwidget_set_drop_cal
 
 Files and text dragged from other applications. Dragging *out* of a Raven
 window to another application is not implemented.
+
+During `R_DROP_ENTER` or `R_DROP_MOVE`, call
+`Rdrop_set_highlight_rect(x, y, width, height)` to highlight an insertion line,
+dock band or other part of the target. Coordinates are target-local logical
+units and the rectangle is clipped to the target. Zero width or height hides
+the highlight while a `R_TRUE` callback result still accepts the drop. Every
+callback starts with the default full-target highlight again.
 
 ### Materials and glass
 
@@ -1222,6 +1229,13 @@ action `app.quit`, which an application may bind to ask first. Elsewhere the
 bar is drawn in the window; `Rmenu_bar_set_native(bar, R_FALSE)` or
 `<MenuBar Native="false">` keeps it there on macOS too.
 
+`Rmenu_item_set_shortcut_text(item, "G G")` (XML: `ShortcutText`) sets a copied,
+display-only hint, including chords or mouse gestures. It overrides the formatted
+shortcut label without adding or changing a binding. `NULL` restores the bound
+shortcut label; an empty string hides it. In native macOS menus, hints use a
+right-aligned text column; any independently configured binding is dispatched
+by Raven.
+
 ### Taskbar and Dock
 
 ```c
@@ -1412,7 +1426,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Swift
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, D, Swift
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```

@@ -59,6 +59,17 @@ static void test_json(void) {
 	rw_text_free(&out);
 	rw_json_free(&document);
 
+	/* numbers beyond the range of long long are written without converting them to it */
+	{
+		char big[] = "[1e20,-1e19,123456789012345,1e300]";
+		CHECK(rw_json_parse(&document, big, strlen(big)));
+		memset(&out, 0, sizeof(out));
+		rw_json_write(&out, document.root);
+		CHECK_STR(out.data, "[1e+20,-1e+19,123456789012345,1.0000000000000001e+300]");
+		rw_text_free(&out);
+		rw_json_free(&document);
+	}
+
 	CHECK(!rw_json_parse(&document, broken, strlen(broken)));
 
 	memset(&out, 0, sizeof(out));

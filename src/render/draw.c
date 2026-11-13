@@ -725,7 +725,11 @@ void rvn_paint_image(RPainter* painter, rvn_rect_t rect, Rid texture, const floa
 		float wanted = 0.0f;
 		if (span_x > 0.0f) wanted = (box.x1 - box.x0) / span_x * density;
 		if (span_y > 0.0f) wanted = rvn_maxf(wanted, (box.y1 - box.y0) / span_y * density);
-		if (wanted > object->svg_wanted) object->svg_wanted = wanted;
+		if (wanted > 0.0f) {
+			int32_t bits;
+			memcpy(&bits, &wanted, sizeof(bits));
+			rvn_atomic_max(&object->svg_wanted, (int)bits);
+		}
 	}
 	limit = rvn_minf(box.x1 - box.x0, box.y1 - box.y0) * 0.5f;
 	r = rvn_clampf(radius * painter->scale, 0.0f, limit);

@@ -97,6 +97,12 @@ static void rvn_breadcrumb_arrange(rvn_widget_t* widget) {
 	}
 }
 
+/* Right to left, the items run from the right edge. */
+static rvn_rect_t rvn_breadcrumb_mirror(const rvn_widget_t* widget, float x, float width) {
+	if (rvn_widget_is_rtl(widget)) x = widget->rect.w - x - width;
+	return rvn_rect(x, 0.0f, width, widget->rect.h);
+}
+
 /* Where an item is drawn; the folded ones (and "...", index -2) have the rect of the "...". */
 static rvn_rect_t rvn_breadcrumb_item_rect(const rvn_widget_t* widget, int index) {
 	const rvn_breadcrumb_t* crumbs = (const rvn_breadcrumb_t*)widget;
@@ -104,13 +110,13 @@ static rvn_rect_t rvn_breadcrumb_item_rect(const rvn_widget_t* widget, int index
 	int i;
 	if (crumbs->first > 0) {
 		float width = rvn_breadcrumb_item_width(widget, "...");
-		if (index < crumbs->first) return rvn_rect(0.0f, 0.0f, width, widget->rect.h);
+		if (index < crumbs->first) return rvn_breadcrumb_mirror(widget, 0.0f, width);
 		x = width + RVN_CRUMB_GAP;
 	}
 	for (i = crumbs->first; i < (int)crumbs->count; i++) {
 		float width = rvn_breadcrumb_item_width(widget, crumbs->items[i]);
 		if (i == (int)crumbs->count - 1) width = rvn_minf(width, rvn_maxf(0.0f, widget->rect.w - x));
-		if (i == index) return rvn_rect(x, 0.0f, width, widget->rect.h);
+		if (i == index) return rvn_breadcrumb_mirror(widget, x, width);
 		x += width + RVN_CRUMB_GAP;
 	}
 	return rvn_rect(0.0f, 0.0f, 0.0f, 0.0f);
@@ -150,8 +156,10 @@ static void rvn_breadcrumb_paint(rvn_widget_t* widget, RPainter* painter) {
 			i < 0 ? "..." : crumbs->items[i], -1, last ? text : link);
 		rvn_paint_pop_clip(painter);
 		if (!last) {
-			float cx = rect.x + rect.w + RVN_CRUMB_GAP * 0.5f;
-			rvn_paint_chevron(painter, cx, rect.h * 0.5f, 5.0f, rvn_widget_is_rtl(widget) ? 3.14159265f : 0.0f, dim);
+			/* between this item and the next one, on its side */
+			int rtl = rvn_widget_is_rtl(widget) != 0;
+			float cx = rtl ? rect.x - RVN_CRUMB_GAP * 0.5f : rect.x + rect.w + RVN_CRUMB_GAP * 0.5f;
+			rvn_paint_chevron(painter, cx, rect.h * 0.5f, 5.0f, rtl ? 3.14159265f : 0.0f, dim);
 		}
 	}
 }

@@ -38,9 +38,11 @@ static void rvn_te_delete(rvn_textedit_t* edit, int from, int to) {
 	edit->caret = edit->anchor = from;
 }
 
-/* Inserts at the caret, replacing the selection. Returns R_TRUE when something was inserted. */
+/* Inserts at the caret, replacing the selection. Returns R_TRUE when the text changed: something was
+ * inserted, or the selection was deleted even if nothing then fit in its place. */
 static int rvn_te_insert(rvn_textedit_t* edit, const char* text, int length) {
-	if (rvn_te_has_selection(edit)) rvn_te_delete(edit, rvn_te_min(edit), rvn_te_max(edit));
+	int deleted = rvn_te_has_selection(edit);
+	if (deleted) rvn_te_delete(edit, rvn_te_min(edit), rvn_te_max(edit));
 	if (edit->max_chars > 0) {
 		/* cut the insertion at a character boundary */
 		int room = edit->max_chars - rvn_utf8_count(edit->text, edit->length);
@@ -51,7 +53,7 @@ static int rvn_te_insert(rvn_textedit_t* edit, const char* text, int length) {
 		}
 		length = fit;
 	}
-	if (length <= 0) return R_FALSE;
+	if (length <= 0) return deleted;
 	if (edit->length + length + 1 > edit->cap) {
 		while (edit->length + length + 1 > edit->cap) edit->cap *= 2;
 		edit->text = (char*)rvn_realloc(edit->text, (size_t)edit->cap);
