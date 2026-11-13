@@ -616,13 +616,6 @@ static HRESULT STDMETHODCALLTYPE selection_group_get(ISelectionProvider* This, S
 	CALL(do_get_selection, This, selection_group, call.out = out);
 }
 
-static HRESULT STDMETHODCALLTYPE selection_group_multi(ISelectionProvider* This, BOOL* out) {
-	uint32_t states = 0;
-	HRESULT hr = rvn_uia_read(FROM(This, selection_group), 0, &states);
-	*out = (states & RVN_A11Y_MULTI_SELECT) ? TRUE : FALSE;
-	return hr;
-}
-
 static HRESULT STDMETHODCALLTYPE selection_group_required(ISelectionProvider* This, BOOL* out) {
 	(void)This;
 	*out = FALSE;
@@ -661,6 +654,13 @@ static HRESULT rvn_uia_read(rvn_uia_t* self, int what, void* out) {
 	call.a = what;
 	call.out = out;
 	return rvn_uia_call(&call);
+}
+
+static HRESULT STDMETHODCALLTYPE selection_group_multi(ISelectionProvider* This, BOOL* out) {
+	uint32_t states = 0;
+	HRESULT hr = rvn_uia_read(FROM(This, selection_group), 0, &states);
+	*out = (states & RVN_A11Y_MULTI_SELECT) ? TRUE : FALSE;
+	return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE toggle_state(IToggleProvider* This, enum ToggleState* out) {
