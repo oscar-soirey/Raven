@@ -103,6 +103,8 @@ static struct {
 	float (*Rwindow_get_scale)(Rid);
 	void (*Rwindow_show)(Rid);
 	void (*Rwindow_hide)(Rid);
+	void (*Rwindow_set_owner)(Rid, Rid);
+	Rid (*Rwindow_get_owner)(Rid);
 	void (*Rwindow_focus)(Rid);
 	void (*Rwindow_maximize)(Rid);
 	void (*Rwindow_minimize)(Rid);
@@ -1246,6 +1248,8 @@ static const struct {
 	{"Rwindow_get_scale", offsetof(__typeof__(rn), Rwindow_get_scale)},
 	{"Rwindow_show", offsetof(__typeof__(rn), Rwindow_show)},
 	{"Rwindow_hide", offsetof(__typeof__(rn), Rwindow_hide)},
+	{"Rwindow_set_owner", offsetof(__typeof__(rn), Rwindow_set_owner)},
+	{"Rwindow_get_owner", offsetof(__typeof__(rn), Rwindow_get_owner)},
 	{"Rwindow_focus", offsetof(__typeof__(rn), Rwindow_focus)},
 	{"Rwindow_maximize", offsetof(__typeof__(rn), Rwindow_maximize)},
 	{"Rwindow_minimize", offsetof(__typeof__(rn), Rwindow_minimize)},
@@ -5443,6 +5447,33 @@ static napi_value rn_w_Rwindow_hide(napi_env env, napi_callback_info info) {
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	rn.Rwindow_hide((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_set_owner(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint32_t a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint32(env, argv[1], &a1)) return NULL;
+	rn.Rwindow_set_owner((Rid)a0, (Rid)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_get_owner(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	Rid value_ = rn.Rwindow_get_owner((Rid)a0);
+	napi_create_uint32(env, value_, &result_);
 	return result_;
 }
 
@@ -23147,6 +23178,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_get_scale", NULL, rn_w_Rwindow_get_scale, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_show", NULL, rn_w_Rwindow_show, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_hide", NULL, rn_w_Rwindow_hide, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_set_owner", NULL, rn_w_Rwindow_set_owner, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_get_owner", NULL, rn_w_Rwindow_get_owner, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_focus", NULL, rn_w_Rwindow_focus, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_maximize", NULL, rn_w_Rwindow_maximize, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_minimize", NULL, rn_w_Rwindow_minimize, NULL, NULL, NULL, napi_enumerable, NULL},

@@ -763,6 +763,9 @@ struct rvn_window_t {
 	int width_px, height_px;
 	float scale;
 	int visible;
+	Rid owner;
+	int owner_hidden;
+	int owner_minimized_requested;
 	int surface_ready;
 	/** RWindowFlags given at creation. */
 	uint32_t window_flags;

@@ -53,6 +53,46 @@ rvn_vec2_t rvn_window_size(const rvn_window_t* window) {
 	return rvn_vec2((float)window->width_px / scale, (float)window->height_px / scale);
 }
 
+static int rvn_window_owner_hidden(const rvn_window_t* window) {
+	const rvn_window_t* owner = rvn_window_get(window->owner);
+	while (owner) {
+		if (!owner->visible || owner->state == RVN_PWINDOW_MINIMIZED || owner->owner_minimized_requested) return R_TRUE;
+		owner = rvn_window_get(owner->owner);
+	}
+	return R_FALSE;
+}
+
+static void rvn_windows_sync_owners(void) {
+	static int syncing;
+	uint32_t i;
+	if (syncing) return;
+	syncing = R_TRUE;
+	rvn_dispatch_begin();
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		int hidden;
+		if (!window || window->dead) continue;
+		hidden = rvn_window_owner_hidden(window);
+		if (hidden == window->owner_hidden) continue;
+		window->owner_hidden = hidden;
+		if (hidden) rvn_renderer_sync();
+		g_rvn.platform->window_show(window->platform, window->visible && !hidden);
+		window->needs_paint = R_TRUE;
+	}
+	/* Wayland recreates roles after a hide; restore parents once all tools are mapped. */
+	if (g_rvn.platform->window_set_owner) {
+		for (i = 0; i < g_rvn.windows.used; i++) {
+			rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+			rvn_window_t* owner;
+			if (!window || window->dead || window->owner == R_INVALID_ID) continue;
+			owner = rvn_window_get(window->owner);
+			if (owner) g_rvn.platform->window_set_owner(window->platform, owner->platform);
+		}
+	}
+	syncing = R_FALSE;
+	rvn_dispatch_end();
+}
+
 static REvent rvn_window_event(rvn_window_t* window, REventType type) {
 	REvent event;
 	memset(&event, 0, sizeof(event));
@@ -897,7 +937,7 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	window->needs_paint = R_FALSE;
 	window->text_input_owner = R_INVALID_ID;
 	window->text_input_rect = rvn_box(0.0f, 0.0f, 0.0f, 0.0f);
-	if (!rvn_window_can_paint(window) || (!window->visible && !capture)) return;
+	if (!rvn_window_can_paint(window) || ((!window->visible || window->owner_hidden) && !capture)) return;
 
 	/* never queue more than a couple of frames: this is what paces a busy UI thread */
 	rvn_renderer_throttle(&window->frames_in_flight, RVN_MAX_FRAMES_IN_FLIGHT);
@@ -1014,7 +1054,7 @@ static double rvn_window_frame_wait(rvn_window_t* window) {
 }
 
 static int rvn_window_wants_paint(rvn_window_t* window) {
-	if (!rvn_window_can_paint(window) || !window->visible) return R_FALSE;
+	if (!rvn_window_can_paint(window) || !window->visible || window->owner_hidden) return R_FALSE;
 	return window->needs_paint || window->continuous || rvn_atomic_load(&window->animating) != 0 || rvn_touch_animating(window) ||
 		rvn_atomic_load(&window->realtime_viewports) > 0 || rvn_atomic_load(&window->redraw_requested) != 0;
 }
@@ -1844,6 +1884,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			rvn_window_notch_focus(window);
 			break;
 		case RVN_PEVENT_STATE:
+			window->owner_minimized_requested = pevent->state == RVN_PWINDOW_MINIMIZED;
 			if (window->state != pevent->state) {
 				window->state = pevent->state;
 				window->edge = RVN_PREGION_CLIENT;
@@ -1851,6 +1892,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 				window->needs_paint = R_TRUE;
 				rvn_window_notch_update(window);
 			}
+			rvn_windows_sync_owners();
 			break;
 		case RVN_PEVENT_DRAG: {
 			int accepted = rvn_window_drag(window, (float)pevent->x / scale, (float)pevent->y / scale, !pevent->leaving);
@@ -1953,7 +1995,14 @@ static void rvn_window_free(rvn_window_t* window) {
 
 void rvn_window_destroy(rvn_window_t* window) {
 	rvn_widget_t* root;
+	uint32_t i;
 	if (window->dead) return;
+	/* Owned top-level windows belong to the application, not to their owner. */
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* tool = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		if (tool && !tool->dead && tool->owner == window->id) Rwindow_set_owner(tool->id, R_INVALID_ID);
+	}
+	if (rvn_window_get(window->owner) && g_rvn.platform->window_set_owner) g_rvn.platform->window_set_owner(window->platform, NULL);
 	rvn_inspector_window_destroyed(window);
 	if (window->dead) return;
 	/* an overlay of the camera housing goes with the island going back into its window; a window takes its overlay with it */
@@ -2021,6 +2070,7 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 	}
 
 	window = (rvn_window_t*)rvn_calloc(sizeof(rvn_window_t));
+	window->owner = R_INVALID_ID;
 	window->title = rvn_strdup(title ? title : "");
 	window->tooltip_timer = R_INVALID_ID;
 	window->cursor = R_CURSOR_ARROW;
@@ -2399,25 +2449,67 @@ float Rwindow_get_scale(Rid id) {
 
 void Rwindow_show(Rid id) {
 	RVN_WINDOW_VOID(window, id);
+	rvn_dispatch_begin();
 	window->visible = R_TRUE;
 	window->needs_paint = R_TRUE;
-	g_rvn.platform->window_show(window->platform, R_TRUE);
-	rvn_window_notch_update(window);
+	window->owner_hidden = rvn_window_owner_hidden(window);
+	g_rvn.platform->window_show(window->platform, !window->owner_hidden);
+	rvn_windows_sync_owners();
+	if (!window->dead) rvn_window_notch_update(window);
+	rvn_dispatch_end();
 }
 
 void Rwindow_focus(Rid id) {
 	RVN_WINDOW_VOID(window, id);
 	if (!window->visible) Rwindow_show(id);
+	window = rvn_window_get(id);
+	if (!window) return;
+	if (window->owner_hidden) return;
 	if (g_rvn.platform->window_focus) g_rvn.platform->window_focus(window->platform);
 }
 
 void Rwindow_hide(Rid id) {
 	RVN_WINDOW_VOID(window, id);
+	rvn_dispatch_begin();
 	window->visible = R_FALSE;
 	/* a frame still queued must not be presented once the window is hidden (on Wayland that would show it again) */
 	rvn_renderer_sync();
 	g_rvn.platform->window_show(window->platform, R_FALSE);
-	rvn_window_notch_update(window);
+	rvn_windows_sync_owners();
+	if (!window->dead) rvn_window_notch_update(window);
+	rvn_dispatch_end();
+}
+
+void Rwindow_set_owner(Rid id, Rid owner_id) {
+	rvn_window_t* owner = NULL;
+	rvn_window_t* walk;
+	Rid previous;
+	RVN_WINDOW_VOID(window, id);
+	if (owner_id != R_INVALID_ID) {
+		owner = rvn_window_check(owner_id, __func__);
+		if (!owner) return;
+	}
+	for (walk = owner; walk; walk = rvn_window_get(walk->owner)) {
+		if (walk == window) {
+			rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rwindow_set_owner: ownership cycle");
+			return;
+		}
+	}
+	if (window->owner == owner_id) return;
+	previous = window->owner;
+	window->owner = owner_id;
+	rvn_dispatch_begin();
+	if (g_rvn.platform->window_set_owner && !g_rvn.platform->window_set_owner(window->platform, owner ? owner->platform : NULL)) {
+		window->owner = previous;
+		rvn_error(R_ERROR_PLATFORM, R_SEVERITY_ERROR, "Rwindow_set_owner: platform refused ownership");
+	}
+	if (!window->dead) rvn_windows_sync_owners();
+	rvn_dispatch_end();
+}
+
+Rid Rwindow_get_owner(Rid id) {
+	RVN_WINDOW(window, id, R_INVALID_ID);
+	return rvn_window_get(window->owner) ? window->owner : R_INVALID_ID;
 }
 
 void Rwindow_maximize(Rid id) {
@@ -2427,12 +2519,16 @@ void Rwindow_maximize(Rid id) {
 
 void Rwindow_minimize(Rid id) {
 	RVN_WINDOW_VOID(window, id);
+	window->owner_minimized_requested = R_TRUE;
 	g_rvn.platform->window_set_state(window->platform, RVN_PWINDOW_MINIMIZED);
+	rvn_windows_sync_owners();
 }
 
 void Rwindow_restore(Rid id) {
 	RVN_WINDOW_VOID(window, id);
+	window->owner_minimized_requested = R_FALSE;
 	g_rvn.platform->window_set_state(window->platform, RVN_PWINDOW_NORMAL);
+	rvn_windows_sync_owners();
 }
 
 int Rwindow_is_maximized(Rid id) {

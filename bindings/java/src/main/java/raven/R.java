@@ -6492,6 +6492,38 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_set_owner$;
+
+    /**
+     * Non-modal tool window above its owner, hidden with that owner.
+     * R_INVALID_ID detaches it. Self ownership and cycles are rejected.
+     * Destroying the owner detaches its tools; it does not destroy them.
+     * Native taskbar/grouping behavior depends on the window system. Does not
+     * enable global topmost. Null/host/browser platforms keep logical ownership.
+     */
+    public static void Rwindow_set_owner(int window, int owner) {
+        MethodHandle $h = Rwindow_set_owner$;
+        if ($h == null) Rwindow_set_owner$ = $h = find("Rwindow_set_owner", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(window, owner);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_owner$;
+
+    public static int Rwindow_get_owner(int window) {
+        MethodHandle $h = Rwindow_get_owner$;
+        if ($h == null) Rwindow_get_owner$ = $h = find("Rwindow_get_owner", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_focus$;
 
     /**

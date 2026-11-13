@@ -3242,6 +3242,27 @@ def Rwindow_hide(window):
     _lib.Rwindow_hide(window)
 
 
+_lib.Rwindow_set_owner.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rwindow_set_owner.restype = None
+
+
+def Rwindow_set_owner(window, owner):
+    """Non-modal tool window above its owner, hidden with that owner.
+    R_INVALID_ID detaches it. Self ownership and cycles are rejected.
+    Destroying the owner detaches its tools; it does not destroy them.
+    Native taskbar/grouping behavior depends on the window system. Does not
+    enable global topmost. Null/host/browser platforms keep logical ownership."""
+    _lib.Rwindow_set_owner(window, owner)
+
+
+_lib.Rwindow_get_owner.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_owner.restype = ctypes.c_uint32
+
+
+def Rwindow_get_owner(window):
+    return _lib.Rwindow_get_owner(window)
+
+
 _lib.Rwindow_focus.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_focus.restype = None
 

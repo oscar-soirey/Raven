@@ -4829,6 +4829,17 @@ fn void Window.show(self) @inline => c::r_window_show((c::Rid)self);
 fn void Window.hide(self) @inline => c::r_window_hide((c::Rid)self);
 
 <*
+ Non-modal tool window above its owner, hidden with that owner.
+ R_INVALID_ID detaches it. Self ownership and cycles are rejected.
+ Destroying the owner detaches its tools; it does not destroy them.
+ Native taskbar/grouping behavior depends on the window system. Does not
+ enable global topmost. Null/host/browser platforms keep logical ownership.
+*>
+fn void Window.set_owner(self, Id owner) @inline => c::r_window_set_owner((c::Rid)self, (c::Rid)owner);
+
+fn Id Window.get_owner(self) @inline => (Id)c::r_window_get_owner((c::Rid)self);
+
+<*
  Shows the window in front of the others with the keyboard, and
  makes the application the active one. Rwindow_show alone does not take
  the keyboard from another application (a prompt that appears while the

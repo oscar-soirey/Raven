@@ -18,6 +18,10 @@ struct rvn_pwindow_t {
     void* user;
     uint32_t flags;
     int is_child;
+    int has_owner;
+    BOOL owner_was_excluded;
+    struct rvn_pwindow_t* owner;
+    int shown;
     int transparent;
     int min_width, min_height;
     rvn_pwindow_state_t state;
@@ -982,10 +986,13 @@ static void rvn_cocoa_window_get_position(rvn_pwindow_t* window, int* x, int* y)
 }
 static float rvn_cocoa_window_get_scale(rvn_pwindow_t* window) { return rvn_cocoa_scale(window); }
 static void rvn_cocoa_window_show(rvn_pwindow_t* window, int visible) {
+    window->shown = visible;
+    if (!visible && [window->handle parentWindow]) [[window->handle parentWindow] removeChildWindow:window->handle];
     /* (an overlay shows without taking the keyboard: overlay_set_key gives it) */
     if (visible && window->overlay) [window->handle orderFront:nil];
     else if (visible) [window->handle makeKeyAndOrderFront:nil];
     else [window->handle orderOut:nil];
+    if (visible && window->owner) [window->owner->handle addChildWindow:window->handle ordered:NSWindowAbove];
 }
 /* Rwindow_focus: in front, with the keyboard, the application made active
  * (an agent, or any application in the background, is not by itself). */
@@ -1023,6 +1030,24 @@ static int rvn_cocoa_window_set_backdrop(rvn_pwindow_t* window, int backdrop, in
     return (int)R_BACKDROP_TRANSPARENT;
 }
 static int rvn_cocoa_window_set_opacity(rvn_pwindow_t* window, float opacity) { [window->handle setAlphaValue:rvn_clampf(opacity, 0.0f, 1.0f)]; return R_TRUE; }
+static int rvn_cocoa_window_set_owner(rvn_pwindow_t* window, rvn_pwindow_t* owner) {
+    NSWindow* previous;
+    if (window->is_child || window->overlay || (owner && (owner->is_child || owner->overlay))) return R_FALSE;
+    previous = [window->handle parentWindow];
+    if (window->owner == owner && previous == ((owner && window->shown) ? owner->handle : nil)) return R_TRUE;
+    if (owner && !window->has_owner) window->owner_was_excluded = [window->handle isExcludedFromWindowsMenu];
+    if (previous) [previous removeChildWindow:window->handle];
+    if (owner) {
+        if (window->shown) [owner->handle addChildWindow:window->handle ordered:NSWindowAbove];
+        [window->handle setExcludedFromWindowsMenu:YES];
+    } else if (window->has_owner) {
+        [window->handle setExcludedFromWindowsMenu:window->owner_was_excluded];
+    }
+    window->has_owner = owner != NULL;
+    window->owner = owner;
+    return R_TRUE;
+}
+
 static int rvn_cocoa_window_set_topmost(rvn_pwindow_t* window, int topmost) {
     if (!window->handle || window->overlay || window->is_child) return R_FALSE;
     [window->handle setLevel:topmost ? NSFloatingWindowLevel : NSNormalWindowLevel];
@@ -1603,6 +1628,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .native_regions = R_FALSE, .window_set_backdrop = rvn_cocoa_window_set_backdrop,
         .window_set_opacity = rvn_cocoa_window_set_opacity, .window_set_cursor = rvn_cocoa_window_set_cursor,
         .window_set_topmost = rvn_cocoa_window_set_topmost, .window_center = rvn_cocoa_window_center,
+        .window_set_owner = rvn_cocoa_window_set_owner,
         .window_set_picture_in_picture = rvn_cocoa_window_set_picture_in_picture,
         .window_set_menu_bar = rvn_cocoa_window_set_menu_bar,
         .window_set_progress = rvn_cocoa_window_set_progress,

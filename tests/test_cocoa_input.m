@@ -31,6 +31,43 @@ static void test_function_keys(Rid input, NSView* view) {
 	CHECK_STR(Rtext_input_get_text(input), "");
 }
 
+static void test_owned_window(Rid owner) {
+	RNativeWindow owner_native, tool_native;
+	Rid tool = Rwindow_create("Tool", 100, 100, 0);
+	NSWindow* native;
+	Rwindow_get_native_handle(owner, &owner_native);
+	Rwindow_get_native_handle(tool, &tool_native);
+	native = (NSWindow*)tool_native.display;
+	Rwindow_set_owner(tool, owner);
+	CHECK([native parentWindow] == (NSWindow*)owner_native.display);
+	CHECK([native level] == NSNormalWindowLevel);
+	CHECK([native isExcludedFromWindowsMenu]);
+	Rwindow_hide(owner);
+	CHECK(![native isVisible]);
+	Rwindow_show(owner);
+	CHECK([native isVisible]);
+	Rwindow_hide(tool);
+	Rwindow_hide(owner);
+	Rwindow_show(owner);
+	CHECK(![native isVisible]);
+	Rwindow_show(tool);
+	Rwindow_set_owner(tool, R_INVALID_ID);
+	CHECK([native parentWindow] == nil);
+	CHECK(![native isExcludedFromWindowsMenu]);
+	Rwindow_set_owner(tool, owner);
+	{
+		Rid temporary_owner = Rwindow_create("Temporary owner", 100, 100, 0);
+		Rwindow_set_owner(tool, temporary_owner);
+		Rwindow_destroy(temporary_owner);
+		CHECK(Rwindow_is_valid(tool));
+		CHECK([native parentWindow] == nil);
+		CHECK(Rwindow_get_owner(tool) == R_INVALID_ID);
+		Rwindow_set_owner(tool, owner);
+	}
+	Rwindow_destroy(tool);
+	CHECK([[(NSWindow*)owner_native.display childWindows] count] == 0);
+}
+
 int main(void) {
 	RInitDesc desc;
 	RNativeWindow native;
@@ -50,6 +87,7 @@ int main(void) {
 	CHECK(Rwindow_get_native_handle(window, &native));
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
+	test_owned_window(window);
 	Rwindow_destroy(window);
 	Rshutdown();
 	return test_report("test_cocoa_input");

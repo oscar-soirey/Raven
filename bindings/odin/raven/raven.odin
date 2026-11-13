@@ -1978,6 +1978,13 @@ foreign lib {
 	Rwindow_get_scale :: proc(window: Rid) -> f32 ---
 	Rwindow_show :: proc(window: Rid) ---
 	Rwindow_hide :: proc(window: Rid) ---
+	// Non-modal tool window above its owner, hidden with that owner.
+	// R_INVALID_ID detaches it. Self ownership and cycles are rejected.
+	// Destroying the owner detaches its tools; it does not destroy them.
+	// Native taskbar/grouping behavior depends on the window system. Does not
+	// enable global topmost. Null/host/browser platforms keep logical ownership.
+	Rwindow_set_owner :: proc(window: Rid, owner: Rid) ---
+	Rwindow_get_owner :: proc(window: Rid) -> Rid ---
 	// Shows the window in front of the others with the keyboard, and
 	// makes the application the active one. Rwindow_show alone does not take
 	// the keyboard from another application (a prompt that appears while the

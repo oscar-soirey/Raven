@@ -148,6 +148,8 @@ struct rvn_pwindow_t {
 	/** Icon given by Rwindow_set_icon, destroyed with the window. */
 	HICON icon;
 	int is_child;
+	int has_owner;
+	LONG_PTR owner_style;
 	/** WM_MOUSELEAVE was requested. */
 	int tracking;
 	/** Mouse buttons held: the mouse is captured while it is not zero. */
@@ -1470,6 +1472,21 @@ static int rvn_win32_window_set_opacity(rvn_pwindow_t* window, float opacity) {
 	return SetLayeredWindowAttributes(window->handle, 0, (BYTE)(opacity * 255.0f + 0.5f), LWA_ALPHA) != 0;
 }
 
+static int rvn_win32_window_set_owner(rvn_pwindow_t* window, rvn_pwindow_t* owner) {
+	LONG_PTR style, mask = WS_EX_APPWINDOW | WS_EX_TOOLWINDOW;
+	if (window->is_child || (owner && owner->is_child)) return R_FALSE;
+	if (GetWindow(window->handle, GW_OWNER) == (owner ? owner->handle : NULL)) return R_TRUE;
+	style = GetWindowLongPtrW(window->handle, GWL_EXSTYLE);
+	if (owner && !window->has_owner) window->owner_style = style & mask;
+	SetLastError(0);
+	if (!SetWindowLongPtrW(window->handle, GWLP_HWNDPARENT, (LONG_PTR)(owner ? owner->handle : NULL)) && GetLastError()) return R_FALSE;
+	style = (style & ~mask) | (owner ? WS_EX_TOOLWINDOW : window->owner_style);
+	SetWindowLongPtrW(window->handle, GWL_EXSTYLE, style);
+	window->has_owner = owner != NULL;
+	SetWindowPos(window->handle, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+	return R_TRUE;
+}
+
 static int rvn_win32_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 	return SetWindowPos(window->handle, topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
 		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) != 0;
@@ -1928,6 +1945,7 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.window_set_backdrop = rvn_win32_window_set_backdrop,
 		.window_set_opacity = rvn_win32_window_set_opacity,
 		.window_set_topmost = rvn_win32_window_set_topmost,
+		.window_set_owner = rvn_win32_window_set_owner,
 		.window_set_picture_in_picture = rvn_win32_window_set_picture_in_picture,
 		.window_set_progress = rvn_win32_window_set_progress,
 		.window_request_attention = rvn_win32_window_request_attention,

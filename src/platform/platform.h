@@ -251,6 +251,8 @@ typedef struct rvn_platform_t {
 	/** Optional (may be NULL). Opacity of the whole window, 0..1. Returns R_FALSE when it cannot. */
 	int   (*window_set_opacity)(rvn_pwindow_t* window, float opacity);
 	int   (*window_set_topmost)(rvn_pwindow_t* window, int topmost);
+	/** Optional: non-modal owner (NULL detaches), without global topmost. */
+	int   (*window_set_owner)(rvn_pwindow_t* window, rvn_pwindow_t* owner);
 	/**
 	 * Optional (may be NULL). Picture in picture (Rwindow_set_picture_in_picture).
 	 * Entering: the platform keeps what it needs to come back (frame, style,

@@ -1966,6 +1966,13 @@ pub extern fn Rwindow_get_framebuffer_size(window: Rid, width: ?*c_int, height: 
 pub extern fn Rwindow_get_scale(window: Rid) f32;
 pub extern fn Rwindow_show(window: Rid) void;
 pub extern fn Rwindow_hide(window: Rid) void;
+/// Non-modal tool window above its owner, hidden with that owner.
+/// R_INVALID_ID detaches it. Self ownership and cycles are rejected.
+/// Destroying the owner detaches its tools; it does not destroy them.
+/// Native taskbar/grouping behavior depends on the window system. Does not
+/// enable global topmost. Null/host/browser platforms keep logical ownership.
+pub extern fn Rwindow_set_owner(window: Rid, owner: Rid) void;
+pub extern fn Rwindow_get_owner(window: Rid) Rid;
 /// Shows the window in front of the others with the keyboard, and
 /// makes the application the active one. Rwindow_show alone does not take
 /// the keyboard from another application (a prompt that appears while the

@@ -71,6 +71,8 @@ struct rvn_pwindow_t {
 	int pip_was_maximized, pip_was_above;
 	/* asked for attention (XUrgencyHint): cleared when it takes the keyboard */
 	int urgent;
+	rvn_pwindow_t* owner;
+	int owner_was_skip_taskbar;
 };
 
 static struct {
@@ -598,6 +600,45 @@ static void rvn_x11_set_decorated(rvn_pwindow_t* window, int decorated) {
 }
 
 static void rvn_x11_window_get_position(rvn_pwindow_t* window, int* x, int* y);
+static void rvn_x11_owner_taskbar(rvn_pwindow_t* window, Atom skip, int hide) {
+	XWindowAttributes attributes;
+	Atom type, *states;
+	int format;
+	unsigned long count = 0, used = 0, i;
+	unsigned char* data;
+	if (!XGetWindowAttributes(g_x11.display, window->handle, &attributes) || attributes.map_state != IsUnmapped) {
+		rvn_x11_send_states(window, hide, skip, 0);
+		return;
+	}
+	data = rvn_x11_property(window->handle, g_x11.net_wm_state, &type, &format, &count, False);
+	if (!data || type != XA_ATOM || format != 32) count = 0;
+	states = (Atom*)rvn_alloc((count + 1) * sizeof(Atom));
+	for (i = 0; i < count; i++) if (((const Atom*)data)[i] != skip) states[used++] = ((const Atom*)data)[i];
+	if (hide) states[used++] = skip;
+	XChangeProperty(g_x11.display, window->handle, g_x11.net_wm_state, XA_ATOM, 32, PropModeReplace,
+		(const unsigned char*)states, (int)used);
+	rvn_free(states);
+	if (data) XFree(data);
+}
+
+static int rvn_x11_window_set_owner(rvn_pwindow_t* window, rvn_pwindow_t* owner) {
+	Atom type;
+	Atom skip = XInternAtom(g_x11.display, "_NET_WM_STATE_SKIP_TASKBAR", False);
+	if (window->is_child || (owner && owner->is_child)) return R_FALSE;
+	if (window->owner == owner) return R_TRUE;
+	if (owner && !window->owner) window->owner_was_skip_taskbar = rvn_x11_has_state(window, skip);
+	if (owner) XSetTransientForHint(g_x11.display, window->handle, owner->handle);
+	else XDeleteProperty(g_x11.display, window->handle, XA_WM_TRANSIENT_FOR);
+	type = XInternAtom(g_x11.display, owner ? "_NET_WM_WINDOW_TYPE_UTILITY" :
+		(window->flags & R_WINDOW_SPLASH_SCREEN) ? "_NET_WM_WINDOW_TYPE_SPLASH" : "_NET_WM_WINDOW_TYPE_NORMAL", False);
+	XChangeProperty(g_x11.display, window->handle, XInternAtom(g_x11.display, "_NET_WM_WINDOW_TYPE", False),
+		XA_ATOM, 32, PropModeReplace, (const unsigned char*)&type, 1);
+	rvn_x11_owner_taskbar(window, skip, owner || window->owner_was_skip_taskbar);
+	window->owner = owner;
+	XFlush(g_x11.display);
+	return R_TRUE;
+}
+
 static rvn_pwindow_state_t rvn_x11_window_get_state(rvn_pwindow_t* window);
 
 /*
@@ -1840,6 +1881,7 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.window_set_backdrop = rvn_x11_window_set_backdrop,
 		.window_set_opacity = rvn_x11_window_set_opacity,
 		.window_set_topmost = rvn_x11_window_set_topmost,
+		.window_set_owner = rvn_x11_window_set_owner,
 		.window_set_picture_in_picture = rvn_x11_window_set_picture_in_picture,
 		.window_center = rvn_x11_window_center,
 		.window_set_cursor = rvn_x11_window_set_cursor,

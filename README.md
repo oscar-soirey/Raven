@@ -1201,6 +1201,18 @@ Window menu on macOS, typed as a splash for the window manager on X11. On
 Wayland it is a window without frame. Create the main window, then destroy
 the splash: the application keeps running between the two.
 
+### Owned tool windows
+
+`Rwindow_set_owner(tool, main_window)` makes a non-modal tool window that stays
+above its owner without enabling global topmost. Tools hide/minimize with their
+owner; a tool explicitly hidden by the application stays hidden when the owner
+returns. `Rwindow_get_owner` queries the relationship and `R_INVALID_ID` detaches
+it. Destroying an owner detaches its tools without destroying them. Cocoa uses
+child windows, Windows uses owned utility windows, X11 uses transient utility
+windows, and Wayland uses `xdg_toplevel` parents. Native taskbar presentation is
+controlled by the window manager; host/null/browser platforms retain the logical
+relationship and visibility behavior.
+
 ### The menu bar of macOS
 
 On macOS, the first `MenuBar` of a window goes to the menu bar at the top of

@@ -2215,6 +2215,17 @@ extern fn void r_window_show(Rid window) @cname("Rwindow_show");
 extern fn void r_window_hide(Rid window) @cname("Rwindow_hide");
 
 <*
+ Non-modal tool window above its owner, hidden with that owner.
+ R_INVALID_ID detaches it. Self ownership and cycles are rejected.
+ Destroying the owner detaches its tools; it does not destroy them.
+ Native taskbar/grouping behavior depends on the window system. Does not
+ enable global topmost. Null/host/browser platforms keep logical ownership.
+*>
+extern fn void r_window_set_owner(Rid window, Rid owner) @cname("Rwindow_set_owner");
+
+extern fn Rid r_window_get_owner(Rid window) @cname("Rwindow_get_owner");
+
+<*
  Shows the window in front of the others with the keyboard, and
  makes the application the active one. Rwindow_show alone does not take
  the keyboard from another application (a prompt that appears while the

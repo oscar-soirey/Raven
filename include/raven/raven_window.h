@@ -352,6 +352,15 @@ extern "C" {
 	RAVEN_API void Rwindow_show(Rid window);
 	RAVEN_API void Rwindow_hide(Rid window);
 	/**
+	 * @brief Non-modal tool window above its owner, hidden with that owner.
+	 * R_INVALID_ID detaches it. Self ownership and cycles are rejected.
+	 * Destroying the owner detaches its tools; it does not destroy them.
+	 * Native taskbar/grouping behavior depends on the window system. Does not
+	 * enable global topmost. Null/host/browser platforms keep logical ownership.
+	 */
+	RAVEN_API void Rwindow_set_owner(Rid window, Rid owner);
+	RAVEN_API Rid Rwindow_get_owner(Rid window);
+	/**
 	 * @brief Shows the window in front of the others with the keyboard, and
 	 * makes the application the active one. Rwindow_show alone does not take
 	 * the keyboard from another application (a prompt that appears while the

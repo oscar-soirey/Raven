@@ -417,6 +417,7 @@ struct rvn_pwindow_t {
 	int close_pending;
 	rvn_pwindow_t* close_next;
 	rvn_pwindow_t* parent;
+	rvn_pwindow_t* owner;
 	struct wl_subsurface* subsurface;
 	int child_x, child_y;
 
@@ -963,6 +964,17 @@ static struct libdecor_interface g_wl_decor_interface = { rvn_wl_decor_error, { 
 static struct xdg_toplevel* rvn_wl_toplevel(rvn_pwindow_t* window) {
 	if (window->frame) return g_decor.frame_get_xdg_toplevel(window->frame);
 	return window->toplevel;
+}
+
+static int rvn_wl_window_set_owner(rvn_pwindow_t* window, rvn_pwindow_t* owner) {
+	struct xdg_toplevel* toplevel = rvn_wl_toplevel(window);
+	if (window->is_child || (owner && owner->is_child)) return R_FALSE;
+	window->owner = owner;
+	if (toplevel) {
+		xdg_toplevel_set_parent(toplevel, owner ? rvn_wl_toplevel(owner) : NULL);
+		g_wlc.display_flush(g_wl.display);
+	}
+	return R_TRUE;
 }
 
 /* ---------------------------------------------------------------------------
@@ -2572,6 +2584,7 @@ static void rvn_wl_make_toplevel(rvn_pwindow_t* window) {
 		/* the initial commit, without a buffer: the compositor answers with a configure */
 		wl_surface_commit(window->surface);
 	}
+	if (window->owner) rvn_wl_window_set_owner(window, window->owner);
 }
 
 static void rvn_wl_drop_toplevel(rvn_pwindow_t* window) {
@@ -3091,6 +3104,7 @@ const rvn_platform_t* rvn_platform_wayland(void) {
 		.window_set_backdrop = rvn_wl_window_set_backdrop,
 		.window_set_opacity = NULL,
 		.window_set_topmost = rvn_wl_window_set_topmost,
+		.window_set_owner = rvn_wl_window_set_owner,
 		.window_center = rvn_wl_window_center,
 		.window_set_icon = rvn_wl_window_set_icon,
 		.window_set_cursor = rvn_wl_window_set_cursor,
