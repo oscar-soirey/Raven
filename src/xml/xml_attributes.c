@@ -502,10 +502,17 @@ int rvn_widget_set_attribute(rvn_widget_t* widget, const char* name, const char*
 }
 
 int Rwidget_set_attribute(Rid id, const char* name, const char* value) {
+	char* copy;
+	int ok;
 	RVN_WIDGET(widget, id, 0, R_FALSE);
 	if (!name || !value) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rwidget_set_attribute: NULL name or value");
 		return R_FALSE;
 	}
-	return rvn_widget_set_attribute(widget, name, value);
+	/* a copy: the value may be a string of the widget itself ("Items" from an item's text), which
+	 * the handler frees before it reads the value */
+	copy = rvn_strdup(value);
+	ok = rvn_widget_set_attribute(widget, name, copy);
+	rvn_free(copy);
+	return ok;
 }

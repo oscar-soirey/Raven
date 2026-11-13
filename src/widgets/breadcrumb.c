@@ -55,7 +55,10 @@ static int rvn_breadcrumb_add(rvn_widget_t* widget, const char* text) {
 	return (int)crumbs->count - 1;
 }
 
-static void rvn_breadcrumb_set_items(rvn_widget_t* widget, const char* items) {
+static void rvn_breadcrumb_set_items(rvn_widget_t* widget, const char* text) {
+	/* (a copy: the text may be one of the items cleared here) */
+	char* copy = rvn_strdup(text);
+	const char* items = copy;
 	rvn_breadcrumb_clear((rvn_breadcrumb_t*)widget);
 	while (items && *items) {
 		size_t length = strcspn(items, "|");
@@ -65,6 +68,7 @@ static void rvn_breadcrumb_set_items(rvn_widget_t* widget, const char* items) {
 		items += length;
 		if (*items == '|') items++;
 	}
+	rvn_free(copy);
 	rvn_widget_invalidate_layout(widget);
 }
 
