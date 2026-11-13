@@ -2735,6 +2735,15 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate IntPtr RListItemTextCallback(uint list_view, int index, IntPtr user_data);
 
+    /// <summary>
+    /// Colors the text of rows (a level, a verdict): the list asks for the color
+    /// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+    /// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+    /// kept on a selected or hovered row. NULL removes the callback.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RListItemColorCallback(uint list_view, int index, ref float r, ref float g, ref float b, ref float a, IntPtr user_data);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RListEventCallback(uint list_view, int index, IntPtr user_data);
 
@@ -2785,6 +2794,16 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate IntPtr RTableCellTextCallback(uint table, int row, int column, IntPtr user_data);
+
+    /// <summary>
+    /// Colors the text of cells (a verdict, a state): the table asks for the
+    /// color of each cell it draws, stored or virtual (`row` is the index of the
+    /// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+    /// keeps the color of the theme. The color is kept on a selected or hovered
+    /// row. NULL removes the callback.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTableCellColorCallback(uint table, int row, int column, ref float r, ref float g, ref float b, ref float a, IntPtr user_data);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTableEventCallback(uint table, int row, IntPtr user_data);
@@ -5532,6 +5551,9 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rlist_view_set_virtual_items(uint list_view, int count, RListItemTextCallback callback, IntPtr user_data);
 
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rlist_view_set_item_color_callback(uint list_view, RListItemColorCallback callback, IntPtr user_data);
+
         /// <summary>
         /// Selects a row. -1 selects nothing.
         /// </summary>
@@ -5937,6 +5959,9 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtable_set_virtual_rows(uint table, int count, RTableCellTextCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_cell_color_callback(uint table, RTableCellColorCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Selects a row. -1 selects nothing.

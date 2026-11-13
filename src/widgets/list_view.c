@@ -21,6 +21,9 @@ typedef struct rvn_list_view_t {
 	int virtual_count;
 	RListItemTextCallback text_callback;
 	void* text_user;
+	/* the color of the text of a row, asked of the application (NULL: the theme's) */
+	RListItemColorCallback color_callback;
+	void* color_user;
 
 	int selected;
 	int hot;
@@ -56,6 +59,13 @@ static const char* rvn_list_text(rvn_list_view_t* list, int index) {
 	if (!list->is_virtual) return list->items[index];
 	text = list->text_callback ? list->text_callback(list->base.id, index, list->text_user) : NULL;
 	return text ? text : "";
+}
+
+/* The color the application gives the text of a row, or `fallback`. */
+static rvn_color_t rvn_list_color(rvn_list_view_t* list, int index, rvn_color_t fallback) {
+	float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
+	if (!list->color_callback || !list->color_callback(list->base.id, index, &r, &g, &b, &a, list->color_user)) return fallback;
+	return a > 0.0f ? rvn_rgba(r, g, b, a) : fallback;
 }
 
 static float rvn_list_row_height(const rvn_widget_t* widget) {
@@ -154,7 +164,7 @@ static void rvn_list_view_paint(rvn_widget_t* widget, RPainter* painter) {
 			color = rvn_platform_item_foreground(widget, states | (i == list->selected ? RVN_STATE_SELECTED : 0), RVN_ITEM_LIST);
 			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
 				rvn_rect(line.x + 11.0f, line.y, rvn_maxf(0.0f, line.w - 22.0f), line.h), 0.0f, rvn_list_text(list, i), -1,
-				rvn_color_a(color) ? color : text);
+				rvn_list_color(list, i, rvn_color_a(color) ? color : text));
 		}
 		rvn_paint_pop_clip(painter);
 		rvn_scrollbar_paint(&list->bar, widget, painter, rvn_list_track(widget), R_TRUE,
@@ -182,7 +192,7 @@ static void rvn_list_view_paint(rvn_widget_t* widget, RPainter* painter) {
 			rvn_paint_row(painter, widget, line, rvn_widget_color(widget, R_COLOR_ROW_HOVERED));
 		}
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
-			rvn_rect(line.x + padding, line.y, rvn_maxf(0.0f, line.w - padding * 2.0f), row), 0.0f, rvn_list_text(list, i), -1, text);
+			rvn_rect(line.x + padding, line.y, rvn_maxf(0.0f, line.w - padding * 2.0f), row), 0.0f, rvn_list_text(list, i), -1, rvn_list_color(list, i, text));
 	}
 	rvn_paint_pop_clip(painter);
 	rvn_scrollbar_paint(&list->bar, widget, painter, rvn_list_track(widget), R_TRUE,
@@ -408,6 +418,13 @@ void Rlist_view_set_virtual_items(Rid id, int count, RListItemTextCallback callb
 	if (selected < list->virtual_count) list->selected = selected;
 	list->bar.offset = offset;
 	rvn_widget_invalidate_layout(widget);
+}
+
+void Rlist_view_set_item_color_callback(Rid id, RListItemColorCallback callback, void* user_data) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_LIST_VIEW);
+	((rvn_list_view_t*)widget)->color_callback = callback;
+	((rvn_list_view_t*)widget)->color_user = user_data;
+	rvn_widget_invalidate_paint(widget);
 }
 
 void Rlist_view_set_selected(Rid id, int index) {

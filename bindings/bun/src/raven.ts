@@ -581,6 +581,7 @@ const _symbols = {
 	Rlist_view_clear_items: { args: ["u32"], returns: "void" },
 	Rlist_view_get_item_count: { args: ["u32"], returns: "i32" },
 	Rlist_view_set_virtual_items: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rlist_view_set_item_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rlist_view_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rlist_view_get_selected: { args: ["u32"], returns: "i32" },
 	Rlist_view_scroll_to_item: { args: ["u32", "i32"], returns: "void" },
@@ -671,6 +672,7 @@ const _symbols = {
 	Rtable_clear_rows: { args: ["u32"], returns: "void" },
 	Rtable_get_row_count: { args: ["u32"], returns: "i32" },
 	Rtable_set_virtual_rows: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_cell_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtable_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rtable_get_selected: { args: ["u32"], returns: "i32" },
 	Rtable_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
@@ -5562,6 +5564,28 @@ function _adapt_RListItemTextCallback(function_: RListItemTextCallback | Pointer
 	}, { args: ["u32", "i32", "ptr"], returns: "ptr", threadsafe }));
 }
 
+/**
+ * Colors the text of rows (a level, a verdict): the list asks for the color
+ * of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+ * R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+ * kept on a selected or hovered row. NULL removes the callback.
+ */
+export type RListItemColorCallback = (list_view: Rid, index: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RListItemColorCallback(function_: RListItemColorCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((list_view: number, index: number, r: Pointer | null, g: Pointer | null, b: Pointer | null, a: Pointer | null, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(list_view, index, r ? new Float32Array(_toArrayBuffer(r, 0, Float32Array.BYTES_PER_ELEMENT)) : null, g ? new Float32Array(_toArrayBuffer(g, 0, Float32Array.BYTES_PER_ELEMENT)) : null, b ? new Float32Array(_toArrayBuffer(b, 0, Float32Array.BYTES_PER_ELEMENT)) : null, a ? new Float32Array(_toArrayBuffer(a, 0, Float32Array.BYTES_PER_ELEMENT)) : null, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32", threadsafe }));
+}
+
 export type RListEventCallback = (list_view: Rid, index: number, user_data: Pointer | null) => void;
 
 function _adapt_RListEventCallback(function_: RListEventCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -5719,6 +5743,29 @@ function _adapt_RTableCellTextCallback(function_: RTableCellTextCallback | Point
 			return _ptr(text);
 		}
 	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
+}
+
+/**
+ * Colors the text of cells (a verdict, a state): the table asks for the
+ * color of each cell it draws, stored or virtual (`row` is the index of the
+ * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+ * keeps the color of the theme. The color is kept on a selected or hovered
+ * row. NULL removes the callback.
+ */
+export type RTableCellColorCallback = (table: Rid, row: number, column: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RTableCellColorCallback(function_: RTableCellColorCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((table: number, row: number, column: number, r: Pointer | null, g: Pointer | null, b: Pointer | null, a: Pointer | null, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(table, row, column, r ? new Float32Array(_toArrayBuffer(r, 0, Float32Array.BYTES_PER_ELEMENT)) : null, g ? new Float32Array(_toArrayBuffer(g, 0, Float32Array.BYTES_PER_ELEMENT)) : null, b ? new Float32Array(_toArrayBuffer(b, 0, Float32Array.BYTES_PER_ELEMENT)) : null, a ? new Float32Array(_toArrayBuffer(a, 0, Float32Array.BYTES_PER_ELEMENT)) : null, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "i32", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32", threadsafe }));
 }
 
 export type RTableEventCallback = (table: Rid, row: number, user_data: Pointer | null) => void;
@@ -8979,6 +9026,10 @@ export function Rlist_view_set_virtual_items(list_view: Rid, count: number, call
 	_lib.Rlist_view_set_virtual_items(list_view, count, _adapt_RListItemTextCallback(callback), user_data);
 }
 
+export function Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rlist_view_set_item_color_callback(list_view, _adapt_RListItemColorCallback(callback), user_data);
+}
+
 /** Selects a row. -1 selects nothing. */
 export function Rlist_view_set_selected(list_view: Rid, index: number): void {
 	_lib.Rlist_view_set_selected(list_view, index);
@@ -9413,6 +9464,10 @@ export function Rtable_get_row_count(table: Rid): number {
 
 export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTableCellTextCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtable_set_virtual_rows(table, count, _adapt_RTableCellTextCallback(callback), user_data);
+}
+
+export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
 }
 
 /** Selects a row. -1 selects nothing. */

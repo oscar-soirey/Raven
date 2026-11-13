@@ -1202,6 +1202,11 @@ RComboBoxChangedCallback :: #type proc "c" (combo_box: Rid, index: i32, user_dat
 // asks for the text of the rows it draws. The returned string must stay
 // valid until the next call.
 RListItemTextCallback :: #type proc "c" (list_view: Rid, index: i32, user_data: rawptr) -> cstring
+// Colors the text of rows (a level, a verdict): the list asks for the color
+// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+// kept on a selected or hovered row. NULL removes the callback.
+RListItemColorCallback :: #type proc "c" (list_view: Rid, index: i32, r: ^f32, g: ^f32, b: ^f32, a: ^f32, user_data: rawptr) -> i32
 RListEventCallback :: #type proc "c" (list_view: Rid, index: i32, user_data: rawptr)
 RTreeEventCallback :: #type proc "c" (tree_view: Rid, item: Rid, user_data: rawptr)
 // Right click: `item` is the item under the pointer (selected
@@ -1223,6 +1228,12 @@ RTileDragDataCallback :: #type proc "c" (tile_view: Rid, user_data: rawptr) -> c
 // asks for the texts of the cells it draws. The returned string must stay
 // valid until the next call.
 RTableCellTextCallback :: #type proc "c" (table: Rid, row: i32, column: i32, user_data: rawptr) -> cstring
+// Colors the text of cells (a verdict, a state): the table asks for the
+// color of each cell it draws, stored or virtual (`row` is the index of the
+// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+// keeps the color of the theme. The color is kept on a selected or hovered
+// row. NULL removes the callback.
+RTableCellColorCallback :: #type proc "c" (table: Rid, row: i32, column: i32, r: ^f32, g: ^f32, b: ^f32, a: ^f32, user_data: rawptr) -> i32
 RTableEventCallback :: #type proc "c" (table: Rid, row: i32, user_data: rawptr)
 // Called when the user clicks a header; `column` -1: not sorted.
 RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, user_data: rawptr)
@@ -2791,6 +2802,7 @@ foreign lib {
 	Rlist_view_clear_items :: proc(list_view: Rid) ---
 	Rlist_view_get_item_count :: proc(list_view: Rid) -> i32 ---
 	Rlist_view_set_virtual_items :: proc(list_view: Rid, count: i32, callback: RListItemTextCallback, user_data: rawptr) ---
+	Rlist_view_set_item_color_callback :: proc(list_view: Rid, callback: RListItemColorCallback, user_data: rawptr) ---
 	// Selects a row. -1 selects nothing.
 	Rlist_view_set_selected :: proc(list_view: Rid, index: i32) ---
 	Rlist_view_get_selected :: proc(list_view: Rid) -> i32 ---
@@ -2939,6 +2951,7 @@ foreign lib {
 	Rtable_clear_rows :: proc(table: Rid) ---
 	Rtable_get_row_count :: proc(table: Rid) -> i32 ---
 	Rtable_set_virtual_rows :: proc(table: Rid, count: i32, callback: RTableCellTextCallback, user_data: rawptr) ---
+	Rtable_set_cell_color_callback :: proc(table: Rid, callback: RTableCellColorCallback, user_data: rawptr) ---
 	// Selects a row. -1 selects nothing.
 	Rtable_set_selected :: proc(table: Rid, row: i32) ---
 	Rtable_get_selected :: proc(table: Rid) -> i32 ---

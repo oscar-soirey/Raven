@@ -2781,6 +2781,24 @@ function _adapt_RWidgetEventCallback(function_) {
 	};
 }
 
+function _adapt_RListItemColorCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (list_view, index, r, g, b, a, user_data) => {
+		const r_ = r ? new Float32Array(_view_of(r, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const g_ = g ? new Float32Array(_view_of(g, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const b_ = b ? new Float32Array(_view_of(b, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const a_ = a ? new Float32Array(_view_of(a, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const result_ = function_(list_view, index, r_, g_, b_, a_, user_data);
+		_back(r_, r);
+		_back(g_, g);
+		_back(b_, b);
+		_back(a_, a);
+		return result_;
+	};
+}
+
 function _adapt_RTileItemCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -2789,6 +2807,24 @@ function _adapt_RTileItemCallback(function_) {
 		const item_ = RTileItem.from(item);
 		const result_ = function_(tile_view, index, item_, user_data);
 		_back(item_, item);
+		return result_;
+	};
+}
+
+function _adapt_RTableCellColorCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (table, row, column, r, g, b, a, user_data) => {
+		const r_ = r ? new Float32Array(_view_of(r, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const g_ = g ? new Float32Array(_view_of(g, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const b_ = b ? new Float32Array(_view_of(b, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const a_ = a ? new Float32Array(_view_of(a, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const result_ = function_(table, row, column, r_, g_, b_, a_, user_data);
+		_back(r_, r);
+		_back(g_, g);
+		_back(b_, b);
+		_back(a_, a);
 		return result_;
 	};
 }
@@ -3278,6 +3314,9 @@ export const Rlist_view_remove_item = _lib.Rlist_view_remove_item;
 export const Rlist_view_clear_items = _lib.Rlist_view_clear_items;
 export const Rlist_view_get_item_count = _lib.Rlist_view_get_item_count;
 export const Rlist_view_set_virtual_items = _lib.Rlist_view_set_virtual_items;
+export function Rlist_view_set_item_color_callback(list_view, callback, user_data = null) {
+	return _lib.Rlist_view_set_item_color_callback(list_view, _adapt_RListItemColorCallback(callback), user_data);
+}
 export const Rlist_view_set_selected = _lib.Rlist_view_set_selected;
 export const Rlist_view_get_selected = _lib.Rlist_view_get_selected;
 export const Rlist_view_scroll_to_item = _lib.Rlist_view_scroll_to_item;
@@ -3370,6 +3409,9 @@ export const Rtable_remove_row = _lib.Rtable_remove_row;
 export const Rtable_clear_rows = _lib.Rtable_clear_rows;
 export const Rtable_get_row_count = _lib.Rtable_get_row_count;
 export const Rtable_set_virtual_rows = _lib.Rtable_set_virtual_rows;
+export function Rtable_set_cell_color_callback(table, callback, user_data = null) {
+	return _lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
+}
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;

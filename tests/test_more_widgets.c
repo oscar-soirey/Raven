@@ -41,6 +41,22 @@ static const char* virtual_cell(Rid table, int row, int column, void* user_data)
 	return g_cell;
 }
 
+/* cell colors: the rows seen, the cells asked; row 1 is colored, the others keep the theme's */
+static int g_color_calls, g_color_rows;
+static int cell_color(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data) {
+	(void)table;
+	(void)column;
+	CHECK(user_data == &g_color_calls);
+	g_color_calls++;
+	if (row >= 0 && row < 31) g_color_rows |= 1 << row;
+	if (row != 1) return R_FALSE;
+	*r = 0.96f;
+	*g = 0.53f;
+	*b = 0.44f;
+	*a = 1.0f;
+	return R_TRUE;
+}
+
 static void test_table(void) {
 	Rid table, root;
 	float x, y, w, h, row = Rtheme_get_metric(R_METRIC_ROW_HEIGHT);
@@ -103,8 +119,23 @@ static void test_table(void) {
 	CHECK_STR(Rtable_get_cell(table, 2, 3), "");
 	CHECK_STR(Rtable_get_cell(table, 2, 2), "Rome");
 
+	/* the color of the cells is asked for every cell drawn, stored or virtual; NULL stops it */
+	g_color_calls = g_color_rows = 0;
+	Rtable_set_cell_color_callback(table, cell_color, &g_color_calls);
+	Rdraw_frame();
+	CHECK(g_color_calls >= 3 && g_color_rows == 7);
+	Rtable_set_cell_color_callback(table, NULL, NULL);
+	g_color_calls = 0;
+	Rwidget_invalidate(table);
+	Rdraw_frame();
+	CHECK(g_color_calls == 0);
+
 	/* virtual rows */
 	Rtable_set_virtual_rows(table, 100000, virtual_cell, NULL);
+	Rtable_set_cell_color_callback(table, cell_color, &g_color_calls);
+	Rdraw_frame();
+	CHECK(g_color_calls > 0 && (g_color_rows & 3) == 3);
+	Rtable_set_cell_color_callback(table, NULL, NULL);
 	CHECK(Rtable_get_row_count(table) == 100000);
 	CHECK_STR(Rtable_get_cell(table, 4321, 2), "4321:2");
 	test_key(g_window, R_KEY_END, 0);
