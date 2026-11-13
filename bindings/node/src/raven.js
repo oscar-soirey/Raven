@@ -4018,6 +4018,8 @@ export const Rwidget_set_accessible_role = _lib.Rwidget_set_accessible_role;
 export const Rwidget_get_accessible_role = _lib.Rwidget_get_accessible_role;
 export const Rwidget_set_accessible_hidden = _lib.Rwidget_set_accessible_hidden;
 export const Rwidget_set_accessible_labelled_by = _lib.Rwidget_set_accessible_labelled_by;
+export const Rwidget_set_accessible_action = _lib.Rwidget_set_accessible_action;
+export const Rwidget_set_accessible_checked = _lib.Rwidget_set_accessible_checked;
 export const Raccessibility_announce = _lib.Raccessibility_announce;
 export const Raccessibility_is_screen_reader_active = _lib.Raccessibility_is_screen_reader_active;
 export function Rhost_platform_register(desc) {

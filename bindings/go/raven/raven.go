@@ -6671,6 +6671,13 @@ func WidgetSetAccessibleLabelledBy(widget ID, label ID) {
 	C.Rwidget_set_accessible_labelled_by(C.Rid(widget), C.Rid(label))
 }
 
+// WidgetSetAccessibleChecked: Override the checked state: 1 checked, 0 unchecked, -1 restores the widget's
+// default (not checkable for a custom widget). The application owns this state; a press callback updates it
+// when appropriate.
+func WidgetSetAccessibleChecked(widget ID, checked int) {
+	C.Rwidget_set_accessible_checked(C.Rid(widget), C.int(checked))
+}
+
 // AccessibilityAnnounce: Has a message read (a save that ended, an error). `assertive`: interrupts what is
 // being read.
 func AccessibilityAnnounce(text string, assertive int) {
@@ -6776,4 +6783,5 @@ func HostInjectClose(window ID) {
 // Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect
 // Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader, Rborder_set_effect
 // Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse, Rxml_get_attribute_info
-// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings, Rhost_platform_register
+// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
+// Rwidget_set_accessible_action, Rhost_platform_register

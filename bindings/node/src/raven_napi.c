@@ -1155,6 +1155,8 @@ static struct {
 	RAccessibleRole (*Rwidget_get_accessible_role)(Rid);
 	void (*Rwidget_set_accessible_hidden)(Rid, int);
 	void (*Rwidget_set_accessible_labelled_by)(Rid, Rid);
+	void (*Rwidget_set_accessible_action)(Rid, RAccessiblePressCallback, void*);
+	void (*Rwidget_set_accessible_checked)(Rid, int);
 	void (*Raccessibility_announce)(const char*, int);
 	int (*Raccessibility_is_screen_reader_active)(void);
 	void (*Rhost_platform_register)(const RHostPlatformDesc*);
@@ -2299,6 +2301,8 @@ static const struct {
 	{"Rwidget_get_accessible_role", offsetof(__typeof__(rn), Rwidget_get_accessible_role)},
 	{"Rwidget_set_accessible_hidden", offsetof(__typeof__(rn), Rwidget_set_accessible_hidden)},
 	{"Rwidget_set_accessible_labelled_by", offsetof(__typeof__(rn), Rwidget_set_accessible_labelled_by)},
+	{"Rwidget_set_accessible_action", offsetof(__typeof__(rn), Rwidget_set_accessible_action)},
+	{"Rwidget_set_accessible_checked", offsetof(__typeof__(rn), Rwidget_set_accessible_checked)},
 	{"Raccessibility_announce", offsetof(__typeof__(rn), Raccessibility_announce)},
 	{"Raccessibility_is_screen_reader_active", offsetof(__typeof__(rn), Raccessibility_is_screen_reader_active)},
 	{"Rhost_platform_register", offsetof(__typeof__(rn), Rhost_platform_register)},
@@ -3228,6 +3232,7 @@ static void rn_t_RXmlReloadCallback(const char*, int, void*);
 static Rid rn_t_RXmlTagCreateCallback(const char*, void*);
 static int rn_t_RXmlTagAttributeCallback(Rid, const char*, const char*, void*);
 static void rn_t_RLocaleChangedCallback(const char*, void*);
+static void rn_t_RAccessiblePressCallback(Rid, void*);
 
 static void rn_t_RFrameCallback(double a0, void* a1) {
 	rn_cb* cb = (rn_cb*)a1;
@@ -4382,6 +4387,20 @@ static void rn_t_RLocaleChangedCallback(const char* a0, void* a1) {
 	napi_open_handle_scope(env, &scope);
 	cb->depth++;
 	argv[0] = rn_make_text(env, a0);
+	argv[1] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 2, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RAccessiblePressCallback(Rid a0, void* a1) {
+	rn_cb* cb = (rn_cb*)a1;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[2];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
 	argv[1] = rn_make_ptr(env, cb->user_data);
 	rn_call(cb, 0, 2, argv);
 	napi_close_handle_scope(env, scope);
@@ -22772,6 +22791,45 @@ static napi_value rn_w_Rwidget_set_accessible_labelled_by(napi_env env, napi_cal
 	return result_;
 }
 
+static napi_value rn_w_Rwidget_set_accessible_action(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rwidget_set_accessible_action((Rid)a0, cb_ ? (RAccessiblePressCallback)rn_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 96, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rwidget_set_accessible_checked(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rwidget_set_accessible_checked((Rid)a0, (int)a1);
+	return result_;
+}
+
 static napi_value rn_w_Raccessibility_announce(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -24218,6 +24276,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwidget_get_accessible_role", NULL, rn_w_Rwidget_get_accessible_role, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwidget_set_accessible_hidden", NULL, rn_w_Rwidget_set_accessible_hidden, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwidget_set_accessible_labelled_by", NULL, rn_w_Rwidget_set_accessible_labelled_by, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwidget_set_accessible_action", NULL, rn_w_Rwidget_set_accessible_action, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwidget_set_accessible_checked", NULL, rn_w_Rwidget_set_accessible_checked, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Raccessibility_announce", NULL, rn_w_Raccessibility_announce, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Raccessibility_is_screen_reader_active", NULL, rn_w_Raccessibility_is_screen_reader_active, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_platform_register", NULL, rn_w_Rhost_platform_register, NULL, NULL, NULL, napi_enumerable, NULL},

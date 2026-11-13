@@ -1279,6 +1279,8 @@ const _symbols = {
 	Rwidget_get_accessible_role: { args: ["u32"], returns: "i32" },
 	Rwidget_set_accessible_hidden: { args: ["u32", "i32"], returns: "void" },
 	Rwidget_set_accessible_labelled_by: { args: ["u32", "u32"], returns: "void" },
+	Rwidget_set_accessible_action: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rwidget_set_accessible_checked: { args: ["u32", "i32"], returns: "void" },
 	Raccessibility_announce: { args: ["ptr", "i32"], returns: "void" },
 	Raccessibility_is_screen_reader_active: { args: [], returns: "i32" },
 	Rhost_platform_register: { args: ["ptr"], returns: "void" },
@@ -6404,6 +6406,21 @@ function _adapt_RLocaleChangedCallback(function_: RLocaleChangedCallback | Point
 			_report(error as Error);
 		}
 	}, { args: ["ptr", "ptr"], returns: "void", threadsafe }));
+}
+
+export type RAccessiblePressCallback = (widget: Rid, user_data: Pointer | null) => void;
+
+function _adapt_RAccessiblePressCallback(function_: RAccessiblePressCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((widget: number, user_data: Pointer | null): void => {
+		try {
+			function_(widget, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -12850,6 +12867,24 @@ export function Rwidget_set_accessible_hidden(widget: Rid, hidden: number): void
 /** The widget is named by another one (a label): its text is the name. */
 export function Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid): void {
 	_lib.Rwidget_set_accessible_labelled_by(widget, label);
+}
+
+/**
+ * Explicit screen-reader press action, including for custom widgets.
+ * NULL removes the override. Does not change pointer or keyboard handling.
+ * Disabled widgets (including disabled ancestors) cannot be pressed.
+ */
+export function Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rwidget_set_accessible_action(widget, _adapt_RAccessiblePressCallback(press), user_data);
+}
+
+/**
+ * Override the checked state: 1 checked, 0 unchecked, -1 restores the
+ * widget's default (not checkable for a custom widget). The application owns
+ * this state; a press callback updates it when appropriate.
+ */
+export function Rwidget_set_accessible_checked(widget: Rid, checked: number): void {
+	_lib.Rwidget_set_accessible_checked(widget, checked);
 }
 
 /** Has a message read (a save that ended, an error). `assertive`: interrupts what is being read. */

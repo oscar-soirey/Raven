@@ -2522,6 +2522,14 @@ def _adapt_RLocaleChangedCallback(function):
         function(_r(language), user_data)
     return call
 
+RAccessiblePressCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RAccessiblePressCallback(function):
+    def call(widget, user_data):
+        function(widget, user_data)
+    return call
+
 
 _lib.Rinit.argtypes = [ctypes.c_int]
 _lib.Rinit.restype = ctypes.c_int
@@ -13027,6 +13035,28 @@ _lib.Rwidget_set_accessible_labelled_by.restype = None
 def Rwidget_set_accessible_labelled_by(widget, label):
     """The widget is named by another one (a label): its text is the name."""
     _lib.Rwidget_set_accessible_labelled_by(widget, label)
+
+
+_lib.Rwidget_set_accessible_action.argtypes = [ctypes.c_uint32, RAccessiblePressCallback, ctypes.c_void_p]
+_lib.Rwidget_set_accessible_action.restype = None
+
+
+def Rwidget_set_accessible_action(widget, press, user_data=None):
+    """Explicit screen-reader press action, including for custom widgets.
+    NULL removes the override. Does not change pointer or keyboard handling.
+    Disabled widgets (including disabled ancestors) cannot be pressed."""
+    _lib.Rwidget_set_accessible_action(widget, _callback(RAccessiblePressCallback, _adapt_RAccessiblePressCallback, press), user_data)
+
+
+_lib.Rwidget_set_accessible_checked.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwidget_set_accessible_checked.restype = None
+
+
+def Rwidget_set_accessible_checked(widget, checked):
+    """Override the checked state: 1 checked, 0 unchecked, -1 restores the
+    widget's default (not checkable for a custom widget). The application owns
+    this state; a press callback updates it when appropriate."""
+    _lib.Rwidget_set_accessible_checked(widget, checked)
 
 
 _lib.Raccessibility_announce.argtypes = [ctypes.c_char_p, ctypes.c_int]

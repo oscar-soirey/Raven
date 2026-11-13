@@ -1656,6 +1656,7 @@ alias XmlReloadCallback = fn void(ZString path, CInt ok, void* user_data);
 alias XmlTagCreateCallback = fn Id(ZString tag, void* user_data);
 alias XmlTagAttributeCallback = fn CInt(Id widget, ZString name, ZString value, void* user_data);
 alias LocaleChangedCallback = fn void(ZString language, void* user_data);
+alias AccessiblePressCallback = fn void(Id widget, void* user_data);
 
 <*
  Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -2477,6 +2478,20 @@ fn void Widget.set_accessible_hidden(self, CInt hidden) @inline => c::r_widget_s
 
 <* The widget is named by another one (a label): its text is the name. *>
 fn void Widget.set_accessible_labelled_by(self, Id label) @inline => c::r_widget_set_accessible_labelled_by((c::Rid)self, (c::Rid)label);
+
+<*
+ Explicit screen-reader press action, including for custom widgets.
+ NULL removes the override. Does not change pointer or keyboard handling.
+ Disabled widgets (including disabled ancestors) cannot be pressed.
+*>
+fn void Widget.set_accessible_action(self, AccessiblePressCallback press, void* user_data) @inline => c::r_widget_set_accessible_action((c::Rid)self, (c::RAccessiblePressCallback)press, user_data);
+
+<*
+ Override the checked state: 1 checked, 0 unchecked, -1 restores the
+ widget's default (not checkable for a custom widget). The application owns
+ this state; a press callback updates it when appropriate.
+*>
+fn void Widget.set_accessible_checked(self, bool checked) @inline => c::r_widget_set_accessible_checked((c::Rid)self, (CInt)checked);
 
 <* Space kept around the child, inside its slot. All panels. *>
 fn void Widget.slot_set_padding(self, float left, float top, float right, float bottom) @inline => c::r_slot_set_padding((c::Rid)self, left, top, right, bottom);

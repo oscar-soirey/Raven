@@ -1421,6 +1421,7 @@ alias RXmlReloadCallback = fn void(char* path, CInt ok, void* user_data);
 alias RXmlTagCreateCallback = fn Rid(char* tag, void* user_data);
 alias RXmlTagAttributeCallback = fn CInt(Rid widget, char* name, char* value, void* user_data);
 alias RLocaleChangedCallback = fn void(char* language, void* user_data);
+alias RAccessiblePressCallback = fn void(Rid widget, void* user_data);
 
 <*
  Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -5829,6 +5830,20 @@ extern fn void r_widget_set_accessible_hidden(Rid widget, CInt hidden) @cname("R
 
 <* The widget is named by another one (a label): its text is the name. *>
 extern fn void r_widget_set_accessible_labelled_by(Rid widget, Rid label) @cname("Rwidget_set_accessible_labelled_by");
+
+<*
+ Explicit screen-reader press action, including for custom widgets.
+ NULL removes the override. Does not change pointer or keyboard handling.
+ Disabled widgets (including disabled ancestors) cannot be pressed.
+*>
+extern fn void r_widget_set_accessible_action(Rid widget, RAccessiblePressCallback press, void* user_data) @cname("Rwidget_set_accessible_action");
+
+<*
+ Override the checked state: 1 checked, 0 unchecked, -1 restores the
+ widget's default (not checkable for a custom widget). The application owns
+ this state; a press callback updates it when appropriate.
+*>
+extern fn void r_widget_set_accessible_checked(Rid widget, CInt checked) @cname("Rwidget_set_accessible_checked");
 
 <* Has a message read (a save that ended, an error). `assertive`: interrupts what is being read. *>
 extern fn void r_accessibility_announce(char* text, CInt assertive) @cname("Raccessibility_announce");

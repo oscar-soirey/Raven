@@ -1321,6 +1321,7 @@ pub const RXmlReloadCallback = ?*const fn (path: ?[*:0]const u8, ok: c_int, user
 pub const RXmlTagCreateCallback = ?*const fn (tag: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) Rid;
 pub const RXmlTagAttributeCallback = ?*const fn (widget: Rid, name: ?[*:0]const u8, value: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) c_int;
 pub const RLocaleChangedCallback = ?*const fn (language: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RAccessiblePressCallback = ?*const fn (widget: Rid, user_data: ?*anyopaque) callconv(.c) void;
 
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
@@ -4223,6 +4224,14 @@ pub extern fn Rwidget_get_accessible_role(widget: Rid) RAccessibleRole;
 pub extern fn Rwidget_set_accessible_hidden(widget: Rid, hidden: c_int) void;
 /// The widget is named by another one (a label): its text is the name.
 pub extern fn Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid) void;
+/// Explicit screen-reader press action, including for custom widgets.
+/// NULL removes the override. Does not change pointer or keyboard handling.
+/// Disabled widgets (including disabled ancestors) cannot be pressed.
+pub extern fn Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback, user_data: ?*anyopaque) void;
+/// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+/// widget's default (not checkable for a custom widget). The application owns
+/// this state; a press callback updates it when appropriate.
+pub extern fn Rwidget_set_accessible_checked(widget: Rid, checked: c_int) void;
 /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
 pub extern fn Raccessibility_announce(text: ?[*:0]const u8, assertive: c_int) void;
 /// R_TRUE when a screen reader is reading the windows of the application.
