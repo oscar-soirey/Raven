@@ -1526,6 +1526,8 @@ alias TileDragDataCallback = fn ZString(Id tile_view, void* user_data);
  valid until the next call.
 *>
 alias TableCellTextCallback = fn ZString(Id table, CInt row, CInt column, void* user_data);
+<* Return R_FALSE for the theme color. Called on the UI thread for visible virtual cells. *>
+alias TableCellColorCallback = fn CInt(Id table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias TableEventCallback = fn void(Id table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias TableSortCallback = fn void(Id table, CInt column, CInt descending, void* user_data);
@@ -4433,7 +4435,26 @@ fn CInt Table.get_row_count(self) @inline => c::r_table_get_row_count((c::Rid)se
 
 fn void Table.set_virtual_rows(self, CInt count, TableCellTextCallback callback, void* user_data) @inline => c::r_table_set_virtual_rows((c::Rid)self, count, (c::RTableCellTextCallback)callback, user_data);
 
-<* Selects a row. -1 selects nothing. *>
+<* Stored rows: column -1 colors the row; cells override it. Alpha 0 restores the inherited/theme color. *>
+fn void Table.set_cell_text_color(self, CInt row, CInt column, float r, float g, float b, float a) @inline => c::r_table_set_cell_text_color((c::Rid)self, row, column, r, g, b, a);
+
+fn void Table.set_cell_color_callback(self, TableCellColorCallback callback, void* user_data) @inline => c::r_table_set_cell_color_callback((c::Rid)self, (c::RTableCellColorCallback)callback, user_data);
+
+<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. *>
+fn void Table.set_multi_select(self, bool enabled) @inline => c::r_table_set_multi_select((c::Rid)self, (CInt)enabled);
+
+fn void Table.set_row_selected(self, CInt row, bool selected) @inline => c::r_table_set_row_selected((c::Rid)self, row, (CInt)selected);
+
+fn bool Table.is_row_selected(self, CInt row) @inline => c::r_table_is_row_selected((c::Rid)self, row) != 0;
+
+fn void Table.clear_selection(self) @inline => c::r_table_clear_selection((c::Rid)self);
+
+fn CInt Table.get_selection_count(self) @inline => c::r_table_get_selection_count((c::Rid)self);
+
+<* Selected row at index, top to bottom; -1 outside the selection. *>
+fn CInt Table.get_selection(self, CInt index) @inline => c::r_table_get_selection((c::Rid)self, index);
+
+<* Replaces the selection with one row. -1 selects nothing, including in multi-select mode. *>
 fn void Table.set_selected(self, CInt row) @inline => c::r_table_set_selected((c::Rid)self, row);
 
 fn CInt Table.get_selected(self) @inline => c::r_table_get_selected((c::Rid)self);

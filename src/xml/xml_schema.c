@@ -269,6 +269,7 @@ static const rvn_schema_attribute_t g_list_view[] = {
 };
 static const rvn_schema_attribute_t g_table[] = {
 	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."),
+	B("MultiSelect", "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."),
 	N("Selected", "Which row is selected, from 0; -1 for none."),
 	N("SortColumn", "The column the rows are sorted by, from 0; -1 for none."),
 	B("SortDescending", "Sorted from the largest to the smallest."),

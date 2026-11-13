@@ -671,6 +671,14 @@ const _symbols = {
 	Rtable_clear_rows: { args: ["u32"], returns: "void" },
 	Rtable_get_row_count: { args: ["u32"], returns: "i32" },
 	Rtable_set_virtual_rows: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_cell_text_color: { args: ["u32", "i32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rtable_set_cell_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_multi_select: { args: ["u32", "i32"], returns: "void" },
+	Rtable_set_row_selected: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtable_is_row_selected: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_clear_selection: { args: ["u32"], returns: "void" },
+	Rtable_get_selection_count: { args: ["u32"], returns: "i32" },
+	Rtable_get_selection: { args: ["u32", "i32"], returns: "i32" },
 	Rtable_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rtable_get_selected: { args: ["u32"], returns: "i32" },
 	Rtable_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
@@ -5719,6 +5727,23 @@ function _adapt_RTableCellTextCallback(function_: RTableCellTextCallback | Point
 	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
 }
 
+/** Return R_FALSE for the theme color. Called on the UI thread for visible virtual cells. */
+export type RTableCellColorCallback = (table: Rid, row: number, column: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RTableCellColorCallback(function_: RTableCellColorCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((table: number, row: number, column: number, r: Pointer | null, g: Pointer | null, b: Pointer | null, a: Pointer | null, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(table, row, column, r ? new Float32Array(_toArrayBuffer(r, 0, Float32Array.BYTES_PER_ELEMENT)) : null, g ? new Float32Array(_toArrayBuffer(g, 0, Float32Array.BYTES_PER_ELEMENT)) : null, b ? new Float32Array(_toArrayBuffer(b, 0, Float32Array.BYTES_PER_ELEMENT)) : null, a ? new Float32Array(_toArrayBuffer(a, 0, Float32Array.BYTES_PER_ELEMENT)) : null, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "i32", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32", threadsafe }));
+}
+
 export type RTableEventCallback = (table: Rid, row: number, user_data: Pointer | null) => void;
 
 function _adapt_RTableEventCallback(function_: RTableEventCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -9398,7 +9423,42 @@ export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTa
 	_lib.Rtable_set_virtual_rows(table, count, _adapt_RTableCellTextCallback(callback), user_data);
 }
 
-/** Selects a row. -1 selects nothing. */
+/** Stored rows: column -1 colors the row; cells override it. Alpha 0 restores the inherited/theme color. */
+export function Rtable_set_cell_text_color(table: Rid, row: number, column: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rtable_set_cell_text_color(table, row, column, r, g, b, a);
+}
+
+export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
+}
+
+/** Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+export function Rtable_set_multi_select(table: Rid, enabled: number): void {
+	_lib.Rtable_set_multi_select(table, enabled);
+}
+
+export function Rtable_set_row_selected(table: Rid, row: number, selected: number): void {
+	_lib.Rtable_set_row_selected(table, row, selected);
+}
+
+export function Rtable_is_row_selected(table: Rid, row: number): number {
+	return _lib.Rtable_is_row_selected(table, row);
+}
+
+export function Rtable_clear_selection(table: Rid): void {
+	_lib.Rtable_clear_selection(table);
+}
+
+export function Rtable_get_selection_count(table: Rid): number {
+	return _lib.Rtable_get_selection_count(table);
+}
+
+/** Selected row at index, top to bottom; -1 outside the selection. */
+export function Rtable_get_selection(table: Rid, index: number): number {
+	return _lib.Rtable_get_selection(table, index);
+}
+
+/** Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 export function Rtable_set_selected(table: Rid, row: number): void {
 	_lib.Rtable_set_selected(table, row);
 }

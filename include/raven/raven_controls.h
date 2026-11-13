@@ -625,8 +625,21 @@ extern "C" {
 	 */
 	typedef const char* (*RTableCellTextCallback)(Rid table, int row, int column, void* user_data);
 	RAVEN_API void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+	/** @brief Stored rows: column -1 colors the row; cells override it. Alpha 0 restores the inherited/theme color. */
+	RAVEN_API void Rtable_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a);
+	/** Return R_FALSE for the theme color. Called on the UI thread for visible virtual cells. */
+	typedef int (*RTableCellColorCallback)(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
+	RAVEN_API void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
+	/** @brief Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+	RAVEN_API void Rtable_set_multi_select(Rid table, int enabled);
+	RAVEN_API void Rtable_set_row_selected(Rid table, int row, int selected);
+	RAVEN_API int Rtable_is_row_selected(Rid table, int row);
+	RAVEN_API void Rtable_clear_selection(Rid table);
+	RAVEN_API int Rtable_get_selection_count(Rid table);
+	/** @brief Selected row at index, top to bottom; -1 outside the selection. */
+	RAVEN_API int Rtable_get_selection(Rid table, int index);
 
-	/** @brief Selects a row. -1 selects nothing. */
+	/** @brief Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 	RAVEN_API void Rtable_set_selected(Rid table, int row);
 	RAVEN_API int Rtable_get_selected(Rid table);
 	RAVEN_API void Rtable_scroll_to_row(Rid table, int row);

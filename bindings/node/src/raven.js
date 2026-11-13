@@ -2793,6 +2793,24 @@ function _adapt_RTileItemCallback(function_) {
 	};
 }
 
+function _adapt_RTableCellColorCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (table, row, column, r, g, b, a, user_data) => {
+		const r_ = r ? new Float32Array(_view_of(r, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const g_ = g ? new Float32Array(_view_of(g, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const b_ = b ? new Float32Array(_view_of(b, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const a_ = a ? new Float32Array(_view_of(a, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const result_ = function_(table, row, column, r_, g_, b_, a_, user_data);
+		_back(r_, r);
+		_back(g_, g);
+		_back(b_, b);
+		_back(a_, a);
+		return result_;
+	};
+}
+
 function _adapt_RMeasureCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -3370,6 +3388,16 @@ export const Rtable_remove_row = _lib.Rtable_remove_row;
 export const Rtable_clear_rows = _lib.Rtable_clear_rows;
 export const Rtable_get_row_count = _lib.Rtable_get_row_count;
 export const Rtable_set_virtual_rows = _lib.Rtable_set_virtual_rows;
+export const Rtable_set_cell_text_color = _lib.Rtable_set_cell_text_color;
+export function Rtable_set_cell_color_callback(table, callback, user_data = null) {
+	return _lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
+}
+export const Rtable_set_multi_select = _lib.Rtable_set_multi_select;
+export const Rtable_set_row_selected = _lib.Rtable_set_row_selected;
+export const Rtable_is_row_selected = _lib.Rtable_is_row_selected;
+export const Rtable_clear_selection = _lib.Rtable_clear_selection;
+export const Rtable_get_selection_count = _lib.Rtable_get_selection_count;
+export const Rtable_get_selection = _lib.Rtable_get_selection;
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;

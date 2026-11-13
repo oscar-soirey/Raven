@@ -28,7 +28,8 @@ EM_JS(void, rvn_web_access_node, (uint32_t lo, uint32_t hi,
         const char* name, const char* description, const char* value,
         uint32_t states, double number, double minimum, double maximum), {
     const id = 'raven-node-' + hi + '-' + lo;
-    const roleName = states & 8192 ? 'textbox' : UTF8ToString(role);
+    const rawRole = UTF8ToString(role);
+    const roleName = states & 262144 ? 'row' : states & 8192 ? 'textbox' : rawRole === 'table' ? 'grid' : rawRole;
     const tag = roleName === 'textbox' ? (states & 512 ? 'textarea' : 'input') : 'div';
     let node = document.getElementById(id);
     if (node && node.tagName !== tag.toUpperCase()) {
@@ -100,7 +101,7 @@ EM_JS(void, rvn_web_access_node, (uint32_t lo, uint32_t hi,
         node.disabled = !!(states & 4);
     }
     for (const name of ['aria-disabled','aria-checked','aria-expanded',
-        'aria-selected','aria-readonly','aria-multiline','aria-modal',
+        'aria-selected','aria-readonly','aria-multiline','aria-modal','aria-multiselectable',
         'aria-valuenow','aria-valuemin','aria-valuemax']) node.removeAttribute(name);
     if (states & 4) node.setAttribute('aria-disabled', 'true');
     if (states & 16) node.setAttribute('aria-checked', states & 8 ? 'true' : 'false');
@@ -109,6 +110,7 @@ EM_JS(void, rvn_web_access_node, (uint32_t lo, uint32_t hi,
     if (states & 1024) node.setAttribute('aria-readonly', 'true');
     if (states & 512) node.setAttribute('aria-multiline', 'true');
     if (states & 65536) node.setAttribute('aria-modal', 'true');
+    if (states & 131072) node.setAttribute('aria-multiselectable', 'true');
     if (states & 4096) {
         node.setAttribute('aria-valuenow', number);
         node.setAttribute('aria-valuemin', minimum);

@@ -62,6 +62,11 @@ void rvn_a11y_structure_changed(void) {
 	g_a11y.generation++;
 }
 
+void rvn_a11y_selection_changed(rvn_widget_t* widget) {
+	if (widget->window && widget->window->platform && g_rvn.platform && g_rvn.platform->a11y_event)
+		g_rvn.platform->a11y_event(widget->window->platform, RVN_A11Y_EVENT_STATE, widget->id);
+}
+
 void rvn_a11y_widget_destroyed(rvn_widget_t* widget) {
 	if (!widget->a11y) return;
 	rvn_free(widget->a11y->name);
@@ -319,6 +324,7 @@ static int rvn_a11y_collect(const rvn_widget_t* widget, rvn_widget_t** out, int 
 static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 	switch ((int)widget->cls->type) {
 		case R_WIDGET_LIST_VIEW: return Rlist_view_get_item_count(widget->id);
+		case R_WIDGET_TABLE: return Rtable_get_row_count(widget->id);
 		case R_WIDGET_TREE_VIEW: return Rtree_view_get_item_count(widget->id);
 		case R_WIDGET_TAB_VIEW: return (int)widget->child_count;
 		default: return 0;
@@ -497,7 +503,14 @@ rvn_a11y_id_t rvn_a11y_hit(Rid id, float x, float y) {
 	n = rvn_a11y_window_tops(window, tops, 16);
 	for (i = n - 1; i >= 0; i--) {
 		rvn_widget_t* hit = rvn_a11y_deepest(tops[i], x - tops[i]->rect.x, y - tops[i]->rect.y);
-		if (hit) return rvn_a11y_node_of(hit);
+		if (hit) {
+			if (hit->cls->type == R_WIDGET_TABLE) {
+				rvn_vec2_t origin = rvn_widget_origin(hit);
+				int row = rvn_table_accessible_row_at(hit, x - origin.x, y - origin.y);
+				if (row >= 0) return rvn_a11y_make_item(hit->id, row);
+			}
+			return rvn_a11y_node_of(hit);
+		}
 	}
 	return (rvn_a11y_id_t)id;
 }
@@ -509,6 +522,10 @@ rvn_a11y_id_t rvn_a11y_focus(Rid id) {
 	/* the selected row of a list that has the focus */
 	if (window->focus->cls->type == R_WIDGET_LIST_VIEW) {
 		int selected = Rlist_view_get_selected(window->focus->id);
+		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
+	}
+	if (window->focus->cls->type == R_WIDGET_TABLE) {
+		int selected = Rtable_get_selected(window->focus->id);
 		if (selected >= 0) return rvn_a11y_make_item(window->focus->id, selected);
 	}
 	return rvn_a11y_node_of(window->focus);
@@ -644,6 +661,25 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 	if (item >= 0) {
 		/* a row, a tab */
 		switch ((int)widget->cls->type) {
+			case R_WIDGET_TABLE: {
+				int c;
+				rvn_rect_t rect = rvn_table_accessible_rect(widget, item);
+				if (item >= Rtable_get_row_count(widget->id)) return R_FALSE;
+				node->x += rect.x;
+				node->y += rect.y;
+				node->width = rect.w;
+				node->height = rect.h;
+				if (rect.w <= 0 || rect.h <= 0) node->states |= RVN_A11Y_OFFSCREEN;
+				node->role = R_ROLE_LIST_ITEM;
+				node->states |= RVN_A11Y_TABLE_ROW | RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE;
+				for (c = 0; c < Rtable_get_column_count(widget->id); c++) {
+					if (c) rvn_text_add(&g_a11y.name, ", ");
+					rvn_text_add(&g_a11y.name, Rtable_get_cell(widget->id, item, c));
+				}
+				if (Rtable_is_row_selected(widget->id, item)) node->states |= RVN_A11Y_SELECTED;
+				if ((widget->flags & RVN_WF_FOCUSED) && Rtable_get_selected(widget->id) == item) node->states |= RVN_A11Y_FOCUSED;
+				break;
+			}
 			case R_WIDGET_LIST_VIEW: {
 				const char* text = Rlist_view_get_item_text(widget->id, item);
 				node->role = R_ROLE_LIST_ITEM;
@@ -720,6 +756,7 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			rvn_text_printf(&g_a11y.value, "%g / %g", node->number, node->maximum);
 			break;
 		case R_WIDGET_TABLE: {
+			if (rvn_table_multi_select(widget)) node->states |= RVN_A11Y_MULTI_SELECT;
 			int selected = Rtable_get_selected(widget->id), columns = Rtable_get_column_count(widget->id), c;
 			/* the selected row, cell after cell */
 			for (c = 0; selected >= 0 && c < columns; c++) {
@@ -856,17 +893,42 @@ static void rvn_a11y_key(rvn_widget_t* widget, RKey key) {
 	widget->cls->event(widget, &event);
 }
 
+int rvn_a11y_selection_count(rvn_a11y_id_t id) {
+	rvn_widget_t* widget = rvn_a11y_as_widget(id);
+	return widget && widget->cls->type == R_WIDGET_TABLE && rvn_a11y_item(id) < 0 ? Rtable_get_selection_count(widget->id) : 0;
+}
+
+rvn_a11y_id_t rvn_a11y_selection_at(rvn_a11y_id_t id, int index) {
+	rvn_widget_t* widget = rvn_a11y_as_widget(id);
+	int row;
+	if (!widget || widget->cls->type != R_WIDGET_TABLE || rvn_a11y_item(id) >= 0) return 0;
+	row = Rtable_get_selection(widget->id, index);
+	return row >= 0 ? rvn_a11y_make_item(widget->id, row) : 0;
+}
+
 int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 	rvn_widget_t* widget = rvn_a11y_as_widget(id);
 	int item = rvn_a11y_item(id);
 	if (!widget) return R_FALSE;
+	if (widget->cls->type == R_WIDGET_TABLE && !rvn_widget_is_enabled(widget)) return R_FALSE;
 	if (action == RVN_A11Y_FOCUS) {
 		rvn_widget_focus(widget);
 		if (item >= 0 && widget->cls->type == R_WIDGET_LIST_VIEW) Rlist_view_set_selected(widget->id, item);
+		if (item >= 0 && widget->cls->type == R_WIDGET_TABLE) Rtable_set_row_selected(widget->id, item, R_TRUE);
 		return R_TRUE;
 	}
 	if (item >= 0) {
+		if (action == RVN_A11Y_REMOVE_SELECTION && widget->cls->type != R_WIDGET_TABLE) return R_FALSE;
 		switch ((int)widget->cls->type) {
+			case R_WIDGET_TABLE:
+				if (!rvn_widget_is_enabled(widget)) return R_FALSE;
+				if (action != RVN_A11Y_SELECT && action != RVN_A11Y_PRESS &&
+					action != RVN_A11Y_ADD_SELECTION && action != RVN_A11Y_REMOVE_SELECTION) return R_FALSE;
+				if (item >= Rtable_get_row_count(widget->id)) return R_FALSE;
+				if (action == RVN_A11Y_ADD_SELECTION || action == RVN_A11Y_REMOVE_SELECTION)
+					Rtable_set_row_selected(widget->id, item, action == RVN_A11Y_ADD_SELECTION);
+				else Rtable_set_selected(widget->id, item);
+				return R_TRUE;
 			case R_WIDGET_LIST_VIEW: Rlist_view_set_selected(widget->id, item); return R_TRUE;
 			case R_WIDGET_TAB_VIEW: Rtab_view_set_active(widget->id, item); return R_TRUE;
 			case R_WIDGET_TREE_VIEW: {
@@ -880,6 +942,10 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 		}
 	}
 	switch ((int)widget->cls->type) {
+		case R_WIDGET_TABLE:
+			if (action != RVN_A11Y_CLEAR_SELECTION || !rvn_widget_is_enabled(widget)) return R_FALSE;
+			Rtable_clear_selection(widget->id);
+			return R_TRUE;
 		case R_WIDGET_BUTTON:
 		case R_WIDGET_MENU_ITEM:
 			rvn_a11y_key(widget, R_KEY_ENTER);

@@ -3584,7 +3584,39 @@ func TableGetRowCount(table ID) int {
 	return int(C.Rtable_get_row_count(C.Rid(table)))
 }
 
-// TableSetSelected: Selects a row. -1 selects nothing.
+// TableSetCellTextColor: Stored rows: column -1 colors the row; cells override it. Alpha 0 restores the
+// inherited/theme color.
+func TableSetCellTextColor(table ID, row int, column int, r float32, g float32, b float32, a float32) {
+	C.Rtable_set_cell_text_color(C.Rid(table), C.int(row), C.int(column), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// TableSetMultiSelect: Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+func TableSetMultiSelect(table ID, enabled int) {
+	C.Rtable_set_multi_select(C.Rid(table), C.int(enabled))
+}
+
+func TableSetRowSelected(table ID, row int, selected int) {
+	C.Rtable_set_row_selected(C.Rid(table), C.int(row), C.int(selected))
+}
+
+func TableIsRowSelected(table ID, row int) int {
+	return int(C.Rtable_is_row_selected(C.Rid(table), C.int(row)))
+}
+
+func TableClearSelection(table ID) {
+	C.Rtable_clear_selection(C.Rid(table))
+}
+
+func TableGetSelectionCount(table ID) int {
+	return int(C.Rtable_get_selection_count(C.Rid(table)))
+}
+
+// TableGetSelection: Selected row at index, top to bottom; -1 outside the selection.
+func TableGetSelection(table ID, index int) int {
+	return int(C.Rtable_get_selection(C.Rid(table), C.int(index)))
+}
+
+// TableSetSelected: Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 func TableSetSelected(table ID, row int) {
 	C.Rtable_set_selected(C.Rid(table), C.int(row))
 }
@@ -6742,19 +6774,19 @@ func HostInjectClose(window ID) {
 // Rtree_view_set_activated_callback, Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback
 // Rtile_view_set_items, Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
 // Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
-// Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
-// Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
-// Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
-// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
-// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
-// Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon
-// Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
-// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
-// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
-// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
-// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
-// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rtable_set_cell_color_callback, Rtable_set_selection_changed_callback, Rtable_set_activated_callback
+// Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
+// Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
+// Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
+// Rplot_set_series_toggled_callback, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
+// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
+// Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
+// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
+// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
+// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
+// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
+// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
+// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
 // Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
 // Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
 // Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open

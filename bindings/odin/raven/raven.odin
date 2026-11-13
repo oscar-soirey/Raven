@@ -1223,6 +1223,8 @@ RTileDragDataCallback :: #type proc "c" (tile_view: Rid, user_data: rawptr) -> c
 // asks for the texts of the cells it draws. The returned string must stay
 // valid until the next call.
 RTableCellTextCallback :: #type proc "c" (table: Rid, row: i32, column: i32, user_data: rawptr) -> cstring
+// Return R_FALSE for the theme color. Called on the UI thread for visible virtual cells.
+RTableCellColorCallback :: #type proc "c" (table: Rid, row: i32, column: i32, r: ^f32, g: ^f32, b: ^f32, a: ^f32, user_data: rawptr) -> i32
 RTableEventCallback :: #type proc "c" (table: Rid, row: i32, user_data: rawptr)
 // Called when the user clicks a header; `column` -1: not sorted.
 RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, user_data: rawptr)
@@ -2938,7 +2940,18 @@ foreign lib {
 	Rtable_clear_rows :: proc(table: Rid) ---
 	Rtable_get_row_count :: proc(table: Rid) -> i32 ---
 	Rtable_set_virtual_rows :: proc(table: Rid, count: i32, callback: RTableCellTextCallback, user_data: rawptr) ---
-	// Selects a row. -1 selects nothing.
+	// Stored rows: column -1 colors the row; cells override it. Alpha 0 restores the inherited/theme color.
+	Rtable_set_cell_text_color :: proc(table: Rid, row: i32, column: i32, r: f32, g: f32, b: f32, a: f32) ---
+	Rtable_set_cell_color_callback :: proc(table: Rid, callback: RTableCellColorCallback, user_data: rawptr) ---
+	// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+	Rtable_set_multi_select :: proc(table: Rid, enabled: i32) ---
+	Rtable_set_row_selected :: proc(table: Rid, row: i32, selected: i32) ---
+	Rtable_is_row_selected :: proc(table: Rid, row: i32) -> i32 ---
+	Rtable_clear_selection :: proc(table: Rid) ---
+	Rtable_get_selection_count :: proc(table: Rid) -> i32 ---
+	// Selected row at index, top to bottom; -1 outside the selection.
+	Rtable_get_selection :: proc(table: Rid, index: i32) -> i32 ---
+	// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 	Rtable_set_selected :: proc(table: Rid, row: i32) ---
 	Rtable_get_selected :: proc(table: Rid) -> i32 ---
 	Rtable_scroll_to_row :: proc(table: Rid, row: i32) ---

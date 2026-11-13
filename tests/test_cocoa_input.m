@@ -31,6 +31,36 @@ static void test_function_keys(Rid input, NSView* view) {
 	CHECK_STR(Rtext_input_get_text(input), "");
 }
 
+static void test_table_selection(Rid window, NSView* view) {
+	Rid table = Rwidget_create(R_WIDGET_TABLE);
+	NSArray* children;
+	id element, row;
+	Rtable_add_column(table, "Name", 200);
+	Rtable_add_row(table, "First");
+	Rtable_add_row(table, "Second");
+	Rtable_add_row(table, "Third");
+	Rtable_set_multi_select(table, R_TRUE);
+	Rtable_set_row_selected(table, 0, R_TRUE);
+	Rtable_set_row_selected(table, 2, R_TRUE);
+	Rwindow_set_content(window, table);
+	Rdraw_frame();
+	children = [view accessibilityChildren];
+	CHECK([children count] == 1);
+	if ([children count] != 1) return;
+	element = [children objectAtIndex:0];
+	CHECK([[element accessibilityRole] isEqualToString:NSAccessibilityTableRole]);
+	CHECK([[element accessibilityRows] count] == 3);
+	CHECK([[element accessibilitySelectedRows] count] == 2);
+	row = [[element accessibilityRows] objectAtIndex:2];
+	CHECK([[row accessibilityRole] isEqualToString:NSAccessibilityRowRole]);
+	CHECK([row isAccessibilitySelected]);
+	CHECK([element isAccessibilitySelectorAllowed:@selector(setAccessibilitySelectedRows:)]);
+	[element setAccessibilitySelectedRows:@[row]];
+	CHECK(Rtable_get_selection_count(table) == 1 && Rtable_is_row_selected(table, 2));
+	[row setAccessibilitySelected:NO];
+	CHECK(Rtable_get_selection_count(table) == 0);
+}
+
 int main(void) {
 	RInitDesc desc;
 	RNativeWindow native;
@@ -50,6 +80,7 @@ int main(void) {
 	CHECK(Rwindow_get_native_handle(window, &native));
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
+	test_table_selection(window, view);
 	Rwindow_destroy(window);
 	Rshutdown();
 	return test_report("test_cocoa_input");

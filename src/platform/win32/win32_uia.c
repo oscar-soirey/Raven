@@ -57,6 +57,7 @@ typedef BSTR (WINAPI *sys_alloc_fn)(const OLECHAR*);
 typedef void (WINAPI *sys_free_fn)(BSTR);
 typedef SAFEARRAY* (WINAPI *sa_create_fn)(VARTYPE, LONG, ULONG);
 typedef HRESULT (WINAPI *sa_put_fn)(SAFEARRAY*, LONG*, void*);
+typedef HRESULT (WINAPI *sa_destroy_fn)(SAFEARRAY*);
 typedef HRESULT (WINAPI *co_init_fn)(LPVOID, DWORD);
 typedef LSTATUS (WINAPI *reg_get_fn)(HKEY, LPCWSTR, LPCWSTR, DWORD, LPDWORD, PVOID, LPDWORD);
 
@@ -78,6 +79,7 @@ static struct {
 	sys_free_fn sys_free;
 	sa_create_fn sa_create;
 	sa_put_fn sa_put;
+	sa_destroy_fn sa_destroy;
 	DWORD ui_thread;
 	/* providers made so far, by node */
 	rvn_uia_t** table;
@@ -108,7 +110,8 @@ static int rvn_uia_load(void) {
 	g_uia.sys_free = (sys_free_fn)(void*)GetProcAddress(oleaut, "SysFreeString");
 	g_uia.sa_create = (sa_create_fn)(void*)GetProcAddress(oleaut, "SafeArrayCreateVector");
 	g_uia.sa_put = (sa_put_fn)(void*)GetProcAddress(oleaut, "SafeArrayPutElement");
-	if (!g_uia.host || !g_uia.return_provider || !g_uia.raise_event || !g_uia.sys_alloc || !g_uia.sa_create || !g_uia.sa_put) {
+	g_uia.sa_destroy = (sa_destroy_fn)(void*)GetProcAddress(oleaut, "SafeArrayDestroy");
+	if (!g_uia.host || !g_uia.return_provider || !g_uia.raise_event || !g_uia.sys_alloc || !g_uia.sa_create || !g_uia.sa_put || !g_uia.sa_destroy) {
 		g_uia.failed = R_TRUE;
 		return R_FALSE;
 	}
@@ -136,6 +139,7 @@ struct rvn_uia_t {
 	IRangeValueProvider range;
 	IExpandCollapseProvider expand;
 	ISelectionItemProvider selection;
+	ISelectionProvider selection_group;
 	LONG refs;
 	rvn_a11y_id_t id;
 	HWND hwnd;
@@ -234,6 +238,7 @@ static HRESULT rvn_uia_query(rvn_uia_t* self, REFIID riid, void** out) {
 	else if (IsEqualIID(riid, &IID_IRangeValueProvider)) *out = &self->range;
 	else if (IsEqualIID(riid, &IID_IExpandCollapseProvider)) *out = &self->expand;
 	else if (IsEqualIID(riid, &IID_ISelectionItemProvider)) *out = &self->selection;
+	else if (IsEqualIID(riid, &IID_ISelectionProvider)) *out = &self->selection_group;
 	else return E_NOINTERFACE;
 	rvn_uia_addref(self);
 	return S_OK;
@@ -253,12 +258,14 @@ UNKNOWN(value, IValueProvider, value)
 UNKNOWN(range, IRangeValueProvider, range)
 UNKNOWN(expand, IExpandCollapseProvider, expand)
 UNKNOWN(selection, ISelectionItemProvider, selection)
+UNKNOWN(selection_group, ISelectionProvider, selection_group)
 
 /* ---------------------------------------------------------------------------
  *  IRawElementProviderSimple
  * ------------------------------------------------------------------------- */
 
 static long rvn_uia_control_type(const rvn_a11y_node_t* node) {
+	if (node->states & RVN_A11Y_TABLE_ROW) return UIA_DataItemControlTypeId;
 	switch (node->role) {
 		case R_ROLE_WINDOW: return UIA_WindowControlTypeId;
 		case R_ROLE_GROUP: return UIA_GroupControlTypeId;
@@ -316,6 +323,7 @@ static HRESULT do_pattern(rvn_uia_call_t* c) {
 	else if (pattern == UIA_RangeValuePatternId && (node.states & RVN_A11Y_HAS_RANGE)) found = &c->self->range;
 	else if (pattern == UIA_ExpandCollapsePatternId && (node.states & RVN_A11Y_EXPANDABLE)) found = &c->self->expand;
 	else if (pattern == UIA_SelectionItemPatternId && (node.states & RVN_A11Y_SELECTABLE)) found = &c->self->selection;
+	else if (pattern == UIA_SelectionPatternId && node.role == R_ROLE_TABLE) found = &c->self->selection_group;
 	if (found) {
 		rvn_uia_addref(c->self);
 		*out = (IUnknown*)found;
@@ -580,8 +588,46 @@ static HRESULT STDMETHODCALLTYPE toggle_toggle(IToggleProvider* This) { CALL(do_
 static HRESULT STDMETHODCALLTYPE expand_expand(IExpandCollapseProvider* This) { CALL(do_act, This, expand, call.a = RVN_A11Y_EXPAND); }
 static HRESULT STDMETHODCALLTYPE expand_collapse(IExpandCollapseProvider* This) { CALL(do_act, This, expand, call.a = RVN_A11Y_COLLAPSE); }
 static HRESULT STDMETHODCALLTYPE selection_select(ISelectionItemProvider* This) { CALL(do_act, This, selection, call.a = RVN_A11Y_SELECT); }
-static HRESULT STDMETHODCALLTYPE selection_add(ISelectionItemProvider* This) { CALL(do_act, This, selection, call.a = RVN_A11Y_SELECT); }
-static HRESULT STDMETHODCALLTYPE selection_remove(ISelectionItemProvider* This) { (void)This; return S_OK; }
+static HRESULT STDMETHODCALLTYPE selection_add(ISelectionItemProvider* This) { CALL(do_act, This, selection, call.a = RVN_A11Y_ADD_SELECTION); }
+static HRESULT STDMETHODCALLTYPE selection_remove(ISelectionItemProvider* This) { CALL(do_act, This, selection, call.a = RVN_A11Y_REMOVE_SELECTION); }
+
+static HRESULT do_get_selection(rvn_uia_call_t* c) {
+	SAFEARRAY** out = (SAFEARRAY**)c->out;
+	LONG i;
+	int count;
+	*out = NULL;
+	if (!rvn_uia_alive(c->self)) return UIA_E_ELEMENTNOTAVAILABLE;
+	count = rvn_a11y_selection_count(c->self->id);
+	*out = g_uia.sa_create(VT_UNKNOWN, 0, (ULONG)count);
+	if (!*out) return E_OUTOFMEMORY;
+	for (i = 0; i < count; i++) {
+		rvn_uia_t* row = rvn_uia_provider(c->self->hwnd, rvn_a11y_selection_at(c->self->id, (int)i));
+		HRESULT hr = row ? g_uia.sa_put(*out, &i, &row->simple) : E_OUTOFMEMORY;
+		if (FAILED(hr)) {
+			g_uia.sa_destroy(*out);
+			*out = NULL;
+			return hr;
+		}
+	}
+	return S_OK;
+}
+
+static HRESULT STDMETHODCALLTYPE selection_group_get(ISelectionProvider* This, SAFEARRAY** out) {
+	CALL(do_get_selection, This, selection_group, call.out = out);
+}
+
+static HRESULT STDMETHODCALLTYPE selection_group_multi(ISelectionProvider* This, BOOL* out) {
+	uint32_t states = 0;
+	HRESULT hr = rvn_uia_read(FROM(This, selection_group), 0, &states);
+	*out = (states & RVN_A11Y_MULTI_SELECT) ? TRUE : FALSE;
+	return hr;
+}
+
+static HRESULT STDMETHODCALLTYPE selection_group_required(ISelectionProvider* This, BOOL* out) {
+	(void)This;
+	*out = FALSE;
+	return S_OK;
+}
 
 /* What is asked of a node: 0 states, 1 number, 2 minimum, 3 maximum, 4 step, 5 value text, 6 selection container */
 static HRESULT do_read(rvn_uia_call_t* c) {
@@ -711,6 +757,10 @@ static IExpandCollapseProviderVtbl g_expand_vtbl = { expand_query, expand_addref
 static ISelectionItemProviderVtbl g_selection_vtbl = {
 	selection_query, selection_addref, selection_release, selection_select, selection_add, selection_remove, selection_is_selected, selection_container
 };
+static ISelectionProviderVtbl g_selection_group_vtbl = {
+	selection_group_query, selection_group_addref, selection_group_release,
+	selection_group_get, selection_group_multi, selection_group_required
+};
 
 /* The provider of a node (made on first use; the table keeps a reference). */
 static rvn_uia_t* rvn_uia_provider(HWND hwnd, rvn_a11y_id_t id) {
@@ -731,6 +781,7 @@ static rvn_uia_t* rvn_uia_provider(HWND hwnd, rvn_a11y_id_t id) {
 	self->range.lpVtbl = &g_range_vtbl;
 	self->expand.lpVtbl = &g_expand_vtbl;
 	self->selection.lpVtbl = &g_selection_vtbl;
+	self->selection_group.lpVtbl = &g_selection_group_vtbl;
 	self->refs = 1;
 	self->id = id;
 	self->hwnd = hwnd;
@@ -856,6 +907,10 @@ void rvn_uia_event(HWND hwnd, int event, uint64_t node) {
 			memset(&old_value, 0, sizeof(old_value));
 			memset(&new_value, 0, sizeof(new_value));
 			old_value.vt = VT_EMPTY;
+			if (info.role == R_ROLE_TABLE) {
+				g_uia.raise_event(&provider->simple, UIA_Selection_InvalidatedEventId);
+				break;
+			}
 			if (info.states & RVN_A11Y_HAS_RANGE) {
 				new_value.vt = VT_R8;
 				new_value.dblVal = info.number;

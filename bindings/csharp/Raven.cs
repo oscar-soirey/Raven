@@ -2786,6 +2786,12 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate IntPtr RTableCellTextCallback(uint table, int row, int column, IntPtr user_data);
 
+    /// <summary>
+    /// Return R_FALSE for the theme color. Called on the UI thread for visible virtual cells.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTableCellColorCallback(uint table, int row, int column, ref float r, ref float g, ref float b, ref float a, IntPtr user_data);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTableEventCallback(uint table, int row, IntPtr user_data);
 
@@ -5936,7 +5942,40 @@ namespace Raven
         public static extern void Rtable_set_virtual_rows(uint table, int count, RTableCellTextCallback callback, IntPtr user_data);
 
         /// <summary>
-        /// Selects a row. -1 selects nothing.
+        /// Stored rows: column -1 colors the row; cells override it. Alpha 0 restores the inherited/theme color.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_cell_text_color(uint table, int row, int column, float r, float g, float b, float a);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_cell_color_callback(uint table, RTableCellColorCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_multi_select(uint table, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_row_selected(uint table, int row, int selected);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_is_row_selected(uint table, int row);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_clear_selection(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_selection_count(uint table);
+
+        /// <summary>
+        /// Selected row at index, top to bottom; -1 outside the selection.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_selection(uint table, int index);
+
+        /// <summary>
+        /// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtable_set_selected(uint table, int row);
