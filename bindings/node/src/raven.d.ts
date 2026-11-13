@@ -2772,8 +2772,8 @@ export type RTableCellTextCallback = (table: Rid, row: number, column: number, u
  * Colors the text of cells (a verdict, a state): the table asks for the
  * color of each cell it draws, stored or virtual (`row` is the index of the
  * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
- * keeps the color of the theme. The color is kept on a selected or hovered
- * row. NULL removes the callback.
+ * keeps the color set with Rtable_set_cell_text_color, else the theme's.
+ * The color is kept on a selected or hovered row. NULL removes the callback.
  */
 export type RTableCellColorCallback = (table: Rid, row: number, column: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
 
@@ -4878,7 +4878,27 @@ export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTa
 
 export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback | Pointer | null, user_data?: RPointer): void;
 
-/** Selects a row. -1 selects nothing. */
+/**
+ * Stored rows: a fixed text color; column -1 colors the row; cells override it.
+ * Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+ */
+export function Rtable_set_cell_text_color(table: Rid, row: number, column: number, r: number, g: number, b: number, a: number): void;
+
+/** Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+export function Rtable_set_multi_select(table: Rid, enabled: number): void;
+
+export function Rtable_set_row_selected(table: Rid, row: number, selected: number): void;
+
+export function Rtable_is_row_selected(table: Rid, row: number): number;
+
+export function Rtable_clear_selection(table: Rid): void;
+
+export function Rtable_get_selection_count(table: Rid): number;
+
+/** Selected row at index, top to bottom; -1 outside the selection. */
+export function Rtable_get_selection(table: Rid, index: number): number;
+
+/** Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 export function Rtable_set_selected(table: Rid, row: number): void;
 
 export function Rtable_get_selected(table: Rid): number;

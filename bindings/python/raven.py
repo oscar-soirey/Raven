@@ -7456,12 +7456,72 @@ def Rtable_set_cell_color_callback(table, callback, user_data=None):
     _lib.Rtable_set_cell_color_callback(table, _callback(RTableCellColorCallback, _adapt_RTableCellColorCallback, callback), user_data)
 
 
+_lib.Rtable_set_cell_text_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rtable_set_cell_text_color.restype = None
+
+
+def Rtable_set_cell_text_color(table, row, column, r, g, b, a):
+    """Stored rows: a fixed text color; column -1 colors the row; cells override it.
+    Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it."""
+    _lib.Rtable_set_cell_text_color(table, row, column, r, g, b, a)
+
+
+_lib.Rtable_set_multi_select.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_multi_select.restype = None
+
+
+def Rtable_set_multi_select(table, enabled):
+    """Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default."""
+    _lib.Rtable_set_multi_select(table, enabled)
+
+
+_lib.Rtable_set_row_selected.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_row_selected.restype = None
+
+
+def Rtable_set_row_selected(table, row, selected):
+    _lib.Rtable_set_row_selected(table, row, selected)
+
+
+_lib.Rtable_is_row_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_is_row_selected.restype = ctypes.c_int
+
+
+def Rtable_is_row_selected(table, row):
+    return _lib.Rtable_is_row_selected(table, row)
+
+
+_lib.Rtable_clear_selection.argtypes = [ctypes.c_uint32]
+_lib.Rtable_clear_selection.restype = None
+
+
+def Rtable_clear_selection(table):
+    _lib.Rtable_clear_selection(table)
+
+
+_lib.Rtable_get_selection_count.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_selection_count.restype = ctypes.c_int
+
+
+def Rtable_get_selection_count(table):
+    return _lib.Rtable_get_selection_count(table)
+
+
+_lib.Rtable_get_selection.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_get_selection.restype = ctypes.c_int
+
+
+def Rtable_get_selection(table, index):
+    """Selected row at index, top to bottom; -1 outside the selection."""
+    return _lib.Rtable_get_selection(table, index)
+
+
 _lib.Rtable_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtable_set_selected.restype = None
 
 
 def Rtable_set_selected(table, row):
-    """Selects a row. -1 selects nothing."""
+    """Replaces the selection with one row. -1 selects nothing, including in multi-select mode."""
     _lib.Rtable_set_selected(table, row)
 
 

@@ -4461,8 +4461,8 @@ public final class R {
      * Colors the text of cells (a verdict, a state): the table asks for the
      * color of each cell it draws, stored or virtual (`row` is the index of the
      * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
-     * keeps the color of the theme. The color is kept on a selected or hovered
-     * row. NULL removes the callback.
+     * keeps the color set with Rtable_set_cell_text_color, else the theme's.
+     * The color is kept on a selected or hovered row. NULL removes the callback.
      */
     @FunctionalInterface
     public interface RTableCellColorCallback {
@@ -13463,10 +13463,107 @@ public final class R {
         Rtable_set_cell_color_callback(table, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rtable_set_cell_text_color$;
+
+    /**
+     * Stored rows: a fixed text color; column -1 colors the row; cells override it.
+     * Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+     */
+    public static void Rtable_set_cell_text_color(int table, int row, int column, float r, float g, float b, float a) {
+        MethodHandle $h = Rtable_set_cell_text_color$;
+        if ($h == null) Rtable_set_cell_text_color$ = $h = find("Rtable_set_cell_text_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(table, row, column, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_set_multi_select$;
+
+    /**
+     * Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+     */
+    public static void Rtable_set_multi_select(int table, int enabled) {
+        MethodHandle $h = Rtable_set_multi_select$;
+        if ($h == null) Rtable_set_multi_select$ = $h = find("Rtable_set_multi_select", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_set_row_selected$;
+
+    public static void Rtable_set_row_selected(int table, int row, int selected) {
+        MethodHandle $h = Rtable_set_row_selected$;
+        if ($h == null) Rtable_set_row_selected$ = $h = find("Rtable_set_row_selected", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, row, selected);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_is_row_selected$;
+
+    public static int Rtable_is_row_selected(int table, int row) {
+        MethodHandle $h = Rtable_is_row_selected$;
+        if ($h == null) Rtable_is_row_selected$ = $h = find("Rtable_is_row_selected", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table, row);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_clear_selection$;
+
+    public static void Rtable_clear_selection(int table) {
+        MethodHandle $h = Rtable_clear_selection$;
+        if ($h == null) Rtable_clear_selection$ = $h = find("Rtable_clear_selection", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(table);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_get_selection_count$;
+
+    public static int Rtable_get_selection_count(int table) {
+        MethodHandle $h = Rtable_get_selection_count$;
+        if ($h == null) Rtable_get_selection_count$ = $h = find("Rtable_get_selection_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_get_selection$;
+
+    /**
+     * Selected row at index, top to bottom; -1 outside the selection.
+     */
+    public static int Rtable_get_selection(int table, int index) {
+        MethodHandle $h = Rtable_get_selection$;
+        if ($h == null) Rtable_get_selection$ = $h = find("Rtable_get_selection", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table, index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtable_set_selected$;
 
     /**
-     * Selects a row. -1 selects nothing.
+     * Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
      */
     public static void Rtable_set_selected(int table, int row) {
         MethodHandle $h = Rtable_set_selected$;

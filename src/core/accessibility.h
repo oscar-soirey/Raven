@@ -36,6 +36,8 @@ typedef uint64_t rvn_a11y_id_t;
 #define RVN_A11Y_INVOKABLE   (1u << 14)  /* it can be pressed */
 #define RVN_A11Y_OFFSCREEN   (1u << 15)
 #define RVN_A11Y_MODAL       (1u << 16)
+#define RVN_A11Y_MULTI_SELECT (1u << 17)
+#define RVN_A11Y_TABLE_ROW    (1u << 18)
 
 /** What a node is now. The strings stay valid until the next call to rvn_a11y_describe. */
 typedef struct rvn_a11y_node_t {
@@ -65,7 +67,10 @@ typedef enum rvn_a11y_action_t {
 	RVN_A11Y_EXPAND,
 	RVN_A11Y_COLLAPSE,
 	RVN_A11Y_FOCUS,
-	RVN_A11Y_SELECT
+	RVN_A11Y_SELECT,
+	RVN_A11Y_ADD_SELECTION,
+	RVN_A11Y_REMOVE_SELECTION,
+	RVN_A11Y_CLEAR_SELECTION
 } rvn_a11y_action_t;
 
 /** The window a platform window shows (its `user`). */
@@ -88,6 +93,8 @@ rvn_a11y_id_t rvn_a11y_hit(Rid window, float x, float y);
 rvn_a11y_id_t rvn_a11y_focus(Rid window);
 
 int  rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action);
+int rvn_a11y_selection_count(rvn_a11y_id_t id);
+rvn_a11y_id_t rvn_a11y_selection_at(rvn_a11y_id_t id, int index);
 int  rvn_a11y_set_value(rvn_a11y_id_t id, const char* text);
 int  rvn_a11y_set_number(rvn_a11y_id_t id, double value);
 

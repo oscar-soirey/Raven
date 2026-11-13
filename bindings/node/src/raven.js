@@ -3416,6 +3416,13 @@ export const Rtable_set_virtual_rows = _lib.Rtable_set_virtual_rows;
 export function Rtable_set_cell_color_callback(table, callback, user_data = null) {
 	return _lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
 }
+export const Rtable_set_cell_text_color = _lib.Rtable_set_cell_text_color;
+export const Rtable_set_multi_select = _lib.Rtable_set_multi_select;
+export const Rtable_set_row_selected = _lib.Rtable_set_row_selected;
+export const Rtable_is_row_selected = _lib.Rtable_is_row_selected;
+export const Rtable_clear_selection = _lib.Rtable_clear_selection;
+export const Rtable_get_selection_count = _lib.Rtable_get_selection_count;
+export const Rtable_get_selection = _lib.Rtable_get_selection;
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;

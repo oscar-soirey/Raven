@@ -2982,7 +2982,25 @@ inline void table_set_cell_color_callback(Rid table, std::function<int(Rid, int,
 	Rtable_set_cell_color_callback(table, [](Rid table, int row, int column, float* r, float* g, float* b, float* a, void* kept_) -> int { return (*static_cast<std::function<int(Rid, int, int, float*, float*, float*, float*)>*>(kept_))(table, row, column, r, g, b, a); }, detail::keep(table, 59, std::move(callback)));
 }
 
-/// Selects a row. -1 selects nothing.
+/// Stored rows: a fixed text color; column -1 colors the row; cells override it.
+/// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+inline void table_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a) { Rtable_set_cell_text_color(table, row, column, r, g, b, a); }
+
+/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+inline void table_set_multi_select(Rid table, int enabled) { Rtable_set_multi_select(table, enabled); }
+
+inline void table_set_row_selected(Rid table, int row, int selected) { Rtable_set_row_selected(table, row, selected); }
+
+inline int table_is_row_selected(Rid table, int row) { return Rtable_is_row_selected(table, row); }
+
+inline void table_clear_selection(Rid table) { Rtable_clear_selection(table); }
+
+inline int table_get_selection_count(Rid table) { return Rtable_get_selection_count(table); }
+
+/// Selected row at index, top to bottom; -1 outside the selection.
+inline int table_get_selection(Rid table, int index) { return Rtable_get_selection(table, index); }
+
+/// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 inline void table_set_selected(Rid table, int row) { Rtable_set_selected(table, row); }
 
 inline int table_get_selected(Rid table) { return Rtable_get_selected(table); }

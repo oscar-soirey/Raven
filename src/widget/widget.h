@@ -1016,6 +1016,7 @@ float rvn_a11y_text_scale(void);
 int   rvn_a11y_focus_always(void);
 float rvn_a11y_focus_width(void);
 void  rvn_a11y_structure_changed(void);
+void  rvn_a11y_selection_changed(rvn_widget_t* widget);
 void  rvn_a11y_widget_destroyed(rvn_widget_t* widget);
 void  rvn_a11y_shutdown(void);
 void  rvn_a11y_filter_instances(RDrawInstance* instances, uint32_t count);
@@ -1047,6 +1048,9 @@ int  rvn_window_popup_index(const rvn_window_t* window, const rvn_widget_t* root
 
 /** Triggers a menu item (shortcuts). Implemented in widgets/menu.c. */
 void rvn_menu_item_trigger(rvn_widget_t* item);
+int rvn_table_multi_select(const rvn_widget_t* table);
+rvn_rect_t rvn_table_accessible_rect(rvn_widget_t* table, int row);
+int rvn_table_accessible_row_at(rvn_widget_t* table, float x, float y);
 /** Destroys the native child windows of the viewports inside a subtree leaving the window. */
 void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree);
 /** Native viewports (widgets/viewport.c): release the child window / apply its state after a paint. */

@@ -553,6 +553,13 @@ static struct {
 	int (*Rtable_get_row_count)(Rid);
 	void (*Rtable_set_virtual_rows)(Rid, int, RTableCellTextCallback, void*);
 	void (*Rtable_set_cell_color_callback)(Rid, RTableCellColorCallback, void*);
+	void (*Rtable_set_cell_text_color)(Rid, int, int, float, float, float, float);
+	void (*Rtable_set_multi_select)(Rid, int);
+	void (*Rtable_set_row_selected)(Rid, int, int);
+	int (*Rtable_is_row_selected)(Rid, int);
+	void (*Rtable_clear_selection)(Rid);
+	int (*Rtable_get_selection_count)(Rid);
+	int (*Rtable_get_selection)(Rid, int);
 	void (*Rtable_set_selected)(Rid, int);
 	int (*Rtable_get_selected)(Rid);
 	void (*Rtable_scroll_to_row)(Rid, int);
@@ -1704,6 +1711,13 @@ static const struct {
 	{"Rtable_get_row_count", offsetof(__typeof__(rn), Rtable_get_row_count)},
 	{"Rtable_set_virtual_rows", offsetof(__typeof__(rn), Rtable_set_virtual_rows)},
 	{"Rtable_set_cell_color_callback", offsetof(__typeof__(rn), Rtable_set_cell_color_callback)},
+	{"Rtable_set_cell_text_color", offsetof(__typeof__(rn), Rtable_set_cell_text_color)},
+	{"Rtable_set_multi_select", offsetof(__typeof__(rn), Rtable_set_multi_select)},
+	{"Rtable_set_row_selected", offsetof(__typeof__(rn), Rtable_set_row_selected)},
+	{"Rtable_is_row_selected", offsetof(__typeof__(rn), Rtable_is_row_selected)},
+	{"Rtable_clear_selection", offsetof(__typeof__(rn), Rtable_clear_selection)},
+	{"Rtable_get_selection_count", offsetof(__typeof__(rn), Rtable_get_selection_count)},
+	{"Rtable_get_selection", offsetof(__typeof__(rn), Rtable_get_selection)},
 	{"Rtable_set_selected", offsetof(__typeof__(rn), Rtable_set_selected)},
 	{"Rtable_get_selected", offsetof(__typeof__(rn), Rtable_get_selected)},
 	{"Rtable_scroll_to_row", offsetof(__typeof__(rn), Rtable_scroll_to_row)},
@@ -12716,6 +12730,115 @@ static napi_value rn_w_Rtable_set_cell_color_callback(napi_env env, napi_callbac
 	}
 	rn.Rtable_set_cell_color_callback((Rid)a0, cb_ ? (RTableCellColorCallback)rn_t_RTableCellColorCallback : (RTableCellColorCallback)n0_, cb_ ? (void*)cb_ : a2);
 	rn_bind(a0, RN_OWNER_WIDGET, 44, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_set_cell_text_color(napi_env env, napi_callback_info info) {
+	size_t argc = 7;
+	napi_value argv[7];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	float a3;
+	float a4;
+	float a5;
+	float a6;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	if (!rn_get_float(env, argv[6], &a6)) return NULL;
+	rn.Rtable_set_cell_text_color((Rid)a0, (int)a1, (int)a2, (float)a3, (float)a4, (float)a5, (float)a6);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_set_multi_select(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtable_set_multi_select((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_set_row_selected(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rtable_set_row_selected((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_is_row_selected(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtable_is_row_selected((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_clear_selection(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rtable_clear_selection((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_get_selection_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtable_get_selection_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtable_get_selection(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtable_get_selection((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
 	return result_;
 }
 
@@ -23829,6 +23952,13 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtable_get_row_count", NULL, rn_w_Rtable_get_row_count, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_virtual_rows", NULL, rn_w_Rtable_set_virtual_rows, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_cell_color_callback", NULL, rn_w_Rtable_set_cell_color_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_set_cell_text_color", NULL, rn_w_Rtable_set_cell_text_color, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_set_multi_select", NULL, rn_w_Rtable_set_multi_select, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_set_row_selected", NULL, rn_w_Rtable_set_row_selected, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_is_row_selected", NULL, rn_w_Rtable_is_row_selected, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_clear_selection", NULL, rn_w_Rtable_clear_selection, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_get_selection_count", NULL, rn_w_Rtable_get_selection_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtable_get_selection", NULL, rn_w_Rtable_get_selection, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_set_selected", NULL, rn_w_Rtable_set_selected, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_get_selected", NULL, rn_w_Rtable_get_selected, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtable_scroll_to_row", NULL, rn_w_Rtable_scroll_to_row, NULL, NULL, NULL, napi_enumerable, NULL},

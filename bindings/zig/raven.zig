@@ -1221,8 +1221,8 @@ pub const RTableCellTextCallback = ?*const fn (table: Rid, row: c_int, column: c
 /// Colors the text of cells (a verdict, a state): the table asks for the
 /// color of each cell it draws, stored or virtual (`row` is the index of the
 /// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
-/// keeps the color of the theme. The color is kept on a selected or hovered
-/// row. NULL removes the callback.
+/// keeps the color set with Rtable_set_cell_text_color, else the theme's.
+/// The color is kept on a selected or hovered row. NULL removes the callback.
 pub const RTableCellColorCallback = ?*const fn (table: Rid, row: c_int, column: c_int, r: ?*f32, g: ?*f32, b: ?*f32, a: ?*f32, user_data: ?*anyopaque) callconv(.c) c_int;
 pub const RTableEventCallback = ?*const fn (table: Rid, row: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user clicks a header; `column` -1: not sorted.
@@ -2963,7 +2963,18 @@ pub extern fn Rtable_clear_rows(table: Rid) void;
 pub extern fn Rtable_get_row_count(table: Rid) c_int;
 pub extern fn Rtable_set_virtual_rows(table: Rid, count: c_int, callback: RTableCellTextCallback, user_data: ?*anyopaque) void;
 pub extern fn Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback, user_data: ?*anyopaque) void;
-/// Selects a row. -1 selects nothing.
+/// Stored rows: a fixed text color; column -1 colors the row; cells override it.
+/// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+pub extern fn Rtable_set_cell_text_color(table: Rid, row: c_int, column: c_int, r: f32, g: f32, b: f32, a: f32) void;
+/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+pub extern fn Rtable_set_multi_select(table: Rid, enabled: c_int) void;
+pub extern fn Rtable_set_row_selected(table: Rid, row: c_int, selected: c_int) void;
+pub extern fn Rtable_is_row_selected(table: Rid, row: c_int) c_int;
+pub extern fn Rtable_clear_selection(table: Rid) void;
+pub extern fn Rtable_get_selection_count(table: Rid) c_int;
+/// Selected row at index, top to bottom; -1 outside the selection.
+pub extern fn Rtable_get_selection(table: Rid, index: c_int) c_int;
+/// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 pub extern fn Rtable_set_selected(table: Rid, row: c_int) void;
 pub extern fn Rtable_get_selected(table: Rid) c_int;
 pub extern fn Rtable_scroll_to_row(table: Rid, row: c_int) void;

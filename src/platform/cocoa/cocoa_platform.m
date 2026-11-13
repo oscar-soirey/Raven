@@ -1329,6 +1329,7 @@ static NSRect rvn_cocoa_a11y_screen_rect(rvn_pwindow_t* window, const rvn_a11y_n
 }
 
 static NSAccessibilityRole rvn_cocoa_a11y_role(const rvn_a11y_node_t* node) {
+    if (node->states & RVN_A11Y_TABLE_ROW) return NSAccessibilityRowRole;
     switch (node->role) {
         case R_ROLE_WINDOW: return NSAccessibilityWindowRole;
         case R_ROLE_TEXT: case R_ROLE_HEADING: case R_ROLE_ALERT: return NSAccessibilityStaticTextRole;
@@ -1423,6 +1424,27 @@ static NSArray* rvn_cocoa_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t nod
     return rvn_cocoa_a11y_object(ravenWindow, parent);
 }
 - (NSArray*)accessibilityChildren { return rvn_cocoa_a11y_children(ravenWindow, nodeId); }
+- (NSArray*)accessibilityRows {
+    rvn_a11y_node_t node;
+    return rvn_a11y_describe(nodeId, &node) && node.role == R_ROLE_TABLE ? [self accessibilityChildren] : nil;
+}
+- (NSArray*)accessibilitySelectedRows {
+    int i, count = rvn_a11y_selection_count(nodeId);
+    NSMutableArray* rows = [NSMutableArray arrayWithCapacity:(NSUInteger)count];
+    for (i = 0; i < count; i++) {
+        id row = rvn_cocoa_a11y_object(ravenWindow, rvn_a11y_selection_at(nodeId, i));
+        if (row) [rows addObject:row];
+    }
+    return rows;
+}
+- (void)setAccessibilitySelectedRows:(NSArray*)rows {
+    if (!rvn_a11y_act(nodeId, RVN_A11Y_CLEAR_SELECTION)) return;
+    for (id row in rows) {
+        if (![row isKindOfClass:[RavenAccessibilityElement class]]) continue;
+        rvn_a11y_id_t item = ((RavenAccessibilityElement*)row)->nodeId;
+        if (rvn_a11y_parent(item) == nodeId) rvn_a11y_act(item, RVN_A11Y_ADD_SELECTION);
+    }
+}
 - (id)accessibilityWindow { return ravenWindow ? ravenWindow->handle : nil; }
 - (id)accessibilityTopLevelUIElement { return ravenWindow ? ravenWindow->handle : nil; }
 - (BOOL)isAccessibilityFocused {
@@ -1437,6 +1459,9 @@ static NSArray* rvn_cocoa_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t nod
 - (BOOL)isAccessibilitySelected {
     rvn_a11y_node_t node;
     return rvn_a11y_describe(nodeId, &node) && (node.states & RVN_A11Y_SELECTED) ? YES : NO;
+}
+- (void)setAccessibilitySelected:(BOOL)selected {
+    rvn_a11y_act(nodeId, selected ? RVN_A11Y_ADD_SELECTION : RVN_A11Y_REMOVE_SELECTION);
 }
 - (BOOL)isAccessibilityExpanded {
     rvn_a11y_node_t node;
@@ -1462,6 +1487,7 @@ static NSArray* rvn_cocoa_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t nod
     rvn_a11y_node_t node;
     if (!rvn_a11y_describe(nodeId, &node)) return NO;
     if (selector == @selector(accessibilityPerformPress)) return (node.states & (RVN_A11Y_INVOKABLE | RVN_A11Y_CHECKABLE)) ? YES : NO;
+    if (selector == @selector(setAccessibilitySelectedRows:)) return node.role == R_ROLE_TABLE ? YES : NO;
     if (selector == @selector(accessibilityPerformIncrement) || selector == @selector(accessibilityPerformDecrement))
         return (node.states & RVN_A11Y_HAS_RANGE) && !(node.states & RVN_A11Y_READONLY) ? YES : NO;
     if (selector == @selector(setAccessibilityValue:)) return (node.states & (RVN_A11Y_EDITABLE | RVN_A11Y_HAS_RANGE)) ? YES : NO;
@@ -1541,6 +1567,13 @@ static void rvn_cocoa_a11y_event(rvn_pwindow_t* window, int event, uint64_t node
             break;
         case RVN_A11Y_EVENT_VALUE:
         case RVN_A11Y_EVENT_STATE:
+            {
+                rvn_a11y_node_t info;
+                if (rvn_a11y_describe(node, &info) && info.role == R_ROLE_TABLE) {
+                    NSAccessibilityPostNotification(object, NSAccessibilitySelectedRowsChangedNotification);
+                    break;
+                }
+            }
             NSAccessibilityPostNotification(object, NSAccessibilityValueChangedNotification);
             break;
         case RVN_A11Y_EVENT_NAME:

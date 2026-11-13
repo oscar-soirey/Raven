@@ -1302,8 +1302,8 @@ alias RTableCellTextCallback = fn char*(Rid table, CInt row, CInt column, void* 
  Colors the text of cells (a verdict, a state): the table asks for the
  color of each cell it draws, stored or virtual (`row` is the index of the
  order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
- keeps the color of the theme. The color is kept on a selected or hovered
- row. NULL removes the callback.
+ keeps the color set with Rtable_set_cell_text_color, else the theme's.
+ The color is kept on a selected or hovered row. NULL removes the callback.
 *>
 alias RTableCellColorCallback = fn CInt(Rid table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = fn void(Rid table, CInt row, void* user_data);
@@ -3811,7 +3811,27 @@ extern fn void r_table_set_virtual_rows(Rid table, CInt count, RTableCellTextCal
 
 extern fn void r_table_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data) @cname("Rtable_set_cell_color_callback");
 
-<* Selects a row. -1 selects nothing. *>
+<*
+ Stored rows: a fixed text color; column -1 colors the row; cells override it.
+ Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+*>
+extern fn void r_table_set_cell_text_color(Rid table, CInt row, CInt column, float r, float g, float b, float a) @cname("Rtable_set_cell_text_color");
+
+<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. *>
+extern fn void r_table_set_multi_select(Rid table, CInt enabled) @cname("Rtable_set_multi_select");
+
+extern fn void r_table_set_row_selected(Rid table, CInt row, CInt selected) @cname("Rtable_set_row_selected");
+
+extern fn CInt r_table_is_row_selected(Rid table, CInt row) @cname("Rtable_is_row_selected");
+
+extern fn void r_table_clear_selection(Rid table) @cname("Rtable_clear_selection");
+
+extern fn CInt r_table_get_selection_count(Rid table) @cname("Rtable_get_selection_count");
+
+<* Selected row at index, top to bottom; -1 outside the selection. *>
+extern fn CInt r_table_get_selection(Rid table, CInt index) @cname("Rtable_get_selection");
+
+<* Replaces the selection with one row. -1 selects nothing, including in multi-select mode. *>
 extern fn void r_table_set_selected(Rid table, CInt row) @cname("Rtable_set_selected");
 
 extern fn CInt r_table_get_selected(Rid table) @cname("Rtable_get_selected");

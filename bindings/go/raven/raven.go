@@ -3616,7 +3616,39 @@ func TableGetRowCount(table ID) int {
 	return int(C.Rtable_get_row_count(C.Rid(table)))
 }
 
-// TableSetSelected: Selects a row. -1 selects nothing.
+// TableSetCellTextColor: Stored rows: a fixed text color; column -1 colors the row; cells override it. Alpha
+// 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+func TableSetCellTextColor(table ID, row int, column int, r float32, g float32, b float32, a float32) {
+	C.Rtable_set_cell_text_color(C.Rid(table), C.int(row), C.int(column), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// TableSetMultiSelect: Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+func TableSetMultiSelect(table ID, enabled int) {
+	C.Rtable_set_multi_select(C.Rid(table), C.int(enabled))
+}
+
+func TableSetRowSelected(table ID, row int, selected int) {
+	C.Rtable_set_row_selected(C.Rid(table), C.int(row), C.int(selected))
+}
+
+func TableIsRowSelected(table ID, row int) int {
+	return int(C.Rtable_is_row_selected(C.Rid(table), C.int(row)))
+}
+
+func TableClearSelection(table ID) {
+	C.Rtable_clear_selection(C.Rid(table))
+}
+
+func TableGetSelectionCount(table ID) int {
+	return int(C.Rtable_get_selection_count(C.Rid(table)))
+}
+
+// TableGetSelection: Selected row at index, top to bottom; -1 outside the selection.
+func TableGetSelection(table ID, index int) int {
+	return int(C.Rtable_get_selection(C.Rid(table), C.int(index)))
+}
+
+// TableSetSelected: Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 func TableSetSelected(table ID, row int) {
 	C.Rtable_set_selected(C.Rid(table), C.int(row))
 }

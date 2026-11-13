@@ -851,6 +851,28 @@ on the `FileBrowser` widget, which can also be put in any window. Any widget
 can be shown as a dialog of a window (`Rdialog_open`, `Rdialog_run`).
 `Rfile_read` and `Rfile_write` take UTF-8 paths on every platform.
 
+### Table colors and selection
+
+Tables can opt into multiple row selection with
+`Rtable_set_multi_select(table, R_TRUE)`. Ctrl/Cmd-click toggles rows and Shift
+click/arrows select an anchored range. `Rtable_set_selected` replaces the whole
+selection; `Rtable_set_row_selected` changes one row. Query membership/count
+with `Rtable_is_row_selected` and `Rtable_get_selection_count`, and enumerate
+top to bottom with `Rtable_get_selection`. `Rtable_get_selected` returns the
+primary selected row, or -1. Stored sorting/removal keeps selection with data;
+virtual refreshes keep valid selected indices, while the application remains
+responsible for virtual data ordering.
+
+`Rtable_set_cell_text_color(table, row, column, r, g, b, a)` colors a stored
+cell, or the whole row with column -1. Cell overrides take precedence over row
+overrides, including selected rows; alpha zero restores the inherited/theme
+color. `Rtable_set_cell_color_callback` (stored and virtual tables) takes
+precedence: when it returns true with a non-zero alpha its color is used,
+otherwise the fixed cell/row color, then the theme color. Color callbacks run
+on the UI thread for visible cells only.
+Screen readers see selectable rows, including Cocoa selected rows, AT-SPI
+selected states, UIA multiple-selection support and the browser grid state.
+
 ### Drag and drop
 
 ```c

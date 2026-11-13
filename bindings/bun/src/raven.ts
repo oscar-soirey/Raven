@@ -677,6 +677,13 @@ const _symbols = {
 	Rtable_get_row_count: { args: ["u32"], returns: "i32" },
 	Rtable_set_virtual_rows: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
 	Rtable_set_cell_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_cell_text_color: { args: ["u32", "i32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rtable_set_multi_select: { args: ["u32", "i32"], returns: "void" },
+	Rtable_set_row_selected: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtable_is_row_selected: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_clear_selection: { args: ["u32"], returns: "void" },
+	Rtable_get_selection_count: { args: ["u32"], returns: "i32" },
+	Rtable_get_selection: { args: ["u32", "i32"], returns: "i32" },
 	Rtable_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rtable_get_selected: { args: ["u32"], returns: "i32" },
 	Rtable_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
@@ -5754,8 +5761,8 @@ function _adapt_RTableCellTextCallback(function_: RTableCellTextCallback | Point
  * Colors the text of cells (a verdict, a state): the table asks for the
  * color of each cell it draws, stored or virtual (`row` is the index of the
  * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
- * keeps the color of the theme. The color is kept on a selected or hovered
- * row. NULL removes the callback.
+ * keeps the color set with Rtable_set_cell_text_color, else the theme's.
+ * The color is kept on a selected or hovered row. NULL removes the callback.
  */
 export type RTableCellColorCallback = (table: Rid, row: number, column: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
 
@@ -9515,7 +9522,41 @@ export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellC
 	_lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
 }
 
-/** Selects a row. -1 selects nothing. */
+/**
+ * Stored rows: a fixed text color; column -1 colors the row; cells override it.
+ * Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+ */
+export function Rtable_set_cell_text_color(table: Rid, row: number, column: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rtable_set_cell_text_color(table, row, column, r, g, b, a);
+}
+
+/** Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+export function Rtable_set_multi_select(table: Rid, enabled: number): void {
+	_lib.Rtable_set_multi_select(table, enabled);
+}
+
+export function Rtable_set_row_selected(table: Rid, row: number, selected: number): void {
+	_lib.Rtable_set_row_selected(table, row, selected);
+}
+
+export function Rtable_is_row_selected(table: Rid, row: number): number {
+	return _lib.Rtable_is_row_selected(table, row);
+}
+
+export function Rtable_clear_selection(table: Rid): void {
+	_lib.Rtable_clear_selection(table);
+}
+
+export function Rtable_get_selection_count(table: Rid): number {
+	return _lib.Rtable_get_selection_count(table);
+}
+
+/** Selected row at index, top to bottom; -1 outside the selection. */
+export function Rtable_get_selection(table: Rid, index: number): number {
+	return _lib.Rtable_get_selection(table, index);
+}
+
+/** Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 export function Rtable_set_selected(table: Rid, row: number): void {
 	_lib.Rtable_set_selected(table, row);
 }
