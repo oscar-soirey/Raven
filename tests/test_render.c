@@ -322,6 +322,36 @@ static void test_custom_drawing(void) {
 	Rwindow_destroy(window);
 }
 
+static void paint_shadow(Rid widget, RPainter* painter, float width, float height, void* user_data) {
+	(void)widget; (void)width; (void)height; (void)user_data;
+	Rdraw_shadow(painter, 40, 40, 80, 60, 12, 12, 1, 1, 1, 1);
+	Rdraw_rect(painter, 40, 40, 80, 60, 12, 0, 0, 1, 1);
+	Rdraw_push_clip_rect(painter, 160, 20, 50, 100);
+	Rdraw_shadow(painter, 180, 40, 60, 60, 0, 12, 1, 0, 0, 1);
+	Rdraw_pop_clip_rect(painter);
+}
+
+static void test_custom_shadow(void) {
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"160\" ClearColor=\"#000000\"><Custom Name=\"custom\"/></Window>");
+	Rid custom = Rwidget_find(window, "custom");
+	int near_value, far_value;
+	Rcustom_set_paint_callback(custom, paint_shadow, NULL);
+	capture(window);
+	CHECK_PIXEL(80, 70, 0, 0, 255); /* solid shape covers the shadow beneath it */
+	CHECK_PIXEL(10, 70, 0, 0, 0);
+	far_value = pixel_at(30, 70)[0];
+	near_value = pixel_at(35, 70)[0];
+	CHECK(far_value > 0 && near_value > far_value && near_value < 255); /* soft falloff outside the shape */
+	CHECK_PIXEL(200, 70, 255, 0, 0);
+	CHECK_PIXEL(215, 70, 0, 0, 0); /* clipped even inside the underlying shadow shape */
+	Rwidget_set_opacity(custom, 0.5f);
+	capture(window);
+	CHECK_PIXEL(200, 70, 128, 0, 0);
+	CHECK(pixel_at(35, 70)[0] > 0 && pixel_at(35, 70)[0] < near_value);
+	Rwindow_destroy(window);
+}
+
 static void paint_glass(Rid widget, RPainter* painter, float width, float height, void* user_data) {
 	(void)widget;
 	(void)width;
@@ -1016,6 +1046,7 @@ int main(void) {
 	RUN(test_text);
 	RUN(test_label_foreground);
 	RUN(test_custom_drawing);
+	RUN(test_custom_shadow);
 	RUN(test_glass);
 	RUN(test_windows_look);
 	RUN(test_glass_theme);

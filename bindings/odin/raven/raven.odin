@@ -3972,6 +3972,10 @@ foreign lib {
 	Rcustom_set_measure_callback :: proc(widget: Rid, callback: RMeasureCallback, user_data: rawptr) ---
 	// Filled rectangle with rounded corners (radius 0 = sharp).
 	Rdraw_rect :: proc(painter: ^RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, r: f32, g: f32, b: f32, a: f32) ---
+	// Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+	// Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+	// Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+	Rdraw_shadow :: proc(painter: ^RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, blur: f32, r: f32, g: f32, b: f32, a: f32) ---
 	// Outline of a rounded rectangle, drawn inside its bounds.
 	Rdraw_rect_outline :: proc(painter: ^RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, thickness: f32, r: f32, g: f32, b: f32, a: f32) ---
 	Rdraw_circle :: proc(painter: ^RPainter, center_x: f32, center_y: f32, radius: f32, r: f32, g: f32, b: f32, a: f32) ---

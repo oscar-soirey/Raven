@@ -3913,6 +3913,7 @@ export function Rcustom_set_measure_callback(widget, callback, user_data = null)
 	return _lib.Rcustom_set_measure_callback(widget, _adapt_RMeasureCallback(callback), user_data);
 }
 export const Rdraw_rect = _lib.Rdraw_rect;
+export const Rdraw_shadow = _lib.Rdraw_shadow;
 export const Rdraw_rect_outline = _lib.Rdraw_rect_outline;
 export const Rdraw_circle = _lib.Rdraw_circle;
 export const Rdraw_line = _lib.Rdraw_line;

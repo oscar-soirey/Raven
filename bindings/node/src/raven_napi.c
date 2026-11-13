@@ -1032,6 +1032,7 @@ static struct {
 	void (*Rcustom_set_paint_callback)(Rid, RPaintCallback, void*);
 	void (*Rcustom_set_measure_callback)(Rid, RMeasureCallback, void*);
 	void (*Rdraw_rect)(RPainter*, float, float, float, float, float, float, float, float, float);
+	void (*Rdraw_shadow)(RPainter*, float, float, float, float, float, float, float, float, float, float);
 	void (*Rdraw_rect_outline)(RPainter*, float, float, float, float, float, float, float, float, float, float);
 	void (*Rdraw_circle)(RPainter*, float, float, float, float, float, float, float);
 	void (*Rdraw_line)(RPainter*, float, float, float, float, float, float, float, float, float);
@@ -2183,6 +2184,7 @@ static const struct {
 	{"Rcustom_set_paint_callback", offsetof(__typeof__(rn), Rcustom_set_paint_callback)},
 	{"Rcustom_set_measure_callback", offsetof(__typeof__(rn), Rcustom_set_measure_callback)},
 	{"Rdraw_rect", offsetof(__typeof__(rn), Rdraw_rect)},
+	{"Rdraw_shadow", offsetof(__typeof__(rn), Rdraw_shadow)},
 	{"Rdraw_rect_outline", offsetof(__typeof__(rn), Rdraw_rect_outline)},
 	{"Rdraw_circle", offsetof(__typeof__(rn), Rdraw_circle)},
 	{"Rdraw_line", offsetof(__typeof__(rn), Rdraw_line)},
@@ -20947,6 +20949,38 @@ static napi_value rn_w_Rdraw_rect(napi_env env, napi_callback_info info) {
 	return result_;
 }
 
+static napi_value rn_w_Rdraw_shadow(napi_env env, napi_callback_info info) {
+	size_t argc = 11;
+	napi_value argv[11];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	float a5;
+	float a6;
+	float a7;
+	float a8;
+	float a9;
+	float a10;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	if (!rn_get_float(env, argv[6], &a6)) return NULL;
+	if (!rn_get_float(env, argv[7], &a7)) return NULL;
+	if (!rn_get_float(env, argv[8], &a8)) return NULL;
+	if (!rn_get_float(env, argv[9], &a9)) return NULL;
+	if (!rn_get_float(env, argv[10], &a10)) return NULL;
+	rn.Rdraw_shadow((RPainter*)a0, (float)a1, (float)a2, (float)a3, (float)a4, (float)a5, (float)a6, (float)a7, (float)a8, (float)a9, (float)a10);
+	return result_;
+}
+
 static napi_value rn_w_Rdraw_rect_outline(napi_env env, napi_callback_info info) {
 	size_t argc = 11;
 	napi_value argv[11];
@@ -24308,6 +24342,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rcustom_set_paint_callback", NULL, rn_w_Rcustom_set_paint_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rcustom_set_measure_callback", NULL, rn_w_Rcustom_set_measure_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdraw_rect", NULL, rn_w_Rdraw_rect, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdraw_shadow", NULL, rn_w_Rdraw_shadow, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdraw_rect_outline", NULL, rn_w_Rdraw_rect_outline, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdraw_circle", NULL, rn_w_Rdraw_circle, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdraw_line", NULL, rn_w_Rdraw_line, NULL, NULL, NULL, napi_enumerable, NULL},

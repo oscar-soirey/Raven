@@ -1388,6 +1388,11 @@ it is gone. A rendering backend is a `RBackendVTable`
 (`raven_backend.h`) given to `Rbackend_register`;
 `src/render/null/null_backend.c` is a template.
 
+`Rdraw_shadow` draws a soft shadow or colored glow in a custom paint callback.
+Its bounds, corner radius and blur are in logical units. Offset the rectangle
+for a drop shadow, or paint it beneath a shape for a glow. It uses the same
+batched shadow primitive as Border, with the current clip and opacity.
+
 ## Performance
 
 `raven_benchmark` (built with the tests) measures a large tree without a GPU.
