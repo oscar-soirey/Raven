@@ -2304,6 +2304,16 @@ def _adapt_RCompletionCallback(function):
         function(editor, _r(prefix), user_data)
     return call
 
+RTextEditorHoverCallback = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTextEditorHoverCallback(function):
+    def call(editor, line, column, user_data):
+        text = ctypes.create_string_buffer(_s(function(editor, line, column, user_data)) or b"")
+        call.text = text
+        return ctypes.cast(text, ctypes.c_void_p).value
+    return call
+
 RTextEditorChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
 
 
@@ -2510,6 +2520,14 @@ RLocaleChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_void_p
 def _adapt_RLocaleChangedCallback(function):
     def call(language, user_data):
         function(_r(language), user_data)
+    return call
+
+RAccessiblePressCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RAccessiblePressCallback(function):
+    def call(widget, user_data):
+        function(widget, user_data)
     return call
 
 
@@ -8780,6 +8798,29 @@ def Rtext_editor_add_completion(editor, text, detail):
     _lib.Rtext_editor_add_completion(editor, _s(text), _s(detail))
 
 
+_lib.Rtext_editor_add_completion_insert.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rtext_editor_add_completion_insert.restype = None
+
+
+def Rtext_editor_add_completion_insert(editor, text, detail, insert):
+    """Adds a proposal that writes another text than the one it shows
+    and is matched on: "Threshold", listed and filtered as such, that
+    writes "Threshold(" when chosen. Only from a completion callback.
+    insert What replaces the word being typed; NULL or "" is `text`."""
+    _lib.Rtext_editor_add_completion_insert(editor, _s(text), _s(detail), _s(insert))
+
+
+_lib.Rtext_editor_set_completion_words.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_set_completion_words.restype = None
+
+
+def Rtext_editor_set_completion_words(editor, enabled):
+    """R_FALSE leaves the words of the language and the names of the
+    text out of the proposals: only the completion callback's are listed
+    (a language server that knows better). On by default."""
+    _lib.Rtext_editor_set_completion_words(editor, enabled)
+
+
 _lib.Rtext_editor_set_auto_pairs.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtext_editor_set_auto_pairs.restype = None
 
@@ -8817,6 +8858,14 @@ _lib.Rtext_editor_get_marker_count.restype = ctypes.c_int
 
 def Rtext_editor_get_marker_count(editor):
     return _lib.Rtext_editor_get_marker_count(editor)
+
+
+_lib.Rtext_editor_set_hover_callback.argtypes = [ctypes.c_uint32, RTextEditorHoverCallback, ctypes.c_void_p]
+_lib.Rtext_editor_set_hover_callback.restype = None
+
+
+def Rtext_editor_set_hover_callback(editor, callback, user_data=None):
+    _lib.Rtext_editor_set_hover_callback(editor, _callback(RTextEditorHoverCallback, _adapt_RTextEditorHoverCallback, callback), user_data)
 
 
 _lib.Rtheme_set_token_color.argtypes = [ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
@@ -10908,6 +10957,53 @@ def Rnode_graph_set_pin_emphasis(graph, pin, emphasis):
     _lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis)
 
 
+_lib.Rnode_graph_get_tag_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_tag_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_tag_at(graph, x, y):
+    """The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin."""
+    return _lib.Rnode_graph_get_tag_at(graph, x, y)
+
+
+_lib.Rnode_graph_set_pin_tag_lit.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rnode_graph_set_pin_tag_lit.restype = None
+
+
+def Rnode_graph_set_pin_tag_lit(graph, pin, lit):
+    """R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+    thicker edge) — every tag of one net lit while the pointer is on one of them."""
+    _lib.Rnode_graph_set_pin_tag_lit(graph, pin, lit)
+
+
+_lib.Rnode_graph_set_pin_label_width.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rnode_graph_set_pin_label_width.restype = None
+
+
+def Rnode_graph_set_pin_label_width(graph, width):
+    """Pin labels wider than `width` (logical units) are cut short with an
+    ellipsis and the nodes are laid out with them so (compact ports); 0, the
+    default, shows every label whole."""
+    _lib.Rnode_graph_set_pin_label_width(graph, width)
+
+
+_lib.Rnode_graph_get_pin_label_width.argtypes = [ctypes.c_uint32]
+_lib.Rnode_graph_get_pin_label_width.restype = ctypes.c_float
+
+
+def Rnode_graph_get_pin_label_width(graph):
+    return _lib.Rnode_graph_get_pin_label_width(graph)
+
+
+_lib.Rnode_graph_set_node_badge_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_set_node_badge_color.restype = None
+
+
+def Rnode_graph_set_node_badge_color(graph, node, r, g, b):
+    """Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it."""
+    _lib.Rnode_graph_set_node_badge_color(graph, node, r, g, b)
+
+
 _lib.Rblock_editor_create.argtypes = []
 _lib.Rblock_editor_create.restype = ctypes.c_uint32
 
@@ -12928,6 +13024,28 @@ _lib.Rwidget_set_accessible_labelled_by.restype = None
 def Rwidget_set_accessible_labelled_by(widget, label):
     """The widget is named by another one (a label): its text is the name."""
     _lib.Rwidget_set_accessible_labelled_by(widget, label)
+
+
+_lib.Rwidget_set_accessible_action.argtypes = [ctypes.c_uint32, RAccessiblePressCallback, ctypes.c_void_p]
+_lib.Rwidget_set_accessible_action.restype = None
+
+
+def Rwidget_set_accessible_action(widget, press, user_data=None):
+    """Explicit screen-reader press action, including for custom widgets.
+    NULL removes the override. Does not change pointer or keyboard handling.
+    Disabled widgets (including disabled ancestors) cannot be pressed."""
+    _lib.Rwidget_set_accessible_action(widget, _callback(RAccessiblePressCallback, _adapt_RAccessiblePressCallback, press), user_data)
+
+
+_lib.Rwidget_set_accessible_checked.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwidget_set_accessible_checked.restype = None
+
+
+def Rwidget_set_accessible_checked(widget, checked):
+    """Override the checked state: 1 checked, 0 unchecked, -1 restores the
+    widget's default (not checkable for a custom widget). The application owns
+    this state; a press callback updates it when appropriate."""
+    _lib.Rwidget_set_accessible_checked(widget, checked)
 
 
 _lib.Raccessibility_announce.argtypes = [ctypes.c_char_p, ctypes.c_int]

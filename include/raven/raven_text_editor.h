@@ -297,6 +297,19 @@ extern "C" {
 	 */
 	RAVEN_API void Rtext_editor_add_completion(Rid editor, const char* text, const char* detail);
 	/**
+	 * @brief Adds a proposal that writes another text than the one it shows
+	 * and is matched on: "Threshold", listed and filtered as such, that
+	 * writes "Threshold(" when chosen. Only from a completion callback.
+	 * @param insert What replaces the word being typed; NULL or "" is `text`.
+	 */
+	RAVEN_API void Rtext_editor_add_completion_insert(Rid editor, const char* text, const char* detail, const char* insert);
+	/**
+	 * @brief R_FALSE leaves the words of the language and the names of the
+	 * text out of the proposals: only the completion callback's are listed
+	 * (a language server that knows better). On by default.
+	 */
+	RAVEN_API void Rtext_editor_set_completion_words(Rid editor, int enabled);
+	/**
 	 * @brief R_FALSE stops the editor from closing brackets and quotes and
 	 * from indenting after them. On by default; it only acts with a language.
 	 */
@@ -314,6 +327,15 @@ extern "C" {
 	RAVEN_API void Rtext_editor_add_marker(Rid editor, int line, int from_column, int to_column, RMarkerKind kind, const char* message);
 	RAVEN_API void Rtext_editor_clear_markers(Rid editor);
 	RAVEN_API int Rtext_editor_get_marker_count(Rid editor);
+	/**
+	 * @brief Called while the pointer moves over the text where no marker
+	 * is, with the position under it: the text returned (NULL or "" for
+	 * none) is shown as the tooltip, as a marker's message is (what a name
+	 * stands for, the value of a variable). The text must stay valid until
+	 * the next call.
+	 */
+	typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
+	RAVEN_API void Rtext_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data);
 
 	/* ---- colors ---- */
 

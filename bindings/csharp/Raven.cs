@@ -2865,6 +2865,16 @@ namespace Raven
     public delegate void RCompletionCallback(uint editor, IntPtr prefix, IntPtr user_data);
 
     /// <summary>
+    /// Called while the pointer moves over the text where no marker
+    /// is, with the position under it: the text returned (NULL or "" for
+    /// none) is shown as the tooltip, as a marker's message is (what a name
+    /// stands for, the value of a variable). The text must stay valid until
+    /// the next call.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate IntPtr RTextEditorHoverCallback(uint editor, int line, int column, IntPtr user_data);
+
+    /// <summary>
     /// Called after each change made by the user (typing, pasting,
     /// undoing...) or by Rtext_editor_insert_text. The action of the widget
     /// (OnChanged in XML) fires at the same time.
@@ -3029,6 +3039,9 @@ namespace Raven
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RLocaleChangedCallback(IntPtr language, IntPtr user_data);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RAccessiblePressCallback(uint widget, IntPtr user_data);
 
     public static class R
     {
@@ -6738,6 +6751,23 @@ namespace Raven
         public static extern void Rtext_editor_add_completion(uint editor, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string detail);
 
         /// <summary>
+        /// Adds a proposal that writes another text than the one it shows
+        /// and is matched on: "Threshold", listed and filtered as such, that
+        /// writes "Threshold(" when chosen. Only from a completion callback.
+        /// insert What replaces the word being typed; NULL or "" is `text`.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_add_completion_insert(uint editor, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string detail, [MarshalAs(Utf8.Str)] string insert);
+
+        /// <summary>
+        /// R_FALSE leaves the words of the language and the names of the
+        /// text out of the proposals: only the completion callback's are listed
+        /// (a language server that knows better). On by default.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_completion_words(uint editor, int enabled);
+
+        /// <summary>
         /// R_FALSE stops the editor from closing brackets and quotes and
         /// from indenting after them. On by default; it only acts with a language.
         /// </summary>
@@ -6759,6 +6789,9 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtext_editor_get_marker_count(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_hover_callback(uint editor, RTextEditorHoverCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Color of a kind of token in the theme in use, instead of the
@@ -7995,6 +8028,36 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_set_pin_emphasis(uint graph, int pin, int emphasis);
+
+        /// <summary>
+        /// The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_get_tag_at(uint graph, float x, float y);
+
+        /// <summary>
+        /// R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+        /// thicker edge) — every tag of one net lit while the pointer is on one of them.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_pin_tag_lit(uint graph, int pin, int lit);
+
+        /// <summary>
+        /// Pin labels wider than `width` (logical units) are cut short with an
+        /// ellipsis and the nodes are laid out with them so (compact ports); 0, the
+        /// default, shows every label whole.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_pin_label_width(uint graph, float width);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rnode_graph_get_pin_label_width(uint graph);
+
+        /// <summary>
+        /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_node_badge_color(uint graph, int node, float r, float g, float b);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rblock_editor_create();
@@ -9340,6 +9403,22 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_accessible_labelled_by(uint widget, uint label);
+
+        /// <summary>
+        /// Explicit screen-reader press action, including for custom widgets.
+        /// NULL removes the override. Does not change pointer or keyboard handling.
+        /// Disabled widgets (including disabled ancestors) cannot be pressed.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_accessible_action(uint widget, RAccessiblePressCallback press, IntPtr user_data);
+
+        /// <summary>
+        /// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+        /// widget's default (not checkable for a custom widget). The application owns
+        /// this state; a press callback updates it when appropriate.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_accessible_checked(uint widget, int @checked);
 
         /// <summary>
         /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.

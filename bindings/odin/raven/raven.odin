@@ -1251,6 +1251,12 @@ RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: ra
 // Rtext_editor_add_completion (the fields of a structure, the answers of
 // a language server...). They are listed before the others.
 RCompletionCallback :: #type proc "c" (editor: Rid, prefix: cstring, user_data: rawptr)
+// Called while the pointer moves over the text where no marker
+// is, with the position under it: the text returned (NULL or "" for
+// none) is shown as the tooltip, as a marker's message is (what a name
+// stands for, the value of a variable). The text must stay valid until
+// the next call.
+RTextEditorHoverCallback :: #type proc "c" (editor: Rid, line: i32, column: i32, user_data: rawptr) -> cstring
 // Called after each change made by the user (typing, pasting,
 // undoing...) or by Rtext_editor_insert_text. The action of the widget
 // (OnChanged in XML) fires at the same time.
@@ -1325,6 +1331,7 @@ RXmlReloadCallback :: #type proc "c" (path: cstring, ok: i32, user_data: rawptr)
 RXmlTagCreateCallback :: #type proc "c" (tag: cstring, user_data: rawptr) -> Rid
 RXmlTagAttributeCallback :: #type proc "c" (widget: Rid, name: cstring, value: cstring, user_data: rawptr) -> i32
 RLocaleChangedCallback :: #type proc "c" (language: cstring, user_data: rawptr)
+RAccessiblePressCallback :: #type proc "c" (widget: Rid, user_data: rawptr)
 
 // Optional settings for Rinit_ex. A zero-initialized structure selects the
 // default for every field, so new fields can be added without breaking code.
@@ -3212,6 +3219,15 @@ foreign lib {
 	// they were added in.
 	// detail A few words shown beside it ("function", "int"), or NULL.
 	Rtext_editor_add_completion :: proc(editor: Rid, text: cstring, detail: cstring) ---
+	// Adds a proposal that writes another text than the one it shows
+	// and is matched on: "Threshold", listed and filtered as such, that
+	// writes "Threshold(" when chosen. Only from a completion callback.
+	// insert What replaces the word being typed; NULL or "" is `text`.
+	Rtext_editor_add_completion_insert :: proc(editor: Rid, text: cstring, detail: cstring, insert: cstring) ---
+	// R_FALSE leaves the words of the language and the names of the
+	// text out of the proposals: only the completion callback's are listed
+	// (a language server that knows better). On by default.
+	Rtext_editor_set_completion_words :: proc(editor: Rid, enabled: i32) ---
 	// R_FALSE stops the editor from closing brackets and quotes and
 	// from indenting after them. On by default; it only acts with a language.
 	Rtext_editor_set_auto_pairs :: proc(editor: Rid, enabled: i32) ---
@@ -3223,6 +3239,7 @@ foreign lib {
 	Rtext_editor_add_marker :: proc(editor: Rid, line: i32, from_column: i32, to_column: i32, kind: RMarkerKind, message: cstring) ---
 	Rtext_editor_clear_markers :: proc(editor: Rid) ---
 	Rtext_editor_get_marker_count :: proc(editor: Rid) -> i32 ---
+	Rtext_editor_set_hover_callback :: proc(editor: Rid, callback: RTextEditorHoverCallback, user_data: rawptr) ---
 	// Color of a kind of token in the theme in use, instead of the
 	// one Raven picks for dark and for light themes. Theme files set them
 	// with <Syntax Keyword="#FF7AB2" String="..."/>.
@@ -3723,6 +3740,18 @@ foreign lib {
 	// How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
 	// to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
 	Rnode_graph_set_pin_emphasis :: proc(graph: Rid, pin: i32, emphasis: i32) ---
+	// The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+	Rnode_graph_get_tag_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
+	// R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+	// thicker edge) — every tag of one net lit while the pointer is on one of them.
+	Rnode_graph_set_pin_tag_lit :: proc(graph: Rid, pin: i32, lit: i32) ---
+	// Pin labels wider than `width` (logical units) are cut short with an
+	// ellipsis and the nodes are laid out with them so (compact ports); 0, the
+	// default, shows every label whole.
+	Rnode_graph_set_pin_label_width :: proc(graph: Rid, width: f32) ---
+	Rnode_graph_get_pin_label_width :: proc(graph: Rid) -> f32 ---
+	// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+	Rnode_graph_set_node_badge_color :: proc(graph: Rid, node: i32, r: f32, g: f32, b: f32) ---
 	Rblock_editor_create :: proc() -> Rid ---
 	// A kind of block, and its block in the palette. Returns its index, -1 on an error.
 	Rblock_editor_add_kind :: proc(editor: Rid, name: cstring, label: cstring, shape: RBlockShape, category: cstring) -> i32 ---
@@ -4203,6 +4232,14 @@ foreign lib {
 	Rwidget_set_accessible_hidden :: proc(widget: Rid, hidden: i32) ---
 	// The widget is named by another one (a label): its text is the name.
 	Rwidget_set_accessible_labelled_by :: proc(widget: Rid, label: Rid) ---
+	// Explicit screen-reader press action, including for custom widgets.
+	// NULL removes the override. Does not change pointer or keyboard handling.
+	// Disabled widgets (including disabled ancestors) cannot be pressed.
+	Rwidget_set_accessible_action :: proc(widget: Rid, press: RAccessiblePressCallback, user_data: rawptr) ---
+	// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+	// widget's default (not checkable for a custom widget). The application owns
+	// this state; a press callback updates it when appropriate.
+	Rwidget_set_accessible_checked :: proc(widget: Rid, checked: i32) ---
 	// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
 	Raccessibility_announce :: proc(text: cstring, assertive: i32) ---
 	// R_TRUE when a screen reader is reading the windows of the application.

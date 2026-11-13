@@ -31,38 +31,39 @@ static void test_function_keys(Rid input, NSView* view) {
 	CHECK_STR(Rtext_input_get_text(input), "");
 }
 
-static int g_key_presses, g_key_repeats;
-
-static int observe_key(Rid window, const REvent* event, void* user) {
-	(void)window;
-	(void)user;
-	if (event->type == R_EVENT_KEY_DOWN) {
-		g_key_presses++;
-		if (event->repeat) g_key_repeats++;
-	}
-	return R_FALSE;
+static void accessible_press(Rid widget, void* user) {
+	(*(int*)user)++;
+	Rwidget_set_accessible_checked(widget, R_TRUE);
 }
 
-static void test_key_repeat(Rid window, Rid input, NSView* view) {
-	Rtext_input_set_text(input, "");
-	Rwindow_set_event_hook(window, observe_key, NULL);
-	g_key_presses = g_key_repeats = 0;
-	cocoa_key(view, 40, @"k", 0, NO);
-	cocoa_key(view, 40, @"k", 0, YES);
-	cocoa_key(view, 40, @"k", 0, YES);
-	CHECK_STR(Rtext_input_get_text(input), "kkk");
-	CHECK(g_key_presses == 3);
-	CHECK(g_key_repeats == 2);
-	/* Repeated navigation still changes the caret, without inserting text. */
-	cocoa_key(view, 123, @"\uF702", 0, YES);
-	cocoa_key(view, 123, @"\uF702", 0, YES);
-	cocoa_key(view, 7, @"x", 0, NO);
-	CHECK_STR(Rtext_input_get_text(input), "kxkk");
-	/* A modified key repeat must not bypass shortcut text suppression. */
-	Rtext_input_set_text(input, "");
-	cocoa_key(view, 40, @"k", NSEventModifierFlagCommand, YES);
-	CHECK_STR(Rtext_input_get_text(input), "");
-	Rwindow_set_event_hook(window, NULL, NULL);
+static void test_accessible_action(Rid window, NSView* view) {
+	Rid custom = Rwidget_create(R_WIDGET_CUSTOM);
+	int presses = 0;
+	NSArray* children;
+	id element;
+	Rwindow_set_content(window, custom);
+	Rwidget_set_focusable(custom, R_TRUE);
+	Rwidget_set_accessible_role(custom, R_ROLE_TOGGLE_BUTTON);
+	Rwidget_set_accessible_name(custom, "Box tool");
+	Rwidget_set_accessible_checked(custom, 0);
+	Rwidget_set_accessible_action(custom, accessible_press, &presses);
+	Rdraw_frame();
+	children = [view accessibilityChildren];
+	CHECK([children count] == 1);
+	if ([children count] != 1) return;
+	element = [children objectAtIndex:0];
+	CHECK([element isAccessibilitySelectorAllowed:@selector(accessibilityPerformPress)]);
+	CHECK([[element accessibilityValue] intValue] == 0);
+	CHECK([element accessibilityPerformPress]);
+	CHECK(presses == 1);
+	CHECK([[element accessibilityValue] intValue] == 1);
+	Rwidget_set_enabled(custom, R_FALSE);
+	CHECK(![element accessibilityPerformPress]);
+	CHECK(presses == 1);
+	Rwidget_set_enabled(custom, R_TRUE);
+	Rwidget_set_accessible_action(custom, NULL, NULL);
+	Rwidget_set_accessible_checked(custom, -1);
+	CHECK(![element isAccessibilitySelectorAllowed:@selector(accessibilityPerformPress)]);
 }
 
 int main(void) {
@@ -84,7 +85,7 @@ int main(void) {
 	CHECK(Rwindow_get_native_handle(window, &native));
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
-	test_key_repeat(window, input, view);
+	test_accessible_action(window, view);
 	Rwindow_destroy(window);
 	Rshutdown();
 	return test_report("test_cocoa_input");

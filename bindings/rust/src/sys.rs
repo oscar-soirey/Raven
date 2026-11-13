@@ -1221,6 +1221,12 @@ pub type RTextEditorZoomCallback = Option<unsafe extern "C" fn(editor: Rid, zoom
 /// Rtext_editor_add_completion (the fields of a structure, the answers of
 /// a language server...). They are listed before the others.
 pub type RCompletionCallback = Option<unsafe extern "C" fn(editor: Rid, prefix: *const c_char, user_data: *mut c_void)>;
+/// Called while the pointer moves over the text where no marker
+/// is, with the position under it: the text returned (NULL or "" for
+/// none) is shown as the tooltip, as a marker's message is (what a name
+/// stands for, the value of a variable). The text must stay valid until
+/// the next call.
+pub type RTextEditorHoverCallback = Option<unsafe extern "C" fn(editor: Rid, line: c_int, column: c_int, user_data: *mut c_void) -> *const c_char>;
 /// Called after each change made by the user (typing, pasting,
 /// undoing...) or by Rtext_editor_insert_text. The action of the widget
 /// (OnChanged in XML) fires at the same time.
@@ -1295,6 +1301,7 @@ pub type RXmlReloadCallback = Option<unsafe extern "C" fn(path: *const c_char, o
 pub type RXmlTagCreateCallback = Option<unsafe extern "C" fn(tag: *const c_char, user_data: *mut c_void) -> Rid>;
 pub type RXmlTagAttributeCallback = Option<unsafe extern "C" fn(widget: Rid, name: *const c_char, value: *const c_char, user_data: *mut c_void) -> c_int>;
 pub type RLocaleChangedCallback = Option<unsafe extern "C" fn(language: *const c_char, user_data: *mut c_void)>;
+pub type RAccessiblePressCallback = Option<unsafe extern "C" fn(widget: Rid, user_data: *mut c_void)>;
 
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
@@ -3227,6 +3234,15 @@ extern "C" {
     /// they were added in.
     /// detail A few words shown beside it ("function", "int"), or NULL.
     pub fn Rtext_editor_add_completion(editor: Rid, text: *const c_char, detail: *const c_char);
+    /// Adds a proposal that writes another text than the one it shows
+    /// and is matched on: "Threshold", listed and filtered as such, that
+    /// writes "Threshold(" when chosen. Only from a completion callback.
+    /// insert What replaces the word being typed; NULL or "" is `text`.
+    pub fn Rtext_editor_add_completion_insert(editor: Rid, text: *const c_char, detail: *const c_char, insert: *const c_char);
+    /// R_FALSE leaves the words of the language and the names of the
+    /// text out of the proposals: only the completion callback's are listed
+    /// (a language server that knows better). On by default.
+    pub fn Rtext_editor_set_completion_words(editor: Rid, enabled: c_int);
     /// R_FALSE stops the editor from closing brackets and quotes and
     /// from indenting after them. On by default; it only acts with a language.
     pub fn Rtext_editor_set_auto_pairs(editor: Rid, enabled: c_int);
@@ -3238,6 +3254,7 @@ extern "C" {
     pub fn Rtext_editor_add_marker(editor: Rid, line: c_int, from_column: c_int, to_column: c_int, kind: RMarkerKind, message: *const c_char);
     pub fn Rtext_editor_clear_markers(editor: Rid);
     pub fn Rtext_editor_get_marker_count(editor: Rid) -> c_int;
+    pub fn Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback, user_data: *mut c_void);
     /// Color of a kind of token in the theme in use, instead of the
     /// one Raven picks for dark and for light themes. Theme files set them
     /// with <Syntax Keyword="#FF7AB2" String="..."/>.
@@ -3738,6 +3755,18 @@ extern "C" {
     /// How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
     /// to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
     pub fn Rnode_graph_set_pin_emphasis(graph: Rid, pin: c_int, emphasis: c_int);
+    /// The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+    pub fn Rnode_graph_get_tag_at(graph: Rid, x: f32, y: f32) -> c_int;
+    /// R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+    /// thicker edge) — every tag of one net lit while the pointer is on one of them.
+    pub fn Rnode_graph_set_pin_tag_lit(graph: Rid, pin: c_int, lit: c_int);
+    /// Pin labels wider than `width` (logical units) are cut short with an
+    /// ellipsis and the nodes are laid out with them so (compact ports); 0, the
+    /// default, shows every label whole.
+    pub fn Rnode_graph_set_pin_label_width(graph: Rid, width: f32);
+    pub fn Rnode_graph_get_pin_label_width(graph: Rid) -> f32;
+    /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+    pub fn Rnode_graph_set_node_badge_color(graph: Rid, node: c_int, r: f32, g: f32, b: f32);
     pub fn Rblock_editor_create() -> Rid;
     /// A kind of block, and its block in the palette. Returns its index, -1 on an error.
     pub fn Rblock_editor_add_kind(editor: Rid, name: *const c_char, label: *const c_char, shape: RBlockShape, category: *const c_char) -> c_int;
@@ -4218,6 +4247,14 @@ extern "C" {
     pub fn Rwidget_set_accessible_hidden(widget: Rid, hidden: c_int);
     /// The widget is named by another one (a label): its text is the name.
     pub fn Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid);
+    /// Explicit screen-reader press action, including for custom widgets.
+    /// NULL removes the override. Does not change pointer or keyboard handling.
+    /// Disabled widgets (including disabled ancestors) cannot be pressed.
+    pub fn Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback, user_data: *mut c_void);
+    /// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+    /// widget's default (not checkable for a custom widget). The application owns
+    /// this state; a press callback updates it when appropriate.
+    pub fn Rwidget_set_accessible_checked(widget: Rid, checked: c_int);
     /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
     pub fn Raccessibility_announce(text: *const c_char, assertive: c_int);
     /// R_TRUE when a screen reader is reading the windows of the application.

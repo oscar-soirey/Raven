@@ -830,10 +830,13 @@ const _symbols = {
 	Rtext_editor_is_completing: { args: ["u32"], returns: "i32" },
 	Rtext_editor_set_completion_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_editor_add_completion: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtext_editor_add_completion_insert: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
+	Rtext_editor_set_completion_words: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_set_auto_pairs: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_add_marker: { args: ["u32", "i32", "i32", "i32", "i32", "ptr"], returns: "void" },
 	Rtext_editor_clear_markers: { args: ["u32"], returns: "void" },
 	Rtext_editor_get_marker_count: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_hover_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtheme_set_token_color: { args: ["i32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rtheme_get_token_color: { args: ["i32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtheme_clear_token_colors: { args: [], returns: "void" },
@@ -1054,6 +1057,11 @@ const _symbols = {
 	Rnode_graph_set_pin_tag: { args: ["u32", "i32", "ptr"], returns: "void" },
 	Rnode_graph_set_link_hidden: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_set_pin_emphasis: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_get_tag_at: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rnode_graph_set_pin_tag_lit: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_set_pin_label_width: { args: ["u32", "f32"], returns: "void" },
+	Rnode_graph_get_pin_label_width: { args: ["u32"], returns: "f32" },
+	Rnode_graph_set_node_badge_color: { args: ["u32", "i32", "f32", "f32", "f32"], returns: "void" },
 	Rblock_editor_create: { args: [], returns: "u32" },
 	Rblock_editor_add_kind: { args: ["u32", "ptr", "ptr", "i32", "ptr"], returns: "i32" },
 	Rblock_editor_set_category_color: { args: ["u32", "ptr", "f32", "f32", "f32"], returns: "void" },
@@ -1270,6 +1278,8 @@ const _symbols = {
 	Rwidget_get_accessible_role: { args: ["u32"], returns: "i32" },
 	Rwidget_set_accessible_hidden: { args: ["u32", "i32"], returns: "void" },
 	Rwidget_set_accessible_labelled_by: { args: ["u32", "u32"], returns: "void" },
+	Rwidget_set_accessible_action: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rwidget_set_accessible_checked: { args: ["u32", "i32"], returns: "void" },
 	Raccessibility_announce: { args: ["ptr", "i32"], returns: "void" },
 	Raccessibility_is_screen_reader_active: { args: [], returns: "i32" },
 	Rhost_platform_register: { args: ["ptr"], returns: "void" },
@@ -5924,6 +5934,31 @@ function _adapt_RCompletionCallback(function_: RCompletionCallback | Pointer | n
 }
 
 /**
+ * Called while the pointer moves over the text where no marker
+ * is, with the position under it: the text returned (NULL or "" for
+ * none) is shown as the tooltip, as a marker's message is (what a name
+ * stands for, the value of a variable). The text must stay valid until
+ * the next call.
+ */
+export type RTextEditorHoverCallback = (editor: Rid, line: number, column: number, user_data: Pointer | null) => string | null;
+
+function _adapt_RTextEditorHoverCallback(function_: RTextEditorHoverCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	let text: Buffer = Buffer.from([0]);
+	return _keep(new _JSCallback((editor: number, line: number, column: number, user_data: Pointer | null): Pointer | null => {
+		try {
+			text = Buffer.from((function_(editor, line, column, user_data) ?? "") + "\0");
+			return _ptr(text);
+		} catch (error) {
+			_report(error as Error);
+			return _ptr(text);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
+}
+
+/**
  * Called after each change made by the user (typing, pasting,
  * undoing...) or by Rtext_editor_insert_text. The action of the widget
  * (OnChanged in XML) fires at the same time.
@@ -6370,6 +6405,21 @@ function _adapt_RLocaleChangedCallback(function_: RLocaleChangedCallback | Point
 			_report(error as Error);
 		}
 	}, { args: ["ptr", "ptr"], returns: "void", threadsafe }));
+}
+
+export type RAccessiblePressCallback = (widget: Rid, user_data: Pointer | null) => void;
+
+function _adapt_RAccessiblePressCallback(function_: RAccessiblePressCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((widget: number, user_data: Pointer | null): void => {
+		try {
+			function_(widget, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -10176,6 +10226,25 @@ export function Rtext_editor_add_completion(editor: Rid, text: string | null, de
 }
 
 /**
+ * Adds a proposal that writes another text than the one it shows
+ * and is matched on: "Threshold", listed and filtered as such, that
+ * writes "Threshold(" when chosen. Only from a completion callback.
+ * insert What replaces the word being typed; NULL or "" is `text`.
+ */
+export function Rtext_editor_add_completion_insert(editor: Rid, text: string | null, detail: string | null, insert: string | null): void {
+	_lib.Rtext_editor_add_completion_insert(editor, _s(text), _s(detail), _s(insert));
+}
+
+/**
+ * R_FALSE leaves the words of the language and the names of the
+ * text out of the proposals: only the completion callback's are listed
+ * (a language server that knows better). On by default.
+ */
+export function Rtext_editor_set_completion_words(editor: Rid, enabled: number): void {
+	_lib.Rtext_editor_set_completion_words(editor, enabled);
+}
+
+/**
  * R_FALSE stops the editor from closing brackets and quotes and
  * from indenting after them. On by default; it only acts with a language.
  */
@@ -10200,6 +10269,10 @@ export function Rtext_editor_clear_markers(editor: Rid): void {
 
 export function Rtext_editor_get_marker_count(editor: Rid): number {
 	return _lib.Rtext_editor_get_marker_count(editor);
+}
+
+export function Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtext_editor_set_hover_callback(editor, _adapt_RTextEditorHoverCallback(callback), user_data);
 }
 
 /**
@@ -11511,6 +11584,37 @@ export function Rnode_graph_set_pin_emphasis(graph: Rid, pin: number, emphasis: 
 	_lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis);
 }
 
+/** The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. */
+export function Rnode_graph_get_tag_at(graph: Rid, x: number, y: number): number {
+	return _lib.Rnode_graph_get_tag_at(graph, x, y);
+}
+
+/**
+ * R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ * thicker edge) — every tag of one net lit while the pointer is on one of them.
+ */
+export function Rnode_graph_set_pin_tag_lit(graph: Rid, pin: number, lit: number): void {
+	_lib.Rnode_graph_set_pin_tag_lit(graph, pin, lit);
+}
+
+/**
+ * Pin labels wider than `width` (logical units) are cut short with an
+ * ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ * default, shows every label whole.
+ */
+export function Rnode_graph_set_pin_label_width(graph: Rid, width: number): void {
+	_lib.Rnode_graph_set_pin_label_width(graph, width);
+}
+
+export function Rnode_graph_get_pin_label_width(graph: Rid): number {
+	return _lib.Rnode_graph_get_pin_label_width(graph);
+}
+
+/** Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. */
+export function Rnode_graph_set_node_badge_color(graph: Rid, node: number, r: number, g: number, b: number): void {
+	_lib.Rnode_graph_set_node_badge_color(graph, node, r, g, b);
+}
+
 export function Rblock_editor_create(): Rid {
 	return _lib.Rblock_editor_create();
 }
@@ -12753,6 +12857,24 @@ export function Rwidget_set_accessible_hidden(widget: Rid, hidden: number): void
 /** The widget is named by another one (a label): its text is the name. */
 export function Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid): void {
 	_lib.Rwidget_set_accessible_labelled_by(widget, label);
+}
+
+/**
+ * Explicit screen-reader press action, including for custom widgets.
+ * NULL removes the override. Does not change pointer or keyboard handling.
+ * Disabled widgets (including disabled ancestors) cannot be pressed.
+ */
+export function Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rwidget_set_accessible_action(widget, _adapt_RAccessiblePressCallback(press), user_data);
+}
+
+/**
+ * Override the checked state: 1 checked, 0 unchecked, -1 restores the
+ * widget's default (not checkable for a custom widget). The application owns
+ * this state; a press callback updates it when appropriate.
+ */
+export function Rwidget_set_accessible_checked(widget: Rid, checked: number): void {
+	_lib.Rwidget_set_accessible_checked(widget, checked);
 }
 
 /** Has a message read (a save that ended, an error). `assertive`: interrupts what is being read. */

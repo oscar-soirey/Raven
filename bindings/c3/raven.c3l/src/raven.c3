@@ -1557,6 +1557,14 @@ alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 *>
 alias CompletionCallback = fn void(Id editor, ZString prefix, void* user_data);
 <*
+ Called while the pointer moves over the text where no marker
+ is, with the position under it: the text returned (NULL or "" for
+ none) is shown as the tooltip, as a marker's message is (what a name
+ stands for, the value of a variable). The text must stay valid until
+ the next call.
+*>
+alias TextEditorHoverCallback = fn ZString(Id editor, CInt line, CInt column, void* user_data);
+<*
  Called after each change made by the user (typing, pasting,
  undoing...) or by Rtext_editor_insert_text. The action of the widget
  (OnChanged in XML) fires at the same time.
@@ -1648,6 +1656,7 @@ alias XmlReloadCallback = fn void(ZString path, CInt ok, void* user_data);
 alias XmlTagCreateCallback = fn Id(ZString tag, void* user_data);
 alias XmlTagAttributeCallback = fn CInt(Id widget, ZString name, ZString value, void* user_data);
 alias LocaleChangedCallback = fn void(ZString language, void* user_data);
+alias AccessiblePressCallback = fn void(Id widget, void* user_data);
 
 <*
  Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -2470,6 +2479,20 @@ fn void Widget.set_accessible_hidden(self, CInt hidden) @inline => c::r_widget_s
 <* The widget is named by another one (a label): its text is the name. *>
 fn void Widget.set_accessible_labelled_by(self, Id label) @inline => c::r_widget_set_accessible_labelled_by((c::Rid)self, (c::Rid)label);
 
+<*
+ Explicit screen-reader press action, including for custom widgets.
+ NULL removes the override. Does not change pointer or keyboard handling.
+ Disabled widgets (including disabled ancestors) cannot be pressed.
+*>
+fn void Widget.set_accessible_action(self, AccessiblePressCallback press, void* user_data) @inline => c::r_widget_set_accessible_action((c::Rid)self, (c::RAccessiblePressCallback)press, user_data);
+
+<*
+ Override the checked state: 1 checked, 0 unchecked, -1 restores the
+ widget's default (not checkable for a custom widget). The application owns
+ this state; a press callback updates it when appropriate.
+*>
+fn void Widget.set_accessible_checked(self, bool checked) @inline => c::r_widget_set_accessible_checked((c::Rid)self, (CInt)checked);
+
 <* Space kept around the child, inside its slot. All panels. *>
 fn void Widget.slot_set_padding(self, float left, float top, float right, float bottom) @inline => c::r_slot_set_padding((c::Rid)self, left, top, right, bottom);
 
@@ -3271,6 +3294,20 @@ fn void TextEditor.set_completion_callback(self, CompletionCallback callback, vo
 fn void TextEditor.add_completion(self, ZString text, ZString detail) @inline => c::r_text_editor_add_completion((c::Rid)self, (char*)text, (char*)detail);
 
 <*
+ Adds a proposal that writes another text than the one it shows
+ and is matched on: "Threshold", listed and filtered as such, that
+ writes "Threshold(" when chosen. Only from a completion callback.
+*>
+fn void TextEditor.add_completion_insert(self, ZString text, ZString detail, ZString insert) @inline => c::r_text_editor_add_completion_insert((c::Rid)self, (char*)text, (char*)detail, (char*)insert);
+
+<*
+ R_FALSE leaves the words of the language and the names of the
+ text out of the proposals: only the completion callback's are listed
+ (a language server that knows better). On by default.
+*>
+fn void TextEditor.set_completion_words(self, bool enabled) @inline => c::r_text_editor_set_completion_words((c::Rid)self, (CInt)enabled);
+
+<*
  R_FALSE stops the editor from closing brackets and quotes and
  from indenting after them. On by default; it only acts with a language.
 *>
@@ -3287,6 +3324,8 @@ fn void TextEditor.add_marker(self, CInt line, CInt from_column, CInt to_column,
 fn void TextEditor.clear_markers(self) @inline => c::r_text_editor_clear_markers((c::Rid)self);
 
 fn CInt TextEditor.get_marker_count(self) @inline => c::r_text_editor_get_marker_count((c::Rid)self);
+
+fn void TextEditor.set_hover_callback(self, TextEditorHoverCallback callback, void* user_data) @inline => c::r_text_editor_set_hover_callback((c::Rid)self, (c::RTextEditorHoverCallback)callback, user_data);
 
 fn void TextEditor.set_changed_callback(self, TextEditorChangedCallback callback, void* user_data) @inline => c::r_text_editor_set_changed_callback((c::Rid)self, (c::RTextEditorChangedCallback)callback, user_data);
 
@@ -4175,6 +4214,27 @@ fn void NodeGraph.set_link_hidden(self, CInt link, CInt hidden) @inline => c::r_
  to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
 *>
 fn void NodeGraph.set_pin_emphasis(self, CInt pin, CInt emphasis) @inline => c::r_node_graph_set_pin_emphasis((c::Rid)self, pin, emphasis);
+
+<* The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. *>
+fn CInt NodeGraph.get_tag_at(self, float x, float y) @inline => c::r_node_graph_get_tag_at((c::Rid)self, x, y);
+
+<*
+ R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ thicker edge) — every tag of one net lit while the pointer is on one of them.
+*>
+fn void NodeGraph.set_pin_tag_lit(self, CInt pin, CInt lit) @inline => c::r_node_graph_set_pin_tag_lit((c::Rid)self, pin, lit);
+
+<*
+ Pin labels wider than `width` (logical units) are cut short with an
+ ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ default, shows every label whole.
+*>
+fn void NodeGraph.set_pin_label_width(self, float width) @inline => c::r_node_graph_set_pin_label_width((c::Rid)self, width);
+
+fn float NodeGraph.get_pin_label_width(self) @inline => c::r_node_graph_get_pin_label_width((c::Rid)self);
+
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+fn void NodeGraph.set_node_badge_color(self, CInt node, float r, float g, float b) @inline => c::r_node_graph_set_node_badge_color((c::Rid)self, node, r, g, b);
 
 // ---- TileView
 

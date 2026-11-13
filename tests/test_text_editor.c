@@ -1389,6 +1389,128 @@ static void test_completion(void) {
 	Rwindow_destroy(g_window);
 }
 
+/* ---- a language server: its own proposals only, another text inserted, hover ---- */
+
+static int g_server_calls;
+
+static void on_server_complete(Rid editor, const char* prefix, void* user_data) {
+	(void)prefix;
+	(void)user_data;
+	g_server_calls++;
+	/* shown and matched as "Threshold", writes "Threshold(" */
+	Rtext_editor_add_completion_insert(editor, "Threshold", "T  Threshold · Segmentation", "Threshold(");
+	Rtext_editor_add_completion_insert(editor, "ThresholdMax", "A", NULL);
+	Rtext_editor_add_completion_insert(editor, "Tolerance", NULL, "");
+}
+
+static int g_hover_calls;
+static int g_hover_line, g_hover_column;
+static char g_hover_text[64];
+
+static const char* on_hover(Rid editor, int line, int column, void* user_data) {
+	(void)editor;
+	CHECK(user_data == (void*)&g_hover_calls);
+	g_hover_calls++;
+	g_hover_line = line;
+	g_hover_column = column;
+	if (line != 0) return NULL;
+	snprintf(g_hover_text, sizeof(g_hover_text), "node of line %d", line);
+	return g_hover_text;
+}
+
+static void test_language_server(void) {
+	open_editor("Language=\"C\"");
+	Rtext_editor_set_text(g_editor, "int Thread_count;\n");
+	Rtext_editor_set_cursor(g_editor, 1, 0);
+	Rtext_editor_set_completion_callback(g_editor, on_server_complete, NULL);
+
+	/* by default the words of the language and of the text come after the application's */
+	type("Th");
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_ESCAPE, 0);
+	Rtext_editor_set_text(g_editor, "int Thread_count;\n");
+	Rtext_editor_set_cursor(g_editor, 1, 0);
+
+	/* only the application's: the name of the text is not proposed */
+	Rtext_editor_set_completion_words(g_editor, R_FALSE);
+	g_server_calls = 0;
+	type("Thre");
+	CHECK(g_server_calls >= 1);
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_DOWN, 0);
+	key(R_KEY_DOWN, 0);
+	/* two proposals start with "Thre": the arrows wrap around to the first */
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_line(g_editor, 1), "Threshold(");
+	CHECK_CURSOR(1, 10);
+	/* one step of history, as a plain proposal */
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_line(g_editor, 1), "Thre");
+
+	/* no insert text: the proposal itself */
+	key(R_KEY_SPACE, R_MOD_CTRL);
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_DOWN, 0);
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_line(g_editor, 1), "ThresholdMax");
+	Rtext_editor_set_text(g_editor, "");
+	type("To");
+	CHECK(Rtext_editor_is_completing(g_editor));
+	key(R_KEY_TAB, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "Tolerance");
+
+	/* nothing of the application's starts so: no list, even asked for */
+	Rtext_editor_set_text(g_editor, "int Thread_count;\nzz");
+	Rtext_editor_set_cursor(g_editor, 1, 2);
+	key(R_KEY_SPACE, R_MOD_CTRL);
+	CHECK(!Rtext_editor_is_completing(g_editor));
+
+	/* outside of the callback it is an error */
+	EXPECT_ERRORS_BEGIN();
+	Rtext_editor_add_completion_insert(g_editor, "nope", NULL, "nope(");
+	EXPECT_ERRORS_END(1);
+	Rtext_editor_set_completion_words(g_editor, R_TRUE);
+	Rtext_editor_set_completion_callback(g_editor, NULL, NULL);
+
+	/* hover: the callback's text where no marker is, the marker's message on it */
+	Rtext_editor_set_text(g_editor, "int a = b;\nint c;\n");
+	Rtext_editor_add_marker(g_editor, 0, 8, 9, R_MARKER_ERROR, "'b' undeclared");
+	Rtext_editor_set_hover_callback(g_editor, on_hover, &g_hover_calls);
+	Rdraw_frame();
+	{
+		float x, y, w, h, px, py;
+		int node = 0, marker = 0, none = 0;
+		Rwidget_get_rect(g_editor, &x, &y, &w, &h);
+		g_hover_calls = 0;
+		for (py = y + 2.0f; py < y + 60.0f; py += 3.0f) {
+			for (px = x + 4.0f; px < x + 120.0f; px += 3.0f) {
+				const char* tip;
+				Rwindow_inject_mouse_move(g_window, px, py);
+				tip = Rwidget_get_tooltip(g_editor);
+				if (strcmp(tip, "node of line 0") == 0) node++;
+				else if (strcmp(tip, "'b' undeclared") == 0) marker++;
+				else if (tip[0] == '\0') none++;
+				else CHECK(0);
+			}
+		}
+		CHECK(g_hover_calls > 0);
+		CHECK(node > marker && marker > 0 && none > 0);
+		/* the second line: the callback is asked and says nothing */
+		CHECK(g_hover_line >= 0);
+		/* below the text: not asked, nothing */
+		g_hover_calls = 0;
+		Rwindow_inject_mouse_move(g_window, x + 20.0f, y + h - 20.0f);
+		CHECK(g_hover_calls == 0);
+		CHECK_STR(Rwidget_get_tooltip(g_editor), "");
+		/* back on the first line, then the callback removed: the tooltip goes */
+		Rwindow_inject_mouse_move(g_window, x + 8.0f, y + 6.0f);
+		Rtext_editor_set_hover_callback(g_editor, NULL, NULL);
+		CHECK_STR(Rwidget_get_tooltip(g_editor), "");
+	}
+	Rwindow_destroy(g_window);
+	Rdraw_frame();
+}
+
 static void test_markers_and_brackets(void) {
 	open_editor("Language=\"C\" LineNumbers=\"true\"");
 	Rtext_editor_set_text(g_editor, "int a;\nint b = c;\nint d;\nint e;");
@@ -1611,6 +1733,7 @@ int main(void) {
 	RUN(test_custom_language);
 	RUN(test_assist);
 	RUN(test_completion);
+	RUN(test_language_server);
 	RUN(test_markers_and_brackets);
 	RUN(test_zoom);
 

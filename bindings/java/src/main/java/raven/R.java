@@ -4705,6 +4705,36 @@ public final class R {
     }
 
     /**
+     * Called while the pointer moves over the text where no marker
+     * is, with the position under it: the text returned (NULL or "" for
+     * none) is shown as the tooltip, as a marker's message is (what a name
+     * stands for, the value of a variable). The text must stay valid until
+     * the next call.
+     */
+    @FunctionalInterface
+    public interface RTextEditorHoverCallback {
+        String invoke(int editor, int line, int column, MemorySegment user_data);
+    }
+
+    private static MemorySegment RTextEditorHoverCallback$raw(RTextEditorHoverCallback f, int editor, int line, int column, MemorySegment user_data) {
+        try {
+            String text = f.invoke(editor, line, column, user_data);
+            if (text == null) return MemorySegment.NULL;
+            MemorySegment segment = utf8(Arena.ofAuto(), text);
+            synchronized (RETURNED) { RETURNED.put(f, segment); }
+            return segment;
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return MemorySegment.NULL;
+        }
+    }
+
+    private static MemorySegment upcall(RTextEditorHoverCallback f) {
+        return stub(f, RTextEditorHoverCallback.class, "RTextEditorHoverCallback$raw", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
      * Called after each change made by the user (typing, pasting,
      * undoing...) or by Rtext_editor_insert_text. The action of the widget
      * (OnChanged in XML) fires at the same time.
@@ -5262,6 +5292,24 @@ public final class R {
 
     private static MemorySegment upcall(RLocaleChangedCallback f) {
         return stub(f, RLocaleChangedCallback.class, "RLocaleChangedCallback$raw", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+    }
+
+    @FunctionalInterface
+    public interface RAccessiblePressCallback {
+        void invoke(int widget, MemorySegment user_data);
+    }
+
+    private static void RAccessiblePressCallback$raw(RAccessiblePressCallback f, int widget, MemorySegment user_data) {
+        try {
+            f.invoke(widget, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RAccessiblePressCallback f) {
+        return stub(f, RAccessiblePressCallback.class, "RAccessiblePressCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
     }
 
     // ---- functions
@@ -15648,6 +15696,44 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rtext_editor_add_completion_insert$;
+
+    /**
+     * Adds a proposal that writes another text than the one it shows
+     * and is matched on: "Threshold", listed and filtered as such, that
+     * writes "Threshold(" when chosen. Only from a completion callback.
+     * insert What replaces the word being typed; NULL or "" is `text`.
+     */
+    public static void Rtext_editor_add_completion_insert(int editor, String text, String detail, String insert) {
+        MethodHandle $h = Rtext_editor_add_completion_insert$;
+        if ($h == null) Rtext_editor_add_completion_insert$ = $h = find("Rtext_editor_add_completion_insert", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            MemorySegment detail$ = detail == null ? MemorySegment.NULL : utf8($a, detail);
+            MemorySegment insert$ = insert == null ? MemorySegment.NULL : utf8($a, insert);
+            $h.invokeExact(editor, text$, detail$, insert$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_set_completion_words$;
+
+    /**
+     * R_FALSE leaves the words of the language and the names of the
+     * text out of the proposals: only the completion callback's are listed
+     * (a language server that knows better). On by default.
+     */
+    public static void Rtext_editor_set_completion_words(int editor, int enabled) {
+        MethodHandle $h = Rtext_editor_set_completion_words$;
+        if ($h == null) Rtext_editor_set_completion_words$ = $h = find("Rtext_editor_set_completion_words", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtext_editor_set_auto_pairs$;
 
     /**
@@ -15707,6 +15793,22 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rtext_editor_set_hover_callback$;
+
+    public static void Rtext_editor_set_hover_callback(int editor, RTextEditorHoverCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtext_editor_set_hover_callback$;
+        if ($h == null) Rtext_editor_set_hover_callback$ = $h = find("Rtext_editor_set_hover_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(editor, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rtext_editor_set_hover_callback(int editor, RTextEditorHoverCallback callback) {
+        Rtext_editor_set_hover_callback(editor, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtheme_set_token_color$;
@@ -19256,6 +19358,83 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rnode_graph_get_tag_at$;
+
+    /**
+     * The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+     */
+    public static int Rnode_graph_get_tag_at(int graph, float x, float y) {
+        MethodHandle $h = Rnode_graph_get_tag_at$;
+        if ($h == null) Rnode_graph_get_tag_at$ = $h = find("Rnode_graph_get_tag_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(graph, x, y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_pin_tag_lit$;
+
+    /**
+     * R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+     * thicker edge) — every tag of one net lit while the pointer is on one of them.
+     */
+    public static void Rnode_graph_set_pin_tag_lit(int graph, int pin, int lit) {
+        MethodHandle $h = Rnode_graph_set_pin_tag_lit$;
+        if ($h == null) Rnode_graph_set_pin_tag_lit$ = $h = find("Rnode_graph_set_pin_tag_lit", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(graph, pin, lit);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_pin_label_width$;
+
+    /**
+     * Pin labels wider than `width` (logical units) are cut short with an
+     * ellipsis and the nodes are laid out with them so (compact ports); 0, the
+     * default, shows every label whole.
+     */
+    public static void Rnode_graph_set_pin_label_width(int graph, float width) {
+        MethodHandle $h = Rnode_graph_set_pin_label_width$;
+        if ($h == null) Rnode_graph_set_pin_label_width$ = $h = find("Rnode_graph_set_pin_label_width", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(graph, width);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_get_pin_label_width$;
+
+    public static float Rnode_graph_get_pin_label_width(int graph) {
+        MethodHandle $h = Rnode_graph_get_pin_label_width$;
+        if ($h == null) Rnode_graph_get_pin_label_width$ = $h = find("Rnode_graph_get_pin_label_width", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(graph);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_node_badge_color$;
+
+    /**
+     * Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+     */
+    public static void Rnode_graph_set_node_badge_color(int graph, int node, float r, float g, float b) {
+        MethodHandle $h = Rnode_graph_set_node_badge_color$;
+        if ($h == null) Rnode_graph_set_node_badge_color$ = $h = find("Rnode_graph_set_node_badge_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(graph, node, r, g, b);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rblock_editor_create$;
 
     public static int Rblock_editor_create() {
@@ -22727,6 +22906,49 @@ public final class R {
         if ($h == null) Rwidget_set_accessible_labelled_by$ = $h = find("Rwidget_set_accessible_labelled_by", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(widget, label);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_set_accessible_action$;
+
+    /**
+     * Explicit screen-reader press action, including for custom widgets.
+     * NULL removes the override. Does not change pointer or keyboard handling.
+     * Disabled widgets (including disabled ancestors) cannot be pressed.
+     */
+    public static void Rwidget_set_accessible_action(int widget, RAccessiblePressCallback press, MemorySegment user_data) {
+        MethodHandle $h = Rwidget_set_accessible_action$;
+        if ($h == null) Rwidget_set_accessible_action$ = $h = find("Rwidget_set_accessible_action", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(widget, upcall(press), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Explicit screen-reader press action, including for custom widgets.
+     * NULL removes the override. Does not change pointer or keyboard handling.
+     * Disabled widgets (including disabled ancestors) cannot be pressed.
+     */
+    public static void Rwidget_set_accessible_action(int widget, RAccessiblePressCallback press) {
+        Rwidget_set_accessible_action(widget, press, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwidget_set_accessible_checked$;
+
+    /**
+     * Override the checked state: 1 checked, 0 unchecked, -1 restores the
+     * widget's default (not checkable for a custom widget). The application owns
+     * this state; a press callback updates it when appropriate.
+     */
+    public static void Rwidget_set_accessible_checked(int widget, int checked) {
+        MethodHandle $h = Rwidget_set_accessible_checked$;
+        if ($h == null) Rwidget_set_accessible_checked$ = $h = find("Rwidget_set_accessible_checked", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(widget, checked);
         } catch (Throwable $t) {
             throw fail($t);
         }
