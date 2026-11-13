@@ -867,6 +867,7 @@ const _symbols = {
 	Rdock_area_set_close_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rdock_area_set_tearable: { args: ["u32", "i32"], returns: "void" },
 	Rdock_area_is_tearable: { args: ["u32"], returns: "i32" },
+	Rdock_area_set_float_window: { args: ["u32", "u32", "ptr", "ptr"], returns: "void" },
 	Rdock_area_float_panel: { args: ["u32", "u32", "i32", "i32"], returns: "u32" },
 	Rdock_area_dock_panel: { args: ["u32", "u32"], returns: "void" },
 	Rdock_area_get_panel_window: { args: ["u32", "u32"], returns: "u32" },
@@ -6014,6 +6015,34 @@ function _adapt_RDockCloseCallback(function_: RDockCloseCallback | Pointer | nul
 	}, { args: ["u32", "u32", "ptr"], returns: "i32", threadsafe }));
 }
 
+/**
+ * Called when a panel leaves for a window of its own, once the
+ * window and its floating area are made, before the panel goes there and
+ * before anything is drawn.
+ * area          The area the panel belongs to (its home).
+ * panel         The panel that leaves.
+ * window        The new window.
+ * floating_area The dock area of the new window.
+ * Returns: The content of the window: a widget that holds floating_area
+ * (a VBox with a header bar above it, for a window made with
+ * R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+ */
+export type RDockFloatWindowCallback = (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: Pointer | null) => Rid;
+
+function _adapt_RDockFloatWindowCallback(function_: RDockFloatWindowCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((area: number, panel: number, window: number, floating_area: number, user_data: Pointer | null): number => {
+		try {
+			return function_(area, panel, window, floating_area, user_data) ?? R_INVALID_ID;
+		} catch (error) {
+			_report(error as Error);
+			return R_INVALID_ID;
+		}
+	}, { args: ["u32", "u32", "u32", "u32", "ptr"], returns: "u32", threadsafe }));
+}
+
 /** Called after the user moved, resized, showed or closed a panel. */
 export type RDockChangedCallback = (area: Rid, user_data: Pointer | null) => void;
 
@@ -10478,6 +10507,20 @@ export function Rdock_area_set_tearable(area: Rid, tearable: number): void {
 
 export function Rdock_area_is_tearable(area: Rid): number {
 	return _lib.Rdock_area_is_tearable(area);
+}
+
+/**
+ * How the windows of torn-off panels are made.
+ * flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+ *                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+ *                 R_WINDOW_TRANSPARENT (the others are ignored).
+ *                 R_WINDOW_DEFAULT by default.
+ * callback May be NULL: the floating area is the whole window.
+ * Dragging the only tab of such a window still moves it, and closing
+ * it (its header bar's close button too) docks its panels back.
+ */
+export function Rdock_area_set_float_window(area: Rid, flags: number, callback: RDockFloatWindowCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rdock_area_set_float_window(area, flags, _adapt_RDockFloatWindowCallback(callback), user_data);
 }
 
 /** Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window. */

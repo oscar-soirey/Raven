@@ -4802,6 +4802,37 @@ public final class R {
     }
 
     /**
+     * Called when a panel leaves for a window of its own, once the
+     * window and its floating area are made, before the panel goes there and
+     * before anything is drawn.
+     * area          The area the panel belongs to (its home).
+     * panel         The panel that leaves.
+     * window        The new window.
+     * floating_area The dock area of the new window.
+     * Returns: The content of the window: a widget that holds floating_area
+     * (a VBox with a header bar above it, for a window made with
+     * R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+     */
+    @FunctionalInterface
+    public interface RDockFloatWindowCallback {
+        int invoke(int area, int panel, int window, int floating_area, MemorySegment user_data);
+    }
+
+    private static int RDockFloatWindowCallback$raw(RDockFloatWindowCallback f, int area, int panel, int window, int floating_area, MemorySegment user_data) {
+        try {
+            return f.invoke(area, panel, window, floating_area, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RDockFloatWindowCallback f) {
+        return stub(f, RDockFloatWindowCallback.class, "RDockFloatWindowCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
      * Called after the user moved, resized, showed or closed a panel.
      */
     @FunctionalInterface
@@ -16303,6 +16334,42 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rdock_area_set_float_window$;
+
+    /**
+     * How the windows of torn-off panels are made.
+     * flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+     *                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+     *                 R_WINDOW_TRANSPARENT (the others are ignored).
+     *                 R_WINDOW_DEFAULT by default.
+     * callback May be NULL: the floating area is the whole window.
+     * Dragging the only tab of such a window still moves it, and closing
+     * it (its header bar's close button too) docks its panels back.
+     */
+    public static void Rdock_area_set_float_window(int area, int flags, RDockFloatWindowCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rdock_area_set_float_window$;
+        if ($h == null) Rdock_area_set_float_window$ = $h = find("Rdock_area_set_float_window", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(area, flags, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * How the windows of torn-off panels are made.
+     * flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+     *                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+     *                 R_WINDOW_TRANSPARENT (the others are ignored).
+     *                 R_WINDOW_DEFAULT by default.
+     * callback May be NULL: the floating area is the whole window.
+     * Dragging the only tab of such a window still moves it, and closing
+     * it (its header bar's close button too) docks its panels back.
+     */
+    public static void Rdock_area_set_float_window(int area, int flags, RDockFloatWindowCallback callback) {
+        Rdock_area_set_float_window(area, flags, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rdock_area_float_panel$;

@@ -150,6 +150,10 @@ typedef struct rvn_dock_area_t {
 	float grab_x, grab_y;
 	/** The window of this floating area is closing: it must not be closed again. */
 	int closing;
+	/** How the windows of torn-off panels are made (Rdock_area_set_float_window). */
+	Ruint float_flags;
+	RDockFloatWindowCallback float_callback;
+	void* float_user;
 } rvn_dock_area_t;
 
 static void rvn_dock_sync(rvn_widget_t* widget);
@@ -1157,14 +1161,14 @@ static Rid rvn_dock_tear(rvn_widget_t* widget, rvn_widget_t* panel, float x, flo
 	rvn_rect_t shown = group ? rvn_dock_shown(group) : rvn_rect(0.0f, 0.0f, 480.0f, 360.0f);
 	rvn_dock_hidden_t entry;
 	rvn_dock_area_t* floating;
-	Rid window, floating_id;
+	Rid window, floating_id, content;
 
 	if (panel->parent != widget) return R_INVALID_ID;
 	/* where it will go back */
 	if (home == widget) rvn_dock_where(widget, panel, &entry);
 	else rvn_dock_take_return(area, panel, &entry);
 
-	window = Rwindow_create(rvn_dock_title(panel), (int)rvn_clampf(shown.w, 260.0f, 1600.0f), (int)rvn_clampf(shown.h, 180.0f, 1200.0f), R_WINDOW_DEFAULT);
+	window = Rwindow_create(rvn_dock_title(panel), (int)rvn_clampf(shown.w, 260.0f, 1600.0f), (int)rvn_clampf(shown.h, 180.0f, 1200.0f), h->float_flags);
 	if (window == R_INVALID_ID) return R_INVALID_ID;
 	Rwindow_set_position(window, (int)x, (int)y);
 	floating_id = Rwidget_create(R_WIDGET_DOCK_AREA);
@@ -1180,7 +1184,19 @@ static Rid rvn_dock_tear(rvn_widget_t* widget, rvn_widget_t* panel, float x, flo
 	floating->close_hides = h->close_hides;
 	floating->close_callback = h->close_callback;
 	floating->close_user = h->close_user;
-	Rwindow_set_content(window, floating_id);
+	content = floating_id;
+	if (h->float_callback) {
+		/* the application may frame the area (a header bar above it, for R_WINDOW_CUSTOM_HEADER) */
+		Rid given = h->float_callback(home->id, panel->id, window, floating_id, h->float_user);
+		if (given != R_INVALID_ID && given != floating_id) {
+			rvn_widget_t* frame = rvn_widget_get(given);
+			rvn_widget_t* up = floating->base.parent;
+			while (up && up != frame) up = up->parent;
+			if (frame && up == frame) content = given;
+			else rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_WARNING, "Rdock_area_set_float_window: the content given does not hold the floating area");
+		}
+	}
+	Rwindow_set_content(window, content);
 	Rwindow_set_close_callback(window, rvn_dock_float_closing, (void*)(uintptr_t)floating_id);
 
 	if (area->press_panel == panel) rvn_dock_end_press(widget);
@@ -2105,6 +2121,16 @@ void Rdock_area_set_close_hides(Rid id, int hides) {
 void Rdock_area_set_tearable(Rid id, int tearable) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_DOCK_AREA);
 	((rvn_dock_area_t*)widget)->tearable = tearable ? R_TRUE : R_FALSE;
+}
+
+void Rdock_area_set_float_window(Rid id, Ruint flags, RDockFloatWindowCallback callback, void* user_data) {
+	rvn_dock_area_t* area;
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_DOCK_AREA);
+	area = (rvn_dock_area_t*)widget;
+	/* (a floating window is always shown at once, never maximized, never a splash screen) */
+	area->float_flags = flags & (Ruint)(R_WINDOW_NO_RESIZE | R_WINDOW_BORDERLESS | R_WINDOW_CUSTOM_HEADER | R_WINDOW_TRANSPARENT);
+	area->float_callback = callback;
+	area->float_user = user_data;
 }
 
 int Rdock_area_is_tearable(Rid id) {

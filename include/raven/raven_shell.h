@@ -273,6 +273,30 @@ extern "C" {
 	 */
 	RAVEN_API void Rdock_area_set_tearable(Rid area, int tearable);
 	RAVEN_API int  Rdock_area_is_tearable(Rid area);
+	/**
+	 * @brief Called when a panel leaves for a window of its own, once the
+	 * window and its floating area are made, before the panel goes there and
+	 * before anything is drawn.
+	 * @param area          The area the panel belongs to (its home).
+	 * @param panel         The panel that leaves.
+	 * @param window        The new window.
+	 * @param floating_area The dock area of the new window.
+	 * @return The content of the window: a widget that holds floating_area
+	 * (a VBox with a header bar above it, for a window made with
+	 * R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+	 */
+	typedef Rid (*RDockFloatWindowCallback)(Rid area, Rid panel, Rid window, Rid floating_area, void* user_data);
+	/**
+	 * @brief How the windows of torn-off panels are made.
+	 * @param flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+	 *                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+	 *                 R_WINDOW_TRANSPARENT (the others are ignored).
+	 *                 R_WINDOW_DEFAULT by default.
+	 * @param callback May be NULL: the floating area is the whole window.
+	 * Dragging the only tab of such a window still moves it, and closing
+	 * it (its header bar's close button too) docks its panels back.
+	 */
+	RAVEN_API void Rdock_area_set_float_window(Rid area, Ruint flags, RDockFloatWindowCallback callback, void* user_data);
 	/** @brief Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window. */
 	RAVEN_API Rid  Rdock_area_float_panel(Rid area, Rid panel, int x, int y);
 	/** @brief A floating panel goes back where it was in the area. */

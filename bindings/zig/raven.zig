@@ -1256,6 +1256,17 @@ pub const RTrayClickedCallback = ?*const fn (tray: Rid, button: RMouseButton, us
 /// Called when the user closes a panel, before it is deleted.
 /// Return R_FALSE to keep the panel.
 pub const RDockCloseCallback = ?*const fn (area: Rid, panel: Rid, user_data: ?*anyopaque) callconv(.c) c_int;
+/// Called when a panel leaves for a window of its own, once the
+/// window and its floating area are made, before the panel goes there and
+/// before anything is drawn.
+/// area          The area the panel belongs to (its home).
+/// panel         The panel that leaves.
+/// window        The new window.
+/// floating_area The dock area of the new window.
+/// Returns: The content of the window: a widget that holds floating_area
+/// (a VBox with a header bar above it, for a window made with
+/// R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+pub const RDockFloatWindowCallback = ?*const fn (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: ?*anyopaque) callconv(.c) Rid;
 /// Called after the user moved, resized, showed or closed a panel.
 pub const RDockChangedCallback = ?*const fn (area: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user unfolds or folds the island. The action of the widget (OnChanged) fires too.
@@ -3316,6 +3327,15 @@ pub extern fn Rdock_area_set_close_callback(area: Rid, callback: RDockCloseCallb
 /// work on its panels that are in floating windows.
 pub extern fn Rdock_area_set_tearable(area: Rid, tearable: c_int) void;
 pub extern fn Rdock_area_is_tearable(area: Rid) c_int;
+/// How the windows of torn-off panels are made.
+/// flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+///                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+///                 R_WINDOW_TRANSPARENT (the others are ignored).
+///                 R_WINDOW_DEFAULT by default.
+/// callback May be NULL: the floating area is the whole window.
+/// Dragging the only tab of such a window still moves it, and closing
+/// it (its header bar's close button too) docks its panels back.
+pub extern fn Rdock_area_set_float_window(area: Rid, flags: u32, callback: RDockFloatWindowCallback, user_data: ?*anyopaque) void;
 /// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
 pub extern fn Rdock_area_float_panel(area: Rid, panel: Rid, x: c_int, y: c_int) Rid;
 /// A floating panel goes back where it was in the area.

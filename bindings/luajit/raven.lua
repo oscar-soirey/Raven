@@ -832,6 +832,7 @@ typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column
 typedef void (*RTextEditorChangedCallback)(Rid editor, void* user_data);
 typedef void (*RTrayClickedCallback)(Rid tray, RMouseButton button, void* user_data);
 typedef int (*RDockCloseCallback)(Rid area, Rid panel, void* user_data);
+typedef Rid (*RDockFloatWindowCallback)(Rid area, Rid panel, Rid window, Rid floating_area, void* user_data);
 typedef void (*RDockChangedCallback)(Rid area, void* user_data);
 typedef void (*RIslandChangedCallback)(Rid island, int expanded, void* user_data);
 typedef void (*RColorChangedCallback)(Rid picker, float r, float g, float b, float a, void* user_data);
@@ -1816,6 +1817,7 @@ int Rdock_area_load_layout(Rid area, const char* layout);
 void Rdock_area_set_close_callback(Rid area, RDockCloseCallback callback, void* user_data);
 void Rdock_area_set_tearable(Rid area, int tearable);
 int Rdock_area_is_tearable(Rid area);
+void Rdock_area_set_float_window(Rid area, Ruint flags, RDockFloatWindowCallback callback, void* user_data);
 Rid Rdock_area_float_panel(Rid area, Rid panel, int x, int y);
 void Rdock_area_dock_panel(Rid area, Rid panel);
 Rid Rdock_area_get_panel_window(Rid area, Rid panel);

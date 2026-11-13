@@ -1266,6 +1266,17 @@ RTrayClickedCallback :: #type proc "c" (tray: Rid, button: RMouseButton, user_da
 // Called when the user closes a panel, before it is deleted.
 // Return R_FALSE to keep the panel.
 RDockCloseCallback :: #type proc "c" (area: Rid, panel: Rid, user_data: rawptr) -> i32
+// Called when a panel leaves for a window of its own, once the
+// window and its floating area are made, before the panel goes there and
+// before anything is drawn.
+// area          The area the panel belongs to (its home).
+// panel         The panel that leaves.
+// window        The new window.
+// floating_area The dock area of the new window.
+// Returns: The content of the window: a widget that holds floating_area
+// (a VBox with a header bar above it, for a window made with
+// R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+RDockFloatWindowCallback :: #type proc "c" (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: rawptr) -> Rid
 // Called after the user moved, resized, showed or closed a panel.
 RDockChangedCallback :: #type proc "c" (area: Rid, user_data: rawptr)
 // Called when the user unfolds or folds the island. The action of the widget (OnChanged) fires too.
@@ -3328,6 +3339,15 @@ foreign lib {
 	// work on its panels that are in floating windows.
 	Rdock_area_set_tearable :: proc(area: Rid, tearable: i32) ---
 	Rdock_area_is_tearable :: proc(area: Rid) -> i32 ---
+	// How the windows of torn-off panels are made.
+	// flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+	//                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+	//                 R_WINDOW_TRANSPARENT (the others are ignored).
+	//                 R_WINDOW_DEFAULT by default.
+	// callback May be NULL: the floating area is the whole window.
+	// Dragging the only tab of such a window still moves it, and closing
+	// it (its header bar's close button too) docks its panels back.
+	Rdock_area_set_float_window :: proc(area: Rid, flags: u32, callback: RDockFloatWindowCallback, user_data: rawptr) ---
 	// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
 	Rdock_area_float_panel :: proc(area: Rid, panel: Rid, x: i32, y: i32) -> Rid ---
 	// A floating panel goes back where it was in the area.

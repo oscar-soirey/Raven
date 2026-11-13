@@ -3570,6 +3570,7 @@ export const Rdock_area_load_layout = _lib.Rdock_area_load_layout;
 export const Rdock_area_set_close_callback = _lib.Rdock_area_set_close_callback;
 export const Rdock_area_set_tearable = _lib.Rdock_area_set_tearable;
 export const Rdock_area_is_tearable = _lib.Rdock_area_is_tearable;
+export const Rdock_area_set_float_window = _lib.Rdock_area_set_float_window;
 export const Rdock_area_float_panel = _lib.Rdock_area_float_panel;
 export const Rdock_area_dock_panel = _lib.Rdock_area_dock_panel;
 export const Rdock_area_get_panel_window = _lib.Rdock_area_get_panel_window;
