@@ -19256,6 +19256,83 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rnode_graph_get_tag_at$;
+
+    /**
+     * The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+     */
+    public static int Rnode_graph_get_tag_at(int graph, float x, float y) {
+        MethodHandle $h = Rnode_graph_get_tag_at$;
+        if ($h == null) Rnode_graph_get_tag_at$ = $h = find("Rnode_graph_get_tag_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(graph, x, y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_pin_tag_lit$;
+
+    /**
+     * R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+     * thicker edge) — every tag of one net lit while the pointer is on one of them.
+     */
+    public static void Rnode_graph_set_pin_tag_lit(int graph, int pin, int lit) {
+        MethodHandle $h = Rnode_graph_set_pin_tag_lit$;
+        if ($h == null) Rnode_graph_set_pin_tag_lit$ = $h = find("Rnode_graph_set_pin_tag_lit", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(graph, pin, lit);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_pin_label_width$;
+
+    /**
+     * Pin labels wider than `width` (logical units) are cut short with an
+     * ellipsis and the nodes are laid out with them so (compact ports); 0, the
+     * default, shows every label whole.
+     */
+    public static void Rnode_graph_set_pin_label_width(int graph, float width) {
+        MethodHandle $h = Rnode_graph_set_pin_label_width$;
+        if ($h == null) Rnode_graph_set_pin_label_width$ = $h = find("Rnode_graph_set_pin_label_width", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(graph, width);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_get_pin_label_width$;
+
+    public static float Rnode_graph_get_pin_label_width(int graph) {
+        MethodHandle $h = Rnode_graph_get_pin_label_width$;
+        if ($h == null) Rnode_graph_get_pin_label_width$ = $h = find("Rnode_graph_get_pin_label_width", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(graph);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnode_graph_set_node_badge_color$;
+
+    /**
+     * Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+     */
+    public static void Rnode_graph_set_node_badge_color(int graph, int node, float r, float g, float b) {
+        MethodHandle $h = Rnode_graph_set_node_badge_color$;
+        if ($h == null) Rnode_graph_set_node_badge_color$ = $h = find("Rnode_graph_set_node_badge_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(graph, node, r, g, b);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rblock_editor_create$;
 
     public static int Rblock_editor_create() {

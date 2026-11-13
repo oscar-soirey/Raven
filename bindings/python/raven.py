@@ -10908,6 +10908,53 @@ def Rnode_graph_set_pin_emphasis(graph, pin, emphasis):
     _lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis)
 
 
+_lib.Rnode_graph_get_tag_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_tag_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_tag_at(graph, x, y):
+    """The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin."""
+    return _lib.Rnode_graph_get_tag_at(graph, x, y)
+
+
+_lib.Rnode_graph_set_pin_tag_lit.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rnode_graph_set_pin_tag_lit.restype = None
+
+
+def Rnode_graph_set_pin_tag_lit(graph, pin, lit):
+    """R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+    thicker edge) — every tag of one net lit while the pointer is on one of them."""
+    _lib.Rnode_graph_set_pin_tag_lit(graph, pin, lit)
+
+
+_lib.Rnode_graph_set_pin_label_width.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rnode_graph_set_pin_label_width.restype = None
+
+
+def Rnode_graph_set_pin_label_width(graph, width):
+    """Pin labels wider than `width` (logical units) are cut short with an
+    ellipsis and the nodes are laid out with them so (compact ports); 0, the
+    default, shows every label whole."""
+    _lib.Rnode_graph_set_pin_label_width(graph, width)
+
+
+_lib.Rnode_graph_get_pin_label_width.argtypes = [ctypes.c_uint32]
+_lib.Rnode_graph_get_pin_label_width.restype = ctypes.c_float
+
+
+def Rnode_graph_get_pin_label_width(graph):
+    return _lib.Rnode_graph_get_pin_label_width(graph)
+
+
+_lib.Rnode_graph_set_node_badge_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_set_node_badge_color.restype = None
+
+
+def Rnode_graph_set_node_badge_color(graph, node, r, g, b):
+    """Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it."""
+    _lib.Rnode_graph_set_node_badge_color(graph, node, r, g, b)
+
+
 _lib.Rblock_editor_create.argtypes = []
 _lib.Rblock_editor_create.restype = ctypes.c_uint32
 

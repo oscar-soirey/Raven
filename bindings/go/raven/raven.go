@@ -5582,6 +5582,34 @@ func NodeGraphSetPinEmphasis(graph ID, pin int, emphasis int) {
 	C.Rnode_graph_set_pin_emphasis(C.Rid(graph), C.int(pin), C.int(emphasis))
 }
 
+// NodeGraphGetTagAt: The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the
+// chip only, not the pin.
+func NodeGraphGetTagAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_tag_at(C.Rid(graph), C.float(x), C.float(y)))
+}
+
+// NodeGraphSetPinTagLit: R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a thicker
+// edge) — every tag of one net lit while the pointer is on one of them.
+func NodeGraphSetPinTagLit(graph ID, pin int, lit int) {
+	C.Rnode_graph_set_pin_tag_lit(C.Rid(graph), C.int(pin), C.int(lit))
+}
+
+// NodeGraphSetPinLabelWidth: Pin labels wider than `width` (logical units) are cut short with an ellipsis and
+// the nodes are laid out with them so (compact ports); 0, the default, shows every label whole.
+func NodeGraphSetPinLabelWidth(graph ID, width float32) {
+	C.Rnode_graph_set_pin_label_width(C.Rid(graph), C.float(width))
+}
+
+func NodeGraphGetPinLabelWidth(graph ID) float32 {
+	return float32(C.Rnode_graph_get_pin_label_width(C.Rid(graph)))
+}
+
+// NodeGraphSetNodeBadgeColor: Color of the badge pill of one node (Rnode_graph_set_node_badge); its text
+// turns dark or light to suit it.
+func NodeGraphSetNodeBadgeColor(graph ID, node int, r float32, g float32, b float32) {
+	C.Rnode_graph_set_node_badge_color(C.Rid(graph), C.int(node), C.float(r), C.float(g), C.float(b))
+}
+
 func BlockEditorCreate() ID {
 	return ID(C.Rblock_editor_create())
 }

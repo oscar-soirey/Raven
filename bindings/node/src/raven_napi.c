@@ -930,6 +930,11 @@ static struct {
 	void (*Rnode_graph_set_pin_tag)(Rid, int, const char*);
 	void (*Rnode_graph_set_link_hidden)(Rid, int, int);
 	void (*Rnode_graph_set_pin_emphasis)(Rid, int, int);
+	int (*Rnode_graph_get_tag_at)(Rid, float, float);
+	void (*Rnode_graph_set_pin_tag_lit)(Rid, int, int);
+	void (*Rnode_graph_set_pin_label_width)(Rid, float);
+	float (*Rnode_graph_get_pin_label_width)(Rid);
+	void (*Rnode_graph_set_node_badge_color)(Rid, int, float, float, float);
 	Rid (*Rblock_editor_create)(void);
 	int (*Rblock_editor_add_kind)(Rid, const char*, const char*, RBlockShape, const char*);
 	void (*Rblock_editor_set_category_color)(Rid, const char*, float, float, float);
@@ -2065,6 +2070,11 @@ static const struct {
 	{"Rnode_graph_set_pin_tag", offsetof(__typeof__(rn), Rnode_graph_set_pin_tag)},
 	{"Rnode_graph_set_link_hidden", offsetof(__typeof__(rn), Rnode_graph_set_link_hidden)},
 	{"Rnode_graph_set_pin_emphasis", offsetof(__typeof__(rn), Rnode_graph_set_pin_emphasis)},
+	{"Rnode_graph_get_tag_at", offsetof(__typeof__(rn), Rnode_graph_get_tag_at)},
+	{"Rnode_graph_set_pin_tag_lit", offsetof(__typeof__(rn), Rnode_graph_set_pin_tag_lit)},
+	{"Rnode_graph_set_pin_label_width", offsetof(__typeof__(rn), Rnode_graph_set_pin_label_width)},
+	{"Rnode_graph_get_pin_label_width", offsetof(__typeof__(rn), Rnode_graph_get_pin_label_width)},
+	{"Rnode_graph_set_node_badge_color", offsetof(__typeof__(rn), Rnode_graph_set_node_badge_color)},
 	{"Rblock_editor_create", offsetof(__typeof__(rn), Rblock_editor_create)},
 	{"Rblock_editor_add_kind", offsetof(__typeof__(rn), Rblock_editor_add_kind)},
 	{"Rblock_editor_set_category_color", offsetof(__typeof__(rn), Rblock_editor_set_category_color)},
@@ -19000,6 +19010,86 @@ static napi_value rn_w_Rnode_graph_set_pin_emphasis(napi_env env, napi_callback_
 	return result_;
 }
 
+static napi_value rn_w_Rnode_graph_get_tag_at(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rnode_graph_get_tag_at((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_pin_tag_lit(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rnode_graph_set_pin_tag_lit((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_pin_label_width(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	rn.Rnode_graph_set_pin_label_width((Rid)a0, (float)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_get_pin_label_width(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	float value_ = rn.Rnode_graph_get_pin_label_width((Rid)a0);
+	napi_create_double(env, (double)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rnode_graph_set_node_badge_color(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	float a2;
+	float a3;
+	float a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	rn.Rnode_graph_set_node_badge_color((Rid)a0, (int)a1, (float)a2, (float)a3, (float)a4);
+	return result_;
+}
+
 static napi_value rn_w_Rblock_editor_create(napi_env env, napi_callback_info info) {
 	napi_value result_ = NULL;
 	(void)env;
@@ -23793,6 +23883,11 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rnode_graph_set_pin_tag", NULL, rn_w_Rnode_graph_set_pin_tag, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_link_hidden", NULL, rn_w_Rnode_graph_set_link_hidden, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnode_graph_set_pin_emphasis", NULL, rn_w_Rnode_graph_set_pin_emphasis, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_get_tag_at", NULL, rn_w_Rnode_graph_get_tag_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_pin_tag_lit", NULL, rn_w_Rnode_graph_set_pin_tag_lit, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_pin_label_width", NULL, rn_w_Rnode_graph_set_pin_label_width, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_get_pin_label_width", NULL, rn_w_Rnode_graph_get_pin_label_width, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnode_graph_set_node_badge_color", NULL, rn_w_Rnode_graph_set_node_badge_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_create", NULL, rn_w_Rblock_editor_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_add_kind", NULL, rn_w_Rblock_editor_add_kind, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rblock_editor_set_category_color", NULL, rn_w_Rblock_editor_set_category_color, NULL, NULL, NULL, napi_enumerable, NULL},

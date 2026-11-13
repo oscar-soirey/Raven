@@ -586,6 +586,22 @@ extern "C" {
 	 * to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
 	 */
 	RAVEN_API void Rnode_graph_set_pin_emphasis(Rid graph, int pin, int emphasis);
+	/** @brief The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. */
+	RAVEN_API int Rnode_graph_get_tag_at(Rid graph, float x, float y);
+	/**
+	 * @brief R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+	 * thicker edge) — every tag of one net lit while the pointer is on one of them.
+	 */
+	RAVEN_API void Rnode_graph_set_pin_tag_lit(Rid graph, int pin, int lit);
+	/**
+	 * @brief Pin labels wider than `width` (logical units) are cut short with an
+	 * ellipsis and the nodes are laid out with them so (compact ports); 0, the
+	 * default, shows every label whole.
+	 */
+	RAVEN_API void Rnode_graph_set_pin_label_width(Rid graph, float width);
+	RAVEN_API float Rnode_graph_get_pin_label_width(Rid graph);
+	/** @brief Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. */
+	RAVEN_API void Rnode_graph_set_node_badge_color(Rid graph, int node, float r, float g, float b);
 
 	/* ============================================================================
 	 *  Block editor

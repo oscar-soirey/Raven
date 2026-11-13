@@ -3723,6 +3723,18 @@ foreign lib {
 	// How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
 	// to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
 	Rnode_graph_set_pin_emphasis :: proc(graph: Rid, pin: i32, emphasis: i32) ---
+	// The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+	Rnode_graph_get_tag_at :: proc(graph: Rid, x: f32, y: f32) -> i32 ---
+	// R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+	// thicker edge) — every tag of one net lit while the pointer is on one of them.
+	Rnode_graph_set_pin_tag_lit :: proc(graph: Rid, pin: i32, lit: i32) ---
+	// Pin labels wider than `width` (logical units) are cut short with an
+	// ellipsis and the nodes are laid out with them so (compact ports); 0, the
+	// default, shows every label whole.
+	Rnode_graph_set_pin_label_width :: proc(graph: Rid, width: f32) ---
+	Rnode_graph_get_pin_label_width :: proc(graph: Rid) -> f32 ---
+	// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+	Rnode_graph_set_node_badge_color :: proc(graph: Rid, node: i32, r: f32, g: f32, b: f32) ---
 	Rblock_editor_create :: proc() -> Rid ---
 	// A kind of block, and its block in the palette. Returns its index, -1 on an error.
 	Rblock_editor_add_kind :: proc(editor: Rid, name: cstring, label: cstring, shape: RBlockShape, category: cstring) -> i32 ---

@@ -505,6 +505,14 @@ static void test_node_graph_editor_hooks(void) {
 		Rnode_graph_from_canvas(graph, bx - 30.0f, by, &mx, &my);
 		tag_pin = Rnode_graph_get_pin_at(graph, mx, my);
 		CHECK(tag_pin == b_in);
+		/* the tag alone: the chip is under the point, the pin dot is not */
+		CHECK(Rnode_graph_get_tag_at(graph, mx, my) == b_in);
+		Rnode_graph_from_canvas(graph, bx, by, &mx, &my);
+		CHECK(Rnode_graph_get_tag_at(graph, mx, my) == 0);
+		Rnode_graph_from_canvas(graph, bx - 30.0f, by, &mx, &my);
+		Rnode_graph_set_pin_tag_lit(graph, b_in, R_TRUE);
+		Rdraw_frame();
+		Rnode_graph_set_pin_tag_lit(graph, b_in, R_FALSE);
 		Rnode_graph_set_pin_tag(graph, b_in, NULL);
 		Rdraw_frame();
 		CHECK(Rnode_graph_get_pin_at(graph, mx, my) == 0);
@@ -525,6 +533,27 @@ static void test_node_graph_editor_hooks(void) {
 		Rdraw_frame();
 		Rnode_graph_set_pin_emphasis(graph, b_in, 0);
 		Rnode_graph_set_pin_emphasis(graph, a_out, 0);
+		/* compact ports: a long label is cut and the node laid out narrower; 0 shows it whole */
+		{
+			int c = Rnode_graph_add_node(graph, "C", 100.0f, 300.0f);
+			float w_full, h, w_cut;
+			Rnode_graph_add_input(graph, c, "A very long input port name indeed", NULL);
+			Rdraw_frame();
+			Rnode_graph_get_node_size(graph, c, &w_full, &h);
+			Rnode_graph_set_pin_label_width(graph, 60.0f);
+			CHECK(Rnode_graph_get_pin_label_width(graph) == 60.0f);
+			Rdraw_frame();
+			Rnode_graph_get_node_size(graph, c, &w_cut, &h);
+			CHECK(w_cut < w_full);
+			Rnode_graph_set_pin_label_width(graph, 0.0f);
+			Rdraw_frame();
+			Rnode_graph_get_node_size(graph, c, &w_cut, &h);
+			CHECK(w_cut == w_full);
+			Rnode_graph_set_node_badge(graph, c, "pinned");
+			Rnode_graph_set_node_badge_color(graph, c, 1.0f, 0.84f, 0.31f);
+			Rdraw_frame();
+			Rnode_graph_remove_node(graph, c);
+		}
 		Rnode_graph_remove_node(graph, b);
 		Rdraw_frame();
 	}
