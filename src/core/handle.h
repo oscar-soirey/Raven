@@ -6,6 +6,7 @@
  *
  * The type tag makes a font handle invalid where a widget is expected, the
  * generation makes a deleted handle invalid even after its slot is reused.
+ * A slot is permanently retired when its generation wraps, rather than reused.
  * Type 0 and type 15 are never used, so 0 and R_INVALID_ID never resolve.
  */
 
