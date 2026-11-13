@@ -61,10 +61,22 @@ void rvn_theme_clear(rvn_theme_t* theme) {
 	memset(theme, 0, sizeof(*theme));
 }
 
+/* Gives `destination`, which has none, a copy of the rules of `source`. */
+static void rvn_theme_copy_rules(rvn_theme_t* destination, const rvn_theme_t* source) {
+	uint32_t i;
+	if (!source->rule_count) return;
+	destination->rules = (rvn_style_rule_t*)rvn_alloc(sizeof(rvn_style_rule_t) * source->rule_count);
+	destination->rule_count = source->rule_count;
+	destination->rule_cap = source->rule_count;
+	for (i = 0; i < source->rule_count; i++) {
+		destination->rules[i] = source->rules[i];
+		destination->rules[i].cls = rvn_strdup(source->rules[i].cls);
+	}
+}
+
 void rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source) {
 	char* name = destination->name;
 	char* path = destination->path;
-	uint32_t i;
 	if (destination == source) return;
 	rvn_theme_free_matches(destination);
 	rvn_theme_free_rules(destination);
@@ -83,14 +95,7 @@ void rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source) {
 	destination->match_cap = 0;
 	destination->rules = NULL;
 	destination->rule_cap = 0;
-	if (source->rule_count) {
-		destination->rules = (rvn_style_rule_t*)rvn_alloc(sizeof(rvn_style_rule_t) * source->rule_count);
-		destination->rule_cap = source->rule_count;
-		for (i = 0; i < source->rule_count; i++) {
-			destination->rules[i] = source->rules[i];
-			destination->rules[i].cls = rvn_strdup(source->rules[i].cls);
-		}
-	}
+	rvn_theme_copy_rules(destination, source);
 }
 
 void rvn_themes_init(void) {
@@ -196,6 +201,8 @@ static void rvn_theme_refresh_twin(void) {
 	g_dark_twin.glass = theme->glass;
 	g_dark_twin.font = theme->font;
 	g_dark_twin.wallpaper = R_INVALID_ID;
+	/* (rvn_theme_build_look left it without any) */
+	rvn_theme_copy_rules(&g_dark_twin, theme);
 }
 
 const rvn_theme_t* rvn_theme_dark_twin(void) {

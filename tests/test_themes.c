@@ -721,6 +721,32 @@ static void test_looks(void) {
 	Rlook_set(R_LOOK_RAVEN_DARK);
 	CHECK(Rtheme_get_font() == Rfont_get_default());
 	CHECK_STR(Rtheme_get_name(), "Dark");
+
+	/* what stays dark (the island) keeps the styles of a light theme too (#118) */
+	{
+		static const char* const themes[] = {
+			"<Theme Name=\"IslandDark\" Look=\"RavenDark\"><Style Class=\"danger\" Accent=\"#E02424\"/></Theme>",
+			"<Theme Name=\"IslandLight\" Look=\"RavenLight\"><Style Class=\"danger\" Accent=\"#E02424\"/></Theme>"
+		};
+		const char* island_xml =
+			"<Window Width=\"400\" Height=\"300\">"
+			"<Island><Button Name=\"in\" Class=\"danger\" Text=\"x\"/><Button Class=\"danger\" Text=\"Delete\"/></Island>"
+			"<VBox><Button Name=\"out\" Class=\"danger\" Text=\"Delete\"/></VBox></Window>";
+		size_t k;
+		for (k = 0; k < sizeof(themes) / sizeof(themes[0]); k++) {
+			Rid island_window;
+			name = Rtheme_load_from_memory(themes[k], 0);
+			CHECK(name != NULL);
+			CHECK(Rtheme_use(name));
+			CHECK(Rtheme_is_dark() == (k == 0));
+			island_window = Rwindow_create_from_xml(island_xml, strlen(island_xml));
+			Rdraw_frame();
+			CHECK(color_of(Rwidget_find(island_window, "out"), R_COLOR_ACCENT) == 0xE02424FFu);
+			CHECK(color_of(Rwidget_find(island_window, "in"), R_COLOR_ACCENT) == 0xE02424FFu);
+			Rwindow_destroy(island_window);
+		}
+		Rtheme_apply(R_THEME_DARK);
+	}
 }
 
 /* Captures of what is behind glass in the last frame of a window: 0 when nothing in it is glass. */
