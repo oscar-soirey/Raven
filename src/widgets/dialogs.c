@@ -94,7 +94,9 @@ static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 	wait.done = R_FALSE;
 	wait.result = 0;
 	rvn_window_open_dialog(window, content, rvn_dialog_wait_closed, &wait);
-	if (rvn_window_popup_index(window, content) < 0) {
+	/* (a callback of the focus may have closed the window) */
+	window = rvn_window_get(window_id);
+	if (!window || rvn_window_popup_index(window, content) < 0) {
 		/* it could not be shown */
 		if (rvn_widget_get(content_id)) rvn_widget_destroy(content);
 		return 0;

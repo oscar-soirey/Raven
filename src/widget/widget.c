@@ -649,7 +649,12 @@ void Rwidget_set_enabled(Rid id, int enabled) {
 	} else {
 		widget->flags |= RVN_WF_DISABLED;
 		if (widget->window && widget->window->focus && rvn_widget_is_inside(widget->window->focus, widget)) {
+			/* (FOCUS_LOST may delete the widget: it is freed when this returns) */
+			rvn_dispatch_begin();
 			rvn_window_set_focus(widget->window, NULL);
+			if (!(widget->flags & RVN_WF_DEAD)) rvn_widget_invalidate_paint(widget);
+			rvn_dispatch_end();
+			return;
 		}
 	}
 	rvn_widget_invalidate_paint(widget);

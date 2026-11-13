@@ -744,6 +744,58 @@ static void test_destroy_callback_dispatches(void) {
 	Rdraw_frame();
 }
 
+/* ---------------------------------------------------------------------------
+ *  A window closed by an event sent outside of any dispatch (issue #151)
+ * ------------------------------------------------------------------------- */
+
+static Rid g_closing_window;
+static REventType g_closing_on;
+
+static int close_window_on(Rid widget, const REvent* event, void* user_data) {
+	(void)widget;
+	(void)user_data;
+	if (event->type == g_closing_on) Rwindow_destroy(g_closing_window);
+	return R_FALSE;
+}
+
+static void test_window_closed_outside_dispatch(void) {
+	Rid box, a, b, hovered;
+
+	/* the application moves the focus: the widget that loses it closes the window */
+	g_closing_window = Rwindow_create("closing", 400, 300, R_WINDOW_DEFAULT);
+	box = Rwidget_create(R_WIDGET_VBOX);
+	a = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	b = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rwindow_set_content(g_closing_window, box);
+	Rwindow_show(g_closing_window);
+	Rdraw_frame();
+	Rwidget_focus(a);
+	CHECK(Rwidget_is_focused(a));
+	g_closing_on = R_EVENT_FOCUS_LOST;
+	Rwidget_set_event_callback(a, close_window_on, NULL);
+	Rwidget_focus(b);
+	CHECK(!Rwindow_is_valid(g_closing_window) && !Rwidget_is_valid(b));
+	Rdraw_frame();
+
+	/* a layout moves the widget under a resting pointer away: the one it leaves closes the window */
+	g_closing_window = Rwindow_create("closing", 400, 300, R_WINDOW_DEFAULT);
+	box = Rwidget_create(R_WIDGET_VBOX);
+	hovered = Rwidget_add_child(box, Rbutton_create("hovered"));
+	Rwidget_add_child(box, Rbutton_create("below"));
+	Rwindow_set_content(g_closing_window, box);
+	Rwindow_show(g_closing_window);
+	Rdraw_frame();
+	Rwindow_inject_mouse_move(g_closing_window, 20.0f, 8.0f);
+	Rdraw_frame();
+	CHECK(Rwidget_is_hovered(hovered));
+	g_closing_on = R_EVENT_MOUSE_LEAVE;
+	Rwidget_set_event_callback(hovered, close_window_on, NULL);
+	Rwidget_insert_child(box, Rbutton_create("inserted"), 0);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_valid(g_closing_window) && !Rwidget_is_valid(hovered));
+	Rdraw_frame();
+}
+
 static void on_timer(Rid timer, void* user_data) {
 	(void)timer;
 	(*(int*)user_data)++;
@@ -1045,6 +1097,7 @@ int main(void) {
 	RUN(test_tabs_and_expander);
 	RUN(test_deletion_and_events);
 	RUN(test_destroy_callback_dispatches);
+	RUN(test_window_closed_outside_dispatch);
 	RUN(test_timers_theme_and_attributes);
 	RUN(test_device_lost);
 
