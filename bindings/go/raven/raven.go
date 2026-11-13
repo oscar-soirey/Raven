@@ -4391,6 +4391,25 @@ func TextEditorAddCompletion(editor ID, text string, detail string) {
 	C.Rtext_editor_add_completion(C.Rid(editor), text_, detail_)
 }
 
+// TextEditorAddCompletionInsert: Adds a proposal that writes another text than the one it shows and is
+// matched on: "Threshold", listed and filtered as such, that writes "Threshold(" when chosen. Only from a
+// completion callback. insert What replaces the word being typed; NULL or "" is `text`.
+func TextEditorAddCompletionInsert(editor ID, text string, detail string, insert string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	detail_ := C.CString(detail)
+	defer C.free(unsafe.Pointer(detail_))
+	insert_ := C.CString(insert)
+	defer C.free(unsafe.Pointer(insert_))
+	C.Rtext_editor_add_completion_insert(C.Rid(editor), text_, detail_, insert_)
+}
+
+// TextEditorSetCompletionWords: R_FALSE leaves the words of the language and the names of the text out of the
+// proposals: only the completion callback's are listed (a language server that knows better). On by default.
+func TextEditorSetCompletionWords(editor ID, enabled int) {
+	C.Rtext_editor_set_completion_words(C.Rid(editor), C.int(enabled))
+}
+
 // TextEditorSetAutoPairs: R_FALSE stops the editor from closing brackets and quotes and from indenting after
 // them. On by default; it only acts with a language.
 func TextEditorSetAutoPairs(editor ID, enabled int) {
@@ -6728,18 +6747,19 @@ func HostInjectClose(window ID) {
 // Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
 // Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
-// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
-// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
-// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
-// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
-// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
-// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
-// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
-// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
-// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
-// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
+// Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon
+// Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
+// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
+// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
+// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
+// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
+// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
+// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
+// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

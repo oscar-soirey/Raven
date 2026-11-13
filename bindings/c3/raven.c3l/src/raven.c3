@@ -1557,6 +1557,14 @@ alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 *>
 alias CompletionCallback = fn void(Id editor, ZString prefix, void* user_data);
 <*
+ Called while the pointer moves over the text where no marker
+ is, with the position under it: the text returned (NULL or "" for
+ none) is shown as the tooltip, as a marker's message is (what a name
+ stands for, the value of a variable). The text must stay valid until
+ the next call.
+*>
+alias TextEditorHoverCallback = fn ZString(Id editor, CInt line, CInt column, void* user_data);
+<*
  Called after each change made by the user (typing, pasting,
  undoing...) or by Rtext_editor_insert_text. The action of the widget
  (OnChanged in XML) fires at the same time.
@@ -3271,6 +3279,20 @@ fn void TextEditor.set_completion_callback(self, CompletionCallback callback, vo
 fn void TextEditor.add_completion(self, ZString text, ZString detail) @inline => c::r_text_editor_add_completion((c::Rid)self, (char*)text, (char*)detail);
 
 <*
+ Adds a proposal that writes another text than the one it shows
+ and is matched on: "Threshold", listed and filtered as such, that
+ writes "Threshold(" when chosen. Only from a completion callback.
+*>
+fn void TextEditor.add_completion_insert(self, ZString text, ZString detail, ZString insert) @inline => c::r_text_editor_add_completion_insert((c::Rid)self, (char*)text, (char*)detail, (char*)insert);
+
+<*
+ R_FALSE leaves the words of the language and the names of the
+ text out of the proposals: only the completion callback's are listed
+ (a language server that knows better). On by default.
+*>
+fn void TextEditor.set_completion_words(self, bool enabled) @inline => c::r_text_editor_set_completion_words((c::Rid)self, (CInt)enabled);
+
+<*
  R_FALSE stops the editor from closing brackets and quotes and
  from indenting after them. On by default; it only acts with a language.
 *>
@@ -3287,6 +3309,8 @@ fn void TextEditor.add_marker(self, CInt line, CInt from_column, CInt to_column,
 fn void TextEditor.clear_markers(self) @inline => c::r_text_editor_clear_markers((c::Rid)self);
 
 fn CInt TextEditor.get_marker_count(self) @inline => c::r_text_editor_get_marker_count((c::Rid)self);
+
+fn void TextEditor.set_hover_callback(self, TextEditorHoverCallback callback, void* user_data) @inline => c::r_text_editor_set_hover_callback((c::Rid)self, (c::RTextEditorHoverCallback)callback, user_data);
 
 fn void TextEditor.set_changed_callback(self, TextEditorChangedCallback callback, void* user_data) @inline => c::r_text_editor_set_changed_callback((c::Rid)self, (c::RTextEditorChangedCallback)callback, user_data);
 

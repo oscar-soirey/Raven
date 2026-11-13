@@ -2304,6 +2304,16 @@ def _adapt_RCompletionCallback(function):
         function(editor, _r(prefix), user_data)
     return call
 
+RTextEditorHoverCallback = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTextEditorHoverCallback(function):
+    def call(editor, line, column, user_data):
+        text = ctypes.create_string_buffer(_s(function(editor, line, column, user_data)) or b"")
+        call.text = text
+        return ctypes.cast(text, ctypes.c_void_p).value
+    return call
+
 RTextEditorChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
 
 
@@ -8780,6 +8790,29 @@ def Rtext_editor_add_completion(editor, text, detail):
     _lib.Rtext_editor_add_completion(editor, _s(text), _s(detail))
 
 
+_lib.Rtext_editor_add_completion_insert.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rtext_editor_add_completion_insert.restype = None
+
+
+def Rtext_editor_add_completion_insert(editor, text, detail, insert):
+    """Adds a proposal that writes another text than the one it shows
+    and is matched on: "Threshold", listed and filtered as such, that
+    writes "Threshold(" when chosen. Only from a completion callback.
+    insert What replaces the word being typed; NULL or "" is `text`."""
+    _lib.Rtext_editor_add_completion_insert(editor, _s(text), _s(detail), _s(insert))
+
+
+_lib.Rtext_editor_set_completion_words.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_set_completion_words.restype = None
+
+
+def Rtext_editor_set_completion_words(editor, enabled):
+    """R_FALSE leaves the words of the language and the names of the
+    text out of the proposals: only the completion callback's are listed
+    (a language server that knows better). On by default."""
+    _lib.Rtext_editor_set_completion_words(editor, enabled)
+
+
 _lib.Rtext_editor_set_auto_pairs.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtext_editor_set_auto_pairs.restype = None
 
@@ -8817,6 +8850,14 @@ _lib.Rtext_editor_get_marker_count.restype = ctypes.c_int
 
 def Rtext_editor_get_marker_count(editor):
     return _lib.Rtext_editor_get_marker_count(editor)
+
+
+_lib.Rtext_editor_set_hover_callback.argtypes = [ctypes.c_uint32, RTextEditorHoverCallback, ctypes.c_void_p]
+_lib.Rtext_editor_set_hover_callback.restype = None
+
+
+def Rtext_editor_set_hover_callback(editor, callback, user_data=None):
+    _lib.Rtext_editor_set_hover_callback(editor, _callback(RTextEditorHoverCallback, _adapt_RTextEditorHoverCallback, callback), user_data)
 
 
 _lib.Rtheme_set_token_color.argtypes = [ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]

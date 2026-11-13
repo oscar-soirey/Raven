@@ -2803,6 +2803,15 @@ export type RTextEditorZoomCallback = (editor: Rid, zoom: number, user_data: Poi
 export type RCompletionCallback = (editor: Rid, prefix: string | null, user_data: Pointer | null) => void;
 
 /**
+ * Called while the pointer moves over the text where no marker
+ * is, with the position under it: the text returned (NULL or "" for
+ * none) is shown as the tooltip, as a marker's message is (what a name
+ * stands for, the value of a variable). The text must stay valid until
+ * the next call.
+ */
+export type RTextEditorHoverCallback = (editor: Rid, line: number, column: number, user_data: Pointer | null) => string | null;
+
+/**
  * Called after each change made by the user (typing, pasting,
  * undoing...) or by Rtext_editor_insert_text. The action of the widget
  * (OnChanged in XML) fires at the same time.
@@ -5275,6 +5284,21 @@ export function Rtext_editor_set_completion_callback(editor: Rid, callback: RCom
 export function Rtext_editor_add_completion(editor: Rid, text: string | null, detail: string | null): void;
 
 /**
+ * Adds a proposal that writes another text than the one it shows
+ * and is matched on: "Threshold", listed and filtered as such, that
+ * writes "Threshold(" when chosen. Only from a completion callback.
+ * insert What replaces the word being typed; NULL or "" is `text`.
+ */
+export function Rtext_editor_add_completion_insert(editor: Rid, text: string | null, detail: string | null, insert: string | null): void;
+
+/**
+ * R_FALSE leaves the words of the language and the names of the
+ * text out of the proposals: only the completion callback's are listed
+ * (a language server that knows better). On by default.
+ */
+export function Rtext_editor_set_completion_words(editor: Rid, enabled: number): void;
+
+/**
  * R_FALSE stops the editor from closing brackets and quotes and
  * from indenting after them. On by default; it only acts with a language.
  */
@@ -5292,6 +5316,8 @@ export function Rtext_editor_add_marker(editor: Rid, line: number, from_column: 
 export function Rtext_editor_clear_markers(editor: Rid): void;
 
 export function Rtext_editor_get_marker_count(editor: Rid): number;
+
+export function Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback | Pointer | null, user_data?: RPointer): void;
 
 /**
  * Color of a kind of token in the theme in use, instead of the
