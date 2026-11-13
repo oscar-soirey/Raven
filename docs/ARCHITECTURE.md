@@ -42,7 +42,10 @@ of the library. `include/Raven.h` includes every public header.
 `core/handle.h`. A handle is 32 bits: `[ type : 4 | generation : 8 | index : 20 ]`.
 Each object type has a pool mapping the index to a pointer. Deleting an
 object increments the generation of its slot, so a stale handle no longer
-matches and the call reports `R_ERROR_INVALID_ID`. `0` and `R_INVALID_ID`
+matches and the call reports `R_ERROR_INVALID_ID`. After 256 lifetimes a slot
+is retired permanently, so no index/generation pair is issued twice within
+the pool lifetime; the 32-bit public handle layout is unchanged. Exhausting
+all live or retired slots reports `R_ERROR_OUT_OF_MEMORY`. `0` and `R_INVALID_ID`
 are never valid. Every public function starts by resolving its handles
 (`RVN_WIDGET(widget, id, type)` in `widget/widget.h`), which also checks the
 widget type.

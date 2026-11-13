@@ -420,8 +420,14 @@ static double rvn_tl_major_step(const rvn_timeline_t* tl, double per_pixel, int*
 			return seconds[i];
 		}
 	}
-	*minor = 6;
-	return seconds[RVN_COUNT_OF(seconds) - 1];
+	{
+		/* longer: days, then ten times more each time (the marks stay as far apart as above) */
+		double step = 86400.0;
+		while (step < wanted) step *= 10.0;
+		*minor = 10;
+		while (*minor > 1 && step / (double)*minor < per_pixel * 5.0) *minor = *minor % 2 == 0 ? *minor / 2 : 1;
+		return step;
+	}
 }
 
 static void rvn_tl_format_time(const rvn_timeline_t* tl, double time, double step, char* buffer, size_t size) {
@@ -1936,8 +1942,8 @@ Rid Rtimeline_create(void) {
 void Rtimeline_set_duration(Rid id, double seconds) {
 	int whole;
 	RVN_TIMELINE_VOID(tl, id);
-	if (!(seconds > 0.0)) {
-		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtimeline_set_duration: the duration must be positive");
+	if (!(seconds > 0.0) || !isfinite(seconds)) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtimeline_set_duration: the duration must be positive and finite");
 		return;
 	}
 	/* (a view that showed everything goes on showing everything) */

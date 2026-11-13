@@ -579,10 +579,11 @@ void rvn_textures_update_svg(void) {
 	for (i = 0; i < g_rvn.textures.used; i++) {
 		rvn_texture_t* texture = (rvn_texture_t*)rvn_pool_at(&g_rvn.textures, i);
 		float density, wanted, target, logical;
+		int32_t bits;
 		rvn_texture_job_t* job;
 		if (!texture || !texture->svg_auto) continue;
-		wanted = texture->svg_wanted;
-		texture->svg_wanted = 0.0f;
+		bits = (int32_t)rvn_atomic_exchange(&texture->svg_wanted, 0);
+		memcpy(&wanted, &bits, sizeof(wanted));
 		/* (not shown this frame, or already being drawn again) */
 		if (wanted <= 0.0f || texture->svg_pending || !texture->created) continue;
 		density = texture->density > 0.0f ? texture->density : 1.0f;

@@ -1264,6 +1264,13 @@ alias RComboBoxChangedCallback = fn void(Rid combo_box, CInt index, void* user_d
  valid until the next call.
 *>
 alias RListItemTextCallback = fn char*(Rid list_view, CInt index, void* user_data);
+<*
+ Colors the text of rows (a level, a verdict): the list asks for the color
+ of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+ R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+ kept on a selected or hovered row. NULL removes the callback.
+*>
+alias RListItemColorCallback = fn CInt(Rid list_view, CInt index, float* r, float* g, float* b, float* a, void* user_data);
 alias RListEventCallback = fn void(Rid list_view, CInt index, void* user_data);
 alias RTreeEventCallback = fn void(Rid tree_view, Rid item, void* user_data);
 <*
@@ -1291,6 +1298,14 @@ alias RTileDragDataCallback = fn char*(Rid tile_view, void* user_data);
  valid until the next call.
 *>
 alias RTableCellTextCallback = fn char*(Rid table, CInt row, CInt column, void* user_data);
+<*
+ Colors the text of cells (a verdict, a state): the table asks for the
+ color of each cell it draws, stored or virtual (`row` is the index of the
+ order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+ keeps the color of the theme. The color is kept on a selected or hovered
+ row. NULL removes the callback.
+*>
+alias RTableCellColorCallback = fn CInt(Rid table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = fn void(Rid table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias RTableSortCallback = fn void(Rid table, CInt column, CInt descending, void* user_data);
@@ -1862,7 +1877,8 @@ struct RShaderLook
 	 How much the pointer is over it and how much it is pressed, 0..1, as
 	 the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
 	 the pointer is in the rectangle, and while the left button is down
-	 there; a Border eases them itself.
+	 there; a Border eases them itself. The rectangle is clipped to the
+	 visible painting area; overlaid siblings do not interrupt its hover.
 	*>
 	float hover;
 	float press;
@@ -2316,6 +2332,22 @@ extern fn float r_window_get_opacity(Rid window) @cname("Rwindow_get_opacity");
 extern fn CInt r_window_set_topmost(Rid window, CInt topmost) @cname("Rwindow_set_topmost");
 
 <*
+ Gives the window an owner (a tool window or an inspector of the
+ main window): it stays above its owner, has no button of its own in the
+ taskbar, is minimized and restored with it (where the window system
+ does it: Windows, X11), and is destroyed with it (everywhere: Raven
+ destroys the windows a window owns before the window). R_INVALID_ID
+ gives the window back its independence.
+ Returns R_FALSE when the window system cannot keep the window with its
+ owner (it is still destroyed with it), or when the owner is not valid
+ or is owned by the window (nothing is changed then).
+*>
+extern fn CInt r_window_set_owner(Rid window, Rid owner) @cname("Rwindow_set_owner");
+
+<* Returns The owner of the window (Rwindow_set_owner), or R_INVALID_ID. *>
+extern fn Rid r_window_get_owner(Rid window) @cname("Rwindow_get_owner");
+
+<*
  Picture in picture: the window becomes a small floating window
  that stays above the other windows, on every desktop (every space of
  macOS, over the applications in full screen too), in a corner of the
@@ -2381,6 +2413,15 @@ extern fn void r_window_set_resize_callback(Rid window, RWindowResizeCallback ca
  where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 *>
 extern fn void r_window_set_drop_callback(Rid window, RDropCallback callback, void* user_data) @cname("Rwindow_set_drop_callback");
+
+<*
+ During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ in target-local logical units (window-local for a window callback).
+ Clipped to the target; zero width or height hides it without refusing
+ the drop. Each callback starts with the default highlight again.
+ Dimensions must be finite and nonnegative; coordinates must be finite.
+*>
+extern fn void r_drop_set_highlight_rect(float x, float y, float width, float height) @cname("Rdrop_set_highlight_rect");
 
 extern fn void r_window_set_user_handle(Rid window, void* handle) @cname("Rwindow_set_user_handle");
 
@@ -3511,6 +3552,8 @@ extern fn CInt r_list_view_get_item_count(Rid list_view) @cname("Rlist_view_get_
 
 extern fn void r_list_view_set_virtual_items(Rid list_view, CInt count, RListItemTextCallback callback, void* user_data) @cname("Rlist_view_set_virtual_items");
 
+extern fn void r_list_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data) @cname("Rlist_view_set_item_color_callback");
+
 <* Selects a row. -1 selects nothing. *>
 extern fn void r_list_view_set_selected(Rid list_view, CInt index) @cname("Rlist_view_set_selected");
 
@@ -3644,6 +3687,13 @@ extern fn char* r_menu_item_get_text(Rid item) @cname("Rmenu_item_get_text");
 *>
 extern fn void r_menu_item_set_shortcut(Rid item, RKey key, Ruint modifiers) @cname("Rmenu_item_set_shortcut");
 
+<*
+ Display-only shortcut hint; copied, never binds a key. Overrides
+ the formatted shortcut without changing its binding. NULL restores the
+ formatted shortcut; an empty string hides it. XML: ShortcutText.
+*>
+extern fn void r_menu_item_set_shortcut_text(Rid item, char* text) @cname("Rmenu_item_set_shortcut_text");
+
 extern fn void r_menu_item_set_checkable(Rid item, CInt checkable) @cname("Rmenu_item_set_checkable");
 
 extern fn void r_menu_item_set_checked(Rid item, CInt checked) @cname("Rmenu_item_set_checked");
@@ -3758,6 +3808,8 @@ extern fn void r_table_clear_rows(Rid table) @cname("Rtable_clear_rows");
 extern fn CInt r_table_get_row_count(Rid table) @cname("Rtable_get_row_count");
 
 extern fn void r_table_set_virtual_rows(Rid table, CInt count, RTableCellTextCallback callback, void* user_data) @cname("Rtable_set_virtual_rows");
+
+extern fn void r_table_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data) @cname("Rtable_set_cell_color_callback");
 
 <* Selects a row. -1 selects nothing. *>
 extern fn void r_table_set_selected(Rid table, CInt row) @cname("Rtable_set_selected");
