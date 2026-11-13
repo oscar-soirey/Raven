@@ -500,6 +500,9 @@ static struct {
 	void (*Rmenu_set_title)(Rid, const char*);
 	Rid (*Rmenu_add_item)(Rid, const char*);
 	Rid (*Rmenu_add_separator)(Rid);
+	Rid (*Rmenu_add_header)(Rid, const char*);
+	Rid (*Rmenu_bar_add_divider)(Rid);
+	void (*Rmenu_set_title_color)(Rid, float, float, float, float);
 	void (*Rmenu_item_set_text)(Rid, const char*);
 	const char* (*Rmenu_item_get_text)(Rid);
 	void (*Rmenu_item_set_shortcut)(Rid, RKey, Ruint);
@@ -1643,6 +1646,9 @@ static const struct {
 	{"Rmenu_set_title", offsetof(__typeof__(rn), Rmenu_set_title)},
 	{"Rmenu_add_item", offsetof(__typeof__(rn), Rmenu_add_item)},
 	{"Rmenu_add_separator", offsetof(__typeof__(rn), Rmenu_add_separator)},
+	{"Rmenu_add_header", offsetof(__typeof__(rn), Rmenu_add_header)},
+	{"Rmenu_bar_add_divider", offsetof(__typeof__(rn), Rmenu_bar_add_divider)},
+	{"Rmenu_set_title_color", offsetof(__typeof__(rn), Rmenu_set_title_color)},
 	{"Rmenu_item_set_text", offsetof(__typeof__(rn), Rmenu_item_set_text)},
 	{"Rmenu_item_get_text", offsetof(__typeof__(rn), Rmenu_item_get_text)},
 	{"Rmenu_item_set_shortcut", offsetof(__typeof__(rn), Rmenu_item_set_shortcut)},
@@ -11733,6 +11739,57 @@ static napi_value rn_w_Rmenu_add_separator(napi_env env, napi_callback_info info
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	Rid value_ = rn.Rmenu_add_separator((Rid)a0);
 	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmenu_add_header(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	Rid value_ = rn.Rmenu_add_header((Rid)a0, a1.p);
+	napi_create_uint32(env, value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmenu_bar_add_divider(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	Rid value_ = rn.Rmenu_bar_add_divider((Rid)a0);
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmenu_set_title_color(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	rn.Rmenu_set_title_color((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4);
 	return result_;
 }
 
@@ -23544,6 +23601,9 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rmenu_set_title", NULL, rn_w_Rmenu_set_title, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_add_item", NULL, rn_w_Rmenu_add_item, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_add_separator", NULL, rn_w_Rmenu_add_separator, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmenu_add_header", NULL, rn_w_Rmenu_add_header, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmenu_bar_add_divider", NULL, rn_w_Rmenu_bar_add_divider, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmenu_set_title_color", NULL, rn_w_Rmenu_set_title_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_set_text", NULL, rn_w_Rmenu_item_set_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_get_text", NULL, rn_w_Rmenu_item_get_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_set_shortcut", NULL, rn_w_Rmenu_item_set_shortcut, NULL, NULL, NULL, napi_enumerable, NULL},

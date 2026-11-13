@@ -3633,6 +3633,15 @@ extern fn Rid r_menu_add_item(Rid menu, char* text) @cname("Rmenu_add_item");
 
 extern fn Rid r_menu_add_separator(Rid menu) @cname("Rmenu_add_separator");
 
+<* A noninteractive caption row, skipped by keyboard navigation. *>
+extern fn Rid r_menu_add_header(Rid menu, char* text) @cname("Rmenu_add_header");
+
+<* A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars. *>
+extern fn Rid r_menu_bar_add_divider(Rid menu_bar) @cname("Rmenu_bar_add_divider");
+
+<* Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars. *>
+extern fn void r_menu_set_title_color(Rid menu, float r, float g, float b, float a) @cname("Rmenu_set_title_color");
+
 extern fn void r_menu_item_set_text(Rid item, char* text) @cname("Rmenu_item_set_text");
 
 extern fn char* r_menu_item_get_text(Rid item) @cname("Rmenu_item_get_text");

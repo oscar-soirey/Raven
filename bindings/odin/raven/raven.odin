@@ -2863,6 +2863,12 @@ foreign lib {
 	Rmenu_set_title :: proc(menu: Rid, title: cstring) ---
 	Rmenu_add_item :: proc(menu: Rid, text: cstring) -> Rid ---
 	Rmenu_add_separator :: proc(menu: Rid) -> Rid ---
+	// A noninteractive caption row, skipped by keyboard navigation.
+	Rmenu_add_header :: proc(menu: Rid, text: cstring) -> Rid ---
+	// A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+	Rmenu_bar_add_divider :: proc(menu_bar: Rid) -> Rid ---
+	// Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+	Rmenu_set_title_color :: proc(menu: Rid, r: f32, g: f32, b: f32, a: f32) ---
 	Rmenu_item_set_text :: proc(item: Rid, text: cstring) ---
 	Rmenu_item_get_text :: proc(item: Rid) -> cstring ---
 	// Shows a shortcut next to the item and triggers the item when the

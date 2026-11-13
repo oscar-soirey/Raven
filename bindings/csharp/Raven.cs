@@ -5725,6 +5725,24 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rmenu_add_separator(uint menu);
 
+        /// <summary>
+        /// A noninteractive caption row, skipped by keyboard navigation.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rmenu_add_header(uint menu, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rmenu_bar_add_divider(uint menu_bar);
+
+        /// <summary>
+        /// Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmenu_set_title_color(uint menu, float r, float g, float b, float a);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rmenu_item_set_text(uint item, [MarshalAs(Utf8.Str)] string text);
 

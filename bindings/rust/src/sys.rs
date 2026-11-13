@@ -2878,6 +2878,12 @@ extern "C" {
     pub fn Rmenu_set_title(menu: Rid, title: *const c_char);
     pub fn Rmenu_add_item(menu: Rid, text: *const c_char) -> Rid;
     pub fn Rmenu_add_separator(menu: Rid) -> Rid;
+    /// A noninteractive caption row, skipped by keyboard navigation.
+    pub fn Rmenu_add_header(menu: Rid, text: *const c_char) -> Rid;
+    /// A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+    pub fn Rmenu_bar_add_divider(menu_bar: Rid) -> Rid;
+    /// Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+    pub fn Rmenu_set_title_color(menu: Rid, r: f32, g: f32, b: f32, a: f32);
     pub fn Rmenu_item_set_text(item: Rid, text: *const c_char);
     pub fn Rmenu_item_get_text(item: Rid) -> *const c_char;
     /// Shows a shortcut next to the item and triggers the item when the

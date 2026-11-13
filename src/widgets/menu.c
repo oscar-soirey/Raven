@@ -22,6 +22,7 @@ typedef struct rvn_menu_item_t {
 	RKey key;
 	uint32_t modifiers;
 	int separator;
+	int header;
 	int checkable;
 	int checked;
 	RMenuItemClickedCallback callback;
@@ -36,6 +37,7 @@ typedef struct rvn_menu_item_t {
 typedef struct rvn_menu_t {
 	rvn_widget_t base;
 	char* title;
+	rvn_color_t title_color;
 	/** Index of the highlighted child, or -1. */
 	int hot;
 	/** R_TRUE when `hot` last moved because the pointer did: the highlight then snaps instead of sliding. */
@@ -169,12 +171,16 @@ static void rvn_menu_item_set_shortcut(rvn_widget_t* widget, RKey key, uint32_t 
 	if (widget->parent) rvn_widget_invalidate_layout(widget->parent);
 }
 
+int rvn_menu_item_is_header(const rvn_widget_t* widget) {
+	return widget->cls->type == R_WIDGET_MENU_ITEM && ((const rvn_menu_item_t*)widget)->header;
+}
+
 void rvn_menu_item_trigger(rvn_widget_t* widget) {
 	rvn_menu_item_t* item = (rvn_menu_item_t*)widget;
 	rvn_widget_t* root;
 	rvn_window_t* window = widget->window;
 
-	if (item->separator) return;
+	if (item->separator || item->header) return;
 	if (item->checkable) item->checked = !item->checked;
 	/* a context menu is only attached to a window while it is open */
 	for (root = widget; root->parent; root = root->parent) {}
@@ -248,7 +254,15 @@ static float rvn_menu_entry_height(const rvn_widget_t* menu, const rvn_widget_t*
 
 /* An entry can be highlighted and triggered. */
 static int rvn_menu_entry_selectable(const rvn_widget_t* child) {
-	return rvn_menu_is_entry(child) && !rvn_menu_entry_is_separator(child) && !(child->flags & RVN_WF_DISABLED);
+	return rvn_menu_is_entry(child) && !rvn_menu_entry_is_separator(child) && !rvn_menu_item_is_header(child) && !(child->flags & RVN_WF_DISABLED);
+}
+
+static int rvn_menu_paint_header(const rvn_widget_t* child, rvn_widget_t* menu, RPainter* painter, rvn_rect_t row, float inset) {
+	if (!rvn_menu_item_is_header(child)) return R_FALSE;
+	rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(menu, 0.0f) - 1.0f,
+		rvn_rect(row.x + inset, row.y, row.w - inset, row.h), 0.0f,
+		rvn_menu_entry_text(child), -1, rvn_platform_secondary(menu));
+	return R_TRUE;
 }
 
 static rvn_vec2_t rvn_menu_measure(rvn_widget_t* widget) {
@@ -398,6 +412,7 @@ static void rvn_menu_paint_fluent(rvn_widget_t* widget, RPainter* painter) {
 		rvn_color_t secondary;
 
 		if (!rvn_menu_entry_rect(widget, (int)i, &row)) continue;
+		if (rvn_menu_paint_header(child, widget, painter, row, text_x)) continue;
 		if (rvn_menu_entry_is_separator(child)) {
 			/* (the line runs from edge to edge of the flyout) */
 			float margin = family == RVN_FAMILY_MACOS ? 10.0f : family == RVN_FAMILY_GNOME ? 6.0f : 0.0f;
@@ -477,6 +492,7 @@ static void rvn_menu_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_color_t color = enabled ? text : dim;
 
 		if (!rvn_menu_entry_rect(widget, (int)i, &row)) continue;
+		if (rvn_menu_paint_header(child, widget, painter, row, RVN_MENU_GUTTER - RVN_MENU_PADDING)) continue;
 		if (rvn_menu_entry_is_separator(child)) {
 			rvn_paint_rect(painter, rvn_rect(row.x + 4.0f, row.y + floorf(row.h * 0.5f), row.w - 8.0f, 1.0f),
 				rvn_widget_color(widget, R_COLOR_SEPARATOR));
@@ -535,6 +551,11 @@ static int rvn_menu_event(rvn_widget_t* widget, const REvent* event) {
 			return R_TRUE;
 		case R_EVENT_KEY_DOWN:
 			switch (event->key) {
+				case R_KEY_HOME:
+				case R_KEY_END:
+					menu->hot = -1;
+					rvn_menu_step(widget, event->key == R_KEY_HOME ? 1 : -1);
+					return R_TRUE;
 				case R_KEY_UP:
 					rvn_menu_step(widget, -1);
 					return R_TRUE;
@@ -660,7 +681,7 @@ rvn_widget_t* rvn_menu_find_shortcut(rvn_widget_t* root, RKey key, uint32_t modi
 	if (!root || (root->flags & RVN_WF_DISABLED)) return NULL;
 	if (root->cls->type == R_WIDGET_MENU_ITEM) {
 		rvn_menu_item_t* item = (rvn_menu_item_t*)root;
-		return (item->key == key && item->key != R_KEY_UNKNOWN && item->modifiers == modifiers) ? root : NULL;
+		return (!item->header && !item->separator && item->key == key && item->key != R_KEY_UNKNOWN && item->modifiers == modifiers) ? root : NULL;
 	}
 	for (i = 0; i < root->child_count; i++) {
 		rvn_widget_t* found = rvn_menu_find_shortcut(root->children[i], key, modifiers);
@@ -702,6 +723,7 @@ static void rvn_menu_bar_init(rvn_widget_t* widget) {
 }
 
 static float rvn_menu_bar_title_width(const rvn_widget_t* widget, const rvn_widget_t* child) {
+	if (rvn_menu_entry_is_separator(child)) return 12.0f;
 	return ceilf(rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, rvn_menu_entry_text(child))) +
 		rvn_widget_metric(widget, R_METRIC_PADDING_X) * 2.0f;
 }
@@ -710,13 +732,29 @@ static int rvn_menu_bar_is_title(const rvn_widget_t* child) {
 	return child->cls->type == R_WIDGET_MENU && !rvn_widget_collapsed(child);
 }
 
+static int rvn_menu_bar_is_entry(const rvn_widget_t* child) {
+	return rvn_menu_bar_is_title(child) || (!rvn_widget_collapsed(child) && rvn_menu_entry_is_separator(child));
+}
+
+static int rvn_menu_bar_paint_divider(rvn_widget_t* widget, const rvn_widget_t* child, RPainter* painter, rvn_rect_t rect) {
+	if (!rvn_menu_entry_is_separator(child)) return R_FALSE;
+	rvn_paint_rect(painter, rvn_rect(floorf(rect.x + rect.w * 0.5f), rect.y + 4.0f, 1.0f, rvn_maxf(rect.h - 8.0f, 0.0f)),
+		rvn_widget_color(widget, R_COLOR_SEPARATOR));
+	return R_TRUE;
+}
+
+static rvn_color_t rvn_menu_title_color(const rvn_widget_t* child, rvn_color_t fallback, int enabled) {
+	rvn_color_t color = ((const rvn_menu_t*)child)->title_color;
+	return enabled && rvn_color_a(color) ? color : fallback;
+}
+
 static rvn_vec2_t rvn_menu_bar_measure(rvn_widget_t* widget) {
 	float width = 4.0f;
 	uint32_t i;
 	/* in the menu bar of the system: it takes no room in the window */
 	if (((rvn_menu_bar_t*)widget)->native) return rvn_vec2(0.0f, 0.0f);
 	for (i = 0; i < widget->child_count; i++) {
-		if (rvn_menu_bar_is_title(widget->children[i])) width += rvn_menu_bar_title_width(widget, widget->children[i]);
+		if (rvn_menu_bar_is_entry(widget->children[i])) width += rvn_menu_bar_title_width(widget, widget->children[i]);
 	}
 	return rvn_vec2(width, rvn_widget_metric(widget, R_METRIC_CONTROL_HEIGHT));
 }
@@ -726,7 +764,7 @@ static int rvn_menu_bar_title_rect(const rvn_widget_t* widget, int index, rvn_re
 	uint32_t i;
 	for (i = 0; i < widget->child_count; i++) {
 		float width;
-		if (!rvn_menu_bar_is_title(widget->children[i])) continue;
+		if (!rvn_menu_bar_is_entry(widget->children[i])) continue;
 		width = rvn_menu_bar_title_width(widget, widget->children[i]);
 		if ((int)i == index) {
 			*rect = rvn_rect(x, 2.0f, width, widget->rect.h - 4.0f);
@@ -742,6 +780,7 @@ static int rvn_menu_bar_title_at(const rvn_widget_t* widget, float x, float y) {
 	if (y < 0.0f || y >= widget->rect.h) return -1;
 	for (i = 0; i < widget->child_count; i++) {
 		rvn_rect_t rect;
+		if (!rvn_menu_bar_is_title(widget->children[i])) continue;
 		if (rvn_menu_bar_title_rect(widget, (int)i, &rect) && x >= rect.x && x < rect.x + rect.w) return (int)i;
 	}
 	return -1;
@@ -752,6 +791,7 @@ static void rvn_menu_bar_open(rvn_widget_t* widget, int index) {
 	rvn_vec2_t origin = rvn_widget_origin(widget);
 	rvn_rect_t rect;
 	if (!widget->window || !rvn_menu_bar_title_rect(widget, index, &rect)) return;
+	if (!rvn_menu_bar_is_title(widget->children[index])) return;
 	if (widget->children[index]->flags & RVN_WF_DISABLED) return;
 	rvn_window_close_popups(widget->window);
 	bar->open = index;
@@ -784,11 +824,12 @@ static void rvn_menu_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 				(enabled ? 0 : RVN_STATE_DISABLED);
 			rvn_part_look_t look;
 			if (!rvn_menu_bar_title_rect(widget, (int)i, &rect)) continue;
+			if (rvn_menu_bar_paint_divider(widget, child, painter, rect)) continue;
 			rect = rvn_rect(rect.x + 2.0f, rect.y + 3.0f, rect.w - 4.0f, rect.h - 6.0f);
 			if (states & (RVN_STATE_HOVERED | RVN_STATE_OPEN)) rvn_platform_paint_item(painter, widget, rect, states, RVN_ITEM_BAR, 0.0f);
 			rvn_platform_item_look(widget, RVN_PART_ITEM, states, RVN_ITEM_BAR, &look);
 			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), rect, 0.5f, rvn_menu_entry_text(child), -1,
-				rvn_color_a(look.foreground) ? look.foreground : enabled ? text : rvn_widget_color(widget, R_COLOR_TEXT_DISABLED));
+				rvn_menu_title_color(child, rvn_color_a(look.foreground) ? look.foreground : enabled ? text : rvn_widget_color(widget, R_COLOR_TEXT_DISABLED), enabled));
 		}
 		return;
 	}
@@ -818,6 +859,7 @@ static void rvn_menu_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_rect_t rect;
 		int enabled = painter->enabled && !(child->flags & RVN_WF_DISABLED);
 		if (!rvn_menu_bar_title_rect(widget, (int)i, &rect)) continue;
+		if (rvn_menu_bar_paint_divider(widget, child, painter, rect)) continue;
 		if (rvn_widget_glass(widget)) rect = rvn_rect(rect.x, rect.y + 3.0f, rect.w, rect.h - 6.0f);
 		if ((int)i == bar->open) {
 			/* (drawn above) */
@@ -825,7 +867,7 @@ static void rvn_menu_bar_paint(rvn_widget_t* widget, RPainter* painter) {
 			rvn_paint_box(painter, rect, title_radius, rvn_widget_color(widget, R_COLOR_HEADER_HOVERED), 0.0f, 0);
 		}
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), rect, 0.5f, rvn_menu_entry_text(child), -1,
-			enabled ? text : rvn_widget_color(widget, R_COLOR_TEXT_DISABLED));
+			rvn_menu_title_color(child, enabled ? text : rvn_widget_color(widget, R_COLOR_TEXT_DISABLED), enabled));
 	}
 }
 
@@ -900,6 +942,7 @@ const rvn_widget_class_t rvn_class_menu_bar = {
  * ========================================================================= */
 
 static int rvn_menu_native_entry(const rvn_widget_t* child) {
+	if (child->parent && child->parent->cls->type == R_WIDGET_MENU_BAR && rvn_menu_entry_is_separator(child)) return R_FALSE;
 	return (child->cls->type == R_WIDGET_MENU_ITEM || child->cls->type == R_WIDGET_MENU) && !rvn_widget_collapsed(child);
 }
 
@@ -919,6 +962,7 @@ uint32_t rvn_menu_signature(const rvn_widget_t* menu, uint32_t hash) {
 		if (child->cls->type == R_WIDGET_MENU_ITEM) {
 			const rvn_menu_item_t* item = (const rvn_menu_item_t*)child;
 			hash = rvn_menu_mix(hash, (uint32_t)item->separator | ((uint32_t)item->checkable << 1) | ((uint32_t)item->checked << 2));
+			hash = rvn_menu_mix(hash, (uint32_t)item->header);
 			hash = rvn_menu_mix(hash, (uint32_t)item->key);
 			hash = rvn_menu_mix(hash, item->modifiers);
 		} else {
@@ -954,6 +998,8 @@ rvn_pmenu_t* rvn_menu_native_items(const rvn_widget_t* menu, uint32_t* count) {
 		if (child->cls->type == R_WIDGET_MENU_ITEM) {
 			const rvn_menu_item_t* item = (const rvn_menu_item_t*)child;
 			out->separator = item->separator;
+			out->header = item->header;
+			if (item->header) out->enabled = R_FALSE;
 			out->checkable = item->checkable;
 			out->checked = item->checked;
 			out->key = item->key;
@@ -1068,6 +1114,29 @@ Rid Rmenu_add_separator(Rid id) {
 	RVN_WIDGET(menu, id, R_WIDGET_MENU, R_INVALID_ID);
 	item = rvn_menu_add_separator(menu);
 	return item ? item->id : R_INVALID_ID;
+}
+
+Rid Rmenu_add_header(Rid id, const char* text) {
+	Rid item = Rmenu_add_item(id, text);
+	rvn_widget_t* widget = rvn_widget_get(item);
+	if (!widget) return R_INVALID_ID;
+	((rvn_menu_item_t*)widget)->header = R_TRUE;
+	Rwidget_set_accessible_role(item, R_ROLE_HEADING);
+	return item;
+}
+
+Rid Rmenu_bar_add_divider(Rid id) {
+	rvn_widget_t* item;
+	RVN_WIDGET(bar, id, R_WIDGET_MENU_BAR, R_INVALID_ID);
+	item = rvn_menu_add_separator(bar);
+	if (item) Rwidget_set_accessible_role(item->id, R_ROLE_SEPARATOR);
+	return item ? item->id : R_INVALID_ID;
+}
+
+void Rmenu_set_title_color(Rid id, float r, float g, float b, float a) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_MENU);
+	((rvn_menu_t*)widget)->title_color = a > 0.0f ? rvn_rgba(r, g, b, a) : 0;
+	if (widget->parent) rvn_widget_invalidate_paint(widget->parent);
 }
 
 void Rmenu_item_set_text(Rid id, const char* text) {

@@ -4690,6 +4690,15 @@ export function Rmenu_add_item(menu: Rid, text: string | null): Rid;
 
 export function Rmenu_add_separator(menu: Rid): Rid;
 
+/** A noninteractive caption row, skipped by keyboard navigation. */
+export function Rmenu_add_header(menu: Rid, text: string | null): Rid;
+
+/** A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars. */
+export function Rmenu_bar_add_divider(menu_bar: Rid): Rid;
+
+/** Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars. */
+export function Rmenu_set_title_color(menu: Rid, r: number, g: number, b: number, a: number): void;
+
 export function Rmenu_item_set_text(item: Rid, text: string | null): void;
 
 export function Rmenu_item_get_text(item: Rid): string | null;

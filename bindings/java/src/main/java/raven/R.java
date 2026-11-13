@@ -12601,6 +12601,54 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rmenu_add_header$;
+
+    /**
+     * A noninteractive caption row, skipped by keyboard navigation.
+     */
+    public static int Rmenu_add_header(int menu, String text) {
+        MethodHandle $h = Rmenu_add_header$;
+        if ($h == null) Rmenu_add_header$ = $h = find("Rmenu_add_header", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            int $r = (int) $h.invokeExact(menu, text$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmenu_bar_add_divider$;
+
+    /**
+     * A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+     */
+    public static int Rmenu_bar_add_divider(int menu_bar) {
+        MethodHandle $h = Rmenu_bar_add_divider$;
+        if ($h == null) Rmenu_bar_add_divider$ = $h = find("Rmenu_bar_add_divider", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(menu_bar);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmenu_set_title_color$;
+
+    /**
+     * Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+     */
+    public static void Rmenu_set_title_color(int menu, float r, float g, float b, float a) {
+        MethodHandle $h = Rmenu_set_title_color$;
+        if ($h == null) Rmenu_set_title_color$ = $h = find("Rmenu_set_title_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(menu, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rmenu_item_set_text$;
 
     public static void Rmenu_item_set_text(int item, String text) {

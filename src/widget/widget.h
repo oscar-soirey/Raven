@@ -1041,6 +1041,7 @@ int  rvn_window_popup_index(const rvn_window_t* window, const rvn_widget_t* root
 
 /** Triggers a menu item (shortcuts). Implemented in widgets/menu.c. */
 void rvn_menu_item_trigger(rvn_widget_t* item);
+int rvn_menu_item_is_header(const rvn_widget_t* item);
 /** Destroys the native child windows of the viewports inside a subtree leaving the window. */
 void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree);
 /** Native viewports (widgets/viewport.c): release the child window / apply its state after a paint. */
