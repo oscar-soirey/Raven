@@ -176,6 +176,30 @@ static void test_date_picker(void) {
 	CHECK(!Rdate_picker_is_open(picker));
 }
 
+/* The short names (MMM, ddd) are the first three characters of a translated name, not its first three bytes. */
+static void test_date_picker_short_names(void) {
+	Rid root = content("<VBox><DatePicker Name=\"d\" Date=\"2026-01-13\" Format=\"ddd D MMM YYYY\"/></VBox>");
+	Rid picker = Rwidget_find(root, "d");
+	CHECK_STR(Rdate_picker_get_text(picker), "Tue 13 Jan 2026");
+	/* Январь, Вторник; 一月, 火曜日 */
+	Rlocale_set_text("ru", "Raven.Month1", "\xD0\xAF\xD0\xBD\xD0\xB2\xD0\xB0\xD1\x80\xD1\x8C");
+	Rlocale_set_text("ru", "Raven.Day2", "\xD0\x92\xD1\x82\xD0\xBE\xD1\x80\xD0\xBD\xD0\xB8\xD0\xBA");
+	Rlocale_set_text("ja", "Raven.Month1", "\xE4\xB8\x80\xE6\x9C\x88");
+	Rlocale_set_text("ja", "Raven.Day2", "\xE7\x81\xAB\xE6\x9B\x9C\xE6\x97\xA5");
+	Rlocale_set_language("ru");
+	CHECK_STR(Rdate_picker_get_text(picker), "\xD0\x92\xD1\x82\xD0\xBE 13 \xD0\xAF\xD0\xBD\xD0\xB2 2026");
+	Rlocale_set_language("ja");
+	/* shorter than three characters: the whole name */
+	CHECK_STR(Rdate_picker_get_text(picker), "\xE7\x81\xAB\xE6\x9B\x9C\xE6\x97\xA5 13 \xE4\xB8\x80\xE6\x9C\x88 2026");
+	/* the calendar's weekday header, cut the same way */
+	Rdate_picker_set_open(picker, R_TRUE);
+	Rdraw_frame();
+	Rdate_picker_set_open(picker, R_FALSE);
+	Rlocale_clear();
+	Rlocale_set_language("en");
+	CHECK_STR(Rdate_picker_get_text(picker), "Tue 13 Jan 2026");
+}
+
 /*
  * A window too short for the calendar below the field: it opens over it. The
  * click that opened it ends on a day; that day is not picked. The next click is.
@@ -895,6 +919,7 @@ int main(void) {
 
 	RUN(test_table);
 	RUN(test_date_picker);
+	RUN(test_date_picker_short_names);
 	RUN(test_date_picker_opens_over);
 	RUN(test_time_picker);
 	RUN(test_toast);
