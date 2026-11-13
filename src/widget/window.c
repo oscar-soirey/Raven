@@ -2145,10 +2145,11 @@ void Rwindow_set_content(Rid id, Rid widget_id) {
 		if (!widget) return;
 	}
 	if (window->root == widget) return;
+	/* (detached first: the widget may be inside the content it replaces) */
+	if (widget && (widget->parent || widget->window)) rvn_widget_detach(widget);
 	if (window->root) rvn_widget_destroy(window->root);
 	window->root = NULL;
 	if (widget) {
-		if (widget->parent || widget->window) rvn_widget_detach(widget);
 		window->root = widget;
 		rvn_widget_set_window(widget, window);
 		widget->flags |= RVN_WF_LAYOUT_DIRTY;
@@ -2362,10 +2363,11 @@ void Rwindow_set_island(Rid id, Rid widget_id) {
 	}
 	if (window->island == widget) return;
 	if (window->notch_overlay) rvn_window_notch_leave(window);
+	/* (detached first: the widget may be inside the island it replaces) */
+	if (widget && (widget->parent || widget->window)) rvn_widget_detach(widget);
 	if (window->island) rvn_widget_destroy(window->island);
 	window->island = NULL;
 	if (widget) {
-		if (widget->parent || widget->window) rvn_widget_detach(widget);
 		window->island = widget;
 		rvn_widget_set_window(widget, window);
 		widget->flags |= RVN_WF_LAYOUT_DIRTY;
