@@ -627,6 +627,7 @@ const _symbols = {
 	Rmenu_item_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rmenu_item_get_text: { args: ["u32"], returns: "cstring" },
 	Rmenu_item_set_shortcut: { args: ["u32", "i32", "u32"], returns: "void" },
+	Rmenu_item_set_shortcut_text: { args: ["u32", "ptr"], returns: "void" },
 	Rmenu_item_set_checkable: { args: ["u32", "i32"], returns: "void" },
 	Rmenu_item_set_checked: { args: ["u32", "i32"], returns: "void" },
 	Rmenu_item_set_icon: { args: ["u32", "u32", "f32", "f32", "f32", "f32", "i32"], returns: "void" },
@@ -9186,6 +9187,15 @@ export function Rmenu_item_get_text(item: Rid): string | null {
  */
 export function Rmenu_item_set_shortcut(item: Rid, key: RKey, modifiers: number): void {
 	_lib.Rmenu_item_set_shortcut(item, key, modifiers);
+}
+
+/**
+ * Display-only shortcut hint; copied, never binds a key. Overrides
+ * the formatted shortcut without changing its binding. NULL restores the
+ * formatted shortcut; an empty string hides it. XML: ShortcutText.
+ */
+export function Rmenu_item_set_shortcut_text(item: Rid, text: string | null): void {
+	_lib.Rmenu_item_set_shortcut_text(item, _s(text));
 }
 
 export function Rmenu_item_set_checkable(item: Rid, checkable: number): void {

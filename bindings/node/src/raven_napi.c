@@ -503,6 +503,7 @@ static struct {
 	void (*Rmenu_item_set_text)(Rid, const char*);
 	const char* (*Rmenu_item_get_text)(Rid);
 	void (*Rmenu_item_set_shortcut)(Rid, RKey, Ruint);
+	void (*Rmenu_item_set_shortcut_text)(Rid, const char*);
 	void (*Rmenu_item_set_checkable)(Rid, int);
 	void (*Rmenu_item_set_checked)(Rid, int);
 	void (*Rmenu_item_set_icon)(Rid, Rid, float, float, float, float, int);
@@ -1646,6 +1647,7 @@ static const struct {
 	{"Rmenu_item_set_text", offsetof(__typeof__(rn), Rmenu_item_set_text)},
 	{"Rmenu_item_get_text", offsetof(__typeof__(rn), Rmenu_item_get_text)},
 	{"Rmenu_item_set_shortcut", offsetof(__typeof__(rn), Rmenu_item_set_shortcut)},
+	{"Rmenu_item_set_shortcut_text", offsetof(__typeof__(rn), Rmenu_item_set_shortcut_text)},
 	{"Rmenu_item_set_checkable", offsetof(__typeof__(rn), Rmenu_item_set_checkable)},
 	{"Rmenu_item_set_checked", offsetof(__typeof__(rn), Rmenu_item_set_checked)},
 	{"Rmenu_item_set_icon", offsetof(__typeof__(rn), Rmenu_item_set_icon)},
@@ -11778,6 +11780,23 @@ static napi_value rn_w_Rmenu_item_set_shortcut(napi_env env, napi_callback_info 
 	if (!rn_get_int(env, argv[1], &a1)) return NULL;
 	if (!rn_get_uint32(env, argv[2], &a2)) return NULL;
 	rn.Rmenu_item_set_shortcut((Rid)a0, (RKey)a1, (Ruint)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rmenu_item_set_shortcut_text(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rmenu_item_set_shortcut_text((Rid)a0, a1.p);
+done:
+	free(a1.heap);
 	return result_;
 }
 
@@ -23547,6 +23566,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rmenu_item_set_text", NULL, rn_w_Rmenu_item_set_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_get_text", NULL, rn_w_Rmenu_item_get_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_set_shortcut", NULL, rn_w_Rmenu_item_set_shortcut, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmenu_item_set_shortcut_text", NULL, rn_w_Rmenu_item_set_shortcut_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_set_checkable", NULL, rn_w_Rmenu_item_set_checkable, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_set_checked", NULL, rn_w_Rmenu_item_set_checked, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmenu_item_set_icon", NULL, rn_w_Rmenu_item_set_icon, NULL, NULL, NULL, napi_enumerable, NULL},

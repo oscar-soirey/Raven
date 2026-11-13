@@ -31,6 +31,39 @@ static void test_function_keys(Rid input, NSView* view) {
 	CHECK_STR(Rtext_input_get_text(input), "");
 }
 
+static NSMenuItem* native_hint_item(void) {
+	NSMenu* menu = [[[NSApp mainMenu] itemWithTitle:@"Hints"] submenu];
+	CHECK(menu != nil);
+	return [menu itemAtIndex:0];
+}
+
+static void test_shortcut_hints(Rid window) {
+	Rid bar = Rwidget_create(R_WIDGET_MENU_BAR);
+	Rid menu = Rmenu_add_menu(bar, "Hints");
+	Rid item = Rmenu_add_item(menu, "Canvas tool");
+	char hint[] = "G G";
+	NSMenuItem* native;
+	Rwindow_set_content(window, bar);
+	Rwindow_show(window);
+	Rwindow_focus(window);
+	Rmenu_item_set_shortcut_text(item, hint);
+	hint[0] = 'X';
+	Rdraw_frame();
+	native = native_hint_item();
+	CHECK([[[native attributedTitle] string] isEqualToString:@"Canvas tool\tG G"]);
+	CHECK([[native keyEquivalent] length] == 0);
+	Rmenu_item_set_shortcut(item, R_KEY_S, R_MOD_SUPER);
+	Rdraw_frame();
+	native = native_hint_item();
+	CHECK([[[native attributedTitle] string] isEqualToString:@"Canvas tool\tG G"]);
+	CHECK([[native keyEquivalent] length] == 0);
+	Rmenu_item_set_shortcut_text(item, NULL);
+	Rdraw_frame();
+	native = native_hint_item();
+	CHECK([[native keyEquivalent] isEqualToString:@"s"]);
+	CHECK([[native attributedTitle] length] == 0);
+}
+
 int main(void) {
 	RInitDesc desc;
 	RNativeWindow native;
@@ -50,6 +83,7 @@ int main(void) {
 	CHECK(Rwindow_get_native_handle(window, &native));
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
+	test_shortcut_hints(window);
 	Rwindow_destroy(window);
 	Rshutdown();
 	return test_report("test_cocoa_input");

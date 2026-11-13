@@ -1575,6 +1575,7 @@ Rid Rmenu_add_separator(Rid menu);
 void Rmenu_item_set_text(Rid item, const char* text);
 const char* Rmenu_item_get_text(Rid item);
 void Rmenu_item_set_shortcut(Rid item, RKey key, Ruint modifiers);
+void Rmenu_item_set_shortcut_text(Rid item, const char* text);
 void Rmenu_item_set_checkable(Rid item, int checkable);
 void Rmenu_item_set_checked(Rid item, int checked);
 void Rmenu_item_set_icon(Rid item, Rid texture, float u0, float v0, float u1, float v1, int tint);

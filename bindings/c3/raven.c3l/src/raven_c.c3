@@ -3643,6 +3643,13 @@ extern fn char* r_menu_item_get_text(Rid item) @cname("Rmenu_item_get_text");
 *>
 extern fn void r_menu_item_set_shortcut(Rid item, RKey key, Ruint modifiers) @cname("Rmenu_item_set_shortcut");
 
+<*
+ Display-only shortcut hint; copied, never binds a key. Overrides
+ the formatted shortcut without changing its binding. NULL restores the
+ formatted shortcut; an empty string hides it. XML: ShortcutText.
+*>
+extern fn void r_menu_item_set_shortcut_text(Rid item, char* text) @cname("Rmenu_item_set_shortcut_text");
+
 extern fn void r_menu_item_set_checkable(Rid item, CInt checkable) @cname("Rmenu_item_set_checkable");
 
 extern fn void r_menu_item_set_checked(Rid item, CInt checked) @cname("Rmenu_item_set_checked");
