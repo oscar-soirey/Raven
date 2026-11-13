@@ -1229,6 +1229,13 @@ action `app.quit`, which an application may bind to ask first. Elsewhere the
 bar is drawn in the window; `Rmenu_bar_set_native(bar, R_FALSE)` or
 `<MenuBar Native="false">` keeps it there on macOS too.
 
+`Rmenu_item_set_shortcut_text(item, "G G")` (XML: `ShortcutText`) sets a copied,
+display-only hint, including chords or mouse gestures. It overrides the formatted
+shortcut label without adding or changing a binding. `NULL` restores the bound
+shortcut label; an empty string hides it. In native macOS menus, hints use a
+right-aligned text column; any independently configured binding is dispatched
+by Raven.
+
 ### Taskbar and Dock
 
 ```c

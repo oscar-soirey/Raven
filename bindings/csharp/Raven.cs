@@ -5795,6 +5795,14 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rmenu_item_set_shortcut(uint item, RKey key, uint modifiers);
 
+        /// <summary>
+        /// Display-only shortcut hint; copied, never binds a key. Overrides
+        /// the formatted shortcut without changing its binding. NULL restores the
+        /// formatted shortcut; an empty string hides it. XML: ShortcutText.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmenu_item_set_shortcut_text(uint item, [MarshalAs(Utf8.Str)] string text);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rmenu_item_set_checkable(uint item, int checkable);
 

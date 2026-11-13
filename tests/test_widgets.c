@@ -561,6 +561,52 @@ static void on_quit_action(Rid sender, const char* action, void* user_data) {
 	g_quit_actions++;
 }
 
+static void test_shortcut_hints(void) {
+	Rid box = column();
+	Rid bar = Rwidget_add_child(box, Rwidget_create(R_WIDGET_MENU_BAR));
+	Rid file = Rmenu_add_menu(bar, "File");
+	Rid item = Rmenu_add_item(file, "Save");
+	float plain, hinted, restored, h;
+	char hint[] = "G G (in canvas only)";
+	Rmenu_bar_set_native(bar, R_FALSE);
+	Rmenu_item_set_clicked_callback(item, on_menu_item, NULL);
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &plain, &h);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	Rmenu_item_set_shortcut_text(item, hint);
+	hint[0] = 'X'; /* the setter must copy its input */
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &hinted, &h);
+	CHECK(hinted > plain + 30);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	g_clicks = 0;
+	test_key(g_window, R_KEY_G, 0);
+	CHECK(g_clicks == 0);
+	Rmenu_item_set_shortcut(item, R_KEY_S, R_MOD_CTRL);
+	test_key(g_window, R_KEY_S, R_MOD_CTRL);
+	CHECK(g_clicks == 1);
+	/* Attribute order and later binding changes must not discard the hint. */
+	CHECK(Rwidget_set_attribute(item, "ShortcutText", "Shift+Middle (canvas only)"));
+	CHECK(Rwidget_set_attribute(item, "Shortcut", "Ctrl+S"));
+	Rmenu_item_set_shortcut_text(item, "");
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &restored, &h);
+	CHECK_NEAR(restored, plain);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	Rmenu_item_set_shortcut_text(item, NULL);
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &restored, &h);
+	CHECK(restored > plain);
+	CHECK(restored < hinted);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	test_key(g_window, R_KEY_S, R_MOD_CTRL);
+	CHECK(g_clicks == 2);
+}
+
 static void test_menus(void) {
 	Rid box = column();
 	Rid bar = Rwidget_add_child(box, Rwidget_create(R_WIDGET_MENU_BAR));
@@ -1309,6 +1355,7 @@ int main(void) {
 	RUN(test_highlight_follows_pointer);
 	RUN(test_list_and_tree);
 	RUN(test_menus);
+	RUN(test_shortcut_hints);
 	RUN(test_tabs_and_expander);
 	RUN(test_tab_close_changed);
 	RUN(test_deletion_and_events);

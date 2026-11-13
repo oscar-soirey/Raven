@@ -2937,6 +2937,13 @@ fn ZString MenuItem.get_text(self) @inline => (ZString)c::r_menu_item_get_text((
 *>
 fn void MenuItem.set_shortcut(self, Key key, Modifier modifiers) @inline => c::r_menu_item_set_shortcut((c::Rid)self, (c::RKey)key, (c::Ruint)modifiers);
 
+<*
+ Display-only shortcut hint; copied, never binds a key. Overrides
+ the formatted shortcut without changing its binding. NULL restores the
+ formatted shortcut; an empty string hides it. XML: ShortcutText.
+*>
+fn void MenuItem.set_shortcut_text(self, ZString text) @inline => c::r_menu_item_set_shortcut_text((c::Rid)self, (char*)text);
+
 fn void MenuItem.set_checkable(self, bool checkable) @inline => c::r_menu_item_set_checkable((c::Rid)self, (CInt)checkable);
 
 fn void MenuItem.set_checked(self, bool checked) @inline => c::r_menu_item_set_checked((c::Rid)self, (CInt)checked);

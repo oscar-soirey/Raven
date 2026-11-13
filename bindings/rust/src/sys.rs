@@ -2915,6 +2915,10 @@ extern "C" {
     /// Shows a shortcut next to the item and triggers the item when the
     /// keys are pressed in the window of its menu bar.
     pub fn Rmenu_item_set_shortcut(item: Rid, key: RKey, modifiers: u32);
+    /// Display-only shortcut hint; copied, never binds a key. Overrides
+    /// the formatted shortcut without changing its binding. NULL restores the
+    /// formatted shortcut; an empty string hides it. XML: ShortcutText.
+    pub fn Rmenu_item_set_shortcut_text(item: Rid, text: *const c_char);
     pub fn Rmenu_item_set_checkable(item: Rid, checkable: c_int);
     pub fn Rmenu_item_set_checked(item: Rid, checked: c_int);
     /// Icon drawn before the text of a menu item (after the check mark column).

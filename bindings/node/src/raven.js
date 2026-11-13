@@ -3366,6 +3366,7 @@ export const Rmenu_add_separator = _lib.Rmenu_add_separator;
 export const Rmenu_item_set_text = _lib.Rmenu_item_set_text;
 export const Rmenu_item_get_text = _lib.Rmenu_item_get_text;
 export const Rmenu_item_set_shortcut = _lib.Rmenu_item_set_shortcut;
+export const Rmenu_item_set_shortcut_text = _lib.Rmenu_item_set_shortcut_text;
 export const Rmenu_item_set_checkable = _lib.Rmenu_item_set_checkable;
 export const Rmenu_item_set_checked = _lib.Rmenu_item_set_checked;
 export const Rmenu_item_set_icon = _lib.Rmenu_item_set_icon;

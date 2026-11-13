@@ -3425,6 +3425,15 @@ func MenuItemSetShortcut(item ID, key RKey, modifiers uint32) {
 	C.Rmenu_item_set_shortcut(C.Rid(item), C.RKey(key), C.Ruint(modifiers))
 }
 
+// MenuItemSetShortcutText: Display-only shortcut hint; copied, never binds a key. Overrides the formatted
+// shortcut without changing its binding. NULL restores the formatted shortcut; an empty string hides it. XML:
+// ShortcutText.
+func MenuItemSetShortcutText(item ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rmenu_item_set_shortcut_text(C.Rid(item), text_)
+}
+
 func MenuItemSetCheckable(item ID, checkable int) {
 	C.Rmenu_item_set_checkable(C.Rid(item), C.int(checkable))
 }

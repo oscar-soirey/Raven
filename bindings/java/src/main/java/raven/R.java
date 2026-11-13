@@ -12788,6 +12788,24 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rmenu_item_set_shortcut_text$;
+
+    /**
+     * Display-only shortcut hint; copied, never binds a key. Overrides
+     * the formatted shortcut without changing its binding. NULL restores the
+     * formatted shortcut; an empty string hides it. XML: ShortcutText.
+     */
+    public static void Rmenu_item_set_shortcut_text(int item, String text) {
+        MethodHandle $h = Rmenu_item_set_shortcut_text$;
+        if ($h == null) Rmenu_item_set_shortcut_text$ = $h = find("Rmenu_item_set_shortcut_text", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(item, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rmenu_item_set_checkable$;
 
     public static void Rmenu_item_set_checkable(int item, int checkable) {

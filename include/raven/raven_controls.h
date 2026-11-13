@@ -486,6 +486,12 @@ extern "C" {
 	 * keys are pressed in the window of its menu bar.
 	 */
 	RAVEN_API void Rmenu_item_set_shortcut(Rid item, RKey key, Ruint modifiers);
+	/**
+	 * @brief Display-only shortcut hint; copied, never binds a key. Overrides
+	 * the formatted shortcut without changing its binding. NULL restores the
+	 * formatted shortcut; an empty string hides it. XML: ShortcutText.
+	 */
+	RAVEN_API void Rmenu_item_set_shortcut_text(Rid item, const char* text);
 	RAVEN_API void Rmenu_item_set_checkable(Rid item, int checkable);
 	RAVEN_API void Rmenu_item_set_checked(Rid item, int checked);
 	/**

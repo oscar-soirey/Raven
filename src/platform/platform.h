@@ -114,6 +114,8 @@ typedef struct rvn_pmenu_t {
 	/** The shortcut (R_KEY_UNKNOWN: none) and its RModifier, shown by the system and handled by it. */
 	RKey key;
 	uint32_t modifiers;
+	/** Display-only override; NULL: use the native shortcut label. Never binds a key. */
+	const char* shortcut_hint;
 } rvn_pmenu_t;
 
 /** Parts of a window whose title bar is drawn by the application (R_WINDOW_CUSTOM_HEADER). */

@@ -902,6 +902,11 @@ public:
 	/// keys are pressed in the window of its menu bar.
 	void set_shortcut(RKey key, Ruint modifiers) const { Rmenu_item_set_shortcut(id_, key, modifiers); }
 
+	/// Display-only shortcut hint; copied, never binds a key. Overrides
+	/// the formatted shortcut without changing its binding. NULL restores the
+	/// formatted shortcut; an empty string hides it. XML: ShortcutText.
+	void set_shortcut_text(const char* text) const { Rmenu_item_set_shortcut_text(id_, text); }
+
 	void set_checkable(int checkable) const { Rmenu_item_set_checkable(id_, checkable); }
 
 	void set_checked(int checked) const { Rmenu_item_set_checked(id_, checked); }
