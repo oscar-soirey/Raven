@@ -545,6 +545,41 @@ static void test_live_reload(void) {
 	remove(path);
 	remove(part);
 	remove(library);
+
+	/* a widget moved into a window of another theme takes the styles of that theme (#117) */
+	{
+		const char* app_xml =
+			"<Theme Name=\"MoveApp\" Look=\"RavenDark\">"
+			"<Style Widget=\"Button\" Accent=\"#FF0000\"/>"
+			"<Style Widget=\"Button\" State=\"Hovered\" Background=\"#00FF00\"/>"
+			"<Style Widget=\"Button\" State=\"Pressed\" Background=\"#0000FF\"/>"
+			"<Style Widget=\"Button\" State=\"Focused\" Background=\"#00FFFF\"/>"
+			"<Style Widget=\"Button\" Background=\"#FF00FF\"/>"
+			"</Theme>";
+		const char* plain_xml = "<Theme Name=\"MovePlain\" Look=\"RavenLight\"><Style Widget=\"Label\" FontSize=\"20\"/></Theme>";
+		const char* a_xml = "<Window Width=\"300\" Height=\"200\"><VBox><Button Name=\"b\" Text=\"Hello\"/></VBox></Window>";
+		const char* b_xml = "<Window Width=\"300\" Height=\"200\" Theme=\"MovePlain\"><VBox Name=\"box\"/></Window>";
+		Rid a, b, button, fresh;
+
+		CHECK(Rtheme_load_from_memory(app_xml, 0) != NULL);
+		CHECK(Rtheme_use("MoveApp"));
+		CHECK(Rtheme_load_from_memory(plain_xml, 0) != NULL);
+		a = Rwindow_create_from_xml(a_xml, strlen(a_xml));
+		b = Rwindow_create_from_xml(b_xml, strlen(b_xml));
+		button = Rwidget_find(a, "b");
+		Rdraw_frame();
+		CHECK(color_of(button, R_COLOR_ACCENT) == 0xFF0000FFu);
+		Rwidget_add_child(Rwidget_find(b, "box"), button);
+		fresh = Rbutton_create("Fresh");
+		Rwidget_add_child(Rwidget_find(b, "box"), fresh);
+		CHECK(color_of(fresh, R_COLOR_ACCENT) != 0xFF0000FFu);
+		CHECK(color_of(button, R_COLOR_ACCENT) == color_of(fresh, R_COLOR_ACCENT));
+		/* (painted with the rules of its new theme, not with indices into those of the old one) */
+		Rdraw_frame();
+		Rwindow_destroy(a);
+		Rwindow_destroy(b);
+		Rtheme_apply(R_THEME_DARK);
+	}
 }
 
 /* ---------------------------------------------------------------------------
