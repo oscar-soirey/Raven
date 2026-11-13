@@ -136,6 +136,19 @@ static void test_grid(void) {
 	/* the first column is now only as wide as `a`; gaps of 8 between tracks */
 	Rpanel_set_spacing(grid, 8);
 	CHECK_RECT(b, 48, 0, 352, 282);
+
+	/* a rejected Slot.Column / Row / span leaves the slot as it is (issue #127) */
+	CHECK(!Rwidget_set_attribute(b, "Slot.Column", "-3"));
+	CHECK(!Rwidget_set_attribute(b, "Slot.Row", "-1"));
+	CHECK(!Rwidget_set_attribute(c, "Slot.ColumnSpan", "0"));
+	CHECK(!Rwidget_set_attribute(b, "Slot.Column", "1e30")); /* not an int */
+	CHECK_RECT(b, 48, 0, 352, 282);
+	CHECK_RECT(c, 0, 290, 400, 10);
+	/* an accepted one is clamped as by Rslot_set_grid_span */
+	CHECK(Rwidget_set_attribute(c, "Slot.ColumnSpan", "100000"));
+	Rwidget_get_rect(c, NULL, NULL, NULL, NULL);
+	CHECK(Rwidget_set_attribute(c, "Slot.ColumnSpan", "2"));
+	CHECK_RECT(b, 48, 0, 352, 282);
 }
 
 static void test_uniform_grid(void) {
