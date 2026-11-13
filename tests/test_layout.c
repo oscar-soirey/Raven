@@ -262,6 +262,21 @@ static void test_splitter_and_wrap(void) {
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
 	CHECK_RECT(left, 0, 0, w + 50, 300);
 
+	/* right to left: the first pane is on the right, and its handle is on its left (issue #123) */
+	Rslot_set_fill(left, 1.0f);
+	Rslot_set_fill(right, 3.0f);
+	Rwidget_set_direction(splitter, R_DIRECTION_RTL);
+	CHECK_RECT(left, 400 - w, 0, w, 300);
+	CHECK_RECT(right, 0, 0, 400 - handle - w, 300);
+	/* dragging that handle 50 units to the left grows the first pane by 50 */
+	Rwindow_inject_mouse_move(g_window, 400 - w - handle * 0.5f, 150);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(g_window, 400 - w - handle * 0.5f - 50, 150);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_RECT(left, 400 - w - 50, 0, w + 50, 300);
+	CHECK_RECT(right, 0, 0, 400 - handle - w - 50, 300);
+	Rwidget_set_direction(splitter, R_DIRECTION_INHERIT);
+
 	wrap = Rwidget_create(R_WIDGET_WRAP_BOX);
 	for (i = 0; i < 5; i++) items[i] = Rwidget_add_child(wrap, block(150, 40));
 	Rwindow_set_content(g_window, wrap);
