@@ -11000,7 +11000,7 @@ _lib.Rnode_graph_set_node_badge_color.restype = None
 
 
 def Rnode_graph_set_node_badge_color(graph, node, r, g, b):
-    """Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it."""
+    """Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color."""
     _lib.Rnode_graph_set_node_badge_color(graph, node, r, g, b)
 
 

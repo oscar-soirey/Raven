@@ -3765,7 +3765,7 @@ extern "C" {
     /// default, shows every label whole.
     pub fn Rnode_graph_set_pin_label_width(graph: Rid, width: f32);
     pub fn Rnode_graph_get_pin_label_width(graph: Rid) -> f32;
-    /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+    /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
     pub fn Rnode_graph_set_node_badge_color(graph: Rid, node: c_int, r: f32, g: f32, b: f32);
     pub fn Rblock_editor_create() -> Rid;
     /// A kind of block, and its block in the palette. Returns its index, -1 on an error.

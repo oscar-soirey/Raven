@@ -5054,7 +5054,7 @@ extern fn void r_node_graph_set_pin_label_width(Rid graph, float width) @cname("
 
 extern fn float r_node_graph_get_pin_label_width(Rid graph) @cname("Rnode_graph_get_pin_label_width");
 
-<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color. *>
 extern fn void r_node_graph_set_node_badge_color(Rid graph, CInt node, float r, float g, float b) @cname("Rnode_graph_set_node_badge_color");
 
 extern fn Rid r_block_editor_create() @cname("Rblock_editor_create");
