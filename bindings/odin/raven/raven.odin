@@ -1331,6 +1331,7 @@ RXmlReloadCallback :: #type proc "c" (path: cstring, ok: i32, user_data: rawptr)
 RXmlTagCreateCallback :: #type proc "c" (tag: cstring, user_data: rawptr) -> Rid
 RXmlTagAttributeCallback :: #type proc "c" (widget: Rid, name: cstring, value: cstring, user_data: rawptr) -> i32
 RLocaleChangedCallback :: #type proc "c" (language: cstring, user_data: rawptr)
+RAccessiblePressCallback :: #type proc "c" (widget: Rid, user_data: rawptr)
 
 // Optional settings for Rinit_ex. A zero-initialized structure selects the
 // default for every field, so new fields can be added without breaking code.
@@ -4231,6 +4232,14 @@ foreign lib {
 	Rwidget_set_accessible_hidden :: proc(widget: Rid, hidden: i32) ---
 	// The widget is named by another one (a label): its text is the name.
 	Rwidget_set_accessible_labelled_by :: proc(widget: Rid, label: Rid) ---
+	// Explicit screen-reader press action, including for custom widgets.
+	// NULL removes the override. Does not change pointer or keyboard handling.
+	// Disabled widgets (including disabled ancestors) cannot be pressed.
+	Rwidget_set_accessible_action :: proc(widget: Rid, press: RAccessiblePressCallback, user_data: rawptr) ---
+	// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+	// widget's default (not checkable for a custom widget). The application owns
+	// this state; a press callback updates it when appropriate.
+	Rwidget_set_accessible_checked :: proc(widget: Rid, checked: i32) ---
 	// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
 	Raccessibility_announce :: proc(text: cstring, assertive: i32) ---
 	// R_TRUE when a screen reader is reading the windows of the application.

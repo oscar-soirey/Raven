@@ -855,6 +855,7 @@ typedef void (*RXmlReloadCallback)(const char* path, int ok, void* user_data);
 typedef Rid (*RXmlTagCreateCallback)(const char* tag, void* user_data);
 typedef int (*RXmlTagAttributeCallback)(Rid widget, const char* name, const char* value, void* user_data);
 typedef void (*RLocaleChangedCallback)(const char* language, void* user_data);
+typedef void (*RAccessiblePressCallback)(Rid widget, void* user_data);
 struct RInitDesc {
 	RBackend backend;
 	const char* app_name;
@@ -2226,6 +2227,8 @@ void Rwidget_set_accessible_role(Rid widget, RAccessibleRole role);
 RAccessibleRole Rwidget_get_accessible_role(Rid widget);
 void Rwidget_set_accessible_hidden(Rid widget, int hidden);
 void Rwidget_set_accessible_labelled_by(Rid widget, Rid label);
+void Rwidget_set_accessible_action(Rid widget, RAccessiblePressCallback press, void* user_data);
+void Rwidget_set_accessible_checked(Rid widget, int checked);
 void Raccessibility_announce(const char* text, int assertive);
 int Raccessibility_is_screen_reader_active(void);
 void Rhost_platform_register(const RHostPlatformDesc* desc);

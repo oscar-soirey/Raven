@@ -3040,6 +3040,9 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RLocaleChangedCallback(IntPtr language, IntPtr user_data);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RAccessiblePressCallback(uint widget, IntPtr user_data);
+
     public static class R
     {
         private const string Lib = "raven";
@@ -9400,6 +9403,22 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_accessible_labelled_by(uint widget, uint label);
+
+        /// <summary>
+        /// Explicit screen-reader press action, including for custom widgets.
+        /// NULL removes the override. Does not change pointer or keyboard handling.
+        /// Disabled widgets (including disabled ancestors) cannot be pressed.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_accessible_action(uint widget, RAccessiblePressCallback press, IntPtr user_data);
+
+        /// <summary>
+        /// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+        /// widget's default (not checkable for a custom widget). The application owns
+        /// this state; a press callback updates it when appropriate.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_accessible_checked(uint widget, int @checked);
 
         /// <summary>
         /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
