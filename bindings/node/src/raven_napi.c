@@ -747,6 +747,7 @@ static struct {
 	void (*Rdock_area_set_close_callback)(Rid, RDockCloseCallback, void*);
 	void (*Rdock_area_set_tearable)(Rid, int);
 	int (*Rdock_area_is_tearable)(Rid);
+	void (*Rdock_area_set_float_mode)(Rid, RDockFloatMode);
 	Rid (*Rdock_area_float_panel)(Rid, Rid, int, int);
 	void (*Rdock_area_dock_panel)(Rid, Rid);
 	Rid (*Rdock_area_get_panel_window)(Rid, Rid);
@@ -1896,6 +1897,7 @@ static const struct {
 	{"Rdock_area_set_close_callback", offsetof(__typeof__(rn), Rdock_area_set_close_callback)},
 	{"Rdock_area_set_tearable", offsetof(__typeof__(rn), Rdock_area_set_tearable)},
 	{"Rdock_area_is_tearable", offsetof(__typeof__(rn), Rdock_area_is_tearable)},
+	{"Rdock_area_set_float_mode", offsetof(__typeof__(rn), Rdock_area_set_float_mode)},
 	{"Rdock_area_float_panel", offsetof(__typeof__(rn), Rdock_area_float_panel)},
 	{"Rdock_area_dock_panel", offsetof(__typeof__(rn), Rdock_area_dock_panel)},
 	{"Rdock_area_get_panel_window", offsetof(__typeof__(rn), Rdock_area_get_panel_window)},
@@ -15960,6 +15962,20 @@ static napi_value rn_w_Rdock_area_is_tearable(napi_env env, napi_callback_info i
 	return result_;
 }
 
+static napi_value rn_w_Rdock_area_set_float_mode(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rdock_area_set_float_mode((Rid)a0, (RDockFloatMode)a1);
+	return result_;
+}
+
 static napi_value rn_w_Rdock_area_float_panel(napi_env env, napi_callback_info info) {
 	size_t argc = 4;
 	napi_value argv[4];
@@ -23984,6 +24000,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rdock_area_set_close_callback", NULL, rn_w_Rdock_area_set_close_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdock_area_set_tearable", NULL, rn_w_Rdock_area_set_tearable, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdock_area_is_tearable", NULL, rn_w_Rdock_area_is_tearable, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdock_area_set_float_mode", NULL, rn_w_Rdock_area_set_float_mode, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdock_area_float_panel", NULL, rn_w_Rdock_area_float_panel, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdock_area_dock_panel", NULL, rn_w_Rdock_area_dock_panel, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdock_area_get_panel_window", NULL, rn_w_Rdock_area_get_panel_window, NULL, NULL, NULL, napi_enumerable, NULL},

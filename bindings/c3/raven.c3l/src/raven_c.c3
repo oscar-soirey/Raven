@@ -961,6 +961,10 @@ const RDockSide R_DOCK_BOTTOM = 0x0363;
 <* Behind the same tabs as the other panel. *>
 const RDockSide R_DOCK_TAB = 0x0364;
 
+alias RDockFloatMode = CInt;
+const RDockFloatMode R_DOCK_FLOAT_WINDOW = 0;
+const RDockFloatMode R_DOCK_FLOAT_IN_WINDOW = 1;
+
 alias RVisualPreset = CInt;
 <* The look of the theme of the window: its platform, dark or light. *>
 const RVisualPreset R_PRESET_AUTO = 0x0510;
@@ -4374,7 +4378,8 @@ extern fn char* r_dock_area_save_layout(Rid area) @cname("Rdock_area_save_layout
 <*
  Arranges the panels as a saved description says. Panels of the
  area that the description does not name keep a place; names it has
- that match no panel are ignored.
+ that match no panel are ignored in legacy descriptions. Versioned
+ descriptions with floating cards reject unknown or duplicate names.
  Returns R_FALSE when the text is not a layout (nothing is changed).
 *>
 extern fn CInt r_dock_area_load_layout(Rid area, char* layout) @cname("Rdock_area_load_layout");
@@ -4395,7 +4400,10 @@ extern fn void r_dock_area_set_tearable(Rid area, CInt tearable) @cname("Rdock_a
 
 extern fn CInt r_dock_area_is_tearable(Rid area) @cname("Rdock_area_is_tearable");
 
-<* Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window. *>
+<* Default for future floats/tears; existing floating panels keep their mode. *>
+extern fn void r_dock_area_set_float_mode(Rid area, RDockFloatMode mode) @cname("Rdock_area_set_float_mode");
+
+<* Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. *>
 extern fn Rid r_dock_area_float_panel(Rid area, Rid panel, CInt x, CInt y) @cname("Rdock_area_float_panel");
 
 <* A floating panel goes back where it was in the area. *>

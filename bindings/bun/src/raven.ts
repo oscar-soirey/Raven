@@ -871,6 +871,7 @@ const _symbols = {
 	Rdock_area_set_close_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rdock_area_set_tearable: { args: ["u32", "i32"], returns: "void" },
 	Rdock_area_is_tearable: { args: ["u32"], returns: "i32" },
+	Rdock_area_set_float_mode: { args: ["u32", "i32"], returns: "void" },
 	Rdock_area_float_panel: { args: ["u32", "u32", "i32", "i32"], returns: "u32" },
 	Rdock_area_dock_panel: { args: ["u32", "u32"], returns: "void" },
 	Rdock_area_get_panel_window: { args: ["u32", "u32"], returns: "u32" },
@@ -2845,6 +2846,14 @@ export const R_DOCK_RIGHT = RDockSide.R_DOCK_RIGHT;
 export const R_DOCK_TOP = RDockSide.R_DOCK_TOP;
 export const R_DOCK_BOTTOM = RDockSide.R_DOCK_BOTTOM;
 export const R_DOCK_TAB = RDockSide.R_DOCK_TAB;
+
+export enum RDockFloatMode {
+	R_DOCK_FLOAT_WINDOW = 0,
+	R_DOCK_FLOAT_IN_WINDOW = 1,
+}
+
+export const R_DOCK_FLOAT_WINDOW = RDockFloatMode.R_DOCK_FLOAT_WINDOW;
+export const R_DOCK_FLOAT_IN_WINDOW = RDockFloatMode.R_DOCK_FLOAT_IN_WINDOW;
 
 export enum RVisualPreset {
 	/** The look of the theme of the window: its platform, dark or light. */
@@ -10529,7 +10538,8 @@ export function Rdock_area_save_layout(area: Rid): string | null {
 /**
  * Arranges the panels as a saved description says. Panels of the
  * area that the description does not name keep a place; names it has
- * that match no panel are ignored.
+ * that match no panel are ignored in legacy descriptions. Versioned
+ * descriptions with floating cards reject unknown or duplicate names.
  * Returns: R_FALSE when the text is not a layout (nothing is changed).
  */
 export function Rdock_area_load_layout(area: Rid, layout: string | null): number {
@@ -10558,7 +10568,12 @@ export function Rdock_area_is_tearable(area: Rid): number {
 	return _lib.Rdock_area_is_tearable(area);
 }
 
-/** Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window. */
+/** Default for future floats/tears; existing floating panels keep their mode. */
+export function Rdock_area_set_float_mode(area: Rid, mode: RDockFloatMode): void {
+	_lib.Rdock_area_set_float_mode(area, mode);
+}
+
+/** Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. */
 export function Rdock_area_float_panel(area: Rid, panel: Rid, x: number, y: number): Rid {
 	return _lib.Rdock_area_float_panel(area, panel, x, y);
 }

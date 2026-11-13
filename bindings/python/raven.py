@@ -1297,6 +1297,13 @@ R_DOCK_TOP = RDockSide.R_DOCK_TOP
 R_DOCK_BOTTOM = RDockSide.R_DOCK_BOTTOM
 R_DOCK_TAB = RDockSide.R_DOCK_TAB
 
+class RDockFloatMode(enum.IntEnum):
+    R_DOCK_FLOAT_WINDOW = 0
+    R_DOCK_FLOAT_IN_WINDOW = 1
+
+R_DOCK_FLOAT_WINDOW = RDockFloatMode.R_DOCK_FLOAT_WINDOW
+R_DOCK_FLOAT_IN_WINDOW = RDockFloatMode.R_DOCK_FLOAT_IN_WINDOW
+
 class RVisualPreset(enum.IntEnum):
     R_PRESET_AUTO = 0x0510
     R_PRESET_MODERN = 0x0511
@@ -9192,7 +9199,8 @@ _lib.Rdock_area_load_layout.restype = ctypes.c_int
 def Rdock_area_load_layout(area, layout):
     """Arranges the panels as a saved description says. Panels of the
     area that the description does not name keep a place; names it has
-    that match no panel are ignored.
+    that match no panel are ignored in legacy descriptions. Versioned
+    descriptions with floating cards reject unknown or duplicate names.
     Returns: R_FALSE when the text is not a layout (nothing is changed)."""
     return _lib.Rdock_area_load_layout(area, _s(layout))
 
@@ -9229,12 +9237,21 @@ def Rdock_area_is_tearable(area):
     return _lib.Rdock_area_is_tearable(area)
 
 
+_lib.Rdock_area_set_float_mode.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rdock_area_set_float_mode.restype = None
+
+
+def Rdock_area_set_float_mode(area, mode):
+    """Default for future floats/tears; existing floating panels keep their mode."""
+    _lib.Rdock_area_set_float_mode(area, int(mode))
+
+
 _lib.Rdock_area_float_panel.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
 _lib.Rdock_area_float_panel.restype = ctypes.c_uint32
 
 
 def Rdock_area_float_panel(area, panel, x, y):
-    """Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window."""
+    """Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window."""
     return _lib.Rdock_area_float_panel(area, panel, x, y)
 
 

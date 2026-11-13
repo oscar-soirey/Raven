@@ -946,6 +946,11 @@ Dock_Side :: enum i32 {
 	Tab = 0x0364,
 }
 
+Dock_Float_Mode :: enum i32 {
+	Window = 0,
+	In_Window = 1,
+}
+
 Visual_Preset :: enum i32 {
 	// The look of the theme of the window: its platform, dark or light.
 	Auto = 0x0510,

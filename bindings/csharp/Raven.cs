@@ -1432,6 +1432,12 @@ namespace Raven
         R_DOCK_TAB = 0x0364,
     }
 
+    public enum RDockFloatMode : int
+    {
+        R_DOCK_FLOAT_WINDOW = 0,
+        R_DOCK_FLOAT_IN_WINDOW = 1,
+    }
+
     public enum RVisualPreset : int
     {
         /// <summary>
@@ -7011,7 +7017,8 @@ namespace Raven
         /// <summary>
         /// Arranges the panels as a saved description says. Panels of the
         /// area that the description does not name keep a place; names it has
-        /// that match no panel are ignored.
+        /// that match no panel are ignored in legacy descriptions. Versioned
+        /// descriptions with floating cards reject unknown or duplicate names.
         /// Returns: R_FALSE when the text is not a layout (nothing is changed).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -7037,7 +7044,13 @@ namespace Raven
         public static extern int Rdock_area_is_tearable(uint area);
 
         /// <summary>
-        /// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
+        /// Default for future floats/tears; existing floating panels keep their mode.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdock_area_set_float_mode(uint area, RDockFloatMode mode);
+
+        /// <summary>
+        /// Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rdock_area_float_panel(uint area, uint panel, int x, int y);

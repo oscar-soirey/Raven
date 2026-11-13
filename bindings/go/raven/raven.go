@@ -910,6 +910,13 @@ const (
 	R_DOCK_TAB    RDockSide = 0x0364
 )
 
+type RDockFloatMode int32
+
+const (
+	R_DOCK_FLOAT_WINDOW    RDockFloatMode = 0
+	R_DOCK_FLOAT_IN_WINDOW RDockFloatMode = 1
+)
+
 type RVisualPreset int32
 
 const (
@@ -4607,8 +4614,9 @@ func DockAreaSaveLayout(area ID) string {
 }
 
 // DockAreaLoadLayout: Arranges the panels as a saved description says. Panels of the area that the
-// description does not name keep a place; names it has that match no panel are ignored. Returns: R_FALSE when
-// the text is not a layout (nothing is changed).
+// description does not name keep a place; names it has that match no panel are ignored in legacy
+// descriptions. Versioned descriptions with floating cards reject unknown or duplicate names. Returns:
+// R_FALSE when the text is not a layout (nothing is changed).
 func DockAreaLoadLayout(area ID, layout string) int {
 	layout_ := C.CString(layout)
 	defer C.free(unsafe.Pointer(layout_))
@@ -4629,8 +4637,13 @@ func DockAreaIsTearable(area ID) int {
 	return int(C.Rdock_area_is_tearable(C.Rid(area)))
 }
 
-// DockAreaFloatPanel: Takes a panel to a window of its own, its top left corner at (x, y) on the screen.
-// Returns the window.
+// DockAreaSetFloatMode: Default for future floats/tears; existing floating panels keep their mode.
+func DockAreaSetFloatMode(area ID, mode RDockFloatMode) {
+	C.Rdock_area_set_float_mode(C.Rid(area), C.RDockFloatMode(mode))
+}
+
+// DockAreaFloatPanel: Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y.
+// Returns its containing window.
 func DockAreaFloatPanel(area ID, panel ID, x int, y int) ID {
 	return ID(C.Rdock_area_float_panel(C.Rid(area), C.Rid(panel), C.int(x), C.int(y)))
 }

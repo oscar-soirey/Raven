@@ -1160,6 +1160,12 @@ constset DockSide : CInt
 	TAB = 0x0364,
 }
 
+constset DockFloatMode : CInt
+{
+	WINDOW = 0,
+	IN_WINDOW = 1,
+}
+
 constset VisualPreset : CInt
 {
 	<* The look of the theme of the window: its platform, dark or light. *>
@@ -3436,7 +3442,8 @@ fn ZString DockArea.save_layout(self) @inline => (ZString)c::r_dock_area_save_la
 <*
  Arranges the panels as a saved description says. Panels of the
  area that the description does not name keep a place; names it has
- that match no panel are ignored.
+ that match no panel are ignored in legacy descriptions. Versioned
+ descriptions with floating cards reject unknown or duplicate names.
  Returns R_FALSE when the text is not a layout (nothing is changed).
 *>
 fn void? DockArea.load_layout(self, ZString layout)
@@ -3460,7 +3467,10 @@ fn void DockArea.set_tearable(self, CInt tearable) @inline => c::r_dock_area_set
 
 fn bool DockArea.is_tearable(self) @inline => c::r_dock_area_is_tearable((c::Rid)self) != 0;
 
-<* Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window. *>
+<* Default for future floats/tears; existing floating panels keep their mode. *>
+fn void DockArea.set_float_mode(self, DockFloatMode mode) @inline => c::r_dock_area_set_float_mode((c::Rid)self, (c::RDockFloatMode)mode);
+
+<* Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. *>
 fn Id DockArea.float_panel(self, Id panel, CInt x, CInt y) @inline => (Id)c::r_dock_area_float_panel((c::Rid)self, (c::Rid)panel, x, y);
 
 <* A floating panel goes back where it was in the area. *>

@@ -315,6 +315,22 @@ static void rvn_window_set_hover(rvn_window_t* window, rvn_widget_t* target) {
 	if (!window->dead) rvn_window_tooltip_arm(window);
 }
 
+void rvn_window_set_float_layer(rvn_window_t* window, rvn_widget_t* widget, int enabled) {
+	uint32_t i;
+	for (i = 0; i < window->float_layer_count; i++) {
+		if (window->float_layers[i] != widget->id) continue;
+		memmove(window->float_layers + i, window->float_layers + i + 1, sizeof(Rid) * (window->float_layer_count - i - 1));
+		window->float_layer_count--;
+		break;
+	}
+	if (enabled) {
+		RVN_ARRAY_RESERVE(window->float_layers, window->float_layer_cap, window->float_layer_count + 1);
+		window->float_layers[window->float_layer_count++] = widget->id;
+		widget->flags |= RVN_WF_FLOAT_LAYER;
+	} else widget->flags &= ~RVN_WF_FLOAT_LAYER;
+	window->needs_paint = R_TRUE;
+}
+
 static rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int* popup_index) {
 	uint32_t i;
 	for (i = window->popup_count; i > 0; i--) {
@@ -326,6 +342,15 @@ static rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int*
 		}
 	}
 	if (popup_index) *popup_index = -1;
+	for (i = window->float_layer_count; i > 0; i--) {
+		rvn_widget_t* layer = rvn_widget_get(window->float_layers[i - 1]);
+		rvn_widget_t* hit;
+		rvn_vec2_t parent;
+		if (!layer || !rvn_widget_is_shown(layer)) continue;
+		parent = layer->parent ? rvn_widget_origin(layer->parent) : rvn_vec2(0, 0);
+		hit = rvn_widget_hit_test(layer, x - parent.x, y - parent.y);
+		if (hit) return hit;
+	}
 	/* the island floats above the content (unless it lives in the camera housing, in an overlay) */
 	if (window->island && !window->notch_overlay) {
 		rvn_widget_t* hit = rvn_widget_hit_test(window->island, x, y);
@@ -740,6 +765,13 @@ void rvn_window_layout(rvn_window_t* window) {
 			/* the content obeys its slot like any child: padding and alignment in the window */
 			rvn_widget_arrange_slot(window->root, rvn_rect(0.0f, 0.0f, size.x, size.y));
 		}
+		for (i = 0; i < window->float_layer_count;) {
+			Rid id = window->float_layers[i];
+			rvn_widget_t* layer = rvn_widget_get(id);
+			if (layer && layer->cls->type == R_WIDGET_DOCK_AREA) rvn_dock_float_arrange(layer);
+			/* Arranging an empty card may remove it from the list. */
+			if (i < window->float_layer_count && window->float_layers[i] == id) i++;
+		}
 		if (window->island && !window->notch_overlay) {
 			/* at the top, in the middle, at its own size (in an overlay of the camera housing: against the top of the screen) */
 			rvn_vec2_t desired = rvn_widget_measure(window->island);
@@ -953,6 +985,19 @@ static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
 	if (window->island && !window->notch_overlay) {
 		rvn_widget_paint(window->island, &painter);
 		widgets += window->island->subtree_count;
+	}
+	for (i = 0; i < window->float_layer_count; i++) {
+		rvn_widget_t* layer = rvn_widget_get(window->float_layers[i]);
+		RPainter overlay = painter;
+		rvn_vec2_t parent;
+		const rvn_widget_t* walk;
+		if (!layer || !rvn_widget_is_shown(layer)) continue;
+		parent = layer->parent ? rvn_widget_origin(layer->parent) : rvn_vec2(0, 0);
+		overlay.ox = parent.x;
+		overlay.oy = parent.y;
+		overlay.enabled = rvn_widget_is_enabled(layer);
+		for (walk = layer->parent; walk; walk = walk->parent) overlay.opacity *= walk->opacity;
+		rvn_widget_paint(layer, &overlay);
 	}
 	rvn_window_paint_drop(window, &painter);
 	rvn_window_paint_drag(window, &painter);
@@ -1969,6 +2014,7 @@ static void rvn_window_free(rvn_window_t* window) {
 	rvn_free(window->native_viewports);
 	rvn_free(window->popups);
 	rvn_free(window->ghosts);
+	rvn_free(window->float_layers);
 	rvn_free(window->layout_springs);
 	rvn_free(window->title);
 	rvn_free(window->drag_type);

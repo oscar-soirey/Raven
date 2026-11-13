@@ -836,6 +836,22 @@ the tab, or closing the window, puts the panel back where it was.
 `Rdock_area_set_tearable` (or `Tearable="false"` in XML) keeps the panels
 inside their window.
 
+For cards inside the same window, call
+`Rdock_area_set_float_mode(area, R_DOCK_FLOAT_IN_WINDOW)` or set
+`FloatMode="InWindow"` in XML. Future floats use draggable cards above the
+window content, clamped to its client bounds. Drop a card on a tab bar or
+edge to dock it, or double click its tab to return it. Existing floats keep
+their mode when the default changes. In-window `Rdock_area_float_panel`
+coordinates are window-local logical pixels and its return value is the
+containing window. The default native mode uses screen coordinates.
+
+Layouts containing in-window cards use a versioned `D2(...)` description
+that preserves card order and geometry. Dock-only descriptions retain the
+original format. Invalid versioned layouts, duplicate panel names and
+unknown names are rejected without changing the current arrangement;
+legacy descriptions continue to ignore unknown names. Give panels unique
+names to persist their arrangement.
+
 ### Dialogs and files
 
 ```c

@@ -621,6 +621,10 @@ typedef enum RDockSide {
 	R_DOCK_BOTTOM = 867,
 	R_DOCK_TAB = 868,
 } RDockSide;
+typedef enum RDockFloatMode {
+	R_DOCK_FLOAT_WINDOW = 0,
+	R_DOCK_FLOAT_IN_WINDOW = 1,
+} RDockFloatMode;
 typedef enum RVisualPreset {
 	R_PRESET_AUTO = 1296,
 	R_PRESET_MODERN = 1297,
@@ -1822,6 +1826,7 @@ int Rdock_area_load_layout(Rid area, const char* layout);
 void Rdock_area_set_close_callback(Rid area, RDockCloseCallback callback, void* user_data);
 void Rdock_area_set_tearable(Rid area, int tearable);
 int Rdock_area_is_tearable(Rid area);
+void Rdock_area_set_float_mode(Rid area, RDockFloatMode mode);
 Rid Rdock_area_float_panel(Rid area, Rid panel, int x, int y);
 void Rdock_area_dock_panel(Rid area, Rid panel);
 Rid Rdock_area_get_panel_window(Rid area, Rid panel);
