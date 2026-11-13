@@ -988,6 +988,7 @@ void rvn_atspi_event(rvn_pwindow_t* window, int event, uint64_t id) {
 			signal(id, "Object", "StateChanged", "focused", 1, 0, T_INT32, &zero);
 			signal(id, "Focus", "Focus", "", 0, 0, T_INT32, &zero);
 			break;
+		case RVN_A11Y_EVENT_STATE:
 		case RVN_A11Y_EVENT_VALUE: {
 			rvn_a11y_node_t node;
 			if (!rvn_a11y_describe(id, &node)) break;
