@@ -542,7 +542,8 @@ static int rvn_menu_event(rvn_widget_t* widget, const REvent* event) {
 					rvn_menu_step(widget, 1);
 					return R_TRUE;
 				case R_KEY_RIGHT:
-					if (menu->hot >= 0 && widget->children[menu->hot]->cls->type == R_WIDGET_MENU) {
+					if (menu->hot >= 0 && widget->children[menu->hot]->cls->type == R_WIDGET_MENU &&
+						rvn_menu_entry_selectable(widget->children[menu->hot])) {
 						rvn_widget_t* sub = widget->children[menu->hot];
 						rvn_menu_open_sub(widget, menu->hot);
 						rvn_menu_step(sub, 1);
@@ -557,7 +558,8 @@ static int rvn_menu_event(rvn_widget_t* widget, const REvent* event) {
 				case R_KEY_ENTER:
 				case R_KEY_KP_ENTER:
 				case R_KEY_SPACE:
-					if (menu->hot < 0) return R_TRUE;
+					/* the entry may have been disabled or hidden since it was highlighted */
+					if (menu->hot < 0 || !rvn_menu_entry_selectable(widget->children[menu->hot])) return R_TRUE;
 					if (widget->children[menu->hot]->cls->type == R_WIDGET_MENU) {
 						rvn_widget_t* sub = widget->children[menu->hot];
 						rvn_menu_open_sub(widget, menu->hot);

@@ -553,6 +553,20 @@ static void test_menus(void) {
 	test_key(g_window, R_KEY_ENTER, 0);
 	CHECK(g_clicks == 4 && g_last_id == open);
 
+	/* an entry disabled or hidden while it is highlighted is not triggered by Enter */
+	test_click_at(g_window, 15, bar_h * 0.5f);
+	test_key(g_window, R_KEY_DOWN, 0);
+	Rwidget_set_enabled(open, R_FALSE);
+	test_key(g_window, R_KEY_ENTER, 0);
+	CHECK(g_clicks == 4);
+	Rwidget_set_enabled(open, R_TRUE);
+	Rwidget_set_visibility(open, R_COLLAPSED);
+	test_key(g_window, R_KEY_ENTER, 0);
+	CHECK(g_clicks == 4);
+	Rwidget_set_visibility(open, R_VISIBLE);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	CHECK(!Rwindow_has_popup(g_window));
+
 	/* the shortcut of a menu item works without opening the menu, and toggles the check */
 	test_key(g_window, R_KEY_G, R_MOD_CTRL);
 	CHECK(g_clicks == 5 && g_last_id == grid_item);
