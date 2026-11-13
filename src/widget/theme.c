@@ -428,7 +428,13 @@ static rvn_style_rule_t* rvn_theme_part_rule(rvn_theme_t* theme, const char* wid
 	for (i = 0; i < theme->rule_count; i++) {
 		rule = &theme->rules[i];
 		if (rule->type != type || rule->part != part || rule->states != states) continue;
-		if ((!cls && !rule->cls) || (cls && rule->cls && strcmp(cls, rule->cls) == 0)) return rule;
+		if ((!cls && !rule->cls) || (cls && rule->cls && strcmp(cls, rule->cls) == 0)) {
+			/* (set again, it is the last one set: it goes to the end, where it wins over its equals) */
+			rvn_style_rule_t moved = *rule;
+			memmove(rule, rule + 1, sizeof(*rule) * (theme->rule_count - i - 1));
+			theme->rules[theme->rule_count - 1] = moved;
+			return &theme->rules[theme->rule_count - 1];
+		}
 	}
 	RVN_ARRAY_RESERVE(theme->rules, theme->rule_cap, theme->rule_count + 1);
 	rule = &theme->rules[theme->rule_count++];
