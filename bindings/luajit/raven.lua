@@ -1209,6 +1209,7 @@ void Rwindow_set_continuous_redraw(Rid window, int enabled);
 void Rwindow_set_close_callback(Rid window, RWindowCloseCallback callback, void* user_data);
 void Rwindow_set_resize_callback(Rid window, RWindowResizeCallback callback, void* user_data);
 void Rwindow_set_drop_callback(Rid window, RDropCallback callback, void* user_data);
+void Rdrop_set_highlight_rect(float x, float y, float width, float height);
 void Rwindow_set_user_handle(Rid window, void* handle);
 void* Rwindow_get_user_handle(Rid window);
 int Rwindow_get_native_handle(Rid window, RNativeWindow* native);

@@ -7050,6 +7050,25 @@ public final class R {
         Rwindow_set_drop_callback(window, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rdrop_set_highlight_rect$;
+
+    /**
+     * During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+     * in target-local logical units (window-local for a window callback).
+     * Clipped to the target; zero width or height hides it without refusing
+     * the drop. Each callback starts with the default highlight again.
+     * Dimensions must be finite and nonnegative; coordinates must be finite.
+     */
+    public static void Rdrop_set_highlight_rect(float x, float y, float width, float height) {
+        MethodHandle $h = Rdrop_set_highlight_rect$;
+        if ($h == null) Rdrop_set_highlight_rect$ = $h = find("Rdrop_set_highlight_rect", FunctionDescriptor.ofVoid(JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(x, y, width, height);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_set_user_handle$;
 
     public static void Rwindow_set_user_handle(int window, MemorySegment handle) {

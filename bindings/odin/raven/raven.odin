@@ -2086,6 +2086,12 @@ foreign lib {
 	// Takes what is dropped on the window from other applications,
 	// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 	Rwindow_set_drop_callback :: proc(window: Rid, callback: RDropCallback, user_data: rawptr) ---
+	// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+	// in target-local logical units (window-local for a window callback).
+	// Clipped to the target; zero width or height hides it without refusing
+	// the drop. Each callback starts with the default highlight again.
+	// Dimensions must be finite and nonnegative; coordinates must be finite.
+	Rdrop_set_highlight_rect :: proc(x: f32, y: f32, width: f32, height: f32) ---
 	Rwindow_set_user_handle :: proc(window: Rid, handle: rawptr) ---
 	Rwindow_get_user_handle :: proc(window: Rid) -> rawptr ---
 	// Fills `native` with the OS handles of the window.

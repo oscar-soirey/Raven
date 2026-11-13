@@ -840,6 +840,8 @@ struct rvn_window_t {
 	int drop_accepted;
 	/** Highlight of the target: where it is and how much of it shows. */
 	rvn_rect_t drop_rect;
+	int drop_custom;
+	rvn_rect_t drop_custom_rect;
 	float drop_radius;
 	RSpring drop_shown;
 

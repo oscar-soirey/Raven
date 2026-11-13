@@ -869,6 +869,7 @@ static void rvn_window_paint_drop(rvn_window_t* window, RPainter* painter) {
 	rvn_rect_t rect = window->drop_rect;
 	float shown, opacity, grow;
 
+	if (rect.w <= 0.0f || rect.h <= 0.0f) return;
 	if (!window->drop_accepted && !window->drop_shown.started) return;
 	shown = rvn_paint_spring_from(painter, &window->drop_shown, window->drop_accepted ? 1.0f : 0.0f,
 		window->drop_accepted ? R_MOTION_BOUNCY : R_MOTION_SNAPPY);
@@ -1256,6 +1257,36 @@ static int rvn_window_press_region(rvn_window_t* window, float x, float y) {
  *  Drag and drop from other applications
  * ------------------------------------------------------------------------- */
 
+/* A stack context prevents a nested drop callback from modifying another target's highlight. */
+typedef struct rvn_drop_context_t {
+	RDropPhase phase;
+	rvn_rect_t bounds;
+	rvn_rect_t rect;
+	int custom;
+} rvn_drop_context_t;
+
+static rvn_drop_context_t* g_drop_context;
+
+void Rdrop_set_highlight_rect(float x, float y, float width, float height) {
+	float left, top, right, bottom;
+	RVN_API_GUARD_VOID();
+	if (!g_drop_context || (g_drop_context->phase != R_DROP_ENTER && g_drop_context->phase != R_DROP_MOVE)) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rdrop_set_highlight_rect: only during drop enter/move");
+		return;
+	}
+	if (!isfinite(x) || !isfinite(y) || !isfinite(width) || !isfinite(height) || width < 0.0f || height < 0.0f) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rdrop_set_highlight_rect: invalid rectangle");
+		return;
+	}
+	left = rvn_clampf(x, 0.0f, g_drop_context->bounds.w);
+	top = rvn_clampf(y, 0.0f, g_drop_context->bounds.h);
+	right = rvn_clampf(x + width, 0.0f, g_drop_context->bounds.w);
+	bottom = rvn_clampf(y + height, 0.0f, g_drop_context->bounds.h);
+	g_drop_context->rect = rvn_rect(g_drop_context->bounds.x + left, g_drop_context->bounds.y + top,
+		rvn_maxf(right - left, 0.0f), rvn_maxf(bottom - top, 0.0f));
+	g_drop_context->custom = R_TRUE;
+}
+
 static int rvn_window_drop_send(rvn_window_t* window, RDropPhase phase, float x, float y,
 	const char* const* paths, int path_count, const char* text) {
 
@@ -1264,6 +1295,10 @@ static int rvn_window_drop_send(rvn_window_t* window, RDropPhase phase, float x,
 	void* user;
 	Rid target;
 	int result;
+	rvn_drop_context_t context;
+	rvn_drop_context_t* previous = g_drop_context;
+	memset(&context, 0, sizeof(context));
+	context.phase = phase;
 
 	memset(&event, 0, sizeof(event));
 	event.phase = phase;
@@ -1282,10 +1317,13 @@ static int rvn_window_drop_send(rvn_window_t* window, RDropPhase phase, float x,
 		rvn_vec2_t origin = rvn_widget_origin(window->drop_target);
 		event.local_x = x - origin.x;
 		event.local_y = y - origin.y;
+		context.bounds = rvn_rect(origin.x, origin.y, window->drop_target->rect.w, window->drop_target->rect.h);
 		callback = window->drop_target->drop_callback;
 		user = window->drop_target->drop_user;
 		target = window->drop_target->id;
 	} else if (window->drop_on_window) {
+		rvn_vec2_t size = rvn_window_size(window);
+		context.bounds = rvn_rect(0, 0, size.x, size.y);
 		callback = window->drop_callback;
 		user = window->drop_user;
 		target = window->id;
@@ -1294,7 +1332,13 @@ static int rvn_window_drop_send(rvn_window_t* window, RDropPhase phase, float x,
 	}
 	if (!callback) return R_FALSE;
 	rvn_dispatch_begin();
+	g_drop_context = &context;
 	result = callback(target, &event, user) != 0;
+	g_drop_context = previous;
+	if (phase == R_DROP_ENTER || phase == R_DROP_MOVE) {
+		window->drop_custom = context.custom;
+		window->drop_custom_rect = context.rect;
+	}
 	rvn_dispatch_end();
 	return result;
 }
@@ -1303,6 +1347,7 @@ static void rvn_window_drop_clear(rvn_window_t* window) {
 	window->drop_target = NULL;
 	window->drop_on_window = R_FALSE;
 	window->drop_accepted = R_FALSE;
+	window->drop_custom = R_FALSE;
 	window->needs_paint = R_TRUE;
 }
 
@@ -1348,6 +1393,11 @@ static int rvn_window_drag(rvn_window_t* window, float x, float y, int inside) {
 			rvn_vec2_t size = rvn_window_size(window);
 			window->drop_rect = rvn_rect(8.0f, 8.0f, rvn_maxf(size.x - 16.0f, 0.0f), rvn_maxf(size.y - 16.0f, 0.0f));
 			window->drop_radius = 14.0f;
+		}
+		if (window->drop_custom) {
+			window->drop_rect = window->drop_custom_rect;
+			window->drop_radius = rvn_minf(window->drop_radius,
+				rvn_minf(window->drop_rect.w, window->drop_rect.h) * 0.5f);
 		}
 		/* another target: the highlight lands again */
 		if (old.x != window->drop_rect.x || old.y != window->drop_rect.y || old.w != window->drop_rect.w || old.h != window->drop_rect.h) {

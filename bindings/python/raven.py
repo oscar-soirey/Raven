@@ -3588,6 +3588,19 @@ def Rwindow_set_drop_callback(window, callback, user_data=None):
     _lib.Rwindow_set_drop_callback(window, _callback(RDropCallback, _adapt_RDropCallback, callback), user_data)
 
 
+_lib.Rdrop_set_highlight_rect.argtypes = [ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rdrop_set_highlight_rect.restype = None
+
+
+def Rdrop_set_highlight_rect(x, y, width, height):
+    """During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+    in target-local logical units (window-local for a window callback).
+    Clipped to the target; zero width or height hides it without refusing
+    the drop. Each callback starts with the default highlight again.
+    Dimensions must be finite and nonnegative; coordinates must be finite."""
+    _lib.Rdrop_set_highlight_rect(x, y, width, height)
+
+
 _lib.Rwindow_set_user_handle.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
 _lib.Rwindow_set_user_handle.restype = None
 

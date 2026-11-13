@@ -2626,6 +2626,13 @@ inline void set_device_reset_callback(std::function<void()> callback) {
 	Rset_device_reset_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 50, std::move(callback)));
 }
 
+/// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+/// in target-local logical units (window-local for a window callback).
+/// Clipped to the target; zero width or height hides it without refusing
+/// the drop. Each callback starts with the default highlight again.
+/// Dimensions must be finite and nonnegative; coordinates must be finite.
+inline void drop_set_highlight_rect(float x, float y, float width, float height) { Rdrop_set_highlight_rect(x, y, width, height); }
+
 /// Starts dragging `data` from `source` (call it while a mouse button
 /// is held, typically from a mouse-move event once the pointer has moved
 /// a few units). Until the button is released, the widgets with a drop

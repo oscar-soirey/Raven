@@ -1592,6 +1592,14 @@ func WindowSetContinuousRedraw(window ID, enabled int) {
 	C.Rwindow_set_continuous_redraw(C.Rid(window), C.int(enabled))
 }
 
+// DropSetHighlightRect: During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight in target-local
+// logical units (window-local for a window callback). Clipped to the target; zero width or height hides it
+// without refusing the drop. Each callback starts with the default highlight again. Dimensions must be finite
+// and nonnegative; coordinates must be finite.
+func DropSetHighlightRect(x float32, y float32, width float32, height float32) {
+	C.Rdrop_set_highlight_rect(C.float(x), C.float(y), C.float(width), C.float(height))
+}
+
 // WindowGetFocusedWidget: Widget that has the keyboard focus in the window, or R_INVALID_ID.
 func WindowGetFocusedWidget(window ID) ID {
 	return ID(C.Rwindow_get_focused_widget(C.Rid(window)))
