@@ -165,6 +165,43 @@ static void test_checkbox_and_radio(void) {
 	CHECK(Rcheckbox_is_checked(radio_b));
 }
 
+/* A changed callback of a radio box rebuilds its group (issue #122). */
+static Rid g_radio_group;
+static int g_radio_rebuilds;
+
+static void build_radio_group(int selected);
+
+static void rebuild_radio_group(Rid radio, int checked, void* user_data) {
+	(void)radio;
+	g_radio_rebuilds++;
+	build_radio_group(checked ? (int)(intptr_t)user_data : 0);
+}
+
+static void build_radio_group(int selected) {
+	int i;
+	Rwidget_clear_children(g_radio_group);
+	for (i = 0; i < 2; i++) {
+		Rid radio = Rwidget_add_child(g_radio_group, Rcheckbox_create(i ? "B" : "A"));
+		Rcheckbox_set_style(radio, R_CHECKBOX_RADIO);
+		Rcheckbox_set_checked(radio, i == selected);
+		Rcheckbox_set_changed_callback(radio, rebuild_radio_group, (void*)(intptr_t)i);
+	}
+}
+
+static void test_radio_rebuild_in_callback(void) {
+	Rid radio_a;
+	g_radio_group = column();
+	build_radio_group(1);
+	radio_a = Rwidget_get_child(g_radio_group, 0);
+	g_radio_rebuilds = 0;
+	/* B is unchecked and rebuilds the group: A, deleted, is not called back */
+	test_click(g_window, radio_a);
+	CHECK(g_radio_rebuilds == 1);
+	CHECK(!Rwidget_is_valid(radio_a));
+	CHECK(Rwidget_get_child_count(g_radio_group) == 2);
+	Rdraw_frame();
+}
+
 static void test_slider_and_spin_box(void) {
 	Rid box = column();
 	Rid slider = Rwidget_add_child(box, Rwidget_create(R_WIDGET_SLIDER));
@@ -264,6 +301,28 @@ static void test_text_input(void) {
 	Rwindow_inject_text(g_window, "abcdef");
 	CHECK_STR(Rtext_input_get_text(input), "abc");
 	Rtext_input_set_max_length(input, 0);
+
+	/* deleting the selection changes the text even when nothing takes its place */
+	Rtext_input_set_text(input, "abcdef");
+	Rtext_input_set_max_length(input, 3);
+	test_key(g_window, R_KEY_END, 0);
+	test_key(g_window, R_KEY_LEFT, R_MOD_SHIFT);
+	g_clicks = 0;
+	Rwindow_inject_text(g_window, "x");
+	CHECK_STR(Rtext_input_get_text(input), "abcde");
+	CHECK(g_clicks == 1);
+	CHECK_STR(g_last_text, "abcde");
+	Rtext_input_set_max_length(input, 0);
+	/* a paste whose first line is empty */
+	test_key(g_window, R_KEY_A, R_MOD_CTRL);
+	Rclipboard_set_text("\nsecond line");
+	g_clicks = 0;
+	test_key(g_window, R_KEY_V, R_MOD_CTRL);
+	CHECK_STR(Rtext_input_get_text(input), "");
+	CHECK(g_clicks == 1);
+	CHECK_STR(g_last_text, "");
+
+	Rtext_input_set_text(input, "abc");
 	Rtext_input_set_read_only(input, R_TRUE);
 	Rwindow_inject_text(g_window, "x");
 	test_key(g_window, R_KEY_BACKSPACE, 0);
@@ -376,6 +435,21 @@ static const char* virtual_row(Rid list, int index, void* user_data) {
 	return buffer;
 }
 
+/* row colors: the rows asked; odd rows are colored, the others keep the theme's */
+static int g_row_color_calls, g_row_color_max;
+static int row_color(Rid list, int index, float* r, float* g, float* b, float* a, void* user_data) {
+	(void)list;
+	CHECK(user_data == &g_row_color_calls);
+	g_row_color_calls++;
+	if (index > g_row_color_max) g_row_color_max = index;
+	if (index % 2 == 0) return R_FALSE;
+	*r = 0.80f;
+	*g = 0.65f;
+	*b = 0.0f;
+	*a = 1.0f;
+	return R_TRUE;
+}
+
 static void test_list_and_tree(void) {
 	Rid box = column();
 	Rid list = Rwidget_add_child(box, Rwidget_create(R_WIDGET_LIST_VIEW));
@@ -393,6 +467,17 @@ static void test_list_and_tree(void) {
 	Rwidget_get_rect(list, &x, &y, &w, &h);
 	test_click_at(g_window, x + 20, y + 1 + row * 1.5f);
 	CHECK(Rlist_view_get_selected(list) == 1);
+	/* the color of the rows is asked only for the rows drawn; NULL stops it */
+	g_row_color_calls = 0;
+	g_row_color_max = -1;
+	Rlist_view_set_item_color_callback(list, row_color, &g_row_color_calls);
+	Rdraw_frame();
+	CHECK(g_row_color_calls > 0 && g_row_color_max >= 1 && g_row_color_max < 20);
+	Rlist_view_set_item_color_callback(list, NULL, NULL);
+	g_row_color_calls = 0;
+	Rwidget_invalidate(list);
+	Rdraw_frame();
+	CHECK(g_row_color_calls == 0);
 	test_key(g_window, R_KEY_DOWN, 0);
 	test_key(g_window, R_KEY_DOWN, 0);
 	CHECK(Rlist_view_get_selected(list) == 3);
@@ -437,9 +522,26 @@ static void test_list_and_tree(void) {
 	test_key(g_window, R_KEY_RIGHT, 0);
 	CHECK(Rtree_view_get_selected_item(tree) == child && g_last_id == child);
 
+	/* closing the branch of the selected item (its arrow) moves the selection to the branch, and says so */
+	g_clicks = 0;
+	test_click_at(g_window, x + 9, y + 1 + row * 0.5f);
+	CHECK(!Rtree_item_is_expanded(root));
+	CHECK(Rtree_view_get_selected_item(tree) == root && g_clicks == 1 && g_last_id == root);
+	/* with multiple selection too, and the hidden item is no longer selected */
+	Rtree_view_set_multi_select(tree, R_TRUE);
+	Rtree_view_set_selected_item(tree, child);
+	g_clicks = 0;
+	test_click_at(g_window, x + 9, y + 1 + row * 0.5f);
+	CHECK(Rtree_view_get_selected_item(tree) == root && g_clicks == 1 && g_last_id == root);
+	CHECK(Rtree_item_is_selected(root) && !Rtree_item_is_selected(child));
+	CHECK(Rtree_view_get_selection_count(tree) == 1);
+	Rtree_view_set_multi_select(tree, R_FALSE);
+	Rtree_view_set_selected_item(tree, child);
+
 	/* selecting a hidden item opens the branches above it */
+	g_clicks = 0;
 	Rtree_item_set_expanded(root, R_FALSE);
-	CHECK(Rtree_view_get_selected_item(tree) == root);
+	CHECK(Rtree_view_get_selected_item(tree) == root && g_clicks == 0);
 	Rtree_view_set_selected_item(tree, leaf);
 	CHECK(Rtree_item_is_expanded(root) && Rtree_item_is_expanded(child));
 
@@ -457,6 +559,52 @@ static void on_quit_action(Rid sender, const char* action, void* user_data) {
 	(void)action;
 	(void)user_data;
 	g_quit_actions++;
+}
+
+static void test_shortcut_hints(void) {
+	Rid box = column();
+	Rid bar = Rwidget_add_child(box, Rwidget_create(R_WIDGET_MENU_BAR));
+	Rid file = Rmenu_add_menu(bar, "File");
+	Rid item = Rmenu_add_item(file, "Save");
+	float plain, hinted, restored, h;
+	char hint[] = "G G (in canvas only)";
+	Rmenu_bar_set_native(bar, R_FALSE);
+	Rmenu_item_set_clicked_callback(item, on_menu_item, NULL);
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &plain, &h);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	Rmenu_item_set_shortcut_text(item, hint);
+	hint[0] = 'X'; /* the setter must copy its input */
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &hinted, &h);
+	CHECK(hinted > plain + 30);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	g_clicks = 0;
+	test_key(g_window, R_KEY_G, 0);
+	CHECK(g_clicks == 0);
+	Rmenu_item_set_shortcut(item, R_KEY_S, R_MOD_CTRL);
+	test_key(g_window, R_KEY_S, R_MOD_CTRL);
+	CHECK(g_clicks == 1);
+	/* Attribute order and later binding changes must not discard the hint. */
+	CHECK(Rwidget_set_attribute(item, "ShortcutText", "Shift+Middle (canvas only)"));
+	CHECK(Rwidget_set_attribute(item, "Shortcut", "Ctrl+S"));
+	Rmenu_item_set_shortcut_text(item, "");
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &restored, &h);
+	CHECK_NEAR(restored, plain);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	Rmenu_item_set_shortcut_text(item, NULL);
+	Rmenu_open(file, g_window, 0, 0);
+	Rdraw_frame();
+	Rwidget_get_desired_size(file, &restored, &h);
+	CHECK(restored > plain);
+	CHECK(restored < hinted);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	test_key(g_window, R_KEY_S, R_MOD_CTRL);
+	CHECK(g_clicks == 2);
 }
 
 static void test_menus(void) {
@@ -509,6 +657,20 @@ static void test_menus(void) {
 	test_key(g_window, R_KEY_DOWN, 0);
 	test_key(g_window, R_KEY_ENTER, 0);
 	CHECK(g_clicks == 4 && g_last_id == open);
+
+	/* an entry disabled or hidden while it is highlighted is not triggered by Enter */
+	test_click_at(g_window, 15, bar_h * 0.5f);
+	test_key(g_window, R_KEY_DOWN, 0);
+	Rwidget_set_enabled(open, R_FALSE);
+	test_key(g_window, R_KEY_ENTER, 0);
+	CHECK(g_clicks == 4);
+	Rwidget_set_enabled(open, R_TRUE);
+	Rwidget_set_visibility(open, R_COLLAPSED);
+	test_key(g_window, R_KEY_ENTER, 0);
+	CHECK(g_clicks == 4);
+	Rwidget_set_visibility(open, R_VISIBLE);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+	CHECK(!Rwindow_has_popup(g_window));
 
 	/* the shortcut of a menu item works without opening the menu, and toggles the check */
 	test_key(g_window, R_KEY_G, R_MOD_CTRL);
@@ -608,6 +770,79 @@ static void test_tabs_and_expander(void) {
 	CHECK(g_clicks == 1);
 }
 
+static int g_allow_close;
+
+static int on_tab_close(Rid tab_view, int index, Rid content, void* user_data) {
+	(void)tab_view;
+	(void)index;
+	(void)content;
+	(void)user_data;
+	return g_allow_close;
+}
+
+/* Left edge of the tab `index` of a documents tab view filling the window: found by clicking (closing refused). */
+static float tab_x(Rid tabs, int index) {
+	float px;
+	g_allow_close = R_FALSE;
+	for (px = 1.0f; px < 400.0f; px += 1.0f) {
+		Rtab_view_set_active(tabs, index == 0 ? 1 : 0);
+		test_click_at(g_window, px, 10.0f);
+		if (Rtab_view_get_active(tabs) == index) return px + 2.0f;
+	}
+	return -1.0f;
+}
+
+static void middle_click_at(float x, float y) {
+	g_allow_close = R_TRUE;
+	Rwindow_inject_mouse_move(g_window, x, y);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_MIDDLE, R_TRUE);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_MIDDLE, R_FALSE);
+}
+
+/* Closing tabs tells the application when the active tab changes (issue #128). */
+static void test_tab_close_changed(void) {
+	Rid tabs = Rwidget_create(R_WIDGET_TAB_VIEW);
+	Rid a = Rlabel_create("Document A"), b = Rlabel_create("Document B");
+	Rid c = Rlabel_create("Document C"), d = Rlabel_create("Document D");
+	float x;
+	Rwindow_set_content(g_window, tabs);
+	Rtab_view_set_documents(tabs, R_TRUE);
+	Rtab_view_add_tab(tabs, "A", a);
+	Rtab_view_add_tab(tabs, "B", b);
+	Rtab_view_add_tab(tabs, "C", c);
+	Rtab_view_add_tab(tabs, "D", d);
+	Rtab_view_set_changed_callback(tabs, on_index, NULL);
+	Rtab_view_set_close_callback(tabs, on_tab_close, NULL);
+
+	/* closing a tab after the active one changes nothing */
+	x = tab_x(tabs, 3);
+	Rtab_view_set_active(tabs, 1);
+	g_clicks = 0;
+	middle_click_at(x, 10.0f);
+	CHECK(!Rwidget_is_valid(d));
+	CHECK(Rtab_view_get_active(tabs) == 1 && g_clicks == 0);
+
+	/* closing the active tab shows the next one, as a click on it would */
+	x = tab_x(tabs, 1);
+	Rtab_view_set_active(tabs, 1);
+	g_clicks = 0;
+	g_last_int = -1;
+	middle_click_at(x, 10.0f);
+	CHECK(!Rwidget_is_valid(b));
+	CHECK(Rtab_view_get_tab(tabs, Rtab_view_get_active(tabs)) == c);
+	CHECK(g_clicks == 1 && g_last_int == 1);
+
+	/* closing a tab before the active one moves its index */
+	x = tab_x(tabs, 0);
+	Rtab_view_set_active(tabs, 1);
+	g_clicks = 0;
+	g_last_int = -1;
+	middle_click_at(x, 10.0f);
+	CHECK(!Rwidget_is_valid(a));
+	CHECK(Rtab_view_get_active(tabs) == 0 && Rtab_view_get_tab(tabs, 0) == c);
+	CHECK(g_clicks == 1 && g_last_int == 0);
+}
+
 /* Deleting widgets from their own callbacks must be safe. */
 static void delete_self(Rid button, void* user_data) {
 	(void)user_data;
@@ -671,6 +906,26 @@ static void test_deletion_and_events(void) {
 	Rwidget_set_hit_testable(blocked, R_TRUE);
 	test_click(g_window, blocked);
 	CHECK(g_clicks == 1);
+}
+
+/* A widget inside the content (or the island) can replace it: it is taken out before the old one is destroyed (issue #120). */
+static void test_set_content_descendant(void) {
+	Rid page = column();
+	Rid inner = Rwidget_add_child(page, Rlabel_create("keep me"));
+	Rwindow_set_content(g_window, inner);
+	CHECK(Rwidget_is_valid(inner) && !Rwidget_is_valid(page));
+	CHECK(Rwindow_get_content(g_window) == inner);
+	Rdraw_frame();
+
+	page = Rwidget_create(R_WIDGET_VBOX);
+	inner = Rwidget_add_child(page, Rlabel_create("keep me too"));
+	Rwindow_set_island(g_window, page);
+	Rwindow_set_island(g_window, inner);
+	CHECK(Rwidget_is_valid(inner) && !Rwidget_is_valid(page));
+	CHECK(Rwindow_get_island(g_window) == inner);
+	Rdraw_frame();
+	Rwindow_set_island(g_window, R_INVALID_ID);
+	CHECK(!Rwidget_is_valid(inner));
 }
 
 /* ---------------------------------------------------------------------------
@@ -741,6 +996,58 @@ static void test_destroy_callback_dispatches(void) {
 	CHECK(!Rwindow_is_valid(g_doomed_window));
 	for (i = 0; i < 4; i++) CHECK(!Rwidget_is_valid(g_doomed[i]));
 	g_doomed_window = R_INVALID_ID;
+	Rdraw_frame();
+}
+
+/* ---------------------------------------------------------------------------
+ *  A window closed by an event sent outside of any dispatch (issue #151)
+ * ------------------------------------------------------------------------- */
+
+static Rid g_closing_window;
+static REventType g_closing_on;
+
+static int close_window_on(Rid widget, const REvent* event, void* user_data) {
+	(void)widget;
+	(void)user_data;
+	if (event->type == g_closing_on) Rwindow_destroy(g_closing_window);
+	return R_FALSE;
+}
+
+static void test_window_closed_outside_dispatch(void) {
+	Rid box, a, b, hovered;
+
+	/* the application moves the focus: the widget that loses it closes the window */
+	g_closing_window = Rwindow_create("closing", 400, 300, R_WINDOW_DEFAULT);
+	box = Rwidget_create(R_WIDGET_VBOX);
+	a = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	b = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rwindow_set_content(g_closing_window, box);
+	Rwindow_show(g_closing_window);
+	Rdraw_frame();
+	Rwidget_focus(a);
+	CHECK(Rwidget_is_focused(a));
+	g_closing_on = R_EVENT_FOCUS_LOST;
+	Rwidget_set_event_callback(a, close_window_on, NULL);
+	Rwidget_focus(b);
+	CHECK(!Rwindow_is_valid(g_closing_window) && !Rwidget_is_valid(b));
+	Rdraw_frame();
+
+	/* a layout moves the widget under a resting pointer away: the one it leaves closes the window */
+	g_closing_window = Rwindow_create("closing", 400, 300, R_WINDOW_DEFAULT);
+	box = Rwidget_create(R_WIDGET_VBOX);
+	hovered = Rwidget_add_child(box, Rbutton_create("hovered"));
+	Rwidget_add_child(box, Rbutton_create("below"));
+	Rwindow_set_content(g_closing_window, box);
+	Rwindow_show(g_closing_window);
+	Rdraw_frame();
+	Rwindow_inject_mouse_move(g_closing_window, 20.0f, 8.0f);
+	Rdraw_frame();
+	CHECK(Rwidget_is_hovered(hovered));
+	g_closing_on = R_EVENT_MOUSE_LEAVE;
+	Rwidget_set_event_callback(hovered, close_window_on, NULL);
+	Rwidget_insert_child(box, Rbutton_create("inserted"), 0);
+	Rdraw_frame();
+	CHECK(!Rwindow_is_valid(g_closing_window) && !Rwidget_is_valid(hovered));
 	Rdraw_frame();
 }
 
@@ -831,6 +1138,8 @@ static void test_selectable_label(void) {
 	Rid after = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
 	Rid plain = Rwidget_add_child(box, Rlabel_create("Not selectable"));
 	float x, y, w, h;
+	const char* selected;
+	size_t length;
 	Rslot_set_halign(label, R_HALIGN_LEFT);
 	Rslot_set_halign(lines, R_HALIGN_LEFT);
 	Rlabel_set_markdown(md, R_TRUE);
@@ -861,8 +1170,11 @@ static void test_selectable_label(void) {
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
 	Rwindow_inject_mouse_move(g_window, x + w * 0.25f, y + h * 0.5f);
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
-	CHECK(strlen(Rlabel_get_selected_text(label)) > 0 && strlen(Rlabel_get_selected_text(label)) < 9);
-	CHECK(strncmp(Rlabel_get_selected_text(label), "Hello", strlen(Rlabel_get_selected_text(label))) == 0);
+	/* (one call: the text is valid until the next one) */
+	selected = Rlabel_get_selected_text(label);
+	length = strlen(selected);
+	CHECK(length > 0 && length < 9);
+	CHECK(strncmp(selected, "Hello", length) == 0);
 	Rwindow_inject_key(g_window, R_KEY_LEFT_SHIFT, R_TRUE, R_MOD_SHIFT);
 	Rwindow_inject_mouse_move(g_window, x + w - 0.5f, y + h * 0.5f);
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
@@ -1035,6 +1347,7 @@ int main(void) {
 
 	RUN(test_button);
 	RUN(test_checkbox_and_radio);
+	RUN(test_radio_rebuild_in_callback);
 	RUN(test_slider_and_spin_box);
 	RUN(test_text_input);
 	RUN(test_selectable_label);
@@ -1042,9 +1355,13 @@ int main(void) {
 	RUN(test_highlight_follows_pointer);
 	RUN(test_list_and_tree);
 	RUN(test_menus);
+	RUN(test_shortcut_hints);
 	RUN(test_tabs_and_expander);
+	RUN(test_tab_close_changed);
 	RUN(test_deletion_and_events);
+	RUN(test_set_content_descendant);
 	RUN(test_destroy_callback_dispatches);
+	RUN(test_window_closed_outside_dispatch);
 	RUN(test_timers_theme_and_attributes);
 	RUN(test_device_lost);
 

@@ -125,6 +125,52 @@ jobs:
         run: ctest --test-dir build -R '^binding_odin' --no-tests=error --output-on-failure --timeout 300
 
   # ---------------------------------------------------------------------------
+  #  D (Linux): the dub package of bindings/d, with the shared library
+  # ---------------------------------------------------------------------------
+  dlang:
+    name: d (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build
+
+      - name: LDC and dub
+        uses: dlang-community/setup-dlang@v2
+        with:
+          compiler: ldc-latest
+
+      - name: Configure
+        run: |
+          ldc2 --version | head -n 1
+          dub --version
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DRAVEN_BUILD_SHARED=ON \
+            -DRAVEN_BUILD_TESTS=ON \
+            -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_BUILD_TOOLS=OFF \
+            -DRAVEN_WARNINGS_AS_ERRORS=OFF \
+            -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+
+      - name: Build
+        run: cmake --build build --parallel --target raven
+
+      # --no-tests=error: without dub the test does not exist, which must not pass
+      - name: Test
+        run: ctest --test-dir build -R '^binding_d$' --no-tests=error --output-on-failure --timeout 600
+
+  # ---------------------------------------------------------------------------
   #  Linux, macOS, Windows (Visual C++)
   # ---------------------------------------------------------------------------
   build:
@@ -204,6 +250,19 @@ jobs:
             ${{ env.PACKAGE }}.zip
             ${{ env.PACKAGE }}.tar.gz
           if-no-files-found: error
+
+  # The native Win32 backdrop regression needs DWM and a real window, but no GPU renderer.
+  windows-backdrop:
+    name: backdrop (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BUILD_WEB=OFF -DRAVEN_BUILD_TESTS=ON -DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TOOLS=OFF
+      - name: Build
+        run: cmake --build build --config Release --target test_win32_backdrop --parallel
+      - name: Test native backdrop surface
+        run: ctest --test-dir build -C Release -R '^test_win32_backdrop$' --no-tests=error --output-on-failure --timeout 60
 
   # ---------------------------------------------------------------------------
   #  Windows (MinGW-w64, through MSYS2)
