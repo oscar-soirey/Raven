@@ -2096,7 +2096,8 @@ struct ShaderLook
 	 How much the pointer is over it and how much it is pressed, 0..1, as
 	 the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
 	 the pointer is in the rectangle, and while the left button is down
-	 there; a Border eases them itself.
+	 there; a Border eases them itself. The rectangle is clipped to the
+	 visible painting area; overlaid siblings do not interrupt its hover.
 	*>
 	float hover;
 	float press;
