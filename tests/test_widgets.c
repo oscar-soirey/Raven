@@ -264,6 +264,28 @@ static void test_text_input(void) {
 	Rwindow_inject_text(g_window, "abcdef");
 	CHECK_STR(Rtext_input_get_text(input), "abc");
 	Rtext_input_set_max_length(input, 0);
+
+	/* deleting the selection changes the text even when nothing takes its place */
+	Rtext_input_set_text(input, "abcdef");
+	Rtext_input_set_max_length(input, 3);
+	test_key(g_window, R_KEY_END, 0);
+	test_key(g_window, R_KEY_LEFT, R_MOD_SHIFT);
+	g_clicks = 0;
+	Rwindow_inject_text(g_window, "x");
+	CHECK_STR(Rtext_input_get_text(input), "abcde");
+	CHECK(g_clicks == 1);
+	CHECK_STR(g_last_text, "abcde");
+	Rtext_input_set_max_length(input, 0);
+	/* a paste whose first line is empty */
+	test_key(g_window, R_KEY_A, R_MOD_CTRL);
+	Rclipboard_set_text("\nsecond line");
+	g_clicks = 0;
+	test_key(g_window, R_KEY_V, R_MOD_CTRL);
+	CHECK_STR(Rtext_input_get_text(input), "");
+	CHECK(g_clicks == 1);
+	CHECK_STR(g_last_text, "");
+
+	Rtext_input_set_text(input, "abc");
 	Rtext_input_set_read_only(input, R_TRUE);
 	Rwindow_inject_text(g_window, "x");
 	test_key(g_window, R_KEY_BACKSPACE, 0);
