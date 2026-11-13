@@ -22,7 +22,7 @@ Rid rvn_pool_add(rvn_pool_t* pool, void* object) {
 		index = pool->free_list[--pool->free_count];
 	} else {
 		if (pool->used > RVN_HANDLE_MAX_INDEX) {
-			rvn_error(R_ERROR_OUT_OF_MEMORY, R_SEVERITY_ERROR, "too many live objects of one type");
+			rvn_error(R_ERROR_OUT_OF_MEMORY, R_SEVERITY_ERROR, "handle pool exhausted (live or retired slots)");
 			return R_INVALID_ID;
 		}
 		if (pool->used == pool->cap) {
@@ -53,9 +53,11 @@ void rvn_pool_remove(rvn_pool_t* pool, Rid id) {
 	if (!rvn_pool_get(pool, id)) return;
 	pool->items[index] = NULL;
 	pool->generations[index]++;
+	pool->live--;
+	/* Retire the slot on wrap: no (index, generation) pair may be issued twice. */
+	if (pool->generations[index] == 0) return;
 	RVN_ARRAY_RESERVE(pool->free_list, pool->free_cap, pool->free_count + 1);
 	pool->free_list[pool->free_count++] = index;
-	pool->live--;
 }
 
 void* rvn_pool_at(const rvn_pool_t* pool, uint32_t index) {
