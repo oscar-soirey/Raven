@@ -121,6 +121,20 @@ static void test_styles(void) {
 	Rwidget_set_attribute(plain, "Class", "danger");
 	CHECK(color_of(plain, R_COLOR_ACCENT) == 0x0000FFFFu);
 
+	/* between equals, the last one set wins, also when it had been set before (#119) */
+	{
+		Rid order = Rbutton_create("Order");
+		Rwidget_set_class(order, "first second");
+		Rtheme_set_style_color(NULL, "first", R_COLOR_ACCENT, 1.0f, 0.0f, 0.0f, 1.0f);
+		Rtheme_set_style_color(NULL, "second", R_COLOR_ACCENT, 0.0f, 0.0f, 1.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x0000FFFFu);
+		Rtheme_set_style_color(NULL, "first", R_COLOR_ACCENT, 0.0f, 1.0f, 0.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x00FF00FFu);
+		Rtheme_set_style_color(NULL, "second", R_COLOR_ACCENT, 0.0f, 0.0f, 1.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x0000FFFFu);
+		Rwidget_destroy(order);
+	}
+
 	Rtheme_clear_styles();
 	CHECK(color_of(danger, R_COLOR_ACCENT) == accent);
 	CHECK_NEAR(Rwidget_get_metric(plain, R_METRIC_CONTROL_HEIGHT), height);
@@ -340,6 +354,19 @@ static void test_theme_files(void) {
 	CHECK(Rtheme_load("/no/such/folder/theme.xml") == NULL);
 	EXPECT_ERRORS_END(4);
 
+	/* between equals, the last one written wins, also when its selector was written before (#119) */
+	name = Rtheme_load_from_memory(
+		"<Theme Name=\"Order\" Look=\"RavenDark\">"
+		"<Style Class=\"danger\" Accent=\"#FF0000\"/>"
+		"<Style Class=\"big\" Accent=\"#0000FF\"/>"
+		"<Style Class=\"danger\" Accent=\"#00FF00\"/>"
+		"</Theme>", 0);
+	CHECK_STR(name, "Order");
+	CHECK(Rtheme_use("Order"));
+	Rwidget_set_class(b, "danger big");
+	CHECK(color_of(b, R_COLOR_ACCENT) == 0x00FF00FFu);
+	Rwidget_set_class(b, "danger");
+
 	Rtheme_apply(R_THEME_DARK);
 	Rwindow_destroy(window);
 }
@@ -545,6 +572,41 @@ static void test_live_reload(void) {
 	remove(path);
 	remove(part);
 	remove(library);
+
+	/* a widget moved into a window of another theme takes the styles of that theme (#117) */
+	{
+		const char* app_xml =
+			"<Theme Name=\"MoveApp\" Look=\"RavenDark\">"
+			"<Style Widget=\"Button\" Accent=\"#FF0000\"/>"
+			"<Style Widget=\"Button\" State=\"Hovered\" Background=\"#00FF00\"/>"
+			"<Style Widget=\"Button\" State=\"Pressed\" Background=\"#0000FF\"/>"
+			"<Style Widget=\"Button\" State=\"Focused\" Background=\"#00FFFF\"/>"
+			"<Style Widget=\"Button\" Background=\"#FF00FF\"/>"
+			"</Theme>";
+		const char* plain_xml = "<Theme Name=\"MovePlain\" Look=\"RavenLight\"><Style Widget=\"Label\" FontSize=\"20\"/></Theme>";
+		const char* a_xml = "<Window Width=\"300\" Height=\"200\"><VBox><Button Name=\"b\" Text=\"Hello\"/></VBox></Window>";
+		const char* b_xml = "<Window Width=\"300\" Height=\"200\" Theme=\"MovePlain\"><VBox Name=\"box\"/></Window>";
+		Rid a, b, button, fresh;
+
+		CHECK(Rtheme_load_from_memory(app_xml, 0) != NULL);
+		CHECK(Rtheme_use("MoveApp"));
+		CHECK(Rtheme_load_from_memory(plain_xml, 0) != NULL);
+		a = Rwindow_create_from_xml(a_xml, strlen(a_xml));
+		b = Rwindow_create_from_xml(b_xml, strlen(b_xml));
+		button = Rwidget_find(a, "b");
+		Rdraw_frame();
+		CHECK(color_of(button, R_COLOR_ACCENT) == 0xFF0000FFu);
+		Rwidget_add_child(Rwidget_find(b, "box"), button);
+		fresh = Rbutton_create("Fresh");
+		Rwidget_add_child(Rwidget_find(b, "box"), fresh);
+		CHECK(color_of(fresh, R_COLOR_ACCENT) != 0xFF0000FFu);
+		CHECK(color_of(button, R_COLOR_ACCENT) == color_of(fresh, R_COLOR_ACCENT));
+		/* (painted with the rules of its new theme, not with indices into those of the old one) */
+		Rdraw_frame();
+		Rwindow_destroy(a);
+		Rwindow_destroy(b);
+		Rtheme_apply(R_THEME_DARK);
+	}
 }
 
 /* ---------------------------------------------------------------------------
@@ -721,6 +783,32 @@ static void test_looks(void) {
 	Rlook_set(R_LOOK_RAVEN_DARK);
 	CHECK(Rtheme_get_font() == Rfont_get_default());
 	CHECK_STR(Rtheme_get_name(), "Dark");
+
+	/* what stays dark (the island) keeps the styles of a light theme too (#118) */
+	{
+		static const char* const themes[] = {
+			"<Theme Name=\"IslandDark\" Look=\"RavenDark\"><Style Class=\"danger\" Accent=\"#E02424\"/></Theme>",
+			"<Theme Name=\"IslandLight\" Look=\"RavenLight\"><Style Class=\"danger\" Accent=\"#E02424\"/></Theme>"
+		};
+		const char* island_xml =
+			"<Window Width=\"400\" Height=\"300\">"
+			"<Island><Button Name=\"in\" Class=\"danger\" Text=\"x\"/><Button Class=\"danger\" Text=\"Delete\"/></Island>"
+			"<VBox><Button Name=\"out\" Class=\"danger\" Text=\"Delete\"/></VBox></Window>";
+		size_t k;
+		for (k = 0; k < sizeof(themes) / sizeof(themes[0]); k++) {
+			Rid island_window;
+			name = Rtheme_load_from_memory(themes[k], 0);
+			CHECK(name != NULL);
+			CHECK(Rtheme_use(name));
+			CHECK(Rtheme_is_dark() == (k == 0));
+			island_window = Rwindow_create_from_xml(island_xml, strlen(island_xml));
+			Rdraw_frame();
+			CHECK(color_of(Rwidget_find(island_window, "out"), R_COLOR_ACCENT) == 0xE02424FFu);
+			CHECK(color_of(Rwidget_find(island_window, "in"), R_COLOR_ACCENT) == 0xE02424FFu);
+			Rwindow_destroy(island_window);
+		}
+		Rtheme_apply(R_THEME_DARK);
+	}
 }
 
 /* Captures of what is behind glass in the last frame of a window: 0 when nothing in it is glass. */
