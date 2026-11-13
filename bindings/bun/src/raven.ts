@@ -1054,6 +1054,11 @@ const _symbols = {
 	Rnode_graph_set_pin_tag: { args: ["u32", "i32", "ptr"], returns: "void" },
 	Rnode_graph_set_link_hidden: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_set_pin_emphasis: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_get_tag_at: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rnode_graph_set_pin_tag_lit: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_set_pin_label_width: { args: ["u32", "f32"], returns: "void" },
+	Rnode_graph_get_pin_label_width: { args: ["u32"], returns: "f32" },
+	Rnode_graph_set_node_badge_color: { args: ["u32", "i32", "f32", "f32", "f32"], returns: "void" },
 	Rblock_editor_create: { args: [], returns: "u32" },
 	Rblock_editor_add_kind: { args: ["u32", "ptr", "ptr", "i32", "ptr"], returns: "i32" },
 	Rblock_editor_set_category_color: { args: ["u32", "ptr", "f32", "f32", "f32"], returns: "void" },
@@ -11509,6 +11514,37 @@ export function Rnode_graph_set_link_hidden(graph: Rid, link: number, hidden: nu
  */
 export function Rnode_graph_set_pin_emphasis(graph: Rid, pin: number, emphasis: number): void {
 	_lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis);
+}
+
+/** The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. */
+export function Rnode_graph_get_tag_at(graph: Rid, x: number, y: number): number {
+	return _lib.Rnode_graph_get_tag_at(graph, x, y);
+}
+
+/**
+ * R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ * thicker edge) — every tag of one net lit while the pointer is on one of them.
+ */
+export function Rnode_graph_set_pin_tag_lit(graph: Rid, pin: number, lit: number): void {
+	_lib.Rnode_graph_set_pin_tag_lit(graph, pin, lit);
+}
+
+/**
+ * Pin labels wider than `width` (logical units) are cut short with an
+ * ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ * default, shows every label whole.
+ */
+export function Rnode_graph_set_pin_label_width(graph: Rid, width: number): void {
+	_lib.Rnode_graph_set_pin_label_width(graph, width);
+}
+
+export function Rnode_graph_get_pin_label_width(graph: Rid): number {
+	return _lib.Rnode_graph_get_pin_label_width(graph);
+}
+
+/** Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. */
+export function Rnode_graph_set_node_badge_color(graph: Rid, node: number, r: number, g: number, b: number): void {
+	_lib.Rnode_graph_set_node_badge_color(graph, node, r, g, b);
 }
 
 export function Rblock_editor_create(): Rid {

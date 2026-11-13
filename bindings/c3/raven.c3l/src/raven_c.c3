@@ -5011,6 +5011,27 @@ extern fn void r_node_graph_set_link_hidden(Rid graph, CInt link, CInt hidden) @
 *>
 extern fn void r_node_graph_set_pin_emphasis(Rid graph, CInt pin, CInt emphasis) @cname("Rnode_graph_set_pin_emphasis");
 
+<* The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. *>
+extern fn CInt r_node_graph_get_tag_at(Rid graph, float x, float y) @cname("Rnode_graph_get_tag_at");
+
+<*
+ R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ thicker edge) — every tag of one net lit while the pointer is on one of them.
+*>
+extern fn void r_node_graph_set_pin_tag_lit(Rid graph, CInt pin, CInt lit) @cname("Rnode_graph_set_pin_tag_lit");
+
+<*
+ Pin labels wider than `width` (logical units) are cut short with an
+ ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ default, shows every label whole.
+*>
+extern fn void r_node_graph_set_pin_label_width(Rid graph, float width) @cname("Rnode_graph_set_pin_label_width");
+
+extern fn float r_node_graph_get_pin_label_width(Rid graph) @cname("Rnode_graph_get_pin_label_width");
+
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+extern fn void r_node_graph_set_node_badge_color(Rid graph, CInt node, float r, float g, float b) @cname("Rnode_graph_set_node_badge_color");
+
 extern fn Rid r_block_editor_create() @cname("Rblock_editor_create");
 
 <* A kind of block, and its block in the palette. Returns its index, -1 on an error. *>

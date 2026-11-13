@@ -7996,6 +7996,36 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_set_pin_emphasis(uint graph, int pin, int emphasis);
 
+        /// <summary>
+        /// The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_get_tag_at(uint graph, float x, float y);
+
+        /// <summary>
+        /// R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+        /// thicker edge) — every tag of one net lit while the pointer is on one of them.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_pin_tag_lit(uint graph, int pin, int lit);
+
+        /// <summary>
+        /// Pin labels wider than `width` (logical units) are cut short with an
+        /// ellipsis and the nodes are laid out with them so (compact ports); 0, the
+        /// default, shows every label whole.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_pin_label_width(uint graph, float width);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rnode_graph_get_pin_label_width(uint graph);
+
+        /// <summary>
+        /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_node_badge_color(uint graph, int node, float r, float g, float b);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rblock_editor_create();
 

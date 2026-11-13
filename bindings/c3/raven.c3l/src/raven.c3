@@ -4176,6 +4176,27 @@ fn void NodeGraph.set_link_hidden(self, CInt link, CInt hidden) @inline => c::r_
 *>
 fn void NodeGraph.set_pin_emphasis(self, CInt pin, CInt emphasis) @inline => c::r_node_graph_set_pin_emphasis((c::Rid)self, pin, emphasis);
 
+<* The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. *>
+fn CInt NodeGraph.get_tag_at(self, float x, float y) @inline => c::r_node_graph_get_tag_at((c::Rid)self, x, y);
+
+<*
+ R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ thicker edge) — every tag of one net lit while the pointer is on one of them.
+*>
+fn void NodeGraph.set_pin_tag_lit(self, CInt pin, CInt lit) @inline => c::r_node_graph_set_pin_tag_lit((c::Rid)self, pin, lit);
+
+<*
+ Pin labels wider than `width` (logical units) are cut short with an
+ ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ default, shows every label whole.
+*>
+fn void NodeGraph.set_pin_label_width(self, float width) @inline => c::r_node_graph_set_pin_label_width((c::Rid)self, width);
+
+fn float NodeGraph.get_pin_label_width(self) @inline => c::r_node_graph_get_pin_label_width((c::Rid)self);
+
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+fn void NodeGraph.set_node_badge_color(self, CInt node, float r, float g, float b) @inline => c::r_node_graph_set_node_badge_color((c::Rid)self, node, r, g, b);
+
 // ---- TileView
 
 typedef TileView = inline Widget;
