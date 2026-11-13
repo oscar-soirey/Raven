@@ -304,6 +304,10 @@ typedef struct rvn_platform_t {
 	void  (*tray_set_tooltip)(rvn_ptray_t* tray, const char* text);
 	/** The menu the system shows for it (copied); its entries come back as RVN_PEVENT_COMMAND. count 0: none. */
 	void  (*tray_set_menu)(rvn_ptray_t* tray, const rvn_pmenu_t* items, uint32_t count);
+	/** Text beside the icon ("" none). May be NULL: the system shows none. */
+	void  (*tray_set_title)(rvn_ptray_t* tray, const char* text);
+	/** Where the icon is, as window positions are given; R_FALSE (or NULL) when unknown. */
+	int   (*tray_get_rect)(rvn_ptray_t* tray, int* x, int* y, int* width, int* height);
 	void  (*window_center)(rvn_pwindow_t* window);
 	/** Optional (may be NULL). Icon from RGBA8 pixels; NULL rgba restores the default. */
 	void  (*window_set_icon)(rvn_pwindow_t* window, const uint8_t* rgba, int width, int height);

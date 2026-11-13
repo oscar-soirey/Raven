@@ -1348,6 +1348,14 @@ alias RTextEditorZoomCallback = fn void(Rid editor, float zoom, void* user_data)
 *>
 alias RCompletionCallback = fn void(Rid editor, char* prefix, void* user_data);
 <*
+ Called while the pointer moves over the text where no marker
+ is, with the position under it: the text returned (NULL or "" for
+ none) is shown as the tooltip, as a marker's message is (what a name
+ stands for, the value of a variable). The text must stay valid until
+ the next call.
+*>
+alias RTextEditorHoverCallback = fn char*(Rid editor, CInt line, CInt column, void* user_data);
+<*
  Called after each change made by the user (typing, pasting,
  undoing...) or by Rtext_editor_insert_text. The action of the widget
  (OnChanged in XML) fires at the same time.
@@ -4249,6 +4257,20 @@ extern fn void r_text_editor_set_completion_callback(Rid editor, RCompletionCall
 extern fn void r_text_editor_add_completion(Rid editor, char* text, char* detail) @cname("Rtext_editor_add_completion");
 
 <*
+ Adds a proposal that writes another text than the one it shows
+ and is matched on: "Threshold", listed and filtered as such, that
+ writes "Threshold(" when chosen. Only from a completion callback.
+*>
+extern fn void r_text_editor_add_completion_insert(Rid editor, char* text, char* detail, char* insert) @cname("Rtext_editor_add_completion_insert");
+
+<*
+ R_FALSE leaves the words of the language and the names of the
+ text out of the proposals: only the completion callback's are listed
+ (a language server that knows better). On by default.
+*>
+extern fn void r_text_editor_set_completion_words(Rid editor, CInt enabled) @cname("Rtext_editor_set_completion_words");
+
+<*
  R_FALSE stops the editor from closing brackets and quotes and
  from indenting after them. On by default; it only acts with a language.
 *>
@@ -4265,6 +4287,8 @@ extern fn void r_text_editor_add_marker(Rid editor, CInt line, CInt from_column,
 extern fn void r_text_editor_clear_markers(Rid editor) @cname("Rtext_editor_clear_markers");
 
 extern fn CInt r_text_editor_get_marker_count(Rid editor) @cname("Rtext_editor_get_marker_count");
+
+extern fn void r_text_editor_set_hover_callback(Rid editor, RTextEditorHoverCallback callback, void* user_data) @cname("Rtext_editor_set_hover_callback");
 
 <*
  Color of a kind of token in the theme in use, instead of the
@@ -4539,6 +4563,21 @@ extern fn void r_tray_set_menu(Rid tray, Rid menu) @cname("Rtray_set_menu");
  opens it instead.
 *>
 extern fn void r_tray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data) @cname("Rtray_set_clicked_callback");
+
+<*
+ A short text shown beside the icon (macOS menu bar), drawn by the
+ system in its own font and colors; the item widens to fit it. NULL or
+ "": the icon alone. Systems that show no text there ignore it (the
+ tooltip is the place for it).
+*>
+extern fn void r_tray_set_title(Rid tray, char* text) @cname("Rtray_set_title");
+
+<*
+ Where the icon is on the screen, in the units and coordinates of
+ Rwindow_set_position (a window can then open just under it).
+ Returns R_FALSE when the system does not tell (the outputs are then 0).
+*>
+extern fn CInt r_tray_get_rect(Rid tray, CInt* x, CInt* y, CInt* width, CInt* height) @cname("Rtray_get_rect");
 
 extern fn Rid r_color_picker_create() @cname("Rcolor_picker_create");
 
@@ -5043,6 +5082,27 @@ extern fn void r_node_graph_set_link_hidden(Rid graph, CInt link, CInt hidden) @
  to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
 *>
 extern fn void r_node_graph_set_pin_emphasis(Rid graph, CInt pin, CInt emphasis) @cname("Rnode_graph_set_pin_emphasis");
+
+<* The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. *>
+extern fn CInt r_node_graph_get_tag_at(Rid graph, float x, float y) @cname("Rnode_graph_get_tag_at");
+
+<*
+ R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ thicker edge) — every tag of one net lit while the pointer is on one of them.
+*>
+extern fn void r_node_graph_set_pin_tag_lit(Rid graph, CInt pin, CInt lit) @cname("Rnode_graph_set_pin_tag_lit");
+
+<*
+ Pin labels wider than `width` (logical units) are cut short with an
+ ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ default, shows every label whole.
+*>
+extern fn void r_node_graph_set_pin_label_width(Rid graph, float width) @cname("Rnode_graph_set_pin_label_width");
+
+extern fn float r_node_graph_get_pin_label_width(Rid graph) @cname("Rnode_graph_get_pin_label_width");
+
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+extern fn void r_node_graph_set_node_badge_color(Rid graph, CInt node, float r, float g, float b) @cname("Rnode_graph_set_node_badge_color");
 
 extern fn Rid r_block_editor_create() @cname("Rblock_editor_create");
 

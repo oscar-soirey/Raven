@@ -2905,6 +2905,16 @@ namespace Raven
     public delegate void RCompletionCallback(uint editor, IntPtr prefix, IntPtr user_data);
 
     /// <summary>
+    /// Called while the pointer moves over the text where no marker
+    /// is, with the position under it: the text returned (NULL or "" for
+    /// none) is shown as the tooltip, as a marker's message is (what a name
+    /// stands for, the value of a variable). The text must stay valid until
+    /// the next call.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate IntPtr RTextEditorHoverCallback(uint editor, int line, int column, IntPtr user_data);
+
+    /// <summary>
     /// Called after each change made by the user (typing, pasting,
     /// undoing...) or by Rtext_editor_insert_text. The action of the widget
     /// (OnChanged in XML) fires at the same time.
@@ -6794,6 +6804,23 @@ namespace Raven
         public static extern void Rtext_editor_add_completion(uint editor, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string detail);
 
         /// <summary>
+        /// Adds a proposal that writes another text than the one it shows
+        /// and is matched on: "Threshold", listed and filtered as such, that
+        /// writes "Threshold(" when chosen. Only from a completion callback.
+        /// insert What replaces the word being typed; NULL or "" is `text`.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_add_completion_insert(uint editor, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string detail, [MarshalAs(Utf8.Str)] string insert);
+
+        /// <summary>
+        /// R_FALSE leaves the words of the language and the names of the
+        /// text out of the proposals: only the completion callback's are listed
+        /// (a language server that knows better). On by default.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_completion_words(uint editor, int enabled);
+
+        /// <summary>
         /// R_FALSE stops the editor from closing brackets and quotes and
         /// from indenting after them. On by default; it only acts with a language.
         /// </summary>
@@ -6815,6 +6842,9 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtext_editor_get_marker_count(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_hover_callback(uint editor, RTextEditorHoverCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Color of a kind of token in the theme in use, instead of the
@@ -7227,6 +7257,23 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtray_set_clicked_callback(uint tray, RTrayClickedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// A short text shown beside the icon (macOS menu bar), drawn by the
+        /// system in its own font and colors; the item widens to fit it. NULL or
+        /// "": the icon alone. Systems that show no text there ignore it (the
+        /// tooltip is the place for it).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtray_set_title(uint tray, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Where the icon is on the screen, in the units and coordinates of
+        /// Rwindow_set_position (a window can then open just under it).
+        /// Returns: R_FALSE when the system does not tell (the outputs are then 0).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtray_get_rect(uint tray, out int x, out int y, out int width, out int height);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rcolor_picker_create();
@@ -8034,6 +8081,36 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_set_pin_emphasis(uint graph, int pin, int emphasis);
+
+        /// <summary>
+        /// The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnode_graph_get_tag_at(uint graph, float x, float y);
+
+        /// <summary>
+        /// R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+        /// thicker edge) — every tag of one net lit while the pointer is on one of them.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_pin_tag_lit(uint graph, int pin, int lit);
+
+        /// <summary>
+        /// Pin labels wider than `width` (logical units) are cut short with an
+        /// ellipsis and the nodes are laid out with them so (compact ports); 0, the
+        /// default, shows every label whole.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_pin_label_width(uint graph, float width);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rnode_graph_get_pin_label_width(uint graph);
+
+        /// <summary>
+        /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnode_graph_set_node_badge_color(uint graph, int node, float r, float g, float b);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rblock_editor_create();

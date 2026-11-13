@@ -135,6 +135,23 @@ void Rtray_set_menu(Rid id, Rid menu_id) {
 	rvn_tray_sync_menu(tray, R_TRUE);
 }
 
+void Rtray_set_title(Rid id, const char* text) {
+	rvn_tray_t* tray = rvn_tray_check(id, __func__);
+	if (tray && g_rvn.platform->tray_set_title) g_rvn.platform->tray_set_title(tray->platform, text ? text : "");
+}
+
+int Rtray_get_rect(Rid id, int* x, int* y, int* width, int* height) {
+	int bx = 0, by = 0, bw = 0, bh = 0, ok = R_FALSE;
+	rvn_tray_t* tray = rvn_tray_check(id, __func__);
+	if (tray && g_rvn.platform->tray_get_rect) ok = g_rvn.platform->tray_get_rect(tray->platform, &bx, &by, &bw, &bh) ? R_TRUE : R_FALSE;
+	if (!ok) bx = by = bw = bh = 0;
+	if (x) *x = bx;
+	if (y) *y = by;
+	if (width) *width = bw;
+	if (height) *height = bh;
+	return ok;
+}
+
 void Rtray_set_clicked_callback(Rid id, RTrayClickedCallback callback, void* user_data) {
 	rvn_tray_t* tray = rvn_tray_check(id, __func__);
 	if (!tray) return;

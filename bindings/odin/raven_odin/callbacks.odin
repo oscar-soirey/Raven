@@ -18,6 +18,7 @@ import raw "../raven"
 
 Action_Proc :: #type proc(sender: Widget, action: string, user_data: rawptr)
 Timer_Proc  :: #type proc(timer: Timer, user_data: rawptr)
+Frame_Proc  :: #type proc(delta_seconds: f64, user_data: rawptr)
 
 @(private)
 Action_Binding :: struct {
@@ -34,9 +35,18 @@ Timer_Binding :: struct {
 }
 
 @(private)
+Frame_Binding :: struct {
+	call:      Frame_Proc,
+	user_data: rawptr,
+	ctx:       runtime.Context,
+}
+
+@(private)
 action_bindings: map[string]Action_Binding
 @(private)
 timer_bindings: map[Timer]Timer_Binding
+@(private)
+frame_binding: Frame_Binding
 
 // Binds an action name (OnClicked="name" in XML) to a procedure. A second bind of
 // the same name replaces the first. The procedure runs with the `context` that
@@ -88,6 +98,29 @@ timer_destroy :: proc(timer: Timer) {
 	raw.Rtimer_destroy(raw.Rid(timer))
 }
 
+// Calls `call` once per frame, before the layout, with the `context` that is
+// current now. There is one frame procedure: a second call replaces the first,
+// nil removes it. To be called after init.
+set_frame_callback :: proc(call: Frame_Proc, user_data: rawptr = nil) {
+	if call == nil {
+		frame_binding = {}
+		raw.Rset_frame_callback(nil, nil)
+		return
+	}
+	frame_binding = {call, user_data, context}
+	raw.Rset_frame_callback(frame_trampoline, nil)
+}
+
+@(private)
+frame_trampoline :: proc "c" (delta_seconds: f64, user_data: rawptr) {
+	binding := frame_binding
+	if binding.call == nil {
+		return
+	}
+	context = binding.ctx
+	binding.call(delta_seconds, binding.user_data)
+}
+
 @(private)
 action_trampoline :: proc "c" (sender: raw.Rid, action: cstring, user_data: rawptr) {
 	context = runtime.default_context()
@@ -126,4 +159,5 @@ callbacks_release_all :: proc() {
 	delete(timer_bindings)
 	action_bindings = nil
 	timer_bindings = nil
+	frame_binding = {}
 }

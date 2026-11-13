@@ -833,10 +833,13 @@ const _symbols = {
 	Rtext_editor_is_completing: { args: ["u32"], returns: "i32" },
 	Rtext_editor_set_completion_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_editor_add_completion: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtext_editor_add_completion_insert: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
+	Rtext_editor_set_completion_words: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_set_auto_pairs: { args: ["u32", "i32"], returns: "void" },
 	Rtext_editor_add_marker: { args: ["u32", "i32", "i32", "i32", "i32", "ptr"], returns: "void" },
 	Rtext_editor_clear_markers: { args: ["u32"], returns: "void" },
 	Rtext_editor_get_marker_count: { args: ["u32"], returns: "i32" },
+	Rtext_editor_set_hover_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtheme_set_token_color: { args: ["i32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rtheme_get_token_color: { args: ["i32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
 	Rtheme_clear_token_colors: { args: [], returns: "void" },
@@ -897,6 +900,8 @@ const _symbols = {
 	Rtray_set_tooltip: { args: ["u32", "ptr"], returns: "void" },
 	Rtray_set_menu: { args: ["u32", "u32"], returns: "void" },
 	Rtray_set_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtray_set_title: { args: ["u32", "ptr"], returns: "void" },
+	Rtray_get_rect: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
 	Rcolor_picker_create: { args: [], returns: "u32" },
 	Rcolor_picker_set_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rcolor_picker_get_color: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "void" },
@@ -1055,6 +1060,11 @@ const _symbols = {
 	Rnode_graph_set_pin_tag: { args: ["u32", "i32", "ptr"], returns: "void" },
 	Rnode_graph_set_link_hidden: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rnode_graph_set_pin_emphasis: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_get_tag_at: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rnode_graph_set_pin_tag_lit: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rnode_graph_set_pin_label_width: { args: ["u32", "f32"], returns: "void" },
+	Rnode_graph_get_pin_label_width: { args: ["u32"], returns: "f32" },
+	Rnode_graph_set_node_badge_color: { args: ["u32", "i32", "f32", "f32", "f32"], returns: "void" },
 	Rblock_editor_create: { args: [], returns: "u32" },
 	Rblock_editor_add_kind: { args: ["u32", "ptr", "ptr", "i32", "ptr"], returns: "i32" },
 	Rblock_editor_set_category_color: { args: ["u32", "ptr", "f32", "f32", "f32"], returns: "void" },
@@ -5988,6 +5998,31 @@ function _adapt_RCompletionCallback(function_: RCompletionCallback | Pointer | n
 }
 
 /**
+ * Called while the pointer moves over the text where no marker
+ * is, with the position under it: the text returned (NULL or "" for
+ * none) is shown as the tooltip, as a marker's message is (what a name
+ * stands for, the value of a variable). The text must stay valid until
+ * the next call.
+ */
+export type RTextEditorHoverCallback = (editor: Rid, line: number, column: number, user_data: Pointer | null) => string | null;
+
+function _adapt_RTextEditorHoverCallback(function_: RTextEditorHoverCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	let text: Buffer = Buffer.from([0]);
+	return _keep(new _JSCallback((editor: number, line: number, column: number, user_data: Pointer | null): Pointer | null => {
+		try {
+			text = Buffer.from((function_(editor, line, column, user_data) ?? "") + "\0");
+			return _ptr(text);
+		} catch (error) {
+			_report(error as Error);
+			return _ptr(text);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
+}
+
+/**
  * Called after each change made by the user (typing, pasting,
  * undoing...) or by Rtext_editor_insert_text. The action of the widget
  * (OnChanged in XML) fires at the same time.
@@ -10257,6 +10292,25 @@ export function Rtext_editor_add_completion(editor: Rid, text: string | null, de
 }
 
 /**
+ * Adds a proposal that writes another text than the one it shows
+ * and is matched on: "Threshold", listed and filtered as such, that
+ * writes "Threshold(" when chosen. Only from a completion callback.
+ * insert What replaces the word being typed; NULL or "" is `text`.
+ */
+export function Rtext_editor_add_completion_insert(editor: Rid, text: string | null, detail: string | null, insert: string | null): void {
+	_lib.Rtext_editor_add_completion_insert(editor, _s(text), _s(detail), _s(insert));
+}
+
+/**
+ * R_FALSE leaves the words of the language and the names of the
+ * text out of the proposals: only the completion callback's are listed
+ * (a language server that knows better). On by default.
+ */
+export function Rtext_editor_set_completion_words(editor: Rid, enabled: number): void {
+	_lib.Rtext_editor_set_completion_words(editor, enabled);
+}
+
+/**
  * R_FALSE stops the editor from closing brackets and quotes and
  * from indenting after them. On by default; it only acts with a language.
  */
@@ -10281,6 +10335,10 @@ export function Rtext_editor_clear_markers(editor: Rid): void {
 
 export function Rtext_editor_get_marker_count(editor: Rid): number {
 	return _lib.Rtext_editor_get_marker_count(editor);
+}
+
+export function Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtext_editor_set_hover_callback(editor, _adapt_RTextEditorHoverCallback(callback), user_data);
 }
 
 /**
@@ -10705,6 +10763,30 @@ export function Rtray_set_menu(tray: Rid, menu: Rid): void {
  */
 export function Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtray_set_clicked_callback(tray, _adapt_RTrayClickedCallback(callback), user_data);
+}
+
+/**
+ * A short text shown beside the icon (macOS menu bar), drawn by the
+ * system in its own font and colors; the item widens to fit it. NULL or
+ * "": the icon alone. Systems that show no text there ignore it (the
+ * tooltip is the place for it).
+ */
+export function Rtray_set_title(tray: Rid, text: string | null): void {
+	_lib.Rtray_set_title(tray, _s(text));
+}
+
+/**
+ * Where the icon is on the screen, in the units and coordinates of
+ * Rwindow_set_position (a window can then open just under it).
+ * Returns: R_FALSE when the system does not tell (the outputs are then 0).
+ */
+export function Rtray_get_rect(tray: Rid): [result: number, x: number, y: number, width: number, height: number] {
+	const x_ = new Int32Array(1);
+	const y_ = new Int32Array(1);
+	const width_ = new Int32Array(1);
+	const height_ = new Int32Array(1);
+	const result_ = _lib.Rtray_get_rect(tray, x_, y_, width_, height_);
+	return [result_, x_[0]!, y_[0]!, width_[0]!, height_[0]!];
 }
 
 export function Rcolor_picker_create(): Rid {
@@ -11566,6 +11648,37 @@ export function Rnode_graph_set_link_hidden(graph: Rid, link: number, hidden: nu
  */
 export function Rnode_graph_set_pin_emphasis(graph: Rid, pin: number, emphasis: number): void {
 	_lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis);
+}
+
+/** The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. */
+export function Rnode_graph_get_tag_at(graph: Rid, x: number, y: number): number {
+	return _lib.Rnode_graph_get_tag_at(graph, x, y);
+}
+
+/**
+ * R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ * thicker edge) — every tag of one net lit while the pointer is on one of them.
+ */
+export function Rnode_graph_set_pin_tag_lit(graph: Rid, pin: number, lit: number): void {
+	_lib.Rnode_graph_set_pin_tag_lit(graph, pin, lit);
+}
+
+/**
+ * Pin labels wider than `width` (logical units) are cut short with an
+ * ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ * default, shows every label whole.
+ */
+export function Rnode_graph_set_pin_label_width(graph: Rid, width: number): void {
+	_lib.Rnode_graph_set_pin_label_width(graph, width);
+}
+
+export function Rnode_graph_get_pin_label_width(graph: Rid): number {
+	return _lib.Rnode_graph_get_pin_label_width(graph);
+}
+
+/** Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. */
+export function Rnode_graph_set_node_badge_color(graph: Rid, node: number, r: number, g: number, b: number): void {
+	_lib.Rnode_graph_set_node_badge_color(graph, node, r, g, b);
 }
 
 export function Rblock_editor_create(): Rid {

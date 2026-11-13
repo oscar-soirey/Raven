@@ -1583,6 +1583,14 @@ alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 *>
 alias CompletionCallback = fn void(Id editor, ZString prefix, void* user_data);
 <*
+ Called while the pointer moves over the text where no marker
+ is, with the position under it: the text returned (NULL or "" for
+ none) is shown as the tooltip, as a marker's message is (what a name
+ stands for, the value of a variable). The text must stay valid until
+ the next call.
+*>
+alias TextEditorHoverCallback = fn ZString(Id editor, CInt line, CInt column, void* user_data);
+<*
  Called after each change made by the user (typing, pasting,
  undoing...) or by Rtext_editor_insert_text. The action of the widget
  (OnChanged in XML) fires at the same time.
@@ -3308,6 +3316,20 @@ fn void TextEditor.set_completion_callback(self, CompletionCallback callback, vo
 fn void TextEditor.add_completion(self, ZString text, ZString detail) @inline => c::r_text_editor_add_completion((c::Rid)self, (char*)text, (char*)detail);
 
 <*
+ Adds a proposal that writes another text than the one it shows
+ and is matched on: "Threshold", listed and filtered as such, that
+ writes "Threshold(" when chosen. Only from a completion callback.
+*>
+fn void TextEditor.add_completion_insert(self, ZString text, ZString detail, ZString insert) @inline => c::r_text_editor_add_completion_insert((c::Rid)self, (char*)text, (char*)detail, (char*)insert);
+
+<*
+ R_FALSE leaves the words of the language and the names of the
+ text out of the proposals: only the completion callback's are listed
+ (a language server that knows better). On by default.
+*>
+fn void TextEditor.set_completion_words(self, bool enabled) @inline => c::r_text_editor_set_completion_words((c::Rid)self, (CInt)enabled);
+
+<*
  R_FALSE stops the editor from closing brackets and quotes and
  from indenting after them. On by default; it only acts with a language.
 *>
@@ -3324,6 +3346,8 @@ fn void TextEditor.add_marker(self, CInt line, CInt from_column, CInt to_column,
 fn void TextEditor.clear_markers(self) @inline => c::r_text_editor_clear_markers((c::Rid)self);
 
 fn CInt TextEditor.get_marker_count(self) @inline => c::r_text_editor_get_marker_count((c::Rid)self);
+
+fn void TextEditor.set_hover_callback(self, TextEditorHoverCallback callback, void* user_data) @inline => c::r_text_editor_set_hover_callback((c::Rid)self, (c::RTextEditorHoverCallback)callback, user_data);
 
 fn void TextEditor.set_changed_callback(self, TextEditorChangedCallback callback, void* user_data) @inline => c::r_text_editor_set_changed_callback((c::Rid)self, (c::RTextEditorChangedCallback)callback, user_data);
 
@@ -4212,6 +4236,27 @@ fn void NodeGraph.set_link_hidden(self, CInt link, CInt hidden) @inline => c::r_
  to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
 *>
 fn void NodeGraph.set_pin_emphasis(self, CInt pin, CInt emphasis) @inline => c::r_node_graph_set_pin_emphasis((c::Rid)self, pin, emphasis);
+
+<* The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin. *>
+fn CInt NodeGraph.get_tag_at(self, float x, float y) @inline => c::r_node_graph_get_tag_at((c::Rid)self, x, y);
+
+<*
+ R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+ thicker edge) — every tag of one net lit while the pointer is on one of them.
+*>
+fn void NodeGraph.set_pin_tag_lit(self, CInt pin, CInt lit) @inline => c::r_node_graph_set_pin_tag_lit((c::Rid)self, pin, lit);
+
+<*
+ Pin labels wider than `width` (logical units) are cut short with an
+ ellipsis and the nodes are laid out with them so (compact ports); 0, the
+ default, shows every label whole.
+*>
+fn void NodeGraph.set_pin_label_width(self, float width) @inline => c::r_node_graph_set_pin_label_width((c::Rid)self, width);
+
+fn float NodeGraph.get_pin_label_width(self) @inline => c::r_node_graph_get_pin_label_width((c::Rid)self);
+
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+fn void NodeGraph.set_node_badge_color(self, CInt node, float r, float g, float b) @inline => c::r_node_graph_set_node_badge_color((c::Rid)self, node, r, g, b);
 
 // ---- TileView
 
@@ -5591,6 +5636,21 @@ fn void Tray.set_menu(self, Id menu) @inline => c::r_tray_set_menu((c::Rid)self,
  opens it instead.
 *>
 fn void Tray.set_clicked_callback(self, TrayClickedCallback callback, void* user_data) @inline => c::r_tray_set_clicked_callback((c::Rid)self, (c::RTrayClickedCallback)callback, user_data);
+
+<*
+ A short text shown beside the icon (macOS menu bar), drawn by the
+ system in its own font and colors; the item widens to fit it. NULL or
+ "": the icon alone. Systems that show no text there ignore it (the
+ tooltip is the place for it).
+*>
+fn void Tray.set_title(self, ZString text) @inline => c::r_tray_set_title((c::Rid)self, (char*)text);
+
+<*
+ Where the icon is on the screen, in the units and coordinates of
+ Rwindow_set_position (a window can then open just under it).
+ Returns R_FALSE when the system does not tell (the outputs are then 0).
+*>
+fn bool Tray.get_rect(self, CInt* x, CInt* y, CInt* width, CInt* height) @inline => c::r_tray_get_rect((c::Rid)self, x, y, width, height) != 0;
 
 // ---- Shader
 

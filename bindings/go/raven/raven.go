@@ -4405,6 +4405,25 @@ func TextEditorAddCompletion(editor ID, text string, detail string) {
 	C.Rtext_editor_add_completion(C.Rid(editor), text_, detail_)
 }
 
+// TextEditorAddCompletionInsert: Adds a proposal that writes another text than the one it shows and is
+// matched on: "Threshold", listed and filtered as such, that writes "Threshold(" when chosen. Only from a
+// completion callback. insert What replaces the word being typed; NULL or "" is `text`.
+func TextEditorAddCompletionInsert(editor ID, text string, detail string, insert string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	detail_ := C.CString(detail)
+	defer C.free(unsafe.Pointer(detail_))
+	insert_ := C.CString(insert)
+	defer C.free(unsafe.Pointer(insert_))
+	C.Rtext_editor_add_completion_insert(C.Rid(editor), text_, detail_, insert_)
+}
+
+// TextEditorSetCompletionWords: R_FALSE leaves the words of the language and the names of the text out of the
+// proposals: only the completion callback's are listed (a language server that knows better). On by default.
+func TextEditorSetCompletionWords(editor ID, enabled int) {
+	C.Rtext_editor_set_completion_words(C.Rid(editor), C.int(enabled))
+}
+
 // TextEditorSetAutoPairs: R_FALSE stops the editor from closing brackets and quotes and from indenting after
 // them. On by default; it only acts with a language.
 func TextEditorSetAutoPairs(editor ID, enabled int) {
@@ -4761,6 +4780,31 @@ func TraySetTooltip(tray ID, text string) {
 // time it opens. R_INVALID_ID: none.
 func TraySetMenu(tray ID, menu ID) {
 	C.Rtray_set_menu(C.Rid(tray), C.Rid(menu))
+}
+
+// TraySetTitle: A short text shown beside the icon (macOS menu bar), drawn by the system in its own font and
+// colors; the item widens to fit it. NULL or "": the icon alone. Systems that show no text there ignore it
+// (the tooltip is the place for it).
+func TraySetTitle(tray ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rtray_set_title(C.Rid(tray), text_)
+}
+
+// TrayGetRect: Where the icon is on the screen, in the units and coordinates of Rwindow_set_position (a
+// window can then open just under it). Returns: R_FALSE when the system does not tell (the outputs are then
+// 0).
+func TrayGetRect(tray ID) (result int, x int, y int, width int, height int) {
+	var x_ C.int
+	var y_ C.int
+	var width_ C.int
+	var height_ C.int
+	result = int(C.Rtray_get_rect(C.Rid(tray), &x_, &y_, &width_, &height_))
+	x = int(x_)
+	y = int(y_)
+	width = int(width_)
+	height = int(height_)
+	return
 }
 
 func ColorPickerCreate() ID {
@@ -5569,6 +5613,34 @@ func NodeGraphSetLinkHidden(graph ID, link int, hidden int) {
 // to, -1 steps it back, 0 as usual (an application that links in two clicks).
 func NodeGraphSetPinEmphasis(graph ID, pin int, emphasis int) {
 	C.Rnode_graph_set_pin_emphasis(C.Rid(graph), C.int(pin), C.int(emphasis))
+}
+
+// NodeGraphGetTagAt: The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the
+// chip only, not the pin.
+func NodeGraphGetTagAt(graph ID, x float32, y float32) int {
+	return int(C.Rnode_graph_get_tag_at(C.Rid(graph), C.float(x), C.float(y)))
+}
+
+// NodeGraphSetPinTagLit: R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a thicker
+// edge) — every tag of one net lit while the pointer is on one of them.
+func NodeGraphSetPinTagLit(graph ID, pin int, lit int) {
+	C.Rnode_graph_set_pin_tag_lit(C.Rid(graph), C.int(pin), C.int(lit))
+}
+
+// NodeGraphSetPinLabelWidth: Pin labels wider than `width` (logical units) are cut short with an ellipsis and
+// the nodes are laid out with them so (compact ports); 0, the default, shows every label whole.
+func NodeGraphSetPinLabelWidth(graph ID, width float32) {
+	C.Rnode_graph_set_pin_label_width(C.Rid(graph), C.float(width))
+}
+
+func NodeGraphGetPinLabelWidth(graph ID) float32 {
+	return float32(C.Rnode_graph_get_pin_label_width(C.Rid(graph)))
+}
+
+// NodeGraphSetNodeBadgeColor: Color of the badge pill of one node (Rnode_graph_set_node_badge); its text
+// turns dark or light to suit it.
+func NodeGraphSetNodeBadgeColor(graph ID, node int, r float32, g float32, b float32) {
+	C.Rnode_graph_set_node_badge_color(C.Rid(graph), C.int(node), C.float(r), C.float(g), C.float(b))
 }
 
 func BlockEditorCreate() ID {
@@ -6690,18 +6762,19 @@ func HostInjectClose(window ID) {
 // Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
 // Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
-// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
-// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
-// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
-// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
-// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
-// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
-// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
-// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
-// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
-// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
+// Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon
+// Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
+// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
+// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
+// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
+// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
+// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
+// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
+// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

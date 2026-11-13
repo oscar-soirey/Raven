@@ -2321,6 +2321,16 @@ def _adapt_RCompletionCallback(function):
         function(editor, _r(prefix), user_data)
     return call
 
+RTextEditorHoverCallback = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RTextEditorHoverCallback(function):
+    def call(editor, line, column, user_data):
+        text = ctypes.create_string_buffer(_s(function(editor, line, column, user_data)) or b"")
+        call.text = text
+        return ctypes.cast(text, ctypes.c_void_p).value
+    return call
+
 RTextEditorChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
 
 
@@ -8824,6 +8834,29 @@ def Rtext_editor_add_completion(editor, text, detail):
     _lib.Rtext_editor_add_completion(editor, _s(text), _s(detail))
 
 
+_lib.Rtext_editor_add_completion_insert.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rtext_editor_add_completion_insert.restype = None
+
+
+def Rtext_editor_add_completion_insert(editor, text, detail, insert):
+    """Adds a proposal that writes another text than the one it shows
+    and is matched on: "Threshold", listed and filtered as such, that
+    writes "Threshold(" when chosen. Only from a completion callback.
+    insert What replaces the word being typed; NULL or "" is `text`."""
+    _lib.Rtext_editor_add_completion_insert(editor, _s(text), _s(detail), _s(insert))
+
+
+_lib.Rtext_editor_set_completion_words.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_editor_set_completion_words.restype = None
+
+
+def Rtext_editor_set_completion_words(editor, enabled):
+    """R_FALSE leaves the words of the language and the names of the
+    text out of the proposals: only the completion callback's are listed
+    (a language server that knows better). On by default."""
+    _lib.Rtext_editor_set_completion_words(editor, enabled)
+
+
 _lib.Rtext_editor_set_auto_pairs.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtext_editor_set_auto_pairs.restype = None
 
@@ -8861,6 +8894,14 @@ _lib.Rtext_editor_get_marker_count.restype = ctypes.c_int
 
 def Rtext_editor_get_marker_count(editor):
     return _lib.Rtext_editor_get_marker_count(editor)
+
+
+_lib.Rtext_editor_set_hover_callback.argtypes = [ctypes.c_uint32, RTextEditorHoverCallback, ctypes.c_void_p]
+_lib.Rtext_editor_set_hover_callback.restype = None
+
+
+def Rtext_editor_set_hover_callback(editor, callback, user_data=None):
+    _lib.Rtext_editor_set_hover_callback(editor, _callback(RTextEditorHoverCallback, _adapt_RTextEditorHoverCallback, callback), user_data)
 
 
 _lib.Rtheme_set_token_color.argtypes = [ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
@@ -9475,6 +9516,34 @@ def Rtray_set_clicked_callback(tray, callback, user_data=None):
     when there is no menu, the middle one. On macOS an icon with a menu
     opens it instead."""
     _lib.Rtray_set_clicked_callback(tray, _callback(RTrayClickedCallback, _adapt_RTrayClickedCallback, callback), user_data)
+
+
+_lib.Rtray_set_title.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtray_set_title.restype = None
+
+
+def Rtray_set_title(tray, text):
+    """A short text shown beside the icon (macOS menu bar), drawn by the
+    system in its own font and colors; the item widens to fit it. NULL or
+    "": the icon alone. Systems that show no text there ignore it (the
+    tooltip is the place for it)."""
+    _lib.Rtray_set_title(tray, _s(text))
+
+
+_lib.Rtray_get_rect.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtray_get_rect.restype = ctypes.c_int
+
+
+def Rtray_get_rect(tray):
+    """Where the icon is on the screen, in the units and coordinates of
+    Rwindow_set_position (a window can then open just under it).
+    Returns: R_FALSE when the system does not tell (the outputs are then 0)."""
+    x_ = ctypes.c_int()
+    y_ = ctypes.c_int()
+    width_ = ctypes.c_int()
+    height_ = ctypes.c_int()
+    result = _lib.Rtray_get_rect(tray, ctypes.byref(x_), ctypes.byref(y_), ctypes.byref(width_), ctypes.byref(height_))
+    return (result, x_.value, y_.value, width_.value, height_.value)
 
 
 _lib.Rcolor_picker_create.argtypes = []
@@ -10922,6 +10991,53 @@ def Rnode_graph_set_pin_emphasis(graph, pin, emphasis):
     """How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
     to go to, -1 steps it back, 0 as usual (an application that links in two clicks)."""
     _lib.Rnode_graph_set_pin_emphasis(graph, pin, emphasis)
+
+
+_lib.Rnode_graph_get_tag_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_get_tag_at.restype = ctypes.c_int
+
+
+def Rnode_graph_get_tag_at(graph, x, y):
+    """The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin."""
+    return _lib.Rnode_graph_get_tag_at(graph, x, y)
+
+
+_lib.Rnode_graph_set_pin_tag_lit.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rnode_graph_set_pin_tag_lit.restype = None
+
+
+def Rnode_graph_set_pin_tag_lit(graph, pin, lit):
+    """R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+    thicker edge) — every tag of one net lit while the pointer is on one of them."""
+    _lib.Rnode_graph_set_pin_tag_lit(graph, pin, lit)
+
+
+_lib.Rnode_graph_set_pin_label_width.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rnode_graph_set_pin_label_width.restype = None
+
+
+def Rnode_graph_set_pin_label_width(graph, width):
+    """Pin labels wider than `width` (logical units) are cut short with an
+    ellipsis and the nodes are laid out with them so (compact ports); 0, the
+    default, shows every label whole."""
+    _lib.Rnode_graph_set_pin_label_width(graph, width)
+
+
+_lib.Rnode_graph_get_pin_label_width.argtypes = [ctypes.c_uint32]
+_lib.Rnode_graph_get_pin_label_width.restype = ctypes.c_float
+
+
+def Rnode_graph_get_pin_label_width(graph):
+    return _lib.Rnode_graph_get_pin_label_width(graph)
+
+
+_lib.Rnode_graph_set_node_badge_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rnode_graph_set_node_badge_color.restype = None
+
+
+def Rnode_graph_set_node_badge_color(graph, node, r, g, b):
+    """Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it."""
+    _lib.Rnode_graph_set_node_badge_color(graph, node, r, g, b)
 
 
 _lib.Rblock_editor_create.argtypes = []
