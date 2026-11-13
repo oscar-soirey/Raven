@@ -73,8 +73,13 @@ typedef enum RBackend{
 	R_BACKEND_NULL,
 	/** Backend supplied with Rbackend_register (see raven_backend.h). */
 	R_BACKEND_CUSTOM,
-    /** Browser renderer (Emscripten, WebGL 2). */
-    R_BACKEND_WEBGL
+	/** Browser renderer (Emscripten, WebGL 2). */
+	R_BACKEND_WEBGL,
+	/**
+	 * Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
+	 * Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
+	 */
+	R_BACKEND_SOKOL
 }RBackend;
 
 typedef enum RError{
@@ -105,7 +110,10 @@ typedef enum RSeverity{
  * default for every field, so new fields can be added without breaking code.
  */
 typedef struct RInitDesc {
-	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
+	/**
+	 * Rendering backend. 0 selects the one named by the environment variable RAVEN_BACKEND (vulkan,
+	 * sokol, webgl or null) when it is set, else WebGL in browser builds and Vulkan otherwise.
+	 */
 	RBackend backend;
 	/** Application name reported to the graphics driver. May be NULL. */
 	const char* app_name;
@@ -121,6 +129,12 @@ typedef struct RInitDesc {
 	int headless;
 	/** Global UI scale multiplier applied on top of the monitor scale. 0 = 1.0. */
 	float ui_scale;
+	/**
+	 * R_TRUE limits the application to one window, as it is on iOS and in a browser (they always are): Rwindow_create
+	 * fails while a window exists, and docks do not tear panels off into windows of their own. Menus, popups,
+	 * tooltips and dialogs are drawn inside the window anyway. On a desktop it is how to try a mobile layout.
+	 */
+	int single_window;
 } RInitDesc;
 
 /** Memory functions of the application, to replace the allocator of Raven. See Rset_allocator. */
@@ -180,6 +194,9 @@ extern "C" {
 	 * @param desc Settings, or NULL for the defaults.
 	 */
 	RAVEN_API int Rinit_ex(const RInitDesc* desc);
+
+	/** @brief The rendering backend in use, or 0 before Rinit. */
+	RAVEN_API RBackend Rget_backend(void);
 
 	/**
 	 * @brief Destroys every window, widget and resource, stops the worker and
@@ -265,6 +282,36 @@ extern "C" {
 	 *
 	 *     return Rget_exit_code();
 	 */
+
+	/**
+	 * @brief Runs the application until it quits, on every platform.
+	 *
+	 *     static void finished(int exit_code, void* user) { Rshutdown(); }
+	 *
+	 *     int main(void) {
+	 *         Rinit(R_BACKEND_VULKAN);
+	 *         ... create the windows, Rset_frame_callback for what you do every frame ...
+	 *         return Rrun(finished, NULL);
+	 *     }
+	 *
+	 * On a desktop Rrun is the loop `while (Rwait_frame(-1.0)) {}`: it returns when the application quits (Rquit,
+	 * or the last window closed), after calling `finished`, with the exit code. Where the system owns the loop (a
+	 * browser, iOS) it cannot run here: Rrun hands the frame to the system, which calls Raven once per frame,
+	 * and returns 0 **at once**; `finished` is called later, when the application quits, and the code after Rrun
+	 * has run long before. So do the clean-up in `finished` and not after Rrun. A program that writes its own loop
+	 * with Rdraw_frame / Rwait_frame keeps working on a desktop; only Rrun works everywhere.
+	 *
+	 * @param finished Called once, when the application has quit, with the exit code; may be NULL. When it is NULL
+	 * on a platform that owns the loop, Raven shuts itself down (Rshutdown) as nothing else could.
+	 */
+	typedef void (*RRunFinishedCallback)(int exit_code, void* user_data);
+	RAVEN_API int Rrun(RRunFinishedCallback finished, void* user_data);
+
+	/**
+	 * @return R_TRUE when the application is limited to one window: on iOS and in a browser, or with
+	 * RInitDesc::single_window. Use it to choose a layout that needs no second window.
+	 */
+	RAVEN_API int Rsingle_window_mode(void);
 
 	/**
 	 * @brief Produces one frame: processes the pending OS events without

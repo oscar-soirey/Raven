@@ -15,6 +15,20 @@
 
 #include <Raven.h>
 
+/*
+ * RVN_NO_SUBPROCESS: the platform cannot start other programs (fork / exec), which Raven otherwise uses to open
+ * a URL, to download one with curl and to show the native file dialogs. iOS does not allow it (the SDK marks
+ * fork and exec unavailable) and a browser has no processes. Those functions then report failure, or use what
+ * the platform has instead (a browser: window.open); the real iOS versions belong to the iOS platform layer
+ * (docs/SOKOL_BACKEND_PLAN.md, 3.8). Can also be defined by hand, to build and test the fallbacks anywhere.
+ */
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+#if !defined(RVN_NO_SUBPROCESS) && (defined(__EMSCRIPTEN__) || (defined(__APPLE__) && defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE))
+#define RVN_NO_SUBPROCESS 1
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>

@@ -370,6 +370,112 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
+  sokol:
+    name: linux (Sokol backend tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vulkan headers (only the headers are needed; nothing is linked)
+        uses: actions/checkout@v4
+        with:
+          repository: KhronosGroup/Vulkan-Headers
+          ref: ${{ env.VULKAN_HEADERS_TAG }}
+          path: _vulkan-headers
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libx11-dev ninja-build xvfb \
+            libegl-dev libgles-dev libegl1 libgles2 libgl1-mesa-dri mesa-vulkan-drivers
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DRAVEN_BACKEND_SOKOL=ON \
+            -DRAVEN_BUILD_EXAMPLES=OFF \
+            -DRAVEN_VULKAN_INCLUDE_DIR="$(pwd)/_vulkan-headers/include"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        env:
+          VK_ICD_FILENAMES: /usr/share/vulkan/icd.d/lvp_icd.json
+        # (test_web drives the Chrome of the runner and does not touch the backend: the "tests (linux)" job runs
+        #  it. Under Xvfb with the Vulkan ICD forced, that Chrome aborts.)
+        run: xvfb-run -a ctest --test-dir build --output-on-failure -E '^test_web$'
+
+      - name: Test with real windows (windows presented through EGL on Xvfb)
+        run: RAVEN_TEST_WINDOWED=1 RAVEN_BACKEND=sokol xvfb-run -a build/bin/test_render
+
+  # ---------------------------------------------------------------------------
+  #  Sokol backend (macOS): Metal, offscreen frames read back for the tests.
+  #  The Vulkan backend is off (MoltenVK is not installed on the runner); the whole test suite runs,
+  #  test_render on Sokol. See docs/SOKOL_BACKEND_PLAN.md.
+  # ---------------------------------------------------------------------------
+  sokol-macos:
+    name: macos (Sokol/Metal backend tests)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DRAVEN_BACKEND_VULKAN=OFF \
+            -DRAVEN_BACKEND_SOKOL=ON \
+            -DRAVEN_BUILD_EXAMPLES=OFF
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+  web:
+    name: web (Sokol/WebGL 2, in Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+
+      - name: Build the hello example for the browser
+        run: |
+          emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BACKEND_WEBGL=OFF -DRAVEN_PLATFORM=web \
+            -DRAVEN_BACKEND_SOKOL=ON -DRAVEN_BUILD_WEB=OFF \
+            -DRAVEN_BUILD_EXAMPLES=ON -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_TESTS=OFF
+          cmake --build build-web
+
+      - name: Run it in Chromium (mouse, touch, resize)
+        run: |
+          cd spikes/portability_probe
+          npm install --no-save playwright@1.49.0
+          npx playwright install --with-deps chromium
+          node web_browser_test.js ../../build-web/bin
+
+  ios:
+    name: ios (UIKit platform + Sokol/Metal, compile check for the simulator)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the hello example as an application
+        run: |
+          cmake -S . -B build-ios -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BACKEND_SOKOL=ON -DRAVEN_BUILD_WEB=OFF \
+            -DRAVEN_BUILD_EXAMPLES=ON -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_TESTS=OFF
+          cmake --build build-ios --target raven_hello raven_glass --parallel
+
+  # ---------------------------------------------------------------------------
   #  GitHub Release, for a tag v*
   # ---------------------------------------------------------------------------
   release:

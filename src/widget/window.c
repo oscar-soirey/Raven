@@ -315,7 +315,7 @@ static void rvn_window_set_hover(rvn_window_t* window, rvn_widget_t* target) {
 	if (!window->dead) rvn_window_tooltip_arm(window);
 }
 
-static rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int* popup_index) {
+rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int* popup_index) {
 	uint32_t i;
 	for (i = window->popup_count; i > 0; i--) {
 		rvn_widget_t* hit = rvn_widget_hit_test(window->popups[i - 1].root, x, y);
@@ -1087,6 +1087,8 @@ static int rvn_window_step_layout_springs(rvn_window_t* window) {
 	return window->layout_spring_count > 0;
 }
 
+static void rvn_window_sync_text_input(rvn_window_t* window, int repeat);
+
 void rvn_window_update(rvn_window_t* window) {
 	if (window->dead) return;
 	if (rvn_atomic_exchange(&window->redraw_requested, 0)) window->needs_paint = R_TRUE;
@@ -1101,6 +1103,7 @@ void rvn_window_update(rvn_window_t* window) {
 	if (window->needs_layout) rvn_window_layout(window);
 	/* (the compositor did not ask for a frame yet: it is painted when it does, with all that changed meanwhile) */
 	if (window->needs_paint && rvn_window_frame_wait(window) <= 0.0) rvn_window_paint(window, NULL);
+	rvn_window_sync_text_input(window, R_FALSE);
 }
 
 void rvn_invalidate_all_windows(void) {
@@ -1414,7 +1417,7 @@ static int rvn_window_hook(rvn_window_t* window, REvent* event) {
 	return window->event_hook(window->id, event, window->event_hook_user) ? R_TRUE : R_FALSE;
 }
 
-static void rvn_window_mouse_move(rvn_window_t* window, float x, float y) {
+void rvn_window_mouse_move(rvn_window_t* window, float x, float y) {
 	REvent event;
 	float dx = window->mouse_inside ? x - window->mouse_x : 0.0f;
 	float dy = window->mouse_inside ? y - window->mouse_y : 0.0f;
@@ -1466,7 +1469,7 @@ static void rvn_window_mouse_move(rvn_window_t* window, float x, float y) {
 	if (!window->dead) rvn_window_update_cursor(window);
 }
 
-static void rvn_window_mouse_leave(rvn_window_t* window) {
+void rvn_window_mouse_leave(rvn_window_t* window) {
 	window->mouse_inside = R_FALSE;
 	window->edge = RVN_PREGION_CLIENT;
 	if (!window->capture) rvn_window_set_hover(window, NULL);
@@ -1492,7 +1495,7 @@ static void rvn_window_open_context_menu(rvn_window_t* window, rvn_widget_t* tar
 	}
 }
 
-static void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, int pressed) {
+void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, int pressed) {
 	REvent event;
 	rvn_widget_t* target;
 	rvn_widget_t* hit;
@@ -1741,6 +1744,33 @@ rvn_widget_t* rvn_window_widget_at(rvn_window_t* window, float x, float y) {
  *  Platform events
  * ------------------------------------------------------------------------- */
 
+/* Tells the platform whether the user is typing, and where (soft keyboard). `repeat`: also when nothing changed. */
+static void rvn_window_sync_text_input(rvn_window_t* window, int repeat) {
+	rvn_widget_t* focus = window->focus;
+	int active = focus && !window->dead && (focus->cls->flags & RVN_CF_TEXT_INPUT) && rvn_widget_is_enabled(focus);
+	float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
+	if (!g_rvn.platform->window_text_input || !window->platform) return;
+	if (active) {
+		rvn_vec2_t origin = rvn_widget_origin(focus);
+		x = origin.x;
+		y = origin.y;
+		w = focus->rect.w;
+		h = focus->rect.h;
+	}
+	if (!repeat && active == window->text_input_active && x == window->text_input_x && y == window->text_input_y &&
+		w == window->text_input_w && h == window->text_input_h) return;
+	if (!active && !window->text_input_active) return;
+	window->text_input_active = active;
+	window->text_input_x = x;
+	window->text_input_y = y;
+	window->text_input_w = w;
+	window->text_input_h = h;
+	{
+		float scale = window->scale > 0.0f ? window->scale : 1.0f;
+		g_rvn.platform->window_text_input(window->platform, active, (int)(x * scale), (int)(y * scale), (int)(w * scale), (int)(h * scale));
+	}
+}
+
 void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 	rvn_window_t* window = (rvn_window_t*)pevent->user;
 	float scale;
@@ -1876,6 +1906,8 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			break;
 	}
 	rvn_dispatch_end();
+	/* (after the dispatch: a tap that focused a text field is still inside the gesture of the user) */
+	if (!window->dead) rvn_window_sync_text_input(window, pevent->type == RVN_PEVENT_TOUCH || pevent->type == RVN_PEVENT_MOUSE_BUTTON);
 }
 
 /* ---------------------------------------------------------------------------
@@ -2018,6 +2050,17 @@ Rid Rwindow_create(const char* title, int width, int height, Ruint flags) {
 	if (width <= 0 || height <= 0) {
 		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rwindow_create: invalid size %d x %d", width, height);
 		return R_INVALID_ID;
+	}
+	if (g_rvn.single_window) {
+		uint32_t i;
+		for (i = 0; i < g_rvn.windows.used; i++) {
+			rvn_window_t* other = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+			if (other && !other->dead) {
+				rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR,
+					"Rwindow_create: this application is limited to one window (Rsingle_window_mode): use a popup or a dialog");
+				return R_INVALID_ID;
+			}
+		}
 	}
 
 	window = (rvn_window_t*)rvn_calloc(sizeof(rvn_window_t));

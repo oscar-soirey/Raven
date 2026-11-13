@@ -473,14 +473,20 @@ int rvn_write_file(const char* path, const void* data, size_t size) {
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
 int Ropen_url(const char* url) {
-    if (!url || !url[0]) return R_FALSE;
-    return EM_ASM_INT({
-        try {
-            const url = new URL(UTF8ToString($0), location.href);
-            if (!['https:', 'http:', 'mailto:'].includes(url.protocol)) return 0;
-            window.open(url.href, '_blank', 'noopener,noreferrer'); return 1;
-        } catch (_) { return 0; }
-    }, url);
+	if (!url || !url[0]) return R_FALSE;
+	return EM_ASM_INT({
+		try {
+			const url = new URL(UTF8ToString($0), location.href);
+			if (!['https:', 'http:', 'mailto:'].includes(url.protocol)) return 0;
+			window.open(url.href, '_blank', 'noopener,noreferrer'); return 1;
+		} catch (_) { return 0; }
+	}, url);
+}
+#elif defined(RVN_NO_SUBPROCESS)
+/* iOS: UIApplication openURL: belongs to the platform layer; not available yet */
+int Ropen_url(const char* url) {
+	RVN_UNUSED(url);
+	return R_FALSE;
 }
 #else
 int Ropen_url(const char* url) {
@@ -507,7 +513,6 @@ int Ropen_url(const char* url) {
 		return WIFEXITED(status) && WEXITSTATUS(status) == 0;
 	}
 }
-
 #endif
 
 void rvn_fs_places(rvn_place_t** places, uint32_t* count) {
@@ -608,12 +613,18 @@ done:
 	rvn_free(wide_url); rvn_free(host); rvn_free(object); rvn_free(bytes);
 	return ok;
 }
-#elif defined(__EMSCRIPTEN__)
+#elif defined(RVN_NO_SUBPROCESS) || defined(__EMSCRIPTEN__)
+/*
+ * No curl to start (iOS, a browser), and a blocking download would freeze the only thread of a browser: URLs are
+ * not available here yet. The web build will fetch asynchronously (emscripten_fetch / the fetch() of the
+ * browser) and iOS will use NSURLSession, handing the bytes over like the other platforms do
+ * (docs/SOKOL_BACKEND_PLAN.md, 3.8).
+ */
 int rvn_fs_download_url(const char* url, uint8_t** data, size_t* size) {
-    RVN_UNUSED(url);
-    if (data) *data = NULL;
-    if (size) *size = 0;
-    return R_FALSE; /* Browser users use the asynchronous fetch adapter. */
+	RVN_UNUSED(url);
+	if (data) *data = NULL;
+	if (size) *size = 0;
+	return R_FALSE;
 }
 #else
 #include <fcntl.h>

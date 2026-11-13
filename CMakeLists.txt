@@ -37,15 +37,18 @@ option(RAVEN_BUILD_TOOLS "Build the tools (the designer)" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_INSTALLER "Build the Raven SDK Installer (tools/installer, C++17)" OFF)
 option(RAVEN_BUILD_WEB "Compile the web pages (raven_web.h: they drive an installed Chromium-based browser) into the library" ON)
 option(RAVEN_BACKEND_VULKAN "Compile the Vulkan backend" ON)
+option(RAVEN_BACKEND_SOKOL "Compile the sokol_gfx backend, selectable with R_BACKEND_SOKOL (docs/SOKOL_BACKEND_PLAN.md)" OFF)
+set(RAVEN_SOKOL_API "auto" CACHE STRING "Graphics API of the Sokol backend (fixed when Raven is built): auto, gles3 (Linux) or metal (macOS, iOS)")
+set_property(CACHE RAVEN_SOKOL_API PROPERTY STRINGS auto gles3 metal)
 option(RAVEN_WITH_STB_IMAGE "Decode PNG / JPEG / BMP / TGA textures with stb_image" ON)
 option(RAVEN_WITH_SVG "Draw SVG images (icons) with nanosvg" ON)
 option(RAVEN_FETCH_VULKAN_HEADERS "Download the Vulkan headers when no Vulkan SDK is found" ON)
 option(RAVEN_REBUILD_SHADERS "Recompile the GLSL shaders (needs glslangValidator or glslc)" OFF)
 option(RAVEN_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 option(RAVEN_MSVC_STATIC_RUNTIME "Visual C++: link the C runtime statically (/MT) instead of using its DLL (/MD)" OFF)
-set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa, emscripten or null")
+set(RAVEN_PLATFORM "auto" CACHE STRING "Window system: auto, win32, x11, cocoa, uikit (iOS), web (Emscripten, with the Sokol backend), emscripten (Emscripten, with the WebGL backend) or null")
 option(RAVEN_WAYLAND "Linux and BSD: compile native Wayland beside X11 (nothing of Wayland is needed to build: its libraries are opened at run time)" ON)
-set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa null emscripten)
+set_property(CACHE RAVEN_PLATFORM PROPERTY STRINGS auto win32 x11 cocoa uikit web emscripten null)
 
 if(RAVEN_IS_TOP_LEVEL)
 	# one folder for the programs and the DLL, so that a shared build runs in place
@@ -84,9 +87,12 @@ endif()
 
 if(RAVEN_PLATFORM STREQUAL "auto")
 	if(EMSCRIPTEN)
-        set(RAVEN_PLATFORM_SELECTED "emscripten")
+		# the WebGL backend's platform; the Sokol one is chosen with -DRAVEN_PLATFORM=web (and -DRAVEN_BACKEND_WEBGL=OFF)
+		set(RAVEN_PLATFORM_SELECTED "emscripten")
 	elseif(WIN32)
 		set(RAVEN_PLATFORM_SELECTED "win32")
+	elseif(IOS)
+		set(RAVEN_PLATFORM_SELECTED "uikit")
 	elseif(APPLE)
 		set(RAVEN_PLATFORM_SELECTED "cocoa")
 	elseif(UNIX)
@@ -175,6 +181,8 @@ set(RAVEN_RENDER_SOURCES
 	src/render/renderer.h
 	src/render/texture.c
 	src/render/shader.c
+	src/render/rfx.c
+	src/render/rfx.h
 	src/render/device.c
 	src/render/null/null_backend.c
 	src/resources/default_font.c
@@ -196,6 +204,7 @@ set(RAVEN_WIDGET_SOURCES
 	src/widgets/platform_looks.c
 	src/widget/widget.c
 	src/widget/widget.h
+	src/widget/touch.c
 	src/widget/window.c
 	src/widget/inspector.c
 )
@@ -292,6 +301,12 @@ else()
 	# libm, and libdl for loading the Vulkan library at run time
 	list(APPEND RAVEN_LIBRARIES m ${CMAKE_DL_LIBS})
 endif()
+if(APPLE)
+	# the system language (core/locale.c) comes from CoreFoundation, with any platform: the Cocoa one pulls it in on macOS,
+	# the null platform (headless runs, iOS for now) does not
+	find_library(RAVEN_COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_COREFOUNDATION_FRAMEWORK})
+endif()
 
 # window system
 if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
@@ -342,24 +357,45 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 		message(FATAL_ERROR "Raven: Cocoa builds require the AppKit, QuartzCore and Metal frameworks")
 	endif()
 	list(APPEND RAVEN_LIBRARIES ${RAVEN_APPKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK})
+elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
+	if(NOT IOS)
+		message(FATAL_ERROR "Raven: the uikit platform is for iOS (-DCMAKE_SYSTEM_NAME=iOS)")
+	endif()
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_UIKIT)
+	find_library(RAVEN_UIKIT_FRAMEWORK UIKit)
+	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
+	find_library(RAVEN_COREGRAPHICS_FRAMEWORK CoreGraphics)
+	if(NOT RAVEN_UIKIT_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_COREGRAPHICS_FRAMEWORK)
+		message(FATAL_ERROR "Raven: iOS builds require the UIKit, QuartzCore and CoreGraphics frameworks")
+	endif()
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_UIKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_COREGRAPHICS_FRAMEWORK})
+elseif(RAVEN_PLATFORM_SELECTED STREQUAL "web")
+	if(NOT EMSCRIPTEN)
+		message(FATAL_ERROR "Raven: the web platform needs Emscripten (emcmake cmake ...)")
+	endif()
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/web/web_platform.c)
+	# EM_JS needs the GNU dialect of C
+	set_source_files_properties(src/platform/web/web_platform.c PROPERTIES COMPILE_OPTIONS "-std=gnu11")
+	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WEB)
 elseif(RAVEN_PLATFORM_SELECTED STREQUAL "emscripten")
-    if(NOT EMSCRIPTEN)
-        message(FATAL_ERROR "The emscripten platform requires the Emscripten toolchain")
-    endif()
-    list(APPEND RAVEN_PLATFORM_SOURCES src/platform/emscripten/emscripten_platform.c
-        src/platform/emscripten/emscripten_services.c
-        src/platform/emscripten/emscripten_accessibility.c)
-    list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_EMSCRIPTEN)
+	if(NOT EMSCRIPTEN)
+		message(FATAL_ERROR "The emscripten platform requires the Emscripten toolchain")
+	endif()
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/emscripten/emscripten_platform.c
+		src/platform/emscripten/emscripten_services.c
+		src/platform/emscripten/emscripten_accessibility.c)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_EMSCRIPTEN)
 elseif(NOT RAVEN_PLATFORM_SELECTED STREQUAL "null")
-	message(FATAL_ERROR "Raven: unknown RAVEN_PLATFORM '${RAVEN_PLATFORM_SELECTED}' (expected auto, win32, x11, cocoa, emscripten or null)")
+	message(FATAL_ERROR "Raven: unknown RAVEN_PLATFORM '${RAVEN_PLATFORM_SELECTED}' (expected auto, win32, x11, cocoa, uikit, web, emscripten or null)")
 endif()
 
 if(RAVEN_BACKEND_WEBGL)
-    if(NOT EMSCRIPTEN)
-        message(FATAL_ERROR "The WebGL backend requires Emscripten")
-    endif()
-    list(APPEND RAVEN_RENDER_SOURCES src/render/webgl/webgl_backend.c)
-    list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_WEBGL_ENABLED)
+	if(NOT EMSCRIPTEN)
+		message(FATAL_ERROR "The WebGL backend requires Emscripten")
+	endif()
+	list(APPEND RAVEN_RENDER_SOURCES src/render/webgl/webgl_backend.c)
+	list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_WEBGL_ENABLED)
 endif()
 
 # Vulkan backend: only the headers are needed, the library is loaded at run time
@@ -394,6 +430,65 @@ if(RAVEN_BACKEND_VULKAN)
 		raven_compile_shader(src/render/vulkan/shaders/effects/spotlight.frag src/render/vulkan/generated/effect_spotlight_spv.h rvn_effect_spotlight_spv)
 		raven_compile_shader(src/render/vulkan/shaders/effects/mesh.frag src/render/vulkan/generated/effect_mesh_spv.h rvn_effect_mesh_spv)
 	endif()
+endif()
+
+# Sokol backend: sokol_gfx.h is compiled into the library (third_party/sokol); the graphics API is chosen here
+if(RAVEN_BACKEND_SOKOL)
+	set(RAVEN_SOKOL_API_SELECTED "${RAVEN_SOKOL_API}")
+	if(RAVEN_SOKOL_API_SELECTED STREQUAL "auto")
+		if(APPLE)
+			set(RAVEN_SOKOL_API_SELECTED "metal")
+		elseif(EMSCRIPTEN)
+			set(RAVEN_SOKOL_API_SELECTED "gles3")
+		elseif(WIN32)
+			message(FATAL_ERROR "Raven: the Sokol backend has no graphics API for this platform yet (docs/SOKOL_BACKEND_PLAN.md)")
+		else()
+			set(RAVEN_SOKOL_API_SELECTED "gles3")
+		endif()
+	endif()
+	list(APPEND RAVEN_RENDER_SOURCES
+		src/render/sokol/sg_backend.c
+		src/render/sokol/sg_backend.h
+		src/render/sokol/sg_glass.c
+		src/render/sokol/sg_pipeline.c
+		src/render/sokol/sg_prefix.h
+		src/render/sokol/sg_texture.c
+	)
+	if(RAVEN_SOKOL_API_SELECTED STREQUAL "gles3" AND EMSCRIPTEN)
+		# WebGL 2 through the GLES3 headers of Emscripten, context of the canvas (sg_web.c)
+		list(APPEND RAVEN_RENDER_SOURCES src/render/sokol/sg_web.c src/render/sokol/sg_gl.c src/render/sokol/sg_impl.c)
+		list(APPEND RAVEN_DEFINITIONS RAVEN_SOKOL_GLES3)
+		set(RAVEN_WEBGL2_LINK_OPTIONS -sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2)
+	elseif(RAVEN_SOKOL_API_SELECTED STREQUAL "gles3")
+		find_path(RAVEN_EGL_INCLUDE_DIR EGL/egl.h)
+		find_path(RAVEN_GLES_INCLUDE_DIR GLES3/gl3.h)
+		find_library(RAVEN_EGL_LIBRARY EGL)
+		find_library(RAVEN_GLES_LIBRARY NAMES GLESv2 GLESv3)
+		if(NOT RAVEN_EGL_INCLUDE_DIR OR NOT RAVEN_GLES_INCLUDE_DIR OR NOT RAVEN_EGL_LIBRARY OR NOT RAVEN_GLES_LIBRARY)
+			message(FATAL_ERROR "Raven: the Sokol backend (gles3) needs the EGL and GLESv2 development files (Debian: libegl-dev libgles-dev; Fedora: mesa-libEGL-devel mesa-libGLES-devel)")
+		endif()
+		list(APPEND RAVEN_RENDER_SOURCES src/render/sokol/sg_egl.c src/render/sokol/sg_gl.c src/render/sokol/sg_impl.c)
+		list(APPEND RAVEN_DEFINITIONS RAVEN_SOKOL_GLES3)
+		list(APPEND RAVEN_LIBRARIES ${RAVEN_EGL_LIBRARY} ${RAVEN_GLES_LIBRARY})
+	elseif(RAVEN_SOKOL_API_SELECTED STREQUAL "metal")
+		if(NOT APPLE)
+			message(FATAL_ERROR "Raven: RAVEN_SOKOL_API=metal is only available on macOS and iOS")
+		endif()
+		find_library(RAVEN_FOUNDATION_FRAMEWORK Foundation)
+		find_library(RAVEN_METAL_FRAMEWORK Metal)
+		find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
+		if(NOT RAVEN_FOUNDATION_FRAMEWORK OR NOT RAVEN_METAL_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK)
+			message(FATAL_ERROR "Raven: the Sokol backend (metal) needs the Foundation, Metal and QuartzCore frameworks")
+		endif()
+		# sokol_gfx with Metal is Objective-C; both files are written for ARC
+		list(APPEND RAVEN_RENDER_SOURCES src/render/sokol/sg_metal.m src/render/sokol/sg_impl.m)
+		set_source_files_properties(src/render/sokol/sg_metal.m src/render/sokol/sg_impl.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+		list(APPEND RAVEN_DEFINITIONS RAVEN_SOKOL_METAL)
+		list(APPEND RAVEN_LIBRARIES ${RAVEN_FOUNDATION_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK})
+	else()
+		message(FATAL_ERROR "Raven: unknown RAVEN_SOKOL_API '${RAVEN_SOKOL_API_SELECTED}' (expected auto, gles3 or metal)")
+	endif()
+	list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_SOKOL_ENABLED)
 endif()
 
 if(RAVEN_WITH_SVG)
@@ -493,13 +588,19 @@ endif()
 if(RAVEN_BACKEND_VULKAN)
 	target_include_directories(raven PRIVATE ${RAVEN_VULKAN_INCLUDE_DIR})
 endif()
+if(RAVEN_WEBGL2_LINK_OPTIONS)
+	target_link_options(raven INTERFACE ${RAVEN_WEBGL2_LINK_OPTIONS})
+endif()
+if(RAVEN_BACKEND_SOKOL AND RAVEN_SOKOL_API_SELECTED STREQUAL "gles3" AND NOT EMSCRIPTEN)
+	target_include_directories(raven PRIVATE ${RAVEN_EGL_INCLUDE_DIR} ${RAVEN_GLES_INCLUDE_DIR})
+endif()
 
 if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 	set(RAVEN_PLATFORM_SUMMARY "x11+wayland")
 else()
 	set(RAVEN_PLATFORM_SUMMARY "${RAVEN_PLATFORM_SELECTED}")
 endif()
-message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} webgl=${RAVEN_BACKEND_WEBGL} shared=${RAVEN_BUILD_SHARED}")
+message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} sokol=${RAVEN_BACKEND_SOKOL} webgl=${RAVEN_BACKEND_WEBGL} shared=${RAVEN_BUILD_SHARED}")
 
 # ---------------------------------------------------------------------------
 #  Examples, tools and tests
@@ -596,7 +697,8 @@ if(RAVEN_IS_TOP_LEVEL)
 	include(CPack)
 endif()
 
-if(EMSCRIPTEN)
+# (the browser fixtures and the demo use raven_emscripten.h: the platform of the WebGL backend, not the Sokol web one)
+if(EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "emscripten")
     option(RAVEN_BUILD_WEB_TESTS "Build browser integration fixtures" OFF)
     if(RAVEN_BUILD_WEB_TESTS)
         if(CMAKE_RUNTIME_OUTPUT_DIRECTORY)

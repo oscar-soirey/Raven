@@ -153,8 +153,9 @@ export const RBackend = _enum({
 	R_BACKEND_NULL: 2,
 	R_BACKEND_CUSTOM: 3,
 	R_BACKEND_WEBGL: 4,
+	R_BACKEND_SOKOL: 5,
 });
-export const { R_BACKEND_VULKAN, R_BACKEND_NULL, R_BACKEND_CUSTOM, R_BACKEND_WEBGL } = RBackend;
+export const { R_BACKEND_VULKAN, R_BACKEND_NULL, R_BACKEND_CUSTOM, R_BACKEND_WEBGL, R_BACKEND_SOKOL } = RBackend;
 
 export const RError = _enum({
 	R_NO_ERROR: 112,
@@ -216,8 +217,10 @@ export const RWindowSystem = _enum({
 	R_WINDOW_SYSTEM_WAYLAND: 147,
 	R_WINDOW_SYSTEM_COCOA: 148,
 	R_WINDOW_SYSTEM_EMSCRIPTEN: 149,
+	R_WINDOW_SYSTEM_WEB: 150,
+	R_WINDOW_SYSTEM_UIKIT: 151,
 });
-export const { R_WINDOW_SYSTEM_NONE, R_WINDOW_SYSTEM_WIN32, R_WINDOW_SYSTEM_X11, R_WINDOW_SYSTEM_WAYLAND, R_WINDOW_SYSTEM_COCOA, R_WINDOW_SYSTEM_EMSCRIPTEN } = RWindowSystem;
+export const { R_WINDOW_SYSTEM_NONE, R_WINDOW_SYSTEM_WIN32, R_WINDOW_SYSTEM_X11, R_WINDOW_SYSTEM_WAYLAND, R_WINDOW_SYSTEM_COCOA, R_WINDOW_SYSTEM_EMSCRIPTEN, R_WINDOW_SYSTEM_WEB, R_WINDOW_SYSTEM_UIKIT } = RWindowSystem;
 
 export const RWindowEdge = _enum({
 	R_EDGE_LEFT: 208,
@@ -1011,7 +1014,7 @@ export const RAccessibleRole = _enum({
 export const { R_ROLE_AUTO, R_ROLE_NONE, R_ROLE_WINDOW, R_ROLE_GROUP, R_ROLE_TEXT, R_ROLE_HEADING, R_ROLE_LINK, R_ROLE_BUTTON, R_ROLE_TOGGLE_BUTTON, R_ROLE_CHECKBOX, R_ROLE_RADIO_BUTTON, R_ROLE_SLIDER, R_ROLE_PROGRESS_BAR, R_ROLE_SPIN_BUTTON, R_ROLE_TEXT_FIELD, R_ROLE_DOCUMENT, R_ROLE_COMBO_BOX, R_ROLE_LIST, R_ROLE_LIST_ITEM, R_ROLE_TREE, R_ROLE_TREE_ITEM, R_ROLE_TABLE, R_ROLE_MENU_BAR, R_ROLE_MENU, R_ROLE_MENU_ITEM, R_ROLE_TAB_LIST, R_ROLE_TAB, R_ROLE_TAB_PANEL, R_ROLE_TOOLBAR, R_ROLE_STATUS_BAR, R_ROLE_DIALOG, R_ROLE_ALERT, R_ROLE_IMAGE, R_ROLE_CANVAS, R_ROLE_SEPARATOR, R_ROLE_SCROLL_BAR, R_ROLE_PANE } = RAccessibleRole;
 
 export class RInitDesc extends RStruct {
-	static SIZE = 40;
+	static SIZE = 48;
 
 	constructor(pointer) {
 		super(RInitDesc.SIZE, pointer);
@@ -1079,6 +1082,13 @@ export class RInitDesc extends RStruct {
 	}
 	set ui_scale(value) {
 		this._view.setFloat32(36, value, true);
+	}
+
+	get single_window() {
+		return this._view.getInt32(40, true);
+	}
+	set single_window(value) {
+		this._view.setInt32(40, value, true);
 	}
 }
 
@@ -2819,6 +2829,7 @@ export function Rinit(backend) {
 export function Rinit_ex(desc) {
 	return _lib.Rinit_ex(_p(desc));
 }
+export const Rget_backend = _lib.Rget_backend;
 export const Rshutdown = _lib.Rshutdown;
 export const Ris_initialized = _lib.Ris_initialized;
 export const Rget_version = _lib.Rget_version;
@@ -2836,6 +2847,8 @@ export function Rmemory_get_stats(stats) {
 }
 export const Rmemory_check = _lib.Rmemory_check;
 export const Rmemory_trim = _lib.Rmemory_trim;
+export const Rrun = _lib.Rrun;
+export const Rsingle_window_mode = _lib.Rsingle_window_mode;
 export const Rdraw_frame = _lib.Rdraw_frame;
 export const Rwait_frame = _lib.Rwait_frame;
 export const Rquit = _lib.Rquit;

@@ -41,7 +41,7 @@ static void test_header_bar(void) {
 	Rid window = window_from(
 		"<Window Title=\"Header\" Width=\"600\" Height=\"300\" CustomHeader=\"true\">"
 		"<VBox>"
-		"<HeaderBar Name=\"bar\">"
+		"<HeaderBar Name=\"bar\" ButtonSide=\"Right\">"
 		"<Button Name=\"open\" Text=\"Open\"/>"
 		"<Button Name=\"share\" Text=\"Share\" Slot.HAlign=\"Right\"/>"
 		"</HeaderBar>"

@@ -52,6 +52,7 @@ struct rvn_xml_node_t;
 #define RVN_CF_CLIP         (1u << 6)   /* instances start with RVN_WF_CLIP */
 #define RVN_CF_SURFACE     (1u << 7)   /* draws its own surface, in the material of the widget */
 #define RVN_CF_OWN_CHILDREN (1u << 8)  /* paints its children itself, from its paint function */
+#define RVN_CF_TEXT_INPUT   (1u << 11) /* focus means the user types: a platform with a soft keyboard shows it */
 #define RVN_CF_NO_MIRROR    (1u << 9)   /* a surface of its own: its children are not mirrored in a right-to-left layout */
 #define RVN_CF_TOUCH_DRAG   (1u << 10)  /* a finger on it drags it at once as the mouse would (a slider), it never scrolls what contains it */
 
@@ -856,6 +857,10 @@ struct rvn_window_t {
 	uint32_t layout_spring_count;
 	uint32_t layout_spring_cap;
 
+	/* what the platform was told about the text being typed (rvn_window_sync_text_input) */
+	int text_input_active;
+	float text_input_x, text_input_y, text_input_w, text_input_h;
+
 	/* tooltip */
 	rvn_widget_t* tooltip_widget;
 	Rid tooltip_timer;
@@ -916,6 +921,12 @@ void rvn_window_set_theme(rvn_window_t* window, const rvn_theme_t* theme);
 rvn_window_t* rvn_window_check(Rid id, const char* function);
 /** Entry point of the platform events. */
 void rvn_window_on_platform_event(const rvn_pevent_t* event);
+
+/* input entry points shared with the touch layer (widget/touch.c) */
+rvn_widget_t* rvn_window_hit(rvn_window_t* window, float x, float y, int* popup_index);
+void rvn_window_mouse_move(rvn_window_t* window, float x, float y);
+void rvn_window_mouse_leave(rvn_window_t* window);
+void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, int pressed);
 /** What a pixel of a window with a custom header is, for the window system (rvn_pregion_handler_t). */
 rvn_pregion_t rvn_window_region_at(void* user, int x, int y);
 /** Asks to close the window as the user would: the close callback may refuse. */

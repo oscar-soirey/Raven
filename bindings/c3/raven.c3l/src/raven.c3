@@ -115,6 +115,11 @@ constset Backend : CInt
 	CUSTOM = 3,
 	<* Browser renderer (Emscripten, WebGL 2). *>
 	WEBGL = 4,
+	<*
+	 Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
+	 Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
+	*>
+	SOKOL = 5,
 }
 
 constset Error : CInt
@@ -225,6 +230,8 @@ constset WindowSystem : CInt
 	WAYLAND = 0x0093,
 	COCOA = 0x0094,
 	EMSCRIPTEN = 0x0095,
+	WEB = 0x0096,
+	UIKIT = 0x0097,
 }
 
 <* Edges and corners of a window, for Rwindow_begin_resize. *>
@@ -1389,6 +1396,25 @@ constset AccessibleRole : CInt
 typedef Painter = void;
 
 <*
+ Runs the application until it quits, on every platform.
+
+     static void finished(int exit_code, void* user) { Rshutdown(); }
+
+     int main(void) {
+         Rinit(R_BACKEND_VULKAN);
+         ... create the windows, Rset_frame_callback for what you do every frame ...
+         return Rrun(finished, NULL);
+     }
+
+ On a desktop Rrun is the loop `while (Rwait_frame(-1.0)) {}`: it returns when the application quits (Rquit,
+ or the last window closed), after calling `finished`, with the exit code. Where the system owns the loop (a
+ browser, iOS) it cannot run here: Rrun hands the frame to the system, which calls Raven once per frame,
+ and returns 0 **at once**; `finished` is called later, when the application quits, and the code after Rrun
+ has run long before. So do the clean-up in `finished` and not after Rrun. A program that writes its own loop
+ with Rdraw_frame / Rwait_frame keeps working on a desktop; only Rrun works everywhere.
+*>
+alias RunFinishedCallback = fn void(CInt exit_code, void* user_data);
+<*
  Registers a function called once per frame, before the layout.
  The body of your loop does the same job; the callback is also called
  while the OS keeps the thread in a loop of its own (on Windows, while
@@ -1663,7 +1689,10 @@ alias LocaleChangedCallback = fn void(ZString language, void* user_data);
 *>
 struct InitDesc
 {
-	<* Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. *>
+	<*
+	 Rendering backend. 0 selects the one named by the environment variable RAVEN_BACKEND (vulkan,
+	 sokol, webgl or null) when it is set, else WebGL in browser builds and Vulkan otherwise.
+	*>
 	Backend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	ZString app_name;
@@ -1679,6 +1708,12 @@ struct InitDesc
 	CInt headless;
 	<* Global UI scale multiplier applied on top of the monitor scale. 0 = 1.0. *>
 	float ui_scale;
+	<*
+	 R_TRUE limits the application to one window, as it is on iOS and in a browser (they always are): Rwindow_create
+	 fails while a window exists, and docks do not tear panels off into windows of their own. Menus, popups,
+	 tooltips and dialogs are drawn inside the window anyway. On a desktop it is how to try a mobile layout.
+	*>
+	CInt single_window;
 }
 
 <* Memory functions of the application, to replace the allocator of Raven. See Rset_allocator. *>
@@ -1727,6 +1762,8 @@ struct FrameStats
    Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
            Wayland or X11 when Rinit runs: check `system`)
    Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+   UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
+   Web   : display = the CSS selector of the canvas (const char*, "#canvas")
    Emscripten: window = opaque browser surface token (no OS window handle)
 *>
 struct NativeWindow
@@ -5621,9 +5658,11 @@ typedef Shader = inline Id;
 
 <*
  A shader from SPIR-V code (a fragment shader written with
- raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
- when the code is not SPIR-V; a backend that refuses it reports an error
- and the effect is drawn as a rectangle.
+ raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+ file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+ neither, or a bundle is damaged; a backend that cannot run it (the
+ Sokol backend with SPIR-V, a bundle without the variant of its graphics
+ API) reports an error and the effect is drawn as a rectangle.
 *>
 fn Shader? shader_create(void* spirv, usz size, ShaderFlags flags)
 {
@@ -5632,7 +5671,7 @@ fn Shader? shader_create(void* spirv, usz size, ShaderFlags flags)
 	return (Shader)result;
 }
 
-<* The same, from a .spv file (UTF-8 path, relative to the current folder). *>
+<* The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder). *>
 fn Shader? shader_create_from_file(ZString path, ShaderFlags flags)
 {
 	Id result = (Id)c::r_shader_create_from_file((char*)path, (c::Ruint)flags);
@@ -5743,6 +5782,9 @@ fn void? init_ex(InitDesc* desc)
 	if (!c::r_init_ex((c::RInitDesc*)desc)) return last_fault()~;
 }
 
+<* The rendering backend in use, or 0 before Rinit. *>
+fn Backend get_backend() @inline => (Backend)c::r_get_backend();
+
 <*
  Destroys every window, widget and resource, stops the worker and
  render threads and releases the backend.
@@ -5798,6 +5840,14 @@ fn bool memory_check() @inline => c::r_memory_check() != 0;
 
 <* Returns to the OS the regions of the heap that hold nothing. Thread-safe. *>
 alias memory_trim = c::r_memory_trim;
+
+fn CInt run(RunFinishedCallback finished, void* user_data) @inline => c::r_run((c::RRunFinishedCallback)finished, user_data);
+
+<*
+ Returns R_TRUE when the application is limited to one window: on iOS and in a browser, or with
+ RInitDesc::single_window. Use it to choose a layout that needs no second window.
+*>
+fn bool single_window_mode() @inline => c::r_single_window_mode() != 0;
 
 <*
  Produces one frame: processes the pending OS events without

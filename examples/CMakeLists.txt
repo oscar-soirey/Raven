@@ -26,7 +26,18 @@ function(raven_add_example name)
 	target_link_libraries(raven_${name} PRIVATE raven::raven)
 	set_target_properties(raven_${name} PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "examples")
 	# where the example finds its data files when started from any folder
-	if(EMSCRIPTEN)
+	if(IOS OR (EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "web"))
+		# the system owns the loop: the examples start it with Rrun (examples/common/example.h)
+		target_compile_definitions(raven_${name} PRIVATE RAVEN_EXAMPLE_SYSTEM_LOOP)
+	endif()
+	if(EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "web")
+		# a page: the canvas of the shell is the window (platform/web); the loop is the one of the browser
+		target_compile_definitions(raven_${name} PRIVATE RAVEN_EXAMPLE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/${name}")
+		set_target_properties(raven_${name} PROPERTIES SUFFIX ".html")
+		target_link_options(raven_${name} PRIVATE
+			--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/../src/platform/web/shell.html
+			-sALLOW_MEMORY_GROWTH=1 -sTOTAL_STACK=5MB -sEXIT_RUNTIME=0 -sINITIAL_MEMORY=64MB -sMINIFY_HTML=0)
+	elseif(EMSCRIPTEN)
 		target_compile_definitions(raven_${name} PRIVATE
 			RAVEN_EXAMPLE_DIR="/examples/${name}")
 		set_target_properties(raven_${name} PROPERTIES SUFFIX ".html")
@@ -37,7 +48,7 @@ function(raven_add_example name)
 		# Bundle runtime assets with their original relative directory structure.
 		file(GLOB_RECURSE assets CONFIGURE_DEPENDS
 			"${name}/*.xml" "${name}/*.svg" "${name}/*.md"
-			"${name}/*.frag" "${name}/*.png" "${name}/*.jpg"
+			"${name}/*.frag" "${name}/*.rfx" "${name}/*.png" "${name}/*.jpg"
 			"${name}/*.jpeg" "${name}/*.webp")
 		foreach(asset IN LISTS assets)
 			file(RELATIVE_PATH relative "${CMAKE_CURRENT_SOURCE_DIR}" "${asset}")
@@ -49,6 +60,14 @@ function(raven_add_example name)
 		target_compile_definitions(raven_${name} PRIVATE
 			RAVEN_EXAMPLE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/${name}")
 	endif()
+	if(IOS)
+		# an application bundle (build with the simulator: spikes/portability_probe/probe_ios_app.sh)
+		set_target_properties(raven_${name} PROPERTIES
+			MACOSX_BUNDLE TRUE
+			MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist.in
+			MACOSX_BUNDLE_GUI_IDENTIFIER org.raven.example.${name}
+			MACOSX_BUNDLE_BUNDLE_NAME ${name})
+	endif()
 	if(MSVC)
 		target_compile_definitions(raven_${name} PRIVATE _CRT_SECURE_NO_WARNINGS)
 	else()
@@ -57,6 +76,24 @@ function(raven_add_example name)
 endfunction()
 
 raven_add_example(hello hello/main.c)
+if(IOS OR (EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "web"))
+	# The other examples read files from disk and use native windows: the web build starts with the ones that need
+	# only their XML, which is put in the virtual file system of the page under the path the program asks for.
+	raven_add_example(glass glass/main.c glass/glass.xml)
+	raven_add_example(editor editor/main.c editor/editor.xml)
+	raven_add_example(animations animations/main.c animations/animations.xml)
+	raven_add_example(components components/main.c components/components.xml components/widgets.xml)
+	raven_add_example(studio studio/main.c studio/studio.xml)
+	raven_add_example(themes themes/main.c themes/themes.xml themes/ocean.xml themes/paper.xml themes/notes.md)
+	# (effects: its own shaders are .rfx bundles, which run on the Sokol backend)
+	raven_add_example(effects effects/main.c effects/effects.xml)
+	if(EMSCRIPTEN)
+		foreach(example glass editor animations components studio themes effects)
+			target_link_options(raven_${example} PRIVATE "SHELL:--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/${example}@${CMAKE_CURRENT_SOURCE_DIR}/${example}")
+		endforeach()
+	endif()
+	return()
+endif()
 raven_add_example(editor editor/main.c editor/editor.xml)
 raven_add_example(glass glass/main.c glass/glass.xml)
 raven_add_example(notepad notepad/main.c notepad/notepad.xml)

@@ -9,8 +9,9 @@
 #       the Wayland platform against a small compositor run in the test itself
 #       (libwayland-server): skipped where it is not installed.
 #   test_render
-#       renders real frames with the Vulkan backend and checks pixels. It is
-#       reported as skipped when the machine has no usable Vulkan driver.
+#       renders real frames and checks pixels, with the Vulkan backend (test_render) and
+#       with the Sokol one when it is built (test_render_sokol). Reported as skipped when
+#       the machine has no usable graphics driver.
 #
 #   raven_benchmark
 #       not a test: prints layout and paint timings for a large widget tree.
@@ -48,6 +49,8 @@ raven_add_test(test_themes)
 raven_add_test(test_markdown)
 raven_add_test(test_tools)
 raven_add_test(test_locale)
+raven_add_test(test_run)
+raven_add_test(test_single_window)
 raven_add_test(test_host_platform)
 if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	# Real AppKit key events through RavenCocoaView, with the null renderer (no Vulkan).
@@ -56,6 +59,9 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	add_test(NAME test_cocoa_input COMMAND test_cocoa_input)
 endif()
 raven_add_test(test_touch)
+raven_add_test(test_rfx)
+target_compile_definitions(test_rfx PRIVATE "RAVEN_TEST_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/data\"")
+raven_add_test(test_touch_focus)
 raven_add_test(test_more_widgets)
 if(NOT RAVEN_WITH_SVG)
 	target_compile_definitions(test_more_widgets PRIVATE RAVEN_TEST_NO_SVG)
@@ -86,9 +92,22 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 	endif()
 endif()
 
-if(RAVEN_BACKEND_VULKAN)
+# test_render runs on the backend named by RAVEN_BACKEND (Vulkan when it is not set); a second ctest
+# entry runs it on the Sokol backend when that one is built.
+if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_SOKOL)
 	raven_add_test(test_render)
 	set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77)
+	target_compile_definitions(test_render PRIVATE "RAVEN_TEST_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/data\"")
+	if(RAVEN_BACKEND_VULKAN)
+		target_compile_definitions(test_render PRIVATE RAVEN_TEST_HAS_VULKAN)
+	endif()
+	if(NOT RAVEN_BACKEND_VULKAN)
+		set_tests_properties(test_render PROPERTIES ENVIRONMENT "RAVEN_BACKEND=sokol")
+	endif()
+endif()
+if(RAVEN_BACKEND_VULKAN AND RAVEN_BACKEND_SOKOL)
+	add_test(NAME test_render_sokol COMMAND test_render)
+	set_tests_properties(test_render_sokol PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=sokol")
 endif()
 
 # Not a test: prints timings for a large widget tree (see the top of benchmark.c).

@@ -40,8 +40,13 @@ static unsigned theme_color(RColorRole role) {
 }
 
 static const char* temp_dir(void) {
+	static char dir[512];
 	const char* temp = getenv("TMPDIR") ? getenv("TMPDIR") : (getenv("TEMP") ? getenv("TEMP") : "/tmp");
-	return temp;
+	size_t length;
+	snprintf(dir, sizeof(dir), "%s", temp);
+	/* (macOS ends TMPDIR with a slash: a path with "//" is not matched by the live reload of the XML loader) */
+	for (length = strlen(dir); length > 1 && (dir[length - 1] == '/' || dir[length - 1] == '\\'); length--) dir[length - 1] = '\0';
+	return dir;
 }
 
 static void write_text(const char* path, const char* text) {
@@ -596,7 +601,8 @@ static void test_looks(void) {
 #if defined(_WIN32)
 	CHECK_STR(Rtheme_get_name(), "WindowsLight");
 #elif defined(__APPLE__)
-	CHECK_STR(Rtheme_get_name(), "MacOSLight");
+	/* (Liquid Glass from macOS 26 on, the flat look before) */
+	CHECK(strcmp(Rtheme_get_name(), "MacOSLight") == 0 || strcmp(Rtheme_get_name(), "MacOSGlassLight") == 0);
 #else
 	CHECK_STR(Rtheme_get_name(), "GnomeLight");
 #endif

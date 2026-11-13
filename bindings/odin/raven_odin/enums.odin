@@ -16,6 +16,9 @@ Backend :: enum i32 {
 	Custom = 3,
 	// Browser renderer (Emscripten, WebGL 2).
 	Webgl = 4,
+	// Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
+	// Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
+	Sokol = 5,
 }
 
 Error :: enum i32 {
@@ -110,6 +113,8 @@ Window_System :: enum i32 {
 	Wayland = 0x0093,
 	Cocoa = 0x0094,
 	Emscripten = 0x0095,
+	Web = 0x0096,
+	Uikit = 0x0097,
 }
 
 // Edges and corners of a window, for Rwindow_begin_resize.

@@ -57,6 +57,11 @@ namespace Raven
         /// Browser renderer (Emscripten, WebGL 2).
         /// </summary>
         R_BACKEND_WEBGL = 4,
+        /// <summary>
+        /// Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
+        /// Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
+        /// </summary>
+        R_BACKEND_SOKOL = 5,
     }
 
     public enum RError : int
@@ -177,6 +182,8 @@ namespace Raven
         R_WINDOW_SYSTEM_WAYLAND = 0x0093,
         R_WINDOW_SYSTEM_COCOA = 0x0094,
         R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
+        R_WINDOW_SYSTEM_WEB = 0x0096,
+        R_WINDOW_SYSTEM_UIKIT = 0x0097,
     }
 
     /// <summary>
@@ -1759,7 +1766,8 @@ namespace Raven
     public struct RInitDesc
     {
         /// <summary>
-        /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+        /// Rendering backend. 0 selects the one named by the environment variable RAVEN_BACKEND (vulkan,
+        /// sokol, webgl or null) when it is set, else WebGL in browser builds and Vulkan otherwise.
         /// </summary>
         public RBackend backend;
         /// <summary>
@@ -1790,6 +1798,12 @@ namespace Raven
         /// Global UI scale multiplier applied on top of the monitor scale. 0 = 1.0.
         /// </summary>
         public float ui_scale;
+        /// <summary>
+        /// R_TRUE limits the application to one window, as it is on iOS and in a browser (they always are): Rwindow_create
+        /// fails while a window exists, and docks do not tear panels off into windows of their own. Menus, popups,
+        /// tooltips and dialogs are drawn inside the window anyway. On a desktop it is how to try a mobile layout.
+        /// </summary>
+        public int single_window;
     }
 
     /// <summary>
@@ -1859,6 +1873,8 @@ namespace Raven
     ///   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
     ///           Wayland or X11 when Rinit runs: check `system`)
     ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+    ///   UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
+    ///   Web   : display = the CSS selector of the canvas (const char*, "#canvas")
     ///   Emscripten: window = opaque browser surface token (no OS window handle)
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -2563,6 +2579,30 @@ namespace Raven
     }
 
     /// <summary>
+    /// Runs the application until it quits, on every platform.
+    /// 
+    ///     static void finished(int exit_code, void* user) { Rshutdown(); }
+    /// 
+    ///     int main(void) {
+    ///         Rinit(R_BACKEND_VULKAN);
+    ///         ... create the windows, Rset_frame_callback for what you do every frame ...
+    ///         return Rrun(finished, NULL);
+    ///     }
+    /// 
+    /// On a desktop Rrun is the loop `while (Rwait_frame(-1.0)) {}`: it returns when the application quits (Rquit,
+    /// or the last window closed), after calling `finished`, with the exit code. Where the system owns the loop (a
+    /// browser, iOS) it cannot run here: Rrun hands the frame to the system, which calls Raven once per frame,
+    /// and returns 0 **at once**; `finished` is called later, when the application quits, and the code after Rrun
+    /// has run long before. So do the clean-up in `finished` and not after Rrun. A program that writes its own loop
+    /// with Rdraw_frame / Rwait_frame keeps working on a desktop; only Rrun works everywhere.
+    /// 
+    /// finished Called once, when the application has quit, with the exit code; may be NULL. When it is NULL
+    /// on a platform that owns the loop, Raven shuts itself down (Rshutdown) as nothing else could.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RRunFinishedCallback(int exit_code, IntPtr user_data);
+
+    /// <summary>
     /// Registers a function called once per frame, before the layout.
     /// The body of your loop does the same job; the callback is also called
     /// while the OS keeps the thread in a loop of its own (on Windows, while
@@ -3111,6 +3151,12 @@ namespace Raven
         public static extern int Rinit_ex(IntPtr desc);
 
         /// <summary>
+        /// The rendering backend in use, or 0 before Rinit.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RBackend Rget_backend();
+
+        /// <summary>
         /// Destroys every window, widget and resource, stops the worker and
         /// render threads and releases the backend.
         /// </summary>
@@ -3203,6 +3249,16 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rmemory_trim();
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rrun(RRunFinishedCallback finished, IntPtr user_data);
+
+        /// <summary>
+        /// Returns: R_TRUE when the application is limited to one window: on iOS and in a browser, or with
+        /// RInitDesc::single_window. Use it to choose a layout that needs no second window.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rsingle_window_mode();
 
         /// <summary>
         /// Produces one frame: processes the pending OS events without
@@ -8691,15 +8747,17 @@ namespace Raven
 
         /// <summary>
         /// A shader from SPIR-V code (a fragment shader written with
-        /// raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
-        /// when the code is not SPIR-V; a backend that refuses it reports an error
-        /// and the effect is drawn as a rectangle.
+        /// raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+        /// file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+        /// neither, or a bundle is damaged; a backend that cannot run it (the
+        /// Sokol backend with SPIR-V, a bundle without the variant of its graphics
+        /// API) reports an error and the effect is drawn as a rectangle.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rshader_create(byte[] spirv, UIntPtr size, uint flags);
 
         /// <summary>
-        /// The same, from a .spv file (UTF-8 path, relative to the current folder).
+        /// The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rshader_create_from_file([MarshalAs(Utf8.Str)] string path, uint flags);

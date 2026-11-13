@@ -37,6 +37,10 @@ const rvn_platform_t* rvn_platform_select(int headless) {
 	return rvn_platform_x11();
 #elif defined(RAVEN_PLATFORM_COCOA)
 	return rvn_platform_cocoa();
+#elif defined(RAVEN_PLATFORM_WEB)
+	return rvn_platform_web();
+#elif defined(RAVEN_PLATFORM_UIKIT)
+	return rvn_platform_uikit();
 #else
 	/* no window system for this OS yet: the library still works headless */
 	return rvn_platform_null();

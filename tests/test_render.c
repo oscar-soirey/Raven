@@ -322,6 +322,22 @@ static void test_custom_drawing(void) {
 	Rwindow_destroy(window);
 }
 
+/* An effect of the application as a bundle (tools/rfx/rfx.py): one file for every backend (Vulkan: its SPIR-V; Sokol: its source). */
+static void test_effect_bundle(void) {
+	Rid window = window_from(
+		"<Window Width=\"200\" Height=\"100\" ClearColor=\"#000000\">"
+		"  <Canvas>"
+		"    <Border Slot.Position=\"10,10\" Slot.Size=\"60,60\" Effect=\"" RAVEN_TEST_DATA "/solid.rfx\" EffectColor=\"#FF0000\"/>"
+		"    <Border Slot.Position=\"110,10\" Slot.Size=\"60,60\" Effect=\"" RAVEN_TEST_DATA "/solid.rfx\" EffectColor=\"#00FF00\"/>"
+		"  </Canvas>"
+		"</Window>");
+	capture(window);
+	CHECK_PIXEL(40, 40, 255, 0, 0);
+	CHECK_PIXEL(140, 40, 0, 255, 0);
+	CHECK_PIXEL(90, 40, 0, 0, 0);
+	Rwindow_destroy(window);
+}
+
 static void paint_glass(Rid widget, RPainter* painter, float width, float height, void* user_data) {
 	(void)widget;
 	(void)width;
@@ -664,8 +680,10 @@ static void test_viewport(void) {
 	}
 	texture = Rtexture_create_from_pixels(pixels, 8, 8);
 	Rviewport_set_texture(texture_viewport, texture);
-	/* callback mode */
-	Rviewport_set_draw_callback(Rwidget_find(window, "callback"), on_viewport_draw, NULL);
+	/* callback mode (a backend without R_BACKEND_CAP_CALLBACK skips the callback: nothing to check) */
+	if (Rbackend_get_caps() & R_BACKEND_CAP_CALLBACK) {
+		Rviewport_set_draw_callback(Rwidget_find(window, "callback"), on_viewport_draw, NULL);
+	}
 
 	capture(window);
 	CHECK_PIXEL(60, 60, 0, 200, 100);
@@ -673,15 +691,17 @@ static void test_viewport(void) {
 	Rviewport_get_pixel_size(texture_viewport, &width, &height);
 	CHECK(width == (int)(100 * g_scale) && height == (int)(100 * g_scale));
 
-	/* the capture waited for the frame, so the callback already ran on the render thread */
-	CHECK(g_callback_calls > 0);
-	CHECK(g_callback_info.backend == R_BACKEND_VULKAN);
-	CHECK(g_callback_info.window == window);
-	CHECK(g_callback_info.command_buffer != NULL && g_callback_info.render_pass != NULL);
-	/* (at a fractional scale, 150 * 1.25 = 187.5: the place on the pixel grid may be either pixel) */
-	CHECK(abs(g_callback_info.x - (int)floorf(150 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.y - (int)floorf(20 * g_scale + 0.5f)) <= 1);
-	CHECK(abs(g_callback_info.width - (int)floorf(120 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.height - (int)floorf(80 * g_scale + 0.5f)) <= 1);
-	CHECK(g_callback_info.clip_width == g_callback_info.width);
+	if (Rbackend_get_caps() & R_BACKEND_CAP_CALLBACK) {
+		/* the capture waited for the frame, so the callback already ran on the render thread */
+		CHECK(g_callback_calls > 0);
+		CHECK(g_callback_info.backend == Rget_backend());
+		CHECK(g_callback_info.window == window);
+		CHECK(g_callback_info.command_buffer != NULL && g_callback_info.render_pass != NULL);
+		/* (at a fractional scale, 150 * 1.25 = 187.5: the place on the pixel grid may be either pixel) */
+		CHECK(abs(g_callback_info.x - (int)floorf(150 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.y - (int)floorf(20 * g_scale + 0.5f)) <= 1);
+		CHECK(abs(g_callback_info.width - (int)floorf(120 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.height - (int)floorf(80 * g_scale + 0.5f)) <= 1);
+		CHECK(g_callback_info.clip_width == g_callback_info.width);
+	}
 
 	Rtexture_destroy(texture);
 	Rwindow_destroy(window);
@@ -731,10 +751,16 @@ static void test_windows(void) {
 	Rwindow_destroy(first);
 }
 
+#if defined(RAVEN_TEST_HAS_VULKAN)
 static void test_vulkan_api(void) {
 	Ruint count = 0;
 	const char* const* names;
 	Rid shared;
+
+	if (Rget_backend() != R_BACKEND_VULKAN) {
+		printf("  skipped: raven_vulkan.h needs the Vulkan backend\n");
+		return;
+	}
 
 	CHECK(Rvulkan_get_instance() != NULL);
 	CHECK(Rvulkan_get_physical_device() != NULL);
@@ -766,11 +792,17 @@ static void test_vulkan_api(void) {
 	}
 }
 
+#else
+static void test_vulkan_api(void) {
+	printf("  skipped: this build has no Vulkan backend\n");
+}
+#endif
+
 /* ---------------------------------------------------------------------------
  *  Start-up
  * ------------------------------------------------------------------------- */
 
-/* Starts the Vulkan backend and checks that a window can really be rendered. */
+#if defined(RAVEN_TEST_HAS_VULKAN)
 /* ---------------------------------------------------------------------------
  *  Loss of the device
  * ------------------------------------------------------------------------- */
@@ -885,7 +917,9 @@ static void test_device_lost(void) {
 	free(g_big_pixels);
 	g_big_pixels = NULL;
 }
+#endif /* RAVEN_TEST_HAS_VULKAN */
 
+/* Starts the backend (RAVEN_BACKEND, Vulkan by default) and checks that a window can really be rendered. */
 static int start(int headless) {
 	RInitDesc desc;
 	Rid probe;
@@ -893,7 +927,8 @@ static int start(int headless) {
 	int width = 0, height = 0;
 
 	memset(&desc, 0, sizeof(desc));
-	desc.backend = R_BACKEND_VULKAN;
+	/* 0: the backend named by RAVEN_BACKEND (vulkan, sokol), Vulkan when it is not set */
+	desc.backend = 0;
 	desc.headless = headless;
 	desc.app_name = "test_render";
 	Rerror_set_callback(test_error_callback);
@@ -998,11 +1033,11 @@ int main(void) {
 	int windowed = getenv("RAVEN_TEST_WINDOWED") != NULL;
 	EXPECT_ERRORS_BEGIN();
 	if (!windowed && start(R_TRUE)) {
-		printf("test_render: Vulkan without a window system (headless surface)\n");
+		printf("test_render: %s backend without a window system (headless surface)\n", Rget_backend() == R_BACKEND_SOKOL ? "Sokol" : "Vulkan");
 	} else if (start(R_FALSE)) {
-		printf("test_render: Vulkan with a real window\n");
+		printf("test_render: %s backend with a real window\n", Rget_backend() == R_BACKEND_SOKOL ? "Sokol" : "Vulkan");
 	} else {
-		printf("test_render: SKIPPED, no usable Vulkan driver or display\n");
+		printf("test_render: SKIPPED, no usable graphics driver or display\n");
 		return SKIP_CODE;
 	}
 	g_test_expect_errors = 0;
@@ -1020,12 +1055,16 @@ int main(void) {
 	RUN(test_windows_look);
 	RUN(test_glass_theme);
 	RUN(test_materials);
+	RUN(test_effect_bundle);
 	RUN(test_curves_and_blur);
 	RUN(test_node_graph);
 	RUN(test_viewport);
 	RUN(test_windows);
 	RUN(test_vulkan_api);
-	RUN(test_device_lost);
+#if defined(RAVEN_TEST_HAS_VULKAN)
+	/* (a Vulkan device is lost: what the other backends have no way to do) */
+	if (Rget_backend() == R_BACKEND_VULKAN) RUN(test_device_lost);
+#endif
 	/* everything works on the new device */
 	RUN(test_shapes);
 	RUN(test_text);

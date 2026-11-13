@@ -687,6 +687,13 @@ static void rvn_dialog_args_kdialog(rvn_dialog_args_t* args, const RFileDialogDe
  * line. The application keeps running its frames meanwhile, without taking
  * input. Returns R_FALSE when the program could not show a dialog.
  */
+#if defined(RVN_NO_SUBPROCESS)
+/* no dialog program to run (iOS, a browser): the native dialogs come with the platform layer (document picker, <input type=file>) */
+static int rvn_dialog_run_tool(rvn_dialog_args_t* args) {
+	RVN_UNUSED(args);
+	return R_FALSE;
+}
+#else
 static int rvn_dialog_run_tool(rvn_dialog_args_t* args) {
 	int fds[2], status = 0, shown = R_FALSE;
 	char* output = NULL;
@@ -765,6 +772,7 @@ static int rvn_dialog_run_tool(rvn_dialog_args_t* args) {
 	rvn_free(output);
 	return shown;
 }
+#endif
 
 static int rvn_file_dialog_native(const RFileDialogDesc* desc, RFileBrowserMode mode, const char* directory) {
 	rvn_dialog_args_t args;

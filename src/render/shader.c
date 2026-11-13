@@ -10,6 +10,7 @@
  */
 
 #include "renderer.h"
+#include "rfx.h"
 #include "../core/context.h"
 
 #include "vulkan/generated/effect_aurora_spv.h"
@@ -51,16 +52,52 @@ rvn_shader_t* rvn_shader_get(Rid id) {
 	return (rvn_shader_t*)rvn_pool_get(&g_rvn.shaders, id);
 }
 
-static Rid rvn_shader_make(const void* spirv, size_t size, Ruint flags, int effect) {
+/*
+ * What the running backend is given for a shader: SPIR-V (the file itself, or the SPIR-V chunk of a bundle), except for the
+ * Sokol backend, which compiles source code for its graphics API and so gets the whole bundle of a bundle. R_FALSE: the data
+ * is none of these, or a bundle cannot be used with this backend; an error is reported.
+ */
+static int rvn_shader_payload(const void* data, size_t size, const void** payload, size_t* payload_size, Ruint* flags) {
+	uint32_t magic = 0;
+	if (data && size >= 4) memcpy(&magic, data, sizeof(magic));
+	if (rvn_rfx_is_bundle(data, size)) {
+		if (!rvn_rfx_validate(data, size)) {
+			rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rshader_create: this effect bundle (.rfx) is damaged");
+			return R_FALSE;
+		}
+		*flags |= rvn_rfx_flags(data);
+		if (g_rvn.backend == R_BACKEND_SOKOL) {
+			*payload = data;
+			*payload_size = size;
+			return R_TRUE;
+		}
+		*payload = rvn_rfx_chunk(data, size, "SPV ", payload_size);
+		if (!*payload) {
+			rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "Rshader_create: this effect bundle has no SPIR-V (make it again with tools/rfx/rfx.py)");
+			return R_FALSE;
+		}
+		data = *payload;
+		size = *payload_size;
+		magic = 0;
+		if (size >= 4) memcpy(&magic, data, sizeof(magic));
+	} else {
+		*payload = data;
+		*payload_size = size;
+	}
+	/* SPIR-V: whole 32-bit words, starting with its magic number (the bytes may have any alignment) */
+	if (!data || size < 20 || size % 4 != 0 || magic != 0x07230203u) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rshader_create: this is neither SPIR-V (compile the shader with glslangValidator -V or glslc) nor an effect bundle (tools/rfx/rfx.py)");
+		return R_FALSE;
+	}
+	return R_TRUE;
+}
+
+static Rid rvn_shader_make(const void* data, size_t data_size, Ruint flags, int effect) {
 	rvn_shader_t* shader;
 	uint32_t* copy;
-	uint32_t magic = 0;
-	/* SPIR-V: whole 32-bit words, starting with its magic number (the bytes may have any alignment) */
-	if (spirv && size >= 4) memcpy(&magic, spirv, sizeof(magic));
-	if (!spirv || size < 20 || size % 4 != 0 || magic != 0x07230203u) {
-		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rshader_create: this is not SPIR-V (compile the shader with glslangValidator -V or glslc)");
-		return R_INVALID_ID;
-	}
+	const void* spirv;
+	size_t size;
+	if (!rvn_shader_payload(data, data_size, &spirv, &size, &flags)) return R_INVALID_ID;
 	shader = (rvn_shader_t*)rvn_calloc(sizeof(rvn_shader_t));
 	shader->flags = flags;
 	shader->effect = effect;

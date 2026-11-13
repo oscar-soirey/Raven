@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
 		printf("     floating window %d x %d\n", fw, fh);
 		CHECK(fw >= 250 && fw <= 300 && fh >= 500, "the window has the size the panel had in the area");
 	}
-	CHECK(!Rdock_area_is_panel_open(dock, output) == 0, "the other panels stayed");
+	CHECK(Rdock_area_is_panel_open(dock, output) != 0, "the other panels stayed");
 	if (capture) {
 		frames(20);
 		{

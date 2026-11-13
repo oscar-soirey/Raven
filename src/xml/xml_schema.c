@@ -173,13 +173,13 @@ static const rvn_schema_attribute_t g_border[] = {
 	N("BorderWidth", "Width of the outline."),
 	V("CornerRadius", "One number, or \"top-left,top-right,bottom-right,bottom-left\"."),
 	V("Shadow", "\"blur\" or \"blur,x,y\"."),
-	T("Effect", "An effect as its background: aurora, shimmer, neon, ripple, plasma, grain, spotlight, mesh, or a .spv file (raven_shader.h)."),
+	T("Effect", "An effect as its background: aurora, shimmer, neon, ripple, plasma, grain, spotlight, mesh, or a .spv or .rfx file (raven_shader.h)."),
 	K("EffectColor", "First color of the effect."),
 	K("EffectColor2", "Second color of the effect."),
 	V("EffectParams", "The four parameters of the effect: \"a,b,c,d\" (fewer keep the defaults of the others)."),
 	B("EffectAnimate", "Draws frames while it is shown (the animated effects do by default)."),
 	B("EffectPointer", "The effect follows the pointer: where it is, over the border and pressing it (true by default)."),
-	B("EffectBackdrop", "The .spv effect reads what is behind it (R_SHADER_BACKDROP)."),
+	B("EffectBackdrop", "The .spv effect reads what is behind it (a .rfx bundle can say so itself) (R_SHADER_BACKDROP)."),
 };
 static const rvn_schema_attribute_t g_size_box[] = { V("AspectRatio", "Width over height: \"1.5\" or \"16,9\".") };
 static const rvn_schema_attribute_t g_scroll_box[] = {

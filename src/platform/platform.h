@@ -312,11 +312,40 @@ typedef struct rvn_platform_t {
 	/** Optional (may be NULL). Icon from RGBA8 pixels; NULL rgba restores the default. */
 	void  (*window_set_icon)(rvn_pwindow_t* window, const uint8_t* rgba, int width, int height);
 	void  (*window_set_cursor)(rvn_pwindow_t* window, RCursor cursor);
+	/**
+	 * Optional (may be NULL). The focus is on (active) or left a widget the user types into, at this rectangle of
+	 * the window in pixels: a platform with a soft keyboard or an input method shows it (or hides it) and
+	 * keeps it near the rectangle. Called after the events that can change it, so that a platform that
+	 * only lets a page raise the keyboard from a gesture is called from inside that gesture; the same
+	 * rectangle is repeated then.
+	 */
+	void  (*window_text_input)(rvn_pwindow_t* window, int active, int x, int y, int width, int height);
 	void  (*window_get_native)(rvn_pwindow_t* window, RNativeWindow* native);
 
 	/** Child window used by native viewports. Destroyed with window_destroy. */
 	rvn_pwindow_t* (*child_create)(rvn_pwindow_t* parent, int x, int y, int width, int height, void* user);
 	void  (*child_set_rect)(rvn_pwindow_t* child, int x, int y, int width, int height, int visible);
+
+	/**
+	 * R_TRUE when the platform allows one window only (iOS, a browser): Rwindow_create fails while a window
+	 * exists and the layout needs no second window. RInitDesc::single_window asks for the same anywhere.
+	 */
+	int single_window;
+	/** R_TRUE when the graphics context can only be used from the UI thread (a browser): rendering runs there. */
+	int single_thread_render;
+	/**
+	 * Optional (may be NULL). The UI scale of an application that did not choose one (RInitDesc::ui_scale 0), on top of the
+	 * scale of the screen: a touch device makes controls larger (fingers are not mouse pointers). 1.0 = unchanged.
+	 */
+	float (*default_ui_scale)(void);
+
+	/**
+	 * Optional (NULL: the application owns the loop, as on a desktop). Called by Rrun when the system owns the
+	 * loop (a browser, iOS): arranges for `tick` to be called once per frame of the system, until it returns
+	 * R_FALSE, and returns R_TRUE. It may return at once (browser) or never (iOS: UIApplicationMain). R_FALSE:
+	 * the platform cannot, and Rrun runs the loop itself.
+	 */
+	int   (*run)(int (*tick)(void* user), void* user);
 
 	/**
 	 * Dispatches pending events to the handler.
@@ -453,6 +482,12 @@ const rvn_platform_t* rvn_platform_win32(void);
 #endif
 #if defined(RAVEN_PLATFORM_COCOA)
 const rvn_platform_t* rvn_platform_cocoa(void);
+#endif
+#if defined(RAVEN_PLATFORM_WEB)
+const rvn_platform_t* rvn_platform_web(void);
+#endif
+#if defined(RAVEN_PLATFORM_UIKIT)
+const rvn_platform_t* rvn_platform_uikit(void);
 #endif
 
 #endif /* RVN_PLATFORM_H */

@@ -183,5 +183,8 @@ const RBackendVTable* rvn_backend_null(void);
 #if defined(RAVEN_BACKEND_VULKAN_ENABLED)
 const RBackendVTable* rvn_backend_vulkan(void);
 #endif
+#if defined(RAVEN_BACKEND_SOKOL_ENABLED)
+const RBackendVTable* rvn_backend_sokol(void);
+#endif
 
 #endif /* RVN_RENDERER_H */

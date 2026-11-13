@@ -8,6 +8,11 @@
  * month, the day of the week, the names of the months.
  */
 
+/* localtime_r() is POSIX: a strict C11 libc (Emscripten) hides it unless asked */
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && !defined(__APPLE__)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "common.h"
 
 #include <stdio.h>

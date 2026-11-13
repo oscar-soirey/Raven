@@ -120,6 +120,7 @@ const (
 	R_BACKEND_NULL   RBackend = 2
 	R_BACKEND_CUSTOM RBackend = 3
 	R_BACKEND_WEBGL  RBackend = 4
+	R_BACKEND_SOKOL  RBackend = 5
 )
 
 type RError int32
@@ -195,6 +196,8 @@ const (
 	R_WINDOW_SYSTEM_WAYLAND    RWindowSystem = 0x0093
 	R_WINDOW_SYSTEM_COCOA      RWindowSystem = 0x0094
 	R_WINDOW_SYSTEM_EMSCRIPTEN RWindowSystem = 0x0095
+	R_WINDOW_SYSTEM_WEB        RWindowSystem = 0x0096
+	R_WINDOW_SYSTEM_UIKIT      RWindowSystem = 0x0097
 )
 
 // RWindowEdge: Edges and corners of a window, for Rwindow_begin_resize.
@@ -1104,6 +1107,11 @@ func Init(backend RBackend) int {
 	return int(C.Rinit(C.RBackend(backend)))
 }
 
+// GetBackend: The rendering backend in use, or 0 before Rinit.
+func GetBackend() RBackend {
+	return RBackend(C.Rget_backend())
+}
+
 // Shutdown: Destroys every window, widget and resource, stops the worker and render threads and releases the
 // backend.
 func Shutdown() {
@@ -1128,6 +1136,12 @@ func MemoryCheck() int {
 // MemoryTrim: Returns to the OS the regions of the heap that hold nothing. Thread-safe.
 func MemoryTrim() {
 	C.Rmemory_trim()
+}
+
+// SingleWindowMode: Returns: R_TRUE when the application is limited to one window: on iOS and in a browser,
+// or with RInitDesc::single_window. Use it to choose a layout that needs no second window.
+func SingleWindowMode() int {
+	return int(C.Rsingle_window_mode())
 }
 
 // DrawFrame: Produces one frame: processes the pending OS events without waiting, runs the posted tasks and
@@ -6042,8 +6056,9 @@ func ViewportSetRealtime(viewport ID, realtime int) {
 }
 
 // ShaderCreate: A shader from SPIR-V code (a fragment shader written with raven_effect.glsl, as in a .spv
-// file): `size` bytes, copied. R_INVALID_ID when the code is not SPIR-V; a backend that refuses it reports an
-// error and the effect is drawn as a rectangle.
+// file) or from an effect bundle (a .rfx file, see above): `size` bytes, copied. R_INVALID_ID when the data
+// is neither, or a bundle is damaged; a backend that cannot run it (the Sokol backend with SPIR-V, a bundle
+// without the variant of its graphics API) reports an error and the effect is drawn as a rectangle.
 func ShaderCreate(spirv []byte, flags uint32) ID {
 	var spirv_ unsafe.Pointer
 	if len(spirv) > 0 {
@@ -6052,7 +6067,7 @@ func ShaderCreate(spirv []byte, flags uint32) ID {
 	return ID(C.Rshader_create(spirv_, C.size_t(len(spirv)), C.Ruint(flags)))
 }
 
-// ShaderCreateFromFile: The same, from a .spv file (UTF-8 path, relative to the current folder).
+// ShaderCreateFromFile: The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder).
 func ShaderCreateFromFile(path string, flags uint32) ID {
 	path_ := C.CString(path)
 	defer C.free(unsafe.Pointer(path_))
@@ -6724,7 +6739,7 @@ func HostInjectClose(window ID) {
 
 // Left to cgo (a pointer to a structure, a void* or a C callback among the parameters):
 // Rinit_ex, Rset_allocator, Rallocator_get_system, Rmemory_alloc, Rmemory_realloc, Rmemory_free
-// Rmemory_get_stats, Rset_frame_callback, Rtask_post, Rtask_run_async, Rparallel_for, Rtimer_create
+// Rmemory_get_stats, Rrun, Rset_frame_callback, Rtask_post, Rtask_run_async, Rparallel_for, Rtimer_create
 // Raction_bind, Raction_set_default_handler, Rerror_get_last, Rerror_set_callback
 // Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_set_icon, Rwindow_set_close_callback
 // Rwindow_set_resize_callback, Rwindow_set_drop_callback, Rwindow_set_user_handle, Rwindow_get_user_handle

@@ -27,6 +27,9 @@ pub const R_BACKEND_NULL: RBackend = 2;
 pub const R_BACKEND_CUSTOM: RBackend = 3;
 /// Browser renderer (Emscripten, WebGL 2).
 pub const R_BACKEND_WEBGL: RBackend = 4;
+/// Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
+/// Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
+pub const R_BACKEND_SOKOL: RBackend = 5;
 
 pub type RError = c_int;
 pub const R_NO_ERROR: RError = 0x0070;
@@ -114,6 +117,8 @@ pub const R_WINDOW_SYSTEM_X11: RWindowSystem = 0x0092;
 pub const R_WINDOW_SYSTEM_WAYLAND: RWindowSystem = 0x0093;
 pub const R_WINDOW_SYSTEM_COCOA: RWindowSystem = 0x0094;
 pub const R_WINDOW_SYSTEM_EMSCRIPTEN: RWindowSystem = 0x0095;
+pub const R_WINDOW_SYSTEM_WEB: RWindowSystem = 0x0096;
+pub const R_WINDOW_SYSTEM_UIKIT: RWindowSystem = 0x0097;
 
 /// Edges and corners of a window, for Rwindow_begin_resize.
 pub type RWindowEdge = c_int;
@@ -1085,6 +1090,26 @@ pub const R_ROLE_SEPARATOR: RAccessibleRole = 0x0781;
 pub const R_ROLE_SCROLL_BAR: RAccessibleRole = 0x0782;
 pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
 
+/// Runs the application until it quits, on every platform.
+///
+///     static void finished(int exit_code, void* user) { Rshutdown(); }
+///
+///     int main(void) {
+///         Rinit(R_BACKEND_VULKAN);
+///         ... create the windows, Rset_frame_callback for what you do every frame ...
+///         return Rrun(finished, NULL);
+///     }
+///
+/// On a desktop Rrun is the loop `while (Rwait_frame(-1.0)) {}`: it returns when the application quits (Rquit,
+/// or the last window closed), after calling `finished`, with the exit code. Where the system owns the loop (a
+/// browser, iOS) it cannot run here: Rrun hands the frame to the system, which calls Raven once per frame,
+/// and returns 0 **at once**; `finished` is called later, when the application quits, and the code after Rrun
+/// has run long before. So do the clean-up in `finished` and not after Rrun. A program that writes its own loop
+/// with Rdraw_frame / Rwait_frame keeps working on a desktop; only Rrun works everywhere.
+///
+/// finished Called once, when the application has quit, with the exit code; may be NULL. When it is NULL
+/// on a platform that owns the loop, Raven shuts itself down (Rshutdown) as nothing else could.
+pub type RRunFinishedCallback = Option<unsafe extern "C" fn(exit_code: c_int, user_data: *mut c_void)>;
 /// Registers a function called once per frame, before the layout.
 /// The body of your loop does the same job; the callback is also called
 /// while the OS keeps the thread in a loop of its own (on Windows, while
@@ -1307,7 +1332,8 @@ pub type RLocaleChangedCallback = Option<unsafe extern "C" fn(language: *const c
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RInitDesc {
-    /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+    /// Rendering backend. 0 selects the one named by the environment variable RAVEN_BACKEND (vulkan,
+    /// sokol, webgl or null) when it is set, else WebGL in browser builds and Vulkan otherwise.
     pub backend: RBackend,
     /// Application name reported to the graphics driver. May be NULL.
     pub app_name: *const c_char,
@@ -1323,6 +1349,10 @@ pub struct RInitDesc {
     pub headless: c_int,
     /// Global UI scale multiplier applied on top of the monitor scale. 0 = 1.0.
     pub ui_scale: f32,
+    /// R_TRUE limits the application to one window, as it is on iOS and in a browser (they always are): Rwindow_create
+    /// fails while a window exists, and docks do not tear panels off into windows of their own. Menus, popups,
+    /// tooltips and dialogs are drawn inside the window anyway. On a desktop it is how to try a mobile layout.
+    pub single_window: c_int,
 }
 
 /// Memory functions of the application, to replace the allocator of Raven. See Rset_allocator.
@@ -1373,6 +1403,8 @@ pub struct RFrameStats {
 ///   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
 ///           Wayland or X11 when Rinit runs: check `system`)
 ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+///   UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
+///   Web   : display = the CSS selector of the canvas (const char*, "#canvas")
 ///   Emscripten: window = opaque browser surface token (no OS window handle)
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -1804,6 +1836,8 @@ extern "C" {
     /// Starts the library with explicit settings.
     /// desc Settings, or NULL for the defaults.
     pub fn Rinit_ex(desc: *const RInitDesc) -> c_int;
+    /// The rendering backend in use, or 0 before Rinit.
+    pub fn Rget_backend() -> RBackend;
     /// Destroys every window, widget and resource, stops the worker and
     /// render threads and releases the backend.
     pub fn Rshutdown();
@@ -1839,6 +1873,10 @@ extern "C" {
     pub fn Rmemory_check() -> c_int;
     /// Returns to the OS the regions of the heap that hold nothing. Thread-safe.
     pub fn Rmemory_trim();
+    pub fn Rrun(finished: RRunFinishedCallback, user_data: *mut c_void) -> c_int;
+    /// Returns: R_TRUE when the application is limited to one window: on iOS and in a browser, or with
+    /// RInitDesc::single_window. Use it to choose a layout that needs no second window.
+    pub fn Rsingle_window_mode() -> c_int;
     /// Produces one frame: processes the pending OS events without
     /// waiting, runs the posted tasks and the timers, then lays out, paints and
     /// submits every window that changed. A window in which nothing changed is
@@ -3987,11 +4025,13 @@ extern "C" {
     pub fn Rdraw_push_clip_rect(painter: *mut RPainter, x: f32, y: f32, width: f32, height: f32);
     pub fn Rdraw_pop_clip_rect(painter: *mut RPainter);
     /// A shader from SPIR-V code (a fragment shader written with
-    /// raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
-    /// when the code is not SPIR-V; a backend that refuses it reports an error
-    /// and the effect is drawn as a rectangle.
+    /// raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+    /// file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+    /// neither, or a bundle is damaged; a backend that cannot run it (the
+    /// Sokol backend with SPIR-V, a bundle without the variant of its graphics
+    /// API) reports an error and the effect is drawn as a rectangle.
     pub fn Rshader_create(spirv: *const c_void, size: usize, flags: u32) -> Rid;
-    /// The same, from a .spv file (UTF-8 path, relative to the current folder).
+    /// The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder).
     pub fn Rshader_create_from_file(path: *const c_char, flags: u32) -> Rid;
     pub fn Rshader_destroy(shader: Rid);
     pub fn Rshader_is_valid(shader: Rid) -> c_int;

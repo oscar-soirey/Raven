@@ -203,6 +203,8 @@ typedef struct rvn_context_t {
 	/** Set by Rwindow_request_redraw when called from another thread. */
 	rvn_atomic_t redraw_all;
 	int had_window;
+	/** One window only (RInitDesc::single_window or a platform that has nothing else): see Rsingle_window_mode. */
+	int single_window;
 	int in_update;
 	/** While positive, the windows ignore the mouse and the keyboard (a dialog of the OS is open). */
 	int input_blocked;

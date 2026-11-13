@@ -231,6 +231,25 @@ typedef struct RCapture {
 	int height;
 } RCapture;
 
+/**
+ * What a backend can do (RBackendVTable::caps, Rbackend_get_caps). The core draws the same instances for
+ * every backend; a capability only tells what the result will look like, and lets tests and applications
+ * check before relying on a feature. A backend that lacks one falls back as the primitives say
+ * (glass drawn as a rounded rectangle, an effect as a rounded rectangle, ...).
+ */
+/** GLASS and BLUR show what is behind them (R_DRAW_BACKDROP). */
+#define R_BACKEND_CAP_GLASS      (1u << 0)
+/** R_DRAW_ERASE: windows that can be seen through. */
+#define R_BACKEND_CAP_ERASE      (1u << 1)
+/** Effect shaders run (CreateShader). */
+#define R_BACKEND_CAP_SHADERS    (1u << 2)
+/** RenderFrame fills RCapture (Rwindow_capture). */
+#define R_BACKEND_CAP_READBACK   (1u << 3)
+/** Viewport draw callbacks run (R_DRAW_CALLBACK, raven_viewport.h). */
+#define R_BACKEND_CAP_CALLBACK   (1u << 4)
+/** The frame is presented to the window system (the null backend and offscreen-only backends do not). */
+#define R_BACKEND_CAP_PRESENT    (1u << 5)
+
 typedef struct RBackendVTable {
 	const char* name;
 
@@ -264,6 +283,12 @@ typedef struct RBackendVTable {
 	 */
 	int  (*CreateShader)(Rid shader, const uint32_t* spirv, size_t size);
 	void (*DestroyShader)(Rid shader);
+
+	/**
+	 * Optional (0: unknown, treated as none). R_BACKEND_CAP_* flags. Added after the first release of this
+	 * table: a backend written for it may leave it out.
+	 */
+	uint32_t caps;
 } RBackendVTable;
 
 
@@ -276,6 +301,9 @@ extern "C" {
 	 * The table is copied. Must be called before Rinit.
 	 */
 	RAVEN_API void Rbackend_register(const RBackendVTable* vtable);
+
+	/** @brief The R_BACKEND_CAP_* flags of the backend in use; 0 before Rinit. */
+	RAVEN_API Ruint Rbackend_get_caps(void);
 
 	/**
 	 * @brief Tells Raven that the device of the backend was lost. Thread-safe:

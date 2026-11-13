@@ -17,9 +17,11 @@ wants to read, debug or extend it.
 │ render/  draw lists, fonts,  │ platform/  windows, input,  │
 │          textures, renderer  │            clipboard        │
 │   ├─ vulkan/                 │   ├─ win32/                 │
-│   └─ null/                   │   ├─ x11/                   │
-│                              │   ├─ wayland/               │
+│   ├─ sokol/  (optional)      │   ├─ x11/                   │
+│   └─ null/                  │   ├─ wayland/               │
 │                              │   ├─ cocoa/                 │
+│                              │   ├─ uikit/ (iOS)           │
+│                              │   ├─ web/ (Emscripten)      │
 │                              │   └─ null/                  │
 ├──────────────────────────────┴─────────────────────────────┤
 │ core/   allocator, handles, threads, jobs, files, loop     │
@@ -96,7 +98,12 @@ the dispatch ends.
 ## A frame
 
 The loop belongs to the application: `Rdraw_frame` (and `Rwait_frame`, which
-sleeps first) produces one frame. Internally (`rvn_update`, `core/context.c`)
+sleeps first) produces one frame. `Rrun(finished, user)` is the same loop in one
+call, and the one to use when the program must also run where the system owns
+the loop (a browser, iOS): there it returns at once and `finished` is called when
+the application quits. With `RInitDesc.single_window` (always on those platforms)
+the application has one window: a second `Rwindow_create` is refused and docks do
+not tear panels off; popups, menus and in-window dialogs are drawn inside the window anyway. Internally (`rvn_update`, `core/context.c`)
 it runs, for each window that needs it:
 
 1. **Tasks and timers**, then the frame callback of the application.
@@ -229,6 +236,44 @@ window keeps producing frames, then goes back to sleep.
 Objects are destroyed after waiting for the frames that may use them
 (`rvn_vk_wait_frames`); this only happens on rare events (a texture is
 deleted, a swapchain is resized), never in a steady frame.
+
+## The Sokol backend
+
+`src/render/sokol/`, selected with `R_BACKEND_SOKOL` (or `RAVEN_BACKEND=sokol`) in a build with
+`-DRAVEN_BACKEND_SOKOL=ON`. It draws the same instances with the same shaders on top of `sokol_gfx`
+(`third_party/sokol/`), whose Metal, GLES3, D3D11 and WebGPU drivers are meant to carry Raven to macOS,
+iOS and the Web. The plan, the decisions and the state of each phase are in
+[SOKOL_BACKEND_PLAN.md](SOKOL_BACKEND_PLAN.md). It runs on GLES 3.0 and EGL (Linux, X11) or on Metal (macOS), headless or with windows. Viewport draw
+callbacks, effect bundles for the effects of applications, transparent windows and the other platforms are
+later phases.
+
+A window is rendered like a headless one, into an offscreen image (the *frame*), and then *presented*: one more
+pass draws the frame into the swapchain of the window. That keeps `Rwindow_capture`, glass and the tests identical
+in both cases, and costs one full-screen copy. The native API decides what the swapchain is: on Linux an EGL
+window surface per window (the display is made from the X11 connection of the platform, the configuration is the
+one of the visual of the window, the context has no configuration, `EGL_KHR_no_config_context`); on macOS the next
+drawable of the `CAMetalLayer` of the window, presented by `sokol_gfx` in `sg_commit()`. A GL window has its origin
+at the bottom left, so its copy flips the frame; Metal's does not.
+
+- `sg_impl.c` is the only file that compiles `sokol_gfx.h`; every function of it is renamed with the
+  `rvn_sokol_` prefix (`sg_prefix.h`, written by `gen_prefix.py`), so an application with its own sokol cannot
+  clash. The graphics API is fixed when Raven is built (`RAVEN_SOKOL_API`), as sokol compiles one per library.
+- `sg_egl.c` (GLES3) and `sg_metal.m` (Metal) are the native-API part: the context or device, the read-back, and
+  the autorelease pool every entry of the table runs in. A D3D11 build gets its own file.
+- `sg_texture.c`: textures; uploads are queued and written together at the start of a frame, because sokol
+  accepts all the writes of a frame into its staging buffer only before the first copy.
+- `sg_pipeline.c`: the UI, erase and blur pipelines, and effects. The UI shaders are the Vulkan GLSL translated
+  by `gen_shaders.py` (glslang, SPIRV-Cross, for GLSL ES 3.00 and MSL) and committed in `generated/`. A built-in effect is found by the
+  hash of its SPIR-V; any other SPIR-V is refused (drawn as a rectangle) until effect bundles exist.
+- `sg_glass.c`: the same scene / backdrop / dual-filter structure as `vk_glass.c`.
+- `sg_backend.c`: the table, surfaces and frames.
+
+Raven draws with pixel row 0 at the top and NDC y pointing down (the Vulkan convention). On GL that stores the UI
+top in framebuffer row 0, so offscreen images, backdrop sampling and read-back need no flip. Metal, D3D11 and
+WebGPU have the origin at the top left but NDC y up: the transform flips y (`rvn_sg_flip_y`), and the generated
+shaders carry two small adjustments (`gen_shaders.py`). Viewport and scissor rectangles use
+`sg_query_features().origin_top_left` to stay in memory-row space. `Rbackend_get_caps()` tells what the
+backend in use can do (`R_BACKEND_CAP_*`); the tests use it to skip what a backend does not offer yet.
 
 ## Platforms
 

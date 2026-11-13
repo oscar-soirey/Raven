@@ -119,11 +119,13 @@ class RBackend(enum.IntEnum):
     R_BACKEND_NULL = 2
     R_BACKEND_CUSTOM = 3
     R_BACKEND_WEBGL = 4
+    R_BACKEND_SOKOL = 5
 
 R_BACKEND_VULKAN = RBackend.R_BACKEND_VULKAN
 R_BACKEND_NULL = RBackend.R_BACKEND_NULL
 R_BACKEND_CUSTOM = RBackend.R_BACKEND_CUSTOM
 R_BACKEND_WEBGL = RBackend.R_BACKEND_WEBGL
+R_BACKEND_SOKOL = RBackend.R_BACKEND_SOKOL
 
 class RError(enum.IntEnum):
     R_NO_ERROR = 0x0070
@@ -224,6 +226,8 @@ class RWindowSystem(enum.IntEnum):
     R_WINDOW_SYSTEM_WAYLAND = 0x0093
     R_WINDOW_SYSTEM_COCOA = 0x0094
     R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095
+    R_WINDOW_SYSTEM_WEB = 0x0096
+    R_WINDOW_SYSTEM_UIKIT = 0x0097
 
 R_WINDOW_SYSTEM_NONE = RWindowSystem.R_WINDOW_SYSTEM_NONE
 R_WINDOW_SYSTEM_WIN32 = RWindowSystem.R_WINDOW_SYSTEM_WIN32
@@ -231,6 +235,8 @@ R_WINDOW_SYSTEM_X11 = RWindowSystem.R_WINDOW_SYSTEM_X11
 R_WINDOW_SYSTEM_WAYLAND = RWindowSystem.R_WINDOW_SYSTEM_WAYLAND
 R_WINDOW_SYSTEM_COCOA = RWindowSystem.R_WINDOW_SYSTEM_COCOA
 R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN
+R_WINDOW_SYSTEM_WEB = RWindowSystem.R_WINDOW_SYSTEM_WEB
+R_WINDOW_SYSTEM_UIKIT = RWindowSystem.R_WINDOW_SYSTEM_UIKIT
 
 class RWindowEdge(enum.IntEnum):
     """Edges and corners of a window, for Rwindow_begin_resize."""
@@ -1573,6 +1579,7 @@ class RInitDesc(ctypes.Structure):
         ("enable_validation", ctypes.c_int),
         ("headless", ctypes.c_int),
         ("ui_scale", ctypes.c_float),
+        ("single_window", ctypes.c_int),
     ]
 
 
@@ -1619,6 +1626,8 @@ class RNativeWindow(ctypes.Structure):
       Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
               Wayland or X11 when Rinit runs: check `system`)
       Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+      UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
+      Web   : display = the CSS selector of the canvas (const char*, "#canvas")
       Emscripten: window = opaque browser surface token (no OS window handle)"""
     _fields_ = [
         ("system", ctypes.c_int),
@@ -1905,6 +1914,14 @@ class RHostPlatformDesc(ctypes.Structure):
         ("user_data", ctypes.c_void_p),
     ]
 
+
+RRunFinishedCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RRunFinishedCallback(function):
+    def call(exit_code, user_data):
+        function(exit_code, user_data)
+    return call
 
 RFrameCallback = ctypes.CFUNCTYPE(None, ctypes.c_double, ctypes.c_void_p)
 
@@ -2544,6 +2561,15 @@ def Rinit_ex(desc):
     return _lib.Rinit_ex(_p(desc))
 
 
+_lib.Rget_backend.argtypes = []
+_lib.Rget_backend.restype = ctypes.c_int
+
+
+def Rget_backend():
+    """The rendering backend in use, or 0 before Rinit."""
+    return _e(RBackend, _lib.Rget_backend())
+
+
 _lib.Rshutdown.argtypes = []
 _lib.Rshutdown.restype = None
 
@@ -2654,6 +2680,24 @@ _lib.Rmemory_trim.restype = None
 def Rmemory_trim():
     """Returns to the OS the regions of the heap that hold nothing. Thread-safe."""
     _lib.Rmemory_trim()
+
+
+_lib.Rrun.argtypes = [RRunFinishedCallback, ctypes.c_void_p]
+_lib.Rrun.restype = ctypes.c_int
+
+
+def Rrun(finished, user_data=None):
+    return _lib.Rrun(_callback(RRunFinishedCallback, _adapt_RRunFinishedCallback, finished), user_data)
+
+
+_lib.Rsingle_window_mode.argtypes = []
+_lib.Rsingle_window_mode.restype = ctypes.c_int
+
+
+def Rsingle_window_mode():
+    """Returns: R_TRUE when the application is limited to one window: on iOS and in a browser, or with
+    RInitDesc::single_window. Use it to choose a layout that needs no second window."""
+    return _lib.Rsingle_window_mode()
 
 
 _lib.Rdraw_frame.argtypes = []
@@ -11950,9 +11994,11 @@ _lib.Rshader_create.restype = ctypes.c_uint32
 
 def Rshader_create(spirv, flags):
     """A shader from SPIR-V code (a fragment shader written with
-    raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
-    when the code is not SPIR-V; a backend that refuses it reports an error
-    and the effect is drawn as a rectangle."""
+    raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+    file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+    neither, or a bundle is damaged; a backend that cannot run it (the
+    Sokol backend with SPIR-V, a bundle without the variant of its graphics
+    API) reports an error and the effect is drawn as a rectangle."""
     spirv = bytes(spirv) if spirv is not None else None
     return _lib.Rshader_create(spirv, len(spirv) if spirv is not None else 0, flags)
 
@@ -11962,7 +12008,7 @@ _lib.Rshader_create_from_file.restype = ctypes.c_uint32
 
 
 def Rshader_create_from_file(path, flags):
-    """The same, from a .spv file (UTF-8 path, relative to the current folder)."""
+    """The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder)."""
     return _lib.Rshader_create_from_file(_s(path), flags)
 
 

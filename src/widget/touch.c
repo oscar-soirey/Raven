@@ -491,6 +491,15 @@ static void rvn_touch_primary_up(rvn_window_t* window, rvn_touch_state_t* state,
 			/* no hover stays behind a finger */
 			rvn_window_emulate_leave(window);
 			break;
+		case RVN_TS_DONE: {
+			/* a tap on nothing takes the focus away, as a click does (a soft keyboard goes away with the focus of a text field) */
+			float moved_x = finger->x - finger->start_x, moved_y = finger->y - finger->start_y;
+			if (!cancelled && !state->stopped_coast && !finger->target && !finger->owned && settings->mouse_emulation &&
+				moved_x * moved_x + moved_y * moved_y <= settings->slop * settings->slop) {
+				rvn_window_set_focus(window, NULL);
+			}
+			break;
+		}
 		case RVN_TS_MOUSE:
 			if (cancelled) {
 				rvn_touch_abandon_mouse(window, R_MOUSE_LEFT);

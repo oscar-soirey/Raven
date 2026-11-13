@@ -84,15 +84,21 @@ static const RBackendVTable* rvn_select_backend(RBackend backend) {
 			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the Vulkan backend");
 			return NULL;
 #endif
-		        case R_BACKEND_WEBGL:
+		case R_BACKEND_WEBGL:
 #if defined(RAVEN_BACKEND_WEBGL_ENABLED)
-            return rvn_backend_webgl();
+			return rvn_backend_webgl();
 #else
-            rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL,
-                      "Raven was built without the WebGL backend");
-            return NULL;
+			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the WebGL backend");
+			return NULL;
 #endif
-        case R_BACKEND_NULL:
+		case R_BACKEND_SOKOL:
+#if defined(RAVEN_BACKEND_SOKOL_ENABLED)
+			return rvn_backend_sokol();
+#else
+			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the Sokol backend (RAVEN_BACKEND_SOKOL)");
+			return NULL;
+#endif
+		case R_BACKEND_NULL:
 			return rvn_backend_null();
 		case R_BACKEND_CUSTOM:
 			if (!g_custom_backend_set) {
@@ -103,6 +109,29 @@ static const RBackendVTable* rvn_select_backend(RBackend backend) {
 	}
 	rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_FATAL, "Rinit: unknown backend");
 	return NULL;
+}
+
+/* The backend of a default RInitDesc: the one RAVEN_BACKEND names, else WebGL in a browser build, else Vulkan, else the one that is compiled in. */
+static RBackend rvn_default_backend(void) {
+	const char* name = getenv("RAVEN_BACKEND");
+	if (name && *name) {
+		if (strcmp(name, "vulkan") == 0) return R_BACKEND_VULKAN;
+		if (strcmp(name, "sokol") == 0) return R_BACKEND_SOKOL;
+		if (strcmp(name, "webgl") == 0) return R_BACKEND_WEBGL;
+		if (strcmp(name, "null") == 0) return R_BACKEND_NULL;
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_WARNING, "RAVEN_BACKEND=%s: expected vulkan, sokol, webgl or null; using the default", name);
+	}
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+	return R_BACKEND_WEBGL;
+#elif !defined(RAVEN_BACKEND_VULKAN_ENABLED) && defined(RAVEN_BACKEND_SOKOL_ENABLED)
+	return R_BACKEND_SOKOL;
+#else
+	return R_BACKEND_VULKAN;
+#endif
+}
+
+RBackend Rget_backend(void) {
+	return g_rvn.initialized ? g_rvn.backend : (RBackend)0;
 }
 
 int Rinit(RBackend backend) {
@@ -124,18 +153,12 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	}
 	memset(&desc, 0, sizeof(desc));
 	if (user_desc) desc = *user_desc;
-	if (desc.backend == 0) {
-#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
-        desc.backend = R_BACKEND_WEBGL;
-#else
-        desc.backend = R_BACKEND_VULKAN;
-#endif
-    }
+	if (desc.backend == 0) desc.backend = rvn_default_backend();
 #if defined(__EMSCRIPTEN__)
-    /* DOM and WebGL contexts belong to the browser main thread. */
-    desc.disable_render_thread = R_TRUE;
+	/* DOM and WebGL contexts belong to the browser main thread. */
+	desc.disable_render_thread = R_TRUE;
 #if !defined(__EMSCRIPTEN_PTHREADS__)
-    desc.worker_threads = -1;
+	desc.worker_threads = -1;
 #endif
 #endif
 
@@ -167,9 +190,14 @@ int Rinit_ex(const RInitDesc* user_desc) {
 			g_rvn.platform ? g_rvn.platform->name : "native");
 		goto fail_platform;
 	}
+	g_rvn.single_window = desc.single_window || g_rvn.platform->single_window;
+	if (!(desc.ui_scale > 0.0f) && g_rvn.platform->default_ui_scale) {
+		float scale = g_rvn.platform->default_ui_scale();
+		if (scale >= 0.25f && scale <= 4.0f) g_rvn.ui_scale = scale;
+	}
 
 	/* job system: leave one core to the UI thread and one to the render thread */
-	threaded = !desc.disable_render_thread;
+	threaded = !desc.disable_render_thread && !g_rvn.platform->single_thread_render;
 	if (desc.worker_threads < 0) {
 		workers = 0;
 	} else if (desc.worker_threads > 0) {
@@ -704,6 +732,60 @@ int Rwait_frame(double timeout_seconds) {
 	g_rvn.platform->pump(0.0);
 	rvn_update();
 	return Ris_running();
+}
+
+/* ---------------------------------------------------------------------------
+ *  Rrun: the loop of the application, or of the system
+ * ------------------------------------------------------------------------- */
+
+static struct {
+	RRunFinishedCallback finished;
+	void* user_data;
+	/** The system calls the frames: nobody is left to shut Raven down but Raven. */
+	int system_loop;
+} g_run;
+
+/* The application has quit: tell it, or, when the system owns the loop and nobody was told to, shut down. */
+static void rvn_run_finish(void) {
+	RRunFinishedCallback finished = g_run.finished;
+	void* user_data = g_run.user_data;
+	int system_loop = g_run.system_loop;
+	int exit_code = Rget_exit_code();
+	memset(&g_run, 0, sizeof(g_run));
+	if (finished) finished(exit_code, user_data);
+	else if (system_loop) Rshutdown();
+}
+
+/* One frame of a loop owned by the system (Platform::run). R_FALSE: the application has quit. */
+static int rvn_run_tick(void* user_data) {
+	RVN_UNUSED(user_data);
+	if (!g_rvn.initialized) return R_FALSE;
+	if (Rdraw_frame()) return R_TRUE;
+	rvn_run_finish();
+	return R_FALSE;
+}
+
+int Rrun(RRunFinishedCallback finished, void* user_data) {
+	int exit_code;
+	RVN_API_GUARD(R_FALSE);
+	g_run.finished = finished;
+	g_run.user_data = user_data;
+	g_run.system_loop = R_FALSE;
+	/* the first frame does not wait for an event */
+	Rwake_up();
+	if (g_rvn.platform->run) {
+		g_run.system_loop = R_TRUE;
+		if (g_rvn.platform->run(rvn_run_tick, NULL)) return 0;
+		g_run.system_loop = R_FALSE;
+	}
+	while (Rwait_frame(-1.0)) {}
+	exit_code = Rget_exit_code();
+	rvn_run_finish();
+	return exit_code;
+}
+
+int Rsingle_window_mode(void) {
+	return g_rvn.initialized && g_rvn.single_window;
 }
 
 int Rget_exit_code(void) {

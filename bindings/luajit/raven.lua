@@ -37,6 +37,7 @@ typedef enum RBackend {
 	R_BACKEND_NULL = 2,
 	R_BACKEND_CUSTOM = 3,
 	R_BACKEND_WEBGL = 4,
+	R_BACKEND_SOKOL = 5,
 } RBackend;
 typedef enum RError {
 	R_NO_ERROR = 112,
@@ -88,6 +89,8 @@ typedef enum RWindowSystem {
 	R_WINDOW_SYSTEM_WAYLAND = 147,
 	R_WINDOW_SYSTEM_COCOA = 148,
 	R_WINDOW_SYSTEM_EMSCRIPTEN = 149,
+	R_WINDOW_SYSTEM_WEB = 150,
+	R_WINDOW_SYSTEM_UIKIT = 151,
 } RWindowSystem;
 typedef enum RWindowEdge {
 	R_EDGE_LEFT = 208,
@@ -779,6 +782,7 @@ typedef struct RXmlError RXmlError;
 typedef struct RXmlAttributeInfo RXmlAttributeInfo;
 typedef struct RAccessibilitySettings RAccessibilitySettings;
 typedef struct RHostPlatformDesc RHostPlatformDesc;
+typedef void (*RRunFinishedCallback)(int exit_code, void* user_data);
 typedef void (*RFrameCallback)(double delta_seconds, void* user_data);
 typedef void (*RTaskCallback)(void* user_data);
 typedef void (*RParallelRangeCallback)(Ruint begin, Ruint end, void* user_data);
@@ -864,6 +868,7 @@ struct RInitDesc {
 	int enable_validation;
 	int headless;
 	float ui_scale;
+	int single_window;
 };
 struct RAllocator {
 	void* alloc;
@@ -1104,6 +1109,7 @@ struct RHostPlatformDesc {
 };
 int Rinit(RBackend backend);
 int Rinit_ex(const RInitDesc* desc);
+RBackend Rget_backend(void);
 void Rshutdown(void);
 int Ris_initialized(void);
 const char* Rget_version(void);
@@ -1115,6 +1121,8 @@ void Rmemory_free(void* ptr);
 void Rmemory_get_stats(RMemoryStats* stats);
 int Rmemory_check(void);
 void Rmemory_trim(void);
+int Rrun(RRunFinishedCallback finished, void* user_data);
+int Rsingle_window_mode(void);
 int Rdraw_frame(void);
 int Rwait_frame(double timeout_seconds);
 void Rquit(int exit_code);

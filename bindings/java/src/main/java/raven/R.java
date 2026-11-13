@@ -217,6 +217,11 @@ public final class R {
      * Browser renderer (Emscripten, WebGL 2).
      */
     public static final int R_BACKEND_WEBGL = 4;
+    /**
+     * Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
+     * Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
+     */
+    public static final int R_BACKEND_SOKOL = 5;
 
     // RError
     public static final int R_NO_ERROR = 0x0070;
@@ -309,6 +314,8 @@ public final class R {
     public static final int R_WINDOW_SYSTEM_WAYLAND = 0x0093;
     public static final int R_WINDOW_SYSTEM_COCOA = 0x0094;
     public static final int R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095;
+    public static final int R_WINDOW_SYSTEM_WEB = 0x0096;
+    public static final int R_WINDOW_SYSTEM_UIKIT = 0x0097;
 
     // RWindowEdge: Edges and corners of a window, for Rwindow_begin_resize.
     public static final int R_EDGE_LEFT = 0x00D0;
@@ -1638,7 +1645,7 @@ public final class R {
      */
     public static final class RInitDesc {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 40;
+        public static final long SIZE = 48;
         private final MemorySegment s;
         private Arena arena;
 
@@ -1676,7 +1683,8 @@ public final class R {
         }
 
         /**
-         * Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+         * Rendering backend. 0 selects the one named by the environment variable RAVEN_BACKEND (vulkan,
+         * sokol, webgl or null) when it is set, else WebGL in browser builds and Vulkan otherwise.
          */
         public int backend() { return s.get(JAVA_INT, 0); }
         public RInitDesc backend(int value) { s.set(JAVA_INT, 0, value); return this; }
@@ -1722,6 +1730,14 @@ public final class R {
          */
         public float ui_scale() { return s.get(JAVA_FLOAT, 36); }
         public RInitDesc ui_scale(float value) { s.set(JAVA_FLOAT, 36, value); return this; }
+
+        /**
+         * R_TRUE limits the application to one window, as it is on iOS and in a browser (they always are): Rwindow_create
+         * fails while a window exists, and docks do not tear panels off into windows of their own. Menus, popups,
+         * tooltips and dialogs are drawn inside the window anyway. On a desktop it is how to try a mobile layout.
+         */
+        public int single_window() { return s.get(JAVA_INT, 40); }
+        public RInitDesc single_window(int value) { s.set(JAVA_INT, 40, value); return this; }
     }
 
     /**
@@ -1932,6 +1948,8 @@ public final class R {
      *   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
      *           Wayland or X11 when Rinit runs: check `system`)
      *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+     *   UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
+     *   Web   : display = the CSS selector of the canvas (const char*, "#canvas")
      *   Emscripten: window = opaque browser surface token (no OS window handle)
      */
     public static final class RNativeWindow {
@@ -3645,6 +3663,45 @@ public final class R {
     // ---- callbacks
 
     /**
+     * Runs the application until it quits, on every platform.
+     *
+     *     static void finished(int exit_code, void* user) { Rshutdown(); }
+     *
+     *     int main(void) {
+     *         Rinit(R_BACKEND_VULKAN);
+     *         ... create the windows, Rset_frame_callback for what you do every frame ...
+     *         return Rrun(finished, NULL);
+     *     }
+     *
+     * On a desktop Rrun is the loop `while (Rwait_frame(-1.0)) {}`: it returns when the application quits (Rquit,
+     * or the last window closed), after calling `finished`, with the exit code. Where the system owns the loop (a
+     * browser, iOS) it cannot run here: Rrun hands the frame to the system, which calls Raven once per frame,
+     * and returns 0 **at once**; `finished` is called later, when the application quits, and the code after Rrun
+     * has run long before. So do the clean-up in `finished` and not after Rrun. A program that writes its own loop
+     * with Rdraw_frame / Rwait_frame keeps working on a desktop; only Rrun works everywhere.
+     *
+     * finished Called once, when the application has quit, with the exit code; may be NULL. When it is NULL
+     * on a platform that owns the loop, Raven shuts itself down (Rshutdown) as nothing else could.
+     */
+    @FunctionalInterface
+    public interface RRunFinishedCallback {
+        void invoke(int exit_code, MemorySegment user_data);
+    }
+
+    private static void RRunFinishedCallback$raw(RRunFinishedCallback f, int exit_code, MemorySegment user_data) {
+        try {
+            f.invoke(exit_code, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RRunFinishedCallback f) {
+        return stub(f, RRunFinishedCallback.class, "RRunFinishedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
+    /**
      * Registers a function called once per frame, before the layout.
      * The body of your loop does the same job; the callback is also called
      * while the OS keeps the thread in a loop of its own (on Windows, while
@@ -5331,6 +5388,22 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rget_backend$;
+
+    /**
+     * The rendering backend in use, or 0 before Rinit.
+     */
+    public static int Rget_backend() {
+        MethodHandle $h = Rget_backend$;
+        if ($h == null) Rget_backend$ = $h = find("Rget_backend", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rshutdown$;
 
     /**
@@ -5508,6 +5581,40 @@ public final class R {
         if ($h == null) Rmemory_trim$ = $h = find("Rmemory_trim", FunctionDescriptor.ofVoid());
         try {
             $h.invokeExact();
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rrun$;
+
+    public static int Rrun(RRunFinishedCallback finished, MemorySegment user_data) {
+        MethodHandle $h = Rrun$;
+        if ($h == null) Rrun$ = $h = find("Rrun", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact(upcall(finished), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static int Rrun(RRunFinishedCallback finished) {
+        return Rrun(finished, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rsingle_window_mode$;
+
+    /**
+     * Returns: R_TRUE when the application is limited to one window: on iOS and in a browser, or with
+     * RInitDesc::single_window. Use it to choose a layout that needs no second window.
+     */
+    public static int Rsingle_window_mode() {
+        MethodHandle $h = Rsingle_window_mode$;
+        if ($h == null) Rsingle_window_mode$ = $h = find("Rsingle_window_mode", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -21076,9 +21183,11 @@ public final class R {
 
     /**
      * A shader from SPIR-V code (a fragment shader written with
-     * raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
-     * when the code is not SPIR-V; a backend that refuses it reports an error
-     * and the effect is drawn as a rectangle.
+     * raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+     * file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+     * neither, or a bundle is damaged; a backend that cannot run it (the
+     * Sokol backend with SPIR-V, a bundle without the variant of its graphics
+     * API) reports an error and the effect is drawn as a rectangle.
      */
     public static int Rshader_create(byte[] spirv, int flags) {
         MethodHandle $h = Rshader_create$;
@@ -21095,7 +21204,7 @@ public final class R {
     private static MethodHandle Rshader_create_from_file$;
 
     /**
-     * The same, from a .spv file (UTF-8 path, relative to the current folder).
+     * The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder).
      */
     public static int Rshader_create_from_file(String path, int flags) {
         MethodHandle $h = Rshader_create_from_file$;

@@ -10,7 +10,7 @@
 	<VBox Spacing="22" Slot.Padding="32">
 		<HBox Spacing="12">
 			<Label Text="Effects" TextSize="28" Slot.Fill="1"/>
-			<Label Text="Border Effect=&quot;...&quot;  -  your own: a .spv written with raven_effect.glsl" Opacity="0.6" Slot.VAlign="Center"/>
+			<Label Text="Border Effect=&quot;...&quot;  -  your own: an effect bundle (.rfx) made from raven_effect.glsl" Opacity="0.6" Slot.VAlign="Center"/>
 		</HBox>
 		<UniformGrid Columns="4" Spacing="18">
 			<Card Effect="aurora" Caption="aurora"/>
@@ -36,13 +36,13 @@
 			</Overlay>
 		</UniformGrid>
 		<HBox Spacing="18" Height="150">
-			<Border Effect="wave.spv" EffectColor="#1C1C1E" EffectColor2="#0A84FF" CornerRadius="18" Slot.Fill="1">
-				<Label Text="wave.spv: an effect of the application" TextSize="18" Slot.HAlign="Left" Slot.VAlign="Bottom" Slot.Padding="16"/>
+			<Border Effect="wave.rfx" EffectColor="#1C1C1E" EffectColor2="#0A84FF" CornerRadius="18" Slot.Fill="1">
+				<Label Text="wave.rfx: an effect of the application" TextSize="18" Slot.HAlign="Left" Slot.VAlign="Bottom" Slot.Padding="16"/>
 			</Border>
 			<Overlay Slot.Fill="1">
 				<Border CornerRadius="18" Effect="mesh"/>
-				<Border Effect="liquid.spv" EffectBackdrop="true" EffectColor="#FFFFFF18" EffectParams="8" CornerRadius="18" Slot.Padding="22">
-					<Label Text="liquid.spv: reads what is behind" TextSize="18" Slot.HAlign="Left" Slot.VAlign="Bottom" Slot.Padding="16"/>
+				<Border Effect="liquid.rfx" EffectBackdrop="true" EffectColor="#FFFFFF18" EffectParams="8" CornerRadius="18" Slot.Padding="22">
+					<Label Text="liquid.rfx: reads what is behind" TextSize="18" Slot.HAlign="Left" Slot.VAlign="Bottom" Slot.Padding="16"/>
 				</Border>
 			</Overlay>
 		</HBox>

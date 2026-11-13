@@ -3,6 +3,11 @@
  * Whole-file reading with UTF-8 paths on every platform.
  */
 
+/* fileno() is POSIX: a strict C11 libc (Emscripten) hides it unless asked */
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE) && !defined(_GNU_SOURCE) && !defined(__APPLE__)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include "base.h"
 #include "thread.h"
 #include "context.h"

@@ -822,6 +822,11 @@ static rvn_dock_area_t* rvn_dock_area_of(Rid id);
 static rvn_widget_t* rvn_dock_home_of(rvn_widget_t* widget);
 static int rvn_dock_to_screen(rvn_widget_t* widget, float x, float y, float* sx, float* sy);
 static void rvn_dock_clear_foreign(rvn_widget_t* widget, rvn_widget_t* keep);
+/* Panels tear off into windows of their own: not where the application is limited to one window. */
+static int rvn_dock_tearable(const rvn_dock_area_t* area) {
+	return area->tearable && !g_rvn.single_window;
+}
+
 static void rvn_dock_float_close_if_empty(rvn_widget_t* widget);
 
 /* Moves a panel: out of its group, and into the tree where `where` says. */
@@ -1011,7 +1016,7 @@ static void rvn_dock_update_drop(rvn_widget_t* widget) {
 	rvn_widget_t* other = NULL;
 
 	area->drop_area = R_INVALID_ID;
-	if (area->tearable && rvn_dock_to_screen(widget, x, y, &sx, &sy)) {
+	if (rvn_dock_tearable(area) && rvn_dock_to_screen(widget, x, y, &sx, &sy)) {
 		/* a floating window over the home window; from a floating window, what is under it once out of it */
 		if (area->home == R_INVALID_ID || !inside || area->moving_window) other = rvn_dock_area_under(widget, widget, sx, sy, &lx, &ly);
 	}
@@ -1035,7 +1040,7 @@ static void rvn_dock_update_drop(rvn_widget_t* widget) {
 		area->drop = RVN_DOCK_DROP_NONE;
 		return;
 	}
-	if (area->tearable && outside) {
+	if (rvn_dock_tearable(area) && outside) {
 		area->drop = RVN_DOCK_DROP_FLOAT;
 		area->drop_node = NULL;
 		return;
@@ -1495,7 +1500,7 @@ static int rvn_dock_area_event(rvn_widget_t* widget, const REvent* event) {
 					(fabsf(x - area->press_x) > RVN_DOCK_DRAG_START || fabsf(y - area->press_y) > RVN_DOCK_DRAG_START)) {
 					area->dragging = R_TRUE;
 					/* the only tab of a floating window: dragging it moves the window (and docks it when it comes over home) */
-					if (area->home != R_INVALID_ID && area->root && !rvn_dock_is_split(area->root) && area->root->count == 1 && area->tearable) {
+					if (area->home != R_INVALID_ID && area->root && !rvn_dock_is_split(area->root) && area->root->count == 1 && rvn_dock_tearable(area)) {
 						rvn_vec2_t origin = rvn_widget_origin(widget);
 						area->moving_window = R_TRUE;
 						area->grab_x = origin.x + area->press_x;
@@ -2109,7 +2114,7 @@ void Rdock_area_set_tearable(Rid id, int tearable) {
 
 int Rdock_area_is_tearable(Rid id) {
 	RVN_WIDGET(widget, id, R_WIDGET_DOCK_AREA, R_FALSE);
-	return ((rvn_dock_area_t*)widget)->tearable;
+	return rvn_dock_tearable((rvn_dock_area_t*)widget);
 }
 
 Rid Rdock_area_float_panel(Rid id, Rid panel_id, int x, int y) {
@@ -2117,6 +2122,11 @@ Rid Rdock_area_float_panel(Rid id, Rid panel_id, int x, int y) {
 	RVN_WIDGET(widget, id, R_WIDGET_DOCK_AREA, R_INVALID_ID);
 	panel = rvn_dock_check_panel_in(&widget, panel_id, __func__);
 	if (!panel) return R_INVALID_ID;
+	if (g_rvn.single_window) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_WARNING,
+			"Rdock_area_float_panel: this application is limited to one window (Rsingle_window_mode): the panel stays in its area");
+		return R_INVALID_ID;
+	}
 	/* (already floating alone: its window moves) */
 	if (((rvn_dock_area_t*)widget)->home != R_INVALID_ID && widget->child_count == 1) {
 		Rid window = ((rvn_dock_area_t*)widget)->float_window;

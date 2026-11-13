@@ -49,7 +49,9 @@ const RBackendVTable* rvn_backend_vulkan(void) {
 		rvn_vk_render_frame,
 		rvn_vk_wait_idle,
 		rvn_vk_shader_create,
-		rvn_vk_shader_destroy
+		rvn_vk_shader_destroy,
+		R_BACKEND_CAP_GLASS | R_BACKEND_CAP_ERASE | R_BACKEND_CAP_SHADERS | R_BACKEND_CAP_READBACK |
+			R_BACKEND_CAP_CALLBACK | R_BACKEND_CAP_PRESENT
 	};
 	return &vtable;
 }

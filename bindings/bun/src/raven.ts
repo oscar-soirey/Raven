@@ -156,6 +156,7 @@ function _structs(values: readonly RStruct[] | null, size: number): Uint8Array |
 const _symbols = {
 	Rinit: { args: ["i32"], returns: "i32" },
 	Rinit_ex: { args: ["ptr"], returns: "i32" },
+	Rget_backend: { args: [], returns: "i32" },
 	Rshutdown: { args: [], returns: "void" },
 	Ris_initialized: { args: [], returns: "i32" },
 	Rget_version: { args: [], returns: "cstring" },
@@ -167,6 +168,8 @@ const _symbols = {
 	Rmemory_get_stats: { args: ["ptr"], returns: "void" },
 	Rmemory_check: { args: [], returns: "i32" },
 	Rmemory_trim: { args: [], returns: "void" },
+	Rrun: { args: ["ptr", "ptr"], returns: "i32" },
+	Rsingle_window_mode: { args: [], returns: "i32" },
 	Rdraw_frame: { args: [], returns: "i32" },
 	Rwait_frame: { args: ["f64"], returns: "i32" },
 	Rquit: { args: ["i32"], returns: "void" },
@@ -1328,12 +1331,18 @@ export enum RBackend {
 	R_BACKEND_CUSTOM = 3,
 	/** Browser renderer (Emscripten, WebGL 2). */
 	R_BACKEND_WEBGL = 4,
+	/**
+	 * Renderer on sokol_gfx (Metal, GLES3, ...: the API is chosen when Raven is built, RAVEN_SOKOL_API).
+	 * Only in a build with RAVEN_BACKEND_SOKOL; see docs/SOKOL_BACKEND_PLAN.md for what it can do yet.
+	 */
+	R_BACKEND_SOKOL = 5,
 }
 
 export const R_BACKEND_VULKAN = RBackend.R_BACKEND_VULKAN;
 export const R_BACKEND_NULL = RBackend.R_BACKEND_NULL;
 export const R_BACKEND_CUSTOM = RBackend.R_BACKEND_CUSTOM;
 export const R_BACKEND_WEBGL = RBackend.R_BACKEND_WEBGL;
+export const R_BACKEND_SOKOL = RBackend.R_BACKEND_SOKOL;
 
 export enum RError {
 	R_NO_ERROR = 0x0070,
@@ -1472,6 +1481,8 @@ export enum RWindowSystem {
 	R_WINDOW_SYSTEM_WAYLAND = 0x0093,
 	R_WINDOW_SYSTEM_COCOA = 0x0094,
 	R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
+	R_WINDOW_SYSTEM_WEB = 0x0096,
+	R_WINDOW_SYSTEM_UIKIT = 0x0097,
 }
 
 export const R_WINDOW_SYSTEM_NONE = RWindowSystem.R_WINDOW_SYSTEM_NONE;
@@ -1480,6 +1491,8 @@ export const R_WINDOW_SYSTEM_X11 = RWindowSystem.R_WINDOW_SYSTEM_X11;
 export const R_WINDOW_SYSTEM_WAYLAND = RWindowSystem.R_WINDOW_SYSTEM_WAYLAND;
 export const R_WINDOW_SYSTEM_COCOA = RWindowSystem.R_WINDOW_SYSTEM_COCOA;
 export const R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN;
+export const R_WINDOW_SYSTEM_WEB = RWindowSystem.R_WINDOW_SYSTEM_WEB;
+export const R_WINDOW_SYSTEM_UIKIT = RWindowSystem.R_WINDOW_SYSTEM_UIKIT;
 
 /** Edges and corners of a window, for Rwindow_begin_resize. */
 export enum RWindowEdge {
@@ -3169,7 +3182,7 @@ export const R_ROLE_PANE = RAccessibleRole.R_ROLE_PANE;
  * default for every field, so new fields can be added without breaking code.
  */
 export class RInitDesc extends RStruct {
-	static readonly SIZE = 40;
+	static readonly SIZE = 48;
 
 	constructor(pointer?: Pointer) {
 		super(RInitDesc.SIZE, pointer);
@@ -3183,7 +3196,10 @@ export class RInitDesc extends RStruct {
 		return pointer ? new RInitDesc(pointer) : null;
 	}
 
-	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
+	/**
+	 * Rendering backend. 0 selects the one named by the environment variable RAVEN_BACKEND (vulkan,
+	 * sokol, webgl or null) when it is set, else WebGL in browser builds and Vulkan otherwise.
+	 */
 	get backend(): RBackend {
 		return this._view.getInt32(0, true) as RBackend;
 	}
@@ -3245,6 +3261,18 @@ export class RInitDesc extends RStruct {
 	}
 	set ui_scale(value: number) {
 		this._view.setFloat32(36, value, true);
+	}
+
+	/**
+	 * R_TRUE limits the application to one window, as it is on iOS and in a browser (they always are): Rwindow_create
+	 * fails while a window exists, and docks do not tear panels off into windows of their own. Menus, popups,
+	 * tooltips and dialogs are drawn inside the window anyway. On a desktop it is how to try a mobile layout.
+	 */
+	get single_window(): number {
+		return this._view.getInt32(40, true);
+	}
+	set single_window(value: number) {
+		this._view.setInt32(40, value, true);
 	}
 }
 
@@ -3429,6 +3457,8 @@ export class RFrameStats extends RStruct {
  *   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
  *           Wayland or X11 when Rinit runs: check `system`)
  *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+ *   UIKit : window = CAMetalLayer* (a sublayer of the view of the application)
+ *   Web   : display = the CSS selector of the canvas (const char*, "#canvas")
  *   Emscripten: window = opaque browser surface token (no OS window handle)
  */
 export class RNativeWindow extends RStruct {
@@ -5074,6 +5104,42 @@ export class RHostPlatformDesc extends RStruct {
 }
 
 /**
+ * Runs the application until it quits, on every platform.
+ *
+ *     static void finished(int exit_code, void* user) { Rshutdown(); }
+ *
+ *     int main(void) {
+ *         Rinit(R_BACKEND_VULKAN);
+ *         ... create the windows, Rset_frame_callback for what you do every frame ...
+ *         return Rrun(finished, NULL);
+ *     }
+ *
+ * On a desktop Rrun is the loop `while (Rwait_frame(-1.0)) {}`: it returns when the application quits (Rquit,
+ * or the last window closed), after calling `finished`, with the exit code. Where the system owns the loop (a
+ * browser, iOS) it cannot run here: Rrun hands the frame to the system, which calls Raven once per frame,
+ * and returns 0 **at once**; `finished` is called later, when the application quits, and the code after Rrun
+ * has run long before. So do the clean-up in `finished` and not after Rrun. A program that writes its own loop
+ * with Rdraw_frame / Rwait_frame keeps working on a desktop; only Rrun works everywhere.
+ *
+ * finished Called once, when the application has quit, with the exit code; may be NULL. When it is NULL
+ * on a platform that owns the loop, Raven shuts itself down (Rshutdown) as nothing else could.
+ */
+export type RRunFinishedCallback = (exit_code: number, user_data: Pointer | null) => void;
+
+function _adapt_RRunFinishedCallback(function_: RRunFinishedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((exit_code: number, user_data: Pointer | null): void => {
+		try {
+			function_(exit_code, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
  * Registers a function called once per frame, before the layout.
  * The body of your loop does the same job; the callback is also called
  * while the OS keeps the thread in a loop of its own (on Windows, while
@@ -6423,6 +6489,11 @@ export function Rinit_ex(desc: RInitDesc | null): number {
 	return _lib.Rinit_ex(_p(desc));
 }
 
+/** The rendering backend in use, or 0 before Rinit. */
+export function Rget_backend(): RBackend {
+	return _lib.Rget_backend() as RBackend;
+}
+
 /**
  * Destroys every window, widget and resource, stops the worker and
  * render threads and releases the backend.
@@ -6499,6 +6570,18 @@ export function Rmemory_check(): number {
 /** Returns to the OS the regions of the heap that hold nothing. Thread-safe. */
 export function Rmemory_trim(): void {
 	_lib.Rmemory_trim();
+}
+
+export function Rrun(finished: RRunFinishedCallback | Pointer | null, user_data: RPointer = null): number {
+	return _lib.Rrun(_adapt_RRunFinishedCallback(finished), user_data);
+}
+
+/**
+ * Returns: R_TRUE when the application is limited to one window: on iOS and in a browser, or with
+ * RInitDesc::single_window. Use it to choose a layout that needs no second window.
+ */
+export function Rsingle_window_mode(): number {
+	return _lib.Rsingle_window_mode();
 }
 
 /**
@@ -12175,15 +12258,17 @@ export function Rdraw_pop_clip_rect(painter: RPointer): void {
 
 /**
  * A shader from SPIR-V code (a fragment shader written with
- * raven_effect.glsl, as in a .spv file): `size` bytes, copied. R_INVALID_ID
- * when the code is not SPIR-V; a backend that refuses it reports an error
- * and the effect is drawn as a rectangle.
+ * raven_effect.glsl, as in a .spv file) or from an effect bundle (a .rfx
+ * file, see above): `size` bytes, copied. R_INVALID_ID when the data is
+ * neither, or a bundle is damaged; a backend that cannot run it (the
+ * Sokol backend with SPIR-V, a bundle without the variant of its graphics
+ * API) reports an error and the effect is drawn as a rectangle.
  */
 export function Rshader_create(spirv: NodeJS.TypedArray | null, flags: number): Rid {
 	return _lib.Rshader_create(_b(spirv), spirv?.byteLength ?? 0, flags);
 }
 
-/** The same, from a .spv file (UTF-8 path, relative to the current folder). */
+/** The same, from a .spv or .rfx file (UTF-8 path, relative to the current folder). */
 export function Rshader_create_from_file(path: string | null, flags: number): Rid {
 	return _lib.Rshader_create_from_file(_s(path), flags);
 }

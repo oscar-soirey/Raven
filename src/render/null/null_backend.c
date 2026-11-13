@@ -82,7 +82,8 @@ const RBackendVTable* rvn_backend_null(void) {
 		rvn_null_wait_idle,
 		/* (no effects: their rectangles are not drawn either) */
 		NULL,
-		NULL
+		NULL,
+		0
 	};
 	return &vtable;
 }

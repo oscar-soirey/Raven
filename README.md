@@ -546,6 +546,9 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer`, `raven_theme_editor` |
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
 | `RAVEN_BACKEND_VULKAN` | `ON` | `OFF` builds without any GPU code (custom backend or headless) |
+| `RAVEN_BACKEND_SOKOL` | `OFF` | also compile the `sokol_gfx` backend, selected with `R_BACKEND_SOKOL` or `RAVEN_BACKEND=sokol` (in progress, offscreen only: [docs/SOKOL_BACKEND_PLAN.md](docs/SOKOL_BACKEND_PLAN.md)); needs the EGL and GLES development files on Linux, the Metal framework on macOS |
+| `RAVEN_BACKEND` (environment) | | `sokol` or `vulkan`: the backend of a program that does not choose one, including the examples (`RAVEN_BACKEND=sokol ./build/bin/raven_hello`) |
+| `RAVEN_SOKOL_API` | `auto` | graphics API of the Sokol backend, fixed at build time: `gles3` (Linux) or `metal` (macOS; written without a Mac, see the plan) |
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
