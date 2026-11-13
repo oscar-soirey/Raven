@@ -83,6 +83,30 @@ static void test_table(void) {
 	CHECK_STR(Rtable_get_cell(table, 0, 0), "Ada");
 	CHECK_STR(Rtable_get_cell(table, 1, 0), "Bob|Jr");
 	CHECK_STR(Rtable_get_cell(table, 2, 0), "grace");
+	/* words that strtod also reads ("Nan", "Inf") are sorted as texts, after the numbers */
+	{
+		Rid names = Rwidget_create(R_WIDGET_TABLE);
+		Rtable_add_column(names, "Name", 100.0f);
+		Rtable_add_column(names, "Value", 60.0f);
+		Rtable_add_row(names, "Zoe|3");
+		Rtable_add_row(names, "Nan|nan");
+		Rtable_add_row(names, "Bob|1");
+		Rtable_add_row(names, "Inf|2");
+		Rtable_add_row(names, "Alice|inf");
+		Rtable_sort(names, 0, R_FALSE);
+		CHECK_STR(Rtable_get_cell(names, 0, 0), "Alice");
+		CHECK_STR(Rtable_get_cell(names, 1, 0), "Bob");
+		CHECK_STR(Rtable_get_cell(names, 2, 0), "Inf");
+		CHECK_STR(Rtable_get_cell(names, 3, 0), "Nan");
+		CHECK_STR(Rtable_get_cell(names, 4, 0), "Zoe");
+		Rtable_sort(names, 1, R_FALSE);
+		CHECK_STR(Rtable_get_cell(names, 0, 1), "1");
+		CHECK_STR(Rtable_get_cell(names, 1, 1), "2");
+		CHECK_STR(Rtable_get_cell(names, 2, 1), "3");
+		CHECK_STR(Rtable_get_cell(names, 3, 1), "inf");
+		CHECK_STR(Rtable_get_cell(names, 4, 1), "nan");
+		Rwidget_destroy(names);
+	}
 
 	/* the edge of the first header is dragged: the column grows */
 	Rwindow_inject_mouse_move(g_window, x + 1 + 100, y + 6);
