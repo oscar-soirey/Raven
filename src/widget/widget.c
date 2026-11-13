@@ -227,6 +227,11 @@ void rvn_widgets_collect(void) {
 
 void rvn_widget_set_window(rvn_widget_t* widget, rvn_window_t* window) {
 	uint32_t i;
+	/* in another window, the styles are those of another theme: they are looked for again (as rvn_window_restyle_tree does) */
+	if (widget->window != window) {
+		widget->style_generation = 0;
+		widget->flags |= RVN_WF_LAYOUT_DIRTY;
+	}
 	widget->window = window;
 	for (i = 0; i < widget->child_count; i++) rvn_widget_set_window(widget->children[i], window);
 }
