@@ -372,7 +372,7 @@ static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
     uint32_t mods = rvn_cocoa_modifiers([event modifierFlags]);
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key([event keyCode], [event charactersIgnoringModifiers]);
     e.pressed = 1; e.repeat = [event isARepeat]; e.modifiers = mods; rvn_cocoa_emit(ravenWindow, &e);
-    if (!e.repeat) rvn_cocoa_emit_text(ravenWindow, [event characters], mods);
+    rvn_cocoa_emit_text(ravenWindow, [event characters], mods);
 }
 - (void)keyUp:(NSEvent*)event {
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key([event keyCode], [event charactersIgnoringModifiers]);
