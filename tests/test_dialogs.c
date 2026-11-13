@@ -7,6 +7,8 @@
  */
 
 #include "test.h"
+/* (the windows of the application, to find the one a message box made for itself) */
+#include "../src/widget/widget.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -296,6 +298,33 @@ static void test_dialog_run(void) {
 	EXPECT_ERRORS_BEGIN();
 	CHECK(Rdialog_run(g_window, R_INVALID_ID) == 0);
 	EXPECT_ERRORS_END(1);
+}
+
+static Rid g_box_window;
+
+/* The user closes the window a message box made for itself (its close button): the only window with a dialog. */
+static void close_box_window(Rid timer, void* user_data) {
+	uint32_t i;
+	(void)timer;
+	(void)user_data;
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		if (window && !window->dead && Rwindow_has_dialog(window->id)) g_box_window = window->id;
+	}
+	Rwindow_close(g_box_window);
+}
+
+/* No window is shown: the message box opens its own, and the user closes it (issue #121). */
+static void test_message_box_window_closed(void) {
+	uint32_t i;
+	for (i = 0; i < g_rvn.windows.used; i++) {
+		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
+		CHECK(!window || window->dead || !window->visible);
+	}
+	g_box_window = R_INVALID_ID;
+	Rtimer_create(0.01, R_FALSE, close_box_window, NULL);
+	CHECK(Rmessage_box(R_INVALID_ID, "Title", "Closed with its window", R_MESSAGE_OK) == R_MESSAGE_RESULT_CANCEL);
+	CHECK(g_box_window != R_INVALID_ID && !Rwindow_is_valid(g_box_window));
 }
 
 /* ---------------------------------------------------------------------------
@@ -735,6 +764,22 @@ static void on_popup_closed(Rid content, int result, void* user_data) {
 	g_popup_closed = result;
 }
 
+/* The closed callback of a popup opens the next one (issue #161). */
+static Rid g_popup_window, g_next_popup;
+static int g_next_closed;
+static void on_next_closed(Rid content, int result, void* user_data) {
+	(void)content;
+	(void)result;
+	(void)user_data;
+	g_next_closed++;
+}
+static void open_next_popup(Rid content, int result, void* user_data) {
+	(void)content;
+	(void)user_data;
+	g_popup_closed = result;
+	Rpopup_open(g_popup_window, g_next_popup, 50.0f, 50.0f, on_next_closed, NULL);
+}
+
 /* A popup: shown at a point, kept by the application, closed by a click outside or by the application. */
 static void test_popup(void) {
 	Rid window, popup;
@@ -756,6 +801,27 @@ static void test_popup(void) {
 	Rpopup_close(Rwidget_find(popup, "q"), 7);
 	Rdraw_frame();
 	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 7 && Rwidget_is_valid(popup));
+
+	/* a popup opened by the closed callback of another one stays open, by the application or by a click outside */
+	g_popup_window = window;
+	g_next_popup = Rlabel_create("next");
+	g_next_closed = 0;
+	Rpopup_open(window, popup, 300.0f, 200.0f, open_next_popup, NULL);
+	Rdraw_frame();
+	Rpopup_close(popup, 3);
+	Rdraw_frame();
+	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 3);
+	CHECK(Rpopup_is_open(g_next_popup) && g_next_closed == 0 && Rwindow_get_popup_count(window) == 1);
+	Rpopup_close(g_next_popup, 0);
+	Rpopup_open(window, popup, 300.0f, 200.0f, open_next_popup, NULL);
+	Rdraw_frame();
+	test_click_at(window, 850.0f, 550.0f);
+	Rdraw_frame();
+	CHECK(!Rpopup_is_open(popup) && g_popup_closed == 0);
+	CHECK(Rpopup_is_open(g_next_popup) && g_next_closed == 1 && Rwindow_get_popup_count(window) == 1);
+	Rpopup_close(g_next_popup, 0);
+	CHECK(g_next_closed == 2 && Rwindow_get_popup_count(window) == 0);
+	Rwidget_destroy(g_next_popup);
 	Rwidget_destroy(popup);
 	Rwindow_destroy(window);
 }
@@ -769,6 +835,7 @@ int main(void) {
 	RUN(test_files);
 	RUN(test_dialog);
 	RUN(test_dialog_run);
+	RUN(test_message_box_window_closed);
 	RUN(test_dialog_animated);
 	RUN(test_file_browser);
 	RUN(test_file_browser_xml);

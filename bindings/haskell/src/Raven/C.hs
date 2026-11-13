@@ -2061,6 +2061,16 @@ type RListItemTextCallback = FunPtr (Rid -> CInt -> Ptr () -> IO CString)
 -- no longer calls it.
 foreign import ccall "wrapper" mkRListItemTextCallback :: (Rid -> CInt -> Ptr () -> IO CString) -> IO RListItemTextCallback
 
+-- | Colors the text of rows (a level, a verdict): the list asks for the color
+-- of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+-- R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+-- kept on a selected or hovered row. NULL removes the callback.
+type RListItemColorCallback = FunPtr (Rid -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr () -> IO CInt)
+
+-- | Makes a 'RListItemColorCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRListItemColorCallback :: (Rid -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr () -> IO CInt) -> IO RListItemColorCallback
+
 type RListEventCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
 
 -- | Makes a 'RListEventCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
@@ -2126,6 +2136,17 @@ type RTableCellTextCallback = FunPtr (Rid -> CInt -> CInt -> Ptr () -> IO CStrin
 -- | Makes a 'RTableCellTextCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRTableCellTextCallback :: (Rid -> CInt -> CInt -> Ptr () -> IO CString) -> IO RTableCellTextCallback
+
+-- | Colors the text of cells (a verdict, a state): the table asks for the
+-- color of each cell it draws, stored or virtual (`row` is the index of the
+-- order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+-- keeps the color of the theme. The color is kept on a selected or hovered
+-- row. NULL removes the callback.
+type RTableCellColorCallback = FunPtr (Rid -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr () -> IO CInt)
+
+-- | Makes a 'RTableCellColorCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTableCellColorCallback :: (Rid -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr () -> IO CInt) -> IO RTableCellColorCallback
 
 type RTableEventCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
 
@@ -3373,7 +3394,8 @@ data RShaderLook = RShaderLook
       -- ^ How much the pointer is over it and how much it is pressed, 0..1, as
       -- the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
       -- the pointer is in the rectangle, and while the left button is down
-      -- there; a Border eases them itself.
+      -- there; a Border eases them itself. The rectangle is clipped to the
+      -- visible painting area; overlaid siblings do not interrupt its hover.
     , rShaderLook_press :: CFloat
     } deriving (Eq, Show)
 
@@ -3873,6 +3895,20 @@ foreign import ccall safe "Rwindow_get_opacity" rwindow_get_opacity :: Rid -> IO
 -- Returns: R_FALSE when the window system cannot do it.
 foreign import ccall safe "Rwindow_set_topmost" rwindow_set_topmost :: Rid -> CInt -> IO CInt
 
+-- | Gives the window an owner (a tool window or an inspector of the
+-- main window): it stays above its owner, has no button of its own in the
+-- taskbar, is minimized and restored with it (where the window system
+-- does it: Windows, X11), and is destroyed with it (everywhere: Raven
+-- destroys the windows a window owns before the window). R_INVALID_ID
+-- gives the window back its independence.
+-- Returns: R_FALSE when the window system cannot keep the window with its
+-- owner (it is still destroyed with it), or when the owner is not valid
+-- or is owned by the window (nothing is changed then).
+foreign import ccall safe "Rwindow_set_owner" rwindow_set_owner :: Rid -> Rid -> IO CInt
+
+-- | Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+foreign import ccall safe "Rwindow_get_owner" rwindow_get_owner :: Rid -> IO Rid
+
 -- | Picture in picture: the window becomes a small floating window
 -- that stays above the other windows, on every desktop (every space of
 -- macOS, over the applications in full screen too), in a corner of the
@@ -3931,6 +3967,13 @@ foreign import ccall safe "Rwindow_set_resize_callback" rwindow_set_resize_callb
 -- | Takes what is dropped on the window from other applications,
 -- where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 foreign import ccall safe "Rwindow_set_drop_callback" rwindow_set_drop_callback :: Rid -> RDropCallback -> Ptr () -> IO ()
+
+-- | During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+-- in target-local logical units (window-local for a window callback).
+-- Clipped to the target; zero width or height hides it without refusing
+-- the drop. Each callback starts with the default highlight again.
+-- Dimensions must be finite and nonnegative; coordinates must be finite.
+foreign import ccall safe "Rdrop_set_highlight_rect" rdrop_set_highlight_rect :: CFloat -> CFloat -> CFloat -> CFloat -> IO ()
 
 foreign import ccall safe "Rwindow_set_user_handle" rwindow_set_user_handle :: Rid -> Ptr () -> IO ()
 
@@ -4956,6 +4999,8 @@ foreign import ccall safe "Rlist_view_get_item_count" rlist_view_get_item_count 
 
 foreign import ccall safe "Rlist_view_set_virtual_items" rlist_view_set_virtual_items :: Rid -> CInt -> RListItemTextCallback -> Ptr () -> IO ()
 
+foreign import ccall safe "Rlist_view_set_item_color_callback" rlist_view_set_item_color_callback :: Rid -> RListItemColorCallback -> Ptr () -> IO ()
+
 -- | Selects a row. -1 selects nothing.
 foreign import ccall safe "Rlist_view_set_selected" rlist_view_set_selected :: Rid -> CInt -> IO ()
 
@@ -5080,6 +5125,11 @@ foreign import ccall safe "Rmenu_item_get_text" rmenu_item_get_text :: Rid -> IO
 -- keys are pressed in the window of its menu bar.
 foreign import ccall safe "Rmenu_item_set_shortcut" rmenu_item_set_shortcut :: Rid -> RKey -> Word32 -> IO ()
 
+-- | Display-only shortcut hint; copied, never binds a key. Overrides
+-- the formatted shortcut without changing its binding. NULL restores the
+-- formatted shortcut; an empty string hides it. XML: ShortcutText.
+foreign import ccall safe "Rmenu_item_set_shortcut_text" rmenu_item_set_shortcut_text :: Rid -> CString -> IO ()
+
 foreign import ccall safe "Rmenu_item_set_checkable" rmenu_item_set_checkable :: Rid -> CInt -> IO ()
 
 foreign import ccall safe "Rmenu_item_set_checked" rmenu_item_set_checked :: Rid -> CInt -> IO ()
@@ -5193,6 +5243,8 @@ foreign import ccall safe "Rtable_clear_rows" rtable_clear_rows :: Rid -> IO ()
 foreign import ccall safe "Rtable_get_row_count" rtable_get_row_count :: Rid -> IO CInt
 
 foreign import ccall safe "Rtable_set_virtual_rows" rtable_set_virtual_rows :: Rid -> CInt -> RTableCellTextCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rtable_set_cell_color_callback" rtable_set_cell_color_callback :: Rid -> RTableCellColorCallback -> Ptr () -> IO ()
 
 -- | Selects a row. -1 selects nothing.
 foreign import ccall safe "Rtable_set_selected" rtable_set_selected :: Rid -> CInt -> IO ()

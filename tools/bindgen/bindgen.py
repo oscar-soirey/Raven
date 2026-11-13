@@ -27,7 +27,7 @@ def main():
     api = cparse.parse(os.path.join(root, "include"))
 
     files = {}
-    for language in ("python", "cpp", "rust", "csharp", "zig", "go", "luajit", "java", "odin", "odin_wrapper", "bun", "c3", "napi", "haskell"):
+    for language in ("python", "cpp", "rust", "csharp", "zig", "go", "luajit", "java", "odin", "odin_wrapper", "bun", "c3", "napi", "d", "haskell"):
         if only and language not in only:
             continue
         try:

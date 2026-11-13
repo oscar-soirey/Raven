@@ -13,6 +13,7 @@
 #   binding_bun           needs bun and the shared library; not on Windows
 #   binding_node          needs node and node_api.h (the addon is built here) and the shared library; not on Windows
 #   binding_node_bun      the same addon and test, run by bun instead
+#   binding_d             needs dub and a D compiler, and the shared library; not on Windows
 #   binding_haskell       needs ghc and cabal, and the shared library; not on Windows
 #   binding_zig           needs zig: compiles every declaration of zig/raven.zig (nothing is linked or run)
 #
@@ -110,6 +111,15 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 	if(RAVEN_BUN)
 		add_test(NAME binding_bun
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_BUN} run ${CMAKE_CURRENT_SOURCE_DIR}/bun/src/example.ts --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+	endif()
+
+	# (--temp-build: nothing is built inside the source tree; the example reads RAVEN_LIB_DIR)
+	find_program(RAVEN_DUB dub)
+	if(RAVEN_DUB)
+		add_test(NAME binding_d
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_DUB} run --root=${CMAKE_CURRENT_SOURCE_DIR}/d/example
+				--temp-build -- --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 	endif()
 

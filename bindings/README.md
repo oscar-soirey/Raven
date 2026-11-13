@@ -1,7 +1,7 @@
 # Raven from other languages
 
 Raven is a C library, so any language that can call C can use it. This folder
-holds ready-made bindings for thirteen of them. They are written by a script,
+holds ready-made bindings for fourteen of them. They are written by a script,
 `tools/bindgen`, that reads the public headers: every binding has the whole
 API (937 functions, 56 enumerations, 22 structures, 59 kinds of callback),
 under the same names, with the same documentation comments.
@@ -19,6 +19,7 @@ under the same names, with the same documentation comments.
 | Odin | `odin/raven/raven.odin`, `odin/raven_odin/` | A package of `foreign` declarations; structures have the layout of C. `raven_odin` is an optional layer over it: Odin strings, booleans and enums, callbacks without `proc "c"`. See `odin/README.md`. | yes (`binding_odin`, `binding_odin_wrapper`, `binding_odin_wrapper_test`) |
 | Bun | `bun/src/raven.ts` | One TypeScript module, `bun:ffi`, no dependency. Texts are strings, callbacks are functions, values written through pointers are returned. See `bun/README.md` for threads and the event loop. | yes (`binding_bun`) |
 | Node.js | `node/` | A Node-API addon in C and an ES module with typings, the same surface as Bun's. One `.node` per platform runs on any Node.js, and on Bun and Deno. See `node/README.md`. | yes (`binding_node`, `binding_node_bun`) |
+| D | `d/` | A dub package, `raven-gui`: `raven.c` is the C API as `extern(C)` declarations under the same names (enumerations as `int` constants, structures that start zeroed), and `raven` adds `text` and delegates for `actionBind`, `timerStart`, `errorSetCallback`. See `d/README.md`. | yes (`binding_d`; macOS and Linux, LDC) |
 | Haskell | `haskell/` | A cabal package, `raven-gui`: `Raven.C` is the C API through the FFI (functions with their first letter lowered, `rwindow_create`; enumerations as patterns with the names of C; structures as `Storable` records; `mkRXxxCallback` for callbacks), and `Raven` adds `text`/`withText` and Haskell functions for `actionBind`, `timerStart`, `errorSetCallback`. See `haskell/README.md`. | yes (`binding_haskell`; macOS and Linux) |
 | C3 | `c3/raven.c3l/` | A library: `raven::c` is the C API, `raven` adds typed handles with methods (`button.set_text(...)`), faults and Optionals. See `c3/raven.c3l/README.md`. | no |
 
@@ -46,7 +47,7 @@ from C: `raven_backend.h` (writing a rendering backend) and `raven_vulkan.h`
 | Rust | `raven-gui = "0.1"` (used as `raven`) | the library from a release, `RAVEN_LIB_DIR` |
 | LuaJIT | `luarocks install raven-gui` | the library from a release, `RAVEN_LIBRARY` |
 | Java | `io.github.oscar-soirey:raven-gui` (Maven Central) | the library is included |
-| C++, Go, Zig, Odin, Haskell | the files of this folder | see below |
+| C++, Go, Zig, Odin, D, Haskell | the files of this folder | see below |
 
 How these packages are made and published: [PUBLISHING.md](PUBLISHING.md).
 
@@ -86,7 +87,7 @@ r.Rshutdown()
 
 The same program is in each folder (`example.py`, `example.cpp`,
 `examples/hello.rs`, `example/main.go`, `example/Example.java`,
-`example/main.odin`, `src/example.mjs`, `example/Main.hs`), and the designer (`raven_designer`) edits the XML.
+`example/main.odin`, `src/example.mjs`, `example/app.d`, `example/Main.hs`), and the designer (`raven_designer`) edits the XML.
 
 The XML can also stay in a file of its own, loaded when the program starts
 (`Rwindow_create_from_xml_file("main.xml")`): save it while the program runs
@@ -171,6 +172,14 @@ after building the addon (`bindings/node/README.md`). Use `await r.runLoop()`.
 
 or put the library beside `raven.ts`. Use `await r.runLoop()` rather than
 `Rwait_frame(-1)`, which stops timers and promises while it sleeps.
+
+**D** (LDC or DMD, with dub)
+
+    "dependencies": { "raven-gui": { "path": "<raven>/bindings/d" } },
+    "lflags-posix": ["-L/path/to/lib", "-rpath", "/path/to/lib"]
+
+`import raven;` and the C API is there under its own names: a string literal
+goes where C takes a text, `text` reads one back. See `d/README.md`.
 
 **Haskell** (GHC 9.6 or later; macOS and Linux)
 
