@@ -1402,10 +1402,44 @@ static void test_looks(void) {
 	Rshutdown();
 }
 
+/* A very long timeline paints about as much as a short one (the ruler steps grow past hours). */
+static void test_timeline_long_duration(void) {
+	Rid window, tl;
+	RFrameStats stats;
+	Ruint short_count;
+	double durations[] = { 1e6, 1e8, 1e10 };
+	int i;
+
+	CHECK(test_init(0));
+	window = make_window("<Window Width=\"800\" Height=\"300\">"
+		"<Timeline Name=\"t\" Duration=\"10\">"
+		"<Track Name=\"A\"><Clip Start=\"1\" Length=\"2\" Label=\"one\"/></Track></Timeline></Window>");
+	tl = Rwidget_find(window, "t");
+	Rdraw_frame();
+	Rwindow_get_frame_stats(window, &stats);
+	short_count = stats.instance_count;
+	CHECK(short_count > 0);
+	for (i = 0; i < (int)(sizeof(durations) / sizeof(durations[0])); i++) {
+		Rtimeline_set_duration(tl, durations[i]);
+		Rdraw_frame();
+		Rwindow_get_frame_stats(window, &stats);
+		CHECK(stats.instance_count < short_count * 3 + 100);
+	}
+	/* a duration that is not a number of seconds is refused */
+	EXPECT_ERRORS_BEGIN();
+	Rtimeline_set_duration(tl, INFINITY);
+	Rtimeline_set_duration(tl, NAN);
+	EXPECT_ERRORS_END(2);
+	CHECK(Rtimeline_get_duration(tl) == 1e10);
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+
 int main(void) {
 	RUN(test_color_picker);
 	RUN(test_timeline);
 	RUN(test_timeline_sizes);
+	RUN(test_timeline_long_duration);
 	RUN(test_node_graph);
 	RUN(test_node_graph_editor_hooks);
 	RUN(test_zoomed_content);
