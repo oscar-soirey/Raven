@@ -1264,6 +1264,13 @@ alias RComboBoxChangedCallback = fn void(Rid combo_box, CInt index, void* user_d
  valid until the next call.
 *>
 alias RListItemTextCallback = fn char*(Rid list_view, CInt index, void* user_data);
+<*
+ Colors the text of rows (a level, a verdict): the list asks for the color
+ of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+ R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+ kept on a selected or hovered row. NULL removes the callback.
+*>
+alias RListItemColorCallback = fn CInt(Rid list_view, CInt index, float* r, float* g, float* b, float* a, void* user_data);
 alias RListEventCallback = fn void(Rid list_view, CInt index, void* user_data);
 alias RTreeEventCallback = fn void(Rid tree_view, Rid item, void* user_data);
 <*
@@ -1291,6 +1298,14 @@ alias RTileDragDataCallback = fn char*(Rid tile_view, void* user_data);
  valid until the next call.
 *>
 alias RTableCellTextCallback = fn char*(Rid table, CInt row, CInt column, void* user_data);
+<*
+ Colors the text of cells (a verdict, a state): the table asks for the
+ color of each cell it draws, stored or virtual (`row` is the index of the
+ order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+ keeps the color of the theme. The color is kept on a selected or hovered
+ row. NULL removes the callback.
+*>
+alias RTableCellColorCallback = fn CInt(Rid table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = fn void(Rid table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias RTableSortCallback = fn void(Rid table, CInt column, CInt descending, void* user_data);
@@ -3511,6 +3526,8 @@ extern fn CInt r_list_view_get_item_count(Rid list_view) @cname("Rlist_view_get_
 
 extern fn void r_list_view_set_virtual_items(Rid list_view, CInt count, RListItemTextCallback callback, void* user_data) @cname("Rlist_view_set_virtual_items");
 
+extern fn void r_list_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data) @cname("Rlist_view_set_item_color_callback");
+
 <* Selects a row. -1 selects nothing. *>
 extern fn void r_list_view_set_selected(Rid list_view, CInt index) @cname("Rlist_view_set_selected");
 
@@ -3758,6 +3775,8 @@ extern fn void r_table_clear_rows(Rid table) @cname("Rtable_clear_rows");
 extern fn CInt r_table_get_row_count(Rid table) @cname("Rtable_get_row_count");
 
 extern fn void r_table_set_virtual_rows(Rid table, CInt count, RTableCellTextCallback callback, void* user_data) @cname("Rtable_set_virtual_rows");
+
+extern fn void r_table_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data) @cname("Rtable_set_cell_color_callback");
 
 <* Selects a row. -1 selects nothing. *>
 extern fn void r_table_set_selected(Rid table, CInt row) @cname("Rtable_set_selected");

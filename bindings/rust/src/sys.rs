@@ -1172,6 +1172,11 @@ pub type RComboBoxChangedCallback = Option<unsafe extern "C" fn(combo_box: Rid, 
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
 pub type RListItemTextCallback = Option<unsafe extern "C" fn(list_view: Rid, index: c_int, user_data: *mut c_void) -> *const c_char>;
+/// Colors the text of rows (a level, a verdict): the list asks for the color
+/// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+/// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+/// kept on a selected or hovered row. NULL removes the callback.
+pub type RListItemColorCallback = Option<unsafe extern "C" fn(list_view: Rid, index: c_int, r: *mut f32, g: *mut f32, b: *mut f32, a: *mut f32, user_data: *mut c_void) -> c_int>;
 pub type RListEventCallback = Option<unsafe extern "C" fn(list_view: Rid, index: c_int, user_data: *mut c_void)>;
 pub type RTreeEventCallback = Option<unsafe extern "C" fn(tree_view: Rid, item: Rid, user_data: *mut c_void)>;
 /// Right click: `item` is the item under the pointer (selected
@@ -1193,6 +1198,12 @@ pub type RTileDragDataCallback = Option<unsafe extern "C" fn(tile_view: Rid, use
 /// asks for the texts of the cells it draws. The returned string must stay
 /// valid until the next call.
 pub type RTableCellTextCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, column: c_int, user_data: *mut c_void) -> *const c_char>;
+/// Colors the text of cells (a verdict, a state): the table asks for the
+/// color of each cell it draws, stored or virtual (`row` is the index of the
+/// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+/// keeps the color of the theme. The color is kept on a selected or hovered
+/// row. NULL removes the callback.
+pub type RTableCellColorCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, column: c_int, r: *mut f32, g: *mut f32, b: *mut f32, a: *mut f32, user_data: *mut c_void) -> c_int>;
 pub type RTableEventCallback = Option<unsafe extern "C" fn(table: Rid, row: c_int, user_data: *mut c_void)>;
 /// Called when the user clicks a header; `column` -1: not sorted.
 pub type RTableSortCallback = Option<unsafe extern "C" fn(table: Rid, column: c_int, descending: c_int, user_data: *mut c_void)>;
@@ -2806,6 +2817,7 @@ extern "C" {
     pub fn Rlist_view_clear_items(list_view: Rid);
     pub fn Rlist_view_get_item_count(list_view: Rid) -> c_int;
     pub fn Rlist_view_set_virtual_items(list_view: Rid, count: c_int, callback: RListItemTextCallback, user_data: *mut c_void);
+    pub fn Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback, user_data: *mut c_void);
     /// Selects a row. -1 selects nothing.
     pub fn Rlist_view_set_selected(list_view: Rid, index: c_int);
     pub fn Rlist_view_get_selected(list_view: Rid) -> c_int;
@@ -2954,6 +2966,7 @@ extern "C" {
     pub fn Rtable_clear_rows(table: Rid);
     pub fn Rtable_get_row_count(table: Rid) -> c_int;
     pub fn Rtable_set_virtual_rows(table: Rid, count: c_int, callback: RTableCellTextCallback, user_data: *mut c_void);
+    pub fn Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback, user_data: *mut c_void);
     /// Selects a row. -1 selects nothing.
     pub fn Rtable_set_selected(table: Rid, row: c_int);
     pub fn Rtable_get_selected(table: Rid) -> c_int;

@@ -2124,6 +2124,14 @@ def _adapt_RListItemTextCallback(function):
         return ctypes.cast(text, ctypes.c_void_p).value
     return call
 
+RListItemColorCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_void_p)
+
+
+def _adapt_RListItemColorCallback(function):
+    def call(list_view, index, r, g, b, a, user_data):
+        return function(list_view, index, r, g, b, a, user_data) or 0
+    return call
+
 RListEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
 
 
@@ -2198,6 +2206,14 @@ def _adapt_RTableCellTextCallback(function):
         text = ctypes.create_string_buffer(_s(function(table, row, column, user_data)) or b"")
         call.text = text
         return ctypes.cast(text, ctypes.c_void_p).value
+    return call
+
+RTableCellColorCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_void_p)
+
+
+def _adapt_RTableCellColorCallback(function):
+    def call(table, row, column, r, g, b, a, user_data):
+        return function(table, row, column, r, g, b, a, user_data) or 0
     return call
 
 RTableEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
@@ -6596,6 +6612,14 @@ def Rlist_view_set_virtual_items(list_view, count, callback, user_data=None):
     _lib.Rlist_view_set_virtual_items(list_view, count, _callback(RListItemTextCallback, _adapt_RListItemTextCallback, callback), user_data)
 
 
+_lib.Rlist_view_set_item_color_callback.argtypes = [ctypes.c_uint32, RListItemColorCallback, ctypes.c_void_p]
+_lib.Rlist_view_set_item_color_callback.restype = None
+
+
+def Rlist_view_set_item_color_callback(list_view, callback, user_data=None):
+    _lib.Rlist_view_set_item_color_callback(list_view, _callback(RListItemColorCallback, _adapt_RListItemColorCallback, callback), user_data)
+
+
 _lib.Rlist_view_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rlist_view_set_selected.restype = None
 
@@ -7372,6 +7396,14 @@ _lib.Rtable_set_virtual_rows.restype = None
 
 def Rtable_set_virtual_rows(table, count, callback, user_data=None):
     _lib.Rtable_set_virtual_rows(table, count, _callback(RTableCellTextCallback, _adapt_RTableCellTextCallback, callback), user_data)
+
+
+_lib.Rtable_set_cell_color_callback.argtypes = [ctypes.c_uint32, RTableCellColorCallback, ctypes.c_void_p]
+_lib.Rtable_set_cell_color_callback.restype = None
+
+
+def Rtable_set_cell_color_callback(table, callback, user_data=None):
+    _lib.Rtable_set_cell_color_callback(table, _callback(RTableCellColorCallback, _adapt_RTableCellColorCallback, callback), user_data)
 
 
 _lib.Rtable_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]

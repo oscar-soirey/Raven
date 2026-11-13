@@ -4235,6 +4235,31 @@ public final class R {
         return stub(f, RListItemTextCallback.class, "RListItemTextCallback$raw", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, ADDRESS));
     }
 
+    /**
+     * Colors the text of rows (a level, a verdict): the list asks for the color
+     * of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+     * R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+     * kept on a selected or hovered row. NULL removes the callback.
+     */
+    @FunctionalInterface
+    public interface RListItemColorCallback {
+        int invoke(int list_view, int index, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data);
+    }
+
+    private static int RListItemColorCallback$raw(RListItemColorCallback f, int list_view, int index, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data) {
+        try {
+            return f.invoke(list_view, index, r.reinterpret(4), g.reinterpret(4), b.reinterpret(4), a.reinterpret(4), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RListItemColorCallback f) {
+        return stub(f, RListItemColorCallback.class, "RListItemColorCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+    }
+
     @FunctionalInterface
     public interface RListEventCallback {
         void invoke(int list_view, int index, MemorySegment user_data);
@@ -4429,6 +4454,32 @@ public final class R {
 
     private static MemorySegment upcall(RTableCellTextCallback f) {
         return stub(f, RTableCellTextCallback.class, "RTableCellTextCallback$raw", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Colors the text of cells (a verdict, a state): the table asks for the
+     * color of each cell it draws, stored or virtual (`row` is the index of the
+     * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+     * keeps the color of the theme. The color is kept on a selected or hovered
+     * row. NULL removes the callback.
+     */
+    @FunctionalInterface
+    public interface RTableCellColorCallback {
+        int invoke(int table, int row, int column, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data);
+    }
+
+    private static int RTableCellColorCallback$raw(RTableCellColorCallback f, int table, int row, int column, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data) {
+        try {
+            return f.invoke(table, row, column, r.reinterpret(4), g.reinterpret(4), b.reinterpret(4), a.reinterpret(4), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTableCellColorCallback f) {
+        return stub(f, RTableCellColorCallback.class, "RTableCellColorCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
     }
 
     @FunctionalInterface
@@ -11985,6 +12036,22 @@ public final class R {
         Rlist_view_set_virtual_items(list_view, count, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rlist_view_set_item_color_callback$;
+
+    public static void Rlist_view_set_item_color_callback(int list_view, RListItemColorCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rlist_view_set_item_color_callback$;
+        if ($h == null) Rlist_view_set_item_color_callback$ = $h = find("Rlist_view_set_item_color_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(list_view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rlist_view_set_item_color_callback(int list_view, RListItemColorCallback callback) {
+        Rlist_view_set_item_color_callback(list_view, callback, (MemorySegment) null);
+    }
+
     private static MethodHandle Rlist_view_set_selected$;
 
     /**
@@ -13300,6 +13367,22 @@ public final class R {
 
     public static void Rtable_set_virtual_rows(int table, int count, RTableCellTextCallback callback) {
         Rtable_set_virtual_rows(table, count, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtable_set_cell_color_callback$;
+
+    public static void Rtable_set_cell_color_callback(int table, RTableCellColorCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtable_set_cell_color_callback$;
+        if ($h == null) Rtable_set_cell_color_callback$ = $h = find("Rtable_set_cell_color_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(table, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rtable_set_cell_color_callback(int table, RTableCellColorCallback callback) {
+        Rtable_set_cell_color_callback(table, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtable_set_selected$;

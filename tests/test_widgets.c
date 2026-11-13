@@ -376,6 +376,21 @@ static const char* virtual_row(Rid list, int index, void* user_data) {
 	return buffer;
 }
 
+/* row colors: the rows asked; odd rows are colored, the others keep the theme's */
+static int g_row_color_calls, g_row_color_max;
+static int row_color(Rid list, int index, float* r, float* g, float* b, float* a, void* user_data) {
+	(void)list;
+	CHECK(user_data == &g_row_color_calls);
+	g_row_color_calls++;
+	if (index > g_row_color_max) g_row_color_max = index;
+	if (index % 2 == 0) return R_FALSE;
+	*r = 0.80f;
+	*g = 0.65f;
+	*b = 0.0f;
+	*a = 1.0f;
+	return R_TRUE;
+}
+
 static void test_list_and_tree(void) {
 	Rid box = column();
 	Rid list = Rwidget_add_child(box, Rwidget_create(R_WIDGET_LIST_VIEW));
@@ -393,6 +408,17 @@ static void test_list_and_tree(void) {
 	Rwidget_get_rect(list, &x, &y, &w, &h);
 	test_click_at(g_window, x + 20, y + 1 + row * 1.5f);
 	CHECK(Rlist_view_get_selected(list) == 1);
+	/* the color of the rows is asked only for the rows drawn; NULL stops it */
+	g_row_color_calls = 0;
+	g_row_color_max = -1;
+	Rlist_view_set_item_color_callback(list, row_color, &g_row_color_calls);
+	Rdraw_frame();
+	CHECK(g_row_color_calls > 0 && g_row_color_max >= 1 && g_row_color_max < 20);
+	Rlist_view_set_item_color_callback(list, NULL, NULL);
+	g_row_color_calls = 0;
+	Rwidget_invalidate(list);
+	Rdraw_frame();
+	CHECK(g_row_color_calls == 0);
 	test_key(g_window, R_KEY_DOWN, 0);
 	test_key(g_window, R_KEY_DOWN, 0);
 	CHECK(Rlist_view_get_selected(list) == 3);

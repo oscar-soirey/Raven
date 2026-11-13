@@ -1499,6 +1499,13 @@ alias ComboBoxChangedCallback = fn void(Id combo_box, CInt index, void* user_dat
  valid until the next call.
 *>
 alias ListItemTextCallback = fn ZString(Id list_view, CInt index, void* user_data);
+<*
+ Colors the text of rows (a level, a verdict): the list asks for the color
+ of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+ R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+ kept on a selected or hovered row. NULL removes the callback.
+*>
+alias ListItemColorCallback = fn CInt(Id list_view, CInt index, float* r, float* g, float* b, float* a, void* user_data);
 alias ListEventCallback = fn void(Id list_view, CInt index, void* user_data);
 alias TreeEventCallback = fn void(Id tree_view, Id item, void* user_data);
 <*
@@ -1526,6 +1533,14 @@ alias TileDragDataCallback = fn ZString(Id tile_view, void* user_data);
  valid until the next call.
 *>
 alias TableCellTextCallback = fn ZString(Id table, CInt row, CInt column, void* user_data);
+<*
+ Colors the text of cells (a verdict, a state): the table asks for the
+ color of each cell it draws, stored or virtual (`row` is the index of the
+ order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+ keeps the color of the theme. The color is kept on a selected or hovered
+ row. NULL removes the callback.
+*>
+alias TableCellColorCallback = fn CInt(Id table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias TableEventCallback = fn void(Id table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias TableSortCallback = fn void(Id table, CInt column, CInt descending, void* user_data);
@@ -2828,6 +2843,8 @@ fn void ListView.clear_items(self) @inline => c::r_list_view_clear_items((c::Rid
 fn CInt ListView.get_item_count(self) @inline => c::r_list_view_get_item_count((c::Rid)self);
 
 fn void ListView.set_virtual_items(self, CInt count, ListItemTextCallback callback, void* user_data) @inline => c::r_list_view_set_virtual_items((c::Rid)self, count, (c::RListItemTextCallback)callback, user_data);
+
+fn void ListView.set_item_color_callback(self, ListItemColorCallback callback, void* user_data) @inline => c::r_list_view_set_item_color_callback((c::Rid)self, (c::RListItemColorCallback)callback, user_data);
 
 <* Selects a row. -1 selects nothing. *>
 fn void ListView.set_selected(self, CInt index) @inline => c::r_list_view_set_selected((c::Rid)self, index);
@@ -4447,6 +4464,8 @@ fn void Table.clear_rows(self) @inline => c::r_table_clear_rows((c::Rid)self);
 fn CInt Table.get_row_count(self) @inline => c::r_table_get_row_count((c::Rid)self);
 
 fn void Table.set_virtual_rows(self, CInt count, TableCellTextCallback callback, void* user_data) @inline => c::r_table_set_virtual_rows((c::Rid)self, count, (c::RTableCellTextCallback)callback, user_data);
+
+fn void Table.set_cell_color_callback(self, TableCellColorCallback callback, void* user_data) @inline => c::r_table_set_cell_color_callback((c::Rid)self, (c::RTableCellColorCallback)callback, user_data);
 
 <* Selects a row. -1 selects nothing. *>
 fn void Table.set_selected(self, CInt row) @inline => c::r_table_set_selected((c::Rid)self, row);
