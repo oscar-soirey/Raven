@@ -3384,7 +3384,8 @@ public final class R {
          * How much the pointer is over it and how much it is pressed, 0..1, as
          * the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
          * the pointer is in the rectangle, and while the left button is down
-         * there; a Border eases them itself.
+         * there; a Border eases them itself. The rectangle is clipped to the
+         * visible painting area; overlaid siblings do not interrupt its hover.
          */
         public float hover() { return s.get(JAVA_FLOAT, 64); }
         public RShaderLook hover(float value) { s.set(JAVA_FLOAT, 64, value); return this; }
@@ -4235,6 +4236,31 @@ public final class R {
         return stub(f, RListItemTextCallback.class, "RListItemTextCallback$raw", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, ADDRESS));
     }
 
+    /**
+     * Colors the text of rows (a level, a verdict): the list asks for the color
+     * of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+     * R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+     * kept on a selected or hovered row. NULL removes the callback.
+     */
+    @FunctionalInterface
+    public interface RListItemColorCallback {
+        int invoke(int list_view, int index, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data);
+    }
+
+    private static int RListItemColorCallback$raw(RListItemColorCallback f, int list_view, int index, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data) {
+        try {
+            return f.invoke(list_view, index, r.reinterpret(4), g.reinterpret(4), b.reinterpret(4), a.reinterpret(4), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RListItemColorCallback f) {
+        return stub(f, RListItemColorCallback.class, "RListItemColorCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+    }
+
     @FunctionalInterface
     public interface RListEventCallback {
         void invoke(int list_view, int index, MemorySegment user_data);
@@ -4429,6 +4455,32 @@ public final class R {
 
     private static MemorySegment upcall(RTableCellTextCallback f) {
         return stub(f, RTableCellTextCallback.class, "RTableCellTextCallback$raw", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Colors the text of cells (a verdict, a state): the table asks for the
+     * color of each cell it draws, stored or virtual (`row` is the index of the
+     * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+     * keeps the color of the theme. The color is kept on a selected or hovered
+     * row. NULL removes the callback.
+     */
+    @FunctionalInterface
+    public interface RTableCellColorCallback {
+        int invoke(int table, int row, int column, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data);
+    }
+
+    private static int RTableCellColorCallback$raw(RTableCellColorCallback f, int table, int row, int column, MemorySegment r, MemorySegment g, MemorySegment b, MemorySegment a, MemorySegment user_data) {
+        try {
+            return f.invoke(table, row, column, r.reinterpret(4), g.reinterpret(4), b.reinterpret(4), a.reinterpret(4), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RTableCellColorCallback f) {
+        return stub(f, RTableCellColorCallback.class, "RTableCellColorCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
     }
 
     @FunctionalInterface
@@ -5292,6 +5344,24 @@ public final class R {
 
     private static MemorySegment upcall(RLocaleChangedCallback f) {
         return stub(f, RLocaleChangedCallback.class, "RLocaleChangedCallback$raw", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+    }
+
+    @FunctionalInterface
+    public interface RAccessiblePressCallback {
+        void invoke(int widget, MemorySegment user_data);
+    }
+
+    private static void RAccessiblePressCallback$raw(RAccessiblePressCallback f, int widget, MemorySegment user_data) {
+        try {
+            f.invoke(widget, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RAccessiblePressCallback f) {
+        return stub(f, RAccessiblePressCallback.class, "RAccessiblePressCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
     }
 
     // ---- functions
@@ -6822,6 +6892,46 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_set_owner$;
+
+    /**
+     * Gives the window an owner (a tool window or an inspector of the
+     * main window): it stays above its owner, has no button of its own in the
+     * taskbar, is minimized and restored with it (where the window system
+     * does it: Windows, X11), and is destroyed with it (everywhere: Raven
+     * destroys the windows a window owns before the window). R_INVALID_ID
+     * gives the window back its independence.
+     * Returns: R_FALSE when the window system cannot keep the window with its
+     * owner (it is still destroyed with it), or when the owner is not valid
+     * or is owned by the window (nothing is changed then).
+     */
+    public static int Rwindow_set_owner(int window, int owner) {
+        MethodHandle $h = Rwindow_set_owner$;
+        if ($h == null) Rwindow_set_owner$ = $h = find("Rwindow_set_owner", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window, owner);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_owner$;
+
+    /**
+     * Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+     */
+    public static int Rwindow_get_owner(int window) {
+        MethodHandle $h = Rwindow_get_owner$;
+        if ($h == null) Rwindow_get_owner$ = $h = find("Rwindow_get_owner", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_set_picture_in_picture$;
 
     /**
@@ -7048,6 +7158,25 @@ public final class R {
      */
     public static void Rwindow_set_drop_callback(int window, RDropCallback callback) {
         Rwindow_set_drop_callback(window, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rdrop_set_highlight_rect$;
+
+    /**
+     * During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+     * in target-local logical units (window-local for a window callback).
+     * Clipped to the target; zero width or height hides it without refusing
+     * the drop. Each callback starts with the default highlight again.
+     * Dimensions must be finite and nonnegative; coordinates must be finite.
+     */
+    public static void Rdrop_set_highlight_rect(float x, float y, float width, float height) {
+        MethodHandle $h = Rdrop_set_highlight_rect$;
+        if ($h == null) Rdrop_set_highlight_rect$ = $h = find("Rdrop_set_highlight_rect", FunctionDescriptor.ofVoid(JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(x, y, width, height);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rwindow_set_user_handle$;
@@ -11967,6 +12096,22 @@ public final class R {
         Rlist_view_set_virtual_items(list_view, count, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rlist_view_set_item_color_callback$;
+
+    public static void Rlist_view_set_item_color_callback(int list_view, RListItemColorCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rlist_view_set_item_color_callback$;
+        if ($h == null) Rlist_view_set_item_color_callback$ = $h = find("Rlist_view_set_item_color_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(list_view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rlist_view_set_item_color_callback(int list_view, RListItemColorCallback callback) {
+        Rlist_view_set_item_color_callback(list_view, callback, (MemorySegment) null);
+    }
+
     private static MethodHandle Rlist_view_set_selected$;
 
     /**
@@ -12643,6 +12788,24 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rmenu_item_set_shortcut_text$;
+
+    /**
+     * Display-only shortcut hint; copied, never binds a key. Overrides
+     * the formatted shortcut without changing its binding. NULL restores the
+     * formatted shortcut; an empty string hides it. XML: ShortcutText.
+     */
+    public static void Rmenu_item_set_shortcut_text(int item, String text) {
+        MethodHandle $h = Rmenu_item_set_shortcut_text$;
+        if ($h == null) Rmenu_item_set_shortcut_text$ = $h = find("Rmenu_item_set_shortcut_text", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(item, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rmenu_item_set_checkable$;
 
     public static void Rmenu_item_set_checkable(int item, int checkable) {
@@ -13282,6 +13445,22 @@ public final class R {
 
     public static void Rtable_set_virtual_rows(int table, int count, RTableCellTextCallback callback) {
         Rtable_set_virtual_rows(table, count, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtable_set_cell_color_callback$;
+
+    public static void Rtable_set_cell_color_callback(int table, RTableCellColorCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rtable_set_cell_color_callback$;
+        if ($h == null) Rtable_set_cell_color_callback$ = $h = find("Rtable_set_cell_color_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(table, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rtable_set_cell_color_callback(int table, RTableCellColorCallback callback) {
+        Rtable_set_cell_color_callback(table, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtable_set_selected$;
@@ -22905,6 +23084,49 @@ public final class R {
         if ($h == null) Rwidget_set_accessible_labelled_by$ = $h = find("Rwidget_set_accessible_labelled_by", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(widget, label);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwidget_set_accessible_action$;
+
+    /**
+     * Explicit screen-reader press action, including for custom widgets.
+     * NULL removes the override. Does not change pointer or keyboard handling.
+     * Disabled widgets (including disabled ancestors) cannot be pressed.
+     */
+    public static void Rwidget_set_accessible_action(int widget, RAccessiblePressCallback press, MemorySegment user_data) {
+        MethodHandle $h = Rwidget_set_accessible_action$;
+        if ($h == null) Rwidget_set_accessible_action$ = $h = find("Rwidget_set_accessible_action", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(widget, upcall(press), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Explicit screen-reader press action, including for custom widgets.
+     * NULL removes the override. Does not change pointer or keyboard handling.
+     * Disabled widgets (including disabled ancestors) cannot be pressed.
+     */
+    public static void Rwidget_set_accessible_action(int widget, RAccessiblePressCallback press) {
+        Rwidget_set_accessible_action(widget, press, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwidget_set_accessible_checked$;
+
+    /**
+     * Override the checked state: 1 checked, 0 unchecked, -1 restores the
+     * widget's default (not checkable for a custom widget). The application owns
+     * this state; a press callback updates it when appropriate.
+     */
+    public static void Rwidget_set_accessible_checked(int widget, int checked) {
+        MethodHandle $h = Rwidget_set_accessible_checked$;
+        if ($h == null) Rwidget_set_accessible_checked$ = $h = find("Rwidget_set_accessible_checked", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(widget, checked);
         } catch (Throwable $t) {
             throw fail($t);
         }

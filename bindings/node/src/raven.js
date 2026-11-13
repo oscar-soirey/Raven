@@ -2781,6 +2781,24 @@ function _adapt_RWidgetEventCallback(function_) {
 	};
 }
 
+function _adapt_RListItemColorCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (list_view, index, r, g, b, a, user_data) => {
+		const r_ = r ? new Float32Array(_view_of(r, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const g_ = g ? new Float32Array(_view_of(g, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const b_ = b ? new Float32Array(_view_of(b, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const a_ = a ? new Float32Array(_view_of(a, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const result_ = function_(list_view, index, r_, g_, b_, a_, user_data);
+		_back(r_, r);
+		_back(g_, g);
+		_back(b_, b);
+		_back(a_, a);
+		return result_;
+	};
+}
+
 function _adapt_RTileItemCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -2789,6 +2807,24 @@ function _adapt_RTileItemCallback(function_) {
 		const item_ = RTileItem.from(item);
 		const result_ = function_(tile_view, index, item_, user_data);
 		_back(item_, item);
+		return result_;
+	};
+}
+
+function _adapt_RTableCellColorCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (table, row, column, r, g, b, a, user_data) => {
+		const r_ = r ? new Float32Array(_view_of(r, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const g_ = g ? new Float32Array(_view_of(g, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const b_ = b ? new Float32Array(_view_of(b, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const a_ = a ? new Float32Array(_view_of(a, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const result_ = function_(table, row, column, r_, g_, b_, a_, user_data);
+		_back(r_, r);
+		_back(g_, g);
+		_back(b_, b);
+		_back(a_, a);
 		return result_;
 	};
 }
@@ -2919,6 +2955,8 @@ export const Rwindow_has_own_theme = _lib.Rwindow_has_own_theme;
 export const Rwindow_set_opacity = _lib.Rwindow_set_opacity;
 export const Rwindow_get_opacity = _lib.Rwindow_get_opacity;
 export const Rwindow_set_topmost = _lib.Rwindow_set_topmost;
+export const Rwindow_set_owner = _lib.Rwindow_set_owner;
+export const Rwindow_get_owner = _lib.Rwindow_get_owner;
 export const Rwindow_set_picture_in_picture = _lib.Rwindow_set_picture_in_picture;
 export const Rwindow_is_picture_in_picture = _lib.Rwindow_is_picture_in_picture;
 export const Rwindow_set_picture_in_picture_layout = _lib.Rwindow_set_picture_in_picture_layout;
@@ -2934,6 +2972,7 @@ export const Rwindow_set_resize_callback = _lib.Rwindow_set_resize_callback;
 export function Rwindow_set_drop_callback(window, callback, user_data = null) {
 	return _lib.Rwindow_set_drop_callback(window, _adapt_RDropCallback(callback), user_data);
 }
+export const Rdrop_set_highlight_rect = _lib.Rdrop_set_highlight_rect;
 export const Rwindow_set_user_handle = _lib.Rwindow_set_user_handle;
 export const Rwindow_get_user_handle = _lib.Rwindow_get_user_handle;
 export function Rwindow_get_native_handle(window, native) {
@@ -3278,6 +3317,9 @@ export const Rlist_view_remove_item = _lib.Rlist_view_remove_item;
 export const Rlist_view_clear_items = _lib.Rlist_view_clear_items;
 export const Rlist_view_get_item_count = _lib.Rlist_view_get_item_count;
 export const Rlist_view_set_virtual_items = _lib.Rlist_view_set_virtual_items;
+export function Rlist_view_set_item_color_callback(list_view, callback, user_data = null) {
+	return _lib.Rlist_view_set_item_color_callback(list_view, _adapt_RListItemColorCallback(callback), user_data);
+}
 export const Rlist_view_set_selected = _lib.Rlist_view_set_selected;
 export const Rlist_view_get_selected = _lib.Rlist_view_get_selected;
 export const Rlist_view_scroll_to_item = _lib.Rlist_view_scroll_to_item;
@@ -3324,6 +3366,7 @@ export const Rmenu_add_separator = _lib.Rmenu_add_separator;
 export const Rmenu_item_set_text = _lib.Rmenu_item_set_text;
 export const Rmenu_item_get_text = _lib.Rmenu_item_get_text;
 export const Rmenu_item_set_shortcut = _lib.Rmenu_item_set_shortcut;
+export const Rmenu_item_set_shortcut_text = _lib.Rmenu_item_set_shortcut_text;
 export const Rmenu_item_set_checkable = _lib.Rmenu_item_set_checkable;
 export const Rmenu_item_set_checked = _lib.Rmenu_item_set_checked;
 export const Rmenu_item_set_icon = _lib.Rmenu_item_set_icon;
@@ -3370,6 +3413,9 @@ export const Rtable_remove_row = _lib.Rtable_remove_row;
 export const Rtable_clear_rows = _lib.Rtable_clear_rows;
 export const Rtable_get_row_count = _lib.Rtable_get_row_count;
 export const Rtable_set_virtual_rows = _lib.Rtable_set_virtual_rows;
+export function Rtable_set_cell_color_callback(table, callback, user_data = null) {
+	return _lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
+}
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;
@@ -4018,6 +4064,8 @@ export const Rwidget_set_accessible_role = _lib.Rwidget_set_accessible_role;
 export const Rwidget_get_accessible_role = _lib.Rwidget_get_accessible_role;
 export const Rwidget_set_accessible_hidden = _lib.Rwidget_set_accessible_hidden;
 export const Rwidget_set_accessible_labelled_by = _lib.Rwidget_set_accessible_labelled_by;
+export const Rwidget_set_accessible_action = _lib.Rwidget_set_accessible_action;
+export const Rwidget_set_accessible_checked = _lib.Rwidget_set_accessible_checked;
 export const Raccessibility_announce = _lib.Raccessibility_announce;
 export const Raccessibility_is_screen_reader_active = _lib.Raccessibility_is_screen_reader_active;
 export function Rhost_platform_register(desc) {

@@ -2479,7 +2479,8 @@ namespace Raven
         /// How much the pointer is over it and how much it is pressed, 0..1, as
         /// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
         /// the pointer is in the rectangle, and while the left button is down
-        /// there; a Border eases them itself.
+        /// there; a Border eases them itself. The rectangle is clipped to the
+        /// visible painting area; overlaid siblings do not interrupt its hover.
         /// </summary>
         public float hover;
         public float press;
@@ -2735,6 +2736,15 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate IntPtr RListItemTextCallback(uint list_view, int index, IntPtr user_data);
 
+    /// <summary>
+    /// Colors the text of rows (a level, a verdict): the list asks for the color
+    /// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+    /// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+    /// kept on a selected or hovered row. NULL removes the callback.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RListItemColorCallback(uint list_view, int index, ref float r, ref float g, ref float b, ref float a, IntPtr user_data);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RListEventCallback(uint list_view, int index, IntPtr user_data);
 
@@ -2785,6 +2795,16 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate IntPtr RTableCellTextCallback(uint table, int row, int column, IntPtr user_data);
+
+    /// <summary>
+    /// Colors the text of cells (a verdict, a state): the table asks for the
+    /// color of each cell it draws, stored or virtual (`row` is the index of the
+    /// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+    /// keeps the color of the theme. The color is kept on a selected or hovered
+    /// row. NULL removes the callback.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTableCellColorCallback(uint table, int row, int column, ref float r, ref float g, ref float b, ref float a, IntPtr user_data);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTableEventCallback(uint table, int row, IntPtr user_data);
@@ -3039,6 +3059,9 @@ namespace Raven
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RLocaleChangedCallback(IntPtr language, IntPtr user_data);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RAccessiblePressCallback(uint widget, IntPtr user_data);
 
     public static class R
     {
@@ -3679,6 +3702,26 @@ namespace Raven
         public static extern int Rwindow_set_topmost(uint window, int topmost);
 
         /// <summary>
+        /// Gives the window an owner (a tool window or an inspector of the
+        /// main window): it stays above its owner, has no button of its own in the
+        /// taskbar, is minimized and restored with it (where the window system
+        /// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+        /// destroys the windows a window owns before the window). R_INVALID_ID
+        /// gives the window back its independence.
+        /// Returns: R_FALSE when the window system cannot keep the window with its
+        /// owner (it is still destroyed with it), or when the owner is not valid
+        /// or is owned by the window (nothing is changed then).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_set_owner(uint window, uint owner);
+
+        /// <summary>
+        /// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rwindow_get_owner(uint window);
+
+        /// <summary>
         /// Picture in picture: the window becomes a small floating window
         /// that stays above the other windows, on every desktop (every space of
         /// macOS, over the applications in full screen too), in a corner of the
@@ -3767,6 +3810,16 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_set_drop_callback(uint window, RDropCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+        /// in target-local logical units (window-local for a window callback).
+        /// Clipped to the target; zero width or height hides it without refusing
+        /// the drop. Each callback starts with the default highlight again.
+        /// Dimensions must be finite and nonnegative; coordinates must be finite.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdrop_set_highlight_rect(float x, float y, float width, float height);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_set_user_handle(uint window, IntPtr handle);
@@ -5529,6 +5582,9 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rlist_view_set_virtual_items(uint list_view, int count, RListItemTextCallback callback, IntPtr user_data);
 
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rlist_view_set_item_color_callback(uint list_view, RListItemColorCallback callback, IntPtr user_data);
+
         /// <summary>
         /// Selects a row. -1 selects nothing.
         /// </summary>
@@ -5739,6 +5795,14 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rmenu_item_set_shortcut(uint item, RKey key, uint modifiers);
 
+        /// <summary>
+        /// Display-only shortcut hint; copied, never binds a key. Overrides
+        /// the formatted shortcut without changing its binding. NULL restores the
+        /// formatted shortcut; an empty string hides it. XML: ShortcutText.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmenu_item_set_shortcut_text(uint item, [MarshalAs(Utf8.Str)] string text);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rmenu_item_set_checkable(uint item, int checkable);
 
@@ -5934,6 +5998,9 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtable_set_virtual_rows(uint table, int count, RTableCellTextCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_cell_color_callback(uint table, RTableCellColorCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Selects a row. -1 selects nothing.
@@ -9408,6 +9475,22 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_accessible_labelled_by(uint widget, uint label);
+
+        /// <summary>
+        /// Explicit screen-reader press action, including for custom widgets.
+        /// NULL removes the override. Does not change pointer or keyboard handling.
+        /// Disabled widgets (including disabled ancestors) cannot be pressed.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_accessible_action(uint widget, RAccessiblePressCallback press, IntPtr user_data);
+
+        /// <summary>
+        /// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+        /// widget's default (not checkable for a custom widget). The application owns
+        /// this state; a press callback updates it when appropriate.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwidget_set_accessible_checked(uint widget, int @checked);
 
         /// <summary>
         /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
