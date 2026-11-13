@@ -121,6 +121,20 @@ static void test_styles(void) {
 	Rwidget_set_attribute(plain, "Class", "danger");
 	CHECK(color_of(plain, R_COLOR_ACCENT) == 0x0000FFFFu);
 
+	/* between equals, the last one set wins, also when it had been set before (#119) */
+	{
+		Rid order = Rbutton_create("Order");
+		Rwidget_set_class(order, "first second");
+		Rtheme_set_style_color(NULL, "first", R_COLOR_ACCENT, 1.0f, 0.0f, 0.0f, 1.0f);
+		Rtheme_set_style_color(NULL, "second", R_COLOR_ACCENT, 0.0f, 0.0f, 1.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x0000FFFFu);
+		Rtheme_set_style_color(NULL, "first", R_COLOR_ACCENT, 0.0f, 1.0f, 0.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x00FF00FFu);
+		Rtheme_set_style_color(NULL, "second", R_COLOR_ACCENT, 0.0f, 0.0f, 1.0f, 1.0f);
+		CHECK(color_of(order, R_COLOR_ACCENT) == 0x0000FFFFu);
+		Rwidget_destroy(order);
+	}
+
 	Rtheme_clear_styles();
 	CHECK(color_of(danger, R_COLOR_ACCENT) == accent);
 	CHECK_NEAR(Rwidget_get_metric(plain, R_METRIC_CONTROL_HEIGHT), height);
@@ -339,6 +353,19 @@ static void test_theme_files(void) {
 	CHECK(Rtheme_load_from_memory("<Theme", 0) == NULL);
 	CHECK(Rtheme_load("/no/such/folder/theme.xml") == NULL);
 	EXPECT_ERRORS_END(4);
+
+	/* between equals, the last one written wins, also when its selector was written before (#119) */
+	name = Rtheme_load_from_memory(
+		"<Theme Name=\"Order\" Look=\"RavenDark\">"
+		"<Style Class=\"danger\" Accent=\"#FF0000\"/>"
+		"<Style Class=\"big\" Accent=\"#0000FF\"/>"
+		"<Style Class=\"danger\" Accent=\"#00FF00\"/>"
+		"</Theme>", 0);
+	CHECK_STR(name, "Order");
+	CHECK(Rtheme_use("Order"));
+	Rwidget_set_class(b, "danger big");
+	CHECK(color_of(b, R_COLOR_ACCENT) == 0x00FF00FFu);
+	Rwidget_set_class(b, "danger");
 
 	Rtheme_apply(R_THEME_DARK);
 	Rwindow_destroy(window);
