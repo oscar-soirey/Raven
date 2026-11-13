@@ -11,7 +11,7 @@
  * are computed once per line and per width, and kept until the line changes.
  * Only the rows that are visible are measured, colored and painted.
  *
- * Every change goes through one function, rvn_ed_replace, which also records
+ * Every change goes through one function, rvn_ed_replace_exact, which also records
  * what is needed to undo it.
  */
 
@@ -219,14 +219,12 @@ static rvn_ed_pos_t rvn_ed_end(const rvn_text_editor_t* ed) {
 	return rvn_ed_pos((int)ed->line_count - 1, ed->lines[ed->line_count - 1].length);
 }
 
-/* Position reached after inserting `text` at `start` (carriage returns before a line break are dropped, as rvn_ed_replace does). */
+/* Position reached after inserting `text` at `start`, byte for byte (as rvn_ed_replace_exact does). */
 static rvn_ed_pos_t rvn_ed_pos_after(rvn_ed_pos_t start, const char* text, int length) {
 	int i, begin = 0;
 	for (i = 0; i <= length; i++) {
 		if (i == length || text[i] == '\n') {
-			int piece = i - begin;
-			while (piece > 0 && text[begin + piece - 1] == '\r') piece--;
-			start.column += piece;
+			start.column += i - begin;
 			if (i < length) {
 				start.line++;
 				start.column = 0;
@@ -339,9 +337,11 @@ static void rvn_ed_changed_state(rvn_text_editor_t* ed, int first_line) {
 /*
  * The one function that changes the text: replaces what lies between two
  * positions by `text` (either may be empty) and returns the position after
- * the inserted text. `record` stores the step in the history.
+ * the inserted text. `record` stores the step in the history. The text is
+ * inserted byte for byte, so that undo and redo give back exactly what was
+ * there; new text goes through rvn_ed_replace, which cleans it first.
  */
-static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to,
+static rvn_ed_pos_t rvn_ed_replace_exact(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to,
 	const char* text, int length, int record) {
 
 	rvn_ed_pos_t end;
@@ -349,6 +349,8 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 	char* tail;
 	int tail_length, pieces = 1, i, begin, index;
 
+	from = rvn_ed_clamp(ed, from);
+	to = rvn_ed_clamp(ed, to);
 	if (rvn_ed_pos_cmp(from, to) > 0) {
 		rvn_ed_pos_t swap = from;
 		from = to;
@@ -421,7 +423,7 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 
 	rvn_ed_lines_insert(ed, (uint32_t)from.line + 1, (uint32_t)(pieces - 1));
 
-	/* the pieces between line breaks, without carriage returns */
+	/* the pieces between line breaks */
 	begin = 0;
 	index = from.line;
 	end = from;
@@ -429,7 +431,6 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 		if (i == length || text[i] == '\n') {
 			int piece = i - begin;
 			line = &ed->lines[index];
-			while (piece > 0 && text[begin + piece - 1] == '\r') piece--;
 			rvn_ed_line_reserve(line, line->length + piece + (i == length ? tail_length : 0));
 			if (piece > 0) memcpy(line->text + line->length, text + begin, (size_t)piece);
 			line->length += piece;
@@ -447,6 +448,39 @@ static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn
 	rvn_free(tail);
 
 	rvn_ed_changed_state(ed, from.line);
+	return end;
+}
+
+/*
+ * Replaces a range by new text, as rvn_ed_replace_exact does, after dropping
+ * the carriage returns that end each line of the text (CRLF line breaks).
+ */
+static rvn_ed_pos_t rvn_ed_replace(rvn_text_editor_t* ed, rvn_ed_pos_t from, rvn_ed_pos_t to,
+	const char* text, int length, int record) {
+
+	rvn_ed_pos_t end;
+	char* clean = NULL;
+
+	if (!text) text = "";
+	if (length < 0) length = (int)strlen(text);
+	if (length > 0 && memchr(text, '\r', (size_t)length)) {
+		int i, begin = 0, out = 0;
+		clean = (char*)rvn_calloc((size_t)length + 1);
+		for (i = 0; i <= length; i++) {
+			if (i == length || text[i] == '\n') {
+				int piece = i - begin;
+				while (piece > 0 && text[begin + piece - 1] == '\r') piece--;
+				if (piece > 0) memcpy(clean + out, text + begin, (size_t)piece);
+				out += piece;
+				if (i < length) clean[out++] = '\n';
+				begin = i + 1;
+			}
+		}
+		text = clean;
+		length = out;
+	}
+	end = rvn_ed_replace_exact(ed, from, to, text, length, record);
+	rvn_free(clean);
 	return end;
 }
 
@@ -471,7 +505,7 @@ static int rvn_ed_undo(rvn_text_editor_t* ed) {
 	if (ed->undo_count == 0 || ed->read_only) return R_FALSE;
 	edit = &ed->undo[ed->undo_count - 1];
 	edit->typing = R_FALSE;
-	rvn_ed_replace(ed, edit->start, rvn_ed_pos_after(edit->start, edit->inserted, edit->inserted_length),
+	rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->inserted, edit->inserted_length),
 		edit->removed, edit->removed_length, R_FALSE);
 	ed->caret = rvn_ed_clamp(ed, edit->caret_before);
 	ed->anchor = rvn_ed_clamp(ed, edit->anchor_before);
@@ -483,7 +517,7 @@ static int rvn_ed_redo(rvn_text_editor_t* ed) {
 	rvn_ed_edit_t* edit;
 	if (ed->redo_count == 0 || ed->read_only) return R_FALSE;
 	edit = &ed->redo[ed->redo_count - 1];
-	rvn_ed_replace(ed, edit->start, rvn_ed_pos_after(edit->start, edit->removed, edit->removed_length),
+	rvn_ed_replace_exact(ed, edit->start, rvn_ed_pos_after(edit->start, edit->removed, edit->removed_length),
 		edit->inserted, edit->inserted_length, R_FALSE);
 	ed->caret = ed->anchor = rvn_ed_clamp(ed, edit->caret_after);
 	rvn_ed_move_edit(&ed->undo, &ed->undo_count, &ed->undo_cap, ed->redo, &ed->redo_count);
