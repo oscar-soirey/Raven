@@ -1,7 +1,7 @@
 # Raven from other languages
 
 Raven is a C library, so any language that can call C can use it. This folder
-holds ready-made bindings for eleven of them. They are written by a script,
+holds ready-made bindings for thirteen of them. They are written by a script,
 `tools/bindgen`, that reads the public headers: every binding has the whole
 API (937 functions, 56 enumerations, 22 structures, 59 kinds of callback),
 under the same names, with the same documentation comments.
@@ -19,6 +19,7 @@ under the same names, with the same documentation comments.
 | Odin | `odin/raven/raven.odin`, `odin/raven_odin/` | A package of `foreign` declarations; structures have the layout of C. `raven_odin` is an optional layer over it: Odin strings, booleans and enums, callbacks without `proc "c"`. See `odin/README.md`. | yes (`binding_odin`, `binding_odin_wrapper`, `binding_odin_wrapper_test`) |
 | Bun | `bun/src/raven.ts` | One TypeScript module, `bun:ffi`, no dependency. Texts are strings, callbacks are functions, values written through pointers are returned. See `bun/README.md` for threads and the event loop. | yes (`binding_bun`) |
 | Node.js | `node/` | A Node-API addon in C and an ES module with typings, the same surface as Bun's. One `.node` per platform runs on any Node.js, and on Bun and Deno. See `node/README.md`. | yes (`binding_node`, `binding_node_bun`) |
+| Swift | `swift/` | A Swift package: `import Raven` gives the C API as Swift reads it from the headers (Swift strings for texts, `inout` for pointers), plus `text`, and closures for `actionBind`, `timerStart`, `errorSetCallback`. See `swift/README.md`. | yes (`binding_swift`; macOS and Linux) |
 | C3 | `c3/raven.c3l/` | A library: `raven::c` is the C API, `raven` adds typed handles with methods (`button.set_text(...)`), faults and Optionals. See `c3/raven.c3l/README.md`. | no |
 
 "Tested" means that the example of the binding, started with `--test`, runs
@@ -45,7 +46,7 @@ from C: `raven_backend.h` (writing a rendering backend) and `raven_vulkan.h`
 | Rust | `raven-gui = "0.1"` (used as `raven`) | the library from a release, `RAVEN_LIB_DIR` |
 | LuaJIT | `luarocks install raven-gui` | the library from a release, `RAVEN_LIBRARY` |
 | Java | `io.github.oscar-soirey:raven-gui` (Maven Central) | the library is included |
-| C++, Go, Zig, Odin | the files of this folder | see below |
+| C++, Go, Zig, Odin, Swift | the files of this folder | see below |
 
 How these packages are made and published: [PUBLISHING.md](PUBLISHING.md).
 
@@ -85,7 +86,7 @@ r.Rshutdown()
 
 The same program is in each folder (`example.py`, `example.cpp`,
 `examples/hello.rs`, `example/main.go`, `example/Example.java`,
-`example/main.odin`, `src/example.mjs`), and the designer (`raven_designer`) edits the XML.
+`example/main.odin`, `src/example.mjs`, `Examples/hello/main.swift`), and the designer (`raven_designer`) edits the XML.
 
 The XML can also stay in a file of its own, loaded when the program starts
 (`Rwindow_create_from_xml_file("main.xml")`): save it while the program runs
@@ -170,6 +171,17 @@ after building the addon (`bindings/node/README.md`). Use `await r.runLoop()`.
 
 or put the library beside `raven.ts`. Use `await r.runLoop()` rather than
 `Rwait_frame(-1)`, which stops timers and promises while it sleeps.
+
+**Swift** (5.9 or later; macOS and Linux)
+
+    // Package.swift
+    .package(path: "<raven>/bindings/swift")
+    // and the product: .product(name: "Raven", package: "swift")
+
+    RAVEN_LIB_DIR=/path/to/lib swift run
+
+`import Raven`, and the C API is there under its own names: a `String` goes
+where C takes a text, `text(pointer)` reads one back. See `swift/README.md`.
 
 ## Regenerating
 
