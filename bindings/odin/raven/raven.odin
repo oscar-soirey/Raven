@@ -2052,6 +2052,18 @@ foreign lib {
 	// Keeps the window above the other windows (splash screens, tools).
 	// Returns: R_FALSE when the window system cannot do it.
 	Rwindow_set_topmost :: proc(window: Rid, topmost: i32) -> i32 ---
+	// Gives the window an owner (a tool window or an inspector of the
+	// main window): it stays above its owner, has no button of its own in the
+	// taskbar, is minimized and restored with it (where the window system
+	// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+	// destroys the windows a window owns before the window). R_INVALID_ID
+	// gives the window back its independence.
+	// Returns: R_FALSE when the window system cannot keep the window with its
+	// owner (it is still destroyed with it), or when the owner is not valid
+	// or is owned by the window (nothing is changed then).
+	Rwindow_set_owner :: proc(window: Rid, owner: Rid) -> i32 ---
+	// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+	Rwindow_get_owner :: proc(window: Rid) -> Rid ---
 	// Picture in picture: the window becomes a small floating window
 	// that stays above the other windows, on every desktop (every space of
 	// macOS, over the applications in full screen too), in a corner of the

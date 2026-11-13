@@ -124,6 +124,8 @@ static struct {
 	int (*Rwindow_set_opacity)(Rid, float);
 	float (*Rwindow_get_opacity)(Rid);
 	int (*Rwindow_set_topmost)(Rid, int);
+	int (*Rwindow_set_owner)(Rid, Rid);
+	Rid (*Rwindow_get_owner)(Rid);
 	int (*Rwindow_set_picture_in_picture)(Rid, int);
 	int (*Rwindow_is_picture_in_picture)(Rid);
 	void (*Rwindow_set_picture_in_picture_layout)(Rid, int, int, RPictureInPictureCorner);
@@ -1271,6 +1273,8 @@ static const struct {
 	{"Rwindow_set_opacity", offsetof(__typeof__(rn), Rwindow_set_opacity)},
 	{"Rwindow_get_opacity", offsetof(__typeof__(rn), Rwindow_get_opacity)},
 	{"Rwindow_set_topmost", offsetof(__typeof__(rn), Rwindow_set_topmost)},
+	{"Rwindow_set_owner", offsetof(__typeof__(rn), Rwindow_set_owner)},
+	{"Rwindow_get_owner", offsetof(__typeof__(rn), Rwindow_get_owner)},
 	{"Rwindow_set_picture_in_picture", offsetof(__typeof__(rn), Rwindow_set_picture_in_picture)},
 	{"Rwindow_is_picture_in_picture", offsetof(__typeof__(rn), Rwindow_is_picture_in_picture)},
 	{"Rwindow_set_picture_in_picture_layout", offsetof(__typeof__(rn), Rwindow_set_picture_in_picture_layout)},
@@ -5808,6 +5812,34 @@ static napi_value rn_w_Rwindow_set_topmost(napi_env env, napi_callback_info info
 	if (!rn_get_int(env, argv[1], &a1)) return NULL;
 	int value_ = rn.Rwindow_set_topmost((Rid)a0, (int)a1);
 	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_set_owner(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint32_t a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint32(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rwindow_set_owner((Rid)a0, (Rid)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_get_owner(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	Rid value_ = rn.Rwindow_get_owner((Rid)a0);
+	napi_create_uint32(env, value_, &result_);
 	return result_;
 }
 
@@ -23329,6 +23361,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_set_opacity", NULL, rn_w_Rwindow_set_opacity, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_opacity", NULL, rn_w_Rwindow_get_opacity, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_topmost", NULL, rn_w_Rwindow_set_topmost, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_set_owner", NULL, rn_w_Rwindow_set_owner, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_get_owner", NULL, rn_w_Rwindow_get_owner, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_picture_in_picture", NULL, rn_w_Rwindow_set_picture_in_picture, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_is_picture_in_picture", NULL, rn_w_Rwindow_is_picture_in_picture, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_picture_in_picture_layout", NULL, rn_w_Rwindow_set_picture_in_picture_layout, NULL, NULL, NULL, napi_enumerable, NULL},

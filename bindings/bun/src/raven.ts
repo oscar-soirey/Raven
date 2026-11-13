@@ -248,6 +248,8 @@ const _symbols = {
 	Rwindow_set_opacity: { args: ["u32", "f32"], returns: "i32" },
 	Rwindow_get_opacity: { args: ["u32"], returns: "f32" },
 	Rwindow_set_topmost: { args: ["u32", "i32"], returns: "i32" },
+	Rwindow_set_owner: { args: ["u32", "u32"], returns: "i32" },
+	Rwindow_get_owner: { args: ["u32"], returns: "u32" },
 	Rwindow_set_picture_in_picture: { args: ["u32", "i32"], returns: "i32" },
 	Rwindow_is_picture_in_picture: { args: ["u32"], returns: "i32" },
 	Rwindow_set_picture_in_picture_layout: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
@@ -7094,6 +7096,26 @@ export function Rwindow_get_opacity(window: Rid): number {
  */
 export function Rwindow_set_topmost(window: Rid, topmost: number): number {
 	return _lib.Rwindow_set_topmost(window, topmost);
+}
+
+/**
+ * Gives the window an owner (a tool window or an inspector of the
+ * main window): it stays above its owner, has no button of its own in the
+ * taskbar, is minimized and restored with it (where the window system
+ * does it: Windows, X11), and is destroyed with it (everywhere: Raven
+ * destroys the windows a window owns before the window). R_INVALID_ID
+ * gives the window back its independence.
+ * Returns: R_FALSE when the window system cannot keep the window with its
+ * owner (it is still destroyed with it), or when the owner is not valid
+ * or is owned by the window (nothing is changed then).
+ */
+export function Rwindow_set_owner(window: Rid, owner: Rid): number {
+	return _lib.Rwindow_set_owner(window, owner);
+}
+
+/** Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID. */
+export function Rwindow_get_owner(window: Rid): Rid {
+	return _lib.Rwindow_get_owner(window);
 }
 
 /**

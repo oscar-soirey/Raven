@@ -3475,6 +3475,32 @@ def Rwindow_set_topmost(window, topmost):
     return _lib.Rwindow_set_topmost(window, topmost)
 
 
+_lib.Rwindow_set_owner.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rwindow_set_owner.restype = ctypes.c_int
+
+
+def Rwindow_set_owner(window, owner):
+    """Gives the window an owner (a tool window or an inspector of the
+    main window): it stays above its owner, has no button of its own in the
+    taskbar, is minimized and restored with it (where the window system
+    does it: Windows, X11), and is destroyed with it (everywhere: Raven
+    destroys the windows a window owns before the window). R_INVALID_ID
+    gives the window back its independence.
+    Returns: R_FALSE when the window system cannot keep the window with its
+    owner (it is still destroyed with it), or when the owner is not valid
+    or is owned by the window (nothing is changed then)."""
+    return _lib.Rwindow_set_owner(window, owner)
+
+
+_lib.Rwindow_get_owner.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_owner.restype = ctypes.c_uint32
+
+
+def Rwindow_get_owner(window):
+    """Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID."""
+    return _lib.Rwindow_get_owner(window)
+
+
 _lib.Rwindow_set_picture_in_picture.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rwindow_set_picture_in_picture.restype = ctypes.c_int
 

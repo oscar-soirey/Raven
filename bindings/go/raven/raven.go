@@ -1528,6 +1528,21 @@ func WindowSetTopmost(window ID, topmost int) int {
 	return int(C.Rwindow_set_topmost(C.Rid(window), C.int(topmost)))
 }
 
+// WindowSetOwner: Gives the window an owner (a tool window or an inspector of the main window): it stays
+// above its owner, has no button of its own in the taskbar, is minimized and restored with it (where the
+// window system does it: Windows, X11), and is destroyed with it (everywhere: Raven destroys the windows a
+// window owns before the window). R_INVALID_ID gives the window back its independence. Returns: R_FALSE when
+// the window system cannot keep the window with its owner (it is still destroyed with it), or when the owner
+// is not valid or is owned by the window (nothing is changed then).
+func WindowSetOwner(window ID, owner ID) int {
+	return int(C.Rwindow_set_owner(C.Rid(window), C.Rid(owner)))
+}
+
+// WindowGetOwner: Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+func WindowGetOwner(window ID) ID {
+	return ID(C.Rwindow_get_owner(C.Rid(window)))
+}
+
 // WindowSetPictureInPicture: Picture in picture: the window becomes a small floating window that stays above
 // the other windows, on every desktop (every space of macOS, over the applications in full screen too), in a
 // corner of the work area of its monitor. It loses its title bar where the system allows: the empty parts of

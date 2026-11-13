@@ -768,6 +768,8 @@ struct rvn_window_t {
 	int surface_ready;
 	/** RWindowFlags given at creation. */
 	uint32_t window_flags;
+	/** The window that owns this one (Rwindow_set_owner), or R_INVALID_ID. */
+	Rid owner;
 	rvn_pwindow_state_t state;
 	/** R_TRUE while the window is the one the user works in. */
 	int active;

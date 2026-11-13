@@ -252,6 +252,12 @@ typedef struct rvn_platform_t {
 	int   (*window_set_opacity)(rvn_pwindow_t* window, float opacity);
 	int   (*window_set_topmost)(rvn_pwindow_t* window, int topmost);
 	/**
+	 * Optional (may be NULL). `owner` (NULL: none) owns the window: the window
+	 * stays above it, out of the taskbar, and is minimized and restored with it
+	 * (Rwindow_set_owner). Returns R_FALSE when the window system cannot.
+	 */
+	int   (*window_set_owner)(rvn_pwindow_t* window, rvn_pwindow_t* owner);
+	/**
 	 * Optional (may be NULL). Picture in picture (Rwindow_set_picture_in_picture).
 	 * Entering: the platform keeps what it needs to come back (frame, style,
 	 * level, place, state), removes the title bar where it can (the core then
