@@ -639,6 +639,7 @@ const (
 	R_WIDGET_RATING          RWidgetType = 0x0230
 	R_WIDGET_PAGINATION      RWidgetType = 0x0231
 	R_WIDGET_PLOT            RWidgetType = 0x0232
+	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
 )
 
 type RHAlign int32
@@ -772,6 +773,26 @@ const (
 	R_PLOT_Y  RPlotAxis = 0x0521
 	R_PLOT_X2 RPlotAxis = 0x0522
 	R_PLOT_Y2 RPlotAxis = 0x0523
+)
+
+// RPdfFit: How a PdfView sizes its pages.
+type RPdfFit int32
+
+const (
+	R_PDF_FIT_WIDTH RPdfFit = 0x05C0
+	R_PDF_FIT_PAGE  RPdfFit = 0x05C1
+	R_PDF_FIT_NONE  RPdfFit = 0x05C2
+)
+
+// RPdfStatus: What a PdfView holds.
+type RPdfStatus int32
+
+const (
+	R_PDF_EMPTY          RPdfStatus = 0x05D0
+	R_PDF_LOADED         RPdfStatus = 0x05D1
+	R_PDF_NEEDS_PASSWORD RPdfStatus = 0x05D2
+	R_PDF_ERROR          RPdfStatus = 0x05D3
+	R_PDF_UNAVAILABLE    RPdfStatus = 0x05D4
 )
 
 // RPlotScale: How an axis of a Plot spreads its values.
@@ -4181,6 +4202,95 @@ func PlotSetDragLineColor(plot ID, line int, r float32, g float32, b float32, a 
 	C.Rplot_set_drag_line_color(C.Rid(plot), C.int(line), C.float(r), C.float(g), C.float(b), C.float(a))
 }
 
+// PdfIsAvailable: R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+func PdfIsAvailable() int {
+	return int(C.Rpdf_is_available())
+}
+
+// PdfViewLoadFile: Shows a PDF file. `password` may be NULL. Returns R_FALSE when it cannot:
+// Rpdf_view_get_status tells why (a password is needed, not a PDF, no PDFium). The view then shows that
+// instead of pages.
+func PdfViewLoadFile(view ID, path string, password string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	password_ := C.CString(password)
+	defer C.free(unsafe.Pointer(password_))
+	return int(C.Rpdf_view_load_file(C.Rid(view), path_, password_))
+}
+
+// PdfViewLoadMemory: Same as Rpdf_view_load_file, from bytes in memory (copied).
+func PdfViewLoadMemory(view ID, data []byte, password string) int {
+	var data_ *C.char
+	if len(data) > 0 {
+		data_ = (*C.char)(unsafe.Pointer(&data[0]))
+	}
+	password_ := C.CString(password)
+	defer C.free(unsafe.Pointer(password_))
+	return int(C.Rpdf_view_load_memory(C.Rid(view), data_, C.size_t(len(data)), password_))
+}
+
+// PdfViewClose: Closes the document: the view is empty.
+func PdfViewClose(view ID) {
+	C.Rpdf_view_close(C.Rid(view))
+}
+
+func PdfViewGetStatus(view ID) RPdfStatus {
+	return RPdfStatus(C.Rpdf_view_get_status(C.Rid(view)))
+}
+
+func PdfViewGetPageCount(view ID) int {
+	return int(C.Rpdf_view_get_page_count(C.Rid(view)))
+}
+
+// PdfViewGetPageSize: Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+func PdfViewGetPageSize(view ID, page int) (width float32, height float32) {
+	var width_ C.float
+	var height_ C.float
+	C.Rpdf_view_get_page_size(C.Rid(view), C.int(page), &width_, &height_)
+	width = float32(width_)
+	height = float32(height_)
+	return
+}
+
+// PdfViewSetPage: Scrolls to the top of a page; it becomes the current page.
+func PdfViewSetPage(view ID, page int) {
+	C.Rpdf_view_set_page(C.Rid(view), C.int(page))
+}
+
+// PdfViewGetPage: The current page: the one a third down the view.
+func PdfViewGetPage(view ID) int {
+	return int(C.Rpdf_view_get_page(C.Rid(view)))
+}
+
+// PdfViewSetZoom: A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+func PdfViewSetZoom(view ID, zoom float32) {
+	C.Rpdf_view_set_zoom(C.Rid(view), C.float(zoom))
+}
+
+// PdfViewGetZoom: The zoom the pages show at, the one a fit gives included.
+func PdfViewGetZoom(view ID) float32 {
+	return float32(C.Rpdf_view_get_zoom(C.Rid(view)))
+}
+
+func PdfViewSetFit(view ID, fit RPdfFit) {
+	C.Rpdf_view_set_fit(C.Rid(view), C.RPdfFit(fit))
+}
+
+func PdfViewGetFit(view ID) RPdfFit {
+	return RPdfFit(C.Rpdf_view_get_fit(C.Rid(view)))
+}
+
+// PdfViewGetTitle: The title of the document (its information), "" when it has none.
+func PdfViewGetTitle(view ID) string {
+	return C.GoString(C.Rpdf_view_get_title(C.Rid(view)))
+}
+
+// PdfViewGetPageText: The text of a page (UTF-8), to search it or copy it. Valid until the next call for this
+// view.
+func PdfViewGetPageText(view ID, page int) string {
+	return C.GoString(C.Rpdf_view_get_page_text(C.Rid(view), C.int(page)))
+}
+
 // TextEditorCreate: text Initial content, or NULL.
 func TextEditorCreate(text string) ID {
 	text_ := C.CString(text)
@@ -6786,20 +6896,20 @@ func HostInjectClose(window ID) {
 // Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
 // Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
 // Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
-// Rplot_set_series_toggled_callback, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
-// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
-// Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
-// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
-// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
-// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
-// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
-// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
-// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
-// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
-// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
-// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
-// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rplot_set_series_toggled_callback, Rpdf_view_set_page_changed_callback, Rtext_editor_set_zoom_callback
+// Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback
+// Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
+// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
+// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
+// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
+// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
+// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
+// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
+// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

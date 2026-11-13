@@ -827,6 +827,8 @@ constset WidgetType : CInt
 	PAGINATION = 0x0231,
 	<* Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. *>
 	PLOT = 0x0232,
+	<* The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). *>
+	PDF_VIEW = 0x0233,
 }
 
 constset HAlign : CInt
@@ -996,6 +998,32 @@ constset PlotAxis : CInt
 	X2 = 0x0522,
 	<* A second vertical axis, on the right: shown when a series or a drag line uses it. *>
 	Y2 = 0x0523,
+}
+
+<* How a PdfView sizes its pages. *>
+constset PdfFit : CInt
+{
+	<* The widest page fills the width of the view (default). *>
+	WIDTH = 0x05C0,
+	<* The largest page fits whole in the view. *>
+	PAGE = 0x05C1,
+	<* The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. *>
+	NONE = 0x05C2,
+}
+
+<* What a PdfView holds. *>
+constset PdfStatus : CInt
+{
+	<* No document. *>
+	EMPTY = 0x05D0,
+	<* A document is shown. *>
+	LOADED = 0x05D1,
+	<* The document needs a password, or the one given is wrong: load it again with one. *>
+	NEEDS_PASSWORD = 0x05D2,
+	<* The file could not be read, or is not a PDF document. *>
+	ERROR = 0x05D3,
+	<* The PDFium library was not found (see Rpdf_is_available). *>
+	UNAVAILABLE = 0x05D4,
 }
 
 <* How an axis of a Plot spreads its values. *>
@@ -1562,6 +1590,8 @@ alias PlotViewCallback = fn void(Id plot, void* user_data);
 alias PlotDragLineCallback = fn void(Id plot, CInt line, double value, void* user_data);
 <* Called when the user hides or shows a series from the legend. *>
 alias PlotSeriesCallback = fn void(Id plot, CInt series, CInt visible, void* user_data);
+<* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
+alias PdfPageChangedCallback = fn void(Id view, CInt page, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 <*
@@ -4824,6 +4854,60 @@ fn void Plot.set_drag_line_callback(self, PlotDragLineCallback callback, void* u
 
 fn void Plot.set_series_toggled_callback(self, PlotSeriesCallback callback, void* user_data) @inline => c::r_plot_set_series_toggled_callback((c::Rid)self, (c::RPlotSeriesCallback)callback, user_data);
 
+// ---- PdfView
+
+typedef PdfView = inline Widget;
+
+<* A new PdfView (widget_create(WidgetType.PDF_VIEW)). *>
+fn PdfView pdf_view_create() @inline => (PdfView)c::r_widget_create(c::R_WIDGET_PDF_VIEW);
+
+<*
+ Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+ cannot: Rpdf_view_get_status tells why (a password is needed, not a
+ PDF, no PDFium). The view then shows that instead of pages.
+*>
+fn CInt PdfView.load_file(self, ZString path, ZString password) @inline => c::r_pdf_view_load_file((c::Rid)self, (char*)path, (char*)password);
+
+<* Same as Rpdf_view_load_file, from bytes in memory (copied). *>
+fn CInt PdfView.load_memory(self, ZString data, usz data_size, ZString password) @inline => c::r_pdf_view_load_memory((c::Rid)self, (char*)data, data_size, (char*)password);
+
+<* Closes the document: the view is empty. *>
+fn void PdfView.close(self) @inline => c::r_pdf_view_close((c::Rid)self);
+
+fn PdfStatus PdfView.get_status(self) @inline => (PdfStatus)c::r_pdf_view_get_status((c::Rid)self);
+
+fn CInt PdfView.get_page_count(self) @inline => c::r_pdf_view_get_page_count((c::Rid)self);
+
+<* Size of a page in points (1/72 inch), as it is shown (its rotation applied). *>
+fn void PdfView.get_page_size(self, CInt page, float* width, float* height) @inline => c::r_pdf_view_get_page_size((c::Rid)self, page, width, height);
+
+<* Scrolls to the top of a page; it becomes the current page. *>
+fn void PdfView.set_page(self, CInt page) @inline => c::r_pdf_view_set_page((c::Rid)self, page);
+
+<* The current page: the one a third down the view. *>
+fn CInt PdfView.get_page(self) @inline => c::r_pdf_view_get_page((c::Rid)self);
+
+<* A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. *>
+fn void PdfView.set_zoom(self, float zoom) @inline => c::r_pdf_view_set_zoom((c::Rid)self, zoom);
+
+<* The zoom the pages show at, the one a fit gives included. *>
+fn float PdfView.get_zoom(self) @inline => c::r_pdf_view_get_zoom((c::Rid)self);
+
+fn void PdfView.set_fit(self, PdfFit fit) @inline => c::r_pdf_view_set_fit((c::Rid)self, (c::RPdfFit)fit);
+
+fn PdfFit PdfView.get_fit(self) @inline => (PdfFit)c::r_pdf_view_get_fit((c::Rid)self);
+
+<* The title of the document (its information), "" when it has none. *>
+fn ZString PdfView.get_title(self) @inline => (ZString)c::r_pdf_view_get_title((c::Rid)self);
+
+<*
+ The text of a page (UTF-8), to search it or copy it. Valid until
+ the next call for this view.
+*>
+fn ZString PdfView.get_page_text(self, CInt page) @inline => (ZString)c::r_pdf_view_get_page_text((c::Rid)self, page);
+
+fn void PdfView.set_page_changed_callback(self, PdfPageChangedCallback callback, void* user_data) @inline => c::r_pdf_view_set_page_changed_callback((c::Rid)self, (c::RPdfPageChangedCallback)callback, user_data);
+
 // ---- Window
 
 typedef Window = inline Id;
@@ -6221,6 +6305,9 @@ fn void set_layout_direction(Direction direction) @inline => c::r_set_layout_dir
 
 <* The direction the windows use now: R_DIRECTION_LTR or _RTL. *>
 fn Direction get_layout_direction() @inline => (Direction)c::r_get_layout_direction();
+
+<* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
+alias pdf_is_available = c::r_pdf_is_available;
 
 <*
  Declares a language, or replaces the one that has this name: to

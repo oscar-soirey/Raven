@@ -615,8 +615,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_RATING: 560,
 	R_WIDGET_PAGINATION: 561,
 	R_WIDGET_PLOT: 562,
+	R_WIDGET_PDF_VIEW: 563,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -729,6 +730,22 @@ export const RPlotAxis = _enum({
 	R_PLOT_Y2: 1315,
 });
 export const { R_PLOT_X, R_PLOT_Y, R_PLOT_X2, R_PLOT_Y2 } = RPlotAxis;
+
+export const RPdfFit = _enum({
+	R_PDF_FIT_WIDTH: 1472,
+	R_PDF_FIT_PAGE: 1473,
+	R_PDF_FIT_NONE: 1474,
+});
+export const { R_PDF_FIT_WIDTH, R_PDF_FIT_PAGE, R_PDF_FIT_NONE } = RPdfFit;
+
+export const RPdfStatus = _enum({
+	R_PDF_EMPTY: 1488,
+	R_PDF_LOADED: 1489,
+	R_PDF_NEEDS_PASSWORD: 1490,
+	R_PDF_ERROR: 1491,
+	R_PDF_UNAVAILABLE: 1492,
+});
+export const { R_PDF_EMPTY, R_PDF_LOADED, R_PDF_NEEDS_PASSWORD, R_PDF_ERROR, R_PDF_UNAVAILABLE } = RPdfStatus;
 
 export const RPlotScale = _enum({
 	R_PLOT_SCALE_LINEAR: 1328,
@@ -3530,6 +3547,22 @@ export const Rplot_set_drag_line_color = _lib.Rplot_set_drag_line_color;
 export const Rplot_set_view_changed_callback = _lib.Rplot_set_view_changed_callback;
 export const Rplot_set_drag_line_callback = _lib.Rplot_set_drag_line_callback;
 export const Rplot_set_series_toggled_callback = _lib.Rplot_set_series_toggled_callback;
+export const Rpdf_is_available = _lib.Rpdf_is_available;
+export const Rpdf_view_load_file = _lib.Rpdf_view_load_file;
+export const Rpdf_view_load_memory = _lib.Rpdf_view_load_memory;
+export const Rpdf_view_close = _lib.Rpdf_view_close;
+export const Rpdf_view_get_status = _lib.Rpdf_view_get_status;
+export const Rpdf_view_get_page_count = _lib.Rpdf_view_get_page_count;
+export const Rpdf_view_get_page_size = _lib.Rpdf_view_get_page_size;
+export const Rpdf_view_set_page = _lib.Rpdf_view_set_page;
+export const Rpdf_view_get_page = _lib.Rpdf_view_get_page;
+export const Rpdf_view_set_zoom = _lib.Rpdf_view_set_zoom;
+export const Rpdf_view_get_zoom = _lib.Rpdf_view_get_zoom;
+export const Rpdf_view_set_fit = _lib.Rpdf_view_set_fit;
+export const Rpdf_view_get_fit = _lib.Rpdf_view_get_fit;
+export const Rpdf_view_get_title = _lib.Rpdf_view_get_title;
+export const Rpdf_view_get_page_text = _lib.Rpdf_view_get_page_text;
+export const Rpdf_view_set_page_changed_callback = _lib.Rpdf_view_set_page_changed_callback;
 export const Rtext_editor_create = _lib.Rtext_editor_create;
 export const Rtext_editor_set_text = _lib.Rtext_editor_set_text;
 export const Rtext_editor_get_text = _lib.Rtext_editor_get_text;

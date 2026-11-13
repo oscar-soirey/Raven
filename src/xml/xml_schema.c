@@ -341,6 +341,14 @@ static const rvn_schema_attribute_t g_plot[] = {
 	C("Y2Scale", "Linear|Log|SymLog", "How the right axis spreads its values."),
 	A("OnChanged", "Action fired while the user drags a drag line."),
 };
+static const rvn_schema_attribute_t g_pdf_view[] = {
+	F("Source", "The PDF file shown."),
+	T("Password", "The password of the document, when it has one."),
+	C("Fit", "Width|Page|None", "How the pages are sized: the widest fills the width, the largest fits whole, or the Zoom."),
+	N("Zoom", "A zoom of its own (1: the printed size); the fit becomes None."),
+	N("Page", "The page shown at the top, counted from 1."),
+	A("OnChanged", "Action fired when the current page changes as the user scrolls."),
+};
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
@@ -553,6 +561,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Breadcrumb", g_breadcrumb, "The path to the current place: links separated by chevrons."),
 	TAG("Rating", g_rating, "A score shown and chosen with stars."),
 	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
+	TAG("PdfView", g_pdf_view, "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time)."),
 	TAG("Plot", g_plot, "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color)."),
 	TAG("NodeGraph", g_node_graph, "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements."),
 };

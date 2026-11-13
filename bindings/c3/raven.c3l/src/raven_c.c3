@@ -685,6 +685,8 @@ const RWidgetType R_WIDGET_RATING = 0x0230;
 const RWidgetType R_WIDGET_PAGINATION = 0x0231;
 <* Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. *>
 const RWidgetType R_WIDGET_PLOT = 0x0232;
+<* The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). *>
+const RWidgetType R_WIDGET_PDF_VIEW = 0x0233;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -826,6 +828,28 @@ const RPlotAxis R_PLOT_Y = 0x0521;
 const RPlotAxis R_PLOT_X2 = 0x0522;
 <* A second vertical axis, on the right: shown when a series or a drag line uses it. *>
 const RPlotAxis R_PLOT_Y2 = 0x0523;
+
+<* How a PdfView sizes its pages. *>
+alias RPdfFit = CInt;
+<* The widest page fills the width of the view (default). *>
+const RPdfFit R_PDF_FIT_WIDTH = 0x05C0;
+<* The largest page fits whole in the view. *>
+const RPdfFit R_PDF_FIT_PAGE = 0x05C1;
+<* The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. *>
+const RPdfFit R_PDF_FIT_NONE = 0x05C2;
+
+<* What a PdfView holds. *>
+alias RPdfStatus = CInt;
+<* No document. *>
+const RPdfStatus R_PDF_EMPTY = 0x05D0;
+<* A document is shown. *>
+const RPdfStatus R_PDF_LOADED = 0x05D1;
+<* The document needs a password, or the one given is wrong: load it again with one. *>
+const RPdfStatus R_PDF_NEEDS_PASSWORD = 0x05D2;
+<* The file could not be read, or is not a PDF document. *>
+const RPdfStatus R_PDF_ERROR = 0x05D3;
+<* The PDFium library was not found (see Rpdf_is_available). *>
+const RPdfStatus R_PDF_UNAVAILABLE = 0x05D4;
 
 <* How an axis of a Plot spreads its values. *>
 alias RPlotScale = CInt;
@@ -1327,6 +1351,8 @@ alias RPlotViewCallback = fn void(Rid plot, void* user_data);
 alias RPlotDragLineCallback = fn void(Rid plot, CInt line, double value, void* user_data);
 <* Called when the user hides or shows a series from the legend. *>
 alias RPlotSeriesCallback = fn void(Rid plot, CInt series, CInt visible, void* user_data);
+<* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
+alias RPdfPageChangedCallback = fn void(Rid view, CInt page, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias RTextEditorZoomCallback = fn void(Rid editor, float zoom, void* user_data);
 <*
@@ -4110,6 +4136,56 @@ extern fn void r_plot_set_view_changed_callback(Rid plot, RPlotViewCallback call
 extern fn void r_plot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data) @cname("Rplot_set_drag_line_callback");
 
 extern fn void r_plot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data) @cname("Rplot_set_series_toggled_callback");
+
+<* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
+extern fn CInt r_pdf_is_available() @cname("Rpdf_is_available");
+
+<*
+ Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+ cannot: Rpdf_view_get_status tells why (a password is needed, not a
+ PDF, no PDFium). The view then shows that instead of pages.
+*>
+extern fn CInt r_pdf_view_load_file(Rid view, char* path, char* password) @cname("Rpdf_view_load_file");
+
+<* Same as Rpdf_view_load_file, from bytes in memory (copied). *>
+extern fn CInt r_pdf_view_load_memory(Rid view, char* data, usz data_size, char* password) @cname("Rpdf_view_load_memory");
+
+<* Closes the document: the view is empty. *>
+extern fn void r_pdf_view_close(Rid view) @cname("Rpdf_view_close");
+
+extern fn RPdfStatus r_pdf_view_get_status(Rid view) @cname("Rpdf_view_get_status");
+
+extern fn CInt r_pdf_view_get_page_count(Rid view) @cname("Rpdf_view_get_page_count");
+
+<* Size of a page in points (1/72 inch), as it is shown (its rotation applied). *>
+extern fn void r_pdf_view_get_page_size(Rid view, CInt page, float* width, float* height) @cname("Rpdf_view_get_page_size");
+
+<* Scrolls to the top of a page; it becomes the current page. *>
+extern fn void r_pdf_view_set_page(Rid view, CInt page) @cname("Rpdf_view_set_page");
+
+<* The current page: the one a third down the view. *>
+extern fn CInt r_pdf_view_get_page(Rid view) @cname("Rpdf_view_get_page");
+
+<* A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. *>
+extern fn void r_pdf_view_set_zoom(Rid view, float zoom) @cname("Rpdf_view_set_zoom");
+
+<* The zoom the pages show at, the one a fit gives included. *>
+extern fn float r_pdf_view_get_zoom(Rid view) @cname("Rpdf_view_get_zoom");
+
+extern fn void r_pdf_view_set_fit(Rid view, RPdfFit fit) @cname("Rpdf_view_set_fit");
+
+extern fn RPdfFit r_pdf_view_get_fit(Rid view) @cname("Rpdf_view_get_fit");
+
+<* The title of the document (its information), "" when it has none. *>
+extern fn char* r_pdf_view_get_title(Rid view) @cname("Rpdf_view_get_title");
+
+<*
+ The text of a page (UTF-8), to search it or copy it. Valid until
+ the next call for this view.
+*>
+extern fn char* r_pdf_view_get_page_text(Rid view, CInt page) @cname("Rpdf_view_get_page_text");
+
+extern fn void r_pdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data) @cname("Rpdf_view_set_page_changed_callback");
 
 extern fn Rid r_text_editor_create(char* text) @cname("Rtext_editor_create");
 

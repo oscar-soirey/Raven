@@ -254,6 +254,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/rating.c
 	src/widgets/pagination.c
 	src/widgets/plot.c
+	src/widgets/pdf_view.c
 )
 
 set(RAVEN_XML_SOURCES

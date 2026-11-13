@@ -791,6 +791,22 @@ const _symbols = {
 	Rplot_set_view_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rplot_set_drag_line_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rplot_set_series_toggled_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rpdf_is_available: { args: [], returns: "i32" },
+	Rpdf_view_load_file: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rpdf_view_load_memory: { args: ["u32", "ptr", "usize", "ptr"], returns: "i32" },
+	Rpdf_view_close: { args: ["u32"], returns: "void" },
+	Rpdf_view_get_status: { args: ["u32"], returns: "i32" },
+	Rpdf_view_get_page_count: { args: ["u32"], returns: "i32" },
+	Rpdf_view_get_page_size: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rpdf_view_set_page: { args: ["u32", "i32"], returns: "void" },
+	Rpdf_view_get_page: { args: ["u32"], returns: "i32" },
+	Rpdf_view_set_zoom: { args: ["u32", "f32"], returns: "void" },
+	Rpdf_view_get_zoom: { args: ["u32"], returns: "f32" },
+	Rpdf_view_set_fit: { args: ["u32", "i32"], returns: "void" },
+	Rpdf_view_get_fit: { args: ["u32"], returns: "i32" },
+	Rpdf_view_get_title: { args: ["u32"], returns: "cstring" },
+	Rpdf_view_get_page_text: { args: ["u32", "i32"], returns: "cstring" },
+	Rpdf_view_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_editor_create: { args: ["ptr"], returns: "u32" },
 	Rtext_editor_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_editor_get_text: { args: ["u32"], returns: "cstring" },
@@ -2342,6 +2358,8 @@ export enum RWidgetType {
 	R_WIDGET_PAGINATION = 0x0231,
 	/** Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. */
 	R_WIDGET_PLOT = 0x0232,
+	/** The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). */
+	R_WIDGET_PDF_VIEW = 0x0233,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2395,6 +2413,7 @@ export const R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB;
 export const R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING;
 export const R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION;
 export const R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT;
+export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -2620,6 +2639,40 @@ export const R_PLOT_X = RPlotAxis.R_PLOT_X;
 export const R_PLOT_Y = RPlotAxis.R_PLOT_Y;
 export const R_PLOT_X2 = RPlotAxis.R_PLOT_X2;
 export const R_PLOT_Y2 = RPlotAxis.R_PLOT_Y2;
+
+/** How a PdfView sizes its pages. */
+export enum RPdfFit {
+	/** The widest page fills the width of the view (default). */
+	R_PDF_FIT_WIDTH = 0x05C0,
+	/** The largest page fits whole in the view. */
+	R_PDF_FIT_PAGE = 0x05C1,
+	/** The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. */
+	R_PDF_FIT_NONE = 0x05C2,
+}
+
+export const R_PDF_FIT_WIDTH = RPdfFit.R_PDF_FIT_WIDTH;
+export const R_PDF_FIT_PAGE = RPdfFit.R_PDF_FIT_PAGE;
+export const R_PDF_FIT_NONE = RPdfFit.R_PDF_FIT_NONE;
+
+/** What a PdfView holds. */
+export enum RPdfStatus {
+	/** No document. */
+	R_PDF_EMPTY = 0x05D0,
+	/** A document is shown. */
+	R_PDF_LOADED = 0x05D1,
+	/** The document needs a password, or the one given is wrong: load it again with one. */
+	R_PDF_NEEDS_PASSWORD = 0x05D2,
+	/** The file could not be read, or is not a PDF document. */
+	R_PDF_ERROR = 0x05D3,
+	/** The PDFium library was not found (see Rpdf_is_available). */
+	R_PDF_UNAVAILABLE = 0x05D4,
+}
+
+export const R_PDF_EMPTY = RPdfStatus.R_PDF_EMPTY;
+export const R_PDF_LOADED = RPdfStatus.R_PDF_LOADED;
+export const R_PDF_NEEDS_PASSWORD = RPdfStatus.R_PDF_NEEDS_PASSWORD;
+export const R_PDF_ERROR = RPdfStatus.R_PDF_ERROR;
+export const R_PDF_UNAVAILABLE = RPdfStatus.R_PDF_UNAVAILABLE;
 
 /** How an axis of a Plot spreads its values. */
 export enum RPlotScale {
@@ -5946,6 +5999,22 @@ function _adapt_RPlotSeriesCallback(function_: RPlotSeriesCallback | Pointer | n
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the current page changes as the user scrolls. This also fires the action of the widget. */
+export type RPdfPageChangedCallback = (view: Rid, page: number, user_data: Pointer | null) => void;
+
+function _adapt_RPdfPageChangedCallback(function_: RPdfPageChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((view: number, page: number, user_data: Pointer | null): void => {
+		try {
+			function_(view, page, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
@@ -10068,6 +10137,92 @@ export function Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineC
 
 export function Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rplot_set_series_toggled_callback(plot, _adapt_RPlotSeriesCallback(callback), user_data);
+}
+
+/** R_TRUE when PDFium can be loaded (it is, the first time this is asked). */
+export function Rpdf_is_available(): number {
+	return _lib.Rpdf_is_available();
+}
+
+/**
+ * Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+ * cannot: Rpdf_view_get_status tells why (a password is needed, not a
+ * PDF, no PDFium). The view then shows that instead of pages.
+ */
+export function Rpdf_view_load_file(view: Rid, path: string | null, password: string | null): number {
+	return _lib.Rpdf_view_load_file(view, _s(path), _s(password));
+}
+
+/** Same as Rpdf_view_load_file, from bytes in memory (copied). */
+export function Rpdf_view_load_memory(view: Rid, data: string | null, password: string | null): number {
+	const data_ = _s(data);
+	return _lib.Rpdf_view_load_memory(view, data_, data_ === null ? 0 : data_.length - 1, _s(password));
+}
+
+/** Closes the document: the view is empty. */
+export function Rpdf_view_close(view: Rid): void {
+	_lib.Rpdf_view_close(view);
+}
+
+export function Rpdf_view_get_status(view: Rid): RPdfStatus {
+	return _lib.Rpdf_view_get_status(view) as RPdfStatus;
+}
+
+export function Rpdf_view_get_page_count(view: Rid): number {
+	return _lib.Rpdf_view_get_page_count(view);
+}
+
+/** Size of a page in points (1/72 inch), as it is shown (its rotation applied). */
+export function Rpdf_view_get_page_size(view: Rid, page: number): [width: number, height: number] {
+	const width_ = new Float32Array(1);
+	const height_ = new Float32Array(1);
+	_lib.Rpdf_view_get_page_size(view, page, width_, height_);
+	return [width_[0]!, height_[0]!];
+}
+
+/** Scrolls to the top of a page; it becomes the current page. */
+export function Rpdf_view_set_page(view: Rid, page: number): void {
+	_lib.Rpdf_view_set_page(view, page);
+}
+
+/** The current page: the one a third down the view. */
+export function Rpdf_view_get_page(view: Rid): number {
+	return _lib.Rpdf_view_get_page(view);
+}
+
+/** A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. */
+export function Rpdf_view_set_zoom(view: Rid, zoom: number): void {
+	_lib.Rpdf_view_set_zoom(view, zoom);
+}
+
+/** The zoom the pages show at, the one a fit gives included. */
+export function Rpdf_view_get_zoom(view: Rid): number {
+	return _lib.Rpdf_view_get_zoom(view);
+}
+
+export function Rpdf_view_set_fit(view: Rid, fit: RPdfFit): void {
+	_lib.Rpdf_view_set_fit(view, fit);
+}
+
+export function Rpdf_view_get_fit(view: Rid): RPdfFit {
+	return _lib.Rpdf_view_get_fit(view) as RPdfFit;
+}
+
+/** The title of the document (its information), "" when it has none. */
+export function Rpdf_view_get_title(view: Rid): string | null {
+	return _lib.Rpdf_view_get_title(view);
+}
+
+/**
+ * The text of a page (UTF-8), to search it or copy it. Valid until
+ * the next call for this view.
+ */
+export function Rpdf_view_get_page_text(view: Rid, page: number): string | null {
+	return _lib.Rpdf_view_get_page_text(view, page);
+}
+
+export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rpdf_view_set_page_changed_callback(view, _adapt_RPdfPageChangedCallback(callback), user_data);
 }
 
 /** text Initial content, or NULL. */

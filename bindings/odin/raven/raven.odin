@@ -666,6 +666,8 @@ R_WIDGET_RATING :: 0x0230
 R_WIDGET_PAGINATION :: 0x0231
 // Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
 R_WIDGET_PLOT :: 0x0232
+// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+R_WIDGET_PDF_VIEW :: 0x0233
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -797,6 +799,28 @@ R_PLOT_Y :: 0x0521
 R_PLOT_X2 :: 0x0522
 // A second vertical axis, on the right: shown when a series or a drag line uses it.
 R_PLOT_Y2 :: 0x0523
+
+// How a PdfView sizes its pages.
+RPdfFit :: i32
+// The widest page fills the width of the view (default).
+R_PDF_FIT_WIDTH :: 0x05C0
+// The largest page fits whole in the view.
+R_PDF_FIT_PAGE :: 0x05C1
+// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+R_PDF_FIT_NONE :: 0x05C2
+
+// What a PdfView holds.
+RPdfStatus :: i32
+// No document.
+R_PDF_EMPTY :: 0x05D0
+// A document is shown.
+R_PDF_LOADED :: 0x05D1
+// The document needs a password, or the one given is wrong: load it again with one.
+R_PDF_NEEDS_PASSWORD :: 0x05D2
+// The file could not be read, or is not a PDF document.
+R_PDF_ERROR :: 0x05D3
+// The PDFium library was not found (see Rpdf_is_available).
+R_PDF_UNAVAILABLE :: 0x05D4
 
 // How an axis of a Plot spreads its values.
 RPlotScale :: i32
@@ -1255,6 +1279,8 @@ RPlotViewCallback :: #type proc "c" (plot: Rid, user_data: rawptr)
 RPlotDragLineCallback :: #type proc "c" (plot: Rid, line: i32, value: f64, user_data: rawptr)
 // Called when the user hides or shows a series from the legend.
 RPlotSeriesCallback :: #type proc "c" (plot: Rid, series: i32, visible: i32, user_data: rawptr)
+// Called when the current page changes as the user scrolls. This also fires the action of the widget.
+RPdfPageChangedCallback :: #type proc "c" (view: Rid, page: i32, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -3159,6 +3185,36 @@ foreign lib {
 	Rplot_set_view_changed_callback :: proc(plot: Rid, callback: RPlotViewCallback, user_data: rawptr) ---
 	Rplot_set_drag_line_callback :: proc(plot: Rid, callback: RPlotDragLineCallback, user_data: rawptr) ---
 	Rplot_set_series_toggled_callback :: proc(plot: Rid, callback: RPlotSeriesCallback, user_data: rawptr) ---
+	// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+	Rpdf_is_available :: proc() -> i32 ---
+	// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+	// cannot: Rpdf_view_get_status tells why (a password is needed, not a
+	// PDF, no PDFium). The view then shows that instead of pages.
+	Rpdf_view_load_file :: proc(view: Rid, path: cstring, password: cstring) -> i32 ---
+	// Same as Rpdf_view_load_file, from bytes in memory (copied).
+	Rpdf_view_load_memory :: proc(view: Rid, data: cstring, data_size: uint, password: cstring) -> i32 ---
+	// Closes the document: the view is empty.
+	Rpdf_view_close :: proc(view: Rid) ---
+	Rpdf_view_get_status :: proc(view: Rid) -> RPdfStatus ---
+	Rpdf_view_get_page_count :: proc(view: Rid) -> i32 ---
+	// Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+	Rpdf_view_get_page_size :: proc(view: Rid, page: i32, width: ^f32, height: ^f32) ---
+	// Scrolls to the top of a page; it becomes the current page.
+	Rpdf_view_set_page :: proc(view: Rid, page: i32) ---
+	// The current page: the one a third down the view.
+	Rpdf_view_get_page :: proc(view: Rid) -> i32 ---
+	// A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+	Rpdf_view_set_zoom :: proc(view: Rid, zoom: f32) ---
+	// The zoom the pages show at, the one a fit gives included.
+	Rpdf_view_get_zoom :: proc(view: Rid) -> f32 ---
+	Rpdf_view_set_fit :: proc(view: Rid, fit: RPdfFit) ---
+	Rpdf_view_get_fit :: proc(view: Rid) -> RPdfFit ---
+	// The title of the document (its information), "" when it has none.
+	Rpdf_view_get_title :: proc(view: Rid) -> cstring ---
+	// The text of a page (UTF-8), to search it or copy it. Valid until
+	// the next call for this view.
+	Rpdf_view_get_page_text :: proc(view: Rid, page: i32) -> cstring ---
+	Rpdf_view_set_page_changed_callback :: proc(view: Rid, callback: RPdfPageChangedCallback, user_data: rawptr) ---
 	// text Initial content, or NULL.
 	Rtext_editor_create :: proc(text: cstring) -> Rid ---
 	// Replaces the whole text. The history of undo is cleared; the changed callback is not called.

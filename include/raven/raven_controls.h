@@ -79,6 +79,30 @@ typedef enum RPlotAxis{
 	R_PLOT_Y2
 }RPlotAxis;
 
+/** How a PdfView sizes its pages. */
+typedef enum RPdfFit{
+	/** The widest page fills the width of the view (default). */
+	R_PDF_FIT_WIDTH = 0x05C0,
+	/** The largest page fits whole in the view. */
+	R_PDF_FIT_PAGE,
+	/** The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. */
+	R_PDF_FIT_NONE
+}RPdfFit;
+
+/** What a PdfView holds. */
+typedef enum RPdfStatus{
+	/** No document. */
+	R_PDF_EMPTY = 0x05D0,
+	/** A document is shown. */
+	R_PDF_LOADED,
+	/** The document needs a password, or the one given is wrong: load it again with one. */
+	R_PDF_NEEDS_PASSWORD,
+	/** The file could not be read, or is not a PDF document. */
+	R_PDF_ERROR,
+	/** The PDFium library was not found (see Rpdf_is_available). */
+	R_PDF_UNAVAILABLE
+}RPdfStatus;
+
 /** How an axis of a Plot spreads its values. */
 typedef enum RPlotScale{
 	R_PLOT_SCALE_LINEAR = 0x0530,
@@ -952,6 +976,66 @@ extern "C" {
 	/** @brief Called when the user hides or shows a series from the legend. */
 	typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
 	RAVEN_API void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  PDF VIEW (the pages of a PDF document, scrolled and zoomed)
+	 *
+	 * The pages are drawn by PDFium, the PDF library of Chromium (BSD-3 /
+	 * Apache-2.0), opened at run time when the first document is loaded: it
+	 * is not needed to build Raven. It is looked for at the path in the
+	 * environment variable RAVEN_PDFIUM, else next to the executable, else
+	 * where the system finds libraries: pdfium.dll (Windows),
+	 * libpdfium.dylib (macOS), libpdfium.so (Linux). Builds of it for every
+	 * system: https://github.com/bblanchon/pdfium-binaries. Without it the
+	 * view says that it cannot show the pages. Not in the browser backend.
+	 *
+	 * The pages show one under the other; the wheel and the keys scroll,
+	 * Ctrl + wheel, Ctrl + = and Ctrl + - zoom (Ctrl + 0: fit the width),
+	 * the pages can be dragged with the mouse and pinched with fingers.
+	 * Pages are counted from 0. Sizes are in points (1/72 inch); at a zoom of
+	 * 1, a page shows at its printed size (96 logical units per inch).
+	 *
+	 * XML: <PdfView Source="report.pdf" Fit="Width|Page|None" Zoom="1.5"
+	 * Page="1" Password="..."/> (Page counted from 1 there, as it is shown).
+	 * ============================================================================ */
+
+	/** @brief R_TRUE when PDFium can be loaded (it is, the first time this is asked). */
+	RAVEN_API int Rpdf_is_available(void);
+	/**
+	 * @brief Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+	 * cannot: Rpdf_view_get_status tells why (a password is needed, not a
+	 * PDF, no PDFium). The view then shows that instead of pages.
+	 */
+	RAVEN_API int Rpdf_view_load_file(Rid view, const char* path, const char* password);
+	/** @brief Same as Rpdf_view_load_file, from bytes in memory (copied). */
+	RAVEN_API int Rpdf_view_load_memory(Rid view, const char* data, size_t data_size, const char* password);
+	/** @brief Closes the document: the view is empty. */
+	RAVEN_API void Rpdf_view_close(Rid view);
+	RAVEN_API RPdfStatus Rpdf_view_get_status(Rid view);
+	RAVEN_API int Rpdf_view_get_page_count(Rid view);
+	/** @brief Size of a page in points (1/72 inch), as it is shown (its rotation applied). */
+	RAVEN_API void Rpdf_view_get_page_size(Rid view, int page, float* width, float* height);
+	/** @brief Scrolls to the top of a page; it becomes the current page. */
+	RAVEN_API void Rpdf_view_set_page(Rid view, int page);
+	/** @brief The current page: the one a third down the view. */
+	RAVEN_API int Rpdf_view_get_page(Rid view);
+	/** @brief A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. */
+	RAVEN_API void Rpdf_view_set_zoom(Rid view, float zoom);
+	/** @brief The zoom the pages show at, the one a fit gives included. */
+	RAVEN_API float Rpdf_view_get_zoom(Rid view);
+	RAVEN_API void Rpdf_view_set_fit(Rid view, RPdfFit fit);
+	RAVEN_API RPdfFit Rpdf_view_get_fit(Rid view);
+	/** @brief The title of the document (its information), "" when it has none. */
+	RAVEN_API const char* Rpdf_view_get_title(Rid view);
+	/**
+	 * @brief The text of a page (UTF-8), to search it or copy it. Valid until
+	 * the next call for this view.
+	 */
+	RAVEN_API const char* Rpdf_view_get_page_text(Rid view, int page);
+	/** @brief Called when the current page changes as the user scrolls. This also fires the action of the widget. */
+	typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+	RAVEN_API void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
 
 #ifdef __cplusplus
 } /* extern "C" */

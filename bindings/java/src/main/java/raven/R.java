@@ -1011,6 +1011,10 @@ public final class R {
      * Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
      */
     public static final int R_WIDGET_PLOT = 0x0232;
+    /**
+     * The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+     */
+    public static final int R_WIDGET_PDF_VIEW = 0x0233;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1198,6 +1202,42 @@ public final class R {
      * A second vertical axis, on the right: shown when a series or a drag line uses it.
      */
     public static final int R_PLOT_Y2 = 0x0523;
+
+    // RPdfFit: How a PdfView sizes its pages.
+    /**
+     * The widest page fills the width of the view (default).
+     */
+    public static final int R_PDF_FIT_WIDTH = 0x05C0;
+    /**
+     * The largest page fits whole in the view.
+     */
+    public static final int R_PDF_FIT_PAGE = 0x05C1;
+    /**
+     * The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+     */
+    public static final int R_PDF_FIT_NONE = 0x05C2;
+
+    // RPdfStatus: What a PdfView holds.
+    /**
+     * No document.
+     */
+    public static final int R_PDF_EMPTY = 0x05D0;
+    /**
+     * A document is shown.
+     */
+    public static final int R_PDF_LOADED = 0x05D1;
+    /**
+     * The document needs a password, or the one given is wrong: load it again with one.
+     */
+    public static final int R_PDF_NEEDS_PASSWORD = 0x05D2;
+    /**
+     * The file could not be read, or is not a PDF document.
+     */
+    public static final int R_PDF_ERROR = 0x05D3;
+    /**
+     * The PDFium library was not found (see Rpdf_is_available).
+     */
+    public static final int R_PDF_UNAVAILABLE = 0x05D4;
 
     // RPlotScale: How an axis of a Plot spreads its values.
     public static final int R_PLOT_SCALE_LINEAR = 0x0530;
@@ -4709,6 +4749,27 @@ public final class R {
 
     private static MemorySegment upcall(RPlotSeriesCallback f) {
         return stub(f, RPlotSeriesCallback.class, "RPlotSeriesCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the current page changes as the user scrolls. This also fires the action of the widget.
+     */
+    @FunctionalInterface
+    public interface RPdfPageChangedCallback {
+        void invoke(int view, int page, MemorySegment user_data);
+    }
+
+    private static void RPdfPageChangedCallback$raw(RPdfPageChangedCallback f, int view, int page, MemorySegment user_data) {
+        try {
+            f.invoke(view, page, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RPdfPageChangedCallback f) {
+        return stub(f, RPdfPageChangedCallback.class, "RPdfPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -15156,6 +15217,256 @@ public final class R {
 
     public static void Rplot_set_series_toggled_callback(int plot, RPlotSeriesCallback callback) {
         Rplot_set_series_toggled_callback(plot, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rpdf_is_available$;
+
+    /**
+     * R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+     */
+    public static int Rpdf_is_available() {
+        MethodHandle $h = Rpdf_is_available$;
+        if ($h == null) Rpdf_is_available$ = $h = find("Rpdf_is_available", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_load_file$;
+
+    /**
+     * Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+     * cannot: Rpdf_view_get_status tells why (a password is needed, not a
+     * PDF, no PDFium). The view then shows that instead of pages.
+     */
+    public static int Rpdf_view_load_file(int view, String path, String password) {
+        MethodHandle $h = Rpdf_view_load_file$;
+        if ($h == null) Rpdf_view_load_file$ = $h = find("Rpdf_view_load_file", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            MemorySegment password$ = password == null ? MemorySegment.NULL : utf8($a, password);
+            int $r = (int) $h.invokeExact(view, path$, password$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_load_memory$;
+
+    /**
+     * Same as Rpdf_view_load_file, from bytes in memory (copied).
+     */
+    public static int Rpdf_view_load_memory(int view, byte[] data, String password) {
+        MethodHandle $h = Rpdf_view_load_memory$;
+        if ($h == null) Rpdf_view_load_memory$ = $h = find("Rpdf_view_load_memory", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment data$ = data == null ? MemorySegment.NULL : bytes($a, data);
+            MemorySegment password$ = password == null ? MemorySegment.NULL : utf8($a, password);
+            int $r = (int) $h.invokeExact(view, data$, data$.byteSize(), password$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_close$;
+
+    /**
+     * Closes the document: the view is empty.
+     */
+    public static void Rpdf_view_close(int view) {
+        MethodHandle $h = Rpdf_view_close$;
+        if ($h == null) Rpdf_view_close$ = $h = find("Rpdf_view_close", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(view);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_status$;
+
+    public static int Rpdf_view_get_status(int view) {
+        MethodHandle $h = Rpdf_view_get_status$;
+        if ($h == null) Rpdf_view_get_status$ = $h = find("Rpdf_view_get_status", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_page_count$;
+
+    public static int Rpdf_view_get_page_count(int view) {
+        MethodHandle $h = Rpdf_view_get_page_count$;
+        if ($h == null) Rpdf_view_get_page_count$ = $h = find("Rpdf_view_get_page_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_page_size$;
+
+    /**
+     * Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+     */
+    public static void Rpdf_view_get_page_size(int view, int page, float[] width, float[] height) {
+        MethodHandle $h = Rpdf_view_get_page_size$;
+        if ($h == null) Rpdf_view_get_page_size$ = $h = find("Rpdf_view_get_page_size", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            $h.invokeExact(view, page, width$, height$);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_FLOAT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_FLOAT, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_set_page$;
+
+    /**
+     * Scrolls to the top of a page; it becomes the current page.
+     */
+    public static void Rpdf_view_set_page(int view, int page) {
+        MethodHandle $h = Rpdf_view_set_page$;
+        if ($h == null) Rpdf_view_set_page$ = $h = find("Rpdf_view_set_page", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(view, page);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_page$;
+
+    /**
+     * The current page: the one a third down the view.
+     */
+    public static int Rpdf_view_get_page(int view) {
+        MethodHandle $h = Rpdf_view_get_page$;
+        if ($h == null) Rpdf_view_get_page$ = $h = find("Rpdf_view_get_page", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_set_zoom$;
+
+    /**
+     * A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+     */
+    public static void Rpdf_view_set_zoom(int view, float zoom) {
+        MethodHandle $h = Rpdf_view_set_zoom$;
+        if ($h == null) Rpdf_view_set_zoom$ = $h = find("Rpdf_view_set_zoom", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(view, zoom);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_zoom$;
+
+    /**
+     * The zoom the pages show at, the one a fit gives included.
+     */
+    public static float Rpdf_view_get_zoom(int view) {
+        MethodHandle $h = Rpdf_view_get_zoom$;
+        if ($h == null) Rpdf_view_get_zoom$ = $h = find("Rpdf_view_get_zoom", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_set_fit$;
+
+    public static void Rpdf_view_set_fit(int view, int fit) {
+        MethodHandle $h = Rpdf_view_set_fit$;
+        if ($h == null) Rpdf_view_set_fit$ = $h = find("Rpdf_view_set_fit", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(view, fit);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_fit$;
+
+    public static int Rpdf_view_get_fit(int view) {
+        MethodHandle $h = Rpdf_view_get_fit$;
+        if ($h == null) Rpdf_view_get_fit$ = $h = find("Rpdf_view_get_fit", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(view);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_title$;
+
+    /**
+     * The title of the document (its information), "" when it has none.
+     */
+    public static String Rpdf_view_get_title(int view) {
+        MethodHandle $h = Rpdf_view_get_title$;
+        if ($h == null) Rpdf_view_get_title$ = $h = find("Rpdf_view_get_title", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_get_page_text$;
+
+    /**
+     * The text of a page (UTF-8), to search it or copy it. Valid until
+     * the next call for this view.
+     */
+    public static String Rpdf_view_get_page_text(int view, int page) {
+        MethodHandle $h = Rpdf_view_get_page_text$;
+        if ($h == null) Rpdf_view_get_page_text$ = $h = find("Rpdf_view_get_page_text", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(view, page);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_view_set_page_changed_callback$;
+
+    public static void Rpdf_view_set_page_changed_callback(int view, RPdfPageChangedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rpdf_view_set_page_changed_callback$;
+        if ($h == null) Rpdf_view_set_page_changed_callback$ = $h = find("Rpdf_view_set_page_changed_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(view, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rpdf_view_set_page_changed_callback(int view, RPdfPageChangedCallback callback) {
+        Rpdf_view_set_page_changed_callback(view, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtext_editor_create$;

@@ -1,0 +1,18 @@
+<!-- A PDF viewer: a bar of tools over a PdfView. main.c opens a document and keeps the page number. -->
+<Window Title="Raven PDF viewer" Width="980" Height="760">
+	<VBox>
+		<HBox Spacing="8" Slot.Padding="10,8,10,8">
+			<Button Text="Open..." Style="Primary" OnClicked="pdf.open" Slot.VAlign="Center"/>
+			<Label Name="title" Text="" Opacity="0.7" Slot.Fill="1" Slot.VAlign="Center"/>
+			<Button Text="Previous" OnClicked="pdf.previous" Slot.VAlign="Center"/>
+			<Label Name="page" Text="" Slot.VAlign="Center"/>
+			<Button Text="Next" OnClicked="pdf.next" Slot.VAlign="Center"/>
+			<Separator Orientation="Vertical"/>
+			<Button Text="-" OnClicked="pdf.zoom_out" Slot.VAlign="Center"/>
+			<Label Name="zoom" Text="" Slot.VAlign="Center"/>
+			<Button Text="+" OnClicked="pdf.zoom_in" Slot.VAlign="Center"/>
+			<ComboBox Name="fit" Selected="0" OnChanged="pdf.fit" Slot.VAlign="Center"><Item Text="Fit width"/><Item Text="Fit page"/><Item Text="Zoom"/></ComboBox>
+		</HBox>
+		<PdfView Name="pdf" OnChanged="pdf.page" Slot.Fill="1"/>
+	</VBox>
+</Window>

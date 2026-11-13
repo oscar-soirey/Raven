@@ -734,6 +734,8 @@ enum : RWidgetType
     R_WIDGET_PAGINATION = 0x0231,
     /// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
     R_WIDGET_PLOT = 0x0232,
+    /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+    R_WIDGET_PDF_VIEW = 0x0233,
 }
 
 alias RHAlign = int;
@@ -907,6 +909,34 @@ enum : RPlotAxis
     R_PLOT_X2 = 0x0522,
     /// A second vertical axis, on the right: shown when a series or a drag line uses it.
     R_PLOT_Y2 = 0x0523,
+}
+
+/// How a PdfView sizes its pages.
+alias RPdfFit = int;
+enum : RPdfFit
+{
+    /// The widest page fills the width of the view (default).
+    R_PDF_FIT_WIDTH = 0x05C0,
+    /// The largest page fits whole in the view.
+    R_PDF_FIT_PAGE = 0x05C1,
+    /// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+    R_PDF_FIT_NONE = 0x05C2,
+}
+
+/// What a PdfView holds.
+alias RPdfStatus = int;
+enum : RPdfStatus
+{
+    /// No document.
+    R_PDF_EMPTY = 0x05D0,
+    /// A document is shown.
+    R_PDF_LOADED = 0x05D1,
+    /// The document needs a password, or the one given is wrong: load it again with one.
+    R_PDF_NEEDS_PASSWORD = 0x05D2,
+    /// The file could not be read, or is not a PDF document.
+    R_PDF_ERROR = 0x05D3,
+    /// The PDFium library was not found (see Rpdf_is_available).
+    R_PDF_UNAVAILABLE = 0x05D4,
 }
 
 /// How an axis of a Plot spreads its values.
@@ -1391,6 +1421,11 @@ alias RComboBoxChangedCallback = extern (C) void function(Rid combo_box, int ind
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
 alias RListItemTextCallback = extern (C) const(char)* function(Rid list_view, int index, void* user_data);
+/// Colors the text of rows (a level, a verdict): the list asks for the color
+/// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+/// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+/// kept on a selected or hovered row. NULL removes the callback.
+alias RListItemColorCallback = extern (C) int function(Rid list_view, int index, float* r, float* g, float* b, float* a, void* user_data);
 alias RListEventCallback = extern (C) void function(Rid list_view, int index, void* user_data);
 alias RTreeEventCallback = extern (C) void function(Rid tree_view, Rid item, void* user_data);
 /// Right click: `item` is the item under the pointer (selected
@@ -1412,6 +1447,12 @@ alias RTileDragDataCallback = extern (C) const(char)* function(Rid tile_view, vo
 /// asks for the texts of the cells it draws. The returned string must stay
 /// valid until the next call.
 alias RTableCellTextCallback = extern (C) const(char)* function(Rid table, int row, int column, void* user_data);
+/// Colors the text of cells (a verdict, a state): the table asks for the
+/// color of each cell it draws, stored or virtual (`row` is the index of the
+/// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+/// keeps the color of the theme. The color is kept on a selected or hovered
+/// row. NULL removes the callback.
+alias RTableCellColorCallback = extern (C) int function(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = extern (C) void function(Rid table, int row, void* user_data);
 /// Called when the user clicks a header; `column` -1: not sorted.
 alias RTableSortCallback = extern (C) void function(Rid table, int column, int descending, void* user_data);
@@ -1433,6 +1474,8 @@ alias RPlotViewCallback = extern (C) void function(Rid plot, void* user_data);
 alias RPlotDragLineCallback = extern (C) void function(Rid plot, int line, double value, void* user_data);
 /// Called when the user hides or shows a series from the legend.
 alias RPlotSeriesCallback = extern (C) void function(Rid plot, int series, int visible, void* user_data);
+/// Called when the current page changes as the user scrolls. This also fires the action of the widget.
+alias RPdfPageChangedCallback = extern (C) void function(Rid view, int page, void* user_data);
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 alias RTextEditorZoomCallback = extern (C) void function(Rid editor, float zoom, void* user_data);
 /// Called each time the editor gathers its proposals, with the
@@ -1942,7 +1985,8 @@ struct RShaderLook
     /// How much the pointer is over it and how much it is pressed, 0..1, as
     /// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
     /// the pointer is in the rectangle, and while the left button is down
-    /// there; a Border eases them itself.
+    /// there; a Border eases them itself. The rectangle is clipped to the
+    /// visible painting area; overlaid siblings do not interrupt its hover.
     float hover = 0;
     float press = 0;
 }
@@ -2251,6 +2295,18 @@ float Rwindow_get_opacity(Rid window);
 /// Keeps the window above the other windows (splash screens, tools).
 /// Returns: R_FALSE when the window system cannot do it.
 int Rwindow_set_topmost(Rid window, int topmost);
+/// Gives the window an owner (a tool window or an inspector of the
+/// main window): it stays above its owner, has no button of its own in the
+/// taskbar, is minimized and restored with it (where the window system
+/// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+/// destroys the windows a window owns before the window). R_INVALID_ID
+/// gives the window back its independence.
+/// Returns: R_FALSE when the window system cannot keep the window with its
+/// owner (it is still destroyed with it), or when the owner is not valid
+/// or is owned by the window (nothing is changed then).
+int Rwindow_set_owner(Rid window, Rid owner);
+/// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+Rid Rwindow_get_owner(Rid window);
 /// Picture in picture: the window becomes a small floating window
 /// that stays above the other windows, on every desktop (every space of
 /// macOS, over the applications in full screen too), in a corner of the
@@ -2297,6 +2353,12 @@ void Rwindow_set_resize_callback(Rid window, RWindowResizeCallback callback, voi
 /// Takes what is dropped on the window from other applications,
 /// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 void Rwindow_set_drop_callback(Rid window, RDropCallback callback, void* user_data);
+/// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+/// in target-local logical units (window-local for a window callback).
+/// Clipped to the target; zero width or height hides it without refusing
+/// the drop. Each callback starts with the default highlight again.
+/// Dimensions must be finite and nonnegative; coordinates must be finite.
+void Rdrop_set_highlight_rect(float x, float y, float width, float height);
 void Rwindow_set_user_handle(Rid window, void* handle);
 void* Rwindow_get_user_handle(Rid window);
 /// Fills `native` with the OS handles of the window.
@@ -3001,6 +3063,7 @@ void Rlist_view_remove_item(Rid list_view, int index);
 void Rlist_view_clear_items(Rid list_view);
 int Rlist_view_get_item_count(Rid list_view);
 void Rlist_view_set_virtual_items(Rid list_view, int count, RListItemTextCallback callback, void* user_data);
+void Rlist_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rlist_view_set_selected(Rid list_view, int index);
 int Rlist_view_get_selected(Rid list_view);
@@ -3079,6 +3142,10 @@ const(char)* Rmenu_item_get_text(Rid item);
 /// Shows a shortcut next to the item and triggers the item when the
 /// keys are pressed in the window of its menu bar.
 void Rmenu_item_set_shortcut(Rid item, RKey key, uint modifiers);
+/// Display-only shortcut hint; copied, never binds a key. Overrides
+/// the formatted shortcut without changing its binding. NULL restores the
+/// formatted shortcut; an empty string hides it. XML: ShortcutText.
+void Rmenu_item_set_shortcut_text(Rid item, const(char)* text);
 void Rmenu_item_set_checkable(Rid item, int checkable);
 void Rmenu_item_set_checked(Rid item, int checked);
 /// Icon drawn before the text of a menu item (after the check mark column).
@@ -3149,6 +3216,7 @@ void Rtable_remove_row(Rid table, int row);
 void Rtable_clear_rows(Rid table);
 int Rtable_get_row_count(Rid table);
 void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rtable_set_selected(Rid table, int row);
 int Rtable_get_selected(Rid table);
@@ -3333,6 +3401,36 @@ void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, fl
 void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
 void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
 void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+/// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+int Rpdf_is_available();
+/// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+/// cannot: Rpdf_view_get_status tells why (a password is needed, not a
+/// PDF, no PDFium). The view then shows that instead of pages.
+int Rpdf_view_load_file(Rid view, const(char)* path, const(char)* password);
+/// Same as Rpdf_view_load_file, from bytes in memory (copied).
+int Rpdf_view_load_memory(Rid view, const(char)* data, size_t data_size, const(char)* password);
+/// Closes the document: the view is empty.
+void Rpdf_view_close(Rid view);
+RPdfStatus Rpdf_view_get_status(Rid view);
+int Rpdf_view_get_page_count(Rid view);
+/// Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+void Rpdf_view_get_page_size(Rid view, int page, float* width, float* height);
+/// Scrolls to the top of a page; it becomes the current page.
+void Rpdf_view_set_page(Rid view, int page);
+/// The current page: the one a third down the view.
+int Rpdf_view_get_page(Rid view);
+/// A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+void Rpdf_view_set_zoom(Rid view, float zoom);
+/// The zoom the pages show at, the one a fit gives included.
+float Rpdf_view_get_zoom(Rid view);
+void Rpdf_view_set_fit(Rid view, RPdfFit fit);
+RPdfFit Rpdf_view_get_fit(Rid view);
+/// The title of the document (its information), "" when it has none.
+const(char)* Rpdf_view_get_title(Rid view);
+/// The text of a page (UTF-8), to search it or copy it. Valid until
+/// the next call for this view.
+const(char)* Rpdf_view_get_page_text(Rid view, int page);
+void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
 /// text Initial content, or NULL.
 Rid Rtext_editor_create(const(char)* text);
 /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.

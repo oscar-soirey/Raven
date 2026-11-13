@@ -58,6 +58,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libx11-dev ninja-build
 
+      - name: PDFium (test_pdf opens and draws documents with it; Raven itself does not need it)
+        run: |
+          curl -fsSL -o pdfium.tgz https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8111/pdfium-linux-x64.tgz
+          echo "bdc60126399f39fe768566a18d4be055a7b3681bc9e248e8a6656b4f6cae0aa2  pdfium.tgz" | sha256sum -c -
+          mkdir -p _pdfium && tar -xzf pdfium.tgz -C _pdfium
+          echo "RAVEN_PDFIUM=$(pwd)/_pdfium/lib/libpdfium.so" >> "$GITHUB_ENV"
+
       - name: Configure
         run: |
           cmake -S . -B build -G Ninja \

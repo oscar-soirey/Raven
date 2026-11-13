@@ -897,6 +897,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_RATING = 0x0230
     R_WIDGET_PAGINATION = 0x0231
     R_WIDGET_PLOT = 0x0232
+    R_WIDGET_PDF_VIEW = 0x0233
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -949,6 +950,7 @@ R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB
 R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING
 R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
 R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
+R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1111,6 +1113,30 @@ R_PLOT_X = RPlotAxis.R_PLOT_X
 R_PLOT_Y = RPlotAxis.R_PLOT_Y
 R_PLOT_X2 = RPlotAxis.R_PLOT_X2
 R_PLOT_Y2 = RPlotAxis.R_PLOT_Y2
+
+class RPdfFit(enum.IntEnum):
+    """How a PdfView sizes its pages."""
+    R_PDF_FIT_WIDTH = 0x05C0
+    R_PDF_FIT_PAGE = 0x05C1
+    R_PDF_FIT_NONE = 0x05C2
+
+R_PDF_FIT_WIDTH = RPdfFit.R_PDF_FIT_WIDTH
+R_PDF_FIT_PAGE = RPdfFit.R_PDF_FIT_PAGE
+R_PDF_FIT_NONE = RPdfFit.R_PDF_FIT_NONE
+
+class RPdfStatus(enum.IntEnum):
+    """What a PdfView holds."""
+    R_PDF_EMPTY = 0x05D0
+    R_PDF_LOADED = 0x05D1
+    R_PDF_NEEDS_PASSWORD = 0x05D2
+    R_PDF_ERROR = 0x05D3
+    R_PDF_UNAVAILABLE = 0x05D4
+
+R_PDF_EMPTY = RPdfStatus.R_PDF_EMPTY
+R_PDF_LOADED = RPdfStatus.R_PDF_LOADED
+R_PDF_NEEDS_PASSWORD = RPdfStatus.R_PDF_NEEDS_PASSWORD
+R_PDF_ERROR = RPdfStatus.R_PDF_ERROR
+R_PDF_UNAVAILABLE = RPdfStatus.R_PDF_UNAVAILABLE
 
 class RPlotScale(enum.IntEnum):
     """How an axis of a Plot spreads its values."""
@@ -2302,6 +2328,14 @@ RPlotSeriesCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctyp
 def _adapt_RPlotSeriesCallback(function):
     def call(plot, series, visible, user_data):
         function(plot, series, visible, user_data)
+    return call
+
+RPdfPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RPdfPageChangedCallback(function):
+    def call(view, page, user_data):
+        function(view, page, user_data)
     return call
 
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
@@ -8459,6 +8493,152 @@ _lib.Rplot_set_series_toggled_callback.restype = None
 
 def Rplot_set_series_toggled_callback(plot, callback, user_data=None):
     _lib.Rplot_set_series_toggled_callback(plot, _callback(RPlotSeriesCallback, _adapt_RPlotSeriesCallback, callback), user_data)
+
+
+_lib.Rpdf_is_available.argtypes = []
+_lib.Rpdf_is_available.restype = ctypes.c_int
+
+
+def Rpdf_is_available():
+    """R_TRUE when PDFium can be loaded (it is, the first time this is asked)."""
+    return _lib.Rpdf_is_available()
+
+
+_lib.Rpdf_view_load_file.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rpdf_view_load_file.restype = ctypes.c_int
+
+
+def Rpdf_view_load_file(view, path, password):
+    """Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+    cannot: Rpdf_view_get_status tells why (a password is needed, not a
+    PDF, no PDFium). The view then shows that instead of pages."""
+    return _lib.Rpdf_view_load_file(view, _s(path), _s(password))
+
+
+_lib.Rpdf_view_load_memory.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+_lib.Rpdf_view_load_memory.restype = ctypes.c_int
+
+
+def Rpdf_view_load_memory(view, data, password):
+    """Same as Rpdf_view_load_file, from bytes in memory (copied)."""
+    data = _s(data)
+    return _lib.Rpdf_view_load_memory(view, data, len(data) if data is not None else 0, _s(password))
+
+
+_lib.Rpdf_view_close.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_close.restype = None
+
+
+def Rpdf_view_close(view):
+    """Closes the document: the view is empty."""
+    _lib.Rpdf_view_close(view)
+
+
+_lib.Rpdf_view_get_status.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_status.restype = ctypes.c_int
+
+
+def Rpdf_view_get_status(view):
+    return _e(RPdfStatus, _lib.Rpdf_view_get_status(view))
+
+
+_lib.Rpdf_view_get_page_count.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_page_count.restype = ctypes.c_int
+
+
+def Rpdf_view_get_page_count(view):
+    return _lib.Rpdf_view_get_page_count(view)
+
+
+_lib.Rpdf_view_get_page_size.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float)]
+_lib.Rpdf_view_get_page_size.restype = None
+
+
+def Rpdf_view_get_page_size(view, page):
+    """Size of a page in points (1/72 inch), as it is shown (its rotation applied)."""
+    width_ = ctypes.c_float()
+    height_ = ctypes.c_float()
+    _lib.Rpdf_view_get_page_size(view, page, ctypes.byref(width_), ctypes.byref(height_))
+    return (width_.value, height_.value)
+
+
+_lib.Rpdf_view_set_page.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpdf_view_set_page.restype = None
+
+
+def Rpdf_view_set_page(view, page):
+    """Scrolls to the top of a page; it becomes the current page."""
+    _lib.Rpdf_view_set_page(view, page)
+
+
+_lib.Rpdf_view_get_page.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_page.restype = ctypes.c_int
+
+
+def Rpdf_view_get_page(view):
+    """The current page: the one a third down the view."""
+    return _lib.Rpdf_view_get_page(view)
+
+
+_lib.Rpdf_view_set_zoom.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rpdf_view_set_zoom.restype = None
+
+
+def Rpdf_view_set_zoom(view, zoom):
+    """A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE."""
+    _lib.Rpdf_view_set_zoom(view, zoom)
+
+
+_lib.Rpdf_view_get_zoom.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_zoom.restype = ctypes.c_float
+
+
+def Rpdf_view_get_zoom(view):
+    """The zoom the pages show at, the one a fit gives included."""
+    return _lib.Rpdf_view_get_zoom(view)
+
+
+_lib.Rpdf_view_set_fit.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpdf_view_set_fit.restype = None
+
+
+def Rpdf_view_set_fit(view, fit):
+    _lib.Rpdf_view_set_fit(view, int(fit))
+
+
+_lib.Rpdf_view_get_fit.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_fit.restype = ctypes.c_int
+
+
+def Rpdf_view_get_fit(view):
+    return _e(RPdfFit, _lib.Rpdf_view_get_fit(view))
+
+
+_lib.Rpdf_view_get_title.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_title.restype = ctypes.c_char_p
+
+
+def Rpdf_view_get_title(view):
+    """The title of the document (its information), "" when it has none."""
+    return _r(_lib.Rpdf_view_get_title(view))
+
+
+_lib.Rpdf_view_get_page_text.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpdf_view_get_page_text.restype = ctypes.c_char_p
+
+
+def Rpdf_view_get_page_text(view, page):
+    """The text of a page (UTF-8), to search it or copy it. Valid until
+    the next call for this view."""
+    return _r(_lib.Rpdf_view_get_page_text(view, page))
+
+
+_lib.Rpdf_view_set_page_changed_callback.argtypes = [ctypes.c_uint32, RPdfPageChangedCallback, ctypes.c_void_p]
+_lib.Rpdf_view_set_page_changed_callback.restype = None
+
+
+def Rpdf_view_set_page_changed_callback(view, callback, user_data=None):
+    _lib.Rpdf_view_set_page_changed_callback(view, _callback(RPdfPageChangedCallback, _adapt_RPdfPageChangedCallback, callback), user_data)
 
 
 _lib.Rtext_editor_create.argtypes = [ctypes.c_char_p]

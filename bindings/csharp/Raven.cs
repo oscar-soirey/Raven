@@ -981,6 +981,10 @@ namespace Raven
         /// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
         /// </summary>
         R_WIDGET_PLOT = 0x0232,
+        /// <summary>
+        /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+        /// </summary>
+        R_WIDGET_PDF_VIEW = 0x0233,
     }
 
     public enum RHAlign : int
@@ -1212,6 +1216,52 @@ namespace Raven
         /// A second vertical axis, on the right: shown when a series or a drag line uses it.
         /// </summary>
         R_PLOT_Y2 = 0x0523,
+    }
+
+    /// <summary>
+    /// How a PdfView sizes its pages.
+    /// </summary>
+    public enum RPdfFit : int
+    {
+        /// <summary>
+        /// The widest page fills the width of the view (default).
+        /// </summary>
+        R_PDF_FIT_WIDTH = 0x05C0,
+        /// <summary>
+        /// The largest page fits whole in the view.
+        /// </summary>
+        R_PDF_FIT_PAGE = 0x05C1,
+        /// <summary>
+        /// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+        /// </summary>
+        R_PDF_FIT_NONE = 0x05C2,
+    }
+
+    /// <summary>
+    /// What a PdfView holds.
+    /// </summary>
+    public enum RPdfStatus : int
+    {
+        /// <summary>
+        /// No document.
+        /// </summary>
+        R_PDF_EMPTY = 0x05D0,
+        /// <summary>
+        /// A document is shown.
+        /// </summary>
+        R_PDF_LOADED = 0x05D1,
+        /// <summary>
+        /// The document needs a password, or the one given is wrong: load it again with one.
+        /// </summary>
+        R_PDF_NEEDS_PASSWORD = 0x05D2,
+        /// <summary>
+        /// The file could not be read, or is not a PDF document.
+        /// </summary>
+        R_PDF_ERROR = 0x05D3,
+        /// <summary>
+        /// The PDFium library was not found (see Rpdf_is_available).
+        /// </summary>
+        R_PDF_UNAVAILABLE = 0x05D4,
     }
 
     /// <summary>
@@ -2868,6 +2918,12 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RPlotSeriesCallback(uint plot, int series, int visible, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RPdfPageChangedCallback(uint view, int page, IntPtr user_data);
 
     /// <summary>
     /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -6547,6 +6603,92 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rplot_set_series_toggled_callback(uint plot, RPlotSeriesCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_is_available();
+
+        /// <summary>
+        /// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+        /// cannot: Rpdf_view_get_status tells why (a password is needed, not a
+        /// PDF, no PDFium). The view then shows that instead of pages.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_load_file(uint view, [MarshalAs(Utf8.Str)] string path, [MarshalAs(Utf8.Str)] string password);
+
+        /// <summary>
+        /// Same as Rpdf_view_load_file, from bytes in memory (copied).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_load_memory(uint view, byte[] data, UIntPtr data_size, [MarshalAs(Utf8.Str)] string password);
+
+        /// <summary>
+        /// Closes the document: the view is empty.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_close(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RPdfStatus Rpdf_view_get_status(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_get_page_count(uint view);
+
+        /// <summary>
+        /// Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_get_page_size(uint view, int page, out float width, out float height);
+
+        /// <summary>
+        /// Scrolls to the top of a page; it becomes the current page.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_page(uint view, int page);
+
+        /// <summary>
+        /// The current page: the one a third down the view.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_get_page(uint view);
+
+        /// <summary>
+        /// A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_zoom(uint view, float zoom);
+
+        /// <summary>
+        /// The zoom the pages show at, the one a fit gives included.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rpdf_view_get_zoom(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_fit(uint view, RPdfFit fit);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RPdfFit Rpdf_view_get_fit(uint view);
+
+        /// <summary>
+        /// The title of the document (its information), "" when it has none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rpdf_view_get_title", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rpdf_view_get_title_(uint view);
+        public static string Rpdf_view_get_title(uint view) { return Text(Rpdf_view_get_title_(view)); }
+
+        /// <summary>
+        /// The text of a page (UTF-8), to search it or copy it. Valid until
+        /// the next call for this view.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rpdf_view_get_page_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rpdf_view_get_page_text_(uint view, int page);
+        public static string Rpdf_view_get_page_text(uint view, int page) { return Text(Rpdf_view_get_page_text_(view, page)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_page_changed_callback(uint view, RPdfPageChangedCallback callback, IntPtr user_data);
 
         /// <summary>
         /// text Initial content, or NULL.

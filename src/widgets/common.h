@@ -65,6 +65,7 @@ extern const rvn_widget_class_t rvn_class_breadcrumb;
 extern const rvn_widget_class_t rvn_class_rating;
 extern const rvn_widget_class_t rvn_class_pagination;
 extern const rvn_widget_class_t rvn_class_plot;
+extern const rvn_widget_class_t rvn_class_pdf_view;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
@@ -274,6 +275,8 @@ rvn_vec2_t rvn_island_extent(const rvn_widget_t* island);
 /** An island of the window asked for the housing, or does not any more: widget/window.c looks again. */
 void rvn_window_notch_changed(rvn_window_t* window);
 void rvn_islands_shutdown(void);
+/** Closes PDFium when a PdfView opened it (widgets/pdf_view.c). */
+void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */
 void rvn_dialogs_shutdown(void);
 
