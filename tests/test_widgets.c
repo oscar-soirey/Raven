@@ -165,6 +165,43 @@ static void test_checkbox_and_radio(void) {
 	CHECK(Rcheckbox_is_checked(radio_b));
 }
 
+/* A changed callback of a radio box rebuilds its group (issue #122). */
+static Rid g_radio_group;
+static int g_radio_rebuilds;
+
+static void build_radio_group(int selected);
+
+static void rebuild_radio_group(Rid radio, int checked, void* user_data) {
+	(void)radio;
+	g_radio_rebuilds++;
+	build_radio_group(checked ? (int)(intptr_t)user_data : 0);
+}
+
+static void build_radio_group(int selected) {
+	int i;
+	Rwidget_clear_children(g_radio_group);
+	for (i = 0; i < 2; i++) {
+		Rid radio = Rwidget_add_child(g_radio_group, Rcheckbox_create(i ? "B" : "A"));
+		Rcheckbox_set_style(radio, R_CHECKBOX_RADIO);
+		Rcheckbox_set_checked(radio, i == selected);
+		Rcheckbox_set_changed_callback(radio, rebuild_radio_group, (void*)(intptr_t)i);
+	}
+}
+
+static void test_radio_rebuild_in_callback(void) {
+	Rid radio_a;
+	g_radio_group = column();
+	build_radio_group(1);
+	radio_a = Rwidget_get_child(g_radio_group, 0);
+	g_radio_rebuilds = 0;
+	/* B is unchecked and rebuilds the group: A, deleted, is not called back */
+	test_click(g_window, radio_a);
+	CHECK(g_radio_rebuilds == 1);
+	CHECK(!Rwidget_is_valid(radio_a));
+	CHECK(Rwidget_get_child_count(g_radio_group) == 2);
+	Rdraw_frame();
+}
+
 static void test_slider_and_spin_box(void) {
 	Rid box = column();
 	Rid slider = Rwidget_add_child(box, Rwidget_create(R_WIDGET_SLIDER));
@@ -1035,6 +1072,7 @@ int main(void) {
 
 	RUN(test_button);
 	RUN(test_checkbox_and_radio);
+	RUN(test_radio_rebuild_in_callback);
 	RUN(test_slider_and_spin_box);
 	RUN(test_text_input);
 	RUN(test_selectable_label);
