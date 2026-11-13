@@ -83,6 +83,17 @@ const char* rvn_date_day_name(int weekday) {
 	return rvn_date_text(key, g_day_names[weekday]);
 }
 
+/* The first `count` characters of a name (code points, not bytes: a name may
+ * be translated into any script), as much of them as `out` holds. */
+static void rvn_date_short_name(const char* name, int count, char* out, size_t size) {
+	int length = (int)strlen(name), end = 0;
+	if (size == 0) return;
+	while (count-- > 0 && end < length) end = rvn_utf8_next(name, length, end);
+	while (end > 0 && (size_t)end >= size) end = rvn_utf8_prev(name, end);
+	memcpy(out, name, (size_t)end);
+	out[end] = '\0';
+}
+
 static int rvn_date_key(int year, int month, int day) {
 	return year * 10000 + month * 100 + day;
 }
@@ -130,7 +141,7 @@ static void rvn_date_format(const char* format, int year, int month, int day, ch
 			text = rvn_date_month_name(month);
 			format += 4;
 		} else if (strncmp(format, "MMM", 3) == 0) {
-			snprintf(piece, sizeof(piece), "%.3s", rvn_date_month_name(month));
+			rvn_date_short_name(rvn_date_month_name(month), 3, piece, sizeof(piece));
 			format += 3;
 		} else if (strncmp(format, "MM", 2) == 0) {
 			snprintf(piece, sizeof(piece), "%02d", month);
@@ -142,7 +153,7 @@ static void rvn_date_format(const char* format, int year, int month, int day, ch
 			text = rvn_date_day_name(rvn_date_weekday(year, month, day));
 			format += 4;
 		} else if (strncmp(format, "ddd", 3) == 0) {
-			snprintf(piece, sizeof(piece), "%.3s", rvn_date_day_name(rvn_date_weekday(year, month, day)));
+			rvn_date_short_name(rvn_date_day_name(rvn_date_weekday(year, month, day)), 3, piece, sizeof(piece));
 			format += 3;
 		} else if (strncmp(format, "DD", 2) == 0) {
 			snprintf(piece, sizeof(piece), "%02d", day);
@@ -322,8 +333,8 @@ static void rvn_calendar_paint(rvn_widget_t* widget, RPainter* painter) {
 
 	/* the days of the week */
 	for (cell = 0; cell < 7; cell++) {
-		char name[8];
-		snprintf(name, sizeof(name), "%.2s", rvn_date_day_name(picker->first_weekday + cell));
+		char name[16];
+		rvn_date_short_name(rvn_date_day_name(picker->first_weekday + cell), 2, name, sizeof(name));
 		rvn_paint_text_in(painter, R_INVALID_ID, font * 0.85f,
 			rvn_rect(RVN_CAL_PAD + RVN_CAL_CELL * (float)cell, RVN_CAL_PAD + header, RVN_CAL_CELL, RVN_CAL_WEEKDAYS), 0.5f, name, -1, dim);
 	}
