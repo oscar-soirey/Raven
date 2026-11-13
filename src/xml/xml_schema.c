@@ -410,6 +410,7 @@ static const rvn_schema_attribute_t g_file_browser[] = {
 	B("Places", "false hides the list of places."),
 };
 static const rvn_schema_attribute_t g_dock_area[] = {
+	C("FloatMode", "Window|InWindow", "Future floats use an OS window or a card inside the containing window."),
 	B("Movable", "false keeps the panels where they are."),
 	T("Layout", "An arrangement saved with Rdock_area_save_layout."),
 	B("CloseHides", "The close button of a tab hides its panel (Rdock_area_open_panel brings it back) instead of deleting it."),

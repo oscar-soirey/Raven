@@ -1450,7 +1450,8 @@ public:
 
 	/// Arranges the panels as a saved description says. Panels of the
 	/// area that the description does not name keep a place; names it has
-	/// that match no panel are ignored.
+	/// that match no panel are ignored in legacy descriptions. Versioned
+	/// descriptions with floating cards reject unknown or duplicate names.
 	/// Returns: R_FALSE when the text is not a layout (nothing is changed).
 	int load_layout(const char* layout) const { return Rdock_area_load_layout(id_, layout); }
 
@@ -1471,7 +1472,10 @@ public:
 
 	int is_tearable() const { return Rdock_area_is_tearable(id_); }
 
-	/// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
+	/// Default for future floats/tears; existing floating panels keep their mode.
+	void set_float_mode(RDockFloatMode mode) const { Rdock_area_set_float_mode(id_, mode); }
+
+	/// Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 	Rid float_panel(Rid panel, int x, int y) const { return Rdock_area_float_panel(id_, panel, x, y); }
 
 	/// A floating panel goes back where it was in the area.

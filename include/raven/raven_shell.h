@@ -249,7 +249,8 @@ extern "C" {
 	/**
 	 * @brief Arranges the panels as a saved description says. Panels of the
 	 * area that the description does not name keep a place; names it has
-	 * that match no panel are ignored.
+	 * that match no panel are ignored in legacy descriptions. Versioned
+	 * descriptions with floating cards reject unknown or duplicate names.
 	 * @return R_FALSE when the text is not a layout (nothing is changed).
 	 */
 	RAVEN_API int Rdock_area_load_layout(Rid area, const char* layout);
@@ -273,7 +274,13 @@ extern "C" {
 	 */
 	RAVEN_API void Rdock_area_set_tearable(Rid area, int tearable);
 	RAVEN_API int  Rdock_area_is_tearable(Rid area);
-	/** @brief Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window. */
+	typedef enum RDockFloatMode {
+		R_DOCK_FLOAT_WINDOW = 0,
+		R_DOCK_FLOAT_IN_WINDOW
+	} RDockFloatMode;
+	/** @brief Default for future floats/tears; existing floating panels keep their mode. */
+	RAVEN_API void Rdock_area_set_float_mode(Rid area, RDockFloatMode mode);
+	/** @brief Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. */
 	RAVEN_API Rid  Rdock_area_float_panel(Rid area, Rid panel, int x, int y);
 	/** @brief A floating panel goes back where it was in the area. */
 	RAVEN_API void Rdock_area_dock_panel(Rid area, Rid panel);

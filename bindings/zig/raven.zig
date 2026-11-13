@@ -918,6 +918,10 @@ pub const R_DOCK_BOTTOM: RDockSide = 0x0363;
 /// Behind the same tabs as the other panel.
 pub const R_DOCK_TAB: RDockSide = 0x0364;
 
+pub const RDockFloatMode = c_int;
+pub const R_DOCK_FLOAT_WINDOW: RDockFloatMode = 0;
+pub const R_DOCK_FLOAT_IN_WINDOW: RDockFloatMode = 1;
+
 pub const RVisualPreset = c_int;
 /// The look of the theme of the window: its platform, dark or light.
 pub const R_PRESET_AUTO: RVisualPreset = 0x0510;
@@ -3301,7 +3305,8 @@ pub extern fn Rdock_area_set_movable(area: Rid, movable: c_int) void;
 pub extern fn Rdock_area_save_layout(area: Rid) ?[*:0]const u8;
 /// Arranges the panels as a saved description says. Panels of the
 /// area that the description does not name keep a place; names it has
-/// that match no panel are ignored.
+/// that match no panel are ignored in legacy descriptions. Versioned
+/// descriptions with floating cards reject unknown or duplicate names.
 /// Returns: R_FALSE when the text is not a layout (nothing is changed).
 pub extern fn Rdock_area_load_layout(area: Rid, layout: ?[*:0]const u8) c_int;
 pub extern fn Rdock_area_set_close_callback(area: Rid, callback: RDockCloseCallback, user_data: ?*anyopaque) void;
@@ -3315,7 +3320,9 @@ pub extern fn Rdock_area_set_close_callback(area: Rid, callback: RDockCloseCallb
 /// work on its panels that are in floating windows.
 pub extern fn Rdock_area_set_tearable(area: Rid, tearable: c_int) void;
 pub extern fn Rdock_area_is_tearable(area: Rid) c_int;
-/// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
+/// Default for future floats/tears; existing floating panels keep their mode.
+pub extern fn Rdock_area_set_float_mode(area: Rid, mode: RDockFloatMode) void;
+/// Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 pub extern fn Rdock_area_float_panel(area: Rid, panel: Rid, x: c_int, y: c_int) Rid;
 /// A floating panel goes back where it was in the area.
 pub extern fn Rdock_area_dock_panel(area: Rid, panel: Rid) void;

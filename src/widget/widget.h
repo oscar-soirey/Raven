@@ -40,6 +40,7 @@ struct rvn_xml_node_t;
 #define RVN_WF_INTERNAL      (1u << 11) /* owned by another widget without being its child */
 #define RVN_WF_WINDOW_DRAG   (1u << 12) /* part of the title bar of a window with a custom header */
 #define RVN_WF_NO_TAB        (1u << 13) /* focusable with a click, but Tab passes it by (a selectable label) */
+#define RVN_WF_FLOAT_LAYER   (1u << 14) /* logical child painted/hit-tested by its window above the content */
 #define RVN_WF_LAYOUT_DIRTY  (RVN_WF_MEASURE_DIRTY | RVN_WF_ARRANGE_DIRTY)
 
 /* class traits (rvn_widget_class_t::flags) */
@@ -848,6 +849,8 @@ struct rvn_window_t {
 	uint32_t popup_count;
 	uint32_t popup_cap;
 	rvn_ghost_t* ghosts;
+	Rid* float_layers;
+	uint32_t float_layer_count, float_layer_cap;
 	uint32_t ghost_count;
 	uint32_t ghost_cap;
 	/** The subtree that is leaving the window right now (rvn_window_forget_widget), or NULL. */
@@ -942,6 +945,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget);
 void rvn_window_destroy(rvn_window_t* window);
 void rvn_windows_destroy_all(void);
 void rvn_windows_collect(void);
+void rvn_window_set_float_layer(rvn_window_t* window, rvn_widget_t* widget, int enabled);
+void rvn_dock_float_arrange(rvn_widget_t* widget);
 /** Logical size of the client area. */
 rvn_vec2_t rvn_window_size(const rvn_window_t* window);
 

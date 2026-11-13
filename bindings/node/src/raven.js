@@ -845,6 +845,12 @@ export const RDockSide = _enum({
 });
 export const { R_DOCK_LEFT, R_DOCK_RIGHT, R_DOCK_TOP, R_DOCK_BOTTOM, R_DOCK_TAB } = RDockSide;
 
+export const RDockFloatMode = _enum({
+	R_DOCK_FLOAT_WINDOW: 0,
+	R_DOCK_FLOAT_IN_WINDOW: 1,
+});
+export const { R_DOCK_FLOAT_WINDOW, R_DOCK_FLOAT_IN_WINDOW } = RDockFloatMode;
+
 export const RVisualPreset = _enum({
 	R_PRESET_AUTO: 1296,
 	R_PRESET_MODERN: 1297,
@@ -3570,6 +3576,7 @@ export const Rdock_area_load_layout = _lib.Rdock_area_load_layout;
 export const Rdock_area_set_close_callback = _lib.Rdock_area_set_close_callback;
 export const Rdock_area_set_tearable = _lib.Rdock_area_set_tearable;
 export const Rdock_area_is_tearable = _lib.Rdock_area_is_tearable;
+export const Rdock_area_set_float_mode = _lib.Rdock_area_set_float_mode;
 export const Rdock_area_float_panel = _lib.Rdock_area_float_panel;
 export const Rdock_area_dock_panel = _lib.Rdock_area_dock_panel;
 export const Rdock_area_get_panel_window = _lib.Rdock_area_get_panel_window;
