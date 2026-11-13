@@ -93,6 +93,18 @@ static void test_content(void) {
 	CHECK_STR(Rtext_editor_get_text(g_editor), "alpX\nYta\ngamma");
 	CHECK_CURSOR(1, 1);
 	CHECK(g_changes == 1);
+
+	/* a line of the editor can be given back to it, though the edit frees or rewrites that line */
+	Rtext_editor_set_text(g_editor, "first\nsecond\nthird");
+	Rtext_editor_set_text(g_editor, Rtext_editor_get_line(g_editor, 1));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "second");
+	Rtext_editor_set_text(g_editor, "hello\nworld");
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	Rtext_editor_insert_text(g_editor, Rtext_editor_get_line(g_editor, 0));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hellohello\nworld");
+	Rtext_editor_select(g_editor, 0, 0, 1, 2);
+	Rtext_editor_insert_text(g_editor, Rtext_editor_get_line(g_editor, 1));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "worldrld");
 	Rwindow_destroy(g_window);
 }
 

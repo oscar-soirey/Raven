@@ -2569,8 +2569,12 @@ Rid Rtext_editor_create(const char* text) {
 }
 
 void Rtext_editor_set_text(Rid id, const char* text) {
+	char* copy;
 	RVN_EDITOR_VOID(ed, id);
-	rvn_ed_set_text(ed, text);
+	/* the text may be one of the editor's own lines (Rtext_editor_get_line), which the edit frees or rewrites */
+	copy = text ? rvn_strdup(text) : NULL;
+	rvn_ed_set_text(ed, copy);
+	rvn_free(copy);
 }
 
 const char* Rtext_editor_get_text(Rid id) {
@@ -2601,10 +2605,14 @@ const char* Rtext_editor_get_line(Rid id, int line) {
 }
 
 void Rtext_editor_insert_text(Rid id, const char* text) {
+	char* copy;
 	RVN_EDITOR_VOID(ed, id);
 	if (!text) return;
+	/* as in Rtext_editor_set_text, the text may live in a line that the edit changes */
+	copy = rvn_strdup(text);
 	rvn_ed_break_typing(ed);
-	rvn_ed_insert(ed, text, -1);
+	rvn_ed_insert(ed, copy, -1);
+	rvn_free(copy);
 	rvn_ed_break_typing(ed);
 	rvn_ed_caret_moved(ed, R_FALSE);
 	rvn_ed_notify(widget);
