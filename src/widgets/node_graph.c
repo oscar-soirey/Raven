@@ -2936,8 +2936,7 @@ void Rnode_graph_set_node_title(Rid id, int node_id, const char* title) {
 	RVN_NODE_GRAPH_VOID(graph, id);
 	node = rvn_ng_node_checked(graph, node_id, __func__);
 	if (!node) return;
-	rvn_free(node->title);
-	node->title = rvn_strdup(title ? title : "");
+	rvn_str_set(&node->title, title ? title : "");
 	rvn_ng_changed(graph);
 }
 
@@ -3025,8 +3024,7 @@ void Rnode_graph_set_node_name(Rid id, int node_id, const char* name) {
 	RVN_NODE_GRAPH_VOID(graph, id);
 	node = rvn_ng_node_checked(graph, node_id, __func__);
 	if (!node) return;
-	rvn_free(node->name);
-	node->name = name && name[0] ? rvn_strdup(name) : NULL;
+	rvn_str_set(&node->name, name && name[0] ? name : NULL);
 }
 
 const char* Rnode_graph_get_node_name(Rid id, int node_id) {
@@ -3140,8 +3138,7 @@ void Rnode_graph_set_pin_name(Rid id, int pin_id, const char* name) {
 	RVN_NODE_GRAPH_VOID(graph, id);
 	pin = rvn_ng_pin_checked(graph, pin_id, __func__);
 	if (!pin) return;
-	rvn_free(pin->name);
-	pin->name = name && name[0] ? rvn_strdup(name) : NULL;
+	rvn_str_set(&pin->name, name && name[0] ? name : NULL);
 }
 
 int Rnode_graph_find_pin(Rid id, int node, const char* name) {
@@ -3487,8 +3484,7 @@ void Rnode_graph_set_pin_tag(Rid id, int pin_id, const char* text) {
 	RVN_NODE_GRAPH_VOID(graph, id);
 	pin = rvn_ng_pin_checked(graph, pin_id, __func__);
 	if (!pin) return;
-	rvn_free(pin->tag);
-	pin->tag = text && text[0] ? rvn_strdup(text) : NULL;
+	rvn_str_set(&pin->tag, text && text[0] ? text : NULL);
 	pin->tag_width = 0.0f;
 	rvn_widget_invalidate_paint(&graph->base);
 }

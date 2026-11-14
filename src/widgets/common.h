@@ -65,6 +65,7 @@ extern const rvn_widget_class_t rvn_class_breadcrumb;
 extern const rvn_widget_class_t rvn_class_rating;
 extern const rvn_widget_class_t rvn_class_pagination;
 extern const rvn_widget_class_t rvn_class_plot;
+extern const rvn_widget_class_t rvn_class_pdf_view;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
@@ -274,8 +275,28 @@ rvn_vec2_t rvn_island_extent(const rvn_widget_t* island);
 /** An island of the window asked for the housing, or does not any more: widget/window.c looks again. */
 void rvn_window_notch_changed(rvn_window_t* window);
 void rvn_islands_shutdown(void);
+/** Closes PDFium when a PdfView opened it (widgets/pdf_view.c). */
+void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */
 void rvn_dialogs_shutdown(void);
+/** A window to show a dialog in: the one given, else any, else a new one (*created). */
+rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created);
+/** Shows a dialog and runs the application until it closes; returns its result. */
+int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content);
+
+/* PDF documents written by the application (widgets/pdf_document.c), freed by Rshutdown. */
+void rvn_pdf_documents_shutdown(void);
+/* PDFium for printing (widgets/pdf_view.c): `data` must outlive the document. */
+void* rvn_pdfium_open(const void* data, size_t size, const char* password);
+int rvn_pdfium_page_count(void* document);
+int rvn_pdfium_page_size(void* document, int index, double* width, double* height);
+int rvn_pdfium_render_bgra(void* document, int index, uint8_t* pixels, int width, int height);
+void rvn_pdfium_close(void* document);
+#if defined(RAVEN_PLATFORM_COCOA)
+/* The print panel of macOS (platform/cocoa/cocoa_print.m); `window` is an NSWindow or NULL. */
+int rvn_cocoa_print_pdf(const char* data, size_t size, const char* title, const char* printer, int copies,
+	int show_panel, const char* output, const char* password, void* window);
+#endif
 
 /* ---------------------------------------------------------------------------
  *  Formatted text (widgets/markdown.c), used by the labels
@@ -459,6 +480,10 @@ typedef struct rvn_textedit_t {
 } rvn_textedit_t;
 
 void rvn_textedit_init(rvn_textedit_t* edit);
+/** Selects [start, end) (byte offsets, snapped to characters); end is the caret. */
+void rvn_textedit_set_selection(rvn_textedit_t* edit, int start, int end);
+/** Replaces [start, end) with text, the caret after it; R_TRUE when the text changed. */
+int  rvn_textedit_replace(rvn_textedit_t* edit, int start, int end, const char* text);
 void rvn_textedit_free(rvn_textedit_t* edit);
 /** Returns R_TRUE when the text changed. */
 int  rvn_textedit_set_text(rvn_textedit_t* edit, const char* text);

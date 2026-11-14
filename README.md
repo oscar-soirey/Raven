@@ -616,6 +616,7 @@ The build trees are in `build\dist\`.
 | `examples/memory` | an allocator given by the application, the statistics of the library, the heap check |
 | `examples/studio` | a graph of nodes (widgets inside the nodes, links the application can refuse, nodes added from code), a timeline that plays, a color picker that colors the selected nodes; its XML is loaded again when saved |
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
+| `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
 | `examples/browser` | web pages with `raven_web`: an address bar, the history, a color picker of Raven that drives the CSS of the page, messages from the page |
 | `examples/glass` | the glass themes and the three glass materials. `raven_glass light` starts with the light glass |
@@ -635,7 +636,7 @@ The build trees are in `build\dist\`.
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
-on Maven Central), Odin, Bun (`bun:ffi`) and D (a dub package). All but Odin are tested. See
+on Maven Central), Odin, Bun (`bun:ffi`), D (a dub package) and Nim (a nimble package). All but Odin are tested. See
 [bindings/README.md](bindings/README.md). They cover everything in
 `Raven.h`; `raven_web.h` is C only.
 
@@ -1029,6 +1030,69 @@ keys: `Circle`, `Ring`, `Square`, `Diamond`, `Triangle`, `Arrow`; links:
 On a label the text is rendered (headings, lists, quotes, code blocks, tables,
 links that open or fire actions); on the text editor it stays as typed and is
 styled where it stands.
+
+### PDF documents
+
+```xml
+<PdfView Name="invoice" Source="invoice.pdf" Fit="Width" Slot.Fill="1"/>
+```
+
+```c
+Rid pdf = Rwidget_find(root, "invoice");
+if (!Rpdf_view_load_file(pdf, "report.pdf", NULL) && Rpdf_view_get_status(pdf) == R_PDF_NEEDS_PASSWORD)
+    Rpdf_view_load_file(pdf, "report.pdf", password);
+Rpdf_view_set_page(pdf, 2);                   /* pages counted from 0 */
+const char* text = Rpdf_view_get_page_text(pdf, 0);
+```
+
+A `PdfView` shows the pages one under the other. The wheel, the keys and a
+drag of the mouse scroll; Ctrl + wheel, Ctrl + `=` / `-` and a pinch zoom
+(Ctrl + `0` fits the width again). It fits the width (default), the whole
+page, or keeps a zoom of its own (`Rpdf_view_set_zoom`, 1 = the printed size).
+Only the pages that are seen are drawn, with the pixels of the screen.
+`Rpdf_view_set_page_changed_callback` (or `OnChanged`) follows the current
+page, for a page number or a `Pagination` next to it.
+
+The pages are drawn by [PDFium](https://pdfium.googlesource.com/pdfium/),
+the PDF library of Chromium (BSD-3 / Apache-2.0). It is not part of Raven and
+is not needed to build it: it is opened when the first document is loaded,
+from `RAVEN_PDFIUM` (a path), else next to the executable, else where the
+system finds libraries (`pdfium.dll`, `libpdfium.dylib`, `libpdfium.so`).
+[pdfium-binaries](https://github.com/bblanchon/pdfium-binaries) has builds
+for every system; ship the one of your platform next to your program. Without
+it the view says that it cannot show the pages
+(`Rpdf_view_get_status` → `R_PDF_UNAVAILABLE`, `Rpdf_is_available`).
+
+Raven also writes PDF documents itself, with nothing outside it: pages of
+text, shapes and pictures, in points from the top left corner of the page.
+
+```c
+Rid doc = Rpdf_document_create();
+Rpdf_document_set_title(doc, "Invoice 2026-0117");
+Rpdf_document_add_page(doc, 595.28f, 841.89f);              /* A4 */
+Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 24, R_PDF_TEXT_BOLD);
+Rpdf_document_draw_text(doc, 56, 56, "Invoice");
+Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 11, 0);
+Rpdf_document_draw_paragraph(doc, 56, 100, 480, terms, R_HALIGN_LEFT);
+Rpdf_document_set_fill_color(doc, 0.17f, 0.36f, 0.85f, 1.0f);
+Rpdf_document_draw_rect(doc, 56, 140, 200, 30, 6, R_PDF_FILL);
+Rpdf_document_draw_window(doc, chart_window, 56, 200, 480, 0); /* what a window shows */
+Rpdf_document_save(doc, "invoice.pdf");    /* or Rpdf_document_save_memory */
+Rpdf_document_delete(doc);
+```
+
+The text is set in Roboto and Roboto Mono, embedded in the file (or in a
+TrueType font of your own, `Rpdf_document_add_font`), and stays searchable.
+Lines, rounded rectangles, ellipses, colors with transparency and RGBA
+pictures complete it; `Rpdf_document_measure_text` and
+`Rpdf_document_draw_paragraph` (wrapped, aligned) lay out tables and columns.
+
+`Rpdf_print` prints a document with the print system: the print panel on
+macOS, the print dialog on Windows (pages drawn by PDFium), CUPS (`lp`) after
+a dialog of Raven on Linux. `Rpdf_view_print` prints the document a
+`PdfView` shows, `Rpdf_document_print` one Raven wrote, `Rpdf_print_file` a
+file. `RPdfPrintDesc` names a printer, the copies, or skips the dialog
+(`R_PDF_PRINT_NO_DIALOG`).
 
 ### Tables, dates and the small controls
 
@@ -1426,7 +1490,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, D
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, D, Nim
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```

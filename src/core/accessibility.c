@@ -245,6 +245,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_RATING: return R_ROLE_SLIDER;
 		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
 		case R_WIDGET_PLOT: return R_ROLE_IMAGE;
+		case R_WIDGET_PDF_VIEW: return R_ROLE_DOCUMENT;
 		case R_WIDGET_TILE_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TREE_VIEW: return R_ROLE_TREE;
 		case R_WIDGET_MENU_BAR: return R_ROLE_MENU_BAR;
@@ -747,6 +748,12 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			break;
 		case R_WIDGET_PAGINATION:
 			rvn_text_printf(&g_a11y.value, "%d / %d", Rpagination_get_page(widget->id) + 1, Rpagination_get_page_count(widget->id));
+			break;
+		case R_WIDGET_PDF_VIEW:
+			/* the title as the name; the page shown as the value */
+			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rpdf_view_get_title(widget->id));
+			if (Rpdf_view_get_status(widget->id) == R_PDF_LOADED)
+				rvn_text_printf(&g_a11y.value, "page %d of %d", Rpdf_view_get_page(widget->id) + 1, Rpdf_view_get_page_count(widget->id));
 			break;
 		case R_WIDGET_PLOT: {
 			/* the title as the name; the series and the ranges shown as the value */

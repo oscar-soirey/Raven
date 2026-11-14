@@ -64,6 +64,9 @@
 
 /* Largest side of a rasterized SVG, in pixels. */
 #define RVN_SVG_MAX_SIDE 8192
+/* Farthest that a shape may lie, and widest that a stroke may be, in pixels: nanosvg turns them into ints of 1/256 pixel. */
+#define RVN_SVG_MAX_REACH 1048576.0f
+#define RVN_SVG_MAX_STROKE 131072.0f
 
 int rvn_svg_detect(const uint8_t* data, size_t size) {
 	size_t i, limit = size < 1024 ? size : 1024;
@@ -79,10 +82,12 @@ int rvn_svg_detect(const uint8_t* data, size_t size) {
  * What nanosvg would take forever to draw, from a damaged or hostile file:
  * shapes far outside the picture (a coordinate of 2e10), dashes much smaller
  * than a pixel along a long path. They are left out; the rest is drawn.
+ * A stroke many times wider than the largest picture (1e30) is drawn at that width.
  */
 static void rvn_svg_tame(NSVGimage* image, float scale) {
 	float limit = (image->width > image->height ? image->width : image->height) * 4.0f + 1024.0f;
 	NSVGshape* shape;
+	if (limit * scale > RVN_SVG_MAX_REACH) limit = RVN_SVG_MAX_REACH / scale;
 	for (shape = image->shapes; shape; shape = shape->next) {
 		float period = 0.0f, width = shape->bounds[2] - shape->bounds[0], height = shape->bounds[3] - shape->bounds[1];
 		int i;
@@ -90,6 +95,7 @@ static void rvn_svg_tame(NSVGimage* image, float scale) {
 			shape->flags &= (unsigned char)~NSVG_FLAGS_VISIBLE;
 			continue;
 		}
+		if (!(shape->strokeWidth * scale <= RVN_SVG_MAX_STROKE)) shape->strokeWidth = RVN_SVG_MAX_STROKE / scale;
 		for (i = 0; i < shape->strokeDashCount; i++) period += fabsf(shape->strokeDashArray[i]);
 		/* (the length of a path is not known here; its box and its points tell enough) */
 		if (shape->strokeDashCount > 0 && period * scale < 0.25f) shape->strokeDashCount = 0;
@@ -102,6 +108,7 @@ uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* widt
 	NSVGrasterizer* rasterizer;
 	char* text;
 	uint8_t* pixels = NULL;
+	float fw, fh;
 	int w, h;
 	if (!data || size == 0 || size > 0x7FFFFFFFu || !(scale > 0.0f)) return NULL;
 	/* nanosvg writes into the text it parses */
@@ -111,10 +118,13 @@ uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* widt
 	image = nsvgParse(text, "px", 96.0f);
 	rvn_free(text);
 	if (!image) return NULL;
-	w = (int)ceilf(image->width * scale);
-	h = (int)ceilf(image->height * scale);
-	rvn_svg_tame(image, scale);
-	if (w > 0 && h > 0 && w <= RVN_SVG_MAX_SIDE && h <= RVN_SVG_MAX_SIDE) {
+	fw = ceilf(image->width * scale);
+	fh = ceilf(image->height * scale);
+	/* (compared as floats: a size of 1e30 is no int) */
+	if (fw > 0.0f && fh > 0.0f && fw <= (float)RVN_SVG_MAX_SIDE && fh <= (float)RVN_SVG_MAX_SIDE) {
+		w = (int)fw;
+		h = (int)fh;
+		rvn_svg_tame(image, scale);
 		rasterizer = nsvgCreateRasterizer();
 		if (rasterizer) {
 			pixels = (uint8_t*)rvn_calloc((size_t)w * (size_t)h * 4);

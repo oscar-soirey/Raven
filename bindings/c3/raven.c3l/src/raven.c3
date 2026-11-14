@@ -225,6 +225,32 @@ constset WindowSystem : CInt
 	WAYLAND = 0x0093,
 	COCOA = 0x0094,
 	EMSCRIPTEN = 0x0095,
+	ANDROID = 0x0096,
+	UIKIT = 0x0097,
+}
+
+<* What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...). *>
+constset TextInputType : CInt
+{
+	TEXT = 0x0B60,
+	EMAIL = 0x0B61,
+	NUMBER = 0x0B62,
+	<* Digits and a decimal separator. *>
+	DECIMAL = 0x0B63,
+	PHONE = 0x0B64,
+	URL = 0x0B65,
+	SEARCH = 0x0B66,
+}
+
+<* The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key. *>
+constset ReturnKey : CInt
+{
+	DEFAULT = 0x0B70,
+	DONE = 0x0B71,
+	GO = 0x0B72,
+	NEXT = 0x0B73,
+	SEARCH = 0x0B74,
+	SEND = 0x0B75,
 }
 
 <* Edges and corners of a window, for Rwindow_begin_resize. *>
@@ -827,6 +853,8 @@ constset WidgetType : CInt
 	PAGINATION = 0x0231,
 	<* Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. *>
 	PLOT = 0x0232,
+	<* The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). *>
+	PDF_VIEW = 0x0233,
 }
 
 constset HAlign : CInt
@@ -996,6 +1024,70 @@ constset PlotAxis : CInt
 	X2 = 0x0522,
 	<* A second vertical axis, on the right: shown when a series or a drag line uses it. *>
 	Y2 = 0x0523,
+}
+
+<* How a PdfView sizes its pages. *>
+constset PdfFit : CInt
+{
+	<* The widest page fills the width of the view (default). *>
+	WIDTH = 0x05C0,
+	<* The largest page fits whole in the view. *>
+	PAGE = 0x05C1,
+	<* The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. *>
+	NONE = 0x05C2,
+}
+
+<* What a PdfView holds. *>
+constset PdfStatus : CInt
+{
+	<* No document. *>
+	EMPTY = 0x05D0,
+	<* A document is shown. *>
+	LOADED = 0x05D1,
+	<* The document needs a password, or the one given is wrong: load it again with one. *>
+	NEEDS_PASSWORD = 0x05D2,
+	<* The file could not be read, or is not a PDF document. *>
+	ERROR = 0x05D3,
+	<* The PDFium library was not found (see Rpdf_is_available). *>
+	UNAVAILABLE = 0x05D4,
+}
+
+<* The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). *>
+constset PdfFont : CInt
+{
+	<* Roboto, the font of the interface of Raven. *>
+	SANS = 0,
+	<* Roboto Mono. *>
+	MONO = 1,
+}
+
+<* How a shape of a PDF document is painted: a bitmask. *>
+constset PdfPaint : CInt
+{
+	<* Filled with the fill color. *>
+	FILL = 1,
+	<* Outlined with the stroke color and the line width. *>
+	STROKE = 2,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool PdfPaint.has(self, PdfPaint flags) @inline => (self & flags) == flags;
+
+<* A bitmask of styles of the text of a PDF document. *>
+constset PdfTextStyle : CInt
+{
+	BOLD = 1,
+	ITALIC = 2,
+	UNDERLINE = 4,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool PdfTextStyle.has(self, PdfTextStyle flags) @inline => (self & flags) == flags;
+
+constset PdfPrintFlags : CInt
+{
+	<* No dialog: printed at once on the printer named, else the default one. *>
+	NO_DIALOG = 1,
 }
 
 <* How an axis of a Plot spreads its values. *>
@@ -1430,6 +1522,8 @@ alias ErrorCallback = fn void(Error code, Severity severity, ZString detail);
  Rinit; NULL removes it.
 *>
 alias DeviceResetCallback = fn void(void* user_data);
+<* The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden. *>
+alias KeyboardCallback = fn void(Id window, CInt visible, float height, void* user_data);
 <*
  Called for a drop target (a widget, or a window: `target` is its
  handle). Return R_TRUE to accept: while the pointer is over the target this
@@ -1562,6 +1656,8 @@ alias PlotViewCallback = fn void(Id plot, void* user_data);
 alias PlotDragLineCallback = fn void(Id plot, CInt line, double value, void* user_data);
 <* Called when the user hides or shows a series from the legend. *>
 alias PlotSeriesCallback = fn void(Id plot, CInt series, CInt visible, void* user_data);
+<* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
+alias PdfPageChangedCallback = fn void(Id view, CInt page, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 <*
@@ -1736,6 +1832,27 @@ struct FrameStats
 	ulong frame_index;
 }
 
+<* Distances from the edges of a window, in logical units. *>
+struct Insets
+{
+	float top;
+	float right;
+	float bottom;
+	float left;
+}
+
+<* What the platform needs to know of the focused text input to set up the on-screen keyboard. *>
+struct TextInputInfo
+{
+	TextInputType type;
+	ReturnKey return_key;
+	<* R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning). *>
+	CInt password;
+	CInt read_only;
+	<* Most characters accepted; 0 for no limit. *>
+	CInt max_length;
+}
+
 <*
  Native handles of a window or of a native viewport.
    Win32 : display = HINSTANCE, window = HWND
@@ -1744,6 +1861,8 @@ struct FrameStats
            Wayland or X11 when Rinit runs: check `system`)
    Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
    Emscripten: window = opaque browser surface token (no OS window handle)
+   Android: window = ANativeWindow*
+   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 *>
 struct NativeWindow
 {
@@ -1949,6 +2068,29 @@ struct GestureEvent
 	float rotation_delta;
 	<* R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end). *>
 	CInt cancelled;
+}
+
+<* How a PDF document is printed. Every field may be left to zero. *>
+struct PdfPrintDesc
+{
+	<* Window the print dialog belongs to (0 or R_INVALID_ID: none). *>
+	Id window;
+	<* Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. *>
+	ZString title;
+	<* Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. *>
+	ZString printer;
+	<* Copies to print (0: one); the dialog may change it. *>
+	CInt copies;
+	<* Bitmask of RPdfPrintFlags. *>
+	uint flags;
+	<*
+	 Path of a file the job is written to instead of a printer. macOS: a
+	 PDF made by the print system; Windows: what the driver of the printer
+	 makes; elsewhere: the document itself.
+	*>
+	ZString output;
+	<* Password of a document protected by one. *>
+	ZString password;
 }
 
 <* What a tile shows, filled by the application when the tile is drawn. *>
@@ -2761,6 +2903,16 @@ fn void TextInput.set_max_length(self, CInt max_length) @inline => c::r_text_inp
 
 fn void TextInput.select_all(self) @inline => c::r_text_input_select_all((c::Rid)self);
 
+<* What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT. *>
+fn void TextInput.set_input_type(self, TextInputType type) @inline => c::r_text_input_set_input_type((c::Rid)self, (c::RTextInputType)type);
+
+fn TextInputType TextInput.get_input_type(self) @inline => (TextInputType)c::r_text_input_get_input_type((c::Rid)self);
+
+<* The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT. *>
+fn void TextInput.set_return_key(self, ReturnKey key) @inline => c::r_text_input_set_return_key((c::Rid)self, (c::RReturnKey)key);
+
+fn ReturnKey TextInput.get_return_key(self) @inline => (ReturnKey)c::r_text_input_get_return_key((c::Rid)self);
+
 <* Called on every edit. *>
 fn void TextInput.set_changed_callback(self, TextChangedCallback callback, void* user_data) @inline => c::r_text_input_set_changed_callback((c::Rid)self, (c::RTextChangedCallback)callback, user_data);
 
@@ -2787,6 +2939,17 @@ fn void SpinBox.set_step(self, double step) @inline => c::r_spin_box_set_step((c
 
 <* Digits shown after the decimal point. Default: 2. *>
 fn void SpinBox.set_decimals(self, CInt decimals) @inline => c::r_spin_box_set_decimals((c::Rid)self, decimals);
+
+<*
+ Step buttons in the looks of Raven too: a down button at the left
+ end and an up button at the right end, the value between them (XML
+ `Buttons="True"`). A click steps once; holding a button repeats its step.
+ The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+ Default: R_FALSE (drag to scrub, arrows / wheel to step).
+*>
+fn void SpinBox.set_buttons(self, CInt buttons) @inline => c::r_spin_box_set_buttons((c::Rid)self, buttons);
+
+fn CInt SpinBox.get_buttons(self) @inline => c::r_spin_box_get_buttons((c::Rid)self);
 
 fn void SpinBox.set_changed_callback(self, SpinBoxChangedCallback callback, void* user_data) @inline => c::r_spin_box_set_changed_callback((c::Rid)self, (c::RSpinBoxChangedCallback)callback, user_data);
 
@@ -4824,6 +4987,63 @@ fn void Plot.set_drag_line_callback(self, PlotDragLineCallback callback, void* u
 
 fn void Plot.set_series_toggled_callback(self, PlotSeriesCallback callback, void* user_data) @inline => c::r_plot_set_series_toggled_callback((c::Rid)self, (c::RPlotSeriesCallback)callback, user_data);
 
+// ---- PdfView
+
+typedef PdfView = inline Widget;
+
+<* A new PdfView (widget_create(WidgetType.PDF_VIEW)). *>
+fn PdfView pdf_view_create() @inline => (PdfView)c::r_widget_create(c::R_WIDGET_PDF_VIEW);
+
+<*
+ Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+ cannot: Rpdf_view_get_status tells why (a password is needed, not a
+ PDF, no PDFium). The view then shows that instead of pages.
+*>
+fn CInt PdfView.load_file(self, ZString path, ZString password) @inline => c::r_pdf_view_load_file((c::Rid)self, (char*)path, (char*)password);
+
+<* Same as Rpdf_view_load_file, from bytes in memory (copied). *>
+fn CInt PdfView.load_memory(self, ZString data, usz data_size, ZString password) @inline => c::r_pdf_view_load_memory((c::Rid)self, (char*)data, data_size, (char*)password);
+
+<* Closes the document: the view is empty. *>
+fn void PdfView.close(self) @inline => c::r_pdf_view_close((c::Rid)self);
+
+fn PdfStatus PdfView.get_status(self) @inline => (PdfStatus)c::r_pdf_view_get_status((c::Rid)self);
+
+fn CInt PdfView.get_page_count(self) @inline => c::r_pdf_view_get_page_count((c::Rid)self);
+
+<* Size of a page in points (1/72 inch), as it is shown (its rotation applied). *>
+fn void PdfView.get_page_size(self, CInt page, float* width, float* height) @inline => c::r_pdf_view_get_page_size((c::Rid)self, page, width, height);
+
+<* Scrolls to the top of a page; it becomes the current page. *>
+fn void PdfView.set_page(self, CInt page) @inline => c::r_pdf_view_set_page((c::Rid)self, page);
+
+<* The current page: the one a third down the view. *>
+fn CInt PdfView.get_page(self) @inline => c::r_pdf_view_get_page((c::Rid)self);
+
+<* A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. *>
+fn void PdfView.set_zoom(self, float zoom) @inline => c::r_pdf_view_set_zoom((c::Rid)self, zoom);
+
+<* The zoom the pages show at, the one a fit gives included. *>
+fn float PdfView.get_zoom(self) @inline => c::r_pdf_view_get_zoom((c::Rid)self);
+
+fn void PdfView.set_fit(self, PdfFit fit) @inline => c::r_pdf_view_set_fit((c::Rid)self, (c::RPdfFit)fit);
+
+fn PdfFit PdfView.get_fit(self) @inline => (PdfFit)c::r_pdf_view_get_fit((c::Rid)self);
+
+<* The title of the document (its information), "" when it has none. *>
+fn ZString PdfView.get_title(self) @inline => (ZString)c::r_pdf_view_get_title((c::Rid)self);
+
+<*
+ The text of a page (UTF-8), to search it or copy it. Valid until
+ the next call for this view.
+*>
+fn ZString PdfView.get_page_text(self, CInt page) @inline => (ZString)c::r_pdf_view_get_page_text((c::Rid)self, page);
+
+fn void PdfView.set_page_changed_callback(self, PdfPageChangedCallback callback, void* user_data) @inline => c::r_pdf_view_set_page_changed_callback((c::Rid)self, (c::RPdfPageChangedCallback)callback, user_data);
+
+<* Prints the document shown (see Rpdf_print); the job is named after its title. *>
+fn CInt PdfView.print(self, PdfPrintDesc* desc) @inline => c::r_pdf_view_print((c::Rid)self, (c::RPdfPrintDesc*)desc);
+
 // ---- Window
 
 typedef Window = inline Id;
@@ -4853,6 +5073,26 @@ fn ZString Window.get_title(self) @inline => (ZString)c::r_window_get_title((c::
 fn void Window.set_size(self, CInt width, CInt height) @inline => c::r_window_set_size((c::Rid)self, width, height);
 
 fn void Window.get_size(self, CInt* width, CInt* height) @inline => c::r_window_get_size((c::Rid)self, width, height);
+
+<*
+ The part of the window the system covers (status bar, notch,
+ home indicator, navigation bar), in logical units. The content of the
+ window is laid out inside it already. All 0 on desktop.
+*>
+fn void Window.get_safe_area(self, Insets* insets) @inline => c::r_window_get_safe_area((c::Rid)self, (c::RInsets*)insets);
+
+<*
+ The part of the window the on-screen keyboard covers (only
+ `bottom` is set), in logical units; 0 when it is hidden or there is
+ none (desktop). The content is laid out above it already.
+*>
+fn void Window.get_keyboard_area(self, Insets* insets) @inline => c::r_window_get_keyboard_area((c::Rid)self, (c::RInsets*)insets);
+
+<* Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it. *>
+fn void Window.set_keyboard_callback(self, KeyboardCallback callback, void* user_data) @inline => c::r_window_set_keyboard_callback((c::Rid)self, (c::RKeyboardCallback)callback, user_data);
+
+<* No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. *>
+fn void Window.clear_focus(self) @inline => c::r_window_clear_focus((c::Rid)self);
 
 fn void Window.set_min_size(self, CInt width, CInt height) @inline => c::r_window_set_min_size((c::Rid)self, width, height);
 
@@ -5120,6 +5360,25 @@ fn bool Window.is_mouse_inside(self) @inline => c::r_window_is_mouse_inside((c::
 
 <* R_TRUE when the keyboard focus is in a text input, spin box or text editor. *>
 fn bool Window.wants_text_input(self) @inline => c::r_window_wants_text_input((c::Rid)self) != 0;
+
+<* The kind of the focused text input; R_FALSE when there is none. *>
+fn CInt Window.get_text_input_info(self, TextInputInfo* info) @inline => c::r_window_get_text_input_info((c::Rid)self, (c::RTextInputInfo*)info);
+
+<* Its text (UTF-8), valid until it changes; NULL when there is none. *>
+fn ZString Window.get_text_input_text(self) @inline => (ZString)c::r_window_get_text_input_text((c::Rid)self);
+
+<* Its selection: start == end is the caret. R_FALSE when there is none. *>
+fn CInt Window.get_text_input_selection(self, CInt* start, CInt* end) @inline => c::r_window_get_text_input_selection((c::Rid)self, start, end);
+
+<* Selects bytes [start, end) of it (end before start puts the caret at end). *>
+fn CInt Window.set_text_input_selection(self, CInt start, CInt end) @inline => c::r_window_set_text_input_selection((c::Rid)self, start, end);
+
+<*
+ Replaces bytes [start, end) of it with `text` and puts the caret
+ after it, as typing would (the changed callback runs; MaxLength
+ applies). R_FALSE when there is none or it is read-only.
+*>
+fn CInt Window.replace_text_input(self, CInt start, CInt end, ZString text) @inline => c::r_window_replace_text_input((c::Rid)self, start, end, (char*)text);
 
 <* R_TRUE while a menu, list or dialog is open over the window. *>
 fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) != 0;
@@ -6142,6 +6401,16 @@ alias theme_set_accent = c::r_theme_set_accent;
 *>
 fn void theme_set_dark(bool dark) @inline => c::r_theme_set_dark((CInt)dark);
 
+<* R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today). *>
+alias theme_get_system_dark = c::r_theme_get_system_dark;
+
+<*
+ Follows the dark or light mode of the system with the Raven look
+ (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+ Off by default. Does nothing where the platform does not tell (desktop today).
+*>
+fn void theme_follow_system(bool enabled) @inline => c::r_theme_follow_system((CInt)enabled);
+
 alias theme_is_dark = c::r_theme_is_dark;
 
 <*
@@ -6221,6 +6490,106 @@ fn void set_layout_direction(Direction direction) @inline => c::r_set_layout_dir
 
 <* The direction the windows use now: R_DIRECTION_LTR or _RTL. *>
 fn Direction get_layout_direction() @inline => (Direction)c::r_get_layout_direction();
+
+<* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
+alias pdf_is_available = c::r_pdf_is_available;
+
+fn Id pdf_document_create() @inline => (Id)c::r_pdf_document_create();
+
+fn void pdf_document_delete(Id document) @inline => c::r_pdf_document_delete((c::Rid)document);
+
+<* The information of the document, shown by readers (the title in their window). *>
+fn void pdf_document_set_title(Id document, ZString title) @inline => c::r_pdf_document_set_title((c::Rid)document, (char*)title);
+
+fn void pdf_document_set_author(Id document, ZString author) @inline => c::r_pdf_document_set_author((c::Rid)document, (char*)author);
+
+fn void pdf_document_set_subject(Id document, ZString subject) @inline => c::r_pdf_document_set_subject((c::Rid)document, (char*)subject);
+
+<* Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. *>
+fn CInt pdf_document_add_page(Id document, float width, float height) @inline => c::r_pdf_document_add_page((c::Rid)document, width, height);
+
+fn CInt pdf_document_get_page_count(Id document) @inline => c::r_pdf_document_get_page_count((c::Rid)document);
+
+fn void pdf_document_set_fill_color(Id document, float r, float g, float b, float a) @inline => c::r_pdf_document_set_fill_color((c::Rid)document, r, g, b, a);
+
+fn void pdf_document_set_stroke_color(Id document, float r, float g, float b, float a) @inline => c::r_pdf_document_set_stroke_color((c::Rid)document, r, g, b, a);
+
+<* Width of the lines and outlines, in points (default 1). *>
+fn void pdf_document_set_line_width(Id document, float width) @inline => c::r_pdf_document_set_line_width((c::Rid)document, width);
+
+<* A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. *>
+fn void pdf_document_draw_rect(Id document, float x, float y, float width, float height, float radius, uint paint) @inline => c::r_pdf_document_draw_rect((c::Rid)document, x, y, width, height, radius, paint);
+
+<* The ellipse inside a rectangle. *>
+fn void pdf_document_draw_ellipse(Id document, float x, float y, float width, float height, uint paint) @inline => c::r_pdf_document_draw_ellipse((c::Rid)document, x, y, width, height, paint);
+
+<* A line in the stroke color. *>
+fn void pdf_document_draw_line(Id document, float x1, float y1, float x2, float y2) @inline => c::r_pdf_document_draw_line((c::Rid)document, x1, y1, x2, y2);
+
+<*
+ Adds a TrueType font (.ttf) to the document (the data is
+ copied, and embedded in the file). Returns its number for
+ Rpdf_document_set_font, -1 when it is not a TrueType font.
+*>
+fn CInt pdf_document_add_font(Id document, ZString data, usz data_size) @inline => c::r_pdf_document_add_font((c::Rid)document, (char*)data, data_size);
+
+fn CInt pdf_document_add_font_from_file(Id document, ZString path) @inline => c::r_pdf_document_add_font_from_file((c::Rid)document, (char*)path);
+
+<* The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. *>
+fn void pdf_document_set_font(Id document, CInt font, float size, uint style) @inline => c::r_pdf_document_set_font((c::Rid)document, font, size, style);
+
+<* Distance between two lines of text in the current font. *>
+fn float pdf_document_get_line_height(Id document) @inline => c::r_pdf_document_get_line_height((c::Rid)document);
+
+<* Width of a text in the current font, in points (of its widest line). *>
+fn float pdf_document_measure_text(Id document, ZString text) @inline => c::r_pdf_document_measure_text((c::Rid)document, (char*)text);
+
+<*
+ Text in the fill color, the top of its first line at y ('\n'
+ starts a line below). Returns its width.
+*>
+fn float pdf_document_draw_text(Id document, float x, float y, ZString text) @inline => c::r_pdf_document_draw_text((c::Rid)document, x, y, (char*)text);
+
+<*
+ Text wrapped at the spaces to fit `width`, each line placed by
+ `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+ height it took.
+*>
+fn float pdf_document_draw_paragraph(Id document, float x, float y, float width, ZString text, HAlign align) @inline => c::r_pdf_document_draw_paragraph((c::Rid)document, x, y, width, (char*)text, (c::RHAlign)align);
+
+<*
+ A picture of RGBA8 pixels stretched over a rectangle. A width or
+ height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+*>
+fn void pdf_document_draw_image(Id document, float x, float y, float width, float height, char* rgba, CInt pixels_width, CInt pixels_height) @inline => c::r_pdf_document_draw_image((c::Rid)document, x, y, width, height, rgba, pixels_width, pixels_height);
+
+<*
+ What a window shows (Rwindow_capture), as a picture: a report of
+ the screen, a chart. A width and height of 0: the size it has on the
+ screen. Returns R_FALSE when the window cannot be captured.
+*>
+fn CInt pdf_document_draw_window(Id document, Id window, float x, float y, float width, float height) @inline => c::r_pdf_document_draw_window((c::Rid)document, (c::Rid)window, x, y, width, height);
+
+<* Writes the file. Returns R_FALSE when it cannot be written. *>
+fn CInt pdf_document_save(Id document, ZString path) @inline => c::r_pdf_document_save((c::Rid)document, (char*)path);
+
+<* The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. *>
+fn ZString pdf_document_save_memory(Id document, usz* size) @inline => (ZString)c::r_pdf_document_save_memory((c::Rid)document, size);
+
+<*
+ Prints a PDF document with the print system: on macOS the print
+ panel, on Windows the print dialog (the pages are drawn by PDFium, see
+ PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+ dialog of Raven that chooses the printer. It waits until the job is
+ sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+ cannot print. Not in the browser.
+*>
+fn CInt pdf_print(PdfPrintDesc* desc, ZString data, usz data_size) @inline => c::r_pdf_print((c::RPdfPrintDesc*)desc, (char*)data, data_size);
+
+fn CInt pdf_print_file(PdfPrintDesc* desc, ZString path) @inline => c::r_pdf_print_file((c::RPdfPrintDesc*)desc, (char*)path);
+
+<* Prints a document written by the application. *>
+fn CInt pdf_document_print(Id document, PdfPrintDesc* desc) @inline => c::r_pdf_document_print((c::Rid)document, (c::RPdfPrintDesc*)desc);
 
 <*
  Declares a language, or replaces the one that has this name: to

@@ -88,7 +88,26 @@ typedef enum RWindowSystem {
 	R_WINDOW_SYSTEM_WAYLAND = 147,
 	R_WINDOW_SYSTEM_COCOA = 148,
 	R_WINDOW_SYSTEM_EMSCRIPTEN = 149,
+	R_WINDOW_SYSTEM_ANDROID = 150,
+	R_WINDOW_SYSTEM_UIKIT = 151,
 } RWindowSystem;
+typedef enum RTextInputType {
+	R_TEXT_INPUT_TYPE_TEXT = 2912,
+	R_TEXT_INPUT_TYPE_EMAIL = 2913,
+	R_TEXT_INPUT_TYPE_NUMBER = 2914,
+	R_TEXT_INPUT_TYPE_DECIMAL = 2915,
+	R_TEXT_INPUT_TYPE_PHONE = 2916,
+	R_TEXT_INPUT_TYPE_URL = 2917,
+	R_TEXT_INPUT_TYPE_SEARCH = 2918,
+} RTextInputType;
+typedef enum RReturnKey {
+	R_RETURN_KEY_DEFAULT = 2928,
+	R_RETURN_KEY_DONE = 2929,
+	R_RETURN_KEY_GO = 2930,
+	R_RETURN_KEY_NEXT = 2931,
+	R_RETURN_KEY_SEARCH = 2932,
+	R_RETURN_KEY_SEND = 2933,
+} RReturnKey;
 typedef enum RWindowEdge {
 	R_EDGE_LEFT = 208,
 	R_EDGE_RIGHT = 209,
@@ -443,6 +462,7 @@ typedef enum RWidgetType {
 	R_WIDGET_RATING = 560,
 	R_WIDGET_PAGINATION = 561,
 	R_WIDGET_PLOT = 562,
+	R_WIDGET_PDF_VIEW = 563,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -528,6 +548,34 @@ typedef enum RPlotAxis {
 	R_PLOT_X2 = 1314,
 	R_PLOT_Y2 = 1315,
 } RPlotAxis;
+typedef enum RPdfFit {
+	R_PDF_FIT_WIDTH = 1472,
+	R_PDF_FIT_PAGE = 1473,
+	R_PDF_FIT_NONE = 1474,
+} RPdfFit;
+typedef enum RPdfStatus {
+	R_PDF_EMPTY = 1488,
+	R_PDF_LOADED = 1489,
+	R_PDF_NEEDS_PASSWORD = 1490,
+	R_PDF_ERROR = 1491,
+	R_PDF_UNAVAILABLE = 1492,
+} RPdfStatus;
+typedef enum RPdfFont {
+	R_PDF_FONT_SANS = 0,
+	R_PDF_FONT_MONO = 1,
+} RPdfFont;
+typedef enum RPdfPaint {
+	R_PDF_FILL = 1,
+	R_PDF_STROKE = 2,
+} RPdfPaint;
+typedef enum RPdfTextStyle {
+	R_PDF_TEXT_BOLD = 1,
+	R_PDF_TEXT_ITALIC = 2,
+	R_PDF_TEXT_UNDERLINE = 4,
+} RPdfTextStyle;
+typedef enum RPdfPrintFlags {
+	R_PDF_PRINT_NO_DIALOG = 1,
+} RPdfPrintFlags;
 typedef enum RPlotScale {
 	R_PLOT_SCALE_LINEAR = 1328,
 	R_PLOT_SCALE_LOG = 1329,
@@ -760,6 +808,8 @@ typedef struct RInitDesc RInitDesc;
 typedef struct RAllocator RAllocator;
 typedef struct RMemoryStats RMemoryStats;
 typedef struct RFrameStats RFrameStats;
+typedef struct RInsets RInsets;
+typedef struct RTextInputInfo RTextInputInfo;
 typedef struct RNativeWindow RNativeWindow;
 typedef struct REvent REvent;
 typedef struct RDropEvent RDropEvent;
@@ -767,6 +817,7 @@ typedef struct RTouchSettings RTouchSettings;
 typedef struct RTouchEvent RTouchEvent;
 typedef struct RPenEvent RPenEvent;
 typedef struct RGestureEvent RGestureEvent;
+typedef struct RPdfPrintDesc RPdfPrintDesc;
 typedef struct RTileItem RTileItem;
 typedef struct RLanguageDesc RLanguageDesc;
 typedef struct RJumpTask RJumpTask;
@@ -786,6 +837,7 @@ typedef void (*RTimerCallback)(Rid timer, void* user_data);
 typedef void (*RActionCallback)(Rid sender, const char* action, void* user_data);
 typedef void (*RErrorCallback)(RError code, RSeverity severity, const char* detail);
 typedef void (*RDeviceResetCallback)(void* user_data);
+typedef void (*RKeyboardCallback)(Rid window, int visible, float height, void* user_data);
 typedef int (*RDropCallback)(Rid target, const RDropEvent* event, void* user_data);
 typedef int (*RWindowCloseCallback)(Rid window, void* user_data);
 typedef void (*RWindowResizeCallback)(Rid window, int width, int height, void* user_data);
@@ -828,6 +880,7 @@ typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
 typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
 typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
 typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
+typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
@@ -891,6 +944,19 @@ struct RFrameStats {
 	Ruint backdrop_count;
 	Ruint paint_job_count;
 	uint64_t frame_index;
+};
+struct RInsets {
+	float top;
+	float right;
+	float bottom;
+	float left;
+};
+struct RTextInputInfo {
+	RTextInputType type;
+	RReturnKey return_key;
+	int password;
+	int read_only;
+	int max_length;
 };
 struct RNativeWindow {
 	RWindowSystem system;
@@ -999,6 +1065,15 @@ struct RGestureEvent {
 	float total_y;
 	float rotation_delta;
 	int cancelled;
+};
+struct RPdfPrintDesc {
+	Rid window;
+	const char* title;
+	const char* printer;
+	int copies;
+	Ruint flags;
+	const char* output;
+	const char* password;
 };
 struct RTileItem {
 	const char* text;
@@ -1171,6 +1246,10 @@ void Rwindow_set_title(Rid window, const char* title);
 const char* Rwindow_get_title(Rid window);
 void Rwindow_set_size(Rid window, int width, int height);
 void Rwindow_get_size(Rid window, int* width, int* height);
+void Rwindow_get_safe_area(Rid window, RInsets* insets);
+void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
+void Rwindow_set_keyboard_callback(Rid window, RKeyboardCallback callback, void* user_data);
+void Rwindow_clear_focus(Rid window);
 void Rwindow_set_min_size(Rid window, int width, int height);
 void Rwindow_set_position(Rid window, int x, int y);
 void Rwindow_get_position(Rid window, int* x, int* y);
@@ -1234,6 +1313,11 @@ int Rwindow_is_mouse_button_down(Rid window, RMouseButton button);
 Ruint Rwindow_get_modifiers(Rid window);
 int Rwindow_is_mouse_inside(Rid window);
 int Rwindow_wants_text_input(Rid window);
+int Rwindow_get_text_input_info(Rid window, RTextInputInfo* info);
+const char* Rwindow_get_text_input_text(Rid window);
+int Rwindow_get_text_input_selection(Rid window, int* start, int* end);
+int Rwindow_set_text_input_selection(Rid window, int start, int end);
+int Rwindow_replace_text_input(Rid window, int start, int end, const char* text);
 int Rwindow_has_popup(Rid window);
 int Rwindow_get_text_input_rect(Rid window, int* x, int* y, int* width, int* height);
 int Rwindow_get_popup_count(Rid window);
@@ -1283,6 +1367,8 @@ void Rtheme_set_font(Rid font);
 Rid Rtheme_get_font(void);
 void Rtheme_set_accent(float r, float g, float b);
 void Rtheme_set_dark(int dark);
+int Rtheme_get_system_dark(void);
+void Rtheme_follow_system(int enabled);
 int Rtheme_is_dark(void);
 void Rtheme_set_wallpaper(Rid texture);
 Rid Rtheme_get_wallpaper(void);
@@ -1511,6 +1597,10 @@ int Rtext_input_is_read_only(Rid text_input);
 void Rtext_input_set_read_only(Rid text_input, int read_only);
 void Rtext_input_set_max_length(Rid text_input, int max_length);
 void Rtext_input_select_all(Rid text_input);
+void Rtext_input_set_input_type(Rid text_input, RTextInputType type);
+RTextInputType Rtext_input_get_input_type(Rid text_input);
+void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
+RReturnKey Rtext_input_get_return_key(Rid text_input);
 void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 void Rtext_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
@@ -1519,6 +1609,8 @@ double Rspin_box_get_value(Rid spin_box);
 void Rspin_box_get_range(Rid spin_box, double* minimum, double* maximum, double* step);
 void Rspin_box_set_step(Rid spin_box, double step);
 void Rspin_box_set_decimals(Rid spin_box, int decimals);
+void Rspin_box_set_buttons(Rid spin_box, int buttons);
+int Rspin_box_get_buttons(Rid spin_box);
 void Rspin_box_set_changed_callback(Rid spin_box, RSpinBoxChangedCallback callback, void* user_data);
 int Rcombo_box_add_item(Rid combo_box, const char* text);
 void Rcombo_box_clear_items(Rid combo_box);
@@ -1742,6 +1834,50 @@ void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, fl
 void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
 void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
 void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+int Rpdf_is_available(void);
+int Rpdf_view_load_file(Rid view, const char* path, const char* password);
+int Rpdf_view_load_memory(Rid view, const char* data, size_t data_size, const char* password);
+void Rpdf_view_close(Rid view);
+RPdfStatus Rpdf_view_get_status(Rid view);
+int Rpdf_view_get_page_count(Rid view);
+void Rpdf_view_get_page_size(Rid view, int page, float* width, float* height);
+void Rpdf_view_set_page(Rid view, int page);
+int Rpdf_view_get_page(Rid view);
+void Rpdf_view_set_zoom(Rid view, float zoom);
+float Rpdf_view_get_zoom(Rid view);
+void Rpdf_view_set_fit(Rid view, RPdfFit fit);
+RPdfFit Rpdf_view_get_fit(Rid view);
+const char* Rpdf_view_get_title(Rid view);
+const char* Rpdf_view_get_page_text(Rid view, int page);
+void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+Rid Rpdf_document_create(void);
+void Rpdf_document_delete(Rid document);
+void Rpdf_document_set_title(Rid document, const char* title);
+void Rpdf_document_set_author(Rid document, const char* author);
+void Rpdf_document_set_subject(Rid document, const char* subject);
+int Rpdf_document_add_page(Rid document, float width, float height);
+int Rpdf_document_get_page_count(Rid document);
+void Rpdf_document_set_fill_color(Rid document, float r, float g, float b, float a);
+void Rpdf_document_set_stroke_color(Rid document, float r, float g, float b, float a);
+void Rpdf_document_set_line_width(Rid document, float width);
+void Rpdf_document_draw_rect(Rid document, float x, float y, float width, float height, float radius, Ruint paint);
+void Rpdf_document_draw_ellipse(Rid document, float x, float y, float width, float height, Ruint paint);
+void Rpdf_document_draw_line(Rid document, float x1, float y1, float x2, float y2);
+int Rpdf_document_add_font(Rid document, const char* data, size_t data_size);
+int Rpdf_document_add_font_from_file(Rid document, const char* path);
+void Rpdf_document_set_font(Rid document, int font, float size, Ruint style);
+float Rpdf_document_get_line_height(Rid document);
+float Rpdf_document_measure_text(Rid document, const char* text);
+float Rpdf_document_draw_text(Rid document, float x, float y, const char* text);
+float Rpdf_document_draw_paragraph(Rid document, float x, float y, float width, const char* text, RHAlign align);
+void Rpdf_document_draw_image(Rid document, float x, float y, float width, float height, const uint8_t* rgba, int pixels_width, int pixels_height);
+int Rpdf_document_draw_window(Rid document, Rid window, float x, float y, float width, float height);
+int Rpdf_document_save(Rid document, const char* path);
+char* Rpdf_document_save_memory(Rid document, size_t* size);
+int Rpdf_print(const RPdfPrintDesc* desc, const char* data, size_t data_size);
+int Rpdf_print_file(const RPdfPrintDesc* desc, const char* path);
+int Rpdf_document_print(Rid document, const RPdfPrintDesc* desc);
 Rid Rtext_editor_create(const char* text);
 void Rtext_editor_set_text(Rid editor, const char* text);
 const char* Rtext_editor_get_text(Rid editor);

@@ -220,6 +220,10 @@ const _symbols = {
 	Rwindow_get_title: { args: ["u32"], returns: "cstring" },
 	Rwindow_set_size: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_get_size: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rwindow_get_safe_area: { args: ["u32", "ptr"], returns: "void" },
+	Rwindow_get_keyboard_area: { args: ["u32", "ptr"], returns: "void" },
+	Rwindow_set_keyboard_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rwindow_clear_focus: { args: ["u32"], returns: "void" },
 	Rwindow_set_min_size: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_set_position: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_get_position: { args: ["u32", "ptr", "ptr"], returns: "void" },
@@ -283,6 +287,11 @@ const _symbols = {
 	Rwindow_get_modifiers: { args: ["u32"], returns: "u32" },
 	Rwindow_is_mouse_inside: { args: ["u32"], returns: "i32" },
 	Rwindow_wants_text_input: { args: ["u32"], returns: "i32" },
+	Rwindow_get_text_input_info: { args: ["u32", "ptr"], returns: "i32" },
+	Rwindow_get_text_input_text: { args: ["u32"], returns: "cstring" },
+	Rwindow_get_text_input_selection: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rwindow_set_text_input_selection: { args: ["u32", "i32", "i32"], returns: "i32" },
+	Rwindow_replace_text_input: { args: ["u32", "i32", "i32", "ptr"], returns: "i32" },
 	Rwindow_has_popup: { args: ["u32"], returns: "i32" },
 	Rwindow_get_text_input_rect: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
 	Rwindow_get_popup_count: { args: ["u32"], returns: "i32" },
@@ -332,6 +341,8 @@ const _symbols = {
 	Rtheme_get_font: { args: [], returns: "u32" },
 	Rtheme_set_accent: { args: ["f32", "f32", "f32"], returns: "void" },
 	Rtheme_set_dark: { args: ["i32"], returns: "void" },
+	Rtheme_get_system_dark: { args: [], returns: "i32" },
+	Rtheme_follow_system: { args: ["i32"], returns: "void" },
 	Rtheme_is_dark: { args: [], returns: "i32" },
 	Rtheme_set_wallpaper: { args: ["u32"], returns: "void" },
 	Rtheme_get_wallpaper: { args: [], returns: "u32" },
@@ -560,6 +571,10 @@ const _symbols = {
 	Rtext_input_set_read_only: { args: ["u32", "i32"], returns: "void" },
 	Rtext_input_set_max_length: { args: ["u32", "i32"], returns: "void" },
 	Rtext_input_select_all: { args: ["u32"], returns: "void" },
+	Rtext_input_set_input_type: { args: ["u32", "i32"], returns: "void" },
+	Rtext_input_get_input_type: { args: ["u32"], returns: "i32" },
+	Rtext_input_set_return_key: { args: ["u32", "i32"], returns: "void" },
+	Rtext_input_get_return_key: { args: ["u32"], returns: "i32" },
 	Rtext_input_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_input_set_committed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rspin_box_set_range: { args: ["u32", "f64", "f64"], returns: "void" },
@@ -568,6 +583,8 @@ const _symbols = {
 	Rspin_box_get_range: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rspin_box_set_step: { args: ["u32", "f64"], returns: "void" },
 	Rspin_box_set_decimals: { args: ["u32", "i32"], returns: "void" },
+	Rspin_box_set_buttons: { args: ["u32", "i32"], returns: "void" },
+	Rspin_box_get_buttons: { args: ["u32"], returns: "i32" },
 	Rspin_box_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rcombo_box_add_item: { args: ["u32", "ptr"], returns: "i32" },
 	Rcombo_box_clear_items: { args: ["u32"], returns: "void" },
@@ -791,6 +808,50 @@ const _symbols = {
 	Rplot_set_view_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rplot_set_drag_line_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rplot_set_series_toggled_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rpdf_is_available: { args: [], returns: "i32" },
+	Rpdf_view_load_file: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rpdf_view_load_memory: { args: ["u32", "ptr", "usize", "ptr"], returns: "i32" },
+	Rpdf_view_close: { args: ["u32"], returns: "void" },
+	Rpdf_view_get_status: { args: ["u32"], returns: "i32" },
+	Rpdf_view_get_page_count: { args: ["u32"], returns: "i32" },
+	Rpdf_view_get_page_size: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rpdf_view_set_page: { args: ["u32", "i32"], returns: "void" },
+	Rpdf_view_get_page: { args: ["u32"], returns: "i32" },
+	Rpdf_view_set_zoom: { args: ["u32", "f32"], returns: "void" },
+	Rpdf_view_get_zoom: { args: ["u32"], returns: "f32" },
+	Rpdf_view_set_fit: { args: ["u32", "i32"], returns: "void" },
+	Rpdf_view_get_fit: { args: ["u32"], returns: "i32" },
+	Rpdf_view_get_title: { args: ["u32"], returns: "cstring" },
+	Rpdf_view_get_page_text: { args: ["u32", "i32"], returns: "cstring" },
+	Rpdf_view_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rpdf_view_print: { args: ["u32", "ptr"], returns: "i32" },
+	Rpdf_document_create: { args: [], returns: "u32" },
+	Rpdf_document_delete: { args: ["u32"], returns: "void" },
+	Rpdf_document_set_title: { args: ["u32", "ptr"], returns: "void" },
+	Rpdf_document_set_author: { args: ["u32", "ptr"], returns: "void" },
+	Rpdf_document_set_subject: { args: ["u32", "ptr"], returns: "void" },
+	Rpdf_document_add_page: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rpdf_document_get_page_count: { args: ["u32"], returns: "i32" },
+	Rpdf_document_set_fill_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rpdf_document_set_stroke_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rpdf_document_set_line_width: { args: ["u32", "f32"], returns: "void" },
+	Rpdf_document_draw_rect: { args: ["u32", "f32", "f32", "f32", "f32", "f32", "u32"], returns: "void" },
+	Rpdf_document_draw_ellipse: { args: ["u32", "f32", "f32", "f32", "f32", "u32"], returns: "void" },
+	Rpdf_document_draw_line: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rpdf_document_add_font: { args: ["u32", "ptr", "usize"], returns: "i32" },
+	Rpdf_document_add_font_from_file: { args: ["u32", "ptr"], returns: "i32" },
+	Rpdf_document_set_font: { args: ["u32", "i32", "f32", "u32"], returns: "void" },
+	Rpdf_document_get_line_height: { args: ["u32"], returns: "f32" },
+	Rpdf_document_measure_text: { args: ["u32", "ptr"], returns: "f32" },
+	Rpdf_document_draw_text: { args: ["u32", "f32", "f32", "ptr"], returns: "f32" },
+	Rpdf_document_draw_paragraph: { args: ["u32", "f32", "f32", "f32", "ptr", "i32"], returns: "f32" },
+	Rpdf_document_draw_image: { args: ["u32", "f32", "f32", "f32", "f32", "ptr", "i32", "i32"], returns: "void" },
+	Rpdf_document_draw_window: { args: ["u32", "u32", "f32", "f32", "f32", "f32"], returns: "i32" },
+	Rpdf_document_save: { args: ["u32", "ptr"], returns: "i32" },
+	Rpdf_document_save_memory: { args: ["u32", "ptr"], returns: "ptr" },
+	Rpdf_print: { args: ["ptr", "ptr", "usize"], returns: "i32" },
+	Rpdf_print_file: { args: ["ptr", "ptr"], returns: "i32" },
+	Rpdf_document_print: { args: ["u32", "ptr"], returns: "i32" },
 	Rtext_editor_create: { args: ["ptr"], returns: "u32" },
 	Rtext_editor_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_editor_get_text: { args: ["u32"], returns: "cstring" },
@@ -1480,6 +1541,8 @@ export enum RWindowSystem {
 	R_WINDOW_SYSTEM_WAYLAND = 0x0093,
 	R_WINDOW_SYSTEM_COCOA = 0x0094,
 	R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
+	R_WINDOW_SYSTEM_ANDROID = 0x0096,
+	R_WINDOW_SYSTEM_UIKIT = 0x0097,
 }
 
 export const R_WINDOW_SYSTEM_NONE = RWindowSystem.R_WINDOW_SYSTEM_NONE;
@@ -1488,6 +1551,45 @@ export const R_WINDOW_SYSTEM_X11 = RWindowSystem.R_WINDOW_SYSTEM_X11;
 export const R_WINDOW_SYSTEM_WAYLAND = RWindowSystem.R_WINDOW_SYSTEM_WAYLAND;
 export const R_WINDOW_SYSTEM_COCOA = RWindowSystem.R_WINDOW_SYSTEM_COCOA;
 export const R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN;
+export const R_WINDOW_SYSTEM_ANDROID = RWindowSystem.R_WINDOW_SYSTEM_ANDROID;
+export const R_WINDOW_SYSTEM_UIKIT = RWindowSystem.R_WINDOW_SYSTEM_UIKIT;
+
+/** What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...). */
+export enum RTextInputType {
+	R_TEXT_INPUT_TYPE_TEXT = 0x0B60,
+	R_TEXT_INPUT_TYPE_EMAIL = 0x0B61,
+	R_TEXT_INPUT_TYPE_NUMBER = 0x0B62,
+	/** Digits and a decimal separator. */
+	R_TEXT_INPUT_TYPE_DECIMAL = 0x0B63,
+	R_TEXT_INPUT_TYPE_PHONE = 0x0B64,
+	R_TEXT_INPUT_TYPE_URL = 0x0B65,
+	R_TEXT_INPUT_TYPE_SEARCH = 0x0B66,
+}
+
+export const R_TEXT_INPUT_TYPE_TEXT = RTextInputType.R_TEXT_INPUT_TYPE_TEXT;
+export const R_TEXT_INPUT_TYPE_EMAIL = RTextInputType.R_TEXT_INPUT_TYPE_EMAIL;
+export const R_TEXT_INPUT_TYPE_NUMBER = RTextInputType.R_TEXT_INPUT_TYPE_NUMBER;
+export const R_TEXT_INPUT_TYPE_DECIMAL = RTextInputType.R_TEXT_INPUT_TYPE_DECIMAL;
+export const R_TEXT_INPUT_TYPE_PHONE = RTextInputType.R_TEXT_INPUT_TYPE_PHONE;
+export const R_TEXT_INPUT_TYPE_URL = RTextInputType.R_TEXT_INPUT_TYPE_URL;
+export const R_TEXT_INPUT_TYPE_SEARCH = RTextInputType.R_TEXT_INPUT_TYPE_SEARCH;
+
+/** The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key. */
+export enum RReturnKey {
+	R_RETURN_KEY_DEFAULT = 0x0B70,
+	R_RETURN_KEY_DONE = 0x0B71,
+	R_RETURN_KEY_GO = 0x0B72,
+	R_RETURN_KEY_NEXT = 0x0B73,
+	R_RETURN_KEY_SEARCH = 0x0B74,
+	R_RETURN_KEY_SEND = 0x0B75,
+}
+
+export const R_RETURN_KEY_DEFAULT = RReturnKey.R_RETURN_KEY_DEFAULT;
+export const R_RETURN_KEY_DONE = RReturnKey.R_RETURN_KEY_DONE;
+export const R_RETURN_KEY_GO = RReturnKey.R_RETURN_KEY_GO;
+export const R_RETURN_KEY_NEXT = RReturnKey.R_RETURN_KEY_NEXT;
+export const R_RETURN_KEY_SEARCH = RReturnKey.R_RETURN_KEY_SEARCH;
+export const R_RETURN_KEY_SEND = RReturnKey.R_RETURN_KEY_SEND;
 
 /** Edges and corners of a window, for Rwindow_begin_resize. */
 export enum RWindowEdge {
@@ -2342,6 +2444,8 @@ export enum RWidgetType {
 	R_WIDGET_PAGINATION = 0x0231,
 	/** Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. */
 	R_WIDGET_PLOT = 0x0232,
+	/** The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). */
+	R_WIDGET_PDF_VIEW = 0x0233,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2395,6 +2499,7 @@ export const R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB;
 export const R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING;
 export const R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION;
 export const R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT;
+export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -2620,6 +2725,80 @@ export const R_PLOT_X = RPlotAxis.R_PLOT_X;
 export const R_PLOT_Y = RPlotAxis.R_PLOT_Y;
 export const R_PLOT_X2 = RPlotAxis.R_PLOT_X2;
 export const R_PLOT_Y2 = RPlotAxis.R_PLOT_Y2;
+
+/** How a PdfView sizes its pages. */
+export enum RPdfFit {
+	/** The widest page fills the width of the view (default). */
+	R_PDF_FIT_WIDTH = 0x05C0,
+	/** The largest page fits whole in the view. */
+	R_PDF_FIT_PAGE = 0x05C1,
+	/** The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. */
+	R_PDF_FIT_NONE = 0x05C2,
+}
+
+export const R_PDF_FIT_WIDTH = RPdfFit.R_PDF_FIT_WIDTH;
+export const R_PDF_FIT_PAGE = RPdfFit.R_PDF_FIT_PAGE;
+export const R_PDF_FIT_NONE = RPdfFit.R_PDF_FIT_NONE;
+
+/** What a PdfView holds. */
+export enum RPdfStatus {
+	/** No document. */
+	R_PDF_EMPTY = 0x05D0,
+	/** A document is shown. */
+	R_PDF_LOADED = 0x05D1,
+	/** The document needs a password, or the one given is wrong: load it again with one. */
+	R_PDF_NEEDS_PASSWORD = 0x05D2,
+	/** The file could not be read, or is not a PDF document. */
+	R_PDF_ERROR = 0x05D3,
+	/** The PDFium library was not found (see Rpdf_is_available). */
+	R_PDF_UNAVAILABLE = 0x05D4,
+}
+
+export const R_PDF_EMPTY = RPdfStatus.R_PDF_EMPTY;
+export const R_PDF_LOADED = RPdfStatus.R_PDF_LOADED;
+export const R_PDF_NEEDS_PASSWORD = RPdfStatus.R_PDF_NEEDS_PASSWORD;
+export const R_PDF_ERROR = RPdfStatus.R_PDF_ERROR;
+export const R_PDF_UNAVAILABLE = RPdfStatus.R_PDF_UNAVAILABLE;
+
+/** The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). */
+export enum RPdfFont {
+	/** Roboto, the font of the interface of Raven. */
+	R_PDF_FONT_SANS = 0,
+	/** Roboto Mono. */
+	R_PDF_FONT_MONO = 1,
+}
+
+export const R_PDF_FONT_SANS = RPdfFont.R_PDF_FONT_SANS;
+export const R_PDF_FONT_MONO = RPdfFont.R_PDF_FONT_MONO;
+
+/** How a shape of a PDF document is painted: a bitmask. */
+export enum RPdfPaint {
+	/** Filled with the fill color. */
+	R_PDF_FILL = 1,
+	/** Outlined with the stroke color and the line width. */
+	R_PDF_STROKE = 2,
+}
+
+export const R_PDF_FILL = RPdfPaint.R_PDF_FILL;
+export const R_PDF_STROKE = RPdfPaint.R_PDF_STROKE;
+
+/** A bitmask of styles of the text of a PDF document. */
+export enum RPdfTextStyle {
+	R_PDF_TEXT_BOLD = 1,
+	R_PDF_TEXT_ITALIC = 2,
+	R_PDF_TEXT_UNDERLINE = 4,
+}
+
+export const R_PDF_TEXT_BOLD = RPdfTextStyle.R_PDF_TEXT_BOLD;
+export const R_PDF_TEXT_ITALIC = RPdfTextStyle.R_PDF_TEXT_ITALIC;
+export const R_PDF_TEXT_UNDERLINE = RPdfTextStyle.R_PDF_TEXT_UNDERLINE;
+
+export enum RPdfPrintFlags {
+	/** No dialog: printed at once on the printer named, else the default one. */
+	R_PDF_PRINT_NO_DIALOG = 1,
+}
+
+export const R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags.R_PDF_PRINT_NO_DIALOG;
 
 /** How an axis of a Plot spreads its values. */
 export enum RPlotScale {
@@ -3430,6 +3609,99 @@ export class RFrameStats extends RStruct {
 	}
 }
 
+/** Distances from the edges of a window, in logical units. */
+export class RInsets extends RStruct {
+	static readonly SIZE = 16;
+
+	constructor(pointer?: Pointer) {
+		super(RInsets.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RInsets | null {
+		return pointer ? new RInsets(pointer) : null;
+	}
+
+	get top(): number {
+		return this._view.getFloat32(0, true);
+	}
+	set top(value: number) {
+		this._view.setFloat32(0, value, true);
+	}
+
+	get right(): number {
+		return this._view.getFloat32(4, true);
+	}
+	set right(value: number) {
+		this._view.setFloat32(4, value, true);
+	}
+
+	get bottom(): number {
+		return this._view.getFloat32(8, true);
+	}
+	set bottom(value: number) {
+		this._view.setFloat32(8, value, true);
+	}
+
+	get left(): number {
+		return this._view.getFloat32(12, true);
+	}
+	set left(value: number) {
+		this._view.setFloat32(12, value, true);
+	}
+}
+
+/** What the platform needs to know of the focused text input to set up the on-screen keyboard. */
+export class RTextInputInfo extends RStruct {
+	static readonly SIZE = 20;
+
+	constructor(pointer?: Pointer) {
+		super(RTextInputInfo.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RTextInputInfo | null {
+		return pointer ? new RTextInputInfo(pointer) : null;
+	}
+
+	get type(): RTextInputType {
+		return this._view.getInt32(0, true) as RTextInputType;
+	}
+	set type(value: RTextInputType) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get return_key(): RReturnKey {
+		return this._view.getInt32(4, true) as RReturnKey;
+	}
+	set return_key(value: RReturnKey) {
+		this._view.setInt32(4, value, true);
+	}
+
+	/** R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning). */
+	get password(): number {
+		return this._view.getInt32(8, true);
+	}
+	set password(value: number) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get read_only(): number {
+		return this._view.getInt32(12, true);
+	}
+	set read_only(value: number) {
+		this._view.setInt32(12, value, true);
+	}
+
+	/** Most characters accepted; 0 for no limit. */
+	get max_length(): number {
+		return this._view.getInt32(16, true);
+	}
+	set max_length(value: number) {
+		this._view.setInt32(16, value, true);
+	}
+}
+
 /**
  * Native handles of a window or of a native viewport.
  *   Win32 : display = HINSTANCE, window = HWND
@@ -3438,6 +3710,8 @@ export class RFrameStats extends RStruct {
  *           Wayland or X11 when Rinit runs: check `system`)
  *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
  *   Emscripten: window = opaque browser surface token (no OS window handle)
+ *   Android: window = ANativeWindow*
+ *   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
  */
 export class RNativeWindow extends RStruct {
 	static readonly SIZE = 40;
@@ -4266,6 +4540,80 @@ export class RGestureEvent extends RStruct {
 	}
 	set cancelled(value: number) {
 		this._view.setInt32(72, value, true);
+	}
+}
+
+/** How a PDF document is printed. Every field may be left to zero. */
+export class RPdfPrintDesc extends RStruct {
+	static readonly SIZE = 48;
+
+	constructor(pointer?: Pointer) {
+		super(RPdfPrintDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RPdfPrintDesc | null {
+		return pointer ? new RPdfPrintDesc(pointer) : null;
+	}
+
+	/** Window the print dialog belongs to (0 or R_INVALID_ID: none). */
+	get window(): Rid {
+		return this._view.getUint32(0, true);
+	}
+	set window(value: Rid) {
+		this._view.setUint32(0, value, true);
+	}
+
+	/** Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. */
+	get title(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set title(value: string | null) {
+		this._point("title", 8, _s(value));
+	}
+
+	/** Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. */
+	get printer(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set printer(value: string | null) {
+		this._point("printer", 16, _s(value));
+	}
+
+	/** Copies to print (0: one); the dialog may change it. */
+	get copies(): number {
+		return this._view.getInt32(24, true);
+	}
+	set copies(value: number) {
+		this._view.setInt32(24, value, true);
+	}
+
+	/** Bitmask of RPdfPrintFlags. */
+	get flags(): number {
+		return this._view.getUint32(28, true);
+	}
+	set flags(value: number) {
+		this._view.setUint32(28, value, true);
+	}
+
+	/**
+	 * Path of a file the job is written to instead of a printer. macOS: a
+	 * PDF made by the print system; Windows: what the driver of the printer
+	 * makes; elsewhere: the document itself.
+	 */
+	get output(): string | null {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set output(value: string | null) {
+		this._point("output", 32, _s(value));
+	}
+
+	/** Password of a document protected by one. */
+	get password(): string | null {
+		return _text(_address(this._view.getBigUint64(40, true)));
+	}
+	set password(value: string | null) {
+		this._point("password", 40, _s(value));
 	}
 }
 
@@ -5209,6 +5557,22 @@ function _adapt_RDeviceResetCallback(function_: RDeviceResetCallback | Pointer |
 	}, { args: ["ptr"], returns: "void", threadsafe }));
 }
 
+/** The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden. */
+export type RKeyboardCallback = (window: Rid, visible: number, height: number, user_data: Pointer | null) => void;
+
+function _adapt_RKeyboardCallback(function_: RKeyboardCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((window: number, visible: number, height: number, user_data: Pointer | null): void => {
+		try {
+			function_(window, visible, height, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "f32", "ptr"], returns: "void", threadsafe }));
+}
+
 /**
  * Called for a drop target (a widget, or a window: `target` is its
  * handle). Return R_TRUE to accept: while the pointer is over the target this
@@ -5946,6 +6310,22 @@ function _adapt_RPlotSeriesCallback(function_: RPlotSeriesCallback | Pointer | n
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the current page changes as the user scrolls. This also fires the action of the widget. */
+export type RPdfPageChangedCallback = (view: Rid, page: number, user_data: Pointer | null) => void;
+
+function _adapt_RPdfPageChangedCallback(function_: RPdfPageChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((view: number, page: number, user_data: Pointer | null): void => {
+		try {
+			function_(view, page, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
@@ -6922,6 +7302,34 @@ export function Rwindow_get_size(window: Rid): [width: number, height: number] {
 	return [width_[0]!, height_[0]!];
 }
 
+/**
+ * The part of the window the system covers (status bar, notch,
+ * home indicator, navigation bar), in logical units. The content of the
+ * window is laid out inside it already. All 0 on desktop.
+ */
+export function Rwindow_get_safe_area(window: Rid, insets: RInsets | null): void {
+	_lib.Rwindow_get_safe_area(window, _p(insets));
+}
+
+/**
+ * The part of the window the on-screen keyboard covers (only
+ * `bottom` is set), in logical units; 0 when it is hidden or there is
+ * none (desktop). The content is laid out above it already.
+ */
+export function Rwindow_get_keyboard_area(window: Rid, insets: RInsets | null): void {
+	_lib.Rwindow_get_keyboard_area(window, _p(insets));
+}
+
+/** Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it. */
+export function Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rwindow_set_keyboard_callback(window, _adapt_RKeyboardCallback(callback), user_data);
+}
+
+/** No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. */
+export function Rwindow_clear_focus(window: Rid): void {
+	_lib.Rwindow_clear_focus(window);
+}
+
 export function Rwindow_set_min_size(window: Rid, width: number, height: number): void {
 	_lib.Rwindow_set_min_size(window, width, height);
 }
@@ -7334,6 +7742,38 @@ export function Rwindow_wants_text_input(window: Rid): number {
 	return _lib.Rwindow_wants_text_input(window);
 }
 
+/** The kind of the focused text input; R_FALSE when there is none. */
+export function Rwindow_get_text_input_info(window: Rid, info: RTextInputInfo | null): number {
+	return _lib.Rwindow_get_text_input_info(window, _p(info));
+}
+
+/** Its text (UTF-8), valid until it changes; NULL when there is none. */
+export function Rwindow_get_text_input_text(window: Rid): string | null {
+	return _lib.Rwindow_get_text_input_text(window);
+}
+
+/** Its selection: start == end is the caret. R_FALSE when there is none. */
+export function Rwindow_get_text_input_selection(window: Rid): [result: number, start: number, end: number] {
+	const start_ = new Int32Array(1);
+	const end_ = new Int32Array(1);
+	const result_ = _lib.Rwindow_get_text_input_selection(window, start_, end_);
+	return [result_, start_[0]!, end_[0]!];
+}
+
+/** Selects bytes [start, end) of it (end before start puts the caret at end). */
+export function Rwindow_set_text_input_selection(window: Rid, start: number, end: number): number {
+	return _lib.Rwindow_set_text_input_selection(window, start, end);
+}
+
+/**
+ * Replaces bytes [start, end) of it with `text` and puts the caret
+ * after it, as typing would (the changed callback runs; MaxLength
+ * applies). R_FALSE when there is none or it is read-only.
+ */
+export function Rwindow_replace_text_input(window: Rid, start: number, end: number, text: string | null): number {
+	return _lib.Rwindow_replace_text_input(window, start, end, _s(text));
+}
+
 /** R_TRUE while a menu, list or dialog is open over the window. */
 export function Rwindow_has_popup(window: Rid): number {
 	return _lib.Rwindow_has_popup(window);
@@ -7623,6 +8063,20 @@ export function Rtheme_set_accent(r: number, g: number, b: number): void {
  */
 export function Rtheme_set_dark(dark: number): void {
 	_lib.Rtheme_set_dark(dark);
+}
+
+/** R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today). */
+export function Rtheme_get_system_dark(): number {
+	return _lib.Rtheme_get_system_dark();
+}
+
+/**
+ * Follows the dark or light mode of the system with the Raven look
+ * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+ * Off by default. Does nothing where the platform does not tell (desktop today).
+ */
+export function Rtheme_follow_system(enabled: number): void {
+	_lib.Rtheme_follow_system(enabled);
 }
 
 export function Rtheme_is_dark(): number {
@@ -8954,6 +9408,24 @@ export function Rtext_input_select_all(text_input: Rid): void {
 	_lib.Rtext_input_select_all(text_input);
 }
 
+/** What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT. */
+export function Rtext_input_set_input_type(text_input: Rid, type: RTextInputType): void {
+	_lib.Rtext_input_set_input_type(text_input, type);
+}
+
+export function Rtext_input_get_input_type(text_input: Rid): RTextInputType {
+	return _lib.Rtext_input_get_input_type(text_input) as RTextInputType;
+}
+
+/** The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT. */
+export function Rtext_input_set_return_key(text_input: Rid, key: RReturnKey): void {
+	_lib.Rtext_input_set_return_key(text_input, key);
+}
+
+export function Rtext_input_get_return_key(text_input: Rid): RReturnKey {
+	return _lib.Rtext_input_get_return_key(text_input) as RReturnKey;
+}
+
 /** Called on every edit. */
 export function Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtext_input_set_changed_callback(text_input, _adapt_RTextChangedCallback(callback), user_data);
@@ -8992,6 +9464,21 @@ export function Rspin_box_set_step(spin_box: Rid, step: number): void {
 /** Digits shown after the decimal point. Default: 2. */
 export function Rspin_box_set_decimals(spin_box: Rid, decimals: number): void {
 	_lib.Rspin_box_set_decimals(spin_box, decimals);
+}
+
+/**
+ * Step buttons in the looks of Raven too: a down button at the left
+ * end and an up button at the right end, the value between them (XML
+ * `Buttons="True"`). A click steps once; holding a button repeats its step.
+ * The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+ * Default: R_FALSE (drag to scrub, arrows / wheel to step).
+ */
+export function Rspin_box_set_buttons(spin_box: Rid, buttons: number): void {
+	_lib.Rspin_box_set_buttons(spin_box, buttons);
+}
+
+export function Rspin_box_get_buttons(spin_box: Rid): number {
+	return _lib.Rspin_box_get_buttons(spin_box);
 }
 
 export function Rspin_box_set_changed_callback(spin_box: Rid, callback: RSpinBoxChangedCallback | Pointer | null, user_data: RPointer = null): void {
@@ -10068,6 +10555,258 @@ export function Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineC
 
 export function Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rplot_set_series_toggled_callback(plot, _adapt_RPlotSeriesCallback(callback), user_data);
+}
+
+/** R_TRUE when PDFium can be loaded (it is, the first time this is asked). */
+export function Rpdf_is_available(): number {
+	return _lib.Rpdf_is_available();
+}
+
+/**
+ * Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+ * cannot: Rpdf_view_get_status tells why (a password is needed, not a
+ * PDF, no PDFium). The view then shows that instead of pages.
+ */
+export function Rpdf_view_load_file(view: Rid, path: string | null, password: string | null): number {
+	return _lib.Rpdf_view_load_file(view, _s(path), _s(password));
+}
+
+/** Same as Rpdf_view_load_file, from bytes in memory (copied). */
+export function Rpdf_view_load_memory(view: Rid, data: string | null, password: string | null): number {
+	const data_ = _s(data);
+	return _lib.Rpdf_view_load_memory(view, data_, data_ === null ? 0 : data_.length - 1, _s(password));
+}
+
+/** Closes the document: the view is empty. */
+export function Rpdf_view_close(view: Rid): void {
+	_lib.Rpdf_view_close(view);
+}
+
+export function Rpdf_view_get_status(view: Rid): RPdfStatus {
+	return _lib.Rpdf_view_get_status(view) as RPdfStatus;
+}
+
+export function Rpdf_view_get_page_count(view: Rid): number {
+	return _lib.Rpdf_view_get_page_count(view);
+}
+
+/** Size of a page in points (1/72 inch), as it is shown (its rotation applied). */
+export function Rpdf_view_get_page_size(view: Rid, page: number): [width: number, height: number] {
+	const width_ = new Float32Array(1);
+	const height_ = new Float32Array(1);
+	_lib.Rpdf_view_get_page_size(view, page, width_, height_);
+	return [width_[0]!, height_[0]!];
+}
+
+/** Scrolls to the top of a page; it becomes the current page. */
+export function Rpdf_view_set_page(view: Rid, page: number): void {
+	_lib.Rpdf_view_set_page(view, page);
+}
+
+/** The current page: the one a third down the view. */
+export function Rpdf_view_get_page(view: Rid): number {
+	return _lib.Rpdf_view_get_page(view);
+}
+
+/** A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. */
+export function Rpdf_view_set_zoom(view: Rid, zoom: number): void {
+	_lib.Rpdf_view_set_zoom(view, zoom);
+}
+
+/** The zoom the pages show at, the one a fit gives included. */
+export function Rpdf_view_get_zoom(view: Rid): number {
+	return _lib.Rpdf_view_get_zoom(view);
+}
+
+export function Rpdf_view_set_fit(view: Rid, fit: RPdfFit): void {
+	_lib.Rpdf_view_set_fit(view, fit);
+}
+
+export function Rpdf_view_get_fit(view: Rid): RPdfFit {
+	return _lib.Rpdf_view_get_fit(view) as RPdfFit;
+}
+
+/** The title of the document (its information), "" when it has none. */
+export function Rpdf_view_get_title(view: Rid): string | null {
+	return _lib.Rpdf_view_get_title(view);
+}
+
+/**
+ * The text of a page (UTF-8), to search it or copy it. Valid until
+ * the next call for this view.
+ */
+export function Rpdf_view_get_page_text(view: Rid, page: number): string | null {
+	return _lib.Rpdf_view_get_page_text(view, page);
+}
+
+export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rpdf_view_set_page_changed_callback(view, _adapt_RPdfPageChangedCallback(callback), user_data);
+}
+
+/** Prints the document shown (see Rpdf_print); the job is named after its title. */
+export function Rpdf_view_print(view: Rid, desc: RPdfPrintDesc | null): number {
+	return _lib.Rpdf_view_print(view, _p(desc));
+}
+
+export function Rpdf_document_create(): Rid {
+	return _lib.Rpdf_document_create();
+}
+
+export function Rpdf_document_delete(document: Rid): void {
+	_lib.Rpdf_document_delete(document);
+}
+
+/** The information of the document, shown by readers (the title in their window). */
+export function Rpdf_document_set_title(document: Rid, title: string | null): void {
+	_lib.Rpdf_document_set_title(document, _s(title));
+}
+
+export function Rpdf_document_set_author(document: Rid, author: string | null): void {
+	_lib.Rpdf_document_set_author(document, _s(author));
+}
+
+export function Rpdf_document_set_subject(document: Rid, subject: string | null): void {
+	_lib.Rpdf_document_set_subject(document, _s(subject));
+}
+
+/** Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. */
+export function Rpdf_document_add_page(document: Rid, width: number, height: number): number {
+	return _lib.Rpdf_document_add_page(document, width, height);
+}
+
+export function Rpdf_document_get_page_count(document: Rid): number {
+	return _lib.Rpdf_document_get_page_count(document);
+}
+
+export function Rpdf_document_set_fill_color(document: Rid, r: number, g: number, b: number, a: number): void {
+	_lib.Rpdf_document_set_fill_color(document, r, g, b, a);
+}
+
+export function Rpdf_document_set_stroke_color(document: Rid, r: number, g: number, b: number, a: number): void {
+	_lib.Rpdf_document_set_stroke_color(document, r, g, b, a);
+}
+
+/** Width of the lines and outlines, in points (default 1). */
+export function Rpdf_document_set_line_width(document: Rid, width: number): void {
+	_lib.Rpdf_document_set_line_width(document, width);
+}
+
+/** A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. */
+export function Rpdf_document_draw_rect(document: Rid, x: number, y: number, width: number, height: number, radius: number, paint: number): void {
+	_lib.Rpdf_document_draw_rect(document, x, y, width, height, radius, paint);
+}
+
+/** The ellipse inside a rectangle. */
+export function Rpdf_document_draw_ellipse(document: Rid, x: number, y: number, width: number, height: number, paint: number): void {
+	_lib.Rpdf_document_draw_ellipse(document, x, y, width, height, paint);
+}
+
+/** A line in the stroke color. */
+export function Rpdf_document_draw_line(document: Rid, x1: number, y1: number, x2: number, y2: number): void {
+	_lib.Rpdf_document_draw_line(document, x1, y1, x2, y2);
+}
+
+/**
+ * Adds a TrueType font (.ttf) to the document (the data is
+ * copied, and embedded in the file). Returns its number for
+ * Rpdf_document_set_font, -1 when it is not a TrueType font.
+ */
+export function Rpdf_document_add_font(document: Rid, data: string | null): number {
+	const data_ = _s(data);
+	return _lib.Rpdf_document_add_font(document, data_, data_ === null ? 0 : data_.length - 1);
+}
+
+export function Rpdf_document_add_font_from_file(document: Rid, path: string | null): number {
+	return _lib.Rpdf_document_add_font_from_file(document, _s(path));
+}
+
+/** The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. */
+export function Rpdf_document_set_font(document: Rid, font: number, size: number, style: number): void {
+	_lib.Rpdf_document_set_font(document, font, size, style);
+}
+
+/** Distance between two lines of text in the current font. */
+export function Rpdf_document_get_line_height(document: Rid): number {
+	return _lib.Rpdf_document_get_line_height(document);
+}
+
+/** Width of a text in the current font, in points (of its widest line). */
+export function Rpdf_document_measure_text(document: Rid, text: string | null): number {
+	return _lib.Rpdf_document_measure_text(document, _s(text));
+}
+
+/**
+ * Text in the fill color, the top of its first line at y ('\n'
+ * starts a line below). Returns its width.
+ */
+export function Rpdf_document_draw_text(document: Rid, x: number, y: number, text: string | null): number {
+	return _lib.Rpdf_document_draw_text(document, x, y, _s(text));
+}
+
+/**
+ * Text wrapped at the spaces to fit `width`, each line placed by
+ * `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+ * height it took.
+ */
+export function Rpdf_document_draw_paragraph(document: Rid, x: number, y: number, width: number, text: string | null, align: RHAlign): number {
+	return _lib.Rpdf_document_draw_paragraph(document, x, y, width, _s(text), align);
+}
+
+/**
+ * A picture of RGBA8 pixels stretched over a rectangle. A width or
+ * height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+ */
+export function Rpdf_document_draw_image(document: Rid, x: number, y: number, width: number, height: number, rgba: RPointer, pixels_width: number, pixels_height: number): void {
+	_lib.Rpdf_document_draw_image(document, x, y, width, height, rgba, pixels_width, pixels_height);
+}
+
+/**
+ * What a window shows (Rwindow_capture), as a picture: a report of
+ * the screen, a chart. A width and height of 0: the size it has on the
+ * screen. Returns R_FALSE when the window cannot be captured.
+ */
+export function Rpdf_document_draw_window(document: Rid, window: Rid, x: number, y: number, width: number, height: number): number {
+	return _lib.Rpdf_document_draw_window(document, window, x, y, width, height);
+}
+
+/** Writes the file. Returns R_FALSE when it cannot be written. */
+export function Rpdf_document_save(document: Rid, path: string | null): number {
+	return _lib.Rpdf_document_save(document, _s(path));
+}
+
+/** The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. */
+export function Rpdf_document_save_memory(document: Rid): Uint8Array | null {
+	const size_ = new BigUint64Array(1);
+	const address = _lib.Rpdf_document_save_memory(document, size_) as Pointer | null;
+	if (!address) {
+		return null;
+	}
+	const size = Number(size_[0]!);
+	const data = size > 0 ? new Uint8Array(_toArrayBuffer(address, 0, size).slice(0)) : new Uint8Array(0);
+	_lib.Rmemory_free(address);
+	return data;
+}
+
+/**
+ * Prints a PDF document with the print system: on macOS the print
+ * panel, on Windows the print dialog (the pages are drawn by PDFium, see
+ * PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+ * dialog of Raven that chooses the printer. It waits until the job is
+ * sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+ * cannot print. Not in the browser.
+ */
+export function Rpdf_print(desc: RPdfPrintDesc | null, data: string | null): number {
+	const data_ = _s(data);
+	return _lib.Rpdf_print(_p(desc), data_, data_ === null ? 0 : data_.length - 1);
+}
+
+export function Rpdf_print_file(desc: RPdfPrintDesc | null, path: string | null): number {
+	return _lib.Rpdf_print_file(_p(desc), _s(path));
+}
+
+/** Prints a document written by the application. */
+export function Rpdf_document_print(document: Rid, desc: RPdfPrintDesc | null): number {
+	return _lib.Rpdf_document_print(document, _p(desc));
 }
 
 /** text Initial content, or NULL. */

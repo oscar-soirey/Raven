@@ -79,6 +79,80 @@ typedef enum RPlotAxis{
 	R_PLOT_Y2
 }RPlotAxis;
 
+/** How a PdfView sizes its pages. */
+typedef enum RPdfFit{
+	/** The widest page fills the width of the view (default). */
+	R_PDF_FIT_WIDTH = 0x05C0,
+	/** The largest page fits whole in the view. */
+	R_PDF_FIT_PAGE,
+	/** The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. */
+	R_PDF_FIT_NONE
+}RPdfFit;
+
+/** What a PdfView holds. */
+typedef enum RPdfStatus{
+	/** No document. */
+	R_PDF_EMPTY = 0x05D0,
+	/** A document is shown. */
+	R_PDF_LOADED,
+	/** The document needs a password, or the one given is wrong: load it again with one. */
+	R_PDF_NEEDS_PASSWORD,
+	/** The file could not be read, or is not a PDF document. */
+	R_PDF_ERROR,
+	/** The PDFium library was not found (see Rpdf_is_available). */
+	R_PDF_UNAVAILABLE
+}RPdfStatus;
+
+/** The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). */
+typedef enum RPdfFont{
+	/** Roboto, the font of the interface of Raven. */
+	R_PDF_FONT_SANS = 0,
+	/** Roboto Mono. */
+	R_PDF_FONT_MONO = 1
+}RPdfFont;
+
+/** How a shape of a PDF document is painted: a bitmask. */
+typedef enum RPdfPaint{
+	/** Filled with the fill color. */
+	R_PDF_FILL   = (1 << 0),
+	/** Outlined with the stroke color and the line width. */
+	R_PDF_STROKE = (1 << 1)
+}RPdfPaint;
+
+/** A bitmask of styles of the text of a PDF document. */
+typedef enum RPdfTextStyle{
+	R_PDF_TEXT_BOLD      = (1 << 0),
+	R_PDF_TEXT_ITALIC    = (1 << 1),
+	R_PDF_TEXT_UNDERLINE = (1 << 2)
+}RPdfTextStyle;
+
+typedef enum RPdfPrintFlags{
+	/** No dialog: printed at once on the printer named, else the default one. */
+	R_PDF_PRINT_NO_DIALOG = (1 << 0)
+}RPdfPrintFlags;
+
+/** How a PDF document is printed. Every field may be left to zero. */
+typedef struct RPdfPrintDesc {
+	/** Window the print dialog belongs to (0 or R_INVALID_ID: none). */
+	Rid window;
+	/** Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. */
+	const char* title;
+	/** Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. */
+	const char* printer;
+	/** Copies to print (0: one); the dialog may change it. */
+	int copies;
+	/** Bitmask of RPdfPrintFlags. */
+	Ruint flags;
+	/**
+	 * Path of a file the job is written to instead of a printer. macOS: a
+	 * PDF made by the print system; Windows: what the driver of the printer
+	 * makes; elsewhere: the document itself.
+	 */
+	const char* output;
+	/** Password of a document protected by one. */
+	const char* password;
+} RPdfPrintDesc;
+
 /** How an axis of a Plot spreads its values. */
 typedef enum RPlotScale{
 	R_PLOT_SCALE_LINEAR = 0x0530,
@@ -289,6 +363,12 @@ extern "C" {
 	/** @brief Maximum number of characters. 0 = no limit (default). */
 	RAVEN_API void Rtext_input_set_max_length(Rid text_input, int max_length);
 	RAVEN_API void Rtext_input_select_all(Rid text_input);
+	/** @brief What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT. */
+	RAVEN_API void Rtext_input_set_input_type(Rid text_input, RTextInputType type);
+	RAVEN_API RTextInputType Rtext_input_get_input_type(Rid text_input);
+	/** @brief The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT. */
+	RAVEN_API void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
+	RAVEN_API RReturnKey Rtext_input_get_return_key(Rid text_input);
 	typedef void (*RTextChangedCallback)(Rid text_input, const char* text, void* user_data);
 	/** @brief Called on every edit. */
 	RAVEN_API void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
@@ -297,7 +377,7 @@ extern "C" {
 
 
 	/* ============================================================================
-	 *  SPIN BOX (numeric input: drag to scrub, click to type, arrows / wheel to step)
+	 *  SPIN BOX (numeric input: drag to scrub, click to type, arrows / wheel / step buttons to step)
 	 * ============================================================================ */
 
 	RAVEN_API void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
@@ -308,6 +388,15 @@ extern "C" {
 	RAVEN_API void Rspin_box_set_step(Rid spin_box, double step);
 	/** @brief Digits shown after the decimal point. Default: 2. */
 	RAVEN_API void Rspin_box_set_decimals(Rid spin_box, int decimals);
+	/**
+	 * @brief Step buttons in the looks of Raven too: a down button at the left
+	 * end and an up button at the right end, the value between them (XML
+	 * `Buttons="True"`). A click steps once; holding a button repeats its step.
+	 * The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+	 * Default: R_FALSE (drag to scrub, arrows / wheel to step).
+	 */
+	RAVEN_API void Rspin_box_set_buttons(Rid spin_box, int buttons);
+	RAVEN_API int Rspin_box_get_buttons(Rid spin_box);
 	typedef void (*RSpinBoxChangedCallback)(Rid spin_box, double value, void* user_data);
 	RAVEN_API void Rspin_box_set_changed_callback(Rid spin_box, RSpinBoxChangedCallback callback, void* user_data);
 
@@ -952,6 +1041,172 @@ extern "C" {
 	/** @brief Called when the user hides or shows a series from the legend. */
 	typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
 	RAVEN_API void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  PDF VIEW (the pages of a PDF document, scrolled and zoomed)
+	 *
+	 * The pages are drawn by PDFium, the PDF library of Chromium (BSD-3 /
+	 * Apache-2.0), opened at run time when the first document is loaded: it
+	 * is not needed to build Raven. It is looked for at the path in the
+	 * environment variable RAVEN_PDFIUM, else next to the executable, else
+	 * where the system finds libraries: pdfium.dll (Windows),
+	 * libpdfium.dylib (macOS), libpdfium.so (Linux). Builds of it for every
+	 * system: https://github.com/bblanchon/pdfium-binaries. Without it the
+	 * view says that it cannot show the pages. Not in the browser backend.
+	 *
+	 * The pages show one under the other; the wheel and the keys scroll,
+	 * Ctrl + wheel, Ctrl + = and Ctrl + - zoom (Ctrl + 0: fit the width),
+	 * the pages can be dragged with the mouse and pinched with fingers.
+	 * Pages are counted from 0. Sizes are in points (1/72 inch); at a zoom of
+	 * 1, a page shows at its printed size (96 logical units per inch).
+	 *
+	 * XML: <PdfView Source="report.pdf" Fit="Width|Page|None" Zoom="1.5"
+	 * Page="1" Password="..."/> (Page counted from 1 there, as it is shown).
+	 * ============================================================================ */
+
+	/** @brief R_TRUE when PDFium can be loaded (it is, the first time this is asked). */
+	RAVEN_API int Rpdf_is_available(void);
+	/**
+	 * @brief Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+	 * cannot: Rpdf_view_get_status tells why (a password is needed, not a
+	 * PDF, no PDFium). The view then shows that instead of pages.
+	 */
+	RAVEN_API int Rpdf_view_load_file(Rid view, const char* path, const char* password);
+	/** @brief Same as Rpdf_view_load_file, from bytes in memory (copied). */
+	RAVEN_API int Rpdf_view_load_memory(Rid view, const char* data, size_t data_size, const char* password);
+	/** @brief Closes the document: the view is empty. */
+	RAVEN_API void Rpdf_view_close(Rid view);
+	RAVEN_API RPdfStatus Rpdf_view_get_status(Rid view);
+	RAVEN_API int Rpdf_view_get_page_count(Rid view);
+	/** @brief Size of a page in points (1/72 inch), as it is shown (its rotation applied). */
+	RAVEN_API void Rpdf_view_get_page_size(Rid view, int page, float* width, float* height);
+	/** @brief Scrolls to the top of a page; it becomes the current page. */
+	RAVEN_API void Rpdf_view_set_page(Rid view, int page);
+	/** @brief The current page: the one a third down the view. */
+	RAVEN_API int Rpdf_view_get_page(Rid view);
+	/** @brief A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. */
+	RAVEN_API void Rpdf_view_set_zoom(Rid view, float zoom);
+	/** @brief The zoom the pages show at, the one a fit gives included. */
+	RAVEN_API float Rpdf_view_get_zoom(Rid view);
+	RAVEN_API void Rpdf_view_set_fit(Rid view, RPdfFit fit);
+	RAVEN_API RPdfFit Rpdf_view_get_fit(Rid view);
+	/** @brief The title of the document (its information), "" when it has none. */
+	RAVEN_API const char* Rpdf_view_get_title(Rid view);
+	/**
+	 * @brief The text of a page (UTF-8), to search it or copy it. Valid until
+	 * the next call for this view.
+	 */
+	RAVEN_API const char* Rpdf_view_get_page_text(Rid view, int page);
+	/** @brief Called when the current page changes as the user scrolls. This also fires the action of the widget. */
+	typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+	RAVEN_API void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+	/** @brief Prints the document shown (see Rpdf_print); the job is named after its title. */
+	RAVEN_API int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+
+
+	/* ============================================================================
+	 *  PDF DOCUMENTS (written by the application: reports, invoices, tickets...)
+	 *
+	 * A document is a list of pages, each drawn with text, shapes and
+	 * pictures, then saved to a file or to memory: Rpdf_view_load_memory
+	 * shows it, Rpdf_document_print prints it. Nothing outside Raven is needed
+	 * (PDFium only shows and prints documents).
+	 *
+	 * Sizes and positions are in points (1/72 inch) from the top left corner
+	 * of the page, y going down. A4 is 595.28 x 841.89 points, US Letter 612 x
+	 * 792. Drawing goes to the last page added (an A4 page is added when
+	 * there is none). Colors are r, g, b, a from 0 to 1.
+	 *
+	 * The text is set in a font embedded in the file: Roboto (R_PDF_FONT_SANS)
+	 * and Roboto Mono (R_PDF_FONT_MONO) as Raven has them (the Latin letters
+	 * with their accents, punctuation, the euro sign), or a TrueType font
+	 * added with Rpdf_document_add_font for other scripts; a character the
+	 * font lacks shows as an empty box. The text of the file can be searched
+	 * and copied.
+	 *
+	 *   Rid doc = Rpdf_document_create();
+	 *   Rpdf_document_add_page(doc, 595.28f, 841.89f);
+	 *   Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 24, R_PDF_TEXT_BOLD);
+	 *   Rpdf_document_draw_text(doc, 56, 56, "Invoice 2026-114");
+	 *   Rpdf_document_save(doc, "invoice.pdf");
+	 *   Rpdf_document_delete(doc);
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rpdf_document_create(void);
+	RAVEN_API void Rpdf_document_delete(Rid document);
+	/** @brief The information of the document, shown by readers (the title in their window). */
+	RAVEN_API void Rpdf_document_set_title(Rid document, const char* title);
+	RAVEN_API void Rpdf_document_set_author(Rid document, const char* author);
+	RAVEN_API void Rpdf_document_set_subject(Rid document, const char* subject);
+	/** @brief Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. */
+	RAVEN_API int Rpdf_document_add_page(Rid document, float width, float height);
+	RAVEN_API int Rpdf_document_get_page_count(Rid document);
+
+	RAVEN_API void Rpdf_document_set_fill_color(Rid document, float r, float g, float b, float a);
+	RAVEN_API void Rpdf_document_set_stroke_color(Rid document, float r, float g, float b, float a);
+	/** @brief Width of the lines and outlines, in points (default 1). */
+	RAVEN_API void Rpdf_document_set_line_width(Rid document, float width);
+	/** @brief A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. */
+	RAVEN_API void Rpdf_document_draw_rect(Rid document, float x, float y, float width, float height, float radius, Ruint paint);
+	/** @brief The ellipse inside a rectangle. */
+	RAVEN_API void Rpdf_document_draw_ellipse(Rid document, float x, float y, float width, float height, Ruint paint);
+	/** @brief A line in the stroke color. */
+	RAVEN_API void Rpdf_document_draw_line(Rid document, float x1, float y1, float x2, float y2);
+
+	/**
+	 * @brief Adds a TrueType font (.ttf) to the document (the data is
+	 * copied, and embedded in the file). Returns its number for
+	 * Rpdf_document_set_font, -1 when it is not a TrueType font.
+	 */
+	RAVEN_API int Rpdf_document_add_font(Rid document, const char* data, size_t data_size);
+	RAVEN_API int Rpdf_document_add_font_from_file(Rid document, const char* path);
+	/** @brief The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. */
+	RAVEN_API void Rpdf_document_set_font(Rid document, int font, float size, Ruint style);
+	/** @brief Distance between two lines of text in the current font. */
+	RAVEN_API float Rpdf_document_get_line_height(Rid document);
+	/** @brief Width of a text in the current font, in points (of its widest line). */
+	RAVEN_API float Rpdf_document_measure_text(Rid document, const char* text);
+	/**
+	 * @brief Text in the fill color, the top of its first line at y ('\n'
+	 * starts a line below). Returns its width.
+	 */
+	RAVEN_API float Rpdf_document_draw_text(Rid document, float x, float y, const char* text);
+	/**
+	 * @brief Text wrapped at the spaces to fit `width`, each line placed by
+	 * `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+	 * height it took.
+	 */
+	RAVEN_API float Rpdf_document_draw_paragraph(Rid document, float x, float y, float width, const char* text, RHAlign align);
+	/**
+	 * @brief A picture of RGBA8 pixels stretched over a rectangle. A width or
+	 * height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+	 */
+	RAVEN_API void Rpdf_document_draw_image(Rid document, float x, float y, float width, float height, const uint8_t* rgba, int pixels_width, int pixels_height);
+	/**
+	 * @brief What a window shows (Rwindow_capture), as a picture: a report of
+	 * the screen, a chart. A width and height of 0: the size it has on the
+	 * screen. Returns R_FALSE when the window cannot be captured.
+	 */
+	RAVEN_API int Rpdf_document_draw_window(Rid document, Rid window, float x, float y, float width, float height);
+
+	/** @brief Writes the file. Returns R_FALSE when it cannot be written. */
+	RAVEN_API int Rpdf_document_save(Rid document, const char* path);
+	/** @brief The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. */
+	RAVEN_API char* Rpdf_document_save_memory(Rid document, size_t* size);
+
+	/**
+	 * @brief Prints a PDF document with the print system: on macOS the print
+	 * panel, on Windows the print dialog (the pages are drawn by PDFium, see
+	 * PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+	 * dialog of Raven that chooses the printer. It waits until the job is
+	 * sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+	 * cannot print. Not in the browser.
+	 */
+	RAVEN_API int Rpdf_print(const RPdfPrintDesc* desc, const char* data, size_t data_size);
+	RAVEN_API int Rpdf_print_file(const RPdfPrintDesc* desc, const char* path);
+	/** @brief Prints a document written by the application. */
+	RAVEN_API int Rpdf_document_print(Rid document, const RPdfPrintDesc* desc);
 
 #ifdef __cplusplus
 } /* extern "C" */

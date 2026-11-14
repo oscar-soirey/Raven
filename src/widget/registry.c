@@ -58,7 +58,8 @@ static const rvn_widget_class_t* const g_classes[] = {
 	&rvn_class_breadcrumb,
 	&rvn_class_rating,
 	&rvn_class_pagination,
-	&rvn_class_plot
+	&rvn_class_plot,
+	&rvn_class_pdf_view
 };
 
 /** Other tags accepted in XML, for people coming from Slate / UMG. */
@@ -87,7 +88,9 @@ static const struct { const char* alias; RWidgetType type; } g_aliases[] = {
 	{ "Snackbar", R_WIDGET_TOAST },
 	{ "Chart", R_WIDGET_PLOT },
 	{ "LinePlot", R_WIDGET_PLOT },
-	{ "XYPlot", R_WIDGET_PLOT }
+	{ "XYPlot", R_WIDGET_PLOT },
+	{ "PdfViewer", R_WIDGET_PDF_VIEW },
+	{ "PDFView", R_WIDGET_PDF_VIEW }
 };
 
 const rvn_widget_class_t* rvn_widget_class_by_type(RWidgetType type) {

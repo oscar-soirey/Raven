@@ -110,6 +110,30 @@ Window_System :: enum i32 {
 	Wayland = 0x0093,
 	Cocoa = 0x0094,
 	Emscripten = 0x0095,
+	Android = 0x0096,
+	Uikit = 0x0097,
+}
+
+// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+Text_Input_Type :: enum i32 {
+	Text = 0x0B60,
+	Email = 0x0B61,
+	Number = 0x0B62,
+	// Digits and a decimal separator.
+	Decimal = 0x0B63,
+	Phone = 0x0B64,
+	Url = 0x0B65,
+	Search = 0x0B66,
+}
+
+// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+Return_Key :: enum i32 {
+	Default = 0x0B70,
+	Done = 0x0B71,
+	Go = 0x0B72,
+	Next = 0x0B73,
+	Search = 0x0B74,
+	Send = 0x0B75,
 }
 
 // Edges and corners of a window, for Rwindow_begin_resize.
@@ -656,6 +680,8 @@ Widget_Type :: enum i32 {
 	Pagination = 0x0231,
 	// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
 	Plot = 0x0232,
+	// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+	Pdf_View = 0x0233,
 }
 
 H_Align :: enum i32 {
@@ -802,6 +828,61 @@ Plot_Axis :: enum i32 {
 	// A second vertical axis, on the right: shown when a series or a drag line uses it.
 	Y2 = 0x0523,
 }
+
+// How a PdfView sizes its pages.
+Pdf_Fit :: enum i32 {
+	// The widest page fills the width of the view (default).
+	Width = 0x05C0,
+	// The largest page fits whole in the view.
+	Page = 0x05C1,
+	// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+	None = 0x05C2,
+}
+
+// What a PdfView holds.
+Pdf_Status :: enum i32 {
+	// No document.
+	Empty = 0x05D0,
+	// A document is shown.
+	Loaded = 0x05D1,
+	// The document needs a password, or the one given is wrong: load it again with one.
+	Needs_Password = 0x05D2,
+	// The file could not be read, or is not a PDF document.
+	Error = 0x05D3,
+	// The PDFium library was not found (see Rpdf_is_available).
+	Unavailable = 0x05D4,
+}
+
+// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+Pdf_Font :: enum i32 {
+	// Roboto, the font of the interface of Raven.
+	Sans = 0,
+	// Roboto Mono.
+	Mono = 1,
+}
+
+// How a shape of a PDF document is painted: a bitmask.
+Pdf_Paint :: enum u32 {
+	// Filled with the fill color.
+	Fill = 0,
+	// Outlined with the stroke color and the line width.
+	Stroke = 1,
+}
+Pdf_Paints :: bit_set[Pdf_Paint; u32]
+
+// A bitmask of styles of the text of a PDF document.
+Pdf_Text_Style :: enum u32 {
+	Bold = 0,
+	Italic = 1,
+	Underline = 2,
+}
+Pdf_Text_Styles :: bit_set[Pdf_Text_Style; u32]
+
+Pdf_Print_Flag :: enum u32 {
+	// No dialog: printed at once on the printer named, else the default one.
+	Dialog = 0,
+}
+Pdf_Print_Flags :: bit_set[Pdf_Print_Flag; u32]
 
 // How an axis of a Plot spreads its values.
 Plot_Scale :: enum i32 {

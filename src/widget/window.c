@@ -726,19 +726,55 @@ void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree) {
  *  Layout
  * ------------------------------------------------------------------------- */
 
+/* Reads the safe area of the platform (pixels) into the window (logical units); R_TRUE when it changed. */
+static int rvn_window_update_safe_area(rvn_window_t* window) {
+	float pixels[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float scale = window->scale > 0.0f ? window->scale : 1.0f;
+	int i, changed = R_FALSE;
+	if (window->platform && g_rvn.platform->window_get_safe_area) g_rvn.platform->window_get_safe_area(window->platform, pixels);
+	for (i = 0; i < 4; i++) {
+		float value = rvn_maxf(pixels[i], 0.0f) / scale;
+		if (value != window->safe_area[i]) {
+			window->safe_area[i] = value;
+			changed = R_TRUE;
+		}
+	}
+	return changed;
+}
+
+/* Reads the height of the on-screen keyboard; tells the application when it changed. */
+static void rvn_window_update_keyboard(rvn_window_t* window) {
+	float scale = window->scale > 0.0f ? window->scale : 1.0f;
+	float height = 0.0f;
+	if (window->platform && g_rvn.platform->window_get_keyboard_height)
+		height = rvn_maxf(g_rvn.platform->window_get_keyboard_height(window->platform), 0.0f) / scale;
+	if (height == window->keyboard_height) return;
+	window->keyboard_height = height;
+	window->needs_layout = R_TRUE;
+	window->needs_paint = R_TRUE;
+	if (window->keyboard_callback) window->keyboard_callback(window->id, height > 0.0f, height, window->keyboard_user);
+}
+
 void rvn_window_layout(rvn_window_t* window) {
 	double start = rvn_clock_seconds();
 	rvn_vec2_t size = rvn_window_size(window);
 	int pass;
 	uint32_t i;
 
+	rvn_window_update_safe_area(window);
+
 	/* a second pass is needed when the arrangement changes a desired size (wrapped text) */
 	for (pass = 0; pass < 4 && window->needs_layout; pass++) {
 		window->needs_layout = R_FALSE;
 		if (window->root) {
 			rvn_widget_measure(window->root);
-			/* the content obeys its slot like any child: padding and alignment in the window */
-			rvn_widget_arrange_slot(window->root, rvn_rect(0.0f, 0.0f, size.x, size.y));
+			/* the content obeys its slot like any child: padding and alignment in the window,
+			 * inside the safe area (mobile: status bar, notch, home indicator; 0 on desktop) */
+			const float* safe = window->safe_area;
+			/* (the on-screen keyboard covers the bottom: the content goes above it) */
+			float bottom = rvn_maxf(safe[2], window->keyboard_height);
+			rvn_widget_arrange_slot(window->root, rvn_rect(safe[3], safe[0],
+				rvn_maxf(size.x - safe[1] - safe[3], 0.0f), rvn_maxf(size.y - safe[0] - bottom, 0.0f)));
 		}
 		if (window->island && !window->notch_overlay) {
 			/* at the top, in the middle, at its own size (in an overlay of the camera housing: against the top of the screen) */
@@ -803,6 +839,15 @@ static void rvn_window_remove_ghost(rvn_window_t* window, uint32_t index) {
 	}
 	/* a popup that is not part of the tree leaves the window, unless it was opened again meanwhile */
 	if (!root->parent && !(root->flags & RVN_WF_POPUP) && root->window == window) rvn_widget_set_window(root, NULL);
+}
+
+int rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root) {
+	uint32_t i;
+	if (!window || !root) return R_FALSE;
+	for (i = 0; i < window->ghost_count; i++) {
+		if (window->ghosts[i].root == root) return R_TRUE;
+	}
+	return R_FALSE;
 }
 
 static void rvn_window_forget_ghost(rvn_window_t* window, const rvn_widget_t* root) {
@@ -1834,6 +1879,13 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		rvn_dispatch_end();
 		return;
 	}
+	/* the system switched between dark and light: no window needed */
+	if (pevent->type == RVN_PEVENT_APPEARANCE) {
+		rvn_dispatch_begin();
+		rvn_theme_follow_system_apply();
+		rvn_dispatch_end();
+		return;
+	}
 	/* the menus of the system and the requests to quit do not need a window */
 	if (pevent->type == RVN_PEVENT_COMMAND || pevent->type == RVN_PEVENT_QUIT) {
 		if (g_rvn.input_blocked > 0) return;
@@ -1875,6 +1927,13 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			break;
 		case RVN_PEVENT_EXPOSE:
 			window->needs_paint = R_TRUE;
+			break;
+		case RVN_PEVENT_INSETS:
+			if (rvn_window_update_safe_area(window)) {
+				window->needs_layout = R_TRUE;
+				window->needs_paint = R_TRUE;
+			}
+			if (!window->dead) rvn_window_update_keyboard(window);
 			break;
 		case RVN_PEVENT_MOUSE_MOVE:
 			window->modifiers = pevent->modifiers;
@@ -1950,6 +2009,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		case RVN_PEVENT_COMMAND:
 		case RVN_PEVENT_QUIT:
 		case RVN_PEVENT_TRAY:
+		case RVN_PEVENT_APPEARANCE:
 			break;
 	}
 	rvn_dispatch_end();
@@ -2473,6 +2533,40 @@ void Rwindow_get_size(Rid id, int* width, int* height) {
 	size = rvn_window_size(window);
 	if (width) *width = (int)(size.x + 0.5f);
 	if (height) *height = (int)(size.y + 0.5f);
+}
+
+void Rwindow_get_safe_area(Rid id, RInsets* insets) {
+	rvn_window_t* window;
+	if (!insets) return;
+	memset(insets, 0, sizeof(*insets));
+	window = rvn_window_check(id, __func__);
+	if (!window) return;
+	insets->top = window->safe_area[0];
+	insets->right = window->safe_area[1];
+	insets->bottom = window->safe_area[2];
+	insets->left = window->safe_area[3];
+}
+
+void Rwindow_get_keyboard_area(Rid id, RInsets* insets) {
+	rvn_window_t* window;
+	if (!insets) return;
+	memset(insets, 0, sizeof(*insets));
+	window = rvn_window_check(id, __func__);
+	if (!window) return;
+	insets->bottom = window->keyboard_height;
+}
+
+void Rwindow_set_keyboard_callback(Rid id, RKeyboardCallback callback, void* user_data) {
+	rvn_window_t* window = rvn_window_check(id, __func__);
+	if (!window) return;
+	window->keyboard_callback = callback;
+	window->keyboard_user = user_data;
+}
+
+void Rwindow_clear_focus(Rid id) {
+	rvn_window_t* window = rvn_window_check(id, __func__);
+	if (!window) return;
+	rvn_window_set_focus(window, NULL);
 }
 
 void Rwindow_set_min_size(Rid id, int width, int height) {

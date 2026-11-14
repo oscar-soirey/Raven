@@ -78,6 +78,9 @@ static void rvn_dialog_wait_closed(Rid content, int result, void* user_data) {
 	wait->result = result;
 }
 
+/* The longest a function that waits lets its answered dialog leave before it returns. */
+#define RVN_DIALOG_LEAVE_SECONDS 0.6
+
 /* One frame of the application, from inside a function that waits. */
 static void rvn_dialog_frame(double timeout) {
 	Rwait_events(timeout);
@@ -85,7 +88,7 @@ static void rvn_dialog_frame(double timeout) {
 }
 
 /* Shows a dialog and runs the application until it closes. */
-static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
+int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 	rvn_dialog_wait_t wait;
 	Rid window_id = window->id, content_id = content->id;
 	/* (called from a timer or a task, the frames must still run) */
@@ -103,6 +106,22 @@ static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 	}
 	g_rvn.in_update = R_FALSE;
 	while (!wait.done && Ris_running() && rvn_window_get(window_id)) rvn_dialog_frame(-1.0);
+	/*
+	 * Answered: the function returns once the dialog is off the screen. What
+	 * the caller does next is often slow work before the next frame (a device
+	 * to open...); with the dialog still leaving, it would stay frozen half
+	 * faded, then crawl out a frame at a time (a frame after a pause moves the
+	 * animations by 1/30 s at most).
+	 */
+	if (wait.done) {
+		double until = rvn_clock_seconds() + RVN_DIALOG_LEAVE_SECONDS;
+		while (Ris_running() && rvn_clock_seconds() < until) {
+			rvn_window_t* shown = rvn_window_get(window_id);
+			if (!shown || !rvn_window_is_leaving(shown, rvn_widget_get(content_id))) break;
+			Rwindow_request_redraw(window_id);
+			rvn_dialog_frame(1.0 / 120.0);
+		}
+	}
 	g_rvn.in_update = in_update;
 	if (!wait.done) {
 		/* the application is quitting: nothing may keep a pointer to this stack */
@@ -113,7 +132,7 @@ static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 }
 
 /* A window to show a dialog in: the one given, else any, else a new one (*created). */
-static rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created) {
+rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created) {
 	rvn_window_t* window = rvn_window_get(id);
 	uint32_t i;
 	*created = R_FALSE;

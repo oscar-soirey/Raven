@@ -92,6 +92,8 @@ static const char* const g_vk_surface_extensions[] = {
 #elif defined(__APPLE__)
 	"VK_EXT_metal_surface",
 	"VK_KHR_portability_enumeration",
+#elif defined(__ANDROID__)
+	"VK_KHR_android_surface",
 #else
 	"VK_KHR_xlib_surface",
 	"VK_KHR_xcb_surface",

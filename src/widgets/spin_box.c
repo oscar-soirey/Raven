@@ -1,13 +1,19 @@
 /**
  * Raven - widgets/spin_box.c
  * SpinBox (Slate SSpinBox): numeric field. Drag it sideways to scrub the
- * value, click it to type, use the arrow keys or the wheel to step.
+ * value, click it to type, use the arrow keys or the wheel to step. With
+ * Buttons, the looks of Raven also draw a step-down button at the left and a
+ * step-up one at the right (the platforms always have theirs); holding a
+ * button repeats its step.
  */
 
 #include "common.h"
 
 #define RVN_SPIN_DRAG_THRESHOLD 3.0f
 #define RVN_SPIN_PIXELS_PER_STEP 4.0f
+/* holding a button: the first repeat after this long, then one step per tick */
+#define RVN_SPIN_REPEAT_DELAY 0.4
+#define RVN_SPIN_REPEAT_INTERVAL 0.05
 
 typedef struct rvn_spin_box_t {
 	rvn_widget_t base;
@@ -23,8 +29,14 @@ typedef struct rvn_spin_box_t {
 	float wheel_rest;
 	float press_x;
 	double press_value;
-	/* Windows: the button under the pointer (+1 up, -1 down, 0 none) */
+	/* the button under the pointer (+1 up, -1 down, 0 none) */
 	int hot;
+	/** Rspin_box_set_buttons: the looks of Raven draw step buttons too. */
+	int buttons;
+	/* the button held down (+1 / -1, 0 none), since when, and the timer repeating its step */
+	int held;
+	double held_since;
+	Rid repeat_timer;
 	RSpinBoxChangedCallback callback;
 	void* user_data;
 } rvn_spin_box_t;
@@ -36,10 +48,17 @@ static void rvn_spin_box_init(rvn_widget_t* widget) {
 	spin->maximum = 1e30;
 	spin->step = 1.0;
 	spin->decimals = 2;
+	spin->repeat_timer = R_INVALID_ID;
 	widget->cursor = R_CURSOR_RESIZE_H;
 }
 
+static void rvn_spin_box_stop_repeat(rvn_spin_box_t* spin) {
+	if (spin->repeat_timer != R_INVALID_ID && Rtimer_is_valid(spin->repeat_timer)) Rtimer_destroy(spin->repeat_timer);
+	spin->repeat_timer = R_INVALID_ID;
+}
+
 static void rvn_spin_box_destroy(rvn_widget_t* widget) {
+	rvn_spin_box_stop_repeat((rvn_spin_box_t*)widget);
 	rvn_textedit_free(&((rvn_spin_box_t*)widget)->edit);
 }
 
@@ -67,14 +86,17 @@ static void rvn_spin_box_set(rvn_widget_t* widget, double value, int notify) {
  * The buttons of the platforms, on the right: Windows (NumberBox) up then
  * down, side by side in the field; GNOME (SpinButton) minus then plus, in
  * the field; macOS a stepper next to the field, up above down. Their width
- * each (the stepper: its whole width); 0 for the looks of Raven, which drag.
+ * each (the stepper: its whole width). The looks of Raven drag, and draw
+ * buttons only when asked (Buttons): down at the left end, up at the right.
  */
 static float rvn_spin_box_button_width(const rvn_widget_t* widget) {
 	switch (rvn_widget_family(widget)) {
 		case RVN_FAMILY_WINDOWS: return rvn_minf(26.0f, floorf(widget->rect.w * 0.22f));
 		case RVN_FAMILY_GNOME: return rvn_minf(rvn_widget_metric(widget, R_METRIC_CONTROL_HEIGHT), floorf(widget->rect.w * 0.24f));
 		case RVN_FAMILY_MACOS: return 15.0f;
-		default: return 0.0f;
+		default:
+			if (!((const rvn_spin_box_t*)widget)->buttons) return 0.0f;
+			return rvn_minf(widget->rect.h, floorf(widget->rect.w * 0.25f));
 	}
 }
 
@@ -88,14 +110,21 @@ static rvn_rect_t rvn_spin_box_area(const rvn_widget_t* widget) {
 	float px = rvn_widget_metric(widget, R_METRIC_PADDING_X) * 0.7f;
 	float buttons = rvn_spin_box_button_width(widget) * 2.0f;
 	if (rvn_widget_family(widget) == RVN_FAMILY_MACOS) return rvn_rect(5.0f, 0.0f, rvn_maxf(0.0f, rvn_spin_box_field(widget).w - 10.0f), widget->rect.h);
+	if (rvn_widget_family(widget) == RVN_FAMILY_RAVEN && buttons > 0.0f) {
+		/* between the two buttons */
+		return rvn_rect(buttons * 0.5f + 2.0f, 0.0f, rvn_maxf(0.0f, widget->rect.w - buttons - 4.0f), widget->rect.h);
+	}
 	if (buttons > 0.0f) px = rvn_widget_metric(widget, R_METRIC_PADDING_X) - 1.0f;
 	return rvn_rect(px, 0.0f, rvn_maxf(0.0f, widget->rect.w - px * 2.0f - buttons), widget->rect.h);
 }
 
-/* Where a button of a platform is: `up` 1 for the one that adds, 0 for the one that takes away. */
+/* Where a button is: `up` 1 for the one that adds, 0 for the one that takes away. */
 static rvn_rect_t rvn_spin_box_button_rect(const rvn_widget_t* widget, int up) {
 	float width = rvn_spin_box_button_width(widget), h = widget->rect.h, w = widget->rect.w;
 	switch (rvn_widget_family(widget)) {
+		case RVN_FAMILY_RAVEN:
+			/* down at the left end, up at the right end */
+			return rvn_rect(up ? w - width : 0.0f, 0.0f, width, h);
 		case RVN_FAMILY_MACOS:
 			return rvn_rect(w - width, up ? 0.0f : floorf(h * 0.5f), width, floorf(h * 0.5f));
 		case RVN_FAMILY_GNOME:
@@ -106,7 +135,7 @@ static rvn_rect_t rvn_spin_box_button_rect(const rvn_widget_t* widget, int up) {
 	}
 }
 
-/* Which button of a platform is at (x, y): +1 the one that adds, -1 the other one, 0 none. */
+/* Which button is at (x, y): +1 the one that adds, -1 the other one, 0 none. */
 static int rvn_spin_box_button_at(const rvn_widget_t* widget, float x, float y) {
 	int up;
 	if (rvn_spin_box_button_width(widget) <= 0.0f) return 0;
@@ -225,14 +254,59 @@ static void rvn_spin_box_paint(rvn_widget_t* widget, RPainter* painter) {
 		rvn_paint_box(painter, rect, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS), fill,
 			rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH), rvn_widget_color(widget, focused ? R_COLOR_FOCUS : R_COLOR_BORDER));
 	}
+	if (rvn_spin_box_button_width(widget) > 0.0f) {
+		/* the step buttons: a chevron each, a fill when hovered or held, a line between them and the value */
+		int hovered = (widget->flags & RVN_WF_HOVERED) && painter->enabled;
+		float inset = rvn_maxf(1.0f, rvn_widget_metric(widget, R_METRIC_BORDER_WIDTH));
+		float radius = rvn_maxf(0.0f, rvn_widget_metric(widget, R_METRIC_CORNER_RADIUS) - inset);
+		int up;
+		for (up = 0; up < 2; up++) {
+			rvn_rect_t button = rvn_spin_box_button_rect(widget, up);
+			int sign = up ? 1 : -1;
+			rvn_rect_t inner = rvn_rect(button.x + inset, button.y + inset, rvn_maxf(0.0f, button.w - inset * 2.0f), rvn_maxf(0.0f, button.h - inset * 2.0f));
+			if (painter->enabled && spin->held == sign && spin->hot == sign) {
+				rvn_paint_box(painter, inner, radius, rvn_widget_color(widget, R_COLOR_CONTROL_PRESSED), 0.0f, 0);
+			} else if (hovered && spin->hot == sign) {
+				rvn_paint_box(painter, inner, radius, rvn_widget_color(widget, R_COLOR_CONTROL_HOVERED), 0.0f, 0);
+			}
+			rvn_paint_rect(painter, rvn_rect(up ? button.x : button.x + button.w - 1.0f, button.y + 5.0f, 1.0f, rvn_maxf(0.0f, button.h - 10.0f)),
+				rvn_widget_color(widget, R_COLOR_SEPARATOR));
+			rvn_paint_icon(painter, up ? RVN_ICON_CHEVRON_UP : RVN_ICON_CHEVRON_DOWN, button.x + button.w * 0.5f, button.y + button.h * 0.5f, 7.0f, text);
+		}
+	}
 	if (spin->editing) {
 		rvn_textedit_paint(&spin->edit, widget, painter, rvn_spin_box_area(widget), R_INVALID_ID, 0.0f, text, R_TRUE);
 		return;
 	}
 	rvn_spin_box_format(spin, buffer, sizeof(buffer));
-	rvn_paint_push_clip(painter, rect);
-	rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), rect, 0.5f, buffer, -1, text);
-	rvn_paint_pop_clip(painter);
+	{
+		rvn_rect_t area = rvn_spin_box_button_width(widget) > 0.0f ? rvn_spin_box_area(widget) : rect;
+		rvn_paint_push_clip(painter, area);
+		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), area, 0.5f, buffer, -1, text);
+		rvn_paint_pop_clip(painter);
+	}
+}
+
+/* Holding a button: after a pause, its step again on every tick while the pointer stays on it. */
+static void rvn_spin_box_repeat_tick(Rid timer, void* user_data) {
+	rvn_widget_t* widget = rvn_widget_get((Rid)(uintptr_t)user_data);
+	rvn_spin_box_t* spin;
+	RVN_UNUSED(timer);
+	if (!widget || widget->cls->type != R_WIDGET_SPIN_BOX) return;
+	spin = (rvn_spin_box_t*)widget;
+	if (!spin->held) {
+		rvn_spin_box_stop_repeat(spin);
+		return;
+	}
+	if (rvn_clock_seconds() - spin->held_since < RVN_SPIN_REPEAT_DELAY || spin->hot != spin->held) return;
+	rvn_spin_box_set(widget, spin->value + (spin->held > 0 ? spin->step : -spin->step), R_TRUE);
+}
+
+static void rvn_spin_box_release(rvn_widget_t* widget) {
+	rvn_spin_box_t* spin = (rvn_spin_box_t*)widget;
+	spin->held = 0;
+	rvn_spin_box_stop_repeat(spin);
+	rvn_widget_invalidate_paint(widget);
 }
 
 static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
@@ -250,11 +324,19 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 			return R_TRUE;
 		case R_EVENT_MOUSE_DOWN:
 			if (event->button != R_MOUSE_LEFT) return R_FALSE;
-			/* Windows: the buttons step the value */
+			/* the buttons step the value, and step again while held */
 			{
 				int button = rvn_spin_box_button_at(widget, event->local_x, event->local_y);
 				if (button) {
+					Rid id = widget->id;
 					if (spin->editing) rvn_spin_box_end_edit(widget, R_TRUE);
+					if (!rvn_widget_alive(widget)) return R_TRUE;
+					rvn_widget_capture_mouse(widget);
+					spin->hot = spin->held = button;
+					spin->held_since = rvn_clock_seconds();
+					rvn_spin_box_stop_repeat(spin);
+					spin->repeat_timer = Rtimer_create(RVN_SPIN_REPEAT_INTERVAL, R_TRUE, rvn_spin_box_repeat_tick, (void*)(uintptr_t)id);
+					rvn_widget_invalidate_paint(widget);
 					rvn_spin_box_set(widget, spin->value + (button > 0 ? spin->step : -spin->step), R_TRUE);
 					return R_TRUE;
 				}
@@ -278,7 +360,10 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 					spin->hot = hot;
 					rvn_widget_invalidate_paint(widget);
 				}
+				/* a button is clicked, not scrubbed */
+				widget->cursor = hot ? R_CURSOR_ARROW : (spin->editing ? R_CURSOR_IBEAM : R_CURSOR_RESIZE_H);
 			}
+			if (spin->held) return R_TRUE;
 			if (spin->editing) {
 				if (!spin->edit.mouse_selecting) return R_FALSE;
 				rvn_textedit_mouse_drag(&spin->edit, widget, R_INVALID_ID, 0.0f, event->local_x - area.x);
@@ -297,6 +382,10 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 		case R_EVENT_MOUSE_UP:
 			if (event->button != R_MOUSE_LEFT) return R_FALSE;
 			rvn_widget_release_mouse(widget);
+			if (spin->held) {
+				rvn_spin_box_release(widget);
+				return R_TRUE;
+			}
 			if (spin->editing) {
 				spin->edit.mouse_selecting = R_FALSE;
 				return R_TRUE;
@@ -308,6 +397,12 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 			spin->dragging = R_FALSE;
 			rvn_widget_invalidate_paint(widget);
 			return R_TRUE;
+		case R_EVENT_MOUSE_LEAVE:
+			if (spin->hot && !spin->held) {
+				spin->hot = 0;
+				rvn_widget_invalidate_paint(widget);
+			}
+			return R_FALSE;
 		case R_EVENT_MOUSE_WHEEL:
 			/* only a focused field steps with the wheel: it must not hijack the scrolling of a panel */
 			if (!(widget->flags & RVN_WF_FOCUSED) || spin->editing || event->wheel_y == 0.0f) return R_FALSE;
@@ -361,6 +456,12 @@ static int rvn_spin_box_event(rvn_widget_t* widget, const REvent* event) {
 static int rvn_spin_box_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
 	rvn_spin_box_t* spin = (rvn_spin_box_t*)widget;
 	float number;
+	if (RVN_ATTR("Buttons")) {
+		int on;
+		if (!rvn_parse_bool(value, &on)) return R_FALSE;
+		Rspin_box_set_buttons(widget->id, on);
+		return R_TRUE;
+	}
 	if (!rvn_parse_float(value, &number)) return R_FALSE;
 	if (RVN_ATTR("Min")) spin->minimum = number;
 	else if (RVN_ATTR("Max")) spin->maximum = number;
@@ -430,4 +531,18 @@ void Rspin_box_set_changed_callback(Rid id, RSpinBoxChangedCallback callback, vo
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_SPIN_BOX);
 	((rvn_spin_box_t*)widget)->callback = callback;
 	((rvn_spin_box_t*)widget)->user_data = user_data;
+}
+
+void Rspin_box_set_buttons(Rid id, int buttons) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_SPIN_BOX);
+	rvn_spin_box_t* spin = (rvn_spin_box_t*)widget;
+	spin->buttons = buttons != 0;
+	spin->hot = 0;
+	if (!spin->buttons && spin->held && rvn_widget_family(widget) == RVN_FAMILY_RAVEN) rvn_spin_box_release(widget);
+	rvn_widget_invalidate_paint(widget);
+}
+
+int Rspin_box_get_buttons(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_SPIN_BOX, R_FALSE);
+	return ((rvn_spin_box_t*)widget)->buttons;
 }

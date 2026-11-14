@@ -134,6 +134,28 @@ pub const R_WINDOW_SYSTEM_X11: RWindowSystem = 0x0092;
 pub const R_WINDOW_SYSTEM_WAYLAND: RWindowSystem = 0x0093;
 pub const R_WINDOW_SYSTEM_COCOA: RWindowSystem = 0x0094;
 pub const R_WINDOW_SYSTEM_EMSCRIPTEN: RWindowSystem = 0x0095;
+pub const R_WINDOW_SYSTEM_ANDROID: RWindowSystem = 0x0096;
+pub const R_WINDOW_SYSTEM_UIKIT: RWindowSystem = 0x0097;
+
+/// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+pub const RTextInputType = c_int;
+pub const R_TEXT_INPUT_TYPE_TEXT: RTextInputType = 0x0B60;
+pub const R_TEXT_INPUT_TYPE_EMAIL: RTextInputType = 0x0B61;
+pub const R_TEXT_INPUT_TYPE_NUMBER: RTextInputType = 0x0B62;
+/// Digits and a decimal separator.
+pub const R_TEXT_INPUT_TYPE_DECIMAL: RTextInputType = 0x0B63;
+pub const R_TEXT_INPUT_TYPE_PHONE: RTextInputType = 0x0B64;
+pub const R_TEXT_INPUT_TYPE_URL: RTextInputType = 0x0B65;
+pub const R_TEXT_INPUT_TYPE_SEARCH: RTextInputType = 0x0B66;
+
+/// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+pub const RReturnKey = c_int;
+pub const R_RETURN_KEY_DEFAULT: RReturnKey = 0x0B70;
+pub const R_RETURN_KEY_DONE: RReturnKey = 0x0B71;
+pub const R_RETURN_KEY_GO: RReturnKey = 0x0B72;
+pub const R_RETURN_KEY_NEXT: RReturnKey = 0x0B73;
+pub const R_RETURN_KEY_SEARCH: RReturnKey = 0x0B74;
+pub const R_RETURN_KEY_SEND: RReturnKey = 0x0B75;
 
 /// Edges and corners of a window, for Rwindow_begin_resize.
 pub const RWindowEdge = c_int;
@@ -656,6 +678,8 @@ pub const R_WIDGET_RATING: RWidgetType = 0x0230;
 pub const R_WIDGET_PAGINATION: RWidgetType = 0x0231;
 /// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
 pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
+/// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
 
 pub const RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -787,6 +811,52 @@ pub const R_PLOT_Y: RPlotAxis = 0x0521;
 pub const R_PLOT_X2: RPlotAxis = 0x0522;
 /// A second vertical axis, on the right: shown when a series or a drag line uses it.
 pub const R_PLOT_Y2: RPlotAxis = 0x0523;
+
+/// How a PdfView sizes its pages.
+pub const RPdfFit = c_int;
+/// The widest page fills the width of the view (default).
+pub const R_PDF_FIT_WIDTH: RPdfFit = 0x05C0;
+/// The largest page fits whole in the view.
+pub const R_PDF_FIT_PAGE: RPdfFit = 0x05C1;
+/// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+pub const R_PDF_FIT_NONE: RPdfFit = 0x05C2;
+
+/// What a PdfView holds.
+pub const RPdfStatus = c_int;
+/// No document.
+pub const R_PDF_EMPTY: RPdfStatus = 0x05D0;
+/// A document is shown.
+pub const R_PDF_LOADED: RPdfStatus = 0x05D1;
+/// The document needs a password, or the one given is wrong: load it again with one.
+pub const R_PDF_NEEDS_PASSWORD: RPdfStatus = 0x05D2;
+/// The file could not be read, or is not a PDF document.
+pub const R_PDF_ERROR: RPdfStatus = 0x05D3;
+/// The PDFium library was not found (see Rpdf_is_available).
+pub const R_PDF_UNAVAILABLE: RPdfStatus = 0x05D4;
+
+/// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+pub const RPdfFont = c_int;
+/// Roboto, the font of the interface of Raven.
+pub const R_PDF_FONT_SANS: RPdfFont = 0;
+/// Roboto Mono.
+pub const R_PDF_FONT_MONO: RPdfFont = 1;
+
+/// How a shape of a PDF document is painted: a bitmask.
+pub const RPdfPaint = c_int;
+/// Filled with the fill color.
+pub const R_PDF_FILL: RPdfPaint = 1;
+/// Outlined with the stroke color and the line width.
+pub const R_PDF_STROKE: RPdfPaint = 2;
+
+/// A bitmask of styles of the text of a PDF document.
+pub const RPdfTextStyle = c_int;
+pub const R_PDF_TEXT_BOLD: RPdfTextStyle = 1;
+pub const R_PDF_TEXT_ITALIC: RPdfTextStyle = 2;
+pub const R_PDF_TEXT_UNDERLINE: RPdfTextStyle = 4;
+
+pub const RPdfPrintFlags = c_int;
+/// No dialog: printed at once on the printer named, else the default one.
+pub const R_PDF_PRINT_NO_DIALOG: RPdfPrintFlags = 1;
 
 /// How an axis of a Plot spreads its values.
 pub const RPlotScale = c_int;
@@ -1139,6 +1209,8 @@ pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail
 /// Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
 /// Rinit; NULL removes it.
 pub const RDeviceResetCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
+/// The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+pub const RKeyboardCallback = ?*const fn (window: Rid, visible: c_int, height: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called for a drop target (a widget, or a window: `target` is its
 /// handle). Return R_TRUE to accept: while the pointer is over the target this
 /// shows the "can drop here" cursor and highlights the target; for
@@ -1245,6 +1317,8 @@ pub const RPlotViewCallback = ?*const fn (plot: Rid, user_data: ?*anyopaque) cal
 pub const RPlotDragLineCallback = ?*const fn (plot: Rid, line: c_int, value: f64, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user hides or shows a series from the legend.
 pub const RPlotSeriesCallback = ?*const fn (plot: Rid, series: c_int, visible: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the current page changes as the user scrolls. This also fires the action of the widget.
+pub const RPdfPageChangedCallback = ?*const fn (view: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the editor gathers its proposals, with the
@@ -1391,6 +1465,25 @@ pub const RFrameStats = extern struct {
     frame_index: u64 = 0,
 };
 
+/// Distances from the edges of a window, in logical units.
+pub const RInsets = extern struct {
+    top: f32 = 0,
+    right: f32 = 0,
+    bottom: f32 = 0,
+    left: f32 = 0,
+};
+
+/// What the platform needs to know of the focused text input to set up the on-screen keyboard.
+pub const RTextInputInfo = extern struct {
+    type_: RTextInputType = 0,
+    return_key: RReturnKey = 0,
+    /// R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+    password: c_int = 0,
+    read_only: c_int = 0,
+    /// Most characters accepted; 0 for no limit.
+    max_length: c_int = 0,
+};
+
 /// Native handles of a window or of a native viewport.
 ///   Win32 : display = HINSTANCE, window = HWND
 ///   X11   : display = Display*,  window = Window (XID), visual = VisualID
@@ -1398,6 +1491,8 @@ pub const RFrameStats = extern struct {
 ///           Wayland or X11 when Rinit runs: check `system`)
 ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
 ///   Emscripten: window = opaque browser surface token (no OS window handle)
+///   Android: window = ANativeWindow*
+///   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 pub const RNativeWindow = extern struct {
     system: RWindowSystem = 0,
     display: ?*anyopaque = null,
@@ -1587,6 +1682,26 @@ pub const RGestureEvent = extern struct {
     rotation_delta: f32 = 0,
     /// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
     cancelled: c_int = 0,
+};
+
+/// How a PDF document is printed. Every field may be left to zero.
+pub const RPdfPrintDesc = extern struct {
+    /// Window the print dialog belongs to (0 or R_INVALID_ID: none).
+    window: Rid = 0,
+    /// Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+    title: ?[*:0]const u8 = null,
+    /// Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+    printer: ?[*:0]const u8 = null,
+    /// Copies to print (0: one); the dialog may change it.
+    copies: c_int = 0,
+    /// Bitmask of RPdfPrintFlags.
+    flags: u32 = 0,
+    /// Path of a file the job is written to instead of a printer. macOS: a
+    /// PDF made by the print system; Windows: what the driver of the printer
+    /// makes; elsewhere: the document itself.
+    output: ?[*:0]const u8 = null,
+    /// Password of a document protected by one.
+    password: ?[*:0]const u8 = null,
 };
 
 /// What a tile shows, filled by the application when the tile is drawn.
@@ -1970,6 +2085,18 @@ pub extern fn Rwindow_set_title(window: Rid, title: ?[*:0]const u8) void;
 pub extern fn Rwindow_get_title(window: Rid) ?[*:0]const u8;
 pub extern fn Rwindow_set_size(window: Rid, width: c_int, height: c_int) void;
 pub extern fn Rwindow_get_size(window: Rid, width: ?*c_int, height: ?*c_int) void;
+/// The part of the window the system covers (status bar, notch,
+/// home indicator, navigation bar), in logical units. The content of the
+/// window is laid out inside it already. All 0 on desktop.
+pub extern fn Rwindow_get_safe_area(window: Rid, insets: ?*RInsets) void;
+/// The part of the window the on-screen keyboard covers (only
+/// `bottom` is set), in logical units; 0 when it is hidden or there is
+/// none (desktop). The content is laid out above it already.
+pub extern fn Rwindow_get_keyboard_area(window: Rid, insets: ?*RInsets) void;
+/// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+pub extern fn Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback, user_data: ?*anyopaque) void;
+/// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+pub extern fn Rwindow_clear_focus(window: Rid) void;
 pub extern fn Rwindow_set_min_size(window: Rid, width: c_int, height: c_int) void;
 pub extern fn Rwindow_set_position(window: Rid, x: c_int, y: c_int) void;
 pub extern fn Rwindow_get_position(window: Rid, x: ?*c_int, y: ?*c_int) void;
@@ -2145,6 +2272,18 @@ pub extern fn Rwindow_get_modifiers(window: Rid) u32;
 pub extern fn Rwindow_is_mouse_inside(window: Rid) c_int;
 /// R_TRUE when the keyboard focus is in a text input, spin box or text editor.
 pub extern fn Rwindow_wants_text_input(window: Rid) c_int;
+/// The kind of the focused text input; R_FALSE when there is none.
+pub extern fn Rwindow_get_text_input_info(window: Rid, info: ?*RTextInputInfo) c_int;
+/// Its text (UTF-8), valid until it changes; NULL when there is none.
+pub extern fn Rwindow_get_text_input_text(window: Rid) ?[*:0]const u8;
+/// Its selection: start == end is the caret. R_FALSE when there is none.
+pub extern fn Rwindow_get_text_input_selection(window: Rid, start: ?*c_int, end: ?*c_int) c_int;
+/// Selects bytes [start, end) of it (end before start puts the caret at end).
+pub extern fn Rwindow_set_text_input_selection(window: Rid, start: c_int, end: c_int) c_int;
+/// Replaces bytes [start, end) of it with `text` and puts the caret
+/// after it, as typing would (the changed callback runs; MaxLength
+/// applies). R_FALSE when there is none or it is read-only.
+pub extern fn Rwindow_replace_text_input(window: Rid, start: c_int, end: c_int, text: ?[*:0]const u8) c_int;
 /// R_TRUE while a menu, list or dialog is open over the window.
 pub extern fn Rwindow_has_popup(window: Rid) c_int;
 /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
@@ -2259,6 +2398,12 @@ pub extern fn Rtheme_set_accent(r: f32, g: f32, b: f32) void;
 /// the glass, the colors of the code and which wallpaper the glass themes
 /// use. Rtheme_apply and the theme files set it.
 pub extern fn Rtheme_set_dark(dark: c_int) void;
+/// R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+pub extern fn Rtheme_get_system_dark() c_int;
+/// Follows the dark or light mode of the system with the Raven look
+/// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+/// Off by default. Does nothing where the platform does not tell (desktop today).
+pub extern fn Rtheme_follow_system(enabled: c_int) void;
 pub extern fn Rtheme_is_dark() c_int;
 /// Image drawn behind the content of the windows that have no
 /// background of their own, or R_INVALID_ID for none (the window color).
@@ -2777,6 +2922,12 @@ pub extern fn Rtext_input_set_read_only(text_input: Rid, read_only: c_int) void;
 /// Maximum number of characters. 0 = no limit (default).
 pub extern fn Rtext_input_set_max_length(text_input: Rid, max_length: c_int) void;
 pub extern fn Rtext_input_select_all(text_input: Rid) void;
+/// What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+pub extern fn Rtext_input_set_input_type(text_input: Rid, type_: RTextInputType) void;
+pub extern fn Rtext_input_get_input_type(text_input: Rid) RTextInputType;
+/// The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+pub extern fn Rtext_input_set_return_key(text_input: Rid, key: RReturnKey) void;
+pub extern fn Rtext_input_get_return_key(text_input: Rid) RReturnKey;
 /// Called on every edit.
 pub extern fn Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback, user_data: ?*anyopaque) void;
 /// Called when Enter is pressed. This also fires the action of the widget.
@@ -2789,6 +2940,13 @@ pub extern fn Rspin_box_get_range(spin_box: Rid, minimum: ?*f64, maximum: ?*f64,
 pub extern fn Rspin_box_set_step(spin_box: Rid, step: f64) void;
 /// Digits shown after the decimal point. Default: 2.
 pub extern fn Rspin_box_set_decimals(spin_box: Rid, decimals: c_int) void;
+/// Step buttons in the looks of Raven too: a down button at the left
+/// end and an up button at the right end, the value between them (XML
+/// `Buttons="True"`). A click steps once; holding a button repeats its step.
+/// The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+/// Default: R_FALSE (drag to scrub, arrows / wheel to step).
+pub extern fn Rspin_box_set_buttons(spin_box: Rid, buttons: c_int) void;
+pub extern fn Rspin_box_get_buttons(spin_box: Rid) c_int;
 pub extern fn Rspin_box_set_changed_callback(spin_box: Rid, callback: RSpinBoxChangedCallback, user_data: ?*anyopaque) void;
 /// Returns: The index of the new item.
 pub extern fn Rcombo_box_add_item(combo_box: Rid, text: ?[*:0]const u8) c_int;
@@ -3147,6 +3305,96 @@ pub extern fn Rplot_set_drag_line_color(plot: Rid, line: c_int, r: f32, g: f32, 
 pub extern fn Rplot_set_view_changed_callback(plot: Rid, callback: RPlotViewCallback, user_data: ?*anyopaque) void;
 pub extern fn Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineCallback, user_data: ?*anyopaque) void;
 pub extern fn Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback, user_data: ?*anyopaque) void;
+/// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+pub extern fn Rpdf_is_available() c_int;
+/// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+/// cannot: Rpdf_view_get_status tells why (a password is needed, not a
+/// PDF, no PDFium). The view then shows that instead of pages.
+pub extern fn Rpdf_view_load_file(view: Rid, path: ?[*:0]const u8, password: ?[*:0]const u8) c_int;
+/// Same as Rpdf_view_load_file, from bytes in memory (copied).
+pub extern fn Rpdf_view_load_memory(view: Rid, data: ?[*:0]const u8, data_size: usize, password: ?[*:0]const u8) c_int;
+/// Closes the document: the view is empty.
+pub extern fn Rpdf_view_close(view: Rid) void;
+pub extern fn Rpdf_view_get_status(view: Rid) RPdfStatus;
+pub extern fn Rpdf_view_get_page_count(view: Rid) c_int;
+/// Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+pub extern fn Rpdf_view_get_page_size(view: Rid, page: c_int, width: ?*f32, height: ?*f32) void;
+/// Scrolls to the top of a page; it becomes the current page.
+pub extern fn Rpdf_view_set_page(view: Rid, page: c_int) void;
+/// The current page: the one a third down the view.
+pub extern fn Rpdf_view_get_page(view: Rid) c_int;
+/// A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+pub extern fn Rpdf_view_set_zoom(view: Rid, zoom: f32) void;
+/// The zoom the pages show at, the one a fit gives included.
+pub extern fn Rpdf_view_get_zoom(view: Rid) f32;
+pub extern fn Rpdf_view_set_fit(view: Rid, fit: RPdfFit) void;
+pub extern fn Rpdf_view_get_fit(view: Rid) RPdfFit;
+/// The title of the document (its information), "" when it has none.
+pub extern fn Rpdf_view_get_title(view: Rid) ?[*:0]const u8;
+/// The text of a page (UTF-8), to search it or copy it. Valid until
+/// the next call for this view.
+pub extern fn Rpdf_view_get_page_text(view: Rid, page: c_int) ?[*:0]const u8;
+pub extern fn Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback, user_data: ?*anyopaque) void;
+/// Prints the document shown (see Rpdf_print); the job is named after its title.
+pub extern fn Rpdf_view_print(view: Rid, desc: ?*const RPdfPrintDesc) c_int;
+pub extern fn Rpdf_document_create() Rid;
+pub extern fn Rpdf_document_delete(document: Rid) void;
+/// The information of the document, shown by readers (the title in their window).
+pub extern fn Rpdf_document_set_title(document: Rid, title: ?[*:0]const u8) void;
+pub extern fn Rpdf_document_set_author(document: Rid, author: ?[*:0]const u8) void;
+pub extern fn Rpdf_document_set_subject(document: Rid, subject: ?[*:0]const u8) void;
+/// Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+pub extern fn Rpdf_document_add_page(document: Rid, width: f32, height: f32) c_int;
+pub extern fn Rpdf_document_get_page_count(document: Rid) c_int;
+pub extern fn Rpdf_document_set_fill_color(document: Rid, r: f32, g: f32, b: f32, a: f32) void;
+pub extern fn Rpdf_document_set_stroke_color(document: Rid, r: f32, g: f32, b: f32, a: f32) void;
+/// Width of the lines and outlines, in points (default 1).
+pub extern fn Rpdf_document_set_line_width(document: Rid, width: f32) void;
+/// A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+pub extern fn Rpdf_document_draw_rect(document: Rid, x: f32, y: f32, width: f32, height: f32, radius: f32, paint: u32) void;
+/// The ellipse inside a rectangle.
+pub extern fn Rpdf_document_draw_ellipse(document: Rid, x: f32, y: f32, width: f32, height: f32, paint: u32) void;
+/// A line in the stroke color.
+pub extern fn Rpdf_document_draw_line(document: Rid, x1: f32, y1: f32, x2: f32, y2: f32) void;
+/// Adds a TrueType font (.ttf) to the document (the data is
+/// copied, and embedded in the file). Returns its number for
+/// Rpdf_document_set_font, -1 when it is not a TrueType font.
+pub extern fn Rpdf_document_add_font(document: Rid, data: ?[*:0]const u8, data_size: usize) c_int;
+pub extern fn Rpdf_document_add_font_from_file(document: Rid, path: ?[*:0]const u8) c_int;
+/// The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+pub extern fn Rpdf_document_set_font(document: Rid, font: c_int, size: f32, style: u32) void;
+/// Distance between two lines of text in the current font.
+pub extern fn Rpdf_document_get_line_height(document: Rid) f32;
+/// Width of a text in the current font, in points (of its widest line).
+pub extern fn Rpdf_document_measure_text(document: Rid, text: ?[*:0]const u8) f32;
+/// Text in the fill color, the top of its first line at y ('\n'
+/// starts a line below). Returns its width.
+pub extern fn Rpdf_document_draw_text(document: Rid, x: f32, y: f32, text: ?[*:0]const u8) f32;
+/// Text wrapped at the spaces to fit `width`, each line placed by
+/// `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+/// height it took.
+pub extern fn Rpdf_document_draw_paragraph(document: Rid, x: f32, y: f32, width: f32, text: ?[*:0]const u8, align_: RHAlign) f32;
+/// A picture of RGBA8 pixels stretched over a rectangle. A width or
+/// height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+pub extern fn Rpdf_document_draw_image(document: Rid, x: f32, y: f32, width: f32, height: f32, rgba: ?[*]const u8, pixels_width: c_int, pixels_height: c_int) void;
+/// What a window shows (Rwindow_capture), as a picture: a report of
+/// the screen, a chart. A width and height of 0: the size it has on the
+/// screen. Returns R_FALSE when the window cannot be captured.
+pub extern fn Rpdf_document_draw_window(document: Rid, window: Rid, x: f32, y: f32, width: f32, height: f32) c_int;
+/// Writes the file. Returns R_FALSE when it cannot be written.
+pub extern fn Rpdf_document_save(document: Rid, path: ?[*:0]const u8) c_int;
+/// The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+pub extern fn Rpdf_document_save_memory(document: Rid, size: ?*usize) ?[*:0]u8;
+/// Prints a PDF document with the print system: on macOS the print
+/// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+/// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+/// dialog of Raven that chooses the printer. It waits until the job is
+/// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+/// cannot print. Not in the browser.
+pub extern fn Rpdf_print(desc: ?*const RPdfPrintDesc, data: ?[*:0]const u8, data_size: usize) c_int;
+pub extern fn Rpdf_print_file(desc: ?*const RPdfPrintDesc, path: ?[*:0]const u8) c_int;
+/// Prints a document written by the application.
+pub extern fn Rpdf_document_print(document: Rid, desc: ?*const RPdfPrintDesc) c_int;
 /// text Initial content, or NULL.
 pub extern fn Rtext_editor_create(text: ?[*:0]const u8) Rid;
 /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.
