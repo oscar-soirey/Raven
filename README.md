@@ -477,7 +477,7 @@ under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
 real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 `raven_web`, the designer, the build scripts, `dist.sh`/`dist.bat`, the CMake
 package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,
-Java). The native Wayland platform is newer: it is tested against a
+Java, Bun, Node.js, D, Nim). The native Wayland platform is newer: it is tested against a
 compositor written in its test (`test_wayland`: windows, scales, keyboard,
 pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
 or wlroots with a GPU.
@@ -636,9 +636,11 @@ The build trees are in `build\dist\`.
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
-on Maven Central), Odin, Bun (`bun:ffi`), D (a dub package) and Nim (a nimble package). All but Odin are tested. See
-[bindings/README.md](bindings/README.md). They cover everything in
-`Raven.h`; `raven_web.h` is C only.
+on Maven Central), Odin, Bun (`bun:ffi`), Node.js (a Node-API addon, which
+also runs on Bun and Deno), D (a dub package), Nim (a nimble package) and C3
+(a library). All but Odin and C3 are tested. See
+[bindings/README.md](bindings/README.md). They cover everything in `Raven.h`;
+`raven_web.h` is C only.
 
 ```python
 import raven as r
@@ -1519,7 +1521,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, D, Nim
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```

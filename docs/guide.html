@@ -34,7 +34,7 @@
 <p>Raven is a GUI library in C11 for editors and tools: native windows on
 Windows, Linux and macOS, drawn with Vulkan, with a layout in the manner of
 Slate, interfaces written in XML or in code, a text editor for code, docking,
-glass materials, translations, accessibility, and bindings for seven other
+glass materials, translations, accessibility, and bindings for fourteen other
 languages. This guide explains every part of it with examples. The two other
 pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <a href="reference.html">every function of the C API</a>.</p>
@@ -105,7 +105,7 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <li><a href="#memory">24. Memory</a>
 </li>
 <li><a href="#languages">25. Other languages</a>
-<ul><li><a href="#lang-cpp">C++</a></li><li><a href="#lang-python">Python</a></li><li><a href="#lang-rust">Rust</a></li><li><a href="#lang-go">Go</a></li><li><a href="#lang-csharp">C#</a></li><li><a href="#lang-zig">Zig</a></li><li><a href="#lang-lua">LuaJIT</a></li><li><a href="#lang-java">Java</a></li><li><a href="#lang-odin">Odin</a></li></ul>
+<ul><li><a href="#lang-cpp">C++</a></li><li><a href="#lang-python">Python</a></li><li><a href="#lang-rust">Rust</a></li><li><a href="#lang-go">Go</a></li><li><a href="#lang-csharp">C#</a></li><li><a href="#lang-zig">Zig</a></li><li><a href="#lang-lua">LuaJIT</a></li><li><a href="#lang-java">Java</a></li><li><a href="#lang-odin">Odin</a></li><li><a href="#lang-bun">Bun</a></li><li><a href="#lang-node">Node.js</a></li></ul>
 </li>
 <li><a href="#ide">26. The designer</a>
 <ul><li><a href="#ide-folder">A folder</a></li><li><a href="#ide-visual">The visual editor</a></li><li><a href="#ide-preview">The preview: devices, themes, languages</a></li><li><a href="#ide-island">The island: Ctrl+K</a></li><li><a href="#ide-scripts">Driving it from a script</a></li></ul>
@@ -1823,13 +1823,15 @@ in a build with AddressSanitizer). After <code>Rshutdown</code>,
 <h2 id="languages">25. Other languages</h2>
 
 <p><code>bindings/</code> holds bindings generated from the headers by <code>tools/bindgen</code>,
-for C++, Python, Rust, Go, C#, Zig, LuaJIT, Java and Odin. They cover everything in
-<code>Raven.h</code> (<code>raven_web.h</code>, <code>raven_vulkan.h</code> and <code>raven_backend.h</code> are C only).
+for C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim and C3.
+They cover everything in <code>Raven.h</code> (<code>raven_web.h</code>, <code>raven_vulkan.h</code> and <code>raven_backend.h</code> are C only).
 Run <code>python3 tools/bindgen/bindgen.py</code> after changing a public header; the
 test <code>bindings_up_to_date</code> checks it was done.</p>
-<p>Each language has its own chapter in <a href="bindings.html">the bindings
+<p>Each language but D, Nim and C3 has its own chapter in <a href="bindings.html">the bindings
 manual</a>: installation, how texts, out-parameters, structures and callbacks
-look, what to watch for, tests and packages. Below, the same program in each.</p>
+look, what to watch for, tests and packages. Below, the same program in each.
+D, Nim and C3 are described in their folders (<code>bindings/d/README.md</code>,
+<code>bindings/nim/README.md</code>, <code>bindings/c3/raven.c3l/README.md</code>).</p>
 
 <h3 id="lang-cpp">C++</h3>
 <pre>#include &lt;raven.hpp&gt;
@@ -1971,6 +1973,32 @@ main :: proc() {
 (Odin has no package registry) and link the shared library
 (<code>-extra-linker-flags:"-L&lt;folder of the library&gt;"</code>).</p>
 
+<h3 id="lang-bun">Bun</h3>
+<pre>import * as r from "./raven";
+
+r.Rinit(r.R_BACKEND_VULKAN);
+r.Rwindow_create_from_xml('&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;');
+r.Raction_bind("quit", () =&gt; r.Rquit(0));
+await r.runLoop();
+r.Rshutdown();</pre>
+<p>One TypeScript module over <code>bun:ffi</code>, no dependency and no build step
+(Bun 1.4 or later); the shared library is found through <code>RAVEN_LIBRARY</code> or
+beside <code>raven.ts</code>. <code>await r.runLoop()</code> takes the place of
+<code>Rwait_frame(-1.0)</code>, which would stop timers and promises while it sleeps.</p>
+
+<h3 id="lang-node">Node.js</h3>
+<pre>import * as r from "./raven.js";
+
+r.Rinit(r.R_BACKEND_VULKAN);
+r.Rwindow_create_from_xml('&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;');
+r.Raction_bind("quit", () =&gt; r.Rquit(0));
+await r.runLoop();
+r.Rshutdown();</pre>
+<p>A Node-API addon (<code>raven_napi.node</code>, built with CMake) and an ES module with
+its typings, the same surface as the Bun binding. One addon per platform runs on any
+Node.js from 18, and on Bun and Deno. The addon is found through <code>RAVEN_ADDON</code>,
+the library through <code>RAVEN_LIBRARY</code>.</p>
+
 <!-- ======================================================================= -->
 <h2 id="ide">26. The designer</h2>
 
@@ -2080,6 +2108,7 @@ render of the last frame.</p>
 <tr><td><code>RAVEN_WINDOW_SYSTEM=x11</code> / <code>wayland</code></td><td>Linux: the window system, instead of choosing (<a href="#build-wayland">Wayland and X11</a>)</td></tr>
 <tr><td><code>RAVEN_APP_ID</code></td><td>Wayland: the name of the application for the desktop (default: the name of the executable)</td></tr>
 <tr><td><code>RAVEN_LIBRARY</code></td><td>bindings: the path of the shared library</td></tr>
+<tr><td><code>RAVEN_ADDON</code></td><td>Node.js: the path of the addon (<code>raven_napi.node</code>)</td></tr>
 <tr><td><code>RAVEN_LIB_DIR</code></td><td>Rust (<code>build.rs</code>) and Zig (<code>build.zig</code>): the folder of the library</td></tr>
 <tr><td><code>RAVEN_STATIC=1</code></td><td>Rust: link the static library instead of the shared one</td></tr>
 </table></div>
