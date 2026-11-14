@@ -69,6 +69,7 @@ raven_add_example(themes themes/main.c themes/themes.xml themes/ocean.xml themes
 raven_add_example(overlay overlay/main.c overlay/overlay.xml)
 raven_add_example(effects effects/main.c effects/effects.xml effects/wave.frag effects/liquid.frag)
 raven_add_example(plot plot/main.c plot/plot.xml)
+raven_add_example(pdf pdf/main.c pdf/pdf.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml

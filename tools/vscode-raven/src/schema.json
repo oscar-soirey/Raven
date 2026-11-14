@@ -1602,6 +1602,11 @@
 					"description": "Keys shown beside it and that fire it: \"Ctrl+S\"."
 				},
 				{
+					"name": "ShortcutText",
+					"kind": "text",
+					"description": "Display-only hint; overrides shortcut text without changing its binding."
+				},
+				{
 					"name": "Checkable",
 					"kind": "bool",
 					"description": "Clicking it checks and unchecks it."
@@ -2475,6 +2480,49 @@
 			"accepted": []
 		},
 		{
+			"name": "PdfView",
+			"description": "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Source",
+					"kind": "file",
+					"description": "The PDF file shown."
+				},
+				{
+					"name": "Password",
+					"kind": "text",
+					"description": "The password of the document, when it has one."
+				},
+				{
+					"name": "Fit",
+					"kind": "choice",
+					"choices": [
+						"Width",
+						"Page",
+						"None"
+					],
+					"description": "How the pages are sized: the widest fills the width, the largest fits whole, or the Zoom."
+				},
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "A zoom of its own (1: the printed size); the fit becomes None."
+				},
+				{
+					"name": "Page",
+					"kind": "number",
+					"description": "The page shown at the top, counted from 1."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the current page changes as the user scrolls."
+				}
+			],
+			"accepted": []
+		},
+		{
 			"name": "Plot",
 			"description": "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color).",
 			"children": "none",
@@ -2785,6 +2833,8 @@
 		"Snackbar": "Toast",
 		"Chart": "Plot",
 		"LinePlot": "Plot",
-		"XYPlot": "Plot"
+		"XYPlot": "Plot",
+		"PdfViewer": "PdfView",
+		"PDFView": "PdfView"
 	}
 }

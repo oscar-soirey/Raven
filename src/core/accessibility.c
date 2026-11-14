@@ -250,6 +250,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_RATING: return R_ROLE_SLIDER;
 		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
 		case R_WIDGET_PLOT: return R_ROLE_IMAGE;
+		case R_WIDGET_PDF_VIEW: return R_ROLE_DOCUMENT;
 		case R_WIDGET_TILE_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TREE_VIEW: return R_ROLE_TREE;
 		case R_WIDGET_MENU_BAR: return R_ROLE_MENU_BAR;
@@ -732,7 +733,8 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			node->states |= RVN_A11Y_INVOKABLE;
 			break;
 		case R_WIDGET_MENU_ITEM:
-			node->states |= RVN_A11Y_INVOKABLE;
+			if (rvn_menu_item_is_header(widget)) break;
+			if (node->role != R_ROLE_SEPARATOR) node->states |= RVN_A11Y_INVOKABLE;
 			if (Rmenu_item_is_checked(widget->id)) node->states |= RVN_A11Y_CHECKED | RVN_A11Y_CHECKABLE;
 			break;
 		case R_WIDGET_CHECKBOX:
@@ -784,6 +786,12 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			break;
 		case R_WIDGET_PAGINATION:
 			rvn_text_printf(&g_a11y.value, "%d / %d", Rpagination_get_page(widget->id) + 1, Rpagination_get_page_count(widget->id));
+			break;
+		case R_WIDGET_PDF_VIEW:
+			/* the title as the name; the page shown as the value */
+			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rpdf_view_get_title(widget->id));
+			if (Rpdf_view_get_status(widget->id) == R_PDF_LOADED)
+				rvn_text_printf(&g_a11y.value, "page %d of %d", Rpdf_view_get_page(widget->id) + 1, Rpdf_view_get_page_count(widget->id));
 			break;
 		case R_WIDGET_PLOT: {
 			/* the title as the name; the series and the ranges shown as the value */
@@ -869,7 +877,7 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			break;
 	}
 	if (widget->a11y) {
-		if (widget->a11y->press) node->states |= RVN_A11Y_INVOKABLE;
+		if (widget->a11y->press && !rvn_menu_item_is_header(widget)) node->states |= RVN_A11Y_INVOKABLE;
 		if (widget->a11y->checked >= 0) {
 			node->states |= RVN_A11Y_CHECKABLE;
 			node->states &= ~RVN_A11Y_CHECKED;
@@ -921,6 +929,7 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 	rvn_widget_t* widget = rvn_a11y_as_widget(id);
 	int item = rvn_a11y_item(id);
 	if (!widget) return R_FALSE;
+	if (rvn_menu_item_is_header(widget)) return R_FALSE;
 	if (!rvn_widget_is_enabled(widget)) return R_FALSE;
 	if (item < 0 && widget->a11y && widget->a11y->press &&
 		(action == RVN_A11Y_PRESS || action == RVN_A11Y_TOGGLE)) {

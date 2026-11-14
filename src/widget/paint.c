@@ -99,6 +99,7 @@ static void rvn_paint_range(rvn_widget_t* parent, uint32_t first, uint32_t last,
 	uint32_t i;
 	for (i = first; i < last; i++) {
 		rvn_widget_t* child = parent->children[i];
+		if (child->flags & RVN_WF_FLOAT_LAYER) continue;
 		if (parent->cls->child_active && !parent->cls->child_active(parent, child)) continue;
 		rvn_widget_paint(child, painter);
 	}
@@ -344,6 +345,7 @@ rvn_widget_t* rvn_widget_hit_test(rvn_widget_t* widget, float x, float y) {
 	for (i = widget->child_count; i > 0; i--) {
 		rvn_widget_t* child = widget->children[i - 1];
 		rvn_widget_t* hit;
+		if (child->flags & RVN_WF_FLOAT_LAYER) continue;
 		if (widget->cls->child_active && !widget->cls->child_active(widget, child)) continue;
 		if (widget->cls->child_at && !widget->cls->child_at(widget, child, shown_x, shown_y)) continue;
 		hit = rvn_widget_hit_test(child, local_x, local_y);
