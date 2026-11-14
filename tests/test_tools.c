@@ -1402,6 +1402,24 @@ static void test_looks(void) {
 	Rshutdown();
 }
 
+/* A node's title or name passed back from its getter (the setter used to free it first). */
+static void test_node_graph_own_strings(void) {
+	Rid graph;
+	int node;
+	CHECK(test_init(0));
+	graph = Rnode_graph_create();
+	node = Rnode_graph_add_node(graph, "Multiply", 0.0f, 0.0f);
+	Rnode_graph_set_node_name(graph, node, "mul1");
+	Rnode_graph_set_node_title(graph, node, Rnode_graph_get_node_title(graph, node));
+	Rnode_graph_set_node_name(graph, node, Rnode_graph_get_node_name(graph, node));
+	CHECK_STR(Rnode_graph_get_node_title(graph, node), "Multiply");
+	CHECK_STR(Rnode_graph_get_node_name(graph, node), "mul1");
+	Rnode_graph_set_node_name(graph, node, "");
+	CHECK_STR(Rnode_graph_get_node_name(graph, node), "");
+	Rwidget_destroy(graph);
+	Rshutdown();
+}
+
 /* A very long timeline paints about as much as a short one (the ruler steps grow past hours). */
 static void test_timeline_long_duration(void) {
 	Rid window, tl;
@@ -1442,6 +1460,7 @@ int main(void) {
 	RUN(test_timeline_long_duration);
 	RUN(test_node_graph);
 	RUN(test_node_graph_editor_hooks);
+	RUN(test_node_graph_own_strings);
 	RUN(test_zoomed_content);
 	RUN(test_blur_and_transparency);
 	RUN(test_hooks);

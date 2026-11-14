@@ -490,6 +490,35 @@ static void test_breadcrumb(void) {
 	Rdraw_frame();
 }
 
+/* A string the widget returned, passed back to a setter of the same widget: the setter frees its
+ * strings first, the value is read from a copy. */
+static void test_items_from_own_strings(void) {
+	Rid crumbs = Rwidget_create(R_WIDGET_BREADCRUMB);
+	Rid combo = Rwidget_create(R_WIDGET_COMBO_BOX);
+	Rid list = Rwidget_create(R_WIDGET_LIST_VIEW);
+	Rid table = Rwidget_create(R_WIDGET_TABLE);
+	Rbreadcrumb_set_items(crumbs, "Home|Documents|Reports");
+	Rbreadcrumb_set_items(crumbs, Rbreadcrumb_get_item_text(crumbs, 2));
+	CHECK(Rbreadcrumb_get_item_count(crumbs) == 1);
+	CHECK_STR(Rbreadcrumb_get_item_text(crumbs, 0), "Reports");
+	Rwidget_set_attribute(combo, "Items", "Small|Medium|Large");
+	CHECK(Rwidget_set_attribute(combo, "Items", Rcombo_box_get_item_text(combo, 1)));
+	CHECK(Rcombo_box_get_item_count(combo) == 1);
+	CHECK_STR(Rcombo_box_get_item_text(combo, 0), "Medium");
+	Rwidget_set_attribute(list, "Items", "Red|Green|Blue");
+	CHECK(Rwidget_set_attribute(list, "Items", Rlist_view_get_item_text(list, 2)));
+	CHECK(Rlist_view_get_item_count(list) == 1);
+	CHECK_STR(Rlist_view_get_item_text(list, 0), "Blue");
+	Rwidget_set_attribute(table, "Columns", "Name|Size|Date");
+	CHECK(Rwidget_set_attribute(table, "Columns", Rtable_get_column_header(table, 0)));
+	CHECK(Rtable_get_column_count(table) == 1);
+	CHECK_STR(Rtable_get_column_header(table, 0), "Name");
+	Rwidget_destroy(crumbs);
+	Rwidget_destroy(combo);
+	Rwidget_destroy(list);
+	Rwidget_destroy(table);
+}
+
 static void on_rating(Rid rating, float value, void* user_data) {
 	(void)rating;
 	(void)user_data;
@@ -1064,6 +1093,7 @@ int main(void) {
 	RUN(test_time_picker);
 	RUN(test_toast);
 	RUN(test_breadcrumb);
+	RUN(test_items_from_own_strings);
 	RUN(test_rating);
 	RUN(test_pagination);
 	RUN(test_svg);
