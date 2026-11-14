@@ -54,6 +54,14 @@ typedef struct rvn_vk_metal_surface_info_t {
 	const void* layer;
 } rvn_vk_metal_surface_info_t;
 
+/* VkAndroidSurfaceCreateInfoKHR */
+typedef struct rvn_vk_android_surface_info_t {
+	VkStructureType sType;
+	const void* pNext;
+	VkFlags flags;
+	void* window;
+} rvn_vk_android_surface_info_t;
+
 /* ---------------------------------------------------------------------------
  *  Native surface
  * ------------------------------------------------------------------------- */
@@ -68,12 +76,18 @@ static int rvn_vk_native_surface_create(const RNativeWindow* native, VkSurfaceKH
 		info.hinstance = native->display;
 		info.hwnd = (void*)native->window;
 		result = rvn_vk.CreateWin32SurfaceKHR(g_vk.instance, &info, NULL, out);
-	} else if (native->system == R_WINDOW_SYSTEM_COCOA && rvn_vk.CreateMetalSurfaceEXT) {
+	} else if ((native->system == R_WINDOW_SYSTEM_COCOA || native->system == R_WINDOW_SYSTEM_UIKIT) && rvn_vk.CreateMetalSurfaceEXT) {
 		rvn_vk_metal_surface_info_t info;
 		memset(&info, 0, sizeof(info));
 		info.sType = (VkStructureType)1000217000; /* VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT */
 		info.layer = (const void*)native->window;
 		result = rvn_vk.CreateMetalSurfaceEXT(g_vk.instance, &info, NULL, out);
+	} else if (native->system == R_WINDOW_SYSTEM_ANDROID && rvn_vk.CreateAndroidSurfaceKHR) {
+		rvn_vk_android_surface_info_t info;
+		memset(&info, 0, sizeof(info));
+		info.sType = (VkStructureType)1000008000; /* VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR */
+		info.window = (void*)native->window;
+		result = rvn_vk.CreateAndroidSurfaceKHR(g_vk.instance, &info, NULL, out);
 	} else if (native->system == R_WINDOW_SYSTEM_X11) {
 		if (rvn_vk.CreateXlibSurfaceKHR) {
 			rvn_vk_xlib_surface_info_t info;
@@ -212,6 +226,15 @@ static VkPresentModeKHR rvn_vk_choose_present_mode(rvn_vk_surface_t* surface) {
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
+#if defined(__ANDROID__)
+#include <android/log.h>
+static void rvn_log_android_caps(const VkSurfaceCapabilitiesKHR* caps, uint32_t width, uint32_t height) {
+	__android_log_print(ANDROID_LOG_INFO, "Raven", "swapchain: window %ux%u, currentExtent %ux%u, currentTransform 0x%x, min %ux%u max %ux%u",
+		width, height, caps->currentExtent.width, caps->currentExtent.height, (unsigned)caps->currentTransform,
+		caps->minImageExtent.width, caps->minImageExtent.height, caps->maxImageExtent.width, caps->maxImageExtent.height);
+}
+#endif
+
 int rvn_vk_swapchain_create(rvn_vk_surface_t* surface, uint32_t width, uint32_t height) {
 	VkSurfaceCapabilitiesKHR caps;
 	VkSwapchainCreateInfoKHR info;
@@ -240,6 +263,20 @@ int rvn_vk_swapchain_create(rvn_vk_surface_t* surface, uint32_t width, uint32_t 
 	surface->out_of_date = R_TRUE;
 
 	if (rvn_vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(g_vk.physical_device, surface->surface, &caps) < 0) return R_FALSE;
+#if defined(__ANDROID__)
+	/*
+	 * Android: currentExtent lags behind a rotation (seen on the emulator:
+	 * still 1080x2424 just after turning to landscape, still 2424x1080 just
+	 * after turning back to portrait, so the image was scaled into a window
+	 * of the other shape). Any size between min and max is accepted (the
+	 * compositor scales), so the swapchain takes the size of the
+	 * ANativeWindow as the platform reads it, and the compositor rotates
+	 * (preTransform IDENTITY below; presents then say VK_SUBOPTIMAL_KHR in
+	 * landscape, which is kept). SHORTCUT: no pre-rotation.
+	 */
+	rvn_log_android_caps(&caps, width, height);
+	if (width > 0 && height > 0) caps.currentExtent.width = UINT32_MAX;
+#endif
 	if (caps.currentExtent.width != UINT32_MAX) {
 		/* the window system dictates the size */
 		extent = caps.currentExtent;
