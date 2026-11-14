@@ -14,6 +14,7 @@
 #   binding_node          needs node and node_api.h (the addon is built here) and the shared library; not on Windows
 #   binding_node_bun      the same addon and test, run by bun instead
 #   binding_d             needs dub and a D compiler, and the shared library; not on Windows
+#   binding_nim           needs nim and the shared library; not on Windows
 #   binding_zig           needs zig: compiles every declaration of zig/raven.zig (nothing is linked or run)
 #
 # C# and LuaJIT have no test here.
@@ -119,6 +120,16 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 		add_test(NAME binding_d
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_DUB} run --root=${CMAKE_CURRENT_SOURCE_DIR}/d/example
 				--temp-build -- --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+	endif()
+
+	# (the nimcache and the program go to the build tree; the example reads RAVEN_LIB_DIR)
+	find_program(RAVEN_NIM nim)
+	if(RAVEN_NIM)
+		add_test(NAME binding_nim
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_NIM} c -r --hints:off
+				--nimcache:${CMAKE_CURRENT_BINARY_DIR}/nim-cache --out:${CMAKE_CURRENT_BINARY_DIR}/nim-hello
+				${CMAKE_CURRENT_SOURCE_DIR}/nim/example/hello.nim --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 	endif()
 
