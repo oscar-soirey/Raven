@@ -841,6 +841,15 @@ static void rvn_window_remove_ghost(rvn_window_t* window, uint32_t index) {
 	if (!root->parent && !(root->flags & RVN_WF_POPUP) && root->window == window) rvn_widget_set_window(root, NULL);
 }
 
+int rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root) {
+	uint32_t i;
+	if (!window || !root) return R_FALSE;
+	for (i = 0; i < window->ghost_count; i++) {
+		if (window->ghosts[i].root == root) return R_TRUE;
+	}
+	return R_FALSE;
+}
+
 static void rvn_window_forget_ghost(rvn_window_t* window, const rvn_widget_t* root) {
 	uint32_t i;
 	for (i = 0; i < window->ghost_count; i++) {
