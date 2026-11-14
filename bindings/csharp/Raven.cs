@@ -2916,6 +2916,21 @@ namespace Raven
     public delegate int RDockCloseCallback(uint area, uint panel, IntPtr user_data);
 
     /// <summary>
+    /// Called when a panel leaves for a window of its own, once the
+    /// window and its floating area are made, before the panel goes there and
+    /// before anything is drawn.
+    /// area          The area the panel belongs to (its home).
+    /// panel         The panel that leaves.
+    /// window        The new window.
+    /// floating_area The dock area of the new window.
+    /// Returns: The content of the window: a widget that holds floating_area
+    /// (a VBox with a header bar above it, for a window made with
+    /// R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate uint RDockFloatWindowCallback(uint area, uint panel, uint window, uint floating_area, IntPtr user_data);
+
+    /// <summary>
     /// Called after the user moved, resized, showed or closed a panel.
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -7053,6 +7068,19 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rdock_area_is_tearable(uint area);
+
+        /// <summary>
+        /// How the windows of torn-off panels are made.
+        /// flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+        ///                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+        ///                 R_WINDOW_TRANSPARENT (the others are ignored).
+        ///                 R_WINDOW_DEFAULT by default.
+        /// callback May be NULL: the floating area is the whole window.
+        /// Dragging the only tab of such a window still moves it, and closing
+        /// it (its header bar's close button too) docks its panels back.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rdock_area_set_float_window(uint area, uint flags, RDockFloatWindowCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.

@@ -1391,6 +1391,11 @@ alias RComboBoxChangedCallback = extern (C) void function(Rid combo_box, int ind
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
 alias RListItemTextCallback = extern (C) const(char)* function(Rid list_view, int index, void* user_data);
+/// Colors the text of rows (a level, a verdict): the list asks for the color
+/// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+/// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+/// kept on a selected or hovered row. NULL removes the callback.
+alias RListItemColorCallback = extern (C) int function(Rid list_view, int index, float* r, float* g, float* b, float* a, void* user_data);
 alias RListEventCallback = extern (C) void function(Rid list_view, int index, void* user_data);
 alias RTreeEventCallback = extern (C) void function(Rid tree_view, Rid item, void* user_data);
 /// Right click: `item` is the item under the pointer (selected
@@ -1412,6 +1417,12 @@ alias RTileDragDataCallback = extern (C) const(char)* function(Rid tile_view, vo
 /// asks for the texts of the cells it draws. The returned string must stay
 /// valid until the next call.
 alias RTableCellTextCallback = extern (C) const(char)* function(Rid table, int row, int column, void* user_data);
+/// Colors the text of cells (a verdict, a state): the table asks for the
+/// color of each cell it draws, stored or virtual (`row` is the index of the
+/// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+/// keeps the color of the theme. The color is kept on a selected or hovered
+/// row. NULL removes the callback.
+alias RTableCellColorCallback = extern (C) int function(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = extern (C) void function(Rid table, int row, void* user_data);
 /// Called when the user clicks a header; `column` -1: not sorted.
 alias RTableSortCallback = extern (C) void function(Rid table, int column, int descending, void* user_data);
@@ -1455,6 +1466,17 @@ alias RTrayClickedCallback = extern (C) void function(Rid tray, RMouseButton but
 /// Called when the user closes a panel, before it is deleted.
 /// Return R_FALSE to keep the panel.
 alias RDockCloseCallback = extern (C) int function(Rid area, Rid panel, void* user_data);
+/// Called when a panel leaves for a window of its own, once the
+/// window and its floating area are made, before the panel goes there and
+/// before anything is drawn.
+/// area          The area the panel belongs to (its home).
+/// panel         The panel that leaves.
+/// window        The new window.
+/// floating_area The dock area of the new window.
+/// Returns: The content of the window: a widget that holds floating_area
+/// (a VBox with a header bar above it, for a window made with
+/// R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+alias RDockFloatWindowCallback = extern (C) Rid function(Rid area, Rid panel, Rid window, Rid floating_area, void* user_data);
 /// Called after the user moved, resized, showed or closed a panel.
 alias RDockChangedCallback = extern (C) void function(Rid area, void* user_data);
 /// Called when the user unfolds or folds the island. The action of the widget (OnChanged) fires too.
@@ -1942,7 +1964,8 @@ struct RShaderLook
     /// How much the pointer is over it and how much it is pressed, 0..1, as
     /// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
     /// the pointer is in the rectangle, and while the left button is down
-    /// there; a Border eases them itself.
+    /// there; a Border eases them itself. The rectangle is clipped to the
+    /// visible painting area; overlaid siblings do not interrupt its hover.
     float hover = 0;
     float press = 0;
 }
@@ -2251,6 +2274,18 @@ float Rwindow_get_opacity(Rid window);
 /// Keeps the window above the other windows (splash screens, tools).
 /// Returns: R_FALSE when the window system cannot do it.
 int Rwindow_set_topmost(Rid window, int topmost);
+/// Gives the window an owner (a tool window or an inspector of the
+/// main window): it stays above its owner, has no button of its own in the
+/// taskbar, is minimized and restored with it (where the window system
+/// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+/// destroys the windows a window owns before the window). R_INVALID_ID
+/// gives the window back its independence.
+/// Returns: R_FALSE when the window system cannot keep the window with its
+/// owner (it is still destroyed with it), or when the owner is not valid
+/// or is owned by the window (nothing is changed then).
+int Rwindow_set_owner(Rid window, Rid owner);
+/// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+Rid Rwindow_get_owner(Rid window);
 /// Picture in picture: the window becomes a small floating window
 /// that stays above the other windows, on every desktop (every space of
 /// macOS, over the applications in full screen too), in a corner of the
@@ -2297,6 +2332,12 @@ void Rwindow_set_resize_callback(Rid window, RWindowResizeCallback callback, voi
 /// Takes what is dropped on the window from other applications,
 /// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 void Rwindow_set_drop_callback(Rid window, RDropCallback callback, void* user_data);
+/// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+/// in target-local logical units (window-local for a window callback).
+/// Clipped to the target; zero width or height hides it without refusing
+/// the drop. Each callback starts with the default highlight again.
+/// Dimensions must be finite and nonnegative; coordinates must be finite.
+void Rdrop_set_highlight_rect(float x, float y, float width, float height);
 void Rwindow_set_user_handle(Rid window, void* handle);
 void* Rwindow_get_user_handle(Rid window);
 /// Fills `native` with the OS handles of the window.
@@ -3001,6 +3042,7 @@ void Rlist_view_remove_item(Rid list_view, int index);
 void Rlist_view_clear_items(Rid list_view);
 int Rlist_view_get_item_count(Rid list_view);
 void Rlist_view_set_virtual_items(Rid list_view, int count, RListItemTextCallback callback, void* user_data);
+void Rlist_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rlist_view_set_selected(Rid list_view, int index);
 int Rlist_view_get_selected(Rid list_view);
@@ -3079,6 +3121,10 @@ const(char)* Rmenu_item_get_text(Rid item);
 /// Shows a shortcut next to the item and triggers the item when the
 /// keys are pressed in the window of its menu bar.
 void Rmenu_item_set_shortcut(Rid item, RKey key, uint modifiers);
+/// Display-only shortcut hint; copied, never binds a key. Overrides
+/// the formatted shortcut without changing its binding. NULL restores the
+/// formatted shortcut; an empty string hides it. XML: ShortcutText.
+void Rmenu_item_set_shortcut_text(Rid item, const(char)* text);
 void Rmenu_item_set_checkable(Rid item, int checkable);
 void Rmenu_item_set_checked(Rid item, int checked);
 /// Icon drawn before the text of a menu item (after the check mark column).
@@ -3149,6 +3195,7 @@ void Rtable_remove_row(Rid table, int row);
 void Rtable_clear_rows(Rid table);
 int Rtable_get_row_count(Rid table);
 void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rtable_set_selected(Rid table, int row);
 int Rtable_get_selected(Rid table);
@@ -3538,6 +3585,15 @@ void Rdock_area_set_close_callback(Rid area, RDockCloseCallback callback, void* 
 /// work on its panels that are in floating windows.
 void Rdock_area_set_tearable(Rid area, int tearable);
 int Rdock_area_is_tearable(Rid area);
+/// How the windows of torn-off panels are made.
+/// flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+///                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+///                 R_WINDOW_TRANSPARENT (the others are ignored).
+///                 R_WINDOW_DEFAULT by default.
+/// callback May be NULL: the floating area is the whole window.
+/// Dragging the only tab of such a window still moves it, and closing
+/// it (its header bar's close button too) docks its panels back.
+void Rdock_area_set_float_window(Rid area, uint flags, RDockFloatWindowCallback callback, void* user_data);
 /// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
 Rid Rdock_area_float_panel(Rid area, Rid panel, int x, int y);
 /// A floating panel goes back where it was in the area.
