@@ -1213,6 +1213,9 @@ RTreeEventCallback :: #type proc "c" (tree_view: Rid, item: Rid, user_data: rawp
 // first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
 RTreeContextCallback :: #type proc "c" (tree_view: Rid, item: Rid, x: f32, y: f32, user_data: rawptr)
 RMenuItemClickedCallback :: #type proc "c" (item: Rid, user_data: rawptr)
+// Describes section `section`: when the sections are given (Rtile_view_set_sections,
+// `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+RTileSectionCallback :: #type proc "c" (tile_view: Rid, section: i32, out: ^RTileSection, user_data: rawptr)
 // Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
 RTileItemCallback :: #type proc "c" (tile_view: Rid, index: i32, item: ^RTileItem, user_data: rawptr)
 // Selection change (`index`: the current tile, or -1) and activation (double click, Enter).
@@ -1614,6 +1617,20 @@ RTileItem :: struct {
 	icon_radius: f32,
 	// Color of the name; alpha 0 = the theme.
 	text_color: [4]f32,
+	// Layout="Rows": a third line under the detail, dimmer, or NULL.
+	note: cstring,
+	// Color of the detail line; alpha 0 = the theme (dimmer than the name).
+	detail_color: [4]f32,
+}
+
+// A section of a tile view: its first tile, and what its header shows.
+RTileSection :: struct {
+	// Index of the first tile of the section (read when the sections are given).
+	first: i32,
+	// Title of the header (valid until the callback returns).
+	text: cstring,
+	// Dimmer text after the title (a count...), or NULL.
+	detail: cstring,
 }
 
 // What the editor knows of a language. Every field but the name may be NULL.
@@ -2924,6 +2941,21 @@ foreign lib {
 	// Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64.
 	Rtile_view_set_tile_size :: proc(tile_view: Rid, width: f32, height: f32, icon_size: f32) ---
 	Rtile_view_set_empty_text :: proc(tile_view: Rid, text: cstring) ---
+	// Layout="Rows": width of the box the icon is drawn in (its height is the
+	// icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+	Rtile_view_set_icon_width :: proc(tile_view: Rid, width: f32) ---
+	// `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+	Rtile_view_set_sections :: proc(tile_view: Rid, count: i32, callback: RTileSectionCallback, user_data: rawptr) ---
+	Rtile_view_get_section_count :: proc(tile_view: Rid) -> i32 ---
+	// The section of a tile, or -1 (before the first section).
+	Rtile_view_get_section_of :: proc(tile_view: Rid, index: i32) -> i32 ---
+	// Folds or unfolds a section (the toggled callback is not called).
+	Rtile_view_set_section_folded :: proc(tile_view: Rid, section: i32, folded: i32) ---
+	Rtile_view_is_section_folded :: proc(tile_view: Rid, section: i32) -> i32 ---
+	// The section whose header is at a point relative to the widget, or -1.
+	Rtile_view_get_section_at :: proc(tile_view: Rid, local_x: f32, local_y: f32) -> i32 ---
+	// Called when the user folds or unfolds a section (`index`: the section).
+	Rtile_view_set_section_toggled_callback :: proc(tile_view: Rid, callback: RTileEventCallback, user_data: rawptr) ---
 	Rtile_view_set_selected :: proc(tile_view: Rid, index: i32, selected: i32) ---
 	Rtile_view_is_selected :: proc(tile_view: Rid, index: i32) -> i32 ---
 	Rtile_view_clear_selection :: proc(tile_view: Rid) ---

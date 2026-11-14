@@ -1203,6 +1203,9 @@ pub const RTreeEventCallback = ?*const fn (tree_view: Rid, item: Rid, user_data:
 /// first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
 pub const RTreeContextCallback = ?*const fn (tree_view: Rid, item: Rid, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
 pub const RMenuItemClickedCallback = ?*const fn (item: Rid, user_data: ?*anyopaque) callconv(.c) void;
+/// Describes section `section`: when the sections are given (Rtile_view_set_sections,
+/// `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+pub const RTileSectionCallback = ?*const fn (tile_view: Rid, section: c_int, out: ?*RTileSection, user_data: ?*anyopaque) callconv(.c) void;
 /// Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
 pub const RTileItemCallback = ?*const fn (tile_view: Rid, index: c_int, item: ?*RTileItem, user_data: ?*anyopaque) callconv(.c) void;
 /// Selection change (`index`: the current tile, or -1) and activation (double click, Enter).
@@ -1604,6 +1607,20 @@ pub const RTileItem = extern struct {
     icon_radius: f32 = 0,
     /// Color of the name; alpha 0 = the theme.
     text_color: [4]f32 = @splat(0),
+    /// Layout="Rows": a third line under the detail, dimmer, or NULL.
+    note: ?[*:0]const u8 = null,
+    /// Color of the detail line; alpha 0 = the theme (dimmer than the name).
+    detail_color: [4]f32 = @splat(0),
+};
+
+/// A section of a tile view: its first tile, and what its header shows.
+pub const RTileSection = extern struct {
+    /// Index of the first tile of the section (read when the sections are given).
+    first: c_int = 0,
+    /// Title of the header (valid until the callback returns).
+    text: ?[*:0]const u8 = null,
+    /// Dimmer text after the title (a count...), or NULL.
+    detail: ?[*:0]const u8 = null,
 };
 
 /// What the editor knows of a language. Every field but the name may be NULL.
@@ -2912,6 +2929,21 @@ pub extern fn Rtile_view_get_count(tile_view: Rid) c_int;
 /// Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64.
 pub extern fn Rtile_view_set_tile_size(tile_view: Rid, width: f32, height: f32, icon_size: f32) void;
 pub extern fn Rtile_view_set_empty_text(tile_view: Rid, text: ?[*:0]const u8) void;
+/// Layout="Rows": width of the box the icon is drawn in (its height is the
+/// icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+pub extern fn Rtile_view_set_icon_width(tile_view: Rid, width: f32) void;
+/// `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+pub extern fn Rtile_view_set_sections(tile_view: Rid, count: c_int, callback: RTileSectionCallback, user_data: ?*anyopaque) void;
+pub extern fn Rtile_view_get_section_count(tile_view: Rid) c_int;
+/// The section of a tile, or -1 (before the first section).
+pub extern fn Rtile_view_get_section_of(tile_view: Rid, index: c_int) c_int;
+/// Folds or unfolds a section (the toggled callback is not called).
+pub extern fn Rtile_view_set_section_folded(tile_view: Rid, section: c_int, folded: c_int) void;
+pub extern fn Rtile_view_is_section_folded(tile_view: Rid, section: c_int) c_int;
+/// The section whose header is at a point relative to the widget, or -1.
+pub extern fn Rtile_view_get_section_at(tile_view: Rid, local_x: f32, local_y: f32) c_int;
+/// Called when the user folds or unfolds a section (`index`: the section).
+pub extern fn Rtile_view_set_section_toggled_callback(tile_view: Rid, callback: RTileEventCallback, user_data: ?*anyopaque) void;
 pub extern fn Rtile_view_set_selected(tile_view: Rid, index: c_int, selected: c_int) void;
 pub extern fn Rtile_view_is_selected(tile_view: Rid, index: c_int) c_int;
 pub extern fn Rtile_view_clear_selection(tile_view: Rid) void;

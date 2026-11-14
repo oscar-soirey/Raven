@@ -644,6 +644,14 @@ const _symbols = {
 	Rtile_view_get_count: { args: ["u32"], returns: "i32" },
 	Rtile_view_set_tile_size: { args: ["u32", "f32", "f32", "f32"], returns: "void" },
 	Rtile_view_set_empty_text: { args: ["u32", "ptr"], returns: "void" },
+	Rtile_view_set_icon_width: { args: ["u32", "f32"], returns: "void" },
+	Rtile_view_set_sections: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rtile_view_get_section_count: { args: ["u32"], returns: "i32" },
+	Rtile_view_get_section_of: { args: ["u32", "i32"], returns: "i32" },
+	Rtile_view_set_section_folded: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtile_view_is_section_folded: { args: ["u32", "i32"], returns: "i32" },
+	Rtile_view_get_section_at: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rtile_view_set_section_toggled_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtile_view_set_selected: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rtile_view_is_selected: { args: ["u32", "i32"], returns: "i32" },
 	Rtile_view_clear_selection: { args: ["u32"], returns: "void" },
@@ -4271,7 +4279,7 @@ export class RGestureEvent extends RStruct {
 
 /** What a tile shows, filled by the application when the tile is drawn. */
 export class RTileItem extends RStruct {
-	static readonly SIZE = 80;
+	static readonly SIZE = 104;
 
 	constructor(pointer?: Pointer) {
 		super(RTileItem.SIZE, pointer);
@@ -4341,6 +4349,60 @@ export class RTileItem extends RStruct {
 	}
 	set text_color(value: ArrayLike<number>) {
 		this.text_color.set(value);
+	}
+
+	/** Layout="Rows": a third line under the detail, dimmer, or NULL. */
+	get note(): string | null {
+		return _text(_address(this._view.getBigUint64(80, true)));
+	}
+	set note(value: string | null) {
+		this._point("note", 80, _s(value));
+	}
+
+	/** Color of the detail line; alpha 0 = the theme (dimmer than the name). */
+	get detail_color(): Float32Array {
+		return new Float32Array(this._bytes.buffer as ArrayBuffer, 88, 4);
+	}
+	set detail_color(value: ArrayLike<number>) {
+		this.detail_color.set(value);
+	}
+}
+
+/** A section of a tile view: its first tile, and what its header shows. */
+export class RTileSection extends RStruct {
+	static readonly SIZE = 24;
+
+	constructor(pointer?: Pointer) {
+		super(RTileSection.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RTileSection | null {
+		return pointer ? new RTileSection(pointer) : null;
+	}
+
+	/** Index of the first tile of the section (read when the sections are given). */
+	get first(): number {
+		return this._view.getInt32(0, true);
+	}
+	set first(value: number) {
+		this._view.setInt32(0, value, true);
+	}
+
+	/** Title of the header (valid until the callback returns). */
+	get text(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set text(value: string | null) {
+		this._point("text", 8, _s(value));
+	}
+
+	/** Dimmer text after the title (a count...), or NULL. */
+	get detail(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set detail(value: string | null) {
+		this._point("detail", 16, _s(value));
 	}
 }
 
@@ -5653,6 +5715,25 @@ function _adapt_RMenuItemClickedCallback(function_: RMenuItemClickedCallback | P
 			_report(error as Error);
 		}
 	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Describes section `section`: when the sections are given (Rtile_view_set_sections,
+ * `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+ */
+export type RTileSectionCallback = (tile_view: Rid, section: number, out: RTileSection | null, user_data: Pointer | null) => void;
+
+function _adapt_RTileSectionCallback(function_: RTileSectionCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tile_view: number, section: number, out: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(tile_view, section, RTileSection.from(out), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view. */
@@ -9357,6 +9438,47 @@ export function Rtile_view_set_tile_size(tile_view: Rid, width: number, height: 
 
 export function Rtile_view_set_empty_text(tile_view: Rid, text: string | null): void {
 	_lib.Rtile_view_set_empty_text(tile_view, _s(text));
+}
+
+/**
+ * Layout="Rows": width of the box the icon is drawn in (its height is the
+ * icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+ */
+export function Rtile_view_set_icon_width(tile_view: Rid, width: number): void {
+	_lib.Rtile_view_set_icon_width(tile_view, width);
+}
+
+/** `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles. */
+export function Rtile_view_set_sections(tile_view: Rid, count: number, callback: RTileSectionCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtile_view_set_sections(tile_view, count, _adapt_RTileSectionCallback(callback), user_data);
+}
+
+export function Rtile_view_get_section_count(tile_view: Rid): number {
+	return _lib.Rtile_view_get_section_count(tile_view);
+}
+
+/** The section of a tile, or -1 (before the first section). */
+export function Rtile_view_get_section_of(tile_view: Rid, index: number): number {
+	return _lib.Rtile_view_get_section_of(tile_view, index);
+}
+
+/** Folds or unfolds a section (the toggled callback is not called). */
+export function Rtile_view_set_section_folded(tile_view: Rid, section: number, folded: number): void {
+	_lib.Rtile_view_set_section_folded(tile_view, section, folded);
+}
+
+export function Rtile_view_is_section_folded(tile_view: Rid, section: number): number {
+	return _lib.Rtile_view_is_section_folded(tile_view, section);
+}
+
+/** The section whose header is at a point relative to the widget, or -1. */
+export function Rtile_view_get_section_at(tile_view: Rid, local_x: number, local_y: number): number {
+	return _lib.Rtile_view_get_section_at(tile_view, local_x, local_y);
+}
+
+/** Called when the user folds or unfolds a section (`index`: the section). */
+export function Rtile_view_set_section_toggled_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtile_view_set_section_toggled_callback(tile_view, _adapt_RTileEventCallback(callback), user_data);
 }
 
 export function Rtile_view_set_selected(tile_view: Rid, index: number, selected: number): void {

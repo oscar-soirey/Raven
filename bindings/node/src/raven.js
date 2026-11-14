@@ -1994,7 +1994,7 @@ export class RGestureEvent extends RStruct {
 }
 
 export class RTileItem extends RStruct {
-	static SIZE = 80;
+	static SIZE = 104;
 
 	constructor(pointer) {
 		super(RTileItem.SIZE, pointer);
@@ -2059,6 +2059,54 @@ export class RTileItem extends RStruct {
 	}
 	set text_color(value) {
 		this.text_color.set(value);
+	}
+
+	get note() {
+		return _text(_address(this._view.getBigUint64(80, true)));
+	}
+	set note(value) {
+		this._point("note", 80, _s(value));
+	}
+
+	get detail_color() {
+		return new Float32Array(this._bytes.buffer, 88, 4);
+	}
+	set detail_color(value) {
+		this.detail_color.set(value);
+	}
+}
+
+export class RTileSection extends RStruct {
+	static SIZE = 24;
+
+	constructor(pointer) {
+		super(RTileSection.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RTileSection(pointer) : null;
+	}
+
+	get first() {
+		return this._view.getInt32(0, true);
+	}
+	set first(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get text() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set text(value) {
+		this._point("text", 8, _s(value));
+	}
+
+	get detail() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set detail(value) {
+		this._point("detail", 16, _s(value));
 	}
 }
 
@@ -2799,6 +2847,18 @@ function _adapt_RListItemColorCallback(function_) {
 	};
 }
 
+function _adapt_RTileSectionCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (tile_view, section, out, user_data) => {
+		const out_ = RTileSection.from(out);
+		const result_ = function_(tile_view, section, out_, user_data);
+		_back(out_, out);
+		return result_;
+	};
+}
+
 function _adapt_RTileItemCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -3381,6 +3441,16 @@ export const Rtile_view_refresh = _lib.Rtile_view_refresh;
 export const Rtile_view_get_count = _lib.Rtile_view_get_count;
 export const Rtile_view_set_tile_size = _lib.Rtile_view_set_tile_size;
 export const Rtile_view_set_empty_text = _lib.Rtile_view_set_empty_text;
+export const Rtile_view_set_icon_width = _lib.Rtile_view_set_icon_width;
+export function Rtile_view_set_sections(tile_view, count, callback, user_data = null) {
+	return _lib.Rtile_view_set_sections(tile_view, count, _adapt_RTileSectionCallback(callback), user_data);
+}
+export const Rtile_view_get_section_count = _lib.Rtile_view_get_section_count;
+export const Rtile_view_get_section_of = _lib.Rtile_view_get_section_of;
+export const Rtile_view_set_section_folded = _lib.Rtile_view_set_section_folded;
+export const Rtile_view_is_section_folded = _lib.Rtile_view_is_section_folded;
+export const Rtile_view_get_section_at = _lib.Rtile_view_get_section_at;
+export const Rtile_view_set_section_toggled_callback = _lib.Rtile_view_set_section_toggled_callback;
 export const Rtile_view_set_selected = _lib.Rtile_view_set_selected;
 export const Rtile_view_is_selected = _lib.Rtile_view_is_selected;
 export const Rtile_view_clear_selection = _lib.Rtile_view_clear_selection;

@@ -1391,12 +1391,20 @@ alias RComboBoxChangedCallback = extern (C) void function(Rid combo_box, int ind
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
 alias RListItemTextCallback = extern (C) const(char)* function(Rid list_view, int index, void* user_data);
+/// Colors the text of rows (a level, a verdict): the list asks for the color
+/// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+/// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+/// kept on a selected or hovered row. NULL removes the callback.
+alias RListItemColorCallback = extern (C) int function(Rid list_view, int index, float* r, float* g, float* b, float* a, void* user_data);
 alias RListEventCallback = extern (C) void function(Rid list_view, int index, void* user_data);
 alias RTreeEventCallback = extern (C) void function(Rid tree_view, Rid item, void* user_data);
 /// Right click: `item` is the item under the pointer (selected
 /// first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
 alias RTreeContextCallback = extern (C) void function(Rid tree_view, Rid item, float x, float y, void* user_data);
 alias RMenuItemClickedCallback = extern (C) void function(Rid item, void* user_data);
+/// Describes section `section`: when the sections are given (Rtile_view_set_sections,
+/// `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+alias RTileSectionCallback = extern (C) void function(Rid tile_view, int section, RTileSection* out_, void* user_data);
 /// Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
 alias RTileItemCallback = extern (C) void function(Rid tile_view, int index, RTileItem* item, void* user_data);
 /// Selection change (`index`: the current tile, or -1) and activation (double click, Enter).
@@ -1412,6 +1420,12 @@ alias RTileDragDataCallback = extern (C) const(char)* function(Rid tile_view, vo
 /// asks for the texts of the cells it draws. The returned string must stay
 /// valid until the next call.
 alias RTableCellTextCallback = extern (C) const(char)* function(Rid table, int row, int column, void* user_data);
+/// Colors the text of cells (a verdict, a state): the table asks for the
+/// color of each cell it draws, stored or virtual (`row` is the index of the
+/// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+/// keeps the color of the theme. The color is kept on a selected or hovered
+/// row. NULL removes the callback.
+alias RTableCellColorCallback = extern (C) int function(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = extern (C) void function(Rid table, int row, void* user_data);
 /// Called when the user clicks a header; `column` -1: not sorted.
 alias RTableSortCallback = extern (C) void function(Rid table, int column, int descending, void* user_data);
@@ -1804,6 +1818,21 @@ struct RTileItem
     float icon_radius = 0;
     /// Color of the name; alpha 0 = the theme.
     float[4] text_color = 0;
+    /// Layout="Rows": a third line under the detail, dimmer, or NULL.
+    const(char)* note = null;
+    /// Color of the detail line; alpha 0 = the theme (dimmer than the name).
+    float[4] detail_color = 0;
+}
+
+/// A section of a tile view: its first tile, and what its header shows.
+struct RTileSection
+{
+    /// Index of the first tile of the section (read when the sections are given).
+    int first = 0;
+    /// Title of the header (valid until the callback returns).
+    const(char)* text = null;
+    /// Dimmer text after the title (a count...), or NULL.
+    const(char)* detail = null;
 }
 
 /// What the editor knows of a language. Every field but the name may be NULL.
@@ -1942,7 +1971,8 @@ struct RShaderLook
     /// How much the pointer is over it and how much it is pressed, 0..1, as
     /// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
     /// the pointer is in the rectangle, and while the left button is down
-    /// there; a Border eases them itself.
+    /// there; a Border eases them itself. The rectangle is clipped to the
+    /// visible painting area; overlaid siblings do not interrupt its hover.
     float hover = 0;
     float press = 0;
 }
@@ -2251,6 +2281,18 @@ float Rwindow_get_opacity(Rid window);
 /// Keeps the window above the other windows (splash screens, tools).
 /// Returns: R_FALSE when the window system cannot do it.
 int Rwindow_set_topmost(Rid window, int topmost);
+/// Gives the window an owner (a tool window or an inspector of the
+/// main window): it stays above its owner, has no button of its own in the
+/// taskbar, is minimized and restored with it (where the window system
+/// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+/// destroys the windows a window owns before the window). R_INVALID_ID
+/// gives the window back its independence.
+/// Returns: R_FALSE when the window system cannot keep the window with its
+/// owner (it is still destroyed with it), or when the owner is not valid
+/// or is owned by the window (nothing is changed then).
+int Rwindow_set_owner(Rid window, Rid owner);
+/// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+Rid Rwindow_get_owner(Rid window);
 /// Picture in picture: the window becomes a small floating window
 /// that stays above the other windows, on every desktop (every space of
 /// macOS, over the applications in full screen too), in a corner of the
@@ -2297,6 +2339,12 @@ void Rwindow_set_resize_callback(Rid window, RWindowResizeCallback callback, voi
 /// Takes what is dropped on the window from other applications,
 /// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 void Rwindow_set_drop_callback(Rid window, RDropCallback callback, void* user_data);
+/// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+/// in target-local logical units (window-local for a window callback).
+/// Clipped to the target; zero width or height hides it without refusing
+/// the drop. Each callback starts with the default highlight again.
+/// Dimensions must be finite and nonnegative; coordinates must be finite.
+void Rdrop_set_highlight_rect(float x, float y, float width, float height);
 void Rwindow_set_user_handle(Rid window, void* handle);
 void* Rwindow_get_user_handle(Rid window);
 /// Fills `native` with the OS handles of the window.
@@ -3001,6 +3049,7 @@ void Rlist_view_remove_item(Rid list_view, int index);
 void Rlist_view_clear_items(Rid list_view);
 int Rlist_view_get_item_count(Rid list_view);
 void Rlist_view_set_virtual_items(Rid list_view, int count, RListItemTextCallback callback, void* user_data);
+void Rlist_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rlist_view_set_selected(Rid list_view, int index);
 int Rlist_view_get_selected(Rid list_view);
@@ -3079,6 +3128,10 @@ const(char)* Rmenu_item_get_text(Rid item);
 /// Shows a shortcut next to the item and triggers the item when the
 /// keys are pressed in the window of its menu bar.
 void Rmenu_item_set_shortcut(Rid item, RKey key, uint modifiers);
+/// Display-only shortcut hint; copied, never binds a key. Overrides
+/// the formatted shortcut without changing its binding. NULL restores the
+/// formatted shortcut; an empty string hides it. XML: ShortcutText.
+void Rmenu_item_set_shortcut_text(Rid item, const(char)* text);
 void Rmenu_item_set_checkable(Rid item, int checkable);
 void Rmenu_item_set_checked(Rid item, int checked);
 /// Icon drawn before the text of a menu item (after the check mark column).
@@ -3099,6 +3152,21 @@ int Rtile_view_get_count(Rid tile_view);
 /// Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64.
 void Rtile_view_set_tile_size(Rid tile_view, float width, float height, float icon_size);
 void Rtile_view_set_empty_text(Rid tile_view, const(char)* text);
+/// Layout="Rows": width of the box the icon is drawn in (its height is the
+/// icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+void Rtile_view_set_icon_width(Rid tile_view, float width);
+/// `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+void Rtile_view_set_sections(Rid tile_view, int count, RTileSectionCallback callback, void* user_data);
+int Rtile_view_get_section_count(Rid tile_view);
+/// The section of a tile, or -1 (before the first section).
+int Rtile_view_get_section_of(Rid tile_view, int index);
+/// Folds or unfolds a section (the toggled callback is not called).
+void Rtile_view_set_section_folded(Rid tile_view, int section, int folded);
+int Rtile_view_is_section_folded(Rid tile_view, int section);
+/// The section whose header is at a point relative to the widget, or -1.
+int Rtile_view_get_section_at(Rid tile_view, float local_x, float local_y);
+/// Called when the user folds or unfolds a section (`index`: the section).
+void Rtile_view_set_section_toggled_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_selected(Rid tile_view, int index, int selected);
 int Rtile_view_is_selected(Rid tile_view, int index);
 void Rtile_view_clear_selection(Rid tile_view);
@@ -3149,6 +3217,7 @@ void Rtable_remove_row(Rid table, int row);
 void Rtable_clear_rows(Rid table);
 int Rtable_get_row_count(Rid table);
 void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rtable_set_selected(Rid table, int row);
 int Rtable_get_selected(Rid table);

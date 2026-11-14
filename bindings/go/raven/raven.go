@@ -3483,6 +3483,35 @@ func TileViewSetEmptyText(tile_view ID, text string) {
 	C.Rtile_view_set_empty_text(C.Rid(tile_view), text_)
 }
 
+// TileViewSetIconWidth: Layout="Rows": width of the box the icon is drawn in (its height is the icon size),
+// for icons that are not square; 0 = square (default). XML: IconWidth.
+func TileViewSetIconWidth(tile_view ID, width float32) {
+	C.Rtile_view_set_icon_width(C.Rid(tile_view), C.float(width))
+}
+
+func TileViewGetSectionCount(tile_view ID) int {
+	return int(C.Rtile_view_get_section_count(C.Rid(tile_view)))
+}
+
+// TileViewGetSectionOf: The section of a tile, or -1 (before the first section).
+func TileViewGetSectionOf(tile_view ID, index int) int {
+	return int(C.Rtile_view_get_section_of(C.Rid(tile_view), C.int(index)))
+}
+
+// TileViewSetSectionFolded: Folds or unfolds a section (the toggled callback is not called).
+func TileViewSetSectionFolded(tile_view ID, section int, folded int) {
+	C.Rtile_view_set_section_folded(C.Rid(tile_view), C.int(section), C.int(folded))
+}
+
+func TileViewIsSectionFolded(tile_view ID, section int) int {
+	return int(C.Rtile_view_is_section_folded(C.Rid(tile_view), C.int(section)))
+}
+
+// TileViewGetSectionAt: The section whose header is at a point relative to the widget, or -1.
+func TileViewGetSectionAt(tile_view ID, local_x float32, local_y float32) int {
+	return int(C.Rtile_view_get_section_at(C.Rid(tile_view), C.float(local_x), C.float(local_y)))
+}
+
 func TileViewSetSelected(tile_view ID, index int, selected int) {
 	C.Rtile_view_set_selected(C.Rid(tile_view), C.int(index), C.int(selected))
 }
@@ -6780,21 +6809,22 @@ func HostInjectClose(window ID) {
 // Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback, Rtree_item_set_user_handle
 // Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
 // Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
-// Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
-// Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
-// Rtable_set_cell_color_callback, Rtable_set_selection_changed_callback, Rtable_set_activated_callback
-// Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
-// Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
-// Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
-// Rplot_set_series_toggled_callback, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
-// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
-// Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
-// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
-// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
-// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
-// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
-// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
-// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rtile_view_set_sections, Rtile_view_set_section_toggled_callback, Rtile_view_set_drag_data_callback
+// Rtile_view_set_selection_changed_callback, Rtile_view_set_activated_callback
+// Rtile_view_set_context_callback, Rtable_set_virtual_rows, Rtable_set_cell_color_callback
+// Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
+// Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
+// Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
+// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
+// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
+// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
+// Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon
+// Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
+// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
+// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
+// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
+// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
+// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
 // Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
 // Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
 // Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
