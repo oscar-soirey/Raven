@@ -5,6 +5,8 @@
 
 #include "test.h"
 
+#include <stdlib.h>
+
 static Rid g_window;
 static int g_calls;
 static int g_last_int;
@@ -653,6 +655,56 @@ static void test_svg(void) {
 	EXPECT_ERRORS_END(2);
 }
 
+/* SVG files that nanosvg took minutes to draw, or that gave sizes out of the range of int (issue #153). */
+static void test_svg_hostile(void) {
+	static const char* huge[] = {
+		"<svg width='1e30' height='10'><rect width='5' height='5'/></svg>",
+		"<svg width='10' height='-1e30'><rect width='5' height='5'/></svg>",
+	};
+	const char* wide = "<svg width='20' height='20'><path d='M0 0 L10 10' stroke='black' stroke-width='1e30' stroke-linecap='round'/></svg>";
+	size_t points = 60000, size, n = 0, i;
+	char* text;
+	uint8_t* pixels;
+	int width = 0, height = 0, stroke, covered;
+#if defined(RAVEN_TEST_NO_SVG)
+	return;
+#endif
+	for (i = 0; i < 2; i++) {
+		width = height = -1;
+		CHECK(Rimage_decode(huge[i], strlen(huge[i]), &width, &height) == NULL);
+	}
+	EXPECT_ERRORS_BEGIN();
+	CHECK(Rtexture_create_from_svg(huge[0], strlen(huge[0]), 1.0f) == R_INVALID_ID);
+	CHECK(Rtexture_create_from_svg(g_svg, sizeof(g_svg) - 1, 1e30f) == R_INVALID_ID);
+	EXPECT_ERRORS_END(2);
+
+	/* a stroke wider than anything, with round ends, covers the whole picture */
+	pixels = Rimage_decode(wide, strlen(wide), &width, &height);
+	CHECK(pixels != NULL && width == 40 && height == 40);
+	if (pixels) {
+		for (i = 0, covered = 0; i < (size_t)(width * height); i++) covered += pixels[i * 4 + 3] == 255;
+		CHECK(covered == width * height);
+		Rpixels_free(pixels);
+	}
+
+	/* one path of 60000 points over a small picture, filled then stroked: drawn in a moment, not in minutes */
+	size = points * 16 + 200;
+	text = (char*)malloc(size);
+	for (stroke = 0; stroke < 2 && text; stroke++) {
+		n = (size_t)snprintf(text, size, "<svg width='20' height='20'><path %s d='M0 0", stroke ? "fill='none' stroke='red'" : "fill='red'");
+		for (i = 0; i < points; i++) n += (size_t)snprintf(text + n, size - n, " L%d %d", (int)(i % 20), (int)((i * 7) % 20));
+		n += (size_t)snprintf(text + n, size - n, "Z'/></svg>");
+		pixels = Rimage_decode(text, n, &width, &height);
+		CHECK(pixels != NULL && width == 40 && height == 40);
+		if (pixels) {
+			for (i = 0, covered = 0; i < (size_t)(width * height); i++) covered += pixels[i * 4 + 3] > 0;
+			CHECK(covered > width * height / 4);
+			Rpixels_free(pixels);
+		}
+	}
+	free(text);
+}
+
 static void on_notification(const char* title, const char* body, RNotificationUrgency urgency, void* user_data) {
 	(void)user_data;
 	snprintf(g_last_text, sizeof(g_last_text), "%s/%s/%d", title, body, urgency == R_NOTIFICATION_CRITICAL);
@@ -1015,6 +1067,7 @@ int main(void) {
 	RUN(test_rating);
 	RUN(test_pagination);
 	RUN(test_svg);
+	RUN(test_svg_hostile);
 	RUN(test_notifications);
 	RUN(test_plot);
 
