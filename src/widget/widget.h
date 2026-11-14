@@ -1044,6 +1044,8 @@ int  rvn_window_close_dialog(rvn_widget_t* inside, int result);
 /** Root of the dialog on top of the others, or NULL. */
 rvn_widget_t* rvn_window_top_dialog(const rvn_window_t* window);
 int  rvn_window_popup_index(const rvn_window_t* window, const rvn_widget_t* root);
+/** A popup or dialog that was closed and is still drawn on its way out (its ghost). */
+int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root);
 
 /** Triggers a menu item (shortcuts). Implemented in widgets/menu.c. */
 void rvn_menu_item_trigger(rvn_widget_t* item);

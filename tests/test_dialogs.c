@@ -753,6 +753,17 @@ static void test_dialog_animated(void) {
 	Rwindow_destroy(window);
 	CHECK(!Rwidget_is_valid(box));
 	CHECK(!Rwidget_is_valid(again));
+
+	/* a function that waits returns once its dialog has left: nothing of it is drawn any more */
+	g_window = window_from("<Window Width=\"600\" Height=\"400\"><Label>Under</Label></Window>");
+	box = Rlabel_create("Wait for me");
+	Rtimer_create(0.01, R_FALSE, close_later, (void*)(uintptr_t)box);
+	CHECK(Rdialog_run(g_window, box) == 5);
+	CHECK(!Rwidget_is_valid(box));
+	Rtimer_create(0.01, R_FALSE, press_enter, NULL);
+	CHECK(Rmessage_box(g_window, "Title", "Question", R_MESSAGE_OK_CANCEL) == R_MESSAGE_RESULT_OK);
+	CHECK(!Rwindow_has_dialog(g_window));
+	Rwindow_destroy(g_window);
 	Rset_animations_enabled(R_FALSE);
 	Rset_animation_time_step(0.0);
 }
