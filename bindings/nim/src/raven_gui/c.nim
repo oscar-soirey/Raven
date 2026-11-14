@@ -2582,6 +2582,9 @@ proc Rwidget_add_child*(parent: Rid, child: Rid): Rid {.rapi.}
   ## A widget that already has a parent is moved.
   ## Returns: `child`, so calls can be nested:
   ##         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+  ##         R_INVALID_ID when the child replaced in a single-child container
+  ##         had a destroy callback that destroyed the container or `child`;
+  ##         `child`, when it is still there, is then not added.
 proc Rwidget_insert_child*(parent: Rid, child: Rid, index: cint): Rid {.rapi.}
 proc Rwidget_remove_child*(parent: Rid, child: Rid) {.rapi.}
   ## Detaches a child without deleting it. The caller owns it again.

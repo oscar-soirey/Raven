@@ -311,6 +311,31 @@ static void test_spin_box_buttons(void) {
 	test_key(g_window, R_KEY_ESCAPE, 0);
 }
 
+/* The destroy callback of a replaced child destroys the container (#116). */
+static void on_old_child_destroyed(Rid old, void* user_data) {
+	(void)old;
+	Rwidget_destroy(*(Rid*)user_data);
+}
+
+static void test_replace_child_destroys_parent(void) {
+	Rid border = Rwidget_create(R_WIDGET_BORDER);
+	Rid old = Rwidget_add_child(border, Rlabel_create("old"));
+	Rid next = Rlabel_create("new");
+	Rid other = Rwidget_create(R_WIDGET_BORDER);
+	Rwidget_set_destroy_callback(old, on_old_child_destroyed, &border);
+	CHECK(Rwidget_add_child(border, next) == R_INVALID_ID);
+	CHECK(!Rwidget_is_valid(border));
+	CHECK(!Rwidget_is_valid(old));
+	/* the new child was not added: it is still the caller's */
+	CHECK(Rwidget_is_valid(next));
+	CHECK(Rwidget_get_parent(next) == R_INVALID_ID);
+	/* without the callback, replacing still works */
+	CHECK(Rwidget_add_child(other, Rlabel_create("first")) != R_INVALID_ID);
+	CHECK(Rwidget_add_child(other, next) == next);
+	CHECK(Rwidget_get_child_count(other) == 1);
+	Rwidget_destroy(other);
+}
+
 static void test_text_input(void) {
 	Rid box = column();
 	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
@@ -1465,6 +1490,7 @@ int main(void) {
 	RUN(test_radio_rebuild_in_callback);
 	RUN(test_slider_and_spin_box);
 	RUN(test_spin_box_buttons);
+	RUN(test_replace_child_destroys_parent);
 	RUN(test_text_input);
 	RUN(test_text_input_services);
 	RUN(test_selectable_label);

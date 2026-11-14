@@ -3062,6 +3062,9 @@ extern fn RWidgetType r_widget_get_type(Rid widget) @cname("Rwidget_get_type");
  A widget that already has a parent is moved.
  Returns `child`, so calls can be nested:
          Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+         R_INVALID_ID when the child replaced in a single-child container
+         had a destroy callback that destroyed the container or `child`;
+         `child`, when it is still there, is then not added.
 *>
 extern fn Rid r_widget_add_child(Rid parent, Rid child) @cname("Rwidget_add_child");
 

@@ -336,7 +336,8 @@ rvn_widget_t* rvn_widget_create_class(const rvn_widget_class_t* cls);
 /** Detaches and destroys a widget and its subtree. */
 void rvn_widget_destroy(rvn_widget_t* widget);
 /** @param index Position among the children, or -1 to append. */
-void rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index);
+/** R_FALSE when the destroy callbacks of the child replaced (single-child containers) destroyed the parent or the child. */
+int rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index);
 /** Removes the widget from its parent without destroying it. */
 void rvn_widget_detach(rvn_widget_t* widget);
 int  rvn_widget_child_index(const rvn_widget_t* parent, const rvn_widget_t* child);

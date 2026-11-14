@@ -2806,6 +2806,9 @@ RWidgetType Rwidget_get_type(Rid widget);
 /// A widget that already has a parent is moved.
 /// Returns: `child`, so calls can be nested:
 ///         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+///         R_INVALID_ID when the child replaced in a single-child container
+///         had a destroy callback that destroyed the container or `child`;
+///         `child`, when it is still there, is then not added.
 Rid Rwidget_add_child(Rid parent, Rid child);
 Rid Rwidget_insert_child(Rid parent, Rid child, int index);
 /// Detaches a child without deleting it. The caller owns it again.
