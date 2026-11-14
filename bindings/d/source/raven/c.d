@@ -4277,7 +4277,7 @@ void Rnode_graph_set_pin_tag_lit(Rid graph, int pin, int lit);
 /// default, shows every label whole.
 void Rnode_graph_set_pin_label_width(Rid graph, float width);
 float Rnode_graph_get_pin_label_width(Rid graph);
-/// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+/// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
 void Rnode_graph_set_node_badge_color(Rid graph, int node, float r, float g, float b);
 Rid Rblock_editor_create();
 /// A kind of block, and its block in the palette. Returns its index, -1 on an error.

@@ -552,6 +552,8 @@ static void test_node_graph_editor_hooks(void) {
 			Rnode_graph_set_node_badge(graph, c, "pinned");
 			Rnode_graph_set_node_badge_color(graph, c, 1.0f, 0.84f, 0.31f);
 			Rdraw_frame();
+			Rnode_graph_set_node_badge_color(graph, c, -1.0f, -1.0f, -1.0f); /* back to the look's color */
+			Rdraw_frame();
 			Rnode_graph_remove_node(graph, c);
 		}
 		Rnode_graph_remove_node(graph, b);
