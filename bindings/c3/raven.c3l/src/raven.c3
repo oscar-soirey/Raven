@@ -1499,6 +1499,13 @@ alias ComboBoxChangedCallback = fn void(Id combo_box, CInt index, void* user_dat
  valid until the next call.
 *>
 alias ListItemTextCallback = fn ZString(Id list_view, CInt index, void* user_data);
+<*
+ Colors the text of rows (a level, a verdict): the list asks for the color
+ of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+ R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+ kept on a selected or hovered row. NULL removes the callback.
+*>
+alias ListItemColorCallback = fn CInt(Id list_view, CInt index, float* r, float* g, float* b, float* a, void* user_data);
 alias ListEventCallback = fn void(Id list_view, CInt index, void* user_data);
 alias TreeEventCallback = fn void(Id tree_view, Id item, void* user_data);
 <*
@@ -1531,6 +1538,14 @@ alias TileDragDataCallback = fn ZString(Id tile_view, void* user_data);
  valid until the next call.
 *>
 alias TableCellTextCallback = fn ZString(Id table, CInt row, CInt column, void* user_data);
+<*
+ Colors the text of cells (a verdict, a state): the table asks for the
+ color of each cell it draws, stored or virtual (`row` is the index of the
+ order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+ keeps the color of the theme. The color is kept on a selected or hovered
+ row. NULL removes the callback.
+*>
+alias TableCellColorCallback = fn CInt(Id table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias TableEventCallback = fn void(Id table, CInt row, void* user_data);
 <* Called when the user clicks a header; `column` -1: not sorted. *>
 alias TableSortCallback = fn void(Id table, CInt column, CInt descending, void* user_data);
@@ -2117,7 +2132,8 @@ struct ShaderLook
 	 How much the pointer is over it and how much it is pressed, 0..1, as
 	 the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
 	 the pointer is in the rectangle, and while the left button is down
-	 there; a Border eases them itself.
+	 there; a Border eases them itself. The rectangle is clipped to the
+	 visible painting area; overlaid siblings do not interrupt its hover.
 	*>
 	float hover;
 	float press;
@@ -2849,6 +2865,8 @@ fn CInt ListView.get_item_count(self) @inline => c::r_list_view_get_item_count((
 
 fn void ListView.set_virtual_items(self, CInt count, ListItemTextCallback callback, void* user_data) @inline => c::r_list_view_set_virtual_items((c::Rid)self, count, (c::RListItemTextCallback)callback, user_data);
 
+fn void ListView.set_item_color_callback(self, ListItemColorCallback callback, void* user_data) @inline => c::r_list_view_set_item_color_callback((c::Rid)self, (c::RListItemColorCallback)callback, user_data);
+
 <* Selects a row. -1 selects nothing. *>
 fn void ListView.set_selected(self, CInt index) @inline => c::r_list_view_set_selected((c::Rid)self, index);
 
@@ -2938,6 +2956,13 @@ fn ZString MenuItem.get_text(self) @inline => (ZString)c::r_menu_item_get_text((
  keys are pressed in the window of its menu bar.
 *>
 fn void MenuItem.set_shortcut(self, Key key, Modifier modifiers) @inline => c::r_menu_item_set_shortcut((c::Rid)self, (c::RKey)key, (c::Ruint)modifiers);
+
+<*
+ Display-only shortcut hint; copied, never binds a key. Overrides
+ the formatted shortcut without changing its binding. NULL restores the
+ formatted shortcut; an empty string hides it. XML: ShortcutText.
+*>
+fn void MenuItem.set_shortcut_text(self, ZString text) @inline => c::r_menu_item_set_shortcut_text((c::Rid)self, (char*)text);
 
 fn void MenuItem.set_checkable(self, bool checkable) @inline => c::r_menu_item_set_checkable((c::Rid)self, (CInt)checkable);
 
@@ -4493,6 +4518,8 @@ fn CInt Table.get_row_count(self) @inline => c::r_table_get_row_count((c::Rid)se
 
 fn void Table.set_virtual_rows(self, CInt count, TableCellTextCallback callback, void* user_data) @inline => c::r_table_set_virtual_rows((c::Rid)self, count, (c::RTableCellTextCallback)callback, user_data);
 
+fn void Table.set_cell_color_callback(self, TableCellColorCallback callback, void* user_data) @inline => c::r_table_set_cell_color_callback((c::Rid)self, (c::RTableCellColorCallback)callback, user_data);
+
 <* Selects a row. -1 selects nothing. *>
 fn void Table.set_selected(self, CInt row) @inline => c::r_table_set_selected((c::Rid)self, row);
 
@@ -4990,6 +5017,22 @@ fn float Window.get_opacity(self) @inline => c::r_window_get_opacity((c::Rid)sel
  Returns R_FALSE when the window system cannot do it.
 *>
 fn bool Window.set_topmost(self, bool topmost) @inline => c::r_window_set_topmost((c::Rid)self, (CInt)topmost) != 0;
+
+<*
+ Gives the window an owner (a tool window or an inspector of the
+ main window): it stays above its owner, has no button of its own in the
+ taskbar, is minimized and restored with it (where the window system
+ does it: Windows, X11), and is destroyed with it (everywhere: Raven
+ destroys the windows a window owns before the window). R_INVALID_ID
+ gives the window back its independence.
+ Returns R_FALSE when the window system cannot keep the window with its
+ owner (it is still destroyed with it), or when the owner is not valid
+ or is owned by the window (nothing is changed then).
+*>
+fn bool Window.set_owner(self, Id owner) @inline => c::r_window_set_owner((c::Rid)self, (c::Rid)owner) != 0;
+
+<* Returns The owner of the window (Rwindow_set_owner), or R_INVALID_ID. *>
+fn Id Window.get_owner(self) @inline => (Id)c::r_window_get_owner((c::Rid)self);
 
 <*
  Picture in picture: the window becomes a small floating window
@@ -6047,6 +6090,15 @@ fn ZString severity_to_string(Severity severity) @inline => (ZString)c::r_severi
 fn void error_set_callback(ErrorCallback callback) @inline => c::r_error_set_callback((c::RErrorCallback)callback);
 
 fn void set_device_reset_callback(DeviceResetCallback callback, void* user_data) @inline => c::r_set_device_reset_callback((c::RDeviceResetCallback)callback, user_data);
+
+<*
+ During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ in target-local logical units (window-local for a window callback).
+ Clipped to the target; zero width or height hides it without refusing
+ the drop. Each callback starts with the default highlight again.
+ Dimensions must be finite and nonnegative; coordinates must be finite.
+*>
+alias drop_set_highlight_rect = c::r_drop_set_highlight_rect;
 
 <*
  Starts dragging `data` from `source` (call it while a mouse button

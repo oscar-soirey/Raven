@@ -93,6 +93,18 @@ static void test_content(void) {
 	CHECK_STR(Rtext_editor_get_text(g_editor), "alpX\nYta\ngamma");
 	CHECK_CURSOR(1, 1);
 	CHECK(g_changes == 1);
+
+	/* a line of the editor can be given back to it, though the edit frees or rewrites that line */
+	Rtext_editor_set_text(g_editor, "first\nsecond\nthird");
+	Rtext_editor_set_text(g_editor, Rtext_editor_get_line(g_editor, 1));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "second");
+	Rtext_editor_set_text(g_editor, "hello\nworld");
+	Rtext_editor_set_cursor(g_editor, 0, 0);
+	Rtext_editor_insert_text(g_editor, Rtext_editor_get_line(g_editor, 0));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "hellohello\nworld");
+	Rtext_editor_select(g_editor, 0, 0, 1, 2);
+	Rtext_editor_insert_text(g_editor, Rtext_editor_get_line(g_editor, 1));
+	CHECK_STR(Rtext_editor_get_text(g_editor), "worldrld");
 	Rwindow_destroy(g_window);
 }
 
@@ -403,6 +415,37 @@ static void test_clipboard_and_history(void) {
 		for (i = 0; i < 200; i++) Rtext_editor_redo(g_editor);
 		CHECK(strncmp(Rtext_editor_get_text(g_editor), expected, 200) == 0);
 	}
+
+	/* a lone carriage return is text like any other: undo gives it back, and the steps before it still line up */
+	Rtext_editor_set_text(g_editor, "a\rb");
+	Rtext_editor_set_cursor(g_editor, 0, 3);
+	key(R_KEY_BACKSPACE, 0);
+	key(R_KEY_BACKSPACE, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK(Rtext_editor_get_length(g_editor) == 2);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\r");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK(Rtext_editor_get_length(g_editor) == 3);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\rb");
+	Rtext_editor_redo(g_editor);
+	Rtext_editor_redo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a");
+	Rtext_editor_undo(g_editor);
+	Rtext_editor_undo(g_editor);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "a\rb");
+	/* one that ends up before a line break too */
+	Rtext_editor_set_text(g_editor, "x\ry");
+	Rtext_editor_set_cursor(g_editor, 0, 2);
+	key(R_KEY_ENTER, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\r\ny");
+	key(R_KEY_A, R_MOD_CTRL);
+	key(R_KEY_DELETE, 0);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\r\ny");
+	key(R_KEY_Z, R_MOD_CTRL);
+	CHECK_STR(Rtext_editor_get_text(g_editor), "x\ry");
 	Rwindow_destroy(g_window);
 }
 

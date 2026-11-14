@@ -158,18 +158,36 @@ static int rvn_tab_at(const rvn_widget_t* widget, float x, float y, int* on_clos
 	return -1;
 }
 
+/* The user changed the active tab: the changed callback, then the action. */
+static void rvn_tab_view_notify(rvn_widget_t* widget) {
+	rvn_tab_view_t* tabs = (rvn_tab_view_t*)widget;
+	if (tabs->callback) tabs->callback(widget->id, tabs->active, tabs->user_data);
+	if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
+}
+
+static Rid rvn_tab_view_active_id(const rvn_tab_view_t* tabs) {
+	return tabs->active_page ? tabs->active_page->id : R_INVALID_ID;
+}
+
 /* The user closes a tab : the application may keep it (R_FALSE), else the page is deleted. */
 static void rvn_tab_request_close(rvn_widget_t* widget, int index) {
 	rvn_tab_view_t* tabs = (rvn_tab_view_t*)widget;
 	rvn_widget_t* page;
-	Rid content;
+	Rid content, shown;
+	int active;
 	if (index < 0 || index >= (int)widget->child_count) return;
 	page = widget->children[index];
 	if (!rvn_tab_closable(widget, page)) return;
 	content = page->id;
 	if (tabs->close_callback && !tabs->close_callback(widget->id, index, content, tabs->close_user)) return;
 	if (!rvn_widget_alive(widget)) return;
-	if (Rwidget_is_valid(content) && Rwidget_get_parent(content) == widget->id) Rwidget_destroy(content);
+	if (!Rwidget_is_valid(content) || Rwidget_get_parent(content) != widget->id) return;
+	shown = rvn_tab_view_active_id(tabs);
+	active = tabs->active;
+	Rwidget_destroy(content);
+	/* another page shown, or the same one at another index: told as a click on its tab would be */
+	if (rvn_widget_alive(widget) && tabs->active >= 0 && (rvn_tab_view_active_id(tabs) != shown || tabs->active != active))
+		rvn_tab_view_notify(widget);
 }
 
 static void rvn_tab_view_activate(rvn_widget_t* widget, int index, int notify) {
@@ -186,10 +204,7 @@ static void rvn_tab_view_activate(rvn_widget_t* widget, int index, int notify) {
 	tabs->active = index;
 	tabs->active_page = widget->children[index];
 	rvn_widget_invalidate_layout(widget);
-	if (notify) {
-		if (tabs->callback) tabs->callback(widget->id, index, tabs->user_data);
-		if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
-	}
+	if (notify) rvn_tab_view_notify(widget);
 }
 
 static int rvn_tab_view_event(rvn_widget_t* widget, const REvent* event) {

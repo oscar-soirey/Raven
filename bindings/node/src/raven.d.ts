@@ -2526,7 +2526,8 @@ export class RShaderLook extends RStruct {
 	 * How much the pointer is over it and how much it is pressed, 0..1, as
 	 * the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
 	 * the pointer is in the rectangle, and while the left button is down
-	 * there; a Border eases them itself.
+	 * there; a Border eases them itself. The rectangle is clipped to the
+	 * visible painting area; overlaid siblings do not interrupt its hover.
 	 */
 	get hover(): number;
 	set hover(value: number);
@@ -2746,6 +2747,14 @@ export type RComboBoxChangedCallback = (combo_box: Rid, index: number, user_data
  */
 export type RListItemTextCallback = (list_view: Rid, index: number, user_data: Pointer | null) => string | null;
 
+/**
+ * Colors the text of rows (a level, a verdict): the list asks for the color
+ * of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+ * R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+ * kept on a selected or hovered row. NULL removes the callback.
+ */
+export type RListItemColorCallback = (list_view: Rid, index: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
+
 export type RListEventCallback = (list_view: Rid, index: number, user_data: Pointer | null) => void;
 
 export type RTreeEventCallback = (tree_view: Rid, item: Rid, user_data: Pointer | null) => void;
@@ -2787,6 +2796,15 @@ export type RTileDragDataCallback = (tile_view: Rid, user_data: Pointer | null) 
  * valid until the next call.
  */
 export type RTableCellTextCallback = (table: Rid, row: number, column: number, user_data: Pointer | null) => string | null;
+
+/**
+ * Colors the text of cells (a verdict, a state): the table asks for the
+ * color of each cell it draws, stored or virtual (`row` is the index of the
+ * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+ * keeps the color of the theme. The color is kept on a selected or hovered
+ * row. NULL removes the callback.
+ */
+export type RTableCellColorCallback = (table: Rid, row: number, column: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
 
 export type RTableEventCallback = (table: Rid, row: number, user_data: Pointer | null) => void;
 
@@ -3387,6 +3405,22 @@ export function Rwindow_get_opacity(window: Rid): number;
 export function Rwindow_set_topmost(window: Rid, topmost: number): number;
 
 /**
+ * Gives the window an owner (a tool window or an inspector of the
+ * main window): it stays above its owner, has no button of its own in the
+ * taskbar, is minimized and restored with it (where the window system
+ * does it: Windows, X11), and is destroyed with it (everywhere: Raven
+ * destroys the windows a window owns before the window). R_INVALID_ID
+ * gives the window back its independence.
+ * Returns: R_FALSE when the window system cannot keep the window with its
+ * owner (it is still destroyed with it), or when the owner is not valid
+ * or is owned by the window (nothing is changed then).
+ */
+export function Rwindow_set_owner(window: Rid, owner: Rid): number;
+
+/** Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID. */
+export function Rwindow_get_owner(window: Rid): Rid;
+
+/**
  * Picture in picture: the window becomes a small floating window
  * that stays above the other windows, on every desktop (every space of
  * macOS, over the applications in full screen too), in a corner of the
@@ -3452,6 +3486,15 @@ export function Rwindow_set_resize_callback(window: Rid, callback: RWindowResize
  * where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
  */
 export function Rwindow_set_drop_callback(window: Rid, callback: RDropCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ * in target-local logical units (window-local for a window callback).
+ * Clipped to the target; zero width or height hides it without refusing
+ * the drop. Each callback starts with the default highlight again.
+ * Dimensions must be finite and nonnegative; coordinates must be finite.
+ */
+export function Rdrop_set_highlight_rect(x: number, y: number, width: number, height: number): void;
 
 export function Rwindow_set_user_handle(window: Rid, handle: RPointer): void;
 
@@ -4597,6 +4640,8 @@ export function Rlist_view_get_item_count(list_view: Rid): number;
 
 export function Rlist_view_set_virtual_items(list_view: Rid, count: number, callback: RListItemTextCallback | Pointer | null, user_data?: RPointer): void;
 
+export function Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback | Pointer | null, user_data?: RPointer): void;
+
 /** Selects a row. -1 selects nothing. */
 export function Rlist_view_set_selected(list_view: Rid, index: number): void;
 
@@ -4730,6 +4775,13 @@ export function Rmenu_item_get_text(item: Rid): string | null;
  * keys are pressed in the window of its menu bar.
  */
 export function Rmenu_item_set_shortcut(item: Rid, key: RKey, modifiers: number): void;
+
+/**
+ * Display-only shortcut hint; copied, never binds a key. Overrides
+ * the formatted shortcut without changing its binding. NULL restores the
+ * formatted shortcut; an empty string hides it. XML: ShortcutText.
+ */
+export function Rmenu_item_set_shortcut_text(item: Rid, text: string | null): void;
 
 export function Rmenu_item_set_checkable(item: Rid, checkable: number): void;
 
@@ -4877,6 +4929,8 @@ export function Rtable_clear_rows(table: Rid): void;
 export function Rtable_get_row_count(table: Rid): number;
 
 export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTableCellTextCallback | Pointer | null, user_data?: RPointer): void;
+
+export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback | Pointer | null, user_data?: RPointer): void;
 
 /** Selects a row. -1 selects nothing. */
 export function Rtable_set_selected(table: Rid, row: number): void;

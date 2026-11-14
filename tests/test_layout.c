@@ -136,6 +136,19 @@ static void test_grid(void) {
 	/* the first column is now only as wide as `a`; gaps of 8 between tracks */
 	Rpanel_set_spacing(grid, 8);
 	CHECK_RECT(b, 48, 0, 352, 282);
+
+	/* a rejected Slot.Column / Row / span leaves the slot as it is (issue #127) */
+	CHECK(!Rwidget_set_attribute(b, "Slot.Column", "-3"));
+	CHECK(!Rwidget_set_attribute(b, "Slot.Row", "-1"));
+	CHECK(!Rwidget_set_attribute(c, "Slot.ColumnSpan", "0"));
+	CHECK(!Rwidget_set_attribute(b, "Slot.Column", "1e30")); /* not an int */
+	CHECK_RECT(b, 48, 0, 352, 282);
+	CHECK_RECT(c, 0, 290, 400, 10);
+	/* an accepted one is clamped as by Rslot_set_grid_span */
+	CHECK(Rwidget_set_attribute(c, "Slot.ColumnSpan", "100000"));
+	Rwidget_get_rect(c, NULL, NULL, NULL, NULL);
+	CHECK(Rwidget_set_attribute(c, "Slot.ColumnSpan", "2"));
+	CHECK_RECT(b, 48, 0, 352, 282);
 }
 
 static void test_uniform_grid(void) {
@@ -237,6 +250,29 @@ static void test_scroll_box(void) {
 	Rwindow_inject_mouse_wheel(g_window, 0, -1);
 	Rscroll_box_get_offset(scroll, &x, &y);
 	CHECK(y > 0);
+
+	/* a box that also scrolls across brings a widget into view along both axes */
+	{
+		Rid grid = Rwidget_create(R_WIDGET_SCROLL_BOX);
+		Rid target = R_INVALID_ID;
+		float w, h;
+		int row, column;
+		Rscroll_box_set_scroll_both(grid, R_TRUE);
+		for (row = 0; row < 5; row++) {
+			Rid line = Rwidget_add_child(grid, Rwidget_create(R_WIDGET_HBOX));
+			for (column = 0; column < 10; column++) {
+				Rid cell = Rwidget_add_child(line, block(100, 100));
+				if (row == 3 && column == 7) target = cell;
+			}
+		}
+		Rwindow_set_content(g_window, grid);
+		Rwidget_scroll_into_view(target);
+		Rscroll_box_get_offset(grid, &x, &y);
+		CHECK(x > 0 && y > 0);
+		Rwidget_get_rect(target, &x, &y, &w, &h);
+		CHECK(x >= 0 && x + w <= 400 - bar);
+		CHECK(y >= 0 && y + h <= 300 - bar);
+	}
 }
 
 static void test_splitter_and_wrap(void) {
@@ -261,6 +297,21 @@ static void test_splitter_and_wrap(void) {
 	Rwindow_inject_mouse_move(g_window, w + handle * 0.5f + 50, 150);
 	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
 	CHECK_RECT(left, 0, 0, w + 50, 300);
+
+	/* right to left: the first pane is on the right, and its handle is on its left (issue #123) */
+	Rslot_set_fill(left, 1.0f);
+	Rslot_set_fill(right, 3.0f);
+	Rwidget_set_direction(splitter, R_DIRECTION_RTL);
+	CHECK_RECT(left, 400 - w, 0, w, 300);
+	CHECK_RECT(right, 0, 0, 400 - handle - w, 300);
+	/* dragging that handle 50 units to the left grows the first pane by 50 */
+	Rwindow_inject_mouse_move(g_window, 400 - w - handle * 0.5f, 150);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	Rwindow_inject_mouse_move(g_window, 400 - w - handle * 0.5f - 50, 150);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	CHECK_RECT(left, 400 - w - 50, 0, w + 50, 300);
+	CHECK_RECT(right, 0, 0, 400 - handle - w - 50, 300);
+	Rwidget_set_direction(splitter, R_DIRECTION_INHERIT);
 
 	wrap = Rwidget_create(R_WIDGET_WRAP_BOX);
 	for (i = 0; i < 5; i++) items[i] = Rwidget_add_child(wrap, block(150, 40));

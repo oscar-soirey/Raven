@@ -1528,6 +1528,21 @@ func WindowSetTopmost(window ID, topmost int) int {
 	return int(C.Rwindow_set_topmost(C.Rid(window), C.int(topmost)))
 }
 
+// WindowSetOwner: Gives the window an owner (a tool window or an inspector of the main window): it stays
+// above its owner, has no button of its own in the taskbar, is minimized and restored with it (where the
+// window system does it: Windows, X11), and is destroyed with it (everywhere: Raven destroys the windows a
+// window owns before the window). R_INVALID_ID gives the window back its independence. Returns: R_FALSE when
+// the window system cannot keep the window with its owner (it is still destroyed with it), or when the owner
+// is not valid or is owned by the window (nothing is changed then).
+func WindowSetOwner(window ID, owner ID) int {
+	return int(C.Rwindow_set_owner(C.Rid(window), C.Rid(owner)))
+}
+
+// WindowGetOwner: Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+func WindowGetOwner(window ID) ID {
+	return ID(C.Rwindow_get_owner(C.Rid(window)))
+}
+
 // WindowSetPictureInPicture: Picture in picture: the window becomes a small floating window that stays above
 // the other windows, on every desktop (every space of macOS, over the applications in full screen too), in a
 // corner of the work area of its monitor. It loses its title bar where the system allows: the empty parts of
@@ -1590,6 +1605,14 @@ func WindowRequestRedraw(window ID) {
 // WindowSetContinuousRedraw: R_TRUE redraws the window every frame (games, live viewports).
 func WindowSetContinuousRedraw(window ID, enabled int) {
 	C.Rwindow_set_continuous_redraw(C.Rid(window), C.int(enabled))
+}
+
+// DropSetHighlightRect: During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight in target-local
+// logical units (window-local for a window callback). Clipped to the target; zero width or height hides it
+// without refusing the drop. Each callback starts with the default highlight again. Dimensions must be finite
+// and nonnegative; coordinates must be finite.
+func DropSetHighlightRect(x float32, y float32, width float32, height float32) {
+	C.Rdrop_set_highlight_rect(C.float(x), C.float(y), C.float(width), C.float(height))
 }
 
 // WindowGetFocusedWidget: Widget that has the keyboard focus in the window, or R_INVALID_ID.
@@ -3400,6 +3423,15 @@ func MenuItemGetText(item ID) string {
 // the window of its menu bar.
 func MenuItemSetShortcut(item ID, key RKey, modifiers uint32) {
 	C.Rmenu_item_set_shortcut(C.Rid(item), C.RKey(key), C.Ruint(modifiers))
+}
+
+// MenuItemSetShortcutText: Display-only shortcut hint; copied, never binds a key. Overrides the formatted
+// shortcut without changing its binding. NULL restores the formatted shortcut; an empty string hides it. XML:
+// ShortcutText.
+func MenuItemSetShortcutText(item ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rmenu_item_set_shortcut_text(C.Rid(item), text_)
 }
 
 func MenuItemSetCheckable(item ID, checkable int) {
@@ -6773,12 +6805,13 @@ func HostInjectClose(window ID) {
 // Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
 // Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback
 // Rtext_input_set_committed_callback, Rspin_box_set_changed_callback, Rcombo_box_set_changed_callback
-// Rlist_view_set_virtual_items, Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback
-// Rtree_item_set_user_handle, Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback
-// Rtree_view_set_activated_callback, Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback
-// Rtile_view_set_items, Rtile_view_set_sections, Rtile_view_set_section_toggled_callback
-// Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
-// Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
+// Rlist_view_set_virtual_items, Rlist_view_set_item_color_callback
+// Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback, Rtree_item_set_user_handle
+// Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
+// Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
+// Rtile_view_set_sections, Rtile_view_set_section_toggled_callback, Rtile_view_set_drag_data_callback
+// Rtile_view_set_selection_changed_callback, Rtile_view_set_activated_callback
+// Rtile_view_set_context_callback, Rtable_set_virtual_rows, Rtable_set_cell_color_callback
 // Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
 // Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
 // Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
