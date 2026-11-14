@@ -19584,7 +19584,7 @@ public final class R {
     private static MethodHandle Rnode_graph_set_node_badge_color$;
 
     /**
-     * Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+     * Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
      */
     public static void Rnode_graph_set_node_badge_color(int graph, int node, float r, float g, float b) {
         MethodHandle $h = Rnode_graph_set_node_badge_color$;

@@ -5656,7 +5656,7 @@ func NodeGraphGetPinLabelWidth(graph ID) float32 {
 }
 
 // NodeGraphSetNodeBadgeColor: Color of the badge pill of one node (Rnode_graph_set_node_badge); its text
-// turns dark or light to suit it.
+// turns dark or light to suit it. A negative component restores the look's color.
 func NodeGraphSetNodeBadgeColor(graph ID, node int, r float32, g float32, b float32) {
 	C.Rnode_graph_set_node_badge_color(C.Rid(graph), C.int(node), C.float(r), C.float(g), C.float(b))
 }

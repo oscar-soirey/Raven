@@ -3600,8 +3600,12 @@ void Rnode_graph_set_node_badge_color(Rid id, int node_id, float r, float g, flo
 	RVN_NODE_GRAPH_VOID(graph, id);
 	node = rvn_ng_node_checked(graph, node_id, __func__);
 	if (!node) return;
-	node->badge_color = rvn_rgba(r, g, b, 1.0f);
-	node->has_badge_color = R_TRUE;
+	if (r < 0.0f || g < 0.0f || b < 0.0f) {
+		node->has_badge_color = R_FALSE; /* back to the look's color */
+	} else {
+		node->badge_color = rvn_rgba(r, g, b, 1.0f);
+		node->has_badge_color = R_TRUE;
+	}
 	rvn_widget_invalidate_paint(&graph->base);
 }
 

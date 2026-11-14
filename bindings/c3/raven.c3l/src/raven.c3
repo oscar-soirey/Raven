@@ -4258,7 +4258,7 @@ fn void NodeGraph.set_pin_label_width(self, float width) @inline => c::r_node_gr
 
 fn float NodeGraph.get_pin_label_width(self) @inline => c::r_node_graph_get_pin_label_width((c::Rid)self);
 
-<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color. *>
 fn void NodeGraph.set_node_badge_color(self, CInt node, float r, float g, float b) @inline => c::r_node_graph_set_node_badge_color((c::Rid)self, node, r, g, b);
 
 // ---- TileView

@@ -6213,7 +6213,7 @@ export function Rnode_graph_set_pin_label_width(graph: Rid, width: number): void
 
 export function Rnode_graph_get_pin_label_width(graph: Rid): number;
 
-/** Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. */
+/** Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color. */
 export function Rnode_graph_set_node_badge_color(graph: Rid, node: number, r: number, g: number, b: number): void;
 
 export function Rblock_editor_create(): Rid;

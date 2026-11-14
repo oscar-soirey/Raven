@@ -3934,7 +3934,7 @@ inline void node_graph_set_pin_label_width(Rid graph, float width) { Rnode_graph
 
 inline float node_graph_get_pin_label_width(Rid graph) { return Rnode_graph_get_pin_label_width(graph); }
 
-/// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+/// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
 inline void node_graph_set_node_badge_color(Rid graph, int node, float r, float g, float b) { Rnode_graph_set_node_badge_color(graph, node, r, g, b); }
 
 inline Rid block_editor_create() { return Rblock_editor_create(); }

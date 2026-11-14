@@ -8118,7 +8118,7 @@ namespace Raven
         public static extern float Rnode_graph_get_pin_label_width(uint graph);
 
         /// <summary>
-        /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+        /// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnode_graph_set_node_badge_color(uint graph, int node, float r, float g, float b);

@@ -3786,7 +3786,7 @@ foreign lib {
 	// default, shows every label whole.
 	Rnode_graph_set_pin_label_width :: proc(graph: Rid, width: f32) ---
 	Rnode_graph_get_pin_label_width :: proc(graph: Rid) -> f32 ---
-	// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+	// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
 	Rnode_graph_set_node_badge_color :: proc(graph: Rid, node: i32, r: f32, g: f32, b: f32) ---
 	Rblock_editor_create :: proc() -> Rid ---
 	// A kind of block, and its block in the palette. Returns its index, -1 on an error.
