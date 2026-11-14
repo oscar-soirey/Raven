@@ -98,9 +98,11 @@ static int rvn_splitter_handle_rect(const rvn_widget_t* widget, int index, rvn_r
 		rvn_widget_t* child = widget->children[i];
 		if (rvn_widget_collapsed(child)) continue;
 		if (seen == index && previous) {
-			/* slot paddings are part of the pane: the handle starts where the slot ends */
-			float edge = horizontal ? previous->rect.x + previous->rect.w + previous->slot.padding.r
-				: previous->rect.y + previous->rect.h + previous->slot.padding.b;
+			/* slot paddings are part of the pane: the handle starts where the slot ends
+			 * (right to left, rvn_widget_arrange mirrored the panes: the handle is on the left of the previous one) */
+			float edge = !horizontal ? previous->rect.y + previous->rect.h + previous->slot.padding.b
+				: rvn_widget_is_rtl(widget) ? previous->rect.x - previous->slot.padding.r - handle
+				: previous->rect.x + previous->rect.w + previous->slot.padding.r;
 			*rect = horizontal ? rvn_rect(edge, 0.0f, handle, widget->rect.h) : rvn_rect(0.0f, edge, widget->rect.w, handle);
 			if (before) *before = previous;
 			if (after) *after = child;
@@ -161,7 +163,8 @@ static int rvn_splitter_event(rvn_widget_t* widget, const REvent* event) {
 		}
 		case R_EVENT_MOUSE_MOVE:
 			if (splitter->drag_handle >= 0) {
-				float delta = along - splitter->drag_origin;
+				/* right to left, the panes follow each other from the right: moving left grows the previous one */
+				float delta = (horizontal && rvn_widget_is_rtl(widget)) ? splitter->drag_origin - along : along - splitter->drag_origin;
 				float total = splitter->drag_before + splitter->drag_after;
 				float minimum = rvn_minf(splitter->min_pane, total * 0.5f);
 				float size;

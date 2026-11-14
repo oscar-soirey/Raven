@@ -356,6 +356,15 @@ extern "C" {
 	typedef const char* (*RListItemTextCallback)(Rid list_view, int index, void* user_data);
 	RAVEN_API void Rlist_view_set_virtual_items(Rid list_view, int count, RListItemTextCallback callback, void* user_data);
 
+	/**
+	 * Colors the text of rows (a level, a verdict): the list asks for the color
+	 * of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+	 * R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+	 * kept on a selected or hovered row. NULL removes the callback.
+	 */
+	typedef int (*RListItemColorCallback)(Rid list_view, int index, float* r, float* g, float* b, float* a, void* user_data);
+	RAVEN_API void Rlist_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data);
+
 	/** @brief Selects a row. -1 selects nothing. */
 	RAVEN_API void Rlist_view_set_selected(Rid list_view, int index);
 	RAVEN_API int Rlist_view_get_selected(Rid list_view);
@@ -477,6 +486,12 @@ extern "C" {
 	 * keys are pressed in the window of its menu bar.
 	 */
 	RAVEN_API void Rmenu_item_set_shortcut(Rid item, RKey key, Ruint modifiers);
+	/**
+	 * @brief Display-only shortcut hint; copied, never binds a key. Overrides
+	 * the formatted shortcut without changing its binding. NULL restores the
+	 * formatted shortcut; an empty string hides it. XML: ShortcutText.
+	 */
+	RAVEN_API void Rmenu_item_set_shortcut_text(Rid item, const char* text);
 	RAVEN_API void Rmenu_item_set_checkable(Rid item, int checkable);
 	RAVEN_API void Rmenu_item_set_checked(Rid item, int checked);
 	/**
@@ -625,6 +640,16 @@ extern "C" {
 	 */
 	typedef const char* (*RTableCellTextCallback)(Rid table, int row, int column, void* user_data);
 	RAVEN_API void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+
+	/**
+	 * Colors the text of cells (a verdict, a state): the table asks for the
+	 * color of each cell it draws, stored or virtual (`row` is the index of the
+	 * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+	 * keeps the color of the theme. The color is kept on a selected or hovered
+	 * row. NULL removes the callback.
+	 */
+	typedef int (*RTableCellColorCallback)(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
+	RAVEN_API void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
 
 	/** @brief Selects a row. -1 selects nothing. */
 	RAVEN_API void Rtable_set_selected(Rid table, int row);

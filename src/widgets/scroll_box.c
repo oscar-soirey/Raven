@@ -293,6 +293,14 @@ void Rscroll_box_scroll_to_end(Rid id) {
 	rvn_scroll_box_apply(widget);
 }
 
+/* Moves a scroll bar so that a span of `size`, `position` away from the start of the view, is shown. */
+static void rvn_scroll_box_reveal(rvn_scrollbar_t* bar, float position, float size) {
+	float start = position + bar->offset;
+	float end = start + size;
+	if (start < bar->offset) rvn_scrollbar_set(bar, start);
+	else if (end > bar->offset + bar->viewport) rvn_scrollbar_set(bar, end - bar->viewport);
+}
+
 void Rwidget_scroll_into_view(Rid id) {
 	rvn_widget_t* ancestor;
 	rvn_widget_t* target;
@@ -303,17 +311,19 @@ void Rwidget_scroll_into_view(Rid id) {
 	for (ancestor = widget->parent; ancestor; ancestor = ancestor->parent) {
 		rvn_scroll_box_t* box;
 		rvn_vec2_t inner, outer;
-		float start, end;
 		int vertical;
 		if (ancestor->cls->type != R_WIDGET_SCROLL_BOX) continue;
 		box = (rvn_scroll_box_t*)ancestor;
 		vertical = rvn_scroll_box_vertical(ancestor);
 		inner = rvn_widget_origin(target);
 		outer = rvn_widget_origin(ancestor);
-		start = (vertical ? inner.y - outer.y : inner.x - outer.x) + box->main_bar.offset;
-		end = start + (vertical ? target->rect.h : target->rect.w);
-		if (start < box->main_bar.offset) rvn_scrollbar_set(&box->main_bar, start);
-		else if (end > box->main_bar.offset + box->main_bar.viewport) rvn_scrollbar_set(&box->main_bar, end - box->main_bar.viewport);
+		if (vertical) {
+			rvn_scroll_box_reveal(&box->main_bar, inner.y - outer.y, target->rect.h);
+			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.x - outer.x, target->rect.w);
+		} else {
+			rvn_scroll_box_reveal(&box->main_bar, inner.x - outer.x, target->rect.w);
+			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.y - outer.y, target->rect.h);
+		}
 		rvn_scroll_box_apply(ancestor);
 		target = ancestor;
 	}

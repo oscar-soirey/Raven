@@ -2124,6 +2124,14 @@ def _adapt_RListItemTextCallback(function):
         return ctypes.cast(text, ctypes.c_void_p).value
     return call
 
+RListItemColorCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_void_p)
+
+
+def _adapt_RListItemColorCallback(function):
+    def call(list_view, index, r, g, b, a, user_data):
+        return function(list_view, index, r, g, b, a, user_data) or 0
+    return call
+
 RListEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
 
 
@@ -2198,6 +2206,14 @@ def _adapt_RTableCellTextCallback(function):
         text = ctypes.create_string_buffer(_s(function(table, row, column, user_data)) or b"")
         call.text = text
         return ctypes.cast(text, ctypes.c_void_p).value
+    return call
+
+RTableCellColorCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_void_p)
+
+
+def _adapt_RTableCellColorCallback(function):
+    def call(table, row, column, r, g, b, a, user_data):
+        return function(table, row, column, r, g, b, a, user_data) or 0
     return call
 
 RTableEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
@@ -3459,6 +3475,32 @@ def Rwindow_set_topmost(window, topmost):
     return _lib.Rwindow_set_topmost(window, topmost)
 
 
+_lib.Rwindow_set_owner.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rwindow_set_owner.restype = ctypes.c_int
+
+
+def Rwindow_set_owner(window, owner):
+    """Gives the window an owner (a tool window or an inspector of the
+    main window): it stays above its owner, has no button of its own in the
+    taskbar, is minimized and restored with it (where the window system
+    does it: Windows, X11), and is destroyed with it (everywhere: Raven
+    destroys the windows a window owns before the window). R_INVALID_ID
+    gives the window back its independence.
+    Returns: R_FALSE when the window system cannot keep the window with its
+    owner (it is still destroyed with it), or when the owner is not valid
+    or is owned by the window (nothing is changed then)."""
+    return _lib.Rwindow_set_owner(window, owner)
+
+
+_lib.Rwindow_get_owner.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_owner.restype = ctypes.c_uint32
+
+
+def Rwindow_get_owner(window):
+    """Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID."""
+    return _lib.Rwindow_get_owner(window)
+
+
 _lib.Rwindow_set_picture_in_picture.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rwindow_set_picture_in_picture.restype = ctypes.c_int
 
@@ -3594,6 +3636,19 @@ def Rwindow_set_drop_callback(window, callback, user_data=None):
     """Takes what is dropped on the window from other applications,
     where no widget takes it (Rwidget_set_drop_callback). NULL removes it."""
     _lib.Rwindow_set_drop_callback(window, _callback(RDropCallback, _adapt_RDropCallback, callback), user_data)
+
+
+_lib.Rdrop_set_highlight_rect.argtypes = [ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rdrop_set_highlight_rect.restype = None
+
+
+def Rdrop_set_highlight_rect(x, y, width, height):
+    """During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+    in target-local logical units (window-local for a window callback).
+    Clipped to the target; zero width or height hides it without refusing
+    the drop. Each callback starts with the default highlight again.
+    Dimensions must be finite and nonnegative; coordinates must be finite."""
+    _lib.Rdrop_set_highlight_rect(x, y, width, height)
 
 
 _lib.Rwindow_set_user_handle.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
@@ -6596,6 +6651,14 @@ def Rlist_view_set_virtual_items(list_view, count, callback, user_data=None):
     _lib.Rlist_view_set_virtual_items(list_view, count, _callback(RListItemTextCallback, _adapt_RListItemTextCallback, callback), user_data)
 
 
+_lib.Rlist_view_set_item_color_callback.argtypes = [ctypes.c_uint32, RListItemColorCallback, ctypes.c_void_p]
+_lib.Rlist_view_set_item_color_callback.restype = None
+
+
+def Rlist_view_set_item_color_callback(list_view, callback, user_data=None):
+    _lib.Rlist_view_set_item_color_callback(list_view, _callback(RListItemColorCallback, _adapt_RListItemColorCallback, callback), user_data)
+
+
 _lib.Rlist_view_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rlist_view_set_selected.restype = None
 
@@ -6996,6 +7059,17 @@ def Rmenu_item_set_shortcut(item, key, modifiers):
     _lib.Rmenu_item_set_shortcut(item, int(key), modifiers)
 
 
+_lib.Rmenu_item_set_shortcut_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmenu_item_set_shortcut_text.restype = None
+
+
+def Rmenu_item_set_shortcut_text(item, text):
+    """Display-only shortcut hint; copied, never binds a key. Overrides
+    the formatted shortcut without changing its binding. NULL restores the
+    formatted shortcut; an empty string hides it. XML: ShortcutText."""
+    _lib.Rmenu_item_set_shortcut_text(item, _s(text))
+
+
 _lib.Rmenu_item_set_checkable.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rmenu_item_set_checkable.restype = None
 
@@ -7372,6 +7446,14 @@ _lib.Rtable_set_virtual_rows.restype = None
 
 def Rtable_set_virtual_rows(table, count, callback, user_data=None):
     _lib.Rtable_set_virtual_rows(table, count, _callback(RTableCellTextCallback, _adapt_RTableCellTextCallback, callback), user_data)
+
+
+_lib.Rtable_set_cell_color_callback.argtypes = [ctypes.c_uint32, RTableCellColorCallback, ctypes.c_void_p]
+_lib.Rtable_set_cell_color_callback.restype = None
+
+
+def Rtable_set_cell_color_callback(table, callback, user_data=None):
+    _lib.Rtable_set_cell_color_callback(table, _callback(RTableCellColorCallback, _adapt_RTableCellColorCallback, callback), user_data)
 
 
 _lib.Rtable_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]

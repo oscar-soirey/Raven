@@ -83,6 +83,17 @@ const char* rvn_date_day_name(int weekday) {
 	return rvn_date_text(key, g_day_names[weekday]);
 }
 
+/* The first `count` characters of a name (code points, not bytes: a name may
+ * be translated into any script), as much of them as `out` holds. */
+static void rvn_date_short_name(const char* name, int count, char* out, size_t size) {
+	int length = (int)strlen(name), end = 0;
+	if (size == 0) return;
+	while (count-- > 0 && end < length) end = rvn_utf8_next(name, length, end);
+	while (end > 0 && (size_t)end >= size) end = rvn_utf8_prev(name, end);
+	memcpy(out, name, (size_t)end);
+	out[end] = '\0';
+}
+
 static int rvn_date_key(int year, int month, int day) {
 	return year * 10000 + month * 100 + day;
 }
@@ -130,7 +141,7 @@ static void rvn_date_format(const char* format, int year, int month, int day, ch
 			text = rvn_date_month_name(month);
 			format += 4;
 		} else if (strncmp(format, "MMM", 3) == 0) {
-			snprintf(piece, sizeof(piece), "%.3s", rvn_date_month_name(month));
+			rvn_date_short_name(rvn_date_month_name(month), 3, piece, sizeof(piece));
 			format += 3;
 		} else if (strncmp(format, "MM", 2) == 0) {
 			snprintf(piece, sizeof(piece), "%02d", month);
@@ -142,7 +153,7 @@ static void rvn_date_format(const char* format, int year, int month, int day, ch
 			text = rvn_date_day_name(rvn_date_weekday(year, month, day));
 			format += 4;
 		} else if (strncmp(format, "ddd", 3) == 0) {
-			snprintf(piece, sizeof(piece), "%.3s", rvn_date_day_name(rvn_date_weekday(year, month, day)));
+			rvn_date_short_name(rvn_date_day_name(rvn_date_weekday(year, month, day)), 3, piece, sizeof(piece));
 			format += 3;
 		} else if (strncmp(format, "DD", 2) == 0) {
 			snprintf(piece, sizeof(piece), "%02d", day);
@@ -229,6 +240,18 @@ static void rvn_date_picker_set(rvn_widget_t* widget, int year, int month, int d
 	if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
 }
 
+/* After the range changed: the date moves inside it (without calling back, as for Rdate_picker_set_date). */
+static void rvn_date_picker_clamp(rvn_widget_t* widget) {
+	rvn_date_picker_t* picker = (rvn_date_picker_t*)widget;
+	int key = rvn_date_key(picker->year, picker->month, picker->day);
+	if (picker->min_key && key < picker->min_key) key = picker->min_key;
+	if (picker->max_key && key > picker->max_key) key = picker->max_key;
+	picker->year = key / 10000;
+	picker->month = key / 100 % 100;
+	picker->day = key % 100;
+	rvn_widget_invalidate_layout(widget);
+}
+
 /* ---- the calendar ---- */
 
 static float rvn_calendar_header(const rvn_widget_t* widget) {
@@ -310,8 +333,8 @@ static void rvn_calendar_paint(rvn_widget_t* widget, RPainter* painter) {
 
 	/* the days of the week */
 	for (cell = 0; cell < 7; cell++) {
-		char name[8];
-		snprintf(name, sizeof(name), "%.2s", rvn_date_day_name(picker->first_weekday + cell));
+		char name[16];
+		rvn_date_short_name(rvn_date_day_name(picker->first_weekday + cell), 2, name, sizeof(name));
 		rvn_paint_text_in(painter, R_INVALID_ID, font * 0.85f,
 			rvn_rect(RVN_CAL_PAD + RVN_CAL_CELL * (float)cell, RVN_CAL_PAD + header, RVN_CAL_CELL, RVN_CAL_WEEKDAYS), 0.5f, name, -1, dim);
 	}
@@ -608,6 +631,7 @@ static int rvn_date_picker_set_attribute(rvn_widget_t* widget, const char* name,
 		}
 		if (RVN_ATTR("Min")) picker->min_key = key;
 		else picker->max_key = key;
+		rvn_date_picker_clamp(widget);
 		return R_TRUE;
 	}
 	if (RVN_ATTR("FirstDayOfWeek")) {
@@ -672,18 +696,7 @@ void Rdate_picker_set_range(Rid id, int min_year, int min_month, int min_day, in
 	}
 	picker->min_key = min_year ? rvn_date_key(min_year, min_month, min_day) : 0;
 	picker->max_key = max_year ? rvn_date_key(max_year, max_month, max_day) : 0;
-	/* the date moves inside the range */
-	if (picker->min_key && rvn_date_key(picker->year, picker->month, picker->day) < picker->min_key) {
-		picker->year = min_year;
-		picker->month = min_month;
-		picker->day = min_day;
-	}
-	if (picker->max_key && rvn_date_key(picker->year, picker->month, picker->day) > picker->max_key) {
-		picker->year = max_year;
-		picker->month = max_month;
-		picker->day = max_day;
-	}
-	rvn_widget_invalidate_layout(widget);
+	rvn_date_picker_clamp(widget);
 }
 
 void Rdate_picker_set_first_day_of_week(Rid id, int day) {

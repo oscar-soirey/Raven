@@ -373,6 +373,14 @@ static void rvn_checkbox_paint_overlay(rvn_widget_t* widget, RPainter* painter) 
 	rvn_paint_focus(widget, painter, rvn_widget_glass(widget) ? 10.0f : 3.0f);
 }
 
+/* Calls the application back: it may delete the widget, or others. */
+static void rvn_checkbox_notify(rvn_widget_t* widget, int checked) {
+	rvn_checkbox_t* checkbox = (rvn_checkbox_t*)widget;
+	if (!rvn_widget_alive(widget)) return;
+	if (checkbox->callback) checkbox->callback(widget->id, checked, checkbox->user_data);
+	if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
+}
+
 static void rvn_checkbox_set(rvn_widget_t* widget, int checked, int notify) {
 	rvn_checkbox_t* checkbox = (rvn_checkbox_t*)widget;
 	checked = checked != 0;
@@ -380,21 +388,30 @@ static void rvn_checkbox_set(rvn_widget_t* widget, int checked, int notify) {
 	checkbox->checked = checked;
 	rvn_widget_invalidate_paint(widget);
 
-	/* radio boxes of one parent are exclusive */
+	/*
+	 * Radio boxes of one parent are exclusive. The others are all unchecked
+	 * before any of them is told, by handle: what the application does then
+	 * may rebuild the group.
+	 */
 	if (checked && checkbox->style == R_CHECKBOX_RADIO && widget->parent) {
-		uint32_t i;
-		for (i = 0; i < widget->parent->child_count; i++) {
-			rvn_widget_t* sibling = widget->parent->children[i];
+		rvn_widget_t* parent = widget->parent;
+		Rid* unchecked = notify ? (Rid*)rvn_alloc(sizeof(Rid) * parent->child_count) : NULL;
+		uint32_t i, count = 0;
+		for (i = 0; i < parent->child_count; i++) {
+			rvn_widget_t* sibling = parent->children[i];
 			if (sibling != widget && sibling->cls->type == R_WIDGET_CHECKBOX &&
-				((rvn_checkbox_t*)sibling)->style == R_CHECKBOX_RADIO) {
-				rvn_checkbox_set(sibling, R_FALSE, notify);
+				((rvn_checkbox_t*)sibling)->style == R_CHECKBOX_RADIO && ((rvn_checkbox_t*)sibling)->checked) {
+				rvn_checkbox_set(sibling, R_FALSE, R_FALSE);
+				if (unchecked) unchecked[count++] = sibling->id;
 			}
 		}
+		for (i = 0; i < count; i++) {
+			rvn_widget_t* sibling = rvn_widget_get(unchecked[i]);
+			if (sibling) rvn_checkbox_notify(sibling, R_FALSE);
+		}
+		rvn_free(unchecked);
 	}
-	if (notify && rvn_widget_alive(widget)) {
-		if (checkbox->callback) checkbox->callback(widget->id, checked, checkbox->user_data);
-		if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
-	}
+	if (notify) rvn_checkbox_notify(widget, checked);
 }
 
 static void rvn_checkbox_toggle(rvn_widget_t* widget) {
