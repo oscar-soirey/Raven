@@ -1465,5 +1465,6 @@ int main(void) {
 	RUN(test_blur_and_transparency);
 	RUN(test_hooks);
 	RUN(test_looks);
+	RUN(test_block_editor_attach_place);
 	return test_report("test_tools");
 }
