@@ -6810,6 +6810,27 @@ def Rspin_box_set_decimals(spin_box, decimals):
     _lib.Rspin_box_set_decimals(spin_box, decimals)
 
 
+_lib.Rspin_box_set_buttons.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rspin_box_set_buttons.restype = None
+
+
+def Rspin_box_set_buttons(spin_box, buttons):
+    """Step buttons in the looks of Raven too: a down button at the left
+    end and an up button at the right end, the value between them (XML
+    `Buttons="True"`). A click steps once; holding a button repeats its step.
+    The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+    Default: R_FALSE (drag to scrub, arrows / wheel to step)."""
+    _lib.Rspin_box_set_buttons(spin_box, buttons)
+
+
+_lib.Rspin_box_get_buttons.argtypes = [ctypes.c_uint32]
+_lib.Rspin_box_get_buttons.restype = ctypes.c_int
+
+
+def Rspin_box_get_buttons(spin_box):
+    return _lib.Rspin_box_get_buttons(spin_box)
+
+
 _lib.Rspin_box_set_changed_callback.argtypes = [ctypes.c_uint32, RSpinBoxChangedCallback, ctypes.c_void_p]
 _lib.Rspin_box_set_changed_callback.restype = None
 

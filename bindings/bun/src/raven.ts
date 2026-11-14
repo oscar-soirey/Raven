@@ -583,6 +583,8 @@ const _symbols = {
 	Rspin_box_get_range: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rspin_box_set_step: { args: ["u32", "f64"], returns: "void" },
 	Rspin_box_set_decimals: { args: ["u32", "i32"], returns: "void" },
+	Rspin_box_set_buttons: { args: ["u32", "i32"], returns: "void" },
+	Rspin_box_get_buttons: { args: ["u32"], returns: "i32" },
 	Rspin_box_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rcombo_box_add_item: { args: ["u32", "ptr"], returns: "i32" },
 	Rcombo_box_clear_items: { args: ["u32"], returns: "void" },
@@ -9462,6 +9464,21 @@ export function Rspin_box_set_step(spin_box: Rid, step: number): void {
 /** Digits shown after the decimal point. Default: 2. */
 export function Rspin_box_set_decimals(spin_box: Rid, decimals: number): void {
 	_lib.Rspin_box_set_decimals(spin_box, decimals);
+}
+
+/**
+ * Step buttons in the looks of Raven too: a down button at the left
+ * end and an up button at the right end, the value between them (XML
+ * `Buttons="True"`). A click steps once; holding a button repeats its step.
+ * The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+ * Default: R_FALSE (drag to scrub, arrows / wheel to step).
+ */
+export function Rspin_box_set_buttons(spin_box: Rid, buttons: number): void {
+	_lib.Rspin_box_set_buttons(spin_box, buttons);
+}
+
+export function Rspin_box_get_buttons(spin_box: Rid): number {
+	return _lib.Rspin_box_get_buttons(spin_box);
 }
 
 export function Rspin_box_set_changed_callback(spin_box: Rid, callback: RSpinBoxChangedCallback | Pointer | null, user_data: RPointer = null): void {

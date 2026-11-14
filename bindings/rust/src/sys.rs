@@ -2973,6 +2973,13 @@ extern "C" {
     pub fn Rspin_box_set_step(spin_box: Rid, step: f64);
     /// Digits shown after the decimal point. Default: 2.
     pub fn Rspin_box_set_decimals(spin_box: Rid, decimals: c_int);
+    /// Step buttons in the looks of Raven too: a down button at the left
+    /// end and an up button at the right end, the value between them (XML
+    /// `Buttons="True"`). A click steps once; holding a button repeats its step.
+    /// The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+    /// Default: R_FALSE (drag to scrub, arrows / wheel to step).
+    pub fn Rspin_box_set_buttons(spin_box: Rid, buttons: c_int);
+    pub fn Rspin_box_get_buttons(spin_box: Rid) -> c_int;
     pub fn Rspin_box_set_changed_callback(spin_box: Rid, callback: RSpinBoxChangedCallback, user_data: *mut c_void);
     /// Returns: The index of the new item.
     pub fn Rcombo_box_add_item(combo_box: Rid, text: *const c_char) -> c_int;

@@ -2952,6 +2952,13 @@ foreign lib {
 	Rspin_box_set_step :: proc(spin_box: Rid, step: f64) ---
 	// Digits shown after the decimal point. Default: 2.
 	Rspin_box_set_decimals :: proc(spin_box: Rid, decimals: i32) ---
+	// Step buttons in the looks of Raven too: a down button at the left
+	// end and an up button at the right end, the value between them (XML
+	// `Buttons="True"`). A click steps once; holding a button repeats its step.
+	// The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+	// Default: R_FALSE (drag to scrub, arrows / wheel to step).
+	Rspin_box_set_buttons :: proc(spin_box: Rid, buttons: i32) ---
+	Rspin_box_get_buttons :: proc(spin_box: Rid) -> i32 ---
 	Rspin_box_set_changed_callback :: proc(spin_box: Rid, callback: RSpinBoxChangedCallback, user_data: rawptr) ---
 	// Returns: The index of the new item.
 	Rcombo_box_add_item :: proc(combo_box: Rid, text: cstring) -> i32 ---

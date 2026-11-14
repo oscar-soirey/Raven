@@ -377,7 +377,7 @@ extern "C" {
 
 
 	/* ============================================================================
-	 *  SPIN BOX (numeric input: drag to scrub, click to type, arrows / wheel to step)
+	 *  SPIN BOX (numeric input: drag to scrub, click to type, arrows / wheel / step buttons to step)
 	 * ============================================================================ */
 
 	RAVEN_API void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);
@@ -388,6 +388,15 @@ extern "C" {
 	RAVEN_API void Rspin_box_set_step(Rid spin_box, double step);
 	/** @brief Digits shown after the decimal point. Default: 2. */
 	RAVEN_API void Rspin_box_set_decimals(Rid spin_box, int decimals);
+	/**
+	 * @brief Step buttons in the looks of Raven too: a down button at the left
+	 * end and an up button at the right end, the value between them (XML
+	 * `Buttons="True"`). A click steps once; holding a button repeats its step.
+	 * The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+	 * Default: R_FALSE (drag to scrub, arrows / wheel to step).
+	 */
+	RAVEN_API void Rspin_box_set_buttons(Rid spin_box, int buttons);
+	RAVEN_API int Rspin_box_get_buttons(Rid spin_box);
 	typedef void (*RSpinBoxChangedCallback)(Rid spin_box, double value, void* user_data);
 	RAVEN_API void Rspin_box_set_changed_callback(Rid spin_box, RSpinBoxChangedCallback callback, void* user_data);
 

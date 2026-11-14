@@ -728,6 +728,15 @@ public:
 	/// Digits shown after the decimal point. Default: 2.
 	void set_decimals(int decimals) const { Rspin_box_set_decimals(id_, decimals); }
 
+	/// Step buttons in the looks of Raven too: a down button at the left
+	/// end and an up button at the right end, the value between them (XML
+	/// `Buttons="True"`). A click steps once; holding a button repeats its step.
+	/// The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+	/// Default: R_FALSE (drag to scrub, arrows / wheel to step).
+	void set_buttons(int buttons) const { Rspin_box_set_buttons(id_, buttons); }
+
+	int get_buttons() const { return Rspin_box_get_buttons(id_); }
+
 	void set_changed_callback(RSpinBoxChangedCallback callback, void* user_data) const { Rspin_box_set_changed_callback(id_, callback, user_data); }
 	void set_changed_callback(std::function<void(Rid, double)> callback) const {
 		Rspin_box_set_changed_callback(id_, [](Rid spin_box, double value, void* kept_) -> void { return (*static_cast<std::function<void(Rid, double)>*>(kept_))(spin_box, value); }, detail::keep(id_, 14, std::move(callback)));

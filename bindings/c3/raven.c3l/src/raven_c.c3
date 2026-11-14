@@ -3695,6 +3695,17 @@ extern fn void r_spin_box_set_step(Rid spin_box, double step) @cname("Rspin_box_
 <* Digits shown after the decimal point. Default: 2. *>
 extern fn void r_spin_box_set_decimals(Rid spin_box, CInt decimals) @cname("Rspin_box_set_decimals");
 
+<*
+ Step buttons in the looks of Raven too: a down button at the left
+ end and an up button at the right end, the value between them (XML
+ `Buttons="True"`). A click steps once; holding a button repeats its step.
+ The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+ Default: R_FALSE (drag to scrub, arrows / wheel to step).
+*>
+extern fn void r_spin_box_set_buttons(Rid spin_box, CInt buttons) @cname("Rspin_box_set_buttons");
+
+extern fn CInt r_spin_box_get_buttons(Rid spin_box) @cname("Rspin_box_get_buttons");
+
 extern fn void r_spin_box_set_changed_callback(Rid spin_box, RSpinBoxChangedCallback callback, void* user_data) @cname("Rspin_box_set_changed_callback");
 
 <* Returns The index of the new item. *>

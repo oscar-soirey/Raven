@@ -3312,6 +3312,18 @@ func SpinBoxSetDecimals(spin_box ID, decimals int) {
 	C.Rspin_box_set_decimals(C.Rid(spin_box), C.int(decimals))
 }
 
+// SpinBoxSetButtons: Step buttons in the looks of Raven too: a down button at the left end and an up button
+// at the right end, the value between them (XML `Buttons="True"`). A click steps once; holding a button
+// repeats its step. The platform looks (Windows, GNOME, macOS) always draw their own buttons. Default:
+// R_FALSE (drag to scrub, arrows / wheel to step).
+func SpinBoxSetButtons(spin_box ID, buttons int) {
+	C.Rspin_box_set_buttons(C.Rid(spin_box), C.int(buttons))
+}
+
+func SpinBoxGetButtons(spin_box ID) int {
+	return int(C.Rspin_box_get_buttons(C.Rid(spin_box)))
+}
+
 // ComboBoxAddItem: Returns: The index of the new item.
 func ComboBoxAddItem(combo_box ID, text string) int {
 	text_ := C.CString(text)
