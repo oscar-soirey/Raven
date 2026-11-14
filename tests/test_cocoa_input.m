@@ -66,6 +66,35 @@ static void test_accessible_action(Rid window, NSView* view) {
 	CHECK(![element isAccessibilitySelectorAllowed:@selector(accessibilityPerformPress)]);
 }
 
+static void test_native_menu_headers(Rid window) {
+	Rid bar = Rwidget_create(R_WIDGET_MENU_BAR);
+	Rid menu;
+	NSMenu* native;
+	NSMenuItem* header;
+	Rmenu_bar_add_divider(bar);
+	menu = Rmenu_add_menu(bar, "Devices");
+	Rmenu_set_title_color(menu, 1, 0, 0, 1);
+	Rmenu_add_header(menu, "pdk1");
+	Rmenu_add_item(menu, "Configure");
+	Rmenu_bar_add_divider(bar);
+	Rwindow_set_content(window, bar);
+	Rwindow_show(window);
+	Rwindow_focus(window);
+	Rdraw_frame();
+	native = [[[NSApp mainMenu] itemWithTitle:@"Devices"] submenu];
+	CHECK(native != nil);
+	CHECK([[NSApp mainMenu] numberOfItems] == 2); /* app menu and Devices; dividers omitted */
+	CHECK([native numberOfItems] == 2);
+	if ([native numberOfItems] != 2) return;
+	header = [native itemAtIndex:0];
+	CHECK([[header title] isEqualToString:@"pdk1"]);
+	CHECK(![header isEnabled]);
+	CHECK([header action] == nil);
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 140000
+	if (@available(macOS 14.0, *)) CHECK([header isSectionHeader]);
+#endif
+}
+
 int main(void) {
 	RInitDesc desc;
 	RNativeWindow native;
@@ -86,6 +115,7 @@ int main(void) {
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
 	test_accessible_action(window, view);
+	test_native_menu_headers(window);
 	Rwindow_destroy(window);
 	Rshutdown();
 	return test_report("test_cocoa_input");

@@ -7345,6 +7345,33 @@ def Rmenu_add_separator(menu):
     return _lib.Rmenu_add_separator(menu)
 
 
+_lib.Rmenu_add_header.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmenu_add_header.restype = ctypes.c_uint32
+
+
+def Rmenu_add_header(menu, text):
+    """A noninteractive caption row, skipped by keyboard navigation."""
+    return _lib.Rmenu_add_header(menu, _s(text))
+
+
+_lib.Rmenu_bar_add_divider.argtypes = [ctypes.c_uint32]
+_lib.Rmenu_bar_add_divider.restype = ctypes.c_uint32
+
+
+def Rmenu_bar_add_divider(menu_bar):
+    """A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars."""
+    return _lib.Rmenu_bar_add_divider(menu_bar)
+
+
+_lib.Rmenu_set_title_color.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rmenu_set_title_color.restype = None
+
+
+def Rmenu_set_title_color(menu, r, g, b, a):
+    """Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars."""
+    _lib.Rmenu_set_title_color(menu, r, g, b, a)
+
+
 _lib.Rmenu_item_set_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
 _lib.Rmenu_item_set_text.restype = None
 

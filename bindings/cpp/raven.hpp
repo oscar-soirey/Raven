@@ -973,6 +973,15 @@ public:
 
 	Rid add_separator() const { return Rmenu_add_separator(id_); }
 
+	/// A noninteractive caption row, skipped by keyboard navigation.
+	Rid add_header(const char* text) const { return Rmenu_add_header(id_, text); }
+
+	/// A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+	Rid bar_add_divider() const { return Rmenu_bar_add_divider(id_); }
+
+	/// Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+	void set_title_color(float r, float g, float b, float a) const { Rmenu_set_title_color(id_, r, g, b, a); }
+
 	/// Opens a menu as a popup at a position of the window (logical units).
 	void open(Rid window, float x, float y) const { Rmenu_open(id_, window, x, y); }
 };

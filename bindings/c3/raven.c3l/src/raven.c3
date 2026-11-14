@@ -3134,6 +3134,12 @@ fn MenuItem Menu.add_item(self, ZString text) @inline => (MenuItem)c::r_menu_add
 
 fn Separator Menu.add_separator(self) @inline => (Separator)c::r_menu_add_separator((c::Rid)self);
 
+<* A noninteractive caption row, skipped by keyboard navigation. *>
+fn Id Menu.add_header(self, ZString text) @inline => (Id)c::r_menu_add_header((c::Rid)self, (char*)text);
+
+<* Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars. *>
+fn void Menu.set_title_color(self, float r, float g, float b, float a) @inline => c::r_menu_set_title_color((c::Rid)self, r, g, b, a);
+
 <* Opens a menu as a popup at a position of the window (logical units). *>
 fn void Menu.open(self, Id window, float x, float y) @inline => c::r_menu_open((c::Rid)self, (c::Rid)window, x, y);
 
@@ -3826,6 +3832,9 @@ fn void MenuBar.set_native(self, bool native) @inline => c::r_menu_bar_set_nativ
 
 <* Returns R_TRUE while the menu bar is shown by the system instead of the window. *>
 fn bool MenuBar.is_native(self) @inline => c::r_menu_bar_is_native((c::Rid)self) != 0;
+
+<* A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars. *>
+fn Id MenuBar.add_divider(self) @inline => (Id)c::r_menu_bar_add_divider((c::Rid)self);
 
 // ---- BackgroundBlur
 

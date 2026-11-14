@@ -645,6 +645,9 @@ const _symbols = {
 	Rmenu_set_title: { args: ["u32", "ptr"], returns: "void" },
 	Rmenu_add_item: { args: ["u32", "ptr"], returns: "u32" },
 	Rmenu_add_separator: { args: ["u32"], returns: "u32" },
+	Rmenu_add_header: { args: ["u32", "ptr"], returns: "u32" },
+	Rmenu_bar_add_divider: { args: ["u32"], returns: "u32" },
+	Rmenu_set_title_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
 	Rmenu_item_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rmenu_item_get_text: { args: ["u32"], returns: "cstring" },
 	Rmenu_item_set_shortcut: { args: ["u32", "i32", "u32"], returns: "void" },
@@ -9761,6 +9764,21 @@ export function Rmenu_add_item(menu: Rid, text: string | null): Rid {
 
 export function Rmenu_add_separator(menu: Rid): Rid {
 	return _lib.Rmenu_add_separator(menu);
+}
+
+/** A noninteractive caption row, skipped by keyboard navigation. */
+export function Rmenu_add_header(menu: Rid, text: string | null): Rid {
+	return _lib.Rmenu_add_header(menu, _s(text));
+}
+
+/** A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars. */
+export function Rmenu_bar_add_divider(menu_bar: Rid): Rid {
+	return _lib.Rmenu_bar_add_divider(menu_bar);
+}
+
+/** Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars. */
+export function Rmenu_set_title_color(menu: Rid, r: number, g: number, b: number, a: number): void {
+	_lib.Rmenu_set_title_color(menu, r, g, b, a);
 }
 
 export function Rmenu_item_set_text(item: Rid, text: string | null): void {

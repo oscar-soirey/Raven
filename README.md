@@ -1300,6 +1300,14 @@ shortcut label; an empty string hides it. In native macOS menus, hints use a
 right-aligned text column; any independently configured binding is dispatched
 by Raven.
 
+In-window bars support `Rmenu_bar_add_divider(bar)` between menu titles and
+`Rmenu_set_title_color(menu, r, g, b, a)` for a title tint (alpha zero restores
+the theme). Native macOS bars omit these decorations. `Rmenu_add_header(menu,
+"Devices · pdk1")` adds a secondary-text caption that cannot be activated and
+is skipped by keyboard navigation. Screen readers see it as a heading; native
+macOS menus use section headers on macOS 14+ and a disabled caption on older
+systems.
+
 ### Taskbar and Dock
 
 ```c

@@ -3290,6 +3290,12 @@ Rid Rmenu_add_menu(Rid menu_bar_or_menu, const(char)* title);
 void Rmenu_set_title(Rid menu, const(char)* title);
 Rid Rmenu_add_item(Rid menu, const(char)* text);
 Rid Rmenu_add_separator(Rid menu);
+/// A noninteractive caption row, skipped by keyboard navigation.
+Rid Rmenu_add_header(Rid menu, const(char)* text);
+/// A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+Rid Rmenu_bar_add_divider(Rid menu_bar);
+/// Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+void Rmenu_set_title_color(Rid menu, float r, float g, float b, float a);
 void Rmenu_item_set_text(Rid item, const(char)* text);
 const(char)* Rmenu_item_get_text(Rid item);
 /// Shows a shortcut next to the item and triggers the item when the

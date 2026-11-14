@@ -567,6 +567,12 @@ extern "C" {
 
 	RAVEN_API Rid Rmenu_add_item(Rid menu, const char* text);
 	RAVEN_API Rid Rmenu_add_separator(Rid menu);
+	/** @brief A noninteractive caption row, skipped by keyboard navigation. */
+	RAVEN_API Rid Rmenu_add_header(Rid menu, const char* text);
+	/** @brief A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars. */
+	RAVEN_API Rid Rmenu_bar_add_divider(Rid menu_bar);
+	/** @brief Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars. */
+	RAVEN_API void Rmenu_set_title_color(Rid menu, float r, float g, float b, float a);
 
 	RAVEN_API void Rmenu_item_set_text(Rid item, const char* text);
 	RAVEN_API const char* Rmenu_item_get_text(Rid item);

@@ -697,7 +697,8 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			node->states |= RVN_A11Y_INVOKABLE;
 			break;
 		case R_WIDGET_MENU_ITEM:
-			node->states |= RVN_A11Y_INVOKABLE;
+			if (rvn_menu_item_is_header(widget)) break;
+			if (node->role != R_ROLE_SEPARATOR) node->states |= RVN_A11Y_INVOKABLE;
 			if (Rmenu_item_is_checked(widget->id)) node->states |= RVN_A11Y_CHECKED | RVN_A11Y_CHECKABLE;
 			break;
 		case R_WIDGET_CHECKBOX:
@@ -839,7 +840,7 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			break;
 	}
 	if (widget->a11y) {
-		if (widget->a11y->press) node->states |= RVN_A11Y_INVOKABLE;
+		if (widget->a11y->press && !rvn_menu_item_is_header(widget)) node->states |= RVN_A11Y_INVOKABLE;
 		if (widget->a11y->checked >= 0) {
 			node->states |= RVN_A11Y_CHECKABLE;
 			node->states &= ~RVN_A11Y_CHECKED;
@@ -878,6 +879,7 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 	rvn_widget_t* widget = rvn_a11y_as_widget(id);
 	int item = rvn_a11y_item(id);
 	if (!widget) return R_FALSE;
+	if (rvn_menu_item_is_header(widget)) return R_FALSE;
 	if (!rvn_widget_is_enabled(widget)) return R_FALSE;
 	if (item < 0 && widget->a11y && widget->a11y->press &&
 		(action == RVN_A11Y_PRESS || action == RVN_A11Y_TOGGLE)) {

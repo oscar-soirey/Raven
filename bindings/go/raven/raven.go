@@ -3569,6 +3569,24 @@ func MenuAddSeparator(menu ID) ID {
 	return ID(C.Rmenu_add_separator(C.Rid(menu)))
 }
 
+// MenuAddHeader: A noninteractive caption row, skipped by keyboard navigation.
+func MenuAddHeader(menu ID, text string) ID {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return ID(C.Rmenu_add_header(C.Rid(menu), text_))
+}
+
+// MenuBarAddDivider: A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+func MenuBarAddDivider(menu_bar ID) ID {
+	return ID(C.Rmenu_bar_add_divider(C.Rid(menu_bar)))
+}
+
+// MenuSetTitleColor: Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS
+// bars.
+func MenuSetTitleColor(menu ID, r float32, g float32, b float32, a float32) {
+	C.Rmenu_set_title_color(C.Rid(menu), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
 func MenuItemSetText(item ID, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))

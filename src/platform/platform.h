@@ -114,6 +114,7 @@ typedef struct rvn_pmenu_t {
 	const struct rvn_pmenu_t* items;
 	uint32_t count;
 	int separator;
+	int header;
 	int enabled;
 	int checkable;
 	int checked;
