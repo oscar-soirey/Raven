@@ -4463,6 +4463,10 @@ void Rcustom_set_paint_callback(Rid widget, RPaintCallback callback, void* user_
 void Rcustom_set_measure_callback(Rid widget, RMeasureCallback callback, void* user_data);
 /// Filled rectangle with rounded corners (radius 0 = sharp).
 void Rdraw_rect(RPainter* painter, float x, float y, float width, float height, float radius, float r, float g, float b, float a);
+/// Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+/// Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+/// Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+void Rdraw_shadow(RPainter* painter, float x, float y, float width, float height, float radius, float blur, float r, float g, float b, float a);
 /// Outline of a rounded rectangle, drawn inside its bounds.
 void Rdraw_rect_outline(RPainter* painter, float x, float y, float width, float height, float radius, float thickness, float r, float g, float b, float a);
 void Rdraw_circle(RPainter* painter, float center_x, float center_y, float radius, float r, float g, float b, float a);

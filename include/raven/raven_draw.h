@@ -55,6 +55,14 @@ extern "C" {
 	RAVEN_API void Rdraw_rect(RPainter* painter, float x, float y, float width, float height,
 		float radius, float r, float g, float b, float a);
 
+	/**
+	 * @brief Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+	 * Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+	 * Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+	 */
+	RAVEN_API void Rdraw_shadow(RPainter* painter, float x, float y, float width, float height,
+		float radius, float blur, float r, float g, float b, float a);
+
 	/** @brief Outline of a rounded rectangle, drawn inside its bounds. */
 	RAVEN_API void Rdraw_rect_outline(RPainter* painter, float x, float y, float width, float height,
 		float radius, float thickness, float r, float g, float b, float a);
