@@ -133,6 +133,9 @@ typedef struct rvn_dock_area_t {
 	 * the family over another shows the drop there, and is docked there.
 	 */
 	int tearable;
+	RDockFloatMode float_mode;
+	int in_window;
+	rvn_rect_t float_rect; /* in containing-window logical units */
 	Rid home;
 	Rid float_window;
 	Rid* floats;
@@ -153,6 +156,14 @@ typedef struct rvn_dock_area_t {
 } rvn_dock_area_t;
 
 static void rvn_dock_sync(rvn_widget_t* widget);
+static rvn_dock_area_t* rvn_dock_area_of(Rid id);
+static void rvn_dock_forget_float(rvn_widget_t* home_widget, Rid floating);
+static void rvn_dock_float_close_if_empty(rvn_widget_t* widget);
+
+static int rvn_dock_local_layer(const rvn_widget_t* child, const rvn_widget_t* home) {
+	return child->cls->type == R_WIDGET_DOCK_AREA && ((const rvn_dock_area_t*)child)->in_window &&
+		((const rvn_dock_area_t*)child)->home == home->id;
+}
 struct rvn_dock_area_t;
 static int rvn_dock_hidden_index(const struct rvn_dock_area_t* area, const rvn_widget_t* panel);
 static void rvn_dock_hidden_prune(rvn_widget_t* widget);
@@ -537,6 +548,7 @@ static void rvn_dock_sync(rvn_widget_t* widget) {
 	rvn_dock_prune(widget, area->root);
 	rvn_dock_hidden_prune(widget);
 	for (i = 0; i < widget->child_count; i++) {
+		if (rvn_dock_local_layer(widget->children[i], widget)) continue;
 		widget->children[i]->flags |= RVN_WF_CLIP;   /* a panel cuts what it holds at its edges */
 		if (rvn_dock_hidden_index(area, widget->children[i]) >= 0) continue;
 		if (!rvn_dock_find(area->root, widget->children[i], NULL)) rvn_dock_place(widget, widget->children[i]);
@@ -608,6 +620,12 @@ static void rvn_dock_area_init(rvn_widget_t* widget) {
 
 static void rvn_dock_area_destroy(rvn_widget_t* widget) {
 	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
+	if (area->in_window) {
+		rvn_window_t* window = rvn_window_get(area->float_window);
+		rvn_dock_area_t* home = rvn_dock_area_of(area->home);
+		if (window) rvn_window_set_float_layer(window, widget, R_FALSE);
+		if (home) rvn_dock_forget_float(&home->base, widget->id);
+	}
 	rvn_dock_tree_free(widget, area->root);
 	area->root = NULL;
 	rvn_free(area->layout_text);
@@ -621,7 +639,8 @@ static void rvn_dock_area_destroy(rvn_widget_t* widget) {
 				rvn_dock_area_t* other = (rvn_dock_area_t*)floating;
 				Rid window = other->float_window;
 				other->home = R_INVALID_ID;
-				if (Rwindow_is_valid(window)) Rwindow_destroy(window);
+				if (other->in_window) rvn_widget_destroy(floating);
+				else if (Rwindow_is_valid(window)) Rwindow_destroy(window);
 			}
 		}
 	}
@@ -649,6 +668,9 @@ static rvn_vec2_t rvn_dock_measure_node(rvn_widget_t* widget, rvn_dock_node_t* n
 
 static rvn_vec2_t rvn_dock_area_measure(rvn_widget_t* widget) {
 	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
+	uint32_t i;
+	for (i = 0; i < widget->child_count; i++)
+		if (rvn_dock_local_layer(widget->children[i], widget)) (void)rvn_widget_measure(widget->children[i]);
 	if (!area->root) return rvn_vec2(RVN_DOCK_MIN, RVN_DOCK_MIN);
 	return rvn_dock_measure_node(widget, area->root);
 }
@@ -694,8 +716,24 @@ static void rvn_dock_area_arrange(rvn_widget_t* widget) {
 static int rvn_dock_area_child_active(rvn_widget_t* widget, rvn_widget_t* child) {
 	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
 	int index = 0;
+	if (rvn_dock_local_layer(child, widget)) return ((rvn_dock_area_t*)child)->root != NULL;
 	rvn_dock_node_t* group = rvn_dock_find(area->root, child, &index);
 	return group && group->active == index;
+}
+
+void rvn_dock_float_arrange(rvn_widget_t* widget) {
+	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
+	rvn_vec2_t size, parent;
+	if (!area->in_window || !widget->window || !widget->parent) return;
+	if (widget->child_count == 0) { rvn_dock_float_close_if_empty(widget); return; }
+	size = rvn_window_size(widget->window);
+	parent = rvn_widget_origin(widget->parent);
+	area->float_rect.w = rvn_clampf(area->float_rect.w, rvn_minf(RVN_DOCK_MIN, size.x), size.x);
+	area->float_rect.h = rvn_clampf(area->float_rect.h, rvn_minf(RVN_DOCK_MIN, size.y), size.y);
+	area->float_rect.x = rvn_clampf(area->float_rect.x, 0, rvn_maxf(0, size.x - area->float_rect.w));
+	area->float_rect.y = rvn_clampf(area->float_rect.y, 0, rvn_maxf(0, size.y - area->float_rect.h));
+	(void)rvn_widget_measure(widget);
+	rvn_widget_arrange(widget, area->float_rect.x - parent.x, area->float_rect.y - parent.y, area->float_rect.w, area->float_rect.h);
 }
 
 /* ---------------------------------------------------------------------------
@@ -951,8 +989,8 @@ static int rvn_dock_family(rvn_widget_t* widget, rvn_widget_t** out, int max) {
 	rvn_dock_area_t* h = (rvn_dock_area_t*)home;
 	int count = 0;
 	uint32_t i;
-	for (i = 0; i < h->float_count && count < max - 1; i++) {
-		rvn_dock_area_t* floating = rvn_dock_area_of(h->floats[i]);
+	for (i = h->float_count; i > 0 && count < max - 1; i--) {
+		rvn_dock_area_t* floating = rvn_dock_area_of(h->floats[i - 1]);
 		if (floating) out[count++] = &floating->base;
 	}
 	out[count++] = home;
@@ -1021,6 +1059,11 @@ static void rvn_dock_update_drop(rvn_widget_t* widget) {
 		target->pointer_x = lx;
 		target->pointer_y = ly;
 		rvn_dock_compute_drop(other, area->press_panel, lx, ly);
+		/* Moving a local card should not dock it merely for crossing the middle of a canvas. */
+		if (area->in_window && area->moving_window && target->drop == RVN_DOCK_DROP_TAB) {
+			float top = target->drop_node ? rvn_dock_shown(target->drop_node).y : 0.0f;
+			if (ly >= top + rvn_dock_bar_height(other)) target->drop = RVN_DOCK_DROP_NONE;
+		}
 		rvn_widget_invalidate_paint(other);
 		rvn_dock_clear_foreign(widget, other);
 		if (target->drop != RVN_DOCK_DROP_NONE) {
@@ -1041,6 +1084,8 @@ static void rvn_dock_update_drop(rvn_widget_t* widget) {
 		return;
 	}
 	rvn_dock_compute_drop(widget, area->press_panel, x, y);
+	if (area->float_mode == R_DOCK_FLOAT_IN_WINDOW && area->tearable && area->drop == RVN_DOCK_DROP_NONE)
+		area->drop = RVN_DOCK_DROP_FLOAT;
 }
 
 /* Where a panel of the tree would go back if it left (beside what it shares its place with). */
@@ -1093,7 +1138,8 @@ static void rvn_dock_forget_float(rvn_widget_t* home_widget, Rid floating) {
 	uint32_t i;
 	for (i = 0; i < home->float_count; i++) {
 		if (home->floats[i] == floating) {
-			home->floats[i] = home->floats[--home->float_count];
+			memmove(home->floats + i, home->floats + i + 1, sizeof(Rid) * (home->float_count - i - 1));
+			home->float_count--;
 			return;
 		}
 	}
@@ -1107,7 +1153,8 @@ static void rvn_dock_float_close_if_empty(rvn_widget_t* widget) {
 	if (home == widget || widget->child_count > 0 || area->closing) return;
 	rvn_dock_forget_float(home, widget->id);
 	area->home = R_INVALID_ID;
-	if (Rwindow_is_valid(window)) Rwindow_destroy(window);
+	if (area->in_window) rvn_widget_destroy(widget);
+	else if (Rwindow_is_valid(window)) Rwindow_destroy(window);
 }
 
 /* Puts a panel of the home area where an entry says (the way Rdock_area_open_panel puts back a hidden one). */
@@ -1145,10 +1192,82 @@ static int rvn_dock_return(rvn_widget_t* widget, rvn_widget_t* panel) {
 
 static int rvn_dock_float_closing(Rid window, void* user_data);
 
-/*
- * A panel leaves for a window of its own, whose top left corner is at
- * (x, y) on the screen. Returns the window.
- */
+/* A local card reuses a floating DockArea, owned by the home area. */
+static rvn_dock_area_t* rvn_dock_local_new(rvn_widget_t* home, rvn_rect_t rect) {
+	rvn_dock_area_t* h = (rvn_dock_area_t*)home;
+	rvn_widget_t* widget;
+	rvn_dock_area_t* floating;
+	int syncing;
+	if (!home->window) return NULL;
+	widget = rvn_widget_create(R_WIDGET_DOCK_AREA);
+	if (!widget) return NULL;
+	floating = (rvn_dock_area_t*)widget;
+	floating->home = home->id;
+	floating->float_window = home->window->id;
+	floating->in_window = R_TRUE;
+	floating->float_rect = rect;
+	floating->float_mode = h->float_mode;
+	floating->tearable = h->tearable;
+	floating->locked = h->locked;
+	floating->close_hides = h->close_hides;
+	floating->close_callback = h->close_callback;
+	floating->close_user = h->close_user;
+	syncing = h->syncing;
+	h->syncing = R_TRUE;
+	rvn_widget_add_child(home, widget, -1);
+	h->syncing = syncing;
+	RVN_ARRAY_RESERVE(h->floats, h->float_cap, h->float_count + 1);
+	h->floats[h->float_count++] = widget->id;
+	rvn_window_set_float_layer(home->window, widget, R_TRUE);
+	return floating;
+}
+
+static void rvn_dock_raise_local(rvn_widget_t* widget) {
+	rvn_dock_area_t* home = (rvn_dock_area_t*)rvn_dock_home_of(widget);
+	uint32_t i;
+	if (!widget->window) return;
+	for (i = 0; i < home->float_count; i++) {
+		if (home->floats[i] != widget->id) continue;
+		memmove(home->floats + i, home->floats + i + 1, sizeof(Rid) * (home->float_count - i - 1));
+		home->floats[home->float_count - 1] = widget->id;
+		break;
+	}
+	rvn_window_set_float_layer(widget->window, widget, R_TRUE);
+}
+
+/* x/y use screen coordinates, matching native tearing; the card stores window-local units. */
+static Rid rvn_dock_tear_local(rvn_widget_t* widget, rvn_widget_t* panel, float x, float y) {
+	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
+	rvn_widget_t* home = rvn_dock_home_of(widget);
+	rvn_dock_node_t* group = rvn_dock_find(area->root, panel, NULL);
+	rvn_rect_t shown = group ? rvn_dock_shown(group) : rvn_rect(0, 0, 480, 360);
+	rvn_dock_area_t* floating;
+	rvn_dock_hidden_t entry;
+	Rid window;
+	int wx = 0, wy = 0;
+	if (!home->window) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "DockArea: in-window floating requires a containing window");
+		return R_INVALID_ID;
+	}
+	window = home->window->id;
+	Rwindow_get_position(window, &wx, &wy);
+	floating = rvn_dock_local_new(home, rvn_rect(x - wx, y - wy,
+		rvn_clampf(shown.w, 260, 480), rvn_clampf(shown.h, 180, 360)));
+	if (!floating) return R_INVALID_ID;
+	if (home == widget) rvn_dock_where(widget, panel, &entry);
+	else rvn_dock_take_return(area, panel, &entry);
+	if (area->press_panel == panel) rvn_dock_end_press(widget);
+	if (area->chip_panel == panel) area->chip_panel = NULL;
+	rvn_dock_remove(widget, panel);
+	RVN_ARRAY_RESERVE(floating->returns, floating->return_cap, 1);
+	floating->returns[floating->return_count++] = entry;
+	rvn_widget_add_child(&floating->base, panel, -1);
+	rvn_dock_float_arrange(&floating->base);
+	rvn_dock_changed(home);
+	if (home != widget) rvn_dock_float_close_if_empty(widget);
+	return window;
+}
+
 static Rid rvn_dock_tear(rvn_widget_t* widget, rvn_widget_t* panel, float x, float y) {
 	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
 	rvn_widget_t* home = rvn_dock_home_of(widget);
@@ -1160,6 +1279,7 @@ static Rid rvn_dock_tear(rvn_widget_t* widget, rvn_widget_t* panel, float x, flo
 	Rid window, floating_id;
 
 	if (panel->parent != widget) return R_INVALID_ID;
+	if (h->float_mode == R_DOCK_FLOAT_IN_WINDOW) return rvn_dock_tear_local(widget, panel, x, y);
 	/* where it will go back */
 	if (home == widget) rvn_dock_where(widget, panel, &entry);
 	else rvn_dock_take_return(area, panel, &entry);
@@ -1500,6 +1620,7 @@ static int rvn_dock_area_event(rvn_widget_t* widget, const REvent* event) {
 						area->moving_window = R_TRUE;
 						area->grab_x = origin.x + area->press_x;
 						area->grab_y = origin.y + area->press_y;
+						if (area->in_window) { area->grab_x = area->press_x; area->grab_y = area->press_y; }
 					}
 					area->chip_panel = area->moving_window ? NULL : area->press_panel;
 					rvn_spring_set(&area->chip_x, area->press_x);
@@ -1509,7 +1630,17 @@ static int rvn_dock_area_event(rvn_widget_t* widget, const REvent* event) {
 				}
 				if (area->dragging && area->moving_window) {
 					float sx, sy;
-					if (rvn_dock_to_screen(widget, x, y, &sx, &sy)) Rwindow_set_position(area->float_window, (int)(sx - area->grab_x), (int)(sy - area->grab_y));
+					if (area->in_window) {
+						rvn_vec2_t origin = rvn_widget_origin(widget);
+						float pointer_x = origin.x + x, pointer_y = origin.y + y;
+						area->float_rect.x = pointer_x - area->grab_x;
+						area->float_rect.y = pointer_y - area->grab_y;
+						rvn_dock_float_arrange(widget);
+						origin = rvn_widget_origin(widget);
+						area->pointer_x = pointer_x - origin.x;
+						area->pointer_y = pointer_y - origin.y;
+						rvn_widget_invalidate_layout(widget->parent);
+					} else if (rvn_dock_to_screen(widget, x, y, &sx, &sy)) Rwindow_set_position(area->float_window, (int)(sx - area->grab_x), (int)(sy - area->grab_y));
 				}
 				if (area->dragging) rvn_dock_update_drop(widget);
 				rvn_widget_invalidate_paint(widget);
@@ -1550,6 +1681,7 @@ static int rvn_dock_area_event(rvn_widget_t* widget, const REvent* event) {
 				return R_TRUE;
 			}
 			if (!own || event->button != R_MOUSE_LEFT) return R_FALSE;
+			if (area->in_window) rvn_dock_raise_local(widget);
 			split = rvn_dock_split_at(widget, area->root, x, y);
 			if (split) {
 				area->resize_node = split;
@@ -1618,8 +1750,10 @@ static int rvn_dock_area_event(rvn_widget_t* widget, const REvent* event) {
 					/* the window opens under the pointer, its tab where the hand is */
 					if (ok) rvn_dock_tear(widget, panel, sx - 60.0f, sy - 14.0f);
 				} else {
+					int moved_card = area->in_window && area->moving_window;
 					rvn_dock_end_press(widget);
 					if (drop != RVN_DOCK_DROP_NONE) rvn_dock_move(widget, panel, drop, target, 0.0f, index, &from);
+					else if (moved_card) rvn_dock_changed(rvn_dock_home_of(widget));
 				}
 			} else if (area->press_close) {
 				rvn_widget_t* panel = area->press_panel;
@@ -1710,7 +1844,18 @@ static int rvn_dock_hex(char c) {
  * NULL with *ok kept when the node holds no panel of the area (it is then
  * simply left out).
  */
-static rvn_dock_node_t* rvn_dock_load_node(rvn_widget_t* widget, const char** cursor, uint8_t* used, int* ok, int depth) {
+typedef struct rvn_dock_load_t {
+	rvn_widget_t* widget;
+	rvn_widget_t** panels;
+	uint8_t* used;
+	uint32_t count;
+	int ok, strict;
+} rvn_dock_load_t;
+
+static rvn_dock_node_t* rvn_dock_load_node(rvn_dock_load_t* load, const char** cursor, int depth) {
+	rvn_widget_t* widget = load->widget;
+	uint8_t* used = load->used;
+	int* ok = &load->ok;
 	const char* text = *cursor;
 	rvn_dock_node_t* node;
 
@@ -1732,9 +1877,9 @@ static rvn_dock_node_t* rvn_dock_load_node(rvn_widget_t* widget, const char** cu
 			*ok = R_FALSE;
 			return NULL;
 		}
-		a = rvn_dock_load_node(widget, &text, used, ok, depth + 1);
+		a = rvn_dock_load_node(load, &text, depth + 1);
 		if (*ok && *text++ != ',') *ok = R_FALSE;
-		b = *ok ? rvn_dock_load_node(widget, &text, used, ok, depth + 1) : NULL;
+		b = *ok ? rvn_dock_load_node(load, &text, depth + 1) : NULL;
 		if (*ok && *text++ != ')') *ok = R_FALSE;
 		if (!*ok) {
 			rvn_dock_tree_free(widget, a);
@@ -1762,7 +1907,7 @@ static rvn_dock_node_t* rvn_dock_load_node(rvn_widget_t* widget, const char** cu
 		}
 		node = rvn_dock_group_new();
 		while (*text && *text != ')') {
-			char name[256];
+			char* name = (char*)rvn_alloc(strlen(text) + 1);
 			size_t length = 0;
 			uint32_t i;
 			while (*text && *text != ',' && *text != ')') {
@@ -1776,19 +1921,24 @@ static rvn_dock_node_t* rvn_dock_load_node(rvn_widget_t* widget, const char** cu
 					c = (char)(high * 16 + low);
 					text += 2;
 				}
-				if (length + 1 < sizeof(name)) name[length++] = c;
+				if (load->strict && !c) { *ok = R_FALSE; break; }
+				name[length++] = c;
 			}
-			if (!*ok) break;
+			if (!*ok) { rvn_free(name); break; }
 			name[length] = '\0';
 			if (*text == ',') text++;
-			for (i = 0; i < widget->child_count; i++) {
-				rvn_widget_t* panel = widget->children[i];
-				if (used[i] || !panel->name || strcmp(panel->name, name) != 0) continue;
+			for (i = 0; i < load->count; i++) {
+				rvn_widget_t* panel = load->panels[i];
+				if (!panel->name || strcmp(panel->name, name) != 0) continue;
+				if (used[i]) { if (load->strict) *ok = R_FALSE; break; }
 				used[i] = 1;
 				if (position == shown) shown_index = (int)node->count;
 				rvn_dock_group_insert(node, panel, -1);
 				break;
 			}
+			if (load->strict && i == load->count) *ok = R_FALSE;
+			rvn_free(name);
+			if (!*ok) break;
 			position++;
 		}
 		if (*ok && *text++ != ')') *ok = R_FALSE;
@@ -1805,46 +1955,161 @@ static rvn_dock_node_t* rvn_dock_load_node(rvn_widget_t* widget, const char** cu
 	return NULL;
 }
 
+typedef struct rvn_dock_loaded_float_t {
+	rvn_rect_t rect;
+	rvn_dock_node_t* root;
+	rvn_dock_area_t* area;
+} rvn_dock_loaded_float_t;
+
+static int rvn_dock_load_float_rect(const char** cursor, rvn_rect_t* rect) {
+	float values[4];
+	int i;
+	for (i = 0; i < 4; i++) {
+		char* end;
+		double value = strtod(*cursor, &end);
+		if (end == *cursor || *end != ',' || !isfinite(value)) return R_FALSE;
+		values[i] = (float)value;
+		if (!isfinite(values[i]) || values[i] < 0 || (i >= 2 && values[i] == 0)) return R_FALSE;
+		*cursor = end + 1;
+	}
+	*rect = rvn_rect(values[0], values[1], values[2], values[3]);
+	return R_TRUE;
+}
+
+static void rvn_dock_load_attach(rvn_widget_t* widget, rvn_dock_node_t* group, void* context) {
+	uint32_t i;
+	RVN_UNUSED(context);
+	for (i = 0; i < group->count; i++) rvn_widget_add_child(widget, group->panels[i], -1);
+}
+
 static int rvn_dock_load(rvn_widget_t* widget, const char* layout) {
 	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
-	uint8_t* used = (uint8_t*)rvn_calloc(widget->child_count ? widget->child_count : 1);
+	rvn_dock_load_t load;
+	rvn_dock_loaded_float_t* floats = NULL;
+	uint32_t float_count = 0, float_cap = 0, i, j, panel_count = 0;
+	Rid* old_layers = (Rid*)rvn_alloc(sizeof(Rid) * (widget->child_count + 1));
+	uint32_t old_count = 0;
+	uint8_t* hidden;
 	const char* cursor = layout;
 	rvn_dock_node_t* root;
-	int ok = R_TRUE;
-	uint32_t i;
-
-	while (*cursor == ' ') cursor++;
-	root = rvn_dock_load_node(widget, &cursor, used, &ok, 0);
-	while (ok && *cursor == ' ') cursor++;
-	if (ok && *cursor != '\0') ok = R_FALSE;
-	if (!ok) {
-		rvn_dock_tree_free(widget, root);
-		rvn_free(used);
-		return R_FALSE;
-	}
-	rvn_dock_tree_free(widget, area->root);
-	area->root = root;
-	rvn_dock_end_press(widget);
-	/* the panels the description does not know keep a place: behind the first tabs (a hidden one stays hidden) */
+	int versioned;
+	memset(&load, 0, sizeof(load));
+	load.widget = widget;
+	load.ok = R_TRUE;
+	/* A flat lookup includes panels currently held by local floating areas. No mutation while parsing. */
 	for (i = 0; i < widget->child_count; i++) {
-		int hidden = rvn_dock_hidden_index(area, widget->children[i]);
-		if (used[i]) rvn_dock_hidden_remove(area, hidden);
-		else if (hidden < 0) rvn_dock_insert(widget, widget->children[i], RVN_DOCK_DROP_TAB, NULL, 0.0f, -1);
+		rvn_widget_t* child = widget->children[i];
+		if (rvn_dock_local_layer(child, widget)) {
+			panel_count += child->child_count;
+			old_layers[old_count++] = child->id;
+		} else panel_count++;
 	}
-	rvn_free(used);
-	if (widget->window) {
-		/* what was shown may be hidden now */
-		for (i = 0; i < widget->child_count; i++) {
-			if (!rvn_dock_area_child_active(widget, widget->children[i])) rvn_window_forget_widget(widget->window, widget->children[i]);
+	load.panels = (rvn_widget_t**)rvn_alloc(sizeof(rvn_widget_t*) * (panel_count + 1));
+	load.used = (uint8_t*)rvn_calloc(panel_count + 1);
+	hidden = (uint8_t*)rvn_calloc(panel_count + 1);
+	for (i = 0; i < widget->child_count; i++) {
+		rvn_widget_t* child = widget->children[i];
+		if (rvn_dock_local_layer(child, widget)) {
+			for (j = 0; j < child->child_count; j++) {
+				load.panels[load.count] = child->children[j];
+				hidden[load.count++] = rvn_dock_hidden_index((rvn_dock_area_t*)child, child->children[j]) >= 0;
+			}
+		} else {
+			load.panels[load.count] = child;
+			hidden[load.count++] = rvn_dock_hidden_index(area, child) >= 0;
 		}
 	}
-	rvn_widget_invalidate_layout(widget);
-	return R_TRUE;
+	while (*cursor == ' ') cursor++;
+	versioned = strncmp(cursor, "D2(", 3) == 0;
+	load.strict = versioned;
+	if (versioned) cursor += 3;
+	root = rvn_dock_load_node(&load, &cursor, 0);
+	if (versioned) {
+		while (load.ok && *cursor == ';') {
+			rvn_dock_loaded_float_t entry;
+			memset(&entry, 0, sizeof(entry));
+			if (strncmp(cursor, ";F(", 3) != 0) { load.ok = R_FALSE; break; }
+			cursor += 3;
+			if (!rvn_dock_load_float_rect(&cursor, &entry.rect)) { load.ok = R_FALSE; break; }
+			entry.root = rvn_dock_load_node(&load, &cursor, 0);
+			RVN_ARRAY_RESERVE(floats, float_cap, float_count + 1);
+			floats[float_count++] = entry;
+			if (!entry.root || !load.ok || *cursor != ')') { load.ok = R_FALSE; break; }
+			cursor++;
+		}
+		if (load.ok && *cursor == ')') cursor++;
+		else load.ok = R_FALSE;
+		if (float_count && (!widget->window || area->home != R_INVALID_ID)) load.ok = R_FALSE;
+	}
+	while (load.ok && *cursor == ' ') cursor++;
+	if (load.ok && *cursor != '\0') load.ok = R_FALSE;
+	/* Allocate invisible empty wrappers before changing any existing panel membership. */
+	for (i = 0; load.ok && i < float_count; i++) {
+		floats[i].area = rvn_dock_local_new(widget, floats[i].rect);
+		if (!floats[i].area) load.ok = R_FALSE;
+	}
+	if (!load.ok) {
+		rvn_dock_tree_free(widget, root);
+		for (i = float_count; i > 0; i--) {
+			rvn_dock_tree_free(widget, floats[i - 1].root);
+			if (floats[i - 1].area) rvn_widget_destroy(&floats[i - 1].area->base);
+		}
+	} else {
+		rvn_dispatch_begin();
+		area->syncing = R_TRUE;
+		rvn_dock_end_press(widget);
+		for (i = 0; i < load.count; i++)
+			if (load.panels[i]->parent != widget) rvn_widget_add_child(widget, load.panels[i], -1);
+		for (i = 0; i < old_count; i++) {
+			rvn_widget_t* old = rvn_widget_get(old_layers[i]);
+			if (old) rvn_widget_destroy(old);
+		}
+		rvn_dock_tree_free(widget, area->root);
+		area->root = root;
+		for (i = 0; i < float_count; i++) {
+			floats[i].area->syncing = R_TRUE;
+			floats[i].area->root = floats[i].root;
+			rvn_dock_each_group(&floats[i].area->base, floats[i].root, rvn_dock_load_attach, NULL);
+			floats[i].area->syncing = R_FALSE;
+		}
+		for (i = 0; i < load.count; i++) {
+			rvn_widget_t* panel = load.panels[i];
+			int at = rvn_dock_hidden_index(area, panel);
+			if (load.used[i]) rvn_dock_hidden_remove(area, at);
+			else if (hidden[i]) {
+				if (at < 0) {
+					rvn_dock_hidden_t entry;
+					memset(&entry, 0, sizeof(entry));
+					entry.panel = panel;
+					entry.where = RVN_DOCK_DROP_TAB;
+					RVN_ARRAY_RESERVE(area->hidden, area->hidden_cap, area->hidden_count + 1);
+					area->hidden[area->hidden_count++] = entry;
+				}
+			} else rvn_dock_insert(widget, panel, RVN_DOCK_DROP_TAB, NULL, 0.0f, -1);
+			if (widget->window && panel->parent && !rvn_dock_area_child_active(panel->parent, panel))
+				rvn_window_forget_widget(widget->window, panel);
+		}
+		area->syncing = R_FALSE;
+		rvn_widget_invalidate_layout(widget);
+	}
+	rvn_free(old_layers);
+	rvn_free(hidden);
+	rvn_free(load.panels);
+	rvn_free(load.used);
+	rvn_free(floats);
+	if (load.ok) rvn_dispatch_end();
+	return load.ok;
 }
 
 static int rvn_dock_area_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
 	rvn_dock_area_t* area = (rvn_dock_area_t*)widget;
 	int flag;
+	if (RVN_ATTR("FloatMode")) {
+		if (rvn_stricmp(value, "Window") == 0) Rdock_area_set_float_mode(widget->id, R_DOCK_FLOAT_WINDOW);
+		else if (rvn_stricmp(value, "InWindow") == 0) Rdock_area_set_float_mode(widget->id, R_DOCK_FLOAT_IN_WINDOW);
+		else return R_FALSE;
+		return R_TRUE;
+	}
 	if (RVN_ATTR("Movable")) {
 		if (!rvn_parse_bool(value, &flag)) return R_FALSE;
 		area->locked = !flag;
@@ -2044,11 +2309,31 @@ void Rdock_area_set_movable(Rid id, int movable) {
 const char* Rdock_area_save_layout(Rid id) {
 	rvn_dock_area_t* area;
 	rvn_dock_text_t text;
+	uint32_t i;
+	int local = R_FALSE;
 	RVN_WIDGET(widget, id, R_WIDGET_DOCK_AREA, "");
 	area = (rvn_dock_area_t*)widget;
 	memset(&text, 0, sizeof(text));
 	rvn_dock_text_add(&text, "");
+	for (i = 0; i < area->float_count; i++) {
+		rvn_dock_area_t* floating = rvn_dock_area_of(area->floats[i]);
+		if (floating && floating->in_window && floating->root) local = R_TRUE;
+	}
+	if (local) rvn_dock_text_add(&text, "D2(");
 	if (area->root) rvn_dock_save_node(area->root, &text);
+	else if (local) rvn_dock_text_add(&text, "T(0;)");
+	for (i = 0; local && i < area->float_count; i++) {
+		rvn_dock_area_t* floating = rvn_dock_area_of(area->floats[i]);
+		char buffer[128];
+		if (!floating || !floating->in_window || !floating->root) continue;
+		rvn_dock_float_arrange(&floating->base);
+		snprintf(buffer, sizeof(buffer), ";F(%.9g,%.9g,%.9g,%.9g,", (double)floating->float_rect.x,
+			(double)floating->float_rect.y, (double)floating->float_rect.w, (double)floating->float_rect.h);
+		rvn_dock_text_add(&text, buffer);
+		rvn_dock_save_node(floating->root, &text);
+		rvn_dock_text_add(&text, ")");
+	}
+	if (local) rvn_dock_text_add(&text, ")");
 	rvn_free(area->layout_text);
 	area->layout_text = text.data;
 	return area->layout_text;
@@ -2112,11 +2397,30 @@ int Rdock_area_is_tearable(Rid id) {
 	return ((rvn_dock_area_t*)widget)->tearable;
 }
 
+void Rdock_area_set_float_mode(Rid id, RDockFloatMode mode) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_DOCK_AREA);
+	if (mode != R_DOCK_FLOAT_WINDOW && mode != R_DOCK_FLOAT_IN_WINDOW) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rdock_area_set_float_mode: invalid mode");
+		return;
+	}
+	((rvn_dock_area_t*)rvn_dock_home_of(widget))->float_mode = mode;
+	((rvn_dock_area_t*)widget)->float_mode = mode;
+}
+
 Rid Rdock_area_float_panel(Rid id, Rid panel_id, int x, int y) {
 	rvn_widget_t* panel;
 	RVN_WIDGET(widget, id, R_WIDGET_DOCK_AREA, R_INVALID_ID);
 	panel = rvn_dock_check_panel_in(&widget, panel_id, __func__);
 	if (!panel) return R_INVALID_ID;
+	if (((rvn_dock_area_t*)widget)->in_window) {
+		rvn_dock_area_t* local = (rvn_dock_area_t*)widget;
+		if (!rvn_dock_find(local->root, panel, NULL)) rvn_dock_open(widget, panel);
+		local->float_rect.x = (float)x;
+		local->float_rect.y = (float)y;
+		rvn_dock_float_arrange(widget);
+		rvn_widget_invalidate_layout(widget->parent);
+		return widget->window ? widget->window->id : R_INVALID_ID;
+	}
 	/* (already floating alone: its window moves) */
 	if (((rvn_dock_area_t*)widget)->home != R_INVALID_ID && widget->child_count == 1) {
 		Rid window = ((rvn_dock_area_t*)widget)->float_window;
@@ -2125,6 +2429,12 @@ Rid Rdock_area_float_panel(Rid id, Rid panel_id, int x, int y) {
 	}
 	/* a hidden panel is shown first */
 	if (!rvn_dock_find(((rvn_dock_area_t*)widget)->root, panel, NULL)) rvn_dock_open(widget, panel);
+	if (((rvn_dock_area_t*)rvn_dock_home_of(widget))->float_mode == R_DOCK_FLOAT_IN_WINDOW && widget->window) {
+		int wx = 0, wy = 0;
+		Rwindow_get_position(rvn_dock_home_of(widget)->window->id, &wx, &wy);
+		x += wx;
+		y += wy;
+	}
 	return rvn_dock_tear(widget, panel, (float)x, (float)y);
 }
 
