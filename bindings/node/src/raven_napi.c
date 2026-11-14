@@ -683,6 +683,34 @@ static struct {
 	const char* (*Rpdf_view_get_title)(Rid);
 	const char* (*Rpdf_view_get_page_text)(Rid, int);
 	void (*Rpdf_view_set_page_changed_callback)(Rid, RPdfPageChangedCallback, void*);
+	int (*Rpdf_view_print)(Rid, const RPdfPrintDesc*);
+	Rid (*Rpdf_document_create)(void);
+	void (*Rpdf_document_delete)(Rid);
+	void (*Rpdf_document_set_title)(Rid, const char*);
+	void (*Rpdf_document_set_author)(Rid, const char*);
+	void (*Rpdf_document_set_subject)(Rid, const char*);
+	int (*Rpdf_document_add_page)(Rid, float, float);
+	int (*Rpdf_document_get_page_count)(Rid);
+	void (*Rpdf_document_set_fill_color)(Rid, float, float, float, float);
+	void (*Rpdf_document_set_stroke_color)(Rid, float, float, float, float);
+	void (*Rpdf_document_set_line_width)(Rid, float);
+	void (*Rpdf_document_draw_rect)(Rid, float, float, float, float, float, Ruint);
+	void (*Rpdf_document_draw_ellipse)(Rid, float, float, float, float, Ruint);
+	void (*Rpdf_document_draw_line)(Rid, float, float, float, float);
+	int (*Rpdf_document_add_font)(Rid, const char*, size_t);
+	int (*Rpdf_document_add_font_from_file)(Rid, const char*);
+	void (*Rpdf_document_set_font)(Rid, int, float, Ruint);
+	float (*Rpdf_document_get_line_height)(Rid);
+	float (*Rpdf_document_measure_text)(Rid, const char*);
+	float (*Rpdf_document_draw_text)(Rid, float, float, const char*);
+	float (*Rpdf_document_draw_paragraph)(Rid, float, float, float, const char*, RHAlign);
+	void (*Rpdf_document_draw_image)(Rid, float, float, float, float, const uint8_t*, int, int);
+	int (*Rpdf_document_draw_window)(Rid, Rid, float, float, float, float);
+	int (*Rpdf_document_save)(Rid, const char*);
+	char* (*Rpdf_document_save_memory)(Rid, size_t*);
+	int (*Rpdf_print)(const RPdfPrintDesc*, const char*, size_t);
+	int (*Rpdf_print_file)(const RPdfPrintDesc*, const char*);
+	int (*Rpdf_document_print)(Rid, const RPdfPrintDesc*);
 	Rid (*Rtext_editor_create)(const char*);
 	void (*Rtext_editor_set_text)(Rid, const char*);
 	const char* (*Rtext_editor_get_text)(Rid);
@@ -1850,6 +1878,34 @@ static const struct {
 	{"Rpdf_view_get_title", offsetof(__typeof__(rn), Rpdf_view_get_title)},
 	{"Rpdf_view_get_page_text", offsetof(__typeof__(rn), Rpdf_view_get_page_text)},
 	{"Rpdf_view_set_page_changed_callback", offsetof(__typeof__(rn), Rpdf_view_set_page_changed_callback)},
+	{"Rpdf_view_print", offsetof(__typeof__(rn), Rpdf_view_print)},
+	{"Rpdf_document_create", offsetof(__typeof__(rn), Rpdf_document_create)},
+	{"Rpdf_document_delete", offsetof(__typeof__(rn), Rpdf_document_delete)},
+	{"Rpdf_document_set_title", offsetof(__typeof__(rn), Rpdf_document_set_title)},
+	{"Rpdf_document_set_author", offsetof(__typeof__(rn), Rpdf_document_set_author)},
+	{"Rpdf_document_set_subject", offsetof(__typeof__(rn), Rpdf_document_set_subject)},
+	{"Rpdf_document_add_page", offsetof(__typeof__(rn), Rpdf_document_add_page)},
+	{"Rpdf_document_get_page_count", offsetof(__typeof__(rn), Rpdf_document_get_page_count)},
+	{"Rpdf_document_set_fill_color", offsetof(__typeof__(rn), Rpdf_document_set_fill_color)},
+	{"Rpdf_document_set_stroke_color", offsetof(__typeof__(rn), Rpdf_document_set_stroke_color)},
+	{"Rpdf_document_set_line_width", offsetof(__typeof__(rn), Rpdf_document_set_line_width)},
+	{"Rpdf_document_draw_rect", offsetof(__typeof__(rn), Rpdf_document_draw_rect)},
+	{"Rpdf_document_draw_ellipse", offsetof(__typeof__(rn), Rpdf_document_draw_ellipse)},
+	{"Rpdf_document_draw_line", offsetof(__typeof__(rn), Rpdf_document_draw_line)},
+	{"Rpdf_document_add_font", offsetof(__typeof__(rn), Rpdf_document_add_font)},
+	{"Rpdf_document_add_font_from_file", offsetof(__typeof__(rn), Rpdf_document_add_font_from_file)},
+	{"Rpdf_document_set_font", offsetof(__typeof__(rn), Rpdf_document_set_font)},
+	{"Rpdf_document_get_line_height", offsetof(__typeof__(rn), Rpdf_document_get_line_height)},
+	{"Rpdf_document_measure_text", offsetof(__typeof__(rn), Rpdf_document_measure_text)},
+	{"Rpdf_document_draw_text", offsetof(__typeof__(rn), Rpdf_document_draw_text)},
+	{"Rpdf_document_draw_paragraph", offsetof(__typeof__(rn), Rpdf_document_draw_paragraph)},
+	{"Rpdf_document_draw_image", offsetof(__typeof__(rn), Rpdf_document_draw_image)},
+	{"Rpdf_document_draw_window", offsetof(__typeof__(rn), Rpdf_document_draw_window)},
+	{"Rpdf_document_save", offsetof(__typeof__(rn), Rpdf_document_save)},
+	{"Rpdf_document_save_memory", offsetof(__typeof__(rn), Rpdf_document_save_memory)},
+	{"Rpdf_print", offsetof(__typeof__(rn), Rpdf_print)},
+	{"Rpdf_print_file", offsetof(__typeof__(rn), Rpdf_print_file)},
+	{"Rpdf_document_print", offsetof(__typeof__(rn), Rpdf_document_print)},
 	{"Rtext_editor_create", offsetof(__typeof__(rn), Rtext_editor_create)},
 	{"Rtext_editor_set_text", offsetof(__typeof__(rn), Rtext_editor_set_text)},
 	{"Rtext_editor_get_text", offsetof(__typeof__(rn), Rtext_editor_get_text)},
@@ -14984,6 +15040,520 @@ static napi_value rn_w_Rpdf_view_set_page_changed_callback(napi_env env, napi_ca
 	return result_;
 }
 
+static napi_value rn_w_Rpdf_view_print(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rpdf_view_print((Rid)a0, (const RPdfPrintDesc*)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_create(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	Rid value_ = rn.Rpdf_document_create();
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_delete(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rpdf_document_delete((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_set_title(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rpdf_document_set_title((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_set_author(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rpdf_document_set_author((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_set_subject(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rpdf_document_set_subject((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_add_page(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rpdf_document_add_page((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_get_page_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rpdf_document_get_page_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_set_fill_color(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	rn.Rpdf_document_set_fill_color((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_set_stroke_color(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	rn.Rpdf_document_set_stroke_color((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_set_line_width(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	rn.Rpdf_document_set_line_width((Rid)a0, (float)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_draw_rect(napi_env env, napi_callback_info info) {
+	size_t argc = 7;
+	napi_value argv[7];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	float a5;
+	uint32_t a6;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	if (!rn_get_uint32(env, argv[6], &a6)) return NULL;
+	rn.Rpdf_document_draw_rect((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4, (float)a5, (Ruint)a6);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_draw_ellipse(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	uint32_t a5;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_uint32(env, argv[5], &a5)) return NULL;
+	rn.Rpdf_document_draw_ellipse((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4, (Ruint)a5);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_draw_line(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	rn.Rpdf_document_draw_line((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_add_font(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rpdf_document_add_font((Rid)a0, a1.p, a1.n);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_add_font_from_file(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rpdf_document_add_font_from_file((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_set_font(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	float a2;
+	uint32_t a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_uint32(env, argv[3], &a3)) return NULL;
+	rn.Rpdf_document_set_font((Rid)a0, (int)a1, (float)a2, (Ruint)a3);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_get_line_height(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	float value_ = rn.Rpdf_document_get_line_height((Rid)a0);
+	napi_create_double(env, (double)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_measure_text(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	float value_ = rn.Rpdf_document_measure_text((Rid)a0, a1.p);
+	napi_create_double(env, (double)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_draw_text(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	rn_str a3;
+	a3.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_float(env, argv[1], &a1)) goto done;
+	if (!rn_get_float(env, argv[2], &a2)) goto done;
+	if (!rn_str_get(env, argv[3], &a3)) goto done;
+	float value_ = rn.Rpdf_document_draw_text((Rid)a0, (float)a1, (float)a2, a3.p);
+	napi_create_double(env, (double)value_, &result_);
+done:
+	free(a3.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_draw_paragraph(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	rn_str a4;
+	int a5;
+	a4.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_float(env, argv[1], &a1)) goto done;
+	if (!rn_get_float(env, argv[2], &a2)) goto done;
+	if (!rn_get_float(env, argv[3], &a3)) goto done;
+	if (!rn_str_get(env, argv[4], &a4)) goto done;
+	if (!rn_get_int(env, argv[5], &a5)) goto done;
+	float value_ = rn.Rpdf_document_draw_paragraph((Rid)a0, (float)a1, (float)a2, (float)a3, a4.p, (RHAlign)a5);
+	napi_create_double(env, (double)value_, &result_);
+done:
+	free(a4.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_draw_image(napi_env env, napi_callback_info info) {
+	size_t argc = 8;
+	napi_value argv[8];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	void* a5;
+	int a6;
+	int a7;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_ptr(env, argv[5], &a5)) return NULL;
+	if (!rn_get_int(env, argv[6], &a6)) return NULL;
+	if (!rn_get_int(env, argv[7], &a7)) return NULL;
+	rn.Rpdf_document_draw_image((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4, (const uint8_t*)a5, (int)a6, (int)a7);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_draw_window(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint32_t a1;
+	float a2;
+	float a3;
+	float a4;
+	float a5;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint32(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	int value_ = rn.Rpdf_document_draw_window((Rid)a0, (Rid)a1, (float)a2, (float)a3, (float)a4, (float)a5);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_save(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rpdf_document_save((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_save_memory(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	size_t a1 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		char* owned_ = rn.Rpdf_document_save_memory((Rid)a0, &a1);
+		void* copy_;
+		napi_value buffer_;
+		if (!owned_) {
+			result_ = rn_null(env);
+		} else {
+			size_t size_ = (size_t)a1;
+			napi_create_arraybuffer(env, size_, &copy_, &buffer_);
+			if (size_ > 0) memcpy(copy_, owned_, size_);
+			rn.Rmemory_free(owned_);
+			napi_create_typedarray(env, napi_uint8_array, size_, buffer_, 0, &result_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_print(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rpdf_print((const RPdfPrintDesc*)a0, a1.p, a1.n);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_print_file(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rpdf_print_file((const RPdfPrintDesc*)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rpdf_document_print(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rpdf_document_print((Rid)a0, (const RPdfPrintDesc*)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
 static napi_value rn_w_Rtext_editor_create(napi_env env, napi_callback_info info) {
 	size_t argc = 1;
 	napi_value argv[1];
@@ -24260,6 +24830,34 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rpdf_view_get_title", NULL, rn_w_Rpdf_view_get_title, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_get_page_text", NULL, rn_w_Rpdf_view_get_page_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_set_page_changed_callback", NULL, rn_w_Rpdf_view_set_page_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_view_print", NULL, rn_w_Rpdf_view_print, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_create", NULL, rn_w_Rpdf_document_create, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_delete", NULL, rn_w_Rpdf_document_delete, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_set_title", NULL, rn_w_Rpdf_document_set_title, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_set_author", NULL, rn_w_Rpdf_document_set_author, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_set_subject", NULL, rn_w_Rpdf_document_set_subject, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_add_page", NULL, rn_w_Rpdf_document_add_page, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_get_page_count", NULL, rn_w_Rpdf_document_get_page_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_set_fill_color", NULL, rn_w_Rpdf_document_set_fill_color, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_set_stroke_color", NULL, rn_w_Rpdf_document_set_stroke_color, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_set_line_width", NULL, rn_w_Rpdf_document_set_line_width, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_draw_rect", NULL, rn_w_Rpdf_document_draw_rect, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_draw_ellipse", NULL, rn_w_Rpdf_document_draw_ellipse, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_draw_line", NULL, rn_w_Rpdf_document_draw_line, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_add_font", NULL, rn_w_Rpdf_document_add_font, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_add_font_from_file", NULL, rn_w_Rpdf_document_add_font_from_file, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_set_font", NULL, rn_w_Rpdf_document_set_font, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_get_line_height", NULL, rn_w_Rpdf_document_get_line_height, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_measure_text", NULL, rn_w_Rpdf_document_measure_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_draw_text", NULL, rn_w_Rpdf_document_draw_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_draw_paragraph", NULL, rn_w_Rpdf_document_draw_paragraph, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_draw_image", NULL, rn_w_Rpdf_document_draw_image, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_draw_window", NULL, rn_w_Rpdf_document_draw_window, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_save", NULL, rn_w_Rpdf_document_save, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_save_memory", NULL, rn_w_Rpdf_document_save_memory, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_print", NULL, rn_w_Rpdf_print, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_print_file", NULL, rn_w_Rpdf_print_file, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpdf_document_print", NULL, rn_w_Rpdf_document_print, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_create", NULL, rn_w_Rtext_editor_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_set_text", NULL, rn_w_Rtext_editor_set_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_get_text", NULL, rn_w_Rtext_editor_get_text, NULL, NULL, NULL, napi_enumerable, NULL},

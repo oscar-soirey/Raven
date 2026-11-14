@@ -279,6 +279,24 @@ void rvn_islands_shutdown(void);
 void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */
 void rvn_dialogs_shutdown(void);
+/** A window to show a dialog in: the one given, else any, else a new one (*created). */
+rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created);
+/** Shows a dialog and runs the application until it closes; returns its result. */
+int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content);
+
+/* PDF documents written by the application (widgets/pdf_document.c), freed by Rshutdown. */
+void rvn_pdf_documents_shutdown(void);
+/* PDFium for printing (widgets/pdf_view.c): `data` must outlive the document. */
+void* rvn_pdfium_open(const void* data, size_t size, const char* password);
+int rvn_pdfium_page_count(void* document);
+int rvn_pdfium_page_size(void* document, int index, double* width, double* height);
+int rvn_pdfium_render_bgra(void* document, int index, uint8_t* pixels, int width, int height);
+void rvn_pdfium_close(void* document);
+#if defined(RAVEN_PLATFORM_COCOA)
+/* The print panel of macOS (platform/cocoa/cocoa_print.m); `window` is an NSWindow or NULL. */
+int rvn_cocoa_print_pdf(const char* data, size_t size, const char* title, const char* printer, int copies,
+	int show_panel, const char* output, const char* password, void* window);
+#endif
 
 /* ---------------------------------------------------------------------------
  *  Formatted text (widgets/markdown.c), used by the labels

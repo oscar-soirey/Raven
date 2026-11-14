@@ -822,6 +822,30 @@ R_PDF_ERROR :: 0x05D3
 // The PDFium library was not found (see Rpdf_is_available).
 R_PDF_UNAVAILABLE :: 0x05D4
 
+// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+RPdfFont :: i32
+// Roboto, the font of the interface of Raven.
+R_PDF_FONT_SANS :: 0
+// Roboto Mono.
+R_PDF_FONT_MONO :: 1
+
+// How a shape of a PDF document is painted: a bitmask.
+RPdfPaint :: i32
+// Filled with the fill color.
+R_PDF_FILL :: 1
+// Outlined with the stroke color and the line width.
+R_PDF_STROKE :: 2
+
+// A bitmask of styles of the text of a PDF document.
+RPdfTextStyle :: i32
+R_PDF_TEXT_BOLD :: 1
+R_PDF_TEXT_ITALIC :: 2
+R_PDF_TEXT_UNDERLINE :: 4
+
+RPdfPrintFlags :: i32
+// No dialog: printed at once on the printer named, else the default one.
+R_PDF_PRINT_NO_DIALOG :: 1
+
 // How an axis of a Plot spreads its values.
 RPlotScale :: i32
 R_PLOT_SCALE_LINEAR :: 0x0530
@@ -1623,6 +1647,26 @@ RGestureEvent :: struct {
 	rotation_delta: f32,
 	// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
 	cancelled: i32,
+}
+
+// How a PDF document is printed. Every field may be left to zero.
+RPdfPrintDesc :: struct {
+	// Window the print dialog belongs to (0 or R_INVALID_ID: none).
+	window: Rid,
+	// Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+	title: cstring,
+	// Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+	printer: cstring,
+	// Copies to print (0: one); the dialog may change it.
+	copies: i32,
+	// Bitmask of RPdfPrintFlags.
+	flags: u32,
+	// Path of a file the job is written to instead of a printer. macOS: a
+	// PDF made by the print system; Windows: what the driver of the printer
+	// makes; elsewhere: the document itself.
+	output: cstring,
+	// Password of a document protected by one.
+	password: cstring,
 }
 
 // What a tile shows, filled by the application when the tile is drawn.
@@ -3215,6 +3259,66 @@ foreign lib {
 	// the next call for this view.
 	Rpdf_view_get_page_text :: proc(view: Rid, page: i32) -> cstring ---
 	Rpdf_view_set_page_changed_callback :: proc(view: Rid, callback: RPdfPageChangedCallback, user_data: rawptr) ---
+	// Prints the document shown (see Rpdf_print); the job is named after its title.
+	Rpdf_view_print :: proc(view: Rid, desc: ^RPdfPrintDesc) -> i32 ---
+	Rpdf_document_create :: proc() -> Rid ---
+	Rpdf_document_delete :: proc(document: Rid) ---
+	// The information of the document, shown by readers (the title in their window).
+	Rpdf_document_set_title :: proc(document: Rid, title: cstring) ---
+	Rpdf_document_set_author :: proc(document: Rid, author: cstring) ---
+	Rpdf_document_set_subject :: proc(document: Rid, subject: cstring) ---
+	// Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+	Rpdf_document_add_page :: proc(document: Rid, width: f32, height: f32) -> i32 ---
+	Rpdf_document_get_page_count :: proc(document: Rid) -> i32 ---
+	Rpdf_document_set_fill_color :: proc(document: Rid, r: f32, g: f32, b: f32, a: f32) ---
+	Rpdf_document_set_stroke_color :: proc(document: Rid, r: f32, g: f32, b: f32, a: f32) ---
+	// Width of the lines and outlines, in points (default 1).
+	Rpdf_document_set_line_width :: proc(document: Rid, width: f32) ---
+	// A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+	Rpdf_document_draw_rect :: proc(document: Rid, x: f32, y: f32, width: f32, height: f32, radius: f32, paint: u32) ---
+	// The ellipse inside a rectangle.
+	Rpdf_document_draw_ellipse :: proc(document: Rid, x: f32, y: f32, width: f32, height: f32, paint: u32) ---
+	// A line in the stroke color.
+	Rpdf_document_draw_line :: proc(document: Rid, x1: f32, y1: f32, x2: f32, y2: f32) ---
+	// Adds a TrueType font (.ttf) to the document (the data is
+	// copied, and embedded in the file). Returns its number for
+	// Rpdf_document_set_font, -1 when it is not a TrueType font.
+	Rpdf_document_add_font :: proc(document: Rid, data: cstring, data_size: uint) -> i32 ---
+	Rpdf_document_add_font_from_file :: proc(document: Rid, path: cstring) -> i32 ---
+	// The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+	Rpdf_document_set_font :: proc(document: Rid, font: i32, size: f32, style: u32) ---
+	// Distance between two lines of text in the current font.
+	Rpdf_document_get_line_height :: proc(document: Rid) -> f32 ---
+	// Width of a text in the current font, in points (of its widest line).
+	Rpdf_document_measure_text :: proc(document: Rid, text: cstring) -> f32 ---
+	// Text in the fill color, the top of its first line at y ('\n'
+	// starts a line below). Returns its width.
+	Rpdf_document_draw_text :: proc(document: Rid, x: f32, y: f32, text: cstring) -> f32 ---
+	// Text wrapped at the spaces to fit `width`, each line placed by
+	// `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+	// height it took.
+	Rpdf_document_draw_paragraph :: proc(document: Rid, x: f32, y: f32, width: f32, text: cstring, align: RHAlign) -> f32 ---
+	// A picture of RGBA8 pixels stretched over a rectangle. A width or
+	// height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+	Rpdf_document_draw_image :: proc(document: Rid, x: f32, y: f32, width: f32, height: f32, rgba: [^]u8, pixels_width: i32, pixels_height: i32) ---
+	// What a window shows (Rwindow_capture), as a picture: a report of
+	// the screen, a chart. A width and height of 0: the size it has on the
+	// screen. Returns R_FALSE when the window cannot be captured.
+	Rpdf_document_draw_window :: proc(document: Rid, window: Rid, x: f32, y: f32, width: f32, height: f32) -> i32 ---
+	// Writes the file. Returns R_FALSE when it cannot be written.
+	Rpdf_document_save :: proc(document: Rid, path: cstring) -> i32 ---
+	// The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+	Rpdf_document_save_memory :: proc(document: Rid, size: ^uint) -> cstring ---
+	// Prints a PDF document with the print system: on macOS the print
+	// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+	// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+	// dialog of Raven that chooses the printer. It waits until the job is
+	// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+	// cannot print. Not in the browser.
+	Rpdf_print :: proc(desc: ^RPdfPrintDesc, data: cstring, data_size: uint) -> i32 ---
+	Rpdf_print_file :: proc(desc: ^RPdfPrintDesc, path: cstring) -> i32 ---
+	// Prints a document written by the application.
+	Rpdf_document_print :: proc(document: Rid, desc: ^RPdfPrintDesc) -> i32 ---
 	// text Initial content, or NULL.
 	Rtext_editor_create :: proc(text: cstring) -> Rid ---
 	// Replaces the whole text. The history of undo is cleared; the changed callback is not called.

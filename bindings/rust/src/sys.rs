@@ -792,6 +792,30 @@ pub const R_PDF_ERROR: RPdfStatus = 0x05D3;
 /// The PDFium library was not found (see Rpdf_is_available).
 pub const R_PDF_UNAVAILABLE: RPdfStatus = 0x05D4;
 
+/// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+pub type RPdfFont = c_int;
+/// Roboto, the font of the interface of Raven.
+pub const R_PDF_FONT_SANS: RPdfFont = 0;
+/// Roboto Mono.
+pub const R_PDF_FONT_MONO: RPdfFont = 1;
+
+/// How a shape of a PDF document is painted: a bitmask.
+pub type RPdfPaint = c_int;
+/// Filled with the fill color.
+pub const R_PDF_FILL: RPdfPaint = 1;
+/// Outlined with the stroke color and the line width.
+pub const R_PDF_STROKE: RPdfPaint = 2;
+
+/// A bitmask of styles of the text of a PDF document.
+pub type RPdfTextStyle = c_int;
+pub const R_PDF_TEXT_BOLD: RPdfTextStyle = 1;
+pub const R_PDF_TEXT_ITALIC: RPdfTextStyle = 2;
+pub const R_PDF_TEXT_UNDERLINE: RPdfTextStyle = 4;
+
+pub type RPdfPrintFlags = c_int;
+/// No dialog: printed at once on the printer named, else the default one.
+pub const R_PDF_PRINT_NO_DIALOG: RPdfPrintFlags = 1;
+
 /// How an axis of a Plot spreads its values.
 pub type RPlotScale = c_int;
 pub const R_PLOT_SCALE_LINEAR: RPlotScale = 0x0530;
@@ -1615,6 +1639,28 @@ pub struct RGestureEvent {
     pub rotation_delta: f32,
     /// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
     pub cancelled: c_int,
+}
+
+/// How a PDF document is printed. Every field may be left to zero.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RPdfPrintDesc {
+    /// Window the print dialog belongs to (0 or R_INVALID_ID: none).
+    pub window: Rid,
+    /// Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+    pub title: *const c_char,
+    /// Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+    pub printer: *const c_char,
+    /// Copies to print (0: one); the dialog may change it.
+    pub copies: c_int,
+    /// Bitmask of RPdfPrintFlags.
+    pub flags: u32,
+    /// Path of a file the job is written to instead of a printer. macOS: a
+    /// PDF made by the print system; Windows: what the driver of the printer
+    /// makes; elsewhere: the document itself.
+    pub output: *const c_char,
+    /// Password of a document protected by one.
+    pub password: *const c_char,
 }
 
 /// What a tile shows, filled by the application when the tile is drawn.
@@ -3230,6 +3276,66 @@ extern "C" {
     /// the next call for this view.
     pub fn Rpdf_view_get_page_text(view: Rid, page: c_int) -> *const c_char;
     pub fn Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback, user_data: *mut c_void);
+    /// Prints the document shown (see Rpdf_print); the job is named after its title.
+    pub fn Rpdf_view_print(view: Rid, desc: *const RPdfPrintDesc) -> c_int;
+    pub fn Rpdf_document_create() -> Rid;
+    pub fn Rpdf_document_delete(document: Rid);
+    /// The information of the document, shown by readers (the title in their window).
+    pub fn Rpdf_document_set_title(document: Rid, title: *const c_char);
+    pub fn Rpdf_document_set_author(document: Rid, author: *const c_char);
+    pub fn Rpdf_document_set_subject(document: Rid, subject: *const c_char);
+    /// Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+    pub fn Rpdf_document_add_page(document: Rid, width: f32, height: f32) -> c_int;
+    pub fn Rpdf_document_get_page_count(document: Rid) -> c_int;
+    pub fn Rpdf_document_set_fill_color(document: Rid, r: f32, g: f32, b: f32, a: f32);
+    pub fn Rpdf_document_set_stroke_color(document: Rid, r: f32, g: f32, b: f32, a: f32);
+    /// Width of the lines and outlines, in points (default 1).
+    pub fn Rpdf_document_set_line_width(document: Rid, width: f32);
+    /// A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+    pub fn Rpdf_document_draw_rect(document: Rid, x: f32, y: f32, width: f32, height: f32, radius: f32, paint: u32);
+    /// The ellipse inside a rectangle.
+    pub fn Rpdf_document_draw_ellipse(document: Rid, x: f32, y: f32, width: f32, height: f32, paint: u32);
+    /// A line in the stroke color.
+    pub fn Rpdf_document_draw_line(document: Rid, x1: f32, y1: f32, x2: f32, y2: f32);
+    /// Adds a TrueType font (.ttf) to the document (the data is
+    /// copied, and embedded in the file). Returns its number for
+    /// Rpdf_document_set_font, -1 when it is not a TrueType font.
+    pub fn Rpdf_document_add_font(document: Rid, data: *const c_char, data_size: usize) -> c_int;
+    pub fn Rpdf_document_add_font_from_file(document: Rid, path: *const c_char) -> c_int;
+    /// The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+    pub fn Rpdf_document_set_font(document: Rid, font: c_int, size: f32, style: u32);
+    /// Distance between two lines of text in the current font.
+    pub fn Rpdf_document_get_line_height(document: Rid) -> f32;
+    /// Width of a text in the current font, in points (of its widest line).
+    pub fn Rpdf_document_measure_text(document: Rid, text: *const c_char) -> f32;
+    /// Text in the fill color, the top of its first line at y ('\n'
+    /// starts a line below). Returns its width.
+    pub fn Rpdf_document_draw_text(document: Rid, x: f32, y: f32, text: *const c_char) -> f32;
+    /// Text wrapped at the spaces to fit `width`, each line placed by
+    /// `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+    /// height it took.
+    pub fn Rpdf_document_draw_paragraph(document: Rid, x: f32, y: f32, width: f32, text: *const c_char, align: RHAlign) -> f32;
+    /// A picture of RGBA8 pixels stretched over a rectangle. A width or
+    /// height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+    pub fn Rpdf_document_draw_image(document: Rid, x: f32, y: f32, width: f32, height: f32, rgba: *const u8, pixels_width: c_int, pixels_height: c_int);
+    /// What a window shows (Rwindow_capture), as a picture: a report of
+    /// the screen, a chart. A width and height of 0: the size it has on the
+    /// screen. Returns R_FALSE when the window cannot be captured.
+    pub fn Rpdf_document_draw_window(document: Rid, window: Rid, x: f32, y: f32, width: f32, height: f32) -> c_int;
+    /// Writes the file. Returns R_FALSE when it cannot be written.
+    pub fn Rpdf_document_save(document: Rid, path: *const c_char) -> c_int;
+    /// The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+    pub fn Rpdf_document_save_memory(document: Rid, size: *mut usize) -> *mut c_char;
+    /// Prints a PDF document with the print system: on macOS the print
+    /// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+    /// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+    /// dialog of Raven that chooses the printer. It waits until the job is
+    /// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+    /// cannot print. Not in the browser.
+    pub fn Rpdf_print(desc: *const RPdfPrintDesc, data: *const c_char, data_size: usize) -> c_int;
+    pub fn Rpdf_print_file(desc: *const RPdfPrintDesc, path: *const c_char) -> c_int;
+    /// Prints a document written by the application.
+    pub fn Rpdf_document_print(document: Rid, desc: *const RPdfPrintDesc) -> c_int;
     /// text Initial content, or NULL.
     pub fn Rtext_editor_create(text: *const c_char) -> Rid;
     /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.

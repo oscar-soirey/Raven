@@ -1,20 +1,19 @@
 /**
  * Raven example - pdf
- * A PDF viewer: the PdfView widget with a bar of tools (open, pages, zoom,
- * fit). It shows the file given on the command line, or an invoice of three
- * pages that it writes itself.
+ * A PDF viewer: the PdfView widget with a bar of tools (open, save, print,
+ * pages, zoom, fit). It shows the file given on the command line, or an
+ * invoice of three pages that it writes itself with Rpdf_document_*.
  *
  *   ./raven_pdf [file.pdf]
  *
  * The pages are drawn by PDFium, opened at run time: set RAVEN_PDFIUM to its
  * library, or put it next to the program (pdfium.dll, libpdfium.dylib,
  * libpdfium.so; builds at https://github.com/bblanchon/pdfium-binaries).
- * Without it the view says that it cannot show the pages.
+ * Without it the view says that it cannot show the pages (the invoice can
+ * still be saved, and printed on macOS and Linux).
  */
 
 #include "../common/example.h"
-
-#include <stdarg.h>
 
 #ifndef RAVEN_EXAMPLE_DIR
 #define RAVEN_EXAMPLE_DIR "."
@@ -24,174 +23,181 @@ static struct {
 	Rid window;
 	Rid pdf, title, page, zoom, fit;
 	Rid timer;
+	/* the document shown, to save it or print it */
+	char* data;
+	size_t size;
 } app;
 
 /* ---------------------------------------------------------------------------
- *  A small PDF written here: an invoice, a chart, the terms
+ *  The invoice, written with Rpdf_document_*: points from the top left corner
  * ------------------------------------------------------------------------- */
 
-typedef struct buffer_t {
-	char* data;
-	size_t size, cap;
-} buffer_t;
+#define PAGE_W 595.28f
+#define PAGE_H 841.89f
 
-static void put(buffer_t* b, const char* format, ...) {
-	va_list args;
-	int n;
-	for (;;) {
-		va_start(args, format);
-		n = vsnprintf(b->data ? b->data + b->size : NULL, b->data ? b->cap - b->size : 0, format, args);
-		va_end(args);
-		if (n < 0) return;
-		if (b->data && b->size + (size_t)n < b->cap) break;
-		b->cap = (b->cap + (size_t)n + 1) * 2;
-		b->data = (char*)realloc(b->data, b->cap);
-		if (!b->data) return;
-	}
-	b->size += (size_t)n;
+static void ink(Rid doc, float r, float g, float b) {
+	Rpdf_document_set_fill_color(doc, r, g, b, 1.0f);
 }
 
-static void text(buffer_t* s, const char* font, float size, float x, float y, const char* t) {
-	put(s, "BT /%s %.1f Tf %.1f %.1f Td (%s) Tj ET\n", font, size, x, y, t);
+static void right_text(Rid doc, float right, float y, const char* text) {
+	Rpdf_document_draw_text(doc, right - Rpdf_document_measure_text(doc, text), y, text);
 }
 
-static void invoice_page(buffer_t* s) {
+static void invoice_page(Rid doc) {
 	static const struct { const char* item; int quantity; float price; } lines[] = {
 		{ "Design of the user interface", 24, 85.0f },
 		{ "Raven widgets: tables and plots", 16, 92.0f },
-		{ "PDF preview of the reports", 8, 92.0f },
+		{ "PDF preview, printing and export of the reports", 8, 92.0f },
 		{ "Accessibility review", 6, 78.0f },
 		{ "Support (November)", 1, 450.0f },
 	};
-	float y = 560.0f, total = 0.0f;
+	float y = 268.0f, total = 0.0f;
 	char cell[64];
 	int i;
+
+	Rpdf_document_add_page(doc, PAGE_W, PAGE_H);
 	/* the band at the top */
-	put(s, "0.17 0.36 0.85 rg 0 742 595 100 re f\n1 1 1 rg\n");
-	text(s, "F2", 28, 50, 785, "INVOICE");
-	text(s, "F1", 11, 50, 762, "Northwind Software  -  12 Harbour Street, Lisbon");
-	put(s, "0.1 0.1 0.12 rg\n");
-	text(s, "F2", 11, 50, 700, "Billed to");
-	text(s, "F1", 11, 50, 684, "Contoso Analytics");
-	text(s, "F1", 11, 50, 669, "400 Market Avenue, Porto");
-	text(s, "F2", 11, 380, 700, "Invoice");
-	text(s, "F1", 11, 450, 700, "2026-0117");
-	text(s, "F2", 11, 380, 684, "Date");
-	text(s, "F1", 11, 450, 684, "13 November 2026");
-	text(s, "F2", 11, 380, 669, "Due");
-	text(s, "F1", 11, 450, 669, "13 December 2026");
+	ink(doc, 0.17f, 0.36f, 0.85f);
+	Rpdf_document_draw_rect(doc, 0, 0, PAGE_W, 100, 0, R_PDF_FILL);
+	ink(doc, 1, 1, 1);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 28, R_PDF_TEXT_BOLD);
+	Rpdf_document_draw_text(doc, 50, 26, "INVOICE");
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 11, 0);
+	Rpdf_document_draw_text(doc, 50, 64, "Northwind Software  \xC2\xB7  12 Harbour Street, Lisbon");
+
+	ink(doc, 0.1f, 0.1f, 0.12f);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 11, R_PDF_TEXT_BOLD);
+	Rpdf_document_draw_text(doc, 50, 130, "Billed to");
+	Rpdf_document_draw_text(doc, 380, 130, "Invoice");
+	Rpdf_document_draw_text(doc, 380, 146, "Date");
+	Rpdf_document_draw_text(doc, 380, 162, "Due");
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 11, 0);
+	Rpdf_document_draw_text(doc, 50, 146, "Contoso Analytics\n400 Market Avenue, Porto");
+	Rpdf_document_draw_text(doc, 450, 130, "2026-0117");
+	Rpdf_document_draw_text(doc, 450, 146, "13 November 2026");
+	Rpdf_document_draw_text(doc, 450, 162, "13 December 2026");
+
 	/* the table */
-	put(s, "0.93 0.94 0.97 rg 50 590 495 26 re f\n0.1 0.1 0.12 rg\n");
-	text(s, "F2", 10, 60, 599, "Description");
-	text(s, "F2", 10, 330, 599, "Hours");
-	text(s, "F2", 10, 400, 599, "Rate");
-	text(s, "F2", 10, 480, 599, "Amount");
+	ink(doc, 0.93f, 0.94f, 0.97f);
+	Rpdf_document_draw_rect(doc, 50, 226, 495, 26, 4, R_PDF_FILL);
+	ink(doc, 0.1f, 0.1f, 0.12f);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 10, R_PDF_TEXT_BOLD);
+	Rpdf_document_draw_text(doc, 60, 233, "Description");
+	right_text(doc, 360, 233, "Hours");
+	right_text(doc, 440, 233, "Rate");
+	right_text(doc, 535, 233, "Amount");
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 10, 0);
+	Rpdf_document_set_stroke_color(doc, 0.85f, 0.86f, 0.9f, 1.0f);
+	Rpdf_document_set_line_width(doc, 0.5f);
 	for (i = 0; i < (int)(sizeof(lines) / sizeof(lines[0])); i++) {
 		float amount = (float)lines[i].quantity * lines[i].price;
 		total += amount;
-		text(s, "F1", 10, 60, y, lines[i].item);
+		Rpdf_document_draw_paragraph(doc, 60, y, 240, lines[i].item, R_HALIGN_LEFT);
 		snprintf(cell, sizeof(cell), "%d", lines[i].quantity);
-		text(s, "F1", 10, 330, y, cell);
+		right_text(doc, 360, y, cell);
 		snprintf(cell, sizeof(cell), "%.2f", lines[i].price);
-		text(s, "F1", 10, 400, y, cell);
+		right_text(doc, 440, y, cell);
 		snprintf(cell, sizeof(cell), "%.2f", amount);
-		text(s, "F1", 10, 480, y, cell);
-		put(s, "0.85 0.86 0.9 RG 0.5 w 50 %.1f m 545 %.1f l S\n", y - 9.0f, y - 9.0f);
-		y -= 28.0f;
+		right_text(doc, 535, y, cell);
+		Rpdf_document_draw_line(doc, 50, y + 19, 545, y + 19);
+		y += 28.0f;
 	}
-	snprintf(cell, sizeof(cell), "EUR %.2f", total);
-	text(s, "F1", 10, 400, y - 6, "Subtotal");
-	text(s, "F1", 10, 480, y - 6, cell + 4);
+	y += 6.0f;
+	Rpdf_document_draw_text(doc, 380, y, "Subtotal");
+	snprintf(cell, sizeof(cell), "%.2f", total);
+	right_text(doc, 535, y, cell);
+	Rpdf_document_draw_text(doc, 380, y + 18, "VAT 23%");
 	snprintf(cell, sizeof(cell), "%.2f", total * 0.23f);
-	text(s, "F1", 10, 400, y - 24, "VAT 23%");
-	text(s, "F1", 10, 480, y - 24, cell);
-	put(s, "0.17 0.36 0.85 rg 380 %.1f 165 28 re f 1 1 1 rg\n", y - 66.0f);
-	snprintf(cell, sizeof(cell), "EUR %.2f", total * 1.23f);
-	text(s, "F2", 12, 390, y - 56, "Total");
-	text(s, "F2", 12, 460, y - 56, cell);
-	put(s, "0.45 0.46 0.5 rg\n");
-	text(s, "F1", 9, 50, 60, "Paid by bank transfer to PT50 0000 0000 0000 0000 0000 0 - thank you for your business.");
+	right_text(doc, 535, y + 18, cell);
+	ink(doc, 0.17f, 0.36f, 0.85f);
+	Rpdf_document_draw_rect(doc, 370, y + 42, 175, 30, 6, R_PDF_FILL);
+	ink(doc, 1, 1, 1);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 12, R_PDF_TEXT_BOLD);
+	Rpdf_document_draw_text(doc, 380, y + 50, "Total");
+	snprintf(cell, sizeof(cell), "\xE2\x82\xAC %.2f", total * 1.23f);
+	right_text(doc, 535, y + 50, cell);
+
+	ink(doc, 0.45f, 0.46f, 0.5f);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 9, 0);
+	Rpdf_document_draw_paragraph(doc, 50, PAGE_H - 70, 495,
+		"Paid by bank transfer to PT50 0000 0000 0000 0000 0000 0 \xE2\x80\x94 thank you for your business.", R_HALIGN_CENTER);
 }
 
-static void chart_page(buffer_t* s) {
+static void chart_page(Rid doc) {
 	static const float values[] = { 12.5f, 14.0f, 13.2f, 16.8f, 18.1f, 17.4f, 20.6f, 22.9f, 21.7f, 24.3f, 26.0f, 27.5f };
 	static const char* const months[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+	const float base = 422.0f;
 	int i;
-	put(s, "0.1 0.1 0.12 rg\n");
-	text(s, "F2", 20, 50, 770, "Revenue in 2026");
-	text(s, "F1", 11, 50, 750, "Thousands of euros per month");
-	put(s, "0.8 0.81 0.85 RG 0.5 w\n");
+
+	Rpdf_document_add_page(doc, PAGE_W, PAGE_H);
+	ink(doc, 0.1f, 0.1f, 0.12f);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 20, R_PDF_TEXT_BOLD);
+	Rpdf_document_draw_text(doc, 50, 50, "Revenue in 2026");
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 11, R_PDF_TEXT_ITALIC);
+	Rpdf_document_draw_text(doc, 50, 78, "Thousands of euros per month");
+	Rpdf_document_set_stroke_color(doc, 0.8f, 0.81f, 0.85f, 1.0f);
+	Rpdf_document_set_line_width(doc, 0.5f);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 8, 0);
 	for (i = 0; i <= 6; i++) {
-		float y = 420.0f + (float)i * 50.0f;
+		float y = base - (float)i * 50.0f;
 		char label[16];
-		put(s, "60 %.1f m 545 %.1f l S\n", y, y);
+		Rpdf_document_draw_line(doc, 60, y, 545, y);
 		snprintf(label, sizeof(label), "%d", i * 5);
-		put(s, "0.45 0.46 0.5 rg\n");
-		text(s, "F1", 8, 40, y - 3, label);
+		ink(doc, 0.45f, 0.46f, 0.5f);
+		right_text(doc, 52, y - 5, label);
 	}
 	for (i = 0; i < 12; i++) {
 		float x = 72.0f + (float)i * 39.0f, h = values[i] * 10.0f;
-		put(s, "%.2f %.2f %.2f rg %.1f 420 26 %.1f re f\n", 0.17f + 0.02f * (float)i, 0.36f, 0.85f - 0.02f * (float)i, x, h);
-		put(s, "0.3 0.3 0.34 rg\n");
-		text(s, "F1", 8, x + 4, 406, months[i]);
+		Rpdf_document_set_fill_color(doc, 0.17f + 0.02f * (float)i, 0.36f, 0.85f - 0.02f * (float)i, 1.0f);
+		Rpdf_document_draw_rect(doc, x, base - h, 26, h, 3, R_PDF_FILL);
+		ink(doc, 0.3f, 0.3f, 0.34f);
+		Rpdf_document_draw_text(doc, x + 13 - Rpdf_document_measure_text(doc, months[i]) / 2, base + 6, months[i]);
 	}
-	put(s, "0.1 0.1 0.12 rg\n");
-	text(s, "F1", 11, 50, 360, "Revenue grew in every quarter; November is the best month so far.");
+	ink(doc, 0.1f, 0.1f, 0.12f);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 11, 0);
+	Rpdf_document_draw_paragraph(doc, 50, 470, 495,
+		"Revenue grew in every quarter; November is the best month so far. The figures come from the "
+		"ledger of the company and are rounded to the nearest hundred euros.", R_HALIGN_LEFT);
 }
 
-static void terms_page(buffer_t* s) {
+static void terms_page(Rid doc) {
 	static const char* const terms[] = {
-		"1. Payment is due within 30 days of the date of the invoice.",
-		"2. Late payments bear interest at the legal rate.",
-		"3. The work stays the property of Northwind Software until it is paid.",
-		"4. Questions about this invoice: billing@northwind.example",
+		"Payment is due within 30 days of the date of the invoice.",
+		"Late payments bear interest at the legal rate.",
+		"The work stays the property of Northwind Software until it is paid.",
+		"Questions about this invoice: billing@northwind.example",
 	};
+	float y = 96.0f;
+	char number[8];
 	int i;
-	put(s, "0.1 0.1 0.12 rg\n");
-	text(s, "F2", 20, 50, 770, "Terms");
-	for (i = 0; i < 4; i++) text(s, "F1", 11, 50, 730 - (float)i * 22.0f, terms[i]);
+
+	Rpdf_document_add_page(doc, PAGE_W, PAGE_H);
+	ink(doc, 0.1f, 0.1f, 0.12f);
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 20, R_PDF_TEXT_BOLD);
+	Rpdf_document_draw_text(doc, 50, 50, "Terms");
+	Rpdf_document_set_font(doc, R_PDF_FONT_SANS, 11, 0);
+	for (i = 0; i < 4; i++) {
+		snprintf(number, sizeof(number), "%d.", i + 1);
+		Rpdf_document_draw_text(doc, 50, y, number);
+		y += Rpdf_document_draw_paragraph(doc, 70, y, 475, terms[i], R_HALIGN_LEFT) + 8.0f;
+	}
+	Rpdf_document_set_font(doc, R_PDF_FONT_MONO, 9, 0);
+	ink(doc, 0.45f, 0.46f, 0.5f);
+	Rpdf_document_draw_text(doc, 50, y + 20, "Reference: NW-2026-0117 / CONTOSO");
 }
 
-/* Writes the document: objects, then the table of their offsets. Free with free(). */
+/* The document in memory, to free with Rmemory_free. */
 static char* make_invoice(size_t* size) {
-	enum { PAGES = 3, OBJECTS = 5 + PAGES * 2 };
-	buffer_t pdf = { 0 }, stream = { 0 };
-	size_t offsets[OBJECTS + 1], xref;
-	int i;
-
-	put(&pdf, "%%PDF-1.4\n");
-	offsets[1] = pdf.size;
-	put(&pdf, "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
-	offsets[2] = pdf.size;
-	put(&pdf, "2 0 obj\n<< /Type /Pages /Count %d /Kids [", PAGES);
-	for (i = 0; i < PAGES; i++) put(&pdf, " %d 0 R", 6 + i * 2);
-	put(&pdf, " ] >>\nendobj\n");
-	offsets[3] = pdf.size;
-	put(&pdf, "3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n");
-	offsets[4] = pdf.size;
-	put(&pdf, "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n");
-	offsets[5] = pdf.size;
-	put(&pdf, "5 0 obj\n<< /Title (Invoice 2026-0117) /Author (Northwind Software) >>\nendobj\n");
-	for (i = 0; i < PAGES; i++) {
-		stream.size = 0;
-		if (i == 0) invoice_page(&stream);
-		else if (i == 1) chart_page(&stream);
-		else terms_page(&stream);
-		offsets[6 + i * 2] = pdf.size;
-		put(&pdf, "%d 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents %d 0 R "
-			"/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>\nendobj\n", 6 + i * 2, 7 + i * 2);
-		offsets[7 + i * 2] = pdf.size;
-		put(&pdf, "%d 0 obj\n<< /Length %d >>\nstream\n", 7 + i * 2, (int)stream.size);
-		put(&pdf, "%s", stream.data);
-		put(&pdf, "endstream\nendobj\n");
-	}
-	xref = pdf.size;
-	put(&pdf, "xref\n0 %d\n0000000000 65535 f \n", OBJECTS + 1);
-	for (i = 1; i <= OBJECTS; i++) put(&pdf, "%010d 00000 n \n", (int)offsets[i]);
-	put(&pdf, "trailer\n<< /Size %d /Root 1 0 R /Info 5 0 R >>\nstartxref\n%d\n%%%%EOF\n", OBJECTS + 1, (int)xref);
-	free(stream.data);
-	*size = pdf.size;
-	return pdf.data;
+	Rid doc = Rpdf_document_create();
+	char* data;
+	Rpdf_document_set_title(doc, "Invoice 2026-0117");
+	Rpdf_document_set_author(doc, "Northwind Software");
+	invoice_page(doc);
+	chart_page(doc);
+	terms_page(doc);
+	data = Rpdf_document_save_memory(doc, size);
+	Rpdf_document_delete(doc);
+	return data;
 }
 
 /* ---------------------------------------------------------------------------
@@ -211,6 +217,17 @@ static void show_state(void) {
 	Rcombo_box_set_selected(app.fit, Rpdf_view_get_fit(app.pdf) == R_PDF_FIT_WIDTH ? 0 : Rpdf_view_get_fit(app.pdf) == R_PDF_FIT_PAGE ? 1 : 2);
 }
 
+/* Shows a document and keeps its bytes (data: from Rfile_read or Rpdf_document_save_memory; owned now). */
+static void show_document(char* data, size_t size) {
+	if (!data) return;
+	Rmemory_free(app.data);
+	app.data = data;
+	app.size = size;
+	if (!Rpdf_view_load_memory(app.pdf, app.data, app.size, NULL) && Rpdf_view_get_status(app.pdf) == R_PDF_NEEDS_PASSWORD)
+		Rmessage_box(app.window, "PDF", "This document is protected by a password.", R_MESSAGE_OK);
+	show_state();
+}
+
 static void open_file(void) {
 	static const RFileFilter filters[] = { { "PDF documents", "*.pdf" }, { "All files", "*" } };
 	RFileDialogDesc desc;
@@ -220,16 +237,50 @@ static void open_file(void) {
 	desc.filters = filters;
 	desc.filter_count = 2;
 	path = Rfile_dialog_open(&desc);
-	if (!path) return;
-	if (!Rpdf_view_load_file(app.pdf, path, NULL) && Rpdf_view_get_status(app.pdf) == R_PDF_NEEDS_PASSWORD)
-		Rmessage_box(app.window, "PDF", "This document is protected by a password.", R_MESSAGE_OK);
-	show_state();
+	if (path) {
+		size_t size = 0;
+		char* data = Rfile_read(path, &size);
+		show_document(data, size);
+	}
+}
+
+static void save_file(void) {
+	static const RFileFilter filters[] = { { "PDF documents", "*.pdf" } };
+	RFileDialogDesc desc;
+	const char* path;
+	if (!app.data) return;
+	memset(&desc, 0, sizeof(desc));
+	desc.parent = app.window;
+	desc.filters = filters;
+	desc.filter_count = 1;
+	desc.file_name = "document.pdf";
+	desc.default_extension = "pdf";
+	path = Rfile_dialog_save(&desc);
+	if (path && !Rfile_write(path, app.data, app.size))
+		Rmessage_box(app.window, "PDF", "The document could not be saved there.", R_MESSAGE_OK);
+}
+
+static void print_document(void) {
+	RPdfPrintDesc desc;
+	memset(&desc, 0, sizeof(desc));
+	desc.window = app.window;
+	if (Rpdf_view_get_status(app.pdf) == R_PDF_LOADED) {
+		Rpdf_view_print(app.pdf, &desc);
+	} else if (app.data) {
+		/* without PDFium, the print system of macOS and CUPS still print the document */
+		desc.title = "Document";
+		Rpdf_print(&desc, app.data, app.size);
+	}
 }
 
 static void on_action(Rid sender, const char* action, void* user_data) {
 	(void)user_data;
 	if (strcmp(action, "pdf.open") == 0) {
 		open_file();
+	} else if (strcmp(action, "pdf.save") == 0) {
+		save_file();
+	} else if (strcmp(action, "pdf.print") == 0) {
+		print_document();
 	} else if (strcmp(action, "pdf.previous") == 0) {
 		Rpdf_view_set_page(app.pdf, Rpdf_view_get_page(app.pdf) - 1);
 	} else if (strcmp(action, "pdf.next") == 0) {
@@ -262,6 +313,7 @@ static void watch_zoom(Rid timer, void* user_data) {
 
 static void shutdown(void) {
 	Rtimer_destroy(app.timer);
+	Rmemory_free(app.data);
 	Rshutdown();
 }
 
@@ -278,18 +330,17 @@ int main(int argc, char** argv) {
 	app.zoom = Rwidget_find(app.window, "zoom");
 	app.fit = Rwidget_find(app.window, "fit");
 
-	if (argc > 1) {
-		Rpdf_view_load_file(app.pdf, argv[1], NULL);
-	} else {
+	{
 		size_t size = 0;
-		char* invoice = make_invoice(&size);
-		if (invoice) Rpdf_view_load_memory(app.pdf, invoice, size, NULL);
-		free(invoice);
+		char* data = argc > 1 ? Rfile_read(argv[1], &size) : make_invoice(&size);
+		show_document(data, size);
 	}
 	if (!Rpdf_is_available())
 		fprintf(stderr, "raven_pdf: PDFium was not found; set RAVEN_PDFIUM to its library (see the top of main.c)\n");
 
 	Raction_bind("pdf.open", on_action, NULL);
+	Raction_bind("pdf.save", on_action, NULL);
+	Raction_bind("pdf.print", on_action, NULL);
 	Raction_bind("pdf.previous", on_action, NULL);
 	Raction_bind("pdf.next", on_action, NULL);
 	Raction_bind("pdf.zoom_in", on_action, NULL);

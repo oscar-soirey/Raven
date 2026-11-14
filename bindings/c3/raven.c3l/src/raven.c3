@@ -1026,6 +1026,44 @@ constset PdfStatus : CInt
 	UNAVAILABLE = 0x05D4,
 }
 
+<* The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). *>
+constset PdfFont : CInt
+{
+	<* Roboto, the font of the interface of Raven. *>
+	SANS = 0,
+	<* Roboto Mono. *>
+	MONO = 1,
+}
+
+<* How a shape of a PDF document is painted: a bitmask. *>
+constset PdfPaint : CInt
+{
+	<* Filled with the fill color. *>
+	FILL = 1,
+	<* Outlined with the stroke color and the line width. *>
+	STROKE = 2,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool PdfPaint.has(self, PdfPaint flags) @inline => (self & flags) == flags;
+
+<* A bitmask of styles of the text of a PDF document. *>
+constset PdfTextStyle : CInt
+{
+	BOLD = 1,
+	ITALIC = 2,
+	UNDERLINE = 4,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool PdfTextStyle.has(self, PdfTextStyle flags) @inline => (self & flags) == flags;
+
+constset PdfPrintFlags : CInt
+{
+	<* No dialog: printed at once on the printer named, else the default one. *>
+	NO_DIALOG = 1,
+}
+
 <* How an axis of a Plot spreads its values. *>
 constset PlotScale : CInt
 {
@@ -1979,6 +2017,29 @@ struct GestureEvent
 	float rotation_delta;
 	<* R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end). *>
 	CInt cancelled;
+}
+
+<* How a PDF document is printed. Every field may be left to zero. *>
+struct PdfPrintDesc
+{
+	<* Window the print dialog belongs to (0 or R_INVALID_ID: none). *>
+	Id window;
+	<* Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. *>
+	ZString title;
+	<* Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. *>
+	ZString printer;
+	<* Copies to print (0: one); the dialog may change it. *>
+	CInt copies;
+	<* Bitmask of RPdfPrintFlags. *>
+	uint flags;
+	<*
+	 Path of a file the job is written to instead of a printer. macOS: a
+	 PDF made by the print system; Windows: what the driver of the printer
+	 makes; elsewhere: the document itself.
+	*>
+	ZString output;
+	<* Password of a document protected by one. *>
+	ZString password;
 }
 
 <* What a tile shows, filled by the application when the tile is drawn. *>
@@ -4908,6 +4969,9 @@ fn ZString PdfView.get_page_text(self, CInt page) @inline => (ZString)c::r_pdf_v
 
 fn void PdfView.set_page_changed_callback(self, PdfPageChangedCallback callback, void* user_data) @inline => c::r_pdf_view_set_page_changed_callback((c::Rid)self, (c::RPdfPageChangedCallback)callback, user_data);
 
+<* Prints the document shown (see Rpdf_print); the job is named after its title. *>
+fn CInt PdfView.print(self, PdfPrintDesc* desc) @inline => c::r_pdf_view_print((c::Rid)self, (c::RPdfPrintDesc*)desc);
+
 // ---- Window
 
 typedef Window = inline Id;
@@ -6308,6 +6372,103 @@ fn Direction get_layout_direction() @inline => (Direction)c::r_get_layout_direct
 
 <* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
 alias pdf_is_available = c::r_pdf_is_available;
+
+fn Id pdf_document_create() @inline => (Id)c::r_pdf_document_create();
+
+fn void pdf_document_delete(Id document) @inline => c::r_pdf_document_delete((c::Rid)document);
+
+<* The information of the document, shown by readers (the title in their window). *>
+fn void pdf_document_set_title(Id document, ZString title) @inline => c::r_pdf_document_set_title((c::Rid)document, (char*)title);
+
+fn void pdf_document_set_author(Id document, ZString author) @inline => c::r_pdf_document_set_author((c::Rid)document, (char*)author);
+
+fn void pdf_document_set_subject(Id document, ZString subject) @inline => c::r_pdf_document_set_subject((c::Rid)document, (char*)subject);
+
+<* Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. *>
+fn CInt pdf_document_add_page(Id document, float width, float height) @inline => c::r_pdf_document_add_page((c::Rid)document, width, height);
+
+fn CInt pdf_document_get_page_count(Id document) @inline => c::r_pdf_document_get_page_count((c::Rid)document);
+
+fn void pdf_document_set_fill_color(Id document, float r, float g, float b, float a) @inline => c::r_pdf_document_set_fill_color((c::Rid)document, r, g, b, a);
+
+fn void pdf_document_set_stroke_color(Id document, float r, float g, float b, float a) @inline => c::r_pdf_document_set_stroke_color((c::Rid)document, r, g, b, a);
+
+<* Width of the lines and outlines, in points (default 1). *>
+fn void pdf_document_set_line_width(Id document, float width) @inline => c::r_pdf_document_set_line_width((c::Rid)document, width);
+
+<* A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. *>
+fn void pdf_document_draw_rect(Id document, float x, float y, float width, float height, float radius, uint paint) @inline => c::r_pdf_document_draw_rect((c::Rid)document, x, y, width, height, radius, paint);
+
+<* The ellipse inside a rectangle. *>
+fn void pdf_document_draw_ellipse(Id document, float x, float y, float width, float height, uint paint) @inline => c::r_pdf_document_draw_ellipse((c::Rid)document, x, y, width, height, paint);
+
+<* A line in the stroke color. *>
+fn void pdf_document_draw_line(Id document, float x1, float y1, float x2, float y2) @inline => c::r_pdf_document_draw_line((c::Rid)document, x1, y1, x2, y2);
+
+<*
+ Adds a TrueType font (.ttf) to the document (the data is
+ copied, and embedded in the file). Returns its number for
+ Rpdf_document_set_font, -1 when it is not a TrueType font.
+*>
+fn CInt pdf_document_add_font(Id document, ZString data, usz data_size) @inline => c::r_pdf_document_add_font((c::Rid)document, (char*)data, data_size);
+
+fn CInt pdf_document_add_font_from_file(Id document, ZString path) @inline => c::r_pdf_document_add_font_from_file((c::Rid)document, (char*)path);
+
+<* The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. *>
+fn void pdf_document_set_font(Id document, CInt font, float size, uint style) @inline => c::r_pdf_document_set_font((c::Rid)document, font, size, style);
+
+<* Distance between two lines of text in the current font. *>
+fn float pdf_document_get_line_height(Id document) @inline => c::r_pdf_document_get_line_height((c::Rid)document);
+
+<* Width of a text in the current font, in points (of its widest line). *>
+fn float pdf_document_measure_text(Id document, ZString text) @inline => c::r_pdf_document_measure_text((c::Rid)document, (char*)text);
+
+<*
+ Text in the fill color, the top of its first line at y ('\n'
+ starts a line below). Returns its width.
+*>
+fn float pdf_document_draw_text(Id document, float x, float y, ZString text) @inline => c::r_pdf_document_draw_text((c::Rid)document, x, y, (char*)text);
+
+<*
+ Text wrapped at the spaces to fit `width`, each line placed by
+ `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+ height it took.
+*>
+fn float pdf_document_draw_paragraph(Id document, float x, float y, float width, ZString text, HAlign align) @inline => c::r_pdf_document_draw_paragraph((c::Rid)document, x, y, width, (char*)text, (c::RHAlign)align);
+
+<*
+ A picture of RGBA8 pixels stretched over a rectangle. A width or
+ height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+*>
+fn void pdf_document_draw_image(Id document, float x, float y, float width, float height, char* rgba, CInt pixels_width, CInt pixels_height) @inline => c::r_pdf_document_draw_image((c::Rid)document, x, y, width, height, rgba, pixels_width, pixels_height);
+
+<*
+ What a window shows (Rwindow_capture), as a picture: a report of
+ the screen, a chart. A width and height of 0: the size it has on the
+ screen. Returns R_FALSE when the window cannot be captured.
+*>
+fn CInt pdf_document_draw_window(Id document, Id window, float x, float y, float width, float height) @inline => c::r_pdf_document_draw_window((c::Rid)document, (c::Rid)window, x, y, width, height);
+
+<* Writes the file. Returns R_FALSE when it cannot be written. *>
+fn CInt pdf_document_save(Id document, ZString path) @inline => c::r_pdf_document_save((c::Rid)document, (char*)path);
+
+<* The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. *>
+fn ZString pdf_document_save_memory(Id document, usz* size) @inline => (ZString)c::r_pdf_document_save_memory((c::Rid)document, size);
+
+<*
+ Prints a PDF document with the print system: on macOS the print
+ panel, on Windows the print dialog (the pages are drawn by PDFium, see
+ PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+ dialog of Raven that chooses the printer. It waits until the job is
+ sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+ cannot print. Not in the browser.
+*>
+fn CInt pdf_print(PdfPrintDesc* desc, ZString data, usz data_size) @inline => c::r_pdf_print((c::RPdfPrintDesc*)desc, (char*)data, data_size);
+
+fn CInt pdf_print_file(PdfPrintDesc* desc, ZString path) @inline => c::r_pdf_print_file((c::RPdfPrintDesc*)desc, (char*)path);
+
+<* Prints a document written by the application. *>
+fn CInt pdf_document_print(Id document, PdfPrintDesc* desc) @inline => c::r_pdf_document_print((c::Rid)document, (c::RPdfPrintDesc*)desc);
 
 <*
  Declares a language, or replaces the one that has this name: to

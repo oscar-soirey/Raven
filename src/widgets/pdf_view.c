@@ -57,6 +57,7 @@
 
 #define RVN_FPDF_ANNOT 0x01
 #define RVN_FPDF_REVERSE_BYTE_ORDER 0x10
+#define RVN_FPDF_PRINTING 0x800
 #define RVN_FPDF_ERR_PASSWORD 4
 #define RVN_FPDF_BITMAP_BGRA 4
 
@@ -245,6 +246,7 @@ static int rvn_pdfium_load(void) {
 
 /** Rshutdown: closes PDFium (the views, and their documents, are gone by then). */
 void rvn_pdf_shutdown(void) {
+	rvn_pdf_documents_shutdown();
 	if (g_pdfium.ready) {
 		g_pdfium.destroy_library();
 		rvn_pdf_unload(g_pdfium.library);
@@ -254,6 +256,49 @@ void rvn_pdf_shutdown(void) {
 
 int Rpdf_is_available(void) {
 	return rvn_pdfium_load();
+}
+
+/* ---------------------------------------------------------------------------
+ *  Documents opened for printing (pdf_print.c draws their pages on Windows)
+ * ------------------------------------------------------------------------- */
+
+/** `data` must stay valid until rvn_pdfium_close. NULL without PDFium or when the data is not a PDF. */
+void* rvn_pdfium_open(const void* data, size_t size, const char* password) {
+	if (!rvn_pdfium_load() || !data || size == 0 || size > (size_t)INT_MAX) return NULL;
+	return g_pdfium.load_mem_document(data, (int)size, password);
+}
+
+int rvn_pdfium_page_count(void* document) {
+	return document ? g_pdfium.get_page_count(document) : 0;
+}
+
+int rvn_pdfium_page_size(void* document, int index, double* width, double* height) {
+	*width = 0.0;
+	*height = 0.0;
+	return document && g_pdfium.get_page_size_by_index(document, index, width, height);
+}
+
+/** Draws a page over white into `width` x `height` BGRA pixels (top row first), as for a printer. */
+int rvn_pdfium_render_bgra(void* document, int index, uint8_t* pixels, int width, int height) {
+	void* page;
+	void* bitmap;
+	if (!document || !pixels || width <= 0 || height <= 0) return R_FALSE;
+	page = g_pdfium.load_page(document, index);
+	if (!page) return R_FALSE;
+	bitmap = g_pdfium.bitmap_create_ex(width, height, RVN_FPDF_BITMAP_BGRA, pixels, width * 4);
+	if (!bitmap) {
+		g_pdfium.close_page(page);
+		return R_FALSE;
+	}
+	g_pdfium.bitmap_fill_rect(bitmap, 0, 0, width, height, 0xFFFFFFFFul);
+	g_pdfium.render_page_bitmap(bitmap, page, 0, 0, width, height, 0, RVN_FPDF_ANNOT | RVN_FPDF_PRINTING);
+	g_pdfium.bitmap_destroy(bitmap);
+	g_pdfium.close_page(page);
+	return R_TRUE;
+}
+
+void rvn_pdfium_close(void* document) {
+	if (document) g_pdfium.close_document(document);
 }
 
 /* UTF-16 (PDFium's text) to a new UTF-8 string, `count` units or up to a 0. */
@@ -1127,4 +1172,30 @@ void Rpdf_view_set_page_changed_callback(Rid id, RPdfPageChangedCallback callbac
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_PDF_VIEW);
 	((rvn_pdf_view_t*)widget)->callback = callback;
 	((rvn_pdf_view_t*)widget)->user_data = user_data;
+}
+
+int Rpdf_view_print(Rid id, const RPdfPrintDesc* desc) {
+	rvn_pdf_view_t* view;
+	RVN_WIDGET(widget, id, R_WIDGET_PDF_VIEW, R_FALSE);
+	view = (rvn_pdf_view_t*)widget;
+	if (view->status != R_PDF_LOADED || !view->data) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rpdf_view_print: no document is shown");
+		return R_FALSE;
+	}
+	if (!desc || !desc->title) {
+		/* the job is named after the document */
+		RPdfPrintDesc named;
+		if (desc) named = *desc;
+		else memset(&named, 0, sizeof(named));
+		if (!named.window || named.window == R_INVALID_ID) named.window = Rwidget_get_window(id);
+		named.title = view->title ? view->title : NULL;
+		if (!named.password) named.password = view->password;
+		return Rpdf_print(&named, view->data, view->size);
+	}
+	if (!desc->password && view->password) {
+		RPdfPrintDesc unlocked = *desc;
+		unlocked.password = view->password;
+		return Rpdf_print(&unlocked, view->data, view->size);
+	}
+	return Rpdf_print(desc, view->data, view->size);
 }

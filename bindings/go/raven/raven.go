@@ -795,6 +795,38 @@ const (
 	R_PDF_UNAVAILABLE    RPdfStatus = 0x05D4
 )
 
+// RPdfFont: The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2,
+// 3...).
+type RPdfFont int32
+
+const (
+	R_PDF_FONT_SANS RPdfFont = 0
+	R_PDF_FONT_MONO RPdfFont = 1
+)
+
+// RPdfPaint: How a shape of a PDF document is painted: a bitmask.
+type RPdfPaint int32
+
+const (
+	R_PDF_FILL   RPdfPaint = 1
+	R_PDF_STROKE RPdfPaint = 2
+)
+
+// RPdfTextStyle: A bitmask of styles of the text of a PDF document.
+type RPdfTextStyle int32
+
+const (
+	R_PDF_TEXT_BOLD      RPdfTextStyle = 1
+	R_PDF_TEXT_ITALIC    RPdfTextStyle = 2
+	R_PDF_TEXT_UNDERLINE RPdfTextStyle = 4
+)
+
+type RPdfPrintFlags int32
+
+const (
+	R_PDF_PRINT_NO_DIALOG RPdfPrintFlags = 1
+)
+
 // RPlotScale: How an axis of a Plot spreads its values.
 type RPlotScale int32
 
@@ -4291,6 +4323,135 @@ func PdfViewGetPageText(view ID, page int) string {
 	return C.GoString(C.Rpdf_view_get_page_text(C.Rid(view), C.int(page)))
 }
 
+func PdfDocumentCreate() ID {
+	return ID(C.Rpdf_document_create())
+}
+
+func PdfDocumentDelete(document ID) {
+	C.Rpdf_document_delete(C.Rid(document))
+}
+
+// PdfDocumentSetTitle: The information of the document, shown by readers (the title in their window).
+func PdfDocumentSetTitle(document ID, title string) {
+	title_ := C.CString(title)
+	defer C.free(unsafe.Pointer(title_))
+	C.Rpdf_document_set_title(C.Rid(document), title_)
+}
+
+func PdfDocumentSetAuthor(document ID, author string) {
+	author_ := C.CString(author)
+	defer C.free(unsafe.Pointer(author_))
+	C.Rpdf_document_set_author(C.Rid(document), author_)
+}
+
+func PdfDocumentSetSubject(document ID, subject string) {
+	subject_ := C.CString(subject)
+	defer C.free(unsafe.Pointer(subject_))
+	C.Rpdf_document_set_subject(C.Rid(document), subject_)
+}
+
+// PdfDocumentAddPage: Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an
+// invalid size.
+func PdfDocumentAddPage(document ID, width float32, height float32) int {
+	return int(C.Rpdf_document_add_page(C.Rid(document), C.float(width), C.float(height)))
+}
+
+func PdfDocumentGetPageCount(document ID) int {
+	return int(C.Rpdf_document_get_page_count(C.Rid(document)))
+}
+
+func PdfDocumentSetFillColor(document ID, r float32, g float32, b float32, a float32) {
+	C.Rpdf_document_set_fill_color(C.Rid(document), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+func PdfDocumentSetStrokeColor(document ID, r float32, g float32, b float32, a float32) {
+	C.Rpdf_document_set_stroke_color(C.Rid(document), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// PdfDocumentSetLineWidth: Width of the lines and outlines, in points (default 1).
+func PdfDocumentSetLineWidth(document ID, width float32) {
+	C.Rpdf_document_set_line_width(C.Rid(document), C.float(width))
+}
+
+// PdfDocumentDrawRect: A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+func PdfDocumentDrawRect(document ID, x float32, y float32, width float32, height float32, radius float32, paint uint32) {
+	C.Rpdf_document_draw_rect(C.Rid(document), C.float(x), C.float(y), C.float(width), C.float(height), C.float(radius), C.Ruint(paint))
+}
+
+// PdfDocumentDrawEllipse: The ellipse inside a rectangle.
+func PdfDocumentDrawEllipse(document ID, x float32, y float32, width float32, height float32, paint uint32) {
+	C.Rpdf_document_draw_ellipse(C.Rid(document), C.float(x), C.float(y), C.float(width), C.float(height), C.Ruint(paint))
+}
+
+// PdfDocumentDrawLine: A line in the stroke color.
+func PdfDocumentDrawLine(document ID, x1 float32, y1 float32, x2 float32, y2 float32) {
+	C.Rpdf_document_draw_line(C.Rid(document), C.float(x1), C.float(y1), C.float(x2), C.float(y2))
+}
+
+// PdfDocumentAddFont: Adds a TrueType font (.ttf) to the document (the data is copied, and embedded in the
+// file). Returns its number for Rpdf_document_set_font, -1 when it is not a TrueType font.
+func PdfDocumentAddFont(document ID, data []byte) int {
+	var data_ *C.char
+	if len(data) > 0 {
+		data_ = (*C.char)(unsafe.Pointer(&data[0]))
+	}
+	return int(C.Rpdf_document_add_font(C.Rid(document), data_, C.size_t(len(data))))
+}
+
+func PdfDocumentAddFontFromFile(document ID, path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rpdf_document_add_font_from_file(C.Rid(document), path_))
+}
+
+// PdfDocumentSetFont: The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a
+// size in points, a bitmask of RPdfTextStyle.
+func PdfDocumentSetFont(document ID, font int, size float32, style uint32) {
+	C.Rpdf_document_set_font(C.Rid(document), C.int(font), C.float(size), C.Ruint(style))
+}
+
+// PdfDocumentGetLineHeight: Distance between two lines of text in the current font.
+func PdfDocumentGetLineHeight(document ID) float32 {
+	return float32(C.Rpdf_document_get_line_height(C.Rid(document)))
+}
+
+// PdfDocumentMeasureText: Width of a text in the current font, in points (of its widest line).
+func PdfDocumentMeasureText(document ID, text string) float32 {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return float32(C.Rpdf_document_measure_text(C.Rid(document), text_))
+}
+
+// PdfDocumentDrawText: Text in the fill color, the top of its first line at y ('\n' starts a line below).
+// Returns its width.
+func PdfDocumentDrawText(document ID, x float32, y float32, text string) float32 {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return float32(C.Rpdf_document_draw_text(C.Rid(document), C.float(x), C.float(y), text_))
+}
+
+// PdfDocumentDrawParagraph: Text wrapped at the spaces to fit `width`, each line placed by `align`
+// (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the height it took.
+func PdfDocumentDrawParagraph(document ID, x float32, y float32, width float32, text string, align RHAlign) float32 {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return float32(C.Rpdf_document_draw_paragraph(C.Rid(document), C.float(x), C.float(y), C.float(width), text_, C.RHAlign(align)))
+}
+
+// PdfDocumentDrawWindow: What a window shows (Rwindow_capture), as a picture: a report of the screen, a
+// chart. A width and height of 0: the size it has on the screen. Returns R_FALSE when the window cannot be
+// captured.
+func PdfDocumentDrawWindow(document ID, window ID, x float32, y float32, width float32, height float32) int {
+	return int(C.Rpdf_document_draw_window(C.Rid(document), C.Rid(window), C.float(x), C.float(y), C.float(width), C.float(height)))
+}
+
+// PdfDocumentSave: Writes the file. Returns R_FALSE when it cannot be written.
+func PdfDocumentSave(document ID, path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rpdf_document_save(C.Rid(document), path_))
+}
+
 // TextEditorCreate: text Initial content, or NULL.
 func TextEditorCreate(text string) ID {
 	text_ := C.CString(text)
@@ -6896,20 +7057,22 @@ func HostInjectClose(window ID) {
 // Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
 // Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
 // Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
-// Rplot_set_series_toggled_callback, Rpdf_view_set_page_changed_callback, Rtext_editor_set_zoom_callback
-// Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback
-// Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
-// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
-// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
-// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
-// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
-// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
-// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
-// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
-// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
-// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
-// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rplot_set_series_toggled_callback, Rpdf_view_set_page_changed_callback, Rpdf_view_print
+// Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
+// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
+// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
+// Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon
+// Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
+// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
+// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
+// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
+// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
+// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
+// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
+// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

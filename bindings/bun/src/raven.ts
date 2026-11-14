@@ -807,6 +807,34 @@ const _symbols = {
 	Rpdf_view_get_title: { args: ["u32"], returns: "cstring" },
 	Rpdf_view_get_page_text: { args: ["u32", "i32"], returns: "cstring" },
 	Rpdf_view_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rpdf_view_print: { args: ["u32", "ptr"], returns: "i32" },
+	Rpdf_document_create: { args: [], returns: "u32" },
+	Rpdf_document_delete: { args: ["u32"], returns: "void" },
+	Rpdf_document_set_title: { args: ["u32", "ptr"], returns: "void" },
+	Rpdf_document_set_author: { args: ["u32", "ptr"], returns: "void" },
+	Rpdf_document_set_subject: { args: ["u32", "ptr"], returns: "void" },
+	Rpdf_document_add_page: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rpdf_document_get_page_count: { args: ["u32"], returns: "i32" },
+	Rpdf_document_set_fill_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rpdf_document_set_stroke_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rpdf_document_set_line_width: { args: ["u32", "f32"], returns: "void" },
+	Rpdf_document_draw_rect: { args: ["u32", "f32", "f32", "f32", "f32", "f32", "u32"], returns: "void" },
+	Rpdf_document_draw_ellipse: { args: ["u32", "f32", "f32", "f32", "f32", "u32"], returns: "void" },
+	Rpdf_document_draw_line: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rpdf_document_add_font: { args: ["u32", "ptr", "usize"], returns: "i32" },
+	Rpdf_document_add_font_from_file: { args: ["u32", "ptr"], returns: "i32" },
+	Rpdf_document_set_font: { args: ["u32", "i32", "f32", "u32"], returns: "void" },
+	Rpdf_document_get_line_height: { args: ["u32"], returns: "f32" },
+	Rpdf_document_measure_text: { args: ["u32", "ptr"], returns: "f32" },
+	Rpdf_document_draw_text: { args: ["u32", "f32", "f32", "ptr"], returns: "f32" },
+	Rpdf_document_draw_paragraph: { args: ["u32", "f32", "f32", "f32", "ptr", "i32"], returns: "f32" },
+	Rpdf_document_draw_image: { args: ["u32", "f32", "f32", "f32", "f32", "ptr", "i32", "i32"], returns: "void" },
+	Rpdf_document_draw_window: { args: ["u32", "u32", "f32", "f32", "f32", "f32"], returns: "i32" },
+	Rpdf_document_save: { args: ["u32", "ptr"], returns: "i32" },
+	Rpdf_document_save_memory: { args: ["u32", "ptr"], returns: "ptr" },
+	Rpdf_print: { args: ["ptr", "ptr", "usize"], returns: "i32" },
+	Rpdf_print_file: { args: ["ptr", "ptr"], returns: "i32" },
+	Rpdf_document_print: { args: ["u32", "ptr"], returns: "i32" },
 	Rtext_editor_create: { args: ["ptr"], returns: "u32" },
 	Rtext_editor_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rtext_editor_get_text: { args: ["u32"], returns: "cstring" },
@@ -2674,6 +2702,46 @@ export const R_PDF_NEEDS_PASSWORD = RPdfStatus.R_PDF_NEEDS_PASSWORD;
 export const R_PDF_ERROR = RPdfStatus.R_PDF_ERROR;
 export const R_PDF_UNAVAILABLE = RPdfStatus.R_PDF_UNAVAILABLE;
 
+/** The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). */
+export enum RPdfFont {
+	/** Roboto, the font of the interface of Raven. */
+	R_PDF_FONT_SANS = 0,
+	/** Roboto Mono. */
+	R_PDF_FONT_MONO = 1,
+}
+
+export const R_PDF_FONT_SANS = RPdfFont.R_PDF_FONT_SANS;
+export const R_PDF_FONT_MONO = RPdfFont.R_PDF_FONT_MONO;
+
+/** How a shape of a PDF document is painted: a bitmask. */
+export enum RPdfPaint {
+	/** Filled with the fill color. */
+	R_PDF_FILL = 1,
+	/** Outlined with the stroke color and the line width. */
+	R_PDF_STROKE = 2,
+}
+
+export const R_PDF_FILL = RPdfPaint.R_PDF_FILL;
+export const R_PDF_STROKE = RPdfPaint.R_PDF_STROKE;
+
+/** A bitmask of styles of the text of a PDF document. */
+export enum RPdfTextStyle {
+	R_PDF_TEXT_BOLD = 1,
+	R_PDF_TEXT_ITALIC = 2,
+	R_PDF_TEXT_UNDERLINE = 4,
+}
+
+export const R_PDF_TEXT_BOLD = RPdfTextStyle.R_PDF_TEXT_BOLD;
+export const R_PDF_TEXT_ITALIC = RPdfTextStyle.R_PDF_TEXT_ITALIC;
+export const R_PDF_TEXT_UNDERLINE = RPdfTextStyle.R_PDF_TEXT_UNDERLINE;
+
+export enum RPdfPrintFlags {
+	/** No dialog: printed at once on the printer named, else the default one. */
+	R_PDF_PRINT_NO_DIALOG = 1,
+}
+
+export const R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags.R_PDF_PRINT_NO_DIALOG;
+
 /** How an axis of a Plot spreads its values. */
 export enum RPlotScale {
 	R_PLOT_SCALE_LINEAR = 0x0530,
@@ -4319,6 +4387,80 @@ export class RGestureEvent extends RStruct {
 	}
 	set cancelled(value: number) {
 		this._view.setInt32(72, value, true);
+	}
+}
+
+/** How a PDF document is printed. Every field may be left to zero. */
+export class RPdfPrintDesc extends RStruct {
+	static readonly SIZE = 48;
+
+	constructor(pointer?: Pointer) {
+		super(RPdfPrintDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RPdfPrintDesc | null {
+		return pointer ? new RPdfPrintDesc(pointer) : null;
+	}
+
+	/** Window the print dialog belongs to (0 or R_INVALID_ID: none). */
+	get window(): Rid {
+		return this._view.getUint32(0, true);
+	}
+	set window(value: Rid) {
+		this._view.setUint32(0, value, true);
+	}
+
+	/** Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. */
+	get title(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set title(value: string | null) {
+		this._point("title", 8, _s(value));
+	}
+
+	/** Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. */
+	get printer(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set printer(value: string | null) {
+		this._point("printer", 16, _s(value));
+	}
+
+	/** Copies to print (0: one); the dialog may change it. */
+	get copies(): number {
+		return this._view.getInt32(24, true);
+	}
+	set copies(value: number) {
+		this._view.setInt32(24, value, true);
+	}
+
+	/** Bitmask of RPdfPrintFlags. */
+	get flags(): number {
+		return this._view.getUint32(28, true);
+	}
+	set flags(value: number) {
+		this._view.setUint32(28, value, true);
+	}
+
+	/**
+	 * Path of a file the job is written to instead of a printer. macOS: a
+	 * PDF made by the print system; Windows: what the driver of the printer
+	 * makes; elsewhere: the document itself.
+	 */
+	get output(): string | null {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set output(value: string | null) {
+		this._point("output", 32, _s(value));
+	}
+
+	/** Password of a document protected by one. */
+	get password(): string | null {
+		return _text(_address(this._view.getBigUint64(40, true)));
+	}
+	set password(value: string | null) {
+		this._point("password", 40, _s(value));
 	}
 }
 
@@ -10223,6 +10365,172 @@ export function Rpdf_view_get_page_text(view: Rid, page: number): string | null 
 
 export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rpdf_view_set_page_changed_callback(view, _adapt_RPdfPageChangedCallback(callback), user_data);
+}
+
+/** Prints the document shown (see Rpdf_print); the job is named after its title. */
+export function Rpdf_view_print(view: Rid, desc: RPdfPrintDesc | null): number {
+	return _lib.Rpdf_view_print(view, _p(desc));
+}
+
+export function Rpdf_document_create(): Rid {
+	return _lib.Rpdf_document_create();
+}
+
+export function Rpdf_document_delete(document: Rid): void {
+	_lib.Rpdf_document_delete(document);
+}
+
+/** The information of the document, shown by readers (the title in their window). */
+export function Rpdf_document_set_title(document: Rid, title: string | null): void {
+	_lib.Rpdf_document_set_title(document, _s(title));
+}
+
+export function Rpdf_document_set_author(document: Rid, author: string | null): void {
+	_lib.Rpdf_document_set_author(document, _s(author));
+}
+
+export function Rpdf_document_set_subject(document: Rid, subject: string | null): void {
+	_lib.Rpdf_document_set_subject(document, _s(subject));
+}
+
+/** Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. */
+export function Rpdf_document_add_page(document: Rid, width: number, height: number): number {
+	return _lib.Rpdf_document_add_page(document, width, height);
+}
+
+export function Rpdf_document_get_page_count(document: Rid): number {
+	return _lib.Rpdf_document_get_page_count(document);
+}
+
+export function Rpdf_document_set_fill_color(document: Rid, r: number, g: number, b: number, a: number): void {
+	_lib.Rpdf_document_set_fill_color(document, r, g, b, a);
+}
+
+export function Rpdf_document_set_stroke_color(document: Rid, r: number, g: number, b: number, a: number): void {
+	_lib.Rpdf_document_set_stroke_color(document, r, g, b, a);
+}
+
+/** Width of the lines and outlines, in points (default 1). */
+export function Rpdf_document_set_line_width(document: Rid, width: number): void {
+	_lib.Rpdf_document_set_line_width(document, width);
+}
+
+/** A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. */
+export function Rpdf_document_draw_rect(document: Rid, x: number, y: number, width: number, height: number, radius: number, paint: number): void {
+	_lib.Rpdf_document_draw_rect(document, x, y, width, height, radius, paint);
+}
+
+/** The ellipse inside a rectangle. */
+export function Rpdf_document_draw_ellipse(document: Rid, x: number, y: number, width: number, height: number, paint: number): void {
+	_lib.Rpdf_document_draw_ellipse(document, x, y, width, height, paint);
+}
+
+/** A line in the stroke color. */
+export function Rpdf_document_draw_line(document: Rid, x1: number, y1: number, x2: number, y2: number): void {
+	_lib.Rpdf_document_draw_line(document, x1, y1, x2, y2);
+}
+
+/**
+ * Adds a TrueType font (.ttf) to the document (the data is
+ * copied, and embedded in the file). Returns its number for
+ * Rpdf_document_set_font, -1 when it is not a TrueType font.
+ */
+export function Rpdf_document_add_font(document: Rid, data: string | null): number {
+	const data_ = _s(data);
+	return _lib.Rpdf_document_add_font(document, data_, data_ === null ? 0 : data_.length - 1);
+}
+
+export function Rpdf_document_add_font_from_file(document: Rid, path: string | null): number {
+	return _lib.Rpdf_document_add_font_from_file(document, _s(path));
+}
+
+/** The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. */
+export function Rpdf_document_set_font(document: Rid, font: number, size: number, style: number): void {
+	_lib.Rpdf_document_set_font(document, font, size, style);
+}
+
+/** Distance between two lines of text in the current font. */
+export function Rpdf_document_get_line_height(document: Rid): number {
+	return _lib.Rpdf_document_get_line_height(document);
+}
+
+/** Width of a text in the current font, in points (of its widest line). */
+export function Rpdf_document_measure_text(document: Rid, text: string | null): number {
+	return _lib.Rpdf_document_measure_text(document, _s(text));
+}
+
+/**
+ * Text in the fill color, the top of its first line at y ('\n'
+ * starts a line below). Returns its width.
+ */
+export function Rpdf_document_draw_text(document: Rid, x: number, y: number, text: string | null): number {
+	return _lib.Rpdf_document_draw_text(document, x, y, _s(text));
+}
+
+/**
+ * Text wrapped at the spaces to fit `width`, each line placed by
+ * `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+ * height it took.
+ */
+export function Rpdf_document_draw_paragraph(document: Rid, x: number, y: number, width: number, text: string | null, align: RHAlign): number {
+	return _lib.Rpdf_document_draw_paragraph(document, x, y, width, _s(text), align);
+}
+
+/**
+ * A picture of RGBA8 pixels stretched over a rectangle. A width or
+ * height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+ */
+export function Rpdf_document_draw_image(document: Rid, x: number, y: number, width: number, height: number, rgba: RPointer, pixels_width: number, pixels_height: number): void {
+	_lib.Rpdf_document_draw_image(document, x, y, width, height, rgba, pixels_width, pixels_height);
+}
+
+/**
+ * What a window shows (Rwindow_capture), as a picture: a report of
+ * the screen, a chart. A width and height of 0: the size it has on the
+ * screen. Returns R_FALSE when the window cannot be captured.
+ */
+export function Rpdf_document_draw_window(document: Rid, window: Rid, x: number, y: number, width: number, height: number): number {
+	return _lib.Rpdf_document_draw_window(document, window, x, y, width, height);
+}
+
+/** Writes the file. Returns R_FALSE when it cannot be written. */
+export function Rpdf_document_save(document: Rid, path: string | null): number {
+	return _lib.Rpdf_document_save(document, _s(path));
+}
+
+/** The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. */
+export function Rpdf_document_save_memory(document: Rid): Uint8Array | null {
+	const size_ = new BigUint64Array(1);
+	const address = _lib.Rpdf_document_save_memory(document, size_) as Pointer | null;
+	if (!address) {
+		return null;
+	}
+	const size = Number(size_[0]!);
+	const data = size > 0 ? new Uint8Array(_toArrayBuffer(address, 0, size).slice(0)) : new Uint8Array(0);
+	_lib.Rmemory_free(address);
+	return data;
+}
+
+/**
+ * Prints a PDF document with the print system: on macOS the print
+ * panel, on Windows the print dialog (the pages are drawn by PDFium, see
+ * PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+ * dialog of Raven that chooses the printer. It waits until the job is
+ * sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+ * cannot print. Not in the browser.
+ */
+export function Rpdf_print(desc: RPdfPrintDesc | null, data: string | null): number {
+	const data_ = _s(data);
+	return _lib.Rpdf_print(_p(desc), data_, data_ === null ? 0 : data_.length - 1);
+}
+
+export function Rpdf_print_file(desc: RPdfPrintDesc | null, path: string | null): number {
+	return _lib.Rpdf_print_file(_p(desc), _s(path));
+}
+
+/** Prints a document written by the application. */
+export function Rpdf_document_print(document: Rid, desc: RPdfPrintDesc | null): number {
+	return _lib.Rpdf_document_print(document, _p(desc));
 }
 
 /** text Initial content, or NULL. */

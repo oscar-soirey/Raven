@@ -747,6 +747,30 @@ export const RPdfStatus = _enum({
 });
 export const { R_PDF_EMPTY, R_PDF_LOADED, R_PDF_NEEDS_PASSWORD, R_PDF_ERROR, R_PDF_UNAVAILABLE } = RPdfStatus;
 
+export const RPdfFont = _enum({
+	R_PDF_FONT_SANS: 0,
+	R_PDF_FONT_MONO: 1,
+});
+export const { R_PDF_FONT_SANS, R_PDF_FONT_MONO } = RPdfFont;
+
+export const RPdfPaint = _enum({
+	R_PDF_FILL: 1,
+	R_PDF_STROKE: 2,
+});
+export const { R_PDF_FILL, R_PDF_STROKE } = RPdfPaint;
+
+export const RPdfTextStyle = _enum({
+	R_PDF_TEXT_BOLD: 1,
+	R_PDF_TEXT_ITALIC: 2,
+	R_PDF_TEXT_UNDERLINE: 4,
+});
+export const { R_PDF_TEXT_BOLD, R_PDF_TEXT_ITALIC, R_PDF_TEXT_UNDERLINE } = RPdfTextStyle;
+
+export const RPdfPrintFlags = _enum({
+	R_PDF_PRINT_NO_DIALOG: 1,
+});
+export const { R_PDF_PRINT_NO_DIALOG } = RPdfPrintFlags;
+
 export const RPlotScale = _enum({
 	R_PLOT_SCALE_LINEAR: 1328,
 	R_PLOT_SCALE_LOG: 1329,
@@ -2007,6 +2031,68 @@ export class RGestureEvent extends RStruct {
 	}
 	set cancelled(value) {
 		this._view.setInt32(72, value, true);
+	}
+}
+
+export class RPdfPrintDesc extends RStruct {
+	static SIZE = 48;
+
+	constructor(pointer) {
+		super(RPdfPrintDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RPdfPrintDesc(pointer) : null;
+	}
+
+	get window() {
+		return this._view.getUint32(0, true);
+	}
+	set window(value) {
+		this._view.setUint32(0, value, true);
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set title(value) {
+		this._point("title", 8, _s(value));
+	}
+
+	get printer() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set printer(value) {
+		this._point("printer", 16, _s(value));
+	}
+
+	get copies() {
+		return this._view.getInt32(24, true);
+	}
+	set copies(value) {
+		this._view.setInt32(24, value, true);
+	}
+
+	get flags() {
+		return this._view.getUint32(28, true);
+	}
+	set flags(value) {
+		this._view.setUint32(28, value, true);
+	}
+
+	get output() {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set output(value) {
+		this._point("output", 32, _s(value));
+	}
+
+	get password() {
+		return _text(_address(this._view.getBigUint64(40, true)));
+	}
+	set password(value) {
+		this._point("password", 40, _s(value));
 	}
 }
 
@@ -3563,6 +3649,42 @@ export const Rpdf_view_get_fit = _lib.Rpdf_view_get_fit;
 export const Rpdf_view_get_title = _lib.Rpdf_view_get_title;
 export const Rpdf_view_get_page_text = _lib.Rpdf_view_get_page_text;
 export const Rpdf_view_set_page_changed_callback = _lib.Rpdf_view_set_page_changed_callback;
+export function Rpdf_view_print(view, desc) {
+	return _lib.Rpdf_view_print(view, _p(desc));
+}
+export const Rpdf_document_create = _lib.Rpdf_document_create;
+export const Rpdf_document_delete = _lib.Rpdf_document_delete;
+export const Rpdf_document_set_title = _lib.Rpdf_document_set_title;
+export const Rpdf_document_set_author = _lib.Rpdf_document_set_author;
+export const Rpdf_document_set_subject = _lib.Rpdf_document_set_subject;
+export const Rpdf_document_add_page = _lib.Rpdf_document_add_page;
+export const Rpdf_document_get_page_count = _lib.Rpdf_document_get_page_count;
+export const Rpdf_document_set_fill_color = _lib.Rpdf_document_set_fill_color;
+export const Rpdf_document_set_stroke_color = _lib.Rpdf_document_set_stroke_color;
+export const Rpdf_document_set_line_width = _lib.Rpdf_document_set_line_width;
+export const Rpdf_document_draw_rect = _lib.Rpdf_document_draw_rect;
+export const Rpdf_document_draw_ellipse = _lib.Rpdf_document_draw_ellipse;
+export const Rpdf_document_draw_line = _lib.Rpdf_document_draw_line;
+export const Rpdf_document_add_font = _lib.Rpdf_document_add_font;
+export const Rpdf_document_add_font_from_file = _lib.Rpdf_document_add_font_from_file;
+export const Rpdf_document_set_font = _lib.Rpdf_document_set_font;
+export const Rpdf_document_get_line_height = _lib.Rpdf_document_get_line_height;
+export const Rpdf_document_measure_text = _lib.Rpdf_document_measure_text;
+export const Rpdf_document_draw_text = _lib.Rpdf_document_draw_text;
+export const Rpdf_document_draw_paragraph = _lib.Rpdf_document_draw_paragraph;
+export const Rpdf_document_draw_image = _lib.Rpdf_document_draw_image;
+export const Rpdf_document_draw_window = _lib.Rpdf_document_draw_window;
+export const Rpdf_document_save = _lib.Rpdf_document_save;
+export const Rpdf_document_save_memory = _lib.Rpdf_document_save_memory;
+export function Rpdf_print(desc, data) {
+	return _lib.Rpdf_print(_p(desc), data);
+}
+export function Rpdf_print_file(desc, path) {
+	return _lib.Rpdf_print_file(_p(desc), path);
+}
+export function Rpdf_document_print(document, desc) {
+	return _lib.Rpdf_document_print(document, _p(desc));
+}
 export const Rtext_editor_create = _lib.Rtext_editor_create;
 export const Rtext_editor_set_text = _lib.Rtext_editor_set_text;
 export const Rtext_editor_get_text = _lib.Rtext_editor_get_text;

@@ -829,6 +829,37 @@ Pdf_Status :: enum i32 {
 	Unavailable = 0x05D4,
 }
 
+// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+Pdf_Font :: enum i32 {
+	// Roboto, the font of the interface of Raven.
+	Sans = 0,
+	// Roboto Mono.
+	Mono = 1,
+}
+
+// How a shape of a PDF document is painted: a bitmask.
+Pdf_Paint :: enum u32 {
+	// Filled with the fill color.
+	Fill = 0,
+	// Outlined with the stroke color and the line width.
+	Stroke = 1,
+}
+Pdf_Paints :: bit_set[Pdf_Paint; u32]
+
+// A bitmask of styles of the text of a PDF document.
+Pdf_Text_Style :: enum u32 {
+	Bold = 0,
+	Italic = 1,
+	Underline = 2,
+}
+Pdf_Text_Styles :: bit_set[Pdf_Text_Style; u32]
+
+Pdf_Print_Flag :: enum u32 {
+	// No dialog: printed at once on the printer named, else the default one.
+	Dialog = 0,
+}
+Pdf_Print_Flags :: bit_set[Pdf_Print_Flag; u32]
+
 // How an axis of a Plot spreads its values.
 Plot_Scale :: enum i32 {
 	Linear = 0x0530,

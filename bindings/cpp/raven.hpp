@@ -3365,6 +3365,94 @@ inline void pdf_view_set_page_changed_callback(Rid view, std::function<void(Rid,
 	Rpdf_view_set_page_changed_callback(view, [](Rid view, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(view, page); }, detail::keep(view, 72, std::move(callback)));
 }
 
+/// Prints the document shown (see Rpdf_print); the job is named after its title.
+inline int pdf_view_print(Rid view, const RPdfPrintDesc* desc) { return Rpdf_view_print(view, desc); }
+
+inline Rid pdf_document_create() { return Rpdf_document_create(); }
+
+inline void pdf_document_delete(Rid document) { Rpdf_document_delete(document); }
+
+/// The information of the document, shown by readers (the title in their window).
+inline void pdf_document_set_title(Rid document, const char* title) { Rpdf_document_set_title(document, title); }
+
+inline void pdf_document_set_author(Rid document, const char* author) { Rpdf_document_set_author(document, author); }
+
+inline void pdf_document_set_subject(Rid document, const char* subject) { Rpdf_document_set_subject(document, subject); }
+
+/// Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+inline int pdf_document_add_page(Rid document, float width, float height) { return Rpdf_document_add_page(document, width, height); }
+
+inline int pdf_document_get_page_count(Rid document) { return Rpdf_document_get_page_count(document); }
+
+inline void pdf_document_set_fill_color(Rid document, float r, float g, float b, float a) { Rpdf_document_set_fill_color(document, r, g, b, a); }
+
+inline void pdf_document_set_stroke_color(Rid document, float r, float g, float b, float a) { Rpdf_document_set_stroke_color(document, r, g, b, a); }
+
+/// Width of the lines and outlines, in points (default 1).
+inline void pdf_document_set_line_width(Rid document, float width) { Rpdf_document_set_line_width(document, width); }
+
+/// A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+inline void pdf_document_draw_rect(Rid document, float x, float y, float width, float height, float radius, Ruint paint) { Rpdf_document_draw_rect(document, x, y, width, height, radius, paint); }
+
+/// The ellipse inside a rectangle.
+inline void pdf_document_draw_ellipse(Rid document, float x, float y, float width, float height, Ruint paint) { Rpdf_document_draw_ellipse(document, x, y, width, height, paint); }
+
+/// A line in the stroke color.
+inline void pdf_document_draw_line(Rid document, float x1, float y1, float x2, float y2) { Rpdf_document_draw_line(document, x1, y1, x2, y2); }
+
+/// Adds a TrueType font (.ttf) to the document (the data is
+/// copied, and embedded in the file). Returns its number for
+/// Rpdf_document_set_font, -1 when it is not a TrueType font.
+inline int pdf_document_add_font(Rid document, const char* data, size_t data_size) { return Rpdf_document_add_font(document, data, data_size); }
+
+inline int pdf_document_add_font_from_file(Rid document, const char* path) { return Rpdf_document_add_font_from_file(document, path); }
+
+/// The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+inline void pdf_document_set_font(Rid document, int font, float size, Ruint style) { Rpdf_document_set_font(document, font, size, style); }
+
+/// Distance between two lines of text in the current font.
+inline float pdf_document_get_line_height(Rid document) { return Rpdf_document_get_line_height(document); }
+
+/// Width of a text in the current font, in points (of its widest line).
+inline float pdf_document_measure_text(Rid document, const char* text) { return Rpdf_document_measure_text(document, text); }
+
+/// Text in the fill color, the top of its first line at y ('\n'
+/// starts a line below). Returns its width.
+inline float pdf_document_draw_text(Rid document, float x, float y, const char* text) { return Rpdf_document_draw_text(document, x, y, text); }
+
+/// Text wrapped at the spaces to fit `width`, each line placed by
+/// `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+/// height it took.
+inline float pdf_document_draw_paragraph(Rid document, float x, float y, float width, const char* text, RHAlign align) { return Rpdf_document_draw_paragraph(document, x, y, width, text, align); }
+
+/// A picture of RGBA8 pixels stretched over a rectangle. A width or
+/// height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+inline void pdf_document_draw_image(Rid document, float x, float y, float width, float height, const uint8_t* rgba, int pixels_width, int pixels_height) { Rpdf_document_draw_image(document, x, y, width, height, rgba, pixels_width, pixels_height); }
+
+/// What a window shows (Rwindow_capture), as a picture: a report of
+/// the screen, a chart. A width and height of 0: the size it has on the
+/// screen. Returns R_FALSE when the window cannot be captured.
+inline int pdf_document_draw_window(Rid document, Rid window, float x, float y, float width, float height) { return Rpdf_document_draw_window(document, window, x, y, width, height); }
+
+/// Writes the file. Returns R_FALSE when it cannot be written.
+inline int pdf_document_save(Rid document, const char* path) { return Rpdf_document_save(document, path); }
+
+/// The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+inline char* pdf_document_save_memory(Rid document, size_t* size) { return Rpdf_document_save_memory(document, size); }
+
+/// Prints a PDF document with the print system: on macOS the print
+/// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+/// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+/// dialog of Raven that chooses the printer. It waits until the job is
+/// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+/// cannot print. Not in the browser.
+inline int pdf_print(const RPdfPrintDesc* desc, const char* data, size_t data_size) { return Rpdf_print(desc, data, data_size); }
+
+inline int pdf_print_file(const RPdfPrintDesc* desc, const char* path) { return Rpdf_print_file(desc, path); }
+
+/// Prints a document written by the application.
+inline int pdf_document_print(Rid document, const RPdfPrintDesc* desc) { return Rpdf_document_print(document, desc); }
+
 /// Declares a language, or replaces the one that has this name: to
 /// add words to a built-in language, read it with Rlanguage_get, change
 /// what you want and register it again. The strings are copied.

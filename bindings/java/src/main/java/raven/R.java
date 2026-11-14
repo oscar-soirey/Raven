@@ -1239,6 +1239,37 @@ public final class R {
      */
     public static final int R_PDF_UNAVAILABLE = 0x05D4;
 
+    // RPdfFont: The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+    /**
+     * Roboto, the font of the interface of Raven.
+     */
+    public static final int R_PDF_FONT_SANS = 0;
+    /**
+     * Roboto Mono.
+     */
+    public static final int R_PDF_FONT_MONO = 1;
+
+    // RPdfPaint: How a shape of a PDF document is painted: a bitmask.
+    /**
+     * Filled with the fill color.
+     */
+    public static final int R_PDF_FILL = 1;
+    /**
+     * Outlined with the stroke color and the line width.
+     */
+    public static final int R_PDF_STROKE = 2;
+
+    // RPdfTextStyle: A bitmask of styles of the text of a PDF document.
+    public static final int R_PDF_TEXT_BOLD = 1;
+    public static final int R_PDF_TEXT_ITALIC = 2;
+    public static final int R_PDF_TEXT_UNDERLINE = 4;
+
+    // RPdfPrintFlags
+    /**
+     * No dialog: printed at once on the printer named, else the default one.
+     */
+    public static final int R_PDF_PRINT_NO_DIALOG = 1;
+
     // RPlotScale: How an axis of a Plot spreads its values.
     public static final int R_PLOT_SCALE_LINEAR = 0x0530;
     /**
@@ -2746,6 +2777,93 @@ public final class R {
          */
         public int cancelled() { return s.get(JAVA_INT, 72); }
         public RGestureEvent cancelled(int value) { s.set(JAVA_INT, 72, value); return this; }
+    }
+
+    /**
+     * How a PDF document is printed. Every field may be left to zero.
+     */
+    public static final class RPdfPrintDesc {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 48;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RPdfPrintDesc x = {0};` is in C). */
+        public RPdfPrintDesc() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RPdfPrintDesc(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RPdfPrintDesc(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RPdfPrintDesc[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RPdfPrintDesc[] items = new RPdfPrintDesc[count];
+            for (int i = 0; i < count; i++) items[i] = new RPdfPrintDesc(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * Window the print dialog belongs to (0 or R_INVALID_ID: none).
+         */
+        public int window() { return s.get(JAVA_INT, 0); }
+        public RPdfPrintDesc window(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        /**
+         * Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+         */
+        public String title() { return R.text(s.get(ADDRESS, 8)); }
+        public RPdfPrintDesc title(String value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+         */
+        public String printer() { return R.text(s.get(ADDRESS, 16)); }
+        public RPdfPrintDesc printer(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Copies to print (0: one); the dialog may change it.
+         */
+        public int copies() { return s.get(JAVA_INT, 24); }
+        public RPdfPrintDesc copies(int value) { s.set(JAVA_INT, 24, value); return this; }
+
+        /**
+         * Bitmask of RPdfPrintFlags.
+         */
+        public int flags() { return s.get(JAVA_INT, 28); }
+        public RPdfPrintDesc flags(int value) { s.set(JAVA_INT, 28, value); return this; }
+
+        /**
+         * Path of a file the job is written to instead of a printer. macOS: a
+         * PDF made by the print system; Windows: what the driver of the printer
+         * makes; elsewhere: the document itself.
+         */
+        public String output() { return R.text(s.get(ADDRESS, 32)); }
+        public RPdfPrintDesc output(String value) { s.set(ADDRESS, 32, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Password of a document protected by one.
+         */
+        public String password() { return R.text(s.get(ADDRESS, 40)); }
+        public RPdfPrintDesc password(String value) { s.set(ADDRESS, 40, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
     }
 
     /**
@@ -15467,6 +15585,444 @@ public final class R {
 
     public static void Rpdf_view_set_page_changed_callback(int view, RPdfPageChangedCallback callback) {
         Rpdf_view_set_page_changed_callback(view, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rpdf_view_print$;
+
+    /**
+     * Prints the document shown (see Rpdf_print); the job is named after its title.
+     */
+    public static int Rpdf_view_print(int view, RPdfPrintDesc desc) {
+        MethodHandle $h = Rpdf_view_print$;
+        if ($h == null) Rpdf_view_print$ = $h = find("Rpdf_view_print", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact(view, (MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_create$;
+
+    public static int Rpdf_document_create() {
+        MethodHandle $h = Rpdf_document_create$;
+        if ($h == null) Rpdf_document_create$ = $h = find("Rpdf_document_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_delete$;
+
+    public static void Rpdf_document_delete(int document) {
+        MethodHandle $h = Rpdf_document_delete$;
+        if ($h == null) Rpdf_document_delete$ = $h = find("Rpdf_document_delete", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(document);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_set_title$;
+
+    /**
+     * The information of the document, shown by readers (the title in their window).
+     */
+    public static void Rpdf_document_set_title(int document, String title) {
+        MethodHandle $h = Rpdf_document_set_title$;
+        if ($h == null) Rpdf_document_set_title$ = $h = find("Rpdf_document_set_title", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment title$ = title == null ? MemorySegment.NULL : utf8($a, title);
+            $h.invokeExact(document, title$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_set_author$;
+
+    public static void Rpdf_document_set_author(int document, String author) {
+        MethodHandle $h = Rpdf_document_set_author$;
+        if ($h == null) Rpdf_document_set_author$ = $h = find("Rpdf_document_set_author", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment author$ = author == null ? MemorySegment.NULL : utf8($a, author);
+            $h.invokeExact(document, author$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_set_subject$;
+
+    public static void Rpdf_document_set_subject(int document, String subject) {
+        MethodHandle $h = Rpdf_document_set_subject$;
+        if ($h == null) Rpdf_document_set_subject$ = $h = find("Rpdf_document_set_subject", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment subject$ = subject == null ? MemorySegment.NULL : utf8($a, subject);
+            $h.invokeExact(document, subject$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_add_page$;
+
+    /**
+     * Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+     */
+    public static int Rpdf_document_add_page(int document, float width, float height) {
+        MethodHandle $h = Rpdf_document_add_page$;
+        if ($h == null) Rpdf_document_add_page$ = $h = find("Rpdf_document_add_page", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(document, width, height);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_get_page_count$;
+
+    public static int Rpdf_document_get_page_count(int document) {
+        MethodHandle $h = Rpdf_document_get_page_count$;
+        if ($h == null) Rpdf_document_get_page_count$ = $h = find("Rpdf_document_get_page_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(document);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_set_fill_color$;
+
+    public static void Rpdf_document_set_fill_color(int document, float r, float g, float b, float a) {
+        MethodHandle $h = Rpdf_document_set_fill_color$;
+        if ($h == null) Rpdf_document_set_fill_color$ = $h = find("Rpdf_document_set_fill_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(document, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_set_stroke_color$;
+
+    public static void Rpdf_document_set_stroke_color(int document, float r, float g, float b, float a) {
+        MethodHandle $h = Rpdf_document_set_stroke_color$;
+        if ($h == null) Rpdf_document_set_stroke_color$ = $h = find("Rpdf_document_set_stroke_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(document, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_set_line_width$;
+
+    /**
+     * Width of the lines and outlines, in points (default 1).
+     */
+    public static void Rpdf_document_set_line_width(int document, float width) {
+        MethodHandle $h = Rpdf_document_set_line_width$;
+        if ($h == null) Rpdf_document_set_line_width$ = $h = find("Rpdf_document_set_line_width", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(document, width);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_draw_rect$;
+
+    /**
+     * A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+     */
+    public static void Rpdf_document_draw_rect(int document, float x, float y, float width, float height, float radius, int paint) {
+        MethodHandle $h = Rpdf_document_draw_rect$;
+        if ($h == null) Rpdf_document_draw_rect$ = $h = find("Rpdf_document_draw_rect", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_INT));
+        try {
+            $h.invokeExact(document, x, y, width, height, radius, paint);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_draw_ellipse$;
+
+    /**
+     * The ellipse inside a rectangle.
+     */
+    public static void Rpdf_document_draw_ellipse(int document, float x, float y, float width, float height, int paint) {
+        MethodHandle $h = Rpdf_document_draw_ellipse$;
+        if ($h == null) Rpdf_document_draw_ellipse$ = $h = find("Rpdf_document_draw_ellipse", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_INT));
+        try {
+            $h.invokeExact(document, x, y, width, height, paint);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_draw_line$;
+
+    /**
+     * A line in the stroke color.
+     */
+    public static void Rpdf_document_draw_line(int document, float x1, float y1, float x2, float y2) {
+        MethodHandle $h = Rpdf_document_draw_line$;
+        if ($h == null) Rpdf_document_draw_line$ = $h = find("Rpdf_document_draw_line", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(document, x1, y1, x2, y2);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_add_font$;
+
+    /**
+     * Adds a TrueType font (.ttf) to the document (the data is
+     * copied, and embedded in the file). Returns its number for
+     * Rpdf_document_set_font, -1 when it is not a TrueType font.
+     */
+    public static int Rpdf_document_add_font(int document, byte[] data) {
+        MethodHandle $h = Rpdf_document_add_font$;
+        if ($h == null) Rpdf_document_add_font$ = $h = find("Rpdf_document_add_font", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, JAVA_LONG));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment data$ = data == null ? MemorySegment.NULL : bytes($a, data);
+            int $r = (int) $h.invokeExact(document, data$, data$.byteSize());
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_add_font_from_file$;
+
+    public static int Rpdf_document_add_font_from_file(int document, String path) {
+        MethodHandle $h = Rpdf_document_add_font_from_file$;
+        if ($h == null) Rpdf_document_add_font_from_file$ = $h = find("Rpdf_document_add_font_from_file", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(document, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_set_font$;
+
+    /**
+     * The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+     */
+    public static void Rpdf_document_set_font(int document, int font, float size, int style) {
+        MethodHandle $h = Rpdf_document_set_font$;
+        if ($h == null) Rpdf_document_set_font$ = $h = find("Rpdf_document_set_font", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_INT));
+        try {
+            $h.invokeExact(document, font, size, style);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_get_line_height$;
+
+    /**
+     * Distance between two lines of text in the current font.
+     */
+    public static float Rpdf_document_get_line_height(int document) {
+        MethodHandle $h = Rpdf_document_get_line_height$;
+        if ($h == null) Rpdf_document_get_line_height$ = $h = find("Rpdf_document_get_line_height", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(document);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_measure_text$;
+
+    /**
+     * Width of a text in the current font, in points (of its widest line).
+     */
+    public static float Rpdf_document_measure_text(int document, String text) {
+        MethodHandle $h = Rpdf_document_measure_text$;
+        if ($h == null) Rpdf_document_measure_text$ = $h = find("Rpdf_document_measure_text", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            float $r = (float) $h.invokeExact(document, text$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_draw_text$;
+
+    /**
+     * Text in the fill color, the top of its first line at y ('\n'
+     * starts a line below). Returns its width.
+     */
+    public static float Rpdf_document_draw_text(int document, float x, float y, String text) {
+        MethodHandle $h = Rpdf_document_draw_text$;
+        if ($h == null) Rpdf_document_draw_text$ = $h = find("Rpdf_document_draw_text", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            float $r = (float) $h.invokeExact(document, x, y, text$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_draw_paragraph$;
+
+    /**
+     * Text wrapped at the spaces to fit `width`, each line placed by
+     * `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+     * height it took.
+     */
+    public static float Rpdf_document_draw_paragraph(int document, float x, float y, float width, String text, int align) {
+        MethodHandle $h = Rpdf_document_draw_paragraph$;
+        if ($h == null) Rpdf_document_draw_paragraph$ = $h = find("Rpdf_document_draw_paragraph", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            float $r = (float) $h.invokeExact(document, x, y, width, text$, align);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_draw_image$;
+
+    /**
+     * A picture of RGBA8 pixels stretched over a rectangle. A width or
+     * height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+     */
+    public static void Rpdf_document_draw_image(int document, float x, float y, float width, float height, byte[] rgba, int pixels_width, int pixels_height) {
+        MethodHandle $h = Rpdf_document_draw_image$;
+        if ($h == null) Rpdf_document_draw_image$ = $h = find("Rpdf_document_draw_image", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment rgba$ = rgba == null ? MemorySegment.NULL : bytes($a, rgba);
+            $h.invokeExact(document, x, y, width, height, rgba$, pixels_width, pixels_height);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_draw_window$;
+
+    /**
+     * What a window shows (Rwindow_capture), as a picture: a report of
+     * the screen, a chart. A width and height of 0: the size it has on the
+     * screen. Returns R_FALSE when the window cannot be captured.
+     */
+    public static int Rpdf_document_draw_window(int document, int window, float x, float y, float width, float height) {
+        MethodHandle $h = Rpdf_document_draw_window$;
+        if ($h == null) Rpdf_document_draw_window$ = $h = find("Rpdf_document_draw_window", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(document, window, x, y, width, height);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_save$;
+
+    /**
+     * Writes the file. Returns R_FALSE when it cannot be written.
+     */
+    public static int Rpdf_document_save(int document, String path) {
+        MethodHandle $h = Rpdf_document_save$;
+        if ($h == null) Rpdf_document_save$ = $h = find("Rpdf_document_save", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(document, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_save_memory$;
+
+    /**
+     * The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+     */
+    public static byte[] Rpdf_document_save_memory(int document) {
+        MethodHandle $h = Rpdf_document_save_memory$;
+        if ($h == null) Rpdf_document_save_memory$ = $h = find("Rpdf_document_save_memory", FunctionDescriptor.of(ADDRESS, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment size$ = $a.allocate(JAVA_LONG);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(document, size$);
+            if ($r.equals(MemorySegment.NULL)) return null;
+            byte[] $data = $r.reinterpret(size$.get(JAVA_LONG, 0)).toArray(JAVA_BYTE);
+            Rmemory_free($r);
+            return $data;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_print$;
+
+    /**
+     * Prints a PDF document with the print system: on macOS the print
+     * panel, on Windows the print dialog (the pages are drawn by PDFium, see
+     * PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+     * dialog of Raven that chooses the printer. It waits until the job is
+     * sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+     * cannot print. Not in the browser.
+     */
+    public static int Rpdf_print(RPdfPrintDesc desc, byte[] data) {
+        MethodHandle $h = Rpdf_print$;
+        if ($h == null) Rpdf_print$ = $h = find("Rpdf_print", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment data$ = data == null ? MemorySegment.NULL : bytes($a, data);
+            int $r = (int) $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()), data$, data$.byteSize());
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_print_file$;
+
+    public static int Rpdf_print_file(RPdfPrintDesc desc, String path) {
+        MethodHandle $h = Rpdf_print_file$;
+        if ($h == null) Rpdf_print_file$ = $h = find("Rpdf_print_file", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()), path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpdf_document_print$;
+
+    /**
+     * Prints a document written by the application.
+     */
+    public static int Rpdf_document_print(int document, RPdfPrintDesc desc) {
+        MethodHandle $h = Rpdf_document_print$;
+        if ($h == null) Rpdf_document_print$ = $h = find("Rpdf_document_print", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact(document, (MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rtext_editor_create$;

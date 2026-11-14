@@ -85,7 +85,7 @@ static void rvn_dialog_frame(double timeout) {
 }
 
 /* Shows a dialog and runs the application until it closes. */
-static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
+int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 	rvn_dialog_wait_t wait;
 	Rid window_id = window->id, content_id = content->id;
 	/* (called from a timer or a task, the frames must still run) */
@@ -113,7 +113,7 @@ static int rvn_dialog_wait(rvn_window_t* window, rvn_widget_t* content) {
 }
 
 /* A window to show a dialog in: the one given, else any, else a new one (*created). */
-static rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created) {
+rvn_window_t* rvn_dialog_window(Rid id, const char* title, int width, int height, int* created) {
 	rvn_window_t* window = rvn_window_get(id);
 	uint32_t i;
 	*created = R_FALSE;

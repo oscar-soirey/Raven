@@ -255,6 +255,8 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/pagination.c
 	src/widgets/plot.c
 	src/widgets/pdf_view.c
+	src/widgets/pdf_document.c
+	src/widgets/pdf_print.c
 )
 
 set(RAVEN_XML_SOURCES
@@ -334,7 +336,7 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	if(NOT APPLE)
 		message(FATAL_ERROR "Raven: the cocoa platform is only available on macOS")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m src/platform/cocoa/cocoa_print.m)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_COCOA)
 	find_library(RAVEN_APPKIT_FRAMEWORK AppKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
