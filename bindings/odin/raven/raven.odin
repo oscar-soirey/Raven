@@ -1202,6 +1202,11 @@ RComboBoxChangedCallback :: #type proc "c" (combo_box: Rid, index: i32, user_dat
 // asks for the text of the rows it draws. The returned string must stay
 // valid until the next call.
 RListItemTextCallback :: #type proc "c" (list_view: Rid, index: i32, user_data: rawptr) -> cstring
+// Colors the text of rows (a level, a verdict): the list asks for the color
+// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+// kept on a selected or hovered row. NULL removes the callback.
+RListItemColorCallback :: #type proc "c" (list_view: Rid, index: i32, r: ^f32, g: ^f32, b: ^f32, a: ^f32, user_data: rawptr) -> i32
 RListEventCallback :: #type proc "c" (list_view: Rid, index: i32, user_data: rawptr)
 RTreeEventCallback :: #type proc "c" (tree_view: Rid, item: Rid, user_data: rawptr)
 // Right click: `item` is the item under the pointer (selected
@@ -1223,6 +1228,12 @@ RTileDragDataCallback :: #type proc "c" (tile_view: Rid, user_data: rawptr) -> c
 // asks for the texts of the cells it draws. The returned string must stay
 // valid until the next call.
 RTableCellTextCallback :: #type proc "c" (table: Rid, row: i32, column: i32, user_data: rawptr) -> cstring
+// Colors the text of cells (a verdict, a state): the table asks for the
+// color of each cell it draws, stored or virtual (`row` is the index of the
+// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+// keeps the color of the theme. The color is kept on a selected or hovered
+// row. NULL removes the callback.
+RTableCellColorCallback :: #type proc "c" (table: Rid, row: i32, column: i32, r: ^f32, g: ^f32, b: ^f32, a: ^f32, user_data: rawptr) -> i32
 RTableEventCallback :: #type proc "c" (table: Rid, row: i32, user_data: rawptr)
 // Called when the user clicks a header; `column` -1: not sorted.
 RTableSortCallback :: #type proc "c" (table: Rid, column: i32, descending: i32, user_data: rawptr)
@@ -1745,7 +1756,8 @@ RShaderLook :: struct {
 	// How much the pointer is over it and how much it is pressed, 0..1, as
 	// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
 	// the pointer is in the rectangle, and while the left button is down
-	// there; a Border eases them itself.
+	// there; a Border eases them itself. The rectangle is clipped to the
+	// visible painting area; overlaid siblings do not interrupt its hover.
 	hover: f32,
 	press: f32,
 }
@@ -2052,6 +2064,18 @@ foreign lib {
 	// Keeps the window above the other windows (splash screens, tools).
 	// Returns: R_FALSE when the window system cannot do it.
 	Rwindow_set_topmost :: proc(window: Rid, topmost: i32) -> i32 ---
+	// Gives the window an owner (a tool window or an inspector of the
+	// main window): it stays above its owner, has no button of its own in the
+	// taskbar, is minimized and restored with it (where the window system
+	// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+	// destroys the windows a window owns before the window). R_INVALID_ID
+	// gives the window back its independence.
+	// Returns: R_FALSE when the window system cannot keep the window with its
+	// owner (it is still destroyed with it), or when the owner is not valid
+	// or is owned by the window (nothing is changed then).
+	Rwindow_set_owner :: proc(window: Rid, owner: Rid) -> i32 ---
+	// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+	Rwindow_get_owner :: proc(window: Rid) -> Rid ---
 	// Picture in picture: the window becomes a small floating window
 	// that stays above the other windows, on every desktop (every space of
 	// macOS, over the applications in full screen too), in a corner of the
@@ -2098,6 +2122,12 @@ foreign lib {
 	// Takes what is dropped on the window from other applications,
 	// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 	Rwindow_set_drop_callback :: proc(window: Rid, callback: RDropCallback, user_data: rawptr) ---
+	// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+	// in target-local logical units (window-local for a window callback).
+	// Clipped to the target; zero width or height hides it without refusing
+	// the drop. Each callback starts with the default highlight again.
+	// Dimensions must be finite and nonnegative; coordinates must be finite.
+	Rdrop_set_highlight_rect :: proc(x: f32, y: f32, width: f32, height: f32) ---
 	Rwindow_set_user_handle :: proc(window: Rid, handle: rawptr) ---
 	Rwindow_get_user_handle :: proc(window: Rid) -> rawptr ---
 	// Fills `native` with the OS handles of the window.
@@ -2802,6 +2832,7 @@ foreign lib {
 	Rlist_view_clear_items :: proc(list_view: Rid) ---
 	Rlist_view_get_item_count :: proc(list_view: Rid) -> i32 ---
 	Rlist_view_set_virtual_items :: proc(list_view: Rid, count: i32, callback: RListItemTextCallback, user_data: rawptr) ---
+	Rlist_view_set_item_color_callback :: proc(list_view: Rid, callback: RListItemColorCallback, user_data: rawptr) ---
 	// Selects a row. -1 selects nothing.
 	Rlist_view_set_selected :: proc(list_view: Rid, index: i32) ---
 	Rlist_view_get_selected :: proc(list_view: Rid) -> i32 ---
@@ -2880,6 +2911,10 @@ foreign lib {
 	// Shows a shortcut next to the item and triggers the item when the
 	// keys are pressed in the window of its menu bar.
 	Rmenu_item_set_shortcut :: proc(item: Rid, key: RKey, modifiers: u32) ---
+	// Display-only shortcut hint; copied, never binds a key. Overrides
+	// the formatted shortcut without changing its binding. NULL restores the
+	// formatted shortcut; an empty string hides it. XML: ShortcutText.
+	Rmenu_item_set_shortcut_text :: proc(item: Rid, text: cstring) ---
 	Rmenu_item_set_checkable :: proc(item: Rid, checkable: i32) ---
 	Rmenu_item_set_checked :: proc(item: Rid, checked: i32) ---
 	// Icon drawn before the text of a menu item (after the check mark column).
@@ -2950,6 +2985,7 @@ foreign lib {
 	Rtable_clear_rows :: proc(table: Rid) ---
 	Rtable_get_row_count :: proc(table: Rid) -> i32 ---
 	Rtable_set_virtual_rows :: proc(table: Rid, count: i32, callback: RTableCellTextCallback, user_data: rawptr) ---
+	Rtable_set_cell_color_callback :: proc(table: Rid, callback: RTableCellColorCallback, user_data: rawptr) ---
 	// Selects a row. -1 selects nothing.
 	Rtable_set_selected :: proc(table: Rid, row: i32) ---
 	Rtable_get_selected :: proc(table: Rid) -> i32 ---

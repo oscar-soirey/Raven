@@ -248,6 +248,8 @@ const _symbols = {
 	Rwindow_set_opacity: { args: ["u32", "f32"], returns: "i32" },
 	Rwindow_get_opacity: { args: ["u32"], returns: "f32" },
 	Rwindow_set_topmost: { args: ["u32", "i32"], returns: "i32" },
+	Rwindow_set_owner: { args: ["u32", "u32"], returns: "i32" },
+	Rwindow_get_owner: { args: ["u32"], returns: "u32" },
 	Rwindow_set_picture_in_picture: { args: ["u32", "i32"], returns: "i32" },
 	Rwindow_is_picture_in_picture: { args: ["u32"], returns: "i32" },
 	Rwindow_set_picture_in_picture_layout: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
@@ -261,6 +263,7 @@ const _symbols = {
 	Rwindow_set_close_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rwindow_set_resize_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rwindow_set_drop_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rdrop_set_highlight_rect: { args: ["f32", "f32", "f32", "f32"], returns: "void" },
 	Rwindow_set_user_handle: { args: ["u32", "ptr"], returns: "void" },
 	Rwindow_get_user_handle: { args: ["u32"], returns: "ptr" },
 	Rwindow_get_native_handle: { args: ["u32", "ptr"], returns: "i32" },
@@ -581,6 +584,7 @@ const _symbols = {
 	Rlist_view_clear_items: { args: ["u32"], returns: "void" },
 	Rlist_view_get_item_count: { args: ["u32"], returns: "i32" },
 	Rlist_view_set_virtual_items: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rlist_view_set_item_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rlist_view_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rlist_view_get_selected: { args: ["u32"], returns: "i32" },
 	Rlist_view_scroll_to_item: { args: ["u32", "i32"], returns: "void" },
@@ -627,6 +631,7 @@ const _symbols = {
 	Rmenu_item_set_text: { args: ["u32", "ptr"], returns: "void" },
 	Rmenu_item_get_text: { args: ["u32"], returns: "cstring" },
 	Rmenu_item_set_shortcut: { args: ["u32", "i32", "u32"], returns: "void" },
+	Rmenu_item_set_shortcut_text: { args: ["u32", "ptr"], returns: "void" },
 	Rmenu_item_set_checkable: { args: ["u32", "i32"], returns: "void" },
 	Rmenu_item_set_checked: { args: ["u32", "i32"], returns: "void" },
 	Rmenu_item_set_icon: { args: ["u32", "u32", "f32", "f32", "f32", "f32", "i32"], returns: "void" },
@@ -671,6 +676,7 @@ const _symbols = {
 	Rtable_clear_rows: { args: ["u32"], returns: "void" },
 	Rtable_get_row_count: { args: ["u32"], returns: "i32" },
 	Rtable_set_virtual_rows: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_cell_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtable_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rtable_get_selected: { args: ["u32"], returns: "i32" },
 	Rtable_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
@@ -4876,7 +4882,8 @@ export class RShaderLook extends RStruct {
 	 * How much the pointer is over it and how much it is pressed, 0..1, as
 	 * the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
 	 * the pointer is in the rectangle, and while the left button is down
-	 * there; a Border eases them itself.
+	 * there; a Border eases them itself. The rectangle is clipped to the
+	 * visible painting area; overlaid siblings do not interrupt its hover.
 	 */
 	get hover(): number {
 		return this._view.getFloat32(64, true);
@@ -5563,6 +5570,28 @@ function _adapt_RListItemTextCallback(function_: RListItemTextCallback | Pointer
 	}, { args: ["u32", "i32", "ptr"], returns: "ptr", threadsafe }));
 }
 
+/**
+ * Colors the text of rows (a level, a verdict): the list asks for the color
+ * of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+ * R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+ * kept on a selected or hovered row. NULL removes the callback.
+ */
+export type RListItemColorCallback = (list_view: Rid, index: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RListItemColorCallback(function_: RListItemColorCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((list_view: number, index: number, r: Pointer | null, g: Pointer | null, b: Pointer | null, a: Pointer | null, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(list_view, index, r ? new Float32Array(_toArrayBuffer(r, 0, Float32Array.BYTES_PER_ELEMENT)) : null, g ? new Float32Array(_toArrayBuffer(g, 0, Float32Array.BYTES_PER_ELEMENT)) : null, b ? new Float32Array(_toArrayBuffer(b, 0, Float32Array.BYTES_PER_ELEMENT)) : null, a ? new Float32Array(_toArrayBuffer(a, 0, Float32Array.BYTES_PER_ELEMENT)) : null, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32", threadsafe }));
+}
+
 export type RListEventCallback = (list_view: Rid, index: number, user_data: Pointer | null) => void;
 
 function _adapt_RListEventCallback(function_: RListEventCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -5720,6 +5749,29 @@ function _adapt_RTableCellTextCallback(function_: RTableCellTextCallback | Point
 			return _ptr(text);
 		}
 	}, { args: ["u32", "i32", "i32", "ptr"], returns: "ptr", threadsafe }));
+}
+
+/**
+ * Colors the text of cells (a verdict, a state): the table asks for the
+ * color of each cell it draws, stored or virtual (`row` is the index of the
+ * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+ * keeps the color of the theme. The color is kept on a selected or hovered
+ * row. NULL removes the callback.
+ */
+export type RTableCellColorCallback = (table: Rid, row: number, column: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RTableCellColorCallback(function_: RTableCellColorCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((table: number, row: number, column: number, r: Pointer | null, g: Pointer | null, b: Pointer | null, a: Pointer | null, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(table, row, column, r ? new Float32Array(_toArrayBuffer(r, 0, Float32Array.BYTES_PER_ELEMENT)) : null, g ? new Float32Array(_toArrayBuffer(g, 0, Float32Array.BYTES_PER_ELEMENT)) : null, b ? new Float32Array(_toArrayBuffer(b, 0, Float32Array.BYTES_PER_ELEMENT)) : null, a ? new Float32Array(_toArrayBuffer(a, 0, Float32Array.BYTES_PER_ELEMENT)) : null, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "i32", "ptr", "ptr", "ptr", "ptr", "ptr"], returns: "i32", threadsafe }));
 }
 
 export type RTableEventCallback = (table: Rid, row: number, user_data: Pointer | null) => void;
@@ -7079,6 +7131,26 @@ export function Rwindow_set_topmost(window: Rid, topmost: number): number {
 }
 
 /**
+ * Gives the window an owner (a tool window or an inspector of the
+ * main window): it stays above its owner, has no button of its own in the
+ * taskbar, is minimized and restored with it (where the window system
+ * does it: Windows, X11), and is destroyed with it (everywhere: Raven
+ * destroys the windows a window owns before the window). R_INVALID_ID
+ * gives the window back its independence.
+ * Returns: R_FALSE when the window system cannot keep the window with its
+ * owner (it is still destroyed with it), or when the owner is not valid
+ * or is owned by the window (nothing is changed then).
+ */
+export function Rwindow_set_owner(window: Rid, owner: Rid): number {
+	return _lib.Rwindow_set_owner(window, owner);
+}
+
+/** Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID. */
+export function Rwindow_get_owner(window: Rid): Rid {
+	return _lib.Rwindow_get_owner(window);
+}
+
+/**
  * Picture in picture: the window becomes a small floating window
  * that stays above the other windows, on every desktop (every space of
  * macOS, over the applications in full screen too), in a corner of the
@@ -7169,6 +7241,17 @@ export function Rwindow_set_resize_callback(window: Rid, callback: RWindowResize
  */
 export function Rwindow_set_drop_callback(window: Rid, callback: RDropCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rwindow_set_drop_callback(window, _adapt_RDropCallback(callback), user_data);
+}
+
+/**
+ * During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+ * in target-local logical units (window-local for a window callback).
+ * Clipped to the target; zero width or height hides it without refusing
+ * the drop. Each callback starts with the default highlight again.
+ * Dimensions must be finite and nonnegative; coordinates must be finite.
+ */
+export function Rdrop_set_highlight_rect(x: number, y: number, width: number, height: number): void {
+	_lib.Rdrop_set_highlight_rect(x, y, width, height);
 }
 
 export function Rwindow_set_user_handle(window: Rid, handle: RPointer): void {
@@ -9008,6 +9091,10 @@ export function Rlist_view_set_virtual_items(list_view: Rid, count: number, call
 	_lib.Rlist_view_set_virtual_items(list_view, count, _adapt_RListItemTextCallback(callback), user_data);
 }
 
+export function Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rlist_view_set_item_color_callback(list_view, _adapt_RListItemColorCallback(callback), user_data);
+}
+
 /** Selects a row. -1 selects nothing. */
 export function Rlist_view_set_selected(list_view: Rid, index: number): void {
 	_lib.Rlist_view_set_selected(list_view, index);
@@ -9234,6 +9321,15 @@ export function Rmenu_item_set_shortcut(item: Rid, key: RKey, modifiers: number)
 	_lib.Rmenu_item_set_shortcut(item, key, modifiers);
 }
 
+/**
+ * Display-only shortcut hint; copied, never binds a key. Overrides
+ * the formatted shortcut without changing its binding. NULL restores the
+ * formatted shortcut; an empty string hides it. XML: ShortcutText.
+ */
+export function Rmenu_item_set_shortcut_text(item: Rid, text: string | null): void {
+	_lib.Rmenu_item_set_shortcut_text(item, _s(text));
+}
+
 export function Rmenu_item_set_checkable(item: Rid, checkable: number): void {
 	_lib.Rmenu_item_set_checkable(item, checkable);
 }
@@ -9442,6 +9538,10 @@ export function Rtable_get_row_count(table: Rid): number {
 
 export function Rtable_set_virtual_rows(table: Rid, count: number, callback: RTableCellTextCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtable_set_virtual_rows(table, count, _adapt_RTableCellTextCallback(callback), user_data);
+}
+
+export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
 }
 
 /** Selects a row. -1 selects nothing. */
