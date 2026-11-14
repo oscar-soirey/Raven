@@ -1166,6 +1166,13 @@ enum : RDockSide
     R_DOCK_TAB = 0x0364,
 }
 
+alias RDockFloatMode = int;
+enum : RDockFloatMode
+{
+    R_DOCK_FLOAT_WINDOW = 0,
+    R_DOCK_FLOAT_IN_WINDOW = 1,
+}
+
 alias RVisualPreset = int;
 enum : RVisualPreset
 {
@@ -3841,7 +3848,8 @@ void Rdock_area_set_movable(Rid area, int movable);
 const(char)* Rdock_area_save_layout(Rid area);
 /// Arranges the panels as a saved description says. Panels of the
 /// area that the description does not name keep a place; names it has
-/// that match no panel are ignored.
+/// that match no panel are ignored in legacy descriptions. Versioned
+/// descriptions with floating cards reject unknown or duplicate names.
 /// Returns: R_FALSE when the text is not a layout (nothing is changed).
 int Rdock_area_load_layout(Rid area, const(char)* layout);
 void Rdock_area_set_close_callback(Rid area, RDockCloseCallback callback, void* user_data);
@@ -3855,7 +3863,9 @@ void Rdock_area_set_close_callback(Rid area, RDockCloseCallback callback, void* 
 /// work on its panels that are in floating windows.
 void Rdock_area_set_tearable(Rid area, int tearable);
 int Rdock_area_is_tearable(Rid area);
-/// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
+/// Default for future floats/tears; existing floating panels keep their mode.
+void Rdock_area_set_float_mode(Rid area, RDockFloatMode mode);
+/// Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 Rid Rdock_area_float_panel(Rid area, Rid panel, int x, int y);
 /// A floating panel goes back where it was in the area.
 void Rdock_area_dock_panel(Rid area, Rid panel);

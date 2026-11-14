@@ -48,6 +48,10 @@ type
     ##                       give BLUR
     ##   no compositor       nothing: the window stays opaque
   RWindowSystem* = cint
+  RTextInputType* = cint
+    ## What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+  RReturnKey* = cint
+    ## The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
   RWindowEdge* = cint
     ## Edges and corners of a window, for Rwindow_begin_resize.
   RMouseButton* = cint
@@ -122,6 +126,17 @@ type
   RStretch* = cint
   RPlotAxis* = cint
     ## The axes of a Plot.
+  RPdfFit* = cint
+    ## How a PdfView sizes its pages.
+  RPdfStatus* = cint
+    ## What a PdfView holds.
+  RPdfFont* = cint
+    ## The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+  RPdfPaint* = cint
+    ## How a shape of a PDF document is painted: a bitmask.
+  RPdfTextStyle* = cint
+    ## A bitmask of styles of the text of a PDF document.
+  RPdfPrintFlags* = cint
   RPlotScale* = cint
     ## How an axis of a Plot spreads its values.
   RPlotLine* = cint
@@ -143,6 +158,7 @@ type
     ## A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
   RDockSide* = cint
     ## Where a panel goes in a dock area, relative to another panel or to the whole area.
+  RDockFloatMode* = cint
   RVisualPreset* = cint
   RTimelineItem* = cint
     ## What an item of a timeline is.
@@ -200,6 +216,8 @@ type
     ##
     ## Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
     ## Rinit; NULL removes it.
+  RKeyboardCallback* = proc (window: Rid, visible: cint, height: cfloat, user_data: pointer) {.cdecl.}
+    ## The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
   RDropCallback* = proc (target: Rid, event: ptr RDropEvent, user_data: pointer): cint {.cdecl.}
     ## Called for a drop target (a widget, or a window: `target` is its
     ## handle). Return R_TRUE to accept: while the pointer is over the target this
@@ -306,6 +324,8 @@ type
     ## Called while the user drags a drag line. This also fires the action of the widget.
   RPlotSeriesCallback* = proc (plot: Rid, series: cint, visible: cint, user_data: pointer) {.cdecl.}
     ## Called when the user hides or shows a series from the legend.
+  RPdfPageChangedCallback* = proc (view: Rid, page: cint, user_data: pointer) {.cdecl.}
+    ## Called when the current page changes as the user scrolls. This also fires the action of the widget.
   RTextEditorZoomCallback* = proc (editor: Rid, zoom: cfloat, user_data: pointer) {.cdecl.}
     ## Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
   RCompletionCallback* = proc (editor: Rid, prefix: cstring, user_data: pointer) {.cdecl.}
@@ -443,6 +463,21 @@ type
       ## Glass: times the frame was copied and blurred to be seen through (0 without glass).
     paint_job_count*: uint32
     frame_index*: uint64
+  RInsets* {.bycopy.} = object
+    ## Distances from the edges of a window, in logical units.
+    top*: cfloat
+    right*: cfloat
+    bottom*: cfloat
+    left*: cfloat
+  RTextInputInfo* {.bycopy.} = object
+    ## What the platform needs to know of the focused text input to set up the on-screen keyboard.
+    `type`*: RTextInputType
+    return_key*: RReturnKey
+    password*: cint
+      ## R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+    read_only*: cint
+    max_length*: cint
+      ## Most characters accepted; 0 for no limit.
   RNativeWindow* {.bycopy.} = object
     ## Native handles of a window or of a native viewport.
     ##   Win32 : display = HINSTANCE, window = HWND
@@ -451,6 +486,8 @@ type
     ##           Wayland or X11 when Rinit runs: check `system`)
     ##   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
     ##   Emscripten: window = opaque browser surface token (no OS window handle)
+    ##   Android: window = ANativeWindow*
+    ##   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
     system*: RWindowSystem
     display*: pointer
     window*: uint
@@ -627,6 +664,24 @@ type
       ## The same turn as `rotation`, since the previous event.
     cancelled*: cint
       ## R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+  RPdfPrintDesc* {.bycopy.} = object
+    ## How a PDF document is printed. Every field may be left to zero.
+    window*: Rid
+      ## Window the print dialog belongs to (0 or R_INVALID_ID: none).
+    title*: cstring
+      ## Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+    printer*: cstring
+      ## Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+    copies*: cint
+      ## Copies to print (0: one); the dialog may change it.
+    flags*: uint32
+      ## Bitmask of RPdfPrintFlags.
+    output*: cstring
+      ## Path of a file the job is written to instead of a printer. macOS: a
+      ## PDF made by the print system; Windows: what the driver of the printer
+      ## makes; elsewhere: the document itself.
+    password*: cstring
+      ## Password of a document protected by one.
   RTileItem* {.bycopy.} = object
     ## What a tile shows, filled by the application when the tile is drawn.
     text*: cstring
@@ -892,6 +947,26 @@ const
   R_WINDOW_SYSTEM_WAYLAND*: RWindowSystem = 0x0093
   R_WINDOW_SYSTEM_COCOA*: RWindowSystem = 0x0094
   R_WINDOW_SYSTEM_EMSCRIPTEN*: RWindowSystem = 0x0095
+  R_WINDOW_SYSTEM_ANDROID*: RWindowSystem = 0x0096
+  R_WINDOW_SYSTEM_UIKIT*: RWindowSystem = 0x0097
+
+  # RTextInputType
+  R_TEXT_INPUT_TYPE_TEXT*: RTextInputType = 0x0B60
+  R_TEXT_INPUT_TYPE_EMAIL*: RTextInputType = 0x0B61
+  R_TEXT_INPUT_TYPE_NUMBER*: RTextInputType = 0x0B62
+  R_TEXT_INPUT_TYPE_DECIMAL*: RTextInputType = 0x0B63
+    ## Digits and a decimal separator.
+  R_TEXT_INPUT_TYPE_PHONE*: RTextInputType = 0x0B64
+  R_TEXT_INPUT_TYPE_URL*: RTextInputType = 0x0B65
+  R_TEXT_INPUT_TYPE_SEARCH*: RTextInputType = 0x0B66
+
+  # RReturnKey
+  R_RETURN_KEY_DEFAULT*: RReturnKey = 0x0B70
+  R_RETURN_KEY_DONE*: RReturnKey = 0x0B71
+  R_RETURN_KEY_GO*: RReturnKey = 0x0B72
+  R_RETURN_KEY_NEXT*: RReturnKey = 0x0B73
+  R_RETURN_KEY_SEARCH*: RReturnKey = 0x0B74
+  R_RETURN_KEY_SEND*: RReturnKey = 0x0B75
 
   # RWindowEdge
   R_EDGE_LEFT*: RWindowEdge = 0x00D0
@@ -1384,6 +1459,8 @@ const
     ## Page numbers with previous and next.
   R_WIDGET_PLOT*: RWidgetType = 0x0232
     ## Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
+  R_WIDGET_PDF_VIEW*: RWidgetType = 0x0233
+    ## The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -1508,6 +1585,47 @@ const
   R_PLOT_Y2*: RPlotAxis = 0x0523
     ## A second vertical axis, on the right: shown when a series or a drag line uses it.
 
+  # RPdfFit
+  R_PDF_FIT_WIDTH*: RPdfFit = 0x05C0
+    ## The widest page fills the width of the view (default).
+  R_PDF_FIT_PAGE*: RPdfFit = 0x05C1
+    ## The largest page fits whole in the view.
+  R_PDF_FIT_NONE*: RPdfFit = 0x05C2
+    ## The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+
+  # RPdfStatus
+  R_PDF_EMPTY*: RPdfStatus = 0x05D0
+    ## No document.
+  R_PDF_LOADED*: RPdfStatus = 0x05D1
+    ## A document is shown.
+  R_PDF_NEEDS_PASSWORD*: RPdfStatus = 0x05D2
+    ## The document needs a password, or the one given is wrong: load it again with one.
+  R_PDF_ERROR*: RPdfStatus = 0x05D3
+    ## The file could not be read, or is not a PDF document.
+  R_PDF_UNAVAILABLE*: RPdfStatus = 0x05D4
+    ## The PDFium library was not found (see Rpdf_is_available).
+
+  # RPdfFont
+  R_PDF_FONT_SANS*: RPdfFont = 0
+    ## Roboto, the font of the interface of Raven.
+  R_PDF_FONT_MONO*: RPdfFont = 1
+    ## Roboto Mono.
+
+  # RPdfPaint
+  R_PDF_FILL*: RPdfPaint = 1
+    ## Filled with the fill color.
+  R_PDF_STROKE*: RPdfPaint = 2
+    ## Outlined with the stroke color and the line width.
+
+  # RPdfTextStyle
+  R_PDF_TEXT_BOLD*: RPdfTextStyle = 1
+  R_PDF_TEXT_ITALIC*: RPdfTextStyle = 2
+  R_PDF_TEXT_UNDERLINE*: RPdfTextStyle = 4
+
+  # RPdfPrintFlags
+  R_PDF_PRINT_NO_DIALOG*: RPdfPrintFlags = 1
+    ## No dialog: printed at once on the printer named, else the default one.
+
   # RPlotScale
   R_PLOT_SCALE_LINEAR*: RPlotScale = 0x0530
   R_PLOT_SCALE_LOG*: RPlotScale = 0x0531
@@ -1627,6 +1745,10 @@ const
   R_DOCK_BOTTOM*: RDockSide = 0x0363
   R_DOCK_TAB*: RDockSide = 0x0364
     ## Behind the same tabs as the other panel.
+
+  # RDockFloatMode
+  R_DOCK_FLOAT_WINDOW*: RDockFloatMode = 0
+  R_DOCK_FLOAT_IN_WINDOW*: RDockFloatMode = 1
 
   # RVisualPreset
   R_PRESET_AUTO*: RVisualPreset = 0x0510
@@ -1994,6 +2116,18 @@ proc Rwindow_set_title*(window: Rid, title: cstring) {.rapi.}
 proc Rwindow_get_title*(window: Rid): cstring {.rapi.}
 proc Rwindow_set_size*(window: Rid, width: cint, height: cint) {.rapi.}
 proc Rwindow_get_size*(window: Rid, width: ptr cint, height: ptr cint) {.rapi.}
+proc Rwindow_get_safe_area*(window: Rid, insets: ptr RInsets) {.rapi.}
+  ## The part of the window the system covers (status bar, notch,
+  ## home indicator, navigation bar), in logical units. The content of the
+  ## window is laid out inside it already. All 0 on desktop.
+proc Rwindow_get_keyboard_area*(window: Rid, insets: ptr RInsets) {.rapi.}
+  ## The part of the window the on-screen keyboard covers (only
+  ## `bottom` is set), in logical units; 0 when it is hidden or there is
+  ## none (desktop). The content is laid out above it already.
+proc Rwindow_set_keyboard_callback*(window: Rid, callback: RKeyboardCallback, user_data: pointer) {.rapi.}
+  ## Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+proc Rwindow_clear_focus*(window: Rid) {.rapi.}
+  ## No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
 proc Rwindow_set_min_size*(window: Rid, width: cint, height: cint) {.rapi.}
 proc Rwindow_set_position*(window: Rid, x: cint, y: cint) {.rapi.}
 proc Rwindow_get_position*(window: Rid, x: ptr cint, y: ptr cint) {.rapi.}
@@ -2169,6 +2303,18 @@ proc Rwindow_is_mouse_inside*(window: Rid): cint {.rapi.}
   ## R_TRUE while the pointer is over the client area.
 proc Rwindow_wants_text_input*(window: Rid): cint {.rapi.}
   ## R_TRUE when the keyboard focus is in a text input, spin box or text editor.
+proc Rwindow_get_text_input_info*(window: Rid, info: ptr RTextInputInfo): cint {.rapi.}
+  ## The kind of the focused text input; R_FALSE when there is none.
+proc Rwindow_get_text_input_text*(window: Rid): cstring {.rapi.}
+  ## Its text (UTF-8), valid until it changes; NULL when there is none.
+proc Rwindow_get_text_input_selection*(window: Rid, start: ptr cint, `end`: ptr cint): cint {.rapi.}
+  ## Its selection: start == end is the caret. R_FALSE when there is none.
+proc Rwindow_set_text_input_selection*(window: Rid, start: cint, `end`: cint): cint {.rapi.}
+  ## Selects bytes [start, end) of it (end before start puts the caret at end).
+proc Rwindow_replace_text_input*(window: Rid, start: cint, `end`: cint, text: cstring): cint {.rapi.}
+  ## Replaces bytes [start, end) of it with `text` and puts the caret
+  ## after it, as typing would (the changed callback runs; MaxLength
+  ## applies). R_FALSE when there is none or it is read-only.
 proc Rwindow_has_popup*(window: Rid): cint {.rapi.}
   ## R_TRUE while a menu, list or dialog is open over the window.
 proc Rwindow_get_text_input_rect*(window: Rid, x: ptr cint, y: ptr cint, width: ptr cint, height: ptr cint): cint {.rapi.}
@@ -2283,6 +2429,12 @@ proc Rtheme_set_dark*(dark: cint) {.rapi.}
   ## Tells whether the theme is a dark one. It decides the tint of
   ## the glass, the colors of the code and which wallpaper the glass themes
   ## use. Rtheme_apply and the theme files set it.
+proc Rtheme_get_system_dark*(): cint {.rapi.}
+  ## R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+proc Rtheme_follow_system*(enabled: cint) {.rapi.}
+  ## Follows the dark or light mode of the system with the Raven look
+  ## (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+  ## Off by default. Does nothing where the platform does not tell (desktop today).
 proc Rtheme_is_dark*(): cint {.rapi.}
 proc Rtheme_set_wallpaper*(texture: Rid) {.rapi.}
   ## Image drawn behind the content of the windows that have no
@@ -2801,6 +2953,12 @@ proc Rtext_input_set_read_only*(text_input: Rid, read_only: cint) {.rapi.}
 proc Rtext_input_set_max_length*(text_input: Rid, max_length: cint) {.rapi.}
   ## Maximum number of characters. 0 = no limit (default).
 proc Rtext_input_select_all*(text_input: Rid) {.rapi.}
+proc Rtext_input_set_input_type*(text_input: Rid, `type`: RTextInputType) {.rapi.}
+  ## What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+proc Rtext_input_get_input_type*(text_input: Rid): RTextInputType {.rapi.}
+proc Rtext_input_set_return_key*(text_input: Rid, key: RReturnKey) {.rapi.}
+  ## The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+proc Rtext_input_get_return_key*(text_input: Rid): RReturnKey {.rapi.}
 proc Rtext_input_set_changed_callback*(text_input: Rid, callback: RTextChangedCallback, user_data: pointer) {.rapi.}
   ## Called on every edit.
 proc Rtext_input_set_committed_callback*(text_input: Rid, callback: RTextChangedCallback, user_data: pointer) {.rapi.}
@@ -2813,6 +2971,13 @@ proc Rspin_box_get_range*(spin_box: Rid, minimum: ptr cdouble, maximum: ptr cdou
 proc Rspin_box_set_step*(spin_box: Rid, step: cdouble) {.rapi.}
 proc Rspin_box_set_decimals*(spin_box: Rid, decimals: cint) {.rapi.}
   ## Digits shown after the decimal point. Default: 2.
+proc Rspin_box_set_buttons*(spin_box: Rid, buttons: cint) {.rapi.}
+  ## Step buttons in the looks of Raven too: a down button at the left
+  ## end and an up button at the right end, the value between them (XML
+  ## `Buttons="True"`). A click steps once; holding a button repeats its step.
+  ## The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+  ## Default: R_FALSE (drag to scrub, arrows / wheel to step).
+proc Rspin_box_get_buttons*(spin_box: Rid): cint {.rapi.}
 proc Rspin_box_set_changed_callback*(spin_box: Rid, callback: RSpinBoxChangedCallback, user_data: pointer) {.rapi.}
 proc Rcombo_box_add_item*(combo_box: Rid, text: cstring): cint {.rapi.}
   ## Returns: The index of the new item.
@@ -2907,6 +3072,12 @@ proc Rmenu_add_menu*(menu_bar_or_menu: Rid, title: cstring): Rid {.rapi.}
 proc Rmenu_set_title*(menu: Rid, title: cstring) {.rapi.}
 proc Rmenu_add_item*(menu: Rid, text: cstring): Rid {.rapi.}
 proc Rmenu_add_separator*(menu: Rid): Rid {.rapi.}
+proc Rmenu_add_header*(menu: Rid, text: cstring): Rid {.rapi.}
+  ## A noninteractive caption row, skipped by keyboard navigation.
+proc Rmenu_bar_add_divider*(menu_bar: Rid): Rid {.rapi.}
+  ## A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+proc Rmenu_set_title_color*(menu: Rid, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+  ## Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
 proc Rmenu_item_set_text*(item: Rid, text: cstring) {.rapi.}
 proc Rmenu_item_get_text*(item: Rid): cstring {.rapi.}
 proc Rmenu_item_set_shortcut*(item: Rid, key: RKey, modifiers: uint32) {.rapi.}
@@ -3171,6 +3342,96 @@ proc Rplot_set_drag_line_color*(plot: Rid, line: cint, r: cfloat, g: cfloat, b: 
 proc Rplot_set_view_changed_callback*(plot: Rid, callback: RPlotViewCallback, user_data: pointer) {.rapi.}
 proc Rplot_set_drag_line_callback*(plot: Rid, callback: RPlotDragLineCallback, user_data: pointer) {.rapi.}
 proc Rplot_set_series_toggled_callback*(plot: Rid, callback: RPlotSeriesCallback, user_data: pointer) {.rapi.}
+proc Rpdf_is_available*(): cint {.rapi.}
+  ## R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+proc Rpdf_view_load_file*(view: Rid, path: cstring, password: cstring): cint {.rapi.}
+  ## Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+  ## cannot: Rpdf_view_get_status tells why (a password is needed, not a
+  ## PDF, no PDFium). The view then shows that instead of pages.
+proc Rpdf_view_load_memory*(view: Rid, data: cstring, data_size: csize_t, password: cstring): cint {.rapi.}
+  ## Same as Rpdf_view_load_file, from bytes in memory (copied).
+proc Rpdf_view_close*(view: Rid) {.rapi.}
+  ## Closes the document: the view is empty.
+proc Rpdf_view_get_status*(view: Rid): RPdfStatus {.rapi.}
+proc Rpdf_view_get_page_count*(view: Rid): cint {.rapi.}
+proc Rpdf_view_get_page_size*(view: Rid, page: cint, width: ptr cfloat, height: ptr cfloat) {.rapi.}
+  ## Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+proc Rpdf_view_set_page*(view: Rid, page: cint) {.rapi.}
+  ## Scrolls to the top of a page; it becomes the current page.
+proc Rpdf_view_get_page*(view: Rid): cint {.rapi.}
+  ## The current page: the one a third down the view.
+proc Rpdf_view_set_zoom*(view: Rid, zoom: cfloat) {.rapi.}
+  ## A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+proc Rpdf_view_get_zoom*(view: Rid): cfloat {.rapi.}
+  ## The zoom the pages show at, the one a fit gives included.
+proc Rpdf_view_set_fit*(view: Rid, fit: RPdfFit) {.rapi.}
+proc Rpdf_view_get_fit*(view: Rid): RPdfFit {.rapi.}
+proc Rpdf_view_get_title*(view: Rid): cstring {.rapi.}
+  ## The title of the document (its information), "" when it has none.
+proc Rpdf_view_get_page_text*(view: Rid, page: cint): cstring {.rapi.}
+  ## The text of a page (UTF-8), to search it or copy it. Valid until
+  ## the next call for this view.
+proc Rpdf_view_set_page_changed_callback*(view: Rid, callback: RPdfPageChangedCallback, user_data: pointer) {.rapi.}
+proc Rpdf_view_print*(view: Rid, desc: ptr RPdfPrintDesc): cint {.rapi.}
+  ## Prints the document shown (see Rpdf_print); the job is named after its title.
+proc Rpdf_document_create*(): Rid {.rapi.}
+proc Rpdf_document_delete*(document: Rid) {.rapi.}
+proc Rpdf_document_set_title*(document: Rid, title: cstring) {.rapi.}
+  ## The information of the document, shown by readers (the title in their window).
+proc Rpdf_document_set_author*(document: Rid, author: cstring) {.rapi.}
+proc Rpdf_document_set_subject*(document: Rid, subject: cstring) {.rapi.}
+proc Rpdf_document_add_page*(document: Rid, width: cfloat, height: cfloat): cint {.rapi.}
+  ## Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+proc Rpdf_document_get_page_count*(document: Rid): cint {.rapi.}
+proc Rpdf_document_set_fill_color*(document: Rid, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+proc Rpdf_document_set_stroke_color*(document: Rid, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+proc Rpdf_document_set_line_width*(document: Rid, width: cfloat) {.rapi.}
+  ## Width of the lines and outlines, in points (default 1).
+proc Rpdf_document_draw_rect*(document: Rid, x: cfloat, y: cfloat, width: cfloat, height: cfloat, radius: cfloat, paint: uint32) {.rapi.}
+  ## A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+proc Rpdf_document_draw_ellipse*(document: Rid, x: cfloat, y: cfloat, width: cfloat, height: cfloat, paint: uint32) {.rapi.}
+  ## The ellipse inside a rectangle.
+proc Rpdf_document_draw_line*(document: Rid, x1: cfloat, y1: cfloat, x2: cfloat, y2: cfloat) {.rapi.}
+  ## A line in the stroke color.
+proc Rpdf_document_add_font*(document: Rid, data: cstring, data_size: csize_t): cint {.rapi.}
+  ## Adds a TrueType font (.ttf) to the document (the data is
+  ## copied, and embedded in the file). Returns its number for
+  ## Rpdf_document_set_font, -1 when it is not a TrueType font.
+proc Rpdf_document_add_font_from_file*(document: Rid, path: cstring): cint {.rapi.}
+proc Rpdf_document_set_font*(document: Rid, font: cint, size: cfloat, style: uint32) {.rapi.}
+  ## The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+proc Rpdf_document_get_line_height*(document: Rid): cfloat {.rapi.}
+  ## Distance between two lines of text in the current font.
+proc Rpdf_document_measure_text*(document: Rid, text: cstring): cfloat {.rapi.}
+  ## Width of a text in the current font, in points (of its widest line).
+proc Rpdf_document_draw_text*(document: Rid, x: cfloat, y: cfloat, text: cstring): cfloat {.rapi.}
+  ## Text in the fill color, the top of its first line at y ('\n'
+  ## starts a line below). Returns its width.
+proc Rpdf_document_draw_paragraph*(document: Rid, x: cfloat, y: cfloat, width: cfloat, text: cstring, align: RHAlign): cfloat {.rapi.}
+  ## Text wrapped at the spaces to fit `width`, each line placed by
+  ## `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+  ## height it took.
+proc Rpdf_document_draw_image*(document: Rid, x: cfloat, y: cfloat, width: cfloat, height: cfloat, rgba: ptr uint8, pixels_width: cint, pixels_height: cint) {.rapi.}
+  ## A picture of RGBA8 pixels stretched over a rectangle. A width or
+  ## height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+proc Rpdf_document_draw_window*(document: Rid, window: Rid, x: cfloat, y: cfloat, width: cfloat, height: cfloat): cint {.rapi.}
+  ## What a window shows (Rwindow_capture), as a picture: a report of
+  ## the screen, a chart. A width and height of 0: the size it has on the
+  ## screen. Returns R_FALSE when the window cannot be captured.
+proc Rpdf_document_save*(document: Rid, path: cstring): cint {.rapi.}
+  ## Writes the file. Returns R_FALSE when it cannot be written.
+proc Rpdf_document_save_memory*(document: Rid, size: ptr csize_t): cstring {.rapi.}
+  ## The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+proc Rpdf_print*(desc: ptr RPdfPrintDesc, data: cstring, data_size: csize_t): cint {.rapi.}
+  ## Prints a PDF document with the print system: on macOS the print
+  ## panel, on Windows the print dialog (the pages are drawn by PDFium, see
+  ## PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+  ## dialog of Raven that chooses the printer. It waits until the job is
+  ## sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+  ## cannot print. Not in the browser.
+proc Rpdf_print_file*(desc: ptr RPdfPrintDesc, path: cstring): cint {.rapi.}
+proc Rpdf_document_print*(document: Rid, desc: ptr RPdfPrintDesc): cint {.rapi.}
+  ## Prints a document written by the application.
 proc Rtext_editor_create*(text: cstring): Rid {.rapi.}
   ## text Initial content, or NULL.
 proc Rtext_editor_set_text*(editor: Rid, text: cstring) {.rapi.}
@@ -3363,7 +3624,8 @@ proc Rdock_area_save_layout*(area: Rid): cstring {.rapi.}
 proc Rdock_area_load_layout*(area: Rid, layout: cstring): cint {.rapi.}
   ## Arranges the panels as a saved description says. Panels of the
   ## area that the description does not name keep a place; names it has
-  ## that match no panel are ignored.
+  ## that match no panel are ignored in legacy descriptions. Versioned
+  ## descriptions with floating cards reject unknown or duplicate names.
   ## Returns: R_FALSE when the text is not a layout (nothing is changed).
 proc Rdock_area_set_close_callback*(area: Rid, callback: RDockCloseCallback, user_data: pointer) {.rapi.}
 proc Rdock_area_set_tearable*(area: Rid, tearable: cint) {.rapi.}
@@ -3376,8 +3638,10 @@ proc Rdock_area_set_tearable*(area: Rid, tearable: cint) {.rapi.}
   ## Tearable="false". The functions of this area that take a panel also
   ## work on its panels that are in floating windows.
 proc Rdock_area_is_tearable*(area: Rid): cint {.rapi.}
+proc Rdock_area_set_float_mode*(area: Rid, mode: RDockFloatMode) {.rapi.}
+  ## Default for future floats/tears; existing floating panels keep their mode.
 proc Rdock_area_float_panel*(area: Rid, panel: Rid, x: cint, y: cint): Rid {.rapi.}
-  ## Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
+  ## Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 proc Rdock_area_dock_panel*(area: Rid, panel: Rid) {.rapi.}
   ## A floating panel goes back where it was in the area.
 proc Rdock_area_get_panel_window*(area: Rid, panel: Rid): Rid {.rapi.}
@@ -3799,7 +4063,7 @@ proc Rnode_graph_set_pin_label_width*(graph: Rid, width: cfloat) {.rapi.}
   ## default, shows every label whole.
 proc Rnode_graph_get_pin_label_width*(graph: Rid): cfloat {.rapi.}
 proc Rnode_graph_set_node_badge_color*(graph: Rid, node: cint, r: cfloat, g: cfloat, b: cfloat) {.rapi.}
-  ## Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+  ## Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
 proc Rblock_editor_create*(): Rid {.rapi.}
 proc Rblock_editor_add_kind*(editor: Rid, name: cstring, label: cstring, shape: RBlockShape, category: cstring): cint {.rapi.}
   ## A kind of block, and its block in the palette. Returns its index, -1 on an error.
@@ -3984,6 +4248,10 @@ proc Rcustom_set_measure_callback*(widget: Rid, callback: RMeasureCallback, user
   ## Reports the desired size of the widget. Without it the widget asks for 0 x 0.
 proc Rdraw_rect*(painter: ptr RPainter, x: cfloat, y: cfloat, width: cfloat, height: cfloat, radius: cfloat, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
   ## Filled rectangle with rounded corners (radius 0 = sharp).
+proc Rdraw_shadow*(painter: ptr RPainter, x: cfloat, y: cfloat, width: cfloat, height: cfloat, radius: cfloat, blur: cfloat, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+  ## Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+  ## Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+  ## Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
 proc Rdraw_rect_outline*(painter: ptr RPainter, x: cfloat, y: cfloat, width: cfloat, height: cfloat, radius: cfloat, thickness: cfloat, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
   ## Outline of a rounded rectangle, drawn inside its bounds.
 proc Rdraw_circle*(painter: ptr RPainter, center_x: cfloat, center_y: cfloat, radius: cfloat, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
