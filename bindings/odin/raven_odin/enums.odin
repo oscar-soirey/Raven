@@ -110,6 +110,30 @@ Window_System :: enum i32 {
 	Wayland = 0x0093,
 	Cocoa = 0x0094,
 	Emscripten = 0x0095,
+	Android = 0x0096,
+	Uikit = 0x0097,
+}
+
+// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+Text_Input_Type :: enum i32 {
+	Text = 0x0B60,
+	Email = 0x0B61,
+	Number = 0x0B62,
+	// Digits and a decimal separator.
+	Decimal = 0x0B63,
+	Phone = 0x0B64,
+	Url = 0x0B65,
+	Search = 0x0B66,
+}
+
+// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+Return_Key :: enum i32 {
+	Default = 0x0B70,
+	Done = 0x0B71,
+	Go = 0x0B72,
+	Next = 0x0B73,
+	Search = 0x0B74,
+	Send = 0x0B75,
 }
 
 // Edges and corners of a window, for Rwindow_begin_resize.

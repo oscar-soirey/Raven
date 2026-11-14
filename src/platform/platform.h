@@ -6,6 +6,8 @@
  *   platform/wayland/ Wayland            (Linux, BSD; compiled beside X11)
  *   platform/win32/   Win32              (Windows)
  *   platform/cocoa/   Cocoa + Metal      (macOS)
+ *   platform/uikit/   UIKit + Metal      (iOS; experimental)
+ *   platform/android/ NativeActivity     (Android, android_native_app_glue; experimental)
  *   platform/null/    no window at all   (headless runs, tests)
  *
  * To port Raven to another window system, implement this table and return
@@ -92,7 +94,11 @@ typedef enum rvn_pevent_type_t {
 	/** The system asks the application to quit (Quit in the application menu of macOS, in the Dock). `user` may be NULL. */
 	RVN_PEVENT_QUIT,
 	/** A tray icon was clicked: `user` is the one given to tray_create (not a window), `button` an RMouseButton. */
-	RVN_PEVENT_TRAY
+	RVN_PEVENT_TRAY,
+	/** The safe area of the window changed (rotation, status bar): the core asks window_get_safe_area again. */
+	RVN_PEVENT_INSETS,
+	/** The system switched between dark and light: the core asks system_dark again. `user` may be NULL. */
+	RVN_PEVENT_APPEARANCE
 } rvn_pevent_type_t;
 
 /**
@@ -403,6 +409,26 @@ typedef struct rvn_platform_t {
 	 * R_FALSE when it could not be shown.
 	 */
 	int   (*notify)(const char* app, const char* title, const char* body, int urgency);
+
+	/*
+	 * ---- mobile (optional, NULL on desktop) ----
+	 */
+	/**
+	 * The part of the window that the system covers (status bar, notch,
+	 * home indicator, navigation bar), in pixels: top, right, bottom, left.
+	 * The core lays the content out inside it. Sends RVN_PEVENT_INSETS when it changes.
+	 */
+	void  (*window_get_safe_area)(rvn_pwindow_t* window, float insets[4]);
+	/** R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when it does not tell. Sends RVN_PEVENT_APPEARANCE when it changes. */
+	int   (*system_dark)(void);
+	/**
+	 * Height of the on-screen keyboard over the bottom of the window, in
+	 * pixels; 0 when it is hidden. The core lays the content out above it.
+	 * Sends RVN_PEVENT_INSETS when it changes. The platform shows the
+	 * keyboard while Rwindow_wants_text_input says so, and delivers what is
+	 * typed as RVN_PEVENT_TEXT and RVN_PEVENT_KEY (Backspace, Enter).
+	 */
+	float (*window_get_keyboard_height)(rvn_pwindow_t* window);
 } rvn_platform_t;
 
 #if defined(RAVEN_PLATFORM_EMSCRIPTEN)
@@ -461,6 +487,12 @@ const rvn_platform_t* rvn_platform_win32(void);
 #endif
 #if defined(RAVEN_PLATFORM_COCOA)
 const rvn_platform_t* rvn_platform_cocoa(void);
+#endif
+#if defined(RAVEN_PLATFORM_UIKIT)
+const rvn_platform_t* rvn_platform_uikit(void);
+#endif
+#if defined(RAVEN_PLATFORM_ANDROID)
+const rvn_platform_t* rvn_platform_android(void);
 #endif
 
 #endif /* RVN_PLATFORM_H */

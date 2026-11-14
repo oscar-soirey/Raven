@@ -245,6 +245,8 @@ static const rvn_schema_attribute_t g_text_input[] = {
 	B("Password", "Shows dots."),
 	B("ReadOnly", "Can be selected and copied, not changed."),
 	N("MaxLength", "Most characters accepted; 0 for no limit."),
+	C("InputType", "Text|Email|Number|Decimal|Phone|Url|Search", "What it holds: picks the on-screen keyboard on mobile."),
+	C("ReturnKey", "Default|Done|Go|Next|Search|Send", "The return key of the on-screen keyboard."),
 	A("OnChanged", "Action fired at each change."),
 	A("OnCommitted", "Action fired by Enter."),
 };

@@ -144,6 +144,28 @@ R_WINDOW_SYSTEM_X11 :: 0x0092
 R_WINDOW_SYSTEM_WAYLAND :: 0x0093
 R_WINDOW_SYSTEM_COCOA :: 0x0094
 R_WINDOW_SYSTEM_EMSCRIPTEN :: 0x0095
+R_WINDOW_SYSTEM_ANDROID :: 0x0096
+R_WINDOW_SYSTEM_UIKIT :: 0x0097
+
+// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+RTextInputType :: i32
+R_TEXT_INPUT_TYPE_TEXT :: 0x0B60
+R_TEXT_INPUT_TYPE_EMAIL :: 0x0B61
+R_TEXT_INPUT_TYPE_NUMBER :: 0x0B62
+// Digits and a decimal separator.
+R_TEXT_INPUT_TYPE_DECIMAL :: 0x0B63
+R_TEXT_INPUT_TYPE_PHONE :: 0x0B64
+R_TEXT_INPUT_TYPE_URL :: 0x0B65
+R_TEXT_INPUT_TYPE_SEARCH :: 0x0B66
+
+// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+RReturnKey :: i32
+R_RETURN_KEY_DEFAULT :: 0x0B70
+R_RETURN_KEY_DONE :: 0x0B71
+R_RETURN_KEY_GO :: 0x0B72
+R_RETURN_KEY_NEXT :: 0x0B73
+R_RETURN_KEY_SEARCH :: 0x0B74
+R_RETURN_KEY_SEND :: 0x0B75
 
 // Edges and corners of a window, for Rwindow_begin_resize.
 RWindowEdge :: i32
@@ -1149,6 +1171,8 @@ RErrorCallback :: #type proc "c" (code: RError, severity: RSeverity, detail: cst
 // Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
 // Rinit; NULL removes it.
 RDeviceResetCallback :: #type proc "c" (user_data: rawptr)
+// The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+RKeyboardCallback :: #type proc "c" (window: Rid, visible: i32, height: f32, user_data: rawptr)
 // Called for a drop target (a widget, or a window: `target` is its
 // handle). Return R_TRUE to accept: while the pointer is over the target this
 // shows the "can drop here" cursor and highlights the target; for
@@ -1401,6 +1425,25 @@ RFrameStats :: struct {
 	frame_index: u64,
 }
 
+// Distances from the edges of a window, in logical units.
+RInsets :: struct {
+	top: f32,
+	right: f32,
+	bottom: f32,
+	left: f32,
+}
+
+// What the platform needs to know of the focused text input to set up the on-screen keyboard.
+RTextInputInfo :: struct {
+	type: RTextInputType,
+	return_key: RReturnKey,
+	// R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+	password: i32,
+	read_only: i32,
+	// Most characters accepted; 0 for no limit.
+	max_length: i32,
+}
+
 // Native handles of a window or of a native viewport.
 //   Win32 : display = HINSTANCE, window = HWND
 //   X11   : display = Display*,  window = Window (XID), visual = VisualID
@@ -1408,6 +1451,8 @@ RFrameStats :: struct {
 //           Wayland or X11 when Rinit runs: check `system`)
 //   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
 //   Emscripten: window = opaque browser surface token (no OS window handle)
+//   Android: window = ANativeWindow*
+//   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 RNativeWindow :: struct {
 	system: RWindowSystem,
 	display: rawptr,
@@ -1982,6 +2027,18 @@ foreign lib {
 	Rwindow_get_title :: proc(window: Rid) -> cstring ---
 	Rwindow_set_size :: proc(window: Rid, width: i32, height: i32) ---
 	Rwindow_get_size :: proc(window: Rid, width: ^i32, height: ^i32) ---
+	// The part of the window the system covers (status bar, notch,
+	// home indicator, navigation bar), in logical units. The content of the
+	// window is laid out inside it already. All 0 on desktop.
+	Rwindow_get_safe_area :: proc(window: Rid, insets: ^RInsets) ---
+	// The part of the window the on-screen keyboard covers (only
+	// `bottom` is set), in logical units; 0 when it is hidden or there is
+	// none (desktop). The content is laid out above it already.
+	Rwindow_get_keyboard_area :: proc(window: Rid, insets: ^RInsets) ---
+	// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+	Rwindow_set_keyboard_callback :: proc(window: Rid, callback: RKeyboardCallback, user_data: rawptr) ---
+	// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+	Rwindow_clear_focus :: proc(window: Rid) ---
 	Rwindow_set_min_size :: proc(window: Rid, width: i32, height: i32) ---
 	Rwindow_set_position :: proc(window: Rid, x: i32, y: i32) ---
 	Rwindow_get_position :: proc(window: Rid, x: ^i32, y: ^i32) ---
@@ -2157,6 +2214,18 @@ foreign lib {
 	Rwindow_is_mouse_inside :: proc(window: Rid) -> i32 ---
 	// R_TRUE when the keyboard focus is in a text input, spin box or text editor.
 	Rwindow_wants_text_input :: proc(window: Rid) -> i32 ---
+	// The kind of the focused text input; R_FALSE when there is none.
+	Rwindow_get_text_input_info :: proc(window: Rid, info: ^RTextInputInfo) -> i32 ---
+	// Its text (UTF-8), valid until it changes; NULL when there is none.
+	Rwindow_get_text_input_text :: proc(window: Rid) -> cstring ---
+	// Its selection: start == end is the caret. R_FALSE when there is none.
+	Rwindow_get_text_input_selection :: proc(window: Rid, start: ^i32, end: ^i32) -> i32 ---
+	// Selects bytes [start, end) of it (end before start puts the caret at end).
+	Rwindow_set_text_input_selection :: proc(window: Rid, start: i32, end: i32) -> i32 ---
+	// Replaces bytes [start, end) of it with `text` and puts the caret
+	// after it, as typing would (the changed callback runs; MaxLength
+	// applies). R_FALSE when there is none or it is read-only.
+	Rwindow_replace_text_input :: proc(window: Rid, start: i32, end: i32, text: cstring) -> i32 ---
 	// R_TRUE while a menu, list or dialog is open over the window.
 	Rwindow_has_popup :: proc(window: Rid) -> i32 ---
 	// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
@@ -2271,6 +2340,12 @@ foreign lib {
 	// the glass, the colors of the code and which wallpaper the glass themes
 	// use. Rtheme_apply and the theme files set it.
 	Rtheme_set_dark :: proc(dark: i32) ---
+	// R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+	Rtheme_get_system_dark :: proc() -> i32 ---
+	// Follows the dark or light mode of the system with the Raven look
+	// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+	// Off by default. Does nothing where the platform does not tell (desktop today).
+	Rtheme_follow_system :: proc(enabled: i32) ---
 	Rtheme_is_dark :: proc() -> i32 ---
 	// Image drawn behind the content of the windows that have no
 	// background of their own, or R_INVALID_ID for none (the window color).
@@ -2789,6 +2864,12 @@ foreign lib {
 	// Maximum number of characters. 0 = no limit (default).
 	Rtext_input_set_max_length :: proc(text_input: Rid, max_length: i32) ---
 	Rtext_input_select_all :: proc(text_input: Rid) ---
+	// What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+	Rtext_input_set_input_type :: proc(text_input: Rid, type: RTextInputType) ---
+	Rtext_input_get_input_type :: proc(text_input: Rid) -> RTextInputType ---
+	// The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+	Rtext_input_set_return_key :: proc(text_input: Rid, key: RReturnKey) ---
+	Rtext_input_get_return_key :: proc(text_input: Rid) -> RReturnKey ---
 	// Called on every edit.
 	Rtext_input_set_changed_callback :: proc(text_input: Rid, callback: RTextChangedCallback, user_data: rawptr) ---
 	// Called when Enter is pressed. This also fires the action of the widget.

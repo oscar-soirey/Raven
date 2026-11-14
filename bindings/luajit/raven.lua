@@ -88,7 +88,26 @@ typedef enum RWindowSystem {
 	R_WINDOW_SYSTEM_WAYLAND = 147,
 	R_WINDOW_SYSTEM_COCOA = 148,
 	R_WINDOW_SYSTEM_EMSCRIPTEN = 149,
+	R_WINDOW_SYSTEM_ANDROID = 150,
+	R_WINDOW_SYSTEM_UIKIT = 151,
 } RWindowSystem;
+typedef enum RTextInputType {
+	R_TEXT_INPUT_TYPE_TEXT = 2912,
+	R_TEXT_INPUT_TYPE_EMAIL = 2913,
+	R_TEXT_INPUT_TYPE_NUMBER = 2914,
+	R_TEXT_INPUT_TYPE_DECIMAL = 2915,
+	R_TEXT_INPUT_TYPE_PHONE = 2916,
+	R_TEXT_INPUT_TYPE_URL = 2917,
+	R_TEXT_INPUT_TYPE_SEARCH = 2918,
+} RTextInputType;
+typedef enum RReturnKey {
+	R_RETURN_KEY_DEFAULT = 2928,
+	R_RETURN_KEY_DONE = 2929,
+	R_RETURN_KEY_GO = 2930,
+	R_RETURN_KEY_NEXT = 2931,
+	R_RETURN_KEY_SEARCH = 2932,
+	R_RETURN_KEY_SEND = 2933,
+} RReturnKey;
 typedef enum RWindowEdge {
 	R_EDGE_LEFT = 208,
 	R_EDGE_RIGHT = 209,
@@ -760,6 +779,8 @@ typedef struct RInitDesc RInitDesc;
 typedef struct RAllocator RAllocator;
 typedef struct RMemoryStats RMemoryStats;
 typedef struct RFrameStats RFrameStats;
+typedef struct RInsets RInsets;
+typedef struct RTextInputInfo RTextInputInfo;
 typedef struct RNativeWindow RNativeWindow;
 typedef struct REvent REvent;
 typedef struct RDropEvent RDropEvent;
@@ -786,6 +807,7 @@ typedef void (*RTimerCallback)(Rid timer, void* user_data);
 typedef void (*RActionCallback)(Rid sender, const char* action, void* user_data);
 typedef void (*RErrorCallback)(RError code, RSeverity severity, const char* detail);
 typedef void (*RDeviceResetCallback)(void* user_data);
+typedef void (*RKeyboardCallback)(Rid window, int visible, float height, void* user_data);
 typedef int (*RDropCallback)(Rid target, const RDropEvent* event, void* user_data);
 typedef int (*RWindowCloseCallback)(Rid window, void* user_data);
 typedef void (*RWindowResizeCallback)(Rid window, int width, int height, void* user_data);
@@ -891,6 +913,19 @@ struct RFrameStats {
 	Ruint backdrop_count;
 	Ruint paint_job_count;
 	uint64_t frame_index;
+};
+struct RInsets {
+	float top;
+	float right;
+	float bottom;
+	float left;
+};
+struct RTextInputInfo {
+	RTextInputType type;
+	RReturnKey return_key;
+	int password;
+	int read_only;
+	int max_length;
 };
 struct RNativeWindow {
 	RWindowSystem system;
@@ -1171,6 +1206,10 @@ void Rwindow_set_title(Rid window, const char* title);
 const char* Rwindow_get_title(Rid window);
 void Rwindow_set_size(Rid window, int width, int height);
 void Rwindow_get_size(Rid window, int* width, int* height);
+void Rwindow_get_safe_area(Rid window, RInsets* insets);
+void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
+void Rwindow_set_keyboard_callback(Rid window, RKeyboardCallback callback, void* user_data);
+void Rwindow_clear_focus(Rid window);
 void Rwindow_set_min_size(Rid window, int width, int height);
 void Rwindow_set_position(Rid window, int x, int y);
 void Rwindow_get_position(Rid window, int* x, int* y);
@@ -1234,6 +1273,11 @@ int Rwindow_is_mouse_button_down(Rid window, RMouseButton button);
 Ruint Rwindow_get_modifiers(Rid window);
 int Rwindow_is_mouse_inside(Rid window);
 int Rwindow_wants_text_input(Rid window);
+int Rwindow_get_text_input_info(Rid window, RTextInputInfo* info);
+const char* Rwindow_get_text_input_text(Rid window);
+int Rwindow_get_text_input_selection(Rid window, int* start, int* end);
+int Rwindow_set_text_input_selection(Rid window, int start, int end);
+int Rwindow_replace_text_input(Rid window, int start, int end, const char* text);
 int Rwindow_has_popup(Rid window);
 int Rwindow_get_text_input_rect(Rid window, int* x, int* y, int* width, int* height);
 int Rwindow_get_popup_count(Rid window);
@@ -1283,6 +1327,8 @@ void Rtheme_set_font(Rid font);
 Rid Rtheme_get_font(void);
 void Rtheme_set_accent(float r, float g, float b);
 void Rtheme_set_dark(int dark);
+int Rtheme_get_system_dark(void);
+void Rtheme_follow_system(int enabled);
 int Rtheme_is_dark(void);
 void Rtheme_set_wallpaper(Rid texture);
 Rid Rtheme_get_wallpaper(void);
@@ -1511,6 +1557,10 @@ int Rtext_input_is_read_only(Rid text_input);
 void Rtext_input_set_read_only(Rid text_input, int read_only);
 void Rtext_input_set_max_length(Rid text_input, int max_length);
 void Rtext_input_select_all(Rid text_input);
+void Rtext_input_set_input_type(Rid text_input, RTextInputType type);
+RTextInputType Rtext_input_get_input_type(Rid text_input);
+void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
+RReturnKey Rtext_input_get_return_key(Rid text_input);
 void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 void Rtext_input_set_committed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 void Rspin_box_set_range(Rid spin_box, double minimum, double maximum);

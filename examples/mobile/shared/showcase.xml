@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Raven mobile showcase: the whole UI, shared by the iOS and the Android app.
+  Compiled into the program (xxd -i) and created with Rwidget_create_from_xml;
+  showcase.c finds the named widgets and wires them.
+
+  Layout: an Overlay holding the pages and a bottom tab bar (TabView only puts
+  its tabs at the top, so the bar is four buttons driving a Switcher), and a
+  Toast over everything.
+-->
+<Overlay Name="root">
+	<VBox>
+		<Switcher Name="pages" Slot.Fill="1">
+
+			<!-- 0: List, with a detail page (a second Switcher: navigation forward / back) -->
+			<Switcher Name="listnav">
+				<VBox>
+					<Label Text="List" TextSize="28" Slot.Padding="16,8,16,4"/>
+					<Label Name="list_hint" Text="1,000 rows. Tap one." Opacity="0.6" Slot.Padding="16,0,16,8"/>
+					<TileView Name="list" Layout="Rows" TileHeight="60" IconSize="40" Spacing="2" Slot.Fill="1"/>
+				</VBox>
+				<!-- (a Border, not a bare VBox: the empty parts of a panel are not hit by a finger, and the edge swipe needs them) -->
+				<Border Name="detail" Background="#00000001" Padding="0">
+				<VBox Spacing="12">
+					<HBox Slot.Padding="8,4,8,0">
+						<Button Name="back" Text="‹ Back" Style="Flat"/>
+					</HBox>
+					<VBox Spacing="12" Slot.Padding="16,0,16,0">
+						<Border Name="detail_swatch" CornerRadius="100" Width="72" Height="72" Slot.HAlign="Left"/>
+						<Label Name="detail_title" Text="Row" TextSize="28"/>
+						<Label Name="detail_subtitle" Text="" Opacity="0.7"/>
+						<Label Name="detail_body" Wrap="true" Text=""/>
+						<Label Text="Back: the button above, Escape, the Android back key / gesture, or a swipe from the left edge." Wrap="true" Opacity="0.6"/>
+					</VBox>
+				</VBox>
+				</Border>
+			</Switcher>
+
+			<!-- 1: Controls -->
+			<ScrollBox>
+				<VBox Spacing="18" Slot.Padding="16,8,16,16">
+					<Label Text="Controls" TextSize="28"/>
+					<HBox Spacing="12">
+						<Button Name="counter" Text="Tap me" Style="Primary"/>
+						<Label Name="counter_label" Text="Tapped 0 times" Slot.VAlign="Center"/>
+					</HBox>
+					<HBox Spacing="12">
+						<Label Text="Notifications" Slot.Fill="1" Slot.VAlign="Center"/>
+						<Checkbox Name="switch" Style="Switch" Checked="true"/>
+					</HBox>
+					<Checkbox Name="check" Text="Remember me"/>
+					<VBox Spacing="6">
+						<HBox>
+							<Label Text="Volume" Slot.Fill="1"/>
+							<Label Name="slider_value" Text="40"/>
+						</HBox>
+						<Slider Name="slider" Min="0" Max="100" Step="1" Value="40"/>
+					</VBox>
+					<VBox Spacing="6">
+						<HBox>
+							<Label Text="Downloading" Slot.Fill="1"/>
+							<Label Name="progress_value" Text="0 %"/>
+						</HBox>
+						<ProgressBar Name="progress" Value="0"/>
+					</VBox>
+					<HBox Spacing="12">
+						<Button Name="show_dialog" Text="Show dialog"/>
+						<Button Name="show_toast" Text="Show toast"/>
+					</HBox>
+					<Label Name="dialog_result" Text="Dialog: not opened yet" Opacity="0.7"/>
+				</VBox>
+			</ScrollBox>
+
+			<!-- 2: Glass: a picture compiled into the program, with blurred panels over it -->
+			<Overlay>
+				<Image Name="photo" Source="showcase/photo.png" Stretch="Cover"/>
+				<VBox Spacing="16" Slot.Padding="16,16,16,16">
+					<BackgroundBlur Name="blur_title" Style="Frosted" Radius="20" CornerRadius="22" Padding="16" Slot.HAlign="Fill">
+						<VBox Spacing="4">
+							<Label Text="Glass" TextSize="28"/>
+							<Label Text="Frosted panel over a PNG compiled into the app." Wrap="true" Opacity="0.75"/>
+						</VBox>
+					</BackgroundBlur>
+					<HBox Spacing="16">
+						<BackgroundBlur Name="blur_plain" Style="Plain" Radius="20" CornerRadius="18" Padding="14" Slot.Fill="1">
+							<Label Text="Plain" Color="white"/>
+						</BackgroundBlur>
+						<BackgroundBlur Name="blur_glass" Style="Glass" Radius="20" CornerRadius="18" Padding="14" Slot.Fill="1">
+							<Label Text="Glass"/>
+						</BackgroundBlur>
+					</HBox>
+					<Spacer Slot.Fill="1"/>
+					<BackgroundBlur Style="Frosted" Radius="30" CornerRadius="22" Padding="16">
+						<VBox Spacing="6">
+							<HBox>
+								<Label Text="Blur radius" Slot.Fill="1"/>
+								<Label Name="blur_value" Text="20"/>
+							</HBox>
+							<Slider Name="blur_slider" Min="0" Max="60" Step="1" Value="20"/>
+							<Label Name="frame_stats" Text="" Wrap="true" Opacity="0.7"/>
+						</VBox>
+					</BackgroundBlur>
+				</VBox>
+			</Overlay>
+
+			<!-- 3: Form -->
+			<ScrollBox>
+				<VBox Spacing="14" Slot.Padding="16,8,16,16">
+					<Label Text="Form" TextSize="28"/>
+					<Label Text="Name"/>
+					<TextInput Name="name" Placeholder="Your name" ReturnKey="Next"/>
+					<Label Text="Email"/>
+					<TextInput Name="email" Placeholder="you@example.com" InputType="Email" ReturnKey="Next"/>
+					<Label Text="Phone"/>
+					<TextInput Name="phone" Placeholder="+62 812 3456 7890" InputType="Phone" ReturnKey="Done"/>
+					<Button Name="submit" Text="Submit" Style="Primary" Slot.HAlign="Left"/>
+					<Label Name="keyboard_state" Text="Keyboard: hidden"/>
+					<Label Name="form_state" Text="" Wrap="true" Opacity="0.6"/>
+				</VBox>
+			</ScrollBox>
+		</Switcher>
+
+		<Separator/>
+		<!-- bottom tab bar -->
+		<UniformGrid Name="tabbar" Columns="4" Slot.Padding="8,6,8,6">
+			<Button Name="tab0" Text="List" Style="Flat"/>
+			<Button Name="tab1" Text="Controls" Style="Flat"/>
+			<Button Name="tab2" Text="Glass" Style="Flat"/>
+			<Button Name="tab3" Text="Form" Style="Flat"/>
+		</UniformGrid>
+	</VBox>
+
+	<Toast Name="toast" Slot.HAlign="Center" Slot.VAlign="Bottom" Slot.Padding="16,0,16,72"/>
+</Overlay>

@@ -1168,6 +1168,27 @@ int Rtheme_is_dark(void) {
 	return g_rvn.initialized ? g_rvn.theme.dark : R_FALSE;
 }
 
+static int g_rvn_follow_system;
+
+int Rtheme_get_system_dark(void) {
+	if (!g_rvn.initialized || !g_rvn.platform || !g_rvn.platform->system_dark) return -1;
+	return g_rvn.platform->system_dark();
+}
+
+void Rtheme_follow_system(int enabled) {
+	RVN_API_GUARD_VOID();
+	g_rvn_follow_system = enabled != 0;
+	rvn_theme_follow_system_apply();
+}
+
+void rvn_theme_follow_system_apply(void) {
+	int dark;
+	if (!g_rvn_follow_system) return;
+	dark = Rtheme_get_system_dark();
+	if (dark < 0 || dark == Rtheme_is_dark()) return;
+	Rlook_set(dark ? R_LOOK_RAVEN_DARK : R_LOOK_RAVEN_LIGHT);
+}
+
 void Rtheme_set_wallpaper(Rid texture) {
 	RVN_API_GUARD_VOID();
 	if (texture != R_INVALID_ID && !rvn_texture_get(texture)) {

@@ -459,6 +459,10 @@ typedef struct rvn_textedit_t {
 } rvn_textedit_t;
 
 void rvn_textedit_init(rvn_textedit_t* edit);
+/** Selects [start, end) (byte offsets, snapped to characters); end is the caret. */
+void rvn_textedit_set_selection(rvn_textedit_t* edit, int start, int end);
+/** Replaces [start, end) with text, the caret after it; R_TRUE when the text changed. */
+int  rvn_textedit_replace(rvn_textedit_t* edit, int start, int end, const char* text);
 void rvn_textedit_free(rvn_textedit_t* edit);
 /** Returns R_TRUE when the text changed. */
 int  rvn_textedit_set_text(rvn_textedit_t* edit, const char* text);

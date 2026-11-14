@@ -1129,6 +1129,59 @@ static void test_device_lost(void) {
 }
 
 /* A selectable label: the mouse selects its text as on a web page, Ctrl+C copies it. */
+/* The focused text input as the text services of the system see it (mobile on-screen keyboards). */
+static void test_text_input_services(void) {
+	Rid box = column();
+	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rid label = Rwidget_add_child(box, Rwidget_create(R_WIDGET_BUTTON));
+	RTextInputInfo info;
+	int start = -1, end = -1;
+	Rtext_input_set_changed_callback(input, on_text, NULL);
+
+	/* nothing focused: nothing to say */
+	Rwindow_clear_focus(g_window);
+	CHECK(!Rwindow_get_text_input_info(g_window, &info));
+	CHECK(Rwindow_get_text_input_text(g_window) == NULL);
+	CHECK(!Rwindow_replace_text_input(g_window, 0, 0, "x"));
+
+	/* kind and return key, from C and from XML */
+	CHECK(Rtext_input_get_input_type(input) == R_TEXT_INPUT_TYPE_TEXT);
+	CHECK(Rtext_input_get_return_key(input) == R_RETURN_KEY_DEFAULT);
+	Rtext_input_set_input_type(input, R_TEXT_INPUT_TYPE_EMAIL);
+	CHECK(Rwidget_set_attribute(input, "ReturnKey", "Next"));
+	CHECK(!Rwidget_set_attribute(input, "InputType", "Nonsense"));
+	CHECK(Rtext_input_get_return_key(input) == R_RETURN_KEY_NEXT);
+
+	Rwidget_focus(input);
+	CHECK(Rwindow_get_text_input_info(g_window, &info));
+	CHECK(info.type == R_TEXT_INPUT_TYPE_EMAIL && info.return_key == R_RETURN_KEY_NEXT);
+	CHECK(!info.password && !info.read_only);
+
+	/* replace a range, as a keyboard commits a suggestion; offsets are UTF-8 bytes */
+	Rtext_input_set_text(input, "H\xC3\xA9llo wrld");
+	CHECK(Rwindow_replace_text_input(g_window, 7, 11, "world"));
+	CHECK_STR(Rwindow_get_text_input_text(g_window), "H\xC3\xA9llo world");
+	CHECK_STR(g_last_text, "H\xC3\xA9llo world");
+	CHECK(Rwindow_get_text_input_selection(g_window, &start, &end));
+	CHECK(start == 12 && end == 12);
+
+	/* selections snap to characters: offset 2 is inside the two bytes of the e acute */
+	CHECK(Rwindow_set_text_input_selection(g_window, 2, 3));
+	CHECK(Rwindow_get_text_input_selection(g_window, &start, &end));
+	CHECK(start == 1 && end == 3);
+	/* deleting around the caret: an empty replacement */
+	CHECK(Rwindow_replace_text_input(g_window, 0, 3, ""));
+	CHECK_STR(Rtext_input_get_text(input), "llo world");
+
+	/* read-only inputs refuse; a focus elsewhere answers nothing */
+	Rtext_input_set_read_only(input, R_TRUE);
+	CHECK(!Rwindow_replace_text_input(g_window, 0, 0, "x"));
+	Rtext_input_set_read_only(input, R_FALSE);
+	Rwidget_focus(label);
+	CHECK(!Rwindow_get_text_input_info(g_window, &info));
+	Rwidget_destroy(box);
+}
+
 static void test_selectable_label(void) {
 	Rid box = column();
 	Rid before = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
@@ -1350,6 +1403,7 @@ int main(void) {
 	RUN(test_radio_rebuild_in_callback);
 	RUN(test_slider_and_spin_box);
 	RUN(test_text_input);
+	RUN(test_text_input_services);
 	RUN(test_selectable_label);
 	RUN(test_combo_box);
 	RUN(test_highlight_follows_pointer);

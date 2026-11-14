@@ -72,6 +72,8 @@ int rvn_vk_load_library(void) {
 #if defined(_WIN32)
 		"vulkan-1.dll"
 #elif defined(__APPLE__)
+		/* iOS: the bundle is flat, MoltenVK.framework is embedded in <name>.app/Frameworks */
+		"@executable_path/Frameworks/MoltenVK.framework/MoltenVK",
 		/* inside an .app (Contents/Frameworks), so it runs where nothing is installed */
 		"@executable_path/../Frameworks/libMoltenVK.dylib", "@executable_path/../Frameworks/libvulkan.1.dylib",
 		"libvulkan.1.dylib", "libvulkan.dylib", "libMoltenVK.dylib",
@@ -162,6 +164,7 @@ int rvn_vk_load_instance(VkInstance instance) {
 	RVN_VK_ASSIGN(rvn_vk.CreateXcbSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateXcbSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateWaylandSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateWaylandSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateMetalSurfaceEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateMetalSurfaceEXT"));
+	RVN_VK_ASSIGN(rvn_vk.CreateAndroidSurfaceKHR, rvn_vk.GetInstanceProcAddr(instance, "vkCreateAndroidSurfaceKHR"));
 	RVN_VK_ASSIGN(rvn_vk.CreateHeadlessSurfaceEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateHeadlessSurfaceEXT"));
 	RVN_VK_ASSIGN(rvn_vk.CreateDebugUtilsMessengerEXT, rvn_vk.GetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
 	RVN_VK_ASSIGN(rvn_vk.DestroyDebugUtilsMessengerEXT, rvn_vk.GetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
