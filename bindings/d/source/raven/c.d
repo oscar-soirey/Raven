@@ -762,6 +762,8 @@ enum : RWidgetType
     R_WIDGET_PAGINATION = 0x0231,
     /// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
     R_WIDGET_PLOT = 0x0232,
+    /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+    R_WIDGET_PDF_VIEW = 0x0233,
 }
 
 alias RHAlign = int;
@@ -935,6 +937,70 @@ enum : RPlotAxis
     R_PLOT_X2 = 0x0522,
     /// A second vertical axis, on the right: shown when a series or a drag line uses it.
     R_PLOT_Y2 = 0x0523,
+}
+
+/// How a PdfView sizes its pages.
+alias RPdfFit = int;
+enum : RPdfFit
+{
+    /// The widest page fills the width of the view (default).
+    R_PDF_FIT_WIDTH = 0x05C0,
+    /// The largest page fits whole in the view.
+    R_PDF_FIT_PAGE = 0x05C1,
+    /// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+    R_PDF_FIT_NONE = 0x05C2,
+}
+
+/// What a PdfView holds.
+alias RPdfStatus = int;
+enum : RPdfStatus
+{
+    /// No document.
+    R_PDF_EMPTY = 0x05D0,
+    /// A document is shown.
+    R_PDF_LOADED = 0x05D1,
+    /// The document needs a password, or the one given is wrong: load it again with one.
+    R_PDF_NEEDS_PASSWORD = 0x05D2,
+    /// The file could not be read, or is not a PDF document.
+    R_PDF_ERROR = 0x05D3,
+    /// The PDFium library was not found (see Rpdf_is_available).
+    R_PDF_UNAVAILABLE = 0x05D4,
+}
+
+/// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+alias RPdfFont = int;
+enum : RPdfFont
+{
+    /// Roboto, the font of the interface of Raven.
+    R_PDF_FONT_SANS = 0,
+    /// Roboto Mono.
+    R_PDF_FONT_MONO = 1,
+}
+
+/// How a shape of a PDF document is painted: a bitmask.
+alias RPdfPaint = int;
+enum : RPdfPaint
+{
+    /// Filled with the fill color.
+    R_PDF_FILL = 1,
+    /// Outlined with the stroke color and the line width.
+    R_PDF_STROKE = 2,
+}
+
+/// A bitmask of styles of the text of a PDF document.
+alias RPdfTextStyle = int;
+enum : RPdfTextStyle
+{
+    R_PDF_TEXT_BOLD = 1,
+    R_PDF_TEXT_ITALIC = 2,
+    R_PDF_TEXT_UNDERLINE = 4,
+}
+
+alias RPdfPrintFlags = int;
+enum : RPdfPrintFlags
+{
+    /// No dialog: printed at once on the printer named, else the default one.
+    R_PDF_PRINT_NO_DIALOG = 1,
 }
 
 /// How an axis of a Plot spreads its values.
@@ -1474,6 +1540,8 @@ alias RPlotViewCallback = extern (C) void function(Rid plot, void* user_data);
 alias RPlotDragLineCallback = extern (C) void function(Rid plot, int line, double value, void* user_data);
 /// Called when the user hides or shows a series from the legend.
 alias RPlotSeriesCallback = extern (C) void function(Rid plot, int series, int visible, void* user_data);
+/// Called when the current page changes as the user scrolls. This also fires the action of the widget.
+alias RPdfPageChangedCallback = extern (C) void function(Rid view, int page, void* user_data);
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 alias RTextEditorZoomCallback = extern (C) void function(Rid editor, float zoom, void* user_data);
 /// Called each time the editor gathers its proposals, with the
@@ -1850,6 +1918,27 @@ struct RGestureEvent
     float rotation_delta = 0;
     /// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
     int cancelled = 0;
+}
+
+/// How a PDF document is printed. Every field may be left to zero.
+struct RPdfPrintDesc
+{
+    /// Window the print dialog belongs to (0 or R_INVALID_ID: none).
+    Rid window = 0;
+    /// Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+    const(char)* title = null;
+    /// Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+    const(char)* printer = null;
+    /// Copies to print (0: one); the dialog may change it.
+    int copies = 0;
+    /// Bitmask of RPdfPrintFlags.
+    uint flags = 0;
+    /// Path of a file the job is written to instead of a printer. macOS: a
+    /// PDF made by the print system; Windows: what the driver of the printer
+    /// makes; elsewhere: the document itself.
+    const(char)* output = null;
+    /// Password of a document protected by one.
+    const(char)* password = null;
 }
 
 /// What a tile shows, filled by the application when the tile is drawn.
@@ -3458,6 +3547,96 @@ void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, fl
 void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
 void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
 void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+/// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+int Rpdf_is_available();
+/// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+/// cannot: Rpdf_view_get_status tells why (a password is needed, not a
+/// PDF, no PDFium). The view then shows that instead of pages.
+int Rpdf_view_load_file(Rid view, const(char)* path, const(char)* password);
+/// Same as Rpdf_view_load_file, from bytes in memory (copied).
+int Rpdf_view_load_memory(Rid view, const(char)* data, size_t data_size, const(char)* password);
+/// Closes the document: the view is empty.
+void Rpdf_view_close(Rid view);
+RPdfStatus Rpdf_view_get_status(Rid view);
+int Rpdf_view_get_page_count(Rid view);
+/// Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+void Rpdf_view_get_page_size(Rid view, int page, float* width, float* height);
+/// Scrolls to the top of a page; it becomes the current page.
+void Rpdf_view_set_page(Rid view, int page);
+/// The current page: the one a third down the view.
+int Rpdf_view_get_page(Rid view);
+/// A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+void Rpdf_view_set_zoom(Rid view, float zoom);
+/// The zoom the pages show at, the one a fit gives included.
+float Rpdf_view_get_zoom(Rid view);
+void Rpdf_view_set_fit(Rid view, RPdfFit fit);
+RPdfFit Rpdf_view_get_fit(Rid view);
+/// The title of the document (its information), "" when it has none.
+const(char)* Rpdf_view_get_title(Rid view);
+/// The text of a page (UTF-8), to search it or copy it. Valid until
+/// the next call for this view.
+const(char)* Rpdf_view_get_page_text(Rid view, int page);
+void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+/// Prints the document shown (see Rpdf_print); the job is named after its title.
+int Rpdf_view_print(Rid view, const(RPdfPrintDesc)* desc);
+Rid Rpdf_document_create();
+void Rpdf_document_delete(Rid document);
+/// The information of the document, shown by readers (the title in their window).
+void Rpdf_document_set_title(Rid document, const(char)* title);
+void Rpdf_document_set_author(Rid document, const(char)* author);
+void Rpdf_document_set_subject(Rid document, const(char)* subject);
+/// Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+int Rpdf_document_add_page(Rid document, float width, float height);
+int Rpdf_document_get_page_count(Rid document);
+void Rpdf_document_set_fill_color(Rid document, float r, float g, float b, float a);
+void Rpdf_document_set_stroke_color(Rid document, float r, float g, float b, float a);
+/// Width of the lines and outlines, in points (default 1).
+void Rpdf_document_set_line_width(Rid document, float width);
+/// A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+void Rpdf_document_draw_rect(Rid document, float x, float y, float width, float height, float radius, uint paint);
+/// The ellipse inside a rectangle.
+void Rpdf_document_draw_ellipse(Rid document, float x, float y, float width, float height, uint paint);
+/// A line in the stroke color.
+void Rpdf_document_draw_line(Rid document, float x1, float y1, float x2, float y2);
+/// Adds a TrueType font (.ttf) to the document (the data is
+/// copied, and embedded in the file). Returns its number for
+/// Rpdf_document_set_font, -1 when it is not a TrueType font.
+int Rpdf_document_add_font(Rid document, const(char)* data, size_t data_size);
+int Rpdf_document_add_font_from_file(Rid document, const(char)* path);
+/// The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+void Rpdf_document_set_font(Rid document, int font, float size, uint style);
+/// Distance between two lines of text in the current font.
+float Rpdf_document_get_line_height(Rid document);
+/// Width of a text in the current font, in points (of its widest line).
+float Rpdf_document_measure_text(Rid document, const(char)* text);
+/// Text in the fill color, the top of its first line at y ('\n'
+/// starts a line below). Returns its width.
+float Rpdf_document_draw_text(Rid document, float x, float y, const(char)* text);
+/// Text wrapped at the spaces to fit `width`, each line placed by
+/// `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+/// height it took.
+float Rpdf_document_draw_paragraph(Rid document, float x, float y, float width, const(char)* text, RHAlign align_);
+/// A picture of RGBA8 pixels stretched over a rectangle. A width or
+/// height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+void Rpdf_document_draw_image(Rid document, float x, float y, float width, float height, const(ubyte)* rgba, int pixels_width, int pixels_height);
+/// What a window shows (Rwindow_capture), as a picture: a report of
+/// the screen, a chart. A width and height of 0: the size it has on the
+/// screen. Returns R_FALSE when the window cannot be captured.
+int Rpdf_document_draw_window(Rid document, Rid window, float x, float y, float width, float height);
+/// Writes the file. Returns R_FALSE when it cannot be written.
+int Rpdf_document_save(Rid document, const(char)* path);
+/// The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+char* Rpdf_document_save_memory(Rid document, size_t* size);
+/// Prints a PDF document with the print system: on macOS the print
+/// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+/// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+/// dialog of Raven that chooses the printer. It waits until the job is
+/// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+/// cannot print. Not in the browser.
+int Rpdf_print(const(RPdfPrintDesc)* desc, const(char)* data, size_t data_size);
+int Rpdf_print_file(const(RPdfPrintDesc)* desc, const(char)* path);
+/// Prints a document written by the application.
+int Rpdf_document_print(Rid document, const(RPdfPrintDesc)* desc);
 /// text Initial content, or NULL.
 Rid Rtext_editor_create(const(char)* text);
 /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.

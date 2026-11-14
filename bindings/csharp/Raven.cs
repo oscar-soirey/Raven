@@ -1013,6 +1013,10 @@ namespace Raven
         /// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
         /// </summary>
         R_WIDGET_PLOT = 0x0232,
+        /// <summary>
+        /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+        /// </summary>
+        R_WIDGET_PDF_VIEW = 0x0233,
     }
 
     public enum RHAlign : int
@@ -1244,6 +1248,102 @@ namespace Raven
         /// A second vertical axis, on the right: shown when a series or a drag line uses it.
         /// </summary>
         R_PLOT_Y2 = 0x0523,
+    }
+
+    /// <summary>
+    /// How a PdfView sizes its pages.
+    /// </summary>
+    public enum RPdfFit : int
+    {
+        /// <summary>
+        /// The widest page fills the width of the view (default).
+        /// </summary>
+        R_PDF_FIT_WIDTH = 0x05C0,
+        /// <summary>
+        /// The largest page fits whole in the view.
+        /// </summary>
+        R_PDF_FIT_PAGE = 0x05C1,
+        /// <summary>
+        /// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+        /// </summary>
+        R_PDF_FIT_NONE = 0x05C2,
+    }
+
+    /// <summary>
+    /// What a PdfView holds.
+    /// </summary>
+    public enum RPdfStatus : int
+    {
+        /// <summary>
+        /// No document.
+        /// </summary>
+        R_PDF_EMPTY = 0x05D0,
+        /// <summary>
+        /// A document is shown.
+        /// </summary>
+        R_PDF_LOADED = 0x05D1,
+        /// <summary>
+        /// The document needs a password, or the one given is wrong: load it again with one.
+        /// </summary>
+        R_PDF_NEEDS_PASSWORD = 0x05D2,
+        /// <summary>
+        /// The file could not be read, or is not a PDF document.
+        /// </summary>
+        R_PDF_ERROR = 0x05D3,
+        /// <summary>
+        /// The PDFium library was not found (see Rpdf_is_available).
+        /// </summary>
+        R_PDF_UNAVAILABLE = 0x05D4,
+    }
+
+    /// <summary>
+    /// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+    /// </summary>
+    public enum RPdfFont : int
+    {
+        /// <summary>
+        /// Roboto, the font of the interface of Raven.
+        /// </summary>
+        R_PDF_FONT_SANS = 0,
+        /// <summary>
+        /// Roboto Mono.
+        /// </summary>
+        R_PDF_FONT_MONO = 1,
+    }
+
+    /// <summary>
+    /// How a shape of a PDF document is painted: a bitmask.
+    /// </summary>
+    [Flags]
+    public enum RPdfPaint : int
+    {
+        /// <summary>
+        /// Filled with the fill color.
+        /// </summary>
+        R_PDF_FILL = 1,
+        /// <summary>
+        /// Outlined with the stroke color and the line width.
+        /// </summary>
+        R_PDF_STROKE = 2,
+    }
+
+    /// <summary>
+    /// A bitmask of styles of the text of a PDF document.
+    /// </summary>
+    [Flags]
+    public enum RPdfTextStyle : int
+    {
+        R_PDF_TEXT_BOLD = 1,
+        R_PDF_TEXT_ITALIC = 2,
+        R_PDF_TEXT_UNDERLINE = 4,
+    }
+
+    public enum RPdfPrintFlags : int
+    {
+        /// <summary>
+        /// No dialog: printed at once on the printer named, else the default one.
+        /// </summary>
+        R_PDF_PRINT_NO_DIALOG = 1,
     }
 
     /// <summary>
@@ -2268,6 +2368,44 @@ namespace Raven
     }
 
     /// <summary>
+    /// How a PDF document is printed. Every field may be left to zero.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RPdfPrintDesc
+    {
+        /// <summary>
+        /// Window the print dialog belongs to (0 or R_INVALID_ID: none).
+        /// </summary>
+        public uint window;
+        /// <summary>
+        /// Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+        /// </summary>
+        public IntPtr title;
+        /// <summary>
+        /// Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+        /// </summary>
+        public IntPtr printer;
+        /// <summary>
+        /// Copies to print (0: one); the dialog may change it.
+        /// </summary>
+        public int copies;
+        /// <summary>
+        /// Bitmask of RPdfPrintFlags.
+        /// </summary>
+        public uint flags;
+        /// <summary>
+        /// Path of a file the job is written to instead of a printer. macOS: a
+        /// PDF made by the print system; Windows: what the driver of the printer
+        /// makes; elsewhere: the document itself.
+        /// </summary>
+        public IntPtr output;
+        /// <summary>
+        /// Password of a document protected by one.
+        /// </summary>
+        public IntPtr password;
+    }
+
+    /// <summary>
     /// What a tile shows, filled by the application when the tile is drawn.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -2939,6 +3077,12 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RPlotSeriesCallback(uint plot, int series, int visible, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RPdfPageChangedCallback(uint view, int page, IntPtr user_data);
 
     /// <summary>
     /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -6733,6 +6877,272 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rplot_set_series_toggled_callback(uint plot, RPlotSeriesCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_is_available();
+
+        /// <summary>
+        /// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+        /// cannot: Rpdf_view_get_status tells why (a password is needed, not a
+        /// PDF, no PDFium). The view then shows that instead of pages.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_load_file(uint view, [MarshalAs(Utf8.Str)] string path, [MarshalAs(Utf8.Str)] string password);
+
+        /// <summary>
+        /// Same as Rpdf_view_load_file, from bytes in memory (copied).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_load_memory(uint view, byte[] data, UIntPtr data_size, [MarshalAs(Utf8.Str)] string password);
+
+        /// <summary>
+        /// Closes the document: the view is empty.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_close(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RPdfStatus Rpdf_view_get_status(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_get_page_count(uint view);
+
+        /// <summary>
+        /// Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_get_page_size(uint view, int page, out float width, out float height);
+
+        /// <summary>
+        /// Scrolls to the top of a page; it becomes the current page.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_page(uint view, int page);
+
+        /// <summary>
+        /// The current page: the one a third down the view.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_get_page(uint view);
+
+        /// <summary>
+        /// A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_zoom(uint view, float zoom);
+
+        /// <summary>
+        /// The zoom the pages show at, the one a fit gives included.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rpdf_view_get_zoom(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_fit(uint view, RPdfFit fit);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RPdfFit Rpdf_view_get_fit(uint view);
+
+        /// <summary>
+        /// The title of the document (its information), "" when it has none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rpdf_view_get_title", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rpdf_view_get_title_(uint view);
+        public static string Rpdf_view_get_title(uint view) { return Text(Rpdf_view_get_title_(view)); }
+
+        /// <summary>
+        /// The text of a page (UTF-8), to search it or copy it. Valid until
+        /// the next call for this view.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rpdf_view_get_page_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rpdf_view_get_page_text_(uint view, int page);
+        public static string Rpdf_view_get_page_text(uint view, int page) { return Text(Rpdf_view_get_page_text_(view, page)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_view_set_page_changed_callback(uint view, RPdfPageChangedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Prints the document shown (see Rpdf_print); the job is named after its title.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_print(uint view, ref RPdfPrintDesc desc);
+
+        /// <summary>
+        /// Prints the document shown (see Rpdf_print); the job is named after its title.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_view_print(uint view, IntPtr desc);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rpdf_document_create();
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_delete(uint document);
+
+        /// <summary>
+        /// The information of the document, shown by readers (the title in their window).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_set_title(uint document, [MarshalAs(Utf8.Str)] string title);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_set_author(uint document, [MarshalAs(Utf8.Str)] string author);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_set_subject(uint document, [MarshalAs(Utf8.Str)] string subject);
+
+        /// <summary>
+        /// Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_add_page(uint document, float width, float height);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_get_page_count(uint document);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_set_fill_color(uint document, float r, float g, float b, float a);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_set_stroke_color(uint document, float r, float g, float b, float a);
+
+        /// <summary>
+        /// Width of the lines and outlines, in points (default 1).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_set_line_width(uint document, float width);
+
+        /// <summary>
+        /// A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_draw_rect(uint document, float x, float y, float width, float height, float radius, uint paint);
+
+        /// <summary>
+        /// The ellipse inside a rectangle.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_draw_ellipse(uint document, float x, float y, float width, float height, uint paint);
+
+        /// <summary>
+        /// A line in the stroke color.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_draw_line(uint document, float x1, float y1, float x2, float y2);
+
+        /// <summary>
+        /// Adds a TrueType font (.ttf) to the document (the data is
+        /// copied, and embedded in the file). Returns its number for
+        /// Rpdf_document_set_font, -1 when it is not a TrueType font.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_add_font(uint document, byte[] data, UIntPtr data_size);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_add_font_from_file(uint document, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_set_font(uint document, int font, float size, uint style);
+
+        /// <summary>
+        /// Distance between two lines of text in the current font.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rpdf_document_get_line_height(uint document);
+
+        /// <summary>
+        /// Width of a text in the current font, in points (of its widest line).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rpdf_document_measure_text(uint document, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Text in the fill color, the top of its first line at y ('\n'
+        /// starts a line below). Returns its width.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rpdf_document_draw_text(uint document, float x, float y, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Text wrapped at the spaces to fit `width`, each line placed by
+        /// `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+        /// height it took.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rpdf_document_draw_paragraph(uint document, float x, float y, float width, [MarshalAs(Utf8.Str)] string text, RHAlign align);
+
+        /// <summary>
+        /// A picture of RGBA8 pixels stretched over a rectangle. A width or
+        /// height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rpdf_document_draw_image(uint document, float x, float y, float width, float height, byte[] rgba, int pixels_width, int pixels_height);
+
+        /// <summary>
+        /// What a window shows (Rwindow_capture), as a picture: a report of
+        /// the screen, a chart. A width and height of 0: the size it has on the
+        /// screen. Returns R_FALSE when the window cannot be captured.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_draw_window(uint document, uint window, float x, float y, float width, float height);
+
+        /// <summary>
+        /// Writes the file. Returns R_FALSE when it cannot be written.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_save(uint document, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rpdf_document_save_memory(uint document, out UIntPtr size);
+
+        /// <summary>
+        /// Prints a PDF document with the print system: on macOS the print
+        /// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+        /// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+        /// dialog of Raven that chooses the printer. It waits until the job is
+        /// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+        /// cannot print. Not in the browser.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_print(ref RPdfPrintDesc desc, byte[] data, UIntPtr data_size);
+
+        /// <summary>
+        /// Prints a PDF document with the print system: on macOS the print
+        /// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+        /// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+        /// dialog of Raven that chooses the printer. It waits until the job is
+        /// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+        /// cannot print. Not in the browser.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_print(IntPtr desc, byte[] data, UIntPtr data_size);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_print_file(ref RPdfPrintDesc desc, [MarshalAs(Utf8.Str)] string path);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_print_file(IntPtr desc, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Prints a document written by the application.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_print(uint document, ref RPdfPrintDesc desc);
+
+        /// <summary>
+        /// Prints a document written by the application.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rpdf_document_print(uint document, IntPtr desc);
 
         /// <summary>
         /// text Initial content, or NULL.

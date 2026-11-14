@@ -680,6 +680,8 @@ Widget_Type :: enum i32 {
 	Pagination = 0x0231,
 	// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
 	Plot = 0x0232,
+	// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+	Pdf_View = 0x0233,
 }
 
 H_Align :: enum i32 {
@@ -826,6 +828,61 @@ Plot_Axis :: enum i32 {
 	// A second vertical axis, on the right: shown when a series or a drag line uses it.
 	Y2 = 0x0523,
 }
+
+// How a PdfView sizes its pages.
+Pdf_Fit :: enum i32 {
+	// The widest page fills the width of the view (default).
+	Width = 0x05C0,
+	// The largest page fits whole in the view.
+	Page = 0x05C1,
+	// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+	None = 0x05C2,
+}
+
+// What a PdfView holds.
+Pdf_Status :: enum i32 {
+	// No document.
+	Empty = 0x05D0,
+	// A document is shown.
+	Loaded = 0x05D1,
+	// The document needs a password, or the one given is wrong: load it again with one.
+	Needs_Password = 0x05D2,
+	// The file could not be read, or is not a PDF document.
+	Error = 0x05D3,
+	// The PDFium library was not found (see Rpdf_is_available).
+	Unavailable = 0x05D4,
+}
+
+// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+Pdf_Font :: enum i32 {
+	// Roboto, the font of the interface of Raven.
+	Sans = 0,
+	// Roboto Mono.
+	Mono = 1,
+}
+
+// How a shape of a PDF document is painted: a bitmask.
+Pdf_Paint :: enum u32 {
+	// Filled with the fill color.
+	Fill = 0,
+	// Outlined with the stroke color and the line width.
+	Stroke = 1,
+}
+Pdf_Paints :: bit_set[Pdf_Paint; u32]
+
+// A bitmask of styles of the text of a PDF document.
+Pdf_Text_Style :: enum u32 {
+	Bold = 0,
+	Italic = 1,
+	Underline = 2,
+}
+Pdf_Text_Styles :: bit_set[Pdf_Text_Style; u32]
+
+Pdf_Print_Flag :: enum u32 {
+	// No dialog: printed at once on the printer named, else the default one.
+	Dialog = 0,
+}
+Pdf_Print_Flags :: bit_set[Pdf_Print_Flag; u32]
 
 // How an axis of a Plot spreads its values.
 Plot_Scale :: enum i32 {

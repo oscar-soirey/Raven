@@ -462,6 +462,7 @@ typedef enum RWidgetType {
 	R_WIDGET_RATING = 560,
 	R_WIDGET_PAGINATION = 561,
 	R_WIDGET_PLOT = 562,
+	R_WIDGET_PDF_VIEW = 563,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -547,6 +548,34 @@ typedef enum RPlotAxis {
 	R_PLOT_X2 = 1314,
 	R_PLOT_Y2 = 1315,
 } RPlotAxis;
+typedef enum RPdfFit {
+	R_PDF_FIT_WIDTH = 1472,
+	R_PDF_FIT_PAGE = 1473,
+	R_PDF_FIT_NONE = 1474,
+} RPdfFit;
+typedef enum RPdfStatus {
+	R_PDF_EMPTY = 1488,
+	R_PDF_LOADED = 1489,
+	R_PDF_NEEDS_PASSWORD = 1490,
+	R_PDF_ERROR = 1491,
+	R_PDF_UNAVAILABLE = 1492,
+} RPdfStatus;
+typedef enum RPdfFont {
+	R_PDF_FONT_SANS = 0,
+	R_PDF_FONT_MONO = 1,
+} RPdfFont;
+typedef enum RPdfPaint {
+	R_PDF_FILL = 1,
+	R_PDF_STROKE = 2,
+} RPdfPaint;
+typedef enum RPdfTextStyle {
+	R_PDF_TEXT_BOLD = 1,
+	R_PDF_TEXT_ITALIC = 2,
+	R_PDF_TEXT_UNDERLINE = 4,
+} RPdfTextStyle;
+typedef enum RPdfPrintFlags {
+	R_PDF_PRINT_NO_DIALOG = 1,
+} RPdfPrintFlags;
 typedef enum RPlotScale {
 	R_PLOT_SCALE_LINEAR = 1328,
 	R_PLOT_SCALE_LOG = 1329,
@@ -788,6 +817,7 @@ typedef struct RTouchSettings RTouchSettings;
 typedef struct RTouchEvent RTouchEvent;
 typedef struct RPenEvent RPenEvent;
 typedef struct RGestureEvent RGestureEvent;
+typedef struct RPdfPrintDesc RPdfPrintDesc;
 typedef struct RTileItem RTileItem;
 typedef struct RLanguageDesc RLanguageDesc;
 typedef struct RJumpTask RJumpTask;
@@ -850,6 +880,7 @@ typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
 typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
 typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
 typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
+typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
@@ -1034,6 +1065,15 @@ struct RGestureEvent {
 	float total_y;
 	float rotation_delta;
 	int cancelled;
+};
+struct RPdfPrintDesc {
+	Rid window;
+	const char* title;
+	const char* printer;
+	int copies;
+	Ruint flags;
+	const char* output;
+	const char* password;
 };
 struct RTileItem {
 	const char* text;
@@ -1792,6 +1832,50 @@ void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, fl
 void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
 void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
 void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+int Rpdf_is_available(void);
+int Rpdf_view_load_file(Rid view, const char* path, const char* password);
+int Rpdf_view_load_memory(Rid view, const char* data, size_t data_size, const char* password);
+void Rpdf_view_close(Rid view);
+RPdfStatus Rpdf_view_get_status(Rid view);
+int Rpdf_view_get_page_count(Rid view);
+void Rpdf_view_get_page_size(Rid view, int page, float* width, float* height);
+void Rpdf_view_set_page(Rid view, int page);
+int Rpdf_view_get_page(Rid view);
+void Rpdf_view_set_zoom(Rid view, float zoom);
+float Rpdf_view_get_zoom(Rid view);
+void Rpdf_view_set_fit(Rid view, RPdfFit fit);
+RPdfFit Rpdf_view_get_fit(Rid view);
+const char* Rpdf_view_get_title(Rid view);
+const char* Rpdf_view_get_page_text(Rid view, int page);
+void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+Rid Rpdf_document_create(void);
+void Rpdf_document_delete(Rid document);
+void Rpdf_document_set_title(Rid document, const char* title);
+void Rpdf_document_set_author(Rid document, const char* author);
+void Rpdf_document_set_subject(Rid document, const char* subject);
+int Rpdf_document_add_page(Rid document, float width, float height);
+int Rpdf_document_get_page_count(Rid document);
+void Rpdf_document_set_fill_color(Rid document, float r, float g, float b, float a);
+void Rpdf_document_set_stroke_color(Rid document, float r, float g, float b, float a);
+void Rpdf_document_set_line_width(Rid document, float width);
+void Rpdf_document_draw_rect(Rid document, float x, float y, float width, float height, float radius, Ruint paint);
+void Rpdf_document_draw_ellipse(Rid document, float x, float y, float width, float height, Ruint paint);
+void Rpdf_document_draw_line(Rid document, float x1, float y1, float x2, float y2);
+int Rpdf_document_add_font(Rid document, const char* data, size_t data_size);
+int Rpdf_document_add_font_from_file(Rid document, const char* path);
+void Rpdf_document_set_font(Rid document, int font, float size, Ruint style);
+float Rpdf_document_get_line_height(Rid document);
+float Rpdf_document_measure_text(Rid document, const char* text);
+float Rpdf_document_draw_text(Rid document, float x, float y, const char* text);
+float Rpdf_document_draw_paragraph(Rid document, float x, float y, float width, const char* text, RHAlign align);
+void Rpdf_document_draw_image(Rid document, float x, float y, float width, float height, const uint8_t* rgba, int pixels_width, int pixels_height);
+int Rpdf_document_draw_window(Rid document, Rid window, float x, float y, float width, float height);
+int Rpdf_document_save(Rid document, const char* path);
+char* Rpdf_document_save_memory(Rid document, size_t* size);
+int Rpdf_print(const RPdfPrintDesc* desc, const char* data, size_t data_size);
+int Rpdf_print_file(const RPdfPrintDesc* desc, const char* path);
+int Rpdf_document_print(Rid document, const RPdfPrintDesc* desc);
 Rid Rtext_editor_create(const char* text);
 void Rtext_editor_set_text(Rid editor, const char* text);
 const char* Rtext_editor_get_text(Rid editor);

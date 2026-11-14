@@ -707,6 +707,8 @@ const RWidgetType R_WIDGET_RATING = 0x0230;
 const RWidgetType R_WIDGET_PAGINATION = 0x0231;
 <* Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. *>
 const RWidgetType R_WIDGET_PLOT = 0x0232;
+<* The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). *>
+const RWidgetType R_WIDGET_PDF_VIEW = 0x0233;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -848,6 +850,52 @@ const RPlotAxis R_PLOT_Y = 0x0521;
 const RPlotAxis R_PLOT_X2 = 0x0522;
 <* A second vertical axis, on the right: shown when a series or a drag line uses it. *>
 const RPlotAxis R_PLOT_Y2 = 0x0523;
+
+<* How a PdfView sizes its pages. *>
+alias RPdfFit = CInt;
+<* The widest page fills the width of the view (default). *>
+const RPdfFit R_PDF_FIT_WIDTH = 0x05C0;
+<* The largest page fits whole in the view. *>
+const RPdfFit R_PDF_FIT_PAGE = 0x05C1;
+<* The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. *>
+const RPdfFit R_PDF_FIT_NONE = 0x05C2;
+
+<* What a PdfView holds. *>
+alias RPdfStatus = CInt;
+<* No document. *>
+const RPdfStatus R_PDF_EMPTY = 0x05D0;
+<* A document is shown. *>
+const RPdfStatus R_PDF_LOADED = 0x05D1;
+<* The document needs a password, or the one given is wrong: load it again with one. *>
+const RPdfStatus R_PDF_NEEDS_PASSWORD = 0x05D2;
+<* The file could not be read, or is not a PDF document. *>
+const RPdfStatus R_PDF_ERROR = 0x05D3;
+<* The PDFium library was not found (see Rpdf_is_available). *>
+const RPdfStatus R_PDF_UNAVAILABLE = 0x05D4;
+
+<* The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). *>
+alias RPdfFont = CInt;
+<* Roboto, the font of the interface of Raven. *>
+const RPdfFont R_PDF_FONT_SANS = 0;
+<* Roboto Mono. *>
+const RPdfFont R_PDF_FONT_MONO = 1;
+
+<* How a shape of a PDF document is painted: a bitmask. *>
+alias RPdfPaint = CInt;
+<* Filled with the fill color. *>
+const RPdfPaint R_PDF_FILL = 1;
+<* Outlined with the stroke color and the line width. *>
+const RPdfPaint R_PDF_STROKE = 2;
+
+<* A bitmask of styles of the text of a PDF document. *>
+alias RPdfTextStyle = CInt;
+const RPdfTextStyle R_PDF_TEXT_BOLD = 1;
+const RPdfTextStyle R_PDF_TEXT_ITALIC = 2;
+const RPdfTextStyle R_PDF_TEXT_UNDERLINE = 4;
+
+alias RPdfPrintFlags = CInt;
+<* No dialog: printed at once on the printer named, else the default one. *>
+const RPdfPrintFlags R_PDF_PRINT_NO_DIALOG = 1;
 
 <* How an axis of a Plot spreads its values. *>
 alias RPlotScale = CInt;
@@ -1351,6 +1399,8 @@ alias RPlotViewCallback = fn void(Rid plot, void* user_data);
 alias RPlotDragLineCallback = fn void(Rid plot, CInt line, double value, void* user_data);
 <* Called when the user hides or shows a series from the legend. *>
 alias RPlotSeriesCallback = fn void(Rid plot, CInt series, CInt visible, void* user_data);
+<* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
+alias RPdfPageChangedCallback = fn void(Rid view, CInt page, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias RTextEditorZoomCallback = fn void(Rid editor, float zoom, void* user_data);
 <*
@@ -1761,6 +1811,29 @@ struct RGestureEvent
 	float rotation_delta;
 	<* R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end). *>
 	CInt cancelled;
+}
+
+<* How a PDF document is printed. Every field may be left to zero. *>
+struct RPdfPrintDesc
+{
+	<* Window the print dialog belongs to (0 or R_INVALID_ID: none). *>
+	Rid window;
+	<* Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. *>
+	char* title;
+	<* Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. *>
+	char* printer;
+	<* Copies to print (0: one); the dialog may change it. *>
+	CInt copies;
+	<* Bitmask of RPdfPrintFlags. *>
+	Ruint flags;
+	<*
+	 Path of a file the job is written to instead of a printer. macOS: a
+	 PDF made by the print system; Windows: what the driver of the printer
+	 makes; elsewhere: the document itself.
+	*>
+	char* output;
+	<* Password of a document protected by one. *>
+	char* password;
 }
 
 <* What a tile shows, filled by the application when the tile is drawn. *>
@@ -4216,6 +4289,156 @@ extern fn void r_plot_set_view_changed_callback(Rid plot, RPlotViewCallback call
 extern fn void r_plot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data) @cname("Rplot_set_drag_line_callback");
 
 extern fn void r_plot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data) @cname("Rplot_set_series_toggled_callback");
+
+<* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
+extern fn CInt r_pdf_is_available() @cname("Rpdf_is_available");
+
+<*
+ Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+ cannot: Rpdf_view_get_status tells why (a password is needed, not a
+ PDF, no PDFium). The view then shows that instead of pages.
+*>
+extern fn CInt r_pdf_view_load_file(Rid view, char* path, char* password) @cname("Rpdf_view_load_file");
+
+<* Same as Rpdf_view_load_file, from bytes in memory (copied). *>
+extern fn CInt r_pdf_view_load_memory(Rid view, char* data, usz data_size, char* password) @cname("Rpdf_view_load_memory");
+
+<* Closes the document: the view is empty. *>
+extern fn void r_pdf_view_close(Rid view) @cname("Rpdf_view_close");
+
+extern fn RPdfStatus r_pdf_view_get_status(Rid view) @cname("Rpdf_view_get_status");
+
+extern fn CInt r_pdf_view_get_page_count(Rid view) @cname("Rpdf_view_get_page_count");
+
+<* Size of a page in points (1/72 inch), as it is shown (its rotation applied). *>
+extern fn void r_pdf_view_get_page_size(Rid view, CInt page, float* width, float* height) @cname("Rpdf_view_get_page_size");
+
+<* Scrolls to the top of a page; it becomes the current page. *>
+extern fn void r_pdf_view_set_page(Rid view, CInt page) @cname("Rpdf_view_set_page");
+
+<* The current page: the one a third down the view. *>
+extern fn CInt r_pdf_view_get_page(Rid view) @cname("Rpdf_view_get_page");
+
+<* A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. *>
+extern fn void r_pdf_view_set_zoom(Rid view, float zoom) @cname("Rpdf_view_set_zoom");
+
+<* The zoom the pages show at, the one a fit gives included. *>
+extern fn float r_pdf_view_get_zoom(Rid view) @cname("Rpdf_view_get_zoom");
+
+extern fn void r_pdf_view_set_fit(Rid view, RPdfFit fit) @cname("Rpdf_view_set_fit");
+
+extern fn RPdfFit r_pdf_view_get_fit(Rid view) @cname("Rpdf_view_get_fit");
+
+<* The title of the document (its information), "" when it has none. *>
+extern fn char* r_pdf_view_get_title(Rid view) @cname("Rpdf_view_get_title");
+
+<*
+ The text of a page (UTF-8), to search it or copy it. Valid until
+ the next call for this view.
+*>
+extern fn char* r_pdf_view_get_page_text(Rid view, CInt page) @cname("Rpdf_view_get_page_text");
+
+extern fn void r_pdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data) @cname("Rpdf_view_set_page_changed_callback");
+
+<* Prints the document shown (see Rpdf_print); the job is named after its title. *>
+extern fn CInt r_pdf_view_print(Rid view, RPdfPrintDesc* desc) @cname("Rpdf_view_print");
+
+extern fn Rid r_pdf_document_create() @cname("Rpdf_document_create");
+
+extern fn void r_pdf_document_delete(Rid document) @cname("Rpdf_document_delete");
+
+<* The information of the document, shown by readers (the title in their window). *>
+extern fn void r_pdf_document_set_title(Rid document, char* title) @cname("Rpdf_document_set_title");
+
+extern fn void r_pdf_document_set_author(Rid document, char* author) @cname("Rpdf_document_set_author");
+
+extern fn void r_pdf_document_set_subject(Rid document, char* subject) @cname("Rpdf_document_set_subject");
+
+<* Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. *>
+extern fn CInt r_pdf_document_add_page(Rid document, float width, float height) @cname("Rpdf_document_add_page");
+
+extern fn CInt r_pdf_document_get_page_count(Rid document) @cname("Rpdf_document_get_page_count");
+
+extern fn void r_pdf_document_set_fill_color(Rid document, float r, float g, float b, float a) @cname("Rpdf_document_set_fill_color");
+
+extern fn void r_pdf_document_set_stroke_color(Rid document, float r, float g, float b, float a) @cname("Rpdf_document_set_stroke_color");
+
+<* Width of the lines and outlines, in points (default 1). *>
+extern fn void r_pdf_document_set_line_width(Rid document, float width) @cname("Rpdf_document_set_line_width");
+
+<* A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. *>
+extern fn void r_pdf_document_draw_rect(Rid document, float x, float y, float width, float height, float radius, Ruint paint) @cname("Rpdf_document_draw_rect");
+
+<* The ellipse inside a rectangle. *>
+extern fn void r_pdf_document_draw_ellipse(Rid document, float x, float y, float width, float height, Ruint paint) @cname("Rpdf_document_draw_ellipse");
+
+<* A line in the stroke color. *>
+extern fn void r_pdf_document_draw_line(Rid document, float x1, float y1, float x2, float y2) @cname("Rpdf_document_draw_line");
+
+<*
+ Adds a TrueType font (.ttf) to the document (the data is
+ copied, and embedded in the file). Returns its number for
+ Rpdf_document_set_font, -1 when it is not a TrueType font.
+*>
+extern fn CInt r_pdf_document_add_font(Rid document, char* data, usz data_size) @cname("Rpdf_document_add_font");
+
+extern fn CInt r_pdf_document_add_font_from_file(Rid document, char* path) @cname("Rpdf_document_add_font_from_file");
+
+<* The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. *>
+extern fn void r_pdf_document_set_font(Rid document, CInt font, float size, Ruint style) @cname("Rpdf_document_set_font");
+
+<* Distance between two lines of text in the current font. *>
+extern fn float r_pdf_document_get_line_height(Rid document) @cname("Rpdf_document_get_line_height");
+
+<* Width of a text in the current font, in points (of its widest line). *>
+extern fn float r_pdf_document_measure_text(Rid document, char* text) @cname("Rpdf_document_measure_text");
+
+<*
+ Text in the fill color, the top of its first line at y ('\n'
+ starts a line below). Returns its width.
+*>
+extern fn float r_pdf_document_draw_text(Rid document, float x, float y, char* text) @cname("Rpdf_document_draw_text");
+
+<*
+ Text wrapped at the spaces to fit `width`, each line placed by
+ `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+ height it took.
+*>
+extern fn float r_pdf_document_draw_paragraph(Rid document, float x, float y, float width, char* text, RHAlign align) @cname("Rpdf_document_draw_paragraph");
+
+<*
+ A picture of RGBA8 pixels stretched over a rectangle. A width or
+ height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+*>
+extern fn void r_pdf_document_draw_image(Rid document, float x, float y, float width, float height, char* rgba, CInt pixels_width, CInt pixels_height) @cname("Rpdf_document_draw_image");
+
+<*
+ What a window shows (Rwindow_capture), as a picture: a report of
+ the screen, a chart. A width and height of 0: the size it has on the
+ screen. Returns R_FALSE when the window cannot be captured.
+*>
+extern fn CInt r_pdf_document_draw_window(Rid document, Rid window, float x, float y, float width, float height) @cname("Rpdf_document_draw_window");
+
+<* Writes the file. Returns R_FALSE when it cannot be written. *>
+extern fn CInt r_pdf_document_save(Rid document, char* path) @cname("Rpdf_document_save");
+
+<* The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. *>
+extern fn char* r_pdf_document_save_memory(Rid document, usz* size) @cname("Rpdf_document_save_memory");
+
+<*
+ Prints a PDF document with the print system: on macOS the print
+ panel, on Windows the print dialog (the pages are drawn by PDFium, see
+ PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+ dialog of Raven that chooses the printer. It waits until the job is
+ sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+ cannot print. Not in the browser.
+*>
+extern fn CInt r_pdf_print(RPdfPrintDesc* desc, char* data, usz data_size) @cname("Rpdf_print");
+
+extern fn CInt r_pdf_print_file(RPdfPrintDesc* desc, char* path) @cname("Rpdf_print_file");
+
+<* Prints a document written by the application. *>
+extern fn CInt r_pdf_document_print(Rid document, RPdfPrintDesc* desc) @cname("Rpdf_document_print");
 
 extern fn Rid r_text_editor_create(char* text) @cname("Rtext_editor_create");
 

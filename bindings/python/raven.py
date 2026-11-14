@@ -935,6 +935,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_RATING = 0x0230
     R_WIDGET_PAGINATION = 0x0231
     R_WIDGET_PLOT = 0x0232
+    R_WIDGET_PDF_VIEW = 0x0233
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -987,6 +988,7 @@ R_WIDGET_BREADCRUMB = RWidgetType.R_WIDGET_BREADCRUMB
 R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING
 R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
 R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
+R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1149,6 +1151,61 @@ R_PLOT_X = RPlotAxis.R_PLOT_X
 R_PLOT_Y = RPlotAxis.R_PLOT_Y
 R_PLOT_X2 = RPlotAxis.R_PLOT_X2
 R_PLOT_Y2 = RPlotAxis.R_PLOT_Y2
+
+class RPdfFit(enum.IntEnum):
+    """How a PdfView sizes its pages."""
+    R_PDF_FIT_WIDTH = 0x05C0
+    R_PDF_FIT_PAGE = 0x05C1
+    R_PDF_FIT_NONE = 0x05C2
+
+R_PDF_FIT_WIDTH = RPdfFit.R_PDF_FIT_WIDTH
+R_PDF_FIT_PAGE = RPdfFit.R_PDF_FIT_PAGE
+R_PDF_FIT_NONE = RPdfFit.R_PDF_FIT_NONE
+
+class RPdfStatus(enum.IntEnum):
+    """What a PdfView holds."""
+    R_PDF_EMPTY = 0x05D0
+    R_PDF_LOADED = 0x05D1
+    R_PDF_NEEDS_PASSWORD = 0x05D2
+    R_PDF_ERROR = 0x05D3
+    R_PDF_UNAVAILABLE = 0x05D4
+
+R_PDF_EMPTY = RPdfStatus.R_PDF_EMPTY
+R_PDF_LOADED = RPdfStatus.R_PDF_LOADED
+R_PDF_NEEDS_PASSWORD = RPdfStatus.R_PDF_NEEDS_PASSWORD
+R_PDF_ERROR = RPdfStatus.R_PDF_ERROR
+R_PDF_UNAVAILABLE = RPdfStatus.R_PDF_UNAVAILABLE
+
+class RPdfFont(enum.IntEnum):
+    """The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...)."""
+    R_PDF_FONT_SANS = 0
+    R_PDF_FONT_MONO = 1
+
+R_PDF_FONT_SANS = RPdfFont.R_PDF_FONT_SANS
+R_PDF_FONT_MONO = RPdfFont.R_PDF_FONT_MONO
+
+class RPdfPaint(enum.IntFlag):
+    """How a shape of a PDF document is painted: a bitmask."""
+    R_PDF_FILL = 1
+    R_PDF_STROKE = 2
+
+R_PDF_FILL = RPdfPaint.R_PDF_FILL
+R_PDF_STROKE = RPdfPaint.R_PDF_STROKE
+
+class RPdfTextStyle(enum.IntFlag):
+    """A bitmask of styles of the text of a PDF document."""
+    R_PDF_TEXT_BOLD = 1
+    R_PDF_TEXT_ITALIC = 2
+    R_PDF_TEXT_UNDERLINE = 4
+
+R_PDF_TEXT_BOLD = RPdfTextStyle.R_PDF_TEXT_BOLD
+R_PDF_TEXT_ITALIC = RPdfTextStyle.R_PDF_TEXT_ITALIC
+R_PDF_TEXT_UNDERLINE = RPdfTextStyle.R_PDF_TEXT_UNDERLINE
+
+class RPdfPrintFlags(enum.IntEnum):
+    R_PDF_PRINT_NO_DIALOG = 1
+
+R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags.R_PDF_PRINT_NO_DIALOG
 
 class RPlotScale(enum.IntEnum):
     """How an axis of a Plot spreads its values."""
@@ -1814,6 +1871,19 @@ class RGestureEvent(ctypes.Structure):
     ]
 
 
+class RPdfPrintDesc(ctypes.Structure):
+    """How a PDF document is printed. Every field may be left to zero."""
+    _fields_ = [
+        ("window", ctypes.c_uint32),
+        ("title", ctypes.c_char_p),
+        ("printer", ctypes.c_char_p),
+        ("copies", ctypes.c_int),
+        ("flags", ctypes.c_uint32),
+        ("output", ctypes.c_char_p),
+        ("password", ctypes.c_char_p),
+    ]
+
+
 class RTileItem(ctypes.Structure):
     """What a tile shows, filled by the application when the tile is drawn."""
     _fields_ = [
@@ -2371,6 +2441,14 @@ RPlotSeriesCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctyp
 def _adapt_RPlotSeriesCallback(function):
     def call(plot, series, visible, user_data):
         function(plot, series, visible, user_data)
+    return call
+
+RPdfPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RPdfPageChangedCallback(function):
+    def call(view, page, user_data):
+        function(view, page, user_data)
     return call
 
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
@@ -8672,6 +8750,416 @@ _lib.Rplot_set_series_toggled_callback.restype = None
 
 def Rplot_set_series_toggled_callback(plot, callback, user_data=None):
     _lib.Rplot_set_series_toggled_callback(plot, _callback(RPlotSeriesCallback, _adapt_RPlotSeriesCallback, callback), user_data)
+
+
+_lib.Rpdf_is_available.argtypes = []
+_lib.Rpdf_is_available.restype = ctypes.c_int
+
+
+def Rpdf_is_available():
+    """R_TRUE when PDFium can be loaded (it is, the first time this is asked)."""
+    return _lib.Rpdf_is_available()
+
+
+_lib.Rpdf_view_load_file.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rpdf_view_load_file.restype = ctypes.c_int
+
+
+def Rpdf_view_load_file(view, path, password):
+    """Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+    cannot: Rpdf_view_get_status tells why (a password is needed, not a
+    PDF, no PDFium). The view then shows that instead of pages."""
+    return _lib.Rpdf_view_load_file(view, _s(path), _s(password))
+
+
+_lib.Rpdf_view_load_memory.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+_lib.Rpdf_view_load_memory.restype = ctypes.c_int
+
+
+def Rpdf_view_load_memory(view, data, password):
+    """Same as Rpdf_view_load_file, from bytes in memory (copied)."""
+    data = _s(data)
+    return _lib.Rpdf_view_load_memory(view, data, len(data) if data is not None else 0, _s(password))
+
+
+_lib.Rpdf_view_close.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_close.restype = None
+
+
+def Rpdf_view_close(view):
+    """Closes the document: the view is empty."""
+    _lib.Rpdf_view_close(view)
+
+
+_lib.Rpdf_view_get_status.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_status.restype = ctypes.c_int
+
+
+def Rpdf_view_get_status(view):
+    return _e(RPdfStatus, _lib.Rpdf_view_get_status(view))
+
+
+_lib.Rpdf_view_get_page_count.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_page_count.restype = ctypes.c_int
+
+
+def Rpdf_view_get_page_count(view):
+    return _lib.Rpdf_view_get_page_count(view)
+
+
+_lib.Rpdf_view_get_page_size.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float)]
+_lib.Rpdf_view_get_page_size.restype = None
+
+
+def Rpdf_view_get_page_size(view, page):
+    """Size of a page in points (1/72 inch), as it is shown (its rotation applied)."""
+    width_ = ctypes.c_float()
+    height_ = ctypes.c_float()
+    _lib.Rpdf_view_get_page_size(view, page, ctypes.byref(width_), ctypes.byref(height_))
+    return (width_.value, height_.value)
+
+
+_lib.Rpdf_view_set_page.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpdf_view_set_page.restype = None
+
+
+def Rpdf_view_set_page(view, page):
+    """Scrolls to the top of a page; it becomes the current page."""
+    _lib.Rpdf_view_set_page(view, page)
+
+
+_lib.Rpdf_view_get_page.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_page.restype = ctypes.c_int
+
+
+def Rpdf_view_get_page(view):
+    """The current page: the one a third down the view."""
+    return _lib.Rpdf_view_get_page(view)
+
+
+_lib.Rpdf_view_set_zoom.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rpdf_view_set_zoom.restype = None
+
+
+def Rpdf_view_set_zoom(view, zoom):
+    """A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE."""
+    _lib.Rpdf_view_set_zoom(view, zoom)
+
+
+_lib.Rpdf_view_get_zoom.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_zoom.restype = ctypes.c_float
+
+
+def Rpdf_view_get_zoom(view):
+    """The zoom the pages show at, the one a fit gives included."""
+    return _lib.Rpdf_view_get_zoom(view)
+
+
+_lib.Rpdf_view_set_fit.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpdf_view_set_fit.restype = None
+
+
+def Rpdf_view_set_fit(view, fit):
+    _lib.Rpdf_view_set_fit(view, int(fit))
+
+
+_lib.Rpdf_view_get_fit.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_fit.restype = ctypes.c_int
+
+
+def Rpdf_view_get_fit(view):
+    return _e(RPdfFit, _lib.Rpdf_view_get_fit(view))
+
+
+_lib.Rpdf_view_get_title.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_view_get_title.restype = ctypes.c_char_p
+
+
+def Rpdf_view_get_title(view):
+    """The title of the document (its information), "" when it has none."""
+    return _r(_lib.Rpdf_view_get_title(view))
+
+
+_lib.Rpdf_view_get_page_text.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rpdf_view_get_page_text.restype = ctypes.c_char_p
+
+
+def Rpdf_view_get_page_text(view, page):
+    """The text of a page (UTF-8), to search it or copy it. Valid until
+    the next call for this view."""
+    return _r(_lib.Rpdf_view_get_page_text(view, page))
+
+
+_lib.Rpdf_view_set_page_changed_callback.argtypes = [ctypes.c_uint32, RPdfPageChangedCallback, ctypes.c_void_p]
+_lib.Rpdf_view_set_page_changed_callback.restype = None
+
+
+def Rpdf_view_set_page_changed_callback(view, callback, user_data=None):
+    _lib.Rpdf_view_set_page_changed_callback(view, _callback(RPdfPageChangedCallback, _adapt_RPdfPageChangedCallback, callback), user_data)
+
+
+_lib.Rpdf_view_print.argtypes = [ctypes.c_uint32, ctypes.POINTER(RPdfPrintDesc)]
+_lib.Rpdf_view_print.restype = ctypes.c_int
+
+
+def Rpdf_view_print(view, desc):
+    """Prints the document shown (see Rpdf_print); the job is named after its title."""
+    return _lib.Rpdf_view_print(view, _p(desc))
+
+
+_lib.Rpdf_document_create.argtypes = []
+_lib.Rpdf_document_create.restype = ctypes.c_uint32
+
+
+def Rpdf_document_create():
+    return _lib.Rpdf_document_create()
+
+
+_lib.Rpdf_document_delete.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_document_delete.restype = None
+
+
+def Rpdf_document_delete(document):
+    _lib.Rpdf_document_delete(document)
+
+
+_lib.Rpdf_document_set_title.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rpdf_document_set_title.restype = None
+
+
+def Rpdf_document_set_title(document, title):
+    """The information of the document, shown by readers (the title in their window)."""
+    _lib.Rpdf_document_set_title(document, _s(title))
+
+
+_lib.Rpdf_document_set_author.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rpdf_document_set_author.restype = None
+
+
+def Rpdf_document_set_author(document, author):
+    _lib.Rpdf_document_set_author(document, _s(author))
+
+
+_lib.Rpdf_document_set_subject.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rpdf_document_set_subject.restype = None
+
+
+def Rpdf_document_set_subject(document, subject):
+    _lib.Rpdf_document_set_subject(document, _s(subject))
+
+
+_lib.Rpdf_document_add_page.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rpdf_document_add_page.restype = ctypes.c_int
+
+
+def Rpdf_document_add_page(document, width, height):
+    """Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size."""
+    return _lib.Rpdf_document_add_page(document, width, height)
+
+
+_lib.Rpdf_document_get_page_count.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_document_get_page_count.restype = ctypes.c_int
+
+
+def Rpdf_document_get_page_count(document):
+    return _lib.Rpdf_document_get_page_count(document)
+
+
+_lib.Rpdf_document_set_fill_color.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rpdf_document_set_fill_color.restype = None
+
+
+def Rpdf_document_set_fill_color(document, r, g, b, a):
+    _lib.Rpdf_document_set_fill_color(document, r, g, b, a)
+
+
+_lib.Rpdf_document_set_stroke_color.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rpdf_document_set_stroke_color.restype = None
+
+
+def Rpdf_document_set_stroke_color(document, r, g, b, a):
+    _lib.Rpdf_document_set_stroke_color(document, r, g, b, a)
+
+
+_lib.Rpdf_document_set_line_width.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rpdf_document_set_line_width.restype = None
+
+
+def Rpdf_document_set_line_width(document, width):
+    """Width of the lines and outlines, in points (default 1)."""
+    _lib.Rpdf_document_set_line_width(document, width)
+
+
+_lib.Rpdf_document_draw_rect.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_uint32]
+_lib.Rpdf_document_draw_rect.restype = None
+
+
+def Rpdf_document_draw_rect(document, x, y, width, height, radius, paint):
+    """A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint."""
+    _lib.Rpdf_document_draw_rect(document, x, y, width, height, radius, paint)
+
+
+_lib.Rpdf_document_draw_ellipse.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_uint32]
+_lib.Rpdf_document_draw_ellipse.restype = None
+
+
+def Rpdf_document_draw_ellipse(document, x, y, width, height, paint):
+    """The ellipse inside a rectangle."""
+    _lib.Rpdf_document_draw_ellipse(document, x, y, width, height, paint)
+
+
+_lib.Rpdf_document_draw_line.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rpdf_document_draw_line.restype = None
+
+
+def Rpdf_document_draw_line(document, x1, y1, x2, y2):
+    """A line in the stroke color."""
+    _lib.Rpdf_document_draw_line(document, x1, y1, x2, y2)
+
+
+_lib.Rpdf_document_add_font.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_size_t]
+_lib.Rpdf_document_add_font.restype = ctypes.c_int
+
+
+def Rpdf_document_add_font(document, data):
+    """Adds a TrueType font (.ttf) to the document (the data is
+    copied, and embedded in the file). Returns its number for
+    Rpdf_document_set_font, -1 when it is not a TrueType font."""
+    data = _s(data)
+    return _lib.Rpdf_document_add_font(document, data, len(data) if data is not None else 0)
+
+
+_lib.Rpdf_document_add_font_from_file.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rpdf_document_add_font_from_file.restype = ctypes.c_int
+
+
+def Rpdf_document_add_font_from_file(document, path):
+    return _lib.Rpdf_document_add_font_from_file(document, _s(path))
+
+
+_lib.Rpdf_document_set_font.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_uint32]
+_lib.Rpdf_document_set_font.restype = None
+
+
+def Rpdf_document_set_font(document, font, size, style):
+    """The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle."""
+    _lib.Rpdf_document_set_font(document, font, size, style)
+
+
+_lib.Rpdf_document_get_line_height.argtypes = [ctypes.c_uint32]
+_lib.Rpdf_document_get_line_height.restype = ctypes.c_float
+
+
+def Rpdf_document_get_line_height(document):
+    """Distance between two lines of text in the current font."""
+    return _lib.Rpdf_document_get_line_height(document)
+
+
+_lib.Rpdf_document_measure_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rpdf_document_measure_text.restype = ctypes.c_float
+
+
+def Rpdf_document_measure_text(document, text):
+    """Width of a text in the current font, in points (of its widest line)."""
+    return _lib.Rpdf_document_measure_text(document, _s(text))
+
+
+_lib.Rpdf_document_draw_text.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_char_p]
+_lib.Rpdf_document_draw_text.restype = ctypes.c_float
+
+
+def Rpdf_document_draw_text(document, x, y, text):
+    """Text in the fill color, the top of its first line at y ('\\n'
+    starts a line below). Returns its width."""
+    return _lib.Rpdf_document_draw_text(document, x, y, _s(text))
+
+
+_lib.Rpdf_document_draw_paragraph.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_char_p, ctypes.c_int]
+_lib.Rpdf_document_draw_paragraph.restype = ctypes.c_float
+
+
+def Rpdf_document_draw_paragraph(document, x, y, width, text, align):
+    """Text wrapped at the spaces to fit `width`, each line placed by
+    `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+    height it took."""
+    return _lib.Rpdf_document_draw_paragraph(document, x, y, width, _s(text), int(align))
+
+
+_lib.Rpdf_document_draw_image.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_lib.Rpdf_document_draw_image.restype = None
+
+
+def Rpdf_document_draw_image(document, x, y, width, height, rgba, pixels_width, pixels_height):
+    """A picture of RGBA8 pixels stretched over a rectangle. A width or
+    height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch."""
+    _lib.Rpdf_document_draw_image(document, x, y, width, height, rgba, pixels_width, pixels_height)
+
+
+_lib.Rpdf_document_draw_window.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rpdf_document_draw_window.restype = ctypes.c_int
+
+
+def Rpdf_document_draw_window(document, window, x, y, width, height):
+    """What a window shows (Rwindow_capture), as a picture: a report of
+    the screen, a chart. A width and height of 0: the size it has on the
+    screen. Returns R_FALSE when the window cannot be captured."""
+    return _lib.Rpdf_document_draw_window(document, window, x, y, width, height)
+
+
+_lib.Rpdf_document_save.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rpdf_document_save.restype = ctypes.c_int
+
+
+def Rpdf_document_save(document, path):
+    """Writes the file. Returns R_FALSE when it cannot be written."""
+    return _lib.Rpdf_document_save(document, _s(path))
+
+
+_lib.Rpdf_document_save_memory.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_size_t)]
+_lib.Rpdf_document_save_memory.restype = ctypes.c_void_p
+
+
+def Rpdf_document_save_memory(document):
+    """The file in memory (followed by a '\\0' not counted), to release with Rmemory_free; `size` receives its length."""
+    size_ = ctypes.c_size_t()
+    address = _lib.Rpdf_document_save_memory(document, ctypes.byref(size_))
+    if not address:
+        return None
+    data = ctypes.string_at(address, size_.value)
+    _lib.Rmemory_free(address)
+    return data
+
+
+_lib.Rpdf_print.argtypes = [ctypes.POINTER(RPdfPrintDesc), ctypes.c_char_p, ctypes.c_size_t]
+_lib.Rpdf_print.restype = ctypes.c_int
+
+
+def Rpdf_print(desc, data):
+    """Prints a PDF document with the print system: on macOS the print
+    panel, on Windows the print dialog (the pages are drawn by PDFium, see
+    PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+    dialog of Raven that chooses the printer. It waits until the job is
+    sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+    cannot print. Not in the browser."""
+    data = _s(data)
+    return _lib.Rpdf_print(_p(desc), data, len(data) if data is not None else 0)
+
+
+_lib.Rpdf_print_file.argtypes = [ctypes.POINTER(RPdfPrintDesc), ctypes.c_char_p]
+_lib.Rpdf_print_file.restype = ctypes.c_int
+
+
+def Rpdf_print_file(desc, path):
+    return _lib.Rpdf_print_file(_p(desc), _s(path))
+
+
+_lib.Rpdf_document_print.argtypes = [ctypes.c_uint32, ctypes.POINTER(RPdfPrintDesc)]
+_lib.Rpdf_document_print.restype = ctypes.c_int
+
+
+def Rpdf_document_print(document, desc):
+    """Prints a document written by the application."""
+    return _lib.Rpdf_document_print(document, _p(desc))
 
 
 _lib.Rtext_editor_create.argtypes = [ctypes.c_char_p]

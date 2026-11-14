@@ -29,7 +29,9 @@ typedef enum rvn_handle_type_t {
 	/** A fragment shader of the application or a built-in effect (raven_shader.h). */
 	RVN_HANDLE_SHADER,
 	/** An icon beside the clock (raven_shell.h, platform/tray.c). */
-	RVN_HANDLE_TRAY
+	RVN_HANDLE_TRAY,
+	/** A PDF document written by the application (widgets/pdf_document.c). */
+	RVN_HANDLE_PDF_DOCUMENT
 } rvn_handle_type_t;
 
 #define RVN_HANDLE_INDEX_BITS 20u

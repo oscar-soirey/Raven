@@ -81,6 +81,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "BlockEditor", FAMILY_DATA, G_BLOCKS }, { "FileBrowser", FAMILY_DATA, G_FOLDER },
 	{ "Table", FAMILY_DATA, G_TABLE }, { "Column", FAMILY_DATA, G_ITEM }, { "Row", FAMILY_DATA, G_ITEM },
 	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER }, { "Plot", FAMILY_DATA, G_PLOT },
+	{ "PdfView", FAMILY_DATA, G_FILE },
 	{ "Series", FAMILY_DATA, G_ITEM }, { "Scatter", FAMILY_DATA, G_ITEM }, { "DragLine", FAMILY_DATA, G_ITEM },
 	{ "Track", FAMILY_DATA, G_TIMELINE }, { "Clip", FAMILY_DATA, G_PROGRESS }, { "Key", FAMILY_DATA, G_ITEM },
 	{ "Marker", FAMILY_DATA, G_ITEM }, { "Node", FAMILY_DATA, G_NODES }, { "Input", FAMILY_DATA, G_ITEM },
