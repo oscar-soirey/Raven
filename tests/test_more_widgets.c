@@ -5,6 +5,8 @@
 
 #include "test.h"
 
+#include <stdlib.h>
+
 static Rid g_window;
 static int g_calls;
 static int g_last_int;
@@ -488,6 +490,35 @@ static void test_breadcrumb(void) {
 	Rdraw_frame();
 }
 
+/* A string the widget returned, passed back to a setter of the same widget: the setter frees its
+ * strings first, the value is read from a copy. */
+static void test_items_from_own_strings(void) {
+	Rid crumbs = Rwidget_create(R_WIDGET_BREADCRUMB);
+	Rid combo = Rwidget_create(R_WIDGET_COMBO_BOX);
+	Rid list = Rwidget_create(R_WIDGET_LIST_VIEW);
+	Rid table = Rwidget_create(R_WIDGET_TABLE);
+	Rbreadcrumb_set_items(crumbs, "Home|Documents|Reports");
+	Rbreadcrumb_set_items(crumbs, Rbreadcrumb_get_item_text(crumbs, 2));
+	CHECK(Rbreadcrumb_get_item_count(crumbs) == 1);
+	CHECK_STR(Rbreadcrumb_get_item_text(crumbs, 0), "Reports");
+	Rwidget_set_attribute(combo, "Items", "Small|Medium|Large");
+	CHECK(Rwidget_set_attribute(combo, "Items", Rcombo_box_get_item_text(combo, 1)));
+	CHECK(Rcombo_box_get_item_count(combo) == 1);
+	CHECK_STR(Rcombo_box_get_item_text(combo, 0), "Medium");
+	Rwidget_set_attribute(list, "Items", "Red|Green|Blue");
+	CHECK(Rwidget_set_attribute(list, "Items", Rlist_view_get_item_text(list, 2)));
+	CHECK(Rlist_view_get_item_count(list) == 1);
+	CHECK_STR(Rlist_view_get_item_text(list, 0), "Blue");
+	Rwidget_set_attribute(table, "Columns", "Name|Size|Date");
+	CHECK(Rwidget_set_attribute(table, "Columns", Rtable_get_column_header(table, 0)));
+	CHECK(Rtable_get_column_count(table) == 1);
+	CHECK_STR(Rtable_get_column_header(table, 0), "Name");
+	Rwidget_destroy(crumbs);
+	Rwidget_destroy(combo);
+	Rwidget_destroy(list);
+	Rwidget_destroy(table);
+}
+
 static void on_rating(Rid rating, float value, void* user_data) {
 	(void)rating;
 	(void)user_data;
@@ -651,6 +682,56 @@ static void test_svg(void) {
 		CHECK(Rtexture_create(empty, strlen(empty)) == R_INVALID_ID);
 	}
 	EXPECT_ERRORS_END(2);
+}
+
+/* SVG files that nanosvg took minutes to draw, or that gave sizes out of the range of int (issue #153). */
+static void test_svg_hostile(void) {
+	static const char* huge[] = {
+		"<svg width='1e30' height='10'><rect width='5' height='5'/></svg>",
+		"<svg width='10' height='-1e30'><rect width='5' height='5'/></svg>",
+	};
+	const char* wide = "<svg width='20' height='20'><path d='M0 0 L10 10' stroke='black' stroke-width='1e30' stroke-linecap='round'/></svg>";
+	size_t points = 60000, size, n = 0, i;
+	char* text;
+	uint8_t* pixels;
+	int width = 0, height = 0, stroke, covered;
+#if defined(RAVEN_TEST_NO_SVG)
+	return;
+#endif
+	for (i = 0; i < 2; i++) {
+		width = height = -1;
+		CHECK(Rimage_decode(huge[i], strlen(huge[i]), &width, &height) == NULL);
+	}
+	EXPECT_ERRORS_BEGIN();
+	CHECK(Rtexture_create_from_svg(huge[0], strlen(huge[0]), 1.0f) == R_INVALID_ID);
+	CHECK(Rtexture_create_from_svg(g_svg, sizeof(g_svg) - 1, 1e30f) == R_INVALID_ID);
+	EXPECT_ERRORS_END(2);
+
+	/* a stroke wider than anything, with round ends, covers the whole picture */
+	pixels = Rimage_decode(wide, strlen(wide), &width, &height);
+	CHECK(pixels != NULL && width == 40 && height == 40);
+	if (pixels) {
+		for (i = 0, covered = 0; i < (size_t)(width * height); i++) covered += pixels[i * 4 + 3] == 255;
+		CHECK(covered == width * height);
+		Rpixels_free(pixels);
+	}
+
+	/* one path of 60000 points over a small picture, filled then stroked: drawn in a moment, not in minutes */
+	size = points * 16 + 200;
+	text = (char*)malloc(size);
+	for (stroke = 0; stroke < 2 && text; stroke++) {
+		n = (size_t)snprintf(text, size, "<svg width='20' height='20'><path %s d='M0 0", stroke ? "fill='none' stroke='red'" : "fill='red'");
+		for (i = 0; i < points; i++) n += (size_t)snprintf(text + n, size - n, " L%d %d", (int)(i % 20), (int)((i * 7) % 20));
+		n += (size_t)snprintf(text + n, size - n, "Z'/></svg>");
+		pixels = Rimage_decode(text, n, &width, &height);
+		CHECK(pixels != NULL && width == 40 && height == 40);
+		if (pixels) {
+			for (i = 0, covered = 0; i < (size_t)(width * height); i++) covered += pixels[i * 4 + 3] > 0;
+			CHECK(covered > width * height / 4);
+			Rpixels_free(pixels);
+		}
+	}
+	free(text);
 }
 
 static void on_notification(const char* title, const char* body, RNotificationUrgency urgency, void* user_data) {
@@ -1012,9 +1093,11 @@ int main(void) {
 	RUN(test_time_picker);
 	RUN(test_toast);
 	RUN(test_breadcrumb);
+	RUN(test_items_from_own_strings);
 	RUN(test_rating);
 	RUN(test_pagination);
 	RUN(test_svg);
+	RUN(test_svg_hostile);
 	RUN(test_notifications);
 	RUN(test_plot);
 

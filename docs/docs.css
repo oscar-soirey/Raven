@@ -19,7 +19,7 @@
     color-scheme:dark;
   }
 }
-html{scroll-behavior:smooth}
+html{scroll-behavior:auto}
 *{box-sizing:border-box}
 [id]{scroll-margin-top:76px}
 body{margin:0; color:var(--fg); font:18px/1.7 var(--body); overflow-wrap:break-word; background-color:var(--bg);
