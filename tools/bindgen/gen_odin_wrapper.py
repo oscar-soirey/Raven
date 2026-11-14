@@ -14,7 +14,7 @@ from gen_odin import emit_doc
 # does not say it). The check below fails when an enumeration that looks like a
 # flag group is in neither list, so a new one is looked at once.
 FLAGS = {"RWindowFlags", "RModifier", "RPenButton", "RLanguageFlags", "RHeaderButtons", "RFileDialogFlags",
-         "RShaderFlags"}
+         "RShaderFlags", "RPdfPaint", "RPdfTextStyle", "RPdfPrintFlags"}
 NOT_FLAGS = set()
 
 

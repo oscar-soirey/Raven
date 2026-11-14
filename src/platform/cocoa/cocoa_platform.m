@@ -520,7 +520,13 @@ static NSMenu* rvn_cocoa_menu_from(NSString* title, const rvn_pmenu_t* items, ui
         NSString* text = rvn_cocoa_string(entry->text);
         NSMenuItem* item;
         if (entry->separator) { [menu addItem:[NSMenuItem separatorItem]]; continue; }
-        if (entry->submenu) {
+        if (entry->header) {
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 140000
+            if (@available(macOS 14.0, *)) item = [[NSMenuItem sectionHeaderWithTitle:text] retain];
+            else
+#endif
+                item = [[NSMenuItem alloc] initWithTitle:text action:nil keyEquivalent:@""];
+        } else if (entry->submenu) {
             NSMenu* sub = rvn_cocoa_menu_from(text, entry->items, entry->count);
             item = [[NSMenuItem alloc] initWithTitle:text action:nil keyEquivalent:@""];
             [item setSubmenu:sub];

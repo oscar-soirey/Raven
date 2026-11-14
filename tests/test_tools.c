@@ -552,6 +552,8 @@ static void test_node_graph_editor_hooks(void) {
 			Rnode_graph_set_node_badge(graph, c, "pinned");
 			Rnode_graph_set_node_badge_color(graph, c, 1.0f, 0.84f, 0.31f);
 			Rdraw_frame();
+			Rnode_graph_set_node_badge_color(graph, c, -1.0f, -1.0f, -1.0f); /* back to the look's color */
+			Rdraw_frame();
 			Rnode_graph_remove_node(graph, c);
 		}
 		Rnode_graph_remove_node(graph, b);
@@ -1402,6 +1404,24 @@ static void test_looks(void) {
 	Rshutdown();
 }
 
+/* A node's title or name passed back from its getter (the setter used to free it first). */
+static void test_node_graph_own_strings(void) {
+	Rid graph;
+	int node;
+	CHECK(test_init(0));
+	graph = Rnode_graph_create();
+	node = Rnode_graph_add_node(graph, "Multiply", 0.0f, 0.0f);
+	Rnode_graph_set_node_name(graph, node, "mul1");
+	Rnode_graph_set_node_title(graph, node, Rnode_graph_get_node_title(graph, node));
+	Rnode_graph_set_node_name(graph, node, Rnode_graph_get_node_name(graph, node));
+	CHECK_STR(Rnode_graph_get_node_title(graph, node), "Multiply");
+	CHECK_STR(Rnode_graph_get_node_name(graph, node), "mul1");
+	Rnode_graph_set_node_name(graph, node, "");
+	CHECK_STR(Rnode_graph_get_node_name(graph, node), "");
+	Rwidget_destroy(graph);
+	Rshutdown();
+}
+
 /* A very long timeline paints about as much as a short one (the ruler steps grow past hours). */
 static void test_timeline_long_duration(void) {
 	Rid window, tl;
@@ -1435,6 +1455,39 @@ static void test_timeline_long_duration(void) {
 	Rshutdown();
 }
 
+/* ---------------------------------------------------------------------------
+ *  Block editor
+ * ------------------------------------------------------------------------- */
+
+/* Rblock_editor_attach checks the place it is given before using the index. */
+static void test_block_editor_attach_place(void) {
+	Rid ed;
+	int a, b, c;
+
+	CHECK(test_init(0));
+	ed = Rblock_editor_create();
+	Rblock_editor_add_kind(ed, "move", "move %n steps", R_BLOCK_STATEMENT, "Motion");
+	Rblock_editor_add_kind(ed, "forever", "forever", R_BLOCK_C, "Control");
+	a = Rblock_editor_add_block(ed, "move", 20.0f, 20.0f);
+	b = Rblock_editor_add_block(ed, "move", 20.0f, 200.0f);
+	c = Rblock_editor_add_block(ed, "forever", 20.0f, 400.0f);
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rblock_editor_attach(ed, b, a, (RBlockPlace)0, 8));
+	CHECK(!Rblock_editor_attach(ed, b, a, (RBlockPlace)0, 2000));
+	CHECK(!Rblock_editor_attach(ed, b, a, (RBlockPlace)(R_BLOCK_INPUT + 1), -100));
+	EXPECT_ERRORS_END(3);
+	CHECK(Rblock_editor_get_parent(ed, b, NULL, NULL) == 0);
+	CHECK(Rblock_editor_get_next(ed, a) == 0);
+	/* the places it knows still work */
+	CHECK(Rblock_editor_attach(ed, b, a, R_BLOCK_NEXT, 0));
+	CHECK(Rblock_editor_get_next(ed, a) == b);
+	CHECK(!Rblock_editor_attach(ed, a, c, R_BLOCK_BODY, 8));
+	CHECK(Rblock_editor_attach(ed, a, c, R_BLOCK_BODY, 0));
+	CHECK(Rblock_editor_get_body(ed, c, 0) == a);
+	Rwidget_destroy(ed);
+	Rshutdown();
+}
+
 int main(void) {
 	RUN(test_color_picker);
 	RUN(test_timeline);
@@ -1442,9 +1495,11 @@ int main(void) {
 	RUN(test_timeline_long_duration);
 	RUN(test_node_graph);
 	RUN(test_node_graph_editor_hooks);
+	RUN(test_node_graph_own_strings);
 	RUN(test_zoomed_content);
 	RUN(test_blur_and_transparency);
 	RUN(test_hooks);
 	RUN(test_looks);
+	RUN(test_block_editor_attach_place);
 	return test_report("test_tools");
 }

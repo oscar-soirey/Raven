@@ -872,12 +872,14 @@ static NSVGactiveEdge* nsvg__addActive(NSVGrasterizer* r, NSVGedge* e, float sta
 	}
 
 	float dxdy = (e->x1 - e->x0) / (e->y1 - e->y0);
+	// Raven: an edge less than a sample high is never stepped, but its slope (any size) must still fit in an int
+	float step = dxdy < -8000000.0f ? -8000000.0f : (dxdy > 8000000.0f ? 8000000.0f : dxdy);
 //	STBTT_assert(e->y0 <= start_point);
 	// round dx down to avoid going too far
-	if (dxdy < 0)
-		z->dx = (int)(-nsvg__roundf(NSVG__FIX * -dxdy));
+	if (step < 0)
+		z->dx = (int)(-nsvg__roundf(NSVG__FIX * -step));
 	else
-		z->dx = (int)nsvg__roundf(NSVG__FIX * dxdy);
+		z->dx = (int)nsvg__roundf(NSVG__FIX * step);
 	z->x = (int)nsvg__roundf(NSVG__FIX * (e->x0 + dxdy * (startPoint - e->y0)));
 //	z->x -= off_x * FIX;
 	z->ey = e->y1;
@@ -1121,9 +1123,103 @@ static void nsvg__scanlineSolid(unsigned char* dst, int count, unsigned char* co
 	}
 }
 
+// Raven: merges two lists of active edges sorted by x; at the same x, the edges of a come first
+static NSVGactiveEdge* nsvg__mergeActive(NSVGactiveEdge* a, NSVGactiveEdge* b)
+{
+	NSVGactiveEdge head;
+	NSVGactiveEdge* tail = &head;
+	while (a != NULL && b != NULL) {
+		if (b->x < a->x) {
+			tail->next = b;
+			b = b->next;
+		} else {
+			tail->next = a;
+			a = a->next;
+		}
+		tail = tail->next;
+	}
+	tail->next = a != NULL ? a : b;
+	return head.next;
+}
+
+// Raven: sorts a list of active edges by x, keeping the order of the edges at the same x (as the bubble sort did)
+static NSVGactiveEdge* nsvg__sortActive(NSVGactiveEdge* list)
+{
+	NSVGactiveEdge *slow, *fast, *second;
+	if (list == NULL || list->next == NULL)
+		return list;
+	slow = list;
+	fast = list->next;
+	while (fast != NULL && fast->next != NULL) {
+		slow = slow->next;
+		fast = fast->next->next;
+	}
+	second = slow->next;
+	slow->next = NULL;
+	return nsvg__mergeActive(nsvg__sortActive(list), nsvg__sortActive(second));
+}
+
+// Raven: merges new edges (in the order they were added) into the sorted active edges, in the order that
+// inserting them one by one gave. An edge went before the edges at its x, except when nothing was at a
+// smaller x: then it went after the first edge of the list.
+static NSVGactiveEdge* nsvg__insertActive(NSVGactiveEdge* active, NSVGactiveEdge* added)
+{
+	NSVGactiveEdge *front = NULL, *after = NULL, *z, *p;
+	NSVGactiveEdge** link;
+	int minx = 0, any = 0;
+	// the ones that go before the edges at their x, and the others (each list the last one added first)
+	while (added != NULL) {
+		z = added;
+		added = z->next;
+		if ((active != NULL && active->x < z->x) || (any && minx < z->x)) {
+			z->next = front;
+			front = z;
+		} else {
+			z->next = after;
+			after = z;
+		}
+		if (!any || z->x < minx)
+			minx = z->x;
+		any = 1;
+	}
+	front = nsvg__sortActive(front);
+	after = nsvg__sortActive(after);
+	// (now the last one added comes first at each x:) where no edge was there before, the first one added goes first
+	link = &after;
+	while (*link != NULL) {
+		NSVGactiveEdge *start = *link, *last = start, *before = NULL;
+		while (last->next != NULL && last->next->x == start->x) {
+			before = last;
+			last = last->next;
+		}
+		if (before != NULL && (active == NULL || active->x != start->x)) {
+			before->next = last->next;
+			last->next = start;
+			*link = last;
+			link = &before->next;
+		} else {
+			link = &last->next;
+		}
+	}
+	after = nsvg__mergeActive(after, active);
+	// the first edge of the list stays before the edges added at its x
+	if (active != NULL) {
+		link = &after;
+		while ((*link)->x != active->x)
+			link = &(*link)->next;
+		if (*link != active) {
+			for (p = *link; p->next != active; p = p->next) {}
+			p->next = active->next;
+			active->next = *link;
+			*link = active;
+		}
+	}
+	return nsvg__mergeActive(front, after);
+}
+
 static void nsvg__rasterizeSortedEdges(NSVGrasterizer *r, float tx, float ty, float scale, NSVGcachedPaint* cache, char fillRule)
 {
-	NSVGactiveEdge *active = NULL;
+	NSVGactiveEdge *active = NULL, *added, **tail;
 	int y, s;
 	int e = 0;
 	int maxWeight = (255 / NSVG__SUBSAMPLES);  // weight per vertical scanline
@@ -1153,47 +1249,26 @@ static void nsvg__rasterizeSortedEdges(NSVGrasterizer *r, float tx, float ty, fl
 			}
 
 			// resort the list if needed
-			for (;;) {
-				int changed = 0;
-				step = &active;
-				while (*step && (*step)->next) {
-					if ((*step)->x > (*step)->next->x) {
-						NSVGactiveEdge* t = *step;
-						NSVGactiveEdge* q = t->next;
-						t->next = q->next;
-						q->next = t;
-						*step = q;
-						changed = 1;
-					}
-					step = &(*step)->next;
-				}
-				if (!changed) break;
-			}
+			// Raven: with a stable merge sort, not a bubble sort (O(n^2) for a path of many points)
+			for (step = &active; *step && (*step)->next && (*step)->x <= (*step)->next->x; step = &(*step)->next) {}
+			if (*step && (*step)->next)
+				active = nsvg__sortActive(active);
 
 			// insert all edges that start before the center of this scanline -- omit ones that also end on this scanline
+			// Raven: sorted together then merged in (inserting them one by one cost O(n^2)), in the same order
+			added = NULL;
+			tail = &added;
 			while (e < r->nedges && r->edges[e].y0 <= scany) {
 				if (r->edges[e].y1 > scany) {
 					NSVGactiveEdge* z = nsvg__addActive(r, &r->edges[e], scany);
 					if (z == NULL) break;
-					// find insertion point
-					if (active == NULL) {
-						active = z;
-					} else if (z->x < active->x) {
-						// insert at front
-						z->next = active;
-						active = z;
-					} else {
-						// find thing to insert AFTER
-						NSVGactiveEdge* p = active;
-						while (p->next && p->next->x < z->x)
-							p = p->next;
-						// at this point, p->next->x is NOT < z->x
-						z->next = p->next;
-						p->next = z;
-					}
+					*tail = z;
+					tail = &z->next;
 				}
 				e++;
 			}
+			if (added != NULL)
+				active = nsvg__insertActive(active, added);
 
 			// now process all active edges in non-zero fashion
 			if (active != NULL)

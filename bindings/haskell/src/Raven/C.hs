@@ -201,6 +201,47 @@ pattern R_WINDOW_SYSTEM_COCOA :: RWindowSystem
 pattern R_WINDOW_SYSTEM_COCOA = RWindowSystem 148
 pattern R_WINDOW_SYSTEM_EMSCRIPTEN :: RWindowSystem
 pattern R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem 149
+pattern R_WINDOW_SYSTEM_ANDROID :: RWindowSystem
+pattern R_WINDOW_SYSTEM_ANDROID = RWindowSystem 150
+pattern R_WINDOW_SYSTEM_UIKIT :: RWindowSystem
+pattern R_WINDOW_SYSTEM_UIKIT = RWindowSystem 151
+
+-- | What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+newtype RTextInputType = RTextInputType CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_TEXT_INPUT_TYPE_TEXT :: RTextInputType
+pattern R_TEXT_INPUT_TYPE_TEXT = RTextInputType 2912
+pattern R_TEXT_INPUT_TYPE_EMAIL :: RTextInputType
+pattern R_TEXT_INPUT_TYPE_EMAIL = RTextInputType 2913
+pattern R_TEXT_INPUT_TYPE_NUMBER :: RTextInputType
+pattern R_TEXT_INPUT_TYPE_NUMBER = RTextInputType 2914
+-- | Digits and a decimal separator.
+pattern R_TEXT_INPUT_TYPE_DECIMAL :: RTextInputType
+pattern R_TEXT_INPUT_TYPE_DECIMAL = RTextInputType 2915
+pattern R_TEXT_INPUT_TYPE_PHONE :: RTextInputType
+pattern R_TEXT_INPUT_TYPE_PHONE = RTextInputType 2916
+pattern R_TEXT_INPUT_TYPE_URL :: RTextInputType
+pattern R_TEXT_INPUT_TYPE_URL = RTextInputType 2917
+pattern R_TEXT_INPUT_TYPE_SEARCH :: RTextInputType
+pattern R_TEXT_INPUT_TYPE_SEARCH = RTextInputType 2918
+
+-- | The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+newtype RReturnKey = RReturnKey CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_RETURN_KEY_DEFAULT :: RReturnKey
+pattern R_RETURN_KEY_DEFAULT = RReturnKey 2928
+pattern R_RETURN_KEY_DONE :: RReturnKey
+pattern R_RETURN_KEY_DONE = RReturnKey 2929
+pattern R_RETURN_KEY_GO :: RReturnKey
+pattern R_RETURN_KEY_GO = RReturnKey 2930
+pattern R_RETURN_KEY_NEXT :: RReturnKey
+pattern R_RETURN_KEY_NEXT = RReturnKey 2931
+pattern R_RETURN_KEY_SEARCH :: RReturnKey
+pattern R_RETURN_KEY_SEARCH = RReturnKey 2932
+pattern R_RETURN_KEY_SEND :: RReturnKey
+pattern R_RETURN_KEY_SEND = RReturnKey 2933
 
 -- | Edges and corners of a window, for Rwindow_begin_resize.
 newtype RWindowEdge = RWindowEdge CInt
@@ -1078,6 +1119,9 @@ pattern R_WIDGET_PAGINATION = RWidgetType 561
 -- | Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
 pattern R_WIDGET_PLOT :: RWidgetType
 pattern R_WIDGET_PLOT = RWidgetType 562
+-- | The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+pattern R_WIDGET_PDF_VIEW :: RWidgetType
+pattern R_WIDGET_PDF_VIEW = RWidgetType 563
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1293,6 +1337,80 @@ pattern R_PLOT_X2 = RPlotAxis 1314
 -- | A second vertical axis, on the right: shown when a series or a drag line uses it.
 pattern R_PLOT_Y2 :: RPlotAxis
 pattern R_PLOT_Y2 = RPlotAxis 1315
+
+-- | How a PdfView sizes its pages.
+newtype RPdfFit = RPdfFit CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The widest page fills the width of the view (default).
+pattern R_PDF_FIT_WIDTH :: RPdfFit
+pattern R_PDF_FIT_WIDTH = RPdfFit 1472
+-- | The largest page fits whole in the view.
+pattern R_PDF_FIT_PAGE :: RPdfFit
+pattern R_PDF_FIT_PAGE = RPdfFit 1473
+-- | The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+pattern R_PDF_FIT_NONE :: RPdfFit
+pattern R_PDF_FIT_NONE = RPdfFit 1474
+
+-- | What a PdfView holds.
+newtype RPdfStatus = RPdfStatus CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | No document.
+pattern R_PDF_EMPTY :: RPdfStatus
+pattern R_PDF_EMPTY = RPdfStatus 1488
+-- | A document is shown.
+pattern R_PDF_LOADED :: RPdfStatus
+pattern R_PDF_LOADED = RPdfStatus 1489
+-- | The document needs a password, or the one given is wrong: load it again with one.
+pattern R_PDF_NEEDS_PASSWORD :: RPdfStatus
+pattern R_PDF_NEEDS_PASSWORD = RPdfStatus 1490
+-- | The file could not be read, or is not a PDF document.
+pattern R_PDF_ERROR :: RPdfStatus
+pattern R_PDF_ERROR = RPdfStatus 1491
+-- | The PDFium library was not found (see Rpdf_is_available).
+pattern R_PDF_UNAVAILABLE :: RPdfStatus
+pattern R_PDF_UNAVAILABLE = RPdfStatus 1492
+
+-- | The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+newtype RPdfFont = RPdfFont CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Roboto, the font of the interface of Raven.
+pattern R_PDF_FONT_SANS :: RPdfFont
+pattern R_PDF_FONT_SANS = RPdfFont 0
+-- | Roboto Mono.
+pattern R_PDF_FONT_MONO :: RPdfFont
+pattern R_PDF_FONT_MONO = RPdfFont 1
+
+-- | How a shape of a PDF document is painted: a bitmask.
+newtype RPdfPaint = RPdfPaint CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Filled with the fill color.
+pattern R_PDF_FILL :: RPdfPaint
+pattern R_PDF_FILL = RPdfPaint 1
+-- | Outlined with the stroke color and the line width.
+pattern R_PDF_STROKE :: RPdfPaint
+pattern R_PDF_STROKE = RPdfPaint 2
+
+-- | A bitmask of styles of the text of a PDF document.
+newtype RPdfTextStyle = RPdfTextStyle CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_PDF_TEXT_BOLD :: RPdfTextStyle
+pattern R_PDF_TEXT_BOLD = RPdfTextStyle 1
+pattern R_PDF_TEXT_ITALIC :: RPdfTextStyle
+pattern R_PDF_TEXT_ITALIC = RPdfTextStyle 2
+pattern R_PDF_TEXT_UNDERLINE :: RPdfTextStyle
+pattern R_PDF_TEXT_UNDERLINE = RPdfTextStyle 4
+
+newtype RPdfPrintFlags = RPdfPrintFlags CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | No dialog: printed at once on the printer named, else the default one.
+pattern R_PDF_PRINT_NO_DIALOG :: RPdfPrintFlags
+pattern R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags 1
 
 -- | How an axis of a Plot spreads its values.
 newtype RPlotScale = RPlotScale CInt
@@ -1516,6 +1634,14 @@ pattern R_DOCK_BOTTOM = RDockSide 867
 -- | Behind the same tabs as the other panel.
 pattern R_DOCK_TAB :: RDockSide
 pattern R_DOCK_TAB = RDockSide 868
+
+newtype RDockFloatMode = RDockFloatMode CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_DOCK_FLOAT_WINDOW :: RDockFloatMode
+pattern R_DOCK_FLOAT_WINDOW = RDockFloatMode 0
+pattern R_DOCK_FLOAT_IN_WINDOW :: RDockFloatMode
+pattern R_DOCK_FLOAT_IN_WINDOW = RDockFloatMode 1
 
 newtype RVisualPreset = RVisualPreset CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1908,6 +2034,13 @@ type RDeviceResetCallback = FunPtr (Ptr () -> IO ())
 -- no longer calls it.
 foreign import ccall "wrapper" mkRDeviceResetCallback :: (Ptr () -> IO ()) -> IO RDeviceResetCallback
 
+-- | The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+type RKeyboardCallback = FunPtr (Rid -> CInt -> CFloat -> Ptr () -> IO ())
+
+-- | Makes a 'RKeyboardCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRKeyboardCallback :: (Rid -> CInt -> CFloat -> Ptr () -> IO ()) -> IO RKeyboardCallback
+
 -- | Called for a drop target (a widget, or a window: `target` is its
 -- handle). Return R_TRUE to accept: while the pointer is over the target this
 -- shows the "can drop here" cursor and highlights the target; for
@@ -2223,6 +2356,13 @@ type RPlotSeriesCallback = FunPtr (Rid -> CInt -> CInt -> Ptr () -> IO ())
 -- | Makes a 'RPlotSeriesCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRPlotSeriesCallback :: (Rid -> CInt -> CInt -> Ptr () -> IO ()) -> IO RPlotSeriesCallback
+
+-- | Called when the current page changes as the user scrolls. This also fires the action of the widget.
+type RPdfPageChangedCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RPdfPageChangedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRPdfPageChangedCallback :: (Rid -> CInt -> Ptr () -> IO ()) -> IO RPdfPageChangedCallback
 
 -- | Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 type RTextEditorZoomCallback = FunPtr (Rid -> CFloat -> Ptr () -> IO ())
@@ -2611,6 +2751,63 @@ instance Storable RFrameStats where
         pokeByteOff p 40 (rFrameStats_paint_job_count v)
         pokeByteOff p 48 (rFrameStats_frame_index v)
 
+-- | Distances from the edges of a window, in logical units.
+data RInsets = RInsets
+    { rInsets_top :: CFloat
+    , rInsets_right :: CFloat
+    , rInsets_bottom :: CFloat
+    , rInsets_left :: CFloat
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RInsets x = {0};@ is in C).
+rInsets :: RInsets
+rInsets = RInsets (0) (0) (0) (0)
+
+instance Storable RInsets where
+    sizeOf _ = 16
+    alignment _ = 4
+    peek p = RInsets
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 12
+    poke p v = do
+        pokeByteOff p 0 (rInsets_top v)
+        pokeByteOff p 4 (rInsets_right v)
+        pokeByteOff p 8 (rInsets_bottom v)
+        pokeByteOff p 12 (rInsets_left v)
+
+-- | What the platform needs to know of the focused text input to set up the on-screen keyboard.
+data RTextInputInfo = RTextInputInfo
+    { rTextInputInfo_type :: RTextInputType
+    , rTextInputInfo_return_key :: RReturnKey
+    , rTextInputInfo_password :: CInt
+      -- ^ R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+    , rTextInputInfo_read_only :: CInt
+    , rTextInputInfo_max_length :: CInt
+      -- ^ Most characters accepted; 0 for no limit.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RTextInputInfo x = {0};@ is in C).
+rTextInputInfo :: RTextInputInfo
+rTextInputInfo = RTextInputInfo (0) (0) (0) (0) (0)
+
+instance Storable RTextInputInfo where
+    sizeOf _ = 20
+    alignment _ = 4
+    peek p = RTextInputInfo
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 12
+        <*> peekByteOff p 16
+    poke p v = do
+        pokeByteOff p 0 (rTextInputInfo_type v)
+        pokeByteOff p 4 (rTextInputInfo_return_key v)
+        pokeByteOff p 8 (rTextInputInfo_password v)
+        pokeByteOff p 12 (rTextInputInfo_read_only v)
+        pokeByteOff p 16 (rTextInputInfo_max_length v)
+
 -- | Native handles of a window or of a native viewport.
 --   Win32 : display = HINSTANCE, window = HWND
 --   X11   : display = Display*,  window = Window (XID), visual = VisualID
@@ -2618,6 +2815,8 @@ instance Storable RFrameStats where
 --           Wayland or X11 when Rinit runs: check `system`)
 --   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
 --   Emscripten: window = opaque browser surface token (no OS window handle)
+--   Android: window = ANativeWindow*
+--   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 data RNativeWindow = RNativeWindow
     { rNativeWindow_system :: RWindowSystem
     , rNativeWindow_display :: Ptr ()
@@ -3066,6 +3265,50 @@ instance Storable RGestureEvent where
         pokeByteOff p 64 (rGestureEvent_total_y v)
         pokeByteOff p 68 (rGestureEvent_rotation_delta v)
         pokeByteOff p 72 (rGestureEvent_cancelled v)
+
+-- | How a PDF document is printed. Every field may be left to zero.
+data RPdfPrintDesc = RPdfPrintDesc
+    { rPdfPrintDesc_window :: Rid
+      -- ^ Window the print dialog belongs to (0 or R_INVALID_ID: none).
+    , rPdfPrintDesc_title :: CString
+      -- ^ Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+    , rPdfPrintDesc_printer :: CString
+      -- ^ Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+    , rPdfPrintDesc_copies :: CInt
+      -- ^ Copies to print (0: one); the dialog may change it.
+    , rPdfPrintDesc_flags :: Word32
+      -- ^ Bitmask of RPdfPrintFlags.
+    , rPdfPrintDesc_output :: CString
+      -- ^ Path of a file the job is written to instead of a printer. macOS: a
+      -- PDF made by the print system; Windows: what the driver of the printer
+      -- makes; elsewhere: the document itself.
+    , rPdfPrintDesc_password :: CString
+      -- ^ Password of a document protected by one.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RPdfPrintDesc x = {0};@ is in C).
+rPdfPrintDesc :: RPdfPrintDesc
+rPdfPrintDesc = RPdfPrintDesc (0) (nullPtr) (nullPtr) (0) (0) (nullPtr) (nullPtr)
+
+instance Storable RPdfPrintDesc where
+    sizeOf _ = 48
+    alignment _ = 8
+    peek p = RPdfPrintDesc
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 28
+        <*> peekByteOff p 32
+        <*> peekByteOff p 40
+    poke p v = do
+        pokeByteOff p 0 (rPdfPrintDesc_window v)
+        pokeByteOff p 8 (rPdfPrintDesc_title v)
+        pokeByteOff p 16 (rPdfPrintDesc_printer v)
+        pokeByteOff p 24 (rPdfPrintDesc_copies v)
+        pokeByteOff p 28 (rPdfPrintDesc_flags v)
+        pokeByteOff p 32 (rPdfPrintDesc_output v)
+        pokeByteOff p 40 (rPdfPrintDesc_password v)
 
 -- | What a tile shows, filled by the application when the tile is drawn.
 data RTileItem = RTileItem
@@ -3796,6 +4039,22 @@ foreign import ccall safe "Rwindow_set_size" rwindow_set_size :: Rid -> CInt -> 
 
 foreign import ccall safe "Rwindow_get_size" rwindow_get_size :: Rid -> Ptr CInt -> Ptr CInt -> IO ()
 
+-- | The part of the window the system covers (status bar, notch,
+-- home indicator, navigation bar), in logical units. The content of the
+-- window is laid out inside it already. All 0 on desktop.
+foreign import ccall safe "Rwindow_get_safe_area" rwindow_get_safe_area :: Rid -> Ptr RInsets -> IO ()
+
+-- | The part of the window the on-screen keyboard covers (only
+-- `bottom` is set), in logical units; 0 when it is hidden or there is
+-- none (desktop). The content is laid out above it already.
+foreign import ccall safe "Rwindow_get_keyboard_area" rwindow_get_keyboard_area :: Rid -> Ptr RInsets -> IO ()
+
+-- | Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+foreign import ccall safe "Rwindow_set_keyboard_callback" rwindow_set_keyboard_callback :: Rid -> RKeyboardCallback -> Ptr () -> IO ()
+
+-- | No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+foreign import ccall safe "Rwindow_clear_focus" rwindow_clear_focus :: Rid -> IO ()
+
 foreign import ccall safe "Rwindow_set_min_size" rwindow_set_min_size :: Rid -> CInt -> CInt -> IO ()
 
 foreign import ccall safe "Rwindow_set_position" rwindow_set_position :: Rid -> CInt -> CInt -> IO ()
@@ -4034,6 +4293,23 @@ foreign import ccall safe "Rwindow_is_mouse_inside" rwindow_is_mouse_inside :: R
 -- | R_TRUE when the keyboard focus is in a text input, spin box or text editor.
 foreign import ccall safe "Rwindow_wants_text_input" rwindow_wants_text_input :: Rid -> IO CInt
 
+-- | The kind of the focused text input; R_FALSE when there is none.
+foreign import ccall safe "Rwindow_get_text_input_info" rwindow_get_text_input_info :: Rid -> Ptr RTextInputInfo -> IO CInt
+
+-- | Its text (UTF-8), valid until it changes; NULL when there is none.
+foreign import ccall safe "Rwindow_get_text_input_text" rwindow_get_text_input_text :: Rid -> IO CString
+
+-- | Its selection: start == end is the caret. R_FALSE when there is none.
+foreign import ccall safe "Rwindow_get_text_input_selection" rwindow_get_text_input_selection :: Rid -> Ptr CInt -> Ptr CInt -> IO CInt
+
+-- | Selects bytes [start, end) of it (end before start puts the caret at end).
+foreign import ccall safe "Rwindow_set_text_input_selection" rwindow_set_text_input_selection :: Rid -> CInt -> CInt -> IO CInt
+
+-- | Replaces bytes [start, end) of it with `text` and puts the caret
+-- after it, as typing would (the changed callback runs; MaxLength
+-- applies). R_FALSE when there is none or it is read-only.
+foreign import ccall safe "Rwindow_replace_text_input" rwindow_replace_text_input :: Rid -> CInt -> CInt -> CString -> IO CInt
+
 -- | R_TRUE while a menu, list or dialog is open over the window.
 foreign import ccall safe "Rwindow_has_popup" rwindow_has_popup :: Rid -> IO CInt
 
@@ -4196,6 +4472,14 @@ foreign import ccall safe "Rtheme_set_accent" rtheme_set_accent :: CFloat -> CFl
 -- the glass, the colors of the code and which wallpaper the glass themes
 -- use. Rtheme_apply and the theme files set it.
 foreign import ccall safe "Rtheme_set_dark" rtheme_set_dark :: CInt -> IO ()
+
+-- | R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+foreign import ccall safe "Rtheme_get_system_dark" rtheme_get_system_dark :: IO CInt
+
+-- | Follows the dark or light mode of the system with the Raven look
+-- (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+-- Off by default. Does nothing where the platform does not tell (desktop today).
+foreign import ccall safe "Rtheme_follow_system" rtheme_follow_system :: CInt -> IO ()
 
 foreign import ccall safe "Rtheme_is_dark" rtheme_is_dark :: IO CInt
 
@@ -4943,6 +5227,16 @@ foreign import ccall safe "Rtext_input_set_max_length" rtext_input_set_max_lengt
 
 foreign import ccall safe "Rtext_input_select_all" rtext_input_select_all :: Rid -> IO ()
 
+-- | What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+foreign import ccall safe "Rtext_input_set_input_type" rtext_input_set_input_type :: Rid -> RTextInputType -> IO ()
+
+foreign import ccall safe "Rtext_input_get_input_type" rtext_input_get_input_type :: Rid -> IO RTextInputType
+
+-- | The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+foreign import ccall safe "Rtext_input_set_return_key" rtext_input_set_return_key :: Rid -> RReturnKey -> IO ()
+
+foreign import ccall safe "Rtext_input_get_return_key" rtext_input_get_return_key :: Rid -> IO RReturnKey
+
 -- | Called on every edit.
 foreign import ccall safe "Rtext_input_set_changed_callback" rtext_input_set_changed_callback :: Rid -> RTextChangedCallback -> Ptr () -> IO ()
 
@@ -4962,6 +5256,15 @@ foreign import ccall safe "Rspin_box_set_step" rspin_box_set_step :: Rid -> CDou
 
 -- | Digits shown after the decimal point. Default: 2.
 foreign import ccall safe "Rspin_box_set_decimals" rspin_box_set_decimals :: Rid -> CInt -> IO ()
+
+-- | Step buttons in the looks of Raven too: a down button at the left
+-- end and an up button at the right end, the value between them (XML
+-- `Buttons="True"`). A click steps once; holding a button repeats its step.
+-- The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+-- Default: R_FALSE (drag to scrub, arrows / wheel to step).
+foreign import ccall safe "Rspin_box_set_buttons" rspin_box_set_buttons :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rspin_box_get_buttons" rspin_box_get_buttons :: Rid -> IO CInt
 
 foreign import ccall safe "Rspin_box_set_changed_callback" rspin_box_set_changed_callback :: Rid -> RSpinBoxChangedCallback -> Ptr () -> IO ()
 
@@ -5116,6 +5419,15 @@ foreign import ccall safe "Rmenu_set_title" rmenu_set_title :: Rid -> CString ->
 foreign import ccall safe "Rmenu_add_item" rmenu_add_item :: Rid -> CString -> IO Rid
 
 foreign import ccall safe "Rmenu_add_separator" rmenu_add_separator :: Rid -> IO Rid
+
+-- | A noninteractive caption row, skipped by keyboard navigation.
+foreign import ccall safe "Rmenu_add_header" rmenu_add_header :: Rid -> CString -> IO Rid
+
+-- | A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+foreign import ccall safe "Rmenu_bar_add_divider" rmenu_bar_add_divider :: Rid -> IO Rid
+
+-- | Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+foreign import ccall safe "Rmenu_set_title_color" rmenu_set_title_color :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
 
 foreign import ccall safe "Rmenu_item_set_text" rmenu_item_set_text :: Rid -> CString -> IO ()
 
@@ -5544,6 +5856,140 @@ foreign import ccall safe "Rplot_set_drag_line_callback" rplot_set_drag_line_cal
 
 foreign import ccall safe "Rplot_set_series_toggled_callback" rplot_set_series_toggled_callback :: Rid -> RPlotSeriesCallback -> Ptr () -> IO ()
 
+-- | R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+foreign import ccall safe "Rpdf_is_available" rpdf_is_available :: IO CInt
+
+-- | Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+-- cannot: Rpdf_view_get_status tells why (a password is needed, not a
+-- PDF, no PDFium). The view then shows that instead of pages.
+foreign import ccall safe "Rpdf_view_load_file" rpdf_view_load_file :: Rid -> CString -> CString -> IO CInt
+
+-- | Same as Rpdf_view_load_file, from bytes in memory (copied).
+foreign import ccall safe "Rpdf_view_load_memory" rpdf_view_load_memory :: Rid -> CString -> CSize -> CString -> IO CInt
+
+-- | Closes the document: the view is empty.
+foreign import ccall safe "Rpdf_view_close" rpdf_view_close :: Rid -> IO ()
+
+foreign import ccall safe "Rpdf_view_get_status" rpdf_view_get_status :: Rid -> IO RPdfStatus
+
+foreign import ccall safe "Rpdf_view_get_page_count" rpdf_view_get_page_count :: Rid -> IO CInt
+
+-- | Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+foreign import ccall safe "Rpdf_view_get_page_size" rpdf_view_get_page_size :: Rid -> CInt -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+-- | Scrolls to the top of a page; it becomes the current page.
+foreign import ccall safe "Rpdf_view_set_page" rpdf_view_set_page :: Rid -> CInt -> IO ()
+
+-- | The current page: the one a third down the view.
+foreign import ccall safe "Rpdf_view_get_page" rpdf_view_get_page :: Rid -> IO CInt
+
+-- | A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+foreign import ccall safe "Rpdf_view_set_zoom" rpdf_view_set_zoom :: Rid -> CFloat -> IO ()
+
+-- | The zoom the pages show at, the one a fit gives included.
+foreign import ccall safe "Rpdf_view_get_zoom" rpdf_view_get_zoom :: Rid -> IO CFloat
+
+foreign import ccall safe "Rpdf_view_set_fit" rpdf_view_set_fit :: Rid -> RPdfFit -> IO ()
+
+foreign import ccall safe "Rpdf_view_get_fit" rpdf_view_get_fit :: Rid -> IO RPdfFit
+
+-- | The title of the document (its information), "" when it has none.
+foreign import ccall safe "Rpdf_view_get_title" rpdf_view_get_title :: Rid -> IO CString
+
+-- | The text of a page (UTF-8), to search it or copy it. Valid until
+-- the next call for this view.
+foreign import ccall safe "Rpdf_view_get_page_text" rpdf_view_get_page_text :: Rid -> CInt -> IO CString
+
+foreign import ccall safe "Rpdf_view_set_page_changed_callback" rpdf_view_set_page_changed_callback :: Rid -> RPdfPageChangedCallback -> Ptr () -> IO ()
+
+-- | Prints the document shown (see Rpdf_print); the job is named after its title.
+foreign import ccall safe "Rpdf_view_print" rpdf_view_print :: Rid -> Ptr RPdfPrintDesc -> IO CInt
+
+foreign import ccall safe "Rpdf_document_create" rpdf_document_create :: IO Rid
+
+foreign import ccall safe "Rpdf_document_delete" rpdf_document_delete :: Rid -> IO ()
+
+-- | The information of the document, shown by readers (the title in their window).
+foreign import ccall safe "Rpdf_document_set_title" rpdf_document_set_title :: Rid -> CString -> IO ()
+
+foreign import ccall safe "Rpdf_document_set_author" rpdf_document_set_author :: Rid -> CString -> IO ()
+
+foreign import ccall safe "Rpdf_document_set_subject" rpdf_document_set_subject :: Rid -> CString -> IO ()
+
+-- | Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+foreign import ccall safe "Rpdf_document_add_page" rpdf_document_add_page :: Rid -> CFloat -> CFloat -> IO CInt
+
+foreign import ccall safe "Rpdf_document_get_page_count" rpdf_document_get_page_count :: Rid -> IO CInt
+
+foreign import ccall safe "Rpdf_document_set_fill_color" rpdf_document_set_fill_color :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+foreign import ccall safe "Rpdf_document_set_stroke_color" rpdf_document_set_stroke_color :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+-- | Width of the lines and outlines, in points (default 1).
+foreign import ccall safe "Rpdf_document_set_line_width" rpdf_document_set_line_width :: Rid -> CFloat -> IO ()
+
+-- | A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+foreign import ccall safe "Rpdf_document_draw_rect" rpdf_document_draw_rect :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> Word32 -> IO ()
+
+-- | The ellipse inside a rectangle.
+foreign import ccall safe "Rpdf_document_draw_ellipse" rpdf_document_draw_ellipse :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> Word32 -> IO ()
+
+-- | A line in the stroke color.
+foreign import ccall safe "Rpdf_document_draw_line" rpdf_document_draw_line :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+-- | Adds a TrueType font (.ttf) to the document (the data is
+-- copied, and embedded in the file). Returns its number for
+-- Rpdf_document_set_font, -1 when it is not a TrueType font.
+foreign import ccall safe "Rpdf_document_add_font" rpdf_document_add_font :: Rid -> CString -> CSize -> IO CInt
+
+foreign import ccall safe "Rpdf_document_add_font_from_file" rpdf_document_add_font_from_file :: Rid -> CString -> IO CInt
+
+-- | The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+foreign import ccall safe "Rpdf_document_set_font" rpdf_document_set_font :: Rid -> CInt -> CFloat -> Word32 -> IO ()
+
+-- | Distance between two lines of text in the current font.
+foreign import ccall safe "Rpdf_document_get_line_height" rpdf_document_get_line_height :: Rid -> IO CFloat
+
+-- | Width of a text in the current font, in points (of its widest line).
+foreign import ccall safe "Rpdf_document_measure_text" rpdf_document_measure_text :: Rid -> CString -> IO CFloat
+
+-- | Text in the fill color, the top of its first line at y ('\n'
+-- starts a line below). Returns its width.
+foreign import ccall safe "Rpdf_document_draw_text" rpdf_document_draw_text :: Rid -> CFloat -> CFloat -> CString -> IO CFloat
+
+-- | Text wrapped at the spaces to fit `width`, each line placed by
+-- `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+-- height it took.
+foreign import ccall safe "Rpdf_document_draw_paragraph" rpdf_document_draw_paragraph :: Rid -> CFloat -> CFloat -> CFloat -> CString -> RHAlign -> IO CFloat
+
+-- | A picture of RGBA8 pixels stretched over a rectangle. A width or
+-- height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+foreign import ccall safe "Rpdf_document_draw_image" rpdf_document_draw_image :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> Ptr Word8 -> CInt -> CInt -> IO ()
+
+-- | What a window shows (Rwindow_capture), as a picture: a report of
+-- the screen, a chart. A width and height of 0: the size it has on the
+-- screen. Returns R_FALSE when the window cannot be captured.
+foreign import ccall safe "Rpdf_document_draw_window" rpdf_document_draw_window :: Rid -> Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO CInt
+
+-- | Writes the file. Returns R_FALSE when it cannot be written.
+foreign import ccall safe "Rpdf_document_save" rpdf_document_save :: Rid -> CString -> IO CInt
+
+-- | The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+foreign import ccall safe "Rpdf_document_save_memory" rpdf_document_save_memory :: Rid -> Ptr CSize -> IO CString
+
+-- | Prints a PDF document with the print system: on macOS the print
+-- panel, on Windows the print dialog (the pages are drawn by PDFium, see
+-- PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+-- dialog of Raven that chooses the printer. It waits until the job is
+-- sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+-- cannot print. Not in the browser.
+foreign import ccall safe "Rpdf_print" rpdf_print :: Ptr RPdfPrintDesc -> CString -> CSize -> IO CInt
+
+foreign import ccall safe "Rpdf_print_file" rpdf_print_file :: Ptr RPdfPrintDesc -> CString -> IO CInt
+
+-- | Prints a document written by the application.
+foreign import ccall safe "Rpdf_document_print" rpdf_document_print :: Rid -> Ptr RPdfPrintDesc -> IO CInt
+
 -- | text Initial content, or NULL.
 foreign import ccall safe "Rtext_editor_create" rtext_editor_create :: CString -> IO Rid
 
@@ -5813,7 +6259,8 @@ foreign import ccall safe "Rdock_area_save_layout" rdock_area_save_layout :: Rid
 
 -- | Arranges the panels as a saved description says. Panels of the
 -- area that the description does not name keep a place; names it has
--- that match no panel are ignored.
+-- that match no panel are ignored in legacy descriptions. Versioned
+-- descriptions with floating cards reject unknown or duplicate names.
 -- Returns: R_FALSE when the text is not a layout (nothing is changed).
 foreign import ccall safe "Rdock_area_load_layout" rdock_area_load_layout :: Rid -> CString -> IO CInt
 
@@ -5831,7 +6278,10 @@ foreign import ccall safe "Rdock_area_set_tearable" rdock_area_set_tearable :: R
 
 foreign import ccall safe "Rdock_area_is_tearable" rdock_area_is_tearable :: Rid -> IO CInt
 
--- | Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
+-- | Default for future floats/tears; existing floating panels keep their mode.
+foreign import ccall safe "Rdock_area_set_float_mode" rdock_area_set_float_mode :: Rid -> RDockFloatMode -> IO ()
+
+-- | Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 foreign import ccall safe "Rdock_area_float_panel" rdock_area_float_panel :: Rid -> Rid -> CInt -> CInt -> IO Rid
 
 -- | A floating panel goes back where it was in the area.
@@ -6447,7 +6897,7 @@ foreign import ccall safe "Rnode_graph_set_pin_label_width" rnode_graph_set_pin_
 
 foreign import ccall safe "Rnode_graph_get_pin_label_width" rnode_graph_get_pin_label_width :: Rid -> IO CFloat
 
--- | Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it.
+-- | Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
 foreign import ccall safe "Rnode_graph_set_node_badge_color" rnode_graph_set_node_badge_color :: Rid -> CInt -> CFloat -> CFloat -> CFloat -> IO ()
 
 foreign import ccall safe "Rblock_editor_create" rblock_editor_create :: IO Rid
@@ -6721,6 +7171,11 @@ foreign import ccall safe "Rcustom_set_measure_callback" rcustom_set_measure_cal
 
 -- | Filled rectangle with rounded corners (radius 0 = sharp).
 foreign import ccall safe "Rdraw_rect" rdraw_rect :: Ptr RPainter -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+-- | Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+-- Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+-- Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+foreign import ccall safe "Rdraw_shadow" rdraw_shadow :: Ptr RPainter -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
 
 -- | Outline of a rounded rectangle, drawn inside its bounds.
 foreign import ccall safe "Rdraw_rect_outline" rdraw_rect_outline :: Ptr RPainter -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()

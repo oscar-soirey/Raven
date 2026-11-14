@@ -353,6 +353,7 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 	{ "Pagination", "<Pagination PageCount=\"12\" Page=\"4\"/>" },
 	{ "Plot", "<Plot Height=\"220\" Title=\"Plot\" XLabel=\"x\" YLabel=\"y\"><Series Name=\"Line\" Y=\"1 3 2 5 4 6\"/>"
 		"<Scatter Name=\"Points\" Points=\"0,2 1,1.5 2,3.5 3,3 4,5.5 5,5\" Marker=\"Diamond\"/></Plot>" },
+	{ "PdfView", "<PdfView Height=\"260\" Fit=\"Width\"/>" },
 	{ "Series", "<Series Name=\"Series\" Y=\"1 2 3\"/>" },
 	{ "DragLine", "<DragLine Axis=\"X\" Value=\"1\" Label=\"x\"/>" },
 	{ "Column", "<Column Header=\"Column\" Width=\"100\"/>" },

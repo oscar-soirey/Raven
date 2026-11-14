@@ -370,6 +370,32 @@ static void test_dock_hidden(void) {
 	Rwindow_destroy(window);
 }
 
+/* Right to left: the panels keep the room of their cells (the area places them itself). */
+static void test_dock_rtl(void) {
+	float ltr[2][4], rtl[2][4];
+	int pass, i;
+	for (pass = 0; pass < 2; pass++) {
+		Rid window = window_from(
+			"<Window Width=\"800\" Height=\"400\"><DockArea Name=\"dock\">"
+			"<Label Name=\"a\" Slot.Title=\"Source\">Source</Label>"
+			"<Label Name=\"b\" Slot.Title=\"Files\" Slot.Dock=\"Left\" Slot.DockSize=\"0.25\">Files</Label>"
+			"</DockArea></Window>");
+		Rid dock = Rwidget_find(window, "dock");
+		float (*r)[4] = pass ? rtl : ltr;
+		if (pass) Rwidget_set_direction(dock, R_DIRECTION_RTL);
+		Rdraw_frame();
+		Rdraw_frame();
+		Rwidget_get_rect(Rwidget_find(window, "b"), &r[0][0], &r[0][1], &r[0][2], &r[0][3]);
+		Rwidget_get_rect(Rwidget_find(window, "a"), &r[1][0], &r[1][1], &r[1][2], &r[1][3]);
+		Rwindow_destroy(window);
+	}
+	CHECK(ltr[0][2] > 150.0f && ltr[1][2] > 500.0f);
+	for (i = 0; i < 4; i++) {
+		CHECK_NEAR(rtl[0][i], ltr[0][i]);
+		CHECK_NEAR(rtl[1][i], ltr[1][i]);
+	}
+}
+
 /* ---------------------------------------------------------------------------
  *  Files held in memory
  * ------------------------------------------------------------------------- */
@@ -419,6 +445,7 @@ int main(void) {
 	RUN(test_tree_multi);
 	RUN(test_tile_view);
 	RUN(test_dock_hidden);
+	RUN(test_dock_rtl);
 	RUN(test_memory_files);
 	Rshutdown();
 	return test_report("test_editor_features");
