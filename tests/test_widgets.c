@@ -1192,6 +1192,19 @@ static void test_device_lost(void) {
 
 /* A selectable label: the mouse selects its text as on a web page, Ctrl+C copies it. */
 /* The focused text input as the text services of the system see it (mobile on-screen keyboards). */
+/* Setting the text from a part of its own text (#115): the copy overlaps. */
+static void test_text_input_own_text(void) {
+	Rid input = Rwidget_create(R_WIDGET_TEXT_INPUT);
+	Rtext_input_set_text(input, "  hello world");
+	Rtext_input_set_text(input, Rtext_input_get_text(input) + 2);
+	CHECK_STR(Rtext_input_get_text(input), "hello world");
+	Rtext_input_set_text(input, Rtext_input_get_text(input) + 6);
+	CHECK_STR(Rtext_input_get_text(input), "world");
+	Rtext_input_set_text(input, Rtext_input_get_text(input));
+	CHECK_STR(Rtext_input_get_text(input), "world");
+	Rwidget_destroy(input);
+}
+
 static void test_text_input_services(void) {
 	Rid box = column();
 	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
@@ -1467,6 +1480,7 @@ int main(void) {
 	RUN(test_spin_box_buttons);
 	RUN(test_text_input);
 	RUN(test_text_input_services);
+	RUN(test_text_input_own_text);
 	RUN(test_selectable_label);
 	RUN(test_combo_box);
 	RUN(test_highlight_follows_pointer);
