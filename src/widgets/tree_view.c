@@ -502,12 +502,16 @@ static int rvn_tree_view_event(rvn_widget_t* widget, const REvent* event) {
 			tree->press_reduce = NULL;
 			tree->press_pending = R_FALSE;
 			if (event->button == R_MOUSE_RIGHT && tree->context_callback) {
+				Rid item_id;
 				row = rvn_tree_row_at(widget, event->local_y);
 				item = row >= 0 ? tree->rows[row] : NULL;
+				item_id = item ? item->id : R_INVALID_ID;
 				/* the menu acts on what is under the pointer */
 				if (item && !(item == tree->selected || (tree->multi && item->selected))) rvn_tree_select(widget, item, R_TRUE);
 				if (!rvn_widget_alive(widget)) return R_TRUE;
-				tree->context_callback(widget->id, item ? item->id : R_INVALID_ID, event->x, event->y, tree->context_user);
+				/* the selection callback may have removed the item, or cleared the tree: look it up again */
+				if (item_id != R_INVALID_ID && !rvn_tree_item_get(item_id)) item_id = R_INVALID_ID;
+				if (tree->context_callback) tree->context_callback(widget->id, item_id, event->x, event->y, tree->context_user);
 				return R_TRUE;
 			}
 			return R_FALSE;
