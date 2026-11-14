@@ -1519,6 +1519,8 @@ double Rspin_box_get_value(Rid spin_box);
 void Rspin_box_get_range(Rid spin_box, double* minimum, double* maximum, double* step);
 void Rspin_box_set_step(Rid spin_box, double step);
 void Rspin_box_set_decimals(Rid spin_box, int decimals);
+void Rspin_box_set_buttons(Rid spin_box, int buttons);
+int Rspin_box_get_buttons(Rid spin_box);
 void Rspin_box_set_changed_callback(Rid spin_box, RSpinBoxChangedCallback callback, void* user_data);
 int Rcombo_box_add_item(Rid combo_box, const char* text);
 void Rcombo_box_clear_items(Rid combo_box);

@@ -5520,6 +5520,19 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rspin_box_set_decimals(uint spin_box, int decimals);
 
+        /// <summary>
+        /// Step buttons in the looks of Raven too: a down button at the left
+        /// end and an up button at the right end, the value between them (XML
+        /// `Buttons="True"`). A click steps once; holding a button repeats its step.
+        /// The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+        /// Default: R_FALSE (drag to scrub, arrows / wheel to step).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rspin_box_set_buttons(uint spin_box, int buttons);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rspin_box_get_buttons(uint spin_box);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rspin_box_set_changed_callback(uint spin_box, RSpinBoxChangedCallback callback, IntPtr user_data);
 

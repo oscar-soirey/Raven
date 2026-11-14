@@ -11870,6 +11870,38 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rspin_box_set_buttons$;
+
+    /**
+     * Step buttons in the looks of Raven too: a down button at the left
+     * end and an up button at the right end, the value between them (XML
+     * `Buttons="True"`). A click steps once; holding a button repeats its step.
+     * The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+     * Default: R_FALSE (drag to scrub, arrows / wheel to step).
+     */
+    public static void Rspin_box_set_buttons(int spin_box, int buttons) {
+        MethodHandle $h = Rspin_box_set_buttons$;
+        if ($h == null) Rspin_box_set_buttons$ = $h = find("Rspin_box_set_buttons", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(spin_box, buttons);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rspin_box_get_buttons$;
+
+    public static int Rspin_box_get_buttons(int spin_box) {
+        MethodHandle $h = Rspin_box_get_buttons$;
+        if ($h == null) Rspin_box_get_buttons$ = $h = find("Rspin_box_get_buttons", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(spin_box);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rspin_box_set_changed_callback$;
 
     public static void Rspin_box_set_changed_callback(int spin_box, RSpinBoxChangedCallback callback, MemorySegment user_data) {

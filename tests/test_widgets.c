@@ -249,6 +249,68 @@ static void test_slider_and_spin_box(void) {
 	CHECK_NEAR(Rspin_box_get_value(spin), 10);
 }
 
+/* Buttons: step buttons in the look of Raven, a click steps once, holding repeats */
+static void test_spin_box_buttons(void) {
+	Rid box = column();
+	Rid plain = Rwidget_add_child(box, Rwidget_create(R_WIDGET_SPIN_BOX));
+	Rid spin;
+	float x, y, w, h;
+	double start;
+	CHECK(Rwidget_set_attribute(plain, "Buttons", "True"));
+	CHECK(Rspin_box_get_buttons(plain));
+	Rspin_box_set_buttons(plain, R_FALSE);
+	CHECK(!Rspin_box_get_buttons(plain));
+	Rwidget_destroy(plain);
+	{
+		const char* xml = "<SpinBox Name='stepper' Min='0' Max='100' Step='5' Decimals='0' Value='50' Buttons='True' Width='160'/>";
+		spin = Rwidget_add_child(box, Rwidget_create_from_xml(xml, strlen(xml)));
+	}
+	Rslot_set_halign(spin, R_HALIGN_LEFT);
+	CHECK(Rspin_box_get_buttons(spin));
+	Rspin_box_set_changed_callback(spin, on_spin, NULL);
+	Rdraw_frame();
+	Rwidget_get_rect(spin, &x, &y, &w, &h);
+
+	/* the left end steps down, the right end up; the middle is still the field */
+	test_click_at(g_window, x + 4.0f, y + h * 0.5f);
+	CHECK_NEAR(Rspin_box_get_value(spin), 45);
+	CHECK_NEAR(g_last_double, 45);
+	test_click_at(g_window, x + w - 4.0f, y + h * 0.5f);
+	test_click_at(g_window, x + w - 4.0f, y + h * 0.5f);
+	CHECK_NEAR(Rspin_box_get_value(spin), 55);
+	test_click_at(g_window, x + w * 0.5f, y + h * 0.5f);
+	CHECK_NEAR(Rspin_box_get_value(spin), 55);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+
+	/* holding the up button repeats its step after a pause, and stops on release */
+	Rwindow_inject_mouse_move(g_window, x + w - 4.0f, y + h * 0.5f);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_TRUE);
+	CHECK_NEAR(Rspin_box_get_value(spin), 60);
+	start = Rget_time();
+	while (Rget_time() - start < 0.2) Rdraw_frame();
+	CHECK_NEAR(Rspin_box_get_value(spin), 60);
+	while (Rget_time() - start < 0.8) Rdraw_frame();
+	CHECK(Rspin_box_get_value(spin) >= 70);
+	Rwindow_inject_mouse_button(g_window, R_MOUSE_LEFT, R_FALSE);
+	{
+		double held = Rspin_box_get_value(spin);
+		start = Rget_time();
+		while (Rget_time() - start < 0.3) Rdraw_frame();
+		CHECK_NEAR(Rspin_box_get_value(spin), held);
+	}
+	/* the range still clamps */
+	Rspin_box_set_value(spin, 100);
+	test_click_at(g_window, x + w - 4.0f, y + h * 0.5f);
+	CHECK_NEAR(Rspin_box_get_value(spin), 100);
+
+	/* without buttons the ends are the field: a click starts typing, it does not step */
+	Rspin_box_set_buttons(spin, R_FALSE);
+	Rdraw_frame();
+	test_click_at(g_window, x + 4.0f, y + h * 0.5f);
+	CHECK_NEAR(Rspin_box_get_value(spin), 100);
+	test_key(g_window, R_KEY_ESCAPE, 0);
+}
+
 static void test_text_input(void) {
 	Rid box = column();
 	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
@@ -1349,6 +1411,7 @@ int main(void) {
 	RUN(test_checkbox_and_radio);
 	RUN(test_radio_rebuild_in_callback);
 	RUN(test_slider_and_spin_box);
+	RUN(test_spin_box_buttons);
 	RUN(test_text_input);
 	RUN(test_selectable_label);
 	RUN(test_combo_box);

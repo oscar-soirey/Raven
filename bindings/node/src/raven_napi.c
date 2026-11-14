@@ -444,6 +444,8 @@ static struct {
 	void (*Rspin_box_get_range)(Rid, double*, double*, double*);
 	void (*Rspin_box_set_step)(Rid, double);
 	void (*Rspin_box_set_decimals)(Rid, int);
+	void (*Rspin_box_set_buttons)(Rid, int);
+	int (*Rspin_box_get_buttons)(Rid);
 	void (*Rspin_box_set_changed_callback)(Rid, RSpinBoxChangedCallback, void*);
 	int (*Rcombo_box_add_item)(Rid, const char*);
 	void (*Rcombo_box_clear_items)(Rid);
@@ -1595,6 +1597,8 @@ static const struct {
 	{"Rspin_box_get_range", offsetof(__typeof__(rn), Rspin_box_get_range)},
 	{"Rspin_box_set_step", offsetof(__typeof__(rn), Rspin_box_set_step)},
 	{"Rspin_box_set_decimals", offsetof(__typeof__(rn), Rspin_box_set_decimals)},
+	{"Rspin_box_set_buttons", offsetof(__typeof__(rn), Rspin_box_set_buttons)},
+	{"Rspin_box_get_buttons", offsetof(__typeof__(rn), Rspin_box_get_buttons)},
 	{"Rspin_box_set_changed_callback", offsetof(__typeof__(rn), Rspin_box_set_changed_callback)},
 	{"Rcombo_box_add_item", offsetof(__typeof__(rn), Rcombo_box_add_item)},
 	{"Rcombo_box_clear_items", offsetof(__typeof__(rn), Rcombo_box_clear_items)},
@@ -10913,6 +10917,33 @@ static napi_value rn_w_Rspin_box_set_decimals(napi_env env, napi_callback_info i
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	if (!rn_get_int(env, argv[1], &a1)) return NULL;
 	rn.Rspin_box_set_decimals((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rspin_box_set_buttons(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rspin_box_set_buttons((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rspin_box_get_buttons(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rspin_box_get_buttons((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
 	return result_;
 }
 
@@ -23720,6 +23751,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rspin_box_get_range", NULL, rn_w_Rspin_box_get_range, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rspin_box_set_step", NULL, rn_w_Rspin_box_set_step, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rspin_box_set_decimals", NULL, rn_w_Rspin_box_set_decimals, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspin_box_set_buttons", NULL, rn_w_Rspin_box_set_buttons, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rspin_box_get_buttons", NULL, rn_w_Rspin_box_get_buttons, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rspin_box_set_changed_callback", NULL, rn_w_Rspin_box_set_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rcombo_box_add_item", NULL, rn_w_Rcombo_box_add_item, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rcombo_box_clear_items", NULL, rn_w_Rcombo_box_clear_items, NULL, NULL, NULL, napi_enumerable, NULL},

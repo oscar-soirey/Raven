@@ -2788,6 +2788,17 @@ fn void SpinBox.set_step(self, double step) @inline => c::r_spin_box_set_step((c
 <* Digits shown after the decimal point. Default: 2. *>
 fn void SpinBox.set_decimals(self, CInt decimals) @inline => c::r_spin_box_set_decimals((c::Rid)self, decimals);
 
+<*
+ Step buttons in the looks of Raven too: a down button at the left
+ end and an up button at the right end, the value between them (XML
+ `Buttons="True"`). A click steps once; holding a button repeats its step.
+ The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+ Default: R_FALSE (drag to scrub, arrows / wheel to step).
+*>
+fn void SpinBox.set_buttons(self, CInt buttons) @inline => c::r_spin_box_set_buttons((c::Rid)self, buttons);
+
+fn CInt SpinBox.get_buttons(self) @inline => c::r_spin_box_get_buttons((c::Rid)self);
+
 fn void SpinBox.set_changed_callback(self, SpinBoxChangedCallback callback, void* user_data) @inline => c::r_spin_box_set_changed_callback((c::Rid)self, (c::RSpinBoxChangedCallback)callback, user_data);
 
 // ---- ComboBox
