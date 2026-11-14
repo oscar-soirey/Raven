@@ -11,8 +11,9 @@
 #   binding_odin          needs odin and the shared library; not on Windows
 #   binding_odin_wrapper, binding_odin_wrapper_test    the same needs: the example and the tests of odin/raven_odin
 #   binding_bun           needs bun and the shared library; not on Windows
-#   binding_node          needs node and node_api.h (the addon is built here) and the shared library; not on Windows
-#   binding_node_bun      the same addon and test, run by bun instead
+#   binding_node          needs node and node_api.h (the addon is built here) and the shared library;
+#                         on Windows also node.lib, both downloaded by default (see node/CMakeLists.txt)
+#   binding_node_bun      the same addon and test, run by bun instead; not on Windows
 #   binding_d             needs dub and a D compiler, and the shared library; not on Windows
 #   binding_nim           needs nim and the shared library; not on Windows
 #   binding_zig           needs zig: compiles every declaration of zig/raven.zig (nothing is linked or run)
@@ -146,5 +147,17 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 				COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_NODE_ENV} ${RAVEN_BUN} run ${CMAKE_CURRENT_SOURCE_DIR}/node/src/example.mjs --test
 				WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 		endif()
+	endif()
+endif()
+
+# Windows: only the Node.js binding, whose addon links node.lib there. RAVEN_LIBRARY
+# is the full path of the DLL, which is all the addon needs to open it.
+if(RAVEN_BUILD_SHARED AND WIN32)
+	add_subdirectory(node)
+	if(TARGET raven_node AND RAVEN_NODE)
+		add_test(NAME binding_node
+			COMMAND ${CMAKE_COMMAND} -E env "RAVEN_ADDON=$<TARGET_FILE:raven_node>" "RAVEN_LIBRARY=$<TARGET_FILE:raven>"
+				${RAVEN_NODE} --expose-gc ${CMAKE_CURRENT_SOURCE_DIR}/node/src/example.mjs --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 	endif()
 endif()
