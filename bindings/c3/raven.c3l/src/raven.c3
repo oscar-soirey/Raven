@@ -49,6 +49,18 @@ const ZString API_VERSION = "0.2";
 const CInt FALSE = 0;
 const CInt TRUE = 1;
 const Id INVALID_ID = (Id)0xFFFFFFFF;
+const CInt PRIM_RECT = 0;
+const CInt PRIM_GLYPH = 1;
+const CInt PRIM_SHADOW = 2;
+const CInt PRIM_LINE = 3;
+const CInt PRIM_TRIANGLE = 4;
+const CInt PRIM_GLASS = 5;
+const CInt PRIM_BLUR = 6;
+const CInt PRIM_CURVE = 7;
+const CInt PRIM_SHADER = 8;
+const CInt PRIM_MASK = 15;
+const CInt INSTANCE_TEXTURED = 16;
+const CInt INSTANCE_NO_POINTER = 32;
 
 <* Whether the handle names something (is not INVALID_ID). *>
 fn bool Id.is_valid(self) @inline => self != INVALID_ID;
@@ -1483,8 +1495,55 @@ constset AccessibleRole : CInt
 	PANE = 0x0783,
 }
 
+constset DrawCommandType : CInt
+{
+	<* Draw `instance_count` instances starting at `first_instance`. *>
+	INSTANCES = 0,
+	<* Call the viewport callback (see raven_viewport.h), then restore the UI state. *>
+	CALLBACK = 1,
+	<*
+	 Capture what has been drawn so far as the backdrop of the GLASS
+	 instances that follow. `rect` is the area to capture, in pixels: the
+	 rest of the backdrop keeps what the earlier captures of the frame put
+	 there. Raven only emits the captures that are needed: one of the whole
+	 frame before its first glass, then one each time glass covers something
+	 drawn since that place was last captured. A backend may always capture
+	 the whole frame; a backend without glass ignores the command.
+	*>
+	BACKDROP = 2,
+	<*
+	 Like R_DRAW_INSTANCES, but the instances remove what was drawn where
+	 they are instead of drawing over it: the frame becomes transparent
+	 there, by as much as their coverage times the alpha of their color.
+	 That is how a window that can be seen through (R_WINDOW_TRANSPARENT)
+	 opens a hole in itself. With premultiplied colors it is the blend
+	 (ZERO, ONE_MINUS_SRC_ALPHA) for the color and for the alpha. A backend
+	 whose windows are never transparent ignores the command.
+	*>
+	ERASE = 3,
+	<*
+	 Like R_DRAW_INSTANCES (SHADER primitives), drawn with the fragment
+	 shader `shader` instead of the one of the UI. The shader sees the same
+	 inputs and bindings as the UI shader: the texture of the command, and
+	 the backdrop of glass when an R_DRAW_BACKDROP came before. A backend
+	 without custom shaders draws the instances as rounded rectangles.
+	*>
+	SHADER = 4,
+}
+
+constset TextureFormat : CInt
+{
+	<* 4 bytes per pixel: R, G, B, A. *>
+	RGBA8 = 0x02D0,
+	<* 1 byte per pixel, sampled as (1, 1, 1, value). Used by the glyph atlas. *>
+	ALPHA8 = 0x02D1,
+}
+
 <* Only seen through a pointer. *>
 typedef Painter = void;
+
+<* Only seen through a pointer. *>
+typedef AndroidApp = void;
 
 <*
  Registers a function called once per frame, before the layout.
@@ -1774,6 +1833,18 @@ alias XmlTagCreateCallback = fn Id(ZString tag, void* user_data);
 alias XmlTagAttributeCallback = fn CInt(Id widget, ZString name, ZString value, void* user_data);
 alias LocaleChangedCallback = fn void(ZString language, void* user_data);
 alias AccessiblePressCallback = fn void(Id widget, void* user_data);
+<*
+ A VkQueue must not be used by two threads at once. When the queue
+ is shared with the application, Raven calls `lock` before and `unlock`
+ after each use of the queue from its render thread.
+*>
+alias VulkanQueueLockCallback = fn void(void* user_data);
+<*
+ Callback strings are borrowed and valid only for the callback.
+ success is false on rejection, cancellation, or unavailable browser support.
+ Pending callbacks are cancelled without delivery when Raven shuts down.
+*>
+alias WebCallback = fn void(CInt success, ZString result, void* user_data);
 
 <*
  Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -1799,12 +1870,18 @@ struct InitDesc
 	float ui_scale;
 }
 
+<* The type of Allocator.alloc. *>
+alias AllocatorAllocFn = fn void*(usz size, void* user_data);
+<* The type of Allocator.realloc. *>
+alias AllocatorReallocFn = fn void*(void* ptr, usz size, void* user_data);
+<* The type of Allocator.free. *>
+alias AllocatorFreeFn = fn void(void* ptr, void* user_data);
 <* Memory functions of the application, to replace the allocator of Raven. See Rset_allocator. *>
 struct Allocator
 {
-	void* alloc;
-	void* realloc;
-	void* free;
+	AllocatorAllocFn alloc;
+	AllocatorReallocFn realloc;
+	AllocatorFreeFn free;
 	void* user_data;
 }
 
@@ -2300,17 +2377,235 @@ struct AccessibilitySettings
 	CInt screen_reader;
 }
 
+<* The type of HostPlatformDesc.set_cursor. *>
+alias HostPlatformDescSetCursorFn = fn void(Id window, Cursor cursor, void* user_data);
+<* The type of HostPlatformDesc.clipboard_set. *>
+alias HostPlatformDescClipboardSetFn = fn void(ZString text, void* user_data);
+<* The type of HostPlatformDesc.clipboard_get. *>
+alias HostPlatformDescClipboardGetFn = fn ZString(void* user_data);
+<* The type of HostPlatformDesc.wake. *>
+alias HostPlatformDescWakeFn = fn void(void* user_data);
 struct HostPlatformDesc
 {
 	<* The pointer over `window` should look like `cursor`. May be NULL. *>
-	void* set_cursor;
+	HostPlatformDescSetCursorFn set_cursor;
 	<* Copies UTF-8 text to the clipboard of the application. NULL: the clipboard stays in the process. *>
-	void* clipboard_set;
+	HostPlatformDescClipboardSetFn clipboard_set;
 	<* The clipboard text, valid until the next call, or NULL. NULL: the clipboard stays in the process. *>
-	void* clipboard_get;
+	HostPlatformDescClipboardGetFn clipboard_get;
 	<* Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL. *>
-	void* wake;
+	HostPlatformDescWakeFn wake;
 	void* user_data;
+}
+
+<* Memory exported by Rvulkan_texture_create_shared. *>
+struct SharedTextureInfo
+{
+	<* POSIX: file descriptor (opaque fd). Windows: HANDLE (opaque win32). The caller owns it. *>
+	iptr handle;
+	<* Size of the memory allocation backing the image, in bytes. *>
+	ulong allocation_size;
+	CInt width;
+	CInt height;
+}
+
+<*
+ One primitive. All positions are in framebuffer pixels, origin top-left.
+ Colors are 4 bytes R, G, B, A in memory order, straight (not premultiplied).
+
+   kind      rect                 uv              radii              border_width
+   RECT      x0, y0, x1, y1       u0, v0, u1, v1  tl, tr, br, bl     outline width
+   GLYPH     x0, y0, x1, y1       u0, v0, u1, v1  -                  -
+   SHADOW    x0, y0, x1, y1       -               tl, tr, br, bl     blur radius
+   LINE      ax, ay, bx, by       -               [0] = thickness    -
+   TRIANGLE  ax, ay, bx, by       -               [0], [1] = cx, cy  -
+   GLASS     x0, y0, x1, y1       see below       tl, tr, br, bl     bevel width
+   BLUR      x0, y0, x1, y1       see below       tl, tr, br, bl     outline width
+   CURVE     ax, ay, dx, dy       see below       bx, by, cx, cy     thickness
+   SHADER    x0, y0, x1, y1       params 0..3     tl, tr, br, bl     time (seconds)
+
+ Fragments outside `clip` (x0, y0, x1, y1) are discarded.
+
+ GLASS shows the *backdrop*: the frame as it was when the last
+ R_DRAW_BACKDROP command was executed, sharp and blurred. Its fields are
+   uv[0]         frost, 0 = clear glass .. 1 = fully blurred
+   uv[1]         refraction: how far, in pixels, the rim bends the backdrop
+   uv[2]         saturation of the backdrop, 1 = unchanged
+   uv[3]         brightness added to the result (pressed / highlighted glass)
+   color         tint laid over the backdrop; its alpha is the strength
+   border_color  color of the light caught by the rim; its alpha is the intensity
+   border_width  width in pixels of the curved rim that refracts
+   flags         bits 8..15 = opacity of the whole primitive, 0..255
+ A backend without backdrop support may draw GLASS as a rounded rectangle
+ filled with `color`.
+
+ CURVE is the cubic Bezier curve from a (rect[0], rect[1]) to d (rect[2],
+ rect[3]) with the control points b and c (radii), drawn as a stroke with
+ round ends:
+   color         color at a
+   border_color  color at d; the stroke shades from one to the other
+   border_width  thickness of the stroke, in pixels
+   uv[0]         radius of the halo around the stroke, in pixels (0 = none)
+   uv[1]         opacity of the halo next to the stroke, 0..1
+   uv[2]         where the pulses are: they move from a to d as it grows (one pulse takes the place of the next every 1)
+   uv[3]         number of pulses along the curve (0 = none)
+   flags         bits 8..15 = how bright the pulses are, 0..255
+ A backend may draw it as a chain of LINE primitives.
+
+ BLUR shows the backdrop out of focus, flat (no rim, no bending):
+   uv[0]         radius of the blur, in pixels
+   uv[1]         grain, 0 = none .. 1 = frosted
+   uv[2]         saturation of the backdrop, 1 = unchanged
+   uv[3]         brightness added to the result
+   color         tint laid over the backdrop; its alpha is the strength
+   border_color  color of the outline, when border_width is not 0
+   flags         bits 8..15 = opacity of the whole primitive, 0..255
+ A backend without backdrop support may draw it as a rounded rectangle
+ filled with `color`.
+
+ SHADER is drawn by the fragment shader of its command (R_DRAW_SHADER),
+ an effect of the application or of Raven (raven_shader.h):
+   uv            four parameters of the effect, as the application gave them
+   color         first color of the effect
+   border_color  second color of the effect
+   border_width  time of the frame, in seconds (for animated effects)
+   flags         bits 8..15 = opacity of the whole primitive, 0..255;
+                 bits 16..23 = how much the pointer is over it (hover), 0..255;
+                 bits 24..31 = how much it is pressed, 0..255;
+                 R_INSTANCE_NO_POINTER: the effect does not follow the pointer
+ The effect also gets RDrawData::pointer. A backend without custom shaders
+ may draw it as a rounded rectangle filled with `color`.
+
+ In a window that can be seen through (RNativeWindow::transparent), the
+ alpha of the frame is what the window system blends with: GLASS and BLUR
+ keep the alpha of the backdrop where they are not tinted.
+*>
+struct DrawInstance
+{
+	float[4] rect;
+	float[4] uv;
+	float[4] clip;
+	float[4] radii;
+	uint color;
+	uint border_color;
+	float border_width;
+	uint flags;
+}
+
+struct DrawCommand
+{
+	DrawCommandType type;
+	<* Texture sampled by the textured instances of the command, or R_INVALID_ID. *>
+	Id texture;
+	uint first_instance;
+	uint instance_count;
+	ViewportDrawCallback callback;
+	void* user_data;
+	Id viewport;
+	<* x, y, width, height in pixels. *>
+	CInt[4] rect;
+	CInt[4] clip;
+	Id shader;
+}
+
+<* Everything needed to render one frame of one window. *>
+struct DrawData
+{
+	Id window;
+	DrawInstance* instances;
+	uint instance_count;
+	DrawCommand* commands;
+	uint command_count;
+	uint framebuffer_width;
+	uint framebuffer_height;
+	float[4] clear_color;
+	ulong frame_index;
+	<* Pixels per logical unit of the window: effects sized in pixels (blur) follow it. *>
+	float scale;
+	<* R_TRUE: the frame waits for the vertical synchronization (Rset_vsync). *>
+	CInt vsync;
+	<* Where the pointer is, in framebuffer pixels; -1e6, -1e6 when it is not over the window (for the effects, R_DRAW_SHADER). *>
+	float[2] pointer;
+}
+
+struct TextureDesc
+{
+	uint width;
+	uint height;
+	TextureFormat format;
+	FilterType filter;
+}
+
+struct BackendInitInfo
+{
+	ZString app_name;
+	CInt enable_validation;
+	CInt vsync;
+	WindowSystem window_system;
+	<* Display connection of the window system (X11 Display*), or NULL. *>
+	void* native_display;
+}
+
+<* Filled by RenderFrame when a capture is requested. *>
+struct Capture
+{
+	<* RGBA8, allocated with Rpixels_alloc. NULL when capture is unsupported. *>
+	char* pixels;
+	CInt width;
+	CInt height;
+}
+
+<* The type of BackendVTable.init. *>
+alias BackendVTableInitFn = fn CInt(BackendInitInfo* info);
+<* The type of BackendVTable.shutdown. *>
+alias BackendVTableShutdownFn = fn void();
+<* The type of BackendVTable.create_surface. *>
+alias BackendVTableCreateSurfaceFn = fn CInt(Id window, NativeWindow* native, uint width, uint height);
+<* The type of BackendVTable.destroy_surface. *>
+alias BackendVTableDestroySurfaceFn = fn void(Id window);
+<* The type of BackendVTable.create_texture. *>
+alias BackendVTableCreateTextureFn = fn CInt(Id texture, TextureDesc* desc, void* pixels);
+<* The type of BackendVTable.update_texture. *>
+alias BackendVTableUpdateTextureFn = fn void(Id texture, uint x, uint y, uint width, uint height, void* pixels);
+<* The type of BackendVTable.set_texture_filter. *>
+alias BackendVTableSetTextureFilterFn = fn void(Id texture, FilterType filter);
+<* The type of BackendVTable.destroy_texture. *>
+alias BackendVTableDestroyTextureFn = fn void(Id texture);
+<* The type of BackendVTable.render_frame. *>
+alias BackendVTableRenderFrameFn = fn void(DrawData* data, Capture* capture);
+<* The type of BackendVTable.wait_idle. *>
+alias BackendVTableWaitIdleFn = fn void();
+<* The type of BackendVTable.create_shader. *>
+alias BackendVTableCreateShaderFn = fn CInt(Id shader, uint* spirv, usz size);
+<* The type of BackendVTable.destroy_shader. *>
+alias BackendVTableDestroyShaderFn = fn void(Id shader);
+struct BackendVTable
+{
+	ZString name;
+	BackendVTableInitFn init;
+	BackendVTableShutdownFn shutdown;
+	<* Creates the presentation surface (swapchain) of a window. *>
+	BackendVTableCreateSurfaceFn create_surface;
+	BackendVTableDestroySurfaceFn destroy_surface;
+	<* `pixels` may be NULL (content undefined until UpdateTexture). *>
+	BackendVTableCreateTextureFn create_texture;
+	BackendVTableUpdateTextureFn update_texture;
+	BackendVTableSetTextureFilterFn set_texture_filter;
+	BackendVTableDestroyTextureFn destroy_texture;
+	<*
+	 Renders and presents one frame. The surface must follow
+	 data->framebuffer_width / height (recreate the swapchain when they change).
+	*>
+	BackendVTableRenderFrameFn render_frame;
+	<* Blocks until the GPU finished all submitted work. *>
+	BackendVTableWaitIdleFn wait_idle;
+	<*
+	 Optional (NULL: SHADER primitives are drawn as plain rounded
+	 rectangles). Makes a fragment shader of SPIR-V words usable by the
+	 R_DRAW_SHADER commands that name `shader`. R_FALSE when it is refused.
+	*>
+	BackendVTableCreateShaderFn create_shader;
+	BackendVTableDestroyShaderFn destroy_shader;
 }
 
 // ---- Widget
@@ -6412,7 +6707,7 @@ fn Material theme_get_material() @inline => (Material)c::r_theme_get_material();
 <* Font used by widgets that have no font of their own. *>
 fn void theme_set_font(Id font) @inline => c::r_theme_set_font((c::Rid)font);
 
-fn Id theme_get_font() @inline => (Id)c::r_theme_get_font();
+fn Font theme_get_font() @inline => (Font)c::r_theme_get_font();
 
 <*
  Sets the accent color and everything that follows from it: its
@@ -6445,7 +6740,7 @@ alias theme_is_dark = c::r_theme_is_dark;
 *>
 fn void theme_set_wallpaper(Id texture) @inline => c::r_theme_set_wallpaper((c::Rid)texture);
 
-fn Id theme_get_wallpaper() @inline => (Id)c::r_theme_get_wallpaper();
+fn Texture theme_get_wallpaper() @inline => (Texture)c::r_theme_get_wallpaper();
 
 <*
  Gives a color to the widgets of a type and / or of a class,
@@ -6784,10 +7079,10 @@ fn void spring_kick(Spring* spring, float velocity) @inline => c::r_spring_kick(
 fn void spring_set(Spring* spring, float value) @inline => c::r_spring_set((c::RSpring*)spring, value);
 
 <* A built-in effect, created the first time it is asked for. *>
-fn Id effect_get(Effect effect) @inline => (Id)c::r_effect_get((c::REffect)effect);
+fn Shader effect_get(Effect effect) @inline => (Shader)c::r_effect_get((c::REffect)effect);
 
 <* A built-in effect by its name ("aurora", "shimmer", "neon", "ripple", "plasma", "grain", "spotlight", "mesh"), or R_INVALID_ID. *>
-fn Id effect_find(ZString name) @inline => (Id)c::r_effect_find((char*)name);
+fn Shader effect_find(ZString name) @inline => (Shader)c::r_effect_find((char*)name);
 
 fn ZString effect_get_name(Effect effect) @inline => (ZString)c::r_effect_get_name((c::REffect)effect);
 
@@ -7029,3 +7324,152 @@ fn void host_inject_focus(Id window, CInt focused) @inline => c::r_host_inject_f
 
 <* The user asked to close the window (its close callback decides). *>
 fn void host_inject_close(Id window) @inline => c::r_host_inject_close((c::Rid)window);
+
+<*
+ By default Raven creates its own VkInstance and VkDevice. To make Raven render
+ with the device of the application (or of HRL), create the instance and the
+ device with the extensions returned below, then pass them here.
+*>
+fn ZString[] vulkan_get_required_instance_extensions()
+{
+	c::Ruint count;
+	ZString* result = (ZString*)c::r_vulkan_get_required_instance_extensions(&count);
+	if (result == null) return {};
+	return result[:count];
+}
+
+fn ZString[] vulkan_get_required_device_extensions()
+{
+	c::Ruint count;
+	ZString* result = (ZString*)c::r_vulkan_get_required_device_extensions(&count);
+	if (result == null) return {};
+	return result[:count];
+}
+
+<* Makes Raven use an existing device. Raven does not destroy these objects. *>
+alias vulkan_set_external_device = c::r_vulkan_set_external_device;
+
+fn void vulkan_set_queue_lock_callbacks(VulkanQueueLockCallback lock, VulkanQueueLockCallback unlock, void* user_data) @inline => c::r_vulkan_set_queue_lock_callbacks((c::RVulkanQueueLockCallback)lock, (c::RVulkanQueueLockCallback)unlock, user_data);
+
+<* Opaque VkInstance, or NULL before initialization / on another backend. *>
+alias vulkan_get_instance = c::r_vulkan_get_instance;
+
+<* Opaque VkPhysicalDevice. *>
+alias vulkan_get_physical_device = c::r_vulkan_get_physical_device;
+
+<* Opaque VkDevice. *>
+alias vulkan_get_device = c::r_vulkan_get_device;
+
+<* Opaque VkQueue used for rendering and presentation. *>
+alias vulkan_get_graphics_queue = c::r_vulkan_get_graphics_queue;
+
+alias vulkan_get_graphics_queue_family = c::r_vulkan_get_graphics_queue_family;
+
+<*
+ Behaves as if the GPU had answered VK_ERROR_DEVICE_LOST, to test
+ how an application recovers (Rset_device_reset_callback). Raven
+ recovers at the next frame by making a new device: every handle
+ returned above changes. Does nothing with an external device
+ (Rvulkan_set_external_device), whose loss the application handles.
+*>
+alias vulkan_simulate_device_lost = c::r_vulkan_simulate_device_lost;
+
+<*
+ Wraps an application image so that widgets (Image, Viewport) can show it.
+ The image must be in VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL whenever Raven
+ renders, and must outlive the texture. Raven does not destroy it: destroy it
+ after Rtexture_destroy, which returns once Raven no longer uses the image.
+
+ The values of the image are shown as they are (the UI is not color
+ managed): use a UNORM view of an sRGB-encoded image. Alpha is honored, so
+ clear the image with alpha 1 unless the viewport should be see-through.
+*>
+fn Texture vulkan_texture_create_from_image_view(ulong image_view, ulong sampler, CInt width, CInt height) @inline => (Texture)c::r_vulkan_texture_create_from_image_view(image_view, sampler, width, height);
+
+<*
+ Points an existing wrapped texture to another image view (after a resize).
+ Returns once Raven no longer uses the previous view, which can then be destroyed.
+*>
+fn void vulkan_texture_set_image_view(Id texture, ulong image_view, ulong sampler, CInt width, CInt height) @inline => c::r_vulkan_texture_set_image_view((c::Rid)texture, image_view, sampler, width, height);
+
+<*
+ Creates an RGBA8 texture whose memory can be imported by another
+ API or process (OpenGL GL_EXT_memory_object, another Vulkan device).
+ Requires VK_KHR_external_memory_fd (POSIX) or _win32 (Windows).
+ Returns R_INVALID_ID when the device cannot export memory.
+*>
+fn Texture? vulkan_texture_create_shared(CInt width, CInt height)
+{
+	Id result = (Id)c::r_vulkan_texture_create_shared(width, height);
+	if (result == INVALID_ID) return last_fault()~;
+	return (Texture)result;
+}
+
+<* Exports the memory of a shared texture. Each call returns a new handle. *>
+fn void? vulkan_texture_get_shared_info(Id texture, SharedTextureInfo* info)
+{
+	if (!c::r_vulkan_texture_get_shared_info((c::Rid)texture, (c::RSharedTextureInfo*)info)) return last_fault()~;
+}
+
+<*
+ Supplies the backend used by Rinit(R_BACKEND_CUSTOM).
+ The table is copied. Must be called before Rinit.
+*>
+fn void backend_register(BackendVTable* vtable) @inline => c::r_backend_register((c::RBackendVTable*)vtable);
+
+<*
+ Tells Raven that the device of the backend was lost. Thread-safe:
+ call it from the backend (render thread) when the API reports it. At the
+ next frame Raven calls Shutdown and Init again, then remakes the
+ surfaces, the textures and the shaders (see Rset_device_reset_callback).
+ Until then RenderFrame may simply return.
+*>
+alias backend_device_lost = c::r_backend_device_lost;
+
+<* Allocates a pixel buffer released by Rpixels_free. Thread-safe. *>
+alias pixels_alloc = c::r_pixels_alloc;
+
+<* The android_app given to android_main. Call before Rinit. *>
+fn void android_set_app(AndroidApp* app) @inline @feat(ANDROID) => c::r_android_set_app((c::AndroidApp*)app);
+
+<*
+ Creates a WebGL effect from a GLSL ES function:
+ vec4 raven_effect(RavenEffect fx) { return fx.color; }
+ Do not include version/header directives. Raven supplies the effect ABI.
+ Destroy with Rshader_destroy. SPIR-V is not accepted by WebGL.
+*>
+fn Shader web_shader_create(ZString source, ShaderFlags flags) @inline @feat(EMSCRIPTEN) => (Shader)c::r_web_shader_create((char*)source, (c::Ruint)flags);
+
+<*
+ Starts a browser animation-frame loop and returns immediately.
+ The loop calls Rdraw_frame; when Raven quits it cancels itself and shuts down.
+ Do not put Rshutdown after this call. Custom loops may call Rdraw_frame instead.
+*>
+fn void web_start() @inline @feat(EMSCRIPTEN) => c::r_web_start();
+
+<*
+ Opens a browser file picker. A successful result is a path in /uploads.
+ accept is a browser accept filter, e.g. ".xml,image/png". Maximum size: 32 MiB.
+*>
+fn void web_import_file(ZString accept, WebCallback callback, void* user_data) @inline @feat(EMSCRIPTEN) => c::r_web_import_file((char*)accept, (c::RWebCallback)callback, user_data);
+
+<* Downloads a virtual filesystem file through the browser. Call from a gesture. *>
+fn void? web_download_file(ZString path, ZString filename) @feat(EMSCRIPTEN)
+{
+	if (!c::r_web_download_file((char*)path, (char*)filename)) return last_fault()~;
+}
+
+<*
+ Mounts /persistent with IDBFS and loads saved data asynchronously.
+ Call once per library lifecycle, before reading persistent files.
+*>
+fn void web_mount_persistent(WebCallback callback, void* user_data) @inline @feat(EMSCRIPTEN) => c::r_web_mount_persistent((c::RWebCallback)callback, user_data);
+
+<* Saves /persistent to IndexedDB asynchronously. Mount must have completed. *>
+fn void web_sync_persistent(WebCallback callback, void* user_data) @inline @feat(EMSCRIPTEN) => c::r_web_sync_persistent((c::RWebCallback)callback, user_data);
+
+<*
+ Reads the browser clipboard asynchronously. May require a gesture/permission.
+ On success result contains text and Raven's synchronous paste cache is updated.
+*>
+fn void web_read_clipboard(WebCallback callback, void* user_data) @inline @feat(EMSCRIPTEN) => c::r_web_read_clipboard((c::RWebCallback)callback, user_data);
