@@ -600,7 +600,7 @@ extern "C" {
 	 */
 	RAVEN_API void Rnode_graph_set_pin_label_width(Rid graph, float width);
 	RAVEN_API float Rnode_graph_get_pin_label_width(Rid graph);
-	/** @brief Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. */
+	/** @brief Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color. */
 	RAVEN_API void Rnode_graph_set_node_badge_color(Rid graph, int node, float r, float g, float b);
 
 	/* ============================================================================

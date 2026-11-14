@@ -53,7 +53,7 @@
   --tk-m:#b197fc; --tk-c:#7d787a; --tk-g:#ff6b6b; --tk-a:#ffa94d;
   color-scheme:dark;
 }
-html{scroll-padding-top:env(safe-area-inset-top,0px); scroll-behavior:smooth}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{
   margin:0; color:var(--fg); text-align:left; overflow-x:clip;
@@ -101,6 +101,8 @@ code{font-family:var(--mono); font-size:.82em; background:color-mix(in srgb,var(
 .codebox:hover .copy,.copy:focus-visible{opacity:1}
 .copy:hover{background:var(--accent); color:var(--accent-fg)}
 @media (hover:none){.copy{opacity:1}}
+.badges{display:flex; flex-wrap:wrap; gap:14px; justify-content:center; margin-top:26px}
+.badges img{display:block; max-width:100%; height:auto}
 .langs{display:flex; flex-wrap:wrap; gap:10px; justify-content:center}
 .langs span{font:400 14px var(--mono); background:var(--card); border:1.5px solid var(--fg); border-radius:8px 12px 9px 11px; padding:3px 13px}
 .langs span:nth-child(odd){transform:rotate(-1.5deg)}
@@ -150,6 +152,14 @@ table.cmp td.e{text-align:center; vertical-align:middle; font-size:17px}
 .dl a span{color:var(--muted); white-space:nowrap}
 button.more{font:700 16px var(--head); background:var(--card); color:var(--fg); border:2px solid var(--fg); border-radius:10px 8px 11px 9px; padding:8px 20px; cursor:pointer; margin-top:10px; box-shadow:3px 3px 0 var(--fg)}
 button.more:hover{transform:translate(2px,2px); box-shadow:1px 1px 0 var(--fg)}
+/* SDK installer call to action */
+.sdk{margin:0 0 34px; padding:30px 22px 22px; text-align:center; background:var(--card); border:2px solid var(--fg); border-radius:14px 10px 15px 11px; box-shadow:5px 5px 0 var(--fg)}
+.btn.big{font-size:30px; line-height:1.15; padding:20px 44px; margin:0 0 16px; border-radius:16px 12px 17px 13px; box-shadow:5px 5px 0 var(--fg)}
+.btn.big:hover{transform:translate(3px,3px); box-shadow:2px 2px 0 var(--fg)}
+.sdk .why{margin:0 auto 8px; max-width:560px; font-size:17px}
+.sdk .small{margin:0 0 4px; font-size:15px}
+.sdk .small a{color:var(--accent); text-underline-offset:3px}
+@media (max-width:520px){.btn.big{font-size:23px; padding:16px 22px}}
 /* contributors */
 .people{display:flex; flex-wrap:wrap; gap:20px}
 .people a{display:flex; flex-direction:column; align-items:center; gap:6px; width:76px; text-decoration:none; color:var(--muted); font-size:14px; text-align:center; word-break:break-all}
@@ -183,6 +193,10 @@ footer{padding:44px 0 60px; color:var(--muted); font-size:16px; border-top:2px d
       <span>Java</span><span>Odin</span>
     </div>
     <p style="margin:14px 0 0;font-size:15px" class="muted">Bindings for all of them. For example: <code>pip install raven-gui</code></p>
+    <div class="badges">
+      <a href="https://trendshift.io/repositories/320982?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-320982" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/320982/daily?language=C" alt="oscar-soirey%2FRaven | Trendshift" width="250" height="55"/></a>
+      <a href="https://trendshift.io/repositories/320982?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-320982" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/320982/weekly?language=C" alt="oscar-soirey%2FRaven | Trendshift" width="250" height="55"/></a>
+    </div>
   </header>
 
   <figure class="shot" style="margin-bottom:40px">
@@ -551,6 +565,13 @@ if a cell is wrong or out of date, please
   <section id="releases">
     <h2>Releases</h2>
     <p class="note">prebuilt packages are attached to each release</p>
+    <div class="sdk">
+      <a class="btn big" id="sdk-dl" href="https://github.com/oscar-soirey/Raven/releases/latest">Download SDK installer</a>
+      <p class="why"><b>Recommended.</b> The SDK installer is the easiest way to get Raven:
+      use it rather than downloading and assembling the packages below by hand.</p>
+      <p id="sdk-note" class="muted small" hidden></p>
+      <p id="sdk-others" class="muted small" hidden></p>
+    </div>
     <p class="muted" style="margin:0 0 22px">Releases come from time to time; the repository moves every day.
     <b>For the latest features, clone and build Raven yourself</b> rather than downloading:
     <code>git clone https://github.com/oscar-soirey/Raven.git</code>, then
@@ -597,16 +618,80 @@ if a cell is wrong or out of date, please
     if (/linux|x11/.test(s)) return 'Linux';
     return null;
   }
+  // SDK installer detection. The installer is the asset of the latest release that looks like an installer
+  // (name with "install"/"setup", or an installer extension) for the visitor's platform; a name containing "sdk" wins.
+  var PLATFORMS = {
+    Windows: { re: /(^|[^a-z])win(dows|32|64)?([^a-z]|$)/i, ext: /\.(exe|msi)$/i },
+    macOS:   { re: /mac|darwin|osx/i, ext: /\.(pkg|dmg)$/i },
+    Linux:   { re: /linux/i, ext: /\.(appimage|deb|rpm|run|sh)$/i }
+  };
+  var INSTALLER = /install|setup/i, NOT_A_PACKAGE = /\.(sha256|sha512|sig|asc|txt|md5)$/i;
+  var ARM = /arm64|aarch64/i, X64 = /x64|x86[_-]64|amd64|win64/i;
+
+  function detectArch(){
+    var ua = (navigator.userAgent || '').toLowerCase();
+    var guess = /arm64|aarch64/.test(ua) ? 'arm64' : /x86_64|x64|win64|amd64|wow64/.test(ua) ? 'x64' : null;
+    var uad = navigator.userAgentData;
+    if (uad && uad.getHighEntropyValues) {
+      return uad.getHighEntropyValues(['architecture']).then(function(v){
+        return v.architecture === 'arm' ? 'arm64' : v.architecture === 'x86' ? 'x64' : guess;
+      }, function(){ return guess; });
+    }
+    return Promise.resolve(guess);
+  }
+  function pickInstaller(r, os, arch){
+    var P = PLATFORMS[os], best = null, top = 0;
+    (r.assets || []).forEach(function(as){
+      var n = as.name;
+      if (NOT_A_PACKAGE.test(n)) return;
+      var other = Object.keys(PLATFORMS).some(function(k){ return k !== os && PLATFORMS[k].re.test(n); });
+      if (other || !(P.re.test(n) || P.ext.test(n))) return;
+      if (!(INSTALLER.test(n) || P.ext.test(n))) return;
+      var s = 4 + (/sdk/i.test(n) ? 8 : 0) + (INSTALLER.test(n) ? 2 : 0);
+      if (arch === 'arm64') s += ARM.test(n) ? 2 : X64.test(n) ? -2 : 0;
+      if (arch === 'x64') s += X64.test(n) ? 2 : ARM.test(n) ? -2 : 0;
+      if (!arch) s += (X64.test(n) || /universal/i.test(n)) ? 1 : 0; // unknown architecture (Safari, Firefox): the x64 build runs everywhere
+      if (s > top) { best = as; top = s; }
+    });
+    return best;
+  }
   function setDownload(rels){
-    var r = rels.filter(function(x){ return !x.prerelease; })[0] || rels[0], os = detectOS();
-    if (!r || !os) return;
-    var re = { Windows: /(^|[^a-z])win(dows|32|64)?([^a-z]|$)/i, macOS: /mac|darwin|osx/i, Linux: /linux/i }[os];
-    var as = (r.assets || []).filter(function(a){ return re.test(a.name) && !/\.(sha256|sha512|sig|asc|txt|md5)$/i.test(a.name); })[0];
-    if (!as) return;
-    var b = document.getElementById('dl'), n = document.getElementById('dl-note');
-    b.textContent = 'Download for ' + os;
-    n.textContent = (r.name || r.tag_name) + ', ' + as.name + ', ' + size(as.size) + '. Other systems and versions are in Releases below.';
-    n.hidden = false;
+    var r = rels.filter(function(x){ return !x.prerelease; })[0] || rels[0];
+    if (!r) return;
+    var os = detectOS(), rname = r.name || r.tag_name;
+    detectArch().then(function(arch){
+      var found = {}, any = false;
+      Object.keys(PLATFORMS).forEach(function(k){ var as = pickInstaller(r, k, arch); if (as) { found[k] = as; any = true; } });
+      if (!any) return;
+      var main = os && found[os];
+
+      // Button at the top of the page: downloads the installer straight away
+      if (main) {
+        var b = document.getElementById('dl'), n = document.getElementById('dl-note');
+        b.href = main.browser_download_url; b.dataset.direct = '1';
+        b.textContent = 'Download for ' + os;
+        n.textContent = 'SDK installer, ' + rname + ', ' + main.name + ', ' + size(main.size) + '. Other systems and versions are in Releases below.';
+        n.hidden = false;
+      }
+
+      // Big button in Releases
+      var big = document.getElementById('sdk-dl'), note = document.getElementById('sdk-note'), others = document.getElementById('sdk-others');
+      if (main) {
+        big.href = main.browser_download_url;
+        big.textContent = 'Download SDK installer for ' + os;
+        note.textContent = rname + ', ' + main.name + ', ' + size(main.size);
+        note.hidden = false;
+      }
+      var rest = Object.keys(found).filter(function(k){ return k !== os; });
+      if (rest.length) {
+        others.textContent = main ? 'Other platforms: ' : 'Choose your system: ';
+        rest.forEach(function(k, i){
+          if (i) others.appendChild(document.createTextNode(' · '));
+          var a = el('a', null, k); a.href = found[k].browser_download_url; others.appendChild(a);
+        });
+        others.hidden = false;
+      }
+    });
   }
   function size(b){ return b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
   function inline(parent, text){
@@ -681,6 +766,7 @@ if a cell is wrong or out of date, please
 
   // The Download button: the images above load while the page scrolls and push the target away, so align again once they have
   document.getElementById('dl').addEventListener('click', function(e){
+    if (this.dataset.direct) return; // it points straight at the SDK installer: let the browser download it
     var t = document.getElementById('releases');
     if (!t) return;
     e.preventDefault();
