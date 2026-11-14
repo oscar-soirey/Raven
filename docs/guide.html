@@ -32,7 +32,7 @@
 <h1>The Raven manual</h1>
 
 <p>Raven is a GUI library in C11 for editors and tools: native windows on
-Windows, Linux and macOS, drawn with Vulkan, with a layout in the manner of
+Windows, Linux and macOS (iOS and Android are experimental), drawn with Vulkan, with a layout in the manner of
 Slate, interfaces written in XML or in code, a text editor for code, docking,
 glass materials, translations, accessibility, and bindings for fourteen other
 languages. This guide explains every part of it with examples. The two other
@@ -46,7 +46,7 @@ pages are references: <a href="xml.html">every XML tag and attribute</a>, and
 <li><a href="#intro">1. A first program</a>
 </li>
 <li><a href="#build">2. Building Raven</a>
-<ul><li><a href="#build-latest">The latest version: from the sources</a></li><li><a href="#build-windows">Windows</a></li><li><a href="#build-linux">Linux</a></li><li><a href="#build-macos">macOS</a></li><li><a href="#build-options">Options</a></li><li><a href="#build-using">Using Raven from a project</a></li></ul>
+<ul><li><a href="#build-latest">The latest version: from the sources</a></li><li><a href="#build-windows">Windows</a></li><li><a href="#build-linux">Linux</a></li><li><a href="#build-macos">macOS</a></li><li><a href="#build-mobile">iOS and Android</a></li><li><a href="#build-options">Options</a></li><li><a href="#build-using">Using Raven from a project</a></li></ul>
 </li>
 <li><a href="#concepts">3. Concepts</a>
 <ul><li><a href="#names">Names</a></li><li><a href="#handles">Handles and errors</a></li><li><a href="#loop">The loop</a></li><li><a href="#ui-thread">One thread for the interface</a></li></ul>
@@ -266,6 +266,24 @@ cmake --install build --prefix install</pre>
 <p>Vulkan runs on macOS through MoltenVK. Add
 <code>-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"</code> for a universal library.</p>
 
+<h3 id="build-mobile">iOS and Android</h3>
+
+<p>Raven also runs on iOS (UIKit, drawn with Vulkan through MoltenVK) and on
+Android (NativeActivity). Both platforms are experimental. CMake chooses them
+when it builds for iOS or Android (<code>CMAKE_SYSTEM_NAME</code>), or with
+<code>-DRAVEN_PLATFORM=uikit</code> and <code>-DRAVEN_PLATFORM=android</code>. On Android the
+application gives Raven its <code>android_app</code> (<code>Randroid_set_app</code>, in
+<code>raven/raven_android.h</code>) before <code>Rinit</code>; on iOS UIKit owns the main loop,
+and the application calls <code>Rwait_frame</code> from a <code>CADisplayLink</code>.</p>
+
+<p><code>examples/mobile</code> holds one showcase in C and the scripts that build Raven
+and the app, without an Xcode project or Gradle: for the iOS Simulator, and for an
+Android device or emulator (API 29 or later). Its <code>README.md</code> gives the steps.
+The window is laid out inside the safe area (<code>Rwindow_get_safe_area</code>) and above
+the on-screen keyboard (<code>Rwindow_get_keyboard_area</code>, <code>Rwindow_set_keyboard_callback</code>);
+<code>Rtheme_follow_system</code> follows the dark mode of the system. What these platforms
+do not do yet is in <a href="#limits">What Raven does not do yet</a>.</p>
+
 <h3 id="build-options">Options</h3>
 <div class="tw"><table>
 <tr><th>Option</th><th>Default</th><th></th></tr>
@@ -275,7 +293,7 @@ cmake --install build --prefix install</pre>
 <tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code> and <code>raven_theme_editor</code></td></tr>
 <tr><td><code>RAVEN_BUILD_WEB</code></td><td>ON</td><td>web pages (<code>raven_web.h</code>), compiled into the library</td></tr>
 <tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>OFF builds without any GPU code (a custom backend, or headless)</td></tr>
-<tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code> or <code>null</code></td></tr>
+<tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code>, <code>uikit</code> (<a href="#build-mobile">iOS</a>), <code>android</code>, <code>emscripten</code> (the browser) or <code>null</code></td></tr>
 <tr><td><code>RAVEN_WAYLAND</code></td><td>ON</td><td>Linux and BSD: native Wayland beside X11 (<a href="#build-wayland">Wayland and X11</a>); nothing of Wayland is needed to build</td></tr>
 <tr><td><code>RAVEN_WITH_STB_IMAGE</code></td><td>ON</td><td>PNG, JPEG, BMP and TGA decoding</td></tr>
 <tr><td><code>RAVEN_WITH_SVG</code></td><td>ON</td><td>SVG images (icons), drawn by nanosvg</td></tr>
@@ -2122,6 +2140,9 @@ render of the last frame.</p>
 <li>Dragging from a Raven window to another application. Glass over a native child window.</li>
 <li>Mipmaps, a sub-allocator of GPU memory, recovery from a lost Vulkan device.</li>
 <li>Node graph: knots, groups and comments, a minimap, undo (the application holds the model and its history). Timeline: nested tracks, curves between keys. Markdown: HTML, footnotes.</li>
+<li>iOS and Android are experimental (<a href="#build-mobile">iOS and Android</a>). On both, a window fills the screen: its size, position and title are left to the system. No native child windows, no screen readers (VoiceOver, TalkBack), no tray icon, menu bar or badge of the system; notifications go to the fallback of the application (<code>Rnotification_set_fallback</code>), and file dialogs are Raven's own. The text services of the system (suggestions, autocorrection, composition) work in a <code>TextInput</code>; a <code>TextEditor</code> or a <code>SpinBox</code> gets plain keys and text. The places known to be simplified are marked <code>SHORTCUT</code> in the sources.</li>
+<li>iOS: only the Simulator has been tried, not a device. Raven pauses the application's <code>CADisplayLink</code> while it has nothing to draw, but the function that hands it over (<code>rvn_uikit_set_display_link</code>) is not public API yet.</li>
+<li>Android: one window, the surface of the activity. The clipboard stays inside the application. The Back key reaches Raven as Escape, and the application decides what it means. The on-screen keyboard needs Raven's Java class (<code>src/platform/android/java</code>) in the APK; without it, key events only (no suggestions, ASCII only). The swapchain is not pre-rotated: the compositor rotates it.</li>
 </ul>
 
 <p>Questions, issues and contributions: <a href="https://github.com/oscar-soirey/Raven">github.com/oscar-soirey/Raven</a>.

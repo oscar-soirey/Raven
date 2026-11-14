@@ -146,6 +146,22 @@ Raven draws with Vulkan, which runs on macOS through
 [MoltenVK](https://github.com/KhronosGroup/MoltenVK) (`brew install molten-vk`,
 or the Vulkan SDK for macOS).
 
+### iOS and Android (experimental)
+
+Raven also runs on iOS (UIKit, drawn with Vulkan through MoltenVK) and on
+Android (NativeActivity). Both platforms are experimental. CMake chooses them
+when it builds for iOS or Android (`CMAKE_SYSTEM_NAME`), or with
+`-DRAVEN_PLATFORM=uikit` and `-DRAVEN_PLATFORM=android`. On Android the
+application gives Raven its `android_app` (`Randroid_set_app`, in
+`raven/raven_android.h`) before `Rinit`; on iOS UIKit owns the main loop, and
+the application calls `Rwait_frame` from a `CADisplayLink`.
+
+[examples/mobile](examples/mobile/README.md) holds one showcase in C and the
+scripts that build Raven and the app, without an Xcode project or Gradle: for
+the iOS Simulator, and for an Android device or emulator (API 29 or later).
+What these platforms do not do yet is in
+[Not implemented yet](#not-implemented-yet).
+
 ### Using the built library
 
 `install/` is a CMake package. In your project:
@@ -480,7 +496,9 @@ package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,
 Java, Bun, Node.js, D, Nim). The native Wayland platform is newer: it is tested against a
 compositor written in its test (`test_wayland`: windows, scales, keyboard,
 pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
-or wlroots with a GPU.
+or wlroots with a GPU. iOS and Android are experimental: they have run on
+the iOS Simulator, on an Android phone and on the Android emulator
+(`examples/mobile`), not yet on an iPhone.
 
 ### Linux: Wayland and X11
 
@@ -546,7 +564,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer`, `raven_theme_editor` |
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
 | `RAVEN_BACKEND_VULKAN` | `ON` | `OFF` builds without any GPU code (custom backend or headless) |
-| `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
+| `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS), `uikit` (iOS), `android`, `emscripten` (the browser, [docs/emscripten.md](docs/emscripten.md)) or `null` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
 | `RAVEN_WITH_SVG` | `ON` | SVG images (icons), drawn by nanosvg |
@@ -624,6 +642,7 @@ The build trees are in `build\dist\`.
 | `examples/viewport_opengl` | an OpenGL scene in a native child window (WGL / GLX) |
 | `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
 | `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
+| `examples/mobile` | one showcase in C for iOS and Android (experimental): a tab bar, a list of 1,000 rows with a detail page, controls, glass, a form with keyboard types. See its [README](examples/mobile/README.md) |
 
 ![The notepad example](docs/images/notepad.png)
 
@@ -1510,7 +1529,7 @@ cost is the blur passes, but it has not been measured. Read
 include/Raven.h      the whole public API in one include
 include/raven/       ... one header per area
 src/core/            allocator, handles, threads, job system, files, main loop
-src/platform/        window systems behind one interface: win32/, x11/, wayland/, cocoa/, null/
+src/platform/        window systems behind one interface: win32/, x11/, wayland/, cocoa/, uikit/, android/, emscripten/, null/
 src/render/          draw lists, fonts and glyph atlas, textures, render thread
 src/render/vulkan/   the Vulkan backend and its shaders (vk_glass.c: backdrop blur)
 src/widget/          widget base: tree, layout, events, painting, animation, windows, style, themes
@@ -1542,6 +1561,24 @@ What Raven does not do yet, by area. Contributions are welcome.
   are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
   installed Chromium-based browser instead.
+- iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
+  On both, a window fills the screen: its size, position and title are left
+  to the system. There are no native child windows, no screen readers
+  (VoiceOver, TalkBack), no tray icon, menu bar or badge of the system;
+  notifications go to the fallback of the application
+  (`Rnotification_set_fallback`), and file dialogs are Raven's own. The text
+  services of the system (suggestions, autocorrection, composition) work in a
+  `TextInput`; a `TextEditor` or a `SpinBox` gets plain keys and text. The
+  places known to be simplified are marked `SHORTCUT` in the sources.
+- iOS: only the Simulator has been tried, not a device. Raven pauses the
+  application's `CADisplayLink` while it has nothing to draw, but the function
+  that hands it over (`rvn_uikit_set_display_link`) is not public API yet.
+- Android: one window, the surface of the activity. The clipboard stays inside
+  the application. The Back key reaches Raven as Escape, and the application
+  decides what it means. The on-screen keyboard needs Raven's Java class
+  (`src/platform/android/java`) in the APK; without it, key events only (no
+  suggestions, ASCII only). The swapchain is not pre-rotated: the compositor
+  rotates it.
 
 **Text**
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic
