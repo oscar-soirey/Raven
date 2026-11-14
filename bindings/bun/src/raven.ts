@@ -220,6 +220,10 @@ const _symbols = {
 	Rwindow_get_title: { args: ["u32"], returns: "cstring" },
 	Rwindow_set_size: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_get_size: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rwindow_get_safe_area: { args: ["u32", "ptr"], returns: "void" },
+	Rwindow_get_keyboard_area: { args: ["u32", "ptr"], returns: "void" },
+	Rwindow_set_keyboard_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rwindow_clear_focus: { args: ["u32"], returns: "void" },
 	Rwindow_set_min_size: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_set_position: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_get_position: { args: ["u32", "ptr", "ptr"], returns: "void" },
@@ -283,6 +287,11 @@ const _symbols = {
 	Rwindow_get_modifiers: { args: ["u32"], returns: "u32" },
 	Rwindow_is_mouse_inside: { args: ["u32"], returns: "i32" },
 	Rwindow_wants_text_input: { args: ["u32"], returns: "i32" },
+	Rwindow_get_text_input_info: { args: ["u32", "ptr"], returns: "i32" },
+	Rwindow_get_text_input_text: { args: ["u32"], returns: "cstring" },
+	Rwindow_get_text_input_selection: { args: ["u32", "ptr", "ptr"], returns: "i32" },
+	Rwindow_set_text_input_selection: { args: ["u32", "i32", "i32"], returns: "i32" },
+	Rwindow_replace_text_input: { args: ["u32", "i32", "i32", "ptr"], returns: "i32" },
 	Rwindow_has_popup: { args: ["u32"], returns: "i32" },
 	Rwindow_get_text_input_rect: { args: ["u32", "ptr", "ptr", "ptr", "ptr"], returns: "i32" },
 	Rwindow_get_popup_count: { args: ["u32"], returns: "i32" },
@@ -332,6 +341,8 @@ const _symbols = {
 	Rtheme_get_font: { args: [], returns: "u32" },
 	Rtheme_set_accent: { args: ["f32", "f32", "f32"], returns: "void" },
 	Rtheme_set_dark: { args: ["i32"], returns: "void" },
+	Rtheme_get_system_dark: { args: [], returns: "i32" },
+	Rtheme_follow_system: { args: ["i32"], returns: "void" },
 	Rtheme_is_dark: { args: [], returns: "i32" },
 	Rtheme_set_wallpaper: { args: ["u32"], returns: "void" },
 	Rtheme_get_wallpaper: { args: [], returns: "u32" },
@@ -560,6 +571,10 @@ const _symbols = {
 	Rtext_input_set_read_only: { args: ["u32", "i32"], returns: "void" },
 	Rtext_input_set_max_length: { args: ["u32", "i32"], returns: "void" },
 	Rtext_input_select_all: { args: ["u32"], returns: "void" },
+	Rtext_input_set_input_type: { args: ["u32", "i32"], returns: "void" },
+	Rtext_input_get_input_type: { args: ["u32"], returns: "i32" },
+	Rtext_input_set_return_key: { args: ["u32", "i32"], returns: "void" },
+	Rtext_input_get_return_key: { args: ["u32"], returns: "i32" },
 	Rtext_input_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtext_input_set_committed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rspin_box_set_range: { args: ["u32", "f64", "f64"], returns: "void" },
@@ -1480,6 +1495,8 @@ export enum RWindowSystem {
 	R_WINDOW_SYSTEM_WAYLAND = 0x0093,
 	R_WINDOW_SYSTEM_COCOA = 0x0094,
 	R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
+	R_WINDOW_SYSTEM_ANDROID = 0x0096,
+	R_WINDOW_SYSTEM_UIKIT = 0x0097,
 }
 
 export const R_WINDOW_SYSTEM_NONE = RWindowSystem.R_WINDOW_SYSTEM_NONE;
@@ -1488,6 +1505,45 @@ export const R_WINDOW_SYSTEM_X11 = RWindowSystem.R_WINDOW_SYSTEM_X11;
 export const R_WINDOW_SYSTEM_WAYLAND = RWindowSystem.R_WINDOW_SYSTEM_WAYLAND;
 export const R_WINDOW_SYSTEM_COCOA = RWindowSystem.R_WINDOW_SYSTEM_COCOA;
 export const R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN;
+export const R_WINDOW_SYSTEM_ANDROID = RWindowSystem.R_WINDOW_SYSTEM_ANDROID;
+export const R_WINDOW_SYSTEM_UIKIT = RWindowSystem.R_WINDOW_SYSTEM_UIKIT;
+
+/** What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...). */
+export enum RTextInputType {
+	R_TEXT_INPUT_TYPE_TEXT = 0x0B60,
+	R_TEXT_INPUT_TYPE_EMAIL = 0x0B61,
+	R_TEXT_INPUT_TYPE_NUMBER = 0x0B62,
+	/** Digits and a decimal separator. */
+	R_TEXT_INPUT_TYPE_DECIMAL = 0x0B63,
+	R_TEXT_INPUT_TYPE_PHONE = 0x0B64,
+	R_TEXT_INPUT_TYPE_URL = 0x0B65,
+	R_TEXT_INPUT_TYPE_SEARCH = 0x0B66,
+}
+
+export const R_TEXT_INPUT_TYPE_TEXT = RTextInputType.R_TEXT_INPUT_TYPE_TEXT;
+export const R_TEXT_INPUT_TYPE_EMAIL = RTextInputType.R_TEXT_INPUT_TYPE_EMAIL;
+export const R_TEXT_INPUT_TYPE_NUMBER = RTextInputType.R_TEXT_INPUT_TYPE_NUMBER;
+export const R_TEXT_INPUT_TYPE_DECIMAL = RTextInputType.R_TEXT_INPUT_TYPE_DECIMAL;
+export const R_TEXT_INPUT_TYPE_PHONE = RTextInputType.R_TEXT_INPUT_TYPE_PHONE;
+export const R_TEXT_INPUT_TYPE_URL = RTextInputType.R_TEXT_INPUT_TYPE_URL;
+export const R_TEXT_INPUT_TYPE_SEARCH = RTextInputType.R_TEXT_INPUT_TYPE_SEARCH;
+
+/** The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key. */
+export enum RReturnKey {
+	R_RETURN_KEY_DEFAULT = 0x0B70,
+	R_RETURN_KEY_DONE = 0x0B71,
+	R_RETURN_KEY_GO = 0x0B72,
+	R_RETURN_KEY_NEXT = 0x0B73,
+	R_RETURN_KEY_SEARCH = 0x0B74,
+	R_RETURN_KEY_SEND = 0x0B75,
+}
+
+export const R_RETURN_KEY_DEFAULT = RReturnKey.R_RETURN_KEY_DEFAULT;
+export const R_RETURN_KEY_DONE = RReturnKey.R_RETURN_KEY_DONE;
+export const R_RETURN_KEY_GO = RReturnKey.R_RETURN_KEY_GO;
+export const R_RETURN_KEY_NEXT = RReturnKey.R_RETURN_KEY_NEXT;
+export const R_RETURN_KEY_SEARCH = RReturnKey.R_RETURN_KEY_SEARCH;
+export const R_RETURN_KEY_SEND = RReturnKey.R_RETURN_KEY_SEND;
 
 /** Edges and corners of a window, for Rwindow_begin_resize. */
 export enum RWindowEdge {
@@ -3430,6 +3486,99 @@ export class RFrameStats extends RStruct {
 	}
 }
 
+/** Distances from the edges of a window, in logical units. */
+export class RInsets extends RStruct {
+	static readonly SIZE = 16;
+
+	constructor(pointer?: Pointer) {
+		super(RInsets.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RInsets | null {
+		return pointer ? new RInsets(pointer) : null;
+	}
+
+	get top(): number {
+		return this._view.getFloat32(0, true);
+	}
+	set top(value: number) {
+		this._view.setFloat32(0, value, true);
+	}
+
+	get right(): number {
+		return this._view.getFloat32(4, true);
+	}
+	set right(value: number) {
+		this._view.setFloat32(4, value, true);
+	}
+
+	get bottom(): number {
+		return this._view.getFloat32(8, true);
+	}
+	set bottom(value: number) {
+		this._view.setFloat32(8, value, true);
+	}
+
+	get left(): number {
+		return this._view.getFloat32(12, true);
+	}
+	set left(value: number) {
+		this._view.setFloat32(12, value, true);
+	}
+}
+
+/** What the platform needs to know of the focused text input to set up the on-screen keyboard. */
+export class RTextInputInfo extends RStruct {
+	static readonly SIZE = 20;
+
+	constructor(pointer?: Pointer) {
+		super(RTextInputInfo.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RTextInputInfo | null {
+		return pointer ? new RTextInputInfo(pointer) : null;
+	}
+
+	get type(): RTextInputType {
+		return this._view.getInt32(0, true) as RTextInputType;
+	}
+	set type(value: RTextInputType) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get return_key(): RReturnKey {
+		return this._view.getInt32(4, true) as RReturnKey;
+	}
+	set return_key(value: RReturnKey) {
+		this._view.setInt32(4, value, true);
+	}
+
+	/** R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning). */
+	get password(): number {
+		return this._view.getInt32(8, true);
+	}
+	set password(value: number) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get read_only(): number {
+		return this._view.getInt32(12, true);
+	}
+	set read_only(value: number) {
+		this._view.setInt32(12, value, true);
+	}
+
+	/** Most characters accepted; 0 for no limit. */
+	get max_length(): number {
+		return this._view.getInt32(16, true);
+	}
+	set max_length(value: number) {
+		this._view.setInt32(16, value, true);
+	}
+}
+
 /**
  * Native handles of a window or of a native viewport.
  *   Win32 : display = HINSTANCE, window = HWND
@@ -3438,6 +3587,8 @@ export class RFrameStats extends RStruct {
  *           Wayland or X11 when Rinit runs: check `system`)
  *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
  *   Emscripten: window = opaque browser surface token (no OS window handle)
+ *   Android: window = ANativeWindow*
+ *   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
  */
 export class RNativeWindow extends RStruct {
 	static readonly SIZE = 40;
@@ -5209,6 +5360,22 @@ function _adapt_RDeviceResetCallback(function_: RDeviceResetCallback | Pointer |
 	}, { args: ["ptr"], returns: "void", threadsafe }));
 }
 
+/** The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden. */
+export type RKeyboardCallback = (window: Rid, visible: number, height: number, user_data: Pointer | null) => void;
+
+function _adapt_RKeyboardCallback(function_: RKeyboardCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((window: number, visible: number, height: number, user_data: Pointer | null): void => {
+		try {
+			function_(window, visible, height, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "f32", "ptr"], returns: "void", threadsafe }));
+}
+
 /**
  * Called for a drop target (a widget, or a window: `target` is its
  * handle). Return R_TRUE to accept: while the pointer is over the target this
@@ -6922,6 +7089,34 @@ export function Rwindow_get_size(window: Rid): [width: number, height: number] {
 	return [width_[0]!, height_[0]!];
 }
 
+/**
+ * The part of the window the system covers (status bar, notch,
+ * home indicator, navigation bar), in logical units. The content of the
+ * window is laid out inside it already. All 0 on desktop.
+ */
+export function Rwindow_get_safe_area(window: Rid, insets: RInsets | null): void {
+	_lib.Rwindow_get_safe_area(window, _p(insets));
+}
+
+/**
+ * The part of the window the on-screen keyboard covers (only
+ * `bottom` is set), in logical units; 0 when it is hidden or there is
+ * none (desktop). The content is laid out above it already.
+ */
+export function Rwindow_get_keyboard_area(window: Rid, insets: RInsets | null): void {
+	_lib.Rwindow_get_keyboard_area(window, _p(insets));
+}
+
+/** Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it. */
+export function Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rwindow_set_keyboard_callback(window, _adapt_RKeyboardCallback(callback), user_data);
+}
+
+/** No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. */
+export function Rwindow_clear_focus(window: Rid): void {
+	_lib.Rwindow_clear_focus(window);
+}
+
 export function Rwindow_set_min_size(window: Rid, width: number, height: number): void {
 	_lib.Rwindow_set_min_size(window, width, height);
 }
@@ -7334,6 +7529,38 @@ export function Rwindow_wants_text_input(window: Rid): number {
 	return _lib.Rwindow_wants_text_input(window);
 }
 
+/** The kind of the focused text input; R_FALSE when there is none. */
+export function Rwindow_get_text_input_info(window: Rid, info: RTextInputInfo | null): number {
+	return _lib.Rwindow_get_text_input_info(window, _p(info));
+}
+
+/** Its text (UTF-8), valid until it changes; NULL when there is none. */
+export function Rwindow_get_text_input_text(window: Rid): string | null {
+	return _lib.Rwindow_get_text_input_text(window);
+}
+
+/** Its selection: start == end is the caret. R_FALSE when there is none. */
+export function Rwindow_get_text_input_selection(window: Rid): [result: number, start: number, end: number] {
+	const start_ = new Int32Array(1);
+	const end_ = new Int32Array(1);
+	const result_ = _lib.Rwindow_get_text_input_selection(window, start_, end_);
+	return [result_, start_[0]!, end_[0]!];
+}
+
+/** Selects bytes [start, end) of it (end before start puts the caret at end). */
+export function Rwindow_set_text_input_selection(window: Rid, start: number, end: number): number {
+	return _lib.Rwindow_set_text_input_selection(window, start, end);
+}
+
+/**
+ * Replaces bytes [start, end) of it with `text` and puts the caret
+ * after it, as typing would (the changed callback runs; MaxLength
+ * applies). R_FALSE when there is none or it is read-only.
+ */
+export function Rwindow_replace_text_input(window: Rid, start: number, end: number, text: string | null): number {
+	return _lib.Rwindow_replace_text_input(window, start, end, _s(text));
+}
+
 /** R_TRUE while a menu, list or dialog is open over the window. */
 export function Rwindow_has_popup(window: Rid): number {
 	return _lib.Rwindow_has_popup(window);
@@ -7623,6 +7850,20 @@ export function Rtheme_set_accent(r: number, g: number, b: number): void {
  */
 export function Rtheme_set_dark(dark: number): void {
 	_lib.Rtheme_set_dark(dark);
+}
+
+/** R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today). */
+export function Rtheme_get_system_dark(): number {
+	return _lib.Rtheme_get_system_dark();
+}
+
+/**
+ * Follows the dark or light mode of the system with the Raven look
+ * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+ * Off by default. Does nothing where the platform does not tell (desktop today).
+ */
+export function Rtheme_follow_system(enabled: number): void {
+	_lib.Rtheme_follow_system(enabled);
 }
 
 export function Rtheme_is_dark(): number {
@@ -8952,6 +9193,24 @@ export function Rtext_input_set_max_length(text_input: Rid, max_length: number):
 
 export function Rtext_input_select_all(text_input: Rid): void {
 	_lib.Rtext_input_select_all(text_input);
+}
+
+/** What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT. */
+export function Rtext_input_set_input_type(text_input: Rid, type: RTextInputType): void {
+	_lib.Rtext_input_set_input_type(text_input, type);
+}
+
+export function Rtext_input_get_input_type(text_input: Rid): RTextInputType {
+	return _lib.Rtext_input_get_input_type(text_input) as RTextInputType;
+}
+
+/** The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT. */
+export function Rtext_input_set_return_key(text_input: Rid, key: RReturnKey): void {
+	_lib.Rtext_input_set_return_key(text_input, key);
+}
+
+export function Rtext_input_get_return_key(text_input: Rid): RReturnKey {
+	return _lib.Rtext_input_get_return_key(text_input) as RReturnKey;
 }
 
 /** Called on every edit. */

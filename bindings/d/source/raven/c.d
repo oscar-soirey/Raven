@@ -146,6 +146,34 @@ enum : RWindowSystem
     R_WINDOW_SYSTEM_WAYLAND = 0x0093,
     R_WINDOW_SYSTEM_COCOA = 0x0094,
     R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
+    R_WINDOW_SYSTEM_ANDROID = 0x0096,
+    R_WINDOW_SYSTEM_UIKIT = 0x0097,
+}
+
+/// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+alias RTextInputType = int;
+enum : RTextInputType
+{
+    R_TEXT_INPUT_TYPE_TEXT = 0x0B60,
+    R_TEXT_INPUT_TYPE_EMAIL = 0x0B61,
+    R_TEXT_INPUT_TYPE_NUMBER = 0x0B62,
+    /// Digits and a decimal separator.
+    R_TEXT_INPUT_TYPE_DECIMAL = 0x0B63,
+    R_TEXT_INPUT_TYPE_PHONE = 0x0B64,
+    R_TEXT_INPUT_TYPE_URL = 0x0B65,
+    R_TEXT_INPUT_TYPE_SEARCH = 0x0B66,
+}
+
+/// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+alias RReturnKey = int;
+enum : RReturnKey
+{
+    R_RETURN_KEY_DEFAULT = 0x0B70,
+    R_RETURN_KEY_DONE = 0x0B71,
+    R_RETURN_KEY_GO = 0x0B72,
+    R_RETURN_KEY_NEXT = 0x0B73,
+    R_RETURN_KEY_SEARCH = 0x0B74,
+    R_RETURN_KEY_SEND = 0x0B75,
 }
 
 /// Edges and corners of a window, for Rwindow_begin_resize.
@@ -1338,6 +1366,8 @@ alias RErrorCallback = extern (C) void function(RError code, RSeverity severity,
 /// Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
 /// Rinit; NULL removes it.
 alias RDeviceResetCallback = extern (C) void function(void* user_data);
+/// The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+alias RKeyboardCallback = extern (C) void function(Rid window, int visible, float height, void* user_data);
 /// Called for a drop target (a widget, or a window: `target` is its
 /// handle). Return R_TRUE to accept: while the pointer is over the target this
 /// shows the "can drop here" cursor and highlights the target; for
@@ -1391,6 +1421,11 @@ alias RComboBoxChangedCallback = extern (C) void function(Rid combo_box, int ind
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
 alias RListItemTextCallback = extern (C) const(char)* function(Rid list_view, int index, void* user_data);
+/// Colors the text of rows (a level, a verdict): the list asks for the color
+/// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+/// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+/// kept on a selected or hovered row. NULL removes the callback.
+alias RListItemColorCallback = extern (C) int function(Rid list_view, int index, float* r, float* g, float* b, float* a, void* user_data);
 alias RListEventCallback = extern (C) void function(Rid list_view, int index, void* user_data);
 alias RTreeEventCallback = extern (C) void function(Rid tree_view, Rid item, void* user_data);
 /// Right click: `item` is the item under the pointer (selected
@@ -1412,6 +1447,12 @@ alias RTileDragDataCallback = extern (C) const(char)* function(Rid tile_view, vo
 /// asks for the texts of the cells it draws. The returned string must stay
 /// valid until the next call.
 alias RTableCellTextCallback = extern (C) const(char)* function(Rid table, int row, int column, void* user_data);
+/// Colors the text of cells (a verdict, a state): the table asks for the
+/// color of each cell it draws, stored or virtual (`row` is the index of the
+/// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+/// keeps the color of the theme. The color is kept on a selected or hovered
+/// row. NULL removes the callback.
+alias RTableCellColorCallback = extern (C) int function(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = extern (C) void function(Rid table, int row, void* user_data);
 /// Called when the user clicks a header; `column` -1: not sorted.
 alias RTableSortCallback = extern (C) void function(Rid table, int column, int descending, void* user_data);
@@ -1583,6 +1624,27 @@ struct RFrameStats
     ulong frame_index = 0;
 }
 
+/// Distances from the edges of a window, in logical units.
+struct RInsets
+{
+    float top = 0;
+    float right = 0;
+    float bottom = 0;
+    float left = 0;
+}
+
+/// What the platform needs to know of the focused text input to set up the on-screen keyboard.
+struct RTextInputInfo
+{
+    RTextInputType type = 0;
+    RReturnKey return_key = 0;
+    /// R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+    int password = 0;
+    int read_only = 0;
+    /// Most characters accepted; 0 for no limit.
+    int max_length = 0;
+}
+
 /// Native handles of a window or of a native viewport.
 ///   Win32 : display = HINSTANCE, window = HWND
 ///   X11   : display = Display*,  window = Window (XID), visual = VisualID
@@ -1590,6 +1652,8 @@ struct RFrameStats
 ///           Wayland or X11 when Rinit runs: check `system`)
 ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
 ///   Emscripten: window = opaque browser surface token (no OS window handle)
+///   Android: window = ANativeWindow*
+///   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 struct RNativeWindow
 {
     RWindowSystem system = 0;
@@ -1942,7 +2006,8 @@ struct RShaderLook
     /// How much the pointer is over it and how much it is pressed, 0..1, as
     /// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
     /// the pointer is in the rectangle, and while the left button is down
-    /// there; a Border eases them itself.
+    /// there; a Border eases them itself. The rectangle is clipped to the
+    /// visible painting area; overlaid siblings do not interrupt its hover.
     float hover = 0;
     float press = 0;
 }
@@ -2180,6 +2245,18 @@ void Rwindow_set_title(Rid window, const(char)* title);
 const(char)* Rwindow_get_title(Rid window);
 void Rwindow_set_size(Rid window, int width, int height);
 void Rwindow_get_size(Rid window, int* width, int* height);
+/// The part of the window the system covers (status bar, notch,
+/// home indicator, navigation bar), in logical units. The content of the
+/// window is laid out inside it already. All 0 on desktop.
+void Rwindow_get_safe_area(Rid window, RInsets* insets);
+/// The part of the window the on-screen keyboard covers (only
+/// `bottom` is set), in logical units; 0 when it is hidden or there is
+/// none (desktop). The content is laid out above it already.
+void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
+/// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+void Rwindow_set_keyboard_callback(Rid window, RKeyboardCallback callback, void* user_data);
+/// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+void Rwindow_clear_focus(Rid window);
 void Rwindow_set_min_size(Rid window, int width, int height);
 void Rwindow_set_position(Rid window, int x, int y);
 void Rwindow_get_position(Rid window, int* x, int* y);
@@ -2251,6 +2328,18 @@ float Rwindow_get_opacity(Rid window);
 /// Keeps the window above the other windows (splash screens, tools).
 /// Returns: R_FALSE when the window system cannot do it.
 int Rwindow_set_topmost(Rid window, int topmost);
+/// Gives the window an owner (a tool window or an inspector of the
+/// main window): it stays above its owner, has no button of its own in the
+/// taskbar, is minimized and restored with it (where the window system
+/// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+/// destroys the windows a window owns before the window). R_INVALID_ID
+/// gives the window back its independence.
+/// Returns: R_FALSE when the window system cannot keep the window with its
+/// owner (it is still destroyed with it), or when the owner is not valid
+/// or is owned by the window (nothing is changed then).
+int Rwindow_set_owner(Rid window, Rid owner);
+/// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+Rid Rwindow_get_owner(Rid window);
 /// Picture in picture: the window becomes a small floating window
 /// that stays above the other windows, on every desktop (every space of
 /// macOS, over the applications in full screen too), in a corner of the
@@ -2297,6 +2386,12 @@ void Rwindow_set_resize_callback(Rid window, RWindowResizeCallback callback, voi
 /// Takes what is dropped on the window from other applications,
 /// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 void Rwindow_set_drop_callback(Rid window, RDropCallback callback, void* user_data);
+/// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+/// in target-local logical units (window-local for a window callback).
+/// Clipped to the target; zero width or height hides it without refusing
+/// the drop. Each callback starts with the default highlight again.
+/// Dimensions must be finite and nonnegative; coordinates must be finite.
+void Rdrop_set_highlight_rect(float x, float y, float width, float height);
 void Rwindow_set_user_handle(Rid window, void* handle);
 void* Rwindow_get_user_handle(Rid window);
 /// Fills `native` with the OS handles of the window.
@@ -2337,6 +2432,18 @@ uint Rwindow_get_modifiers(Rid window);
 int Rwindow_is_mouse_inside(Rid window);
 /// R_TRUE when the keyboard focus is in a text input, spin box or text editor.
 int Rwindow_wants_text_input(Rid window);
+/// The kind of the focused text input; R_FALSE when there is none.
+int Rwindow_get_text_input_info(Rid window, RTextInputInfo* info);
+/// Its text (UTF-8), valid until it changes; NULL when there is none.
+const(char)* Rwindow_get_text_input_text(Rid window);
+/// Its selection: start == end is the caret. R_FALSE when there is none.
+int Rwindow_get_text_input_selection(Rid window, int* start, int* end);
+/// Selects bytes [start, end) of it (end before start puts the caret at end).
+int Rwindow_set_text_input_selection(Rid window, int start, int end);
+/// Replaces bytes [start, end) of it with `text` and puts the caret
+/// after it, as typing would (the changed callback runs; MaxLength
+/// applies). R_FALSE when there is none or it is read-only.
+int Rwindow_replace_text_input(Rid window, int start, int end, const(char)* text);
 /// R_TRUE while a menu, list or dialog is open over the window.
 int Rwindow_has_popup(Rid window);
 /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
@@ -2451,6 +2558,12 @@ void Rtheme_set_accent(float r, float g, float b);
 /// the glass, the colors of the code and which wallpaper the glass themes
 /// use. Rtheme_apply and the theme files set it.
 void Rtheme_set_dark(int dark);
+/// R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+int Rtheme_get_system_dark();
+/// Follows the dark or light mode of the system with the Raven look
+/// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+/// Off by default. Does nothing where the platform does not tell (desktop today).
+void Rtheme_follow_system(int enabled);
 int Rtheme_is_dark();
 /// Image drawn behind the content of the windows that have no
 /// background of their own, or R_INVALID_ID for none (the window color).
@@ -2969,6 +3082,12 @@ void Rtext_input_set_read_only(Rid text_input, int read_only);
 /// Maximum number of characters. 0 = no limit (default).
 void Rtext_input_set_max_length(Rid text_input, int max_length);
 void Rtext_input_select_all(Rid text_input);
+/// What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+void Rtext_input_set_input_type(Rid text_input, RTextInputType type);
+RTextInputType Rtext_input_get_input_type(Rid text_input);
+/// The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
+RReturnKey Rtext_input_get_return_key(Rid text_input);
 /// Called on every edit.
 void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);
 /// Called when Enter is pressed. This also fires the action of the widget.
@@ -3001,6 +3120,7 @@ void Rlist_view_remove_item(Rid list_view, int index);
 void Rlist_view_clear_items(Rid list_view);
 int Rlist_view_get_item_count(Rid list_view);
 void Rlist_view_set_virtual_items(Rid list_view, int count, RListItemTextCallback callback, void* user_data);
+void Rlist_view_set_item_color_callback(Rid list_view, RListItemColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rlist_view_set_selected(Rid list_view, int index);
 int Rlist_view_get_selected(Rid list_view);
@@ -3079,6 +3199,10 @@ const(char)* Rmenu_item_get_text(Rid item);
 /// Shows a shortcut next to the item and triggers the item when the
 /// keys are pressed in the window of its menu bar.
 void Rmenu_item_set_shortcut(Rid item, RKey key, uint modifiers);
+/// Display-only shortcut hint; copied, never binds a key. Overrides
+/// the formatted shortcut without changing its binding. NULL restores the
+/// formatted shortcut; an empty string hides it. XML: ShortcutText.
+void Rmenu_item_set_shortcut_text(Rid item, const(char)* text);
 void Rmenu_item_set_checkable(Rid item, int checkable);
 void Rmenu_item_set_checked(Rid item, int checked);
 /// Icon drawn before the text of a menu item (after the check mark column).
@@ -3149,6 +3273,7 @@ void Rtable_remove_row(Rid table, int row);
 void Rtable_clear_rows(Rid table);
 int Rtable_get_row_count(Rid table);
 void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
+void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
 /// Selects a row. -1 selects nothing.
 void Rtable_set_selected(Rid table, int row);
 int Rtable_get_selected(Rid table);

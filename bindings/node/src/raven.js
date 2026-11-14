@@ -216,8 +216,31 @@ export const RWindowSystem = _enum({
 	R_WINDOW_SYSTEM_WAYLAND: 147,
 	R_WINDOW_SYSTEM_COCOA: 148,
 	R_WINDOW_SYSTEM_EMSCRIPTEN: 149,
+	R_WINDOW_SYSTEM_ANDROID: 150,
+	R_WINDOW_SYSTEM_UIKIT: 151,
 });
-export const { R_WINDOW_SYSTEM_NONE, R_WINDOW_SYSTEM_WIN32, R_WINDOW_SYSTEM_X11, R_WINDOW_SYSTEM_WAYLAND, R_WINDOW_SYSTEM_COCOA, R_WINDOW_SYSTEM_EMSCRIPTEN } = RWindowSystem;
+export const { R_WINDOW_SYSTEM_NONE, R_WINDOW_SYSTEM_WIN32, R_WINDOW_SYSTEM_X11, R_WINDOW_SYSTEM_WAYLAND, R_WINDOW_SYSTEM_COCOA, R_WINDOW_SYSTEM_EMSCRIPTEN, R_WINDOW_SYSTEM_ANDROID, R_WINDOW_SYSTEM_UIKIT } = RWindowSystem;
+
+export const RTextInputType = _enum({
+	R_TEXT_INPUT_TYPE_TEXT: 2912,
+	R_TEXT_INPUT_TYPE_EMAIL: 2913,
+	R_TEXT_INPUT_TYPE_NUMBER: 2914,
+	R_TEXT_INPUT_TYPE_DECIMAL: 2915,
+	R_TEXT_INPUT_TYPE_PHONE: 2916,
+	R_TEXT_INPUT_TYPE_URL: 2917,
+	R_TEXT_INPUT_TYPE_SEARCH: 2918,
+});
+export const { R_TEXT_INPUT_TYPE_TEXT, R_TEXT_INPUT_TYPE_EMAIL, R_TEXT_INPUT_TYPE_NUMBER, R_TEXT_INPUT_TYPE_DECIMAL, R_TEXT_INPUT_TYPE_PHONE, R_TEXT_INPUT_TYPE_URL, R_TEXT_INPUT_TYPE_SEARCH } = RTextInputType;
+
+export const RReturnKey = _enum({
+	R_RETURN_KEY_DEFAULT: 2928,
+	R_RETURN_KEY_DONE: 2929,
+	R_RETURN_KEY_GO: 2930,
+	R_RETURN_KEY_NEXT: 2931,
+	R_RETURN_KEY_SEARCH: 2932,
+	R_RETURN_KEY_SEND: 2933,
+});
+export const { R_RETURN_KEY_DEFAULT, R_RETURN_KEY_DONE, R_RETURN_KEY_GO, R_RETURN_KEY_NEXT, R_RETURN_KEY_SEARCH, R_RETURN_KEY_SEND } = RReturnKey;
 
 export const RWindowEdge = _enum({
 	R_EDGE_LEFT: 208,
@@ -1244,6 +1267,95 @@ export class RFrameStats extends RStruct {
 	}
 	set frame_index(value) {
 		this._view.setBigUint64(48, value, true);
+	}
+}
+
+export class RInsets extends RStruct {
+	static SIZE = 16;
+
+	constructor(pointer) {
+		super(RInsets.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RInsets(pointer) : null;
+	}
+
+	get top() {
+		return this._view.getFloat32(0, true);
+	}
+	set top(value) {
+		this._view.setFloat32(0, value, true);
+	}
+
+	get right() {
+		return this._view.getFloat32(4, true);
+	}
+	set right(value) {
+		this._view.setFloat32(4, value, true);
+	}
+
+	get bottom() {
+		return this._view.getFloat32(8, true);
+	}
+	set bottom(value) {
+		this._view.setFloat32(8, value, true);
+	}
+
+	get left() {
+		return this._view.getFloat32(12, true);
+	}
+	set left(value) {
+		this._view.setFloat32(12, value, true);
+	}
+}
+
+export class RTextInputInfo extends RStruct {
+	static SIZE = 20;
+
+	constructor(pointer) {
+		super(RTextInputInfo.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RTextInputInfo(pointer) : null;
+	}
+
+	get type() {
+		return this._view.getInt32(0, true);
+	}
+	set type(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get return_key() {
+		return this._view.getInt32(4, true);
+	}
+	set return_key(value) {
+		this._view.setInt32(4, value, true);
+	}
+
+	get password() {
+		return this._view.getInt32(8, true);
+	}
+	set password(value) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get read_only() {
+		return this._view.getInt32(12, true);
+	}
+	set read_only(value) {
+		this._view.setInt32(12, value, true);
+	}
+
+	get max_length() {
+		return this._view.getInt32(16, true);
+	}
+	set max_length(value) {
+		this._view.setInt32(16, value, true);
 	}
 }
 
@@ -2927,6 +3039,14 @@ export const Rwindow_set_title = _lib.Rwindow_set_title;
 export const Rwindow_get_title = _lib.Rwindow_get_title;
 export const Rwindow_set_size = _lib.Rwindow_set_size;
 export const Rwindow_get_size = _lib.Rwindow_get_size;
+export function Rwindow_get_safe_area(window, insets) {
+	return _lib.Rwindow_get_safe_area(window, _p(insets));
+}
+export function Rwindow_get_keyboard_area(window, insets) {
+	return _lib.Rwindow_get_keyboard_area(window, _p(insets));
+}
+export const Rwindow_set_keyboard_callback = _lib.Rwindow_set_keyboard_callback;
+export const Rwindow_clear_focus = _lib.Rwindow_clear_focus;
 export const Rwindow_set_min_size = _lib.Rwindow_set_min_size;
 export const Rwindow_set_position = _lib.Rwindow_set_position;
 export const Rwindow_get_position = _lib.Rwindow_get_position;
@@ -2994,6 +3114,13 @@ export const Rwindow_is_mouse_button_down = _lib.Rwindow_is_mouse_button_down;
 export const Rwindow_get_modifiers = _lib.Rwindow_get_modifiers;
 export const Rwindow_is_mouse_inside = _lib.Rwindow_is_mouse_inside;
 export const Rwindow_wants_text_input = _lib.Rwindow_wants_text_input;
+export function Rwindow_get_text_input_info(window, info) {
+	return _lib.Rwindow_get_text_input_info(window, _p(info));
+}
+export const Rwindow_get_text_input_text = _lib.Rwindow_get_text_input_text;
+export const Rwindow_get_text_input_selection = _lib.Rwindow_get_text_input_selection;
+export const Rwindow_set_text_input_selection = _lib.Rwindow_set_text_input_selection;
+export const Rwindow_replace_text_input = _lib.Rwindow_replace_text_input;
 export const Rwindow_has_popup = _lib.Rwindow_has_popup;
 export const Rwindow_get_text_input_rect = _lib.Rwindow_get_text_input_rect;
 export const Rwindow_get_popup_count = _lib.Rwindow_get_popup_count;
@@ -3061,6 +3188,8 @@ export const Rtheme_set_font = _lib.Rtheme_set_font;
 export const Rtheme_get_font = _lib.Rtheme_get_font;
 export const Rtheme_set_accent = _lib.Rtheme_set_accent;
 export const Rtheme_set_dark = _lib.Rtheme_set_dark;
+export const Rtheme_get_system_dark = _lib.Rtheme_get_system_dark;
+export const Rtheme_follow_system = _lib.Rtheme_follow_system;
 export const Rtheme_is_dark = _lib.Rtheme_is_dark;
 export const Rtheme_set_wallpaper = _lib.Rtheme_set_wallpaper;
 export const Rtheme_get_wallpaper = _lib.Rtheme_get_wallpaper;
@@ -3293,6 +3422,10 @@ export const Rtext_input_is_read_only = _lib.Rtext_input_is_read_only;
 export const Rtext_input_set_read_only = _lib.Rtext_input_set_read_only;
 export const Rtext_input_set_max_length = _lib.Rtext_input_set_max_length;
 export const Rtext_input_select_all = _lib.Rtext_input_select_all;
+export const Rtext_input_set_input_type = _lib.Rtext_input_set_input_type;
+export const Rtext_input_get_input_type = _lib.Rtext_input_get_input_type;
+export const Rtext_input_set_return_key = _lib.Rtext_input_set_return_key;
+export const Rtext_input_get_return_key = _lib.Rtext_input_get_return_key;
 export const Rtext_input_set_changed_callback = _lib.Rtext_input_set_changed_callback;
 export const Rtext_input_set_committed_callback = _lib.Rtext_input_set_committed_callback;
 export const Rspin_box_set_range = _lib.Rspin_box_set_range;

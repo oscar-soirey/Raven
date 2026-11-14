@@ -195,6 +195,34 @@ const (
 	R_WINDOW_SYSTEM_WAYLAND    RWindowSystem = 0x0093
 	R_WINDOW_SYSTEM_COCOA      RWindowSystem = 0x0094
 	R_WINDOW_SYSTEM_EMSCRIPTEN RWindowSystem = 0x0095
+	R_WINDOW_SYSTEM_ANDROID    RWindowSystem = 0x0096
+	R_WINDOW_SYSTEM_UIKIT      RWindowSystem = 0x0097
+)
+
+// RTextInputType: What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+type RTextInputType int32
+
+const (
+	R_TEXT_INPUT_TYPE_TEXT    RTextInputType = 0x0B60
+	R_TEXT_INPUT_TYPE_EMAIL   RTextInputType = 0x0B61
+	R_TEXT_INPUT_TYPE_NUMBER  RTextInputType = 0x0B62
+	R_TEXT_INPUT_TYPE_DECIMAL RTextInputType = 0x0B63
+	R_TEXT_INPUT_TYPE_PHONE   RTextInputType = 0x0B64
+	R_TEXT_INPUT_TYPE_URL     RTextInputType = 0x0B65
+	R_TEXT_INPUT_TYPE_SEARCH  RTextInputType = 0x0B66
+)
+
+// RReturnKey: The label and meaning of the return key of the on-screen keyboard. Enter does the same on every
+// key.
+type RReturnKey int32
+
+const (
+	R_RETURN_KEY_DEFAULT RReturnKey = 0x0B70
+	R_RETURN_KEY_DONE    RReturnKey = 0x0B71
+	R_RETURN_KEY_GO      RReturnKey = 0x0B72
+	R_RETURN_KEY_NEXT    RReturnKey = 0x0B73
+	R_RETURN_KEY_SEARCH  RReturnKey = 0x0B74
+	R_RETURN_KEY_SEND    RReturnKey = 0x0B75
 )
 
 // RWindowEdge: Edges and corners of a window, for Rwindow_begin_resize.
@@ -1377,6 +1405,12 @@ func WindowGetSize(window ID) (width int, height int) {
 	return
 }
 
+// WindowClearFocus: No widget of the window has the keyboard focus any more: on mobile, the on-screen
+// keyboard goes away.
+func WindowClearFocus(window ID) {
+	C.Rwindow_clear_focus(C.Rid(window))
+}
+
 func WindowSetMinSize(window ID, width int, height int) {
 	C.Rwindow_set_min_size(C.Rid(window), C.int(width), C.int(height))
 }
@@ -1690,6 +1724,34 @@ func WindowWantsTextInput(window ID) int {
 	return int(C.Rwindow_wants_text_input(C.Rid(window)))
 }
 
+// WindowGetTextInputText: Its text (UTF-8), valid until it changes; NULL when there is none.
+func WindowGetTextInputText(window ID) string {
+	return C.GoString(C.Rwindow_get_text_input_text(C.Rid(window)))
+}
+
+// WindowGetTextInputSelection: Its selection: start == end is the caret. R_FALSE when there is none.
+func WindowGetTextInputSelection(window ID) (result int, start int, end int) {
+	var start_ C.int
+	var end_ C.int
+	result = int(C.Rwindow_get_text_input_selection(C.Rid(window), &start_, &end_))
+	start = int(start_)
+	end = int(end_)
+	return
+}
+
+// WindowSetTextInputSelection: Selects bytes [start, end) of it (end before start puts the caret at end).
+func WindowSetTextInputSelection(window ID, start int, end int) int {
+	return int(C.Rwindow_set_text_input_selection(C.Rid(window), C.int(start), C.int(end)))
+}
+
+// WindowReplaceTextInput: Replaces bytes [start, end) of it with `text` and puts the caret after it, as
+// typing would (the changed callback runs; MaxLength applies). R_FALSE when there is none or it is read-only.
+func WindowReplaceTextInput(window ID, start int, end int, text string) int {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return int(C.Rwindow_replace_text_input(C.Rid(window), C.int(start), C.int(end), text_))
+}
+
 // WindowHasPopup: R_TRUE while a menu, list or dialog is open over the window.
 func WindowHasPopup(window ID) int {
 	return int(C.Rwindow_has_popup(C.Rid(window)))
@@ -1930,6 +1992,19 @@ func ThemeSetAccent(r float32, g float32, b float32) {
 // code and which wallpaper the glass themes use. Rtheme_apply and the theme files set it.
 func ThemeSetDark(dark int) {
 	C.Rtheme_set_dark(C.int(dark))
+}
+
+// ThemeGetSystemDark: R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform
+// does not tell (desktop today).
+func ThemeGetSystemDark() int {
+	return int(C.Rtheme_get_system_dark())
+}
+
+// ThemeFollowSystem: Follows the dark or light mode of the system with the Raven look (R_LOOK_RAVEN_DARK /
+// R_LOOK_RAVEN_LIGHT), now and when it changes. Off by default. Does nothing where the platform does not tell
+// (desktop today).
+func ThemeFollowSystem(enabled int) {
+	C.Rtheme_follow_system(C.int(enabled))
 }
 
 func ThemeIsDark() int {
@@ -3129,6 +3204,26 @@ func TextInputSetMaxLength(text_input ID, max_length int) {
 
 func TextInputSelectAll(text_input ID) {
 	C.Rtext_input_select_all(C.Rid(text_input))
+}
+
+// TextInputSetInputType: What it holds: picks the on-screen keyboard on mobile. Default:
+// R_TEXT_INPUT_TYPE_TEXT.
+func TextInputSetInputType(text_input ID, type_ RTextInputType) {
+	C.Rtext_input_set_input_type(C.Rid(text_input), C.RTextInputType(type_))
+}
+
+func TextInputGetInputType(text_input ID) RTextInputType {
+	return RTextInputType(C.Rtext_input_get_input_type(C.Rid(text_input)))
+}
+
+// TextInputSetReturnKey: The return key of the on-screen keyboard (Done, Next, Search...). Default:
+// R_RETURN_KEY_DEFAULT.
+func TextInputSetReturnKey(text_input ID, key RReturnKey) {
+	C.Rtext_input_set_return_key(C.Rid(text_input), C.RReturnKey(key))
+}
+
+func TextInputGetReturnKey(text_input ID) RReturnKey {
+	return RReturnKey(C.Rtext_input_get_return_key(C.Rid(text_input)))
 }
 
 func SpinBoxSetRange(spin_box ID, minimum float64, maximum float64) {
@@ -6765,9 +6860,10 @@ func HostInjectClose(window ID) {
 // Rinit_ex, Rset_allocator, Rallocator_get_system, Rmemory_alloc, Rmemory_realloc, Rmemory_free
 // Rmemory_get_stats, Rset_frame_callback, Rtask_post, Rtask_run_async, Rparallel_for, Rtimer_create
 // Raction_bind, Raction_set_default_handler, Rerror_get_last, Rerror_set_callback
-// Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_set_icon, Rwindow_set_close_callback
-// Rwindow_set_resize_callback, Rwindow_set_drop_callback, Rwindow_set_user_handle, Rwindow_get_user_handle
-// Rwindow_get_native_handle, Rwindow_capture, Rwindow_inject_drop, Rwindow_set_event_hook
+// Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area, Rwindow_get_keyboard_area
+// Rwindow_set_keyboard_callback, Rwindow_set_icon, Rwindow_set_close_callback, Rwindow_set_resize_callback
+// Rwindow_set_drop_callback, Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle
+// Rwindow_capture, Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook
 // Rtouch_get_settings, Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings
 // Rwindow_get_touch_settings, Rwidget_set_touch_callback, Rwidget_set_pen_callback
 // Rwidget_set_gesture_callback, Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free

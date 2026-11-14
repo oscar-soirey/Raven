@@ -177,6 +177,38 @@ namespace Raven
         R_WINDOW_SYSTEM_WAYLAND = 0x0093,
         R_WINDOW_SYSTEM_COCOA = 0x0094,
         R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095,
+        R_WINDOW_SYSTEM_ANDROID = 0x0096,
+        R_WINDOW_SYSTEM_UIKIT = 0x0097,
+    }
+
+    /// <summary>
+    /// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+    /// </summary>
+    public enum RTextInputType : int
+    {
+        R_TEXT_INPUT_TYPE_TEXT = 0x0B60,
+        R_TEXT_INPUT_TYPE_EMAIL = 0x0B61,
+        R_TEXT_INPUT_TYPE_NUMBER = 0x0B62,
+        /// <summary>
+        /// Digits and a decimal separator.
+        /// </summary>
+        R_TEXT_INPUT_TYPE_DECIMAL = 0x0B63,
+        R_TEXT_INPUT_TYPE_PHONE = 0x0B64,
+        R_TEXT_INPUT_TYPE_URL = 0x0B65,
+        R_TEXT_INPUT_TYPE_SEARCH = 0x0B66,
+    }
+
+    /// <summary>
+    /// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+    /// </summary>
+    public enum RReturnKey : int
+    {
+        R_RETURN_KEY_DEFAULT = 0x0B70,
+        R_RETURN_KEY_DONE = 0x0B71,
+        R_RETURN_KEY_GO = 0x0B72,
+        R_RETURN_KEY_NEXT = 0x0B73,
+        R_RETURN_KEY_SEARCH = 0x0B74,
+        R_RETURN_KEY_SEND = 0x0B75,
     }
 
     /// <summary>
@@ -1853,6 +1885,37 @@ namespace Raven
     }
 
     /// <summary>
+    /// Distances from the edges of a window, in logical units.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RInsets
+    {
+        public float top;
+        public float right;
+        public float bottom;
+        public float left;
+    }
+
+    /// <summary>
+    /// What the platform needs to know of the focused text input to set up the on-screen keyboard.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RTextInputInfo
+    {
+        public RTextInputType type;
+        public RReturnKey return_key;
+        /// <summary>
+        /// R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+        /// </summary>
+        public int password;
+        public int read_only;
+        /// <summary>
+        /// Most characters accepted; 0 for no limit.
+        /// </summary>
+        public int max_length;
+    }
+
+    /// <summary>
     /// Native handles of a window or of a native viewport.
     ///   Win32 : display = HINSTANCE, window = HWND
     ///   X11   : display = Display*,  window = Window (XID), visual = VisualID
@@ -1860,6 +1923,8 @@ namespace Raven
     ///           Wayland or X11 when Rinit runs: check `system`)
     ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
     ///   Emscripten: window = opaque browser surface token (no OS window handle)
+    ///   Android: window = ANativeWindow*
+    ///   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public struct RNativeWindow
@@ -2618,6 +2683,12 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RDeviceResetCallback(IntPtr user_data);
+
+    /// <summary>
+    /// The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RKeyboardCallback(uint window, int visible, float height, IntPtr user_data);
 
     /// <summary>
     /// Called for a drop target (a widget, or a window: `target` is its
@@ -3545,6 +3616,50 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_get_size(uint window, out int width, out int height);
 
+        /// <summary>
+        /// The part of the window the system covers (status bar, notch,
+        /// home indicator, navigation bar), in logical units. The content of the
+        /// window is laid out inside it already. All 0 on desktop.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_get_safe_area(uint window, ref RInsets insets);
+
+        /// <summary>
+        /// The part of the window the system covers (status bar, notch,
+        /// home indicator, navigation bar), in logical units. The content of the
+        /// window is laid out inside it already. All 0 on desktop.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_get_safe_area(uint window, IntPtr insets);
+
+        /// <summary>
+        /// The part of the window the on-screen keyboard covers (only
+        /// `bottom` is set), in logical units; 0 when it is hidden or there is
+        /// none (desktop). The content is laid out above it already.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_get_keyboard_area(uint window, ref RInsets insets);
+
+        /// <summary>
+        /// The part of the window the on-screen keyboard covers (only
+        /// `bottom` is set), in logical units; 0 when it is hidden or there is
+        /// none (desktop). The content is laid out above it already.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_get_keyboard_area(uint window, IntPtr insets);
+
+        /// <summary>
+        /// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_set_keyboard_callback(uint window, RKeyboardCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_clear_focus(uint window);
+
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_set_min_size(uint window, int width, int height);
 
@@ -3930,6 +4045,45 @@ namespace Raven
         public static extern int Rwindow_wants_text_input(uint window);
 
         /// <summary>
+        /// The kind of the focused text input; R_FALSE when there is none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_get_text_input_info(uint window, ref RTextInputInfo info);
+
+        /// <summary>
+        /// The kind of the focused text input; R_FALSE when there is none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_get_text_input_info(uint window, IntPtr info);
+
+        /// <summary>
+        /// Its text (UTF-8), valid until it changes; NULL when there is none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rwindow_get_text_input_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rwindow_get_text_input_text_(uint window);
+        public static string Rwindow_get_text_input_text(uint window) { return Text(Rwindow_get_text_input_text_(window)); }
+
+        /// <summary>
+        /// Its selection: start == end is the caret. R_FALSE when there is none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_get_text_input_selection(uint window, out int start, out int end);
+
+        /// <summary>
+        /// Selects bytes [start, end) of it (end before start puts the caret at end).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_set_text_input_selection(uint window, int start, int end);
+
+        /// <summary>
+        /// Replaces bytes [start, end) of it with `text` and puts the caret
+        /// after it, as typing would (the changed callback runs; MaxLength
+        /// applies). R_FALSE when there is none or it is read-only.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_replace_text_input(uint window, int start, int end, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
         /// R_TRUE while a menu, list or dialog is open over the window.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -4240,6 +4394,20 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtheme_set_dark(int dark);
+
+        /// <summary>
+        /// R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtheme_get_system_dark();
+
+        /// <summary>
+        /// Follows the dark or light mode of the system with the Raven look
+        /// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+        /// Off by default. Does nothing where the platform does not tell (desktop today).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtheme_follow_system(int enabled);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rtheme_is_dark();
@@ -5483,6 +5651,24 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_input_select_all(uint text_input);
+
+        /// <summary>
+        /// What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_input_set_input_type(uint text_input, RTextInputType type);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RTextInputType Rtext_input_get_input_type(uint text_input);
+
+        /// <summary>
+        /// The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_input_set_return_key(uint text_input, RReturnKey key);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RReturnKey Rtext_input_get_return_key(uint text_input);
 
         /// <summary>
         /// Called on every edit.

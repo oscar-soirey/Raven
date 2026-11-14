@@ -289,6 +289,12 @@ extern "C" {
 	/** @brief Maximum number of characters. 0 = no limit (default). */
 	RAVEN_API void Rtext_input_set_max_length(Rid text_input, int max_length);
 	RAVEN_API void Rtext_input_select_all(Rid text_input);
+	/** @brief What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT. */
+	RAVEN_API void Rtext_input_set_input_type(Rid text_input, RTextInputType type);
+	RAVEN_API RTextInputType Rtext_input_get_input_type(Rid text_input);
+	/** @brief The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT. */
+	RAVEN_API void Rtext_input_set_return_key(Rid text_input, RReturnKey key);
+	RAVEN_API RReturnKey Rtext_input_get_return_key(Rid text_input);
 	typedef void (*RTextChangedCallback)(Rid text_input, const char* text, void* user_data);
 	/** @brief Called on every edit. */
 	RAVEN_API void Rtext_input_set_changed_callback(Rid text_input, RTextChangedCallback callback, void* user_data);

@@ -608,6 +608,8 @@ void  rvn_theme_clear(rvn_theme_t* theme);
 void  rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source);
 /** Something a widget may read from a theme changed: every widget is styled, measured and painted again. */
 void  rvn_theme_changed(void);
+/** Rtheme_follow_system is on: applies the dark or light look of the system. */
+void  rvn_theme_follow_system_apply(void);
 /** Empties the caches of the styles after a rule or the classes of a widget changed. */
 void  rvn_styles_changed(void);
 /** The accent color and what follows from it. */
@@ -779,6 +781,12 @@ struct rvn_window_t {
 	uint32_t a11y_generation;
 
 	int needs_layout;
+	/** The safe area from window_get_safe_area, in logical units: top, right, bottom, left. */
+	float safe_area[4];
+	/** The height of the on-screen keyboard over the bottom of the window, in logical units (0: hidden). */
+	float keyboard_height;
+	RKeyboardCallback keyboard_callback;
+	void* keyboard_user;
 	int needs_paint;
 	int continuous;
 	/** Set from any thread by Rwindow_request_redraw. */

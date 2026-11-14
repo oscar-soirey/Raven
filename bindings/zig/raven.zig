@@ -134,6 +134,28 @@ pub const R_WINDOW_SYSTEM_X11: RWindowSystem = 0x0092;
 pub const R_WINDOW_SYSTEM_WAYLAND: RWindowSystem = 0x0093;
 pub const R_WINDOW_SYSTEM_COCOA: RWindowSystem = 0x0094;
 pub const R_WINDOW_SYSTEM_EMSCRIPTEN: RWindowSystem = 0x0095;
+pub const R_WINDOW_SYSTEM_ANDROID: RWindowSystem = 0x0096;
+pub const R_WINDOW_SYSTEM_UIKIT: RWindowSystem = 0x0097;
+
+/// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+pub const RTextInputType = c_int;
+pub const R_TEXT_INPUT_TYPE_TEXT: RTextInputType = 0x0B60;
+pub const R_TEXT_INPUT_TYPE_EMAIL: RTextInputType = 0x0B61;
+pub const R_TEXT_INPUT_TYPE_NUMBER: RTextInputType = 0x0B62;
+/// Digits and a decimal separator.
+pub const R_TEXT_INPUT_TYPE_DECIMAL: RTextInputType = 0x0B63;
+pub const R_TEXT_INPUT_TYPE_PHONE: RTextInputType = 0x0B64;
+pub const R_TEXT_INPUT_TYPE_URL: RTextInputType = 0x0B65;
+pub const R_TEXT_INPUT_TYPE_SEARCH: RTextInputType = 0x0B66;
+
+/// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+pub const RReturnKey = c_int;
+pub const R_RETURN_KEY_DEFAULT: RReturnKey = 0x0B70;
+pub const R_RETURN_KEY_DONE: RReturnKey = 0x0B71;
+pub const R_RETURN_KEY_GO: RReturnKey = 0x0B72;
+pub const R_RETURN_KEY_NEXT: RReturnKey = 0x0B73;
+pub const R_RETURN_KEY_SEARCH: RReturnKey = 0x0B74;
+pub const R_RETURN_KEY_SEND: RReturnKey = 0x0B75;
 
 /// Edges and corners of a window, for Rwindow_begin_resize.
 pub const RWindowEdge = c_int;
@@ -1139,6 +1161,8 @@ pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail
 /// Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
 /// Rinit; NULL removes it.
 pub const RDeviceResetCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
+/// The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+pub const RKeyboardCallback = ?*const fn (window: Rid, visible: c_int, height: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called for a drop target (a widget, or a window: `target` is its
 /// handle). Return R_TRUE to accept: while the pointer is over the target this
 /// shows the "can drop here" cursor and highlights the target; for
@@ -1391,6 +1415,25 @@ pub const RFrameStats = extern struct {
     frame_index: u64 = 0,
 };
 
+/// Distances from the edges of a window, in logical units.
+pub const RInsets = extern struct {
+    top: f32 = 0,
+    right: f32 = 0,
+    bottom: f32 = 0,
+    left: f32 = 0,
+};
+
+/// What the platform needs to know of the focused text input to set up the on-screen keyboard.
+pub const RTextInputInfo = extern struct {
+    type_: RTextInputType = 0,
+    return_key: RReturnKey = 0,
+    /// R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+    password: c_int = 0,
+    read_only: c_int = 0,
+    /// Most characters accepted; 0 for no limit.
+    max_length: c_int = 0,
+};
+
 /// Native handles of a window or of a native viewport.
 ///   Win32 : display = HINSTANCE, window = HWND
 ///   X11   : display = Display*,  window = Window (XID), visual = VisualID
@@ -1398,6 +1441,8 @@ pub const RFrameStats = extern struct {
 ///           Wayland or X11 when Rinit runs: check `system`)
 ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
 ///   Emscripten: window = opaque browser surface token (no OS window handle)
+///   Android: window = ANativeWindow*
+///   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 pub const RNativeWindow = extern struct {
     system: RWindowSystem = 0,
     display: ?*anyopaque = null,
@@ -1970,6 +2015,18 @@ pub extern fn Rwindow_set_title(window: Rid, title: ?[*:0]const u8) void;
 pub extern fn Rwindow_get_title(window: Rid) ?[*:0]const u8;
 pub extern fn Rwindow_set_size(window: Rid, width: c_int, height: c_int) void;
 pub extern fn Rwindow_get_size(window: Rid, width: ?*c_int, height: ?*c_int) void;
+/// The part of the window the system covers (status bar, notch,
+/// home indicator, navigation bar), in logical units. The content of the
+/// window is laid out inside it already. All 0 on desktop.
+pub extern fn Rwindow_get_safe_area(window: Rid, insets: ?*RInsets) void;
+/// The part of the window the on-screen keyboard covers (only
+/// `bottom` is set), in logical units; 0 when it is hidden or there is
+/// none (desktop). The content is laid out above it already.
+pub extern fn Rwindow_get_keyboard_area(window: Rid, insets: ?*RInsets) void;
+/// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+pub extern fn Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback, user_data: ?*anyopaque) void;
+/// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+pub extern fn Rwindow_clear_focus(window: Rid) void;
 pub extern fn Rwindow_set_min_size(window: Rid, width: c_int, height: c_int) void;
 pub extern fn Rwindow_set_position(window: Rid, x: c_int, y: c_int) void;
 pub extern fn Rwindow_get_position(window: Rid, x: ?*c_int, y: ?*c_int) void;
@@ -2145,6 +2202,18 @@ pub extern fn Rwindow_get_modifiers(window: Rid) u32;
 pub extern fn Rwindow_is_mouse_inside(window: Rid) c_int;
 /// R_TRUE when the keyboard focus is in a text input, spin box or text editor.
 pub extern fn Rwindow_wants_text_input(window: Rid) c_int;
+/// The kind of the focused text input; R_FALSE when there is none.
+pub extern fn Rwindow_get_text_input_info(window: Rid, info: ?*RTextInputInfo) c_int;
+/// Its text (UTF-8), valid until it changes; NULL when there is none.
+pub extern fn Rwindow_get_text_input_text(window: Rid) ?[*:0]const u8;
+/// Its selection: start == end is the caret. R_FALSE when there is none.
+pub extern fn Rwindow_get_text_input_selection(window: Rid, start: ?*c_int, end: ?*c_int) c_int;
+/// Selects bytes [start, end) of it (end before start puts the caret at end).
+pub extern fn Rwindow_set_text_input_selection(window: Rid, start: c_int, end: c_int) c_int;
+/// Replaces bytes [start, end) of it with `text` and puts the caret
+/// after it, as typing would (the changed callback runs; MaxLength
+/// applies). R_FALSE when there is none or it is read-only.
+pub extern fn Rwindow_replace_text_input(window: Rid, start: c_int, end: c_int, text: ?[*:0]const u8) c_int;
 /// R_TRUE while a menu, list or dialog is open over the window.
 pub extern fn Rwindow_has_popup(window: Rid) c_int;
 /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
@@ -2259,6 +2328,12 @@ pub extern fn Rtheme_set_accent(r: f32, g: f32, b: f32) void;
 /// the glass, the colors of the code and which wallpaper the glass themes
 /// use. Rtheme_apply and the theme files set it.
 pub extern fn Rtheme_set_dark(dark: c_int) void;
+/// R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+pub extern fn Rtheme_get_system_dark() c_int;
+/// Follows the dark or light mode of the system with the Raven look
+/// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+/// Off by default. Does nothing where the platform does not tell (desktop today).
+pub extern fn Rtheme_follow_system(enabled: c_int) void;
 pub extern fn Rtheme_is_dark() c_int;
 /// Image drawn behind the content of the windows that have no
 /// background of their own, or R_INVALID_ID for none (the window color).
@@ -2777,6 +2852,12 @@ pub extern fn Rtext_input_set_read_only(text_input: Rid, read_only: c_int) void;
 /// Maximum number of characters. 0 = no limit (default).
 pub extern fn Rtext_input_set_max_length(text_input: Rid, max_length: c_int) void;
 pub extern fn Rtext_input_select_all(text_input: Rid) void;
+/// What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+pub extern fn Rtext_input_set_input_type(text_input: Rid, type_: RTextInputType) void;
+pub extern fn Rtext_input_get_input_type(text_input: Rid) RTextInputType;
+/// The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+pub extern fn Rtext_input_set_return_key(text_input: Rid, key: RReturnKey) void;
+pub extern fn Rtext_input_get_return_key(text_input: Rid) RReturnKey;
 /// Called on every edit.
 pub extern fn Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback, user_data: ?*anyopaque) void;
 /// Called when Enter is pressed. This also fires the action of the widget.

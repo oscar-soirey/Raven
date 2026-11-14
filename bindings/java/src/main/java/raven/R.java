@@ -309,6 +309,28 @@ public final class R {
     public static final int R_WINDOW_SYSTEM_WAYLAND = 0x0093;
     public static final int R_WINDOW_SYSTEM_COCOA = 0x0094;
     public static final int R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095;
+    public static final int R_WINDOW_SYSTEM_ANDROID = 0x0096;
+    public static final int R_WINDOW_SYSTEM_UIKIT = 0x0097;
+
+    // RTextInputType: What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+    public static final int R_TEXT_INPUT_TYPE_TEXT = 0x0B60;
+    public static final int R_TEXT_INPUT_TYPE_EMAIL = 0x0B61;
+    public static final int R_TEXT_INPUT_TYPE_NUMBER = 0x0B62;
+    /**
+     * Digits and a decimal separator.
+     */
+    public static final int R_TEXT_INPUT_TYPE_DECIMAL = 0x0B63;
+    public static final int R_TEXT_INPUT_TYPE_PHONE = 0x0B64;
+    public static final int R_TEXT_INPUT_TYPE_URL = 0x0B65;
+    public static final int R_TEXT_INPUT_TYPE_SEARCH = 0x0B66;
+
+    // RReturnKey: The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+    public static final int R_RETURN_KEY_DEFAULT = 0x0B70;
+    public static final int R_RETURN_KEY_DONE = 0x0B71;
+    public static final int R_RETURN_KEY_GO = 0x0B72;
+    public static final int R_RETURN_KEY_NEXT = 0x0B73;
+    public static final int R_RETURN_KEY_SEARCH = 0x0B74;
+    public static final int R_RETURN_KEY_SEND = 0x0B75;
 
     // RWindowEdge: Edges and corners of a window, for Rwindow_begin_resize.
     public static final int R_EDGE_LEFT = 0x00D0;
@@ -1926,6 +1948,125 @@ public final class R {
     }
 
     /**
+     * Distances from the edges of a window, in logical units.
+     */
+    public static final class RInsets {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 16;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RInsets x = {0};` is in C). */
+        public RInsets() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 4);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RInsets(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RInsets(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RInsets[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 4);
+            RInsets[] items = new RInsets[count];
+            for (int i = 0; i < count; i++) items[i] = new RInsets(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        public float top() { return s.get(JAVA_FLOAT, 0); }
+        public RInsets top(float value) { s.set(JAVA_FLOAT, 0, value); return this; }
+
+        public float right() { return s.get(JAVA_FLOAT, 4); }
+        public RInsets right(float value) { s.set(JAVA_FLOAT, 4, value); return this; }
+
+        public float bottom() { return s.get(JAVA_FLOAT, 8); }
+        public RInsets bottom(float value) { s.set(JAVA_FLOAT, 8, value); return this; }
+
+        public float left() { return s.get(JAVA_FLOAT, 12); }
+        public RInsets left(float value) { s.set(JAVA_FLOAT, 12, value); return this; }
+    }
+
+    /**
+     * What the platform needs to know of the focused text input to set up the on-screen keyboard.
+     */
+    public static final class RTextInputInfo {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 20;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RTextInputInfo x = {0};` is in C). */
+        public RTextInputInfo() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 4);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RTextInputInfo(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RTextInputInfo(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RTextInputInfo[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 4);
+            RTextInputInfo[] items = new RTextInputInfo[count];
+            for (int i = 0; i < count; i++) items[i] = new RTextInputInfo(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        public int type() { return s.get(JAVA_INT, 0); }
+        public RTextInputInfo type(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        public int return_key() { return s.get(JAVA_INT, 4); }
+        public RTextInputInfo return_key(int value) { s.set(JAVA_INT, 4, value); return this; }
+
+        /**
+         * R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+         */
+        public int password() { return s.get(JAVA_INT, 8); }
+        public RTextInputInfo password(int value) { s.set(JAVA_INT, 8, value); return this; }
+
+        public int read_only() { return s.get(JAVA_INT, 12); }
+        public RTextInputInfo read_only(int value) { s.set(JAVA_INT, 12, value); return this; }
+
+        /**
+         * Most characters accepted; 0 for no limit.
+         */
+        public int max_length() { return s.get(JAVA_INT, 16); }
+        public RTextInputInfo max_length(int value) { s.set(JAVA_INT, 16, value); return this; }
+    }
+
+    /**
      * Native handles of a window or of a native viewport.
      *   Win32 : display = HINSTANCE, window = HWND
      *   X11   : display = Display*,  window = Window (XID), visual = VisualID
@@ -1933,6 +2074,8 @@ public final class R {
      *           Wayland or X11 when Rinit runs: check `system`)
      *   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
      *   Emscripten: window = opaque browser surface token (no OS window handle)
+     *   Android: window = ANativeWindow*
+     *   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
      */
     public static final class RNativeWindow {
         /** The size of the structure in C, in bytes. */
@@ -3804,6 +3947,27 @@ public final class R {
 
     private static MemorySegment upcall(RDeviceResetCallback f) {
         return stub(f, RDeviceResetCallback.class, "RDeviceResetCallback$raw", FunctionDescriptor.ofVoid(ADDRESS));
+    }
+
+    /**
+     * The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+     */
+    @FunctionalInterface
+    public interface RKeyboardCallback {
+        void invoke(int window, int visible, float height, MemorySegment user_data);
+    }
+
+    private static void RKeyboardCallback$raw(RKeyboardCallback f, int window, int visible, float height, MemorySegment user_data) {
+        try {
+            f.invoke(window, visible, height, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RKeyboardCallback f) {
+        return stub(f, RKeyboardCallback.class, "RKeyboardCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, ADDRESS));
     }
 
     /**
@@ -6463,6 +6627,77 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_get_safe_area$;
+
+    /**
+     * The part of the window the system covers (status bar, notch,
+     * home indicator, navigation bar), in logical units. The content of the
+     * window is laid out inside it already. All 0 on desktop.
+     */
+    public static void Rwindow_get_safe_area(int window, RInsets insets) {
+        MethodHandle $h = Rwindow_get_safe_area$;
+        if ($h == null) Rwindow_get_safe_area$ = $h = find("Rwindow_get_safe_area", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try {
+            $h.invokeExact(window, (MemorySegment) (insets == null ? MemorySegment.NULL : insets.segment()));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_keyboard_area$;
+
+    /**
+     * The part of the window the on-screen keyboard covers (only
+     * `bottom` is set), in logical units; 0 when it is hidden or there is
+     * none (desktop). The content is laid out above it already.
+     */
+    public static void Rwindow_get_keyboard_area(int window, RInsets insets) {
+        MethodHandle $h = Rwindow_get_keyboard_area$;
+        if ($h == null) Rwindow_get_keyboard_area$ = $h = find("Rwindow_get_keyboard_area", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try {
+            $h.invokeExact(window, (MemorySegment) (insets == null ? MemorySegment.NULL : insets.segment()));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_set_keyboard_callback$;
+
+    /**
+     * Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+     */
+    public static void Rwindow_set_keyboard_callback(int window, RKeyboardCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rwindow_set_keyboard_callback$;
+        if ($h == null) Rwindow_set_keyboard_callback$ = $h = find("Rwindow_set_keyboard_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(window, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+     */
+    public static void Rwindow_set_keyboard_callback(int window, RKeyboardCallback callback) {
+        Rwindow_set_keyboard_callback(window, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwindow_clear_focus$;
+
+    /**
+     * No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+     */
+    public static void Rwindow_clear_focus(int window) {
+        MethodHandle $h = Rwindow_clear_focus$;
+        if ($h == null) Rwindow_clear_focus$ = $h = find("Rwindow_clear_focus", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_set_min_size$;
 
     public static void Rwindow_set_min_size(int window, int width, int height) {
@@ -7475,6 +7710,93 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_get_text_input_info$;
+
+    /**
+     * The kind of the focused text input; R_FALSE when there is none.
+     */
+    public static int Rwindow_get_text_input_info(int window, RTextInputInfo info) {
+        MethodHandle $h = Rwindow_get_text_input_info$;
+        if ($h == null) Rwindow_get_text_input_info$ = $h = find("Rwindow_get_text_input_info", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact(window, (MemorySegment) (info == null ? MemorySegment.NULL : info.segment()));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_text_input_text$;
+
+    /**
+     * Its text (UTF-8), valid until it changes; NULL when there is none.
+     */
+    public static String Rwindow_get_text_input_text(int window) {
+        MethodHandle $h = Rwindow_get_text_input_text$;
+        if ($h == null) Rwindow_get_text_input_text$ = $h = find("Rwindow_get_text_input_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(window);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_get_text_input_selection$;
+
+    /**
+     * Its selection: start == end is the caret. R_FALSE when there is none.
+     */
+    public static int Rwindow_get_text_input_selection(int window, int[] start, int[] end) {
+        MethodHandle $h = Rwindow_get_text_input_selection$;
+        if ($h == null) Rwindow_get_text_input_selection$ = $h = find("Rwindow_get_text_input_selection", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment start$ = start == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment end$ = end == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(window, start$, end$);
+            if (start != null && start.length > 0) start[0] = start$.get(JAVA_INT, 0);
+            if (end != null && end.length > 0) end[0] = end$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_set_text_input_selection$;
+
+    /**
+     * Selects bytes [start, end) of it (end before start puts the caret at end).
+     */
+    public static int Rwindow_set_text_input_selection(int window, int start, int end) {
+        MethodHandle $h = Rwindow_set_text_input_selection$;
+        if ($h == null) Rwindow_set_text_input_selection$ = $h = find("Rwindow_set_text_input_selection", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window, start, end);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_replace_text_input$;
+
+    /**
+     * Replaces bytes [start, end) of it with `text` and puts the caret
+     * after it, as typing would (the changed callback runs; MaxLength
+     * applies). R_FALSE when there is none or it is read-only.
+     */
+    public static int Rwindow_replace_text_input(int window, int start, int end, String text) {
+        MethodHandle $h = Rwindow_replace_text_input$;
+        if ($h == null) Rwindow_replace_text_input$ = $h = find("Rwindow_replace_text_input", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            int $r = (int) $h.invokeExact(window, start, end, text$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_has_popup$;
 
     /**
@@ -8245,6 +8567,39 @@ public final class R {
         if ($h == null) Rtheme_set_dark$ = $h = find("Rtheme_set_dark", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(dark);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtheme_get_system_dark$;
+
+    /**
+     * R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+     */
+    public static int Rtheme_get_system_dark() {
+        MethodHandle $h = Rtheme_get_system_dark$;
+        if ($h == null) Rtheme_get_system_dark$ = $h = find("Rtheme_get_system_dark", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtheme_follow_system$;
+
+    /**
+     * Follows the dark or light mode of the system with the Raven look
+     * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+     * Off by default. Does nothing where the platform does not tell (desktop today).
+     */
+    public static void Rtheme_follow_system(int enabled) {
+        MethodHandle $h = Rtheme_follow_system$;
+        if ($h == null) Rtheme_follow_system$ = $h = find("Rtheme_follow_system", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(enabled);
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -11736,6 +12091,62 @@ public final class R {
         if ($h == null) Rtext_input_select_all$ = $h = find("Rtext_input_select_all", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(text_input);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_input_set_input_type$;
+
+    /**
+     * What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+     */
+    public static void Rtext_input_set_input_type(int text_input, int type) {
+        MethodHandle $h = Rtext_input_set_input_type$;
+        if ($h == null) Rtext_input_set_input_type$ = $h = find("Rtext_input_set_input_type", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(text_input, type);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_input_get_input_type$;
+
+    public static int Rtext_input_get_input_type(int text_input) {
+        MethodHandle $h = Rtext_input_get_input_type$;
+        if ($h == null) Rtext_input_get_input_type$ = $h = find("Rtext_input_get_input_type", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(text_input);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_input_set_return_key$;
+
+    /**
+     * The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+     */
+    public static void Rtext_input_set_return_key(int text_input, int key) {
+        MethodHandle $h = Rtext_input_set_return_key$;
+        if ($h == null) Rtext_input_set_return_key$ = $h = find("Rtext_input_set_return_key", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(text_input, key);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_input_get_return_key$;
+
+    public static int Rtext_input_get_return_key(int text_input) {
+        MethodHandle $h = Rtext_input_get_return_key$;
+        if ($h == null) Rtext_input_get_return_key$ = $h = find("Rtext_input_get_return_key", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(text_input);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }

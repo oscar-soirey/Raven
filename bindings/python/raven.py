@@ -224,6 +224,8 @@ class RWindowSystem(enum.IntEnum):
     R_WINDOW_SYSTEM_WAYLAND = 0x0093
     R_WINDOW_SYSTEM_COCOA = 0x0094
     R_WINDOW_SYSTEM_EMSCRIPTEN = 0x0095
+    R_WINDOW_SYSTEM_ANDROID = 0x0096
+    R_WINDOW_SYSTEM_UIKIT = 0x0097
 
 R_WINDOW_SYSTEM_NONE = RWindowSystem.R_WINDOW_SYSTEM_NONE
 R_WINDOW_SYSTEM_WIN32 = RWindowSystem.R_WINDOW_SYSTEM_WIN32
@@ -231,6 +233,42 @@ R_WINDOW_SYSTEM_X11 = RWindowSystem.R_WINDOW_SYSTEM_X11
 R_WINDOW_SYSTEM_WAYLAND = RWindowSystem.R_WINDOW_SYSTEM_WAYLAND
 R_WINDOW_SYSTEM_COCOA = RWindowSystem.R_WINDOW_SYSTEM_COCOA
 R_WINDOW_SYSTEM_EMSCRIPTEN = RWindowSystem.R_WINDOW_SYSTEM_EMSCRIPTEN
+R_WINDOW_SYSTEM_ANDROID = RWindowSystem.R_WINDOW_SYSTEM_ANDROID
+R_WINDOW_SYSTEM_UIKIT = RWindowSystem.R_WINDOW_SYSTEM_UIKIT
+
+class RTextInputType(enum.IntEnum):
+    """What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...)."""
+    R_TEXT_INPUT_TYPE_TEXT = 0x0B60
+    R_TEXT_INPUT_TYPE_EMAIL = 0x0B61
+    R_TEXT_INPUT_TYPE_NUMBER = 0x0B62
+    R_TEXT_INPUT_TYPE_DECIMAL = 0x0B63
+    R_TEXT_INPUT_TYPE_PHONE = 0x0B64
+    R_TEXT_INPUT_TYPE_URL = 0x0B65
+    R_TEXT_INPUT_TYPE_SEARCH = 0x0B66
+
+R_TEXT_INPUT_TYPE_TEXT = RTextInputType.R_TEXT_INPUT_TYPE_TEXT
+R_TEXT_INPUT_TYPE_EMAIL = RTextInputType.R_TEXT_INPUT_TYPE_EMAIL
+R_TEXT_INPUT_TYPE_NUMBER = RTextInputType.R_TEXT_INPUT_TYPE_NUMBER
+R_TEXT_INPUT_TYPE_DECIMAL = RTextInputType.R_TEXT_INPUT_TYPE_DECIMAL
+R_TEXT_INPUT_TYPE_PHONE = RTextInputType.R_TEXT_INPUT_TYPE_PHONE
+R_TEXT_INPUT_TYPE_URL = RTextInputType.R_TEXT_INPUT_TYPE_URL
+R_TEXT_INPUT_TYPE_SEARCH = RTextInputType.R_TEXT_INPUT_TYPE_SEARCH
+
+class RReturnKey(enum.IntEnum):
+    """The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key."""
+    R_RETURN_KEY_DEFAULT = 0x0B70
+    R_RETURN_KEY_DONE = 0x0B71
+    R_RETURN_KEY_GO = 0x0B72
+    R_RETURN_KEY_NEXT = 0x0B73
+    R_RETURN_KEY_SEARCH = 0x0B74
+    R_RETURN_KEY_SEND = 0x0B75
+
+R_RETURN_KEY_DEFAULT = RReturnKey.R_RETURN_KEY_DEFAULT
+R_RETURN_KEY_DONE = RReturnKey.R_RETURN_KEY_DONE
+R_RETURN_KEY_GO = RReturnKey.R_RETURN_KEY_GO
+R_RETURN_KEY_NEXT = RReturnKey.R_RETURN_KEY_NEXT
+R_RETURN_KEY_SEARCH = RReturnKey.R_RETURN_KEY_SEARCH
+R_RETURN_KEY_SEND = RReturnKey.R_RETURN_KEY_SEND
 
 class RWindowEdge(enum.IntEnum):
     """Edges and corners of a window, for Rwindow_begin_resize."""
@@ -1612,6 +1650,27 @@ class RFrameStats(ctypes.Structure):
     ]
 
 
+class RInsets(ctypes.Structure):
+    """Distances from the edges of a window, in logical units."""
+    _fields_ = [
+        ("top", ctypes.c_float),
+        ("right", ctypes.c_float),
+        ("bottom", ctypes.c_float),
+        ("left", ctypes.c_float),
+    ]
+
+
+class RTextInputInfo(ctypes.Structure):
+    """What the platform needs to know of the focused text input to set up the on-screen keyboard."""
+    _fields_ = [
+        ("type", ctypes.c_int),
+        ("return_key", ctypes.c_int),
+        ("password", ctypes.c_int),
+        ("read_only", ctypes.c_int),
+        ("max_length", ctypes.c_int),
+    ]
+
+
 class RNativeWindow(ctypes.Structure):
     """Native handles of a window or of a native viewport.
       Win32 : display = HINSTANCE, window = HWND
@@ -1619,7 +1678,9 @@ class RNativeWindow(ctypes.Structure):
       Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
               Wayland or X11 when Rinit runs: check `system`)
       Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
-      Emscripten: window = opaque browser surface token (no OS window handle)"""
+      Emscripten: window = opaque browser surface token (no OS window handle)
+      Android: window = ANativeWindow*
+      UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)"""
     _fields_ = [
         ("system", ctypes.c_int),
         ("display", ctypes.c_void_p),
@@ -1960,6 +2021,14 @@ RDeviceResetCallback = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 def _adapt_RDeviceResetCallback(function):
     def call(user_data):
         function(user_data)
+    return call
+
+RKeyboardCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_void_p)
+
+
+def _adapt_RKeyboardCallback(function):
+    def call(window, visible, height, user_data):
+        function(window, visible, height, user_data)
     return call
 
 RDropCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(RDropEvent), ctypes.c_void_p)
@@ -3202,6 +3271,46 @@ def Rwindow_get_size(window):
     return (width_.value, height_.value)
 
 
+_lib.Rwindow_get_safe_area.argtypes = [ctypes.c_uint32, ctypes.POINTER(RInsets)]
+_lib.Rwindow_get_safe_area.restype = None
+
+
+def Rwindow_get_safe_area(window, insets):
+    """The part of the window the system covers (status bar, notch,
+    home indicator, navigation bar), in logical units. The content of the
+    window is laid out inside it already. All 0 on desktop."""
+    _lib.Rwindow_get_safe_area(window, _p(insets))
+
+
+_lib.Rwindow_get_keyboard_area.argtypes = [ctypes.c_uint32, ctypes.POINTER(RInsets)]
+_lib.Rwindow_get_keyboard_area.restype = None
+
+
+def Rwindow_get_keyboard_area(window, insets):
+    """The part of the window the on-screen keyboard covers (only
+    `bottom` is set), in logical units; 0 when it is hidden or there is
+    none (desktop). The content is laid out above it already."""
+    _lib.Rwindow_get_keyboard_area(window, _p(insets))
+
+
+_lib.Rwindow_set_keyboard_callback.argtypes = [ctypes.c_uint32, RKeyboardCallback, ctypes.c_void_p]
+_lib.Rwindow_set_keyboard_callback.restype = None
+
+
+def Rwindow_set_keyboard_callback(window, callback, user_data=None):
+    """Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it."""
+    _lib.Rwindow_set_keyboard_callback(window, _callback(RKeyboardCallback, _adapt_RKeyboardCallback, callback), user_data)
+
+
+_lib.Rwindow_clear_focus.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_clear_focus.restype = None
+
+
+def Rwindow_clear_focus(window):
+    """No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away."""
+    _lib.Rwindow_clear_focus(window)
+
+
 _lib.Rwindow_set_min_size.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
 _lib.Rwindow_set_min_size.restype = None
 
@@ -3832,6 +3941,56 @@ def Rwindow_wants_text_input(window):
     return _lib.Rwindow_wants_text_input(window)
 
 
+_lib.Rwindow_get_text_input_info.argtypes = [ctypes.c_uint32, ctypes.POINTER(RTextInputInfo)]
+_lib.Rwindow_get_text_input_info.restype = ctypes.c_int
+
+
+def Rwindow_get_text_input_info(window, info):
+    """The kind of the focused text input; R_FALSE when there is none."""
+    return _lib.Rwindow_get_text_input_info(window, _p(info))
+
+
+_lib.Rwindow_get_text_input_text.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_get_text_input_text.restype = ctypes.c_char_p
+
+
+def Rwindow_get_text_input_text(window):
+    """Its text (UTF-8), valid until it changes; NULL when there is none."""
+    return _r(_lib.Rwindow_get_text_input_text(window))
+
+
+_lib.Rwindow_get_text_input_selection.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rwindow_get_text_input_selection.restype = ctypes.c_int
+
+
+def Rwindow_get_text_input_selection(window):
+    """Its selection: start == end is the caret. R_FALSE when there is none."""
+    start_ = ctypes.c_int()
+    end_ = ctypes.c_int()
+    result = _lib.Rwindow_get_text_input_selection(window, ctypes.byref(start_), ctypes.byref(end_))
+    return (result, start_.value, end_.value)
+
+
+_lib.Rwindow_set_text_input_selection.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rwindow_set_text_input_selection.restype = ctypes.c_int
+
+
+def Rwindow_set_text_input_selection(window, start, end):
+    """Selects bytes [start, end) of it (end before start puts the caret at end)."""
+    return _lib.Rwindow_set_text_input_selection(window, start, end)
+
+
+_lib.Rwindow_replace_text_input.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_char_p]
+_lib.Rwindow_replace_text_input.restype = ctypes.c_int
+
+
+def Rwindow_replace_text_input(window, start, end, text):
+    """Replaces bytes [start, end) of it with `text` and puts the caret
+    after it, as typing would (the changed callback runs; MaxLength
+    applies). R_FALSE when there is none or it is read-only."""
+    return _lib.Rwindow_replace_text_input(window, start, end, _s(text))
+
+
 _lib.Rwindow_has_popup.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_has_popup.restype = ctypes.c_int
 
@@ -4297,6 +4456,26 @@ def Rtheme_set_dark(dark):
     the glass, the colors of the code and which wallpaper the glass themes
     use. Rtheme_apply and the theme files set it."""
     _lib.Rtheme_set_dark(dark)
+
+
+_lib.Rtheme_get_system_dark.argtypes = []
+_lib.Rtheme_get_system_dark.restype = ctypes.c_int
+
+
+def Rtheme_get_system_dark():
+    """R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today)."""
+    return _lib.Rtheme_get_system_dark()
+
+
+_lib.Rtheme_follow_system.argtypes = [ctypes.c_int]
+_lib.Rtheme_follow_system.restype = None
+
+
+def Rtheme_follow_system(enabled):
+    """Follows the dark or light mode of the system with the Raven look
+    (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+    Off by default. Does nothing where the platform does not tell (desktop today)."""
+    _lib.Rtheme_follow_system(enabled)
 
 
 _lib.Rtheme_is_dark.argtypes = []
@@ -6445,6 +6624,40 @@ _lib.Rtext_input_select_all.restype = None
 
 def Rtext_input_select_all(text_input):
     _lib.Rtext_input_select_all(text_input)
+
+
+_lib.Rtext_input_set_input_type.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_input_set_input_type.restype = None
+
+
+def Rtext_input_set_input_type(text_input, type_):
+    """What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT."""
+    _lib.Rtext_input_set_input_type(text_input, int(type_))
+
+
+_lib.Rtext_input_get_input_type.argtypes = [ctypes.c_uint32]
+_lib.Rtext_input_get_input_type.restype = ctypes.c_int
+
+
+def Rtext_input_get_input_type(text_input):
+    return _e(RTextInputType, _lib.Rtext_input_get_input_type(text_input))
+
+
+_lib.Rtext_input_set_return_key.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtext_input_set_return_key.restype = None
+
+
+def Rtext_input_set_return_key(text_input, key):
+    """The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT."""
+    _lib.Rtext_input_set_return_key(text_input, int(key))
+
+
+_lib.Rtext_input_get_return_key.argtypes = [ctypes.c_uint32]
+_lib.Rtext_input_get_return_key.restype = ctypes.c_int
+
+
+def Rtext_input_get_return_key(text_input):
+    return _e(RReturnKey, _lib.Rtext_input_get_return_key(text_input))
 
 
 _lib.Rtext_input_set_changed_callback.argtypes = [ctypes.c_uint32, RTextChangedCallback, ctypes.c_void_p]
