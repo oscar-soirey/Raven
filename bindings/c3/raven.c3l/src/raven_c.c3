@@ -709,6 +709,8 @@ const RWidgetType R_WIDGET_PAGINATION = 0x0231;
 const RWidgetType R_WIDGET_PLOT = 0x0232;
 <* The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). *>
 const RWidgetType R_WIDGET_PDF_VIEW = 0x0233;
+<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
+const RWidgetType R_WIDGET_CAROUSEL = 0x0234;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -1405,6 +1407,12 @@ alias RPlotDragLineCallback = fn void(Rid plot, CInt line, double value, void* u
 alias RPlotSeriesCallback = fn void(Rid plot, CInt series, CInt visible, void* user_data);
 <* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
 alias RPdfPageChangedCallback = fn void(Rid view, CInt page, void* user_data);
+<*
+ Called when the user goes to another page (a swipe, the keys, a
+ dot, an arrow) and when the autoplay does. This also fires the action
+ of the widget.
+*>
+alias RCarouselPageChangedCallback = fn void(Rid carousel, CInt page, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias RTextEditorZoomCallback = fn void(Rid editor, float zoom, void* user_data);
 <*
@@ -4363,6 +4371,58 @@ extern fn char* r_pdf_view_get_title(Rid view) @cname("Rpdf_view_get_title");
 extern fn char* r_pdf_view_get_page_text(Rid view, CInt page) @cname("Rpdf_view_get_page_text");
 
 extern fn void r_pdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data) @cname("Rpdf_view_set_page_changed_callback");
+
+extern fn Rid r_carousel_create() @cname("Rcarousel_create");
+
+<*
+ Shows a page, gliding to it when `animated` (and the animations
+ are on), at once otherwise. The page changed callback is not called.
+*>
+extern fn void r_carousel_set_page(Rid carousel, CInt page, CInt animated) @cname("Rcarousel_set_page");
+
+<* The page shown, -1 when the carousel has none. *>
+extern fn CInt r_carousel_get_page(Rid carousel) @cname("Rcarousel_get_page");
+
+<* Its children. *>
+extern fn CInt r_carousel_get_page_count(Rid carousel) @cname("Rcarousel_get_page_count");
+
+<* Glides to the next / previous page; nothing at the last / first one unless it loops. *>
+extern fn void r_carousel_next(Rid carousel) @cname("Rcarousel_next");
+
+extern fn void r_carousel_prev(Rid carousel) @cname("Rcarousel_prev");
+
+<* R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). *>
+extern fn void r_carousel_set_loop(Rid carousel, CInt loop) @cname("Rcarousel_set_loop");
+
+extern fn CInt r_carousel_get_loop(Rid carousel) @cname("Rcarousel_get_loop");
+
+<*
+ Goes to the next page by itself every `seconds` (0: never, the
+ default); after the last page it comes back to the first. It waits
+ while the pointer is on the carousel, while the pages are dragged and
+ while the keyboard is in it; a page chosen by the user starts the
+ interval again.
+*>
+extern fn void r_carousel_set_autoplay(Rid carousel, double seconds) @cname("Rcarousel_set_autoplay");
+
+extern fn double r_carousel_get_autoplay(Rid carousel) @cname("Rcarousel_get_autoplay");
+
+<* The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). *>
+extern fn void r_carousel_set_indicators_visible(Rid carousel, CInt visible) @cname("Rcarousel_set_indicators_visible");
+
+extern fn CInt r_carousel_get_indicators_visible(Rid carousel) @cname("Rcarousel_get_indicators_visible");
+
+<* The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). *>
+extern fn void r_carousel_set_arrows_visible(Rid carousel, CInt visible) @cname("Rcarousel_set_arrows_visible");
+
+extern fn CInt r_carousel_get_arrows_visible(Rid carousel) @cname("Rcarousel_get_arrows_visible");
+
+<* R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. *>
+extern fn void r_carousel_set_orientation(Rid carousel, ROrientation orientation) @cname("Rcarousel_set_orientation");
+
+extern fn ROrientation r_carousel_get_orientation(Rid carousel) @cname("Rcarousel_get_orientation");
+
+extern fn void r_carousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data) @cname("Rcarousel_set_page_changed_callback");
 
 <* Prints the document shown (see Rpdf_print); the job is named after its title. *>
 extern fn CInt r_pdf_view_print(Rid view, RPdfPrintDesc* desc) @cname("Rpdf_view_print");

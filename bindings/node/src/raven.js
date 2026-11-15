@@ -639,8 +639,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_PAGINATION: 561,
 	R_WIDGET_PLOT: 562,
 	R_WIDGET_PDF_VIEW: 563,
+	R_WIDGET_CAROUSEL: 564,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CAROUSEL } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -3793,6 +3794,23 @@ export const Rpdf_view_get_fit = _lib.Rpdf_view_get_fit;
 export const Rpdf_view_get_title = _lib.Rpdf_view_get_title;
 export const Rpdf_view_get_page_text = _lib.Rpdf_view_get_page_text;
 export const Rpdf_view_set_page_changed_callback = _lib.Rpdf_view_set_page_changed_callback;
+export const Rcarousel_create = _lib.Rcarousel_create;
+export const Rcarousel_set_page = _lib.Rcarousel_set_page;
+export const Rcarousel_get_page = _lib.Rcarousel_get_page;
+export const Rcarousel_get_page_count = _lib.Rcarousel_get_page_count;
+export const Rcarousel_next = _lib.Rcarousel_next;
+export const Rcarousel_prev = _lib.Rcarousel_prev;
+export const Rcarousel_set_loop = _lib.Rcarousel_set_loop;
+export const Rcarousel_get_loop = _lib.Rcarousel_get_loop;
+export const Rcarousel_set_autoplay = _lib.Rcarousel_set_autoplay;
+export const Rcarousel_get_autoplay = _lib.Rcarousel_get_autoplay;
+export const Rcarousel_set_indicators_visible = _lib.Rcarousel_set_indicators_visible;
+export const Rcarousel_get_indicators_visible = _lib.Rcarousel_get_indicators_visible;
+export const Rcarousel_set_arrows_visible = _lib.Rcarousel_set_arrows_visible;
+export const Rcarousel_get_arrows_visible = _lib.Rcarousel_get_arrows_visible;
+export const Rcarousel_set_orientation = _lib.Rcarousel_set_orientation;
+export const Rcarousel_get_orientation = _lib.Rcarousel_get_orientation;
+export const Rcarousel_set_page_changed_callback = _lib.Rcarousel_set_page_changed_callback;
 export function Rpdf_view_print(view, desc) {
 	return _lib.Rpdf_view_print(view, _p(desc));
 }

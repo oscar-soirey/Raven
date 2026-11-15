@@ -260,6 +260,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/pagination.c
 	src/widgets/plot.c
 	src/widgets/pdf_view.c
+	src/widgets/carousel.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )

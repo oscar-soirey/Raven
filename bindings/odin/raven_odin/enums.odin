@@ -682,6 +682,8 @@ Widget_Type :: enum i32 {
 	Plot = 0x0232,
 	// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 	Pdf_View = 0x0233,
+	// Pages shown one at a time and swiped (a page view), with dots and arrows.
+	Carousel = 0x0234,
 }
 
 H_Align :: enum i32 {

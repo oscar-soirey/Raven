@@ -1099,6 +1099,53 @@
 			]
 		},
 		{
+			"name": "Carousel",
+			"description": "Its children as pages shown one at a time, swiped, with dots and arrows.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Page",
+					"kind": "number",
+					"description": "Which page is shown, from 0."
+				},
+				{
+					"name": "Loop",
+					"kind": "bool",
+					"description": "After the last page comes the first one, and before the first the last."
+				},
+				{
+					"name": "Autoplay",
+					"kind": "number",
+					"description": "Seconds between the pages turned by themselves; 0 (default) never. It waits while the pointer is on it."
+				},
+				{
+					"name": "Indicators",
+					"kind": "bool",
+					"description": "The dots of the pages along the bottom edge (default true)."
+				},
+				{
+					"name": "Arrows",
+					"kind": "bool",
+					"description": "The previous / next buttons shown under the pointer (default true)."
+				},
+				{
+					"name": "Orientation",
+					"kind": "choice",
+					"choices": [
+						"Horizontal",
+						"Vertical"
+					],
+					"description": "Pages side by side (default) or one above the other."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user or the autoplay goes to another page."
+				}
+			],
+			"accepted": []
+		},
+		{
 			"name": "Expander",
 			"description": "A header that shows and hides one child.",
 			"children": "single",
@@ -2835,6 +2882,8 @@
 		"LinePlot": "Plot",
 		"XYPlot": "Plot",
 		"PdfViewer": "PdfView",
-		"PDFView": "PdfView"
+		"PDFView": "PdfView",
+		"PageView": "Carousel",
+		"Slideshow": "Carousel"
 	}
 }

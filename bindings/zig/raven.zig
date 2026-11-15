@@ -680,6 +680,8 @@ pub const R_WIDGET_PAGINATION: RWidgetType = 0x0231;
 pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
 /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
+/// Pages shown one at a time and swiped (a page view), with dots and arrows.
+pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0234;
 
 pub const RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -1323,6 +1325,10 @@ pub const RPlotDragLineCallback = ?*const fn (plot: Rid, line: c_int, value: f64
 pub const RPlotSeriesCallback = ?*const fn (plot: Rid, series: c_int, visible: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 pub const RPdfPageChangedCallback = ?*const fn (view: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user goes to another page (a swipe, the keys, a
+/// dot, an arrow) and when the autoplay does. This also fires the action
+/// of the widget.
+pub const RCarouselPageChangedCallback = ?*const fn (carousel: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the editor gathers its proposals, with the
@@ -3345,6 +3351,37 @@ pub extern fn Rpdf_view_get_title(view: Rid) ?[*:0]const u8;
 /// the next call for this view.
 pub extern fn Rpdf_view_get_page_text(view: Rid, page: c_int) ?[*:0]const u8;
 pub extern fn Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback, user_data: ?*anyopaque) void;
+pub extern fn Rcarousel_create() Rid;
+/// Shows a page, gliding to it when `animated` (and the animations
+/// are on), at once otherwise. The page changed callback is not called.
+pub extern fn Rcarousel_set_page(carousel: Rid, page: c_int, animated: c_int) void;
+/// The page shown, -1 when the carousel has none.
+pub extern fn Rcarousel_get_page(carousel: Rid) c_int;
+/// Its children.
+pub extern fn Rcarousel_get_page_count(carousel: Rid) c_int;
+/// Glides to the next / previous page; nothing at the last / first one unless it loops.
+pub extern fn Rcarousel_next(carousel: Rid) void;
+pub extern fn Rcarousel_prev(carousel: Rid) void;
+/// R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+pub extern fn Rcarousel_set_loop(carousel: Rid, loop: c_int) void;
+pub extern fn Rcarousel_get_loop(carousel: Rid) c_int;
+/// Goes to the next page by itself every `seconds` (0: never, the
+/// default); after the last page it comes back to the first. It waits
+/// while the pointer is on the carousel, while the pages are dragged and
+/// while the keyboard is in it; a page chosen by the user starts the
+/// interval again.
+pub extern fn Rcarousel_set_autoplay(carousel: Rid, seconds: f64) void;
+pub extern fn Rcarousel_get_autoplay(carousel: Rid) f64;
+/// The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+pub extern fn Rcarousel_set_indicators_visible(carousel: Rid, visible: c_int) void;
+pub extern fn Rcarousel_get_indicators_visible(carousel: Rid) c_int;
+/// The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+pub extern fn Rcarousel_set_arrows_visible(carousel: Rid, visible: c_int) void;
+pub extern fn Rcarousel_get_arrows_visible(carousel: Rid) c_int;
+/// R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+pub extern fn Rcarousel_set_orientation(carousel: Rid, orientation: ROrientation) void;
+pub extern fn Rcarousel_get_orientation(carousel: Rid) ROrientation;
+pub extern fn Rcarousel_set_page_changed_callback(carousel: Rid, callback: RCarouselPageChangedCallback, user_data: ?*anyopaque) void;
 /// Prints the document shown (see Rpdf_print); the job is named after its title.
 pub extern fn Rpdf_view_print(view: Rid, desc: ?*const RPdfPrintDesc) c_int;
 pub extern fn Rpdf_document_create() Rid;

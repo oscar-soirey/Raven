@@ -55,7 +55,7 @@ typedef enum glyph_t {
 	G_TEXT, G_PICTURE, G_LINES, G_LIST, G_TREE, G_TIMELINE, G_BLOCKS, G_NODES, G_ITEM, G_WINDOW, G_HEADER,
 	G_MENUBAR, G_MENU, G_MENUITEM, G_DOCK, G_ISLAND, G_BLUR, G_COLOR, G_VIEWPORT, G_SPARK, G_FOLDER, G_KEY,
 	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE,
-	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT
+	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_CAROUSEL
 } glyph_t;
 
 /* Every picture: the tag (or "#..." for what is not a tag), its family, its glyph. The order of a family is the order of the palette. */
@@ -66,7 +66,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "Border", FAMILY_LAYOUT, G_FRAME }, { "SizeBox", FAMILY_LAYOUT, G_CORNERS }, { "Spacer", FAMILY_LAYOUT, G_SPREAD },
 	{ "ScrollBox", FAMILY_LAYOUT, G_SCROLL }, { "Splitter", FAMILY_LAYOUT, G_SPLIT }, { "Canvas", FAMILY_LAYOUT, G_CANVAS },
 	{ "Switcher", FAMILY_LAYOUT, G_PAGES }, { "TabView", FAMILY_LAYOUT, G_TABS }, { "Expander", FAMILY_LAYOUT, G_CHEVRON },
-	{ "DockArea", FAMILY_LAYOUT, G_DOCK },
+	{ "DockArea", FAMILY_LAYOUT, G_DOCK }, { "Carousel", FAMILY_LAYOUT, G_CAROUSEL },
 	/* controls */
 	{ "Button", FAMILY_CONTROL, G_BUTTON }, { "Checkbox", FAMILY_CONTROL, G_CHECK }, { "Slider", FAMILY_CONTROL, G_SLIDER },
 	{ "TextInput", FAMILY_CONTROL, G_INPUT }, { "SpinBox", FAMILY_CONTROL, G_SPIN }, { "ComboBox", FAMILY_CONTROL, G_COMBO },
@@ -456,6 +456,11 @@ static void draw_glyph(cell_t* c, glyph_t glyph) {
 			line(c, 7.5f, 7, 7.5f, 24.5f, 1.8f, 0.7f); line(c, 7.5f, 24.5f, 26, 24.5f, 1.8f, 0.7f);
 			line(c, 10, 21, 14.5f, 15, 2.2f, 1); line(c, 14.5f, 15, 18.5f, 18, 2.2f, 1); line(c, 18.5f, 18, 24.5f, 9, 2.2f, 1);
 			disc(c, 18.5f, 18, 2.4f, 1);
+			break;
+		case G_CAROUSEL:
+			/* a page between the edges of its neighbours, its dots under it */
+			box(c, 10, 7, 22, 20, 2, 1); box(c, 5, 9, 8, 18, 1.2f, 0.5f); box(c, 24, 9, 27, 18, 1.2f, 0.5f);
+			line(c, 14.5f, 24.5f, 17.5f, 24.5f, 2.6f, 1); disc(c, 10.5f, 24.5f, 1.3f, 0.6f); disc(c, 21.5f, 24.5f, 1.3f, 0.6f);
 			break;
 		case G_FILE:
 			outline(c, 9, 7, 23, 25, 2.5f, STROKE, 1); line(c, 12.5f, 13, 19.5f, 13, 1.6f, 0.7f); line(c, 12.5f, 17, 19.5f, 17, 1.6f, 0.7f);

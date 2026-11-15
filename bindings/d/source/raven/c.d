@@ -764,6 +764,8 @@ enum : RWidgetType
     R_WIDGET_PLOT = 0x0232,
     /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
     R_WIDGET_PDF_VIEW = 0x0233,
+    /// Pages shown one at a time and swiped (a page view), with dots and arrows.
+    R_WIDGET_CAROUSEL = 0x0234,
 }
 
 alias RHAlign = int;
@@ -1549,6 +1551,10 @@ alias RPlotDragLineCallback = extern (C) void function(Rid plot, int line, doubl
 alias RPlotSeriesCallback = extern (C) void function(Rid plot, int series, int visible, void* user_data);
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 alias RPdfPageChangedCallback = extern (C) void function(Rid view, int page, void* user_data);
+/// Called when the user goes to another page (a swipe, the keys, a
+/// dot, an arrow) and when the autoplay does. This also fires the action
+/// of the widget.
+alias RCarouselPageChangedCallback = extern (C) void function(Rid carousel, int page, void* user_data);
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 alias RTextEditorZoomCallback = extern (C) void function(Rid editor, float zoom, void* user_data);
 /// Called each time the editor gathers its proposals, with the
@@ -3597,6 +3603,37 @@ const(char)* Rpdf_view_get_title(Rid view);
 /// the next call for this view.
 const(char)* Rpdf_view_get_page_text(Rid view, int page);
 void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+Rid Rcarousel_create();
+/// Shows a page, gliding to it when `animated` (and the animations
+/// are on), at once otherwise. The page changed callback is not called.
+void Rcarousel_set_page(Rid carousel, int page, int animated);
+/// The page shown, -1 when the carousel has none.
+int Rcarousel_get_page(Rid carousel);
+/// Its children.
+int Rcarousel_get_page_count(Rid carousel);
+/// Glides to the next / previous page; nothing at the last / first one unless it loops.
+void Rcarousel_next(Rid carousel);
+void Rcarousel_prev(Rid carousel);
+/// R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+void Rcarousel_set_loop(Rid carousel, int loop);
+int Rcarousel_get_loop(Rid carousel);
+/// Goes to the next page by itself every `seconds` (0: never, the
+/// default); after the last page it comes back to the first. It waits
+/// while the pointer is on the carousel, while the pages are dragged and
+/// while the keyboard is in it; a page chosen by the user starts the
+/// interval again.
+void Rcarousel_set_autoplay(Rid carousel, double seconds);
+double Rcarousel_get_autoplay(Rid carousel);
+/// The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+void Rcarousel_set_indicators_visible(Rid carousel, int visible);
+int Rcarousel_get_indicators_visible(Rid carousel);
+/// The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+void Rcarousel_set_arrows_visible(Rid carousel, int visible);
+int Rcarousel_get_arrows_visible(Rid carousel);
+/// R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+void Rcarousel_set_orientation(Rid carousel, ROrientation orientation);
+ROrientation Rcarousel_get_orientation(Rid carousel);
+void Rcarousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data);
 /// Prints the document shown (see Rpdf_print); the job is named after its title.
 int Rpdf_view_print(Rid view, const(RPdfPrintDesc)* desc);
 Rid Rpdf_document_create();

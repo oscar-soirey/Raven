@@ -326,6 +326,10 @@ type
     ## Called when the user hides or shows a series from the legend.
   RPdfPageChangedCallback* = proc (view: Rid, page: cint, user_data: pointer) {.cdecl.}
     ## Called when the current page changes as the user scrolls. This also fires the action of the widget.
+  RCarouselPageChangedCallback* = proc (carousel: Rid, page: cint, user_data: pointer) {.cdecl.}
+    ## Called when the user goes to another page (a swipe, the keys, a
+    ## dot, an arrow) and when the autoplay does. This also fires the action
+    ## of the widget.
   RTextEditorZoomCallback* = proc (editor: Rid, zoom: cfloat, user_data: pointer) {.cdecl.}
     ## Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
   RCompletionCallback* = proc (editor: Rid, prefix: cstring, user_data: pointer) {.cdecl.}
@@ -1461,6 +1465,8 @@ const
     ## Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
   R_WIDGET_PDF_VIEW*: RWidgetType = 0x0233
     ## The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+  R_WIDGET_CAROUSEL*: RWidgetType = 0x0234
+    ## Pages shown one at a time and swiped (a page view), with dots and arrows.
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -3372,6 +3378,37 @@ proc Rpdf_view_get_page_text*(view: Rid, page: cint): cstring {.rapi.}
   ## The text of a page (UTF-8), to search it or copy it. Valid until
   ## the next call for this view.
 proc Rpdf_view_set_page_changed_callback*(view: Rid, callback: RPdfPageChangedCallback, user_data: pointer) {.rapi.}
+proc Rcarousel_create*(): Rid {.rapi.}
+proc Rcarousel_set_page*(carousel: Rid, page: cint, animated: cint) {.rapi.}
+  ## Shows a page, gliding to it when `animated` (and the animations
+  ## are on), at once otherwise. The page changed callback is not called.
+proc Rcarousel_get_page*(carousel: Rid): cint {.rapi.}
+  ## The page shown, -1 when the carousel has none.
+proc Rcarousel_get_page_count*(carousel: Rid): cint {.rapi.}
+  ## Its children.
+proc Rcarousel_next*(carousel: Rid) {.rapi.}
+  ## Glides to the next / previous page; nothing at the last / first one unless it loops.
+proc Rcarousel_prev*(carousel: Rid) {.rapi.}
+proc Rcarousel_set_loop*(carousel: Rid, loop: cint) {.rapi.}
+  ## R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+proc Rcarousel_get_loop*(carousel: Rid): cint {.rapi.}
+proc Rcarousel_set_autoplay*(carousel: Rid, seconds: cdouble) {.rapi.}
+  ## Goes to the next page by itself every `seconds` (0: never, the
+  ## default); after the last page it comes back to the first. It waits
+  ## while the pointer is on the carousel, while the pages are dragged and
+  ## while the keyboard is in it; a page chosen by the user starts the
+  ## interval again.
+proc Rcarousel_get_autoplay*(carousel: Rid): cdouble {.rapi.}
+proc Rcarousel_set_indicators_visible*(carousel: Rid, visible: cint) {.rapi.}
+  ## The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+proc Rcarousel_get_indicators_visible*(carousel: Rid): cint {.rapi.}
+proc Rcarousel_set_arrows_visible*(carousel: Rid, visible: cint) {.rapi.}
+  ## The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+proc Rcarousel_get_arrows_visible*(carousel: Rid): cint {.rapi.}
+proc Rcarousel_set_orientation*(carousel: Rid, orientation: ROrientation) {.rapi.}
+  ## R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+proc Rcarousel_get_orientation*(carousel: Rid): ROrientation {.rapi.}
+proc Rcarousel_set_page_changed_callback*(carousel: Rid, callback: RCarouselPageChangedCallback, user_data: pointer) {.rapi.}
 proc Rpdf_view_print*(view: Rid, desc: ptr RPdfPrintDesc): cint {.rapi.}
   ## Prints the document shown (see Rpdf_print); the job is named after its title.
 proc Rpdf_document_create*(): Rid {.rapi.}

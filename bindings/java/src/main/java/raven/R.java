@@ -1037,6 +1037,10 @@ public final class R {
      * The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
      */
     public static final int R_WIDGET_PDF_VIEW = 0x0233;
+    /**
+     * Pages shown one at a time and swiped (a page view), with dots and arrows.
+     */
+    public static final int R_WIDGET_CAROUSEL = 0x0234;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -5056,6 +5060,29 @@ public final class R {
 
     private static MemorySegment upcall(RPdfPageChangedCallback f) {
         return stub(f, RPdfPageChangedCallback.class, "RPdfPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user goes to another page (a swipe, the keys, a
+     * dot, an arrow) and when the autoplay does. This also fires the action
+     * of the widget.
+     */
+    @FunctionalInterface
+    public interface RCarouselPageChangedCallback {
+        void invoke(int carousel, int page, MemorySegment user_data);
+    }
+
+    private static void RCarouselPageChangedCallback$raw(RCarouselPageChangedCallback f, int carousel, int page, MemorySegment user_data) {
+        try {
+            f.invoke(carousel, page, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RCarouselPageChangedCallback f) {
+        return stub(f, RCarouselPageChangedCallback.class, "RCarouselPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -16080,6 +16107,254 @@ public final class R {
 
     public static void Rpdf_view_set_page_changed_callback(int view, RPdfPageChangedCallback callback) {
         Rpdf_view_set_page_changed_callback(view, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rcarousel_create$;
+
+    public static int Rcarousel_create() {
+        MethodHandle $h = Rcarousel_create$;
+        if ($h == null) Rcarousel_create$ = $h = find("Rcarousel_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_set_page$;
+
+    /**
+     * Shows a page, gliding to it when `animated` (and the animations
+     * are on), at once otherwise. The page changed callback is not called.
+     */
+    public static void Rcarousel_set_page(int carousel, int page, int animated) {
+        MethodHandle $h = Rcarousel_set_page$;
+        if ($h == null) Rcarousel_set_page$ = $h = find("Rcarousel_set_page", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(carousel, page, animated);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_get_page$;
+
+    /**
+     * The page shown, -1 when the carousel has none.
+     */
+    public static int Rcarousel_get_page(int carousel) {
+        MethodHandle $h = Rcarousel_get_page$;
+        if ($h == null) Rcarousel_get_page$ = $h = find("Rcarousel_get_page", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(carousel);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_get_page_count$;
+
+    /**
+     * Its children.
+     */
+    public static int Rcarousel_get_page_count(int carousel) {
+        MethodHandle $h = Rcarousel_get_page_count$;
+        if ($h == null) Rcarousel_get_page_count$ = $h = find("Rcarousel_get_page_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(carousel);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_next$;
+
+    /**
+     * Glides to the next / previous page; nothing at the last / first one unless it loops.
+     */
+    public static void Rcarousel_next(int carousel) {
+        MethodHandle $h = Rcarousel_next$;
+        if ($h == null) Rcarousel_next$ = $h = find("Rcarousel_next", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(carousel);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_prev$;
+
+    public static void Rcarousel_prev(int carousel) {
+        MethodHandle $h = Rcarousel_prev$;
+        if ($h == null) Rcarousel_prev$ = $h = find("Rcarousel_prev", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(carousel);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_set_loop$;
+
+    /**
+     * R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+     */
+    public static void Rcarousel_set_loop(int carousel, int loop) {
+        MethodHandle $h = Rcarousel_set_loop$;
+        if ($h == null) Rcarousel_set_loop$ = $h = find("Rcarousel_set_loop", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(carousel, loop);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_get_loop$;
+
+    public static int Rcarousel_get_loop(int carousel) {
+        MethodHandle $h = Rcarousel_get_loop$;
+        if ($h == null) Rcarousel_get_loop$ = $h = find("Rcarousel_get_loop", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(carousel);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_set_autoplay$;
+
+    /**
+     * Goes to the next page by itself every `seconds` (0: never, the
+     * default); after the last page it comes back to the first. It waits
+     * while the pointer is on the carousel, while the pages are dragged and
+     * while the keyboard is in it; a page chosen by the user starts the
+     * interval again.
+     */
+    public static void Rcarousel_set_autoplay(int carousel, double seconds) {
+        MethodHandle $h = Rcarousel_set_autoplay$;
+        if ($h == null) Rcarousel_set_autoplay$ = $h = find("Rcarousel_set_autoplay", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(carousel, seconds);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_get_autoplay$;
+
+    public static double Rcarousel_get_autoplay(int carousel) {
+        MethodHandle $h = Rcarousel_get_autoplay$;
+        if ($h == null) Rcarousel_get_autoplay$ = $h = find("Rcarousel_get_autoplay", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(carousel);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_set_indicators_visible$;
+
+    /**
+     * The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+     */
+    public static void Rcarousel_set_indicators_visible(int carousel, int visible) {
+        MethodHandle $h = Rcarousel_set_indicators_visible$;
+        if ($h == null) Rcarousel_set_indicators_visible$ = $h = find("Rcarousel_set_indicators_visible", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(carousel, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_get_indicators_visible$;
+
+    public static int Rcarousel_get_indicators_visible(int carousel) {
+        MethodHandle $h = Rcarousel_get_indicators_visible$;
+        if ($h == null) Rcarousel_get_indicators_visible$ = $h = find("Rcarousel_get_indicators_visible", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(carousel);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_set_arrows_visible$;
+
+    /**
+     * The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+     */
+    public static void Rcarousel_set_arrows_visible(int carousel, int visible) {
+        MethodHandle $h = Rcarousel_set_arrows_visible$;
+        if ($h == null) Rcarousel_set_arrows_visible$ = $h = find("Rcarousel_set_arrows_visible", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(carousel, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_get_arrows_visible$;
+
+    public static int Rcarousel_get_arrows_visible(int carousel) {
+        MethodHandle $h = Rcarousel_get_arrows_visible$;
+        if ($h == null) Rcarousel_get_arrows_visible$ = $h = find("Rcarousel_get_arrows_visible", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(carousel);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_set_orientation$;
+
+    /**
+     * R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+     */
+    public static void Rcarousel_set_orientation(int carousel, int orientation) {
+        MethodHandle $h = Rcarousel_set_orientation$;
+        if ($h == null) Rcarousel_set_orientation$ = $h = find("Rcarousel_set_orientation", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(carousel, orientation);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_get_orientation$;
+
+    public static int Rcarousel_get_orientation(int carousel) {
+        MethodHandle $h = Rcarousel_get_orientation$;
+        if ($h == null) Rcarousel_get_orientation$ = $h = find("Rcarousel_get_orientation", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(carousel);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcarousel_set_page_changed_callback$;
+
+    public static void Rcarousel_set_page_changed_callback(int carousel, RCarouselPageChangedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rcarousel_set_page_changed_callback$;
+        if ($h == null) Rcarousel_set_page_changed_callback$ = $h = find("Rcarousel_set_page_changed_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(carousel, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rcarousel_set_page_changed_callback(int carousel, RCarouselPageChangedCallback callback) {
+        Rcarousel_set_page_changed_callback(carousel, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rpdf_view_print$;

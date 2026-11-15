@@ -668,6 +668,7 @@ const (
 	R_WIDGET_PAGINATION      RWidgetType = 0x0231
 	R_WIDGET_PLOT            RWidgetType = 0x0232
 	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
+	R_WIDGET_CAROUSEL        RWidgetType = 0x0234
 )
 
 type RHAlign int32
@@ -4455,6 +4456,85 @@ func PdfViewGetPageText(view ID, page int) string {
 	return C.GoString(C.Rpdf_view_get_page_text(C.Rid(view), C.int(page)))
 }
 
+func CarouselCreate() ID {
+	return ID(C.Rcarousel_create())
+}
+
+// CarouselSetPage: Shows a page, gliding to it when `animated` (and the animations are on), at once
+// otherwise. The page changed callback is not called.
+func CarouselSetPage(carousel ID, page int, animated int) {
+	C.Rcarousel_set_page(C.Rid(carousel), C.int(page), C.int(animated))
+}
+
+// CarouselGetPage: The page shown, -1 when the carousel has none.
+func CarouselGetPage(carousel ID) int {
+	return int(C.Rcarousel_get_page(C.Rid(carousel)))
+}
+
+// CarouselGetPageCount: Its children.
+func CarouselGetPageCount(carousel ID) int {
+	return int(C.Rcarousel_get_page_count(C.Rid(carousel)))
+}
+
+// CarouselNext: Glides to the next / previous page; nothing at the last / first one unless it loops.
+func CarouselNext(carousel ID) {
+	C.Rcarousel_next(C.Rid(carousel))
+}
+
+func CarouselPrev(carousel ID) {
+	C.Rcarousel_prev(C.Rid(carousel))
+}
+
+// CarouselSetLoop: R_TRUE: after the last page comes the first one, and before the first the last (default
+// R_FALSE).
+func CarouselSetLoop(carousel ID, loop int) {
+	C.Rcarousel_set_loop(C.Rid(carousel), C.int(loop))
+}
+
+func CarouselGetLoop(carousel ID) int {
+	return int(C.Rcarousel_get_loop(C.Rid(carousel)))
+}
+
+// CarouselSetAutoplay: Goes to the next page by itself every `seconds` (0: never, the default); after the
+// last page it comes back to the first. It waits while the pointer is on the carousel, while the pages are
+// dragged and while the keyboard is in it; a page chosen by the user starts the interval again.
+func CarouselSetAutoplay(carousel ID, seconds float64) {
+	C.Rcarousel_set_autoplay(C.Rid(carousel), C.double(seconds))
+}
+
+func CarouselGetAutoplay(carousel ID) float64 {
+	return float64(C.Rcarousel_get_autoplay(C.Rid(carousel)))
+}
+
+// CarouselSetIndicatorsVisible: The dots along the bottom edge (the right edge when vertical), one per page
+// (default R_TRUE).
+func CarouselSetIndicatorsVisible(carousel ID, visible int) {
+	C.Rcarousel_set_indicators_visible(C.Rid(carousel), C.int(visible))
+}
+
+func CarouselGetIndicatorsVisible(carousel ID) int {
+	return int(C.Rcarousel_get_indicators_visible(C.Rid(carousel)))
+}
+
+// CarouselSetArrowsVisible: The previous / next buttons shown while the pointer is on the carousel (default
+// R_TRUE).
+func CarouselSetArrowsVisible(carousel ID, visible int) {
+	C.Rcarousel_set_arrows_visible(C.Rid(carousel), C.int(visible))
+}
+
+func CarouselGetArrowsVisible(carousel ID) int {
+	return int(C.Rcarousel_get_arrows_visible(C.Rid(carousel)))
+}
+
+// CarouselSetOrientation: R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+func CarouselSetOrientation(carousel ID, orientation ROrientation) {
+	C.Rcarousel_set_orientation(C.Rid(carousel), C.ROrientation(orientation))
+}
+
+func CarouselGetOrientation(carousel ID) ROrientation {
+	return ROrientation(C.Rcarousel_get_orientation(C.Rid(carousel)))
+}
+
 func PdfDocumentCreate() ID {
 	return ID(C.Rpdf_document_create())
 }
@@ -7196,22 +7276,22 @@ func HostInjectClose(window ID) {
 // Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
 // Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
 // Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
-// Rplot_set_series_toggled_callback, Rpdf_view_set_page_changed_callback, Rpdf_view_print
-// Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
-// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
-// Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon
-// Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
-// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
-// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
-// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
-// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
-// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
-// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
-// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
-// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
-// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rplot_set_series_toggled_callback, Rpdf_view_set_page_changed_callback
+// Rcarousel_set_page_changed_callback, Rpdf_view_print, Rpdf_document_draw_image, Rpdf_document_save_memory
+// Rpdf_print, Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register
+// Rlanguage_get, Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback
+// Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
+// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
+// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
+// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
+// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
+// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
+// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
+// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

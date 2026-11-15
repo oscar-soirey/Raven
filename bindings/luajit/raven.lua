@@ -463,6 +463,7 @@ typedef enum RWidgetType {
 	R_WIDGET_PAGINATION = 561,
 	R_WIDGET_PLOT = 562,
 	R_WIDGET_PDF_VIEW = 563,
+	R_WIDGET_CAROUSEL = 564,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -885,6 +886,7 @@ typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
 typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
 typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
 typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
@@ -1857,6 +1859,23 @@ RPdfFit Rpdf_view_get_fit(Rid view);
 const char* Rpdf_view_get_title(Rid view);
 const char* Rpdf_view_get_page_text(Rid view, int page);
 void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+Rid Rcarousel_create(void);
+void Rcarousel_set_page(Rid carousel, int page, int animated);
+int Rcarousel_get_page(Rid carousel);
+int Rcarousel_get_page_count(Rid carousel);
+void Rcarousel_next(Rid carousel);
+void Rcarousel_prev(Rid carousel);
+void Rcarousel_set_loop(Rid carousel, int loop);
+int Rcarousel_get_loop(Rid carousel);
+void Rcarousel_set_autoplay(Rid carousel, double seconds);
+double Rcarousel_get_autoplay(Rid carousel);
+void Rcarousel_set_indicators_visible(Rid carousel, int visible);
+int Rcarousel_get_indicators_visible(Rid carousel);
+void Rcarousel_set_arrows_visible(Rid carousel, int visible);
+int Rcarousel_get_arrows_visible(Rid carousel);
+void Rcarousel_set_orientation(Rid carousel, ROrientation orientation);
+ROrientation Rcarousel_get_orientation(Rid carousel);
+void Rcarousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data);
 int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
 Rid Rpdf_document_create(void);
 void Rpdf_document_delete(Rid document);
