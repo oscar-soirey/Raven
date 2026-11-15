@@ -1677,13 +1677,15 @@ static int rvn_cocoa_notify(const char* app, const char* title, const char* body
         /* (blocks copied by the center retain what they use) */
         [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
                               completionHandler:^(BOOL granted, NSError* error) {
-            (void)error;
             __atomic_store_n(&g_rvn_notify_allowed, granted ? 1 : -1, __ATOMIC_RELEASE);
             if (granted) {
                 [center addNotificationRequest:request withCompletionHandler:nil];
             } else {
+                /* (an error rather than a no of the user: the bundle is not allowed notifications, for one) */
+                NSString* reason = error ? [error localizedDescription] : nil;
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    rvn_notification_fallback([fallback_title UTF8String], [fallback_body UTF8String], fallback_urgency);
+                    rvn_notification_fallback([fallback_title UTF8String], [fallback_body UTF8String], fallback_urgency,
+                        reason ? [reason UTF8String] : NULL);
                 });
             }
         }];
