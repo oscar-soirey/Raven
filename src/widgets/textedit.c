@@ -38,9 +38,11 @@ static void rvn_te_delete(rvn_textedit_t* edit, int from, int to) {
 	edit->caret = edit->anchor = from;
 }
 
-/* Inserts at the caret, replacing the selection. Returns R_TRUE when something was inserted. */
+/* Inserts at the caret, replacing the selection. Returns R_TRUE when the text changed: something was
+ * inserted, or the selection was deleted even if nothing then fit in its place. */
 static int rvn_te_insert(rvn_textedit_t* edit, const char* text, int length) {
-	if (rvn_te_has_selection(edit)) rvn_te_delete(edit, rvn_te_min(edit), rvn_te_max(edit));
+	int deleted = rvn_te_has_selection(edit);
+	if (deleted) rvn_te_delete(edit, rvn_te_min(edit), rvn_te_max(edit));
 	if (edit->max_chars > 0) {
 		/* cut the insertion at a character boundary */
 		int room = edit->max_chars - rvn_utf8_count(edit->text, edit->length);
@@ -51,7 +53,7 @@ static int rvn_te_insert(rvn_textedit_t* edit, const char* text, int length) {
 		}
 		length = fit;
 	}
-	if (length <= 0) return R_FALSE;
+	if (length <= 0) return deleted;
 	if (edit->length + length + 1 > edit->cap) {
 		while (edit->length + length + 1 > edit->cap) edit->cap *= 2;
 		edit->text = (char*)rvn_realloc(edit->text, (size_t)edit->cap);
@@ -78,6 +80,34 @@ int rvn_textedit_set_text(rvn_textedit_t* edit, const char* text) {
 	edit->caret = edit->anchor = length;
 	edit->scroll = 0.0f;
 	return R_TRUE;
+}
+
+/* Moves an offset back to the start of its UTF-8 character, inside the text. */
+static int rvn_te_boundary(const rvn_textedit_t* edit, int offset) {
+	offset = rvn_clampi(offset, 0, edit->length);
+	while (offset > 0 && offset < edit->length && ((unsigned char)edit->text[offset] & 0xC0) == 0x80) offset--;
+	return offset;
+}
+
+void rvn_textedit_set_selection(rvn_textedit_t* edit, int start, int end) {
+	edit->anchor = rvn_te_boundary(edit, start);
+	edit->caret = rvn_te_boundary(edit, end);
+	edit->blink_start = rvn_clock_seconds();
+}
+
+int rvn_textedit_replace(rvn_textedit_t* edit, int start, int end, const char* text) {
+	int from, to, length = text ? (int)strlen(text) : 0;
+	from = rvn_te_boundary(edit, rvn_mini(start, end));
+	to = rvn_te_boundary(edit, rvn_maxi(start, end));
+	edit->anchor = from;
+	edit->caret = to;
+	edit->blink_start = rvn_clock_seconds();
+	if (length == 0) {
+		if (to <= from) return R_FALSE;
+		rvn_te_delete(edit, from, to);
+		return R_TRUE;
+	}
+	return rvn_te_insert(edit, text, length);
 }
 
 void rvn_textedit_select_all(rvn_textedit_t* edit) {

@@ -522,6 +522,14 @@ static int rvn_x11_window_set_opacity(rvn_pwindow_t* window, float opacity) {
 	return R_TRUE;
 }
 
+/* An owned window is a transient of its owner: the window manager keeps it above it and out of the task list. */
+static int rvn_x11_window_set_owner(rvn_pwindow_t* window, rvn_pwindow_t* owner) {
+	if (owner) XSetTransientForHint(g_x11.display, window->handle, owner->handle);
+	else XDeleteProperty(g_x11.display, window->handle, XA_WM_TRANSIENT_FOR);
+	XFlush(g_x11.display);
+	return R_TRUE;
+}
+
 static int rvn_x11_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 	XEvent event;
 	memset(&event, 0, sizeof(event));
@@ -1840,6 +1848,7 @@ const rvn_platform_t* rvn_platform_x11(void) {
 		.window_set_backdrop = rvn_x11_window_set_backdrop,
 		.window_set_opacity = rvn_x11_window_set_opacity,
 		.window_set_topmost = rvn_x11_window_set_topmost,
+		.window_set_owner = rvn_x11_window_set_owner,
 		.window_set_picture_in_picture = rvn_x11_window_set_picture_in_picture,
 		.window_center = rvn_x11_window_center,
 		.window_set_cursor = rvn_x11_window_set_cursor,

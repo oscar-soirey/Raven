@@ -40,6 +40,7 @@ struct rvn_xml_node_t;
 #define RVN_WF_INTERNAL      (1u << 11) /* owned by another widget without being its child */
 #define RVN_WF_WINDOW_DRAG   (1u << 12) /* part of the title bar of a window with a custom header */
 #define RVN_WF_NO_TAB        (1u << 13) /* focusable with a click, but Tab passes it by (a selectable label) */
+#define RVN_WF_FLOAT_LAYER   (1u << 14) /* logical child painted/hit-tested by its window above the content */
 #define RVN_WF_LAYOUT_DIRTY  (RVN_WF_MEASURE_DIRTY | RVN_WF_ARRANGE_DIRTY)
 
 /* class traits (rvn_widget_class_t::flags) */
@@ -609,6 +610,8 @@ void  rvn_theme_clear(rvn_theme_t* theme);
 void  rvn_theme_copy(rvn_theme_t* destination, const rvn_theme_t* source);
 /** Something a widget may read from a theme changed: every widget is styled, measured and painted again. */
 void  rvn_theme_changed(void);
+/** Rtheme_follow_system is on: applies the dark or light look of the system. */
+void  rvn_theme_follow_system_apply(void);
 /** Empties the caches of the styles after a rule or the classes of a widget changed. */
 void  rvn_styles_changed(void);
 /** The accent color and what follows from it. */
@@ -709,6 +712,8 @@ typedef struct rvn_popup_t {
 	void* closed_user;
 	/** Dialogs: the widget that had the keyboard before, which gets it back. */
 	Rid focus_back;
+	/** Being closed with the popups above it (one that a closed callback opens meanwhile stays open). */
+	int closing;
 } rvn_popup_t;
 
 /**
@@ -767,6 +772,8 @@ struct rvn_window_t {
 	int surface_ready;
 	/** RWindowFlags given at creation. */
 	uint32_t window_flags;
+	/** The window that owns this one (Rwindow_set_owner), or R_INVALID_ID. */
+	Rid owner;
 	rvn_pwindow_state_t state;
 	/** R_TRUE while the window is the one the user works in. */
 	int active;
@@ -776,6 +783,12 @@ struct rvn_window_t {
 	uint32_t a11y_generation;
 
 	int needs_layout;
+	/** The safe area from window_get_safe_area, in logical units: top, right, bottom, left. */
+	float safe_area[4];
+	/** The height of the on-screen keyboard over the bottom of the window, in logical units (0: hidden). */
+	float keyboard_height;
+	RKeyboardCallback keyboard_callback;
+	void* keyboard_user;
 	int needs_paint;
 	int continuous;
 	/** Set from any thread by Rwindow_request_redraw. */
@@ -841,6 +854,8 @@ struct rvn_window_t {
 	int drop_accepted;
 	/** Highlight of the target: where it is and how much of it shows. */
 	rvn_rect_t drop_rect;
+	int drop_custom;
+	rvn_rect_t drop_custom_rect;
 	float drop_radius;
 	RSpring drop_shown;
 
@@ -849,6 +864,8 @@ struct rvn_window_t {
 	uint32_t popup_count;
 	uint32_t popup_cap;
 	rvn_ghost_t* ghosts;
+	Rid* float_layers;
+	uint32_t float_layer_count, float_layer_cap;
 	uint32_t ghost_count;
 	uint32_t ghost_cap;
 	/** The subtree that is leaving the window right now (rvn_window_forget_widget), or NULL. */
@@ -953,6 +970,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget);
 void rvn_window_destroy(rvn_window_t* window);
 void rvn_windows_destroy_all(void);
 void rvn_windows_collect(void);
+void rvn_window_set_float_layer(rvn_window_t* window, rvn_widget_t* widget, int enabled);
+void rvn_dock_float_arrange(rvn_widget_t* widget);
 /** Logical size of the client area. */
 rvn_vec2_t rvn_window_size(const rvn_window_t* window);
 
@@ -1049,9 +1068,12 @@ int  rvn_window_close_dialog(rvn_widget_t* inside, int result);
 /** Root of the dialog on top of the others, or NULL. */
 rvn_widget_t* rvn_window_top_dialog(const rvn_window_t* window);
 int  rvn_window_popup_index(const rvn_window_t* window, const rvn_widget_t* root);
+/** A popup or dialog that was closed and is still drawn on its way out (its ghost). */
+int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root);
 
 /** Triggers a menu item (shortcuts). Implemented in widgets/menu.c. */
 void rvn_menu_item_trigger(rvn_widget_t* item);
+int rvn_menu_item_is_header(const rvn_widget_t* item);
 /** Destroys the native child windows of the viewports inside a subtree leaving the window. */
 void rvn_window_release_natives(rvn_window_t* window, rvn_widget_t* subtree);
 /** Native viewports (widgets/viewport.c): release the child window / apply its state after a paint. */

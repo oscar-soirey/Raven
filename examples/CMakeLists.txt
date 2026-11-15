@@ -26,7 +26,7 @@ function(raven_add_example name)
 	target_link_libraries(raven_${name} PRIVATE raven::raven)
 	set_target_properties(raven_${name} PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "examples")
 	# where the example finds its data files when started from any folder
-	if(IOS OR (EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "web"))
+	if(RAVEN_PLATFORM_SELECTED STREQUAL "uikit_sokol" OR (EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "web"))
 		# the system owns the loop: the examples start it with Rrun (examples/common/example.h)
 		target_compile_definitions(raven_${name} PRIVATE RAVEN_EXAMPLE_SYSTEM_LOOP)
 	endif()
@@ -76,7 +76,7 @@ function(raven_add_example name)
 endfunction()
 
 raven_add_example(hello hello/main.c)
-if(IOS OR (EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "web"))
+if(RAVEN_PLATFORM_SELECTED STREQUAL "uikit_sokol" OR (EMSCRIPTEN AND RAVEN_PLATFORM_SELECTED STREQUAL "web"))
 	# The other examples read files from disk and use native windows: the web build starts with the ones that need
 	# only their XML, which is put in the virtual file system of the page under the path the program asks for.
 	raven_add_example(glass glass/main.c glass/glass.xml)
@@ -106,6 +106,7 @@ raven_add_example(themes themes/main.c themes/themes.xml themes/ocean.xml themes
 raven_add_example(overlay overlay/main.c overlay/overlay.xml)
 raven_add_example(effects effects/main.c effects/effects.xml effects/wave.frag effects/liquid.frag)
 raven_add_example(plot plot/main.c plot/plot.xml)
+raven_add_example(pdf pdf/main.c pdf/pdf.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml

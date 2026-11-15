@@ -49,9 +49,11 @@ typedef struct rvn_texture_t {
 	 * An SVG drawn at the size it is shown (no scale asked for): the most
 	 * pixels per logical unit it was painted with during the last frame, and
 	 * R_TRUE while it is being drawn again at a new scale on a worker.
+	 * (svg_wanted holds the bits of a float that is never negative: paint
+	 * jobs on several threads raise it at once, and those bits order like it.)
 	 */
 	int svg_auto;
-	float svg_wanted;
+	rvn_atomic_t svg_wanted;
 	int svg_pending;
 } rvn_texture_t;
 

@@ -849,6 +849,50 @@ static void test_window_focus(void) {
 	CHECK(!Rwindow_is_valid(window));
 }
 
+/* Owned windows: kept with their owner, destroyed with it (before it), no cycles. */
+static void test_window_owner(void) {
+	Rid main_window = Rwindow_create("main", 640, 360, R_WINDOW_DEFAULT);
+	Rid tool = Rwindow_create("tool", 320, 240, R_WINDOW_HIDDEN);
+	Rid nested = Rwindow_create("nested", 200, 120, R_WINDOW_HIDDEN);
+	Rid other = Rwindow_create("other", 200, 120, R_WINDOW_DEFAULT);
+	Rid content = Rwidget_create(R_WIDGET_LABEL);
+	CHECK(Rwindow_get_owner(tool) == R_INVALID_ID);
+	/* (the null window system keeps no owner: R_FALSE, but the owner is kept by Raven) */
+	Rwindow_set_owner(tool, main_window);
+	CHECK(Rwindow_get_owner(tool) == main_window);
+	Rwindow_set_owner(nested, tool);
+	CHECK(Rwindow_get_owner(nested) == tool);
+	Rwindow_set_content(tool, content);
+	/* no window owns itself, directly or not; nothing changes then */
+	EXPECT_ERRORS_BEGIN();
+	CHECK(!Rwindow_set_owner(main_window, nested));
+	CHECK(!Rwindow_set_owner(tool, tool));
+	CHECK(!Rwindow_set_owner(tool, R_INVALID_ID + 12345));
+	EXPECT_ERRORS_END(3);
+	CHECK(Rwindow_get_owner(main_window) == R_INVALID_ID);
+	CHECK(Rwindow_get_owner(tool) == main_window);
+	/* shown and hidden on its own */
+	Rwindow_show(tool);
+	Rdraw_frame();
+	Rwindow_hide(tool);
+	Rdraw_frame();
+	CHECK(Rwindow_is_valid(tool));
+	/* given back its independence, then owned again */
+	Rwindow_set_owner(other, main_window);
+	Rwindow_set_owner(other, R_INVALID_ID);
+	CHECK(Rwindow_get_owner(other) == R_INVALID_ID);
+	/* the owner goes: the windows it owns (and theirs) go first, with their content */
+	Rwindow_destroy(main_window);
+	CHECK(!Rwindow_is_valid(main_window));
+	CHECK(!Rwindow_is_valid(tool));
+	CHECK(!Rwindow_is_valid(nested));
+	CHECK(!Rwidget_is_valid(content));
+	CHECK(Rwindow_is_valid(other));
+	Rdraw_frame();
+	CHECK(Ris_running());
+	Rwindow_destroy(other);
+}
+
 static void test_picture_in_picture(void) {
 	static const char xml[] =
 		"<VBox Name=\"root\">"
@@ -1015,6 +1059,7 @@ int main(void) {
 	RUN(test_picture_in_picture);
 	RUN(test_splash_screen);
 	RUN(test_window_focus);
+	RUN(test_window_owner);
 	RUN(test_inspector);
 	RUN(test_taskbar);
 	RUN(test_tray);

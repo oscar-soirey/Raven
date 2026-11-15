@@ -227,6 +227,11 @@ void rvn_widgets_collect(void) {
 
 void rvn_widget_set_window(rvn_widget_t* widget, rvn_window_t* window) {
 	uint32_t i;
+	/* in another window, the styles are those of another theme: they are looked for again (as rvn_window_restyle_tree does) */
+	if (widget->window != window) {
+		widget->style_generation = 0;
+		widget->flags |= RVN_WF_LAYOUT_DIRTY;
+	}
 	widget->window = window;
 	for (i = 0; i < widget->child_count; i++) rvn_widget_set_window(widget->children[i], window);
 }
@@ -649,7 +654,12 @@ void Rwidget_set_enabled(Rid id, int enabled) {
 	} else {
 		widget->flags |= RVN_WF_DISABLED;
 		if (widget->window && widget->window->focus && rvn_widget_is_inside(widget->window->focus, widget)) {
+			/* (FOCUS_LOST may delete the widget: it is freed when this returns) */
+			rvn_dispatch_begin();
 			rvn_window_set_focus(widget->window, NULL);
+			if (!(widget->flags & RVN_WF_DEAD)) rvn_widget_invalidate_paint(widget);
+			rvn_dispatch_end();
+			return;
 		}
 	}
 	rvn_widget_invalidate_paint(widget);

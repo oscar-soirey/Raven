@@ -14,10 +14,14 @@ typedef struct rvn_text_input_t {
 	void* changed_user;
 	RTextChangedCallback committed;
 	void* committed_user;
+	RTextInputType input_type;
+	RReturnKey return_key;
 } rvn_text_input_t;
 
 static void rvn_text_input_init(rvn_widget_t* widget) {
 	rvn_textedit_init(&((rvn_text_input_t*)widget)->edit);
+	((rvn_text_input_t*)widget)->input_type = R_TEXT_INPUT_TYPE_TEXT;
+	((rvn_text_input_t*)widget)->return_key = R_RETURN_KEY_DEFAULT;
 	widget->cursor = R_CURSOR_IBEAM;
 }
 
@@ -162,6 +166,31 @@ static int rvn_text_input_event(rvn_widget_t* widget, const REvent* event) {
 	}
 }
 
+static int rvn_parse_text_input_type(const char* value, RTextInputType* type) {
+	static const struct { const char* name; RTextInputType type; } names[] = {
+		{ "Text", R_TEXT_INPUT_TYPE_TEXT }, { "Email", R_TEXT_INPUT_TYPE_EMAIL }, { "Number", R_TEXT_INPUT_TYPE_NUMBER },
+		{ "Decimal", R_TEXT_INPUT_TYPE_DECIMAL }, { "Phone", R_TEXT_INPUT_TYPE_PHONE }, { "Url", R_TEXT_INPUT_TYPE_URL },
+		{ "Search", R_TEXT_INPUT_TYPE_SEARCH }
+	};
+	size_t i;
+	for (i = 0; i < RVN_COUNT_OF(names); i++) {
+		if (rvn_stricmp(value, names[i].name) == 0) { *type = names[i].type; return R_TRUE; }
+	}
+	return R_FALSE;
+}
+
+static int rvn_parse_return_key(const char* value, RReturnKey* key) {
+	static const struct { const char* name; RReturnKey key; } names[] = {
+		{ "Default", R_RETURN_KEY_DEFAULT }, { "Done", R_RETURN_KEY_DONE }, { "Go", R_RETURN_KEY_GO },
+		{ "Next", R_RETURN_KEY_NEXT }, { "Search", R_RETURN_KEY_SEARCH }, { "Send", R_RETURN_KEY_SEND }
+	};
+	size_t i;
+	for (i = 0; i < RVN_COUNT_OF(names); i++) {
+		if (rvn_stricmp(value, names[i].name) == 0) { *key = names[i].key; return R_TRUE; }
+	}
+	return R_FALSE;
+}
+
 static int rvn_text_input_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
 	rvn_text_input_t* input = (rvn_text_input_t*)widget;
 	if (RVN_ATTR("Text")) {
@@ -172,6 +201,10 @@ static int rvn_text_input_set_attribute(rvn_widget_t* widget, const char* name, 
 		if (!rvn_parse_bool(value, &input->edit.password)) return R_FALSE;
 	} else if (RVN_ATTR("ReadOnly")) {
 		if (!rvn_parse_bool(value, &input->edit.read_only)) return R_FALSE;
+	} else if (RVN_ATTR("InputType")) {
+		if (!rvn_parse_text_input_type(value, &input->input_type)) return R_FALSE;
+	} else if (RVN_ATTR("ReturnKey")) {
+		if (!rvn_parse_return_key(value, &input->return_key)) return R_FALSE;
 	} else if (RVN_ATTR("MaxLength")) {
 		if (!rvn_parse_int(value, &input->edit.max_chars)) return R_FALSE;
 	} else {
@@ -252,4 +285,91 @@ void Rtext_input_set_committed_callback(Rid id, RTextChangedCallback callback, v
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_INPUT);
 	((rvn_text_input_t*)widget)->committed = callback;
 	((rvn_text_input_t*)widget)->committed_user = user_data;
+}
+
+void Rtext_input_set_input_type(Rid id, RTextInputType type) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_INPUT);
+	if (type < R_TEXT_INPUT_TYPE_TEXT || type > R_TEXT_INPUT_TYPE_SEARCH) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rtext_input_set_input_type: invalid type");
+		return;
+	}
+	((rvn_text_input_t*)widget)->input_type = type;
+}
+
+RTextInputType Rtext_input_get_input_type(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_TEXT_INPUT, R_TEXT_INPUT_TYPE_TEXT);
+	return ((rvn_text_input_t*)widget)->input_type;
+}
+
+void Rtext_input_set_return_key(Rid id, RReturnKey key) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TEXT_INPUT);
+	if (key < R_RETURN_KEY_DEFAULT || key > R_RETURN_KEY_SEND) {
+		rvn_error(R_ERROR_INVALID_ENUM, R_SEVERITY_ERROR, "Rtext_input_set_return_key: invalid key");
+		return;
+	}
+	((rvn_text_input_t*)widget)->return_key = key;
+}
+
+RReturnKey Rtext_input_get_return_key(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_TEXT_INPUT, R_RETURN_KEY_DEFAULT);
+	return ((rvn_text_input_t*)widget)->return_key;
+}
+
+/* ---------------------------------------------------------------------------
+ *  The focused text input, for the text services of the system
+ * ------------------------------------------------------------------------- */
+
+static rvn_text_input_t* rvn_text_input_focused(Rid window_id, const char* function) {
+	rvn_window_t* window = rvn_window_check(window_id, function);
+	rvn_widget_t* focus;
+	if (!window) return NULL;
+	focus = window->focus;
+	if (!focus || (focus->flags & RVN_WF_DEAD) || focus->cls->type != R_WIDGET_TEXT_INPUT) return NULL;
+	return (rvn_text_input_t*)focus;
+}
+
+int Rwindow_get_text_input_info(Rid window, RTextInputInfo* info) {
+	rvn_text_input_t* input;
+	if (info) memset(info, 0, sizeof(*info));
+	input = rvn_text_input_focused(window, __func__);
+	if (!input) return R_FALSE;
+	if (info) {
+		info->type = input->input_type;
+		info->return_key = input->return_key;
+		info->password = input->edit.password != 0;
+		info->read_only = input->edit.read_only != 0;
+		info->max_length = input->edit.max_chars;
+	}
+	return R_TRUE;
+}
+
+const char* Rwindow_get_text_input_text(Rid window) {
+	rvn_text_input_t* input = rvn_text_input_focused(window, __func__);
+	return input ? input->edit.text : NULL;
+}
+
+int Rwindow_get_text_input_selection(Rid window, int* start, int* end) {
+	rvn_text_input_t* input = rvn_text_input_focused(window, __func__);
+	if (start) *start = 0;
+	if (end) *end = 0;
+	if (!input) return R_FALSE;
+	if (start) *start = rvn_mini(input->edit.anchor, input->edit.caret);
+	if (end) *end = rvn_maxi(input->edit.anchor, input->edit.caret);
+	return R_TRUE;
+}
+
+int Rwindow_set_text_input_selection(Rid window, int start, int end) {
+	rvn_text_input_t* input = rvn_text_input_focused(window, __func__);
+	if (!input) return R_FALSE;
+	rvn_textedit_set_selection(&input->edit, start, end);
+	rvn_widget_invalidate_paint(&input->base);
+	return R_TRUE;
+}
+
+int Rwindow_replace_text_input(Rid window, int start, int end, const char* text) {
+	rvn_text_input_t* input = rvn_text_input_focused(window, __func__);
+	if (!input || input->edit.read_only) return R_FALSE;
+	rvn_widget_invalidate_paint(&input->base);
+	if (rvn_textedit_replace(&input->edit, start, end, text)) rvn_text_input_notify(&input->base, RVN_TEXTEDIT_CHANGED);
+	return R_TRUE;
 }

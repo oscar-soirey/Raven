@@ -1,0 +1,6 @@
+# downloaded and generated: see README.md
+ios/MoltenVK/
+shared/gen/
+android/*.apk
+android/*.idsig
+android/debug.keystore

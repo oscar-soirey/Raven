@@ -2,7 +2,8 @@
 #
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
-#   test_locale, test_fonts, test_touch, test_more_widgets, test_deep_trees
+#   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
+#   test_deep_trees
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -36,21 +37,42 @@ endfunction()
 
 raven_add_test(test_layout)
 raven_add_test(test_widgets)
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_menu_decorations)
+endif()
 raven_add_test(test_xml)
 raven_add_test(test_threads)
 raven_add_test(test_memory)
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_handles)
+endif()
 raven_add_test(test_animation)
 raven_add_test(test_text_editor)
 raven_add_test(test_shell)
 raven_add_test(test_dock_tearing)
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_dock_in_window)
+endif()
 raven_add_test(test_editor_features)
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_drop_highlight)
+endif()
 raven_add_test(test_dialogs)
 raven_add_test(test_themes)
 raven_add_test(test_markdown)
 raven_add_test(test_tools)
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_draw_shadow)
+	raven_add_test(test_effect_hover)
+	target_compile_definitions(test_effect_hover PRIVATE "RAVEN_TEST_LIQUID=\"${PROJECT_SOURCE_DIR}/examples/effects/liquid.spv\"")
+endif()
 raven_add_test(test_locale)
 raven_add_test(test_run)
 raven_add_test(test_single_window)
+if(NOT RAVEN_BUILD_SHARED)
+	# Tests the shared screen-reader tree/actions used by all native platforms.
+	raven_add_test(test_accessibility)
+endif()
 raven_add_test(test_host_platform)
 if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	# Real AppKit key events through RavenCocoaView, with the null renderer (no Vulkan).
@@ -58,11 +80,23 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	target_link_libraries(test_cocoa_input PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
 	add_test(NAME test_cocoa_input COMMAND test_cocoa_input)
 endif()
+if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
+	# Real GDI redirection surface behind DWM backdrops; no Vulkan driver required.
+	raven_add_test(test_win32_backdrop)
+	target_link_libraries(test_win32_backdrop PRIVATE user32 gdi32)
+	set_tests_properties(test_win32_backdrop PROPERTIES SKIP_RETURN_CODE 77)
+endif()
 raven_add_test(test_touch)
 raven_add_test(test_rfx)
 target_compile_definitions(test_rfx PRIVATE "RAVEN_TEST_DATA=\"${CMAKE_CURRENT_SOURCE_DIR}/data\"")
 raven_add_test(test_touch_focus)
 raven_add_test(test_more_widgets)
+raven_add_test(test_pdf)
+# without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
+set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
+# PDF documents written by Raven (read back by PdfView when PDFium is there) and printing to a file
+raven_add_test(test_pdf_document)
+target_compile_definitions(test_pdf_document PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
 if(NOT RAVEN_WITH_SVG)
 	target_compile_definitions(test_more_widgets PRIVATE RAVEN_TEST_NO_SVG)
 endif()

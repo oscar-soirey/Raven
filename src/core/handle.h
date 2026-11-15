@@ -6,6 +6,7 @@
  *
  * The type tag makes a font handle invalid where a widget is expected, the
  * generation makes a deleted handle invalid even after its slot is reused.
+ * A slot is permanently retired when its generation wraps, rather than reused.
  * Type 0 and type 15 are never used, so 0 and R_INVALID_ID never resolve.
  */
 
@@ -28,7 +29,9 @@ typedef enum rvn_handle_type_t {
 	/** A fragment shader of the application or a built-in effect (raven_shader.h). */
 	RVN_HANDLE_SHADER,
 	/** An icon beside the clock (raven_shell.h, platform/tray.c). */
-	RVN_HANDLE_TRAY
+	RVN_HANDLE_TRAY,
+	/** A PDF document written by the application (widgets/pdf_document.c). */
+	RVN_HANDLE_PDF_DOCUMENT
 } rvn_handle_type_t;
 
 #define RVN_HANDLE_INDEX_BITS 20u

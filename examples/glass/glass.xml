@@ -65,7 +65,7 @@
 				<Separator/>
 				<HBox>
 					<Label Slot.Fill="1" Slot.VAlign="Center">Dark glass</Label>
-					<Checkbox Name="dark" Style="Switch" Checked="true" OnChanged="theme.toggle"/>
+					<Checkbox Name="dark" Style="Switch" Checked="true" OnChanged="glass.toggle"/>
 				</HBox>
 				<HBox>
 					<Label Slot.Fill="1" Slot.VAlign="Center">Crossfade</Label>

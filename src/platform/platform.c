@@ -41,6 +41,10 @@ const rvn_platform_t* rvn_platform_select(int headless) {
 	return rvn_platform_web();
 #elif defined(RAVEN_PLATFORM_UIKIT)
 	return rvn_platform_uikit();
+#elif defined(RAVEN_PLATFORM_UIKIT_SOKOL)
+	return rvn_platform_uikit_sokol();
+#elif defined(RAVEN_PLATFORM_ANDROID)
+	return rvn_platform_android();
 #else
 	/* no window system for this OS yet: the library still works headless */
 	return rvn_platform_null();

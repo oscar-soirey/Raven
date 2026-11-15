@@ -146,8 +146,15 @@ static void rvn_border_paint(rvn_widget_t* widget, RPainter* painter) {
 			if (look.pointer) {
 				float px = 0.0f, py = 0.0f;
 				uint32_t buttons = 0;
-				int over = (widget->flags & RVN_WF_HOVERED) != 0;
-				int down = over && painter->window && rvn_window_pointer(painter->window, &px, &py, &buttons) && (buttons & (1u << R_MOUSE_LEFT));
+				rvn_box_t box = rvn_box_intersect(rvn_paint_snap(painter, rect), painter->clip);
+				/* Effects follow the visible rectangle, like Rdraw_shader. An overlaid
+				 * sibling becoming the hit target must not pulse the effect beneath it. */
+				int over = painter->window && rvn_window_pointer(painter->window, &px, &py, &buttons);
+				int down;
+				px *= painter->scale;
+				py *= painter->scale;
+				over = over && px >= box.x0 && py >= box.y0 && px < box.x1 && py < box.y1;
+				down = over && (buttons & (1u << R_MOUSE_LEFT));
 				if (look.hover < 0.0f) look.hover = rvn_widget_hover(widget, painter, over);
 				if (look.press < 0.0f) look.press = rvn_widget_press(widget, painter, down);
 			}

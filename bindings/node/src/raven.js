@@ -217,10 +217,32 @@ export const RWindowSystem = _enum({
 	R_WINDOW_SYSTEM_WAYLAND: 147,
 	R_WINDOW_SYSTEM_COCOA: 148,
 	R_WINDOW_SYSTEM_EMSCRIPTEN: 149,
-	R_WINDOW_SYSTEM_WEB: 150,
+	R_WINDOW_SYSTEM_ANDROID: 150,
 	R_WINDOW_SYSTEM_UIKIT: 151,
+	R_WINDOW_SYSTEM_WEB: 152,
 });
-export const { R_WINDOW_SYSTEM_NONE, R_WINDOW_SYSTEM_WIN32, R_WINDOW_SYSTEM_X11, R_WINDOW_SYSTEM_WAYLAND, R_WINDOW_SYSTEM_COCOA, R_WINDOW_SYSTEM_EMSCRIPTEN, R_WINDOW_SYSTEM_WEB, R_WINDOW_SYSTEM_UIKIT } = RWindowSystem;
+export const { R_WINDOW_SYSTEM_NONE, R_WINDOW_SYSTEM_WIN32, R_WINDOW_SYSTEM_X11, R_WINDOW_SYSTEM_WAYLAND, R_WINDOW_SYSTEM_COCOA, R_WINDOW_SYSTEM_EMSCRIPTEN, R_WINDOW_SYSTEM_ANDROID, R_WINDOW_SYSTEM_UIKIT, R_WINDOW_SYSTEM_WEB } = RWindowSystem;
+
+export const RTextInputType = _enum({
+	R_TEXT_INPUT_TYPE_TEXT: 2912,
+	R_TEXT_INPUT_TYPE_EMAIL: 2913,
+	R_TEXT_INPUT_TYPE_NUMBER: 2914,
+	R_TEXT_INPUT_TYPE_DECIMAL: 2915,
+	R_TEXT_INPUT_TYPE_PHONE: 2916,
+	R_TEXT_INPUT_TYPE_URL: 2917,
+	R_TEXT_INPUT_TYPE_SEARCH: 2918,
+});
+export const { R_TEXT_INPUT_TYPE_TEXT, R_TEXT_INPUT_TYPE_EMAIL, R_TEXT_INPUT_TYPE_NUMBER, R_TEXT_INPUT_TYPE_DECIMAL, R_TEXT_INPUT_TYPE_PHONE, R_TEXT_INPUT_TYPE_URL, R_TEXT_INPUT_TYPE_SEARCH } = RTextInputType;
+
+export const RReturnKey = _enum({
+	R_RETURN_KEY_DEFAULT: 2928,
+	R_RETURN_KEY_DONE: 2929,
+	R_RETURN_KEY_GO: 2930,
+	R_RETURN_KEY_NEXT: 2931,
+	R_RETURN_KEY_SEARCH: 2932,
+	R_RETURN_KEY_SEND: 2933,
+});
+export const { R_RETURN_KEY_DEFAULT, R_RETURN_KEY_DONE, R_RETURN_KEY_GO, R_RETURN_KEY_NEXT, R_RETURN_KEY_SEARCH, R_RETURN_KEY_SEND } = RReturnKey;
 
 export const RWindowEdge = _enum({
 	R_EDGE_LEFT: 208,
@@ -618,8 +640,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_RATING: 560,
 	R_WIDGET_PAGINATION: 561,
 	R_WIDGET_PLOT: 562,
+	R_WIDGET_PDF_VIEW: 563,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -732,6 +755,46 @@ export const RPlotAxis = _enum({
 	R_PLOT_Y2: 1315,
 });
 export const { R_PLOT_X, R_PLOT_Y, R_PLOT_X2, R_PLOT_Y2 } = RPlotAxis;
+
+export const RPdfFit = _enum({
+	R_PDF_FIT_WIDTH: 1472,
+	R_PDF_FIT_PAGE: 1473,
+	R_PDF_FIT_NONE: 1474,
+});
+export const { R_PDF_FIT_WIDTH, R_PDF_FIT_PAGE, R_PDF_FIT_NONE } = RPdfFit;
+
+export const RPdfStatus = _enum({
+	R_PDF_EMPTY: 1488,
+	R_PDF_LOADED: 1489,
+	R_PDF_NEEDS_PASSWORD: 1490,
+	R_PDF_ERROR: 1491,
+	R_PDF_UNAVAILABLE: 1492,
+});
+export const { R_PDF_EMPTY, R_PDF_LOADED, R_PDF_NEEDS_PASSWORD, R_PDF_ERROR, R_PDF_UNAVAILABLE } = RPdfStatus;
+
+export const RPdfFont = _enum({
+	R_PDF_FONT_SANS: 0,
+	R_PDF_FONT_MONO: 1,
+});
+export const { R_PDF_FONT_SANS, R_PDF_FONT_MONO } = RPdfFont;
+
+export const RPdfPaint = _enum({
+	R_PDF_FILL: 1,
+	R_PDF_STROKE: 2,
+});
+export const { R_PDF_FILL, R_PDF_STROKE } = RPdfPaint;
+
+export const RPdfTextStyle = _enum({
+	R_PDF_TEXT_BOLD: 1,
+	R_PDF_TEXT_ITALIC: 2,
+	R_PDF_TEXT_UNDERLINE: 4,
+});
+export const { R_PDF_TEXT_BOLD, R_PDF_TEXT_ITALIC, R_PDF_TEXT_UNDERLINE } = RPdfTextStyle;
+
+export const RPdfPrintFlags = _enum({
+	R_PDF_PRINT_NO_DIALOG: 1,
+});
+export const { R_PDF_PRINT_NO_DIALOG } = RPdfPrintFlags;
 
 export const RPlotScale = _enum({
 	R_PLOT_SCALE_LINEAR: 1328,
@@ -847,6 +910,12 @@ export const RDockSide = _enum({
 	R_DOCK_TAB: 868,
 });
 export const { R_DOCK_LEFT, R_DOCK_RIGHT, R_DOCK_TOP, R_DOCK_BOTTOM, R_DOCK_TAB } = RDockSide;
+
+export const RDockFloatMode = _enum({
+	R_DOCK_FLOAT_WINDOW: 0,
+	R_DOCK_FLOAT_IN_WINDOW: 1,
+});
+export const { R_DOCK_FLOAT_WINDOW, R_DOCK_FLOAT_IN_WINDOW } = RDockFloatMode;
 
 export const RVisualPreset = _enum({
 	R_PRESET_AUTO: 1296,
@@ -1254,6 +1323,95 @@ export class RFrameStats extends RStruct {
 	}
 	set frame_index(value) {
 		this._view.setBigUint64(48, value, true);
+	}
+}
+
+export class RInsets extends RStruct {
+	static SIZE = 16;
+
+	constructor(pointer) {
+		super(RInsets.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RInsets(pointer) : null;
+	}
+
+	get top() {
+		return this._view.getFloat32(0, true);
+	}
+	set top(value) {
+		this._view.setFloat32(0, value, true);
+	}
+
+	get right() {
+		return this._view.getFloat32(4, true);
+	}
+	set right(value) {
+		this._view.setFloat32(4, value, true);
+	}
+
+	get bottom() {
+		return this._view.getFloat32(8, true);
+	}
+	set bottom(value) {
+		this._view.setFloat32(8, value, true);
+	}
+
+	get left() {
+		return this._view.getFloat32(12, true);
+	}
+	set left(value) {
+		this._view.setFloat32(12, value, true);
+	}
+}
+
+export class RTextInputInfo extends RStruct {
+	static SIZE = 20;
+
+	constructor(pointer) {
+		super(RTextInputInfo.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RTextInputInfo(pointer) : null;
+	}
+
+	get type() {
+		return this._view.getInt32(0, true);
+	}
+	set type(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get return_key() {
+		return this._view.getInt32(4, true);
+	}
+	set return_key(value) {
+		this._view.setInt32(4, value, true);
+	}
+
+	get password() {
+		return this._view.getInt32(8, true);
+	}
+	set password(value) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get read_only() {
+		return this._view.getInt32(12, true);
+	}
+	set read_only(value) {
+		this._view.setInt32(12, value, true);
+	}
+
+	get max_length() {
+		return this._view.getInt32(16, true);
+	}
+	set max_length(value) {
+		this._view.setInt32(16, value, true);
 	}
 }
 
@@ -2000,6 +2158,68 @@ export class RGestureEvent extends RStruct {
 	}
 	set cancelled(value) {
 		this._view.setInt32(72, value, true);
+	}
+}
+
+export class RPdfPrintDesc extends RStruct {
+	static SIZE = 48;
+
+	constructor(pointer) {
+		super(RPdfPrintDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RPdfPrintDesc(pointer) : null;
+	}
+
+	get window() {
+		return this._view.getUint32(0, true);
+	}
+	set window(value) {
+		this._view.setUint32(0, value, true);
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set title(value) {
+		this._point("title", 8, _s(value));
+	}
+
+	get printer() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set printer(value) {
+		this._point("printer", 16, _s(value));
+	}
+
+	get copies() {
+		return this._view.getInt32(24, true);
+	}
+	set copies(value) {
+		this._view.setInt32(24, value, true);
+	}
+
+	get flags() {
+		return this._view.getUint32(28, true);
+	}
+	set flags(value) {
+		this._view.setUint32(28, value, true);
+	}
+
+	get output() {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set output(value) {
+		this._point("output", 32, _s(value));
+	}
+
+	get password() {
+		return _text(_address(this._view.getBigUint64(40, true)));
+	}
+	set password(value) {
+		this._point("password", 40, _s(value));
 	}
 }
 
@@ -2791,6 +3011,24 @@ function _adapt_RWidgetEventCallback(function_) {
 	};
 }
 
+function _adapt_RListItemColorCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (list_view, index, r, g, b, a, user_data) => {
+		const r_ = r ? new Float32Array(_view_of(r, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const g_ = g ? new Float32Array(_view_of(g, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const b_ = b ? new Float32Array(_view_of(b, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const a_ = a ? new Float32Array(_view_of(a, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const result_ = function_(list_view, index, r_, g_, b_, a_, user_data);
+		_back(r_, r);
+		_back(g_, g);
+		_back(b_, b);
+		_back(a_, a);
+		return result_;
+	};
+}
+
 function _adapt_RTileItemCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -2799,6 +3037,24 @@ function _adapt_RTileItemCallback(function_) {
 		const item_ = RTileItem.from(item);
 		const result_ = function_(tile_view, index, item_, user_data);
 		_back(item_, item);
+		return result_;
+	};
+}
+
+function _adapt_RTableCellColorCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (table, row, column, r, g, b, a, user_data) => {
+		const r_ = r ? new Float32Array(_view_of(r, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const g_ = g ? new Float32Array(_view_of(g, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const b_ = b ? new Float32Array(_view_of(b, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const a_ = a ? new Float32Array(_view_of(a, Float32Array.BYTES_PER_ELEMENT)) : null;
+		const result_ = function_(table, row, column, r_, g_, b_, a_, user_data);
+		_back(r_, r);
+		_back(g_, g);
+		_back(b_, b);
+		_back(a_, a);
 		return result_;
 	};
 }
@@ -2904,6 +3160,14 @@ export const Rwindow_set_title = _lib.Rwindow_set_title;
 export const Rwindow_get_title = _lib.Rwindow_get_title;
 export const Rwindow_set_size = _lib.Rwindow_set_size;
 export const Rwindow_get_size = _lib.Rwindow_get_size;
+export function Rwindow_get_safe_area(window, insets) {
+	return _lib.Rwindow_get_safe_area(window, _p(insets));
+}
+export function Rwindow_get_keyboard_area(window, insets) {
+	return _lib.Rwindow_get_keyboard_area(window, _p(insets));
+}
+export const Rwindow_set_keyboard_callback = _lib.Rwindow_set_keyboard_callback;
+export const Rwindow_clear_focus = _lib.Rwindow_clear_focus;
 export const Rwindow_set_min_size = _lib.Rwindow_set_min_size;
 export const Rwindow_set_position = _lib.Rwindow_set_position;
 export const Rwindow_get_position = _lib.Rwindow_get_position;
@@ -2932,6 +3196,8 @@ export const Rwindow_has_own_theme = _lib.Rwindow_has_own_theme;
 export const Rwindow_set_opacity = _lib.Rwindow_set_opacity;
 export const Rwindow_get_opacity = _lib.Rwindow_get_opacity;
 export const Rwindow_set_topmost = _lib.Rwindow_set_topmost;
+export const Rwindow_set_owner = _lib.Rwindow_set_owner;
+export const Rwindow_get_owner = _lib.Rwindow_get_owner;
 export const Rwindow_set_picture_in_picture = _lib.Rwindow_set_picture_in_picture;
 export const Rwindow_is_picture_in_picture = _lib.Rwindow_is_picture_in_picture;
 export const Rwindow_set_picture_in_picture_layout = _lib.Rwindow_set_picture_in_picture_layout;
@@ -2947,6 +3213,7 @@ export const Rwindow_set_resize_callback = _lib.Rwindow_set_resize_callback;
 export function Rwindow_set_drop_callback(window, callback, user_data = null) {
 	return _lib.Rwindow_set_drop_callback(window, _adapt_RDropCallback(callback), user_data);
 }
+export const Rdrop_set_highlight_rect = _lib.Rdrop_set_highlight_rect;
 export const Rwindow_set_user_handle = _lib.Rwindow_set_user_handle;
 export const Rwindow_get_user_handle = _lib.Rwindow_get_user_handle;
 export function Rwindow_get_native_handle(window, native) {
@@ -2968,6 +3235,13 @@ export const Rwindow_is_mouse_button_down = _lib.Rwindow_is_mouse_button_down;
 export const Rwindow_get_modifiers = _lib.Rwindow_get_modifiers;
 export const Rwindow_is_mouse_inside = _lib.Rwindow_is_mouse_inside;
 export const Rwindow_wants_text_input = _lib.Rwindow_wants_text_input;
+export function Rwindow_get_text_input_info(window, info) {
+	return _lib.Rwindow_get_text_input_info(window, _p(info));
+}
+export const Rwindow_get_text_input_text = _lib.Rwindow_get_text_input_text;
+export const Rwindow_get_text_input_selection = _lib.Rwindow_get_text_input_selection;
+export const Rwindow_set_text_input_selection = _lib.Rwindow_set_text_input_selection;
+export const Rwindow_replace_text_input = _lib.Rwindow_replace_text_input;
 export const Rwindow_has_popup = _lib.Rwindow_has_popup;
 export const Rwindow_get_text_input_rect = _lib.Rwindow_get_text_input_rect;
 export const Rwindow_get_popup_count = _lib.Rwindow_get_popup_count;
@@ -3035,6 +3309,8 @@ export const Rtheme_set_font = _lib.Rtheme_set_font;
 export const Rtheme_get_font = _lib.Rtheme_get_font;
 export const Rtheme_set_accent = _lib.Rtheme_set_accent;
 export const Rtheme_set_dark = _lib.Rtheme_set_dark;
+export const Rtheme_get_system_dark = _lib.Rtheme_get_system_dark;
+export const Rtheme_follow_system = _lib.Rtheme_follow_system;
 export const Rtheme_is_dark = _lib.Rtheme_is_dark;
 export const Rtheme_set_wallpaper = _lib.Rtheme_set_wallpaper;
 export const Rtheme_get_wallpaper = _lib.Rtheme_get_wallpaper;
@@ -3267,6 +3543,10 @@ export const Rtext_input_is_read_only = _lib.Rtext_input_is_read_only;
 export const Rtext_input_set_read_only = _lib.Rtext_input_set_read_only;
 export const Rtext_input_set_max_length = _lib.Rtext_input_set_max_length;
 export const Rtext_input_select_all = _lib.Rtext_input_select_all;
+export const Rtext_input_set_input_type = _lib.Rtext_input_set_input_type;
+export const Rtext_input_get_input_type = _lib.Rtext_input_get_input_type;
+export const Rtext_input_set_return_key = _lib.Rtext_input_set_return_key;
+export const Rtext_input_get_return_key = _lib.Rtext_input_get_return_key;
 export const Rtext_input_set_changed_callback = _lib.Rtext_input_set_changed_callback;
 export const Rtext_input_set_committed_callback = _lib.Rtext_input_set_committed_callback;
 export const Rspin_box_set_range = _lib.Rspin_box_set_range;
@@ -3275,6 +3555,8 @@ export const Rspin_box_get_value = _lib.Rspin_box_get_value;
 export const Rspin_box_get_range = _lib.Rspin_box_get_range;
 export const Rspin_box_set_step = _lib.Rspin_box_set_step;
 export const Rspin_box_set_decimals = _lib.Rspin_box_set_decimals;
+export const Rspin_box_set_buttons = _lib.Rspin_box_set_buttons;
+export const Rspin_box_get_buttons = _lib.Rspin_box_get_buttons;
 export const Rspin_box_set_changed_callback = _lib.Rspin_box_set_changed_callback;
 export const Rcombo_box_add_item = _lib.Rcombo_box_add_item;
 export const Rcombo_box_clear_items = _lib.Rcombo_box_clear_items;
@@ -3291,6 +3573,9 @@ export const Rlist_view_remove_item = _lib.Rlist_view_remove_item;
 export const Rlist_view_clear_items = _lib.Rlist_view_clear_items;
 export const Rlist_view_get_item_count = _lib.Rlist_view_get_item_count;
 export const Rlist_view_set_virtual_items = _lib.Rlist_view_set_virtual_items;
+export function Rlist_view_set_item_color_callback(list_view, callback, user_data = null) {
+	return _lib.Rlist_view_set_item_color_callback(list_view, _adapt_RListItemColorCallback(callback), user_data);
+}
 export const Rlist_view_set_selected = _lib.Rlist_view_set_selected;
 export const Rlist_view_get_selected = _lib.Rlist_view_get_selected;
 export const Rlist_view_scroll_to_item = _lib.Rlist_view_scroll_to_item;
@@ -3334,9 +3619,13 @@ export const Rmenu_add_menu = _lib.Rmenu_add_menu;
 export const Rmenu_set_title = _lib.Rmenu_set_title;
 export const Rmenu_add_item = _lib.Rmenu_add_item;
 export const Rmenu_add_separator = _lib.Rmenu_add_separator;
+export const Rmenu_add_header = _lib.Rmenu_add_header;
+export const Rmenu_bar_add_divider = _lib.Rmenu_bar_add_divider;
+export const Rmenu_set_title_color = _lib.Rmenu_set_title_color;
 export const Rmenu_item_set_text = _lib.Rmenu_item_set_text;
 export const Rmenu_item_get_text = _lib.Rmenu_item_get_text;
 export const Rmenu_item_set_shortcut = _lib.Rmenu_item_set_shortcut;
+export const Rmenu_item_set_shortcut_text = _lib.Rmenu_item_set_shortcut_text;
 export const Rmenu_item_set_checkable = _lib.Rmenu_item_set_checkable;
 export const Rmenu_item_set_checked = _lib.Rmenu_item_set_checked;
 export const Rmenu_item_set_icon = _lib.Rmenu_item_set_icon;
@@ -3383,6 +3672,9 @@ export const Rtable_remove_row = _lib.Rtable_remove_row;
 export const Rtable_clear_rows = _lib.Rtable_clear_rows;
 export const Rtable_get_row_count = _lib.Rtable_get_row_count;
 export const Rtable_set_virtual_rows = _lib.Rtable_set_virtual_rows;
+export function Rtable_set_cell_color_callback(table, callback, user_data = null) {
+	return _lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
+}
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;
@@ -3497,6 +3789,58 @@ export const Rplot_set_drag_line_color = _lib.Rplot_set_drag_line_color;
 export const Rplot_set_view_changed_callback = _lib.Rplot_set_view_changed_callback;
 export const Rplot_set_drag_line_callback = _lib.Rplot_set_drag_line_callback;
 export const Rplot_set_series_toggled_callback = _lib.Rplot_set_series_toggled_callback;
+export const Rpdf_is_available = _lib.Rpdf_is_available;
+export const Rpdf_view_load_file = _lib.Rpdf_view_load_file;
+export const Rpdf_view_load_memory = _lib.Rpdf_view_load_memory;
+export const Rpdf_view_close = _lib.Rpdf_view_close;
+export const Rpdf_view_get_status = _lib.Rpdf_view_get_status;
+export const Rpdf_view_get_page_count = _lib.Rpdf_view_get_page_count;
+export const Rpdf_view_get_page_size = _lib.Rpdf_view_get_page_size;
+export const Rpdf_view_set_page = _lib.Rpdf_view_set_page;
+export const Rpdf_view_get_page = _lib.Rpdf_view_get_page;
+export const Rpdf_view_set_zoom = _lib.Rpdf_view_set_zoom;
+export const Rpdf_view_get_zoom = _lib.Rpdf_view_get_zoom;
+export const Rpdf_view_set_fit = _lib.Rpdf_view_set_fit;
+export const Rpdf_view_get_fit = _lib.Rpdf_view_get_fit;
+export const Rpdf_view_get_title = _lib.Rpdf_view_get_title;
+export const Rpdf_view_get_page_text = _lib.Rpdf_view_get_page_text;
+export const Rpdf_view_set_page_changed_callback = _lib.Rpdf_view_set_page_changed_callback;
+export function Rpdf_view_print(view, desc) {
+	return _lib.Rpdf_view_print(view, _p(desc));
+}
+export const Rpdf_document_create = _lib.Rpdf_document_create;
+export const Rpdf_document_delete = _lib.Rpdf_document_delete;
+export const Rpdf_document_set_title = _lib.Rpdf_document_set_title;
+export const Rpdf_document_set_author = _lib.Rpdf_document_set_author;
+export const Rpdf_document_set_subject = _lib.Rpdf_document_set_subject;
+export const Rpdf_document_add_page = _lib.Rpdf_document_add_page;
+export const Rpdf_document_get_page_count = _lib.Rpdf_document_get_page_count;
+export const Rpdf_document_set_fill_color = _lib.Rpdf_document_set_fill_color;
+export const Rpdf_document_set_stroke_color = _lib.Rpdf_document_set_stroke_color;
+export const Rpdf_document_set_line_width = _lib.Rpdf_document_set_line_width;
+export const Rpdf_document_draw_rect = _lib.Rpdf_document_draw_rect;
+export const Rpdf_document_draw_ellipse = _lib.Rpdf_document_draw_ellipse;
+export const Rpdf_document_draw_line = _lib.Rpdf_document_draw_line;
+export const Rpdf_document_add_font = _lib.Rpdf_document_add_font;
+export const Rpdf_document_add_font_from_file = _lib.Rpdf_document_add_font_from_file;
+export const Rpdf_document_set_font = _lib.Rpdf_document_set_font;
+export const Rpdf_document_get_line_height = _lib.Rpdf_document_get_line_height;
+export const Rpdf_document_measure_text = _lib.Rpdf_document_measure_text;
+export const Rpdf_document_draw_text = _lib.Rpdf_document_draw_text;
+export const Rpdf_document_draw_paragraph = _lib.Rpdf_document_draw_paragraph;
+export const Rpdf_document_draw_image = _lib.Rpdf_document_draw_image;
+export const Rpdf_document_draw_window = _lib.Rpdf_document_draw_window;
+export const Rpdf_document_save = _lib.Rpdf_document_save;
+export const Rpdf_document_save_memory = _lib.Rpdf_document_save_memory;
+export function Rpdf_print(desc, data) {
+	return _lib.Rpdf_print(_p(desc), data);
+}
+export function Rpdf_print_file(desc, path) {
+	return _lib.Rpdf_print_file(_p(desc), path);
+}
+export function Rpdf_document_print(document, desc) {
+	return _lib.Rpdf_document_print(document, _p(desc));
+}
 export const Rtext_editor_create = _lib.Rtext_editor_create;
 export const Rtext_editor_set_text = _lib.Rtext_editor_set_text;
 export const Rtext_editor_get_text = _lib.Rtext_editor_get_text;
@@ -3583,6 +3927,7 @@ export const Rdock_area_load_layout = _lib.Rdock_area_load_layout;
 export const Rdock_area_set_close_callback = _lib.Rdock_area_set_close_callback;
 export const Rdock_area_set_tearable = _lib.Rdock_area_set_tearable;
 export const Rdock_area_is_tearable = _lib.Rdock_area_is_tearable;
+export const Rdock_area_set_float_mode = _lib.Rdock_area_set_float_mode;
 export const Rdock_area_float_panel = _lib.Rdock_area_float_panel;
 export const Rdock_area_dock_panel = _lib.Rdock_area_dock_panel;
 export const Rdock_area_get_panel_window = _lib.Rdock_area_get_panel_window;
@@ -3880,6 +4225,7 @@ export function Rcustom_set_measure_callback(widget, callback, user_data = null)
 	return _lib.Rcustom_set_measure_callback(widget, _adapt_RMeasureCallback(callback), user_data);
 }
 export const Rdraw_rect = _lib.Rdraw_rect;
+export const Rdraw_shadow = _lib.Rdraw_shadow;
 export const Rdraw_rect_outline = _lib.Rdraw_rect_outline;
 export const Rdraw_circle = _lib.Rdraw_circle;
 export const Rdraw_line = _lib.Rdraw_line;
@@ -4030,6 +4376,8 @@ export const Rwidget_set_accessible_role = _lib.Rwidget_set_accessible_role;
 export const Rwidget_get_accessible_role = _lib.Rwidget_get_accessible_role;
 export const Rwidget_set_accessible_hidden = _lib.Rwidget_set_accessible_hidden;
 export const Rwidget_set_accessible_labelled_by = _lib.Rwidget_set_accessible_labelled_by;
+export const Rwidget_set_accessible_action = _lib.Rwidget_set_accessible_action;
+export const Rwidget_set_accessible_checked = _lib.Rwidget_set_accessible_checked;
 export const Raccessibility_announce = _lib.Raccessibility_announce;
 export const Raccessibility_is_screen_reader_active = _lib.Raccessibility_is_screen_reader_active;
 export function Rhost_platform_register(desc) {

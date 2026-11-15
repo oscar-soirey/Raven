@@ -5,6 +5,8 @@
 
 #include "test.h"
 
+#include <stdlib.h>
+
 static Rid g_window;
 static int g_calls;
 static int g_last_int;
@@ -39,6 +41,22 @@ static const char* virtual_cell(Rid table, int row, int column, void* user_data)
 	(void)user_data;
 	snprintf(g_cell, sizeof(g_cell), "%d:%d", row, column);
 	return g_cell;
+}
+
+/* cell colors: the rows seen, the cells asked; row 1 is colored, the others keep the theme's */
+static int g_color_calls, g_color_rows;
+static int cell_color(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data) {
+	(void)table;
+	(void)column;
+	CHECK(user_data == &g_color_calls);
+	g_color_calls++;
+	if (row >= 0 && row < 31) g_color_rows |= 1 << row;
+	if (row != 1) return R_FALSE;
+	*r = 0.96f;
+	*g = 0.53f;
+	*b = 0.44f;
+	*a = 1.0f;
+	return R_TRUE;
 }
 
 static void test_table(void) {
@@ -83,6 +101,30 @@ static void test_table(void) {
 	CHECK_STR(Rtable_get_cell(table, 0, 0), "Ada");
 	CHECK_STR(Rtable_get_cell(table, 1, 0), "Bob|Jr");
 	CHECK_STR(Rtable_get_cell(table, 2, 0), "grace");
+	/* words that strtod also reads ("Nan", "Inf") are sorted as texts, after the numbers */
+	{
+		Rid names = Rwidget_create(R_WIDGET_TABLE);
+		Rtable_add_column(names, "Name", 100.0f);
+		Rtable_add_column(names, "Value", 60.0f);
+		Rtable_add_row(names, "Zoe|3");
+		Rtable_add_row(names, "Nan|nan");
+		Rtable_add_row(names, "Bob|1");
+		Rtable_add_row(names, "Inf|2");
+		Rtable_add_row(names, "Alice|inf");
+		Rtable_sort(names, 0, R_FALSE);
+		CHECK_STR(Rtable_get_cell(names, 0, 0), "Alice");
+		CHECK_STR(Rtable_get_cell(names, 1, 0), "Bob");
+		CHECK_STR(Rtable_get_cell(names, 2, 0), "Inf");
+		CHECK_STR(Rtable_get_cell(names, 3, 0), "Nan");
+		CHECK_STR(Rtable_get_cell(names, 4, 0), "Zoe");
+		Rtable_sort(names, 1, R_FALSE);
+		CHECK_STR(Rtable_get_cell(names, 0, 1), "1");
+		CHECK_STR(Rtable_get_cell(names, 1, 1), "2");
+		CHECK_STR(Rtable_get_cell(names, 2, 1), "3");
+		CHECK_STR(Rtable_get_cell(names, 3, 1), "inf");
+		CHECK_STR(Rtable_get_cell(names, 4, 1), "nan");
+		Rwidget_destroy(names);
+	}
 
 	/* the edge of the first header is dragged: the column grows */
 	Rwindow_inject_mouse_move(g_window, x + 1 + 100, y + 6);
@@ -103,8 +145,23 @@ static void test_table(void) {
 	CHECK_STR(Rtable_get_cell(table, 2, 3), "");
 	CHECK_STR(Rtable_get_cell(table, 2, 2), "Rome");
 
+	/* the color of the cells is asked for every cell drawn, stored or virtual; NULL stops it */
+	g_color_calls = g_color_rows = 0;
+	Rtable_set_cell_color_callback(table, cell_color, &g_color_calls);
+	Rdraw_frame();
+	CHECK(g_color_calls >= 3 && g_color_rows == 7);
+	Rtable_set_cell_color_callback(table, NULL, NULL);
+	g_color_calls = 0;
+	Rwidget_invalidate(table);
+	Rdraw_frame();
+	CHECK(g_color_calls == 0);
+
 	/* virtual rows */
 	Rtable_set_virtual_rows(table, 100000, virtual_cell, NULL);
+	Rtable_set_cell_color_callback(table, cell_color, &g_color_calls);
+	Rdraw_frame();
+	CHECK(g_color_calls > 0 && (g_color_rows & 3) == 3);
+	Rtable_set_cell_color_callback(table, NULL, NULL);
 	CHECK(Rtable_get_row_count(table) == 100000);
 	CHECK_STR(Rtable_get_cell(table, 4321, 2), "4321:2");
 	test_key(g_window, R_KEY_END, 0);
@@ -166,6 +223,21 @@ static void test_date_picker(void) {
 	test_key(g_window, R_KEY_DOWN, 0);
 	Rdate_picker_get_date(picker, &year, &month, &day);
 	CHECK(day == 15);
+	/* ... and so does a range set by the Min and Max attributes; the keys move the date inside it */
+	CHECK(Rwidget_set_attribute(picker, "Min", "2030-01-01"));
+	CHECK(Rwidget_set_attribute(picker, "Max", "2030-12-31"));
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2030 && month == 1 && day == 1);
+	test_key(g_window, R_KEY_DOWN, 0);
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2030 && month == 1 && day == 2);
+	CHECK(Rwidget_set_attribute(picker, "Min", ""));
+	CHECK(Rwidget_set_attribute(picker, "Max", "2029-06-30"));
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2029 && month == 6 && day == 30);
+	CHECK(Rwidget_set_attribute(picker, "Max", ""));
+	Rdate_picker_get_date(picker, &year, &month, &day);
+	CHECK(year == 2029 && month == 6 && day == 30);
 
 	EXPECT_ERRORS_BEGIN();
 	Rdate_picker_set_date(picker, 2023, 2, 29);
@@ -174,6 +246,30 @@ static void test_date_picker(void) {
 	Rdraw_frame();
 	Rdate_picker_set_open(picker, R_FALSE);
 	CHECK(!Rdate_picker_is_open(picker));
+}
+
+/* The short names (MMM, ddd) are the first three characters of a translated name, not its first three bytes. */
+static void test_date_picker_short_names(void) {
+	Rid root = content("<VBox><DatePicker Name=\"d\" Date=\"2026-01-13\" Format=\"ddd D MMM YYYY\"/></VBox>");
+	Rid picker = Rwidget_find(root, "d");
+	CHECK_STR(Rdate_picker_get_text(picker), "Tue 13 Jan 2026");
+	/* Январь, Вторник; 一月, 火曜日 */
+	Rlocale_set_text("ru", "Raven.Month1", "\xD0\xAF\xD0\xBD\xD0\xB2\xD0\xB0\xD1\x80\xD1\x8C");
+	Rlocale_set_text("ru", "Raven.Day2", "\xD0\x92\xD1\x82\xD0\xBE\xD1\x80\xD0\xBD\xD0\xB8\xD0\xBA");
+	Rlocale_set_text("ja", "Raven.Month1", "\xE4\xB8\x80\xE6\x9C\x88");
+	Rlocale_set_text("ja", "Raven.Day2", "\xE7\x81\xAB\xE6\x9B\x9C\xE6\x97\xA5");
+	Rlocale_set_language("ru");
+	CHECK_STR(Rdate_picker_get_text(picker), "\xD0\x92\xD1\x82\xD0\xBE 13 \xD0\xAF\xD0\xBD\xD0\xB2 2026");
+	Rlocale_set_language("ja");
+	/* shorter than three characters: the whole name */
+	CHECK_STR(Rdate_picker_get_text(picker), "\xE7\x81\xAB\xE6\x9B\x9C\xE6\x97\xA5 13 \xE4\xB8\x80\xE6\x9C\x88 2026");
+	/* the calendar's weekday header, cut the same way */
+	Rdate_picker_set_open(picker, R_TRUE);
+	Rdraw_frame();
+	Rdate_picker_set_open(picker, R_FALSE);
+	Rlocale_clear();
+	Rlocale_set_language("en");
+	CHECK_STR(Rdate_picker_get_text(picker), "Tue 13 Jan 2026");
 }
 
 /*
@@ -374,6 +470,53 @@ static void test_breadcrumb(void) {
 	/* too narrow: the first items fold into "..." and it still paints */
 	Rwidget_set_size(crumbs, 60, -1);
 	Rdraw_frame();
+
+	/* right to left: "Home" is on the right, and the keys follow the screen */
+	root = content("<HBox><Breadcrumb Name=\"b\" Items=\"Home|Documents|Report\"/></HBox>");
+	crumbs = Rwidget_find(root, "b");
+	Rwidget_set_direction(crumbs, R_DIRECTION_RTL);
+	Rbreadcrumb_set_clicked_callback(crumbs, on_crumb, NULL);
+	Rwidget_get_rect(crumbs, &x, &y, &w, &h);
+	g_calls = 0;
+	test_click_at(g_window, x + w - 8, y + h * 0.5f);
+	CHECK(g_calls == 1 && g_last_int == 0);
+	test_click_at(g_window, x + 6, y + h * 0.5f);
+	CHECK(g_calls == 1);
+	/* (the focus starts on the last link, "Documents"; Right goes toward "Home") */
+	Rwidget_focus(crumbs);
+	test_key(g_window, R_KEY_RIGHT, 0);
+	test_key(g_window, R_KEY_ENTER, 0);
+	CHECK(g_calls == 2 && g_last_int == 0);
+	Rdraw_frame();
+}
+
+/* A string the widget returned, passed back to a setter of the same widget: the setter frees its
+ * strings first, the value is read from a copy. */
+static void test_items_from_own_strings(void) {
+	Rid crumbs = Rwidget_create(R_WIDGET_BREADCRUMB);
+	Rid combo = Rwidget_create(R_WIDGET_COMBO_BOX);
+	Rid list = Rwidget_create(R_WIDGET_LIST_VIEW);
+	Rid table = Rwidget_create(R_WIDGET_TABLE);
+	Rbreadcrumb_set_items(crumbs, "Home|Documents|Reports");
+	Rbreadcrumb_set_items(crumbs, Rbreadcrumb_get_item_text(crumbs, 2));
+	CHECK(Rbreadcrumb_get_item_count(crumbs) == 1);
+	CHECK_STR(Rbreadcrumb_get_item_text(crumbs, 0), "Reports");
+	Rwidget_set_attribute(combo, "Items", "Small|Medium|Large");
+	CHECK(Rwidget_set_attribute(combo, "Items", Rcombo_box_get_item_text(combo, 1)));
+	CHECK(Rcombo_box_get_item_count(combo) == 1);
+	CHECK_STR(Rcombo_box_get_item_text(combo, 0), "Medium");
+	Rwidget_set_attribute(list, "Items", "Red|Green|Blue");
+	CHECK(Rwidget_set_attribute(list, "Items", Rlist_view_get_item_text(list, 2)));
+	CHECK(Rlist_view_get_item_count(list) == 1);
+	CHECK_STR(Rlist_view_get_item_text(list, 0), "Blue");
+	Rwidget_set_attribute(table, "Columns", "Name|Size|Date");
+	CHECK(Rwidget_set_attribute(table, "Columns", Rtable_get_column_header(table, 0)));
+	CHECK(Rtable_get_column_count(table) == 1);
+	CHECK_STR(Rtable_get_column_header(table, 0), "Name");
+	Rwidget_destroy(crumbs);
+	Rwidget_destroy(combo);
+	Rwidget_destroy(list);
+	Rwidget_destroy(table);
 }
 
 static void on_rating(Rid rating, float value, void* user_data) {
@@ -539,6 +682,56 @@ static void test_svg(void) {
 		CHECK(Rtexture_create(empty, strlen(empty)) == R_INVALID_ID);
 	}
 	EXPECT_ERRORS_END(2);
+}
+
+/* SVG files that nanosvg took minutes to draw, or that gave sizes out of the range of int (issue #153). */
+static void test_svg_hostile(void) {
+	static const char* huge[] = {
+		"<svg width='1e30' height='10'><rect width='5' height='5'/></svg>",
+		"<svg width='10' height='-1e30'><rect width='5' height='5'/></svg>",
+	};
+	const char* wide = "<svg width='20' height='20'><path d='M0 0 L10 10' stroke='black' stroke-width='1e30' stroke-linecap='round'/></svg>";
+	size_t points = 60000, size, n = 0, i;
+	char* text;
+	uint8_t* pixels;
+	int width = 0, height = 0, stroke, covered;
+#if defined(RAVEN_TEST_NO_SVG)
+	return;
+#endif
+	for (i = 0; i < 2; i++) {
+		width = height = -1;
+		CHECK(Rimage_decode(huge[i], strlen(huge[i]), &width, &height) == NULL);
+	}
+	EXPECT_ERRORS_BEGIN();
+	CHECK(Rtexture_create_from_svg(huge[0], strlen(huge[0]), 1.0f) == R_INVALID_ID);
+	CHECK(Rtexture_create_from_svg(g_svg, sizeof(g_svg) - 1, 1e30f) == R_INVALID_ID);
+	EXPECT_ERRORS_END(2);
+
+	/* a stroke wider than anything, with round ends, covers the whole picture */
+	pixels = Rimage_decode(wide, strlen(wide), &width, &height);
+	CHECK(pixels != NULL && width == 40 && height == 40);
+	if (pixels) {
+		for (i = 0, covered = 0; i < (size_t)(width * height); i++) covered += pixels[i * 4 + 3] == 255;
+		CHECK(covered == width * height);
+		Rpixels_free(pixels);
+	}
+
+	/* one path of 60000 points over a small picture, filled then stroked: drawn in a moment, not in minutes */
+	size = points * 16 + 200;
+	text = (char*)malloc(size);
+	for (stroke = 0; stroke < 2 && text; stroke++) {
+		n = (size_t)snprintf(text, size, "<svg width='20' height='20'><path %s d='M0 0", stroke ? "fill='none' stroke='red'" : "fill='red'");
+		for (i = 0; i < points; i++) n += (size_t)snprintf(text + n, size - n, " L%d %d", (int)(i % 20), (int)((i * 7) % 20));
+		n += (size_t)snprintf(text + n, size - n, "Z'/></svg>");
+		pixels = Rimage_decode(text, n, &width, &height);
+		CHECK(pixels != NULL && width == 40 && height == 40);
+		if (pixels) {
+			for (i = 0, covered = 0; i < (size_t)(width * height); i++) covered += pixels[i * 4 + 3] > 0;
+			CHECK(covered > width * height / 4);
+			Rpixels_free(pixels);
+		}
+	}
+	free(text);
 }
 
 static void on_notification(const char* title, const char* body, RNotificationUrgency urgency, void* user_data) {
@@ -895,13 +1088,16 @@ int main(void) {
 
 	RUN(test_table);
 	RUN(test_date_picker);
+	RUN(test_date_picker_short_names);
 	RUN(test_date_picker_opens_over);
 	RUN(test_time_picker);
 	RUN(test_toast);
 	RUN(test_breadcrumb);
+	RUN(test_items_from_own_strings);
 	RUN(test_rating);
 	RUN(test_pagination);
 	RUN(test_svg);
+	RUN(test_svg_hostile);
 	RUN(test_notifications);
 	RUN(test_plot);
 

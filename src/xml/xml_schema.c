@@ -245,6 +245,8 @@ static const rvn_schema_attribute_t g_text_input[] = {
 	B("Password", "Shows dots."),
 	B("ReadOnly", "Can be selected and copied, not changed."),
 	N("MaxLength", "Most characters accepted; 0 for no limit."),
+	C("InputType", "Text|Email|Number|Decimal|Phone|Url|Search", "What it holds: picks the on-screen keyboard on mobile."),
+	C("ReturnKey", "Default|Done|Go|Next|Search|Send", "The return key of the on-screen keyboard."),
 	A("OnChanged", "Action fired at each change."),
 	A("OnCommitted", "Action fired by Enter."),
 };
@@ -341,6 +343,14 @@ static const rvn_schema_attribute_t g_plot[] = {
 	C("Y2Scale", "Linear|Log|SymLog", "How the right axis spreads its values."),
 	A("OnChanged", "Action fired while the user drags a drag line."),
 };
+static const rvn_schema_attribute_t g_pdf_view[] = {
+	F("Source", "The PDF file shown."),
+	T("Password", "The password of the document, when it has one."),
+	C("Fit", "Width|Page|None", "How the pages are sized: the widest fills the width, the largest fits whole, or the Zoom."),
+	N("Zoom", "A zoom of its own (1: the printed size); the fit becomes None."),
+	N("Page", "The page shown at the top, counted from 1."),
+	A("OnChanged", "Action fired when the current page changes as the user scrolls."),
+};
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
@@ -362,6 +372,7 @@ static const rvn_schema_attribute_t g_menu[] = { T("Title", "Text of the menu in
 static const rvn_schema_attribute_t g_menu_item[] = {
 	T("Text", "Text of the item."),
 	T("Shortcut", "Keys shown beside it and that fire it: \"Ctrl+S\"."),
+	T("ShortcutText", "Display-only hint; overrides shortcut text without changing its binding."),
 	B("Checkable", "Clicking it checks and unchecks it."),
 	B("Checked", "Its state."),
 	B("Separator", "A line instead of an item."),
@@ -410,6 +421,7 @@ static const rvn_schema_attribute_t g_file_browser[] = {
 	B("Places", "false hides the list of places."),
 };
 static const rvn_schema_attribute_t g_dock_area[] = {
+	C("FloatMode", "Window|InWindow", "Future floats use an OS window or a card inside the containing window."),
 	B("Movable", "false keeps the panels where they are."),
 	T("Layout", "An arrangement saved with Rdock_area_save_layout."),
 	B("CloseHides", "The close button of a tab hides its panel (Rdock_area_open_panel brings it back) instead of deleting it."),
@@ -552,6 +564,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Breadcrumb", g_breadcrumb, "The path to the current place: links separated by chevrons."),
 	TAG("Rating", g_rating, "A score shown and chosen with stars."),
 	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
+	TAG("PdfView", g_pdf_view, "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time)."),
 	TAG("Plot", g_plot, "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color)."),
 	TAG("NodeGraph", g_node_graph, "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements."),
 };

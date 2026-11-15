@@ -716,12 +716,10 @@ static const char* rvn_xc_attribute(rvn_xc_t* ctx, const rvn_xml_node_t* node, c
 static void rvn_xc_repeat(rvn_xc_t* ctx, const rvn_xml_node_t* node, const rvn_xc_scope_t* scope, rvn_xml_node_t* holder) {
 	const char* count_text = rvn_xc_attribute(ctx, node, scope, "Count");
 	const char* var = rvn_xml_attribute(node, "Var");
-	int count = count_text ? (int)strtod(count_text, NULL) : 0, i;
+	double requested = count_text ? strtod(count_text, NULL) : 0.0;
+	int count = requested >= 1.0 ? (int)(requested < 10000.0 ? requested : 10000.0) : 0, i;
 	if (!count_text) rvn_xc_report(node, R_SEVERITY_WARNING, "<Repeat> needs Count=\"...\"");
-	if (count > 10000) {
-		rvn_xc_report(node, R_SEVERITY_WARNING, "<Repeat Count=\"%d\">: limited to 10000", count);
-		count = 10000;
-	}
+	if (requested >= 10001.0) rvn_xc_report(node, R_SEVERITY_WARNING, "<Repeat Count=\"%s\">: limited to 10000", count_text);
 	for (i = 0; i < count && !ctx->failed; i++) {
 		rvn_xc_scope_t frame;
 		rvn_xc_scope_inside(&frame, scope);

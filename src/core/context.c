@@ -297,6 +297,7 @@ void Rshutdown(void) {
 	rvn_look_shutdown();
 	rvn_dialogs_shutdown();
 	rvn_islands_shutdown();
+	rvn_pdf_shutdown();
 	rvn_languages_shutdown();
 	rvn_fonts_shutdown();
 	rvn_shaders_shutdown();
@@ -699,10 +700,13 @@ void rvn_update(void) {
 	rvn_tray_update();
 	rvn_textures_update_svg();
 	rvn_inspector_update();
+	/* (a callback of the layout may close a window: it is freed once they all are done) */
+	rvn_dispatch_begin();
 	for (i = 0; i < g_rvn.windows.used; i++) {
 		rvn_window_t* window = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (window) rvn_window_update(window);
 	}
+	rvn_dispatch_end();
 	g_rvn.in_update = R_FALSE;
 }
 

@@ -405,7 +405,7 @@ void rw_json_write(rw_text_t* text, const rw_json_t* value) {
 			rw_text_puts(text, value->number != 0.0 ? "true" : "false");
 			break;
 		case RW_JSON_NUMBER:
-			if (value->number == (double)(long long)value->number && value->number > -1e15 && value->number < 1e15) rw_text_printf(text, "%lld", (long long)value->number);
+			if (value->number > -1e15 && value->number < 1e15 && value->number == (double)(long long)value->number) rw_text_printf(text, "%lld", (long long)value->number);
 			else rw_text_printf(text, "%.17g", value->number);
 			break;
 		case RW_JSON_STRING:

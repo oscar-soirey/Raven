@@ -1476,6 +1476,24 @@ static int rvn_win32_window_set_topmost(rvn_pwindow_t* window, int topmost) {
 }
 
 /*
+ * An owned window stays above its owner, is minimized with it and has no button
+ * of its own in the taskbar (an owned window without WS_EX_APPWINDOW). The
+ * taskbar reads the style when the window is shown: a shown window is hidden
+ * while it changes.
+ */
+static int rvn_win32_window_set_owner(rvn_pwindow_t* window, rvn_pwindow_t* owner) {
+	LONG_PTR style = GetWindowLongPtrW(window->handle, GWL_EXSTYLE);
+	int shown = IsWindowVisible(window->handle);
+	if (shown) ShowWindow(window->handle, SW_HIDE);
+	SetWindowLongPtrW(window->handle, GWLP_HWNDPARENT, (LONG_PTR)(owner ? owner->handle : NULL));
+	if (owner) style &= ~(LONG_PTR)WS_EX_APPWINDOW;
+	else if (!(window->flags & R_WINDOW_SPLASH_SCREEN)) style |= WS_EX_APPWINDOW;
+	SetWindowLongPtrW(window->handle, GWL_EXSTYLE, style);
+	if (shown) ShowWindow(window->handle, SW_SHOWNA);
+	return R_TRUE;
+}
+
+/*
  * Picture in picture. The title bar goes as for a custom header (the borders,
  * the shadow and the resizing stay, the core answers the regions); the window
  * stays on top, in a corner of the work area of its monitor.
@@ -1928,6 +1946,7 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.window_set_backdrop = rvn_win32_window_set_backdrop,
 		.window_set_opacity = rvn_win32_window_set_opacity,
 		.window_set_topmost = rvn_win32_window_set_topmost,
+		.window_set_owner = rvn_win32_window_set_owner,
 		.window_set_picture_in_picture = rvn_win32_window_set_picture_in_picture,
 		.window_set_progress = rvn_win32_window_set_progress,
 		.window_request_attention = rvn_win32_window_request_attention,
