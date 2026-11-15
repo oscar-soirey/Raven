@@ -682,6 +682,8 @@ Widget_Type :: enum i32 {
 	Plot = 0x0232,
 	// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 	Pdf_View = 0x0233,
+	// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+	Map_View = 0x0234,
 }
 
 H_Align :: enum i32 {
@@ -883,6 +885,18 @@ Pdf_Print_Flag :: enum u32 {
 	Dialog = 0,
 }
 Pdf_Print_Flags :: bit_set[Pdf_Print_Flag; u32]
+
+// Where a tile of a MapView stands (Rmap_view_get_tile_state).
+Map_Tile_State :: enum i32 {
+	// Not in the view's cache: never asked for, no longer wanted, or evicted.
+	None = 0x0600,
+	// Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+	Pending = 0x0601,
+	// Its pixels are in the cache.
+	Loaded = 0x0602,
+	// The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+	Failed = 0x0603,
+}
 
 // How an axis of a Plot spreads its values.
 Plot_Scale :: enum i32 {

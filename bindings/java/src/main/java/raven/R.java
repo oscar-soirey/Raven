@@ -1037,6 +1037,10 @@ public final class R {
      * The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
      */
     public static final int R_WIDGET_PDF_VIEW = 0x0233;
+    /**
+     * A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+     */
+    public static final int R_WIDGET_MAP_VIEW = 0x0234;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1291,6 +1295,24 @@ public final class R {
      * No dialog: printed at once on the printer named, else the default one.
      */
     public static final int R_PDF_PRINT_NO_DIALOG = 1;
+
+    // RMapTileState: Where a tile of a MapView stands (Rmap_view_get_tile_state).
+    /**
+     * Not in the view's cache: never asked for, no longer wanted, or evicted.
+     */
+    public static final int R_MAP_TILE_NONE = 0x0600;
+    /**
+     * Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+     */
+    public static final int R_MAP_TILE_PENDING = 0x0601;
+    /**
+     * Its pixels are in the cache.
+     */
+    public static final int R_MAP_TILE_LOADED = 0x0602;
+    /**
+     * The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+     */
+    public static final int R_MAP_TILE_FAILED = 0x0603;
 
     // RPlotScale: How an axis of a Plot spreads its values.
     public static final int R_PLOT_SCALE_LINEAR = 0x0530;
@@ -5056,6 +5078,71 @@ public final class R {
 
     private static MemorySegment upcall(RPdfPageChangedCallback f) {
         return stub(f, RPdfPageChangedCallback.class, "RPdfPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+     */
+    @FunctionalInterface
+    public interface RMapTileCallback {
+        void invoke(int map, int z, int x, int y, MemorySegment user_data);
+    }
+
+    private static void RMapTileCallback$raw(RMapTileCallback f, int map, int z, int x, int y, MemorySegment user_data) {
+        try {
+            f.invoke(map, z, x, y, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RMapTileCallback f) {
+        return stub(f, RMapTileCallback.class, "RMapTileCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user clicks a marker.
+     */
+    @FunctionalInterface
+    public interface RMapMarkerCallback {
+        void invoke(int map, int marker, MemorySegment user_data);
+    }
+
+    private static void RMapMarkerCallback$raw(RMapMarkerCallback f, int map, int marker, MemorySegment user_data) {
+        try {
+            f.invoke(map, marker, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RMapMarkerCallback f) {
+        return stub(f, RMapMarkerCallback.class, "RMapMarkerCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user moves or zooms the map (during a drag, at the
+     * end of an animated zoom), with its new center and zoom. This also fires
+     * the action of the widget.
+     */
+    @FunctionalInterface
+    public interface RMapViewCallback {
+        void invoke(int map, double latitude, double longitude, double zoom, MemorySegment user_data);
+    }
+
+    private static void RMapViewCallback$raw(RMapViewCallback f, int map, double latitude, double longitude, double zoom, MemorySegment user_data) {
+        try {
+            f.invoke(map, latitude, longitude, zoom, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RMapViewCallback f) {
+        return stub(f, RMapViewCallback.class, "RMapViewCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE, JAVA_DOUBLE, ADDRESS));
     }
 
     /**
@@ -16093,6 +16180,538 @@ public final class R {
         try {
             int $r = (int) $h.invokeExact(view, (MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()));
             return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_create$;
+
+    public static int Rmap_view_create() {
+        MethodHandle $h = Rmap_view_create$;
+        if ($h == null) Rmap_view_create$ = $h = find("Rmap_view_create", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_center$;
+
+    /**
+     * Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+     */
+    public static void Rmap_view_set_center(int map, double latitude, double longitude) {
+        MethodHandle $h = Rmap_view_set_center$;
+        if ($h == null) Rmap_view_set_center$ = $h = find("Rmap_view_set_center", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(map, latitude, longitude);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_center$;
+
+    /**
+     * The place at the middle of the map (longitude from -180 to 180).
+     */
+    public static void Rmap_view_get_center(int map, double[] latitude, double[] longitude) {
+        MethodHandle $h = Rmap_view_get_center$;
+        if ($h == null) Rmap_view_get_center$ = $h = find("Rmap_view_get_center", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment latitude$ = latitude == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment longitude$ = longitude == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            $h.invokeExact(map, latitude$, longitude$);
+            if (latitude != null && latitude.length > 0) latitude[0] = latitude$.get(JAVA_DOUBLE, 0);
+            if (longitude != null && longitude.length > 0) longitude[0] = longitude$.get(JAVA_DOUBLE, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_zoom$;
+
+    /**
+     * The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+     */
+    public static void Rmap_view_set_zoom(int map, double zoom) {
+        MethodHandle $h = Rmap_view_set_zoom$;
+        if ($h == null) Rmap_view_set_zoom$ = $h = find("Rmap_view_set_zoom", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(map, zoom);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_zoom$;
+
+    public static double Rmap_view_get_zoom(int map) {
+        MethodHandle $h = Rmap_view_get_zoom$;
+        if ($h == null) Rmap_view_get_zoom$ = $h = find("Rmap_view_get_zoom", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(map);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_zoom_range$;
+
+    /**
+     * The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+     */
+    public static void Rmap_view_set_zoom_range(int map, double min_zoom, double max_zoom) {
+        MethodHandle $h = Rmap_view_set_zoom_range$;
+        if ($h == null) Rmap_view_set_zoom_range$ = $h = find("Rmap_view_set_zoom_range", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(map, min_zoom, max_zoom);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_zoom_range$;
+
+    public static void Rmap_view_get_zoom_range(int map, double[] min_zoom, double[] max_zoom) {
+        MethodHandle $h = Rmap_view_get_zoom_range$;
+        if ($h == null) Rmap_view_get_zoom_range$ = $h = find("Rmap_view_get_zoom_range", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment min_zoom$ = min_zoom == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment max_zoom$ = max_zoom == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            $h.invokeExact(map, min_zoom$, max_zoom$);
+            if (min_zoom != null && min_zoom.length > 0) min_zoom[0] = min_zoom$.get(JAVA_DOUBLE, 0);
+            if (max_zoom != null && max_zoom.length > 0) max_zoom[0] = max_zoom$.get(JAVA_DOUBLE, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_animate_to$;
+
+    /**
+     * Glides to a place and a zoom (at once when animations are off).
+     */
+    public static void Rmap_view_animate_to(int map, double latitude, double longitude, double zoom) {
+        MethodHandle $h = Rmap_view_animate_to$;
+        if ($h == null) Rmap_view_animate_to$ = $h = find("Rmap_view_animate_to", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(map, latitude, longitude, zoom);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_screen_to_latlon$;
+
+    /**
+     * The place at a point of the widget.
+     */
+    public static void Rmap_view_screen_to_latlon(int map, float x, float y, double[] latitude, double[] longitude) {
+        MethodHandle $h = Rmap_view_screen_to_latlon$;
+        if ($h == null) Rmap_view_screen_to_latlon$ = $h = find("Rmap_view_screen_to_latlon", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment latitude$ = latitude == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment longitude$ = longitude == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            $h.invokeExact(map, x, y, latitude$, longitude$);
+            if (latitude != null && latitude.length > 0) latitude[0] = latitude$.get(JAVA_DOUBLE, 0);
+            if (longitude != null && longitude.length > 0) longitude[0] = longitude$.get(JAVA_DOUBLE, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_latlon_to_screen$;
+
+    /**
+     * Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+     */
+    public static void Rmap_view_latlon_to_screen(int map, double latitude, double longitude, float[] x, float[] y) {
+        MethodHandle $h = Rmap_view_latlon_to_screen$;
+        if ($h == null) Rmap_view_latlon_to_screen$ = $h = find("Rmap_view_latlon_to_screen", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment x$ = x == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            MemorySegment y$ = y == null ? MemorySegment.NULL : $a.allocate(JAVA_FLOAT);
+            $h.invokeExact(map, latitude, longitude, x$, y$);
+            if (x != null && x.length > 0) x[0] = x$.get(JAVA_FLOAT, 0);
+            if (y != null && y.length > 0) y[0] = y$.get(JAVA_FLOAT, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_tile_callback$;
+
+    /**
+     * Called once for each tile the map needs. Answer with
+     * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+     * at once or later. Setting it forgets the tiles of the previous source.
+     */
+    public static void Rmap_view_set_tile_callback(int map, RMapTileCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rmap_view_set_tile_callback$;
+        if ($h == null) Rmap_view_set_tile_callback$ = $h = find("Rmap_view_set_tile_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(map, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called once for each tile the map needs. Answer with
+     * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+     * at once or later. Setting it forgets the tiles of the previous source.
+     */
+    public static void Rmap_view_set_tile_callback(int map, RMapTileCallback callback) {
+        Rmap_view_set_tile_callback(map, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rmap_view_set_tile_cancel_callback$;
+
+    /**
+     * Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+     */
+    public static void Rmap_view_set_tile_cancel_callback(int map, RMapTileCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rmap_view_set_tile_cancel_callback$;
+        if ($h == null) Rmap_view_set_tile_cancel_callback$ = $h = find("Rmap_view_set_tile_cancel_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(map, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+     */
+    public static void Rmap_view_set_tile_cancel_callback(int map, RMapTileCallback callback) {
+        Rmap_view_set_tile_cancel_callback(map, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rmap_view_set_tile$;
+
+    /**
+     * The pixels of a tile: `width` x `height` RGBA8, tightly packed
+     * (they are copied; any size, shown at the tile size). Thread-safe: from
+     * another thread it is applied on the UI thread during the next frame.
+     */
+    public static void Rmap_view_set_tile(int map, int z, int x, int y, byte[] rgba, int width, int height) {
+        MethodHandle $h = Rmap_view_set_tile$;
+        if ($h == null) Rmap_view_set_tile$ = $h = find("Rmap_view_set_tile", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment rgba$ = rgba == null ? MemorySegment.NULL : bytes($a, rgba);
+            $h.invokeExact(map, z, x, y, rgba$, width, height);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_tile_data$;
+
+    /**
+     * A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+     */
+    public static void Rmap_view_set_tile_data(int map, int z, int x, int y, byte[] data) {
+        MethodHandle $h = Rmap_view_set_tile_data$;
+        if ($h == null) Rmap_view_set_tile_data$ = $h = find("Rmap_view_set_tile_data", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, JAVA_LONG));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment data$ = data == null ? MemorySegment.NULL : bytes($a, data);
+            $h.invokeExact(map, z, x, y, data$, data$.byteSize());
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_tile_failed$;
+
+    /**
+     * There is no such tile: the coarser one stays shown in its place. Thread-safe.
+     */
+    public static void Rmap_view_set_tile_failed(int map, int z, int x, int y) {
+        MethodHandle $h = Rmap_view_set_tile_failed$;
+        if ($h == null) Rmap_view_set_tile_failed$ = $h = find("Rmap_view_set_tile_failed", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(map, z, x, y);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_tile_path$;
+
+    /**
+     * Reads the tiles from files instead of asking for them: a path
+     * where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+     * south, as in TMS and MBTiles). The files are read and decoded on a
+     * worker thread; a missing file is a tile that failed. NULL or "": the
+     * tile callback again. Local files only.
+     */
+    public static void Rmap_view_set_tile_path(int map, String path_template) {
+        MethodHandle $h = Rmap_view_set_tile_path$;
+        if ($h == null) Rmap_view_set_tile_path$ = $h = find("Rmap_view_set_tile_path", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path_template$ = path_template == null ? MemorySegment.NULL : utf8($a, path_template);
+            $h.invokeExact(map, path_template$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_tile_path$;
+
+    public static String Rmap_view_get_tile_path(int map) {
+        MethodHandle $h = Rmap_view_get_tile_path$;
+        if ($h == null) Rmap_view_get_tile_path$ = $h = find("Rmap_view_get_tile_path", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(map);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_tile_size$;
+
+    /**
+     * Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+     */
+    public static void Rmap_view_set_tile_size(int map, int size) {
+        MethodHandle $h = Rmap_view_set_tile_size$;
+        if ($h == null) Rmap_view_set_tile_size$ = $h = find("Rmap_view_set_tile_size", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(map, size);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_tile_size$;
+
+    public static int Rmap_view_get_tile_size(int map) {
+        MethodHandle $h = Rmap_view_get_tile_size$;
+        if ($h == null) Rmap_view_get_tile_size$ = $h = find("Rmap_view_get_tile_size", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(map);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_cache_size$;
+
+    /**
+     * Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+     */
+    public static void Rmap_view_set_cache_size(int map, long bytes) {
+        MethodHandle $h = Rmap_view_set_cache_size$;
+        if ($h == null) Rmap_view_set_cache_size$ = $h = find("Rmap_view_set_cache_size", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_LONG));
+        try {
+            $h.invokeExact(map, bytes);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_cache_usage$;
+
+    /**
+     * Memory the decoded tiles take now, in bytes.
+     */
+    public static long Rmap_view_get_cache_usage(int map) {
+        MethodHandle $h = Rmap_view_get_cache_usage$;
+        if ($h == null) Rmap_view_get_cache_usage$ = $h = find("Rmap_view_get_cache_usage", FunctionDescriptor.of(JAVA_LONG, JAVA_INT));
+        try {
+            long $r = (long) $h.invokeExact(map);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_clear_tiles$;
+
+    /**
+     * Forgets every tile (they are asked for again): the tiles of the source changed.
+     */
+    public static void Rmap_view_clear_tiles(int map) {
+        MethodHandle $h = Rmap_view_clear_tiles$;
+        if ($h == null) Rmap_view_clear_tiles$ = $h = find("Rmap_view_clear_tiles", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(map);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_tile_state$;
+
+    public static int Rmap_view_get_tile_state(int map, int z, int x, int y) {
+        MethodHandle $h = Rmap_view_get_tile_state$;
+        if ($h == null) Rmap_view_get_tile_state$ = $h = find("Rmap_view_get_tile_state", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(map, z, x, y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_add_marker$;
+
+    /**
+     * Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+     */
+    public static int Rmap_view_add_marker(int map, double latitude, double longitude, String label) {
+        MethodHandle $h = Rmap_view_add_marker$;
+        if ($h == null) Rmap_view_add_marker$ = $h = find("Rmap_view_add_marker", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment label$ = label == null ? MemorySegment.NULL : utf8($a, label);
+            int $r = (int) $h.invokeExact(map, latitude, longitude, label$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_remove_marker$;
+
+    public static void Rmap_view_remove_marker(int map, int marker) {
+        MethodHandle $h = Rmap_view_remove_marker$;
+        if ($h == null) Rmap_view_remove_marker$ = $h = find("Rmap_view_remove_marker", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(map, marker);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_clear_markers$;
+
+    public static void Rmap_view_clear_markers(int map) {
+        MethodHandle $h = Rmap_view_clear_markers$;
+        if ($h == null) Rmap_view_clear_markers$ = $h = find("Rmap_view_clear_markers", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(map);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_marker_count$;
+
+    public static int Rmap_view_get_marker_count(int map) {
+        MethodHandle $h = Rmap_view_get_marker_count$;
+        if ($h == null) Rmap_view_get_marker_count$ = $h = find("Rmap_view_get_marker_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(map);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_marker_position$;
+
+    public static void Rmap_view_set_marker_position(int map, int marker, double latitude, double longitude) {
+        MethodHandle $h = Rmap_view_set_marker_position$;
+        if ($h == null) Rmap_view_set_marker_position$ = $h = find("Rmap_view_set_marker_position", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(map, marker, latitude, longitude);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_marker_label$;
+
+    public static void Rmap_view_set_marker_label(int map, int marker, String label) {
+        MethodHandle $h = Rmap_view_set_marker_label$;
+        if ($h == null) Rmap_view_set_marker_label$ = $h = find("Rmap_view_set_marker_label", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment label$ = label == null ? MemorySegment.NULL : utf8($a, label);
+            $h.invokeExact(map, marker, label$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_marker_color$;
+
+    /**
+     * The color of a pin (by default the accent of the theme).
+     */
+    public static void Rmap_view_set_marker_color(int map, int marker, float r, float g, float b, float a) {
+        MethodHandle $h = Rmap_view_set_marker_color$;
+        if ($h == null) Rmap_view_set_marker_color$ = $h = find("Rmap_view_set_marker_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(map, marker, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_set_marker_clicked_callback$;
+
+    public static void Rmap_view_set_marker_clicked_callback(int map, RMapMarkerCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rmap_view_set_marker_clicked_callback$;
+        if ($h == null) Rmap_view_set_marker_clicked_callback$ = $h = find("Rmap_view_set_marker_clicked_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(map, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rmap_view_set_marker_clicked_callback(int map, RMapMarkerCallback callback) {
+        Rmap_view_set_marker_clicked_callback(map, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rmap_view_set_view_changed_callback$;
+
+    public static void Rmap_view_set_view_changed_callback(int map, RMapViewCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rmap_view_set_view_changed_callback$;
+        if ($h == null) Rmap_view_set_view_changed_callback$ = $h = find("Rmap_view_set_view_changed_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(map, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rmap_view_set_view_changed_callback(int map, RMapViewCallback callback) {
+        Rmap_view_set_view_changed_callback(map, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rmap_view_set_attribution$;
+
+    /**
+     * A line written in the bottom right corner: the credit most tile
+     * licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+     */
+    public static void Rmap_view_set_attribution(int map, String text) {
+        MethodHandle $h = Rmap_view_set_attribution$;
+        if ($h == null) Rmap_view_set_attribution$ = $h = find("Rmap_view_set_attribution", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(map, text$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rmap_view_get_attribution$;
+
+    public static String Rmap_view_get_attribution(int map) {
+        MethodHandle $h = Rmap_view_get_attribution$;
+        if ($h == null) Rmap_view_get_attribution$ = $h = find("Rmap_view_get_attribution", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(map);
+            return text($r);
         } catch (Throwable $t) {
             throw fail($t);
         }

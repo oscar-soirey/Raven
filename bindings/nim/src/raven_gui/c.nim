@@ -137,6 +137,8 @@ type
   RPdfTextStyle* = cint
     ## A bitmask of styles of the text of a PDF document.
   RPdfPrintFlags* = cint
+  RMapTileState* = cint
+    ## Where a tile of a MapView stands (Rmap_view_get_tile_state).
   RPlotScale* = cint
     ## How an axis of a Plot spreads its values.
   RPlotLine* = cint
@@ -326,6 +328,14 @@ type
     ## Called when the user hides or shows a series from the legend.
   RPdfPageChangedCallback* = proc (view: Rid, page: cint, user_data: pointer) {.cdecl.}
     ## Called when the current page changes as the user scrolls. This also fires the action of the widget.
+  RMapTileCallback* = proc (map: Rid, z: cint, x: cint, y: cint, user_data: pointer) {.cdecl.}
+    ## Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+  RMapMarkerCallback* = proc (map: Rid, marker: cint, user_data: pointer) {.cdecl.}
+    ## Called when the user clicks a marker.
+  RMapViewCallback* = proc (map: Rid, latitude: cdouble, longitude: cdouble, zoom: cdouble, user_data: pointer) {.cdecl.}
+    ## Called when the user moves or zooms the map (during a drag, at the
+    ## end of an animated zoom), with its new center and zoom. This also fires
+    ## the action of the widget.
   RTextEditorZoomCallback* = proc (editor: Rid, zoom: cfloat, user_data: pointer) {.cdecl.}
     ## Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
   RCompletionCallback* = proc (editor: Rid, prefix: cstring, user_data: pointer) {.cdecl.}
@@ -1461,6 +1471,8 @@ const
     ## Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
   R_WIDGET_PDF_VIEW*: RWidgetType = 0x0233
     ## The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+  R_WIDGET_MAP_VIEW*: RWidgetType = 0x0234
+    ## A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -1625,6 +1637,16 @@ const
   # RPdfPrintFlags
   R_PDF_PRINT_NO_DIALOG*: RPdfPrintFlags = 1
     ## No dialog: printed at once on the printer named, else the default one.
+
+  # RMapTileState
+  R_MAP_TILE_NONE*: RMapTileState = 0x0600
+    ## Not in the view's cache: never asked for, no longer wanted, or evicted.
+  R_MAP_TILE_PENDING*: RMapTileState = 0x0601
+    ## Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+  R_MAP_TILE_LOADED*: RMapTileState = 0x0602
+    ## Its pixels are in the cache.
+  R_MAP_TILE_FAILED*: RMapTileState = 0x0603
+    ## The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
 
   # RPlotScale
   R_PLOT_SCALE_LINEAR*: RPlotScale = 0x0530
@@ -3374,6 +3396,69 @@ proc Rpdf_view_get_page_text*(view: Rid, page: cint): cstring {.rapi.}
 proc Rpdf_view_set_page_changed_callback*(view: Rid, callback: RPdfPageChangedCallback, user_data: pointer) {.rapi.}
 proc Rpdf_view_print*(view: Rid, desc: ptr RPdfPrintDesc): cint {.rapi.}
   ## Prints the document shown (see Rpdf_print); the job is named after its title.
+proc Rmap_view_create*(): Rid {.rapi.}
+proc Rmap_view_set_center*(map: Rid, latitude: cdouble, longitude: cdouble) {.rapi.}
+  ## Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+proc Rmap_view_get_center*(map: Rid, latitude: ptr cdouble, longitude: ptr cdouble) {.rapi.}
+  ## The place at the middle of the map (longitude from -180 to 180).
+proc Rmap_view_set_zoom*(map: Rid, zoom: cdouble) {.rapi.}
+  ## The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+proc Rmap_view_get_zoom*(map: Rid): cdouble {.rapi.}
+proc Rmap_view_set_zoom_range*(map: Rid, min_zoom: cdouble, max_zoom: cdouble) {.rapi.}
+  ## The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+proc Rmap_view_get_zoom_range*(map: Rid, min_zoom: ptr cdouble, max_zoom: ptr cdouble) {.rapi.}
+proc Rmap_view_animate_to*(map: Rid, latitude: cdouble, longitude: cdouble, zoom: cdouble) {.rapi.}
+  ## Glides to a place and a zoom (at once when animations are off).
+proc Rmap_view_screen_to_latlon*(map: Rid, x: cfloat, y: cfloat, latitude: ptr cdouble, longitude: ptr cdouble) {.rapi.}
+  ## The place at a point of the widget.
+proc Rmap_view_latlon_to_screen*(map: Rid, latitude: cdouble, longitude: cdouble, x: ptr cfloat, y: ptr cfloat) {.rapi.}
+  ## Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+proc Rmap_view_set_tile_callback*(map: Rid, callback: RMapTileCallback, user_data: pointer) {.rapi.}
+  ## Called once for each tile the map needs. Answer with
+  ## Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+  ## at once or later. Setting it forgets the tiles of the previous source.
+proc Rmap_view_set_tile_cancel_callback*(map: Rid, callback: RMapTileCallback, user_data: pointer) {.rapi.}
+  ## Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+proc Rmap_view_set_tile*(map: Rid, z: cint, x: cint, y: cint, rgba: ptr uint8, width: cint, height: cint) {.rapi.}
+  ## The pixels of a tile: `width` x `height` RGBA8, tightly packed
+  ## (they are copied; any size, shown at the tile size). Thread-safe: from
+  ## another thread it is applied on the UI thread during the next frame.
+proc Rmap_view_set_tile_data*(map: Rid, z: cint, x: cint, y: cint, data: pointer, data_size: csize_t) {.rapi.}
+  ## A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+proc Rmap_view_set_tile_failed*(map: Rid, z: cint, x: cint, y: cint) {.rapi.}
+  ## There is no such tile: the coarser one stays shown in its place. Thread-safe.
+proc Rmap_view_set_tile_path*(map: Rid, path_template: cstring) {.rapi.}
+  ## Reads the tiles from files instead of asking for them: a path
+  ## where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+  ## south, as in TMS and MBTiles). The files are read and decoded on a
+  ## worker thread; a missing file is a tile that failed. NULL or "": the
+  ## tile callback again. Local files only.
+proc Rmap_view_get_tile_path*(map: Rid): cstring {.rapi.}
+proc Rmap_view_set_tile_size*(map: Rid, size: cint) {.rapi.}
+  ## Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+proc Rmap_view_get_tile_size*(map: Rid): cint {.rapi.}
+proc Rmap_view_set_cache_size*(map: Rid, bytes: csize_t) {.rapi.}
+  ## Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+proc Rmap_view_get_cache_usage*(map: Rid): csize_t {.rapi.}
+  ## Memory the decoded tiles take now, in bytes.
+proc Rmap_view_clear_tiles*(map: Rid) {.rapi.}
+  ## Forgets every tile (they are asked for again): the tiles of the source changed.
+proc Rmap_view_get_tile_state*(map: Rid, z: cint, x: cint, y: cint): RMapTileState {.rapi.}
+proc Rmap_view_add_marker*(map: Rid, latitude: cdouble, longitude: cdouble, label: cstring): cint {.rapi.}
+  ## Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+proc Rmap_view_remove_marker*(map: Rid, marker: cint) {.rapi.}
+proc Rmap_view_clear_markers*(map: Rid) {.rapi.}
+proc Rmap_view_get_marker_count*(map: Rid): cint {.rapi.}
+proc Rmap_view_set_marker_position*(map: Rid, marker: cint, latitude: cdouble, longitude: cdouble) {.rapi.}
+proc Rmap_view_set_marker_label*(map: Rid, marker: cint, label: cstring) {.rapi.}
+proc Rmap_view_set_marker_color*(map: Rid, marker: cint, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+  ## The color of a pin (by default the accent of the theme).
+proc Rmap_view_set_marker_clicked_callback*(map: Rid, callback: RMapMarkerCallback, user_data: pointer) {.rapi.}
+proc Rmap_view_set_view_changed_callback*(map: Rid, callback: RMapViewCallback, user_data: pointer) {.rapi.}
+proc Rmap_view_set_attribution*(map: Rid, text: cstring) {.rapi.}
+  ## A line written in the bottom right corner: the credit most tile
+  ## licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+proc Rmap_view_get_attribution*(map: Rid): cstring {.rapi.}
 proc Rpdf_document_create*(): Rid {.rapi.}
 proc Rpdf_document_delete*(document: Rid) {.rapi.}
 proc Rpdf_document_set_title*(document: Rid, title: cstring) {.rapi.}

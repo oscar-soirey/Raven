@@ -1017,6 +1017,10 @@ namespace Raven
         /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
         /// </summary>
         R_WIDGET_PDF_VIEW = 0x0233,
+        /// <summary>
+        /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+        /// </summary>
+        R_WIDGET_MAP_VIEW = 0x0234,
     }
 
     public enum RHAlign : int
@@ -1344,6 +1348,29 @@ namespace Raven
         /// No dialog: printed at once on the printer named, else the default one.
         /// </summary>
         R_PDF_PRINT_NO_DIALOG = 1,
+    }
+
+    /// <summary>
+    /// Where a tile of a MapView stands (Rmap_view_get_tile_state).
+    /// </summary>
+    public enum RMapTileState : int
+    {
+        /// <summary>
+        /// Not in the view's cache: never asked for, no longer wanted, or evicted.
+        /// </summary>
+        R_MAP_TILE_NONE = 0x0600,
+        /// <summary>
+        /// Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+        /// </summary>
+        R_MAP_TILE_PENDING = 0x0601,
+        /// <summary>
+        /// Its pixels are in the cache.
+        /// </summary>
+        R_MAP_TILE_LOADED = 0x0602,
+        /// <summary>
+        /// The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+        /// </summary>
+        R_MAP_TILE_FAILED = 0x0603,
     }
 
     /// <summary>
@@ -3089,6 +3116,26 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RPdfPageChangedCallback(uint view, int page, IntPtr user_data);
+
+    /// <summary>
+    /// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RMapTileCallback(uint map, int z, int x, int y, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user clicks a marker.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RMapMarkerCallback(uint map, int marker, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user moves or zooms the map (during a drag, at the
+    /// end of an animated zoom), with its new center and zoom. This also fires
+    /// the action of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RMapViewCallback(uint map, double latitude, double longitude, double zoom, IntPtr user_data);
 
     /// <summary>
     /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -7012,6 +7059,179 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rpdf_view_print(uint view, IntPtr desc);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rmap_view_create();
+
+        /// <summary>
+        /// Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_center(uint map, double latitude, double longitude);
+
+        /// <summary>
+        /// The place at the middle of the map (longitude from -180 to 180).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_get_center(uint map, out double latitude, out double longitude);
+
+        /// <summary>
+        /// The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_zoom(uint map, double zoom);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rmap_view_get_zoom(uint map);
+
+        /// <summary>
+        /// The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_zoom_range(uint map, double min_zoom, double max_zoom);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_get_zoom_range(uint map, out double min_zoom, out double max_zoom);
+
+        /// <summary>
+        /// Glides to a place and a zoom (at once when animations are off).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_animate_to(uint map, double latitude, double longitude, double zoom);
+
+        /// <summary>
+        /// The place at a point of the widget.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_screen_to_latlon(uint map, float x, float y, out double latitude, out double longitude);
+
+        /// <summary>
+        /// Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_latlon_to_screen(uint map, double latitude, double longitude, out float x, out float y);
+
+        /// <summary>
+        /// Called once for each tile the map needs. Answer with
+        /// Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+        /// at once or later. Setting it forgets the tiles of the previous source.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_tile_callback(uint map, RMapTileCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_tile_cancel_callback(uint map, RMapTileCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The pixels of a tile: `width` x `height` RGBA8, tightly packed
+        /// (they are copied; any size, shown at the tile size). Thread-safe: from
+        /// another thread it is applied on the UI thread during the next frame.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_tile(uint map, int z, int x, int y, byte[] rgba, int width, int height);
+
+        /// <summary>
+        /// A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_tile_data(uint map, int z, int x, int y, byte[] data, UIntPtr data_size);
+
+        /// <summary>
+        /// There is no such tile: the coarser one stays shown in its place. Thread-safe.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_tile_failed(uint map, int z, int x, int y);
+
+        /// <summary>
+        /// Reads the tiles from files instead of asking for them: a path
+        /// where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+        /// south, as in TMS and MBTiles). The files are read and decoded on a
+        /// worker thread; a missing file is a tile that failed. NULL or "": the
+        /// tile callback again. Local files only.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_tile_path(uint map, [MarshalAs(Utf8.Str)] string path_template);
+
+        [DllImport(Lib, EntryPoint = "Rmap_view_get_tile_path", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmap_view_get_tile_path_(uint map);
+        public static string Rmap_view_get_tile_path(uint map) { return Text(Rmap_view_get_tile_path_(map)); }
+
+        /// <summary>
+        /// Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_tile_size(uint map, int size);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmap_view_get_tile_size(uint map);
+
+        /// <summary>
+        /// Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_cache_size(uint map, UIntPtr bytes);
+
+        /// <summary>
+        /// Memory the decoded tiles take now, in bytes.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern UIntPtr Rmap_view_get_cache_usage(uint map);
+
+        /// <summary>
+        /// Forgets every tile (they are asked for again): the tiles of the source changed.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_clear_tiles(uint map);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RMapTileState Rmap_view_get_tile_state(uint map, int z, int x, int y);
+
+        /// <summary>
+        /// Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmap_view_add_marker(uint map, double latitude, double longitude, [MarshalAs(Utf8.Str)] string label);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_remove_marker(uint map, int marker);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_clear_markers(uint map);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rmap_view_get_marker_count(uint map);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_marker_position(uint map, int marker, double latitude, double longitude);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_marker_label(uint map, int marker, [MarshalAs(Utf8.Str)] string label);
+
+        /// <summary>
+        /// The color of a pin (by default the accent of the theme).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_marker_color(uint map, int marker, float r, float g, float b, float a);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_marker_clicked_callback(uint map, RMapMarkerCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_view_changed_callback(uint map, RMapViewCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// A line written in the bottom right corner: the credit most tile
+        /// licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rmap_view_set_attribution(uint map, [MarshalAs(Utf8.Str)] string text);
+
+        [DllImport(Lib, EntryPoint = "Rmap_view_get_attribution", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rmap_view_get_attribution_(uint map);
+        public static string Rmap_view_get_attribution(uint map) { return Text(Rmap_view_get_attribution_(map)); }
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rpdf_document_create();

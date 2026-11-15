@@ -463,6 +463,7 @@ typedef enum RWidgetType {
 	R_WIDGET_PAGINATION = 561,
 	R_WIDGET_PLOT = 562,
 	R_WIDGET_PDF_VIEW = 563,
+	R_WIDGET_MAP_VIEW = 564,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -576,6 +577,12 @@ typedef enum RPdfTextStyle {
 typedef enum RPdfPrintFlags {
 	R_PDF_PRINT_NO_DIALOG = 1,
 } RPdfPrintFlags;
+typedef enum RMapTileState {
+	R_MAP_TILE_NONE = 1536,
+	R_MAP_TILE_PENDING = 1537,
+	R_MAP_TILE_LOADED = 1538,
+	R_MAP_TILE_FAILED = 1539,
+} RMapTileState;
 typedef enum RPlotScale {
 	R_PLOT_SCALE_LINEAR = 1328,
 	R_PLOT_SCALE_LOG = 1329,
@@ -885,6 +892,9 @@ typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
 typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
 typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
 typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
+typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
+typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
@@ -1858,6 +1868,40 @@ const char* Rpdf_view_get_title(Rid view);
 const char* Rpdf_view_get_page_text(Rid view, int page);
 void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
 int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+Rid Rmap_view_create(void);
+void Rmap_view_set_center(Rid map, double latitude, double longitude);
+void Rmap_view_get_center(Rid map, double* latitude, double* longitude);
+void Rmap_view_set_zoom(Rid map, double zoom);
+double Rmap_view_get_zoom(Rid map);
+void Rmap_view_set_zoom_range(Rid map, double min_zoom, double max_zoom);
+void Rmap_view_get_zoom_range(Rid map, double* min_zoom, double* max_zoom);
+void Rmap_view_animate_to(Rid map, double latitude, double longitude, double zoom);
+void Rmap_view_screen_to_latlon(Rid map, float x, float y, double* latitude, double* longitude);
+void Rmap_view_latlon_to_screen(Rid map, double latitude, double longitude, float* x, float* y);
+void Rmap_view_set_tile_callback(Rid map, RMapTileCallback callback, void* user_data);
+void Rmap_view_set_tile_cancel_callback(Rid map, RMapTileCallback callback, void* user_data);
+void Rmap_view_set_tile(Rid map, int z, int x, int y, const uint8_t* rgba, int width, int height);
+void Rmap_view_set_tile_data(Rid map, int z, int x, int y, const void* data, size_t data_size);
+void Rmap_view_set_tile_failed(Rid map, int z, int x, int y);
+void Rmap_view_set_tile_path(Rid map, const char* path_template);
+const char* Rmap_view_get_tile_path(Rid map);
+void Rmap_view_set_tile_size(Rid map, int size);
+int Rmap_view_get_tile_size(Rid map);
+void Rmap_view_set_cache_size(Rid map, size_t bytes);
+size_t Rmap_view_get_cache_usage(Rid map);
+void Rmap_view_clear_tiles(Rid map);
+RMapTileState Rmap_view_get_tile_state(Rid map, int z, int x, int y);
+int Rmap_view_add_marker(Rid map, double latitude, double longitude, const char* label);
+void Rmap_view_remove_marker(Rid map, int marker);
+void Rmap_view_clear_markers(Rid map);
+int Rmap_view_get_marker_count(Rid map);
+void Rmap_view_set_marker_position(Rid map, int marker, double latitude, double longitude);
+void Rmap_view_set_marker_label(Rid map, int marker, const char* label);
+void Rmap_view_set_marker_color(Rid map, int marker, float r, float g, float b, float a);
+void Rmap_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback, void* user_data);
+void Rmap_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data);
+void Rmap_view_set_attribution(Rid map, const char* text);
+const char* Rmap_view_get_attribution(Rid map);
 Rid Rpdf_document_create(void);
 void Rpdf_document_delete(Rid document);
 void Rpdf_document_set_title(Rid document, const char* title);

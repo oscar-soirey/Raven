@@ -936,6 +936,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_PAGINATION = 0x0231
     R_WIDGET_PLOT = 0x0232
     R_WIDGET_PDF_VIEW = 0x0233
+    R_WIDGET_MAP_VIEW = 0x0234
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -989,6 +990,7 @@ R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING
 R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
 R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
 R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
+R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1206,6 +1208,18 @@ class RPdfPrintFlags(enum.IntEnum):
     R_PDF_PRINT_NO_DIALOG = 1
 
 R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags.R_PDF_PRINT_NO_DIALOG
+
+class RMapTileState(enum.IntEnum):
+    """Where a tile of a MapView stands (Rmap_view_get_tile_state)."""
+    R_MAP_TILE_NONE = 0x0600
+    R_MAP_TILE_PENDING = 0x0601
+    R_MAP_TILE_LOADED = 0x0602
+    R_MAP_TILE_FAILED = 0x0603
+
+R_MAP_TILE_NONE = RMapTileState.R_MAP_TILE_NONE
+R_MAP_TILE_PENDING = RMapTileState.R_MAP_TILE_PENDING
+R_MAP_TILE_LOADED = RMapTileState.R_MAP_TILE_LOADED
+R_MAP_TILE_FAILED = RMapTileState.R_MAP_TILE_FAILED
 
 class RPlotScale(enum.IntEnum):
     """How an axis of a Plot spreads its values."""
@@ -2456,6 +2470,30 @@ RPdfPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, 
 def _adapt_RPdfPageChangedCallback(function):
     def call(view, page, user_data):
         function(view, page, user_data)
+    return call
+
+RMapTileCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RMapTileCallback(function):
+    def call(map, z, x, y, user_data):
+        function(map, z, x, y, user_data)
+    return call
+
+RMapMarkerCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RMapMarkerCallback(function):
+    def call(map, marker, user_data):
+        function(map, marker, user_data)
+    return call
+
+RMapViewCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_void_p)
+
+
+def _adapt_RMapViewCallback(function):
+    def call(map, latitude, longitude, zoom, user_data):
+        function(map, latitude, longitude, zoom, user_data)
     return call
 
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
@@ -8960,6 +8998,320 @@ _lib.Rpdf_view_print.restype = ctypes.c_int
 def Rpdf_view_print(view, desc):
     """Prints the document shown (see Rpdf_print); the job is named after its title."""
     return _lib.Rpdf_view_print(view, _p(desc))
+
+
+_lib.Rmap_view_create.argtypes = []
+_lib.Rmap_view_create.restype = ctypes.c_uint32
+
+
+def Rmap_view_create():
+    return _lib.Rmap_view_create()
+
+
+_lib.Rmap_view_set_center.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double]
+_lib.Rmap_view_set_center.restype = None
+
+
+def Rmap_view_set_center(map, latitude, longitude):
+    """Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps."""
+    _lib.Rmap_view_set_center(map, latitude, longitude)
+
+
+_lib.Rmap_view_get_center.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rmap_view_get_center.restype = None
+
+
+def Rmap_view_get_center(map):
+    """The place at the middle of the map (longitude from -180 to 180)."""
+    latitude_ = ctypes.c_double()
+    longitude_ = ctypes.c_double()
+    _lib.Rmap_view_get_center(map, ctypes.byref(latitude_), ctypes.byref(longitude_))
+    return (latitude_.value, longitude_.value)
+
+
+_lib.Rmap_view_set_zoom.argtypes = [ctypes.c_uint32, ctypes.c_double]
+_lib.Rmap_view_set_zoom.restype = None
+
+
+def Rmap_view_set_zoom(map, zoom):
+    """The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed."""
+    _lib.Rmap_view_set_zoom(map, zoom)
+
+
+_lib.Rmap_view_get_zoom.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_get_zoom.restype = ctypes.c_double
+
+
+def Rmap_view_get_zoom(map):
+    return _lib.Rmap_view_get_zoom(map)
+
+
+_lib.Rmap_view_set_zoom_range.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double]
+_lib.Rmap_view_set_zoom_range.restype = None
+
+
+def Rmap_view_set_zoom_range(map, min_zoom, max_zoom):
+    """The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range."""
+    _lib.Rmap_view_set_zoom_range(map, min_zoom, max_zoom)
+
+
+_lib.Rmap_view_get_zoom_range.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rmap_view_get_zoom_range.restype = None
+
+
+def Rmap_view_get_zoom_range(map):
+    min_zoom_ = ctypes.c_double()
+    max_zoom_ = ctypes.c_double()
+    _lib.Rmap_view_get_zoom_range(map, ctypes.byref(min_zoom_), ctypes.byref(max_zoom_))
+    return (min_zoom_.value, max_zoom_.value)
+
+
+_lib.Rmap_view_animate_to.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double, ctypes.c_double]
+_lib.Rmap_view_animate_to.restype = None
+
+
+def Rmap_view_animate_to(map, latitude, longitude, zoom):
+    """Glides to a place and a zoom (at once when animations are off)."""
+    _lib.Rmap_view_animate_to(map, latitude, longitude, zoom)
+
+
+_lib.Rmap_view_screen_to_latlon.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rmap_view_screen_to_latlon.restype = None
+
+
+def Rmap_view_screen_to_latlon(map, x, y):
+    """The place at a point of the widget."""
+    latitude_ = ctypes.c_double()
+    longitude_ = ctypes.c_double()
+    _lib.Rmap_view_screen_to_latlon(map, x, y, ctypes.byref(latitude_), ctypes.byref(longitude_))
+    return (latitude_.value, longitude_.value)
+
+
+_lib.Rmap_view_latlon_to_screen.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double, ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float)]
+_lib.Rmap_view_latlon_to_screen.restype = None
+
+
+def Rmap_view_latlon_to_screen(map, latitude, longitude):
+    """Where a place is in the widget (of the copies of the world side by side, the one nearest the middle)."""
+    x_ = ctypes.c_float()
+    y_ = ctypes.c_float()
+    _lib.Rmap_view_latlon_to_screen(map, latitude, longitude, ctypes.byref(x_), ctypes.byref(y_))
+    return (x_.value, y_.value)
+
+
+_lib.Rmap_view_set_tile_callback.argtypes = [ctypes.c_uint32, RMapTileCallback, ctypes.c_void_p]
+_lib.Rmap_view_set_tile_callback.restype = None
+
+
+def Rmap_view_set_tile_callback(map, callback, user_data=None):
+    """Called once for each tile the map needs. Answer with
+    Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+    at once or later. Setting it forgets the tiles of the previous source."""
+    _lib.Rmap_view_set_tile_callback(map, _callback(RMapTileCallback, _adapt_RMapTileCallback, callback), user_data)
+
+
+_lib.Rmap_view_set_tile_cancel_callback.argtypes = [ctypes.c_uint32, RMapTileCallback, ctypes.c_void_p]
+_lib.Rmap_view_set_tile_cancel_callback.restype = None
+
+
+def Rmap_view_set_tile_cancel_callback(map, callback, user_data=None):
+    """Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional."""
+    _lib.Rmap_view_set_tile_cancel_callback(map, _callback(RMapTileCallback, _adapt_RMapTileCallback, callback), user_data)
+
+
+_lib.Rmap_view_set_tile.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_lib.Rmap_view_set_tile.restype = None
+
+
+def Rmap_view_set_tile(map, z, x, y, rgba, width, height):
+    """The pixels of a tile: `width` x `height` RGBA8, tightly packed
+    (they are copied; any size, shown at the tile size). Thread-safe: from
+    another thread it is applied on the UI thread during the next frame."""
+    _lib.Rmap_view_set_tile(map, z, x, y, rgba, width, height)
+
+
+_lib.Rmap_view_set_tile_data.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_size_t]
+_lib.Rmap_view_set_tile_data.restype = None
+
+
+def Rmap_view_set_tile_data(map, z, x, y, data):
+    """A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe."""
+    data = bytes(data) if data is not None else None
+    _lib.Rmap_view_set_tile_data(map, z, x, y, data, len(data) if data is not None else 0)
+
+
+_lib.Rmap_view_set_tile_failed.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rmap_view_set_tile_failed.restype = None
+
+
+def Rmap_view_set_tile_failed(map, z, x, y):
+    """There is no such tile: the coarser one stays shown in its place. Thread-safe."""
+    _lib.Rmap_view_set_tile_failed(map, z, x, y)
+
+
+_lib.Rmap_view_set_tile_path.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmap_view_set_tile_path.restype = None
+
+
+def Rmap_view_set_tile_path(map, path_template):
+    """Reads the tiles from files instead of asking for them: a path
+    where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+    south, as in TMS and MBTiles). The files are read and decoded on a
+    worker thread; a missing file is a tile that failed. NULL or "": the
+    tile callback again. Local files only."""
+    _lib.Rmap_view_set_tile_path(map, _s(path_template))
+
+
+_lib.Rmap_view_get_tile_path.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_get_tile_path.restype = ctypes.c_char_p
+
+
+def Rmap_view_get_tile_path(map):
+    return _r(_lib.Rmap_view_get_tile_path(map))
+
+
+_lib.Rmap_view_set_tile_size.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rmap_view_set_tile_size.restype = None
+
+
+def Rmap_view_set_tile_size(map, size):
+    """Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger."""
+    _lib.Rmap_view_set_tile_size(map, size)
+
+
+_lib.Rmap_view_get_tile_size.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_get_tile_size.restype = ctypes.c_int
+
+
+def Rmap_view_get_tile_size(map):
+    return _lib.Rmap_view_get_tile_size(map)
+
+
+_lib.Rmap_view_set_cache_size.argtypes = [ctypes.c_uint32, ctypes.c_size_t]
+_lib.Rmap_view_set_cache_size.restype = None
+
+
+def Rmap_view_set_cache_size(map, bytes):
+    """Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept."""
+    _lib.Rmap_view_set_cache_size(map, bytes)
+
+
+_lib.Rmap_view_get_cache_usage.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_get_cache_usage.restype = ctypes.c_size_t
+
+
+def Rmap_view_get_cache_usage(map):
+    """Memory the decoded tiles take now, in bytes."""
+    return _lib.Rmap_view_get_cache_usage(map)
+
+
+_lib.Rmap_view_clear_tiles.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_clear_tiles.restype = None
+
+
+def Rmap_view_clear_tiles(map):
+    """Forgets every tile (they are asked for again): the tiles of the source changed."""
+    _lib.Rmap_view_clear_tiles(map)
+
+
+_lib.Rmap_view_get_tile_state.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rmap_view_get_tile_state.restype = ctypes.c_int
+
+
+def Rmap_view_get_tile_state(map, z, x, y):
+    return _e(RMapTileState, _lib.Rmap_view_get_tile_state(map, z, x, y))
+
+
+_lib.Rmap_view_add_marker.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double, ctypes.c_char_p]
+_lib.Rmap_view_add_marker.restype = ctypes.c_int
+
+
+def Rmap_view_add_marker(map, latitude, longitude, label):
+    """Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1."""
+    return _lib.Rmap_view_add_marker(map, latitude, longitude, _s(label))
+
+
+_lib.Rmap_view_remove_marker.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rmap_view_remove_marker.restype = None
+
+
+def Rmap_view_remove_marker(map, marker):
+    _lib.Rmap_view_remove_marker(map, marker)
+
+
+_lib.Rmap_view_clear_markers.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_clear_markers.restype = None
+
+
+def Rmap_view_clear_markers(map):
+    _lib.Rmap_view_clear_markers(map)
+
+
+_lib.Rmap_view_get_marker_count.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_get_marker_count.restype = ctypes.c_int
+
+
+def Rmap_view_get_marker_count(map):
+    return _lib.Rmap_view_get_marker_count(map)
+
+
+_lib.Rmap_view_set_marker_position.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double, ctypes.c_double]
+_lib.Rmap_view_set_marker_position.restype = None
+
+
+def Rmap_view_set_marker_position(map, marker, latitude, longitude):
+    _lib.Rmap_view_set_marker_position(map, marker, latitude, longitude)
+
+
+_lib.Rmap_view_set_marker_label.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rmap_view_set_marker_label.restype = None
+
+
+def Rmap_view_set_marker_label(map, marker, label):
+    _lib.Rmap_view_set_marker_label(map, marker, _s(label))
+
+
+_lib.Rmap_view_set_marker_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rmap_view_set_marker_color.restype = None
+
+
+def Rmap_view_set_marker_color(map, marker, r, g, b, a):
+    """The color of a pin (by default the accent of the theme)."""
+    _lib.Rmap_view_set_marker_color(map, marker, r, g, b, a)
+
+
+_lib.Rmap_view_set_marker_clicked_callback.argtypes = [ctypes.c_uint32, RMapMarkerCallback, ctypes.c_void_p]
+_lib.Rmap_view_set_marker_clicked_callback.restype = None
+
+
+def Rmap_view_set_marker_clicked_callback(map, callback, user_data=None):
+    _lib.Rmap_view_set_marker_clicked_callback(map, _callback(RMapMarkerCallback, _adapt_RMapMarkerCallback, callback), user_data)
+
+
+_lib.Rmap_view_set_view_changed_callback.argtypes = [ctypes.c_uint32, RMapViewCallback, ctypes.c_void_p]
+_lib.Rmap_view_set_view_changed_callback.restype = None
+
+
+def Rmap_view_set_view_changed_callback(map, callback, user_data=None):
+    _lib.Rmap_view_set_view_changed_callback(map, _callback(RMapViewCallback, _adapt_RMapViewCallback, callback), user_data)
+
+
+_lib.Rmap_view_set_attribution.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rmap_view_set_attribution.restype = None
+
+
+def Rmap_view_set_attribution(map, text):
+    """A line written in the bottom right corner: the credit most tile
+    licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none."""
+    _lib.Rmap_view_set_attribution(map, _s(text))
+
+
+_lib.Rmap_view_get_attribution.argtypes = [ctypes.c_uint32]
+_lib.Rmap_view_get_attribution.restype = ctypes.c_char_p
+
+
+def Rmap_view_get_attribution(map):
+    return _r(_lib.Rmap_view_get_attribution(map))
 
 
 _lib.Rpdf_document_create.argtypes = []

@@ -668,6 +668,7 @@ const (
 	R_WIDGET_PAGINATION      RWidgetType = 0x0231
 	R_WIDGET_PLOT            RWidgetType = 0x0232
 	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
+	R_WIDGET_MAP_VIEW        RWidgetType = 0x0234
 )
 
 type RHAlign int32
@@ -853,6 +854,16 @@ type RPdfPrintFlags int32
 
 const (
 	R_PDF_PRINT_NO_DIALOG RPdfPrintFlags = 1
+)
+
+// RMapTileState: Where a tile of a MapView stands (Rmap_view_get_tile_state).
+type RMapTileState int32
+
+const (
+	R_MAP_TILE_NONE    RMapTileState = 0x0600
+	R_MAP_TILE_PENDING RMapTileState = 0x0601
+	R_MAP_TILE_LOADED  RMapTileState = 0x0602
+	R_MAP_TILE_FAILED  RMapTileState = 0x0603
 )
 
 // RPlotScale: How an axis of a Plot spreads its values.
@@ -4455,6 +4466,182 @@ func PdfViewGetPageText(view ID, page int) string {
 	return C.GoString(C.Rpdf_view_get_page_text(C.Rid(view), C.int(page)))
 }
 
+func MapViewCreate() ID {
+	return ID(C.Rmap_view_create())
+}
+
+// MapViewSetCenter: Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+func MapViewSetCenter(map_ ID, latitude float64, longitude float64) {
+	C.Rmap_view_set_center(C.Rid(map_), C.double(latitude), C.double(longitude))
+}
+
+// MapViewGetCenter: The place at the middle of the map (longitude from -180 to 180).
+func MapViewGetCenter(map_ ID) (latitude float64, longitude float64) {
+	var latitude_ C.double
+	var longitude_ C.double
+	C.Rmap_view_get_center(C.Rid(map_), &latitude_, &longitude_)
+	latitude = float64(latitude_)
+	longitude = float64(longitude_)
+	return
+}
+
+// MapViewSetZoom: The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are
+// allowed.
+func MapViewSetZoom(map_ ID, zoom float64) {
+	C.Rmap_view_set_zoom(C.Rid(map_), C.double(zoom))
+}
+
+func MapViewGetZoom(map_ ID) float64 {
+	return float64(C.Rmap_view_get_zoom(C.Rid(map_)))
+}
+
+// MapViewSetZoomRange: The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for
+// at whole zooms of this range.
+func MapViewSetZoomRange(map_ ID, min_zoom float64, max_zoom float64) {
+	C.Rmap_view_set_zoom_range(C.Rid(map_), C.double(min_zoom), C.double(max_zoom))
+}
+
+func MapViewGetZoomRange(map_ ID) (min_zoom float64, max_zoom float64) {
+	var min_zoom_ C.double
+	var max_zoom_ C.double
+	C.Rmap_view_get_zoom_range(C.Rid(map_), &min_zoom_, &max_zoom_)
+	min_zoom = float64(min_zoom_)
+	max_zoom = float64(max_zoom_)
+	return
+}
+
+// MapViewAnimateTo: Glides to a place and a zoom (at once when animations are off).
+func MapViewAnimateTo(map_ ID, latitude float64, longitude float64, zoom float64) {
+	C.Rmap_view_animate_to(C.Rid(map_), C.double(latitude), C.double(longitude), C.double(zoom))
+}
+
+// MapViewScreenToLatlon: The place at a point of the widget.
+func MapViewScreenToLatlon(map_ ID, x float32, y float32) (latitude float64, longitude float64) {
+	var latitude_ C.double
+	var longitude_ C.double
+	C.Rmap_view_screen_to_latlon(C.Rid(map_), C.float(x), C.float(y), &latitude_, &longitude_)
+	latitude = float64(latitude_)
+	longitude = float64(longitude_)
+	return
+}
+
+// MapViewLatlonToScreen: Where a place is in the widget (of the copies of the world side by side, the one
+// nearest the middle).
+func MapViewLatlonToScreen(map_ ID, latitude float64, longitude float64) (x float32, y float32) {
+	var x_ C.float
+	var y_ C.float
+	C.Rmap_view_latlon_to_screen(C.Rid(map_), C.double(latitude), C.double(longitude), &x_, &y_)
+	x = float32(x_)
+	y = float32(y_)
+	return
+}
+
+// MapViewSetTileData: A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread.
+// Thread-safe.
+func MapViewSetTileData(map_ ID, z int, x int, y int, data []byte) {
+	var data_ unsafe.Pointer
+	if len(data) > 0 {
+		data_ = unsafe.Pointer(&data[0])
+	}
+	C.Rmap_view_set_tile_data(C.Rid(map_), C.int(z), C.int(x), C.int(y), data_, C.size_t(len(data)))
+}
+
+// MapViewSetTileFailed: There is no such tile: the coarser one stays shown in its place. Thread-safe.
+func MapViewSetTileFailed(map_ ID, z int, x int, y int) {
+	C.Rmap_view_set_tile_failed(C.Rid(map_), C.int(z), C.int(x), C.int(y))
+}
+
+// MapViewSetTilePath: Reads the tiles from files instead of asking for them: a path where {z}, {x} and {y}
+// are replaced ({-y}: the row counted from the south, as in TMS and MBTiles). The files are read and decoded
+// on a worker thread; a missing file is a tile that failed. NULL or "": the tile callback again. Local files
+// only.
+func MapViewSetTilePath(map_ ID, path_template string) {
+	path_template_ := C.CString(path_template)
+	defer C.free(unsafe.Pointer(path_template_))
+	C.Rmap_view_set_tile_path(C.Rid(map_), path_template_)
+}
+
+func MapViewGetTilePath(map_ ID) string {
+	return C.GoString(C.Rmap_view_get_tile_path(C.Rid(map_)))
+}
+
+// MapViewSetTileSize: Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles
+// show the map larger.
+func MapViewSetTileSize(map_ ID, size int) {
+	C.Rmap_view_set_tile_size(C.Rid(map_), C.int(size))
+}
+
+func MapViewGetTileSize(map_ ID) int {
+	return int(C.Rmap_view_get_tile_size(C.Rid(map_)))
+}
+
+// MapViewSetCacheSize: Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are
+// always kept.
+func MapViewSetCacheSize(map_ ID, bytes int) {
+	C.Rmap_view_set_cache_size(C.Rid(map_), C.size_t(bytes))
+}
+
+// MapViewGetCacheUsage: Memory the decoded tiles take now, in bytes.
+func MapViewGetCacheUsage(map_ ID) int {
+	return int(C.Rmap_view_get_cache_usage(C.Rid(map_)))
+}
+
+// MapViewClearTiles: Forgets every tile (they are asked for again): the tiles of the source changed.
+func MapViewClearTiles(map_ ID) {
+	C.Rmap_view_clear_tiles(C.Rid(map_))
+}
+
+func MapViewGetTileState(map_ ID, z int, x int, y int) RMapTileState {
+	return RMapTileState(C.Rmap_view_get_tile_state(C.Rid(map_), C.int(z), C.int(x), C.int(y)))
+}
+
+// MapViewAddMarker: Adds a pin at a place, with a label written next to it (may be NULL). Returns its id
+// (from 1), or -1.
+func MapViewAddMarker(map_ ID, latitude float64, longitude float64, label string) int {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	return int(C.Rmap_view_add_marker(C.Rid(map_), C.double(latitude), C.double(longitude), label_))
+}
+
+func MapViewRemoveMarker(map_ ID, marker int) {
+	C.Rmap_view_remove_marker(C.Rid(map_), C.int(marker))
+}
+
+func MapViewClearMarkers(map_ ID) {
+	C.Rmap_view_clear_markers(C.Rid(map_))
+}
+
+func MapViewGetMarkerCount(map_ ID) int {
+	return int(C.Rmap_view_get_marker_count(C.Rid(map_)))
+}
+
+func MapViewSetMarkerPosition(map_ ID, marker int, latitude float64, longitude float64) {
+	C.Rmap_view_set_marker_position(C.Rid(map_), C.int(marker), C.double(latitude), C.double(longitude))
+}
+
+func MapViewSetMarkerLabel(map_ ID, marker int, label string) {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	C.Rmap_view_set_marker_label(C.Rid(map_), C.int(marker), label_)
+}
+
+// MapViewSetMarkerColor: The color of a pin (by default the accent of the theme).
+func MapViewSetMarkerColor(map_ ID, marker int, r float32, g float32, b float32, a float32) {
+	C.Rmap_view_set_marker_color(C.Rid(map_), C.int(marker), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// MapViewSetAttribution: A line written in the bottom right corner: the credit most tile licences ask for,
+// such as "(c) OpenStreetMap contributors". NULL or "": none.
+func MapViewSetAttribution(map_ ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rmap_view_set_attribution(C.Rid(map_), text_)
+}
+
+func MapViewGetAttribution(map_ ID) string {
+	return C.GoString(C.Rmap_view_get_attribution(C.Rid(map_)))
+}
+
 func PdfDocumentCreate() ID {
 	return ID(C.Rpdf_document_create())
 }
@@ -7197,7 +7384,9 @@ func HostInjectClose(window ID) {
 // Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
 // Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
 // Rplot_set_series_toggled_callback, Rpdf_view_set_page_changed_callback, Rpdf_view_print
-// Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
+// Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
+// Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback, Rpdf_document_draw_image
+// Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
 // Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
 // Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
 // Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon

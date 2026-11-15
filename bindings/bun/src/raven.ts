@@ -828,6 +828,40 @@ const _symbols = {
 	Rpdf_view_get_page_text: { args: ["u32", "i32"], returns: "cstring" },
 	Rpdf_view_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rpdf_view_print: { args: ["u32", "ptr"], returns: "i32" },
+	Rmap_view_create: { args: [], returns: "u32" },
+	Rmap_view_set_center: { args: ["u32", "f64", "f64"], returns: "void" },
+	Rmap_view_get_center: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_zoom: { args: ["u32", "f64"], returns: "void" },
+	Rmap_view_get_zoom: { args: ["u32"], returns: "f64" },
+	Rmap_view_set_zoom_range: { args: ["u32", "f64", "f64"], returns: "void" },
+	Rmap_view_get_zoom_range: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_animate_to: { args: ["u32", "f64", "f64", "f64"], returns: "void" },
+	Rmap_view_screen_to_latlon: { args: ["u32", "f32", "f32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_latlon_to_screen: { args: ["u32", "f64", "f64", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_tile_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_tile_cancel_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_tile: { args: ["u32", "i32", "i32", "i32", "ptr", "i32", "i32"], returns: "void" },
+	Rmap_view_set_tile_data: { args: ["u32", "i32", "i32", "i32", "ptr", "usize"], returns: "void" },
+	Rmap_view_set_tile_failed: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rmap_view_set_tile_path: { args: ["u32", "ptr"], returns: "void" },
+	Rmap_view_get_tile_path: { args: ["u32"], returns: "cstring" },
+	Rmap_view_set_tile_size: { args: ["u32", "i32"], returns: "void" },
+	Rmap_view_get_tile_size: { args: ["u32"], returns: "i32" },
+	Rmap_view_set_cache_size: { args: ["u32", "usize"], returns: "void" },
+	Rmap_view_get_cache_usage: { args: ["u32"], returns: "usize" },
+	Rmap_view_clear_tiles: { args: ["u32"], returns: "void" },
+	Rmap_view_get_tile_state: { args: ["u32", "i32", "i32", "i32"], returns: "i32" },
+	Rmap_view_add_marker: { args: ["u32", "f64", "f64", "ptr"], returns: "i32" },
+	Rmap_view_remove_marker: { args: ["u32", "i32"], returns: "void" },
+	Rmap_view_clear_markers: { args: ["u32"], returns: "void" },
+	Rmap_view_get_marker_count: { args: ["u32"], returns: "i32" },
+	Rmap_view_set_marker_position: { args: ["u32", "i32", "f64", "f64"], returns: "void" },
+	Rmap_view_set_marker_label: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rmap_view_set_marker_color: { args: ["u32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rmap_view_set_marker_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_view_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_attribution: { args: ["u32", "ptr"], returns: "void" },
+	Rmap_view_get_attribution: { args: ["u32"], returns: "cstring" },
 	Rpdf_document_create: { args: [], returns: "u32" },
 	Rpdf_document_delete: { args: ["u32"], returns: "void" },
 	Rpdf_document_set_title: { args: ["u32", "ptr"], returns: "void" },
@@ -2451,6 +2485,8 @@ export enum RWidgetType {
 	R_WIDGET_PLOT = 0x0232,
 	/** The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). */
 	R_WIDGET_PDF_VIEW = 0x0233,
+	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
+	R_WIDGET_MAP_VIEW = 0x0234,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2505,6 +2541,7 @@ export const R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING;
 export const R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION;
 export const R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT;
 export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
+export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -2804,6 +2841,23 @@ export enum RPdfPrintFlags {
 }
 
 export const R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags.R_PDF_PRINT_NO_DIALOG;
+
+/** Where a tile of a MapView stands (Rmap_view_get_tile_state). */
+export enum RMapTileState {
+	/** Not in the view's cache: never asked for, no longer wanted, or evicted. */
+	R_MAP_TILE_NONE = 0x0600,
+	/** Asked for (the tile callback was called, or the file is being read): waiting for its pixels. */
+	R_MAP_TILE_PENDING = 0x0601,
+	/** Its pixels are in the cache. */
+	R_MAP_TILE_LOADED = 0x0602,
+	/** The application said it has none (Rmap_view_set_tile_failed), or its file could not be read. */
+	R_MAP_TILE_FAILED = 0x0603,
+}
+
+export const R_MAP_TILE_NONE = RMapTileState.R_MAP_TILE_NONE;
+export const R_MAP_TILE_PENDING = RMapTileState.R_MAP_TILE_PENDING;
+export const R_MAP_TILE_LOADED = RMapTileState.R_MAP_TILE_LOADED;
+export const R_MAP_TILE_FAILED = RMapTileState.R_MAP_TILE_FAILED;
 
 /** How an axis of a Plot spreads its values. */
 export enum RPlotScale {
@@ -6339,6 +6393,58 @@ function _adapt_RPdfPageChangedCallback(function_: RPdfPageChangedCallback | Poi
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
+export type RMapTileCallback = (map: Rid, z: number, x: number, y: number, user_data: Pointer | null) => void;
+
+function _adapt_RMapTileCallback(function_: RMapTileCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((map: number, z: number, x: number, y: number, user_data: Pointer | null): void => {
+		try {
+			function_(map, z, x, y, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user clicks a marker. */
+export type RMapMarkerCallback = (map: Rid, marker: number, user_data: Pointer | null) => void;
+
+function _adapt_RMapMarkerCallback(function_: RMapMarkerCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((map: number, marker: number, user_data: Pointer | null): void => {
+		try {
+			function_(map, marker, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Called when the user moves or zooms the map (during a drag, at the
+ * end of an animated zoom), with its new center and zoom. This also fires
+ * the action of the widget.
+ */
+export type RMapViewCallback = (map: Rid, latitude: number, longitude: number, zoom: number, user_data: Pointer | null) => void;
+
+function _adapt_RMapViewCallback(function_: RMapViewCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((map: number, latitude: number, longitude: number, zoom: number, user_data: Pointer | null): void => {
+		try {
+			function_(map, latitude, longitude, zoom, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "f64", "f64", "f64", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
@@ -10674,6 +10780,191 @@ export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPag
 /** Prints the document shown (see Rpdf_print); the job is named after its title. */
 export function Rpdf_view_print(view: Rid, desc: RPdfPrintDesc | null): number {
 	return _lib.Rpdf_view_print(view, _p(desc));
+}
+
+export function Rmap_view_create(): Rid {
+	return _lib.Rmap_view_create();
+}
+
+/** Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps. */
+export function Rmap_view_set_center(map: Rid, latitude: number, longitude: number): void {
+	_lib.Rmap_view_set_center(map, latitude, longitude);
+}
+
+/** The place at the middle of the map (longitude from -180 to 180). */
+export function Rmap_view_get_center(map: Rid): [latitude: number, longitude: number] {
+	const latitude_ = new Float64Array(1);
+	const longitude_ = new Float64Array(1);
+	_lib.Rmap_view_get_center(map, latitude_, longitude_);
+	return [latitude_[0]!, longitude_[0]!];
+}
+
+/** The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed. */
+export function Rmap_view_set_zoom(map: Rid, zoom: number): void {
+	_lib.Rmap_view_set_zoom(map, zoom);
+}
+
+export function Rmap_view_get_zoom(map: Rid): number {
+	return _lib.Rmap_view_get_zoom(map);
+}
+
+/** The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range. */
+export function Rmap_view_set_zoom_range(map: Rid, min_zoom: number, max_zoom: number): void {
+	_lib.Rmap_view_set_zoom_range(map, min_zoom, max_zoom);
+}
+
+export function Rmap_view_get_zoom_range(map: Rid): [min_zoom: number, max_zoom: number] {
+	const min_zoom_ = new Float64Array(1);
+	const max_zoom_ = new Float64Array(1);
+	_lib.Rmap_view_get_zoom_range(map, min_zoom_, max_zoom_);
+	return [min_zoom_[0]!, max_zoom_[0]!];
+}
+
+/** Glides to a place and a zoom (at once when animations are off). */
+export function Rmap_view_animate_to(map: Rid, latitude: number, longitude: number, zoom: number): void {
+	_lib.Rmap_view_animate_to(map, latitude, longitude, zoom);
+}
+
+/** The place at a point of the widget. */
+export function Rmap_view_screen_to_latlon(map: Rid, x: number, y: number): [latitude: number, longitude: number] {
+	const latitude_ = new Float64Array(1);
+	const longitude_ = new Float64Array(1);
+	_lib.Rmap_view_screen_to_latlon(map, x, y, latitude_, longitude_);
+	return [latitude_[0]!, longitude_[0]!];
+}
+
+/** Where a place is in the widget (of the copies of the world side by side, the one nearest the middle). */
+export function Rmap_view_latlon_to_screen(map: Rid, latitude: number, longitude: number): [x: number, y: number] {
+	const x_ = new Float32Array(1);
+	const y_ = new Float32Array(1);
+	_lib.Rmap_view_latlon_to_screen(map, latitude, longitude, x_, y_);
+	return [x_[0]!, y_[0]!];
+}
+
+/**
+ * Called once for each tile the map needs. Answer with
+ * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+ * at once or later. Setting it forgets the tiles of the previous source.
+ */
+export function Rmap_view_set_tile_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_tile_callback(map, _adapt_RMapTileCallback(callback), user_data);
+}
+
+/** Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. */
+export function Rmap_view_set_tile_cancel_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_tile_cancel_callback(map, _adapt_RMapTileCallback(callback), user_data);
+}
+
+/**
+ * The pixels of a tile: `width` x `height` RGBA8, tightly packed
+ * (they are copied; any size, shown at the tile size). Thread-safe: from
+ * another thread it is applied on the UI thread during the next frame.
+ */
+export function Rmap_view_set_tile(map: Rid, z: number, x: number, y: number, rgba: RPointer, width: number, height: number): void {
+	_lib.Rmap_view_set_tile(map, z, x, y, rgba, width, height);
+}
+
+/** A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe. */
+export function Rmap_view_set_tile_data(map: Rid, z: number, x: number, y: number, data: NodeJS.TypedArray | null): void {
+	_lib.Rmap_view_set_tile_data(map, z, x, y, _b(data), data?.byteLength ?? 0);
+}
+
+/** There is no such tile: the coarser one stays shown in its place. Thread-safe. */
+export function Rmap_view_set_tile_failed(map: Rid, z: number, x: number, y: number): void {
+	_lib.Rmap_view_set_tile_failed(map, z, x, y);
+}
+
+/**
+ * Reads the tiles from files instead of asking for them: a path
+ * where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+ * south, as in TMS and MBTiles). The files are read and decoded on a
+ * worker thread; a missing file is a tile that failed. NULL or "": the
+ * tile callback again. Local files only.
+ */
+export function Rmap_view_set_tile_path(map: Rid, path_template: string | null): void {
+	_lib.Rmap_view_set_tile_path(map, _s(path_template));
+}
+
+export function Rmap_view_get_tile_path(map: Rid): string | null {
+	return _lib.Rmap_view_get_tile_path(map);
+}
+
+/** Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger. */
+export function Rmap_view_set_tile_size(map: Rid, size: number): void {
+	_lib.Rmap_view_set_tile_size(map, size);
+}
+
+export function Rmap_view_get_tile_size(map: Rid): number {
+	return _lib.Rmap_view_get_tile_size(map);
+}
+
+/** Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept. */
+export function Rmap_view_set_cache_size(map: Rid, bytes: number): void {
+	_lib.Rmap_view_set_cache_size(map, bytes);
+}
+
+/** Memory the decoded tiles take now, in bytes. */
+export function Rmap_view_get_cache_usage(map: Rid): number {
+	return Number(_lib.Rmap_view_get_cache_usage(map));
+}
+
+/** Forgets every tile (they are asked for again): the tiles of the source changed. */
+export function Rmap_view_clear_tiles(map: Rid): void {
+	_lib.Rmap_view_clear_tiles(map);
+}
+
+export function Rmap_view_get_tile_state(map: Rid, z: number, x: number, y: number): RMapTileState {
+	return _lib.Rmap_view_get_tile_state(map, z, x, y) as RMapTileState;
+}
+
+/** Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1. */
+export function Rmap_view_add_marker(map: Rid, latitude: number, longitude: number, label: string | null): number {
+	return _lib.Rmap_view_add_marker(map, latitude, longitude, _s(label));
+}
+
+export function Rmap_view_remove_marker(map: Rid, marker: number): void {
+	_lib.Rmap_view_remove_marker(map, marker);
+}
+
+export function Rmap_view_clear_markers(map: Rid): void {
+	_lib.Rmap_view_clear_markers(map);
+}
+
+export function Rmap_view_get_marker_count(map: Rid): number {
+	return _lib.Rmap_view_get_marker_count(map);
+}
+
+export function Rmap_view_set_marker_position(map: Rid, marker: number, latitude: number, longitude: number): void {
+	_lib.Rmap_view_set_marker_position(map, marker, latitude, longitude);
+}
+
+export function Rmap_view_set_marker_label(map: Rid, marker: number, label: string | null): void {
+	_lib.Rmap_view_set_marker_label(map, marker, _s(label));
+}
+
+/** The color of a pin (by default the accent of the theme). */
+export function Rmap_view_set_marker_color(map: Rid, marker: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rmap_view_set_marker_color(map, marker, r, g, b, a);
+}
+
+export function Rmap_view_set_marker_clicked_callback(map: Rid, callback: RMapMarkerCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_marker_clicked_callback(map, _adapt_RMapMarkerCallback(callback), user_data);
+}
+
+export function Rmap_view_set_view_changed_callback(map: Rid, callback: RMapViewCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_view_changed_callback(map, _adapt_RMapViewCallback(callback), user_data);
+}
+
+/**
+ * A line written in the bottom right corner: the credit most tile
+ * licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+ */
+export function Rmap_view_set_attribution(map: Rid, text: string | null): void {
+	_lib.Rmap_view_set_attribution(map, _s(text));
+}
+
+export function Rmap_view_get_attribution(map: Rid): string | null {
+	return _lib.Rmap_view_get_attribution(map);
 }
 
 export function Rpdf_document_create(): Rid {

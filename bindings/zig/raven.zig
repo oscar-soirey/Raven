@@ -680,6 +680,8 @@ pub const R_WIDGET_PAGINATION: RWidgetType = 0x0231;
 pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
 /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
+/// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0234;
 
 pub const RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -857,6 +859,17 @@ pub const R_PDF_TEXT_UNDERLINE: RPdfTextStyle = 4;
 pub const RPdfPrintFlags = c_int;
 /// No dialog: printed at once on the printer named, else the default one.
 pub const R_PDF_PRINT_NO_DIALOG: RPdfPrintFlags = 1;
+
+/// Where a tile of a MapView stands (Rmap_view_get_tile_state).
+pub const RMapTileState = c_int;
+/// Not in the view's cache: never asked for, no longer wanted, or evicted.
+pub const R_MAP_TILE_NONE: RMapTileState = 0x0600;
+/// Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+pub const R_MAP_TILE_PENDING: RMapTileState = 0x0601;
+/// Its pixels are in the cache.
+pub const R_MAP_TILE_LOADED: RMapTileState = 0x0602;
+/// The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+pub const R_MAP_TILE_FAILED: RMapTileState = 0x0603;
 
 /// How an axis of a Plot spreads its values.
 pub const RPlotScale = c_int;
@@ -1323,6 +1336,14 @@ pub const RPlotDragLineCallback = ?*const fn (plot: Rid, line: c_int, value: f64
 pub const RPlotSeriesCallback = ?*const fn (plot: Rid, series: c_int, visible: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 pub const RPdfPageChangedCallback = ?*const fn (view: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+pub const RMapTileCallback = ?*const fn (map: Rid, z: c_int, x: c_int, y: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user clicks a marker.
+pub const RMapMarkerCallback = ?*const fn (map: Rid, marker: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user moves or zooms the map (during a drag, at the
+/// end of an animated zoom), with its new center and zoom. This also fires
+/// the action of the widget.
+pub const RMapViewCallback = ?*const fn (map: Rid, latitude: f64, longitude: f64, zoom: f64, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the editor gathers its proposals, with the
@@ -3347,6 +3368,69 @@ pub extern fn Rpdf_view_get_page_text(view: Rid, page: c_int) ?[*:0]const u8;
 pub extern fn Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback, user_data: ?*anyopaque) void;
 /// Prints the document shown (see Rpdf_print); the job is named after its title.
 pub extern fn Rpdf_view_print(view: Rid, desc: ?*const RPdfPrintDesc) c_int;
+pub extern fn Rmap_view_create() Rid;
+/// Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+pub extern fn Rmap_view_set_center(map: Rid, latitude: f64, longitude: f64) void;
+/// The place at the middle of the map (longitude from -180 to 180).
+pub extern fn Rmap_view_get_center(map: Rid, latitude: ?*f64, longitude: ?*f64) void;
+/// The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+pub extern fn Rmap_view_set_zoom(map: Rid, zoom: f64) void;
+pub extern fn Rmap_view_get_zoom(map: Rid) f64;
+/// The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+pub extern fn Rmap_view_set_zoom_range(map: Rid, min_zoom: f64, max_zoom: f64) void;
+pub extern fn Rmap_view_get_zoom_range(map: Rid, min_zoom: ?*f64, max_zoom: ?*f64) void;
+/// Glides to a place and a zoom (at once when animations are off).
+pub extern fn Rmap_view_animate_to(map: Rid, latitude: f64, longitude: f64, zoom: f64) void;
+/// The place at a point of the widget.
+pub extern fn Rmap_view_screen_to_latlon(map: Rid, x: f32, y: f32, latitude: ?*f64, longitude: ?*f64) void;
+/// Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+pub extern fn Rmap_view_latlon_to_screen(map: Rid, latitude: f64, longitude: f64, x: ?*f32, y: ?*f32) void;
+/// Called once for each tile the map needs. Answer with
+/// Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+/// at once or later. Setting it forgets the tiles of the previous source.
+pub extern fn Rmap_view_set_tile_callback(map: Rid, callback: RMapTileCallback, user_data: ?*anyopaque) void;
+/// Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+pub extern fn Rmap_view_set_tile_cancel_callback(map: Rid, callback: RMapTileCallback, user_data: ?*anyopaque) void;
+/// The pixels of a tile: `width` x `height` RGBA8, tightly packed
+/// (they are copied; any size, shown at the tile size). Thread-safe: from
+/// another thread it is applied on the UI thread during the next frame.
+pub extern fn Rmap_view_set_tile(map: Rid, z: c_int, x: c_int, y: c_int, rgba: ?[*]const u8, width: c_int, height: c_int) void;
+/// A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+pub extern fn Rmap_view_set_tile_data(map: Rid, z: c_int, x: c_int, y: c_int, data: ?*const anyopaque, data_size: usize) void;
+/// There is no such tile: the coarser one stays shown in its place. Thread-safe.
+pub extern fn Rmap_view_set_tile_failed(map: Rid, z: c_int, x: c_int, y: c_int) void;
+/// Reads the tiles from files instead of asking for them: a path
+/// where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+/// south, as in TMS and MBTiles). The files are read and decoded on a
+/// worker thread; a missing file is a tile that failed. NULL or "": the
+/// tile callback again. Local files only.
+pub extern fn Rmap_view_set_tile_path(map: Rid, path_template: ?[*:0]const u8) void;
+pub extern fn Rmap_view_get_tile_path(map: Rid) ?[*:0]const u8;
+/// Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+pub extern fn Rmap_view_set_tile_size(map: Rid, size: c_int) void;
+pub extern fn Rmap_view_get_tile_size(map: Rid) c_int;
+/// Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+pub extern fn Rmap_view_set_cache_size(map: Rid, bytes: usize) void;
+/// Memory the decoded tiles take now, in bytes.
+pub extern fn Rmap_view_get_cache_usage(map: Rid) usize;
+/// Forgets every tile (they are asked for again): the tiles of the source changed.
+pub extern fn Rmap_view_clear_tiles(map: Rid) void;
+pub extern fn Rmap_view_get_tile_state(map: Rid, z: c_int, x: c_int, y: c_int) RMapTileState;
+/// Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+pub extern fn Rmap_view_add_marker(map: Rid, latitude: f64, longitude: f64, label: ?[*:0]const u8) c_int;
+pub extern fn Rmap_view_remove_marker(map: Rid, marker: c_int) void;
+pub extern fn Rmap_view_clear_markers(map: Rid) void;
+pub extern fn Rmap_view_get_marker_count(map: Rid) c_int;
+pub extern fn Rmap_view_set_marker_position(map: Rid, marker: c_int, latitude: f64, longitude: f64) void;
+pub extern fn Rmap_view_set_marker_label(map: Rid, marker: c_int, label: ?[*:0]const u8) void;
+/// The color of a pin (by default the accent of the theme).
+pub extern fn Rmap_view_set_marker_color(map: Rid, marker: c_int, r: f32, g: f32, b: f32, a: f32) void;
+pub extern fn Rmap_view_set_marker_clicked_callback(map: Rid, callback: RMapMarkerCallback, user_data: ?*anyopaque) void;
+pub extern fn Rmap_view_set_view_changed_callback(map: Rid, callback: RMapViewCallback, user_data: ?*anyopaque) void;
+/// A line written in the bottom right corner: the credit most tile
+/// licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+pub extern fn Rmap_view_set_attribution(map: Rid, text: ?[*:0]const u8) void;
+pub extern fn Rmap_view_get_attribution(map: Rid) ?[*:0]const u8;
 pub extern fn Rpdf_document_create() Rid;
 pub extern fn Rpdf_document_delete(document: Rid) void;
 /// The information of the document, shown by readers (the title in their window).
