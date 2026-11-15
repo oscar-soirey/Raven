@@ -133,6 +133,8 @@ typedef enum RWidgetType{
 	R_WIDGET_PLOT,
 	/** The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). */
 	R_WIDGET_PDF_VIEW,
+	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
+	R_WIDGET_MAP_VIEW,
 
 	R_WIDGET_LAST_
 }RWidgetType;

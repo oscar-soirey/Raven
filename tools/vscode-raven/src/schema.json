@@ -1370,6 +1370,33 @@
 					"description": "Most characters accepted; 0 for no limit."
 				},
 				{
+					"name": "InputType",
+					"kind": "choice",
+					"choices": [
+						"Text",
+						"Email",
+						"Number",
+						"Decimal",
+						"Phone",
+						"Url",
+						"Search"
+					],
+					"description": "What it holds: picks the on-screen keyboard on mobile."
+				},
+				{
+					"name": "ReturnKey",
+					"kind": "choice",
+					"choices": [
+						"Default",
+						"Done",
+						"Go",
+						"Next",
+						"Search",
+						"Send"
+					],
+					"description": "The return key of the on-screen keyboard."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired at each change."
@@ -1418,7 +1445,9 @@
 					"description": "Action fired when the value changes."
 				}
 			],
-			"accepted": []
+			"accepted": [
+				"Buttons"
+			]
 		},
 		{
 			"name": "ComboBox",
@@ -1894,6 +1923,15 @@
 			"description": "Panels the user arranges by dragging their tabs.",
 			"children": "many",
 			"attributes": [
+				{
+					"name": "FloatMode",
+					"kind": "choice",
+					"choices": [
+						"Window",
+						"InWindow"
+					],
+					"description": "Future floats use an OS window or a card inside the containing window."
+				},
 				{
 					"name": "Movable",
 					"kind": "bool",
@@ -2480,6 +2518,63 @@
 			"accepted": []
 		},
 		{
+			"name": "MapView",
+			"description": "A map of slippy-map tiles (Web Mercator z/x/y) given by the application or read from files: dragged, zoomed, with Marker elements (Latitude, Longitude, Label, Color).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Latitude",
+					"kind": "number",
+					"description": "Latitude of the center, in degrees (held within +/-85.0511)."
+				},
+				{
+					"name": "Longitude",
+					"kind": "number",
+					"description": "Longitude of the center, in degrees."
+				},
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "The zoom: 0 shows the whole world in one tile, each step doubles the scale."
+				},
+				{
+					"name": "MinZoom",
+					"kind": "number",
+					"description": "The smallest zoom the user can reach (default 0)."
+				},
+				{
+					"name": "MaxZoom",
+					"kind": "number",
+					"description": "The largest zoom the user can reach, and of the tiles asked for (default 19, at most 24)."
+				},
+				{
+					"name": "TilePath",
+					"kind": "text",
+					"description": "Reads the tiles from files: a path with {z}, {x} and {y} ({-y}: the row counted from the south, TMS)."
+				},
+				{
+					"name": "TileSize",
+					"kind": "number",
+					"description": "Logical size of a tile at a whole zoom (default 256, held within 16 .. 1024)."
+				},
+				{
+					"name": "Attribution",
+					"kind": "text",
+					"description": "The credit of the tiles, written in the bottom right corner."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user moves or zooms the map."
+				}
+			],
+			"accepted": [
+				"Lat",
+				"Lon",
+				"Lng"
+			]
+		},
+		{
 			"name": "PdfView",
 			"description": "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).",
 			"children": "none",
@@ -2835,6 +2930,8 @@
 		"LinePlot": "Plot",
 		"XYPlot": "Plot",
 		"PdfViewer": "PdfView",
-		"PDFView": "PdfView"
+		"PDFView": "PdfView",
+		"Map": "MapView",
+		"TileMap": "MapView"
 	}
 }
