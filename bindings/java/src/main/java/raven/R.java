@@ -1037,6 +1037,10 @@ public final class R {
      * The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
      */
     public static final int R_WIDGET_PDF_VIEW = 0x0233;
+    /**
+     * The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+     */
+    public static final int R_WIDGET_CHART = 0x0234;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -1340,6 +1344,28 @@ public final class R {
      * To the right of the data, outside it.
      */
     public static final int R_PLOT_LEGEND_OUTSIDE = 0x0569;
+
+    // RChartKind: What a Chart draws.
+    /**
+     * Slices of a whole, as parts of a disc (the default).
+     */
+    public static final int R_CHART_PIE = 0x0590;
+    /**
+     * Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer.
+     */
+    public static final int R_CHART_DONUT = 0x0591;
+    /**
+     * One value within a range, on an arc; bands color parts of the range.
+     */
+    public static final int R_CHART_GAUGE = 0x0592;
+    /**
+     * A grid of values, each cell colored from the low color to the high one.
+     */
+    public static final int R_CHART_HEATMAP = 0x0593;
+    /**
+     * A small line of values without axes, to sit in a tile or a cell of a table.
+     */
+    public static final int R_CHART_SPARKLINE = 0x0594;
 
     // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
     public static final int R_SYNTAX_NONE = 0x0340;
@@ -5035,6 +5061,48 @@ public final class R {
 
     private static MemorySegment upcall(RPlotSeriesCallback f) {
         return stub(f, RPlotSeriesCallback.class, "RPlotSeriesCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user clicks a slice; `selected` tells whether it is now the selected one.
+     */
+    @FunctionalInterface
+    public interface RChartSliceCallback {
+        void invoke(int chart, int slice, int selected, MemorySegment user_data);
+    }
+
+    private static void RChartSliceCallback$raw(RChartSliceCallback f, int chart, int slice, int selected, MemorySegment user_data) {
+        try {
+            f.invoke(chart, slice, selected, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RChartSliceCallback f) {
+        return stub(f, RChartSliceCallback.class, "RChartSliceCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user clicks a cell of a heatmap.
+     */
+    @FunctionalInterface
+    public interface RChartCellCallback {
+        void invoke(int chart, int row, int column, float value, MemorySegment user_data);
+    }
+
+    private static void RChartCellCallback$raw(RChartCellCallback f, int chart, int row, int column, float value, MemorySegment user_data) {
+        try {
+            f.invoke(chart, row, column, value, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RChartCellCallback f) {
+        return stub(f, RChartCellCallback.class, "RChartCellCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT, ADDRESS));
     }
 
     /**
@@ -15830,6 +15898,712 @@ public final class R {
 
     public static void Rplot_set_series_toggled_callback(int plot, RPlotSeriesCallback callback) {
         Rplot_set_series_toggled_callback(plot, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rchart_create$;
+
+    /**
+     * A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
+     */
+    public static int Rchart_create(int kind) {
+        MethodHandle $h = Rchart_create$;
+        if ($h == null) Rchart_create$ = $h = find("Rchart_create", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(kind);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_kind$;
+
+    public static void Rchart_set_kind(int chart, int kind) {
+        MethodHandle $h = Rchart_set_kind$;
+        if ($h == null) Rchart_set_kind$ = $h = find("Rchart_set_kind", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(chart, kind);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_kind$;
+
+    public static int Rchart_get_kind(int chart) {
+        MethodHandle $h = Rchart_get_kind$;
+        if ($h == null) Rchart_get_kind$ = $h = find("Rchart_get_kind", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_title$;
+
+    /**
+     * The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers).
+     */
+    public static void Rchart_set_title(int chart, String title) {
+        MethodHandle $h = Rchart_set_title$;
+        if ($h == null) Rchart_set_title$ = $h = find("Rchart_set_title", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment title$ = title == null ? MemorySegment.NULL : utf8($a, title);
+            $h.invokeExact(chart, title$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_title$;
+
+    public static String Rchart_get_title(int chart) {
+        MethodHandle $h = Rchart_get_title$;
+        if ($h == null) Rchart_get_title$ = $h = find("Rchart_get_title", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(chart);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_format$;
+
+    /**
+     * How the values are written (the gauge, the middle of a donut, what
+     * the pointer shows): a printf format for one double with its unit, "%.0f%%",
+     * "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+     */
+    public static void Rchart_set_format(int chart, String format) {
+        MethodHandle $h = Rchart_set_format$;
+        if ($h == null) Rchart_set_format$ = $h = find("Rchart_set_format", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment format$ = format == null ? MemorySegment.NULL : utf8($a, format);
+            $h.invokeExact(chart, format$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_color$;
+
+    /**
+     * The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent).
+     */
+    public static void Rchart_set_color(int chart, float r, float g, float b, float a) {
+        MethodHandle $h = Rchart_set_color$;
+        if ($h == null) Rchart_set_color$ = $h = find("Rchart_set_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(chart, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_legend$;
+
+    /**
+     * The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default).
+     */
+    public static void Rchart_set_legend(int chart, int shown) {
+        MethodHandle $h = Rchart_set_legend$;
+        if ($h == null) Rchart_set_legend$ = $h = find("Rchart_set_legend", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(chart, shown);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_clear$;
+
+    /**
+     * Removes the slices, the bands, the grid and the values.
+     */
+    public static void Rchart_clear(int chart) {
+        MethodHandle $h = Rchart_clear$;
+        if ($h == null) Rchart_clear$ = $h = find("Rchart_clear", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(chart);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_hovered$;
+
+    /**
+     * What is under the pointer: a slice, a point of a sparkline, or a
+     * cell of a heatmap as row * columns + column; -1 for nothing.
+     */
+    public static int Rchart_get_hovered(int chart) {
+        MethodHandle $h = Rchart_get_hovered$;
+        if ($h == null) Rchart_get_hovered$ = $h = find("Rchart_get_hovered", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_add_slice$;
+
+    /**
+     * Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid.
+     */
+    public static int Rchart_add_slice(int chart, String label, double value) {
+        MethodHandle $h = Rchart_add_slice$;
+        if ($h == null) Rchart_add_slice$ = $h = find("Rchart_add_slice", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, JAVA_DOUBLE));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment label$ = label == null ? MemorySegment.NULL : utf8($a, label);
+            int $r = (int) $h.invokeExact(chart, label$, value);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_remove_slice$;
+
+    public static void Rchart_remove_slice(int chart, int slice) {
+        MethodHandle $h = Rchart_remove_slice$;
+        if ($h == null) Rchart_remove_slice$ = $h = find("Rchart_remove_slice", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(chart, slice);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_slice_count$;
+
+    public static int Rchart_get_slice_count(int chart) {
+        MethodHandle $h = Rchart_get_slice_count$;
+        if ($h == null) Rchart_get_slice_count$ = $h = find("Rchart_get_slice_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_slice_value$;
+
+    public static void Rchart_set_slice_value(int chart, int slice, double value) {
+        MethodHandle $h = Rchart_set_slice_value$;
+        if ($h == null) Rchart_set_slice_value$ = $h = find("Rchart_set_slice_value", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(chart, slice, value);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_slice_value$;
+
+    public static double Rchart_get_slice_value(int chart, int slice) {
+        MethodHandle $h = Rchart_get_slice_value$;
+        if ($h == null) Rchart_get_slice_value$ = $h = find("Rchart_get_slice_value", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(chart, slice);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_slice_label$;
+
+    public static void Rchart_set_slice_label(int chart, int slice, String label) {
+        MethodHandle $h = Rchart_set_slice_label$;
+        if ($h == null) Rchart_set_slice_label$ = $h = find("Rchart_set_slice_label", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment label$ = label == null ? MemorySegment.NULL : utf8($a, label);
+            $h.invokeExact(chart, slice, label$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_slice_label$;
+
+    public static String Rchart_get_slice_label(int chart, int slice) {
+        MethodHandle $h = Rchart_get_slice_label$;
+        if ($h == null) Rchart_get_slice_label$ = $h = find("Rchart_get_slice_label", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(chart, slice);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_slice_color$;
+
+    /**
+     * The color of a slice; an alpha of 0 gives it back its color of the palette.
+     */
+    public static void Rchart_set_slice_color(int chart, int slice, float r, float g, float b, float a) {
+        MethodHandle $h = Rchart_set_slice_color$;
+        if ($h == null) Rchart_set_slice_color$ = $h = find("Rchart_set_slice_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(chart, slice, r, g, b, a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_total$;
+
+    /**
+     * The sum of the values of the slices.
+     */
+    public static double Rchart_get_total(int chart) {
+        MethodHandle $h = Rchart_get_total$;
+        if ($h == null) Rchart_get_total$ = $h = find("Rchart_get_total", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_selected$;
+
+    /**
+     * The slice lifted as selected, or -1 for none (the user selects one with a click).
+     */
+    public static void Rchart_set_selected(int chart, int slice) {
+        MethodHandle $h = Rchart_set_selected$;
+        if ($h == null) Rchart_set_selected$ = $h = find("Rchart_set_selected", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(chart, slice);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_selected$;
+
+    public static int Rchart_get_selected(int chart) {
+        MethodHandle $h = Rchart_get_selected$;
+        if ($h == null) Rchart_get_selected$ = $h = find("Rchart_get_selected", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_hole$;
+
+    /**
+     * The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62).
+     */
+    public static void Rchart_set_hole(int chart, float ratio) {
+        MethodHandle $h = Rchart_set_hole$;
+        if ($h == null) Rchart_set_hole$ = $h = find("Rchart_set_hole", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(chart, ratio);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_center_text$;
+
+    /**
+     * What the middle of a donut shows when the pointer is not over a
+     * slice: `text` in large (NULL or "": the total) over `caption` in small
+     * (NULL or "": none).
+     */
+    public static void Rchart_set_center_text(int chart, String text, String caption) {
+        MethodHandle $h = Rchart_set_center_text$;
+        if ($h == null) Rchart_set_center_text$ = $h = find("Rchart_set_center_text", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            MemorySegment caption$ = caption == null ? MemorySegment.NULL : utf8($a, caption);
+            $h.invokeExact(chart, text$, caption$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_slice_clicked_callback$;
+
+    public static void Rchart_set_slice_clicked_callback(int chart, RChartSliceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rchart_set_slice_clicked_callback$;
+        if ($h == null) Rchart_set_slice_clicked_callback$ = $h = find("Rchart_set_slice_clicked_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(chart, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rchart_set_slice_clicked_callback(int chart, RChartSliceCallback callback) {
+        Rchart_set_slice_clicked_callback(chart, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rchart_set_range$;
+
+    /**
+     * The range of a gauge (default 0 to 100), and a fixed range for the
+     * colors of a heatmap and the height of a sparkline, which otherwise follow
+     * their values. min == max goes back to these defaults.
+     */
+    public static void Rchart_set_range(int chart, double min, double max) {
+        MethodHandle $h = Rchart_set_range$;
+        if ($h == null) Rchart_set_range$ = $h = find("Rchart_set_range", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(chart, min, max);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_range$;
+
+    /**
+     * The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline).
+     */
+    public static void Rchart_get_range(int chart, double[] min, double[] max) {
+        MethodHandle $h = Rchart_get_range$;
+        if ($h == null) Rchart_get_range$ = $h = find("Rchart_get_range", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment min$ = min == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment max$ = max == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            $h.invokeExact(chart, min$, max$);
+            if (min != null && min.length > 0) min[0] = min$.get(JAVA_DOUBLE, 0);
+            if (max != null && max.length > 0) max[0] = max$.get(JAVA_DOUBLE, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_value$;
+
+    /**
+     * The value of a gauge, kept within its range when drawn.
+     */
+    public static void Rchart_set_value(int chart, double value) {
+        MethodHandle $h = Rchart_set_value$;
+        if ($h == null) Rchart_set_value$ = $h = find("Rchart_set_value", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(chart, value);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_value$;
+
+    public static double Rchart_get_value(int chart) {
+        MethodHandle $h = Rchart_get_value$;
+        if ($h == null) Rchart_get_value$ = $h = find("Rchart_get_value", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_add_band$;
+
+    /**
+     * Colors a part of the range of a gauge (an alpha of 0: the success,
+     * warning and danger colors of the theme, one after the other). The arc
+     * takes the color of the band its value is in. Returns the index of the band.
+     */
+    public static int Rchart_add_band(int chart, double from, double to_, float r, float g, float b, float a) {
+        MethodHandle $h = Rchart_add_band$;
+        if ($h == null) Rchart_add_band$ = $h = find("Rchart_add_band", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_DOUBLE, JAVA_DOUBLE, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(chart, from, to_, r, g, b, a);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_clear_bands$;
+
+    public static void Rchart_clear_bands(int chart) {
+        MethodHandle $h = Rchart_clear_bands$;
+        if ($h == null) Rchart_clear_bands$ = $h = find("Rchart_clear_bands", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(chart);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_band_count$;
+
+    public static int Rchart_get_band_count(int chart) {
+        MethodHandle $h = Rchart_get_band_count$;
+        if ($h == null) Rchart_get_band_count$ = $h = find("Rchart_get_band_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_grid$;
+
+    /**
+     * The cells of a heatmap: `rows` x `columns` values, row after row,
+     * copied (NULL: all 0). NaN leaves a cell empty.
+     */
+    public static void Rchart_set_grid(int chart, int rows, int columns, float[] values) {
+        MethodHandle $h = Rchart_set_grid$;
+        if ($h == null) Rchart_set_grid$ = $h = find("Rchart_set_grid", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment values$ = values == null ? MemorySegment.NULL : $a.allocateFrom(JAVA_FLOAT, values);
+            $h.invokeExact(chart, rows, columns, values$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_row_count$;
+
+    public static int Rchart_get_row_count(int chart) {
+        MethodHandle $h = Rchart_get_row_count$;
+        if ($h == null) Rchart_get_row_count$ = $h = find("Rchart_get_row_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_column_count$;
+
+    public static int Rchart_get_column_count(int chart) {
+        MethodHandle $h = Rchart_get_column_count$;
+        if ($h == null) Rchart_get_column_count$ = $h = find("Rchart_get_column_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_cell$;
+
+    public static void Rchart_set_cell(int chart, int row, int column, float value) {
+        MethodHandle $h = Rchart_set_cell$;
+        if ($h == null) Rchart_set_cell$ = $h = find("Rchart_set_cell", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(chart, row, column, value);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_cell$;
+
+    public static float Rchart_get_cell(int chart, int row, int column) {
+        MethodHandle $h = Rchart_get_cell$;
+        if ($h == null) Rchart_get_cell$ = $h = find("Rchart_get_cell", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(chart, row, column);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_row_labels$;
+
+    /**
+     * The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left).
+     */
+    public static void Rchart_set_row_labels(int chart, String labels) {
+        MethodHandle $h = Rchart_set_row_labels$;
+        if ($h == null) Rchart_set_row_labels$ = $h = find("Rchart_set_row_labels", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment labels$ = labels == null ? MemorySegment.NULL : utf8($a, labels);
+            $h.invokeExact(chart, labels$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_column_labels$;
+
+    /**
+     * The names of the columns, separated by '|' (shown over them, as many as fit).
+     */
+    public static void Rchart_set_column_labels(int chart, String labels) {
+        MethodHandle $h = Rchart_set_column_labels$;
+        if ($h == null) Rchart_set_column_labels$ = $h = find("Rchart_set_column_labels", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment labels$ = labels == null ? MemorySegment.NULL : utf8($a, labels);
+            $h.invokeExact(chart, labels$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_row_label$;
+
+    /**
+     * The name of a row or of a column, "" when it has none.
+     */
+    public static String Rchart_get_row_label(int chart, int row) {
+        MethodHandle $h = Rchart_get_row_label$;
+        if ($h == null) Rchart_get_row_label$ = $h = find("Rchart_get_row_label", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(chart, row);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_column_label$;
+
+    public static String Rchart_get_column_label(int chart, int column) {
+        MethodHandle $h = Rchart_get_column_label$;
+        if ($h == null) Rchart_get_column_label$ = $h = find("Rchart_get_column_label", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(chart, column);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_color_scale$;
+
+    /**
+     * The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent).
+     */
+    public static void Rchart_set_color_scale(int chart, float low_r, float low_g, float low_b, float low_a, float high_r, float high_g, float high_b, float high_a) {
+        MethodHandle $h = Rchart_set_color_scale$;
+        if ($h == null) Rchart_set_color_scale$ = $h = find("Rchart_set_color_scale", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            $h.invokeExact(chart, low_r, low_g, low_b, low_a, high_r, high_g, high_b, high_a);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_cell_clicked_callback$;
+
+    public static void Rchart_set_cell_clicked_callback(int chart, RChartCellCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rchart_set_cell_clicked_callback$;
+        if ($h == null) Rchart_set_cell_clicked_callback$ = $h = find("Rchart_set_cell_clicked_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(chart, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rchart_set_cell_clicked_callback(int chart, RChartCellCallback callback) {
+        Rchart_set_cell_clicked_callback(chart, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rchart_set_values$;
+
+    /**
+     * The values of a sparkline, copied. NaN leaves a gap.
+     */
+    public static void Rchart_set_values(int chart, float[] values, int count) {
+        MethodHandle $h = Rchart_set_values$;
+        if ($h == null) Rchart_set_values$ = $h = find("Rchart_set_values", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment values$ = values == null ? MemorySegment.NULL : $a.allocateFrom(JAVA_FLOAT, values);
+            $h.invokeExact(chart, values$, count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_push_value$;
+
+    /**
+     * Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them).
+     */
+    public static void Rchart_push_value(int chart, float value, int max_count) {
+        MethodHandle $h = Rchart_push_value$;
+        if ($h == null) Rchart_push_value$ = $h = find("Rchart_push_value", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_INT));
+        try {
+            $h.invokeExact(chart, value, max_count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_value_count$;
+
+    public static int Rchart_get_value_count(int chart) {
+        MethodHandle $h = Rchart_get_value_count$;
+        if ($h == null) Rchart_get_value_count$ = $h = find("Rchart_get_value_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(chart);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_get_value_at$;
+
+    public static float Rchart_get_value_at(int chart, int index) {
+        MethodHandle $h = Rchart_get_value_at$;
+        if ($h == null) Rchart_get_value_at$ = $h = find("Rchart_get_value_at", FunctionDescriptor.of(JAVA_FLOAT, JAVA_INT, JAVA_INT));
+        try {
+            float $r = (float) $h.invokeExact(chart, index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_fill$;
+
+    /**
+     * Shades the area under the line of a sparkline (on by default).
+     */
+    public static void Rchart_set_fill(int chart, int fill) {
+        MethodHandle $h = Rchart_set_fill$;
+        if ($h == null) Rchart_set_fill$ = $h = find("Rchart_set_fill", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(chart, fill);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rchart_set_marker$;
+
+    /**
+     * A dot on the last value of a sparkline (on by default).
+     */
+    public static void Rchart_set_marker(int chart, int shown) {
+        MethodHandle $h = Rchart_set_marker$;
+        if ($h == null) Rchart_set_marker$ = $h = find("Rchart_set_marker", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(chart, shown);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rpdf_is_available$;

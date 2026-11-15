@@ -687,6 +687,54 @@ static struct {
 	void (*Rplot_set_view_changed_callback)(Rid, RPlotViewCallback, void*);
 	void (*Rplot_set_drag_line_callback)(Rid, RPlotDragLineCallback, void*);
 	void (*Rplot_set_series_toggled_callback)(Rid, RPlotSeriesCallback, void*);
+	Rid (*Rchart_create)(RChartKind);
+	void (*Rchart_set_kind)(Rid, RChartKind);
+	RChartKind (*Rchart_get_kind)(Rid);
+	void (*Rchart_set_title)(Rid, const char*);
+	const char* (*Rchart_get_title)(Rid);
+	void (*Rchart_set_format)(Rid, const char*);
+	void (*Rchart_set_color)(Rid, float, float, float, float);
+	void (*Rchart_set_legend)(Rid, int);
+	void (*Rchart_clear)(Rid);
+	int (*Rchart_get_hovered)(Rid);
+	int (*Rchart_add_slice)(Rid, const char*, double);
+	void (*Rchart_remove_slice)(Rid, int);
+	int (*Rchart_get_slice_count)(Rid);
+	void (*Rchart_set_slice_value)(Rid, int, double);
+	double (*Rchart_get_slice_value)(Rid, int);
+	void (*Rchart_set_slice_label)(Rid, int, const char*);
+	const char* (*Rchart_get_slice_label)(Rid, int);
+	void (*Rchart_set_slice_color)(Rid, int, float, float, float, float);
+	double (*Rchart_get_total)(Rid);
+	void (*Rchart_set_selected)(Rid, int);
+	int (*Rchart_get_selected)(Rid);
+	void (*Rchart_set_hole)(Rid, float);
+	void (*Rchart_set_center_text)(Rid, const char*, const char*);
+	void (*Rchart_set_slice_clicked_callback)(Rid, RChartSliceCallback, void*);
+	void (*Rchart_set_range)(Rid, double, double);
+	void (*Rchart_get_range)(Rid, double*, double*);
+	void (*Rchart_set_value)(Rid, double);
+	double (*Rchart_get_value)(Rid);
+	int (*Rchart_add_band)(Rid, double, double, float, float, float, float);
+	void (*Rchart_clear_bands)(Rid);
+	int (*Rchart_get_band_count)(Rid);
+	void (*Rchart_set_grid)(Rid, int, int, const float*);
+	int (*Rchart_get_row_count)(Rid);
+	int (*Rchart_get_column_count)(Rid);
+	void (*Rchart_set_cell)(Rid, int, int, float);
+	float (*Rchart_get_cell)(Rid, int, int);
+	void (*Rchart_set_row_labels)(Rid, const char*);
+	void (*Rchart_set_column_labels)(Rid, const char*);
+	const char* (*Rchart_get_row_label)(Rid, int);
+	const char* (*Rchart_get_column_label)(Rid, int);
+	void (*Rchart_set_color_scale)(Rid, float, float, float, float, float, float, float, float);
+	void (*Rchart_set_cell_clicked_callback)(Rid, RChartCellCallback, void*);
+	void (*Rchart_set_values)(Rid, const float*, int);
+	void (*Rchart_push_value)(Rid, float, int);
+	int (*Rchart_get_value_count)(Rid);
+	float (*Rchart_get_value_at)(Rid, int);
+	void (*Rchart_set_fill)(Rid, int);
+	void (*Rchart_set_marker)(Rid, int);
 	int (*Rpdf_is_available)(void);
 	int (*Rpdf_view_load_file)(Rid, const char*, const char*);
 	int (*Rpdf_view_load_memory)(Rid, const char*, size_t, const char*);
@@ -1904,6 +1952,54 @@ static const struct {
 	{"Rplot_set_view_changed_callback", offsetof(__typeof__(rn), Rplot_set_view_changed_callback)},
 	{"Rplot_set_drag_line_callback", offsetof(__typeof__(rn), Rplot_set_drag_line_callback)},
 	{"Rplot_set_series_toggled_callback", offsetof(__typeof__(rn), Rplot_set_series_toggled_callback)},
+	{"Rchart_create", offsetof(__typeof__(rn), Rchart_create)},
+	{"Rchart_set_kind", offsetof(__typeof__(rn), Rchart_set_kind)},
+	{"Rchart_get_kind", offsetof(__typeof__(rn), Rchart_get_kind)},
+	{"Rchart_set_title", offsetof(__typeof__(rn), Rchart_set_title)},
+	{"Rchart_get_title", offsetof(__typeof__(rn), Rchart_get_title)},
+	{"Rchart_set_format", offsetof(__typeof__(rn), Rchart_set_format)},
+	{"Rchart_set_color", offsetof(__typeof__(rn), Rchart_set_color)},
+	{"Rchart_set_legend", offsetof(__typeof__(rn), Rchart_set_legend)},
+	{"Rchart_clear", offsetof(__typeof__(rn), Rchart_clear)},
+	{"Rchart_get_hovered", offsetof(__typeof__(rn), Rchart_get_hovered)},
+	{"Rchart_add_slice", offsetof(__typeof__(rn), Rchart_add_slice)},
+	{"Rchart_remove_slice", offsetof(__typeof__(rn), Rchart_remove_slice)},
+	{"Rchart_get_slice_count", offsetof(__typeof__(rn), Rchart_get_slice_count)},
+	{"Rchart_set_slice_value", offsetof(__typeof__(rn), Rchart_set_slice_value)},
+	{"Rchart_get_slice_value", offsetof(__typeof__(rn), Rchart_get_slice_value)},
+	{"Rchart_set_slice_label", offsetof(__typeof__(rn), Rchart_set_slice_label)},
+	{"Rchart_get_slice_label", offsetof(__typeof__(rn), Rchart_get_slice_label)},
+	{"Rchart_set_slice_color", offsetof(__typeof__(rn), Rchart_set_slice_color)},
+	{"Rchart_get_total", offsetof(__typeof__(rn), Rchart_get_total)},
+	{"Rchart_set_selected", offsetof(__typeof__(rn), Rchart_set_selected)},
+	{"Rchart_get_selected", offsetof(__typeof__(rn), Rchart_get_selected)},
+	{"Rchart_set_hole", offsetof(__typeof__(rn), Rchart_set_hole)},
+	{"Rchart_set_center_text", offsetof(__typeof__(rn), Rchart_set_center_text)},
+	{"Rchart_set_slice_clicked_callback", offsetof(__typeof__(rn), Rchart_set_slice_clicked_callback)},
+	{"Rchart_set_range", offsetof(__typeof__(rn), Rchart_set_range)},
+	{"Rchart_get_range", offsetof(__typeof__(rn), Rchart_get_range)},
+	{"Rchart_set_value", offsetof(__typeof__(rn), Rchart_set_value)},
+	{"Rchart_get_value", offsetof(__typeof__(rn), Rchart_get_value)},
+	{"Rchart_add_band", offsetof(__typeof__(rn), Rchart_add_band)},
+	{"Rchart_clear_bands", offsetof(__typeof__(rn), Rchart_clear_bands)},
+	{"Rchart_get_band_count", offsetof(__typeof__(rn), Rchart_get_band_count)},
+	{"Rchart_set_grid", offsetof(__typeof__(rn), Rchart_set_grid)},
+	{"Rchart_get_row_count", offsetof(__typeof__(rn), Rchart_get_row_count)},
+	{"Rchart_get_column_count", offsetof(__typeof__(rn), Rchart_get_column_count)},
+	{"Rchart_set_cell", offsetof(__typeof__(rn), Rchart_set_cell)},
+	{"Rchart_get_cell", offsetof(__typeof__(rn), Rchart_get_cell)},
+	{"Rchart_set_row_labels", offsetof(__typeof__(rn), Rchart_set_row_labels)},
+	{"Rchart_set_column_labels", offsetof(__typeof__(rn), Rchart_set_column_labels)},
+	{"Rchart_get_row_label", offsetof(__typeof__(rn), Rchart_get_row_label)},
+	{"Rchart_get_column_label", offsetof(__typeof__(rn), Rchart_get_column_label)},
+	{"Rchart_set_color_scale", offsetof(__typeof__(rn), Rchart_set_color_scale)},
+	{"Rchart_set_cell_clicked_callback", offsetof(__typeof__(rn), Rchart_set_cell_clicked_callback)},
+	{"Rchart_set_values", offsetof(__typeof__(rn), Rchart_set_values)},
+	{"Rchart_push_value", offsetof(__typeof__(rn), Rchart_push_value)},
+	{"Rchart_get_value_count", offsetof(__typeof__(rn), Rchart_get_value_count)},
+	{"Rchart_get_value_at", offsetof(__typeof__(rn), Rchart_get_value_at)},
+	{"Rchart_set_fill", offsetof(__typeof__(rn), Rchart_set_fill)},
+	{"Rchart_set_marker", offsetof(__typeof__(rn), Rchart_set_marker)},
 	{"Rpdf_is_available", offsetof(__typeof__(rn), Rpdf_is_available)},
 	{"Rpdf_view_load_file", offsetof(__typeof__(rn), Rpdf_view_load_file)},
 	{"Rpdf_view_load_memory", offsetof(__typeof__(rn), Rpdf_view_load_memory)},
@@ -3349,6 +3445,8 @@ static void rn_t_RPageChangedCallback(Rid, int, void*);
 static void rn_t_RPlotViewCallback(Rid, void*);
 static void rn_t_RPlotDragLineCallback(Rid, int, double, void*);
 static void rn_t_RPlotSeriesCallback(Rid, int, int, void*);
+static void rn_t_RChartSliceCallback(Rid, int, int, void*);
+static void rn_t_RChartCellCallback(Rid, int, int, float, void*);
 static void rn_t_RPdfPageChangedCallback(Rid, int, void*);
 static void rn_t_RTextEditorZoomCallback(Rid, float, void*);
 static void rn_t_RCompletionCallback(Rid, const char*, void*);
@@ -4147,6 +4245,39 @@ static void rn_t_RPlotSeriesCallback(Rid a0, int a1, int a2, void* a3) {
 	napi_create_int32(env, (int32_t)a2, &argv[2]);
 	argv[3] = rn_make_ptr(env, cb->user_data);
 	rn_call(cb, 0, 4, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RChartSliceCallback(Rid a0, int a1, int a2, void* a3) {
+	rn_cb* cb = (rn_cb*)a3;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[4];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	napi_create_int32(env, (int32_t)a2, &argv[2]);
+	argv[3] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 4, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RChartCellCallback(Rid a0, int a1, int a2, float a3, void* a4) {
+	rn_cb* cb = (rn_cb*)a4;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[5];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	napi_create_int32(env, (int32_t)a2, &argv[2]);
+	napi_create_double(env, (double)a3, &argv[3]);
+	argv[4] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 5, argv);
 	napi_close_handle_scope(env, scope);
 	rn_cb_leave(cb);
 }
@@ -15162,6 +15293,793 @@ static napi_value rn_w_Rplot_set_series_toggled_callback(napi_env env, napi_call
 	return result_;
 }
 
+static napi_value rn_w_Rchart_create(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	Rid value_ = rn.Rchart_create((RChartKind)a0);
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_kind(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rchart_set_kind((Rid)a0, (RChartKind)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_kind(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rchart_get_kind((Rid)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_title(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rchart_set_title((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_title(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rchart_get_title((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_format(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rchart_set_format((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_color(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	rn.Rchart_set_color((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_legend(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rchart_set_legend((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_clear(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rchart_clear((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_hovered(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rchart_get_hovered((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_add_slice(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	double a2;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_double(env, argv[2], &a2)) goto done;
+	int value_ = rn.Rchart_add_slice((Rid)a0, a1.p, (double)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_remove_slice(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rchart_remove_slice((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_slice_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rchart_get_slice_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_slice_value(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	double a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	rn.Rchart_set_slice_value((Rid)a0, (int)a1, (double)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_slice_value(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	double value_ = rn.Rchart_get_slice_value((Rid)a0, (int)a1);
+	napi_create_double(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_slice_label(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	rn_str a2;
+	a2.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_str_get(env, argv[2], &a2)) goto done;
+	rn.Rchart_set_slice_label((Rid)a0, (int)a1, a2.p);
+done:
+	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_slice_label(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	result_ = rn_make_text(env, rn.Rchart_get_slice_label((Rid)a0, (int)a1));
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_slice_color(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	float a2;
+	float a3;
+	float a4;
+	float a5;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	rn.Rchart_set_slice_color((Rid)a0, (int)a1, (float)a2, (float)a3, (float)a4, (float)a5);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_total(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	double value_ = rn.Rchart_get_total((Rid)a0);
+	napi_create_double(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_selected(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rchart_set_selected((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_selected(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rchart_get_selected((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_hole(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	rn.Rchart_set_hole((Rid)a0, (float)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_center_text(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	rn_str a2;
+	a1.heap = NULL;
+	a2.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_str_get(env, argv[2], &a2)) goto done;
+	rn.Rchart_set_center_text((Rid)a0, a1.p, a2.p);
+done:
+	free(a1.heap);
+	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_slice_clicked_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rchart_set_slice_clicked_callback((Rid)a0, cb_ ? (RChartSliceCallback)rn_t_RChartSliceCallback : (RChartSliceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 58, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_range(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	double a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	rn.Rchart_set_range((Rid)a0, (double)a1, (double)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_range(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1 = 0;
+	double a2 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rchart_get_range((Rid)a0, &a1, &a2);
+	{
+		napi_value o0_;
+		napi_create_double(env, a1, &o0_);
+		napi_value o1_;
+		napi_create_double(env, a2, &o1_);
+		{
+			const napi_value values_[2] = {o0_, o1_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_value(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	rn.Rchart_set_value((Rid)a0, (double)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_value(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	double value_ = rn.Rchart_get_value((Rid)a0);
+	napi_create_double(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_add_band(napi_env env, napi_callback_info info) {
+	size_t argc = 7;
+	napi_value argv[7];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	double a2;
+	float a3;
+	float a4;
+	float a5;
+	float a6;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	if (!rn_get_float(env, argv[6], &a6)) return NULL;
+	int value_ = rn.Rchart_add_band((Rid)a0, (double)a1, (double)a2, (float)a3, (float)a4, (float)a5, (float)a6);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_clear_bands(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rchart_clear_bands((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_band_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rchart_get_band_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_grid(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	void* a3;
+	void* a3_heap;
+	a3_heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_numbers(env, argv[3], napi_float32_array, &a3, &a3_heap)) goto done;
+	rn.Rchart_set_grid((Rid)a0, (int)a1, (int)a2, (const float*)a3);
+done:
+	free(a3_heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_row_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rchart_get_row_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_column_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rchart_get_column_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_cell(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	float a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	rn.Rchart_set_cell((Rid)a0, (int)a1, (int)a2, (float)a3);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_cell(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	float value_ = rn.Rchart_get_cell((Rid)a0, (int)a1, (int)a2);
+	napi_create_double(env, (double)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_row_labels(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rchart_set_row_labels((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_column_labels(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rchart_set_column_labels((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_row_label(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	result_ = rn_make_text(env, rn.Rchart_get_row_label((Rid)a0, (int)a1));
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_column_label(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	result_ = rn_make_text(env, rn.Rchart_get_column_label((Rid)a0, (int)a1));
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_color_scale(napi_env env, napi_callback_info info) {
+	size_t argc = 9;
+	napi_value argv[9];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	float a3;
+	float a4;
+	float a5;
+	float a6;
+	float a7;
+	float a8;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	if (!rn_get_float(env, argv[6], &a6)) return NULL;
+	if (!rn_get_float(env, argv[7], &a7)) return NULL;
+	if (!rn_get_float(env, argv[8], &a8)) return NULL;
+	rn.Rchart_set_color_scale((Rid)a0, (float)a1, (float)a2, (float)a3, (float)a4, (float)a5, (float)a6, (float)a7, (float)a8);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_cell_clicked_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rchart_set_cell_clicked_callback((Rid)a0, cb_ ? (RChartCellCallback)rn_t_RChartCellCallback : (RChartCellCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 59, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_values(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a1;
+	void* a1_heap;
+	int a2;
+	a1_heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_numbers(env, argv[1], napi_float32_array, &a1, &a1_heap)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	rn.Rchart_set_values((Rid)a0, (const float*)a1, (int)a2);
+done:
+	free(a1_heap);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_push_value(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rchart_push_value((Rid)a0, (float)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_value_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rchart_get_value_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_get_value_at(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	float value_ = rn.Rchart_get_value_at((Rid)a0, (int)a1);
+	napi_create_double(env, (double)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_fill(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rchart_set_fill((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rchart_set_marker(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rchart_set_marker((Rid)a0, (int)a1);
+	return result_;
+}
+
 static napi_value rn_w_Rpdf_is_available(napi_env env, napi_callback_info info) {
 	napi_value result_ = NULL;
 	(void)env;
@@ -15411,7 +16329,7 @@ static napi_value rn_w_Rpdf_view_set_page_changed_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rpdf_view_set_page_changed_callback((Rid)a0, cb_ ? (RPdfPageChangedCallback)rn_t_RPdfPageChangedCallback : (RPdfPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 58, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 60, NULL, cb_);
 	return result_;
 }
 
@@ -16389,7 +17307,7 @@ static napi_value rn_w_Rtext_editor_set_zoom_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_zoom_callback((Rid)a0, cb_ ? (RTextEditorZoomCallback)rn_t_RTextEditorZoomCallback : (RTextEditorZoomCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 59, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 61, NULL, cb_);
 	return result_;
 }
 
@@ -16595,7 +17513,7 @@ static napi_value rn_w_Rtext_editor_set_completion_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_completion_callback((Rid)a0, cb_ ? (RCompletionCallback)rn_t_RCompletionCallback : (RCompletionCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 60, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 62, NULL, cb_);
 	return result_;
 }
 
@@ -16744,7 +17662,7 @@ static napi_value rn_w_Rtext_editor_set_hover_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_hover_callback((Rid)a0, cb_ ? (RTextEditorHoverCallback)rn_t_RTextEditorHoverCallback : (RTextEditorHoverCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 61, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 63, NULL, cb_);
 	return result_;
 }
 
@@ -16827,7 +17745,7 @@ static napi_value rn_w_Rtext_editor_set_changed_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rtext_editor_set_changed_callback((Rid)a0, cb_ ? (RTextEditorChangedCallback)rn_t_RTextEditorChangedCallback : (RTextEditorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 62, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 64, NULL, cb_);
 	return result_;
 }
 
@@ -17214,7 +18132,7 @@ static napi_value rn_w_Rdock_area_set_close_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_close_callback((Rid)a0, cb_ ? (RDockCloseCallback)rn_t_RDockCloseCallback : (RDockCloseCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 63, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 65, NULL, cb_);
 	return result_;
 }
 
@@ -17328,7 +18246,7 @@ static napi_value rn_w_Rdock_area_set_changed_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rdock_area_set_changed_callback((Rid)a0, cb_ ? (RDockChangedCallback)rn_t_RDockChangedCallback : (RDockChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 64, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 66, NULL, cb_);
 	return result_;
 }
 
@@ -17485,7 +18403,7 @@ static napi_value rn_w_Risland_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Risland_set_changed_callback((Rid)a0, cb_ ? (RIslandChangedCallback)rn_t_RIslandChangedCallback : (RIslandChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 65, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 67, NULL, cb_);
 	return result_;
 }
 
@@ -17706,7 +18624,7 @@ static napi_value rn_w_Rtray_set_clicked_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rtray_set_clicked_callback((Rid)a0, cb_ ? (RTrayClickedCallback)rn_t_RTrayClickedCallback : (RTrayClickedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_PLAIN, 66, NULL, cb_);
+	rn_bind(a0, RN_OWNER_PLAIN, 68, NULL, cb_);
 	return result_;
 }
 
@@ -18020,7 +18938,7 @@ static napi_value rn_w_Rcolor_picker_set_changed_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rcolor_picker_set_changed_callback((Rid)a0, cb_ ? (RColorChangedCallback)rn_t_RColorChangedCallback : (RColorChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 67, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 69, NULL, cb_);
 	return result_;
 }
 
@@ -18947,7 +19865,7 @@ static napi_value rn_w_Rtimeline_set_time_callback(napi_env env, napi_callback_i
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_time_callback((Rid)a0, cb_ ? (RTimelineTimeCallback)rn_t_RTimelineTimeCallback : (RTimelineTimeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 68, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 70, NULL, cb_);
 	return result_;
 }
 
@@ -18972,7 +19890,7 @@ static napi_value rn_w_Rtimeline_set_changed_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_changed_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 69, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 71, NULL, cb_);
 	return result_;
 }
 
@@ -18997,7 +19915,7 @@ static napi_value rn_w_Rtimeline_set_selection_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_selection_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 70, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 72, NULL, cb_);
 	return result_;
 }
 
@@ -19022,7 +19940,7 @@ static napi_value rn_w_Rtimeline_set_activated_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_activated_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 71, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 73, NULL, cb_);
 	return result_;
 }
 
@@ -19047,7 +19965,7 @@ static napi_value rn_w_Rtimeline_set_removed_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rtimeline_set_removed_callback((Rid)a0, cb_ ? (RTimelineItemCallback)rn_t_RTimelineItemCallback : (RTimelineItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 72, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 74, NULL, cb_);
 	return result_;
 }
 
@@ -20067,7 +20985,7 @@ static napi_value rn_w_Rnode_graph_set_connect_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_connect_callback((Rid)a0, cb_ ? (RNodeGraphConnectCallback)rn_t_RNodeGraphConnectCallback : (RNodeGraphConnectCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 73, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 75, NULL, cb_);
 	return result_;
 }
 
@@ -20092,7 +21010,7 @@ static napi_value rn_w_Rnode_graph_set_linked_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_linked_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 74, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 76, NULL, cb_);
 	return result_;
 }
 
@@ -20117,7 +21035,7 @@ static napi_value rn_w_Rnode_graph_set_unlinked_callback(napi_env env, napi_call
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_unlinked_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 75, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 77, NULL, cb_);
 	return result_;
 }
 
@@ -20142,7 +21060,7 @@ static napi_value rn_w_Rnode_graph_set_moved_callback(napi_env env, napi_callbac
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_moved_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 76, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 78, NULL, cb_);
 	return result_;
 }
 
@@ -20167,7 +21085,7 @@ static napi_value rn_w_Rnode_graph_set_selection_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_selection_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 77, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 79, NULL, cb_);
 	return result_;
 }
 
@@ -20192,7 +21110,7 @@ static napi_value rn_w_Rnode_graph_set_removed_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_removed_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 78, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 80, NULL, cb_);
 	return result_;
 }
 
@@ -20217,7 +21135,7 @@ static napi_value rn_w_Rnode_graph_set_activated_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_activated_callback((Rid)a0, cb_ ? (RNodeGraphItemCallback)rn_t_RNodeGraphItemCallback : (RNodeGraphItemCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 79, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 81, NULL, cb_);
 	return result_;
 }
 
@@ -20242,7 +21160,7 @@ static napi_value rn_w_Rnode_graph_set_context_callback(napi_env env, napi_callb
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_context_callback((Rid)a0, cb_ ? (RNodeGraphContextCallback)rn_t_RNodeGraphContextCallback : (RNodeGraphContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 80, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 82, NULL, cb_);
 	return result_;
 }
 
@@ -20267,7 +21185,7 @@ static napi_value rn_w_Rnode_graph_set_canvas_activated_callback(napi_env env, n
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_canvas_activated_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 81, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
 	return result_;
 }
 
@@ -20292,7 +21210,7 @@ static napi_value rn_w_Rnode_graph_set_wire_dropped_callback(napi_env env, napi_
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_wire_dropped_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 82, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 84, NULL, cb_);
 	return result_;
 }
 
@@ -20317,7 +21235,7 @@ static napi_value rn_w_Rnode_graph_set_pin_clicked_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rnode_graph_set_pin_clicked_callback((Rid)a0, cb_ ? (RNodeGraphPointCallback)rn_t_RNodeGraphPointCallback : (RNodeGraphPointCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 83, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 85, NULL, cb_);
 	return result_;
 }
 
@@ -21073,7 +21991,7 @@ static napi_value rn_w_Rblock_editor_set_changed_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_changed_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 84, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 86, NULL, cb_);
 	return result_;
 }
 
@@ -21098,7 +22016,7 @@ static napi_value rn_w_Rblock_editor_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_clicked_callback((Rid)a0, cb_ ? (RBlockEditorCallback)rn_t_RBlockEditorCallback : (RBlockEditorCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 85, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 87, NULL, cb_);
 	return result_;
 }
 
@@ -21123,7 +22041,7 @@ static napi_value rn_w_Rblock_editor_set_context_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rblock_editor_set_context_callback((Rid)a0, cb_ ? (RBlockEditorContextCallback)rn_t_RBlockEditorContextCallback : (RBlockEditorContextCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 86, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
 	return result_;
 }
 
@@ -21314,14 +22232,14 @@ static napi_value rn_w_Rdialog_open(napi_env env, napi_callback_info info) {
 	k0_ = rn_callback_arg(env, argv[2], &n0_);
 	if (k0_ == RN_CALLBACK_THROWN) return NULL;
 	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
-	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 87)) {
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwindow_is_valid(a0) && rn.Rwidget_is_valid(a1) && !rn_dialog_pending(a1, 89)) {
 		cb_ = rn_cb_new(env, &argv[2], 1, a3);
 		if (!cb_) return NULL;
 	}
 	rn.Rdialog_open((Rid)a0, (Rid)a1, cb_ ? (RDialogClosedCallback)rn_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a3);
 	if (cb_) {
 		cb_->once = 1;
-		rn_bind(a1, RN_OWNER_WIDGET, 87, NULL, cb_);
+		rn_bind(a1, RN_OWNER_WIDGET, 89, NULL, cb_);
 	}
 	return result_;
 }
@@ -21382,7 +22300,7 @@ static napi_value rn_w_Rpopup_open(napi_env env, napi_callback_info info) {
 		if (!cb_) return NULL;
 	}
 	rn.Rpopup_open((Rid)a0, (Rid)a1, (float)a2, (float)a3, cb_ ? (RDialogClosedCallback)rn_t_RDialogClosedCallback : (RDialogClosedCallback)n0_, cb_ ? (void*)cb_ : a5);
-	rn_bind(a0, RN_OWNER_WIDGET, 88, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 90, NULL, cb_);
 	return result_;
 }
 
@@ -21845,7 +22763,7 @@ static napi_value rn_w_Rfile_browser_set_accepted_callback(napi_env env, napi_ca
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_accepted_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 89, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 91, NULL, cb_);
 	return result_;
 }
 
@@ -21870,7 +22788,7 @@ static napi_value rn_w_Rfile_browser_set_cancelled_callback(napi_env env, napi_c
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_cancelled_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 90, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 92, NULL, cb_);
 	return result_;
 }
 
@@ -21895,7 +22813,7 @@ static napi_value rn_w_Rfile_browser_set_selection_changed_callback(napi_env env
 		if (!cb_) return NULL;
 	}
 	rn.Rfile_browser_set_selection_changed_callback((Rid)a0, cb_ ? (RFileBrowserCallback)rn_t_RFileBrowserCallback : (RFileBrowserCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 91, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 93, NULL, cb_);
 	return result_;
 }
 
@@ -21949,7 +22867,7 @@ static napi_value rn_w_Rnotification_set_fallback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_fallback(cb_ ? (RNotificationFallback)rn_t_RNotificationFallback : (RNotificationFallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 92, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 94, NULL, cb_);
 	return result_;
 }
 
@@ -21972,7 +22890,7 @@ static napi_value rn_w_Rnotification_set_clicked_callback(napi_env env, napi_cal
 		if (!cb_) return NULL;
 	}
 	rn.Rnotification_set_clicked_callback(cb_ ? (RNotificationClickedCallback)rn_t_RNotificationClickedCallback : (RNotificationClickedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 93, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 95, NULL, cb_);
 	return result_;
 }
 
@@ -22109,7 +23027,7 @@ static napi_value rn_w_Rviewport_set_resize_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rviewport_set_resize_callback((Rid)a0, cb_ ? (RViewportResizeCallback)rn_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 94, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 96, NULL, cb_);
 	return result_;
 }
 
@@ -22148,7 +23066,7 @@ static napi_value rn_w_Rcustom_set_paint_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_paint_callback((Rid)a0, cb_ ? (RPaintCallback)rn_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 95, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 97, NULL, cb_);
 	return result_;
 }
 
@@ -22173,7 +23091,7 @@ static napi_value rn_w_Rcustom_set_measure_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_measure_callback((Rid)a0, cb_ ? (RMeasureCallback)rn_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 96, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 98, NULL, cb_);
 	return result_;
 }
 
@@ -22915,7 +23833,7 @@ static napi_value rn_w_Rxml_set_reload_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rxml_set_reload_callback(cb_ ? (RXmlReloadCallback)rn_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 97, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 99, NULL, cb_);
 	return result_;
 }
 
@@ -23050,7 +23968,7 @@ static napi_value rn_w_Rxml_register_tag(napi_env env, napi_callback_info info) 
 		rn_cb_release(cb_);
 		cb_ = NULL;
 	}
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 98, a0.p, cb_);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 100, a0.p, cb_);
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a0.heap);
@@ -23067,7 +23985,7 @@ static napi_value rn_w_Rxml_unregister_tag(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	rn.Rxml_unregister_tag(a0.p);
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 98, a0.p, NULL);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 100, a0.p, NULL);
 done:
 	free(a0.heap);
 	return result_;
@@ -23900,7 +24818,7 @@ static napi_value rn_w_Rlocale_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rlocale_set_changed_callback(cb_ ? (RLocaleChangedCallback)rn_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 99, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 101, NULL, cb_);
 	return result_;
 }
 
@@ -24259,7 +25177,7 @@ static napi_value rn_w_Rwidget_set_accessible_action(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rwidget_set_accessible_action((Rid)a0, cb_ ? (RAccessiblePressCallback)rn_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 100, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 102, NULL, cb_);
 	return result_;
 }
 
@@ -25262,6 +26180,54 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rplot_set_view_changed_callback", NULL, rn_w_Rplot_set_view_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rplot_set_drag_line_callback", NULL, rn_w_Rplot_set_drag_line_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rplot_set_series_toggled_callback", NULL, rn_w_Rplot_set_series_toggled_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_create", NULL, rn_w_Rchart_create, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_kind", NULL, rn_w_Rchart_set_kind, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_kind", NULL, rn_w_Rchart_get_kind, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_title", NULL, rn_w_Rchart_set_title, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_title", NULL, rn_w_Rchart_get_title, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_format", NULL, rn_w_Rchart_set_format, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_color", NULL, rn_w_Rchart_set_color, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_legend", NULL, rn_w_Rchart_set_legend, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_clear", NULL, rn_w_Rchart_clear, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_hovered", NULL, rn_w_Rchart_get_hovered, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_add_slice", NULL, rn_w_Rchart_add_slice, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_remove_slice", NULL, rn_w_Rchart_remove_slice, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_slice_count", NULL, rn_w_Rchart_get_slice_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_slice_value", NULL, rn_w_Rchart_set_slice_value, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_slice_value", NULL, rn_w_Rchart_get_slice_value, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_slice_label", NULL, rn_w_Rchart_set_slice_label, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_slice_label", NULL, rn_w_Rchart_get_slice_label, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_slice_color", NULL, rn_w_Rchart_set_slice_color, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_total", NULL, rn_w_Rchart_get_total, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_selected", NULL, rn_w_Rchart_set_selected, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_selected", NULL, rn_w_Rchart_get_selected, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_hole", NULL, rn_w_Rchart_set_hole, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_center_text", NULL, rn_w_Rchart_set_center_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_slice_clicked_callback", NULL, rn_w_Rchart_set_slice_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_range", NULL, rn_w_Rchart_set_range, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_range", NULL, rn_w_Rchart_get_range, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_value", NULL, rn_w_Rchart_set_value, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_value", NULL, rn_w_Rchart_get_value, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_add_band", NULL, rn_w_Rchart_add_band, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_clear_bands", NULL, rn_w_Rchart_clear_bands, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_band_count", NULL, rn_w_Rchart_get_band_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_grid", NULL, rn_w_Rchart_set_grid, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_row_count", NULL, rn_w_Rchart_get_row_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_column_count", NULL, rn_w_Rchart_get_column_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_cell", NULL, rn_w_Rchart_set_cell, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_cell", NULL, rn_w_Rchart_get_cell, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_row_labels", NULL, rn_w_Rchart_set_row_labels, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_column_labels", NULL, rn_w_Rchart_set_column_labels, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_row_label", NULL, rn_w_Rchart_get_row_label, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_column_label", NULL, rn_w_Rchart_get_column_label, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_color_scale", NULL, rn_w_Rchart_set_color_scale, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_cell_clicked_callback", NULL, rn_w_Rchart_set_cell_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_values", NULL, rn_w_Rchart_set_values, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_push_value", NULL, rn_w_Rchart_push_value, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_value_count", NULL, rn_w_Rchart_get_value_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_get_value_at", NULL, rn_w_Rchart_get_value_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_fill", NULL, rn_w_Rchart_set_fill, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rchart_set_marker", NULL, rn_w_Rchart_set_marker, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_is_available", NULL, rn_w_Rpdf_is_available, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_load_file", NULL, rn_w_Rpdf_view_load_file, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_load_memory", NULL, rn_w_Rpdf_view_load_memory, NULL, NULL, NULL, napi_enumerable, NULL},

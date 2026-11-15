@@ -463,6 +463,7 @@ typedef enum RWidgetType {
 	R_WIDGET_PAGINATION = 561,
 	R_WIDGET_PLOT = 562,
 	R_WIDGET_PDF_VIEW = 563,
+	R_WIDGET_CHART = 564,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -611,6 +612,13 @@ typedef enum RPlotLegend {
 	R_PLOT_LEGEND_LEFT = 1384,
 	R_PLOT_LEGEND_OUTSIDE = 1385,
 } RPlotLegend;
+typedef enum RChartKind {
+	R_CHART_PIE = 1424,
+	R_CHART_DONUT = 1425,
+	R_CHART_GAUGE = 1426,
+	R_CHART_HEATMAP = 1427,
+	R_CHART_SPARKLINE = 1428,
+} RChartKind;
 typedef enum RSyntax {
 	R_SYNTAX_NONE = 832,
 	R_SYNTAX_XML = 833,
@@ -884,6 +892,8 @@ typedef void (*RPageChangedCallback)(Rid pagination, int page, void* user_data);
 typedef void (*RPlotViewCallback)(Rid plot, void* user_data);
 typedef void (*RPlotDragLineCallback)(Rid plot, int line, double value, void* user_data);
 typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
+typedef void (*RChartSliceCallback)(Rid chart, int slice, int selected, void* user_data);
+typedef void (*RChartCellCallback)(Rid chart, int row, int column, float value, void* user_data);
 typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
@@ -1841,6 +1851,54 @@ void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, fl
 void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
 void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
 void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+Rid Rchart_create(RChartKind kind);
+void Rchart_set_kind(Rid chart, RChartKind kind);
+RChartKind Rchart_get_kind(Rid chart);
+void Rchart_set_title(Rid chart, const char* title);
+const char* Rchart_get_title(Rid chart);
+void Rchart_set_format(Rid chart, const char* format);
+void Rchart_set_color(Rid chart, float r, float g, float b, float a);
+void Rchart_set_legend(Rid chart, int shown);
+void Rchart_clear(Rid chart);
+int Rchart_get_hovered(Rid chart);
+int Rchart_add_slice(Rid chart, const char* label, double value);
+void Rchart_remove_slice(Rid chart, int slice);
+int Rchart_get_slice_count(Rid chart);
+void Rchart_set_slice_value(Rid chart, int slice, double value);
+double Rchart_get_slice_value(Rid chart, int slice);
+void Rchart_set_slice_label(Rid chart, int slice, const char* label);
+const char* Rchart_get_slice_label(Rid chart, int slice);
+void Rchart_set_slice_color(Rid chart, int slice, float r, float g, float b, float a);
+double Rchart_get_total(Rid chart);
+void Rchart_set_selected(Rid chart, int slice);
+int Rchart_get_selected(Rid chart);
+void Rchart_set_hole(Rid chart, float ratio);
+void Rchart_set_center_text(Rid chart, const char* text, const char* caption);
+void Rchart_set_slice_clicked_callback(Rid chart, RChartSliceCallback callback, void* user_data);
+void Rchart_set_range(Rid chart, double min, double max);
+void Rchart_get_range(Rid chart, double* min, double* max);
+void Rchart_set_value(Rid chart, double value);
+double Rchart_get_value(Rid chart);
+int Rchart_add_band(Rid chart, double from, double to, float r, float g, float b, float a);
+void Rchart_clear_bands(Rid chart);
+int Rchart_get_band_count(Rid chart);
+void Rchart_set_grid(Rid chart, int rows, int columns, const float* values);
+int Rchart_get_row_count(Rid chart);
+int Rchart_get_column_count(Rid chart);
+void Rchart_set_cell(Rid chart, int row, int column, float value);
+float Rchart_get_cell(Rid chart, int row, int column);
+void Rchart_set_row_labels(Rid chart, const char* labels);
+void Rchart_set_column_labels(Rid chart, const char* labels);
+const char* Rchart_get_row_label(Rid chart, int row);
+const char* Rchart_get_column_label(Rid chart, int column);
+void Rchart_set_color_scale(Rid chart, float low_r, float low_g, float low_b, float low_a, float high_r, float high_g, float high_b, float high_a);
+void Rchart_set_cell_clicked_callback(Rid chart, RChartCellCallback callback, void* user_data);
+void Rchart_set_values(Rid chart, const float* values, int count);
+void Rchart_push_value(Rid chart, float value, int max_count);
+int Rchart_get_value_count(Rid chart);
+float Rchart_get_value_at(Rid chart, int index);
+void Rchart_set_fill(Rid chart, int fill);
+void Rchart_set_marker(Rid chart, int shown);
 int Rpdf_is_available(void);
 int Rpdf_view_load_file(Rid view, const char* path, const char* password);
 int Rpdf_view_load_memory(Rid view, const char* data, size_t data_size, const char* password);

@@ -3,7 +3,7 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_deep_trees
+#   test_chart, test_deep_trees
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -85,6 +85,7 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 endif()
 raven_add_test(test_touch)
 raven_add_test(test_more_widgets)
+raven_add_test(test_chart)
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
