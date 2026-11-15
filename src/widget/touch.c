@@ -503,7 +503,15 @@ static void rvn_touch_primary_up(rvn_window_t* window, rvn_touch_state_t* state,
 		case RVN_TS_PAN: {
 			double now = rvn_touch_now(state);
 			float speed = sqrtf(state->vx * state->vx + state->vy * state->vy);
-			if (!cancelled && settings->inertia && state->pan && now - state->last_move < RVN_TOUCH_REST && speed > RVN_TOUCH_COAST_MIN) {
+			int flicked = !cancelled && now - state->last_move < RVN_TOUCH_REST && speed > RVN_TOUCH_COAST_MIN;
+			/* a widget that settles by itself (pages that snap) takes the speed instead of coasting */
+			if (state->pan && state->pan->cls->pan_end && !(state->pan->flags & RVN_WF_DEAD)) {
+				rvn_widget_t* pan = state->pan;
+				state->pan = NULL;
+				if (pan->cls->pan_end(pan, flicked ? state->vx : 0.0f, flicked ? state->vy : 0.0f) || window->dead) break;
+				state->pan = pan;
+			}
+			if (flicked && settings->inertia && state->pan) {
 				state->coast = state->pan;
 				state->coast_vx = state->vx;
 				state->coast_vy = state->vy;
@@ -643,6 +651,14 @@ static void rvn_gesture_end(rvn_window_t* window, rvn_touch_state_t* state, int 
 	state->g_cancelled = cancelled;
 	rvn_gesture_apply(window, state, R_GESTURE_END, cx, cy, dist, angle);
 	state->g_cancelled = R_FALSE;
+	/* what the two fingers panned settles (pages that snap) */
+	if (!window->dead && !state->gesture_owned && state->gesture_widget && state->gesture_widget->cls->pan_end &&
+		!(state->gesture_widget->flags & RVN_WF_DEAD)) {
+		rvn_widget_t* panned = state->gesture_widget;
+		state->gesture_widget = NULL;
+		panned->cls->pan_end(panned, 0.0f, 0.0f);
+		if (window->dead) return;
+	}
 	state->ga = state->gb = -1;
 	state->gesture_target = state->gesture_widget = NULL;
 	state->gesture_owned = R_FALSE;
