@@ -617,6 +617,7 @@ The build trees are in `build\dist\`.
 | `examples/studio` | a graph of nodes (widgets inside the nodes, links the application can refuse, nodes added from code), a timeline that plays, a color picker that colors the selected nodes; its XML is loaded again when saved |
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
+| `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
 | `examples/browser` | web pages with `raven_web`: an address bar, the history, a color picker of Raven that drives the CSS of the page, messages from the page |
 | `examples/glass` | the glass themes and the three glass materials. `raven_glass light` starts with the light glass |
@@ -1109,6 +1110,59 @@ a dialog of Raven on Linux. `Rpdf_view_print` prints the document a
 `PdfView` shows, `Rpdf_document_print` one Raven wrote, `Rpdf_print_file` a
 file. `RPdfPrintDesc` names a printer, the copies, or skips the dialog
 (`R_PDF_PRINT_NO_DIALOG`).
+
+### Maps
+
+```xml
+<MapView Name="map" Latitude="48.85" Longitude="2.35" Zoom="5" MaxZoom="18"
+         Attribution="© OpenStreetMap contributors" OnChanged="map.moved" Slot.Fill="1">
+    <Marker Latitude="48.8566" Longitude="2.3522" Label="Paris" Color="#E74C3C"/>
+</MapView>
+```
+
+A `MapView` shows the square tiles of the Web Mercator projection that
+OpenStreetMap and most tile servers use (zoom z: 2^z × 2^z tiles of 256
+units). It is dragged (and glides on when flung), zoomed around the pointer
+with the wheel, a pinch or a double click, and with `+` / `-` and the arrows
+when it has the focus; between two whole zooms the tiles are scaled. Markers
+are pins with a label; `Rmap_view_set_marker_clicked_callback` tells which one
+was clicked, `Rmap_view_set_view_changed_callback` (or `OnChanged`) where the
+map went. `Rmap_view_screen_to_latlon` and `Rmap_view_latlon_to_screen`
+convert between points of the widget and places.
+
+Raven has no HTTP client: the application gives the tiles. The tile callback
+asks for each tile once, only for those seen and a ring around them; the
+answer comes then or later, from any thread, as pixels
+(`Rmap_view_set_tile`), as the bytes of a PNG or JPEG file
+(`Rmap_view_set_tile_data`), or as none (`Rmap_view_set_tile_failed`). A tile
+that is no longer wanted before its answer comes is dropped (the cancel
+callback says so, to stop its download), and the late answer is ignored.
+With curl, for example (on a worker thread, or with curl's multi interface):
+
+```c
+static void on_tile(Rid map, int z, int x, int y, void* user) {
+    char url[256];
+    snprintf(url, sizeof url, "https://tiles.example.com/%d/%d/%d.png", z, x, y);
+    start_download(url, map, z, x, y);         /* your loader: curl, a disk cache... */
+}
+/* when a download ends, on any thread: */
+Rmap_view_set_tile_data(map, z, x, y, body, body_size);   /* or Rmap_view_set_tile_failed */
+
+Rmap_view_set_tile_callback(map, on_tile, NULL);
+Rmap_view_set_attribution(map, "© OpenStreetMap contributors");
+```
+
+Tile servers have rules: the tiles of openstreetmap.org are for light use
+only, with a User-Agent that names the application, a cache kept by it, no
+bulk downloading, and the credit shown
+([tile usage policy](https://operations.osmfoundation.org/policies/tiles/));
+heavier use needs a provider of its own or tiles served by yourself.
+Offline, `Rmap_view_set_tile_path(map, "tiles/{z}/{x}/{y}.png")` (or the
+`TilePath` attribute) reads the tiles from files on a worker thread: a tile
+cache, an extracted MBTiles (`{-y}` for its rows counted from the south). The
+decoded tiles are kept in a cache of 64 MiB by default
+(`Rmap_view_set_cache_size`), the least recently seen dropped first; while a
+tile is missing, a coarser one that is there is shown stretched in its place.
 
 ### Tables, dates and the small controls
 
