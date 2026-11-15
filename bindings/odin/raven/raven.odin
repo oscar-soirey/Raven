@@ -4207,7 +4207,7 @@ foreign lib {
 	// (on the UI thread; the application may then bring its window to the
 	// front: the system lets it). It is the last one shown that was clicked:
 	// the application remembers what it was about. NULL: none.
-	// Windows only for now (elsewhere it is never called).
+	// Windows and macOS (elsewhere it is never called).
 	Rnotification_set_clicked_callback :: proc(callback: RNotificationClickedCallback, user_data: rawptr) ---
 	// Shows a texture. R_INVALID_ID shows nothing.
 	Rviewport_set_texture :: proc(viewport: Rid, texture: Rid) ---

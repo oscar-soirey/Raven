@@ -438,6 +438,9 @@ const rvn_platform_t* rvn_platform_emscripten(void);
 
 /** The user clicked a notification of Rnotification_show: the platform tells the core (notify.c), on the UI thread. */
 void rvn_notification_clicked(void);
+/** The fallback of Rnotification_show for a notification the platform took but could not show
+ * (macOS: the user refused the permission it asked for); `urgency` as given to rvn_platform_t::notify. */
+void rvn_notification_fallback(const char* title, const char* body, int urgency);
 
 #if !defined(_WIN32) && !defined(__APPLE__)
 /** org.freedesktop.Notifications, for X11 and Wayland (platform/notify.c). */

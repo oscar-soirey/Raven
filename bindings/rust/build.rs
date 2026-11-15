@@ -28,7 +28,7 @@ fn main() {
         let (libs, frameworks): (&[&str], &[&str]) = match target.as_str() {
             "windows" => (&["user32", "gdi32", "shell32", "comdlg32", "ole32"], &[]),
             "linux" => (&["X11", "dl", "pthread", "m"], &[]),
-            "macos" => (&["objc"], &["AppKit", "QuartzCore", "Metal", "Foundation", "CoreFoundation"]),
+            "macos" => (&["objc"], &["AppKit", "QuartzCore", "Metal", "UserNotifications", "Foundation", "CoreFoundation"]),
             _ => (&[], &[]),
         };
         for lib in libs {

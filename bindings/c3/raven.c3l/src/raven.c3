@@ -6773,7 +6773,7 @@ fn void notification_set_fallback(NotificationFallback callback, void* user_data
  (on the UI thread; the application may then bring its window to the
  front: the system lets it). It is the last one shown that was clicked:
  the application remembers what it was about. NULL: none.
- Windows only for now (elsewhere it is never called).
+ Windows and macOS (elsewhere it is never called).
 *>
 fn void notification_set_clicked_callback(NotificationClickedCallback callback, void* user_data) @inline => c::r_notification_set_clicked_callback((c::RNotificationClickedCallback)callback, user_data);
 

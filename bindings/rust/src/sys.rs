@@ -4228,7 +4228,7 @@ extern "C" {
     /// (on the UI thread; the application may then bring its window to the
     /// front: the system lets it). It is the last one shown that was clicked:
     /// the application remembers what it was about. NULL: none.
-    /// Windows only for now (elsewhere it is never called).
+    /// Windows and macOS (elsewhere it is never called).
     pub fn Rnotification_set_clicked_callback(callback: RNotificationClickedCallback, user_data: *mut c_void);
     /// Shows a texture. R_INVALID_ID shows nothing.
     pub fn Rviewport_set_texture(viewport: Rid, texture: Rid);
