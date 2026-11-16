@@ -829,7 +829,7 @@ static void test_plot(void) {
 	CHECK_STR(Rplot_get_axis_label(plot, R_PLOT_X), "t (s)");
 	CHECK(Rplot_get_drag_line_count(plot) == 1 && Rplot_get_drag_line_value(plot, 0) == 3.5);
 	/* tags of other libraries */
-	CHECK(Rwidget_get_type(Rwidget_find(content("<VBox><Chart Name=\"c\"/></VBox>"), "c")) == R_WIDGET_PLOT);
+	CHECK(Rwidget_get_type(Rwidget_find(content("<VBox><LinePlot Name=\"c\"/></VBox>"), "c")) == R_WIDGET_PLOT);
 	root = content(
 		"<VBox><Plot Name=\"p\" Height=\"300\" Title=\"Signal\" XLabel=\"t (s)\" YLabel=\"V\" Legend=\"TopLeft\" Crosshair=\"true\">"
 		"<Series Name=\"wave\" Line=\"Dashed\" LineWidth=\"2\" Marker=\"Circle\" X=\"0 1 2 3 4\" Y=\"0 1 0 -1 0\"/>"

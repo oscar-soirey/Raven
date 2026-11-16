@@ -7,6 +7,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <Metal/Metal.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import <UserNotifications/UserNotifications.h>
 
 #include "../platform.h"
 #include "../../core/accessibility.h"
@@ -1335,6 +1336,7 @@ static NSRect rvn_cocoa_a11y_screen_rect(rvn_pwindow_t* window, const rvn_a11y_n
 }
 
 static NSAccessibilityRole rvn_cocoa_a11y_role(const rvn_a11y_node_t* node) {
+    if (node->states & RVN_A11Y_TABLE_ROW) return NSAccessibilityRowRole;
     switch (node->role) {
         case R_ROLE_WINDOW: return NSAccessibilityWindowRole;
         case R_ROLE_TEXT: case R_ROLE_HEADING: case R_ROLE_ALERT: return NSAccessibilityStaticTextRole;
@@ -1429,6 +1431,27 @@ static NSArray* rvn_cocoa_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t nod
     return rvn_cocoa_a11y_object(ravenWindow, parent);
 }
 - (NSArray*)accessibilityChildren { return rvn_cocoa_a11y_children(ravenWindow, nodeId); }
+- (NSArray*)accessibilityRows {
+    rvn_a11y_node_t node;
+    return rvn_a11y_describe(nodeId, &node) && node.role == R_ROLE_TABLE ? [self accessibilityChildren] : nil;
+}
+- (NSArray*)accessibilitySelectedRows {
+    int i, count = rvn_a11y_selection_count(nodeId);
+    NSMutableArray* rows = [NSMutableArray arrayWithCapacity:(NSUInteger)count];
+    for (i = 0; i < count; i++) {
+        id row = rvn_cocoa_a11y_object(ravenWindow, rvn_a11y_selection_at(nodeId, i));
+        if (row) [rows addObject:row];
+    }
+    return rows;
+}
+- (void)setAccessibilitySelectedRows:(NSArray*)rows {
+    if (!rvn_a11y_act(nodeId, RVN_A11Y_CLEAR_SELECTION)) return;
+    for (id row in rows) {
+        if (![row isKindOfClass:[RavenAccessibilityElement class]]) continue;
+        rvn_a11y_id_t item = ((RavenAccessibilityElement*)row)->nodeId;
+        if (rvn_a11y_parent(item) == nodeId) rvn_a11y_act(item, RVN_A11Y_ADD_SELECTION);
+    }
+}
 - (id)accessibilityWindow { return ravenWindow ? ravenWindow->handle : nil; }
 - (id)accessibilityTopLevelUIElement { return ravenWindow ? ravenWindow->handle : nil; }
 - (BOOL)isAccessibilityFocused {
@@ -1443,6 +1466,9 @@ static NSArray* rvn_cocoa_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t nod
 - (BOOL)isAccessibilitySelected {
     rvn_a11y_node_t node;
     return rvn_a11y_describe(nodeId, &node) && (node.states & RVN_A11Y_SELECTED) ? YES : NO;
+}
+- (void)setAccessibilitySelected:(BOOL)selected {
+    rvn_a11y_act(nodeId, selected ? RVN_A11Y_ADD_SELECTION : RVN_A11Y_REMOVE_SELECTION);
 }
 - (BOOL)isAccessibilityExpanded {
     rvn_a11y_node_t node;
@@ -1468,6 +1494,7 @@ static NSArray* rvn_cocoa_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t nod
     rvn_a11y_node_t node;
     if (!rvn_a11y_describe(nodeId, &node)) return NO;
     if (selector == @selector(accessibilityPerformPress)) return (node.states & (RVN_A11Y_INVOKABLE | RVN_A11Y_CHECKABLE)) ? YES : NO;
+    if (selector == @selector(setAccessibilitySelectedRows:)) return node.role == R_ROLE_TABLE ? YES : NO;
     if (selector == @selector(accessibilityPerformIncrement) || selector == @selector(accessibilityPerformDecrement))
         return (node.states & RVN_A11Y_HAS_RANGE) && !(node.states & RVN_A11Y_READONLY) ? YES : NO;
     if (selector == @selector(setAccessibilityValue:)) return (node.states & (RVN_A11Y_EDITABLE | RVN_A11Y_HAS_RANGE)) ? YES : NO;
@@ -1547,6 +1574,13 @@ static void rvn_cocoa_a11y_event(rvn_pwindow_t* window, int event, uint64_t node
             break;
         case RVN_A11Y_EVENT_VALUE:
         case RVN_A11Y_EVENT_STATE:
+            {
+                rvn_a11y_node_t info;
+                if (rvn_a11y_describe(node, &info) && info.role == R_ROLE_TABLE) {
+                    NSAccessibilityPostNotification(object, NSAccessibilitySelectedRowsChangedNotification);
+                    break;
+                }
+            }
             NSAccessibilityPostNotification(object, NSAccessibilityValueChangedNotification);
             break;
         case RVN_A11Y_EVENT_NAME:
@@ -1599,24 +1633,95 @@ static int rvn_cocoa_accent_color(float rgb[3]) {
 }
 
 /*
- * A notification of the Notification Center. NSUserNotification still works
- * where UNUserNotificationCenter needs a signed bundle and a permission
- * asked beforehand; outside of an application bundle the center drops what
- * it is given, so that case reports R_FALSE (the fallback of the application then runs).
+ * A notification of the Notification Center (UserNotifications). The center
+ * works only for an application bundle: outside of one there is no center, so
+ * that case reports R_FALSE (the fallback of the application then runs).
+ *
+ * The first notification asks the user for the permission; the request is
+ * added once the answer is known (the system remembers it, later asks answer
+ * at once). When the user said no, the notifications go to the fallback: the
+ * one being asked about from its completion, the later ones by returning R_FALSE.
+ *
+ * Raven is the delegate of the center unless the application set one: its
+ * notifications then show while the application is in front too, as banners,
+ * and a click calls the callback of Rnotification_set_clicked_callback.
  */
+@interface RavenNotificationDelegate : NSObject <UNUserNotificationCenterDelegate>
+@end
+
+@implementation RavenNotificationDelegate
+
+- (void)userNotificationCenter:(UNUserNotificationCenter*)center
+       willPresentNotification:(UNNotification*)notification
+         withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
+    (void)center;
+    (void)notification;
+    completionHandler(UNNotificationPresentationOptionBanner | UNNotificationPresentationOptionList |
+        UNNotificationPresentationOptionSound);
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter*)center
+    didReceiveNotificationResponse:(UNNotificationResponse*)response
+             withCompletionHandler:(void (^)(void))completionHandler {
+    (void)center;
+    if ([[response actionIdentifier] isEqualToString:UNNotificationDefaultActionIdentifier]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            rvn_notification_clicked();
+        });
+    }
+    completionHandler();
+}
+
+@end
+
+/* the answer of the user: 0 not known yet, 1 allowed, -1 refused */
+static volatile int g_rvn_notify_allowed = 0;
+static RavenNotificationDelegate* g_rvn_notify_delegate = nil;
+static unsigned long g_rvn_notify_serial = 0;
+
 static int rvn_cocoa_notify(const char* app, const char* title, const char* body, int urgency) {
     @autoreleasepool {
-        NSUserNotification* notification;
+        UNUserNotificationCenter* center;
+        UNMutableNotificationContent* content;
+        UNNotificationRequest* request;
+        NSString* identifier;
+        NSString* fallback_title;
+        NSString* fallback_body;
+        int fallback_urgency = urgency;
+
         if (![[NSBundle mainBundle] bundleIdentifier]) return R_FALSE;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        notification = [[NSUserNotification alloc] init];
-        [notification setTitle:[NSString stringWithUTF8String:(*title ? title : app)]];
-        [notification setInformativeText:[NSString stringWithUTF8String:body]];
-        if (urgency > 0) [notification setSoundName:NSUserNotificationDefaultSoundName];
-        [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
-        [notification release];
-#pragma clang diagnostic pop
+        if (__atomic_load_n(&g_rvn_notify_allowed, __ATOMIC_ACQUIRE) < 0) return R_FALSE;
+        center = [UNUserNotificationCenter currentNotificationCenter];
+        if (!center) return R_FALSE;
+        if (!g_rvn_notify_delegate && ![center delegate]) {
+            g_rvn_notify_delegate = [[RavenNotificationDelegate alloc] init];
+            [center setDelegate:g_rvn_notify_delegate];
+        }
+
+        content = [[[UNMutableNotificationContent alloc] init] autorelease];
+        [content setTitle:[NSString stringWithUTF8String:(*title ? title : app)]];
+        [content setBody:[NSString stringWithUTF8String:body]];
+        if (urgency > 0) [content setSound:[UNNotificationSound defaultSound]];
+        identifier = [NSString stringWithFormat:@"raven.%lu", ++g_rvn_notify_serial];
+        request = [UNNotificationRequest requestWithIdentifier:identifier content:content trigger:nil];
+        fallback_title = [NSString stringWithUTF8String:title];
+        fallback_body = [NSString stringWithUTF8String:body];
+
+        /* (blocks copied by the center retain what they use) */
+        [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
+                              completionHandler:^(BOOL granted, NSError* error) {
+            __atomic_store_n(&g_rvn_notify_allowed, granted ? 1 : -1, __ATOMIC_RELEASE);
+            if (granted) {
+                [center addNotificationRequest:request withCompletionHandler:nil];
+            } else {
+                /* (an error rather than a no of the user: the bundle is not allowed notifications, for one) */
+                NSString* reason = error ? [error localizedDescription] : nil;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    rvn_notification_fallback([fallback_title UTF8String], [fallback_body UTF8String], fallback_urgency,
+                        reason ? [reason UTF8String] : NULL);
+                });
+            }
+        }];
         return R_TRUE;
     }
 }

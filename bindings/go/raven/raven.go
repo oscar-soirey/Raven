@@ -668,7 +668,8 @@ const (
 	R_WIDGET_PAGINATION      RWidgetType = 0x0231
 	R_WIDGET_PLOT            RWidgetType = 0x0232
 	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
-	R_WIDGET_MAP_VIEW        RWidgetType = 0x0234
+	R_WIDGET_CHART           RWidgetType = 0x0234
+	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
 )
 
 type RHAlign int32
@@ -915,6 +916,17 @@ const (
 	R_PLOT_LEGEND_BOTTOM_LEFT  RPlotLegend = 0x0567
 	R_PLOT_LEGEND_LEFT         RPlotLegend = 0x0568
 	R_PLOT_LEGEND_OUTSIDE      RPlotLegend = 0x0569
+)
+
+// RChartKind: What a Chart draws.
+type RChartKind int32
+
+const (
+	R_CHART_PIE       RChartKind = 0x0590
+	R_CHART_DONUT     RChartKind = 0x0591
+	R_CHART_GAUGE     RChartKind = 0x0592
+	R_CHART_HEATMAP   RChartKind = 0x0593
+	R_CHART_SPARKLINE RChartKind = 0x0594
 )
 
 // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
@@ -3812,7 +3824,39 @@ func TableGetRowCount(table ID) int {
 	return int(C.Rtable_get_row_count(C.Rid(table)))
 }
 
-// TableSetSelected: Selects a row. -1 selects nothing.
+// TableSetCellTextColor: Stored rows: a fixed text color; column -1 colors the row; cells override it. Alpha
+// 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+func TableSetCellTextColor(table ID, row int, column int, r float32, g float32, b float32, a float32) {
+	C.Rtable_set_cell_text_color(C.Rid(table), C.int(row), C.int(column), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// TableSetMultiSelect: Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+func TableSetMultiSelect(table ID, enabled int) {
+	C.Rtable_set_multi_select(C.Rid(table), C.int(enabled))
+}
+
+func TableSetRowSelected(table ID, row int, selected int) {
+	C.Rtable_set_row_selected(C.Rid(table), C.int(row), C.int(selected))
+}
+
+func TableIsRowSelected(table ID, row int) int {
+	return int(C.Rtable_is_row_selected(C.Rid(table), C.int(row)))
+}
+
+func TableClearSelection(table ID) {
+	C.Rtable_clear_selection(C.Rid(table))
+}
+
+func TableGetSelectionCount(table ID) int {
+	return int(C.Rtable_get_selection_count(C.Rid(table)))
+}
+
+// TableGetSelection: Selected row at index, top to bottom; -1 outside the selection.
+func TableGetSelection(table ID, index int) int {
+	return int(C.Rtable_get_selection(C.Rid(table), C.int(index)))
+}
+
+// TableSetSelected: Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 func TableSetSelected(table ID, row int) {
 	C.Rtable_set_selected(C.Rid(table), C.int(row))
 }
@@ -4375,6 +4419,258 @@ func PlotGetDragLineValue(plot ID, line int) float64 {
 // PlotSetDragLineColor: The color of a drag line (by default the accent of the theme).
 func PlotSetDragLineColor(plot ID, line int, r float32, g float32, b float32, a float32) {
 	C.Rplot_set_drag_line_color(C.Rid(plot), C.int(line), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// ChartCreate: A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
+func ChartCreate(kind RChartKind) ID {
+	return ID(C.Rchart_create(C.RChartKind(kind)))
+}
+
+func ChartSetKind(chart ID, kind RChartKind) {
+	C.Rchart_set_kind(C.Rid(chart), C.RChartKind(kind))
+}
+
+func ChartGetKind(chart ID) RChartKind {
+	return RChartKind(C.Rchart_get_kind(C.Rid(chart)))
+}
+
+// ChartSetTitle: The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only
+// tells it to screen readers).
+func ChartSetTitle(chart ID, title string) {
+	title_ := C.CString(title)
+	defer C.free(unsafe.Pointer(title_))
+	C.Rchart_set_title(C.Rid(chart), title_)
+}
+
+func ChartGetTitle(chart ID) string {
+	return C.GoString(C.Rchart_get_title(C.Rid(chart)))
+}
+
+// ChartSetFormat: How the values are written (the gauge, the middle of a donut, what the pointer shows): a
+// printf format for one double with its unit, "%.0f%%", "$%.2f". NULL: whole numbers as they are, others with
+// up to two decimals.
+func ChartSetFormat(chart ID, format string) {
+	format_ := C.CString(format)
+	defer C.free(unsafe.Pointer(format_))
+	C.Rchart_set_format(C.Rid(chart), format_)
+}
+
+// ChartSetColor: The color of the arc of a gauge outside any band, and of the line of a sparkline (default:
+// the accent).
+func ChartSetColor(chart ID, r float32, g float32, b float32, a float32) {
+	C.Rchart_set_color(C.Rid(chart), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// ChartSetLegend: The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown
+// by default).
+func ChartSetLegend(chart ID, shown int) {
+	C.Rchart_set_legend(C.Rid(chart), C.int(shown))
+}
+
+// ChartClear: Removes the slices, the bands, the grid and the values.
+func ChartClear(chart ID) {
+	C.Rchart_clear(C.Rid(chart))
+}
+
+// ChartGetHovered: What is under the pointer: a slice, a point of a sparkline, or a cell of a heatmap as row
+// * columns + column; -1 for nothing.
+func ChartGetHovered(chart ID) int {
+	return int(C.Rchart_get_hovered(C.Rid(chart)))
+}
+
+// ChartAddSlice: Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid.
+func ChartAddSlice(chart ID, label string, value float64) int {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	return int(C.Rchart_add_slice(C.Rid(chart), label_, C.double(value)))
+}
+
+func ChartRemoveSlice(chart ID, slice int) {
+	C.Rchart_remove_slice(C.Rid(chart), C.int(slice))
+}
+
+func ChartGetSliceCount(chart ID) int {
+	return int(C.Rchart_get_slice_count(C.Rid(chart)))
+}
+
+func ChartSetSliceValue(chart ID, slice int, value float64) {
+	C.Rchart_set_slice_value(C.Rid(chart), C.int(slice), C.double(value))
+}
+
+func ChartGetSliceValue(chart ID, slice int) float64 {
+	return float64(C.Rchart_get_slice_value(C.Rid(chart), C.int(slice)))
+}
+
+func ChartSetSliceLabel(chart ID, slice int, label string) {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	C.Rchart_set_slice_label(C.Rid(chart), C.int(slice), label_)
+}
+
+func ChartGetSliceLabel(chart ID, slice int) string {
+	return C.GoString(C.Rchart_get_slice_label(C.Rid(chart), C.int(slice)))
+}
+
+// ChartSetSliceColor: The color of a slice; an alpha of 0 gives it back its color of the palette.
+func ChartSetSliceColor(chart ID, slice int, r float32, g float32, b float32, a float32) {
+	C.Rchart_set_slice_color(C.Rid(chart), C.int(slice), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// ChartGetTotal: The sum of the values of the slices.
+func ChartGetTotal(chart ID) float64 {
+	return float64(C.Rchart_get_total(C.Rid(chart)))
+}
+
+// ChartSetSelected: The slice lifted as selected, or -1 for none (the user selects one with a click).
+func ChartSetSelected(chart ID, slice int) {
+	C.Rchart_set_selected(C.Rid(chart), C.int(slice))
+}
+
+func ChartGetSelected(chart ID) int {
+	return int(C.Rchart_get_selected(C.Rid(chart)))
+}
+
+// ChartSetHole: The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62).
+func ChartSetHole(chart ID, ratio float32) {
+	C.Rchart_set_hole(C.Rid(chart), C.float(ratio))
+}
+
+// ChartSetCenterText: What the middle of a donut shows when the pointer is not over a slice: `text` in large
+// (NULL or "": the total) over `caption` in small (NULL or "": none).
+func ChartSetCenterText(chart ID, text string, caption string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	caption_ := C.CString(caption)
+	defer C.free(unsafe.Pointer(caption_))
+	C.Rchart_set_center_text(C.Rid(chart), text_, caption_)
+}
+
+// ChartSetRange: The range of a gauge (default 0 to 100), and a fixed range for the colors of a heatmap and
+// the height of a sparkline, which otherwise follow their values. min == max goes back to these defaults.
+func ChartSetRange(chart ID, min float64, max float64) {
+	C.Rchart_set_range(C.Rid(chart), C.double(min), C.double(max))
+}
+
+// ChartGetRange: The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline).
+func ChartGetRange(chart ID) (min float64, max float64) {
+	var min_ C.double
+	var max_ C.double
+	C.Rchart_get_range(C.Rid(chart), &min_, &max_)
+	min = float64(min_)
+	max = float64(max_)
+	return
+}
+
+// ChartSetValue: The value of a gauge, kept within its range when drawn.
+func ChartSetValue(chart ID, value float64) {
+	C.Rchart_set_value(C.Rid(chart), C.double(value))
+}
+
+func ChartGetValue(chart ID) float64 {
+	return float64(C.Rchart_get_value(C.Rid(chart)))
+}
+
+// ChartAddBand: Colors a part of the range of a gauge (an alpha of 0: the success, warning and danger colors
+// of the theme, one after the other). The arc takes the color of the band its value is in. Returns the index
+// of the band.
+func ChartAddBand(chart ID, from float64, to float64, r float32, g float32, b float32, a float32) int {
+	return int(C.Rchart_add_band(C.Rid(chart), C.double(from), C.double(to), C.float(r), C.float(g), C.float(b), C.float(a)))
+}
+
+func ChartClearBands(chart ID) {
+	C.Rchart_clear_bands(C.Rid(chart))
+}
+
+func ChartGetBandCount(chart ID) int {
+	return int(C.Rchart_get_band_count(C.Rid(chart)))
+}
+
+// ChartSetGrid: The cells of a heatmap: `rows` x `columns` values, row after row, copied (NULL: all 0). NaN
+// leaves a cell empty.
+func ChartSetGrid(chart ID, rows int, columns int, values []float32) {
+	var values_ *C.float
+	if len(values) > 0 {
+		values_ = (*C.float)(unsafe.Pointer(&values[0]))
+	}
+	C.Rchart_set_grid(C.Rid(chart), C.int(rows), C.int(columns), values_)
+}
+
+func ChartGetRowCount(chart ID) int {
+	return int(C.Rchart_get_row_count(C.Rid(chart)))
+}
+
+func ChartGetColumnCount(chart ID) int {
+	return int(C.Rchart_get_column_count(C.Rid(chart)))
+}
+
+func ChartSetCell(chart ID, row int, column int, value float32) {
+	C.Rchart_set_cell(C.Rid(chart), C.int(row), C.int(column), C.float(value))
+}
+
+func ChartGetCell(chart ID, row int, column int) float32 {
+	return float32(C.Rchart_get_cell(C.Rid(chart), C.int(row), C.int(column)))
+}
+
+// ChartSetRowLabels: The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left).
+func ChartSetRowLabels(chart ID, labels string) {
+	labels_ := C.CString(labels)
+	defer C.free(unsafe.Pointer(labels_))
+	C.Rchart_set_row_labels(C.Rid(chart), labels_)
+}
+
+// ChartSetColumnLabels: The names of the columns, separated by '|' (shown over them, as many as fit).
+func ChartSetColumnLabels(chart ID, labels string) {
+	labels_ := C.CString(labels)
+	defer C.free(unsafe.Pointer(labels_))
+	C.Rchart_set_column_labels(C.Rid(chart), labels_)
+}
+
+// ChartGetRowLabel: The name of a row or of a column, "" when it has none.
+func ChartGetRowLabel(chart ID, row int) string {
+	return C.GoString(C.Rchart_get_row_label(C.Rid(chart), C.int(row)))
+}
+
+func ChartGetColumnLabel(chart ID, column int) string {
+	return C.GoString(C.Rchart_get_column_label(C.Rid(chart), C.int(column)))
+}
+
+// ChartSetColorScale: The colors of the lowest and of the highest values of a heatmap (default: a tint of the
+// accent, the accent).
+func ChartSetColorScale(chart ID, low_r float32, low_g float32, low_b float32, low_a float32, high_r float32, high_g float32, high_b float32, high_a float32) {
+	C.Rchart_set_color_scale(C.Rid(chart), C.float(low_r), C.float(low_g), C.float(low_b), C.float(low_a), C.float(high_r), C.float(high_g), C.float(high_b), C.float(high_a))
+}
+
+// ChartSetValues: The values of a sparkline, copied. NaN leaves a gap.
+func ChartSetValues(chart ID, values []float32, count int) {
+	var values_ *C.float
+	if len(values) > 0 {
+		values_ = (*C.float)(unsafe.Pointer(&values[0]))
+	}
+	C.Rchart_set_values(C.Rid(chart), values_, C.int(count))
+}
+
+// ChartPushValue: Adds a value after the others, for live data; only the last `max_count` are kept (0: all of
+// them).
+func ChartPushValue(chart ID, value float32, max_count int) {
+	C.Rchart_push_value(C.Rid(chart), C.float(value), C.int(max_count))
+}
+
+func ChartGetValueCount(chart ID) int {
+	return int(C.Rchart_get_value_count(C.Rid(chart)))
+}
+
+func ChartGetValueAt(chart ID, index int) float32 {
+	return float32(C.Rchart_get_value_at(C.Rid(chart), C.int(index)))
+}
+
+// ChartSetFill: Shades the area under the line of a sparkline (on by default).
+func ChartSetFill(chart ID, fill int) {
+	C.Rchart_set_fill(C.Rid(chart), C.int(fill))
+}
+
+// ChartSetMarker: A dot on the last value of a sparkline (on by default).
+func ChartSetMarker(chart ID, shown int) {
+	C.Rchart_set_marker(C.Rid(chart), C.int(shown))
 }
 
 // PdfIsAvailable: R_TRUE when PDFium can be loaded (it is, the first time this is asked).
@@ -7383,19 +7679,19 @@ func HostInjectClose(window ID) {
 // Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
 // Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
 // Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
-// Rplot_set_series_toggled_callback, Rpdf_view_set_page_changed_callback, Rpdf_view_print
-// Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
-// Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback, Rpdf_document_draw_image
-// Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
-// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
-// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
-// Rdock_area_set_changed_callback, Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon
-// Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback
-// Rtimeline_set_changed_callback, Rtimeline_set_selection_callback, Rtimeline_set_activated_callback
-// Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data
-// Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback
-// Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback
-// Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback
+// Rpdf_view_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
+// Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile, Rmap_view_set_marker_clicked_callback
+// Rmap_view_set_view_changed_callback, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
+// Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
+// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
+// Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
+// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
+// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
+// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
+// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
+// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
+// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
 // Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
 // Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
 // Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open

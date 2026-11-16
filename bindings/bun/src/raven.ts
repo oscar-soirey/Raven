@@ -697,6 +697,13 @@ const _symbols = {
 	Rtable_get_row_count: { args: ["u32"], returns: "i32" },
 	Rtable_set_virtual_rows: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
 	Rtable_set_cell_color_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_cell_text_color: { args: ["u32", "i32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rtable_set_multi_select: { args: ["u32", "i32"], returns: "void" },
+	Rtable_set_row_selected: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtable_is_row_selected: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_clear_selection: { args: ["u32"], returns: "void" },
+	Rtable_get_selection_count: { args: ["u32"], returns: "i32" },
+	Rtable_get_selection: { args: ["u32", "i32"], returns: "i32" },
 	Rtable_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rtable_get_selected: { args: ["u32"], returns: "i32" },
 	Rtable_scroll_to_row: { args: ["u32", "i32"], returns: "void" },
@@ -811,6 +818,54 @@ const _symbols = {
 	Rplot_set_view_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rplot_set_drag_line_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rplot_set_series_toggled_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rchart_create: { args: ["i32"], returns: "u32" },
+	Rchart_set_kind: { args: ["u32", "i32"], returns: "void" },
+	Rchart_get_kind: { args: ["u32"], returns: "i32" },
+	Rchart_set_title: { args: ["u32", "ptr"], returns: "void" },
+	Rchart_get_title: { args: ["u32"], returns: "cstring" },
+	Rchart_set_format: { args: ["u32", "ptr"], returns: "void" },
+	Rchart_set_color: { args: ["u32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rchart_set_legend: { args: ["u32", "i32"], returns: "void" },
+	Rchart_clear: { args: ["u32"], returns: "void" },
+	Rchart_get_hovered: { args: ["u32"], returns: "i32" },
+	Rchart_add_slice: { args: ["u32", "ptr", "f64"], returns: "i32" },
+	Rchart_remove_slice: { args: ["u32", "i32"], returns: "void" },
+	Rchart_get_slice_count: { args: ["u32"], returns: "i32" },
+	Rchart_set_slice_value: { args: ["u32", "i32", "f64"], returns: "void" },
+	Rchart_get_slice_value: { args: ["u32", "i32"], returns: "f64" },
+	Rchart_set_slice_label: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rchart_get_slice_label: { args: ["u32", "i32"], returns: "cstring" },
+	Rchart_set_slice_color: { args: ["u32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rchart_get_total: { args: ["u32"], returns: "f64" },
+	Rchart_set_selected: { args: ["u32", "i32"], returns: "void" },
+	Rchart_get_selected: { args: ["u32"], returns: "i32" },
+	Rchart_set_hole: { args: ["u32", "f32"], returns: "void" },
+	Rchart_set_center_text: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rchart_set_slice_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rchart_set_range: { args: ["u32", "f64", "f64"], returns: "void" },
+	Rchart_get_range: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rchart_set_value: { args: ["u32", "f64"], returns: "void" },
+	Rchart_get_value: { args: ["u32"], returns: "f64" },
+	Rchart_add_band: { args: ["u32", "f64", "f64", "f32", "f32", "f32", "f32"], returns: "i32" },
+	Rchart_clear_bands: { args: ["u32"], returns: "void" },
+	Rchart_get_band_count: { args: ["u32"], returns: "i32" },
+	Rchart_set_grid: { args: ["u32", "i32", "i32", "ptr"], returns: "void" },
+	Rchart_get_row_count: { args: ["u32"], returns: "i32" },
+	Rchart_get_column_count: { args: ["u32"], returns: "i32" },
+	Rchart_set_cell: { args: ["u32", "i32", "i32", "f32"], returns: "void" },
+	Rchart_get_cell: { args: ["u32", "i32", "i32"], returns: "f32" },
+	Rchart_set_row_labels: { args: ["u32", "ptr"], returns: "void" },
+	Rchart_set_column_labels: { args: ["u32", "ptr"], returns: "void" },
+	Rchart_get_row_label: { args: ["u32", "i32"], returns: "cstring" },
+	Rchart_get_column_label: { args: ["u32", "i32"], returns: "cstring" },
+	Rchart_set_color_scale: { args: ["u32", "f32", "f32", "f32", "f32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rchart_set_cell_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rchart_set_values: { args: ["u32", "ptr", "i32"], returns: "void" },
+	Rchart_push_value: { args: ["u32", "f32", "i32"], returns: "void" },
+	Rchart_get_value_count: { args: ["u32"], returns: "i32" },
+	Rchart_get_value_at: { args: ["u32", "i32"], returns: "f32" },
+	Rchart_set_fill: { args: ["u32", "i32"], returns: "void" },
+	Rchart_set_marker: { args: ["u32", "i32"], returns: "void" },
 	Rpdf_is_available: { args: [], returns: "i32" },
 	Rpdf_view_load_file: { args: ["u32", "ptr", "ptr"], returns: "i32" },
 	Rpdf_view_load_memory: { args: ["u32", "ptr", "usize", "ptr"], returns: "i32" },
@@ -2485,8 +2540,10 @@ export enum RWidgetType {
 	R_WIDGET_PLOT = 0x0232,
 	/** The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). */
 	R_WIDGET_PDF_VIEW = 0x0233,
+	/** The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). */
+	R_WIDGET_CHART = 0x0234,
 	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
-	R_WIDGET_MAP_VIEW = 0x0234,
+	R_WIDGET_MAP_VIEW = 0x0235,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2541,6 +2598,7 @@ export const R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING;
 export const R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION;
 export const R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT;
 export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
+export const R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART;
 export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 
 export enum RHAlign {
@@ -2940,6 +2998,26 @@ export const R_PLOT_LEGEND_BOTTOM = RPlotLegend.R_PLOT_LEGEND_BOTTOM;
 export const R_PLOT_LEGEND_BOTTOM_LEFT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_LEFT;
 export const R_PLOT_LEGEND_LEFT = RPlotLegend.R_PLOT_LEGEND_LEFT;
 export const R_PLOT_LEGEND_OUTSIDE = RPlotLegend.R_PLOT_LEGEND_OUTSIDE;
+
+/** What a Chart draws. */
+export enum RChartKind {
+	/** Slices of a whole, as parts of a disc (the default). */
+	R_CHART_PIE = 0x0590,
+	/** Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer. */
+	R_CHART_DONUT = 0x0591,
+	/** One value within a range, on an arc; bands color parts of the range. */
+	R_CHART_GAUGE = 0x0592,
+	/** A grid of values, each cell colored from the low color to the high one. */
+	R_CHART_HEATMAP = 0x0593,
+	/** A small line of values without axes, to sit in a tile or a cell of a table. */
+	R_CHART_SPARKLINE = 0x0594,
+}
+
+export const R_CHART_PIE = RChartKind.R_CHART_PIE;
+export const R_CHART_DONUT = RChartKind.R_CHART_DONUT;
+export const R_CHART_GAUGE = RChartKind.R_CHART_GAUGE;
+export const R_CHART_HEATMAP = RChartKind.R_CHART_HEATMAP;
+export const R_CHART_SPARKLINE = RChartKind.R_CHART_SPARKLINE;
 
 /** Shorthands of Rtext_editor_set_language for two languages. */
 export enum RSyntax {
@@ -6185,8 +6263,8 @@ function _adapt_RTableCellTextCallback(function_: RTableCellTextCallback | Point
  * Colors the text of cells (a verdict, a state): the table asks for the
  * color of each cell it draws, stored or virtual (`row` is the index of the
  * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
- * keeps the color of the theme. The color is kept on a selected or hovered
- * row. NULL removes the callback.
+ * keeps the color set with Rtable_set_cell_text_color, else the theme's.
+ * The color is kept on a selected or hovered row. NULL removes the callback.
  */
 export type RTableCellColorCallback = (table: Rid, row: number, column: number, r: Float32Array | null, g: Float32Array | null, b: Float32Array | null, a: Float32Array | null, user_data: Pointer | null) => number | boolean;
 
@@ -6377,6 +6455,38 @@ function _adapt_RPlotSeriesCallback(function_: RPlotSeriesCallback | Pointer | n
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user clicks a slice; `selected` tells whether it is now the selected one. */
+export type RChartSliceCallback = (chart: Rid, slice: number, selected: number, user_data: Pointer | null) => void;
+
+function _adapt_RChartSliceCallback(function_: RChartSliceCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((chart: number, slice: number, selected: number, user_data: Pointer | null): void => {
+		try {
+			function_(chart, slice, selected, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user clicks a cell of a heatmap. */
+export type RChartCellCallback = (chart: Rid, row: number, column: number, value: number, user_data: Pointer | null) => void;
+
+function _adapt_RChartCellCallback(function_: RChartCellCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((chart: number, row: number, column: number, value: number, user_data: Pointer | null): void => {
+		try {
+			function_(chart, row, column, value, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "f32", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the current page changes as the user scrolls. This also fires the action of the widget. */
@@ -10136,7 +10246,41 @@ export function Rtable_set_cell_color_callback(table: Rid, callback: RTableCellC
 	_lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
 }
 
-/** Selects a row. -1 selects nothing. */
+/**
+ * Stored rows: a fixed text color; column -1 colors the row; cells override it.
+ * Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+ */
+export function Rtable_set_cell_text_color(table: Rid, row: number, column: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rtable_set_cell_text_color(table, row, column, r, g, b, a);
+}
+
+/** Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+export function Rtable_set_multi_select(table: Rid, enabled: number): void {
+	_lib.Rtable_set_multi_select(table, enabled);
+}
+
+export function Rtable_set_row_selected(table: Rid, row: number, selected: number): void {
+	_lib.Rtable_set_row_selected(table, row, selected);
+}
+
+export function Rtable_is_row_selected(table: Rid, row: number): number {
+	return _lib.Rtable_is_row_selected(table, row);
+}
+
+export function Rtable_clear_selection(table: Rid): void {
+	_lib.Rtable_clear_selection(table);
+}
+
+export function Rtable_get_selection_count(table: Rid): number {
+	return _lib.Rtable_get_selection_count(table);
+}
+
+/** Selected row at index, top to bottom; -1 outside the selection. */
+export function Rtable_get_selection(table: Rid, index: number): number {
+	return _lib.Rtable_get_selection(table, index);
+}
+
+/** Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 export function Rtable_set_selected(table: Rid, row: number): void {
 	_lib.Rtable_set_selected(table, row);
 }
@@ -10689,6 +10833,249 @@ export function Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineC
 
 export function Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rplot_set_series_toggled_callback(plot, _adapt_RPlotSeriesCallback(callback), user_data);
+}
+
+/** A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie). */
+export function Rchart_create(kind: RChartKind): Rid {
+	return _lib.Rchart_create(kind);
+}
+
+export function Rchart_set_kind(chart: Rid, kind: RChartKind): void {
+	_lib.Rchart_set_kind(chart, kind);
+}
+
+export function Rchart_get_kind(chart: Rid): RChartKind {
+	return _lib.Rchart_get_kind(chart) as RChartKind;
+}
+
+/** The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers). */
+export function Rchart_set_title(chart: Rid, title: string | null): void {
+	_lib.Rchart_set_title(chart, _s(title));
+}
+
+export function Rchart_get_title(chart: Rid): string | null {
+	return _lib.Rchart_get_title(chart);
+}
+
+/**
+ * How the values are written (the gauge, the middle of a donut, what
+ * the pointer shows): a printf format for one double with its unit, "%.0f%%",
+ * "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+ */
+export function Rchart_set_format(chart: Rid, format: string | null): void {
+	_lib.Rchart_set_format(chart, _s(format));
+}
+
+/** The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent). */
+export function Rchart_set_color(chart: Rid, r: number, g: number, b: number, a: number): void {
+	_lib.Rchart_set_color(chart, r, g, b, a);
+}
+
+/** The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default). */
+export function Rchart_set_legend(chart: Rid, shown: number): void {
+	_lib.Rchart_set_legend(chart, shown);
+}
+
+/** Removes the slices, the bands, the grid and the values. */
+export function Rchart_clear(chart: Rid): void {
+	_lib.Rchart_clear(chart);
+}
+
+/**
+ * What is under the pointer: a slice, a point of a sparkline, or a
+ * cell of a heatmap as row * columns + column; -1 for nothing.
+ */
+export function Rchart_get_hovered(chart: Rid): number {
+	return _lib.Rchart_get_hovered(chart);
+}
+
+/** Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid. */
+export function Rchart_add_slice(chart: Rid, label: string | null, value: number): number {
+	return _lib.Rchart_add_slice(chart, _s(label), value);
+}
+
+export function Rchart_remove_slice(chart: Rid, slice: number): void {
+	_lib.Rchart_remove_slice(chart, slice);
+}
+
+export function Rchart_get_slice_count(chart: Rid): number {
+	return _lib.Rchart_get_slice_count(chart);
+}
+
+export function Rchart_set_slice_value(chart: Rid, slice: number, value: number): void {
+	_lib.Rchart_set_slice_value(chart, slice, value);
+}
+
+export function Rchart_get_slice_value(chart: Rid, slice: number): number {
+	return _lib.Rchart_get_slice_value(chart, slice);
+}
+
+export function Rchart_set_slice_label(chart: Rid, slice: number, label: string | null): void {
+	_lib.Rchart_set_slice_label(chart, slice, _s(label));
+}
+
+export function Rchart_get_slice_label(chart: Rid, slice: number): string | null {
+	return _lib.Rchart_get_slice_label(chart, slice);
+}
+
+/** The color of a slice; an alpha of 0 gives it back its color of the palette. */
+export function Rchart_set_slice_color(chart: Rid, slice: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rchart_set_slice_color(chart, slice, r, g, b, a);
+}
+
+/** The sum of the values of the slices. */
+export function Rchart_get_total(chart: Rid): number {
+	return _lib.Rchart_get_total(chart);
+}
+
+/** The slice lifted as selected, or -1 for none (the user selects one with a click). */
+export function Rchart_set_selected(chart: Rid, slice: number): void {
+	_lib.Rchart_set_selected(chart, slice);
+}
+
+export function Rchart_get_selected(chart: Rid): number {
+	return _lib.Rchart_get_selected(chart);
+}
+
+/** The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62). */
+export function Rchart_set_hole(chart: Rid, ratio: number): void {
+	_lib.Rchart_set_hole(chart, ratio);
+}
+
+/**
+ * What the middle of a donut shows when the pointer is not over a
+ * slice: `text` in large (NULL or "": the total) over `caption` in small
+ * (NULL or "": none).
+ */
+export function Rchart_set_center_text(chart: Rid, text: string | null, caption: string | null): void {
+	_lib.Rchart_set_center_text(chart, _s(text), _s(caption));
+}
+
+export function Rchart_set_slice_clicked_callback(chart: Rid, callback: RChartSliceCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rchart_set_slice_clicked_callback(chart, _adapt_RChartSliceCallback(callback), user_data);
+}
+
+/**
+ * The range of a gauge (default 0 to 100), and a fixed range for the
+ * colors of a heatmap and the height of a sparkline, which otherwise follow
+ * their values. min == max goes back to these defaults.
+ */
+export function Rchart_set_range(chart: Rid, min: number, max: number): void {
+	_lib.Rchart_set_range(chart, min, max);
+}
+
+/** The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline). */
+export function Rchart_get_range(chart: Rid): [min: number, max: number] {
+	const min_ = new Float64Array(1);
+	const max_ = new Float64Array(1);
+	_lib.Rchart_get_range(chart, min_, max_);
+	return [min_[0]!, max_[0]!];
+}
+
+/** The value of a gauge, kept within its range when drawn. */
+export function Rchart_set_value(chart: Rid, value: number): void {
+	_lib.Rchart_set_value(chart, value);
+}
+
+export function Rchart_get_value(chart: Rid): number {
+	return _lib.Rchart_get_value(chart);
+}
+
+/**
+ * Colors a part of the range of a gauge (an alpha of 0: the success,
+ * warning and danger colors of the theme, one after the other). The arc
+ * takes the color of the band its value is in. Returns the index of the band.
+ */
+export function Rchart_add_band(chart: Rid, from: number, to: number, r: number, g: number, b: number, a: number): number {
+	return _lib.Rchart_add_band(chart, from, to, r, g, b, a);
+}
+
+export function Rchart_clear_bands(chart: Rid): void {
+	_lib.Rchart_clear_bands(chart);
+}
+
+export function Rchart_get_band_count(chart: Rid): number {
+	return _lib.Rchart_get_band_count(chart);
+}
+
+/**
+ * The cells of a heatmap: `rows` x `columns` values, row after row,
+ * copied (NULL: all 0). NaN leaves a cell empty.
+ */
+export function Rchart_set_grid(chart: Rid, rows: number, columns: number, values: Float32Array | readonly number[] | null): void {
+	_lib.Rchart_set_grid(chart, rows, columns, _n(values, (list) => new Float32Array(list)));
+}
+
+export function Rchart_get_row_count(chart: Rid): number {
+	return _lib.Rchart_get_row_count(chart);
+}
+
+export function Rchart_get_column_count(chart: Rid): number {
+	return _lib.Rchart_get_column_count(chart);
+}
+
+export function Rchart_set_cell(chart: Rid, row: number, column: number, value: number): void {
+	_lib.Rchart_set_cell(chart, row, column, value);
+}
+
+export function Rchart_get_cell(chart: Rid, row: number, column: number): number {
+	return _lib.Rchart_get_cell(chart, row, column);
+}
+
+/** The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left). */
+export function Rchart_set_row_labels(chart: Rid, labels: string | null): void {
+	_lib.Rchart_set_row_labels(chart, _s(labels));
+}
+
+/** The names of the columns, separated by '|' (shown over them, as many as fit). */
+export function Rchart_set_column_labels(chart: Rid, labels: string | null): void {
+	_lib.Rchart_set_column_labels(chart, _s(labels));
+}
+
+/** The name of a row or of a column, "" when it has none. */
+export function Rchart_get_row_label(chart: Rid, row: number): string | null {
+	return _lib.Rchart_get_row_label(chart, row);
+}
+
+export function Rchart_get_column_label(chart: Rid, column: number): string | null {
+	return _lib.Rchart_get_column_label(chart, column);
+}
+
+/** The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent). */
+export function Rchart_set_color_scale(chart: Rid, low_r: number, low_g: number, low_b: number, low_a: number, high_r: number, high_g: number, high_b: number, high_a: number): void {
+	_lib.Rchart_set_color_scale(chart, low_r, low_g, low_b, low_a, high_r, high_g, high_b, high_a);
+}
+
+export function Rchart_set_cell_clicked_callback(chart: Rid, callback: RChartCellCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rchart_set_cell_clicked_callback(chart, _adapt_RChartCellCallback(callback), user_data);
+}
+
+/** The values of a sparkline, copied. NaN leaves a gap. */
+export function Rchart_set_values(chart: Rid, values: Float32Array | readonly number[] | null, count: number): void {
+	_lib.Rchart_set_values(chart, _n(values, (list) => new Float32Array(list)), count);
+}
+
+/** Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them). */
+export function Rchart_push_value(chart: Rid, value: number, max_count: number): void {
+	_lib.Rchart_push_value(chart, value, max_count);
+}
+
+export function Rchart_get_value_count(chart: Rid): number {
+	return _lib.Rchart_get_value_count(chart);
+}
+
+export function Rchart_get_value_at(chart: Rid, index: number): number {
+	return _lib.Rchart_get_value_at(chart, index);
+}
+
+/** Shades the area under the line of a sparkline (on by default). */
+export function Rchart_set_fill(chart: Rid, fill: number): void {
+	_lib.Rchart_set_fill(chart, fill);
+}
+
+/** A dot on the last value of a sparkline (on by default). */
+export function Rchart_set_marker(chart: Rid, shown: number): void {
+	_lib.Rchart_set_marker(chart, shown);
 }
 
 /** R_TRUE when PDFium can be loaded (it is, the first time this is asked). */
@@ -13199,7 +13586,7 @@ export function Rnotification_set_fallback(callback: RNotificationFallback | Poi
  * (on the UI thread; the application may then bring its window to the
  * front: the system lets it). It is the last one shown that was clicked:
  * the application remembers what it was about. NULL: none.
- * Windows only for now (elsewhere it is never called).
+ * Windows and macOS (elsewhere it is never called).
  */
 export function Rnotification_set_clicked_callback(callback: RNotificationClickedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rnotification_set_clicked_callback(_adapt_RNotificationClickedCallback(callback), user_data);
