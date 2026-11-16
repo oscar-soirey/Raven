@@ -66,6 +66,7 @@ extern const rvn_widget_class_t rvn_class_rating;
 extern const rvn_widget_class_t rvn_class_pagination;
 extern const rvn_widget_class_t rvn_class_plot;
 extern const rvn_widget_class_t rvn_class_pdf_view;
+extern const rvn_widget_class_t rvn_class_chart;
 extern const rvn_widget_class_t rvn_class_carousel;
 
 /** Internal class types, outside of the public enum. */

@@ -936,7 +936,8 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_PAGINATION = 0x0231
     R_WIDGET_PLOT = 0x0232
     R_WIDGET_PDF_VIEW = 0x0233
-    R_WIDGET_CAROUSEL = 0x0234
+    R_WIDGET_CHART = 0x0234
+    R_WIDGET_CAROUSEL = 0x0235
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -990,6 +991,7 @@ R_WIDGET_RATING = RWidgetType.R_WIDGET_RATING
 R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
 R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
 R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
+R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 
 class RHAlign(enum.IntEnum):
@@ -1278,6 +1280,20 @@ R_PLOT_LEGEND_BOTTOM = RPlotLegend.R_PLOT_LEGEND_BOTTOM
 R_PLOT_LEGEND_BOTTOM_LEFT = RPlotLegend.R_PLOT_LEGEND_BOTTOM_LEFT
 R_PLOT_LEGEND_LEFT = RPlotLegend.R_PLOT_LEGEND_LEFT
 R_PLOT_LEGEND_OUTSIDE = RPlotLegend.R_PLOT_LEGEND_OUTSIDE
+
+class RChartKind(enum.IntEnum):
+    """What a Chart draws."""
+    R_CHART_PIE = 0x0590
+    R_CHART_DONUT = 0x0591
+    R_CHART_GAUGE = 0x0592
+    R_CHART_HEATMAP = 0x0593
+    R_CHART_SPARKLINE = 0x0594
+
+R_CHART_PIE = RChartKind.R_CHART_PIE
+R_CHART_DONUT = RChartKind.R_CHART_DONUT
+R_CHART_GAUGE = RChartKind.R_CHART_GAUGE
+R_CHART_HEATMAP = RChartKind.R_CHART_HEATMAP
+R_CHART_SPARKLINE = RChartKind.R_CHART_SPARKLINE
 
 class RSyntax(enum.IntEnum):
     """Shorthands of Rtext_editor_set_language for two languages."""
@@ -2450,6 +2466,22 @@ RPlotSeriesCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctyp
 def _adapt_RPlotSeriesCallback(function):
     def call(plot, series, visible, user_data):
         function(plot, series, visible, user_data)
+    return call
+
+RChartSliceCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RChartSliceCallback(function):
+    def call(chart, slice, selected, user_data):
+        function(chart, slice, selected, user_data)
+    return call
+
+RChartCellCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_void_p)
+
+
+def _adapt_RChartCellCallback(function):
+    def call(chart, row, column, value, user_data):
+        function(chart, row, column, value, user_data)
     return call
 
 RPdfPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
@@ -7812,12 +7844,72 @@ def Rtable_set_cell_color_callback(table, callback, user_data=None):
     _lib.Rtable_set_cell_color_callback(table, _callback(RTableCellColorCallback, _adapt_RTableCellColorCallback, callback), user_data)
 
 
+_lib.Rtable_set_cell_text_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rtable_set_cell_text_color.restype = None
+
+
+def Rtable_set_cell_text_color(table, row, column, r, g, b, a):
+    """Stored rows: a fixed text color; column -1 colors the row; cells override it.
+    Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it."""
+    _lib.Rtable_set_cell_text_color(table, row, column, r, g, b, a)
+
+
+_lib.Rtable_set_multi_select.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_multi_select.restype = None
+
+
+def Rtable_set_multi_select(table, enabled):
+    """Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default."""
+    _lib.Rtable_set_multi_select(table, enabled)
+
+
+_lib.Rtable_set_row_selected.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_row_selected.restype = None
+
+
+def Rtable_set_row_selected(table, row, selected):
+    _lib.Rtable_set_row_selected(table, row, selected)
+
+
+_lib.Rtable_is_row_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_is_row_selected.restype = ctypes.c_int
+
+
+def Rtable_is_row_selected(table, row):
+    return _lib.Rtable_is_row_selected(table, row)
+
+
+_lib.Rtable_clear_selection.argtypes = [ctypes.c_uint32]
+_lib.Rtable_clear_selection.restype = None
+
+
+def Rtable_clear_selection(table):
+    _lib.Rtable_clear_selection(table)
+
+
+_lib.Rtable_get_selection_count.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_selection_count.restype = ctypes.c_int
+
+
+def Rtable_get_selection_count(table):
+    return _lib.Rtable_get_selection_count(table)
+
+
+_lib.Rtable_get_selection.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_get_selection.restype = ctypes.c_int
+
+
+def Rtable_get_selection(table, index):
+    """Selected row at index, top to bottom; -1 outside the selection."""
+    return _lib.Rtable_get_selection(table, index)
+
+
 _lib.Rtable_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtable_set_selected.restype = None
 
 
 def Rtable_set_selected(table, row):
-    """Selects a row. -1 selects nothing."""
+    """Replaces the selection with one row. -1 selects nothing, including in multi-select mode."""
     _lib.Rtable_set_selected(table, row)
 
 
@@ -8815,6 +8907,429 @@ _lib.Rplot_set_series_toggled_callback.restype = None
 
 def Rplot_set_series_toggled_callback(plot, callback, user_data=None):
     _lib.Rplot_set_series_toggled_callback(plot, _callback(RPlotSeriesCallback, _adapt_RPlotSeriesCallback, callback), user_data)
+
+
+_lib.Rchart_create.argtypes = [ctypes.c_int]
+_lib.Rchart_create.restype = ctypes.c_uint32
+
+
+def Rchart_create(kind):
+    """A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie)."""
+    return _lib.Rchart_create(int(kind))
+
+
+_lib.Rchart_set_kind.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_set_kind.restype = None
+
+
+def Rchart_set_kind(chart, kind):
+    _lib.Rchart_set_kind(chart, int(kind))
+
+
+_lib.Rchart_get_kind.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_kind.restype = ctypes.c_int
+
+
+def Rchart_get_kind(chart):
+    return _e(RChartKind, _lib.Rchart_get_kind(chart))
+
+
+_lib.Rchart_set_title.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rchart_set_title.restype = None
+
+
+def Rchart_set_title(chart, title):
+    """The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers)."""
+    _lib.Rchart_set_title(chart, _s(title))
+
+
+_lib.Rchart_get_title.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_title.restype = ctypes.c_char_p
+
+
+def Rchart_get_title(chart):
+    return _r(_lib.Rchart_get_title(chart))
+
+
+_lib.Rchart_set_format.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rchart_set_format.restype = None
+
+
+def Rchart_set_format(chart, format_):
+    """How the values are written (the gauge, the middle of a donut, what
+    the pointer shows): a printf format for one double with its unit, "%.0f%%",
+    "$%.2f". NULL: whole numbers as they are, others with up to two decimals."""
+    _lib.Rchart_set_format(chart, _s(format_))
+
+
+_lib.Rchart_set_color.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rchart_set_color.restype = None
+
+
+def Rchart_set_color(chart, r, g, b, a):
+    """The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent)."""
+    _lib.Rchart_set_color(chart, r, g, b, a)
+
+
+_lib.Rchart_set_legend.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_set_legend.restype = None
+
+
+def Rchart_set_legend(chart, shown):
+    """The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default)."""
+    _lib.Rchart_set_legend(chart, shown)
+
+
+_lib.Rchart_clear.argtypes = [ctypes.c_uint32]
+_lib.Rchart_clear.restype = None
+
+
+def Rchart_clear(chart):
+    """Removes the slices, the bands, the grid and the values."""
+    _lib.Rchart_clear(chart)
+
+
+_lib.Rchart_get_hovered.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_hovered.restype = ctypes.c_int
+
+
+def Rchart_get_hovered(chart):
+    """What is under the pointer: a slice, a point of a sparkline, or a
+    cell of a heatmap as row * columns + column; -1 for nothing."""
+    return _lib.Rchart_get_hovered(chart)
+
+
+_lib.Rchart_add_slice.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_double]
+_lib.Rchart_add_slice.restype = ctypes.c_int
+
+
+def Rchart_add_slice(chart, label, value):
+    """Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid."""
+    return _lib.Rchart_add_slice(chart, _s(label), value)
+
+
+_lib.Rchart_remove_slice.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_remove_slice.restype = None
+
+
+def Rchart_remove_slice(chart, slice):
+    _lib.Rchart_remove_slice(chart, slice)
+
+
+_lib.Rchart_get_slice_count.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_slice_count.restype = ctypes.c_int
+
+
+def Rchart_get_slice_count(chart):
+    return _lib.Rchart_get_slice_count(chart)
+
+
+_lib.Rchart_set_slice_value.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_double]
+_lib.Rchart_set_slice_value.restype = None
+
+
+def Rchart_set_slice_value(chart, slice, value):
+    _lib.Rchart_set_slice_value(chart, slice, value)
+
+
+_lib.Rchart_get_slice_value.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_get_slice_value.restype = ctypes.c_double
+
+
+def Rchart_get_slice_value(chart, slice):
+    return _lib.Rchart_get_slice_value(chart, slice)
+
+
+_lib.Rchart_set_slice_label.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_char_p]
+_lib.Rchart_set_slice_label.restype = None
+
+
+def Rchart_set_slice_label(chart, slice, label):
+    _lib.Rchart_set_slice_label(chart, slice, _s(label))
+
+
+_lib.Rchart_get_slice_label.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_get_slice_label.restype = ctypes.c_char_p
+
+
+def Rchart_get_slice_label(chart, slice):
+    return _r(_lib.Rchart_get_slice_label(chart, slice))
+
+
+_lib.Rchart_set_slice_color.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rchart_set_slice_color.restype = None
+
+
+def Rchart_set_slice_color(chart, slice, r, g, b, a):
+    """The color of a slice; an alpha of 0 gives it back its color of the palette."""
+    _lib.Rchart_set_slice_color(chart, slice, r, g, b, a)
+
+
+_lib.Rchart_get_total.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_total.restype = ctypes.c_double
+
+
+def Rchart_get_total(chart):
+    """The sum of the values of the slices."""
+    return _lib.Rchart_get_total(chart)
+
+
+_lib.Rchart_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_set_selected.restype = None
+
+
+def Rchart_set_selected(chart, slice):
+    """The slice lifted as selected, or -1 for none (the user selects one with a click)."""
+    _lib.Rchart_set_selected(chart, slice)
+
+
+_lib.Rchart_get_selected.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_selected.restype = ctypes.c_int
+
+
+def Rchart_get_selected(chart):
+    return _lib.Rchart_get_selected(chart)
+
+
+_lib.Rchart_set_hole.argtypes = [ctypes.c_uint32, ctypes.c_float]
+_lib.Rchart_set_hole.restype = None
+
+
+def Rchart_set_hole(chart, ratio):
+    """The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62)."""
+    _lib.Rchart_set_hole(chart, ratio)
+
+
+_lib.Rchart_set_center_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rchart_set_center_text.restype = None
+
+
+def Rchart_set_center_text(chart, text, caption):
+    """What the middle of a donut shows when the pointer is not over a
+    slice: `text` in large (NULL or "": the total) over `caption` in small
+    (NULL or "": none)."""
+    _lib.Rchart_set_center_text(chart, _s(text), _s(caption))
+
+
+_lib.Rchart_set_slice_clicked_callback.argtypes = [ctypes.c_uint32, RChartSliceCallback, ctypes.c_void_p]
+_lib.Rchart_set_slice_clicked_callback.restype = None
+
+
+def Rchart_set_slice_clicked_callback(chart, callback, user_data=None):
+    _lib.Rchart_set_slice_clicked_callback(chart, _callback(RChartSliceCallback, _adapt_RChartSliceCallback, callback), user_data)
+
+
+_lib.Rchart_set_range.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double]
+_lib.Rchart_set_range.restype = None
+
+
+def Rchart_set_range(chart, min, max):
+    """The range of a gauge (default 0 to 100), and a fixed range for the
+    colors of a heatmap and the height of a sparkline, which otherwise follow
+    their values. min == max goes back to these defaults."""
+    _lib.Rchart_set_range(chart, min, max)
+
+
+_lib.Rchart_get_range.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_double)]
+_lib.Rchart_get_range.restype = None
+
+
+def Rchart_get_range(chart):
+    """The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline)."""
+    min_ = ctypes.c_double()
+    max_ = ctypes.c_double()
+    _lib.Rchart_get_range(chart, ctypes.byref(min_), ctypes.byref(max_))
+    return (min_.value, max_.value)
+
+
+_lib.Rchart_set_value.argtypes = [ctypes.c_uint32, ctypes.c_double]
+_lib.Rchart_set_value.restype = None
+
+
+def Rchart_set_value(chart, value):
+    """The value of a gauge, kept within its range when drawn."""
+    _lib.Rchart_set_value(chart, value)
+
+
+_lib.Rchart_get_value.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_value.restype = ctypes.c_double
+
+
+def Rchart_get_value(chart):
+    return _lib.Rchart_get_value(chart)
+
+
+_lib.Rchart_add_band.argtypes = [ctypes.c_uint32, ctypes.c_double, ctypes.c_double, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rchart_add_band.restype = ctypes.c_int
+
+
+def Rchart_add_band(chart, from_, to, r, g, b, a):
+    """Colors a part of the range of a gauge (an alpha of 0: the success,
+    warning and danger colors of the theme, one after the other). The arc
+    takes the color of the band its value is in. Returns the index of the band."""
+    return _lib.Rchart_add_band(chart, from_, to, r, g, b, a)
+
+
+_lib.Rchart_clear_bands.argtypes = [ctypes.c_uint32]
+_lib.Rchart_clear_bands.restype = None
+
+
+def Rchart_clear_bands(chart):
+    _lib.Rchart_clear_bands(chart)
+
+
+_lib.Rchart_get_band_count.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_band_count.restype = ctypes.c_int
+
+
+def Rchart_get_band_count(chart):
+    return _lib.Rchart_get_band_count(chart)
+
+
+_lib.Rchart_set_grid.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_float)]
+_lib.Rchart_set_grid.restype = None
+
+
+def Rchart_set_grid(chart, rows, columns, values):
+    """The cells of a heatmap: `rows` x `columns` values, row after row,
+    copied (NULL: all 0). NaN leaves a cell empty."""
+    _lib.Rchart_set_grid(chart, rows, columns, _a(ctypes.c_float, values))
+
+
+_lib.Rchart_get_row_count.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_row_count.restype = ctypes.c_int
+
+
+def Rchart_get_row_count(chart):
+    return _lib.Rchart_get_row_count(chart)
+
+
+_lib.Rchart_get_column_count.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_column_count.restype = ctypes.c_int
+
+
+def Rchart_get_column_count(chart):
+    return _lib.Rchart_get_column_count(chart)
+
+
+_lib.Rchart_set_cell.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_float]
+_lib.Rchart_set_cell.restype = None
+
+
+def Rchart_set_cell(chart, row, column, value):
+    _lib.Rchart_set_cell(chart, row, column, value)
+
+
+_lib.Rchart_get_cell.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rchart_get_cell.restype = ctypes.c_float
+
+
+def Rchart_get_cell(chart, row, column):
+    return _lib.Rchart_get_cell(chart, row, column)
+
+
+_lib.Rchart_set_row_labels.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rchart_set_row_labels.restype = None
+
+
+def Rchart_set_row_labels(chart, labels):
+    """The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left)."""
+    _lib.Rchart_set_row_labels(chart, _s(labels))
+
+
+_lib.Rchart_set_column_labels.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rchart_set_column_labels.restype = None
+
+
+def Rchart_set_column_labels(chart, labels):
+    """The names of the columns, separated by '|' (shown over them, as many as fit)."""
+    _lib.Rchart_set_column_labels(chart, _s(labels))
+
+
+_lib.Rchart_get_row_label.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_get_row_label.restype = ctypes.c_char_p
+
+
+def Rchart_get_row_label(chart, row):
+    """The name of a row or of a column, "" when it has none."""
+    return _r(_lib.Rchart_get_row_label(chart, row))
+
+
+_lib.Rchart_get_column_label.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_get_column_label.restype = ctypes.c_char_p
+
+
+def Rchart_get_column_label(chart, column):
+    return _r(_lib.Rchart_get_column_label(chart, column))
+
+
+_lib.Rchart_set_color_scale.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float]
+_lib.Rchart_set_color_scale.restype = None
+
+
+def Rchart_set_color_scale(chart, low_r, low_g, low_b, low_a, high_r, high_g, high_b, high_a):
+    """The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent)."""
+    _lib.Rchart_set_color_scale(chart, low_r, low_g, low_b, low_a, high_r, high_g, high_b, high_a)
+
+
+_lib.Rchart_set_cell_clicked_callback.argtypes = [ctypes.c_uint32, RChartCellCallback, ctypes.c_void_p]
+_lib.Rchart_set_cell_clicked_callback.restype = None
+
+
+def Rchart_set_cell_clicked_callback(chart, callback, user_data=None):
+    _lib.Rchart_set_cell_clicked_callback(chart, _callback(RChartCellCallback, _adapt_RChartCellCallback, callback), user_data)
+
+
+_lib.Rchart_set_values.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_float), ctypes.c_int]
+_lib.Rchart_set_values.restype = None
+
+
+def Rchart_set_values(chart, values, count):
+    """The values of a sparkline, copied. NaN leaves a gap."""
+    _lib.Rchart_set_values(chart, _a(ctypes.c_float, values), count)
+
+
+_lib.Rchart_push_value.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_int]
+_lib.Rchart_push_value.restype = None
+
+
+def Rchart_push_value(chart, value, max_count):
+    """Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them)."""
+    _lib.Rchart_push_value(chart, value, max_count)
+
+
+_lib.Rchart_get_value_count.argtypes = [ctypes.c_uint32]
+_lib.Rchart_get_value_count.restype = ctypes.c_int
+
+
+def Rchart_get_value_count(chart):
+    return _lib.Rchart_get_value_count(chart)
+
+
+_lib.Rchart_get_value_at.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_get_value_at.restype = ctypes.c_float
+
+
+def Rchart_get_value_at(chart, index):
+    return _lib.Rchart_get_value_at(chart, index)
+
+
+_lib.Rchart_set_fill.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_set_fill.restype = None
+
+
+def Rchart_set_fill(chart, fill):
+    """Shades the area under the line of a sparkline (on by default)."""
+    _lib.Rchart_set_fill(chart, fill)
+
+
+_lib.Rchart_set_marker.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rchart_set_marker.restype = None
+
+
+def Rchart_set_marker(chart, shown):
+    """A dot on the last value of a sparkline (on by default)."""
+    _lib.Rchart_set_marker(chart, shown)
 
 
 _lib.Rpdf_is_available.argtypes = []
@@ -12718,7 +13233,7 @@ def Rnotification_set_clicked_callback(callback, user_data=None):
     (on the UI thread; the application may then bring its window to the
     front: the system lets it). It is the last one shown that was clicked:
     the application remembers what it was about. NULL: none.
-    Windows only for now (elsewhere it is never called)."""
+    Windows and macOS (elsewhere it is never called)."""
     _lib.Rnotification_set_clicked_callback(_callback(RNotificationClickedCallback, _adapt_RNotificationClickedCallback, callback), user_data)
 
 

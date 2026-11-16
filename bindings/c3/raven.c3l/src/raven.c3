@@ -855,8 +855,10 @@ constset WidgetType : CInt
 	PLOT = 0x0232,
 	<* The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). *>
 	PDF_VIEW = 0x0233,
+	<* The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). *>
+	CHART = 0x0234,
 	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
-	CAROUSEL = 0x0234,
+	CAROUSEL = 0x0235,
 }
 
 constset HAlign : CInt
@@ -1145,6 +1147,21 @@ constset PlotLegend : CInt
 	LEFT = 0x0568,
 	<* To the right of the data, outside it. *>
 	OUTSIDE = 0x0569,
+}
+
+<* What a Chart draws. *>
+constset ChartKind : CInt
+{
+	<* Slices of a whole, as parts of a disc (the default). *>
+	PIE = 0x0590,
+	<* Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer. *>
+	DONUT = 0x0591,
+	<* One value within a range, on an arc; bands color parts of the range. *>
+	GAUGE = 0x0592,
+	<* A grid of values, each cell colored from the low color to the high one. *>
+	HEATMAP = 0x0593,
+	<* A small line of values without axes, to sit in a tile or a cell of a table. *>
+	SPARKLINE = 0x0594,
 }
 
 <* Shorthands of Rtext_editor_set_language for two languages. *>
@@ -1639,8 +1656,8 @@ alias TableCellTextCallback = fn ZString(Id table, CInt row, CInt column, void* 
  Colors the text of cells (a verdict, a state): the table asks for the
  color of each cell it draws, stored or virtual (`row` is the index of the
  order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
- keeps the color of the theme. The color is kept on a selected or hovered
- row. NULL removes the callback.
+ keeps the color set with Rtable_set_cell_text_color, else the theme's.
+ The color is kept on a selected or hovered row. NULL removes the callback.
 *>
 alias TableCellColorCallback = fn CInt(Id table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias TableEventCallback = fn void(Id table, CInt row, void* user_data);
@@ -1664,6 +1681,10 @@ alias PlotViewCallback = fn void(Id plot, void* user_data);
 alias PlotDragLineCallback = fn void(Id plot, CInt line, double value, void* user_data);
 <* Called when the user hides or shows a series from the legend. *>
 alias PlotSeriesCallback = fn void(Id plot, CInt series, CInt visible, void* user_data);
+<* Called when the user clicks a slice; `selected` tells whether it is now the selected one. *>
+alias ChartSliceCallback = fn void(Id chart, CInt slice, CInt selected, void* user_data);
+<* Called when the user clicks a cell of a heatmap. *>
+alias ChartCellCallback = fn void(Id chart, CInt row, CInt column, float value, void* user_data);
 <* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
 alias PdfPageChangedCallback = fn void(Id view, CInt page, void* user_data);
 <*
@@ -4665,7 +4686,27 @@ fn void Table.set_virtual_rows(self, CInt count, TableCellTextCallback callback,
 
 fn void Table.set_cell_color_callback(self, TableCellColorCallback callback, void* user_data) @inline => c::r_table_set_cell_color_callback((c::Rid)self, (c::RTableCellColorCallback)callback, user_data);
 
-<* Selects a row. -1 selects nothing. *>
+<*
+ Stored rows: a fixed text color; column -1 colors the row; cells override it.
+ Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+*>
+fn void Table.set_cell_text_color(self, CInt row, CInt column, float r, float g, float b, float a) @inline => c::r_table_set_cell_text_color((c::Rid)self, row, column, r, g, b, a);
+
+<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. *>
+fn void Table.set_multi_select(self, bool enabled) @inline => c::r_table_set_multi_select((c::Rid)self, (CInt)enabled);
+
+fn void Table.set_row_selected(self, CInt row, bool selected) @inline => c::r_table_set_row_selected((c::Rid)self, row, (CInt)selected);
+
+fn bool Table.is_row_selected(self, CInt row) @inline => c::r_table_is_row_selected((c::Rid)self, row) != 0;
+
+fn void Table.clear_selection(self) @inline => c::r_table_clear_selection((c::Rid)self);
+
+fn CInt Table.get_selection_count(self) @inline => c::r_table_get_selection_count((c::Rid)self);
+
+<* Selected row at index, top to bottom; -1 outside the selection. *>
+fn CInt Table.get_selection(self, CInt index) @inline => c::r_table_get_selection((c::Rid)self, index);
+
+<* Replaces the selection with one row. -1 selects nothing, including in multi-select mode. *>
 fn void Table.set_selected(self, CInt row) @inline => c::r_table_set_selected((c::Rid)self, row);
 
 fn CInt Table.get_selected(self) @inline => c::r_table_get_selected((c::Rid)self);
@@ -5070,6 +5111,154 @@ fn void PdfView.set_page_changed_callback(self, PdfPageChangedCallback callback,
 
 <* Prints the document shown (see Rpdf_print); the job is named after its title. *>
 fn CInt PdfView.print(self, PdfPrintDesc* desc) @inline => c::r_pdf_view_print((c::Rid)self, (c::RPdfPrintDesc*)desc);
+
+// ---- Chart
+
+typedef Chart = inline Widget;
+
+<* A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie). *>
+fn Chart chart_create(ChartKind kind) @inline => (Chart)c::r_chart_create((c::RChartKind)kind);
+
+fn void Chart.set_kind(self, ChartKind kind) @inline => c::r_chart_set_kind((c::Rid)self, (c::RChartKind)kind);
+
+fn ChartKind Chart.get_kind(self) @inline => (ChartKind)c::r_chart_get_kind((c::Rid)self);
+
+<* The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers). *>
+fn void Chart.set_title(self, ZString title) @inline => c::r_chart_set_title((c::Rid)self, (char*)title);
+
+fn ZString Chart.get_title(self) @inline => (ZString)c::r_chart_get_title((c::Rid)self);
+
+<*
+ How the values are written (the gauge, the middle of a donut, what
+ the pointer shows): a printf format for one double with its unit, "%.0f%%",
+ "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+*>
+fn void Chart.set_format(self, ZString format) @inline => c::r_chart_set_format((c::Rid)self, (char*)format);
+
+<* The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent). *>
+fn void Chart.set_color(self, float r, float g, float b, float a) @inline => c::r_chart_set_color((c::Rid)self, r, g, b, a);
+
+<* The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default). *>
+fn void Chart.set_legend(self, bool shown) @inline => c::r_chart_set_legend((c::Rid)self, (CInt)shown);
+
+<* Removes the slices, the bands, the grid and the values. *>
+fn void Chart.clear(self) @inline => c::r_chart_clear((c::Rid)self);
+
+<*
+ What is under the pointer: a slice, a point of a sparkline, or a
+ cell of a heatmap as row * columns + column; -1 for nothing.
+*>
+fn CInt Chart.get_hovered(self) @inline => c::r_chart_get_hovered((c::Rid)self);
+
+<* Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid. *>
+fn CInt Chart.add_slice(self, ZString label, double value) @inline => c::r_chart_add_slice((c::Rid)self, (char*)label, value);
+
+fn void Chart.remove_slice(self, CInt slice) @inline => c::r_chart_remove_slice((c::Rid)self, slice);
+
+fn CInt Chart.get_slice_count(self) @inline => c::r_chart_get_slice_count((c::Rid)self);
+
+fn void Chart.set_slice_value(self, CInt slice, double value) @inline => c::r_chart_set_slice_value((c::Rid)self, slice, value);
+
+fn double Chart.get_slice_value(self, CInt slice) @inline => c::r_chart_get_slice_value((c::Rid)self, slice);
+
+fn void Chart.set_slice_label(self, CInt slice, ZString label) @inline => c::r_chart_set_slice_label((c::Rid)self, slice, (char*)label);
+
+fn ZString Chart.get_slice_label(self, CInt slice) @inline => (ZString)c::r_chart_get_slice_label((c::Rid)self, slice);
+
+<* The color of a slice; an alpha of 0 gives it back its color of the palette. *>
+fn void Chart.set_slice_color(self, CInt slice, float r, float g, float b, float a) @inline => c::r_chart_set_slice_color((c::Rid)self, slice, r, g, b, a);
+
+<* The sum of the values of the slices. *>
+fn double Chart.get_total(self) @inline => c::r_chart_get_total((c::Rid)self);
+
+<* The slice lifted as selected, or -1 for none (the user selects one with a click). *>
+fn void Chart.set_selected(self, CInt slice) @inline => c::r_chart_set_selected((c::Rid)self, slice);
+
+fn CInt Chart.get_selected(self) @inline => c::r_chart_get_selected((c::Rid)self);
+
+<* The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62). *>
+fn void Chart.set_hole(self, float ratio) @inline => c::r_chart_set_hole((c::Rid)self, ratio);
+
+<*
+ What the middle of a donut shows when the pointer is not over a
+ slice: `text` in large (NULL or "": the total) over `caption` in small
+ (NULL or "": none).
+*>
+fn void Chart.set_center_text(self, ZString text, ZString caption) @inline => c::r_chart_set_center_text((c::Rid)self, (char*)text, (char*)caption);
+
+fn void Chart.set_slice_clicked_callback(self, ChartSliceCallback callback, void* user_data) @inline => c::r_chart_set_slice_clicked_callback((c::Rid)self, (c::RChartSliceCallback)callback, user_data);
+
+<*
+ The range of a gauge (default 0 to 100), and a fixed range for the
+ colors of a heatmap and the height of a sparkline, which otherwise follow
+ their values. min == max goes back to these defaults.
+*>
+fn void Chart.set_range(self, double min, double max) @inline => c::r_chart_set_range((c::Rid)self, min, max);
+
+<* The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline). *>
+fn void Chart.get_range(self, double* min, double* max) @inline => c::r_chart_get_range((c::Rid)self, min, max);
+
+<* The value of a gauge, kept within its range when drawn. *>
+fn void Chart.set_value(self, double value) @inline => c::r_chart_set_value((c::Rid)self, value);
+
+fn double Chart.get_value(self) @inline => c::r_chart_get_value((c::Rid)self);
+
+<*
+ Colors a part of the range of a gauge (an alpha of 0: the success,
+ warning and danger colors of the theme, one after the other). The arc
+ takes the color of the band its value is in. Returns the index of the band.
+*>
+fn CInt Chart.add_band(self, double from, double to, float r, float g, float b, float a) @inline => c::r_chart_add_band((c::Rid)self, from, to, r, g, b, a);
+
+fn void Chart.clear_bands(self) @inline => c::r_chart_clear_bands((c::Rid)self);
+
+fn CInt Chart.get_band_count(self) @inline => c::r_chart_get_band_count((c::Rid)self);
+
+<*
+ The cells of a heatmap: `rows` x `columns` values, row after row,
+ copied (NULL: all 0). NaN leaves a cell empty.
+*>
+fn void Chart.set_grid(self, CInt rows, CInt columns, float* values) @inline => c::r_chart_set_grid((c::Rid)self, rows, columns, values);
+
+fn CInt Chart.get_row_count(self) @inline => c::r_chart_get_row_count((c::Rid)self);
+
+fn CInt Chart.get_column_count(self) @inline => c::r_chart_get_column_count((c::Rid)self);
+
+fn void Chart.set_cell(self, CInt row, CInt column, float value) @inline => c::r_chart_set_cell((c::Rid)self, row, column, value);
+
+fn float Chart.get_cell(self, CInt row, CInt column) @inline => c::r_chart_get_cell((c::Rid)self, row, column);
+
+<* The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left). *>
+fn void Chart.set_row_labels(self, ZString labels) @inline => c::r_chart_set_row_labels((c::Rid)self, (char*)labels);
+
+<* The names of the columns, separated by '|' (shown over them, as many as fit). *>
+fn void Chart.set_column_labels(self, ZString labels) @inline => c::r_chart_set_column_labels((c::Rid)self, (char*)labels);
+
+<* The name of a row or of a column, "" when it has none. *>
+fn ZString Chart.get_row_label(self, CInt row) @inline => (ZString)c::r_chart_get_row_label((c::Rid)self, row);
+
+fn ZString Chart.get_column_label(self, CInt column) @inline => (ZString)c::r_chart_get_column_label((c::Rid)self, column);
+
+<* The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent). *>
+fn void Chart.set_color_scale(self, float low_r, float low_g, float low_b, float low_a, float high_r, float high_g, float high_b, float high_a) @inline => c::r_chart_set_color_scale((c::Rid)self, low_r, low_g, low_b, low_a, high_r, high_g, high_b, high_a);
+
+fn void Chart.set_cell_clicked_callback(self, ChartCellCallback callback, void* user_data) @inline => c::r_chart_set_cell_clicked_callback((c::Rid)self, (c::RChartCellCallback)callback, user_data);
+
+<* The values of a sparkline, copied. NaN leaves a gap. *>
+fn void Chart.set_values(self, float* values, CInt count) @inline => c::r_chart_set_values((c::Rid)self, values, count);
+
+<* Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them). *>
+fn void Chart.push_value(self, float value, CInt max_count) @inline => c::r_chart_push_value((c::Rid)self, value, max_count);
+
+fn CInt Chart.get_value_count(self) @inline => c::r_chart_get_value_count((c::Rid)self);
+
+fn float Chart.get_value_at(self, CInt index) @inline => c::r_chart_get_value_at((c::Rid)self, index);
+
+<* Shades the area under the line of a sparkline (on by default). *>
+fn void Chart.set_fill(self, CInt fill) @inline => c::r_chart_set_fill((c::Rid)self, fill);
+
+<* A dot on the last value of a sparkline (on by default). *>
+fn void Chart.set_marker(self, bool shown) @inline => c::r_chart_set_marker((c::Rid)self, (CInt)shown);
 
 // ---- Carousel
 
@@ -6837,7 +7026,7 @@ fn void notification_set_fallback(NotificationFallback callback, void* user_data
  (on the UI thread; the application may then bring its window to the
  front: the system lets it). It is the last one shown that was clicked:
  the application remembers what it was about. NULL: none.
- Windows only for now (elsewhere it is never called).
+ Windows and macOS (elsewhere it is never called).
 *>
 fn void notification_set_clicked_callback(NotificationClickedCallback callback, void* user_data) @inline => c::r_notification_set_clicked_callback((c::RNotificationClickedCallback)callback, user_data);
 

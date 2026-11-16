@@ -55,7 +55,7 @@ typedef enum glyph_t {
 	G_TEXT, G_PICTURE, G_LINES, G_LIST, G_TREE, G_TIMELINE, G_BLOCKS, G_NODES, G_ITEM, G_WINDOW, G_HEADER,
 	G_MENUBAR, G_MENU, G_MENUITEM, G_DOCK, G_ISLAND, G_BLUR, G_COLOR, G_VIEWPORT, G_SPARK, G_FOLDER, G_KEY,
 	G_CODE, G_REPEAT, G_IF, G_INCLUDE, G_CHILDREN, G_PUZZLE, G_COMMENT, G_PALETTE, G_TABLE, G_FILE,
-	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_CAROUSEL
+	G_CALENDAR, G_CLOCK, G_TOAST, G_CRUMBS, G_STAR, G_PAGER, G_PLOT, G_PIE, G_CAROUSEL
 } glyph_t;
 
 /* Every picture: the tag (or "#..." for what is not a tag), its family, its glyph. The order of a family is the order of the palette. */
@@ -81,6 +81,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "BlockEditor", FAMILY_DATA, G_BLOCKS }, { "FileBrowser", FAMILY_DATA, G_FOLDER },
 	{ "Table", FAMILY_DATA, G_TABLE }, { "Column", FAMILY_DATA, G_ITEM }, { "Row", FAMILY_DATA, G_ITEM },
 	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER }, { "Plot", FAMILY_DATA, G_PLOT },
+	{ "Chart", FAMILY_DATA, G_PIE }, { "Slice", FAMILY_DATA, G_ITEM }, { "Band", FAMILY_DATA, G_ITEM },
 	{ "PdfView", FAMILY_DATA, G_FILE },
 	{ "Series", FAMILY_DATA, G_ITEM }, { "Scatter", FAMILY_DATA, G_ITEM }, { "DragLine", FAMILY_DATA, G_ITEM },
 	{ "Track", FAMILY_DATA, G_TIMELINE }, { "Clip", FAMILY_DATA, G_PROGRESS }, { "Key", FAMILY_DATA, G_ITEM },
@@ -457,6 +458,11 @@ static void draw_glyph(cell_t* c, glyph_t glyph) {
 			line(c, 10, 21, 14.5f, 15, 2.2f, 1); line(c, 14.5f, 15, 18.5f, 18, 2.2f, 1); line(c, 18.5f, 18, 24.5f, 9, 2.2f, 1);
 			disc(c, 18.5f, 18, 2.4f, 1);
 			break;
+		case G_PIE:
+			/* a ring, a quarter of it lifted out */
+			ring(c, 15, 17, 8.5f, 3.4f, 0.7f);
+			line(c, 18.5f, 5.5f, 18.5f, 10, 3.4f, 1); line(c, 22, 13.5f, 26.5f, 13.5f, 3.4f, 1);
+			disc(c, 22.5f, 10, 1.8f, 1);
 		case G_CAROUSEL:
 			/* a page between the edges of its neighbours, its dots under it */
 			box(c, 10, 7, 22, 20, 2, 1); box(c, 5, 9, 8, 18, 1.2f, 0.5f); box(c, 24, 9, 27, 18, 1.2f, 0.5f);

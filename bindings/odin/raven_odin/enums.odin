@@ -682,8 +682,10 @@ Widget_Type :: enum i32 {
 	Plot = 0x0232,
 	// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 	Pdf_View = 0x0233,
+	// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+	Chart = 0x0234,
 	// Pages shown one at a time and swiped (a page view), with dots and arrows.
-	Carousel = 0x0234,
+	Carousel = 0x0235,
 }
 
 H_Align :: enum i32 {
@@ -933,6 +935,20 @@ Plot_Legend :: enum i32 {
 	Left = 0x0568,
 	// To the right of the data, outside it.
 	Outside = 0x0569,
+}
+
+// What a Chart draws.
+Chart_Kind :: enum i32 {
+	// Slices of a whole, as parts of a disc (the default).
+	Pie = 0x0590,
+	// Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer.
+	Donut = 0x0591,
+	// One value within a range, on an arc; bands color parts of the range.
+	Gauge = 0x0592,
+	// A grid of values, each cell colored from the low color to the high one.
+	Heatmap = 0x0593,
+	// A small line of values without axes, to sit in a tile or a cell of a table.
+	Sparkline = 0x0594,
 }
 
 // Shorthands of Rtext_editor_set_language for two languages.

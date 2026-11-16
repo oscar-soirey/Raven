@@ -204,6 +204,20 @@ typedef enum RPlotLegend{
 	R_PLOT_LEGEND_OUTSIDE
 }RPlotLegend;
 
+/** What a Chart draws. */
+typedef enum RChartKind{
+	/** Slices of a whole, as parts of a disc (the default). */
+	R_CHART_PIE = 0x0590,
+	/** Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer. */
+	R_CHART_DONUT,
+	/** One value within a range, on an arc; bands color parts of the range. */
+	R_CHART_GAUGE,
+	/** A grid of values, each cell colored from the low color to the high one. */
+	R_CHART_HEATMAP,
+	/** A small line of values without axes, to sit in a tile or a cell of a table. */
+	R_CHART_SPARKLINE
+}RChartKind;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -735,18 +749,30 @@ extern "C" {
 	 */
 	typedef const char* (*RTableCellTextCallback)(Rid table, int row, int column, void* user_data);
 	RAVEN_API void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
-
 	/**
 	 * Colors the text of cells (a verdict, a state): the table asks for the
 	 * color of each cell it draws, stored or virtual (`row` is the index of the
 	 * order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
-	 * keeps the color of the theme. The color is kept on a selected or hovered
-	 * row. NULL removes the callback.
+	 * keeps the color set with Rtable_set_cell_text_color, else the theme's.
+	 * The color is kept on a selected or hovered row. NULL removes the callback.
 	 */
 	typedef int (*RTableCellColorCallback)(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
 	RAVEN_API void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
+	/**
+	 * @brief Stored rows: a fixed text color; column -1 colors the row; cells override it.
+	 * Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+	 */
+	RAVEN_API void Rtable_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a);
+	/** @brief Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. */
+	RAVEN_API void Rtable_set_multi_select(Rid table, int enabled);
+	RAVEN_API void Rtable_set_row_selected(Rid table, int row, int selected);
+	RAVEN_API int Rtable_is_row_selected(Rid table, int row);
+	RAVEN_API void Rtable_clear_selection(Rid table);
+	RAVEN_API int Rtable_get_selection_count(Rid table);
+	/** @brief Selected row at index, top to bottom; -1 outside the selection. */
+	RAVEN_API int Rtable_get_selection(Rid table, int index);
 
-	/** @brief Selects a row. -1 selects nothing. */
+	/** @brief Replaces the selection with one row. -1 selects nothing, including in multi-select mode. */
 	RAVEN_API void Rtable_set_selected(Rid table, int row);
 	RAVEN_API int Rtable_get_selected(Rid table);
 	RAVEN_API void Rtable_scroll_to_row(Rid table, int row);
@@ -1047,6 +1073,146 @@ extern "C" {
 	/** @brief Called when the user hides or shows a series from the legend. */
 	typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* user_data);
 	RAVEN_API void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  CHART (the charts of dashboards: pie, donut, gauge, heatmap, sparkline)
+	 *
+	 * One widget, five kinds (RChartKind), each fed by its own calls:
+	 *
+	 *   R_CHART_PIE, R_CHART_DONUT   slices: Rchart_add_slice and the others
+	 *   R_CHART_GAUGE                Rchart_set_range, Rchart_set_value, bands
+	 *   R_CHART_HEATMAP              Rchart_set_grid, labels of the rows and columns
+	 *   R_CHART_SPARKLINE            Rchart_set_values or Rchart_push_value
+	 *
+	 * The colors follow the theme: the slices take the accent then a palette
+	 * of ten colors made for the dark and the light themes, the gauge and the
+	 * sparkline the accent (Rchart_set_color), the heatmap goes from a tint of
+	 * the accent to the accent. The values glide to their new place when they
+	 * change. The pointer over a slice lifts it and tells its label, value and
+	 * share; over a cell of a heatmap or a point of a sparkline, its value. A
+	 * click on a slice selects it (and again, unselects it), a click on a cell
+	 * calls the cell callback; both also fire the action of the widget.
+	 * The background is left to what holds the chart (a tile, a panel).
+	 *
+	 * Slices, bands, rows, columns and values are counted from 0.
+	 *
+	 * XML:
+	 *   <Chart Kind="Donut" Title="Browsers" Format="%.0f">
+	 *       <Slice Label="Chrome" Value="64"/> <Slice Label="Safari" Value="19" Color="#ff9f0a"/>
+	 *   </Chart>
+	 *   <Chart Kind="Gauge" Min="0" Max="100" Value="72" Format="%.0f%%">
+	 *       <Band From="0" To="60"/> <Band From="60" To="85"/> <Band From="85" To="100"/>
+	 *   </Chart>
+	 *   <Chart Kind="Heatmap" ColumnLabels="0|6|12|18"> <Row Label="Mon" Values="1 4 2 0"/> ... </Chart>
+	 *   <Chart Kind="Sparkline" Values="3 5 4 6 8 7 9"/>
+	 * ============================================================================ */
+
+	/** @brief A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie). */
+	RAVEN_API Rid Rchart_create(RChartKind kind);
+	RAVEN_API void Rchart_set_kind(Rid chart, RChartKind kind);
+	RAVEN_API RChartKind Rchart_get_kind(Rid chart);
+	/** @brief The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers). */
+	RAVEN_API void Rchart_set_title(Rid chart, const char* title);
+	RAVEN_API const char* Rchart_get_title(Rid chart);
+	/**
+	 * @brief How the values are written (the gauge, the middle of a donut, what
+	 * the pointer shows): a printf format for one double with its unit, "%.0f%%",
+	 * "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+	 */
+	RAVEN_API void Rchart_set_format(Rid chart, const char* format);
+	/** @brief The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent). */
+	RAVEN_API void Rchart_set_color(Rid chart, float r, float g, float b, float a);
+	/** @brief The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default). */
+	RAVEN_API void Rchart_set_legend(Rid chart, int shown);
+	/** @brief Removes the slices, the bands, the grid and the values. */
+	RAVEN_API void Rchart_clear(Rid chart);
+	/**
+	 * @brief What is under the pointer: a slice, a point of a sparkline, or a
+	 * cell of a heatmap as row * columns + column; -1 for nothing.
+	 */
+	RAVEN_API int Rchart_get_hovered(Rid chart);
+
+	/** @brief Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid. */
+	RAVEN_API int Rchart_add_slice(Rid chart, const char* label, double value);
+	RAVEN_API void Rchart_remove_slice(Rid chart, int slice);
+	RAVEN_API int Rchart_get_slice_count(Rid chart);
+	RAVEN_API void Rchart_set_slice_value(Rid chart, int slice, double value);
+	RAVEN_API double Rchart_get_slice_value(Rid chart, int slice);
+	RAVEN_API void Rchart_set_slice_label(Rid chart, int slice, const char* label);
+	RAVEN_API const char* Rchart_get_slice_label(Rid chart, int slice);
+	/** @brief The color of a slice; an alpha of 0 gives it back its color of the palette. */
+	RAVEN_API void Rchart_set_slice_color(Rid chart, int slice, float r, float g, float b, float a);
+	/** @brief The sum of the values of the slices. */
+	RAVEN_API double Rchart_get_total(Rid chart);
+	/** @brief The slice lifted as selected, or -1 for none (the user selects one with a click). */
+	RAVEN_API void Rchart_set_selected(Rid chart, int slice);
+	RAVEN_API int Rchart_get_selected(Rid chart);
+	/** @brief The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62). */
+	RAVEN_API void Rchart_set_hole(Rid chart, float ratio);
+	/**
+	 * @brief What the middle of a donut shows when the pointer is not over a
+	 * slice: `text` in large (NULL or "": the total) over `caption` in small
+	 * (NULL or "": none).
+	 */
+	RAVEN_API void Rchart_set_center_text(Rid chart, const char* text, const char* caption);
+	/** @brief Called when the user clicks a slice; `selected` tells whether it is now the selected one. */
+	typedef void (*RChartSliceCallback)(Rid chart, int slice, int selected, void* user_data);
+	RAVEN_API void Rchart_set_slice_clicked_callback(Rid chart, RChartSliceCallback callback, void* user_data);
+
+	/**
+	 * @brief The range of a gauge (default 0 to 100), and a fixed range for the
+	 * colors of a heatmap and the height of a sparkline, which otherwise follow
+	 * their values. min == max goes back to these defaults.
+	 */
+	RAVEN_API void Rchart_set_range(Rid chart, double min, double max);
+	/** @brief The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline). */
+	RAVEN_API void Rchart_get_range(Rid chart, double* min, double* max);
+	/** @brief The value of a gauge, kept within its range when drawn. */
+	RAVEN_API void Rchart_set_value(Rid chart, double value);
+	RAVEN_API double Rchart_get_value(Rid chart);
+	/**
+	 * @brief Colors a part of the range of a gauge (an alpha of 0: the success,
+	 * warning and danger colors of the theme, one after the other). The arc
+	 * takes the color of the band its value is in. Returns the index of the band.
+	 */
+	RAVEN_API int Rchart_add_band(Rid chart, double from, double to, float r, float g, float b, float a);
+	RAVEN_API void Rchart_clear_bands(Rid chart);
+	RAVEN_API int Rchart_get_band_count(Rid chart);
+
+	/**
+	 * @brief The cells of a heatmap: `rows` x `columns` values, row after row,
+	 * copied (NULL: all 0). NaN leaves a cell empty.
+	 */
+	RAVEN_API void Rchart_set_grid(Rid chart, int rows, int columns, const float* values);
+	RAVEN_API int Rchart_get_row_count(Rid chart);
+	RAVEN_API int Rchart_get_column_count(Rid chart);
+	RAVEN_API void Rchart_set_cell(Rid chart, int row, int column, float value);
+	RAVEN_API float Rchart_get_cell(Rid chart, int row, int column);
+	/** @brief The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left). */
+	RAVEN_API void Rchart_set_row_labels(Rid chart, const char* labels);
+	/** @brief The names of the columns, separated by '|' (shown over them, as many as fit). */
+	RAVEN_API void Rchart_set_column_labels(Rid chart, const char* labels);
+	/** @brief The name of a row or of a column, "" when it has none. */
+	RAVEN_API const char* Rchart_get_row_label(Rid chart, int row);
+	RAVEN_API const char* Rchart_get_column_label(Rid chart, int column);
+	/** @brief The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent). */
+	RAVEN_API void Rchart_set_color_scale(Rid chart, float low_r, float low_g, float low_b, float low_a,
+		float high_r, float high_g, float high_b, float high_a);
+	/** @brief Called when the user clicks a cell of a heatmap. */
+	typedef void (*RChartCellCallback)(Rid chart, int row, int column, float value, void* user_data);
+	RAVEN_API void Rchart_set_cell_clicked_callback(Rid chart, RChartCellCallback callback, void* user_data);
+
+	/** @brief The values of a sparkline, copied. NaN leaves a gap. */
+	RAVEN_API void Rchart_set_values(Rid chart, const float* values, int count);
+	/** @brief Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them). */
+	RAVEN_API void Rchart_push_value(Rid chart, float value, int max_count);
+	RAVEN_API int Rchart_get_value_count(Rid chart);
+	RAVEN_API float Rchart_get_value_at(Rid chart, int index);
+	/** @brief Shades the area under the line of a sparkline (on by default). */
+	RAVEN_API void Rchart_set_fill(Rid chart, int fill);
+	/** @brief A dot on the last value of a sparkline (on by default). */
+	RAVEN_API void Rchart_set_marker(Rid chart, int shown);
 
 
 	/* ============================================================================

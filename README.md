@@ -146,6 +146,22 @@ Raven draws with Vulkan, which runs on macOS through
 [MoltenVK](https://github.com/KhronosGroup/MoltenVK) (`brew install molten-vk`,
 or the Vulkan SDK for macOS).
 
+### iOS and Android (experimental)
+
+Raven also runs on iOS (UIKit, drawn with Vulkan through MoltenVK) and on
+Android (NativeActivity). Both platforms are experimental. CMake chooses them
+when it builds for iOS or Android (`CMAKE_SYSTEM_NAME`), or with
+`-DRAVEN_PLATFORM=uikit` and `-DRAVEN_PLATFORM=android`. On Android the
+application gives Raven its `android_app` (`Randroid_set_app`, in
+`raven/raven_android.h`) before `Rinit`; on iOS UIKit owns the main loop, and
+the application calls `Rwait_frame` from a `CADisplayLink`.
+
+[examples/mobile](examples/mobile/README.md) holds one showcase in C and the
+scripts that build Raven and the app, without an Xcode project or Gradle: for
+the iOS Simulator, and for an Android device or emulator (API 29 or later).
+What these platforms do not do yet is in
+[Not implemented yet](#not-implemented-yet).
+
 ### Using the built library
 
 `install/` is a CMake package. In your project:
@@ -477,10 +493,12 @@ under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
 real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 `raven_web`, the designer, the build scripts, `dist.sh`/`dist.bat`, the CMake
 package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,
-Java). The native Wayland platform is newer: it is tested against a
+Java, Bun, Node.js, D, Nim). The native Wayland platform is newer: it is tested against a
 compositor written in its test (`test_wayland`: windows, scales, keyboard,
 pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
-or wlroots with a GPU.
+or wlroots with a GPU. iOS and Android are experimental: they have run on
+the iOS Simulator, on an Android phone and on the Android emulator
+(`examples/mobile`), not yet on an iPhone.
 
 ### Linux: Wayland and X11
 
@@ -546,7 +564,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer`, `raven_theme_editor` |
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
 | `RAVEN_BACKEND_VULKAN` | `ON` | `OFF` builds without any GPU code (custom backend or headless) |
-| `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS) or `null` |
+| `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS), `uikit` (iOS), `android`, `emscripten` (the browser, [docs/emscripten.md](docs/emscripten.md)) or `null` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
 | `RAVEN_WITH_SVG` | `ON` | SVG images (icons), drawn by nanosvg |
@@ -616,6 +634,7 @@ The build trees are in `build\dist\`.
 | `examples/memory` | an allocator given by the application, the statistics of the library, the heap check |
 | `examples/studio` | a graph of nodes (widgets inside the nodes, links the application can refuse, nodes added from code), a timeline that plays, a color picker that colors the selected nodes; its XML is loaded again when saved |
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
+| `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
 | `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -625,6 +644,7 @@ The build trees are in `build\dist\`.
 | `examples/viewport_opengl` | an OpenGL scene in a native child window (WGL / GLX) |
 | `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
 | `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
+| `examples/mobile` | one showcase in C for iOS and Android (experimental): a tab bar, a list of 1,000 rows with a detail page, controls, glass, a form with keyboard types. See its [README](examples/mobile/README.md) |
 
 ![The notepad example](docs/images/notepad.png)
 
@@ -637,9 +657,11 @@ The build trees are in `build\dist\`.
 `bindings/` holds bindings generated from the headers by `tools/bindgen`:
 C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
-on Maven Central), Odin, Bun (`bun:ffi`), D (a dub package) and Nim (a nimble package). All but Odin are tested. See
-[bindings/README.md](bindings/README.md). They cover everything in
-`Raven.h`; `raven_web.h` is C only.
+on Maven Central), Odin, Bun (`bun:ffi`), Node.js (a Node-API addon, which
+also runs on Bun and Deno), D (a dub package), Nim (a nimble package) and C3
+(a library). All but Odin and C3 are tested. See
+[bindings/README.md](bindings/README.md). They cover everything in `Raven.h`;
+`raven_web.h` is C only.
 
 ```python
 import raven as r
@@ -868,6 +890,28 @@ File dialogs are those of the system (Windows: the common dialogs; Linux:
 on the `FileBrowser` widget, which can also be put in any window. Any widget
 can be shown as a dialog of a window (`Rdialog_open`, `Rdialog_run`).
 `Rfile_read` and `Rfile_write` take UTF-8 paths on every platform.
+
+### Table colors and selection
+
+Tables can opt into multiple row selection with
+`Rtable_set_multi_select(table, R_TRUE)`. Ctrl/Cmd-click toggles rows and Shift
+click/arrows select an anchored range. `Rtable_set_selected` replaces the whole
+selection; `Rtable_set_row_selected` changes one row. Query membership/count
+with `Rtable_is_row_selected` and `Rtable_get_selection_count`, and enumerate
+top to bottom with `Rtable_get_selection`. `Rtable_get_selected` returns the
+primary selected row, or -1. Stored sorting/removal keeps selection with data;
+virtual refreshes keep valid selected indices, while the application remains
+responsible for virtual data ordering.
+
+`Rtable_set_cell_text_color(table, row, column, r, g, b, a)` colors a stored
+cell, or the whole row with column -1. Cell overrides take precedence over row
+overrides, including selected rows; alpha zero restores the inherited/theme
+color. `Rtable_set_cell_color_callback` (stored and virtual tables) takes
+precedence: when it returns true with a non-zero alpha its color is used,
+otherwise the fixed cell/row color, then the theme color. Color callbacks run
+on the UI thread for visible cells only.
+Screen readers see selectable rows, including Cocoa selected rows, AT-SPI
+selected states, UIA multiple-selection support and the browser grid state.
 
 ### Drag and drop
 
@@ -1178,6 +1222,53 @@ drawn with as many pixels as they are shown with: once painted, an SVG is
 drawn again on a worker thread for the density of the screen, an `Image` that
 stretches it or a zoom, and again when the window moves to another monitor.
 `Rtexture_create_from_svg` with a scale draws one at that scale only.
+
+### Charts
+
+`Chart` draws the charts of dashboards, where `Plot` draws curves over axes:
+a pie or a donut of slices, a gauge with colored bands, a heatmap, and a
+sparkline to put in a tile or in a cell of a table.
+
+```xml
+<Chart Kind="Donut" Title="Sessions by browser" CenterCaption="sessions">
+    <Slice Label="Chrome" Value="6420"/>
+    <Slice Label="Safari" Value="2310"/>
+    <Slice Label="Other" Value="1070"/>
+</Chart>
+<Chart Kind="Gauge" Title="CPU" Min="0" Max="100" Value="64" Format="%.0f%%">
+    <Band From="0" To="60"/> <Band From="60" To="85"/> <Band From="85" To="100"/>
+</Chart>
+<Chart Kind="Heatmap" RowLabels="Mon|Tue|Wed" ColumnLabels="9h|12h|15h|18h">
+    <Row Values="3 8 5 2"/> <Row Values="4 9 6 3"/> <Row Values="2 7 7 5"/>
+</Chart>
+<Chart Kind="Sparkline" Height="40" Values="31 33 32 35 38 37 41 40 44 48"/>
+```
+
+```c
+Rid pie = Rchart_create(R_CHART_PIE);
+Rchart_set_title(pie, "Visits by source");
+Rchart_add_slice(pie, "Organic", 18420);
+Rchart_add_slice(pie, "Direct", 10530);
+Rchart_set_slice_clicked_callback(pie, on_slice, NULL);
+
+Rid load = Rchart_create(R_CHART_GAUGE);
+Rchart_set_format(load, "%.0f%%");
+Rchart_add_band(load, 0, 60, 0, 0, 0, 0);     /* alpha 0: success, warning, danger of the theme */
+Rchart_add_band(load, 60, 85, 0, 0, 0, 0);
+Rchart_add_band(load, 85, 100, 0, 0, 0, 0);
+Rchart_set_value(load, 72);
+
+Rchart_push_value(spark, latency_ms, 60);      /* live data: the last 60 values */
+```
+
+The colors come from the theme (the accent, then a palette made for dark and
+light themes; bands take the success, warning and danger colors in turn), and
+the values glide to their new place when they change. The pointer over a slice
+lifts it and tells its value and share (in the middle of a donut); over a cell
+or a point of a sparkline, its value. A click selects a slice or reports a
+cell (`Rchart_set_cell_clicked_callback`). Screen readers hear a pie as its
+slices and their shares, and a gauge as a meter. `examples/charts` is a small
+dashboard made of them.
 
 ### Files that are loaded again
 
@@ -1540,7 +1631,7 @@ cost is the blur passes, but it has not been measured. Read
 include/Raven.h      the whole public API in one include
 include/raven/       ... one header per area
 src/core/            allocator, handles, threads, job system, files, main loop
-src/platform/        window systems behind one interface: win32/, x11/, wayland/, cocoa/, null/
+src/platform/        window systems behind one interface: win32/, x11/, wayland/, cocoa/, uikit/, android/, emscripten/, null/
 src/render/          draw lists, fonts and glyph atlas, textures, render thread
 src/render/vulkan/   the Vulkan backend and its shaders (vk_glass.c: backdrop blur)
 src/widget/          widget base: tree, layout, events, painting, animation, windows, style, themes
@@ -1551,7 +1642,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, D, Nim
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```
@@ -1572,6 +1663,24 @@ What Raven does not do yet, by area. Contributions are welcome.
   are not connected yet; dead keys and compose sequences work.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
   installed Chromium-based browser instead.
+- iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
+  On both, a window fills the screen: its size, position and title are left
+  to the system. There are no native child windows, no screen readers
+  (VoiceOver, TalkBack), no tray icon, menu bar or badge of the system;
+  notifications go to the fallback of the application
+  (`Rnotification_set_fallback`), and file dialogs are Raven's own. The text
+  services of the system (suggestions, autocorrection, composition) work in a
+  `TextInput`; a `TextEditor` or a `SpinBox` gets plain keys and text. The
+  places known to be simplified are marked `SHORTCUT` in the sources.
+- iOS: only the Simulator has been tried, not a device. Raven pauses the
+  application's `CADisplayLink` while it has nothing to draw, but the function
+  that hands it over (`rvn_uikit_set_display_link`) is not public API yet.
+- Android: one window, the surface of the activity. The clipboard stays inside
+  the application. The Back key reaches Raven as Escape, and the application
+  decides what it means. The on-screen keyboard needs Raven's Java class
+  (`src/platform/android/java`) in the APK; without it, key events only (no
+  suggestions, ASCII only). The swapchain is not pre-rotated: the compositor
+  rotates it.
 
 **Text**
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic

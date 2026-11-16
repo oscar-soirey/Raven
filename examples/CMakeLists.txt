@@ -15,6 +15,7 @@
 #   overlay          a window that is seen through, and the four ways to blur what is behind
 #   effects          the effects (shaders) of Raven, and two written by the application
 #   plot             curves of X / Y data: XML, streaming data, logarithmic axes, drag lines, a million points
+#   charts           a dashboard: KPI tiles with sparklines, a pie, a donut, gauges with bands, a heatmap
 #   carousel         pages swiped one at a time: an onboarding with dots, arrows, loop and autoplay
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
@@ -70,6 +71,7 @@ raven_add_example(themes themes/main.c themes/themes.xml themes/ocean.xml themes
 raven_add_example(overlay overlay/main.c overlay/overlay.xml)
 raven_add_example(effects effects/main.c effects/effects.xml effects/wave.frag effects/liquid.frag)
 raven_add_example(plot plot/main.c plot/plot.xml)
+raven_add_example(charts charts/main.c charts/charts.xml)
 raven_add_example(pdf pdf/main.c pdf/pdf.xml)
 raven_add_example(carousel carousel/main.c carousel/carousel.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h

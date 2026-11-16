@@ -639,9 +639,10 @@ export const RWidgetType = _enum({
 	R_WIDGET_PAGINATION: 561,
 	R_WIDGET_PLOT: 562,
 	R_WIDGET_PDF_VIEW: 563,
-	R_WIDGET_CAROUSEL: 564,
+	R_WIDGET_CHART: 564,
+	R_WIDGET_CAROUSEL: 565,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CAROUSEL } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_CAROUSEL } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -837,6 +838,15 @@ export const RPlotLegend = _enum({
 	R_PLOT_LEGEND_OUTSIDE: 1385,
 });
 export const { R_PLOT_LEGEND_HIDDEN, R_PLOT_LEGEND_TOP_LEFT, R_PLOT_LEGEND_TOP, R_PLOT_LEGEND_TOP_RIGHT, R_PLOT_LEGEND_RIGHT, R_PLOT_LEGEND_BOTTOM_RIGHT, R_PLOT_LEGEND_BOTTOM, R_PLOT_LEGEND_BOTTOM_LEFT, R_PLOT_LEGEND_LEFT, R_PLOT_LEGEND_OUTSIDE } = RPlotLegend;
+
+export const RChartKind = _enum({
+	R_CHART_PIE: 1424,
+	R_CHART_DONUT: 1425,
+	R_CHART_GAUGE: 1426,
+	R_CHART_HEATMAP: 1427,
+	R_CHART_SPARKLINE: 1428,
+});
+export const { R_CHART_PIE, R_CHART_DONUT, R_CHART_GAUGE, R_CHART_HEATMAP, R_CHART_SPARKLINE } = RChartKind;
 
 export const RSyntax = _enum({
 	R_SYNTAX_NONE: 832,
@@ -3664,6 +3674,13 @@ export const Rtable_set_virtual_rows = _lib.Rtable_set_virtual_rows;
 export function Rtable_set_cell_color_callback(table, callback, user_data = null) {
 	return _lib.Rtable_set_cell_color_callback(table, _adapt_RTableCellColorCallback(callback), user_data);
 }
+export const Rtable_set_cell_text_color = _lib.Rtable_set_cell_text_color;
+export const Rtable_set_multi_select = _lib.Rtable_set_multi_select;
+export const Rtable_set_row_selected = _lib.Rtable_set_row_selected;
+export const Rtable_is_row_selected = _lib.Rtable_is_row_selected;
+export const Rtable_clear_selection = _lib.Rtable_clear_selection;
+export const Rtable_get_selection_count = _lib.Rtable_get_selection_count;
+export const Rtable_get_selection = _lib.Rtable_get_selection;
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;
@@ -3778,6 +3795,54 @@ export const Rplot_set_drag_line_color = _lib.Rplot_set_drag_line_color;
 export const Rplot_set_view_changed_callback = _lib.Rplot_set_view_changed_callback;
 export const Rplot_set_drag_line_callback = _lib.Rplot_set_drag_line_callback;
 export const Rplot_set_series_toggled_callback = _lib.Rplot_set_series_toggled_callback;
+export const Rchart_create = _lib.Rchart_create;
+export const Rchart_set_kind = _lib.Rchart_set_kind;
+export const Rchart_get_kind = _lib.Rchart_get_kind;
+export const Rchart_set_title = _lib.Rchart_set_title;
+export const Rchart_get_title = _lib.Rchart_get_title;
+export const Rchart_set_format = _lib.Rchart_set_format;
+export const Rchart_set_color = _lib.Rchart_set_color;
+export const Rchart_set_legend = _lib.Rchart_set_legend;
+export const Rchart_clear = _lib.Rchart_clear;
+export const Rchart_get_hovered = _lib.Rchart_get_hovered;
+export const Rchart_add_slice = _lib.Rchart_add_slice;
+export const Rchart_remove_slice = _lib.Rchart_remove_slice;
+export const Rchart_get_slice_count = _lib.Rchart_get_slice_count;
+export const Rchart_set_slice_value = _lib.Rchart_set_slice_value;
+export const Rchart_get_slice_value = _lib.Rchart_get_slice_value;
+export const Rchart_set_slice_label = _lib.Rchart_set_slice_label;
+export const Rchart_get_slice_label = _lib.Rchart_get_slice_label;
+export const Rchart_set_slice_color = _lib.Rchart_set_slice_color;
+export const Rchart_get_total = _lib.Rchart_get_total;
+export const Rchart_set_selected = _lib.Rchart_set_selected;
+export const Rchart_get_selected = _lib.Rchart_get_selected;
+export const Rchart_set_hole = _lib.Rchart_set_hole;
+export const Rchart_set_center_text = _lib.Rchart_set_center_text;
+export const Rchart_set_slice_clicked_callback = _lib.Rchart_set_slice_clicked_callback;
+export const Rchart_set_range = _lib.Rchart_set_range;
+export const Rchart_get_range = _lib.Rchart_get_range;
+export const Rchart_set_value = _lib.Rchart_set_value;
+export const Rchart_get_value = _lib.Rchart_get_value;
+export const Rchart_add_band = _lib.Rchart_add_band;
+export const Rchart_clear_bands = _lib.Rchart_clear_bands;
+export const Rchart_get_band_count = _lib.Rchart_get_band_count;
+export const Rchart_set_grid = _lib.Rchart_set_grid;
+export const Rchart_get_row_count = _lib.Rchart_get_row_count;
+export const Rchart_get_column_count = _lib.Rchart_get_column_count;
+export const Rchart_set_cell = _lib.Rchart_set_cell;
+export const Rchart_get_cell = _lib.Rchart_get_cell;
+export const Rchart_set_row_labels = _lib.Rchart_set_row_labels;
+export const Rchart_set_column_labels = _lib.Rchart_set_column_labels;
+export const Rchart_get_row_label = _lib.Rchart_get_row_label;
+export const Rchart_get_column_label = _lib.Rchart_get_column_label;
+export const Rchart_set_color_scale = _lib.Rchart_set_color_scale;
+export const Rchart_set_cell_clicked_callback = _lib.Rchart_set_cell_clicked_callback;
+export const Rchart_set_values = _lib.Rchart_set_values;
+export const Rchart_push_value = _lib.Rchart_push_value;
+export const Rchart_get_value_count = _lib.Rchart_get_value_count;
+export const Rchart_get_value_at = _lib.Rchart_get_value_at;
+export const Rchart_set_fill = _lib.Rchart_set_fill;
+export const Rchart_set_marker = _lib.Rchart_set_marker;
 export const Rpdf_is_available = _lib.Rpdf_is_available;
 export const Rpdf_view_load_file = _lib.Rpdf_view_load_file;
 export const Rpdf_view_load_memory = _lib.Rpdf_view_load_memory;

@@ -260,6 +260,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/pagination.c
 	src/widgets/plot.c
 	src/widgets/pdf_view.c
+	src/widgets/chart.c
 	src/widgets/carousel.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
@@ -347,10 +348,13 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	find_library(RAVEN_APPKIT_FRAMEWORK AppKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
 	find_library(RAVEN_METAL_FRAMEWORK Metal)
-	if(NOT RAVEN_APPKIT_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_METAL_FRAMEWORK)
-		message(FATAL_ERROR "Raven: Cocoa builds require the AppKit, QuartzCore and Metal frameworks")
+	# (the notifications of Rnotification_show)
+	find_library(RAVEN_USERNOTIFICATIONS_FRAMEWORK UserNotifications)
+	if(NOT RAVEN_APPKIT_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_METAL_FRAMEWORK OR NOT RAVEN_USERNOTIFICATIONS_FRAMEWORK)
+		message(FATAL_ERROR "Raven: Cocoa builds require the AppKit, QuartzCore, Metal and UserNotifications frameworks")
 	endif()
-	list(APPEND RAVEN_LIBRARIES ${RAVEN_APPKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK})
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_APPKIT_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_METAL_FRAMEWORK}
+		${RAVEN_USERNOTIFICATIONS_FRAMEWORK})
 elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
 	if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 		message(FATAL_ERROR "Raven: the uikit platform is only available on iOS (CMAKE_SYSTEM_NAME=iOS)")
