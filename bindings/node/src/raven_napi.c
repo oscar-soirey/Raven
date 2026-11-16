@@ -1295,6 +1295,8 @@ static struct {
 	void (*Rhost_platform_register)(const RHostPlatformDesc*);
 	int (*Rhost_platform_is_active)(void);
 	void (*Rhost_window_set_size)(Rid, int, int, float);
+	void (*Rhost_window_set_insets)(Rid, const RInsets*, int);
+	void (*Rhost_set_system_dark)(int);
 	void (*Rhost_inject_mouse_move)(Rid, int, int, Ruint);
 	void (*Rhost_inject_mouse_button)(Rid, int, int, RMouseButton, int, Ruint);
 	void (*Rhost_inject_mouse_wheel)(Rid, float, float, Ruint);
@@ -2574,6 +2576,8 @@ static const struct {
 	{"Rhost_platform_register", offsetof(__typeof__(rn), Rhost_platform_register)},
 	{"Rhost_platform_is_active", offsetof(__typeof__(rn), Rhost_platform_is_active)},
 	{"Rhost_window_set_size", offsetof(__typeof__(rn), Rhost_window_set_size)},
+	{"Rhost_window_set_insets", offsetof(__typeof__(rn), Rhost_window_set_insets)},
+	{"Rhost_set_system_dark", offsetof(__typeof__(rn), Rhost_set_system_dark)},
 	{"Rhost_inject_mouse_move", offsetof(__typeof__(rn), Rhost_inject_mouse_move)},
 	{"Rhost_inject_mouse_button", offsetof(__typeof__(rn), Rhost_inject_mouse_button)},
 	{"Rhost_inject_mouse_wheel", offsetof(__typeof__(rn), Rhost_inject_mouse_wheel)},
@@ -25541,6 +25545,34 @@ static napi_value rn_w_Rhost_window_set_size(napi_env env, napi_callback_info in
 	return result_;
 }
 
+static napi_value rn_w_Rhost_window_set_insets(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rhost_window_set_insets((Rid)a0, (const RInsets*)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rhost_set_system_dark(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	rn.Rhost_set_system_dark((int)a0);
+	return result_;
+}
+
 static napi_value rn_w_Rhost_inject_mouse_move(napi_env env, napi_callback_info info) {
 	size_t argc = 4;
 	napi_value argv[4];
@@ -27069,6 +27101,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rhost_platform_register", NULL, rn_w_Rhost_platform_register, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_platform_is_active", NULL, rn_w_Rhost_platform_is_active, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_window_set_size", NULL, rn_w_Rhost_window_set_size, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhost_window_set_insets", NULL, rn_w_Rhost_window_set_insets, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhost_set_system_dark", NULL, rn_w_Rhost_set_system_dark, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_mouse_move", NULL, rn_w_Rhost_inject_mouse_move, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_mouse_button", NULL, rn_w_Rhost_inject_mouse_button, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_mouse_wheel", NULL, rn_w_Rhost_inject_mouse_wheel, NULL, NULL, NULL, napi_enumerable, NULL},

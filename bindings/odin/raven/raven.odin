@@ -1663,6 +1663,14 @@ RTouchSettings :: struct {
 	swipe_navigation: i32,
 	// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
 	swipe_distance: f32,
+	// Smallest height (logical units) of what a finger presses: buttons,
+	// fields, combo boxes, tabs and bars are at least this high, rows of
+	// lists, trees, tables and menus too, and so are check boxes, switches
+	// and sliders, whose box and handle grow to half of it. Whatever the
+	// theme or a widget asks for, 0 leaves the sizes as they are.
+	// Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+	// 0 elsewhere.
+	min_touch_size: f32,
 }
 
 RTouchEvent :: struct {
@@ -2169,7 +2177,10 @@ foreign lib {
 	Rwindow_get_safe_area :: proc(window: Rid, insets: ^RInsets) ---
 	// The part of the window the on-screen keyboard covers (only
 	// `bottom` is set), in logical units; 0 when it is hidden or there is
-	// none (desktop). The content is laid out above it already.
+	// none (desktop). The content is laid out above it already, and the
+	// field that has the focus is scrolled into view above it, by the
+	// ScrollBoxes that hold it, when the keyboard comes or changes height,
+	// when the window turns, and when another field takes the focus.
 	Rwindow_get_keyboard_area :: proc(window: Rid, insets: ^RInsets) ---
 	// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
 	Rwindow_set_keyboard_callback :: proc(window: Rid, callback: RKeyboardCallback, user_data: rawptr) ---
@@ -2469,6 +2480,9 @@ foreign lib {
 	Rtheme_apply :: proc(theme: RTheme) ---
 	Rtheme_set_color :: proc(role: RColorRole, r: f32, g: f32, b: f32, a: f32) ---
 	Rtheme_get_color :: proc(role: RColorRole, r: ^f32, g: ^f32, b: ^f32, a: ^f32) ---
+	// Changes a size of the theme in use. It lasts until the look or
+	// the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+	// switch between light and dark made by Rtheme_follow_system.
 	Rtheme_set_metric :: proc(metric: RMetric, value: f32) ---
 	Rtheme_get_metric :: proc(metric: RMetric) -> f32 ---
 	// Material of every widget that was not given one with
@@ -2491,6 +2505,13 @@ foreign lib {
 	// Follows the dark or light mode of the system with the Raven look
 	// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
 	// Off by default. Does nothing where the platform does not tell (desktop today).
+	//
+	// A switch is Rlook_set, except that the sizes given with
+	// Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+	// those of one mode and are lost; to keep colors, sizes and styles of
+	// the application through the switch, put them in a theme that names no
+	// look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+	// new look.
 	Rtheme_follow_system :: proc(enabled: i32) ---
 	Rtheme_is_dark :: proc() -> i32 ---
 	// Image drawn behind the content of the windows that have no
@@ -2721,7 +2742,7 @@ foreign lib {
 	Rwidget_get_desired_size :: proc(widget: Rid, width: ^f32, height: ^f32) ---
 	Rwidget_is_hovered :: proc(widget: Rid) -> i32 ---
 	Rwidget_set_focusable :: proc(widget: Rid, focusable: i32) ---
-	// Gives the keyboard focus to the widget.
+	// Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 	Rwidget_focus :: proc(widget: Rid) ---
 	Rwidget_is_focused :: proc(widget: Rid) -> i32 ---
 	Rwidget_set_user_handle :: proc(widget: Rid, handle: rawptr) ---
@@ -2771,7 +2792,9 @@ foreign lib {
 	// Overrides a theme metric for one widget.
 	Rwidget_set_metric :: proc(widget: Rid, metric: RMetric, value: f32) ---
 	Rwidget_clear_metric :: proc(widget: Rid, metric: RMetric) ---
-	// Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme.
+	// Returns: The metric the widget uses: its own, else the one of a style,
+	// else the one of its theme; grown for larger text
+	// (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
 	Rwidget_get_metric :: proc(widget: Rid, metric: RMetric) -> f32 ---
 	// Classes of the widget, separated by spaces ("danger large"):
 	// the styles of the theme made for these classes apply to it
@@ -2837,7 +2860,10 @@ foreign lib {
 	Rscroll_box_set_offset :: proc(scroll_box: Rid, x: f32, y: f32) ---
 	Rscroll_box_get_offset :: proc(scroll_box: Rid, x: ^f32, y: ^f32) ---
 	Rscroll_box_scroll_to_end :: proc(scroll_box: Rid) ---
-	// Scrolls every ScrollBox above the widget so that the widget is visible.
+	// Scrolls every ScrollBox above the widget so that the widget is
+	// visible. The library does it by itself for the focused widget when the
+	// focus comes from Tab or Rwidget_focus, and for a text field above the
+	// on-screen keyboard (Rwindow_get_keyboard_area).
 	Rwidget_scroll_into_view :: proc(widget: Rid) ---
 	// R_HORIZONTAL puts the panes side by side (default), R_VERTICAL stacks them.
 	Rsplitter_set_orientation :: proc(splitter: Rid, orientation: ROrientation) ---
@@ -4721,6 +4747,15 @@ foreign lib {
 	Rhost_platform_is_active :: proc() -> i32 ---
 	// Size of a host window in pixels, and pixels per logical unit.
 	Rhost_window_set_size :: proc(window: Rid, width: i32, height: i32, scale: f32) ---
+	// What covers a host window on a phone or a tablet, in pixels: the
+	// safe area (status bar, notch, home indicator; NULL: none) and the height
+	// of the on-screen keyboard over its bottom (0: hidden). The content is laid
+	// out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+	Rhost_window_set_insets :: proc(window: Rid, safe_area: ^RInsets, keyboard_height: i32) ---
+	// The application's system is in dark (R_TRUE) or light (R_FALSE)
+	// mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+	// and Rtheme_follow_system follows it.
+	Rhost_set_system_dark :: proc(dark: i32) ---
 	Rhost_inject_mouse_move :: proc(window: Rid, x: i32, y: i32, modifiers: u32) ---
 	Rhost_inject_mouse_button :: proc(window: Rid, x: i32, y: i32, button: RMouseButton, pressed: i32, modifiers: u32) ---
 	Rhost_inject_mouse_wheel :: proc(window: Rid, wheel_x: f32, wheel_y: f32, modifiers: u32) ---

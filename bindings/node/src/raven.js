@@ -1701,7 +1701,7 @@ export class RDropEvent extends RStruct {
 }
 
 export class RTouchSettings extends RStruct {
-	static SIZE = 52;
+	static SIZE = 56;
 
 	constructor(pointer) {
 		super(RTouchSettings.SIZE, pointer);
@@ -1801,6 +1801,13 @@ export class RTouchSettings extends RStruct {
 	}
 	set swipe_distance(value) {
 		this._view.setFloat32(48, value, true);
+	}
+
+	get min_touch_size() {
+		return this._view.getFloat32(52, true);
+	}
+	set min_touch_size(value) {
+		this._view.setFloat32(52, value, true);
 	}
 }
 
@@ -4455,6 +4462,10 @@ export function Rhost_platform_register(desc) {
 }
 export const Rhost_platform_is_active = _lib.Rhost_platform_is_active;
 export const Rhost_window_set_size = _lib.Rhost_window_set_size;
+export function Rhost_window_set_insets(window, safe_area, keyboard_height) {
+	return _lib.Rhost_window_set_insets(window, _p(safe_area), keyboard_height);
+}
+export const Rhost_set_system_dark = _lib.Rhost_set_system_dark;
 export const Rhost_inject_mouse_move = _lib.Rhost_inject_mouse_move;
 export const Rhost_inject_mouse_button = _lib.Rhost_inject_mouse_button;
 export const Rhost_inject_mouse_wheel = _lib.Rhost_inject_mouse_wheel;

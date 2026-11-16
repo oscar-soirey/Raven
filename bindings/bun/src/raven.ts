@@ -1419,6 +1419,8 @@ const _symbols = {
 	Rhost_platform_register: { args: ["ptr"], returns: "void" },
 	Rhost_platform_is_active: { args: [], returns: "i32" },
 	Rhost_window_set_size: { args: ["u32", "i32", "i32", "f32"], returns: "void" },
+	Rhost_window_set_insets: { args: ["u32", "ptr", "i32"], returns: "void" },
+	Rhost_set_system_dark: { args: ["i32"], returns: "void" },
 	Rhost_inject_mouse_move: { args: ["u32", "i32", "i32", "u32"], returns: "void" },
 	Rhost_inject_mouse_button: { args: ["u32", "i32", "i32", "i32", "i32", "u32"], returns: "void" },
 	Rhost_inject_mouse_wheel: { args: ["u32", "f32", "f32", "u32"], returns: "void" },
@@ -4159,7 +4161,7 @@ export class RDropEvent extends RStruct {
 
 /** How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings). */
 export class RTouchSettings extends RStruct {
-	static readonly SIZE = 52;
+	static readonly SIZE = 56;
 
 	constructor(pointer?: Pointer) {
 		super(RTouchSettings.SIZE, pointer);
@@ -4272,6 +4274,22 @@ export class RTouchSettings extends RStruct {
 	}
 	set swipe_distance(value: number) {
 		this._view.setFloat32(48, value, true);
+	}
+
+	/**
+	 * Smallest height (logical units) of what a finger presses: buttons,
+	 * fields, combo boxes, tabs and bars are at least this high, rows of
+	 * lists, trees, tables and menus too, and so are check boxes, switches
+	 * and sliders, whose box and handle grow to half of it. Whatever the
+	 * theme or a widget asks for, 0 leaves the sizes as they are.
+	 * Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+	 * 0 elsewhere.
+	 */
+	get min_touch_size(): number {
+		return this._view.getFloat32(52, true);
+	}
+	set min_touch_size(value: number) {
+		this._view.setFloat32(52, value, true);
 	}
 }
 
@@ -7541,7 +7559,10 @@ export function Rwindow_get_safe_area(window: Rid, insets: RInsets | null): void
 /**
  * The part of the window the on-screen keyboard covers (only
  * `bottom` is set), in logical units; 0 when it is hidden or there is
- * none (desktop). The content is laid out above it already.
+ * none (desktop). The content is laid out above it already, and the
+ * field that has the focus is scrolled into view above it, by the
+ * ScrollBoxes that hold it, when the keyboard comes or changes height,
+ * when the window turns, and when another field takes the focus.
  */
 export function Rwindow_get_keyboard_area(window: Rid, insets: RInsets | null): void {
 	_lib.Rwindow_get_keyboard_area(window, _p(insets));
@@ -8269,6 +8290,11 @@ export function Rtheme_get_color(role: RColorRole): [r: number, g: number, b: nu
 	return [r_[0]!, g_[0]!, b_[0]!, a_[0]!];
 }
 
+/**
+ * Changes a size of the theme in use. It lasts until the look or
+ * the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+ * switch between light and dark made by Rtheme_follow_system.
+ */
 export function Rtheme_set_metric(metric: RMetric, value: number): void {
 	_lib.Rtheme_set_metric(metric, value);
 }
@@ -8325,6 +8351,13 @@ export function Rtheme_get_system_dark(): number {
  * Follows the dark or light mode of the system with the Raven look
  * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
  * Off by default. Does nothing where the platform does not tell (desktop today).
+ *
+ * A switch is Rlook_set, except that the sizes given with
+ * Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+ * those of one mode and are lost; to keep colors, sizes and styles of
+ * the application through the switch, put them in a theme that names no
+ * look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+ * new look.
  */
 export function Rtheme_follow_system(enabled: number): void {
 	_lib.Rtheme_follow_system(enabled);
@@ -8891,7 +8924,7 @@ export function Rwidget_set_focusable(widget: Rid, focusable: number): void {
 	_lib.Rwidget_set_focusable(widget, focusable);
 }
 
-/** Gives the keyboard focus to the widget. */
+/** Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view). */
 export function Rwidget_focus(widget: Rid): void {
 	_lib.Rwidget_focus(widget);
 }
@@ -9023,7 +9056,11 @@ export function Rwidget_clear_metric(widget: Rid, metric: RMetric): void {
 	_lib.Rwidget_clear_metric(widget, metric);
 }
 
-/** Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme. */
+/**
+ * Returns: The metric the widget uses: its own, else the one of a style,
+ * else the one of its theme; grown for larger text
+ * (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
+ */
 export function Rwidget_get_metric(widget: Rid, metric: RMetric): number {
 	return _lib.Rwidget_get_metric(widget, metric);
 }
@@ -9193,7 +9230,12 @@ export function Rscroll_box_scroll_to_end(scroll_box: Rid): void {
 	_lib.Rscroll_box_scroll_to_end(scroll_box);
 }
 
-/** Scrolls every ScrollBox above the widget so that the widget is visible. */
+/**
+ * Scrolls every ScrollBox above the widget so that the widget is
+ * visible. The library does it by itself for the focused widget when the
+ * focus comes from Tab or Rwidget_focus, and for a text field above the
+ * on-screen keyboard (Rwindow_get_keyboard_area).
+ */
 export function Rwidget_scroll_into_view(widget: Rid): void {
 	_lib.Rwidget_scroll_into_view(widget);
 }
@@ -14300,6 +14342,25 @@ export function Rhost_platform_is_active(): number {
 /** Size of a host window in pixels, and pixels per logical unit. */
 export function Rhost_window_set_size(window: Rid, width: number, height: number, scale: number): void {
 	_lib.Rhost_window_set_size(window, width, height, scale);
+}
+
+/**
+ * What covers a host window on a phone or a tablet, in pixels: the
+ * safe area (status bar, notch, home indicator; NULL: none) and the height
+ * of the on-screen keyboard over its bottom (0: hidden). The content is laid
+ * out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+ */
+export function Rhost_window_set_insets(window: Rid, safe_area: RInsets | null, keyboard_height: number): void {
+	_lib.Rhost_window_set_insets(window, _p(safe_area), keyboard_height);
+}
+
+/**
+ * The application's system is in dark (R_TRUE) or light (R_FALSE)
+ * mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+ * and Rtheme_follow_system follows it.
+ */
+export function Rhost_set_system_dark(dark: number): void {
+	_lib.Rhost_set_system_dark(dark);
 }
 
 export function Rhost_inject_mouse_move(window: Rid, x: number, y: number, modifiers: number): void {

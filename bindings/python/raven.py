@@ -1854,6 +1854,7 @@ class RTouchSettings(ctypes.Structure):
         ("trackpad_gestures", ctypes.c_int),
         ("swipe_navigation", ctypes.c_int),
         ("swipe_distance", ctypes.c_float),
+        ("min_touch_size", ctypes.c_float),
     ]
 
 
@@ -3475,7 +3476,10 @@ _lib.Rwindow_get_keyboard_area.restype = None
 def Rwindow_get_keyboard_area(window, insets):
     """The part of the window the on-screen keyboard covers (only
     `bottom` is set), in logical units; 0 when it is hidden or there is
-    none (desktop). The content is laid out above it already."""
+    none (desktop). The content is laid out above it already, and the
+    field that has the focus is scrolled into view above it, by the
+    ScrollBoxes that hold it, when the keyboard comes or changes height,
+    when the window turns, and when another field takes the focus."""
     _lib.Rwindow_get_keyboard_area(window, _p(insets))
 
 
@@ -4614,6 +4618,9 @@ _lib.Rtheme_set_metric.restype = None
 
 
 def Rtheme_set_metric(metric, value):
+    """Changes a size of the theme in use. It lasts until the look or
+    the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+    switch between light and dark made by Rtheme_follow_system."""
     _lib.Rtheme_set_metric(int(metric), value)
 
 
@@ -4698,7 +4705,14 @@ _lib.Rtheme_follow_system.restype = None
 def Rtheme_follow_system(enabled):
     """Follows the dark or light mode of the system with the Raven look
     (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
-    Off by default. Does nothing where the platform does not tell (desktop today)."""
+    Off by default. Does nothing where the platform does not tell (desktop today).
+    
+    A switch is Rlook_set, except that the sizes given with
+    Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+    those of one mode and are lost; to keep colors, sizes and styles of
+    the application through the switch, put them in a theme that names no
+    look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+    new look."""
     _lib.Rtheme_follow_system(enabled)
 
 
@@ -5567,7 +5581,7 @@ _lib.Rwidget_focus.restype = None
 
 
 def Rwidget_focus(widget):
-    """Gives the keyboard focus to the widget."""
+    """Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view)."""
     _lib.Rwidget_focus(widget)
 
 
@@ -5769,7 +5783,9 @@ _lib.Rwidget_get_metric.restype = ctypes.c_float
 
 
 def Rwidget_get_metric(widget, metric):
-    """Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme."""
+    """Returns: The metric the widget uses: its own, else the one of a style,
+    else the one of its theme; grown for larger text
+    (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size)."""
     return _lib.Rwidget_get_metric(widget, int(metric))
 
 
@@ -6041,7 +6057,10 @@ _lib.Rwidget_scroll_into_view.restype = None
 
 
 def Rwidget_scroll_into_view(widget):
-    """Scrolls every ScrollBox above the widget so that the widget is visible."""
+    """Scrolls every ScrollBox above the widget so that the widget is
+    visible. The library does it by itself for the focused widget when the
+    focus comes from Tab or Rwidget_focus, and for a text field above the
+    on-screen keyboard (Rwindow_get_keyboard_area)."""
     _lib.Rwidget_scroll_into_view(widget)
 
 
@@ -14575,6 +14594,29 @@ _lib.Rhost_window_set_size.restype = None
 def Rhost_window_set_size(window, width, height, scale):
     """Size of a host window in pixels, and pixels per logical unit."""
     _lib.Rhost_window_set_size(window, width, height, scale)
+
+
+_lib.Rhost_window_set_insets.argtypes = [ctypes.c_uint32, ctypes.POINTER(RInsets), ctypes.c_int]
+_lib.Rhost_window_set_insets.restype = None
+
+
+def Rhost_window_set_insets(window, safe_area, keyboard_height):
+    """What covers a host window on a phone or a tablet, in pixels: the
+    safe area (status bar, notch, home indicator; NULL: none) and the height
+    of the on-screen keyboard over its bottom (0: hidden). The content is laid
+    out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area)."""
+    _lib.Rhost_window_set_insets(window, _p(safe_area), keyboard_height)
+
+
+_lib.Rhost_set_system_dark.argtypes = [ctypes.c_int]
+_lib.Rhost_set_system_dark.restype = None
+
+
+def Rhost_set_system_dark(dark):
+    """The application's system is in dark (R_TRUE) or light (R_FALSE)
+    mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+    and Rtheme_follow_system follows it."""
+    _lib.Rhost_set_system_dark(dark)
 
 
 _lib.Rhost_inject_mouse_move.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_uint32]

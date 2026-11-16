@@ -1036,6 +1036,7 @@ struct RTouchSettings {
 	int trackpad_gestures;
 	int swipe_navigation;
 	float swipe_distance;
+	float min_touch_size;
 };
 struct RTouchEvent {
 	RTouchPhase phase;
@@ -2469,6 +2470,8 @@ int Raccessibility_is_screen_reader_active(void);
 void Rhost_platform_register(const RHostPlatformDesc* desc);
 int Rhost_platform_is_active(void);
 void Rhost_window_set_size(Rid window, int width, int height, float scale);
+void Rhost_window_set_insets(Rid window, const RInsets* safe_area, int keyboard_height);
+void Rhost_set_system_dark(int dark);
 void Rhost_inject_mouse_move(Rid window, int x, int y, Ruint modifiers);
 void Rhost_inject_mouse_button(Rid window, int x, int y, RMouseButton button, int pressed, Ruint modifiers);
 void Rhost_inject_mouse_wheel(Rid window, float wheel_x, float wheel_y, Ruint modifiers);

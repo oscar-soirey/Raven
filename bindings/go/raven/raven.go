@@ -2075,6 +2075,8 @@ func ThemeGetColor(role RColorRole) (r float32, g float32, b float32, a float32)
 	return
 }
 
+// ThemeSetMetric: Changes a size of the theme in use. It lasts until the look or the theme is chosen again
+// (Rlook_set, Rtheme_use), but not through a switch between light and dark made by Rtheme_follow_system.
 func ThemeSetMetric(metric RMetric, value float32) {
 	C.Rtheme_set_metric(C.RMetric(metric), C.float(value))
 }
@@ -2122,7 +2124,10 @@ func ThemeGetSystemDark() int {
 
 // ThemeFollowSystem: Follows the dark or light mode of the system with the Raven look (R_LOOK_RAVEN_DARK /
 // R_LOOK_RAVEN_LIGHT), now and when it changes. Off by default. Does nothing where the platform does not tell
-// (desktop today).
+// (desktop today). A switch is Rlook_set, except that the sizes given with Rtheme_set_metric stay. Colors and
+// styles set with Rtheme_set_... are those of one mode and are lost; to keep colors, sizes and styles of the
+// application through the switch, put them in a theme that names no look (Rtheme_load_from_memory, then
+// Rtheme_use): it is laid over the new look.
 func ThemeFollowSystem(enabled int) {
 	C.Rtheme_follow_system(C.int(enabled))
 }
@@ -2634,7 +2639,7 @@ func WidgetSetFocusable(widget ID, focusable int) {
 	C.Rwidget_set_focusable(C.Rid(widget), C.int(focusable))
 }
 
-// WidgetFocus: Gives the keyboard focus to the widget.
+// WidgetFocus: Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 func WidgetFocus(widget ID) {
 	C.Rwidget_focus(C.Rid(widget))
 }
@@ -2730,7 +2735,8 @@ func WidgetClearMetric(widget ID, metric RMetric) {
 }
 
 // WidgetGetMetric: Returns: The metric the widget uses: its own, else the one of a style, else the one of its
-// theme.
+// theme; grown for larger text (Raccessibility_set_text_scale) and for a finger
+// (RTouchSettings::min_touch_size).
 func WidgetGetMetric(widget ID, metric RMetric) float32 {
 	return float32(C.Rwidget_get_metric(C.Rid(widget), C.RMetric(metric)))
 }
@@ -2893,7 +2899,9 @@ func ScrollBoxScrollToEnd(scroll_box ID) {
 	C.Rscroll_box_scroll_to_end(C.Rid(scroll_box))
 }
 
-// WidgetScrollIntoView: Scrolls every ScrollBox above the widget so that the widget is visible.
+// WidgetScrollIntoView: Scrolls every ScrollBox above the widget so that the widget is visible. The library
+// does it by itself for the focused widget when the focus comes from Tab or Rwidget_focus, and for a text
+// field above the on-screen keyboard (Rwindow_get_keyboard_area).
 func WidgetScrollIntoView(widget ID) {
 	C.Rwidget_scroll_into_view(C.Rid(widget))
 }
@@ -7477,6 +7485,12 @@ func HostWindowSetSize(window ID, width int, height int, scale float32) {
 	C.Rhost_window_set_size(C.Rid(window), C.int(width), C.int(height), C.float(scale))
 }
 
+// HostSetSystemDark: The application's system is in dark (R_TRUE) or light (R_FALSE) mode, -1 when it does
+// not tell (the default): Rtheme_get_system_dark, and Rtheme_follow_system follows it.
+func HostSetSystemDark(dark int) {
+	C.Rhost_set_system_dark(C.int(dark))
+}
+
 func HostInjectMouseMove(window ID, x int, y int, modifiers uint32) {
 	C.Rhost_inject_mouse_move(C.Rid(window), C.int(x), C.int(y), C.Ruint(modifiers))
 }
@@ -7565,4 +7579,4 @@ func HostInjectClose(window ID) {
 // Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
 // Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
 // Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rwidget_set_accessible_action, Rhost_platform_register
+// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets
