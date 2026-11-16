@@ -20,6 +20,9 @@ struct rvn_pwindow_t {
 	void* user;
 	char* title;
 	rvn_pwindow_state_t state;
+	/** Rhost_window_set_insets, in pixels: top, right, bottom, left; the on-screen keyboard. */
+	float safe_area[4];
+	float keyboard_height;
 };
 
 static struct {
@@ -33,6 +36,8 @@ static struct {
 	rvn_cond_t cond;
 	int woken;
 	char* clipboard;
+	/** Rhost_set_system_dark: 1 dark, 0 light, -1 not told (as at start). */
+	int dark;
 } g_host;
 
 int rvn_host_platform_registered(void) {
@@ -43,6 +48,7 @@ static int rvn_host_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t reg
 	RVN_UNUSED(regions);
 	memset(&g_host, 0, sizeof(g_host));
 	g_host.handler = handler; /* rvn_window_on_platform_event */
+	g_host.dark = -1;
 	rvn_mutex_init(&g_host.mutex);
 	rvn_cond_init(&g_host.cond);
 	return R_TRUE;
@@ -235,6 +241,18 @@ static char* rvn_host_clipboard_get(void) {
 	return rvn_strdup(g_host.clipboard);
 }
 
+static void rvn_host_window_get_safe_area(rvn_pwindow_t* window, float insets[4]) {
+	memcpy(insets, window->safe_area, sizeof(window->safe_area));
+}
+
+static float rvn_host_window_get_keyboard_height(rvn_pwindow_t* window) {
+	return window->keyboard_height;
+}
+
+static int rvn_host_system_dark(void) {
+	return g_host.dark;
+}
+
 const rvn_platform_t* rvn_platform_host(void) {
 	static const rvn_platform_t platform = {
 		.name = "host",
@@ -265,7 +283,10 @@ const rvn_platform_t* rvn_platform_host(void) {
 		.pump = rvn_host_pump,
 		.wake = rvn_host_wake,
 		.clipboard_set = rvn_host_clipboard_set,
-		.clipboard_get = rvn_host_clipboard_get
+		.clipboard_get = rvn_host_clipboard_get,
+		.window_get_safe_area = rvn_host_window_get_safe_area,
+		.system_dark = rvn_host_system_dark,
+		.window_get_keyboard_height = rvn_host_window_get_keyboard_height
 	};
 	return &platform;
 }
@@ -322,6 +343,38 @@ void Rhost_window_set_size(Rid id, int width, int height, float scale) {
 	platform->height = height;
 	platform->scale = scale;
 	rvn_host_send_resize(platform);
+}
+
+void Rhost_window_set_insets(Rid id, const RInsets* safe_area, int keyboard_height) {
+	rvn_window_t* window = rvn_host_target(id, "Rhost_window_set_insets");
+	rvn_pwindow_t* platform;
+	rvn_pevent_t event;
+	if (!window) return;
+	platform = window->platform;
+	platform->safe_area[0] = safe_area ? rvn_maxf(safe_area->top, 0.0f) : 0.0f;
+	platform->safe_area[1] = safe_area ? rvn_maxf(safe_area->right, 0.0f) : 0.0f;
+	platform->safe_area[2] = safe_area ? rvn_maxf(safe_area->bottom, 0.0f) : 0.0f;
+	platform->safe_area[3] = safe_area ? rvn_maxf(safe_area->left, 0.0f) : 0.0f;
+	platform->keyboard_height = (float)(keyboard_height > 0 ? keyboard_height : 0);
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_INSETS;
+	rvn_host_send(window, &event);
+}
+
+void Rhost_set_system_dark(int dark) {
+	rvn_pevent_t event;
+	if (!rvn_api_check("Rhost_set_system_dark")) return;
+	if (g_rvn.platform != rvn_platform_host()) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR,
+			"Rhost_set_system_dark: the host platform is not in use (call Rhost_platform_register before Rinit)");
+		return;
+	}
+	dark = dark < 0 ? -1 : dark != 0;
+	if (dark == g_host.dark) return;
+	g_host.dark = dark;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_APPEARANCE;
+	g_host.handler(&event);
 }
 
 void Rhost_inject_mouse_move(Rid id, int x, int y, Ruint modifiers) {

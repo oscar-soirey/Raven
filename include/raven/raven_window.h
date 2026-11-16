@@ -395,7 +395,10 @@ extern "C" {
 	/**
 	 * @brief The part of the window the on-screen keyboard covers (only
 	 * `bottom` is set), in logical units; 0 when it is hidden or there is
-	 * none (desktop). The content is laid out above it already.
+	 * none (desktop). The content is laid out above it already, and the
+	 * field that has the focus is scrolled into view above it, by the
+	 * ScrollBoxes that hold it, when the keyboard comes or changes height,
+	 * when the window turns, and when another field takes the focus.
 	 */
 	RAVEN_API void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
 	/** @brief Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it. */

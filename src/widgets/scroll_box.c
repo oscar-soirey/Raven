@@ -301,10 +301,9 @@ static void rvn_scroll_box_reveal(rvn_scrollbar_t* bar, float position, float si
 	else if (end > bar->offset + bar->viewport) rvn_scrollbar_set(bar, end - bar->viewport);
 }
 
-void Rwidget_scroll_into_view(Rid id) {
+void rvn_widget_reveal(rvn_widget_t* widget, float margin) {
 	rvn_widget_t* ancestor;
 	rvn_widget_t* target;
-	RVN_WIDGET_VOID(widget, id, 0);
 	rvn_scroll_box_sync(widget);
 	target = widget;
 	/* every scroll box above the widget brings it into its own view */
@@ -317,14 +316,21 @@ void Rwidget_scroll_into_view(Rid id) {
 		vertical = rvn_scroll_box_vertical(ancestor);
 		inner = rvn_widget_origin(target);
 		outer = rvn_widget_origin(ancestor);
+		/* (the margin only around the widget itself: a scroll box inside another one is shown as it is) */
 		if (vertical) {
-			rvn_scroll_box_reveal(&box->main_bar, inner.y - outer.y, target->rect.h);
-			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.x - outer.x, target->rect.w);
+			rvn_scroll_box_reveal(&box->main_bar, inner.y - outer.y - margin, target->rect.h + margin * 2.0f);
+			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.x - outer.x - margin, target->rect.w + margin * 2.0f);
 		} else {
-			rvn_scroll_box_reveal(&box->main_bar, inner.x - outer.x, target->rect.w);
-			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.y - outer.y, target->rect.h);
+			rvn_scroll_box_reveal(&box->main_bar, inner.x - outer.x - margin, target->rect.w + margin * 2.0f);
+			if (box->scroll_both) rvn_scroll_box_reveal(&box->cross_bar, inner.y - outer.y - margin, target->rect.h + margin * 2.0f);
 		}
 		rvn_scroll_box_apply(ancestor);
 		target = ancestor;
+		margin = 0.0f;
 	}
+}
+
+void Rwidget_scroll_into_view(Rid id) {
+	RVN_WIDGET_VOID(widget, id, 0);
+	rvn_widget_reveal(widget, 0.0f);
 }

@@ -348,7 +348,7 @@ extern "C" {
 	RAVEN_API int Rwidget_is_hovered(Rid widget);
 
 	RAVEN_API void Rwidget_set_focusable(Rid widget, int focusable);
-	/** @brief Gives the keyboard focus to the widget. */
+	/** @brief Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view). */
 	RAVEN_API void Rwidget_focus(Rid widget);
 	RAVEN_API int Rwidget_is_focused(Rid widget);
 

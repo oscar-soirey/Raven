@@ -393,6 +393,35 @@ static void rvn_window_refresh_hover(rvn_window_t* window) {
  *  Focus
  * ------------------------------------------------------------------------- */
 
+/* R_TRUE when the focused widget takes text: the on-screen keyboard shows for it. */
+static int rvn_window_focus_takes_text(const rvn_window_t* window) {
+	RWidgetType type;
+	if (!window->focus || (window->focus->flags & RVN_WF_DEAD)) return R_FALSE;
+	type = window->focus->cls->type;
+	return type == R_WIDGET_TEXT_INPUT || type == R_WIDGET_TEXT_EDITOR || type == R_WIDGET_SPIN_BOX;
+}
+
+void rvn_window_reveal_focus(rvn_window_t* window) {
+	if (!window->focus) return;
+	window->reveal_focus = R_TRUE;
+	window->needs_layout = R_TRUE;
+}
+
+/*
+ * After a layout: the focused widget asked to be seen. The content is laid
+ * out above the on-screen keyboard, so what the ScrollBoxes above the
+ * widget show is not under it.
+ * SHORTCUT: the whole widget is revealed, not its caret: the caret of a
+ * TextEditor taller than its ScrollBox may stay out of view.
+ */
+#define RVN_REVEAL_MARGIN 12.0f
+
+static void rvn_window_reveal_focus_now(rvn_window_t* window) {
+	window->reveal_focus = R_FALSE;
+	if (!window->focus || (window->focus->flags & RVN_WF_DEAD) || !rvn_widget_is_shown(window->focus)) return;
+	rvn_widget_reveal(window->focus, RVN_REVEAL_MARGIN);
+}
+
 void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 	rvn_widget_t* old = window->focus;
 	REvent event;
@@ -415,6 +444,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 	}
 	/* an island in the camera housing: its overlay takes the keyboard while something in it has the focus */
 	if (!window->dead && window->notch_owner) rvn_window_notch_focus(window);
+	/* the on-screen keyboard is up and stays for another field: that one is shown above it (when the keyboard comes, see rvn_window_update_keyboard) */
+	if (!window->dead && window->keyboard_height > 0.0f && rvn_window_focus_takes_text(window)) rvn_window_reveal_focus(window);
 	rvn_dispatch_end();
 }
 
@@ -462,6 +493,8 @@ static void rvn_window_focus_next(rvn_window_t* window, int direction) {
 	else index = (index + (direction > 0 ? 1u : list.count - 1u)) % list.count;
 	window->focus_visible = R_TRUE;
 	rvn_window_set_focus(window, list.items[index]);
+	/* the keyboard moved the focus: what has it is shown */
+	if (!window->dead && window->focus == list.items[index]) rvn_window_reveal_focus(window);
 	rvn_free(list.items);
 }
 
@@ -660,10 +693,15 @@ static void rvn_window_layout_popup(rvn_window_t* window, rvn_popup_t* popup) {
 
 	switch (popup->placement) {
 		case RVN_POPUP_DIALOG: {
+			/* in the middle of what the content has: inside the safe area, above the on-screen keyboard
+			 * (the veil behind it covers the whole window, rvn_window_paint_dialog) */
+			const float* safe = window->safe_area;
 			float room = RVN_DIALOG_MARGIN + RVN_DIALOG_PADDING;
-			width = rvn_minf(desired.x, rvn_maxf(area.x - room * 2.0f, 40.0f));
-			height = rvn_minf(desired.y, rvn_maxf(area.y - room * 2.0f, 40.0f));
-			rvn_widget_arrange(popup->root, floorf((area.x - width) * 0.5f), floorf((area.y - height) * 0.5f), width, height);
+			float free_w = rvn_maxf(area.x - safe[1] - safe[3], 0.0f);
+			float free_h = rvn_maxf(area.y - safe[0] - rvn_maxf(safe[2], window->keyboard_height), 0.0f);
+			width = rvn_minf(desired.x, rvn_maxf(free_w - room * 2.0f, 40.0f));
+			height = rvn_minf(desired.y, rvn_maxf(free_h - room * 2.0f, 40.0f));
+			rvn_widget_arrange(popup->root, floorf(safe[3] + (free_w - width) * 0.5f), floorf(safe[0] + (free_h - height) * 0.5f), width, height);
 			return;
 		}
 		case RVN_POPUP_BELOW:
@@ -777,6 +815,8 @@ static void rvn_window_update_keyboard(rvn_window_t* window) {
 	window->keyboard_height = height;
 	window->needs_layout = R_TRUE;
 	window->needs_paint = R_TRUE;
+	/* the keyboard came, or changed height (rotation, another layout of keys): the field typed in stays above it */
+	if (height > 0.0f && rvn_window_focus_takes_text(window)) rvn_window_reveal_focus(window);
 	if (window->keyboard_callback) window->keyboard_callback(window->id, height > 0.0f, height, window->keyboard_user);
 }
 
@@ -818,6 +858,7 @@ void rvn_window_layout(rvn_window_t* window) {
 	}
 	window->needs_layout = R_FALSE;
 	window->needs_paint = R_TRUE;
+	if (window->reveal_focus) rvn_window_reveal_focus_now(window);
 	/* an overlay of the camera housing: its size and the part of it that takes the mouse follow the island */
 	if (window->notch_owner) rvn_window_overlay_fit(window);
 	window->stats.layout_ms = (rvn_clock_seconds() - start) * 1000.0;
@@ -1879,6 +1920,8 @@ static void rvn_window_resized(rvn_window_t* window, int width_px, int height_px
 	rvn_window_close_popups(window);
 	window->needs_layout = R_TRUE;
 	window->needs_paint = R_TRUE;
+	/* turned with the on-screen keyboard up: the field typed in stays above it (on a desktop, resizing scrolls nothing) */
+	if (window->keyboard_height > 0.0f && rvn_window_focus_takes_text(window)) rvn_window_reveal_focus(window);
 	if (window->resize_callback) {
 		size = rvn_window_size(window);
 		window->resize_callback(window->id, (int)(size.x + 0.5f), (int)(size.y + 0.5f), window->resize_user);
@@ -3125,10 +3168,7 @@ Rid Rwindow_get_popup(Rid id, int index) {
 
 int Rwindow_wants_text_input(Rid id) {
 	rvn_window_t* window = rvn_window_check(id, "Rwindow_wants_text_input");
-	RWidgetType type;
-	if (!window || !window->focus || (window->focus->flags & RVN_WF_DEAD)) return R_FALSE;
-	type = window->focus->cls->type;
-	return type == R_WIDGET_TEXT_INPUT || type == R_WIDGET_TEXT_EDITOR || type == R_WIDGET_SPIN_BOX ? R_TRUE : R_FALSE;
+	return window && rvn_window_focus_takes_text(window) ? R_TRUE : R_FALSE;
 }
 
 int Rwindow_get_text_input_rect(Rid id, int* x, int* y, int* width, int* height) {

@@ -772,6 +772,8 @@ void Rwidget_set_focusable(Rid id, int focusable) {
 void Rwidget_focus(Rid id) {
 	RVN_WIDGET_VOID(widget, id, 0);
 	rvn_widget_focus(widget);
+	/* given by the application (the next field after Enter): it is shown */
+	if (widget->window && !widget->window->dead && widget->window->focus == widget) rvn_window_reveal_focus(widget->window);
 }
 
 int Rwidget_is_focused(Rid id) {
