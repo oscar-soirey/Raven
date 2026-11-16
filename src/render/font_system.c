@@ -11,18 +11,18 @@
  *   Windows  %WINDIR%\Fonts: Segoe UI, Segoe UI Emoji (color, COLR),
  *            Segoe UI Symbol, Microsoft YaHei, Yu Gothic, Malgun Gothic,
  *            Nirmala UI, Ebrima, Tahoma, Arial...
- *   macOS    /System/Library/Fonts (and Supplemental): Geeza Pro, Arial
- *            Hebrew, PingFang, Hiragino, Apple SD Gothic Neo, Kohinoor,
- *            Thonburi, Apple Symbols, Arial Unicode...
- *   iOS      the font CoreText would draw the character with, then the
- *            fonts of the system's fallback list that have it: the files of
- *            the system move between versions of iOS, so they are not named
- *            here.
+ *   macOS    /System/Library/Fonts (and Supplemental): Apple Color Emoji
+ *            (color, sbix), Geeza Pro, Arial Hebrew, PingFang, Hiragino,
+ *            Apple SD Gothic Neo, Kohinoor, Thonburi, Apple Symbols...
+ *   iOS      the font CoreText would draw the character with: the files
+ *            of the system move between versions of iOS, so they are not
+ *            named here. Apple Color Emoji keeps its pictures in a format
+ *            of Apple's own there (emjc): CoreText draws those.
  *   Linux    every .ttf / .otf / .ttc in the font folders, chosen by name
- *            (Noto Sans <Script>, Noto Color Emoji in its COLR version,
+ *            (Noto Sans <Script>, Noto Color Emoji (color, CBDT or COLR),
  *            DejaVu Sans, FreeSans...)
  *   Android  the same, in /system/fonts (Roboto, Noto Sans <Script>, Noto
- *            Sans CJK)
+ *            Sans CJK, Noto Color Emoji)
  */
 
 #include "font.h"
@@ -42,6 +42,7 @@
 #endif
 #if defined(__APPLE__) && TARGET_OS_IPHONE
 #include <CoreText/CoreText.h>
+#include <CoreGraphics/CoreGraphics.h>
 #define RVN_SYSTEM_CORETEXT 1
 #endif
 
@@ -227,6 +228,8 @@ static rvn_system_file_t* rvn_coretext_file(CTFontRef font) {
 		file = data ? rvn_system_file(path, face) : NULL;
 	}
 	if (url) CFRelease(url);
+	/* a font of color glyphs: kept, for the pictures Raven cannot decode (rvn_font_system_draw) */
+	if (file && !file->native && (CTFontGetSymbolicTraits(font) & kCTFontTraitColorGlyphs)) file->native = (void*)CFRetain(font);
 	g_coretext = rvn_realloc(g_coretext, (size_t)(g_coretext_count + 1) * sizeof(*g_coretext));
 	g_coretext[g_coretext_count].name = rvn_strdup(key);
 	g_coretext[g_coretext_count].file = file;
@@ -272,6 +275,58 @@ static void rvn_system_ask(uint32_t codepoint, int list) {
 	if (text) CFRelease(text);
 }
 
+uint8_t* rvn_font_system_draw(const rvn_system_file_t* file, int glyph, float size_px, int* x0, int* y0, int* width, int* height) {
+	CTFontRef font;
+	CGGlyph id = (CGGlyph)glyph;
+	CGRect box;
+	CGColorSpaceRef space;
+	CGContextRef context;
+	CGPoint position;
+	uint8_t* pixels;
+	int w, h, left, top, i;
+	if (!file || !file->native || glyph <= 0 || glyph > 0xFFFF || size_px < 1.0f) return NULL;
+	font = CTFontCreateCopyWithAttributes((CTFontRef)file->native, (CGFloat)size_px, NULL, NULL);
+	if (!font) return NULL;
+	box = CTFontGetBoundingRectsForGlyphs(font, kCTFontOrientationHorizontal, &id, NULL, 1);
+	/* the box of the glyph in pixels (y up), with a pixel to spare on each side */
+	left = (int)floor(box.origin.x) - 1;
+	top = (int)ceil(box.origin.y + box.size.height) + 1;
+	w = (int)ceil(box.origin.x + box.size.width) + 1 - left;
+	h = top - ((int)floor(box.origin.y) - 1);
+	if (w <= 0 || h <= 0 || w > 1024 || h > 1024) {
+		CFRelease(font);
+		return NULL;
+	}
+	pixels = (uint8_t*)rvn_calloc((size_t)w * (size_t)h * 4);
+	space = CGColorSpaceCreateDeviceRGB();
+	context = CGBitmapContextCreate(pixels, (size_t)w, (size_t)h, 8, (size_t)w * 4, space,
+		(CGBitmapInfo)kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+	CGColorSpaceRelease(space);
+	if (!context) {
+		rvn_free(pixels);
+		CFRelease(font);
+		return NULL;
+	}
+	position = CGPointMake((CGFloat)-left, (CGFloat)(h - top));
+	CTFontDrawGlyphs(font, &id, &position, 1, context);
+	CGContextRelease(context);
+	CFRelease(font);
+	/* CoreGraphics gives premultiplied alpha, Raven's textures are straight */
+	for (i = 0; i < w * h; i++) {
+		uint8_t* p = pixels + (size_t)i * 4;
+		if (p[3] && p[3] < 255) {
+			p[0] = (uint8_t)rvn_mini(255, (p[0] * 255 + p[3] / 2) / p[3]);
+			p[1] = (uint8_t)rvn_mini(255, (p[1] * 255 + p[3] / 2) / p[3]);
+			p[2] = (uint8_t)rvn_mini(255, (p[2] * 255 + p[3] / 2) / p[3]);
+		}
+	}
+	*x0 = left;
+	*y0 = -top;
+	*width = w;
+	*height = h;
+	return pixels;
+}
+
 #elif defined(__APPLE__)
 
 static const rvn_system_font_t g_mac_fonts[] = {
@@ -288,8 +343,7 @@ static const rvn_system_font_t g_mac_fonts[] = {
 	{ RVN_SCRIPT_KANA, "\xE3\x83\x92\xE3\x83\xA9\xE3\x82\xAE\xE3\x83\x8E\xE8\xA7\x92\xE3\x82\xB4\xE3\x82\xB7\xE3\x83\x83\xE3\x82\xAF W3.ttc" }, { RVN_SCRIPT_KANA, "Hiragino Sans GB.ttc" },
 	{ RVN_SCRIPT_HAN, "PingFang.ttc" }, { RVN_SCRIPT_HAN, "Hiragino Sans GB.ttc" }, { RVN_SCRIPT_HAN, "STHeiti Light.ttc" },
 	{ RVN_SCRIPT_SYMBOL, "Apple Symbols.ttf" }, { RVN_SCRIPT_SYMBOL, "Supplemental/Arial Unicode.ttf" },
-	/* (Apple Color Emoji is made of bitmaps: the outlines of Apple Symbols stand in) */
-	{ RVN_SCRIPT_EMOJI, "Apple Symbols.ttf" }, { RVN_SCRIPT_EMOJI, "Supplemental/Arial Unicode.ttf" },
+	{ RVN_SCRIPT_EMOJI, "Apple Color Emoji.ttc" }, { RVN_SCRIPT_EMOJI, "Apple Symbols.ttf" }, { RVN_SCRIPT_EMOJI, "Supplemental/Arial Unicode.ttf" },
 	{ RVN_SCRIPT_COUNT, "Supplemental/Arial Unicode.ttf" }, { RVN_SCRIPT_COUNT, "Helvetica.ttc" }, { RVN_SCRIPT_COUNT, "Apple Symbols.ttf" }
 };
 
@@ -322,7 +376,8 @@ static const char* const* rvn_linux_patterns(int script) {
 	static const char* const cjk[] = { "NotoSansCJK-Regular", "NotoSansCJKsc-Regular", "NotoSansCJKjp-Regular", "NotoSansSC-Regular",
 		"NotoSansJP-Regular", "NotoSansKR-Regular", "wqy-microhei", "wqy-zenhei", "DroidSansFallback", "ukai", "uming", NULL };
 	static const char* const symbol[] = { "NotoSansSymbols-Regular", "NotoSansSymbols2-Regular", "NotoSansMath-Regular", "DejaVuSans.", "FreeSerif.", "Symbola", NULL };
-	static const char* const emoji[] = { "Noto-COLRv1", "NotoColorEmoji-COLR", "Twemoji", "NotoEmoji-Regular", "NotoEmoji", "Symbola", "NotoSansSymbols2-Regular", "DejaVuSans.", NULL };
+	/* (Android: the Legacy one is in CBDT, the other may be COLRv1, whose gradients Raven does not draw) */
+	static const char* const emoji[] = { "Noto-COLRv1", "NotoColorEmoji-COLR", "NotoColorEmojiLegacy.", "NotoColorEmoji.", "Twemoji", "NotoEmoji-Regular", "NotoEmoji", "Symbola", "NotoSansSymbols2-Regular", "DejaVuSans.", NULL };
 	static const char* const broad[] = { "DejaVuSans.", "NotoSans-Regular", "Roboto-Regular", "FreeSans.", "FreeSerif.", "unifont", NULL };
 	switch (script) {
 		case RVN_SCRIPT_ARABIC: return arabic;
@@ -419,6 +474,21 @@ static void rvn_system_scan(void) {
 
 #endif
 
+#if !defined(RVN_SYSTEM_CORETEXT)
+
+uint8_t* rvn_font_system_draw(const rvn_system_file_t* file, int glyph, float size_px, int* x0, int* y0, int* width, int* height) {
+	RVN_UNUSED(file);
+	RVN_UNUSED(glyph);
+	RVN_UNUSED(size_px);
+	RVN_UNUSED(x0);
+	RVN_UNUSED(y0);
+	RVN_UNUSED(width);
+	RVN_UNUSED(height);
+	return NULL;
+}
+
+#endif
+
 int rvn_font_system_candidates(uint32_t codepoint, const rvn_system_file_t** files, int max) {
 	int script, count = 0, i, k;
 	if (!g_system.ready) {
@@ -444,6 +514,9 @@ void rvn_font_system_shutdown(void) {
 	int list, i;
 	for (list = 0; list <= RVN_SCRIPT_COUNT; list++) rvn_free(g_system.lists[list]);
 	for (i = 0; i < g_system.file_count; i++) {
+#if defined(RVN_SYSTEM_CORETEXT)
+		if (g_system.files[i]->native) CFRelease((CTFontRef)g_system.files[i]->native);
+#endif
 		rvn_free(g_system.files[i]->path);
 		rvn_free(g_system.files[i]);
 	}

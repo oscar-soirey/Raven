@@ -9,6 +9,7 @@
  */
 
 #include "test.h"
+#include "color_font.h"
 
 #include <stdlib.h>
 
@@ -457,6 +458,68 @@ static void test_text(void) {
 	/* three capital letters of 40 units cover a few hundred pixels, all inside the label */
 	CHECK(lit_inside > 300);
 	CHECK(lit_outside == 0);
+	Rwindow_destroy(window);
+}
+
+/* Pixels of the frame near a color (each channel within 40), and pixels of strong colors (not gray). */
+static void count_colors(int r, int g, int b, int* near, int* colorful) {
+	size_t i;
+	*near = *colorful = 0;
+	for (i = 0; g_pixels && i < (size_t)g_width * (size_t)g_height; i++) {
+		const uint8_t* p = g_pixels + i * 4;
+		int high = p[0] > p[1] ? (p[0] > p[2] ? p[0] : p[2]) : (p[1] > p[2] ? p[1] : p[2]);
+		int low = p[0] < p[1] ? (p[0] < p[2] ? p[0] : p[2]) : (p[1] < p[2] ? p[1] : p[2]);
+		if (abs(p[0] - r) < 40 && abs(p[1] - g) < 40 && abs(p[2] - b) < 40) (*near)++;
+		if (high - low > 100) (*colorful)++;
+	}
+}
+
+/* Color bitmaps (sbix, CBLC / CBDT): drawn in their own colors, whatever the color of the text; and the emoji of the system. */
+static void test_color_glyphs(void) {
+	static const char* const emoji_fonts[] = {
+		"/System/Library/Fonts/Apple Color Emoji.ttc",
+		"/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+		"/usr/share/fonts/noto/NotoColorEmoji.ttf",
+		"/usr/share/fonts/google-noto-color-emoji-fonts/NotoColorEmoji.ttf",
+	};
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"120\" ClearColor=\"#FFFFFF\">"
+		"  <Canvas><Label Name=\"label\" Slot.Position=\"20,20\" TextSize=\"32\" Color=\"#000000\">A</Label></Canvas>"
+		"</Window>");
+	Rid label = Rwidget_find(window, "label");
+	int cbdt, near, colorful;
+	size_t i;
+	for (cbdt = 0; cbdt < 2; cbdt++) {
+		size_t size = 0;
+		uint8_t* data = color_font_make(cbdt, cbdt ? 0 : 230, cbdt ? 200 : 30, cbdt ? 40 : 30, &size);
+		Rid font = Rfont_create((const char*)data, size);
+		CHECK(font != R_INVALID_ID);
+		Rlabel_set_font(label, font);
+		capture(window);
+		count_colors(cbdt ? 0 : 230, cbdt ? 200 : 30, cbdt ? 40 : 30, &near, &colorful);
+		/* a square of one em (32 units), scaled from its strike of 16 pixels */
+		CHECK(near > (int)(32 * 32 * 0.8f * g_scale * g_scale));
+		CHECK(near < (int)(34 * 34 * g_scale * g_scale));
+		Rlabel_set_font(label, R_INVALID_ID);
+		Rfont_destroy(font);
+		free(data);
+	}
+	for (i = 0; i < sizeof(emoji_fonts) / sizeof(emoji_fonts[0]); i++) {
+		FILE* file = fopen(emoji_fonts[i], "rb");
+		if (file) {
+			fclose(file);
+			break;
+		}
+	}
+	if (i == sizeof(emoji_fonts) / sizeof(emoji_fonts[0])) {
+		printf("  (no color emoji font of the system: skipped)\n");
+	} else {
+		/* U+1F600, from the fonts of the system: yellow, not the black of the text */
+		Rlabel_set_text(label, "\xF0\x9F\x98\x80");
+		capture(window);
+		count_colors(0, 0, 0, &near, &colorful);
+		CHECK(colorful > (int)(200 * g_scale * g_scale));
+	}
 	Rwindow_destroy(window);
 }
 
@@ -1224,6 +1287,7 @@ int main(void) {
 	RUN(test_mipmaps);
 	RUN(test_texture_streaming);
 	RUN(test_text);
+	RUN(test_color_glyphs);
 	RUN(test_label_foreground);
 	RUN(test_custom_drawing);
 	RUN(test_custom_shadow);

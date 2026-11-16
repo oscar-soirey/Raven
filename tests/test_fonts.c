@@ -10,10 +10,12 @@
  * The font of the test is Roboto (RAVEN_TEST_FONT): cut at many lengths, and
  * with bytes changed at random, each version is loaded, measured and drawn.
  * RAVEN_TEST_FONT_CFF, when the build gives one (a .otf with CFF outlines),
- * goes through the same.
+ * goes through the same, and so do two fonts of color bitmaps made by hand
+ * (sbix and CBLC / CBDT, the formats of the emoji of Apple and Google).
  */
 
 #include "test.h"
+#include "color_font.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -22,7 +24,7 @@
 #define RAVEN_TEST_FONT "Roboto-Regular-subset.ttf"
 #endif
 
-static const char* const SAMPLE = "Hello, W\xC3\xB6rld! 0123456789 \xE2\x80\x94 \xC3\xA9\xC3\xA8\xC3\xA0 {[(<&>)]} \xE2\x82\xAC";
+static const char* const SAMPLE = "A Hello, W\xC3\xB6rld! 0123456789 \xE2\x80\x94 \xC3\xA9\xC3\xA8\xC3\xA0 {[(<&>)]} \xE2\x82\xAC";
 
 static uint32_t g_random = 0x2545F491u;
 static uint32_t next_random(void) {
@@ -71,16 +73,11 @@ static int try_font(Rid window, Rid label, Rid bold, const char* data, size_t si
 	return font != R_INVALID_ID;
 }
 
-static void damage_font(const char* path, int cuts, int changes) {
-	size_t size = 0, cut, i;
-	char* original = read_whole(path, &size);
+static void damage_data(const char* name, const char* original, size_t size, int cuts, int changes) {
+	size_t cut, i;
 	char* copy;
 	Rid window, box, label, bold;
 	int taken = 0, k;
-	if (!original) {
-		printf("  (no font at %s: skipped)\n", path);
-		return;
-	}
 	window = Rwindow_create("fonts", 900, 300, 0);
 	box = Rwidget_create(R_WIDGET_VBOX);
 	label = Rlabel_create(SAMPLE);
@@ -113,11 +110,21 @@ static void damage_font(const char* path, int cuts, int changes) {
 		}
 		taken += try_font(window, label, bold, copy, size);
 	}
-	printf("  %s: %d damaged versions drawn, the others refused\n", path, taken);
+	printf("  %s: %d damaged versions drawn, the others refused\n", name, taken);
 	for (i = 0; i < 1; i++) CHECK(Rfont_is_valid(Rfont_get_default()));
 	free(copy);
-	free(original);
 	Rwindow_destroy(window);
+}
+
+static void damage_font(const char* path, int cuts, int changes) {
+	size_t size = 0;
+	char* original = read_whole(path, &size);
+	if (!original) {
+		printf("  (no font at %s: skipped)\n", path);
+		return;
+	}
+	damage_data(path, original, size, cuts, changes);
+	free(original);
 }
 
 static void test_damaged_ttf(void) {
@@ -194,6 +201,42 @@ static void test_composite_of_itself(void) {
 	free(data);
 }
 
+/*
+ * Fonts of color bitmaps without outlines (sbix, CBLC / CBDT): taken, their
+ * advances measured, their pictures drawn; then cut short and damaged.
+ */
+static void test_color_bitmap_fonts(void) {
+	int cbdt;
+	for (cbdt = 0; cbdt < 2; cbdt++) {
+		size_t size = 0;
+		char* data = (char*)color_font_make(cbdt, 255, 0, 0, &size);
+		float width = 0.0f, height = 0.0f;
+		Rid font;
+		EXPECT_ERRORS_BEGIN();
+		font = Rfont_create(data, size);
+		EXPECT_ERRORS_END(0);
+		CHECK(font != R_INVALID_ID);
+		if (font != R_INVALID_ID) {
+			Rid window = Rwindow_create("fonts", 300, 100, 0);
+			Rid label = Rlabel_create("AAA");
+			/* one em per glyph */
+			Rfont_measure_text(font, 20.0f, "AAA", &width, &height);
+			CHECK_NEAR(width, 60.0f);
+			Rlabel_set_font(label, font);
+			Rlabel_set_text_size(label, 12.0f);
+			Rwindow_set_content(window, label);
+			Rdraw_frame();
+			/* larger than the strike: the picture is scaled up */
+			Rlabel_set_text_size(label, 40.0f);
+			Rdraw_frame();
+			Rwindow_destroy(window);
+			Rfont_destroy(font);
+		}
+		damage_data(cbdt ? "CBLC / CBDT font" : "sbix font", data, size, 200, 800);
+		free(data);
+	}
+}
+
 /* A folder is not a file: reading it gives nothing, and asks for no memory. */
 static void test_folder_is_not_a_file(void) {
 	size_t size = 123;
@@ -258,6 +301,7 @@ int main(void) {
 	RUN(test_composite_of_itself);
 	RUN(test_damaged_ttf);
 	RUN(test_damaged_cff);
+	RUN(test_color_bitmap_fonts);
 	RUN(test_font_of_a_subtree);
 	Rshutdown();
 	return test_report("test_fonts");

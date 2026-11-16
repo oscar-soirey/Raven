@@ -37,7 +37,7 @@ $CC -g -fobjc-arc -I"$RAVEN/include" -I"$SHARED" -c "$HERE/src/main.m" -o "$HERE
 $CC -g -std=c11 -Wall -I"$RAVEN/include" -I"$SHARED" -c "$SHARED/showcase.c" -o "$HERE/build/showcase.o"
 $CC -o "$APP/Hello" "$HERE/build/main.o" "$HERE/build/showcase.o" "$BUILD/libraven.a" \
 	-framework UIKit -framework QuartzCore -framework Metal -framework CoreFoundation -framework Foundation \
-	-framework CoreText \
+	-framework CoreText -framework CoreGraphics \
 	-Wl,-rpath,@executable_path/Frameworks
 cp "$HERE/Info.plist" "$APP/Info.plist"
 cp -R "$MVK" "$APP/Frameworks/"

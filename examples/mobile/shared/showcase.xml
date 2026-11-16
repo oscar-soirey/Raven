@@ -42,8 +42,9 @@
 			<ScrollBox>
 				<VBox Spacing="18" Slot.Padding="16,8,16,16">
 					<Label Text="Controls" TextSize="28"/>
-					<!-- characters of the fonts of the system: other scripts and symbols -->
-					<Label Text="Hello 你好 こんにちは 안녕 مرحبا สวัสดี π € → ✓" Wrap="true"/>
+					<!-- characters of the fonts of the system: other scripts, symbols, color emoji -->
+					<Label Text="Hello 你好 こんにちは 안녕 مرحبا สวัสดี" Wrap="true"/>
+					<Label Text="π € → ✓ 😀 👍 🎉 🚀 🐦" Wrap="true"/>
 					<HBox Spacing="12">
 						<Button Name="counter" Text="Tap me" Style="Primary"/>
 						<Label Name="counter_label" Text="Tapped 0 times" Slot.VAlign="Center"/>
