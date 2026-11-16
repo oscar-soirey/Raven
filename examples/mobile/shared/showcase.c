@@ -3,8 +3,10 @@
  * showcase.xml holds the layout; this file fills and wires it.
  *
  * Tabs (bottom bar): List (1,000 rows + a detail page), Controls, Glass, Form.
- * "Back" = the Back button, Escape, or (Android) the system back key, which
- * the Android platform sends as R_KEY_ESCAPE.
+ * "Back" = the Back button, Escape, a swipe from the left edge, or the system's
+ * Back (Android: Rwindow_set_back_callback; the app tells Raven when it has
+ * somewhere to go back to, so that at the root the system leaves the app).
+ * The List page shows the last events of the application's lifecycle.
  */
 #include "showcase.h"
 
@@ -31,7 +33,7 @@ static struct {
 	Rid counter_label, slider_value, progress, progress_value, dialog_result;
 	Rid blur_value, frame_stats, blurs[4];
 	Rid name, email, phone, form_state, keyboard_state;
-	Rid toast;
+	Rid toast, lifecycle;
 	Rid circle;
 	Rid progress_timer, stats_timer;
 	int tab, taps, detail_index, dark;
@@ -42,7 +44,9 @@ static struct {
 	/* frame times seen by the frame callback (Glass tab) */
 	double frame_sum, frame_max;
 	int frame_count;
-	void (*exit_handler)(void);
+	/* the last lifecycle events, oldest first, and how many low-memory warnings came */
+	RAppEvent events[4];
+	int event_count, low_memory;
 } sc;
 
 void showcase_log(const char* format, ...) {
@@ -56,10 +60,6 @@ void showcase_log(const char* format, ...) {
 	fprintf(stderr, "\n");
 #endif
 	va_end(args);
-}
-
-void showcase_set_exit_handler(void (*handler)(void)) {
-	sc.exit_handler = handler;
 }
 
 /* ---------------------------------------------------------------- the data */
@@ -124,6 +124,8 @@ static void on_tile_item(Rid tile_view, int index, RTileItem* item, void* user_d
 
 /* ---------------------------------------------------------------- navigation */
 
+static void update_back(void);
+
 static void open_detail(int index) {
 	char text[160];
 	float r, g, b;
@@ -139,6 +141,7 @@ static void open_detail(int index) {
 	Rborder_set_background(sc.detail_swatch, r, g, b, 1.0f);
 	Rswitcher_set_index(sc.listnav, 1);
 	Rwidget_play_transition(sc.detail, R_TRANSITION_SLIDE_LEFT, 0.0f);
+	update_back();
 	showcase_log("open detail %d", index);
 }
 
@@ -156,10 +159,26 @@ static void close_detail(void) {
 
 static void set_tab(int tab);
 
+/* Tells Raven whether "back" has somewhere to go (Android asks for Back only then). */
+static void update_back(void) {
+	Rwindow_set_back_enabled(sc.window, detail_shown() || sc.tab != 0);
+}
+
 /* What "back" does: R_TRUE when it went somewhere, R_FALSE when there is nothing left. */
 static int go_back(void) {
-	if (detail_shown()) { close_detail(); return R_TRUE; }
-	if (sc.tab != 0) { set_tab(0); return R_TRUE; }
+	int went = R_TRUE;
+	if (detail_shown()) close_detail();
+	else if (sc.tab != 0) set_tab(0);
+	else went = R_FALSE;
+	update_back();
+	return went;
+}
+
+/* The system's Back (Android), when no dialog or popup of Raven took it. R_FALSE: the system leaves the app. */
+static int on_system_back(Rid window, void* user_data) {
+	(void)window; (void)user_data;
+	if (go_back()) return R_TRUE;
+	showcase_log("back: nothing left, the system leaves the app");
 	return R_FALSE;
 }
 
@@ -198,7 +217,7 @@ static int on_detail_touch(Rid widget, const RTouchEvent* event, void* user_data
 	return R_TRUE;
 }
 
-/* Every input event of the window, before the widgets: Escape (= Android back) and a trace of keys / text. */
+/* Every input event of the window, before the widgets: Escape of a hardware keyboard goes back too, and a trace of keys / text. */
 static int on_window_event(Rid window, const REvent* event, void* user_data) {
 	(void)window; (void)user_data;
 	if (event->type == R_EVENT_KEY_DOWN || event->type == R_EVENT_KEY_UP)
@@ -206,19 +225,49 @@ static int on_window_event(Rid window, const REvent* event, void* user_data) {
 			(unsigned long long)Rwindow_get_focused_widget(sc.window));
 	else if (event->type == R_EVENT_TEXT)
 		showcase_log("text U+%04X", (unsigned)event->codepoint);
-	if (event->type == R_EVENT_KEY_DOWN && event->key == R_KEY_ESCAPE) {
-		/* a dialog or popup open: Raven closes it on Escape */
-		if (Rwindow_has_dialog(sc.window) || Rwindow_has_popup(sc.window)) {
-			showcase_log("back: closes the dialog / popup");
-			return R_FALSE;
-		}
-		if (go_back()) return R_TRUE;
-		showcase_log("back: nothing left, leaving the app");
-		if (sc.exit_handler) sc.exit_handler();
-		return R_TRUE;
-	}
-	if (event->type == R_EVENT_KEY_UP && event->key == R_KEY_ESCAPE) return R_TRUE;
+	/* (a dialog or popup open: Raven closes it on Escape itself) */
+	if (event->type == R_EVENT_KEY_DOWN && event->key == R_KEY_ESCAPE && !Rwindow_has_popup(sc.window)) return go_back();
 	return R_FALSE;
+}
+
+/* ---------------------------------------------------------------- lifecycle */
+
+static const char* app_event_name(RAppEvent event) {
+	switch (event) {
+	case R_APP_WILL_PAUSE: return "will pause";
+	case R_APP_DID_PAUSE: return "paused";
+	case R_APP_WILL_RESUME: return "will resume";
+	case R_APP_DID_RESUME: return "resumed";
+	case R_APP_LOW_MEMORY: return "low memory";
+	case R_APP_WILL_TERMINATE: return "will terminate";
+	default: return "?";
+	}
+}
+
+static void set_tab_timers(void);
+
+/* The application went to the background or came back (Rset_app_event_callback). */
+static void on_app_event(RAppEvent event, void* user_data) {
+	char text[160];
+	int i;
+	size_t used;
+	(void)user_data;
+	showcase_log("lifecycle: %s", app_event_name(event));
+	if (event == R_APP_LOW_MEMORY) sc.low_memory++;
+	if (sc.event_count == 4) memmove(sc.events, sc.events + 1, 3 * sizeof(sc.events[0]));
+	else sc.event_count++;
+	sc.events[sc.event_count - 1] = event;
+	used = (size_t)snprintf(text, sizeof(text), "Lifecycle:");
+	for (i = 0; i < sc.event_count && used < sizeof(text); i++)
+		used += (size_t)snprintf(text + used, sizeof(text) - used, "%s %s", i ? "," : "", app_event_name(sc.events[i]));
+	/* (the warnings pushed out of the line are still counted) */
+	for (i = 0; i < sc.event_count && sc.events[i] != R_APP_LOW_MEMORY; i++) {}
+	if (sc.low_memory > 0 && i == sc.event_count && used < sizeof(text))
+		snprintf(text + used, sizeof(text) - used, " (low memory %dx before)", sc.low_memory);
+	/* (while paused it is laid out, and seen when the app comes back) */
+	Rlabel_set_text(sc.lifecycle, text);
+	/* the timers that only move what is drawn stop in the background */
+	if (event == R_APP_DID_PAUSE || event == R_APP_WILL_RESUME) set_tab_timers();
 }
 
 /* ---------------------------------------------------------------- tabs */
@@ -250,16 +299,22 @@ static void on_stats_timer(Rid timer, void* user_data) {
 	showcase_log("glass stats: %s", text);
 }
 
+/* The progress bar moves and the stats are taken only while they can be seen (else Raven stays idle). */
+static void set_tab_timers(void) {
+	int seen = !Ris_app_paused();
+	if (seen && sc.tab == 1 && !sc.progress_timer) sc.progress_timer = Rtimer_create(1.0 / 30.0, R_TRUE, on_progress_timer, NULL);
+	if ((!seen || sc.tab != 1) && sc.progress_timer) { Rtimer_destroy(sc.progress_timer); sc.progress_timer = 0; }
+	if (seen && sc.tab == 2 && !sc.stats_timer) sc.stats_timer = Rtimer_create(2.0, R_TRUE, on_stats_timer, NULL);
+	if ((!seen || sc.tab != 2) && sc.stats_timer) { Rtimer_destroy(sc.stats_timer); sc.stats_timer = 0; }
+}
+
 static void set_tab(int tab) {
 	int i;
 	sc.tab = tab;
 	Rswitcher_set_index(sc.pages, tab);
 	for (i = 0; i < 4; i++) Rbutton_set_style(sc.tabs[i], i == tab ? R_BUTTON_PRIMARY : R_BUTTON_FLAT);
-	/* the progress bar moves only while it can be seen (else Raven stays idle) */
-	if (tab == 1 && !sc.progress_timer) sc.progress_timer = Rtimer_create(1.0 / 30.0, R_TRUE, on_progress_timer, NULL);
-	if (tab != 1 && sc.progress_timer) { Rtimer_destroy(sc.progress_timer); sc.progress_timer = 0; }
-	if (tab == 2 && !sc.stats_timer) sc.stats_timer = Rtimer_create(2.0, R_TRUE, on_stats_timer, NULL);
-	if (tab != 2 && sc.stats_timer) { Rtimer_destroy(sc.stats_timer); sc.stats_timer = 0; }
+	set_tab_timers();
+	update_back();
 	showcase_log("tab %d", tab);
 }
 
@@ -453,9 +508,7 @@ Rid showcase_create(void) {
 	int i;
 
 	/* (Android can run android_main again in the same process: start from zero) */
-	void (*exit_handler)(void) = sc.exit_handler;
 	memset(&sc, 0, sizeof(sc));
-	sc.exit_handler = exit_handler;
 
 	apply_touch_metrics();
 	sc.dark = Rtheme_is_dark();
@@ -498,6 +551,7 @@ Rid showcase_create(void) {
 	sc.form_state = find("form_state");
 	sc.keyboard_state = find("keyboard_state");
 	sc.toast = find("toast");
+	sc.lifecycle = find("lifecycle");
 
 	/* list: 1,000 rows, virtual (only the rows in view are asked for) */
 	sc.circle = make_circle();
@@ -538,8 +592,10 @@ Rid showcase_create(void) {
 	Rtext_input_set_committed_callback(sc.phone, on_committed, NULL);
 	Rwindow_set_keyboard_callback(sc.window, on_keyboard, NULL);
 
-	/* back: Escape (and the Android back key, sent as Escape) */
+	/* back: the system's (Android), and Escape */
+	Rwindow_set_back_callback(sc.window, on_system_back, NULL);
 	Rwindow_set_event_hook(sc.window, on_window_event, NULL);
+	Rset_app_event_callback(on_app_event, NULL);
 
 	set_tab(0);
 	showcase_log("created: window %llu, system dark %d", (unsigned long long)sc.window, Rtheme_get_system_dark());

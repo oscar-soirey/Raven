@@ -9,21 +9,13 @@
 
 #define TAG "RavenHello"
 
-static struct android_app* g_app;
-
 static void on_error(RError code, RSeverity severity, const char* detail) {
 	__android_log_print(ANDROID_LOG_ERROR, TAG, "Raven error %d severity %d: %s", (int)code, (int)severity, detail ? detail : "");
-}
-
-/* back with nothing left to go back to: leave, as the system would have */
-static void on_exit_request(void) {
-	ANativeActivity_finish(g_app->activity);
 }
 
 void android_main(struct android_app* app) {
 	RInitDesc desc = { 0 };
 
-	g_app = app;
 	__android_log_print(ANDROID_LOG_INFO, TAG, "android_main");
 	Rerror_set_callback(on_error);
 	Randroid_set_app(app);
@@ -35,7 +27,6 @@ void android_main(struct android_app* app) {
 	}
 	/* dark or light with the system, now and when it changes */
 	Rtheme_follow_system(R_TRUE);
-	showcase_set_exit_handler(on_exit_request);
 	if (showcase_create() == R_INVALID_ID) {
 		__android_log_print(ANDROID_LOG_ERROR, TAG, "showcase_create failed");
 	}

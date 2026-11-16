@@ -40,7 +40,7 @@ Simulator to see it.
 Testing hooks in `src/main.m`, set at launch with `SIMCTL_CHILD_` in front:
 `RAVEN_ROTATE=landscape,portrait` (with `RAVEN_ROTATE_EVERY=<seconds>`)
 rotates the scene, `RAVEN_DISMISS=<seconds>` closes the keyboard from outside
-Raven.
+Raven, `RAVEN_MEMORY_WARNING=<seconds>` posts UIKit's memory warning.
 
 A real device needs a signing identity and the `ios-arm64` slice of MoltenVK;
 it has not been tried yet.

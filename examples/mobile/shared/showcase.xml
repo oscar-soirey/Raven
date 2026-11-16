@@ -16,7 +16,9 @@
 			<Switcher Name="listnav">
 				<VBox>
 					<Label Text="List" TextSize="28" Slot.Padding="16,8,16,4"/>
-					<Label Name="list_hint" Text="1,000 rows. Tap one." Opacity="0.6" Slot.Padding="16,0,16,8"/>
+					<Label Name="list_hint" Text="1,000 rows. Tap one." Opacity="0.6" Slot.Padding="16,0,16,0"/>
+					<!-- the last events of the application's lifecycle (Rset_app_event_callback) -->
+					<Label Name="lifecycle" Text="Lifecycle: started" Opacity="0.6" Wrap="true" Slot.Padding="16,2,16,8"/>
 					<TileView Name="list" Layout="Rows" TileHeight="60" IconSize="40" Spacing="2" Slot.Fill="1"/>
 				</VBox>
 				<!-- (a Border, not a bare VBox: the empty parts of a panel are not hit by a finger, and the edge swipe needs them) -->
@@ -30,7 +32,7 @@
 						<Label Name="detail_title" Text="Row" TextSize="28"/>
 						<Label Name="detail_subtitle" Text="" Opacity="0.7"/>
 						<Label Name="detail_body" Wrap="true" Text=""/>
-						<Label Text="Back: the button above, Escape, the Android back key / gesture, or a swipe from the left edge." Wrap="true" Opacity="0.6"/>
+						<Label Text="Back: the button above, Escape, the Android back button / gesture, or a swipe from the left edge." Wrap="true" Opacity="0.6"/>
 					</VBox>
 				</VBox>
 				</Border>
