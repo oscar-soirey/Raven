@@ -4347,6 +4347,9 @@ proc Rfile_is_memory*(path: cstring): cint {.rapi.}
   ## R_TRUE when `path` is a file registered with Rfile_register_memory.
 proc Rfile_read*(path: cstring, size: ptr csize_t): cstring {.rapi.}
   ## Whole files, with UTF-8 paths on every platform.
+  ## On Android and iOS, a relative path that names no file held in memory
+  ## and no file on disk is read from the app's package (the APK's assets/,
+  ## the bundle's resources), and so is every file Raven reads by its path.
   ## Returns: Rfile_read: the content followed by a '\0', to release with
   ## Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
 proc Rfile_write*(path: cstring, data: pointer, size: csize_t): cint {.rapi.}

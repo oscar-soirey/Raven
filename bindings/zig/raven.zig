@@ -4317,6 +4317,9 @@ pub extern fn Rfile_unregister_memory(path: ?[*:0]const u8) void;
 /// R_TRUE when `path` is a file registered with Rfile_register_memory.
 pub extern fn Rfile_is_memory(path: ?[*:0]const u8) c_int;
 /// Whole files, with UTF-8 paths on every platform.
+/// On Android and iOS, a relative path that names no file held in memory
+/// and no file on disk is read from the app's package (the APK's assets/,
+/// the bundle's resources), and so is every file Raven reads by its path.
 /// Returns: Rfile_read: the content followed by a '\0', to release with
 /// Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
 pub extern fn Rfile_read(path: ?[*:0]const u8, size: ?*usize) ?[*:0]u8;
