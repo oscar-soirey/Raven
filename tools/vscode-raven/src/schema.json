@@ -1370,6 +1370,33 @@
 					"description": "Most characters accepted; 0 for no limit."
 				},
 				{
+					"name": "InputType",
+					"kind": "choice",
+					"choices": [
+						"Text",
+						"Email",
+						"Number",
+						"Decimal",
+						"Phone",
+						"Url",
+						"Search"
+					],
+					"description": "What it holds: picks the on-screen keyboard on mobile."
+				},
+				{
+					"name": "ReturnKey",
+					"kind": "choice",
+					"choices": [
+						"Default",
+						"Done",
+						"Go",
+						"Next",
+						"Search",
+						"Send"
+					],
+					"description": "The return key of the on-screen keyboard."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired at each change."
@@ -1418,7 +1445,9 @@
 					"description": "Action fired when the value changes."
 				}
 			],
-			"accepted": []
+			"accepted": [
+				"Buttons"
+			]
 		},
 		{
 			"name": "ComboBox",
@@ -1894,6 +1923,15 @@
 			"description": "Panels the user arranges by dragging their tabs.",
 			"children": "many",
 			"attributes": [
+				{
+					"name": "FloatMode",
+					"kind": "choice",
+					"choices": [
+						"Window",
+						"InWindow"
+					],
+					"description": "Future floats use an OS window or a card inside the containing window."
+				},
 				{
 					"name": "Movable",
 					"kind": "bool",
@@ -2523,6 +2561,123 @@
 			"accepted": []
 		},
 		{
+			"name": "Chart",
+			"description": "The charts of dashboards: a pie or a donut of Slice elements (Label, Value, Color), a gauge with Band elements (From, To, Color), a heatmap of Row elements (Label, Values), a sparkline of Values.",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Kind",
+					"kind": "choice",
+					"choices": [
+						"Pie",
+						"Donut",
+						"Gauge",
+						"Heatmap",
+						"Sparkline"
+					],
+					"description": "What the chart draws."
+				},
+				{
+					"name": "Title",
+					"kind": "text",
+					"description": "The title over a pie, a donut or a heatmap, under the value of a gauge."
+				},
+				{
+					"name": "Format",
+					"kind": "text",
+					"description": "A printf format for the values, with their unit: \"%.0f%%\", \"$%.2f\"."
+				},
+				{
+					"name": "Color",
+					"kind": "color",
+					"description": "The arc of a gauge outside the bands, the line of a sparkline (default: the accent)."
+				},
+				{
+					"name": "Legend",
+					"kind": "bool",
+					"description": "The slices beside a pie or a donut, the scale under a heatmap."
+				},
+				{
+					"name": "Hole",
+					"kind": "number",
+					"description": "The hole of a donut, as a part of its radius (0.2 to 0.9)."
+				},
+				{
+					"name": "CenterText",
+					"kind": "text",
+					"description": "What the middle of a donut shows (default: the total)."
+				},
+				{
+					"name": "CenterCaption",
+					"kind": "text",
+					"description": "A small text under it."
+				},
+				{
+					"name": "Selected",
+					"kind": "number",
+					"description": "The slice lifted as selected, from 0 (-1: none)."
+				},
+				{
+					"name": "Min",
+					"kind": "number",
+					"description": "The lowest value of a gauge (default 0); a fixed lowest value for a heatmap or a sparkline."
+				},
+				{
+					"name": "Max",
+					"kind": "number",
+					"description": "The highest value of a gauge (default 100); a fixed highest value for a heatmap or a sparkline."
+				},
+				{
+					"name": "Value",
+					"kind": "number",
+					"description": "The value of a gauge."
+				},
+				{
+					"name": "Values",
+					"kind": "numbers",
+					"description": "The values of a sparkline."
+				},
+				{
+					"name": "Fill",
+					"kind": "bool",
+					"description": "Shades the area under the line of a sparkline."
+				},
+				{
+					"name": "Marker",
+					"kind": "bool",
+					"description": "A dot on the last value of a sparkline."
+				},
+				{
+					"name": "RowLabels",
+					"kind": "list",
+					"description": "The names of the rows of a heatmap, separated by '|' (or the Label of its Row elements)."
+				},
+				{
+					"name": "ColumnLabels",
+					"kind": "list",
+					"description": "The names of the columns of a heatmap, separated by '|'."
+				},
+				{
+					"name": "LowColor",
+					"kind": "color",
+					"description": "The color of the lowest values of a heatmap."
+				},
+				{
+					"name": "HighColor",
+					"kind": "color",
+					"description": "The color of the highest values of a heatmap."
+				},
+				{
+					"name": "OnClicked",
+					"kind": "action",
+					"description": "Action fired when the user clicks a slice or a cell."
+				}
+			],
+			"accepted": [
+				"Type"
+			]
+		},
+		{
 			"name": "Plot",
 			"description": "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color).",
 			"children": "none",
@@ -2831,7 +2986,6 @@
 		"DataGrid": "Table",
 		"TableView": "Table",
 		"Snackbar": "Toast",
-		"Chart": "Plot",
 		"LinePlot": "Plot",
 		"XYPlot": "Plot",
 		"PdfViewer": "PdfView",

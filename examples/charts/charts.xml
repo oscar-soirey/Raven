@@ -1,0 +1,108 @@
+<!-- A dashboard made of Chart widgets. The KPI tiles, the pie, the donut and the gauges are all XML; main.c fills the heatmap and moves the data. -->
+<Window Title="Raven charts" Width="1280" Height="880">
+	<VBox Spacing="16" Slot.Padding="24">
+		<HBox Spacing="12">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Store dashboard" TextSize="26"/>
+				<Label Text="Point at a slice, a cell or a sparkline for its value  -  click a slice to select it  -  the data moves every second" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="dark" Text="Dark" Style="Switch" Checked="true" OnChanged="charts.theme" Slot.VAlign="Center"/>
+			<Checkbox Name="live" Text="Live" Style="Switch" Checked="true" OnChanged="charts.live" Slot.VAlign="Center"/>
+			<Button Text="Shuffle" Style="Primary" OnClicked="charts.shuffle" Slot.VAlign="Center"/>
+		</HBox>
+
+		<!-- 1. KPI tiles: a number, its change, and a sparkline of the last 30 days -->
+		<UniformGrid Columns="4" Spacing="16">
+			<Border CornerRadius="14" Padding="18,16">
+				<VBox Spacing="6">
+					<Label Text="Revenue" Opacity="0.65"/>
+					<HBox Spacing="10">
+						<Label Name="kpi.revenue" Text="$48.2k" TextSize="26" Slot.VAlign="Bottom"/>
+						<Label Text="+12.4%" Color="#22C55E" Slot.VAlign="Center"/>
+					</HBox>
+					<Chart Name="spark.revenue" Kind="Sparkline" Height="46" Format="$%.1fk"
+						Values="31 33 32 35 34 36 38 37 36 39 41 40 42 41 43 45 44 43 46 45 44 47 46 48 47 46 48 49 47 48.2"/>
+				</VBox>
+			</Border>
+			<Border CornerRadius="14" Padding="18,16">
+				<VBox Spacing="6">
+					<Label Text="Active users" Opacity="0.65"/>
+					<HBox Spacing="10">
+						<Label Name="kpi.users" Text="3,214" TextSize="26" Slot.VAlign="Bottom"/>
+						<Label Text="+5.1%" Color="#22C55E" Slot.VAlign="Center"/>
+					</HBox>
+					<Chart Name="spark.users" Kind="Sparkline" Height="46" Color="#14B8A6"
+						Values="2710 2790 2750 2880 2930 2860 2990 3050 2980 3010 3100 3060 2990 3080 3120 3070 3150 3110 3180 3140 3090 3160 3200 3170 3130 3190 3230 3180 3200 3214"/>
+				</VBox>
+			</Border>
+			<Border CornerRadius="14" Padding="18,16">
+				<VBox Spacing="6">
+					<Label Text="Orders" Opacity="0.65"/>
+					<HBox Spacing="10">
+						<Label Name="kpi.orders" Text="1,082" TextSize="26" Slot.VAlign="Bottom"/>
+						<Label Text="-2.3%" Color="#F43F5E" Slot.VAlign="Center"/>
+					</HBox>
+					<Chart Name="spark.orders" Kind="Sparkline" Height="46" Color="#F43F5E"
+						Values="1180 1160 1190 1150 1170 1140 1160 1130 1150 1120 1140 1110 1135 1120 1100 1125 1110 1090 1115 1100 1080 1105 1095 1070 1090 1100 1075 1085 1090 1082"/>
+				</VBox>
+			</Border>
+			<Border CornerRadius="14" Padding="18,16">
+				<VBox Spacing="6">
+					<Label Text="Response time" Opacity="0.65"/>
+					<HBox Spacing="10">
+						<Label Name="kpi.latency" Text="182 ms" TextSize="26" Slot.VAlign="Bottom"/>
+						<Label Text="-8.0%" Color="#22C55E" Slot.VAlign="Center"/>
+					</HBox>
+					<Chart Name="spark.latency" Kind="Sparkline" Height="46" Color="#F59E0B" Format="%.0f ms" Fill="false"
+						Values="214 208 221 203 199 210 196 205 192 201 188 197 190 185 194 187 181 190 184 179 186 183 177 185 180 176 183 179 185 182"/>
+				</VBox>
+			</Border>
+		</UniformGrid>
+
+		<!-- 2. Shares and levels -->
+		<HBox Spacing="16" Height="276">
+			<Border CornerRadius="14" Padding="18" Slot.Fill="1">
+				<Chart Name="traffic" Kind="Pie" Title="Visits by source">
+					<Slice Label="Organic search" Value="18420"/>
+					<Slice Label="Direct" Value="10530"/>
+					<Slice Label="Referral" Value="6580"/>
+					<Slice Label="Social" Value="4830"/>
+					<Slice Label="Email" Value="3510"/>
+				</Chart>
+			</Border>
+			<Border CornerRadius="14" Padding="18" Slot.Fill="1">
+				<Chart Name="browsers" Kind="Donut" Title="Sessions by browser" CenterCaption="sessions" Selected="0">
+					<Slice Label="Chrome" Value="6420"/>
+					<Slice Label="Safari" Value="2310"/>
+					<Slice Label="Firefox" Value="980"/>
+					<Slice Label="Edge" Value="760"/>
+					<Slice Label="Other" Value="330"/>
+				</Chart>
+			</Border>
+			<Border CornerRadius="14" Padding="18" Slot.Fill="1">
+				<VBox Spacing="4">
+					<Label Text="Servers" Opacity="0.9"/>
+					<HBox Spacing="8" Slot.Fill="1">
+						<Chart Name="cpu" Kind="Gauge" Title="CPU" Min="0" Max="100" Value="64" Format="%.0f%%" Slot.Fill="1">
+							<Band From="0" To="60"/>
+							<Band From="60" To="85"/>
+							<Band From="85" To="100"/>
+						</Chart>
+						<Chart Name="memory" Kind="Gauge" Title="Memory" Min="0" Max="32" Value="27.5" Format="%.1f GB" Slot.Fill="1">
+							<Band From="0" To="20"/>
+							<Band From="20" To="28"/>
+							<Band From="28" To="32"/>
+						</Chart>
+					</HBox>
+				</VBox>
+			</Border>
+		</HBox>
+
+		<!-- 3. When the customers come: orders by weekday and hour (main.c fills it) -->
+		<Border CornerRadius="14" Padding="18" Slot.Fill="1">
+			<Chart Name="activity" Kind="Heatmap" Title="Orders by weekday and hour" Format="%.0f orders"
+				RowLabels="Mon|Tue|Wed|Thu|Fri|Sat|Sun"
+				ColumnLabels="00h|01h|02h|03h|04h|05h|06h|07h|08h|09h|10h|11h|12h|13h|14h|15h|16h|17h|18h|19h|20h|21h|22h|23h"/>
+		</Border>
+	</VBox>
+</Window>

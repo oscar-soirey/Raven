@@ -764,6 +764,8 @@ enum : RWidgetType
     R_WIDGET_PLOT = 0x0232,
     /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
     R_WIDGET_PDF_VIEW = 0x0233,
+    /// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+    R_WIDGET_CHART = 0x0234,
 }
 
 alias RHAlign = int;
@@ -1058,6 +1060,22 @@ enum : RPlotLegend
     R_PLOT_LEGEND_LEFT = 0x0568,
     /// To the right of the data, outside it.
     R_PLOT_LEGEND_OUTSIDE = 0x0569,
+}
+
+/// What a Chart draws.
+alias RChartKind = int;
+enum : RChartKind
+{
+    /// Slices of a whole, as parts of a disc (the default).
+    R_CHART_PIE = 0x0590,
+    /// Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer.
+    R_CHART_DONUT = 0x0591,
+    /// One value within a range, on an arc; bands color parts of the range.
+    R_CHART_GAUGE = 0x0592,
+    /// A grid of values, each cell colored from the low color to the high one.
+    R_CHART_HEATMAP = 0x0593,
+    /// A small line of values without axes, to sit in a tile or a cell of a table.
+    R_CHART_SPARKLINE = 0x0594,
 }
 
 /// Shorthands of Rtext_editor_set_language for two languages.
@@ -1523,8 +1541,8 @@ alias RTableCellTextCallback = extern (C) const(char)* function(Rid table, int r
 /// Colors the text of cells (a verdict, a state): the table asks for the
 /// color of each cell it draws, stored or virtual (`row` is the index of the
 /// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
-/// keeps the color of the theme. The color is kept on a selected or hovered
-/// row. NULL removes the callback.
+/// keeps the color set with Rtable_set_cell_text_color, else the theme's.
+/// The color is kept on a selected or hovered row. NULL removes the callback.
 alias RTableCellColorCallback = extern (C) int function(Rid table, int row, int column, float* r, float* g, float* b, float* a, void* user_data);
 alias RTableEventCallback = extern (C) void function(Rid table, int row, void* user_data);
 /// Called when the user clicks a header; `column` -1: not sorted.
@@ -1547,6 +1565,10 @@ alias RPlotViewCallback = extern (C) void function(Rid plot, void* user_data);
 alias RPlotDragLineCallback = extern (C) void function(Rid plot, int line, double value, void* user_data);
 /// Called when the user hides or shows a series from the legend.
 alias RPlotSeriesCallback = extern (C) void function(Rid plot, int series, int visible, void* user_data);
+/// Called when the user clicks a slice; `selected` tells whether it is now the selected one.
+alias RChartSliceCallback = extern (C) void function(Rid chart, int slice, int selected, void* user_data);
+/// Called when the user clicks a cell of a heatmap.
+alias RChartCellCallback = extern (C) void function(Rid chart, int row, int column, float value, void* user_data);
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 alias RPdfPageChangedCallback = extern (C) void function(Rid view, int page, void* user_data);
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -3386,7 +3408,18 @@ void Rtable_clear_rows(Rid table);
 int Rtable_get_row_count(Rid table);
 void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data);
 void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
-/// Selects a row. -1 selects nothing.
+/// Stored rows: a fixed text color; column -1 colors the row; cells override it.
+/// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+void Rtable_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a);
+/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+void Rtable_set_multi_select(Rid table, int enabled);
+void Rtable_set_row_selected(Rid table, int row, int selected);
+int Rtable_is_row_selected(Rid table, int row);
+void Rtable_clear_selection(Rid table);
+int Rtable_get_selection_count(Rid table);
+/// Selected row at index, top to bottom; -1 outside the selection.
+int Rtable_get_selection(Rid table, int index);
+/// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 void Rtable_set_selected(Rid table, int row);
 int Rtable_get_selected(Rid table);
 void Rtable_scroll_to_row(Rid table, int row);
@@ -3570,6 +3603,90 @@ void Rplot_set_drag_line_color(Rid plot, int line, float r, float g, float b, fl
 void Rplot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data);
 void Rplot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data);
 void Rplot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data);
+/// A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
+Rid Rchart_create(RChartKind kind);
+void Rchart_set_kind(Rid chart, RChartKind kind);
+RChartKind Rchart_get_kind(Rid chart);
+/// The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers).
+void Rchart_set_title(Rid chart, const(char)* title);
+const(char)* Rchart_get_title(Rid chart);
+/// How the values are written (the gauge, the middle of a donut, what
+/// the pointer shows): a printf format for one double with its unit, "%.0f%%",
+/// "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+void Rchart_set_format(Rid chart, const(char)* format);
+/// The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent).
+void Rchart_set_color(Rid chart, float r, float g, float b, float a);
+/// The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default).
+void Rchart_set_legend(Rid chart, int shown);
+/// Removes the slices, the bands, the grid and the values.
+void Rchart_clear(Rid chart);
+/// What is under the pointer: a slice, a point of a sparkline, or a
+/// cell of a heatmap as row * columns + column; -1 for nothing.
+int Rchart_get_hovered(Rid chart);
+/// Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid.
+int Rchart_add_slice(Rid chart, const(char)* label, double value);
+void Rchart_remove_slice(Rid chart, int slice);
+int Rchart_get_slice_count(Rid chart);
+void Rchart_set_slice_value(Rid chart, int slice, double value);
+double Rchart_get_slice_value(Rid chart, int slice);
+void Rchart_set_slice_label(Rid chart, int slice, const(char)* label);
+const(char)* Rchart_get_slice_label(Rid chart, int slice);
+/// The color of a slice; an alpha of 0 gives it back its color of the palette.
+void Rchart_set_slice_color(Rid chart, int slice, float r, float g, float b, float a);
+/// The sum of the values of the slices.
+double Rchart_get_total(Rid chart);
+/// The slice lifted as selected, or -1 for none (the user selects one with a click).
+void Rchart_set_selected(Rid chart, int slice);
+int Rchart_get_selected(Rid chart);
+/// The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62).
+void Rchart_set_hole(Rid chart, float ratio);
+/// What the middle of a donut shows when the pointer is not over a
+/// slice: `text` in large (NULL or "": the total) over `caption` in small
+/// (NULL or "": none).
+void Rchart_set_center_text(Rid chart, const(char)* text, const(char)* caption);
+void Rchart_set_slice_clicked_callback(Rid chart, RChartSliceCallback callback, void* user_data);
+/// The range of a gauge (default 0 to 100), and a fixed range for the
+/// colors of a heatmap and the height of a sparkline, which otherwise follow
+/// their values. min == max goes back to these defaults.
+void Rchart_set_range(Rid chart, double min, double max);
+/// The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline).
+void Rchart_get_range(Rid chart, double* min, double* max);
+/// The value of a gauge, kept within its range when drawn.
+void Rchart_set_value(Rid chart, double value);
+double Rchart_get_value(Rid chart);
+/// Colors a part of the range of a gauge (an alpha of 0: the success,
+/// warning and danger colors of the theme, one after the other). The arc
+/// takes the color of the band its value is in. Returns the index of the band.
+int Rchart_add_band(Rid chart, double from, double to, float r, float g, float b, float a);
+void Rchart_clear_bands(Rid chart);
+int Rchart_get_band_count(Rid chart);
+/// The cells of a heatmap: `rows` x `columns` values, row after row,
+/// copied (NULL: all 0). NaN leaves a cell empty.
+void Rchart_set_grid(Rid chart, int rows, int columns, const(float)* values);
+int Rchart_get_row_count(Rid chart);
+int Rchart_get_column_count(Rid chart);
+void Rchart_set_cell(Rid chart, int row, int column, float value);
+float Rchart_get_cell(Rid chart, int row, int column);
+/// The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left).
+void Rchart_set_row_labels(Rid chart, const(char)* labels);
+/// The names of the columns, separated by '|' (shown over them, as many as fit).
+void Rchart_set_column_labels(Rid chart, const(char)* labels);
+/// The name of a row or of a column, "" when it has none.
+const(char)* Rchart_get_row_label(Rid chart, int row);
+const(char)* Rchart_get_column_label(Rid chart, int column);
+/// The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent).
+void Rchart_set_color_scale(Rid chart, float low_r, float low_g, float low_b, float low_a, float high_r, float high_g, float high_b, float high_a);
+void Rchart_set_cell_clicked_callback(Rid chart, RChartCellCallback callback, void* user_data);
+/// The values of a sparkline, copied. NaN leaves a gap.
+void Rchart_set_values(Rid chart, const(float)* values, int count);
+/// Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them).
+void Rchart_push_value(Rid chart, float value, int max_count);
+int Rchart_get_value_count(Rid chart);
+float Rchart_get_value_at(Rid chart, int index);
+/// Shades the area under the line of a sparkline (on by default).
+void Rchart_set_fill(Rid chart, int fill);
+/// A dot on the last value of a sparkline (on by default).
+void Rchart_set_marker(Rid chart, int shown);
 /// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
 int Rpdf_is_available();
 /// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
@@ -4450,7 +4567,7 @@ void Rnotification_set_fallback(RNotificationFallback callback, void* user_data)
 /// (on the UI thread; the application may then bring its window to the
 /// front: the system lets it). It is the last one shown that was clicked:
 /// the application remembers what it was about. NULL: none.
-/// Windows only for now (elsewhere it is never called).
+/// Windows and macOS (elsewhere it is never called).
 void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data);
 /// Shows a texture. R_INVALID_ID shows nothing.
 void Rviewport_set_texture(Rid viewport, Rid texture);
