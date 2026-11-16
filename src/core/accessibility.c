@@ -224,6 +224,48 @@ Rid rvn_a11y_window_of(void* platform_user) {
 	return window ? window->id : R_INVALID_ID;
 }
 
+/*
+ * What a chart shows, in words: a pie as its slices and their shares, a gauge
+ * as a meter (its value within its range), a heatmap as its size and the
+ * range of its values, a sparkline as its last value and its range.
+ */
+static void rvn_a11y_describe_chart(Rid chart, rvn_a11y_node_t* node) {
+	double min = 0.0, max = 0.0, total;
+	int count, i;
+	switch (Rchart_get_kind(chart)) {
+		case R_CHART_GAUGE:
+			Rchart_get_range(chart, &min, &max);
+			node->number = Rchart_get_value(chart);
+			node->minimum = min;
+			node->maximum = max;
+			node->states |= RVN_A11Y_HAS_RANGE | RVN_A11Y_READONLY;
+			rvn_text_printf(&g_a11y.value, "%g (from %g to %g)", node->number, min, max);
+			break;
+		case R_CHART_HEATMAP:
+			Rchart_get_range(chart, &min, &max);
+			rvn_text_printf(&g_a11y.value, "%d rows by %d columns, values from %g to %g",
+				Rchart_get_row_count(chart), Rchart_get_column_count(chart), min, max);
+			break;
+		case R_CHART_SPARKLINE:
+			count = Rchart_get_value_count(chart);
+			Rchart_get_range(chart, &min, &max);
+			if (count > 0) rvn_text_printf(&g_a11y.value, "%d values, last %g, from %g to %g", count, (double)Rchart_get_value_at(chart, count - 1), min, max);
+			else rvn_text_add(&g_a11y.value, "no values");
+			break;
+		default:
+			count = Rchart_get_slice_count(chart);
+			total = Rchart_get_total(chart);
+			for (i = 0; i < count; i++) {
+				const char* label = Rchart_get_slice_label(chart, i);
+				double value = Rchart_get_slice_value(chart, i);
+				rvn_text_printf(&g_a11y.value, "%s%s %g (%.0f%%)", i ? ", " : "", label[0] ? label : "unnamed", value,
+					total > 0.0 ? value * 100.0 / total : 0.0);
+			}
+			if (count == 0) rvn_text_add(&g_a11y.value, "no data");
+			break;
+	}
+}
+
 static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 	switch ((int)widget->cls->type) {
 		case R_WIDGET_LABEL: return R_ROLE_TEXT;
@@ -246,6 +288,8 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
 		case R_WIDGET_PLOT: return R_ROLE_IMAGE;
 		case R_WIDGET_PDF_VIEW: return R_ROLE_DOCUMENT;
+		/* a gauge is a meter: a value within a range; the other charts are pictures described in words */
+		case R_WIDGET_CHART: return Rchart_get_kind(widget->id) == R_CHART_GAUGE ? R_ROLE_PROGRESS_BAR : R_ROLE_IMAGE;
 		case R_WIDGET_TILE_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TREE_VIEW: return R_ROLE_TREE;
 		case R_WIDGET_MENU_BAR: return R_ROLE_MENU_BAR;
@@ -577,6 +621,7 @@ static void rvn_a11y_name_of(const rvn_widget_t* widget, RAccessibleRole role, r
 		case R_WIDGET_CHECKBOX: rvn_text_add(out, Rcheckbox_get_text(widget->id)); break;
 		case R_WIDGET_MENU_ITEM: rvn_text_add(out, Rmenu_item_get_text(widget->id)); break;
 		case R_WIDGET_EXPANDER: rvn_text_add(out, Rexpander_get_title(widget->id)); break;
+		case R_WIDGET_CHART: rvn_text_add(out, Rchart_get_title(widget->id)); break;
 		default: break;
 	}
 	if (out->length) return;
@@ -755,6 +800,10 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rpdf_view_get_title(widget->id));
 			if (Rpdf_view_get_status(widget->id) == R_PDF_LOADED)
 				rvn_text_printf(&g_a11y.value, "page %d of %d", Rpdf_view_get_page(widget->id) + 1, Rpdf_view_get_page_count(widget->id));
+			break;
+		case R_WIDGET_CHART:
+			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rchart_get_title(widget->id));
+			rvn_a11y_describe_chart(widget->id, node);
 			break;
 		case R_WIDGET_PLOT: {
 			/* the title as the name; the series and the ranges shown as the value */

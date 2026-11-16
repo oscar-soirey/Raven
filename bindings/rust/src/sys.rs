@@ -660,6 +660,8 @@ pub const R_WIDGET_PAGINATION: RWidgetType = 0x0231;
 pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
 /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
+/// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+pub const R_WIDGET_CHART: RWidgetType = 0x0234;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -882,6 +884,19 @@ pub const R_PLOT_LEGEND_BOTTOM_LEFT: RPlotLegend = 0x0567;
 pub const R_PLOT_LEGEND_LEFT: RPlotLegend = 0x0568;
 /// To the right of the data, outside it.
 pub const R_PLOT_LEGEND_OUTSIDE: RPlotLegend = 0x0569;
+
+/// What a Chart draws.
+pub type RChartKind = c_int;
+/// Slices of a whole, as parts of a disc (the default).
+pub const R_CHART_PIE: RChartKind = 0x0590;
+/// Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer.
+pub const R_CHART_DONUT: RChartKind = 0x0591;
+/// One value within a range, on an arc; bands color parts of the range.
+pub const R_CHART_GAUGE: RChartKind = 0x0592;
+/// A grid of values, each cell colored from the low color to the high one.
+pub const R_CHART_HEATMAP: RChartKind = 0x0593;
+/// A small line of values without axes, to sit in a tile or a cell of a table.
+pub const R_CHART_SPARKLINE: RChartKind = 0x0594;
 
 /// Shorthands of Rtext_editor_set_language for two languages.
 pub type RSyntax = c_int;
@@ -1301,6 +1316,10 @@ pub type RPlotViewCallback = Option<unsafe extern "C" fn(plot: Rid, user_data: *
 pub type RPlotDragLineCallback = Option<unsafe extern "C" fn(plot: Rid, line: c_int, value: f64, user_data: *mut c_void)>;
 /// Called when the user hides or shows a series from the legend.
 pub type RPlotSeriesCallback = Option<unsafe extern "C" fn(plot: Rid, series: c_int, visible: c_int, user_data: *mut c_void)>;
+/// Called when the user clicks a slice; `selected` tells whether it is now the selected one.
+pub type RChartSliceCallback = Option<unsafe extern "C" fn(chart: Rid, slice: c_int, selected: c_int, user_data: *mut c_void)>;
+/// Called when the user clicks a cell of a heatmap.
+pub type RChartCellCallback = Option<unsafe extern "C" fn(chart: Rid, row: c_int, column: c_int, value: f32, user_data: *mut c_void)>;
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 pub type RPdfPageChangedCallback = Option<unsafe extern "C" fn(view: Rid, page: c_int, user_data: *mut c_void)>;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -3348,6 +3367,90 @@ extern "C" {
     pub fn Rplot_set_view_changed_callback(plot: Rid, callback: RPlotViewCallback, user_data: *mut c_void);
     pub fn Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineCallback, user_data: *mut c_void);
     pub fn Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback, user_data: *mut c_void);
+    /// A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
+    pub fn Rchart_create(kind: RChartKind) -> Rid;
+    pub fn Rchart_set_kind(chart: Rid, kind: RChartKind);
+    pub fn Rchart_get_kind(chart: Rid) -> RChartKind;
+    /// The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers).
+    pub fn Rchart_set_title(chart: Rid, title: *const c_char);
+    pub fn Rchart_get_title(chart: Rid) -> *const c_char;
+    /// How the values are written (the gauge, the middle of a donut, what
+    /// the pointer shows): a printf format for one double with its unit, "%.0f%%",
+    /// "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+    pub fn Rchart_set_format(chart: Rid, format: *const c_char);
+    /// The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent).
+    pub fn Rchart_set_color(chart: Rid, r: f32, g: f32, b: f32, a: f32);
+    /// The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default).
+    pub fn Rchart_set_legend(chart: Rid, shown: c_int);
+    /// Removes the slices, the bands, the grid and the values.
+    pub fn Rchart_clear(chart: Rid);
+    /// What is under the pointer: a slice, a point of a sparkline, or a
+    /// cell of a heatmap as row * columns + column; -1 for nothing.
+    pub fn Rchart_get_hovered(chart: Rid) -> c_int;
+    /// Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid.
+    pub fn Rchart_add_slice(chart: Rid, label: *const c_char, value: f64) -> c_int;
+    pub fn Rchart_remove_slice(chart: Rid, slice: c_int);
+    pub fn Rchart_get_slice_count(chart: Rid) -> c_int;
+    pub fn Rchart_set_slice_value(chart: Rid, slice: c_int, value: f64);
+    pub fn Rchart_get_slice_value(chart: Rid, slice: c_int) -> f64;
+    pub fn Rchart_set_slice_label(chart: Rid, slice: c_int, label: *const c_char);
+    pub fn Rchart_get_slice_label(chart: Rid, slice: c_int) -> *const c_char;
+    /// The color of a slice; an alpha of 0 gives it back its color of the palette.
+    pub fn Rchart_set_slice_color(chart: Rid, slice: c_int, r: f32, g: f32, b: f32, a: f32);
+    /// The sum of the values of the slices.
+    pub fn Rchart_get_total(chart: Rid) -> f64;
+    /// The slice lifted as selected, or -1 for none (the user selects one with a click).
+    pub fn Rchart_set_selected(chart: Rid, slice: c_int);
+    pub fn Rchart_get_selected(chart: Rid) -> c_int;
+    /// The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62).
+    pub fn Rchart_set_hole(chart: Rid, ratio: f32);
+    /// What the middle of a donut shows when the pointer is not over a
+    /// slice: `text` in large (NULL or "": the total) over `caption` in small
+    /// (NULL or "": none).
+    pub fn Rchart_set_center_text(chart: Rid, text: *const c_char, caption: *const c_char);
+    pub fn Rchart_set_slice_clicked_callback(chart: Rid, callback: RChartSliceCallback, user_data: *mut c_void);
+    /// The range of a gauge (default 0 to 100), and a fixed range for the
+    /// colors of a heatmap and the height of a sparkline, which otherwise follow
+    /// their values. min == max goes back to these defaults.
+    pub fn Rchart_set_range(chart: Rid, min: f64, max: f64);
+    /// The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline).
+    pub fn Rchart_get_range(chart: Rid, min: *mut f64, max: *mut f64);
+    /// The value of a gauge, kept within its range when drawn.
+    pub fn Rchart_set_value(chart: Rid, value: f64);
+    pub fn Rchart_get_value(chart: Rid) -> f64;
+    /// Colors a part of the range of a gauge (an alpha of 0: the success,
+    /// warning and danger colors of the theme, one after the other). The arc
+    /// takes the color of the band its value is in. Returns the index of the band.
+    pub fn Rchart_add_band(chart: Rid, from: f64, to: f64, r: f32, g: f32, b: f32, a: f32) -> c_int;
+    pub fn Rchart_clear_bands(chart: Rid);
+    pub fn Rchart_get_band_count(chart: Rid) -> c_int;
+    /// The cells of a heatmap: `rows` x `columns` values, row after row,
+    /// copied (NULL: all 0). NaN leaves a cell empty.
+    pub fn Rchart_set_grid(chart: Rid, rows: c_int, columns: c_int, values: *const f32);
+    pub fn Rchart_get_row_count(chart: Rid) -> c_int;
+    pub fn Rchart_get_column_count(chart: Rid) -> c_int;
+    pub fn Rchart_set_cell(chart: Rid, row: c_int, column: c_int, value: f32);
+    pub fn Rchart_get_cell(chart: Rid, row: c_int, column: c_int) -> f32;
+    /// The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left).
+    pub fn Rchart_set_row_labels(chart: Rid, labels: *const c_char);
+    /// The names of the columns, separated by '|' (shown over them, as many as fit).
+    pub fn Rchart_set_column_labels(chart: Rid, labels: *const c_char);
+    /// The name of a row or of a column, "" when it has none.
+    pub fn Rchart_get_row_label(chart: Rid, row: c_int) -> *const c_char;
+    pub fn Rchart_get_column_label(chart: Rid, column: c_int) -> *const c_char;
+    /// The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent).
+    pub fn Rchart_set_color_scale(chart: Rid, low_r: f32, low_g: f32, low_b: f32, low_a: f32, high_r: f32, high_g: f32, high_b: f32, high_a: f32);
+    pub fn Rchart_set_cell_clicked_callback(chart: Rid, callback: RChartCellCallback, user_data: *mut c_void);
+    /// The values of a sparkline, copied. NaN leaves a gap.
+    pub fn Rchart_set_values(chart: Rid, values: *const f32, count: c_int);
+    /// Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them).
+    pub fn Rchart_push_value(chart: Rid, value: f32, max_count: c_int);
+    pub fn Rchart_get_value_count(chart: Rid) -> c_int;
+    pub fn Rchart_get_value_at(chart: Rid, index: c_int) -> f32;
+    /// Shades the area under the line of a sparkline (on by default).
+    pub fn Rchart_set_fill(chart: Rid, fill: c_int);
+    /// A dot on the last value of a sparkline (on by default).
+    pub fn Rchart_set_marker(chart: Rid, shown: c_int);
     /// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
     pub fn Rpdf_is_available() -> c_int;
     /// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
