@@ -28,7 +28,7 @@ static struct {
 	Rid tabs[4];
 	Rid counter_label, slider_value, progress, progress_value, dialog_result;
 	Rid blur_value, frame_stats, blurs[4];
-	Rid name, email, phone, form_state, keyboard_state;
+	Rid name, email, phone, city, note, form_state, keyboard_state;
 	Rid toast, lifecycle;
 	Rid circle;
 	Rid progress_timer, stats_timer;
@@ -395,14 +395,12 @@ static void on_blur_slider(Rid slider, float value, void* user_data) {
 	Rlabel_set_text(sc.blur_value, text);
 }
 
-static void apply_touch_metrics(void);
-
 static void on_frame(double delta, void* user_data) {
 	(void)user_data;
 	if (Rtheme_is_dark() != sc.dark) {
 		sc.dark = Rtheme_is_dark();
-		apply_touch_metrics();
-		showcase_log("theme switched (dark %d): touch metrics applied again", sc.dark);
+		showcase_log("theme switched (dark %d): control height %.0f, font size %.0f", sc.dark,
+			Rwidget_get_metric(sc.tabs[0], R_METRIC_CONTROL_HEIGHT), Rtheme_get_metric(R_METRIC_FONT_SIZE));
 	}
 	if (sc.tab != 2 || delta <= 0.0 || delta > 1.0) return;
 	sc.frame_sum += delta;
@@ -417,6 +415,7 @@ static void show_form_state(const char* why) {
 	int x = 0, y = 0, w = 0, h = 0;
 	Rid focused = Rwindow_get_focused_widget(sc.window);
 	const char* name = focused == sc.name ? "name" : focused == sc.email ? "email" : focused == sc.phone ? "phone" :
+		focused == sc.city ? "city" : focused == sc.note ? "note" :
 		(focused && focused != R_INVALID_ID) ? "other" : "none";
 	int has_rect = Rwindow_get_text_input_rect(sc.window, &x, &y, &w, &h);
 	snprintf(text, sizeof(text), "%s: focus %s, wants text input %d, caret rect %s %d,%d %dx%d",
@@ -459,12 +458,14 @@ static void on_submit(Rid button, void* user_data) {
 	Rwindow_clear_focus(sc.window);
 }
 
-/* Enter (the return key of the on-screen keyboard): name -> email -> phone -> submit. */
+/* Enter (the return key of the on-screen keyboard): name -> email -> phone -> city -> note -> submit. */
 static void on_committed(Rid input, const char* text, void* user_data) {
 	(void)text; (void)user_data;
 	showcase_log("committed in %s", Rwidget_get_name(input));
 	if (input == sc.name) Rwidget_focus(sc.email);
 	else if (input == sc.email) Rwidget_focus(sc.phone);
+	else if (input == sc.phone) Rwidget_focus(sc.city);
+	else if (input == sc.city) Rwidget_focus(sc.note);
 	else on_submit(R_INVALID_ID, NULL);
 }
 
@@ -480,19 +481,6 @@ static void on_keyboard(Rid window, int visible, float height, void* user_data) 
 
 /* ---------------------------------------------------------------- create */
 
-/*
- * Touch sizes: Raven's themes are sized for a mouse (controls about 28
- * units high); phones want 44 (iOS) / 48 (Android) for a finger.
- * HACK: the follow-system switch between light and dark applies the theme
- * again and drops these, so on_frame applies them again after a switch.
- */
-static void apply_touch_metrics(void) {
-	Rtheme_set_metric(R_METRIC_CONTROL_HEIGHT, 44.0f);
-	Rtheme_set_metric(R_METRIC_FONT_SIZE, 16.0f);
-	Rtheme_set_metric(R_METRIC_CHECK_SIZE, 22.0f);
-	Rtheme_set_metric(R_METRIC_SLIDER_HANDLE_SIZE, 24.0f);
-}
-
 static Rid find(const char* name) {
 	Rid id = Rwidget_find(sc.root, name);
 	if (id == R_INVALID_ID) showcase_log("widget not found: %s", name);
@@ -506,7 +494,12 @@ Rid showcase_create(void) {
 	/* (Android can run android_main again in the same process: start from zero) */
 	memset(&sc, 0, sizeof(sc));
 
-	apply_touch_metrics();
+	/*
+	 * Touch sizes come from Raven on iOS and Android (RTouchSettings::min_touch_size:
+	 * controls and rows 44 / 48 high). Only the text is made larger here; it
+	 * stays through the light / dark switches of Rtheme_follow_system.
+	 */
+	Rtheme_set_metric(R_METRIC_FONT_SIZE, 16.0f);
 	sc.dark = Rtheme_is_dark();
 
 	/* the size is ignored on phones: the window takes the screen */
@@ -545,6 +538,8 @@ Rid showcase_create(void) {
 	sc.name = find("name");
 	sc.email = find("email");
 	sc.phone = find("phone");
+	sc.city = find("city");
+	sc.note = find("note");
 	sc.form_state = find("form_state");
 	sc.keyboard_state = find("keyboard_state");
 	sc.toast = find("toast");
@@ -580,13 +575,19 @@ Rid showcase_create(void) {
 	Rwidget_set_event_callback(sc.name, on_input_event, NULL);
 	Rwidget_set_event_callback(sc.email, on_input_event, NULL);
 	Rwidget_set_event_callback(sc.phone, on_input_event, NULL);
+	Rwidget_set_event_callback(sc.city, on_input_event, NULL);
+	Rwidget_set_event_callback(sc.note, on_input_event, NULL);
 	Rtext_input_set_changed_callback(sc.name, on_text_changed, NULL);
 	Rtext_input_set_changed_callback(sc.email, on_text_changed, NULL);
 	Rtext_input_set_changed_callback(sc.phone, on_text_changed, NULL);
+	Rtext_input_set_changed_callback(sc.city, on_text_changed, NULL);
+	Rtext_input_set_changed_callback(sc.note, on_text_changed, NULL);
 	Rbutton_set_clicked_callback(find("submit"), on_submit, NULL);
 	Rtext_input_set_committed_callback(sc.name, on_committed, NULL);
 	Rtext_input_set_committed_callback(sc.email, on_committed, NULL);
 	Rtext_input_set_committed_callback(sc.phone, on_committed, NULL);
+	Rtext_input_set_committed_callback(sc.city, on_committed, NULL);
+	Rtext_input_set_committed_callback(sc.note, on_committed, NULL);
 	Rwindow_set_keyboard_callback(sc.window, on_keyboard, NULL);
 
 	/* back: the system's (Android), and Escape */

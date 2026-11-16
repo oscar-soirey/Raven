@@ -23,9 +23,8 @@
 					<Label Name="lifecycle" Text="Lifecycle: started" Opacity="0.6" Wrap="true" Slot.Padding="16,2,16,8"/>
 					<TileView Name="list" Layout="Rows" TileHeight="60" IconSize="40" Spacing="2" Slot.Fill="1"/>
 				</VBox>
-				<!-- (a Border, not a bare VBox: the empty parts of a panel are not hit by a finger, and the edge swipe needs them) -->
-				<Border Name="detail" Background="#00000001" Padding="0">
-				<VBox Spacing="12">
+				<!-- (its touch callback, the edge swipe, makes the whole page take the finger, its empty parts too) -->
+				<VBox Name="detail" Spacing="12">
 					<HBox Slot.Padding="8,4,8,0">
 						<Button Name="back" Text="‹ Back" Style="Flat"/>
 					</HBox>
@@ -37,7 +36,6 @@
 						<Label Text="Back: the button above, Escape, the Android back button / gesture, or a swipe from the left edge." Wrap="true" Opacity="0.6"/>
 					</VBox>
 				</VBox>
-				</Border>
 			</Switcher>
 
 			<!-- 1: Controls -->
@@ -119,7 +117,12 @@
 					<Label Text="Email"/>
 					<TextInput Name="email" Placeholder="you@example.com" InputType="Email" ReturnKey="Next"/>
 					<Label Text="Phone"/>
-					<TextInput Name="phone" Placeholder="+62 812 3456 7890" InputType="Phone" ReturnKey="Done"/>
+					<TextInput Name="phone" Placeholder="+62 812 3456 7890" InputType="Phone" ReturnKey="Next"/>
+					<!-- (low on the page: with the keyboard up, Raven scrolls the focused field above it) -->
+					<Label Text="City"/>
+					<TextInput Name="city" Placeholder="Yogyakarta" ReturnKey="Next"/>
+					<Label Text="Note"/>
+					<TextInput Name="note" Placeholder="Anything else" ReturnKey="Done"/>
 					<Button Name="submit" Text="Submit" Style="Primary" Slot.HAlign="Left"/>
 					<Label Name="keyboard_state" Text="Keyboard: hidden"/>
 					<Label Name="form_state" Text="" Wrap="true" Opacity="0.6"/>
