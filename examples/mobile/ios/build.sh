@@ -32,7 +32,6 @@ rm -rf "$APP"; mkdir -p "$APP/Frameworks"
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 CC="xcrun --sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -isysroot $SDK"
 SHARED=$HERE/../shared
-"$SHARED/gen.sh"
 $CC -g -fobjc-arc -I"$RAVEN/include" -I"$SHARED" -c "$HERE/src/main.m" -o "$HERE/build/main.o"
 $CC -g -std=c11 -Wall -I"$RAVEN/include" -I"$SHARED" -c "$SHARED/showcase.c" -o "$HERE/build/showcase.o"
 $CC -o "$APP/Hello" "$HERE/build/main.o" "$HERE/build/showcase.o" "$BUILD/libraven.a" \
@@ -40,6 +39,10 @@ $CC -o "$APP/Hello" "$HERE/build/main.o" "$HERE/build/showcase.o" "$BUILD/librav
 	-framework CoreText -framework CoreGraphics \
 	-Wl,-rpath,@executable_path/Frameworks
 cp "$HERE/Info.plist" "$APP/Info.plist"
+# the files the app reads (its resources): ../shared/assets + the font of the titles
+cp -R "$SHARED/assets/." "$APP/"
+mkdir -p "$APP/fonts"
+cp "$RAVEN/tools/designer/fonts/BricolageGrotesque-Bold-subset.ttf" "$APP/fonts/"
 cp -R "$MVK" "$APP/Frameworks/"
 codesign -s - --force "$APP/Frameworks/MoltenVK.framework"
 codesign -s - --force "$APP"
