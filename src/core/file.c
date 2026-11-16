@@ -19,7 +19,10 @@ static FILE* rvn_fopen_read(const char* path) {
 	return _wfopen(wide, L"rb");
 }
 #else
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static FILE* rvn_fopen_read(const char* path) {
 	struct stat info;
@@ -220,3 +223,42 @@ char* rvn_read_file(const char* path, size_t* size) {
 	if (size) *size = (size_t)length;
 	return data;
 }
+
+#if defined(_WIN32)
+
+/* (the fonts of Windows are a few MB: read whole) */
+uint8_t* rvn_map_file(const char* path, size_t* size) {
+	return (uint8_t*)rvn_read_file(path, size);
+}
+
+void rvn_unmap_file(uint8_t* data, size_t size) {
+	RVN_UNUSED(size);
+	rvn_free(data);
+}
+
+#else
+
+uint8_t* rvn_map_file(const char* path, size_t* size) {
+	struct stat info;
+	void* data;
+	int file;
+	*size = 0;
+	if (!path) return NULL;
+	file = open(path, O_RDONLY);
+	if (file < 0) return NULL;
+	if (fstat(file, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0 || (uint64_t)info.st_size >= (uint64_t)(SIZE_MAX / 2)) {
+		close(file);
+		return NULL;
+	}
+	data = mmap(NULL, (size_t)info.st_size, PROT_READ, MAP_PRIVATE, file, 0);
+	close(file);
+	if (data == MAP_FAILED) return NULL;
+	*size = (size_t)info.st_size;
+	return (uint8_t*)data;
+}
+
+void rvn_unmap_file(uint8_t* data, size_t size) {
+	if (data) munmap(data, size);
+}
+
+#endif

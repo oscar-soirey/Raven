@@ -14,9 +14,15 @@
  *   macOS    /System/Library/Fonts (and Supplemental): Geeza Pro, Arial
  *            Hebrew, PingFang, Hiragino, Apple SD Gothic Neo, Kohinoor,
  *            Thonburi, Apple Symbols, Arial Unicode...
+ *   iOS      the font CoreText would draw the character with, then the
+ *            fonts of the system's fallback list that have it: the files of
+ *            the system move between versions of iOS, so they are not named
+ *            here.
  *   Linux    every .ttf / .otf / .ttc in the font folders, chosen by name
  *            (Noto Sans <Script>, Noto Color Emoji in its COLR version,
  *            DejaVu Sans, FreeSans...)
+ *   Android  the same, in /system/fonts (Roboto, Noto Sans <Script>, Noto
+ *            Sans CJK)
  */
 
 #include "font.h"
@@ -30,6 +36,13 @@
 #else
 #include <dirent.h>
 #include <sys/stat.h>
+#endif
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+#include <CoreText/CoreText.h>
+#define RVN_SYSTEM_CORETEXT 1
 #endif
 
 typedef enum rvn_script_t {
@@ -77,24 +90,49 @@ static rvn_script_t rvn_script_of(uint32_t c) {
 
 static struct {
 	int ready;
-	/* every candidate path, per script, then the broad ones */
-	char** lists[RVN_SCRIPT_COUNT + 1];
+	/* every font found, once */
+	rvn_system_file_t** files;
+	int file_count;
+	/* the candidates, per script, then the broad ones */
+	rvn_system_file_t** lists[RVN_SCRIPT_COUNT + 1];
 	int counts[RVN_SCRIPT_COUNT + 1];
 } g_system;
 
-static void rvn_system_add(int list, const char* path) {
-	int i;
+/* The font `face` of the file at `path`, made once: NULL when the file cannot be read. */
+static rvn_system_file_t* rvn_system_file(const char* path, int face) {
+	rvn_system_file_t* file;
 	FILE* f;
-	for (i = 0; i < g_system.counts[list]; i++)
-		if (strcmp(g_system.lists[list][i], path) == 0) return;
+	int i;
+	for (i = 0; i < g_system.file_count; i++) {
+		if (g_system.files[i]->face == face && strcmp(g_system.files[i]->path, path) == 0) return g_system.files[i];
+	}
 	f = fopen(path, "rb");
-	if (!f) return;
+	if (!f) return NULL;
 	fclose(f);
-	g_system.lists[list] = (char**)rvn_realloc(g_system.lists[list], (size_t)(g_system.counts[list] + 1) * sizeof(char*));
-	g_system.lists[list][g_system.counts[list]++] = rvn_strdup(path);
+	file = (rvn_system_file_t*)rvn_calloc(sizeof(rvn_system_file_t));
+	file->path = rvn_strdup(path);
+	file->face = face;
+	g_system.files = (rvn_system_file_t**)rvn_realloc(g_system.files, (size_t)(g_system.file_count + 1) * sizeof(rvn_system_file_t*));
+	g_system.files[g_system.file_count++] = file;
+	return file;
 }
 
-#if defined(_WIN32) || defined(__APPLE__)
+static void rvn_system_add_file(int list, rvn_system_file_t* file) {
+	int i;
+	if (!file) return;
+	for (i = 0; i < g_system.counts[list]; i++)
+		if (g_system.lists[list][i] == file) return;
+	g_system.lists[list] = (rvn_system_file_t**)rvn_realloc(g_system.lists[list], (size_t)(g_system.counts[list] + 1) * sizeof(rvn_system_file_t*));
+	g_system.lists[list][g_system.counts[list]++] = file;
+}
+
+#if !defined(RVN_SYSTEM_CORETEXT)
+static void rvn_system_add(int list, const char* path) {
+	rvn_system_add_file(list, rvn_system_file(path, 0));
+}
+#endif
+
+#if defined(_WIN32) || (defined(__APPLE__) && !defined(RVN_SYSTEM_CORETEXT))
 
 typedef struct rvn_system_font_t {
 	int script; /* RVN_SCRIPT_COUNT: broad */
@@ -139,6 +177,101 @@ static void rvn_system_scan(void) {
 	rvn_system_add_table(folder, g_windows_fonts, RVN_COUNT_OF(g_windows_fonts));
 }
 
+#elif defined(RVN_SYSTEM_CORETEXT)
+
+/* The fonts CoreText chose so far, by PostScript name. */
+static struct {
+	char* name;
+	rvn_system_file_t* file;
+} * g_coretext;
+static int g_coretext_count;
+/* The system font, and the fonts of its fallback list (CoreText is asked for each character). */
+static CTFontRef g_coretext_system;
+static CFArrayRef g_coretext_cascade;
+static CTFontRef* g_coretext_fallbacks;
+static CFIndex g_coretext_fallback_count;
+
+static void rvn_system_scan(void) {
+	CFIndex i;
+	g_coretext_system = CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, 17.0, NULL);
+	g_coretext_cascade = g_coretext_system ? CTFontCopyDefaultCascadeListForLanguages(g_coretext_system, NULL) : NULL;
+	if (!g_coretext_cascade) return;
+	g_coretext_fallbacks = (CTFontRef*)rvn_calloc((size_t)CFArrayGetCount(g_coretext_cascade) * sizeof(CTFontRef));
+	for (i = 0; i < CFArrayGetCount(g_coretext_cascade); i++) {
+		CTFontRef font = CTFontCreateWithFontDescriptor((CTFontDescriptorRef)CFArrayGetValueAtIndex(g_coretext_cascade, i), 17.0, NULL);
+		if (font) g_coretext_fallbacks[g_coretext_fallback_count++] = font;
+	}
+}
+
+/* The file and the font in it of a font of CoreText: NULL when they cannot be read. */
+static rvn_system_file_t* rvn_coretext_file(CTFontRef font) {
+	CFStringRef name = CTFontCopyPostScriptName(font);
+	CFURLRef url = (CFURLRef)CTFontCopyAttribute(font, kCTFontURLAttribute);
+	char key[256], path[1024];
+	rvn_system_file_t* file = NULL;
+	int i, face = 0;
+	if (!name || !CFStringGetCString(name, key, sizeof(key), kCFStringEncodingUTF8)) key[0] = '\0';
+	if (name) CFRelease(name);
+	for (i = 0; i < g_coretext_count; i++) {
+		if (strcmp(g_coretext[i].name, key) == 0) {
+			if (url) CFRelease(url);
+			return g_coretext[i].file;
+		}
+	}
+	if (url && CFURLGetFileSystemRepresentation(url, true, (UInt8*)path, sizeof(path))) {
+		size_t size = 0;
+		uint8_t* data = rvn_map_file(path, &size);
+		/* in a collection (.ttc), the font of that name (else the first) */
+		if (data) face = rvn_maxi(0, rvn_ttf_find_face(data, size, key));
+		rvn_unmap_file(data, size);
+		file = data ? rvn_system_file(path, face) : NULL;
+	}
+	if (url) CFRelease(url);
+	g_coretext = rvn_realloc(g_coretext, (size_t)(g_coretext_count + 1) * sizeof(*g_coretext));
+	g_coretext[g_coretext_count].name = rvn_strdup(key);
+	g_coretext[g_coretext_count].file = file;
+	g_coretext_count++;
+	return file;
+}
+
+/* The font CoreText draws the character with, added to the candidates of its script. */
+static void rvn_system_ask(uint32_t codepoint, int list) {
+	UniChar units[2];
+	CFIndex count = 1;
+	CFStringRef text;
+	CTFontRef font;
+	if (codepoint >= 0x10000u) {
+		units[0] = (UniChar)(0xD800u + ((codepoint - 0x10000u) >> 10));
+		units[1] = (UniChar)(0xDC00u + ((codepoint - 0x10000u) & 0x3FFu));
+		count = 2;
+	} else {
+		units[0] = (UniChar)codepoint;
+	}
+	text = CFStringCreateWithCharacters(NULL, units, count);
+	if (text && g_coretext_system) {
+		CFIndex i, found = 0;
+		font = CTFontCreateForString(g_coretext_system, text, CFRangeMake(0, count));
+		if (font) {
+			rvn_system_add_file(list, rvn_coretext_file(font));
+			CFRelease(font);
+		}
+		/* then the other fonts of the system's fallback list that have it: CoreText's choice may be in
+		 * a format Raven does not read (iOS 26: PingFang's outlines are in Apple's own hvgl table) */
+		for (i = 0; i < g_coretext_fallback_count && found < 4; i++) {
+			CGGlyph glyphs[2] = { 0, 0 };
+			/* (some of the list are fonts of fonts, with no file of their own) */
+			if (CTFontGetGlyphsForCharacters(g_coretext_fallbacks[i], units, glyphs, count) && glyphs[0]) {
+				rvn_system_file_t* file = rvn_coretext_file(g_coretext_fallbacks[i]);
+				if (file) {
+					rvn_system_add_file(list, file);
+					found++;
+				}
+			}
+		}
+	}
+	if (text) CFRelease(text);
+}
+
 #elif defined(__APPLE__)
 
 static const rvn_system_font_t g_mac_fonts[] = {
@@ -169,7 +302,7 @@ static void rvn_system_scan(void) {
 
 /* Names of files that cover a script, the best first (they are searched for in the file names). */
 static const char* const* rvn_linux_patterns(int script) {
-	static const char* const latin[] = { "NotoSans-Regular", "DejaVuSans.", "LiberationSans-Regular", "FreeSans.", NULL };
+	static const char* const latin[] = { "NotoSans-Regular", "Roboto-Regular", "DejaVuSans.", "LiberationSans-Regular", "FreeSans.", NULL };
 	static const char* const arabic[] = { "NotoSansArabic-Regular", "NotoNaskhArabic-Regular", "NotoSansArabicUI-Regular", "DejaVuSans.", "FreeSerif.", NULL };
 	static const char* const hebrew[] = { "NotoSansHebrew-Regular", "DejaVuSans.", "FreeSans.", NULL };
 	static const char* const armenian[] = { "NotoSansArmenian-Regular", "DejaVuSans.", "FreeSans.", NULL };
@@ -190,7 +323,7 @@ static const char* const* rvn_linux_patterns(int script) {
 		"NotoSansJP-Regular", "NotoSansKR-Regular", "wqy-microhei", "wqy-zenhei", "DroidSansFallback", "ukai", "uming", NULL };
 	static const char* const symbol[] = { "NotoSansSymbols-Regular", "NotoSansSymbols2-Regular", "NotoSansMath-Regular", "DejaVuSans.", "FreeSerif.", "Symbola", NULL };
 	static const char* const emoji[] = { "Noto-COLRv1", "NotoColorEmoji-COLR", "Twemoji", "NotoEmoji-Regular", "NotoEmoji", "Symbola", "NotoSansSymbols2-Regular", "DejaVuSans.", NULL };
-	static const char* const broad[] = { "DejaVuSans.", "NotoSans-Regular", "FreeSans.", "FreeSerif.", "unifont", NULL };
+	static const char* const broad[] = { "DejaVuSans.", "NotoSans-Regular", "Roboto-Regular", "FreeSans.", "FreeSerif.", "unifont", NULL };
 	switch (script) {
 		case RVN_SCRIPT_ARABIC: return arabic;
 		case RVN_SCRIPT_HEBREW: return hebrew;
@@ -248,6 +381,10 @@ static void rvn_system_scan(void) {
 	int script, i, p;
 	rvn_linux_walk("/usr/share/fonts", 0);
 	rvn_linux_walk("/usr/local/share/fonts", 0);
+#if defined(__ANDROID__)
+	rvn_linux_walk("/system/fonts", 0);
+	rvn_linux_walk("/product/fonts", 0);
+#endif
 	if (data && data[0]) {
 		snprintf(path, sizeof(path), "%s/fonts", data);
 		rvn_linux_walk(path, 0);
@@ -282,19 +419,22 @@ static void rvn_system_scan(void) {
 
 #endif
 
-int rvn_font_system_candidates(uint32_t codepoint, const char** paths, int max) {
+int rvn_font_system_candidates(uint32_t codepoint, const rvn_system_file_t** files, int max) {
 	int script, count = 0, i, k;
 	if (!g_system.ready) {
 		g_system.ready = 1;
 		rvn_system_scan();
 	}
 	script = (int)rvn_script_of(codepoint);
+#if defined(RVN_SYSTEM_CORETEXT)
+	rvn_system_ask(codepoint, script);
+#endif
 	for (k = 0; k < 2; k++) {
 		int list = k == 0 ? script : RVN_SCRIPT_COUNT;
 		for (i = 0; i < g_system.counts[list] && count < max; i++) {
 			int j, seen = 0;
-			for (j = 0; j < count; j++) if (paths[j] == g_system.lists[list][i] || strcmp(paths[j], g_system.lists[list][i]) == 0) seen = 1;
-			if (!seen) paths[count++] = g_system.lists[list][i];
+			for (j = 0; j < count; j++) if (files[j] == g_system.lists[list][i]) seen = 1;
+			if (!seen) files[count++] = g_system.lists[list][i];
 		}
 	}
 	return count;
@@ -302,9 +442,25 @@ int rvn_font_system_candidates(uint32_t codepoint, const char** paths, int max) 
 
 void rvn_font_system_shutdown(void) {
 	int list, i;
-	for (list = 0; list <= RVN_SCRIPT_COUNT; list++) {
-		for (i = 0; i < g_system.counts[list]; i++) rvn_free(g_system.lists[list][i]);
-		rvn_free(g_system.lists[list]);
+	for (list = 0; list <= RVN_SCRIPT_COUNT; list++) rvn_free(g_system.lists[list]);
+	for (i = 0; i < g_system.file_count; i++) {
+		rvn_free(g_system.files[i]->path);
+		rvn_free(g_system.files[i]);
 	}
+	rvn_free(g_system.files);
+#if defined(RVN_SYSTEM_CORETEXT)
+	for (i = 0; i < g_coretext_count; i++) rvn_free(g_coretext[i].name);
+	rvn_free(g_coretext);
+	g_coretext = NULL;
+	g_coretext_count = 0;
+	for (i = 0; i < (int)g_coretext_fallback_count; i++) CFRelease(g_coretext_fallbacks[i]);
+	rvn_free(g_coretext_fallbacks);
+	g_coretext_fallbacks = NULL;
+	g_coretext_fallback_count = 0;
+	if (g_coretext_cascade) CFRelease(g_coretext_cascade);
+	if (g_coretext_system) CFRelease(g_coretext_system);
+	g_coretext_cascade = NULL;
+	g_coretext_system = NULL;
+#endif
 	memset(&g_system, 0, sizeof(g_system));
 }

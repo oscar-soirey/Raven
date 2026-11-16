@@ -65,6 +65,9 @@ struct rvn_font_t {
 	Rid id;
 	uint8_t* data;
 	int owns_data;
+	/** A font of the system: its file, mapped into memory (`size` bytes). */
+	const rvn_system_file_t* system;
+	size_t mapped_size;
 	rvn_ttf_t* ttf;
 	float ascent, descent, line_gap;
 	Rid fallback;
@@ -98,7 +101,7 @@ static struct {
 	int initialized;
 	/* fonts of the system, opened when a character needs them (render/font_system.c) */
 	struct {
-		const char* path;
+		const rvn_system_file_t* file;
 		rvn_font_t* font;
 		int failed;
 	} system[64];
@@ -316,29 +319,31 @@ static void rvn_glyph_get(rvn_font_t* font, int glyph_index, uint32_t size_q, ui
  * that pool, and these are opened while they run.
  */
 static int rvn_font_system_glyph(uint32_t codepoint, rvn_cmap_entry_t* entry) {
-	const char* paths[24];
-	int count = rvn_font_system_candidates(codepoint, paths, (int)RVN_COUNT_OF(paths)), i, k;
+	const rvn_system_file_t* files[24];
+	int count = rvn_font_system_candidates(codepoint, files, (int)RVN_COUNT_OF(files)), i, k;
 	for (i = 0; i < count; i++) {
 		rvn_font_t* font = NULL;
 		int glyph;
 		for (k = 0; k < g_fonts.system_count; k++) {
-			if (g_fonts.system[k].path == paths[i]) break;
+			if (g_fonts.system[k].file == files[i]) break;
 		}
 		if (k == g_fonts.system_count) {
 			size_t size = 0;
 			uint8_t* data;
 			rvn_ttf_t* ttf;
 			if (g_fonts.system_count >= (int)RVN_COUNT_OF(g_fonts.system)) continue;
-			g_fonts.system[k].path = paths[i];
+			g_fonts.system[k].file = files[i];
 			g_fonts.system[k].font = NULL;
 			g_fonts.system[k].failed = R_TRUE;
 			g_fonts.system_count++;
-			data = (uint8_t*)rvn_read_file(paths[i], &size);
-			ttf = data ? rvn_ttf_open(data, size) : NULL;
+			/* (mapped, not read: only the parts of the font in use are loaded) */
+			data = rvn_map_file(files[i]->path, &size);
+			ttf = data ? rvn_ttf_open_face(data, size, files[i]->face) : NULL;
 			if (ttf) {
 				rvn_font_t* made = (rvn_font_t*)rvn_calloc(sizeof(rvn_font_t));
 				made->data = data;
-				made->owns_data = R_TRUE;
+				made->mapped_size = size;
+				made->system = files[i];
 				made->ttf = ttf;
 				made->fallback = R_INVALID_ID;
 				made->id = R_INVALID_ID;
@@ -347,7 +352,7 @@ static int rvn_font_system_glyph(uint32_t codepoint, rvn_cmap_entry_t* entry) {
 				g_fonts.system[k].font = made;
 				g_fonts.system[k].failed = R_FALSE;
 			} else {
-				rvn_free(data);
+				rvn_unmap_file(data, size);
 			}
 		}
 		if (g_fonts.system[k].failed) continue;
@@ -556,7 +561,7 @@ void rvn_fonts_shutdown(void) {
 		rvn_font_t* font = g_fonts.system[i].font;
 		if (!font) continue;
 		rvn_ttf_close(font->ttf);
-		rvn_free(font->data);
+		rvn_unmap_file(font->data, font->mapped_size);
 		rvn_free(font);
 	}
 	rvn_font_system_shutdown();

@@ -189,6 +189,13 @@ uint32_t rvn_hash_bytes(const void* data, size_t size);
 uint32_t rvn_hash_str(const char* text);
 /** Reads a whole file. The result has one extra '\0' byte. Free with rvn_free. */
 char* rvn_read_file(const char* path, size_t* size);
+/**
+ * A file mapped into memory, read only: only the parts read are loaded (the
+ * large fonts of the system: Apple Color Emoji is near 200 MB). NULL when it
+ * cannot be read. Release with rvn_unmap_file.
+ */
+uint8_t* rvn_map_file(const char* path, size_t* size);
+void rvn_unmap_file(uint8_t* data, size_t size);
 /** R_TRUE when the path names a file registered with Rfile_register_memory. */
 int rvn_memory_file_exists(const char* path);
 /** Forgets every file held in memory (Rshutdown). */

@@ -95,6 +95,10 @@ typedef struct rvn_ttf_t rvn_ttf_t;
 
 /** `data` must stay valid for the lifetime of the object. Returns NULL on invalid data. */
 rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size);
+/** The same for one font of a collection (.ttc), 0 being the first (and the font of a file that is not a collection). */
+rvn_ttf_t* rvn_ttf_open_face(const uint8_t* data, size_t size, int face);
+/** The number in its collection of the font whose PostScript name is `name`: -1 when none is. */
+int   rvn_ttf_find_face(const uint8_t* data, size_t size, const char* name);
 void  rvn_ttf_close(rvn_ttf_t* ttf);
 /** 0 when the font has no glyph for the code point. */
 int   rvn_ttf_glyph_index(rvn_ttf_t* ttf, uint32_t codepoint);
@@ -122,12 +126,18 @@ int   rvn_ttf_color_layers(rvn_ttf_t* ttf, int glyph, int* glyphs, uint32_t* col
  *  fonts of the application do not have are looked for.
  * ------------------------------------------------------------------------- */
 
+/** A font of the system: its file, and which font of the file (a collection, .ttc, holds several). */
+typedef struct rvn_system_file_t {
+	char* path;
+	int face;
+} rvn_system_file_t;
+
 /**
- * Font files of the system that may have a character, the most likely
- * first: those made for its script, then the broad ones. Returns their count
- * (paths owned by font_system.c, valid until rvn_font_system_shutdown).
+ * Fonts of the system that may have a character, the most likely first:
+ * those made for its script, then the broad ones. Returns their count (owned
+ * by font_system.c, valid until rvn_font_system_shutdown).
  */
-int rvn_font_system_candidates(uint32_t codepoint, const char** paths, int max);
+int rvn_font_system_candidates(uint32_t codepoint, const rvn_system_file_t** files, int max);
 void rvn_font_system_shutdown(void);
 
 void  rvn_ttf_render_bold(rvn_ttf_t* ttf, int glyph, float size_px, float spread, uint8_t* out, int width, int height, int stride);

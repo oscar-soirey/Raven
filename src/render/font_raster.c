@@ -300,14 +300,62 @@ int rvn_ttf_color_layers(rvn_ttf_t* ttf, int glyph, int* glyphs, uint32_t* color
 	return 0;
 }
 
-rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size) {
+/* The font of a collection (.ttc) whose PostScript name is `name`: -1 when none is. */
+int rvn_ttf_find_face(const uint8_t* data, size_t size, const char* name) {
+	uint32_t faces = 1, face;
+	size_t name_length = strlen(name);
+	int collection;
+	if (!data || size < 12) return -1;
+	collection = memcmp(data, "ttcf", 4) == 0;
+	if (collection) {
+		faces = rvn_ttf_u32(data + 8);
+		if (12 + 4 * (uint64_t)faces > size) return -1;
+	}
+	for (face = 0; face < faces; face++) {
+		uint32_t start = collection ? rvn_ttf_u32(data + 12 + 4 * face) : 0, count, i, table = 0, length = 0;
+		uint32_t records, strings;
+		if ((uint64_t)start + 12 > size) continue;
+		count = rvn_ttf_u16(data + start + 4);
+		if ((uint64_t)start + 12 + 16 * (uint64_t)count > size) continue;
+		for (i = 0; i < count; i++) {
+			const uint8_t* record = data + start + 12 + 16 * i;
+			if (memcmp(record, "name", 4) == 0) {
+				table = rvn_ttf_u32(record + 8);
+				length = rvn_ttf_u32(record + 12);
+			}
+		}
+		if (!table || (uint64_t)table + length > size || length < 6) continue;
+		records = rvn_ttf_u16(data + table + 2);
+		strings = rvn_ttf_u16(data + table + 4);
+		if (6 + 12 * (uint64_t)records > length) continue;
+		/* the PostScript name (6), in UTF-16 (platforms 0 and 3) or in ASCII (1) */
+		for (i = 0; i < records; i++) {
+			const uint8_t* record = data + table + 6 + 12 * i;
+			uint32_t platform = rvn_ttf_u16(record), bytes = rvn_ttf_u16(record + 8), at = table + strings + rvn_ttf_u16(record + 10);
+			int wide = platform != 1;
+			size_t k;
+			if (rvn_ttf_u16(record + 6) != 6 || (uint64_t)at + bytes > (uint64_t)table + length) continue;
+			if (bytes != name_length * (wide ? 2 : 1)) continue;
+			for (k = 0; k < name_length; k++) {
+				uint32_t c = wide ? rvn_ttf_u16(data + at + 2 * k) : data[at + k];
+				if (c != (uint8_t)name[k]) break;
+			}
+			if (k == name_length) return (int)face;
+		}
+	}
+	return -1;
+}
+
+rvn_ttf_t* rvn_ttf_open_face(const uint8_t* data, size_t size, int face) {
 	rvn_ttf_t* ttf;
 	uint32_t offset = 0, colr_length = 0, cpal_length = 0, unused;
-	if (!data || size < 12) return NULL;
-	/* a collection (.ttc): its first font */
+	if (!data || size < 12 || face < 0) return NULL;
+	/* a collection (.ttc): one of its fonts */
 	if (memcmp(data, "ttcf", 4) == 0) {
-		if (size < 16 || rvn_ttf_u32(data + 8) == 0) return NULL;
-		offset = rvn_ttf_u32(data + 12);
+		if ((uint32_t)face >= rvn_ttf_u32(data + 8) || 16 + 4 * (uint64_t)face > size) return NULL;
+		offset = rvn_ttf_u32(data + 12 + 4 * (uint32_t)face);
+	} else if (face != 0) {
+		return NULL;
 	}
 	ttf = (rvn_ttf_t*)rvn_calloc(sizeof(rvn_ttf_t));
 	ttf->size = size;
@@ -332,6 +380,10 @@ rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size) {
 		return NULL;
 	}
 	return ttf;
+}
+
+rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size) {
+	return rvn_ttf_open_face(data, size, 0);
 }
 
 void rvn_ttf_close(rvn_ttf_t* ttf) {
