@@ -13,6 +13,15 @@
  * R_WINDOW_SYSTEM_UIKIT with the CAMetalLayer*, from which it makes a
  * VK_EXT_metal_surface as it does for Cocoa.
  *
+ * The application's lifecycle (UIApplication notifications) is handed to the
+ * core at once as RVN_PEVENT_APP: in the background no frame comes, and the
+ * core must have stopped drawing and drained the GPU before
+ * didEnterBackground returns (the system may kill an application that uses
+ * the GPU in the background). The CAMetalLayer and the swapchain are kept
+ * meanwhile: nothing is presented, and they are used again on return.
+ * SHORTCUT: a scene that is disconnected (the system reclaims it) is not
+ * handled: its windows are not moved to a new scene.
+ *
  * Compiled with ARC (see CMakeLists.txt).
  */
 
@@ -908,6 +917,24 @@ static void rvn_uikit_keyboard_changed(NSNotification* note, int hiding) {
 	for (window = g_uikit.windows; window; window = window->next) rvn_uikit_keyboard_measure(window);
 }
 
+/*
+ * The application's lifecycle: the core gets it now, after what was queued,
+ * since no frame may come before the system suspends the application.
+ */
+static void rvn_uikit_app_event(RAppEvent app_event) {
+	rvn_pevent_t e;
+	int i;
+	if (!g_uikit.handler) return;
+	for (i = 0; i < g_uikit.count; i++) g_uikit.handler(&g_uikit.queue[i]);
+	g_uikit.count = 0;
+	memset(&e, 0, sizeof(e));
+	e.type = RVN_PEVENT_APP;
+	e.app_event = (int)app_event;
+	g_uikit.handler(&e);
+	/* (outside a frame: the display link ticks again for what the application changed, or what changed in the background; not in the background) */
+	if (app_event != R_APP_DID_PAUSE && app_event != R_APP_WILL_TERMINATE) rvn_uikit_resume();
+}
+
 /* The scene became active or is about to resign (app switcher, home, a call): the core's "active" window. */
 static void rvn_uikit_scene_focus(NSNotification* note, int focused) {
 	rvn_pwindow_t* window;
@@ -941,6 +968,31 @@ static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 		}],
 		[center addObserverForName:UISceneWillDeactivateNotification object:nil queue:main usingBlock:^(NSNotification* note) {
 			rvn_uikit_scene_focus(note, R_FALSE);
+		}],
+		/* the whole application (all its scenes) */
+		[center addObserverForName:UIApplicationWillResignActiveNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_WILL_PAUSE);
+		}],
+		[center addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_DID_PAUSE);
+		}],
+		[center addObserverForName:UIApplicationWillEnterForegroundNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_WILL_RESUME);
+		}],
+		[center addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_DID_RESUME);
+		}],
+		[center addObserverForName:UIApplicationDidReceiveMemoryWarningNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_LOW_MEMORY);
+		}],
+		[center addObserverForName:UIApplicationWillTerminateNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_WILL_TERMINATE);
 		}]
 	]);
 	return R_TRUE;
