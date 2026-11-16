@@ -303,8 +303,8 @@ type
     ## Colors the text of cells (a verdict, a state): the table asks for the
     ## color of each cell it draws, stored or virtual (`row` is the index of the
     ## order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
-    ## keeps the color of the theme. The color is kept on a selected or hovered
-    ## row. NULL removes the callback.
+    ## keeps the color set with Rtable_set_cell_text_color, else the theme's.
+    ## The color is kept on a selected or hovered row. NULL removes the callback.
   RTableEventCallback* = proc (table: Rid, row: cint, user_data: pointer) {.cdecl.}
   RTableSortCallback* = proc (table: Rid, column: cint, descending: cint, user_data: pointer) {.cdecl.}
     ## Called when the user clicks a header; `column` -1: not sorted.
@@ -3178,8 +3178,19 @@ proc Rtable_clear_rows*(table: Rid) {.rapi.}
 proc Rtable_get_row_count*(table: Rid): cint {.rapi.}
 proc Rtable_set_virtual_rows*(table: Rid, count: cint, callback: RTableCellTextCallback, user_data: pointer) {.rapi.}
 proc Rtable_set_cell_color_callback*(table: Rid, callback: RTableCellColorCallback, user_data: pointer) {.rapi.}
+proc Rtable_set_cell_text_color*(table: Rid, row: cint, column: cint, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+  ## Stored rows: a fixed text color; column -1 colors the row; cells override it.
+  ## Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+proc Rtable_set_multi_select*(table: Rid, enabled: cint) {.rapi.}
+  ## Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+proc Rtable_set_row_selected*(table: Rid, row: cint, selected: cint) {.rapi.}
+proc Rtable_is_row_selected*(table: Rid, row: cint): cint {.rapi.}
+proc Rtable_clear_selection*(table: Rid) {.rapi.}
+proc Rtable_get_selection_count*(table: Rid): cint {.rapi.}
+proc Rtable_get_selection*(table: Rid, index: cint): cint {.rapi.}
+  ## Selected row at index, top to bottom; -1 outside the selection.
 proc Rtable_set_selected*(table: Rid, row: cint) {.rapi.}
-  ## Selects a row. -1 selects nothing.
+  ## Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 proc Rtable_get_selected*(table: Rid): cint {.rapi.}
 proc Rtable_scroll_to_row*(table: Rid, row: cint) {.rapi.}
 proc Rtable_sort*(table: Rid, column: cint, descending: cint) {.rapi.}
