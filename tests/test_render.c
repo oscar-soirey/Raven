@@ -253,6 +253,185 @@ static void test_mipmaps(void) {
 	Rwindow_destroy(window);
 }
 
+/*
+ * A window that keeps the GPU busy: three images at the top (named small,
+ * medium and large, 60 x 60 at x = 20, 100 and 180), and below them 24 panes
+ * of glass over a red and a blue half. Each frame blurs what is behind every
+ * pane, so the GPU is still drawing a frame when the next one is recorded.
+ */
+static Rid busy_window(void) {
+	return window_from(
+		"<Window Width=\"1180\" Height=\"700\" ClearColor=\"#000000\">"
+		"  <Overlay>"
+		"    <Canvas>"
+		"      <Image Name=\"small\" Slot.Position=\"20,20\" Slot.Size=\"60,60\"/>"
+		"      <Image Name=\"medium\" Slot.Position=\"100,20\" Slot.Size=\"60,60\"/>"
+		"      <Image Name=\"large\" Slot.Position=\"180,20\" Slot.Size=\"60,60\"/>"
+		"      <Border Slot.Position=\"0,100\" Slot.Size=\"590,600\" Background=\"#FF0000\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"      <Border Slot.Position=\"590,100\" Slot.Size=\"590,600\" Background=\"#0000FF\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"      <Border Slot.Position=\"10,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,100\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"10,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,250\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"10,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,400\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"10,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"205,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"400,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"595,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"790,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"      <Border Slot.Position=\"985,550\" Slot.Size=\"180,140\" Material=\"Glass\"/>"
+		"    </Canvas>"
+		"  </Overlay>"
+		"</Window>");
+}
+
+/* A square of `size` x `size` RGBA8 pixels of one color. */
+static uint8_t* solid_pixels(int size, int r, int g, int b) {
+	uint8_t* pixels = (uint8_t*)malloc((size_t)size * (size_t)size * 4);
+	int i;
+	for (i = 0; i < size * size; i++) {
+		pixels[i * 4 + 0] = (uint8_t)r;
+		pixels[i * 4 + 1] = (uint8_t)g;
+		pixels[i * 4 + 2] = (uint8_t)b;
+		pixels[i * 4 + 3] = 255;
+	}
+	return pixels;
+}
+
+/* The color of texture `texture` in the set of pixels `set`: no two of them alike. */
+static void streaming_color(int set, int texture, int rgb[3]) {
+	rgb[0] = 40 + set * 50;
+	rgb[1] = 30 + texture * 90;
+	rgb[2] = 250 - set * 40 - texture * 20;
+}
+
+static void test_texture_streaming(void) {
+	/*
+	 * Three textures are given new pixels at every frame, as a video or a
+	 * view drawn by the application is. One frame brings 9.3 MB of them:
+	 * more than the staging buffer of the backend holds (8 MiB once it grew
+	 * for the largest), so they go to the GPU in two batches. The glass of
+	 * the window keeps the GPU at the frame before while the pixels of the
+	 * next one arrive, and the frames that are not read back follow each
+	 * other as fast as they are drawn.
+	 *
+	 * Each frame read back must show the pixels it was given: not those of
+	 * the frame before (a batch sent after the frame), and not those of
+	 * another texture (pixels written over while the GPU still reads them).
+	 */
+	enum { TEXTURES = 3, SETS = 4, FRAMES = 96, READ_EVERY = 6 };
+	static const int sizes[TEXTURES] = { 256, 900, 1200 };
+	static const char* const names[TEXTURES] = { "small", "medium", "large" };
+	Rid window = busy_window();
+	uint8_t* pixels[SETS][TEXTURES];
+	Rid textures[TEXTURES];
+	int vsync = Rget_vsync();
+	int rgb[3], set, i, frame;
+
+	/* (a real window would wait for the screen at every frame, and the GPU with it) */
+	Rset_vsync(R_FALSE);
+
+	/* (made beforehand: nothing but the uploads stands between two frames) */
+	for (set = 0; set < SETS; set++) {
+		for (i = 0; i < TEXTURES; i++) {
+			streaming_color(set, i, rgb);
+			pixels[set][i] = solid_pixels(sizes[i], rgb[0], rgb[1], rgb[2]);
+		}
+	}
+	for (i = 0; i < TEXTURES; i++) {
+		Rid image = Rwidget_find(window, names[i]);
+		textures[i] = Rtexture_create_from_pixels(pixels[0][i], sizes[i], sizes[i]);
+		CHECK(Rtexture_is_valid(textures[i]));
+		Rimage_set_texture(image, textures[i]);
+		Rimage_set_stretch(image, R_STRETCH_FILL);
+	}
+
+	for (frame = 1; frame <= FRAMES; frame++) {
+		set = frame % SETS;
+		for (i = 0; i < TEXTURES; i++) Rtexture_update(textures[i], pixels[set][i], sizes[i], sizes[i]);
+		if (frame % READ_EVERY != 0) {
+			Rdraw_frame();
+			continue;
+		}
+		capture(window);
+		for (i = 0; i < TEXTURES; i++) {
+			streaming_color(set, i, rgb);
+			CHECK_PIXEL(50 + i * 80, 50, rgb[0], rgb[1], rgb[2]);
+		}
+	}
+
+	/*
+	 * The large texture is deleted right after its pixels were given: the
+	 * batch that copies them is not sent yet (it goes before the next frame),
+	 * so it is sent, and finished, before the image goes. The two others
+	 * still show theirs.
+	 */
+	set = (FRAMES + 1) % SETS;
+	for (i = 0; i < TEXTURES; i++) Rtexture_update(textures[i], pixels[set][i], sizes[i], sizes[i]);
+	Rtexture_destroy(textures[2]);
+	capture(window);
+	streaming_color(set, 0, rgb);
+	CHECK_PIXEL(50, 50, rgb[0], rgb[1], rgb[2]);
+	streaming_color(set, 1, rgb);
+	CHECK_PIXEL(130, 50, rgb[0], rgb[1], rgb[2]);
+	CHECK_PIXEL(210, 50, 0, 0, 0);
+
+	/* another size: the texture is made again, and the pixels given right after are the ones shown */
+	Rtexture_update(textures[0], pixels[1][1], sizes[1], sizes[1]);
+	Rtexture_update(textures[0], pixels[2][1], sizes[1], sizes[1]);
+	capture(window);
+	streaming_color(2, 1, rgb);
+	CHECK_PIXEL(50, 50, rgb[0], rgb[1], rgb[2]);
+
+	/*
+	 * Pixels larger than the staging buffer right after a frame: the buffer
+	 * is made again, larger, while the GPU may still be copying from it for
+	 * that frame (the GPU is kept busy first). It must not go before the
+	 * copy is done: the medium texture shows the pixels it was given.
+	 */
+	{
+		enum { GROWN = 1500 }; /* 9 MB: more than the 8 MiB the buffer grew to above */
+		uint8_t* huge = solid_pixels(GROWN, 200, 180, 20);
+		Rid grown;
+		for (i = 0; i < 2; i++) {
+			Rtexture_update(textures[1], pixels[i][1], sizes[1], sizes[1]);
+			Rdraw_frame();
+		}
+		Rtexture_update(textures[1], pixels[3][1], sizes[1], sizes[1]);
+		Rdraw_frame();
+		grown = Rtexture_create_from_pixels(huge, GROWN, GROWN);
+		CHECK(Rtexture_is_valid(grown));
+		Rimage_set_texture(Rwidget_find(window, names[2]), grown);
+		capture(window);
+		streaming_color(3, 1, rgb);
+		CHECK_PIXEL(130, 50, rgb[0], rgb[1], rgb[2]);
+		CHECK_PIXEL(210, 50, 200, 180, 20);
+		Rtexture_destroy(grown);
+		free(huge);
+	}
+
+	Rtexture_destroy(textures[0]);
+	Rtexture_destroy(textures[1]);
+	for (set = 0; set < SETS; set++) {
+		for (i = 0; i < TEXTURES; i++) free(pixels[set][i]);
+	}
+	Rwindow_destroy(window);
+	Rset_vsync(vsync);
+}
+
 static void test_text(void) {
 	Rid window = window_from(
 		"<Window Width=\"300\" Height=\"120\" ClearColor=\"#000000\">"
@@ -1043,6 +1222,7 @@ int main(void) {
 	RUN(test_clipping);
 	RUN(test_textures);
 	RUN(test_mipmaps);
+	RUN(test_texture_streaming);
 	RUN(test_text);
 	RUN(test_label_foreground);
 	RUN(test_custom_drawing);

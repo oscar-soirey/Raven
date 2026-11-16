@@ -334,7 +334,14 @@ void rvn_vk_render_frame(const RDrawData* data, RCapture* capture) {
 	if (!rvn_vk_usable()) return;
 	if (!surface || data->framebuffer_width == 0 || data->framebuffer_height == 0) return;
 
-	/* textures changed since the last frame must be complete before they are sampled */
+	/*
+	 * Textures changed since the last frame must be complete before they are
+	 * sampled: their uploads go to the queue before the frame, and end with
+	 * the barrier the reads of the frame wait for. The GPU is not waited for
+	 * here: a texture given new pixels at every frame (a video, a view drawn
+	 * by the application) does not hold this frame back until the GPU has
+	 * finished the one before.
+	 */
 	rvn_vk_uploads_flush();
 
 	if (!rvn_vk_prepare_swapchain(surface, data)) return;
