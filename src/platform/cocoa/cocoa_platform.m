@@ -7,6 +7,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <Metal/Metal.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import <UserNotifications/UserNotifications.h>
 
 #include "../platform.h"
 #include "../../core/accessibility.h"
@@ -1599,24 +1600,95 @@ static int rvn_cocoa_accent_color(float rgb[3]) {
 }
 
 /*
- * A notification of the Notification Center. NSUserNotification still works
- * where UNUserNotificationCenter needs a signed bundle and a permission
- * asked beforehand; outside of an application bundle the center drops what
- * it is given, so that case reports R_FALSE (the fallback of the application then runs).
+ * A notification of the Notification Center (UserNotifications). The center
+ * works only for an application bundle: outside of one there is no center, so
+ * that case reports R_FALSE (the fallback of the application then runs).
+ *
+ * The first notification asks the user for the permission; the request is
+ * added once the answer is known (the system remembers it, later asks answer
+ * at once). When the user said no, the notifications go to the fallback: the
+ * one being asked about from its completion, the later ones by returning R_FALSE.
+ *
+ * Raven is the delegate of the center unless the application set one: its
+ * notifications then show while the application is in front too, as banners,
+ * and a click calls the callback of Rnotification_set_clicked_callback.
  */
+@interface RavenNotificationDelegate : NSObject <UNUserNotificationCenterDelegate>
+@end
+
+@implementation RavenNotificationDelegate
+
+- (void)userNotificationCenter:(UNUserNotificationCenter*)center
+       willPresentNotification:(UNNotification*)notification
+         withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
+    (void)center;
+    (void)notification;
+    completionHandler(UNNotificationPresentationOptionBanner | UNNotificationPresentationOptionList |
+        UNNotificationPresentationOptionSound);
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter*)center
+    didReceiveNotificationResponse:(UNNotificationResponse*)response
+             withCompletionHandler:(void (^)(void))completionHandler {
+    (void)center;
+    if ([[response actionIdentifier] isEqualToString:UNNotificationDefaultActionIdentifier]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            rvn_notification_clicked();
+        });
+    }
+    completionHandler();
+}
+
+@end
+
+/* the answer of the user: 0 not known yet, 1 allowed, -1 refused */
+static volatile int g_rvn_notify_allowed = 0;
+static RavenNotificationDelegate* g_rvn_notify_delegate = nil;
+static unsigned long g_rvn_notify_serial = 0;
+
 static int rvn_cocoa_notify(const char* app, const char* title, const char* body, int urgency) {
     @autoreleasepool {
-        NSUserNotification* notification;
+        UNUserNotificationCenter* center;
+        UNMutableNotificationContent* content;
+        UNNotificationRequest* request;
+        NSString* identifier;
+        NSString* fallback_title;
+        NSString* fallback_body;
+        int fallback_urgency = urgency;
+
         if (![[NSBundle mainBundle] bundleIdentifier]) return R_FALSE;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        notification = [[NSUserNotification alloc] init];
-        [notification setTitle:[NSString stringWithUTF8String:(*title ? title : app)]];
-        [notification setInformativeText:[NSString stringWithUTF8String:body]];
-        if (urgency > 0) [notification setSoundName:NSUserNotificationDefaultSoundName];
-        [[NSUserNotificationCenter defaultUserNotificationCenter] deliverNotification:notification];
-        [notification release];
-#pragma clang diagnostic pop
+        if (__atomic_load_n(&g_rvn_notify_allowed, __ATOMIC_ACQUIRE) < 0) return R_FALSE;
+        center = [UNUserNotificationCenter currentNotificationCenter];
+        if (!center) return R_FALSE;
+        if (!g_rvn_notify_delegate && ![center delegate]) {
+            g_rvn_notify_delegate = [[RavenNotificationDelegate alloc] init];
+            [center setDelegate:g_rvn_notify_delegate];
+        }
+
+        content = [[[UNMutableNotificationContent alloc] init] autorelease];
+        [content setTitle:[NSString stringWithUTF8String:(*title ? title : app)]];
+        [content setBody:[NSString stringWithUTF8String:body]];
+        if (urgency > 0) [content setSound:[UNNotificationSound defaultSound]];
+        identifier = [NSString stringWithFormat:@"raven.%lu", ++g_rvn_notify_serial];
+        request = [UNNotificationRequest requestWithIdentifier:identifier content:content trigger:nil];
+        fallback_title = [NSString stringWithUTF8String:title];
+        fallback_body = [NSString stringWithUTF8String:body];
+
+        /* (blocks copied by the center retain what they use) */
+        [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
+                              completionHandler:^(BOOL granted, NSError* error) {
+            __atomic_store_n(&g_rvn_notify_allowed, granted ? 1 : -1, __ATOMIC_RELEASE);
+            if (granted) {
+                [center addNotificationRequest:request withCompletionHandler:nil];
+            } else {
+                /* (an error rather than a no of the user: the bundle is not allowed notifications, for one) */
+                NSString* reason = error ? [error localizedDescription] : nil;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    rvn_notification_fallback([fallback_title UTF8String], [fallback_body UTF8String], fallback_urgency,
+                        reason ? [reason UTF8String] : NULL);
+                });
+            }
+        }];
         return R_TRUE;
     }
 }

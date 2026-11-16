@@ -4492,7 +4492,7 @@ inline void notification_set_fallback(std::function<void(const char*, const char
 /// (on the UI thread; the application may then bring its window to the
 /// front: the system lets it). It is the last one shown that was clicked:
 /// the application remembers what it was about. NULL: none.
-/// Windows only for now (elsewhere it is never called).
+/// Windows and macOS (elsewhere it is never called).
 inline void notification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data) { Rnotification_set_clicked_callback(callback, user_data); }
 inline void notification_set_clicked_callback(std::function<void()> callback) {
 	Rnotification_set_clicked_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 100, std::move(callback)));

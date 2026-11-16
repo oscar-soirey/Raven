@@ -390,7 +390,7 @@ set RAVEN_LIB_DIR=C:\path\to\raven\lib &amp;&amp; cargo run     # Windows: raven
 <p><code>RAVEN_STATIC=1</code> links the static library instead; <code>build.rs</code>
 then adds the system libraries it needs (<code>user32 gdi32 shell32 comdlg32 ole32</code>
 on Windows, <code>X11 dl pthread m</code> on Linux, <code>objc</code> and the
-<code>AppKit QuartzCore Metal Foundation CoreFoundation</code> frameworks on macOS).</p>
+<code>AppKit QuartzCore Metal UserNotifications Foundation CoreFoundation</code> frameworks on macOS).</p>
 
 <h3 id="rust-hello">A program</h3>
 <pre>use raven::*;

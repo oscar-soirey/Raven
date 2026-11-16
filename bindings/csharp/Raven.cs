@@ -9491,7 +9491,7 @@ namespace Raven
         /// (on the UI thread; the application may then bring its window to the
         /// front: the system lets it). It is the last one shown that was clicked:
         /// the application remembers what it was about. NULL: none.
-        /// Windows only for now (elsewhere it is never called).
+        /// Windows and macOS (elsewhere it is never called).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, IntPtr user_data);
