@@ -159,6 +159,10 @@ void Randroid_set_app(struct android_app* app) {
 	g_android_app = app;
 }
 
+void* rvn_android_java_vm(void) {
+	return g_android_app && g_android_app->activity ? (void*)g_android_app->activity->vm : NULL;
+}
+
 static float rvn_android_density_scale(void) {
 	int density = g_android.app && g_android.app->config ? AConfiguration_getDensity(g_android.app->config) : 0;
 	if (density <= 0 || density == ACONFIGURATION_DENSITY_ANY || density == ACONFIGURATION_DENSITY_NONE) return 1.0f;

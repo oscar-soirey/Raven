@@ -279,7 +279,7 @@ static void rvn_glyph_create(rvn_font_t* font, int glyph_index, uint32_t size_q,
 
 	memset(glyph, 0, sizeof(*glyph));
 	/* a picture in color (emoji): on a page of color, as it is (neither thickened nor slanted) */
-	if (rvn_ttf_has_bitmaps(font->ttf)) {
+	if (rvn_ttf_has_pictures(font->ttf)) {
 		int undecoded = R_FALSE;
 		uint8_t* picture = rvn_ttf_bitmap(font->ttf, glyph_index, size_px, &x0, &y0, &w, &h, &undecoded);
 		if (!picture && undecoded) picture = rvn_font_system_draw(font->system, glyph_index, size_px, &x0, &y0, &w, &h);

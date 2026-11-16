@@ -510,8 +510,30 @@ static uint8_t* rvn_bitmap_resize(const uint8_t* source, int sw, int sh, int dw,
 	return out;
 }
 
-int rvn_ttf_has_bitmaps(rvn_ttf_t* ttf) {
-	return ttf->sbix != 0 || ttf->cblc != 0;
+/* COLR version 1 (gradients, transforms: Noto Color Emoji of Android 13 and later) has a paint for the glyph. */
+static int rvn_ttf_colr_v1_glyph(rvn_ttf_t* ttf, int glyph) {
+	const uint8_t* colr = ttf->info.data + ttf->colr;
+	uint32_t list, count;
+	int lo, hi;
+	if (!ttf->colr || rvn_ttf_u16(colr) != 1 || ttf->colr_length < 18) return R_FALSE;
+	list = rvn_ttf_u32(colr + 14);
+	if (!list || (uint64_t)list + 4 > ttf->colr_length) return R_FALSE;
+	count = rvn_ttf_u32(colr + list);
+	if ((uint64_t)list + 4 + 6 * (uint64_t)count > ttf->colr_length) return R_FALSE;
+	/* the records are sorted by glyph */
+	lo = 0;
+	hi = (int)count - 1;
+	while (lo <= hi) {
+		int mid = lo + (hi - lo) / 2, id = rvn_ttf_u16(colr + list + 4 + 6 * (uint32_t)mid);
+		if (id < glyph) lo = mid + 1;
+		else if (id > glyph) hi = mid - 1;
+		else return R_TRUE;
+	}
+	return R_FALSE;
+}
+
+int rvn_ttf_has_pictures(rvn_ttf_t* ttf) {
+	return ttf->sbix != 0 || ttf->cblc != 0 || (ttf->colr != 0 && rvn_ttf_u16(ttf->info.data + ttf->colr) == 1);
 }
 
 uint8_t* rvn_ttf_bitmap(rvn_ttf_t* ttf, int glyph, float size_px, int* x0, int* y0, int* width, int* height, int* undecoded) {
@@ -527,6 +549,8 @@ uint8_t* rvn_ttf_bitmap(rvn_ttf_t* ttf, int glyph, float size_px, int* x0, int* 
 		/* (sbix gives where the bottom left corner of the picture is, y up) */
 		from_bottom = R_TRUE;
 	} else if (!ttf->cblc || !rvn_ttf_cbdt_image(ttf, glyph, size_px, &image, &image_length, &ppem, &left, &top)) {
+		/* (a glyph of COLR version 1 is a picture too, one that Raven does not draw) */
+		*undecoded = rvn_ttf_colr_v1_glyph(ttf, glyph);
 		return NULL;
 	}
 	if (ppem <= 0) return NULL;

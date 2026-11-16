@@ -534,6 +534,8 @@ const rvn_platform_t* rvn_platform_uikit(void);
 #endif
 #if defined(RAVEN_PLATFORM_ANDROID)
 const rvn_platform_t* rvn_platform_android(void);
+/** The JavaVM of the activity (a JavaVM*), NULL before Randroid_set_app: for the parts of Raven outside the platform that call Java (render/font_system.c). */
+void* rvn_android_java_vm(void);
 #endif
 
 #endif /* RVN_PLATFORM_H */

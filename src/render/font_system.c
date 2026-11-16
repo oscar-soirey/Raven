@@ -14,15 +14,19 @@
  *   macOS    /System/Library/Fonts (and Supplemental): Apple Color Emoji
  *            (color, sbix), Geeza Pro, Arial Hebrew, PingFang, Hiragino,
  *            Apple SD Gothic Neo, Kohinoor, Thonburi, Apple Symbols...
- *   iOS      the font CoreText would draw the character with: the files
- *            of the system move between versions of iOS, so they are not
- *            named here. Apple Color Emoji keeps its pictures in a format
- *            of Apple's own there (emjc): CoreText draws those.
+ *   iOS      the font CoreText would draw the character with, then the
+ *            fonts of the system's fallback list that have it: the files of
+ *            the system move between versions of iOS, so they are not named
+ *            here. Apple Color Emoji keeps its pictures in a format of
+ *            Apple's own there (emjc): CoreText draws those.
  *   Linux    every .ttf / .otf / .ttc in the font folders, chosen by name
  *            (Noto Sans <Script>, Noto Color Emoji (color, CBDT or COLR),
  *            DejaVu Sans, FreeSans...)
- *   Android  the same, in /system/fonts (Roboto, Noto Sans <Script>, Noto
- *            Sans CJK, Noto Color Emoji)
+ *   Android  the fonts the system lists (ASystemFontIterator), each in the
+ *            lists of the scripts of its languages, after the font Android
+ *            chooses for the character (AFontMatcher); then the scan above
+ *            in /system/fonts. Noto Color Emoji is COLRv1 on Android 13 and
+ *            later: android.graphics draws those glyphs (JNI).
  */
 
 #include "font.h"
@@ -44,6 +48,20 @@
 #include <CoreText/CoreText.h>
 #include <CoreGraphics/CoreGraphics.h>
 #define RVN_SYSTEM_CORETEXT 1
+#endif
+#if defined(__ANDROID__)
+#include <android/api-level.h>
+#endif
+#if defined(__ANDROID__) && __ANDROID_API__ >= 29
+#include <android/font.h>
+#include <android/font_matcher.h>
+#include <android/system_fonts.h>
+#define RVN_SYSTEM_ANDROID 1
+#endif
+#if defined(RVN_SYSTEM_ANDROID) && defined(RAVEN_PLATFORM_ANDROID)
+#include <jni.h>
+#include "../platform/platform.h"
+#define RVN_SYSTEM_ANDROID_JAVA 1
 #endif
 
 typedef enum rvn_script_t {
@@ -376,7 +394,7 @@ static const char* const* rvn_linux_patterns(int script) {
 	static const char* const cjk[] = { "NotoSansCJK-Regular", "NotoSansCJKsc-Regular", "NotoSansCJKjp-Regular", "NotoSansSC-Regular",
 		"NotoSansJP-Regular", "NotoSansKR-Regular", "wqy-microhei", "wqy-zenhei", "DroidSansFallback", "ukai", "uming", NULL };
 	static const char* const symbol[] = { "NotoSansSymbols-Regular", "NotoSansSymbols2-Regular", "NotoSansMath-Regular", "DejaVuSans.", "FreeSerif.", "Symbola", NULL };
-	/* (Android: the Legacy one is in CBDT, the other may be COLRv1, whose gradients Raven does not draw) */
+	/* (NotoColorEmoji may be COLRv1, drawn by the system only (Android); its CBDT version is then NotoColorEmojiLegacy, where it is kept) */
 	static const char* const emoji[] = { "Noto-COLRv1", "NotoColorEmoji-COLR", "NotoColorEmojiLegacy.", "NotoColorEmoji.", "Twemoji", "NotoEmoji-Regular", "NotoEmoji", "Symbola", "NotoSansSymbols2-Regular", "DejaVuSans.", NULL };
 	static const char* const broad[] = { "DejaVuSans.", "NotoSans-Regular", "Roboto-Regular", "FreeSans.", "FreeSerif.", "unifont", NULL };
 	switch (script) {
@@ -429,11 +447,104 @@ static void rvn_linux_walk(const char* folder, int depth) {
 	closedir(dir);
 }
 
+#if defined(RVN_SYSTEM_ANDROID)
+
+/*
+ * Android lists its fonts and chooses the font of a character itself
+ * (ASystemFontIterator, AFontMatcher: the NDK's replacement of fonts.xml,
+ * which is deprecated and was not always right: on Android 16 the Noto CJK
+ * fonts are in CFF2, which Raven does not read, while the maker's own fonts
+ * are TrueType).
+ */
+static AFontMatcher* g_android_matcher;
+
+/* A font of the system, into the lists of the scripts of its languages ("und-Arab", "ja", "zh-Hans,zh-Bopo"...). */
+static void rvn_android_add(rvn_system_file_t* file, const char* locales) {
+	static const struct {
+		const char* tag;
+		int script;
+	} tags[] = {
+		{ "und-Arab", RVN_SCRIPT_ARABIC }, { "und-Hebr", RVN_SCRIPT_HEBREW }, { "und-Armn", RVN_SCRIPT_ARMENIAN },
+		{ "und-Geor", RVN_SCRIPT_GEORGIAN }, { "und-Ethi", RVN_SCRIPT_ETHIOPIC }, { "und-Thai", RVN_SCRIPT_THAI },
+		{ "und-Laoo", RVN_SCRIPT_LAO }, { "und-Khmr", RVN_SCRIPT_KHMER }, { "und-Mymr", RVN_SCRIPT_MYANMAR },
+		{ "und-Sinh", RVN_SCRIPT_SINHALA }, { "und-Tibt", RVN_SCRIPT_TIBETAN }, { "und-Syrc", RVN_SCRIPT_SYRIAC },
+		{ "und-Thaa", RVN_SCRIPT_THAANA }, { "und-Deva", RVN_SCRIPT_INDIC }, { "und-Beng", RVN_SCRIPT_INDIC },
+		{ "und-Gujr", RVN_SCRIPT_INDIC }, { "und-Guru", RVN_SCRIPT_INDIC }, { "und-Taml", RVN_SCRIPT_INDIC },
+		{ "und-Telu", RVN_SCRIPT_INDIC }, { "und-Knda", RVN_SCRIPT_INDIC }, { "und-Mlym", RVN_SCRIPT_INDIC },
+		{ "und-Orya", RVN_SCRIPT_INDIC }, { "und-Zsye", RVN_SCRIPT_EMOJI }, { "und-Zsym", RVN_SCRIPT_SYMBOL },
+		{ "zh", RVN_SCRIPT_HAN }, { "ja", RVN_SCRIPT_KANA }, { "ja", RVN_SCRIPT_HAN }, { "ko", RVN_SCRIPT_HANGUL }
+	};
+	const char* at = locales;
+	if (!file) return;
+	/* (no language: a font of the default family) */
+	if (!locales || !locales[0]) {
+		rvn_system_add_file(RVN_SCRIPT_COUNT, file);
+		return;
+	}
+	while (*at) {
+		size_t length = strcspn(at, ","), t;
+		for (t = 0; t < RVN_COUNT_OF(tags); t++) {
+			size_t n = strlen(tags[t].tag);
+			if (length >= n && strncmp(at, tags[t].tag, n) == 0 && (length == n || at[n] == '-')) rvn_system_add_file(tags[t].script, file);
+		}
+		at += length;
+		if (*at == ',') at++;
+	}
+}
+
+static void rvn_android_scan(void) {
+	ASystemFontIterator* fonts = ASystemFontIterator_open();
+	AFont* font;
+	g_android_matcher = AFontMatcher_create();
+	if (!fonts) return;
+	/* the upright fonts of normal weight (a variable font is listed once per weight) */
+	while ((font = ASystemFontIterator_next(fonts)) != NULL) {
+		if (!AFont_isItalic(font) && AFont_getWeight(font) == AFONT_WEIGHT_NORMAL) {
+			rvn_android_add(rvn_system_file(AFont_getFontFilePath(font), (int)AFont_getCollectionIndex(font)), AFont_getLocale(font));
+		}
+		AFont_close(font);
+	}
+	ASystemFontIterator_close(fonts);
+}
+
+/* The font Android draws the character with, first among the candidates of its script. */
+static void rvn_android_ask(uint32_t codepoint, int list) {
+	uint16_t units[2];
+	uint32_t count = 1;
+	AFont* font;
+	rvn_system_file_t* file;
+	int i;
+	if (!g_android_matcher) return;
+	if (codepoint >= 0x10000u) {
+		units[0] = (uint16_t)(0xD800u + ((codepoint - 0x10000u) >> 10));
+		units[1] = (uint16_t)(0xDC00u + ((codepoint - 0x10000u) & 0x3FFu));
+		count = 2;
+	} else {
+		units[0] = (uint16_t)codepoint;
+	}
+	font = AFontMatcher_match(g_android_matcher, "sans-serif", units, count, NULL);
+	if (!font) return;
+	file = rvn_system_file(AFont_getFontFilePath(font), (int)AFont_getCollectionIndex(font));
+	AFont_close(font);
+	if (!file) return;
+	for (i = 0; i < g_system.counts[list]; i++) {
+		if (g_system.lists[list][i] == file) return;
+	}
+	rvn_system_add_file(list, file);
+	memmove(g_system.lists[list] + 1, g_system.lists[list], (size_t)(g_system.counts[list] - 1) * sizeof(rvn_system_file_t*));
+	g_system.lists[list][0] = file;
+}
+
+#endif
+
 static void rvn_system_scan(void) {
 	const char* home = getenv("HOME");
 	const char* data = getenv("XDG_DATA_HOME");
 	char path[1024];
 	int script, i, p;
+#if defined(RVN_SYSTEM_ANDROID)
+	rvn_android_scan();
+#endif
 	rvn_linux_walk("/usr/share/fonts", 0);
 	rvn_linux_walk("/usr/local/share/fonts", 0);
 #if defined(__ANDROID__)
@@ -474,7 +585,131 @@ static void rvn_system_scan(void) {
 
 #endif
 
-#if !defined(RVN_SYSTEM_CORETEXT)
+#if defined(RVN_SYSTEM_ANDROID_JAVA)
+
+/* (a Java exception: cleared, the drawing given up) */
+static int rvn_android_failed(JNIEnv* env) {
+	if (!(*env)->ExceptionCheck(env)) return R_FALSE;
+	(*env)->ExceptionClear(env);
+	return R_TRUE;
+}
+
+/*
+ * The glyph drawn by android.graphics: Canvas.drawGlyphs with the
+ * android.graphics.fonts.Font of the file (Android 12), into a Bitmap whose
+ * pixels are copied out. Local references are released by the caller's frame.
+ */
+static uint8_t* rvn_android_draw(JNIEnv* env, rvn_system_file_t* file, int glyph, float size_px, int* x0, int* y0, int* width, int* height) {
+	jclass font_class = (*env)->FindClass(env, "android/graphics/fonts/Font");
+	jclass paint_class, rect_class, bitmap_class, config_class, canvas_class;
+	jobject paint, rect, config, bitmap, canvas, buffer;
+	jintArray glyphs;
+	jfloatArray positions;
+	jint id = glyph;
+	jfloat position[2];
+	uint8_t* pixels;
+	int left, top, w, h, i;
+	if (rvn_android_failed(env) || !font_class) return NULL;
+	if (!file->native) {
+		/* the font of the file, made once */
+		jclass file_class = (*env)->FindClass(env, "java/io/File");
+		jclass builder_class = (*env)->FindClass(env, "android/graphics/fonts/Font$Builder");
+		jobject path, java_file, builder, font;
+		if (rvn_android_failed(env) || !file_class || !builder_class) return NULL;
+		path = (*env)->NewStringUTF(env, file->path);
+		java_file = (*env)->NewObject(env, file_class, (*env)->GetMethodID(env, file_class, "<init>", "(Ljava/lang/String;)V"), path);
+		if (rvn_android_failed(env)) return NULL;
+		builder = (*env)->NewObject(env, builder_class, (*env)->GetMethodID(env, builder_class, "<init>", "(Ljava/io/File;)V"), java_file);
+		if (rvn_android_failed(env)) return NULL;
+		builder = (*env)->CallObjectMethod(env, builder, (*env)->GetMethodID(env, builder_class, "setTtcIndex", "(I)Landroid/graphics/fonts/Font$Builder;"), (jint)file->face);
+		if (rvn_android_failed(env)) return NULL;
+		font = (*env)->CallObjectMethod(env, builder, (*env)->GetMethodID(env, builder_class, "build", "()Landroid/graphics/fonts/Font;"));
+		if (rvn_android_failed(env) || !font) return NULL;
+		file->native = (void*)(*env)->NewGlobalRef(env, font);
+	}
+	/* the box of the glyph at the size (pixels, y down), with a pixel to spare on each side */
+	paint_class = (*env)->FindClass(env, "android/graphics/Paint");
+	rect_class = (*env)->FindClass(env, "android/graphics/RectF");
+	if (rvn_android_failed(env)) return NULL;
+	paint = (*env)->NewObject(env, paint_class, (*env)->GetMethodID(env, paint_class, "<init>", "(I)V"), (jint)1 /* ANTI_ALIAS_FLAG */);
+	(*env)->CallVoidMethod(env, paint, (*env)->GetMethodID(env, paint_class, "setTextSize", "(F)V"), (jfloat)size_px);
+	rect = (*env)->NewObject(env, rect_class, (*env)->GetMethodID(env, rect_class, "<init>", "()V"));
+	(*env)->CallFloatMethod(env, (jobject)file->native,
+		(*env)->GetMethodID(env, font_class, "getGlyphBounds", "(ILandroid/graphics/Paint;Landroid/graphics/RectF;)F"), id, paint, rect);
+	if (rvn_android_failed(env)) return NULL;
+	left = (int)floorf((*env)->GetFloatField(env, rect, (*env)->GetFieldID(env, rect_class, "left", "F"))) - 1;
+	top = (int)floorf((*env)->GetFloatField(env, rect, (*env)->GetFieldID(env, rect_class, "top", "F"))) - 1;
+	w = (int)ceilf((*env)->GetFloatField(env, rect, (*env)->GetFieldID(env, rect_class, "right", "F"))) + 1 - left;
+	h = (int)ceilf((*env)->GetFloatField(env, rect, (*env)->GetFieldID(env, rect_class, "bottom", "F"))) + 1 - top;
+	if (rvn_android_failed(env) || w <= 2 || h <= 2 || w > 1024 || h > 1024) return NULL;
+	/* drawn into a bitmap of that size, the pen moved so that the box fills it */
+	bitmap_class = (*env)->FindClass(env, "android/graphics/Bitmap");
+	config_class = (*env)->FindClass(env, "android/graphics/Bitmap$Config");
+	canvas_class = (*env)->FindClass(env, "android/graphics/Canvas");
+	if (rvn_android_failed(env)) return NULL;
+	config = (*env)->GetStaticObjectField(env, config_class, (*env)->GetStaticFieldID(env, config_class, "ARGB_8888", "Landroid/graphics/Bitmap$Config;"));
+	bitmap = (*env)->CallStaticObjectMethod(env, bitmap_class,
+		(*env)->GetStaticMethodID(env, bitmap_class, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;"), (jint)w, (jint)h, config);
+	if (rvn_android_failed(env) || !bitmap) return NULL;
+	canvas = (*env)->NewObject(env, canvas_class, (*env)->GetMethodID(env, canvas_class, "<init>", "(Landroid/graphics/Bitmap;)V"), bitmap);
+	glyphs = (*env)->NewIntArray(env, 1);
+	positions = (*env)->NewFloatArray(env, 2);
+	if (rvn_android_failed(env) || !glyphs || !positions) return NULL;
+	position[0] = (jfloat)-left;
+	position[1] = (jfloat)-top;
+	(*env)->SetIntArrayRegion(env, glyphs, 0, 1, &id);
+	(*env)->SetFloatArrayRegion(env, positions, 0, 2, position);
+	(*env)->CallVoidMethod(env, canvas, (*env)->GetMethodID(env, canvas_class, "drawGlyphs", "([II[FIILandroid/graphics/fonts/Font;Landroid/graphics/Paint;)V"),
+		glyphs, (jint)0, positions, (jint)0, (jint)1, (jobject)file->native, paint);
+	if (rvn_android_failed(env)) return NULL;
+	pixels = (uint8_t*)rvn_calloc((size_t)w * (size_t)h * 4);
+	buffer = (*env)->NewDirectByteBuffer(env, pixels, (jlong)w * h * 4);
+	(*env)->CallVoidMethod(env, bitmap, (*env)->GetMethodID(env, bitmap_class, "copyPixelsToBuffer", "(Ljava/nio/Buffer;)V"), buffer);
+	(*env)->CallVoidMethod(env, bitmap, (*env)->GetMethodID(env, bitmap_class, "recycle", "()V"));
+	if (rvn_android_failed(env)) {
+		rvn_free(pixels);
+		return NULL;
+	}
+	/* ARGB_8888 is R, G, B, A in memory, premultiplied; Raven's textures are straight */
+	for (i = 0; i < w * h; i++) {
+		uint8_t* p = pixels + (size_t)i * 4;
+		if (p[3] && p[3] < 255) {
+			p[0] = (uint8_t)rvn_mini(255, (p[0] * 255 + p[3] / 2) / p[3]);
+			p[1] = (uint8_t)rvn_mini(255, (p[1] * 255 + p[3] / 2) / p[3]);
+			p[2] = (uint8_t)rvn_mini(255, (p[2] * 255 + p[3] / 2) / p[3]);
+		}
+	}
+	*x0 = left;
+	*y0 = top;
+	*width = w;
+	*height = h;
+	return pixels;
+}
+
+uint8_t* rvn_font_system_draw(const rvn_system_file_t* file, int glyph, float size_px, int* x0, int* y0, int* width, int* height) {
+	JavaVM* vm = (JavaVM*)rvn_android_java_vm();
+	JNIEnv* env = NULL;
+	uint8_t* pixels = NULL;
+	int attached = R_FALSE;
+	if (!vm || !file || glyph <= 0 || size_px < 1.0f) return NULL;
+	/* (glyphs are made on the threads that paint: attached to Java for the time of the drawing) */
+	if ((*vm)->GetEnv(vm, (void**)&env, JNI_VERSION_1_6) == JNI_EDETACHED) {
+		if ((*vm)->AttachCurrentThread(vm, &env, NULL) != JNI_OK) return NULL;
+		attached = R_TRUE;
+	}
+	if (!env) return NULL;
+	if ((*env)->PushLocalFrame(env, 32) == 0) {
+		/* (the file is the font system's own: rvn_font_system_candidates hands it out const) */
+		pixels = rvn_android_draw(env, (rvn_system_file_t*)(uintptr_t)file, glyph, size_px, x0, y0, width, height);
+		(*env)->PopLocalFrame(env, NULL);
+	}
+	if (attached) (*vm)->DetachCurrentThread(vm);
+	return pixels;
+}
+
+#endif
+
+#if !defined(RVN_SYSTEM_CORETEXT) && !defined(RVN_SYSTEM_ANDROID_JAVA)
 
 uint8_t* rvn_font_system_draw(const rvn_system_file_t* file, int glyph, float size_px, int* x0, int* y0, int* width, int* height) {
 	RVN_UNUSED(file);
@@ -498,6 +733,8 @@ int rvn_font_system_candidates(uint32_t codepoint, const rvn_system_file_t** fil
 	script = (int)rvn_script_of(codepoint);
 #if defined(RVN_SYSTEM_CORETEXT)
 	rvn_system_ask(codepoint, script);
+#elif defined(RVN_SYSTEM_ANDROID)
+	rvn_android_ask(codepoint, script);
 #endif
 	for (k = 0; k < 2; k++) {
 		int list = k == 0 ? script : RVN_SCRIPT_COUNT;
@@ -513,9 +750,19 @@ int rvn_font_system_candidates(uint32_t codepoint, const rvn_system_file_t** fil
 void rvn_font_system_shutdown(void) {
 	int list, i;
 	for (list = 0; list <= RVN_SCRIPT_COUNT; list++) rvn_free(g_system.lists[list]);
+#if defined(RVN_SYSTEM_ANDROID)
+	if (g_android_matcher) AFontMatcher_destroy(g_android_matcher);
+	g_android_matcher = NULL;
+#endif
 	for (i = 0; i < g_system.file_count; i++) {
 #if defined(RVN_SYSTEM_CORETEXT)
 		if (g_system.files[i]->native) CFRelease((CTFontRef)g_system.files[i]->native);
+#elif defined(RVN_SYSTEM_ANDROID_JAVA)
+		if (g_system.files[i]->native) {
+			JavaVM* vm = (JavaVM*)rvn_android_java_vm();
+			JNIEnv* env = NULL;
+			if (vm && (*vm)->GetEnv(vm, (void**)&env, JNI_VERSION_1_6) == JNI_OK && env) (*env)->DeleteGlobalRef(env, (jobject)g_system.files[i]->native);
+		}
 #endif
 		rvn_free(g_system.files[i]->path);
 		rvn_free(g_system.files[i]);
