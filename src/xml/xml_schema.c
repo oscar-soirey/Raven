@@ -271,6 +271,7 @@ static const rvn_schema_attribute_t g_list_view[] = {
 };
 static const rvn_schema_attribute_t g_table[] = {
 	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."),
+	B("MultiSelect", "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."),
 	N("Selected", "Which row is selected, from 0; -1 for none."),
 	N("SortColumn", "The column the rows are sorted by, from 0; -1 for none."),
 	B("SortDescending", "Sorted from the largest to the smallest."),
@@ -350,6 +351,28 @@ static const rvn_schema_attribute_t g_pdf_view[] = {
 	N("Zoom", "A zoom of its own (1: the printed size); the fit becomes None."),
 	N("Page", "The page shown at the top, counted from 1."),
 	A("OnChanged", "Action fired when the current page changes as the user scrolls."),
+};
+static const rvn_schema_attribute_t g_chart[] = {
+	C("Kind", "Pie|Donut|Gauge|Heatmap|Sparkline", "What the chart draws."),
+	T("Title", "The title over a pie, a donut or a heatmap, under the value of a gauge."),
+	T("Format", "A printf format for the values, with their unit: \"%.0f%%\", \"$%.2f\"."),
+	K("Color", "The arc of a gauge outside the bands, the line of a sparkline (default: the accent)."),
+	B("Legend", "The slices beside a pie or a donut, the scale under a heatmap."),
+	N("Hole", "The hole of a donut, as a part of its radius (0.2 to 0.9)."),
+	T("CenterText", "What the middle of a donut shows (default: the total)."),
+	T("CenterCaption", "A small text under it."),
+	N("Selected", "The slice lifted as selected, from 0 (-1: none)."),
+	N("Min", "The lowest value of a gauge (default 0); a fixed lowest value for a heatmap or a sparkline."),
+	N("Max", "The highest value of a gauge (default 100); a fixed highest value for a heatmap or a sparkline."),
+	N("Value", "The value of a gauge."),
+	V("Values", "The values of a sparkline."),
+	B("Fill", "Shades the area under the line of a sparkline."),
+	B("Marker", "A dot on the last value of a sparkline."),
+	L("RowLabels", "The names of the rows of a heatmap, separated by '|' (or the Label of its Row elements)."),
+	L("ColumnLabels", "The names of the columns of a heatmap, separated by '|'."),
+	K("LowColor", "The color of the lowest values of a heatmap."),
+	K("HighColor", "The color of the highest values of a heatmap."),
+	A("OnClicked", "Action fired when the user clicks a slice or a cell."),
 };
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
@@ -565,6 +588,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Rating", g_rating, "A score shown and chosen with stars."),
 	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
 	TAG("PdfView", g_pdf_view, "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time)."),
+	TAG("Chart", g_chart, "The charts of dashboards: a pie or a donut of Slice elements (Label, Value, Color), a gauge with Band elements (From, To, Color), a heatmap of Row elements (Label, Values), a sparkline of Values."),
 	TAG("Plot", g_plot, "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color)."),
 	TAG("NodeGraph", g_node_graph, "Nodes linked by wires: Node elements (Input, Output, any widget), Link and Type elements."),
 };

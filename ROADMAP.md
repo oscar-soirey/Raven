@@ -96,7 +96,7 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [ ] Date picker: a range of two dates; a time zone aware time picker; a
   12-hour clock where the locale uses one.
 - [ ] Notifications: actions (buttons), a click that brings the window
-  back, replacing a notification, an icon; UNUserNotificationCenter on macOS.
+  back, replacing a notification, an icon.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.
 - [ ] Timeline: nested tracks, curves between keys.
 - [ ] Markdown: images from the network, HTML, footnotes.
