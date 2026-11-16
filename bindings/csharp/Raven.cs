@@ -1017,6 +1017,10 @@ namespace Raven
         /// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
         /// </summary>
         R_WIDGET_PDF_VIEW = 0x0233,
+        /// <summary>
+        /// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+        /// </summary>
+        R_WIDGET_CHART = 0x0234,
     }
 
     public enum RHAlign : int
@@ -1413,6 +1417,33 @@ namespace Raven
         /// To the right of the data, outside it.
         /// </summary>
         R_PLOT_LEGEND_OUTSIDE = 0x0569,
+    }
+
+    /// <summary>
+    /// What a Chart draws.
+    /// </summary>
+    public enum RChartKind : int
+    {
+        /// <summary>
+        /// Slices of a whole, as parts of a disc (the default).
+        /// </summary>
+        R_CHART_PIE = 0x0590,
+        /// <summary>
+        /// Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer.
+        /// </summary>
+        R_CHART_DONUT = 0x0591,
+        /// <summary>
+        /// One value within a range, on an arc; bands color parts of the range.
+        /// </summary>
+        R_CHART_GAUGE = 0x0592,
+        /// <summary>
+        /// A grid of values, each cell colored from the low color to the high one.
+        /// </summary>
+        R_CHART_HEATMAP = 0x0593,
+        /// <summary>
+        /// A small line of values without axes, to sit in a tile or a cell of a table.
+        /// </summary>
+        R_CHART_SPARKLINE = 0x0594,
     }
 
     /// <summary>
@@ -3015,8 +3046,8 @@ namespace Raven
     /// Colors the text of cells (a verdict, a state): the table asks for the
     /// color of each cell it draws, stored or virtual (`row` is the index of the
     /// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
-    /// keeps the color of the theme. The color is kept on a selected or hovered
-    /// row. NULL removes the callback.
+    /// keeps the color set with Rtable_set_cell_text_color, else the theme's.
+    /// The color is kept on a selected or hovered row. NULL removes the callback.
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RTableCellColorCallback(uint table, int row, int column, ref float r, ref float g, ref float b, ref float a, IntPtr user_data);
@@ -3083,6 +3114,18 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RPlotSeriesCallback(uint plot, int series, int visible, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user clicks a slice; `selected` tells whether it is now the selected one.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RChartSliceCallback(uint chart, int slice, int selected, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user clicks a cell of a heatmap.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RChartCellCallback(uint chart, int row, int column, float value, IntPtr user_data);
 
     /// <summary>
     /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
@@ -6370,7 +6413,38 @@ namespace Raven
         public static extern void Rtable_set_cell_color_callback(uint table, RTableCellColorCallback callback, IntPtr user_data);
 
         /// <summary>
-        /// Selects a row. -1 selects nothing.
+        /// Stored rows: a fixed text color; column -1 colors the row; cells override it.
+        /// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_cell_text_color(uint table, int row, int column, float r, float g, float b, float a);
+
+        /// <summary>
+        /// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_multi_select(uint table, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_row_selected(uint table, int row, int selected);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_is_row_selected(uint table, int row);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_clear_selection(uint table);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_selection_count(uint table);
+
+        /// <summary>
+        /// Selected row at index, top to bottom; -1 outside the selection.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_selection(uint table, int index);
+
+        /// <summary>
+        /// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtable_set_selected(uint table, int row);
@@ -6914,6 +6988,242 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rplot_set_series_toggled_callback(uint plot, RPlotSeriesCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rchart_create(RChartKind kind);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_kind(uint chart, RChartKind kind);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern RChartKind Rchart_get_kind(uint chart);
+
+        /// <summary>
+        /// The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_title(uint chart, [MarshalAs(Utf8.Str)] string title);
+
+        [DllImport(Lib, EntryPoint = "Rchart_get_title", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rchart_get_title_(uint chart);
+        public static string Rchart_get_title(uint chart) { return Text(Rchart_get_title_(chart)); }
+
+        /// <summary>
+        /// How the values are written (the gauge, the middle of a donut, what
+        /// the pointer shows): a printf format for one double with its unit, "%.0f%%",
+        /// "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_format(uint chart, [MarshalAs(Utf8.Str)] string format);
+
+        /// <summary>
+        /// The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_color(uint chart, float r, float g, float b, float a);
+
+        /// <summary>
+        /// The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_legend(uint chart, int shown);
+
+        /// <summary>
+        /// Removes the slices, the bands, the grid and the values.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_clear(uint chart);
+
+        /// <summary>
+        /// What is under the pointer: a slice, a point of a sparkline, or a
+        /// cell of a heatmap as row * columns + column; -1 for nothing.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_get_hovered(uint chart);
+
+        /// <summary>
+        /// Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_add_slice(uint chart, [MarshalAs(Utf8.Str)] string label, double value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_remove_slice(uint chart, int slice);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_get_slice_count(uint chart);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_slice_value(uint chart, int slice, double value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rchart_get_slice_value(uint chart, int slice);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_slice_label(uint chart, int slice, [MarshalAs(Utf8.Str)] string label);
+
+        [DllImport(Lib, EntryPoint = "Rchart_get_slice_label", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rchart_get_slice_label_(uint chart, int slice);
+        public static string Rchart_get_slice_label(uint chart, int slice) { return Text(Rchart_get_slice_label_(chart, slice)); }
+
+        /// <summary>
+        /// The color of a slice; an alpha of 0 gives it back its color of the palette.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_slice_color(uint chart, int slice, float r, float g, float b, float a);
+
+        /// <summary>
+        /// The sum of the values of the slices.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rchart_get_total(uint chart);
+
+        /// <summary>
+        /// The slice lifted as selected, or -1 for none (the user selects one with a click).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_selected(uint chart, int slice);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_get_selected(uint chart);
+
+        /// <summary>
+        /// The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_hole(uint chart, float ratio);
+
+        /// <summary>
+        /// What the middle of a donut shows when the pointer is not over a
+        /// slice: `text` in large (NULL or "": the total) over `caption` in small
+        /// (NULL or "": none).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_center_text(uint chart, [MarshalAs(Utf8.Str)] string text, [MarshalAs(Utf8.Str)] string caption);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_slice_clicked_callback(uint chart, RChartSliceCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The range of a gauge (default 0 to 100), and a fixed range for the
+        /// colors of a heatmap and the height of a sparkline, which otherwise follow
+        /// their values. min == max goes back to these defaults.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_range(uint chart, double min, double max);
+
+        /// <summary>
+        /// The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_get_range(uint chart, out double min, out double max);
+
+        /// <summary>
+        /// The value of a gauge, kept within its range when drawn.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_value(uint chart, double value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rchart_get_value(uint chart);
+
+        /// <summary>
+        /// Colors a part of the range of a gauge (an alpha of 0: the success,
+        /// warning and danger colors of the theme, one after the other). The arc
+        /// takes the color of the band its value is in. Returns the index of the band.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_add_band(uint chart, double from, double to, float r, float g, float b, float a);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_clear_bands(uint chart);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_get_band_count(uint chart);
+
+        /// <summary>
+        /// The cells of a heatmap: `rows` x `columns` values, row after row,
+        /// copied (NULL: all 0). NaN leaves a cell empty.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_grid(uint chart, int rows, int columns, float[] values);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_get_row_count(uint chart);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_get_column_count(uint chart);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_cell(uint chart, int row, int column, float value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rchart_get_cell(uint chart, int row, int column);
+
+        /// <summary>
+        /// The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_row_labels(uint chart, [MarshalAs(Utf8.Str)] string labels);
+
+        /// <summary>
+        /// The names of the columns, separated by '|' (shown over them, as many as fit).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_column_labels(uint chart, [MarshalAs(Utf8.Str)] string labels);
+
+        /// <summary>
+        /// The name of a row or of a column, "" when it has none.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rchart_get_row_label", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rchart_get_row_label_(uint chart, int row);
+        public static string Rchart_get_row_label(uint chart, int row) { return Text(Rchart_get_row_label_(chart, row)); }
+
+        [DllImport(Lib, EntryPoint = "Rchart_get_column_label", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rchart_get_column_label_(uint chart, int column);
+        public static string Rchart_get_column_label(uint chart, int column) { return Text(Rchart_get_column_label_(chart, column)); }
+
+        /// <summary>
+        /// The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_color_scale(uint chart, float low_r, float low_g, float low_b, float low_a, float high_r, float high_g, float high_b, float high_a);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_cell_clicked_callback(uint chart, RChartCellCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The values of a sparkline, copied. NaN leaves a gap.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_values(uint chart, float[] values, int count);
+
+        /// <summary>
+        /// Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_push_value(uint chart, float value, int max_count);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rchart_get_value_count(uint chart);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern float Rchart_get_value_at(uint chart, int index);
+
+        /// <summary>
+        /// Shades the area under the line of a sparkline (on by default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_fill(uint chart, int fill);
+
+        /// <summary>
+        /// A dot on the last value of a sparkline (on by default).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rchart_set_marker(uint chart, int shown);
 
         /// <summary>
         /// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
@@ -9212,7 +9522,7 @@ namespace Raven
         /// (on the UI thread; the application may then bring its window to the
         /// front: the system lets it). It is the last one shown that was clicked:
         /// the application remembers what it was about. NULL: none.
-        /// Windows only for now (elsewhere it is never called).
+        /// Windows and macOS (elsewhere it is never called).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, IntPtr user_data);
