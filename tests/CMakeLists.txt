@@ -3,7 +3,7 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_deep_trees
+#   test_chart, test_deep_trees, test_lifecycle
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -84,6 +84,10 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	set_tests_properties(test_win32_backdrop PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 raven_add_test(test_touch)
+if(NOT RAVEN_BUILD_SHARED)
+	# pause / resume, low memory, the native surface lost and made again, Back (sent as a phone's window system would)
+	raven_add_test(test_lifecycle)
+endif()
 raven_add_test(test_more_widgets)
 raven_add_test(test_chart)
 raven_add_test(test_pdf)

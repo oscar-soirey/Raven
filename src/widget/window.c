@@ -987,7 +987,8 @@ static void rvn_window_paint_drop(rvn_window_t* window, RPainter* painter) {
 }
 
 static int rvn_window_can_paint(const rvn_window_t* window) {
-	return window->surface_ready && window->width_px > 0 && window->height_px > 0;
+	/* (in the background the system may kill an application that draws) */
+	return window->surface_ready && !g_rvn.app_paused && window->width_px > 0 && window->height_px > 0;
 }
 
 static void rvn_window_paint(rvn_window_t* window, RCapture* capture) {
@@ -1219,6 +1220,12 @@ void rvn_window_update(rvn_window_t* window) {
 	if (window->dead) return;
 	/* (the compositor did not ask for a frame yet: it is painted when it does, with all that changed meanwhile) */
 	if (window->needs_paint && rvn_window_frame_wait(window) <= 0.0) rvn_window_paint(window, NULL);
+	if (window->dead) return;
+	/* a system with predictive back asks for Back only while the window takes it */
+	if (g_rvn.platform->window_set_back_wanted && rvn_window_wants_back(window) != window->back_wanted) {
+		window->back_wanted = !window->back_wanted;
+		g_rvn.platform->window_set_back_wanted(window->platform, window->back_wanted);
+	}
 }
 
 void rvn_invalidate_all_windows(void) {
@@ -1905,6 +1912,61 @@ rvn_widget_t* rvn_window_widget_at(rvn_window_t* window, float x, float y) {
 }
 
 /* ---------------------------------------------------------------------------
+ *  Loss of the native surface (mobile)
+ *
+ * The window outlives the surface the system gives it: Android destroys the
+ * ANativeWindow of an activity in the background and gives a new one when it
+ * comes back. Only the surface and swapchain of the renderer go with it;
+ * the widgets, textures and pipelines stay. In between, the window is laid
+ * out but not painted (rvn_window_can_paint).
+ * ------------------------------------------------------------------------- */
+
+static void rvn_window_surface_lost(rvn_window_t* window) {
+	if (!window->surface_ready) return;
+	/* waits for the frames still queued and until the GPU no longer uses the swapchain: the system may destroy the native surface after this */
+	rvn_renderer_destroy_surface(window->id);
+	window->surface_ready = R_FALSE;
+}
+
+static void rvn_window_surface_ready(rvn_window_t* window) {
+	RNativeWindow native;
+	if (window->surface_ready) rvn_renderer_destroy_surface(window->id);
+	memset(&native, 0, sizeof(native));
+	g_rvn.platform->window_get_native(window->platform, &native);
+	window->surface_ready = rvn_renderer_create_surface(window->id, &native, (uint32_t)rvn_maxi(window->width_px, 1),
+		(uint32_t)rvn_maxi(window->height_px, 1));
+	if (!window->surface_ready) {
+		rvn_error(R_ERROR_BACKEND, R_SEVERITY_ERROR, "cannot make the rendering surface of a window again on its new native surface");
+		return;
+	}
+	window->needs_layout = R_TRUE;
+	window->needs_paint = R_TRUE;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Back (mobile)
+ * ------------------------------------------------------------------------- */
+
+int rvn_window_wants_back(const rvn_window_t* window) {
+	return !window->dead && (window->popup_count > 0 || window->back_enabled) ? R_TRUE : R_FALSE;
+}
+
+/* The Back of the system: R_TRUE when something took it. */
+static int rvn_window_back(rvn_window_t* window) {
+	rvn_window_tooltip_hide(window);
+	/* as Escape: the top popup closes first (a dialog with result 0) */
+	if (window->popup_count > 0) {
+		rvn_popup_t* top = &window->popups[window->popup_count - 1];
+		if (top->placement == RVN_POPUP_DIALOG) rvn_window_close_dialog(top->root, 0);
+		else rvn_window_close_popup(window, top->root);
+		return R_TRUE;
+	}
+	/* then the application goes back a page, if it has one */
+	if (!window->back_callback) return R_FALSE;
+	return window->back_callback(window->id, window->back_user) ? R_TRUE : R_FALSE;
+}
+
+/* ---------------------------------------------------------------------------
  *  Platform events
  * ------------------------------------------------------------------------- */
 
@@ -1922,6 +1984,11 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		rvn_dispatch_begin();
 		rvn_tray_on_event(pevent);
 		rvn_dispatch_end();
+		return;
+	}
+	/* the application changed state: no window needed */
+	if (pevent->type == RVN_PEVENT_APP) {
+		rvn_app_event((RAppEvent)pevent->app_event);
 		return;
 	}
 	/* the system switched between dark and light: no window needed */
@@ -1950,9 +2017,12 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			case RVN_PEVENT_EXPOSE:
 			case RVN_PEVENT_FOCUS:
 			case RVN_PEVENT_STATE:
+			case RVN_PEVENT_SURFACE_LOST:
+			case RVN_PEVENT_SURFACE_READY:
 				break;
 			case RVN_PEVENT_DRAG:
 			case RVN_PEVENT_DROP:
+			case RVN_PEVENT_BACK:
 				if (pevent->accepted) *pevent->accepted = R_FALSE;
 				return;
 			default:
@@ -2050,11 +2120,23 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 			window->modifiers = pevent->modifiers;
 			rvn_touch_on_event(window, pevent, scale);
 			break;
+		case RVN_PEVENT_SURFACE_LOST:
+			rvn_window_surface_lost(window);
+			break;
+		case RVN_PEVENT_SURFACE_READY:
+			rvn_window_surface_ready(window);
+			break;
+		case RVN_PEVENT_BACK: {
+			int taken = rvn_window_back(window);
+			if (pevent->accepted) *pevent->accepted = taken;
+			break;
+		}
 		case RVN_PEVENT_MODAL_TICK:
 		case RVN_PEVENT_COMMAND:
 		case RVN_PEVENT_QUIT:
 		case RVN_PEVENT_TRAY:
 		case RVN_PEVENT_APPEARANCE:
+		case RVN_PEVENT_APP:
 			break;
 	}
 	rvn_dispatch_end();
@@ -2117,6 +2199,9 @@ static void rvn_window_free(rvn_window_t* window) {
 	uint32_t i;
 	/* waits for the frames still queued: they point into this structure */
 	if (window->surface_ready) rvn_renderer_destroy_surface(window->id);
+	/* (Back goes back to the system) */
+	if (window->platform && window->back_wanted && g_rvn.platform->window_set_back_wanted)
+		g_rvn.platform->window_set_back_wanted(window->platform, R_FALSE);
 	if (window->platform) g_rvn.platform->window_destroy(window->platform);
 	rvn_pool_remove(&g_rvn.windows, window->id);
 	for (i = 0; i < window->shortcut_count; i++) rvn_free(window->shortcuts[i].action);
@@ -2615,6 +2700,28 @@ void Rwindow_clear_focus(Rid id) {
 	rvn_window_set_focus(window, NULL);
 }
 
+void Rwindow_set_back_callback(Rid id, RBackCallback callback, void* user_data) {
+	rvn_window_t* window = rvn_window_check(id, __func__);
+	if (!window) return;
+	window->back_callback = callback;
+	window->back_user = user_data;
+}
+
+void Rwindow_set_back_enabled(Rid id, int enabled) {
+	rvn_window_t* window = rvn_window_check(id, __func__);
+	if (!window) return;
+	enabled = enabled ? R_TRUE : R_FALSE;
+	if (window->back_enabled == enabled) return;
+	window->back_enabled = enabled;
+	/* (the platform is told after the next frame) */
+	if (g_rvn.platform->window_set_back_wanted) rvn_wake();
+}
+
+int Rwindow_wants_back(Rid id) {
+	rvn_window_t* window = rvn_window_check(id, __func__);
+	return window ? rvn_window_wants_back(window) : R_FALSE;
+}
+
 void Rwindow_set_min_size(Rid id, int width, int height) {
 	RVN_WINDOW_VOID(window, id);
 	g_rvn.platform->window_set_min_size(window->platform, (int)((float)rvn_maxi(width, 0) * window->scale + 0.5f),
@@ -2923,6 +3030,15 @@ int Rwindow_inject_drag(Rid id, float x, float y, int inside) {
 	accepted = rvn_window_drag(window, x, y, inside);
 	rvn_dispatch_end();
 	return accepted;
+}
+
+int Rwindow_inject_back(Rid id) {
+	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
+	int taken;
+	if (!window) return R_FALSE;
+	taken = rvn_window_back(window);
+	rvn_dispatch_end();
+	return taken;
 }
 
 int Rwindow_inject_drop(Rid id, float x, float y, const char* const* paths, int path_count, const char* text) {

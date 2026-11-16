@@ -788,6 +788,11 @@ struct rvn_window_t {
 	float keyboard_height;
 	RKeyboardCallback keyboard_callback;
 	void* keyboard_user;
+	/** Back (Rwindow_set_back_callback, _set_back_enabled), and what the platform was told last (window_set_back_wanted). */
+	RBackCallback back_callback;
+	void* back_user;
+	int back_enabled;
+	int back_wanted;
 	int needs_paint;
 	int continuous;
 	/** Set from any thread by Rwindow_request_redraw. */
@@ -1057,6 +1062,8 @@ void rvn_window_open_dialog(rvn_window_t* window, rvn_widget_t* root, RDialogClo
 int  rvn_window_close_dialog(rvn_widget_t* inside, int result);
 /** Root of the dialog on top of the others, or NULL. */
 rvn_widget_t* rvn_window_top_dialog(const rvn_window_t* window);
+/** R_TRUE while the window takes Back: a popup or dialog is open, or the application can go back (Rwindow_wants_back). */
+int  rvn_window_wants_back(const rvn_window_t* window);
 int  rvn_window_popup_index(const rvn_window_t* window, const rvn_widget_t* root);
 /** A popup or dialog that was closed and is still drawn on its way out (its ghost). */
 int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root);

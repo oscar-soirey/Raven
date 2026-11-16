@@ -58,6 +58,14 @@ typedef enum RSeverity {
 	R_SEVERITY_ERROR = 130,
 	R_SEVERITY_FATAL = 131,
 } RSeverity;
+typedef enum RAppEvent {
+	R_APP_WILL_PAUSE = 2944,
+	R_APP_DID_PAUSE = 2945,
+	R_APP_WILL_RESUME = 2946,
+	R_APP_DID_RESUME = 2947,
+	R_APP_LOW_MEMORY = 2948,
+	R_APP_WILL_TERMINATE = 2949,
+} RAppEvent;
 typedef enum RWindowFlags {
 	R_WINDOW_DEFAULT = 0,
 	R_WINDOW_NO_RESIZE = 1,
@@ -843,6 +851,7 @@ typedef struct RXmlAttributeInfo RXmlAttributeInfo;
 typedef struct RAccessibilitySettings RAccessibilitySettings;
 typedef struct RHostPlatformDesc RHostPlatformDesc;
 typedef void (*RFrameCallback)(double delta_seconds, void* user_data);
+typedef void (*RAppEventCallback)(RAppEvent event, void* user_data);
 typedef void (*RTaskCallback)(void* user_data);
 typedef void (*RParallelRangeCallback)(Ruint begin, Ruint end, void* user_data);
 typedef void (*RTimerCallback)(Rid timer, void* user_data);
@@ -851,6 +860,7 @@ typedef void (*RErrorCallback)(RError code, RSeverity severity, const char* deta
 typedef void (*RDeviceResetCallback)(void* user_data);
 typedef void (*RKeyboardCallback)(Rid window, int visible, float height, void* user_data);
 typedef int (*RDropCallback)(Rid target, const RDropEvent* event, void* user_data);
+typedef int (*RBackCallback)(Rid window, void* user_data);
 typedef int (*RWindowCloseCallback)(Rid window, void* user_data);
 typedef void (*RWindowResizeCallback)(Rid window, int width, int height, void* user_data);
 typedef int (*RWindowEventHook)(Rid window, const REvent* event, void* user_data);
@@ -1217,6 +1227,9 @@ void Rwait_events(double timeout_seconds);
 void Rset_frame_callback(RFrameCallback callback, void* user_data);
 double Rget_delta_time(void);
 double Rget_time(void);
+void Rset_app_event_callback(RAppEventCallback callback, void* user_data);
+int Ris_app_paused(void);
+void Rinject_app_event(RAppEvent event);
 void Rset_ui_scale(float scale);
 void Rset_vsync(int enabled);
 int Rget_vsync(void);
@@ -1264,6 +1277,9 @@ void Rwindow_get_safe_area(Rid window, RInsets* insets);
 void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
 void Rwindow_set_keyboard_callback(Rid window, RKeyboardCallback callback, void* user_data);
 void Rwindow_clear_focus(Rid window);
+void Rwindow_set_back_callback(Rid window, RBackCallback callback, void* user_data);
+void Rwindow_set_back_enabled(Rid window, int enabled);
+int Rwindow_wants_back(Rid window);
 void Rwindow_set_min_size(Rid window, int width, int height);
 void Rwindow_set_position(Rid window, int x, int y);
 void Rwindow_get_position(Rid window, int* x, int* y);
@@ -1322,6 +1338,7 @@ void Rwindow_inject_key(Rid window, RKey key, int pressed, Ruint modifiers);
 void Rwindow_inject_text(Rid window, const char* text);
 int Rwindow_inject_drag(Rid window, float x, float y, int inside);
 int Rwindow_inject_drop(Rid window, float x, float y, const char* const* paths, int path_count, const char* text);
+int Rwindow_inject_back(Rid window);
 int Rwindow_is_key_down(Rid window, RKey key);
 int Rwindow_is_mouse_button_down(Rid window, RMouseButton button);
 Ruint Rwindow_get_modifiers(Rid window);

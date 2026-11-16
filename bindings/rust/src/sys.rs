@@ -48,6 +48,30 @@ pub const R_SEVERITY_WARNING: RSeverity = 0x0081;
 pub const R_SEVERITY_ERROR: RSeverity = 0x0082;
 pub const R_SEVERITY_FATAL: RSeverity = 0x0083;
 
+/// What the system does with the application, on iOS and Android (desktop
+/// systems send none of these). A pause is not always followed by
+/// R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+/// system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+/// At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+///
+///   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+///   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+///   coming back         R_APP_WILL_RESUME   Raven draws again
+///   in front again      R_APP_DID_RESUME    takes input again
+pub type RAppEvent = c_int;
+/// The application is about to leave the front (home, app switcher, a call). Save the state now.
+pub const R_APP_WILL_PAUSE: RAppEvent = 0x0B80;
+/// The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+pub const R_APP_DID_PAUSE: RAppEvent = 0x0B81;
+/// The application is coming back to the front: Raven draws again.
+pub const R_APP_WILL_RESUME: RAppEvent = 0x0B82;
+/// The application is in front and takes input again.
+pub const R_APP_DID_RESUME: RAppEvent = 0x0B83;
+/// The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+pub const R_APP_LOW_MEMORY: RAppEvent = 0x0B84;
+/// The application is about to end (Android: the activity is finishing; its window is closed right after).
+pub const R_APP_WILL_TERMINATE: RAppEvent = 0x0B85;
+
 pub type RWindowFlags = c_int;
 pub const R_WINDOW_DEFAULT: RWindowFlags = 0;
 pub const R_WINDOW_NO_RESIZE: RWindowFlags = 1;
@@ -1179,6 +1203,14 @@ pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
 /// while the OS keeps the thread in a loop of its own (on Windows, while
 /// the user moves or resizes a window), when your loop is not running.
 pub type RFrameCallback = Option<unsafe extern "C" fn(delta_seconds: f64, user_data: *mut c_void)>;
+/// Registers a function called when the application changes state
+/// (RAppEvent), on the UI thread, while the system waits for it: keep it
+/// short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+/// draws nothing, animations stand still and Rwait_frame sleeps until an
+/// event, a posted task or a timer: the timers of the application keep
+/// running, so stop those that only drive drawing. Set it after Rinit;
+/// NULL removes it.
+pub type RAppEventCallback = Option<unsafe extern "C" fn(event: RAppEvent, user_data: *mut c_void)>;
 pub type RTaskCallback = Option<unsafe extern "C" fn(user_data: *mut c_void)>;
 pub type RParallelRangeCallback = Option<unsafe extern "C" fn(begin: u32, end: u32, user_data: *mut c_void)>;
 pub type RTimerCallback = Option<unsafe extern "C" fn(timer: Rid, user_data: *mut c_void)>;
@@ -1215,6 +1247,10 @@ pub type RKeyboardCallback = Option<unsafe extern "C" fn(window: Rid, visible: c
 /// shows the "can drop here" cursor and highlights the target; for
 /// R_DROP_DROPPED it tells the source that the data was taken.
 pub type RDropCallback = Option<unsafe extern "C" fn(target: Rid, event: *const RDropEvent, user_data: *mut c_void) -> c_int>;
+/// Called on Back when no popup or dialog of Raven is open. Return
+/// R_TRUE when the application went back, R_FALSE when it had nowhere to
+/// go (the system then does its default). NULL removes it.
+pub type RBackCallback = Option<unsafe extern "C" fn(window: Rid, user_data: *mut c_void) -> c_int>;
 /// Called when the user asks to close the window.
 /// Return R_TRUE to let the window close, R_FALSE to keep it open.
 pub type RWindowCloseCallback = Option<unsafe extern "C" fn(window: Rid, user_data: *mut c_void) -> c_int>;
@@ -2026,6 +2062,13 @@ extern "C" {
     pub fn Rget_delta_time() -> f64;
     /// Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe.
     pub fn Rget_time() -> f64;
+    pub fn Rset_app_event_callback(callback: RAppEventCallback, user_data: *mut c_void);
+    /// Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+    pub fn Ris_app_paused() -> c_int;
+    /// Handles an RAppEvent as if the system had sent it: for tests,
+    /// and for a host application (raven_host.h) that knows the lifecycle.
+    /// UI thread.
+    pub fn Rinject_app_event(event: RAppEvent);
     /// Scale of the whole interface, on top of the one of the monitor
     /// (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
     pub fn Rset_ui_scale(scale: f32);
@@ -2153,6 +2196,14 @@ extern "C" {
     pub fn Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback, user_data: *mut c_void);
     /// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
     pub fn Rwindow_clear_focus(window: Rid);
+    pub fn Rwindow_set_back_callback(window: Rid, callback: RBackCallback, user_data: *mut c_void);
+    /// R_TRUE while the application has somewhere to go back to (a page
+    /// under the one shown). Android 13 and later ask for Back only while the
+    /// window wants it (predictive back): at the root page the system handles
+    /// Back itself and animates back to the home screen. Default R_FALSE.
+    pub fn Rwindow_set_back_enabled(window: Rid, enabled: c_int);
+    /// Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+    pub fn Rwindow_wants_back(window: Rid) -> c_int;
     pub fn Rwindow_set_min_size(window: Rid, width: c_int, height: c_int);
     pub fn Rwindow_set_position(window: Rid, x: c_int, y: c_int);
     pub fn Rwindow_get_position(window: Rid, x: *mut c_int, y: *mut c_int);
@@ -2318,6 +2369,8 @@ extern "C" {
     pub fn Rwindow_inject_drag(window: Rid, x: f32, y: f32, inside: c_int) -> c_int;
     /// Drops files and / or text at a position. Returns R_TRUE when a target took them.
     pub fn Rwindow_inject_drop(window: Rid, x: f32, y: f32, paths: *const *const c_char, path_count: c_int, text: *const c_char) -> c_int;
+    /// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+    pub fn Rwindow_inject_back(window: Rid) -> c_int;
     /// R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
     pub fn Rwindow_is_key_down(window: Rid, key: RKey) -> c_int;
     /// R_TRUE while the mouse button is held down over (or captured by) the window.

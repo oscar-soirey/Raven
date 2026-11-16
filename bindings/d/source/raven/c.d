@@ -69,6 +69,33 @@ enum : RSeverity
     R_SEVERITY_FATAL = 0x0083,
 }
 
+/// What the system does with the application, on iOS and Android (desktop
+/// systems send none of these). A pause is not always followed by
+/// R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+/// system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+/// At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+///
+///   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+///   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+///   coming back         R_APP_WILL_RESUME   Raven draws again
+///   in front again      R_APP_DID_RESUME    takes input again
+alias RAppEvent = int;
+enum : RAppEvent
+{
+    /// The application is about to leave the front (home, app switcher, a call). Save the state now.
+    R_APP_WILL_PAUSE = 0x0B80,
+    /// The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+    R_APP_DID_PAUSE = 0x0B81,
+    /// The application is coming back to the front: Raven draws again.
+    R_APP_WILL_RESUME = 0x0B82,
+    /// The application is in front and takes input again.
+    R_APP_DID_RESUME = 0x0B83,
+    /// The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+    R_APP_LOW_MEMORY = 0x0B84,
+    /// The application is about to end (Android: the activity is finishing; its window is closed right after).
+    R_APP_WILL_TERMINATE = 0x0B85,
+}
+
 alias RWindowFlags = int;
 enum : RWindowFlags
 {
@@ -1428,6 +1455,14 @@ enum : RAccessibleRole
 /// while the OS keeps the thread in a loop of its own (on Windows, while
 /// the user moves or resizes a window), when your loop is not running.
 alias RFrameCallback = extern (C) void function(double delta_seconds, void* user_data);
+/// Registers a function called when the application changes state
+/// (RAppEvent), on the UI thread, while the system waits for it: keep it
+/// short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+/// draws nothing, animations stand still and Rwait_frame sleeps until an
+/// event, a posted task or a timer: the timers of the application keep
+/// running, so stop those that only drive drawing. Set it after Rinit;
+/// NULL removes it.
+alias RAppEventCallback = extern (C) void function(RAppEvent event, void* user_data);
 alias RTaskCallback = extern (C) void function(void* user_data);
 alias RParallelRangeCallback = extern (C) void function(uint begin, uint end, void* user_data);
 alias RTimerCallback = extern (C) void function(Rid timer, void* user_data);
@@ -1464,6 +1499,10 @@ alias RKeyboardCallback = extern (C) void function(Rid window, int visible, floa
 /// shows the "can drop here" cursor and highlights the target; for
 /// R_DROP_DROPPED it tells the source that the data was taken.
 alias RDropCallback = extern (C) int function(Rid target, const(RDropEvent)* event, void* user_data);
+/// Called on Back when no popup or dialog of Raven is open. Return
+/// R_TRUE when the application went back, R_FALSE when it had nowhere to
+/// go (the system then does its default). NULL removes it.
+alias RBackCallback = extern (C) int function(Rid window, void* user_data);
 /// Called when the user asks to close the window.
 /// Return R_TRUE to let the window close, R_FALSE to keep it open.
 alias RWindowCloseCallback = extern (C) int function(Rid window, void* user_data);
@@ -2248,6 +2287,13 @@ void Rset_frame_callback(RFrameCallback callback, void* user_data);
 double Rget_delta_time();
 /// Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe.
 double Rget_time();
+void Rset_app_event_callback(RAppEventCallback callback, void* user_data);
+/// Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+int Ris_app_paused();
+/// Handles an RAppEvent as if the system had sent it: for tests,
+/// and for a host application (raven_host.h) that knows the lifecycle.
+/// UI thread.
+void Rinject_app_event(RAppEvent event);
 /// Scale of the whole interface, on top of the one of the monitor
 /// (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
 void Rset_ui_scale(float scale);
@@ -2375,6 +2421,14 @@ void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
 void Rwindow_set_keyboard_callback(Rid window, RKeyboardCallback callback, void* user_data);
 /// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
 void Rwindow_clear_focus(Rid window);
+void Rwindow_set_back_callback(Rid window, RBackCallback callback, void* user_data);
+/// R_TRUE while the application has somewhere to go back to (a page
+/// under the one shown). Android 13 and later ask for Back only while the
+/// window wants it (predictive back): at the root page the system handles
+/// Back itself and animates back to the home screen. Default R_FALSE.
+void Rwindow_set_back_enabled(Rid window, int enabled);
+/// Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+int Rwindow_wants_back(Rid window);
 void Rwindow_set_min_size(Rid window, int width, int height);
 void Rwindow_set_position(Rid window, int x, int y);
 void Rwindow_get_position(Rid window, int* x, int* y);
@@ -2540,6 +2594,8 @@ void Rwindow_inject_text(Rid window, const(char)* text);
 int Rwindow_inject_drag(Rid window, float x, float y, int inside);
 /// Drops files and / or text at a position. Returns R_TRUE when a target took them.
 int Rwindow_inject_drop(Rid window, float x, float y, const(char*)* paths, int path_count, const(char)* text);
+/// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+int Rwindow_inject_back(Rid window);
 /// R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
 int Rwindow_is_key_down(Rid window, RKey key);
 /// R_TRUE while the mouse button is held down over (or captured by) the window.

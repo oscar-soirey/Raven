@@ -83,6 +83,46 @@ namespace Raven
         R_SEVERITY_FATAL = 0x0083,
     }
 
+    /// <summary>
+    /// What the system does with the application, on iOS and Android (desktop
+    /// systems send none of these). A pause is not always followed by
+    /// R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+    /// system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+    /// At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+    /// 
+    ///   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+    ///   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+    ///   coming back         R_APP_WILL_RESUME   Raven draws again
+    ///   in front again      R_APP_DID_RESUME    takes input again
+    /// </summary>
+    public enum RAppEvent : int
+    {
+        /// <summary>
+        /// The application is about to leave the front (home, app switcher, a call). Save the state now.
+        /// </summary>
+        R_APP_WILL_PAUSE = 0x0B80,
+        /// <summary>
+        /// The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+        /// </summary>
+        R_APP_DID_PAUSE = 0x0B81,
+        /// <summary>
+        /// The application is coming back to the front: Raven draws again.
+        /// </summary>
+        R_APP_WILL_RESUME = 0x0B82,
+        /// <summary>
+        /// The application is in front and takes input again.
+        /// </summary>
+        R_APP_DID_RESUME = 0x0B83,
+        /// <summary>
+        /// The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+        /// </summary>
+        R_APP_LOW_MEMORY = 0x0B84,
+        /// <summary>
+        /// The application is about to end (Android: the activity is finishing; its window is closed right after).
+        /// </summary>
+        R_APP_WILL_TERMINATE = 0x0B85,
+    }
+
     [Flags]
     public enum RWindowFlags : int
     {
@@ -2812,6 +2852,18 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RFrameCallback(double delta_seconds, IntPtr user_data);
 
+    /// <summary>
+    /// Registers a function called when the application changes state
+    /// (RAppEvent), on the UI thread, while the system waits for it: keep it
+    /// short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+    /// draws nothing, animations stand still and Rwait_frame sleeps until an
+    /// event, a posted task or a timer: the timers of the application keep
+    /// running, so stop those that only drive drawing. Set it after Rinit;
+    /// NULL removes it.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RAppEventCallback(RAppEvent @event, IntPtr user_data);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTaskCallback(IntPtr user_data);
 
@@ -2873,6 +2925,14 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RDropCallback(uint target, ref RDropEvent @event, IntPtr user_data);
+
+    /// <summary>
+    /// Called on Back when no popup or dialog of Raven is open. Return
+    /// R_TRUE when the application went back, R_FALSE when it had nowhere to
+    /// go (the system then does its default). NULL removes it.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RBackCallback(uint window, IntPtr user_data);
 
     /// <summary>
     /// Called when the user asks to close the window.
@@ -3559,6 +3619,23 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern double Rget_time();
 
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rset_app_event_callback(RAppEventCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Ris_app_paused();
+
+        /// <summary>
+        /// Handles an RAppEvent as if the system had sent it: for tests,
+        /// and for a host application (raven_host.h) that knows the lifecycle.
+        /// UI thread.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rinject_app_event(RAppEvent @event);
+
         /// <summary>
         /// Scale of the whole interface, on top of the one of the monitor
         /// (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
@@ -3852,6 +3929,24 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_clear_focus(uint window);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_set_back_callback(uint window, RBackCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// R_TRUE while the application has somewhere to go back to (a page
+        /// under the one shown). Android 13 and later ask for Back only while the
+        /// window wants it (predictive back): at the root page the system handles
+        /// Back itself and animates back to the home screen. Default R_FALSE.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_set_back_enabled(uint window, int enabled);
+
+        /// <summary>
+        /// Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_wants_back(uint window);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwindow_set_min_size(uint window, int width, int height);
@@ -4206,6 +4301,12 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rwindow_inject_drop(uint window, float x, float y, [MarshalAs(UnmanagedType.LPArray, ArraySubType = Utf8.Str)] string[] paths, int path_count, [MarshalAs(Utf8.Str)] string text);
+
+        /// <summary>
+        /// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rwindow_inject_back(uint window);
 
         /// <summary>
         /// R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).

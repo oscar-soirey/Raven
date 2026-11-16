@@ -620,6 +620,60 @@ double Rget_time(void) {
 	return g_rvn.initialized ? rvn_clock_seconds() - g_rvn.start_time : 0.0;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Application lifecycle
+ * ------------------------------------------------------------------------- */
+
+void rvn_app_event(RAppEvent event) {
+	switch (event) {
+		case R_APP_DID_PAUSE:
+			/* nothing is drawn from now on (rvn_window_can_paint); what is queued is finished before the system takes the GPU away */
+			g_rvn.app_paused = R_TRUE;
+			rvn_renderer_wait_idle();
+			break;
+		case R_APP_WILL_RESUME:
+		case R_APP_DID_RESUME:
+			/* (DID_RESUME alone too: a platform may miss the first) */
+			if (g_rvn.app_paused) {
+				g_rvn.app_paused = R_FALSE;
+				rvn_repaint_all_windows();
+				rvn_wake();
+			}
+			break;
+		default:
+			break;
+	}
+	if (g_rvn.app_event_callback) {
+		rvn_dispatch_begin();
+		g_rvn.app_event_callback(event, g_rvn.app_event_user);
+		rvn_dispatch_end();
+	}
+	if (event == R_APP_LOW_MEMORY) {
+		/* after the application freed its own: Raven's caches that are made again on use, then the empty pages of the heap */
+		rvn_renderer_trim();
+		Rmemory_trim();
+	}
+}
+
+void Rset_app_event_callback(RAppEventCallback callback, void* user_data) {
+	RVN_API_GUARD_VOID();
+	g_rvn.app_event_callback = callback;
+	g_rvn.app_event_user = user_data;
+}
+
+int Ris_app_paused(void) {
+	return g_rvn.initialized && g_rvn.app_paused ? R_TRUE : R_FALSE;
+}
+
+void Rinject_app_event(RAppEvent event) {
+	RVN_API_GUARD_VOID();
+	if ((int)event < (int)R_APP_WILL_PAUSE || (int)event > (int)R_APP_WILL_TERMINATE) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rinject_app_event: %d is not an RAppEvent", (int)event);
+		return;
+	}
+	rvn_app_event(event);
+}
+
 void Rpoll_events(void) {
 	RVN_API_GUARD_VOID();
 	g_rvn.platform->pump(0.0);

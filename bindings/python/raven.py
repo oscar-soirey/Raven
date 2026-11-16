@@ -163,6 +163,31 @@ R_SEVERITY_WARNING = RSeverity.R_SEVERITY_WARNING
 R_SEVERITY_ERROR = RSeverity.R_SEVERITY_ERROR
 R_SEVERITY_FATAL = RSeverity.R_SEVERITY_FATAL
 
+class RAppEvent(enum.IntEnum):
+    """What the system does with the application, on iOS and Android (desktop
+    systems send none of these). A pause is not always followed by
+    R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+    system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+    At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+    
+      leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+      in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+      coming back         R_APP_WILL_RESUME   Raven draws again
+      in front again      R_APP_DID_RESUME    takes input again"""
+    R_APP_WILL_PAUSE = 0x0B80
+    R_APP_DID_PAUSE = 0x0B81
+    R_APP_WILL_RESUME = 0x0B82
+    R_APP_DID_RESUME = 0x0B83
+    R_APP_LOW_MEMORY = 0x0B84
+    R_APP_WILL_TERMINATE = 0x0B85
+
+R_APP_WILL_PAUSE = RAppEvent.R_APP_WILL_PAUSE
+R_APP_DID_PAUSE = RAppEvent.R_APP_DID_PAUSE
+R_APP_WILL_RESUME = RAppEvent.R_APP_WILL_RESUME
+R_APP_DID_RESUME = RAppEvent.R_APP_DID_RESUME
+R_APP_LOW_MEMORY = RAppEvent.R_APP_LOW_MEMORY
+R_APP_WILL_TERMINATE = RAppEvent.R_APP_WILL_TERMINATE
+
 class RWindowFlags(enum.IntFlag):
     R_WINDOW_DEFAULT = 0
     R_WINDOW_NO_RESIZE = 1
@@ -2068,6 +2093,14 @@ def _adapt_RFrameCallback(function):
         function(delta_seconds, user_data)
     return call
 
+RAppEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RAppEventCallback(function):
+    def call(event, user_data):
+        function(_e(RAppEvent, event), user_data)
+    return call
+
 RTaskCallback = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 
 
@@ -2130,6 +2163,14 @@ RDropCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(R
 def _adapt_RDropCallback(function):
     def call(target, event, user_data):
         return function(target, event.contents if event else None, user_data) or 0
+    return call
+
+RBackCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RBackCallback(function):
+    def call(window, user_data):
+        return function(window, user_data) or 0
     return call
 
 RWindowCloseCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_void_p)
@@ -2966,6 +3007,34 @@ def Rget_time():
     return _lib.Rget_time()
 
 
+_lib.Rset_app_event_callback.argtypes = [RAppEventCallback, ctypes.c_void_p]
+_lib.Rset_app_event_callback.restype = None
+
+
+def Rset_app_event_callback(callback, user_data=None):
+    _lib.Rset_app_event_callback(_callback(RAppEventCallback, _adapt_RAppEventCallback, callback), user_data)
+
+
+_lib.Ris_app_paused.argtypes = []
+_lib.Ris_app_paused.restype = ctypes.c_int
+
+
+def Ris_app_paused():
+    """Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background."""
+    return _lib.Ris_app_paused()
+
+
+_lib.Rinject_app_event.argtypes = [ctypes.c_int]
+_lib.Rinject_app_event.restype = None
+
+
+def Rinject_app_event(event):
+    """Handles an RAppEvent as if the system had sent it: for tests,
+    and for a host application (raven_host.h) that knows the lifecycle.
+    UI thread."""
+    _lib.Rinject_app_event(int(event))
+
+
 _lib.Rset_ui_scale.argtypes = [ctypes.c_float]
 _lib.Rset_ui_scale.restype = None
 
@@ -3426,6 +3495,35 @@ _lib.Rwindow_clear_focus.restype = None
 def Rwindow_clear_focus(window):
     """No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away."""
     _lib.Rwindow_clear_focus(window)
+
+
+_lib.Rwindow_set_back_callback.argtypes = [ctypes.c_uint32, RBackCallback, ctypes.c_void_p]
+_lib.Rwindow_set_back_callback.restype = None
+
+
+def Rwindow_set_back_callback(window, callback, user_data=None):
+    _lib.Rwindow_set_back_callback(window, _callback(RBackCallback, _adapt_RBackCallback, callback), user_data)
+
+
+_lib.Rwindow_set_back_enabled.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_set_back_enabled.restype = None
+
+
+def Rwindow_set_back_enabled(window, enabled):
+    """R_TRUE while the application has somewhere to go back to (a page
+    under the one shown). Android 13 and later ask for Back only while the
+    window wants it (predictive back): at the root page the system handles
+    Back itself and animates back to the home screen. Default R_FALSE."""
+    _lib.Rwindow_set_back_enabled(window, enabled)
+
+
+_lib.Rwindow_wants_back.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_wants_back.restype = ctypes.c_int
+
+
+def Rwindow_wants_back(window):
+    """Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so."""
+    return _lib.Rwindow_wants_back(window)
 
 
 _lib.Rwindow_set_min_size.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
@@ -4011,6 +4109,15 @@ def Rwindow_inject_drop(window, x, y, paths, text):
     paths_ = [_s(item_) for item_ in (paths or [])]
     paths_array = (ctypes.c_char_p * len(paths_))(*paths_)
     return _lib.Rwindow_inject_drop(window, x, y, paths_array, len(paths_), _s(text))
+
+
+_lib.Rwindow_inject_back.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_inject_back.restype = ctypes.c_int
+
+
+def Rwindow_inject_back(window):
+    """Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it."""
+    return _lib.Rwindow_inject_back(window)
 
 
 _lib.Rwindow_is_key_down.argtypes = [ctypes.c_uint32, ctypes.c_int]

@@ -211,6 +211,11 @@ typedef struct rvn_context_t {
 	double delta_time;
 	RFrameCallback frame_callback;
 	void* frame_user;
+	/** The lifecycle of the application (Rset_app_event_callback). */
+	RAppEventCallback app_event_callback;
+	void* app_event_user;
+	/** Between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the windows are laid out but not drawn. */
+	int app_paused;
 
 	/* loss of the device (render/device.c) */
 	RDeviceResetCallback device_reset_callback;
@@ -325,6 +330,9 @@ void rvn_update(void);
 int rvn_frame_pacing(void);
 /** Whether the renderer presents with the driver's vertical synchronization: not when the window system paces frames itself. */
 int rvn_present_vsync(void);
+
+/** The application changed state (RVN_PEVENT_APP, Rinject_app_event): what Raven does, then the callback. UI thread. */
+void rvn_app_event(RAppEvent event);
 
 /** Wakes the event loop so that a frame is produced soon. Thread-safe. */
 void rvn_wake(void);
