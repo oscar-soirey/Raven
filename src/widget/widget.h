@@ -1010,6 +1010,8 @@ void rvn_widget_reveal(rvn_widget_t* widget, float margin);
  * above it scroll it into view, above the on-screen keyboard.
  */
 void rvn_window_reveal_focus(rvn_window_t* window);
+/** RTouchSettings::min_touch_size of the window (NULL: of the application). */
+float rvn_touch_min_size(const rvn_window_t* window);
 /** Touch.*, Pen.* and Trackpad.* attributes of <Window>, applied to its settings. -1: not one of them. */
 int  rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const char* value);
 /** R_TRUE when what is behind the window on the screen shows where the window draws nothing. */

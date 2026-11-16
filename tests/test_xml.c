@@ -820,7 +820,7 @@ static void test_schema(void) {
 		int length = snprintf(xml, sizeof(xml), "<Window");
 		Rid window;
 		int count = Rxml_get_attribute_count("Window");
-		CHECK(count >= 20 && count < 30);
+		CHECK(count >= 20 && count < 32);
 		for (index = 0; index < count; index++) {
 			int touch;
 			CHECK(Rxml_get_attribute_info("window", index, &info));

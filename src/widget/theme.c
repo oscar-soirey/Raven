@@ -915,6 +915,7 @@ static rvn_theme_t* rvn_theme_install(rvn_theme_t* loaded, const char* path) {
 		Rid font = g_rvn.theme.font;
 		int look_font = g_rvn.theme.look_font;
 		rvn_theme_copy(&g_rvn.theme, theme);
+		g_rvn.theme_metric_mask = 0;
 		rvn_theme_settle_font(font, look_font);
 	}
 	rvn_theme_changed();
@@ -955,6 +956,7 @@ void rvn_look_apply(RLook look, int keep_theme) {
 	uint32_t i;
 
 	g_rvn.look = look;
+	g_rvn.theme_metric_mask = 0;
 	rvn_themes_follow_look();
 	for (i = 0; keep_theme && i < g_rvn.theme_count && g_rvn.theme_name; i++) {
 		if (rvn_stricmp(g_rvn.themes[i]->name, g_rvn.theme_name) == 0) file = g_rvn.themes[i];
@@ -1182,11 +1184,22 @@ void Rtheme_follow_system(int enabled) {
 }
 
 void rvn_theme_follow_system_apply(void) {
-	int dark;
+	float metrics[R_METRIC_COUNT];
+	uint32_t kept;
+	int dark, i;
 	if (!g_rvn_follow_system) return;
 	dark = Rtheme_get_system_dark();
 	if (dark < 0 || dark == Rtheme_is_dark()) return;
+	/* the application did not choose another look: the sizes it gave (Rtheme_set_metric) are neither light nor dark, they stay */
+	kept = g_rvn.theme_metric_mask;
+	memcpy(metrics, g_rvn.theme.metrics, sizeof(metrics));
 	Rlook_set(dark ? R_LOOK_RAVEN_DARK : R_LOOK_RAVEN_LIGHT);
+	if (!kept) return;
+	for (i = 0; i < R_METRIC_COUNT; i++) {
+		if (kept & (1u << i)) g_rvn.theme.metrics[i] = metrics[i];
+	}
+	g_rvn.theme_metric_mask = kept;
+	rvn_theme_changed();
 }
 
 void Rtheme_set_wallpaper(Rid texture) {
@@ -1301,6 +1314,7 @@ int Rtheme_use(const char* name) {
 	font = g_rvn.theme.font;
 	look_font = g_rvn.theme.look_font;
 	rvn_theme_copy(&g_rvn.theme, theme);
+	g_rvn.theme_metric_mask = 0;
 	/* a theme that names no font keeps the one in use */
 	rvn_theme_settle_font(font, look_font);
 	rvn_str_set(&g_rvn.theme_name, theme->name);

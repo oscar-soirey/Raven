@@ -689,6 +689,11 @@
 			"description": "Fingers are ignored while a pen is near the screen (default true)."
 		},
 		{
+			"name": "Touch.MinSize",
+			"kind": "number",
+			"description": "Smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere)."
+		},
+		{
 			"name": "Pen.MouseEmulation",
 			"kind": "bool",
 			"description": "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."

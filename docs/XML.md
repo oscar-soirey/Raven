@@ -94,6 +94,7 @@ these attributes change how, for the window (`Rwindow_set_touch_settings`):
 | `Touch.Deceleration` | how fast it slows down, units per second per second (default 2400) |
 | `Touch.Gestures` | boolean (default true): two fingers pinch to zoom and pan |
 | `Touch.PalmRejection` | boolean (default true): fingers are ignored while a pen is near the screen |
+| `Touch.MinSize` | smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere) |
 | `Pen.MouseEmulation` | boolean (default true): the pen drives the widgets as the mouse does; its barrel button is the right button |
 | `Pen.PressureCurve` | the pressure given to the application is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder |
 | `Pen.PressureThreshold` | pressure, 0 to 1, the tip needs before it presses (default 0) |

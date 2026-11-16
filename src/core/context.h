@@ -268,6 +268,12 @@ typedef struct rvn_context_t {
 	char* theme_name;
 	/** The look of the application (Rlook_set), as given: it may be a NATIVE one. */
 	RLook look;
+	/**
+	 * The metrics given with Rtheme_set_metric since the look or the theme
+	 * was last chosen (bit i: metric i): a switch between light and dark
+	 * made by Rtheme_follow_system keeps them.
+	 */
+	uint32_t theme_metric_mask;
 	/** Fonts of the platforms, opened on first use (widget/look.c): text, icons. */
 	Rid platform_font;
 	Rid platform_icon_font;

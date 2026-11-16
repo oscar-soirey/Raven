@@ -443,7 +443,11 @@ extern "C" {
 	/** @brief Overrides a theme metric for one widget. */
 	RAVEN_API void Rwidget_set_metric(Rid widget, RMetric metric, float value);
 	RAVEN_API void Rwidget_clear_metric(Rid widget, RMetric metric);
-	/** @return The metric the widget uses: its own, else the one of a style, else the one of its theme. */
+	/**
+	 * @return The metric the widget uses: its own, else the one of a style,
+	 * else the one of its theme; grown for larger text
+	 * (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
+	 */
 	RAVEN_API float Rwidget_get_metric(Rid widget, RMetric metric);
 
 	/**

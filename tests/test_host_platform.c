@@ -464,6 +464,57 @@ static void test_dialog_in_safe_area(void) {
 	Rdraw_frame();
 }
 
+/*
+ * Rtheme_follow_system: a switch between light and dark keeps the sizes
+ * given with Rtheme_set_metric (not the colors); a theme that names no look
+ * keeps everything it says. Rlook_set chosen by the application drops them,
+ * as documented.
+ */
+static void test_follow_system_keeps_metrics(void) {
+	const char* theme = "<Theme Name='AppSizes'><Metrics RowHeight='40'/><Colors Panel='#123456'/></Theme>";
+	float look_height, r, g, b, a;
+	Rhost_set_system_dark(R_FALSE);
+	CHECK(Rtheme_get_system_dark() == R_FALSE);
+	Rtheme_follow_system(R_TRUE);
+	CHECK(!Rtheme_is_dark());
+	look_height = Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT);
+	Rtheme_set_metric(R_METRIC_CONTROL_HEIGHT, 44.0f);
+	Rtheme_set_metric(R_METRIC_FONT_SIZE, 16.0f);
+	Rtheme_set_color(R_COLOR_PANEL, 1.0f, 0.0f, 0.0f, 1.0f);
+
+	Rhost_set_system_dark(R_TRUE);
+	CHECK(Rtheme_is_dark());
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 44.0f);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_FONT_SIZE), 16.0f);
+	/* (a color is the one of a mode: the dark look's) */
+	Rtheme_get_color(R_COLOR_PANEL, &r, &g, &b, &a);
+	CHECK(r < 0.9f);
+	Rhost_set_system_dark(R_FALSE);
+	CHECK(!Rtheme_is_dark());
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 44.0f);
+
+	/* the application chooses a look: its values are dropped */
+	Rlook_set(R_LOOK_RAVEN_LIGHT);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), look_height);
+	Rhost_set_system_dark(R_TRUE);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), look_height);
+
+	/* a theme that names no look is laid over the new look, colors and sizes */
+	CHECK_STR(Rtheme_load_from_memory(theme, 0), "AppSizes");
+	CHECK(Rtheme_use("AppSizes"));
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_ROW_HEIGHT), 40.0f);
+	Rhost_set_system_dark(R_FALSE);
+	CHECK(!Rtheme_is_dark());
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_ROW_HEIGHT), 40.0f);
+	Rtheme_get_color(R_COLOR_PANEL, &r, &g, &b, &a);
+	CHECK_NEAR(b * 255.0f, 0x56);
+	CHECK_STR(Rtheme_get_name(), "AppSizes");
+
+	Rtheme_follow_system(R_FALSE);
+	Rhost_set_system_dark(-1);
+	Rlook_set(R_LOOK_RAVEN_DARK);
+}
+
 int main(void) {
 	RHostPlatformDesc host;
 	memset(&host, 0, sizeof(host));
@@ -495,6 +546,7 @@ int main(void) {
 	RUN(test_parallel_caret);
 	RUN(test_keyboard_reveals_field);
 	RUN(test_dialog_in_safe_area);
+	RUN(test_follow_system_keeps_metrics);
 	Rshutdown();
 	/* A callback-free registration owns a process-local clipboard, and can restart cleanly. */
 	memset(&host, 0, sizeof(host));
