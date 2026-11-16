@@ -22,12 +22,16 @@
  * SHORTCUT: a scene that is disconnected (the system reclaims it) is not
  * handled: its windows are not moved to a new scene.
  *
+ * Relative paths read the resources of the app's bundle: see "Files of the
+ * bundle".
+ *
  * Compiled with ARC (see CMakeLists.txt).
  */
 
 #import <UIKit/UIKit.h>
 #import <QuartzCore/CAMetalLayer.h>
 #import <Metal/Metal.h>
+#include <sys/stat.h>
 
 #include "../platform.h"
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, as the Android platform reaches the core) */
@@ -950,12 +954,61 @@ static void rvn_uikit_scene_focus(NSNotification* note, int focused) {
 	}
 }
 
+/* ---------------------------------------------------------------------------
+ *  Files of the bundle: plain files under [NSBundle mainBundle].resourcePath
+ *  (core/file.c asks for the relative paths it cannot find; the current
+ *  folder of an iOS app is "/"). Not in g_uikit: textures are read on worker
+ *  threads.
+ * ------------------------------------------------------------------------- */
+
+static char g_uikit_resources[1024];
+
+static void* rvn_uikit_resource_open(const char* path) {
+	char full[2048];
+	FILE* file;
+	struct stat info;
+	if (!g_uikit_resources[0]) return NULL;
+	snprintf(full, sizeof(full), "%s/%s", g_uikit_resources, path);
+	file = fopen(full, "rb");
+	/* (a folder opens too: only regular files are read) */
+	if (file && (fstat(fileno(file), &info) != 0 || !S_ISREG(info.st_mode))) {
+		fclose(file);
+		file = NULL;
+	}
+	return file;
+}
+
+static size_t rvn_uikit_resource_size(void* file) {
+	struct stat info;
+	return fstat(fileno((FILE*)file), &info) == 0 && info.st_size > 0 ? (size_t)info.st_size : 0;
+}
+
+static size_t rvn_uikit_resource_read(void* file, void* buffer, size_t size) {
+	return fread(buffer, 1, size, (FILE*)file);
+}
+
+static void rvn_uikit_resource_close(void* file) {
+	fclose((FILE*)file);
+}
+
+static const rvn_file_provider_t g_uikit_resource_provider = {
+	rvn_uikit_resource_open, rvn_uikit_resource_size, rvn_uikit_resource_read, rvn_uikit_resource_close
+};
+
 static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regions) {
 	NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
 	NSOperationQueue* main = [NSOperationQueue mainQueue];
 	RVN_UNUSED(regions);
 	memset(&g_uikit, 0, sizeof(g_uikit));
 	g_uikit.handler = handler;
+	{
+		NSString* resources = [NSBundle mainBundle].resourcePath;
+		if (resources && [resources getFileSystemRepresentation:g_uikit_resources maxLength:sizeof(g_uikit_resources)]) {
+			rvn_file_set_provider(&g_uikit_resource_provider);
+		} else {
+			g_uikit_resources[0] = '\0';
+		}
+	}
 	g_uikit.observers = (void*)CFBridgingRetain(@[
 		[center addObserverForName:UIKeyboardWillChangeFrameNotification object:nil queue:main usingBlock:^(NSNotification* note) {
 			rvn_uikit_keyboard_changed(note, R_FALSE);
@@ -999,6 +1052,7 @@ static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 }
 
 static void rvn_uikit_shutdown(void) {
+	rvn_file_set_provider(NULL);
 	if (g_uikit.observers) {
 		NSArray* observers = CFBridgingRelease(g_uikit.observers);
 		for (id observer in observers) [[NSNotificationCenter defaultCenter] removeObserver:observer];

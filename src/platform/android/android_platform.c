@@ -15,7 +15,8 @@
  * the activity. The on-screen keyboard, predictive back and trim-memory
  * requests go through Raven's Java view (java/raven/android/RavenTextView.java,
  * in the APK's classes.dex): see "Text input" and "Back" below; without it,
- * key events only.
+ * key events only. Relative paths read the APK's assets/ (AAssetManager):
+ * see "Files of the APK".
  */
 
 #include "../platform.h"
@@ -31,6 +32,7 @@
 #include <android/configuration.h>
 #include <android/log.h>
 #include <android/api-level.h>
+#include <android/asset_manager.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -1375,6 +1377,37 @@ static void rvn_android_poll(int timeout_ms) {
 	if (g_android.app && g_android.app->destroyRequested) rvn_android_simple_event(RVN_PEVENT_CLOSE, 0);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Files of the APK: the folder assets/, read through the AAssetManager of
+ *  the activity (core/file.c asks it for the relative paths it cannot find).
+ *  Not in g_android: textures are read on worker threads.
+ * ------------------------------------------------------------------------- */
+
+static AAssetManager* g_android_assets;
+
+static void* rvn_android_asset_open(const char* path) {
+	AAssetManager* assets = g_android_assets;
+	return assets ? AAssetManager_open(assets, path, AASSET_MODE_BUFFER) : NULL;
+}
+
+static size_t rvn_android_asset_size(void* file) {
+	off64_t length = AAsset_getLength64((AAsset*)file);
+	return length > 0 ? (size_t)length : 0;
+}
+
+static size_t rvn_android_asset_read(void* file, void* buffer, size_t size) {
+	int read = AAsset_read((AAsset*)file, buffer, size > INT32_MAX ? INT32_MAX : size);
+	return read > 0 ? (size_t)read : 0;
+}
+
+static void rvn_android_asset_close(void* file) {
+	AAsset_close((AAsset*)file);
+}
+
+static const rvn_file_provider_t g_android_asset_provider = {
+	rvn_android_asset_open, rvn_android_asset_size, rvn_android_asset_read, rvn_android_asset_close
+};
+
 static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regions) {
 	RVN_UNUSED(regions);
 	memset(&g_android, 0, sizeof(g_android));
@@ -1386,6 +1419,8 @@ static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t 
 	}
 	g_android.app->onAppCmd = rvn_android_on_cmd;
 	g_android.app->onInputEvent = rvn_android_on_input;
+	g_android_assets = g_android.app->activity->assetManager;
+	rvn_file_set_provider(&g_android_asset_provider);
 	g_android.scale = rvn_android_density_scale();
 	{
 		JavaVM* vm = g_android.app->activity->vm;
@@ -1425,6 +1460,8 @@ static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t 
 }
 
 static void rvn_android_shutdown(void) {
+	rvn_file_set_provider(NULL);
+	g_android_assets = NULL;
 	if (g_android.env && g_android.kcm_class) (*g_android.env)->DeleteGlobalRef(g_android.env, g_android.kcm_class);
 	rvn_android_text_unload();
 	rvn_android_unhook_ui_thread();
