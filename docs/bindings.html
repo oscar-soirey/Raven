@@ -4,18 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Raven manual: Bindings</title>
-<meta name="description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
+<meta name="description" content="Using Raven from C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun and Node.js: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
 <link rel="canonical" href="https://oscar-soirey.github.io/Raven/bindings.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Raven">
 <meta property="og:title" content="Raven manual: Bindings">
-<meta property="og:description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
+<meta property="og:description" content="Using Raven from C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun and Node.js: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
 <meta property="og:url" content="https://oscar-soirey.github.io/Raven/bindings.html">
 <meta property="og:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
 <meta property="og:image:alt" content="Raven, a native GUI library in C: the studio example">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Raven manual: Bindings">
-<meta name="twitter:description" content="Using Raven from C++, Python, Rust, Go, C#, Zig and LuaJIT: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
+<meta name="twitter:description" content="Using Raven from C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun and Node.js: installation, the conventions of each binding, callbacks, lifetimes, tests and packaging.">
 <meta name="twitter:image" content="https://oscar-soirey.github.io/Raven/images/studio_glass.png">
 <meta name="theme-color" content="#e5322d">
 <link rel="icon" type="image/png" href="logo-com-192.png">
@@ -27,13 +27,14 @@
 <body>
 <div class="topbar"><button id="menu" aria-controls="side" aria-expanded="false">Menu</button><a class="brand" href="index.html"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a></div>
 <div class="layout">
-<aside class="side" id="side"><a class="brand" href="index.html"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html" aria-current="page">Bindings</a><ul class="sections"><li><a href="#overview">1. At a glance</a></li><li><a href="#common">2. What every binding shares</a></li><li><a href="#cpp">3. C++</a></li><li><a href="#python">4. Python</a></li><li><a href="#rust">5. Rust</a></li><li><a href="#go">6. Go</a></li><li><a href="#csharp">7. C#</a></li><li><a href="#zig">8. Zig</a></li><li><a href="#lua">9. LuaJIT</a></li><li><a href="#rosetta">10. One call in every language</a></li><li><a href="#testing">11. Testing without a screen</a></li><li><a href="#packages">12. Packages and publishing</a></li><li><a href="#bindgen">13. How the bindings are made</a></li></ul></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
+<aside class="side" id="side"><a class="brand" href="index.html"><img src="logo-com-192.png" alt="" width="34" height="34">Raven</a><p class="label">Documentation</p><ul class="pages"><li><a href="guide.html">Guide</a></li><li><a href="xml.html">XML reference</a></li><li><a href="designer.html">Designer</a></li><li><a href="reference.html">C API reference</a></li><li><a href="bindings.html" aria-current="page">Bindings</a><ul class="sections"><li><a href="#overview">1. At a glance</a></li><li><a href="#common">2. What every binding shares</a></li><li><a href="#cpp">3. C++</a></li><li><a href="#python">4. Python</a></li><li><a href="#rust">5. Rust</a></li><li><a href="#go">6. Go</a></li><li><a href="#csharp">7. C#</a></li><li><a href="#zig">8. Zig</a></li><li><a href="#lua">9. LuaJIT</a></li><li><a href="#java">10. Java</a></li><li><a href="#odin">11. Odin</a></li><li><a href="#bun">12. Bun</a></li><li><a href="#node">13. Node.js</a></li><li><a href="#rosetta">14. One call in every language</a></li><li><a href="#testing">15. Testing without a screen</a></li><li><a href="#packages">16. Packages and publishing</a></li><li><a href="#bindgen">17. How the bindings are made</a></li></ul></li><li><a href="qt-to-raven.html">From Qt to Raven</a></li></ul><p class="label">Elsewhere</p><ul class="extra"><li><a href="index.html">Home</a></li><li><a href="index.html#releases">Downloads</a></li><li><a href="https://github.com/oscar-soirey/Raven">GitHub</a></li></ul></aside>
 <main class="doc"><article>
 <h1>Raven in other languages</h1>
 
 <p>Raven is a C library, so any language that can call C can use it. Raven
-comes with bindings for nine of them: C++, Python, Rust, Go, C#, Zig,
-LuaJIT, Java and Odin. This page explains, for each one, how to install it, how the C API
+comes with bindings for fourteen of them. This page covers eleven: C++, Python,
+Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun and Node.js (D, Nim and C3 are
+described in their own folders of <code>bindings/</code>). It explains, for each one, how to install it, how the C API
 looks from that language, how callbacks and texts are handled, and what to
 watch for. The functions themselves are documented once, in
 <a href="reference.html">the C API reference</a>: every binding uses the same names.</p>
@@ -58,10 +59,12 @@ The packages follow the releases: for the latest features, clone the repository,
 <li><a href="#lua">9. LuaJIT</a></li>
 <li><a href="#java">10. Java</a></li>
 <li><a href="#odin">11. Odin</a></li>
-<li><a href="#rosetta">12. One call in every language</a></li>
-<li><a href="#testing">13. Testing without a screen</a></li>
-<li><a href="#packages">14. Packages and publishing</a></li>
-<li><a href="#bindgen">15. How the bindings are made</a></li>
+<li><a href="#bun">12. Bun</a></li>
+<li><a href="#node">13. Node.js</a></li>
+<li><a href="#rosetta">14. One call in every language</a></li>
+<li><a href="#testing">15. Testing without a screen</a></li>
+<li><a href="#packages">16. Packages and publishing</a></li>
+<li><a href="#bindgen">17. How the bindings are made</a></li>
 </ul>
 
 <!-- ======================================================================= -->
@@ -78,6 +81,8 @@ The packages follow the releases: for the latest features, clone the repository,
 <tr><td><a href="#lua">LuaJIT</a></td><td><code>bindings/luajit/raven.lua</code></td><td><code>luarocks install raven-gui</code></td><td>The declarations of the headers for the FFI of LuaJIT.</td><td>none</td></tr>
 <tr><td><a href="#java">Java</a> (22+)</td><td><code>bindings/java/</code></td><td><code>io.github.oscar-soirey:raven-gui</code> (Maven Central)</td><td>The class <code>raven.R</code> over the Foreign Function &amp; Memory API: no JNI, no dependency. <code>String</code> texts, lambdas, arrays of one element for out-parameters.</td><td><code>binding_java</code></td></tr>
 <tr><td><a href="#odin">Odin</a></td><td><code>bindings/odin/raven/</code></td><td>the folder</td><td>Foreign declarations under the C names; <code>proc "c"</code> callbacks, zeroed structures.</td><td><code>binding_odin</code> (where <code>odin</code> is installed; not run yet)</td></tr>
+<tr><td><a href="#bun">Bun</a> (1.4+)</td><td><code>bindings/bun/src/raven.ts</code></td><td>the file</td><td>One TypeScript module over <code>bun:ffi</code>, no dependency, no build step. Strings, JavaScript callbacks, out-parameters returned; <code>runLoop()</code> keeps the event loop running.</td><td><code>binding_bun</code></td></tr>
+<tr><td><a href="#node">Node.js</a> (18+)</td><td><code>bindings/node/</code></td><td>the folder; the addon built with CMake</td><td>A Node-API addon and an ES module with typings, the surface of the Bun binding. One addon per platform for every Node.js, and for Bun and Deno.</td><td><code>binding_node</code>, <code>binding_node_bun</code></td></tr>
 </table></div>
 
 <p>Every binding covers the whole of <code>Raven.h</code>: 940 functions, 58
@@ -121,7 +126,8 @@ cmake --build build --config Release</pre>
 environment variables tell the bindings where it is:</p>
 <div class="tw"><table>
 <tr><th>Variable</th><th>Read by</th><th></th></tr>
-<tr><td><code>RAVEN_LIBRARY</code></td><td>Python, LuaJIT, Java</td><td>the path of the shared library (Java also reads the system property <code>raven.library</code>)</td></tr>
+<tr><td><code>RAVEN_LIBRARY</code></td><td>Python, LuaJIT, Java, Bun, Node.js</td><td>the path of the shared library (Java also reads the system property <code>raven.library</code>)</td></tr>
+<tr><td><code>RAVEN_ADDON</code></td><td>Node.js</td><td>the path of the addon, <code>raven_napi.node</code></td></tr>
 <tr><td><code>RAVEN_LIB_DIR</code></td><td>Rust (<code>build.rs</code>)</td><td>the folder of the library, for the linker</td></tr>
 <tr><td><code>RAVEN_STATIC=1</code></td><td>Rust</td><td>link <code>libraven.a</code> / <code>raven.lib</code> instead</td></tr>
 <tr><td><code>CGO_CFLAGS</code>, <code>CGO_LDFLAGS</code></td><td>Go</td><td><code>-I&lt;raven&gt;/include</code> and <code>-L&lt;folder of the library&gt;</code></td></tr>
@@ -136,8 +142,8 @@ Raven draws with Vulkan: the machine needs a Vulkan driver (on macOS,
 only, except the functions documented as thread-safe (<code>Rtask_post</code>,
 <code>Rwake_up</code>). In Go this means <code>runtime.LockOSThread()</code> at the top of
 <code>main</code>; in C# and Python, do not call Raven from a <code>Task</code> or a
-<code>threading.Thread</code>. A call from the wrong thread reports
-<code>R_ERROR_WRONG_THREAD</code>.</p>
+<code>threading.Thread</code>; in Bun and Node.js, not from a <code>Worker</code>. A call
+from the wrong thread reports <code>R_ERROR_WRONG_THREAD</code>.</p>
 
 <h3 id="xml">XML and actions: the simplest way in every language</h3>
 <p>The binding code shrinks to almost nothing when the interface is
@@ -967,7 +973,233 @@ it with <code>context = runtime.default_context()</code>.</dd>
 </dl>
 
 <!-- ======================================================================= -->
-<h2 id="rosetta">12. One call in every language</h2>
+<h2 id="bun">12. Bun</h2>
+
+<h3 id="bun-install">Install</h3>
+<p>One TypeScript module, <code>bindings/bun/src/raven.ts</code>, over <code>bun:ffi</code>:
+no dependency, no build step. It needs Bun 1.4 or later. There is no npm package:
+copy the file into the project. It opens the shared library of Raven, built with
+<code>-DRAVEN_BUILD_SHARED=ON</code> or taken from a release:</p>
+<pre>RAVEN_LIBRARY=/path/to/libraven.so bun run app.ts</pre>
+<p>The library is looked for in <code>RAVEN_LIBRARY</code>, then beside <code>raven.ts</code>, then
+where the system looks.</p>
+
+<h3 id="bun-hello">A program</h3>
+<pre>import * as r from "./raven";
+
+const XML = `
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;`;
+
+if (!r.Rinit(r.R_BACKEND_VULKAN)) {
+    throw new Error("cannot start Raven");
+}
+r.Rerror_set_callback((code, severity, detail) =&gt; console.error("raven:", detail));
+
+const window = r.Rwindow_create_from_xml(XML);
+const title = r.Rwidget_find(window, "title");
+const name = r.Rwidget_find(window, "name");
+
+r.Raction_bind("greet", () =&gt; {
+    r.Rlabel_set_text(title, `Hello, ${r.Rtext_input_get_text(name) || "you"}!`);
+});
+
+await r.runLoop();
+r.Rshutdown();</pre>
+
+<h3 id="bun-rules">How the C API looks</h3>
+<dl>
+<dt>Names</dt>
+<dd>Every C function, under its own name, exported by the module. Use
+<code>import * as r from "./raven"</code>. A <code>Rid</code> is a <code>number</code>.</dd>
+<dt>Texts</dt>
+<dd>Strings on both sides, UTF-8 underneath. A text that may be NULL is <code>null</code>.
+Bytes are a <code>Uint8Array</code>: <code>r.Rfile_write(path, bytes)</code>,
+<code>r.Rfile_read(path)</code>. The size that follows a text or bytes in C is not
+passed, nor the count that follows a list.</dd>
+<dt>Out-parameters</dt>
+<dd>A parameter the C function writes through is not passed: its value is returned,
+after the result of the function if it has one.
+<code>const [x, y, width, height] = r.Rwidget_get_rect(widget)</code>;
+<code>const [code, detail] = r.Rerror_get_last()</code>.</dd>
+<dt>Structures</dt>
+<dd>A class with an accessor per field, over zeroed memory: <code>new r.RInitDesc()</code>.
+64-bit fields are <code>bigint</code>. A structure received by a callback reads the
+memory of the library, so it is only valid during the call.</dd>
+</dl>
+<pre>const desc = new r.RInitDesc();
+desc.backend = r.R_BACKEND_NULL;
+desc.headless = 1;
+r.Rinit_ex(desc);
+
+const error = new r.RXmlError();
+if (r.Rxml_document_parse("&lt;A&gt;&lt;B&gt;&lt;/A&gt;", error) === r.R_INVALID_ID) {
+    console.log(error.line, error.column, error.message);
+}</pre>
+<dl>
+<dt>Enumerations</dt>
+<dd>TypeScript <code>enum</code>s such as <code>r.RWidgetType</code>, and each member also
+at the top of the module: <code>r.R_WIDGET_BUTTON</code>.</dd>
+<dt>Callbacks</dt>
+<dd>Any JavaScript function, wherever C takes a callback; <code>user_data</code> can be
+left out, a closure does its work. The binding keeps the function alive as long
+as the program runs. An exception it throws is printed, and the callback returns
+0: an exception must not cross the frames of C.</dd>
+</dl>
+
+<h3 id="bun-loop">The event loop and threads</h3>
+<p><code>Rwait_frame(-1.0)</code> sleeps inside C, so timers and promises wait with it.
+<code>await r.runLoop()</code> keeps them running beside the interface:
+<code>Rwait_frame</code> still wakes at once for an event of a window, and JavaScript gets
+its turn at least every <code>interval_seconds</code> (1/60 by default).</p>
+<p>A JavaScript callback may only be called on the JavaScript thread: called from
+another one it never runs, and <code>Rshutdown</code> then waits for it forever. So:</p>
+<ul>
+<li><code>Rinit</code> and a new <code>RInitDesc</code> leave the render thread off, because
+errors are reported on the thread that raises them. To turn it on, set
+<code>disable_render_thread = 0</code> on a desc given to <code>Rinit_ex</code>, and do not give
+<code>Rerror_set_callback</code> a JavaScript function.</li>
+<li><code>Rparallel_for</code> and <code>Rviewport_set_draw_callback</code> only take the address of
+a native function, since their callbacks run on other threads.</li>
+<li>A function given to <code>Rtask_run_async</code> runs later on the JavaScript thread,
+not on a worker: use a <code>Worker</code> for long work.</li>
+<li>Raven belongs to the thread that starts it: call it from that thread only, not
+from a <code>Worker</code>.</li>
+</ul>
+
+<h3 id="bun-compile">One executable</h3>
+<p><code>bun build --compile</code> can hold the library and the interface too. The binding
+opens the library as soon as it is imported, so its path is set first, in a module
+of its own:</p>
+<pre>// native.ts
+import library from "./libraven.so" with { type: "file" };
+process.env.RAVEN_LIBRARY ??= library;
+
+// app.ts
+import "./native";
+import * as r from "./raven";
+import ui from "./main.xml" with { type: "text" };
+
+r.Rinit(r.R_BACKEND_VULKAN);
+r.Rwindow_create_from_xml(String(ui));
+await r.runLoop();
+r.Rshutdown();</pre>
+<pre>bun build --compile --no-compile-autoload-dotenv app.ts --outfile app</pre>
+<p>The executable is for the platform of the library it holds, and still needs what
+the library needs from the system (libX11 and a Vulkan driver on Linux).
+<code>bindings/bun/README.md</code> has the details.</p>
+
+<h3 id="bun-test">Tests</h3>
+<pre>RAVEN_LIBRARY=/path/to/libraven.so bun run src/example.ts --test</pre>
+<p>runs the example without a window system and without a GPU, as <code>ctest</code> does
+(<code>binding_bun</code>). <code>bun run typecheck</code> needs <code>bun install</code> first.</p>
+
+<!-- ======================================================================= -->
+<h2 id="node">13. Node.js</h2>
+
+<h3 id="node-install">Install</h3>
+<p>An addon written against Node-API (<code>bindings/node/src/raven_napi.c</code>) and an ES
+module over it (<code>raven.js</code>, with its typings in <code>raven.d.ts</code>): no dependency,
+no <code>node-gyp</code>. It needs Node.js 18 or later. Node-API is ABI-stable: one addon
+per platform works across versions of Node.js, and the same file loads in Bun and in
+Deno. There is no npm package: build Raven as a shared library, then the addon,
+with CMake:</p>
+<pre>cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Release -DRAVEN_BUILD_SHARED=ON
+cmake --build build-shared --parallel
+cmake -S bindings/node -B bindings/node/build -DCMAKE_BUILD_TYPE=Release
+cmake --build bindings/node/build
+
+RAVEN_LIBRARY=/path/to/libraven.so node app.mjs</pre>
+<p>The addon does not link Raven: it opens the shared library when the module is
+imported. To build, it only needs <code>node_api.h</code>, which an installation of Node.js
+has beside its binary (<code>RAVEN_NODE_INCLUDE_DIR</code> points elsewhere). The addon is
+looked for in <code>RAVEN_ADDON</code>, beside <code>raven.js</code>, then in <code>build/</code>; the library
+in <code>RAVEN_LIBRARY</code>, beside <code>raven.js</code>, then where the system looks.</p>
+<p>On Windows, the CMake file leaves the addon out for now (an addon there links the
+import library of <code>node.exe</code>). The addon itself opens the library through a
+UTF-16 path there (<code>LoadLibraryW</code>), so a folder with characters outside ASCII
+works.</p>
+
+<h3 id="node-hello">A program</h3>
+<p>The program of <a href="#bun-hello">Bun</a>, in a file <code>app.mjs</code> beside <code>raven.js</code>:</p>
+<pre>import * as r from "./raven.js";
+
+const XML = `
+&lt;Window Title="Hello" Width="360" Height="200"&gt;
+    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
+        &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
+        &lt;TextInput Name="name" Placeholder="Your name"/&gt;
+        &lt;Button Text="Greet" Style="Primary" OnClicked="greet"/&gt;
+    &lt;/VBox&gt;
+&lt;/Window&gt;`;
+
+if (!r.Rinit(r.R_BACKEND_VULKAN)) {
+    throw new Error("cannot start Raven");
+}
+r.Rerror_set_callback((code, severity, detail) =&gt; console.error("raven:", detail));
+
+const window = r.Rwindow_create_from_xml(XML);
+const title = r.Rwidget_find(window, "title");
+const name = r.Rwidget_find(window, "name");
+
+r.Raction_bind("greet", () =&gt; {
+    r.Rlabel_set_text(title, `Hello, ${r.Rtext_input_get_text(name) || "you"}!`);
+});
+
+await r.runLoop();
+r.Rshutdown();</pre>
+<p>The two bindings have the same surface: a program written against one runs on
+the other.</p>
+
+<h3 id="node-rules">How the C API looks</h3>
+<p>As in <a href="#bun-rules">Bun</a>: the C names, strings, out-parameters returned,
+structures as classes with an accessor per field, JavaScript functions as callbacks,
+an exception in a callback printed. And:</p>
+<dl>
+<dt>Addresses</dt>
+<dd>Two functions Bun has in <code>bun:ffi</code> are here, for what the library returns as
+an address: <code>r.toArrayBuffer(address, offset, size)</code> (the pixels of
+<code>Rwindow_capture</code>, for instance) and <code>r.ptr(typedArray)</code>.</dd>
+<dt>Types</dt>
+<dd>An argument of the wrong type throws a <code>TypeError</code> instead of reaching C.
+<code>int</code> parameters also take booleans.</dd>
+<dt>How long a callback lives</dt>
+<dd>Unlike the Bun binding, a callback is released as soon as Raven has forgotten it.
+One set on an object (<code>Rbutton_set_clicked_callback</code>...) lives until it is
+replaced or cleared there, or until the object is gone; an action or a tag of XML
+until it is unbound or replaced under the same name; <code>Rtimer_create</code> without
+repeat, <code>Rtask_post</code> and <code>Rdialog_open</code> call once and release it.
+<code>Rshutdown</code> releases everything.</dd>
+</dl>
+
+<h3 id="node-loop">The event loop and threads</h3>
+<p><code>Rwait_frame(-1.0)</code> sleeps inside C, so timers, promises and the callbacks that
+arrive from other threads wait with it: use <code>await r.runLoop()</code>, as with Bun.</p>
+<div class="tw"><table>
+<tr><th>Callback</th><th>Thread</th><th>Here</th></tr>
+<tr><td><code>Rtask_run_async</code></td><td>a worker</td><td>queued to the JavaScript thread with a thread-safe function</td></tr>
+<tr><td><code>Rerror_set_callback</code></td><td>the thread that raised the error</td><td>queued the same way from another thread, called at once on the JavaScript thread</td></tr>
+<tr><td><code>Rtask_post</code> and every other callback</td><td>the UI thread, which is the JavaScript thread</td><td>called directly</td></tr>
+<tr><td><code>Rparallel_for</code>, <code>Rviewport_set_draw_callback</code></td><td>workers, the render thread; C waits for them</td><td>the address of a native function only</td></tr>
+</table></div>
+<p><code>Rinit</code> and a new <code>RInitDesc</code> leave the render thread off, as in Bun; it can
+be turned on (<code>disable_render_thread = 0</code>) and <code>Rerror_set_callback</code> still
+works. Raven belongs to the thread that starts it: not from a <code>Worker</code>.</p>
+
+<h3 id="node-test">Tests</h3>
+<pre>RAVEN_LIBRARY=/path/to/libraven.so RAVEN_ADDON=/path/to/raven_napi.node \
+    node --expose-gc src/example.mjs --test</pre>
+<p>runs the example without a window system and without a GPU, as <code>ctest</code> does:
+<code>binding_node</code> under Node.js and <code>binding_node_bun</code> under Bun.
+<code>npm run typecheck</code> needs <code>npm install</code> first.</p>
+
+<!-- ======================================================================= -->
+<h2 id="rosetta">14. One call in every language</h2>
 
 <p>Reading the bounds of a widget (a function with four out-parameters) and
 changing the text of a label, to see each convention side by side:</p>
@@ -983,6 +1215,7 @@ changing the text of a label, to see each convention side by side:</p>
 <tr><td>LuaJIT</td><td><code>local f = ffi.new("float[4]"); r.Rwidget_get_rect(b, f, f+1, f+2, f+3)</code></td><td><code>r.Rlabel_set_text(l, "Hi")</code></td></tr>
 <tr><td>Java</td><td><code>float[] x = {0}, y = {0}, w = {0}, h = {0}; Rwidget_get_rect(b, x, y, w, h);</code></td><td><code>Rlabel_set_text(l, "Hi");</code></td></tr>
 <tr><td>Odin</td><td><code>x, y, w, h: f32; r.Rwidget_get_rect(b, &amp;x, &amp;y, &amp;w, &amp;h)</code></td><td><code>r.Rlabel_set_text(l, "Hi")</code></td></tr>
+<tr><td>Bun, Node.js</td><td><code>const [x, y, w, h] = r.Rwidget_get_rect(b);</code></td><td><code>r.Rlabel_set_text(l, "Hi");</code></td></tr>
 </table></div>
 
 <p>And binding an action, the one callback every binding makes easy:</p>
@@ -997,10 +1230,11 @@ changing the text of a label, to see each convention side by side:</p>
 <tr><td>LuaJIT</td><td><code>local cb = ffi.cast("RActionCallback", save); r.Raction_bind("save", cb, nil)</code></td></tr>
 <tr><td>Java</td><td><code>Raction_bind("save", (sender, action, user) -&gt; save());</code></td></tr>
 <tr><td>Odin</td><td><code>r.Raction_bind("save", on_save, nil)</code> with <code>on_save :: proc "c" (...)</code></td></tr>
+<tr><td>Bun, Node.js</td><td><code>r.Raction_bind("save", () =&gt; save());</code></td></tr>
 </table></div>
 
 <!-- ======================================================================= -->
-<h2 id="testing">13. Testing without a screen</h2>
+<h2 id="testing">15. Testing without a screen</h2>
 
 <p>Every binding can run Raven with the null backend and no window system,
 which is how the build checks them: each example, started with
@@ -1022,15 +1256,19 @@ assert r.Rlabel_get_text(title) == "Hello, you!"</pre>
 <p>In Go, <code>raven.InitHeadless()</code> does the first four lines. The
 examples (<code>cpp/example.cpp</code>, <code>python/example.py</code>,
 <code>rust/examples/hello.rs</code>, <code>go/example/main.go</code>,
-<code>java/example/Example.java</code>, <code>odin/example/main.odin</code>) are complete tests
+<code>java/example/Example.java</code>, <code>odin/example/main.odin</code>,
+<code>bun/src/example.ts</code>, <code>node/src/example.mjs</code>) are complete tests
 to copy. With <code>-DRAVEN_BUILD_TESTS=ON</code>, <code>ctest</code> runs
 <code>bindings_up_to_date</code> and, where the tools are installed,
 <code>binding_cpp</code>, <code>binding_python</code>, <code>binding_rust</code>,
-<code>binding_go</code>, <code>binding_java</code> (a JDK 22 or later) and <code>binding_odin</code>
-(all but the first need <code>RAVEN_BUILD_SHARED</code>, and are run by hand on Windows).</p>
+<code>binding_go</code>, <code>binding_java</code> (a JDK 22 or later), <code>binding_odin</code>,
+<code>binding_bun</code>, <code>binding_node</code> and <code>binding_node_bun</code>
+(all but the first need <code>RAVEN_BUILD_SHARED</code>, and are run by hand on Windows,
+where the addon of Node.js is not built yet; the two of Node.js also need
+<code>node_api.h</code>, to build the addon).</p>
 
 <!-- ======================================================================= -->
-<h2 id="packages">14. Packages and publishing</h2>
+<h2 id="packages">16. Packages and publishing</h2>
 
 <div class="tw"><table class="v">
 <tr><th>Registry</th><th>Package</th><th>In code</th><th>Contents</th></tr>
@@ -1040,8 +1278,9 @@ to copy. With <code>-DRAVEN_BUILD_TESTS=ON</code>, <code>ctest</code> runs
 <tr><td>LuaRocks</td><td><code>raven-gui</code></td><td><code>require("raven")</code></td><td>the module; the library comes from a release</td></tr>
 <tr><td>Maven Central</td><td><code>io.github.oscar-soirey:raven-gui</code></td><td><code>import static raven.R.*;</code></td><td><code>raven.R</code> and the library under <code>raven/native/&lt;platform&gt;/</code> (Windows x64, Linux x64, macOS)</td></tr>
 </table></div>
-<p>C++, Go, Zig and Odin are used from the files of a release or of the sources
-(<code>share/raven/bindings</code> in an installed package).</p>
+<p>C++, Go, Zig, Odin and Bun are used from the files of a release or of the sources
+(<code>share/raven/bindings</code> in an installed package); Node.js from the sources,
+where its addon is built.</p>
 <p>For maintainers: <code>bindings\package.bat</code>, from a Developer Command
 Prompt for Visual Studio, builds Raven (shared, Release) and writes the four
 packages into <code>dist\bindings\</code> without publishing anything
@@ -1054,7 +1293,7 @@ those platforms from the shared packages of a release;
 registry.</p>
 
 <!-- ======================================================================= -->
-<h2 id="bindgen">15. How the bindings are made</h2>
+<h2 id="bindgen">17. How the bindings are made</h2>
 
 <p>The bindings are not written by hand: <code>tools/bindgen</code> reads the public
 headers (<code>cparse.py</code>) and writes every file of <code>bindings/</code>, one
