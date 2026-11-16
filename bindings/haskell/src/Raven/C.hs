@@ -1122,6 +1122,9 @@ pattern R_WIDGET_PLOT = RWidgetType 562
 -- | The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
 pattern R_WIDGET_PDF_VIEW :: RWidgetType
 pattern R_WIDGET_PDF_VIEW = RWidgetType 563
+-- | The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+pattern R_WIDGET_CHART :: RWidgetType
+pattern R_WIDGET_CHART = RWidgetType 564
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1491,6 +1494,26 @@ pattern R_PLOT_LEGEND_LEFT = RPlotLegend 1384
 -- | To the right of the data, outside it.
 pattern R_PLOT_LEGEND_OUTSIDE :: RPlotLegend
 pattern R_PLOT_LEGEND_OUTSIDE = RPlotLegend 1385
+
+-- | What a Chart draws.
+newtype RChartKind = RChartKind CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Slices of a whole, as parts of a disc (the default).
+pattern R_CHART_PIE :: RChartKind
+pattern R_CHART_PIE = RChartKind 1424
+-- | Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer.
+pattern R_CHART_DONUT :: RChartKind
+pattern R_CHART_DONUT = RChartKind 1425
+-- | One value within a range, on an arc; bands color parts of the range.
+pattern R_CHART_GAUGE :: RChartKind
+pattern R_CHART_GAUGE = RChartKind 1426
+-- | A grid of values, each cell colored from the low color to the high one.
+pattern R_CHART_HEATMAP :: RChartKind
+pattern R_CHART_HEATMAP = RChartKind 1427
+-- | A small line of values without axes, to sit in a tile or a cell of a table.
+pattern R_CHART_SPARKLINE :: RChartKind
+pattern R_CHART_SPARKLINE = RChartKind 1428
 
 -- | Shorthands of Rtext_editor_set_language for two languages.
 newtype RSyntax = RSyntax CInt
@@ -2273,8 +2296,8 @@ foreign import ccall "wrapper" mkRTableCellTextCallback :: (Rid -> CInt -> CInt 
 -- | Colors the text of cells (a verdict, a state): the table asks for the
 -- color of each cell it draws, stored or virtual (`row` is the index of the
 -- order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
--- keeps the color of the theme. The color is kept on a selected or hovered
--- row. NULL removes the callback.
+-- keeps the color set with Rtable_set_cell_text_color, else the theme's.
+-- The color is kept on a selected or hovered row. NULL removes the callback.
 type RTableCellColorCallback = FunPtr (Rid -> CInt -> CInt -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr () -> IO CInt)
 
 -- | Makes a 'RTableCellColorCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
@@ -2356,6 +2379,20 @@ type RPlotSeriesCallback = FunPtr (Rid -> CInt -> CInt -> Ptr () -> IO ())
 -- | Makes a 'RPlotSeriesCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRPlotSeriesCallback :: (Rid -> CInt -> CInt -> Ptr () -> IO ()) -> IO RPlotSeriesCallback
+
+-- | Called when the user clicks a slice; `selected` tells whether it is now the selected one.
+type RChartSliceCallback = FunPtr (Rid -> CInt -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RChartSliceCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRChartSliceCallback :: (Rid -> CInt -> CInt -> Ptr () -> IO ()) -> IO RChartSliceCallback
+
+-- | Called when the user clicks a cell of a heatmap.
+type RChartCellCallback = FunPtr (Rid -> CInt -> CInt -> CFloat -> Ptr () -> IO ())
+
+-- | Makes a 'RChartCellCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRChartCellCallback :: (Rid -> CInt -> CInt -> CFloat -> Ptr () -> IO ()) -> IO RChartCellCallback
 
 -- | Called when the current page changes as the user scrolls. This also fires the action of the widget.
 type RPdfPageChangedCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
@@ -5558,7 +5595,25 @@ foreign import ccall safe "Rtable_set_virtual_rows" rtable_set_virtual_rows :: R
 
 foreign import ccall safe "Rtable_set_cell_color_callback" rtable_set_cell_color_callback :: Rid -> RTableCellColorCallback -> Ptr () -> IO ()
 
--- | Selects a row. -1 selects nothing.
+-- | Stored rows: a fixed text color; column -1 colors the row; cells override it.
+-- Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+foreign import ccall safe "Rtable_set_cell_text_color" rtable_set_cell_text_color :: Rid -> CInt -> CInt -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+-- | Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+foreign import ccall safe "Rtable_set_multi_select" rtable_set_multi_select :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rtable_set_row_selected" rtable_set_row_selected :: Rid -> CInt -> CInt -> IO ()
+
+foreign import ccall safe "Rtable_is_row_selected" rtable_is_row_selected :: Rid -> CInt -> IO CInt
+
+foreign import ccall safe "Rtable_clear_selection" rtable_clear_selection :: Rid -> IO ()
+
+foreign import ccall safe "Rtable_get_selection_count" rtable_get_selection_count :: Rid -> IO CInt
+
+-- | Selected row at index, top to bottom; -1 outside the selection.
+foreign import ccall safe "Rtable_get_selection" rtable_get_selection :: Rid -> CInt -> IO CInt
+
+-- | Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 foreign import ccall safe "Rtable_set_selected" rtable_set_selected :: Rid -> CInt -> IO ()
 
 foreign import ccall safe "Rtable_get_selected" rtable_get_selected :: Rid -> IO CInt
@@ -5855,6 +5910,138 @@ foreign import ccall safe "Rplot_set_view_changed_callback" rplot_set_view_chang
 foreign import ccall safe "Rplot_set_drag_line_callback" rplot_set_drag_line_callback :: Rid -> RPlotDragLineCallback -> Ptr () -> IO ()
 
 foreign import ccall safe "Rplot_set_series_toggled_callback" rplot_set_series_toggled_callback :: Rid -> RPlotSeriesCallback -> Ptr () -> IO ()
+
+-- | A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
+foreign import ccall safe "Rchart_create" rchart_create :: RChartKind -> IO Rid
+
+foreign import ccall safe "Rchart_set_kind" rchart_set_kind :: Rid -> RChartKind -> IO ()
+
+foreign import ccall safe "Rchart_get_kind" rchart_get_kind :: Rid -> IO RChartKind
+
+-- | The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers).
+foreign import ccall safe "Rchart_set_title" rchart_set_title :: Rid -> CString -> IO ()
+
+foreign import ccall safe "Rchart_get_title" rchart_get_title :: Rid -> IO CString
+
+-- | How the values are written (the gauge, the middle of a donut, what
+-- the pointer shows): a printf format for one double with its unit, "%.0f%%",
+-- "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+foreign import ccall safe "Rchart_set_format" rchart_set_format :: Rid -> CString -> IO ()
+
+-- | The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent).
+foreign import ccall safe "Rchart_set_color" rchart_set_color :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+-- | The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default).
+foreign import ccall safe "Rchart_set_legend" rchart_set_legend :: Rid -> CInt -> IO ()
+
+-- | Removes the slices, the bands, the grid and the values.
+foreign import ccall safe "Rchart_clear" rchart_clear :: Rid -> IO ()
+
+-- | What is under the pointer: a slice, a point of a sparkline, or a
+-- cell of a heatmap as row * columns + column; -1 for nothing.
+foreign import ccall safe "Rchart_get_hovered" rchart_get_hovered :: Rid -> IO CInt
+
+-- | Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid.
+foreign import ccall safe "Rchart_add_slice" rchart_add_slice :: Rid -> CString -> CDouble -> IO CInt
+
+foreign import ccall safe "Rchart_remove_slice" rchart_remove_slice :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rchart_get_slice_count" rchart_get_slice_count :: Rid -> IO CInt
+
+foreign import ccall safe "Rchart_set_slice_value" rchart_set_slice_value :: Rid -> CInt -> CDouble -> IO ()
+
+foreign import ccall safe "Rchart_get_slice_value" rchart_get_slice_value :: Rid -> CInt -> IO CDouble
+
+foreign import ccall safe "Rchart_set_slice_label" rchart_set_slice_label :: Rid -> CInt -> CString -> IO ()
+
+foreign import ccall safe "Rchart_get_slice_label" rchart_get_slice_label :: Rid -> CInt -> IO CString
+
+-- | The color of a slice; an alpha of 0 gives it back its color of the palette.
+foreign import ccall safe "Rchart_set_slice_color" rchart_set_slice_color :: Rid -> CInt -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+-- | The sum of the values of the slices.
+foreign import ccall safe "Rchart_get_total" rchart_get_total :: Rid -> IO CDouble
+
+-- | The slice lifted as selected, or -1 for none (the user selects one with a click).
+foreign import ccall safe "Rchart_set_selected" rchart_set_selected :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rchart_get_selected" rchart_get_selected :: Rid -> IO CInt
+
+-- | The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62).
+foreign import ccall safe "Rchart_set_hole" rchart_set_hole :: Rid -> CFloat -> IO ()
+
+-- | What the middle of a donut shows when the pointer is not over a
+-- slice: `text` in large (NULL or "": the total) over `caption` in small
+-- (NULL or "": none).
+foreign import ccall safe "Rchart_set_center_text" rchart_set_center_text :: Rid -> CString -> CString -> IO ()
+
+foreign import ccall safe "Rchart_set_slice_clicked_callback" rchart_set_slice_clicked_callback :: Rid -> RChartSliceCallback -> Ptr () -> IO ()
+
+-- | The range of a gauge (default 0 to 100), and a fixed range for the
+-- colors of a heatmap and the height of a sparkline, which otherwise follow
+-- their values. min == max goes back to these defaults.
+foreign import ccall safe "Rchart_set_range" rchart_set_range :: Rid -> CDouble -> CDouble -> IO ()
+
+-- | The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline).
+foreign import ccall safe "Rchart_get_range" rchart_get_range :: Rid -> Ptr CDouble -> Ptr CDouble -> IO ()
+
+-- | The value of a gauge, kept within its range when drawn.
+foreign import ccall safe "Rchart_set_value" rchart_set_value :: Rid -> CDouble -> IO ()
+
+foreign import ccall safe "Rchart_get_value" rchart_get_value :: Rid -> IO CDouble
+
+-- | Colors a part of the range of a gauge (an alpha of 0: the success,
+-- warning and danger colors of the theme, one after the other). The arc
+-- takes the color of the band its value is in. Returns the index of the band.
+foreign import ccall safe "Rchart_add_band" rchart_add_band :: Rid -> CDouble -> CDouble -> CFloat -> CFloat -> CFloat -> CFloat -> IO CInt
+
+foreign import ccall safe "Rchart_clear_bands" rchart_clear_bands :: Rid -> IO ()
+
+foreign import ccall safe "Rchart_get_band_count" rchart_get_band_count :: Rid -> IO CInt
+
+-- | The cells of a heatmap: `rows` x `columns` values, row after row,
+-- copied (NULL: all 0). NaN leaves a cell empty.
+foreign import ccall safe "Rchart_set_grid" rchart_set_grid :: Rid -> CInt -> CInt -> Ptr CFloat -> IO ()
+
+foreign import ccall safe "Rchart_get_row_count" rchart_get_row_count :: Rid -> IO CInt
+
+foreign import ccall safe "Rchart_get_column_count" rchart_get_column_count :: Rid -> IO CInt
+
+foreign import ccall safe "Rchart_set_cell" rchart_set_cell :: Rid -> CInt -> CInt -> CFloat -> IO ()
+
+foreign import ccall safe "Rchart_get_cell" rchart_get_cell :: Rid -> CInt -> CInt -> IO CFloat
+
+-- | The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left).
+foreign import ccall safe "Rchart_set_row_labels" rchart_set_row_labels :: Rid -> CString -> IO ()
+
+-- | The names of the columns, separated by '|' (shown over them, as many as fit).
+foreign import ccall safe "Rchart_set_column_labels" rchart_set_column_labels :: Rid -> CString -> IO ()
+
+-- | The name of a row or of a column, "" when it has none.
+foreign import ccall safe "Rchart_get_row_label" rchart_get_row_label :: Rid -> CInt -> IO CString
+
+foreign import ccall safe "Rchart_get_column_label" rchart_get_column_label :: Rid -> CInt -> IO CString
+
+-- | The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent).
+foreign import ccall safe "Rchart_set_color_scale" rchart_set_color_scale :: Rid -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+foreign import ccall safe "Rchart_set_cell_clicked_callback" rchart_set_cell_clicked_callback :: Rid -> RChartCellCallback -> Ptr () -> IO ()
+
+-- | The values of a sparkline, copied. NaN leaves a gap.
+foreign import ccall safe "Rchart_set_values" rchart_set_values :: Rid -> Ptr CFloat -> CInt -> IO ()
+
+-- | Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them).
+foreign import ccall safe "Rchart_push_value" rchart_push_value :: Rid -> CFloat -> CInt -> IO ()
+
+foreign import ccall safe "Rchart_get_value_count" rchart_get_value_count :: Rid -> IO CInt
+
+foreign import ccall safe "Rchart_get_value_at" rchart_get_value_at :: Rid -> CInt -> IO CFloat
+
+-- | Shades the area under the line of a sparkline (on by default).
+foreign import ccall safe "Rchart_set_fill" rchart_set_fill :: Rid -> CInt -> IO ()
+
+-- | A dot on the last value of a sparkline (on by default).
+foreign import ccall safe "Rchart_set_marker" rchart_set_marker :: Rid -> CInt -> IO ()
 
 -- | R_TRUE when PDFium can be loaded (it is, the first time this is asked).
 foreign import ccall safe "Rpdf_is_available" rpdf_is_available :: IO CInt
@@ -7133,7 +7320,7 @@ foreign import ccall safe "Rnotification_set_fallback" rnotification_set_fallbac
 -- (on the UI thread; the application may then bring its window to the
 -- front: the system lets it). It is the last one shown that was clicked:
 -- the application remembers what it was about. NULL: none.
--- Windows only for now (elsewhere it is never called).
+-- Windows and macOS (elsewhere it is never called).
 foreign import ccall safe "Rnotification_set_clicked_callback" rnotification_set_clicked_callback :: RNotificationClickedCallback -> Ptr () -> IO ()
 
 -- | Shows a texture. R_INVALID_ID shows nothing.
