@@ -1373,6 +1373,13 @@ static void test_selectable_label(void) {
 	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
 	Rlabel_select_all(plain);
 	CHECK_STR(Rlabel_get_selected_text(plain), "");
+	/* ... unless it has a tooltip (the hover must reach it), also after its text changes */
+	Rwidget_set_tooltip(plain, "C:\\images\\unit_01.png");
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) == plain);
+	Rlabel_set_text(plain, "Not selectable");
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) == plain);
+	Rwidget_set_tooltip(plain, NULL);
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
 
 	/* and no longer selectable: the selection goes */
 	Rlabel_select_all(label);

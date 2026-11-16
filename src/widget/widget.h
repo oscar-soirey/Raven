@@ -1115,6 +1115,8 @@ rvn_widget_t* rvn_menu_find_window_shortcut(rvn_window_t* window, RKey key, uint
 int rvn_parse_shortcut(const char* text, RKey* key, uint32_t* modifiers);
 /** Opens a menu as a popup at a window position. Implemented in widgets/menu.c. */
 void rvn_menu_popup(rvn_widget_t* menu, rvn_window_t* window, float x, float y);
+/** A label's tooltip was set or cleared: whether it takes the mouse follows (label.c). */
+void rvn_label_tooltip_changed(rvn_widget_t* widget);
 
 /* ---------------------------------------------------------------------------
  *  Attribute parsing (xml/xml_attributes.c), shared by all set_attribute functions

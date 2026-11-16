@@ -692,6 +692,8 @@ void Rwidget_set_clipping(Rid id, int clip) {
 void Rwidget_set_tooltip(Rid id, const char* text) {
 	RVN_WIDGET_VOID(widget, id, 0);
 	rvn_str_set(&widget->tooltip, (text && text[0]) ? text : NULL);
+	/* a label lets the mouse through: with a tooltip it takes the hover, or the tooltip never shows */
+	if (widget->cls->type == R_WIDGET_LABEL) rvn_label_tooltip_changed(widget);
 }
 
 const char* Rwidget_get_tooltip(Rid id) {
