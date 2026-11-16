@@ -299,12 +299,16 @@ int rvn_vk_swapchain_create(rvn_vk_surface_t* surface, uint32_t width, uint32_t 
 	/*
 	 * With the vertical synchronization (FIFO) every image more is one more
 	 * frame waiting to be shown: what the pointer did shows that much later.
-	 * The fewest images the system allows (two at least) keep the interface
-	 * close to the hand; without it (mailbox, immediate) one more image lets
-	 * the GPU work while the screen shows the previous one.
+	 * The fewest images the system allows keep the interface close to the
+	 * hand, but three at least: with two, a frame can only start once the
+	 * screen has taken the one before and must be finished before the next
+	 * refresh, so a frame a little too long (glass on a 120 Hz screen) waits
+	 * a whole refresh more and the window runs at half the rate of the
+	 * screen. Without it (mailbox, immediate) one more image lets the GPU
+	 * work while the screen shows the previous one.
 	 */
 	present_mode = rvn_vk_choose_present_mode(surface);
-	image_count = present_mode == VK_PRESENT_MODE_FIFO_KHR ? (caps.minImageCount > 2 ? caps.minImageCount : 2) : caps.minImageCount + 1;
+	image_count = present_mode == VK_PRESENT_MODE_FIFO_KHR ? (caps.minImageCount > 3 ? caps.minImageCount : 3) : caps.minImageCount + 1;
 	if (caps.maxImageCount > 0 && image_count > caps.maxImageCount) image_count = caps.maxImageCount;
 
 	memset(&info, 0, sizeof(info));
