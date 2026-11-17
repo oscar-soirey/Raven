@@ -16,12 +16,17 @@
  * requests go through Raven's Java view (java/raven/android/RavenTextView.java,
  * in the APK's classes.dex): see "Text input" and "Back" below; without it,
  * key events only. TalkBack reads a copy of the tree of core/accessibility.h
- * kept in java/raven/android/RavenAccessibility.java: see "Screen readers". Relative paths read the APK's assets/ (AAssetManager):
+ * kept in java/raven/android/RavenAccessibility.java: see "Screen readers".
+ * The services of the device (raven_device.h: permissions, notifications,
+ * pickers, camera, haptics, sharing, URLs, downloads, the clipboard) go
+ * through java/raven/android/RavenDevice.java: see "Services of the device".
+ * Relative paths read the APK's assets/ (AAssetManager):
  * see "Files of the APK".
  */
 
 #include "../platform.h"
 #include "../../core/thread.h"
+#include "../../core/fs.h"
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, for the text input of the core) */
 #include "../../widget/widget.h"
 #include "../../core/accessibility.h"
@@ -36,6 +41,7 @@
 #include <android/api-level.h>
 #include <android/asset_manager.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -1784,6 +1790,593 @@ static void rvn_android_poll(int timeout_ms) {
 }
 
 /* ---------------------------------------------------------------------------
+ *  Services of the device (raven_device.h; docs/device-services.md)
+ *
+ * The Java side is raven.android.RavenDevice (static methods, called here
+ * from android_main; download from Raven's worker threads), with
+ * RavenRequestActivity (permission questions, the pickers and the camera,
+ * whose results NativeActivity cannot receive) and RavenFileProvider (the
+ * content:// URIs of shared files and of the camera's output). Each entry
+ * returns at once; RavenDevice answers later through its native methods
+ * (nativePermission, nativeComplete: rvn_permission_answer and
+ * rvn_service_complete, on the Java main thread or a copying thread).
+ * Without the class (no classes.dex) every service answers "unsupported".
+ *
+ * Strings cross JNI as UTF-8 byte arrays: NewStringUTF wants modified UTF-8,
+ * which CheckJNI (on in debuggable apps) aborts on for an emoji.
+ * ------------------------------------------------------------------------- */
+
+/* Java's constants are offsets from the first value of each enum */
+#define RVN_DEV_PERMISSION(p) ((jint)((p) - (int)R_PERMISSION_CAMERA))
+
+/*
+ * The class and its methods: taken by the first init, kept for the life of
+ * the process (worker threads may be downloading while Raven shuts down;
+ * the class loader of the application does not change).
+ */
+static struct {
+	jclass cls;
+	jmethodID attach, detach, status, request, settings, notify;
+	jmethodID file_open, file_save, camera_available, take_photo, pick_photos, share;
+	jmethodID open_url, download, download_error, haptic_supported, haptic;
+	jmethodID clip_set, clip_get, clip_has;
+} g_dev_java;
+static JavaVM* g_dev_vm;
+
+/* A notification waiting for the answer about its permission (UI thread). */
+typedef struct rvn_android_note_t {
+	struct rvn_android_note_t* next;
+	char* title;
+	char* body;
+	int urgency;
+} rvn_android_note_t;
+
+/* Raven's side, while Raven runs (UI thread, but `open`, which the Java threads read under the lock) */
+static struct {
+	int ready;          /* RavenDevice attached: the services exist */
+	char* cache;        /* getCacheDir() */
+	rvn_android_note_t* notes;
+} g_dev;
+static pthread_mutex_t g_dev_lock = PTHREAD_MUTEX_INITIALIZER;
+static int g_dev_open;
+
+/* Worker threads (download): attached to the VM on first use, detached when they end. */
+static pthread_key_t g_dev_thread_key;
+static pthread_once_t g_dev_thread_once = PTHREAD_ONCE_INIT;
+
+static void rvn_android_thread_end(void* env) {
+	RVN_UNUSED(env);
+	/* (a thread that ends attached to the Java VM aborts the process) */
+	if (g_dev_vm) (*g_dev_vm)->DetachCurrentThread(g_dev_vm);
+}
+
+static void rvn_android_thread_key(void) {
+	pthread_key_create(&g_dev_thread_key, rvn_android_thread_end);
+}
+
+/* The JNIEnv of the calling thread, attaching it when needed. */
+static JNIEnv* rvn_android_thread_env(void) {
+	JNIEnv* env = NULL;
+	if (!g_dev_vm) return NULL;
+	if ((*g_dev_vm)->GetEnv(g_dev_vm, (void**)&env, JNI_VERSION_1_6) == JNI_OK) return env;
+	pthread_once(&g_dev_thread_once, rvn_android_thread_key);
+	if ((*g_dev_vm)->AttachCurrentThread(g_dev_vm, &env, NULL) != JNI_OK) return NULL;
+	pthread_setspecific(g_dev_thread_key, env);
+	return env;
+}
+
+static int rvn_android_jni_failed(JNIEnv* env, const char* what) {
+	if (!(*env)->ExceptionCheck(env)) return R_FALSE;
+	(*env)->ExceptionDescribe(env);
+	(*env)->ExceptionClear(env);
+	__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "RavenDevice.%s failed (Java exception)", what);
+	return R_TRUE;
+}
+
+/* (a local reference, in the caller's local frame) */
+static jbyteArray rvn_android_bytes(JNIEnv* env, const char* text) {
+	jbyteArray bytes;
+	jsize length;
+	if (!text) return NULL;
+	length = (jsize)strlen(text);
+	bytes = (*env)->NewByteArray(env, length);
+	if (bytes) (*env)->SetByteArrayRegion(env, bytes, 0, length, (const jbyte*)text);
+	return bytes;
+}
+
+/* A Java byte[] as a malloc'ed C string (NULL for null). */
+static char* rvn_android_cstring(JNIEnv* env, jbyteArray bytes) {
+	jsize length;
+	char* text;
+	if (!bytes) return NULL;
+	length = (*env)->GetArrayLength(env, bytes);
+	text = (char*)malloc((size_t)length + 1);
+	if (!text) return NULL;
+	(*env)->GetByteArrayRegion(env, bytes, 0, length, (jbyte*)text);
+	text[length] = '\0';
+	return text;
+}
+
+/* ---- answers, from Java (main thread, a copying thread) ---- */
+
+static void rvn_android_notes_flush(void* arg);
+
+static void JNICALL rvn_android_jni_permission(JNIEnv* env, jclass cls, jint permission, jint status) {
+	RVN_UNUSED(env);
+	RVN_UNUSED(cls);
+	rvn_permission_answer((int)R_PERMISSION_CAMERA + permission, (int)R_PERMISSION_UNSUPPORTED + status);
+	/* notifications waiting for this answer: shown, or given to the fallback, on android_main */
+	if ((int)R_PERMISSION_CAMERA + permission == (int)R_PERMISSION_NOTIFICATIONS) {
+		pthread_mutex_lock(&g_dev_lock);
+		if (g_dev_open) Rtask_post(rvn_android_notes_flush, NULL);
+		pthread_mutex_unlock(&g_dev_lock);
+	}
+}
+
+static void JNICALL rvn_android_jni_complete(JNIEnv* env, jclass cls, jint id, jint result, jobjectArray paths, jobjectArray names,
+	jobjectArray mimes, jlongArray sizes, jintArray widths, jintArray heights, jbyteArray error) {
+	int count = paths ? (int)(*env)->GetArrayLength(env, paths) : 0, i;
+	RPickedFile* files = count > 0 ? (RPickedFile*)calloc((size_t)count, sizeof(RPickedFile)) : NULL;
+	char* message = rvn_android_cstring(env, error);
+	RVN_UNUSED(cls);
+	if (count > 0 && !files) count = 0;
+	for (i = 0; i < count; i++) {
+		jbyteArray item;
+		jlong size = 0;
+		jint width = 0, height = 0;
+		item = (jbyteArray)(*env)->GetObjectArrayElement(env, paths, i);
+		files[i].path = rvn_android_cstring(env, item);
+		(*env)->DeleteLocalRef(env, item);
+		item = (jbyteArray)(*env)->GetObjectArrayElement(env, names, i);
+		files[i].name = rvn_android_cstring(env, item);
+		(*env)->DeleteLocalRef(env, item);
+		item = (jbyteArray)(*env)->GetObjectArrayElement(env, mimes, i);
+		files[i].mime_type = rvn_android_cstring(env, item);
+		(*env)->DeleteLocalRef(env, item);
+		(*env)->GetLongArrayRegion(env, sizes, i, 1, &size);
+		(*env)->GetIntArrayRegion(env, widths, i, 1, &width);
+		(*env)->GetIntArrayRegion(env, heights, i, 1, &height);
+		files[i].size = size > 0 ? (uint64_t)size : 0;
+		files[i].width = width;
+		files[i].height = height;
+	}
+	rvn_service_complete((uint32_t)id, (int)R_DEVICE_DONE + result, files, count, message);
+	for (i = 0; i < count; i++) {
+		free((char*)files[i].path);
+		free((char*)files[i].name);
+		free((char*)files[i].mime_type);
+	}
+	free(files);
+	free(message);
+}
+
+/* ---- loading ---- */
+
+/* A class of the APK (the activity's class loader: FindClass on android_main sees only the system's). A local reference, or NULL. */
+static jclass rvn_android_app_class(JNIEnv* env, const char* name) {
+	jobject activity = g_android.app->activity->clazz, loader;
+	jclass cls = NULL;
+	loader = (*env)->CallObjectMethod(env, activity,
+		(*env)->GetMethodID(env, (*env)->GetObjectClass(env, activity), "getClassLoader", "()Ljava/lang/ClassLoader;"));
+	if (loader && !(*env)->ExceptionCheck(env)) {
+		jclass loader_class = (*env)->FindClass(env, "java/lang/ClassLoader");
+		cls = (jclass)(*env)->CallObjectMethod(env, loader,
+			(*env)->GetMethodID(env, loader_class, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;"), (*env)->NewStringUTF(env, name));
+	}
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionClear(env);
+		cls = NULL;
+	}
+	return cls;
+}
+
+static int rvn_android_device_methods(JNIEnv* env, jclass cls) {
+	static const JNINativeMethod natives[] = {
+		{ "nativePermission", "(II)V", (void*)rvn_android_jni_permission },
+		{ "nativeComplete", "(II[[B[[B[[B[J[I[I[B)V", (void*)rvn_android_jni_complete }
+	};
+	static const struct { jmethodID* id; const char* name; const char* signature; } methods[] = {
+		{ &g_dev_java.attach, "attach", "(Landroid/app/Activity;)Ljava/lang/String;" },
+		{ &g_dev_java.detach, "detach", "()V" },
+		{ &g_dev_java.status, "permissionStatus", "(I)I" },
+		{ &g_dev_java.request, "requestPermission", "(I)V" },
+		{ &g_dev_java.settings, "openSettings", "()Z" },
+		{ &g_dev_java.notify, "notify", "([B[BI)Z" },
+		{ &g_dev_java.file_open, "fileOpen", "(I[Ljava/lang/String;Z)V" },
+		{ &g_dev_java.file_save, "fileSave", "(I[B[BZ)V" },
+		{ &g_dev_java.camera_available, "cameraAvailable", "()Z" },
+		{ &g_dev_java.take_photo, "takePhoto", "(I)V" },
+		{ &g_dev_java.pick_photos, "pickPhotos", "(II)V" },
+		{ &g_dev_java.share, "share", "(I[B[B[B[B)V" },
+		{ &g_dev_java.open_url, "openUrl", "([B)Z" },
+		{ &g_dev_java.download, "download", "([B)[B" },
+		{ &g_dev_java.download_error, "downloadError", "()[B" },
+		{ &g_dev_java.haptic_supported, "hapticSupported", "()Z" },
+		{ &g_dev_java.haptic, "haptic", "(I)Z" },
+		{ &g_dev_java.clip_set, "clipboardSet", "([B)Z" },
+		{ &g_dev_java.clip_get, "clipboardGet", "()[B" },
+		{ &g_dev_java.clip_has, "clipboardHasText", "()Z" }
+	};
+	size_t i;
+	if ((*env)->RegisterNatives(env, cls, natives, 2) != 0 || (*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionClear(env);
+		__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "RavenDevice: RegisterNatives failed");
+		return R_FALSE;
+	}
+	for (i = 0; i < sizeof(methods) / sizeof(methods[0]); i++) {
+		*methods[i].id = (*env)->GetStaticMethodID(env, cls, methods[i].name, methods[i].signature);
+		if (!*methods[i].id || (*env)->ExceptionCheck(env)) {
+			(*env)->ExceptionClear(env);
+			__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "RavenDevice.%s%s not found: an older Java part?", methods[i].name, methods[i].signature);
+			return R_FALSE;
+		}
+	}
+	return R_TRUE;
+}
+
+/* init (android_main): loads raven.android.RavenDevice and attaches it to the activity. */
+static void rvn_android_device_load(void) {
+	JNIEnv* env = g_android.env;
+	jstring cache;
+	if (!env || !g_android.app || !g_android.app->activity) return;
+	g_dev_vm = g_android.app->activity->vm;
+	(*env)->PushLocalFrame(env, 16);
+	if (!g_dev_java.cls) {
+		jclass cls = rvn_android_app_class(env, "raven.android.RavenDevice");
+		if (!cls) {
+			(*env)->PopLocalFrame(env, NULL);
+			__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "raven.android.RavenDevice not in the APK (classes.dex): "
+				"no services of the device (permissions, pickers, camera, sharing...)");
+			return;
+		}
+		if (!rvn_android_device_methods(env, cls)) {
+			(*env)->PopLocalFrame(env, NULL);
+			return;
+		}
+		g_dev_java.cls = (jclass)(*env)->NewGlobalRef(env, cls);
+	}
+	cache = (jstring)(*env)->CallStaticObjectMethod(env, g_dev_java.cls, g_dev_java.attach, g_android.app->activity->clazz);
+	if (!rvn_android_jni_failed(env, "attach") && cache) {
+		const char* path = (*env)->GetStringUTFChars(env, cache, NULL);
+		g_dev.cache = path ? rvn_strdup(path) : NULL;
+		if (path) (*env)->ReleaseStringUTFChars(env, cache, path);
+		g_dev.ready = R_TRUE;
+		pthread_mutex_lock(&g_dev_lock);
+		g_dev_open = R_TRUE;
+		pthread_mutex_unlock(&g_dev_lock);
+		__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "RavenDevice attached: services of the device on (cache %s)", g_dev.cache ? g_dev.cache : "?");
+	}
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+static void rvn_android_device_unload(void) {
+	rvn_android_note_t* note;
+	pthread_mutex_lock(&g_dev_lock);
+	g_dev_open = R_FALSE;
+	pthread_mutex_unlock(&g_dev_lock);
+	if (g_dev.ready && g_android.env) {
+		(*g_android.env)->CallStaticVoidMethod(g_android.env, g_dev_java.cls, g_dev_java.detach);
+		rvn_android_jni_failed(g_android.env, "detach");
+	}
+	while ((note = g_dev.notes) != NULL) {
+		g_dev.notes = note->next;
+		rvn_free(note->title);
+		rvn_free(note->body);
+		rvn_free(note);
+	}
+	rvn_free(g_dev.cache);
+	memset(&g_dev, 0, sizeof(g_dev));
+}
+
+/* The JNIEnv of android_main when the services exist (with a local frame to pop), else NULL. */
+static JNIEnv* rvn_android_device_env(void) {
+	JNIEnv* env = g_dev.ready ? g_android.env : NULL;
+	if (env && (*env)->PushLocalFrame(env, 16) != 0) {
+		(*env)->ExceptionClear(env);
+		return NULL;
+	}
+	return env;
+}
+
+/* ---- permissions ---- */
+
+static int rvn_android_permission_status(int permission) {
+	JNIEnv* env = rvn_android_device_env();
+	jint status;
+	if (!env) return R_PERMISSION_UNSUPPORTED;
+	status = (*env)->CallStaticIntMethod(env, g_dev_java.cls, g_dev_java.status, RVN_DEV_PERMISSION(permission));
+	if (rvn_android_jni_failed(env, "permissionStatus")) status = 0;
+	(*env)->PopLocalFrame(env, NULL);
+	return (int)R_PERMISSION_UNSUPPORTED + (int)status;
+}
+
+static void rvn_android_permission_request(int permission) {
+	JNIEnv* env = rvn_android_device_env();
+	if (!env) {
+		rvn_permission_answer(permission, R_PERMISSION_UNSUPPORTED);
+		return;
+	}
+	(*env)->CallStaticVoidMethod(env, g_dev_java.cls, g_dev_java.request, RVN_DEV_PERMISSION(permission));
+	if (rvn_android_jni_failed(env, "requestPermission")) rvn_permission_answer(permission, rvn_android_permission_status(permission));
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+static int rvn_android_call_bool(jmethodID method, const char* name) {
+	JNIEnv* env = rvn_android_device_env();
+	jboolean result;
+	if (!env) return R_FALSE;
+	result = (*env)->CallStaticBooleanMethod(env, g_dev_java.cls, method);
+	if (rvn_android_jni_failed(env, name)) result = JNI_FALSE;
+	(*env)->PopLocalFrame(env, NULL);
+	return result ? R_TRUE : R_FALSE;
+}
+
+static int rvn_android_permission_open_settings(void) {
+	return rvn_android_call_bool(g_dev_java.settings, "openSettings");
+}
+
+/* ---- notifications ---- */
+
+static int rvn_android_notify_now(const char* title, const char* body, int urgency) {
+	JNIEnv* env = rvn_android_device_env();
+	jboolean shown;
+	if (!env) return R_FALSE;
+	shown = (*env)->CallStaticBooleanMethod(env, g_dev_java.cls, g_dev_java.notify, rvn_android_bytes(env, title), rvn_android_bytes(env, body), (jint)urgency);
+	if (rvn_android_jni_failed(env, "notify")) shown = JNI_FALSE;
+	(*env)->PopLocalFrame(env, NULL);
+	return shown ? R_TRUE : R_FALSE;
+}
+
+/* UI thread (a task): the answer about notifications came; the ones that waited for it go. */
+static void rvn_android_notes_flush(void* arg) {
+	rvn_android_note_t* note = g_dev.notes;
+	int status = note ? rvn_android_permission_status(R_PERMISSION_NOTIFICATIONS) : R_PERMISSION_UNSUPPORTED;
+	int allowed = status == R_PERMISSION_GRANTED || status == R_PERMISSION_LIMITED;
+	RVN_UNUSED(arg);
+	g_dev.notes = NULL;
+	while (note) {
+		rvn_android_note_t* next = note->next;
+		if (!allowed) rvn_notification_fallback(note->title, note->body, note->urgency, "notifications were not allowed");
+		else if (!rvn_android_notify_now(note->title, note->body, note->urgency))
+			rvn_notification_fallback(note->title, note->body, note->urgency, "NotificationManager refused it");
+		rvn_free(note->title);
+		rvn_free(note->body);
+		rvn_free(note);
+		note = next;
+	}
+}
+
+/*
+ * Rnotification_show: shown at once when allowed; never asked (Android 13+):
+ * the question first, then shown or given to the fallback
+ * (rvn_android_notes_flush); refused: R_FALSE, the core's fallback.
+ */
+static int rvn_android_notify(const char* app, const char* title, const char* body, int urgency) {
+	int status = rvn_android_permission_status(R_PERMISSION_NOTIFICATIONS);
+	RVN_UNUSED(app);
+	if (status == R_PERMISSION_GRANTED || status == R_PERMISSION_LIMITED) return rvn_android_notify_now(title, body, urgency);
+	if (status == R_PERMISSION_NOT_ASKED) {
+		rvn_android_note_t* note = (rvn_android_note_t*)rvn_calloc(sizeof(rvn_android_note_t));
+		rvn_android_note_t** last = &g_dev.notes;
+		note->title = rvn_strdup(title ? title : "");
+		note->body = rvn_strdup(body ? body : "");
+		note->urgency = urgency;
+		while (*last) last = &(*last)->next;
+		*last = note;
+		rvn_android_permission_request(R_PERMISSION_NOTIFICATIONS);
+		return R_TRUE;
+	}
+	return R_FALSE;
+}
+
+/* ---- pickers, camera, share ---- */
+
+static void rvn_android_file_open(const rvn_service_request_t* request) {
+	JNIEnv* env = rvn_android_device_env();
+	jobjectArray list;
+	char** extensions;
+	int count = 0, i, used = 0;
+	if (!env) {
+		rvn_service_complete(request->id, R_DEVICE_UNSUPPORTED, NULL, 0, NULL);
+		return;
+	}
+	extensions = rvn_service_extensions(request, &count);
+	list = (*env)->NewObjectArray(env, count, (*env)->FindClass(env, "java/lang/String"), NULL);
+	for (i = 0; i < count && list; i++) {
+		const char* c;
+		int ascii = R_TRUE;
+		/* (an extension is ASCII: NewStringUTF takes it as it is) */
+		for (c = extensions[i]; *c && ascii; c++) ascii = (unsigned char)*c < 0x80;
+		if (ascii) (*env)->SetObjectArrayElement(env, list, used++, (*env)->NewStringUTF(env, extensions[i]));
+	}
+	rvn_service_extensions_free(extensions, count);
+	(*env)->CallStaticVoidMethod(env, g_dev_java.cls, g_dev_java.file_open, (jint)request->id, list, (jboolean)(request->multiple ? JNI_TRUE : JNI_FALSE));
+	if (rvn_android_jni_failed(env, "fileOpen")) rvn_service_complete(request->id, R_DEVICE_FAILED, NULL, 0, "RavenDevice.fileOpen failed");
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+/*
+ * The bytes go to <cache>/raven/save/<request id> first (they are only valid
+ * during the call, and the place comes later); RavenRequestActivity copies
+ * them into the document and deletes them. A file to export is copied from
+ * where it is (an absolute path, or a file of the APK's assets).
+ */
+static void rvn_android_file_save(const rvn_service_request_t* request) {
+	JNIEnv* env = rvn_android_device_env();
+	char name[256], temporary[1024];
+	const char* source = request->path;
+	if (!env) {
+		rvn_service_complete(request->id, R_DEVICE_UNSUPPORTED, NULL, 0, NULL);
+		return;
+	}
+	if (request->file_name && *request->file_name) {
+		snprintf(name, sizeof(name), "%s", rvn_path_name(request->file_name));
+	} else {
+		snprintf(name, sizeof(name), "%s", request->path ? rvn_path_name(request->path) : "untitled");
+	}
+	/* (no extension: the default one) */
+	if (!strchr(name, '.') && request->default_extension && *request->default_extension) {
+		size_t used = strlen(name);
+		snprintf(name + used, sizeof(name) - used, ".%s", request->default_extension[0] == '.' ? request->default_extension + 1 : request->default_extension);
+	}
+	if (request->data || !source) {
+		FILE* file;
+		int written;
+		snprintf(temporary, sizeof(temporary), "%s/raven", g_dev.cache ? g_dev.cache : "");
+		mkdir(temporary, 0700);
+		snprintf(temporary, sizeof(temporary), "%s/raven/save", g_dev.cache ? g_dev.cache : "");
+		mkdir(temporary, 0700);
+		snprintf(temporary, sizeof(temporary), "%s/raven/save/%u", g_dev.cache ? g_dev.cache : "", (unsigned)request->id);
+		file = g_dev.cache ? fopen(temporary, "wb") : NULL;
+		written = file && (request->size == 0 || fwrite(request->data, 1, request->size, file) == request->size);
+		if (file && fclose(file) != 0) written = R_FALSE;
+		if (!written) {
+			if (file) remove(temporary);
+			(*env)->PopLocalFrame(env, NULL);
+			rvn_service_complete(request->id, R_DEVICE_FAILED, NULL, 0, "the bytes could not be written to the cache");
+			return;
+		}
+		source = temporary;
+	}
+	(*env)->CallStaticVoidMethod(env, g_dev_java.cls, g_dev_java.file_save, (jint)request->id, rvn_android_bytes(env, name),
+		rvn_android_bytes(env, source), (jboolean)(source == temporary ? JNI_TRUE : JNI_FALSE));
+	if (rvn_android_jni_failed(env, "fileSave")) {
+		if (source == temporary) remove(temporary);
+		rvn_service_complete(request->id, R_DEVICE_FAILED, NULL, 0, "RavenDevice.fileSave failed");
+	}
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+static int rvn_android_camera_available(void) {
+	return rvn_android_call_bool(g_dev_java.camera_available, "cameraAvailable");
+}
+
+/* takePhoto, pickPhotos: an id (and a number) */
+static void rvn_android_request_int(const rvn_service_request_t* request, jmethodID method, const char* name, int with_count, int count) {
+	JNIEnv* env = rvn_android_device_env();
+	if (!env) {
+		rvn_service_complete(request->id, R_DEVICE_UNSUPPORTED, NULL, 0, NULL);
+		return;
+	}
+	if (with_count) (*env)->CallStaticVoidMethod(env, g_dev_java.cls, method, (jint)request->id, (jint)count);
+	else (*env)->CallStaticVoidMethod(env, g_dev_java.cls, method, (jint)request->id);
+	if (rvn_android_jni_failed(env, name)) rvn_service_complete(request->id, R_DEVICE_FAILED, NULL, 0, "RavenDevice failed to start the request");
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+static void rvn_android_camera_take_photo(const rvn_service_request_t* request) {
+	rvn_android_request_int(request, g_dev_java.take_photo, "takePhoto", R_FALSE, 0);
+}
+
+static void rvn_android_photo_pick(const rvn_service_request_t* request) {
+	rvn_android_request_int(request, g_dev_java.pick_photos, "pickPhotos", R_TRUE, request->max_count);
+}
+
+/* SHORTCUT: the anchor is not used (Android's chooser is a sheet from the bottom, also on tablets). */
+static void rvn_android_share(const rvn_service_request_t* request) {
+	JNIEnv* env = rvn_android_device_env();
+	if (!env) {
+		rvn_service_complete(request->id, R_DEVICE_UNSUPPORTED, NULL, 0, NULL);
+		return;
+	}
+	(*env)->CallStaticVoidMethod(env, g_dev_java.cls, g_dev_java.share, (jint)request->id, rvn_android_bytes(env, request->text),
+		rvn_android_bytes(env, request->path), rvn_android_bytes(env, request->mime_type), rvn_android_bytes(env, request->share_title));
+	if (rvn_android_jni_failed(env, "share")) rvn_service_complete(request->id, R_DEVICE_FAILED, NULL, 0, "RavenDevice.share failed");
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+/* ---- URLs, downloads, haptics ---- */
+
+static int rvn_android_open_url(const char* url) {
+	JNIEnv* env = rvn_android_device_env();
+	jboolean opened;
+	if (!env) return R_FALSE;
+	opened = (*env)->CallStaticBooleanMethod(env, g_dev_java.cls, g_dev_java.open_url, rvn_android_bytes(env, url));
+	if (rvn_android_jni_failed(env, "openUrl")) opened = JNI_FALSE;
+	(*env)->PopLocalFrame(env, NULL);
+	return opened ? R_TRUE : R_FALSE;
+}
+
+/* A worker thread of the core: attached to the VM for it (rvn_android_thread_env), HttpURLConnection in Java. */
+static int rvn_android_download(const char* url, uint8_t** data, size_t* size, char** error) {
+	JNIEnv* env;
+	jbyteArray bytes;
+	int done = R_FALSE;
+	*data = NULL;
+	*size = 0;
+	if (!g_dev_java.cls || !g_dev_java.download) {
+		if (error) *error = rvn_strdup("Android: no RavenDevice (classes.dex) to download with");
+		return R_FALSE;
+	}
+	env = rvn_android_thread_env();
+	if (!env || (*env)->PushLocalFrame(env, 8) != 0) {
+		if (error) *error = rvn_strdup("Android: the thread could not be attached to the Java VM");
+		return R_FALSE;
+	}
+	bytes = (jbyteArray)(*env)->CallStaticObjectMethod(env, g_dev_java.cls, g_dev_java.download, rvn_android_bytes(env, url));
+	if (!rvn_android_jni_failed(env, "download") && bytes) {
+		jsize length = (*env)->GetArrayLength(env, bytes);
+		*data = (uint8_t*)rvn_alloc(length > 0 ? (size_t)length : 1);
+		(*env)->GetByteArrayRegion(env, bytes, 0, length, (jbyte*)*data);
+		*size = (size_t)length;
+		done = R_TRUE;
+	} else if (error) {
+		jbyteArray why = (jbyteArray)(*env)->CallStaticObjectMethod(env, g_dev_java.cls, g_dev_java.download_error);
+		char* text = rvn_android_jni_failed(env, "downloadError") ? NULL : rvn_android_cstring(env, why);
+		*error = rvn_strdup(text ? text : "the download failed");
+		free(text);
+	}
+	(*env)->PopLocalFrame(env, NULL);
+	return done;
+}
+
+static int rvn_android_haptic_supported(void) {
+	return rvn_android_call_bool(g_dev_java.haptic_supported, "hapticSupported");
+}
+
+static int rvn_android_haptic(int haptic) {
+	JNIEnv* env = rvn_android_device_env();
+	jboolean played;
+	if (!env) return R_FALSE;
+	played = (*env)->CallStaticBooleanMethod(env, g_dev_java.cls, g_dev_java.haptic, (jint)(haptic - (int)R_HAPTIC_LIGHT));
+	if (rvn_android_jni_failed(env, "haptic")) played = JNI_FALSE;
+	(*env)->PopLocalFrame(env, NULL);
+	return played ? R_TRUE : R_FALSE;
+}
+
+/* ---- clipboard: the system's ClipboardManager (in the process only without RavenDevice) ---- */
+
+static void rvn_android_clipboard_set(const char* text) {
+	JNIEnv* env = rvn_android_device_env();
+	jboolean set = JNI_FALSE;
+	if (env) {
+		set = (*env)->CallStaticBooleanMethod(env, g_dev_java.cls, g_dev_java.clip_set, rvn_android_bytes(env, text ? text : ""));
+		if (rvn_android_jni_failed(env, "clipboardSet")) set = JNI_FALSE;
+		(*env)->PopLocalFrame(env, NULL);
+	}
+	rvn_str_set(&g_android.clipboard, set ? NULL : text);
+}
+
+static char* rvn_android_clipboard_get(void) {
+	JNIEnv* env = rvn_android_device_env();
+	char* result = NULL;
+	if (!env) return rvn_strdup(g_android.clipboard);
+	{
+		jbyteArray bytes = (jbyteArray)(*env)->CallStaticObjectMethod(env, g_dev_java.cls, g_dev_java.clip_get);
+		char* text = rvn_android_jni_failed(env, "clipboardGet") ? NULL : rvn_android_cstring(env, bytes);
+		if (text) result = rvn_strdup(text);
+		free(text);
+	}
+	(*env)->PopLocalFrame(env, NULL);
+	return result ? result : rvn_strdup(g_android.clipboard);
+}
+
+static int rvn_android_clipboard_has_text(void) {
+	if (!g_dev.ready) return g_android.clipboard && *g_android.clipboard;
+	return rvn_android_call_bool(g_dev_java.clip_has, "clipboardHasText");
+}
+
+/* ---------------------------------------------------------------------------
  *  Files of the APK: the folder assets/, read through the AAssetManager of
  *  the activity (core/file.c asks it for the relative paths it cannot find).
  *  Not in g_android: textures are read on worker threads.
@@ -1856,6 +2449,7 @@ static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t 
 		}
 		rvn_android_text_load();
 		rvn_android_ax_load();
+		rvn_android_device_load();
 	}
 	{
 		const char* value = getenv("RAVEN_NULL_SYSTEM_MENU_BAR");
@@ -1870,6 +2464,7 @@ static void rvn_android_shutdown(void) {
 	rvn_file_set_provider(NULL);
 	g_android_assets = NULL;
 	if (g_android.env && g_android.kcm_class) (*g_android.env)->DeleteGlobalRef(g_android.env, g_android.kcm_class);
+	rvn_android_device_unload();
 	rvn_android_ax_unload();
 	rvn_android_text_unload();
 	rvn_android_unhook_ui_thread();
@@ -2057,14 +2652,6 @@ static void rvn_android_pump(double timeout_seconds) {
 /* Thread-safe: ALooper_wake may be called from any thread. */
 static void rvn_android_wake(void) {
 	if (g_android.app && g_android.app->looper) ALooper_wake(g_android.app->looper);
-}
-
-static void rvn_android_clipboard_set(const char* text) {
-	rvn_str_set(&g_android.clipboard, text);
-}
-
-static char* rvn_android_clipboard_get(void) {
-	return rvn_strdup(g_android.clipboard);
 }
 
 /*
@@ -2267,7 +2854,22 @@ const rvn_platform_t* rvn_platform_android(void) {
 		.a11y_event = rvn_android_a11y_event,
 		.a11y_announce = rvn_android_a11y_announce,
 		.a11y_active = rvn_android_a11y_active,
-		.a11y_every_frame = R_TRUE
+		.a11y_every_frame = R_TRUE,
+		.notify = rvn_android_notify,
+		.permission_status = rvn_android_permission_status,
+		.permission_request = rvn_android_permission_request,
+		.permission_open_settings = rvn_android_permission_open_settings,
+		.file_open = rvn_android_file_open,
+		.file_save = rvn_android_file_save,
+		.camera_available = rvn_android_camera_available,
+		.camera_take_photo = rvn_android_camera_take_photo,
+		.photo_pick = rvn_android_photo_pick,
+		.share = rvn_android_share,
+		.open_url = rvn_android_open_url,
+		.haptic_supported = rvn_android_haptic_supported,
+		.haptic = rvn_android_haptic,
+		.download = rvn_android_download,
+		.clipboard_has_text = rvn_android_clipboard_has_text
 	};
 	return &platform;
 }
