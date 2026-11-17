@@ -264,6 +264,13 @@ static void rvn_uikit_keyboard_measure(rvn_pwindow_t* window) {
 	}
 }
 
+static void rvn_uikit_post_appearance(void) {
+	rvn_pevent_t e;
+	memset(&e, 0, sizeof(e));
+	e.type = RVN_PEVENT_APPEARANCE;
+	rvn_uikit_post(&e);
+}
+
 static void rvn_uikit_post_key(rvn_pwindow_t* window, RKey key) {
 	rvn_pevent_t e;
 	memset(&e, 0, sizeof(e));
@@ -817,18 +824,27 @@ static void rvn_uikit_post_key(rvn_pwindow_t* window, RKey key) {
 		self.multipleTouchEnabled = YES;
 		ravenMarked = NSMakeRange(NSNotFound, 0);
 		ravenToldFocus = R_INVALID_ID;
-		/* dark / light mode of the system: the core asks system_dark again */
-		[self registerForTraitChanges:@[ [UITraitUserInterfaceStyle class] ]
-		                   withHandler:^(__kindof id<UITraitEnvironment> environment, UITraitCollection* previous) {
-			(void)environment; (void)previous;
-			rvn_pevent_t e;
-			memset(&e, 0, sizeof(e));
-			e.type = RVN_PEVENT_APPEARANCE;
-			rvn_uikit_post(&e);
-		}];
+		/* dark / light mode of the system: the core asks system_dark again (iOS 15 and 16: traitCollectionDidChange:) */
+		if (@available(iOS 17.0, *)) {
+			[self registerForTraitChanges:@[ [UITraitUserInterfaceStyle class] ]
+			                   withHandler:^(__kindof id<UITraitEnvironment> environment, UITraitCollection* previous) {
+				(void)environment; (void)previous;
+				rvn_uikit_post_appearance();
+			}];
+		}
 	}
 	return self;
 }
+
+/* iOS 15 and 16 (deprecated in 17, where registerForTraitChanges: above tells instead) */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+- (void)traitCollectionDidChange:(UITraitCollection*)previous {
+	[super traitCollectionDidChange:previous];
+	if (@available(iOS 17.0, *)) return;
+	if (!previous || previous.userInterfaceStyle != self.traitCollection.userInterfaceStyle) rvn_uikit_post_appearance();
+}
+#pragma clang diagnostic pop
 
 - (void)layoutSubviews {
 	[super layoutSubviews];
