@@ -68,6 +68,51 @@ void rvn_uikit_set_display_link(CADisplayLink* link);
 	[self debugRotate:(UIWindowScene*)scene];
 	[self debugDismiss:(UIWindowScene*)scene];
 	[self debugMemoryWarning];
+	[self debugDevice];
+}
+
+static void on_debug_permission(RPermission permission, RPermissionStatus status, void* user_data) {
+	(void)user_data;
+	fprintf(stderr, "[raven] debug: permission %s: %s\n", Rpermission_to_string(permission), Rpermission_status_to_string(status));
+}
+
+static void on_debug_export(RDeviceResult result, const RPickedFile* files, int count, void* user_data) {
+	(void)user_data;
+	fprintf(stderr, "[raven] debug: export: result 0x%x, %s (%llu bytes)\n", (unsigned)result, count > 0 ? files[0].name : "nothing",
+		count > 0 ? (unsigned long long)files[0].size : 0ull);
+}
+
+/*
+ * Testing hook: RAVEN_DEVICE_TEST=<list> runs services of the device the
+ * Device tab has no button for, RAVEN_DEVICE_TEST_AFTER seconds after the
+ * launch (default 3), one every 2 seconds:
+ *   photos  Rpermission_request(R_PERMISSION_PHOTOS)
+ *   export  Rfile_export_async of photo.png (a file of the bundle)
+ *   clipboard  Rclipboard_has_text only (iOS must not ask "Allow Paste")
+ * The answers are logged.
+ */
+- (void)debugDevice {
+	const char* list = getenv("RAVEN_DEVICE_TEST");
+	const char* after = getenv("RAVEN_DEVICE_TEST_AFTER");
+	double delay = after ? atof(after) : 3.0;
+	if (!list || !*list) return;
+	NSArray<NSString*>* names = [[NSString stringWithUTF8String:list] componentsSeparatedByString:@","];
+	for (NSUInteger i = 0; i < names.count; i++) {
+		NSString* name = names[i];
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((delay + 2.0 * (double)i) * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+			fprintf(stderr, "[raven] debug: device test %s\n", name.UTF8String);
+			if ([name isEqualToString:@"photos"]) {
+				fprintf(stderr, "[raven] debug: photos status before: %s\n", Rpermission_status_to_string(Rpermission_get_status(R_PERMISSION_PHOTOS)));
+				Rpermission_request(R_PERMISSION_PHOTOS, on_debug_permission, NULL);
+			} else if ([name isEqualToString:@"export"]) {
+				RFileDialogDesc desc = {0};
+				desc.file_name = "raven-photo.png";
+				Rfile_export_async(&desc, "photo.png", on_debug_export, NULL);
+			} else if ([name isEqualToString:@"clipboard"]) {
+				fprintf(stderr, "[raven] debug: clipboard has text: %d\n", Rclipboard_has_text());
+			}
+		});
+	}
 }
 
 /*

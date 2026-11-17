@@ -90,6 +90,22 @@ Testing hooks in `src/main.m`, set at launch with `SIMCTL_CHILD_` in front:
 `RAVEN_ROTATE=landscape,portrait` (with `RAVEN_ROTATE_EVERY=<seconds>`)
 rotates the scene, `RAVEN_DISMISS=<seconds>` closes the keyboard from outside
 Raven, `RAVEN_MEMORY_WARNING=<seconds>` posts UIKit's memory warning.
+`RAVEN_DEVICE_TEST=photos,export,clipboard` (with
+`RAVEN_DEVICE_TEST_AFTER=<seconds>`) runs the services the Device tab has no
+button for: asks for the photo library, exports `photo.png` with
+`Rfile_export_async`, checks `Rclipboard_has_text` (no "Allow Paste"
+question), and logs the answers. `RAVEN_DEVICE_LOG=1` makes the platform log
+what it asks of the system (`Raven device: ...`): the haptics play nothing in
+the Simulator, the log shows they were asked.
+
+The Device tab in the Simulator: there is no camera (`Rcamera_is_available`
+is false, "Take a photo" answers "not supported here"); the photo picker
+shows the Simulator's sample photos (the HEIC one comes as a JPEG); files are
+saved to and picked from "On My iPhone"; `xcrun simctl privacy <udid> reset all
+dev.raven.ios.hello` forgets the answers about the camera and the photos, and
+uninstalling the app those about notifications. The Settings button opens
+the Settings app at its first page in the iOS 26 Simulator, not at the app's
+page.
 
 `XCFRAMEWORK=1 ./build.sh run` links the simulator slice of
 `Raven.xcframework` (built first by `tools/mobile/build-xcframework.sh`) instead
