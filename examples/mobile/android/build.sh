@@ -1,6 +1,7 @@
 #!/bin/sh
-# Raven on Android (experimental): builds Raven (NDK, arm64-v8a, plus its Java text
-# view) and the showcase APK (../shared) by hand, without Gradle. See ../README.md.
+# Raven on Android (experimental): builds Raven's AAR with CMake (NDK, arm64-v8a:
+# libraven.so and its Java part) and the showcase APK (../shared) by hand from it,
+# without Gradle. See ../README.md.
 # Usage: ./build.sh [install]
 # Uses the newest NDK, build tools and platform of the SDK unless ANDROID_NDK,
 # ANDROID_BUILD_TOOLS or ANDROID_JAR say otherwise. RAVEN_CMAKE_ARGS is added to the
@@ -19,31 +20,37 @@ GLUE=$NDK/sources/android/native_app_glue
 OUT=$HERE/build
 export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 
-# 1. Raven core
-cmake -S "$RAVEN" -B "$RAVEN/build-android" -G Ninja \
+# 1. Raven: libraven.so (RAVEN_BUILD_SHARED) and its AAR (raven_aar: libraven.so, and
+#    the Java part, the InputConnection of the on-screen keyboard, as classes.jar; CMake
+#    also leaves it dexed as android/classes.dex). The build tools and the platform the
+#    script uses are given to CMake, which compiles the Java part with them.
+BUILD=$RAVEN/build-android
+cmake -S "$RAVEN" -B "$BUILD" -G Ninja \
 	-DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
-	-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-$API \
+	-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-$API -DRAVEN_BUILD_SHARED=ON \
+	-DRAVEN_ANDROID_SDK="$SDK" -DRAVEN_ANDROID_BUILD_TOOLS="$BT" -DRAVEN_ANDROID_JAR="$JAR" \
 	-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo ${RAVEN_CMAKE_ARGS:-} >/dev/null
-cmake --build "$RAVEN/build-android"
+cmake --build "$BUILD" --target raven_aar
+AAR=$(ls "$BUILD"/raven-*-arm64-v8a.aar)
 
-# 2. the app's .so: main.c + the shared showcase + native_app_glue + libraven.a
+# 2. the app's .so: main.c + the shared showcase + native_app_glue, linked with the AAR's
+#    libraven.so (what Gradle's prefab gives an app's CMake); both go into the APK
 SHARED=$HERE/../shared
 rm -rf "$OUT"
-mkdir -p "$OUT/apk/lib/arm64-v8a"
+mkdir -p "$OUT/apk/lib/arm64-v8a" "$OUT/aar"
+(cd "$OUT/aar" && unzip -q "$AAR")
+cp "$OUT/aar/jni/arm64-v8a/libraven.so" "$OUT/apk/lib/arm64-v8a/"
 "$CC" -std=c11 -O2 -g -fPIC -shared -o "$OUT/apk/lib/arm64-v8a/libravenhello.so" \
-	-I"$RAVEN/include" -I"$GLUE" -I"$SHARED" \
+	-I"$OUT/aar/prefab/modules/raven/include" -I"$GLUE" -I"$SHARED" \
 	"$HERE/main.c" "$SHARED/showcase.c" "$GLUE/android_native_app_glue.c" \
-	"$RAVEN/build-android/libraven.a" \
+	-L"$OUT/apk/lib/arm64-v8a" -lraven \
 	-u ANativeActivity_onCreate -Wl,-z,max-page-size=16384 \
 	-landroid -llog -lm -ldl
 
-# 3. Raven's Java part (the InputConnection of the on-screen keyboard): javac + d8 -> classes.dex
+# 3. Raven's Java part: the classes.dex CMake made from the AAR's classes.jar
 #    (without it Raven falls back to key events: no suggestions, ASCII only)
-JAVA_SRC=$RAVEN/src/platform/android/java
-mkdir -p "$OUT/classes"
-javac -source 8 -target 8 -bootclasspath "$JAR" -Xlint:-options -encoding UTF-8 -d "$OUT/classes" $(find "$JAVA_SRC" -name '*.java')
-"$BT/d8" --min-api $API --lib "$JAR" --output "$OUT/apk" $(find "$OUT/classes" -name '*.class')
+cp "$BUILD/android/classes.dex" "$OUT/apk/"
 
 # 4. APK: aapt2 link (manifest, and the files the app reads: assets/), add the .so and
 #    classes.dex, zipalign, sign. assets/ = ../shared/assets + the font of the titles.
