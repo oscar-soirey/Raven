@@ -1380,6 +1380,12 @@ static void test_selectable_label(void) {
 	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) == plain);
 	Rwidget_set_tooltip(plain, NULL);
 	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
+	/* the same from XML (Tooltip="…", here after the Text), and an empty one removes it */
+	CHECK(Rwidget_set_attribute(plain, "Tooltip", "From XML"));
+	CHECK_STR(Rwidget_get_tooltip(plain), "From XML");
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) == plain);
+	CHECK(Rwidget_set_attribute(plain, "Tooltip", ""));
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
 
 	/* and no longer selectable: the selection goes */
 	Rlabel_select_all(label);

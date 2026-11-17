@@ -467,7 +467,7 @@ int rvn_widget_set_base_attribute(rvn_widget_t* widget, const char* name, const 
 		else return R_FALSE;
 		Rwidget_set_direction(widget->id, direction);
 	} else if (RVN_ATTR("Tooltip")) {
-		rvn_str_set(&widget->tooltip, value[0] ? value : NULL);
+		Rwidget_set_tooltip(widget->id, value); /* (a label takes the hover then) */
 	} else if (RVN_ATTR("Cursor")) {
 		if (!rvn_parse_cursor(value, &widget->cursor)) return R_FALSE;
 	} else if (RVN_ATTR("Width")) {
