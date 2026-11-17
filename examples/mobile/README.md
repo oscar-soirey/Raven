@@ -5,10 +5,11 @@ One UI written in C, `shared/showcase.c` with its layout in
 
 | Folder | What it is |
 |---|---|
-| `shared/` | The showcase: a bottom tab bar with List (1,000 rows and a detail page), Controls (counter, switch, slider, progress, dialog, toast), Glass (blur over a picture) and Form (text fields with keyboard types) |
+| `shared/` | The showcase: a bottom tab bar with List (1,000 rows and a detail page), Controls (counter, switch, slider, progress, dialog, toast), Glass (blur over a picture), Form (text fields with keyboard types) and Device (permissions, camera, pickers, haptics, links, sharing, clipboard, an image from the network) |
 | `shared/assets/` | The files the app reads at run time: the layout and the picture |
 | `ios/` | The iOS app: `src/main.m` (UIKit scene, `CADisplayLink` that drives `Rdraw_frame`), `Info.plist`, `build.sh` |
 | `android/` | The Android app: `main.c` (`android_main`, NativeActivity), `AndroidManifest.xml`, `build.sh` |
+| `desktop/` | The same UI in a desktop window (`raven_mobile`, built with the other examples): to work on it without a phone; `raven_mobile --check` runs the Device tab without a window |
 
 Both build scripts compile Raven itself with CMake, then the app by hand, so no
 Xcode project and no Gradle are needed. The Android script builds Raven's AAR
@@ -36,6 +37,38 @@ Android, a copy into `Hello.app` on iOS), with the font of the titles copied fro
 | iOS Simulator | | | Android (Xiaomi 15T) | Android emulator |
 |---|---|---|---|---|
 | ![The list on iOS](screenshots/ios-list.png) | ![Glass on iOS](screenshots/ios-glass.png) | ![Keyboard suggestions on iOS](screenshots/ios-keyboard-suggestions.png) | ![Gboard suggestions on Android](screenshots/android-keyboard-suggestions.png) | ![Glass on Android](screenshots/android-glass.png) |
+
+## The Device tab and what the apps declare
+
+The Device tab calls the services of `raven_device.h`: the status of the camera
+and notification permissions and a button to ask for each, a notification,
+the Settings of the app, taking a photo and picking one from the library (shown
+with its size), picking a file (its name and size, the picture when it is one)
+and saving a small text file, the seven haptics, opening Raven's page, the
+share sheet (with the last photo), copy and paste, and an image downloaded
+from `https://raw.githubusercontent.com/...` (Raven's logo). Every answer comes
+later, in a callback, and shows in the line under the title. Where the platform
+does not have a service yet, its button answers "not supported here (yet)".
+
+On a desktop (`raven_mobile`) the file buttons use the file dialogs, the image
+is downloaded with `curl` (WinHTTP on Windows), Open and Copy / Paste work, and
+the camera, the share sheet and the haptics are not supported.
+
+What the apps declare for it, so that the platforms can implement the services
+without touching them:
+
+| | Android (`AndroidManifest.xml`) | iOS (`Info.plist`) |
+|---|---|---|
+| Images from `https://` | `INTERNET` (granted at install, no question) | nothing (`http://` would need `NSAppTransportSecurity`) |
+| Camera | `CAMERA` (asked at run time; once declared, the camera app may only be used when granted), `uses-feature android.hardware.camera.any` not required, `<queries>` for `IMAGE_CAPTURE` | `NSCameraUsageDescription` |
+| Photo library | nothing (the photo picker) | nothing (`PHPickerViewController`); `NSPhotoLibraryUsageDescription` for `R_PERMISSION_PHOTOS`, `NSPhotoLibraryAddUsageDescription` for "Save Image" in the share sheet |
+| Notifications | `POST_NOTIFICATIONS` (asked at run time, Android 13+) | nothing |
+| Haptics | `VIBRATE` (granted at install) | nothing |
+| Files, open URL, share, clipboard | nothing | nothing |
+| Raven's Java | `raven.android.RavenRequestActivity` (asks for permissions, receives the answers of the pickers and the camera) and `raven.android.RavenFileProvider` (authority `<package>.raven.files`: files for other apps) | |
+
+The full list of what each service needs, and how the platforms implement
+them, is in `docs/device-services.md`.
 
 This is an early stage port: see the platform sources
 (`src/platform/uikit/uikit_platform.m`, `src/platform/android/`) and grep for
