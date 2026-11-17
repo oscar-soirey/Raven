@@ -2436,7 +2436,10 @@ fn void Widget.play_transition(self, Transition transition, float delay_seconds)
 <* R_TRUE clips the descendants to the bounds of the widget. *>
 fn void Widget.set_clipping(self, bool clip) @inline => c::r_widget_set_clipping((c::Rid)self, (CInt)clip);
 
-<* Text shown when the cursor rests on the widget. NULL removes it. *>
+<*
+ Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
+*>
 fn void Widget.set_tooltip(self, ZString text) @inline => c::r_widget_set_tooltip((c::Rid)self, (char*)text);
 
 <* Returns The tooltip text of the widget, "" when it has none. *>

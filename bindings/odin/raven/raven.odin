@@ -2652,7 +2652,8 @@ foreign lib {
 	Rwidget_play_transition :: proc(widget: Rid, transition: RTransition, delay_seconds: f32) ---
 	// R_TRUE clips the descendants to the bounds of the widget.
 	Rwidget_set_clipping :: proc(widget: Rid, clip: i32) ---
-	// Text shown when the cursor rests on the widget. NULL removes it.
+	// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+	//  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 	Rwidget_set_tooltip :: proc(widget: Rid, text: cstring) ---
 	// Returns: The tooltip text of the widget, "" when it has none.
 	Rwidget_get_tooltip :: proc(widget: Rid) -> cstring ---
