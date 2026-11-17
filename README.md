@@ -175,6 +175,9 @@ the application calls `Rwait_frame` from a `CADisplayLink`.
 [examples/mobile](examples/mobile/README.md) holds one showcase in C and the
 scripts that build Raven and the app, without an Xcode project or Gradle: for
 the iOS Simulator, and for an Android device or emulator (API 29 or later).
+Its [Packaging](examples/mobile/README.md#packaging) section makes Raven an
+Android AAR (`raven_aar`, `tools/mobile/build-android-aar.sh`) and an iOS
+`Raven.xcframework` (`tools/mobile/build-xcframework.sh`).
 What these platforms do not do yet is in
 [Not implemented yet](#not-implemented-yet).
 
@@ -588,6 +591,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BACKEND_VULKAN` | `ON` | the Vulkan backend (on macOS and iOS through MoltenVK, only when asked for); `OFF` with Metal off builds without any GPU code (custom backend or headless) |
 | `RAVEN_BACKEND_METAL` | `ON` on Apple | the Metal backend (macOS, iOS), the default there; no dependency |
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS), `uikit` (iOS), `android`, `emscripten` (the browser, [docs/emscripten.md](docs/emscripten.md)) or `null` |
+| `RAVEN_ANDROID_JAVA` | `ON` | Android: compile Raven's Java part (target `raven_java`) and offer `raven_aar`; the SDK and the JDK are found as [examples/mobile](examples/mobile/README.md#packaging) says, or set with `RAVEN_ANDROID_SDK`, `RAVEN_ANDROID_BUILD_TOOLS`, `RAVEN_ANDROID_JAR` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
 | `RAVEN_WITH_SVG` | `ON` | SVG images (icons), drawn by nanosvg |
