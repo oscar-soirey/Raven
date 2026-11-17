@@ -4,18 +4,21 @@
 #               InputConnection of the on-screen keyboard), compiled with javac and d8:
 #                 <build>/android/classes.jar   for an AAR or a Gradle module
 #                 <build>/android/classes.dex   for an APK packed by hand
+#   raven_aar   (cmake --build <build> --target raven_aar, needs RAVEN_BUILD_SHARED=ON)
+#                 <build>/raven-<version>-<abi>.aar  with libraven.so of this build's ABI
+#               tools/mobile/build-android-aar.sh builds one AAR with several ABIs.
 #
 # The tools come from the Android SDK: ANDROID_HOME, ANDROID_SDK_ROOT, or the SDK that
 # holds the NDK of the toolchain (<sdk>/ndk/<version>); the newest build tools (d8) and
 # the newest platform (android.jar) found there; javac from JAVA_HOME or the PATH.
 # RAVEN_ANDROID_SDK, RAVEN_ANDROID_BUILD_TOOLS and RAVEN_ANDROID_JAR override them.
-# When one is missing, the Java part is skipped with a warning: libraven
+# When one is missing, the Java part and the AAR are skipped with a warning: libraven
 # still builds, and an app without the Java part types through key events only (no
-# suggestions, ASCII only). RAVEN_ANDROID_JAVA=OFF skips it without a warning.
+# suggestions, ASCII only). RAVEN_ANDROID_JAVA=OFF skips them without a warning.
 
 include(GNUInstallDirs)
 
-option(RAVEN_ANDROID_JAVA "Android: compile Raven's Java part (classes.jar, classes.dex)" ON)
+option(RAVEN_ANDROID_JAVA "Android: compile Raven's Java part (classes.jar, classes.dex) and offer the raven_aar target" ON)
 set(RAVEN_ANDROID_SDK "" CACHE PATH "Android: the SDK (default: ANDROID_HOME, ANDROID_SDK_ROOT, or the SDK holding the NDK)")
 set(RAVEN_ANDROID_BUILD_TOOLS "" CACHE PATH "Android: the build tools folder with d8 (default: the newest of the SDK)")
 set(RAVEN_ANDROID_JAR "" CACHE FILEPATH "Android: the android.jar compiled against (default: the newest platform of the SDK)")
@@ -115,8 +118,8 @@ endif()
 if(raven_missing)
 	string(REPLACE ";" ", " raven_missing "${raven_missing}")
 	message(WARNING "Raven: not found: ${raven_missing}. Raven's Java part (classes.jar / classes.dex) "
-		"is skipped: an app without the Java part types through key events "
-		"only (no suggestions, ASCII only). -DRAVEN_ANDROID_JAVA=OFF skips it without this warning.")
+		"and the raven_aar target are skipped: an app without the Java part types through key events "
+		"only (no suggestions, ASCII only). -DRAVEN_ANDROID_JAVA=OFF skips them without this warning.")
 	return()
 endif()
 message(STATUS "Raven: Android Java part (minSdk ${RAVEN_ANDROID_MIN_SDK}) with ${RAVEN_JAVAC}, ${raven_d8}, ${raven_android_jar}")
@@ -148,3 +151,37 @@ add_custom_target(raven_java ALL DEPENDS "${RAVEN_JAVA_JAR}" "${RAVEN_JAVA_DEX}"
 install(FILES "${RAVEN_JAVA_JAR}" DESTINATION ${CMAKE_INSTALL_DATADIR}/raven/android RENAME raven-android.jar)
 install(FILES "${RAVEN_JAVA_DEX}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/android/proguard-rules.pro"
 	DESTINATION ${CMAKE_INSTALL_DATADIR}/raven/android)
+
+# --- raven_aar: the AAR of this build's ABI -----------------------------------
+
+if(NOT RAVEN_BUILD_SHARED)
+	message(STATUS "Raven: the raven_aar target needs -DRAVEN_BUILD_SHARED=ON (an AAR holds libraven.so)")
+	return()
+endif()
+if(CMAKE_ANDROID_NDK_VERSION)
+	string(REGEX MATCH "^[0-9]+" RAVEN_ANDROID_NDK_MAJOR "${CMAKE_ANDROID_NDK_VERSION}")
+else()
+	set(RAVEN_ANDROID_NDK_MAJOR 0)
+endif()
+set(RAVEN_AAR "${CMAKE_BINARY_DIR}/raven-${PROJECT_VERSION}-${RAVEN_ANDROID_ABI}.aar")
+add_custom_command(OUTPUT "${RAVEN_AAR}"
+	COMMAND "${CMAKE_COMMAND}"
+		-D "SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}"
+		-D "STAGE=${RAVEN_ANDROID_OUT}/aar"
+		-D "AAR=${RAVEN_AAR}"
+		-D "VERSION=${PROJECT_VERSION}"
+		-D "MIN_SDK=${RAVEN_ANDROID_MIN_SDK}"
+		-D "ABI=${RAVEN_ANDROID_ABI}"
+		-D "NDK_MAJOR=${RAVEN_ANDROID_NDK_MAJOR}"
+		-D "LIBRARY=$<TARGET_FILE:raven>"
+		-D "STRIP=${CMAKE_STRIP}"
+		-D "CLASSES_JAR=${RAVEN_JAVA_JAR}"
+		-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RavenAndroidAar.cmake"
+	DEPENDS raven "${RAVEN_JAVA_JAR}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RavenAndroidAar.cmake"
+		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/android/AndroidManifest.xml.in"
+		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/android/proguard-rules.pro"
+		${RAVEN_PUBLIC_HEADERS}
+	COMMENT "Raven: packing ${RAVEN_AAR}"
+	VERBATIM)
+add_custom_target(raven_aar DEPENDS "${RAVEN_AAR}")
+add_dependencies(raven_aar raven_java)
