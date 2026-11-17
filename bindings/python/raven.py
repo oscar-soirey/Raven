@@ -5366,7 +5366,8 @@ _lib.Rwidget_set_tooltip.restype = None
 
 
 def Rwidget_set_tooltip(widget, text):
-    """Text shown when the cursor rests on the widget. NULL removes it."""
+    """Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+     lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble)."""
     _lib.Rwidget_set_tooltip(widget, _s(text))
 
 

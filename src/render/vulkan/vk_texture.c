@@ -8,6 +8,12 @@
  * (rvn_vk_uploads_flush). The many small updates of the glyph atlas at
  * start-up therefore cost a single submission.
  *
+ * A submitted batch is not waited for there: the frame submitted after it
+ * finds its textures complete (same queue, and the batch ends with the
+ * barrier their readers wait on). Its staging buffer and command buffer are
+ * only waited for when the next batch starts, by which time the GPU has
+ * usually run it.
+ *
  * Textures can also wrap an image view owned by the application (zero-copy
  * viewports) or export their memory to another API (shared textures).
  *
@@ -44,16 +50,29 @@ void rvn_vk_uploads_flush(void) {
 	result = rvn_vk.QueueSubmit(g_vk.queue, 1, &submit, g_vk.upload_fence);
 	rvn_vk_queue_unlock();
 	if (rvn_vk_failed(result, "vkQueueSubmit")) return;
+	/* the GPU reads the staging buffer from now on: the next batch waits for it (rvn_vk_upload_wait) */
+	g_vk.upload_submitted = R_TRUE;
+}
 
-	/* the staging buffer is reused right away, so the copies must be finished */
-	if (rvn_vk_failed(rvn_vk.WaitForFences(g_vk.device, 1, &g_vk.upload_fence, VK_TRUE, UINT64_MAX), "vkWaitForFences")) return;
+/* Waits until the GPU has run the submitted batch: its staging buffer and command buffer are free again. */
+static void rvn_vk_upload_wait(void) {
+	if (!g_vk.upload_submitted) return;
+	g_vk.upload_submitted = R_FALSE;
+	/* (a lost device signals nothing any more: there is nothing to wait for) */
+	if (g_vk.device_lost || rvn_vk_failed(rvn_vk.WaitForFences(g_vk.device, 1, &g_vk.upload_fence, VK_TRUE, UINT64_MAX), "vkWaitForFences")) return;
 	rvn_vk.ResetFences(g_vk.device, 1, &g_vk.upload_fence);
+}
+
+void rvn_vk_uploads_finish(void) {
+	rvn_vk_uploads_flush();
+	rvn_vk_upload_wait();
 }
 
 /* Starts the batch when needed. */
 static int rvn_vk_upload_begin(void) {
 	VkCommandBufferBeginInfo begin;
 	if (g_vk.upload_open) return R_TRUE;
+	rvn_vk_upload_wait();
 	memset(&begin, 0, sizeof(begin));
 	begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -62,12 +81,17 @@ static int rvn_vk_upload_begin(void) {
 	return R_TRUE;
 }
 
-/* Returns `size` bytes of the staging buffer, or NULL. */
+/* Returns `size` bytes of the staging buffer, or NULL. The batch is started first: the GPU no longer reads the buffer. */
 static void* rvn_vk_staging_reserve(VkDeviceSize size, VkDeviceSize* offset) {
-	VkDeviceSize start = (g_vk.staging_used + 15) & ~(VkDeviceSize)15;
+	VkDeviceSize start;
+	if (!rvn_vk_upload_begin()) return NULL;
+	start = (g_vk.staging_used + 15) & ~(VkDeviceSize)15;
 	if (start + size > g_vk.staging.size) {
-		/* full: send what is pending, which frees the whole buffer */
-		rvn_vk_uploads_flush();
+		if (g_vk.staging_used > 0) {
+			/* full: send what is pending and wait for it, which frees the whole buffer */
+			rvn_vk_uploads_finish();
+			if (!rvn_vk_upload_begin()) return NULL;
+		}
 		start = 0;
 		if (size > g_vk.staging.size) {
 			VkDeviceSize wanted = g_vk.staging.size ? g_vk.staging.size : RVN_VK_STAGING_SIZE;
@@ -352,7 +376,7 @@ static rvn_vk_texture_t* rvn_vk_texture_slot(Rid texture) {
 
 /* The GPU may still be using a texture: nothing of it changes before it is idle. */
 static void rvn_vk_texture_quiesce(void) {
-	rvn_vk_uploads_flush();
+	rvn_vk_uploads_finish();
 	rvn_vk_wait_frames();
 }
 
@@ -409,7 +433,7 @@ static void rvn_vk_texture_add_mipmaps(rvn_vk_texture_t* texture) {
 		rvn_vk_record_mipmaps(g_vk.upload_commands, rebuilt.image, rebuilt.width, rebuilt.height, rebuilt.levels);
 		rebuilt.initialized = R_TRUE;
 		/* the old image must outlive the copy */
-		rvn_vk_uploads_flush();
+		rvn_vk_uploads_finish();
 	}
 	rvn_vk_texture_release(texture);
 	*texture = rebuilt;
@@ -554,7 +578,7 @@ int rvn_vk_textures_init(void) {
 void rvn_vk_textures_shutdown(void) {
 	uint32_t i;
 	if (!g_vk.device) return;
-	if (g_vk.upload_commands) rvn_vk_uploads_flush();
+	if (g_vk.upload_commands) rvn_vk_uploads_finish();
 	for (i = 0; i < g_vk.texture_cap; i++) {
 		if (g_vk.textures[i].used) rvn_vk_texture_release(&g_vk.textures[i]);
 	}
@@ -569,5 +593,6 @@ void rvn_vk_textures_shutdown(void) {
 	g_vk.upload_pool = VK_NULL_HANDLE;
 	g_vk.upload_commands = VK_NULL_HANDLE;
 	g_vk.upload_open = R_FALSE;
+	g_vk.upload_submitted = R_FALSE;
 	g_vk.staging_used = 0;
 }

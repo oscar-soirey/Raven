@@ -2895,7 +2895,8 @@ void Rwidget_set_transition(Rid widget, RTransition transition, float delay_seco
 void Rwidget_play_transition(Rid widget, RTransition transition, float delay_seconds);
 /// R_TRUE clips the descendants to the bounds of the widget.
 void Rwidget_set_clipping(Rid widget, int clip);
-/// Text shown when the cursor rests on the widget. NULL removes it.
+/// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+///  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 void Rwidget_set_tooltip(Rid widget, const(char)* text);
 /// Returns: The tooltip text of the widget, "" when it has none.
 const(char)* Rwidget_get_tooltip(Rid widget);

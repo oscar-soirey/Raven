@@ -2525,7 +2525,8 @@ func WidgetSetClipping(widget ID, clip int) {
 	C.Rwidget_set_clipping(C.Rid(widget), C.int(clip))
 }
 
-// WidgetSetTooltip: Text shown when the cursor rests on the widget. NULL removes it.
+// WidgetSetTooltip: Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+// lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 func WidgetSetTooltip(widget ID, text string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
