@@ -225,6 +225,32 @@ constset WindowSystem : CInt
 	WAYLAND = 0x0093,
 	COCOA = 0x0094,
 	EMSCRIPTEN = 0x0095,
+	ANDROID = 0x0096,
+	UIKIT = 0x0097,
+}
+
+<* What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...). *>
+constset TextInputType : CInt
+{
+	TEXT = 0x0B60,
+	EMAIL = 0x0B61,
+	NUMBER = 0x0B62,
+	<* Digits and a decimal separator. *>
+	DECIMAL = 0x0B63,
+	PHONE = 0x0B64,
+	URL = 0x0B65,
+	SEARCH = 0x0B66,
+}
+
+<* The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key. *>
+constset ReturnKey : CInt
+{
+	DEFAULT = 0x0B70,
+	DONE = 0x0B71,
+	GO = 0x0B72,
+	NEXT = 0x0B73,
+	SEARCH = 0x0B74,
+	SEND = 0x0B75,
 }
 
 <* Edges and corners of a window, for Rwindow_begin_resize. *>
@@ -827,6 +853,10 @@ constset WidgetType : CInt
 	PAGINATION = 0x0231,
 	<* Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. *>
 	PLOT = 0x0232,
+	<* The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). *>
+	PDF_VIEW = 0x0233,
+	<* The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). *>
+	CHART = 0x0234,
 }
 
 constset HAlign : CInt
@@ -998,6 +1028,70 @@ constset PlotAxis : CInt
 	Y2 = 0x0523,
 }
 
+<* How a PdfView sizes its pages. *>
+constset PdfFit : CInt
+{
+	<* The widest page fills the width of the view (default). *>
+	WIDTH = 0x05C0,
+	<* The largest page fits whole in the view. *>
+	PAGE = 0x05C1,
+	<* The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it. *>
+	NONE = 0x05C2,
+}
+
+<* What a PdfView holds. *>
+constset PdfStatus : CInt
+{
+	<* No document. *>
+	EMPTY = 0x05D0,
+	<* A document is shown. *>
+	LOADED = 0x05D1,
+	<* The document needs a password, or the one given is wrong: load it again with one. *>
+	NEEDS_PASSWORD = 0x05D2,
+	<* The file could not be read, or is not a PDF document. *>
+	ERROR = 0x05D3,
+	<* The PDFium library was not found (see Rpdf_is_available). *>
+	UNAVAILABLE = 0x05D4,
+}
+
+<* The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...). *>
+constset PdfFont : CInt
+{
+	<* Roboto, the font of the interface of Raven. *>
+	SANS = 0,
+	<* Roboto Mono. *>
+	MONO = 1,
+}
+
+<* How a shape of a PDF document is painted: a bitmask. *>
+constset PdfPaint : CInt
+{
+	<* Filled with the fill color. *>
+	FILL = 1,
+	<* Outlined with the stroke color and the line width. *>
+	STROKE = 2,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool PdfPaint.has(self, PdfPaint flags) @inline => (self & flags) == flags;
+
+<* A bitmask of styles of the text of a PDF document. *>
+constset PdfTextStyle : CInt
+{
+	BOLD = 1,
+	ITALIC = 2,
+	UNDERLINE = 4,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool PdfTextStyle.has(self, PdfTextStyle flags) @inline => (self & flags) == flags;
+
+constset PdfPrintFlags : CInt
+{
+	<* No dialog: printed at once on the printer named, else the default one. *>
+	NO_DIALOG = 1,
+}
+
 <* How an axis of a Plot spreads its values. *>
 constset PlotScale : CInt
 {
@@ -1051,6 +1145,21 @@ constset PlotLegend : CInt
 	LEFT = 0x0568,
 	<* To the right of the data, outside it. *>
 	OUTSIDE = 0x0569,
+}
+
+<* What a Chart draws. *>
+constset ChartKind : CInt
+{
+	<* Slices of a whole, as parts of a disc (the default). *>
+	PIE = 0x0590,
+	<* Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer. *>
+	DONUT = 0x0591,
+	<* One value within a range, on an arc; bands color parts of the range. *>
+	GAUGE = 0x0592,
+	<* A grid of values, each cell colored from the low color to the high one. *>
+	HEATMAP = 0x0593,
+	<* A small line of values without axes, to sit in a tile or a cell of a table. *>
+	SPARKLINE = 0x0594,
 }
 
 <* Shorthands of Rtext_editor_set_language for two languages. *>
@@ -1158,6 +1267,12 @@ constset DockSide : CInt
 	BOTTOM = 0x0363,
 	<* Behind the same tabs as the other panel. *>
 	TAB = 0x0364,
+}
+
+constset DockFloatMode : CInt
+{
+	WINDOW = 0,
+	IN_WINDOW = 1,
 }
 
 constset VisualPreset : CInt
@@ -1430,6 +1545,8 @@ alias ErrorCallback = fn void(Error code, Severity severity, ZString detail);
  Rinit; NULL removes it.
 *>
 alias DeviceResetCallback = fn void(void* user_data);
+<* The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden. *>
+alias KeyboardCallback = fn void(Id window, CInt visible, float height, void* user_data);
 <*
  Called for a drop target (a widget, or a window: `target` is its
  handle). Return R_TRUE to accept: while the pointer is over the target this
@@ -1537,8 +1654,8 @@ alias TableCellTextCallback = fn ZString(Id table, CInt row, CInt column, void* 
  Colors the text of cells (a verdict, a state): the table asks for the
  color of each cell it draws, stored or virtual (`row` is the index of the
  order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
- keeps the color of the theme. The color is kept on a selected or hovered
- row. NULL removes the callback.
+ keeps the color set with Rtable_set_cell_text_color, else the theme's.
+ The color is kept on a selected or hovered row. NULL removes the callback.
 *>
 alias TableCellColorCallback = fn CInt(Id table, CInt row, CInt column, float* r, float* g, float* b, float* a, void* user_data);
 alias TableEventCallback = fn void(Id table, CInt row, void* user_data);
@@ -1562,6 +1679,12 @@ alias PlotViewCallback = fn void(Id plot, void* user_data);
 alias PlotDragLineCallback = fn void(Id plot, CInt line, double value, void* user_data);
 <* Called when the user hides or shows a series from the legend. *>
 alias PlotSeriesCallback = fn void(Id plot, CInt series, CInt visible, void* user_data);
+<* Called when the user clicks a slice; `selected` tells whether it is now the selected one. *>
+alias ChartSliceCallback = fn void(Id chart, CInt slice, CInt selected, void* user_data);
+<* Called when the user clicks a cell of a heatmap. *>
+alias ChartCellCallback = fn void(Id chart, CInt row, CInt column, float value, void* user_data);
+<* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
+alias PdfPageChangedCallback = fn void(Id view, CInt page, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 <*
@@ -1745,6 +1868,27 @@ struct FrameStats
 	ulong frame_index;
 }
 
+<* Distances from the edges of a window, in logical units. *>
+struct Insets
+{
+	float top;
+	float right;
+	float bottom;
+	float left;
+}
+
+<* What the platform needs to know of the focused text input to set up the on-screen keyboard. *>
+struct TextInputInfo
+{
+	TextInputType type;
+	ReturnKey return_key;
+	<* R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning). *>
+	CInt password;
+	CInt read_only;
+	<* Most characters accepted; 0 for no limit. *>
+	CInt max_length;
+}
+
 <*
  Native handles of a window or of a native viewport.
    Win32 : display = HINSTANCE, window = HWND
@@ -1753,6 +1897,8 @@ struct FrameStats
            Wayland or X11 when Rinit runs: check `system`)
    Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
    Emscripten: window = opaque browser surface token (no OS window handle)
+   Android: window = ANativeWindow*
+   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 *>
 struct NativeWindow
 {
@@ -1958,6 +2104,29 @@ struct GestureEvent
 	float rotation_delta;
 	<* R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end). *>
 	CInt cancelled;
+}
+
+<* How a PDF document is printed. Every field may be left to zero. *>
+struct PdfPrintDesc
+{
+	<* Window the print dialog belongs to (0 or R_INVALID_ID: none). *>
+	Id window;
+	<* Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file. *>
+	ZString title;
+	<* Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer. *>
+	ZString printer;
+	<* Copies to print (0: one); the dialog may change it. *>
+	CInt copies;
+	<* Bitmask of RPdfPrintFlags. *>
+	uint flags;
+	<*
+	 Path of a file the job is written to instead of a printer. macOS: a
+	 PDF made by the print system; Windows: what the driver of the printer
+	 makes; elsewhere: the document itself.
+	*>
+	ZString output;
+	<* Password of a document protected by one. *>
+	ZString password;
 }
 
 <* What a tile shows, filled by the application when the tile is drawn. *>
@@ -2770,6 +2939,16 @@ fn void TextInput.set_max_length(self, CInt max_length) @inline => c::r_text_inp
 
 fn void TextInput.select_all(self) @inline => c::r_text_input_select_all((c::Rid)self);
 
+<* What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT. *>
+fn void TextInput.set_input_type(self, TextInputType type) @inline => c::r_text_input_set_input_type((c::Rid)self, (c::RTextInputType)type);
+
+fn TextInputType TextInput.get_input_type(self) @inline => (TextInputType)c::r_text_input_get_input_type((c::Rid)self);
+
+<* The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT. *>
+fn void TextInput.set_return_key(self, ReturnKey key) @inline => c::r_text_input_set_return_key((c::Rid)self, (c::RReturnKey)key);
+
+fn ReturnKey TextInput.get_return_key(self) @inline => (ReturnKey)c::r_text_input_get_return_key((c::Rid)self);
+
 <* Called on every edit. *>
 fn void TextInput.set_changed_callback(self, TextChangedCallback callback, void* user_data) @inline => c::r_text_input_set_changed_callback((c::Rid)self, (c::RTextChangedCallback)callback, user_data);
 
@@ -2796,6 +2975,17 @@ fn void SpinBox.set_step(self, double step) @inline => c::r_spin_box_set_step((c
 
 <* Digits shown after the decimal point. Default: 2. *>
 fn void SpinBox.set_decimals(self, CInt decimals) @inline => c::r_spin_box_set_decimals((c::Rid)self, decimals);
+
+<*
+ Step buttons in the looks of Raven too: a down button at the left
+ end and an up button at the right end, the value between them (XML
+ `Buttons="True"`). A click steps once; holding a button repeats its step.
+ The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+ Default: R_FALSE (drag to scrub, arrows / wheel to step).
+*>
+fn void SpinBox.set_buttons(self, CInt buttons) @inline => c::r_spin_box_set_buttons((c::Rid)self, buttons);
+
+fn CInt SpinBox.get_buttons(self) @inline => c::r_spin_box_get_buttons((c::Rid)self);
 
 fn void SpinBox.set_changed_callback(self, SpinBoxChangedCallback callback, void* user_data) @inline => c::r_spin_box_set_changed_callback((c::Rid)self, (c::RSpinBoxChangedCallback)callback, user_data);
 
@@ -2979,6 +3169,12 @@ fn void Menu.set_title(self, ZString title) @inline => c::r_menu_set_title((c::R
 fn MenuItem Menu.add_item(self, ZString text) @inline => (MenuItem)c::r_menu_add_item((c::Rid)self, (char*)text);
 
 fn Separator Menu.add_separator(self) @inline => (Separator)c::r_menu_add_separator((c::Rid)self);
+
+<* A noninteractive caption row, skipped by keyboard navigation. *>
+fn Id Menu.add_header(self, ZString text) @inline => (Id)c::r_menu_add_header((c::Rid)self, (char*)text);
+
+<* Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars. *>
+fn void Menu.set_title_color(self, float r, float g, float b, float a) @inline => c::r_menu_set_title_color((c::Rid)self, r, g, b, a);
 
 <* Opens a menu as a popup at a position of the window (logical units). *>
 fn void Menu.open(self, Id window, float x, float y) @inline => c::r_menu_open((c::Rid)self, (c::Rid)window, x, y);
@@ -3452,7 +3648,8 @@ fn ZString DockArea.save_layout(self) @inline => (ZString)c::r_dock_area_save_la
 <*
  Arranges the panels as a saved description says. Panels of the
  area that the description does not name keep a place; names it has
- that match no panel are ignored.
+ that match no panel are ignored in legacy descriptions. Versioned
+ descriptions with floating cards reject unknown or duplicate names.
  Returns R_FALSE when the text is not a layout (nothing is changed).
 *>
 fn void? DockArea.load_layout(self, ZString layout)
@@ -3476,10 +3673,16 @@ fn void DockArea.set_tearable(self, CInt tearable) @inline => c::r_dock_area_set
 
 fn bool DockArea.is_tearable(self) @inline => c::r_dock_area_is_tearable((c::Rid)self) != 0;
 
-<* How the windows of torn-off panels are made. *>
+<* Default for future floats/tears; existing floating panels keep their mode. *>
+fn void DockArea.set_float_mode(self, DockFloatMode mode) @inline => c::r_dock_area_set_float_mode((c::Rid)self, (c::RDockFloatMode)mode);
+
+<*
+ How the windows of torn-off panels are made (native windows,
+ R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+*>
 fn void DockArea.set_float_window(self, WindowFlags flags, DockFloatWindowCallback callback, void* user_data) @inline => c::r_dock_area_set_float_window((c::Rid)self, (c::Ruint)flags, (c::RDockFloatWindowCallback)callback, user_data);
 
-<* Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window. *>
+<* Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. *>
 fn Id DockArea.float_panel(self, Id panel, CInt x, CInt y) @inline => (Id)c::r_dock_area_float_panel((c::Rid)self, (c::Rid)panel, x, y);
 
 <* A floating panel goes back where it was in the area. *>
@@ -3675,6 +3878,9 @@ fn void MenuBar.set_native(self, bool native) @inline => c::r_menu_bar_set_nativ
 
 <* Returns R_TRUE while the menu bar is shown by the system instead of the window. *>
 fn bool MenuBar.is_native(self) @inline => c::r_menu_bar_is_native((c::Rid)self) != 0;
+
+<* A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars. *>
+fn Id MenuBar.add_divider(self) @inline => (Id)c::r_menu_bar_add_divider((c::Rid)self);
 
 // ---- BackgroundBlur
 
@@ -4270,7 +4476,7 @@ fn void NodeGraph.set_pin_label_width(self, float width) @inline => c::r_node_gr
 
 fn float NodeGraph.get_pin_label_width(self) @inline => c::r_node_graph_get_pin_label_width((c::Rid)self);
 
-<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. *>
+<* Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color. *>
 fn void NodeGraph.set_node_badge_color(self, CInt node, float r, float g, float b) @inline => c::r_node_graph_set_node_badge_color((c::Rid)self, node, r, g, b);
 
 // ---- TileView
@@ -4487,7 +4693,27 @@ fn void Table.set_virtual_rows(self, CInt count, TableCellTextCallback callback,
 
 fn void Table.set_cell_color_callback(self, TableCellColorCallback callback, void* user_data) @inline => c::r_table_set_cell_color_callback((c::Rid)self, (c::RTableCellColorCallback)callback, user_data);
 
-<* Selects a row. -1 selects nothing. *>
+<*
+ Stored rows: a fixed text color; column -1 colors the row; cells override it.
+ Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+*>
+fn void Table.set_cell_text_color(self, CInt row, CInt column, float r, float g, float b, float a) @inline => c::r_table_set_cell_text_color((c::Rid)self, row, column, r, g, b, a);
+
+<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. *>
+fn void Table.set_multi_select(self, bool enabled) @inline => c::r_table_set_multi_select((c::Rid)self, (CInt)enabled);
+
+fn void Table.set_row_selected(self, CInt row, bool selected) @inline => c::r_table_set_row_selected((c::Rid)self, row, (CInt)selected);
+
+fn bool Table.is_row_selected(self, CInt row) @inline => c::r_table_is_row_selected((c::Rid)self, row) != 0;
+
+fn void Table.clear_selection(self) @inline => c::r_table_clear_selection((c::Rid)self);
+
+fn CInt Table.get_selection_count(self) @inline => c::r_table_get_selection_count((c::Rid)self);
+
+<* Selected row at index, top to bottom; -1 outside the selection. *>
+fn CInt Table.get_selection(self, CInt index) @inline => c::r_table_get_selection((c::Rid)self, index);
+
+<* Replaces the selection with one row. -1 selects nothing, including in multi-select mode. *>
 fn void Table.set_selected(self, CInt row) @inline => c::r_table_set_selected((c::Rid)self, row);
 
 fn CInt Table.get_selected(self) @inline => c::r_table_get_selected((c::Rid)self);
@@ -4836,6 +5062,211 @@ fn void Plot.set_drag_line_callback(self, PlotDragLineCallback callback, void* u
 
 fn void Plot.set_series_toggled_callback(self, PlotSeriesCallback callback, void* user_data) @inline => c::r_plot_set_series_toggled_callback((c::Rid)self, (c::RPlotSeriesCallback)callback, user_data);
 
+// ---- PdfView
+
+typedef PdfView = inline Widget;
+
+<* A new PdfView (widget_create(WidgetType.PDF_VIEW)). *>
+fn PdfView pdf_view_create() @inline => (PdfView)c::r_widget_create(c::R_WIDGET_PDF_VIEW);
+
+<*
+ Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+ cannot: Rpdf_view_get_status tells why (a password is needed, not a
+ PDF, no PDFium). The view then shows that instead of pages.
+*>
+fn CInt PdfView.load_file(self, ZString path, ZString password) @inline => c::r_pdf_view_load_file((c::Rid)self, (char*)path, (char*)password);
+
+<* Same as Rpdf_view_load_file, from bytes in memory (copied). *>
+fn CInt PdfView.load_memory(self, ZString data, usz data_size, ZString password) @inline => c::r_pdf_view_load_memory((c::Rid)self, (char*)data, data_size, (char*)password);
+
+<* Closes the document: the view is empty. *>
+fn void PdfView.close(self) @inline => c::r_pdf_view_close((c::Rid)self);
+
+fn PdfStatus PdfView.get_status(self) @inline => (PdfStatus)c::r_pdf_view_get_status((c::Rid)self);
+
+fn CInt PdfView.get_page_count(self) @inline => c::r_pdf_view_get_page_count((c::Rid)self);
+
+<* Size of a page in points (1/72 inch), as it is shown (its rotation applied). *>
+fn void PdfView.get_page_size(self, CInt page, float* width, float* height) @inline => c::r_pdf_view_get_page_size((c::Rid)self, page, width, height);
+
+<* Scrolls to the top of a page; it becomes the current page. *>
+fn void PdfView.set_page(self, CInt page) @inline => c::r_pdf_view_set_page((c::Rid)self, page);
+
+<* The current page: the one a third down the view. *>
+fn CInt PdfView.get_page(self) @inline => c::r_pdf_view_get_page((c::Rid)self);
+
+<* A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE. *>
+fn void PdfView.set_zoom(self, float zoom) @inline => c::r_pdf_view_set_zoom((c::Rid)self, zoom);
+
+<* The zoom the pages show at, the one a fit gives included. *>
+fn float PdfView.get_zoom(self) @inline => c::r_pdf_view_get_zoom((c::Rid)self);
+
+fn void PdfView.set_fit(self, PdfFit fit) @inline => c::r_pdf_view_set_fit((c::Rid)self, (c::RPdfFit)fit);
+
+fn PdfFit PdfView.get_fit(self) @inline => (PdfFit)c::r_pdf_view_get_fit((c::Rid)self);
+
+<* The title of the document (its information), "" when it has none. *>
+fn ZString PdfView.get_title(self) @inline => (ZString)c::r_pdf_view_get_title((c::Rid)self);
+
+<*
+ The text of a page (UTF-8), to search it or copy it. Valid until
+ the next call for this view.
+*>
+fn ZString PdfView.get_page_text(self, CInt page) @inline => (ZString)c::r_pdf_view_get_page_text((c::Rid)self, page);
+
+fn void PdfView.set_page_changed_callback(self, PdfPageChangedCallback callback, void* user_data) @inline => c::r_pdf_view_set_page_changed_callback((c::Rid)self, (c::RPdfPageChangedCallback)callback, user_data);
+
+<* Prints the document shown (see Rpdf_print); the job is named after its title. *>
+fn CInt PdfView.print(self, PdfPrintDesc* desc) @inline => c::r_pdf_view_print((c::Rid)self, (c::RPdfPrintDesc*)desc);
+
+// ---- Chart
+
+typedef Chart = inline Widget;
+
+<* A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie). *>
+fn Chart chart_create(ChartKind kind) @inline => (Chart)c::r_chart_create((c::RChartKind)kind);
+
+fn void Chart.set_kind(self, ChartKind kind) @inline => c::r_chart_set_kind((c::Rid)self, (c::RChartKind)kind);
+
+fn ChartKind Chart.get_kind(self) @inline => (ChartKind)c::r_chart_get_kind((c::Rid)self);
+
+<* The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers). *>
+fn void Chart.set_title(self, ZString title) @inline => c::r_chart_set_title((c::Rid)self, (char*)title);
+
+fn ZString Chart.get_title(self) @inline => (ZString)c::r_chart_get_title((c::Rid)self);
+
+<*
+ How the values are written (the gauge, the middle of a donut, what
+ the pointer shows): a printf format for one double with its unit, "%.0f%%",
+ "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+*>
+fn void Chart.set_format(self, ZString format) @inline => c::r_chart_set_format((c::Rid)self, (char*)format);
+
+<* The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent). *>
+fn void Chart.set_color(self, float r, float g, float b, float a) @inline => c::r_chart_set_color((c::Rid)self, r, g, b, a);
+
+<* The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default). *>
+fn void Chart.set_legend(self, bool shown) @inline => c::r_chart_set_legend((c::Rid)self, (CInt)shown);
+
+<* Removes the slices, the bands, the grid and the values. *>
+fn void Chart.clear(self) @inline => c::r_chart_clear((c::Rid)self);
+
+<*
+ What is under the pointer: a slice, a point of a sparkline, or a
+ cell of a heatmap as row * columns + column; -1 for nothing.
+*>
+fn CInt Chart.get_hovered(self) @inline => c::r_chart_get_hovered((c::Rid)self);
+
+<* Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid. *>
+fn CInt Chart.add_slice(self, ZString label, double value) @inline => c::r_chart_add_slice((c::Rid)self, (char*)label, value);
+
+fn void Chart.remove_slice(self, CInt slice) @inline => c::r_chart_remove_slice((c::Rid)self, slice);
+
+fn CInt Chart.get_slice_count(self) @inline => c::r_chart_get_slice_count((c::Rid)self);
+
+fn void Chart.set_slice_value(self, CInt slice, double value) @inline => c::r_chart_set_slice_value((c::Rid)self, slice, value);
+
+fn double Chart.get_slice_value(self, CInt slice) @inline => c::r_chart_get_slice_value((c::Rid)self, slice);
+
+fn void Chart.set_slice_label(self, CInt slice, ZString label) @inline => c::r_chart_set_slice_label((c::Rid)self, slice, (char*)label);
+
+fn ZString Chart.get_slice_label(self, CInt slice) @inline => (ZString)c::r_chart_get_slice_label((c::Rid)self, slice);
+
+<* The color of a slice; an alpha of 0 gives it back its color of the palette. *>
+fn void Chart.set_slice_color(self, CInt slice, float r, float g, float b, float a) @inline => c::r_chart_set_slice_color((c::Rid)self, slice, r, g, b, a);
+
+<* The sum of the values of the slices. *>
+fn double Chart.get_total(self) @inline => c::r_chart_get_total((c::Rid)self);
+
+<* The slice lifted as selected, or -1 for none (the user selects one with a click). *>
+fn void Chart.set_selected(self, CInt slice) @inline => c::r_chart_set_selected((c::Rid)self, slice);
+
+fn CInt Chart.get_selected(self) @inline => c::r_chart_get_selected((c::Rid)self);
+
+<* The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62). *>
+fn void Chart.set_hole(self, float ratio) @inline => c::r_chart_set_hole((c::Rid)self, ratio);
+
+<*
+ What the middle of a donut shows when the pointer is not over a
+ slice: `text` in large (NULL or "": the total) over `caption` in small
+ (NULL or "": none).
+*>
+fn void Chart.set_center_text(self, ZString text, ZString caption) @inline => c::r_chart_set_center_text((c::Rid)self, (char*)text, (char*)caption);
+
+fn void Chart.set_slice_clicked_callback(self, ChartSliceCallback callback, void* user_data) @inline => c::r_chart_set_slice_clicked_callback((c::Rid)self, (c::RChartSliceCallback)callback, user_data);
+
+<*
+ The range of a gauge (default 0 to 100), and a fixed range for the
+ colors of a heatmap and the height of a sparkline, which otherwise follow
+ their values. min == max goes back to these defaults.
+*>
+fn void Chart.set_range(self, double min, double max) @inline => c::r_chart_set_range((c::Rid)self, min, max);
+
+<* The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline). *>
+fn void Chart.get_range(self, double* min, double* max) @inline => c::r_chart_get_range((c::Rid)self, min, max);
+
+<* The value of a gauge, kept within its range when drawn. *>
+fn void Chart.set_value(self, double value) @inline => c::r_chart_set_value((c::Rid)self, value);
+
+fn double Chart.get_value(self) @inline => c::r_chart_get_value((c::Rid)self);
+
+<*
+ Colors a part of the range of a gauge (an alpha of 0: the success,
+ warning and danger colors of the theme, one after the other). The arc
+ takes the color of the band its value is in. Returns the index of the band.
+*>
+fn CInt Chart.add_band(self, double from, double to, float r, float g, float b, float a) @inline => c::r_chart_add_band((c::Rid)self, from, to, r, g, b, a);
+
+fn void Chart.clear_bands(self) @inline => c::r_chart_clear_bands((c::Rid)self);
+
+fn CInt Chart.get_band_count(self) @inline => c::r_chart_get_band_count((c::Rid)self);
+
+<*
+ The cells of a heatmap: `rows` x `columns` values, row after row,
+ copied (NULL: all 0). NaN leaves a cell empty.
+*>
+fn void Chart.set_grid(self, CInt rows, CInt columns, float* values) @inline => c::r_chart_set_grid((c::Rid)self, rows, columns, values);
+
+fn CInt Chart.get_row_count(self) @inline => c::r_chart_get_row_count((c::Rid)self);
+
+fn CInt Chart.get_column_count(self) @inline => c::r_chart_get_column_count((c::Rid)self);
+
+fn void Chart.set_cell(self, CInt row, CInt column, float value) @inline => c::r_chart_set_cell((c::Rid)self, row, column, value);
+
+fn float Chart.get_cell(self, CInt row, CInt column) @inline => c::r_chart_get_cell((c::Rid)self, row, column);
+
+<* The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left). *>
+fn void Chart.set_row_labels(self, ZString labels) @inline => c::r_chart_set_row_labels((c::Rid)self, (char*)labels);
+
+<* The names of the columns, separated by '|' (shown over them, as many as fit). *>
+fn void Chart.set_column_labels(self, ZString labels) @inline => c::r_chart_set_column_labels((c::Rid)self, (char*)labels);
+
+<* The name of a row or of a column, "" when it has none. *>
+fn ZString Chart.get_row_label(self, CInt row) @inline => (ZString)c::r_chart_get_row_label((c::Rid)self, row);
+
+fn ZString Chart.get_column_label(self, CInt column) @inline => (ZString)c::r_chart_get_column_label((c::Rid)self, column);
+
+<* The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent). *>
+fn void Chart.set_color_scale(self, float low_r, float low_g, float low_b, float low_a, float high_r, float high_g, float high_b, float high_a) @inline => c::r_chart_set_color_scale((c::Rid)self, low_r, low_g, low_b, low_a, high_r, high_g, high_b, high_a);
+
+fn void Chart.set_cell_clicked_callback(self, ChartCellCallback callback, void* user_data) @inline => c::r_chart_set_cell_clicked_callback((c::Rid)self, (c::RChartCellCallback)callback, user_data);
+
+<* The values of a sparkline, copied. NaN leaves a gap. *>
+fn void Chart.set_values(self, float* values, CInt count) @inline => c::r_chart_set_values((c::Rid)self, values, count);
+
+<* Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them). *>
+fn void Chart.push_value(self, float value, CInt max_count) @inline => c::r_chart_push_value((c::Rid)self, value, max_count);
+
+fn CInt Chart.get_value_count(self) @inline => c::r_chart_get_value_count((c::Rid)self);
+
+fn float Chart.get_value_at(self, CInt index) @inline => c::r_chart_get_value_at((c::Rid)self, index);
+
+<* Shades the area under the line of a sparkline (on by default). *>
+fn void Chart.set_fill(self, CInt fill) @inline => c::r_chart_set_fill((c::Rid)self, fill);
+
+<* A dot on the last value of a sparkline (on by default). *>
+fn void Chart.set_marker(self, bool shown) @inline => c::r_chart_set_marker((c::Rid)self, (CInt)shown);
+
 // ---- Window
 
 typedef Window = inline Id;
@@ -4865,6 +5296,26 @@ fn ZString Window.get_title(self) @inline => (ZString)c::r_window_get_title((c::
 fn void Window.set_size(self, CInt width, CInt height) @inline => c::r_window_set_size((c::Rid)self, width, height);
 
 fn void Window.get_size(self, CInt* width, CInt* height) @inline => c::r_window_get_size((c::Rid)self, width, height);
+
+<*
+ The part of the window the system covers (status bar, notch,
+ home indicator, navigation bar), in logical units. The content of the
+ window is laid out inside it already. All 0 on desktop.
+*>
+fn void Window.get_safe_area(self, Insets* insets) @inline => c::r_window_get_safe_area((c::Rid)self, (c::RInsets*)insets);
+
+<*
+ The part of the window the on-screen keyboard covers (only
+ `bottom` is set), in logical units; 0 when it is hidden or there is
+ none (desktop). The content is laid out above it already.
+*>
+fn void Window.get_keyboard_area(self, Insets* insets) @inline => c::r_window_get_keyboard_area((c::Rid)self, (c::RInsets*)insets);
+
+<* Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it. *>
+fn void Window.set_keyboard_callback(self, KeyboardCallback callback, void* user_data) @inline => c::r_window_set_keyboard_callback((c::Rid)self, (c::RKeyboardCallback)callback, user_data);
+
+<* No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. *>
+fn void Window.clear_focus(self) @inline => c::r_window_clear_focus((c::Rid)self);
 
 fn void Window.set_min_size(self, CInt width, CInt height) @inline => c::r_window_set_min_size((c::Rid)self, width, height);
 
@@ -5132,6 +5583,25 @@ fn bool Window.is_mouse_inside(self) @inline => c::r_window_is_mouse_inside((c::
 
 <* R_TRUE when the keyboard focus is in a text input, spin box or text editor. *>
 fn bool Window.wants_text_input(self) @inline => c::r_window_wants_text_input((c::Rid)self) != 0;
+
+<* The kind of the focused text input; R_FALSE when there is none. *>
+fn CInt Window.get_text_input_info(self, TextInputInfo* info) @inline => c::r_window_get_text_input_info((c::Rid)self, (c::RTextInputInfo*)info);
+
+<* Its text (UTF-8), valid until it changes; NULL when there is none. *>
+fn ZString Window.get_text_input_text(self) @inline => (ZString)c::r_window_get_text_input_text((c::Rid)self);
+
+<* Its selection: start == end is the caret. R_FALSE when there is none. *>
+fn CInt Window.get_text_input_selection(self, CInt* start, CInt* end) @inline => c::r_window_get_text_input_selection((c::Rid)self, start, end);
+
+<* Selects bytes [start, end) of it (end before start puts the caret at end). *>
+fn CInt Window.set_text_input_selection(self, CInt start, CInt end) @inline => c::r_window_set_text_input_selection((c::Rid)self, start, end);
+
+<*
+ Replaces bytes [start, end) of it with `text` and puts the caret
+ after it, as typing would (the changed callback runs; MaxLength
+ applies). R_FALSE when there is none or it is read-only.
+*>
+fn CInt Window.replace_text_input(self, CInt start, CInt end, ZString text) @inline => c::r_window_replace_text_input((c::Rid)self, start, end, (char*)text);
 
 <* R_TRUE while a menu, list or dialog is open over the window. *>
 fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) != 0;
@@ -5744,6 +6214,13 @@ fn Widget canvas_create() @inline => (Widget)c::r_widget_create(c::R_WIDGET_CANV
 <* Filled rectangle with rounded corners (radius 0 = sharp). *>
 fn void Painter.rect(&self, float x, float y, float width, float height, float radius, float r, float g, float b, float a) @inline => c::r_draw_rect((c::RPainter*)self, x, y, width, height, radius, r, g, b, a);
 
+<*
+ Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+ Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+ Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+*>
+fn void Painter.shadow(&self, float x, float y, float width, float height, float radius, float blur, float r, float g, float b, float a) @inline => c::r_draw_shadow((c::RPainter*)self, x, y, width, height, radius, blur, r, g, b, a);
+
 <* Outline of a rounded rectangle, drawn inside its bounds. *>
 fn void Painter.rect_outline(&self, float x, float y, float width, float height, float radius, float thickness, float r, float g, float b, float a) @inline => c::r_draw_rect_outline((c::RPainter*)self, x, y, width, height, radius, thickness, r, g, b, a);
 
@@ -6154,6 +6631,16 @@ alias theme_set_accent = c::r_theme_set_accent;
 *>
 fn void theme_set_dark(bool dark) @inline => c::r_theme_set_dark((CInt)dark);
 
+<* R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today). *>
+alias theme_get_system_dark = c::r_theme_get_system_dark;
+
+<*
+ Follows the dark or light mode of the system with the Raven look
+ (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+ Off by default. Does nothing where the platform does not tell (desktop today).
+*>
+fn void theme_follow_system(bool enabled) @inline => c::r_theme_follow_system((CInt)enabled);
+
 alias theme_is_dark = c::r_theme_is_dark;
 
 <*
@@ -6233,6 +6720,106 @@ fn void set_layout_direction(Direction direction) @inline => c::r_set_layout_dir
 
 <* The direction the windows use now: R_DIRECTION_LTR or _RTL. *>
 fn Direction get_layout_direction() @inline => (Direction)c::r_get_layout_direction();
+
+<* R_TRUE when PDFium can be loaded (it is, the first time this is asked). *>
+alias pdf_is_available = c::r_pdf_is_available;
+
+fn Id pdf_document_create() @inline => (Id)c::r_pdf_document_create();
+
+fn void pdf_document_delete(Id document) @inline => c::r_pdf_document_delete((c::Rid)document);
+
+<* The information of the document, shown by readers (the title in their window). *>
+fn void pdf_document_set_title(Id document, ZString title) @inline => c::r_pdf_document_set_title((c::Rid)document, (char*)title);
+
+fn void pdf_document_set_author(Id document, ZString author) @inline => c::r_pdf_document_set_author((c::Rid)document, (char*)author);
+
+fn void pdf_document_set_subject(Id document, ZString subject) @inline => c::r_pdf_document_set_subject((c::Rid)document, (char*)subject);
+
+<* Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size. *>
+fn CInt pdf_document_add_page(Id document, float width, float height) @inline => c::r_pdf_document_add_page((c::Rid)document, width, height);
+
+fn CInt pdf_document_get_page_count(Id document) @inline => c::r_pdf_document_get_page_count((c::Rid)document);
+
+fn void pdf_document_set_fill_color(Id document, float r, float g, float b, float a) @inline => c::r_pdf_document_set_fill_color((c::Rid)document, r, g, b, a);
+
+fn void pdf_document_set_stroke_color(Id document, float r, float g, float b, float a) @inline => c::r_pdf_document_set_stroke_color((c::Rid)document, r, g, b, a);
+
+<* Width of the lines and outlines, in points (default 1). *>
+fn void pdf_document_set_line_width(Id document, float width) @inline => c::r_pdf_document_set_line_width((c::Rid)document, width);
+
+<* A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint. *>
+fn void pdf_document_draw_rect(Id document, float x, float y, float width, float height, float radius, uint paint) @inline => c::r_pdf_document_draw_rect((c::Rid)document, x, y, width, height, radius, paint);
+
+<* The ellipse inside a rectangle. *>
+fn void pdf_document_draw_ellipse(Id document, float x, float y, float width, float height, uint paint) @inline => c::r_pdf_document_draw_ellipse((c::Rid)document, x, y, width, height, paint);
+
+<* A line in the stroke color. *>
+fn void pdf_document_draw_line(Id document, float x1, float y1, float x2, float y2) @inline => c::r_pdf_document_draw_line((c::Rid)document, x1, y1, x2, y2);
+
+<*
+ Adds a TrueType font (.ttf) to the document (the data is
+ copied, and embedded in the file). Returns its number for
+ Rpdf_document_set_font, -1 when it is not a TrueType font.
+*>
+fn CInt pdf_document_add_font(Id document, ZString data, usz data_size) @inline => c::r_pdf_document_add_font((c::Rid)document, (char*)data, data_size);
+
+fn CInt pdf_document_add_font_from_file(Id document, ZString path) @inline => c::r_pdf_document_add_font_from_file((c::Rid)document, (char*)path);
+
+<* The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle. *>
+fn void pdf_document_set_font(Id document, CInt font, float size, uint style) @inline => c::r_pdf_document_set_font((c::Rid)document, font, size, style);
+
+<* Distance between two lines of text in the current font. *>
+fn float pdf_document_get_line_height(Id document) @inline => c::r_pdf_document_get_line_height((c::Rid)document);
+
+<* Width of a text in the current font, in points (of its widest line). *>
+fn float pdf_document_measure_text(Id document, ZString text) @inline => c::r_pdf_document_measure_text((c::Rid)document, (char*)text);
+
+<*
+ Text in the fill color, the top of its first line at y ('\n'
+ starts a line below). Returns its width.
+*>
+fn float pdf_document_draw_text(Id document, float x, float y, ZString text) @inline => c::r_pdf_document_draw_text((c::Rid)document, x, y, (char*)text);
+
+<*
+ Text wrapped at the spaces to fit `width`, each line placed by
+ `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+ height it took.
+*>
+fn float pdf_document_draw_paragraph(Id document, float x, float y, float width, ZString text, HAlign align) @inline => c::r_pdf_document_draw_paragraph((c::Rid)document, x, y, width, (char*)text, (c::RHAlign)align);
+
+<*
+ A picture of RGBA8 pixels stretched over a rectangle. A width or
+ height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+*>
+fn void pdf_document_draw_image(Id document, float x, float y, float width, float height, char* rgba, CInt pixels_width, CInt pixels_height) @inline => c::r_pdf_document_draw_image((c::Rid)document, x, y, width, height, rgba, pixels_width, pixels_height);
+
+<*
+ What a window shows (Rwindow_capture), as a picture: a report of
+ the screen, a chart. A width and height of 0: the size it has on the
+ screen. Returns R_FALSE when the window cannot be captured.
+*>
+fn CInt pdf_document_draw_window(Id document, Id window, float x, float y, float width, float height) @inline => c::r_pdf_document_draw_window((c::Rid)document, (c::Rid)window, x, y, width, height);
+
+<* Writes the file. Returns R_FALSE when it cannot be written. *>
+fn CInt pdf_document_save(Id document, ZString path) @inline => c::r_pdf_document_save((c::Rid)document, (char*)path);
+
+<* The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length. *>
+fn ZString pdf_document_save_memory(Id document, usz* size) @inline => (ZString)c::r_pdf_document_save_memory((c::Rid)document, size);
+
+<*
+ Prints a PDF document with the print system: on macOS the print
+ panel, on Windows the print dialog (the pages are drawn by PDFium, see
+ PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+ dialog of Raven that chooses the printer. It waits until the job is
+ sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+ cannot print. Not in the browser.
+*>
+fn CInt pdf_print(PdfPrintDesc* desc, ZString data, usz data_size) @inline => c::r_pdf_print((c::RPdfPrintDesc*)desc, (char*)data, data_size);
+
+fn CInt pdf_print_file(PdfPrintDesc* desc, ZString path) @inline => c::r_pdf_print_file((c::RPdfPrintDesc*)desc, (char*)path);
+
+<* Prints a document written by the application. *>
+fn CInt pdf_document_print(Id document, PdfPrintDesc* desc) @inline => c::r_pdf_document_print((c::Rid)document, (c::RPdfPrintDesc*)desc);
 
 <*
  Declares a language, or replaces the one that has this name: to
@@ -6390,7 +6977,7 @@ fn void notification_set_fallback(NotificationFallback callback, void* user_data
  (on the UI thread; the application may then bring its window to the
  front: the system lets it). It is the last one shown that was clicked:
  the application remembers what it was about. NULL: none.
- Windows only for now (elsewhere it is never called).
+ Windows and macOS (elsewhere it is never called).
 *>
 fn void notification_set_clicked_callback(NotificationClickedCallback callback, void* user_data) @inline => c::r_notification_set_clicked_callback((c::RNotificationClickedCallback)callback, user_data);
 

@@ -131,6 +131,10 @@ typedef enum RWidgetType{
 	R_WIDGET_PAGINATION,
 	/** Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom. */
 	R_WIDGET_PLOT,
+	/** The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time). */
+	R_WIDGET_PDF_VIEW,
+	/** The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). */
+	R_WIDGET_CHART,
 
 	R_WIDGET_LAST_
 }RWidgetType;

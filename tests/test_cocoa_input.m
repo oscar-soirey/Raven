@@ -31,6 +31,36 @@ static void test_function_keys(Rid input, NSView* view) {
 	CHECK_STR(Rtext_input_get_text(input), "");
 }
 
+static void test_table_selection(Rid window, NSView* view) {
+	Rid table = Rwidget_create(R_WIDGET_TABLE);
+	NSArray* children;
+	id element, row;
+	Rtable_add_column(table, "Name", 200);
+	Rtable_add_row(table, "First");
+	Rtable_add_row(table, "Second");
+	Rtable_add_row(table, "Third");
+	Rtable_set_multi_select(table, R_TRUE);
+	Rtable_set_row_selected(table, 0, R_TRUE);
+	Rtable_set_row_selected(table, 2, R_TRUE);
+	Rwindow_set_content(window, table);
+	Rdraw_frame();
+	children = [view accessibilityChildren];
+	CHECK([children count] == 1);
+	if ([children count] != 1) return;
+	element = [children objectAtIndex:0];
+	CHECK([[element accessibilityRole] isEqualToString:NSAccessibilityTableRole]);
+	CHECK([[element accessibilityRows] count] == 3);
+	CHECK([[element accessibilitySelectedRows] count] == 2);
+	row = [[element accessibilityRows] objectAtIndex:2];
+	CHECK([[row accessibilityRole] isEqualToString:NSAccessibilityRowRole]);
+	CHECK([row isAccessibilitySelected]);
+	CHECK([element isAccessibilitySelectorAllowed:@selector(setAccessibilitySelectedRows:)]);
+	[element setAccessibilitySelectedRows:@[row]];
+	CHECK(Rtable_get_selection_count(table) == 1 && Rtable_is_row_selected(table, 2));
+	[row setAccessibilitySelected:NO];
+	CHECK(Rtable_get_selection_count(table) == 0);
+}
+
 static void accessible_press(Rid widget, void* user) {
 	(*(int*)user)++;
 	Rwidget_set_accessible_checked(widget, R_TRUE);
@@ -66,6 +96,35 @@ static void test_accessible_action(Rid window, NSView* view) {
 	CHECK(![element isAccessibilitySelectorAllowed:@selector(accessibilityPerformPress)]);
 }
 
+static void test_native_menu_headers(Rid window) {
+	Rid bar = Rwidget_create(R_WIDGET_MENU_BAR);
+	Rid menu;
+	NSMenu* native;
+	NSMenuItem* header;
+	Rmenu_bar_add_divider(bar);
+	menu = Rmenu_add_menu(bar, "Devices");
+	Rmenu_set_title_color(menu, 1, 0, 0, 1);
+	Rmenu_add_header(menu, "pdk1");
+	Rmenu_add_item(menu, "Configure");
+	Rmenu_bar_add_divider(bar);
+	Rwindow_set_content(window, bar);
+	Rwindow_show(window);
+	Rwindow_focus(window);
+	Rdraw_frame();
+	native = [[[NSApp mainMenu] itemWithTitle:@"Devices"] submenu];
+	CHECK(native != nil);
+	CHECK([[NSApp mainMenu] numberOfItems] == 2); /* app menu and Devices; dividers omitted */
+	CHECK([native numberOfItems] == 2);
+	if ([native numberOfItems] != 2) return;
+	header = [native itemAtIndex:0];
+	CHECK([[header title] isEqualToString:@"pdk1"]);
+	CHECK(![header isEnabled]);
+	CHECK([header action] == nil);
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 140000
+	if (@available(macOS 14.0, *)) CHECK([header isSectionHeader]);
+#endif
+}
+
 int main(void) {
 	RInitDesc desc;
 	RNativeWindow native;
@@ -85,7 +144,9 @@ int main(void) {
 	CHECK(Rwindow_get_native_handle(window, &native));
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
+	test_table_selection(window, view);
 	test_accessible_action(window, view);
+	test_native_menu_headers(window);
 	Rwindow_destroy(window);
 	Rshutdown();
 	return test_report("test_cocoa_input");

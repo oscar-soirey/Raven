@@ -243,6 +243,8 @@ typedef struct rvn_vk_state_t {
 	VkDeviceSize staging_used;
 	/** R_TRUE while upload commands are recorded and not yet submitted. */
 	int upload_open;
+	/** R_TRUE from the submission of the uploads until upload_fence was waited for. */
+	int upload_submitted;
 
 	/* vk_surface.c */
 	rvn_vk_surface_t* surfaces;
@@ -358,8 +360,13 @@ int  rvn_vk_texture_create_shared(Rid texture, uint32_t width, uint32_t height);
 /** Exports the memory of a shared texture as a new fd / HANDLE. */
 int  rvn_vk_texture_export(Rid texture, intptr_t* handle, uint64_t* allocation_size);
 
-/** Submits the pending texture uploads and waits for them. */
+/**
+ * Submits the pending texture uploads and returns at once: what is submitted
+ * to the queue after them (a frame) finds the textures complete.
+ */
 void rvn_vk_uploads_flush(void);
+/** Submits the pending texture uploads and waits until the GPU has run them. */
+void rvn_vk_uploads_finish(void);
 
 /* ---------------------------------------------------------------------------
  *  vk_surface.c

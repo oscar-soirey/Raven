@@ -2,7 +2,8 @@
 #
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
-#   test_locale, test_fonts, test_touch, test_more_widgets, test_deep_trees
+#   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
+#   test_chart, test_deep_trees
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -35,6 +36,9 @@ endfunction()
 
 raven_add_test(test_layout)
 raven_add_test(test_widgets)
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_menu_decorations)
+endif()
 raven_add_test(test_xml)
 raven_add_test(test_threads)
 raven_add_test(test_memory)
@@ -45,6 +49,9 @@ raven_add_test(test_animation)
 raven_add_test(test_text_editor)
 raven_add_test(test_shell)
 raven_add_test(test_dock_tearing)
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_dock_in_window)
+endif()
 raven_add_test(test_editor_features)
 if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_drop_highlight)
@@ -54,6 +61,7 @@ raven_add_test(test_themes)
 raven_add_test(test_markdown)
 raven_add_test(test_tools)
 if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_draw_shadow)
 	raven_add_test(test_effect_hover)
 	target_compile_definitions(test_effect_hover PRIVATE "RAVEN_TEST_LIQUID=\"${PROJECT_SOURCE_DIR}/examples/effects/liquid.spv\"")
 endif()
@@ -77,6 +85,16 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 endif()
 raven_add_test(test_touch)
 raven_add_test(test_more_widgets)
+raven_add_test(test_chart)
+raven_add_test(test_pdf)
+# without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
+set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
+# PDF documents written by Raven (read back by PdfView when PDFium is there) and printing to a file
+raven_add_test(test_pdf_document)
+target_compile_definitions(test_pdf_document PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
+if(NOT RAVEN_BUILD_SHARED)
+	raven_add_test(test_table_features)
+endif()
 if(NOT RAVEN_WITH_SVG)
 	target_compile_definitions(test_more_widgets PRIVATE RAVEN_TEST_NO_SVG)
 endif()
