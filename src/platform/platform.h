@@ -28,6 +28,9 @@ typedef struct rvn_ptray_t rvn_ptray_t;
 /** A native window. Each platform defines its own structure. */
 typedef struct rvn_pwindow_t rvn_pwindow_t;
 
+/** A request of a service of the device (file_open, camera_take_photo...): see below. */
+typedef struct rvn_service_request_t rvn_service_request_t;
+
 typedef enum rvn_pevent_type_t {
 	/** The user asked to close the window. */
 	RVN_PEVENT_CLOSE,
@@ -485,7 +488,160 @@ typedef struct rvn_platform_t {
 	 * system handles Back itself (and animates back to the home screen).
 	 */
 	void  (*window_set_back_wanted)(rvn_pwindow_t* window, int wanted);
+
+	/*
+	 * ---- services of the device (optional, NULL when the platform has none; raven_device.h) ----
+	 *
+	 * Called on the UI thread, and each returns at once. A request that shows
+	 * a screen of the system (permission_request, file_*, folder_select,
+	 * camera_take_photo, photo_pick, share) is answered later by ONE call to
+	 * rvn_permission_answer or rvn_service_complete, from any thread (a
+	 * completion block of UIKit, the Java main thread of Android, a worker):
+	 * the core hands the answer to the application at its next frame and
+	 * wakes it. An answer may also come before the entry returns. The core
+	 * sends one such screen at a time (else R_DEVICE_BUSY) and asks for the
+	 * permission a service needs before it calls the service. A request
+	 * still open at shutdown is forgotten by the core: an answer after it is
+	 * ignored. Files given back must be readable by path (see
+	 * rvn_service_complete). What iOS and Android use for each entry, and
+	 * how their answers come back: docs/device-services.md.
+	 */
+
+	/**
+	 * The RPermissionStatus of an RPermission, without asking the user. Must
+	 * not block more than a moment: a status the system only gives
+	 * asynchronously (iOS notifications) is kept by the platform, fetched at
+	 * init and again at each R_APP_WILL_RESUME (R_PERMISSION_NOT_ASKED until
+	 * known). A permission the platform cannot ask for: R_PERMISSION_UNSUPPORTED.
+	 * When NULL, the core answers R_PERMISSION_GRANTED for notifications where
+	 * `notify` exists, R_PERMISSION_UNSUPPORTED for the others.
+	 */
+	int   (*permission_status)(int permission);
+	/**
+	 * Shows the question of the system for an RPermission (the core calls it
+	 * only when the status is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED,
+	 * once until it is answered). Answer with rvn_permission_answer.
+	 */
+	void  (*permission_request)(int permission);
+	/** The page of the application in the Settings of the system. R_FALSE when it could not be opened. */
+	int   (*permission_open_settings)(void);
+
+	/**
+	 * The document picker: one file to read (several when request->multiple),
+	 * of the kinds of request->filters. Answer with rvn_service_complete:
+	 * R_DEVICE_DONE with the files, as paths the core can read (copies in the
+	 * cache of the application), or R_DEVICE_CANCELLED.
+	 */
+	void  (*file_open)(const rvn_service_request_t* request);
+	/**
+	 * Saves request->data / size (or copies the file request->path, when
+	 * data is NULL) where the user chooses, proposing request->file_name.
+	 * Answer R_DEVICE_DONE with one file: its name (path NULL when the place
+	 * is not a path the application can write to again).
+	 */
+	void  (*file_save)(const rvn_service_request_t* request);
+	/** A folder (R_DEVICE_DONE with its path). NULL on iOS and Android for now. */
+	void  (*folder_select)(const rvn_service_request_t* request);
+	/** R_TRUE when the device has a camera camera_take_photo can show now. */
+	int   (*camera_available)(void);
+	/**
+	 * The camera of the system, for one photo. The core has asked for
+	 * R_PERMISSION_CAMERA first (when permission_status does not answer
+	 * R_PERMISSION_UNSUPPORTED). Answer R_DEVICE_DONE with one JPEG file in
+	 * the cache, upright, with its width and height.
+	 */
+	void  (*camera_take_photo)(const rvn_service_request_t* request);
+	/** The photo picker of the system: up to request->max_count photos (0: no limit), as files Raven decodes (JPEG, PNG). */
+	void  (*photo_pick)(const rvn_service_request_t* request);
+	/** The share sheet: request->text and / or the file request->path (request->mime_type), pointing at request->anchor. */
+	void  (*share)(const rvn_service_request_t* request);
+	/**
+	 * Opens a URL with the application the system has for it (Ropen_url;
+	 * without this entry the core runs `open` / `xdg-open` on desktops).
+	 * Returns at once; R_FALSE when the system could not be asked.
+	 */
+	int   (*open_url)(const char* url);
+	/** R_TRUE when haptics can be played. */
+	int   (*haptic_supported)(void);
+	/** Plays an RHaptic (light / medium / heavy, selection, success / warning / error). R_TRUE when handed to the system. */
+	int   (*haptic)(int haptic);
+	/**
+	 * Downloads an http:// or https:// URL, following redirections, into an
+	 * rvn_alloc'ed buffer (*data, *size): images from a URL. Used instead of
+	 * the `curl` of desktops. BLOCKS until done: called on worker threads of
+	 * the core, several at a time, never on purpose on the UI thread
+	 * (thread-safe; Android: the thread must be attached to the JavaVM).
+	 * Limit: 32 MiB and about 20 seconds. On failure: R_FALSE, and *error
+	 * may be an rvn_alloc'ed text saying why (HTTP 404, blocked by App
+	 * Transport Security...), reported by the core.
+	 */
+	int   (*download)(const char* url, uint8_t** data, size_t* size, char** error);
+	/**
+	 * R_TRUE when the clipboard holds text, without reading it (iOS:
+	 * hasStrings, which shows no paste prompt). NULL: the core reads the
+	 * clipboard to know.
+	 */
+	int   (*clipboard_has_text)(void);
 } rvn_platform_t;
+
+/**
+ * A request of a service of the device to the platform (rvn_platform_t::file_open...).
+ * Valid during the call only: the platform copies what it keeps. Fields that
+ * do not concern the entry called are zero.
+ */
+struct rvn_service_request_t {
+	/** Given back to rvn_service_complete. Never 0. */
+	uint32_t id;
+	/** The window the screen of the system is shown over; NULL: the platform's first window. */
+	rvn_pwindow_t* window;
+	/** What it points at on a tablet (share sheet, iPad popovers): x, y, width, height in pixels of the window; width 0: the middle of the window. */
+	float anchor[4];
+	/* file_open, file_save, folder_select */
+	const char* title;
+	const RFileFilter* filters;
+	int filter_count;
+	int multiple;
+	/* file_save */
+	const char* file_name;
+	const char* default_extension;
+	const void* data;
+	size_t size;
+	/* file_save (when data is NULL), share: a file, by a path the core can read */
+	const char* path;
+	/* photo_pick */
+	int max_count;
+	/* share */
+	const char* text;
+	const char* mime_type;
+	const char* share_title;
+};
+
+/**
+ * The answer to permission_request: an RPermissionStatus. Also a status the
+ * platform learned by itself (notify asked for notifications). Any thread.
+ */
+void rvn_permission_answer(int permission, int status);
+/**
+ * The end of a request (rvn_service_request_t::id): an RDeviceResult and the
+ * files it gave (copied by the core, during the call). Each RPickedFile::path
+ * must be readable with fopen; size 0 is read from the file. `error` (or
+ * NULL) says what failed, reported as a warning. Any thread, once per request.
+ */
+void rvn_service_complete(uint32_t id, int result, const RPickedFile* files, int count, const char* error);
+/**
+ * The extensions request->filters name, lowercase, without the dot ("png",
+ * "jpg"): for the platform to turn into its own types (UTType, MIME). count 0
+ * (and NULL) when every file may be chosen ("*", or no filter). Free with
+ * rvn_service_extensions_free.
+ */
+char** rvn_service_extensions(const rvn_service_request_t* request, int* count);
+void rvn_service_extensions_free(char** extensions, int count);
+
+/* (core: Rinit, Rshutdown) */
+void rvn_services_init(void);
+void rvn_services_shutdown(void);
+/** Downloads a URL with the platform's `download`, else as desktops do (core/fs.c); reports failures. Any thread. */
+int  rvn_service_download(const char* url, uint8_t** data, size_t* size);
 
 #if defined(RAVEN_PLATFORM_EMSCRIPTEN)
 const rvn_platform_t* rvn_platform_emscripten(void);

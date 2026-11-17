@@ -133,6 +133,17 @@ extern "C" {
 	RAVEN_API Rid Rtexture_create_from_file(const char* path);
 	/** @brief Reads and decodes the file on a worker thread. */
 	RAVEN_API Rid Rtexture_create_from_file_async(const char* path);
+	/**
+	 * @brief Downloads an http:// or https:// image and decodes it on a worker
+	 * thread, as an Image whose Source is a URL does. The handle is usable at
+	 * once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+	 * a texture that could not be downloaded is ready with a size of 0, and the
+	 * failure is reported as a warning). Desktops download with WinHTTP or
+	 * `curl`; iOS and Android through their platform. Android needs the INTERNET
+	 * permission in the manifest; iOS refuses http:// unless Info.plist allows
+	 * it (App Transport Security). Up to 32 MiB.
+	 */
+	RAVEN_API Rid Rtexture_create_from_url_async(const char* url);
 
 	/** @brief Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR. */
 	RAVEN_API Rid Rtexture_create_from_pixels(const uint8_t* rgba, int width, int height);

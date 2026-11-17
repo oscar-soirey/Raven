@@ -825,6 +825,12 @@ static const char* rvn_file_dialog(const RFileDialogDesc* user_desc, RFileBrowse
 	if (user_desc) desc = *user_desc;
 	if (desc.filter_count < 0 || !desc.filters) desc.filter_count = 0;
 	rvn_dialogs_clear_results();
+	/* (a dialog that waits needs frames inside a frame, which the system's loop of a phone never gives) */
+	if (g_rvn.platform->system == R_WINDOW_SYSTEM_UIKIT || g_rvn.platform->system == R_WINDOW_SYSTEM_ANDROID) {
+		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR,
+			"file dialogs that wait do not exist on iOS and Android: use Rfile_open_async, Rfile_save_async (raven_device.h)");
+		return NULL;
+	}
 
 	if (desc.directory && desc.directory[0]) directory = rvn_path_absolute(desc.directory);
 	if ((!directory || !rvn_path_is_dir(directory)) && g_dialogs.directory) {

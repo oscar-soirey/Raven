@@ -118,7 +118,6 @@ void rvn_textures_update_svg(void);
 int rvn_svg_detect(const uint8_t* data, size_t size);
 uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height);
 /** Downloads and decodes an HTTP(S) image asynchronously. Internal resource helper. */
-Rid rvn_texture_create_from_url_async(const char* url);
 
 /* ---------------------------------------------------------------------------
  *  Renderer (render/renderer.c)

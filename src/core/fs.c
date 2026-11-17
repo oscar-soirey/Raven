@@ -5,6 +5,11 @@
 
 #include "fs.h"
 
+/* iOS forbids fork, Android has neither xdg-open nor curl: their platforms open URLs and download (platform/services.c) */
+#if defined(__ANDROID__) || defined(RAVEN_PLATFORM_UIKIT)
+#define RVN_FS_NO_PROCESSES 1
+#endif
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -332,7 +337,7 @@ int rvn_write_file(const char* path, const void* data, size_t size) {
 	return ok;
 }
 
-int Ropen_url(const char* url) {
+int rvn_os_open_url(const char* url) {
 	WCHAR* wide;
 	HINSTANCE result;
 	if (!url || !url[0]) return R_FALSE;
@@ -472,7 +477,7 @@ int rvn_write_file(const char* path, const void* data, size_t size) {
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
-int Ropen_url(const char* url) {
+int rvn_os_open_url(const char* url) {
     if (!url || !url[0]) return R_FALSE;
     return EM_ASM_INT({
         try {
@@ -483,9 +488,12 @@ int Ropen_url(const char* url) {
     }, url);
 }
 #else
-int Ropen_url(const char* url) {
+int rvn_os_open_url(const char* url) {
 	pid_t child;
 	if (!url || !url[0]) return R_FALSE;
+#if defined(RVN_FS_NO_PROCESSES)
+	return R_FALSE;
+#endif
 	child = fork();
 	if (child < 0) return R_FALSE;
 	if (child == 0) {
@@ -631,6 +639,9 @@ int rvn_fs_download_url(const char* url, uint8_t** data, size_t* size) {
 	if (data) *data = NULL;
 	if (size) *size = 0;
 	if (!url || !data || !size || !rvn_is_http_url(url)) return R_FALSE;
+#if defined(RVN_FS_NO_PROCESSES)
+	return R_FALSE;
+#endif
 	if (pipe(pipes) != 0) return R_FALSE;
 	child = fork();
 	if (child < 0) { close(pipes[0]); close(pipes[1]); return R_FALSE; }

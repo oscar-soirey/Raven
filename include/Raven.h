@@ -31,6 +31,7 @@
  *     raven/raven_shell.h        header bar, docked panels, island
  *     raven/raven_tools.h        color picker, timeline, node graph
  *     raven/raven_dialogs.h      dialogs, message boxes, file dialogs, file browser
+ *     raven/raven_device.h       permissions, pickers and camera of the system, haptics, sharing
  *     raven/raven_viewport.h     content rendered by the application
  *     raven/raven_draw.h         custom widgets: painting, springs
  *     raven/raven_xml.h          interfaces in XML, declared tags, documents
@@ -55,6 +56,7 @@
 #include "raven/raven_shell.h"
 #include "raven/raven_tools.h"
 #include "raven/raven_dialogs.h"
+#include "raven/raven_device.h"
 #include "raven/raven_viewport.h"
 #include "raven/raven_draw.h"
 #include "raven/raven_shader.h"

@@ -63,7 +63,17 @@ int  rvn_make_dir(const char* path);
 int  rvn_write_file(const char* path, const void* data, size_t size);
 /** True when the address is an HTTP or HTTPS URL (case-insensitive scheme). */
 int  rvn_is_http_url(const char* value);
-/** Downloads a URL into an rvn_alloc'ed buffer. Limited to 32 MiB and 20 seconds. */
+/**
+ * Opens a URL with the program of the OS for it (`open`, `xdg-open`,
+ * ShellExecute, a new tab of the browser). R_FALSE on iOS and Android:
+ * their platform opens URLs (Ropen_url, rvn_platform_t::open_url).
+ */
+int  rvn_os_open_url(const char* url);
+/**
+ * Downloads a URL into an rvn_alloc'ed buffer. Limited to 32 MiB and 20
+ * seconds. R_FALSE on iOS and Android, which have no `curl` to run: their
+ * platform downloads (rvn_service_download, rvn_platform_t::download).
+ */
 int  rvn_fs_download_url(const char* url, uint8_t** data, size_t* size);
 
 /** A folder the user goes to often: home, desktop, documents, a drive... */

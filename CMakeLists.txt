@@ -121,6 +121,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/raven/raven_text_editor.h
 	include/raven/raven_shell.h
 	include/raven/raven_dialogs.h
+	include/raven/raven_device.h
 	include/raven/raven_viewport.h
 	include/raven/raven_draw.h
 	include/raven/raven_xml.h
@@ -166,6 +167,7 @@ set(RAVEN_PLATFORM_SOURCES
 	src/platform/preedit.c
 	src/platform/preedit.h
 	src/platform/notify.c
+	src/platform/services.c
 	src/platform/taskbar.c
 	src/platform/tray.c
 	src/platform/platform.h
