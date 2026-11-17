@@ -241,7 +241,7 @@ GameActivity brings its own glue with another `android_app`.
     tools/mobile/build-xcframework.sh [output folder]    # default: build-xcframework
 
 builds `libraven.a` for devices and for the Simulator with CMake and joins them
-with `xcodebuild -create-xcframework` (`CONFIG`, `MIN_IOS`, default 17.0, and
+with `xcodebuild -create-xcframework` (`CONFIG`, `MIN_IOS`, default 15.0, and
 `SIM_ARCHS`, default `arm64;x86_64`, change the build):
 
 ```
@@ -257,13 +257,17 @@ Raven.xcframework
 
 In Xcode, add `Raven.xcframework` to the target (Frameworks, Libraries, and
 Embedded Content: "Do Not Embed", it is a static library), and link the
-system frameworks Raven uses: UIKit, QuartzCore, Metal, CoreText,
-CoreGraphics. C and Objective-C include `<Raven.h>` (or `@import Raven;`),
+system frameworks Raven uses: Foundation, CoreFoundation, UIKit, QuartzCore,
+Metal, CoreText, CoreGraphics, and for the services of the device
+(`raven_device.h`) AVFoundation, Photos, PhotosUI, UniformTypeIdentifiers,
+UserNotifications, ImageIO (the module map links them, and `libobjc`, by
+itself for `import Raven` and `@import Raven;`). C and Objective-C include `<Raven.h>` (or `@import Raven;`),
 Swift does `import Raven`. Raven draws with Metal, so nothing else is
 embedded (no MoltenVK). The app's resources (layouts, pictures, fonts) go into
 its bundle, as `ios/build.sh` does.
 
-The minimum is iOS 17: the UIKit platform calls `registerForTraitChanges`
-(iOS 17) without an availability check, so `MIN_IOS=15.0` builds with a
-warning and would fail on iOS 15 and 16. A Swift package (`binaryTarget`) is
-not made yet.
+Raven's minimum is iOS 15 (the UIKit platform checks for the iOS 17 API it
+uses, `registerForTraitChanges`, and falls back to `traitCollectionDidChange:`;
+it builds without availability warnings at `MIN_IOS=15.0`, but has only run
+on iOS 26 Simulators here). The showcase itself (`ios/build.sh`, its
+`Info.plist`) asks for iOS 17. A Swift package (`binaryTarget`) is not made yet.

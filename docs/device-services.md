@@ -4,7 +4,7 @@
 permissions, the document pickers, the camera and the photo picker, haptics,
 the share sheet; `Ropen_url`, `Rtexture_create_from_url_async` and the
 clipboard go through the same platform entries. This page is for whoever
-implements them for a platform (iOS: `src/platform/uikit/uikit_platform.m`,
+implements them for a platform (iOS: `src/platform/uikit/uikit_services.m`,
 Android: `src/platform/android/android_platform.c` and its Java). The entries
 themselves are documented one by one in `src/platform/platform.h` (section
 "services of the device"); the core side is `src/platform/services.c`.
@@ -176,10 +176,11 @@ hop back to the main queue.
 
 `examples/mobile/android/AndroidManifest.xml` and
 `examples/mobile/ios/Info.plist` have all of these that the showcase uses.
-iOS links more frameworks once the platform uses them: AVFoundation, Photos,
-PhotosUI, UniformTypeIdentifiers, UserNotifications (and CoreLocation for
-location): add them to `RAVEN_LIBRARIES` of the uikit platform in
-`CMakeLists.txt` and to the link line of `examples/mobile/ios/build.sh`.
+iOS links more frameworks for them: AVFoundation, Photos, PhotosUI,
+UniformTypeIdentifiers, UserNotifications, ImageIO (`RAVEN_LIBRARIES` of the
+uikit platform in `CMakeLists.txt`, the link line of
+`examples/mobile/ios/build.sh`, the module map of `Raven.xcframework`);
+CoreLocation will join them when location is asked for.
 
 ## Testing
 

@@ -3,14 +3,17 @@
 # Simulator (ios-arm64_x86_64-simulator), each with Raven's public headers and a module
 # map (module Raven). See examples/mobile/README.md, "Packaging".
 #   tools/mobile/build-xcframework.sh [output folder]     (default: build-xcframework)
-# CONFIG (Release), MIN_IOS (17.0) and SIM_ARCHS ("arm64;x86_64") change the build.
-# (MIN_IOS: the UIKit platform calls iOS 17 API, registerForTraitChanges, unguarded.)
+# CONFIG (Release), MIN_IOS (15.0) and SIM_ARCHS ("arm64;x86_64") change the build.
 # MoltenVK is not inside: the app embeds MoltenVK.framework (its dynamic xcframework).
+# The app links the system frameworks Raven uses (the module map links them for
+# `import Raven` / `@import Raven;`): Foundation, CoreFoundation, UIKit, QuartzCore, Metal,
+# CoreText, CoreGraphics, and for the services of the device AVFoundation, Photos,
+# PhotosUI, UniformTypeIdentifiers, UserNotifications, ImageIO.
 set -eu
 RAVEN=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=${1:-$RAVEN/build-xcframework}
 CONFIG=${CONFIG:-Release}
-MIN_IOS=${MIN_IOS:-17.0}
+MIN_IOS=${MIN_IOS:-15.0}
 SIM_ARCHS=${SIM_ARCHS:-arm64;x86_64}
 export PATH=/opt/homebrew/bin:/usr/local/bin:$PATH
 mkdir -p "$OUT"
