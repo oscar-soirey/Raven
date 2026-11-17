@@ -1946,6 +1946,8 @@ static int rvn_cocoa_notify(const char* app, const char* title, const char* body
         [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
                               completionHandler:^(BOOL granted, NSError* error) {
             __atomic_store_n(&g_rvn_notify_allowed, granted ? 1 : -1, __ATOMIC_RELEASE);
+            /* (Rpermission_request may be waiting for this same answer) */
+            rvn_permission_answer(R_PERMISSION_NOTIFICATIONS, granted ? R_PERMISSION_GRANTED : R_PERMISSION_BLOCKED);
             if (granted) {
                 [center addNotificationRequest:request withCompletionHandler:nil];
             } else {
@@ -1959,6 +1961,47 @@ static int rvn_cocoa_notify(const char* app, const char* title, const char* body
         }];
         return R_TRUE;
     }
+}
+
+/*
+ * The permission of notifications (Rpermission_get_status / _request): the
+ * one the first notification asks for. Without a bundle there are none.
+ * The center answers its settings on a queue of its own: waited for here,
+ * briefly (a status must not block long).
+ */
+static int rvn_cocoa_permission_status(int permission) {
+    __block int status = R_PERMISSION_NOT_ASKED;
+    dispatch_semaphore_t done;
+    if (permission != R_PERMISSION_NOTIFICATIONS || ![[NSBundle mainBundle] bundleIdentifier]) return R_PERMISSION_UNSUPPORTED;
+    done = dispatch_semaphore_create(0);
+    dispatch_retain(done);
+    [[UNUserNotificationCenter currentNotificationCenter] getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings* settings) {
+        switch ([settings authorizationStatus]) {
+        case UNAuthorizationStatusAuthorized: status = R_PERMISSION_GRANTED; break;
+        case UNAuthorizationStatusProvisional: status = R_PERMISSION_LIMITED; break;
+        /* (macOS never asks twice) */
+        case UNAuthorizationStatusDenied: status = R_PERMISSION_BLOCKED; break;
+        default: status = R_PERMISSION_NOT_ASKED; break;
+        }
+        dispatch_semaphore_signal(done);
+        dispatch_release(done);
+    }];
+    if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(NSEC_PER_SEC / 2))) != 0) status = R_PERMISSION_NOT_ASKED;
+    dispatch_release(done);
+    return status;
+}
+
+static void rvn_cocoa_permission_request(int permission) {
+    if (permission != R_PERMISSION_NOTIFICATIONS) {
+        rvn_permission_answer(permission, R_PERMISSION_UNSUPPORTED);
+        return;
+    }
+    [[UNUserNotificationCenter currentNotificationCenter] requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
+                                                                        completionHandler:^(BOOL granted, NSError* error) {
+        (void)error;
+        __atomic_store_n(&g_rvn_notify_allowed, granted ? 1 : -1, __ATOMIC_RELEASE);
+        rvn_permission_answer(R_PERMISSION_NOTIFICATIONS, granted ? R_PERMISSION_GRANTED : R_PERMISSION_BLOCKED);
+    }];
 }
 
 const rvn_platform_t* rvn_platform_cocoa(void) {
@@ -1990,6 +2033,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .a11y_event = rvn_cocoa_a11y_event, .a11y_announce = rvn_cocoa_a11y_announce,
         .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
         .accent_color = rvn_cocoa_accent_color, .notify = rvn_cocoa_notify,
+        .permission_status = rvn_cocoa_permission_status, .permission_request = rvn_cocoa_permission_request,
         .screen_notch = rvn_cocoa_screen_notch, .overlay_place = rvn_cocoa_overlay_place,
         .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key
     };
