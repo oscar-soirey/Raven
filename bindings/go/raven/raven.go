@@ -1124,6 +1124,54 @@ const (
 	R_MESSAGE_RESULT_NO     RMessageResult = 3
 )
 
+// RPermission: What the application may be allowed to use (Rpermission_request).
+type RPermission int32
+
+const (
+	R_PERMISSION_CAMERA        RPermission = 0x0C00
+	R_PERMISSION_NOTIFICATIONS RPermission = 0x0C01
+	R_PERMISSION_PHOTOS        RPermission = 0x0C02
+	R_PERMISSION_MICROPHONE    RPermission = 0x0C03
+	R_PERMISSION_LOCATION      RPermission = 0x0C04
+)
+
+// RPermissionStatus: What the user answered, or would be asked (Rpermission_get_status).
+type RPermissionStatus int32
+
+const (
+	R_PERMISSION_UNSUPPORTED RPermissionStatus = 0x0C10
+	R_PERMISSION_NOT_ASKED   RPermissionStatus = 0x0C11
+	R_PERMISSION_GRANTED     RPermissionStatus = 0x0C12
+	R_PERMISSION_LIMITED     RPermissionStatus = 0x0C13
+	R_PERMISSION_DENIED      RPermissionStatus = 0x0C14
+	R_PERMISSION_BLOCKED     RPermissionStatus = 0x0C15
+)
+
+// RDeviceResult: How a request of a picker, the camera or a share sheet ended.
+type RDeviceResult int32
+
+const (
+	R_DEVICE_DONE        RDeviceResult = 0x0C20
+	R_DEVICE_CANCELLED   RDeviceResult = 0x0C21
+	R_DEVICE_DENIED      RDeviceResult = 0x0C22
+	R_DEVICE_UNSUPPORTED RDeviceResult = 0x0C23
+	R_DEVICE_BUSY        RDeviceResult = 0x0C24
+	R_DEVICE_FAILED      RDeviceResult = 0x0C25
+)
+
+// RHaptic: A short vibration that answers a touch (Rhaptic_play).
+type RHaptic int32
+
+const (
+	R_HAPTIC_LIGHT     RHaptic = 0x0C30
+	R_HAPTIC_MEDIUM    RHaptic = 0x0C31
+	R_HAPTIC_HEAVY     RHaptic = 0x0C32
+	R_HAPTIC_SELECTION RHaptic = 0x0C33
+	R_HAPTIC_SUCCESS   RHaptic = 0x0C34
+	R_HAPTIC_WARNING   RHaptic = 0x0C35
+	R_HAPTIC_ERROR     RHaptic = 0x0C36
+)
+
 // RMotion: How a spring moves. Animations in Raven are springs, as on iOS: a value is pulled toward its
 // target and may run past it before settling, which is what makes a control feel alive rather than
 // mechanical.
@@ -1228,6 +1276,18 @@ const (
 	R_ROLE_SEPARATOR     RAccessibleRole = 0x0781
 	R_ROLE_SCROLL_BAR    RAccessibleRole = 0x0782
 	R_ROLE_PANE          RAccessibleRole = 0x0783
+)
+
+// RHostService: What a request of a service of the device asks the application for (RHostServiceRequest).
+type RHostService int32
+
+const (
+	R_HOST_SERVICE_OPEN_FILES    RHostService = 0x0C40
+	R_HOST_SERVICE_SAVE_FILE     RHostService = 0x0C41
+	R_HOST_SERVICE_SELECT_FOLDER RHostService = 0x0C42
+	R_HOST_SERVICE_TAKE_PHOTO    RHostService = 0x0C43
+	R_HOST_SERVICE_PICK_PHOTOS   RHostService = 0x0C44
+	R_HOST_SERVICE_SHARE         RHostService = 0x0C45
 )
 
 type RGoldenStatus int32
@@ -1443,8 +1503,10 @@ func ActionIsBuiltin(name string) int {
 }
 
 // OpenUrl: Opens an address with the program the user has for it: a web page in the browser, a mailto: in the
-// mail program, a file in its application. Returns at once. Returns: R_FALSE when the OS could not be asked
-// (nothing tells whether a program then really opened it).
+// mail program, a file in its application. Returns at once. On iOS and Android the system opens it (a web
+// page, a tel:, a mailto:; not a file: share it with Rshare_show), and Raven must be initialized and this be
+// called on the UI thread. Returns: R_FALSE when the OS could not be asked (nothing tells whether a program
+// then really opened it).
 func OpenUrl(url string) int {
 	url_ := C.CString(url)
 	defer C.free(unsafe.Pointer(url_))
@@ -1469,9 +1531,18 @@ func ClipboardSetHtml(text string, html string) {
 	C.Rclipboard_set_html(text_, html_)
 }
 
-// ClipboardGetText: Returns: The clipboard text, or "" when empty. Valid until the next call.
+// ClipboardGetText: Returns: The clipboard text, or "" when empty. Valid until the next call. On iOS a read
+// that does not follow a paste of the user (the Paste of a menu, a button, Command-V) shows the system's
+// question "Allow Paste?", and on Android 12+ the system says that the application pasted: read it when the
+// user pastes, not to look at it. Android lets only the application in front read it.
 func ClipboardGetText() string {
 	return C.GoString(C.Rclipboard_get_text())
+}
+
+// ClipboardHasText: Returns: R_TRUE when the clipboard holds text, without reading it (no question of the
+// system on iOS): to enable a Paste button.
+func ClipboardHasText() int {
+	return int(C.Rclipboard_has_text())
 }
 
 func ErrorToString(error_ RError) string {
@@ -2406,6 +2477,18 @@ func TextureCreateFromFileAsync(path string) ID {
 	path_ := C.CString(path)
 	defer C.free(unsafe.Pointer(path_))
 	return ID(C.Rtexture_create_from_file_async(path_))
+}
+
+// TextureCreateFromUrlAsync: Downloads an http:// or https:// image and decodes it on a worker thread, as an
+// Image whose Source is a URL does. The handle is usable at once: widgets showing it draw nothing until it is
+// ready (Rtexture_is_ready; a texture that could not be downloaded is ready with a size of 0, and the failure
+// is reported as a warning). Desktops download with WinHTTP or `curl`; iOS and Android through their
+// platform. Android needs the INTERNET permission in the manifest; iOS refuses http:// unless Info.plist
+// allows it (App Transport Security). Up to 32 MiB.
+func TextureCreateFromUrlAsync(url string) ID {
+	url_ := C.CString(url)
+	defer C.free(unsafe.Pointer(url_))
+	return ID(C.Rtexture_create_from_url_async(url_))
 }
 
 // TextureIsReady: Returns: R_TRUE once an asynchronous texture is decoded (or failed).
@@ -7135,6 +7218,45 @@ func NotificationIsSupported() int {
 	return int(C.Rnotification_is_supported())
 }
 
+// PermissionGetStatus: What the user answered, without asking. Cheap: the platform remembers it. On iOS the
+// status of notifications is known shortly after the start (R_PERMISSION_NOT_ASKED until then).
+func PermissionGetStatus(permission RPermission) RPermissionStatus {
+	return RPermissionStatus(C.Rpermission_get_status(C.RPermission(permission)))
+}
+
+// PermissionOpenSettings: Opens the page of the application in the Settings of the system, where the user
+// changes what was refused for good (R_PERMISSION_BLOCKED). Returns: R_FALSE when the platform has no such
+// page.
+func PermissionOpenSettings() int {
+	return int(C.Rpermission_open_settings())
+}
+
+// PermissionToString: Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+func PermissionToString(permission RPermission) string {
+	return C.GoString(C.Rpermission_to_string(C.RPermission(permission)))
+}
+
+func PermissionStatusToString(status RPermissionStatus) string {
+	return C.GoString(C.Rpermission_status_to_string(C.RPermissionStatus(status)))
+}
+
+// CameraIsAvailable: Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the
+// iOS Simulator).
+func CameraIsAvailable() int {
+	return int(C.Rcamera_is_available())
+}
+
+// HapticIsSupported: Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+func HapticIsSupported() int {
+	return int(C.Rhaptic_is_supported())
+}
+
+// HapticPlay: A short vibration, as the controls of the system play when touched. Nothing happens where there
+// are none, or when the user turned them off. Returns: R_TRUE when it was handed to the system.
+func HapticPlay(haptic RHaptic) int {
+	return int(C.Rhaptic_play(C.RHaptic(haptic)))
+}
+
 // ViewportSetTexture: Shows a texture. R_INVALID_ID shows nothing.
 func ViewportSetTexture(viewport ID, texture ID) {
 	C.Rviewport_set_texture(C.Rid(viewport), C.Rid(texture))
@@ -7952,6 +8074,12 @@ func HostInjectClose(window ID) {
 	C.Rhost_inject_close(C.Rid(window))
 }
 
+// HostPermissionAnswer: The user answered a permission_request (or the status changed by itself). The waiting
+// Rpermission_request callbacks get it at the next frame. Any thread.
+func HostPermissionAnswer(permission RPermission, status RPermissionStatus) {
+	C.Rhost_permission_answer(C.RPermission(permission), C.RPermissionStatus(status))
+}
+
 // TestSetDeterministic: R_TRUE makes what is drawn depend only on what the test does: every frame advances
 // the animations by 1/60 s (Rset_animation_time_step), and the carets of the text fields stay lit instead of
 // blinking. R_FALSE gives the clock back (time step 0).
@@ -8138,13 +8266,14 @@ func TestIsChecked(widget ID) int {
 // Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
 // Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
-// Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
-// Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
-// Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image
-// Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect
-// Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
-// Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
-// Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
-// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rtest_expect_golden
-// Rtest_compare_pixels
+// Rnotification_set_clicked_callback, Rpermission_request, Rfile_open_async, Rfile_save_async
+// Rfile_export_async, Rfile_select_folder_async, Rcamera_take_photo, Rphoto_pick, Rshare_show
+// Rviewport_set_draw_callback, Rviewport_get_native_handle, Rviewport_set_resize_callback
+// Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline
+// Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring
+// Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults
+// Rshader_look_init, Rshader_look_defaults, Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback
+// Rxml_register_tag, Rxml_document_parse, Rxml_get_attribute_info, Rscript_set_log_callback
+// Rscript_set_diagnostic_callback, Rlocale_set_changed_callback, Rtr_format
+// Raccessibility_get_system_settings, Rwidget_set_accessible_action, Rhost_platform_register
+// Rhost_window_set_insets, Rhost_service_complete, Rtest_expect_golden, Rtest_compare_pixels

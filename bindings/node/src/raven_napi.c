@@ -95,6 +95,7 @@ static struct {
 	void (*Rclipboard_set_text)(const char*);
 	void (*Rclipboard_set_html)(const char*, const char*);
 	const char* (*Rclipboard_get_text)(void);
+	int (*Rclipboard_has_text)(void);
 	RError (*Rerror_get_last)(const char**, RSeverity*);
 	const char* (*Rerror_to_string)(RError);
 	const char* (*Rseverity_to_string)(RSeverity);
@@ -269,6 +270,7 @@ static struct {
 	float (*Rtexture_get_density)(Rid);
 	Rid (*Rtexture_create_from_file)(const char*);
 	Rid (*Rtexture_create_from_file_async)(const char*);
+	Rid (*Rtexture_create_from_url_async)(const char*);
 	Rid (*Rtexture_create_from_pixels)(const uint8_t*, int, int);
 	void (*Rtexture_update)(Rid, const uint8_t*, int, int);
 	uint8_t* (*Rimage_decode)(const void*, size_t, int*, int*);
@@ -1222,6 +1224,21 @@ static struct {
 	int (*Rnotification_is_supported)(void);
 	void (*Rnotification_set_fallback)(RNotificationFallback, void*);
 	void (*Rnotification_set_clicked_callback)(RNotificationClickedCallback, void*);
+	RPermissionStatus (*Rpermission_get_status)(RPermission);
+	void (*Rpermission_request)(RPermission, RPermissionCallback, void*);
+	int (*Rpermission_open_settings)(void);
+	const char* (*Rpermission_to_string)(RPermission);
+	const char* (*Rpermission_status_to_string)(RPermissionStatus);
+	void (*Rfile_open_async)(const RFileDialogDesc*, RDeviceCallback, void*);
+	void (*Rfile_save_async)(const RFileDialogDesc*, const void*, size_t, RDeviceCallback, void*);
+	void (*Rfile_export_async)(const RFileDialogDesc*, const char*, RDeviceCallback, void*);
+	void (*Rfile_select_folder_async)(const RFileDialogDesc*, RDeviceCallback, void*);
+	int (*Rcamera_is_available)(void);
+	void (*Rcamera_take_photo)(RDeviceCallback, void*);
+	void (*Rphoto_pick)(int, RDeviceCallback, void*);
+	int (*Rhaptic_is_supported)(void);
+	int (*Rhaptic_play)(RHaptic);
+	void (*Rshare_show)(const RShareDesc*, RDeviceCallback, void*);
 	void (*Rviewport_set_texture)(Rid, Rid);
 	void (*Rviewport_set_stretch)(Rid, RStretch);
 	void (*Rviewport_set_flip_y)(Rid, int);
@@ -1393,6 +1410,8 @@ static struct {
 	void (*Rhost_inject_composition)(Rid, const char*, int, int);
 	void (*Rhost_inject_focus)(Rid, int);
 	void (*Rhost_inject_close)(Rid);
+	void (*Rhost_permission_answer)(RPermission, RPermissionStatus);
+	void (*Rhost_service_complete)(Ruint, RDeviceResult, const RPickedFile*, int);
 	void (*Rtest_set_deterministic)(int);
 	int (*Rtest_is_deterministic)(void);
 	const char* (*Rtest_get_platform_tag)(void);
@@ -1489,6 +1508,7 @@ static const struct {
 	{"Rclipboard_set_text", offsetof(__typeof__(rn), Rclipboard_set_text)},
 	{"Rclipboard_set_html", offsetof(__typeof__(rn), Rclipboard_set_html)},
 	{"Rclipboard_get_text", offsetof(__typeof__(rn), Rclipboard_get_text)},
+	{"Rclipboard_has_text", offsetof(__typeof__(rn), Rclipboard_has_text)},
 	{"Rerror_get_last", offsetof(__typeof__(rn), Rerror_get_last)},
 	{"Rerror_to_string", offsetof(__typeof__(rn), Rerror_to_string)},
 	{"Rseverity_to_string", offsetof(__typeof__(rn), Rseverity_to_string)},
@@ -1663,6 +1683,7 @@ static const struct {
 	{"Rtexture_get_density", offsetof(__typeof__(rn), Rtexture_get_density)},
 	{"Rtexture_create_from_file", offsetof(__typeof__(rn), Rtexture_create_from_file)},
 	{"Rtexture_create_from_file_async", offsetof(__typeof__(rn), Rtexture_create_from_file_async)},
+	{"Rtexture_create_from_url_async", offsetof(__typeof__(rn), Rtexture_create_from_url_async)},
 	{"Rtexture_create_from_pixels", offsetof(__typeof__(rn), Rtexture_create_from_pixels)},
 	{"Rtexture_update", offsetof(__typeof__(rn), Rtexture_update)},
 	{"Rimage_decode", offsetof(__typeof__(rn), Rimage_decode)},
@@ -2616,6 +2637,21 @@ static const struct {
 	{"Rnotification_is_supported", offsetof(__typeof__(rn), Rnotification_is_supported)},
 	{"Rnotification_set_fallback", offsetof(__typeof__(rn), Rnotification_set_fallback)},
 	{"Rnotification_set_clicked_callback", offsetof(__typeof__(rn), Rnotification_set_clicked_callback)},
+	{"Rpermission_get_status", offsetof(__typeof__(rn), Rpermission_get_status)},
+	{"Rpermission_request", offsetof(__typeof__(rn), Rpermission_request)},
+	{"Rpermission_open_settings", offsetof(__typeof__(rn), Rpermission_open_settings)},
+	{"Rpermission_to_string", offsetof(__typeof__(rn), Rpermission_to_string)},
+	{"Rpermission_status_to_string", offsetof(__typeof__(rn), Rpermission_status_to_string)},
+	{"Rfile_open_async", offsetof(__typeof__(rn), Rfile_open_async)},
+	{"Rfile_save_async", offsetof(__typeof__(rn), Rfile_save_async)},
+	{"Rfile_export_async", offsetof(__typeof__(rn), Rfile_export_async)},
+	{"Rfile_select_folder_async", offsetof(__typeof__(rn), Rfile_select_folder_async)},
+	{"Rcamera_is_available", offsetof(__typeof__(rn), Rcamera_is_available)},
+	{"Rcamera_take_photo", offsetof(__typeof__(rn), Rcamera_take_photo)},
+	{"Rphoto_pick", offsetof(__typeof__(rn), Rphoto_pick)},
+	{"Rhaptic_is_supported", offsetof(__typeof__(rn), Rhaptic_is_supported)},
+	{"Rhaptic_play", offsetof(__typeof__(rn), Rhaptic_play)},
+	{"Rshare_show", offsetof(__typeof__(rn), Rshare_show)},
 	{"Rviewport_set_texture", offsetof(__typeof__(rn), Rviewport_set_texture)},
 	{"Rviewport_set_stretch", offsetof(__typeof__(rn), Rviewport_set_stretch)},
 	{"Rviewport_set_flip_y", offsetof(__typeof__(rn), Rviewport_set_flip_y)},
@@ -2787,6 +2823,8 @@ static const struct {
 	{"Rhost_inject_composition", offsetof(__typeof__(rn), Rhost_inject_composition)},
 	{"Rhost_inject_focus", offsetof(__typeof__(rn), Rhost_inject_focus)},
 	{"Rhost_inject_close", offsetof(__typeof__(rn), Rhost_inject_close)},
+	{"Rhost_permission_answer", offsetof(__typeof__(rn), Rhost_permission_answer)},
+	{"Rhost_service_complete", offsetof(__typeof__(rn), Rhost_service_complete)},
 	{"Rtest_set_deterministic", offsetof(__typeof__(rn), Rtest_set_deterministic)},
 	{"Rtest_is_deterministic", offsetof(__typeof__(rn), Rtest_is_deterministic)},
 	{"Rtest_get_platform_tag", offsetof(__typeof__(rn), Rtest_get_platform_tag)},
@@ -3736,6 +3774,8 @@ static void rn_t_RDialogClosedCallback(Rid, int, void*);
 static void rn_t_RFileBrowserCallback(Rid, const char*, void*);
 static void rn_t_RNotificationFallback(const char*, const char*, RNotificationUrgency, void*);
 static void rn_t_RNotificationClickedCallback(void*);
+static void rn_t_RPermissionCallback(RPermission, RPermissionStatus, void*);
+static void rn_t_RDeviceCallback(RDeviceResult, const RPickedFile*, int, void*);
 static void rn_t_RViewportResizeCallback(Rid, int, int, void*);
 static void rn_t_RPaintCallback(Rid, RPainter*, float, float, void*);
 static void rn_t_RMeasureCallback(Rid, float*, float*, void*);
@@ -5048,6 +5088,37 @@ static void rn_t_RNotificationClickedCallback(void* a0) {
 	rn_cb_leave(cb);
 }
 
+static void rn_t_RPermissionCallback(RPermission a0, RPermissionStatus a1, void* a2) {
+	rn_cb* cb = (rn_cb*)a2;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[3];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_int32(env, (int32_t)a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	argv[2] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 3, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RDeviceCallback(RDeviceResult a0, const RPickedFile* a1, int a2, void* a3) {
+	rn_cb* cb = (rn_cb*)a3;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[4];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_int32(env, (int32_t)a0, &argv[0]);
+	argv[1] = rn_make_ptr(env, a1);
+	napi_create_int32(env, (int32_t)a2, &argv[2]);
+	argv[3] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 4, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
 static void rn_t_RViewportResizeCallback(Rid a0, int a1, int a2, void* a3) {
 	rn_cb* cb = (rn_cb*)a3;
 	napi_env env = cb->env;
@@ -6118,6 +6189,15 @@ static napi_value rn_w_Rclipboard_get_text(napi_env env, napi_callback_info info
 	(void)env;
 	(void)info;
 	result_ = rn_make_text(env, rn.Rclipboard_get_text());
+	return result_;
+}
+
+static napi_value rn_w_Rclipboard_has_text(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rclipboard_has_text();
+	napi_create_int32(env, (int32_t)value_, &result_);
 	return result_;
 }
 
@@ -8890,6 +8970,22 @@ static napi_value rn_w_Rtexture_create_from_file_async(napi_env env, napi_callba
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	Rid value_ = rn.Rtexture_create_from_file_async(a0.p);
+	napi_create_uint32(env, value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtexture_create_from_url_async(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	Rid value_ = rn.Rtexture_create_from_url_async(a0.p);
 	napi_create_uint32(env, value_, &result_);
 done:
 	free(a0.heap);
@@ -24859,6 +24955,315 @@ static napi_value rn_w_Rnotification_set_clicked_callback(napi_env env, napi_cal
 	return result_;
 }
 
+static napi_value rn_w_Rpermission_get_status(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rpermission_get_status((RPermission)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rpermission_request(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rpermission_request((RPermission)a0, k0_ == RN_CALLBACK_FUNCTION ? (RPermissionCallback)rn_t_RPermissionCallback : (RPermissionCallback)n0_, cb_ ? (void*)cb_ : a2);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rpermission_open_settings(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rpermission_open_settings();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rpermission_to_string(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rpermission_to_string((RPermission)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rpermission_status_to_string(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rpermission_status_to_string((RPermissionStatus)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rfile_open_async(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rfile_open_async((const RFileDialogDesc*)a0, k0_ == RN_CALLBACK_FUNCTION ? (RDeviceCallback)rn_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rfile_save_async(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	void* a1;
+	size_t a1_size;
+	void* a4;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	if (!rn_get_bytes(env, argv[1], &a1, &a1_size)) return NULL;
+	if (!rn_get_ptr(env, argv[3], &a4)) return NULL;
+	k0_ = rn_callback_arg(env, argv[2], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[2], 1, a4);
+		if (!cb_) return NULL;
+	}
+	rn.Rfile_save_async((const RFileDialogDesc*)a0, (const void*)a1, a1_size, k0_ == RN_CALLBACK_FUNCTION ? (RDeviceCallback)rn_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a4);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rfile_export_async(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	rn_str a1;
+	void* a3;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_ptr(env, argv[3], &a3)) goto done;
+	k0_ = rn_callback_arg(env, argv[2], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) goto done;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) goto done;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[2], 1, a3);
+		if (!cb_) goto done;
+	}
+	rn.Rfile_export_async((const RFileDialogDesc*)a0, a1.p, k0_ == RN_CALLBACK_FUNCTION ? (RDeviceCallback)rn_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a3);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rfile_select_folder_async(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rfile_select_folder_async((const RFileDialogDesc*)a0, k0_ == RN_CALLBACK_FUNCTION ? (RDeviceCallback)rn_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rcamera_is_available(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rcamera_is_available();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcamera_take_photo(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a1;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[1], &a1)) return NULL;
+	k0_ = rn_callback_arg(env, argv[0], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[0], 1, a1);
+		if (!cb_) return NULL;
+	}
+	rn.Rcamera_take_photo(k0_ == RN_CALLBACK_FUNCTION ? (RDeviceCallback)rn_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a1);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rphoto_pick(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rphoto_pick((int)a0, k0_ == RN_CALLBACK_FUNCTION ? (RDeviceCallback)rn_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rhaptic_is_supported(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rhaptic_is_supported();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rhaptic_play(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rhaptic_play((RHaptic)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rshare_show(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Ris_initialized()) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rshare_show((const RShareDesc*)a0, k0_ == RN_CALLBACK_FUNCTION ? (RDeviceCallback)rn_t_RDeviceCallback : (RDeviceCallback)n0_, cb_ ? (void*)cb_ : a2);
+	if (cb_) {
+		cb_->once = 1;
+		rn_tasks_add(cb_);
+	}
+	return result_;
+}
+
 static napi_value rn_w_Rviewport_set_texture(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -24992,7 +25397,7 @@ static napi_value rn_w_Rviewport_set_resize_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rviewport_set_resize_callback((Rid)a0, cb_ ? (RViewportResizeCallback)rn_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 107, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 115, NULL, cb_);
 	return result_;
 }
 
@@ -25031,7 +25436,7 @@ static napi_value rn_w_Rcustom_set_paint_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_paint_callback((Rid)a0, cb_ ? (RPaintCallback)rn_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 108, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 116, NULL, cb_);
 	return result_;
 }
 
@@ -25056,7 +25461,7 @@ static napi_value rn_w_Rcustom_set_measure_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_measure_callback((Rid)a0, cb_ ? (RMeasureCallback)rn_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 109, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 117, NULL, cb_);
 	return result_;
 }
 
@@ -25798,7 +26203,7 @@ static napi_value rn_w_Rxml_set_reload_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rxml_set_reload_callback(cb_ ? (RXmlReloadCallback)rn_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 110, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 118, NULL, cb_);
 	return result_;
 }
 
@@ -25933,7 +26338,7 @@ static napi_value rn_w_Rxml_register_tag(napi_env env, napi_callback_info info) 
 		rn_cb_release(cb_);
 		cb_ = NULL;
 	}
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 111, a0.p, cb_);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 119, a0.p, cb_);
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a0.heap);
@@ -25950,7 +26355,7 @@ static napi_value rn_w_Rxml_unregister_tag(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	rn.Rxml_unregister_tag(a0.p);
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 111, a0.p, NULL);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 119, a0.p, NULL);
 done:
 	free(a0.heap);
 	return result_;
@@ -26795,7 +27200,7 @@ static napi_value rn_w_Rscript_set_log_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_log_callback(cb_ ? (RScriptLogCallback)rn_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 112, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 120, NULL, cb_);
 	return result_;
 }
 
@@ -26818,7 +27223,7 @@ static napi_value rn_w_Rscript_set_diagnostic_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_diagnostic_callback(cb_ ? (RScriptDiagnosticCallback)rn_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 113, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 121, NULL, cb_);
 	return result_;
 }
 
@@ -26981,7 +27386,7 @@ static napi_value rn_w_Rlocale_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rlocale_set_changed_callback(cb_ ? (RLocaleChangedCallback)rn_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 114, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 122, NULL, cb_);
 	return result_;
 }
 
@@ -27340,7 +27745,7 @@ static napi_value rn_w_Rwidget_set_accessible_action(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rwidget_set_accessible_action((Rid)a0, cb_ ? (RAccessiblePressCallback)rn_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 115, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 123, NULL, cb_);
 	return result_;
 }
 
@@ -27599,6 +28004,38 @@ static napi_value rn_w_Rhost_inject_close(napi_env env, napi_callback_info info)
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	rn.Rhost_inject_close((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rhost_permission_answer(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rhost_permission_answer((RPermission)a0, (RPermissionStatus)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rhost_service_complete(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	void* a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	rn.Rhost_service_complete((Ruint)a0, (RDeviceResult)a1, (const RPickedFile*)a2, a3);
 	return result_;
 }
 
@@ -28182,6 +28619,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rclipboard_set_text", NULL, rn_w_Rclipboard_set_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rclipboard_set_html", NULL, rn_w_Rclipboard_set_html, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rclipboard_get_text", NULL, rn_w_Rclipboard_get_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rclipboard_has_text", NULL, rn_w_Rclipboard_has_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rerror_get_last", NULL, rn_w_Rerror_get_last, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rerror_to_string", NULL, rn_w_Rerror_to_string, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rseverity_to_string", NULL, rn_w_Rseverity_to_string, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -28356,6 +28794,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtexture_get_density", NULL, rn_w_Rtexture_get_density, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_create_from_file", NULL, rn_w_Rtexture_create_from_file, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_create_from_file_async", NULL, rn_w_Rtexture_create_from_file_async, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtexture_create_from_url_async", NULL, rn_w_Rtexture_create_from_url_async, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_create_from_pixels", NULL, rn_w_Rtexture_create_from_pixels, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_update", NULL, rn_w_Rtexture_update, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rimage_decode", NULL, rn_w_Rimage_decode, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -29309,6 +29748,21 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rnotification_is_supported", NULL, rn_w_Rnotification_is_supported, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnotification_set_fallback", NULL, rn_w_Rnotification_set_fallback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnotification_set_clicked_callback", NULL, rn_w_Rnotification_set_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpermission_get_status", NULL, rn_w_Rpermission_get_status, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpermission_request", NULL, rn_w_Rpermission_request, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpermission_open_settings", NULL, rn_w_Rpermission_open_settings, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpermission_to_string", NULL, rn_w_Rpermission_to_string, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rpermission_status_to_string", NULL, rn_w_Rpermission_status_to_string, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rfile_open_async", NULL, rn_w_Rfile_open_async, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rfile_save_async", NULL, rn_w_Rfile_save_async, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rfile_export_async", NULL, rn_w_Rfile_export_async, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rfile_select_folder_async", NULL, rn_w_Rfile_select_folder_async, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcamera_is_available", NULL, rn_w_Rcamera_is_available, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcamera_take_photo", NULL, rn_w_Rcamera_take_photo, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rphoto_pick", NULL, rn_w_Rphoto_pick, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhaptic_is_supported", NULL, rn_w_Rhaptic_is_supported, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhaptic_play", NULL, rn_w_Rhaptic_play, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rshare_show", NULL, rn_w_Rshare_show, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_texture", NULL, rn_w_Rviewport_set_texture, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_stretch", NULL, rn_w_Rviewport_set_stretch, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_flip_y", NULL, rn_w_Rviewport_set_flip_y, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -29480,6 +29934,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rhost_inject_composition", NULL, rn_w_Rhost_inject_composition, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_focus", NULL, rn_w_Rhost_inject_focus, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_close", NULL, rn_w_Rhost_inject_close, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhost_permission_answer", NULL, rn_w_Rhost_permission_answer, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhost_service_complete", NULL, rn_w_Rhost_service_complete, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_set_deterministic", NULL, rn_w_Rtest_set_deterministic, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_is_deterministic", NULL, rn_w_Rtest_is_deterministic, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtest_get_platform_tag", NULL, rn_w_Rtest_get_platform_tag, NULL, NULL, NULL, napi_enumerable, NULL},

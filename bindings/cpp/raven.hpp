@@ -2343,6 +2343,16 @@ public:
 	/// Reads and decodes the file on a worker thread.
 	static Texture create_from_file_async(const char* path) { return Texture(Rtexture_create_from_file_async(path)); }
 
+	/// Downloads an http:// or https:// image and decodes it on a worker
+	/// thread, as an Image whose Source is a URL does. The handle is usable at
+	/// once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+	/// a texture that could not be downloaded is ready with a size of 0, and the
+	/// failure is reported as a warning). Desktops download with WinHTTP or
+	/// `curl`; iOS and Android through their platform. Android needs the INTERNET
+	/// permission in the manifest; iOS refuses http:// unless Info.plist allows
+	/// it (App Transport Security). Up to 32 MiB.
+	static Texture create_from_url_async(const char* url) { return Texture(Rtexture_create_from_url_async(url)); }
+
 	/// Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
 	static Texture create_from_pixels(const uint8_t* rgba, int width, int height) { return Texture(Rtexture_create_from_pixels(rgba, width, height)); }
 
@@ -2821,7 +2831,9 @@ inline int action_is_builtin(const char* name) { return Raction_is_builtin(name)
 
 /// Opens an address with the program the user has for it: a web
 /// page in the browser, a mailto: in the mail program, a file in its
-/// application. Returns at once.
+/// application. Returns at once. On iOS and Android the system opens it
+/// (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+/// and Raven must be initialized and this be called on the UI thread.
 /// Returns: R_FALSE when the OS could not be asked (nothing tells whether
 /// a program then really opened it).
 inline int open_url(const char* url) { return Ropen_url(url); }
@@ -2836,7 +2848,16 @@ inline void clipboard_set_text(const char* text) { Rclipboard_set_text(text); }
 inline void clipboard_set_html(const char* text, const char* html) { Rclipboard_set_html(text, html); }
 
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
+/// On iOS a read that does not follow a paste of the user (the Paste of a
+/// menu, a button, Command-V) shows the system's question "Allow Paste?",
+/// and on Android 12+ the system says that the application pasted: read it
+/// when the user pastes, not to look at it. Android lets only the
+/// application in front read it.
 inline const char* clipboard_get_text() { return Rclipboard_get_text(); }
+
+/// Returns: R_TRUE when the clipboard holds text, without reading it (no
+/// question of the system on iOS): to enable a Paste button.
+inline int clipboard_has_text() { return Rclipboard_has_text(); }
 
 /// Retrieves and clears the last recorded error.
 /// detail   Optional output: human-readable description.
@@ -4837,6 +4858,96 @@ inline void notification_set_clicked_callback(std::function<void()> callback) {
 	Rnotification_set_clicked_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 111, std::move(callback)));
 }
 
+/// What the user answered, without asking. Cheap: the platform
+/// remembers it. On iOS the status of notifications is known shortly after
+/// the start (R_PERMISSION_NOT_ASKED until then).
+inline RPermissionStatus permission_get_status(RPermission permission) { return Rpermission_get_status(permission); }
+
+/// Asks the user, with the question of the system, when the status
+/// is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+/// with the status. Several requests for the same permission share one
+/// question. `callback` may be NULL.
+inline void permission_request(RPermission permission, RPermissionCallback callback, void* user_data) { Rpermission_request(permission, callback, user_data); }
+inline void permission_request(RPermission permission, std::function<void(RPermission, RPermissionStatus)> callback) {
+	Rpermission_request(permission, [](RPermission permission, RPermissionStatus status, void* kept_) -> void { return (*static_cast<std::function<void(RPermission, RPermissionStatus)>*>(kept_))(permission, status); }, detail::keep(0, 112, std::move(callback)));
+}
+
+/// Opens the page of the application in the Settings of the system,
+/// where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+/// Returns: R_FALSE when the platform has no such page.
+inline int permission_open_settings() { return Rpermission_open_settings(); }
+
+/// Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+inline const char* permission_to_string(RPermission permission) { return Rpermission_to_string(permission); }
+
+inline const char* permission_status_to_string(RPermissionStatus status) { return Rpermission_status_to_string(status); }
+
+/// Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+inline void file_open_async(const RFileDialogDesc* desc, RDeviceCallback callback, void* user_data) { Rfile_open_async(desc, callback, user_data); }
+inline void file_open_async(const RFileDialogDesc* desc, std::function<void(RDeviceResult, const RPickedFile*, int)> callback) {
+	Rfile_open_async(desc, [](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 113, std::move(callback)));
+}
+
+/// Saves `size` bytes (copied: `data` may be freed at once) as a
+/// file where the user chooses, proposed under `desc->file_name`. The
+/// callback gives the file as saved: its name, and its path on desktops.
+inline void file_save_async(const RFileDialogDesc* desc, const void* data, size_t size, RDeviceCallback callback, void* user_data) { Rfile_save_async(desc, data, size, callback, user_data); }
+inline void file_save_async(const RFileDialogDesc* desc, const void* data, size_t size, std::function<void(RDeviceResult, const RPickedFile*, int)> callback) {
+	Rfile_save_async(desc, data, size, [](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 114, std::move(callback)));
+}
+
+/// Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+inline void file_export_async(const RFileDialogDesc* desc, const char* path, RDeviceCallback callback, void* user_data) { Rfile_export_async(desc, path, callback, user_data); }
+inline void file_export_async(const RFileDialogDesc* desc, const char* path, std::function<void(RDeviceResult, const RPickedFile*, int)> callback) {
+	Rfile_export_async(desc, path, [](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 115, std::move(callback)));
+}
+
+/// Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+inline void file_select_folder_async(const RFileDialogDesc* desc, RDeviceCallback callback, void* user_data) { Rfile_select_folder_async(desc, callback, user_data); }
+inline void file_select_folder_async(const RFileDialogDesc* desc, std::function<void(RDeviceResult, const RPickedFile*, int)> callback) {
+	Rfile_select_folder_async(desc, [](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 116, std::move(callback)));
+}
+
+/// Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+inline int camera_is_available() { return Rcamera_is_available(); }
+
+/// Shows the camera of the system to take one photo. It asks for
+/// R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+/// The photo is a JPEG file in the cache of the application, with its
+/// size in pixels, upright.
+inline void camera_take_photo(RDeviceCallback callback, void* user_data) { Rcamera_take_photo(callback, user_data); }
+inline void camera_take_photo(std::function<void(RDeviceResult, const RPickedFile*, int)> callback) {
+	Rcamera_take_photo([](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 117, std::move(callback)));
+}
+
+/// Shows the photo picker of the system (desktops: a file dialog for
+/// images). No permission is needed: the application only sees what the
+/// user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+/// when it is HEIC).
+/// max_count How many photos may be picked; 0: no limit.
+inline void photo_pick(int max_count, RDeviceCallback callback, void* user_data) { Rphoto_pick(max_count, callback, user_data); }
+inline void photo_pick(int max_count, std::function<void(RDeviceResult, const RPickedFile*, int)> callback) {
+	Rphoto_pick(max_count, [](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 118, std::move(callback)));
+}
+
+/// Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+inline int haptic_is_supported() { return Rhaptic_is_supported(); }
+
+/// A short vibration, as the controls of the system play when
+/// touched. Nothing happens where there are none, or when the user turned
+/// them off. Returns: R_TRUE when it was handed to the system.
+inline int haptic_play(RHaptic haptic) { return Rhaptic_play(haptic); }
+
+/// Shows the share sheet of the system with a text and / or a file,
+/// to send them to another application (mail, chat, Files...). The
+/// callback says R_DEVICE_DONE once something was chosen (Android: once the
+/// sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+/// closed. R_DEVICE_UNSUPPORTED on desktops.
+inline void share_show(const RShareDesc* desc, RDeviceCallback callback, void* user_data) { Rshare_show(desc, callback, user_data); }
+inline void share_show(const RShareDesc* desc, std::function<void(RDeviceResult, const RPickedFile*, int)> callback) {
+	Rshare_show(desc, [](RDeviceResult result, const RPickedFile* files, int count, void* kept_) -> void { return (*static_cast<std::function<void(RDeviceResult, const RPickedFile*, int)>*>(kept_))(result, files, count); }, detail::keep(0, 119, std::move(callback)));
+}
+
 /// Pushes a spring away from its target (units per second): it bounces back.
 inline void spring_kick(RSpring* spring, float velocity) { Rspring_kick(spring, velocity); }
 
@@ -4896,7 +5007,7 @@ inline int xml_get_live_reload() { return Rxml_get_live_reload(); }
 
 inline void xml_set_reload_callback(RXmlReloadCallback callback, void* user_data) { Rxml_set_reload_callback(callback, user_data); }
 inline void xml_set_reload_callback(std::function<void(const char*, int)> callback) {
-	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 112, std::move(callback)));
+	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 120, std::move(callback)));
 }
 
 /// Looks at the files now, without waiting for the next look
@@ -4925,7 +5036,7 @@ inline const char* xml_get_registered_widget_name(int index) { return Rxml_get_r
 /// Returns: R_FALSE when the name is the one of a widget of Raven, or when too many tags are registered (64).
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, RXmlTagAttributeCallback set_attribute, void* user_data) { return Rxml_register_tag(tag, create, set_attribute, user_data); }
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, std::function<int(Rid, const char*, const char*)> set_attribute) {
-	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 113, std::move(set_attribute)));
+	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 121, std::move(set_attribute)));
 }
 
 inline void xml_unregister_tag(const char* tag) { Rxml_unregister_tag(tag); }
@@ -5007,12 +5118,12 @@ inline void script_set_limits(Ruint max_instructions, int max_depth, size_t max_
 
 inline void script_set_log_callback(RScriptLogCallback callback, void* user_data) { Rscript_set_log_callback(callback, user_data); }
 inline void script_set_log_callback(std::function<void(const char*)> callback) {
-	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 114, std::move(callback)));
+	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 122, std::move(callback)));
 }
 
 inline void script_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data) { Rscript_set_diagnostic_callback(callback, user_data); }
 inline void script_set_diagnostic_callback(std::function<void(RSeverity, const char*, const char*, int, int, const char*)> callback) {
-	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 115, std::move(callback)));
+	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 123, std::move(callback)));
 }
 
 /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
@@ -5054,7 +5165,7 @@ inline int locale_is_rtl() { return Rlocale_is_rtl(); }
 /// Called after the language or the tables changed (the widgets are already updated).
 inline void locale_set_changed_callback(RLocaleChangedCallback callback, void* user_data) { Rlocale_set_changed_callback(callback, user_data); }
 inline void locale_set_changed_callback(std::function<void(const char*)> callback) {
-	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 116, std::move(callback)));
+	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 124, std::move(callback)));
 }
 
 /// The text of a key in the current language (see the fallbacks above). Never NULL.
@@ -5164,6 +5275,16 @@ inline void host_inject_focus(Rid window, int focused) { Rhost_inject_focus(wind
 
 /// The user asked to close the window (its close callback decides).
 inline void host_inject_close(Rid window) { Rhost_inject_close(window); }
+
+/// The user answered a permission_request (or the status changed
+/// by itself). The waiting Rpermission_request callbacks get it at the
+/// next frame. Any thread.
+inline void host_permission_answer(RPermission permission, RPermissionStatus status) { Rhost_permission_answer(permission, status); }
+
+/// The end of a service_request: the files it gave (copied; paths
+/// Raven can read; size 0 is read from the file), at the next frame. Once
+/// per request. Any thread.
+inline void host_service_complete(Ruint request, RDeviceResult result, const RPickedFile* files, int count) { Rhost_service_complete(request, result, files, count); }
 
 /// R_TRUE makes what is drawn depend only on what the test does:
 /// every frame advances the animations by 1/60 s (Rset_animation_time_step),

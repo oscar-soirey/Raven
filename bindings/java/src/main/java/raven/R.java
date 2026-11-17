@@ -1660,6 +1660,97 @@ public final class R {
     public static final int R_MESSAGE_RESULT_YES = 2;
     public static final int R_MESSAGE_RESULT_NO = 3;
 
+    // RPermission: What the application may be allowed to use (Rpermission_request).
+    public static final int R_PERMISSION_CAMERA = 0x0C00;
+    /**
+     * Notifications of the system (Rnotification_show).
+     */
+    public static final int R_PERMISSION_NOTIFICATIONS = 0x0C01;
+    /**
+     * Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+     */
+    public static final int R_PERMISSION_PHOTOS = 0x0C02;
+    public static final int R_PERMISSION_MICROPHONE = 0x0C03;
+    /**
+     * The location of the device while the application is in use.
+     */
+    public static final int R_PERMISSION_LOCATION = 0x0C04;
+
+    // RPermissionStatus: What the user answered, or would be asked (Rpermission_get_status).
+    /**
+     * There is nothing to ask for here: the platform has no such permission,
+     * or Raven cannot ask for it on this platform. Whether the service itself
+     * exists is told by its own function (Rcamera_is_available,
+     * Rnotification_is_supported).
+     */
+    public static final int R_PERMISSION_UNSUPPORTED = 0x0C10;
+    /**
+     * Not asked yet: Rpermission_request shows the question of the system.
+     */
+    public static final int R_PERMISSION_NOT_ASKED = 0x0C11;
+    /**
+     * Allowed (also where the system asks nothing: notifications on Windows and Linux).
+     */
+    public static final int R_PERMISSION_GRANTED = 0x0C12;
+    /**
+     * Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+     */
+    public static final int R_PERMISSION_LIMITED = 0x0C13;
+    /**
+     * Refused, and the system may ask again (Android, after a first refusal).
+     */
+    public static final int R_PERMISSION_DENIED = 0x0C14;
+    /**
+     * Refused for good, or not the user's to give (parental controls, a
+     * profile of the company): the system shows no question any more, only
+     * its Settings can change it (Rpermission_open_settings).
+     */
+    public static final int R_PERMISSION_BLOCKED = 0x0C15;
+
+    // RDeviceResult: How a request of a picker, the camera or a share sheet ended.
+    /**
+     * Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+     */
+    public static final int R_DEVICE_DONE = 0x0C20;
+    /**
+     * The user closed the screen of the system without choosing.
+     */
+    public static final int R_DEVICE_CANCELLED = 0x0C21;
+    /**
+     * A permission it needs was refused (Rcamera_take_photo: the camera).
+     */
+    public static final int R_DEVICE_DENIED = 0x0C22;
+    /**
+     * The platform does not have this service.
+     */
+    public static final int R_DEVICE_UNSUPPORTED = 0x0C23;
+    /**
+     * Another screen of the system is still open: one at a time.
+     */
+    public static final int R_DEVICE_BUSY = 0x0C24;
+    /**
+     * The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+     */
+    public static final int R_DEVICE_FAILED = 0x0C25;
+
+    // RHaptic: A short vibration that answers a touch (Rhaptic_play).
+    /**
+     * Impacts: something touched, snapped, landed.
+     */
+    public static final int R_HAPTIC_LIGHT = 0x0C30;
+    public static final int R_HAPTIC_MEDIUM = 0x0C31;
+    public static final int R_HAPTIC_HEAVY = 0x0C32;
+    /**
+     * The selection moved (a picker wheel, a switch, a segmented control).
+     */
+    public static final int R_HAPTIC_SELECTION = 0x0C33;
+    /**
+     * The outcome of an action.
+     */
+    public static final int R_HAPTIC_SUCCESS = 0x0C34;
+    public static final int R_HAPTIC_WARNING = 0x0C35;
+    public static final int R_HAPTIC_ERROR = 0x0C36;
+
     // RMotion: How a spring moves. Animations in Raven are springs, as on iOS: a value is
     /**
      * Fast, no bounce: hover, highlights.
@@ -1816,6 +1907,32 @@ public final class R {
     public static final int R_ROLE_SEPARATOR = 0x0781;
     public static final int R_ROLE_SCROLL_BAR = 0x0782;
     public static final int R_ROLE_PANE = 0x0783;
+
+    // RHostService: What a request of a service of the device asks the application for (RHostServiceRequest).
+    /**
+     * Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+     */
+    public static final int R_HOST_SERVICE_OPEN_FILES = 0x0C40;
+    /**
+     * Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+     */
+    public static final int R_HOST_SERVICE_SAVE_FILE = 0x0C41;
+    /**
+     * A folder (Rfile_select_folder_async).
+     */
+    public static final int R_HOST_SERVICE_SELECT_FOLDER = 0x0C42;
+    /**
+     * A photo from the camera (Rcamera_take_photo); camera permission already asked.
+     */
+    public static final int R_HOST_SERVICE_TAKE_PHOTO = 0x0C43;
+    /**
+     * Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+     */
+    public static final int R_HOST_SERVICE_PICK_PHOTOS = 0x0C44;
+    /**
+     * The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+     */
+    public static final int R_HOST_SERVICE_SHARE = 0x0C45;
 
     // RGoldenStatus
     /**
@@ -3627,6 +3744,161 @@ public final class R {
     }
 
     /**
+     * A file given by a service of the device. Valid during the callback only: copy what you keep.
+     */
+    public static final class RPickedFile {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 40;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RPickedFile x = {0};` is in C). */
+        public RPickedFile() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RPickedFile(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RPickedFile(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RPickedFile[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RPickedFile[] items = new RPickedFile[count];
+            for (int i = 0; i < count; i++) items[i] = new RPickedFile(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * A path Raven and the C library can read (Rfile_read, textures, fonts,
+         * fopen). On iOS and Android a copy in the cache of the application.
+         * NULL for Rfile_save_async on iOS and Android: the file went where the
+         * user chose, which the application cannot write to again.
+         */
+        public String path() { return R.text(s.get(ADDRESS, 0)); }
+        public RPickedFile path(String value) { s.set(ADDRESS, 0, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * The name the user saw ("IMG_0042.JPG"), to show.
+         */
+        public String name() { return R.text(s.get(ADDRESS, 8)); }
+        public RPickedFile name(String value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * The MIME type when the system tells ("image/jpeg"), or NULL.
+         */
+        public String mime_type() { return R.text(s.get(ADDRESS, 16)); }
+        public RPickedFile mime_type(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Bytes.
+         */
+        public long size() { return s.get(JAVA_LONG, 24); }
+        public RPickedFile size(long value) { s.set(JAVA_LONG, 24, value); return this; }
+
+        /**
+         * Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+         */
+        public int width() { return s.get(JAVA_INT, 32); }
+        public RPickedFile width(int value) { s.set(JAVA_INT, 32, value); return this; }
+
+        /**
+         * Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+         */
+        public int height() { return s.get(JAVA_INT, 36); }
+        public RPickedFile height(int value) { s.set(JAVA_INT, 36, value); return this; }
+    }
+
+    /**
+     * What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them.
+     */
+    public static final class RShareDesc {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 40;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RShareDesc x = {0};` is in C). */
+        public RShareDesc() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RShareDesc(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RShareDesc(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RShareDesc[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RShareDesc[] items = new RShareDesc[count];
+            for (int i = 0; i < count; i++) items[i] = new RShareDesc(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * Text, or a link ("https://..."). May be NULL.
+         */
+        public String text() { return R.text(s.get(ADDRESS, 0)); }
+        public RShareDesc text(String value) { s.set(ADDRESS, 0, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * A file to send (a path Raven can read), or NULL.
+         */
+        public String path() { return R.text(s.get(ADDRESS, 8)); }
+        public RShareDesc path(String value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Its MIME type ("image/png"); NULL: guessed from its extension.
+         */
+        public String mime_type() { return R.text(s.get(ADDRESS, 16)); }
+        public RShareDesc mime_type(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * The title of the sheet, where the system shows one (Android's chooser). May be NULL.
+         */
+        public String title() { return R.text(s.get(ADDRESS, 24)); }
+        public RShareDesc title(String value) { s.set(ADDRESS, 24, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window.
+         */
+        public int anchor() { return s.get(JAVA_INT, 32); }
+        public RShareDesc anchor(int value) { s.set(JAVA_INT, 32, value); return this; }
+    }
+
+    /**
      * Passed to the draw callback of a viewport. Sizes are in pixels.
      */
     public static final class RViewportDrawInfo {
@@ -4100,9 +4372,133 @@ public final class R {
         public RAccessibilitySettings screen_reader(int value) { s.set(JAVA_INT, 12, value); return this; }
     }
 
+    /**
+     * A request of a service of the device, valid during the call only. Fields that do not concern the service are zero.
+     */
+    public static final class RHostServiceRequest {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 128;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RHostServiceRequest x = {0};` is in C). */
+        public RHostServiceRequest() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RHostServiceRequest(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RHostServiceRequest(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RHostServiceRequest[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RHostServiceRequest[] items = new RHostServiceRequest[count];
+            for (int i = 0; i < count; i++) items[i] = new RHostServiceRequest(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * Given back to Rhost_service_complete.
+         */
+        public int id() { return s.get(JAVA_INT, 0); }
+        public RHostServiceRequest id(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        public int service() { return s.get(JAVA_INT, 4); }
+        public RHostServiceRequest service(int value) { s.set(JAVA_INT, 4, value); return this; }
+
+        /**
+         * The window it is for (R_INVALID_ID: none).
+         */
+        public int window() { return s.get(JAVA_INT, 8); }
+        public RHostServiceRequest window(int value) { s.set(JAVA_INT, 8, value); return this; }
+
+        /**
+         * What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+         */
+        public float anchor_x() { return s.get(JAVA_FLOAT, 12); }
+        public RHostServiceRequest anchor_x(float value) { s.set(JAVA_FLOAT, 12, value); return this; }
+
+        /**
+         * What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+         */
+        public float anchor_y() { return s.get(JAVA_FLOAT, 16); }
+        public RHostServiceRequest anchor_y(float value) { s.set(JAVA_FLOAT, 16, value); return this; }
+
+        /**
+         * What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+         */
+        public float anchor_width() { return s.get(JAVA_FLOAT, 20); }
+        public RHostServiceRequest anchor_width(float value) { s.set(JAVA_FLOAT, 20, value); return this; }
+
+        /**
+         * What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+         */
+        public float anchor_height() { return s.get(JAVA_FLOAT, 24); }
+        public RHostServiceRequest anchor_height(float value) { s.set(JAVA_FLOAT, 24, value); return this; }
+
+        public String title() { return R.text(s.get(ADDRESS, 32)); }
+        public RHostServiceRequest title(String value) { s.set(ADDRESS, 32, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public MemorySegment filters() { return s.get(ADDRESS, 40); }
+        public RHostServiceRequest filters(MemorySegment value) { s.set(ADDRESS, 40, value == null ? MemorySegment.NULL : value); return this; }
+
+        public int filter_count() { return s.get(JAVA_INT, 48); }
+        public RHostServiceRequest filter_count(int value) { s.set(JAVA_INT, 48, value); return this; }
+
+        /**
+         * Bitmask of RFileDialogFlags.
+         */
+        public int flags() { return s.get(JAVA_INT, 52); }
+        public RHostServiceRequest flags(int value) { s.set(JAVA_INT, 52, value); return this; }
+
+        public String file_name() { return R.text(s.get(ADDRESS, 56)); }
+        public RHostServiceRequest file_name(String value) { s.set(ADDRESS, 56, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public String default_extension() { return R.text(s.get(ADDRESS, 64)); }
+        public RHostServiceRequest default_extension(String value) { s.set(ADDRESS, 64, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public MemorySegment data() { return s.get(ADDRESS, 72); }
+        public RHostServiceRequest data(MemorySegment value) { s.set(ADDRESS, 72, value == null ? MemorySegment.NULL : value); return this; }
+
+        public long size() { return s.get(JAVA_LONG, 80); }
+        public RHostServiceRequest size(long value) { s.set(JAVA_LONG, 80, value); return this; }
+
+        public String path() { return R.text(s.get(ADDRESS, 88)); }
+        public RHostServiceRequest path(String value) { s.set(ADDRESS, 88, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public int max_count() { return s.get(JAVA_INT, 96); }
+        public RHostServiceRequest max_count(int value) { s.set(JAVA_INT, 96, value); return this; }
+
+        public String text() { return R.text(s.get(ADDRESS, 104)); }
+        public RHostServiceRequest text(String value) { s.set(ADDRESS, 104, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public String mime_type() { return R.text(s.get(ADDRESS, 112)); }
+        public RHostServiceRequest mime_type(String value) { s.set(ADDRESS, 112, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public String share_title() { return R.text(s.get(ADDRESS, 120)); }
+        public RHostServiceRequest share_title(String value) { s.set(ADDRESS, 120, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+    }
+
     public static final class RHostPlatformDesc {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 40;
+        public static final long SIZE = 96;
         private final MemorySegment s;
         private Arena arena;
 
@@ -4165,6 +4561,50 @@ public final class R {
 
         public MemorySegment user_data() { return s.get(ADDRESS, 32); }
         public RHostPlatformDesc user_data(MemorySegment value) { s.set(ADDRESS, 32, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported).
+         */
+        public MemorySegment permission_status() { return s.get(ADDRESS, 40); }
+        public RHostPlatformDesc permission_status(MemorySegment value) { s.set(ADDRESS, 40, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * Ask the user (the status is not asked or denied); answer with Rhost_permission_answer.
+         */
+        public MemorySegment permission_request() { return s.get(ADDRESS, 48); }
+        public RHostPlatformDesc permission_request(MemorySegment value) { s.set(ADDRESS, 48, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else.
+         */
+        public MemorySegment service_request() { return s.get(ADDRESS, 56); }
+        public RHostPlatformDesc service_request(MemorySegment value) { s.set(ADDRESS, 56, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO.
+         */
+        public int has_camera() { return s.get(JAVA_INT, 64); }
+        public RHostPlatformDesc has_camera(int value) { s.set(JAVA_INT, 64, value); return this; }
+
+        /**
+         * Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...).
+         */
+        public MemorySegment open_url() { return s.get(ADDRESS, 72); }
+        public RHostPlatformDesc open_url(MemorySegment value) { s.set(ADDRESS, 72, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * Rhaptic_play: an RHaptic. Returns R_TRUE when played.
+         */
+        public MemorySegment haptic() { return s.get(ADDRESS, 80); }
+        public RHostPlatformDesc haptic(MemorySegment value) { s.set(ADDRESS, 80, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * Downloads an http(s) URL (images from a URL): returns its content in a
+         * buffer from Rmemory_alloc and its size, or NULL. Called on worker
+         * threads, several at a time, and may block. NULL: as on desktops.
+         */
+        public MemorySegment download() { return s.get(ADDRESS, 88); }
+        public RHostPlatformDesc download(MemorySegment value) { s.set(ADDRESS, 88, value == null ? MemorySegment.NULL : value); return this; }
     }
 
     /**
@@ -6140,6 +6580,50 @@ public final class R {
     }
 
     /**
+     * The answer to Rpermission_request.
+     */
+    @FunctionalInterface
+    public interface RPermissionCallback {
+        void invoke(int permission, int status, MemorySegment user_data);
+    }
+
+    private static void RPermissionCallback$raw(RPermissionCallback f, int permission, int status, MemorySegment user_data) {
+        try {
+            f.invoke(permission, status, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RPermissionCallback f) {
+        return stub(f, RPermissionCallback.class, "RPermissionCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * The end of a request of a picker, the camera, a save or a share
+     * sheet. `files` (count of them) are what it gave: none unless `result` is
+     * R_DEVICE_DONE. Called on the UI thread, once.
+     */
+    @FunctionalInterface
+    public interface RDeviceCallback {
+        void invoke(int result, RPickedFile files, int count, MemorySegment user_data);
+    }
+
+    private static void RDeviceCallback$raw(RDeviceCallback f, int result, MemorySegment files, int count, MemorySegment user_data) {
+        try {
+            f.invoke(result, files.equals(MemorySegment.NULL) ? null : new RPickedFile(files), count, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RDeviceCallback f) {
+        return stub(f, RDeviceCallback.class, "RDeviceCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, ADDRESS));
+    }
+
+    /**
      * Called on the render thread each time the window is rendered.
      * State you bind (pipeline, descriptor sets, viewport, scissor) does not
      * need to be restored. NULL removes the callback.
@@ -7405,7 +7889,9 @@ public final class R {
     /**
      * Opens an address with the program the user has for it: a web
      * page in the browser, a mailto: in the mail program, a file in its
-     * application. Returns at once.
+     * application. Returns at once. On iOS and Android the system opens it
+     * (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+     * and Raven must be initialized and this be called on the UI thread.
      * Returns: R_FALSE when the OS could not be asked (nothing tells whether
      * a program then really opened it).
      */
@@ -7459,6 +7945,11 @@ public final class R {
 
     /**
      * Returns: The clipboard text, or "" when empty. Valid until the next call.
+     * On iOS a read that does not follow a paste of the user (the Paste of a
+     * menu, a button, Command-V) shows the system's question "Allow Paste?",
+     * and on Android 12+ the system says that the application pasted: read it
+     * when the user pastes, not to look at it. Android lets only the
+     * application in front read it.
      */
     public static String Rclipboard_get_text() {
         MethodHandle $h = Rclipboard_get_text$;
@@ -7466,6 +7957,23 @@ public final class R {
         try {
             MemorySegment $r = (MemorySegment) $h.invokeExact();
             return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rclipboard_has_text$;
+
+    /**
+     * Returns: R_TRUE when the clipboard holds text, without reading it (no
+     * question of the system on iOS): to enable a Paste button.
+     */
+    public static int Rclipboard_has_text() {
+        MethodHandle $h = Rclipboard_has_text$;
+        if ($h == null) Rclipboard_has_text$ = $h = find("Rclipboard_has_text", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -10322,6 +10830,30 @@ public final class R {
         try (Arena $a = Arena.ofConfined()) {
             MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
             int $r = (int) $h.invokeExact(path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtexture_create_from_url_async$;
+
+    /**
+     * Downloads an http:// or https:// image and decodes it on a worker
+     * thread, as an Image whose Source is a URL does. The handle is usable at
+     * once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+     * a texture that could not be downloaded is ready with a size of 0, and the
+     * failure is reported as a warning). Desktops download with WinHTTP or
+     * `curl`; iOS and Android through their platform. Android needs the INTERNET
+     * permission in the manifest; iOS refuses http:// unless Info.plist allows
+     * it (App Transport Security). Up to 32 MiB.
+     */
+    public static int Rtexture_create_from_url_async(String url) {
+        MethodHandle $h = Rtexture_create_from_url_async$;
+        if ($h == null) Rtexture_create_from_url_async$ = $h = find("Rtexture_create_from_url_async", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment url$ = url == null ? MemorySegment.NULL : utf8($a, url);
+            int $r = (int) $h.invokeExact(url$);
             return $r;
         } catch (Throwable $t) {
             throw fail($t);
@@ -25048,6 +25580,331 @@ public final class R {
         Rnotification_set_clicked_callback(callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rpermission_get_status$;
+
+    /**
+     * What the user answered, without asking. Cheap: the platform
+     * remembers it. On iOS the status of notifications is known shortly after
+     * the start (R_PERMISSION_NOT_ASKED until then).
+     */
+    public static int Rpermission_get_status(int permission) {
+        MethodHandle $h = Rpermission_get_status$;
+        if ($h == null) Rpermission_get_status$ = $h = find("Rpermission_get_status", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(permission);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpermission_request$;
+
+    /**
+     * Asks the user, with the question of the system, when the status
+     * is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+     * with the status. Several requests for the same permission share one
+     * question. `callback` may be NULL.
+     */
+    public static void Rpermission_request(int permission, RPermissionCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rpermission_request$;
+        if ($h == null) Rpermission_request$ = $h = find("Rpermission_request", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(permission, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Asks the user, with the question of the system, when the status
+     * is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+     * with the status. Several requests for the same permission share one
+     * question. `callback` may be NULL.
+     */
+    public static void Rpermission_request(int permission, RPermissionCallback callback) {
+        Rpermission_request(permission, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rpermission_open_settings$;
+
+    /**
+     * Opens the page of the application in the Settings of the system,
+     * where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+     * Returns: R_FALSE when the platform has no such page.
+     */
+    public static int Rpermission_open_settings() {
+        MethodHandle $h = Rpermission_open_settings$;
+        if ($h == null) Rpermission_open_settings$ = $h = find("Rpermission_open_settings", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpermission_to_string$;
+
+    /**
+     * Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+     */
+    public static String Rpermission_to_string(int permission) {
+        MethodHandle $h = Rpermission_to_string$;
+        if ($h == null) Rpermission_to_string$ = $h = find("Rpermission_to_string", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(permission);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rpermission_status_to_string$;
+
+    public static String Rpermission_status_to_string(int status) {
+        MethodHandle $h = Rpermission_status_to_string$;
+        if ($h == null) Rpermission_status_to_string$ = $h = find("Rpermission_status_to_string", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(status);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rfile_open_async$;
+
+    /**
+     * Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+     */
+    public static void Rfile_open_async(RFileDialogDesc desc, RDeviceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rfile_open_async$;
+        if ($h == null) Rfile_open_async$ = $h = find("Rfile_open_async", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()), upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+     */
+    public static void Rfile_open_async(RFileDialogDesc desc, RDeviceCallback callback) {
+        Rfile_open_async(desc, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rfile_save_async$;
+
+    /**
+     * Saves `size` bytes (copied: `data` may be freed at once) as a
+     * file where the user chooses, proposed under `desc-&gt;file_name`. The
+     * callback gives the file as saved: its name, and its path on desktops.
+     */
+    public static void Rfile_save_async(RFileDialogDesc desc, byte[] data, RDeviceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rfile_save_async$;
+        if ($h == null) Rfile_save_async$ = $h = find("Rfile_save_async", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment data$ = data == null ? MemorySegment.NULL : bytes($a, data);
+            $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()), data$, data$.byteSize(), upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Saves `size` bytes (copied: `data` may be freed at once) as a
+     * file where the user chooses, proposed under `desc-&gt;file_name`. The
+     * callback gives the file as saved: its name, and its path on desktops.
+     */
+    public static void Rfile_save_async(RFileDialogDesc desc, byte[] data, RDeviceCallback callback) {
+        Rfile_save_async(desc, data, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rfile_export_async$;
+
+    /**
+     * Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+     */
+    public static void Rfile_export_async(RFileDialogDesc desc, String path, RDeviceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rfile_export_async$;
+        if ($h == null) Rfile_export_async$ = $h = find("Rfile_export_async", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()), path$, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+     */
+    public static void Rfile_export_async(RFileDialogDesc desc, String path, RDeviceCallback callback) {
+        Rfile_export_async(desc, path, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rfile_select_folder_async$;
+
+    /**
+     * Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+     */
+    public static void Rfile_select_folder_async(RFileDialogDesc desc, RDeviceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rfile_select_folder_async$;
+        if ($h == null) Rfile_select_folder_async$ = $h = find("Rfile_select_folder_async", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()), upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+     */
+    public static void Rfile_select_folder_async(RFileDialogDesc desc, RDeviceCallback callback) {
+        Rfile_select_folder_async(desc, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rcamera_is_available$;
+
+    /**
+     * Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+     */
+    public static int Rcamera_is_available() {
+        MethodHandle $h = Rcamera_is_available$;
+        if ($h == null) Rcamera_is_available$ = $h = find("Rcamera_is_available", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rcamera_take_photo$;
+
+    /**
+     * Shows the camera of the system to take one photo. It asks for
+     * R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+     * The photo is a JPEG file in the cache of the application, with its
+     * size in pixels, upright.
+     */
+    public static void Rcamera_take_photo(RDeviceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rcamera_take_photo$;
+        if ($h == null) Rcamera_take_photo$ = $h = find("Rcamera_take_photo", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Shows the camera of the system to take one photo. It asks for
+     * R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+     * The photo is a JPEG file in the cache of the application, with its
+     * size in pixels, upright.
+     */
+    public static void Rcamera_take_photo(RDeviceCallback callback) {
+        Rcamera_take_photo(callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rphoto_pick$;
+
+    /**
+     * Shows the photo picker of the system (desktops: a file dialog for
+     * images). No permission is needed: the application only sees what the
+     * user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+     * when it is HEIC).
+     * max_count How many photos may be picked; 0: no limit.
+     */
+    public static void Rphoto_pick(int max_count, RDeviceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rphoto_pick$;
+        if ($h == null) Rphoto_pick$ = $h = find("Rphoto_pick", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(max_count, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Shows the photo picker of the system (desktops: a file dialog for
+     * images). No permission is needed: the application only sees what the
+     * user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+     * when it is HEIC).
+     * max_count How many photos may be picked; 0: no limit.
+     */
+    public static void Rphoto_pick(int max_count, RDeviceCallback callback) {
+        Rphoto_pick(max_count, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rhaptic_is_supported$;
+
+    /**
+     * Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+     */
+    public static int Rhaptic_is_supported() {
+        MethodHandle $h = Rhaptic_is_supported$;
+        if ($h == null) Rhaptic_is_supported$ = $h = find("Rhaptic_is_supported", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rhaptic_play$;
+
+    /**
+     * A short vibration, as the controls of the system play when
+     * touched. Nothing happens where there are none, or when the user turned
+     * them off. Returns: R_TRUE when it was handed to the system.
+     */
+    public static int Rhaptic_play(int haptic) {
+        MethodHandle $h = Rhaptic_play$;
+        if ($h == null) Rhaptic_play$ = $h = find("Rhaptic_play", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(haptic);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rshare_show$;
+
+    /**
+     * Shows the share sheet of the system with a text and / or a file,
+     * to send them to another application (mail, chat, Files...). The
+     * callback says R_DEVICE_DONE once something was chosen (Android: once the
+     * sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+     * closed. R_DEVICE_UNSUPPORTED on desktops.
+     */
+    public static void Rshare_show(RShareDesc desc, RDeviceCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rshare_show$;
+        if ($h == null) Rshare_show$ = $h = find("Rshare_show", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()), upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    /**
+     * Shows the share sheet of the system with a text and / or a file,
+     * to send them to another application (mail, chat, Files...). The
+     * callback says R_DEVICE_DONE once something was chosen (Android: once the
+     * sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+     * closed. R_DEVICE_UNSUPPORTED on desktops.
+     */
+    public static void Rshare_show(RShareDesc desc, RDeviceCallback callback) {
+        Rshare_show(desc, callback, (MemorySegment) null);
+    }
+
     private static MethodHandle Rviewport_set_texture$;
 
     /**
@@ -27779,6 +28636,40 @@ public final class R {
         if ($h == null) Rhost_inject_close$ = $h = find("Rhost_inject_close", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rhost_permission_answer$;
+
+    /**
+     * The user answered a permission_request (or the status changed
+     * by itself). The waiting Rpermission_request callbacks get it at the
+     * next frame. Any thread.
+     */
+    public static void Rhost_permission_answer(int permission, int status) {
+        MethodHandle $h = Rhost_permission_answer$;
+        if ($h == null) Rhost_permission_answer$ = $h = find("Rhost_permission_answer", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(permission, status);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rhost_service_complete$;
+
+    /**
+     * The end of a service_request: the files it gave (copied; paths
+     * Raven can read; size 0 is read from the file), at the next frame. Once
+     * per request. Any thread.
+     */
+    public static void Rhost_service_complete(int request, int result, RPickedFile files, int count) {
+        MethodHandle $h = Rhost_service_complete$;
+        if ($h == null) Rhost_service_complete$ = $h = find("Rhost_service_complete", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS, JAVA_INT));
+        try {
+            $h.invokeExact(request, result, (MemorySegment) (files == null ? MemorySegment.NULL : files.segment()), count);
         } catch (Throwable $t) {
             throw fail($t);
         }

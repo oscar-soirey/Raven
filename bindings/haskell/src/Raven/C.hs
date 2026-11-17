@@ -1860,6 +1860,97 @@ pattern R_MESSAGE_RESULT_YES = RMessageResult 2
 pattern R_MESSAGE_RESULT_NO :: RMessageResult
 pattern R_MESSAGE_RESULT_NO = RMessageResult 3
 
+-- | What the application may be allowed to use (Rpermission_request).
+newtype RPermission = RPermission CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+pattern R_PERMISSION_CAMERA :: RPermission
+pattern R_PERMISSION_CAMERA = RPermission 3072
+-- | Notifications of the system (Rnotification_show).
+pattern R_PERMISSION_NOTIFICATIONS :: RPermission
+pattern R_PERMISSION_NOTIFICATIONS = RPermission 3073
+-- | Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+pattern R_PERMISSION_PHOTOS :: RPermission
+pattern R_PERMISSION_PHOTOS = RPermission 3074
+pattern R_PERMISSION_MICROPHONE :: RPermission
+pattern R_PERMISSION_MICROPHONE = RPermission 3075
+-- | The location of the device while the application is in use.
+pattern R_PERMISSION_LOCATION :: RPermission
+pattern R_PERMISSION_LOCATION = RPermission 3076
+
+-- | What the user answered, or would be asked (Rpermission_get_status).
+newtype RPermissionStatus = RPermissionStatus CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | There is nothing to ask for here: the platform has no such permission,
+-- or Raven cannot ask for it on this platform. Whether the service itself
+-- exists is told by its own function (Rcamera_is_available,
+-- Rnotification_is_supported).
+pattern R_PERMISSION_UNSUPPORTED :: RPermissionStatus
+pattern R_PERMISSION_UNSUPPORTED = RPermissionStatus 3088
+-- | Not asked yet: Rpermission_request shows the question of the system.
+pattern R_PERMISSION_NOT_ASKED :: RPermissionStatus
+pattern R_PERMISSION_NOT_ASKED = RPermissionStatus 3089
+-- | Allowed (also where the system asks nothing: notifications on Windows and Linux).
+pattern R_PERMISSION_GRANTED :: RPermissionStatus
+pattern R_PERMISSION_GRANTED = RPermissionStatus 3090
+-- | Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+pattern R_PERMISSION_LIMITED :: RPermissionStatus
+pattern R_PERMISSION_LIMITED = RPermissionStatus 3091
+-- | Refused, and the system may ask again (Android, after a first refusal).
+pattern R_PERMISSION_DENIED :: RPermissionStatus
+pattern R_PERMISSION_DENIED = RPermissionStatus 3092
+-- | Refused for good, or not the user's to give (parental controls, a
+-- profile of the company): the system shows no question any more, only
+-- its Settings can change it (Rpermission_open_settings).
+pattern R_PERMISSION_BLOCKED :: RPermissionStatus
+pattern R_PERMISSION_BLOCKED = RPermissionStatus 3093
+
+-- | How a request of a picker, the camera or a share sheet ended.
+newtype RDeviceResult = RDeviceResult CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+pattern R_DEVICE_DONE :: RDeviceResult
+pattern R_DEVICE_DONE = RDeviceResult 3104
+-- | The user closed the screen of the system without choosing.
+pattern R_DEVICE_CANCELLED :: RDeviceResult
+pattern R_DEVICE_CANCELLED = RDeviceResult 3105
+-- | A permission it needs was refused (Rcamera_take_photo: the camera).
+pattern R_DEVICE_DENIED :: RDeviceResult
+pattern R_DEVICE_DENIED = RDeviceResult 3106
+-- | The platform does not have this service.
+pattern R_DEVICE_UNSUPPORTED :: RDeviceResult
+pattern R_DEVICE_UNSUPPORTED = RDeviceResult 3107
+-- | Another screen of the system is still open: one at a time.
+pattern R_DEVICE_BUSY :: RDeviceResult
+pattern R_DEVICE_BUSY = RDeviceResult 3108
+-- | The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+pattern R_DEVICE_FAILED :: RDeviceResult
+pattern R_DEVICE_FAILED = RDeviceResult 3109
+
+-- | A short vibration that answers a touch (Rhaptic_play).
+newtype RHaptic = RHaptic CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Impacts: something touched, snapped, landed.
+pattern R_HAPTIC_LIGHT :: RHaptic
+pattern R_HAPTIC_LIGHT = RHaptic 3120
+pattern R_HAPTIC_MEDIUM :: RHaptic
+pattern R_HAPTIC_MEDIUM = RHaptic 3121
+pattern R_HAPTIC_HEAVY :: RHaptic
+pattern R_HAPTIC_HEAVY = RHaptic 3122
+-- | The selection moved (a picker wheel, a switch, a segmented control).
+pattern R_HAPTIC_SELECTION :: RHaptic
+pattern R_HAPTIC_SELECTION = RHaptic 3123
+-- | The outcome of an action.
+pattern R_HAPTIC_SUCCESS :: RHaptic
+pattern R_HAPTIC_SUCCESS = RHaptic 3124
+pattern R_HAPTIC_WARNING :: RHaptic
+pattern R_HAPTIC_WARNING = RHaptic 3125
+pattern R_HAPTIC_ERROR :: RHaptic
+pattern R_HAPTIC_ERROR = RHaptic 3126
+
 -- | How a spring moves. Animations in Raven are springs, as on iOS: a value is
 -- pulled toward its target and may run past it before settling, which is what
 -- makes a control feel alive rather than mechanical.
@@ -2054,6 +2145,51 @@ pattern R_ROLE_SCROLL_BAR :: RAccessibleRole
 pattern R_ROLE_SCROLL_BAR = RAccessibleRole 1922
 pattern R_ROLE_PANE :: RAccessibleRole
 pattern R_ROLE_PANE = RAccessibleRole 1923
+
+-- | What a request of a service of the device asks the application for (RHostServiceRequest).
+newtype RHostService = RHostService CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+pattern R_HOST_SERVICE_OPEN_FILES :: RHostService
+pattern R_HOST_SERVICE_OPEN_FILES = RHostService 3136
+-- | Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+pattern R_HOST_SERVICE_SAVE_FILE :: RHostService
+pattern R_HOST_SERVICE_SAVE_FILE = RHostService 3137
+-- | A folder (Rfile_select_folder_async).
+pattern R_HOST_SERVICE_SELECT_FOLDER :: RHostService
+pattern R_HOST_SERVICE_SELECT_FOLDER = RHostService 3138
+-- | A photo from the camera (Rcamera_take_photo); camera permission already asked.
+pattern R_HOST_SERVICE_TAKE_PHOTO :: RHostService
+pattern R_HOST_SERVICE_TAKE_PHOTO = RHostService 3139
+-- | Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+pattern R_HOST_SERVICE_PICK_PHOTOS :: RHostService
+pattern R_HOST_SERVICE_PICK_PHOTOS = RHostService 3140
+-- | The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+pattern R_HOST_SERVICE_SHARE :: RHostService
+pattern R_HOST_SERVICE_SHARE = RHostService 3141
+
+newtype RGoldenStatus = RGoldenStatus CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The capture matches the golden.
+pattern R_GOLDEN_MATCH :: RGoldenStatus
+pattern R_GOLDEN_MATCH = RGoldenStatus 2976
+-- | RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+pattern R_GOLDEN_UPDATED :: RGoldenStatus
+pattern R_GOLDEN_UPDATED = RGoldenStatus 2977
+-- | Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+pattern R_GOLDEN_MISMATCH :: RGoldenStatus
+pattern R_GOLDEN_MISMATCH = RGoldenStatus 2978
+-- | The capture and the golden do not have the same size: NAME.actual.png was written.
+pattern R_GOLDEN_SIZE_MISMATCH :: RGoldenStatus
+pattern R_GOLDEN_SIZE_MISMATCH = RGoldenStatus 2979
+-- | There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+pattern R_GOLDEN_MISSING :: RGoldenStatus
+pattern R_GOLDEN_MISSING = RGoldenStatus 2980
+-- | The window could not be captured, or a file could not be read or written.
+pattern R_GOLDEN_FAILED :: RGoldenStatus
+pattern R_GOLDEN_FAILED = RGoldenStatus 2981
 
 -- | Registers a function called once per frame, before the layout.
 -- The body of your loop does the same job; the callback is also called
@@ -2715,6 +2851,22 @@ type RNotificationClickedCallback = FunPtr (Ptr () -> IO ())
 -- | Makes a 'RNotificationClickedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRNotificationClickedCallback :: (Ptr () -> IO ()) -> IO RNotificationClickedCallback
+
+-- | The answer to Rpermission_request.
+type RPermissionCallback = FunPtr (RPermission -> RPermissionStatus -> Ptr () -> IO ())
+
+-- | Makes a 'RPermissionCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRPermissionCallback :: (RPermission -> RPermissionStatus -> Ptr () -> IO ()) -> IO RPermissionCallback
+
+-- | The end of a request of a picker, the camera, a save or a share
+-- sheet. `files` (count of them) are what it gave: none unless `result` is
+-- R_DEVICE_DONE. Called on the UI thread, once.
+type RDeviceCallback = FunPtr (RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RDeviceCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRDeviceCallback :: (RDeviceResult -> Ptr RPickedFile -> CInt -> Ptr () -> IO ()) -> IO RDeviceCallback
 
 -- | Called on the render thread each time the window is rendered.
 -- State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -3768,6 +3920,81 @@ instance Storable RFileDialogDesc where
         pokeByteOff p 48 (rFileDialogDesc_default_extension v)
         pokeByteOff p 56 (rFileDialogDesc_flags v)
 
+-- | A file given by a service of the device. Valid during the callback only: copy what you keep.
+data RPickedFile = RPickedFile
+    { rPickedFile_path :: CString
+      -- ^ A path Raven and the C library can read (Rfile_read, textures, fonts,
+      -- fopen). On iOS and Android a copy in the cache of the application.
+      -- NULL for Rfile_save_async on iOS and Android: the file went where the
+      -- user chose, which the application cannot write to again.
+    , rPickedFile_name :: CString
+      -- ^ The name the user saw ("IMG_0042.JPG"), to show.
+    , rPickedFile_mime_type :: CString
+      -- ^ The MIME type when the system tells ("image/jpeg"), or NULL.
+    , rPickedFile_size :: Word64
+      -- ^ Bytes.
+    , rPickedFile_width :: CInt
+      -- ^ Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    , rPickedFile_height :: CInt
+      -- ^ Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RPickedFile x = {0};@ is in C).
+rPickedFile :: RPickedFile
+rPickedFile = RPickedFile (nullPtr) (nullPtr) (nullPtr) (0) (0) (0)
+
+instance Storable RPickedFile where
+    sizeOf _ = 40
+    alignment _ = 8
+    peek p = RPickedFile
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+        <*> peekByteOff p 36
+    poke p v = do
+        pokeByteOff p 0 (rPickedFile_path v)
+        pokeByteOff p 8 (rPickedFile_name v)
+        pokeByteOff p 16 (rPickedFile_mime_type v)
+        pokeByteOff p 24 (rPickedFile_size v)
+        pokeByteOff p 32 (rPickedFile_width v)
+        pokeByteOff p 36 (rPickedFile_height v)
+
+-- | What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them.
+data RShareDesc = RShareDesc
+    { rShareDesc_text :: CString
+      -- ^ Text, or a link ("https://..."). May be NULL.
+    , rShareDesc_path :: CString
+      -- ^ A file to send (a path Raven can read), or NULL.
+    , rShareDesc_mime_type :: CString
+      -- ^ Its MIME type ("image/png"); NULL: guessed from its extension.
+    , rShareDesc_title :: CString
+      -- ^ The title of the sheet, where the system shows one (Android's chooser). May be NULL.
+    , rShareDesc_anchor :: Rid
+      -- ^ The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RShareDesc x = {0};@ is in C).
+rShareDesc :: RShareDesc
+rShareDesc = RShareDesc (nullPtr) (nullPtr) (nullPtr) (nullPtr) (0)
+
+instance Storable RShareDesc where
+    sizeOf _ = 40
+    alignment _ = 8
+    peek p = RShareDesc
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+    poke p v = do
+        pokeByteOff p 0 (rShareDesc_text v)
+        pokeByteOff p 8 (rShareDesc_path v)
+        pokeByteOff p 16 (rShareDesc_mime_type v)
+        pokeByteOff p 24 (rShareDesc_title v)
+        pokeByteOff p 32 (rShareDesc_anchor v)
+
 -- | Passed to the draw callback of a viewport. Sizes are in pixels.
 data RViewportDrawInfo = RViewportDrawInfo
     { rViewportDrawInfo_backend :: RBackend
@@ -4015,6 +4242,87 @@ instance Storable RAccessibilitySettings where
         pokeByteOff p 8 (rAccessibilitySettings_reduce_motion v)
         pokeByteOff p 12 (rAccessibilitySettings_screen_reader v)
 
+-- | A request of a service of the device, valid during the call only. Fields that do not concern the service are zero.
+data RHostServiceRequest = RHostServiceRequest
+    { rHostServiceRequest_id :: Word32
+      -- ^ Given back to Rhost_service_complete.
+    , rHostServiceRequest_service :: RHostService
+    , rHostServiceRequest_window :: Rid
+      -- ^ The window it is for (R_INVALID_ID: none).
+    , rHostServiceRequest_anchor_x :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_anchor_y :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_anchor_width :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_anchor_height :: CFloat
+      -- ^ What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    , rHostServiceRequest_title :: CString
+    , rHostServiceRequest_filters :: Ptr RFileFilter
+    , rHostServiceRequest_filter_count :: CInt
+    , rHostServiceRequest_flags :: Word32
+      -- ^ Bitmask of RFileDialogFlags.
+    , rHostServiceRequest_file_name :: CString
+    , rHostServiceRequest_default_extension :: CString
+    , rHostServiceRequest_data :: Ptr ()
+    , rHostServiceRequest_size :: CSize
+    , rHostServiceRequest_path :: CString
+    , rHostServiceRequest_max_count :: CInt
+    , rHostServiceRequest_text :: CString
+    , rHostServiceRequest_mime_type :: CString
+    , rHostServiceRequest_share_title :: CString
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RHostServiceRequest x = {0};@ is in C).
+rHostServiceRequest :: RHostServiceRequest
+rHostServiceRequest = RHostServiceRequest (0) (0) (0) (0) (0) (0) (0) (nullPtr) (nullPtr) (0) (0) (nullPtr) (nullPtr) (nullPtr) (0) (nullPtr) (0) (nullPtr) (nullPtr) (nullPtr)
+
+instance Storable RHostServiceRequest where
+    sizeOf _ = 128
+    alignment _ = 8
+    peek p = RHostServiceRequest
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 12
+        <*> peekByteOff p 16
+        <*> peekByteOff p 20
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+        <*> peekByteOff p 40
+        <*> peekByteOff p 48
+        <*> peekByteOff p 52
+        <*> peekByteOff p 56
+        <*> peekByteOff p 64
+        <*> peekByteOff p 72
+        <*> peekByteOff p 80
+        <*> peekByteOff p 88
+        <*> peekByteOff p 96
+        <*> peekByteOff p 104
+        <*> peekByteOff p 112
+        <*> peekByteOff p 120
+    poke p v = do
+        pokeByteOff p 0 (rHostServiceRequest_id v)
+        pokeByteOff p 4 (rHostServiceRequest_service v)
+        pokeByteOff p 8 (rHostServiceRequest_window v)
+        pokeByteOff p 12 (rHostServiceRequest_anchor_x v)
+        pokeByteOff p 16 (rHostServiceRequest_anchor_y v)
+        pokeByteOff p 20 (rHostServiceRequest_anchor_width v)
+        pokeByteOff p 24 (rHostServiceRequest_anchor_height v)
+        pokeByteOff p 32 (rHostServiceRequest_title v)
+        pokeByteOff p 40 (rHostServiceRequest_filters v)
+        pokeByteOff p 48 (rHostServiceRequest_filter_count v)
+        pokeByteOff p 52 (rHostServiceRequest_flags v)
+        pokeByteOff p 56 (rHostServiceRequest_file_name v)
+        pokeByteOff p 64 (rHostServiceRequest_default_extension v)
+        pokeByteOff p 72 (rHostServiceRequest_data v)
+        pokeByteOff p 80 (rHostServiceRequest_size v)
+        pokeByteOff p 88 (rHostServiceRequest_path v)
+        pokeByteOff p 96 (rHostServiceRequest_max_count v)
+        pokeByteOff p 104 (rHostServiceRequest_text v)
+        pokeByteOff p 112 (rHostServiceRequest_mime_type v)
+        pokeByteOff p 120 (rHostServiceRequest_share_title v)
+
 data RHostPlatformDesc = RHostPlatformDesc
     { rHostPlatformDesc_set_cursor :: FunPtr ()
       -- ^ The pointer over `window` should look like `cursor`. May be NULL.
@@ -4025,14 +4333,30 @@ data RHostPlatformDesc = RHostPlatformDesc
     , rHostPlatformDesc_wake :: FunPtr ()
       -- ^ Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
     , rHostPlatformDesc_user_data :: Ptr ()
+    , rHostPlatformDesc_permission_status :: FunPtr ()
+      -- ^ An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported).
+    , rHostPlatformDesc_permission_request :: FunPtr ()
+      -- ^ Ask the user (the status is not asked or denied); answer with Rhost_permission_answer.
+    , rHostPlatformDesc_service_request :: FunPtr ()
+      -- ^ A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else.
+    , rHostPlatformDesc_has_camera :: CInt
+      -- ^ R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO.
+    , rHostPlatformDesc_open_url :: FunPtr ()
+      -- ^ Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...).
+    , rHostPlatformDesc_haptic :: FunPtr ()
+      -- ^ Rhaptic_play: an RHaptic. Returns R_TRUE when played.
+    , rHostPlatformDesc_download :: FunPtr ()
+      -- ^ Downloads an http(s) URL (images from a URL): returns its content in a
+      -- buffer from Rmemory_alloc and its size, or NULL. Called on worker
+      -- threads, several at a time, and may block. NULL: as on desktops.
     } deriving (Eq, Show)
 
 -- | The zeroed structure (what @RHostPlatformDesc x = {0};@ is in C).
 rHostPlatformDesc :: RHostPlatformDesc
-rHostPlatformDesc = RHostPlatformDesc (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullPtr)
+rHostPlatformDesc = RHostPlatformDesc (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullFunPtr) (nullPtr) (nullFunPtr) (nullFunPtr) (nullFunPtr) (0) (nullFunPtr) (nullFunPtr) (nullFunPtr)
 
 instance Storable RHostPlatformDesc where
-    sizeOf _ = 40
+    sizeOf _ = 96
     alignment _ = 8
     peek p = RHostPlatformDesc
         <$> peekByteOff p 0
@@ -4040,12 +4364,97 @@ instance Storable RHostPlatformDesc where
         <*> peekByteOff p 16
         <*> peekByteOff p 24
         <*> peekByteOff p 32
+        <*> peekByteOff p 40
+        <*> peekByteOff p 48
+        <*> peekByteOff p 56
+        <*> peekByteOff p 64
+        <*> peekByteOff p 72
+        <*> peekByteOff p 80
+        <*> peekByteOff p 88
     poke p v = do
         pokeByteOff p 0 (rHostPlatformDesc_set_cursor v)
         pokeByteOff p 8 (rHostPlatformDesc_clipboard_set v)
         pokeByteOff p 16 (rHostPlatformDesc_clipboard_get v)
         pokeByteOff p 24 (rHostPlatformDesc_wake v)
         pokeByteOff p 32 (rHostPlatformDesc_user_data v)
+        pokeByteOff p 40 (rHostPlatformDesc_permission_status v)
+        pokeByteOff p 48 (rHostPlatformDesc_permission_request v)
+        pokeByteOff p 56 (rHostPlatformDesc_service_request v)
+        pokeByteOff p 64 (rHostPlatformDesc_has_camera v)
+        pokeByteOff p 72 (rHostPlatformDesc_open_url v)
+        pokeByteOff p 80 (rHostPlatformDesc_haptic v)
+        pokeByteOff p 88 (rHostPlatformDesc_download v)
+
+-- | How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+data RGoldenOptions = RGoldenOptions
+    { rGoldenOptions_channel_tolerance :: CInt
+      -- ^ Largest difference on one channel (0..255) for which two pixels are still the same.
+    , rGoldenOptions_max_diff_ratio :: CFloat
+      -- ^ Share of the pixels (0..1) that may differ while the images still match.
+    , rGoldenOptions_per_platform :: CInt
+      -- ^ R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    , rGoldenOptions_output_directory :: CString
+      -- ^ Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RGoldenOptions x = {0};@ is in C).
+rGoldenOptions :: RGoldenOptions
+rGoldenOptions = RGoldenOptions (0) (0) (0) (nullPtr)
+
+instance Storable RGoldenOptions where
+    sizeOf _ = 24
+    alignment _ = 8
+    peek p = RGoldenOptions
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+    poke p v = do
+        pokeByteOff p 0 (rGoldenOptions_channel_tolerance v)
+        pokeByteOff p 4 (rGoldenOptions_max_diff_ratio v)
+        pokeByteOff p 8 (rGoldenOptions_per_platform v)
+        pokeByteOff p 16 (rGoldenOptions_output_directory v)
+
+-- | What Rtest_expect_golden found.
+data RGoldenResult = RGoldenResult
+    { rGoldenResult_status :: RGoldenStatus
+    , rGoldenResult_width :: CInt
+      -- ^ Size of the capture, in pixels.
+    , rGoldenResult_height :: CInt
+      -- ^ Size of the capture, in pixels.
+    , rGoldenResult_differing_pixels :: CInt
+      -- ^ Pixels farther from the golden than the tolerance.
+    , rGoldenResult_max_channel_difference :: CInt
+      -- ^ Largest difference found on one channel (0..255).
+    , rGoldenResult_golden_path :: CString
+      -- ^ The golden that was read or written (with the platform tag). Valid until the next call.
+    , rGoldenResult_message :: CString
+      -- ^ One line that says what happened, for the log of the test. Valid until the next call.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RGoldenResult x = {0};@ is in C).
+rGoldenResult :: RGoldenResult
+rGoldenResult = RGoldenResult (0) (0) (0) (0) (0) (nullPtr) (nullPtr)
+
+instance Storable RGoldenResult where
+    sizeOf _ = 40
+    alignment _ = 8
+    peek p = RGoldenResult
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 12
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+    poke p v = do
+        pokeByteOff p 0 (rGoldenResult_status v)
+        pokeByteOff p 4 (rGoldenResult_width v)
+        pokeByteOff p 8 (rGoldenResult_height v)
+        pokeByteOff p 12 (rGoldenResult_differing_pixels v)
+        pokeByteOff p 16 (rGoldenResult_max_channel_difference v)
+        pokeByteOff p 24 (rGoldenResult_golden_path v)
+        pokeByteOff p 32 (rGoldenResult_message v)
 
 -- | Starts the library with default settings on the given backend.
 -- The calling thread becomes the UI thread.
@@ -4282,7 +4691,9 @@ foreign import ccall safe "Raction_is_builtin" raction_is_builtin :: CString -> 
 
 -- | Opens an address with the program the user has for it: a web
 -- page in the browser, a mailto: in the mail program, a file in its
--- application. Returns at once.
+-- application. Returns at once. On iOS and Android the system opens it
+-- (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+-- and Raven must be initialized and this be called on the UI thread.
 -- Returns: R_FALSE when the OS could not be asked (nothing tells whether
 -- a program then really opened it).
 foreign import ccall safe "Ropen_url" ropen_url :: CString -> IO CInt
@@ -4297,7 +4708,16 @@ foreign import ccall safe "Rclipboard_set_text" rclipboard_set_text :: CString -
 foreign import ccall safe "Rclipboard_set_html" rclipboard_set_html :: CString -> CString -> IO ()
 
 -- | Returns: The clipboard text, or "" when empty. Valid until the next call.
+-- On iOS a read that does not follow a paste of the user (the Paste of a
+-- menu, a button, Command-V) shows the system's question "Allow Paste?",
+-- and on Android 12+ the system says that the application pasted: read it
+-- when the user pastes, not to look at it. Android lets only the
+-- application in front read it.
 foreign import ccall safe "Rclipboard_get_text" rclipboard_get_text :: IO CString
+
+-- | Returns: R_TRUE when the clipboard holds text, without reading it (no
+-- question of the system on iOS): to enable a Paste button.
+foreign import ccall safe "Rclipboard_has_text" rclipboard_has_text :: IO CInt
 
 -- | Retrieves and clears the last recorded error.
 -- detail   Optional output: human-readable description.
@@ -4584,6 +5004,18 @@ foreign import ccall safe "Rwindow_inject_key" rwindow_inject_key :: Rid -> RKey
 
 foreign import ccall safe "Rwindow_inject_text" rwindow_inject_text :: Rid -> CString -> IO ()
 
+-- | The text an input method is composing (preedit: Chinese,
+-- Japanese, Korean, dead keys), as the platforms send it. The focused
+-- TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+-- place of its selection, but it is not in its text and no changed
+-- callback runs. [selection_start, selection_end) are bytes of `text`:
+-- the part the input method works on (underlined thicker), or the caret
+-- when they are equal; -1 is the end of `text`. NULL or "" ends the
+-- composition without typing anything (cancel). The committed text comes
+-- through Rwindow_inject_text, which ends the composition too, and so
+-- does a change of focus. Ignored when the focus takes no text.
+foreign import ccall safe "Rwindow_inject_composition" rwindow_inject_composition :: Rid -> CString -> CInt -> CInt -> IO ()
+
 -- | A drag from another application moves over the window
 -- (`inside` R_TRUE) or leaves it.
 -- Returns: R_TRUE when a drop at this position would be accepted.
@@ -4627,13 +5059,20 @@ foreign import ccall safe "Rwindow_set_text_input_selection" rwindow_set_text_in
 -- applies). R_FALSE when there is none or it is read-only.
 foreign import ccall safe "Rwindow_replace_text_input" rwindow_replace_text_input :: Rid -> CInt -> CInt -> CString -> IO CInt
 
+-- | The composition of the input method in progress (UTF-8, valid
+-- until it changes) and its selection in bytes; NULL when there is none.
+-- Any output pointer may be NULL.
+foreign import ccall safe "Rwindow_get_text_composition" rwindow_get_text_composition :: Rid -> Ptr CInt -> Ptr CInt -> IO CString
+
 -- | R_TRUE while a menu, list or dialog is open over the window.
 foreign import ccall safe "Rwindow_has_popup" rwindow_has_popup :: Rid -> IO CInt
 
 -- | Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 -- Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 -- outputs when there is no visible editable caret, the window is inactive, or focus changed
--- since painting. Any output pointer may be NULL.
+-- since painting. Any output pointer may be NULL. While an input method
+-- composes, it is the caret inside the composition: where its candidate
+-- window goes.
 foreign import ccall safe "Rwindow_get_text_input_rect" rwindow_get_text_input_rect :: Rid -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
 
 -- | Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
@@ -4948,6 +5387,16 @@ foreign import ccall safe "Rtexture_create_from_file" rtexture_create_from_file 
 -- | Reads and decodes the file on a worker thread.
 foreign import ccall safe "Rtexture_create_from_file_async" rtexture_create_from_file_async :: CString -> IO Rid
 
+-- | Downloads an http:// or https:// image and decodes it on a worker
+-- thread, as an Image whose Source is a URL does. The handle is usable at
+-- once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+-- a texture that could not be downloaded is ready with a size of 0, and the
+-- failure is reported as a warning). Desktops download with WinHTTP or
+-- `curl`; iOS and Android through their platform. Android needs the INTERNET
+-- permission in the manifest; iOS refuses http:// unless Info.plist allows
+-- it (App Transport Security). Up to 32 MiB.
+foreign import ccall safe "Rtexture_create_from_url_async" rtexture_create_from_url_async :: CString -> IO Rid
+
 -- | Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
 foreign import ccall safe "Rtexture_create_from_pixels" rtexture_create_from_pixels :: Ptr Word8 -> CInt -> CInt -> IO Rid
 
@@ -4965,6 +5414,18 @@ foreign import ccall safe "Rimage_decode" rimage_decode :: Ptr () -> CSize -> Pt
 
 -- | Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 foreign import ccall safe "Rpixels_free" rpixels_free :: Ptr Word8 -> IO ()
+
+-- | Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+-- returns) as a PNG file in memory. Thread-safe.
+-- size Receives the number of bytes.
+-- Returns: The bytes of the file, to release with Rpixels_free; NULL when
+-- there are no pixels.
+foreign import ccall safe "Rimage_encode_png" rimage_encode_png :: Ptr Word8 -> CInt -> CInt -> Ptr CSize -> IO (Ptr Word8)
+
+-- | Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+-- of Rwindow_capture, a picture made by the application. Thread-safe.
+-- Returns: R_FALSE when the file cannot be written.
+foreign import ccall safe "Rimage_save_png" rimage_save_png :: CString -> Ptr Word8 -> CInt -> CInt -> IO CInt
 
 -- | Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 foreign import ccall safe "Rtexture_is_ready" rtexture_is_ready :: Rid -> IO CInt
@@ -7804,6 +8265,72 @@ foreign import ccall safe "Rnotification_set_fallback" rnotification_set_fallbac
 -- Windows and macOS (elsewhere it is never called).
 foreign import ccall safe "Rnotification_set_clicked_callback" rnotification_set_clicked_callback :: RNotificationClickedCallback -> Ptr () -> IO ()
 
+-- | What the user answered, without asking. Cheap: the platform
+-- remembers it. On iOS the status of notifications is known shortly after
+-- the start (R_PERMISSION_NOT_ASKED until then).
+foreign import ccall safe "Rpermission_get_status" rpermission_get_status :: RPermission -> IO RPermissionStatus
+
+-- | Asks the user, with the question of the system, when the status
+-- is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+-- with the status. Several requests for the same permission share one
+-- question. `callback` may be NULL.
+foreign import ccall safe "Rpermission_request" rpermission_request :: RPermission -> RPermissionCallback -> Ptr () -> IO ()
+
+-- | Opens the page of the application in the Settings of the system,
+-- where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+-- Returns: R_FALSE when the platform has no such page.
+foreign import ccall safe "Rpermission_open_settings" rpermission_open_settings :: IO CInt
+
+-- | Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+foreign import ccall safe "Rpermission_to_string" rpermission_to_string :: RPermission -> IO CString
+
+foreign import ccall safe "Rpermission_status_to_string" rpermission_status_to_string :: RPermissionStatus -> IO CString
+
+-- | Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+foreign import ccall safe "Rfile_open_async" rfile_open_async :: Ptr RFileDialogDesc -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Saves `size` bytes (copied: `data` may be freed at once) as a
+-- file where the user chooses, proposed under `desc->file_name`. The
+-- callback gives the file as saved: its name, and its path on desktops.
+foreign import ccall safe "Rfile_save_async" rfile_save_async :: Ptr RFileDialogDesc -> Ptr () -> CSize -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+foreign import ccall safe "Rfile_export_async" rfile_export_async :: Ptr RFileDialogDesc -> CString -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+foreign import ccall safe "Rfile_select_folder_async" rfile_select_folder_async :: Ptr RFileDialogDesc -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+foreign import ccall safe "Rcamera_is_available" rcamera_is_available :: IO CInt
+
+-- | Shows the camera of the system to take one photo. It asks for
+-- R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+-- The photo is a JPEG file in the cache of the application, with its
+-- size in pixels, upright.
+foreign import ccall safe "Rcamera_take_photo" rcamera_take_photo :: RDeviceCallback -> Ptr () -> IO ()
+
+-- | Shows the photo picker of the system (desktops: a file dialog for
+-- images). No permission is needed: the application only sees what the
+-- user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+-- when it is HEIC).
+-- max_count How many photos may be picked; 0: no limit.
+foreign import ccall safe "Rphoto_pick" rphoto_pick :: CInt -> RDeviceCallback -> Ptr () -> IO ()
+
+-- | Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+foreign import ccall safe "Rhaptic_is_supported" rhaptic_is_supported :: IO CInt
+
+-- | A short vibration, as the controls of the system play when
+-- touched. Nothing happens where there are none, or when the user turned
+-- them off. Returns: R_TRUE when it was handed to the system.
+foreign import ccall safe "Rhaptic_play" rhaptic_play :: RHaptic -> IO CInt
+
+-- | Shows the share sheet of the system with a text and / or a file,
+-- to send them to another application (mail, chat, Files...). The
+-- callback says R_DEVICE_DONE once something was chosen (Android: once the
+-- sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+-- closed. R_DEVICE_UNSUPPORTED on desktops.
+foreign import ccall safe "Rshare_show" rshare_show :: Ptr RShareDesc -> RDeviceCallback -> Ptr () -> IO ()
+
 -- | Shows a texture. R_INVALID_ID shows nothing.
 foreign import ccall safe "Rviewport_set_texture" rviewport_set_texture :: Rid -> Rid -> IO ()
 
@@ -8369,8 +8896,143 @@ foreign import ccall safe "Rhost_inject_key" rhost_inject_key :: Rid -> RKey -> 
 -- | One typed Unicode code point.
 foreign import ccall safe "Rhost_inject_text" rhost_inject_text :: Rid -> Word32 -> IO ()
 
+-- | The input method of the application's system composes `text`
+-- (preedit), with its selection in bytes (see Rwindow_inject_composition).
+-- NULL or "" cancels it; the committed text then comes through
+-- Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+-- candidate window.
+foreign import ccall safe "Rhost_inject_composition" rhost_inject_composition :: Rid -> CString -> CInt -> CInt -> IO ()
+
 -- | The window gained or lost the keyboard. Losing it closes popups and drops captures.
 foreign import ccall safe "Rhost_inject_focus" rhost_inject_focus :: Rid -> CInt -> IO ()
 
 -- | The user asked to close the window (its close callback decides).
 foreign import ccall safe "Rhost_inject_close" rhost_inject_close :: Rid -> IO ()
+
+-- | The user answered a permission_request (or the status changed
+-- by itself). The waiting Rpermission_request callbacks get it at the
+-- next frame. Any thread.
+foreign import ccall safe "Rhost_permission_answer" rhost_permission_answer :: RPermission -> RPermissionStatus -> IO ()
+
+-- | The end of a service_request: the files it gave (copied; paths
+-- Raven can read; size 0 is read from the file), at the next frame. Once
+-- per request. Any thread.
+foreign import ccall safe "Rhost_service_complete" rhost_service_complete :: Word32 -> RDeviceResult -> Ptr RPickedFile -> CInt -> IO ()
+
+-- | R_TRUE makes what is drawn depend only on what the test does:
+-- every frame advances the animations by 1/60 s (Rset_animation_time_step),
+-- and the carets of the text fields stay lit instead of blinking. R_FALSE
+-- gives the clock back (time step 0).
+foreign import ccall safe "Rtest_set_deterministic" rtest_set_deterministic :: CInt -> IO ()
+
+foreign import ccall safe "Rtest_is_deterministic" rtest_is_deterministic :: IO CInt
+
+-- | Returns: What the goldens of this run are made with, "OS-backend":
+-- "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+-- "null" with the null backend.
+foreign import ccall safe "Rtest_get_platform_tag" rtest_get_platform_tag :: IO CString
+
+-- | Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+-- path may have several names separated by '/': "settings/ok" is the
+-- widget named "ok" inside the one named "settings". In a window, the
+-- open popups (menus, dialogs) are searched first, top first, then the
+-- content.
+-- scope A window or a widget.
+-- Returns: R_INVALID_ID when nothing has that name (no error is reported).
+foreign import ccall safe "Rtest_find" rtest_find :: Rid -> CString -> IO Rid
+
+-- | Moves the mouse to the middle of the widget, presses and releases the left button.
+foreign import ccall safe "Rtest_click" rtest_click :: Rid -> IO CInt
+
+-- | Two clicks in a row on the middle of the widget, seen as a double click.
+foreign import ccall safe "Rtest_double_click" rtest_double_click :: Rid -> IO CInt
+
+-- | A click of the right button on the middle of the widget (a context menu).
+foreign import ccall safe "Rtest_right_click" rtest_right_click :: Rid -> IO CInt
+
+-- | Clicks at a position of a widget or a window.
+-- clicks 1 for a click, 2 for a double click, 3 for a triple click.
+-- modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+foreign import ccall safe "Rtest_click_at" rtest_click_at :: Rid -> CFloat -> CFloat -> RMouseButton -> CInt -> Word32 -> IO CInt
+
+-- | Moves the mouse over the middle of the widget, without clicking.
+foreign import ccall safe "Rtest_hover" rtest_hover :: Rid -> IO CInt
+
+-- | Moves the mouse to a position of a widget or a window.
+foreign import ccall safe "Rtest_hover_at" rtest_hover_at :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Presses the left button on the middle of the widget, moves by
+-- (dx, dy) in several steps, and releases: a slider, a splitter, a
+-- window dragged by a widget.
+foreign import ccall safe "Rtest_drag" rtest_drag :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Drags from the middle of one widget to the middle of another (drag and drop).
+foreign import ccall safe "Rtest_drag_to" rtest_drag_to :: Rid -> Rid -> IO CInt
+
+-- | Turns the mouse wheel over the middle of the widget: `wheel_y`
+-- notches (positive: toward the top, as a wheel turned away from the
+-- user), `wheel_x` notches sideways.
+foreign import ccall safe "Rtest_scroll" rtest_scroll :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Presses and releases a key, with RModifier held. A widget
+-- target gets the keyboard focus first; a window sends the key to what
+-- has the focus.
+foreign import ccall safe "Rtest_key" rtest_key :: Rid -> RKey -> Word32 -> IO CInt
+
+-- | Types UTF-8 text as a keyboard would. A widget target gets the
+-- keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+-- Tab and Backspace.
+foreign import ccall safe "Rtest_type_text" rtest_type_text :: Rid -> CString -> IO CInt
+
+-- | A finger touches the middle of the widget and leaves at once.
+foreign import ccall safe "Rtest_tap" rtest_tap :: Rid -> IO CInt
+
+-- | A finger put on the middle of the widget moves by (dx, dy) in
+-- `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+-- (Rtest_settle lets it stop).
+foreign import ccall safe "Rtest_swipe" rtest_swipe :: Rid -> CFloat -> CFloat -> CDouble -> IO CInt
+
+-- | Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+foreign import ccall safe "Rtest_pump" rtest_pump :: CInt -> IO CInt
+
+-- | Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+-- to do, nothing to paint, no animation, no layout spring, no inertia.
+-- Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+-- realtime viewport) and the timers are not counted.
+foreign import ccall safe "Rtest_is_idle" rtest_is_idle :: IO CInt
+
+-- | Produces frames until Rtest_is_idle, each advancing the
+-- animations by the time step (1/60 s unless Rset_animation_time_step
+-- gives another), for at most `max_seconds` of that time.
+-- Returns: R_FALSE when it was still moving at the end.
+foreign import ccall safe "Rtest_settle" rtest_settle :: CDouble -> IO CInt
+
+-- | Returns: What the user reads in the widget: the text of a field, else
+-- its label (as screen readers say it: the text of a Label, a Button, a
+-- Checkbox...). "" when it has none. Valid until the next call.
+foreign import ccall safe "Rtest_get_text" rtest_get_text :: Rid -> IO CString
+
+-- | Returns: R_TRUE when the widget can be seen: in a window, Visible with
+-- all that holds it, on the page a Switcher or a TabView shows, and laid
+-- out with a size.
+foreign import ccall safe "Rtest_is_shown" rtest_is_shown :: Rid -> IO CInt
+
+-- | Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+foreign import ccall safe "Rtest_is_checked" rtest_is_checked :: Rid -> IO CInt
+
+-- | Captures a window, or the rectangle of one widget, and compares
+-- it with the PNG file `golden_path` (see the top of this file).
+-- target A window or a widget.
+-- options NULL for the defaults.
+-- result Receives the details; may be NULL.
+-- Returns: R_TRUE when the capture matches (or the golden was written
+-- because RAVEN_UPDATE_GOLDENS=1).
+foreign import ccall safe "Rtest_expect_golden" rtest_expect_golden :: Rid -> CString -> Ptr RGoldenOptions -> Ptr RGoldenResult -> IO CInt
+
+-- | Compares two RGBA8 images of the same size as Rtest_expect_golden
+-- does, without files.
+-- diff_rgba When not NULL, receives width * height * 4 bytes: the
+-- expected image faded, with the different pixels in red.
+-- Returns: The number of pixels farther apart than `channel_tolerance`;
+-- -1 when an image is missing.
+foreign import ccall safe "Rtest_compare_pixels" rtest_compare_pixels :: Ptr Word8 -> Ptr Word8 -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr Word8 -> IO CInt

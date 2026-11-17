@@ -1435,6 +1435,77 @@ constset MessageResult : CInt
 	NO = 3,
 }
 
+<* What the application may be allowed to use (Rpermission_request). *>
+constset Permission : CInt
+{
+	CAMERA = 0x0C00,
+	<* Notifications of the system (Rnotification_show). *>
+	NOTIFICATIONS = 0x0C01,
+	<* Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose. *>
+	PHOTOS = 0x0C02,
+	MICROPHONE = 0x0C03,
+	<* The location of the device while the application is in use. *>
+	LOCATION = 0x0C04,
+}
+
+<* What the user answered, or would be asked (Rpermission_get_status). *>
+constset PermissionStatus : CInt
+{
+	<*
+	 There is nothing to ask for here: the platform has no such permission,
+	 or Raven cannot ask for it on this platform. Whether the service itself
+	 exists is told by its own function (Rcamera_is_available,
+	 Rnotification_is_supported).
+	*>
+	UNSUPPORTED = 0x0C10,
+	<* Not asked yet: Rpermission_request shows the question of the system. *>
+	NOT_ASKED = 0x0C11,
+	<* Allowed (also where the system asks nothing: notifications on Windows and Linux). *>
+	GRANTED = 0x0C12,
+	<* Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional). *>
+	LIMITED = 0x0C13,
+	<* Refused, and the system may ask again (Android, after a first refusal). *>
+	DENIED = 0x0C14,
+	<*
+	 Refused for good, or not the user's to give (parental controls, a
+	 profile of the company): the system shows no question any more, only
+	 its Settings can change it (Rpermission_open_settings).
+	*>
+	BLOCKED = 0x0C15,
+}
+
+<* How a request of a picker, the camera or a share sheet ended. *>
+constset DeviceResult : CInt
+{
+	<* Done: the files were chosen, the photo taken, the file saved, the sheet shown. *>
+	DONE = 0x0C20,
+	<* The user closed the screen of the system without choosing. *>
+	CANCELLED = 0x0C21,
+	<* A permission it needs was refused (Rcamera_take_photo: the camera). *>
+	DENIED = 0x0C22,
+	<* The platform does not have this service. *>
+	UNSUPPORTED = 0x0C23,
+	<* Another screen of the system is still open: one at a time. *>
+	BUSY = 0x0C24,
+	<* The system reported an error (also reported as an R_ERROR_PLATFORM warning). *>
+	FAILED = 0x0C25,
+}
+
+<* A short vibration that answers a touch (Rhaptic_play). *>
+constset Haptic : CInt
+{
+	<* Impacts: something touched, snapped, landed. *>
+	LIGHT = 0x0C30,
+	MEDIUM = 0x0C31,
+	HEAVY = 0x0C32,
+	<* The selection moved (a picker wheel, a switch, a segmented control). *>
+	SELECTION = 0x0C33,
+	<* The outcome of an action. *>
+	SUCCESS = 0x0C34,
+	WARNING = 0x0C35,
+	ERROR = 0x0C36,
+}
+
 <*
  How a spring moves. Animations in Raven are springs, as on iOS: a value is
  pulled toward its target and may run past it before settling, which is what
@@ -1563,6 +1634,23 @@ constset AccessibleRole : CInt
 	SEPARATOR = 0x0781,
 	SCROLL_BAR = 0x0782,
 	PANE = 0x0783,
+}
+
+<* What a request of a service of the device asks the application for (RHostServiceRequest). *>
+constset HostService : CInt
+{
+	<* Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE). *>
+	OPEN_FILES = 0x0C40,
+	<* Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async). *>
+	SAVE_FILE = 0x0C41,
+	<* A folder (Rfile_select_folder_async). *>
+	SELECT_FOLDER = 0x0C42,
+	<* A photo from the camera (Rcamera_take_photo); camera permission already asked. *>
+	TAKE_PHOTO = 0x0C43,
+	<* Up to `max_count` photos (0: no limit) from the library (Rphoto_pick). *>
+	PICK_PHOTOS = 0x0C44,
+	<* The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show). *>
+	SHARE = 0x0C45,
 }
 
 constset GoldenStatus : CInt
@@ -1940,6 +2028,14 @@ alias DialogClosedCallback = fn void(Id content, CInt result, void* user_data);
 alias FileBrowserCallback = fn void(Id browser, ZString path, void* user_data);
 alias NotificationFallback = fn void(ZString title, ZString body, NotificationUrgency urgency, void* user_data);
 alias NotificationClickedCallback = fn void(void* user_data);
+<* The answer to Rpermission_request. *>
+alias PermissionCallback = fn void(Permission permission, PermissionStatus status, void* user_data);
+<*
+ The end of a request of a picker, the camera, a save or a share
+ sheet. `files` (count of them) are what it gave: none unless `result` is
+ R_DEVICE_DONE. Called on the UI thread, once.
+*>
+alias DeviceCallback = fn void(DeviceResult result, PickedFile* files, CInt count, void* user_data);
 <*
  Called on the render thread each time the window is rendered.
  State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -2450,6 +2546,43 @@ struct FileDialogDesc
 	FileDialogFlags flags;
 }
 
+<* A file given by a service of the device. Valid during the callback only: copy what you keep. *>
+struct PickedFile
+{
+	<*
+	 A path Raven and the C library can read (Rfile_read, textures, fonts,
+	 fopen). On iOS and Android a copy in the cache of the application.
+	 NULL for Rfile_save_async on iOS and Android: the file went where the
+	 user chose, which the application cannot write to again.
+	*>
+	ZString path;
+	<* The name the user saw ("IMG_0042.JPG"), to show. *>
+	ZString name;
+	<* The MIME type when the system tells ("image/jpeg"), or NULL. *>
+	ZString mime_type;
+	<* Bytes. *>
+	ulong size;
+	<* Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0. *>
+	CInt width;
+	<* Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0. *>
+	CInt height;
+}
+
+<* What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them. *>
+struct ShareDesc
+{
+	<* Text, or a link ("https://..."). May be NULL. *>
+	ZString text;
+	<* A file to send (a path Raven can read), or NULL. *>
+	ZString path;
+	<* Its MIME type ("image/png"); NULL: guessed from its extension. *>
+	ZString mime_type;
+	<* The title of the sheet, where the system shows one (Android's chooser). May be NULL. *>
+	ZString title;
+	<* The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window. *>
+	Id anchor;
+}
+
 <* Passed to the draw callback of a viewport. Sizes are in pixels. *>
 struct ViewportDrawInfo
 {
@@ -2557,6 +2690,38 @@ struct AccessibilitySettings
 	CInt screen_reader;
 }
 
+<* A request of a service of the device, valid during the call only. Fields that do not concern the service are zero. *>
+struct HostServiceRequest
+{
+	<* Given back to Rhost_service_complete. *>
+	uint id;
+	HostService service;
+	<* The window it is for (R_INVALID_ID: none). *>
+	Id window;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_x;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_y;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_width;
+	<* What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window. *>
+	float anchor_height;
+	ZString title;
+	FileFilter* filters;
+	CInt filter_count;
+	<* Bitmask of RFileDialogFlags. *>
+	uint flags;
+	ZString file_name;
+	ZString default_extension;
+	void* data;
+	usz size;
+	ZString path;
+	CInt max_count;
+	ZString text;
+	ZString mime_type;
+	ZString share_title;
+}
+
 <* The type of HostPlatformDesc.set_cursor. *>
 alias HostPlatformDescSetCursorFn = fn void(Id window, Cursor cursor, void* user_data);
 <* The type of HostPlatformDesc.clipboard_set. *>
@@ -2565,6 +2730,18 @@ alias HostPlatformDescClipboardSetFn = fn void(ZString text, void* user_data);
 alias HostPlatformDescClipboardGetFn = fn ZString(void* user_data);
 <* The type of HostPlatformDesc.wake. *>
 alias HostPlatformDescWakeFn = fn void(void* user_data);
+<* The type of HostPlatformDesc.permission_status. *>
+alias HostPlatformDescPermissionStatusFn = fn PermissionStatus(Permission permission, void* user_data);
+<* The type of HostPlatformDesc.permission_request. *>
+alias HostPlatformDescPermissionRequestFn = fn void(Permission permission, void* user_data);
+<* The type of HostPlatformDesc.service_request. *>
+alias HostPlatformDescServiceRequestFn = fn void(HostServiceRequest* request, void* user_data);
+<* The type of HostPlatformDesc.open_url. *>
+alias HostPlatformDescOpenUrlFn = fn CInt(ZString url, void* user_data);
+<* The type of HostPlatformDesc.haptic. *>
+alias HostPlatformDescHapticFn = fn CInt(Haptic haptic, void* user_data);
+<* The type of HostPlatformDesc.download. *>
+alias HostPlatformDescDownloadFn = fn void*(ZString url, usz* size, void* user_data);
 struct HostPlatformDesc
 {
 	<* The pointer over `window` should look like `cursor`. May be NULL. *>
@@ -2576,6 +2753,24 @@ struct HostPlatformDesc
 	<* Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL. *>
 	HostPlatformDescWakeFn wake;
 	void* user_data;
+	<* An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported). *>
+	HostPlatformDescPermissionStatusFn permission_status;
+	<* Ask the user (the status is not asked or denied); answer with Rhost_permission_answer. *>
+	HostPlatformDescPermissionRequestFn permission_request;
+	<* A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else. *>
+	HostPlatformDescServiceRequestFn service_request;
+	<* R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO. *>
+	CInt has_camera;
+	<* Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...). *>
+	HostPlatformDescOpenUrlFn open_url;
+	<* Rhaptic_play: an RHaptic. Returns R_TRUE when played. *>
+	HostPlatformDescHapticFn haptic;
+	<*
+	 Downloads an http(s) URL (images from a URL): returns its content in a
+	 buffer from Rmemory_alloc and its size, or NULL. Called on worker
+	 threads, several at a time, and may block. NULL: as on desktops.
+	*>
+	HostPlatformDescDownloadFn download;
 }
 
 <* How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel. *>
@@ -6636,6 +6831,18 @@ fn Texture? texture_create_from_file_async(ZString path)
 	return (Texture)result;
 }
 
+<*
+ Downloads an http:// or https:// image and decodes it on a worker
+ thread, as an Image whose Source is a URL does. The handle is usable at
+ once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+ a texture that could not be downloaded is ready with a size of 0, and the
+ failure is reported as a warning). Desktops download with WinHTTP or
+ `curl`; iOS and Android through their platform. Android needs the INTERNET
+ permission in the manifest; iOS refuses http:// unless Info.plist allows
+ it (App Transport Security). Up to 32 MiB.
+*>
+fn Texture texture_create_from_url_async(ZString url) @inline => (Texture)c::r_texture_create_from_url_async((char*)url);
+
 <* Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR. *>
 fn Texture? texture_create_from_pixels(char* rgba, CInt width, CInt height)
 {
@@ -7279,7 +7486,9 @@ fn bool action_is_builtin(ZString name) @inline => c::r_action_is_builtin((char*
 <*
  Opens an address with the program the user has for it: a web
  page in the browser, a mailto: in the mail program, a file in its
- application. Returns at once.
+ application. Returns at once. On iOS and Android the system opens it
+ (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+ and Raven must be initialized and this be called on the UI thread.
  Returns R_FALSE when the OS could not be asked (nothing tells whether
  a program then really opened it).
 *>
@@ -7299,8 +7508,21 @@ fn void clipboard_set_text(ZString text) @inline => c::r_clipboard_set_text((cha
 *>
 fn void clipboard_set_html(ZString text, ZString html) @inline => c::r_clipboard_set_html((char*)text, (char*)html);
 
-<* Returns The clipboard text, or "" when empty. Valid until the next call. *>
+<*
+ Returns The clipboard text, or "" when empty. Valid until the next call.
+ On iOS a read that does not follow a paste of the user (the Paste of a
+ menu, a button, Command-V) shows the system's question "Allow Paste?",
+ and on Android 12+ the system says that the application pasted: read it
+ when the user pastes, not to look at it. Android lets only the
+ application in front read it.
+*>
 fn ZString clipboard_get_text() @inline => (ZString)c::r_clipboard_get_text();
+
+<*
+ Returns R_TRUE when the clipboard holds text, without reading it (no
+ question of the system on iOS): to enable a Paste button.
+*>
+fn bool clipboard_has_text() @inline => c::r_clipboard_has_text() != 0;
 
 <*
  Retrieves and clears the last recorded error.
@@ -7777,6 +7999,87 @@ fn void notification_set_fallback(NotificationFallback callback, void* user_data
 *>
 fn void notification_set_clicked_callback(NotificationClickedCallback callback, void* user_data) @inline => c::r_notification_set_clicked_callback((c::RNotificationClickedCallback)callback, user_data);
 
+<*
+ What the user answered, without asking. Cheap: the platform
+ remembers it. On iOS the status of notifications is known shortly after
+ the start (R_PERMISSION_NOT_ASKED until then).
+*>
+fn PermissionStatus permission_get_status(Permission permission) @inline => (PermissionStatus)c::r_permission_get_status((c::RPermission)permission);
+
+<*
+ Asks the user, with the question of the system, when the status
+ is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+ with the status. Several requests for the same permission share one
+ question. `callback` may be NULL.
+*>
+fn void permission_request(Permission permission, PermissionCallback callback, void* user_data) @inline => c::r_permission_request((c::RPermission)permission, (c::RPermissionCallback)callback, user_data);
+
+<*
+ Opens the page of the application in the Settings of the system,
+ where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+ Returns R_FALSE when the platform has no such page.
+*>
+fn bool permission_open_settings() @inline => c::r_permission_open_settings() != 0;
+
+<* Returns The name of a permission or a status ("camera", "granted"...), for logs. *>
+fn ZString permission_to_string(Permission permission) @inline => (ZString)c::r_permission_to_string((c::RPermission)permission);
+
+fn ZString permission_status_to_string(PermissionStatus status) @inline => (ZString)c::r_permission_status_to_string((c::RPermissionStatus)status);
+
+<* Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL. *>
+fn void file_open_async(FileDialogDesc* desc, DeviceCallback callback, void* user_data) @inline => c::r_file_open_async((c::RFileDialogDesc*)desc, (c::RDeviceCallback)callback, user_data);
+
+<*
+ Saves `size` bytes (copied: `data` may be freed at once) as a
+ file where the user chooses, proposed under `desc->file_name`. The
+ callback gives the file as saved: its name, and its path on desktops.
+*>
+fn void file_save_async(FileDialogDesc* desc, void* data, usz size, DeviceCallback callback, void* user_data) @inline => c::r_file_save_async((c::RFileDialogDesc*)desc, data, size, (c::RDeviceCallback)callback, user_data);
+
+<* Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses. *>
+fn void file_export_async(FileDialogDesc* desc, ZString path, DeviceCallback callback, void* user_data) @inline => c::r_file_export_async((c::RFileDialogDesc*)desc, (char*)path, (c::RDeviceCallback)callback, user_data);
+
+<* Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android). *>
+fn void file_select_folder_async(FileDialogDesc* desc, DeviceCallback callback, void* user_data) @inline => c::r_file_select_folder_async((c::RFileDialogDesc*)desc, (c::RDeviceCallback)callback, user_data);
+
+<* Returns R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator). *>
+fn bool camera_is_available() @inline => c::r_camera_is_available() != 0;
+
+<*
+ Shows the camera of the system to take one photo. It asks for
+ R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+ The photo is a JPEG file in the cache of the application, with its
+ size in pixels, upright.
+*>
+fn void camera_take_photo(DeviceCallback callback, void* user_data) @inline => c::r_camera_take_photo((c::RDeviceCallback)callback, user_data);
+
+<*
+ Shows the photo picker of the system (desktops: a file dialog for
+ images). No permission is needed: the application only sees what the
+ user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+ when it is HEIC).
+*>
+fn void photo_pick(CInt max_count, DeviceCallback callback, void* user_data) @inline => c::r_photo_pick(max_count, (c::RDeviceCallback)callback, user_data);
+
+<* Returns R_TRUE when the device can play haptics (a phone; never a desktop). *>
+fn bool haptic_is_supported() @inline => c::r_haptic_is_supported() != 0;
+
+<*
+ A short vibration, as the controls of the system play when
+ touched. Nothing happens where there are none, or when the user turned
+ them off. @return R_TRUE when it was handed to the system.
+*>
+fn bool haptic_play(Haptic haptic) @inline => c::r_haptic_play((c::RHaptic)haptic) != 0;
+
+<*
+ Shows the share sheet of the system with a text and / or a file,
+ to send them to another application (mail, chat, Files...). The
+ callback says R_DEVICE_DONE once something was chosen (Android: once the
+ sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+ closed. R_DEVICE_UNSUPPORTED on desktops.
+*>
+fn void share_show(ShareDesc* desc, DeviceCallback callback, void* user_data) @inline => c::r_share_show((c::RShareDesc*)desc, (c::RDeviceCallback)callback, user_data);
+
 <* Pushes a spring away from its target (units per second): it bounces back. *>
 fn void spring_kick(Spring* spring, float velocity) @inline => c::r_spring_kick((c::RSpring*)spring, velocity);
 
@@ -8104,6 +8407,20 @@ fn void host_inject_focus(Id window, CInt focused) @inline => c::r_host_inject_f
 
 <* The user asked to close the window (its close callback decides). *>
 fn void host_inject_close(Id window) @inline => c::r_host_inject_close((c::Rid)window);
+
+<*
+ The user answered a permission_request (or the status changed
+ by itself). The waiting Rpermission_request callbacks get it at the
+ next frame. Any thread.
+*>
+fn void host_permission_answer(Permission permission, PermissionStatus status) @inline => c::r_host_permission_answer((c::RPermission)permission, (c::RPermissionStatus)status);
+
+<*
+ The end of a service_request: the files it gave (copied; paths
+ Raven can read; size 0 is read from the file), at the next frame. Once
+ per request. Any thread.
+*>
+fn void host_service_complete(uint request, DeviceResult result, PickedFile* files, CInt count) @inline => c::r_host_service_complete(request, (c::RDeviceResult)result, (c::RPickedFile*)files, count);
 
 <*
  R_TRUE makes what is drawn depend only on what the test does:

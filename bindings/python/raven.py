@@ -1561,6 +1561,70 @@ R_MESSAGE_RESULT_OK = RMessageResult.R_MESSAGE_RESULT_OK
 R_MESSAGE_RESULT_YES = RMessageResult.R_MESSAGE_RESULT_YES
 R_MESSAGE_RESULT_NO = RMessageResult.R_MESSAGE_RESULT_NO
 
+class RPermission(enum.IntEnum):
+    """What the application may be allowed to use (Rpermission_request)."""
+    R_PERMISSION_CAMERA = 0x0C00
+    R_PERMISSION_NOTIFICATIONS = 0x0C01
+    R_PERMISSION_PHOTOS = 0x0C02
+    R_PERMISSION_MICROPHONE = 0x0C03
+    R_PERMISSION_LOCATION = 0x0C04
+
+R_PERMISSION_CAMERA = RPermission.R_PERMISSION_CAMERA
+R_PERMISSION_NOTIFICATIONS = RPermission.R_PERMISSION_NOTIFICATIONS
+R_PERMISSION_PHOTOS = RPermission.R_PERMISSION_PHOTOS
+R_PERMISSION_MICROPHONE = RPermission.R_PERMISSION_MICROPHONE
+R_PERMISSION_LOCATION = RPermission.R_PERMISSION_LOCATION
+
+class RPermissionStatus(enum.IntEnum):
+    """What the user answered, or would be asked (Rpermission_get_status)."""
+    R_PERMISSION_UNSUPPORTED = 0x0C10
+    R_PERMISSION_NOT_ASKED = 0x0C11
+    R_PERMISSION_GRANTED = 0x0C12
+    R_PERMISSION_LIMITED = 0x0C13
+    R_PERMISSION_DENIED = 0x0C14
+    R_PERMISSION_BLOCKED = 0x0C15
+
+R_PERMISSION_UNSUPPORTED = RPermissionStatus.R_PERMISSION_UNSUPPORTED
+R_PERMISSION_NOT_ASKED = RPermissionStatus.R_PERMISSION_NOT_ASKED
+R_PERMISSION_GRANTED = RPermissionStatus.R_PERMISSION_GRANTED
+R_PERMISSION_LIMITED = RPermissionStatus.R_PERMISSION_LIMITED
+R_PERMISSION_DENIED = RPermissionStatus.R_PERMISSION_DENIED
+R_PERMISSION_BLOCKED = RPermissionStatus.R_PERMISSION_BLOCKED
+
+class RDeviceResult(enum.IntEnum):
+    """How a request of a picker, the camera or a share sheet ended."""
+    R_DEVICE_DONE = 0x0C20
+    R_DEVICE_CANCELLED = 0x0C21
+    R_DEVICE_DENIED = 0x0C22
+    R_DEVICE_UNSUPPORTED = 0x0C23
+    R_DEVICE_BUSY = 0x0C24
+    R_DEVICE_FAILED = 0x0C25
+
+R_DEVICE_DONE = RDeviceResult.R_DEVICE_DONE
+R_DEVICE_CANCELLED = RDeviceResult.R_DEVICE_CANCELLED
+R_DEVICE_DENIED = RDeviceResult.R_DEVICE_DENIED
+R_DEVICE_UNSUPPORTED = RDeviceResult.R_DEVICE_UNSUPPORTED
+R_DEVICE_BUSY = RDeviceResult.R_DEVICE_BUSY
+R_DEVICE_FAILED = RDeviceResult.R_DEVICE_FAILED
+
+class RHaptic(enum.IntEnum):
+    """A short vibration that answers a touch (Rhaptic_play)."""
+    R_HAPTIC_LIGHT = 0x0C30
+    R_HAPTIC_MEDIUM = 0x0C31
+    R_HAPTIC_HEAVY = 0x0C32
+    R_HAPTIC_SELECTION = 0x0C33
+    R_HAPTIC_SUCCESS = 0x0C34
+    R_HAPTIC_WARNING = 0x0C35
+    R_HAPTIC_ERROR = 0x0C36
+
+R_HAPTIC_LIGHT = RHaptic.R_HAPTIC_LIGHT
+R_HAPTIC_MEDIUM = RHaptic.R_HAPTIC_MEDIUM
+R_HAPTIC_HEAVY = RHaptic.R_HAPTIC_HEAVY
+R_HAPTIC_SELECTION = RHaptic.R_HAPTIC_SELECTION
+R_HAPTIC_SUCCESS = RHaptic.R_HAPTIC_SUCCESS
+R_HAPTIC_WARNING = RHaptic.R_HAPTIC_WARNING
+R_HAPTIC_ERROR = RHaptic.R_HAPTIC_ERROR
+
 class RMotion(enum.IntEnum):
     """How a spring moves. Animations in Raven are springs, as on iOS: a value is
     pulled toward its target and may run past it before settling, which is what
@@ -1724,6 +1788,22 @@ R_ROLE_CANVAS = RAccessibleRole.R_ROLE_CANVAS
 R_ROLE_SEPARATOR = RAccessibleRole.R_ROLE_SEPARATOR
 R_ROLE_SCROLL_BAR = RAccessibleRole.R_ROLE_SCROLL_BAR
 R_ROLE_PANE = RAccessibleRole.R_ROLE_PANE
+
+class RHostService(enum.IntEnum):
+    """What a request of a service of the device asks the application for (RHostServiceRequest)."""
+    R_HOST_SERVICE_OPEN_FILES = 0x0C40
+    R_HOST_SERVICE_SAVE_FILE = 0x0C41
+    R_HOST_SERVICE_SELECT_FOLDER = 0x0C42
+    R_HOST_SERVICE_TAKE_PHOTO = 0x0C43
+    R_HOST_SERVICE_PICK_PHOTOS = 0x0C44
+    R_HOST_SERVICE_SHARE = 0x0C45
+
+R_HOST_SERVICE_OPEN_FILES = RHostService.R_HOST_SERVICE_OPEN_FILES
+R_HOST_SERVICE_SAVE_FILE = RHostService.R_HOST_SERVICE_SAVE_FILE
+R_HOST_SERVICE_SELECT_FOLDER = RHostService.R_HOST_SERVICE_SELECT_FOLDER
+R_HOST_SERVICE_TAKE_PHOTO = RHostService.R_HOST_SERVICE_TAKE_PHOTO
+R_HOST_SERVICE_PICK_PHOTOS = RHostService.R_HOST_SERVICE_PICK_PHOTOS
+R_HOST_SERVICE_SHARE = RHostService.R_HOST_SERVICE_SHARE
 
 class RGoldenStatus(enum.IntEnum):
     R_GOLDEN_MATCH = 0x0BA0
@@ -2047,6 +2127,29 @@ class RFileDialogDesc(ctypes.Structure):
     ]
 
 
+class RPickedFile(ctypes.Structure):
+    """A file given by a service of the device. Valid during the callback only: copy what you keep."""
+    _fields_ = [
+        ("path", ctypes.c_char_p),
+        ("name", ctypes.c_char_p),
+        ("mime_type", ctypes.c_char_p),
+        ("size", ctypes.c_uint64),
+        ("width", ctypes.c_int),
+        ("height", ctypes.c_int),
+    ]
+
+
+class RShareDesc(ctypes.Structure):
+    """What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them."""
+    _fields_ = [
+        ("text", ctypes.c_char_p),
+        ("path", ctypes.c_char_p),
+        ("mime_type", ctypes.c_char_p),
+        ("title", ctypes.c_char_p),
+        ("anchor", ctypes.c_uint32),
+    ]
+
+
 class RViewportDrawInfo(ctypes.Structure):
     """Passed to the draw callback of a viewport. Sizes are in pixels."""
     _fields_ = [
@@ -2127,6 +2230,32 @@ class RAccessibilitySettings(ctypes.Structure):
     ]
 
 
+class RHostServiceRequest(ctypes.Structure):
+    """A request of a service of the device, valid during the call only. Fields that do not concern the service are zero."""
+    _fields_ = [
+        ("id", ctypes.c_uint32),
+        ("service", ctypes.c_int),
+        ("window", ctypes.c_uint32),
+        ("anchor_x", ctypes.c_float),
+        ("anchor_y", ctypes.c_float),
+        ("anchor_width", ctypes.c_float),
+        ("anchor_height", ctypes.c_float),
+        ("title", ctypes.c_char_p),
+        ("filters", ctypes.POINTER(RFileFilter)),
+        ("filter_count", ctypes.c_int),
+        ("flags", ctypes.c_uint32),
+        ("file_name", ctypes.c_char_p),
+        ("default_extension", ctypes.c_char_p),
+        ("data", ctypes.c_void_p),
+        ("size", ctypes.c_size_t),
+        ("path", ctypes.c_char_p),
+        ("max_count", ctypes.c_int),
+        ("text", ctypes.c_char_p),
+        ("mime_type", ctypes.c_char_p),
+        ("share_title", ctypes.c_char_p),
+    ]
+
+
 class RHostPlatformDesc(ctypes.Structure):
     _fields_ = [
         ("set_cursor", ctypes.c_void_p),
@@ -2134,6 +2263,13 @@ class RHostPlatformDesc(ctypes.Structure):
         ("clipboard_get", ctypes.c_void_p),
         ("wake", ctypes.c_void_p),
         ("user_data", ctypes.c_void_p),
+        ("permission_status", ctypes.c_void_p),
+        ("permission_request", ctypes.c_void_p),
+        ("service_request", ctypes.c_void_p),
+        ("has_camera", ctypes.c_int),
+        ("open_url", ctypes.c_void_p),
+        ("haptic", ctypes.c_void_p),
+        ("download", ctypes.c_void_p),
     ]
 
 
@@ -2832,6 +2968,22 @@ def _adapt_RNotificationClickedCallback(function):
         function(user_data)
     return call
 
+RPermissionCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RPermissionCallback(function):
+    def call(permission, status, user_data):
+        function(_e(RPermission, permission), _e(RPermissionStatus, status), user_data)
+    return call
+
+RDeviceCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.POINTER(RPickedFile), ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RDeviceCallback(function):
+    def call(result, files, count, user_data):
+        function(_e(RDeviceResult, result), files.contents if files else None, count, user_data)
+    return call
+
 RViewportDrawCallback = ctypes.CFUNCTYPE(None, ctypes.POINTER(RViewportDrawInfo), ctypes.c_void_p)
 
 
@@ -3527,7 +3679,9 @@ _lib.Ropen_url.restype = ctypes.c_int
 def Ropen_url(url):
     """Opens an address with the program the user has for it: a web
     page in the browser, a mailto: in the mail program, a file in its
-    application. Returns at once.
+    application. Returns at once. On iOS and Android the system opens it
+    (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+    and Raven must be initialized and this be called on the UI thread.
     Returns: R_FALSE when the OS could not be asked (nothing tells whether
     a program then really opened it)."""
     return _lib.Ropen_url(_s(url))
@@ -3559,8 +3713,23 @@ _lib.Rclipboard_get_text.restype = ctypes.c_char_p
 
 
 def Rclipboard_get_text():
-    """Returns: The clipboard text, or "" when empty. Valid until the next call."""
+    """Returns: The clipboard text, or "" when empty. Valid until the next call.
+    On iOS a read that does not follow a paste of the user (the Paste of a
+    menu, a button, Command-V) shows the system's question "Allow Paste?",
+    and on Android 12+ the system says that the application pasted: read it
+    when the user pastes, not to look at it. Android lets only the
+    application in front read it."""
     return _r(_lib.Rclipboard_get_text())
+
+
+_lib.Rclipboard_has_text.argtypes = []
+_lib.Rclipboard_has_text.restype = ctypes.c_int
+
+
+def Rclipboard_has_text():
+    """Returns: R_TRUE when the clipboard holds text, without reading it (no
+    question of the system on iOS): to enable a Paste button."""
+    return _lib.Rclipboard_has_text()
 
 
 _lib.Rerror_get_last.argtypes = [ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_int)]
@@ -5316,6 +5485,22 @@ _lib.Rtexture_create_from_file_async.restype = ctypes.c_uint32
 def Rtexture_create_from_file_async(path):
     """Reads and decodes the file on a worker thread."""
     return _lib.Rtexture_create_from_file_async(_s(path))
+
+
+_lib.Rtexture_create_from_url_async.argtypes = [ctypes.c_char_p]
+_lib.Rtexture_create_from_url_async.restype = ctypes.c_uint32
+
+
+def Rtexture_create_from_url_async(url):
+    """Downloads an http:// or https:// image and decodes it on a worker
+    thread, as an Image whose Source is a URL does. The handle is usable at
+    once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+    a texture that could not be downloaded is ready with a size of 0, and the
+    failure is reported as a warning). Desktops download with WinHTTP or
+    `curl`; iOS and Android through their platform. Android needs the INTERNET
+    permission in the manifest; iOS refuses http:// unless Info.plist allows
+    it (App Transport Security). Up to 32 MiB."""
+    return _lib.Rtexture_create_from_url_async(_s(url))
 
 
 _lib.Rtexture_create_from_pixels.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
@@ -14063,6 +14248,163 @@ def Rnotification_set_clicked_callback(callback, user_data=None):
     _lib.Rnotification_set_clicked_callback(_callback(RNotificationClickedCallback, _adapt_RNotificationClickedCallback, callback), user_data)
 
 
+_lib.Rpermission_get_status.argtypes = [ctypes.c_int]
+_lib.Rpermission_get_status.restype = ctypes.c_int
+
+
+def Rpermission_get_status(permission):
+    """What the user answered, without asking. Cheap: the platform
+    remembers it. On iOS the status of notifications is known shortly after
+    the start (R_PERMISSION_NOT_ASKED until then)."""
+    return _e(RPermissionStatus, _lib.Rpermission_get_status(int(permission)))
+
+
+_lib.Rpermission_request.argtypes = [ctypes.c_int, RPermissionCallback, ctypes.c_void_p]
+_lib.Rpermission_request.restype = None
+
+
+def Rpermission_request(permission, callback, user_data=None):
+    """Asks the user, with the question of the system, when the status
+    is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+    with the status. Several requests for the same permission share one
+    question. `callback` may be NULL."""
+    _lib.Rpermission_request(int(permission), _callback(RPermissionCallback, _adapt_RPermissionCallback, callback), user_data)
+
+
+_lib.Rpermission_open_settings.argtypes = []
+_lib.Rpermission_open_settings.restype = ctypes.c_int
+
+
+def Rpermission_open_settings():
+    """Opens the page of the application in the Settings of the system,
+    where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+    Returns: R_FALSE when the platform has no such page."""
+    return _lib.Rpermission_open_settings()
+
+
+_lib.Rpermission_to_string.argtypes = [ctypes.c_int]
+_lib.Rpermission_to_string.restype = ctypes.c_char_p
+
+
+def Rpermission_to_string(permission):
+    """Returns: The name of a permission or a status ("camera", "granted"...), for logs."""
+    return _r(_lib.Rpermission_to_string(int(permission)))
+
+
+_lib.Rpermission_status_to_string.argtypes = [ctypes.c_int]
+_lib.Rpermission_status_to_string.restype = ctypes.c_char_p
+
+
+def Rpermission_status_to_string(status):
+    return _r(_lib.Rpermission_status_to_string(int(status)))
+
+
+_lib.Rfile_open_async.argtypes = [ctypes.POINTER(RFileDialogDesc), RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_open_async.restype = None
+
+
+def Rfile_open_async(desc, callback, user_data=None):
+    """Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL."""
+    _lib.Rfile_open_async(_p(desc), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rfile_save_async.argtypes = [ctypes.POINTER(RFileDialogDesc), ctypes.c_void_p, ctypes.c_size_t, RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_save_async.restype = None
+
+
+def Rfile_save_async(desc, data, callback, user_data=None):
+    """Saves `size` bytes (copied: `data` may be freed at once) as a
+    file where the user chooses, proposed under `desc->file_name`. The
+    callback gives the file as saved: its name, and its path on desktops."""
+    data = bytes(data) if data is not None else None
+    _lib.Rfile_save_async(_p(desc), data, len(data) if data is not None else 0, _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rfile_export_async.argtypes = [ctypes.POINTER(RFileDialogDesc), ctypes.c_char_p, RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_export_async.restype = None
+
+
+def Rfile_export_async(desc, path, callback, user_data=None):
+    """Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses."""
+    _lib.Rfile_export_async(_p(desc), _s(path), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rfile_select_folder_async.argtypes = [ctypes.POINTER(RFileDialogDesc), RDeviceCallback, ctypes.c_void_p]
+_lib.Rfile_select_folder_async.restype = None
+
+
+def Rfile_select_folder_async(desc, callback, user_data=None):
+    """Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android)."""
+    _lib.Rfile_select_folder_async(_p(desc), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rcamera_is_available.argtypes = []
+_lib.Rcamera_is_available.restype = ctypes.c_int
+
+
+def Rcamera_is_available():
+    """Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator)."""
+    return _lib.Rcamera_is_available()
+
+
+_lib.Rcamera_take_photo.argtypes = [RDeviceCallback, ctypes.c_void_p]
+_lib.Rcamera_take_photo.restype = None
+
+
+def Rcamera_take_photo(callback, user_data=None):
+    """Shows the camera of the system to take one photo. It asks for
+    R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+    The photo is a JPEG file in the cache of the application, with its
+    size in pixels, upright."""
+    _lib.Rcamera_take_photo(_callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rphoto_pick.argtypes = [ctypes.c_int, RDeviceCallback, ctypes.c_void_p]
+_lib.Rphoto_pick.restype = None
+
+
+def Rphoto_pick(max_count, callback, user_data=None):
+    """Shows the photo picker of the system (desktops: a file dialog for
+    images). No permission is needed: the application only sees what the
+    user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+    when it is HEIC).
+    max_count How many photos may be picked; 0: no limit."""
+    _lib.Rphoto_pick(max_count, _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
+_lib.Rhaptic_is_supported.argtypes = []
+_lib.Rhaptic_is_supported.restype = ctypes.c_int
+
+
+def Rhaptic_is_supported():
+    """Returns: R_TRUE when the device can play haptics (a phone; never a desktop)."""
+    return _lib.Rhaptic_is_supported()
+
+
+_lib.Rhaptic_play.argtypes = [ctypes.c_int]
+_lib.Rhaptic_play.restype = ctypes.c_int
+
+
+def Rhaptic_play(haptic):
+    """A short vibration, as the controls of the system play when
+    touched. Nothing happens where there are none, or when the user turned
+    them off. Returns: R_TRUE when it was handed to the system."""
+    return _lib.Rhaptic_play(int(haptic))
+
+
+_lib.Rshare_show.argtypes = [ctypes.POINTER(RShareDesc), RDeviceCallback, ctypes.c_void_p]
+_lib.Rshare_show.restype = None
+
+
+def Rshare_show(desc, callback, user_data=None):
+    """Shows the share sheet of the system with a text and / or a file,
+    to send them to another application (mail, chat, Files...). The
+    callback says R_DEVICE_DONE once something was chosen (Android: once the
+    sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+    closed. R_DEVICE_UNSUPPORTED on desktops."""
+    _lib.Rshare_show(_p(desc), _callback(RDeviceCallback, _adapt_RDeviceCallback, callback), user_data)
+
+
 _lib.Rviewport_set_texture.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
 _lib.Rviewport_set_texture.restype = None
 
@@ -15680,6 +16022,28 @@ _lib.Rhost_inject_close.restype = None
 def Rhost_inject_close(window):
     """The user asked to close the window (its close callback decides)."""
     _lib.Rhost_inject_close(window)
+
+
+_lib.Rhost_permission_answer.argtypes = [ctypes.c_int, ctypes.c_int]
+_lib.Rhost_permission_answer.restype = None
+
+
+def Rhost_permission_answer(permission, status):
+    """The user answered a permission_request (or the status changed
+    by itself). The waiting Rpermission_request callbacks get it at the
+    next frame. Any thread."""
+    _lib.Rhost_permission_answer(int(permission), int(status))
+
+
+_lib.Rhost_service_complete.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(RPickedFile), ctypes.c_int]
+_lib.Rhost_service_complete.restype = None
+
+
+def Rhost_service_complete(request, result, files, count):
+    """The end of a service_request: the files it gave (copied; paths
+    Raven can read; size 0 is read from the file), at the next frame. Once
+    per request. Any thread."""
+    _lib.Rhost_service_complete(request, int(result), _p(files), count)
 
 
 _lib.Rtest_set_deterministic.argtypes = [ctypes.c_int]

@@ -1127,6 +1127,65 @@ pub const R_MESSAGE_RESULT_OK: RMessageResult = 1;
 pub const R_MESSAGE_RESULT_YES: RMessageResult = 2;
 pub const R_MESSAGE_RESULT_NO: RMessageResult = 3;
 
+/// What the application may be allowed to use (Rpermission_request).
+pub const RPermission = c_int;
+pub const R_PERMISSION_CAMERA: RPermission = 0x0C00;
+/// Notifications of the system (Rnotification_show).
+pub const R_PERMISSION_NOTIFICATIONS: RPermission = 0x0C01;
+/// Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+pub const R_PERMISSION_PHOTOS: RPermission = 0x0C02;
+pub const R_PERMISSION_MICROPHONE: RPermission = 0x0C03;
+/// The location of the device while the application is in use.
+pub const R_PERMISSION_LOCATION: RPermission = 0x0C04;
+
+/// What the user answered, or would be asked (Rpermission_get_status).
+pub const RPermissionStatus = c_int;
+/// There is nothing to ask for here: the platform has no such permission,
+/// or Raven cannot ask for it on this platform. Whether the service itself
+/// exists is told by its own function (Rcamera_is_available,
+/// Rnotification_is_supported).
+pub const R_PERMISSION_UNSUPPORTED: RPermissionStatus = 0x0C10;
+/// Not asked yet: Rpermission_request shows the question of the system.
+pub const R_PERMISSION_NOT_ASKED: RPermissionStatus = 0x0C11;
+/// Allowed (also where the system asks nothing: notifications on Windows and Linux).
+pub const R_PERMISSION_GRANTED: RPermissionStatus = 0x0C12;
+/// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+pub const R_PERMISSION_LIMITED: RPermissionStatus = 0x0C13;
+/// Refused, and the system may ask again (Android, after a first refusal).
+pub const R_PERMISSION_DENIED: RPermissionStatus = 0x0C14;
+/// Refused for good, or not the user's to give (parental controls, a
+/// profile of the company): the system shows no question any more, only
+/// its Settings can change it (Rpermission_open_settings).
+pub const R_PERMISSION_BLOCKED: RPermissionStatus = 0x0C15;
+
+/// How a request of a picker, the camera or a share sheet ended.
+pub const RDeviceResult = c_int;
+/// Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+pub const R_DEVICE_DONE: RDeviceResult = 0x0C20;
+/// The user closed the screen of the system without choosing.
+pub const R_DEVICE_CANCELLED: RDeviceResult = 0x0C21;
+/// A permission it needs was refused (Rcamera_take_photo: the camera).
+pub const R_DEVICE_DENIED: RDeviceResult = 0x0C22;
+/// The platform does not have this service.
+pub const R_DEVICE_UNSUPPORTED: RDeviceResult = 0x0C23;
+/// Another screen of the system is still open: one at a time.
+pub const R_DEVICE_BUSY: RDeviceResult = 0x0C24;
+/// The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+pub const R_DEVICE_FAILED: RDeviceResult = 0x0C25;
+
+/// A short vibration that answers a touch (Rhaptic_play).
+pub const RHaptic = c_int;
+/// Impacts: something touched, snapped, landed.
+pub const R_HAPTIC_LIGHT: RHaptic = 0x0C30;
+pub const R_HAPTIC_MEDIUM: RHaptic = 0x0C31;
+pub const R_HAPTIC_HEAVY: RHaptic = 0x0C32;
+/// The selection moved (a picker wheel, a switch, a segmented control).
+pub const R_HAPTIC_SELECTION: RHaptic = 0x0C33;
+/// The outcome of an action.
+pub const R_HAPTIC_SUCCESS: RHaptic = 0x0C34;
+pub const R_HAPTIC_WARNING: RHaptic = 0x0C35;
+pub const R_HAPTIC_ERROR: RHaptic = 0x0C36;
+
 /// How a spring moves. Animations in Raven are springs, as on iOS: a value is
 /// pulled toward its target and may run past it before settling, which is what
 /// makes a control feel alive rather than mechanical.
@@ -1239,6 +1298,21 @@ pub const R_ROLE_CANVAS: RAccessibleRole = 0x0780;
 pub const R_ROLE_SEPARATOR: RAccessibleRole = 0x0781;
 pub const R_ROLE_SCROLL_BAR: RAccessibleRole = 0x0782;
 pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
+
+/// What a request of a service of the device asks the application for (RHostServiceRequest).
+pub const RHostService = c_int;
+/// Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+pub const R_HOST_SERVICE_OPEN_FILES: RHostService = 0x0C40;
+/// Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+pub const R_HOST_SERVICE_SAVE_FILE: RHostService = 0x0C41;
+/// A folder (Rfile_select_folder_async).
+pub const R_HOST_SERVICE_SELECT_FOLDER: RHostService = 0x0C42;
+/// A photo from the camera (Rcamera_take_photo); camera permission already asked.
+pub const R_HOST_SERVICE_TAKE_PHOTO: RHostService = 0x0C43;
+/// Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+pub const R_HOST_SERVICE_PICK_PHOTOS: RHostService = 0x0C44;
+/// The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+pub const R_HOST_SERVICE_SHARE: RHostService = 0x0C45;
 
 pub const RGoldenStatus = c_int;
 /// The capture matches the golden.
@@ -1500,6 +1574,12 @@ pub const RDialogClosedCallback = ?*const fn (content: Rid, result: c_int, user_
 pub const RFileBrowserCallback = ?*const fn (browser: Rid, path: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
 pub const RNotificationFallback = ?*const fn (title: ?[*:0]const u8, body: ?[*:0]const u8, urgency: RNotificationUrgency, user_data: ?*anyopaque) callconv(.c) void;
 pub const RNotificationClickedCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
+/// The answer to Rpermission_request.
+pub const RPermissionCallback = ?*const fn (permission: RPermission, status: RPermissionStatus, user_data: ?*anyopaque) callconv(.c) void;
+/// The end of a request of a picker, the camera, a save or a share
+/// sheet. `files` (count of them) are what it gave: none unless `result` is
+/// R_DEVICE_DONE. Called on the UI thread, once.
+pub const RDeviceCallback = ?*const fn (result: RDeviceResult, files: ?*const RPickedFile, count: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
@@ -1944,6 +2024,39 @@ pub const RFileDialogDesc = extern struct {
     flags: u32 = 0,
 };
 
+/// A file given by a service of the device. Valid during the callback only: copy what you keep.
+pub const RPickedFile = extern struct {
+    /// A path Raven and the C library can read (Rfile_read, textures, fonts,
+    /// fopen). On iOS and Android a copy in the cache of the application.
+    /// NULL for Rfile_save_async on iOS and Android: the file went where the
+    /// user chose, which the application cannot write to again.
+    path: ?[*:0]const u8 = null,
+    /// The name the user saw ("IMG_0042.JPG"), to show.
+    name: ?[*:0]const u8 = null,
+    /// The MIME type when the system tells ("image/jpeg"), or NULL.
+    mime_type: ?[*:0]const u8 = null,
+    /// Bytes.
+    size: u64 = 0,
+    /// Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    width: c_int = 0,
+    /// Pixels of a photo (Rcamera_take_photo, Rphoto_pick) when known, else 0.
+    height: c_int = 0,
+};
+
+/// What a share sheet offers to the other applications (Rshare_show). Every field may be left to zero, but not all of them.
+pub const RShareDesc = extern struct {
+    /// Text, or a link ("https://..."). May be NULL.
+    text: ?[*:0]const u8 = null,
+    /// A file to send (a path Raven can read), or NULL.
+    path: ?[*:0]const u8 = null,
+    /// Its MIME type ("image/png"); NULL: guessed from its extension.
+    mime_type: ?[*:0]const u8 = null,
+    /// The title of the sheet, where the system shows one (Android's chooser). May be NULL.
+    title: ?[*:0]const u8 = null,
+    /// The widget the sheet points at on a tablet (the button that shares). 0 or R_INVALID_ID: the middle of the window.
+    anchor: Rid = 0,
+};
+
 /// Passed to the draw callback of a viewport. Sizes are in pixels.
 pub const RViewportDrawInfo = extern struct {
     backend: RBackend = 0,
@@ -2043,6 +2156,37 @@ pub const RAccessibilitySettings = extern struct {
     screen_reader: c_int = 0,
 };
 
+/// A request of a service of the device, valid during the call only. Fields that do not concern the service are zero.
+pub const RHostServiceRequest = extern struct {
+    /// Given back to Rhost_service_complete.
+    id: u32 = 0,
+    service: RHostService = 0,
+    /// The window it is for (R_INVALID_ID: none).
+    window: Rid = 0,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    anchor_x: f32 = 0,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    anchor_y: f32 = 0,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    anchor_width: f32 = 0,
+    /// What it points at (a share sheet on a tablet), in pixels of the window; width 0: the middle of the window.
+    anchor_height: f32 = 0,
+    title: ?[*:0]const u8 = null,
+    filters: ?*const RFileFilter = null,
+    filter_count: c_int = 0,
+    /// Bitmask of RFileDialogFlags.
+    flags: u32 = 0,
+    file_name: ?[*:0]const u8 = null,
+    default_extension: ?[*:0]const u8 = null,
+    data: ?*const anyopaque = null,
+    size: usize = 0,
+    path: ?[*:0]const u8 = null,
+    max_count: c_int = 0,
+    text: ?[*:0]const u8 = null,
+    mime_type: ?[*:0]const u8 = null,
+    share_title: ?[*:0]const u8 = null,
+};
+
 pub const RHostPlatformDesc = extern struct {
     /// The pointer over `window` should look like `cursor`. May be NULL.
     set_cursor: ?*const anyopaque = null,
@@ -2053,6 +2197,22 @@ pub const RHostPlatformDesc = extern struct {
     /// Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
     wake: ?*const anyopaque = null,
     user_data: ?*anyopaque = null,
+    /// An RPermissionStatus, without asking. NULL: as on desktops (notifications granted, the rest unsupported).
+    permission_status: ?*const anyopaque = null,
+    /// Ask the user (the status is not asked or denied); answer with Rhost_permission_answer.
+    permission_request: ?*const anyopaque = null,
+    /// A picker, the camera, a save or a share sheet; answer with Rhost_service_complete. NULL: the file dialogs of Raven, nothing else.
+    service_request: ?*const anyopaque = null,
+    /// R_TRUE: there is a camera (Rcamera_is_available) for R_HOST_SERVICE_TAKE_PHOTO.
+    has_camera: c_int = 0,
+    /// Ropen_url. Returns R_FALSE when it could not. NULL: as on desktops (`open`, `xdg-open`...).
+    open_url: ?*const anyopaque = null,
+    /// Rhaptic_play: an RHaptic. Returns R_TRUE when played.
+    haptic: ?*const anyopaque = null,
+    /// Downloads an http(s) URL (images from a URL): returns its content in a
+    /// buffer from Rmemory_alloc and its size, or NULL. Called on worker
+    /// threads, several at a time, and may block. NULL: as on desktops.
+    download: ?*const anyopaque = null,
 };
 
 /// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
@@ -2258,7 +2418,9 @@ pub extern fn Raction_set_builtins(enabled: c_int) void;
 pub extern fn Raction_is_builtin(name: ?[*:0]const u8) c_int;
 /// Opens an address with the program the user has for it: a web
 /// page in the browser, a mailto: in the mail program, a file in its
-/// application. Returns at once.
+/// application. Returns at once. On iOS and Android the system opens it
+/// (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+/// and Raven must be initialized and this be called on the UI thread.
 /// Returns: R_FALSE when the OS could not be asked (nothing tells whether
 /// a program then really opened it).
 pub extern fn Ropen_url(url: ?[*:0]const u8) c_int;
@@ -2270,7 +2432,15 @@ pub extern fn Rclipboard_set_text(text: ?[*:0]const u8) void;
 /// now), or `html` is NULL, it is Rclipboard_set_text(text).
 pub extern fn Rclipboard_set_html(text: ?[*:0]const u8, html: ?[*:0]const u8) void;
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
+/// On iOS a read that does not follow a paste of the user (the Paste of a
+/// menu, a button, Command-V) shows the system's question "Allow Paste?",
+/// and on Android 12+ the system says that the application pasted: read it
+/// when the user pastes, not to look at it. Android lets only the
+/// application in front read it.
 pub extern fn Rclipboard_get_text() ?[*:0]const u8;
+/// Returns: R_TRUE when the clipboard holds text, without reading it (no
+/// question of the system on iOS): to enable a Paste button.
+pub extern fn Rclipboard_has_text() c_int;
 /// Retrieves and clears the last recorded error.
 /// detail   Optional output: human-readable description.
 /// severity Optional output: severity of the error.
@@ -2765,6 +2935,15 @@ pub extern fn Rtexture_get_density(texture: Rid) f32;
 pub extern fn Rtexture_create_from_file(path: ?[*:0]const u8) Rid;
 /// Reads and decodes the file on a worker thread.
 pub extern fn Rtexture_create_from_file_async(path: ?[*:0]const u8) Rid;
+/// Downloads an http:// or https:// image and decodes it on a worker
+/// thread, as an Image whose Source is a URL does. The handle is usable at
+/// once: widgets showing it draw nothing until it is ready (Rtexture_is_ready;
+/// a texture that could not be downloaded is ready with a size of 0, and the
+/// failure is reported as a warning). Desktops download with WinHTTP or
+/// `curl`; iOS and Android through their platform. Android needs the INTERNET
+/// permission in the manifest; iOS refuses http:// unless Info.plist allows
+/// it (App Transport Security). Up to 32 MiB.
+pub extern fn Rtexture_create_from_url_async(url: ?[*:0]const u8) Rid;
 /// Creates a texture from tightly packed RGBA8 pixels (straight alpha). Its filter is R_FILTER_LINEAR.
 pub extern fn Rtexture_create_from_pixels(rgba: ?[*]const u8, width: c_int, height: c_int) Rid;
 /// Replaces the pixels of a texture. The size may change. Use it to
@@ -4680,6 +4859,57 @@ pub extern fn Rnotification_set_fallback(callback: RNotificationFallback, user_d
 /// the application remembers what it was about. NULL: none.
 /// Windows and macOS (elsewhere it is never called).
 pub extern fn Rnotification_set_clicked_callback(callback: RNotificationClickedCallback, user_data: ?*anyopaque) void;
+/// What the user answered, without asking. Cheap: the platform
+/// remembers it. On iOS the status of notifications is known shortly after
+/// the start (R_PERMISSION_NOT_ASKED until then).
+pub extern fn Rpermission_get_status(permission: RPermission) RPermissionStatus;
+/// Asks the user, with the question of the system, when the status
+/// is R_PERMISSION_NOT_ASKED or R_PERMISSION_DENIED; otherwise only answers
+/// with the status. Several requests for the same permission share one
+/// question. `callback` may be NULL.
+pub extern fn Rpermission_request(permission: RPermission, callback: RPermissionCallback, user_data: ?*anyopaque) void;
+/// Opens the page of the application in the Settings of the system,
+/// where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+/// Returns: R_FALSE when the platform has no such page.
+pub extern fn Rpermission_open_settings() c_int;
+/// Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+pub extern fn Rpermission_to_string(permission: RPermission) ?[*:0]const u8;
+pub extern fn Rpermission_status_to_string(status: RPermissionStatus) ?[*:0]const u8;
+/// Asks for one file to read (several with R_FILE_DIALOG_MULTIPLE). `desc` may be NULL.
+pub extern fn Rfile_open_async(desc: ?*const RFileDialogDesc, callback: RDeviceCallback, user_data: ?*anyopaque) void;
+/// Saves `size` bytes (copied: `data` may be freed at once) as a
+/// file where the user chooses, proposed under `desc->file_name`. The
+/// callback gives the file as saved: its name, and its path on desktops.
+pub extern fn Rfile_save_async(desc: ?*const RFileDialogDesc, data: ?*const anyopaque, size: usize, callback: RDeviceCallback, user_data: ?*anyopaque) void;
+/// Same as Rfile_save_async, for a file that already exists (a path Raven can read), copied where the user chooses.
+pub extern fn Rfile_export_async(desc: ?*const RFileDialogDesc, path: ?[*:0]const u8, callback: RDeviceCallback, user_data: ?*anyopaque) void;
+/// Asks for a folder: desktops only for now (R_DEVICE_UNSUPPORTED on iOS and Android).
+pub extern fn Rfile_select_folder_async(desc: ?*const RFileDialogDesc, callback: RDeviceCallback, user_data: ?*anyopaque) void;
+/// Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+pub extern fn Rcamera_is_available() c_int;
+/// Shows the camera of the system to take one photo. It asks for
+/// R_PERMISSION_CAMERA first when needed (R_DEVICE_DENIED when refused).
+/// The photo is a JPEG file in the cache of the application, with its
+/// size in pixels, upright.
+pub extern fn Rcamera_take_photo(callback: RDeviceCallback, user_data: ?*anyopaque) void;
+/// Shows the photo picker of the system (desktops: a file dialog for
+/// images). No permission is needed: the application only sees what the
+/// user picks. Each photo is a file Raven can load (iOS: converted to JPEG
+/// when it is HEIC).
+/// max_count How many photos may be picked; 0: no limit.
+pub extern fn Rphoto_pick(max_count: c_int, callback: RDeviceCallback, user_data: ?*anyopaque) void;
+/// Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+pub extern fn Rhaptic_is_supported() c_int;
+/// A short vibration, as the controls of the system play when
+/// touched. Nothing happens where there are none, or when the user turned
+/// them off. Returns: R_TRUE when it was handed to the system.
+pub extern fn Rhaptic_play(haptic: RHaptic) c_int;
+/// Shows the share sheet of the system with a text and / or a file,
+/// to send them to another application (mail, chat, Files...). The
+/// callback says R_DEVICE_DONE once something was chosen (Android: once the
+/// sheet was shown; it does not tell more), R_DEVICE_CANCELLED when it was
+/// closed. R_DEVICE_UNSUPPORTED on desktops.
+pub extern fn Rshare_show(desc: ?*const RShareDesc, callback: RDeviceCallback, user_data: ?*anyopaque) void;
 /// Shows a texture. R_INVALID_ID shows nothing.
 pub extern fn Rviewport_set_texture(viewport: Rid, texture: Rid) void;
 /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.
@@ -5087,6 +5317,14 @@ pub extern fn Rhost_inject_composition(window: Rid, text: ?[*:0]const u8, select
 pub extern fn Rhost_inject_focus(window: Rid, focused: c_int) void;
 /// The user asked to close the window (its close callback decides).
 pub extern fn Rhost_inject_close(window: Rid) void;
+/// The user answered a permission_request (or the status changed
+/// by itself). The waiting Rpermission_request callbacks get it at the
+/// next frame. Any thread.
+pub extern fn Rhost_permission_answer(permission: RPermission, status: RPermissionStatus) void;
+/// The end of a service_request: the files it gave (copied; paths
+/// Raven can read; size 0 is read from the file), at the next frame. Once
+/// per request. Any thread.
+pub extern fn Rhost_service_complete(request: u32, result: RDeviceResult, files: ?*const RPickedFile, count: c_int) void;
 /// R_TRUE makes what is drawn depend only on what the test does:
 /// every frame advances the animations by 1/60 s (Rset_animation_time_step),
 /// and the carets of the text fields stay lit instead of blinking. R_FALSE

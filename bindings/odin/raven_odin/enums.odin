@@ -1179,6 +1179,69 @@ Message_Result :: enum i32 {
 	No = 3,
 }
 
+// What the application may be allowed to use (Rpermission_request).
+Permission :: enum i32 {
+	Camera = 0x0C00,
+	// Notifications of the system (Rnotification_show).
+	Notifications = 0x0C01,
+	// Reading the whole photo library. Rphoto_pick needs none: the system's picker gives only what the user chose.
+	Photos = 0x0C02,
+	Microphone = 0x0C03,
+	// The location of the device while the application is in use.
+	Location = 0x0C04,
+}
+
+// What the user answered, or would be asked (Rpermission_get_status).
+Permission_Status :: enum i32 {
+	// There is nothing to ask for here: the platform has no such permission,
+	// or Raven cannot ask for it on this platform. Whether the service itself
+	// exists is told by its own function (Rcamera_is_available,
+	// Rnotification_is_supported).
+	Unsupported = 0x0C10,
+	// Not asked yet: Rpermission_request shows the question of the system.
+	Not_Asked = 0x0C11,
+	// Allowed (also where the system asks nothing: notifications on Windows and Linux).
+	Granted = 0x0C12,
+	// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+	Limited = 0x0C13,
+	// Refused, and the system may ask again (Android, after a first refusal).
+	Denied = 0x0C14,
+	// Refused for good, or not the user's to give (parental controls, a
+	// profile of the company): the system shows no question any more, only
+	// its Settings can change it (Rpermission_open_settings).
+	Blocked = 0x0C15,
+}
+
+// How a request of a picker, the camera or a share sheet ended.
+Device_Result :: enum i32 {
+	// Done: the files were chosen, the photo taken, the file saved, the sheet shown.
+	Done = 0x0C20,
+	// The user closed the screen of the system without choosing.
+	Cancelled = 0x0C21,
+	// A permission it needs was refused (Rcamera_take_photo: the camera).
+	Denied = 0x0C22,
+	// The platform does not have this service.
+	Unsupported = 0x0C23,
+	// Another screen of the system is still open: one at a time.
+	Busy = 0x0C24,
+	// The system reported an error (also reported as an R_ERROR_PLATFORM warning).
+	Failed = 0x0C25,
+}
+
+// A short vibration that answers a touch (Rhaptic_play).
+Haptic :: enum i32 {
+	// Impacts: something touched, snapped, landed.
+	Light = 0x0C30,
+	Medium = 0x0C31,
+	Heavy = 0x0C32,
+	// The selection moved (a picker wheel, a switch, a segmented control).
+	Selection = 0x0C33,
+	// The outcome of an action.
+	Success = 0x0C34,
+	Warning = 0x0C35,
+	Error = 0x0C36,
+}
+
 // How a spring moves. Animations in Raven are springs, as on iOS: a value is
 // pulled toward its target and may run past it before settling, which is what
 // makes a control feel alive rather than mechanical.
@@ -1297,6 +1360,22 @@ Accessible_Role :: enum i32 {
 	Separator = 0x0781,
 	Scroll_Bar = 0x0782,
 	Pane = 0x0783,
+}
+
+// What a request of a service of the device asks the application for (RHostServiceRequest).
+Host_Service :: enum i32 {
+	// Files to read (Rfile_open_async): `filters`, `flags` (R_FILE_DIALOG_MULTIPLE).
+	Open_Files = 0x0C40,
+	// Save `data` / `size`, or the file `path` when data is NULL, as `file_name` (Rfile_save_async, Rfile_export_async).
+	Save_File = 0x0C41,
+	// A folder (Rfile_select_folder_async).
+	Select_Folder = 0x0C42,
+	// A photo from the camera (Rcamera_take_photo); camera permission already asked.
+	Take_Photo = 0x0C43,
+	// Up to `max_count` photos (0: no limit) from the library (Rphoto_pick).
+	Pick_Photos = 0x0C44,
+	// The share sheet: `text` and / or the file `path` (`mime_type`), pointing at `anchor_*` (Rshare_show).
+	Share = 0x0C45,
 }
 
 Golden_Status :: enum i32 {

@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
+// 1043 of the 1407 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 332 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (120):
@@ -49,7 +49,7 @@
 //     Rmap_view_get_attribution Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text
 //     Rtest_expect_golden
 //
-//   a callback (105):
+//   a callback (108):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -83,22 +83,26 @@
 //     Rblock_editor_set_clicked_callback Rblock_editor_set_context_callback Rdialog_open Rpopup_open
 //     Rfile_browser_set_accepted_callback Rfile_browser_set_cancelled_callback
 //     Rfile_browser_set_selection_changed_callback Rnotification_set_fallback
-//     Rnotification_set_clicked_callback Rviewport_set_draw_callback Rviewport_set_resize_callback
-//     Rcustom_set_paint_callback Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag
-//     Rscript_set_log_callback Rscript_set_diagnostic_callback Rlocale_set_changed_callback
-//     Rwidget_set_accessible_action
+//     Rnotification_set_clicked_callback Rpermission_request Rcamera_take_photo Rphoto_pick
+//     Rviewport_set_draw_callback Rviewport_set_resize_callback Rcustom_set_paint_callback
+//     Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag Rscript_set_log_callback
+//     Rscript_set_diagnostic_callback Rlocale_set_changed_callback Rwidget_set_accessible_action
 //
 //   a parameter of type RPainter* (14):
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (9):
-//     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rchart_create
-//     Rcarousel_create Rmap_view_create Rpdf_document_create Rtest_find
+//   a handle result that is not known (10):
+//     Rwindow_get_owner Rtheme_get_wallpaper Rtexture_create_from_url_async Rmenu_add_header
+//     Rmenu_bar_add_divider Rchart_create Rcarousel_create Rmap_view_create Rpdf_document_create Rtest_find
 //
 //   a parameter of type const uint8_t* (8):
 //     Rwindow_set_icon Rtexture_create_from_pixels Rtexture_update Rimage_encode_png Rimage_save_png
 //     Rpdf_document_draw_image Rtray_set_icon Rtest_compare_pixels
+//
+//   a parameter of type const RFileDialogDesc* (7):
+//     Rfile_dialog_open Rfile_dialog_save Rfile_dialog_select_folder Rfile_open_async Rfile_save_async
+//     Rfile_export_async Rfile_select_folder_async
 //
 //   a parameter of type const RActionContext* (6):
 //     Raction_get_sender Raction_get_name Raction_get_argument_count Raction_get_number Raction_get_string
@@ -123,9 +127,6 @@
 //
 //   a parameter of type RTouchSettings* (3):
 //     Rtouch_get_settings Rtouch_get_default_settings Rwindow_get_touch_settings
-//
-//   a parameter of type const RFileDialogDesc* (3):
-//     Rfile_dialog_open Rfile_dialog_save Rfile_dialog_select_folder
 //
 //   a parameter of type const RPdfPrintDesc* (3):
 //     Rpdf_print Rpdf_print_file Rpdf_document_print
@@ -190,8 +191,14 @@
 //   a parameter of type const RLanguageDesc* (1):
 //     Rlanguage_register
 //
+//   a parameter of type const RPickedFile* (1):
+//     Rhost_service_complete
+//
 //   a parameter of type const RShaderLook* (1):
 //     Rborder_set_effect
+//
+//   a parameter of type const RShareDesc* (1):
+//     Rshare_show
 //
 //   a result of type const RAllocator* (1):
 //     Rallocator_get_system
@@ -351,7 +358,9 @@ action_is_builtin :: proc(name: string) -> bool {
 
 // Opens an address with the program the user has for it: a web
 // page in the browser, a mailto: in the mail program, a file in its
-// application. Returns at once.
+// application. Returns at once. On iOS and Android the system opens it
+// (a web page, a tel:, a mailto:; not a file: share it with Rshare_show),
+// and Raven must be initialized and this be called on the UI thread.
 // Returns: R_FALSE when the OS could not be asked (nothing tells whether
 // a program then really opened it).
 open_url :: proc(url: string) -> bool {
@@ -374,8 +383,19 @@ clipboard_set_html :: proc(text: cstring, html: cstring) {
 }
 
 // Returns: The clipboard text, or "" when empty. Valid until the next call.
+// On iOS a read that does not follow a paste of the user (the Paste of a
+// menu, a button, Command-V) shows the system's question "Allow Paste?",
+// and on Android 12+ the system says that the application pasted: read it
+// when the user pastes, not to look at it. Android lets only the
+// application in front read it.
 clipboard_get_text :: proc() -> string {
 	return string(raw.Rclipboard_get_text())
+}
+
+// Returns: R_TRUE when the clipboard holds text, without reading it (no
+// question of the system on iOS): to enable a Paste button.
+clipboard_has_text :: proc() -> bool {
+	return raw.Rclipboard_has_text() != 0
 }
 
 error_to_string :: proc(error: Error) -> string {
@@ -713,6 +733,20 @@ window_inject_text :: proc(window: Window, text: string) {
 	raw.Rwindow_inject_text(raw.Rid(window), to_cstring(text, &buffer_text))
 }
 
+// The text an input method is composing (preedit: Chinese,
+// Japanese, Korean, dead keys), as the platforms send it. The focused
+// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+// place of its selection, but it is not in its text and no changed
+// callback runs. [selection_start, selection_end) are bytes of `text`:
+// the part the input method works on (underlined thicker), or the caret
+// when they are equal; -1 is the end of `text`. NULL or "" ends the
+// composition without typing anything (cancel). The committed text comes
+// through Rwindow_inject_text, which ends the composition too, and so
+// does a change of focus. Ignored when the focus takes no text.
+window_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rwindow_inject_composition(raw.Rid(window), text, selection_start, selection_end)
+}
+
 // A drag from another application moves over the window
 // (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
@@ -774,6 +808,14 @@ window_replace_text_input :: proc(window: Window, start: i32, end: i32, text: st
 	return raw.Rwindow_replace_text_input(raw.Rid(window), start, end, to_cstring(text, &buffer_text))
 }
 
+// The composition of the input method in progress (UTF-8, valid
+// until it changes) and its selection in bytes; NULL when there is none.
+// Any output pointer may be NULL.
+window_get_text_composition :: proc(window: Window) -> (result: string, selection_start: i32, selection_end: i32) {
+	result = string(raw.Rwindow_get_text_composition(raw.Rid(window), &selection_start, &selection_end))
+	return
+}
+
 // R_TRUE while a menu, list or dialog is open over the window.
 window_has_popup :: proc(window: Window) -> bool {
 	return raw.Rwindow_has_popup(raw.Rid(window)) != 0
@@ -782,7 +824,9 @@ window_has_popup :: proc(window: Window) -> bool {
 // Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 // Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 // outputs when there is no visible editable caret, the window is inactive, or focus changed
-// since painting. Any output pointer may be NULL.
+// since painting. Any output pointer may be NULL. While an input method
+// composes, it is the caret inside the composition: where its candidate
+// window goes.
 window_get_text_input_rect :: proc(window: Window) -> (result: i32, x: i32, y: i32, width: i32, height: i32) {
 	result = raw.Rwindow_get_text_input_rect(raw.Rid(window), &x, &y, &width, &height)
 	return
@@ -5117,6 +5161,46 @@ notification_is_supported :: proc() -> bool {
 	return raw.Rnotification_is_supported() != 0
 }
 
+// What the user answered, without asking. Cheap: the platform
+// remembers it. On iOS the status of notifications is known shortly after
+// the start (R_PERMISSION_NOT_ASKED until then).
+permission_get_status :: proc(permission: Permission) -> Permission_Status {
+	return Permission_Status(raw.Rpermission_get_status(raw.RPermission(permission)))
+}
+
+// Opens the page of the application in the Settings of the system,
+// where the user changes what was refused for good (R_PERMISSION_BLOCKED).
+// Returns: R_FALSE when the platform has no such page.
+permission_open_settings :: proc() -> bool {
+	return raw.Rpermission_open_settings() != 0
+}
+
+// Returns: The name of a permission or a status ("camera", "granted"...), for logs.
+permission_to_string :: proc(permission: Permission) -> string {
+	return string(raw.Rpermission_to_string(raw.RPermission(permission)))
+}
+
+permission_status_to_string :: proc(status: Permission_Status) -> string {
+	return string(raw.Rpermission_status_to_string(raw.RPermissionStatus(status)))
+}
+
+// Returns: R_TRUE when Rcamera_take_photo can show a camera (none on desktops, nor in the iOS Simulator).
+camera_is_available :: proc() -> bool {
+	return raw.Rcamera_is_available() != 0
+}
+
+// Returns: R_TRUE when the device can play haptics (a phone; never a desktop).
+haptic_is_supported :: proc() -> bool {
+	return raw.Rhaptic_is_supported() != 0
+}
+
+// A short vibration, as the controls of the system play when
+// touched. Nothing happens where there are none, or when the user turned
+// them off. Returns: R_TRUE when it was handed to the system.
+haptic_play :: proc(haptic: Haptic) -> bool {
+	return raw.Rhaptic_play(raw.RHaptic(haptic)) != 0
+}
+
 // Shows a texture. R_INVALID_ID shows nothing.
 viewport_set_texture :: proc(viewport: Widget, texture: Texture) {
 	raw.Rviewport_set_texture(raw.Rid(viewport), raw.Rid(texture))
@@ -5899,6 +5983,15 @@ host_inject_text :: proc(window: Window, codepoint: u32) {
 	raw.Rhost_inject_text(raw.Rid(window), codepoint)
 }
 
+// The input method of the application's system composes `text`
+// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+// NULL or "" cancels it; the committed text then comes through
+// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+// candidate window.
+host_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rhost_inject_composition(raw.Rid(window), text, selection_start, selection_end)
+}
+
 // The window gained or lost the keyboard. Losing it closes popups and drops captures.
 host_inject_focus :: proc(window: Window, focused: i32) {
 	raw.Rhost_inject_focus(raw.Rid(window), focused)
@@ -5907,6 +6000,13 @@ host_inject_focus :: proc(window: Window, focused: i32) {
 // The user asked to close the window (its close callback decides).
 host_inject_close :: proc(window: Window) {
 	raw.Rhost_inject_close(raw.Rid(window))
+}
+
+// The user answered a permission_request (or the status changed
+// by itself). The waiting Rpermission_request callbacks get it at the
+// next frame. Any thread.
+host_permission_answer :: proc(permission: Permission, status: Permission_Status) {
+	raw.Rhost_permission_answer(raw.RPermission(permission), raw.RPermissionStatus(status))
 }
 
 // R_TRUE makes what is drawn depend only on what the test does:

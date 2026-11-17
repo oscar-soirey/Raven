@@ -17,6 +17,7 @@
 #include "../../../../include/raven/raven_shell.h"
 #include "../../../../include/raven/raven_tools.h"
 #include "../../../../include/raven/raven_dialogs.h"
+#include "../../../../include/raven/raven_device.h"
 #include "../../../../include/raven/raven_viewport.h"
 #include "../../../../include/raven/raven_draw.h"
 #include "../../../../include/raven/raven_shader.h"

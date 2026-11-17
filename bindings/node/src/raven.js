@@ -1019,6 +1019,46 @@ export const RMessageResult = _enum({
 });
 export const { R_MESSAGE_RESULT_CANCEL, R_MESSAGE_RESULT_OK, R_MESSAGE_RESULT_YES, R_MESSAGE_RESULT_NO } = RMessageResult;
 
+export const RPermission = _enum({
+	R_PERMISSION_CAMERA: 3072,
+	R_PERMISSION_NOTIFICATIONS: 3073,
+	R_PERMISSION_PHOTOS: 3074,
+	R_PERMISSION_MICROPHONE: 3075,
+	R_PERMISSION_LOCATION: 3076,
+});
+export const { R_PERMISSION_CAMERA, R_PERMISSION_NOTIFICATIONS, R_PERMISSION_PHOTOS, R_PERMISSION_MICROPHONE, R_PERMISSION_LOCATION } = RPermission;
+
+export const RPermissionStatus = _enum({
+	R_PERMISSION_UNSUPPORTED: 3088,
+	R_PERMISSION_NOT_ASKED: 3089,
+	R_PERMISSION_GRANTED: 3090,
+	R_PERMISSION_LIMITED: 3091,
+	R_PERMISSION_DENIED: 3092,
+	R_PERMISSION_BLOCKED: 3093,
+});
+export const { R_PERMISSION_UNSUPPORTED, R_PERMISSION_NOT_ASKED, R_PERMISSION_GRANTED, R_PERMISSION_LIMITED, R_PERMISSION_DENIED, R_PERMISSION_BLOCKED } = RPermissionStatus;
+
+export const RDeviceResult = _enum({
+	R_DEVICE_DONE: 3104,
+	R_DEVICE_CANCELLED: 3105,
+	R_DEVICE_DENIED: 3106,
+	R_DEVICE_UNSUPPORTED: 3107,
+	R_DEVICE_BUSY: 3108,
+	R_DEVICE_FAILED: 3109,
+});
+export const { R_DEVICE_DONE, R_DEVICE_CANCELLED, R_DEVICE_DENIED, R_DEVICE_UNSUPPORTED, R_DEVICE_BUSY, R_DEVICE_FAILED } = RDeviceResult;
+
+export const RHaptic = _enum({
+	R_HAPTIC_LIGHT: 3120,
+	R_HAPTIC_MEDIUM: 3121,
+	R_HAPTIC_HEAVY: 3122,
+	R_HAPTIC_SELECTION: 3123,
+	R_HAPTIC_SUCCESS: 3124,
+	R_HAPTIC_WARNING: 3125,
+	R_HAPTIC_ERROR: 3126,
+});
+export const { R_HAPTIC_LIGHT, R_HAPTIC_MEDIUM, R_HAPTIC_HEAVY, R_HAPTIC_SELECTION, R_HAPTIC_SUCCESS, R_HAPTIC_WARNING, R_HAPTIC_ERROR } = RHaptic;
+
 export const RMotion = _enum({
 	R_MOTION_SNAPPY: 800,
 	R_MOTION_SMOOTH: 801,
@@ -1112,6 +1152,16 @@ export const RAccessibleRole = _enum({
 	R_ROLE_PANE: 1923,
 });
 export const { R_ROLE_AUTO, R_ROLE_NONE, R_ROLE_WINDOW, R_ROLE_GROUP, R_ROLE_TEXT, R_ROLE_HEADING, R_ROLE_LINK, R_ROLE_BUTTON, R_ROLE_TOGGLE_BUTTON, R_ROLE_CHECKBOX, R_ROLE_RADIO_BUTTON, R_ROLE_SLIDER, R_ROLE_PROGRESS_BAR, R_ROLE_SPIN_BUTTON, R_ROLE_TEXT_FIELD, R_ROLE_DOCUMENT, R_ROLE_COMBO_BOX, R_ROLE_LIST, R_ROLE_LIST_ITEM, R_ROLE_TREE, R_ROLE_TREE_ITEM, R_ROLE_TABLE, R_ROLE_MENU_BAR, R_ROLE_MENU, R_ROLE_MENU_ITEM, R_ROLE_TAB_LIST, R_ROLE_TAB, R_ROLE_TAB_PANEL, R_ROLE_TOOLBAR, R_ROLE_STATUS_BAR, R_ROLE_DIALOG, R_ROLE_ALERT, R_ROLE_IMAGE, R_ROLE_CANVAS, R_ROLE_SEPARATOR, R_ROLE_SCROLL_BAR, R_ROLE_PANE } = RAccessibleRole;
+
+export const RHostService = _enum({
+	R_HOST_SERVICE_OPEN_FILES: 3136,
+	R_HOST_SERVICE_SAVE_FILE: 3137,
+	R_HOST_SERVICE_SELECT_FOLDER: 3138,
+	R_HOST_SERVICE_TAKE_PHOTO: 3139,
+	R_HOST_SERVICE_PICK_PHOTOS: 3140,
+	R_HOST_SERVICE_SHARE: 3141,
+});
+export const { R_HOST_SERVICE_OPEN_FILES, R_HOST_SERVICE_SAVE_FILE, R_HOST_SERVICE_SELECT_FOLDER, R_HOST_SERVICE_TAKE_PHOTO, R_HOST_SERVICE_PICK_PHOTOS, R_HOST_SERVICE_SHARE } = RHostService;
 
 export const RGoldenStatus = _enum({
 	R_GOLDEN_MATCH: 2976,
@@ -2628,6 +2678,109 @@ export class RFileDialogDesc extends RStruct {
 	}
 }
 
+export class RPickedFile extends RStruct {
+	static SIZE = 40;
+
+	constructor(pointer) {
+		super(RPickedFile.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RPickedFile(pointer) : null;
+	}
+
+	get path() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set path(value) {
+		this._point("path", 0, _s(value));
+	}
+
+	get name() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set name(value) {
+		this._point("name", 8, _s(value));
+	}
+
+	get mime_type() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set mime_type(value) {
+		this._point("mime_type", 16, _s(value));
+	}
+
+	get size() {
+		return this._view.getBigUint64(24, true);
+	}
+	set size(value) {
+		this._view.setBigUint64(24, value, true);
+	}
+
+	get width() {
+		return this._view.getInt32(32, true);
+	}
+	set width(value) {
+		this._view.setInt32(32, value, true);
+	}
+
+	get height() {
+		return this._view.getInt32(36, true);
+	}
+	set height(value) {
+		this._view.setInt32(36, value, true);
+	}
+}
+
+export class RShareDesc extends RStruct {
+	static SIZE = 40;
+
+	constructor(pointer) {
+		super(RShareDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RShareDesc(pointer) : null;
+	}
+
+	get text() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set text(value) {
+		this._point("text", 0, _s(value));
+	}
+
+	get path() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set path(value) {
+		this._point("path", 8, _s(value));
+	}
+
+	get mime_type() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set mime_type(value) {
+		this._point("mime_type", 16, _s(value));
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set title(value) {
+		this._point("title", 24, _s(value));
+	}
+
+	get anchor() {
+		return this._view.getUint32(32, true);
+	}
+	set anchor(value) {
+		this._view.setUint32(32, value, true);
+	}
+}
+
 export class RViewportDrawInfo extends RStruct {
 	static SIZE = 112;
 
@@ -3013,8 +3166,167 @@ export class RAccessibilitySettings extends RStruct {
 	}
 }
 
+export class RHostServiceRequest extends RStruct {
+	static SIZE = 128;
+
+	constructor(pointer) {
+		super(RHostServiceRequest.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RHostServiceRequest(pointer) : null;
+	}
+
+	get id() {
+		return this._view.getUint32(0, true);
+	}
+	set id(value) {
+		this._view.setUint32(0, value, true);
+	}
+
+	get service() {
+		return this._view.getInt32(4, true);
+	}
+	set service(value) {
+		this._view.setInt32(4, value, true);
+	}
+
+	get window() {
+		return this._view.getUint32(8, true);
+	}
+	set window(value) {
+		this._view.setUint32(8, value, true);
+	}
+
+	get anchor_x() {
+		return this._view.getFloat32(12, true);
+	}
+	set anchor_x(value) {
+		this._view.setFloat32(12, value, true);
+	}
+
+	get anchor_y() {
+		return this._view.getFloat32(16, true);
+	}
+	set anchor_y(value) {
+		this._view.setFloat32(16, value, true);
+	}
+
+	get anchor_width() {
+		return this._view.getFloat32(20, true);
+	}
+	set anchor_width(value) {
+		this._view.setFloat32(20, value, true);
+	}
+
+	get anchor_height() {
+		return this._view.getFloat32(24, true);
+	}
+	set anchor_height(value) {
+		this._view.setFloat32(24, value, true);
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set title(value) {
+		this._point("title", 32, _s(value));
+	}
+
+	get filters() {
+		return _address(this._view.getBigUint64(40, true));
+	}
+	set filters(value) {
+		if (typeof value === "number") {
+			this._view.setBigUint64(40, BigInt(value), true);
+			return;
+		}
+		this._point("filters", 40, _structs(value, RFileFilter.SIZE));
+		(this._kept ??= new Map()).set("filters.items", value ?? this._bytes);
+		this.filter_count = value?.length ?? 0;
+	}
+
+	get filter_count() {
+		return this._view.getInt32(48, true);
+	}
+	set filter_count(value) {
+		this._view.setInt32(48, value, true);
+	}
+
+	get flags() {
+		return this._view.getUint32(52, true);
+	}
+	set flags(value) {
+		this._view.setUint32(52, value, true);
+	}
+
+	get file_name() {
+		return _text(_address(this._view.getBigUint64(56, true)));
+	}
+	set file_name(value) {
+		this._point("file_name", 56, _s(value));
+	}
+
+	get default_extension() {
+		return _text(_address(this._view.getBigUint64(64, true)));
+	}
+	set default_extension(value) {
+		this._point("default_extension", 64, _s(value));
+	}
+
+	get data() {
+		return _address(this._view.getBigUint64(72, true));
+	}
+	set data(value) {
+		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+	}
+
+	get size() {
+		return Number(this._view.getBigUint64(80, true));
+	}
+	set size(value) {
+		this._view.setBigUint64(80, BigInt(value), true);
+	}
+
+	get path() {
+		return _text(_address(this._view.getBigUint64(88, true)));
+	}
+	set path(value) {
+		this._point("path", 88, _s(value));
+	}
+
+	get max_count() {
+		return this._view.getInt32(96, true);
+	}
+	set max_count(value) {
+		this._view.setInt32(96, value, true);
+	}
+
+	get text() {
+		return _text(_address(this._view.getBigUint64(104, true)));
+	}
+	set text(value) {
+		this._point("text", 104, _s(value));
+	}
+
+	get mime_type() {
+		return _text(_address(this._view.getBigUint64(112, true)));
+	}
+	set mime_type(value) {
+		this._point("mime_type", 112, _s(value));
+	}
+
+	get share_title() {
+		return _text(_address(this._view.getBigUint64(120, true)));
+	}
+	set share_title(value) {
+		this._point("share_title", 120, _s(value));
+	}
+}
+
 export class RHostPlatformDesc extends RStruct {
-	static SIZE = 40;
+	static SIZE = 96;
 
 	constructor(pointer) {
 		super(RHostPlatformDesc.SIZE, pointer);
@@ -3058,6 +3370,55 @@ export class RHostPlatformDesc extends RStruct {
 	}
 	set user_data(value) {
 		this._view.setBigUint64(32, BigInt(value ?? 0), true);
+	}
+
+	get permission_status() {
+		return _address(this._view.getBigUint64(40, true));
+	}
+	set permission_status(value) {
+		this._view.setBigUint64(40, BigInt(value ?? 0), true);
+	}
+
+	get permission_request() {
+		return _address(this._view.getBigUint64(48, true));
+	}
+	set permission_request(value) {
+		this._view.setBigUint64(48, BigInt(value ?? 0), true);
+	}
+
+	get service_request() {
+		return _address(this._view.getBigUint64(56, true));
+	}
+	set service_request(value) {
+		this._view.setBigUint64(56, BigInt(value ?? 0), true);
+	}
+
+	get has_camera() {
+		return this._view.getInt32(64, true);
+	}
+	set has_camera(value) {
+		this._view.setInt32(64, value, true);
+	}
+
+	get open_url() {
+		return _address(this._view.getBigUint64(72, true));
+	}
+	set open_url(value) {
+		this._view.setBigUint64(72, BigInt(value ?? 0), true);
+	}
+
+	get haptic() {
+		return _address(this._view.getBigUint64(80, true));
+	}
+	set haptic(value) {
+		this._view.setBigUint64(80, BigInt(value ?? 0), true);
+	}
+
+	get download() {
+		return _address(this._view.getBigUint64(88, true));
+	}
+	set download(value) {
+		this._view.setBigUint64(88, BigInt(value ?? 0), true);
 	}
 }
 
@@ -3284,6 +3645,16 @@ function _adapt_RTableCellColorCallback(function_) {
 	};
 }
 
+function _adapt_RDeviceCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (result, files, count, user_data) => {
+		const files_ = RPickedFile.from(files);
+		return function_(result, files_, count, user_data);
+	};
+}
+
 function _adapt_RMeasureCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -3379,6 +3750,7 @@ export const Ropen_url = _lib.Ropen_url;
 export const Rclipboard_set_text = _lib.Rclipboard_set_text;
 export const Rclipboard_set_html = _lib.Rclipboard_set_html;
 export const Rclipboard_get_text = _lib.Rclipboard_get_text;
+export const Rclipboard_has_text = _lib.Rclipboard_has_text;
 export const Rerror_get_last = _lib.Rerror_get_last;
 export const Rerror_to_string = _lib.Rerror_to_string;
 export const Rseverity_to_string = _lib.Rseverity_to_string;
@@ -3583,6 +3955,7 @@ export const Rtexture_create_from_svg = _lib.Rtexture_create_from_svg;
 export const Rtexture_get_density = _lib.Rtexture_get_density;
 export const Rtexture_create_from_file = _lib.Rtexture_create_from_file;
 export const Rtexture_create_from_file_async = _lib.Rtexture_create_from_file_async;
+export const Rtexture_create_from_url_async = _lib.Rtexture_create_from_url_async;
 export const Rtexture_create_from_pixels = _lib.Rtexture_create_from_pixels;
 export const Rtexture_update = _lib.Rtexture_update;
 export const Rimage_decode = _lib.Rimage_decode;
@@ -4570,6 +4943,35 @@ export const Rnotification_show = _lib.Rnotification_show;
 export const Rnotification_is_supported = _lib.Rnotification_is_supported;
 export const Rnotification_set_fallback = _lib.Rnotification_set_fallback;
 export const Rnotification_set_clicked_callback = _lib.Rnotification_set_clicked_callback;
+export const Rpermission_get_status = _lib.Rpermission_get_status;
+export const Rpermission_request = _lib.Rpermission_request;
+export const Rpermission_open_settings = _lib.Rpermission_open_settings;
+export const Rpermission_to_string = _lib.Rpermission_to_string;
+export const Rpermission_status_to_string = _lib.Rpermission_status_to_string;
+export function Rfile_open_async(desc, callback, user_data = null) {
+	return _lib.Rfile_open_async(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
+export function Rfile_save_async(desc, data, callback, user_data = null) {
+	return _lib.Rfile_save_async(_p(desc), data, _adapt_RDeviceCallback(callback), user_data);
+}
+export function Rfile_export_async(desc, path, callback, user_data = null) {
+	return _lib.Rfile_export_async(_p(desc), path, _adapt_RDeviceCallback(callback), user_data);
+}
+export function Rfile_select_folder_async(desc, callback, user_data = null) {
+	return _lib.Rfile_select_folder_async(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
+export const Rcamera_is_available = _lib.Rcamera_is_available;
+export function Rcamera_take_photo(callback, user_data = null) {
+	return _lib.Rcamera_take_photo(_adapt_RDeviceCallback(callback), user_data);
+}
+export function Rphoto_pick(max_count, callback, user_data = null) {
+	return _lib.Rphoto_pick(max_count, _adapt_RDeviceCallback(callback), user_data);
+}
+export const Rhaptic_is_supported = _lib.Rhaptic_is_supported;
+export const Rhaptic_play = _lib.Rhaptic_play;
+export function Rshare_show(desc, callback, user_data = null) {
+	return _lib.Rshare_show(_p(desc), _adapt_RDeviceCallback(callback), user_data);
+}
 export const Rviewport_set_texture = _lib.Rviewport_set_texture;
 export const Rviewport_set_stretch = _lib.Rviewport_set_stretch;
 export const Rviewport_set_flip_y = _lib.Rviewport_set_flip_y;
@@ -4771,6 +5173,10 @@ export const Rhost_inject_text = _lib.Rhost_inject_text;
 export const Rhost_inject_composition = _lib.Rhost_inject_composition;
 export const Rhost_inject_focus = _lib.Rhost_inject_focus;
 export const Rhost_inject_close = _lib.Rhost_inject_close;
+export const Rhost_permission_answer = _lib.Rhost_permission_answer;
+export function Rhost_service_complete(request, result, files) {
+	return _lib.Rhost_service_complete(request, result, _structs(files, RPickedFile.SIZE), files?.length ?? 0);
+}
 export const Rtest_set_deterministic = _lib.Rtest_set_deterministic;
 export const Rtest_is_deterministic = _lib.Rtest_is_deterministic;
 export const Rtest_get_platform_tag = _lib.Rtest_get_platform_tag;
