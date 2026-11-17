@@ -1,7 +1,7 @@
 /**
  * Raven - widgets/table.c
  * Table (Slate SListView with a header row): rows of cells under columns
- * the user resizes and sorts, one row selected. Like the ListView, rows are
+ * the user resizes and sorts, with optional multiple row selection. Rows are
  * virtualized: only the visible ones are drawn, so a table of a million
  * rows costs the same as a table of ten.
  *
@@ -47,6 +47,8 @@ typedef struct rvn_table_t {
 	char** cells;
 	uint32_t row_count;
 	uint32_t row_cap;
+	rvn_color_t* row_colors;
+	rvn_color_t* cell_colors;
 	/* virtual mode */
 	int is_virtual;
 	int virtual_count;
@@ -55,6 +57,10 @@ typedef struct rvn_table_t {
 	/* the color of the text of a cell, asked of the application (NULL: the theme's) */
 	RTableCellColorCallback color_callback;
 	void* color_user;
+	int multi;
+	int anchor;
+	uint8_t* selected_rows;
+	uint32_t selection_cap;
 
 	int selected;
 	int hot;
@@ -90,6 +96,7 @@ typedef struct rvn_table_geometry_t {
 static void rvn_table_init(rvn_widget_t* widget) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	table->selected = -1;
+	table->anchor = -1;
 	table->hot = -1;
 	table->hot_header = -1;
 	table->pressed_header = -1;
@@ -111,10 +118,48 @@ static void rvn_table_destroy(rvn_widget_t* widget) {
 	rvn_free(table->cells);
 	for (i = 0; i < table->column_count; i++) rvn_free(table->columns[i].header);
 	rvn_free(table->columns);
+	rvn_free(table->row_colors);
+	rvn_free(table->cell_colors);
+	rvn_free(table->selected_rows);
 }
 
 static int rvn_table_count(const rvn_table_t* table) {
 	return table->is_virtual ? table->virtual_count : (int)table->row_count;
+}
+
+int rvn_table_multi_select(const rvn_widget_t* widget) {
+	return ((const rvn_table_t*)widget)->multi;
+}
+
+static void rvn_table_selection_reserve(rvn_table_t* table) {
+	uint32_t before = table->selection_cap;
+	RVN_ARRAY_RESERVE(table->selected_rows, table->selection_cap, (uint32_t)rvn_table_count(table));
+	if (table->selection_cap > before) memset(table->selected_rows + before, 0, table->selection_cap - before);
+}
+
+static int rvn_table_is_selected(const rvn_table_t* table, int row) {
+	if (row < 0 || row >= rvn_table_count(table)) return R_FALSE;
+	return table->multi ? ((uint32_t)row < table->selection_cap && table->selected_rows[row]) : row == table->selected;
+}
+
+static void rvn_table_selection_reset(rvn_table_t* table, int row) {
+	if (table->selected_rows) memset(table->selected_rows, 0, table->selection_cap);
+	if (table->multi && row >= 0) {
+		rvn_table_selection_reserve(table);
+		table->selected_rows[row] = 1;
+	}
+	table->selected = table->anchor = row;
+}
+
+static rvn_color_t* rvn_table_repack_colors(rvn_color_t* colors, uint32_t old_columns, uint32_t columns, uint32_t rows, uint32_t capacity) {
+	rvn_color_t* grown;
+	uint32_t r;
+	if (!colors) return NULL;
+	grown = (rvn_color_t*)rvn_calloc(sizeof(rvn_color_t) * (size_t)capacity * columns);
+	for (r = 0; r < rows; r++) memcpy(grown + (size_t)r * columns, colors + (size_t)r * old_columns,
+		sizeof(rvn_color_t) * rvn_mini((int)old_columns, (int)columns));
+	rvn_free(colors);
+	return grown;
 }
 
 static const char* rvn_table_cell(rvn_table_t* table, int row, int column) {
@@ -128,11 +173,18 @@ static const char* rvn_table_cell(rvn_table_t* table, int row, int column) {
 	return text ? text : "";
 }
 
-/* The color the application gives the text of a cell, or `fallback`. */
+/* The color of the text of a cell: the callback's when it gives one, else the
+ * stored cell color, else the stored row color (stored rows only), else `fallback`. */
 static rvn_color_t rvn_table_cell_color(rvn_table_t* table, int row, int column, rvn_color_t fallback) {
 	float r = 0.0f, g = 0.0f, b = 0.0f, a = 1.0f;
-	if (!table->color_callback || !table->color_callback(table->base.id, row, column, &r, &g, &b, &a, table->color_user)) return fallback;
-	return a > 0.0f ? rvn_rgba(r, g, b, a) : fallback;
+	rvn_color_t color = 0;
+	if (table->color_callback && table->color_callback(table->base.id, row, column, &r, &g, &b, &a, table->color_user) && a > 0.0f)
+		return rvn_rgba(r, g, b, a);
+	if (!table->is_virtual) {
+		if (table->cell_colors) color = table->cell_colors[(size_t)row * table->column_count + (size_t)column];
+		if (!rvn_color_a(color) && table->row_colors) color = table->row_colors[row];
+	}
+	return rvn_color_a(color) ? color : fallback;
 }
 
 static float rvn_table_row_height(const rvn_widget_t* widget) {
@@ -220,6 +272,18 @@ static int rvn_table_row_at(rvn_widget_t* widget, float x, float y) {
 	return (row >= 0 && row < rvn_table_count(table)) ? row : -1;
 }
 
+int rvn_table_accessible_row_at(rvn_widget_t* widget, float x, float y) {
+	return rvn_table_row_at(widget, x, y);
+}
+
+rvn_rect_t rvn_table_accessible_rect(rvn_widget_t* widget, int row) {
+	rvn_table_geometry_t geometry;
+	rvn_table_geometry(widget, &geometry);
+	return rvn_rect_intersect(geometry.body, rvn_rect(geometry.body.x,
+		geometry.body.y + rvn_table_row_height(widget) * row - ((rvn_table_t*)widget)->bar.offset,
+		geometry.body.w, rvn_table_row_height(widget)));
+}
+
 /* The column under x in the header, and through `edge` the column whose right edge is there (-1: none). */
 static int rvn_table_header_at(rvn_widget_t* widget, float x, float y, int* edge) {
 	rvn_table_t* table = (rvn_table_t*)widget;
@@ -255,11 +319,35 @@ static void rvn_table_reveal(rvn_widget_t* widget, int row) {
 static void rvn_table_select(rvn_widget_t* widget, int index, int notify) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (index < -1 || index >= rvn_table_count(table)) index = -1;
-	if (table->selected == index) return;
-	table->selected = index;
+	if (!table->multi && table->selected == index) return;
+	rvn_table_selection_reset(table, index);
+	rvn_a11y_selection_changed(widget);
 	rvn_table_reveal(widget, index);
 	rvn_widget_invalidate_paint(widget);
 	if (notify && table->selection_callback) table->selection_callback(widget->id, index, table->selection_user);
+}
+
+static void rvn_table_select_input(rvn_widget_t* widget, int row, uint32_t modifiers) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	int i;
+	if (!table->multi || !(modifiers & (R_MOD_SHIFT | R_MOD_CTRL | R_MOD_SUPER))) {
+		rvn_table_select(widget, row, R_TRUE);
+		return;
+	}
+	rvn_table_selection_reserve(table);
+	if ((modifiers & R_MOD_SHIFT) && table->anchor >= 0) {
+		if (!(modifiers & (R_MOD_CTRL | R_MOD_SUPER))) memset(table->selected_rows, 0, table->selection_cap);
+		for (i = rvn_mini(row, table->anchor); i <= rvn_maxi(row, table->anchor); i++) table->selected_rows[i] = 1;
+		table->selected = row;
+	} else {
+		table->selected_rows[row] = !table->selected_rows[row];
+		table->anchor = row;
+		table->selected = table->selected_rows[row] ? row : Rtable_get_selection(widget->id, 0);
+	}
+	rvn_table_reveal(widget, row);
+	rvn_a11y_selection_changed(widget);
+	rvn_widget_invalidate_paint(widget);
+	if (table->selection_callback) table->selection_callback(widget->id, table->selected, table->selection_user);
 }
 
 static void rvn_table_activate(rvn_widget_t* widget) {
@@ -319,8 +407,11 @@ static void rvn_table_sort_rows(rvn_table_t* table, int column, int descending) 
 	uint32_t i, n = table->row_count, columns = table->column_count;
 	rvn_table_sort_key_t* keys;
 	char** sorted;
-	int selected = -1;
+	int selected = -1, anchor = -1;
 	if (n < 2 || column < 0 || column >= (int)columns) return;
+	rvn_color_t* row_colors = table->row_colors ? (rvn_color_t*)rvn_calloc(sizeof(rvn_color_t) * table->row_cap) : NULL;
+	rvn_color_t* cell_colors = table->cell_colors ? (rvn_color_t*)rvn_calloc(sizeof(rvn_color_t) * (size_t)table->row_cap * columns) : NULL;
+	uint8_t* selection = table->multi ? (uint8_t*)rvn_calloc(rvn_maxi((int)n, (int)table->selection_cap)) : NULL;
 	keys = (rvn_table_sort_key_t*)rvn_alloc(sizeof(rvn_table_sort_key_t) * n);
 	for (i = 0; i < n; i++) {
 		const char* text = table->cells[(size_t)i * columns + (size_t)column];
@@ -334,10 +425,24 @@ static void rvn_table_sort_rows(rvn_table_t* table, int column, int descending) 
 	for (i = 0; i < n; i++) {
 		memcpy(&sorted[(size_t)i * columns], &table->cells[(size_t)keys[i].row * columns], sizeof(char*) * columns);
 		if ((int)keys[i].row == table->selected) selected = (int)i;
+		if ((int)keys[i].row == table->anchor) anchor = (int)i;
+		if (row_colors) row_colors[i] = table->row_colors[keys[i].row];
+		if (cell_colors) memcpy(cell_colors + (size_t)i * columns, table->cell_colors + (size_t)keys[i].row * columns, sizeof(rvn_color_t) * columns);
+		if (selection) selection[i] = (uint8_t)rvn_table_is_selected(table, (int)keys[i].row);
 	}
 	rvn_free(keys);
 	rvn_free(table->cells);
 	table->cells = sorted;
+	rvn_free(table->row_colors);
+	rvn_free(table->cell_colors);
+	table->row_colors = row_colors;
+	table->cell_colors = cell_colors;
+	if (selection) {
+		rvn_free(table->selected_rows);
+		table->selected_rows = selection;
+		table->selection_cap = (uint32_t)rvn_maxi((int)n, (int)table->selection_cap);
+	}
+	table->anchor = anchor;
 	table->selected = selected;
 	table->select_y.started = R_FALSE;
 }
@@ -347,6 +452,7 @@ static void rvn_table_sort(rvn_widget_t* widget, int column, int descending, int
 	if (column < -1 || column >= (int)table->column_count) column = -1;
 	table->sort_column = column;
 	table->sort_descending = descending ? R_TRUE : R_FALSE;
+	rvn_a11y_structure_changed();
 	if (!table->is_virtual && column >= 0) rvn_table_sort_rows(table, column, table->sort_descending);
 	rvn_table_reveal(widget, table->selected);
 	rvn_widget_invalidate_paint(widget);
@@ -439,24 +545,24 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 			if (i % 2 == 1) rvn_paint_rect(painter, rvn_rect(geometry.body.x, geometry.body.y + row * (float)i - offset, geometry.body.w, row), stripe);
 		}
 	}
-	if (table->selected >= 0) {
+	if (table->multi || table->selected < 0) table->select_y.started = R_FALSE;
+	for (i = table->multi ? first : table->selected; i >= 0 && i < (table->multi ? last : table->selected + 1); i++) {
+		if (!rvn_table_is_selected(table, i)) continue;
 		/* the selection slides from the previous row to the new one; a table without the focus shows it dimmer */
-		float y = rvn_paint_spring(painter, &table->select_y, row * (float)table->selected, R_MOTION_SNAPPY);
+		float y = table->multi ? row * (float)i : rvn_paint_spring(painter, &table->select_y, row * (float)i, R_MOTION_SNAPPY);
 		rvn_rect_t line = rvn_rect(geometry.body.x, geometry.body.y + y - offset, geometry.body.w, row);
 		if (platform) {
 			rvn_platform_paint_item(painter, widget, rvn_platform_row(widget, line),
-				rvn_widget_states(widget, painter, table->hot == table->selected && (widget->flags & RVN_WF_HOVERED), R_FALSE) | RVN_STATE_SELECTED,
+				rvn_widget_states(widget, painter, table->hot == i && (widget->flags & RVN_WF_HOVERED), R_FALSE) | RVN_STATE_SELECTED,
 				RVN_ITEM_LIST, 1.0f);
 		} else {
 			rvn_paint_row(painter, widget, line, focused ? selection : rvn_color_mix(selection, rvn_widget_color(widget, R_COLOR_INPUT), 0.45f));
 		}
-	} else {
-		table->select_y.started = R_FALSE;
 	}
 	for (i = first; i < last; i++) {
 		float y = geometry.body.y + row * (float)i - offset, x = left;
 		rvn_color_t color = text;
-		if (i != table->selected && i == table->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled) {
+		if (!rvn_table_is_selected(table, i) && i == table->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled) {
 			rvn_rect_t line = rvn_rect(geometry.body.x, y, geometry.body.w, row);
 			if (platform) {
 				uint32_t states = rvn_widget_states(widget, painter, R_TRUE, R_FALSE);
@@ -467,7 +573,7 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 		}
 		if (platform) {
 			uint32_t states = rvn_widget_states(widget, painter, i == table->hot && (widget->flags & RVN_WF_HOVERED), R_FALSE);
-			rvn_color_t item = rvn_platform_item_foreground(widget, states | (i == table->selected ? RVN_STATE_SELECTED : 0), RVN_ITEM_LIST);
+			rvn_color_t item = rvn_platform_item_foreground(widget, states | (rvn_table_is_selected(table, i) ? RVN_STATE_SELECTED : 0), RVN_ITEM_LIST);
 			if (rvn_color_a(item)) color = item;
 		}
 		for (c = 0; c < table->column_count; c++) {
@@ -566,7 +672,7 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 			}
 			row = rvn_table_row_at(widget, event->local_x, event->local_y);
 			if (row >= 0) {
-				rvn_table_select(widget, row, R_TRUE);
+				rvn_table_select_input(widget, row, event->modifiers);
 				if (event->clicks == 2 && rvn_widget_alive(widget)) rvn_table_activate(widget);
 			}
 			return R_TRUE;
@@ -649,7 +755,7 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 				default:
 					return R_FALSE;
 			}
-			rvn_table_select(widget, rvn_clampi(row, 0, count - 1), R_TRUE);
+			rvn_table_select_input(widget, rvn_clampi(row, 0, count - 1), event->modifiers & R_MOD_SHIFT);
 			return R_TRUE;
 		default:
 			return R_FALSE;
@@ -677,6 +783,7 @@ static int rvn_table_add_column(rvn_widget_t* widget, const char* header, float 
 	column->header = rvn_strdup(header ? header : "");
 	column->width = width > 0.0f ? width : RVN_TABLE_DEFAULT_COLUMN;
 	column->sortable = R_TRUE;
+	table->cell_colors = rvn_table_repack_colors(table->cell_colors, old, table->column_count, table->row_count, table->row_cap);
 	/* the stored rows get an empty cell in the new column */
 	if (table->row_count > 0) {
 		char** cells = (char**)rvn_calloc(sizeof(char*) * (size_t)table->row_cap * table->column_count);
@@ -695,7 +802,11 @@ static int rvn_table_add_column(rvn_widget_t* widget, const char* header, float 
 static void rvn_table_clear_rows(rvn_widget_t* widget) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	rvn_table_free_rows(table);
-	table->selected = -1;
+	rvn_free(table->row_colors);
+	rvn_free(table->cell_colors);
+	table->row_colors = table->cell_colors = NULL;
+	rvn_table_selection_reset(table, -1);
+	rvn_a11y_structure_changed();
 	table->hot = -1;
 	table->bar.offset = 0.0f;
 	rvn_widget_invalidate_layout(widget);
@@ -727,6 +838,8 @@ static int rvn_table_add_row(rvn_widget_t* widget, const char* cells) {
 		if (table->cells) memcpy(grown, table->cells, sizeof(char*) * (size_t)table->row_count * columns);
 		rvn_free(table->cells);
 		table->cells = grown;
+		table->row_colors = rvn_table_repack_colors(table->row_colors, 1, 1, table->row_count, cap);
+		table->cell_colors = rvn_table_repack_colors(table->cell_colors, columns, columns, table->row_count, cap);
 		table->row_cap = cap;
 	}
 	row = &table->cells[(size_t)table->row_count * columns];
@@ -741,6 +854,7 @@ static int rvn_table_add_row(rvn_widget_t* widget, const char* cells) {
 		else cells = NULL;
 	}
 	table->row_count++;
+	rvn_a11y_structure_changed();
 	rvn_widget_invalidate_layout(widget);
 	return (int)table->row_count - 1;
 }
@@ -785,6 +899,9 @@ static int rvn_table_set_attribute(rvn_widget_t* widget, const char* name, const
 	}
 	if (RVN_ATTR("ShowHeader")) {
 		if (!rvn_parse_bool(value, &table->show_header)) return R_FALSE;
+	} else if (RVN_ATTR("MultiSelect")) {
+		if (!rvn_parse_bool(value, &number)) return R_FALSE;
+		Rtable_set_multi_select(widget->id, number);
 	} else if (RVN_ATTR("GridLines")) {
 		if (!rvn_parse_bool(value, &table->grid_lines)) return R_FALSE;
 	} else if (RVN_ATTR("Striped")) {
@@ -977,10 +1094,28 @@ void Rtable_remove_row(Rid id, int row) {
 	for (c = 0; c < columns; c++) rvn_free(table->cells[(size_t)row * columns + c]);
 	memmove(&table->cells[(size_t)row * columns], &table->cells[(size_t)(row + 1) * columns],
 		sizeof(char*) * (size_t)(table->row_count - (uint32_t)row - 1) * columns);
+	if (table->row_colors) {
+		memmove(table->row_colors + row, table->row_colors + row + 1, sizeof(rvn_color_t) * (table->row_count - (uint32_t)row - 1));
+		table->row_colors[table->row_count - 1] = 0;
+	}
+	if (table->cell_colors) {
+		memmove(table->cell_colors + (size_t)row * columns, table->cell_colors + (size_t)(row + 1) * columns,
+			sizeof(rvn_color_t) * (table->row_count - (uint32_t)row - 1) * columns);
+		memset(table->cell_colors + (size_t)(table->row_count - 1) * columns, 0, sizeof(rvn_color_t) * columns);
+	}
+	if (table->multi) {
+		rvn_table_selection_reserve(table);
+		memmove(table->selected_rows + row, table->selected_rows + row + 1, table->row_count - (uint32_t)row - 1);
+		table->selected_rows[table->row_count - 1] = 0;
+	}
 	table->row_count--;
+	rvn_a11y_structure_changed();
 	/* the selection follows the row it was on */
 	if (table->selected == row) table->selected = -1;
 	else if (table->selected > row) table->selected--;
+	if (table->multi && table->selected < 0) table->selected = Rtable_get_selection(id, 0);
+	if (table->anchor == row) table->anchor = table->selected;
+	else if (table->anchor > row) table->anchor--;
 	table->hot = -1;
 	rvn_widget_invalidate_layout(widget);
 }
@@ -999,15 +1134,27 @@ int Rtable_get_row_count(Rid id) {
 void Rtable_set_virtual_rows(Rid id, int count, RTableCellTextCallback callback, void* user_data) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
 	rvn_table_t* table = (rvn_table_t*)widget;
-	int selected = table->selected;
+	int selected = table->selected, anchor = table->anchor;
+	int keep = rvn_mini(rvn_table_count(table), callback && count > 0 ? count : 0);
+	uint8_t* selection = table->multi && keep ? (uint8_t*)rvn_calloc((size_t)keep) : NULL;
+	int i;
 	float offset = table->bar.offset;
+	for (i = 0; selection && i < keep; i++) selection[i] = (uint8_t)rvn_table_is_selected(table, i);
 	rvn_table_clear_rows(widget);
 	table->is_virtual = callback != NULL;
 	table->virtual_count = callback && count > 0 ? count : 0;
 	table->cell_callback = callback;
 	table->cell_user = user_data;
 	/* refreshing the count of a live table keeps its selection and scroll position */
-	if (selected < rvn_table_count(table)) table->selected = selected;
+	if (selected >= 0 && selected < rvn_table_count(table)) table->selected = selected;
+	if (anchor >= 0 && anchor < rvn_table_count(table)) table->anchor = anchor;
+	if (table->multi) {
+		rvn_table_selection_reserve(table);
+		if (selection) memcpy(table->selected_rows, selection, (size_t)keep);
+		if (table->selected < 0) table->selected = Rtable_get_selection(id, 0);
+	}
+	rvn_free(selection);
+	rvn_a11y_structure_changed();
 	table->bar.offset = offset;
 	rvn_widget_invalidate_layout(widget);
 }
@@ -1022,6 +1169,87 @@ void Rtable_set_cell_color_callback(Rid id, RTableCellColorCallback callback, vo
 void Rtable_set_selected(Rid id, int row) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
 	rvn_table_select(widget, row, R_FALSE);
+}
+
+void Rtable_set_cell_text_color(Rid id, int row, int column, float r, float g, float b, float a) {
+	rvn_color_t** colors;
+	size_t index, count;
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	if (table->is_virtual || row < 0 || row >= (int)table->row_count || column < -1 || column >= (int)table->column_count) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_cell_text_color: invalid stored cell");
+		return;
+	}
+	colors = column < 0 ? &table->row_colors : &table->cell_colors;
+	count = column < 0 ? table->row_cap : (size_t)table->row_cap * table->column_count;
+	index = column < 0 ? (size_t)row : (size_t)row * table->column_count + (size_t)column;
+	if (!*colors && a > 0) *colors = (rvn_color_t*)rvn_calloc(sizeof(rvn_color_t) * count);
+	if (*colors) (*colors)[index] = a > 0 ? rvn_rgba(r, g, b, a) : 0;
+	rvn_widget_invalidate_paint(widget);
+}
+
+void Rtable_set_multi_select(Rid id, int enabled) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	if (table->multi == (enabled != 0)) return;
+	table->multi = enabled != 0;
+	if (table->multi) rvn_table_selection_reset(table, table->selected);
+	else {
+		rvn_free(table->selected_rows);
+		table->selected_rows = NULL;
+		table->selection_cap = 0;
+	}
+	rvn_a11y_structure_changed();
+	rvn_widget_invalidate_paint(widget);
+}
+
+int Rtable_is_row_selected(Rid id, int row) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	return rvn_table_is_selected((const rvn_table_t*)widget, row);
+}
+
+int Rtable_get_selection_count(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	int row, count = 0;
+	if (!table->multi) return table->selected >= 0 ? 1 : 0;
+	for (row = 0; row < rvn_mini(rvn_table_count(table), (int)table->selection_cap); row++) if (table->selected_rows[row]) count++;
+	return count;
+}
+
+int Rtable_get_selection(Rid id, int index) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, -1);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	int row;
+	if (index < 0) return -1;
+	if (!table->multi) return index == 0 ? table->selected : -1;
+	for (row = 0; row < rvn_mini(rvn_table_count(table), (int)table->selection_cap); row++)
+		if (table->selected_rows[row] && index-- == 0) return row;
+	return -1;
+}
+
+void Rtable_set_row_selected(Rid id, int row, int selected) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	if (row < 0 || row >= rvn_table_count(table)) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_row_selected: invalid row");
+		return;
+	}
+	if (!table->multi) {
+		if (selected || row == table->selected) rvn_table_select(widget, selected ? row : -1, R_FALSE);
+		return;
+	}
+	rvn_table_selection_reserve(table);
+	table->selected_rows[row] = selected != 0;
+	if (selected) table->selected = table->anchor = row;
+	else if (table->selected == row) table->selected = Rtable_get_selection(id, 0);
+	rvn_a11y_selection_changed(widget);
+	rvn_widget_invalidate_paint(widget);
+}
+
+void Rtable_clear_selection(Rid id) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	rvn_table_select(widget, -1, R_FALSE);
 }
 
 int Rtable_get_selected(Rid id) {

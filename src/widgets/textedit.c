@@ -82,6 +82,34 @@ int rvn_textedit_set_text(rvn_textedit_t* edit, const char* text) {
 	return R_TRUE;
 }
 
+/* Moves an offset back to the start of its UTF-8 character, inside the text. */
+static int rvn_te_boundary(const rvn_textedit_t* edit, int offset) {
+	offset = rvn_clampi(offset, 0, edit->length);
+	while (offset > 0 && offset < edit->length && ((unsigned char)edit->text[offset] & 0xC0) == 0x80) offset--;
+	return offset;
+}
+
+void rvn_textedit_set_selection(rvn_textedit_t* edit, int start, int end) {
+	edit->anchor = rvn_te_boundary(edit, start);
+	edit->caret = rvn_te_boundary(edit, end);
+	edit->blink_start = rvn_clock_seconds();
+}
+
+int rvn_textedit_replace(rvn_textedit_t* edit, int start, int end, const char* text) {
+	int from, to, length = text ? (int)strlen(text) : 0;
+	from = rvn_te_boundary(edit, rvn_mini(start, end));
+	to = rvn_te_boundary(edit, rvn_maxi(start, end));
+	edit->anchor = from;
+	edit->caret = to;
+	edit->blink_start = rvn_clock_seconds();
+	if (length == 0) {
+		if (to <= from) return R_FALSE;
+		rvn_te_delete(edit, from, to);
+		return R_TRUE;
+	}
+	return rvn_te_insert(edit, text, length);
+}
+
 void rvn_textedit_select_all(rvn_textedit_t* edit) {
 	edit->anchor = 0;
 	edit->caret = edit->length;

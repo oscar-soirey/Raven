@@ -267,7 +267,7 @@ panel uses the attributes that make sense for it.
 | `Checkbox` (`CheckBox`) | `Text`, `Checked`, `Style` (`Check`, `Radio`, `Switch`). Radio boxes of the same parent are exclusive |
 | `Slider` | `Min`, `Max`, `Value`, `Step`, `Orientation` |
 | `ProgressBar` | `Value` (0..1) |
-| `SpinBox` | `Min`, `Max`, `Value`, `Step`, `Decimals` |
+| `SpinBox` | `Min`, `Max`, `Value`, `Step`, `Decimals`, `Buttons` (step buttons in the looks of Raven too) |
 | `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength` |
 | `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"` |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |

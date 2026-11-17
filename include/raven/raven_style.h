@@ -318,6 +318,14 @@ extern "C" {
 	 * use. Rtheme_apply and the theme files set it.
 	 */
 	RAVEN_API void Rtheme_set_dark(int dark);
+	/** @brief R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today). */
+	RAVEN_API int Rtheme_get_system_dark(void);
+	/**
+	 * @brief Follows the dark or light mode of the system with the Raven look
+	 * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+	 * Off by default. Does nothing where the platform does not tell (desktop today).
+	 */
+	RAVEN_API void Rtheme_follow_system(int enabled);
 	RAVEN_API int Rtheme_is_dark(void);
 
 	/**
