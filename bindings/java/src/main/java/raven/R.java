@@ -10096,7 +10096,8 @@ public final class R {
     private static MethodHandle Rwidget_set_tooltip$;
 
     /**
-     * Text shown when the cursor rests on the widget. NULL removes it.
+     * Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+     *  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
      */
     public static void Rwidget_set_tooltip(int widget, String text) {
         MethodHandle $h = Rwidget_set_tooltip$;

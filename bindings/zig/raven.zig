@@ -2640,7 +2640,8 @@ pub extern fn Rwidget_set_transition(widget: Rid, transition: RTransition, delay
 pub extern fn Rwidget_play_transition(widget: Rid, transition: RTransition, delay_seconds: f32) void;
 /// R_TRUE clips the descendants to the bounds of the widget.
 pub extern fn Rwidget_set_clipping(widget: Rid, clip: c_int) void;
-/// Text shown when the cursor rests on the widget. NULL removes it.
+/// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+///  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 pub extern fn Rwidget_set_tooltip(widget: Rid, text: ?[*:0]const u8) void;
 /// Returns: The tooltip text of the widget, "" when it has none.
 pub extern fn Rwidget_get_tooltip(widget: Rid) ?[*:0]const u8;

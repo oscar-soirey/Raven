@@ -5077,7 +5077,8 @@ namespace Raven
         public static extern void Rwidget_set_clipping(uint widget, int clip);
 
         /// <summary>
-        /// Text shown when the cursor rests on the widget. NULL removes it.
+        /// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+        ///  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rwidget_set_tooltip(uint widget, [MarshalAs(Utf8.Str)] string text);

@@ -55,11 +55,16 @@ static void rvn_label_init(rvn_widget_t* widget) {
 	label->pressed_link = -1;
 }
 
-/* The label takes the mouse when its text can be selected, or when it has links to click. */
+/* The label takes the mouse when its text can be selected, when it has links to click, or when it
+ * has a tooltip (the hover has to reach it for the tooltip to show; unhandled events still bubble). */
 static void rvn_label_update_hit(rvn_label_t* label) {
-	if (label->selectable || (label->markdown && label->md && rvn_md_link_count(label->md) > 0)) label->base.flags &= ~RVN_WF_NO_HIT;
+	if (label->selectable || label->base.tooltip || (label->markdown && label->md && rvn_md_link_count(label->md) > 0)) label->base.flags &= ~RVN_WF_NO_HIT;
 	else label->base.flags |= RVN_WF_NO_HIT;
 	label->base.cursor = label->selectable ? R_CURSOR_IBEAM : (RCursor)0;
+}
+
+void rvn_label_tooltip_changed(rvn_widget_t* widget) {
+	rvn_label_update_hit((rvn_label_t*)widget);
 }
 
 static void rvn_label_forget(rvn_label_t* label) {

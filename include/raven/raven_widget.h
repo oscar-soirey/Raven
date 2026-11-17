@@ -325,7 +325,8 @@ extern "C" {
 	/** @brief R_TRUE clips the descendants to the bounds of the widget. */
 	RAVEN_API void Rwidget_set_clipping(Rid widget, int clip);
 
-	/** @brief Text shown when the cursor rests on the widget. NULL removes it. */
+	/** @brief Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+	 *  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble). */
 	RAVEN_API void Rwidget_set_tooltip(Rid widget, const char* text);
 	/** @return The tooltip text of the widget, "" when it has none. */
 	RAVEN_API const char* Rwidget_get_tooltip(Rid widget);

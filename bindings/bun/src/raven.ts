@@ -8707,7 +8707,10 @@ export function Rwidget_set_clipping(widget: Rid, clip: number): void {
 	_lib.Rwidget_set_clipping(widget, clip);
 }
 
-/** Text shown when the cursor rests on the widget. NULL removes it. */
+/**
+ * Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+ *  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
+ */
 export function Rwidget_set_tooltip(widget: Rid, text: string | null): void {
 	_lib.Rwidget_set_tooltip(widget, _s(text));
 }

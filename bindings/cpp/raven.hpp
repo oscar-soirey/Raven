@@ -198,7 +198,8 @@ public:
 	/// R_TRUE clips the descendants to the bounds of the widget.
 	void set_clipping(int clip) const { Rwidget_set_clipping(id_, clip); }
 
-	/// Text shown when the cursor rests on the widget. NULL removes it.
+	/// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+	///  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 	void set_tooltip(const char* text) const { Rwidget_set_tooltip(id_, text); }
 
 	/// Returns: The tooltip text of the widget, "" when it has none.
