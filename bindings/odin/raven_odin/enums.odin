@@ -713,10 +713,10 @@ Widget_Type :: enum i32 {
 	Pdf_View = 0x0233,
 	// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 	Chart = 0x0234,
-	// Pages shown one at a time and swiped (a page view), with dots and arrows.
-	Carousel = 0x0235,
 	// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
-	Map_View = 0x0236,
+	Map_View = 0x0235,
+	// Pages shown one at a time and swiped (a page view), with dots and arrows.
+	Carousel = 0x0236,
 }
 
 H_Align :: enum i32 {

@@ -690,10 +690,10 @@ pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
 pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
 /// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 pub const R_WIDGET_CHART: RWidgetType = 0x0234;
-/// Pages shown one at a time and swiped (a page view), with dots and arrows.
-pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0235;
 /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
-pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0236;
+pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
+/// Pages shown one at a time and swiped (a page view), with dots and arrows.
+pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;

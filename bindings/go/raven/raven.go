@@ -688,8 +688,8 @@ const (
 	R_WIDGET_PLOT            RWidgetType = 0x0232
 	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
 	R_WIDGET_CHART           RWidgetType = 0x0234
-	R_WIDGET_CAROUSEL        RWidgetType = 0x0235
-	R_WIDGET_MAP_VIEW        RWidgetType = 0x0236
+	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
+	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
 )
 
 type RHAlign int32

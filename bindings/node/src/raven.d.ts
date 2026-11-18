@@ -1119,10 +1119,10 @@ export enum RWidgetType {
 	R_WIDGET_PDF_VIEW = 0x0233,
 	/** The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). */
 	R_WIDGET_CHART = 0x0234,
-	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
-	R_WIDGET_CAROUSEL = 0x0235,
 	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
-	R_WIDGET_MAP_VIEW = 0x0236,
+	R_WIDGET_MAP_VIEW = 0x0235,
+	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
+	R_WIDGET_CAROUSEL = 0x0236,
 }
 export const R_WIDGET_VBOX: RWidgetType.R_WIDGET_VBOX;
 export const R_WIDGET_HBOX: RWidgetType.R_WIDGET_HBOX;
@@ -1177,8 +1177,8 @@ export const R_WIDGET_PAGINATION: RWidgetType.R_WIDGET_PAGINATION;
 export const R_WIDGET_PLOT: RWidgetType.R_WIDGET_PLOT;
 export const R_WIDGET_PDF_VIEW: RWidgetType.R_WIDGET_PDF_VIEW;
 export const R_WIDGET_CHART: RWidgetType.R_WIDGET_CHART;
-export const R_WIDGET_CAROUSEL: RWidgetType.R_WIDGET_CAROUSEL;
 export const R_WIDGET_MAP_VIEW: RWidgetType.R_WIDGET_MAP_VIEW;
+export const R_WIDGET_CAROUSEL: RWidgetType.R_WIDGET_CAROUSEL;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,

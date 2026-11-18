@@ -1070,13 +1070,13 @@ namespace Raven
         /// </summary>
         R_WIDGET_CHART = 0x0234,
         /// <summary>
-        /// Pages shown one at a time and swiped (a page view), with dots and arrows.
-        /// </summary>
-        R_WIDGET_CAROUSEL = 0x0235,
-        /// <summary>
         /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
         /// </summary>
-        R_WIDGET_MAP_VIEW = 0x0236,
+        R_WIDGET_MAP_VIEW = 0x0235,
+        /// <summary>
+        /// Pages shown one at a time and swiped (a page view), with dots and arrows.
+        /// </summary>
+        R_WIDGET_CAROUSEL = 0x0236,
     }
 
     public enum RHAlign : int

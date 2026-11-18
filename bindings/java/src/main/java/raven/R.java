@@ -1076,13 +1076,13 @@ public final class R {
      */
     public static final int R_WIDGET_CHART = 0x0234;
     /**
-     * Pages shown one at a time and swiped (a page view), with dots and arrows.
-     */
-    public static final int R_WIDGET_CAROUSEL = 0x0235;
-    /**
      * A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
      */
-    public static final int R_WIDGET_MAP_VIEW = 0x0236;
+    public static final int R_WIDGET_MAP_VIEW = 0x0235;
+    /**
+     * Pages shown one at a time and swiped (a page view), with dots and arrows.
+     */
+    public static final int R_WIDGET_CAROUSEL = 0x0236;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
