@@ -36,6 +36,8 @@ struct RPainter;
 alias RBackend = int;
 enum : RBackend
 {
+    /// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+    R_BACKEND_DEFAULT = 0,
     /// Built-in Vulkan renderer.
     R_BACKEND_VULKAN = 1,
     /// Renders nothing. Used for headless runs and unit tests.
@@ -44,6 +46,8 @@ enum : RBackend
     R_BACKEND_CUSTOM = 3,
     /// Browser renderer (Emscripten, WebGL 2).
     R_BACKEND_WEBGL = 4,
+    /// Built-in Metal renderer (macOS, iOS).
+    R_BACKEND_METAL = 5,
 }
 
 alias RError = int;
@@ -800,7 +804,7 @@ enum : RWidgetType
     R_WIDGET_CHART = 0x0234,
     /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
     R_WIDGET_MAP_VIEW = 0x0235,
-    /// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+    /// Pages shown one at a time and swiped (a page view), with dots and arrows.
     R_WIDGET_CAROUSEL = 0x0236,
 }
 
@@ -1760,7 +1764,7 @@ alias RAccessiblePressCallback = extern (C) void function(Rid widget, void* user
 /// default for every field, so new fields can be added without breaking code.
 struct RInitDesc
 {
-    /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+    /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     RBackend backend = 0;
     /// Application name reported to the graphics driver. May be NULL.
     const(char)* app_name = null;
@@ -2212,8 +2216,14 @@ struct RViewportDrawInfo
     void* command_buffer = null;
     /// Vulkan: VkRenderPass in use (one color attachment, no depth).
     void* render_pass = null;
-    /// Vulkan: VkFormat of the color attachment.
+    /// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
     uint color_format = 0;
+    /// Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+    void* metal_encoder = null;
+    /// Metal: id<MTLCommandBuffer> the encoder belongs to.
+    void* metal_command_buffer = null;
+    /// Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
+    void* metal_device = null;
 }
 
 /// State of one animated value. Zero-initialize it and keep it with the widget.
