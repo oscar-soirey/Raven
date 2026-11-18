@@ -14,7 +14,7 @@
 //   import r "raven"
 //
 //   main :: proc() {
-//       r.Rinit(r.R_BACKEND_VULKAN)
+//       r.Rinit(r.R_BACKEND_DEFAULT)
 //       xml :: "<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>"
 //       r.Rwindow_create_from_xml(xml, len(xml))
 //       r.Raction_bind("quit", proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
@@ -50,6 +50,8 @@ RActionContext :: struct {}
 RPainter :: struct {}
 
 RBackend :: i32
+// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+R_BACKEND_DEFAULT :: 0
 // Built-in Vulkan renderer.
 R_BACKEND_VULKAN :: 1
 // Renders nothing. Used for headless runs and unit tests.
@@ -58,6 +60,8 @@ R_BACKEND_NULL :: 2
 R_BACKEND_CUSTOM :: 3
 // Browser renderer (Emscripten, WebGL 2).
 R_BACKEND_WEBGL :: 4
+// Built-in Metal renderer (macOS, iOS).
+R_BACKEND_METAL :: 5
 
 RError :: i32
 R_NO_ERROR :: 0x0070
@@ -721,7 +725,7 @@ R_WIDGET_PDF_VIEW :: 0x0233
 R_WIDGET_CHART :: 0x0234
 // A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 R_WIDGET_MAP_VIEW :: 0x0235
-// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+// Pages shown one at a time and swiped (a page view), with dots and arrows.
 R_WIDGET_CAROUSEL :: 0x0236
 
 RHAlign :: i32
@@ -1532,7 +1536,7 @@ RAccessiblePressCallback :: #type proc "c" (widget: Rid, user_data: rawptr)
 // Optional settings for Rinit_ex. A zero-initialized structure selects the
 // default for every field, so new fields can be added without breaking code.
 RInitDesc :: struct {
-	// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+	// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
 	backend: RBackend,
 	// Application name reported to the graphics driver. May be NULL.
 	app_name: cstring,
@@ -1964,8 +1968,14 @@ RViewportDrawInfo :: struct {
 	command_buffer: rawptr,
 	// Vulkan: VkRenderPass in use (one color attachment, no depth).
 	render_pass: rawptr,
-	// Vulkan: VkFormat of the color attachment.
+	// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
 	color_format: u32,
+	// Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+	metal_encoder: rawptr,
+	// Metal: id<MTLCommandBuffer> the encoder belongs to.
+	metal_command_buffer: rawptr,
+	// Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
+	metal_device: rawptr,
 }
 
 // State of one animated value. Zero-initialize it and keep it with the widget.

@@ -24,6 +24,8 @@ pub struct RPainter {
 }
 
 pub type RBackend = c_int;
+/// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+pub const R_BACKEND_DEFAULT: RBackend = 0;
 /// Built-in Vulkan renderer.
 pub const R_BACKEND_VULKAN: RBackend = 1;
 /// Renders nothing. Used for headless runs and unit tests.
@@ -32,6 +34,8 @@ pub const R_BACKEND_NULL: RBackend = 2;
 pub const R_BACKEND_CUSTOM: RBackend = 3;
 /// Browser renderer (Emscripten, WebGL 2).
 pub const R_BACKEND_WEBGL: RBackend = 4;
+/// Built-in Metal renderer (macOS, iOS).
+pub const R_BACKEND_METAL: RBackend = 5;
 
 pub type RError = c_int;
 pub const R_NO_ERROR: RError = 0x0070;
@@ -695,7 +699,7 @@ pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
 pub const R_WIDGET_CHART: RWidgetType = 0x0234;
 /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
-/// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+/// Pages shown one at a time and swiped (a page view), with dots and arrows.
 pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
 
 pub type RHAlign = c_int;
@@ -1508,7 +1512,7 @@ pub type RAccessiblePressCallback = Option<unsafe extern "C" fn(widget: Rid, use
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RInitDesc {
-    /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+    /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     pub backend: RBackend,
     /// Application name reported to the graphics driver. May be NULL.
     pub app_name: *const c_char,
@@ -1980,8 +1984,14 @@ pub struct RViewportDrawInfo {
     pub command_buffer: *mut c_void,
     /// Vulkan: VkRenderPass in use (one color attachment, no depth).
     pub render_pass: *mut c_void,
-    /// Vulkan: VkFormat of the color attachment.
+    /// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
     pub color_format: u32,
+    /// Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+    pub metal_encoder: *mut c_void,
+    /// Metal: id<MTLCommandBuffer> the encoder belongs to.
+    pub metal_command_buffer: *mut c_void,
+    /// Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
+    pub metal_device: *mut c_void,
 }
 
 /// State of one animated value. Zero-initialize it and keep it with the widget.

@@ -121,6 +121,8 @@ fn void? check()
 
 constset Backend : CInt
 {
+	<* The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
+	DEFAULT = 0,
 	<* Built-in Vulkan renderer. *>
 	VULKAN = 1,
 	<* Renders nothing. Used for headless runs and unit tests. *>
@@ -129,6 +131,8 @@ constset Backend : CInt
 	CUSTOM = 3,
 	<* Browser renderer (Emscripten, WebGL 2). *>
 	WEBGL = 4,
+	<* Built-in Metal renderer (macOS, iOS). *>
+	METAL = 5,
 }
 
 constset Error : CInt
@@ -903,7 +907,7 @@ constset WidgetType : CInt
 	CHART = 0x0234,
 	<* A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. *>
 	MAP_VIEW = 0x0235,
-	<* Pages shown one at a time and swiped (a page view): arrows, dots, autoplay. *>
+	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 	CAROUSEL = 0x0236,
 }
 
@@ -1981,7 +1985,7 @@ alias WebCallback = fn void(CInt success, ZString result, void* user_data);
 *>
 struct InitDesc
 {
-	<* Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. *>
+	<* Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
 	Backend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	ZString app_name;
@@ -2459,8 +2463,14 @@ struct ViewportDrawInfo
 	void* command_buffer;
 	<* Vulkan: VkRenderPass in use (one color attachment, no depth). *>
 	void* render_pass;
-	<* Vulkan: VkFormat of the color attachment. *>
+	<* Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. *>
 	uint color_format;
+	<* Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). *>
+	void* metal_encoder;
+	<* Metal: id<MTLCommandBuffer> the encoder belongs to. *>
+	void* metal_command_buffer;
+	<* Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. *>
+	void* metal_device;
 }
 
 <* State of one animated value. Zero-initialize it and keep it with the widget. *>

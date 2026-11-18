@@ -19,7 +19,7 @@
 //
 //   #include <raven.hpp>
 //
-//   raven::init(R_BACKEND_VULKAN);
+//   raven::init(R_BACKEND_DEFAULT);
 //   auto window = raven::Window::create("Hello", 400, 200, R_WINDOW_DEFAULT);
 //   auto button = raven::Button::create("Quit");
 //   button.set_clicked_callback([](Rid) { raven::quit(0); });

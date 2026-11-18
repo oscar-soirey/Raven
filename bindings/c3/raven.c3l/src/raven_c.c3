@@ -12,7 +12,7 @@
 //
 //   import raven::c;
 //
-//   if (!c::r_init(c::R_BACKEND_VULKAN)) return 1;
+//   if (!c::r_init(c::R_BACKEND_DEFAULT)) return 1;
 //   Rid window = c::r_window_create("Hello", 420, 220, c::R_WINDOW_DEFAULT);
 module raven::c;
 
@@ -42,6 +42,8 @@ const CInt R_INSTANCE_TEXTURED = 16;
 const CInt R_INSTANCE_NO_POINTER = 32;
 
 alias RBackend = CInt;
+<* The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
+const RBackend R_BACKEND_DEFAULT = 0;
 <* Built-in Vulkan renderer. *>
 const RBackend R_BACKEND_VULKAN = 1;
 <* Renders nothing. Used for headless runs and unit tests. *>
@@ -50,6 +52,8 @@ const RBackend R_BACKEND_NULL = 2;
 const RBackend R_BACKEND_CUSTOM = 3;
 <* Browser renderer (Emscripten, WebGL 2). *>
 const RBackend R_BACKEND_WEBGL = 4;
+<* Built-in Metal renderer (macOS, iOS). *>
+const RBackend R_BACKEND_METAL = 5;
 
 alias RError = CInt;
 const RError R_NO_ERROR = 0x0070;
@@ -753,7 +757,7 @@ const RWidgetType R_WIDGET_PDF_VIEW = 0x0233;
 const RWidgetType R_WIDGET_CHART = 0x0234;
 <* A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. *>
 const RWidgetType R_WIDGET_MAP_VIEW = 0x0235;
-<* Pages shown one at a time and swiped (a page view): arrows, dots, autoplay. *>
+<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 const RWidgetType R_WIDGET_CAROUSEL = 0x0236;
 
 alias RHAlign = CInt;
@@ -1710,7 +1714,7 @@ alias RWebCallback = fn void(CInt success, char* result, void* user_data);
 *>
 struct RInitDesc
 {
-	<* Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. *>
+	<* Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
 	RBackend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	char* app_name;
@@ -2188,8 +2192,14 @@ struct RViewportDrawInfo
 	void* command_buffer;
 	<* Vulkan: VkRenderPass in use (one color attachment, no depth). *>
 	void* render_pass;
-	<* Vulkan: VkFormat of the color attachment. *>
+	<* Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. *>
 	Ruint color_format;
+	<* Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). *>
+	void* metal_encoder;
+	<* Metal: id<MTLCommandBuffer> the encoder belongs to. *>
+	void* metal_command_buffer;
+	<* Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. *>
+	void* metal_device;
 }
 
 <* State of one animated value. Zero-initialize it and keep it with the widget. *>

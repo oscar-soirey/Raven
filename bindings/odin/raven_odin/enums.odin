@@ -8,6 +8,8 @@
 package raven_odin
 
 Backend :: enum i32 {
+	// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+	Default = 0,
 	// Built-in Vulkan renderer.
 	Vulkan = 1,
 	// Renders nothing. Used for headless runs and unit tests.
@@ -16,6 +18,8 @@ Backend :: enum i32 {
 	Custom = 3,
 	// Browser renderer (Emscripten, WebGL 2).
 	Webgl = 4,
+	// Built-in Metal renderer (macOS, iOS).
+	Metal = 5,
 }
 
 Error :: enum i32 {
@@ -713,7 +717,7 @@ Widget_Type :: enum i32 {
 	Chart = 0x0234,
 	// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 	Map_View = 0x0235,
-	// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+	// Pages shown one at a time and swiped (a page view), with dots and arrows.
 	Carousel = 0x0236,
 }
 
