@@ -751,7 +751,7 @@ static void rvn_win32_drag_image(IDataObject* data, const uint8_t* rgba, int wid
 static uint8_t* rvn_win32_thumbnail(const RDataItem* png, int limit, int* width, int* height) {
 	int w = 0, h = 0, x, y, tw, th;
 	uint8_t* full = Rimage_decode(png->data, png->size, &w, &h);
-	uint8_t* small;
+	uint8_t* scaled;
 	if (!full) return NULL;
 	if (w <= limit && h <= limit) {
 		*width = w;
@@ -762,17 +762,17 @@ static uint8_t* rvn_win32_thumbnail(const RDataItem* png, int limit, int* width,
 	th = h >= w ? limit : (int)((long)h * limit / w);
 	if (tw < 1) tw = 1;
 	if (th < 1) th = 1;
-	small = (uint8_t*)rvn_alloc((size_t)tw * (size_t)th * 4u);
+	scaled = (uint8_t*)rvn_alloc((size_t)tw * (size_t)th * 4u);
 	for (y = 0; y < th; y++) {
 		for (x = 0; x < tw; x++) {
 			const uint8_t* from = full + ((size_t)(y * h / th) * (size_t)w + (size_t)(x * w / tw)) * 4u;
-			memcpy(small + ((size_t)y * (size_t)tw + (size_t)x) * 4u, from, 4);
+			memcpy(scaled + ((size_t)y * (size_t)tw + (size_t)x) * 4u, from, 4);
 		}
 	}
 	Rpixels_free(full);
 	*width = tw;
 	*height = th;
-	return small;
+	return scaled;
 }
 
 int rvn_win32_drag(HWND window, const RDataItem* items, int count, uint32_t operations,
