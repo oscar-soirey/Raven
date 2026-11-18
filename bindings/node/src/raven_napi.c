@@ -765,6 +765,23 @@ static struct {
 	const char* (*Rpdf_view_get_title)(Rid);
 	const char* (*Rpdf_view_get_page_text)(Rid, int);
 	void (*Rpdf_view_set_page_changed_callback)(Rid, RPdfPageChangedCallback, void*);
+	Rid (*Rcarousel_create)(void);
+	void (*Rcarousel_set_page)(Rid, int, int);
+	int (*Rcarousel_get_page)(Rid);
+	int (*Rcarousel_get_page_count)(Rid);
+	void (*Rcarousel_next)(Rid);
+	void (*Rcarousel_prev)(Rid);
+	void (*Rcarousel_set_loop)(Rid, int);
+	int (*Rcarousel_get_loop)(Rid);
+	void (*Rcarousel_set_autoplay)(Rid, double);
+	double (*Rcarousel_get_autoplay)(Rid);
+	void (*Rcarousel_set_indicators_visible)(Rid, int);
+	int (*Rcarousel_get_indicators_visible)(Rid);
+	void (*Rcarousel_set_arrows_visible)(Rid, int);
+	int (*Rcarousel_get_arrows_visible)(Rid);
+	void (*Rcarousel_set_orientation)(Rid, ROrientation);
+	ROrientation (*Rcarousel_get_orientation)(Rid);
+	void (*Rcarousel_set_page_changed_callback)(Rid, RCarouselPageChangedCallback, void*);
 	int (*Rpdf_view_print)(Rid, const RPdfPrintDesc*);
 	Rid (*Rmap_view_create)(void);
 	void (*Rmap_view_set_center)(Rid, double, double);
@@ -2080,6 +2097,23 @@ static const struct {
 	{"Rpdf_view_get_title", offsetof(__typeof__(rn), Rpdf_view_get_title)},
 	{"Rpdf_view_get_page_text", offsetof(__typeof__(rn), Rpdf_view_get_page_text)},
 	{"Rpdf_view_set_page_changed_callback", offsetof(__typeof__(rn), Rpdf_view_set_page_changed_callback)},
+	{"Rcarousel_create", offsetof(__typeof__(rn), Rcarousel_create)},
+	{"Rcarousel_set_page", offsetof(__typeof__(rn), Rcarousel_set_page)},
+	{"Rcarousel_get_page", offsetof(__typeof__(rn), Rcarousel_get_page)},
+	{"Rcarousel_get_page_count", offsetof(__typeof__(rn), Rcarousel_get_page_count)},
+	{"Rcarousel_next", offsetof(__typeof__(rn), Rcarousel_next)},
+	{"Rcarousel_prev", offsetof(__typeof__(rn), Rcarousel_prev)},
+	{"Rcarousel_set_loop", offsetof(__typeof__(rn), Rcarousel_set_loop)},
+	{"Rcarousel_get_loop", offsetof(__typeof__(rn), Rcarousel_get_loop)},
+	{"Rcarousel_set_autoplay", offsetof(__typeof__(rn), Rcarousel_set_autoplay)},
+	{"Rcarousel_get_autoplay", offsetof(__typeof__(rn), Rcarousel_get_autoplay)},
+	{"Rcarousel_set_indicators_visible", offsetof(__typeof__(rn), Rcarousel_set_indicators_visible)},
+	{"Rcarousel_get_indicators_visible", offsetof(__typeof__(rn), Rcarousel_get_indicators_visible)},
+	{"Rcarousel_set_arrows_visible", offsetof(__typeof__(rn), Rcarousel_set_arrows_visible)},
+	{"Rcarousel_get_arrows_visible", offsetof(__typeof__(rn), Rcarousel_get_arrows_visible)},
+	{"Rcarousel_set_orientation", offsetof(__typeof__(rn), Rcarousel_set_orientation)},
+	{"Rcarousel_get_orientation", offsetof(__typeof__(rn), Rcarousel_get_orientation)},
+	{"Rcarousel_set_page_changed_callback", offsetof(__typeof__(rn), Rcarousel_set_page_changed_callback)},
 	{"Rpdf_view_print", offsetof(__typeof__(rn), Rpdf_view_print)},
 	{"Rmap_view_create", offsetof(__typeof__(rn), Rmap_view_create)},
 	{"Rmap_view_set_center", offsetof(__typeof__(rn), Rmap_view_set_center)},
@@ -16738,6 +16772,243 @@ static napi_value rn_w_Rpdf_view_set_page_changed_callback(napi_env env, napi_ca
 	return result_;
 }
 
+static napi_value rn_w_Rcarousel_create(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	Rid value_ = rn.Rcarousel_create();
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_set_page(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	rn.Rcarousel_set_page((Rid)a0, (int)a1, (int)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_get_page(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rcarousel_get_page((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_get_page_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rcarousel_get_page_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_next(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rcarousel_next((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_prev(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rcarousel_prev((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_set_loop(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rcarousel_set_loop((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_get_loop(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rcarousel_get_loop((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_set_autoplay(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	rn.Rcarousel_set_autoplay((Rid)a0, (double)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_get_autoplay(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	double value_ = rn.Rcarousel_get_autoplay((Rid)a0);
+	napi_create_double(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_set_indicators_visible(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rcarousel_set_indicators_visible((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_get_indicators_visible(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rcarousel_get_indicators_visible((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_set_arrows_visible(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rcarousel_set_arrows_visible((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_get_arrows_visible(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rcarousel_get_arrows_visible((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_set_orientation(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rcarousel_set_orientation((Rid)a0, (ROrientation)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_get_orientation(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rcarousel_get_orientation((Rid)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rcarousel_set_page_changed_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rcarousel_set_page_changed_callback((Rid)a0, cb_ ? (RCarouselPageChangedCallback)rn_t_RCarouselPageChangedCallback : (RCarouselPageChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 61, NULL, cb_);
+	return result_;
+}
+
 static napi_value rn_w_Rpdf_view_print(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -27309,6 +27580,23 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rpdf_view_get_title", NULL, rn_w_Rpdf_view_get_title, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_get_page_text", NULL, rn_w_Rpdf_view_get_page_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_set_page_changed_callback", NULL, rn_w_Rpdf_view_set_page_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_create", NULL, rn_w_Rcarousel_create, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_set_page", NULL, rn_w_Rcarousel_set_page, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_get_page", NULL, rn_w_Rcarousel_get_page, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_get_page_count", NULL, rn_w_Rcarousel_get_page_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_next", NULL, rn_w_Rcarousel_next, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_prev", NULL, rn_w_Rcarousel_prev, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_set_loop", NULL, rn_w_Rcarousel_set_loop, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_get_loop", NULL, rn_w_Rcarousel_get_loop, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_set_autoplay", NULL, rn_w_Rcarousel_set_autoplay, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_get_autoplay", NULL, rn_w_Rcarousel_get_autoplay, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_set_indicators_visible", NULL, rn_w_Rcarousel_set_indicators_visible, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_get_indicators_visible", NULL, rn_w_Rcarousel_get_indicators_visible, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_set_arrows_visible", NULL, rn_w_Rcarousel_set_arrows_visible, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_get_arrows_visible", NULL, rn_w_Rcarousel_get_arrows_visible, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_set_orientation", NULL, rn_w_Rcarousel_set_orientation, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_get_orientation", NULL, rn_w_Rcarousel_get_orientation, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rcarousel_set_page_changed_callback", NULL, rn_w_Rcarousel_set_page_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_print", NULL, rn_w_Rpdf_view_print, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmap_view_create", NULL, rn_w_Rmap_view_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rmap_view_set_center", NULL, rn_w_Rmap_view_set_center, NULL, NULL, NULL, napi_enumerable, NULL},

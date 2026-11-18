@@ -316,6 +316,9 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 	{ "Canvas", "<Canvas Height=\"120\"><Button Text=\"Here\" Slot.Position=\"20,20\" Slot.Size=\"80,28\"/></Canvas>" },
 	{ "Switcher", "<Switcher><Label Text=\"First\"/><Label Text=\"Second\"/></Switcher>" },
 	{ "TabView", "<TabView Height=\"140\"><Label Text=\"First tab\" Slot.Title=\"One\"/><Label Text=\"Second tab\" Slot.Title=\"Two\"/></TabView>" },
+	{ "Carousel", "<Carousel Height=\"180\"><Label Text=\"First page\" Slot.HAlign=\"Center\" Slot.VAlign=\"Center\"/>"
+		"<Label Text=\"Second page\" Slot.HAlign=\"Center\" Slot.VAlign=\"Center\"/>"
+		"<Label Text=\"Third page\" Slot.HAlign=\"Center\" Slot.VAlign=\"Center\"/></Carousel>" },
 	{ "Expander", "<Expander Title=\"More\" Expanded=\"true\"><Label Text=\"Details\"/></Expander>" },
 	{ "Label", "<Label Text=\"Label\"/>" },
 	{ "Button", "<Button Text=\"Button\"/>" },

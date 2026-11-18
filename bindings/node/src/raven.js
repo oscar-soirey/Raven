@@ -3891,6 +3891,23 @@ export const Rpdf_view_get_fit = _lib.Rpdf_view_get_fit;
 export const Rpdf_view_get_title = _lib.Rpdf_view_get_title;
 export const Rpdf_view_get_page_text = _lib.Rpdf_view_get_page_text;
 export const Rpdf_view_set_page_changed_callback = _lib.Rpdf_view_set_page_changed_callback;
+export const Rcarousel_create = _lib.Rcarousel_create;
+export const Rcarousel_set_page = _lib.Rcarousel_set_page;
+export const Rcarousel_get_page = _lib.Rcarousel_get_page;
+export const Rcarousel_get_page_count = _lib.Rcarousel_get_page_count;
+export const Rcarousel_next = _lib.Rcarousel_next;
+export const Rcarousel_prev = _lib.Rcarousel_prev;
+export const Rcarousel_set_loop = _lib.Rcarousel_set_loop;
+export const Rcarousel_get_loop = _lib.Rcarousel_get_loop;
+export const Rcarousel_set_autoplay = _lib.Rcarousel_set_autoplay;
+export const Rcarousel_get_autoplay = _lib.Rcarousel_get_autoplay;
+export const Rcarousel_set_indicators_visible = _lib.Rcarousel_set_indicators_visible;
+export const Rcarousel_get_indicators_visible = _lib.Rcarousel_get_indicators_visible;
+export const Rcarousel_set_arrows_visible = _lib.Rcarousel_set_arrows_visible;
+export const Rcarousel_get_arrows_visible = _lib.Rcarousel_get_arrows_visible;
+export const Rcarousel_set_orientation = _lib.Rcarousel_set_orientation;
+export const Rcarousel_get_orientation = _lib.Rcarousel_get_orientation;
+export const Rcarousel_set_page_changed_callback = _lib.Rcarousel_set_page_changed_callback;
 export function Rpdf_view_print(view, desc) {
 	return _lib.Rpdf_view_print(view, _p(desc));
 }

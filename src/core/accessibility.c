@@ -302,6 +302,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_MENU: return R_ROLE_MENU;
 		case R_WIDGET_MENU_ITEM: return R_ROLE_MENU_ITEM;
 		case R_WIDGET_TAB_VIEW: return R_ROLE_TAB_LIST;
+		case R_WIDGET_CAROUSEL: return R_ROLE_TAB_LIST;
 		case R_WIDGET_EXPANDER: return R_ROLE_GROUP;
 		case R_WIDGET_ISLAND: return R_ROLE_GROUP;
 		case R_WIDGET_HEADER_BAR: return R_ROLE_TOOLBAR;
@@ -318,8 +319,9 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 
 static RAccessibleRole rvn_a11y_role_of(const rvn_widget_t* widget) {
 	if (widget->a11y && widget->a11y->role != R_ROLE_AUTO) return widget->a11y->role;
-	/* a page of a tab view is a tab panel */
-	if (widget->parent && widget->parent->cls->type == R_WIDGET_TAB_VIEW) return R_ROLE_TAB_PANEL;
+	/* a page of a tab view or of a carousel is a tab panel */
+	if (widget->parent && (widget->parent->cls->type == R_WIDGET_TAB_VIEW || widget->parent->cls->type == R_WIDGET_CAROUSEL))
+		return R_ROLE_TAB_PANEL;
 	return rvn_a11y_default_role(widget);
 }
 
@@ -359,6 +361,7 @@ static int rvn_a11y_collect(const rvn_widget_t* widget, rvn_widget_t** out, int 
 		if (!rvn_a11y_visible(child) || (child->flags & RVN_WF_DEAD)) continue;
 		/* only the page that is shown of a tab view */
 		if (widget->cls->type == R_WIDGET_TAB_VIEW && (int)i != Rtab_view_get_active(widget->id)) continue;
+		if (widget->cls->type == R_WIDGET_CAROUSEL && (int)i != Rcarousel_get_page(widget->id)) continue;
 		if (rvn_a11y_role_of(child) == R_ROLE_NONE) {
 			count = rvn_a11y_collect(child, out, max, count);
 		} else {

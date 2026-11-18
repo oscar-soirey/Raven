@@ -1285,6 +1285,72 @@ extern "C" {
 	/** @brief Called when the current page changes as the user scrolls. This also fires the action of the widget. */
 	typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
 	RAVEN_API void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  CAROUSEL (pages shown one at a time and swiped: a page view)
+	 *
+	 * Every child is a page (Rwidget_add_child), the size of the carousel.
+	 * One page shows at a time; the pages are swiped side by side (or one
+	 * above the other, Rcarousel_set_orientation). They follow a drag of the
+	 * mouse, a finger and two fingers on a trackpad as if they were held,
+	 * stretch before the first page and after the last one, and settle on
+	 * the nearest page when let go, or on the next one when flicked. The
+	 * arrow keys (Left / Right, Up / Down when vertical), Page Up / Page
+	 * Down, Home and End, a click on a dot, the round arrows shown under the
+	 * pointer and the mouse wheel go to a page with a glide. Only the page
+	 * shown (and the one coming in while the pages move) is painted and can
+	 * be reached by the mouse and the keyboard.
+	 *
+	 * Pages are counted from 0. In a right-to-left layout the pages of a
+	 * horizontal carousel run from right to left.
+	 *
+	 * XML: <Carousel Page="0" Loop="true" Autoplay="5" Indicators="true"
+	 * Arrows="true" Orientation="Horizontal|Vertical" OnChanged="...">
+	 * followed by the pages, one element each.
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rcarousel_create(void);
+	/**
+	 * @brief Shows a page, gliding to it when `animated` (and the animations
+	 * are on), at once otherwise. The page changed callback is not called.
+	 */
+	RAVEN_API void Rcarousel_set_page(Rid carousel, int page, int animated);
+	/** @brief The page shown, -1 when the carousel has none. */
+	RAVEN_API int Rcarousel_get_page(Rid carousel);
+	/** @brief Its children. */
+	RAVEN_API int Rcarousel_get_page_count(Rid carousel);
+	/** @brief Glides to the next / previous page; nothing at the last / first one unless it loops. */
+	RAVEN_API void Rcarousel_next(Rid carousel);
+	RAVEN_API void Rcarousel_prev(Rid carousel);
+	/** @brief R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). */
+	RAVEN_API void Rcarousel_set_loop(Rid carousel, int loop);
+	RAVEN_API int Rcarousel_get_loop(Rid carousel);
+	/**
+	 * @brief Goes to the next page by itself every `seconds` (0: never, the
+	 * default); after the last page it comes back to the first. It waits
+	 * while the pointer is on the carousel, while the pages are dragged and
+	 * while the keyboard is in it; a page chosen by the user starts the
+	 * interval again.
+	 */
+	RAVEN_API void Rcarousel_set_autoplay(Rid carousel, double seconds);
+	RAVEN_API double Rcarousel_get_autoplay(Rid carousel);
+	/** @brief The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). */
+	RAVEN_API void Rcarousel_set_indicators_visible(Rid carousel, int visible);
+	RAVEN_API int Rcarousel_get_indicators_visible(Rid carousel);
+	/** @brief The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). */
+	RAVEN_API void Rcarousel_set_arrows_visible(Rid carousel, int visible);
+	RAVEN_API int Rcarousel_get_arrows_visible(Rid carousel);
+	/** @brief R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. */
+	RAVEN_API void Rcarousel_set_orientation(Rid carousel, ROrientation orientation);
+	RAVEN_API ROrientation Rcarousel_get_orientation(Rid carousel);
+	/**
+	 * @brief Called when the user goes to another page (a swipe, the keys, a
+	 * dot, an arrow) and when the autoplay does. This also fires the action
+	 * of the widget.
+	 */
+	typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_data);
+	RAVEN_API void Rcarousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data);
 	/** @brief Prints the document shown (see Rpdf_print); the job is named after its title. */
 	RAVEN_API int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
 

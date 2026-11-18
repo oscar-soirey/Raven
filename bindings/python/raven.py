@@ -9633,6 +9633,156 @@ def Rpdf_view_set_page_changed_callback(view, callback, user_data=None):
     _lib.Rpdf_view_set_page_changed_callback(view, _callback(RPdfPageChangedCallback, _adapt_RPdfPageChangedCallback, callback), user_data)
 
 
+_lib.Rcarousel_create.argtypes = []
+_lib.Rcarousel_create.restype = ctypes.c_uint32
+
+
+def Rcarousel_create():
+    return _lib.Rcarousel_create()
+
+
+_lib.Rcarousel_set_page.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rcarousel_set_page.restype = None
+
+
+def Rcarousel_set_page(carousel, page, animated):
+    """Shows a page, gliding to it when `animated` (and the animations
+    are on), at once otherwise. The page changed callback is not called."""
+    _lib.Rcarousel_set_page(carousel, page, animated)
+
+
+_lib.Rcarousel_get_page.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_get_page.restype = ctypes.c_int
+
+
+def Rcarousel_get_page(carousel):
+    """The page shown, -1 when the carousel has none."""
+    return _lib.Rcarousel_get_page(carousel)
+
+
+_lib.Rcarousel_get_page_count.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_get_page_count.restype = ctypes.c_int
+
+
+def Rcarousel_get_page_count(carousel):
+    """Its children."""
+    return _lib.Rcarousel_get_page_count(carousel)
+
+
+_lib.Rcarousel_next.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_next.restype = None
+
+
+def Rcarousel_next(carousel):
+    """Glides to the next / previous page; nothing at the last / first one unless it loops."""
+    _lib.Rcarousel_next(carousel)
+
+
+_lib.Rcarousel_prev.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_prev.restype = None
+
+
+def Rcarousel_prev(carousel):
+    _lib.Rcarousel_prev(carousel)
+
+
+_lib.Rcarousel_set_loop.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rcarousel_set_loop.restype = None
+
+
+def Rcarousel_set_loop(carousel, loop):
+    """R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE)."""
+    _lib.Rcarousel_set_loop(carousel, loop)
+
+
+_lib.Rcarousel_get_loop.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_get_loop.restype = ctypes.c_int
+
+
+def Rcarousel_get_loop(carousel):
+    return _lib.Rcarousel_get_loop(carousel)
+
+
+_lib.Rcarousel_set_autoplay.argtypes = [ctypes.c_uint32, ctypes.c_double]
+_lib.Rcarousel_set_autoplay.restype = None
+
+
+def Rcarousel_set_autoplay(carousel, seconds):
+    """Goes to the next page by itself every `seconds` (0: never, the
+    default); after the last page it comes back to the first. It waits
+    while the pointer is on the carousel, while the pages are dragged and
+    while the keyboard is in it; a page chosen by the user starts the
+    interval again."""
+    _lib.Rcarousel_set_autoplay(carousel, seconds)
+
+
+_lib.Rcarousel_get_autoplay.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_get_autoplay.restype = ctypes.c_double
+
+
+def Rcarousel_get_autoplay(carousel):
+    return _lib.Rcarousel_get_autoplay(carousel)
+
+
+_lib.Rcarousel_set_indicators_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rcarousel_set_indicators_visible.restype = None
+
+
+def Rcarousel_set_indicators_visible(carousel, visible):
+    """The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE)."""
+    _lib.Rcarousel_set_indicators_visible(carousel, visible)
+
+
+_lib.Rcarousel_get_indicators_visible.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_get_indicators_visible.restype = ctypes.c_int
+
+
+def Rcarousel_get_indicators_visible(carousel):
+    return _lib.Rcarousel_get_indicators_visible(carousel)
+
+
+_lib.Rcarousel_set_arrows_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rcarousel_set_arrows_visible.restype = None
+
+
+def Rcarousel_set_arrows_visible(carousel, visible):
+    """The previous / next buttons shown while the pointer is on the carousel (default R_TRUE)."""
+    _lib.Rcarousel_set_arrows_visible(carousel, visible)
+
+
+_lib.Rcarousel_get_arrows_visible.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_get_arrows_visible.restype = ctypes.c_int
+
+
+def Rcarousel_get_arrows_visible(carousel):
+    return _lib.Rcarousel_get_arrows_visible(carousel)
+
+
+_lib.Rcarousel_set_orientation.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rcarousel_set_orientation.restype = None
+
+
+def Rcarousel_set_orientation(carousel, orientation):
+    """R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other."""
+    _lib.Rcarousel_set_orientation(carousel, int(orientation))
+
+
+_lib.Rcarousel_get_orientation.argtypes = [ctypes.c_uint32]
+_lib.Rcarousel_get_orientation.restype = ctypes.c_int
+
+
+def Rcarousel_get_orientation(carousel):
+    return _e(ROrientation, _lib.Rcarousel_get_orientation(carousel))
+
+
+_lib.Rcarousel_set_page_changed_callback.argtypes = [ctypes.c_uint32, RCarouselPageChangedCallback, ctypes.c_void_p]
+_lib.Rcarousel_set_page_changed_callback.restype = None
+
+
+def Rcarousel_set_page_changed_callback(carousel, callback, user_data=None):
+    _lib.Rcarousel_set_page_changed_callback(carousel, _callback(RCarouselPageChangedCallback, _adapt_RCarouselPageChangedCallback, callback), user_data)
+
+
 _lib.Rpdf_view_print.argtypes = [ctypes.c_uint32, ctypes.POINTER(RPdfPrintDesc)]
 _lib.Rpdf_view_print.restype = ctypes.c_int
 

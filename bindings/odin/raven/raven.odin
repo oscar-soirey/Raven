@@ -3572,6 +3572,37 @@ foreign lib {
 	// the next call for this view.
 	Rpdf_view_get_page_text :: proc(view: Rid, page: i32) -> cstring ---
 	Rpdf_view_set_page_changed_callback :: proc(view: Rid, callback: RPdfPageChangedCallback, user_data: rawptr) ---
+	Rcarousel_create :: proc() -> Rid ---
+	// Shows a page, gliding to it when `animated` (and the animations
+	// are on), at once otherwise. The page changed callback is not called.
+	Rcarousel_set_page :: proc(carousel: Rid, page: i32, animated: i32) ---
+	// The page shown, -1 when the carousel has none.
+	Rcarousel_get_page :: proc(carousel: Rid) -> i32 ---
+	// Its children.
+	Rcarousel_get_page_count :: proc(carousel: Rid) -> i32 ---
+	// Glides to the next / previous page; nothing at the last / first one unless it loops.
+	Rcarousel_next :: proc(carousel: Rid) ---
+	Rcarousel_prev :: proc(carousel: Rid) ---
+	// R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+	Rcarousel_set_loop :: proc(carousel: Rid, loop: i32) ---
+	Rcarousel_get_loop :: proc(carousel: Rid) -> i32 ---
+	// Goes to the next page by itself every `seconds` (0: never, the
+	// default); after the last page it comes back to the first. It waits
+	// while the pointer is on the carousel, while the pages are dragged and
+	// while the keyboard is in it; a page chosen by the user starts the
+	// interval again.
+	Rcarousel_set_autoplay :: proc(carousel: Rid, seconds: f64) ---
+	Rcarousel_get_autoplay :: proc(carousel: Rid) -> f64 ---
+	// The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+	Rcarousel_set_indicators_visible :: proc(carousel: Rid, visible: i32) ---
+	Rcarousel_get_indicators_visible :: proc(carousel: Rid) -> i32 ---
+	// The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+	Rcarousel_set_arrows_visible :: proc(carousel: Rid, visible: i32) ---
+	Rcarousel_get_arrows_visible :: proc(carousel: Rid) -> i32 ---
+	// R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+	Rcarousel_set_orientation :: proc(carousel: Rid, orientation: ROrientation) ---
+	Rcarousel_get_orientation :: proc(carousel: Rid) -> ROrientation ---
+	Rcarousel_set_page_changed_callback :: proc(carousel: Rid, callback: RCarouselPageChangedCallback, user_data: rawptr) ---
 	// Prints the document shown (see Rpdf_print); the job is named after its title.
 	Rpdf_view_print :: proc(view: Rid, desc: ^RPdfPrintDesc) -> i32 ---
 	Rmap_view_create :: proc() -> Rid ---

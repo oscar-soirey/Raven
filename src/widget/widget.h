@@ -185,6 +185,14 @@ typedef struct rvn_widget_class_t {
 	 * passes the movement to what contains the widget.
 	 */
 	int  (*pan)(rvn_widget_t* widget, float dx, float dy, int coasting);
+	/**
+	 * The finger that panned the widget left, moving at (vx, vy) logical
+	 * units per second (0, 0 when it rested or was cancelled; also called
+	 * when two fingers that panned it leave). Returns R_TRUE when the widget
+	 * settles by itself (pages that snap): nothing coasts then. NULL: the
+	 * content coasts.
+	 */
+	int  (*pan_end)(rvn_widget_t* widget, float vx, float vy);
 	/** Zooms by `factor` around a point of the widget (local units). Returns R_TRUE when the zoom changed. */
 	int  (*zoom)(rvn_widget_t* widget, float factor, float x, float y);
 	/**

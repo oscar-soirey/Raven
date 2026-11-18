@@ -3593,6 +3593,37 @@ extern "C" {
     /// the next call for this view.
     pub fn Rpdf_view_get_page_text(view: Rid, page: c_int) -> *const c_char;
     pub fn Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback, user_data: *mut c_void);
+    pub fn Rcarousel_create() -> Rid;
+    /// Shows a page, gliding to it when `animated` (and the animations
+    /// are on), at once otherwise. The page changed callback is not called.
+    pub fn Rcarousel_set_page(carousel: Rid, page: c_int, animated: c_int);
+    /// The page shown, -1 when the carousel has none.
+    pub fn Rcarousel_get_page(carousel: Rid) -> c_int;
+    /// Its children.
+    pub fn Rcarousel_get_page_count(carousel: Rid) -> c_int;
+    /// Glides to the next / previous page; nothing at the last / first one unless it loops.
+    pub fn Rcarousel_next(carousel: Rid);
+    pub fn Rcarousel_prev(carousel: Rid);
+    /// R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+    pub fn Rcarousel_set_loop(carousel: Rid, loop_: c_int);
+    pub fn Rcarousel_get_loop(carousel: Rid) -> c_int;
+    /// Goes to the next page by itself every `seconds` (0: never, the
+    /// default); after the last page it comes back to the first. It waits
+    /// while the pointer is on the carousel, while the pages are dragged and
+    /// while the keyboard is in it; a page chosen by the user starts the
+    /// interval again.
+    pub fn Rcarousel_set_autoplay(carousel: Rid, seconds: f64);
+    pub fn Rcarousel_get_autoplay(carousel: Rid) -> f64;
+    /// The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+    pub fn Rcarousel_set_indicators_visible(carousel: Rid, visible: c_int);
+    pub fn Rcarousel_get_indicators_visible(carousel: Rid) -> c_int;
+    /// The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+    pub fn Rcarousel_set_arrows_visible(carousel: Rid, visible: c_int);
+    pub fn Rcarousel_get_arrows_visible(carousel: Rid) -> c_int;
+    /// R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+    pub fn Rcarousel_set_orientation(carousel: Rid, orientation: ROrientation);
+    pub fn Rcarousel_get_orientation(carousel: Rid) -> ROrientation;
+    pub fn Rcarousel_set_page_changed_callback(carousel: Rid, callback: RCarouselPageChangedCallback, user_data: *mut c_void);
     /// Prints the document shown (see Rpdf_print); the job is named after its title.
     pub fn Rpdf_view_print(view: Rid, desc: *const RPdfPrintDesc) -> c_int;
     pub fn Rmap_view_create() -> Rid;

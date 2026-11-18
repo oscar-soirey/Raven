@@ -3651,6 +3651,57 @@ inline void pdf_view_set_page_changed_callback(Rid view, std::function<void(Rid,
 	Rpdf_view_set_page_changed_callback(view, [](Rid view, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(view, page); }, detail::keep(view, 77, std::move(callback)));
 }
 
+inline Rid carousel_create() { return Rcarousel_create(); }
+
+/// Shows a page, gliding to it when `animated` (and the animations
+/// are on), at once otherwise. The page changed callback is not called.
+inline void carousel_set_page(Rid carousel, int page, int animated) { Rcarousel_set_page(carousel, page, animated); }
+
+/// The page shown, -1 when the carousel has none.
+inline int carousel_get_page(Rid carousel) { return Rcarousel_get_page(carousel); }
+
+/// Its children.
+inline int carousel_get_page_count(Rid carousel) { return Rcarousel_get_page_count(carousel); }
+
+/// Glides to the next / previous page; nothing at the last / first one unless it loops.
+inline void carousel_next(Rid carousel) { Rcarousel_next(carousel); }
+
+inline void carousel_prev(Rid carousel) { Rcarousel_prev(carousel); }
+
+/// R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+inline void carousel_set_loop(Rid carousel, int loop) { Rcarousel_set_loop(carousel, loop); }
+
+inline int carousel_get_loop(Rid carousel) { return Rcarousel_get_loop(carousel); }
+
+/// Goes to the next page by itself every `seconds` (0: never, the
+/// default); after the last page it comes back to the first. It waits
+/// while the pointer is on the carousel, while the pages are dragged and
+/// while the keyboard is in it; a page chosen by the user starts the
+/// interval again.
+inline void carousel_set_autoplay(Rid carousel, double seconds) { Rcarousel_set_autoplay(carousel, seconds); }
+
+inline double carousel_get_autoplay(Rid carousel) { return Rcarousel_get_autoplay(carousel); }
+
+/// The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+inline void carousel_set_indicators_visible(Rid carousel, int visible) { Rcarousel_set_indicators_visible(carousel, visible); }
+
+inline int carousel_get_indicators_visible(Rid carousel) { return Rcarousel_get_indicators_visible(carousel); }
+
+/// The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+inline void carousel_set_arrows_visible(Rid carousel, int visible) { Rcarousel_set_arrows_visible(carousel, visible); }
+
+inline int carousel_get_arrows_visible(Rid carousel) { return Rcarousel_get_arrows_visible(carousel); }
+
+/// R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+inline void carousel_set_orientation(Rid carousel, ROrientation orientation) { Rcarousel_set_orientation(carousel, orientation); }
+
+inline ROrientation carousel_get_orientation(Rid carousel) { return Rcarousel_get_orientation(carousel); }
+
+inline void carousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data) { Rcarousel_set_page_changed_callback(carousel, callback, user_data); }
+inline void carousel_set_page_changed_callback(Rid carousel, std::function<void(Rid, int)> callback) {
+	Rcarousel_set_page_changed_callback(carousel, [](Rid carousel, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(carousel, page); }, detail::keep(carousel, 76, std::move(callback)));
+}
+
 /// Prints the document shown (see Rpdf_print); the job is named after its title.
 inline int pdf_view_print(Rid view, const RPdfPrintDesc* desc) { return Rpdf_view_print(view, desc); }
 

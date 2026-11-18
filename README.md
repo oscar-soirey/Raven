@@ -635,6 +635,7 @@ The build trees are in `build\dist\`.
 | `examples/studio` | a graph of nodes (widgets inside the nodes, links the application can refuse, nodes added from code), a timeline that plays, a color picker that colors the selected nodes; its XML is loaded again when saved |
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
+| `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |

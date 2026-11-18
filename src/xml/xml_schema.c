@@ -193,6 +193,15 @@ static const rvn_schema_attribute_t g_splitter[] = {
 	N("MinPaneSize", "The smallest a pane can be dragged to."),
 };
 static const rvn_schema_attribute_t g_switcher[] = { N("Index", "Which child is shown, from 0.") };
+static const rvn_schema_attribute_t g_carousel[] = {
+	N("Page", "Which page is shown, from 0."),
+	B("Loop", "After the last page comes the first one, and before the first the last."),
+	N("Autoplay", "Seconds between the pages turned by themselves; 0 (default) never. It waits while the pointer is on it."),
+	B("Indicators", "The dots of the pages along the bottom edge (default true)."),
+	B("Arrows", "The previous / next buttons shown under the pointer (default true)."),
+	C("Orientation", ORIENTATION, "Pages side by side (default) or one above the other."),
+	A("OnChanged", "Action fired when the user or the autoplay goes to another page."),
+};
 static const rvn_schema_attribute_t g_tab_view[] = { N("ActiveTab", "Which tab is shown, from 0."), A("OnChanged", "Action fired when the tab changes.") };
 static const rvn_schema_attribute_t g_expander[] = {
 	T("Title", "Text of the header."),
@@ -564,6 +573,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG_PLAIN("Canvas", "Places its children freely (Slot.Position, Slot.Size, Slot.Anchors)."),
 	TAG("Switcher", g_switcher, "Shows one of its children."),
 	TAG("TabView", g_tab_view, "Its children as tabs (Slot.Title)."),
+	TAG("Carousel", g_carousel, "Its children as pages shown one at a time, swiped, with dots and arrows."),
 	TAG("Expander", g_expander, "A header that shows and hides one child."),
 	TAG("Label", g_label, "Text."),
 	TAG("Button", g_button, "A button, with a text or with one child."),

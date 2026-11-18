@@ -90,6 +90,7 @@ if(NOT RAVEN_BUILD_SHARED)
 endif()
 raven_add_test(test_more_widgets)
 raven_add_test(test_chart)
+raven_add_test(test_carousel)
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)

@@ -889,6 +889,23 @@ const _symbols = {
 	Rpdf_view_get_title: { args: ["u32"], returns: "cstring" },
 	Rpdf_view_get_page_text: { args: ["u32", "i32"], returns: "cstring" },
 	Rpdf_view_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rcarousel_create: { args: [], returns: "u32" },
+	Rcarousel_set_page: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rcarousel_get_page: { args: ["u32"], returns: "i32" },
+	Rcarousel_get_page_count: { args: ["u32"], returns: "i32" },
+	Rcarousel_next: { args: ["u32"], returns: "void" },
+	Rcarousel_prev: { args: ["u32"], returns: "void" },
+	Rcarousel_set_loop: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_loop: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_autoplay: { args: ["u32", "f64"], returns: "void" },
+	Rcarousel_get_autoplay: { args: ["u32"], returns: "f64" },
+	Rcarousel_set_indicators_visible: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_indicators_visible: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_arrows_visible: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_arrows_visible: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_orientation: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_orientation: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rpdf_view_print: { args: ["u32", "ptr"], returns: "i32" },
 	Rmap_view_create: { args: [], returns: "u32" },
 	Rmap_view_set_center: { args: ["u32", "f64", "f64"], returns: "void" },
@@ -11335,6 +11352,92 @@ export function Rpdf_view_get_page_text(view: Rid, page: number): string | null 
 
 export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rpdf_view_set_page_changed_callback(view, _adapt_RPdfPageChangedCallback(callback), user_data);
+}
+
+export function Rcarousel_create(): Rid {
+	return _lib.Rcarousel_create();
+}
+
+/**
+ * Shows a page, gliding to it when `animated` (and the animations
+ * are on), at once otherwise. The page changed callback is not called.
+ */
+export function Rcarousel_set_page(carousel: Rid, page: number, animated: number): void {
+	_lib.Rcarousel_set_page(carousel, page, animated);
+}
+
+/** The page shown, -1 when the carousel has none. */
+export function Rcarousel_get_page(carousel: Rid): number {
+	return _lib.Rcarousel_get_page(carousel);
+}
+
+/** Its children. */
+export function Rcarousel_get_page_count(carousel: Rid): number {
+	return _lib.Rcarousel_get_page_count(carousel);
+}
+
+/** Glides to the next / previous page; nothing at the last / first one unless it loops. */
+export function Rcarousel_next(carousel: Rid): void {
+	_lib.Rcarousel_next(carousel);
+}
+
+export function Rcarousel_prev(carousel: Rid): void {
+	_lib.Rcarousel_prev(carousel);
+}
+
+/** R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). */
+export function Rcarousel_set_loop(carousel: Rid, loop: number): void {
+	_lib.Rcarousel_set_loop(carousel, loop);
+}
+
+export function Rcarousel_get_loop(carousel: Rid): number {
+	return _lib.Rcarousel_get_loop(carousel);
+}
+
+/**
+ * Goes to the next page by itself every `seconds` (0: never, the
+ * default); after the last page it comes back to the first. It waits
+ * while the pointer is on the carousel, while the pages are dragged and
+ * while the keyboard is in it; a page chosen by the user starts the
+ * interval again.
+ */
+export function Rcarousel_set_autoplay(carousel: Rid, seconds: number): void {
+	_lib.Rcarousel_set_autoplay(carousel, seconds);
+}
+
+export function Rcarousel_get_autoplay(carousel: Rid): number {
+	return _lib.Rcarousel_get_autoplay(carousel);
+}
+
+/** The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). */
+export function Rcarousel_set_indicators_visible(carousel: Rid, visible: number): void {
+	_lib.Rcarousel_set_indicators_visible(carousel, visible);
+}
+
+export function Rcarousel_get_indicators_visible(carousel: Rid): number {
+	return _lib.Rcarousel_get_indicators_visible(carousel);
+}
+
+/** The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). */
+export function Rcarousel_set_arrows_visible(carousel: Rid, visible: number): void {
+	_lib.Rcarousel_set_arrows_visible(carousel, visible);
+}
+
+export function Rcarousel_get_arrows_visible(carousel: Rid): number {
+	return _lib.Rcarousel_get_arrows_visible(carousel);
+}
+
+/** R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. */
+export function Rcarousel_set_orientation(carousel: Rid, orientation: ROrientation): void {
+	_lib.Rcarousel_set_orientation(carousel, orientation);
+}
+
+export function Rcarousel_get_orientation(carousel: Rid): ROrientation {
+	return _lib.Rcarousel_get_orientation(carousel) as ROrientation;
+}
+
+export function Rcarousel_set_page_changed_callback(carousel: Rid, callback: RCarouselPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rcarousel_set_page_changed_callback(carousel, _adapt_RCarouselPageChangedCallback(callback), user_data);
 }
 
 /** Prints the document shown (see Rpdf_print); the job is named after its title. */

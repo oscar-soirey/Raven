@@ -7493,6 +7493,89 @@ namespace Raven
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rpdf_view_set_page_changed_callback(uint view, RPdfPageChangedCallback callback, IntPtr user_data);
 
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rcarousel_create();
+
+        /// <summary>
+        /// Shows a page, gliding to it when `animated` (and the animations
+        /// are on), at once otherwise. The page changed callback is not called.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_set_page(uint carousel, int page, int animated);
+
+        /// <summary>
+        /// The page shown, -1 when the carousel has none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcarousel_get_page(uint carousel);
+
+        /// <summary>
+        /// Its children.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcarousel_get_page_count(uint carousel);
+
+        /// <summary>
+        /// Glides to the next / previous page; nothing at the last / first one unless it loops.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_next(uint carousel);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_prev(uint carousel);
+
+        /// <summary>
+        /// R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_set_loop(uint carousel, int loop);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcarousel_get_loop(uint carousel);
+
+        /// <summary>
+        /// Goes to the next page by itself every `seconds` (0: never, the
+        /// default); after the last page it comes back to the first. It waits
+        /// while the pointer is on the carousel, while the pages are dragged and
+        /// while the keyboard is in it; a page chosen by the user starts the
+        /// interval again.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_set_autoplay(uint carousel, double seconds);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rcarousel_get_autoplay(uint carousel);
+
+        /// <summary>
+        /// The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_set_indicators_visible(uint carousel, int visible);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcarousel_get_indicators_visible(uint carousel);
+
+        /// <summary>
+        /// The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_set_arrows_visible(uint carousel, int visible);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcarousel_get_arrows_visible(uint carousel);
+
+        /// <summary>
+        /// R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_set_orientation(uint carousel, ROrientation orientation);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern ROrientation Rcarousel_get_orientation(uint carousel);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcarousel_set_page_changed_callback(uint carousel, RCarouselPageChangedCallback callback, IntPtr user_data);
+
         /// <summary>
         /// Prints the document shown (see Rpdf_print); the job is named after its title.
         /// </summary>

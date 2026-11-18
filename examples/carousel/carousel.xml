@@ -1,0 +1,69 @@
+<!-- An onboarding in five pages: a Carousel whose children are the pages. main.c follows the page and drives the switches. -->
+<Window Title="Raven carousel" Width="960" Height="640">
+	<VBox Spacing="16" Slot.Padding="24">
+		<HBox Spacing="14">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Carousel" TextSize="26"/>
+				<Label Text="Swipe with the mouse, a finger or two fingers on a trackpad  -  arrow keys, Home, End  -  click a dot or an arrow" Opacity="0.6"/>
+			</VBox>
+			<Checkbox Name="loop" Text="Loop" Style="Switch" OnChanged="carousel.loop" Slot.VAlign="Center"/>
+			<Checkbox Name="autoplay" Text="Autoplay" Style="Switch" OnChanged="carousel.autoplay" Slot.VAlign="Center"/>
+			<Checkbox Name="vertical" Text="Vertical" Style="Switch" OnChanged="carousel.vertical" Slot.VAlign="Center"/>
+		</HBox>
+
+		<Carousel Name="pages" OnChanged="carousel.changed" Slot.Fill="1">
+			<Border Background="#5B5BD6" CornerRadius="20" Padding="56" Slot.Title="Welcome">
+				<VBox Spacing="14" Slot.HAlign="Center" Slot.VAlign="Center">
+					<Border Width="84" Height="84" CornerRadius="42" Background="#FFFFFF2E" Slot.HAlign="Center">
+						<Label Text="1" TextSize="38" Color="white" Slot.HAlign="Center" Slot.VAlign="Center"/>
+					</Border>
+					<Label Text="Welcome to Raven" TextSize="34" Color="white" Slot.HAlign="Center"/>
+					<Label Text="A small C library for fast, good-looking interfaces, on every desktop and in the browser." Color="#FFFFFFD0" TextSize="17" TextAlign="Center" Wrap="true" MaxWidth="520" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+			<Border Background="#12A594" CornerRadius="20" Padding="56" Slot.Title="Swipe">
+				<VBox Spacing="14" Slot.HAlign="Center" Slot.VAlign="Center">
+					<Border Width="84" Height="84" CornerRadius="42" Background="#FFFFFF2E" Slot.HAlign="Center">
+						<Label Text="2" TextSize="38" Color="white" Slot.HAlign="Center" Slot.VAlign="Center"/>
+					</Border>
+					<Label Text="Swipe the pages" TextSize="34" Color="white" Slot.HAlign="Center"/>
+					<Label Text="They follow the pointer, a finger or two fingers on a trackpad, stretch at the ends and settle on the nearest page." Color="#FFFFFFD0" TextSize="17" TextAlign="Center" Wrap="true" MaxWidth="520" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+			<Border Background="#F76B15" CornerRadius="20" Padding="56" Slot.Title="Pages">
+				<VBox Spacing="14" Slot.HAlign="Center" Slot.VAlign="Center">
+					<Border Width="84" Height="84" CornerRadius="42" Background="#FFFFFF2E" Slot.HAlign="Center">
+						<Label Text="3" TextSize="38" Color="white" Slot.HAlign="Center" Slot.VAlign="Center"/>
+					</Border>
+					<Label Text="Any widget is a page" TextSize="34" Color="white" Slot.HAlign="Center"/>
+					<Label Text="Pictures, forms, whole screens: only the page shown is drawn and reached by the mouse and the keyboard." Color="#FFFFFFD0" TextSize="17" TextAlign="Center" Wrap="true" MaxWidth="520" Slot.HAlign="Center"/>
+					<Button Text="A button on a page" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+			<Border Background="#D6409F" CornerRadius="20" Padding="56" Slot.Title="Dots">
+				<VBox Spacing="14" Slot.HAlign="Center" Slot.VAlign="Center">
+					<Border Width="84" Height="84" CornerRadius="42" Background="#FFFFFF2E" Slot.HAlign="Center">
+						<Label Text="4" TextSize="38" Color="white" Slot.HAlign="Center" Slot.VAlign="Center"/>
+					</Border>
+					<Label Text="Dots and arrows" TextSize="34" Color="white" Slot.HAlign="Center"/>
+					<Label Text="The current dot slides with the pages. The arrows come with the pointer; the keys and the wheel turn the pages too." Color="#FFFFFFD0" TextSize="17" TextAlign="Center" Wrap="true" MaxWidth="520" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+			<Border Background="#0090FF" CornerRadius="20" Padding="56" Slot.Title="Ready">
+				<VBox Spacing="14" Slot.HAlign="Center" Slot.VAlign="Center">
+					<Border Width="84" Height="84" CornerRadius="42" Background="#FFFFFF2E" Slot.HAlign="Center">
+						<Label Text="5" TextSize="38" Color="white" Slot.HAlign="Center" Slot.VAlign="Center"/>
+					</Border>
+					<Label Text="Loop and autoplay" TextSize="34" Color="white" Slot.HAlign="Center"/>
+					<Label Text="Turn on the switches above: the last page leads to the first, and the pages turn by themselves until the pointer comes." Color="#FFFFFFD0" TextSize="17" TextAlign="Center" Wrap="true" MaxWidth="520" Slot.HAlign="Center"/>
+				</VBox>
+			</Border>
+		</Carousel>
+
+		<HBox Spacing="10">
+			<Label Name="status" Text="Welcome  -  1 / 5" Opacity="0.7" Slot.VAlign="Center" Slot.Fill="1"/>
+			<Button Name="back" Text="Back" OnClicked="carousel.back"/>
+			<Button Name="next" Text="Next" Style="Primary" OnClicked="carousel.next"/>
+		</HBox>
+	</VBox>
+</Window>
