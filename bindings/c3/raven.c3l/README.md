@@ -42,6 +42,8 @@ It writes two files into `src/`:
 - `raven_c.c3` (`raven::c`) - the whole C API as it is in the headers, a fallback for anything `raven` does not cover. It stands on its own (it does not import `raven`) and has the types and constants of C: `Rid`, `RWidgetType`, `RRect`, `R_INVALID_ID`, `R_WIDGET_BUTTON`... An enumeration is a `CInt` and texts are `char*`. Every function is an `extern fn` bound to the C function by `@cname`, under its C name except where C3 forbids it: a function cannot start with a capital, so `Rinit` is `raven::c::r_init` and `Rbutton_set_text` is `raven::c::r_button_set_text`.
 - `raven.c3` (`raven`) - the C3 API described below, written over `raven::c`.
 
+Both cover every header of `include/raven`, including the ones the other generators leave out: `raven_vulkan.h` (sharing the Vulkan device, wrapping images), `raven_backend.h` (writing a backend), `raven_android.h` and `raven_emscripten.h`. The functions of the last two exist only in Android and browser builds, so they are declared with `@feat(ANDROID)` and `@feat(EMSCRIPTEN)`.
+
 Both files carry the documentation comments of the C headers as `<* ... *>`. Only the text is kept, with no `@param` lines and nothing C3 would read as a contract.
 
 `../tests/` has the first program of the guide written with each module, both in code and loaded from XML. See `../tests/README.md`.
