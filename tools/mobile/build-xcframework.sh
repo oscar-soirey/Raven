@@ -4,7 +4,8 @@
 # map (module Raven). See examples/mobile/README.md, "Packaging".
 #   tools/mobile/build-xcframework.sh [output folder]     (default: build-xcframework)
 # CONFIG (Release), MIN_IOS (15.0) and SIM_ARCHS ("arm64;x86_64") change the build.
-# MoltenVK is not inside: the app embeds MoltenVK.framework (its dynamic xcframework).
+# Raven draws with Metal (RAVEN_BACKEND_VULKAN=OFF): the app embeds nothing else (no MoltenVK).
+# RAVEN_CMAKE_ARGS is added to the CMake configuration of both slices.
 # The app links the system frameworks Raven uses (the module map links them for
 # `import Raven` / `@import Raven;`): Foundation, CoreFoundation, UIKit, QuartzCore, Metal,
 # CoreText, CoreGraphics, and for the services of the device AVFoundation, Photos,
@@ -23,8 +24,9 @@ OUT=$(cd "$OUT" && pwd)
 build() {
 	cmake -S "$RAVEN" -B "$OUT/$1" -G Ninja -DCMAKE_SYSTEM_NAME=iOS \
 		-DCMAKE_OSX_SYSROOT="$1" -DCMAKE_OSX_ARCHITECTURES="$2" \
-		-DCMAKE_OSX_DEPLOYMENT_TARGET="$MIN_IOS" -DCMAKE_BUILD_TYPE="$CONFIG" \
-		-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF >/dev/null
+		-DCMAKE_OSX_DEPLOYMENT_TARGET="$MIN_IOS" -DCMAKE_BUILD_TYPE="$CONFIG" -DRAVEN_BACKEND_VULKAN=OFF \
+		-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF \
+		${RAVEN_CMAKE_ARGS:-} >/dev/null
 	cmake --build "$OUT/$1"
 }
 build iphoneos arm64
