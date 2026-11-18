@@ -5181,6 +5181,8 @@ int main(int argc, char** argv) {
 	Rset_layout_direction(R_DIRECTION_LTR);
 	/* the preview shows the interface, it does not run it: OnClicked="app.quit" must not quit the designer */
 	Raction_set_builtins(R_FALSE);
+	/* (nor its scripts: their functions would be bound in the designer itself) */
+	Rscript_set_enabled(R_FALSE);
 	/* the fonts of the designer (embedded) */
 	fonts_init();
 	/* the window of the designer appears when it is built: the splash has been alone on the screen for SPLASH_MIN_MS by then */
