@@ -46,7 +46,7 @@ export function hover(doc: XDocument, offset: number, workspace: Context): Hover
 			const builtin = BUILTIN_ACTIONS.find((b) => (b.name.endsWith(":") ? value.toLowerCase().startsWith(b.name) : value.toLowerCase() === b.name));
 			const contents = builtin
 				? `**${value}** · action of Raven\n\n${builtin.description}\n\nIt applies when no function is bound to the name (Raction_bind replaces it).`
-				: `**${value}** · action of the application\n\nBind it from C: \`Raction_bind("${value}", callback, user_data)\`.`;
+				: `**${value}** · action of the application\n\nWrite it in a <Script> (\`fn ${value}() { ... }\`), or bind it from C: \`Raction_bind("${value}", callback, user_data)\`.`;
 			return { start: a.valueStart, end: a.valueEnd, contents };
 		}
 	}

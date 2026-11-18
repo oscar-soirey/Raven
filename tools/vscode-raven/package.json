@@ -1,8 +1,8 @@
 {
 	"name": "raven-xml",
-	"displayName": "Raven XML",
-	"description": "Completion, hovers and diagnostics for the XML interfaces of Raven: widgets, attributes, values and actions.",
-	"version": "0.1.0",
+	"displayName": "Raven XML & Raven Script",
+	"description": "Completion, hovers and diagnostics for the XML interfaces of Raven; a language server for Raven Script (the <Script> of the documents and .rvs files): diagnostics, completion, go to definition, references, rename, formatting.",
+	"version": "0.2.0",
 	"publisher": "OscarSoirey",
 	"license": "Apache-2.0",
 	"icon": "images/icon.png",
@@ -27,69 +27,153 @@
 		"xml",
 		"ui",
 		"gui",
-		"widgets"
+		"widgets",
+		"raven script",
+		"rvs",
+		"language server"
 	],
 	"main": "./dist/extension.js",
 	"activationEvents": [
-		"onLanguage:xml"
+		"onLanguage:xml",
+		"onLanguage:raven-script"
 	],
 	"contributes": {
-		"configuration": {
-			"title": "Raven XML",
-			"properties": {
-				"raven.xml.enable": {
-					"type": "boolean",
-					"default": true,
-					"description": "Completion, hovers and diagnostics in the XML files of Raven."
-				},
-				"raven.xml.files": {
-					"type": "array",
-					"items": {
-						"type": "string"
+		"configuration": [
+			{
+				"title": "Raven XML",
+				"properties": {
+					"raven.xml.enable": {
+						"type": "boolean",
+						"default": true,
+						"description": "Completion, hovers and diagnostics in the XML files of Raven."
 					},
-					"default": [],
-					"markdownDescription": "Glob patterns of XML files always treated as Raven files, whatever their root element (e.g. `**/ui/*.xml`). Others are recognized by their root: `<Window>`, `<Widgets>`, `<Widget>` or a widget of Raven."
-				},
-				"raven.xml.exclude": {
-					"type": "array",
-					"items": {
-						"type": "string"
+					"raven.xml.files": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"markdownDescription": "Glob patterns of XML files always treated as Raven files, whatever their root element (e.g. `**/ui/*.xml`). Others are recognized by their root: `<Window>`, `<Widgets>`, `<Widget>` or a widget of Raven."
 					},
-					"default": [],
-					"markdownDescription": "Glob patterns of XML files never treated as Raven files."
-				},
-				"raven.xml.customTags": {
-					"type": "array",
-					"items": {
-						"type": "string"
+					"raven.xml.exclude": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [],
+						"markdownDescription": "Glob patterns of XML files never treated as Raven files."
 					},
-					"default": [
-						"WebView"
-					],
-					"markdownDescription": "Tags registered from C with `Rxml_register_tag`: they are accepted, with any attribute."
-				},
-				"raven.xml.diagnostics": {
-					"type": "boolean",
-					"default": true,
-					"description": "Report the unknown tags and attributes, the invalid values and the mistakes of structure."
+					"raven.xml.customTags": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"default": [
+							"WebView"
+						],
+						"markdownDescription": "Tags registered from C with `Rxml_register_tag`: they are accepted, with any attribute."
+					},
+					"raven.xml.diagnostics": {
+						"type": "boolean",
+						"default": true,
+						"description": "Report the unknown tags and attributes, the invalid values and the mistakes of structure."
+					}
+				}
+			},
+			{
+				"title": "Raven Script",
+				"properties": {
+					"raven.script.enable": {
+						"type": "boolean",
+						"default": true,
+						"description": "The language server of Raven Script: diagnostics, completion, hovers, go to definition, references, rename and formatting of the scripts (<Script> of the XML documents of Raven, .rvs files)."
+					},
+					"raven.script.functions": {
+						"type": "object",
+						"default": {},
+						"additionalProperties": {
+							"type": "string"
+						},
+						"markdownDescription": "Functions the application binds in C with `Raction_bind_with_parameters` (or `Raction_bind`, with `\"()\"`), so that scripts may call them: their name and their signature, as given to `Raction_bind_with_parameters` (`{ \"app.save\": \"(path: string): bool\" }`). A script can also declare them itself: `declare fn app.save(path: string): bool;`."
+					}
 				}
 			}
+		],
+		"languages": [
+			{
+				"id": "raven-script",
+				"aliases": [
+					"Raven Script",
+					"rvs"
+				],
+				"extensions": [
+					".rvs"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "raven-script",
+				"scopeName": "source.rvs",
+				"path": "./syntaxes/rvs.tmLanguage.json"
+			},
+			{
+				"scopeName": "raven-script.injection.xml",
+				"path": "./syntaxes/rvs-xml.tmLanguage.json",
+				"injectTo": [
+					"text.xml"
+				],
+				"embeddedLanguages": {
+					"meta.embedded.block.rvs": "raven-script"
+				}
+			}
+		],
+		"commands": [
+			{
+				"command": "raven.formatScripts",
+				"title": "Format the Scripts of the Document",
+				"category": "Raven"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "raven.formatScripts",
+					"when": "editorLangId == xml"
+				}
+			],
+			"editor/context": [
+				{
+					"command": "raven.formatScripts",
+					"when": "editorLangId == xml",
+					"group": "1_modification"
+				}
+			]
 		}
 	},
 	"scripts": {
 		"schema": "node scripts/generate-schema.js",
 		"check": "tsc --noEmit -p .",
-		"build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js --minify --sourcemap",
-		"test": "esbuild test/run.ts --bundle --platform=node --format=cjs --outfile=out/test.js && node out/test.js",
+		"build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.js --minify --sourcemap && esbuild src/server/server.ts --bundle --platform=node --format=cjs --outfile=dist/server.js --minify --sourcemap",
+		"test": "node scripts/test.js",
 		"vscode:prepublish": "npm run check && npm run build",
 		"package": "vsce package",
-		"publish": "vsce publish"
+		"publish": "vsce publish",
+		"wasm": "node scripts/build-wasm.js"
 	},
 	"devDependencies": {
-		"typescript": "^7.0.2",
-		"esbuild": "^0.28.2",
-		"@types/vscode": "~1.85.0",
 		"@types/node": "^20.19.43",
-		"@vscode/vsce": "^4.1.0"
+		"@types/vscode": "~1.85.0",
+		"@vscode/vsce": "^4.1.0",
+		"esbuild": "^0.28.2",
+		"typescript": "^7.0.2",
+		"vscode-oniguruma": "^2.0.1",
+		"vscode-textmate": "^9.3.2"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1",
+		"vscode-languageserver": "^9.0.1",
+		"vscode-languageserver-textdocument": "^1.0.16"
 	}
 }
