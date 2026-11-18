@@ -782,6 +782,37 @@ For tools, `Rxml_document_parse` gives a document as a tree of nodes that can
 be changed, written back and built, each widget knowing its node
 (`raven_xml.h`); `Rxml_get_attribute_info` lists what can be written.
 
+### Raven Script
+
+The actions can also be written in the document, in Raven Script, a small
+statically typed language with the syntax of TypeScript, run by an
+interpreter of Raven (no other engine):
+
+```xml
+<Window Title="Counter">
+    <Script>
+        let counter: number = 0;
+        fn app.increment() {
+            counter += 1;
+            ui.setText("counter", counter.toString());
+        }
+    </Script>
+    <VBox>
+        <Label Name="counter" Text="0"/>
+        <Button Text="+1" OnClicked="app.increment"/>
+    </VBox>
+</Window>
+```
+
+Scripts are checked before anything runs (types, names, and the parameters
+of each event handler against what its widget gives), and an error in a
+script never stops the application. Script functions are actions, in the same
+registry as those of `Raction_bind`; C functions with typed parameters are
+bound with `Raction_bind_with_parameters` and called from scripts. The
+command line tool `raven_script` checks and formats scripts, and the VS Code
+extension (`tools/vscode-raven`) has a language server for them. See
+[docs/SCRIPT.md](docs/SCRIPT.md).
+
 ### Animations
 
 Nothing has to be done for the controls: they move by themselves, with

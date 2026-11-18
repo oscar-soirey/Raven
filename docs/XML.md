@@ -162,6 +162,39 @@ Raction_bind("file.save", on_save, NULL);
 Raction_set_default_handler(on_any_action, NULL);
 ```
 
+#### Actions written in the document: `<Script>`
+
+The functions of the actions can be written in the document itself, in
+Raven Script (a small typed language with the syntax of TypeScript). A
+`<Script>` holds code (raw text up to `</Script>`: `<` and `&&` are written
+as they are) or names a file with `Src`; it is not a widget.
+
+```xml
+<Window Title="Counter">
+    <Script>
+        let counter: number = 0;
+        fn app.increment() {
+            counter += 1;
+            ui.setText("counter", counter.toString());
+        }
+        fn app.volume(value: number) {
+            app.log("Volume: " + value.toString());
+        }
+    </Script>
+    <Script Src="scripts/more.rvs"/>
+    <VBox>
+        <Label Name="counter" Text="0"/>
+        <Button Text="+1" OnClicked="app.increment"/>
+        <Slider OnChanged="app.volume"/>
+    </VBox>
+</Window>
+```
+
+The event gives its function arguments (the value of a Slider, the state of a
+Checkbox, the text of a TextInput...); a function whose parameters do not fit
+its widget is reported when the document loads. `OnClicked="app.quit()"` is
+the same as `OnClicked="app.quit"`. The whole language: [SCRIPT.md](SCRIPT.md).
+
 #### Actions that need no C
 
 Some names are actions of Raven itself: an interface written in XML quits,
