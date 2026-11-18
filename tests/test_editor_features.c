@@ -240,6 +240,30 @@ static void test_tree_multi(void) {
 	Rwindow_destroy(window);
 }
 
+/* A right click on an item the selection callback removes: the menu is for no item (#114). */
+static void on_tree_selection_clear(Rid tree, Rid item, void* user_data) {
+	(void)item;
+	(void)user_data;
+	Rtree_view_clear_items(tree);
+}
+
+static void test_tree_context_cleared(void) {
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"300\"><TreeView Name=\"tree\">"
+		"<Item Text=\"A\"/><Item Text=\"B\"/>"
+		"</TreeView></Window>");
+	Rid tree = Rwidget_find(window, "tree");
+	Rtree_view_set_selection_changed_callback(tree, on_tree_selection_clear, NULL);
+	Rtree_view_set_context_callback(tree, on_tree_context, NULL);
+	g_context_calls = 0;
+	g_context_item = 1;
+	click_row(window, tree, 1, 0, R_MOUSE_RIGHT);
+	CHECK(g_context_calls == 1);
+	CHECK(g_context_item == R_INVALID_ID);
+	CHECK(Rtree_view_get_item_count(tree) == 0);
+	Rwindow_destroy(window);
+}
+
 /* ---------------------------------------------------------------------------
  *  Tile view
  * ------------------------------------------------------------------------- */
@@ -519,6 +543,7 @@ int main(void) {
 	RUN(test_input_state);
 	RUN(test_internal_drag);
 	RUN(test_tree_multi);
+	RUN(test_tree_context_cleared);
 	RUN(test_tile_view);
 	RUN(test_tile_view_sections);
 	RUN(test_dock_hidden);
