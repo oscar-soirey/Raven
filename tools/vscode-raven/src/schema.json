@@ -3100,6 +3100,8 @@
 		"PdfViewer": "PdfView",
 		"PDFView": "PdfView",
 		"Map": "MapView",
-		"TileMap": "MapView"
+		"TileMap": "MapView",
+		"PageView": "Carousel",
+		"Slideshow": "Carousel"
 	}
 }

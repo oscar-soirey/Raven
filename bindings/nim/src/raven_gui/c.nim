@@ -360,6 +360,10 @@ type
     ## Called when the user clicks a cell of a heatmap.
   RPdfPageChangedCallback* = proc (view: Rid, page: cint, user_data: pointer) {.cdecl.}
     ## Called when the current page changes as the user scrolls. This also fires the action of the widget.
+  RCarouselPageChangedCallback* = proc (carousel: Rid, page: cint, user_data: pointer) {.cdecl.}
+    ## Called when the user goes to another page (a swipe, the keys, a
+    ## dot, an arrow) and when the autoplay does. This also fires the action
+    ## of the widget.
   RMapTileCallback* = proc (map: Rid, z: cint, x: cint, y: cint, user_data: pointer) {.cdecl.}
     ## Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
   RMapMarkerCallback* = proc (map: Rid, marker: cint, user_data: pointer) {.cdecl.}
@@ -1550,7 +1554,9 @@ const
     ## The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
   R_WIDGET_CHART*: RWidgetType = 0x0234
     ## The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
-  R_WIDGET_MAP_VIEW*: RWidgetType = 0x0235
+  R_WIDGET_CAROUSEL*: RWidgetType = 0x0235
+    ## Pages shown one at a time and swiped (a page view), with dots and arrows.
+  R_WIDGET_MAP_VIEW*: RWidgetType = 0x0236
     ## A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 
   # RHAlign

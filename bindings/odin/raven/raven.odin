@@ -716,8 +716,10 @@ R_WIDGET_PLOT :: 0x0232
 R_WIDGET_PDF_VIEW :: 0x0233
 // The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 R_WIDGET_CHART :: 0x0234
+// Pages shown one at a time and swiped (a page view), with dots and arrows.
+R_WIDGET_CAROUSEL :: 0x0235
 // A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
-R_WIDGET_MAP_VIEW :: 0x0235
+R_WIDGET_MAP_VIEW :: 0x0236
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -1404,6 +1406,10 @@ RChartSliceCallback :: #type proc "c" (chart: Rid, slice: i32, selected: i32, us
 RChartCellCallback :: #type proc "c" (chart: Rid, row: i32, column: i32, value: f32, user_data: rawptr)
 // Called when the current page changes as the user scrolls. This also fires the action of the widget.
 RPdfPageChangedCallback :: #type proc "c" (view: Rid, page: i32, user_data: rawptr)
+// Called when the user goes to another page (a swipe, the keys, a
+// dot, an arrow) and when the autoplay does. This also fires the action
+// of the widget.
+RCarouselPageChangedCallback :: #type proc "c" (carousel: Rid, page: i32, user_data: rawptr)
 // Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
 RMapTileCallback :: #type proc "c" (map_: Rid, z: i32, x: i32, y: i32, user_data: rawptr)
 // Called when the user clicks a marker.

@@ -3,7 +3,7 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_deep_trees, test_lifecycle, test_package
+#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland

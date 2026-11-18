@@ -962,7 +962,8 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_PLOT = 0x0232
     R_WIDGET_PDF_VIEW = 0x0233
     R_WIDGET_CHART = 0x0234
-    R_WIDGET_MAP_VIEW = 0x0235
+    R_WIDGET_CAROUSEL = 0x0235
+    R_WIDGET_MAP_VIEW = 0x0236
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1017,6 +1018,7 @@ R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION
 R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
 R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
 R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART
+R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 
 class RHAlign(enum.IntEnum):
@@ -2563,6 +2565,14 @@ RPdfPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, 
 def _adapt_RPdfPageChangedCallback(function):
     def call(view, page, user_data):
         function(view, page, user_data)
+    return call
+
+RCarouselPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RCarouselPageChangedCallback(function):
+    def call(carousel, page, user_data):
+        function(carousel, page, user_data)
     return call
 
 RMapTileCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)

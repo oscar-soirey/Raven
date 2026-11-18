@@ -686,8 +686,10 @@ pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
 pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
 /// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 pub const R_WIDGET_CHART: RWidgetType = 0x0234;
+/// Pages shown one at a time and swiped (a page view), with dots and arrows.
+pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0235;
 /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
-pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
+pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0236;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -1374,6 +1376,10 @@ pub type RChartSliceCallback = Option<unsafe extern "C" fn(chart: Rid, slice: c_
 pub type RChartCellCallback = Option<unsafe extern "C" fn(chart: Rid, row: c_int, column: c_int, value: f32, user_data: *mut c_void)>;
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 pub type RPdfPageChangedCallback = Option<unsafe extern "C" fn(view: Rid, page: c_int, user_data: *mut c_void)>;
+/// Called when the user goes to another page (a swipe, the keys, a
+/// dot, an arrow) and when the autoplay does. This also fires the action
+/// of the widget.
+pub type RCarouselPageChangedCallback = Option<unsafe extern "C" fn(carousel: Rid, page: c_int, user_data: *mut c_void)>;
 /// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
 pub type RMapTileCallback = Option<unsafe extern "C" fn(map: Rid, z: c_int, x: c_int, y: c_int, user_data: *mut c_void)>;
 /// Called when the user clicks a marker.

@@ -14,14 +14,45 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 985 of the 1211 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 194 are raw only: call them through the package `raven`, imported as `raw`.
+// 1004 of the 1335 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 299 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
-//   a callback (97):
-//     Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler Rset_device_reset_callback
-//     Rwindow_set_keyboard_callback Rwindow_set_close_callback Rwindow_set_resize_callback
-//     Rwindow_set_drop_callback Rwindow_set_event_hook Rwidget_set_touch_callback Rwidget_set_pen_callback
+//   a handle that is not known (114):
+//     Rwindow_set_owner Rmenu_add_menu Rchart_set_kind Rchart_get_kind Rchart_set_title Rchart_get_title
+//     Rchart_set_format Rchart_set_color Rchart_set_legend Rchart_clear Rchart_get_hovered Rchart_add_slice
+//     Rchart_remove_slice Rchart_get_slice_count Rchart_set_slice_value Rchart_get_slice_value
+//     Rchart_set_slice_label Rchart_get_slice_label Rchart_set_slice_color Rchart_get_total
+//     Rchart_set_selected Rchart_get_selected Rchart_set_hole Rchart_set_center_text
+//     Rchart_set_slice_clicked_callback Rchart_set_range Rchart_get_range Rchart_set_value Rchart_get_value
+//     Rchart_add_band Rchart_clear_bands Rchart_get_band_count Rchart_set_grid Rchart_get_row_count
+//     Rchart_get_column_count Rchart_set_cell Rchart_get_cell Rchart_set_row_labels Rchart_set_column_labels
+//     Rchart_get_row_label Rchart_get_column_label Rchart_set_color_scale Rchart_set_cell_clicked_callback
+//     Rchart_set_values Rchart_push_value Rchart_get_value_count Rchart_get_value_at Rchart_set_fill
+//     Rchart_set_marker Rpdf_view_load_file Rpdf_view_load_memory Rpdf_view_close Rpdf_view_get_status
+//     Rpdf_view_get_page_count Rpdf_view_get_page_size Rpdf_view_set_page Rpdf_view_get_page
+//     Rpdf_view_set_zoom Rpdf_view_get_zoom Rpdf_view_set_fit Rpdf_view_get_fit Rpdf_view_get_title
+//     Rpdf_view_get_page_text Rpdf_view_set_page_changed_callback Rcarousel_set_page Rcarousel_get_page
+//     Rcarousel_get_page_count Rcarousel_next Rcarousel_prev Rcarousel_set_loop Rcarousel_get_loop
+//     Rcarousel_set_autoplay Rcarousel_get_autoplay Rcarousel_set_indicators_visible
+//     Rcarousel_get_indicators_visible Rcarousel_set_arrows_visible Rcarousel_get_arrows_visible
+//     Rcarousel_set_orientation Rcarousel_get_orientation Rcarousel_set_page_changed_callback
+//     Rpdf_view_print Rmap_view_set_center Rmap_view_get_center Rmap_view_set_zoom Rmap_view_get_zoom
+//     Rmap_view_set_zoom_range Rmap_view_get_zoom_range Rmap_view_animate_to Rmap_view_screen_to_latlon
+//     Rmap_view_latlon_to_screen Rmap_view_set_tile_callback Rmap_view_set_tile_cancel_callback
+//     Rmap_view_set_tile Rmap_view_set_tile_data Rmap_view_set_tile_failed Rmap_view_set_tile_path
+//     Rmap_view_get_tile_path Rmap_view_set_tile_size Rmap_view_get_tile_size Rmap_view_set_cache_size
+//     Rmap_view_get_cache_usage Rmap_view_clear_tiles Rmap_view_get_tile_state Rmap_view_add_marker
+//     Rmap_view_remove_marker Rmap_view_clear_markers Rmap_view_get_marker_count
+//     Rmap_view_set_marker_position Rmap_view_set_marker_label Rmap_view_set_marker_color
+//     Rmap_view_set_marker_clicked_callback Rmap_view_set_view_changed_callback Rmap_view_set_attribution
+//     Rmap_view_get_attribution
+//
+//   a callback (102):
+//     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
+//     Rset_device_reset_callback Rwindow_set_keyboard_callback Rwindow_set_back_callback
+//     Rwindow_set_close_callback Rwindow_set_resize_callback Rwindow_set_drop_callback
+//     Rwindow_set_event_hook Rwidget_set_touch_callback Rwidget_set_pen_callback
 //     Rwidget_set_gesture_callback Rwidget_set_destroy_callback Rwidget_set_event_callback
 //     Rwidget_set_drop_callback Rtab_view_set_changed_callback Rtab_view_set_close_callback
 //     Rexpander_set_changed_callback Rlabel_set_link_callback Rbutton_set_clicked_callback
@@ -31,14 +62,15 @@
 //     Rlist_view_set_selection_changed_callback Rlist_view_set_activated_callback
 //     Rtree_view_set_selection_changed_callback Rtree_view_set_activated_callback
 //     Rtree_view_set_context_callback Rmenu_item_set_clicked_callback Rtile_view_set_items
-//     Rtile_view_set_drag_data_callback Rtile_view_set_selection_changed_callback
-//     Rtile_view_set_activated_callback Rtile_view_set_context_callback Rtable_set_virtual_rows
-//     Rtable_set_cell_color_callback Rtable_set_selection_changed_callback Rtable_set_activated_callback
-//     Rtable_set_sort_callback Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback
-//     Rtoast_set_action_callback Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback
-//     Rpagination_set_changed_callback Rplot_set_view_changed_callback Rplot_set_drag_line_callback
-//     Rplot_set_series_toggled_callback Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback
-//     Rtext_editor_set_hover_callback Rtext_editor_set_changed_callback Rdock_area_set_close_callback
+//     Rtile_view_set_sections Rtile_view_set_section_toggled_callback Rtile_view_set_drag_data_callback
+//     Rtile_view_set_selection_changed_callback Rtile_view_set_activated_callback
+//     Rtile_view_set_context_callback Rtable_set_virtual_rows Rtable_set_cell_color_callback
+//     Rtable_set_selection_changed_callback Rtable_set_activated_callback Rtable_set_sort_callback
+//     Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback Rtoast_set_action_callback
+//     Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback Rpagination_set_changed_callback
+//     Rplot_set_view_changed_callback Rplot_set_drag_line_callback Rplot_set_series_toggled_callback
+//     Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback Rtext_editor_set_hover_callback
+//     Rtext_editor_set_changed_callback Rdock_area_set_close_callback Rdock_area_set_float_window
 //     Rdock_area_set_changed_callback Risland_set_changed_callback Rtray_set_clicked_callback
 //     Rcolor_picker_set_changed_callback Rtimeline_set_time_callback Rtimeline_set_changed_callback
 //     Rtimeline_set_selection_callback Rtimeline_set_activated_callback Rtimeline_set_removed_callback
@@ -54,22 +86,17 @@
 //     Rcustom_set_paint_callback Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag
 //     Rlocale_set_changed_callback Rwidget_set_accessible_action
 //
-//   a handle that is not known (18):
-//     Rwindow_set_owner Rmenu_add_menu Rpdf_view_load_file Rpdf_view_load_memory Rpdf_view_close
-//     Rpdf_view_get_status Rpdf_view_get_page_count Rpdf_view_get_page_size Rpdf_view_set_page
-//     Rpdf_view_get_page Rpdf_view_set_zoom Rpdf_view_get_zoom Rpdf_view_set_fit Rpdf_view_get_fit
-//     Rpdf_view_get_title Rpdf_view_get_page_text Rpdf_view_set_page_changed_callback Rpdf_view_print
-//
 //   a parameter of type RPainter* (14):
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
+//   a handle result that is not known (8):
+//     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rchart_create
+//     Rcarousel_create Rmap_view_create Rpdf_document_create
+//
 //   a parameter of type void* (6):
 //     Rmemory_realloc Rmemory_free Rwindow_set_user_handle Rwidget_set_user_handle
 //     Rtree_item_set_user_handle Rnode_graph_set_node_user_data
-//
-//   a handle result that is not known (5):
-//     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rpdf_document_create
 //
 //   a parameter of type const uint8_t* (5):
 //     Rwindow_set_icon Rtexture_create_from_pixels Rtexture_update Rpdf_document_draw_image Rtray_set_icon
@@ -144,6 +171,9 @@
 //   a parameter of type const RInitDesc* (1):
 //     Rinit_ex
 //
+//   a parameter of type const RInsets* (1):
+//     Rhost_window_set_insets
+//
 //   a parameter of type const RJumpTask* (1):
 //     Rtaskbar_set_jump_list
 //
@@ -195,6 +225,18 @@ get_delta_time :: proc() -> f64 {
 // Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe.
 get_time :: proc() -> f64 {
 	return raw.Rget_time()
+}
+
+// Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+is_app_paused :: proc() -> bool {
+	return raw.Ris_app_paused() != 0
+}
+
+// Handles an RAppEvent as if the system had sent it: for tests,
+// and for a host application (raven_host.h) that knows the lifecycle.
+// UI thread.
+inject_app_event :: proc(event: App_Event) {
+	raw.Rinject_app_event(raw.RAppEvent(event))
 }
 
 // Scale of the whole interface, on top of the one of the monitor
@@ -379,6 +421,19 @@ window_set_size :: proc(window: Window, width: i32, height: i32) {
 // No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
 window_clear_focus :: proc(window: Window) {
 	raw.Rwindow_clear_focus(raw.Rid(window))
+}
+
+// R_TRUE while the application has somewhere to go back to (a page
+// under the one shown). Android 13 and later ask for Back only while the
+// window wants it (predictive back): at the root page the system handles
+// Back itself and animates back to the home screen. Default R_FALSE.
+window_set_back_enabled :: proc(window: Window, enabled: bool) {
+	raw.Rwindow_set_back_enabled(raw.Rid(window), (1 if enabled else 0))
+}
+
+// Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+window_wants_back :: proc(window: Window) -> bool {
+	return raw.Rwindow_wants_back(raw.Rid(window)) != 0
 }
 
 window_set_min_size :: proc(window: Window, width: i32, height: i32) {
@@ -655,6 +710,11 @@ window_inject_drag :: proc(window: Window, x: f32, y: f32, inside: bool) -> bool
 	return raw.Rwindow_inject_drag(raw.Rid(window), x, y, (1 if inside else 0)) != 0
 }
 
+// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+window_inject_back :: proc(window: Window) -> i32 {
+	return raw.Rwindow_inject_back(raw.Rid(window))
+}
+
 // R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
 window_is_key_down :: proc(window: Window, key: Key) -> bool {
 	return raw.Rwindow_is_key_down(raw.Rid(window), raw.RKey(key)) != 0
@@ -892,6 +952,9 @@ theme_get_color :: proc(role: Color_Role) -> (r: f32, g: f32, b: f32, a: f32) {
 	return
 }
 
+// Changes a size of the theme in use. It lasts until the look or
+// the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+// switch between light and dark made by Rtheme_follow_system.
 theme_set_metric :: proc(metric: Metric, value: f32) {
 	raw.Rtheme_set_metric(raw.RMetric(metric), value)
 }
@@ -944,6 +1007,13 @@ theme_get_system_dark :: proc() -> i32 {
 // Follows the dark or light mode of the system with the Raven look
 // (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
 // Off by default. Does nothing where the platform does not tell (desktop today).
+//
+// A switch is Rlook_set, except that the sizes given with
+// Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+// those of one mode and are lost; to keep colors, sizes and styles of
+// the application through the switch, put them in a theme that names no
+// look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+// new look.
 theme_follow_system :: proc(enabled: bool) {
 	raw.Rtheme_follow_system((1 if enabled else 0))
 }
@@ -1242,6 +1312,9 @@ widget_is_valid :: proc(widget: Widget) -> bool {
 // A widget that already has a parent is moved.
 // Returns: `child`, so calls can be nested:
 //         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+//         R_INVALID_ID when the child replaced in a single-child container
+//         had a destroy callback that destroyed the container or `child`;
+//         `child`, when it is still there, is then not added.
 widget_add_child :: proc(parent: Widget, child: Widget) -> (handle: Widget, ok: bool) #optional_ok {
 	id := raw.Rwidget_add_child(raw.Rid(parent), raw.Rid(child))
 	handle = Widget(id)
@@ -1418,7 +1491,8 @@ widget_set_clipping :: proc(widget: Widget, clip: bool) {
 	raw.Rwidget_set_clipping(raw.Rid(widget), (1 if clip else 0))
 }
 
-// Text shown when the cursor rests on the widget. NULL removes it.
+// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+//  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 widget_set_tooltip :: proc(widget: Widget, text: cstring) {
 	raw.Rwidget_set_tooltip(raw.Rid(widget), text)
 }
@@ -1460,7 +1534,7 @@ widget_set_focusable :: proc(widget: Widget, focusable: bool) {
 	raw.Rwidget_set_focusable(raw.Rid(widget), (1 if focusable else 0))
 }
 
-// Gives the keyboard focus to the widget.
+// Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 widget_focus :: proc(widget: Widget) {
 	raw.Rwidget_focus(raw.Rid(widget))
 }
@@ -1558,7 +1632,9 @@ widget_clear_metric :: proc(widget: Widget, metric: Metric) {
 	raw.Rwidget_clear_metric(raw.Rid(widget), raw.RMetric(metric))
 }
 
-// Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme.
+// Returns: The metric the widget uses: its own, else the one of a style,
+// else the one of its theme; grown for larger text
+// (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
 widget_get_metric :: proc(widget: Widget, metric: Metric) -> f32 {
 	return raw.Rwidget_get_metric(raw.Rid(widget), raw.RMetric(metric))
 }
@@ -1718,7 +1794,10 @@ scroll_box_scroll_to_end :: proc(scroll_box: Widget) {
 	raw.Rscroll_box_scroll_to_end(raw.Rid(scroll_box))
 }
 
-// Scrolls every ScrollBox above the widget so that the widget is visible.
+// Scrolls every ScrollBox above the widget so that the widget is
+// visible. The library does it by itself for the focused widget when the
+// focus comes from Tab or Rwidget_focus, and for a text field above the
+// on-screen keyboard (Rwindow_get_keyboard_area).
 widget_scroll_into_view :: proc(widget: Widget) {
 	raw.Rwidget_scroll_into_view(raw.Rid(widget))
 }
@@ -2534,6 +2613,35 @@ tile_view_set_empty_text :: proc(tile_view: Widget, text: string) {
 	raw.Rtile_view_set_empty_text(raw.Rid(tile_view), to_cstring(text, &buffer_text))
 }
 
+// Layout="Rows": width of the box the icon is drawn in (its height is the
+// icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+tile_view_set_icon_width :: proc(tile_view: Widget, width: f32) {
+	raw.Rtile_view_set_icon_width(raw.Rid(tile_view), width)
+}
+
+tile_view_get_section_count :: proc(tile_view: Widget) -> i32 {
+	return raw.Rtile_view_get_section_count(raw.Rid(tile_view))
+}
+
+// The section of a tile, or -1 (before the first section).
+tile_view_get_section_of :: proc(tile_view: Widget, index: i32) -> i32 {
+	return raw.Rtile_view_get_section_of(raw.Rid(tile_view), index)
+}
+
+// Folds or unfolds a section (the toggled callback is not called).
+tile_view_set_section_folded :: proc(tile_view: Widget, section: i32, folded: i32) {
+	raw.Rtile_view_set_section_folded(raw.Rid(tile_view), section, folded)
+}
+
+tile_view_is_section_folded :: proc(tile_view: Widget, section: i32) -> bool {
+	return raw.Rtile_view_is_section_folded(raw.Rid(tile_view), section) != 0
+}
+
+// The section whose header is at a point relative to the widget, or -1.
+tile_view_get_section_at :: proc(tile_view: Widget, local_x: f32, local_y: f32) -> i32 {
+	return raw.Rtile_view_get_section_at(raw.Rid(tile_view), local_x, local_y)
+}
+
 tile_view_set_selected :: proc(tile_view: Widget, index: i32, selected: bool) {
 	raw.Rtile_view_set_selected(raw.Rid(tile_view), index, (1 if selected else 0))
 }
@@ -2664,7 +2772,39 @@ table_get_row_count :: proc(table: Widget) -> i32 {
 	return raw.Rtable_get_row_count(raw.Rid(table))
 }
 
-// Selects a row. -1 selects nothing.
+// Stored rows: a fixed text color; column -1 colors the row; cells override it.
+// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+table_set_cell_text_color :: proc(table: Widget, row: i32, column: i32, r: f32, g: f32, b: f32, a: f32) {
+	raw.Rtable_set_cell_text_color(raw.Rid(table), row, column, r, g, b, a)
+}
+
+// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+table_set_multi_select :: proc(table: Widget, enabled: bool) {
+	raw.Rtable_set_multi_select(raw.Rid(table), (1 if enabled else 0))
+}
+
+table_set_row_selected :: proc(table: Widget, row: i32, selected: bool) {
+	raw.Rtable_set_row_selected(raw.Rid(table), row, (1 if selected else 0))
+}
+
+table_is_row_selected :: proc(table: Widget, row: i32) -> bool {
+	return raw.Rtable_is_row_selected(raw.Rid(table), row) != 0
+}
+
+table_clear_selection :: proc(table: Widget) {
+	raw.Rtable_clear_selection(raw.Rid(table))
+}
+
+table_get_selection_count :: proc(table: Widget) -> i32 {
+	return raw.Rtable_get_selection_count(raw.Rid(table))
+}
+
+// Selected row at index, top to bottom; -1 outside the selection.
+table_get_selection :: proc(table: Widget, index: i32) -> i32 {
+	return raw.Rtable_get_selection(raw.Rid(table), index)
+}
+
+// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 table_set_selected :: proc(table: Widget, row: i32) {
 	raw.Rtable_set_selected(raw.Rid(table), row)
 }
@@ -5643,6 +5783,13 @@ host_platform_is_active :: proc() -> bool {
 // Size of a host window in pixels, and pixels per logical unit.
 host_window_set_size :: proc(window: Window, width: i32, height: i32, scale: f32) {
 	raw.Rhost_window_set_size(raw.Rid(window), width, height, scale)
+}
+
+// The application's system is in dark (R_TRUE) or light (R_FALSE)
+// mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+// and Rtheme_follow_system follows it.
+host_set_system_dark :: proc(dark: bool) {
+	raw.Rhost_set_system_dark((1 if dark else 0))
 }
 
 host_inject_mouse_move :: proc(window: Window, x: i32, y: i32, modifiers: u32) {

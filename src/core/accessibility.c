@@ -380,6 +380,7 @@ static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 		case R_WIDGET_TREE_VIEW: return Rtree_view_get_item_count(widget->id);
 		case R_WIDGET_TAB_VIEW: return (int)widget->child_count;
 		case R_WIDGET_MAP_VIEW: return Rmap_view_get_marker_count(widget->id);
+		case R_WIDGET_CAROUSEL: return (int)widget->child_count;
 		default: return 0;
 	}
 }
@@ -776,6 +777,17 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				node->states |= RVN_A11Y_INVOKABLE;
 				break;
 			}
+			case R_WIDGET_CAROUSEL: {
+				/* a dot: named by its page, else "Page 2 of 5" */
+				rvn_widget_t* page = (uint32_t)item < widget->child_count ? widget->children[item] : NULL;
+				node->role = R_ROLE_TAB;
+				if (page && page->a11y && page->a11y->name) rvn_text_add(&g_a11y.name, page->a11y->name);
+				else if (page && page->slot.title) rvn_text_add(&g_a11y.name, page->slot.title);
+				else rvn_text_printf(&g_a11y.name, "Page %d of %d", item + 1, (int)widget->child_count);
+				node->states |= RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE;
+				if (Rcarousel_get_page(widget->id) == item) node->states |= RVN_A11Y_SELECTED;
+				break;
+			}
 			default:
 				return R_FALSE;
 		}
@@ -860,6 +872,10 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				fabs(longitude), longitude < 0.0 ? 'W' : 'E', Rmap_view_get_zoom(widget->id));
 			break;
 		}
+		case R_WIDGET_CAROUSEL:
+			if (Rcarousel_get_page_count(widget->id) > 0)
+				rvn_text_printf(&g_a11y.value, "page %d of %d", Rcarousel_get_page(widget->id) + 1, Rcarousel_get_page_count(widget->id));
+			break;
 		case R_WIDGET_PDF_VIEW:
 			/* the title as the name; the page shown as the value */
 			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rpdf_view_get_title(widget->id));
@@ -1043,6 +1059,10 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 				rvn_dispatch_begin();
 				rvn_map_view_press_marker(widget, item);
 				rvn_dispatch_end();
+				return R_TRUE;
+			case R_WIDGET_CAROUSEL:
+				if (item >= Rcarousel_get_page_count(widget->id)) return R_FALSE;
+				Rcarousel_set_page(widget->id, item, R_TRUE);
 				return R_TRUE;
 			case R_WIDGET_TREE_VIEW: {
 				Rid tree_item = Rtree_view_get_item(widget->id, item);
