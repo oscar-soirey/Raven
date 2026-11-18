@@ -5,7 +5,7 @@ permissions, the document pickers, the camera and the photo picker, haptics,
 the share sheet; `Ropen_url`, `Rtexture_create_from_url_async` and the
 clipboard go through the same platform entries. This page is for whoever
 implements them for a platform (iOS: `src/platform/uikit/uikit_services.m`,
-Android: `src/platform/android/android_platform.c` and its Java). The entries
+Android: `src/platform/android/android_platform.c` and `src/platform/android/java/raven/android/RavenDevice.java`). The entries
 themselves are documented one by one in `src/platform/platform.h` (section
 "services of the device"); the core side is `src/platform/services.c`.
 
@@ -141,7 +141,7 @@ restart.
 | `haptic_supported`, `haptic` | YES on an iPhone (the Simulator plays nothing); light / medium / heavy: `UIImpactFeedbackGenerator` with that style; selection: `UISelectionFeedbackGenerator selectionChanged`; success / warning / error: `UINotificationFeedbackGenerator notificationOccurred:` | `Vibrator.hasVibrator()`; `View.performHapticFeedback` on the decor view, **on the Java main thread** (post it): light `KEYBOARD_TAP`, medium `VIRTUAL_KEY`, heavy `LONG_PRESS`, selection `CLOCK_TICK` (`SEGMENT_TICK` 34+), success `CONFIRM` (30+), warning / error `REJECT` (30+); it follows the user's "touch feedback" setting. `VIBRATE` is in the manifest for a `Vibrator` fallback (`VibrationEffect.createPredefined`) |
 | `download` | `NSURLSession dataTaskWithRequest:` (timeout 20 s) and wait on a semaphore: it is called on Raven's worker threads, which may block; HTTP status outside 200..299, more than 32 MiB, and ATS errors (`NSURLErrorAppTransportSecurityRequiresSecureConnection`) are failures with a message in `*error` | a static Java helper (`HttpURLConnection`, redirects followed, timeouts) returning a `byte[]`; the worker thread is not attached to the JavaVM: `AttachCurrentThread` on first use and detach when the thread ends (`pthread_key_create` destructor), and use a global reference to the class taken in `init` (`FindClass` on a worker thread sees only the system's classes) |
 | `clipboard_has_text` | `UIPasteboard.generalPasteboard.hasStrings` (no paste prompt) | `ClipboardManager.hasPrimaryClip()` and a `text/*` description |
-| `clipboard_get` / `_set` (exist) | `UIPasteboard`; a read shows "Allow Paste?" unless it follows a paste of the user: Raven reads only on Paste, the application should too | `ClipboardManager` (today the platform keeps the clipboard in the process: SHORTCUT); Android 10+ lets only the focused app read, 12+ shows a toast after a read |
+| `clipboard_get` / `_set` (exist) | `UIPasteboard`; a read shows "Allow Paste?" unless it follows a paste of the user: Raven reads only on Paste, the application should too | `ClipboardManager` (through `RavenDevice.java`); Android 10+ lets only the focused app read, 12+ shows a toast after a read |
 
 Threads on Android, in short: Raven's UI thread is `android_main`, attached to
 the JavaVM by `init` (`g_android.env`). Java code that must run on the Java
