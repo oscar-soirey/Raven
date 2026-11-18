@@ -105,11 +105,31 @@ static void test_carousel(void) {
 	Rwindow_destroy(window);
 }
 
+/* A switcher shows one page: the screen readers see that one only (the others keep their place and size). */
+static void test_switcher(void) {
+	static const char* xml = "<Switcher><Label Text=\"first\"/><Label Text=\"second\"/></Switcher>";
+	rvn_a11y_node_t node;
+	Rid window = Rwindow_create("Switcher", 300, 200, 0);
+	Rid switcher = Rwidget_create_from_xml(xml, strlen(xml));
+	Rwindow_set_content(window, switcher);
+	Rdraw_frame();
+	CHECK(rvn_a11y_child_count(window) == 1);
+	CHECK(rvn_a11y_describe(rvn_a11y_child(window, 0), &node));
+	CHECK_STR(node.name, "first");
+	Rswitcher_set_index(switcher, 1);
+	Rdraw_frame();
+	CHECK(rvn_a11y_child_count(window) == 1);
+	CHECK(rvn_a11y_describe(rvn_a11y_child(window, 0), &node));
+	CHECK_STR(node.name, "second");
+	Rwindow_destroy(window);
+}
+
 int main(void) {
 	if (!test_init(0)) return 1;
 	RUN(test_custom_actions);
 	RUN(test_default_checked);
 	RUN(test_carousel);
+	RUN(test_switcher);
 	Rshutdown();
 	return test_report("test_accessibility");
 }

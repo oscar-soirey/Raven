@@ -362,6 +362,8 @@ static int rvn_a11y_collect(const rvn_widget_t* widget, rvn_widget_t** out, int 
 		/* only the page that is shown of a tab view */
 		if (widget->cls->type == R_WIDGET_TAB_VIEW && (int)i != Rtab_view_get_active(widget->id)) continue;
 		if (widget->cls->type == R_WIDGET_CAROUSEL && (int)i != Rcarousel_get_page(widget->id)) continue;
+		/* and of a switcher (the pages it does not show keep their place and size) */
+		if (widget->cls->type == R_WIDGET_SWITCHER && (int)i != Rswitcher_get_index(widget->id)) continue;
 		if (rvn_a11y_role_of(child) == R_ROLE_NONE) {
 			count = rvn_a11y_collect(child, out, max, count);
 		} else {
