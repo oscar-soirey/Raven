@@ -303,8 +303,9 @@ panel uses the attributes that make sense for it.
 | `ProgressBar` | `Value` (0..1) |
 | `SpinBox` | `Min`, `Max`, `Value`, `Step`, `Decimals`, `Buttons` (step buttons in the looks of Raven too) |
 | `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength` |
-| `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"` |
+| `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"`, `Editable` (any text can be typed; `Text`), `Searchable` (typing filters the list) |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
+| `Table` | `Columns="A|B"` or `<Column Header Width Fill Sortable Align Editable/>` children, `<Row>a|b</Row>` children, `Selected`, `MultiSelect`, `SortColumn`, `SortDescending`, `ShowHeader`, `GridLines`, `Striped`, `FrozenColumns` (the first columns stay while the others scroll) |
 | `TreeView` | nested `<Item Text="..." Expanded="true">` children |
 | `Image` | `Source` (path of an image), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |
 | `Separator` | `Orientation` (`Horizontal` line by default) |

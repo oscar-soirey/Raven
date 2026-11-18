@@ -5,6 +5,11 @@
  *
  * The list is a private widget class shown through the popup layer of the
  * window; it is owned by the combo box and is not one of its children.
+ *
+ * An editable or searchable combo box is a text field (a TextInput, its only
+ * child) with the arrow at its right. Typed text of an editable one is kept as
+ * it is; typing in a searchable one filters the list to the items containing
+ * the text, without regard to case or accents (rvn_utf8_contains_folded).
  */
 
 #include "common.h"
@@ -21,6 +26,16 @@ typedef struct rvn_combo_box_t {
 	rvn_widget_t* list;
 	RComboBoxChangedCallback callback;
 	void* user_data;
+
+	int editable, searchable;
+	/** The text field of an editable or searchable combo box (made the first time). */
+	rvn_widget_t* field;
+	RComboBoxTextCallback text_callback;
+	void* text_user;
+	/** The list shows the items matching the field (`shown`), not all of them. */
+	int filtering;
+	int* shown;
+	uint32_t shown_count, shown_cap;
 } rvn_combo_box_t;
 
 typedef struct rvn_combo_list_t {
@@ -36,11 +51,54 @@ typedef struct rvn_combo_list_t {
 
 static const rvn_widget_class_t rvn_class_combo_list;
 
+/* A text field shows instead of the button. */
+static int rvn_combo_box_has_field(const rvn_combo_box_t* combo) {
+	return (combo->editable || combo->searchable) && combo->field;
+}
+
+/* Rows of the list: the matching items while filtering, else all of them. */
+static int rvn_combo_rows(const rvn_combo_box_t* combo) {
+	return combo->filtering ? (int)combo->shown_count : (int)combo->count;
+}
+
+static int rvn_combo_row_item(const rvn_combo_box_t* combo, int row) {
+	if (row < 0 || row >= rvn_combo_rows(combo)) return -1;
+	return combo->filtering ? combo->shown[row] : row;
+}
+
+/* The row showing an item, or -1. */
+static int rvn_combo_item_row(const rvn_combo_box_t* combo, int item) {
+	uint32_t i;
+	if (!combo->filtering) return item;
+	for (i = 0; i < combo->shown_count; i++) if (combo->shown[i] == item) return (int)i;
+	return -1;
+}
+
+/* Filtering and nothing matches: the list shows a row that says so. */
+static int rvn_combo_no_match(const rvn_combo_box_t* combo) {
+	return combo->filtering && combo->shown_count == 0;
+}
+
+static const char* rvn_combo_no_match_text(void) {
+	return Rtr_exists("Raven.NoMatches") ? Rtr("Raven.NoMatches") : "No matches";
+}
+
+/* The text of the field is the selected item's (no callback: the user did not type it).
+ * A field that only searches has it selected: what is typed next starts a new search. */
+static void rvn_combo_box_show_selected(rvn_combo_box_t* combo) {
+	if (!combo->field) return;
+	Rtext_input_set_text(combo->field->id, combo->selected >= 0 ? combo->items[combo->selected] : "");
+	if (!combo->editable) Rtext_input_select_all(combo->field->id);
+}
+
 static void rvn_combo_box_select(rvn_widget_t* widget, int index, int notify) {
 	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
 	if (index < -1 || index >= (int)combo->count) index = -1;
 	if (combo->selected == index) return;
 	combo->selected = index;
+	/* the field shows what was chosen; a typed text that selects nothing stays */
+	if (rvn_combo_box_has_field(combo) && (index >= 0 || !combo->editable)) rvn_combo_box_show_selected(combo);
+	rvn_a11y_selection_changed(widget);
 	rvn_widget_invalidate_paint(widget);
 	if (notify) {
 		if (combo->callback) combo->callback(widget->id, index, combo->user_data);
@@ -68,10 +126,12 @@ static rvn_vec2_t rvn_combo_list_measure(rvn_widget_t* widget) {
 	rvn_combo_list_t* list = (rvn_combo_list_t*)widget;
 	rvn_combo_box_t* combo = list->combo;
 	float width = 0.0f, row = rvn_combo_row_height(widget);
-	uint32_t i, rows = rvn_minu(combo->count, RVN_COMBO_MAX_ROWS);
+	/* (as wide as all the items whatever the filter: the list does not jump while the user types) */
+	uint32_t i, rows = rvn_minu((uint32_t)rvn_combo_rows(combo), RVN_COMBO_MAX_ROWS);
 	for (i = 0; i < combo->count; i++) {
 		width = rvn_maxf(width, rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, combo->items[i]));
 	}
+	if (combo->searchable) width = rvn_maxf(width, rvn_widget_text_width(widget, R_INVALID_ID, 0.0f, rvn_combo_no_match_text()));
 	width += rvn_widget_metric(widget, R_METRIC_PADDING_X) * 2.0f;
 	if (combo->count > RVN_COMBO_MAX_ROWS) width += rvn_widget_metric(widget, R_METRIC_SCROLLBAR_SIZE);
 	return rvn_vec2(ceilf(width), row * (float)rvn_maxu(rows, 1) + rvn_combo_list_pad(widget) * 2.0f);
@@ -79,7 +139,7 @@ static rvn_vec2_t rvn_combo_list_measure(rvn_widget_t* widget) {
 
 static void rvn_combo_list_arrange(rvn_widget_t* widget) {
 	rvn_combo_list_t* list = (rvn_combo_list_t*)widget;
-	list->bar.content = rvn_combo_row_height(widget) * (float)list->combo->count;
+	list->bar.content = rvn_combo_row_height(widget) * (float)rvn_combo_rows(list->combo);
 	list->bar.viewport = rvn_maxf(0.0f, widget->rect.h - rvn_combo_list_pad(widget) * 2.0f);
 	rvn_scrollbar_clamp(&list->bar);
 }
@@ -93,7 +153,7 @@ static rvn_rect_t rvn_combo_list_track(const rvn_widget_t* widget) {
 static int rvn_combo_list_row_at(const rvn_widget_t* widget, float y) {
 	const rvn_combo_list_t* list = (const rvn_combo_list_t*)widget;
 	int row = (int)floorf((y - rvn_combo_list_pad(widget) + list->bar.offset) / rvn_combo_row_height(widget));
-	return (row >= 0 && row < (int)list->combo->count) ? row : -1;
+	return (row >= 0 && row < rvn_combo_rows(list->combo)) ? row : -1;
 }
 
 static void rvn_combo_list_reveal(rvn_widget_t* widget, int row) {
@@ -113,12 +173,19 @@ static void rvn_combo_list_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_color_t text = rvn_widget_color(widget, R_COLOR_TEXT);
 	float offset = rvn_scrollbar_shown(&list->bar, painter);
 	int first = (int)floorf(offset / row), last, i;
+	int selected = rvn_combo_item_row(combo, combo->selected);
 	rvn_vec2_t origin = rvn_widget_origin(widget);
 
 	rvn_paint_popup_surface(painter, widget, rect, radius, 12.0f);
 
+	if (rvn_combo_no_match(combo)) {
+		/* nothing matches what was typed: a row that says so, dimmed */
+		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), rvn_rect(padding, pad, rect.w - padding * 2.0f, row),
+			0.0f, rvn_combo_no_match_text(), -1, rvn_widget_color(widget, R_COLOR_TEXT_PLACEHOLDER));
+		return;
+	}
 	rvn_paint_push_clip(painter, rvn_rect(1.0f, pad, rect.w - 2.0f, rect.h - pad * 2.0f));
-	last = rvn_mini((int)combo->count, first + (int)(list->bar.viewport / row) + 3);
+	last = rvn_mini(rvn_combo_rows(combo), first + (int)(list->bar.viewport / row) + 3);
 	if (rvn_widget_family(widget) != RVN_FAMILY_RAVEN) {
 		/*
 		 * The platforms: rows inset in the flyout. Windows marks the selected
@@ -131,13 +198,13 @@ static void rvn_combo_list_paint(rvn_widget_t* widget, RPainter* painter) {
 		const float lead = family == RVN_FAMILY_MACOS ? 16.0f : 0.0f;
 		for (i = rvn_maxi(first, 0); i < last; i++) {
 			rvn_rect_t line = rvn_rect(inset, pad + row * (float)i - offset, rect.w - inset * 2.0f, row);
-			uint32_t states = (i == list->hot ? RVN_STATE_HOVERED : 0) | (i == combo->selected ? RVN_STATE_SELECTED : 0);
+			uint32_t states = (i == list->hot ? RVN_STATE_HOVERED : 0) | (i == selected ? RVN_STATE_SELECTED : 0);
 			rvn_color_t color = rvn_platform_item_foreground(widget, states, kind);
 			rvn_platform_paint_item(painter, widget, rvn_rect(line.x, line.y + 1.0f, line.w, line.h - 2.0f), states, kind, 1.0f);
 			if (!rvn_color_a(color)) color = text;
 			rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
-				rvn_rect(line.x + padding + lead, line.y, line.w - padding * 2.0f - lead, row), 0.0f, combo->items[i], -1, color);
-			if (i == combo->selected && family != RVN_FAMILY_WINDOWS) {
+				rvn_rect(line.x + padding + lead, line.y, line.w - padding * 2.0f - lead, row), 0.0f, combo->items[rvn_combo_row_item(combo, i)], -1, color);
+			if (i == selected && family != RVN_FAMILY_WINDOWS) {
 				float cx = family == RVN_FAMILY_MACOS ? line.x + 12.0f : line.x + line.w - 16.0f;
 				rvn_paint_icon(painter, RVN_ICON_CHECK, cx, line.y + row * 0.5f, 9.0f, color);
 			}
@@ -157,8 +224,8 @@ static void rvn_combo_list_paint(rvn_widget_t* widget, RPainter* painter) {
 	for (i = rvn_maxi(first, 0); i < last; i++) {
 		rvn_rect_t line = rvn_rect(1.0f, pad + row * (float)i - offset, rect.w - 2.0f, row);
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
-			rvn_rect(padding, line.y, rect.w - padding * 2.0f, row), 0.0f, combo->items[i], -1,
-			i == combo->selected ? rvn_widget_color(widget, R_COLOR_ACCENT_HOVERED) : text);
+			rvn_rect(padding, line.y, rect.w - padding * 2.0f, row), 0.0f, combo->items[rvn_combo_row_item(combo, i)], -1,
+			i == selected ? rvn_widget_color(widget, R_COLOR_ACCENT_HOVERED) : text);
 	}
 	rvn_paint_pop_clip(painter);
 	rvn_scrollbar_paint(&list->bar, widget, painter, rvn_combo_list_track(widget), R_TRUE,
@@ -169,9 +236,14 @@ static void rvn_combo_list_pick(rvn_widget_t* widget, int row) {
 	rvn_combo_list_t* list = (rvn_combo_list_t*)widget;
 	rvn_widget_t* combo = &list->combo->base;
 	rvn_window_t* window = widget->window;
+	int item = rvn_combo_row_item(list->combo, row);
 	/* close first: the callback may open something else, or delete the combo box */
 	if (window) rvn_window_close_popup(window, widget);
-	if (row >= 0) rvn_combo_box_select(combo, row, R_TRUE);
+	if (item >= 0) {
+		/* (an editable field may hold a typed text while the item stays selected: it shows the item again) */
+		if (list->combo->selected == item) rvn_combo_box_show_selected(list->combo);
+		rvn_combo_box_select(combo, item, R_TRUE);
+	}
 }
 
 static int rvn_combo_list_event(rvn_widget_t* widget, const REvent* event) {
@@ -205,33 +277,50 @@ static int rvn_combo_list_event(rvn_widget_t* widget, const REvent* event) {
 				rvn_widget_invalidate_paint(widget);
 			}
 			return R_TRUE;
-		case R_EVENT_KEY_DOWN:
+		case R_EVENT_KEY_DOWN: {
+			/* with a text field, the keys that edit text are left to it (Home, End, Space) */
+			int field = rvn_combo_box_has_field(list->combo), rows = rvn_combo_rows(list->combo);
+			int page = rvn_maxi(1, (int)(list->bar.viewport / rvn_combo_row_height(widget)) - 1);
 			switch (event->key) {
 				case R_KEY_UP:
 					list->hot = rvn_maxi(list->hot - 1, 0);
 					break;
 				case R_KEY_DOWN:
-					list->hot = rvn_mini(list->hot + 1, (int)list->combo->count - 1);
+					list->hot = rvn_mini(list->hot + 1, rows - 1);
+					break;
+				case R_KEY_PAGE_UP:
+					list->hot = rvn_maxi(list->hot - page, 0);
+					break;
+				case R_KEY_PAGE_DOWN:
+					list->hot = rvn_mini(rvn_maxi(list->hot, 0) + page, rows - 1);
 					break;
 				case R_KEY_HOME:
+					if (field) return R_FALSE;
 					list->hot = 0;
 					break;
 				case R_KEY_END:
-					list->hot = (int)list->combo->count - 1;
+					if (field) return R_FALSE;
+					list->hot = rows - 1;
 					break;
+				case R_KEY_SPACE:
+					if (field) return R_FALSE;
+					rvn_combo_list_pick(widget, list->hot);
+					return R_TRUE;
 				case R_KEY_ENTER:
 				case R_KEY_KP_ENTER:
-				case R_KEY_SPACE:
 					rvn_combo_list_pick(widget, list->hot);
 					return R_TRUE;
 				default:
 					/* Escape is left to the window, which closes the popup */
 					return R_FALSE;
 			}
+			if (rows == 0) list->hot = -1;
 			list->hot_by_pointer = R_FALSE;
 			rvn_combo_list_reveal(widget, list->hot);
+			rvn_a11y_selection_changed(widget);
 			rvn_widget_invalidate_paint(widget);
 			return R_TRUE;
+		}
 		default:
 			return R_FALSE;
 	}
@@ -239,8 +328,15 @@ static int rvn_combo_list_event(rvn_widget_t* widget, const REvent* event) {
 
 static void rvn_combo_list_closed(rvn_widget_t* widget) {
 	rvn_combo_list_t* list = (rvn_combo_list_t*)widget;
+	rvn_combo_box_t* combo = list->combo;
 	list->bar.dragging = R_FALSE;
-	rvn_widget_invalidate_paint(&list->combo->base);
+	/* closed without a choice: a searchable field shows the chosen item again, and the list all the items */
+	if (combo->filtering) {
+		combo->filtering = R_FALSE;
+		if (!combo->editable) rvn_combo_box_show_selected(combo);
+		rvn_widget_invalidate_layout(widget);
+	}
+	rvn_widget_invalidate_paint(&combo->base);
 }
 
 static int rvn_combo_list_pan(rvn_widget_t* widget, float dx, float dy, int coasting) {
@@ -281,6 +377,7 @@ static void rvn_combo_box_destroy(rvn_widget_t* widget) {
 	if (combo->list) rvn_widget_destroy(combo->list);
 	for (i = 0; i < combo->count; i++) rvn_free(combo->items[i]);
 	rvn_free(combo->items);
+	rvn_free(combo->shown);
 }
 
 static int rvn_combo_box_is_open(const rvn_widget_t* widget) {
@@ -288,22 +385,49 @@ static int rvn_combo_box_is_open(const rvn_widget_t* widget) {
 	return combo->list && (combo->list->flags & RVN_WF_POPUP);
 }
 
-static void rvn_combo_box_open(rvn_widget_t* widget) {
+/* The items that contain the text of the field (folded: no case, no accents). */
+static void rvn_combo_box_filter(rvn_combo_box_t* combo) {
+	const char* typed = combo->field ? Rtext_input_get_text(combo->field->id) : "";
+	uint32_t i;
+	combo->shown_count = 0;
+	RVN_ARRAY_RESERVE(combo->shown, combo->shown_cap, combo->count + 1);
+	for (i = 0; i < combo->count; i++) {
+		if (rvn_utf8_contains_folded(combo->items[i], typed)) combo->shown[combo->shown_count++] = (int)i;
+	}
+	if (combo->list) rvn_widget_invalidate_layout(combo->list);
+}
+
+/* `filtering`: the list shows what matches the field, the first match highlighted;
+ * otherwise all the items, the selected one highlighted. */
+static void rvn_combo_box_open(rvn_widget_t* widget, int filtering) {
 	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
 	rvn_combo_list_t* list = (rvn_combo_list_t*)combo->list;
 	rvn_vec2_t origin;
-	if (!widget->window || !list || combo->count == 0 || rvn_combo_box_is_open(widget)) return;
-	origin = rvn_widget_origin(widget);
-	list->hot = combo->selected;
+	if (!widget->window || !list || combo->count == 0) return;
+	combo->filtering = filtering && combo->searchable;
+	if (combo->filtering) rvn_combo_box_filter(combo);
+	list->hot = combo->filtering ? (combo->shown_count > 0 ? 0 : -1) : combo->selected;
 	list->hot_by_pointer = R_FALSE;
-	list->hot_y.started = R_FALSE;
-	/* the list is made of what its button is made of */
-	list->base.material = widget->material;
-	rvn_window_open_popup(widget->window, &list->base, widget,
-		rvn_rect(origin.x, origin.y, widget->rect.w, widget->rect.h + 2.0f), RVN_POPUP_BELOW, widget->rect.w);
-	/* lay the list out now so that the selected row can be scrolled into view */
+	rvn_widget_invalidate_layout(&list->base);
+	if (!rvn_combo_box_is_open(widget)) {
+		origin = rvn_widget_origin(widget);
+		list->hot_y.started = R_FALSE;
+		list->bar.offset = 0.0f;
+		/* the list is made of what its button is made of */
+		list->base.material = widget->material;
+		rvn_window_open_popup(widget->window, &list->base, widget,
+			rvn_rect(origin.x, origin.y, widget->rect.w, widget->rect.h + 2.0f), RVN_POPUP_BELOW, widget->rect.w);
+	}
+	/* lay the list out now so that the highlighted row can be scrolled into view */
 	rvn_window_layout(widget->window);
-	rvn_combo_list_reveal(&list->base, combo->selected);
+	rvn_combo_list_reveal(&list->base, list->hot);
+	rvn_a11y_structure_changed();
+	rvn_widget_invalidate_paint(widget);
+}
+
+static void rvn_combo_box_close(rvn_widget_t* widget) {
+	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
+	if (widget->window && combo->list && rvn_combo_box_is_open(widget)) rvn_window_close_popup(widget->window, combo->list);
 }
 
 static rvn_vec2_t rvn_combo_box_measure(rvn_widget_t* widget) {
@@ -318,6 +442,23 @@ static rvn_vec2_t rvn_combo_box_measure(rvn_widget_t* widget) {
 	return rvn_vec2(ceilf(rvn_maxf(width, 40.0f) + rvn_widget_metric(widget, R_METRIC_PADDING_X) * 2.0f + height * 0.7f), height);
 }
 
+/* Width of the arrow at the right of the combo box (a click there opens the list). */
+static float rvn_combo_box_arrow_width(const rvn_widget_t* widget) {
+	return rvn_maxf(widget->rect.h * 0.7f, 20.0f);
+}
+
+static void rvn_combo_box_arrange(rvn_widget_t* widget) {
+	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
+	if (!combo->field) return;
+	if (combo->field->visibility != R_VISIBLE) {
+		rvn_widget_arrange(combo->field, 0.0f, 0.0f, 0.0f, 0.0f);
+		return;
+	}
+	/* the field takes the whole combo box; its text stops before the arrow */
+	rvn_text_input_set_inset(combo->field, rvn_combo_box_arrow_width(widget) - 4.0f);
+	rvn_widget_arrange(combo->field, 0.0f, 0.0f, widget->rect.w, widget->rect.h);
+}
+
 static void rvn_combo_box_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
 	rvn_rect_t rect = rvn_rect(0.0f, 0.0f, widget->rect.w, widget->rect.h);
@@ -329,6 +470,7 @@ static void rvn_combo_box_paint(rvn_widget_t* widget, RPainter* painter) {
 	rvn_color_t outline = rvn_widget_color(widget, R_COLOR_CONTROL_BORDER);
 	rvn_color_t text = rvn_widget_text_color(widget, painter);
 
+	if (rvn_combo_box_has_field(combo)) return;
 	if (!painter->enabled) {
 		fill = rvn_color_fade(fill, 0.5f);
 		outline = rvn_color_fade(outline, 0.5f);
@@ -398,19 +540,133 @@ static void rvn_combo_box_paint(rvn_widget_t* widget, RPainter* painter) {
 }
 
 static void rvn_combo_box_paint_overlay(rvn_widget_t* widget, RPainter* painter) {
+	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
+	if (rvn_combo_box_has_field(combo)) {
+		/* over the field: the arrow that opens the list */
+		rvn_color_t color = rvn_widget_text_color(widget, painter);
+		rvn_paint_icon(painter, RVN_ICON_CHEVRON_DOWN, widget->rect.w - rvn_combo_box_arrow_width(widget) * 0.5f - 2.0f, widget->rect.h * 0.5f, 7.0f,
+			painter->enabled ? rvn_color_fade(color, 0.85f) : rvn_color_fade(color, 0.4f));
+		return;
+	}
 	rvn_paint_focus(widget, painter, rvn_control_radius(widget, widget->rect.h));
+}
+
+/* ---------------------------------------------------------------------------
+ *  The text field of an editable or searchable combo box
+ * ------------------------------------------------------------------------- */
+
+static rvn_combo_box_t* rvn_combo_of(void* user) {
+	rvn_widget_t* widget = rvn_widget_get((Rid)(uintptr_t)user);
+	return widget && !(widget->flags & RVN_WF_DEAD) && widget->cls->type == R_WIDGET_COMBO_BOX ? (rvn_combo_box_t*)widget : NULL;
+}
+
+static int rvn_combo_find(const rvn_combo_box_t* combo, const char* text) {
+	uint32_t i;
+	for (i = 0; i < combo->count; i++) if (strcmp(combo->items[i], text) == 0) return (int)i;
+	return -1;
+}
+
+/* The user changed the text: an editable combo box selects the item equal to it, a searchable one filters. */
+static void rvn_combo_field_changed(Rid field, const char* text, void* user) {
+	rvn_combo_box_t* combo = rvn_combo_of(user);
+	rvn_widget_t* widget;
+	(void)field;
+	if (!combo) return;
+	widget = &combo->base;
+	if (combo->editable) {
+		int item = rvn_combo_find(combo, text);
+		if (item != combo->selected) {
+			rvn_combo_box_select(widget, item, R_TRUE);
+			if (!rvn_widget_alive(widget)) return;
+		}
+	}
+	if (combo->text_callback) {
+		combo->text_callback(widget->id, text, combo->text_user);
+		if (!rvn_widget_alive(widget)) return;
+	}
+	if (combo->searchable) rvn_combo_box_open(widget, R_TRUE);
+	rvn_a11y_selection_changed(widget);
+}
+
+static int rvn_combo_field_event(Rid field, const REvent* event, void* user) {
+	rvn_combo_box_t* combo = rvn_combo_of(user);
+	rvn_widget_t* widget;
+	(void)field;
+	if (!combo) return R_FALSE;
+	widget = &combo->base;
+	switch (event->type) {
+		case R_EVENT_MOUSE_DOWN:
+			if (event->button != R_MOUSE_LEFT) return R_FALSE;
+			/* the arrow opens the list (a click while it is open closes it before reaching here) */
+			if (event->local_x >= widget->rect.w - rvn_combo_box_arrow_width(widget)) {
+				rvn_combo_box_open(widget, R_FALSE);
+				return R_TRUE;
+			}
+			/* a searchable combo box that is not editable: a click anywhere opens it, ready to type */
+			if (!combo->editable) {
+				Rtext_input_select_all(combo->field->id);
+				rvn_combo_box_open(widget, R_FALSE);
+				return R_TRUE;
+			}
+			return R_FALSE;
+		case R_EVENT_FOCUS_LOST:
+			/* a search that chose nothing: the chosen item again */
+			if (!combo->editable && combo->field) rvn_combo_box_show_selected(combo);
+			return R_FALSE;
+		default:
+			return R_FALSE;
+	}
+}
+
+/* Shows the field (editable or searchable) or the button. */
+static void rvn_combo_box_update_field(rvn_widget_t* widget) {
+	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
+	int want = combo->editable || combo->searchable;
+	if (want && !combo->field) {
+		rvn_widget_t* field = rvn_widget_create(R_WIDGET_TEXT_INPUT);
+		if (!field) return;
+		if (!rvn_widget_add_child(widget, field, -1)) return;
+		combo->field = field;
+		Rtext_input_set_changed_callback(field->id, rvn_combo_field_changed, (void*)(uintptr_t)widget->id);
+		field->event_callback = rvn_combo_field_event;
+		field->event_user = (void*)(uintptr_t)widget->id;
+		/* (a screen reader sees the combo box, not the field inside it) */
+		Rwidget_set_accessible_hidden(field->id, R_TRUE);
+	}
+	/* the field takes the keyboard instead of the combo box */
+	if (want) widget->flags &= ~RVN_WF_FOCUSABLE;
+	else widget->flags |= RVN_WF_FOCUSABLE;
+	if (combo->field) {
+		int had_focus = (combo->field->flags & RVN_WF_FOCUSED) != 0;
+		combo->field->visibility = want ? R_VISIBLE : R_COLLAPSED;
+		if (want) rvn_combo_box_show_selected(combo);
+		if (!want && had_focus) rvn_widget_focus(widget);
+	}
+	if (want && (widget->flags & RVN_WF_FOCUSED) && combo->field) rvn_widget_focus(combo->field);
+	rvn_combo_box_close(widget);
+	rvn_widget_invalidate_layout(widget);
 }
 
 static int rvn_combo_box_event(rvn_widget_t* widget, const REvent* event) {
 	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
+	int field = rvn_combo_box_has_field(combo);
 	switch (event->type) {
 		case R_EVENT_MOUSE_DOWN:
 			if (event->button != R_MOUSE_LEFT) return R_FALSE;
 			/* when the list is open, the click that closes it never reaches us */
-			rvn_combo_box_open(widget);
+			rvn_combo_box_open(widget, R_FALSE);
 			return R_TRUE;
 		case R_EVENT_KEY_DOWN:
-			if (!(widget->flags & RVN_WF_FOCUSED)) return R_FALSE;
+			/* (keys of the field come up to here when it does not use them) */
+			if (!(widget->flags & RVN_WF_FOCUSED) && !(field && (combo->field->flags & RVN_WF_FOCUSED))) return R_FALSE;
+			if (field) {
+				/* Down, Alt+Down or F4 open the list (all the items); the list then takes Up, Down and Enter */
+				if (event->key == R_KEY_DOWN || event->key == R_KEY_UP || event->key == R_KEY_F4) {
+					rvn_combo_box_open(widget, R_FALSE);
+					return R_TRUE;
+				}
+				return R_FALSE;
+			}
 			switch (event->key) {
 				case R_KEY_UP:
 					if (combo->selected > 0) rvn_combo_box_select(widget, combo->selected - 1, R_TRUE);
@@ -421,7 +677,7 @@ static int rvn_combo_box_event(rvn_widget_t* widget, const REvent* event) {
 				case R_KEY_ENTER:
 				case R_KEY_KP_ENTER:
 				case R_KEY_SPACE:
-					rvn_combo_box_open(widget);
+					rvn_combo_box_open(widget, R_FALSE);
 					return R_TRUE;
 				default:
 					return R_FALSE;
@@ -435,6 +691,7 @@ static int rvn_combo_box_add(rvn_widget_t* widget, const char* text) {
 	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
 	RVN_ARRAY_RESERVE(combo->items, combo->cap, combo->count + 1);
 	combo->items[combo->count++] = rvn_strdup(text ? text : "");
+	if (combo->filtering) rvn_combo_box_filter(combo);
 	rvn_widget_invalidate_layout(widget);
 	if (combo->list) rvn_widget_invalidate_layout(combo->list);
 	return (int)combo->count - 1;
@@ -446,11 +703,15 @@ static void rvn_combo_box_clear(rvn_widget_t* widget) {
 	if (widget->window && combo->list) rvn_window_close_popup(widget->window, combo->list);
 	for (i = 0; i < combo->count; i++) rvn_free(combo->items[i]);
 	combo->count = 0;
+	combo->shown_count = 0;
+	combo->filtering = R_FALSE;
 	combo->selected = -1;
+	if (rvn_combo_box_has_field(combo) && !combo->editable) rvn_combo_box_show_selected(combo);
 	rvn_widget_invalidate_layout(widget);
 }
 
 static int rvn_combo_box_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
+	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
 	int index;
 	if (RVN_ATTR("Items")) {
 		/* "First|Second|Third" */
@@ -470,6 +731,22 @@ static int rvn_combo_box_set_attribute(rvn_widget_t* widget, const char* name, c
 		rvn_combo_box_select(widget, index, R_FALSE);
 		return R_TRUE;
 	}
+	if (RVN_ATTR("Editable")) {
+		if (!rvn_parse_bool(value, &index)) return R_FALSE;
+		combo->editable = index ? R_TRUE : R_FALSE;
+		rvn_combo_box_update_field(widget);
+		return R_TRUE;
+	}
+	if (RVN_ATTR("Searchable")) {
+		if (!rvn_parse_bool(value, &index)) return R_FALSE;
+		combo->searchable = index ? R_TRUE : R_FALSE;
+		rvn_combo_box_update_field(widget);
+		return R_TRUE;
+	}
+	if (RVN_ATTR("Text")) {
+		Rcombo_box_set_text(widget->id, value);
+		return R_TRUE;
+	}
 	return R_FALSE;
 }
 
@@ -485,16 +762,67 @@ const rvn_widget_class_t rvn_class_combo_box = {
 	.type = R_WIDGET_COMBO_BOX,
 	.name = "ComboBox",
 	.size = sizeof(rvn_combo_box_t),
+	/* (the field of an editable combo box is its only child, made by the combo box itself) */
 	.flags = RVN_CF_NO_CHILDREN | RVN_CF_FOCUSABLE | RVN_CF_SURFACE,
 	.init = rvn_combo_box_init,
 	.destroy = rvn_combo_box_destroy,
 	.measure = rvn_combo_box_measure,
+	.arrange = rvn_combo_box_arrange,
 	.paint = rvn_combo_box_paint,
 	.paint_overlay = rvn_combo_box_paint_overlay,
 	.event = rvn_combo_box_event,
 	.set_attribute = rvn_combo_box_set_attribute,
 	.xml_child = rvn_combo_box_xml_child
 };
+
+/* ---------------------------------------------------------------------------
+ *  The list as a screen reader sees it (core/accessibility.c)
+ * ------------------------------------------------------------------------- */
+
+rvn_widget_t* rvn_combo_list_owner(const rvn_widget_t* list) {
+	return &((const rvn_combo_list_t*)list)->combo->base;
+}
+
+rvn_widget_t* rvn_combo_box_open_list(const rvn_widget_t* combo) {
+	return rvn_combo_box_is_open(combo) ? ((const rvn_combo_box_t*)combo)->list : NULL;
+}
+
+int rvn_combo_list_row_count(const rvn_widget_t* list) {
+	const rvn_combo_box_t* combo = ((const rvn_combo_list_t*)list)->combo;
+	return rvn_combo_no_match(combo) ? 1 : rvn_combo_rows(combo);
+}
+
+int rvn_combo_list_row_info(const rvn_widget_t* list, int row, const char** text, rvn_rect_t* rect) {
+	const rvn_combo_list_t* l = (const rvn_combo_list_t*)list;
+	const rvn_combo_box_t* combo = l->combo;
+	float height = rvn_combo_row_height(list), pad = rvn_combo_list_pad(list);
+	if (row < 0 || row >= rvn_combo_list_row_count(list)) return 0;
+	*rect = rvn_rect_intersect(rvn_rect(0.0f, pad + height * (float)row - l->bar.offset, list->rect.w, height),
+		rvn_rect(0.0f, pad, list->rect.w, rvn_maxf(0.0f, list->rect.h - pad * 2.0f)));
+	if (rvn_combo_no_match(combo)) {
+		*text = rvn_combo_no_match_text();
+		return 2;
+	}
+	*text = combo->items[rvn_combo_row_item(combo, row)];
+	return 1;
+}
+
+int rvn_combo_list_hot(const rvn_widget_t* list) {
+	return ((const rvn_combo_list_t*)list)->hot;
+}
+
+int rvn_combo_list_selected_row(const rvn_widget_t* list) {
+	const rvn_combo_box_t* combo = ((const rvn_combo_list_t*)list)->combo;
+	return rvn_combo_item_row(combo, combo->selected);
+}
+
+void rvn_combo_list_choose(rvn_widget_t* list, int row) {
+	if (row >= 0 && row < rvn_combo_rows(((rvn_combo_list_t*)list)->combo)) rvn_combo_list_pick(list, row);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Public API
+ * ------------------------------------------------------------------------- */
 
 int Rcombo_box_add_item(Rid id, const char* text) {
 	RVN_WIDGET(widget, id, R_WIDGET_COMBO_BOX, -1);
@@ -531,4 +859,63 @@ void Rcombo_box_set_changed_callback(Rid id, RComboBoxChangedCallback callback, 
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_COMBO_BOX);
 	((rvn_combo_box_t*)widget)->callback = callback;
 	((rvn_combo_box_t*)widget)->user_data = user_data;
+}
+
+void Rcombo_box_set_editable(Rid id, int editable) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_COMBO_BOX);
+	((rvn_combo_box_t*)widget)->editable = editable ? R_TRUE : R_FALSE;
+	rvn_combo_box_update_field(widget);
+}
+
+int Rcombo_box_is_editable(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_COMBO_BOX, R_FALSE);
+	return ((rvn_combo_box_t*)widget)->editable;
+}
+
+void Rcombo_box_set_searchable(Rid id, int searchable) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_COMBO_BOX);
+	((rvn_combo_box_t*)widget)->searchable = searchable ? R_TRUE : R_FALSE;
+	rvn_combo_box_update_field(widget);
+}
+
+int Rcombo_box_is_searchable(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_COMBO_BOX, R_FALSE);
+	return ((rvn_combo_box_t*)widget)->searchable;
+}
+
+const char* Rcombo_box_get_text(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_COMBO_BOX, "");
+	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
+	if (combo->editable && combo->field) return Rtext_input_get_text(combo->field->id);
+	return combo->selected >= 0 ? combo->items[combo->selected] : "";
+}
+
+void Rcombo_box_set_text(Rid id, const char* text) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_COMBO_BOX);
+	rvn_combo_box_t* combo = (rvn_combo_box_t*)widget;
+	int item = rvn_combo_find(combo, text ? text : "");
+	if (combo->editable && combo->field) {
+		Rtext_input_set_text(combo->field->id, text ? text : "");
+		combo->selected = item;
+		rvn_widget_invalidate_paint(widget);
+		return;
+	}
+	rvn_combo_box_select(widget, item, R_FALSE);
+}
+
+void Rcombo_box_set_text_changed_callback(Rid id, RComboBoxTextCallback callback, void* user_data) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_COMBO_BOX);
+	((rvn_combo_box_t*)widget)->text_callback = callback;
+	((rvn_combo_box_t*)widget)->text_user = user_data;
+}
+
+void Rcombo_box_set_open(Rid id, int open) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_COMBO_BOX);
+	if (open) rvn_combo_box_open(widget, R_FALSE);
+	else rvn_combo_box_close(widget);
+}
+
+int Rcombo_box_is_open(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_COMBO_BOX, R_FALSE);
+	return rvn_combo_box_is_open(widget);
 }

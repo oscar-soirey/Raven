@@ -239,6 +239,14 @@ int rvn_utf8_encode(uint32_t codepoint, char out[4]);
 int rvn_utf8_next(const char* text, int length, int offset);
 int rvn_utf8_prev(const char* text, int offset);
 int rvn_utf8_count(const char* text, int length);
+/**
+ * A code point as a search compares it: lower case, without its accent
+ * (Latin, Greek and Cyrillic letters: "É" -> 'e', "Ł" -> 'l', "Ά" -> 'α').
+ * Combining marks (U+0300..U+036F) give 0: they are skipped.
+ */
+uint32_t rvn_utf8_fold(uint32_t codepoint);
+/** R_TRUE when `text` contains `part`, compared folded (rvn_utf8_fold); an empty part is in every text. */
+int rvn_utf8_contains_folded(const char* text, const char* part);
 
 /* ---------------------------------------------------------------------------
  *  Errors (core/error.c)

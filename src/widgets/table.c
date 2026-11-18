@@ -11,6 +11,11 @@
  * Sorting a stored table moves its rows: the indices are always the order
  * shown. A virtual table only shows which column is sorted and tells the
  * application (Rtable_set_sort_callback), which orders its data itself.
+ *
+ * The cells of editable columns are edited in place by a TextInput the table
+ * holds as its only child, shown over the cell; the application checks and
+ * keeps the text (Rtable_set_cell_edited_callback). The first columns may be
+ * frozen: they stay where they are while the others scroll under them.
  */
 
 #include "common.h"
@@ -36,6 +41,7 @@ typedef struct rvn_table_column_t {
 	/** 0 = left, 0.5 = center, 1 = right. */
 	float align;
 	int sortable;
+	int editable;
 } rvn_table_column_t;
 
 typedef struct rvn_table_t {
@@ -83,6 +89,19 @@ typedef struct rvn_table_t {
 	void* activated_user;
 	RTableSortCallback sort_callback;
 	void* sort_user;
+
+	/** The first columns that do not scroll sideways. */
+	uint32_t frozen;
+	/** Column of the current cell (on the selected row), -1: the first editable one. */
+	int column;
+	/* ---- the editor of a cell: a TextInput over it, made the first time ---- */
+	rvn_widget_t* editor;
+	int editing;
+	int edit_row, edit_column;
+	/** The edited callback is running: the focus it moves does not close the editor again. */
+	int committing;
+	RTableCellEditedCallback edited_callback;
+	void* edited_user;
 } rvn_table_t;
 
 /* Where the parts of the table are, in the coordinates of the widget. */
@@ -103,6 +122,7 @@ static void rvn_table_init(rvn_widget_t* widget) {
 	table->resizing = -1;
 	table->sort_column = -1;
 	table->show_header = R_TRUE;
+	table->column = -1;
 }
 
 static void rvn_table_free_rows(rvn_table_t* table) {
@@ -244,6 +264,68 @@ static void rvn_table_geometry(rvn_widget_t* widget, rvn_table_geometry_t* geome
 	table->hbar.viewport = geometry->body.w;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Columns on screen: the frozen ones stay at the left, the others scroll
+ * ------------------------------------------------------------------------- */
+
+static uint32_t rvn_table_frozen_count(const rvn_table_t* table) {
+	return rvn_minu(table->frozen, table->column_count);
+}
+
+/* Width of the frozen columns, as laid out. */
+static float rvn_table_frozen_width(const rvn_table_t* table) {
+	float width = 0.0f;
+	uint32_t i;
+	for (i = 0; i < rvn_table_frozen_count(table); i++) width += table->columns[i].shown;
+	return width;
+}
+
+/* Left edge of a column in the widget, the columns that scroll moved by `offset`. */
+static float rvn_table_column_left(const rvn_table_t* table, const rvn_table_geometry_t* geometry, int column, float offset) {
+	float x = geometry->body.x;
+	int i;
+	for (i = 0; i < column; i++) x += table->columns[i].shown;
+	return (uint32_t)column < rvn_table_frozen_count(table) ? x : x - offset;
+}
+
+/* Where a column may show, from left to right: the frozen ones over their own part of
+ * the body, the others to the right of it. */
+static void rvn_table_column_span(const rvn_table_t* table, const rvn_table_geometry_t* geometry, int column, float* from, float* to) {
+	float frozen = rvn_minf(rvn_table_frozen_width(table), geometry->body.w);
+	if ((uint32_t)column < rvn_table_frozen_count(table)) {
+		*from = geometry->body.x;
+		*to = geometry->body.x + frozen;
+	} else {
+		*from = geometry->body.x + frozen;
+		*to = geometry->body.x + geometry->body.w;
+	}
+}
+
+/* The column under x in the body or the header (any y), or -1. */
+static int rvn_table_column_at(const rvn_table_t* table, const rvn_table_geometry_t* geometry, float x, float offset) {
+	uint32_t i;
+	for (i = 0; i < table->column_count; i++) {
+		float left = rvn_table_column_left(table, geometry, (int)i, offset), from, to;
+		rvn_table_column_span(table, geometry, (int)i, &from, &to);
+		if (x >= rvn_maxf(left, from) && x < rvn_minf(left + table->columns[i].shown, to)) return (int)i;
+	}
+	return -1;
+}
+
+static int rvn_table_has_editable(const rvn_table_t* table) {
+	uint32_t i;
+	for (i = 0; i < table->column_count; i++) if (table->columns[i].editable) return R_TRUE;
+	return R_FALSE;
+}
+
+/* The column of the current cell: the one chosen, else the first editable one (-1: none). */
+static int rvn_table_current_column(const rvn_table_t* table) {
+	uint32_t i;
+	if (table->column >= 0 && table->column < (int)table->column_count) return table->column;
+	for (i = 0; i < table->column_count; i++) if (table->columns[i].editable) return (int)i;
+	return -1;
+}
+
 static rvn_vec2_t rvn_table_measure(rvn_widget_t* widget) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	float width = 0.0f;
@@ -254,12 +336,15 @@ static rvn_vec2_t rvn_table_measure(rvn_widget_t* widget) {
 		rvn_table_header_height(widget) + rvn_table_row_height(widget) * (float)rvn_clampi(rvn_table_count(table), 3, 8) + 2.0f);
 }
 
+static void rvn_table_place_editor(rvn_widget_t* widget);
+
 static void rvn_table_arrange(rvn_widget_t* widget) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	rvn_table_geometry_t geometry;
 	rvn_table_geometry(widget, &geometry);
 	rvn_scrollbar_clamp(&table->bar);
 	rvn_scrollbar_clamp(&table->hbar);
+	rvn_table_place_editor(widget);
 }
 
 static int rvn_table_row_at(rvn_widget_t* widget, float x, float y) {
@@ -294,14 +379,31 @@ static int rvn_table_header_at(rvn_widget_t* widget, float x, float y, int* edge
 	*edge = -1;
 	rvn_table_geometry(widget, &geometry);
 	if (geometry.header <= 0.0f || y < 1.0f || y >= 1.0f + geometry.header || x < 1.0f || x >= 1.0f + geometry.body.w) return -1;
-	left = 1.0f - table->hbar.offset;
 	for (i = 0; i < table->column_count; i++) {
-		float right = left + table->columns[i].shown;
-		if (fabsf(x - right) <= RVN_TABLE_GRIP) *edge = (int)i;
-		if (x >= left && x < right) found = (int)i;
-		left = right;
+		float from, to;
+		left = rvn_table_column_left(table, &geometry, (int)i, table->hbar.offset);
+		rvn_table_column_span(table, &geometry, (int)i, &from, &to);
+		/* (the edge of a column gone under the frozen ones is not grabbed) */
+		if (fabsf(x - (left + table->columns[i].shown)) <= RVN_TABLE_GRIP && left + table->columns[i].shown > from) *edge = (int)i;
 	}
+	found = rvn_table_column_at(table, &geometry, x, table->hbar.offset);
 	return found;
+}
+
+/* Scrolls sideways so that a column that scrolls is shown whole (as much as there is room for). */
+static void rvn_table_reveal_column(rvn_widget_t* widget, int column) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	rvn_table_geometry_t geometry;
+	float left, right, frozen;
+	if (column < 0 || column >= (int)table->column_count || (uint32_t)column < rvn_table_frozen_count(table)) return;
+	rvn_table_geometry(widget, &geometry);
+	frozen = rvn_table_frozen_width(table);
+	/* (in the coordinates of the content) */
+	left = rvn_table_column_left(table, &geometry, column, 0.0f) - geometry.body.x;
+	right = left + table->columns[column].shown;
+	if (right > table->hbar.offset + geometry.body.w) rvn_scrollbar_set(&table->hbar, right - geometry.body.w);
+	if (left < table->hbar.offset + frozen) rvn_scrollbar_set(&table->hbar, left - frozen);
+	rvn_widget_invalidate_paint(widget);
 }
 
 static void rvn_table_reveal(rvn_widget_t* widget, int row) {
@@ -355,6 +457,210 @@ static void rvn_table_activate(rvn_widget_t* widget) {
 	if (table->selected < 0) return;
 	if (table->activated_callback) table->activated_callback(widget->id, table->selected, table->activated_user);
 	if (rvn_widget_alive(widget)) rvn_widget_fire_action(widget);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Editing a cell: a TextInput over it
+ * ------------------------------------------------------------------------- */
+
+/* The part of a cell that shows (the editor is put there), with the target scroll offsets.
+ * R_FALSE when none of it shows. */
+static int rvn_table_cell_rect(rvn_widget_t* widget, int row, int column, rvn_rect_t* out) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	rvn_table_geometry_t geometry;
+	float height = rvn_table_row_height(widget), left, from, to;
+	rvn_rect_t cell;
+	if (row < 0 || row >= rvn_table_count(table) || column < 0 || column >= (int)table->column_count) return R_FALSE;
+	rvn_table_geometry(widget, &geometry);
+	left = rvn_table_column_left(table, &geometry, column, table->hbar.offset);
+	rvn_table_column_span(table, &geometry, column, &from, &to);
+	cell = rvn_rect(left, geometry.body.y + height * (float)row - table->bar.offset, table->columns[column].shown, height);
+	*out = rvn_rect_intersect(cell, rvn_rect(from, geometry.body.y, rvn_maxf(0.0f, to - from), geometry.body.h));
+	return out->w > 1.0f && out->h > 1.0f;
+}
+
+static void rvn_table_place_editor(rvn_widget_t* widget) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	rvn_rect_t cell;
+	if (!table->editor) return;
+	if (!table->editing || !rvn_table_cell_rect(widget, table->edit_row, table->edit_column, &cell)) {
+		rvn_widget_arrange(table->editor, 0.0f, 0.0f, 0.0f, 0.0f);
+		return;
+	}
+	rvn_widget_measure(table->editor);
+	rvn_widget_arrange(table->editor, cell.x, cell.y, cell.w, cell.h);
+}
+
+/* Hides the editor; `refocus`: the keyboard comes back to the table. */
+static void rvn_table_close_editor(rvn_widget_t* widget, int refocus) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	if (!table->editing) return;
+	table->editing = R_FALSE;
+	/* (the editor loses the focus first: it is not editing any more, nothing is kept twice) */
+	if (refocus && table->editor && (table->editor->flags & RVN_WF_FOCUSED)) rvn_widget_focus(widget);
+	if (!rvn_widget_alive(widget)) return;
+	if (table->editor) table->editor->visibility = R_COLLAPSED;
+	rvn_a11y_structure_changed();
+	rvn_widget_invalidate_layout(widget);
+}
+
+/*
+ * Keeps the text of the editor: the application is asked first. `refocus`: the
+ * user pressed Enter or Tab (a refused text keeps the editor open); otherwise
+ * the focus went elsewhere (a refused text is dropped). Returns R_TRUE when the
+ * text was kept and the editor closed; the table may be gone (rvn_widget_alive).
+ */
+static int rvn_table_commit_edit(rvn_widget_t* widget, int refocus) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	int row = table->edit_row, column = table->edit_column, accepted = R_TRUE;
+	char* text;
+	char* before;
+	if (!table->editing || table->committing) return !table->editing;
+	text = rvn_strdup(table->editor ? Rtext_input_get_text(table->editor->id) : "");
+	before = rvn_strdup(rvn_table_cell(table, row, column));
+	if (table->edited_callback) {
+		table->committing = R_TRUE;
+		accepted = table->edited_callback(widget->id, row, column, text, table->edited_user) != 0;
+		if (!rvn_widget_alive(widget)) {
+			rvn_free(text);
+			rvn_free(before);
+			return R_FALSE;
+		}
+		table->committing = R_FALSE;
+	}
+	/* (the callback may have closed the editor, or cleared the rows) */
+	if (!table->editing) accepted = R_FALSE;
+	if (accepted && !table->is_virtual && row < (int)table->row_count && column < (int)table->column_count) {
+		/* a stored cell takes the text, unless the callback already wrote what it keeps */
+		if (strcmp(rvn_table_cell(table, row, column), before) == 0)
+			rvn_str_set(&table->cells[(size_t)row * table->column_count + (size_t)column], text);
+	}
+	rvn_free(text);
+	rvn_free(before);
+	if (!accepted && refocus && table->editing) {
+		/* refused: the user corrects it */
+		if (table->editor) Rtext_input_select_all(table->editor->id);
+		return R_FALSE;
+	}
+	rvn_table_close_editor(widget, refocus);
+	rvn_widget_invalidate_paint(widget);
+	return accepted;
+}
+
+/* The table an editor belongs to (NULL once it is gone). */
+static rvn_widget_t* rvn_table_of(void* user) {
+	rvn_widget_t* widget = rvn_widget_get((Rid)(uintptr_t)user);
+	return widget && !(widget->flags & RVN_WF_DEAD) && widget->cls->type == R_WIDGET_TABLE ? widget : NULL;
+}
+
+/* Enter in the editor: keep the text, and go down a row. */
+static void rvn_table_editor_committed(Rid field, const char* text, void* user) {
+	rvn_widget_t* widget = rvn_table_of(user);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	int row;
+	(void)field;
+	(void)text;
+	if (!widget || !table->editing) return;
+	row = table->edit_row;
+	if (!rvn_table_commit_edit(widget, R_TRUE) || !rvn_widget_alive(widget)) return;
+	if (row + 1 < rvn_table_count(table)) rvn_table_select(widget, row + 1, R_TRUE);
+}
+
+/* The focus left the editor (a click elsewhere, the window): its text is kept. */
+static int rvn_table_editor_event(Rid field, const REvent* event, void* user) {
+	rvn_widget_t* widget = rvn_table_of(user);
+	(void)field;
+	if (widget && event->type == R_EVENT_FOCUS_LOST && ((rvn_table_t*)widget)->editing) rvn_table_commit_edit(widget, R_FALSE);
+	return R_FALSE;
+}
+
+/* Opens the editor on a cell: `typed` (a character the user typed) replaces its text, else the text is selected. */
+static int rvn_table_begin_edit(rvn_widget_t* widget, int row, int column, const char* typed) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	Rid id = widget->id;
+	int length;
+	if (row < 0 || row >= rvn_table_count(table) || column < 0 || column >= (int)table->column_count) return R_FALSE;
+	if (table->editing) {
+		if (table->edit_row == row && table->edit_column == column) return R_TRUE;
+		if (!rvn_table_commit_edit(widget, R_TRUE) || !rvn_widget_alive(widget)) return R_FALSE;
+	}
+	if (!table->editor) {
+		rvn_widget_t* editor = rvn_widget_create(R_WIDGET_TEXT_INPUT);
+		if (!editor) return R_FALSE;
+		if (!rvn_widget_add_child(widget, editor, -1)) return R_FALSE;
+		table->editor = editor;
+		Rtext_input_set_committed_callback(editor->id, rvn_table_editor_committed, (void*)(uintptr_t)id);
+		editor->event_callback = rvn_table_editor_event;
+		editor->event_user = (void*)(uintptr_t)id;
+	}
+	if (table->selected != row || (table->multi && Rtable_get_selection_count(id) != 1)) {
+		rvn_table_select(widget, row, R_TRUE);
+		if (!rvn_widget_alive(widget) || table->editing) return R_FALSE;
+	}
+	table->column = column;
+	rvn_table_reveal(widget, row);
+	rvn_table_reveal_column(widget, column);
+	table->edit_row = row;
+	table->edit_column = column;
+	Rtext_input_set_text(table->editor->id, typed ? typed : rvn_table_cell(table, row, column));
+	/* a screen reader names the field after its column */
+	Rwidget_set_accessible_name(table->editor->id, table->columns[column].header ? table->columns[column].header : "");
+	table->editor->visibility = R_VISIBLE;
+	table->editing = R_TRUE;
+	rvn_widget_invalidate_layout(widget);
+	rvn_a11y_structure_changed();
+	rvn_widget_focus(table->editor);
+	if (!rvn_widget_alive(widget) || !table->editing) return R_FALSE;
+	/* (after the focus, which selects everything when it came with the keyboard) */
+	length = (int)strlen(Rtext_input_get_text(table->editor->id));
+	if (typed) rvn_text_input_set_selection(table->editor, length, length);
+	else rvn_text_input_set_selection(table->editor, 0, length);
+	return R_TRUE;
+}
+
+/* The next editable cell after the one edited (`step` 1), or before it (-1), row after row. */
+static int rvn_table_next_editable(const rvn_table_t* table, int step, int* row, int* column) {
+	int r = table->edit_row, c = table->edit_column, count = rvn_table_count(table), columns = (int)table->column_count;
+	for (;;) {
+		c += step;
+		if (c >= columns) { c = 0; r++; }
+		if (c < 0) { c = columns - 1; r--; }
+		if (r < 0 || r >= count) return R_FALSE;
+		if (table->columns[c].editable) break;
+	}
+	*row = r;
+	*column = c;
+	return R_TRUE;
+}
+
+/* Keys that reach the table while a cell is edited (the editor did not use them). */
+static int rvn_table_editing_key(rvn_widget_t* widget, const REvent* event) {
+	rvn_table_t* table = (rvn_table_t*)widget;
+	int row, column, step;
+	switch (event->key) {
+		case R_KEY_ESCAPE:
+			rvn_table_close_editor(widget, R_TRUE);
+			return R_TRUE;
+		case R_KEY_TAB:
+			if (event->modifiers & (R_MOD_CTRL | R_MOD_ALT | R_MOD_SUPER)) return R_FALSE;
+			step = (event->modifiers & R_MOD_SHIFT) ? -1 : 1;
+			if (!rvn_table_next_editable(table, step, &row, &column)) {
+				rvn_table_commit_edit(widget, R_TRUE);
+				return R_TRUE;
+			}
+			if (rvn_table_commit_edit(widget, R_TRUE) && rvn_widget_alive(widget)) rvn_table_begin_edit(widget, row, column, NULL);
+			return R_TRUE;
+		case R_KEY_UP:
+		case R_KEY_DOWN:
+			/* the text is kept, and the row above or below selected */
+			row = table->edit_row + (event->key == R_KEY_UP ? -1 : 1);
+			if (rvn_table_commit_edit(widget, R_TRUE) && rvn_widget_alive(widget) && row >= 0 && row < rvn_table_count(table))
+				rvn_table_select(widget, row, R_TRUE);
+			return R_TRUE;
+		default:
+			/* the other keys do not move the table under the editor; the shortcuts of the window still work */
+			return R_FALSE;
+	}
 }
 
 /* ---------------------------------------------------------------------------
@@ -450,6 +756,8 @@ static void rvn_table_sort_rows(rvn_table_t* table, int column, int descending) 
 static void rvn_table_sort(rvn_widget_t* widget, int column, int descending, int notify) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	if (column < -1 || column >= (int)table->column_count) column = -1;
+	/* (the rows move under the editor) */
+	if (!table->is_virtual && column >= 0) rvn_table_close_editor(widget, R_TRUE);
 	table->sort_column = column;
 	table->sort_descending = descending ? R_TRUE : R_FALSE;
 	rvn_a11y_structure_changed();
@@ -484,9 +792,9 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 	float font = rvn_widget_font_size(widget, 0.0f);
 	int focused = (widget->flags & RVN_WF_FOCUSED) != 0;
 	int platform = rvn_widget_family(widget) != RVN_FAMILY_RAVEN;
-	int count = rvn_table_count(table), first, last, i;
-	float offset, left;
-	uint32_t c;
+	int count = rvn_table_count(table), first, last, i, pass;
+	float offset, hoffset;
+	uint32_t c, frozen = rvn_table_frozen_count(table);
 	rvn_color_t text = rvn_widget_text_color(widget, painter);
 	rvn_color_t selection = rvn_widget_color(widget, R_COLOR_SELECTION);
 	rvn_color_t separator = rvn_widget_color(widget, R_COLOR_SEPARATOR);
@@ -496,7 +804,7 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 
 	rvn_table_geometry(widget, &geometry);
 	offset = rvn_scrollbar_shown(&table->bar, painter);
-	left = geometry.body.x - rvn_scrollbar_shown(&table->hbar, painter);
+	hoffset = rvn_scrollbar_shown(&table->hbar, painter);
 
 	if (platform) {
 		rvn_platform_paint_list_frame(painter, widget, rect, rvn_widget_states(widget, painter, R_FALSE, R_FALSE));
@@ -507,13 +815,18 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 
 	/* ---- the header ---- */
 	if (geometry.header > 0.0f) {
-		float x = left;
 		rvn_paint_push_clip(painter, rvn_rect(1.0f, 1.0f, rect.w - 2.0f, geometry.header));
 		rvn_paint_rect(painter, rvn_rect(1.0f, 1.0f, rect.w - 2.0f, geometry.header), rvn_widget_color(widget, R_COLOR_HEADER));
-		for (c = 0; c < table->column_count; c++) {
+		/* the columns that scroll, then the frozen ones over them */
+		for (pass = 0; pass < 2; pass++)
+		for (c = pass ? 0 : frozen; c < (pass ? frozen : table->column_count); c++) {
 			rvn_table_column_t* column = &table->columns[c];
+			float x = rvn_table_column_left(table, &geometry, (int)c, hoffset), from, to;
 			rvn_rect_t cell = rvn_rect(x, 1.0f, column->shown, geometry.header);
 			float arrow = (int)c == table->sort_column ? 14.0f : 0.0f;
+			rvn_table_column_span(table, &geometry, (int)c, &from, &to);
+			if (x + column->shown <= from || x >= to) continue;
+			rvn_paint_push_clip(painter, rvn_rect(from, 1.0f, rvn_maxf(0.0f, to - from), geometry.header));
 			if (((int)c == table->hot_header && (widget->flags & RVN_WF_HOVERED) && column->sortable && painter->enabled) ||
 				(int)c == table->pressed_header) {
 				rvn_paint_rect(painter, cell, rvn_widget_color(widget, R_COLOR_HEADER_HOVERED));
@@ -529,7 +842,7 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 			/* the edge the user drags */
 			rvn_paint_rect(painter, rvn_rect(cell.x + cell.w - 1.0f, cell.y + 5.0f, 1.0f, rvn_maxf(0.0f, cell.h - 10.0f)),
 				(int)c == table->resizing ? rvn_widget_color(widget, R_COLOR_ACCENT) : separator);
-			x += column->shown;
+			rvn_paint_pop_clip(painter);
 		}
 		rvn_paint_rect(painter, rvn_rect(1.0f, geometry.header, rect.w - 2.0f, 1.0f), separator);
 		rvn_paint_pop_clip(painter);
@@ -560,7 +873,7 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 		}
 	}
 	for (i = first; i < last; i++) {
-		float y = geometry.body.y + row * (float)i - offset, x = left;
+		float y = geometry.body.y + row * (float)i - offset;
 		rvn_color_t color = text;
 		if (!rvn_table_is_selected(table, i) && i == table->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled) {
 			rvn_rect_t line = rvn_rect(geometry.body.x, y, geometry.body.w, row);
@@ -576,28 +889,66 @@ static void rvn_table_paint(rvn_widget_t* widget, RPainter* painter) {
 			rvn_color_t item = rvn_platform_item_foreground(widget, states | (rvn_table_is_selected(table, i) ? RVN_STATE_SELECTED : 0), RVN_ITEM_LIST);
 			if (rvn_color_a(item)) color = item;
 		}
-		for (c = 0; c < table->column_count; c++) {
+		for (pass = 0; pass < 2; pass++)
+		for (c = pass ? 0 : frozen; c < (pass ? frozen : table->column_count); c++) {
 			rvn_table_column_t* column = &table->columns[c];
+			float x = rvn_table_column_left(table, &geometry, (int)c, hoffset), from, to;
 			rvn_rect_t cell = rvn_rect(x + padding, y, rvn_maxf(0.0f, column->shown - padding * 2.0f), row);
-			if (x + column->shown >= geometry.body.x && x <= geometry.body.x + geometry.body.w) {
-				rvn_paint_push_clip(painter, cell);
+			rvn_table_column_span(table, &geometry, (int)c, &from, &to);
+			/* (the cell being edited is under its editor) */
+			if (x + column->shown > from && x < to && !(table->editing && i == table->edit_row && (int)c == table->edit_column)) {
+				rvn_paint_push_clip(painter, rvn_rect_intersect(cell, rvn_rect(from, y, rvn_maxf(0.0f, to - from), row)));
 				rvn_paint_text_in(painter, R_INVALID_ID, font, cell, column->align, rvn_table_cell(table, i, (int)c), -1,
 					rvn_table_cell_color(table, i, (int)c, color));
 				rvn_paint_pop_clip(painter);
 			}
-			x += column->shown;
 		}
 		if (table->grid_lines) rvn_paint_rect(painter, rvn_rect(geometry.body.x, y + row - 1.0f, geometry.body.w, 1.0f), rvn_color_fade(separator, 0.6f));
 	}
 	if (table->grid_lines) {
-		float x = left;
 		for (c = 0; c + 1 < table->column_count; c++) {
-			x += table->columns[c].shown;
+			float x = rvn_table_column_left(table, &geometry, (int)c, hoffset) + table->columns[c].shown, from, to;
+			rvn_table_column_span(table, &geometry, (int)c, &from, &to);
+			if (x <= from || x > to) continue;
 			rvn_paint_rect(painter, rvn_rect(x - 1.0f, geometry.body.y, 1.0f, rvn_minf(geometry.body.h, row * (float)count - offset)),
 				rvn_color_fade(separator, 0.6f));
 		}
 	}
+	/* the current cell of a table that edits its cells: a ring of the focus color */
+	if (focused && !table->editing && rvn_table_has_editable(table) && table->selected >= first && table->selected < last) {
+		int column = rvn_table_current_column(table);
+		if (column >= 0) {
+			float x = rvn_table_column_left(table, &geometry, column, hoffset), from, to;
+			rvn_table_column_span(table, &geometry, column, &from, &to);
+			rvn_paint_push_clip(painter, rvn_rect(from, geometry.body.y, rvn_maxf(0.0f, to - from), geometry.body.h));
+			rvn_paint_box(painter, rvn_rect(x + 1.0f, geometry.body.y + row * (float)table->selected - offset + 1.0f,
+				rvn_maxf(0.0f, table->columns[column].shown - 2.0f), row - 2.0f), 2.0f, 0, 1.5f, rvn_widget_color(widget, R_COLOR_FOCUS));
+			rvn_paint_pop_clip(painter);
+		}
+	}
 	rvn_paint_pop_clip(painter);
+
+	/* the edge of the frozen columns, and a shadow over the columns that went under them */
+	if (frozen > 0 && frozen < table->column_count) {
+		float edge = geometry.body.x + rvn_minf(rvn_table_frozen_width(table), geometry.body.w);
+		float top = 1.0f, height = geometry.header + geometry.body.h;
+		rvn_paint_rect(painter, rvn_rect(edge - 1.0f, top, 1.0f, height), separator);
+		if (hoffset > 0.5f) {
+			float shade = rvn_minf(1.0f, hoffset / 24.0f);
+			rvn_paint_push_clip(painter, rvn_rect(edge, top, rvn_maxf(0.0f, geometry.body.x + geometry.body.w - edge), height));
+			rvn_paint_gradient(painter, rvn_rect(edge, top, 8.0f, height), NULL, rvn_rgba(0.0f, 0.0f, 0.0f, 0.22f * shade),
+				rvn_rgba(0.0f, 0.0f, 0.0f, 0.0f), R_TRUE);
+			rvn_paint_pop_clip(painter);
+		}
+	}
+
+	/* the editor follows its cell when the table scrolls */
+	if (table->editing && table->editor) {
+		rvn_rect_t cell;
+		if (!rvn_table_cell_rect(widget, table->edit_row, table->edit_column, &cell)) cell = rvn_rect(0.0f, 0.0f, 0.0f, 0.0f);
+		if (fabsf(cell.x - table->editor->rect.x) > 0.5f || fabsf(cell.y - table->editor->rect.y) > 0.5f ||
+			fabsf(cell.w - table->editor->rect.w) > 0.5f || fabsf(cell.h - table->editor->rect.h) > 0.5f) rvn_widget_invalidate_layout(widget);
+	}
 
 	if (geometry.vtrack.w > 0.0f) rvn_scrollbar_paint(&table->bar, widget, painter, geometry.vtrack, R_TRUE, mouse_x, mouse_y);
 	if (geometry.htrack.h > 0.0f) rvn_scrollbar_paint(&table->hbar, widget, painter, geometry.htrack, R_FALSE, mouse_x, mouse_y);
@@ -672,6 +1023,15 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 			}
 			row = rvn_table_row_at(widget, event->local_x, event->local_y);
 			if (row >= 0) {
+				int column;
+				rvn_table_geometry(widget, &geometry);
+				column = rvn_table_column_at(table, &geometry, event->local_x, table->hbar.offset);
+				if (column >= 0) table->column = column;
+				/* a double click edits an editable cell, and activates the row elsewhere */
+				if (event->clicks == 2 && column >= 0 && table->columns[column].editable && !(event->modifiers & (R_MOD_SHIFT | R_MOD_CTRL | R_MOD_SUPER))) {
+					rvn_table_begin_edit(widget, row, column, NULL);
+					return R_TRUE;
+				}
 				rvn_table_select_input(widget, row, event->modifiers);
 				if (event->clicks == 2 && rvn_widget_alive(widget)) rvn_table_activate(widget);
 			}
@@ -708,6 +1068,7 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 			if (along != 0.0f) changed |= rvn_scrollbar_wheel(&table->bar, -along * rvn_table_row_height(widget) * 3.0f);
 			if (across != 0.0f) changed |= rvn_scrollbar_wheel(&table->hbar, -across * 40.0f);
 			if (changed) table->hot = rvn_table_row_at(widget, event->local_x, event->local_y);
+			if (changed && table->editing) rvn_widget_invalidate_layout(widget);
 			rvn_widget_invalidate_paint(widget);
 			return changed;
 		}
@@ -715,8 +1076,46 @@ static int rvn_table_event(rvn_widget_t* widget, const REvent* event) {
 		case R_EVENT_FOCUS_LOST:
 			rvn_widget_invalidate_paint(widget);
 			return R_FALSE;
+		case R_EVENT_TEXT:
+			/* a character typed on an editable current cell starts editing it with that character */
+			if (table->editing || event->codepoint < 32 || event->codepoint == 127 || table->selected < 0) return R_FALSE;
+			{
+				int column = rvn_table_current_column(table);
+				char typed[5] = { 0 };
+				if (column < 0 || !table->columns[column].editable) return R_FALSE;
+				typed[rvn_utf8_encode(event->codepoint, typed)] = '\0';
+				rvn_table_begin_edit(widget, table->selected, column, typed);
+				return R_TRUE;
+			}
 		case R_EVENT_KEY_DOWN:
+			if (table->editing) return rvn_table_editing_key(widget, event);
 			rvn_table_geometry(widget, &geometry);
+			if (rvn_table_has_editable(table)) {
+				/* a table with editable cells has a current cell: Left and Right move it, F2 and Enter edit it */
+				int column = rvn_table_current_column(table);
+				switch (event->key) {
+					case R_KEY_LEFT:
+					case R_KEY_RIGHT:
+						if (event->modifiers & (R_MOD_CTRL | R_MOD_ALT | R_MOD_SUPER)) return R_FALSE;
+						column = rvn_clampi(column + (event->key == R_KEY_LEFT ? -1 : 1), 0, (int)table->column_count - 1);
+						table->column = column;
+						rvn_table_reveal_column(widget, column);
+						if (table->selected < 0 && count > 0) rvn_table_select(widget, 0, R_TRUE);
+						rvn_widget_invalidate_paint(widget);
+						return R_TRUE;
+					case R_KEY_F2:
+					case R_KEY_ENTER:
+					case R_KEY_KP_ENTER:
+						if (table->selected >= 0 && column >= 0 && table->columns[column].editable) {
+							rvn_table_begin_edit(widget, table->selected, column, NULL);
+							return R_TRUE;
+						}
+						if (event->key == R_KEY_F2) return R_FALSE;
+						break;
+					default:
+						break;
+				}
+			}
 			switch (event->key) {
 				case R_KEY_LEFT:
 				case R_KEY_RIGHT:
@@ -815,12 +1214,14 @@ static void rvn_table_clear_rows(rvn_widget_t* widget) {
 static void rvn_table_clear_columns(rvn_widget_t* widget) {
 	rvn_table_t* table = (rvn_table_t*)widget;
 	uint32_t i;
+	rvn_table_close_editor(widget, R_TRUE);
 	rvn_table_clear_rows(widget);
 	rvn_free(table->cells);
 	table->cells = NULL;
 	table->row_cap = 0;
 	for (i = 0; i < table->column_count; i++) rvn_free(table->columns[i].header);
 	table->column_count = 0;
+	table->column = -1;
 	table->sort_column = -1;
 	table->hbar.offset = 0.0f;
 	rvn_widget_invalidate_layout(widget);
@@ -906,6 +1307,9 @@ static int rvn_table_set_attribute(rvn_widget_t* widget, const char* name, const
 		if (!rvn_parse_bool(value, &table->grid_lines)) return R_FALSE;
 	} else if (RVN_ATTR("Striped")) {
 		if (!rvn_parse_bool(value, &table->striped)) return R_FALSE;
+	} else if (RVN_ATTR("FrozenColumns")) {
+		if (!rvn_parse_int(value, &number) || number < 0) return R_FALSE;
+		table->frozen = (uint32_t)number;
 	} else {
 		return R_FALSE;
 	}
@@ -931,6 +1335,8 @@ static int rvn_table_xml_child(rvn_widget_t* widget, const rvn_xml_node_t* node)
 		if (value && !rvn_parse_bool(value, &column->sortable)) return R_FALSE;
 		value = rvn_xml_attribute(node, "Align");
 		if (value && !rvn_parse_table_align(value, &column->align)) return R_FALSE;
+		value = rvn_xml_attribute(node, "Editable");
+		if (value && !rvn_parse_bool(value, &column->editable)) return R_FALSE;
 		return R_TRUE;
 	}
 	if (rvn_stricmp(node->name, "Row") == 0) {
@@ -1110,6 +1516,9 @@ void Rtable_remove_row(Rid id, int row) {
 	}
 	table->row_count--;
 	rvn_a11y_structure_changed();
+	/* the editor too */
+	if (table->editing && table->edit_row == row) rvn_table_close_editor(widget, R_TRUE);
+	else if (table->editing && table->edit_row > row) table->edit_row--;
 	/* the selection follows the row it was on */
 	if (table->selected == row) table->selected = -1;
 	else if (table->selected > row) table->selected--;
@@ -1122,6 +1531,7 @@ void Rtable_remove_row(Rid id, int row) {
 
 void Rtable_clear_rows(Rid id) {
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	rvn_table_close_editor(widget, R_TRUE);
 	rvn_table_clear_rows(widget);
 	((rvn_table_t*)widget)->virtual_count = 0;
 }
@@ -1140,6 +1550,8 @@ void Rtable_set_virtual_rows(Rid id, int count, RTableCellTextCallback callback,
 	int i;
 	float offset = table->bar.offset;
 	for (i = 0; selection && i < keep; i++) selection[i] = (uint8_t)rvn_table_is_selected(table, i);
+	/* refreshing the count keeps the editor on its row while the row is still there */
+	if (table->editing && (!callback || table->edit_row >= (callback && count > 0 ? count : 0))) rvn_table_close_editor(widget, R_TRUE);
 	rvn_table_clear_rows(widget);
 	table->is_virtual = callback != NULL;
 	table->virtual_count = callback && count > 0 ? count : 0;
@@ -1317,4 +1729,65 @@ void Rtable_set_sort_callback(Rid id, RTableSortCallback callback, void* user_da
 	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
 	((rvn_table_t*)widget)->sort_callback = callback;
 	((rvn_table_t*)widget)->sort_user = user_data;
+}
+
+void Rtable_set_column_editable(Rid id, int column, int editable) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	RVN_TABLE_COLUMN(table, column, "Rtable_set_column_editable", RVN_NOTHING)
+	table->columns[column].editable = editable ? R_TRUE : R_FALSE;
+	rvn_widget_invalidate_paint(widget);
+}
+
+int Rtable_is_column_editable(Rid id, int column) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	RVN_TABLE_COLUMN(table, column, "Rtable_is_column_editable", R_FALSE)
+	return table->columns[column].editable;
+}
+
+void Rtable_set_cell_edited_callback(Rid id, RTableCellEditedCallback callback, void* user_data) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	((rvn_table_t*)widget)->edited_callback = callback;
+	((rvn_table_t*)widget)->edited_user = user_data;
+}
+
+int Rtable_edit_cell(Rid id, int row, int column) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	rvn_table_t* table = (rvn_table_t*)widget;
+	RVN_TABLE_COLUMN(table, column, "Rtable_edit_cell", R_FALSE)
+	if (row < 0 || row >= rvn_table_count(table)) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_edit_cell: invalid row %d", row);
+		return R_FALSE;
+	}
+	if (widget->window && widget->window->needs_layout) rvn_window_layout(widget->window);
+	return rvn_table_begin_edit(widget, row, column, NULL);
+}
+
+int Rtable_is_editing(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_FALSE);
+	return ((rvn_table_t*)widget)->editing;
+}
+
+int Rtable_end_edit(Rid id, int commit) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, R_TRUE);
+	if (!((rvn_table_t*)widget)->editing) return R_TRUE;
+	if (commit) return rvn_table_commit_edit(widget, R_TRUE);
+	rvn_table_close_editor(widget, R_TRUE);
+	return R_TRUE;
+}
+
+void Rtable_set_frozen_columns(Rid id, int count) {
+	RVN_WIDGET_VOID(widget, id, R_WIDGET_TABLE);
+	if (count < 0) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rtable_set_frozen_columns: invalid count %d", count);
+		return;
+	}
+	((rvn_table_t*)widget)->frozen = (uint32_t)count;
+	rvn_widget_invalidate_layout(widget);
+}
+
+int Rtable_get_frozen_columns(Rid id) {
+	RVN_WIDGET(widget, id, R_WIDGET_TABLE, 0);
+	return (int)((rvn_table_t*)widget)->frozen;
 }

@@ -1517,6 +1517,21 @@
 					"description": "Which one is chosen, from 0; -1 for none."
 				},
 				{
+					"name": "Editable",
+					"kind": "bool",
+					"description": "A text field: any text can be typed, not only the items."
+				},
+				{
+					"name": "Searchable",
+					"kind": "bool",
+					"description": "Typing filters the list to the items that contain the text, without regard to case or accents."
+				},
+				{
+					"name": "Text",
+					"kind": "text",
+					"description": "The text of an editable combo box (the item equal to it is selected)."
+				},
+				{
 					"name": "OnChanged",
 					"kind": "action",
 					"description": "Action fired when the choice changes."
@@ -1615,6 +1630,16 @@
 					"name": "IconSize",
 					"kind": "number",
 					"description": "Size of the icon of a tile."
+				},
+				{
+					"name": "IconWidth",
+					"kind": "number",
+					"description": "Rows layout: width of the box of the icon (0: square)."
+				},
+				{
+					"name": "HeaderHeight",
+					"kind": "number",
+					"description": "Height of the header of a section (Rtile_view_set_sections)."
 				},
 				{
 					"name": "Spacing",
@@ -2320,7 +2345,17 @@
 				{
 					"name": "Columns",
 					"kind": "list",
-					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."
+					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable)."
+				},
+				{
+					"name": "FrozenColumns",
+					"kind": "number",
+					"description": "The first columns that stay in place when the table scrolls sideways."
+				},
+				{
+					"name": "MultiSelect",
+					"kind": "bool",
+					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
 				},
 				{
 					"name": "Selected",

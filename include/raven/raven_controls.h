@@ -441,6 +441,34 @@ extern "C" {
 	RAVEN_API int Rcombo_box_get_selected(Rid combo_box);
 	typedef void (*RComboBoxChangedCallback)(Rid combo_box, int index, void* user_data);
 	RAVEN_API void Rcombo_box_set_changed_callback(Rid combo_box, RComboBoxChangedCallback callback, void* user_data);
+	/**
+	 * @brief R_TRUE: the combo box is a text field with its list: the user
+	 * may type a text that is not one of the items (Editable="true"). The text
+	 * is Rcombo_box_get_text; choosing an item puts its text there. A typed
+	 * text equal to an item selects it, any other selects nothing (-1).
+	 */
+	RAVEN_API void Rcombo_box_set_editable(Rid combo_box, int editable);
+	RAVEN_API int Rcombo_box_is_editable(Rid combo_box);
+	/**
+	 * @brief R_TRUE: typing in the combo box filters its list (Searchable="true"):
+	 * the items that contain what was typed, without regard to case or
+	 * accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+	 * matches. Up and Down move in the list, Enter chooses, Escape closes it.
+	 * A searchable combo box that is not editable comes back to the item
+	 * chosen when nothing is.
+	 */
+	RAVEN_API void Rcombo_box_set_searchable(Rid combo_box, int searchable);
+	RAVEN_API int Rcombo_box_is_searchable(Rid combo_box);
+	/** @brief The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none). */
+	RAVEN_API const char* Rcombo_box_get_text(Rid combo_box);
+	/** @brief Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text. */
+	RAVEN_API void Rcombo_box_set_text(Rid combo_box, const char* text);
+	/** @brief Called each time the user changes the text of an editable or searchable combo box. */
+	typedef void (*RComboBoxTextCallback)(Rid combo_box, const char* text, void* user_data);
+	RAVEN_API void Rcombo_box_set_text_changed_callback(Rid combo_box, RComboBoxTextCallback callback, void* user_data);
+	/** @brief Opens (R_TRUE) or closes the list. */
+	RAVEN_API void Rcombo_box_set_open(Rid combo_box, int open);
+	RAVEN_API int Rcombo_box_is_open(Rid combo_box);
 
 
 	/* ============================================================================
@@ -763,6 +791,15 @@ extern "C" {
 	 * the indices are always those of the order shown. A virtual table only
 	 * shows the sorted column and calls the sort callback, where the
 	 * application orders its data.
+	 *
+	 * Cells of the columns made editable (Rtable_set_column_editable, or
+	 * Editable="true" on a Column) are edited in place: a double click, F2,
+	 * Enter or a typed character on the current cell opens a text field over
+	 * it. Enter keeps the text and goes down a row, Tab and Shift+Tab keep it
+	 * and go to the next or previous editable cell, Escape forgets it, and a
+	 * click elsewhere keeps it. Left and Right move the current cell. The
+	 * first columns can stay in place while the others scroll sideways
+	 * (Rtable_set_frozen_columns, FrozenColumns="1").
 	 * ============================================================================ */
 
 	/**
@@ -849,6 +886,42 @@ extern "C" {
 	/** @brief Called when the user clicks a header; `column` -1: not sorted. */
 	typedef void (*RTableSortCallback)(Rid table, int column, int descending, void* user_data);
 	RAVEN_API void Rtable_set_sort_callback(Rid table, RTableSortCallback callback, void* user_data);
+
+	/** @brief R_TRUE: the cells of the column are edited in place by the user (default R_FALSE). */
+	RAVEN_API void Rtable_set_column_editable(Rid table, int column, int editable);
+	RAVEN_API int Rtable_is_column_editable(Rid table, int column);
+	/**
+	 * @brief Called when the user keeps the text typed in a cell (Enter, Tab,
+	 * a click elsewhere). Return R_TRUE to accept it: a stored table then
+	 * keeps the text in the cell, unless the callback set the cell itself
+	 * (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+	 * nothing: the application keeps the text in its data. Return R_FALSE to
+	 * refuse it: after Enter or Tab the field stays open on the text, so the
+	 * user can correct it; after a click elsewhere the edit is dropped.
+	 * Without a callback, a stored table keeps every text.
+	 */
+	typedef int (*RTableCellEditedCallback)(Rid table, int row, int column, const char* text, void* user_data);
+	RAVEN_API void Rtable_set_cell_edited_callback(Rid table, RTableCellEditedCallback callback, void* user_data);
+	/**
+	 * @brief Opens the editor on a cell, its text selected, as F2 does (the
+	 * row is selected and scrolled into view). Any column can be edited this
+	 * way, editable or not. @return R_TRUE when the editor is open.
+	 */
+	RAVEN_API int Rtable_edit_cell(Rid table, int row, int column);
+	RAVEN_API int Rtable_is_editing(Rid table);
+	/**
+	 * @brief Closes the editor: `commit` R_TRUE keeps the text (through the
+	 * cell edited callback), R_FALSE forgets it. @return R_FALSE when the text
+	 * was refused (the editor then stays open), R_TRUE otherwise.
+	 */
+	RAVEN_API int Rtable_end_edit(Rid table, int commit);
+	/**
+	 * @brief The first `count` columns stay in place when the table scrolls
+	 * sideways; a thin shadow marks where the others pass under them. 0 (the
+	 * default): every column scrolls.
+	 */
+	RAVEN_API void Rtable_set_frozen_columns(Rid table, int count);
+	RAVEN_API int Rtable_get_frozen_columns(Rid table);
 
 
 	/* ============================================================================

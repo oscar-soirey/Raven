@@ -91,8 +91,12 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Widgets
 
-- [ ] Table: several selected rows, cells that are edited in place, cells
-  holding a widget (a checkbox, a progress bar), frozen first column.
+- [~] Table: several selected rows, cells that are edited in place
+  (`Rtable_set_column_editable`, `Rtable_set_cell_edited_callback`) and
+  frozen first columns (`Rtable_set_frozen_columns`) are done; cells
+  holding a widget (a checkbox, a progress bar) are not.
+- [x] ComboBox: editable (any text) and searchable (typing filters the list,
+  without regard to case or accents).
 - [ ] Date picker: a range of two dates; a time zone aware time picker; a
   12-hour clock where the locale uses one.
 - [ ] Notifications: actions (buttons), a click that brings the window

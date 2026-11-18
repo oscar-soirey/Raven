@@ -271,6 +271,9 @@ static const rvn_schema_attribute_t g_spin_box[] = {
 static const rvn_schema_attribute_t g_combo_box[] = {
 	L("Items", "The choices, separated by '|'."),
 	N("Selected", "Which one is chosen, from 0; -1 for none."),
+	B("Editable", "A text field: any text can be typed, not only the items."),
+	B("Searchable", "Typing filters the list to the items that contain the text, without regard to case or accents."),
+	T("Text", "The text of an editable combo box (the item equal to it is selected)."),
 	A("OnChanged", "Action fired when the choice changes."),
 };
 static const rvn_schema_attribute_t g_list_view[] = {
@@ -280,7 +283,8 @@ static const rvn_schema_attribute_t g_list_view[] = {
 	A("OnActivated", "Action fired by a double click or Enter."),
 };
 static const rvn_schema_attribute_t g_table[] = {
-	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."),
+	L("Columns", "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable)."),
+	N("FrozenColumns", "The first columns that stay in place when the table scrolls sideways."),
 	B("MultiSelect", "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."),
 	N("Selected", "Which row is selected, from 0; -1 for none."),
 	N("SortColumn", "The column the rows are sorted by, from 0; -1 for none."),

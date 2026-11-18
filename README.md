@@ -966,6 +966,38 @@ on the UI thread for visible cells only.
 Screen readers see selectable rows, including Cocoa selected rows, AT-SPI
 selected states, UIA multiple-selection support and the browser grid state.
 
+### Editing cells, frozen columns, searchable combo boxes
+
+```c
+Rtable_set_column_editable(table, 1, R_TRUE);       /* or <Column Editable="true"/> */
+Rtable_set_cell_edited_callback(table, on_edited, NULL);
+Rtable_set_frozen_columns(table, 1);                /* or <Table FrozenColumns="1"> */
+
+static int on_edited(Rid table, int row, int column, const char* text, void* user) {
+    return is_valid(text);            /* R_FALSE: refused, the editor stays open */
+}
+```
+
+The cells of an editable column are edited in place: a double click, F2,
+Enter or a typed character on the current cell opens a text field over it.
+Enter keeps the text and goes down a row, Tab and Shift+Tab go to the next or
+previous editable cell, Escape forgets the text, and a click elsewhere keeps
+it. Left and Right move the current cell. The callback accepts or refuses
+the text; a stored table then keeps it (or what the callback wrote with
+`Rtable_set_cell`), a virtual table leaves it to the application.
+`Rtable_edit_cell`, `Rtable_is_editing` and `Rtable_end_edit` drive the
+editor from the program. Frozen columns stay at the left while the others
+scroll under them, with a thin shadow at their edge. A screen reader sees the
+editor as a text field named after its column.
+
+`Rcombo_box_set_searchable` (`Searchable="true"`) turns a combo box into a
+field that filters its list as the user types: the items that contain the
+text without regard to case or accents ("sao" finds "São Paulo"), Up / Down
+and Enter to choose, a "No matches" row when nothing does.
+`Rcombo_box_set_editable` (`Editable="true"`) accepts any text, read with
+`Rcombo_box_get_text` and followed with `Rcombo_box_set_text_changed_callback`.
+The `workspace` example has a Tasks panel with both.
+
 ### Drag and drop
 
 ```c
