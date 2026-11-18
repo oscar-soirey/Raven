@@ -74,7 +74,9 @@ typedef enum RBackend{
 	/** Backend supplied with Rbackend_register (see raven_backend.h). */
 	R_BACKEND_CUSTOM,
     /** Browser renderer (Emscripten, WebGL 2). */
-    R_BACKEND_WEBGL
+    R_BACKEND_WEBGL,
+	/** Built-in Metal renderer (macOS, iOS). */
+	R_BACKEND_METAL
 }RBackend;
 
 typedef enum RError{
@@ -105,7 +107,7 @@ typedef enum RSeverity{
  * default for every field, so new fields can be added without breaking code.
  */
 typedef struct RInitDesc {
-	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
+	/** Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
 	RBackend backend;
 	/** Application name reported to the graphics driver. May be NULL. */
 	const char* app_name;

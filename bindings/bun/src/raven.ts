@@ -1457,12 +1457,15 @@ export enum RBackend {
 	R_BACKEND_CUSTOM = 3,
 	/** Browser renderer (Emscripten, WebGL 2). */
 	R_BACKEND_WEBGL = 4,
+	/** Built-in Metal renderer (macOS, iOS). */
+	R_BACKEND_METAL = 5,
 }
 
 export const R_BACKEND_VULKAN = RBackend.R_BACKEND_VULKAN;
 export const R_BACKEND_NULL = RBackend.R_BACKEND_NULL;
 export const R_BACKEND_CUSTOM = RBackend.R_BACKEND_CUSTOM;
 export const R_BACKEND_WEBGL = RBackend.R_BACKEND_WEBGL;
+export const R_BACKEND_METAL = RBackend.R_BACKEND_METAL;
 
 export enum RError {
 	R_NO_ERROR = 0x0070,
@@ -3461,7 +3464,7 @@ export class RInitDesc extends RStruct {
 		return pointer ? new RInitDesc(pointer) : null;
 	}
 
-	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
+	/** Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
 	get backend(): RBackend {
 		return this._view.getInt32(0, true) as RBackend;
 	}
@@ -5071,7 +5074,7 @@ export class RFileDialogDesc extends RStruct {
 
 /** Passed to the draw callback of a viewport. Sizes are in pixels. */
 export class RViewportDrawInfo extends RStruct {
-	static readonly SIZE = 88;
+	static readonly SIZE = 112;
 
 	constructor(pointer?: Pointer) {
 		super(RViewportDrawInfo.SIZE, pointer);
@@ -5204,12 +5207,36 @@ export class RViewportDrawInfo extends RStruct {
 		this._view.setBigUint64(72, BigInt(value ?? 0), true);
 	}
 
-	/** Vulkan: VkFormat of the color attachment. */
+	/** Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. */
 	get color_format(): number {
 		return this._view.getUint32(80, true);
 	}
 	set color_format(value: number) {
 		this._view.setUint32(80, value, true);
+	}
+
+	/** Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). */
+	get metal_encoder(): Pointer | null {
+		return _address(this._view.getBigUint64(88, true));
+	}
+	set metal_encoder(value: Pointer | null) {
+		this._view.setBigUint64(88, BigInt(value ?? 0), true);
+	}
+
+	/** Metal: id<MTLCommandBuffer> the encoder belongs to. */
+	get metal_command_buffer(): Pointer | null {
+		return _address(this._view.getBigUint64(96, true));
+	}
+	set metal_command_buffer(value: Pointer | null) {
+		this._view.setBigUint64(96, BigInt(value ?? 0), true);
+	}
+
+	/** Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. */
+	get metal_device(): Pointer | null {
+		return _address(this._view.getBigUint64(104, true));
+	}
+	set metal_device(value: Pointer | null) {
+		this._view.setBigUint64(104, BigInt(value ?? 0), true);
 	}
 }
 

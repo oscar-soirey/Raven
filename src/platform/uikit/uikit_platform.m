@@ -10,8 +10,13 @@
  *
  * Each Raven window is a UIWindow on the first connected UIWindowScene, with
  * a view controller whose view carries a CAMetalLayer. The renderer is given
- * R_WINDOW_SYSTEM_UIKIT with the CAMetalLayer*, from which it makes a
- * VK_EXT_metal_surface as it does for Cocoa.
+ * R_WINDOW_SYSTEM_UIKIT with the CAMetalLayer*: the Metal backend draws into
+ * it, Vulkan makes a VK_EXT_metal_surface of it as it does for Cocoa.
+ *
+ * iOS terminates an application that sends work to the GPU in the background:
+ * the Metal backend is suspended when the application leaves the foreground
+ * (and the GPU waited for), and draws again when it comes back. The layer
+ * lives as long as the view, so nothing of the renderer is lost meanwhile.
  *
  * Compiled with ARC (see CMakeLists.txt).
  */
@@ -21,6 +26,9 @@
 #import <Metal/Metal.h>
 
 #include "../platform.h"
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+#include "../../render/renderer.h"
+#endif
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, as the Android platform reaches the core) */
 #include "../../widget/widget.h"
 
@@ -923,6 +931,29 @@ static void rvn_uikit_scene_focus(NSNotification* note, int focused) {
 	}
 }
 
+/*
+ * The application goes to the background (R_TRUE) or comes back (R_FALSE).
+ * In the background no command buffer may reach the GPU: the Metal backend is
+ * suspended, which waits until the GPU is idle. Back in the foreground every
+ * window is drawn again.
+ */
+static void rvn_uikit_background(int background) {
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+	rvn_pwindow_t* window;
+	rvn_metal_set_suspended(background);
+	if (background) return;
+	for (window = g_uikit.windows; window; window = window->next) {
+		rvn_pevent_t e;
+		memset(&e, 0, sizeof(e));
+		e.type = RVN_PEVENT_EXPOSE;
+		e.user = window->user;
+		rvn_uikit_post(&e);
+	}
+#else
+	RVN_UNUSED(background);
+#endif
+}
+
 static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regions) {
 	NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
 	NSOperationQueue* main = [NSOperationQueue mainQueue];
@@ -941,6 +972,14 @@ static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 		}],
 		[center addObserverForName:UISceneWillDeactivateNotification object:nil queue:main usingBlock:^(NSNotification* note) {
 			rvn_uikit_scene_focus(note, R_FALSE);
+		}],
+		[center addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_background(R_TRUE);
+		}],
+		[center addObserverForName:UIApplicationWillEnterForegroundNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_background(R_FALSE);
 		}]
 	]);
 	return R_TRUE;

@@ -37,6 +37,7 @@ typedef enum RBackend {
 	R_BACKEND_NULL = 2,
 	R_BACKEND_CUSTOM = 3,
 	R_BACKEND_WEBGL = 4,
+	R_BACKEND_METAL = 5,
 } RBackend;
 typedef enum RError {
 	R_NO_ERROR = 112,
@@ -1152,6 +1153,9 @@ struct RViewportDrawInfo {
 	void* command_buffer;
 	void* render_pass;
 	Ruint color_format;
+	void* metal_encoder;
+	void* metal_command_buffer;
+	void* metal_device;
 };
 struct RSpring {
 	float value;

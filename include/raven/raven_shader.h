@@ -35,6 +35,8 @@
  * The guide docs/shaders.html describes everything an effect can use.
  * The Vulkan backend runs effects; a backend without them (R_BACKEND_NULL, a
  * custom backend whose CreateShader is NULL) draws the rectangle in `color`.
+ * The Metal backend runs the built-in effects (REffect) and draws the effects
+ * given as SPIR-V as rectangles in `color` (ask for R_BACKEND_VULKAN to run them).
  */
 
 #ifndef RAVEN_SHADER_H

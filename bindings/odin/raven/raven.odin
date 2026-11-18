@@ -57,6 +57,8 @@ R_BACKEND_NULL :: 2
 R_BACKEND_CUSTOM :: 3
 // Browser renderer (Emscripten, WebGL 2).
 R_BACKEND_WEBGL :: 4
+// Built-in Metal renderer (macOS, iOS).
+R_BACKEND_METAL :: 5
 
 RError :: i32
 R_NO_ERROR :: 0x0070
@@ -1444,7 +1446,7 @@ RAccessiblePressCallback :: #type proc "c" (widget: Rid, user_data: rawptr)
 // Optional settings for Rinit_ex. A zero-initialized structure selects the
 // default for every field, so new fields can be added without breaking code.
 RInitDesc :: struct {
-	// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+	// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
 	backend: RBackend,
 	// Application name reported to the graphics driver. May be NULL.
 	app_name: cstring,
@@ -1854,8 +1856,14 @@ RViewportDrawInfo :: struct {
 	command_buffer: rawptr,
 	// Vulkan: VkRenderPass in use (one color attachment, no depth).
 	render_pass: rawptr,
-	// Vulkan: VkFormat of the color attachment.
+	// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
 	color_format: u32,
+	// Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+	metal_encoder: rawptr,
+	// Metal: id<MTLCommandBuffer> the encoder belongs to.
+	metal_command_buffer: rawptr,
+	// Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
+	metal_device: rawptr,
 }
 
 // State of one animated value. Zero-initialize it and keep it with the widget.

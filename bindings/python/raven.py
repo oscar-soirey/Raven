@@ -119,11 +119,13 @@ class RBackend(enum.IntEnum):
     R_BACKEND_NULL = 2
     R_BACKEND_CUSTOM = 3
     R_BACKEND_WEBGL = 4
+    R_BACKEND_METAL = 5
 
 R_BACKEND_VULKAN = RBackend.R_BACKEND_VULKAN
 R_BACKEND_NULL = RBackend.R_BACKEND_NULL
 R_BACKEND_CUSTOM = RBackend.R_BACKEND_CUSTOM
 R_BACKEND_WEBGL = RBackend.R_BACKEND_WEBGL
+R_BACKEND_METAL = RBackend.R_BACKEND_METAL
 
 class RError(enum.IntEnum):
     R_NO_ERROR = 0x0070
@@ -1993,6 +1995,9 @@ class RViewportDrawInfo(ctypes.Structure):
         ("command_buffer", ctypes.c_void_p),
         ("render_pass", ctypes.c_void_p),
         ("color_format", ctypes.c_uint32),
+        ("metal_encoder", ctypes.c_void_p),
+        ("metal_command_buffer", ctypes.c_void_p),
+        ("metal_device", ctypes.c_void_p),
     ]
 
 

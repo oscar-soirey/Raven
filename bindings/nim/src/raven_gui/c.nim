@@ -424,7 +424,7 @@ type
     ## Optional settings for Rinit_ex. A zero-initialized structure selects the
     ## default for every field, so new fields can be added without breaking code.
     backend*: RBackend
-      ## Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+      ## Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     app_name*: cstring
       ## Application name reported to the graphics driver. May be NULL.
     worker_threads*: cint
@@ -796,7 +796,13 @@ type
     render_pass*: pointer
       ## Vulkan: VkRenderPass in use (one color attachment, no depth).
     color_format*: uint32
-      ## Vulkan: VkFormat of the color attachment.
+      ## Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
+    metal_encoder*: pointer
+      ## Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+    metal_command_buffer*: pointer
+      ## Metal: id<MTLCommandBuffer> the encoder belongs to.
+    metal_device*: pointer
+      ## Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
   RSpring* {.bycopy.} = object
     ## State of one animated value. Zero-initialize it and keep it with the widget.
     value*: cfloat
@@ -877,6 +883,8 @@ const
     ## Backend supplied with Rbackend_register (see raven_backend.h).
   R_BACKEND_WEBGL*: RBackend = 4
     ## Browser renderer (Emscripten, WebGL 2).
+  R_BACKEND_METAL*: RBackend = 5
+    ## Built-in Metal renderer (macOS, iOS).
 
   # RError
   R_NO_ERROR*: RError = 0x0070

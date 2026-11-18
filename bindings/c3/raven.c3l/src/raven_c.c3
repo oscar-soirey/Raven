@@ -38,6 +38,8 @@ const RBackend R_BACKEND_NULL = 2;
 const RBackend R_BACKEND_CUSTOM = 3;
 <* Browser renderer (Emscripten, WebGL 2). *>
 const RBackend R_BACKEND_WEBGL = 4;
+<* Built-in Metal renderer (macOS, iOS). *>
+const RBackend R_BACKEND_METAL = 5;
 
 alias RError = CInt;
 const RError R_NO_ERROR = 0x0070;
@@ -1541,7 +1543,7 @@ alias RAccessiblePressCallback = fn void(Rid widget, void* user_data);
 *>
 struct RInitDesc
 {
-	<* Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. *>
+	<* Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
 	RBackend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	char* app_name;
@@ -1988,8 +1990,14 @@ struct RViewportDrawInfo
 	void* command_buffer;
 	<* Vulkan: VkRenderPass in use (one color attachment, no depth). *>
 	void* render_pass;
-	<* Vulkan: VkFormat of the color attachment. *>
+	<* Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. *>
 	Ruint color_format;
+	<* Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). *>
+	void* metal_encoder;
+	<* Metal: id<MTLCommandBuffer> the encoder belongs to. *>
+	void* metal_command_buffer;
+	<* Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. *>
+	void* metal_device;
 }
 
 <* State of one animated value. Zero-initialize it and keep it with the widget. *>

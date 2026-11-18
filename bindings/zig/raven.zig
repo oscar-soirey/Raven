@@ -47,6 +47,8 @@ pub const R_BACKEND_NULL: RBackend = 2;
 pub const R_BACKEND_CUSTOM: RBackend = 3;
 /// Browser renderer (Emscripten, WebGL 2).
 pub const R_BACKEND_WEBGL: RBackend = 4;
+/// Built-in Metal renderer (macOS, iOS).
+pub const R_BACKEND_METAL: RBackend = 5;
 
 pub const RError = c_int;
 pub const R_NO_ERROR: RError = 0x0070;
@@ -1434,7 +1436,7 @@ pub const RAccessiblePressCallback = ?*const fn (widget: Rid, user_data: ?*anyop
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
 pub const RInitDesc = extern struct {
-    /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+    /// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     backend: RBackend = 0,
     /// Application name reported to the graphics driver. May be NULL.
     app_name: ?[*:0]const u8 = null,
@@ -1844,8 +1846,14 @@ pub const RViewportDrawInfo = extern struct {
     command_buffer: ?*anyopaque = null,
     /// Vulkan: VkRenderPass in use (one color attachment, no depth).
     render_pass: ?*anyopaque = null,
-    /// Vulkan: VkFormat of the color attachment.
+    /// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
     color_format: u32 = 0,
+    /// Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+    metal_encoder: ?*anyopaque = null,
+    /// Metal: id<MTLCommandBuffer> the encoder belongs to.
+    metal_command_buffer: ?*anyopaque = null,
+    /// Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
+    metal_device: ?*anyopaque = null,
 };
 
 /// State of one animated value. Zero-initialize it and keep it with the widget.

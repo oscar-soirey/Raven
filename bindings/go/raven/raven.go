@@ -120,6 +120,7 @@ const (
 	R_BACKEND_NULL   RBackend = 2
 	R_BACKEND_CUSTOM RBackend = 3
 	R_BACKEND_WEBGL  RBackend = 4
+	R_BACKEND_METAL  RBackend = 5
 )
 
 type RError int32

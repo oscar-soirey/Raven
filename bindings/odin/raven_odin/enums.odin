@@ -16,6 +16,8 @@ Backend :: enum i32 {
 	Custom = 3,
 	// Browser renderer (Emscripten, WebGL 2).
 	Webgl = 4,
+	// Built-in Metal renderer (macOS, iOS).
+	Metal = 5,
 }
 
 Error :: enum i32 {

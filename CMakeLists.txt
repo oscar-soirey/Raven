@@ -37,6 +37,7 @@ option(RAVEN_BUILD_TOOLS "Build the tools (the designer)" ${RAVEN_IS_TOP_LEVEL})
 option(RAVEN_BUILD_INSTALLER "Build the Raven SDK Installer (tools/installer, C++17)" OFF)
 option(RAVEN_BUILD_WEB "Compile the web pages (raven_web.h: they drive an installed Chromium-based browser) into the library" ON)
 option(RAVEN_BACKEND_VULKAN "Compile the Vulkan backend" ON)
+option(RAVEN_BACKEND_METAL "Compile the Metal backend (macOS, iOS)" ${APPLE})
 option(RAVEN_WITH_STB_IMAGE "Decode PNG / JPEG / BMP / TGA textures with stb_image" ON)
 option(RAVEN_WITH_SVG "Draw SVG images (icons) with nanosvg" ON)
 option(RAVEN_FETCH_VULKAN_HEADERS "Download the Vulkan headers when no Vulkan SDK is found" ON)
@@ -431,6 +432,31 @@ if(RAVEN_BACKEND_VULKAN)
 	endif()
 endif()
 
+# Metal backend: nothing to install, the shaders are compiled at run time from their sources
+if(RAVEN_BACKEND_METAL)
+	if(NOT APPLE)
+		message(FATAL_ERROR "The Metal backend is only available on macOS and iOS")
+	endif()
+	set(RAVEN_METAL_SOURCES
+		src/render/metal/metal_backend.m
+		src/render/metal/metal_pipeline.m
+		src/render/metal/metal_texture.m
+		src/render/metal/metal_frame.m
+	)
+	list(APPEND RAVEN_RENDER_SOURCES ${RAVEN_METAL_SOURCES}
+		src/render/metal/metal_backend.h
+		src/render/metal/generated/shaders.h)
+	set_source_files_properties(${RAVEN_METAL_SOURCES} PROPERTIES COMPILE_OPTIONS "-fobjc-arc;-Wno-overlength-strings")
+	find_library(RAVEN_METAL_FRAMEWORK Metal)
+	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
+	find_library(RAVEN_FOUNDATION_FRAMEWORK Foundation)
+	if(NOT RAVEN_METAL_FRAMEWORK OR NOT RAVEN_QUARTZCORE_FRAMEWORK OR NOT RAVEN_FOUNDATION_FRAMEWORK)
+		message(FATAL_ERROR "Raven: the Metal backend requires the Metal, QuartzCore and Foundation frameworks")
+	endif()
+	list(APPEND RAVEN_LIBRARIES ${RAVEN_METAL_FRAMEWORK} ${RAVEN_QUARTZCORE_FRAMEWORK} ${RAVEN_FOUNDATION_FRAMEWORK})
+	list(APPEND RAVEN_DEFINITIONS RAVEN_BACKEND_METAL_ENABLED)
+endif()
+
 if(RAVEN_WITH_SVG)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_WITH_SVG)
 endif()
@@ -537,7 +563,7 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 else()
 	set(RAVEN_PLATFORM_SUMMARY "${RAVEN_PLATFORM_SELECTED}")
 endif()
-message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} webgl=${RAVEN_BACKEND_WEBGL} shared=${RAVEN_BUILD_SHARED}")
+message(STATUS "Raven ${PROJECT_VERSION}: platform=${RAVEN_PLATFORM_SUMMARY} vulkan=${RAVEN_BACKEND_VULKAN} metal=${RAVEN_BACKEND_METAL} webgl=${RAVEN_BACKEND_WEBGL} shared=${RAVEN_BUILD_SHARED}")
 
 # ---------------------------------------------------------------------------
 #  Examples, tools and tests

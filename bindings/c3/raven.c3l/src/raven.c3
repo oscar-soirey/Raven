@@ -115,6 +115,8 @@ constset Backend : CInt
 	CUSTOM = 3,
 	<* Browser renderer (Emscripten, WebGL 2). *>
 	WEBGL = 4,
+	<* Built-in Metal renderer (macOS, iOS). *>
+	METAL = 5,
 }
 
 constset Error : CInt
@@ -1802,7 +1804,7 @@ alias AccessiblePressCallback = fn void(Id widget, void* user_data);
 *>
 struct InitDesc
 {
-	<* Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. *>
+	<* Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
 	Backend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	ZString app_name;
@@ -2249,8 +2251,14 @@ struct ViewportDrawInfo
 	void* command_buffer;
 	<* Vulkan: VkRenderPass in use (one color attachment, no depth). *>
 	void* render_pass;
-	<* Vulkan: VkFormat of the color attachment. *>
+	<* Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. *>
 	uint color_format;
+	<* Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). *>
+	void* metal_encoder;
+	<* Metal: id<MTLCommandBuffer> the encoder belongs to. *>
+	void* metal_command_buffer;
+	<* Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. *>
+	void* metal_device;
 }
 
 <* State of one animated value. Zero-initialize it and keep it with the widget. *>

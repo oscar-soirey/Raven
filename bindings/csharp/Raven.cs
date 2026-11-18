@@ -57,6 +57,10 @@ namespace Raven
         /// Browser renderer (Emscripten, WebGL 2).
         /// </summary>
         R_BACKEND_WEBGL = 4,
+        /// <summary>
+        /// Built-in Metal renderer (macOS, iOS).
+        /// </summary>
+        R_BACKEND_METAL = 5,
     }
 
     public enum RError : int
@@ -1928,7 +1932,7 @@ namespace Raven
     public struct RInitDesc
     {
         /// <summary>
-        /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+        /// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
         /// </summary>
         public RBackend backend;
         /// <summary>
@@ -2665,9 +2669,21 @@ namespace Raven
         /// </summary>
         public IntPtr render_pass;
         /// <summary>
-        /// Vulkan: VkFormat of the color attachment.
+        /// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
         /// </summary>
         public uint color_format;
+        /// <summary>
+        /// Metal: id&lt;MTLRenderCommandEncoder&gt; of the frame, inside its render pass (do not end it).
+        /// </summary>
+        public IntPtr metal_encoder;
+        /// <summary>
+        /// Metal: id&lt;MTLCommandBuffer&gt; the encoder belongs to.
+        /// </summary>
+        public IntPtr metal_command_buffer;
+        /// <summary>
+        /// Metal: id&lt;MTLDevice&gt; of the backend, to make pipeline states that match color_format.
+        /// </summary>
+        public IntPtr metal_device;
     }
 
     /// <summary>
