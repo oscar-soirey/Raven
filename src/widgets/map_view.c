@@ -31,6 +31,7 @@
 #include "../xml/xml.h"
 
 #include <limits.h>
+#include <stdlib.h>
 
 #define RVN_MAP_PI 3.14159265358979323846
 /** The latitude where the Mercator square ends: atan(sinh(pi)). */
@@ -1148,24 +1149,40 @@ static int rvn_map_view_touch_drags(rvn_widget_t* widget, float x, float y) {
  *  XML
  * ------------------------------------------------------------------------- */
 
+/*
+ * A number of an attribute, in double precision: a place and a zoom are doubles in the API, and
+ * a float holds 7 digits (a longitude of 120.000001 would be 120: 90 logical units at zoom 24).
+ */
+static int rvn_map_parse_double(const char* text, double* value) {
+	char* end;
+	double number;
+	if (!text) return R_FALSE;
+	number = strtod(text, &end);
+	if (end == text) return R_FALSE;
+	while (*end == ' ' || *end == '\t') end++;
+	if (*end || !rvn_map_finite(number)) return R_FALSE;
+	*value = number;
+	return R_TRUE;
+}
+
 static int rvn_map_view_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
 	rvn_map_view_t* view = (rvn_map_view_t*)widget;
-	float number;
+	double number;
 	int whole;
 	if (RVN_ATTR("Latitude") || RVN_ATTR("Lat")) {
-		if (!rvn_parse_float(value, &number)) return R_FALSE;
+		if (!rvn_map_parse_double(value, &number)) return R_FALSE;
 		Rmap_view_set_center(widget->id, number, rvn_map_x_to_lon(view->cx));
 	} else if (RVN_ATTR("Longitude") || RVN_ATTR("Lon") || RVN_ATTR("Lng")) {
-		if (!rvn_parse_float(value, &number)) return R_FALSE;
+		if (!rvn_map_parse_double(value, &number)) return R_FALSE;
 		Rmap_view_set_center(widget->id, rvn_map_y_to_lat(view->cy), number);
 	} else if (RVN_ATTR("Zoom")) {
-		if (!rvn_parse_float(value, &number)) return R_FALSE;
+		if (!rvn_map_parse_double(value, &number)) return R_FALSE;
 		Rmap_view_set_zoom(widget->id, number);
 	} else if (RVN_ATTR("MinZoom")) {
-		if (!rvn_parse_float(value, &number) || number < 0.0f || number > view->max_zoom) return R_FALSE;
+		if (!rvn_map_parse_double(value, &number) || number < 0.0 || number > view->max_zoom) return R_FALSE;
 		Rmap_view_set_zoom_range(widget->id, number, view->max_zoom);
 	} else if (RVN_ATTR("MaxZoom")) {
-		if (!rvn_parse_float(value, &number) || number < view->min_zoom || number > RVN_MAP_LIMIT_ZOOM) return R_FALSE;
+		if (!rvn_map_parse_double(value, &number) || number < view->min_zoom || number > RVN_MAP_LIMIT_ZOOM) return R_FALSE;
 		Rmap_view_set_zoom_range(widget->id, view->min_zoom, number);
 	} else if (RVN_ATTR("TilePath")) {
 		char* path = value && value[0] ? rvn_xml_resolve_path(value) : NULL;
@@ -1185,11 +1202,11 @@ static int rvn_map_view_set_attribute(rvn_widget_t* widget, const char* name, co
 static int rvn_map_view_xml_child(rvn_widget_t* widget, const rvn_xml_node_t* node) {
 	rvn_map_view_t* view = (rvn_map_view_t*)widget;
 	const char* value;
-	float latitude, longitude;
+	double latitude, longitude;
 	int id, index;
 	if (rvn_stricmp(node->name, "Marker") != 0) return R_FALSE;
-	if (!(value = rvn_xml_attribute(node, "Latitude")) || !rvn_parse_float(value, &latitude)) return R_FALSE;
-	if (!(value = rvn_xml_attribute(node, "Longitude")) || !rvn_parse_float(value, &longitude)) return R_FALSE;
+	if (!(value = rvn_xml_attribute(node, "Latitude")) || !rvn_map_parse_double(value, &latitude)) return R_FALSE;
+	if (!(value = rvn_xml_attribute(node, "Longitude")) || !rvn_map_parse_double(value, &longitude)) return R_FALSE;
 	id = Rmap_view_add_marker(widget->id, latitude, longitude, rvn_xml_attribute(node, "Label"));
 	index = rvn_map_marker_index(view, id);
 	if (index < 0) return R_FALSE;
