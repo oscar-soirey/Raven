@@ -490,11 +490,35 @@ int rvn_widget_set_base_attribute(rvn_widget_t* widget, const char* name, const 
 		rvn_widget_invalidate_layout(widget);
 	} else if (RVN_ATTR("Action") || RVN_ATTR("OnClicked") || RVN_ATTR("OnChanged") ||
 		RVN_ATTR("OnCommitted") || RVN_ATTR("OnActivated")) {
-		rvn_str_set(&widget->action, value[0] ? value : NULL);
+		char* action = rvn_action_name_normalize(value);
+		rvn_str_set(&widget->action, action && action[0] ? action : NULL);
+		rvn_free(action);
 	} else {
 		return R_FALSE;
 	}
 	return R_TRUE;
+}
+
+char* rvn_action_name_normalize(const char* value) {
+	/* OnClicked="app.quit()" names the same action as OnClicked="app.quit" (a reference, never a call):
+	   only a name made of identifiers and dots loses its "()", so "copy:a()" stays as written */
+	size_t length = value ? strlen(value) : 0, i;
+	size_t end = length;
+	while (end > 0 && (value[end - 1] == ' ' || value[end - 1] == '\t')) end--;
+	if (end >= 3 && value[end - 1] == ')' && value[end - 2] == '(') {
+		size_t name_end = end - 2;
+		int valid = name_end > 0;
+		while (name_end > 0 && (value[name_end - 1] == ' ' || value[name_end - 1] == '\t')) name_end--;
+		for (i = 0; i < name_end && valid; i++) {
+			char c = value[i];
+			int letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+			int digit = c >= '0' && c <= '9';
+			if (c == '.') valid = i > 0 && i + 1 < name_end && value[i - 1] != '.';
+			else if (!letter && !(digit && i > 0 && value[i - 1] != '.')) valid = R_FALSE;
+		}
+		if (valid && name_end > 0) return rvn_strndup(value, name_end);
+	}
+	return rvn_strdup(value ? value : "");
 }
 
 int rvn_widget_set_attribute(rvn_widget_t* widget, const char* name, const char* value) {
