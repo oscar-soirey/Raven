@@ -478,7 +478,8 @@ int main(void) {
 	/* the lock must be known before Raven starts its render thread */
 	mutex_init(&app.lock);
 	Rvulkan_set_queue_lock_callbacks(queue_lock, queue_unlock, &app.lock);
-	if (!example_init("viewport_vulkan")) return 1;
+	/* the scene is drawn with Vulkan: Raven must use it too (the default is Metal on macOS) */
+	if (!example_init_backend("viewport_vulkan", R_BACKEND_VULKAN)) return 1;
 
 	app.texture = R_INVALID_ID;
 	app.physical_device = (VkPhysicalDevice)Rvulkan_get_physical_device();

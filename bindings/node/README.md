@@ -26,7 +26,7 @@ where the system looks.
 ```js
 import * as r from "./raven.js";
 
-r.Rinit(r.R_BACKEND_VULKAN);
+r.Rinit(r.R_BACKEND_DEFAULT);
 const window = r.Rwindow_create_from_xml_file("main.xml");
 r.Raction_bind("hello.clicked", () => {
 	r.Rlabel_set_text(r.Rwidget_find(window, "status"), "Clicked");

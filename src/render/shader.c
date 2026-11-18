@@ -47,6 +47,21 @@ static const rvn_effect_info_t g_effects[] = {
 /* the built-in effects, made the first time they are asked for */
 static Rid g_effect_ids[RVN_EFFECT_COUNT];
 
+/*
+ * The words of the built-in effects are constant data: the render thread may
+ * compare with them (the Metal backend recognises the effects it has in MSL),
+ * unlike rvn_shader_get, which reads the pool of the UI thread. A .spv file
+ * that holds a built-in effect is recognised too: it is the same effect.
+ */
+int rvn_effect_index_of(const uint32_t* spirv, size_t size) {
+	int i;
+	if (!spirv) return -1;
+	for (i = 0; i < RVN_EFFECT_COUNT; i++) {
+		if (g_effects[i].size == size && memcmp(g_effects[i].code, spirv, size) == 0) return i;
+	}
+	return -1;
+}
+
 rvn_shader_t* rvn_shader_get(Rid id) {
 	return (rvn_shader_t*)rvn_pool_get(&g_rvn.shaders, id);
 }

@@ -14,7 +14,7 @@ Build Raven as a shared library, then point the binding at it:
 ```ts
 import * as r from "./raven";
 
-r.Rinit(r.R_BACKEND_VULKAN);
+r.Rinit(r.R_BACKEND_DEFAULT);
 const window = r.Rwindow_create_from_xml_file("main.xml");
 r.Raction_bind("hello.clicked", () => {
 	r.Rlabel_set_text(r.Rwidget_find(window, "status"), "Clicked");
@@ -80,7 +80,7 @@ import "./native";
 import * as r from "./raven";
 import ui from "./main.xml" with { type: "text" };
 
-r.Rinit(r.R_BACKEND_VULKAN);
+r.Rinit(r.R_BACKEND_DEFAULT);
 r.Rwindow_create_from_xml(String(ui));
 await r.runLoop();
 r.Rshutdown();

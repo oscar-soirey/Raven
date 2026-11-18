@@ -142,13 +142,29 @@ cmake --install build --prefix install
 ```
 
 Add `-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"` for a universal library.
-Raven draws with Vulkan, which runs on macOS through
-[MoltenVK](https://github.com/KhronosGroup/MoltenVK) (`brew install molten-vk`,
-or the Vulkan SDK for macOS).
+On macOS and iOS Raven draws with **Metal**, natively: nothing else needs to
+be installed, and `Rinit_ex` with `backend = 0` (the default) picks it. Its
+shaders are compiled at run time from their sources, so building needs only
+the command line tools, not Xcode.
+
+The Vulkan backend is still compiled next to it, for applications that ask
+for `R_BACKEND_VULKAN` (a Vulkan viewport, effects of their own in SPIR-V); it
+runs through [MoltenVK](https://github.com/KhronosGroup/MoltenVK)
+(`brew install molten-vk`, or the Vulkan SDK for macOS), which only those
+applications need. `-DRAVEN_BACKEND_VULKAN=OFF` leaves it out: no Vulkan
+header, loader or MoltenVK at all.
+
+The Metal backend runs everything Raven draws, glass and the built-in effects
+(`REffect`) included. Effects an application gives as SPIR-V
+(`Rshader_create`, a `.spv` file) cannot run on Metal: they are drawn as
+rounded rectangles in their color, with a warning. Such an application asks
+for `R_BACKEND_VULKAN`. A viewport callback receives the Metal encoder
+(`RViewportDrawInfo::metal_encoder`) instead of a Vulkan command buffer.
+[docs/METAL_BACKEND.md](docs/METAL_BACKEND.md) describes the backend.
 
 ### iOS and Android (experimental)
 
-Raven also runs on iOS (UIKit, drawn with Vulkan through MoltenVK) and on
+Raven also runs on iOS (UIKit, drawn with Metal; no MoltenVK) and on
 Android (NativeActivity). Both platforms are experimental. CMake chooses them
 when it builds for iOS or Android (`CMAKE_SYSTEM_NAME`), or with
 `-DRAVEN_PLATFORM=uikit` and `-DRAVEN_PLATFORM=android`. On Android the
@@ -161,6 +177,10 @@ scripts that build Raven and the app, without an Xcode project or Gradle: for
 the iOS Simulator, and for an Android device or emulator (API 29 or later).
 What these platforms do not do yet is in
 [Not implemented yet](#not-implemented-yet).
+
+| iPhone (Simulator) | | | Android (Xiaomi 15T) | Android (emulator) |
+|---|---|---|---|---|
+| <img src="examples/mobile/screenshots/ios-list.png" alt="The showcase list on iOS" width="160"> | <img src="examples/mobile/screenshots/ios-glass.png" alt="Glass on iOS" width="160"> | <img src="examples/mobile/screenshots/ios-keyboard-suggestions.png" alt="Keyboard suggestions on iOS" width="160"> | <img src="examples/mobile/screenshots/android-keyboard-suggestions.png" alt="Gboard suggestions on Android" width="160"> | <img src="examples/mobile/screenshots/android-glass.png" alt="Glass on Android" width="160"> |
 
 ### Using the built library
 
@@ -245,7 +265,7 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
 - **Multithreaded.** A render thread owns the GPU, a job system paints large
   trees in parallel and runs your asynchronous work.
 - **Your loop.** Raven draws one frame per call: `while (Rdraw_frame()) { ... }`.
-- **Vulkan renderer behind an interface**: another backend is a table of functions.
+- **Vulkan and Metal renderers behind an interface**: another backend is a table of functions.
 - **Opaque handles** in the style of HRL: every object is a `Rid`,
   validated on every call, with errors reported through a callback.
 - **One header**: `#include <Raven.h>`.
@@ -276,7 +296,7 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
 static void on_clicked(Rid button, void* user) { Rquit(0); }
 
 int main(void) {
-    Rinit(R_BACKEND_VULKAN);
+    Rinit(R_BACKEND_DEFAULT);
 
     Rid window = Rwindow_create("Hello", 420, 220, R_WINDOW_DEFAULT);
     Rid box = Rwidget_create(R_WIDGET_VBOX);
@@ -328,7 +348,7 @@ code untouched (see [Files that are loaded again](#files-that-are-loaded-again))
 use raven::*;
 
 fn main() {
-    unsafe { Rinit(R_BACKEND_VULKAN) };
+    unsafe { Rinit(R_BACKEND_DEFAULT) };
     let window = unsafe { Rwindow_create_from_xml_file(cstr("main.xml").as_ptr()) };
     let mut clicks = 0;
     action_bind("hello.clicked", move |_sender, _action| {     // OnClicked="hello.clicked"
@@ -563,7 +583,8 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BUILD_TESTS` | `ON` when top level | tests, tests of the bindings, `raven_benchmark` |
 | `RAVEN_BUILD_TOOLS` | `ON` when top level | `raven_designer`, `raven_theme_editor` |
 | `RAVEN_BUILD_WEB` | `ON` | web pages (`raven_web.h`, [docs/WEB.md](docs/WEB.md)), compiled into the Raven library itself; it needs nothing more to build |
-| `RAVEN_BACKEND_VULKAN` | `ON` | `OFF` builds without any GPU code (custom backend or headless) |
+| `RAVEN_BACKEND_VULKAN` | `ON` | the Vulkan backend (on macOS and iOS through MoltenVK, only when asked for); `OFF` with Metal off builds without any GPU code (custom backend or headless) |
+| `RAVEN_BACKEND_METAL` | `ON` on Apple | the Metal backend (macOS, iOS), the default there; no dependency |
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS), `uikit` (iOS), `android`, `emscripten` (the browser, [docs/emscripten.md](docs/emscripten.md)) or `null` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
 | `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
@@ -666,7 +687,7 @@ also runs on Bun and Deno), D (a dub package), Nim (a nimble package), C3
 
 ```python
 import raven as r
-r.Rinit(r.R_BACKEND_VULKAN)
+r.Rinit(r.R_BACKEND_DEFAULT)
 window = r.Rwindow_create_from_xml('<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>')
 r.Raction_bind("quit", lambda sender, action, user: r.Rquit(0))
 while r.Rwait_frame(-1.0):
@@ -1240,6 +1261,37 @@ decoded tiles are kept in a cache of 64 MiB by default
 (`Rmap_view_set_cache_size`), the least recently seen dropped first; while a
 tile is missing, a coarser one that is there is shown stretched in its place.
 
+### Carousel
+
+```xml
+<Carousel Name="intro" Loop="true" Autoplay="5" OnChanged="intro.page" Slot.Fill="1">
+    <Border Background="#5B5BD6"><Label Text="Welcome" TextSize="32"/></Border>
+    <Border Background="#12A594"><Label Text="Swipe the pages" TextSize="32"/></Border>
+    <Border Background="#F76B15"><Label Text="Ready" TextSize="32"/></Border>
+</Carousel>
+```
+
+```c
+Rid carousel = Rcarousel_create();
+Rwidget_add_child(carousel, page_one);         /* every child is a page */
+Rwidget_add_child(carousel, page_two);
+Rcarousel_set_page_changed_callback(carousel, on_page, NULL);
+Rcarousel_set_page(carousel, 1, R_TRUE);       /* pages counted from 0; glides to it */
+Rcarousel_next(carousel);
+```
+
+A `Carousel` shows its children one at a time, side by side (or one above
+the other, `Orientation="Vertical"`). The pages follow a drag of the mouse, a
+finger or two fingers on a trackpad as if they were held, stretch before the
+first page and after the last, and settle on the nearest page when let go, or
+on the next one when flicked. The arrow keys, Home and End, the dots along the
+bottom edge, the round arrows shown under the pointer and the mouse wheel turn
+the pages too. `Loop` makes the last page lead to the first; `Autoplay` turns
+them every so many seconds, and waits while the pointer is on the carousel.
+Only the page shown, and the one coming in while the pages move, is drawn and
+reached by the mouse and the keyboard. Screen readers see a list of tabs, one
+per page (its `Slot.Title`, else "Page 2 of 5").
+
 ### Tables, dates and the small controls
 
 ```xml
@@ -1688,6 +1740,7 @@ src/core/            allocator, handles, threads, job system, files, main loop
 src/platform/        window systems behind one interface: win32/, x11/, wayland/, cocoa/, uikit/, android/, emscripten/, null/
 src/render/          draw lists, fonts and glyph atlas, textures, render thread
 src/render/vulkan/   the Vulkan backend and its shaders (vk_glass.c: backdrop blur)
+src/render/metal/    the Metal backend (macOS, iOS) and its shaders in MSL, compiled at run time
 src/widget/          widget base: tree, layout, events, painting, animation, windows, style, themes
 src/widgets/         one file per widget type (text_editor.c, markdown.c, node_graph.c, timeline.c, dialogs.c...)
 src/xml/             parser, loader, declared widgets, documents, watched files, the list of tags and attributes

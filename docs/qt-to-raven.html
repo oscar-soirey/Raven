@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
 static void on_quit(Rid button, void* user_data) { Rquit(0); }
 
 int main(void) {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Rid window = Rwindow_create("Hello", 320, 160, R_WINDOW_DEFAULT);
     Rid button = Rbutton_create("Quit");
     Rbutton_set_clicked_callback(button, on_quit, NULL);
@@ -292,7 +292,7 @@ static Rid window;
 static int clicks = 0;
 
 int main() {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Raction_bind("hello.clicked", [](Rid, const char*, void*) {
         clicks++;
         Rlabel_set_text(Rwidget_find(window, "status"), (std::to_string(clicks) + " clicks").c_str());
@@ -459,7 +459,7 @@ target_link_libraries(tool PRIVATE raven::raven)</code></pre>
 <h3>Shipping</h3>
 <ul>
 <li>Static linking puts everything in the executable; there are no plug-ins to deploy (no <code>platforms/qwindows.dll</code>, no <code>windeployqt</code>).</li>
-<li>The machine needs a Vulkan driver, which current graphics drivers include on Windows and Linux; on macOS, MoltenVK.</li>
+<li>The machine needs a Vulkan driver, which current graphics drivers include on Windows and Linux; on macOS, Raven draws with Metal (backend 0) and needs nothing.</li>
 <li>Interfaces loaded from <code>.xml</code> files are shipped next to the program, with their images and fonts; an interface compiled into the program as text needs no file at run time.</li>
 </ul>
 </section>

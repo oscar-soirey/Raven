@@ -14,7 +14,7 @@ The crate is used as `raven`:
 use raven::*;
 
 fn main() {
-    unsafe { Rinit(R_BACKEND_VULKAN) };
+    unsafe { Rinit(R_BACKEND_DEFAULT) };
     let _window = window_from_xml(r#"<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>"#);
     action_bind("quit", |_, _| unsafe { Rquit(0) });
     while unsafe { Rwait_frame(-1.0) } != 0 {}

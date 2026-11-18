@@ -18,7 +18,7 @@ on_hello :: proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
 }
 
 main :: proc() {
-	if r.Rinit(r.R_BACKEND_VULKAN) == 0 do return
+	if r.Rinit(r.R_BACKEND_DEFAULT) == 0 do return
 	r.Rlocale_load_csv("strings.csv")
 	r.Rlocale_set_language(r.Rlocale_get_system_language())
 	r.Raction_bind("hello.clicked", on_hello, nil)

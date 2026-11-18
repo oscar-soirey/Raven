@@ -560,7 +560,7 @@ def generate(api, module="raven"):
     x("//")
     x("//   import %s::c;" % module)
     x("//")
-    x("//   if (!c::r_init(c::R_BACKEND_VULKAN)) return 1;")
+    x("//   if (!c::r_init(c::R_BACKEND_DEFAULT)) return 1;")
     x("//   Rid window = c::r_window_create(\"Hello\", 420, 220, c::R_WINDOW_DEFAULT);")
     x("module %s::c;" % module)
     x("")

@@ -3,7 +3,7 @@
 #include "raven.hpp"
 
 int main() {
-	if (!raven::init(R_BACKEND_VULKAN)) return 1;
+	if (!raven::init(R_BACKEND_DEFAULT)) return 1;
 	raven::locale_load_csv("strings.csv");
 	raven::locale_set_language(raven::locale_get_system_language());
 

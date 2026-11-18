@@ -6,7 +6,7 @@ static Rid g_window = R_INVALID_ID;
 static int g_clicks = 0;
 
 int main() {
-	if (!Rinit(R_BACKEND_VULKAN)) return 1;
+	if (!Rinit(R_BACKEND_DEFAULT)) return 1;
 	Rlocale_load_csv("strings.csv");
 	Rlocale_set_language(Rlocale_get_system_language());
 	// OnClicked="hello.clicked" in main.xml fires this action

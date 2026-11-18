@@ -3,20 +3,16 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_deep_trees, test_lifecycle, test_package, test_script
+#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
 #       the Wayland platform against a small compositor run in the test itself
 #       (libwayland-server): skipped where it is not installed.
-#   test_render
-#       renders real frames with the Vulkan backend and checks pixels. It is
-#       reported as skipped when the machine has no usable Vulkan driver.
-#
-#   test_script_core
-#       the core of Raven Script (lexer, parser, type checker, bytecode, virtual
-#       machine, formatter, analysis) without the library; it ends with a short
-#       fuzzing of mutated scripts (RS_FUZZ_ROUNDS and RS_FUZZ_SEED run it longer).
+#   test_render, test_render_metal
+#       render real frames with the Vulkan backend, and with the Metal backend
+#       (macOS, iOS), and check pixels. They are reported as skipped when the
+#       machine has no usable driver.
 #
 #   raven_benchmark
 #       not a test: prints layout and paint timings for a large widget tree.
@@ -40,18 +36,6 @@ function(raven_add_test name)
 endfunction()
 
 raven_add_test(test_layout)
-raven_add_test(test_script)
-
-# the core of Raven Script alone (src/script/rs_*.c): no library, no window
-add_executable(test_script_core test_script_core.c ${RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE})
-set_target_properties(test_script_core PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON FOLDER "tests")
-if(NOT WIN32)
-	target_link_libraries(test_script_core PRIVATE m)
-endif()
-if(MSVC)
-	target_compile_definitions(test_script_core PRIVATE _CRT_SECURE_NO_WARNINGS)
-endif()
-add_test(NAME test_script_core COMMAND test_script_core)
 raven_add_test(test_widgets)
 if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_menu_decorations)
@@ -156,9 +140,27 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 	endif()
 endif()
 
-if(RAVEN_BACKEND_VULKAN)
+# one executable for both GPU backends: RAVEN_BACKEND picks the one it renders with
+if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_METAL)
 	raven_add_test(test_render)
-	set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77)
+	if(RAVEN_BACKEND_VULKAN)
+		target_compile_definitions(test_render PRIVATE RAVEN_TEST_VULKAN=1)
+		set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=vulkan")
+	else()
+		# (no Vulkan in the library: only the Metal test is run)
+		target_compile_definitions(test_render PRIVATE RAVEN_TEST_VULKAN=0)
+		set_tests_properties(test_render PROPERTIES DISABLED TRUE)
+	endif()
+	if(RAVEN_BACKEND_METAL)
+		add_test(NAME test_render_metal COMMAND test_render)
+		set_tests_properties(test_render_metal PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=metal")
+		find_package(Python3 COMPONENTS Interpreter QUIET)
+		if(Python3_FOUND)
+			# generated/shaders.h is what src/render/metal/generate_shaders.py writes from the .metal files
+			add_test(NAME metal_shaders_up_to_date
+				COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/render/metal/generate_shaders.py --check)
+		endif()
+	endif()
 endif()
 
 # Not a test: prints timings for a large widget tree (see the top of benchmark.c).

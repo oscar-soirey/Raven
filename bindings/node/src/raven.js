@@ -149,12 +149,14 @@ export const R_TRUE = 1;
 export const R_INVALID_ID = 0xffffffff;
 
 export const RBackend = _enum({
+	R_BACKEND_DEFAULT: 0,
 	R_BACKEND_VULKAN: 1,
 	R_BACKEND_NULL: 2,
 	R_BACKEND_CUSTOM: 3,
 	R_BACKEND_WEBGL: 4,
+	R_BACKEND_METAL: 5,
 });
-export const { R_BACKEND_VULKAN, R_BACKEND_NULL, R_BACKEND_CUSTOM, R_BACKEND_WEBGL } = RBackend;
+export const { R_BACKEND_DEFAULT, R_BACKEND_VULKAN, R_BACKEND_NULL, R_BACKEND_CUSTOM, R_BACKEND_WEBGL, R_BACKEND_METAL } = RBackend;
 
 export const RError = _enum({
 	R_NO_ERROR: 112,
@@ -2617,7 +2619,7 @@ export class RFileDialogDesc extends RStruct {
 }
 
 export class RViewportDrawInfo extends RStruct {
-	static SIZE = 88;
+	static SIZE = 112;
 
 	constructor(pointer) {
 		super(RViewportDrawInfo.SIZE, pointer);
@@ -2745,6 +2747,27 @@ export class RViewportDrawInfo extends RStruct {
 	}
 	set color_format(value) {
 		this._view.setUint32(80, value, true);
+	}
+
+	get metal_encoder() {
+		return _address(this._view.getBigUint64(88, true));
+	}
+	set metal_encoder(value) {
+		this._view.setBigUint64(88, BigInt(value ?? 0), true);
+	}
+
+	get metal_command_buffer() {
+		return _address(this._view.getBigUint64(96, true));
+	}
+	set metal_command_buffer(value) {
+		this._view.setBigUint64(96, BigInt(value ?? 0), true);
+	}
+
+	get metal_device() {
+		return _address(this._view.getBigUint64(104, true));
+	}
+	set metal_device(value) {
+		this._view.setBigUint64(104, BigInt(value ?? 0), true);
 	}
 }
 

@@ -132,7 +132,7 @@ static void on_quit(Rid button, void* user_data) {
 }
 
 int main(void) {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
 
     Rid window = Rwindow_create("Hello", 420, 220, R_WINDOW_DEFAULT);
     Rid box = Rwidget_create(R_WIDGET_VBOX);
@@ -169,7 +169,7 @@ static void on_quit(Rid sender, const char* action, void* user_data) {
 }
 
 int main(void) {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Raction_bind("app.quit", on_quit, NULL);
     if (Rwindow_create_from_xml_file("hello.xml") == R_INVALID_ID) return 1;
     while (Rwait_frame(-1.0)) {}
@@ -258,17 +258,22 @@ cmake --install build --prefix install</pre>
 <h3 id="build-macos">macOS</h3>
 
 <pre>xcode-select --install
-brew install cmake molten-vk
+brew install cmake
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 cmake --install build --prefix install</pre>
 
-<p>Vulkan runs on macOS through MoltenVK. Add
+<p>On macOS and iOS Raven draws with Metal, the default backend there
+(<code>backend = 0</code>): nothing else is needed. The Vulkan backend is still
+compiled for the applications that ask for <code>R_BACKEND_VULKAN</code> (a Vulkan
+viewport, effects of their own in SPIR-V, which Metal draws as rounded
+rectangles); it runs through MoltenVK (<code>brew install molten-vk</code>).
+<code>-DRAVEN_BACKEND_VULKAN=OFF</code> leaves it out. Add
 <code>-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"</code> for a universal library.</p>
 
 <h3 id="build-mobile">iOS and Android</h3>
 
-<p>Raven also runs on iOS (UIKit, drawn with Vulkan through MoltenVK) and on
+<p>Raven also runs on iOS (UIKit, drawn with Metal) and on
 Android (NativeActivity). Both platforms are experimental. CMake chooses them
 when it builds for iOS or Android (<code>CMAKE_SYSTEM_NAME</code>), or with
 <code>-DRAVEN_PLATFORM=uikit</code> and <code>-DRAVEN_PLATFORM=android</code>. On Android the
@@ -292,7 +297,8 @@ do not do yet is in <a href="#limits">What Raven does not do yet</a>.</p>
 <tr><td><code>RAVEN_BUILD_TESTS</code></td><td>ON at top level</td><td>the tests, the tests of the bindings, <code>raven_benchmark</code></td></tr>
 <tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code> and <code>raven_theme_editor</code></td></tr>
 <tr><td><code>RAVEN_BUILD_WEB</code></td><td>ON</td><td>web pages (<code>raven_web.h</code>), compiled into the library</td></tr>
-<tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>OFF builds without any GPU code (a custom backend, or headless)</td></tr>
+<tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>the Vulkan backend (through MoltenVK on macOS, only when asked for); OFF, with Metal off too, builds without any GPU code (a custom backend, or headless)</td></tr>
+<tr><td><code>RAVEN_BACKEND_METAL</code></td><td>ON on Apple</td><td>the Metal backend (macOS, iOS), the default there; it needs nothing</td></tr>
 <tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code>, <code>uikit</code> (<a href="#build-mobile">iOS</a>), <code>android</code>, <code>emscripten</code> (the browser) or <code>null</code></td></tr>
 <tr><td><code>RAVEN_WAYLAND</code></td><td>ON</td><td>Linux and BSD: native Wayland beside X11 (<a href="#build-wayland">Wayland and X11</a>); nothing of Wayland is needed to build</td></tr>
 <tr><td><code>RAVEN_WITH_STB_IMAGE</code></td><td>ON</td><td>PNG, JPEG, BMP and TGA decoding</td></tr>
@@ -408,7 +414,7 @@ per frame, also while the system holds the thread in a loop of its own (on
 Windows, while a window is moved or resized).</p>
 
 <pre>RInitDesc desc = { 0 };               /* zero: the default of every field */
-desc.backend = R_BACKEND_VULKAN;
+desc.backend = R_BACKEND_DEFAULT;     /* Metal on macOS and iOS, Vulkan elsewhere */
 desc.app_name = "My tool";
 desc.worker_threads = 0;              /* one per spare core; negative: none */
 desc.ui_scale = 1.25f;                /* on top of the scale of the monitor */
@@ -1027,7 +1033,7 @@ static void on_hello(Rid sender, const char* action, void* user_data) {
 }
 
 int main(void) {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Raction_bind("hello.clicked", on_hello, NULL);
     g_window = Rwindow_create_from_xml_file("main.xml");
     while (Rwait_frame(-1.0)) {}
@@ -1052,7 +1058,7 @@ int main(void) {
 use raven::*;
 
 fn main() {
-    unsafe { Rinit(R_BACKEND_VULKAN) };
+    unsafe { Rinit(R_BACKEND_DEFAULT) };
     let window = unsafe { Rwindow_create_from_xml_file(cstr("main.xml").as_ptr()) };
     let mut clicks = 0;
     action_bind("hello.clicked", move |_sender, _action| {
@@ -1074,7 +1080,7 @@ def on_hello(sender, action, user_data):
     r.Rlabel_set_text(r.Rwidget_find(window, "status"), f"{clicks} clicks")
 
 if __name__ == "__main__":
-    r.Rinit(r.R_BACKEND_VULKAN)
+    r.Rinit(r.R_BACKEND_DEFAULT)
     r.Raction_bind("hello.clicked", on_hello)
     window = r.Rwindow_create_from_xml_file("main.xml")
     while r.Rwait_frame(-1.0):
@@ -1085,7 +1091,7 @@ if __name__ == "__main__":
 local ffi = require("ffi")
 local r = require("raven")
 
-r.Rinit(r.R_BACKEND_VULKAN)
+r.Rinit(r.R_BACKEND_DEFAULT)
 local window = r.Rwindow_create_from_xml_file("main.xml")
 local clicks = 0
 local on_hello = ffi.cast("RActionCallback", function()   -- kept: the library calls it
@@ -1580,7 +1586,7 @@ static gauge_t g_gauge = { 0.4f, { 0.0f, 0.0f, 0 } };
 
 int main(void) {
     Rid window, gauge;
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     window = Rwindow_create("Gauge", 320, 120, R_WINDOW_DEFAULT);
     gauge = Rwidget_create(R_WIDGET_CUSTOM);
     Rcustom_set_measure_callback(gauge, gauge_measure, &amp;g_gauge);
@@ -1855,7 +1861,7 @@ D, Nim and C3 are described in their folders (<code>bindings/d/README.md</code>,
 <pre>#include &lt;raven.hpp&gt;
 
 int main() {
-    raven::init(R_BACKEND_VULKAN);
+    raven::init(R_BACKEND_DEFAULT);
     auto window = raven::Window::create("Hello", 400, 200, R_WINDOW_DEFAULT);
     auto button = raven::Button::create("Quit");
     button.set_clicked_callback([](Rid) { raven::quit(0); });     /* any callable, captures included */
@@ -1870,7 +1876,7 @@ a class is the size of a handle and does not own what it names.</p>
 <h3 id="lang-python">Python</h3>
 <pre>import raven as r
 
-r.Rinit(r.R_BACKEND_VULKAN)
+r.Rinit(r.R_BACKEND_DEFAULT)
 window = r.Rwindow_create_from_xml('&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;')
 r.Raction_bind("quit", lambda sender, action, user: r.Rquit(0))
 while r.Rwait_frame(-1.0):
@@ -1883,7 +1889,7 @@ r.Rshutdown()</pre>
 <pre>use raven::*;
 
 fn main() {
-    unsafe { Rinit(R_BACKEND_VULKAN) };
+    unsafe { Rinit(R_BACKEND_DEFAULT) };
     let _window = window_from_xml(r#"&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;"#);
     action_bind("quit", |_, _| unsafe { Rquit(0) });
     while unsafe { Rwait_frame(-1.0) } != 0 {}
@@ -1904,7 +1910,7 @@ import (
 
 func main() {
     runtime.LockOSThread()             // Raven belongs to the thread that started it
-    raven.Init(raven.R_BACKEND_VULKAN)
+    raven.Init(raven.R_BACKEND_DEFAULT)
     raven.WindowCreateFromXml(`&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;`)
     raven.ActionBind("quit", func(sender raven.ID, action string) { raven.Quit(0) })
     for raven.WaitFrame(-1.0) != 0 {
@@ -1918,7 +1924,7 @@ function writes through a pointer is a result. Build with
 <h3 id="lang-csharp">C#</h3>
 <pre>using Raven;
 
-R.Rinit(RBackend.R_BACKEND_VULKAN);
+R.Rinit(RBackend.R_BACKEND_DEFAULT);
 uint window = R.Rwindow_create_from_xml("&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;");
 R.Raction_bind("quit", R.Keep&lt;RActionCallback&gt;((sender, action, user) =&gt; R.Rquit(0)), IntPtr.Zero);
 while (R.Rwait_frame(-1.0) != 0) { }
@@ -1930,7 +1936,7 @@ the library may call it; the shared library goes beside the program.</p>
 <pre>const r = @import("raven.zig");
 
 pub fn main() void {
-    _ = r.Rinit(r.R_BACKEND_VULKAN);
+    _ = r.Rinit(r.R_BACKEND_DEFAULT);
     const xml = "&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;";
     _ = r.Rwindow_create_from_xml(xml, xml.len);
     r.Raction_bind("quit", quit, null);
@@ -1947,7 +1953,7 @@ fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(
 <pre>local r = require("raven")
 local ffi = require("ffi")
 
-r.Rinit(r.R_BACKEND_VULKAN)
+r.Rinit(r.R_BACKEND_DEFAULT)
 local xml = [[&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;]]
 r.Rwindow_create_from_xml(xml, #xml)
 local quit = ffi.cast("RActionCallback", function() r.Rquit(0) end)   -- keep it referenced
@@ -1960,7 +1966,7 @@ r.Rshutdown()</pre>
 
 public class Hello {
     public static void main(String[] args) {
-        Rinit(R_BACKEND_VULKAN);
+        Rinit(R_BACKEND_DEFAULT);
         Rwindow_create_from_xml("&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;");
         Raction_bind("quit", (sender, action, user) -&gt; Rquit(0));
         while (Rwait_frame(-1.0) != 0) { }
@@ -1978,7 +1984,7 @@ arrays of one element, callbacks lambdas.</p>
 import r "raven"
 
 main :: proc() {
-    r.Rinit(r.R_BACKEND_VULKAN)
+    r.Rinit(r.R_BACKEND_DEFAULT)
     xml :: "&lt;Window Title='Hi'&gt;&lt;Button Text='Quit' OnClicked='quit'/&gt;&lt;/Window&gt;"
     r.Rwindow_create_from_xml(xml, len(xml))
     r.Raction_bind("quit", proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
@@ -1994,7 +2000,7 @@ main :: proc() {
 <h3 id="lang-bun">Bun</h3>
 <pre>import * as r from "./raven";
 
-r.Rinit(r.R_BACKEND_VULKAN);
+r.Rinit(r.R_BACKEND_DEFAULT);
 r.Rwindow_create_from_xml('&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;');
 r.Raction_bind("quit", () =&gt; r.Rquit(0));
 await r.runLoop();
@@ -2007,7 +2013,7 @@ beside <code>raven.ts</code>. <code>await r.runLoop()</code> takes the place of
 <h3 id="lang-node">Node.js</h3>
 <pre>import * as r from "./raven.js";
 
-r.Rinit(r.R_BACKEND_VULKAN);
+r.Rinit(r.R_BACKEND_DEFAULT);
 r.Rwindow_create_from_xml('&lt;Window Title="Hi"&gt;&lt;Button Text="Quit" OnClicked="quit"/&gt;&lt;/Window&gt;');
 r.Raction_bind("quit", () =&gt; r.Rquit(0));
 await r.runLoop();

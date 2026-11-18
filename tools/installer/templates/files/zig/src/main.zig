@@ -16,7 +16,7 @@ fn onHello(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callco
 }
 
 pub fn main() void {
-    if (r.Rinit(r.R_BACKEND_VULKAN) == 0) return;
+    if (r.Rinit(r.R_BACKEND_DEFAULT) == 0) return;
     _ = r.Rlocale_load_csv("strings.csv");
     _ = r.Rlocale_set_language(r.Rlocale_get_system_language());
     r.Raction_bind("hello.clicked", onHello, null);

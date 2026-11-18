@@ -1,15 +1,16 @@
 // Raven for Zig.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.1): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
 //
 // The C API as it is. Enumerations are c_int with constants, structures are
 // extern structs whose fields default to zero (`.{}` is the zeroed structure
 // of C), texts are `?[*:0]const u8`: a Zig string literal passes as it is.
+// Needs Zig 0.14 or later (tested up to 0.17).
 //
 //   const r = @import("raven.zig");
 //
 //   pub fn main() void {
-//       _ = r.Rinit(r.R_BACKEND_VULKAN);
+//       _ = r.Rinit(r.R_BACKEND_DEFAULT);
 //       const xml = "<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>";
 //       _ = r.Rwindow_create_from_xml(xml, xml.len);
 //       r.Raction_bind("quit", quit, null);
@@ -17,7 +18,7 @@
 //       r.Rshutdown();
 //   }
 //
-//   fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void {
+//   fn quit(sender: r.Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void {
 //       _ = sender; _ = action; _ = user_data;
 //       r.Rquit(0);
 //   }
@@ -28,9 +29,9 @@
 pub const Rid = u32;
 pub const Ruint = u32;
 pub const RAVEN_VERSION_MAJOR: c_int = 0;
-pub const RAVEN_VERSION_MINOR: c_int = 1;
-pub const RAVEN_VERSION_PATCH: c_int = 0;
-pub const RAVEN_API_VERSION = "0.1";
+pub const RAVEN_VERSION_MINOR: c_int = 2;
+pub const RAVEN_VERSION_PATCH: c_int = 3;
+pub const RAVEN_API_VERSION = "0.2";
 pub const R_FALSE: c_int = 0;
 pub const R_TRUE: c_int = 1;
 pub const R_INVALID_ID: Rid = 0xFFFFFFFF;
@@ -38,12 +39,18 @@ pub const R_INVALID_ID: Rid = 0xFFFFFFFF;
 pub const RPainter = opaque {};
 
 pub const RBackend = c_int;
+/// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+pub const R_BACKEND_DEFAULT: RBackend = 0;
 /// Built-in Vulkan renderer.
 pub const R_BACKEND_VULKAN: RBackend = 1;
 /// Renders nothing. Used for headless runs and unit tests.
 pub const R_BACKEND_NULL: RBackend = 2;
 /// Backend supplied with Rbackend_register (see raven_backend.h).
 pub const R_BACKEND_CUSTOM: RBackend = 3;
+/// Browser renderer (Emscripten, WebGL 2).
+pub const R_BACKEND_WEBGL: RBackend = 4;
+/// Built-in Metal renderer (macOS, iOS).
+pub const R_BACKEND_METAL: RBackend = 5;
 
 pub const RError = c_int;
 pub const R_NO_ERROR: RError = 0x0070;
@@ -84,6 +91,23 @@ pub const R_WINDOW_CUSTOM_HEADER: RWindowFlags = 0x0010;
 /// chosen with Rwindow_set_backdrop. See RBackdrop for what each window
 /// system can do.
 pub const R_WINDOW_TRANSPARENT: RWindowFlags = 0x0020;
+/// A splash screen: shown while the application starts. No frame (it
+/// implies R_WINDOW_BORDERLESS and R_WINDOW_NO_RESIZE, and cancels
+/// R_WINDOW_MAXIMIZED and R_WINDOW_CUSTOM_HEADER), centered on the screen
+/// before it is first shown and again when its size changes, above the
+/// other windows, out of the taskbar and of Alt+Tab (Windows), of the
+/// Window menu and of Cmd+` (macOS), typed _NET_WM_WINDOW_TYPE_SPLASH on
+/// X11. Wayland gives it no place of its own: it is a window without frame
+/// there. The application destroys it once its main window is ready
+/// (creating the main window first keeps Ris_running true).
+pub const R_WINDOW_SPLASH_SCREEN: RWindowFlags = 0x0040;
+
+/// Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
+pub const RPictureInPictureCorner = c_int;
+pub const R_PIP_BOTTOM_RIGHT: RPictureInPictureCorner = 0x0780;
+pub const R_PIP_BOTTOM_LEFT: RPictureInPictureCorner = 0x0781;
+pub const R_PIP_TOP_RIGHT: RPictureInPictureCorner = 0x0782;
+pub const R_PIP_TOP_LEFT: RPictureInPictureCorner = 0x0783;
 
 /// What is seen behind a window created with R_WINDOW_TRANSPARENT.
 ///
@@ -113,6 +137,29 @@ pub const R_WINDOW_SYSTEM_WIN32: RWindowSystem = 0x0091;
 pub const R_WINDOW_SYSTEM_X11: RWindowSystem = 0x0092;
 pub const R_WINDOW_SYSTEM_WAYLAND: RWindowSystem = 0x0093;
 pub const R_WINDOW_SYSTEM_COCOA: RWindowSystem = 0x0094;
+pub const R_WINDOW_SYSTEM_EMSCRIPTEN: RWindowSystem = 0x0095;
+pub const R_WINDOW_SYSTEM_ANDROID: RWindowSystem = 0x0096;
+pub const R_WINDOW_SYSTEM_UIKIT: RWindowSystem = 0x0097;
+
+/// What a text input holds: on mobile it picks the on-screen keyboard (letters, @, digits...).
+pub const RTextInputType = c_int;
+pub const R_TEXT_INPUT_TYPE_TEXT: RTextInputType = 0x0B60;
+pub const R_TEXT_INPUT_TYPE_EMAIL: RTextInputType = 0x0B61;
+pub const R_TEXT_INPUT_TYPE_NUMBER: RTextInputType = 0x0B62;
+/// Digits and a decimal separator.
+pub const R_TEXT_INPUT_TYPE_DECIMAL: RTextInputType = 0x0B63;
+pub const R_TEXT_INPUT_TYPE_PHONE: RTextInputType = 0x0B64;
+pub const R_TEXT_INPUT_TYPE_URL: RTextInputType = 0x0B65;
+pub const R_TEXT_INPUT_TYPE_SEARCH: RTextInputType = 0x0B66;
+
+/// The label and meaning of the return key of the on-screen keyboard. Enter does the same on every key.
+pub const RReturnKey = c_int;
+pub const R_RETURN_KEY_DEFAULT: RReturnKey = 0x0B70;
+pub const R_RETURN_KEY_DONE: RReturnKey = 0x0B71;
+pub const R_RETURN_KEY_GO: RReturnKey = 0x0B72;
+pub const R_RETURN_KEY_NEXT: RReturnKey = 0x0B73;
+pub const R_RETURN_KEY_SEARCH: RReturnKey = 0x0B74;
+pub const R_RETURN_KEY_SEND: RReturnKey = 0x0B75;
 
 /// Edges and corners of a window, for Rwindow_begin_resize.
 pub const RWindowEdge = c_int;
@@ -285,6 +332,120 @@ pub const R_DROP_LEAVE: RDropPhase = 0x00E2;
 /// The user dropped: `paths` and `text` hold what was dropped.
 pub const R_DROP_DROPPED: RDropPhase = 0x00E3;
 
+/// What a finger does on a widget (Rwidget_set_touch_mode).
+pub const RTouchMode = c_int;
+/// The finger scrolls what scrolls under it, and is a mouse elsewhere (default).
+pub const R_TOUCH_MODE_AUTO: RTouchMode = 0x0480;
+/// A finger moving on the widget always scrolls what contains it, even over a control that drags.
+pub const R_TOUCH_MODE_SCROLL: RTouchMode = 0x0481;
+/// The finger is a mouse on the widget: pressing presses at once, moving drags, nothing scrolls.
+pub const R_TOUCH_MODE_MOUSE: RTouchMode = 0x0482;
+/// Fingers are ignored on the widget (only its touch callback sees them): a surface for the pen.
+pub const R_TOUCH_MODE_NONE: RTouchMode = 0x0483;
+
+pub const RTouchPhase = c_int;
+/// A finger came down.
+pub const R_TOUCH_DOWN: RTouchPhase = 0x0490;
+pub const R_TOUCH_MOVE: RTouchPhase = 0x0491;
+/// The finger was lifted.
+pub const R_TOUCH_UP: RTouchPhase = 0x0492;
+/// The system took the finger away (a gesture of its own, the window lost it): nothing must happen as for a lift.
+pub const R_TOUCH_CANCEL: RTouchPhase = 0x0493;
+
+pub const RPenPhase = c_int;
+/// The tip touched the screen.
+pub const R_PEN_DOWN: RPenPhase = 0x04A0;
+/// The pen moves while touching.
+pub const R_PEN_MOVE: RPenPhase = 0x04A1;
+/// The tip left the screen.
+pub const R_PEN_UP: RPenPhase = 0x04A2;
+/// The pen moves near the screen without touching it.
+pub const R_PEN_HOVER: RPenPhase = 0x04A3;
+/// The pen went out of reach.
+pub const R_PEN_LEAVE: RPenPhase = 0x04A4;
+
+/// Buttons on the side of a pen (RPenEvent::buttons).
+pub const RPenButton = c_int;
+pub const R_PEN_BUTTON_BARREL: RPenButton = 1;
+pub const R_PEN_BUTTON_BARREL2: RPenButton = 2;
+
+pub const RGesturePhase = c_int;
+/// A second finger came down (a touch screen), or the system recognized a gesture (a trackpad).
+pub const R_GESTURE_BEGIN: RGesturePhase = 0x04B0;
+pub const R_GESTURE_UPDATE: RGesturePhase = 0x04B1;
+/// Fewer than two fingers remain, or the fingers left the trackpad (RGestureEvent::cancelled: the system took the gesture back).
+pub const R_GESTURE_END: RGesturePhase = 0x04B2;
+
+/// What the fingers of a gesture do (RGestureEvent::kind).
+pub const RGestureKind = c_int;
+/// Two fingers that pinch, turn and move together: scale, rotation and pan.
+pub const R_GESTURE_PINCH: RGestureKind = 0x04C0;
+/// Three or more fingers that move together on a trackpad: only the pan
+/// (scale stays 1). By default, a swipe across goes back or forward.
+pub const R_GESTURE_SWIPE: RGestureKind = 0x04C1;
+
+/// Where the fingers of a gesture are (RGestureEvent::device).
+pub const RGestureDevice = c_int;
+/// On the screen: the library recognized the gesture.
+pub const R_GESTURE_DEVICE_TOUCHSCREEN: RGestureDevice = 0x04D0;
+/// On a trackpad: the system recognized the gesture; the fingers are not on the window (x, y is the pointer).
+pub const R_GESTURE_DEVICE_TRACKPAD: RGestureDevice = 0x04D1;
+
+/// The looks. Each one comes dark and light.
+///
+/// Raven's looks are the default; the ones of the platforms imitate them
+/// closely (their shapes, colors, sizes, states and motion), without using
+/// their widgets. The looks of the platforms are opaque, except macOS Glass
+/// (macOS 26), whose bars, menus and floating surfaces are glass as on the
+/// system; the glass materials themselves (Rtheme_set_material) belong to
+/// the glass looks of Raven.
+pub const RLook = c_int;
+/// Raven, flat and dense, for tools. The look at start.
+pub const R_LOOK_RAVEN_DARK: RLook = 0x00E0;
+pub const R_LOOK_RAVEN_LIGHT: RLook = 0x00E1;
+/// Raven in glass: controls are capsules of translucent glass that refract
+/// and blur what is behind them, catch the light on their rim and react
+/// to the pointer with short animations. Windows get a soft colored
+/// background unless they have their own (Rwindow_set_background,
+/// Rwindow_set_clear_color).
+pub const R_LOOK_RAVEN_GLASS_DARK: RLook = 0x00E2;
+pub const R_LOOK_RAVEN_GLASS_LIGHT: RLook = 0x00E3;
+/// High contrast, for low vision: pure black and white, yellow (or blue)
+/// focus and selection, thick borders, larger text (raven_accessibility.h,
+/// Raccessibility_set_high_contrast).
+pub const R_LOOK_RAVEN_HIGH_CONTRAST_DARK: RLook = 0x00E4;
+pub const R_LOOK_RAVEN_HIGH_CONTRAST_LIGHT: RLook = 0x00E5;
+/// Windows 11 (Fluent): its controls, its colors, the accent color the
+/// user chose (on Windows), the Segoe UI font when the system has it, and
+/// motion without bounce.
+pub const R_LOOK_WINDOWS_DARK: RLook = 0x00E6;
+pub const R_LOOK_WINDOWS_LIGHT: RLook = 0x00E7;
+/// macOS (Sequoia, Aqua): its controls, its colors, the accent color the
+/// user chose (on macOS), the San Francisco font when the system has it,
+/// no change under the pointer, and selections in the accent color.
+pub const R_LOOK_MACOS_DARK: RLook = 0x00E8;
+pub const R_LOOK_MACOS_LIGHT: RLook = 0x00E9;
+/// GNOME (libadwaita), the desktop of most Linux distributions: flat
+/// rounded controls, the accent and the font of the desktop (on Linux).
+pub const R_LOOK_GNOME_DARK: RLook = 0x00EA;
+pub const R_LOOK_GNOME_LIGHT: RLook = 0x00EB;
+/// The look of the platform the application runs on: Windows on Windows,
+/// macOS on macOS (macOS Glass from macOS 26 on), GNOME on Linux and the
+/// other systems.
+pub const R_LOOK_NATIVE_DARK: RLook = 0x00EC;
+pub const R_LOOK_NATIVE_LIGHT: RLook = 0x00ED;
+/// macOS 26 (Tahoe, Liquid Glass): the controls of macOS, larger and
+/// rounder, and glass where the system puts it, on what floats above the
+/// content: header bars and their buttons, menus, drop-down lists,
+/// tooltips, sheets; the knobs of sliders and switches turn into a lens
+/// of clear glass while they are held. The content itself (fields, lists,
+/// text) stays opaque. The accent color and the font of the system, on
+/// macOS.
+pub const R_LOOK_MACOS_GLASS_DARK: RLook = 0x00EE;
+pub const R_LOOK_MACOS_GLASS_LIGHT: RLook = 0x00EF;
+
+/// @deprecated The built-in themes of Raven 0.2, now looks: R_THEME_DARK is
+/// R_LOOK_RAVEN_DARK and so on, and Rtheme_apply is Rlook_set.
 pub const RTheme = c_int;
 /// Flat, dense themes for tools.
 pub const R_THEME_DARK: RTheme = 0x00E0;
@@ -505,6 +666,26 @@ pub const R_WIDGET_NODE_GRAPH: RWidgetType = 0x0228;
 pub const R_WIDGET_TILE_VIEW: RWidgetType = 0x0229;
 /// Blocks that snap into each other, in the style of Scratch.
 pub const R_WIDGET_BLOCK_EDITOR: RWidgetType = 0x022A;
+/// Rows of cells under columns that can be resized and sorted, virtualized.
+pub const R_WIDGET_TABLE: RWidgetType = 0x022B;
+/// A date, chosen in a calendar that drops down.
+pub const R_WIDGET_DATE_PICKER: RWidgetType = 0x022C;
+/// A time of the day: hours, minutes, optionally seconds.
+pub const R_WIDGET_TIME_PICKER: RWidgetType = 0x022D;
+/// A short message that rises for a few seconds, with an optional action ("Undo").
+pub const R_WIDGET_TOAST: RWidgetType = 0x022E;
+/// The path to the current place: links separated by chevrons.
+pub const R_WIDGET_BREADCRUMB: RWidgetType = 0x022F;
+/// A score shown and chosen with stars.
+pub const R_WIDGET_RATING: RWidgetType = 0x0230;
+/// Page numbers with previous and next.
+pub const R_WIDGET_PAGINATION: RWidgetType = 0x0231;
+/// Curves of X / Y data: legend, line styles, markers, log axes, a second X and Y axis, pan and zoom.
+pub const R_WIDGET_PLOT: RWidgetType = 0x0232;
+/// The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
+pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
+/// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+pub const R_WIDGET_CHART: RWidgetType = 0x0234;
 
 pub const RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -585,6 +766,22 @@ pub const R_TEXT_ALIGN_LEFT: RTextAlign = 0x0280;
 pub const R_TEXT_ALIGN_CENTER: RTextAlign = 0x0281;
 pub const R_TEXT_ALIGN_RIGHT: RTextAlign = 0x0282;
 
+pub const RToastKind = c_int;
+/// A neutral message (the accent of the theme).
+pub const R_TOAST_INFO: RToastKind = 0x04E0;
+pub const R_TOAST_SUCCESS: RToastKind = 0x04E1;
+pub const R_TOAST_WARNING: RToastKind = 0x04E2;
+pub const R_TOAST_ERROR: RToastKind = 0x04E3;
+
+/// What a Toast does with a message that comes while another one is shown.
+pub const RToastQueue = c_int;
+/// The new message takes the place of the one shown (the default).
+pub const R_TOAST_REPLACE: RToastQueue = 0x0500;
+/// The messages are shown one after the other, each for its own time.
+pub const R_TOAST_SEQUENCE: RToastQueue = 0x0501;
+/// Up to Rtoast_set_max_visible messages are shown at once, one above the other; the others wait.
+pub const R_TOAST_STACK: RToastQueue = 0x0502;
+
 pub const RButtonStyle = c_int;
 /// Filled with R_COLOR_CONTROL.
 pub const R_BUTTON_DEFAULT: RButtonStyle = 0x0290;
@@ -609,6 +806,121 @@ pub const R_STRETCH_FIT: RStretch = 0x02B1;
 pub const R_STRETCH_COVER: RStretch = 0x02B2;
 /// Original size, centered.
 pub const R_STRETCH_NONE: RStretch = 0x02B3;
+
+/// The axes of a Plot.
+pub const RPlotAxis = c_int;
+/// The horizontal axis under the data.
+pub const R_PLOT_X: RPlotAxis = 0x0520;
+/// The vertical axis on the left.
+pub const R_PLOT_Y: RPlotAxis = 0x0521;
+/// A second horizontal axis, over the data: shown when a series or a drag line uses it.
+pub const R_PLOT_X2: RPlotAxis = 0x0522;
+/// A second vertical axis, on the right: shown when a series or a drag line uses it.
+pub const R_PLOT_Y2: RPlotAxis = 0x0523;
+
+/// How a PdfView sizes its pages.
+pub const RPdfFit = c_int;
+/// The widest page fills the width of the view (default).
+pub const R_PDF_FIT_WIDTH: RPdfFit = 0x05C0;
+/// The largest page fits whole in the view.
+pub const R_PDF_FIT_PAGE: RPdfFit = 0x05C1;
+/// The zoom of Rpdf_view_set_zoom; zooming with the wheel or the keys switches to it.
+pub const R_PDF_FIT_NONE: RPdfFit = 0x05C2;
+
+/// What a PdfView holds.
+pub const RPdfStatus = c_int;
+/// No document.
+pub const R_PDF_EMPTY: RPdfStatus = 0x05D0;
+/// A document is shown.
+pub const R_PDF_LOADED: RPdfStatus = 0x05D1;
+/// The document needs a password, or the one given is wrong: load it again with one.
+pub const R_PDF_NEEDS_PASSWORD: RPdfStatus = 0x05D2;
+/// The file could not be read, or is not a PDF document.
+pub const R_PDF_ERROR: RPdfStatus = 0x05D3;
+/// The PDFium library was not found (see Rpdf_is_available).
+pub const R_PDF_UNAVAILABLE: RPdfStatus = 0x05D4;
+
+/// The fonts of a PDF document (Rpdf_document_set_font): those of Raven, then the ones added (2, 3...).
+pub const RPdfFont = c_int;
+/// Roboto, the font of the interface of Raven.
+pub const R_PDF_FONT_SANS: RPdfFont = 0;
+/// Roboto Mono.
+pub const R_PDF_FONT_MONO: RPdfFont = 1;
+
+/// How a shape of a PDF document is painted: a bitmask.
+pub const RPdfPaint = c_int;
+/// Filled with the fill color.
+pub const R_PDF_FILL: RPdfPaint = 1;
+/// Outlined with the stroke color and the line width.
+pub const R_PDF_STROKE: RPdfPaint = 2;
+
+/// A bitmask of styles of the text of a PDF document.
+pub const RPdfTextStyle = c_int;
+pub const R_PDF_TEXT_BOLD: RPdfTextStyle = 1;
+pub const R_PDF_TEXT_ITALIC: RPdfTextStyle = 2;
+pub const R_PDF_TEXT_UNDERLINE: RPdfTextStyle = 4;
+
+pub const RPdfPrintFlags = c_int;
+/// No dialog: printed at once on the printer named, else the default one.
+pub const R_PDF_PRINT_NO_DIALOG: RPdfPrintFlags = 1;
+
+/// How an axis of a Plot spreads its values.
+pub const RPlotScale = c_int;
+pub const R_PLOT_SCALE_LINEAR: RPlotScale = 0x0530;
+/// Powers of ten at even distances; only values above zero are shown.
+pub const R_PLOT_SCALE_LOG: RPlotScale = 0x0531;
+/// Symmetric logarithm: linear between -t and t (Rplot_set_axis_linear_threshold,
+/// 1 by default), logarithmic beyond on both sides: shows zero and the
+/// negative values a logarithm cannot.
+pub const R_PLOT_SCALE_SYMLOG: RPlotScale = 0x0532;
+
+/// How the line of a series of a Plot is drawn.
+pub const RPlotLine = c_int;
+pub const R_PLOT_LINE_SOLID: RPlotLine = 0x0540;
+pub const R_PLOT_LINE_DASHED: RPlotLine = 0x0541;
+pub const R_PLOT_LINE_DOTTED: RPlotLine = 0x0542;
+pub const R_PLOT_LINE_DASH_DOT: RPlotLine = 0x0543;
+/// No line: only the markers (a scatter plot).
+pub const R_PLOT_LINE_NONE: RPlotLine = 0x0544;
+
+/// The mark drawn on each point of a series of a Plot.
+pub const RPlotMarker = c_int;
+pub const R_PLOT_MARKER_NONE: RPlotMarker = 0x0550;
+pub const R_PLOT_MARKER_CIRCLE: RPlotMarker = 0x0551;
+pub const R_PLOT_MARKER_SQUARE: RPlotMarker = 0x0552;
+pub const R_PLOT_MARKER_DIAMOND: RPlotMarker = 0x0553;
+pub const R_PLOT_MARKER_TRIANGLE_UP: RPlotMarker = 0x0554;
+pub const R_PLOT_MARKER_TRIANGLE_DOWN: RPlotMarker = 0x0555;
+pub const R_PLOT_MARKER_CROSS: RPlotMarker = 0x0556;
+pub const R_PLOT_MARKER_PLUS: RPlotMarker = 0x0557;
+pub const R_PLOT_MARKER_ASTERISK: RPlotMarker = 0x0558;
+
+/// Where the legend of a Plot is.
+pub const RPlotLegend = c_int;
+pub const R_PLOT_LEGEND_HIDDEN: RPlotLegend = 0x0560;
+pub const R_PLOT_LEGEND_TOP_LEFT: RPlotLegend = 0x0561;
+pub const R_PLOT_LEGEND_TOP: RPlotLegend = 0x0562;
+pub const R_PLOT_LEGEND_TOP_RIGHT: RPlotLegend = 0x0563;
+pub const R_PLOT_LEGEND_RIGHT: RPlotLegend = 0x0564;
+pub const R_PLOT_LEGEND_BOTTOM_RIGHT: RPlotLegend = 0x0565;
+pub const R_PLOT_LEGEND_BOTTOM: RPlotLegend = 0x0566;
+pub const R_PLOT_LEGEND_BOTTOM_LEFT: RPlotLegend = 0x0567;
+pub const R_PLOT_LEGEND_LEFT: RPlotLegend = 0x0568;
+/// To the right of the data, outside it.
+pub const R_PLOT_LEGEND_OUTSIDE: RPlotLegend = 0x0569;
+
+/// What a Chart draws.
+pub const RChartKind = c_int;
+/// Slices of a whole, as parts of a disc (the default).
+pub const R_CHART_PIE: RChartKind = 0x0590;
+/// Slices of a whole, as parts of a ring; its middle shows the total, or the slice under the pointer.
+pub const R_CHART_DONUT: RChartKind = 0x0591;
+/// One value within a range, on an arc; bands color parts of the range.
+pub const R_CHART_GAUGE: RChartKind = 0x0592;
+/// A grid of values, each cell colored from the low color to the high one.
+pub const R_CHART_HEATMAP: RChartKind = 0x0593;
+/// A small line of values without axes, to sit in a tile or a cell of a table.
+pub const R_CHART_SPARKLINE: RChartKind = 0x0594;
 
 /// Shorthands of Rtext_editor_set_language for two languages.
 pub const RSyntax = c_int;
@@ -675,6 +987,17 @@ pub const R_HEADER_MINIMIZE: RHeaderButtons = 2;
 pub const R_HEADER_MAXIMIZE: RHeaderButtons = 4;
 pub const R_HEADER_ALL_BUTTONS: RHeaderButtons = 7;
 
+/// A progress bar on the icon of the application (Rwindow_set_taskbar_progress).
+pub const RTaskbarProgress = c_int;
+pub const R_TASKBAR_PROGRESS_NONE: RTaskbarProgress = 0x07A0;
+pub const R_TASKBAR_PROGRESS_NORMAL: RTaskbarProgress = 0x07A1;
+/// Shown as paused (yellow on Windows).
+pub const R_TASKBAR_PROGRESS_PAUSED: RTaskbarProgress = 0x07A2;
+/// Shown as failed (red on Windows).
+pub const R_TASKBAR_PROGRESS_ERROR: RTaskbarProgress = 0x07A3;
+/// Something goes on, without knowing how far it is.
+pub const R_TASKBAR_PROGRESS_INDETERMINATE: RTaskbarProgress = 0x07A4;
+
 /// Where a panel goes in a dock area, relative to another panel or to the whole area.
 pub const RDockSide = c_int;
 pub const R_DOCK_LEFT: RDockSide = 0x0360;
@@ -683,6 +1006,22 @@ pub const R_DOCK_TOP: RDockSide = 0x0362;
 pub const R_DOCK_BOTTOM: RDockSide = 0x0363;
 /// Behind the same tabs as the other panel.
 pub const R_DOCK_TAB: RDockSide = 0x0364;
+
+pub const RDockFloatMode = c_int;
+pub const R_DOCK_FLOAT_WINDOW: RDockFloatMode = 0;
+pub const R_DOCK_FLOAT_IN_WINDOW: RDockFloatMode = 1;
+
+pub const RVisualPreset = c_int;
+/// The look of the theme of the window: its platform, dark or light.
+pub const R_PRESET_AUTO: RVisualPreset = 0x0510;
+/// Cards with soft shadows, few lines (follows dark or light).
+pub const R_PRESET_MODERN: RVisualPreset = 0x0511;
+/// Headers in gradients, a grid of lines, thick links that glow; pins of the type "exec" are arrows.
+pub const R_PRESET_BLUEPRINT: RVisualPreset = 0x0512;
+/// Compact nodes, flat headers in muted colors, thin links.
+pub const R_PRESET_BLENDER: RVisualPreset = 0x0513;
+/// Almost black, outlines and links of light.
+pub const R_PRESET_NEON: RVisualPreset = 0x0514;
 
 /// What an item of a timeline is.
 pub const RTimelineItem = c_int;
@@ -709,6 +1048,14 @@ pub const RBlockPlace = c_int;
 pub const R_BLOCK_NEXT: RBlockPlace = 0x0710;
 pub const R_BLOCK_BODY: RBlockPlace = 0x0711;
 pub const R_BLOCK_INPUT: RBlockPlace = 0x0712;
+
+/// How much a notification of the system asks for attention (Rnotification_show).
+pub const RNotificationUrgency = c_int;
+/// No sound; may only go to the list of notifications.
+pub const R_NOTIFICATION_LOW: RNotificationUrgency = 0x04F0;
+pub const R_NOTIFICATION_NORMAL: RNotificationUrgency = 0x04F1;
+/// Stays until the user dismisses it, where the system allows it.
+pub const R_NOTIFICATION_CRITICAL: RNotificationUrgency = 0x04F2;
 
 pub const RFileDialogFlags = c_int;
 /// Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result.
@@ -855,21 +1202,21 @@ pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
 /// The body of your loop does the same job; the callback is also called
 /// while the OS keeps the thread in a loop of its own (on Windows, while
 /// the user moves or resizes a window), when your loop is not running.
-pub const RFrameCallback = ?*const fn (delta_seconds: f64, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTaskCallback = ?*const fn (user_data: ?*anyopaque) callconv(.C) void;
-pub const RParallelRangeCallback = ?*const fn (begin: u32, end: u32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTimerCallback = ?*const fn (timer: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RFrameCallback = ?*const fn (delta_seconds: f64, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTaskCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
+pub const RParallelRangeCallback = ?*const fn (begin: u32, end: u32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTimerCallback = ?*const fn (timer: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Actions connect widgets to application code by name. A widget carries an
 /// action name (set from XML with OnClicked="file.save", or from C with
 /// Rwidget_set_action); when its main event fires, the function bound to that
 /// name is called. Names are resolved when the event fires, so actions can be
 /// bound before or after the widgets are created.
-pub const RActionCallback = ?*const fn (sender: Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
+pub const RActionCallback = ?*const fn (sender: Rid, action: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
 /// Registers a function called whenever an error is raised.
 /// The function may be registered before Rinit. It is called on the
 /// thread that raised the error: errors of the renderer (and the messages
 /// of the Vulkan validation layers) come from the render thread.
-pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail: ?[*:0]const u8) callconv(.C) void;
+pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail: ?[*:0]const u8) callconv(.c) void;
 /// Registers a function called after Raven recovered from the loss
 /// of the GPU device (a driver reset or update, a GPU removed, a long sleep).
 ///
@@ -884,132 +1231,195 @@ pub const RErrorCallback = ?*const fn (code: RError, severity: RSeverity, detail
 ///
 /// Called on the UI thread, during Rdraw_frame / Rwait_frame. Set it after
 /// Rinit; NULL removes it.
-pub const RDeviceResetCallback = ?*const fn (user_data: ?*anyopaque) callconv(.C) void;
+pub const RDeviceResetCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
+/// The on-screen keyboard appeared, changed height or went away: `height` in logical units, 0 when hidden.
+pub const RKeyboardCallback = ?*const fn (window: Rid, visible: c_int, height: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called for a drop target (a widget, or a window: `target` is its
 /// handle). Return R_TRUE to accept: while the pointer is over the target this
 /// shows the "can drop here" cursor and highlights the target; for
 /// R_DROP_DROPPED it tells the source that the data was taken.
-pub const RDropCallback = ?*const fn (target: Rid, event: ?*const RDropEvent, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RDropCallback = ?*const fn (target: Rid, event: ?*const RDropEvent, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called when the user asks to close the window.
 /// Return R_TRUE to let the window close, R_FALSE to keep it open.
-pub const RWindowCloseCallback = ?*const fn (window: Rid, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RWindowCloseCallback = ?*const fn (window: Rid, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called after the window was resized. Sizes are in logical units.
-pub const RWindowResizeCallback = ?*const fn (window: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RWindowResizeCallback = ?*const fn (window: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Sees every input event of the window (mouse, wheel, keys, text)
 /// before any widget, with `target` set to the widget under the pointer.
 /// Returning R_TRUE consumes the event: the widgets do not get it. The
 /// state read by Rwindow_is_key_down is updated either way.
-pub const RWindowEventHook = ?*const fn (window: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RWindowEventHook = ?*const fn (window: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.c) c_int;
+/// Return R_TRUE to take the finger: the library then neither clicks nor scrolls with it.
+pub const RTouchCallback = ?*const fn (widget: Rid, event: ?*const RTouchEvent, user_data: ?*anyopaque) callconv(.c) c_int;
+/// Return R_TRUE (on R_PEN_DOWN) to take the stroke: the pen does not act as a mouse until it is lifted.
+pub const RPenCallback = ?*const fn (widget: Rid, event: ?*const RPenEvent, user_data: ?*anyopaque) callconv(.c) c_int;
+/// Return R_TRUE (on R_GESTURE_BEGIN) to take the gesture: nothing zooms, pans or navigates by itself.
+pub const RGestureCallback = ?*const fn (widget: Rid, event: ?*const RGestureEvent, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called once when the widget is gone: deleted by the application,
 /// with its parent or its window, or by Rshutdown. The place to release
 /// what belonged to it (a texture, a connection). The handle it receives
 /// names nothing any more: it is only there to tell widgets apart.
 /// Called on the UI thread, shortly after the deletion.
-pub const RWidgetDestroyCallback = ?*const fn (widget: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RWidgetDestroyCallback = ?*const fn (widget: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Receives the input events of a widget before the widget itself.
 /// Return R_TRUE to consume the event (the widget and its parents will
 /// not see it), R_FALSE to let it continue.
-pub const RWidgetEventCallback = ?*const fn (widget: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.C) c_int;
-pub const RTabChangedCallback = ?*const fn (tab_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RWidgetEventCallback = ?*const fn (widget: Rid, event: ?*const REvent, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RTabChangedCallback = ?*const fn (tab_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// The user closes a tab (its button, a middle click). Return R_TRUE
 /// to delete its page now, R_FALSE to keep it (the application may ask to
 /// save, then delete the page itself with Rwidget_destroy).
-pub const RTabCloseCallback = ?*const fn (tab_view: Rid, index: c_int, content: Rid, user_data: ?*anyopaque) callconv(.C) c_int;
-pub const RExpanderChangedCallback = ?*const fn (expander: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTabCloseCallback = ?*const fn (tab_view: Rid, index: c_int, content: Rid, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RExpanderChangedCallback = ?*const fn (expander: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user clicks a link of a Markdown label.
 ///
 /// Without a callback, a link written [Save](action:file.save) fires the
 /// action "file.save" (Raction_bind), and http, https and mailto links
 /// open in the browser or the mail program of the user (Ropen_url).
-pub const RLabelLinkCallback = ?*const fn (label: Rid, url: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
-pub const RButtonClickedCallback = ?*const fn (button: Rid, user_data: ?*anyopaque) callconv(.C) void;
-pub const RCheckboxChangedCallback = ?*const fn (checkbox: Rid, checked: c_int, user_data: ?*anyopaque) callconv(.C) void;
-pub const RSliderChangedCallback = ?*const fn (slider: Rid, value: f32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTextChangedCallback = ?*const fn (text_input: Rid, text: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
-pub const RSpinBoxChangedCallback = ?*const fn (spin_box: Rid, value: f64, user_data: ?*anyopaque) callconv(.C) void;
-pub const RComboBoxChangedCallback = ?*const fn (combo_box: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RLabelLinkCallback = ?*const fn (label: Rid, url: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RButtonClickedCallback = ?*const fn (button: Rid, user_data: ?*anyopaque) callconv(.c) void;
+pub const RCheckboxChangedCallback = ?*const fn (checkbox: Rid, checked: c_int, user_data: ?*anyopaque) callconv(.c) void;
+pub const RSliderChangedCallback = ?*const fn (slider: Rid, value: f32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTextChangedCallback = ?*const fn (text_input: Rid, text: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RSpinBoxChangedCallback = ?*const fn (spin_box: Rid, value: f64, user_data: ?*anyopaque) callconv(.c) void;
+pub const RComboBoxChangedCallback = ?*const fn (combo_box: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Virtual mode, for large or computed data: the list stores nothing and
 /// asks for the text of the rows it draws. The returned string must stay
 /// valid until the next call.
-pub const RListItemTextCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) ?[*:0]const u8;
-pub const RListEventCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
-pub const RTreeEventCallback = ?*const fn (tree_view: Rid, item: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RListItemTextCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) ?[*:0]const u8;
+/// Colors the text of rows (a level, a verdict): the list asks for the color
+/// of each row it draws, stored or virtual. Set r, g, b, a (0..1) and return
+/// R_TRUE; R_FALSE (or alpha 0) keeps the color of the theme. The color is
+/// kept on a selected or hovered row. NULL removes the callback.
+pub const RListItemColorCallback = ?*const fn (list_view: Rid, index: c_int, r: ?*f32, g: ?*f32, b: ?*f32, a: ?*f32, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RListEventCallback = ?*const fn (list_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
+pub const RTreeEventCallback = ?*const fn (tree_view: Rid, item: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: `item` is the item under the pointer (selected
 /// first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
-pub const RTreeContextCallback = ?*const fn (tree_view: Rid, item: Rid, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RMenuItemClickedCallback = ?*const fn (item: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTreeContextCallback = ?*const fn (tree_view: Rid, item: Rid, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RMenuItemClickedCallback = ?*const fn (item: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
-pub const RTileItemCallback = ?*const fn (tile_view: Rid, index: c_int, item: ?*RTileItem, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTileItemCallback = ?*const fn (tile_view: Rid, index: c_int, item: ?*RTileItem, user_data: ?*anyopaque) callconv(.c) void;
 /// Selection change (`index`: the current tile, or -1) and activation (double click, Enter).
-pub const RTileEventCallback = ?*const fn (tile_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTileEventCallback = ?*const fn (tile_view: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: the tile under the pointer (selected first), or -1 in the empty space; x, y in the window.
-pub const RTileContextCallback = ?*const fn (tile_view: Rid, index: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTileContextCallback = ?*const fn (tile_view: Rid, index: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// The data of a drag, given by the application (paths of files...)
 /// instead of the indices: the dragged tiles are the selected ones
 /// (Rtile_view_get_selection). The text returned is copied; NULL keeps
 /// the indices.
-pub const RTileDragDataCallback = ?*const fn (tile_view: Rid, user_data: ?*anyopaque) callconv(.C) ?[*:0]const u8;
+pub const RTileDragDataCallback = ?*const fn (tile_view: Rid, user_data: ?*anyopaque) callconv(.c) ?[*:0]const u8;
+/// Virtual mode, for large or computed data: the table stores nothing and
+/// asks for the texts of the cells it draws. The returned string must stay
+/// valid until the next call.
+pub const RTableCellTextCallback = ?*const fn (table: Rid, row: c_int, column: c_int, user_data: ?*anyopaque) callconv(.c) ?[*:0]const u8;
+/// Colors the text of cells (a verdict, a state): the table asks for the
+/// color of each cell it draws, stored or virtual (`row` is the index of the
+/// order shown). Set r, g, b, a (0..1) and return R_TRUE; R_FALSE (or alpha 0)
+/// keeps the color set with Rtable_set_cell_text_color, else the theme's.
+/// The color is kept on a selected or hovered row. NULL removes the callback.
+pub const RTableCellColorCallback = ?*const fn (table: Rid, row: c_int, column: c_int, r: ?*f32, g: ?*f32, b: ?*f32, a: ?*f32, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RTableEventCallback = ?*const fn (table: Rid, row: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user clicks a header; `column` -1: not sorted.
+pub const RTableSortCallback = ?*const fn (table: Rid, column: c_int, descending: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user chooses a date. This also fires the action of the widget.
+pub const RDateChangedCallback = ?*const fn (date_picker: Rid, year: c_int, month: c_int, day: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user changes the time. This also fires the action of the widget.
+pub const RTimeChangedCallback = ?*const fn (time_picker: Rid, hour: c_int, minute: c_int, second: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called by the button of a message, which then hides. This also fires the action of the widget.
+pub const RToastCallback = ?*const fn (toast: Rid, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user clicks an item. This also fires the action of the widget.
+pub const RBreadcrumbCallback = ?*const fn (breadcrumb: Rid, index: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user changes the score. This also fires the action of the widget.
+pub const RRatingChangedCallback = ?*const fn (rating: Rid, value: f32, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user goes to another page. This also fires the action of the widget.
+pub const RPageChangedCallback = ?*const fn (pagination: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user moves, zooms or fits the view (Rplot_get_axis_range tells where it is).
+pub const RPlotViewCallback = ?*const fn (plot: Rid, user_data: ?*anyopaque) callconv(.c) void;
+/// Called while the user drags a drag line. This also fires the action of the widget.
+pub const RPlotDragLineCallback = ?*const fn (plot: Rid, line: c_int, value: f64, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user hides or shows a series from the legend.
+pub const RPlotSeriesCallback = ?*const fn (plot: Rid, series: c_int, visible: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user clicks a slice; `selected` tells whether it is now the selected one.
+pub const RChartSliceCallback = ?*const fn (chart: Rid, slice: c_int, selected: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user clicks a cell of a heatmap.
+pub const RChartCellCallback = ?*const fn (chart: Rid, row: c_int, column: c_int, value: f32, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the current page changes as the user scrolls. This also fires the action of the widget.
+pub const RPdfPageChangedCallback = ?*const fn (view: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
-pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTextEditorZoomCallback = ?*const fn (editor: Rid, zoom: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the editor gathers its proposals, with the
 /// start of the word being typed: add your own with
 /// Rtext_editor_add_completion (the fields of a structure, the answers of
 /// a language server...). They are listed before the others.
-pub const RCompletionCallback = ?*const fn (editor: Rid, prefix: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
+pub const RCompletionCallback = ?*const fn (editor: Rid, prefix: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+/// Called while the pointer moves over the text where no marker
+/// is, with the position under it: the text returned (NULL or "" for
+/// none) is shown as the tooltip, as a marker's message is (what a name
+/// stands for, the value of a variable). The text must stay valid until
+/// the next call.
+pub const RTextEditorHoverCallback = ?*const fn (editor: Rid, line: c_int, column: c_int, user_data: ?*anyopaque) callconv(.c) ?[*:0]const u8;
 /// Called after each change made by the user (typing, pasting,
 /// undoing...) or by Rtext_editor_insert_text. The action of the widget
 /// (OnChanged in XML) fires at the same time.
-pub const RTextEditorChangedCallback = ?*const fn (editor: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTextEditorChangedCallback = ?*const fn (editor: Rid, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the tray icon is clicked (Rtray_set_clicked_callback).
+pub const RTrayClickedCallback = ?*const fn (tray: Rid, button: RMouseButton, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user closes a panel, before it is deleted.
 /// Return R_FALSE to keep the panel.
-pub const RDockCloseCallback = ?*const fn (area: Rid, panel: Rid, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RDockCloseCallback = ?*const fn (area: Rid, panel: Rid, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Called after the user moved, resized, showed or closed a panel.
-pub const RDockChangedCallback = ?*const fn (area: Rid, user_data: ?*anyopaque) callconv(.C) void;
+pub const RDockChangedCallback = ?*const fn (area: Rid, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user unfolds or folds the island. The action of the widget (OnChanged) fires too.
-pub const RIslandChangedCallback = ?*const fn (island: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RIslandChangedCallback = ?*const fn (island: Rid, expanded: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time the user changes the color: while dragging,
 /// and when a code or a number is entered. The action of the widget
 /// (OnChanged in XML) fires too.
-pub const RColorChangedCallback = ?*const fn (picker: Rid, r: f32, g: f32, b: f32, a: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RColorChangedCallback = ?*const fn (picker: Rid, r: f32, g: f32, b: f32, a: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// The playhead moved: scrubbed by the user, or running by itself.
-pub const RTimelineTimeCallback = ?*const fn (timeline: Rid, seconds: f64, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTimelineTimeCallback = ?*const fn (timeline: Rid, seconds: f64, user_data: ?*anyopaque) callconv(.c) void;
 /// Something happened to an item; which thing depends on the function the callback was given to.
-pub const RTimelineItemCallback = ?*const fn (timeline: Rid, item: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RTimelineItemCallback = ?*const fn (timeline: Rid, item: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Asked when the user is about to link two pins that may be
 /// linked: return R_FALSE to refuse (a loop, a rule of the application).
-pub const RNodeGraphConnectCallback = ?*const fn (graph: Rid, output_pin: c_int, input_pin: c_int, user_data: ?*anyopaque) callconv(.C) c_int;
+pub const RNodeGraphConnectCallback = ?*const fn (graph: Rid, output_pin: c_int, input_pin: c_int, user_data: ?*anyopaque) callconv(.c) c_int;
 /// Something happened to a link or to a node; which thing depends on the function the callback was given to.
-pub const RNodeGraphItemCallback = ?*const fn (graph: Rid, item: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RNodeGraphItemCallback = ?*const fn (graph: Rid, item: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: `node` is the node under the pointer (selected first),
 /// or 0 on the empty canvas; x, y are in the widget (Rnode_graph_to_canvas).
 /// Without this callback the right button does nothing.
-pub const RNodeGraphContextCallback = ?*const fn (graph: Rid, node: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RNodeGraphContextCallback = ?*const fn (graph: Rid, node: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
+/// Something happened at a point of the canvas: `item` depends on the
+/// function the callback was given to; x, y are in canvas units (as node positions).
+pub const RNodeGraphPointCallback = ?*const fn (graph: Rid, item: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// A block changed (0: several, or one was deleted), or a script was clicked (its top block).
-pub const RBlockEditorCallback = ?*const fn (editor: Rid, block: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RBlockEditorCallback = ?*const fn (editor: Rid, block: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Right click: on a block (0 on the canvas), at x, y in the widget.
-pub const RBlockEditorContextCallback = ?*const fn (editor: Rid, block: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RBlockEditorContextCallback = ?*const fn (editor: Rid, block: c_int, x: f32, y: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when a dialog closes. `result` is the value given to Rdialog_close, 0 when dismissed.
-pub const RDialogClosedCallback = ?*const fn (content: Rid, result: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RDialogClosedCallback = ?*const fn (content: Rid, result: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user chooses: a double click or Enter on a file,
 /// the Open / Save button. `path` is the first chosen path; with several
 /// files, read them with Rfile_browser_get_selection. The action of the
 /// widget (OnActivated in XML) fires at the same time.
-pub const RFileBrowserCallback = ?*const fn (browser: Rid, path: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
+pub const RFileBrowserCallback = ?*const fn (browser: Rid, path: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RNotificationFallback = ?*const fn (title: ?[*:0]const u8, body: ?[*:0]const u8, urgency: RNotificationUrgency, user_data: ?*anyopaque) callconv(.c) void;
+pub const RNotificationClickedCallback = ?*const fn (user_data: ?*anyopaque) callconv(.c) void;
 /// Called on the render thread each time the window is rendered.
 /// State you bind (pipeline, descriptor sets, viewport, scissor) does not
 /// need to be restored. NULL removes the callback.
-pub const RViewportDrawCallback = ?*const fn (info: ?*const RViewportDrawInfo, user_data: ?*anyopaque) callconv(.C) void;
+pub const RViewportDrawCallback = ?*const fn (info: ?*const RViewportDrawInfo, user_data: ?*anyopaque) callconv(.c) void;
 /// Called on the UI thread when the pixel size changes: resize your render target here.
-pub const RViewportResizeCallback = ?*const fn (viewport: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.C) void;
-pub const RPaintCallback = ?*const fn (widget: Rid, painter: ?*RPainter, width: f32, height: f32, user_data: ?*anyopaque) callconv(.C) void;
-pub const RMeasureCallback = ?*const fn (widget: Rid, width: ?*f32, height: ?*f32, user_data: ?*anyopaque) callconv(.C) void;
+pub const RViewportResizeCallback = ?*const fn (viewport: Rid, width: c_int, height: c_int, user_data: ?*anyopaque) callconv(.c) void;
+pub const RPaintCallback = ?*const fn (widget: Rid, painter: ?*RPainter, width: f32, height: f32, user_data: ?*anyopaque) callconv(.c) void;
+pub const RMeasureCallback = ?*const fn (widget: Rid, width: ?*f32, height: ?*f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called each time a file was loaded again.
 /// path The file given when the interface was created.
 /// ok   R_FALSE when the file could not be used (the interface is unchanged).
 ///
 /// Widgets that had to be built again have new handles: this is the
 /// place to look them up again (Rwidget_find).
-pub const RXmlReloadCallback = ?*const fn (path: ?[*:0]const u8, ok: c_int, user_data: ?*anyopaque) callconv(.C) void;
+pub const RXmlReloadCallback = ?*const fn (path: ?[*:0]const u8, ok: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Tags made by code. A library or an application that builds a widget of
 /// its own (a R_WIDGET_CUSTOM with its callbacks, or an assembly of
 /// widgets) can give it a tag: documents then write <MyWidget .../> as
@@ -1020,14 +1430,15 @@ pub const RXmlReloadCallback = ?*const fn (path: ?[*:0]const u8, ok: c_int, user
 /// them: it returns R_TRUE for those it understands, R_FALSE to leave
 /// them to the widget (Name, Width, Slot..., and what its type knows).
 /// Rwidget_set_attribute goes through it too.
-pub const RXmlTagCreateCallback = ?*const fn (tag: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) Rid;
-pub const RXmlTagAttributeCallback = ?*const fn (widget: Rid, name: ?[*:0]const u8, value: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) c_int;
-pub const RLocaleChangedCallback = ?*const fn (language: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.C) void;
+pub const RXmlTagCreateCallback = ?*const fn (tag: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) Rid;
+pub const RXmlTagAttributeCallback = ?*const fn (widget: Rid, name: ?[*:0]const u8, value: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) c_int;
+pub const RLocaleChangedCallback = ?*const fn (language: ?[*:0]const u8, user_data: ?*anyopaque) callconv(.c) void;
+pub const RAccessiblePressCallback = ?*const fn (widget: Rid, user_data: ?*anyopaque) callconv(.c) void;
 
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
 pub const RInitDesc = extern struct {
-    /// Rendering backend. 0 selects R_BACKEND_VULKAN.
+    /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     backend: RBackend = 0,
     /// Application name reported to the graphics driver. May be NULL.
     app_name: ?[*:0]const u8 = null,
@@ -1081,10 +1492,34 @@ pub const RFrameStats = extern struct {
     frame_index: u64 = 0,
 };
 
+/// Distances from the edges of a window, in logical units.
+pub const RInsets = extern struct {
+    top: f32 = 0,
+    right: f32 = 0,
+    bottom: f32 = 0,
+    left: f32 = 0,
+};
+
+/// What the platform needs to know of the focused text input to set up the on-screen keyboard.
+pub const RTextInputInfo = extern struct {
+    type_: RTextInputType = 0,
+    return_key: RReturnKey = 0,
+    /// R_TRUE: the text is hidden (no suggestions, no autocorrection, no learning).
+    password: c_int = 0,
+    read_only: c_int = 0,
+    /// Most characters accepted; 0 for no limit.
+    max_length: c_int = 0,
+};
+
 /// Native handles of a window or of a native viewport.
 ///   Win32 : display = HINSTANCE, window = HWND
 ///   X11   : display = Display*,  window = Window (XID), visual = VisualID
+///   Wayland: display = wl_display*, window = wl_surface* (Linux and BSD choose
+///           Wayland or X11 when Rinit runs: check `system`)
 ///   Cocoa : display = NSWindow*, window = CAMetalLayer* for Vulkan presentation
+///   Emscripten: window = opaque browser surface token (no OS window handle)
+///   Android: window = ANativeWindow*
+///   UIKit : display = UIWindow*, window = CAMetalLayer* for Vulkan presentation (iOS, iPadOS)
 pub const RNativeWindow = extern struct {
     system: RWindowSystem = 0,
     display: ?*anyopaque = null,
@@ -1129,6 +1564,11 @@ pub const REvent = extern struct {
     /// R_TRUE when the key event comes from auto-repeat.
     repeat: c_int = 0,
     codepoint: u32 = 0,
+    /// R_EVENT_MOUSE_WHEEL: R_TRUE when the wheel comes from a trackpad (or a
+    /// mouse that scrolls smoothly). wheel_x, wheel_y are then small fractions of
+    /// a line, a line being 48 logical units the fingers moved: what follows the
+    /// fingers moves 48 units per line, and a canvas pans rather than zooms.
+    wheel_precise: c_int = 0,
 };
 
 /// What a drop target receives. The files and the text are only known when
@@ -1153,6 +1593,144 @@ pub const RDropEvent = extern struct {
     drag_source: Rid = 0,
 };
 
+/// How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings).
+pub const RTouchSettings = extern struct {
+    /// R_TRUE (default): one finger drives the widgets as the mouse does: a tap clicks, a drag drags.
+    mouse_emulation: c_int = 0,
+    /// How far a finger moves (logical units) before a press becomes a drag or a scroll. Default 8.
+    slop: f32 = 0,
+    /// Seconds a finger rests before the press is a right click (the context menu); 0 turns it off. Default 0.5.
+    long_press: f32 = 0,
+    /// R_TRUE (default): flicked content keeps going and slows down.
+    inertia: c_int = 0,
+    /// How fast it slows down, in logical units per second per second. Default 2400.
+    deceleration: f32 = 0,
+    /// R_TRUE (default): two fingers pinch to zoom and pan.
+    gestures: c_int = 0,
+    /// R_TRUE (default): the pen drives the widgets as the mouse does (its barrel button: the right button).
+    pen_mouse_emulation: c_int = 0,
+    /// The pressure given to the application is the one of the pen to this power: 1 (default) as it is, below 1 softer, above 1 harder.
+    pressure_curve: f32 = 0,
+    /// Pressure (0..1, after the curve) the tip needs before it presses. Default 0.
+    pressure_threshold: f32 = 0,
+    /// R_TRUE (default): fingers are ignored while a pen is near the screen, and half a second after (the palm resting on it).
+    palm_rejection: c_int = 0,
+    /// R_TRUE (default): the pinch and the rotation of a trackpad zoom what zooms, as two fingers on the screen do.
+    trackpad_gestures: c_int = 0,
+    /// R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
+    swipe_navigation: c_int = 0,
+    /// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+    swipe_distance: f32 = 0,
+};
+
+pub const RTouchEvent = extern struct {
+    phase: RTouchPhase = 0,
+    window: Rid = 0,
+    /// Widget the finger came down on.
+    target: Rid = 0,
+    /// Number of the finger, the same from its down to its up.
+    id: c_int = 0,
+    /// Position in the window, and relative to the widget receiving the event.
+    x: f32 = 0,
+    /// Position in the window, and relative to the widget receiving the event.
+    y: f32 = 0,
+    local_x: f32 = 0,
+    local_y: f32 = 0,
+    /// 0..1; 1 when the screen does not tell.
+    pressure: f32 = 0,
+    /// Size of the contact, 0 when the screen does not tell.
+    width: f32 = 0,
+    /// Size of the contact, 0 when the screen does not tell.
+    height: f32 = 0,
+    /// Fingers on the window, this one included (0 after the last up).
+    count: c_int = 0,
+    /// Bitmask of RModifier.
+    modifiers: u32 = 0,
+};
+
+pub const RPenEvent = extern struct {
+    phase: RPenPhase = 0,
+    window: Rid = 0,
+    /// Widget under the pen; during a stroke, the one it started on.
+    target: Rid = 0,
+    x: f32 = 0,
+    y: f32 = 0,
+    local_x: f32 = 0,
+    local_y: f32 = 0,
+    /// 0..1, after the pressure curve; 0 while hovering.
+    pressure: f32 = 0,
+    /// As the pen gives it, 0..1.
+    raw_pressure: f32 = 0,
+    /// Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+    tilt_x: f32 = 0,
+    /// Tilt of the pen in degrees, -90..90, toward the right and toward the user; 0 when upright or unknown.
+    tilt_y: f32 = 0,
+    /// Rotation around its axis in degrees, 0..360 (when the pen tells).
+    rotation: f32 = 0,
+    /// R_TRUE when the eraser end touches (or the eraser button is held).
+    eraser: c_int = 0,
+    /// Bitmask of RPenButton.
+    buttons: u32 = 0,
+    modifiers: u32 = 0,
+};
+
+pub const RGestureEvent = extern struct {
+    phase: RGesturePhase = 0,
+    window: Rid = 0,
+    /// Widget under the center of the fingers when the gesture began.
+    target: Rid = 0,
+    /// Center of the fingers, in the window and relative to the widget receiving the event.
+    x: f32 = 0,
+    /// Center of the fingers, in the window and relative to the widget receiving the event.
+    y: f32 = 0,
+    local_x: f32 = 0,
+    local_y: f32 = 0,
+    /// Distance between the fingers relative to when the gesture began (2 = twice as far apart).
+    scale: f32 = 0,
+    /// The same since the previous event: what a zoom multiplies by.
+    scale_delta: f32 = 0,
+    /// Movement of the center since the previous event.
+    pan_x: f32 = 0,
+    /// Movement of the center since the previous event.
+    pan_y: f32 = 0,
+    /// Turn of the fingers since the gesture began, in degrees, clockwise.
+    rotation: f32 = 0,
+    /// R_GESTURE_PINCH or R_GESTURE_SWIPE.
+    kind: RGestureKind = 0,
+    /// R_GESTURE_DEVICE_TOUCHSCREEN or R_GESTURE_DEVICE_TRACKPAD.
+    device: RGestureDevice = 0,
+    /// Fingers of the gesture (2 for a pinch, 3 or more for a swipe; 0 when the system does not tell).
+    fingers: c_int = 0,
+    /// Movement of the center since the gesture began.
+    total_x: f32 = 0,
+    /// Movement of the center since the gesture began.
+    total_y: f32 = 0,
+    /// The same turn as `rotation`, since the previous event.
+    rotation_delta: f32 = 0,
+    /// R_GESTURE_END: R_TRUE when the system took the gesture back (nothing must happen as for an end).
+    cancelled: c_int = 0,
+};
+
+/// How a PDF document is printed. Every field may be left to zero.
+pub const RPdfPrintDesc = extern struct {
+    /// Window the print dialog belongs to (0 or R_INVALID_ID: none).
+    window: Rid = 0,
+    /// Name of the print job, shown in the queue of the printer. NULL: the title of the document or the name of the file.
+    title: ?[*:0]const u8 = null,
+    /// Name of the printer, as the system knows it. NULL: the one chosen in the dialog, else the default printer.
+    printer: ?[*:0]const u8 = null,
+    /// Copies to print (0: one); the dialog may change it.
+    copies: c_int = 0,
+    /// Bitmask of RPdfPrintFlags.
+    flags: u32 = 0,
+    /// Path of a file the job is written to instead of a printer. macOS: a
+    /// PDF made by the print system; Windows: what the driver of the printer
+    /// makes; elsewhere: the document itself.
+    output: ?[*:0]const u8 = null,
+    /// Password of a document protected by one.
+    password: ?[*:0]const u8 = null,
+};
+
 /// What a tile shows, filled by the application when the tile is drawn.
 pub const RTileItem = extern struct {
     /// Name under the icon (valid until the callback returns).
@@ -1163,11 +1741,11 @@ pub const RTileItem = extern struct {
     badge: ?[*:0]const u8 = null,
     /// Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default).
     icon: Rid = 0,
-    uv: [4]f32 = [_]f32{0} ** 4,
-    tint: [4]f32 = [_]f32{0} ** 4,
+    uv: [4]f32 = @splat(0),
+    tint: [4]f32 = @splat(0),
     icon_radius: f32 = 0,
     /// Color of the name; alpha 0 = the theme.
-    text_color: [4]f32 = [_]f32{0} ** 4,
+    text_color: [4]f32 = @splat(0),
 };
 
 /// What the editor knows of a language. Every field but the name may be NULL.
@@ -1204,6 +1782,16 @@ pub const RLanguageDesc = extern struct {
     /// <script> and </script> (the name of a language: "C", "Rust"...).
     /// NULL: JavaScript, as in HTML.
     script_language: ?[*:0]const u8 = null,
+};
+
+/// A task of the jump list of Windows (Rtaskbar_set_jump_list).
+pub const RJumpTask = extern struct {
+    /// What the list shows.
+    title: ?[*:0]const u8 = null,
+    /// The command line given to the application when it is chosen: it is started again with these arguments.
+    arguments: ?[*:0]const u8 = null,
+    /// The tooltip; NULL: none.
+    description: ?[*:0]const u8 = null,
 };
 
 /// A kind of file in a file dialog.
@@ -1260,8 +1848,14 @@ pub const RViewportDrawInfo = extern struct {
     command_buffer: ?*anyopaque = null,
     /// Vulkan: VkRenderPass in use (one color attachment, no depth).
     render_pass: ?*anyopaque = null,
-    /// Vulkan: VkFormat of the color attachment.
+    /// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
     color_format: u32 = 0,
+    /// Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+    metal_encoder: ?*anyopaque = null,
+    /// Metal: id<MTLCommandBuffer> the encoder belongs to.
+    metal_command_buffer: ?*anyopaque = null,
+    /// Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
+    metal_device: ?*anyopaque = null,
 };
 
 /// State of one animated value. Zero-initialize it and keep it with the widget.
@@ -1274,10 +1868,10 @@ pub const RSpring = extern struct {
 /// How an effect is drawn. Start from Rshader_look_init.
 pub const RShaderLook = extern struct {
     /// First and second color, 0..1, straight alpha.
-    color: [4]f32 = [_]f32{0} ** 4,
-    color2: [4]f32 = [_]f32{0} ** 4,
+    color: [4]f32 = @splat(0),
+    color2: [4]f32 = @splat(0),
     /// Four numbers the effect reads as fx.params (their meaning is the effect's).
-    params: [4]f32 = [_]f32{0} ** 4,
+    params: [4]f32 = @splat(0),
     /// Radius of the corners, in logical units.
     radius: f32 = 0,
     /// Texture the effect reads with raven_texture(), or R_INVALID_ID.
@@ -1289,7 +1883,8 @@ pub const RShaderLook = extern struct {
     /// How much the pointer is over it and how much it is pressed, 0..1, as
     /// the effect reads them (fx.hover, fx.press). -1 (the default): 1 while
     /// the pointer is in the rectangle, and while the left button is down
-    /// there; a Border eases them itself.
+    /// there; a Border eases them itself. The rectangle is clipped to the
+    /// visible painting area; overlaid siblings do not interrupt its hover.
     hover: f32 = 0,
     press: f32 = 0,
 };
@@ -1299,7 +1894,7 @@ pub const RXmlError = extern struct {
     /// Both start at 1.
     line: c_int = 0,
     column: c_int = 0,
-    message: [160]u8 = [_]u8{0} ** 160,
+    message: [160]u8 = @splat(0),
 };
 
 /// One attribute of a tag (Rxml_get_attribute_info). The strings belong to the library.
@@ -1453,8 +2048,36 @@ pub extern fn Raction_unbind(name: ?[*:0]const u8) void;
 /// script or a test uses to do what a menu item does.
 /// sender Passed to the function; R_INVALID_ID when there is none.
 pub extern fn Raction_fire(name: ?[*:0]const u8, sender: Rid) void;
-/// Receives every action that has no bound function (e.g. a script bridge).
+/// Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
 pub extern fn Raction_set_default_handler(callback: RActionCallback, user_data: ?*anyopaque) void;
+/// The actions Raven knows by itself: an interface written in XML
+/// uses them with no C at all (OnClicked="app.quit").
+///
+///   app.quit                          quits (Rquit(0))
+///   window.close, window.minimize,    the window of the widget
+///   window.maximize, window.restore   (maximize goes back when it already is)
+///   window.picture_in_picture         in and out of picture in picture
+///   island.expand, island.fold,       the island of that window
+///   island.toggle
+///   theme.dark, theme.light,          the look of Raven, dark or light
+///   theme.toggle
+///   theme:NAME                        Rtheme_use(NAME): a theme loaded or built in
+///   language:CODE                     Rlocale_set_language(CODE)
+///   open:ADDRESS                      Ropen_url (https:, mailto:, a file)
+///   copy:TEXT                         the text to the clipboard
+///   show:NAME, hide:NAME, toggle:NAME the widget named NAME in the window (hidden: Collapsed)
+///   enable:NAME, disable:NAME
+///   focus:NAME
+///   page:NAME=2, page:NAME=+1         what a Switcher, a TabView, a ComboBox or a ListView
+///                                     shows; +1 and -1 step, and go round
+///
+/// A function bound to one of these names (Raction_bind) replaces it; the
+/// default handler receives the others only.
+/// enabled R_FALSE turns them all off: a design tool that shows
+/// interfaces without running them. On by default.
+pub extern fn Raction_set_builtins(enabled: c_int) void;
+/// Returns: R_TRUE when the name is one of the built-in actions (Raction_set_builtins), whether they are on or not.
+pub extern fn Raction_is_builtin(name: ?[*:0]const u8) c_int;
 /// Opens an address with the program the user has for it: a web
 /// page in the browser, a mailto: in the mail program, a file in its
 /// application. Returns at once.
@@ -1462,6 +2085,12 @@ pub extern fn Raction_set_default_handler(callback: RActionCallback, user_data: 
 /// a program then really opened it).
 pub extern fn Ropen_url(url: ?[*:0]const u8) c_int;
 pub extern fn Rclipboard_set_text(text: ?[*:0]const u8) void;
+/// Copies one content in two formats: `html` for the programs that
+/// paste formatting (word processors, chat, mail) and `text` for the
+/// others (editors, terminals). Each program takes the format it prefers.
+/// Where the window system has no clipboard formats (Win32 and macOS for
+/// now), or `html` is NULL, it is Rclipboard_set_text(text).
+pub extern fn Rclipboard_set_html(text: ?[*:0]const u8, html: ?[*:0]const u8) void;
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
 pub extern fn Rclipboard_get_text() ?[*:0]const u8;
 /// Retrieves and clears the last recorded error.
@@ -1489,6 +2118,18 @@ pub extern fn Rwindow_set_title(window: Rid, title: ?[*:0]const u8) void;
 pub extern fn Rwindow_get_title(window: Rid) ?[*:0]const u8;
 pub extern fn Rwindow_set_size(window: Rid, width: c_int, height: c_int) void;
 pub extern fn Rwindow_get_size(window: Rid, width: ?*c_int, height: ?*c_int) void;
+/// The part of the window the system covers (status bar, notch,
+/// home indicator, navigation bar), in logical units. The content of the
+/// window is laid out inside it already. All 0 on desktop.
+pub extern fn Rwindow_get_safe_area(window: Rid, insets: ?*RInsets) void;
+/// The part of the window the on-screen keyboard covers (only
+/// `bottom` is set), in logical units; 0 when it is hidden or there is
+/// none (desktop). The content is laid out above it already.
+pub extern fn Rwindow_get_keyboard_area(window: Rid, insets: ?*RInsets) void;
+/// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
+pub extern fn Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCallback, user_data: ?*anyopaque) void;
+/// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+pub extern fn Rwindow_clear_focus(window: Rid) void;
 pub extern fn Rwindow_set_min_size(window: Rid, width: c_int, height: c_int) void;
 pub extern fn Rwindow_set_position(window: Rid, x: c_int, y: c_int) void;
 pub extern fn Rwindow_get_position(window: Rid, x: ?*c_int, y: ?*c_int) void;
@@ -1498,6 +2139,13 @@ pub extern fn Rwindow_get_framebuffer_size(window: Rid, width: ?*c_int, height: 
 pub extern fn Rwindow_get_scale(window: Rid) f32;
 pub extern fn Rwindow_show(window: Rid) void;
 pub extern fn Rwindow_hide(window: Rid) void;
+/// Shows the window in front of the others with the keyboard, and
+/// makes the application the active one. Rwindow_show alone does not take
+/// the keyboard from another application (a prompt that appears while the
+/// user types elsewhere); this is for a window the user just asked for (a
+/// card opened from a tray icon). Where the system has no such request,
+/// the same as Rwindow_show.
+pub extern fn Rwindow_focus(window: Rid) void;
 pub extern fn Rwindow_maximize(window: Rid) void;
 pub extern fn Rwindow_minimize(window: Rid) void;
 pub extern fn Rwindow_restore(window: Rid) void;
@@ -1532,6 +2180,19 @@ pub extern fn Rwindow_set_background(window: Rid, texture: Rid) void;
 /// then stays as it was) without R_WINDOW_TRANSPARENT, or when it cannot.
 pub extern fn Rwindow_set_backdrop(window: Rid, backdrop: RBackdrop) c_int;
 pub extern fn Rwindow_get_backdrop(window: Rid) RBackdrop;
+/// Gives the window a theme of its own, by name ("Dark",
+/// "WindowsLight", or a theme of Rtheme_load): everything inside it (its
+/// content, its island, its menus, lists and dialogs, its background) is
+/// drawn with that theme, while the other windows keep the one of the
+/// application (Rtheme_use). A widget given Rwidget_set_theme keeps its own.
+/// In XML: <Window Theme="...">.
+/// name NULL or "": the theme of the application again.
+/// Returns: R_FALSE, after reporting an error, when no theme has that name.
+pub extern fn Rwindow_set_theme(window: Rid, name: ?[*:0]const u8) c_int;
+/// Returns: Name of the theme the window is drawn with (the one of the application when it has none of its own).
+pub extern fn Rwindow_get_theme(window: Rid) ?[*:0]const u8;
+/// Returns: R_TRUE when the window has a theme of its own (Rwindow_set_theme).
+pub extern fn Rwindow_has_own_theme(window: Rid) c_int;
 /// Opacity of the whole window, its frame included, from 0 to 1:
 /// a window that fades, a tool that lets what is under it show.
 /// Returns: R_FALSE when the window system cannot do it.
@@ -1540,8 +2201,55 @@ pub extern fn Rwindow_get_opacity(window: Rid) f32;
 /// Keeps the window above the other windows (splash screens, tools).
 /// Returns: R_FALSE when the window system cannot do it.
 pub extern fn Rwindow_set_topmost(window: Rid, topmost: c_int) c_int;
+/// Gives the window an owner (a tool window or an inspector of the
+/// main window): it stays above its owner, has no button of its own in the
+/// taskbar, is minimized and restored with it (where the window system
+/// does it: Windows, X11), and is destroyed with it (everywhere: Raven
+/// destroys the windows a window owns before the window). R_INVALID_ID
+/// gives the window back its independence.
+/// Returns: R_FALSE when the window system cannot keep the window with its
+/// owner (it is still destroyed with it), or when the owner is not valid
+/// or is owned by the window (nothing is changed then).
+pub extern fn Rwindow_set_owner(window: Rid, owner: Rid) c_int;
+/// Returns: The owner of the window (Rwindow_set_owner), or R_INVALID_ID.
+pub extern fn Rwindow_get_owner(window: Rid) Rid;
+/// Picture in picture: the window becomes a small floating window
+/// that stays above the other windows, on every desktop (every space of
+/// macOS, over the applications in full screen too), in a corner of the
+/// work area of its monitor. It loses its title bar where the system
+/// allows: the empty parts of its content move it, its edges resize it,
+/// and its size keeps the proportions it was given. Leaving it gives back
+/// the size, place, frame and state the window had.
+///
+/// Raven does not add a button to leave it: the content shows one, with
+/// the built-in action "window.picture_in_picture" (it goes in and out).
+/// Returns: R_FALSE when the window system cannot keep a window above the
+/// others (Wayland): the window is left as it is.
+pub extern fn Rwindow_set_picture_in_picture(window: Rid, enabled: c_int) c_int;
+pub extern fn Rwindow_is_picture_in_picture(window: Rid) c_int;
+/// Size (logical units) and corner of the window in picture in
+/// picture, for the next time it goes in (now, when it is in). 0, 0 (the
+/// default): 320 wide, with the proportions the content has when it goes
+/// in. The proportions of width / height are kept while the user resizes.
+pub extern fn Rwindow_set_picture_in_picture_layout(window: Rid, width: c_int, height: c_int, corner: RPictureInPictureCorner) void;
 /// Centers the window on the work area of its monitor (no task bar).
 pub extern fn Rwindow_center(window: Rid) void;
+/// Shows (R_TRUE) or hides (R_FALSE) the inspector of the window: a
+/// window beside it that lists its widgets as a tree, says what the
+/// selected one is (type, name, classes, place and size in the window,
+/// desired size, constraints, slot, visibility, state, style, action,
+/// children) and what the last frame cost (layout, paint and render
+/// times, widgets, instances, draw calls). The selected widget is
+/// outlined in the window, with its type and size. "Pick" selects the
+/// next widget clicked in the window (that click goes to the inspector
+/// only). It follows the window as it changes; closing it hides it, and
+/// it goes with the window. Nothing opens it but this function.
+pub extern fn Rwindow_set_inspector(window: Rid, shown: c_int) void;
+pub extern fn Rwindow_is_inspector_shown(window: Rid) c_int;
+/// Returns: The window of the inspector of a window (to place it), or R_INVALID_ID when it is hidden.
+pub extern fn Rwindow_get_inspector(window: Rid) Rid;
+/// Returns: R_TRUE for a window created with R_WINDOW_SPLASH_SCREEN (IsSplashScreen in XML).
+pub extern fn Rwindow_is_splash_screen(window: Rid) c_int;
 /// Asks for a new frame even if no widget changed. Thread-safe.
 pub extern fn Rwindow_request_redraw(window: Rid) void;
 /// R_TRUE redraws the window every frame (games, live viewports).
@@ -1551,6 +2259,12 @@ pub extern fn Rwindow_set_resize_callback(window: Rid, callback: RWindowResizeCa
 /// Takes what is dropped on the window from other applications,
 /// where no widget takes it (Rwidget_set_drop_callback). NULL removes it.
 pub extern fn Rwindow_set_drop_callback(window: Rid, callback: RDropCallback, user_data: ?*anyopaque) void;
+/// During R_DROP_ENTER / R_DROP_MOVE only: choose Raven's highlight
+/// in target-local logical units (window-local for a window callback).
+/// Clipped to the target; zero width or height hides it without refusing
+/// the drop. Each callback starts with the default highlight again.
+/// Dimensions must be finite and nonnegative; coordinates must be finite.
+pub extern fn Rdrop_set_highlight_rect(x: f32, y: f32, width: f32, height: f32) void;
 pub extern fn Rwindow_set_user_handle(window: Rid, handle: ?*anyopaque) void;
 pub extern fn Rwindow_get_user_handle(window: Rid) ?*anyopaque;
 /// Fills `native` with the OS handles of the window.
@@ -1591,6 +2305,18 @@ pub extern fn Rwindow_get_modifiers(window: Rid) u32;
 pub extern fn Rwindow_is_mouse_inside(window: Rid) c_int;
 /// R_TRUE when the keyboard focus is in a text input, spin box or text editor.
 pub extern fn Rwindow_wants_text_input(window: Rid) c_int;
+/// The kind of the focused text input; R_FALSE when there is none.
+pub extern fn Rwindow_get_text_input_info(window: Rid, info: ?*RTextInputInfo) c_int;
+/// Its text (UTF-8), valid until it changes; NULL when there is none.
+pub extern fn Rwindow_get_text_input_text(window: Rid) ?[*:0]const u8;
+/// Its selection: start == end is the caret. R_FALSE when there is none.
+pub extern fn Rwindow_get_text_input_selection(window: Rid, start: ?*c_int, end: ?*c_int) c_int;
+/// Selects bytes [start, end) of it (end before start puts the caret at end).
+pub extern fn Rwindow_set_text_input_selection(window: Rid, start: c_int, end: c_int) c_int;
+/// Replaces bytes [start, end) of it with `text` and puts the caret
+/// after it, as typing would (the changed callback runs; MaxLength
+/// applies). R_FALSE when there is none or it is read-only.
+pub extern fn Rwindow_replace_text_input(window: Rid, start: c_int, end: c_int, text: ?[*:0]const u8) c_int;
 /// R_TRUE while a menu, list or dialog is open over the window.
 pub extern fn Rwindow_has_popup(window: Rid) c_int;
 /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
@@ -1624,9 +2350,67 @@ pub extern fn Rdrag_get_data(window: Rid) ?[*:0]const u8;
 pub extern fn Rdrag_cancel(window: Rid) void;
 pub extern fn Rwindow_register_shortcut(window: Rid, key: RKey, modifiers: u32, action: ?[*:0]const u8) void;
 pub extern fn Rwindow_unregister_shortcut(window: Rid, key: RKey, modifiers: u32) void;
-/// Switches to a built-in theme: replaces every theme color and
-/// metric. Colors and metrics changed with Rtheme_set_color and
-/// Rtheme_set_metric are lost; per-widget overrides are kept.
+/// The settings every window follows, unless it has its own.
+pub extern fn Rtouch_get_settings(settings: ?*RTouchSettings) void;
+/// Changes them; NULL puts back the defaults.
+pub extern fn Rtouch_set_settings(settings: ?*const RTouchSettings) void;
+/// The defaults, to start from.
+pub extern fn Rtouch_get_default_settings(settings: ?*RTouchSettings) void;
+/// Settings of one window; NULL: it follows Rtouch_set_settings again.
+pub extern fn Rwindow_set_touch_settings(window: Rid, settings: ?*const RTouchSettings) void;
+/// The settings the window follows (its own, or those of the application).
+pub extern fn Rwindow_get_touch_settings(window: Rid, settings: ?*RTouchSettings) void;
+/// What a finger does on the widget and what it contains (default R_TOUCH_MODE_AUTO: as its parent says).
+pub extern fn Rwidget_set_touch_mode(widget: Rid, mode: RTouchMode) void;
+pub extern fn Rwidget_get_touch_mode(widget: Rid) RTouchMode;
+/// R_FALSE: two fingers (on the screen or a trackpad) neither zoom nor pan the widget (default R_TRUE).
+pub extern fn Rwidget_set_touch_gestures(widget: Rid, enabled: c_int) void;
+pub extern fn Rwidget_get_touch_gestures(widget: Rid) c_int;
+/// R_FALSE: the pen is not a mouse on the widget and what it contains; only its pen callback sees it (default R_TRUE).
+pub extern fn Rwidget_set_pen_mouse(widget: Rid, enabled: c_int) void;
+pub extern fn Rwidget_get_pen_mouse(widget: Rid) c_int;
+pub extern fn Rwidget_set_touch_callback(widget: Rid, callback: RTouchCallback, user_data: ?*anyopaque) void;
+pub extern fn Rwidget_set_pen_callback(widget: Rid, callback: RPenCallback, user_data: ?*anyopaque) void;
+pub extern fn Rwidget_set_gesture_callback(widget: Rid, callback: RGestureCallback, user_data: ?*anyopaque) void;
+/// Fingers on the window now.
+pub extern fn Rwindow_get_touch_count(window: Rid) c_int;
+/// R_TRUE while a pen is near the screen over the window.
+pub extern fn Rwindow_is_pen_in_range(window: Rid) c_int;
+/// R_TRUE when the pointer last used in the window was a finger (the interface may then be made larger).
+pub extern fn Rwindow_is_touch_active(window: Rid) c_int;
+/// A finger: R_TOUCH_DOWN, then R_TOUCH_MOVE..., then R_TOUCH_UP, with the same `id`.
+pub extern fn Rwindow_inject_touch(window: Rid, id: c_int, phase: RTouchPhase, x: f32, y: f32) void;
+/// A pen: `pressure` 0..1 as the pen would give it, `buttons` a bitmask of RPenButton.
+pub extern fn Rwindow_inject_pen(window: Rid, phase: RPenPhase, x: f32, y: f32, pressure: f32, tilt_x: f32, tilt_y: f32, buttons: u32, eraser: c_int) void;
+/// A gesture of a trackpad, as the system recognizes it: R_GESTURE_BEGIN,
+/// R_GESTURE_UPDATE..., then R_GESTURE_END. (x, y) is the pointer, `scale_delta`
+/// and `rotation_delta` (degrees, clockwise) what changed since the previous
+/// event, `pan_x`, `pan_y` how far the fingers moved since then.
+pub extern fn Rwindow_inject_trackpad_gesture(window: Rid, kind: RGestureKind, phase: RGesturePhase, x: f32, y: f32, scale_delta: f32, rotation_delta: f32, pan_x: f32, pan_y: f32, fingers: c_int) void;
+/// Two fingers scrolling on a trackpad: (dx, dy) is how far they moved
+/// (logical units), the content following them. Sent as a precise wheel
+/// (REvent::wheel_precise) at the pointer.
+pub extern fn Rwindow_inject_trackpad_scroll(window: Rid, dx: f32, dy: f32) void;
+/// The fingers that scrolled left the trackpad, on a system that
+/// leaves the inertia to the application (Wayland): flicked content keeps
+/// going (Touch.Inertia).
+pub extern fn Rwindow_inject_trackpad_scroll_end(window: Rid) void;
+/// Advances the inertia of flicked content by `seconds` at once,
+/// and fires a long press that is due, without waiting (tests).
+pub extern fn Rwindow_advance_touch(window: Rid, seconds: f64) void;
+/// Changes the look of the application. The theme file in use, if
+/// it names no look of its own, is laid again over the new one; colors
+/// and metrics changed with Rtheme_set_... are lost; what was given to
+/// widgets (Rwidget_set_color...) is kept.
+///
+///   Rlook_set(R_LOOK_NATIVE_LIGHT);   the look of the platform, light
+///
+/// Theme files that name no look (no Look attribute) follow it too, so a
+/// part of a window given one (Theme="paper.xml") changes with it.
+pub extern fn Rlook_set(look: RLook) void;
+/// The look given to Rlook_set (R_LOOK_RAVEN_DARK at start).
+pub extern fn Rlook_get() RLook;
+/// @deprecated Rlook_set: a built-in theme is a look of Raven.
 pub extern fn Rtheme_apply(theme: RTheme) void;
 pub extern fn Rtheme_set_color(role: RColorRole, r: f32, g: f32, b: f32, a: f32) void;
 pub extern fn Rtheme_get_color(role: RColorRole, r: ?*f32, g: ?*f32, b: ?*f32, a: ?*f32) void;
@@ -1647,6 +2431,12 @@ pub extern fn Rtheme_set_accent(r: f32, g: f32, b: f32) void;
 /// the glass, the colors of the code and which wallpaper the glass themes
 /// use. Rtheme_apply and the theme files set it.
 pub extern fn Rtheme_set_dark(dark: c_int) void;
+/// R_TRUE when the system is in dark mode, R_FALSE in light mode, -1 when the platform does not tell (desktop today).
+pub extern fn Rtheme_get_system_dark() c_int;
+/// Follows the dark or light mode of the system with the Raven look
+/// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
+/// Off by default. Does nothing where the platform does not tell (desktop today).
+pub extern fn Rtheme_follow_system(enabled: c_int) void;
 pub extern fn Rtheme_is_dark() c_int;
 /// Image drawn behind the content of the windows that have no
 /// background of their own, or R_INVALID_ID for none (the window color).
@@ -1678,8 +2468,10 @@ pub extern fn Rtheme_clear_styles() void;
 pub extern fn Rtheme_load(path: ?[*:0]const u8) ?[*:0]const u8;
 /// Same, from a text. `size` may be 0 for a null-terminated text.
 pub extern fn Rtheme_load_from_memory(xml: ?[*:0]const u8, size: usize) ?[*:0]const u8;
-/// Makes a named theme the theme of the application: "Dark",
-/// "Light", "GlassDark", "GlassLight", or a theme given by Rtheme_load.
+/// Makes a named theme the theme of the application: a theme
+/// given by Rtheme_load (laid over the look in use when it names no
+/// look), or the name of a look ("WindowsLight", "RavenDark"; the old
+/// "Dark", "Light", "GlassDark"... too), which is then Rlook_set.
 /// Values changed with Rtheme_set_... are lost.
 /// Returns: R_FALSE, after reporting an error, when no theme has that name.
 pub extern fn Rtheme_use(name: ?[*:0]const u8) c_int;
@@ -1728,13 +2520,30 @@ pub extern fn Rfont_get_variant(font: Rid, style: RFontStyle) Rid;
 /// size Font size; 0 uses R_METRIC_FONT_SIZE.
 pub extern fn Rfont_measure_text(font: Rid, size: f32, text: ?[*:0]const u8, width: ?*f32, height: ?*f32) void;
 /// Creates a texture from the content of an image file (PNG, JPEG,
-/// BMP, TGA, GIF, PSD). Decoding happens on the calling thread.
+/// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
 /// Returns: R_INVALID_ID on failure.
 pub extern fn Rtexture_create(data: ?[*:0]const u8, data_size: usize) Rid;
 /// Same as Rtexture_create, decoded on a worker thread. The handle
 /// is usable at once; widgets showing it draw nothing until it is ready.
 /// The buffer is copied.
 pub extern fn Rtexture_create_async(data: ?[*:0]const u8, data_size: usize) Rid;
+/// Draws an SVG image (an icon) into a texture, at `scale` pixels per
+/// unit of the SVG. The widgets show it at the size the SVG gives, whatever
+/// the scale (Rtexture_get_density).
+///
+/// 0 or less: at the size it is shown. It is first drawn at a scale of 2;
+/// once painted, it is drawn again (on a worker thread) with as many pixels
+/// as the screen shows it with: the scale of the monitor of the window, an
+/// Image that stretches it, a zoom. It follows when the window moves to a
+/// screen of another density or the image grows, and comes down when it is
+/// shown much smaller (sides of at most 4096 pixels). Its width and height
+/// in pixels (Rtexture_get_size) change then; its size in logical units
+/// does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
+/// ones read SVG files this way. Paths, fills, strokes and gradients are
+/// drawn; text, filters and masks are not.
+pub extern fn Rtexture_create_from_svg(svg: ?[*:0]const u8, svg_size: usize, scale: f32) Rid;
+/// Pixels of the texture per logical unit: the scale of an SVG, 1 otherwise.
+pub extern fn Rtexture_get_density(texture: Rid) f32;
 pub extern fn Rtexture_create_from_file(path: ?[*:0]const u8) Rid;
 /// Reads and decodes the file on a worker thread.
 pub extern fn Rtexture_create_from_file_async(path: ?[*:0]const u8) Rid;
@@ -1841,7 +2650,8 @@ pub extern fn Rwidget_set_transition(widget: Rid, transition: RTransition, delay
 pub extern fn Rwidget_play_transition(widget: Rid, transition: RTransition, delay_seconds: f32) void;
 /// R_TRUE clips the descendants to the bounds of the widget.
 pub extern fn Rwidget_set_clipping(widget: Rid, clip: c_int) void;
-/// Text shown when the cursor rests on the widget. NULL removes it.
+/// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+///  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 pub extern fn Rwidget_set_tooltip(widget: Rid, text: ?[*:0]const u8) void;
 /// Returns: The tooltip text of the widget, "" when it has none.
 pub extern fn Rwidget_get_tooltip(widget: Rid) ?[*:0]const u8;
@@ -1928,6 +2738,15 @@ pub extern fn Rwidget_has_class(widget: Rid, style_class: ?[*:0]const u8) c_int;
 pub extern fn Rwidget_set_theme(widget: Rid, name: ?[*:0]const u8) c_int;
 /// Returns: Name of the theme the widget is drawn with.
 pub extern fn Rwidget_get_theme(widget: Rid) ?[*:0]const u8;
+/// Gives the widget and everything inside it a font, for the texts
+/// that have none of their own (a label given Rlabel_set_font keeps its
+/// own): a tool whose panels wear one font while the interface it shows
+/// keeps the font of the application. Menus and lists opened from inside
+/// follow.
+/// font R_INVALID_ID: the font of the parent (in the end, the one of the theme, Rtheme_set_font) again.
+pub extern fn Rwidget_set_font(widget: Rid, font: Rid) void;
+/// Returns: The font given to the widget itself, or R_INVALID_ID.
+pub extern fn Rwidget_get_font(widget: Rid) Rid;
 /// Gap inserted between neighbouring children.
 pub extern fn Rpanel_set_spacing(panel: Rid, spacing: f32) void;
 pub extern fn Rpanel_get_spacing(panel: Rid) f32;
@@ -2076,6 +2895,22 @@ pub extern fn Rlabel_get_markdown(label: Rid) c_int;
 pub extern fn Rlabel_set_link_callback(label: Rid, callback: RLabelLinkCallback, user_data: ?*anyopaque) void;
 /// The text of a Markdown label without its marks, as a reader sees it. Valid until the next call.
 pub extern fn Rlabel_get_plain_text(label: Rid) ?[*:0]const u8;
+/// R_TRUE lets the user select the text of the label with the
+/// mouse, as on a web page (Selectable="true" in XML): drag to select, a
+/// double click selects a word, a triple click a paragraph, Shift + click
+/// extends the selection; then Ctrl+C (Cmd+C) copies it and Ctrl+A selects
+/// everything. A click elsewhere takes the selection away. Plain and
+/// Markdown labels alike: a copy of a Markdown label is its text without
+/// the marks, and its links are still clicked, not selected. The label
+/// takes the mouse (what holds it no longer receives the clicks on it) and
+/// the keyboard after a click; Tab passes it by. Default R_FALSE.
+pub extern fn Rlabel_set_selectable(label: Rid, selectable: c_int) void;
+pub extern fn Rlabel_get_selectable(label: Rid) c_int;
+/// The text selected, as Ctrl+C copies it ("" when nothing is). Valid until the next call.
+pub extern fn Rlabel_get_selected_text(label: Rid) ?[*:0]const u8;
+/// Selects the whole text of a selectable label.
+pub extern fn Rlabel_select_all(label: Rid) void;
+pub extern fn Rlabel_clear_selection(label: Rid) void;
 /// Shortcut for Rwidget_create(R_WIDGET_BUTTON) + Rbutton_set_text.
 pub extern fn Rbutton_create(text: ?[*:0]const u8) Rid;
 /// Sets the content of the button to a label. A button can instead
@@ -2121,6 +2956,12 @@ pub extern fn Rtext_input_set_read_only(text_input: Rid, read_only: c_int) void;
 /// Maximum number of characters. 0 = no limit (default).
 pub extern fn Rtext_input_set_max_length(text_input: Rid, max_length: c_int) void;
 pub extern fn Rtext_input_select_all(text_input: Rid) void;
+/// What it holds: picks the on-screen keyboard on mobile. Default: R_TEXT_INPUT_TYPE_TEXT.
+pub extern fn Rtext_input_set_input_type(text_input: Rid, type_: RTextInputType) void;
+pub extern fn Rtext_input_get_input_type(text_input: Rid) RTextInputType;
+/// The return key of the on-screen keyboard (Done, Next, Search...). Default: R_RETURN_KEY_DEFAULT.
+pub extern fn Rtext_input_set_return_key(text_input: Rid, key: RReturnKey) void;
+pub extern fn Rtext_input_get_return_key(text_input: Rid) RReturnKey;
 /// Called on every edit.
 pub extern fn Rtext_input_set_changed_callback(text_input: Rid, callback: RTextChangedCallback, user_data: ?*anyopaque) void;
 /// Called when Enter is pressed. This also fires the action of the widget.
@@ -2133,6 +2974,13 @@ pub extern fn Rspin_box_get_range(spin_box: Rid, minimum: ?*f64, maximum: ?*f64,
 pub extern fn Rspin_box_set_step(spin_box: Rid, step: f64) void;
 /// Digits shown after the decimal point. Default: 2.
 pub extern fn Rspin_box_set_decimals(spin_box: Rid, decimals: c_int) void;
+/// Step buttons in the looks of Raven too: a down button at the left
+/// end and an up button at the right end, the value between them (XML
+/// `Buttons="True"`). A click steps once; holding a button repeats its step.
+/// The platform looks (Windows, GNOME, macOS) always draw their own buttons.
+/// Default: R_FALSE (drag to scrub, arrows / wheel to step).
+pub extern fn Rspin_box_set_buttons(spin_box: Rid, buttons: c_int) void;
+pub extern fn Rspin_box_get_buttons(spin_box: Rid) c_int;
 pub extern fn Rspin_box_set_changed_callback(spin_box: Rid, callback: RSpinBoxChangedCallback, user_data: ?*anyopaque) void;
 /// Returns: The index of the new item.
 pub extern fn Rcombo_box_add_item(combo_box: Rid, text: ?[*:0]const u8) c_int;
@@ -2153,6 +3001,7 @@ pub extern fn Rlist_view_remove_item(list_view: Rid, index: c_int) void;
 pub extern fn Rlist_view_clear_items(list_view: Rid) void;
 pub extern fn Rlist_view_get_item_count(list_view: Rid) c_int;
 pub extern fn Rlist_view_set_virtual_items(list_view: Rid, count: c_int, callback: RListItemTextCallback, user_data: ?*anyopaque) void;
+pub extern fn Rlist_view_set_item_color_callback(list_view: Rid, callback: RListItemColorCallback, user_data: ?*anyopaque) void;
 /// Selects a row. -1 selects nothing.
 pub extern fn Rlist_view_set_selected(list_view: Rid, index: c_int) void;
 pub extern fn Rlist_view_get_selected(list_view: Rid) c_int;
@@ -2211,16 +3060,36 @@ pub extern fn Rtree_view_set_drag_type(tree_view: Rid, type_: ?[*:0]const u8) vo
 pub extern fn Rtree_view_get_item_at(tree_view: Rid, local_x: f32, local_y: f32) Rid;
 /// Highlights where a drop would go: an item, or the whole tree (`whole_tree`). R_INVALID_ID, 0 removes it.
 pub extern fn Rtree_view_set_drop_highlight(tree_view: Rid, item: Rid, whole_tree: c_int) void;
+/// The menu bar of the system. On macOS, the first MenuBar of a
+/// window is shown in the bar at the top of the screen while the window is
+/// the active one, after the menu of the application (About, Hide, Quit);
+/// it then takes no room in the window. Its shortcuts are those of the
+/// system: R_MOD_SUPER is Command, R_MOD_CTRL is Control. Elsewhere it is
+/// drawn in the window. On by default; R_FALSE keeps it in the window
+/// everywhere. In XML: <MenuBar Native="false">.
+pub extern fn Rmenu_bar_set_native(menu_bar: Rid, native: c_int) void;
+/// Returns: R_TRUE while the menu bar is shown by the system instead of the window.
+pub extern fn Rmenu_bar_is_native(menu_bar: Rid) c_int;
 /// Creates a menu inside a menu bar or as a sub-menu of another menu.
 pub extern fn Rmenu_add_menu(menu_bar_or_menu: Rid, title: ?[*:0]const u8) Rid;
 pub extern fn Rmenu_set_title(menu: Rid, title: ?[*:0]const u8) void;
 pub extern fn Rmenu_add_item(menu: Rid, text: ?[*:0]const u8) Rid;
 pub extern fn Rmenu_add_separator(menu: Rid) Rid;
+/// A noninteractive caption row, skipped by keyboard navigation.
+pub extern fn Rmenu_add_header(menu: Rid, text: ?[*:0]const u8) Rid;
+/// A vertical divider between titles of an in-window MenuBar. Ignored by native macOS bars.
+pub extern fn Rmenu_bar_add_divider(menu_bar: Rid) Rid;
+/// Title color in an in-window bar; alpha 0 restores the theme. Ignored by native macOS bars.
+pub extern fn Rmenu_set_title_color(menu: Rid, r: f32, g: f32, b: f32, a: f32) void;
 pub extern fn Rmenu_item_set_text(item: Rid, text: ?[*:0]const u8) void;
 pub extern fn Rmenu_item_get_text(item: Rid) ?[*:0]const u8;
 /// Shows a shortcut next to the item and triggers the item when the
 /// keys are pressed in the window of its menu bar.
 pub extern fn Rmenu_item_set_shortcut(item: Rid, key: RKey, modifiers: u32) void;
+/// Display-only shortcut hint; copied, never binds a key. Overrides
+/// the formatted shortcut without changing its binding. NULL restores the
+/// formatted shortcut; an empty string hides it. XML: ShortcutText.
+pub extern fn Rmenu_item_set_shortcut_text(item: Rid, text: ?[*:0]const u8) void;
 pub extern fn Rmenu_item_set_checkable(item: Rid, checkable: c_int) void;
 pub extern fn Rmenu_item_set_checked(item: Rid, checked: c_int) void;
 /// Icon drawn before the text of a menu item (after the check mark column).
@@ -2262,6 +3131,405 @@ pub extern fn Rtile_view_set_drag_data_callback(tile_view: Rid, callback: RTileD
 pub extern fn Rtile_view_set_selection_changed_callback(tile_view: Rid, callback: RTileEventCallback, user_data: ?*anyopaque) void;
 pub extern fn Rtile_view_set_activated_callback(tile_view: Rid, callback: RTileEventCallback, user_data: ?*anyopaque) void;
 pub extern fn Rtile_view_set_context_callback(tile_view: Rid, callback: RTileContextCallback, user_data: ?*anyopaque) void;
+/// Adds a column.
+/// width Width in logical units; 0 or less gives the default (120).
+/// Returns: The index of the column. The stored rows get an empty cell in it.
+pub extern fn Rtable_add_column(table: Rid, header: ?[*:0]const u8, width: f32) c_int;
+pub extern fn Rtable_get_column_count(table: Rid) c_int;
+/// Removes the columns and the stored rows.
+pub extern fn Rtable_clear_columns(table: Rid) void;
+pub extern fn Rtable_set_column_header(table: Rid, column: c_int, header: ?[*:0]const u8) void;
+pub extern fn Rtable_get_column_header(table: Rid, column: c_int) ?[*:0]const u8;
+pub extern fn Rtable_set_column_width(table: Rid, column: c_int, width: f32) void;
+/// The width the column has on screen (a filling column takes more than its width).
+pub extern fn Rtable_get_column_width(table: Rid, column: c_int) f32;
+/// > 0: the column takes this share of the room the others leave; 0: its width only.
+pub extern fn Rtable_set_column_fill(table: Rid, column: c_int, fill: f32) void;
+/// R_FALSE: a click on the header does not sort (default R_TRUE).
+pub extern fn Rtable_set_column_sortable(table: Rid, column: c_int, sortable: c_int) void;
+/// Where the texts sit in the cells: 0 left, 0.5 center, 1 right.
+pub extern fn Rtable_set_column_align(table: Rid, column: c_int, align_: f32) void;
+/// Adds a row.
+/// cells The texts of the cells, separated by '|' ("Ada|36|London"),
+///              or NULL for an empty row; Rtable_set_cell gives a text holding a '|'.
+/// Returns: The index of the row.
+pub extern fn Rtable_add_row(table: Rid, cells: ?[*:0]const u8) c_int;
+pub extern fn Rtable_set_cell(table: Rid, row: c_int, column: c_int, text: ?[*:0]const u8) void;
+pub extern fn Rtable_get_cell(table: Rid, row: c_int, column: c_int) ?[*:0]const u8;
+pub extern fn Rtable_remove_row(table: Rid, row: c_int) void;
+pub extern fn Rtable_clear_rows(table: Rid) void;
+pub extern fn Rtable_get_row_count(table: Rid) c_int;
+pub extern fn Rtable_set_virtual_rows(table: Rid, count: c_int, callback: RTableCellTextCallback, user_data: ?*anyopaque) void;
+pub extern fn Rtable_set_cell_color_callback(table: Rid, callback: RTableCellColorCallback, user_data: ?*anyopaque) void;
+/// Stored rows: a fixed text color; column -1 colors the row; cells override it.
+/// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
+pub extern fn Rtable_set_cell_text_color(table: Rid, row: c_int, column: c_int, r: f32, g: f32, b: f32, a: f32) void;
+/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+pub extern fn Rtable_set_multi_select(table: Rid, enabled: c_int) void;
+pub extern fn Rtable_set_row_selected(table: Rid, row: c_int, selected: c_int) void;
+pub extern fn Rtable_is_row_selected(table: Rid, row: c_int) c_int;
+pub extern fn Rtable_clear_selection(table: Rid) void;
+pub extern fn Rtable_get_selection_count(table: Rid) c_int;
+/// Selected row at index, top to bottom; -1 outside the selection.
+pub extern fn Rtable_get_selection(table: Rid, index: c_int) c_int;
+/// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
+pub extern fn Rtable_set_selected(table: Rid, row: c_int) void;
+pub extern fn Rtable_get_selected(table: Rid) c_int;
+pub extern fn Rtable_scroll_to_row(table: Rid, row: c_int) void;
+/// Sorts by a column (stored rows are moved); -1 shows no sorted column.
+pub extern fn Rtable_sort(table: Rid, column: c_int, descending: c_int) void;
+pub extern fn Rtable_get_sort_column(table: Rid) c_int;
+pub extern fn Rtable_is_sort_descending(table: Rid) c_int;
+pub extern fn Rtable_set_header_visible(table: Rid, visible: c_int) void;
+pub extern fn Rtable_set_grid_lines(table: Rid, visible: c_int) void;
+/// Every other row a little darker.
+pub extern fn Rtable_set_striped(table: Rid, striped: c_int) void;
+pub extern fn Rtable_set_selection_changed_callback(table: Rid, callback: RTableEventCallback, user_data: ?*anyopaque) void;
+/// Called on double click or Enter. This also fires the action of the widget.
+pub extern fn Rtable_set_activated_callback(table: Rid, callback: RTableEventCallback, user_data: ?*anyopaque) void;
+pub extern fn Rtable_set_sort_callback(table: Rid, callback: RTableSortCallback, user_data: ?*anyopaque) void;
+/// Sets the date (today when the picker is created). An invalid date is refused.
+pub extern fn Rdate_picker_set_date(date_picker: Rid, year: c_int, month: c_int, day: c_int) void;
+pub extern fn Rdate_picker_get_date(date_picker: Rid, year: ?*c_int, month: ?*c_int, day: ?*c_int) void;
+/// The earliest and the latest dates that can be chosen; 0 for year leaves that side open.
+pub extern fn Rdate_picker_set_range(date_picker: Rid, min_year: c_int, min_month: c_int, min_day: c_int, max_year: c_int, max_month: c_int, max_day: c_int) void;
+/// 0 = Sunday (default), 1 = Monday...
+pub extern fn Rdate_picker_set_first_day_of_week(date_picker: Rid, day: c_int) void;
+/// How the field writes the date: YYYY, MM, M, DD, D, MMMM (the name
+/// of the month), MMM (its first three letters), dddd (the name of the day),
+/// ddd; anything else is kept. Default "YYYY-MM-DD"; "D MMMM YYYY" gives "3 November 2026".
+pub extern fn Rdate_picker_set_format(date_picker: Rid, format: ?[*:0]const u8) void;
+/// The date as the field shows it (valid until the next call).
+pub extern fn Rdate_picker_get_text(date_picker: Rid) ?[*:0]const u8;
+/// Opens or closes the calendar.
+pub extern fn Rdate_picker_set_open(date_picker: Rid, open: c_int) void;
+pub extern fn Rdate_picker_is_open(date_picker: Rid) c_int;
+pub extern fn Rdate_picker_set_changed_callback(date_picker: Rid, callback: RDateChangedCallback, user_data: ?*anyopaque) void;
+pub extern fn Rtime_picker_set_time(time_picker: Rid, hour: c_int, minute: c_int, second: c_int) void;
+pub extern fn Rtime_picker_get_time(time_picker: Rid, hour: ?*c_int, minute: ?*c_int, second: ?*c_int) void;
+pub extern fn Rtime_picker_set_seconds_visible(time_picker: Rid, visible: c_int) void;
+/// Step of the minutes for the arrows and the wheel (default 1).
+pub extern fn Rtime_picker_set_minute_step(time_picker: Rid, step: c_int) void;
+pub extern fn Rtime_picker_set_changed_callback(time_picker: Rid, callback: RTimeChangedCallback, user_data: ?*anyopaque) void;
+/// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
+pub extern fn Rtoast_show(toast: Rid, text: ?[*:0]const u8, seconds: f64) void;
+/// Same, with a kind of its own (the kind set by Rtoast_set_kind is left as it is).
+pub extern fn Rtoast_show_kind(toast: Rid, text: ?[*:0]const u8, kind: RToastKind, seconds: f64) void;
+/// Hides the newest message shown; the next one waiting comes.
+pub extern fn Rtoast_hide(toast: Rid) void;
+/// Hides every message, and forgets those waiting.
+pub extern fn Rtoast_clear(toast: Rid) void;
+pub extern fn Rtoast_is_shown(toast: Rid) c_int;
+/// Returns: The messages shown and waiting.
+pub extern fn Rtoast_get_count(toast: Rid) c_int;
+/// Returns: The newest message shown (the last one, once hidden; the clicked one in the action callback).
+pub extern fn Rtoast_get_text(toast: Rid) ?[*:0]const u8;
+pub extern fn Rtoast_set_queue(toast: Rid, queue: RToastQueue) void;
+pub extern fn Rtoast_get_queue(toast: Rid) RToastQueue;
+/// How many messages a R_TOAST_STACK shows at once (default 3).
+pub extern fn Rtoast_set_max_visible(toast: Rid, count: c_int) void;
+/// The kind of the next messages (and of the message shown, with R_TOAST_REPLACE).
+pub extern fn Rtoast_set_kind(toast: Rid, kind: RToastKind) void;
+/// A button at the end of the next messages ("Undo"); NULL or "" removes it.
+pub extern fn Rtoast_set_action_text(toast: Rid, text: ?[*:0]const u8) void;
+pub extern fn Rtoast_set_action_callback(toast: Rid, callback: RToastCallback, user_data: ?*anyopaque) void;
+/// Replaces the items: their texts separated by '|'.
+pub extern fn Rbreadcrumb_set_items(breadcrumb: Rid, items: ?[*:0]const u8) void;
+/// Returns: The index of the new item, at the end.
+pub extern fn Rbreadcrumb_add_item(breadcrumb: Rid, text: ?[*:0]const u8) c_int;
+/// Keeps the first `count` items: Rbreadcrumb_truncate(b, index + 1) goes back to the item clicked.
+pub extern fn Rbreadcrumb_truncate(breadcrumb: Rid, count: c_int) void;
+pub extern fn Rbreadcrumb_get_item_count(breadcrumb: Rid) c_int;
+pub extern fn Rbreadcrumb_get_item_text(breadcrumb: Rid, index: c_int) ?[*:0]const u8;
+pub extern fn Rbreadcrumb_set_clicked_callback(breadcrumb: Rid, callback: RBreadcrumbCallback, user_data: ?*anyopaque) void;
+/// The score, from 0 to the number of stars.
+pub extern fn Rrating_set_value(rating: Rid, value: f32) void;
+pub extern fn Rrating_get_value(rating: Rid) f32;
+/// Number of stars (default 5, at most 20).
+pub extern fn Rrating_set_max(rating: Rid, max: c_int) void;
+pub extern fn Rrating_get_max(rating: Rid) c_int;
+/// Half stars can be chosen (a whole star by default).
+pub extern fn Rrating_set_allow_half(rating: Rid, allow: c_int) void;
+/// Shown only, the user cannot change it.
+pub extern fn Rrating_set_read_only(rating: Rid, read_only: c_int) void;
+/// Size of a star (default 18).
+pub extern fn Rrating_set_star_size(rating: Rid, size: f32) void;
+pub extern fn Rrating_set_changed_callback(rating: Rid, callback: RRatingChangedCallback, user_data: ?*anyopaque) void;
+pub extern fn Rpagination_set_page_count(pagination: Rid, count: c_int) void;
+pub extern fn Rpagination_get_page_count(pagination: Rid) c_int;
+pub extern fn Rpagination_set_page(pagination: Rid, page: c_int) void;
+pub extern fn Rpagination_get_page(pagination: Rid) c_int;
+/// Page numbers shown around the current one (default 1).
+pub extern fn Rpagination_set_siblings(pagination: Rid, siblings: c_int) void;
+pub extern fn Rpagination_set_changed_callback(pagination: Rid, callback: RPageChangedCallback, user_data: ?*anyopaque) void;
+pub extern fn Rplot_set_title(plot: Rid, title: ?[*:0]const u8) void;
+pub extern fn Rplot_get_title(plot: Rid) ?[*:0]const u8;
+/// Adds a series (its name in the legend; NULL or "": not in the legend). Returns its index.
+pub extern fn Rplot_add_series(plot: Rid, name: ?[*:0]const u8) c_int;
+pub extern fn Rplot_remove_series(plot: Rid, series: c_int) void;
+/// Removes every series and every drag line.
+pub extern fn Rplot_clear(plot: Rid) void;
+pub extern fn Rplot_get_series_count(plot: Rid) c_int;
+pub extern fn Rplot_set_series_name(plot: Rid, series: c_int, name: ?[*:0]const u8) void;
+pub extern fn Rplot_get_series_name(plot: Rid, series: c_int) ?[*:0]const u8;
+/// Replaces the points of a series with `count` points, copied.
+/// x The X of the points, or NULL: 0, 1, 2...
+/// y The Y of the points. NaN leaves a gap in the line.
+pub extern fn Rplot_set_series_data(plot: Rid, series: c_int, x: ?[*]const f64, y: ?[*]const f64, count: c_int) void;
+/// Adds points after those of a series (x NULL: numbered after the last one).
+pub extern fn Rplot_append_series_data(plot: Rid, series: c_int, x: ?[*]const f64, y: ?[*]const f64, count: c_int) void;
+/// Adds one point after those of a series.
+pub extern fn Rplot_add_point(plot: Rid, series: c_int, x: f64, y: f64) void;
+pub extern fn Rplot_clear_series_data(plot: Rid, series: c_int) void;
+pub extern fn Rplot_get_point_count(plot: Rid, series: c_int) c_int;
+/// One point of a series. Returns R_FALSE when there is no such point.
+pub extern fn Rplot_get_point(plot: Rid, series: c_int, index: c_int, x: ?*f64, y: ?*f64) c_int;
+/// Keeps only the last `max` points of a series, for data that streams in (0: all of them, the default).
+pub extern fn Rplot_set_series_max_points(plot: Rid, series: c_int, max: c_int) void;
+/// The color of a series (by default the next one of a palette of ten).
+pub extern fn Rplot_set_series_color(plot: Rid, series: c_int, r: f32, g: f32, b: f32, a: f32) void;
+/// How the line is drawn and how wide (default solid, 1.75; width 0 keeps the width).
+pub extern fn Rplot_set_series_line(plot: Rid, series: c_int, line: RPlotLine, width: f32) void;
+/// The mark on each point and its radius (default none, 4; size 0 keeps the size).
+pub extern fn Rplot_set_series_marker(plot: Rid, series: c_int, marker: RPlotMarker, size: f32) void;
+/// Filled markers (the default) or only their outline.
+pub extern fn Rplot_set_series_marker_filled(plot: Rid, series: c_int, filled: c_int) void;
+/// Draws the line in steps: along at the height of a point, then up or down to the next.
+pub extern fn Rplot_set_series_step(plot: Rid, series: c_int, step: c_int) void;
+/// Shades the area between the line and zero, at this opacity (0: none, the default).
+pub extern fn Rplot_set_series_fill(plot: Rid, series: c_int, opacity: f32) void;
+/// The axes a series is drawn against: R_PLOT_X or R_PLOT_X2, R_PLOT_Y or R_PLOT_Y2.
+pub extern fn Rplot_set_series_axes(plot: Rid, series: c_int, x_axis: RPlotAxis, y_axis: RPlotAxis) void;
+/// Shows or hides a series (the user does it with a click on its name in the legend).
+pub extern fn Rplot_set_series_visible(plot: Rid, series: c_int, visible: c_int) void;
+pub extern fn Rplot_is_series_visible(plot: Rid, series: c_int) c_int;
+/// The name written along an axis.
+pub extern fn Rplot_set_axis_label(plot: Rid, axis: RPlotAxis, label: ?[*:0]const u8) void;
+pub extern fn Rplot_get_axis_label(plot: Rid, axis: RPlotAxis) ?[*:0]const u8;
+pub extern fn Rplot_set_axis_scale(plot: Rid, axis: RPlotAxis, scale: RPlotScale) void;
+pub extern fn Rplot_get_axis_scale(plot: Rid, axis: RPlotAxis) RPlotScale;
+/// R_PLOT_SCALE_SYMLOG: the axis is linear from -threshold to threshold (default 1).
+pub extern fn Rplot_set_axis_linear_threshold(plot: Rid, axis: RPlotAxis, threshold: f64) void;
+/// Shows this range of an axis; the axis then stops following the data.
+pub extern fn Rplot_set_axis_range(plot: Rid, axis: RPlotAxis, min: f64, max: f64) void;
+/// The range an axis shows now (after the user moved or zoomed it).
+pub extern fn Rplot_get_axis_range(plot: Rid, axis: RPlotAxis, min: ?*f64, max: ?*f64) void;
+/// The axis is fitted to the data whenever it changes (the default, until the view is moved; a double click turns it on again).
+pub extern fn Rplot_set_axis_auto_fit(plot: Rid, axis: RPlotAxis, auto_fit: c_int) void;
+pub extern fn Rplot_is_axis_auto_fit(plot: Rid, axis: RPlotAxis) c_int;
+/// How the labels of an axis are written: a printf format for one double ("%.1f s", "%g"), NULL: chosen from the ticks.
+pub extern fn Rplot_set_axis_format(plot: Rid, axis: RPlotAxis, format: ?[*:0]const u8) void;
+/// 1: shown, 0: hidden, -1: R_PLOT_X and R_PLOT_Y always, the second axes when something uses them (the default).
+pub extern fn Rplot_set_axis_visible(plot: Rid, axis: RPlotAxis, visible: c_int) void;
+/// Lines across the data at the ticks of an axis (on for R_PLOT_X and R_PLOT_Y).
+pub extern fn Rplot_set_axis_grid(plot: Rid, axis: RPlotAxis, grid: c_int) void;
+/// The values grow the other way (to the left, or down).
+pub extern fn Rplot_set_axis_inverted(plot: Rid, axis: RPlotAxis, inverted: c_int) void;
+/// The user cannot move or zoom this axis (the application still can).
+pub extern fn Rplot_set_axis_locked(plot: Rid, axis: RPlotAxis, locked: c_int) void;
+/// Fits every axis that is not locked to the data, and has them follow it again (what a double click does).
+pub extern fn Rplot_fit(plot: Rid) void;
+/// Where the legend is (default R_PLOT_LEGEND_TOP_RIGHT).
+pub extern fn Rplot_set_legend(plot: Rid, legend: RPlotLegend) void;
+/// Lines across the data through the pointer.
+pub extern fn Rplot_set_crosshair(plot: Rid, crosshair: c_int) void;
+/// The coordinates of the pointer in a corner of the data (on by default).
+pub extern fn Rplot_set_mouse_text(plot: Rid, shown: c_int) void;
+/// The values of the point under the pointer, written next to it (on by default).
+pub extern fn Rplot_set_tooltips(plot: Rid, shown: c_int) void;
+/// Where the pointer is, in the units of R_PLOT_X and R_PLOT_Y. Returns R_TRUE when it is over the data.
+pub extern fn Rplot_get_mouse_position(plot: Rid, x: ?*f64, y: ?*f64) c_int;
+/// Where a point of the data (R_PLOT_X, R_PLOT_Y) is in the widget, in logical units from its corner.
+pub extern fn Rplot_data_to_point(plot: Rid, x: f64, y: f64, point_x: ?*f32, point_y: ?*f32) void;
+/// The data (R_PLOT_X, R_PLOT_Y) at a point of the widget, in logical units from its corner.
+pub extern fn Rplot_point_to_data(plot: Rid, point_x: f32, point_y: f32, x: ?*f64, y: ?*f64) void;
+/// Adds a line across the data that the user drags: vertical at an X
+/// (axis R_PLOT_X or R_PLOT_X2), horizontal at a Y (R_PLOT_Y or R_PLOT_Y2).
+/// Its value is written on it, after `label` (may be NULL). Returns its index.
+pub extern fn Rplot_add_drag_line(plot: Rid, axis: RPlotAxis, value: f64, label: ?[*:0]const u8) c_int;
+pub extern fn Rplot_remove_drag_line(plot: Rid, line: c_int) void;
+pub extern fn Rplot_get_drag_line_count(plot: Rid) c_int;
+pub extern fn Rplot_set_drag_line_value(plot: Rid, line: c_int, value: f64) void;
+pub extern fn Rplot_get_drag_line_value(plot: Rid, line: c_int) f64;
+/// The color of a drag line (by default the accent of the theme).
+pub extern fn Rplot_set_drag_line_color(plot: Rid, line: c_int, r: f32, g: f32, b: f32, a: f32) void;
+pub extern fn Rplot_set_view_changed_callback(plot: Rid, callback: RPlotViewCallback, user_data: ?*anyopaque) void;
+pub extern fn Rplot_set_drag_line_callback(plot: Rid, callback: RPlotDragLineCallback, user_data: ?*anyopaque) void;
+pub extern fn Rplot_set_series_toggled_callback(plot: Rid, callback: RPlotSeriesCallback, user_data: ?*anyopaque) void;
+/// A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
+pub extern fn Rchart_create(kind: RChartKind) Rid;
+pub extern fn Rchart_set_kind(chart: Rid, kind: RChartKind) void;
+pub extern fn Rchart_get_kind(chart: Rid) RChartKind;
+/// The title over a pie, a donut or a heatmap, under the value of a gauge (a sparkline only tells it to screen readers).
+pub extern fn Rchart_set_title(chart: Rid, title: ?[*:0]const u8) void;
+pub extern fn Rchart_get_title(chart: Rid) ?[*:0]const u8;
+/// How the values are written (the gauge, the middle of a donut, what
+/// the pointer shows): a printf format for one double with its unit, "%.0f%%",
+/// "$%.2f". NULL: whole numbers as they are, others with up to two decimals.
+pub extern fn Rchart_set_format(chart: Rid, format: ?[*:0]const u8) void;
+/// The color of the arc of a gauge outside any band, and of the line of a sparkline (default: the accent).
+pub extern fn Rchart_set_color(chart: Rid, r: f32, g: f32, b: f32, a: f32) void;
+/// The legend: the slices beside a pie or a donut, the scale of colors under a heatmap (shown by default).
+pub extern fn Rchart_set_legend(chart: Rid, shown: c_int) void;
+/// Removes the slices, the bands, the grid and the values.
+pub extern fn Rchart_clear(chart: Rid) void;
+/// What is under the pointer: a slice, a point of a sparkline, or a
+/// cell of a heatmap as row * columns + column; -1 for nothing.
+pub extern fn Rchart_get_hovered(chart: Rid) c_int;
+/// Adds a slice (a value of 0 or more). Returns its index, -1 when the value is not valid.
+pub extern fn Rchart_add_slice(chart: Rid, label: ?[*:0]const u8, value: f64) c_int;
+pub extern fn Rchart_remove_slice(chart: Rid, slice: c_int) void;
+pub extern fn Rchart_get_slice_count(chart: Rid) c_int;
+pub extern fn Rchart_set_slice_value(chart: Rid, slice: c_int, value: f64) void;
+pub extern fn Rchart_get_slice_value(chart: Rid, slice: c_int) f64;
+pub extern fn Rchart_set_slice_label(chart: Rid, slice: c_int, label: ?[*:0]const u8) void;
+pub extern fn Rchart_get_slice_label(chart: Rid, slice: c_int) ?[*:0]const u8;
+/// The color of a slice; an alpha of 0 gives it back its color of the palette.
+pub extern fn Rchart_set_slice_color(chart: Rid, slice: c_int, r: f32, g: f32, b: f32, a: f32) void;
+/// The sum of the values of the slices.
+pub extern fn Rchart_get_total(chart: Rid) f64;
+/// The slice lifted as selected, or -1 for none (the user selects one with a click).
+pub extern fn Rchart_set_selected(chart: Rid, slice: c_int) void;
+pub extern fn Rchart_get_selected(chart: Rid) c_int;
+/// The hole of a donut, as a part of its radius, from 0.2 to 0.9 (default 0.62).
+pub extern fn Rchart_set_hole(chart: Rid, ratio: f32) void;
+/// What the middle of a donut shows when the pointer is not over a
+/// slice: `text` in large (NULL or "": the total) over `caption` in small
+/// (NULL or "": none).
+pub extern fn Rchart_set_center_text(chart: Rid, text: ?[*:0]const u8, caption: ?[*:0]const u8) void;
+pub extern fn Rchart_set_slice_clicked_callback(chart: Rid, callback: RChartSliceCallback, user_data: ?*anyopaque) void;
+/// The range of a gauge (default 0 to 100), and a fixed range for the
+/// colors of a heatmap and the height of a sparkline, which otherwise follow
+/// their values. min == max goes back to these defaults.
+pub extern fn Rchart_set_range(chart: Rid, min: f64, max: f64) void;
+/// The range in use now (a gauge's, or the one of the values of a heatmap or a sparkline).
+pub extern fn Rchart_get_range(chart: Rid, min: ?*f64, max: ?*f64) void;
+/// The value of a gauge, kept within its range when drawn.
+pub extern fn Rchart_set_value(chart: Rid, value: f64) void;
+pub extern fn Rchart_get_value(chart: Rid) f64;
+/// Colors a part of the range of a gauge (an alpha of 0: the success,
+/// warning and danger colors of the theme, one after the other). The arc
+/// takes the color of the band its value is in. Returns the index of the band.
+pub extern fn Rchart_add_band(chart: Rid, from: f64, to: f64, r: f32, g: f32, b: f32, a: f32) c_int;
+pub extern fn Rchart_clear_bands(chart: Rid) void;
+pub extern fn Rchart_get_band_count(chart: Rid) c_int;
+/// The cells of a heatmap: `rows` x `columns` values, row after row,
+/// copied (NULL: all 0). NaN leaves a cell empty.
+pub extern fn Rchart_set_grid(chart: Rid, rows: c_int, columns: c_int, values: ?[*]const f32) void;
+pub extern fn Rchart_get_row_count(chart: Rid) c_int;
+pub extern fn Rchart_get_column_count(chart: Rid) c_int;
+pub extern fn Rchart_set_cell(chart: Rid, row: c_int, column: c_int, value: f32) void;
+pub extern fn Rchart_get_cell(chart: Rid, row: c_int, column: c_int) f32;
+/// The names of the rows, separated by '|': "Mon|Tue|Wed" (shown at their left).
+pub extern fn Rchart_set_row_labels(chart: Rid, labels: ?[*:0]const u8) void;
+/// The names of the columns, separated by '|' (shown over them, as many as fit).
+pub extern fn Rchart_set_column_labels(chart: Rid, labels: ?[*:0]const u8) void;
+/// The name of a row or of a column, "" when it has none.
+pub extern fn Rchart_get_row_label(chart: Rid, row: c_int) ?[*:0]const u8;
+pub extern fn Rchart_get_column_label(chart: Rid, column: c_int) ?[*:0]const u8;
+/// The colors of the lowest and of the highest values of a heatmap (default: a tint of the accent, the accent).
+pub extern fn Rchart_set_color_scale(chart: Rid, low_r: f32, low_g: f32, low_b: f32, low_a: f32, high_r: f32, high_g: f32, high_b: f32, high_a: f32) void;
+pub extern fn Rchart_set_cell_clicked_callback(chart: Rid, callback: RChartCellCallback, user_data: ?*anyopaque) void;
+/// The values of a sparkline, copied. NaN leaves a gap.
+pub extern fn Rchart_set_values(chart: Rid, values: ?[*]const f32, count: c_int) void;
+/// Adds a value after the others, for live data; only the last `max_count` are kept (0: all of them).
+pub extern fn Rchart_push_value(chart: Rid, value: f32, max_count: c_int) void;
+pub extern fn Rchart_get_value_count(chart: Rid) c_int;
+pub extern fn Rchart_get_value_at(chart: Rid, index: c_int) f32;
+/// Shades the area under the line of a sparkline (on by default).
+pub extern fn Rchart_set_fill(chart: Rid, fill: c_int) void;
+/// A dot on the last value of a sparkline (on by default).
+pub extern fn Rchart_set_marker(chart: Rid, shown: c_int) void;
+/// R_TRUE when PDFium can be loaded (it is, the first time this is asked).
+pub extern fn Rpdf_is_available() c_int;
+/// Shows a PDF file. `password` may be NULL. Returns R_FALSE when it
+/// cannot: Rpdf_view_get_status tells why (a password is needed, not a
+/// PDF, no PDFium). The view then shows that instead of pages.
+pub extern fn Rpdf_view_load_file(view: Rid, path: ?[*:0]const u8, password: ?[*:0]const u8) c_int;
+/// Same as Rpdf_view_load_file, from bytes in memory (copied).
+pub extern fn Rpdf_view_load_memory(view: Rid, data: ?[*:0]const u8, data_size: usize, password: ?[*:0]const u8) c_int;
+/// Closes the document: the view is empty.
+pub extern fn Rpdf_view_close(view: Rid) void;
+pub extern fn Rpdf_view_get_status(view: Rid) RPdfStatus;
+pub extern fn Rpdf_view_get_page_count(view: Rid) c_int;
+/// Size of a page in points (1/72 inch), as it is shown (its rotation applied).
+pub extern fn Rpdf_view_get_page_size(view: Rid, page: c_int, width: ?*f32, height: ?*f32) void;
+/// Scrolls to the top of a page; it becomes the current page.
+pub extern fn Rpdf_view_set_page(view: Rid, page: c_int) void;
+/// The current page: the one a third down the view.
+pub extern fn Rpdf_view_get_page(view: Rid) c_int;
+/// A zoom of its own (1: the printed size): the fit becomes R_PDF_FIT_NONE.
+pub extern fn Rpdf_view_set_zoom(view: Rid, zoom: f32) void;
+/// The zoom the pages show at, the one a fit gives included.
+pub extern fn Rpdf_view_get_zoom(view: Rid) f32;
+pub extern fn Rpdf_view_set_fit(view: Rid, fit: RPdfFit) void;
+pub extern fn Rpdf_view_get_fit(view: Rid) RPdfFit;
+/// The title of the document (its information), "" when it has none.
+pub extern fn Rpdf_view_get_title(view: Rid) ?[*:0]const u8;
+/// The text of a page (UTF-8), to search it or copy it. Valid until
+/// the next call for this view.
+pub extern fn Rpdf_view_get_page_text(view: Rid, page: c_int) ?[*:0]const u8;
+pub extern fn Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPageChangedCallback, user_data: ?*anyopaque) void;
+/// Prints the document shown (see Rpdf_print); the job is named after its title.
+pub extern fn Rpdf_view_print(view: Rid, desc: ?*const RPdfPrintDesc) c_int;
+pub extern fn Rpdf_document_create() Rid;
+pub extern fn Rpdf_document_delete(document: Rid) void;
+/// The information of the document, shown by readers (the title in their window).
+pub extern fn Rpdf_document_set_title(document: Rid, title: ?[*:0]const u8) void;
+pub extern fn Rpdf_document_set_author(document: Rid, author: ?[*:0]const u8) void;
+pub extern fn Rpdf_document_set_subject(document: Rid, subject: ?[*:0]const u8) void;
+/// Adds a page of a size in points; drawing goes to it. Returns its index, -1 for an invalid size.
+pub extern fn Rpdf_document_add_page(document: Rid, width: f32, height: f32) c_int;
+pub extern fn Rpdf_document_get_page_count(document: Rid) c_int;
+pub extern fn Rpdf_document_set_fill_color(document: Rid, r: f32, g: f32, b: f32, a: f32) void;
+pub extern fn Rpdf_document_set_stroke_color(document: Rid, r: f32, g: f32, b: f32, a: f32) void;
+/// Width of the lines and outlines, in points (default 1).
+pub extern fn Rpdf_document_set_line_width(document: Rid, width: f32) void;
+/// A rectangle, its corners rounded by `radius`; `paint` is a bitmask of RPdfPaint.
+pub extern fn Rpdf_document_draw_rect(document: Rid, x: f32, y: f32, width: f32, height: f32, radius: f32, paint: u32) void;
+/// The ellipse inside a rectangle.
+pub extern fn Rpdf_document_draw_ellipse(document: Rid, x: f32, y: f32, width: f32, height: f32, paint: u32) void;
+/// A line in the stroke color.
+pub extern fn Rpdf_document_draw_line(document: Rid, x1: f32, y1: f32, x2: f32, y2: f32) void;
+/// Adds a TrueType font (.ttf) to the document (the data is
+/// copied, and embedded in the file). Returns its number for
+/// Rpdf_document_set_font, -1 when it is not a TrueType font.
+pub extern fn Rpdf_document_add_font(document: Rid, data: ?[*:0]const u8, data_size: usize) c_int;
+pub extern fn Rpdf_document_add_font_from_file(document: Rid, path: ?[*:0]const u8) c_int;
+/// The font of the text drawn next: an RPdfFont or a number of Rpdf_document_add_font, a size in points, a bitmask of RPdfTextStyle.
+pub extern fn Rpdf_document_set_font(document: Rid, font: c_int, size: f32, style: u32) void;
+/// Distance between two lines of text in the current font.
+pub extern fn Rpdf_document_get_line_height(document: Rid) f32;
+/// Width of a text in the current font, in points (of its widest line).
+pub extern fn Rpdf_document_measure_text(document: Rid, text: ?[*:0]const u8) f32;
+/// Text in the fill color, the top of its first line at y ('\n'
+/// starts a line below). Returns its width.
+pub extern fn Rpdf_document_draw_text(document: Rid, x: f32, y: f32, text: ?[*:0]const u8) f32;
+/// Text wrapped at the spaces to fit `width`, each line placed by
+/// `align` (R_HALIGN_LEFT, R_HALIGN_CENTER or R_HALIGN_RIGHT). Returns the
+/// height it took.
+pub extern fn Rpdf_document_draw_paragraph(document: Rid, x: f32, y: f32, width: f32, text: ?[*:0]const u8, align_: RHAlign) f32;
+/// A picture of RGBA8 pixels stretched over a rectangle. A width or
+/// height of 0 keeps the proportions of the picture; both 0: 96 pixels per inch.
+pub extern fn Rpdf_document_draw_image(document: Rid, x: f32, y: f32, width: f32, height: f32, rgba: ?[*]const u8, pixels_width: c_int, pixels_height: c_int) void;
+/// What a window shows (Rwindow_capture), as a picture: a report of
+/// the screen, a chart. A width and height of 0: the size it has on the
+/// screen. Returns R_FALSE when the window cannot be captured.
+pub extern fn Rpdf_document_draw_window(document: Rid, window: Rid, x: f32, y: f32, width: f32, height: f32) c_int;
+/// Writes the file. Returns R_FALSE when it cannot be written.
+pub extern fn Rpdf_document_save(document: Rid, path: ?[*:0]const u8) c_int;
+/// The file in memory (followed by a '\0' not counted), to release with Rmemory_free; `size` receives its length.
+pub extern fn Rpdf_document_save_memory(document: Rid, size: ?*usize) ?[*:0]u8;
+/// Prints a PDF document with the print system: on macOS the print
+/// panel, on Windows the print dialog (the pages are drawn by PDFium, see
+/// PDF VIEW), on Linux and the other systems CUPS (lp or lpr) after a
+/// dialog of Raven that chooses the printer. It waits until the job is
+/// sent. `desc` may be NULL. Returns R_FALSE when cancelled or when it
+/// cannot print. Not in the browser.
+pub extern fn Rpdf_print(desc: ?*const RPdfPrintDesc, data: ?[*:0]const u8, data_size: usize) c_int;
+pub extern fn Rpdf_print_file(desc: ?*const RPdfPrintDesc, path: ?[*:0]const u8) c_int;
+/// Prints a document written by the application.
+pub extern fn Rpdf_document_print(document: Rid, desc: ?*const RPdfPrintDesc) c_int;
 /// text Initial content, or NULL.
 pub extern fn Rtext_editor_create(text: ?[*:0]const u8) Rid;
 /// Replaces the whole text. The history of undo is cleared; the changed callback is not called.
@@ -2358,6 +3626,15 @@ pub extern fn Rtext_editor_set_completion_callback(editor: Rid, callback: RCompl
 /// they were added in.
 /// detail A few words shown beside it ("function", "int"), or NULL.
 pub extern fn Rtext_editor_add_completion(editor: Rid, text: ?[*:0]const u8, detail: ?[*:0]const u8) void;
+/// Adds a proposal that writes another text than the one it shows
+/// and is matched on: "Threshold", listed and filtered as such, that
+/// writes "Threshold(" when chosen. Only from a completion callback.
+/// insert What replaces the word being typed; NULL or "" is `text`.
+pub extern fn Rtext_editor_add_completion_insert(editor: Rid, text: ?[*:0]const u8, detail: ?[*:0]const u8, insert: ?[*:0]const u8) void;
+/// R_FALSE leaves the words of the language and the names of the
+/// text out of the proposals: only the completion callback's are listed
+/// (a language server that knows better). On by default.
+pub extern fn Rtext_editor_set_completion_words(editor: Rid, enabled: c_int) void;
 /// R_FALSE stops the editor from closing brackets and quotes and
 /// from indenting after them. On by default; it only acts with a language.
 pub extern fn Rtext_editor_set_auto_pairs(editor: Rid, enabled: c_int) void;
@@ -2369,6 +3646,7 @@ pub extern fn Rtext_editor_set_auto_pairs(editor: Rid, enabled: c_int) void;
 pub extern fn Rtext_editor_add_marker(editor: Rid, line: c_int, from_column: c_int, to_column: c_int, kind: RMarkerKind, message: ?[*:0]const u8) void;
 pub extern fn Rtext_editor_clear_markers(editor: Rid) void;
 pub extern fn Rtext_editor_get_marker_count(editor: Rid) c_int;
+pub extern fn Rtext_editor_set_hover_callback(editor: Rid, callback: RTextEditorHoverCallback, user_data: ?*anyopaque) void;
 /// Color of a kind of token in the theme in use, instead of the
 /// one Raven picks for dark and for light themes. Theme files set them
 /// with <Syntax Keyword="#FF7AB2" String="..."/>.
@@ -2383,8 +3661,10 @@ pub extern fn Rheader_bar_create(title: ?[*:0]const u8) Rid;
 pub extern fn Rheader_bar_set_title(bar: Rid, title: ?[*:0]const u8) void;
 /// buttons Bitmask of RHeaderButtons. All by default; the maximize button only shows on a resizable window.
 pub extern fn Rheader_bar_set_buttons(bar: Rid, buttons: u32) void;
-/// side R_HALIGN_RIGHT (default): minimize, maximize, close, as on
-/// Windows. R_HALIGN_LEFT: three round colored buttons, as on macOS.
+/// side R_HALIGN_RIGHT: minimize, maximize, close, as on Windows.
+/// R_HALIGN_LEFT: three round colored buttons, as on macOS. Until it is
+/// set, the side is the one of the system the program runs on (left on
+/// macOS, right elsewhere), whatever the look.
 pub extern fn Rheader_bar_set_button_side(bar: Rid, side: RHAlign) void;
 /// align R_HALIGN_CENTER (default) or R_HALIGN_LEFT.
 pub extern fn Rheader_bar_set_title_align(bar: Rid, align_: RHAlign) void;
@@ -2441,7 +3721,8 @@ pub extern fn Rdock_area_set_movable(area: Rid, movable: c_int) void;
 pub extern fn Rdock_area_save_layout(area: Rid) ?[*:0]const u8;
 /// Arranges the panels as a saved description says. Panels of the
 /// area that the description does not name keep a place; names it has
-/// that match no panel are ignored.
+/// that match no panel are ignored in legacy descriptions. Versioned
+/// descriptions with floating cards reject unknown or duplicate names.
 /// Returns: R_FALSE when the text is not a layout (nothing is changed).
 pub extern fn Rdock_area_load_layout(area: Rid, layout: ?[*:0]const u8) c_int;
 pub extern fn Rdock_area_set_close_callback(area: Rid, callback: RDockCloseCallback, user_data: ?*anyopaque) void;
@@ -2455,7 +3736,9 @@ pub extern fn Rdock_area_set_close_callback(area: Rid, callback: RDockCloseCallb
 /// work on its panels that are in floating windows.
 pub extern fn Rdock_area_set_tearable(area: Rid, tearable: c_int) void;
 pub extern fn Rdock_area_is_tearable(area: Rid) c_int;
-/// Takes a panel to a window of its own, its top left corner at (x, y) on the screen. Returns the window.
+/// Default for future floats/tears; existing floating panels keep their mode.
+pub extern fn Rdock_area_set_float_mode(area: Rid, mode: RDockFloatMode) void;
+/// Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 pub extern fn Rdock_area_float_panel(area: Rid, panel: Rid, x: c_int, y: c_int) Rid;
 /// A floating panel goes back where it was in the area.
 pub extern fn Rdock_area_dock_panel(area: Rid, panel: Rid) void;
@@ -2476,6 +3759,23 @@ pub extern fn Risland_set_expand_on_click(island: Rid, enabled: c_int) void;
 /// R_TRUE gives the island square upper corners: a notch that hangs
 /// from the edge it touches, instead of a capsule that floats under it.
 pub extern fn Risland_set_attached(island: Rid, attached: c_int) void;
+/// R_TRUE: on a screen with a camera housing at its top (the notch
+/// of a MacBook), the island of a window (Rwindow_set_island) lives in the
+/// housing itself, in a window of its own anchored to the screen: it stays
+/// there when the window is moved, and takes the mouse and the keyboard as
+/// usual. Folded, it is the housing grown into two ears: the first Spacer
+/// of its folded content becomes the room of the camera (what is before
+/// it shows on the left, what is after on the right). Unfolded, its
+/// content starts under the camera.
+///
+/// It is in the housing while its window is the last one of the
+/// application the user worked in, is shown, and is on that screen; it
+/// goes back into its window otherwise, and on the window systems and
+/// screens without a housing (where nothing changes). XML: Notch="true".
+pub extern fn Risland_set_notch(island: Rid, enabled: c_int) void;
+pub extern fn Risland_get_notch(island: Rid) c_int;
+/// R_TRUE while the island is in the camera housing of the screen.
+pub extern fn Risland_is_in_notch(island: Rid) c_int;
 pub extern fn Risland_set_changed_callback(island: Rid, callback: RIslandChangedCallback, user_data: ?*anyopaque) void;
 /// Shows a widget (usually an island) floating at the top of a
 /// window, in the middle, above its content. The window takes ownership;
@@ -2483,6 +3783,71 @@ pub extern fn Risland_set_changed_callback(island: Rid, callback: RIslandChanged
 /// its slot (Rslot_set_padding) is its distance from the top edge.
 pub extern fn Rwindow_set_island(window: Rid, widget: Rid) void;
 pub extern fn Rwindow_get_island(window: Rid) Rid;
+/// A progress bar on the icon of the application: on the button of
+/// the window in the taskbar (Windows), on the icon in the Dock (macOS),
+/// on the launcher (Linux). There is one icon for the whole application in
+/// the Dock and the launchers: the last window that set it is shown.
+/// value From 0 to 1 (not used by NONE and INDETERMINATE).
+/// Returns: R_FALSE where the system shows no progress.
+pub extern fn Rwindow_set_taskbar_progress(window: Rid, state: RTaskbarProgress, value: f32) c_int;
+/// Asks the user to look at the window when it is not the active
+/// one: its taskbar button flashes (Windows), the icon bounces in the
+/// Dock (macOS), the window is marked urgent (X11, the launchers of
+/// Linux). `critical`: until the user comes to the window; otherwise a few
+/// times. Nothing happens when the window is already the active one.
+pub extern fn Rwindow_request_attention(window: Rid, critical: c_int) c_int;
+/// A short text on the icon of the application: a number of unread
+/// messages, "!". macOS: the badge of the Dock. Windows: a small round
+/// icon on the taskbar buttons of the windows, drawn from the text (one
+/// to three characters fit). Linux: a number only (the text is read as
+/// one; anything else shows nothing). NULL or "": no badge.
+pub extern fn Rtaskbar_set_badge(text: ?[*:0]const u8) c_int;
+/// The menu of the icon of the application in the Dock (macOS),
+/// above the entries of the system. A MENU without a parent: its
+/// MenuItems fire as when chosen in a window (clicked callback, action),
+/// and what changes in it shows the next time the menu opens.
+/// R_INVALID_ID: none. R_FALSE where the system has no such menu.
+pub extern fn Rtaskbar_set_menu(menu: Rid) c_int;
+/// The tasks of the jump list of Windows (right click on the button
+/// of the application in the taskbar, or on its tile in the Start menu).
+/// Choosing one starts the application again with its arguments: the
+/// application reads them as any other command line. count 0: none.
+/// R_FALSE where there is no jump list.
+pub extern fn Rtaskbar_set_jump_list(tasks: ?*const RJumpTask, count: c_int) c_int;
+/// Returns: R_TRUE when the system shows tray icons: always on Windows and
+/// macOS; on Linux, when a host of StatusNotifierItem runs (the panel of
+/// the desktop). An icon made where none runs yet appears when one starts.
+pub extern fn Rtray_is_supported() c_int;
+/// Puts an icon of the application beside the clock. While one
+/// exists, the application goes on running when its last window closes
+/// (Ris_running): Rquit (or the action app.quit) ends it.
+/// Returns: R_INVALID_ID where the system has none.
+pub extern fn Rtray_create() Rid;
+pub extern fn Rtray_destroy(tray: Rid) void;
+pub extern fn Rtray_is_valid(tray: Rid) c_int;
+/// The picture, from tightly packed RGBA8 pixels (straight alpha);
+/// the system scales it (16 to 32 pixels square fit everywhere). Copied.
+pub extern fn Rtray_set_icon(tray: Rid, rgba: ?[*]const u8, width: c_int, height: c_int) void;
+/// The text shown when the pointer rests on the icon (and its title for the Linux panels).
+pub extern fn Rtray_set_tooltip(tray: Rid, text: ?[*:0]const u8) void;
+/// The menu the system shows for the icon: on a right click
+/// (Windows, Linux), on a click (macOS). A MENU without a parent, whose
+/// MenuItems fire as when chosen in a window; what changes in it shows
+/// the next time it opens. R_INVALID_ID: none.
+pub extern fn Rtray_set_menu(tray: Rid, menu: Rid) void;
+/// Called on a click: the left button (activate), the right one
+/// when there is no menu, the middle one. On macOS an icon with a menu
+/// opens it instead.
+pub extern fn Rtray_set_clicked_callback(tray: Rid, callback: RTrayClickedCallback, user_data: ?*anyopaque) void;
+/// A short text shown beside the icon (macOS menu bar), drawn by the
+/// system in its own font and colors; the item widens to fit it. NULL or
+/// "": the icon alone. Systems that show no text there ignore it (the
+/// tooltip is the place for it).
+pub extern fn Rtray_set_title(tray: Rid, text: ?[*:0]const u8) void;
+/// Where the icon is on the screen, in the units and coordinates of
+/// Rwindow_set_position (a window can then open just under it).
+/// Returns: R_FALSE when the system does not tell (the outputs are then 0).
+pub extern fn Rtray_get_rect(tray: Rid, x: ?*c_int, y: ?*c_int, width: ?*c_int, height: ?*c_int) c_int;
 pub extern fn Rcolor_picker_create() Rid;
 /// Sets the color (0..1 each). The callback is not called.
 pub extern fn Rcolor_picker_set_color(picker: Rid, r: f32, g: f32, b: f32, a: f32) void;
@@ -2567,6 +3932,13 @@ pub extern fn Rtimeline_set_track_height(timeline: Rid, track: c_int, height: f3
 pub extern fn Rtimeline_set_track_locked(timeline: Rid, track: c_int, locked: c_int) void;
 /// A muted track is drawn dimmed; what muting means is up to the application.
 pub extern fn Rtimeline_set_track_muted(timeline: Rid, track: c_int, muted: c_int) void;
+/// A property of the look of a track: "ClipStyle" (Solid,
+/// Gradient, Tint, Outline), "KeyShape" (Diamond, Circle, Square...),
+/// "KeySize", "ClipRadius", "Background" (its lane), or a part and a
+/// property ("Clip.Glow", "Key.BorderColor"). "" or "Default" gives back
+/// the one of the timeline.
+/// Returns: R_FALSE when the name or the value is not one.
+pub extern fn Rtimeline_set_track_style(timeline: Rid, track: c_int, property: ?[*:0]const u8, value: ?[*:0]const u8) c_int;
 pub extern fn Rtimeline_is_track_muted(timeline: Rid, track: c_int) c_int;
 /// Returns: The clip, or 0 when the track does not exist.
 pub extern fn Rtimeline_add_clip(timeline: Rid, track: c_int, start: f64, length: f64, label: ?[*:0]const u8) c_int;
@@ -2588,6 +3960,14 @@ pub extern fn Rtimeline_set_item(timeline: Rid, item: c_int, track: c_int, start
 pub extern fn Rtimeline_set_item_label(timeline: Rid, item: c_int, label: ?[*:0]const u8) void;
 pub extern fn Rtimeline_get_item_label(timeline: Rid, item: c_int) ?[*:0]const u8;
 pub extern fn Rtimeline_set_item_color(timeline: Rid, item: c_int, r: f32, g: f32, b: f32) void;
+/// A property of the look of one clip, key or marker: "Style"
+/// (Solid, Gradient, Tint, Outline: clips), "Shape" (keys), or any
+/// property of its part ("Background", "BorderColor", "Glow",
+/// "CornerRadius", "Foreground" for its label...).
+pub extern fn Rtimeline_set_item_style(timeline: Rid, item: c_int, property: ?[*:0]const u8, value: ?[*:0]const u8) c_int;
+/// The look the timeline starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+pub extern fn Rtimeline_set_preset(timeline: Rid, preset: RVisualPreset) void;
+pub extern fn Rtimeline_get_preset(timeline: Rid) RVisualPreset;
 pub extern fn Rtimeline_get_item_count(timeline: Rid) c_int;
 /// Returns: The index-th item, in the order they were added, or 0.
 pub extern fn Rtimeline_get_item(timeline: Rid, index: c_int) c_int;
@@ -2626,6 +4006,14 @@ pub extern fn Rnode_graph_get_node_position(graph: Rid, node: c_int, x: ?*f32, y
 pub extern fn Rnode_graph_get_node_size(graph: Rid, node: c_int, width: ?*f32, height: ?*f32) void;
 /// Color of the header of the node; without one it takes the accent color of the theme.
 pub extern fn Rnode_graph_set_node_color(graph: Rid, node: c_int, r: f32, g: f32, b: f32) void;
+/// A property of the look of one node: "HeaderStyle" (Solid,
+/// Gradient, Stripe, Tint, None), "HeaderColor", "TitleColor",
+/// "Background", "BorderColor", "BorderWidth", "CornerRadius", "Glow",
+/// "Icon" (an image file shown before its title), or a part and a property
+/// ("Header.Gradient", "Node.ShadowSize"). "" or "Default" gives back the
+/// one of the graph.
+/// Returns: R_FALSE when the name or the value is not one.
+pub extern fn Rnode_graph_set_node_style(graph: Rid, node: c_int, property: ?[*:0]const u8, value: ?[*:0]const u8) c_int;
 /// Puts a widget inside the node, under its pins: the graph owns
 /// it from now on. R_INVALID_ID removes (and deletes) the one it had.
 pub extern fn Rnode_graph_set_node_content(graph: Rid, node: c_int, widget: Rid) void;
@@ -2658,6 +4046,12 @@ pub extern fn Rnode_graph_get_input(graph: Rid, node: c_int, index: c_int) c_int
 pub extern fn Rnode_graph_get_output(graph: Rid, node: c_int, index: c_int) c_int;
 /// Color of the pins of a type and of the links between them.
 pub extern fn Rnode_graph_set_type_color(graph: Rid, type_: ?[*:0]const u8, r: f32, g: f32, b: f32) void;
+/// A property of the pins of a type and of their links: "Shape"
+/// (Circle, Ring, Square, Diamond, Triangle, Arrow), "Size", "Glow",
+/// "LinkShape" (Bezier, Straight, Step, Angled), "LinkWidth", "LinkGlow".
+pub extern fn Rnode_graph_set_type_style(graph: Rid, type_: ?[*:0]const u8, property: ?[*:0]const u8, value: ?[*:0]const u8) c_int;
+/// The same for one pin ("Shape", "Size", "Glow", "Color").
+pub extern fn Rnode_graph_set_pin_style(graph: Rid, pin: c_int, property: ?[*:0]const u8, value: ?[*:0]const u8) c_int;
 /// Links an output to an input, as the user does by dragging.
 /// The connect callback is not asked.
 /// Returns: The link; 0 when the pins cannot be linked (two inputs, the
@@ -2687,6 +4081,9 @@ pub extern fn Rnode_graph_set_grid_visible(graph: Rid, visible: c_int) void;
 pub extern fn Rnode_graph_set_flow_visible(graph: Rid, visible: c_int) void;
 /// R_TRUE: the user can look but not move, link or delete.
 pub extern fn Rnode_graph_set_read_only(graph: Rid, read_only: c_int) void;
+/// The look the graph starts from (R_PRESET_AUTO by default; Preset="..." in XML).
+pub extern fn Rnode_graph_set_preset(graph: Rid, preset: RVisualPreset) void;
+pub extern fn Rnode_graph_get_preset(graph: Rid) RVisualPreset;
 pub extern fn Rnode_graph_select_node(graph: Rid, node: c_int, add: c_int) void;
 pub extern fn Rnode_graph_clear_selection(graph: Rid) void;
 pub extern fn Rnode_graph_is_node_selected(graph: Rid, node: c_int) c_int;
@@ -2707,6 +4104,24 @@ pub extern fn Rnode_graph_set_removed_callback(graph: Rid, callback: RNodeGraphI
 /// Called when the user double-clicks a node (to open what it stands for).
 pub extern fn Rnode_graph_set_activated_callback(graph: Rid, callback: RNodeGraphItemCallback, user_data: ?*anyopaque) void;
 pub extern fn Rnode_graph_set_context_callback(graph: Rid, callback: RNodeGraphContextCallback, user_data: ?*anyopaque) void;
+/// Double click on the empty canvas (`item` 0): the application acts
+/// there (a search to add a node...). Without this callback it frames all nodes.
+pub extern fn Rnode_graph_set_canvas_activated_callback(graph: Rid, callback: RNodeGraphPointCallback, user_data: ?*anyopaque) void;
+/// A wire the user pulled from a pin was released on nothing: `item` is
+/// that pin, x, y where it was dropped (to offer a node to connect it to). The
+/// wire draws back as usual.
+pub extern fn Rnode_graph_set_wire_dropped_callback(graph: Rid, callback: RNodeGraphPointCallback, user_data: ?*anyopaque) void;
+/// A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
+/// the application may link in two clicks (Rnode_graph_set_pin_emphasis shows where
+/// the second may go). With this callback such a click neither detaches the wire
+/// of an input nor counts as a wire dropped on nothing.
+pub extern fn Rnode_graph_set_pin_clicked_callback(graph: Rid, callback: RNodeGraphPointCallback, user_data: ?*anyopaque) void;
+/// The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0.
+pub extern fn Rnode_graph_get_node_at(graph: Rid, x: f32, y: f32) c_int;
+/// The pin near a point of the widget (or whose tag is under it: Rnode_graph_set_pin_tag), or 0 (a menu for a pin).
+pub extern fn Rnode_graph_get_pin_at(graph: Rid, x: f32, y: f32) c_int;
+/// The link under a point of the widget, or 0 (hidden links are never under it).
+pub extern fn Rnode_graph_get_link_at(graph: Rid, x: f32, y: f32) c_int;
 /// R_TRUE: this input keeps every link made to it (a state that several
 /// transitions enter) instead of one. Pulling a wire from it starts a new one.
 pub extern fn Rnode_graph_set_pin_multiple(graph: Rid, pin: c_int, multiple: c_int) void;
@@ -2716,8 +4131,37 @@ pub extern fn Rnode_graph_set_node_active(graph: Rid, node: c_int, active: c_int
 pub extern fn Rnode_graph_set_node_active_color(graph: Rid, node: c_int, r: f32, g: f32, b: f32) void;
 /// R_FALSE: the Delete key does not remove this node (the root of a tree, the output of a graph).
 pub extern fn Rnode_graph_set_node_deletable(graph: Rid, node: c_int, deletable: c_int) void;
+/// Shows a node at once, without the animation a node added to a shown graph pops in with (an application that rebuilds its graph).
+pub extern fn Rnode_graph_set_node_shown(graph: Rid, node: c_int) void;
+/// The same for a link made with Rnode_graph_connect: drawn whole at once instead of growing from its output.
+pub extern fn Rnode_graph_set_link_shown(graph: Rid, link: c_int) void;
+/// An icon before the title: a texture of the application, shared by many nodes and not deleted with them (the "Icon" style loads one per node from a file). R_INVALID_ID removes it.
+pub extern fn Rnode_graph_set_node_icon(graph: Rid, node: c_int, texture: Rid) void;
 /// A short text in a pill on the top right corner of the node ("1", "!"...); NULL or "" removes it.
 pub extern fn Rnode_graph_set_node_badge(graph: Rid, node: c_int, text: ?[*:0]const u8) void;
+/// A short text in a chip of the pin's color outside the node, beside the pin
+/// (left of an input, right of an output): the name of what goes out or comes in
+/// there, as a net label of a schematic. NULL or "" removes it.
+pub extern fn Rnode_graph_set_pin_tag(graph: Rid, pin: c_int, text: ?[*:0]const u8) void;
+/// R_TRUE: the link stays (its pins are linked, the application keeps
+/// it) but is not drawn and not picked: its two ends are shown otherwise (pin
+/// tags naming it, as the labels of a schematic stand for a wire).
+pub extern fn Rnode_graph_set_link_hidden(graph: Rid, link: c_int, hidden: c_int) void;
+/// How much a pin stands out, as while a wire is pulled: 1 shows it as a pin
+/// to go to, -1 steps it back, 0 as usual (an application that links in two clicks).
+pub extern fn Rnode_graph_set_pin_emphasis(graph: Rid, pin: c_int, emphasis: c_int) void;
+/// The pin whose tag (Rnode_graph_set_pin_tag) is under a point of the widget, or 0: the chip only, not the pin.
+pub extern fn Rnode_graph_get_tag_at(graph: Rid, x: f32, y: f32) c_int;
+/// R_TRUE: the pin's tag is drawn as under the pointer (a stronger fill, a
+/// thicker edge) — every tag of one net lit while the pointer is on one of them.
+pub extern fn Rnode_graph_set_pin_tag_lit(graph: Rid, pin: c_int, lit: c_int) void;
+/// Pin labels wider than `width` (logical units) are cut short with an
+/// ellipsis and the nodes are laid out with them so (compact ports); 0, the
+/// default, shows every label whole.
+pub extern fn Rnode_graph_set_pin_label_width(graph: Rid, width: f32) void;
+pub extern fn Rnode_graph_get_pin_label_width(graph: Rid) f32;
+/// Color of the badge pill of one node (Rnode_graph_set_node_badge); its text turns dark or light to suit it. A negative component restores the look's color.
+pub extern fn Rnode_graph_set_node_badge_color(graph: Rid, node: c_int, r: f32, g: f32, b: f32) void;
 pub extern fn Rblock_editor_create() Rid;
 /// A kind of block, and its block in the palette. Returns its index, -1 on an error.
 pub extern fn Rblock_editor_add_kind(editor: Rid, name: ?[*:0]const u8, label: ?[*:0]const u8, shape: RBlockShape, category: ?[*:0]const u8) c_int;
@@ -2787,6 +4231,18 @@ pub extern fn Rdialog_open(window: Rid, content: Rid, closed: RDialogClosedCallb
 pub extern fn Rdialog_close(widget: Rid, result: c_int) void;
 /// Shows a dialog and waits until it closes. Returns its result.
 pub extern fn Rdialog_run(window: Rid, content: Rid) c_int;
+/// Shows a widget as a popup over the window, its top-left corner at
+/// x, y (window coordinates; moved to stay inside the window): a search box,
+/// a palette, a picker. Unlike a dialog it does not block the window: a click
+/// outside it, or Escape, closes it. The application keeps the content (it is
+/// not deleted on close) and can open it again. `closed` (may be NULL) is
+/// called when it closes, with the result given to Rpopup_close (0 when dismissed).
+/// The content draws its own background (a Border with a Background...).
+pub extern fn Rpopup_open(window: Rid, content: Rid, x: f32, y: f32, closed: RDialogClosedCallback, user_data: ?*anyopaque) void;
+/// Closes the popup that contains a widget (the content or anything inside it).
+pub extern fn Rpopup_close(widget: Rid, result: c_int) void;
+/// Returns: R_TRUE while the widget is shown as a popup.
+pub extern fn Rpopup_is_open(content: Rid) c_int;
 /// Returns: R_TRUE while a dialog is shown in the window.
 pub extern fn Rwindow_has_dialog(window: Rid) c_int;
 /// Shows a message with buttons and waits for the answer.
@@ -2854,6 +4310,18 @@ pub extern fn Rfile_browser_set_accepted_callback(browser: Rid, callback: RFileB
 pub extern fn Rfile_browser_set_cancelled_callback(browser: Rid, callback: RFileBrowserCallback, user_data: ?*anyopaque) void;
 /// Called when the selection changes; `path` is the entry under the cursor, or NULL.
 pub extern fn Rfile_browser_set_selection_changed_callback(browser: Rid, callback: RFileBrowserCallback, user_data: ?*anyopaque) void;
+/// Returns: R_TRUE when the system took the notification.
+pub extern fn Rnotification_show(title: ?[*:0]const u8, body: ?[*:0]const u8, urgency: RNotificationUrgency) c_int;
+/// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+pub extern fn Rnotification_is_supported() c_int;
+/// Called with the notifications the system could not show; NULL: none.
+pub extern fn Rnotification_set_fallback(callback: RNotificationFallback, user_data: ?*anyopaque) void;
+/// Called when the user clicks a notification of Rnotification_show
+/// (on the UI thread; the application may then bring its window to the
+/// front: the system lets it). It is the last one shown that was clicked:
+/// the application remembers what it was about. NULL: none.
+/// Windows and macOS (elsewhere it is never called).
+pub extern fn Rnotification_set_clicked_callback(callback: RNotificationClickedCallback, user_data: ?*anyopaque) void;
 /// Shows a texture. R_INVALID_ID shows nothing.
 pub extern fn Rviewport_set_texture(viewport: Rid, texture: Rid) void;
 /// How the texture is fitted in the widget. Default: R_STRETCH_FILL.
@@ -2878,6 +4346,10 @@ pub extern fn Rcustom_set_paint_callback(widget: Rid, callback: RPaintCallback, 
 pub extern fn Rcustom_set_measure_callback(widget: Rid, callback: RMeasureCallback, user_data: ?*anyopaque) void;
 /// Filled rectangle with rounded corners (radius 0 = sharp).
 pub extern fn Rdraw_rect(painter: ?*RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, r: f32, g: f32, b: f32, a: f32) void;
+/// Soft shadow or glow: a rounded rectangle blurred by `blur` logical units.
+/// Offset the rectangle for a drop shadow, or draw it under a shape for a glow.
+/// Nonpositive width, height or blur draws nothing. Uses the same primitive as Border shadows.
+pub extern fn Rdraw_shadow(painter: ?*RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, blur: f32, r: f32, g: f32, b: f32, a: f32) void;
 /// Outline of a rounded rectangle, drawn inside its bounds.
 pub extern fn Rdraw_rect_outline(painter: ?*RPainter, x: f32, y: f32, width: f32, height: f32, radius: f32, thickness: f32, r: f32, g: f32, b: f32, a: f32) void;
 pub extern fn Rdraw_circle(painter: ?*RPainter, center_x: f32, center_y: f32, radius: f32, r: f32, g: f32, b: f32, a: f32) void;
@@ -2955,9 +4427,15 @@ pub extern fn Rwindow_create_from_xml_file(path: ?[*:0]const u8) Rid;
 /// widget. The caller owns the returned widget until it is added to a parent.
 pub extern fn Rwidget_create_from_xml(xml: ?[*:0]const u8, size: usize) Rid;
 pub extern fn Rwidget_create_from_xml_file(path: ?[*:0]const u8) Rid;
-/// Folder used to resolve relative paths found in XML (Source="...",
-/// Font="..."). The *FromXmlFile functions use the folder of the file.
+/// A folder looked into after the one of the document (see above),
+/// and the first one for the documents given from memory. NULL or "": none.
 pub extern fn Rxml_set_base_path(path: ?[*:0]const u8) void;
+/// Turns auto-loading on or off (see above). It is on by default;
+/// the environment variable RAVEN_AUTO_LOAD=0 turns it off without
+/// rebuilding. Turned off, the register functions are the only way in;
+/// the places where paths are looked for stay the same.
+pub extern fn Rxml_set_auto_load(enabled: c_int) void;
+pub extern fn Rxml_get_auto_load() c_int;
 /// Turns live reload on or off. It is on by default; the
 /// environment variable RAVEN_LIVE_RELOAD=0 turns it off without
 /// rebuilding. When off, files are never looked at again.
@@ -2985,9 +4463,12 @@ pub extern fn Rxml_register_tag(tag: ?[*:0]const u8, create: RXmlTagCreateCallba
 pub extern fn Rxml_unregister_tag(tag: ?[*:0]const u8) void;
 pub extern fn Rxml_is_tag_registered(tag: ?[*:0]const u8) c_int;
 /// The path of a file named in a document: as the attributes
-/// Source of Raven read it, relative to the folder of the document being
-/// loaded (while it loads), else to the base path. For the attributes of
-/// the tags made by code that name files.
+/// Source of Raven read it, looked for where files are looked for (see
+/// Rxml_set_base_path): the folder of the document being loaded (while it
+/// loads) and its subfolders, the base path, the current folder, PATH.
+/// When no place holds it, the path it would have next to the document
+/// (else in the base path). For the attributes of the tags made by code
+/// that name files.
 /// Returns: The path; valid until the next call.
 pub extern fn Rxml_resolve_path(path: ?[*:0]const u8) ?[*:0]const u8;
 /// Sets a property from text, with the names and value syntax of the
@@ -3033,6 +4514,9 @@ pub extern fn Rxml_node_get_child(node: Rid, index: c_int) Rid;
 /// Returns: The place of a node among the children of its parent; 0 for the root.
 pub extern fn Rxml_node_get_index(node: Rid) c_int;
 /// index Where among the children; -1 for the end.
+/// Returns: The new node; R_INVALID_ID (R_ERROR_XML) when it would be nested
+///         deeper than a document can be: 256 levels under the root, as
+///         when a text is read. The same holds for the functions below.
 pub extern fn Rxml_node_add_child(parent: Rid, tag: ?[*:0]const u8, index: c_int) Rid;
 pub extern fn Rxml_node_add_comment(parent: Rid, text: ?[*:0]const u8, index: c_int) Rid;
 /// Reads a piece of XML (one element and what it contains) and
@@ -3043,7 +4527,7 @@ pub extern fn Rxml_node_remove(node: Rid) void;
 /// Moves a node, with what it contains, under another parent of
 /// the same document or elsewhere under its own.
 /// index Where among the children of the new parent, counted once the node has left its place; -1 for the end.
-/// Returns: R_FALSE when it cannot be done (the root, or a parent that is inside the node).
+/// Returns: R_FALSE when it cannot be done (the root, a parent that is inside the node, or a place too deep).
 pub extern fn Rxml_node_move(node: Rid, new_parent: Rid, index: c_int) c_int;
 /// Copies a node and what it contains, right after it. Returns the copy.
 pub extern fn Rxml_node_duplicate(node: Rid) Rid;
@@ -3162,6 +4646,14 @@ pub extern fn Rwidget_get_accessible_role(widget: Rid) RAccessibleRole;
 pub extern fn Rwidget_set_accessible_hidden(widget: Rid, hidden: c_int) void;
 /// The widget is named by another one (a label): its text is the name.
 pub extern fn Rwidget_set_accessible_labelled_by(widget: Rid, label: Rid) void;
+/// Explicit screen-reader press action, including for custom widgets.
+/// NULL removes the override. Does not change pointer or keyboard handling.
+/// Disabled widgets (including disabled ancestors) cannot be pressed.
+pub extern fn Rwidget_set_accessible_action(widget: Rid, press: RAccessiblePressCallback, user_data: ?*anyopaque) void;
+/// Override the checked state: 1 checked, 0 unchecked, -1 restores the
+/// widget's default (not checkable for a custom widget). The application owns
+/// this state; a press callback updates it when appropriate.
+pub extern fn Rwidget_set_accessible_checked(widget: Rid, checked: c_int) void;
 /// Has a message read (a save that ended, an error). `assertive`: interrupts what is being read.
 pub extern fn Raccessibility_announce(text: ?[*:0]const u8, assertive: c_int) void;
 /// R_TRUE when a screen reader is reading the windows of the application.

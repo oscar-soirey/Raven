@@ -2,7 +2,7 @@
 //
 // One executable per platform carries everything it installs (see
 // core/payload.hpp). It opens the wizard, drawn by RavenGUI; it falls back to
-// the command line when there is no display or no Vulkan driver, and runs
+// the command line when there is no display or no graphics driver, and runs
 // there when asked to (--cli, --uninstall --quiet...).
 #include "app.hpp"
 #include "cli.hpp"
@@ -22,18 +22,6 @@
 using namespace rinst;
 
 namespace {
-
-/** The Vulkan library a macOS bundle carries (MoltenVK), for Raven and for the designer it starts. */
-void use_bundled_vulkan(const Session& s) {
-#if defined(__APPLE__)
-	const fs::path frameworks = s.self.parent_path().parent_path() / "Frameworks" / "libMoltenVK.dylib";
-	std::error_code ec;
-	if (platform::get_env("RAVEN_VULKAN_LIBRARY").empty() && fs::exists(frameworks, ec))
-		platform::set_env("RAVEN_VULKAN_LIBRARY", path_to_utf8(frameworks));
-#else
-	(void)s;
-#endif
-}
 
 Logger* g_log = nullptr;
 
@@ -95,17 +83,17 @@ int run(int argc, char** argv) {
 		return run_cli(session, args);
 	}
 
-	use_bundled_vulkan(session);
 	g_log = &session.log;
 	if (args.test_gui) session.log.set_echo(true);
 	Rerror_set_callback(on_raven_error);
 	RInitDesc desc{};
-	desc.backend = args.null_backend ? R_BACKEND_NULL : R_BACKEND_VULKAN;
+	// the renderer of the platform: Metal on macOS (nothing to carry), Vulkan elsewhere
+	desc.backend = args.null_backend ? R_BACKEND_NULL : R_BACKEND_DEFAULT;
 	desc.headless = args.null_backend || args.headless ? R_TRUE : R_FALSE;
 	desc.app_name = "Raven SDK Installer";
 	if (!Rinit_ex(&desc)) {
 		const std::string text =
-			"The installer cannot open its window: no Vulkan driver was found on this machine (Raven draws with Vulkan).\n\n"
+			"The installer cannot open its window: no usable graphics driver was found on this machine (Raven draws with Vulkan, or Metal on macOS).\n\n"
 			"Update the graphics driver, or install from the command line:\n    RavenSDKInstaller --cli";
 #if defined(_WIN32)
 		platform::show_fatal_error("Raven SDK Installer", text);

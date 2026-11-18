@@ -11,7 +11,7 @@ import (
 func main() {
 	// Raven belongs to the thread that starts it
 	runtime.LockOSThread()
-	if raven.Init(raven.R_BACKEND_VULKAN) == 0 {
+	if raven.Init(raven.R_BACKEND_DEFAULT) == 0 {
 		return
 	}
 	raven.LocaleLoadCsv("strings.csv")

@@ -1,7 +1,8 @@
 /**
  * Raven - platform/cocoa/cocoa_platform.m
  * Native macOS window system. Cocoa owns the windows and input event queue;
- * each content view carries a CAMetalLayer for Vulkan's VK_EXT_metal_surface.
+ * each content view carries a CAMetalLayer, drawn by the Metal backend, or by
+ * Vulkan through VK_EXT_metal_surface.
  */
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
@@ -1153,7 +1154,7 @@ static void rvn_cocoa_window_set_cursor(rvn_pwindow_t* window, RCursor cursor) {
 static void rvn_cocoa_window_get_native(rvn_pwindow_t* window, RNativeWindow* native) {
     memset(native, 0, sizeof(*native)); native->system = R_WINDOW_SYSTEM_COCOA;
     native->display = (void*)window->handle;
-    /* VK_EXT_metal_surface requires CAMetalLayer*, not NSWindow*. */
+    /* the renderer draws into the CAMetalLayer (the Metal backend, or Vulkan's VK_EXT_metal_surface), not the NSWindow* */
     native->window = (uintptr_t)[window->view layer];
     native->transparent = window->transparent;
 }

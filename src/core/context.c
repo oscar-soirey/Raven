@@ -92,8 +92,18 @@ static const RBackendVTable* rvn_select_backend(RBackend backend) {
                       "Raven was built without the WebGL backend");
             return NULL;
 #endif
+		case R_BACKEND_METAL:
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+			return rvn_backend_metal();
+#else
+			rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "Raven was built without the Metal backend");
+			return NULL;
+#endif
         case R_BACKEND_NULL:
 			return rvn_backend_null();
+		case R_BACKEND_DEFAULT:
+			/* (resolved by Rinit_ex before) */
+			break;
 		case R_BACKEND_CUSTOM:
 			if (!g_custom_backend_set) {
 				rvn_error(R_ERROR_BACKEND, R_SEVERITY_FATAL, "R_BACKEND_CUSTOM needs Rbackend_register first");
@@ -124,9 +134,11 @@ int Rinit_ex(const RInitDesc* user_desc) {
 	}
 	memset(&desc, 0, sizeof(desc));
 	if (user_desc) desc = *user_desc;
-	if (desc.backend == 0) {
+	if (desc.backend == R_BACKEND_DEFAULT) {
 #if defined(RAVEN_BACKEND_WEBGL_ENABLED)
         desc.backend = R_BACKEND_WEBGL;
+#elif defined(RAVEN_BACKEND_METAL_ENABLED)
+		desc.backend = R_BACKEND_METAL;
 #else
         desc.backend = R_BACKEND_VULKAN;
 #endif
@@ -747,8 +759,8 @@ void rvn_update(void) {
 }
 
 int rvn_frame_pacing(void) {
-	/* (only the Vulkan backend presents to the window: a frame of the null backend would never be answered) */
-	return g_rvn.backend == R_BACKEND_VULKAN && g_rvn.platform &&
+	/* (only the Vulkan and Metal backends present to the window: a frame of the null backend would never be answered) */
+	return (g_rvn.backend == R_BACKEND_VULKAN || g_rvn.backend == R_BACKEND_METAL) && g_rvn.platform &&
 		g_rvn.platform->window_frame_wait && g_rvn.platform->window_frame_begin;
 }
 

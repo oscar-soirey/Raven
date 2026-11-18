@@ -31,9 +31,9 @@ Both build scripts put `shared/assets/` into the package (`aapt2 link -A` on
 Android, a copy into `Hello.app` on iOS), with the font of the titles copied from
 `tools/designer/fonts` into `fonts/`.
 
-| iOS Simulator | | Android (Xiaomi 15T) | Android emulator |
-|---|---|---|---|
-| ![Glass on iOS](screenshots/ios-glass.png) | ![Keyboard suggestions on iOS](screenshots/ios-keyboard-suggestions.png) | ![Gboard suggestions on Android](screenshots/android-keyboard-suggestions.png) | ![Glass on Android](screenshots/android-glass.png) |
+| iOS Simulator | | | Android (Xiaomi 15T) | Android emulator |
+|---|---|---|---|---|
+| ![The list on iOS](screenshots/ios-list.png) | ![Glass on iOS](screenshots/ios-glass.png) | ![Keyboard suggestions on iOS](screenshots/ios-keyboard-suggestions.png) | ![Gboard suggestions on Android](screenshots/android-keyboard-suggestions.png) | ![Glass on Android](screenshots/android-glass.png) |
 
 This is an early stage port: see the platform sources
 (`src/platform/uikit/uikit_platform.m`, `src/platform/android/`) and grep for
@@ -41,15 +41,11 @@ This is an early stage port: see the platform sources
 
 ## iOS (Simulator)
 
-Needs Xcode with an iOS Simulator runtime, CMake and Ninja.
+Needs Xcode with an iOS Simulator runtime, CMake and Ninja. Raven draws with
+Metal (`-DRAVEN_BACKEND_VULKAN=OFF`): MoltenVK is not needed.
 
-1. MoltenVK for the simulator. Homebrew's `molten-vk` is for macOS only.
-   Download `MoltenVK-all.tar` from the
-   [MoltenVK releases](https://github.com/KhronosGroup/MoltenVK/releases)
-   (tested with 1.4.2) and extract it here:
-   `cd ios && tar xf ~/Downloads/MoltenVK-all.tar` (gives `ios/MoltenVK/`).
-2. Boot a simulator, then `cd ios && ./build.sh run`. `UDID=<id>` picks
-   another one than the booted simulator.
+Boot a simulator, then `cd ios && ./build.sh run`. `UDID=<id>` picks another
+one than the booted simulator.
 
 The simulator treats the Mac's keyboard as a hardware keyboard by default and
 then shows no on-screen keyboard: turn "Connect Hardware Keyboard" off in the
@@ -60,8 +56,7 @@ Testing hooks in `src/main.m`, set at launch with `SIMCTL_CHILD_` in front:
 rotates the scene, `RAVEN_DISMISS=<seconds>` closes the keyboard from outside
 Raven, `RAVEN_MEMORY_WARNING=<seconds>` posts UIKit's memory warning.
 
-A real device needs a signing identity and the `ios-arm64` slice of MoltenVK;
-it has not been tried yet.
+A real device needs a signing identity; it has not been tried yet.
 
 ## Android
 

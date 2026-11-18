@@ -10,15 +10,17 @@
  *
  * Each Raven window is a UIWindow on the first connected UIWindowScene, with
  * a view controller whose view carries a CAMetalLayer. The renderer is given
- * R_WINDOW_SYSTEM_UIKIT with the CAMetalLayer*, from which it makes a
- * VK_EXT_metal_surface as it does for Cocoa.
+ * R_WINDOW_SYSTEM_UIKIT with the CAMetalLayer*: the Metal backend draws into
+ * it, Vulkan makes a VK_EXT_metal_surface of it as it does for Cocoa.
  *
  * The application's lifecycle (UIApplication notifications) is handed to the
  * core at once as RVN_PEVENT_APP: in the background no frame comes, and the
  * core must have stopped drawing and drained the GPU before
  * didEnterBackground returns (the system may kill an application that uses
  * the GPU in the background). The CAMetalLayer and the swapchain are kept
- * meanwhile: nothing is presented, and they are used again on return.
+ * meanwhile: nothing is presented, and they are used again on return. The
+ * Metal backend is also suspended in between (rvn_metal_set_suspended), so a
+ * frame already under way cannot commit a command buffer.
  * SHORTCUT: a scene that is disconnected (the system reclaims it) is not
  * handled: its windows are not moved to a new scene.
  *
@@ -34,6 +36,9 @@
 #include <sys/stat.h>
 
 #include "../platform.h"
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+#include "../../render/renderer.h"
+#endif
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, as the Android platform reaches the core) */
 #include "../../widget/widget.h"
 
@@ -929,6 +934,11 @@ static void rvn_uikit_app_event(RAppEvent app_event) {
 	rvn_pevent_t e;
 	int i;
 	if (!g_uikit.handler) return;
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+	/* no command buffer may reach the GPU in the background: the Metal backend refuses them (and waits for the GPU) until the application comes back */
+	if (app_event == R_APP_DID_PAUSE) rvn_metal_set_suspended(R_TRUE);
+	else if (app_event == R_APP_WILL_RESUME || app_event == R_APP_DID_RESUME) rvn_metal_set_suspended(R_FALSE);
+#endif
 	for (i = 0; i < g_uikit.count; i++) g_uikit.handler(&g_uikit.queue[i]);
 	g_uikit.count = 0;
 	memset(&e, 0, sizeof(e));

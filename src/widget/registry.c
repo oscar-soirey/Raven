@@ -94,7 +94,9 @@ static const struct { const char* alias; RWidgetType type; } g_aliases[] = {
 	{ "PdfViewer", R_WIDGET_PDF_VIEW },
 	{ "PDFView", R_WIDGET_PDF_VIEW },
 	{ "Map", R_WIDGET_MAP_VIEW },
-	{ "TileMap", R_WIDGET_MAP_VIEW }
+	{ "TileMap", R_WIDGET_MAP_VIEW },
+	{ "PageView", R_WIDGET_CAROUSEL },
+	{ "Slideshow", R_WIDGET_CAROUSEL }
 };
 
 const rvn_widget_class_t* rvn_widget_class_by_type(RWidgetType type) {

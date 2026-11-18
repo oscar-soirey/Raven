@@ -17,7 +17,8 @@ static void on_error(RError code, RSeverity severity, const char* detail) {
 static int app_start(void) {
 	RInitDesc desc = {0};
 	Rerror_set_callback(on_error);
-	desc.backend = R_BACKEND_VULKAN;
+	/* 0: the default of the platform, Metal on iOS */
+	desc.backend = R_BACKEND_DEFAULT;
 	desc.app_name = "Raven Showcase";
 	if (!Rinit_ex(&desc)) {
 		fprintf(stderr, "[raven] Rinit failed\n");

@@ -62,7 +62,7 @@ def generate(api):
     w("//")
     w("//   #include <raven.hpp>")
     w("//")
-    w("//   raven::init(R_BACKEND_VULKAN);")
+    w("//   raven::init(R_BACKEND_DEFAULT);")
     w("//   auto window = raven::Window::create(\"Hello\", 400, 200, R_WINDOW_DEFAULT);")
     w("//   auto button = raven::Button::create(\"Quit\");")
     w("//   button.set_clicked_callback([](Rid) { raven::quit(0); });")

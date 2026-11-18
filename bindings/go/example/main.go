@@ -43,7 +43,7 @@ func main() {
 	if test {
 		started = raven.InitHeadless()
 	} else {
-		started = raven.Init(raven.R_BACKEND_VULKAN) != 0
+		started = raven.Init(raven.R_BACKEND_DEFAULT) != 0
 	}
 	if !started {
 		fmt.Println("cannot start Raven")

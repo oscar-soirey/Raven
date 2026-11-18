@@ -13,7 +13,7 @@
 ## .. code-block:: nim
 ##   import raven_gui
 ##
-##   discard Rinit(R_BACKEND_VULKAN)
+##   discard Rinit(R_BACKEND_DEFAULT)
 ##   discard windowFromXml("""<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>""")
 ##   actionBind("quit", proc (sender: Rid, action: string) = Rquit(0))
 ##   while Rwait_frame(-1) != 0: discard

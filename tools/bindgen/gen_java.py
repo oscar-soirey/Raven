@@ -426,7 +426,7 @@ HEADER = '''// Raven for Java.
 //
 //   public class Hello {
 //       public static void main(String[] args) {
-//           Rinit(R_BACKEND_VULKAN);
+//           Rinit(R_BACKEND_DEFAULT);
 //           Rwindow_create_from_xml("<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>");
 //           Raction_bind("quit", (sender, action, user) -> Rquit(0));
 //           while (Rwait_frame(-1.0) != 0) { }
