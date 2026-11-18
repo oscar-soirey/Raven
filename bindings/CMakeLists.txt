@@ -17,7 +17,7 @@
 #   binding_d             needs dub and a D compiler, and the shared library; not on Windows
 #   binding_nim           needs nim and the shared library; not on Windows
 #   binding_swift         needs swift (5.9 or later) and the shared library; not on Windows
-#   binding_zig           needs zig: compiles every declaration of zig/raven.zig (nothing is linked or run)
+#   binding_zig           needs zig: compiles and checks every declaration of zig/raven.zig (no binary is made: nothing is linked or run)
 #
 # C# and LuaJIT have no test here.
 
@@ -30,7 +30,7 @@ endif()
 find_program(RAVEN_ZIG zig)
 if(RAVEN_ZIG)
 	add_test(NAME binding_zig
-		COMMAND ${RAVEN_ZIG} test ${CMAKE_CURRENT_SOURCE_DIR}/zig/check.zig --test-no-exec
+		COMMAND ${RAVEN_ZIG} test ${CMAKE_CURRENT_SOURCE_DIR}/zig/check.zig --test-no-exec -fno-emit-bin
 			--cache-dir ${CMAKE_CURRENT_BINARY_DIR}/zig-cache
 		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 endif()

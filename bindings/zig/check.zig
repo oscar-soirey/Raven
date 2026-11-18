@@ -1,6 +1,8 @@
 // Raven for Zig: every declaration of raven.zig compiles with the Zig at hand
-// (ctest binding_zig: `zig test check.zig --test-no-exec`). Nothing is linked or
-// run, so neither the library nor a GPU is needed.
+// (ctest binding_zig: `zig test check.zig --test-no-exec -fno-emit-bin`). Zig
+// checks every declaration and makes no binary: nothing is linked or run, so
+// neither the library nor a GPU is needed. (--test-no-exec alone still links the
+// test binary, and every function of the library is then an undefined symbol.)
 
 const std = @import("std");
 const r = @import("raven.zig");
