@@ -147,7 +147,7 @@ Zig can also read the C header itself: `@cImport(@cInclude("Raven.h"))`.
     <dependency>
       <groupId>io.github.oscar-soirey</groupId>
       <artifactId>raven-gui</artifactId>
-      <version>0.2.3</version>
+      <version>0.3.0</version>
     </dependency>
 
     java --enable-native-access=ALL-UNNAMED -cp app.jar:raven-gui.jar app.Main
