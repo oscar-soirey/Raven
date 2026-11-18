@@ -40,8 +40,9 @@ Android, a copy into `Hello.app` on iOS), with the font of the titles copied fro
 
 ## The Device tab and what the apps declare
 
-The Device tab calls the services of `raven_device.h`: the status of the camera
-and notification permissions and a button to ask for each, a notification,
+The Device tab calls the services of `raven_device.h`: the status of the camera,
+notification and location permissions and a button to ask for each (the
+location itself is not read: Raven has no API for it), a notification,
 the Settings of the app, taking a photo and picking one from the library (shown
 with its size), picking a file (its name and size, the picture when it is one)
 and saving a small text file, the seven haptics, opening Raven's page, the
@@ -63,6 +64,7 @@ without touching them:
 | Camera | `CAMERA` (asked at run time; once declared, the camera app may only be used when granted), `uses-feature android.hardware.camera.any` not required, `<queries>` for `IMAGE_CAPTURE` | `NSCameraUsageDescription` |
 | Photo library | nothing (the photo picker) | nothing (`PHPickerViewController`); `NSPhotoLibraryUsageDescription` for `R_PERMISSION_PHOTOS`, `NSPhotoLibraryAddUsageDescription` for "Save Image" in the share sheet |
 | Notifications | `POST_NOTIFICATIONS` (asked at run time, Android 13+) | nothing |
+| Location | `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` (asked at run time; the user may allow the approximate location only: limited) | `NSLocationWhenInUseUsageDescription` |
 | Haptics | `VIBRATE` (granted at install) | nothing |
 | Files, open URL, share, clipboard | nothing | nothing |
 | Raven's Java | `raven.android.RavenRequestActivity` (asks for permissions, receives the answers of the pickers and the camera) and `raven.android.RavenFileProvider` (authority `<package>.raven.files`: files for other apps) | |
@@ -90,11 +92,13 @@ Testing hooks in `src/main.m`, set at launch with `SIMCTL_CHILD_` in front:
 `RAVEN_ROTATE=landscape,portrait` (with `RAVEN_ROTATE_EVERY=<seconds>`)
 rotates the scene, `RAVEN_DISMISS=<seconds>` closes the keyboard from outside
 Raven, `RAVEN_MEMORY_WARNING=<seconds>` posts UIKit's memory warning.
-`RAVEN_DEVICE_TEST=photos,export,clipboard` (with
-`RAVEN_DEVICE_TEST_AFTER=<seconds>`) runs the services the Device tab has no
-button for: asks for the photo library, exports `photo.png` with
-`Rfile_export_async`, checks `Rclipboard_has_text` (no "Allow Paste"
-question), and logs the answers. `RAVEN_DEVICE_LOG=1` makes the platform log
+`RAVEN_DEVICE_TEST=photos,export,clipboard,location,haptic` (with
+`RAVEN_DEVICE_TEST_AFTER=<seconds>`) runs services without a tap: asks for the
+photo library, exports `photo.png` with `Rfile_export_async`, checks
+`Rclipboard_has_text` (no "Allow Paste" question), asks for the location,
+reads `Rhaptic_is_supported`, and logs the answers. The Simulator's questions
+can be answered from the command line too:
+`xcrun simctl privacy booted grant location dev.raven.ios.hello`. `RAVEN_DEVICE_LOG=1` makes the platform log
 what it asks of the system (`Raven device: ...`): the haptics play nothing in
 the Simulator, the log shows they were asked.
 

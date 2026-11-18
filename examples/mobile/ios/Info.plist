@@ -18,6 +18,7 @@
 	<!-- Device services (raven_device.h, Device tab of the showcase); see ../README.md -->
 	<key>NSCameraUsageDescription</key><string>The Device tab of the Raven showcase takes a photo to show it.</string>
 	<key>NSPhotoLibraryUsageDescription</key><string>The Raven showcase asks for the photo library to show how a permission is requested; picking a photo needs no access.</string>
+	<key>NSLocationWhenInUseUsageDescription</key><string>The Device tab of the Raven showcase asks for the location to show how a permission is requested; the location itself is not read.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key><string>Save Image, in the share sheet of the Raven showcase, adds the photo to your library.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

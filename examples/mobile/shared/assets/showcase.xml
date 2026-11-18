@@ -144,6 +144,10 @@
 						<Label Name="perm_notify" Text="Notifications: ?" Slot.Fill="1" Slot.VAlign="Center"/>
 						<Button Name="ask_notify" Text="Ask"/>
 					</HBox>
+					<HBox Spacing="8">
+						<Label Name="perm_location" Text="Location: ?" Slot.Fill="1" Slot.VAlign="Center"/>
+						<Button Name="ask_location" Text="Ask"/>
+					</HBox>
 					<WrapBox Spacing="8">
 						<Button Name="notify" Text="Notify me"/>
 						<Button Name="settings" Text="Settings"/>

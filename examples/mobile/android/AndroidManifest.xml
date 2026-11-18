@@ -13,6 +13,10 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Rnotification_show on Android 13+ (asked at run time) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- R_PERMISSION_LOCATION (asked at run time): Android 12+ wants COARSE beside FINE, and the
+         user may allow the approximate location only (limited) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Rhaptic_play through the Vibrator -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- (CAMERA alone would make a camera required to install the app) -->

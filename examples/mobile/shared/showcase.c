@@ -52,7 +52,7 @@ static struct {
 	RAppEvent events[4];
 	int event_count, low_memory;
 	/* device tab */
-	Rid dev_status, perm_camera, perm_notify, photo_info, photo_view, file_info, file_view, clip_info, net_info, net_view;
+	Rid dev_status, perm_camera, perm_notify, perm_location, photo_info, photo_view, file_info, file_view, clip_info, net_info, net_view;
 	Rid share_button, net_timer;
 	Rid photo_texture, file_texture, net_texture;
 	char photo_path[1024];
@@ -530,6 +530,8 @@ static void show_permissions(void) {
 	Rlabel_set_text(sc.perm_camera, text);
 	snprintf(text, sizeof(text), "Notifications: %s", Rpermission_status_to_string(Rpermission_get_status(R_PERMISSION_NOTIFICATIONS)));
 	Rlabel_set_text(sc.perm_notify, text);
+	snprintf(text, sizeof(text), "Location: %s", Rpermission_status_to_string(Rpermission_get_status(R_PERMISSION_LOCATION)));
+	Rlabel_set_text(sc.perm_location, text);
 }
 
 static void on_permission_answer(RPermission permission, RPermissionStatus status, void* user_data) {
@@ -758,6 +760,7 @@ static void device_create(void) {
 	sc.dev_status = find("dev_status");
 	sc.perm_camera = find("perm_camera");
 	sc.perm_notify = find("perm_notify");
+	sc.perm_location = find("perm_location");
 	sc.photo_info = find("photo_info");
 	sc.photo_view = find("photo_view");
 	sc.file_info = find("file_info");
@@ -767,6 +770,7 @@ static void device_create(void) {
 	sc.net_view = find("net_view");
 	Rbutton_set_clicked_callback(find("ask_camera"), on_ask, (void*)(intptr_t)R_PERMISSION_CAMERA);
 	Rbutton_set_clicked_callback(find("ask_notify"), on_ask, (void*)(intptr_t)R_PERMISSION_NOTIFICATIONS);
+	Rbutton_set_clicked_callback(find("ask_location"), on_ask, (void*)(intptr_t)R_PERMISSION_LOCATION);
 	Rbutton_set_clicked_callback(find("notify"), on_notify, NULL);
 	Rbutton_set_clicked_callback(find("settings"), on_settings, NULL);
 	Rnotification_set_fallback(on_notification_fallback, NULL);

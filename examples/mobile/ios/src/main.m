@@ -89,6 +89,8 @@ static void on_debug_export(RDeviceResult result, const RPickedFile* files, int 
  *   photos  Rpermission_request(R_PERMISSION_PHOTOS)
  *   export  Rfile_export_async of photo.png (a file of the bundle)
  *   clipboard  Rclipboard_has_text only (iOS must not ask "Allow Paste")
+ *   location  Rpermission_request(R_PERMISSION_LOCATION)
+ *   haptic  Rhaptic_is_supported (false in the Simulator and on an iPad)
  * The answers are logged.
  */
 - (void)debugDevice {
@@ -108,6 +110,11 @@ static void on_debug_export(RDeviceResult result, const RPickedFile* files, int 
 				RFileDialogDesc desc = {0};
 				desc.file_name = "raven-photo.png";
 				Rfile_export_async(&desc, "photo.png", on_debug_export, NULL);
+			} else if ([name isEqualToString:@"location"]) {
+				fprintf(stderr, "[raven] debug: location status before: %s\n", Rpermission_status_to_string(Rpermission_get_status(R_PERMISSION_LOCATION)));
+				Rpermission_request(R_PERMISSION_LOCATION, on_debug_permission, NULL);
+			} else if ([name isEqualToString:@"haptic"]) {
+				fprintf(stderr, "[raven] debug: haptic supported: %d\n", Rhaptic_is_supported());
 			} else if ([name isEqualToString:@"clipboard"]) {
 				fprintf(stderr, "[raven] debug: clipboard has text: %d\n", Rclipboard_has_text());
 			}
