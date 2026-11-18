@@ -138,6 +138,7 @@ set(RAVEN_CORE_SOURCES
 	src/core/context.c
 	src/core/locale.c
 	src/core/accessibility.c
+	src/core/accessibility_touch.c
 	src/core/context.h
 	src/core/error.c
 	src/core/file.c

@@ -1,7 +1,8 @@
 /**
  * Raven - core/accessibility.h
  * The tree that screen readers see, for the platforms (UI Automation,
- * NSAccessibility, AT-SPI). Implemented in core/accessibility.c. UI thread.
+ * NSAccessibility, AT-SPI, UIAccessibility, AccessibilityNodeInfo).
+ * Implemented in core/accessibility.c and core/accessibility_touch.c. UI thread.
  *
  * A node is a window, a widget, or an item of a widget (a row of a list):
  *     window    the Rid of the window
@@ -107,5 +108,61 @@ const char* rvn_a11y_locale(void);
 
 /** Names of the roles, for logs and for the platforms that want one ("push button"). */
 const char* rvn_a11y_role_name(RAccessibleRole role);
+
+/*
+ * Touch screen readers (VoiceOver on iOS, TalkBack on Android): one mapping
+ * of the roles and states above, shared by platform/uikit and
+ * platform/android (core/accessibility_touch.c). They move from element to
+ * element with swipes, read each one, and act on it with a double tap
+ * (rvn_a11y_activate) or a swipe up / down (rvn_a11y_adjust).
+ */
+
+/* What VoiceOver says of an element: one bit per UIAccessibilityTraits. */
+#define RVN_A11Y_TRAIT_BUTTON       (1u << 0)
+#define RVN_A11Y_TRAIT_LINK         (1u << 1)
+#define RVN_A11Y_TRAIT_HEADER       (1u << 2)
+#define RVN_A11Y_TRAIT_IMAGE        (1u << 3)
+#define RVN_A11Y_TRAIT_STATIC_TEXT  (1u << 4)
+#define RVN_A11Y_TRAIT_ADJUSTABLE   (1u << 5)
+#define RVN_A11Y_TRAIT_SELECTED     (1u << 6)
+#define RVN_A11Y_TRAIT_NOT_ENABLED  (1u << 7)
+#define RVN_A11Y_TRAIT_UPDATES_FREQUENTLY (1u << 8)
+#define RVN_A11Y_TRAIT_TAB_BAR      (1u << 9)   /* on a container: its buttons are tabs ("tab 2 of 3") */
+#define RVN_A11Y_TRAIT_TOGGLE       (1u << 10)  /* iOS 17: a switch button, its value "1" / "0"; before: a button, selected when checked */
+
+/* How a touch screen reader takes a node. */
+#define RVN_A11Y_TOUCH_ELEMENT    (1u << 0)  /* read as one element (else only its children are) */
+#define RVN_A11Y_TOUCH_CLICKABLE  (1u << 1)  /* a double tap does something (rvn_a11y_activate) */
+#define RVN_A11Y_TOUCH_ADJUSTABLE (1u << 2)  /* swipe up / down, scroll forward / backward (rvn_a11y_adjust) */
+#define RVN_A11Y_TOUCH_SET_TEXT   (1u << 3)  /* its text can be replaced (rvn_a11y_set_value) */
+#define RVN_A11Y_TOUCH_HEADING    (1u << 4)
+#define RVN_A11Y_TOUCH_COLLECTION (1u << 5)  /* a list, a table, a tree, a tab list: its items are counted */
+#define RVN_A11Y_TOUCH_COLLECTION_ITEM (1u << 6)
+#define RVN_A11Y_TOUCH_LIVE       (1u << 7)  /* changes are read when they happen (an alert, a status bar) */
+#define RVN_A11Y_TOUCH_GROUP      (1u << 8)  /* a named group, a dialog: its name is read on the way in */
+
+typedef struct rvn_a11y_touch_t {
+	uint32_t traits;        /* RVN_A11Y_TRAIT_* */
+	uint32_t flags;         /* RVN_A11Y_TOUCH_* */
+	/** The class of view TalkBack names ("android.widget.Button"). */
+	const char* class_name;
+} rvn_a11y_touch_t;
+
+/** How VoiceOver and TalkBack take a node that was just described. */
+void rvn_a11y_touch(const rvn_a11y_node_t* node, rvn_a11y_touch_t* touch);
+/**
+ * R_FALSE for a node a finger cannot reach: out of view (a row scrolled
+ * away) or of no size (a page of a Switcher that is not shown). The touch
+ * screen readers leave it out, with what it holds.
+ */
+int  rvn_a11y_touch_shown(const rvn_a11y_node_t* node);
+/**
+ * A double tap: toggles what can be checked, presses what can be pressed,
+ * selects an item, opens or closes what expands, focuses a field.
+ * R_FALSE when the node does nothing (or is gone, or disabled).
+ */
+int rvn_a11y_activate(rvn_a11y_id_t id);
+/** A swipe up (steps > 0) or down: the value of a range moves by its step, within its bounds. */
+int rvn_a11y_adjust(rvn_a11y_id_t id, int steps);
 
 #endif

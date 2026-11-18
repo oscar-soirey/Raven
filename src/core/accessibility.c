@@ -1223,6 +1223,10 @@ void rvn_a11y_frame(rvn_window_t* window) {
         return;
     }
 #endif
+	if (g_rvn.platform->a11y_every_frame) {
+		g_rvn.platform->a11y_event(window->platform, RVN_A11Y_EVENT_STRUCTURE, (uint64_t)window->id);
+		return;
+	}
 	focus = rvn_a11y_focus(window->id);
 	if (g_a11y.generation != window->a11y_generation) {
 		window->a11y_generation = g_a11y.generation;
