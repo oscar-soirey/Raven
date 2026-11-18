@@ -260,6 +260,8 @@ void Rshutdown(void) {
 		}
 	}
 
+	/* (the scripts before the XML: their actions are unbound, their memory goes) */
+	rvn_script_shutdown();
 	rvn_xml_shutdown();
 	rvn_taskbar_shutdown();
 	rvn_tray_shutdown();
@@ -523,6 +525,14 @@ void Raction_fire(const char* name, Rid sender) {
 	copy = rvn_strdup(name);
 	rvn_fire_action(sender, copy);
 	rvn_free(copy);
+}
+
+int rvn_action_lookup(const char* name, RActionCallback* callback, void** user_data) {
+	rvn_action_t* action = name ? rvn_action_find(name) : NULL;
+	if (!action) return R_FALSE;
+	if (callback) *callback = action->callback;
+	if (user_data) *user_data = action->user_data;
+	return R_TRUE;
 }
 
 void Raction_set_default_handler(RActionCallback callback, void* user_data) {

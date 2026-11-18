@@ -123,6 +123,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/raven/raven_viewport.h
 	include/raven/raven_draw.h
 	include/raven/raven_xml.h
+	include/raven/raven_script.h
 	include/raven/raven_locale.h
 	include/raven/raven_accessibility.h
 	include/raven/raven_backend.h
@@ -262,6 +263,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/pdf_view.c
 	src/widgets/chart.c
 	src/widgets/map_view.c
+	src/widgets/carousel.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )
@@ -275,6 +277,33 @@ set(RAVEN_XML_SOURCES
 	src/xml/xml_loader.c
 	src/xml/xml_watch.c
 	src/xml/xml_parser.c
+)
+
+# Raven Script: the core of the language (rs_*: no dependency on the rest, shared with the
+# command line tool and the language server) and its bridge to the library (script_raven.c)
+set(RAVEN_SCRIPT_CORE_SOURCES
+	src/script/rs.h
+	src/script/rs_internal.h
+	src/script/rs_common.c
+	src/script/rs_builtins.c
+	src/script/rs_lexer.c
+	src/script/rs_parser.c
+	src/script/rs_checker.c
+	src/script/rs_compiler.c
+	src/script/rs_vm.c
+	src/script/rs_batch.c
+	src/script/rs_format.c
+	src/script/rs_analysis.c
+)
+# (absolute: the tests and the tools compile them too)
+set(RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE "")
+foreach(source ${RAVEN_SCRIPT_CORE_SOURCES})
+	list(APPEND RAVEN_SCRIPT_CORE_SOURCES_ABSOLUTE "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+endforeach()
+set(RAVEN_SCRIPT_SOURCES
+	${RAVEN_SCRIPT_CORE_SOURCES}
+	src/script/script_raven.h
+	src/script/script_raven.c
 )
 
 set(RAVEN_DEFINITIONS "")
@@ -485,10 +514,11 @@ target_sources(raven PRIVATE
 	${RAVEN_WIDGET_SOURCES}
 	${RAVEN_WIDGETS_SOURCES}
 	${RAVEN_XML_SOURCES}
+	${RAVEN_SCRIPT_SOURCES}
 )
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES
 	${RAVEN_PUBLIC_HEADERS} ${RAVEN_CORE_SOURCES} ${RAVEN_PLATFORM_SOURCES} ${RAVEN_RENDER_SOURCES}
-	${RAVEN_WIDGET_SOURCES} ${RAVEN_WIDGETS_SOURCES} ${RAVEN_XML_SOURCES})
+	${RAVEN_WIDGET_SOURCES} ${RAVEN_WIDGETS_SOURCES} ${RAVEN_XML_SOURCES} ${RAVEN_SCRIPT_SOURCES})
 
 target_include_directories(raven
 	PUBLIC

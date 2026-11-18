@@ -34,6 +34,7 @@
  *     raven/raven_viewport.h     content rendered by the application
  *     raven/raven_draw.h         custom widgets: painting, springs
  *     raven/raven_xml.h          interfaces in XML, declared tags, documents
+ *     raven/raven_script.h       Raven Script: the scripts of the interfaces
  *     raven/raven_vulkan.h       sharing the Vulkan device of the library
  *     raven/raven_backend.h      writing a rendering backend
  */
@@ -57,6 +58,7 @@
 #include "raven/raven_draw.h"
 #include "raven/raven_shader.h"
 #include "raven/raven_xml.h"
+#include "raven/raven_script.h"
 #include "raven/raven_locale.h"
 #include "raven/raven_accessibility.h"
 #include "raven/raven_vulkan.h"

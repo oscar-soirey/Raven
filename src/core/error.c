@@ -5,7 +5,8 @@
 
 #include "thread.h"
 
-#define RVN_ERROR_TEXT_SIZE 512
+/* (the diagnostics of the scripts are a few lines, with excerpts of the source) */
+#define RVN_ERROR_TEXT_SIZE 4096
 
 static rvn_atomic_t g_error_lock;
 static RError g_error_code = R_NO_ERROR;
@@ -74,6 +75,7 @@ const char* Rerror_to_string(RError error) {
 		case R_ERROR_INVALID_FILE_FORMAT: return "R_ERROR_INVALID_FILE_FORMAT";
 		case R_ERROR_FILE_NOT_FOUND: return "R_ERROR_FILE_NOT_FOUND";
 		case R_ERROR_XML: return "R_ERROR_XML";
+		case R_ERROR_SCRIPT: return "R_ERROR_SCRIPT";
 		case R_ERROR_WRONG_THREAD: return "R_ERROR_WRONG_THREAD";
 	}
 	return "RVN_ERROR_UNKNOWN";

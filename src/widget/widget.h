@@ -1166,5 +1166,7 @@ int rvn_parse_orientation(const char* text, ROrientation* orientation);
 int rvn_widget_set_base_attribute(rvn_widget_t* widget, const char* name, const char* value);
 /** Sets any attribute: the ones of the widget class first, then the base ones. */
 int rvn_widget_set_attribute(rvn_widget_t* widget, const char* name, const char* value);
+/** The name of an action as an XML attribute gives it: "app.quit()" is "app.quit" (a reference, never a call). Free with rvn_free. */
+char* rvn_action_name_normalize(const char* value);
 
 #endif /* RVN_WIDGET_INTERNAL_H */

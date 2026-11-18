@@ -320,6 +320,10 @@ int rvn_api_check(const char* function);
 
 /** Calls the function bound to an action name (or the default handler). */
 void rvn_fire_action(Rid sender, const char* action);
+/** The function bound to an action name (Raction_bind). R_FALSE when none is. */
+int rvn_action_lookup(const char* name, RActionCallback* callback, void** user_data);
+/** Releases the scripts (script/script_raven.c). */
+void rvn_script_shutdown(void);
 
 /** Seconds until the next timer fires, or a negative value when there is none. */
 double rvn_timers_next_delay(void);

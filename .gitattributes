@@ -28,3 +28,4 @@
 *.gz binary
 *.pdf binary
 *.whl binary
+*.wasm binary

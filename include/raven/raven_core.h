@@ -89,7 +89,9 @@ typedef enum RError{
 	R_ERROR_INVALID_FILE_FORMAT,
 	R_ERROR_FILE_NOT_FOUND,
 	R_ERROR_XML,
-	R_ERROR_WRONG_THREAD
+	R_ERROR_WRONG_THREAD,
+	/** A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...". */
+	R_ERROR_SCRIPT
 }RError;
 
 typedef enum RSeverity{
@@ -491,6 +493,58 @@ extern "C" {
 
 	/** @brief Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge). */
 	RAVEN_API void Raction_set_default_handler(RActionCallback callback, void* user_data);
+
+	/**
+	 * Actions with parameters. A function bound this way takes typed
+	 * arguments and may return a value:
+	 *   - Raven Script calls it with arguments: app.save("notes.txt");
+	 *   - fired by a widget, it receives what the event gives (the value of a
+	 *     Slider, the state of a Checkbox, the text of a TextInput...; see
+	 *     raven_script.h), as a script function would;
+	 *   - Raction_fire calls it with the arguments of the event of `sender`.
+	 *
+	 *     static void save(RActionContext* context, void* user_data) {
+	 *         const char* path = Raction_get_string(context, 0);
+	 *         Raction_return_bool(context, write_file(path));
+	 *     }
+	 *     Raction_bind_with_parameters("app.save", "(path: string): bool", save, NULL);
+	 *
+	 * The signature lists the parameters, "number", "string" or "bool", each
+	 * with a name or not ("(string, number)"), and the return type after ':'
+	 * (void when it is left out). It is what the type checker of Raven Script
+	 * sees: calls with the wrong arguments are refused before anything runs.
+	 * An event handler may ignore arguments the event gives, but cannot
+	 * require more than it gives.
+	 *
+	 * The action is in the same registry as those of Raction_bind (binding
+	 * one replaces the other; Raction_unbind removes either). Functions
+	 * bound with Raction_bind are callable from scripts too, without
+	 * arguments.
+	 *
+	 * @return R_FALSE (and an error) when the signature is not valid.
+	 */
+	typedef struct RActionContext RActionContext;
+	typedef void (*RActionParametersCallback)(RActionContext* context, void* user_data);
+	RAVEN_API int Raction_bind_with_parameters(const char* name, const char* signature, RActionParametersCallback callback, void* user_data);
+	/** @return The widget whose event fired the action, R_INVALID_ID when a script calls it. */
+	RAVEN_API Rid Raction_get_sender(const RActionContext* context);
+	RAVEN_API const char* Raction_get_name(const RActionContext* context);
+	/** @return The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more. */
+	RAVEN_API int Raction_get_argument_count(const RActionContext* context);
+	/** @brief The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE. */
+	RAVEN_API double Raction_get_number(const RActionContext* context, int index);
+	/** @return Valid until the function returns. */
+	RAVEN_API const char* Raction_get_string(const RActionContext* context, int index);
+	RAVEN_API int Raction_get_bool(const RActionContext* context, int index);
+	/** @brief The value returned to the script; of the type of the signature (what is set last counts). */
+	RAVEN_API void Raction_return_number(RActionContext* context, double value);
+	RAVEN_API void Raction_return_string(RActionContext* context, const char* value);
+	RAVEN_API void Raction_return_bool(RActionContext* context, int value);
+	/**
+	 * @brief The function failed: the script that called it stops with error
+	 * RS205 and this message (the application goes on; so does the next event).
+	 */
+	RAVEN_API void Raction_fail(RActionContext* context, const char* message);
 
 	/**
 	 * @brief The actions Raven knows by itself: an interface written in XML
