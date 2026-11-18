@@ -683,6 +683,113 @@ static void test_xml_settings(void) {
 	CHECK_NEAR(settings.slop, defaults.slop);
 }
 
+/* RTouchSettings::min_touch_size: what a finger presses grows to it; 0 (the desktop) leaves the theme's sizes. */
+static void test_min_touch_size(void) {
+	const char* xml =
+		"<Window Width='300' Height='400'>"
+		"  <VBox Name='column'>"
+		"    <Button Name='button' Text='Press'/>"
+		"    <TextInput Name='input'/>"
+		"    <Checkbox Name='check' Text='Check'/>"
+		"    <Slider Name='slider'/>"
+		"  </VBox>"
+		"</Window>";
+	Rid window = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid button = Rwidget_find(window, "button"), input = Rwidget_find(window, "input");
+	Rid check = Rwidget_find(window, "check"), slider = Rwidget_find(window, "slider");
+	RTouchSettings settings, defaults;
+	float control = Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), x, y, w, h;
+
+	/* no platform with a touch screen first: as the theme says */
+	Rtouch_get_default_settings(&defaults);
+	CHECK_NEAR(defaults.min_touch_size, 0.0f);
+	Rdraw_frame();
+	Rwidget_get_rect(button, &x, &y, &w, &h);
+	CHECK_NEAR(h, control);
+	CHECK_NEAR(Rwidget_get_metric(check, R_METRIC_CHECK_SIZE), Rtheme_get_metric(R_METRIC_CHECK_SIZE));
+
+	/* a phone: 44 */
+	settings = defaults;
+	settings.min_touch_size = 44.0f;
+	Rtouch_set_settings(&settings);
+	Rdraw_frame();
+	Rwidget_get_rect(button, &x, &y, &w, &h);
+	CHECK_NEAR(h, 44.0f);
+	Rwidget_get_rect(input, &x, &y, &w, &h);
+	CHECK_NEAR(h, 44.0f);
+	Rwidget_get_rect(check, &x, &y, &w, &h);
+	CHECK(h >= 43.5f);
+	Rwidget_get_rect(slider, &x, &y, &w, &h);
+	CHECK(h >= 43.5f);
+	CHECK_NEAR(Rwidget_get_metric(check, R_METRIC_CHECK_SIZE), 22.0f);
+	CHECK_NEAR(Rwidget_get_metric(slider, R_METRIC_SLIDER_HANDLE_SIZE), 22.0f);
+	CHECK_NEAR(Rwidget_get_metric(button, R_METRIC_ROW_HEIGHT), 44.0f);
+	/* the theme keeps its own values; larger ones stay larger */
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), control);
+	Rwidget_set_metric(button, R_METRIC_CONTROL_HEIGHT, 60.0f);
+	Rdraw_frame();
+	Rwidget_get_rect(button, &x, &y, &w, &h);
+	CHECK_NEAR(h, 60.0f);
+	Rwidget_clear_metric(button, R_METRIC_CONTROL_HEIGHT);
+
+	/* one window may be dense again */
+	settings.min_touch_size = 0.0f;
+	Rwindow_set_touch_settings(window, &settings);
+	Rdraw_frame();
+	Rwidget_get_rect(button, &x, &y, &w, &h);
+	CHECK_NEAR(h, control);
+	Rwindow_set_touch_settings(window, NULL);
+	Rdraw_frame();
+	Rwidget_get_rect(button, &x, &y, &w, &h);
+	CHECK_NEAR(h, 44.0f);
+	Rwindow_destroy(window);
+
+	/* XML: Touch.MinSize on the window */
+	{
+		const char* sized = "<Window Width='300' Height='200' Touch.MinSize='48'><Button Name='b' Text='B' Slot.VAlign='Top'/></Window>";
+		Rtouch_set_settings(NULL);
+		window = Rwindow_create_from_xml(sized, strlen(sized));
+		Rwindow_get_touch_settings(window, &settings);
+		CHECK_NEAR(settings.min_touch_size, 48.0f);
+		Rdraw_frame();
+		Rwidget_get_rect(Rwidget_find(window, "b"), &x, &y, &w, &h);
+		CHECK_NEAR(h, 48.0f);
+		Rwindow_destroy(window);
+	}
+	Rtouch_set_settings(NULL);
+	Rdraw_frame();
+}
+
+static int g_panel_touches;
+static int on_panel_touch(Rid widget, const RTouchEvent* event, void* user_data) {
+	(void)widget;
+	(void)user_data;
+	if (event->phase == R_TOUCH_DOWN) g_panel_touches++;
+	return R_FALSE;
+}
+
+/* A panel given a touch callback sees a finger on its empty parts (a VBox lets the mouse through there). */
+static void test_touch_callback_on_panel(void) {
+	const char* xml =
+		"<Window Width='300' Height='300'>"
+		"  <VBox Name='page'><Button Text='Top' Slot.HAlign='Left'/></VBox>"
+		"</Window>";
+	Rid window = Rwindow_create_from_xml(xml, strlen(xml));
+	Rid page = Rwidget_find(window, "page");
+	Rdraw_frame();
+	g_panel_touches = 0;
+	Rwidget_set_touch_callback(page, on_panel_touch, NULL);
+	Rwindow_inject_touch(window, 1, R_TOUCH_DOWN, 150, 250);
+	Rwindow_inject_touch(window, 1, R_TOUCH_UP, 150, 250);
+	CHECK(g_panel_touches == 1);
+	CHECK(Rwidget_hit_test(page, 150, 250) == page);
+	/* without the callback it lets the pointer through again */
+	Rwidget_set_touch_callback(page, NULL, NULL);
+	CHECK(Rwidget_hit_test(page, 150, 250) != page);
+	Rwindow_destroy(window);
+	Rdraw_frame();
+}
+
 int main(void) {
 	if (!test_init(0)) {
 		printf("cannot start Raven\n");
@@ -696,6 +803,8 @@ int main(void) {
 	RUN(test_trackpad_swipe);
 	RUN(test_trackpad_scroll);
 	RUN(test_xml_settings);
+	RUN(test_min_touch_size);
+	RUN(test_touch_callback_on_panel);
 	Rshutdown();
 	return test_report("test_touch");
 }

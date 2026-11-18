@@ -135,6 +135,10 @@ typedef enum RWidgetType{
 	R_WIDGET_PDF_VIEW,
 	/** The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). */
 	R_WIDGET_CHART,
+	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
+	R_WIDGET_MAP_VIEW,
+	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
+	R_WIDGET_CAROUSEL,
 
 	R_WIDGET_LAST_
 }RWidgetType;
@@ -217,6 +221,9 @@ extern "C" {
 	 * A widget that already has a parent is moved.
 	 * @return `child`, so calls can be nested:
 	 *         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+	 *         R_INVALID_ID when the child replaced in a single-child container
+	 *         had a destroy callback that destroyed the container or `child`;
+	 *         `child`, when it is still there, is then not added.
 	 */
 	RAVEN_API Rid Rwidget_add_child(Rid parent, Rid child);
 	RAVEN_API Rid Rwidget_insert_child(Rid parent, Rid child, int index);
@@ -325,7 +332,8 @@ extern "C" {
 	/** @brief R_TRUE clips the descendants to the bounds of the widget. */
 	RAVEN_API void Rwidget_set_clipping(Rid widget, int clip);
 
-	/** @brief Text shown when the cursor rests on the widget. NULL removes it. */
+	/** @brief Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+	 *  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble). */
 	RAVEN_API void Rwidget_set_tooltip(Rid widget, const char* text);
 	/** @return The tooltip text of the widget, "" when it has none. */
 	RAVEN_API const char* Rwidget_get_tooltip(Rid widget);
@@ -348,7 +356,7 @@ extern "C" {
 	RAVEN_API int Rwidget_is_hovered(Rid widget);
 
 	RAVEN_API void Rwidget_set_focusable(Rid widget, int focusable);
-	/** @brief Gives the keyboard focus to the widget. */
+	/** @brief Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view). */
 	RAVEN_API void Rwidget_focus(Rid widget);
 	RAVEN_API int Rwidget_is_focused(Rid widget);
 
@@ -443,7 +451,11 @@ extern "C" {
 	/** @brief Overrides a theme metric for one widget. */
 	RAVEN_API void Rwidget_set_metric(Rid widget, RMetric metric, float value);
 	RAVEN_API void Rwidget_clear_metric(Rid widget, RMetric metric);
-	/** @return The metric the widget uses: its own, else the one of a style, else the one of its theme. */
+	/**
+	 * @return The metric the widget uses: its own, else the one of a style,
+	 * else the one of its theme; grown for larger text
+	 * (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
+	 */
 	RAVEN_API float Rwidget_get_metric(Rid widget, RMetric metric);
 
 	/**

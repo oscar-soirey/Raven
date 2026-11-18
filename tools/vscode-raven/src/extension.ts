@@ -2,9 +2,14 @@
  * Raven XML for VS Code: completion, hovers and diagnostics in the XML
  * files of Raven. The work is done by src/core, which knows nothing of VS
  * Code; this file connects it.
+ *
+ * Raven Script (the <Script> elements of the documents and the .rvs files)
+ * has a language server (src/server, started here): it compiles the
+ * scripts with the core of the library itself, built to WebAssembly.
  */
 import * as path from "path";
 import * as vscode from "vscode";
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { parseXml, XDocument } from "./core/xmlParser";
 import { Context, Declaration, declarationsOf, emptyContext, looksLikeRaven } from "./core/model";
 import { diagnose, Problem } from "./core/diagnostics";
@@ -149,7 +154,52 @@ function toCompletion(document: vscode.TextDocument, item: Item): vscode.Complet
 	return result;
 }
 
+// ---------------------------------------------------------------------------
+//  Raven Script: the language server
+// ---------------------------------------------------------------------------
+
+let client: LanguageClient | undefined;
+
+function startScriptServer(extension: vscode.ExtensionContext) {
+	const module = extension.asAbsolutePath(path.join("dist", "server.js"));
+	const server: ServerOptions = {
+		run: { module, transport: TransportKind.ipc },
+		debug: { module, transport: TransportKind.ipc, options: { execArgv: ["--nolazy", "--inspect=6011"] } },
+	};
+	const options: LanguageClientOptions = {
+		documentSelector: [
+			{ language: "raven-script" },
+			{ language: "xml", scheme: "file" },
+			{ language: "xml", scheme: "untitled" },
+		],
+		initializationOptions: { raven: { script: vscode.workspace.getConfiguration("raven.script") } },
+		synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/*.rvs") },
+	};
+	client = new LanguageClient("ravenScript", "Raven Script", server, options);
+	client.start().catch((error) => vscode.window.showErrorMessage(`Raven Script: the language server did not start (${error})`));
+
+	/* the scripts of an XML document, formatted (the XML around them is left to the XML formatter) */
+	extension.subscriptions.push(
+		vscode.commands.registerCommand("raven.formatScripts", async () => {
+			const editor = vscode.window.activeTextEditor;
+			if (!editor || !client) return;
+			const edits = (await client.sendRequest("raven/formatScripts", {
+				uri: editor.document.uri.toString(),
+				tabSize: Number(editor.options.tabSize) || 4,
+				insertSpaces: editor.options.insertSpaces !== false,
+			})) as { range: { start: { line: number; character: number }; end: { line: number; character: number } }; newText: string }[];
+			if (!edits.length) return;
+			await editor.edit((builder) => {
+				for (const edit of edits) {
+					builder.replace(new vscode.Range(edit.range.start.line, edit.range.start.character, edit.range.end.line, edit.range.end.character), edit.newText);
+				}
+			});
+		}),
+	);
+}
+
 export function activate(extension: vscode.ExtensionContext) {
+	startScriptServer(extension);
 	const collection = vscode.languages.createDiagnosticCollection("raven");
 	extension.subscriptions.push(collection);
 
@@ -248,6 +298,7 @@ export function activate(extension: vscode.ExtensionContext) {
 	indexWorkspace().then(refreshAll, () => undefined);
 }
 
-export function deactivate() {
+export function deactivate(): Thenable<void> | undefined {
 	parsed.clear();
+	return client ? client.stop() : undefined;
 }

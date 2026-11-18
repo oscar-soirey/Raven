@@ -18,7 +18,7 @@ public static class Program
 
     public static int Main()
     {
-        if (R.Rinit(RBackend.R_BACKEND_VULKAN) == 0) return 1;
+        if (R.Rinit(RBackend.R_BACKEND_DEFAULT) == 0) return 1;
         R.Rlocale_load_csv("strings.csv");
         R.Rlocale_set_language(R.Rlocale_get_system_language());
         R.Raction_bind("hello.clicked", R.Keep<RActionCallback>(OnHello), IntPtr.Zero);

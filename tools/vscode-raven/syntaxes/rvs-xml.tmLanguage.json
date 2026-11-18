@@ -1,0 +1,42 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"comment": "Raven Script inside the <Script> elements of XML documents: the code is raw text up to </Script> (as Raven reads it), colored as Raven Script.",
+	"scopeName": "raven-script.injection.xml",
+	"injectionSelector": "L:text.xml -comment -meta.embedded.block.rvs",
+	"patterns": [{ "include": "#script" }],
+	"repository": {
+		"script": {
+			"begin": "(<)((?i:script))(?=[\\s>])(?![^>]*/>)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.tag.xml" },
+				"2": { "name": "entity.name.tag.localname.xml" }
+			},
+			"end": "(</)((?i:script))\\s*(>)",
+			"endCaptures": {
+				"1": { "name": "punctuation.definition.tag.xml" },
+				"2": { "name": "entity.name.tag.localname.xml" },
+				"3": { "name": "punctuation.definition.tag.xml" }
+			},
+			"patterns": [
+				{
+					"match": "([A-Za-z_][\\w.:-]*)\\s*(=)\\s*(\"[^\"]*\"|'[^']*')",
+					"captures": {
+						"1": { "name": "entity.other.attribute-name.localname.xml" },
+						"2": { "name": "punctuation.separator.key-value.xml" },
+						"3": { "name": "string.quoted.double.xml" }
+					}
+				},
+				{
+					"begin": "(>)",
+					"beginCaptures": { "1": { "name": "punctuation.definition.tag.xml" } },
+					"end": "(?=</(?i:script)\\s*>)",
+					"contentName": "meta.embedded.block.rvs",
+					"patterns": [
+						{ "match": "<!\\[CDATA\\[|\\]\\]>", "name": "punctuation.definition.string.xml" },
+						{ "include": "source.rvs" }
+					]
+				}
+			]
+		}
+	}
+}

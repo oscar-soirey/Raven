@@ -1,7 +1,8 @@
-# Raven XML
+# Raven XML & Raven Script
 
 Completion, hovers and diagnostics for the XML interfaces of
-[Raven](https://github.com/oscar-soirey/Raven).
+[Raven](https://github.com/oscar-soirey/Raven), and a language server for
+Raven Script, the language of their `<Script>` elements.
 
 ## Features
 
@@ -38,6 +39,43 @@ application:
 - `show:NAME`, `toggle:NAME`... naming no widget of the file (information).
 
 Values with `{expressions}` and translations (`@key`) are not checked.
+
+## Raven Script
+
+The `<Script>` elements of the documents and the `.rvs` files have a
+language server. It compiles the scripts with the core of Raven itself
+(`src/script`, built to WebAssembly: `wasm/raven_script.wasm`), so the
+editor reports exactly what the application would:
+
+- **diagnostics** with their codes (`RS102` type mismatch, `RS103` an event
+  handler whose parameters do not fit its widget, `RS101` an unknown name...),
+  placed in the XML document; the errors of a file named by
+  `<Script Src="...">` are summed up on its `Src` (open the file to see them);
+- **completion**: keywords, variables in scope, `app.` / `ui.` / `window.`,
+  the methods of a value (`text.` → `toUpperCase`, `length`...), types after
+  `:`, and the functions of the scripts in `OnClicked="..."`;
+- **hovers**: the type of a variable, the signature and the documentation of
+  a function; on `OnChanged="app.volume"`, what the event of the widget gives;
+- **signature help** inside the parentheses of a call;
+- **go to definition**, **find references** and **rename** (a function is
+  renamed in the scripts and in the actions of the widgets);
+- **symbols** of the document (the outline);
+- **formatting**: `.rvs` files with *Format Document*; the scripts of an XML
+  document with *Raven: Format the Scripts of the Document* (the XML around
+  them is left to the XML formatter);
+- **coloring** of `.rvs` files and of the code inside `<Script>`.
+
+A `.rvs` file named by an XML document of the workspace is analyzed with the
+other scripts of that document (the functions they declare are known).
+
+| Setting | |
+|---|---|
+| `raven.script.enable` | turns the language server off |
+| `raven.script.functions` | functions the application binds in C (`Raction_bind_with_parameters`), so that scripts may call them: `{ "app.save": "(path: string): bool" }` |
+
+A script can also declare such a function itself: `declare fn app.save(path: string): bool;`.
+
+The language is described in `docs/SCRIPT.md` of Raven.
 
 ## Which files
 
@@ -77,12 +115,19 @@ built-in actions are described in `src/core/schema.ts` (from `docs/XML.md`).
 
 ```sh
 npm install
-npm test          # tests of src/core, and the examples of Raven must give no warning
+npm test          # tests of src/core (the examples of Raven must give no warning) and of the language server
 npm run package   # raven-xml-<version>.vsix
 ```
 
+`wasm/raven_script.wasm` is kept in the repository. After a change in
+`src/script` of Raven, build it again with `npm run wasm`: it needs clang with
+the wasm32 target and a WASI sysroot (Ubuntu: `apt install clang lld wasi-libc
+libclang-rt-18-dev-wasm32`; elsewhere the
+[wasi-sdk](https://github.com/WebAssembly/wasi-sdk), with `CLANG` and
+`WASI_SYSROOT` set, see `scripts/build-wasm.js`).
+
 Install the `.vsix` with *Extensions → ... → Install from VSIX*, or
-`code --install-extension raven-xml-0.1.0.vsix`.
+`code --install-extension raven-xml-0.2.0.vsix`.
 
 ## Publishing
 
@@ -95,7 +140,7 @@ Install the `.vsix` with *Extensions → ... → Install from VSIX*, or
    (or upload the `.vsix` on the page of the publisher).
 
 For [Open VSX](https://open-vsx.org) (VSCodium, Cursor...):
-`npx ovsx publish raven-xml-0.1.0.vsix -p <token>`.
+`npx ovsx publish raven-xml-0.2.0.vsix -p <token>`.
 
 ## License
 

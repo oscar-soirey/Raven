@@ -38,6 +38,11 @@ export interface XElement {
 	/** Offset after the element (after its end tag, or its start tag when self-closing). */
 	end: number;
 	hasText: boolean;
+	/**
+	 * <Script>: where its code is (raw text, as Raven reads it: '<' and '&&'
+	 * written as they are, up to </Script>); undefined for other elements.
+	 */
+	script?: { start: number; end: number };
 }
 
 export interface XError {
@@ -57,6 +62,11 @@ export interface XDocument {
 
 const NAME_START = /[A-Za-z_:]/;
 const NAME_CHAR = /[A-Za-z0-9_:.\-]/;
+
+/** The tag whose content is raw text (Raven Script). */
+export function isScriptTag(name: string): boolean {
+	return name.toLowerCase() === "script";
+}
 
 export function sameName(a: string, b: string): boolean {
 	return a.toLowerCase() === b.toLowerCase();
@@ -286,6 +296,27 @@ export function parseXml(text: string): XDocument {
 		const parent = top();
 		if (parent) parent.children.push(element);
 		else doc.roots.push(element);
+		if (element.startTagClosed && !element.selfClosing && isScriptTag(element.name)) {
+			/* the code of a script is raw text up to </Script> (xml_parser.c): no tag, no entity inside */
+			const closing = new RegExp(`</${element.name}\\s*>`, "i");
+			const rest = text.slice(element.startTagEnd);
+			const match = closing.exec(rest);
+			const codeEnd = match ? element.startTagEnd + match.index : length;
+			element.script = { start: element.startTagEnd, end: codeEnd };
+			element.hasText = /\S/.test(text.slice(element.startTagEnd, codeEnd));
+			doc.opaque.push({ start: element.startTagEnd, end: codeEnd });
+			if (match) {
+				element.closeStart = codeEnd;
+				element.closeNameStart = codeEnd + 2;
+				element.closeNameEnd = codeEnd + 2 + element.name.length;
+				element.end = codeEnd + match[0].length;
+			} else {
+				error(element.nameStart, element.nameEnd, `<${element.name}> is not closed: a script runs to </${element.name}>`);
+				element.end = length;
+			}
+			i = element.end;
+			continue;
+		}
 		if (element.startTagClosed && !element.selfClosing) stack.push(element);
 		else element.end = element.startTagEnd;
 		i = element.startTagEnd;

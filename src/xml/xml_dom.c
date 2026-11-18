@@ -10,6 +10,7 @@
  */
 
 #include "xml.h"
+#include "../script/script_raven.h"
 #include "../widgets/common.h"
 #include "../core/fs.h"
 
@@ -36,6 +37,9 @@ typedef struct rvn_dom_node_t {
 	uint32_t attribute_cap;
 	int line;
 	int column;
+	/** <Script>: where its text starts (the diagnostics of the scripts). */
+	int text_line;
+	int text_column;
 	/** What the node became the last time the document was built. */
 	Rid widget;
 } rvn_dom_node_t;
@@ -209,6 +213,8 @@ static rvn_dom_node_t* rvn_dom_from_parsed(rvn_dom_document_t* document, const r
 	if (!node) return NULL;
 	node->line = parsed->line;
 	node->column = parsed->column;
+	node->text_line = parsed->text_line;
+	node->text_column = parsed->text_column;
 	for (attribute = parsed->attributes; attribute; attribute = attribute->next) {
 		RVN_ARRAY_RESERVE(node->attributes, node->attribute_cap, node->attribute_count + 1);
 		node->attributes[node->attribute_count].name = rvn_strdup(attribute->name);
@@ -317,7 +323,14 @@ static void rvn_dom_write(rvn_dom_writer_t* writer, rvn_dom_node_t* node, int de
 		return;
 	}
 	rvn_dom_puts(writer, ">");
-	if (node->child_count == 0) {
+	if (rvn_xml_is_script(node->tag)) {
+		/* the code of a script is raw text, as the reader reads it: written as it is */
+		if (track) {
+			node->text_line = writer->line;
+			node->text_column = writer->column;
+		}
+		rvn_dom_puts(writer, node->text);
+	} else if (node->child_count == 0) {
 		rvn_dom_put_escaped(writer, node->text, R_FALSE);
 	} else {
 		rvn_dom_puts(writer, "\n");
@@ -510,6 +523,8 @@ static rvn_xml_node_t* rvn_dom_to_parsed(rvn_arena_t* arena, rvn_dom_node_t* nod
 	parsed->parent = parent;
 	parsed->line = node->line;
 	parsed->column = node->column;
+	parsed->text_line = node->text_line;
+	parsed->text_column = node->text_column;
 	parsed->source = node->id;
 	node->widget = R_INVALID_ID;
 	for (i = 0; i < node->attribute_count; i++) {
@@ -543,12 +558,14 @@ static void rvn_dom_bind(rvn_dom_document_t* document, rvn_widget_t* widget) {
 static Rid rvn_dom_build(rvn_dom_document_t* document, int window, const char* function) {
 	rvn_xml_document_t parsed;
 	char* previous_dir;
+	const char* previous_file;
 	Rid result = R_INVALID_ID;
 
 	memset(&parsed, 0, sizeof(parsed));
 	rvn_arena_init(&parsed.arena, 16384);
 	parsed.root = rvn_dom_to_parsed(&parsed.arena, document->root, NULL);
 	rvn_xml_push_file_dir(document->file, &previous_dir);
+	previous_file = rvn_script_set_file(document->file);
 	if (!rvn_xml_expand(&parsed, NULL)) {
 		rvn_xml_free(&parsed);
 	} else if (!parsed.root) {
@@ -569,6 +586,7 @@ static Rid rvn_dom_build(rvn_dom_document_t* document, int window, const char* f
 		built = rvn_widget_get(result);
 		if (built) rvn_dom_bind(document, built);
 	}
+	rvn_script_set_file(previous_file);
 	rvn_xml_pop_file_dir(previous_dir);
 	return result;
 }

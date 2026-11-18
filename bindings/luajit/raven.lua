@@ -1,6 +1,6 @@
 -- Raven for LuaJIT.
 --
--- Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+-- Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 --
 -- The FFI of LuaJIT reads C: these are the declarations of the public
 -- headers, and the module is the library itself. Enumerations are numbers,
@@ -15,7 +15,7 @@
 -- calls them runs in the interpreter, the callbacks are compiled as usual.
 --
 --   local r = require("raven")
---   r.Rinit(r.R_BACKEND_VULKAN)
+--   r.Rinit(r.R_BACKEND_DEFAULT)
 --   local xml = [[<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>]]
 --   r.Rwindow_create_from_xml(xml, #xml)
 --   local quit = require("ffi").cast("RActionCallback", function() r.Rquit(0) end)
@@ -31,12 +31,15 @@ local ffi = require("ffi")
 ffi.cdef[[
 typedef uint32_t Rid;
 typedef uint32_t Ruint;
+typedef struct RActionContext RActionContext;
 typedef struct RPainter RPainter;
 typedef enum RBackend {
+	R_BACKEND_DEFAULT = 0,
 	R_BACKEND_VULKAN = 1,
 	R_BACKEND_NULL = 2,
 	R_BACKEND_CUSTOM = 3,
 	R_BACKEND_WEBGL = 4,
+	R_BACKEND_METAL = 5,
 } RBackend;
 typedef enum RError {
 	R_NO_ERROR = 112,
@@ -51,6 +54,7 @@ typedef enum RError {
 	R_ERROR_FILE_NOT_FOUND = 121,
 	R_ERROR_XML = 122,
 	R_ERROR_WRONG_THREAD = 123,
+	R_ERROR_SCRIPT = 124,
 } RError;
 typedef enum RSeverity {
 	R_SEVERITY_WEAK_WARNING = 128,
@@ -58,6 +62,14 @@ typedef enum RSeverity {
 	R_SEVERITY_ERROR = 130,
 	R_SEVERITY_FATAL = 131,
 } RSeverity;
+typedef enum RAppEvent {
+	R_APP_WILL_PAUSE = 2944,
+	R_APP_DID_PAUSE = 2945,
+	R_APP_WILL_RESUME = 2946,
+	R_APP_DID_RESUME = 2947,
+	R_APP_LOW_MEMORY = 2948,
+	R_APP_WILL_TERMINATE = 2949,
+} RAppEvent;
 typedef enum RWindowFlags {
 	R_WINDOW_DEFAULT = 0,
 	R_WINDOW_NO_RESIZE = 1,
@@ -464,6 +476,8 @@ typedef enum RWidgetType {
 	R_WIDGET_PLOT = 562,
 	R_WIDGET_PDF_VIEW = 563,
 	R_WIDGET_CHART = 564,
+	R_WIDGET_MAP_VIEW = 565,
+	R_WIDGET_CAROUSEL = 566,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -577,6 +591,12 @@ typedef enum RPdfTextStyle {
 typedef enum RPdfPrintFlags {
 	R_PDF_PRINT_NO_DIALOG = 1,
 } RPdfPrintFlags;
+typedef enum RMapTileState {
+	R_MAP_TILE_NONE = 1536,
+	R_MAP_TILE_PENDING = 1537,
+	R_MAP_TILE_LOADED = 1538,
+	R_MAP_TILE_FAILED = 1539,
+} RMapTileState;
 typedef enum RPlotScale {
 	R_PLOT_SCALE_LINEAR = 1328,
 	R_PLOT_SCALE_LOG = 1329,
@@ -831,6 +851,7 @@ typedef struct RPenEvent RPenEvent;
 typedef struct RGestureEvent RGestureEvent;
 typedef struct RPdfPrintDesc RPdfPrintDesc;
 typedef struct RTileItem RTileItem;
+typedef struct RTileSection RTileSection;
 typedef struct RLanguageDesc RLanguageDesc;
 typedef struct RJumpTask RJumpTask;
 typedef struct RFileFilter RFileFilter;
@@ -843,14 +864,17 @@ typedef struct RXmlAttributeInfo RXmlAttributeInfo;
 typedef struct RAccessibilitySettings RAccessibilitySettings;
 typedef struct RHostPlatformDesc RHostPlatformDesc;
 typedef void (*RFrameCallback)(double delta_seconds, void* user_data);
+typedef void (*RAppEventCallback)(RAppEvent event, void* user_data);
 typedef void (*RTaskCallback)(void* user_data);
 typedef void (*RParallelRangeCallback)(Ruint begin, Ruint end, void* user_data);
 typedef void (*RTimerCallback)(Rid timer, void* user_data);
 typedef void (*RActionCallback)(Rid sender, const char* action, void* user_data);
+typedef void (*RActionParametersCallback)(RActionContext* context, void* user_data);
 typedef void (*RErrorCallback)(RError code, RSeverity severity, const char* detail);
 typedef void (*RDeviceResetCallback)(void* user_data);
 typedef void (*RKeyboardCallback)(Rid window, int visible, float height, void* user_data);
 typedef int (*RDropCallback)(Rid target, const RDropEvent* event, void* user_data);
+typedef int (*RBackCallback)(Rid window, void* user_data);
 typedef int (*RWindowCloseCallback)(Rid window, void* user_data);
 typedef void (*RWindowResizeCallback)(Rid window, int width, int height, void* user_data);
 typedef int (*RWindowEventHook)(Rid window, const REvent* event, void* user_data);
@@ -875,6 +899,7 @@ typedef void (*RListEventCallback)(Rid list_view, int index, void* user_data);
 typedef void (*RTreeEventCallback)(Rid tree_view, Rid item, void* user_data);
 typedef void (*RTreeContextCallback)(Rid tree_view, Rid item, float x, float y, void* user_data);
 typedef void (*RMenuItemClickedCallback)(Rid item, void* user_data);
+typedef void (*RTileSectionCallback)(Rid tile_view, int section, RTileSection* out, void* user_data);
 typedef void (*RTileItemCallback)(Rid tile_view, int index, RTileItem* item, void* user_data);
 typedef void (*RTileEventCallback)(Rid tile_view, int index, void* user_data);
 typedef void (*RTileContextCallback)(Rid tile_view, int index, float x, float y, void* user_data);
@@ -895,12 +920,17 @@ typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* use
 typedef void (*RChartSliceCallback)(Rid chart, int slice, int selected, void* user_data);
 typedef void (*RChartCellCallback)(Rid chart, int row, int column, float value, void* user_data);
 typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_data);
+typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
+typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
+typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);
 typedef void (*RTextEditorZoomCallback)(Rid editor, float zoom, void* user_data);
 typedef void (*RCompletionCallback)(Rid editor, const char* prefix, void* user_data);
 typedef const char* (*RTextEditorHoverCallback)(Rid editor, int line, int column, void* user_data);
 typedef void (*RTextEditorChangedCallback)(Rid editor, void* user_data);
 typedef void (*RTrayClickedCallback)(Rid tray, RMouseButton button, void* user_data);
 typedef int (*RDockCloseCallback)(Rid area, Rid panel, void* user_data);
+typedef Rid (*RDockFloatWindowCallback)(Rid area, Rid panel, Rid window, Rid floating_area, void* user_data);
 typedef void (*RDockChangedCallback)(Rid area, void* user_data);
 typedef void (*RIslandChangedCallback)(Rid island, int expanded, void* user_data);
 typedef void (*RColorChangedCallback)(Rid picker, float r, float g, float b, float a, void* user_data);
@@ -923,6 +953,8 @@ typedef void (*RMeasureCallback)(Rid widget, float* width, float* height, void* 
 typedef void (*RXmlReloadCallback)(const char* path, int ok, void* user_data);
 typedef Rid (*RXmlTagCreateCallback)(const char* tag, void* user_data);
 typedef int (*RXmlTagAttributeCallback)(Rid widget, const char* name, const char* value, void* user_data);
+typedef void (*RScriptLogCallback)(const char* message, void* user_data);
+typedef void (*RScriptDiagnosticCallback)(RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* user_data);
 typedef void (*RLocaleChangedCallback)(const char* language, void* user_data);
 typedef void (*RAccessiblePressCallback)(Rid widget, void* user_data);
 struct RInitDesc {
@@ -1026,6 +1058,7 @@ struct RTouchSettings {
 	int trackpad_gestures;
 	int swipe_navigation;
 	float swipe_distance;
+	float min_touch_size;
 };
 struct RTouchEvent {
 	RTouchPhase phase;
@@ -1098,6 +1131,13 @@ struct RTileItem {
 	float tint[4];
 	float icon_radius;
 	float text_color[4];
+	const char* note;
+	float detail_color[4];
+};
+struct RTileSection {
+	int first;
+	const char* text;
+	const char* detail;
 };
 struct RLanguageDesc {
 	const char* name;
@@ -1152,6 +1192,9 @@ struct RViewportDrawInfo {
 	void* command_buffer;
 	void* render_pass;
 	Ruint color_format;
+	void* metal_encoder;
+	void* metal_command_buffer;
+	void* metal_device;
 };
 struct RSpring {
 	float value;
@@ -1217,6 +1260,9 @@ void Rwait_events(double timeout_seconds);
 void Rset_frame_callback(RFrameCallback callback, void* user_data);
 double Rget_delta_time(void);
 double Rget_time(void);
+void Rset_app_event_callback(RAppEventCallback callback, void* user_data);
+int Ris_app_paused(void);
+void Rinject_app_event(RAppEvent event);
 void Rset_ui_scale(float scale);
 void Rset_vsync(int enabled);
 int Rget_vsync(void);
@@ -1239,6 +1285,17 @@ void Raction_bind(const char* name, RActionCallback callback, void* user_data);
 void Raction_unbind(const char* name);
 void Raction_fire(const char* name, Rid sender);
 void Raction_set_default_handler(RActionCallback callback, void* user_data);
+int Raction_bind_with_parameters(const char* name, const char* signature, RActionParametersCallback callback, void* user_data);
+Rid Raction_get_sender(const RActionContext* context);
+const char* Raction_get_name(const RActionContext* context);
+int Raction_get_argument_count(const RActionContext* context);
+double Raction_get_number(const RActionContext* context, int index);
+const char* Raction_get_string(const RActionContext* context, int index);
+int Raction_get_bool(const RActionContext* context, int index);
+void Raction_return_number(RActionContext* context, double value);
+void Raction_return_string(RActionContext* context, const char* value);
+void Raction_return_bool(RActionContext* context, int value);
+void Raction_fail(RActionContext* context, const char* message);
 void Raction_set_builtins(int enabled);
 int Raction_is_builtin(const char* name);
 int Ropen_url(const char* url);
@@ -1264,6 +1321,9 @@ void Rwindow_get_safe_area(Rid window, RInsets* insets);
 void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
 void Rwindow_set_keyboard_callback(Rid window, RKeyboardCallback callback, void* user_data);
 void Rwindow_clear_focus(Rid window);
+void Rwindow_set_back_callback(Rid window, RBackCallback callback, void* user_data);
+void Rwindow_set_back_enabled(Rid window, int enabled);
+int Rwindow_wants_back(Rid window);
 void Rwindow_set_min_size(Rid window, int width, int height);
 void Rwindow_set_position(Rid window, int x, int y);
 void Rwindow_get_position(Rid window, int* x, int* y);
@@ -1322,6 +1382,7 @@ void Rwindow_inject_key(Rid window, RKey key, int pressed, Ruint modifiers);
 void Rwindow_inject_text(Rid window, const char* text);
 int Rwindow_inject_drag(Rid window, float x, float y, int inside);
 int Rwindow_inject_drop(Rid window, float x, float y, const char* const* paths, int path_count, const char* text);
+int Rwindow_inject_back(Rid window);
 int Rwindow_is_key_down(Rid window, RKey key);
 int Rwindow_is_mouse_button_down(Rid window, RMouseButton button);
 Ruint Rwindow_get_modifiers(Rid window);
@@ -1704,6 +1765,14 @@ void Rtile_view_refresh(Rid tile_view);
 int Rtile_view_get_count(Rid tile_view);
 void Rtile_view_set_tile_size(Rid tile_view, float width, float height, float icon_size);
 void Rtile_view_set_empty_text(Rid tile_view, const char* text);
+void Rtile_view_set_icon_width(Rid tile_view, float width);
+void Rtile_view_set_sections(Rid tile_view, int count, RTileSectionCallback callback, void* user_data);
+int Rtile_view_get_section_count(Rid tile_view);
+int Rtile_view_get_section_of(Rid tile_view, int index);
+void Rtile_view_set_section_folded(Rid tile_view, int section, int folded);
+int Rtile_view_is_section_folded(Rid tile_view, int section);
+int Rtile_view_get_section_at(Rid tile_view, float local_x, float local_y);
+void Rtile_view_set_section_toggled_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_selected(Rid tile_view, int index, int selected);
 int Rtile_view_is_selected(Rid tile_view, int index);
 void Rtile_view_clear_selection(Rid tile_view);
@@ -1922,7 +1991,58 @@ RPdfFit Rpdf_view_get_fit(Rid view);
 const char* Rpdf_view_get_title(Rid view);
 const char* Rpdf_view_get_page_text(Rid view, int page);
 void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+Rid Rcarousel_create(void);
+void Rcarousel_set_page(Rid carousel, int page, int animated);
+int Rcarousel_get_page(Rid carousel);
+int Rcarousel_get_page_count(Rid carousel);
+void Rcarousel_next(Rid carousel);
+void Rcarousel_prev(Rid carousel);
+void Rcarousel_set_loop(Rid carousel, int loop);
+int Rcarousel_get_loop(Rid carousel);
+void Rcarousel_set_autoplay(Rid carousel, double seconds);
+double Rcarousel_get_autoplay(Rid carousel);
+void Rcarousel_set_indicators_visible(Rid carousel, int visible);
+int Rcarousel_get_indicators_visible(Rid carousel);
+void Rcarousel_set_arrows_visible(Rid carousel, int visible);
+int Rcarousel_get_arrows_visible(Rid carousel);
+void Rcarousel_set_orientation(Rid carousel, ROrientation orientation);
+ROrientation Rcarousel_get_orientation(Rid carousel);
+void Rcarousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data);
 int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+Rid Rmap_view_create(void);
+void Rmap_view_set_center(Rid map, double latitude, double longitude);
+void Rmap_view_get_center(Rid map, double* latitude, double* longitude);
+void Rmap_view_set_zoom(Rid map, double zoom);
+double Rmap_view_get_zoom(Rid map);
+void Rmap_view_set_zoom_range(Rid map, double min_zoom, double max_zoom);
+void Rmap_view_get_zoom_range(Rid map, double* min_zoom, double* max_zoom);
+void Rmap_view_animate_to(Rid map, double latitude, double longitude, double zoom);
+void Rmap_view_screen_to_latlon(Rid map, float x, float y, double* latitude, double* longitude);
+void Rmap_view_latlon_to_screen(Rid map, double latitude, double longitude, float* x, float* y);
+void Rmap_view_set_tile_callback(Rid map, RMapTileCallback callback, void* user_data);
+void Rmap_view_set_tile_cancel_callback(Rid map, RMapTileCallback callback, void* user_data);
+void Rmap_view_set_tile(Rid map, int z, int x, int y, const uint8_t* rgba, int width, int height);
+void Rmap_view_set_tile_data(Rid map, int z, int x, int y, const void* data, size_t data_size);
+void Rmap_view_set_tile_failed(Rid map, int z, int x, int y);
+void Rmap_view_set_tile_path(Rid map, const char* path_template);
+const char* Rmap_view_get_tile_path(Rid map);
+void Rmap_view_set_tile_size(Rid map, int size);
+int Rmap_view_get_tile_size(Rid map);
+void Rmap_view_set_cache_size(Rid map, size_t bytes);
+size_t Rmap_view_get_cache_usage(Rid map);
+void Rmap_view_clear_tiles(Rid map);
+RMapTileState Rmap_view_get_tile_state(Rid map, int z, int x, int y);
+int Rmap_view_add_marker(Rid map, double latitude, double longitude, const char* label);
+void Rmap_view_remove_marker(Rid map, int marker);
+void Rmap_view_clear_markers(Rid map);
+int Rmap_view_get_marker_count(Rid map);
+void Rmap_view_set_marker_position(Rid map, int marker, double latitude, double longitude);
+void Rmap_view_set_marker_label(Rid map, int marker, const char* label);
+void Rmap_view_set_marker_color(Rid map, int marker, float r, float g, float b, float a);
+void Rmap_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback, void* user_data);
+void Rmap_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data);
+void Rmap_view_set_attribution(Rid map, const char* text);
+const char* Rmap_view_get_attribution(Rid map);
 Rid Rpdf_document_create(void);
 void Rpdf_document_delete(Rid document);
 void Rpdf_document_set_title(Rid document, const char* title);
@@ -2033,6 +2153,7 @@ void Rdock_area_set_close_callback(Rid area, RDockCloseCallback callback, void* 
 void Rdock_area_set_tearable(Rid area, int tearable);
 int Rdock_area_is_tearable(Rid area);
 void Rdock_area_set_float_mode(Rid area, RDockFloatMode mode);
+void Rdock_area_set_float_window(Rid area, Ruint flags, RDockFloatWindowCallback callback, void* user_data);
 Rid Rdock_area_float_panel(Rid area, Rid panel, int x, int y);
 void Rdock_area_dock_panel(Rid area, Rid panel);
 Rid Rdock_area_get_panel_window(Rid area, Rid panel);
@@ -2408,6 +2529,18 @@ const char* Rxml_get_tag_description(const char* tag);
 int Rxml_get_tag_children(const char* tag);
 int Rxml_get_attribute_count(const char* tag);
 int Rxml_get_attribute_info(const char* tag, int index, RXmlAttributeInfo* info);
+int Rscript_load(const char* source, size_t size, const char* name);
+int Rscript_load_file(const char* path);
+int Rscript_check(const char* source, size_t size, const char* name);
+int Rscript_check_file(const char* path);
+const char* Rscript_format(const char* source, size_t size, const char* indent);
+void Rscript_reset(void);
+int Rscript_has_function(const char* name);
+void Rscript_set_enabled(int enabled);
+int Rscript_is_enabled(void);
+void Rscript_set_limits(Ruint max_instructions, int max_depth, size_t max_memory);
+void Rscript_set_log_callback(RScriptLogCallback callback, void* user_data);
+void Rscript_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data);
 int Rlocale_load_csv(const char* path);
 int Rlocale_load_csv_from_memory(const char* csv, size_t size);
 void Rlocale_clear(void);
@@ -2452,6 +2585,8 @@ int Raccessibility_is_screen_reader_active(void);
 void Rhost_platform_register(const RHostPlatformDesc* desc);
 int Rhost_platform_is_active(void);
 void Rhost_window_set_size(Rid window, int width, int height, float scale);
+void Rhost_window_set_insets(Rid window, const RInsets* safe_area, int keyboard_height);
+void Rhost_set_system_dark(int dark);
 void Rhost_inject_mouse_move(Rid window, int x, int y, Ruint modifiers);
 void Rhost_inject_mouse_button(Rid window, int x, int y, RMouseButton button, int pressed, Ruint modifiers);
 void Rhost_inject_mouse_wheel(Rid window, float wheel_x, float wheel_y, Ruint modifiers);
@@ -2467,9 +2602,9 @@ local library = ffi.load(os.getenv("RAVEN_LIBRARY") or "raven")
 -- the constants of the headers that are not enumerations
 local constants = {
 	RAVEN_VERSION_MAJOR = 0,
-	RAVEN_VERSION_MINOR = 2,
-	RAVEN_VERSION_PATCH = 3,
-	RAVEN_API_VERSION = "0.2",
+	RAVEN_VERSION_MINOR = 3,
+	RAVEN_VERSION_PATCH = 0,
+	RAVEN_API_VERSION = "0.3",
 	R_FALSE = 0,
 	R_TRUE = 1,
 	R_INVALID_ID = 0xFFFFFFFF,

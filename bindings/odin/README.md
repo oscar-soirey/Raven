@@ -11,7 +11,7 @@ package hello
 import r "raven"
 
 main :: proc() {
-	r.Rinit(r.R_BACKEND_VULKAN)
+	r.Rinit(r.R_BACKEND_DEFAULT)
 	xml :: "<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>"
 	r.Rwindow_create_from_xml(xml, len(xml))
 	r.Raction_bind("quit", proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {

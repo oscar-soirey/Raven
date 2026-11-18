@@ -18,9 +18,13 @@ It writes two files:
 
   raven_c.c3   module raven::c   the C API as it is, as `extern fn`, under
                                  snake_case names (Rbutton_set_text is
-                                 c::button_set_text, @cname keeps the symbol)
+                                 c::r_button_set_text, @cname keeps the symbol)
   raven.c3     module raven      the C3 API: types, constants, faults, typed
                                  handles with methods, and the free functions
+
+Besides what cparse.py reads (the headers of Raven.h), it reads the headers
+cparse.py leaves out or Raven.h does not include (EXTRA_HEADERS), so that the
+whole C API is there: Vulkan, writing a backend, Android, the browser.
 """
 
 import argparse
@@ -51,6 +55,18 @@ WIDGET_TYPE_ALIASES = {"progressbar": "progress_bar"}
 WIDGET_TYPE_CLASS = {"vbox": "panel", "hbox": "panel", "wrap_box": "panel"}
 # handles that are not widgets
 HANDLE_PREFIXES = ["window", "tree_item", "font", "texture", "timer", "xml_document", "xml_node", "tray", "shader"]
+# functions outside the types whose Rid is a handle the name does not tell
+FREE_RETURNS = {"Rtheme_get_wallpaper": "texture", "Reffect_get": "shader", "Reffect_find": "shader"}
+
+# headers of include/raven read here (cparse.py skips them, or Raven.h does not
+# include them), with the feature (@feat) of the builds that have their
+# functions: None for every build
+EXTRA_HEADERS = [
+    ("raven_vulkan.h", None),
+    ("raven_backend.h", None),
+    ("raven_android.h", "ANDROID"),
+    ("raven_emscripten.h", "EMSCRIPTEN"),
+]
 
 # ---------------------------------------------------------------------------
 # Error handling: which functions report a failure, turned into an Optional
@@ -60,7 +76,8 @@ HANDLE_PREFIXES = ["window", "tree_item", "font", "texture", "timer", "xml_docum
 FALLIBLE_BOOL = {
     "Rinit", "Rinit_ex", "Ropen_url", "Rwindow_set_theme", "Rtheme_use", "Rwidget_set_theme", "Rdock_area_load_layout",
     "Rcolor_picker_set_hex", "Rtimeline_set_track_style", "Rnode_graph_set_node_style", "Rfile_browser_set_directory",
-    "Rviewport_set_native", "Rxml_register_tag", "Rxml_node_move",
+    "Rviewport_set_native", "Rxml_register_tag", "Rxml_node_move", "Rvulkan_texture_get_shared_info",
+    "Rweb_download_file",
 }
 # Rid functions where R_INVALID_ID is a failure: Type? in C3. Also every
 # create/load/parse function whose documentation says it returns R_INVALID_ID
@@ -218,7 +235,79 @@ def doc_block(doc, indent=""):
 
 # the C types as they are, for raven::c
 C_BASE = {"int": "CInt", "float": "float", "double": "double", "char": "char", "size_t": "usz", "uint64_t": "ulong",
-          "uintptr_t": "uptr", "uint32_t": "uint", "uint8_t": "char", "void": "void"}
+          "uintptr_t": "uptr", "intptr_t": "iptr", "uint32_t": "uint", "uint8_t": "char", "void": "void"}
+
+
+# ---------------------------------------------------------------------------
+# The headers cparse.py does not read
+# ---------------------------------------------------------------------------
+
+def include_dir():
+    """include/ of the checkout whose cparse.py is in use."""
+    import cparse
+    return os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(cparse.__file__)), "..", "..", "include"))
+
+
+def full_api(api):
+    """
+    A copy of `api` with the headers of EXTRA_HEADERS (`api` itself is shared
+    with the other generators and stays as it is), and {function: feature} of
+    the functions that only some builds have.
+    """
+    import copy
+    import cparse
+    full = copy.copy(api)
+    for attr in ("enums", "structs", "opaque", "callbacks", "functions", "defines"):
+        setattr(full, attr, list(getattr(api, attr)))
+    known = {name: value for name, kind, value in api.defines if kind != "str"}
+    for e in api.enums:
+        known.update({item: value for item, value, _ in e.items})
+    read = {f.header for f in api.functions}
+    features = {}
+    temp = tempfile.mkdtemp(prefix="gen_c3-")
+    try:
+        for header, feature in EXTRA_HEADERS:
+            path = os.path.join(include_dir(), "raven", header)
+            if header in read or not os.path.exists(path):
+                continue
+            source = open(path, encoding="utf-8").read()
+            # struct android_app; is a type of another library, only seen through a
+            # pointer: an opaque type, named as C3 wants it (AndroidApp)
+            for tag in re.findall(r"^\s*struct\s+(\w+)\s*;", source, flags=re.M):
+                source = re.sub(r"^(\s*)struct\s+%s\s*;" % tag, r"\1typedef struct %s %s;" % (tag, pascal(tag)), source, flags=re.M)
+                source = re.sub(r"\bstruct\s+%s\s*\*" % tag, "%s*" % pascal(tag), source)
+            copy_path = os.path.join(temp, header)
+            with open(copy_path, "w", encoding="utf-8") as handle:
+                handle.write(source)
+            before = len(full.functions)
+            cparse.parse_header(copy_path, full, known)
+            for f in full.functions[before:]:
+                if feature:
+                    features[f.name] = feature
+    finally:
+        shutil.rmtree(temp, ignore_errors=True)
+    return full, features
+
+
+def function_pointer_fields():
+    """
+    {(structure, field): (return type, [Param])} of the fields that are
+    pointers to functions, which cparse.py only knows as "fnptr".
+    """
+    import cparse
+    fields = {}
+    folder = os.path.join(include_dir(), "raven")
+    for header in sorted(os.listdir(folder)):
+        if not header.endswith(".h"):
+            continue
+        code = open(os.path.join(folder, header), encoding="utf-8").read()
+        code = re.sub(r"/\*.*?\*/", " ", code, flags=re.S)
+        code = re.sub(r"//[^\n]*", " ", code)
+        for struct in re.finditer(r"typedef\s+struct\s+\w+\s*\{(.*?)\}\s*(\w+)\s*;", code, flags=re.S):
+            for field in re.finditer(r"([\w\s\*]+?)\(\s*\*\s*(\w+)\s*\)\s*\((.*?)\)\s*;", struct.group(1), flags=re.S):
+                fields[(struct.group(2), field.group(2))] = (cparse.normalize_type(field.group(1)),
+                                                             cparse.split_params(field.group(3)))
+    return fields
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +316,21 @@ C_BASE = {"int": "CInt", "float": "float", "double": "double", "char": "char", "
 
 def generate(api, module="raven"):
     from cparse import classify
+
+    api, features = full_api(api)
+    fnptrs = function_pointer_fields()
+
+    def feature(f):
+        """ @feat(X) for a function only some builds have, else nothing."""
+        return " @feat(%s)" % features[f.name] if f.name in features else ""
+
+    def fnptr_alias(struct, field):
+        """The type of a field that points to a function: RAllocator.alloc is RAllocatorAllocFn."""
+        return struct + "".join(p[:1].upper() + p[1:] for p in field.split("_")) + "Fn"
+
+    def field_name(name):
+        """A field in snake_case: CreateSurface is create_surface."""
+        return safe(re.sub(r"(?<=[a-z0-9])([A-Z])", r"_\1", name).lower())
 
     flag_enums = []
     for e in api.enums:
@@ -254,6 +358,8 @@ def generate(api, module="raven"):
             flags = flag_type(name, context)
             if flags:
                 return flags
+        if ctype == "intptr_t":
+            return "iptr"
         kind, detail = classify(ctype, api)
         if kind == "void":
             return "void"
@@ -422,6 +528,21 @@ def generate(api, module="raven"):
             return class_name[item_class]
         return "Id"
 
+    def free_returned_class(f):
+        """The type of handle a function outside the types returns: theme_get_font returns a Font."""
+        if f.name in FREE_RETURNS:
+            return class_name[FREE_RETURNS[f.name]]
+        rest = snake(f.name)
+        for prefix in sorted(handle_prefixes, key=len, reverse=True):
+            if rest.endswith("_" + prefix) or re.search(r"(^|_)%s_create(_|$)" % prefix, rest):
+                return class_name[prefix]
+        return "Id"
+
+    def returns_string_array(f, params):
+        """const char* const* f(Ruint* count): a ZString[] in C3."""
+        return (f.ret == "const char*const*" and len(params) == 1 and params[0].name == "count"
+                and classify(params[0].ctype, api)[0] == "out")
+
     # ---- raven::c: the C API as it is
     ext = []
     x = ext.append
@@ -439,7 +560,7 @@ def generate(api, module="raven"):
     x("//")
     x("//   import %s::c;" % module)
     x("//")
-    x("//   if (!c::r_init(c::R_BACKEND_VULKAN)) return 1;")
+    x("//   if (!c::r_init(c::R_BACKEND_DEFAULT)) return 1;")
     x("//   Rid window = c::r_window_create(\"Hello\", 420, 220, c::R_WINDOW_DEFAULT);")
     x("module %s::c;" % module)
     x("")
@@ -473,12 +594,21 @@ def generate(api, module="raven"):
         x("alias %s = fn %s(%s);" % (cb.name, c_type(cb.ret), params))
     x("")
     for s in api.structs:
+        for field in s.fields:
+            if field.ctype == "fnptr" and (s.name, field.name) in fnptrs:
+                ret, params = fnptrs[(s.name, field.name)]
+                x("<* The type of %s.%s. *>" % (s.name, safe(field.name)))
+                x("alias %s = fn %s(%s);" % (fnptr_alias(s.name, field.name), c_type(ret),
+                                             ", ".join("%s %s" % (c_type(p.ctype), safe(p.name)) for p in params)))
         ext.extend(doc_block(s.doc))
         x("struct %s" % s.name)
         x("{")
         for field in s.fields:
             ext.extend(doc_block(field.doc, "\t"))
-            t = c_type(field.ctype)
+            if field.ctype == "fnptr" and (s.name, field.name) in fnptrs:
+                t = fnptr_alias(s.name, field.name)
+            else:
+                t = c_type(field.ctype)
             if field.array:
                 t = "%s[%d]" % (t, field.array)
             x("\t%s %s;" % (t, safe(field.name)))
@@ -487,7 +617,7 @@ def generate(api, module="raven"):
     for f in api.functions:
         ext.extend(doc_block(f.doc))
         params = ", ".join("%s %s" % (c_type(p.ctype), safe(p.name)) for p in f.params)
-        x("extern fn %s %s(%s) @cname(\"%s\");" % (c_type(f.ret), c_function(f.name), params, f.name))
+        x("extern fn %s %s(%s) @cname(\"%s\")%s;" % (c_type(f.ret), c_function(f.name), params, f.name, feature(f)))
         x("")
 
     # ---- the module
@@ -620,15 +750,25 @@ def generate(api, module="raven"):
         w("alias %s = fn %s(%s);" % (type_name(cb.name), c3_type(cb.ret), params))
     w("")
     for s in api.structs:
+        for field in s.fields:
+            if field.ctype == "fnptr" and (s.name, field.name) in fnptrs:
+                ret, params = fnptrs[(s.name, field.name)]
+                context = s.name + "_" + field.name
+                w("<* The type of %s.%s. *>" % (type_name(s.name), field_name(field.name)))
+                w("alias %s = fn %s(%s);" % (type_name(fnptr_alias(s.name, field.name)), c3_type(ret, field.name, context),
+                                             ", ".join("%s %s" % (c3_type(p.ctype, p.name, context), safe(p.name)) for p in params)))
         out.extend(doc_block(s.doc))
         w("struct %s" % type_name(s.name))
         w("{")
         for field in s.fields:
             out.extend(doc_block(field.doc, "\t"))
-            t = "void*" if field.ctype == "fnptr" else c3_type(field.ctype, field.name, s.name)
+            if field.ctype == "fnptr":
+                t = type_name(fnptr_alias(s.name, field.name)) if (s.name, field.name) in fnptrs else "void*"
+            else:
+                t = c3_type(field.ctype, field.name, s.name)
             if field.array:
                 t = "%s[%d]" % (t, field.array)
-            w("\t%s %s;" % (t, safe(field.name)))
+            w("\t%s %s;" % (t, field_name(field.name)))
         w("}")
         w("")
 
@@ -663,7 +803,17 @@ def generate(api, module="raven"):
         body = None
         if f.ret == "Rid" and owner:
             ret = returned_class(owner, rest, not is_method)
-        if fallible and f.ret == "int":
+        elif f.ret == "Rid" and not is_method:
+            ret = free_returned_class(f)
+        if returns_string_array(f, params):
+            count = safe(params[0].name)
+            signature = []
+            ret = "ZString[]"
+            body = ["	%s %s;" % (c_type(params[0].ctype[:-1], "c::"), count),
+                    "	ZString* %s = (ZString*)c::%s(&%s);" % (result_var, c_function(f.name), count),
+                    "	if (%s == null) return {};" % result_var,
+                    "	return %s[:%s];" % (result_var, count)]
+        elif fallible and f.ret == "int":
             ret = "void?"
             body = ["	if (!%s) return last_fault()~;" % call]
         elif fallible:
@@ -676,7 +826,8 @@ def generate(api, module="raven"):
             call = "%s != 0" % call
         else:
             returned = from_c(call, ret, f.ret)
-            if returned == call and not converted and not is_method:
+            # a function of some builds only is not an alias: an alias takes no @feat
+            if returned == call and not converted and not is_method and not feature(f):
                 return None
             call = returned
 
@@ -688,9 +839,9 @@ def generate(api, module="raven"):
             head = "fn %s %s(%s)" % (ret, name, ", ".join(signature))
         lines = doc_block(f.doc)
         if body:
-            lines += [head, "{"] + body + ["}"]
+            lines += [head + feature(f), "{"] + body + ["}"]
         else:
-            lines.append("%s @inline => %s;" % (head, call))
+            lines.append("%s @inline%s => %s;" % (head, feature(f), call))
         return lines
 
     def emit_class(prefix, base):
@@ -792,6 +943,7 @@ def main():
         import cparse
         api = cparse.parse(os.path.join(root, "include"))
         files = generate(api, args.module)
+        api = full_api(api)[0]
     finally:
         if clone:
             shutil.rmtree(clone, ignore_errors=True)

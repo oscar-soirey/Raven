@@ -159,6 +159,7 @@ function windowItem(start: number, end: number, full: boolean): Item {
 function tagSnippet(tag: TagInfo, name: string): string {
 	const hasText = tag.attributes.some((a) => a.name === "Text") && (tag.kind === "part" || tag.children !== "many");
 	const text = hasText ? ' Text="$1"' : "$1";
+	if (tag.name === "Script") return `${name}>\n\tfn \${1:app.start}() {\n\t\t$0\n\t}\n</${name}>`;
 	if (tag.children === "none" && tag.parts.length === 0) return `${name}${text}/>`;
 	if (tag.name === "Widget") return `${name} Name="$1">\n\t$0\n</${name}>`;
 	return `${name}${text}>$0</${name}>`;

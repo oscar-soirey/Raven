@@ -1,6 +1,6 @@
 -- | Raven for Haskell.
 --
--- Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+-- Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 --
 -- "Raven.C" is the C API as it is, and is re-exported here. Around it, a few
 -- helpers for what Haskell does differently from C:

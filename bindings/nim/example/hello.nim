@@ -29,7 +29,7 @@ template check(ok: bool, what: string) =
 proc main() =
   let test = "--test" in commandLineParams()
   var desc: RInitDesc
-  desc.backend = if test: R_BACKEND_NULL else: R_BACKEND_VULKAN
+  desc.backend = if test: R_BACKEND_NULL else: R_BACKEND_DEFAULT
   desc.headless = cint(test)
   if Rinit_ex(addr desc) == 0:
     echo "cannot start Raven"

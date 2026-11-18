@@ -7,11 +7,11 @@ multithreaded GUI library in C for editors and tools.
 <dependency>
   <groupId>io.github.oscar-soirey</groupId>
   <artifactId>raven-gui</artifactId>
-  <version>0.2.3</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
-or, with Gradle, `implementation("io.github.oscar-soirey:raven-gui:0.2.3")`.
+or, with Gradle, `implementation("io.github.oscar-soirey:raven-gui:0.3.0")`.
 
 Java 22 or later: the binding uses the Foreign Function & Memory API
 (`java.lang.foreign`), so it has no dependency and no JNI. The jar of Maven
@@ -22,7 +22,7 @@ import static raven.R.*;
 
 public class Hello {
     public static void main(String[] args) {
-        Rinit(R_BACKEND_VULKAN);
+        Rinit(R_BACKEND_DEFAULT);
         Rwindow_create_from_xml("<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>");
         Raction_bind("quit", (sender, action, user) -> Rquit(0));
         while (Rwait_frame(-1.0) != 0) { }

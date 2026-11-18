@@ -1,6 +1,6 @@
 cabal-version:      2.4
 name:               raven-gui
-version:            0.2.3
+version:            0.3.0
 synopsis:           Raven, a GUI library in C, for Haskell
 description:
     The whole C API of Raven through the FFI (Raven.C), and helpers for texts

@@ -19,7 +19,11 @@
  *      Raven calls the application while it records its own frame, with the
  *      viewport and scissor set to the widget. The application draws straight
  *      into the window: no intermediate image, UI can still be drawn on top.
- *      With the Vulkan backend the callback receives the VkCommandBuffer.
+ *      With the Vulkan backend the callback receives the VkCommandBuffer, with
+ *      the Metal backend the id<MTLRenderCommandEncoder> (one BGRA8Unorm color
+ *      attachment, no depth, one sample: make your pipeline states to match).
+ *      Raven sets the encoder state it needs again after the callback (pipeline,
+ *      viewport, scissor, cull and fill modes, buffers, textures).
  *      The callback runs on the render thread.
  *
  *   3. Native child window  (Rviewport_set_native)
@@ -52,8 +56,14 @@ typedef struct RViewportDrawInfo {
 	void* command_buffer;
 	/** Vulkan: VkRenderPass in use (one color attachment, no depth). */
 	void* render_pass;
-	/** Vulkan: VkFormat of the color attachment. */
+	/** Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. */
 	Ruint color_format;
+	/** Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). */
+	void* metal_encoder;
+	/** Metal: id<MTLCommandBuffer> the encoder belongs to. */
+	void* metal_command_buffer;
+	/** Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. */
+	void* metal_device;
 } RViewportDrawInfo;
 
 

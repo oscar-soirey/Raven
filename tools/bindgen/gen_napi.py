@@ -1121,7 +1121,7 @@ def callback_rule(api, f):
         return "timer"
     if n == "Rdialog_open":
         return "dialog"
-    if n in ("Raction_bind", "Rxml_register_tag"):
+    if n in ("Raction_bind", "Raction_bind_with_parameters", "Rxml_register_tag"):
         return "name"
     first = f.params[0] if f.params else None
     if first is not None and classify(first.ctype, api) == ("scalar", "id"):
@@ -1510,6 +1510,9 @@ def c_add_after(lines_text, f, slots):
     if n in ("Raction_unbind", "Rxml_unregister_tag"):
         bound = "Raction_bind" if n == "Raction_unbind" else "Rxml_register_tag"
         code = "if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, %d, a0.p, NULL);" % slots[bound]
+        if n == "Raction_unbind" and "Raction_bind_with_parameters" in slots:
+            # (one name, bound one way or the other: both are released)
+            code += " if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, %d, a0.p, NULL);" % slots["Raction_bind_with_parameters"]
     elif n in AFTER_CALL:
         code = AFTER_CALL[n]
     else:

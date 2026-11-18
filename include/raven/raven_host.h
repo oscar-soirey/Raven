@@ -42,6 +42,19 @@ extern "C" {
 
 	/** @brief Size of a host window in pixels, and pixels per logical unit. */
 	RAVEN_API void Rhost_window_set_size(Rid window, int width, int height, float scale);
+	/**
+	 * @brief What covers a host window on a phone or a tablet, in pixels: the
+	 * safe area (status bar, notch, home indicator; NULL: none) and the height
+	 * of the on-screen keyboard over its bottom (0: hidden). The content is laid
+	 * out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+	 */
+	RAVEN_API void Rhost_window_set_insets(Rid window, const RInsets* safe_area, int keyboard_height);
+	/**
+	 * @brief The application's system is in dark (R_TRUE) or light (R_FALSE)
+	 * mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+	 * and Rtheme_follow_system follows it.
+	 */
+	RAVEN_API void Rhost_set_system_dark(int dark);
 	RAVEN_API void Rhost_inject_mouse_move(Rid window, int x, int y, Ruint modifiers);
 	RAVEN_API void Rhost_inject_mouse_button(Rid window, int x, int y, RMouseButton button, int pressed, Ruint modifiers);
 	RAVEN_API void Rhost_inject_mouse_wheel(Rid window, float wheel_x, float wheel_y, Ruint modifiers);

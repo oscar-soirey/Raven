@@ -11,6 +11,7 @@
 
 #include "xml.h"
 #include "xml_watch.h"
+#include "../script/script_raven.h"
 #include "../widgets/common.h"
 #include "../render/renderer.h"
 #include "../core/fs.h"
@@ -127,7 +128,7 @@ static int rvn_search_is_absolute(const char* path) {
 }
 
 static int rvn_search_is_file(const char* path) {
-	return rvn_memory_file_exists(path) || (rvn_path_exists(path) && !rvn_path_is_dir(path));
+	return rvn_file_is_virtual(path) || (rvn_path_exists(path) && !rvn_path_is_dir(path));
 }
 
 /* A name inside a folder; "" is the current folder. */
@@ -139,8 +140,13 @@ static int rvn_search_compare_entries(const void* a, const void* b) {
 	return strcmp(((const rvn_dir_entry_t*)a)->name, ((const rvn_dir_entry_t*)b)->name);
 }
 
-/* Lists a folder in the order of the names, so that the result does not depend on the file system. */
+/*
+ * Lists a folder in the order of the names, so that the result does not depend on the file system.
+ * With a package (Android, iOS), a relative folder is one of the package, which is not listed
+ * (SHORTCUT: no auto-loading from the package), and not the current folder: that is "/" there.
+ */
 static int rvn_search_read_dir(const char* folder, rvn_dir_entry_t** entries, uint32_t* count) {
+	if (rvn_file_has_provider() && !(folder && rvn_search_is_absolute(folder))) return R_FALSE;
 	if (!rvn_dir_read((folder && folder[0]) ? folder : ".", entries, count)) return R_FALSE;
 	if (*count > 1) qsort(*entries, *count, sizeof(**entries), rvn_search_compare_entries);
 	return R_TRUE;
@@ -434,8 +440,8 @@ int rvn_xml_discover_widget(const char* tag) {
 		size_t size = 0;
 		char* text = rvn_read_file(path, &size);
 		if (text && rvn_search_is_declarations(text, size)) {
-			/* (a file held in memory keeps its name: it is found by it) */
-			char* from = rvn_memory_file_exists(path) ? rvn_strdup(path) : rvn_path_absolute(path);
+			/* (a file held in memory or in the package keeps its name: it is found by it) */
+			char* from = rvn_file_is_virtual(path) ? rvn_strdup(path) : rvn_path_absolute(path);
 			if (from) {
 				if (rvn_strings_find(&g_search.seen, from, R_FALSE) < 0) rvn_strings_add(&g_search.seen, from);
 				Rxml_register_widgets_from_file(from);
@@ -708,6 +714,10 @@ rvn_widget_t* rvn_xml_build_node(const rvn_xml_node_t* node) {
 			/* a typo should not prevent the rest of the interface from loading */
 			rvn_xml_error(node, R_SEVERITY_WARNING, "<%.60s>: unknown attribute or invalid value %.60s=\"%.60s\"",
 				node->name, attribute->name, attribute->value);
+		} else if (rvn_stricmp(attribute->name, "Action") == 0 || rvn_stricmp(attribute->name, "OnClicked") == 0 || rvn_stricmp(attribute->name, "OnChanged") == 0 ||
+			rvn_stricmp(attribute->name, "OnCommitted") == 0 || rvn_stricmp(attribute->name, "OnActivated") == 0) {
+			/* a script function whose parameters do not fit the event of this widget (RS103) */
+			rvn_script_check_action(node, attribute->name, attribute->value);
 		}
 	}
 	return widget;
@@ -745,7 +755,7 @@ int rvn_xml_window_parts(const rvn_xml_node_t* root, const rvn_xml_node_t** cont
 	*island = NULL;
 	for (child = root->first_child; child; child = child->next) {
 		const rvn_widget_class_t* cls = rvn_widget_class_by_name(child->name);
-		if (rvn_stricmp(child->name, "Shortcut") == 0) continue;
+		if (rvn_stricmp(child->name, "Shortcut") == 0 || rvn_xml_is_script(child->name)) continue;
 		/* an island next to the content floats above it at the top of the window */
 		if (cls && cls->type == R_WIDGET_ISLAND && !*island) {
 			*island = child;
@@ -760,7 +770,7 @@ int rvn_xml_window_parts(const rvn_xml_node_t* root, const rvn_xml_node_t** cont
 	return R_TRUE;
 }
 
-Rid rvn_xml_make_widget(rvn_xml_document_t* document, int window_content) {
+static Rid rvn_xml_make_widget_of(rvn_xml_document_t* document, int window_content) {
 	const rvn_xml_node_t* node = document->root;
 	rvn_widget_t* widget;
 	if (rvn_stricmp(node->name, "Window") == 0) {
@@ -775,6 +785,14 @@ Rid rvn_xml_make_widget(rvn_xml_document_t* document, int window_content) {
 	}
 	widget = rvn_xml_build_node(node);
 	return widget ? widget->id : R_INVALID_ID;
+}
+
+Rid rvn_xml_make_widget(rvn_xml_document_t* document, int window_content) {
+	/* the scripts of the document first: the actions of the widgets name their functions */
+	rvn_script_document_t* scripts = rvn_script_document_begin(document, NULL);
+	Rid widget = rvn_xml_make_widget_of(document, window_content);
+	rvn_script_document_end(scripts, widget);
+	return widget;
 }
 
 Rid rvn_xml_build_widget(rvn_xml_document_t* document, int window_content, const char* function) {
@@ -905,7 +923,17 @@ const rvn_theme_t* rvn_xml_window_theme(const char* value) {
 	return rvn_xml_theme(value);
 }
 
+static Rid rvn_xml_make_window_of(rvn_xml_document_t* document);
+
 Rid rvn_xml_make_window(rvn_xml_document_t* document) {
+	/* the scripts of the document first: the actions of the widgets name their functions */
+	rvn_script_document_t* scripts = rvn_script_document_begin(document, NULL);
+	Rid window = rvn_xml_make_window_of(document);
+	rvn_script_document_end(scripts, window);
+	return window;
+}
+
+static Rid rvn_xml_make_window_of(rvn_xml_document_t* document) {
 	const rvn_xml_node_t* root = document->root;
 	const rvn_xml_node_t* content_node;
 	const rvn_xml_node_t* island_node;
@@ -1010,7 +1038,10 @@ static Rid rvn_xml_create_from_file(const char* path, int is_window, const char*
 	/* (the files it includes are noted: a change in one of them is a change in this one) */
 	rvn_live_begin();
 	if (rvn_xml_load(&document, text, size, function)) {
+		/* (the diagnostics of its scripts name the file) */
+		const char* previous_file = rvn_script_set_file(path);
 		result = is_window ? rvn_xml_make_window(&document) : rvn_xml_make_widget(&document, R_FALSE);
+		rvn_script_set_file(previous_file);
 		/* the document stays with what it built: when the file changes, the two are compared */
 		if (result != R_INVALID_ID) rvn_live_add(path, is_window, result, &document);
 		else rvn_xml_free(&document);

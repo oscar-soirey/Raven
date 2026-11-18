@@ -236,6 +236,67 @@ static rvn_xml_node_t* rvn_xml_read_comment(rvn_xml_reader_t* reader, rvn_xml_no
 	return node;
 }
 
+int rvn_xml_is_script(const char* tag) {
+	return tag && rvn_stricmp(tag, RVN_XML_SCRIPT_TAG) == 0;
+}
+
+/* The content of a <Script>: raw text up to the closing tag (see xml.h). */
+static rvn_xml_node_t* rvn_xml_read_raw(rvn_xml_reader_t* reader, rvn_xml_node_t* node) {
+	const char* start = reader->cursor;
+	const char* end;
+	size_t name_length = strlen(node->name);
+	node->text_line = reader->line;
+	node->text_column = reader->column;
+	for (;;) {
+		if (rvn_xml_eof(reader)) {
+			rvn_xml_fail(reader, "missing </Script>: a script runs to its closing tag");
+			return NULL;
+		}
+		if (reader->cursor[0] == '<' && reader->cursor + 1 < reader->end && reader->cursor[1] == '/' &&
+			(size_t)(reader->end - reader->cursor) >= name_length + 2) {
+			size_t i;
+			int same = R_TRUE;
+			for (i = 0; i < name_length; i++) {
+				char a = reader->cursor[2 + i], b = node->name[i];
+				if (a >= 'A' && a <= 'Z') a = (char)(a - 'A' + 'a');
+				if (b >= 'A' && b <= 'Z') b = (char)(b - 'A' + 'a');
+				if (a != b) {
+					same = R_FALSE;
+					break;
+				}
+			}
+			if (same) {
+				const char* after = reader->cursor + 2 + name_length;
+				while (after < reader->end && rvn_xml_is_space(*after)) after++;
+				if (after < reader->end && *after == '>') break;
+			}
+		}
+		rvn_xml_advance(reader);
+	}
+	end = reader->cursor;
+	{
+		/* <![CDATA[ ... ]]> around the whole script: the markers go, the positions stay right */
+		const char* inner = start;
+		const char* inner_end = end;
+		while (inner < inner_end && rvn_xml_is_space(*inner)) inner++;
+		while (inner_end > inner && rvn_xml_is_space(inner_end[-1])) inner_end--;
+		if (inner_end - inner >= 12 && memcmp(inner, "<![CDATA[", 9) == 0 && memcmp(inner_end - 3, "]]>", 3) == 0) {
+			char* text = rvn_arena_strndup(&reader->document->arena, start, (size_t)(end - start));
+			/* (spaces in place of the markers: the lines and columns of the script do not move) */
+			memset(text + (inner - start), ' ', 9);
+			memset(text + (inner_end - start) - 3, ' ', 3);
+			node->text = text;
+		} else {
+			node->text = rvn_arena_strndup(&reader->document->arena, start, (size_t)(end - start));
+		}
+	}
+	/* the closing tag */
+	rvn_xml_skip(reader, 2 + name_length);
+	rvn_xml_skip_space(reader);
+	rvn_xml_advance(reader);
+	return node;
+}
+
 static rvn_xml_node_t* rvn_xml_read_element(rvn_xml_reader_t* reader, rvn_xml_node_t* parent, int depth) {
 	rvn_xml_node_t* node;
 	char* text = NULL;
@@ -266,6 +327,8 @@ static rvn_xml_node_t* rvn_xml_read_element(rvn_xml_reader_t* reader, rvn_xml_no
 		return NULL;
 	}
 	rvn_xml_advance(reader);
+
+	if (rvn_xml_is_script(node->name)) return rvn_xml_read_raw(reader, node);
 
 	/* content: text, child elements, comments, CDATA, until the closing tag */
 	while (!reader->failed) {
@@ -350,6 +413,8 @@ static int rvn_xml_parse_with(rvn_xml_document_t* document, const char* text, si
 
 	memset(document, 0, sizeof(*document));
 	document->keep_comments = keep_comments;
+	document->source = text;
+	document->source_size = text ? size : 0;
 	rvn_arena_init(&document->arena, 16384);
 	memset(&reader, 0, sizeof(reader));
 	reader.document = document;

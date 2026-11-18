@@ -105,6 +105,7 @@ static const rvn_schema_attribute_t g_window_touch[] = {
 	N("Touch.Deceleration", "How fast flicked content slows down, units per second per second (default 2400)."),
 	B("Touch.Gestures", "Two fingers pinch to zoom and pan (default true)."),
 	B("Touch.PalmRejection", "Fingers are ignored while a pen is near the screen (default true)."),
+	N("Touch.MinSize", "Smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere)."),
 	B("Pen.MouseEmulation", "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."),
 	N("Pen.PressureCurve", "The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder."),
 	N("Pen.PressureThreshold", "Pressure, 0 to 1, the tip needs before it presses (default 0)."),
@@ -192,6 +193,15 @@ static const rvn_schema_attribute_t g_splitter[] = {
 	N("MinPaneSize", "The smallest a pane can be dragged to."),
 };
 static const rvn_schema_attribute_t g_switcher[] = { N("Index", "Which child is shown, from 0.") };
+static const rvn_schema_attribute_t g_carousel[] = {
+	N("Page", "Which page is shown, from 0."),
+	B("Loop", "After the last page comes the first one, and before the first the last."),
+	N("Autoplay", "Seconds between the pages turned by themselves; 0 (default) never. It waits while the pointer is on it."),
+	B("Indicators", "The dots of the pages along the bottom edge (default true)."),
+	B("Arrows", "The previous / next buttons shown under the pointer (default true)."),
+	C("Orientation", ORIENTATION, "Pages side by side (default) or one above the other."),
+	A("OnChanged", "Action fired when the user or the autoplay goes to another page."),
+};
 static const rvn_schema_attribute_t g_tab_view[] = { N("ActiveTab", "Which tab is shown, from 0."), A("OnChanged", "Action fired when the tab changes.") };
 static const rvn_schema_attribute_t g_expander[] = {
 	T("Title", "Text of the header."),
@@ -374,6 +384,17 @@ static const rvn_schema_attribute_t g_chart[] = {
 	K("HighColor", "The color of the highest values of a heatmap."),
 	A("OnClicked", "Action fired when the user clicks a slice or a cell."),
 };
+static const rvn_schema_attribute_t g_map_view[] = {
+	N("Latitude", "Latitude of the center, in degrees (held within +/-85.0511)."),
+	N("Longitude", "Longitude of the center, in degrees."),
+	N("Zoom", "The zoom: 0 shows the whole world in one tile, each step doubles the scale."),
+	N("MinZoom", "The smallest zoom the user can reach (default 0)."),
+	N("MaxZoom", "The largest zoom the user can reach, and of the tiles asked for (default 19, at most 24)."),
+	T("TilePath", "Reads the tiles from files: a path with {z}, {x} and {y} ({-y}: the row counted from the south, TMS)."),
+	N("TileSize", "Logical size of a tile at a whole zoom (default 256, held within 16 .. 1024)."),
+	T("Attribution", "The credit of the tiles, written in the bottom right corner."),
+	A("OnChanged", "Action fired when the user moves or zooms the map."),
+};
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
@@ -383,6 +404,8 @@ static const rvn_schema_attribute_t g_tile_view[] = {
 	C("Layout", "Tiles|Rows", "Tiles: a grid. Rows: one item per line, as wide as the view, the icon on the left."),
 	N("TileHeight", "Height of a tile, name included."),
 	N("IconSize", "Size of the icon of a tile."),
+	N("IconWidth", "Rows layout: width of the box of the icon (0: square)."),
+	N("HeaderHeight", "Height of the header of a section (Rtile_view_set_sections)."),
 	N("Spacing", "Space between the tiles."),
 	T("EmptyText", "Text shown when there is no tile."),
 	T("DragType", "Type given to Rdrag_begin when tiles are dragged; empty: no drag."),
@@ -552,6 +575,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG_PLAIN("Canvas", "Places its children freely (Slot.Position, Slot.Size, Slot.Anchors)."),
 	TAG("Switcher", g_switcher, "Shows one of its children."),
 	TAG("TabView", g_tab_view, "Its children as tabs (Slot.Title)."),
+	TAG("Carousel", g_carousel, "Its children as pages shown one at a time, swiped, with dots and arrows."),
 	TAG("Expander", g_expander, "A header that shows and hides one child."),
 	TAG("Label", g_label, "Text."),
 	TAG("Button", g_button, "A button, with a text or with one child."),
@@ -587,6 +611,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Breadcrumb", g_breadcrumb, "The path to the current place: links separated by chevrons."),
 	TAG("Rating", g_rating, "A score shown and chosen with stars."),
 	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
+	TAG("MapView", g_map_view, "A map of slippy-map tiles (Web Mercator z/x/y) given by the application or read from files: dragged, zoomed, with Marker elements (Latitude, Longitude, Label, Color)."),
 	TAG("PdfView", g_pdf_view, "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time)."),
 	TAG("Chart", g_chart, "The charts of dashboards: a pie or a donut of Slice elements (Label, Value, Color), a gauge with Band elements (From, To, Color), a heatmap of Row elements (Label, Values), a sparkline of Values."),
 	TAG("Plot", g_plot, "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color)."),

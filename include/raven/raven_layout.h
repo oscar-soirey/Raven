@@ -125,7 +125,12 @@ extern "C" {
 	RAVEN_API void Rscroll_box_set_offset(Rid scroll_box, float x, float y);
 	RAVEN_API void Rscroll_box_get_offset(Rid scroll_box, float* x, float* y);
 	RAVEN_API void Rscroll_box_scroll_to_end(Rid scroll_box);
-	/** @brief Scrolls every ScrollBox above the widget so that the widget is visible. */
+	/**
+	 * @brief Scrolls every ScrollBox above the widget so that the widget is
+	 * visible. The library does it by itself for the focused widget when the
+	 * focus comes from Tab or Rwidget_focus, and for a text field above the
+	 * on-screen keyboard (Rwindow_get_keyboard_area).
+	 */
 	RAVEN_API void Rwidget_scroll_into_view(Rid widget);
 
 	/* SPLITTER */

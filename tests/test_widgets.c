@@ -311,6 +311,31 @@ static void test_spin_box_buttons(void) {
 	test_key(g_window, R_KEY_ESCAPE, 0);
 }
 
+/* The destroy callback of a replaced child destroys the container (#116). */
+static void on_old_child_destroyed(Rid old, void* user_data) {
+	(void)old;
+	Rwidget_destroy(*(Rid*)user_data);
+}
+
+static void test_replace_child_destroys_parent(void) {
+	Rid border = Rwidget_create(R_WIDGET_BORDER);
+	Rid old = Rwidget_add_child(border, Rlabel_create("old"));
+	Rid next = Rlabel_create("new");
+	Rid other = Rwidget_create(R_WIDGET_BORDER);
+	Rwidget_set_destroy_callback(old, on_old_child_destroyed, &border);
+	CHECK(Rwidget_add_child(border, next) == R_INVALID_ID);
+	CHECK(!Rwidget_is_valid(border));
+	CHECK(!Rwidget_is_valid(old));
+	/* the new child was not added: it is still the caller's */
+	CHECK(Rwidget_is_valid(next));
+	CHECK(Rwidget_get_parent(next) == R_INVALID_ID);
+	/* without the callback, replacing still works */
+	CHECK(Rwidget_add_child(other, Rlabel_create("first")) != R_INVALID_ID);
+	CHECK(Rwidget_add_child(other, next) == next);
+	CHECK(Rwidget_get_child_count(other) == 1);
+	Rwidget_destroy(other);
+}
+
 static void test_text_input(void) {
 	Rid box = column();
 	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
@@ -1192,6 +1217,19 @@ static void test_device_lost(void) {
 
 /* A selectable label: the mouse selects its text as on a web page, Ctrl+C copies it. */
 /* The focused text input as the text services of the system see it (mobile on-screen keyboards). */
+/* Setting the text from a part of its own text (#115): the copy overlaps. */
+static void test_text_input_own_text(void) {
+	Rid input = Rwidget_create(R_WIDGET_TEXT_INPUT);
+	Rtext_input_set_text(input, "  hello world");
+	Rtext_input_set_text(input, Rtext_input_get_text(input) + 2);
+	CHECK_STR(Rtext_input_get_text(input), "hello world");
+	Rtext_input_set_text(input, Rtext_input_get_text(input) + 6);
+	CHECK_STR(Rtext_input_get_text(input), "world");
+	Rtext_input_set_text(input, Rtext_input_get_text(input));
+	CHECK_STR(Rtext_input_get_text(input), "world");
+	Rwidget_destroy(input);
+}
+
 static void test_text_input_services(void) {
 	Rid box = column();
 	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
@@ -1373,6 +1411,19 @@ static void test_selectable_label(void) {
 	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
 	Rlabel_select_all(plain);
 	CHECK_STR(Rlabel_get_selected_text(plain), "");
+	/* ... unless it has a tooltip (the hover must reach it), also after its text changes */
+	Rwidget_set_tooltip(plain, "C:\\images\\unit_01.png");
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) == plain);
+	Rlabel_set_text(plain, "Not selectable");
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) == plain);
+	Rwidget_set_tooltip(plain, NULL);
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
+	/* the same from XML (Tooltip="…", here after the Text), and an empty one removes it */
+	CHECK(Rwidget_set_attribute(plain, "Tooltip", "From XML"));
+	CHECK_STR(Rwidget_get_tooltip(plain), "From XML");
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) == plain);
+	CHECK(Rwidget_set_attribute(plain, "Tooltip", ""));
+	CHECK(Rwidget_hit_test(Rwindow_get_content(g_window), x + w * 0.5f, y + h * 0.5f) != plain);
 
 	/* and no longer selectable: the selection goes */
 	Rlabel_select_all(label);
@@ -1465,8 +1516,10 @@ int main(void) {
 	RUN(test_radio_rebuild_in_callback);
 	RUN(test_slider_and_spin_box);
 	RUN(test_spin_box_buttons);
+	RUN(test_replace_child_destroys_parent);
 	RUN(test_text_input);
 	RUN(test_text_input_services);
+	RUN(test_text_input_own_text);
 	RUN(test_selectable_label);
 	RUN(test_combo_box);
 	RUN(test_highlight_follows_pointer);

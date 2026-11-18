@@ -10,8 +10,22 @@
  *
  * Each Raven window is a UIWindow on the first connected UIWindowScene, with
  * a view controller whose view carries a CAMetalLayer. The renderer is given
- * R_WINDOW_SYSTEM_UIKIT with the CAMetalLayer*, from which it makes a
- * VK_EXT_metal_surface as it does for Cocoa.
+ * R_WINDOW_SYSTEM_UIKIT with the CAMetalLayer*: the Metal backend draws into
+ * it, Vulkan makes a VK_EXT_metal_surface of it as it does for Cocoa.
+ *
+ * The application's lifecycle (UIApplication notifications) is handed to the
+ * core at once as RVN_PEVENT_APP: in the background no frame comes, and the
+ * core must have stopped drawing and drained the GPU before
+ * didEnterBackground returns (the system may kill an application that uses
+ * the GPU in the background). The CAMetalLayer and the swapchain are kept
+ * meanwhile: nothing is presented, and they are used again on return. The
+ * Metal backend is also suspended in between (rvn_metal_set_suspended), so a
+ * frame already under way cannot commit a command buffer.
+ * SHORTCUT: a scene that is disconnected (the system reclaims it) is not
+ * handled: its windows are not moved to a new scene.
+ *
+ * Relative paths read the resources of the app's bundle: see "Files of the
+ * bundle".
  *
  * Compiled with ARC (see CMakeLists.txt).
  */
@@ -19,8 +33,12 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/CAMetalLayer.h>
 #import <Metal/Metal.h>
+#include <sys/stat.h>
 
 #include "../platform.h"
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+#include "../../render/renderer.h"
+#endif
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, as the Android platform reaches the core) */
 #include "../../widget/widget.h"
 
@@ -908,6 +926,29 @@ static void rvn_uikit_keyboard_changed(NSNotification* note, int hiding) {
 	for (window = g_uikit.windows; window; window = window->next) rvn_uikit_keyboard_measure(window);
 }
 
+/*
+ * The application's lifecycle: the core gets it now, after what was queued,
+ * since no frame may come before the system suspends the application.
+ */
+static void rvn_uikit_app_event(RAppEvent app_event) {
+	rvn_pevent_t e;
+	int i;
+	if (!g_uikit.handler) return;
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+	/* no command buffer may reach the GPU in the background: the Metal backend refuses them (and waits for the GPU) until the application comes back */
+	if (app_event == R_APP_DID_PAUSE) rvn_metal_set_suspended(R_TRUE);
+	else if (app_event == R_APP_WILL_RESUME || app_event == R_APP_DID_RESUME) rvn_metal_set_suspended(R_FALSE);
+#endif
+	for (i = 0; i < g_uikit.count; i++) g_uikit.handler(&g_uikit.queue[i]);
+	g_uikit.count = 0;
+	memset(&e, 0, sizeof(e));
+	e.type = RVN_PEVENT_APP;
+	e.app_event = (int)app_event;
+	g_uikit.handler(&e);
+	/* (outside a frame: the display link ticks again for what the application changed, or what changed in the background; not in the background) */
+	if (app_event != R_APP_DID_PAUSE && app_event != R_APP_WILL_TERMINATE) rvn_uikit_resume();
+}
+
 /* The scene became active or is about to resign (app switcher, home, a call): the core's "active" window. */
 static void rvn_uikit_scene_focus(NSNotification* note, int focused) {
 	rvn_pwindow_t* window;
@@ -923,12 +964,61 @@ static void rvn_uikit_scene_focus(NSNotification* note, int focused) {
 	}
 }
 
+/* ---------------------------------------------------------------------------
+ *  Files of the bundle: plain files under [NSBundle mainBundle].resourcePath
+ *  (core/file.c asks for the relative paths it cannot find; the current
+ *  folder of an iOS app is "/"). Not in g_uikit: textures are read on worker
+ *  threads.
+ * ------------------------------------------------------------------------- */
+
+static char g_uikit_resources[1024];
+
+static void* rvn_uikit_resource_open(const char* path) {
+	char full[2048];
+	FILE* file;
+	struct stat info;
+	if (!g_uikit_resources[0]) return NULL;
+	snprintf(full, sizeof(full), "%s/%s", g_uikit_resources, path);
+	file = fopen(full, "rb");
+	/* (a folder opens too: only regular files are read) */
+	if (file && (fstat(fileno(file), &info) != 0 || !S_ISREG(info.st_mode))) {
+		fclose(file);
+		file = NULL;
+	}
+	return file;
+}
+
+static size_t rvn_uikit_resource_size(void* file) {
+	struct stat info;
+	return fstat(fileno((FILE*)file), &info) == 0 && info.st_size > 0 ? (size_t)info.st_size : 0;
+}
+
+static size_t rvn_uikit_resource_read(void* file, void* buffer, size_t size) {
+	return fread(buffer, 1, size, (FILE*)file);
+}
+
+static void rvn_uikit_resource_close(void* file) {
+	fclose((FILE*)file);
+}
+
+static const rvn_file_provider_t g_uikit_resource_provider = {
+	rvn_uikit_resource_open, rvn_uikit_resource_size, rvn_uikit_resource_read, rvn_uikit_resource_close
+};
+
 static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regions) {
 	NSNotificationCenter* center = [NSNotificationCenter defaultCenter];
 	NSOperationQueue* main = [NSOperationQueue mainQueue];
 	RVN_UNUSED(regions);
 	memset(&g_uikit, 0, sizeof(g_uikit));
 	g_uikit.handler = handler;
+	{
+		NSString* resources = [NSBundle mainBundle].resourcePath;
+		if (resources && [resources getFileSystemRepresentation:g_uikit_resources maxLength:sizeof(g_uikit_resources)]) {
+			rvn_file_set_provider(&g_uikit_resource_provider);
+		} else {
+			g_uikit_resources[0] = '\0';
+		}
+	}
 	g_uikit.observers = (void*)CFBridgingRetain(@[
 		[center addObserverForName:UIKeyboardWillChangeFrameNotification object:nil queue:main usingBlock:^(NSNotification* note) {
 			rvn_uikit_keyboard_changed(note, R_FALSE);
@@ -941,12 +1031,38 @@ static int rvn_uikit_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t re
 		}],
 		[center addObserverForName:UISceneWillDeactivateNotification object:nil queue:main usingBlock:^(NSNotification* note) {
 			rvn_uikit_scene_focus(note, R_FALSE);
+		}],
+		/* the whole application (all its scenes) */
+		[center addObserverForName:UIApplicationWillResignActiveNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_WILL_PAUSE);
+		}],
+		[center addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_DID_PAUSE);
+		}],
+		[center addObserverForName:UIApplicationWillEnterForegroundNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_WILL_RESUME);
+		}],
+		[center addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_DID_RESUME);
+		}],
+		[center addObserverForName:UIApplicationDidReceiveMemoryWarningNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_LOW_MEMORY);
+		}],
+		[center addObserverForName:UIApplicationWillTerminateNotification object:nil queue:main usingBlock:^(NSNotification* note) {
+			(void)note;
+			rvn_uikit_app_event(R_APP_WILL_TERMINATE);
 		}]
 	]);
 	return R_TRUE;
 }
 
 static void rvn_uikit_shutdown(void) {
+	rvn_file_set_provider(NULL);
 	if (g_uikit.observers) {
 		NSArray* observers = CFBridgingRelease(g_uikit.observers);
 		for (id observer in observers) [[NSNotificationCenter defaultCenter] removeObserver:observer];

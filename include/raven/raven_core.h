@@ -21,9 +21,9 @@
 #define RAVEN_CORE_H
 
 #define RAVEN_VERSION_MAJOR 0
-#define RAVEN_VERSION_MINOR 2
-#define RAVEN_VERSION_PATCH 3
-#define RAVEN_API_VERSION "0.2"
+#define RAVEN_VERSION_MINOR 3
+#define RAVEN_VERSION_PATCH 0
+#define RAVEN_API_VERSION "0.3"
 
 #ifdef __cplusplus
  #include <cstdint>
@@ -67,6 +67,8 @@ typedef uint32_t Ruint;
 
 
 typedef enum RBackend{
+	/** The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
+	R_BACKEND_DEFAULT = 0,
 	/** Built-in Vulkan renderer. */
 	R_BACKEND_VULKAN = 0x0001,
 	/** Renders nothing. Used for headless runs and unit tests. */
@@ -74,7 +76,9 @@ typedef enum RBackend{
 	/** Backend supplied with Rbackend_register (see raven_backend.h). */
 	R_BACKEND_CUSTOM,
     /** Browser renderer (Emscripten, WebGL 2). */
-    R_BACKEND_WEBGL
+    R_BACKEND_WEBGL,
+	/** Built-in Metal renderer (macOS, iOS). */
+	R_BACKEND_METAL
 }RBackend;
 
 typedef enum RError{
@@ -89,7 +93,9 @@ typedef enum RError{
 	R_ERROR_INVALID_FILE_FORMAT,
 	R_ERROR_FILE_NOT_FOUND,
 	R_ERROR_XML,
-	R_ERROR_WRONG_THREAD
+	R_ERROR_WRONG_THREAD,
+	/** A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...". */
+	R_ERROR_SCRIPT
 }RError;
 
 typedef enum RSeverity{
@@ -105,7 +111,7 @@ typedef enum RSeverity{
  * default for every field, so new fields can be added without breaking code.
  */
 typedef struct RInitDesc {
-	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
+	/** Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
 	RBackend backend;
 	/** Application name reported to the graphics driver. May be NULL. */
 	const char* app_name;
@@ -323,6 +329,60 @@ extern "C" {
 
 
 	/* ============================================================================
+	 *  APPLICATION LIFECYCLE
+	 * ============================================================================ */
+
+	/**
+	 * What the system does with the application, on iOS and Android (desktop
+	 * systems send none of these). A pause is not always followed by
+	 * R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+	 * system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+	 * At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+	 *
+	 *   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+	 *   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+	 *   coming back         R_APP_WILL_RESUME   Raven draws again
+	 *   in front again      R_APP_DID_RESUME    takes input again
+	 */
+	typedef enum RAppEvent{
+		/** The application is about to leave the front (home, app switcher, a call). Save the state now. */
+		R_APP_WILL_PAUSE = 0x0B80,
+		/** The application is in the background: Raven has stopped drawing, and waited until the GPU was idle. */
+		R_APP_DID_PAUSE,
+		/** The application is coming back to the front: Raven draws again. */
+		R_APP_WILL_RESUME,
+		/** The application is in front and takes input again. */
+		R_APP_DID_RESUME,
+		/** The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap. */
+		R_APP_LOW_MEMORY,
+		/** The application is about to end (Android: the activity is finishing; its window is closed right after). */
+		R_APP_WILL_TERMINATE
+	}RAppEvent;
+
+	/**
+	 * @brief Registers a function called when the application changes state
+	 * (RAppEvent), on the UI thread, while the system waits for it: keep it
+	 * short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+	 * draws nothing, animations stand still and Rwait_frame sleeps until an
+	 * event, a posted task or a timer: the timers of the application keep
+	 * running, so stop those that only drive drawing. Set it after Rinit;
+	 * NULL removes it.
+	 */
+	typedef void (*RAppEventCallback)(RAppEvent event, void* user_data);
+	RAVEN_API void Rset_app_event_callback(RAppEventCallback callback, void* user_data);
+
+	/** @return R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background. */
+	RAVEN_API int Ris_app_paused(void);
+
+	/**
+	 * @brief Handles an RAppEvent as if the system had sent it: for tests,
+	 * and for a host application (raven_host.h) that knows the lifecycle.
+	 * UI thread.
+	 */
+	RAVEN_API void Rinject_app_event(RAppEvent event);
+
+
+	/* ============================================================================
 	 *  ANIMATIONS
 	 * ============================================================================ */
 
@@ -437,6 +497,58 @@ extern "C" {
 
 	/** @brief Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge). */
 	RAVEN_API void Raction_set_default_handler(RActionCallback callback, void* user_data);
+
+	/**
+	 * Actions with parameters. A function bound this way takes typed
+	 * arguments and may return a value:
+	 *   - Raven Script calls it with arguments: app.save("notes.txt");
+	 *   - fired by a widget, it receives what the event gives (the value of a
+	 *     Slider, the state of a Checkbox, the text of a TextInput...; see
+	 *     raven_script.h), as a script function would;
+	 *   - Raction_fire calls it with the arguments of the event of `sender`.
+	 *
+	 *     static void save(RActionContext* context, void* user_data) {
+	 *         const char* path = Raction_get_string(context, 0);
+	 *         Raction_return_bool(context, write_file(path));
+	 *     }
+	 *     Raction_bind_with_parameters("app.save", "(path: string): bool", save, NULL);
+	 *
+	 * The signature lists the parameters, "number", "string" or "bool", each
+	 * with a name or not ("(string, number)"), and the return type after ':'
+	 * (void when it is left out). It is what the type checker of Raven Script
+	 * sees: calls with the wrong arguments are refused before anything runs.
+	 * An event handler may ignore arguments the event gives, but cannot
+	 * require more than it gives.
+	 *
+	 * The action is in the same registry as those of Raction_bind (binding
+	 * one replaces the other; Raction_unbind removes either). Functions
+	 * bound with Raction_bind are callable from scripts too, without
+	 * arguments.
+	 *
+	 * @return R_FALSE (and an error) when the signature is not valid.
+	 */
+	typedef struct RActionContext RActionContext;
+	typedef void (*RActionParametersCallback)(RActionContext* context, void* user_data);
+	RAVEN_API int Raction_bind_with_parameters(const char* name, const char* signature, RActionParametersCallback callback, void* user_data);
+	/** @return The widget whose event fired the action, R_INVALID_ID when a script calls it. */
+	RAVEN_API Rid Raction_get_sender(const RActionContext* context);
+	RAVEN_API const char* Raction_get_name(const RActionContext* context);
+	/** @return The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more. */
+	RAVEN_API int Raction_get_argument_count(const RActionContext* context);
+	/** @brief The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE. */
+	RAVEN_API double Raction_get_number(const RActionContext* context, int index);
+	/** @return Valid until the function returns. */
+	RAVEN_API const char* Raction_get_string(const RActionContext* context, int index);
+	RAVEN_API int Raction_get_bool(const RActionContext* context, int index);
+	/** @brief The value returned to the script; of the type of the signature (what is set last counts). */
+	RAVEN_API void Raction_return_number(RActionContext* context, double value);
+	RAVEN_API void Raction_return_string(RActionContext* context, const char* value);
+	RAVEN_API void Raction_return_bool(RActionContext* context, int value);
+	/**
+	 * @brief The function failed: the script that called it stops with error
+	 * RS205 and this message (the application goes on; so does the next event).
+	 */
+	RAVEN_API void Raction_fail(RActionContext* context, const char* message);
 
 	/**
 	 * @brief The actions Raven knows by itself: an interface written in XML

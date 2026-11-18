@@ -1,6 +1,6 @@
 ## Raven for Nim: the C API as it is.
 ##
-## Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+## Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 ##
 ## The same names as in C. Enumerations are `cint` with constants, as in C;
 ## structures start zeroed, as every Nim object (`var desc: RInitDesc` is
@@ -28,11 +28,24 @@ type
     ## A handle: every object of the library is one.
   Ruint* = uint32
     ## An unsigned number of the API (flags, codepoints).
+  RActionContext* = object
+    ## An object of the library seen through a pointer only.
   RPainter* = object
     ## An object of the library seen through a pointer only.
   RBackend* = cint
   RError* = cint
   RSeverity* = cint
+  RAppEvent* = cint
+    ## What the system does with the application, on iOS and Android (desktop
+    ## systems send none of these). A pause is not always followed by
+    ## R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+    ## system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+    ## At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+    ##
+    ##   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+    ##   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+    ##   coming back         R_APP_WILL_RESUME   Raven draws again
+    ##   in front again      R_APP_DID_RESUME    takes input again
   RWindowFlags* = cint
   RPictureInPictureCorner* = cint
     ## Where a window in picture in picture goes (Rwindow_set_picture_in_picture_layout).
@@ -137,6 +150,8 @@ type
   RPdfTextStyle* = cint
     ## A bitmask of styles of the text of a PDF document.
   RPdfPrintFlags* = cint
+  RMapTileState* = cint
+    ## Where a tile of a MapView stands (Rmap_view_get_tile_state).
   RPlotScale* = cint
     ## How an axis of a Plot spreads its values.
   RPlotLine* = cint
@@ -189,6 +204,14 @@ type
     ## The body of your loop does the same job; the callback is also called
     ## while the OS keeps the thread in a loop of its own (on Windows, while
     ## the user moves or resizes a window), when your loop is not running.
+  RAppEventCallback* = proc (event: RAppEvent, user_data: pointer) {.cdecl.}
+    ## Registers a function called when the application changes state
+    ## (RAppEvent), on the UI thread, while the system waits for it: keep it
+    ## short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+    ## draws nothing, animations stand still and Rwait_frame sleeps until an
+    ## event, a posted task or a timer: the timers of the application keep
+    ## running, so stop those that only drive drawing. Set it after Rinit;
+    ## NULL removes it.
   RTaskCallback* = proc (user_data: pointer) {.cdecl.}
   RParallelRangeCallback* = proc (begin: uint32, `end`: uint32, user_data: pointer) {.cdecl.}
   RTimerCallback* = proc (timer: Rid, user_data: pointer) {.cdecl.}
@@ -198,6 +221,7 @@ type
     ## Rwidget_set_action); when its main event fires, the function bound to that
     ## name is called. Names are resolved when the event fires, so actions can be
     ## bound before or after the widgets are created.
+  RActionParametersCallback* = proc (context: ptr RActionContext, user_data: pointer) {.cdecl.}
   RErrorCallback* = proc (code: RError, severity: RSeverity, detail: cstring) {.cdecl.}
     ## Registers a function called whenever an error is raised.
     ## The function may be registered before Rinit. It is called on the
@@ -225,6 +249,10 @@ type
     ## handle). Return R_TRUE to accept: while the pointer is over the target this
     ## shows the "can drop here" cursor and highlights the target; for
     ## R_DROP_DROPPED it tells the source that the data was taken.
+  RBackCallback* = proc (window: Rid, user_data: pointer): cint {.cdecl.}
+    ## Called on Back when no popup or dialog of Raven is open. Return
+    ## R_TRUE when the application went back, R_FALSE when it had nowhere to
+    ## go (the system then does its default). NULL removes it.
   RWindowCloseCallback* = proc (window: Rid, user_data: pointer): cint {.cdecl.}
     ## Called when the user asks to close the window.
     ## Return R_TRUE to let the window close, R_FALSE to keep it open.
@@ -284,6 +312,9 @@ type
     ## Right click: `item` is the item under the pointer (selected
     ## first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
   RMenuItemClickedCallback* = proc (item: Rid, user_data: pointer) {.cdecl.}
+  RTileSectionCallback* = proc (tile_view: Rid, section: cint, `out`: ptr RTileSection, user_data: pointer) {.cdecl.}
+    ## Describes section `section`: when the sections are given (Rtile_view_set_sections,
+    ## `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
   RTileItemCallback* = proc (tile_view: Rid, index: cint, item: ptr RTileItem, user_data: pointer) {.cdecl.}
     ## Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
   RTileEventCallback* = proc (tile_view: Rid, index: cint, user_data: pointer) {.cdecl.}
@@ -332,6 +363,18 @@ type
     ## Called when the user clicks a cell of a heatmap.
   RPdfPageChangedCallback* = proc (view: Rid, page: cint, user_data: pointer) {.cdecl.}
     ## Called when the current page changes as the user scrolls. This also fires the action of the widget.
+  RCarouselPageChangedCallback* = proc (carousel: Rid, page: cint, user_data: pointer) {.cdecl.}
+    ## Called when the user goes to another page (a swipe, the keys, a
+    ## dot, an arrow) and when the autoplay does. This also fires the action
+    ## of the widget.
+  RMapTileCallback* = proc (map: Rid, z: cint, x: cint, y: cint, user_data: pointer) {.cdecl.}
+    ## Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+  RMapMarkerCallback* = proc (map: Rid, marker: cint, user_data: pointer) {.cdecl.}
+    ## Called when the user clicks a marker.
+  RMapViewCallback* = proc (map: Rid, latitude: cdouble, longitude: cdouble, zoom: cdouble, user_data: pointer) {.cdecl.}
+    ## Called when the user moves or zooms the map (during a drag, at the
+    ## end of an animated zoom), with its new center and zoom. This also fires
+    ## the action of the widget.
   RTextEditorZoomCallback* = proc (editor: Rid, zoom: cfloat, user_data: pointer) {.cdecl.}
     ## Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
   RCompletionCallback* = proc (editor: Rid, prefix: cstring, user_data: pointer) {.cdecl.}
@@ -354,6 +397,17 @@ type
   RDockCloseCallback* = proc (area: Rid, panel: Rid, user_data: pointer): cint {.cdecl.}
     ## Called when the user closes a panel, before it is deleted.
     ## Return R_FALSE to keep the panel.
+  RDockFloatWindowCallback* = proc (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: pointer): Rid {.cdecl.}
+    ## Called when a panel leaves for a window of its own, once the
+    ## window and its floating area are made, before the panel goes there and
+    ## before anything is drawn.
+    ## area          The area the panel belongs to (its home).
+    ## panel         The panel that leaves.
+    ## window        The new window.
+    ## floating_area The dock area of the new window.
+    ## Returns: The content of the window: a widget that holds floating_area
+    ## (a VBox with a header bar above it, for a window made with
+    ## R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
   RDockChangedCallback* = proc (area: Rid, user_data: pointer) {.cdecl.}
     ## Called after the user moved, resized, showed or closed a panel.
   RIslandChangedCallback* = proc (island: Rid, expanded: cint, user_data: pointer) {.cdecl.}
@@ -418,13 +472,20 @@ type
     ## them to the widget (Name, Width, Slot..., and what its type knows).
     ## Rwidget_set_attribute goes through it too.
   RXmlTagAttributeCallback* = proc (widget: Rid, name: cstring, value: cstring, user_data: pointer): cint {.cdecl.}
+  RScriptLogCallback* = proc (message: cstring, user_data: pointer) {.cdecl.}
+    ## Where app.log writes: the standard output when NULL.
+  RScriptDiagnosticCallback* = proc (severity: RSeverity, code: cstring, file: cstring, line: cint, column: cint, text: cstring, user_data: pointer) {.cdecl.}
+    ## Receives the diagnostics of the scripts instead of the error
+    ## callback. `text` is the whole message, as the command line shows it;
+    ## `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+    ## the diagnostic has no place). NULL gives them back to the error callback.
   RLocaleChangedCallback* = proc (language: cstring, user_data: pointer) {.cdecl.}
   RAccessiblePressCallback* = proc (widget: Rid, user_data: pointer) {.cdecl.}
   RInitDesc* {.bycopy.} = object
     ## Optional settings for Rinit_ex. A zero-initialized structure selects the
     ## default for every field, so new fields can be added without breaking code.
     backend*: RBackend
-      ## Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+      ## Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     app_name*: cstring
       ## Application name reported to the graphics driver. May be NULL.
     worker_threads*: cint
@@ -588,6 +649,14 @@ type
       ## R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
     swipe_distance*: cfloat
       ## How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+    min_touch_size*: cfloat
+      ## Smallest height (logical units) of what a finger presses: buttons,
+      ## fields, combo boxes, tabs and bars are at least this high, rows of
+      ## lists, trees, tables and menus too, and so are check boxes, switches
+      ## and sliders, whose box and handle grow to half of it. Whatever the
+      ## theme or a widget asks for, 0 leaves the sizes as they are.
+      ## Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+      ## 0 elsewhere.
   RTouchEvent* {.bycopy.} = object
     phase*: RTouchPhase
     window*: Rid
@@ -703,6 +772,18 @@ type
     icon_radius*: cfloat
     text_color*: array[4, cfloat]
       ## Color of the name; alpha 0 = the theme.
+    note*: cstring
+      ## Layout="Rows": a third line under the detail, dimmer, or NULL.
+    detail_color*: array[4, cfloat]
+      ## Color of the detail line; alpha 0 = the theme (dimmer than the name).
+  RTileSection* {.bycopy.} = object
+    ## A section of a tile view: its first tile, and what its header shows.
+    first*: cint
+      ## Index of the first tile of the section (read when the sections are given).
+    text*: cstring
+      ## Title of the header (valid until the callback returns).
+    detail*: cstring
+      ## Dimmer text after the title (a count...), or NULL.
   RLanguageDesc* {.bycopy.} = object
     ## What the editor knows of a language. Every field but the name may be NULL.
     ## Lists of words are separated by spaces.
@@ -796,7 +877,13 @@ type
     render_pass*: pointer
       ## Vulkan: VkRenderPass in use (one color attachment, no depth).
     color_format*: uint32
-      ## Vulkan: VkFormat of the color attachment.
+      ## Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
+    metal_encoder*: pointer
+      ## Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+    metal_command_buffer*: pointer
+      ## Metal: id<MTLCommandBuffer> the encoder belongs to.
+    metal_device*: pointer
+      ## Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
   RSpring* {.bycopy.} = object
     ## State of one animated value. Zero-initialize it and keep it with the widget.
     value*: cfloat
@@ -861,14 +948,16 @@ type
 
 const
   RAVEN_VERSION_MAJOR*: cint = 0
-  RAVEN_VERSION_MINOR*: cint = 2
-  RAVEN_VERSION_PATCH*: cint = 3
-  RAVEN_API_VERSION* = "0.2"
+  RAVEN_VERSION_MINOR*: cint = 3
+  RAVEN_VERSION_PATCH*: cint = 0
+  RAVEN_API_VERSION* = "0.3"
   R_FALSE*: cint = 0
   R_TRUE*: cint = 1
   R_INVALID_ID*: Rid = 0xFFFFFFFF'u32
 
   # RBackend
+  R_BACKEND_DEFAULT*: RBackend = 0
+    ## The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
   R_BACKEND_VULKAN*: RBackend = 1
     ## Built-in Vulkan renderer.
   R_BACKEND_NULL*: RBackend = 2
@@ -877,6 +966,8 @@ const
     ## Backend supplied with Rbackend_register (see raven_backend.h).
   R_BACKEND_WEBGL*: RBackend = 4
     ## Browser renderer (Emscripten, WebGL 2).
+  R_BACKEND_METAL*: RBackend = 5
+    ## Built-in Metal renderer (macOS, iOS).
 
   # RError
   R_NO_ERROR*: RError = 0x0070
@@ -891,12 +982,28 @@ const
   R_ERROR_FILE_NOT_FOUND*: RError = 0x0079
   R_ERROR_XML*: RError = 0x007A
   R_ERROR_WRONG_THREAD*: RError = 0x007B
+  R_ERROR_SCRIPT*: RError = 0x007C
+    ## A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
 
   # RSeverity
   R_SEVERITY_WEAK_WARNING*: RSeverity = 0x0080
   R_SEVERITY_WARNING*: RSeverity = 0x0081
   R_SEVERITY_ERROR*: RSeverity = 0x0082
   R_SEVERITY_FATAL*: RSeverity = 0x0083
+
+  # RAppEvent
+  R_APP_WILL_PAUSE*: RAppEvent = 0x0B80
+    ## The application is about to leave the front (home, app switcher, a call). Save the state now.
+  R_APP_DID_PAUSE*: RAppEvent = 0x0B81
+    ## The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+  R_APP_WILL_RESUME*: RAppEvent = 0x0B82
+    ## The application is coming back to the front: Raven draws again.
+  R_APP_DID_RESUME*: RAppEvent = 0x0B83
+    ## The application is in front and takes input again.
+  R_APP_LOW_MEMORY*: RAppEvent = 0x0B84
+    ## The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+  R_APP_WILL_TERMINATE*: RAppEvent = 0x0B85
+    ## The application is about to end (Android: the activity is finishing; its window is closed right after).
 
   # RWindowFlags
   R_WINDOW_DEFAULT*: RWindowFlags = 0
@@ -1469,6 +1576,10 @@ const
     ## The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).
   R_WIDGET_CHART*: RWidgetType = 0x0234
     ## The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
+  R_WIDGET_MAP_VIEW*: RWidgetType = 0x0235
+    ## A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+  R_WIDGET_CAROUSEL*: RWidgetType = 0x0236
+    ## Pages shown one at a time and swiped (a page view), with dots and arrows.
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -1633,6 +1744,16 @@ const
   # RPdfPrintFlags
   R_PDF_PRINT_NO_DIALOG*: RPdfPrintFlags = 1
     ## No dialog: printed at once on the printer named, else the default one.
+
+  # RMapTileState
+  R_MAP_TILE_NONE*: RMapTileState = 0x0600
+    ## Not in the view's cache: never asked for, no longer wanted, or evicted.
+  R_MAP_TILE_PENDING*: RMapTileState = 0x0601
+    ## Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+  R_MAP_TILE_LOADED*: RMapTileState = 0x0602
+    ## Its pixels are in the cache.
+  R_MAP_TILE_FAILED*: RMapTileState = 0x0603
+    ## The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
 
   # RPlotScale
   R_PLOT_SCALE_LINEAR*: RPlotScale = 0x0530
@@ -2021,6 +2142,13 @@ proc Rget_delta_time*(): cdouble {.rapi.}
   ## Returns: Seconds between the last two frames.
 proc Rget_time*(): cdouble {.rapi.}
   ## Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe.
+proc Rset_app_event_callback*(callback: RAppEventCallback, user_data: pointer) {.rapi.}
+proc Ris_app_paused*(): cint {.rapi.}
+  ## Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+proc Rinject_app_event*(event: RAppEvent) {.rapi.}
+  ## Handles an RAppEvent as if the system had sent it: for tests,
+  ## and for a host application (raven_host.h) that knows the lifecycle.
+  ## UI thread.
 proc Rset_ui_scale*(scale: cfloat) {.rapi.}
   ## Scale of the whole interface, on top of the one of the monitor
   ## (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
@@ -2068,6 +2196,24 @@ proc Raction_fire*(name: cstring, sender: Rid) {.rapi.}
   ## sender Passed to the function; R_INVALID_ID when there is none.
 proc Raction_set_default_handler*(callback: RActionCallback, user_data: pointer) {.rapi.}
   ## Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
+proc Raction_bind_with_parameters*(name: cstring, signature: cstring, callback: RActionParametersCallback, user_data: pointer): cint {.rapi.}
+proc Raction_get_sender*(context: ptr RActionContext): Rid {.rapi.}
+  ## Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+proc Raction_get_name*(context: ptr RActionContext): cstring {.rapi.}
+proc Raction_get_argument_count*(context: ptr RActionContext): cint {.rapi.}
+  ## Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+proc Raction_get_number*(context: ptr RActionContext, index: cint): cdouble {.rapi.}
+  ## The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+proc Raction_get_string*(context: ptr RActionContext, index: cint): cstring {.rapi.}
+  ## Returns: Valid until the function returns.
+proc Raction_get_bool*(context: ptr RActionContext, index: cint): cint {.rapi.}
+proc Raction_return_number*(context: ptr RActionContext, value: cdouble) {.rapi.}
+  ## The value returned to the script; of the type of the signature (what is set last counts).
+proc Raction_return_string*(context: ptr RActionContext, value: cstring) {.rapi.}
+proc Raction_return_bool*(context: ptr RActionContext, value: cint) {.rapi.}
+proc Raction_fail*(context: ptr RActionContext, message: cstring) {.rapi.}
+  ## The function failed: the script that called it stops with error
+  ## RS205 and this message (the application goes on; so does the next event).
 proc Raction_set_builtins*(enabled: cint) {.rapi.}
   ## The actions Raven knows by itself: an interface written in XML
   ## uses them with no C at all (OnClicked="app.quit").
@@ -2143,11 +2289,22 @@ proc Rwindow_get_safe_area*(window: Rid, insets: ptr RInsets) {.rapi.}
 proc Rwindow_get_keyboard_area*(window: Rid, insets: ptr RInsets) {.rapi.}
   ## The part of the window the on-screen keyboard covers (only
   ## `bottom` is set), in logical units; 0 when it is hidden or there is
-  ## none (desktop). The content is laid out above it already.
+  ## none (desktop). The content is laid out above it already, and the
+  ## field that has the focus is scrolled into view above it, by the
+  ## ScrollBoxes that hold it, when the keyboard comes or changes height,
+  ## when the window turns, and when another field takes the focus.
 proc Rwindow_set_keyboard_callback*(window: Rid, callback: RKeyboardCallback, user_data: pointer) {.rapi.}
   ## Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
 proc Rwindow_clear_focus*(window: Rid) {.rapi.}
   ## No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
+proc Rwindow_set_back_callback*(window: Rid, callback: RBackCallback, user_data: pointer) {.rapi.}
+proc Rwindow_set_back_enabled*(window: Rid, enabled: cint) {.rapi.}
+  ## R_TRUE while the application has somewhere to go back to (a page
+  ## under the one shown). Android 13 and later ask for Back only while the
+  ## window wants it (predictive back): at the root page the system handles
+  ## Back itself and animates back to the home screen. Default R_FALSE.
+proc Rwindow_wants_back*(window: Rid): cint {.rapi.}
+  ## Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
 proc Rwindow_set_min_size*(window: Rid, width: cint, height: cint) {.rapi.}
 proc Rwindow_set_position*(window: Rid, x: cint, y: cint) {.rapi.}
 proc Rwindow_get_position*(window: Rid, x: ptr cint, y: ptr cint) {.rapi.}
@@ -2313,6 +2470,8 @@ proc Rwindow_inject_drag*(window: Rid, x: cfloat, y: cfloat, inside: cint): cint
   ## Returns: R_TRUE when a drop at this position would be accepted.
 proc Rwindow_inject_drop*(window: Rid, x: cfloat, y: cfloat, paths: cstringArray, path_count: cint, text: cstring): cint {.rapi.}
   ## Drops files and / or text at a position. Returns R_TRUE when a target took them.
+proc Rwindow_inject_back*(window: Rid): cint {.rapi.}
+  ## Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
 proc Rwindow_is_key_down*(window: Rid, key: RKey): cint {.rapi.}
   ## R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
 proc Rwindow_is_mouse_button_down*(window: Rid, button: RMouseButton): cint {.rapi.}
@@ -2433,6 +2592,9 @@ proc Rtheme_apply*(theme: RTheme) {.rapi.}
 proc Rtheme_set_color*(role: RColorRole, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
 proc Rtheme_get_color*(role: RColorRole, r: ptr cfloat, g: ptr cfloat, b: ptr cfloat, a: ptr cfloat) {.rapi.}
 proc Rtheme_set_metric*(metric: RMetric, value: cfloat) {.rapi.}
+  ## Changes a size of the theme in use. It lasts until the look or
+  ## the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+  ## switch between light and dark made by Rtheme_follow_system.
 proc Rtheme_get_metric*(metric: RMetric): cfloat {.rapi.}
 proc Rtheme_set_material*(material: RMaterial) {.rapi.}
   ## Material of every widget that was not given one with
@@ -2455,6 +2617,13 @@ proc Rtheme_follow_system*(enabled: cint) {.rapi.}
   ## Follows the dark or light mode of the system with the Raven look
   ## (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
   ## Off by default. Does nothing where the platform does not tell (desktop today).
+  ##
+  ## A switch is Rlook_set, except that the sizes given with
+  ## Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+  ## those of one mode and are lost; to keep colors, sizes and styles of
+  ## the application through the switch, put them in a theme that names no
+  ## look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+  ## new look.
 proc Rtheme_is_dark*(): cint {.rapi.}
 proc Rtheme_set_wallpaper*(texture: Rid) {.rapi.}
   ## Image drawn behind the content of the windows that have no
@@ -2602,6 +2771,9 @@ proc Rwidget_add_child*(parent: Rid, child: Rid): Rid {.rapi.}
   ## A widget that already has a parent is moved.
   ## Returns: `child`, so calls can be nested:
   ##         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+  ##         R_INVALID_ID when the child replaced in a single-child container
+  ##         had a destroy callback that destroyed the container or `child`;
+  ##         `child`, when it is still there, is then not added.
 proc Rwidget_insert_child*(parent: Rid, child: Rid, index: cint): Rid {.rapi.}
 proc Rwidget_remove_child*(parent: Rid, child: Rid) {.rapi.}
   ## Detaches a child without deleting it. The caller owns it again.
@@ -2669,7 +2841,8 @@ proc Rwidget_play_transition*(widget: Rid, transition: RTransition, delay_second
 proc Rwidget_set_clipping*(widget: Rid, clip: cint) {.rapi.}
   ## R_TRUE clips the descendants to the bounds of the widget.
 proc Rwidget_set_tooltip*(widget: Rid, text: cstring) {.rapi.}
-  ## Text shown when the cursor rests on the widget. NULL removes it.
+  ## Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+  ##  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 proc Rwidget_get_tooltip*(widget: Rid): cstring {.rapi.}
   ## Returns: The tooltip text of the widget, "" when it has none.
 proc Rwidget_set_cursor*(widget: Rid, cursor: RCursor) {.rapi.}
@@ -2685,7 +2858,7 @@ proc Rwidget_get_desired_size*(widget: Rid, width: ptr cfloat, height: ptr cfloa
 proc Rwidget_is_hovered*(widget: Rid): cint {.rapi.}
 proc Rwidget_set_focusable*(widget: Rid, focusable: cint) {.rapi.}
 proc Rwidget_focus*(widget: Rid) {.rapi.}
-  ## Gives the keyboard focus to the widget.
+  ## Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 proc Rwidget_is_focused*(widget: Rid): cint {.rapi.}
 proc Rwidget_set_user_handle*(widget: Rid, handle: pointer) {.rapi.}
 proc Rwidget_get_user_handle*(widget: Rid): pointer {.rapi.}
@@ -2735,7 +2908,9 @@ proc Rwidget_set_metric*(widget: Rid, metric: RMetric, value: cfloat) {.rapi.}
   ## Overrides a theme metric for one widget.
 proc Rwidget_clear_metric*(widget: Rid, metric: RMetric) {.rapi.}
 proc Rwidget_get_metric*(widget: Rid, metric: RMetric): cfloat {.rapi.}
-  ## Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme.
+  ## Returns: The metric the widget uses: its own, else the one of a style,
+  ## else the one of its theme; grown for larger text
+  ## (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
 proc Rwidget_set_class*(widget: Rid, classes: cstring) {.rapi.}
   ## Classes of the widget, separated by spaces ("danger large"):
   ## the styles of the theme made for these classes apply to it
@@ -2801,7 +2976,10 @@ proc Rscroll_box_set_offset*(scroll_box: Rid, x: cfloat, y: cfloat) {.rapi.}
 proc Rscroll_box_get_offset*(scroll_box: Rid, x: ptr cfloat, y: ptr cfloat) {.rapi.}
 proc Rscroll_box_scroll_to_end*(scroll_box: Rid) {.rapi.}
 proc Rwidget_scroll_into_view*(widget: Rid) {.rapi.}
-  ## Scrolls every ScrollBox above the widget so that the widget is visible.
+  ## Scrolls every ScrollBox above the widget so that the widget is
+  ## visible. The library does it by itself for the focused widget when the
+  ## focus comes from Tab or Rwidget_focus, and for a text field above the
+  ## on-screen keyboard (Rwindow_get_keyboard_area).
 proc Rsplitter_set_orientation*(splitter: Rid, orientation: ROrientation) {.rapi.}
   ## R_HORIZONTAL puts the panes side by side (default), R_VERTICAL stacks them.
 proc Rsplitter_set_min_pane_size*(splitter: Rid, size: cfloat) {.rapi.}
@@ -3127,6 +3305,21 @@ proc Rtile_view_get_count*(tile_view: Rid): cint {.rapi.}
 proc Rtile_view_set_tile_size*(tile_view: Rid, width: cfloat, height: cfloat, icon_size: cfloat) {.rapi.}
   ## Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64.
 proc Rtile_view_set_empty_text*(tile_view: Rid, text: cstring) {.rapi.}
+proc Rtile_view_set_icon_width*(tile_view: Rid, width: cfloat) {.rapi.}
+  ## Layout="Rows": width of the box the icon is drawn in (its height is the
+  ## icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+proc Rtile_view_set_sections*(tile_view: Rid, count: cint, callback: RTileSectionCallback, user_data: pointer) {.rapi.}
+  ## `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+proc Rtile_view_get_section_count*(tile_view: Rid): cint {.rapi.}
+proc Rtile_view_get_section_of*(tile_view: Rid, index: cint): cint {.rapi.}
+  ## The section of a tile, or -1 (before the first section).
+proc Rtile_view_set_section_folded*(tile_view: Rid, section: cint, folded: cint) {.rapi.}
+  ## Folds or unfolds a section (the toggled callback is not called).
+proc Rtile_view_is_section_folded*(tile_view: Rid, section: cint): cint {.rapi.}
+proc Rtile_view_get_section_at*(tile_view: Rid, local_x: cfloat, local_y: cfloat): cint {.rapi.}
+  ## The section whose header is at a point relative to the widget, or -1.
+proc Rtile_view_set_section_toggled_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
+  ## Called when the user folds or unfolds a section (`index`: the section).
 proc Rtile_view_set_selected*(tile_view: Rid, index: cint, selected: cint) {.rapi.}
 proc Rtile_view_is_selected*(tile_view: Rid, index: cint): cint {.rapi.}
 proc Rtile_view_clear_selection*(tile_view: Rid) {.rapi.}
@@ -3487,8 +3680,102 @@ proc Rpdf_view_get_page_text*(view: Rid, page: cint): cstring {.rapi.}
   ## The text of a page (UTF-8), to search it or copy it. Valid until
   ## the next call for this view.
 proc Rpdf_view_set_page_changed_callback*(view: Rid, callback: RPdfPageChangedCallback, user_data: pointer) {.rapi.}
+proc Rcarousel_create*(): Rid {.rapi.}
+proc Rcarousel_set_page*(carousel: Rid, page: cint, animated: cint) {.rapi.}
+  ## Shows a page, gliding to it when `animated` (and the animations
+  ## are on), at once otherwise. The page changed callback is not called.
+proc Rcarousel_get_page*(carousel: Rid): cint {.rapi.}
+  ## The page shown, -1 when the carousel has none.
+proc Rcarousel_get_page_count*(carousel: Rid): cint {.rapi.}
+  ## Its children.
+proc Rcarousel_next*(carousel: Rid) {.rapi.}
+  ## Glides to the next / previous page; nothing at the last / first one unless it loops.
+proc Rcarousel_prev*(carousel: Rid) {.rapi.}
+proc Rcarousel_set_loop*(carousel: Rid, loop: cint) {.rapi.}
+  ## R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+proc Rcarousel_get_loop*(carousel: Rid): cint {.rapi.}
+proc Rcarousel_set_autoplay*(carousel: Rid, seconds: cdouble) {.rapi.}
+  ## Goes to the next page by itself every `seconds` (0: never, the
+  ## default); after the last page it comes back to the first. It waits
+  ## while the pointer is on the carousel, while the pages are dragged and
+  ## while the keyboard is in it; a page chosen by the user starts the
+  ## interval again.
+proc Rcarousel_get_autoplay*(carousel: Rid): cdouble {.rapi.}
+proc Rcarousel_set_indicators_visible*(carousel: Rid, visible: cint) {.rapi.}
+  ## The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+proc Rcarousel_get_indicators_visible*(carousel: Rid): cint {.rapi.}
+proc Rcarousel_set_arrows_visible*(carousel: Rid, visible: cint) {.rapi.}
+  ## The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+proc Rcarousel_get_arrows_visible*(carousel: Rid): cint {.rapi.}
+proc Rcarousel_set_orientation*(carousel: Rid, orientation: ROrientation) {.rapi.}
+  ## R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+proc Rcarousel_get_orientation*(carousel: Rid): ROrientation {.rapi.}
+proc Rcarousel_set_page_changed_callback*(carousel: Rid, callback: RCarouselPageChangedCallback, user_data: pointer) {.rapi.}
 proc Rpdf_view_print*(view: Rid, desc: ptr RPdfPrintDesc): cint {.rapi.}
   ## Prints the document shown (see Rpdf_print); the job is named after its title.
+proc Rmap_view_create*(): Rid {.rapi.}
+proc Rmap_view_set_center*(map: Rid, latitude: cdouble, longitude: cdouble) {.rapi.}
+  ## Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+proc Rmap_view_get_center*(map: Rid, latitude: ptr cdouble, longitude: ptr cdouble) {.rapi.}
+  ## The place at the middle of the map (longitude from -180 to 180).
+proc Rmap_view_set_zoom*(map: Rid, zoom: cdouble) {.rapi.}
+  ## The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+proc Rmap_view_get_zoom*(map: Rid): cdouble {.rapi.}
+proc Rmap_view_set_zoom_range*(map: Rid, min_zoom: cdouble, max_zoom: cdouble) {.rapi.}
+  ## The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+proc Rmap_view_get_zoom_range*(map: Rid, min_zoom: ptr cdouble, max_zoom: ptr cdouble) {.rapi.}
+proc Rmap_view_animate_to*(map: Rid, latitude: cdouble, longitude: cdouble, zoom: cdouble) {.rapi.}
+  ## Glides to a place and a zoom (at once when animations are off).
+proc Rmap_view_screen_to_latlon*(map: Rid, x: cfloat, y: cfloat, latitude: ptr cdouble, longitude: ptr cdouble) {.rapi.}
+  ## The place at a point of the widget.
+proc Rmap_view_latlon_to_screen*(map: Rid, latitude: cdouble, longitude: cdouble, x: ptr cfloat, y: ptr cfloat) {.rapi.}
+  ## Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+proc Rmap_view_set_tile_callback*(map: Rid, callback: RMapTileCallback, user_data: pointer) {.rapi.}
+  ## Called once for each tile the map needs. Answer with
+  ## Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+  ## at once or later. Setting it forgets the tiles of the previous source.
+proc Rmap_view_set_tile_cancel_callback*(map: Rid, callback: RMapTileCallback, user_data: pointer) {.rapi.}
+  ## Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+proc Rmap_view_set_tile*(map: Rid, z: cint, x: cint, y: cint, rgba: ptr uint8, width: cint, height: cint) {.rapi.}
+  ## The pixels of a tile: `width` x `height` RGBA8, tightly packed
+  ## (they are copied; any size, shown at the tile size). Thread-safe: from
+  ## another thread it is applied on the UI thread during the next frame.
+proc Rmap_view_set_tile_data*(map: Rid, z: cint, x: cint, y: cint, data: pointer, data_size: csize_t) {.rapi.}
+  ## A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+proc Rmap_view_set_tile_failed*(map: Rid, z: cint, x: cint, y: cint) {.rapi.}
+  ## There is no such tile: the coarser one stays shown in its place. Thread-safe.
+proc Rmap_view_set_tile_path*(map: Rid, path_template: cstring) {.rapi.}
+  ## Reads the tiles from files instead of asking for them: a path
+  ## where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+  ## south, as in TMS and MBTiles). The files are read and decoded on a
+  ## worker thread; a missing file is a tile that failed. NULL or "": the
+  ## tile callback again. Local files only.
+proc Rmap_view_get_tile_path*(map: Rid): cstring {.rapi.}
+proc Rmap_view_set_tile_size*(map: Rid, size: cint) {.rapi.}
+  ## Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+proc Rmap_view_get_tile_size*(map: Rid): cint {.rapi.}
+proc Rmap_view_set_cache_size*(map: Rid, bytes: csize_t) {.rapi.}
+  ## Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+proc Rmap_view_get_cache_usage*(map: Rid): csize_t {.rapi.}
+  ## Memory the decoded tiles take now, in bytes.
+proc Rmap_view_clear_tiles*(map: Rid) {.rapi.}
+  ## Forgets every tile (they are asked for again): the tiles of the source changed.
+proc Rmap_view_get_tile_state*(map: Rid, z: cint, x: cint, y: cint): RMapTileState {.rapi.}
+proc Rmap_view_add_marker*(map: Rid, latitude: cdouble, longitude: cdouble, label: cstring): cint {.rapi.}
+  ## Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+proc Rmap_view_remove_marker*(map: Rid, marker: cint) {.rapi.}
+proc Rmap_view_clear_markers*(map: Rid) {.rapi.}
+proc Rmap_view_get_marker_count*(map: Rid): cint {.rapi.}
+proc Rmap_view_set_marker_position*(map: Rid, marker: cint, latitude: cdouble, longitude: cdouble) {.rapi.}
+proc Rmap_view_set_marker_label*(map: Rid, marker: cint, label: cstring) {.rapi.}
+proc Rmap_view_set_marker_color*(map: Rid, marker: cint, r: cfloat, g: cfloat, b: cfloat, a: cfloat) {.rapi.}
+  ## The color of a pin (by default the accent of the theme).
+proc Rmap_view_set_marker_clicked_callback*(map: Rid, callback: RMapMarkerCallback, user_data: pointer) {.rapi.}
+proc Rmap_view_set_view_changed_callback*(map: Rid, callback: RMapViewCallback, user_data: pointer) {.rapi.}
+proc Rmap_view_set_attribution*(map: Rid, text: cstring) {.rapi.}
+  ## A line written in the bottom right corner: the credit most tile
+  ## licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+proc Rmap_view_get_attribution*(map: Rid): cstring {.rapi.}
 proc Rpdf_document_create*(): Rid {.rapi.}
 proc Rpdf_document_delete*(document: Rid) {.rapi.}
 proc Rpdf_document_set_title*(document: Rid, title: cstring) {.rapi.}
@@ -3755,6 +4042,16 @@ proc Rdock_area_set_tearable*(area: Rid, tearable: cint) {.rapi.}
 proc Rdock_area_is_tearable*(area: Rid): cint {.rapi.}
 proc Rdock_area_set_float_mode*(area: Rid, mode: RDockFloatMode) {.rapi.}
   ## Default for future floats/tears; existing floating panels keep their mode.
+proc Rdock_area_set_float_window*(area: Rid, flags: uint32, callback: RDockFloatWindowCallback, user_data: pointer) {.rapi.}
+  ## How the windows of torn-off panels are made (native windows,
+  ## R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+  ## flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+  ##                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+  ##                 R_WINDOW_TRANSPARENT (the others are ignored).
+  ##                 R_WINDOW_DEFAULT by default.
+  ## callback May be NULL: the floating area is the whole window.
+  ## Dragging the only tab of such a window still moves it, and closing
+  ## it (its header bar's close button too) docks its panels back.
 proc Rdock_area_float_panel*(area: Rid, panel: Rid, x: cint, y: cint): Rid {.rapi.}
   ## Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 proc Rdock_area_dock_panel*(area: Rid, panel: Rid) {.rapi.}
@@ -4293,6 +4590,9 @@ proc Rfile_is_memory*(path: cstring): cint {.rapi.}
   ## R_TRUE when `path` is a file registered with Rfile_register_memory.
 proc Rfile_read*(path: cstring, size: ptr csize_t): cstring {.rapi.}
   ## Whole files, with UTF-8 paths on every platform.
+  ## On Android and iOS, a relative path that names no file held in memory
+  ## and no file on disk is read from the app's package (the APK's assets/,
+  ## the bundle's resources), and so is every file Raven reads by its path.
   ## Returns: Rfile_read: the content followed by a '\0', to release with
   ## Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
 proc Rfile_write*(path: cstring, data: pointer, size: csize_t): cint {.rapi.}
@@ -4581,6 +4881,43 @@ proc Rxml_get_attribute_count*(tag: cstring): cint {.rapi.}
   ## has, then those of its place in its parent. For a tag declared with
   ## <Widget>, its own are its parameters.
 proc Rxml_get_attribute_info*(tag: cstring, index: cint, info: ptr RXmlAttributeInfo): cint {.rapi.}
+proc Rscript_load*(source: cstring, size: csize_t, name: cstring): cint {.rapi.}
+  ## Loads a script given as text (not an XML document): its
+  ## functions become actions, its globals are initialized.
+  ## name Names it in the diagnostics (a file name); may be NULL.
+  ## Returns: R_FALSE when it has an error (nothing of it is installed).
+proc Rscript_load_file*(path: cstring): cint {.rapi.}
+  ## The same from a file (.rvs).
+proc Rscript_check*(source: cstring, size: csize_t, name: cstring): cint {.rapi.}
+  ## Checks a script, or the scripts of an XML document and the
+  ## functions its widgets name, without running anything nor building a
+  ## widget. The diagnostics are reported as usual.
+  ## source A script, or an XML document (text that starts with '<').
+  ## Returns: The number of errors.
+proc Rscript_check_file*(path: cstring): cint {.rapi.}
+  ## Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+proc Rscript_format*(source: cstring, size: csize_t, indent: cstring): cstring {.rapi.}
+  ## Formats a script: one statement per line, blocks indented,
+  ## spaces around operators; comments are kept.
+  ## indent One level of indentation; NULL for four spaces.
+  ## Returns: The text, valid until the next call; NULL when the script has a
+  ## syntax error (it is not changed).
+proc Rscript_reset*() {.rapi.}
+  ## Removes every script function (their actions are unbound) and every global. Not while a script runs.
+proc Rscript_has_function*(name: cstring): cint {.rapi.}
+  ## Returns: R_TRUE when a script function has that name.
+proc Rscript_set_enabled*(enabled: cint) {.rapi.}
+  ## R_FALSE: the <Script> elements of the documents are read but not
+  ## compiled nor run (a design tool that shows interfaces without running
+  ## them). On by default.
+proc Rscript_is_enabled*(): cint {.rapi.}
+proc Rscript_set_limits*(max_instructions: uint32, max_depth: cint, max_memory: csize_t) {.rapi.}
+  ## The limits of the scripts. 0 keeps a value.
+  ## max_instructions Instructions one invocation (an event) may run (10 000 000).
+  ## max_depth Calls nested (200).
+  ## max_memory Bytes of strings and arrays alive (64 MB).
+proc Rscript_set_log_callback*(callback: RScriptLogCallback, user_data: pointer) {.rapi.}
+proc Rscript_set_diagnostic_callback*(callback: RScriptDiagnosticCallback, user_data: pointer) {.rapi.}
 proc Rlocale_load_csv*(path: cstring): cint {.rapi.}
   ## Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
 proc Rlocale_load_csv_from_memory*(csv: cstring, size: csize_t): cint {.rapi.}
@@ -4681,6 +5018,15 @@ proc Rhost_platform_is_active*(): cint {.rapi.}
   ## Returns: R_TRUE while the running library uses the host platform.
 proc Rhost_window_set_size*(window: Rid, width: cint, height: cint, scale: cfloat) {.rapi.}
   ## Size of a host window in pixels, and pixels per logical unit.
+proc Rhost_window_set_insets*(window: Rid, safe_area: ptr RInsets, keyboard_height: cint) {.rapi.}
+  ## What covers a host window on a phone or a tablet, in pixels: the
+  ## safe area (status bar, notch, home indicator; NULL: none) and the height
+  ## of the on-screen keyboard over its bottom (0: hidden). The content is laid
+  ## out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+proc Rhost_set_system_dark*(dark: cint) {.rapi.}
+  ## The application's system is in dark (R_TRUE) or light (R_FALSE)
+  ## mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+  ## and Rtheme_follow_system follows it.
 proc Rhost_inject_mouse_move*(window: Rid, x: cint, y: cint, modifiers: uint32) {.rapi.}
 proc Rhost_inject_mouse_button*(window: Rid, x: cint, y: cint, button: RMouseButton, pressed: cint, modifiers: uint32) {.rapi.}
 proc Rhost_inject_mouse_wheel*(window: Rid, wheel_x: cfloat, wheel_y: cfloat, modifiers: uint32) {.rapi.}

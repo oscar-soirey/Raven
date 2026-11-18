@@ -1417,6 +1417,9 @@ static int stbtt_InitFont_internal(stbtt_fontinfo *info, unsigned char *data, in
    if (info->glyf) {
       // required for truetype
       if (!info->loca) return 0;
+   } else if (!stbtt__find_table(data, fontstart, "CFF ") &&
+      (stbtt__find_table(data, fontstart, "CBDT") || stbtt__find_table(data, fontstart, "sbix"))) {
+      // Raven: a font of color bitmaps only (Noto Color Emoji) has no outlines; Raven reads its bitmaps
    } else {
       // initialization for CFF / Type2 fonts (OTF)
       stbtt__buf b, topdict, topdictidx;

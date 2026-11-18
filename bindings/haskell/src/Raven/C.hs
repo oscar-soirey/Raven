@@ -3,7 +3,7 @@
 
 -- | Raven for Haskell: the C API as it is.
 --
--- Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+-- Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 --
 -- Every function of C is here, its first letter lowered (@Rwindow_create@ is
 -- 'rwindow_create'), with the types of "Foreign.C": texts are 'CString', pointers
@@ -33,11 +33,11 @@ type Ruint = Word32
 pattern RAVEN_VERSION_MAJOR :: CInt
 pattern RAVEN_VERSION_MAJOR = 0
 pattern RAVEN_VERSION_MINOR :: CInt
-pattern RAVEN_VERSION_MINOR = 2
+pattern RAVEN_VERSION_MINOR = 3
 pattern RAVEN_VERSION_PATCH :: CInt
-pattern RAVEN_VERSION_PATCH = 3
+pattern RAVEN_VERSION_PATCH = 0
 rAVEN_API_VERSION :: String
-rAVEN_API_VERSION = "0.2"
+rAVEN_API_VERSION = "0.3"
 pattern R_FALSE :: CInt
 pattern R_FALSE = 0
 pattern R_TRUE :: CInt
@@ -46,11 +46,17 @@ pattern R_INVALID_ID :: Rid
 pattern R_INVALID_ID = 0xFFFFFFFF
 
 -- | An object of the library seen through a pointer only.
+data RActionContext
+
+-- | An object of the library seen through a pointer only.
 data RPainter
 
 newtype RBackend = RBackend CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
 
+-- | The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+pattern R_BACKEND_DEFAULT :: RBackend
+pattern R_BACKEND_DEFAULT = RBackend 0
 -- | Built-in Vulkan renderer.
 pattern R_BACKEND_VULKAN :: RBackend
 pattern R_BACKEND_VULKAN = RBackend 1
@@ -63,6 +69,9 @@ pattern R_BACKEND_CUSTOM = RBackend 3
 -- | Browser renderer (Emscripten, WebGL 2).
 pattern R_BACKEND_WEBGL :: RBackend
 pattern R_BACKEND_WEBGL = RBackend 4
+-- | Built-in Metal renderer (macOS, iOS).
+pattern R_BACKEND_METAL :: RBackend
+pattern R_BACKEND_METAL = RBackend 5
 
 newtype RError = RError CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -91,6 +100,9 @@ pattern R_ERROR_XML :: RError
 pattern R_ERROR_XML = RError 122
 pattern R_ERROR_WRONG_THREAD :: RError
 pattern R_ERROR_WRONG_THREAD = RError 123
+-- | A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
+pattern R_ERROR_SCRIPT :: RError
+pattern R_ERROR_SCRIPT = RError 124
 
 newtype RSeverity = RSeverity CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -103,6 +115,38 @@ pattern R_SEVERITY_ERROR :: RSeverity
 pattern R_SEVERITY_ERROR = RSeverity 130
 pattern R_SEVERITY_FATAL :: RSeverity
 pattern R_SEVERITY_FATAL = RSeverity 131
+
+-- | What the system does with the application, on iOS and Android (desktop
+-- systems send none of these). A pause is not always followed by
+-- R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+-- system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+-- At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+--
+--   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+--   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+--   coming back         R_APP_WILL_RESUME   Raven draws again
+--   in front again      R_APP_DID_RESUME    takes input again
+newtype RAppEvent = RAppEvent CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The application is about to leave the front (home, app switcher, a call). Save the state now.
+pattern R_APP_WILL_PAUSE :: RAppEvent
+pattern R_APP_WILL_PAUSE = RAppEvent 2944
+-- | The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+pattern R_APP_DID_PAUSE :: RAppEvent
+pattern R_APP_DID_PAUSE = RAppEvent 2945
+-- | The application is coming back to the front: Raven draws again.
+pattern R_APP_WILL_RESUME :: RAppEvent
+pattern R_APP_WILL_RESUME = RAppEvent 2946
+-- | The application is in front and takes input again.
+pattern R_APP_DID_RESUME :: RAppEvent
+pattern R_APP_DID_RESUME = RAppEvent 2947
+-- | The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+pattern R_APP_LOW_MEMORY :: RAppEvent
+pattern R_APP_LOW_MEMORY = RAppEvent 2948
+-- | The application is about to end (Android: the activity is finishing; its window is closed right after).
+pattern R_APP_WILL_TERMINATE :: RAppEvent
+pattern R_APP_WILL_TERMINATE = RAppEvent 2949
 
 newtype RWindowFlags = RWindowFlags CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1125,6 +1169,12 @@ pattern R_WIDGET_PDF_VIEW = RWidgetType 563
 -- | The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 pattern R_WIDGET_CHART :: RWidgetType
 pattern R_WIDGET_CHART = RWidgetType 564
+-- | A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+pattern R_WIDGET_MAP_VIEW :: RWidgetType
+pattern R_WIDGET_MAP_VIEW = RWidgetType 565
+-- | Pages shown one at a time and swiped (a page view), with dots and arrows.
+pattern R_WIDGET_CAROUSEL :: RWidgetType
+pattern R_WIDGET_CAROUSEL = RWidgetType 566
 
 newtype RHAlign = RHAlign CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
@@ -1414,6 +1464,23 @@ newtype RPdfPrintFlags = RPdfPrintFlags CInt
 -- | No dialog: printed at once on the printer named, else the default one.
 pattern R_PDF_PRINT_NO_DIALOG :: RPdfPrintFlags
 pattern R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags 1
+
+-- | Where a tile of a MapView stands (Rmap_view_get_tile_state).
+newtype RMapTileState = RMapTileState CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Not in the view's cache: never asked for, no longer wanted, or evicted.
+pattern R_MAP_TILE_NONE :: RMapTileState
+pattern R_MAP_TILE_NONE = RMapTileState 1536
+-- | Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+pattern R_MAP_TILE_PENDING :: RMapTileState
+pattern R_MAP_TILE_PENDING = RMapTileState 1537
+-- | Its pixels are in the cache.
+pattern R_MAP_TILE_LOADED :: RMapTileState
+pattern R_MAP_TILE_LOADED = RMapTileState 1538
+-- | The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+pattern R_MAP_TILE_FAILED :: RMapTileState
+pattern R_MAP_TILE_FAILED = RMapTileState 1539
 
 -- | How an axis of a Plot spreads its values.
 newtype RPlotScale = RPlotScale CInt
@@ -1998,6 +2065,19 @@ type RFrameCallback = FunPtr (CDouble -> Ptr () -> IO ())
 -- no longer calls it.
 foreign import ccall "wrapper" mkRFrameCallback :: (CDouble -> Ptr () -> IO ()) -> IO RFrameCallback
 
+-- | Registers a function called when the application changes state
+-- (RAppEvent), on the UI thread, while the system waits for it: keep it
+-- short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+-- draws nothing, animations stand still and Rwait_frame sleeps until an
+-- event, a posted task or a timer: the timers of the application keep
+-- running, so stop those that only drive drawing. Set it after Rinit;
+-- NULL removes it.
+type RAppEventCallback = FunPtr (RAppEvent -> Ptr () -> IO ())
+
+-- | Makes a 'RAppEventCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRAppEventCallback :: (RAppEvent -> Ptr () -> IO ()) -> IO RAppEventCallback
+
 type RTaskCallback = FunPtr (Ptr () -> IO ())
 
 -- | Makes a 'RTaskCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
@@ -2026,6 +2106,12 @@ type RActionCallback = FunPtr (Rid -> CString -> Ptr () -> IO ())
 -- | Makes a 'RActionCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRActionCallback :: (Rid -> CString -> Ptr () -> IO ()) -> IO RActionCallback
+
+type RActionParametersCallback = FunPtr (Ptr RActionContext -> Ptr () -> IO ())
+
+-- | Makes a 'RActionParametersCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRActionParametersCallback :: (Ptr RActionContext -> Ptr () -> IO ()) -> IO RActionParametersCallback
 
 -- | Registers a function called whenever an error is raised.
 -- The function may be registered before Rinit. It is called on the
@@ -2073,6 +2159,15 @@ type RDropCallback = FunPtr (Rid -> Ptr RDropEvent -> Ptr () -> IO CInt)
 -- | Makes a 'RDropCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRDropCallback :: (Rid -> Ptr RDropEvent -> Ptr () -> IO CInt) -> IO RDropCallback
+
+-- | Called on Back when no popup or dialog of Raven is open. Return
+-- R_TRUE when the application went back, R_FALSE when it had nowhere to
+-- go (the system then does its default). NULL removes it.
+type RBackCallback = FunPtr (Rid -> Ptr () -> IO CInt)
+
+-- | Makes a 'RBackCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRBackCallback :: (Rid -> Ptr () -> IO CInt) -> IO RBackCallback
 
 -- | Called when the user asks to close the window.
 -- Return R_TRUE to let the window close, R_FALSE to keep it open.
@@ -2253,6 +2348,14 @@ type RMenuItemClickedCallback = FunPtr (Rid -> Ptr () -> IO ())
 -- no longer calls it.
 foreign import ccall "wrapper" mkRMenuItemClickedCallback :: (Rid -> Ptr () -> IO ()) -> IO RMenuItemClickedCallback
 
+-- | Describes section `section`: when the sections are given (Rtile_view_set_sections,
+-- `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+type RTileSectionCallback = FunPtr (Rid -> CInt -> Ptr RTileSection -> Ptr () -> IO ())
+
+-- | Makes a 'RTileSectionCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRTileSectionCallback :: (Rid -> CInt -> Ptr RTileSection -> Ptr () -> IO ()) -> IO RTileSectionCallback
+
 -- | Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
 type RTileItemCallback = FunPtr (Rid -> CInt -> Ptr RTileItem -> Ptr () -> IO ())
 
@@ -2401,6 +2504,38 @@ type RPdfPageChangedCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
 -- no longer calls it.
 foreign import ccall "wrapper" mkRPdfPageChangedCallback :: (Rid -> CInt -> Ptr () -> IO ()) -> IO RPdfPageChangedCallback
 
+-- | Called when the user goes to another page (a swipe, the keys, a
+-- dot, an arrow) and when the autoplay does. This also fires the action
+-- of the widget.
+type RCarouselPageChangedCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RCarouselPageChangedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRCarouselPageChangedCallback :: (Rid -> CInt -> Ptr () -> IO ()) -> IO RCarouselPageChangedCallback
+
+-- | Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+type RMapTileCallback = FunPtr (Rid -> CInt -> CInt -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RMapTileCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRMapTileCallback :: (Rid -> CInt -> CInt -> CInt -> Ptr () -> IO ()) -> IO RMapTileCallback
+
+-- | Called when the user clicks a marker.
+type RMapMarkerCallback = FunPtr (Rid -> CInt -> Ptr () -> IO ())
+
+-- | Makes a 'RMapMarkerCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRMapMarkerCallback :: (Rid -> CInt -> Ptr () -> IO ()) -> IO RMapMarkerCallback
+
+-- | Called when the user moves or zooms the map (during a drag, at the
+-- end of an animated zoom), with its new center and zoom. This also fires
+-- the action of the widget.
+type RMapViewCallback = FunPtr (Rid -> CDouble -> CDouble -> CDouble -> Ptr () -> IO ())
+
+-- | Makes a 'RMapViewCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRMapViewCallback :: (Rid -> CDouble -> CDouble -> CDouble -> Ptr () -> IO ()) -> IO RMapViewCallback
+
 -- | Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 type RTextEditorZoomCallback = FunPtr (Rid -> CFloat -> Ptr () -> IO ())
 
@@ -2452,6 +2587,22 @@ type RDockCloseCallback = FunPtr (Rid -> Rid -> Ptr () -> IO CInt)
 -- | Makes a 'RDockCloseCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRDockCloseCallback :: (Rid -> Rid -> Ptr () -> IO CInt) -> IO RDockCloseCallback
+
+-- | Called when a panel leaves for a window of its own, once the
+-- window and its floating area are made, before the panel goes there and
+-- before anything is drawn.
+-- area          The area the panel belongs to (its home).
+-- panel         The panel that leaves.
+-- window        The new window.
+-- floating_area The dock area of the new window.
+-- Returns: The content of the window: a widget that holds floating_area
+-- (a VBox with a header bar above it, for a window made with
+-- R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+type RDockFloatWindowCallback = FunPtr (Rid -> Rid -> Rid -> Rid -> Ptr () -> IO Rid)
+
+-- | Makes a 'RDockFloatWindowCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRDockFloatWindowCallback :: (Rid -> Rid -> Rid -> Rid -> Ptr () -> IO Rid) -> IO RDockFloatWindowCallback
 
 -- | Called after the user moved, resized, showed or closed a panel.
 type RDockChangedCallback = FunPtr (Rid -> Ptr () -> IO ())
@@ -2627,6 +2778,23 @@ type RXmlTagAttributeCallback = FunPtr (Rid -> CString -> CString -> Ptr () -> I
 -- no longer calls it.
 foreign import ccall "wrapper" mkRXmlTagAttributeCallback :: (Rid -> CString -> CString -> Ptr () -> IO CInt) -> IO RXmlTagAttributeCallback
 
+-- | Where app.log writes: the standard output when NULL.
+type RScriptLogCallback = FunPtr (CString -> Ptr () -> IO ())
+
+-- | Makes a 'RScriptLogCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRScriptLogCallback :: (CString -> Ptr () -> IO ()) -> IO RScriptLogCallback
+
+-- | Receives the diagnostics of the scripts instead of the error
+-- callback. `text` is the whole message, as the command line shows it;
+-- `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+-- the diagnostic has no place). NULL gives them back to the error callback.
+type RScriptDiagnosticCallback = FunPtr (RSeverity -> CString -> CString -> CInt -> CInt -> CString -> Ptr () -> IO ())
+
+-- | Makes a 'RScriptDiagnosticCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRScriptDiagnosticCallback :: (RSeverity -> CString -> CString -> CInt -> CInt -> CString -> Ptr () -> IO ()) -> IO RScriptDiagnosticCallback
+
 type RLocaleChangedCallback = FunPtr (CString -> Ptr () -> IO ())
 
 -- | Makes a 'RLocaleChangedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
@@ -2643,7 +2811,7 @@ foreign import ccall "wrapper" mkRAccessiblePressCallback :: (Rid -> Ptr () -> I
 -- default for every field, so new fields can be added without breaking code.
 data RInitDesc = RInitDesc
     { rInitDesc_backend :: RBackend
-      -- ^ Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+      -- ^ Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     , rInitDesc_app_name :: CString
       -- ^ Application name reported to the graphics driver. May be NULL.
     , rInitDesc_worker_threads :: CInt
@@ -3053,14 +3221,22 @@ data RTouchSettings = RTouchSettings
       -- ^ R_TRUE (default): three or more fingers swiped across a trackpad go back or forward (the side buttons of a mouse).
     , rTouchSettings_swipe_distance :: CFloat
       -- ^ How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
+    , rTouchSettings_min_touch_size :: CFloat
+      -- ^ Smallest height (logical units) of what a finger presses: buttons,
+      -- fields, combo boxes, tabs and bars are at least this high, rows of
+      -- lists, trees, tables and menus too, and so are check boxes, switches
+      -- and sliders, whose box and handle grow to half of it. Whatever the
+      -- theme or a widget asks for, 0 leaves the sizes as they are.
+      -- Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+      -- 0 elsewhere.
     } deriving (Eq, Show)
 
 -- | The zeroed structure (what @RTouchSettings x = {0};@ is in C).
 rTouchSettings :: RTouchSettings
-rTouchSettings = RTouchSettings (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0)
+rTouchSettings = RTouchSettings (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0)
 
 instance Storable RTouchSettings where
-    sizeOf _ = 52
+    sizeOf _ = 56
     alignment _ = 4
     peek p = RTouchSettings
         <$> peekByteOff p 0
@@ -3076,6 +3252,7 @@ instance Storable RTouchSettings where
         <*> peekByteOff p 40
         <*> peekByteOff p 44
         <*> peekByteOff p 48
+        <*> peekByteOff p 52
     poke p v = do
         pokeByteOff p 0 (rTouchSettings_mouse_emulation v)
         pokeByteOff p 4 (rTouchSettings_slop v)
@@ -3090,6 +3267,7 @@ instance Storable RTouchSettings where
         pokeByteOff p 40 (rTouchSettings_trackpad_gestures v)
         pokeByteOff p 44 (rTouchSettings_swipe_navigation v)
         pokeByteOff p 48 (rTouchSettings_swipe_distance v)
+        pokeByteOff p 52 (rTouchSettings_min_touch_size v)
 
 data RTouchEvent = RTouchEvent
     { rTouchEvent_phase :: RTouchPhase
@@ -3362,14 +3540,18 @@ data RTileItem = RTileItem
     , rTileItem_icon_radius :: CFloat
     , rTileItem_text_color :: [CFloat]
       -- ^ Color of the name; alpha 0 = the theme.
+    , rTileItem_note :: CString
+      -- ^ Layout="Rows": a third line under the detail, dimmer, or NULL.
+    , rTileItem_detail_color :: [CFloat]
+      -- ^ Color of the detail line; alpha 0 = the theme (dimmer than the name).
     } deriving (Eq, Show)
 
 -- | The zeroed structure (what @RTileItem x = {0};@ is in C).
 rTileItem :: RTileItem
-rTileItem = RTileItem (nullPtr) (nullPtr) (nullPtr) (0) (replicate 4 0) (replicate 4 0) (0) (replicate 4 0)
+rTileItem = RTileItem (nullPtr) (nullPtr) (nullPtr) (0) (replicate 4 0) (replicate 4 0) (0) (replicate 4 0) (nullPtr) (replicate 4 0)
 
 instance Storable RTileItem where
-    sizeOf _ = 80
+    sizeOf _ = 104
     alignment _ = 8
     peek p = RTileItem
         <$> peekByteOff p 0
@@ -3380,6 +3562,8 @@ instance Storable RTileItem where
         <*> peekArray 4 (p `plusPtr` 44)
         <*> peekByteOff p 60
         <*> peekArray 4 (p `plusPtr` 64)
+        <*> peekByteOff p 80
+        <*> peekArray 4 (p `plusPtr` 88)
     poke p v = do
         pokeByteOff p 0 (rTileItem_text v)
         pokeByteOff p 8 (rTileItem_detail v)
@@ -3389,6 +3573,34 @@ instance Storable RTileItem where
         pokeArray (p `plusPtr` 44) (take 4 (rTileItem_tint v ++ repeat 0))
         pokeByteOff p 60 (rTileItem_icon_radius v)
         pokeArray (p `plusPtr` 64) (take 4 (rTileItem_text_color v ++ repeat 0))
+        pokeByteOff p 80 (rTileItem_note v)
+        pokeArray (p `plusPtr` 88) (take 4 (rTileItem_detail_color v ++ repeat 0))
+
+-- | A section of a tile view: its first tile, and what its header shows.
+data RTileSection = RTileSection
+    { rTileSection_first :: CInt
+      -- ^ Index of the first tile of the section (read when the sections are given).
+    , rTileSection_text :: CString
+      -- ^ Title of the header (valid until the callback returns).
+    , rTileSection_detail :: CString
+      -- ^ Dimmer text after the title (a count...), or NULL.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RTileSection x = {0};@ is in C).
+rTileSection :: RTileSection
+rTileSection = RTileSection (0) (nullPtr) (nullPtr)
+
+instance Storable RTileSection where
+    sizeOf _ = 24
+    alignment _ = 8
+    peek p = RTileSection
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+    poke p v = do
+        pokeByteOff p 0 (rTileSection_first v)
+        pokeByteOff p 8 (rTileSection_text v)
+        pokeByteOff p 16 (rTileSection_detail v)
 
 -- | What the editor knows of a language. Every field but the name may be NULL.
 -- Lists of words are separated by spaces.
@@ -3585,15 +3797,21 @@ data RViewportDrawInfo = RViewportDrawInfo
     , rViewportDrawInfo_render_pass :: Ptr ()
       -- ^ Vulkan: VkRenderPass in use (one color attachment, no depth).
     , rViewportDrawInfo_color_format :: Word32
-      -- ^ Vulkan: VkFormat of the color attachment.
+      -- ^ Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
+    , rViewportDrawInfo_metal_encoder :: Ptr ()
+      -- ^ Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+    , rViewportDrawInfo_metal_command_buffer :: Ptr ()
+      -- ^ Metal: id<MTLCommandBuffer> the encoder belongs to.
+    , rViewportDrawInfo_metal_device :: Ptr ()
+      -- ^ Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
     } deriving (Eq, Show)
 
 -- | The zeroed structure (what @RViewportDrawInfo x = {0};@ is in C).
 rViewportDrawInfo :: RViewportDrawInfo
-rViewportDrawInfo = RViewportDrawInfo (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (nullPtr) (nullPtr) (0)
+rViewportDrawInfo = RViewportDrawInfo (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (nullPtr) (nullPtr) (0) (nullPtr) (nullPtr) (nullPtr)
 
 instance Storable RViewportDrawInfo where
-    sizeOf _ = 88
+    sizeOf _ = 112
     alignment _ = 8
     peek p = RViewportDrawInfo
         <$> peekByteOff p 0
@@ -3613,6 +3831,9 @@ instance Storable RViewportDrawInfo where
         <*> peekByteOff p 64
         <*> peekByteOff p 72
         <*> peekByteOff p 80
+        <*> peekByteOff p 88
+        <*> peekByteOff p 96
+        <*> peekByteOff p 104
     poke p v = do
         pokeByteOff p 0 (rViewportDrawInfo_backend v)
         pokeByteOff p 4 (rViewportDrawInfo_viewport v)
@@ -3631,6 +3852,9 @@ instance Storable RViewportDrawInfo where
         pokeByteOff p 64 (rViewportDrawInfo_command_buffer v)
         pokeByteOff p 72 (rViewportDrawInfo_render_pass v)
         pokeByteOff p 80 (rViewportDrawInfo_color_format v)
+        pokeByteOff p 88 (rViewportDrawInfo_metal_encoder v)
+        pokeByteOff p 96 (rViewportDrawInfo_metal_command_buffer v)
+        pokeByteOff p 104 (rViewportDrawInfo_metal_device v)
 
 -- | State of one animated value. Zero-initialize it and keep it with the widget.
 data RSpring = RSpring
@@ -3918,6 +4142,16 @@ foreign import ccall safe "Rget_delta_time" rget_delta_time :: IO CDouble
 -- | Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe.
 foreign import ccall safe "Rget_time" rget_time :: IO CDouble
 
+foreign import ccall safe "Rset_app_event_callback" rset_app_event_callback :: RAppEventCallback -> Ptr () -> IO ()
+
+-- | Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+foreign import ccall safe "Ris_app_paused" ris_app_paused :: IO CInt
+
+-- | Handles an RAppEvent as if the system had sent it: for tests,
+-- and for a host application (raven_host.h) that knows the lifecycle.
+-- UI thread.
+foreign import ccall safe "Rinject_app_event" rinject_app_event :: RAppEvent -> IO ()
+
 -- | Scale of the whole interface, on top of the one of the monitor
 -- (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
 foreign import ccall safe "Rset_ui_scale" rset_ui_scale :: CFloat -> IO ()
@@ -3986,6 +4220,35 @@ foreign import ccall safe "Raction_fire" raction_fire :: CString -> Rid -> IO ()
 
 -- | Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
 foreign import ccall safe "Raction_set_default_handler" raction_set_default_handler :: RActionCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Raction_bind_with_parameters" raction_bind_with_parameters :: CString -> CString -> RActionParametersCallback -> Ptr () -> IO CInt
+
+-- | Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+foreign import ccall safe "Raction_get_sender" raction_get_sender :: Ptr RActionContext -> IO Rid
+
+foreign import ccall safe "Raction_get_name" raction_get_name :: Ptr RActionContext -> IO CString
+
+-- | Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+foreign import ccall safe "Raction_get_argument_count" raction_get_argument_count :: Ptr RActionContext -> IO CInt
+
+-- | The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+foreign import ccall safe "Raction_get_number" raction_get_number :: Ptr RActionContext -> CInt -> IO CDouble
+
+-- | Returns: Valid until the function returns.
+foreign import ccall safe "Raction_get_string" raction_get_string :: Ptr RActionContext -> CInt -> IO CString
+
+foreign import ccall safe "Raction_get_bool" raction_get_bool :: Ptr RActionContext -> CInt -> IO CInt
+
+-- | The value returned to the script; of the type of the signature (what is set last counts).
+foreign import ccall safe "Raction_return_number" raction_return_number :: Ptr RActionContext -> CDouble -> IO ()
+
+foreign import ccall safe "Raction_return_string" raction_return_string :: Ptr RActionContext -> CString -> IO ()
+
+foreign import ccall safe "Raction_return_bool" raction_return_bool :: Ptr RActionContext -> CInt -> IO ()
+
+-- | The function failed: the script that called it stops with error
+-- RS205 and this message (the application goes on; so does the next event).
+foreign import ccall safe "Raction_fail" raction_fail :: Ptr RActionContext -> CString -> IO ()
 
 -- | The actions Raven knows by itself: an interface written in XML
 -- uses them with no C at all (OnClicked="app.quit").
@@ -4083,7 +4346,10 @@ foreign import ccall safe "Rwindow_get_safe_area" rwindow_get_safe_area :: Rid -
 
 -- | The part of the window the on-screen keyboard covers (only
 -- `bottom` is set), in logical units; 0 when it is hidden or there is
--- none (desktop). The content is laid out above it already.
+-- none (desktop). The content is laid out above it already, and the
+-- field that has the focus is scrolled into view above it, by the
+-- ScrollBoxes that hold it, when the keyboard comes or changes height,
+-- when the window turns, and when another field takes the focus.
 foreign import ccall safe "Rwindow_get_keyboard_area" rwindow_get_keyboard_area :: Rid -> Ptr RInsets -> IO ()
 
 -- | Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
@@ -4091,6 +4357,17 @@ foreign import ccall safe "Rwindow_set_keyboard_callback" rwindow_set_keyboard_c
 
 -- | No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
 foreign import ccall safe "Rwindow_clear_focus" rwindow_clear_focus :: Rid -> IO ()
+
+foreign import ccall safe "Rwindow_set_back_callback" rwindow_set_back_callback :: Rid -> RBackCallback -> Ptr () -> IO ()
+
+-- | R_TRUE while the application has somewhere to go back to (a page
+-- under the one shown). Android 13 and later ask for Back only while the
+-- window wants it (predictive back): at the root page the system handles
+-- Back itself and animates back to the home screen. Default R_FALSE.
+foreign import ccall safe "Rwindow_set_back_enabled" rwindow_set_back_enabled :: Rid -> CInt -> IO ()
+
+-- | Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+foreign import ccall safe "Rwindow_wants_back" rwindow_wants_back :: Rid -> IO CInt
 
 foreign import ccall safe "Rwindow_set_min_size" rwindow_set_min_size :: Rid -> CInt -> CInt -> IO ()
 
@@ -4315,6 +4592,9 @@ foreign import ccall safe "Rwindow_inject_drag" rwindow_inject_drag :: Rid -> CF
 -- | Drops files and / or text at a position. Returns R_TRUE when a target took them.
 foreign import ccall safe "Rwindow_inject_drop" rwindow_inject_drop :: Rid -> CFloat -> CFloat -> Ptr CString -> CInt -> CString -> IO CInt
 
+-- | Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+foreign import ccall safe "Rwindow_inject_back" rwindow_inject_back :: Rid -> IO CInt
+
 -- | R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
 foreign import ccall safe "Rwindow_is_key_down" rwindow_is_key_down :: Rid -> RKey -> IO CInt
 
@@ -4485,6 +4765,9 @@ foreign import ccall safe "Rtheme_set_color" rtheme_set_color :: RColorRole -> C
 
 foreign import ccall safe "Rtheme_get_color" rtheme_get_color :: RColorRole -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> Ptr CFloat -> IO ()
 
+-- | Changes a size of the theme in use. It lasts until the look or
+-- the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+-- switch between light and dark made by Rtheme_follow_system.
 foreign import ccall safe "Rtheme_set_metric" rtheme_set_metric :: RMetric -> CFloat -> IO ()
 
 foreign import ccall safe "Rtheme_get_metric" rtheme_get_metric :: RMetric -> IO CFloat
@@ -4516,6 +4799,13 @@ foreign import ccall safe "Rtheme_get_system_dark" rtheme_get_system_dark :: IO 
 -- | Follows the dark or light mode of the system with the Raven look
 -- (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
 -- Off by default. Does nothing where the platform does not tell (desktop today).
+--
+-- A switch is Rlook_set, except that the sizes given with
+-- Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+-- those of one mode and are lost; to keep colors, sizes and styles of
+-- the application through the switch, put them in a theme that names no
+-- look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+-- new look.
 foreign import ccall safe "Rtheme_follow_system" rtheme_follow_system :: CInt -> IO ()
 
 foreign import ccall safe "Rtheme_is_dark" rtheme_is_dark :: IO CInt
@@ -4708,6 +4998,9 @@ foreign import ccall safe "Rwidget_get_type" rwidget_get_type :: Rid -> IO RWidg
 -- A widget that already has a parent is moved.
 -- Returns: `child`, so calls can be nested:
 --         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+--         R_INVALID_ID when the child replaced in a single-child container
+--         had a destroy callback that destroyed the container or `child`;
+--         `child`, when it is still there, is then not added.
 foreign import ccall safe "Rwidget_add_child" rwidget_add_child :: Rid -> Rid -> IO Rid
 
 foreign import ccall safe "Rwidget_insert_child" rwidget_insert_child :: Rid -> Rid -> CInt -> IO Rid
@@ -4808,7 +5101,8 @@ foreign import ccall safe "Rwidget_play_transition" rwidget_play_transition :: R
 -- | R_TRUE clips the descendants to the bounds of the widget.
 foreign import ccall safe "Rwidget_set_clipping" rwidget_set_clipping :: Rid -> CInt -> IO ()
 
--- | Text shown when the cursor rests on the widget. NULL removes it.
+-- | Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+--  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 foreign import ccall safe "Rwidget_set_tooltip" rwidget_set_tooltip :: Rid -> CString -> IO ()
 
 -- | Returns: The tooltip text of the widget, "" when it has none.
@@ -4834,7 +5128,7 @@ foreign import ccall safe "Rwidget_is_hovered" rwidget_is_hovered :: Rid -> IO C
 
 foreign import ccall safe "Rwidget_set_focusable" rwidget_set_focusable :: Rid -> CInt -> IO ()
 
--- | Gives the keyboard focus to the widget.
+-- | Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 foreign import ccall safe "Rwidget_focus" rwidget_focus :: Rid -> IO ()
 
 foreign import ccall safe "Rwidget_is_focused" rwidget_is_focused :: Rid -> IO CInt
@@ -4905,7 +5199,9 @@ foreign import ccall safe "Rwidget_set_metric" rwidget_set_metric :: Rid -> RMet
 
 foreign import ccall safe "Rwidget_clear_metric" rwidget_clear_metric :: Rid -> RMetric -> IO ()
 
--- | Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme.
+-- | Returns: The metric the widget uses: its own, else the one of a style,
+-- else the one of its theme; grown for larger text
+-- (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
 foreign import ccall safe "Rwidget_get_metric" rwidget_get_metric :: Rid -> RMetric -> IO CFloat
 
 -- | Classes of the widget, separated by spaces ("danger large"):
@@ -5000,7 +5296,10 @@ foreign import ccall safe "Rscroll_box_get_offset" rscroll_box_get_offset :: Rid
 
 foreign import ccall safe "Rscroll_box_scroll_to_end" rscroll_box_scroll_to_end :: Rid -> IO ()
 
--- | Scrolls every ScrollBox above the widget so that the widget is visible.
+-- | Scrolls every ScrollBox above the widget so that the widget is
+-- visible. The library does it by itself for the focused widget when the
+-- focus comes from Tab or Rwidget_focus, and for a text field above the
+-- on-screen keyboard (Rwindow_get_keyboard_area).
 foreign import ccall safe "Rwidget_scroll_into_view" rwidget_scroll_into_view :: Rid -> IO ()
 
 -- | R_HORIZONTAL puts the panes side by side (default), R_VERTICAL stacks them.
@@ -5510,6 +5809,29 @@ foreign import ccall safe "Rtile_view_get_count" rtile_view_get_count :: Rid -> 
 foreign import ccall safe "Rtile_view_set_tile_size" rtile_view_set_tile_size :: Rid -> CFloat -> CFloat -> CFloat -> IO ()
 
 foreign import ccall safe "Rtile_view_set_empty_text" rtile_view_set_empty_text :: Rid -> CString -> IO ()
+
+-- | Layout="Rows": width of the box the icon is drawn in (its height is the
+-- icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+foreign import ccall safe "Rtile_view_set_icon_width" rtile_view_set_icon_width :: Rid -> CFloat -> IO ()
+
+-- | `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+foreign import ccall safe "Rtile_view_set_sections" rtile_view_set_sections :: Rid -> CInt -> RTileSectionCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rtile_view_get_section_count" rtile_view_get_section_count :: Rid -> IO CInt
+
+-- | The section of a tile, or -1 (before the first section).
+foreign import ccall safe "Rtile_view_get_section_of" rtile_view_get_section_of :: Rid -> CInt -> IO CInt
+
+-- | Folds or unfolds a section (the toggled callback is not called).
+foreign import ccall safe "Rtile_view_set_section_folded" rtile_view_set_section_folded :: Rid -> CInt -> CInt -> IO ()
+
+foreign import ccall safe "Rtile_view_is_section_folded" rtile_view_is_section_folded :: Rid -> CInt -> IO CInt
+
+-- | The section whose header is at a point relative to the widget, or -1.
+foreign import ccall safe "Rtile_view_get_section_at" rtile_view_get_section_at :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Called when the user folds or unfolds a section (`index`: the section).
+foreign import ccall safe "Rtile_view_set_section_toggled_callback" rtile_view_set_section_toggled_callback :: Rid -> RTileEventCallback -> Ptr () -> IO ()
 
 foreign import ccall safe "Rtile_view_set_selected" rtile_view_set_selected :: Rid -> CInt -> CInt -> IO ()
 
@@ -6089,8 +6411,153 @@ foreign import ccall safe "Rpdf_view_get_page_text" rpdf_view_get_page_text :: R
 
 foreign import ccall safe "Rpdf_view_set_page_changed_callback" rpdf_view_set_page_changed_callback :: Rid -> RPdfPageChangedCallback -> Ptr () -> IO ()
 
+foreign import ccall safe "Rcarousel_create" rcarousel_create :: IO Rid
+
+-- | Shows a page, gliding to it when `animated` (and the animations
+-- are on), at once otherwise. The page changed callback is not called.
+foreign import ccall safe "Rcarousel_set_page" rcarousel_set_page :: Rid -> CInt -> CInt -> IO ()
+
+-- | The page shown, -1 when the carousel has none.
+foreign import ccall safe "Rcarousel_get_page" rcarousel_get_page :: Rid -> IO CInt
+
+-- | Its children.
+foreign import ccall safe "Rcarousel_get_page_count" rcarousel_get_page_count :: Rid -> IO CInt
+
+-- | Glides to the next / previous page; nothing at the last / first one unless it loops.
+foreign import ccall safe "Rcarousel_next" rcarousel_next :: Rid -> IO ()
+
+foreign import ccall safe "Rcarousel_prev" rcarousel_prev :: Rid -> IO ()
+
+-- | R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+foreign import ccall safe "Rcarousel_set_loop" rcarousel_set_loop :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rcarousel_get_loop" rcarousel_get_loop :: Rid -> IO CInt
+
+-- | Goes to the next page by itself every `seconds` (0: never, the
+-- default); after the last page it comes back to the first. It waits
+-- while the pointer is on the carousel, while the pages are dragged and
+-- while the keyboard is in it; a page chosen by the user starts the
+-- interval again.
+foreign import ccall safe "Rcarousel_set_autoplay" rcarousel_set_autoplay :: Rid -> CDouble -> IO ()
+
+foreign import ccall safe "Rcarousel_get_autoplay" rcarousel_get_autoplay :: Rid -> IO CDouble
+
+-- | The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+foreign import ccall safe "Rcarousel_set_indicators_visible" rcarousel_set_indicators_visible :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rcarousel_get_indicators_visible" rcarousel_get_indicators_visible :: Rid -> IO CInt
+
+-- | The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+foreign import ccall safe "Rcarousel_set_arrows_visible" rcarousel_set_arrows_visible :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rcarousel_get_arrows_visible" rcarousel_get_arrows_visible :: Rid -> IO CInt
+
+-- | R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+foreign import ccall safe "Rcarousel_set_orientation" rcarousel_set_orientation :: Rid -> ROrientation -> IO ()
+
+foreign import ccall safe "Rcarousel_get_orientation" rcarousel_get_orientation :: Rid -> IO ROrientation
+
+foreign import ccall safe "Rcarousel_set_page_changed_callback" rcarousel_set_page_changed_callback :: Rid -> RCarouselPageChangedCallback -> Ptr () -> IO ()
+
 -- | Prints the document shown (see Rpdf_print); the job is named after its title.
 foreign import ccall safe "Rpdf_view_print" rpdf_view_print :: Rid -> Ptr RPdfPrintDesc -> IO CInt
+
+foreign import ccall safe "Rmap_view_create" rmap_view_create :: IO Rid
+
+-- | Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+foreign import ccall safe "Rmap_view_set_center" rmap_view_set_center :: Rid -> CDouble -> CDouble -> IO ()
+
+-- | The place at the middle of the map (longitude from -180 to 180).
+foreign import ccall safe "Rmap_view_get_center" rmap_view_get_center :: Rid -> Ptr CDouble -> Ptr CDouble -> IO ()
+
+-- | The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+foreign import ccall safe "Rmap_view_set_zoom" rmap_view_set_zoom :: Rid -> CDouble -> IO ()
+
+foreign import ccall safe "Rmap_view_get_zoom" rmap_view_get_zoom :: Rid -> IO CDouble
+
+-- | The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+foreign import ccall safe "Rmap_view_set_zoom_range" rmap_view_set_zoom_range :: Rid -> CDouble -> CDouble -> IO ()
+
+foreign import ccall safe "Rmap_view_get_zoom_range" rmap_view_get_zoom_range :: Rid -> Ptr CDouble -> Ptr CDouble -> IO ()
+
+-- | Glides to a place and a zoom (at once when animations are off).
+foreign import ccall safe "Rmap_view_animate_to" rmap_view_animate_to :: Rid -> CDouble -> CDouble -> CDouble -> IO ()
+
+-- | The place at a point of the widget.
+foreign import ccall safe "Rmap_view_screen_to_latlon" rmap_view_screen_to_latlon :: Rid -> CFloat -> CFloat -> Ptr CDouble -> Ptr CDouble -> IO ()
+
+-- | Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+foreign import ccall safe "Rmap_view_latlon_to_screen" rmap_view_latlon_to_screen :: Rid -> CDouble -> CDouble -> Ptr CFloat -> Ptr CFloat -> IO ()
+
+-- | Called once for each tile the map needs. Answer with
+-- Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+-- at once or later. Setting it forgets the tiles of the previous source.
+foreign import ccall safe "Rmap_view_set_tile_callback" rmap_view_set_tile_callback :: Rid -> RMapTileCallback -> Ptr () -> IO ()
+
+-- | Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+foreign import ccall safe "Rmap_view_set_tile_cancel_callback" rmap_view_set_tile_cancel_callback :: Rid -> RMapTileCallback -> Ptr () -> IO ()
+
+-- | The pixels of a tile: `width` x `height` RGBA8, tightly packed
+-- (they are copied; any size, shown at the tile size). Thread-safe: from
+-- another thread it is applied on the UI thread during the next frame.
+foreign import ccall safe "Rmap_view_set_tile" rmap_view_set_tile :: Rid -> CInt -> CInt -> CInt -> Ptr Word8 -> CInt -> CInt -> IO ()
+
+-- | A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+foreign import ccall safe "Rmap_view_set_tile_data" rmap_view_set_tile_data :: Rid -> CInt -> CInt -> CInt -> Ptr () -> CSize -> IO ()
+
+-- | There is no such tile: the coarser one stays shown in its place. Thread-safe.
+foreign import ccall safe "Rmap_view_set_tile_failed" rmap_view_set_tile_failed :: Rid -> CInt -> CInt -> CInt -> IO ()
+
+-- | Reads the tiles from files instead of asking for them: a path
+-- where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+-- south, as in TMS and MBTiles). The files are read and decoded on a
+-- worker thread; a missing file is a tile that failed. NULL or "": the
+-- tile callback again. Local files only.
+foreign import ccall safe "Rmap_view_set_tile_path" rmap_view_set_tile_path :: Rid -> CString -> IO ()
+
+foreign import ccall safe "Rmap_view_get_tile_path" rmap_view_get_tile_path :: Rid -> IO CString
+
+-- | Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+foreign import ccall safe "Rmap_view_set_tile_size" rmap_view_set_tile_size :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rmap_view_get_tile_size" rmap_view_get_tile_size :: Rid -> IO CInt
+
+-- | Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+foreign import ccall safe "Rmap_view_set_cache_size" rmap_view_set_cache_size :: Rid -> CSize -> IO ()
+
+-- | Memory the decoded tiles take now, in bytes.
+foreign import ccall safe "Rmap_view_get_cache_usage" rmap_view_get_cache_usage :: Rid -> IO CSize
+
+-- | Forgets every tile (they are asked for again): the tiles of the source changed.
+foreign import ccall safe "Rmap_view_clear_tiles" rmap_view_clear_tiles :: Rid -> IO ()
+
+foreign import ccall safe "Rmap_view_get_tile_state" rmap_view_get_tile_state :: Rid -> CInt -> CInt -> CInt -> IO RMapTileState
+
+-- | Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+foreign import ccall safe "Rmap_view_add_marker" rmap_view_add_marker :: Rid -> CDouble -> CDouble -> CString -> IO CInt
+
+foreign import ccall safe "Rmap_view_remove_marker" rmap_view_remove_marker :: Rid -> CInt -> IO ()
+
+foreign import ccall safe "Rmap_view_clear_markers" rmap_view_clear_markers :: Rid -> IO ()
+
+foreign import ccall safe "Rmap_view_get_marker_count" rmap_view_get_marker_count :: Rid -> IO CInt
+
+foreign import ccall safe "Rmap_view_set_marker_position" rmap_view_set_marker_position :: Rid -> CInt -> CDouble -> CDouble -> IO ()
+
+foreign import ccall safe "Rmap_view_set_marker_label" rmap_view_set_marker_label :: Rid -> CInt -> CString -> IO ()
+
+-- | The color of a pin (by default the accent of the theme).
+foreign import ccall safe "Rmap_view_set_marker_color" rmap_view_set_marker_color :: Rid -> CInt -> CFloat -> CFloat -> CFloat -> CFloat -> IO ()
+
+foreign import ccall safe "Rmap_view_set_marker_clicked_callback" rmap_view_set_marker_clicked_callback :: Rid -> RMapMarkerCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rmap_view_set_view_changed_callback" rmap_view_set_view_changed_callback :: Rid -> RMapViewCallback -> Ptr () -> IO ()
+
+-- | A line written in the bottom right corner: the credit most tile
+-- licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+foreign import ccall safe "Rmap_view_set_attribution" rmap_view_set_attribution :: Rid -> CString -> IO ()
+
+foreign import ccall safe "Rmap_view_get_attribution" rmap_view_get_attribution :: Rid -> IO CString
 
 foreign import ccall safe "Rpdf_document_create" rpdf_document_create :: IO Rid
 
@@ -6467,6 +6934,17 @@ foreign import ccall safe "Rdock_area_is_tearable" rdock_area_is_tearable :: Rid
 
 -- | Default for future floats/tears; existing floating panels keep their mode.
 foreign import ccall safe "Rdock_area_set_float_mode" rdock_area_set_float_mode :: Rid -> RDockFloatMode -> IO ()
+
+-- | How the windows of torn-off panels are made (native windows,
+-- R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+-- flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+--                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+--                 R_WINDOW_TRANSPARENT (the others are ignored).
+--                 R_WINDOW_DEFAULT by default.
+-- callback May be NULL: the floating area is the whole window.
+-- Dragging the only tab of such a window still moves it, and closing
+-- it (its header bar's close button too) docks its panels back.
+foreign import ccall safe "Rdock_area_set_float_window" rdock_area_set_float_window :: Rid -> Word32 -> RDockFloatWindowCallback -> Ptr () -> IO ()
 
 -- | Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 foreign import ccall safe "Rdock_area_float_panel" rdock_area_float_panel :: Rid -> Rid -> CInt -> CInt -> IO Rid
@@ -7252,6 +7730,9 @@ foreign import ccall safe "Rfile_unregister_memory" rfile_unregister_memory :: C
 foreign import ccall safe "Rfile_is_memory" rfile_is_memory :: CString -> IO CInt
 
 -- | Whole files, with UTF-8 paths on every platform.
+-- On Android and iOS, a relative path that names no file held in memory
+-- and no file on disk is read from the app's package (the APK's assets/,
+-- the bundle's resources), and so is every file Raven reads by its path.
 -- Returns: Rfile_read: the content followed by a '\0', to release with
 -- Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
 foreign import ccall safe "Rfile_read" rfile_read :: CString -> Ptr CSize -> IO CString
@@ -7669,6 +8150,55 @@ foreign import ccall safe "Rxml_get_attribute_count" rxml_get_attribute_count ::
 
 foreign import ccall safe "Rxml_get_attribute_info" rxml_get_attribute_info :: CString -> CInt -> Ptr RXmlAttributeInfo -> IO CInt
 
+-- | Loads a script given as text (not an XML document): its
+-- functions become actions, its globals are initialized.
+-- name Names it in the diagnostics (a file name); may be NULL.
+-- Returns: R_FALSE when it has an error (nothing of it is installed).
+foreign import ccall safe "Rscript_load" rscript_load :: CString -> CSize -> CString -> IO CInt
+
+-- | The same from a file (.rvs).
+foreign import ccall safe "Rscript_load_file" rscript_load_file :: CString -> IO CInt
+
+-- | Checks a script, or the scripts of an XML document and the
+-- functions its widgets name, without running anything nor building a
+-- widget. The diagnostics are reported as usual.
+-- source A script, or an XML document (text that starts with '<').
+-- Returns: The number of errors.
+foreign import ccall safe "Rscript_check" rscript_check :: CString -> CSize -> CString -> IO CInt
+
+-- | Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+foreign import ccall safe "Rscript_check_file" rscript_check_file :: CString -> IO CInt
+
+-- | Formats a script: one statement per line, blocks indented,
+-- spaces around operators; comments are kept.
+-- indent One level of indentation; NULL for four spaces.
+-- Returns: The text, valid until the next call; NULL when the script has a
+-- syntax error (it is not changed).
+foreign import ccall safe "Rscript_format" rscript_format :: CString -> CSize -> CString -> IO CString
+
+-- | Removes every script function (their actions are unbound) and every global. Not while a script runs.
+foreign import ccall safe "Rscript_reset" rscript_reset :: IO ()
+
+-- | Returns: R_TRUE when a script function has that name.
+foreign import ccall safe "Rscript_has_function" rscript_has_function :: CString -> IO CInt
+
+-- | R_FALSE: the <Script> elements of the documents are read but not
+-- compiled nor run (a design tool that shows interfaces without running
+-- them). On by default.
+foreign import ccall safe "Rscript_set_enabled" rscript_set_enabled :: CInt -> IO ()
+
+foreign import ccall safe "Rscript_is_enabled" rscript_is_enabled :: IO CInt
+
+-- | The limits of the scripts. 0 keeps a value.
+-- max_instructions Instructions one invocation (an event) may run (10 000 000).
+-- max_depth Calls nested (200).
+-- max_memory Bytes of strings and arrays alive (64 MB).
+foreign import ccall safe "Rscript_set_limits" rscript_set_limits :: Word32 -> CInt -> CSize -> IO ()
+
+foreign import ccall safe "Rscript_set_log_callback" rscript_set_log_callback :: RScriptLogCallback -> Ptr () -> IO ()
+
+foreign import ccall safe "Rscript_set_diagnostic_callback" rscript_set_diagnostic_callback :: RScriptDiagnosticCallback -> Ptr () -> IO ()
+
 -- | Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
 foreign import ccall safe "Rlocale_load_csv" rlocale_load_csv :: CString -> IO CInt
 
@@ -7812,6 +8342,17 @@ foreign import ccall safe "Rhost_platform_is_active" rhost_platform_is_active ::
 
 -- | Size of a host window in pixels, and pixels per logical unit.
 foreign import ccall safe "Rhost_window_set_size" rhost_window_set_size :: Rid -> CInt -> CInt -> CFloat -> IO ()
+
+-- | What covers a host window on a phone or a tablet, in pixels: the
+-- safe area (status bar, notch, home indicator; NULL: none) and the height
+-- of the on-screen keyboard over its bottom (0: hidden). The content is laid
+-- out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+foreign import ccall safe "Rhost_window_set_insets" rhost_window_set_insets :: Rid -> Ptr RInsets -> CInt -> IO ()
+
+-- | The application's system is in dark (R_TRUE) or light (R_FALSE)
+-- mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+-- and Rtheme_follow_system follows it.
+foreign import ccall safe "Rhost_set_system_dark" rhost_set_system_dark :: CInt -> IO ()
 
 foreign import ccall safe "Rhost_inject_mouse_move" rhost_inject_mouse_move :: Rid -> CInt -> CInt -> Word32 -> IO ()
 

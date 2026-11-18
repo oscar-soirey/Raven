@@ -32,7 +32,7 @@ def generate(api):
     w("-- calls them runs in the interpreter, the callbacks are compiled as usual.")
     w("--")
     w("--   local r = require(\"raven\")")
-    w("--   r.Rinit(r.R_BACKEND_VULKAN)")
+    w("--   r.Rinit(r.R_BACKEND_DEFAULT)")
     w("--   local xml = [[<Window Title=\"Hi\"><Button Text=\"Quit\" OnClicked=\"quit\"/></Window>]]")
     w("--   r.Rwindow_create_from_xml(xml, #xml)")
     w("--   local quit = require(\"ffi\").cast(\"RActionCallback\", function() r.Rquit(0) end)")

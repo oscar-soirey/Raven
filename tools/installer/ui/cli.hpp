@@ -1,6 +1,6 @@
 // Raven SDK Installer - the command line: unattended installations, the
 // uninstaller of "Apps & features" (--uninstall --quiet), machines without a
-// display or without a Vulkan driver.
+// display or without a graphics driver.
 #pragma once
 
 #include "session.hpp"
@@ -21,7 +21,7 @@ struct CommandLine {
 	bool null_backend = false;
 	bool test_gui = false;
 	bool no_verify = false;
-	bool headless = false;      // Vulkan without a window (with --screenshots)
+	bool headless = false;      // the GPU backend without a window (with --screenshots)
 	std::string screenshots;    // --test-gui: a PPM of each page in this folder
 	std::string sdk_dir;
 	std::string designer_dir;

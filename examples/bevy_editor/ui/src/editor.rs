@@ -1418,7 +1418,7 @@ pub fn run_loop() -> i32 {
 /// Starts Raven, runs the editor, stops Raven: all a program needs.
 pub fn run(renderer: Box<dyn SceneRenderer>, open: Option<&Path>) -> i32 {
     unsafe {
-        if Rinit(R_BACKEND_VULKAN) == 0 {
+        if Rinit(R_BACKEND_DEFAULT) == 0 {
             eprintln!("Raven could not start (is Vulkan there?)");
             return 1;
         }

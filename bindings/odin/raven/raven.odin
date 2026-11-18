@@ -1,6 +1,6 @@
 // Raven for Odin.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 //
 // The C API as it is, under its own names. Enumerations are i32 with constants
 // (R_BACKEND_VULKAN), structures have the layout of C and are zeroed when
@@ -14,7 +14,7 @@
 //   import r "raven"
 //
 //   main :: proc() {
-//       r.Rinit(r.R_BACKEND_VULKAN)
+//       r.Rinit(r.R_BACKEND_DEFAULT)
 //       xml :: "<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>"
 //       r.Rwindow_create_from_xml(xml, len(xml))
 //       r.Raction_bind("quit", proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
@@ -39,16 +39,19 @@ Rid :: u32
 Ruint :: u32
 
 RAVEN_VERSION_MAJOR :: 0
-RAVEN_VERSION_MINOR :: 2
-RAVEN_VERSION_PATCH :: 3
-RAVEN_API_VERSION :: "0.2"
+RAVEN_VERSION_MINOR :: 3
+RAVEN_VERSION_PATCH :: 0
+RAVEN_API_VERSION :: "0.3"
 R_FALSE :: 0
 R_TRUE :: 1
 R_INVALID_ID : Rid : 0xFFFFFFFF
 
+RActionContext :: struct {}
 RPainter :: struct {}
 
 RBackend :: i32
+// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+R_BACKEND_DEFAULT :: 0
 // Built-in Vulkan renderer.
 R_BACKEND_VULKAN :: 1
 // Renders nothing. Used for headless runs and unit tests.
@@ -57,6 +60,8 @@ R_BACKEND_NULL :: 2
 R_BACKEND_CUSTOM :: 3
 // Browser renderer (Emscripten, WebGL 2).
 R_BACKEND_WEBGL :: 4
+// Built-in Metal renderer (macOS, iOS).
+R_BACKEND_METAL :: 5
 
 RError :: i32
 R_NO_ERROR :: 0x0070
@@ -71,12 +76,38 @@ R_ERROR_INVALID_FILE_FORMAT :: 0x0078
 R_ERROR_FILE_NOT_FOUND :: 0x0079
 R_ERROR_XML :: 0x007A
 R_ERROR_WRONG_THREAD :: 0x007B
+// A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
+R_ERROR_SCRIPT :: 0x007C
 
 RSeverity :: i32
 R_SEVERITY_WEAK_WARNING :: 0x0080
 R_SEVERITY_WARNING :: 0x0081
 R_SEVERITY_ERROR :: 0x0082
 R_SEVERITY_FATAL :: 0x0083
+
+// What the system does with the application, on iOS and Android (desktop
+// systems send none of these). A pause is not always followed by
+// R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+// system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+// At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+//
+//   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+//   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+//   coming back         R_APP_WILL_RESUME   Raven draws again
+//   in front again      R_APP_DID_RESUME    takes input again
+RAppEvent :: i32
+// The application is about to leave the front (home, app switcher, a call). Save the state now.
+R_APP_WILL_PAUSE :: 0x0B80
+// The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+R_APP_DID_PAUSE :: 0x0B81
+// The application is coming back to the front: Raven draws again.
+R_APP_WILL_RESUME :: 0x0B82
+// The application is in front and takes input again.
+R_APP_DID_RESUME :: 0x0B83
+// The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+R_APP_LOW_MEMORY :: 0x0B84
+// The application is about to end (Android: the activity is finishing; its window is closed right after).
+R_APP_WILL_TERMINATE :: 0x0B85
 
 RWindowFlags :: i32
 R_WINDOW_DEFAULT :: 0
@@ -692,6 +723,10 @@ R_WIDGET_PLOT :: 0x0232
 R_WIDGET_PDF_VIEW :: 0x0233
 // The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 R_WIDGET_CHART :: 0x0234
+// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+R_WIDGET_MAP_VIEW :: 0x0235
+// Pages shown one at a time and swiped (a page view), with dots and arrows.
+R_WIDGET_CAROUSEL :: 0x0236
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -869,6 +904,17 @@ R_PDF_TEXT_UNDERLINE :: 4
 RPdfPrintFlags :: i32
 // No dialog: printed at once on the printer named, else the default one.
 R_PDF_PRINT_NO_DIALOG :: 1
+
+// Where a tile of a MapView stands (Rmap_view_get_tile_state).
+RMapTileState :: i32
+// Not in the view's cache: never asked for, no longer wanted, or evicted.
+R_MAP_TILE_NONE :: 0x0600
+// Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+R_MAP_TILE_PENDING :: 0x0601
+// Its pixels are in the cache.
+R_MAP_TILE_LOADED :: 0x0602
+// The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+R_MAP_TILE_FAILED :: 0x0603
 
 // How an axis of a Plot spreads its values.
 RPlotScale :: i32
@@ -1209,6 +1255,14 @@ R_ROLE_PANE :: 0x0783
 // while the OS keeps the thread in a loop of its own (on Windows, while
 // the user moves or resizes a window), when your loop is not running.
 RFrameCallback :: #type proc "c" (delta_seconds: f64, user_data: rawptr)
+// Registers a function called when the application changes state
+// (RAppEvent), on the UI thread, while the system waits for it: keep it
+// short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+// draws nothing, animations stand still and Rwait_frame sleeps until an
+// event, a posted task or a timer: the timers of the application keep
+// running, so stop those that only drive drawing. Set it after Rinit;
+// NULL removes it.
+RAppEventCallback :: #type proc "c" (event: RAppEvent, user_data: rawptr)
 RTaskCallback :: #type proc "c" (user_data: rawptr)
 RParallelRangeCallback :: #type proc "c" (begin: u32, end: u32, user_data: rawptr)
 RTimerCallback :: #type proc "c" (timer: Rid, user_data: rawptr)
@@ -1218,6 +1272,7 @@ RTimerCallback :: #type proc "c" (timer: Rid, user_data: rawptr)
 // name is called. Names are resolved when the event fires, so actions can be
 // bound before or after the widgets are created.
 RActionCallback :: #type proc "c" (sender: Rid, action: cstring, user_data: rawptr)
+RActionParametersCallback :: #type proc "c" (context_: ^RActionContext, user_data: rawptr)
 // Registers a function called whenever an error is raised.
 // The function may be registered before Rinit. It is called on the
 // thread that raised the error: errors of the renderer (and the messages
@@ -1245,6 +1300,10 @@ RKeyboardCallback :: #type proc "c" (window: Rid, visible: i32, height: f32, use
 // shows the "can drop here" cursor and highlights the target; for
 // R_DROP_DROPPED it tells the source that the data was taken.
 RDropCallback :: #type proc "c" (target: Rid, event: ^RDropEvent, user_data: rawptr) -> i32
+// Called on Back when no popup or dialog of Raven is open. Return
+// R_TRUE when the application went back, R_FALSE when it had nowhere to
+// go (the system then does its default). NULL removes it.
+RBackCallback :: #type proc "c" (window: Rid, user_data: rawptr) -> i32
 // Called when the user asks to close the window.
 // Return R_TRUE to let the window close, R_FALSE to keep it open.
 RWindowCloseCallback :: #type proc "c" (window: Rid, user_data: rawptr) -> i32
@@ -1304,6 +1363,9 @@ RTreeEventCallback :: #type proc "c" (tree_view: Rid, item: Rid, user_data: rawp
 // first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
 RTreeContextCallback :: #type proc "c" (tree_view: Rid, item: Rid, x: f32, y: f32, user_data: rawptr)
 RMenuItemClickedCallback :: #type proc "c" (item: Rid, user_data: rawptr)
+// Describes section `section`: when the sections are given (Rtile_view_set_sections,
+// `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+RTileSectionCallback :: #type proc "c" (tile_view: Rid, section: i32, out: ^RTileSection, user_data: rawptr)
 // Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
 RTileItemCallback :: #type proc "c" (tile_view: Rid, index: i32, item: ^RTileItem, user_data: rawptr)
 // Selection change (`index`: the current tile, or -1) and activation (double click, Enter).
@@ -1352,6 +1414,18 @@ RChartSliceCallback :: #type proc "c" (chart: Rid, slice: i32, selected: i32, us
 RChartCellCallback :: #type proc "c" (chart: Rid, row: i32, column: i32, value: f32, user_data: rawptr)
 // Called when the current page changes as the user scrolls. This also fires the action of the widget.
 RPdfPageChangedCallback :: #type proc "c" (view: Rid, page: i32, user_data: rawptr)
+// Called when the user goes to another page (a swipe, the keys, a
+// dot, an arrow) and when the autoplay does. This also fires the action
+// of the widget.
+RCarouselPageChangedCallback :: #type proc "c" (carousel: Rid, page: i32, user_data: rawptr)
+// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+RMapTileCallback :: #type proc "c" (map_: Rid, z: i32, x: i32, y: i32, user_data: rawptr)
+// Called when the user clicks a marker.
+RMapMarkerCallback :: #type proc "c" (map_: Rid, marker: i32, user_data: rawptr)
+// Called when the user moves or zooms the map (during a drag, at the
+// end of an animated zoom), with its new center and zoom. This also fires
+// the action of the widget.
+RMapViewCallback :: #type proc "c" (map_: Rid, latitude: f64, longitude: f64, zoom: f64, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -1374,6 +1448,17 @@ RTrayClickedCallback :: #type proc "c" (tray: Rid, button: RMouseButton, user_da
 // Called when the user closes a panel, before it is deleted.
 // Return R_FALSE to keep the panel.
 RDockCloseCallback :: #type proc "c" (area: Rid, panel: Rid, user_data: rawptr) -> i32
+// Called when a panel leaves for a window of its own, once the
+// window and its floating area are made, before the panel goes there and
+// before anything is drawn.
+// area          The area the panel belongs to (its home).
+// panel         The panel that leaves.
+// window        The new window.
+// floating_area The dock area of the new window.
+// Returns: The content of the window: a widget that holds floating_area
+// (a VBox with a header bar above it, for a window made with
+// R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+RDockFloatWindowCallback :: #type proc "c" (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: rawptr) -> Rid
 // Called after the user moved, resized, showed or closed a panel.
 RDockChangedCallback :: #type proc "c" (area: Rid, user_data: rawptr)
 // Called when the user unfolds or folds the island. The action of the widget (OnChanged) fires too.
@@ -1438,13 +1523,20 @@ RXmlReloadCallback :: #type proc "c" (path: cstring, ok: i32, user_data: rawptr)
 // Rwidget_set_attribute goes through it too.
 RXmlTagCreateCallback :: #type proc "c" (tag: cstring, user_data: rawptr) -> Rid
 RXmlTagAttributeCallback :: #type proc "c" (widget: Rid, name: cstring, value: cstring, user_data: rawptr) -> i32
+// Where app.log writes: the standard output when NULL.
+RScriptLogCallback :: #type proc "c" (message: cstring, user_data: rawptr)
+// Receives the diagnostics of the scripts instead of the error
+// callback. `text` is the whole message, as the command line shows it;
+// `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+// the diagnostic has no place). NULL gives them back to the error callback.
+RScriptDiagnosticCallback :: #type proc "c" (severity: RSeverity, code: cstring, file: cstring, line: i32, column: i32, text: cstring, user_data: rawptr)
 RLocaleChangedCallback :: #type proc "c" (language: cstring, user_data: rawptr)
 RAccessiblePressCallback :: #type proc "c" (widget: Rid, user_data: rawptr)
 
 // Optional settings for Rinit_ex. A zero-initialized structure selects the
 // default for every field, so new fields can be added without breaking code.
 RInitDesc :: struct {
-	// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+	// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
 	backend: RBackend,
 	// Application name reported to the graphics driver. May be NULL.
 	app_name: cstring,
@@ -1627,6 +1719,14 @@ RTouchSettings :: struct {
 	swipe_navigation: i32,
 	// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
 	swipe_distance: f32,
+	// Smallest height (logical units) of what a finger presses: buttons,
+	// fields, combo boxes, tabs and bars are at least this high, rows of
+	// lists, trees, tables and menus too, and so are check boxes, switches
+	// and sliders, whose box and handle grow to half of it. Whatever the
+	// theme or a widget asks for, 0 leaves the sizes as they are.
+	// Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+	// 0 elsewhere.
+	min_touch_size: f32,
 }
 
 RTouchEvent :: struct {
@@ -1752,6 +1852,20 @@ RTileItem :: struct {
 	icon_radius: f32,
 	// Color of the name; alpha 0 = the theme.
 	text_color: [4]f32,
+	// Layout="Rows": a third line under the detail, dimmer, or NULL.
+	note: cstring,
+	// Color of the detail line; alpha 0 = the theme (dimmer than the name).
+	detail_color: [4]f32,
+}
+
+// A section of a tile view: its first tile, and what its header shows.
+RTileSection :: struct {
+	// Index of the first tile of the section (read when the sections are given).
+	first: i32,
+	// Title of the header (valid until the callback returns).
+	text: cstring,
+	// Dimmer text after the title (a count...), or NULL.
+	detail: cstring,
 }
 
 // What the editor knows of a language. Every field but the name may be NULL.
@@ -1854,8 +1968,14 @@ RViewportDrawInfo :: struct {
 	command_buffer: rawptr,
 	// Vulkan: VkRenderPass in use (one color attachment, no depth).
 	render_pass: rawptr,
-	// Vulkan: VkFormat of the color attachment.
+	// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
 	color_format: u32,
+	// Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it).
+	metal_encoder: rawptr,
+	// Metal: id<MTLCommandBuffer> the encoder belongs to.
+	metal_command_buffer: rawptr,
+	// Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format.
+	metal_device: rawptr,
 }
 
 // State of one animated value. Zero-initialize it and keep it with the widget.
@@ -2005,6 +2125,13 @@ foreign lib {
 	Rget_delta_time :: proc() -> f64 ---
 	// Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe.
 	Rget_time :: proc() -> f64 ---
+	Rset_app_event_callback :: proc(callback: RAppEventCallback, user_data: rawptr) ---
+	// Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+	Ris_app_paused :: proc() -> i32 ---
+	// Handles an RAppEvent as if the system had sent it: for tests,
+	// and for a host application (raven_host.h) that knows the lifecycle.
+	// UI thread.
+	Rinject_app_event :: proc(event: RAppEvent) ---
 	// Scale of the whole interface, on top of the one of the monitor
 	// (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
 	Rset_ui_scale :: proc(scale: f32) ---
@@ -2052,6 +2179,24 @@ foreign lib {
 	Raction_fire :: proc(name: cstring, sender: Rid) ---
 	// Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
 	Raction_set_default_handler :: proc(callback: RActionCallback, user_data: rawptr) ---
+	Raction_bind_with_parameters :: proc(name: cstring, signature: cstring, callback: RActionParametersCallback, user_data: rawptr) -> i32 ---
+	// Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+	Raction_get_sender :: proc(context_: ^RActionContext) -> Rid ---
+	Raction_get_name :: proc(context_: ^RActionContext) -> cstring ---
+	// Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+	Raction_get_argument_count :: proc(context_: ^RActionContext) -> i32 ---
+	// The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+	Raction_get_number :: proc(context_: ^RActionContext, index: i32) -> f64 ---
+	// Returns: Valid until the function returns.
+	Raction_get_string :: proc(context_: ^RActionContext, index: i32) -> cstring ---
+	Raction_get_bool :: proc(context_: ^RActionContext, index: i32) -> i32 ---
+	// The value returned to the script; of the type of the signature (what is set last counts).
+	Raction_return_number :: proc(context_: ^RActionContext, value: f64) ---
+	Raction_return_string :: proc(context_: ^RActionContext, value: cstring) ---
+	Raction_return_bool :: proc(context_: ^RActionContext, value: i32) ---
+	// The function failed: the script that called it stops with error
+	// RS205 and this message (the application goes on; so does the next event).
+	Raction_fail :: proc(context_: ^RActionContext, message: cstring) ---
 	// The actions Raven knows by itself: an interface written in XML
 	// uses them with no C at all (OnClicked="app.quit").
 	//
@@ -2126,12 +2271,23 @@ foreign lib {
 	Rwindow_get_safe_area :: proc(window: Rid, insets: ^RInsets) ---
 	// The part of the window the on-screen keyboard covers (only
 	// `bottom` is set), in logical units; 0 when it is hidden or there is
-	// none (desktop). The content is laid out above it already.
+	// none (desktop). The content is laid out above it already, and the
+	// field that has the focus is scrolled into view above it, by the
+	// ScrollBoxes that hold it, when the keyboard comes or changes height,
+	// when the window turns, and when another field takes the focus.
 	Rwindow_get_keyboard_area :: proc(window: Rid, insets: ^RInsets) ---
 	// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
 	Rwindow_set_keyboard_callback :: proc(window: Rid, callback: RKeyboardCallback, user_data: rawptr) ---
 	// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
 	Rwindow_clear_focus :: proc(window: Rid) ---
+	Rwindow_set_back_callback :: proc(window: Rid, callback: RBackCallback, user_data: rawptr) ---
+	// R_TRUE while the application has somewhere to go back to (a page
+	// under the one shown). Android 13 and later ask for Back only while the
+	// window wants it (predictive back): at the root page the system handles
+	// Back itself and animates back to the home screen. Default R_FALSE.
+	Rwindow_set_back_enabled :: proc(window: Rid, enabled: i32) ---
+	// Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+	Rwindow_wants_back :: proc(window: Rid) -> i32 ---
 	Rwindow_set_min_size :: proc(window: Rid, width: i32, height: i32) ---
 	Rwindow_set_position :: proc(window: Rid, x: i32, y: i32) ---
 	Rwindow_get_position :: proc(window: Rid, x: ^i32, y: ^i32) ---
@@ -2297,6 +2453,8 @@ foreign lib {
 	Rwindow_inject_drag :: proc(window: Rid, x: f32, y: f32, inside: i32) -> i32 ---
 	// Drops files and / or text at a position. Returns R_TRUE when a target took them.
 	Rwindow_inject_drop :: proc(window: Rid, x: f32, y: f32, paths: [^]cstring, path_count: i32, text: cstring) -> i32 ---
+	// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+	Rwindow_inject_back :: proc(window: Rid) -> i32 ---
 	// R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
 	Rwindow_is_key_down :: proc(window: Rid, key: RKey) -> i32 ---
 	// R_TRUE while the mouse button is held down over (or captured by) the window.
@@ -2416,6 +2574,9 @@ foreign lib {
 	Rtheme_apply :: proc(theme: RTheme) ---
 	Rtheme_set_color :: proc(role: RColorRole, r: f32, g: f32, b: f32, a: f32) ---
 	Rtheme_get_color :: proc(role: RColorRole, r: ^f32, g: ^f32, b: ^f32, a: ^f32) ---
+	// Changes a size of the theme in use. It lasts until the look or
+	// the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+	// switch between light and dark made by Rtheme_follow_system.
 	Rtheme_set_metric :: proc(metric: RMetric, value: f32) ---
 	Rtheme_get_metric :: proc(metric: RMetric) -> f32 ---
 	// Material of every widget that was not given one with
@@ -2438,6 +2599,13 @@ foreign lib {
 	// Follows the dark or light mode of the system with the Raven look
 	// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
 	// Off by default. Does nothing where the platform does not tell (desktop today).
+	//
+	// A switch is Rlook_set, except that the sizes given with
+	// Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+	// those of one mode and are lost; to keep colors, sizes and styles of
+	// the application through the switch, put them in a theme that names no
+	// look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+	// new look.
 	Rtheme_follow_system :: proc(enabled: i32) ---
 	Rtheme_is_dark :: proc() -> i32 ---
 	// Image drawn behind the content of the windows that have no
@@ -2585,6 +2753,9 @@ foreign lib {
 	// A widget that already has a parent is moved.
 	// Returns: `child`, so calls can be nested:
 	//         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+	//         R_INVALID_ID when the child replaced in a single-child container
+	//         had a destroy callback that destroyed the container or `child`;
+	//         `child`, when it is still there, is then not added.
 	Rwidget_add_child :: proc(parent: Rid, child: Rid) -> Rid ---
 	Rwidget_insert_child :: proc(parent: Rid, child: Rid, index: i32) -> Rid ---
 	// Detaches a child without deleting it. The caller owns it again.
@@ -2652,7 +2823,8 @@ foreign lib {
 	Rwidget_play_transition :: proc(widget: Rid, transition: RTransition, delay_seconds: f32) ---
 	// R_TRUE clips the descendants to the bounds of the widget.
 	Rwidget_set_clipping :: proc(widget: Rid, clip: i32) ---
-	// Text shown when the cursor rests on the widget. NULL removes it.
+	// Text shown when the cursor rests on the widget. NULL removes it. A label, which otherwise
+	//  lets the mouse through, takes the hover while it has a tooltip (events it does not use still bubble).
 	Rwidget_set_tooltip :: proc(widget: Rid, text: cstring) ---
 	// Returns: The tooltip text of the widget, "" when it has none.
 	Rwidget_get_tooltip :: proc(widget: Rid) -> cstring ---
@@ -2668,7 +2840,7 @@ foreign lib {
 	Rwidget_get_desired_size :: proc(widget: Rid, width: ^f32, height: ^f32) ---
 	Rwidget_is_hovered :: proc(widget: Rid) -> i32 ---
 	Rwidget_set_focusable :: proc(widget: Rid, focusable: i32) ---
-	// Gives the keyboard focus to the widget.
+	// Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 	Rwidget_focus :: proc(widget: Rid) ---
 	Rwidget_is_focused :: proc(widget: Rid) -> i32 ---
 	Rwidget_set_user_handle :: proc(widget: Rid, handle: rawptr) ---
@@ -2718,7 +2890,9 @@ foreign lib {
 	// Overrides a theme metric for one widget.
 	Rwidget_set_metric :: proc(widget: Rid, metric: RMetric, value: f32) ---
 	Rwidget_clear_metric :: proc(widget: Rid, metric: RMetric) ---
-	// Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme.
+	// Returns: The metric the widget uses: its own, else the one of a style,
+	// else the one of its theme; grown for larger text
+	// (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
 	Rwidget_get_metric :: proc(widget: Rid, metric: RMetric) -> f32 ---
 	// Classes of the widget, separated by spaces ("danger large"):
 	// the styles of the theme made for these classes apply to it
@@ -2784,7 +2958,10 @@ foreign lib {
 	Rscroll_box_set_offset :: proc(scroll_box: Rid, x: f32, y: f32) ---
 	Rscroll_box_get_offset :: proc(scroll_box: Rid, x: ^f32, y: ^f32) ---
 	Rscroll_box_scroll_to_end :: proc(scroll_box: Rid) ---
-	// Scrolls every ScrollBox above the widget so that the widget is visible.
+	// Scrolls every ScrollBox above the widget so that the widget is
+	// visible. The library does it by itself for the focused widget when the
+	// focus comes from Tab or Rwidget_focus, and for a text field above the
+	// on-screen keyboard (Rwindow_get_keyboard_area).
 	Rwidget_scroll_into_view :: proc(widget: Rid) ---
 	// R_HORIZONTAL puts the panes side by side (default), R_VERTICAL stacks them.
 	Rsplitter_set_orientation :: proc(splitter: Rid, orientation: ROrientation) ---
@@ -3111,6 +3288,21 @@ foreign lib {
 	// Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64.
 	Rtile_view_set_tile_size :: proc(tile_view: Rid, width: f32, height: f32, icon_size: f32) ---
 	Rtile_view_set_empty_text :: proc(tile_view: Rid, text: cstring) ---
+	// Layout="Rows": width of the box the icon is drawn in (its height is the
+	// icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+	Rtile_view_set_icon_width :: proc(tile_view: Rid, width: f32) ---
+	// `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+	Rtile_view_set_sections :: proc(tile_view: Rid, count: i32, callback: RTileSectionCallback, user_data: rawptr) ---
+	Rtile_view_get_section_count :: proc(tile_view: Rid) -> i32 ---
+	// The section of a tile, or -1 (before the first section).
+	Rtile_view_get_section_of :: proc(tile_view: Rid, index: i32) -> i32 ---
+	// Folds or unfolds a section (the toggled callback is not called).
+	Rtile_view_set_section_folded :: proc(tile_view: Rid, section: i32, folded: i32) ---
+	Rtile_view_is_section_folded :: proc(tile_view: Rid, section: i32) -> i32 ---
+	// The section whose header is at a point relative to the widget, or -1.
+	Rtile_view_get_section_at :: proc(tile_view: Rid, local_x: f32, local_y: f32) -> i32 ---
+	// Called when the user folds or unfolds a section (`index`: the section).
+	Rtile_view_set_section_toggled_callback :: proc(tile_view: Rid, callback: RTileEventCallback, user_data: rawptr) ---
 	Rtile_view_set_selected :: proc(tile_view: Rid, index: i32, selected: i32) ---
 	Rtile_view_is_selected :: proc(tile_view: Rid, index: i32) -> i32 ---
 	Rtile_view_clear_selection :: proc(tile_view: Rid) ---
@@ -3471,8 +3663,102 @@ foreign lib {
 	// the next call for this view.
 	Rpdf_view_get_page_text :: proc(view: Rid, page: i32) -> cstring ---
 	Rpdf_view_set_page_changed_callback :: proc(view: Rid, callback: RPdfPageChangedCallback, user_data: rawptr) ---
+	Rcarousel_create :: proc() -> Rid ---
+	// Shows a page, gliding to it when `animated` (and the animations
+	// are on), at once otherwise. The page changed callback is not called.
+	Rcarousel_set_page :: proc(carousel: Rid, page: i32, animated: i32) ---
+	// The page shown, -1 when the carousel has none.
+	Rcarousel_get_page :: proc(carousel: Rid) -> i32 ---
+	// Its children.
+	Rcarousel_get_page_count :: proc(carousel: Rid) -> i32 ---
+	// Glides to the next / previous page; nothing at the last / first one unless it loops.
+	Rcarousel_next :: proc(carousel: Rid) ---
+	Rcarousel_prev :: proc(carousel: Rid) ---
+	// R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE).
+	Rcarousel_set_loop :: proc(carousel: Rid, loop: i32) ---
+	Rcarousel_get_loop :: proc(carousel: Rid) -> i32 ---
+	// Goes to the next page by itself every `seconds` (0: never, the
+	// default); after the last page it comes back to the first. It waits
+	// while the pointer is on the carousel, while the pages are dragged and
+	// while the keyboard is in it; a page chosen by the user starts the
+	// interval again.
+	Rcarousel_set_autoplay :: proc(carousel: Rid, seconds: f64) ---
+	Rcarousel_get_autoplay :: proc(carousel: Rid) -> f64 ---
+	// The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE).
+	Rcarousel_set_indicators_visible :: proc(carousel: Rid, visible: i32) ---
+	Rcarousel_get_indicators_visible :: proc(carousel: Rid) -> i32 ---
+	// The previous / next buttons shown while the pointer is on the carousel (default R_TRUE).
+	Rcarousel_set_arrows_visible :: proc(carousel: Rid, visible: i32) ---
+	Rcarousel_get_arrows_visible :: proc(carousel: Rid) -> i32 ---
+	// R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+	Rcarousel_set_orientation :: proc(carousel: Rid, orientation: ROrientation) ---
+	Rcarousel_get_orientation :: proc(carousel: Rid) -> ROrientation ---
+	Rcarousel_set_page_changed_callback :: proc(carousel: Rid, callback: RCarouselPageChangedCallback, user_data: rawptr) ---
 	// Prints the document shown (see Rpdf_print); the job is named after its title.
 	Rpdf_view_print :: proc(view: Rid, desc: ^RPdfPrintDesc) -> i32 ---
+	Rmap_view_create :: proc() -> Rid ---
+	// Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+	Rmap_view_set_center :: proc(map_: Rid, latitude: f64, longitude: f64) ---
+	// The place at the middle of the map (longitude from -180 to 180).
+	Rmap_view_get_center :: proc(map_: Rid, latitude: ^f64, longitude: ^f64) ---
+	// The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+	Rmap_view_set_zoom :: proc(map_: Rid, zoom: f64) ---
+	Rmap_view_get_zoom :: proc(map_: Rid) -> f64 ---
+	// The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+	Rmap_view_set_zoom_range :: proc(map_: Rid, min_zoom: f64, max_zoom: f64) ---
+	Rmap_view_get_zoom_range :: proc(map_: Rid, min_zoom: ^f64, max_zoom: ^f64) ---
+	// Glides to a place and a zoom (at once when animations are off).
+	Rmap_view_animate_to :: proc(map_: Rid, latitude: f64, longitude: f64, zoom: f64) ---
+	// The place at a point of the widget.
+	Rmap_view_screen_to_latlon :: proc(map_: Rid, x: f32, y: f32, latitude: ^f64, longitude: ^f64) ---
+	// Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+	Rmap_view_latlon_to_screen :: proc(map_: Rid, latitude: f64, longitude: f64, x: ^f32, y: ^f32) ---
+	// Called once for each tile the map needs. Answer with
+	// Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+	// at once or later. Setting it forgets the tiles of the previous source.
+	Rmap_view_set_tile_callback :: proc(map_: Rid, callback: RMapTileCallback, user_data: rawptr) ---
+	// Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+	Rmap_view_set_tile_cancel_callback :: proc(map_: Rid, callback: RMapTileCallback, user_data: rawptr) ---
+	// The pixels of a tile: `width` x `height` RGBA8, tightly packed
+	// (they are copied; any size, shown at the tile size). Thread-safe: from
+	// another thread it is applied on the UI thread during the next frame.
+	Rmap_view_set_tile :: proc(map_: Rid, z: i32, x: i32, y: i32, rgba: [^]u8, width: i32, height: i32) ---
+	// A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+	Rmap_view_set_tile_data :: proc(map_: Rid, z: i32, x: i32, y: i32, data: rawptr, data_size: uint) ---
+	// There is no such tile: the coarser one stays shown in its place. Thread-safe.
+	Rmap_view_set_tile_failed :: proc(map_: Rid, z: i32, x: i32, y: i32) ---
+	// Reads the tiles from files instead of asking for them: a path
+	// where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+	// south, as in TMS and MBTiles). The files are read and decoded on a
+	// worker thread; a missing file is a tile that failed. NULL or "": the
+	// tile callback again. Local files only.
+	Rmap_view_set_tile_path :: proc(map_: Rid, path_template: cstring) ---
+	Rmap_view_get_tile_path :: proc(map_: Rid) -> cstring ---
+	// Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+	Rmap_view_set_tile_size :: proc(map_: Rid, size: i32) ---
+	Rmap_view_get_tile_size :: proc(map_: Rid) -> i32 ---
+	// Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+	Rmap_view_set_cache_size :: proc(map_: Rid, bytes: uint) ---
+	// Memory the decoded tiles take now, in bytes.
+	Rmap_view_get_cache_usage :: proc(map_: Rid) -> uint ---
+	// Forgets every tile (they are asked for again): the tiles of the source changed.
+	Rmap_view_clear_tiles :: proc(map_: Rid) ---
+	Rmap_view_get_tile_state :: proc(map_: Rid, z: i32, x: i32, y: i32) -> RMapTileState ---
+	// Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+	Rmap_view_add_marker :: proc(map_: Rid, latitude: f64, longitude: f64, label: cstring) -> i32 ---
+	Rmap_view_remove_marker :: proc(map_: Rid, marker: i32) ---
+	Rmap_view_clear_markers :: proc(map_: Rid) ---
+	Rmap_view_get_marker_count :: proc(map_: Rid) -> i32 ---
+	Rmap_view_set_marker_position :: proc(map_: Rid, marker: i32, latitude: f64, longitude: f64) ---
+	Rmap_view_set_marker_label :: proc(map_: Rid, marker: i32, label: cstring) ---
+	// The color of a pin (by default the accent of the theme).
+	Rmap_view_set_marker_color :: proc(map_: Rid, marker: i32, r: f32, g: f32, b: f32, a: f32) ---
+	Rmap_view_set_marker_clicked_callback :: proc(map_: Rid, callback: RMapMarkerCallback, user_data: rawptr) ---
+	Rmap_view_set_view_changed_callback :: proc(map_: Rid, callback: RMapViewCallback, user_data: rawptr) ---
+	// A line written in the bottom right corner: the credit most tile
+	// licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+	Rmap_view_set_attribution :: proc(map_: Rid, text: cstring) ---
+	Rmap_view_get_attribution :: proc(map_: Rid) -> cstring ---
 	Rpdf_document_create :: proc() -> Rid ---
 	Rpdf_document_delete :: proc(document: Rid) ---
 	// The information of the document, shown by readers (the title in their window).
@@ -3739,6 +4025,16 @@ foreign lib {
 	Rdock_area_is_tearable :: proc(area: Rid) -> i32 ---
 	// Default for future floats/tears; existing floating panels keep their mode.
 	Rdock_area_set_float_mode :: proc(area: Rid, mode: RDockFloatMode) ---
+	// How the windows of torn-off panels are made (native windows,
+	// R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+	// flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+	//                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+	//                 R_WINDOW_TRANSPARENT (the others are ignored).
+	//                 R_WINDOW_DEFAULT by default.
+	// callback May be NULL: the floating area is the whole window.
+	// Dragging the only tab of such a window still moves it, and closing
+	// it (its header bar's close button too) docks its panels back.
+	Rdock_area_set_float_window :: proc(area: Rid, flags: u32, callback: RDockFloatWindowCallback, user_data: rawptr) ---
 	// Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 	Rdock_area_float_panel :: proc(area: Rid, panel: Rid, x: i32, y: i32) -> Rid ---
 	// A floating panel goes back where it was in the area.
@@ -4276,6 +4572,9 @@ foreign lib {
 	// R_TRUE when `path` is a file registered with Rfile_register_memory.
 	Rfile_is_memory :: proc(path: cstring) -> i32 ---
 	// Whole files, with UTF-8 paths on every platform.
+	// On Android and iOS, a relative path that names no file held in memory
+	// and no file on disk is read from the app's package (the APK's assets/,
+	// the bundle's resources), and so is every file Raven reads by its path.
 	// Returns: Rfile_read: the content followed by a '\0', to release with
 	// Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
 	Rfile_read :: proc(path: cstring, size: ^uint) -> cstring ---
@@ -4565,6 +4864,43 @@ foreign lib {
 	// <Widget>, its own are its parameters.
 	Rxml_get_attribute_count :: proc(tag: cstring) -> i32 ---
 	Rxml_get_attribute_info :: proc(tag: cstring, index: i32, info: ^RXmlAttributeInfo) -> i32 ---
+	// Loads a script given as text (not an XML document): its
+	// functions become actions, its globals are initialized.
+	// name Names it in the diagnostics (a file name); may be NULL.
+	// Returns: R_FALSE when it has an error (nothing of it is installed).
+	Rscript_load :: proc(source: cstring, size: uint, name: cstring) -> i32 ---
+	// The same from a file (.rvs).
+	Rscript_load_file :: proc(path: cstring) -> i32 ---
+	// Checks a script, or the scripts of an XML document and the
+	// functions its widgets name, without running anything nor building a
+	// widget. The diagnostics are reported as usual.
+	// source A script, or an XML document (text that starts with '<').
+	// Returns: The number of errors.
+	Rscript_check :: proc(source: cstring, size: uint, name: cstring) -> i32 ---
+	// Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+	Rscript_check_file :: proc(path: cstring) -> i32 ---
+	// Formats a script: one statement per line, blocks indented,
+	// spaces around operators; comments are kept.
+	// indent One level of indentation; NULL for four spaces.
+	// Returns: The text, valid until the next call; NULL when the script has a
+	// syntax error (it is not changed).
+	Rscript_format :: proc(source: cstring, size: uint, indent: cstring) -> cstring ---
+	// Removes every script function (their actions are unbound) and every global. Not while a script runs.
+	Rscript_reset :: proc() ---
+	// Returns: R_TRUE when a script function has that name.
+	Rscript_has_function :: proc(name: cstring) -> i32 ---
+	// R_FALSE: the <Script> elements of the documents are read but not
+	// compiled nor run (a design tool that shows interfaces without running
+	// them). On by default.
+	Rscript_set_enabled :: proc(enabled: i32) ---
+	Rscript_is_enabled :: proc() -> i32 ---
+	// The limits of the scripts. 0 keeps a value.
+	// max_instructions Instructions one invocation (an event) may run (10 000 000).
+	// max_depth Calls nested (200).
+	// max_memory Bytes of strings and arrays alive (64 MB).
+	Rscript_set_limits :: proc(max_instructions: u32, max_depth: i32, max_memory: uint) ---
+	Rscript_set_log_callback :: proc(callback: RScriptLogCallback, user_data: rawptr) ---
+	Rscript_set_diagnostic_callback :: proc(callback: RScriptDiagnosticCallback, user_data: rawptr) ---
 	// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
 	Rlocale_load_csv :: proc(path: cstring) -> i32 ---
 	// Same, from text in memory (UTF-8).
@@ -4665,6 +5001,15 @@ foreign lib {
 	Rhost_platform_is_active :: proc() -> i32 ---
 	// Size of a host window in pixels, and pixels per logical unit.
 	Rhost_window_set_size :: proc(window: Rid, width: i32, height: i32, scale: f32) ---
+	// What covers a host window on a phone or a tablet, in pixels: the
+	// safe area (status bar, notch, home indicator; NULL: none) and the height
+	// of the on-screen keyboard over its bottom (0: hidden). The content is laid
+	// out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+	Rhost_window_set_insets :: proc(window: Rid, safe_area: ^RInsets, keyboard_height: i32) ---
+	// The application's system is in dark (R_TRUE) or light (R_FALSE)
+	// mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+	// and Rtheme_follow_system follows it.
+	Rhost_set_system_dark :: proc(dark: i32) ---
 	Rhost_inject_mouse_move :: proc(window: Rid, x: i32, y: i32, modifiers: u32) ---
 	Rhost_inject_mouse_button :: proc(window: Rid, x: i32, y: i32, button: RMouseButton, pressed: i32, modifiers: u32) ---
 	Rhost_inject_mouse_wheel :: proc(window: Rid, wheel_x: f32, wheel_y: f32, modifiers: u32) ---

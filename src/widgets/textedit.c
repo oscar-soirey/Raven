@@ -75,7 +75,9 @@ int rvn_textedit_set_text(rvn_textedit_t* edit, const char* text) {
 		while (length + 1 > edit->cap) edit->cap *= 2;
 		edit->text = (char*)rvn_realloc(edit->text, (size_t)edit->cap);
 	}
-	memcpy(edit->text, text, (size_t)length + 1);
+	/* memmove: the text may be a part of the current one (Rtext_input_get_text(input) + 2);
+	 * then it is shorter and the buffer was not reallocated */
+	memmove(edit->text, text, (size_t)length + 1);
 	edit->length = length;
 	edit->caret = edit->anchor = length;
 	edit->scroll = 0.0f;

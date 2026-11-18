@@ -1,7 +1,7 @@
 /**
  * Raven for D.
  *
- * Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+ * Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
  *
  * `raven.c` is the C API as it is, and is imported here. Around it, a few
  * helpers for what D does differently from C:
@@ -15,7 +15,7 @@
  *
  * void main()
  * {
- *     Rinit(R_BACKEND_VULKAN);
+ *     Rinit(R_BACKEND_DEFAULT);
  *     windowFromXml(`<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>`);
  *     actionBind("quit", (Rid, string) { Rquit(0); });
  *     while (Rwait_frame(-1)) {}

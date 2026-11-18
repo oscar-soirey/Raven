@@ -689,6 +689,11 @@
 			"description": "Fingers are ignored while a pen is near the screen (default true)."
 		},
 		{
+			"name": "Touch.MinSize",
+			"kind": "number",
+			"description": "Smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere)."
+		},
+		{
 			"name": "Pen.MouseEmulation",
 			"kind": "bool",
 			"description": "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."
@@ -1097,6 +1102,53 @@
 			"accepted": [
 				"Documents"
 			]
+		},
+		{
+			"name": "Carousel",
+			"description": "Its children as pages shown one at a time, swiped, with dots and arrows.",
+			"children": "many",
+			"attributes": [
+				{
+					"name": "Page",
+					"kind": "number",
+					"description": "Which page is shown, from 0."
+				},
+				{
+					"name": "Loop",
+					"kind": "bool",
+					"description": "After the last page comes the first one, and before the first the last."
+				},
+				{
+					"name": "Autoplay",
+					"kind": "number",
+					"description": "Seconds between the pages turned by themselves; 0 (default) never. It waits while the pointer is on it."
+				},
+				{
+					"name": "Indicators",
+					"kind": "bool",
+					"description": "The dots of the pages along the bottom edge (default true)."
+				},
+				{
+					"name": "Arrows",
+					"kind": "bool",
+					"description": "The previous / next buttons shown under the pointer (default true)."
+				},
+				{
+					"name": "Orientation",
+					"kind": "choice",
+					"choices": [
+						"Horizontal",
+						"Vertical"
+					],
+					"description": "Pages side by side (default) or one above the other."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user or the autoplay goes to another page."
+				}
+			],
+			"accepted": []
 		},
 		{
 			"name": "Expander",
@@ -2518,6 +2570,63 @@
 			"accepted": []
 		},
 		{
+			"name": "MapView",
+			"description": "A map of slippy-map tiles (Web Mercator z/x/y) given by the application or read from files: dragged, zoomed, with Marker elements (Latitude, Longitude, Label, Color).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Latitude",
+					"kind": "number",
+					"description": "Latitude of the center, in degrees (held within +/-85.0511)."
+				},
+				{
+					"name": "Longitude",
+					"kind": "number",
+					"description": "Longitude of the center, in degrees."
+				},
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "The zoom: 0 shows the whole world in one tile, each step doubles the scale."
+				},
+				{
+					"name": "MinZoom",
+					"kind": "number",
+					"description": "The smallest zoom the user can reach (default 0)."
+				},
+				{
+					"name": "MaxZoom",
+					"kind": "number",
+					"description": "The largest zoom the user can reach, and of the tiles asked for (default 19, at most 24)."
+				},
+				{
+					"name": "TilePath",
+					"kind": "text",
+					"description": "Reads the tiles from files: a path with {z}, {x} and {y} ({-y}: the row counted from the south, TMS)."
+				},
+				{
+					"name": "TileSize",
+					"kind": "number",
+					"description": "Logical size of a tile at a whole zoom (default 256, held within 16 .. 1024)."
+				},
+				{
+					"name": "Attribution",
+					"kind": "text",
+					"description": "The credit of the tiles, written in the bottom right corner."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user moves or zooms the map."
+				}
+			],
+			"accepted": [
+				"Lat",
+				"Lon",
+				"Lng"
+			]
+		},
+		{
 			"name": "PdfView",
 			"description": "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).",
 			"children": "none",
@@ -2989,6 +3098,10 @@
 		"LinePlot": "Plot",
 		"XYPlot": "Plot",
 		"PdfViewer": "PdfView",
-		"PDFView": "PdfView"
+		"PDFView": "PdfView",
+		"Map": "MapView",
+		"TileMap": "MapView",
+		"PageView": "Carousel",
+		"Slideshow": "Carousel"
 	}
 }

@@ -28,7 +28,7 @@
 #define RVN_COUNT_OF(a) (sizeof(a) / sizeof((a)[0]))
 /* Set by CMakeLists.txt from project(VERSION); this copy serves builds without CMake. */
 #ifndef RVN_VERSION_STRING
-#define RVN_VERSION_STRING "0.2.3"
+#define RVN_VERSION_STRING "0.3.0"
 #endif
 
 /* ---------------------------------------------------------------------------
@@ -189,10 +189,43 @@ uint32_t rvn_hash_bytes(const void* data, size_t size);
 uint32_t rvn_hash_str(const char* text);
 /** Reads a whole file. The result has one extra '\0' byte. Free with rvn_free. */
 char* rvn_read_file(const char* path, size_t* size);
+/**
+ * A file mapped into memory, read only: only the parts read are loaded (the
+ * large fonts of the system: Apple Color Emoji is near 200 MB). NULL when it
+ * cannot be read. Release with rvn_unmap_file.
+ */
+uint8_t* rvn_map_file(const char* path, size_t* size);
+void rvn_unmap_file(uint8_t* data, size_t size);
 /** R_TRUE when the path names a file registered with Rfile_register_memory. */
 int rvn_memory_file_exists(const char* path);
 /** Forgets every file held in memory (Rshutdown). */
 void rvn_memory_files_shutdown(void);
+
+/*
+ * The application's package: the read-only files shipped with the app (the
+ * APK's assets/ on Android, the bundle's resources on iOS). A relative path
+ * that names no file held in memory and no file on disk is read from it, so
+ * that "photo.png" or Source="ui/photo.png" work as they do beside the
+ * program on a desktop or in the virtual file system of a browser.
+ * The platform sets it at init and removes it at shutdown; the desktops have
+ * none. The functions may be called from any thread (textures load on the
+ * workers). `path` is relative, '/' only, without "." or ".." segments.
+ */
+typedef struct rvn_file_provider_t {
+	/** An open file, or NULL when the package has no such file. */
+	void* (*open)(const char* path);
+	/** Size of the file in bytes. */
+	size_t (*size)(void* file);
+	/** Reads at most `size` bytes; returns how many were read (0 at the end or on error). */
+	size_t (*read)(void* file, void* buffer, size_t size);
+	void (*close)(void* file);
+} rvn_file_provider_t;
+/** Sets the package (NULL: none). `provider` must stay valid until it is replaced. */
+void rvn_file_set_provider(const rvn_file_provider_t* provider);
+/** R_TRUE when the platform has a package: relative paths are then the package's. */
+int rvn_file_has_provider(void);
+/** R_TRUE when Raven reads `path` from memory or from the package, not from the disk. */
+int rvn_file_is_virtual(const char* path);
 /** Joins a base folder and a relative path. Free with rvn_free. */
 char* rvn_path_join(const char* base, const char* path);
 /** Folder part of a path, with its trailing separator. Free with rvn_free. */

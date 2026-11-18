@@ -211,6 +211,11 @@ typedef struct rvn_context_t {
 	double delta_time;
 	RFrameCallback frame_callback;
 	void* frame_user;
+	/** The lifecycle of the application (Rset_app_event_callback). */
+	RAppEventCallback app_event_callback;
+	void* app_event_user;
+	/** Between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the windows are laid out but not drawn. */
+	int app_paused;
 
 	/* loss of the device (render/device.c) */
 	RDeviceResetCallback device_reset_callback;
@@ -263,6 +268,12 @@ typedef struct rvn_context_t {
 	char* theme_name;
 	/** The look of the application (Rlook_set), as given: it may be a NATIVE one. */
 	RLook look;
+	/**
+	 * The metrics given with Rtheme_set_metric since the look or the theme
+	 * was last chosen (bit i: metric i): a switch between light and dark
+	 * made by Rtheme_follow_system keeps them.
+	 */
+	uint32_t theme_metric_mask;
 	/** Fonts of the platforms, opened on first use (widget/look.c): text, icons. */
 	Rid platform_font;
 	Rid platform_icon_font;
@@ -309,6 +320,10 @@ int rvn_api_check(const char* function);
 
 /** Calls the function bound to an action name (or the default handler). */
 void rvn_fire_action(Rid sender, const char* action);
+/** The function bound to an action name (Raction_bind). R_FALSE when none is. */
+int rvn_action_lookup(const char* name, RActionCallback* callback, void** user_data);
+/** Releases the scripts (script/script_raven.c). */
+void rvn_script_shutdown(void);
 
 /** Seconds until the next timer fires, or a negative value when there is none. */
 double rvn_timers_next_delay(void);
@@ -325,6 +340,9 @@ void rvn_update(void);
 int rvn_frame_pacing(void);
 /** Whether the renderer presents with the driver's vertical synchronization: not when the window system paces frames itself. */
 int rvn_present_vsync(void);
+
+/** The application changed state (RVN_PEVENT_APP, Rinject_app_event): what Raven does, then the callback. UI thread. */
+void rvn_app_event(RAppEvent event);
 
 /** Wakes the event loop so that a frame is produced soon. Thread-safe. */
 void rvn_wake(void);

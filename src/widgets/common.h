@@ -67,6 +67,8 @@ extern const rvn_widget_class_t rvn_class_pagination;
 extern const rvn_widget_class_t rvn_class_plot;
 extern const rvn_widget_class_t rvn_class_pdf_view;
 extern const rvn_widget_class_t rvn_class_chart;
+extern const rvn_widget_class_t rvn_class_map_view;
+extern const rvn_widget_class_t rvn_class_carousel;
 
 /** Internal class types, outside of the public enum. */
 #define RVN_WIDGET_INTERNAL_COMBO_LIST ((RWidgetType)((int)R_WIDGET_LAST_ + 1))
@@ -276,6 +278,11 @@ rvn_vec2_t rvn_island_extent(const rvn_widget_t* island);
 /** An island of the window asked for the housing, or does not any more: widget/window.c looks again. */
 void rvn_window_notch_changed(rvn_window_t* window);
 void rvn_islands_shutdown(void);
+/* ---- widgets/map_view.c: the markers of a MapView as the children a screen reader sees ---- */
+/** The marker at `index` (in the order they were added): its label and the rectangle of its pin. R_FALSE past the last. */
+int  rvn_map_view_marker_info(const rvn_widget_t* widget, int index, const char** label, rvn_rect_t* rect);
+/** What a click on the marker at `index` does (its callback). */
+void rvn_map_view_press_marker(rvn_widget_t* widget, int index);
 /** Closes PDFium when a PdfView opened it (widgets/pdf_view.c). */
 void rvn_pdf_shutdown(void);
 /** Releases what the file dialogs remember (widgets/dialogs.c). */

@@ -380,6 +380,12 @@ const COMPOSITION: TagInfo[] = [
 	]),
 	composition("Include", "Brings in another file: its declarations, and its element if it has one.", "none", [f("Source", "Path of the XML file.")]),
 	composition("Strings", "Loads a table of translations (raven_locale.h).", "none", [f("Source", "Path of the CSV file.")]),
+	composition(
+		"Script",
+		"Raven Script: functions (`fn app.save() { ... }`) that the actions of the widgets name, and globals. The code is raw text up to </Script>: write '<' and '&&' as they are. See docs/SCRIPT.md.",
+		"none",
+		[f("Src", "A file of Raven Script (.rvs) loaded with the document, relative to it.")],
+	),
 ];
 
 function composition(name: string, description: string, children: Children, attributes: AttributeInfo[]): TagInfo {

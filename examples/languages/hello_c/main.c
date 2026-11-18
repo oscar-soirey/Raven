@@ -18,7 +18,7 @@ static void on_hello(Rid sender, const char* action, void* user_data) {
 }
 
 int main(void) {
-	if (!Rinit(R_BACKEND_VULKAN)) return 1;
+	if (!Rinit(R_BACKEND_DEFAULT)) return 1;
 	Rlocale_load_csv("strings.csv");
 	Rlocale_set_language(Rlocale_get_system_language());
 	Raction_bind("hello.clicked", on_hello, NULL);

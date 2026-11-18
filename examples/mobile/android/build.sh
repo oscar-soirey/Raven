@@ -3,7 +3,8 @@
 # view) and the showcase APK (../shared) by hand, without Gradle. See ../README.md.
 # Usage: ./build.sh [install]
 # Uses the newest NDK, build tools and platform of the SDK unless ANDROID_NDK,
-# ANDROID_BUILD_TOOLS or ANDROID_JAR say otherwise.
+# ANDROID_BUILD_TOOLS or ANDROID_JAR say otherwise. RAVEN_CMAKE_ARGS is added to the
+# CMake configuration of Raven (CI: -DRAVEN_WARNINGS_AS_ERRORS=ON).
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 RAVEN=${RAVEN:-$(cd "$HERE/../../.." && pwd)}
@@ -23,12 +24,11 @@ cmake -S "$RAVEN" -B "$RAVEN/build-android" -G Ninja \
 	-DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
 	-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-$API \
 	-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF \
-	-DCMAKE_BUILD_TYPE=RelWithDebInfo >/dev/null
+	-DCMAKE_BUILD_TYPE=RelWithDebInfo ${RAVEN_CMAKE_ARGS:-} >/dev/null
 cmake --build "$RAVEN/build-android"
 
 # 2. the app's .so: main.c + the shared showcase + native_app_glue + libraven.a
 SHARED=$HERE/../shared
-"$SHARED/gen.sh"
 rm -rf "$OUT"
 mkdir -p "$OUT/apk/lib/arm64-v8a"
 "$CC" -std=c11 -O2 -g -fPIC -shared -o "$OUT/apk/lib/arm64-v8a/libravenhello.so" \
@@ -45,8 +45,12 @@ mkdir -p "$OUT/classes"
 javac -source 8 -target 8 -bootclasspath "$JAR" -Xlint:-options -encoding UTF-8 -d "$OUT/classes" $(find "$JAVA_SRC" -name '*.java')
 "$BT/d8" --min-api $API --lib "$JAR" --output "$OUT/apk" $(find "$OUT/classes" -name '*.class')
 
-# 4. APK: aapt2 link (manifest only), add the .so and classes.dex, zipalign, sign
-"$BT/aapt2" link -o "$OUT/base.apk" --manifest "$HERE/AndroidManifest.xml" -I "$JAR"
+# 4. APK: aapt2 link (manifest, and the files the app reads: assets/), add the .so and
+#    classes.dex, zipalign, sign. assets/ = ../shared/assets + the font of the titles.
+mkdir -p "$OUT/assets/fonts"
+cp -R "$SHARED/assets/." "$OUT/assets/"
+cp "$RAVEN/tools/designer/fonts/BricolageGrotesque-Bold-subset.ttf" "$OUT/assets/fonts/"
+"$BT/aapt2" link -o "$OUT/base.apk" --manifest "$HERE/AndroidManifest.xml" -I "$JAR" -A "$OUT/assets"
 (cd "$OUT/apk" && zip -q -r -0 "$OUT/base.apk" lib classes.dex)
 "$BT/zipalign" -f -P 16 4 "$OUT/base.apk" "$OUT/aligned.apk"
 if [ ! -f "$HERE/debug.keystore" ]; then

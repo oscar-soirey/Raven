@@ -1,6 +1,7 @@
 /**
  * Raven - core/file.c
- * Whole-file reading with UTF-8 paths on every platform.
+ * Whole-file reading with UTF-8 paths on every platform: from memory, from
+ * the disk, then from the application's package.
  */
 
 #include "base.h"
@@ -19,7 +20,10 @@ static FILE* rvn_fopen_read(const char* path) {
 	return _wfopen(wide, L"rb");
 }
 #else
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static FILE* rvn_fopen_read(const char* path) {
 	struct stat info;
@@ -179,6 +183,85 @@ int Rfile_is_memory(const char* path) {
 	return rvn_memory_file_exists(path);
 }
 
+/* ---------------------------------------------------------------------------
+ *  The application's package (rvn_file_set_provider): a relative path that
+ *  names nothing in memory nor on disk is read from it.
+ * ------------------------------------------------------------------------- */
+
+/* (set by the platform at init, before any other thread reads a file) */
+static const rvn_file_provider_t* g_file_provider;
+
+void rvn_file_set_provider(const rvn_file_provider_t* provider) {
+	g_file_provider = provider;
+}
+
+int rvn_file_has_provider(void) {
+	return g_file_provider != NULL;
+}
+
+/* The name of `path` in the package: relative and normalized. R_FALSE when it cannot be in it. */
+static int rvn_package_name(const char* path, char* out, size_t cap) {
+	if (!path || !path[0] || strlen(path) >= cap) return R_FALSE;
+	/* an absolute path, "~/...", a drive ("C:...") or a URL names a file elsewhere */
+	if (path[0] == '/' || path[0] == '\\' || (path[0] == '~' && (path[1] == '/' || !path[1])) || strchr(path, ':')) return R_FALSE;
+	rvn_memory_path_normalize(path, out, cap);
+	if (!out[0] || (out[0] == '.' && out[1] == '.' && (out[2] == '/' || !out[2]))) return R_FALSE;
+	return R_TRUE;
+}
+
+static int rvn_package_file_exists(const char* path) {
+	const rvn_file_provider_t* provider = g_file_provider;
+	char name[1024];
+	void* file;
+	if (!provider || !rvn_package_name(path, name, sizeof(name))) return R_FALSE;
+	file = provider->open(name);
+	if (!file) return R_FALSE;
+	provider->close(file);
+	return R_TRUE;
+}
+
+static char* rvn_package_read(const char* path, size_t* size) {
+	const rvn_file_provider_t* provider = g_file_provider;
+	char name[1024];
+	void* file;
+	size_t length, done = 0;
+	char* data;
+	if (!provider || !rvn_package_name(path, name, sizeof(name))) return NULL;
+	file = provider->open(name);
+	if (!file) return NULL;
+	length = provider->size(file);
+	if (length >= SIZE_MAX / 2) {
+		provider->close(file);
+		return NULL;
+	}
+	data = (char*)rvn_alloc(length + 1);
+	while (done < length) {
+		size_t read = provider->read(file, data + done, length - done);
+		if (read == 0) break;
+		done += read;
+	}
+	provider->close(file);
+	if (done != length) {
+		rvn_free(data);
+		return NULL;
+	}
+	data[length] = '\0';
+	if (size) *size = length;
+	return data;
+}
+
+int rvn_file_is_virtual(const char* path) {
+	FILE* file;
+	if (!path) return R_FALSE;
+	if (rvn_memory_file_exists(path)) return R_TRUE;
+	if (!rvn_package_file_exists(path)) return R_FALSE;
+	/* (the disk comes before the package) */
+	file = rvn_fopen_read(path);
+	if (!file) return R_TRUE;
+	fclose(file);
+	return R_FALSE;
+}
+
 char* rvn_read_file(const char* path, size_t* size) {
 	FILE* file;
 	long length;
@@ -203,7 +286,7 @@ char* rvn_read_file(const char* path, size_t* size) {
 		rvn_mutex_unlock(&g_memory_files_lock);
 	}
 	file = rvn_fopen_read(path);
-	if (!file) return NULL;
+	if (!file) return rvn_package_read(path, size);
 	if (fseek(file, 0, SEEK_END) != 0 || (length = ftell(file)) < 0 || (unsigned long)length >= (unsigned long)(SIZE_MAX / 2) ||
 		fseek(file, 0, SEEK_SET) != 0) {
 		fclose(file);
@@ -220,3 +303,42 @@ char* rvn_read_file(const char* path, size_t* size) {
 	if (size) *size = (size_t)length;
 	return data;
 }
+
+#if defined(_WIN32)
+
+/* (the fonts of Windows are a few MB: read whole) */
+uint8_t* rvn_map_file(const char* path, size_t* size) {
+	return (uint8_t*)rvn_read_file(path, size);
+}
+
+void rvn_unmap_file(uint8_t* data, size_t size) {
+	RVN_UNUSED(size);
+	rvn_free(data);
+}
+
+#else
+
+uint8_t* rvn_map_file(const char* path, size_t* size) {
+	struct stat info;
+	void* data;
+	int file;
+	*size = 0;
+	if (!path) return NULL;
+	file = open(path, O_RDONLY);
+	if (file < 0) return NULL;
+	if (fstat(file, &info) != 0 || !S_ISREG(info.st_mode) || info.st_size <= 0 || (uint64_t)info.st_size >= (uint64_t)(SIZE_MAX / 2)) {
+		close(file);
+		return NULL;
+	}
+	data = mmap(NULL, (size_t)info.st_size, PROT_READ, MAP_PRIVATE, file, 0);
+	close(file);
+	if (data == MAP_FAILED) return NULL;
+	*size = (size_t)info.st_size;
+	return (uint8_t*)data;
+}
+
+void rvn_unmap_file(uint8_t* data, size_t size) {
+	if (data) munmap(data, size);
+}
+
+#endif

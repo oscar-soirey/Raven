@@ -127,7 +127,7 @@ function insideWidget(element: XElement): boolean {
 function checkChildren(element: XElement, tag: TagInfo, resolver: Resolver, problems: Problem[]) {
 	if (tag.kind === "composition" && tag.name !== "Widget") return;
 	const children = effectiveChildren(element);
-	const isDeclaration = (child: XElement) => ["widget", "include", "strings", "children"].includes(child.name.toLowerCase());
+	const isDeclaration = (child: XElement) => ["widget", "include", "strings", "children", "script"].includes(child.name.toLowerCase());
 
 	if (tag.children === "none") {
 		for (const child of children) {

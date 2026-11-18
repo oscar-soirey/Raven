@@ -32,12 +32,15 @@ draws, `svg_decode.c` leaves out the shapes far outside the picture and
 dashes much smaller than a pixel, which a damaged file could otherwise make
 it draw for minutes.
 
-`stb_truetype.h` has two changes, marked `Raven:`: the CFF table of an
+`stb_truetype.h` has three changes, marked `Raven:`: the CFF table of an
 OpenType font is read within its length (the original reads up to 512 MB
 past its start), so that a damaged `.otf` cannot make it read past the end of
-the file; and the points of a composite glyph's components are clamped to the
+the file; the points of a composite glyph's components are clamped to the
 range of a vertex once scaled and moved (the original converts the float to
-`short` directly, undefined when a damaged glyph places them out of range).
+`short` directly, undefined when a damaged glyph places them out of range);
+and a font of color bitmaps without outlines (CBDT or sbix, such as Noto
+Color Emoji) is opened, for its character map and metrics: Raven reads the
+bitmaps itself.
 `font_raster.c` also checks the tables of every font and each
 TrueType glyph before stb reads them, since stb trusts the offsets of the file.
 

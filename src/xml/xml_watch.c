@@ -20,6 +20,7 @@
  */
 
 #include "xml_watch.h"
+#include "../script/script_raven.h"
 #include "../widgets/common.h"
 #include "../core/fs.h"
 #include "../core/fs_watch.h"
@@ -122,8 +123,8 @@ void rvn_watch_add(const char* path, rvn_watch_callback_t callback, void* user) 
 	uint32_t i;
 	rvn_live_configure();
 	if (!path || !path[0]) return;
-	/* a file held in memory never changes on disk */
-	if (rvn_memory_file_exists(path)) return;
+	/* a file held in memory or in the package never changes on disk */
+	if (rvn_file_is_virtual(path)) return;
 	for (i = 0; i < g_live.watch_count; i++) {
 		watch = &g_live.watches[i];
 		if (watch->callback == callback && watch->user == user && strcmp(watch->path, path) == 0) return;
@@ -606,6 +607,9 @@ static int rvn_live_reload(rvn_live_t* live) {
 		const rvn_xml_node_t* content = NULL;
 		const rvn_xml_node_t* island = NULL;
 		int valid;
+		/* the scripts again (they leave the tree: they are not widgets); their functions replace
+		   those of the last version: a file of scripts it names was changed, or the document itself */
+		rvn_script_document_t* scripts = rvn_script_document_begin(&document, live->path);
 		if (live->is_window != root_is_window) {
 			rvn_error(R_ERROR_XML, R_SEVERITY_ERROR, "%s: the root element must %s <Window>", live->path, live->is_window ? "be" : "not be");
 			valid = R_FALSE;
@@ -624,6 +628,7 @@ static int rvn_live_reload(rvn_live_t* live) {
 				ok = rvn_live_reload_widget(live, widget, &document);
 			}
 		}
+		rvn_script_document_end(scripts, live->target);
 		if (ok) {
 			rvn_xml_free(&live->document);
 			live->document = document;

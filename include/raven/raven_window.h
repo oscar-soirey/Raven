@@ -395,13 +395,41 @@ extern "C" {
 	/**
 	 * @brief The part of the window the on-screen keyboard covers (only
 	 * `bottom` is set), in logical units; 0 when it is hidden or there is
-	 * none (desktop). The content is laid out above it already.
+	 * none (desktop). The content is laid out above it already, and the
+	 * field that has the focus is scrolled into view above it, by the
+	 * ScrollBoxes that hold it, when the keyboard comes or changes height,
+	 * when the window turns, and when another field takes the focus.
 	 */
 	RAVEN_API void Rwindow_get_keyboard_area(Rid window, RInsets* insets);
 	/** @brief Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it. */
 	RAVEN_API void Rwindow_set_keyboard_callback(Rid window, RKeyboardCallback callback, void* user_data);
 	/** @brief No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. */
 	RAVEN_API void Rwindow_clear_focus(Rid window);
+
+	/**
+	 * Back: the back button and the back gesture of Android (not a key: it is
+	 * never sent as R_KEY_ESCAPE). Raven takes it first to close the top
+	 * popup or dialog, as Escape does; then the back callback of the window
+	 * goes back a page. When neither takes it the system does its default
+	 * (Android: it leaves the application).
+	 */
+
+	/**
+	 * @brief Called on Back when no popup or dialog of Raven is open. Return
+	 * R_TRUE when the application went back, R_FALSE when it had nowhere to
+	 * go (the system then does its default). NULL removes it.
+	 */
+	typedef int (*RBackCallback)(Rid window, void* user_data);
+	RAVEN_API void Rwindow_set_back_callback(Rid window, RBackCallback callback, void* user_data);
+	/**
+	 * @brief R_TRUE while the application has somewhere to go back to (a page
+	 * under the one shown). Android 13 and later ask for Back only while the
+	 * window wants it (predictive back): at the root page the system handles
+	 * Back itself and animates back to the home screen. Default R_FALSE.
+	 */
+	RAVEN_API void Rwindow_set_back_enabled(Rid window, int enabled);
+	/** @return R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so. */
+	RAVEN_API int Rwindow_wants_back(Rid window);
 	RAVEN_API void Rwindow_set_min_size(Rid window, int width, int height);
 	RAVEN_API void Rwindow_set_position(Rid window, int x, int y);
 	RAVEN_API void Rwindow_get_position(Rid window, int* x, int* y);
@@ -640,6 +668,8 @@ extern "C" {
 	RAVEN_API int Rwindow_inject_drag(Rid window, float x, float y, int inside);
 	/** @brief Drops files and / or text at a position. Returns R_TRUE when a target took them. */
 	RAVEN_API int Rwindow_inject_drop(Rid window, float x, float y, const char* const* paths, int path_count, const char* text);
+	/** @brief Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it. */
+	RAVEN_API int Rwindow_inject_back(Rid window);
 
 	/**
 	 * @brief Registers a keyboard shortcut active while the window has focus and

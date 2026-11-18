@@ -1,6 +1,6 @@
 //! Raven for Rust.
 //!
-//! Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+//! Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 //!
 //! [`sys`] is the C API as it is: the same names, raw pointers, `unsafe`.
 //! Everything in it is also at the root of the crate. Around it, a few helpers
@@ -12,7 +12,7 @@
 //!
 //! ```no_run
 //! use raven::*;
-//! unsafe { Rinit(R_BACKEND_VULKAN) };
+//! unsafe { Rinit(R_BACKEND_DEFAULT) };
 //! let _window = window_from_xml(r#"<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>"#);
 //! action_bind("quit", |_, _| unsafe { Rquit(0) });
 //! while unsafe { Rwait_frame(-1.0) } != 0 {}

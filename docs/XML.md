@@ -94,6 +94,7 @@ these attributes change how, for the window (`Rwindow_set_touch_settings`):
 | `Touch.Deceleration` | how fast it slows down, units per second per second (default 2400) |
 | `Touch.Gestures` | boolean (default true): two fingers pinch to zoom and pan |
 | `Touch.PalmRejection` | boolean (default true): fingers are ignored while a pen is near the screen |
+| `Touch.MinSize` | smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere) |
 | `Pen.MouseEmulation` | boolean (default true): the pen drives the widgets as the mouse does; its barrel button is the right button |
 | `Pen.PressureCurve` | the pressure given to the application is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder |
 | `Pen.PressureThreshold` | pressure, 0 to 1, the tip needs before it presses (default 0) |
@@ -160,6 +161,39 @@ Raction_bind("file.save", on_save, NULL);
 /* or one function for everything that has no binding of its own */
 Raction_set_default_handler(on_any_action, NULL);
 ```
+
+#### Actions written in the document: `<Script>`
+
+The functions of the actions can be written in the document itself, in
+Raven Script (a small typed language with the syntax of TypeScript). A
+`<Script>` holds code (raw text up to `</Script>`: `<` and `&&` are written
+as they are) or names a file with `Src`; it is not a widget.
+
+```xml
+<Window Title="Counter">
+    <Script>
+        let counter: number = 0;
+        fn app.increment() {
+            counter += 1;
+            ui.setText("counter", counter.toString());
+        }
+        fn app.volume(value: number) {
+            app.log("Volume: " + value.toString());
+        }
+    </Script>
+    <Script Src="scripts/more.rvs"/>
+    <VBox>
+        <Label Name="counter" Text="0"/>
+        <Button Text="+1" OnClicked="app.increment"/>
+        <Slider OnChanged="app.volume"/>
+    </VBox>
+</Window>
+```
+
+The event gives its function arguments (the value of a Slider, the state of a
+Checkbox, the text of a TextInput...); a function whose parameters do not fit
+its widget is reported when the document loads. `OnClicked="app.quit()"` is
+the same as `OnClicked="app.quit"`. The whole language: [SCRIPT.md](SCRIPT.md).
 
 #### Actions that need no C
 

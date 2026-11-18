@@ -125,8 +125,17 @@ struct rvn_touch_state_t {
 static RTouchSettings g_touch_settings;
 static int g_touch_settings_set;
 
+/* A finger needs about 44 points (Apple) or 48 dp (Material) under it; a mouse needs nothing more than the theme gives. */
+static float rvn_touch_default_min_size(void) {
+	RWindowSystem system = g_rvn.platform ? g_rvn.platform->system : R_WINDOW_SYSTEM_NONE;
+	if (system == R_WINDOW_SYSTEM_UIKIT) return 44.0f;
+	if (system == R_WINDOW_SYSTEM_ANDROID) return 48.0f;
+	return 0.0f;
+}
+
 static void rvn_touch_defaults(RTouchSettings* settings) {
 	memset(settings, 0, sizeof(*settings));
+	settings->min_touch_size = rvn_touch_default_min_size();
 	settings->mouse_emulation = R_TRUE;
 	settings->slop = 8.0f;
 	settings->long_press = 0.5f;
@@ -149,6 +158,7 @@ static void rvn_touch_sanitize(RTouchSettings* settings) {
 	if (!(settings->pressure_curve > 0.0f)) settings->pressure_curve = 1.0f;
 	settings->pressure_threshold = rvn_clampf(settings->pressure_threshold, 0.0f, 1.0f);
 	if (!(settings->swipe_distance > 0.0f)) settings->swipe_distance = 120.0f;
+	if (!(settings->min_touch_size >= 0.0f)) settings->min_touch_size = 0.0f;
 }
 
 static const RTouchSettings* rvn_touch_global(void) {
@@ -174,6 +184,17 @@ static rvn_touch_state_t* rvn_touch_state(rvn_window_t* window) {
 static const RTouchSettings* rvn_touch_settings(const rvn_window_t* window) {
 	if (window->touch && window->touch->has_settings) return &window->touch->settings;
 	return rvn_touch_global();
+}
+
+float rvn_touch_min_size(const rvn_window_t* window) {
+	if (window && window->touch && window->touch->has_settings) return window->touch->settings.min_touch_size;
+	/* (read while painting, from several threads: nothing is written here) */
+	return g_touch_settings_set ? g_touch_settings.min_touch_size : rvn_touch_default_min_size();
+}
+
+/* The sizes of the widgets follow min_touch_size: everything is measured again. */
+static void rvn_touch_sizes_changed(float before, float after) {
+	if (before != after) rvn_invalidate_all_windows();
 }
 
 static double rvn_touch_now(const rvn_touch_state_t* state) {
@@ -503,7 +524,15 @@ static void rvn_touch_primary_up(rvn_window_t* window, rvn_touch_state_t* state,
 		case RVN_TS_PAN: {
 			double now = rvn_touch_now(state);
 			float speed = sqrtf(state->vx * state->vx + state->vy * state->vy);
-			if (!cancelled && settings->inertia && state->pan && now - state->last_move < RVN_TOUCH_REST && speed > RVN_TOUCH_COAST_MIN) {
+			int flicked = !cancelled && now - state->last_move < RVN_TOUCH_REST && speed > RVN_TOUCH_COAST_MIN;
+			/* a widget that settles by itself (pages that snap) takes the speed instead of coasting */
+			if (state->pan && state->pan->cls->pan_end && !(state->pan->flags & RVN_WF_DEAD)) {
+				rvn_widget_t* pan = state->pan;
+				state->pan = NULL;
+				if (pan->cls->pan_end(pan, flicked ? state->vx : 0.0f, flicked ? state->vy : 0.0f) || window->dead) break;
+				state->pan = pan;
+			}
+			if (flicked && settings->inertia && state->pan) {
 				state->coast = state->pan;
 				state->coast_vx = state->vx;
 				state->coast_vy = state->vy;
@@ -643,6 +672,14 @@ static void rvn_gesture_end(rvn_window_t* window, rvn_touch_state_t* state, int 
 	state->g_cancelled = cancelled;
 	rvn_gesture_apply(window, state, R_GESTURE_END, cx, cy, dist, angle);
 	state->g_cancelled = R_FALSE;
+	/* what the two fingers panned settles (pages that snap) */
+	if (!window->dead && !state->gesture_owned && state->gesture_widget && state->gesture_widget->cls->pan_end &&
+		!(state->gesture_widget->flags & RVN_WF_DEAD)) {
+		rvn_widget_t* panned = state->gesture_widget;
+		state->gesture_widget = NULL;
+		panned->cls->pan_end(panned, 0.0f, 0.0f);
+		if (window->dead) return;
+	}
 	state->ga = state->gb = -1;
 	state->gesture_target = state->gesture_widget = NULL;
 	state->gesture_owned = R_FALSE;
@@ -1245,6 +1282,7 @@ int rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const
 	RVN_TOUCH_NUMBER("Touch.Deceleration", deceleration, 0.01f)
 	RVN_TOUCH_BOOL("Touch.Gestures", gestures)
 	RVN_TOUCH_BOOL("Touch.PalmRejection", palm_rejection)
+	RVN_TOUCH_NUMBER("Touch.MinSize", min_touch_size, 0.0f)
 	RVN_TOUCH_BOOL("Pen.MouseEmulation", pen_mouse_emulation)
 	RVN_TOUCH_NUMBER("Pen.PressureCurve", pressure_curve, 0.01f)
 	RVN_TOUCH_BOOL("Trackpad.Gestures", trackpad_gestures)
@@ -1273,7 +1311,9 @@ void Rtouch_get_settings(RTouchSettings* settings) {
 }
 
 void Rtouch_set_settings(const RTouchSettings* settings) {
+	float before;
 	if (!rvn_api_check(__func__)) return;
+	before = rvn_touch_global()->min_touch_size;
 	if (settings) {
 		g_touch_settings = *settings;
 		rvn_touch_sanitize(&g_touch_settings);
@@ -1281,18 +1321,22 @@ void Rtouch_set_settings(const RTouchSettings* settings) {
 		rvn_touch_defaults(&g_touch_settings);
 	}
 	g_touch_settings_set = R_TRUE;
+	rvn_touch_sizes_changed(before, g_touch_settings.min_touch_size);
 }
 
 void Rwindow_set_touch_settings(Rid id, const RTouchSettings* settings) {
 	rvn_window_t* window = rvn_window_check(id, __func__);
 	rvn_touch_state_t* state;
+	float before;
 	if (!window) return;
+	before = rvn_touch_min_size(window);
 	state = rvn_touch_state(window);
 	state->has_settings = settings != NULL;
 	if (settings) {
 		state->settings = *settings;
 		rvn_touch_sanitize(&state->settings);
 	}
+	rvn_touch_sizes_changed(before, rvn_touch_min_size(window));
 }
 
 void Rwindow_get_touch_settings(Rid id, RTouchSettings* settings) {
@@ -1339,11 +1383,22 @@ int Rwidget_get_pen_mouse(Rid id) {
 	return widget && !(widget->touch && widget->touch->no_pen_mouse);
 }
 
+/*
+ * A widget that wants the fingers takes them on the whole of its rect: a
+ * panel (VBox, Overlay...) lets the mouse through where it has no child, it
+ * would never see a finger there. (As Rwidget_set_window_drag does.)
+ */
+static void rvn_touch_hit_whole(rvn_widget_t* widget) {
+	if (widget->touch->touch_callback || widget->touch->gesture_callback) widget->flags &= ~RVN_WF_NO_HIT;
+	else if (widget->cls->flags & RVN_CF_NO_HIT) widget->flags |= RVN_WF_NO_HIT;
+}
+
 void Rwidget_set_touch_callback(Rid id, RTouchCallback callback, void* user_data) {
 	rvn_widget_t* widget = rvn_widget_check(id, (RWidgetType)0, __func__);
 	if (!widget) return;
 	rvn_widget_touch(widget)->touch_callback = callback;
 	widget->touch->touch_user = user_data;
+	rvn_touch_hit_whole(widget);
 }
 
 void Rwidget_set_pen_callback(Rid id, RPenCallback callback, void* user_data) {
@@ -1358,6 +1413,7 @@ void Rwidget_set_gesture_callback(Rid id, RGestureCallback callback, void* user_
 	if (!widget) return;
 	rvn_widget_touch(widget)->gesture_callback = callback;
 	widget->touch->gesture_user = user_data;
+	rvn_touch_hit_whole(widget);
 }
 
 int Rwindow_get_touch_count(Rid id) {

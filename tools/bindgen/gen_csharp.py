@@ -65,7 +65,7 @@ def generate(api):
     w("//")
     w("//   using Raven;")
     w("//")
-    w("//   R.Rinit(RBackend.R_BACKEND_VULKAN);")
+    w("//   R.Rinit(RBackend.R_BACKEND_DEFAULT);")
     w("//   uint window = R.Rwindow_create_from_xml(\"<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>\");")
     w("//   R.Raction_bind(\"quit\", R.Keep<RActionCallback>((sender, action, user) => R.Rquit(0)), IntPtr.Zero);")
     w("//   while (R.Rwait_frame(-1.0) != 0) { }")

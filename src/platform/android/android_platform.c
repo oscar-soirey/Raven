@@ -5,19 +5,23 @@
  * SHORTCUT: started from platform/null; one window = the activity's surface.
  * The UI thread is the thread of android_main. pump polls its ALooper and
  * handles the commands and input of the glue. The surface of the window
- * follows the one of the activity: TERM_WINDOW destroys the Vulkan surface
- * and swapchain (blocking until the GPU is done with them), INIT_WINDOW makes
- * them again on the new ANativeWindow; the widgets stay. The safe area comes
- * from the WindowInsets of the decor view (JNI), dark mode from the
- * configuration of the activity. The on-screen keyboard talks to Raven's
- * Java view (java/raven/android/RavenTextView.java, in the APK's classes.dex):
- * see "Text input" below; without it, key events only.
+ * follows the one of the activity: TERM_WINDOW is RVN_PEVENT_SURFACE_LOST
+ * (the core destroys the Vulkan surface and swapchain and waits until the GPU
+ * is done with them before the glue lets the activity go on), INIT_WINDOW is
+ * RVN_PEVENT_SURFACE_READY on the new ANativeWindow; the widgets stay. The
+ * activity's START / RESUME / PAUSE / STOP / DESTROY and low memory are
+ * RVN_PEVENT_APP (see rvn_android_on_cmd). The safe area comes from the
+ * WindowInsets of the decor view (JNI), dark mode from the configuration of
+ * the activity. The on-screen keyboard, predictive back and trim-memory
+ * requests go through Raven's Java view (java/raven/android/RavenTextView.java,
+ * in the APK's classes.dex): see "Text input" and "Back" below; without it,
+ * key events only. Relative paths read the APK's assets/ (AAssetManager):
+ * see "Files of the APK".
  */
 
 #include "../platform.h"
 #include "../../core/thread.h"
-#include "../../render/renderer.h"
-/* (SHORTCUT: the platform reaches into the window of the core to drop and remake its surface, as host_platform.c includes it) */
+/* (SHORTCUT: the platform reads the id of the core's window from its user pointer, for the text input of the core) */
 #include "../../widget/widget.h"
 #include <jni.h>
 #include <raven/raven_android.h>
@@ -28,6 +32,7 @@
 #include <android/configuration.h>
 #include <android/log.h>
 #include <android/api-level.h>
+#include <android/asset_manager.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <pthread.h>
@@ -89,7 +94,8 @@ static struct {
 	float ime_bottom;      /* IME inset of the root window insets, pixels */
 	int ime_visible;       /* WindowInsets.isVisible(ime()), -1 unknown (API 29) */
 	int back_swallowed;    /* the Back key down closed the keyboard: its up is swallowed too */
-	int back_down;         /* a Back press was sent to Raven as Escape: its release goes too */
+	int back_down;         /* a Back key press was taken for Raven: its release is RVN_PEVENT_BACK */
+	double low_memory;     /* when RVN_PEVENT_APP R_APP_LOW_MEMORY was last sent (seconds) */
 	/* KeyCharacterMap (JNI, global ref) and its methods, for the characters of key events */
 	jclass kcm_class;
 	jmethodID kcm_load, kcm_get;
@@ -99,6 +105,7 @@ static struct {
 	/* Raven's Java text view (raven.android.RavenTextView, an InputConnection): see rvn_android_text_sync */
 	jclass tx_class;       /* global ref; NULL without classes.dex: key events only */
 	jmethodID tx_set_field, tx_set_state, tx_show, tx_detach;
+	jmethodID tx_back_wanted, tx_back_default;  /* predictive back (NULL: an older view, key events only) */
 	int tx_gen;            /* the field as last announced to Java */
 	int tx_kind;           /* RVN_TX_* */
 	Rid tx_widget;
@@ -116,9 +123,11 @@ enum {
 
 /* ops of the Java view (RavenTextView.OP_*) */
 enum {
-	RVN_TX_OP_EDIT = 1,    /* text, a = selection start, b = selection end (bytes) */
-	RVN_TX_OP_ACTION = 2,  /* action key / Enter */
-	RVN_TX_OP_KEY = 3      /* a = Android key code, b = meta state */
+	RVN_TX_OP_EDIT = 1,       /* text, a = selection start, b = selection end (bytes) */
+	RVN_TX_OP_ACTION = 2,     /* action key / Enter */
+	RVN_TX_OP_KEY = 3,        /* a = Android key code, b = meta state */
+	RVN_TX_OP_BACK = 4,       /* the system's Back, from the predictive back callback (not a field op) */
+	RVN_TX_OP_LOW_MEMORY = 5  /* onTrimMemory, a = level (not a field op) */
 };
 
 typedef struct rvn_android_op_t {
@@ -152,7 +161,9 @@ void Randroid_set_app(struct android_app* app) {
 	g_android_app = app;
 }
 
-static void rvn_android_window_get_native(rvn_pwindow_t* window, RNativeWindow* native);
+void* rvn_android_java_vm(void) {
+	return g_android_app && g_android_app->activity ? (void*)g_android_app->activity->vm : NULL;
+}
 
 static float rvn_android_density_scale(void) {
 	int density = g_android.app && g_android.app->config ? AConfiguration_getDensity(g_android.app->config) : 0;
@@ -403,44 +414,6 @@ static void rvn_android_refresh(void) {
 	rvn_android_update_insets();
 }
 
-/*
- * The activity lost its surface (background, TERM_WINDOW): the Vulkan surface
- * and swapchain of the window are destroyed before the glue lets the activity
- * go on, which waits for the frames still on the GPU. The widgets stay.
- */
-static void rvn_android_surface_lost(void) {
-	rvn_pwindow_t* window = g_android.window;
-	rvn_window_t* core = window ? (rvn_window_t*)window->user : NULL;
-	if (!window || !window->native) return;
-	if (core && core->surface_ready) {
-		rvn_renderer_destroy_surface(core->id);
-		core->surface_ready = R_FALSE;
-	}
-	ANativeWindow_release(window->native);
-	window->native = NULL;
-	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "surface lost: swapchain and VkSurfaceKHR destroyed");
-}
-
-/* A new surface for the activity (back from the background): the window renders to it. */
-static void rvn_android_surface_new(ANativeWindow* native) {
-	rvn_pwindow_t* window = g_android.window;
-	rvn_window_t* core = window ? (rvn_window_t*)window->user : NULL;
-	RNativeWindow info;
-	if (!window || !native || window->native == native) return;
-	if (window->native) rvn_android_surface_lost();
-	window->native = native;
-	ANativeWindow_acquire(native);
-	rvn_android_refresh();
-	if (!core) return;
-	memset(&info, 0, sizeof(info));
-	rvn_android_window_get_native(window, &info);
-	core->surface_ready = rvn_renderer_create_surface(core->id, &info, (uint32_t)rvn_maxi(window->width, 1), (uint32_t)rvn_maxi(window->height, 1));
-	core->needs_layout = R_TRUE;
-	core->needs_paint = R_TRUE;
-	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "new surface %p %dx%d: %s", (void*)native, window->width, window->height,
-		core->surface_ready ? "swapchain made again" : "FAILED");
-}
-
 static void rvn_android_simple_event(rvn_pevent_type_t type, int focused) {
 	rvn_pevent_t event;
 	if (!g_android.window) return;
@@ -449,6 +422,64 @@ static void rvn_android_simple_event(rvn_pevent_type_t type, int focused) {
 	event.user = g_android.window->user;
 	event.focused = focused;
 	g_android.handler(&event);
+}
+
+/*
+ * The activity lost its surface (background, TERM_WINDOW): the core destroys
+ * the Vulkan surface and swapchain of the window before the handler returns,
+ * after the frames still on the GPU; only then is the ANativeWindow released
+ * and the glue lets the activity go on. The widgets stay.
+ */
+static void rvn_android_surface_lost(void) {
+	rvn_pwindow_t* window = g_android.window;
+	if (!window || !window->native) return;
+	rvn_android_simple_event(RVN_PEVENT_SURFACE_LOST, 0);
+	ANativeWindow_release(window->native);
+	window->native = NULL;
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "surface lost: the core dropped its swapchain, ANativeWindow released");
+}
+
+/* A new surface for the activity (back from the background): its size first, then the core renders to it. */
+static void rvn_android_surface_new(ANativeWindow* native) {
+	rvn_pwindow_t* window = g_android.window;
+	if (!window || !native || window->native == native) return;
+	if (window->native) rvn_android_surface_lost();
+	window->native = native;
+	ANativeWindow_acquire(native);
+	rvn_android_refresh();
+	rvn_android_simple_event(RVN_PEVENT_SURFACE_READY, 0);
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "new surface %p %dx%d given to the core", (void*)native, window->width, window->height);
+}
+
+static const char* rvn_android_app_event_name(RAppEvent event) {
+	switch (event) {
+	case R_APP_WILL_PAUSE: return "WILL_PAUSE";
+	case R_APP_DID_PAUSE: return "DID_PAUSE";
+	case R_APP_WILL_RESUME: return "WILL_RESUME";
+	case R_APP_DID_RESUME: return "DID_RESUME";
+	case R_APP_LOW_MEMORY: return "LOW_MEMORY";
+	case R_APP_WILL_TERMINATE: return "WILL_TERMINATE";
+	default: return "?";
+	}
+}
+
+static void rvn_android_app_event(RAppEvent app_event) {
+	rvn_pevent_t event;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_APP;
+	event.user = g_android.window ? g_android.window->user : NULL;
+	event.app_event = (int)app_event;
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "app event %s", rvn_android_app_event_name(app_event));
+	g_android.handler(&event);
+}
+
+/* Low memory: onLowMemory (the glue) and onTrimMemory (the Java view) can come together: one event a second at most. */
+static void rvn_android_low_memory(const char* why, int level) {
+	double now = rvn_clock_seconds();
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "low memory: %s %d", why, level);
+	if (g_android.low_memory > 0.0 && now - g_android.low_memory < 1.0) return;
+	g_android.low_memory = now;
+	rvn_android_app_event(R_APP_LOW_MEMORY);
 }
 
 /* ---------------------------------------------------------------------------
@@ -758,11 +789,71 @@ static void rvn_android_send_text(uint32_t codepoint) {
 	g_android.handler(&event);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Back
+ *
+ * Back is RVN_PEVENT_BACK, never a key: the core closes the top popup or
+ * dialog, else asks the window's back callback, and says whether something
+ * took it. It reaches the core only while the window wants it
+ * (window_set_back_wanted); otherwise the system does its default (back to
+ * the home screen, or the previous activity).
+ *  - Android 13+ with predictive back (enableOnBackInvokedCallback, the
+ *    default from targetSdk 36): the system sends no Back key. While the
+ *    window wants Back, the Java view registers an OnBackInvokedCallback
+ *    (setBackWanted); it is invoked when the gesture or button completes and
+ *    comes here as RVN_TX_OP_BACK. Unregistered, the system plays its own
+ *    animation (back to home) and Raven sees nothing.
+ *  - Android 10 to 12 (or an application that opts out of predictive back):
+ *    the Back key, see rvn_android_on_back.
+ * ------------------------------------------------------------------------- */
+
+static void rvn_android_window_set_back_wanted(rvn_pwindow_t* window, int wanted) {
+	JNIEnv* env = g_android.env;
+	RVN_UNUSED(window);
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "back wanted %d", wanted);
+	if (!env || !g_android.tx_class || !g_android.tx_back_wanted) return;
+	(*env)->CallStaticVoidMethod(env, g_android.tx_class, g_android.tx_back_wanted, (jboolean)(wanted ? JNI_TRUE : JNI_FALSE));
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+	}
+}
+
+/* Back for the core: R_TRUE when Raven or the application took it. */
+static int rvn_android_send_back(const char* from) {
+	rvn_pevent_t event;
+	int accepted = R_FALSE;
+	if (!g_android.window) return R_FALSE;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_BACK;
+	event.user = g_android.window->user;
+	event.accepted = &accepted;
+	g_android.handler(&event);
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "back (%s): %s", from, accepted ? "taken" : "not taken, the system's default");
+	return accepted;
+}
+
 /*
- * The system Back key: with the keyboard up it closes the keyboard and drops
- * the focus (not "back"); otherwise it reaches Raven as Escape (SHORTCUT: Raven
- * has no back key; the app decides what it means). Always consumed, so the
- * system never finishes the activity: an app at its root page finishes it.
+ * Nothing took a Back that was already Raven's (the window stopped wanting it
+ * in between): the system's default after all, Activity.onBackPressed through
+ * the Java view, else finishing the activity.
+ */
+static void rvn_android_back_default(void) {
+	JNIEnv* env = g_android.env;
+	if (env && g_android.tx_class && g_android.tx_back_default) {
+		(*env)->CallStaticVoidMethod(env, g_android.tx_class, g_android.tx_back_default);
+		if (!(*env)->ExceptionCheck(env)) return;
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+	}
+	if (g_android.app && g_android.app->activity) ANativeActivity_finish(g_android.app->activity);
+}
+
+/*
+ * The Back key (Android 10 to 12, or predictive back switched off). With the
+ * keyboard up it closes the keyboard and drops the focus. Otherwise, when the
+ * window wants Back the press is Raven's and its release is RVN_PEVENT_BACK;
+ * when it does not, the key is left to the system (its default).
  */
 static int32_t rvn_android_on_back(AInputEvent* input, int32_t action) {
 	rvn_window_t* core = rvn_android_core_window();
@@ -777,11 +868,15 @@ static int32_t rvn_android_on_back(AInputEvent* input, int32_t action) {
 		if (action == AKEY_EVENT_ACTION_UP) g_android.back_swallowed = R_FALSE;
 		return 1;
 	}
-	if (action != AKEY_EVENT_ACTION_DOWN && action != AKEY_EVENT_ACTION_UP) return 1;
-	/* (with the IME up, the IME takes the Back press and only its release comes here: dropped) */
-	if (action == AKEY_EVENT_ACTION_UP && !g_android.back_down) return 1;
-	g_android.back_down = action == AKEY_EVENT_ACTION_DOWN;
-	rvn_android_send_key(R_KEY_ESCAPE, action == AKEY_EVENT_ACTION_DOWN, 0, AKeyEvent_getRepeatCount(input) > 0);
+	if (action == AKEY_EVENT_ACTION_DOWN) {
+		if (AKeyEvent_getRepeatCount(input) == 0) g_android.back_down = core && Rwindow_wants_back(core->id);
+		return g_android.back_down ? 1 : 0;
+	}
+	/* (with the IME up, the IME takes the Back press and only its release comes here: left to the system) */
+	if (action != AKEY_EVENT_ACTION_UP || !g_android.back_down) return 0;
+	g_android.back_down = R_FALSE;
+	if (AKeyEvent_getFlags(input) & AKEY_EVENT_FLAG_CANCELED) return 1;
+	if (!rvn_android_send_back("key")) rvn_android_back_default();
 	return 1;
 }
 
@@ -925,6 +1020,10 @@ static void rvn_android_text_load(void) {
 	g_android.tx_set_state = (*env)->GetStaticMethodID(env, (jclass)cls, "setState", "(I[BIII)V");
 	g_android.tx_show = (*env)->GetStaticMethodID(env, (jclass)cls, "showKeyboard", "(Z)V");
 	g_android.tx_detach = (*env)->GetStaticMethodID(env, (jclass)cls, "detach", "()V");
+	g_android.tx_back_wanted = (*env)->GetStaticMethodID(env, (jclass)cls, "setBackWanted", "(Z)V");
+	if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+	g_android.tx_back_default = g_android.tx_back_wanted ? (*env)->GetStaticMethodID(env, (jclass)cls, "backDefault", "()V") : NULL;
+	if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
 	{
 		jmethodID attach = (*env)->GetStaticMethodID(env, (jclass)cls, "attach", "(Landroid/app/Activity;)V");
 		if ((*env)->ExceptionCheck(env) || !attach || !g_android.tx_set_field || !g_android.tx_set_state || !g_android.tx_show || !g_android.tx_detach) {
@@ -1038,6 +1137,15 @@ static void rvn_android_text_apply(void) {
 	g_android_ops.head = g_android_ops.tail = NULL;
 	pthread_mutex_unlock(&g_android_ops.lock);
 	for (item = items; item; item = item->next) {
+		/* (not about the field) */
+		if (item->op == RVN_TX_OP_BACK) {
+			if (!rvn_android_send_back("predictive back callback")) rvn_android_back_default();
+			continue;
+		}
+		if (item->op == RVN_TX_OP_LOW_MEMORY) {
+			rvn_android_low_memory("onTrimMemory", item->a);
+			continue;
+		}
 		g_android.tx_applied = item->seq;
 		if (!core || item->gen != g_android.tx_gen) {
 			__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "text: op %d of field %d dropped (field now %d)", item->op, item->gen, g_android.tx_gen);
@@ -1131,6 +1239,8 @@ static void rvn_android_text_sync(void) {
 
 static const char* rvn_android_cmd_name(int32_t cmd) {
 	switch (cmd) {
+	case APP_CMD_LOW_MEMORY: return "LOW_MEMORY";
+	case APP_CMD_SAVE_STATE: return "SAVE_STATE";
 	case APP_CMD_INIT_WINDOW: return "INIT_WINDOW";
 	case APP_CMD_TERM_WINDOW: return "TERM_WINDOW";
 	case APP_CMD_WINDOW_RESIZED: return "WINDOW_RESIZED";
@@ -1186,7 +1296,24 @@ static void rvn_android_on_cmd(struct android_app* app, int32_t cmd) {
 		g_android.kb_state = RVN_KB_HIDDEN;
 		rvn_android_simple_event(RVN_PEVENT_FOCUS, R_FALSE);
 		break;
+	/* the activity's lifecycle: onStart, onResume, onPause, onStop, onDestroy */
+	case APP_CMD_START:
+		rvn_android_app_event(R_APP_WILL_RESUME);
+		break;
+	case APP_CMD_RESUME:
+		rvn_android_app_event(R_APP_DID_RESUME);
+		break;
+	case APP_CMD_PAUSE:
+		rvn_android_app_event(R_APP_WILL_PAUSE);
+		break;
+	case APP_CMD_STOP:
+		rvn_android_app_event(R_APP_DID_PAUSE);
+		break;
+	case APP_CMD_LOW_MEMORY:
+		rvn_android_low_memory("onLowMemory", 0);
+		break;
 	case APP_CMD_DESTROY:
+		rvn_android_app_event(R_APP_WILL_TERMINATE);
 		rvn_android_simple_event(RVN_PEVENT_CLOSE, 0);
 		break;
 	default:
@@ -1250,6 +1377,37 @@ static void rvn_android_poll(int timeout_ms) {
 	if (g_android.app && g_android.app->destroyRequested) rvn_android_simple_event(RVN_PEVENT_CLOSE, 0);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Files of the APK: the folder assets/, read through the AAssetManager of
+ *  the activity (core/file.c asks it for the relative paths it cannot find).
+ *  Not in g_android: textures are read on worker threads.
+ * ------------------------------------------------------------------------- */
+
+static AAssetManager* g_android_assets;
+
+static void* rvn_android_asset_open(const char* path) {
+	AAssetManager* assets = g_android_assets;
+	return assets ? AAssetManager_open(assets, path, AASSET_MODE_BUFFER) : NULL;
+}
+
+static size_t rvn_android_asset_size(void* file) {
+	off64_t length = AAsset_getLength64((AAsset*)file);
+	return length > 0 ? (size_t)length : 0;
+}
+
+static size_t rvn_android_asset_read(void* file, void* buffer, size_t size) {
+	int read = AAsset_read((AAsset*)file, buffer, size > INT32_MAX ? INT32_MAX : size);
+	return read > 0 ? (size_t)read : 0;
+}
+
+static void rvn_android_asset_close(void* file) {
+	AAsset_close((AAsset*)file);
+}
+
+static const rvn_file_provider_t g_android_asset_provider = {
+	rvn_android_asset_open, rvn_android_asset_size, rvn_android_asset_read, rvn_android_asset_close
+};
+
 static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regions) {
 	RVN_UNUSED(regions);
 	memset(&g_android, 0, sizeof(g_android));
@@ -1261,6 +1419,8 @@ static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t 
 	}
 	g_android.app->onAppCmd = rvn_android_on_cmd;
 	g_android.app->onInputEvent = rvn_android_on_input;
+	g_android_assets = g_android.app->activity->assetManager;
+	rvn_file_set_provider(&g_android_asset_provider);
 	g_android.scale = rvn_android_density_scale();
 	{
 		JavaVM* vm = g_android.app->activity->vm;
@@ -1300,6 +1460,8 @@ static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t 
 }
 
 static void rvn_android_shutdown(void) {
+	rvn_file_set_provider(NULL);
+	g_android_assets = NULL;
 	if (g_android.env && g_android.kcm_class) (*g_android.env)->DeleteGlobalRef(g_android.env, g_android.kcm_class);
 	rvn_android_text_unload();
 	rvn_android_unhook_ui_thread();
@@ -1687,7 +1849,8 @@ const rvn_platform_t* rvn_platform_android(void) {
 		.overlay_set_key = rvn_android_overlay_set_key,
 		.window_get_safe_area = rvn_android_window_get_safe_area,
 		.system_dark = rvn_android_system_dark,
-		.window_get_keyboard_height = rvn_android_window_get_keyboard_height
+		.window_get_keyboard_height = rvn_android_window_get_keyboard_height,
+		.window_set_back_wanted = rvn_android_window_set_back_wanted
 	};
 	return &platform;
 }

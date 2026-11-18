@@ -25,6 +25,22 @@
 
 #define RVN_DEVICE_RETRY_SECONDS 1.0
 
+/* The name of the backend in use, as its table gives it. */
+static const char* rvn_device_backend_name(void) {
+	switch (g_rvn.backend) {
+#if defined(RAVEN_BACKEND_VULKAN_ENABLED)
+		case R_BACKEND_VULKAN: return rvn_backend_vulkan()->name;
+#endif
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+		case R_BACKEND_METAL: return rvn_backend_metal()->name;
+#endif
+#if defined(RAVEN_BACKEND_WEBGL_ENABLED)
+		case R_BACKEND_WEBGL: return rvn_backend_webgl()->name;
+#endif
+		default: return "rendering";
+	}
+}
+
 void rvn_device_check(void) {
 	RBackendInitInfo info;
 	uint32_t i;
@@ -65,7 +81,7 @@ void rvn_device_check(void) {
 		if (shader) rvn_shader_restore(shader);
 	}
 	rvn_error(R_ERROR_BACKEND, R_SEVERITY_WARNING, "the GPU device was lost: the %s backend was started again",
-		g_rvn.backend == R_BACKEND_VULKAN ? "Vulkan" : "rendering");
+		rvn_device_backend_name());
 
 	if (g_rvn.device_reset_callback) {
 		rvn_dispatch_begin();

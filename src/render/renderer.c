@@ -412,6 +412,31 @@ void rvn_renderer_sync(void) {
 	if (g_renderer.running && g_renderer.threaded) rvn_renderer_call(NULL, NULL, R_TRUE);
 }
 
+static void rvn_renderer_wait_idle_now(void* arg) {
+	RVN_UNUSED(arg);
+	if (g_renderer.backend.WaitIdle) g_renderer.backend.WaitIdle();
+}
+
+void rvn_renderer_wait_idle(void) {
+	if (g_renderer.running) rvn_renderer_call(rvn_renderer_wait_idle_now, NULL, R_TRUE);
+}
+
+void rvn_renderer_trim(void) {
+	rvn_frame_t* frame;
+	if (!g_renderer.running) return;
+	rvn_mutex_lock(&g_renderer.mutex);
+	frame = g_renderer.free_frames;
+	g_renderer.free_frames = NULL;
+	g_renderer.free_frame_count = 0;
+	rvn_mutex_unlock(&g_renderer.mutex);
+	while (frame) {
+		rvn_frame_t* next = frame->next;
+		rvn_drawlist_free(&frame->list);
+		rvn_free(frame);
+		frame = next;
+	}
+}
+
 /* ---------------------------------------------------------------------------
  *  Frames
  * ------------------------------------------------------------------------- */

@@ -7,7 +7,7 @@ public class Main {
     static int clicks;
 
     public static void main(String[] args) {
-        if (Rinit(R_BACKEND_VULKAN) == 0) System.exit(1);
+        if (Rinit(R_BACKEND_DEFAULT) == 0) System.exit(1);
         Rlocale_load_csv("strings.csv");
         Rlocale_set_language(Rlocale_get_system_language());
         // OnClicked="hello.clicked" in main.xml fires this action

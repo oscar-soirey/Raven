@@ -90,6 +90,8 @@ void rvn_shaders_shutdown(void);
 void rvn_shader_restore(rvn_shader_t* shader);
 /** The shader of a .spv file, made once per path and flags and kept until the end (the Effect attribute). */
 Rid rvn_shader_from_file_cached(const char* path, Ruint flags);
+/** Index of the built-in effect whose SPIR-V this is (REffect - R_EFFECT_AURORA), or -1. Thread-safe. */
+int rvn_effect_index_of(const uint32_t* spirv, size_t size);
 /** The SPIR-V words are rvn_alloc'ed; the renderer takes ownership. */
 void rvn_renderer_create_shader(Rid shader, uint32_t* spirv, size_t size);
 void rvn_renderer_destroy_shader(Rid shader);
@@ -146,6 +148,10 @@ typedef void (*rvn_render_fn)(void* arg);
 void rvn_renderer_call(rvn_render_fn function, void* arg, int wait);
 /** Blocks until every command queued so far has been executed. */
 void rvn_renderer_sync(void);
+/** Blocks until every command queued so far has been executed and the GPU has finished all its work (the application goes to the background). */
+void rvn_renderer_wait_idle(void);
+/** Frees the draw lists kept for the next frames (low memory): they are made again when needed. */
+void rvn_renderer_trim(void);
 
 /** R_TRUE once the backend reported the loss of its device (Rbackend_device_lost). */
 int rvn_renderer_device_lost(void);
@@ -184,6 +190,15 @@ const RBackendVTable* rvn_backend_webgl(void);
 const RBackendVTable* rvn_backend_null(void);
 #if defined(RAVEN_BACKEND_VULKAN_ENABLED)
 const RBackendVTable* rvn_backend_vulkan(void);
+#endif
+#if defined(RAVEN_BACKEND_METAL_ENABLED)
+const RBackendVTable* rvn_backend_metal(void);
+/**
+ * iOS: R_TRUE stops every commit of the Metal backend and waits until the GPU
+ * is idle (the application goes to the background); R_FALSE draws again.
+ * Called by the UIKit platform from the main thread.
+ */
+void rvn_metal_set_suspended(int suspended);
 #endif
 
 #endif /* RVN_RENDERER_H */

@@ -21,6 +21,7 @@ under the same names, with the same documentation comments.
 | Node.js | `node/` | A Node-API addon in C and an ES module with typings, the same surface as Bun's. One `.node` per platform runs on any Node.js, and on Bun and Deno. See `node/README.md`. | yes (`binding_node`, `binding_node_bun`) |
 | D | `d/` | A dub package, `raven-gui`: `raven.c` is the C API as `extern(C)` declarations under the same names (enumerations as `int` constants, structures that start zeroed), and `raven` adds `text` and delegates for `actionBind`, `timerStart`, `errorSetCallback`. See `d/README.md`. | yes (`binding_d`; macOS and Linux, LDC) |
 | Nim | `nim/` | A nimble package, `raven_gui`: `raven_gui/c` is the C API as `importc` declarations under the same names (enumerations as `cint` constants, structures as `{.bycopy.}` objects), and `raven_gui` adds `text`, `fileRead` and closures for `actionBind`, `timerStart`, `errorSetCallback`. See `nim/README.md`. | yes (`binding_nim`; macOS and Linux, Nim 2) |
+| Swift | `swift/` | A Swift package: `import Raven` gives the C API as Swift reads it from the headers (Swift strings for texts, `inout` for pointers), plus `text`, and closures for `actionBind`, `timerStart`, `errorSetCallback`. See `swift/README.md`. | yes (`binding_swift`; macOS and Linux) |
 | Haskell | `haskell/` | A cabal package, `raven-gui`: `Raven.C` is the C API through the FFI (functions with their first letter lowered, `rwindow_create`; enumerations as patterns with the names of C; structures as `Storable` records; `mkRXxxCallback` for callbacks), and `Raven` adds `text`/`withText` and Haskell functions for `actionBind`, `timerStart`, `errorSetCallback`. See `haskell/README.md`. | yes (`binding_haskell`; macOS and Linux) |
 | C3 | `c3/raven.c3l/` | A library: `raven::c` is the C API, `raven` adds typed handles with methods (`button.set_text(...)`), faults and Optionals. See `c3/raven.c3l/README.md`. | no |
 
@@ -48,7 +49,7 @@ from C: `raven_backend.h` (writing a rendering backend) and `raven_vulkan.h`
 | Rust | `raven-gui = "0.1"` (used as `raven`) | the library from a release, `RAVEN_LIB_DIR` |
 | LuaJIT | `luarocks install raven-gui` | the library from a release, `RAVEN_LIBRARY` |
 | Java | `io.github.oscar-soirey:raven-gui` (Maven Central) | the library is included |
-| C++, Go, Zig, Odin, D, Nim, Haskell | the files of this folder | see below |
+| C++, Go, Zig, Odin, D, Nim, Swift, Haskell | the files of this folder | see below |
 
 How these packages are made and published: [PUBLISHING.md](PUBLISHING.md).
 
@@ -71,7 +72,7 @@ fire, and bind the actions:
 ```python
 import raven as r
 
-r.Rinit(r.R_BACKEND_VULKAN)
+r.Rinit(r.R_BACKEND_DEFAULT)
 window = r.Rwindow_create_from_xml("""
     <Window Title="Hello" Width="320" Height="160">
         <VBox Spacing="10" Slot.Padding="16">
@@ -88,7 +89,7 @@ r.Rshutdown()
 
 The same program is in each folder (`example.py`, `example.cpp`,
 `examples/hello.rs`, `example/main.go`, `example/Example.java`,
-`example/main.odin`, `src/example.mjs`, `example/app.d`, `example/hello.nim`, `example/Main.hs`), and the designer (`raven_designer`) edits the XML.
+`example/main.odin`, `src/example.mjs`, `example/app.d`, `example/hello.nim`, `Examples/hello/main.swift`, `example/Main.hs`), and the designer (`raven_designer`) edits the XML.
 
 The XML can also stay in a file of its own, loaded when the program starts
 (`Rwindow_create_from_xml_file("main.xml")`): save it while the program runs
@@ -147,7 +148,7 @@ Zig can also read the C header itself: `@cImport(@cInclude("Raven.h"))`.
     <dependency>
       <groupId>io.github.oscar-soirey</groupId>
       <artifactId>raven-gui</artifactId>
-      <version>0.2.3</version>
+      <version>0.3.0</version>
     </dependency>
 
     java --enable-native-access=ALL-UNNAMED -cp app.jar:raven-gui.jar app.Main
@@ -188,6 +189,17 @@ goes where C takes a text, `text` reads one back. See `d/README.md`.
 
 `import raven_gui` and the C API is there under its own names: a string goes
 where C takes a text, `text` reads one back. See `nim/README.md`.
+
+**Swift** (5.9 or later; macOS and Linux)
+
+    // Package.swift
+    .package(path: "<raven>/bindings/swift")
+    // and the product: .product(name: "Raven", package: "swift")
+
+    RAVEN_LIB_DIR=/path/to/lib swift run
+
+`import Raven`, and the C API is there under its own names: a `String` goes
+where C takes a text, `text(pointer)` reads one back. See `swift/README.md`.
 
 **Haskell** (GHC 9.6 or later; macOS and Linux)
 

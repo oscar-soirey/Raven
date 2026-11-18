@@ -7,3 +7,4 @@ tsconfig.json
 **/*.map
 .gitignore
 *.vsix
+wasm/*.c

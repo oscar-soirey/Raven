@@ -44,6 +44,13 @@ typedef struct rvn_xml_node_t {
 	int line;
 	int column;
 	/**
+	 * <Script> only: where its text starts in the source (the character after
+	 * the '>' of the opening tag). Its text is kept as written: not trimmed,
+	 * entities not decoded (see the reader).
+	 */
+	int text_line;
+	int text_column;
+	/**
 	 * Node of a public document (Rxml_document_...) this element was made
 	 * from, or 0. The widgets built from the element remember it.
 	 */
@@ -64,11 +71,29 @@ typedef struct rvn_xml_document_t {
 	rvn_xml_node_t* prolog_last;
 	/** The text starts with an <?xml ...?> declaration. */
 	int has_declaration;
+	/**
+	 * The text the document was read from, or NULL. It belongs to the caller
+	 * of the parser and is only valid while that caller holds it: the build
+	 * that follows the parsing uses it (the excerpts of the diagnostics of
+	 * the scripts), nothing after.
+	 */
+	const char* source;
+	size_t source_size;
 	/** Filled when parsing fails. */
 	char error[160];
 	int error_line;
 	int error_column;
 } rvn_xml_document_t;
+
+/**
+ * The tag of the elements whose content is raw text, as in HTML: a <Script>
+ * holds Raven Script, where '<' and '&&' are written as they are. Its text
+ * runs to the first </Script> (case ignored, as the tag); it is not
+ * trimmed and its entities are not decoded. A CDATA section around the
+ * whole text is accepted too (and removed).
+ */
+#define RVN_XML_SCRIPT_TAG "Script"
+int rvn_xml_is_script(const char* tag);
 
 /** Parses `size` bytes of UTF-8. Returns R_FALSE and fills `error` on failure. */
 int  rvn_xml_parse(rvn_xml_document_t* document, const char* text, size_t size);

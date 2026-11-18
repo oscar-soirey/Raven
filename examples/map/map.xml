@@ -1,0 +1,34 @@
+<!-- A map whose tiles main.c draws itself (no network), markers for a few cities, and buttons that fly around. -->
+<Window Title="Raven map" Width="1100" Height="720">
+	<VBox>
+		<HBox Spacing="8" Slot.Padding="10,8,10,8">
+			<Button Text="World" Style="Primary" OnClicked="map.world" Slot.VAlign="Center"/>
+			<Button Text="Europe" OnClicked="map.europe" Slot.VAlign="Center"/>
+			<Button Text="Americas" OnClicked="map.americas" Slot.VAlign="Center"/>
+			<Button Text="Asia" OnClicked="map.asia" Slot.VAlign="Center"/>
+			<Label Name="place" Text="" Opacity="0.7" Slot.Fill="1" Slot.HAlign="Right" Slot.VAlign="Center"/>
+			<Button Text="-" OnClicked="map.zoom_out" Slot.VAlign="Center"/>
+			<Button Text="+" OnClicked="map.zoom_in" Slot.VAlign="Center"/>
+		</HBox>
+		<MapView Name="map" Latitude="25" Longitude="10" Zoom="2" MinZoom="1" MaxZoom="16"
+			Attribution="Tiles drawn by the example (no network)" Slot.Fill="1">
+			<Marker Latitude="51.5074" Longitude="-0.1278" Label="London"/>
+			<Marker Latitude="48.8566" Longitude="2.3522" Label="Paris"/>
+			<Marker Latitude="40.7128" Longitude="-74.0060" Label="New York"/>
+			<Marker Latitude="34.0522" Longitude="-118.2437" Label="Los Angeles"/>
+			<Marker Latitude="19.4326" Longitude="-99.1332" Label="Mexico City"/>
+			<Marker Latitude="-22.9068" Longitude="-43.1729" Label="Rio de Janeiro" Color="#2E9E5B"/>
+			<Marker Latitude="-34.6037" Longitude="-58.3816" Label="Buenos Aires"/>
+			<Marker Latitude="30.0444" Longitude="31.2357" Label="Cairo" Color="#D98E04"/>
+			<Marker Latitude="6.5244" Longitude="3.3792" Label="Lagos"/>
+			<Marker Latitude="-33.9249" Longitude="18.4241" Label="Cape Town"/>
+			<Marker Latitude="55.7558" Longitude="37.6173" Label="Moscow"/>
+			<Marker Latitude="19.0760" Longitude="72.8777" Label="Mumbai" Color="#D98E04"/>
+			<Marker Latitude="39.9042" Longitude="116.4074" Label="Beijing"/>
+			<Marker Latitude="35.6762" Longitude="139.6503" Label="Tokyo" Color="#D64545"/>
+			<Marker Latitude="1.3521" Longitude="103.8198" Label="Singapore"/>
+			<Marker Latitude="-33.8688" Longitude="151.2093" Label="Sydney" Color="#2E9E5B"/>
+		</MapView>
+		<Label Name="status" Text="" Opacity="0.6" Slot.Padding="10,4,10,6"/>
+	</VBox>
+</Window>

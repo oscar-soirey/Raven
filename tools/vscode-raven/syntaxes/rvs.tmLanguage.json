@@ -1,0 +1,164 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Raven Script",
+	"scopeName": "source.rvs",
+	"fileTypes": ["rvs"],
+	"patterns": [
+		{ "include": "#comments" },
+		{ "include": "#declarations" },
+		{ "include": "#statements" }
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.block.rvs",
+					"begin": "/\\*",
+					"end": "\\*/",
+					"captures": { "0": { "name": "punctuation.definition.comment.rvs" } }
+				},
+				{
+					"name": "comment.line.double-slash.rvs",
+					"begin": "//",
+					"end": "$",
+					"beginCaptures": { "0": { "name": "punctuation.definition.comment.rvs" } }
+				}
+			]
+		},
+		"declarations": {
+			"patterns": [
+				{
+					"comment": "fn app.save(path: string): bool   /   declare fn ...",
+					"begin": "\\b(?:(declare)\\s+)?(fn)\\s+((?:[A-Za-z_][A-Za-z0-9_]*\\.)*)([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+					"beginCaptures": {
+						"1": { "name": "storage.modifier.declare.rvs" },
+						"2": { "name": "storage.type.function.rvs" },
+						"3": { "name": "entity.name.namespace.rvs" },
+						"4": { "name": "entity.name.function.rvs" }
+					},
+					"end": "(?<=\\))(?:\\s*(:)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*\\[\\s*\\])*))?",
+					"endCaptures": {
+						"1": { "name": "punctuation.separator.type.rvs" },
+						"2": { "patterns": [{ "include": "#type" }] }
+					},
+					"patterns": [{ "include": "#parameters" }]
+				},
+				{
+					"comment": "a function without its parentheses (an error, still shown as a function)",
+					"match": "\\b(fn)\\s+((?:[A-Za-z_][A-Za-z0-9_]*\\.)*)([A-Za-z_][A-Za-z0-9_]*)",
+					"captures": {
+						"1": { "name": "storage.type.function.rvs" },
+						"2": { "name": "entity.name.namespace.rvs" },
+						"3": { "name": "entity.name.function.rvs" }
+					}
+				}
+			]
+		},
+		"parameters": {
+			"begin": "\\(",
+			"end": "\\)",
+			"beginCaptures": { "0": { "name": "punctuation.definition.parameters.begin.rvs" } },
+			"endCaptures": { "0": { "name": "punctuation.definition.parameters.end.rvs" } },
+			"patterns": [
+				{ "include": "#comments" },
+				{
+					"match": "([A-Za-z_][A-Za-z0-9_]*)\\s*(:)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*\\[\\s*\\])*)",
+					"captures": {
+						"1": { "name": "variable.parameter.rvs" },
+						"2": { "name": "punctuation.separator.type.rvs" },
+						"3": { "patterns": [{ "include": "#type" }] }
+					}
+				},
+				{ "match": ",", "name": "punctuation.separator.parameter.rvs" }
+			]
+		},
+		"type": {
+			"patterns": [
+				{ "match": "\\b(number|string|bool|void|null)\\b", "name": "support.type.primitive.rvs" },
+				{ "match": "\\[\\s*\\]", "name": "punctuation.definition.array.rvs" },
+				{ "match": "[A-Za-z_][A-Za-z0-9_]*", "name": "invalid.illegal.type.rvs" }
+			]
+		},
+		"statements": {
+			"patterns": [
+				{ "include": "#comments" },
+				{
+					"comment": "let x: number[] = ...",
+					"match": "\\b(let|const)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?:(:)\\s*([A-Za-z_][A-Za-z0-9_]*(?:\\s*\\[\\s*\\])*))?",
+					"captures": {
+						"1": { "name": "storage.type.rvs" },
+						"2": { "name": "variable.other.declaration.rvs" },
+						"3": { "name": "punctuation.separator.type.rvs" },
+						"4": { "patterns": [{ "include": "#type" }] }
+					}
+				},
+				{ "match": "\\b(if|else|for|while|break|continue|return)\\b", "name": "keyword.control.rvs" },
+				{ "match": "\\b(let|const)\\b", "name": "storage.type.rvs" },
+				{ "match": "\\b(function|var)\\b", "name": "invalid.illegal.keyword.rvs" },
+				{ "match": "\\b(true|false)\\b", "name": "constant.language.boolean.rvs" },
+				{ "match": "\\bnull\\b", "name": "constant.language.null.rvs" },
+				{ "include": "#numbers" },
+				{ "include": "#strings" },
+				{
+					"comment": "a call of a namespaced function: app.log(, ui.setText(, number.parse(",
+					"match": "\\b((?:[A-Za-z_][A-Za-z0-9_]*\\.)+)([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+					"captures": {
+						"1": { "patterns": [{ "match": "\\b(app|ui|window)\\b", "name": "support.class.rvs" }, { "match": "\\bnumber\\b", "name": "support.type.primitive.rvs" }, { "match": "[A-Za-z_][A-Za-z0-9_]*", "name": "entity.name.namespace.rvs" }, { "match": "\\.", "name": "punctuation.accessor.rvs" }] },
+						"2": { "name": "entity.name.function.rvs" }
+					}
+				},
+				{
+					"match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+					"captures": { "1": { "name": "entity.name.function.rvs" } }
+				},
+				{
+					"match": "(\\.)\\s*(length)\\b",
+					"captures": { "1": { "name": "punctuation.accessor.rvs" }, "2": { "name": "support.variable.property.rvs" } }
+				},
+				{ "match": "\\b(number|string|bool|void)\\b", "name": "support.type.primitive.rvs" },
+				{ "match": "===|!==", "name": "invalid.illegal.operator.rvs" },
+				{ "match": "\\+\\+|--", "name": "invalid.illegal.operator.rvs" },
+				{ "match": "&&|\\|\\||!(?!=)", "name": "keyword.operator.logical.rvs" },
+				{ "match": "==|!=|<=|>=|<|>", "name": "keyword.operator.comparison.rvs" },
+				{ "match": "\\+=|-=|\\*=|/=|%=|=", "name": "keyword.operator.assignment.rvs" },
+				{ "match": "\\+|-|\\*|/|%", "name": "keyword.operator.arithmetic.rvs" },
+				{ "match": ";", "name": "punctuation.terminator.statement.rvs" },
+				{ "match": ",", "name": "punctuation.separator.comma.rvs" },
+				{ "match": "\\.", "name": "punctuation.accessor.rvs" },
+				{ "match": "[A-Za-z_][A-Za-z0-9_]*", "name": "variable.other.readwrite.rvs" }
+			]
+		},
+		"numbers": {
+			"patterns": [
+				{ "match": "\\b0[xX][0-9A-Fa-f]+\\b", "name": "constant.numeric.hex.rvs" },
+				{ "match": "\\b[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\\b", "name": "constant.numeric.decimal.rvs" }
+			]
+		},
+		"strings": {
+			"patterns": [
+				{
+					"name": "string.quoted.double.rvs",
+					"begin": "\"",
+					"end": "\"|$",
+					"beginCaptures": { "0": { "name": "punctuation.definition.string.begin.rvs" } },
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.rvs" } },
+					"patterns": [{ "include": "#escapes" }]
+				},
+				{
+					"name": "string.quoted.single.rvs",
+					"begin": "'",
+					"end": "'|$",
+					"beginCaptures": { "0": { "name": "punctuation.definition.string.begin.rvs" } },
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.rvs" } },
+					"patterns": [{ "include": "#escapes" }]
+				}
+			]
+		},
+		"escapes": {
+			"patterns": [
+				{ "match": "\\\\(?:[ntr0\\\\\"']|u[0-9A-Fa-f]{4}|u\\{[0-9A-Fa-f]{1,6}\\})", "name": "constant.character.escape.rvs" },
+				{ "match": "\\\\.", "name": "invalid.illegal.escape.rvs" }
+			]
+		}
+	}
+}

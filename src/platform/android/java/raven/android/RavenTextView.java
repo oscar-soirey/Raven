@@ -25,6 +25,15 @@
  *    dropped (native's next comparison sends it again if it still differs).
  * Native loads the class from the activity's class loader and registers
  * nativeOp; without classes.dex the platform keeps its key-event path.
+ *
+ * Being Raven's Java in the activity, the view also carries what NativeActivity
+ * cannot do from native code:
+ *  - predictive back (Android 13+): an OnBackInvokedCallback registered only
+ *    while Raven's window wants Back (setBackWanted), so that at the root the
+ *    system handles Back itself and animates back to the home screen; when it
+ *    is invoked, native gets OP_BACK. backDefault is the system's default
+ *    when nothing took a Back after all.
+ *  - onTrimMemory (NativeActivity only forwards onLowMemory): OP_LOW_MEMORY.
  */
 
 package raven.android;
@@ -32,7 +41,9 @@ package raven.android;
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ComponentCallbacks2;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -53,6 +64,8 @@ import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import java.nio.charset.StandardCharsets;
 
 public final class RavenTextView extends View {
@@ -74,6 +87,8 @@ public final class RavenTextView extends View {
 	static final int OP_EDIT = 1;    /* text (UTF-8), a = selection start, b = selection end (bytes) */
 	static final int OP_ACTION = 2;  /* the action key / Enter: a = EditorInfo action */
 	static final int OP_KEY = 3;     /* a key the mirror does not handle: a = key code, b = meta state */
+	static final int OP_BACK = 4;    /* the system's Back, from the predictive back callback (not about the field) */
+	static final int OP_LOW_MEMORY = 5;  /* onTrimMemory: a = level (not about the field) */
 
 	/** Registered by native (RegisterNatives). Thread-safe: queues the op for the android_main thread. */
 	private static native void nativeOp(int op, int gen, int seq, byte[] text, int a, int b);
@@ -81,7 +96,11 @@ public final class RavenTextView extends View {
 	private static final Handler MAIN = new Handler(Looper.getMainLooper());
 	private static RavenTextView sView;
 
+	private final Activity activity;
 	private final InputMethodManager imm;
+	/* Back: native wants it (setBackWanted); Android 13+: the callback registered meanwhile (an OnBackInvokedCallback) */
+	private boolean backWanted;
+	private Object backCallback;
 	/* the mirror of the focused field; composing spans are BaseInputConnection's */
 	private final SpannableStringBuilder editable = new SpannableStringBuilder();
 	/* the field: a new gen for every field native announces */
@@ -110,8 +129,9 @@ public final class RavenTextView extends View {
 		calls.append(what);
 	}
 
-	private RavenTextView(Context context) {
+	private RavenTextView(Activity context) {
 		super(context);
+		activity = context;
 		imm = (InputMethodManager)context.getSystemService(Context.INPUT_METHOD_SERVICE);
 		logCalls = (context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
 		setFocusable(true);
@@ -129,6 +149,7 @@ public final class RavenTextView extends View {
 				RavenTextView view = new RavenTextView(activity);
 				activity.addContentView(view, new ViewGroup.LayoutParams(1, 1));
 				boolean focused = view.requestFocus();
+				activity.getApplicationContext().registerComponentCallbacks(view.memory);
 				sView = view;
 				Log.i(TAG, "text view attached (focus " + focused + ")");
 			}
@@ -141,6 +162,8 @@ public final class RavenTextView extends View {
 				RavenTextView view = sView;
 				sView = null;
 				if (view == null) return;
+				view.activity.getApplicationContext().unregisterComponentCallbacks(view.memory);
+				view.onBackWanted(false);
 				ViewParent parent = view.getParent();
 				if (parent instanceof ViewGroup) ((ViewGroup)parent).removeView(view);
 			}
@@ -174,7 +197,67 @@ public final class RavenTextView extends View {
 		});
 	}
 
+	/** Raven's window takes Back now, or no longer (window_set_back_wanted). */
+	public static void setBackWanted(final boolean wanted) {
+		MAIN.post(new Runnable() {
+			@Override public void run() {
+				if (sView != null) sView.onBackWanted(wanted);
+			}
+		});
+	}
+
+	/** A Back that nothing in Raven took after all: what the system would have done (leave, or go to the previous activity). */
+	public static void backDefault() {
+		MAIN.post(new Runnable() {
+			@SuppressWarnings("deprecation")
+			@Override public void run() {
+				if (sView != null) sView.activity.onBackPressed();
+			}
+		});
+	}
+
 	/* ------------------------------------------------------------------ UI thread */
+
+	private void onBackWanted(boolean wanted) {
+		backWanted = wanted;
+		if (Build.VERSION.SDK_INT >= 33) Back33.update(this);
+	}
+
+	/* Android 13+: predictive back (its classes are only touched there) */
+	private static final class Back33 {
+		static void update(RavenTextView view) {
+			OnBackInvokedDispatcher dispatcher = view.activity.getOnBackInvokedDispatcher();
+			if (view.backWanted && view.backCallback == null) {
+				OnBackInvokedCallback callback = new OnBackInvokedCallback() {
+					@Override public void onBackInvoked() {
+						nativeOp(OP_BACK, 0, 0, null, 0, 0);
+					}
+				};
+				dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
+				view.backCallback = callback;
+			} else if (!view.backWanted && view.backCallback != null) {
+				dispatcher.unregisterOnBackInvokedCallback((OnBackInvokedCallback)view.backCallback);
+				view.backCallback = null;
+			}
+		}
+	}
+
+	/*
+	 * Memory pressure: RUNNING_LOW, RUNNING_CRITICAL (in front), MODERATE,
+	 * COMPLETE (in the background). Not UI_HIDDEN and BACKGROUND: they come
+	 * each time the application goes to the background (R_APP_DID_PAUSE says it).
+	 */
+	private final ComponentCallbacks2 memory = new ComponentCallbacks2() {
+		@SuppressWarnings("deprecation")
+		@Override public void onTrimMemory(int level) {
+			if ((level >= TRIM_MEMORY_RUNNING_LOW && level < TRIM_MEMORY_UI_HIDDEN) || level >= TRIM_MEMORY_MODERATE)
+				nativeOp(OP_LOW_MEMORY, 0, 0, null, level, 0);
+		}
+		/* (NativeActivity forwards it itself: APP_CMD_LOW_MEMORY) */
+		@SuppressWarnings("deprecation")
+		@Override public void onLowMemory() { }
+		@Override public void onConfigurationChanged(Configuration configuration) { }
+	};
 
 	private void onField(int gen, int fieldId, int kind, int type, int returnKey, int flags, byte[] text, int start, int end, int ack) {
 		this.gen = gen;

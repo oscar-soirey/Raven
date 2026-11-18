@@ -105,6 +105,8 @@ static rvn_xml_node_t* rvn_xc_node(rvn_arena_t* arena, const rvn_xml_node_t* lik
 	if (like) {
 		node->line = like->line;
 		node->column = like->column;
+		node->text_line = like->text_line;
+		node->text_column = like->text_column;
 		node->source = like->source;
 	}
 	return node;
@@ -209,7 +211,7 @@ void rvn_xml_components_shutdown(void) {
 
 static int rvn_xc_reserved(const char* name) {
 	static const char* const reserved[] = {
-		"Window", "Widget", "Widgets", "Children", "Repeat", "ForEach", "If", "Include", "Strings", "Shortcut", "Item", "Separator"
+		"Window", "Widget", "Widgets", "Children", "Repeat", "ForEach", "If", "Include", "Strings", "Shortcut", "Item", "Separator", "Script"
 	};
 	size_t i;
 	for (i = 0; i < RVN_COUNT_OF(reserved); i++) {
@@ -939,7 +941,9 @@ static void rvn_xc_expand(rvn_xc_t* ctx, const rvn_xml_node_t* node, const rvn_x
 	} else {
 		/* an ordinary element: itself, with what is inside rewritten */
 		copy = rvn_xc_node(arena, node, node->name);
-		copy->text = rvn_xc_text(ctx, scope, node, node->text);
+		/* (the code of a <Script> is not a text with {parameters}: its braces are its blocks) */
+		if (rvn_xml_is_script(node->name)) copy->text = rvn_arena_strndup(arena, node->text, strlen(node->text));
+		else copy->text = rvn_xc_text(ctx, scope, node, node->text);
 		for (attribute = node->attributes; attribute; attribute = attribute->next) {
 			if (rvn_stricmp(attribute->name, "If") == 0) continue;
 			rvn_xc_set_attribute(arena, copy, attribute->name, rvn_xc_text(ctx, scope, node, attribute->value));
