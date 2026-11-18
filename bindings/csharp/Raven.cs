@@ -16,7 +16,7 @@
 //
 //   using Raven;
 //
-//   R.Rinit(RBackend.R_BACKEND_VULKAN);
+//   R.Rinit(RBackend.R_BACKEND_DEFAULT);
 //   uint window = R.Rwindow_create_from_xml("<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>");
 //   R.Raction_bind("quit", R.Keep<RActionCallback>((sender, action, user) => R.Rquit(0)), IntPtr.Zero);
 //   while (R.Rwait_frame(-1.0) != 0) { }
@@ -42,6 +42,10 @@ namespace Raven
     public enum RBackend : int
     {
         /// <summary>
+        /// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+        /// </summary>
+        R_BACKEND_DEFAULT = 0,
+        /// <summary>
         /// Built-in Vulkan renderer.
         /// </summary>
         R_BACKEND_VULKAN = 1,
@@ -57,6 +61,10 @@ namespace Raven
         /// Browser renderer (Emscripten, WebGL 2).
         /// </summary>
         R_BACKEND_WEBGL = 4,
+        /// <summary>
+        /// Built-in Metal renderer (macOS, iOS).
+        /// </summary>
+        R_BACKEND_METAL = 5,
     }
 
     public enum RError : int
@@ -1070,7 +1078,7 @@ namespace Raven
         /// </summary>
         R_WIDGET_MAP_VIEW = 0x0235,
         /// <summary>
-        /// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+        /// Pages shown one at a time and swiped (a page view), with dots and arrows.
         /// </summary>
         R_WIDGET_CAROUSEL = 0x0236,
     }
@@ -2003,7 +2011,7 @@ namespace Raven
     public struct RInitDesc
     {
         /// <summary>
-        /// Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+        /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
         /// </summary>
         public RBackend backend;
         /// <summary>
@@ -2779,9 +2787,21 @@ namespace Raven
         /// </summary>
         public IntPtr render_pass;
         /// <summary>
-        /// Vulkan: VkFormat of the color attachment.
+        /// Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
         /// </summary>
         public uint color_format;
+        /// <summary>
+        /// Metal: id&lt;MTLRenderCommandEncoder&gt; of the frame, inside its render pass (do not end it).
+        /// </summary>
+        public IntPtr metal_encoder;
+        /// <summary>
+        /// Metal: id&lt;MTLCommandBuffer&gt; the encoder belongs to.
+        /// </summary>
+        public IntPtr metal_command_buffer;
+        /// <summary>
+        /// Metal: id&lt;MTLDevice&gt; of the backend, to make pipeline states that match color_format.
+        /// </summary>
+        public IntPtr metal_device;
     }
 
     /// <summary>

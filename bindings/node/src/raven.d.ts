@@ -51,6 +51,8 @@ export const R_TRUE: number;
 export const R_INVALID_ID: number;
 
 export enum RBackend {
+	/** The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
+	R_BACKEND_DEFAULT = 0,
 	/** Built-in Vulkan renderer. */
 	R_BACKEND_VULKAN = 1,
 	/** Renders nothing. Used for headless runs and unit tests. */
@@ -59,11 +61,15 @@ export enum RBackend {
 	R_BACKEND_CUSTOM = 3,
 	/** Browser renderer (Emscripten, WebGL 2). */
 	R_BACKEND_WEBGL = 4,
+	/** Built-in Metal renderer (macOS, iOS). */
+	R_BACKEND_METAL = 5,
 }
+export const R_BACKEND_DEFAULT: RBackend.R_BACKEND_DEFAULT;
 export const R_BACKEND_VULKAN: RBackend.R_BACKEND_VULKAN;
 export const R_BACKEND_NULL: RBackend.R_BACKEND_NULL;
 export const R_BACKEND_CUSTOM: RBackend.R_BACKEND_CUSTOM;
 export const R_BACKEND_WEBGL: RBackend.R_BACKEND_WEBGL;
+export const R_BACKEND_METAL: RBackend.R_BACKEND_METAL;
 
 export enum RError {
 	R_NO_ERROR = 0x0070,
@@ -1118,7 +1124,7 @@ export enum RWidgetType {
 	R_WIDGET_CHART = 0x0234,
 	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
 	R_WIDGET_MAP_VIEW = 0x0235,
-	/** Pages shown one at a time and swiped (a page view): arrows, dots, autoplay. */
+	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
 	R_WIDGET_CAROUSEL = 0x0236,
 }
 export const R_WIDGET_VBOX: RWidgetType.R_WIDGET_VBOX;
@@ -2032,7 +2038,7 @@ export class RInitDesc extends RStruct {
 	constructor(pointer?: Pointer);
 	/** The structure at an address of the library, or null. */
 	static from(pointer: Pointer | null): RInitDesc | null;
-	/** Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise. */
+	/** Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
 	get backend(): RBackend;
 	set backend(value: RBackend);
 	/** Application name reported to the graphics driver. May be NULL. */
@@ -2710,7 +2716,7 @@ export class RFileDialogDesc extends RStruct {
 
 /** Passed to the draw callback of a viewport. Sizes are in pixels. */
 export class RViewportDrawInfo extends RStruct {
-	static readonly SIZE = 88;
+	static readonly SIZE = 112;
 	constructor(pointer?: Pointer);
 	/** The structure at an address of the library, or null. */
 	static from(pointer: Pointer | null): RViewportDrawInfo | null;
@@ -2756,9 +2762,18 @@ export class RViewportDrawInfo extends RStruct {
 	/** Vulkan: VkRenderPass in use (one color attachment, no depth). */
 	get render_pass(): Pointer | null;
 	set render_pass(value: Pointer | null);
-	/** Vulkan: VkFormat of the color attachment. */
+	/** Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat. */
 	get color_format(): number;
 	set color_format(value: number);
+	/** Metal: id<MTLRenderCommandEncoder> of the frame, inside its render pass (do not end it). */
+	get metal_encoder(): Pointer | null;
+	set metal_encoder(value: Pointer | null);
+	/** Metal: id<MTLCommandBuffer> the encoder belongs to. */
+	get metal_command_buffer(): Pointer | null;
+	set metal_command_buffer(value: Pointer | null);
+	/** Metal: id<MTLDevice> of the backend, to make pipeline states that match color_format. */
+	get metal_device(): Pointer | null;
+	set metal_device(value: Pointer | null);
 }
 
 /** State of one animated value. Zero-initialize it and keep it with the widget. */

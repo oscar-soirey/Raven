@@ -24,7 +24,7 @@
 //
 //   public class Hello {
 //       public static void main(String[] args) {
-//           Rinit(R_BACKEND_VULKAN);
+//           Rinit(R_BACKEND_DEFAULT);
 //           Rwindow_create_from_xml("<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>");
 //           Raction_bind("quit", (sender, action, user) -> Rquit(0));
 //           while (Rwait_frame(-1.0) != 0) { }
@@ -202,6 +202,10 @@ public final class R {
 
     // RBackend
     /**
+     * The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+     */
+    public static final int R_BACKEND_DEFAULT = 0;
+    /**
      * Built-in Vulkan renderer.
      */
     public static final int R_BACKEND_VULKAN = 1;
@@ -217,6 +221,10 @@ public final class R {
      * Browser renderer (Emscripten, WebGL 2).
      */
     public static final int R_BACKEND_WEBGL = 4;
+    /**
+     * Built-in Metal renderer (macOS, iOS).
+     */
+    public static final int R_BACKEND_METAL = 5;
 
     // RError
     public static final int R_NO_ERROR = 0x0070;
@@ -1076,7 +1084,7 @@ public final class R {
      */
     public static final int R_WIDGET_MAP_VIEW = 0x0235;
     /**
-     * Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+     * Pages shown one at a time and swiped (a page view), with dots and arrows.
      */
     public static final int R_WIDGET_CAROUSEL = 0x0236;
 
@@ -1855,7 +1863,7 @@ public final class R {
         }
 
         /**
-         * Rendering backend. 0 selects WebGL in browser builds, Vulkan otherwise.
+         * Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
          */
         public int backend() { return s.get(JAVA_INT, 0); }
         public RInitDesc backend(int value) { s.set(JAVA_INT, 0, value); return this; }
@@ -3597,7 +3605,7 @@ public final class R {
      */
     public static final class RViewportDrawInfo {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 88;
+        public static final long SIZE = 112;
         private final MemorySegment s;
         private Arena arena;
 
@@ -3713,10 +3721,28 @@ public final class R {
         public RViewportDrawInfo render_pass(MemorySegment value) { s.set(ADDRESS, 72, value == null ? MemorySegment.NULL : value); return this; }
 
         /**
-         * Vulkan: VkFormat of the color attachment.
+         * Vulkan: VkFormat of the color attachment; Metal: MTLPixelFormat.
          */
         public int color_format() { return s.get(JAVA_INT, 80); }
         public RViewportDrawInfo color_format(int value) { s.set(JAVA_INT, 80, value); return this; }
+
+        /**
+         * Metal: id&lt;MTLRenderCommandEncoder&gt; of the frame, inside its render pass (do not end it).
+         */
+        public MemorySegment metal_encoder() { return s.get(ADDRESS, 88); }
+        public RViewportDrawInfo metal_encoder(MemorySegment value) { s.set(ADDRESS, 88, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * Metal: id&lt;MTLCommandBuffer&gt; the encoder belongs to.
+         */
+        public MemorySegment metal_command_buffer() { return s.get(ADDRESS, 96); }
+        public RViewportDrawInfo metal_command_buffer(MemorySegment value) { s.set(ADDRESS, 96, value == null ? MemorySegment.NULL : value); return this; }
+
+        /**
+         * Metal: id&lt;MTLDevice&gt; of the backend, to make pipeline states that match color_format.
+         */
+        public MemorySegment metal_device() { return s.get(ADDRESS, 104); }
+        public RViewportDrawInfo metal_device(MemorySegment value) { s.set(ADDRESS, 104, value == null ? MemorySegment.NULL : value); return this; }
     }
 
     /**
