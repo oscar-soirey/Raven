@@ -3,7 +3,8 @@
 # view) and the showcase APK (../shared) by hand, without Gradle. See ../README.md.
 # Usage: ./build.sh [install]
 # Uses the newest NDK, build tools and platform of the SDK unless ANDROID_NDK,
-# ANDROID_BUILD_TOOLS or ANDROID_JAR say otherwise.
+# ANDROID_BUILD_TOOLS or ANDROID_JAR say otherwise. RAVEN_CMAKE_ARGS is added to the
+# CMake configuration of Raven (CI: -DRAVEN_WARNINGS_AS_ERRORS=ON).
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 RAVEN=${RAVEN:-$(cd "$HERE/../../.." && pwd)}
@@ -23,7 +24,7 @@ cmake -S "$RAVEN" -B "$RAVEN/build-android" -G Ninja \
 	-DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
 	-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-$API \
 	-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF \
-	-DCMAKE_BUILD_TYPE=RelWithDebInfo >/dev/null
+	-DCMAKE_BUILD_TYPE=RelWithDebInfo ${RAVEN_CMAKE_ARGS:-} >/dev/null
 cmake --build "$RAVEN/build-android"
 
 # 2. the app's .so: main.c + the shared showcase + native_app_glue + libraven.a

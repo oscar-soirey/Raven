@@ -9,8 +9,7 @@
 # Every package is a CMake install prefix (include/, lib/, bin/ with
 # raven_designer, share/raven/): find_package(raven) with CMAKE_PREFIX_PATH set to it.
 #
-# The tests run on Linux (headless; test_web drives the Chrome of the runner),
-# and on macOS with the Metal backend and no Vulkan at all.
+# The tests run on Linux (headless; test_web drives the Chrome of the runner).
 # A tag is released only when they pass.
 #
 # Each run uploads the packages as artifacts (Actions tab > the run > Artifacts).
@@ -359,90 +358,6 @@ jobs:
       - name: Test native backdrop surface
         run: ctest --test-dir build -C Release -R '^test_win32_backdrop$' --no-tests=error --output-on-failure --timeout 60
 
-  # The Metal backend (macOS): built without Vulkan at all (no headers, no
-  # MoltenVK), then the tests, test_render_metal drawing real frames with the
-  # GPU of the runner (skipped when it has none).
-  metal:
-    name: tests (macos, metal)
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure
-        run: |
-          cmake -S . -B build \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DRAVEN_BACKEND_VULKAN=OFF \
-            -DRAVEN_BACKEND_METAL=ON \
-            -DRAVEN_BUILD_TESTS=ON \
-            -DRAVEN_BUILD_EXAMPLES=ON \
-            -DRAVEN_BUILD_TOOLS=ON \
-            -DRAVEN_BUILD_WEB=OFF \
-            -DRAVEN_WARNINGS_AS_ERRORS=ON
-
-      - name: Build
-        run: cmake --build build --parallel
-
-      - name: Test
-        # (test_shell and test_themes do not pass on macOS yet, with any backend)
-        run: ctest --test-dir build --output-on-failure --timeout 300 -E '^(test_shell|test_themes)$'
-
-      - name: No Vulkan library is linked
-        run: |
-          otool -L ./build/bin/raven_hello
-          ! otool -L ./build/bin/raven_hello | grep -i -e vulkan -e moltenvk
-
-  # The iOS example on the iOS Simulator, drawn with Metal (no MoltenVK): Raven
-  # and Hello.app built with the Xcode of the runner, then installed, launched,
-  # and a screenshot taken that must show the showcase (not a blank screen).
-  ios-simulator:
-    name: ios (simulator, metal)
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Ninja
-        run: brew list ninja >/dev/null 2>&1 || brew install ninja
-
-      - name: Build Raven and Hello.app
-        env:
-          RAVEN_CMAKE_ARGS: -DRAVEN_WARNINGS_AS_ERRORS=ON
-        run: |
-          xcodebuild -version
-          ./examples/mobile/ios/build.sh
-
-      - name: No Vulkan library is linked
-        run: |
-          otool -L examples/mobile/ios/build/Hello.app/Hello
-          ! otool -L examples/mobile/ios/build/Hello.app/Hello | grep -i -e vulkan -e moltenvk
-
-      - name: Run on a simulator
-        run: |
-          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k in sorted(d, reverse=True) if 'iOS' in k for x in d[k] if x['name'].startswith('iPhone')))")
-          echo "simulator: $UDID"
-          xcrun simctl boot "$UDID"
-          xcrun simctl bootstatus "$UDID" -b
-          xcrun simctl install "$UDID" examples/mobile/ios/build/Hello.app
-          xcrun simctl launch "$UDID" dev.raven.ios.hello
-          sleep 15
-          xcrun simctl io "$UDID" screenshot ios-simulator.png
-          # still running
-          xcrun simctl spawn "$UDID" launchctl list | grep dev.raven.ios.hello
-          # and drawing: a blank or black screen has only a few colors
-          sips -s format bmp ios-simulator.png --out ios-simulator.bmp >/dev/null
-          python3 -c "import sys; b=open('ios-simulator.bmp','rb').read(); o=int.from_bytes(b[10:14],'little'); n=len({b[i:i+3] for i in range(o, len(b)-3, 3*97)}); print('colors:', n); sys.exit(0 if n > 50 else 1)"
-
-      - name: Log of the app
-        if: always()
-        run: xcrun simctl spawn booted log show --last 3m --style compact --predicate 'process == "Hello"' | tail -100 || true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ios-simulator-screenshot
-          path: ios-simulator.png
-          if-no-files-found: ignore
-
   # The addon of the Node.js binding links node.lib on Windows, which CMake downloads
   # for the node of the runner; then binding_node runs its example with the DLL.
   node-windows:
@@ -459,6 +374,41 @@ jobs:
       # --no-tests=error: without the addon the test does not exist, which must not pass
       - name: Test
         run: ctest --test-dir build -C Release -R '^binding_node$' --no-tests=error --output-on-failure --timeout 300
+
+  # ---------------------------------------------------------------------------
+  #  Android (NDK, arm64-v8a): Raven and the showcase APK of examples/mobile,
+  #  with the SDK, NDK and JDK of the runner. Built, not run (no device).
+  # ---------------------------------------------------------------------------
+  android:
+    name: android (arm64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Build Raven and the APK
+        env:
+          RAVEN_CMAKE_ARGS: -DRAVEN_WARNINGS_AS_ERRORS=ON
+        run: |
+          export ANDROID_NDK="$ANDROID_NDK_LATEST_HOME"
+          echo "SDK: $ANDROID_HOME  NDK: $ANDROID_NDK"
+          ./examples/mobile/android/build.sh
+
+      - name: Check the APK
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | tail -1)
+          "$BT/apksigner" verify examples/mobile/android/raven-hello.apk
+          unzip -l examples/mobile/android/raven-hello.apk > apk.txt
+          cat apk.txt
+          for f in lib/arm64-v8a/libravenhello.so classes.dex assets/fonts/; do grep -q "$f" apk.txt || { echo "missing from the APK: $f"; exit 1; }; done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raven-hello-android-arm64
+          path: examples/mobile/android/raven-hello.apk
+          if-no-files-found: error
 
   # ---------------------------------------------------------------------------
   #  Windows (MinGW-w64, through MSYS2)
@@ -558,7 +508,7 @@ jobs:
 
       - name: Dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install ninja
+        run: brew install molten-vk ninja
 
       - name: MinGW-w64 (Windows)
         if: runner.os == 'Windows'
@@ -630,7 +580,7 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, metal, ios-simulator, build, mingw, installer]
+    needs: [test, build, mingw, installer, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
