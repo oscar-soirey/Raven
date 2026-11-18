@@ -23,15 +23,11 @@ This is an early stage port: see the platform sources
 
 ## iOS (Simulator)
 
-Needs Xcode with an iOS Simulator runtime, CMake and Ninja.
+Needs Xcode with an iOS Simulator runtime, CMake and Ninja. Raven draws with
+Metal (`-DRAVEN_BACKEND_VULKAN=OFF`): MoltenVK is not needed.
 
-1. MoltenVK for the simulator. Homebrew's `molten-vk` is for macOS only.
-   Download `MoltenVK-all.tar` from the
-   [MoltenVK releases](https://github.com/KhronosGroup/MoltenVK/releases)
-   (tested with 1.4.2) and extract it here:
-   `cd ios && tar xf ~/Downloads/MoltenVK-all.tar` (gives `ios/MoltenVK/`).
-2. Boot a simulator, then `cd ios && ./build.sh run`. `UDID=<id>` picks
-   another one than the booted simulator.
+Boot a simulator, then `cd ios && ./build.sh run`. `UDID=<id>` picks another
+one than the booted simulator.
 
 The simulator treats the Mac's keyboard as a hardware keyboard by default and
 then shows no on-screen keyboard: turn "Connect Hardware Keyboard" off in the
@@ -42,8 +38,7 @@ Testing hooks in `src/main.m`, set at launch with `SIMCTL_CHILD_` in front:
 rotates the scene, `RAVEN_DISMISS=<seconds>` closes the keyboard from outside
 Raven.
 
-A real device needs a signing identity and the `ios-arm64` slice of MoltenVK;
-it has not been tried yet.
+A real device needs a signing identity; it has not been tried yet.
 
 ## Android
 

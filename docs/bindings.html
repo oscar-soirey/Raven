@@ -134,8 +134,9 @@ environment variables tell the bindings where it is:</p>
 </table></div>
 <p>At run time the program must also find the library: beside the
 executable on Windows, or on <code>LD_LIBRARY_PATH</code> / <code>DYLD_LIBRARY_PATH</code>.
-Raven draws with Vulkan: the machine needs a Vulkan driver (on macOS,
-<a href="https://github.com/KhronosGroup/MoltenVK">MoltenVK</a>); on Linux, libX11 is used for windows.</p>
+Raven draws with Vulkan: the machine needs a Vulkan driver; on Linux, libX11 is used for windows.
+On macOS, backend 0 draws with Metal and needs nothing; <code>R_BACKEND_VULKAN</code>, as in
+the programs below, needs <a href="https://github.com/KhronosGroup/MoltenVK">MoltenVK</a>.</p>
 
 <h3 id="thread">The UI thread</h3>
 <p>Raven belongs to the thread that calls <code>Rinit</code>. Call it from that thread

@@ -17,7 +17,8 @@ wants to read, debug or extend it.
 │ render/  draw lists, fonts,  │ platform/  windows, input,  │
 │          textures, renderer  │            clipboard        │
 │   ├─ vulkan/                 │   ├─ win32/                 │
-│   └─ null/                   │   ├─ x11/                   │
+│   ├─ metal/                  │   ├─ x11/                   │
+│   └─ null/                   │   │                         │
 │                              │   ├─ wayland/               │
 │                              │   ├─ cocoa/                 │
 │                              │   └─ null/                  │
@@ -207,7 +208,10 @@ window keeps producing frames, then goes back to sleep.
 
 ## The Vulkan backend
 
-`src/render/vulkan/`, about 3 400 lines.
+`src/render/vulkan/`, about 3 400 lines. On macOS and iOS the default is the
+Metal backend (`src/render/metal/`, Objective-C with ARC), which follows the
+same steps with the same shaders ported to MSL, compiled at run time from
+`generated/shaders.h`; [METAL_BACKEND.md](METAL_BACKEND.md) describes it.
 
 - `vk_loader.c` opens the Vulkan library at run time and fills a table of
   function pointers (`rvn_vk.CreateImage(...)`). Raven never links to Vulkan.

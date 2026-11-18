@@ -258,17 +258,22 @@ cmake --install build --prefix install</pre>
 <h3 id="build-macos">macOS</h3>
 
 <pre>xcode-select --install
-brew install cmake molten-vk
+brew install cmake
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 cmake --install build --prefix install</pre>
 
-<p>Vulkan runs on macOS through MoltenVK. Add
+<p>On macOS and iOS Raven draws with Metal, the default backend there
+(<code>backend = 0</code>): nothing else is needed. The Vulkan backend is still
+compiled for the applications that ask for <code>R_BACKEND_VULKAN</code> (a Vulkan
+viewport, effects of their own in SPIR-V, which Metal draws as rounded
+rectangles); it runs through MoltenVK (<code>brew install molten-vk</code>).
+<code>-DRAVEN_BACKEND_VULKAN=OFF</code> leaves it out. Add
 <code>-DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"</code> for a universal library.</p>
 
 <h3 id="build-mobile">iOS and Android</h3>
 
-<p>Raven also runs on iOS (UIKit, drawn with Vulkan through MoltenVK) and on
+<p>Raven also runs on iOS (UIKit, drawn with Metal) and on
 Android (NativeActivity). Both platforms are experimental. CMake chooses them
 when it builds for iOS or Android (<code>CMAKE_SYSTEM_NAME</code>), or with
 <code>-DRAVEN_PLATFORM=uikit</code> and <code>-DRAVEN_PLATFORM=android</code>. On Android the
@@ -292,7 +297,8 @@ do not do yet is in <a href="#limits">What Raven does not do yet</a>.</p>
 <tr><td><code>RAVEN_BUILD_TESTS</code></td><td>ON at top level</td><td>the tests, the tests of the bindings, <code>raven_benchmark</code></td></tr>
 <tr><td><code>RAVEN_BUILD_TOOLS</code></td><td>ON at top level</td><td><code>raven_designer</code> and <code>raven_theme_editor</code></td></tr>
 <tr><td><code>RAVEN_BUILD_WEB</code></td><td>ON</td><td>web pages (<code>raven_web.h</code>), compiled into the library</td></tr>
-<tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>OFF builds without any GPU code (a custom backend, or headless)</td></tr>
+<tr><td><code>RAVEN_BACKEND_VULKAN</code></td><td>ON</td><td>the Vulkan backend (through MoltenVK on macOS, only when asked for); OFF, with Metal off too, builds without any GPU code (a custom backend, or headless)</td></tr>
+<tr><td><code>RAVEN_BACKEND_METAL</code></td><td>ON on Apple</td><td>the Metal backend (macOS, iOS), the default there; it needs nothing</td></tr>
 <tr><td><code>RAVEN_PLATFORM</code></td><td>auto</td><td><code>win32</code>, <code>x11</code>, <code>cocoa</code>, <code>uikit</code> (<a href="#build-mobile">iOS</a>), <code>android</code>, <code>emscripten</code> (the browser) or <code>null</code></td></tr>
 <tr><td><code>RAVEN_WAYLAND</code></td><td>ON</td><td>Linux and BSD: native Wayland beside X11 (<a href="#build-wayland">Wayland and X11</a>); nothing of Wayland is needed to build</td></tr>
 <tr><td><code>RAVEN_WITH_STB_IMAGE</code></td><td>ON</td><td>PNG, JPEG, BMP and TGA decoding</td></tr>

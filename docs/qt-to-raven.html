@@ -459,7 +459,7 @@ target_link_libraries(tool PRIVATE raven::raven)</code></pre>
 <h3>Shipping</h3>
 <ul>
 <li>Static linking puts everything in the executable; there are no plug-ins to deploy (no <code>platforms/qwindows.dll</code>, no <code>windeployqt</code>).</li>
-<li>The machine needs a Vulkan driver, which current graphics drivers include on Windows and Linux; on macOS, MoltenVK.</li>
+<li>The machine needs a Vulkan driver, which current graphics drivers include on Windows and Linux; on macOS, Raven draws with Metal (backend 0) and needs nothing.</li>
 <li>Interfaces loaded from <code>.xml</code> files are shipped next to the program, with their images and fonts; an interface compiled into the program as text needs no file at run time.</li>
 </ul>
 </section>
