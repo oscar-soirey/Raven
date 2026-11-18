@@ -716,10 +716,10 @@ R_WIDGET_PLOT :: 0x0232
 R_WIDGET_PDF_VIEW :: 0x0233
 // The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 R_WIDGET_CHART :: 0x0234
-// Pages shown one at a time and swiped (a page view), with dots and arrows.
-R_WIDGET_CAROUSEL :: 0x0235
 // A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
-R_WIDGET_MAP_VIEW :: 0x0236
+R_WIDGET_MAP_VIEW :: 0x0235
+// Pages shown one at a time and swiped (a page view), with dots and arrows.
+R_WIDGET_CAROUSEL :: 0x0236
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
