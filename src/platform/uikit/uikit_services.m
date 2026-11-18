@@ -887,9 +887,13 @@ static UIImpactFeedbackGenerator* g_impacts[3];
 static UISelectionFeedbackGenerator* g_selection;
 static UINotificationFeedbackGenerator* g_outcome;
 
-/* SHORTCUT: an iPhone has the Taptic Engine, an iPad and the Simulator play nothing (the calls are made, and logged) */
+/* An iPhone has the Taptic Engine; an iPad and the Simulator play nothing (Rhaptic_play still makes the calls, and logs them) */
 int rvn_uikit_haptic_supported(void) {
+#if TARGET_OS_SIMULATOR
+	return R_FALSE;
+#else
 	return [UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone ? R_TRUE : R_FALSE;
+#endif
 }
 
 int rvn_uikit_haptic(int haptic) {
