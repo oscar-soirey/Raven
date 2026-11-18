@@ -2751,6 +2751,9 @@ fn WidgetType Widget.get_type(self) @inline => (WidgetType)c::r_widget_get_type(
  A widget that already has a parent is moved.
  Returns `child`, so calls can be nested:
          Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+         R_INVALID_ID when the child replaced in a single-child container
+         had a destroy callback that destroyed the container or `child`;
+         `child`, when it is still there, is then not added.
 *>
 fn Widget Widget.add_child(self, Id child) @inline => (Widget)c::r_widget_add_child((c::Rid)self, (c::Rid)child);
 

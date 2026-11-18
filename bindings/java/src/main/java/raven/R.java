@@ -9921,6 +9921,9 @@ public final class R {
      * A widget that already has a parent is moved.
      * Returns: `child`, so calls can be nested:
      *         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+     *         R_INVALID_ID when the child replaced in a single-child container
+     *         had a destroy callback that destroyed the container or `child`;
+     *         `child`, when it is still there, is then not added.
      */
     public static int Rwidget_add_child(int parent, int child) {
         MethodHandle $h = Rwidget_add_child$;

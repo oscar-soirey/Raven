@@ -5226,7 +5226,10 @@ def Rwidget_add_child(parent, child):
     """Appends a child to a panel. The parent takes ownership.
     A widget that already has a parent is moved.
     Returns: `child`, so calls can be nested:
-            Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));"""
+            Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+            R_INVALID_ID when the child replaced in a single-child container
+            had a destroy callback that destroyed the container or `child`;
+            `child`, when it is still there, is then not added."""
     return _lib.Rwidget_add_child(parent, child)
 
 

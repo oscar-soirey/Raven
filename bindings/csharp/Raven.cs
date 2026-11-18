@@ -5081,6 +5081,9 @@ namespace Raven
         /// A widget that already has a parent is moved.
         /// Returns: `child`, so calls can be nested:
         ///         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+        ///         R_INVALID_ID when the child replaced in a single-child container
+        ///         had a destroy callback that destroyed the container or `child`;
+        ///         `child`, when it is still there, is then not added.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rwidget_add_child(uint parent, uint child);
