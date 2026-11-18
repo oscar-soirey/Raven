@@ -129,6 +129,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/raven/raven_accessibility.h
 	include/raven/raven_backend.h
 	include/raven/raven_host.h
+	include/raven/raven_testing.h
 	include/raven/raven_android.h
 	include/raven/raven_vulkan.h
 )
@@ -207,6 +208,7 @@ set(RAVEN_WIDGET_SOURCES
 	src/widget/widget.h
 	src/widget/window.c
 	src/widget/inspector.c
+	src/widget/testing.c
 )
 
 set(RAVEN_WIDGETS_SOURCES

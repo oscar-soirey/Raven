@@ -1186,6 +1186,14 @@ double rvn_window_frame_in(rvn_window_t* window) {
 	return -1.0;
 }
 
+int rvn_window_is_settled(rvn_window_t* window) {
+	if (window->dead) return R_TRUE;
+	if (window->needs_layout || window->layout_spring_count > 0 || rvn_touch_animating(window)) return R_FALSE;
+	/* (what cannot be painted, hidden or in the background, waits for nothing) */
+	if (!rvn_window_can_paint(window) || !window->visible) return R_TRUE;
+	return !window->needs_paint && rvn_atomic_load(&window->animating) == 0 && rvn_atomic_load(&window->redraw_requested) == 0;
+}
+
 int rvn_window_wants_frame(rvn_window_t* window) {
 	return rvn_window_frame_in(window) == 0.0;
 }
