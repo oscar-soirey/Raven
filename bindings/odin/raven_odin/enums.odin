@@ -1,6 +1,6 @@
 // Raven for Odin: the enumerations of the C API.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 //
 // Values are those of the C constants, so the raw i32 of the generated package converts both
 // ways: Widget_Type(raw.Rwidget_get_type(widget)). Groups of flags are bit_sets (Window_Flags);

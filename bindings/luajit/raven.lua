@@ -1,6 +1,6 @@
 -- Raven for LuaJIT.
 --
--- Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+-- Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 --
 -- The FFI of LuaJIT reads C: these are the declarations of the public
 -- headers, and the module is the library itself. Enumerations are numbers,
@@ -2602,9 +2602,9 @@ local library = ffi.load(os.getenv("RAVEN_LIBRARY") or "raven")
 -- the constants of the headers that are not enumerations
 local constants = {
 	RAVEN_VERSION_MAJOR = 0,
-	RAVEN_VERSION_MINOR = 2,
-	RAVEN_VERSION_PATCH = 3,
-	RAVEN_API_VERSION = "0.2",
+	RAVEN_VERSION_MINOR = 3,
+	RAVEN_VERSION_PATCH = 0,
+	RAVEN_API_VERSION = "0.3",
 	R_FALSE = 0,
 	R_TRUE = 1,
 	R_INVALID_ID = 0xFFFFFFFF,

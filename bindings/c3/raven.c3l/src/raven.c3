@@ -1,6 +1,6 @@
 // Raven for C3.
 //
-// Generated from the C headers by tools/bindgen/gen_c3.py (Raven 0.2.3): do not edit.
+// Generated from the C headers by tools/bindgen/gen_c3.py (Raven 0.3.0): do not edit.
 //
 // The C API with the names of C3: types and constsets in PascalCase without
 // the R (RWidgetType is WidgetType), their values without their common prefix
@@ -43,9 +43,9 @@ import raven::c;
 typedef Id = uint;
 
 const CInt VERSION_MAJOR = 0;
-const CInt VERSION_MINOR = 2;
-const CInt VERSION_PATCH = 3;
-const ZString API_VERSION = "0.2";
+const CInt VERSION_MINOR = 3;
+const CInt VERSION_PATCH = 0;
+const ZString API_VERSION = "0.3";
 const CInt FALSE = 0;
 const CInt TRUE = 1;
 const Id INVALID_ID = (Id)0xFFFFFFFF;

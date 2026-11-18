@@ -1,7 +1,7 @@
 /**
  * Raven for Node.js and Bun, through Node-API.
  *
- * Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+ * Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
  * Every function of the C API is here under its own name, with the conventions
  * of the Bun binding (bindings/bun), so that a program can use either:
  *

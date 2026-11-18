@@ -1,7 +1,7 @@
 /**
  * Raven for Bun.
  *
- * Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+ * Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
  * Every function of the C API is here under its own name, with a few
  * conveniences:
  *
@@ -1533,9 +1533,9 @@ function _load() {
 const _lib = _load();
 
 export const RAVEN_VERSION_MAJOR = 0;
-export const RAVEN_VERSION_MINOR = 2;
-export const RAVEN_VERSION_PATCH = 3;
-export const RAVEN_API_VERSION = "0.2";
+export const RAVEN_VERSION_MINOR = 3;
+export const RAVEN_VERSION_PATCH = 0;
+export const RAVEN_API_VERSION = "0.3";
 export const R_FALSE = 0;
 export const R_TRUE = 1;
 export const R_INVALID_ID = 0xffffffff;

@@ -1,7 +1,7 @@
 /**
  * Raven for D: the C API as it is.
  *
- * Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+ * Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
  *
  * The same names as in C. Enumerations are `int` with constants, as in C;
  * structures start zeroed (`RInitDesc desc;` is `RInitDesc desc = {0};`); texts are
@@ -20,9 +20,9 @@ alias Rid = uint;
 alias Ruint = uint;
 
 enum int RAVEN_VERSION_MAJOR = 0;
-enum int RAVEN_VERSION_MINOR = 2;
-enum int RAVEN_VERSION_PATCH = 3;
-enum string RAVEN_API_VERSION = "0.2";
+enum int RAVEN_VERSION_MINOR = 3;
+enum int RAVEN_VERSION_PATCH = 0;
+enum string RAVEN_API_VERSION = "0.3";
 enum int R_FALSE = 0;
 enum int R_TRUE = 1;
 enum Rid R_INVALID_ID = 0xFFFFFFFF;

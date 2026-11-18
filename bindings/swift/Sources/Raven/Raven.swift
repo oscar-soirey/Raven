@@ -1,6 +1,6 @@
 // Raven for Swift.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 //
 // `import Raven` gives the C API as it is, read by Swift from the headers: the
 // same names, the same documentation, Swift strings where C takes a text

@@ -1,6 +1,6 @@
 // Raven for C3: the C API.
 //
-// Generated from the C headers by tools/bindgen/gen_c3.py (Raven 0.2): do not edit.
+// Generated from the C headers by tools/bindgen/gen_c3.py (Raven 0.3): do not edit.
 //
 // The C API of Raven as it is in the headers, for anything the module raven
 // does not cover: its types (Rid, RWidgetType, RRect...), its constants
@@ -22,9 +22,9 @@ alias Rid = uint;
 alias Ruint = uint;
 
 const CInt RAVEN_VERSION_MAJOR = 0;
-const CInt RAVEN_VERSION_MINOR = 2;
-const CInt RAVEN_VERSION_PATCH = 3;
-const char* RAVEN_API_VERSION = "0.2";
+const CInt RAVEN_VERSION_MINOR = 3;
+const CInt RAVEN_VERSION_PATCH = 0;
+const char* RAVEN_API_VERSION = "0.3";
 const CInt R_FALSE = 0;
 const CInt R_TRUE = 1;
 const Rid R_INVALID_ID = 0xFFFFFFFF;

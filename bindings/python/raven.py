@@ -1,7 +1,7 @@
 """
 Raven for Python.
 
-Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 Every function of the C API is here under its own name, with a few
 conveniences:
 
@@ -106,9 +106,9 @@ def _callback(ctype, adapt, function):
 Rid = ctypes.c_uint32
 
 RAVEN_VERSION_MAJOR = 0
-RAVEN_VERSION_MINOR = 2
-RAVEN_VERSION_PATCH = 3
-RAVEN_API_VERSION = "0.2"
+RAVEN_VERSION_MINOR = 3
+RAVEN_VERSION_PATCH = 0
+RAVEN_API_VERSION = "0.3"
 R_FALSE = 0
 R_TRUE = 1
 R_INVALID_ID = 0xffffffff

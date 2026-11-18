@@ -1,6 +1,6 @@
 ## Raven for Nim.
 ##
-## Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+## Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 ##
 ## `raven_gui/c` is the C API as it is, and is exported here. Around it, a few
 ## helpers for what Nim does differently from C:

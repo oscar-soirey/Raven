@@ -1,7 +1,7 @@
 /*
  * Raven for Node.js: the addon.
  *
- * Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+ * Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
  *
  * It opens the shared library of Raven at run time (see _open), so that one
  * .node per platform works with any build of Raven of this version, and

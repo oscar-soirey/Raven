@@ -1,6 +1,6 @@
 // Raven for Odin: the functions of the C API that map by fixed rules.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 //
 // The rules (tools/bindgen/odin_functions.py), in short:
 //   - the name loses its R: Rwidget_set_text -> widget_set_text

@@ -1,6 +1,6 @@
 ## Raven for Nim: the C API as it is.
 ##
-## Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+## Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 ##
 ## The same names as in C. Enumerations are `cint` with constants, as in C;
 ## structures start zeroed, as every Nim object (`var desc: RInitDesc` is
@@ -948,9 +948,9 @@ type
 
 const
   RAVEN_VERSION_MAJOR*: cint = 0
-  RAVEN_VERSION_MINOR*: cint = 2
-  RAVEN_VERSION_PATCH*: cint = 3
-  RAVEN_API_VERSION* = "0.2"
+  RAVEN_VERSION_MINOR*: cint = 3
+  RAVEN_VERSION_PATCH*: cint = 0
+  RAVEN_API_VERSION* = "0.3"
   R_FALSE*: cint = 0
   R_TRUE*: cint = 1
   R_INVALID_ID*: Rid = 0xFFFFFFFF'u32

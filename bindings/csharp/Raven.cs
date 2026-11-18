@@ -1,6 +1,6 @@
 // Raven for C#.
 //
-// Generated from the C headers by tools/bindgen (Raven 0.2): do not edit.
+// Generated from the C headers by tools/bindgen (Raven 0.3): do not edit.
 //
 // The C API under its own names, in the static class Raven.R:
 //
@@ -3554,9 +3554,9 @@ namespace Raven
         private const string Lib = "raven";
 
         public const int RAVEN_VERSION_MAJOR = 0;
-        public const int RAVEN_VERSION_MINOR = 2;
-        public const int RAVEN_VERSION_PATCH = 3;
-        public const string RAVEN_API_VERSION = "0.2";
+        public const int RAVEN_VERSION_MINOR = 3;
+        public const int RAVEN_VERSION_PATCH = 0;
+        public const string RAVEN_API_VERSION = "0.3";
         public const int R_FALSE = 0;
         public const int R_TRUE = 1;
         public const uint R_INVALID_ID = 0xFFFFFFFF;
