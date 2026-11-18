@@ -1617,6 +1617,16 @@
 					"description": "Size of the icon of a tile."
 				},
 				{
+					"name": "IconWidth",
+					"kind": "number",
+					"description": "Rows layout: width of the box of the icon (0: square)."
+				},
+				{
+					"name": "HeaderHeight",
+					"kind": "number",
+					"description": "Height of the header of a section (Rtile_view_set_sections)."
+				},
+				{
 					"name": "Spacing",
 					"kind": "number",
 					"description": "Space between the tiles."
@@ -2321,6 +2331,11 @@
 					"name": "Columns",
 					"kind": "list",
 					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."
+				},
+				{
+					"name": "MultiSelect",
+					"kind": "bool",
+					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
 				},
 				{
 					"name": "Selected",
@@ -3100,6 +3115,8 @@
 		"PdfViewer": "PdfView",
 		"PDFView": "PdfView",
 		"Map": "MapView",
-		"TileMap": "MapView"
+		"TileMap": "MapView",
+		"PageView": "Carousel",
+		"Slideshow": "Carousel"
 	}
 }

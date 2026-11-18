@@ -708,6 +708,8 @@ pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
 pub const R_WIDGET_CHART: RWidgetType = 0x0234;
 /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
+/// Pages shown one at a time and swiped (a page view), with dots and arrows.
+pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
 
 pub const RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -1394,6 +1396,10 @@ pub const RChartSliceCallback = ?*const fn (chart: Rid, slice: c_int, selected: 
 pub const RChartCellCallback = ?*const fn (chart: Rid, row: c_int, column: c_int, value: f32, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 pub const RPdfPageChangedCallback = ?*const fn (view: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
+/// Called when the user goes to another page (a swipe, the keys, a
+/// dot, an arrow) and when the autoplay does. This also fires the action
+/// of the widget.
+pub const RCarouselPageChangedCallback = ?*const fn (carousel: Rid, page: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
 pub const RMapTileCallback = ?*const fn (map: Rid, z: c_int, x: c_int, y: c_int, user_data: ?*anyopaque) callconv(.c) void;
 /// Called when the user clicks a marker.

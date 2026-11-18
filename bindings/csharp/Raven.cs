@@ -1065,6 +1065,10 @@ namespace Raven
         /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
         /// </summary>
         R_WIDGET_MAP_VIEW = 0x0235,
+        /// <summary>
+        /// Pages shown one at a time and swiped (a page view), with dots and arrows.
+        /// </summary>
+        R_WIDGET_CAROUSEL = 0x0236,
     }
 
     public enum RHAlign : int
@@ -3265,6 +3269,14 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RPdfPageChangedCallback(uint view, int page, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user goes to another page (a swipe, the keys, a
+    /// dot, an arrow) and when the autoplay does. This also fires the action
+    /// of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RCarouselPageChangedCallback(uint carousel, int page, IntPtr user_data);
 
     /// <summary>
     /// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.

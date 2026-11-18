@@ -1115,6 +1115,8 @@ export enum RWidgetType {
 	R_WIDGET_CHART = 0x0234,
 	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
 	R_WIDGET_MAP_VIEW = 0x0235,
+	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
+	R_WIDGET_CAROUSEL = 0x0236,
 }
 export const R_WIDGET_VBOX: RWidgetType.R_WIDGET_VBOX;
 export const R_WIDGET_HBOX: RWidgetType.R_WIDGET_HBOX;
@@ -1170,6 +1172,7 @@ export const R_WIDGET_PLOT: RWidgetType.R_WIDGET_PLOT;
 export const R_WIDGET_PDF_VIEW: RWidgetType.R_WIDGET_PDF_VIEW;
 export const R_WIDGET_CHART: RWidgetType.R_WIDGET_CHART;
 export const R_WIDGET_MAP_VIEW: RWidgetType.R_WIDGET_MAP_VIEW;
+export const R_WIDGET_CAROUSEL: RWidgetType.R_WIDGET_CAROUSEL;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -3140,6 +3143,13 @@ export type RChartCellCallback = (chart: Rid, row: number, column: number, value
 
 /** Called when the current page changes as the user scrolls. This also fires the action of the widget. */
 export type RPdfPageChangedCallback = (view: Rid, page: number, user_data: Pointer | null) => void;
+
+/**
+ * Called when the user goes to another page (a swipe, the keys, a
+ * dot, an arrow) and when the autoplay does. This also fires the action
+ * of the widget.
+ */
+export type RCarouselPageChangedCallback = (carousel: Rid, page: number, user_data: Pointer | null) => void;
 
 /** Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
 export type RMapTileCallback = (map: Rid, z: number, x: number, y: number, user_data: Pointer | null) => void;

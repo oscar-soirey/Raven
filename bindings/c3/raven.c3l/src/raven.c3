@@ -899,6 +899,8 @@ constset WidgetType : CInt
 	CHART = 0x0234,
 	<* A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. *>
 	MAP_VIEW = 0x0235,
+	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
+	CAROUSEL = 0x0236,
 }
 
 constset HAlign : CInt
@@ -1808,6 +1810,12 @@ alias ChartSliceCallback = fn void(Id chart, CInt slice, CInt selected, void* us
 alias ChartCellCallback = fn void(Id chart, CInt row, CInt column, float value, void* user_data);
 <* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
 alias PdfPageChangedCallback = fn void(Id view, CInt page, void* user_data);
+<*
+ Called when the user goes to another page (a swipe, the keys, a
+ dot, an arrow) and when the autoplay does. This also fires the action
+ of the widget.
+*>
+alias CarouselPageChangedCallback = fn void(Id carousel, CInt page, void* user_data);
 <* Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. *>
 alias MapTileCallback = fn void(Id map, CInt z, CInt x, CInt y, void* user_data);
 <* Called when the user clicks a marker. *>
@@ -5809,6 +5817,62 @@ fn void MapView.set_view_changed_callback(self, MapViewCallback callback, void* 
 fn void MapView.set_attribution(self, ZString text) @inline => c::r_map_view_set_attribution((c::Rid)self, (char*)text);
 
 fn ZString MapView.get_attribution(self) @inline => (ZString)c::r_map_view_get_attribution((c::Rid)self);
+
+// ---- Carousel
+
+typedef Carousel = inline Widget;
+
+fn Carousel carousel_create() @inline => (Carousel)c::r_carousel_create();
+
+<*
+ Shows a page, gliding to it when `animated` (and the animations
+ are on), at once otherwise. The page changed callback is not called.
+*>
+fn void Carousel.set_page(self, CInt page, bool animated) @inline => c::r_carousel_set_page((c::Rid)self, page, (CInt)animated);
+
+<* The page shown, -1 when the carousel has none. *>
+fn CInt Carousel.get_page(self) @inline => c::r_carousel_get_page((c::Rid)self);
+
+<* Its children. *>
+fn CInt Carousel.get_page_count(self) @inline => c::r_carousel_get_page_count((c::Rid)self);
+
+<* Glides to the next / previous page; nothing at the last / first one unless it loops. *>
+fn void Carousel.next(self) @inline => c::r_carousel_next((c::Rid)self);
+
+fn void Carousel.prev(self) @inline => c::r_carousel_prev((c::Rid)self);
+
+<* R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). *>
+fn void Carousel.set_loop(self, CInt loop) @inline => c::r_carousel_set_loop((c::Rid)self, loop);
+
+fn CInt Carousel.get_loop(self) @inline => c::r_carousel_get_loop((c::Rid)self);
+
+<*
+ Goes to the next page by itself every `seconds` (0: never, the
+ default); after the last page it comes back to the first. It waits
+ while the pointer is on the carousel, while the pages are dragged and
+ while the keyboard is in it; a page chosen by the user starts the
+ interval again.
+*>
+fn void Carousel.set_autoplay(self, double seconds) @inline => c::r_carousel_set_autoplay((c::Rid)self, seconds);
+
+fn double Carousel.get_autoplay(self) @inline => c::r_carousel_get_autoplay((c::Rid)self);
+
+<* The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). *>
+fn void Carousel.set_indicators_visible(self, bool visible) @inline => c::r_carousel_set_indicators_visible((c::Rid)self, (CInt)visible);
+
+fn CInt Carousel.get_indicators_visible(self) @inline => c::r_carousel_get_indicators_visible((c::Rid)self);
+
+<* The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). *>
+fn void Carousel.set_arrows_visible(self, bool visible) @inline => c::r_carousel_set_arrows_visible((c::Rid)self, (CInt)visible);
+
+fn CInt Carousel.get_arrows_visible(self) @inline => c::r_carousel_get_arrows_visible((c::Rid)self);
+
+<* R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. *>
+fn void Carousel.set_orientation(self, Orientation orientation) @inline => c::r_carousel_set_orientation((c::Rid)self, (c::ROrientation)orientation);
+
+fn Orientation Carousel.get_orientation(self) @inline => (Orientation)c::r_carousel_get_orientation((c::Rid)self);
+
+fn void Carousel.set_page_changed_callback(self, CarouselPageChangedCallback callback, void* user_data) @inline => c::r_carousel_set_page_changed_callback((c::Rid)self, (c::RCarouselPageChangedCallback)callback, user_data);
 
 // ---- Window
 
