@@ -137,6 +137,8 @@ typedef enum RWidgetType{
 	R_WIDGET_CHART,
 	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
 	R_WIDGET_MAP_VIEW,
+	/** Pages shown one at a time and swiped (a page view): arrows, dots, autoplay. */
+	R_WIDGET_CAROUSEL,
 
 	R_WIDGET_LAST_
 }RWidgetType;
