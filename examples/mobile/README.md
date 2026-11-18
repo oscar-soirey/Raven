@@ -31,9 +31,9 @@ Both build scripts put `shared/assets/` into the package (`aapt2 link -A` on
 Android, a copy into `Hello.app` on iOS), with the font of the titles copied from
 `tools/designer/fonts` into `fonts/`.
 
-| iOS Simulator | | Android (Xiaomi 15T) | Android emulator |
-|---|---|---|---|
-| ![Glass on iOS](screenshots/ios-glass.png) | ![Keyboard suggestions on iOS](screenshots/ios-keyboard-suggestions.png) | ![Gboard suggestions on Android](screenshots/android-keyboard-suggestions.png) | ![Glass on Android](screenshots/android-glass.png) |
+| iOS Simulator | | | Android (Xiaomi 15T) | Android emulator |
+|---|---|---|---|---|
+| ![The list on iOS](screenshots/ios-list.png) | ![Glass on iOS](screenshots/ios-glass.png) | ![Keyboard suggestions on iOS](screenshots/ios-keyboard-suggestions.png) | ![Gboard suggestions on Android](screenshots/android-keyboard-suggestions.png) | ![Glass on Android](screenshots/android-glass.png) |
 
 This is an early stage port: see the platform sources
 (`src/platform/uikit/uikit_platform.m`, `src/platform/android/`) and grep for

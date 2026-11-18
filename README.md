@@ -178,6 +178,10 @@ the iOS Simulator, and for an Android device or emulator (API 29 or later).
 What these platforms do not do yet is in
 [Not implemented yet](#not-implemented-yet).
 
+| iPhone (Simulator) | | | Android (Xiaomi 15T) | Android (emulator) |
+|---|---|---|---|---|
+| <img src="examples/mobile/screenshots/ios-list.png" alt="The showcase list on iOS" width="160"> | <img src="examples/mobile/screenshots/ios-glass.png" alt="Glass on iOS" width="160"> | <img src="examples/mobile/screenshots/ios-keyboard-suggestions.png" alt="Keyboard suggestions on iOS" width="160"> | <img src="examples/mobile/screenshots/android-keyboard-suggestions.png" alt="Gboard suggestions on Android" width="160"> | <img src="examples/mobile/screenshots/android-glass.png" alt="Glass on Android" width="160"> |
+
 ### Using the built library
 
 `install/` is a CMake package. In your project:
