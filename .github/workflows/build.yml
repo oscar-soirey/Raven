@@ -65,8 +65,16 @@ jobs:
           mkdir -p _pdfium && tar -xzf pdfium.tgz -C _pdfium
           echo "RAVEN_PDFIUM=$(pwd)/_pdfium/lib/libpdfium.so" >> "$GITHUB_ENV"
 
+      - name: Zig (binding_zig checks every declaration of bindings/zig/raven.zig)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/zig.tar.xz" https://ziglang.org/download/0.17.1/zig-x86_64-linux-0.17.1.tar.xz
+          echo "3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a  $RUNNER_TEMP/zig.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/zig.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/zig-x86_64-linux-0.17.1" >> "$GITHUB_PATH"
+
       - name: Configure
         run: |
+          zig version
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DRAVEN_BUILD_TESTS=ON \
