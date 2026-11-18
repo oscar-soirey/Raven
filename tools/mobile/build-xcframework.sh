@@ -9,7 +9,7 @@
 # The app links the system frameworks Raven uses (the module map links them for
 # `import Raven` / `@import Raven;`): Foundation, CoreFoundation, UIKit, QuartzCore, Metal,
 # CoreText, CoreGraphics, and for the services of the device AVFoundation, Photos,
-# PhotosUI, UniformTypeIdentifiers, UserNotifications, ImageIO.
+# PhotosUI, UniformTypeIdentifiers, UserNotifications, ImageIO, CoreLocation.
 set -eu
 RAVEN=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=${1:-$RAVEN/build-xcframework}

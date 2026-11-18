@@ -88,7 +88,7 @@ typedef enum RPermissionStatus{
 	R_PERMISSION_NOT_ASKED,
 	/** Allowed (also where the system asks nothing: notifications on Windows and Linux). */
 	R_PERMISSION_GRANTED,
-	/** Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional). */
+	/** Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only. */
 	R_PERMISSION_LIMITED,
 	/** Refused, and the system may ask again (Android, after a first refusal). */
 	R_PERMISSION_DENIED,

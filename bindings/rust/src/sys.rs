@@ -1133,7 +1133,7 @@ pub const R_PERMISSION_UNSUPPORTED: RPermissionStatus = 0x0C10;
 pub const R_PERMISSION_NOT_ASKED: RPermissionStatus = 0x0C11;
 /// Allowed (also where the system asks nothing: notifications on Windows and Linux).
 pub const R_PERMISSION_GRANTED: RPermissionStatus = 0x0C12;
-/// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+/// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
 pub const R_PERMISSION_LIMITED: RPermissionStatus = 0x0C13;
 /// Refused, and the system may ask again (Android, after a first refusal).
 pub const R_PERMISSION_DENIED: RPermissionStatus = 0x0C14;

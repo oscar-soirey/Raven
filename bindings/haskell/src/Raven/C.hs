@@ -1894,7 +1894,7 @@ pattern R_PERMISSION_NOT_ASKED = RPermissionStatus 3089
 -- | Allowed (also where the system asks nothing: notifications on Windows and Linux).
 pattern R_PERMISSION_GRANTED :: RPermissionStatus
 pattern R_PERMISSION_GRANTED = RPermissionStatus 3090
--- | Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+-- | Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
 pattern R_PERMISSION_LIMITED :: RPermissionStatus
 pattern R_PERMISSION_LIMITED = RPermissionStatus 3091
 -- | Refused, and the system may ask again (Android, after a first refusal).

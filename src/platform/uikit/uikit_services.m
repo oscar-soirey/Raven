@@ -17,7 +17,7 @@
  * (haptics play nothing in the Simulator: this shows they were asked).
  *
  * Frameworks: AVFoundation, Photos, PhotosUI, UniformTypeIdentifiers,
- * UserNotifications, ImageIO (CMakeLists.txt). Compiled with ARC.
+ * UserNotifications, ImageIO, CoreLocation (CMakeLists.txt). Compiled with ARC.
  */
 
 #import <UIKit/UIKit.h>
@@ -27,6 +27,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <UserNotifications/UserNotifications.h>
 #import <ImageIO/ImageIO.h>
+#import <CoreLocation/CoreLocation.h>
 #include <stdatomic.h>
 
 #include "uikit_internal.h"
@@ -186,6 +187,56 @@ static int rvn_uikit_photos_status(PHAuthorizationStatus status) {
 }
 
 /*
+ * Location: the permission only (Raven has no API that reads the position).
+ * A CLLocationManager made on the main thread, kept, with a delegate: its
+ * question is answered in locationManagerDidChangeAuthorization:, which iOS
+ * also calls once when the manager is made, and on every change made in the
+ * Settings. Only the location while in use is asked for. Denied is blocked:
+ * iOS does not ask again (the Settings of the app can change it).
+ */
+@interface RavenLocationDelegate : NSObject <CLLocationManagerDelegate> {
+@public
+	BOOL asking;
+}
+@end
+
+static CLLocationManager* g_location;
+static RavenLocationDelegate* g_location_delegate;
+
+static int rvn_uikit_location_status(CLLocationManager* manager) {
+	switch (manager.authorizationStatus) {
+	case kCLAuthorizationStatusAuthorizedAlways:
+	case kCLAuthorizationStatusAuthorizedWhenInUse:
+		/* the approximate location only: allowed in part, as Android's COARSE without FINE */
+		return manager.accuracyAuthorization == CLAccuracyAuthorizationReducedAccuracy ? R_PERMISSION_LIMITED : R_PERMISSION_GRANTED;
+	case kCLAuthorizationStatusDenied:
+	case kCLAuthorizationStatusRestricted: return R_PERMISSION_BLOCKED;
+	case kCLAuthorizationStatusNotDetermined:
+	default: return R_PERMISSION_NOT_ASKED;
+	}
+}
+
+@implementation RavenLocationDelegate
+- (void)locationManagerDidChangeAuthorization:(CLLocationManager*)manager {
+	int status = rvn_uikit_location_status(manager);
+	/* (the call made when the manager is made, while nothing is decided yet, is no answer) */
+	if (!asking || status == R_PERMISSION_NOT_ASKED) return;
+	asking = NO;
+	rvn_permission_answer(R_PERMISSION_LOCATION, status);
+}
+@end
+
+/* (main thread) */
+static CLLocationManager* rvn_uikit_location(void) {
+	if (!g_location) {
+		g_location_delegate = [[RavenLocationDelegate alloc] init];
+		g_location = [[CLLocationManager alloc] init];
+		g_location.delegate = g_location_delegate;
+	}
+	return g_location;
+}
+
+/*
  * The Info.plist of the application declares why it asks (NSCameraUsageDescription...):
  * without it iOS kills the application when it asks, so Raven does not ask
  * (R_PERMISSION_UNSUPPORTED, with a warning once).
@@ -198,6 +249,7 @@ static BOOL rvn_uikit_declared(int permission) {
 	case R_PERMISSION_CAMERA: key = @"NSCameraUsageDescription"; break;
 	case R_PERMISSION_PHOTOS: key = @"NSPhotoLibraryUsageDescription"; break;
 	case R_PERMISSION_MICROPHONE: key = @"NSMicrophoneUsageDescription"; break;
+	case R_PERMISSION_LOCATION: key = @"NSLocationWhenInUseUsageDescription"; break;
 	default: return YES;
 	}
 	if ([[NSBundle mainBundle] objectForInfoDictionaryKey:key]) return YES;
@@ -220,8 +272,8 @@ int rvn_uikit_permission_status(int permission) {
 		                                      : R_PERMISSION_UNSUPPORTED;
 	case R_PERMISSION_NOTIFICATIONS:
 		return atomic_load(&g_notify_status);
-	/* SHORTCUT: location (CLLocationManager and its delegate) is not asked for yet */
 	case R_PERMISSION_LOCATION:
+		return rvn_uikit_declared(permission) ? rvn_uikit_location_status(rvn_uikit_location()) : R_PERMISSION_UNSUPPORTED;
 	default:
 		return R_PERMISSION_UNSUPPORTED;
 	}
@@ -258,6 +310,19 @@ void rvn_uikit_permission_request(int permission) {
 			rvn_uikit_notify_refresh(^(int status) { rvn_permission_answer(R_PERMISSION_NOTIFICATIONS, status); });
 		}];
 		return;
+	case R_PERMISSION_LOCATION: {
+		CLLocationManager* manager;
+		if (!rvn_uikit_declared(permission)) break;
+		manager = rvn_uikit_location();
+		/* decided already: iOS shows nothing and calls no delegate, the answer is the status */
+		if (rvn_uikit_location_status(manager) != R_PERMISSION_NOT_ASKED) {
+			rvn_permission_answer(permission, rvn_uikit_location_status(manager));
+			return;
+		}
+		g_location_delegate->asking = YES;
+		[manager requestWhenInUseAuthorization];
+		return;
+	}
 	default:
 		break;
 	}
@@ -1041,4 +1106,8 @@ void rvn_uikit_services_shutdown(void) {
 	for (i = 0; i < 3; i++) g_impacts[i] = nil;
 	g_selection = nil;
 	g_outcome = nil;
+	/* (a question still shown gets no answer: the core ignores late answers after Rshutdown anyway) */
+	if (g_location) g_location.delegate = nil;
+	g_location = nil;
+	g_location_delegate = nil;
 }

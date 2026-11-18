@@ -415,7 +415,7 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
 		${RAVEN_CORETEXT_FRAMEWORK} ${RAVEN_COREGRAPHICS_FRAMEWORK})
 	# the services of the device (uikit_services.m): permissions, notifications, the pickers,
 	# the camera, photos (ImageIO turns HEIC into JPEG)
-	foreach(framework AVFoundation Photos PhotosUI UniformTypeIdentifiers UserNotifications ImageIO)
+	foreach(framework AVFoundation Photos PhotosUI UniformTypeIdentifiers UserNotifications ImageIO CoreLocation)
 		find_library(RAVEN_${framework}_FRAMEWORK ${framework})
 		if(NOT RAVEN_${framework}_FRAMEWORK)
 			message(FATAL_ERROR "Raven: UIKit builds require the ${framework} framework (the services of the device)")

@@ -1462,7 +1462,7 @@ constset PermissionStatus : CInt
 	NOT_ASKED = 0x0C11,
 	<* Allowed (also where the system asks nothing: notifications on Windows and Linux). *>
 	GRANTED = 0x0C12,
-	<* Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional). *>
+	<* Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only. *>
 	LIMITED = 0x0C13,
 	<* Refused, and the system may ask again (Android, after a first refusal). *>
 	DENIED = 0x0C14,

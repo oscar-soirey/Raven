@@ -17,6 +17,7 @@ module Raven {
     link framework "PhotosUI"
     link framework "UniformTypeIdentifiers"
     link framework "UserNotifications"
+    link framework "CoreLocation"
     link framework "ImageIO"
     link "objc"
 }

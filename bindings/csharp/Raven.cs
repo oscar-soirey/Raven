@@ -1861,7 +1861,7 @@ namespace Raven
         /// </summary>
         R_PERMISSION_GRANTED = 0x0C12,
         /// <summary>
-        /// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+        /// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
         /// </summary>
         R_PERMISSION_LIMITED = 0x0C13,
         /// <summary>

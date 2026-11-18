@@ -1202,7 +1202,7 @@ Permission_Status :: enum i32 {
 	Not_Asked = 0x0C11,
 	// Allowed (also where the system asks nothing: notifications on Windows and Linux).
 	Granted = 0x0C12,
-	// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+	// Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
 	Limited = 0x0C13,
 	// Refused, and the system may ask again (Android, after a first refusal).
 	Denied = 0x0C14,

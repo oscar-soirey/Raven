@@ -90,7 +90,7 @@ asks for the status): it must not block. Mapping:
 |---|---|
 | never asked | `NOT_ASKED` |
 | allowed | `GRANTED` |
-| allowed in part (iOS limited photos, provisional notifications; Android 14 selected photos) | `LIMITED` |
+| allowed in part (iOS limited photos, provisional notifications; Android 14 selected photos; the approximate location only, on both) | `LIMITED` |
 | refused, the system may ask again (Android after one refusal) | `DENIED` |
 | refused and the system will not ask (iOS after any refusal; Android "don't ask again" or two refusals; restricted by parental controls / MDM) | `BLOCKED` |
 | the platform has no such permission, or the platform does not handle it yet | `UNSUPPORTED` |
@@ -177,10 +177,9 @@ hop back to the main queue.
 `examples/mobile/android/AndroidManifest.xml` and
 `examples/mobile/ios/Info.plist` have all of these that the showcase uses.
 iOS links more frameworks for them: AVFoundation, Photos, PhotosUI,
-UniformTypeIdentifiers, UserNotifications, ImageIO (`RAVEN_LIBRARIES` of the
-uikit platform in `CMakeLists.txt`, the link line of
-`examples/mobile/ios/build.sh`, the module map of `Raven.xcframework`);
-CoreLocation will join them when location is asked for.
+UniformTypeIdentifiers, UserNotifications, ImageIO, CoreLocation
+(`RAVEN_LIBRARIES` of the uikit platform in `CMakeLists.txt`, the link line of
+`examples/mobile/ios/build.sh`, the module map of `Raven.xcframework`).
 
 ## Testing
 

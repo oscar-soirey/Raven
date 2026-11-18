@@ -1693,7 +1693,7 @@ public final class R {
      */
     public static final int R_PERMISSION_GRANTED = 0x0C12;
     /**
-     * Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional).
+     * Allowed in part: some photos only (iOS, Android 14), quiet notifications (iOS provisional), the approximate location only.
      */
     public static final int R_PERMISSION_LIMITED = 0x0C13;
     /**

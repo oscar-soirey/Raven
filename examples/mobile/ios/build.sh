@@ -67,7 +67,7 @@ $CC -o "$APP/Hello" "$HERE/build/main.o" "$HERE/build/showcase.o" "$LIBRAVEN" \
 	-framework UIKit -framework QuartzCore -framework Metal -framework CoreFoundation -framework Foundation \
 	-framework CoreText -framework CoreGraphics \
 	-framework AVFoundation -framework Photos -framework PhotosUI -framework UniformTypeIdentifiers \
-	-framework UserNotifications -framework ImageIO
+	-framework UserNotifications -framework ImageIO -framework CoreLocation
 cp "$HERE/Info.plist" "$APP/Info.plist"
 plutil -replace CFBundleSupportedPlatforms -json "[\"$PLATFORM\"]" "$APP/Info.plist"
 [ -z "${BUNDLE_ID:-}" ] || plutil -replace CFBundleIdentifier -string "$BUNDLE_ID" "$APP/Info.plist"

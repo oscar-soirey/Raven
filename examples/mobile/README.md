@@ -260,7 +260,7 @@ Embedded Content: "Do Not Embed", it is a static library), and link the
 system frameworks Raven uses: Foundation, CoreFoundation, UIKit, QuartzCore,
 Metal, CoreText, CoreGraphics, and for the services of the device
 (`raven_device.h`) AVFoundation, Photos, PhotosUI, UniformTypeIdentifiers,
-UserNotifications, ImageIO (the module map links them, and `libobjc`, by
+UserNotifications, ImageIO, CoreLocation (the module map links them, and `libobjc`, by
 itself for `import Raven` and `@import Raven;`). C and Objective-C include `<Raven.h>` (or `@import Raven;`),
 Swift does `import Raven`. Raven draws with Metal, so nothing else is
 embedded (no MoltenVK). The app's resources (layouts, pictures, fonts) go into
