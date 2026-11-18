@@ -6,6 +6,7 @@
 #   ./build.sh            build only
 #   ./build.sh run        build, install, launch (console attached)
 # UDID=<simulator> picks the simulator; by default the booted one.
+# RAVEN_CMAKE_ARGS is added to the CMake configuration of Raven (CI: -DRAVEN_WARNINGS_AS_ERRORS=ON).
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 RAVEN=${RAVEN:-$(cd "$HERE/../../.." && pwd)}
@@ -18,7 +19,8 @@ if [ ! -f "$BUILD/build.ninja" ]; then
 	cmake -S "$RAVEN" -B "$BUILD" -G Ninja -DCMAKE_SYSTEM_NAME=iOS \
 		-DCMAKE_OSX_SYSROOT=iphonesimulator -DCMAKE_OSX_ARCHITECTURES=arm64 \
 		-DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 -DCMAKE_BUILD_TYPE=Debug -DRAVEN_BACKEND_VULKAN=OFF \
-		-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF
+		-DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TESTS=OFF -DRAVEN_BUILD_TOOLS=OFF -DRAVEN_BUILD_WEB=OFF \
+		${RAVEN_CMAKE_ARGS:-}
 fi
 cmake --build "$BUILD"
 

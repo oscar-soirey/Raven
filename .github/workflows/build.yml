@@ -392,6 +392,57 @@ jobs:
           otool -L ./build/bin/raven_hello
           ! otool -L ./build/bin/raven_hello | grep -i -e vulkan -e moltenvk
 
+  # The iOS example on the iOS Simulator, drawn with Metal (no MoltenVK): Raven
+  # and Hello.app built with the Xcode of the runner, then installed, launched,
+  # and a screenshot taken that must show the showcase (not a blank screen).
+  ios-simulator:
+    name: ios (simulator, metal)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+
+      - name: Build Raven and Hello.app
+        env:
+          RAVEN_CMAKE_ARGS: -DRAVEN_WARNINGS_AS_ERRORS=ON
+        run: |
+          xcodebuild -version
+          ./examples/mobile/ios/build.sh
+
+      - name: No Vulkan library is linked
+        run: |
+          otool -L examples/mobile/ios/build/Hello.app/Hello
+          ! otool -L examples/mobile/ios/build/Hello.app/Hello | grep -i -e vulkan -e moltenvk
+
+      - name: Run on a simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for k in sorted(d, reverse=True) if 'iOS' in k for x in d[k] if x['name'].startswith('iPhone')))")
+          echo "simulator: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" examples/mobile/ios/build/Hello.app
+          xcrun simctl launch "$UDID" dev.raven.ios.hello
+          sleep 15
+          xcrun simctl io "$UDID" screenshot ios-simulator.png
+          # still running
+          xcrun simctl spawn "$UDID" launchctl list | grep dev.raven.ios.hello
+          # and drawing: a blank or black screen has only a few colors
+          sips -s format bmp ios-simulator.png --out ios-simulator.bmp >/dev/null
+          python3 -c "import sys; b=open('ios-simulator.bmp','rb').read(); o=int.from_bytes(b[10:14],'little'); n=len({b[i:i+3] for i in range(o, len(b)-3, 3*97)}); print('colors:', n); sys.exit(0 if n > 50 else 1)"
+
+      - name: Log of the app
+        if: always()
+        run: xcrun simctl spawn booted log show --last 3m --style compact --predicate 'process == "Hello"' | tail -100 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator-screenshot
+          path: ios-simulator.png
+          if-no-files-found: ignore
+
   # The addon of the Node.js binding links node.lib on Windows, which CMake downloads
   # for the node of the runner; then binding_node runs its example with the DLL.
   node-windows:
@@ -579,7 +630,7 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, metal, build, mingw, installer]
+    needs: [test, metal, ios-simulator, build, mingw, installer]
     runs-on: ubuntu-latest
     permissions:
       contents: write
