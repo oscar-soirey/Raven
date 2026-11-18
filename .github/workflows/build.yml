@@ -358,6 +358,23 @@ jobs:
       - name: Test native backdrop surface
         run: ctest --test-dir build -C Release -R '^test_win32_backdrop$' --no-tests=error --output-on-failure --timeout 60
 
+  # The addon of the Node.js binding links node.lib on Windows, which CMake downloads
+  # for the node of the runner; then binding_node runs its example with the DLL.
+  node-windows:
+    name: node (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: |
+          node --version
+          cmake -S . -B build -A x64 -DRAVEN_BACKEND_VULKAN=OFF -DRAVEN_BUILD_WEB=OFF -DRAVEN_BUILD_SHARED=ON -DRAVEN_BUILD_TESTS=ON -DRAVEN_BUILD_EXAMPLES=OFF -DRAVEN_BUILD_TOOLS=OFF
+      - name: Build
+        run: cmake --build build --config Release --target raven raven_node --parallel
+      # --no-tests=error: without the addon the test does not exist, which must not pass
+      - name: Test
+        run: ctest --test-dir build -C Release -R '^binding_node$' --no-tests=error --output-on-failure --timeout 300
+
   # ---------------------------------------------------------------------------
   #  Windows (MinGW-w64, through MSYS2)
   # ---------------------------------------------------------------------------
