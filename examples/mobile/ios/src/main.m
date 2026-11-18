@@ -24,7 +24,6 @@ static int app_start(void) {
 		return 0;
 	}
 	Rtheme_follow_system(R_TRUE);
-	/* no exit handler: an iOS app does not quit itself */
 	return showcase_create() != R_INVALID_ID;
 }
 /* from uikit_platform.m (no public header yet: experimental) */
@@ -67,6 +66,23 @@ void rvn_uikit_set_display_link(CADisplayLink* link);
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC), dispatch_get_main_queue(), ^{ showcase_report("launch"); });
 	[self debugRotate:(UIWindowScene*)scene];
 	[self debugDismiss:(UIWindowScene*)scene];
+	[self debugMemoryWarning];
+}
+
+/*
+ * Testing hook: RAVEN_MEMORY_WARNING=<seconds> posts the memory warning of
+ * UIKit that long after the launch, as the system does when memory runs
+ * low (the Simulator's own menu item needs its window).
+ */
+- (void)debugMemoryWarning {
+	const char* after = getenv("RAVEN_MEMORY_WARNING");
+	double delay = after ? atof(after) : 0.0;
+	if (delay <= 0.0) return;
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		fprintf(stderr, "[raven] debug: memory warning\n");
+		[[NSNotificationCenter defaultCenter] postNotificationName:UIApplicationDidReceiveMemoryWarningNotification
+		                                                    object:[UIApplication sharedApplication]];
+	});
 }
 
 /*

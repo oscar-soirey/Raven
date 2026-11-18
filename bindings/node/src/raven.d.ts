@@ -103,6 +103,39 @@ export const R_SEVERITY_WARNING: RSeverity.R_SEVERITY_WARNING;
 export const R_SEVERITY_ERROR: RSeverity.R_SEVERITY_ERROR;
 export const R_SEVERITY_FATAL: RSeverity.R_SEVERITY_FATAL;
 
+/**
+ * What the system does with the application, on iOS and Android (desktop
+ * systems send none of these). A pause is not always followed by
+ * R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+ * system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+ * At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+ *
+ *   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+ *   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+ *   coming back         R_APP_WILL_RESUME   Raven draws again
+ *   in front again      R_APP_DID_RESUME    takes input again
+ */
+export enum RAppEvent {
+	/** The application is about to leave the front (home, app switcher, a call). Save the state now. */
+	R_APP_WILL_PAUSE = 0x0B80,
+	/** The application is in the background: Raven has stopped drawing, and waited until the GPU was idle. */
+	R_APP_DID_PAUSE = 0x0B81,
+	/** The application is coming back to the front: Raven draws again. */
+	R_APP_WILL_RESUME = 0x0B82,
+	/** The application is in front and takes input again. */
+	R_APP_DID_RESUME = 0x0B83,
+	/** The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap. */
+	R_APP_LOW_MEMORY = 0x0B84,
+	/** The application is about to end (Android: the activity is finishing; its window is closed right after). */
+	R_APP_WILL_TERMINATE = 0x0B85,
+}
+export const R_APP_WILL_PAUSE: RAppEvent.R_APP_WILL_PAUSE;
+export const R_APP_DID_PAUSE: RAppEvent.R_APP_DID_PAUSE;
+export const R_APP_WILL_RESUME: RAppEvent.R_APP_WILL_RESUME;
+export const R_APP_DID_RESUME: RAppEvent.R_APP_DID_RESUME;
+export const R_APP_LOW_MEMORY: RAppEvent.R_APP_LOW_MEMORY;
+export const R_APP_WILL_TERMINATE: RAppEvent.R_APP_WILL_TERMINATE;
+
 export enum RWindowFlags {
 	R_WINDOW_DEFAULT = 0,
 	R_WINDOW_NO_RESIZE = 1,
@@ -2241,7 +2274,7 @@ export class RDropEvent extends RStruct {
 
 /** How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings). */
 export class RTouchSettings extends RStruct {
-	static readonly SIZE = 52;
+	static readonly SIZE = 56;
 	constructor(pointer?: Pointer);
 	/** The structure at an address of the library, or null. */
 	static from(pointer: Pointer | null): RTouchSettings | null;
@@ -2284,6 +2317,17 @@ export class RTouchSettings extends RStruct {
 	/** How far (logical units) the fingers of a swipe go across before it navigates. Default 120. */
 	get swipe_distance(): number;
 	set swipe_distance(value: number);
+	/**
+	 * Smallest height (logical units) of what a finger presses: buttons,
+	 * fields, combo boxes, tabs and bars are at least this high, rows of
+	 * lists, trees, tables and menus too, and so are check boxes, switches
+	 * and sliders, whose box and handle grow to half of it. Whatever the
+	 * theme or a widget asks for, 0 leaves the sizes as they are.
+	 * Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+	 * 0 elsewhere.
+	 */
+	get min_touch_size(): number;
+	set min_touch_size(value: number);
 }
 
 export class RTouchEvent extends RStruct {
@@ -2804,6 +2848,17 @@ export class RHostPlatformDesc extends RStruct {
  */
 export type RFrameCallback = (delta_seconds: number, user_data: Pointer | null) => void;
 
+/**
+ * Registers a function called when the application changes state
+ * (RAppEvent), on the UI thread, while the system waits for it: keep it
+ * short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+ * draws nothing, animations stand still and Rwait_frame sleeps until an
+ * event, a posted task or a timer: the timers of the application keep
+ * running, so stop those that only drive drawing. Set it after Rinit;
+ * NULL removes it.
+ */
+export type RAppEventCallback = (event: RAppEvent, user_data: Pointer | null) => void;
+
 export type RTaskCallback = (user_data: Pointer | null) => void;
 
 export type RParallelRangeCallback = (begin: number, end: number, user_data: Pointer | null) => void;
@@ -2855,6 +2910,13 @@ export type RKeyboardCallback = (window: Rid, visible: number, height: number, u
  * R_DROP_DROPPED it tells the source that the data was taken.
  */
 export type RDropCallback = (target: Rid, event: RDropEvent | null, user_data: Pointer | null) => number | boolean;
+
+/**
+ * Called on Back when no popup or dialog of Raven is open. Return
+ * R_TRUE when the application went back, R_FALSE when it had nowhere to
+ * go (the system then does its default). NULL removes it.
+ */
+export type RBackCallback = (window: Rid, user_data: Pointer | null) => number | boolean;
 
 /**
  * Called when the user asks to close the window.
@@ -3288,6 +3350,18 @@ export function Rget_delta_time(): number;
 /** Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe. */
 export function Rget_time(): number;
 
+export function Rset_app_event_callback(callback: RAppEventCallback | Pointer | null, user_data?: RPointer): void;
+
+/** Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background. */
+export function Ris_app_paused(): number;
+
+/**
+ * Handles an RAppEvent as if the system had sent it: for tests,
+ * and for a host application (raven_host.h) that knows the lifecycle.
+ * UI thread.
+ */
+export function Rinject_app_event(event: RAppEvent): void;
+
 /**
  * Scale of the whole interface, on top of the one of the monitor
  * (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
@@ -3490,7 +3564,10 @@ export function Rwindow_get_safe_area(window: Rid, insets: RInsets | null): void
 /**
  * The part of the window the on-screen keyboard covers (only
  * `bottom` is set), in logical units; 0 when it is hidden or there is
- * none (desktop). The content is laid out above it already.
+ * none (desktop). The content is laid out above it already, and the
+ * field that has the focus is scrolled into view above it, by the
+ * ScrollBoxes that hold it, when the keyboard comes or changes height,
+ * when the window turns, and when another field takes the focus.
  */
 export function Rwindow_get_keyboard_area(window: Rid, insets: RInsets | null): void;
 
@@ -3499,6 +3576,19 @@ export function Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCa
 
 /** No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. */
 export function Rwindow_clear_focus(window: Rid): void;
+
+export function Rwindow_set_back_callback(window: Rid, callback: RBackCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * R_TRUE while the application has somewhere to go back to (a page
+ * under the one shown). Android 13 and later ask for Back only while the
+ * window wants it (predictive back): at the root page the system handles
+ * Back itself and animates back to the home screen. Default R_FALSE.
+ */
+export function Rwindow_set_back_enabled(window: Rid, enabled: number): void;
+
+/** Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so. */
+export function Rwindow_wants_back(window: Rid): number;
 
 export function Rwindow_set_min_size(window: Rid, width: number, height: number): void;
 
@@ -3759,6 +3849,9 @@ export function Rwindow_inject_drag(window: Rid, x: number, y: number, inside: n
 /** Drops files and / or text at a position. Returns R_TRUE when a target took them. */
 export function Rwindow_inject_drop(window: Rid, x: number, y: number, paths: readonly string[] | null, text: string | null): number;
 
+/** Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it. */
+export function Rwindow_inject_back(window: Rid): number;
+
 /** R_TRUE while the key is held down in the window (cleared when the window loses the keyboard). */
 export function Rwindow_is_key_down(window: Rid, key: RKey): number;
 
@@ -3945,6 +4038,11 @@ export function Rtheme_set_color(role: RColorRole, r: number, g: number, b: numb
 
 export function Rtheme_get_color(role: RColorRole): [r: number, g: number, b: number, a: number];
 
+/**
+ * Changes a size of the theme in use. It lasts until the look or
+ * the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+ * switch between light and dark made by Rtheme_follow_system.
+ */
 export function Rtheme_set_metric(metric: RMetric, value: number): void;
 
 export function Rtheme_get_metric(metric: RMetric): number;
@@ -3983,6 +4081,13 @@ export function Rtheme_get_system_dark(): number;
  * Follows the dark or light mode of the system with the Raven look
  * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
  * Off by default. Does nothing where the platform does not tell (desktop today).
+ *
+ * A switch is Rlook_set, except that the sizes given with
+ * Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+ * those of one mode and are lost; to keep colors, sizes and styles of
+ * the application through the switch, put them in a theme that names no
+ * look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+ * new look.
  */
 export function Rtheme_follow_system(enabled: number): void;
 
@@ -4355,7 +4460,7 @@ export function Rwidget_is_hovered(widget: Rid): number;
 
 export function Rwidget_set_focusable(widget: Rid, focusable: number): void;
 
-/** Gives the keyboard focus to the widget. */
+/** Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view). */
 export function Rwidget_focus(widget: Rid): void;
 
 export function Rwidget_is_focused(widget: Rid): number;
@@ -4440,7 +4545,11 @@ export function Rwidget_set_metric(widget: Rid, metric: RMetric, value: number):
 
 export function Rwidget_clear_metric(widget: Rid, metric: RMetric): void;
 
-/** Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme. */
+/**
+ * Returns: The metric the widget uses: its own, else the one of a style,
+ * else the one of its theme; grown for larger text
+ * (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
+ */
 export function Rwidget_get_metric(widget: Rid, metric: RMetric): number;
 
 /**
@@ -4549,7 +4658,12 @@ export function Rscroll_box_get_offset(scroll_box: Rid): [x: number, y: number];
 
 export function Rscroll_box_scroll_to_end(scroll_box: Rid): void;
 
-/** Scrolls every ScrollBox above the widget so that the widget is visible. */
+/**
+ * Scrolls every ScrollBox above the widget so that the widget is
+ * visible. The library does it by itself for the focused widget when the
+ * focus comes from Tab or Rwidget_focus, and for a text field above the
+ * on-screen keyboard (Rwindow_get_keyboard_area).
+ */
 export function Rwidget_scroll_into_view(widget: Rid): void;
 
 /** R_HORIZONTAL puts the panes side by side (default), R_VERTICAL stacks them. */
@@ -7018,6 +7132,9 @@ export function Rfile_is_memory(path: string | null): number;
 
 /**
  * Whole files, with UTF-8 paths on every platform.
+ * On Android and iOS, a relative path that names no file held in memory
+ * and no file on disk is read from the app's package (the APK's assets/,
+ * the bundle's resources), and so is every file Raven reads by its path.
  * Returns: Rfile_read: the content followed by a '\0', to release with
  * Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
  */
@@ -7658,6 +7775,21 @@ export function Rhost_platform_is_active(): number;
 
 /** Size of a host window in pixels, and pixels per logical unit. */
 export function Rhost_window_set_size(window: Rid, width: number, height: number, scale: number): void;
+
+/**
+ * What covers a host window on a phone or a tablet, in pixels: the
+ * safe area (status bar, notch, home indicator; NULL: none) and the height
+ * of the on-screen keyboard over its bottom (0: hidden). The content is laid
+ * out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+ */
+export function Rhost_window_set_insets(window: Rid, safe_area: RInsets | null, keyboard_height: number): void;
+
+/**
+ * The application's system is in dark (R_TRUE) or light (R_FALSE)
+ * mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+ * and Rtheme_follow_system follows it.
+ */
+export function Rhost_set_system_dark(dark: number): void;
 
 export function Rhost_inject_mouse_move(window: Rid, x: number, y: number, modifiers: number): void;
 

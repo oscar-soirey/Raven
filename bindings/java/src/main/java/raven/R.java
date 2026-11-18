@@ -238,6 +238,32 @@ public final class R {
     public static final int R_SEVERITY_ERROR = 0x0082;
     public static final int R_SEVERITY_FATAL = 0x0083;
 
+    // RAppEvent: What the system does with the application, on iOS and Android (desktop
+    /**
+     * The application is about to leave the front (home, app switcher, a call). Save the state now.
+     */
+    public static final int R_APP_WILL_PAUSE = 0x0B80;
+    /**
+     * The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+     */
+    public static final int R_APP_DID_PAUSE = 0x0B81;
+    /**
+     * The application is coming back to the front: Raven draws again.
+     */
+    public static final int R_APP_WILL_RESUME = 0x0B82;
+    /**
+     * The application is in front and takes input again.
+     */
+    public static final int R_APP_DID_RESUME = 0x0B83;
+    /**
+     * The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+     */
+    public static final int R_APP_LOW_MEMORY = 0x0B84;
+    /**
+     * The application is about to end (Android: the activity is finishing; its window is closed right after).
+     */
+    public static final int R_APP_WILL_TERMINATE = 0x0B85;
+
     // RWindowFlags
     public static final int R_WINDOW_DEFAULT = 0;
     public static final int R_WINDOW_NO_RESIZE = 1;
@@ -2479,7 +2505,7 @@ public final class R {
      */
     public static final class RTouchSettings {
         /** The size of the structure in C, in bytes. */
-        public static final long SIZE = 52;
+        public static final long SIZE = 56;
         private final MemorySegment s;
         private Arena arena;
 
@@ -2593,6 +2619,18 @@ public final class R {
          */
         public float swipe_distance() { return s.get(JAVA_FLOAT, 48); }
         public RTouchSettings swipe_distance(float value) { s.set(JAVA_FLOAT, 48, value); return this; }
+
+        /**
+         * Smallest height (logical units) of what a finger presses: buttons,
+         * fields, combo boxes, tabs and bars are at least this high, rows of
+         * lists, trees, tables and menus too, and so are check boxes, switches
+         * and sliders, whose box and handle grow to half of it. Whatever the
+         * theme or a widget asks for, 0 leaves the sizes as they are.
+         * Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+         * 0 elsewhere.
+         */
+        public float min_touch_size() { return s.get(JAVA_FLOAT, 52); }
+        public RTouchSettings min_touch_size(float value) { s.set(JAVA_FLOAT, 52, value); return this; }
     }
 
     public static final class RTouchEvent {
@@ -4000,6 +4038,33 @@ public final class R {
         return stub(f, RFrameCallback.class, "RFrameCallback$raw", FunctionDescriptor.ofVoid(JAVA_DOUBLE, ADDRESS));
     }
 
+    /**
+     * Registers a function called when the application changes state
+     * (RAppEvent), on the UI thread, while the system waits for it: keep it
+     * short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+     * draws nothing, animations stand still and Rwait_frame sleeps until an
+     * event, a posted task or a timer: the timers of the application keep
+     * running, so stop those that only drive drawing. Set it after Rinit;
+     * NULL removes it.
+     */
+    @FunctionalInterface
+    public interface RAppEventCallback {
+        void invoke(int event, MemorySegment user_data);
+    }
+
+    private static void RAppEventCallback$raw(RAppEventCallback f, int event, MemorySegment user_data) {
+        try {
+            f.invoke(event, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RAppEventCallback f) {
+        return stub(f, RAppEventCallback.class, "RAppEventCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
     @FunctionalInterface
     public interface RTaskCallback {
         void invoke(MemorySegment user_data);
@@ -4181,6 +4246,30 @@ public final class R {
 
     private static MemorySegment upcall(RDropCallback f) {
         return stub(f, RDropCallback.class, "RDropCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Called on Back when no popup or dialog of Raven is open. Return
+     * R_TRUE when the application went back, R_FALSE when it had nowhere to
+     * go (the system then does its default). NULL removes it.
+     */
+    @FunctionalInterface
+    public interface RBackCallback {
+        int invoke(int window, MemorySegment user_data);
+    }
+
+    private static int RBackCallback$raw(RBackCallback f, int window, MemorySegment user_data) {
+        try {
+            return f.invoke(window, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+            return 0;
+        }
+    }
+
+    private static MemorySegment upcall(RBackCallback f) {
+        return stub(f, RBackCallback.class, "RBackCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**
@@ -6166,6 +6255,55 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rset_app_event_callback$;
+
+    public static void Rset_app_event_callback(RAppEventCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rset_app_event_callback$;
+        if ($h == null) Rset_app_event_callback$ = $h = find("Rset_app_event_callback", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rset_app_event_callback(RAppEventCallback callback) {
+        Rset_app_event_callback(callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Ris_app_paused$;
+
+    /**
+     * Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+     */
+    public static int Ris_app_paused() {
+        MethodHandle $h = Ris_app_paused$;
+        if ($h == null) Ris_app_paused$ = $h = find("Ris_app_paused", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rinject_app_event$;
+
+    /**
+     * Handles an RAppEvent as if the system had sent it: for tests,
+     * and for a host application (raven_host.h) that knows the lifecycle.
+     * UI thread.
+     */
+    public static void Rinject_app_event(int event) {
+        MethodHandle $h = Rinject_app_event$;
+        if ($h == null) Rinject_app_event$ = $h = find("Rinject_app_event", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(event);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rset_ui_scale$;
 
     /**
@@ -6900,7 +7038,10 @@ public final class R {
     /**
      * The part of the window the on-screen keyboard covers (only
      * `bottom` is set), in logical units; 0 when it is hidden or there is
-     * none (desktop). The content is laid out above it already.
+     * none (desktop). The content is laid out above it already, and the
+     * field that has the focus is scrolled into view above it, by the
+     * ScrollBoxes that hold it, when the keyboard comes or changes height,
+     * when the window turns, and when another field takes the focus.
      */
     public static void Rwindow_get_keyboard_area(int window, RInsets insets) {
         MethodHandle $h = Rwindow_get_keyboard_area$;
@@ -6944,6 +7085,56 @@ public final class R {
         if ($h == null) Rwindow_clear_focus$ = $h = find("Rwindow_clear_focus", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_set_back_callback$;
+
+    public static void Rwindow_set_back_callback(int window, RBackCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rwindow_set_back_callback$;
+        if ($h == null) Rwindow_set_back_callback$ = $h = find("Rwindow_set_back_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(window, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rwindow_set_back_callback(int window, RBackCallback callback) {
+        Rwindow_set_back_callback(window, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rwindow_set_back_enabled$;
+
+    /**
+     * R_TRUE while the application has somewhere to go back to (a page
+     * under the one shown). Android 13 and later ask for Back only while the
+     * window wants it (predictive back): at the root page the system handles
+     * Back itself and animates back to the home screen. Default R_FALSE.
+     */
+    public static void Rwindow_set_back_enabled(int window, int enabled) {
+        MethodHandle $h = Rwindow_set_back_enabled$;
+        if ($h == null) Rwindow_set_back_enabled$ = $h = find("Rwindow_set_back_enabled", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(window, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rwindow_wants_back$;
+
+    /**
+     * Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+     */
+    public static int Rwindow_wants_back(int window) {
+        MethodHandle $h = Rwindow_wants_back$;
+        if ($h == null) Rwindow_wants_back$ = $h = find("Rwindow_wants_back", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -7881,6 +8072,22 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_inject_back$;
+
+    /**
+     * Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+     */
+    public static int Rwindow_inject_back(int window) {
+        MethodHandle $h = Rwindow_inject_back$;
+        if ($h == null) Rwindow_inject_back$ = $h = find("Rwindow_inject_back", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(window);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_is_key_down$;
 
     /**
@@ -8709,6 +8916,11 @@ public final class R {
 
     private static MethodHandle Rtheme_set_metric$;
 
+    /**
+     * Changes a size of the theme in use. It lasts until the look or
+     * the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+     * switch between light and dark made by Rtheme_follow_system.
+     */
     public static void Rtheme_set_metric(int metric, float value) {
         MethodHandle $h = Rtheme_set_metric$;
         if ($h == null) Rtheme_set_metric$ = $h = find("Rtheme_set_metric", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT));
@@ -8845,6 +9057,13 @@ public final class R {
      * Follows the dark or light mode of the system with the Raven look
      * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
      * Off by default. Does nothing where the platform does not tell (desktop today).
+     *
+     * A switch is Rlook_set, except that the sizes given with
+     * Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+     * those of one mode and are lost; to keep colors, sizes and styles of
+     * the application through the switch, put them in a theme that names no
+     * look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+     * new look.
      */
     public static void Rtheme_follow_system(int enabled) {
         MethodHandle $h = Rtheme_follow_system$;
@@ -10246,7 +10465,7 @@ public final class R {
     private static MethodHandle Rwidget_focus$;
 
     /**
-     * Gives the keyboard focus to the widget.
+     * Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
      */
     public static void Rwidget_focus(int widget) {
         MethodHandle $h = Rwidget_focus$;
@@ -10585,7 +10804,9 @@ public final class R {
     private static MethodHandle Rwidget_get_metric$;
 
     /**
-     * Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme.
+     * Returns: The metric the widget uses: its own, else the one of a style,
+     * else the one of its theme; grown for larger text
+     * (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
      */
     public static float Rwidget_get_metric(int widget, int metric) {
         MethodHandle $h = Rwidget_get_metric$;
@@ -11022,7 +11243,10 @@ public final class R {
     private static MethodHandle Rwidget_scroll_into_view$;
 
     /**
-     * Scrolls every ScrollBox above the widget so that the widget is visible.
+     * Scrolls every ScrollBox above the widget so that the widget is
+     * visible. The library does it by itself for the focused widget when the
+     * focus comes from Tab or Rwidget_focus, and for a text field above the
+     * on-screen keyboard (Rwindow_get_keyboard_area).
      */
     public static void Rwidget_scroll_into_view(int widget) {
         MethodHandle $h = Rwidget_scroll_into_view$;
@@ -22701,6 +22925,9 @@ public final class R {
 
     /**
      * Whole files, with UTF-8 paths on every platform.
+     * On Android and iOS, a relative path that names no file held in memory
+     * and no file on disk is read from the app's package (the APK's assets/,
+     * the bundle's resources), and so is every file Raven reads by its path.
      * Returns: Rfile_read: the content followed by a '\0', to release with
      * Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
      */
@@ -25455,6 +25682,41 @@ public final class R {
         if ($h == null) Rhost_window_set_size$ = $h = find("Rhost_window_set_size", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_FLOAT));
         try {
             $h.invokeExact(window, width, height, scale);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rhost_window_set_insets$;
+
+    /**
+     * What covers a host window on a phone or a tablet, in pixels: the
+     * safe area (status bar, notch, home indicator; NULL: none) and the height
+     * of the on-screen keyboard over its bottom (0: hidden). The content is laid
+     * out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+     */
+    public static void Rhost_window_set_insets(int window, RInsets safe_area, int keyboard_height) {
+        MethodHandle $h = Rhost_window_set_insets$;
+        if ($h == null) Rhost_window_set_insets$ = $h = find("Rhost_window_set_insets", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT));
+        try {
+            $h.invokeExact(window, (MemorySegment) (safe_area == null ? MemorySegment.NULL : safe_area.segment()), keyboard_height);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rhost_set_system_dark$;
+
+    /**
+     * The application's system is in dark (R_TRUE) or light (R_FALSE)
+     * mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+     * and Rtheme_follow_system follows it.
+     */
+    public static void Rhost_set_system_dark(int dark) {
+        MethodHandle $h = Rhost_set_system_dark$;
+        if ($h == null) Rhost_set_system_dark$ = $h = find("Rhost_set_system_dark", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(dark);
         } catch (Throwable $t) {
             throw fail($t);
         }

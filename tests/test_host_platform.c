@@ -338,6 +338,183 @@ static void test_parallel_caret(void) {
 	Rdraw_frame();
 }
 
+static float scroll_offset(Rid scroll) {
+	float x, y;
+	Rscroll_box_get_offset(scroll, &x, &y);
+	return y;
+}
+
+/* R_TRUE when the widget lies between `top` and `bottom` of the window, with `margin` free around it. */
+static int shown_between(Rid widget, float top, float bottom, float margin) {
+	float x, y, w, h;
+	Rwidget_get_rect(widget, &x, &y, &w, &h);
+	return y >= top + margin - 0.5f && y + h <= bottom - margin + 0.5f;
+}
+
+/*
+ * The on-screen keyboard (Rhost_window_set_insets): the content goes above
+ * it, and the focused field is scrolled into view above it by its ScrollBox
+ * (when the keyboard comes or grows, when the window turns, when another
+ * field takes the focus); Tab and Rwidget_focus show what they focus.
+ */
+static void test_keyboard_reveals_field(void) {
+	Rid window = host_window(300, 400, 2.0f);
+	Rid scroll = Rwidget_create(R_WIDGET_SCROLL_BOX);
+	Rid column = Rwidget_create(R_WIDGET_VBOX);
+	Rid fields[12];
+	RInsets safe = { 40.0f, 0.0f, 20.0f, 0.0f }, area;
+	float before;
+	int i;
+	Rwidget_add_child(Rwindow_get_content(window), scroll);
+	Rslot_set_fill(scroll, 1.0f);
+	Rwidget_add_child(scroll, column);
+	for (i = 0; i < 12; i++) {
+		fields[i] = Rwidget_add_child(column, Rwidget_create(R_WIDGET_TEXT_INPUT));
+		Rwidget_set_size(fields[i], -1.0f, 40.0f);
+	}
+	/* safe area in pixels (scale 2): top 20, bottom 10 units */
+	safe.top = 40.0f;
+	safe.bottom = 20.0f;
+	Rhost_window_set_insets(window, &safe, 0);
+	Rdraw_frame();
+	Rwindow_get_safe_area(window, &area);
+	CHECK_NEAR(area.top, 20.0f);
+	CHECK_NEAR(area.bottom, 10.0f);
+	CHECK(shown_between(fields[0], 20.0f, 390.0f, 0.0f));
+
+	/* a field tapped low on the page, no keyboard yet (a desktop): nothing scrolls */
+	host_click(window, fields[8], 2.0f);
+	Rdraw_frame();
+	CHECK(Rwidget_is_focused(fields[8]));
+	CHECK_NEAR(scroll_offset(scroll), 0.0f);
+
+	/* the keyboard comes, 200 units high: the field is scrolled above it, with a margin */
+	Rhost_window_set_insets(window, &safe, 400);
+	Rdraw_frame();
+	Rwindow_get_keyboard_area(window, &area);
+	CHECK_NEAR(area.bottom, 200.0f);
+	CHECK(scroll_offset(scroll) > 0.0f);
+	CHECK(shown_between(fields[8], 20.0f, 200.0f, 8.0f));
+
+	/* it grows (another layout of keys) */
+	Rhost_window_set_insets(window, &safe, 500);
+	Rdraw_frame();
+	CHECK(shown_between(fields[8], 20.0f, 150.0f, 8.0f));
+
+	/* Enter: the application gives the focus to the next field, under the keyboard */
+	Rwidget_focus(fields[11]);
+	Rdraw_frame();
+	/* (the last one: no room is left below it for the margin) */
+	CHECK(shown_between(fields[11], 20.0f, 150.0f, 0.0f));
+
+	/* the window turns, the keyboard stays up: still above it */
+	Rhost_window_set_size(window, 800, 560, 2.0f);
+	Rhost_window_set_insets(window, &safe, 300);
+	Rdraw_frame();
+	CHECK(shown_between(fields[11], 20.0f, 280.0f - 150.0f, 0.0f));
+
+	/* the keyboard goes: nothing moves back by itself */
+	before = scroll_offset(scroll);
+	Rhost_window_set_insets(window, &safe, 0);
+	Rdraw_frame();
+	CHECK(scroll_offset(scroll) <= before + 0.5f);
+
+	/* Tab to a field out of view: it is shown (no keyboard needed) */
+	Rscroll_box_set_offset(scroll, 0.0f, 0.0f);
+	Rwidget_focus(fields[0]);
+	Rdraw_frame();
+	CHECK_NEAR(scroll_offset(scroll), 0.0f);
+	for (i = 0; i < 7; i++) {
+		Rhost_inject_key(window, R_KEY_TAB, R_TRUE, 0, R_FALSE);
+		Rhost_inject_key(window, R_KEY_TAB, R_FALSE, 0, R_FALSE);
+	}
+	Rdraw_frame();
+	CHECK(Rwidget_is_focused(fields[7]));
+	CHECK(shown_between(fields[7], 20.0f, 270.0f, 0.0f));
+
+	/* resizing a desktop window (no keyboard) does not scroll to the focus */
+	Rscroll_box_set_offset(scroll, 0.0f, 0.0f);
+	Rdraw_frame();
+	Rhost_window_set_size(window, 800, 500, 2.0f);
+	Rdraw_frame();
+	CHECK_NEAR(scroll_offset(scroll), 0.0f);
+	Rwindow_destroy(window);
+	Rdraw_frame();
+}
+
+/* A dialog is centred in what the content has: inside the safe area, above the keyboard. */
+static void test_dialog_in_safe_area(void) {
+	Rid window = host_window(300, 400, 1.0f);
+	Rid content = Rbutton_create("OK");
+	RInsets safe = { 60.0f, 0.0f, 40.0f, 0.0f };
+	float x, y, w, h;
+	Rhost_window_set_insets(window, &safe, 0);
+	Rdialog_open(window, content, NULL, NULL);
+	Rdraw_frame();
+	Rwidget_get_rect(content, &x, &y, &w, &h);
+	CHECK(y >= 60.0f && y + h <= 360.0f);
+	CHECK_NEAR(y + h * 0.5f, 60.0f + 300.0f * 0.5f);
+	/* the keyboard (200) comes: the dialog moves above it */
+	Rhost_window_set_insets(window, &safe, 200);
+	Rdraw_frame();
+	Rwidget_get_rect(content, &x, &y, &w, &h);
+	CHECK(y >= 60.0f && y + h <= 200.0f);
+	Rdialog_close(content, 0);
+	Rwindow_destroy(window);
+	Rdraw_frame();
+}
+
+/*
+ * Rtheme_follow_system: a switch between light and dark keeps the sizes
+ * given with Rtheme_set_metric (not the colors); a theme that names no look
+ * keeps everything it says. Rlook_set chosen by the application drops them,
+ * as documented.
+ */
+static void test_follow_system_keeps_metrics(void) {
+	const char* theme = "<Theme Name='AppSizes'><Metrics RowHeight='40'/><Colors Panel='#123456'/></Theme>";
+	float look_height, r, g, b, a;
+	Rhost_set_system_dark(R_FALSE);
+	CHECK(Rtheme_get_system_dark() == R_FALSE);
+	Rtheme_follow_system(R_TRUE);
+	CHECK(!Rtheme_is_dark());
+	look_height = Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT);
+	Rtheme_set_metric(R_METRIC_CONTROL_HEIGHT, 44.0f);
+	Rtheme_set_metric(R_METRIC_FONT_SIZE, 16.0f);
+	Rtheme_set_color(R_COLOR_PANEL, 1.0f, 0.0f, 0.0f, 1.0f);
+
+	Rhost_set_system_dark(R_TRUE);
+	CHECK(Rtheme_is_dark());
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 44.0f);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_FONT_SIZE), 16.0f);
+	/* (a color is the one of a mode: the dark look's) */
+	Rtheme_get_color(R_COLOR_PANEL, &r, &g, &b, &a);
+	CHECK(r < 0.9f);
+	Rhost_set_system_dark(R_FALSE);
+	CHECK(!Rtheme_is_dark());
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), 44.0f);
+
+	/* the application chooses a look: its values are dropped */
+	Rlook_set(R_LOOK_RAVEN_LIGHT);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), look_height);
+	Rhost_set_system_dark(R_TRUE);
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_CONTROL_HEIGHT), look_height);
+
+	/* a theme that names no look is laid over the new look, colors and sizes */
+	CHECK_STR(Rtheme_load_from_memory(theme, 0), "AppSizes");
+	CHECK(Rtheme_use("AppSizes"));
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_ROW_HEIGHT), 40.0f);
+	Rhost_set_system_dark(R_FALSE);
+	CHECK(!Rtheme_is_dark());
+	CHECK_NEAR(Rtheme_get_metric(R_METRIC_ROW_HEIGHT), 40.0f);
+	Rtheme_get_color(R_COLOR_PANEL, &r, &g, &b, &a);
+	CHECK_NEAR(b * 255.0f, 0x56);
+	CHECK_STR(Rtheme_get_name(), "AppSizes");
+
+	Rtheme_follow_system(R_FALSE);
+	Rhost_set_system_dark(-1);
+	Rlook_set(R_LOOK_RAVEN_DARK);
+}
+
 int main(void) {
 	RHostPlatformDesc host;
 	memset(&host, 0, sizeof(host));
@@ -367,6 +544,9 @@ int main(void) {
 	RUN(test_editor_and_spin_carets);
 	RUN(test_independent_surfaces_and_capture);
 	RUN(test_parallel_caret);
+	RUN(test_keyboard_reveals_field);
+	RUN(test_dialog_in_safe_area);
+	RUN(test_follow_system_keeps_metrics);
 	Rshutdown();
 	/* A callback-free registration owns a process-local clipboard, and can restart cleanly. */
 	memset(&host, 0, sizeof(host));

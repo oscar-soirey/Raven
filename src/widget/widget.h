@@ -786,8 +786,15 @@ struct rvn_window_t {
 	float safe_area[4];
 	/** The height of the on-screen keyboard over the bottom of the window, in logical units (0: hidden). */
 	float keyboard_height;
+	/** The focused widget is to be scrolled into view after the next layout (rvn_window_reveal_focus). */
+	int reveal_focus;
 	RKeyboardCallback keyboard_callback;
 	void* keyboard_user;
+	/** Back (Rwindow_set_back_callback, _set_back_enabled), and what the platform was told last (window_set_back_wanted). */
+	RBackCallback back_callback;
+	void* back_user;
+	int back_enabled;
+	int back_wanted;
 	int needs_paint;
 	int continuous;
 	/** Set from any thread by Rwindow_request_redraw. */
@@ -993,6 +1000,18 @@ void rvn_touch_window_free(rvn_window_t* window);
 void rvn_touch_widget_free(rvn_widget_t* widget);
 /** Touch.* and Pen.* attributes of a widget. Returns -1 when the name is not one of them. */
 int  rvn_touch_attribute(rvn_widget_t* widget, const char* name, const char* value);
+/**
+ * Scrolls every ScrollBox above the widget so that it shows, with `margin`
+ * around it (widgets/scroll_box.c; Rwidget_scroll_into_view with 0).
+ */
+void rvn_widget_reveal(rvn_widget_t* widget, float margin);
+/**
+ * The focused widget is to be seen: after the next layout, the ScrollBoxes
+ * above it scroll it into view, above the on-screen keyboard.
+ */
+void rvn_window_reveal_focus(rvn_window_t* window);
+/** RTouchSettings::min_touch_size of the window (NULL: of the application). */
+float rvn_touch_min_size(const rvn_window_t* window);
 /** Touch.*, Pen.* and Trackpad.* attributes of <Window>, applied to its settings. -1: not one of them. */
 int  rvn_touch_window_attribute(RTouchSettings* settings, const char* name, const char* value);
 /** R_TRUE when what is behind the window on the screen shows where the window draws nothing. */
@@ -1057,6 +1076,8 @@ void rvn_window_open_dialog(rvn_window_t* window, rvn_widget_t* root, RDialogClo
 int  rvn_window_close_dialog(rvn_widget_t* inside, int result);
 /** Root of the dialog on top of the others, or NULL. */
 rvn_widget_t* rvn_window_top_dialog(const rvn_window_t* window);
+/** R_TRUE while the window takes Back: a popup or dialog is open, or the application can go back (Rwindow_wants_back). */
+int  rvn_window_wants_back(const rvn_window_t* window);
 int  rvn_window_popup_index(const rvn_window_t* window, const rvn_widget_t* root);
 /** A popup or dialog that was closed and is still drawn on its way out (its ghost). */
 int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root);

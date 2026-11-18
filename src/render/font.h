@@ -95,6 +95,10 @@ typedef struct rvn_ttf_t rvn_ttf_t;
 
 /** `data` must stay valid for the lifetime of the object. Returns NULL on invalid data. */
 rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size);
+/** The same for one font of a collection (.ttc), 0 being the first (and the font of a file that is not a collection). */
+rvn_ttf_t* rvn_ttf_open_face(const uint8_t* data, size_t size, int face);
+/** The number in its collection of the font whose PostScript name is `name`: -1 when none is. */
+int   rvn_ttf_find_face(const uint8_t* data, size_t size, const char* name);
 void  rvn_ttf_close(rvn_ttf_t* ttf);
 /** 0 when the font has no glyph for the code point. */
 int   rvn_ttf_glyph_index(rvn_ttf_t* ttf, uint32_t codepoint);
@@ -116,18 +120,43 @@ void  rvn_ttf_render(rvn_ttf_t* ttf, int glyph, float size_px, uint8_t* out, int
 int   rvn_ttf_has_color(rvn_ttf_t* ttf);
 /** Layers of a color glyph: glyphs and colors (ABGR, 0 = the text color). 0 for a plain glyph. */
 int   rvn_ttf_color_layers(rvn_ttf_t* ttf, int glyph, int* glyphs, uint32_t* colors, int max);
+/** R_TRUE when the font has glyphs that are color pictures (emoji): bitmaps (sbix, CBLC / CBDT) or COLR version 1. */
+int   rvn_ttf_has_pictures(rvn_ttf_t* ttf);
+/**
+ * The color bitmap of a glyph at a size: RGBA, straight alpha, `width` x
+ * `height`, its top left corner at `x0`, `y0` from the pen on the baseline
+ * (y down). Free with rvn_free. NULL when the glyph has none; `undecoded` is
+ * then R_TRUE if it has one in a format Raven does not read (Apple's emjc,
+ * COLR version 1).
+ */
+uint8_t* rvn_ttf_bitmap(rvn_ttf_t* ttf, int glyph, float size_px, int* x0, int* y0, int* width, int* height, int* undecoded);
 
 /* ---------------------------------------------------------------------------
  *  Fonts of the system (render/font_system.c): where the characters that the
  *  fonts of the application do not have are looked for.
  * ------------------------------------------------------------------------- */
 
+/** A font of the system: its file, and which font of the file (a collection, .ttc, holds several). */
+typedef struct rvn_system_file_t {
+	char* path;
+	int face;
+	/** For rvn_font_system_draw: the CTFontRef of a font of color glyphs (iOS), the android.graphics.fonts.Font (Android, a global reference). */
+	void* native;
+} rvn_system_file_t;
+
 /**
- * Font files of the system that may have a character, the most likely
- * first: those made for its script, then the broad ones. Returns their count
- * (paths owned by font_system.c, valid until rvn_font_system_shutdown).
+ * Fonts of the system that may have a character, the most likely first:
+ * those made for its script, then the broad ones. Returns their count (owned
+ * by font_system.c, valid until rvn_font_system_shutdown).
  */
-int rvn_font_system_candidates(uint32_t codepoint, const char** paths, int max);
+int rvn_font_system_candidates(uint32_t codepoint, const rvn_system_file_t** files, int max);
+/**
+ * A color glyph drawn by the system, for the pictures Raven does not decode
+ * (iOS: Apple Color Emoji's emjc, drawn by CoreText; Android: COLR version
+ * 1, drawn by android.graphics). Same result as rvn_ttf_bitmap; NULL where
+ * the system cannot draw it.
+ */
+uint8_t* rvn_font_system_draw(const rvn_system_file_t* file, int glyph, float size_px, int* x0, int* y0, int* width, int* height);
 void rvn_font_system_shutdown(void);
 
 void  rvn_ttf_render_bold(rvn_ttf_t* ttf, int glyph, float size_px, float spread, uint8_t* out, int width, int height, int stride);

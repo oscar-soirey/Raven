@@ -163,6 +163,31 @@ R_SEVERITY_WARNING = RSeverity.R_SEVERITY_WARNING
 R_SEVERITY_ERROR = RSeverity.R_SEVERITY_ERROR
 R_SEVERITY_FATAL = RSeverity.R_SEVERITY_FATAL
 
+class RAppEvent(enum.IntEnum):
+    """What the system does with the application, on iOS and Android (desktop
+    systems send none of these). A pause is not always followed by
+    R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+    system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+    At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+    
+      leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+      in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+      coming back         R_APP_WILL_RESUME   Raven draws again
+      in front again      R_APP_DID_RESUME    takes input again"""
+    R_APP_WILL_PAUSE = 0x0B80
+    R_APP_DID_PAUSE = 0x0B81
+    R_APP_WILL_RESUME = 0x0B82
+    R_APP_DID_RESUME = 0x0B83
+    R_APP_LOW_MEMORY = 0x0B84
+    R_APP_WILL_TERMINATE = 0x0B85
+
+R_APP_WILL_PAUSE = RAppEvent.R_APP_WILL_PAUSE
+R_APP_DID_PAUSE = RAppEvent.R_APP_DID_PAUSE
+R_APP_WILL_RESUME = RAppEvent.R_APP_WILL_RESUME
+R_APP_DID_RESUME = RAppEvent.R_APP_DID_RESUME
+R_APP_LOW_MEMORY = RAppEvent.R_APP_LOW_MEMORY
+R_APP_WILL_TERMINATE = RAppEvent.R_APP_WILL_TERMINATE
+
 class RWindowFlags(enum.IntFlag):
     R_WINDOW_DEFAULT = 0
     R_WINDOW_NO_RESIZE = 1
@@ -1829,6 +1854,7 @@ class RTouchSettings(ctypes.Structure):
         ("trackpad_gestures", ctypes.c_int),
         ("swipe_navigation", ctypes.c_int),
         ("swipe_distance", ctypes.c_float),
+        ("min_touch_size", ctypes.c_float),
     ]
 
 
@@ -2068,6 +2094,14 @@ def _adapt_RFrameCallback(function):
         function(delta_seconds, user_data)
     return call
 
+RAppEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RAppEventCallback(function):
+    def call(event, user_data):
+        function(_e(RAppEvent, event), user_data)
+    return call
+
 RTaskCallback = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
 
 
@@ -2130,6 +2164,14 @@ RDropCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.POINTER(R
 def _adapt_RDropCallback(function):
     def call(target, event, user_data):
         return function(target, event.contents if event else None, user_data) or 0
+    return call
+
+RBackCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RBackCallback(function):
+    def call(window, user_data):
+        return function(window, user_data) or 0
     return call
 
 RWindowCloseCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctypes.c_void_p)
@@ -2966,6 +3008,34 @@ def Rget_time():
     return _lib.Rget_time()
 
 
+_lib.Rset_app_event_callback.argtypes = [RAppEventCallback, ctypes.c_void_p]
+_lib.Rset_app_event_callback.restype = None
+
+
+def Rset_app_event_callback(callback, user_data=None):
+    _lib.Rset_app_event_callback(_callback(RAppEventCallback, _adapt_RAppEventCallback, callback), user_data)
+
+
+_lib.Ris_app_paused.argtypes = []
+_lib.Ris_app_paused.restype = ctypes.c_int
+
+
+def Ris_app_paused():
+    """Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background."""
+    return _lib.Ris_app_paused()
+
+
+_lib.Rinject_app_event.argtypes = [ctypes.c_int]
+_lib.Rinject_app_event.restype = None
+
+
+def Rinject_app_event(event):
+    """Handles an RAppEvent as if the system had sent it: for tests,
+    and for a host application (raven_host.h) that knows the lifecycle.
+    UI thread."""
+    _lib.Rinject_app_event(int(event))
+
+
 _lib.Rset_ui_scale.argtypes = [ctypes.c_float]
 _lib.Rset_ui_scale.restype = None
 
@@ -3406,7 +3476,10 @@ _lib.Rwindow_get_keyboard_area.restype = None
 def Rwindow_get_keyboard_area(window, insets):
     """The part of the window the on-screen keyboard covers (only
     `bottom` is set), in logical units; 0 when it is hidden or there is
-    none (desktop). The content is laid out above it already."""
+    none (desktop). The content is laid out above it already, and the
+    field that has the focus is scrolled into view above it, by the
+    ScrollBoxes that hold it, when the keyboard comes or changes height,
+    when the window turns, and when another field takes the focus."""
     _lib.Rwindow_get_keyboard_area(window, _p(insets))
 
 
@@ -3426,6 +3499,35 @@ _lib.Rwindow_clear_focus.restype = None
 def Rwindow_clear_focus(window):
     """No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away."""
     _lib.Rwindow_clear_focus(window)
+
+
+_lib.Rwindow_set_back_callback.argtypes = [ctypes.c_uint32, RBackCallback, ctypes.c_void_p]
+_lib.Rwindow_set_back_callback.restype = None
+
+
+def Rwindow_set_back_callback(window, callback, user_data=None):
+    _lib.Rwindow_set_back_callback(window, _callback(RBackCallback, _adapt_RBackCallback, callback), user_data)
+
+
+_lib.Rwindow_set_back_enabled.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rwindow_set_back_enabled.restype = None
+
+
+def Rwindow_set_back_enabled(window, enabled):
+    """R_TRUE while the application has somewhere to go back to (a page
+    under the one shown). Android 13 and later ask for Back only while the
+    window wants it (predictive back): at the root page the system handles
+    Back itself and animates back to the home screen. Default R_FALSE."""
+    _lib.Rwindow_set_back_enabled(window, enabled)
+
+
+_lib.Rwindow_wants_back.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_wants_back.restype = ctypes.c_int
+
+
+def Rwindow_wants_back(window):
+    """Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so."""
+    return _lib.Rwindow_wants_back(window)
 
 
 _lib.Rwindow_set_min_size.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
@@ -4013,6 +4115,15 @@ def Rwindow_inject_drop(window, x, y, paths, text):
     return _lib.Rwindow_inject_drop(window, x, y, paths_array, len(paths_), _s(text))
 
 
+_lib.Rwindow_inject_back.argtypes = [ctypes.c_uint32]
+_lib.Rwindow_inject_back.restype = ctypes.c_int
+
+
+def Rwindow_inject_back(window):
+    """Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it."""
+    return _lib.Rwindow_inject_back(window)
+
+
 _lib.Rwindow_is_key_down.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rwindow_is_key_down.restype = ctypes.c_int
 
@@ -4507,6 +4618,9 @@ _lib.Rtheme_set_metric.restype = None
 
 
 def Rtheme_set_metric(metric, value):
+    """Changes a size of the theme in use. It lasts until the look or
+    the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+    switch between light and dark made by Rtheme_follow_system."""
     _lib.Rtheme_set_metric(int(metric), value)
 
 
@@ -4591,7 +4705,14 @@ _lib.Rtheme_follow_system.restype = None
 def Rtheme_follow_system(enabled):
     """Follows the dark or light mode of the system with the Raven look
     (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
-    Off by default. Does nothing where the platform does not tell (desktop today)."""
+    Off by default. Does nothing where the platform does not tell (desktop today).
+    
+    A switch is Rlook_set, except that the sizes given with
+    Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+    those of one mode and are lost; to keep colors, sizes and styles of
+    the application through the switch, put them in a theme that names no
+    look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+    new look."""
     _lib.Rtheme_follow_system(enabled)
 
 
@@ -5461,7 +5582,7 @@ _lib.Rwidget_focus.restype = None
 
 
 def Rwidget_focus(widget):
-    """Gives the keyboard focus to the widget."""
+    """Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view)."""
     _lib.Rwidget_focus(widget)
 
 
@@ -5663,7 +5784,9 @@ _lib.Rwidget_get_metric.restype = ctypes.c_float
 
 
 def Rwidget_get_metric(widget, metric):
-    """Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme."""
+    """Returns: The metric the widget uses: its own, else the one of a style,
+    else the one of its theme; grown for larger text
+    (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size)."""
     return _lib.Rwidget_get_metric(widget, int(metric))
 
 
@@ -5935,7 +6058,10 @@ _lib.Rwidget_scroll_into_view.restype = None
 
 
 def Rwidget_scroll_into_view(widget):
-    """Scrolls every ScrollBox above the widget so that the widget is visible."""
+    """Scrolls every ScrollBox above the widget so that the widget is
+    visible. The library does it by itself for the focused widget when the
+    focus comes from Tab or Rwidget_focus, and for a text field above the
+    on-screen keyboard (Rwindow_get_keyboard_area)."""
     _lib.Rwidget_scroll_into_view(widget)
 
 
@@ -12861,6 +12987,9 @@ _lib.Rfile_read.restype = ctypes.c_void_p
 
 def Rfile_read(path):
     """Whole files, with UTF-8 paths on every platform.
+    On Android and iOS, a relative path that names no file held in memory
+    and no file on disk is read from the app's package (the APK's assets/,
+    the bundle's resources), and so is every file Raven reads by its path.
     Returns: Rfile_read: the content followed by a '\\0', to release with
     Rmemory_free; NULL when the file cannot be read. `size` may be NULL."""
     size_ = ctypes.c_size_t()
@@ -14466,6 +14595,29 @@ _lib.Rhost_window_set_size.restype = None
 def Rhost_window_set_size(window, width, height, scale):
     """Size of a host window in pixels, and pixels per logical unit."""
     _lib.Rhost_window_set_size(window, width, height, scale)
+
+
+_lib.Rhost_window_set_insets.argtypes = [ctypes.c_uint32, ctypes.POINTER(RInsets), ctypes.c_int]
+_lib.Rhost_window_set_insets.restype = None
+
+
+def Rhost_window_set_insets(window, safe_area, keyboard_height):
+    """What covers a host window on a phone or a tablet, in pixels: the
+    safe area (status bar, notch, home indicator; NULL: none) and the height
+    of the on-screen keyboard over its bottom (0: hidden). The content is laid
+    out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area)."""
+    _lib.Rhost_window_set_insets(window, _p(safe_area), keyboard_height)
+
+
+_lib.Rhost_set_system_dark.argtypes = [ctypes.c_int]
+_lib.Rhost_set_system_dark.restype = None
+
+
+def Rhost_set_system_dark(dark):
+    """The application's system is in dark (R_TRUE) or light (R_FALSE)
+    mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+    and Rtheme_follow_system follows it."""
+    _lib.Rhost_set_system_dark(dark)
 
 
 _lib.Rhost_inject_mouse_move.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_uint32]

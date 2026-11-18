@@ -180,6 +180,16 @@ export const RSeverity = _enum({
 });
 export const { R_SEVERITY_WEAK_WARNING, R_SEVERITY_WARNING, R_SEVERITY_ERROR, R_SEVERITY_FATAL } = RSeverity;
 
+export const RAppEvent = _enum({
+	R_APP_WILL_PAUSE: 2944,
+	R_APP_DID_PAUSE: 2945,
+	R_APP_WILL_RESUME: 2946,
+	R_APP_DID_RESUME: 2947,
+	R_APP_LOW_MEMORY: 2948,
+	R_APP_WILL_TERMINATE: 2949,
+});
+export const { R_APP_WILL_PAUSE, R_APP_DID_PAUSE, R_APP_WILL_RESUME, R_APP_DID_RESUME, R_APP_LOW_MEMORY, R_APP_WILL_TERMINATE } = RAppEvent;
+
 export const RWindowFlags = _enum({
 	R_WINDOW_DEFAULT: 0,
 	R_WINDOW_NO_RESIZE: 1,
@@ -1691,7 +1701,7 @@ export class RDropEvent extends RStruct {
 }
 
 export class RTouchSettings extends RStruct {
-	static SIZE = 52;
+	static SIZE = 56;
 
 	constructor(pointer) {
 		super(RTouchSettings.SIZE, pointer);
@@ -1791,6 +1801,13 @@ export class RTouchSettings extends RStruct {
 	}
 	set swipe_distance(value) {
 		this._view.setFloat32(48, value, true);
+	}
+
+	get min_touch_size() {
+		return this._view.getFloat32(52, true);
+	}
+	set min_touch_size(value) {
+		this._view.setFloat32(52, value, true);
 	}
 }
 
@@ -3113,6 +3130,9 @@ export const Rwait_events = _lib.Rwait_events;
 export const Rset_frame_callback = _lib.Rset_frame_callback;
 export const Rget_delta_time = _lib.Rget_delta_time;
 export const Rget_time = _lib.Rget_time;
+export const Rset_app_event_callback = _lib.Rset_app_event_callback;
+export const Ris_app_paused = _lib.Ris_app_paused;
+export const Rinject_app_event = _lib.Rinject_app_event;
 export const Rset_ui_scale = _lib.Rset_ui_scale;
 export const Rset_vsync = _lib.Rset_vsync;
 export const Rget_vsync = _lib.Rget_vsync;
@@ -3166,6 +3186,9 @@ export function Rwindow_get_keyboard_area(window, insets) {
 }
 export const Rwindow_set_keyboard_callback = _lib.Rwindow_set_keyboard_callback;
 export const Rwindow_clear_focus = _lib.Rwindow_clear_focus;
+export const Rwindow_set_back_callback = _lib.Rwindow_set_back_callback;
+export const Rwindow_set_back_enabled = _lib.Rwindow_set_back_enabled;
+export const Rwindow_wants_back = _lib.Rwindow_wants_back;
 export const Rwindow_set_min_size = _lib.Rwindow_set_min_size;
 export const Rwindow_set_position = _lib.Rwindow_set_position;
 export const Rwindow_get_position = _lib.Rwindow_get_position;
@@ -3228,6 +3251,7 @@ export const Rwindow_inject_key = _lib.Rwindow_inject_key;
 export const Rwindow_inject_text = _lib.Rwindow_inject_text;
 export const Rwindow_inject_drag = _lib.Rwindow_inject_drag;
 export const Rwindow_inject_drop = _lib.Rwindow_inject_drop;
+export const Rwindow_inject_back = _lib.Rwindow_inject_back;
 export const Rwindow_is_key_down = _lib.Rwindow_is_key_down;
 export const Rwindow_is_mouse_button_down = _lib.Rwindow_is_mouse_button_down;
 export const Rwindow_get_modifiers = _lib.Rwindow_get_modifiers;
@@ -4438,6 +4462,10 @@ export function Rhost_platform_register(desc) {
 }
 export const Rhost_platform_is_active = _lib.Rhost_platform_is_active;
 export const Rhost_window_set_size = _lib.Rhost_window_set_size;
+export function Rhost_window_set_insets(window, safe_area, keyboard_height) {
+	return _lib.Rhost_window_set_insets(window, _p(safe_area), keyboard_height);
+}
+export const Rhost_set_system_dark = _lib.Rhost_set_system_dark;
 export const Rhost_inject_mouse_move = _lib.Rhost_inject_mouse_move;
 export const Rhost_inject_mouse_button = _lib.Rhost_inject_mouse_button;
 export const Rhost_inject_mouse_wheel = _lib.Rhost_inject_mouse_wheel;

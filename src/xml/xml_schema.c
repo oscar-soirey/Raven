@@ -105,6 +105,7 @@ static const rvn_schema_attribute_t g_window_touch[] = {
 	N("Touch.Deceleration", "How fast flicked content slows down, units per second per second (default 2400)."),
 	B("Touch.Gestures", "Two fingers pinch to zoom and pan (default true)."),
 	B("Touch.PalmRejection", "Fingers are ignored while a pen is near the screen (default true)."),
+	N("Touch.MinSize", "Smallest height of what a finger presses: controls and rows are at least this high, check boxes and slider handles half of it; 0 leaves the sizes of the theme (default 44 on iOS, 48 on Android, 0 elsewhere)."),
 	B("Pen.MouseEmulation", "The pen drives the widgets as the mouse does; its barrel button is the right button (default true)."),
 	N("Pen.PressureCurve", "The pressure is the one of the pen to this power: 1 as it is, below 1 softer, above 1 harder."),
 	N("Pen.PressureThreshold", "Pressure, 0 to 1, the tip needs before it presses (default 0)."),

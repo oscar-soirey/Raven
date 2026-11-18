@@ -6,6 +6,7 @@
  */
 
 #include "font.h"
+#include "renderer.h"
 
 #include <string.h>
 
@@ -58,6 +59,10 @@ struct rvn_ttf_t {
 	int index_format;
 	/* color glyphs (COLR / CPAL version 0): offsets in the data, 0 when the font has none */
 	uint32_t colr, cpal, colr_length, cpal_length;
+	/* R_FALSE for a font of color bitmaps without outlines (Noto Color Emoji) */
+	int outlines;
+	/* color bitmaps (sbix: Apple; CBLC / CBDT: Google): offsets in the data, 0 when the font has none */
+	uint32_t sbix, sbix_length, cblc, cblc_length, cbdt, cbdt_length;
 };
 
 static uint16_t rvn_ttf_u16(const uint8_t* p) { return (uint16_t)((p[0] << 8) | p[1]); }
@@ -123,10 +128,27 @@ static int rvn_ttf_check_tables(rvn_ttf_t* ttf, const uint8_t* data, size_t size
 		ttf->glyf = glyf;
 		ttf->glyf_length = glyf_length;
 		ttf->loca = loca;
-	} else if (!rvn_ttf_table(data, start, "CFF ", &cff, &cff_length) || cff_length < 4) {
-		return R_FALSE;
+		ttf->outlines = R_TRUE;
+	} else if (rvn_ttf_table(data, start, "CFF ", &cff, &cff_length)) {
+		if (cff_length < 4) return R_FALSE;
+		ttf->outlines = R_TRUE;
 	}
-	return R_TRUE;
+	if (rvn_ttf_table(data, start, "sbix", &offset, &length) && length >= 8) {
+		ttf->sbix = offset;
+		ttf->sbix_length = length;
+	}
+	if (rvn_ttf_table(data, start, "CBLC", &offset, &length) && length >= 8) {
+		ttf->cblc = offset;
+		ttf->cblc_length = length;
+		if (rvn_ttf_table(data, start, "CBDT", &offset, &length) && length >= 4) {
+			ttf->cbdt = offset;
+			ttf->cbdt_length = length;
+		} else {
+			ttf->cblc = 0;
+		}
+	}
+	/* no outlines: only a font of color bitmaps is taken */
+	return ttf->outlines || ttf->sbix || ttf->cblc;
 }
 
 /* The character map stb chose: R_FALSE when it is not one Raven reads safely (glyph_index then gives 0). */
@@ -168,7 +190,8 @@ static int rvn_ttf_glyph_good(rvn_ttf_t* ttf, int glyph, int depth) {
 	const uint8_t* p;
 	int contours;
 	if (glyph < 0 || glyph >= ttf->glyph_count || depth > 8) return R_FALSE;
-	if (!ttf->glyf) return R_TRUE;
+	/* (a font of bitmaps only has no outline to draw) */
+	if (!ttf->glyf) return ttf->outlines;
 	if (ttf->glyph_state[glyph] != RVN_GLYPH_UNKNOWN) return ttf->glyph_state[glyph] == RVN_GLYPH_GOOD;
 	/* (marked bad while it is checked: a composite that contains itself fails) */
 	ttf->glyph_state[glyph] = RVN_GLYPH_BAD;
@@ -300,14 +323,316 @@ int rvn_ttf_color_layers(rvn_ttf_t* ttf, int glyph, int* glyphs, uint32_t* color
 	return 0;
 }
 
-rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size) {
+/*
+ * Color bitmaps: emoji fonts made of pictures rather than outlines. Apple
+ * Color Emoji keeps them in sbix, Noto Color Emoji (Android, Linux) in
+ * CBLC / CBDT. Both hold strikes, the pictures of every glyph at one size
+ * (in pixels per em), each picture a PNG; the strike nearest to the size is
+ * decoded and scaled to it.
+ */
+
+/* Of several strikes, the better one for a size: the smallest at least as large, else the largest. */
+static int rvn_ttf_better_strike(int candidate, int best, float size_px) {
+	if (best <= 0) return R_TRUE;
+	if ((float)candidate >= size_px) return (float)best < size_px || candidate < best;
+	return (float)best < size_px && candidate > best;
+}
+
+/* The picture of a glyph in sbix: R_FALSE when the font has none for it. */
+static int rvn_ttf_sbix_image(rvn_ttf_t* ttf, int glyph, float size_px, const uint8_t** image, uint32_t* image_length,
+	uint32_t* type, int* ppem, int* origin_x, int* origin_y) {
+	const uint8_t* sbix = ttf->info.data + ttf->sbix;
+	uint32_t strikes = rvn_ttf_u32(sbix + 4), i, best_strike = 0;
+	int best = 0, dupes;
+	if (glyph < 0 || glyph >= ttf->glyph_count || 8 + 4 * (uint64_t)strikes > ttf->sbix_length) return R_FALSE;
+	/* (a glyph may be a "dupe" of another one: its picture is the other's) */
+	for (dupes = 0; dupes < 4; dupes++) {
+		uint32_t strike, from, to;
+		best = 0;
+		for (i = 0; i < strikes; i++) {
+			strike = rvn_ttf_u32(sbix + 8 + 4 * i);
+			if ((uint64_t)strike + 4 + 4 * ((uint64_t)glyph + 2) > ttf->sbix_length) continue;
+			from = rvn_ttf_u32(sbix + strike + 4 + 4 * (uint32_t)glyph);
+			to = rvn_ttf_u32(sbix + strike + 8 + 4 * (uint32_t)glyph);
+			/* (no picture in this strike: an empty glyph, or a strike that leaves it out) */
+			if (to <= from || to - from <= 8 || (uint64_t)strike + to > ttf->sbix_length) continue;
+			if (rvn_ttf_better_strike(rvn_ttf_u16(sbix + strike), best, size_px)) {
+				best = rvn_ttf_u16(sbix + strike);
+				best_strike = strike;
+			}
+		}
+		if (best <= 0) return R_FALSE;
+		from = rvn_ttf_u32(sbix + best_strike + 4 + 4 * (uint32_t)glyph);
+		to = rvn_ttf_u32(sbix + best_strike + 8 + 4 * (uint32_t)glyph);
+		*origin_x = (int16_t)rvn_ttf_u16(sbix + best_strike + from);
+		*origin_y = (int16_t)rvn_ttf_u16(sbix + best_strike + from + 2);
+		*type = rvn_ttf_u32(sbix + best_strike + from + 4);
+		*image = sbix + best_strike + from + 8;
+		*image_length = to - from - 8;
+		*ppem = best;
+		if (*type != 0x64757065u /* dupe */) return R_TRUE;
+		if (*image_length < 2) return R_FALSE;
+		glyph = rvn_ttf_u16(*image);
+		if (glyph >= ttf->glyph_count) return R_FALSE;
+	}
+	return R_FALSE;
+}
+
+/* The picture of a glyph in CBLC / CBDT: R_FALSE when the font has none for it (or not as a PNG). */
+static int rvn_ttf_cbdt_image(rvn_ttf_t* ttf, int glyph, float size_px, const uint8_t** image, uint32_t* image_length,
+	int* ppem, int* bearing_x, int* bearing_y) {
+	const uint8_t* cblc = ttf->info.data + ttf->cblc;
+	const uint8_t* cbdt = ttf->info.data + ttf->cbdt;
+	const uint8_t* size_record = NULL;
+	const uint8_t* metrics = NULL;
+	uint32_t sizes = rvn_ttf_u32(cblc + 4), i, array, subtables, sub = 0, first = 0, last = 0, data, at = 0, length = 0;
+	int best = 0, index_format, image_format;
+	if (8 + 48 * (uint64_t)sizes > ttf->cblc_length) return R_FALSE;
+	/* the strike, among those of 32-bit pictures that cover the glyph */
+	for (i = 0; i < sizes; i++) {
+		const uint8_t* record = cblc + 8 + 48 * i;
+		if (record[46] != 32 || glyph < rvn_ttf_u16(record + 40) || glyph > rvn_ttf_u16(record + 42)) continue;
+		if (rvn_ttf_better_strike(record[45], best, size_px)) {
+			best = record[45];
+			size_record = record;
+		}
+	}
+	if (!size_record) return R_FALSE;
+	/* the index subtable of the glyph, then where its picture is in CBDT */
+	array = rvn_ttf_u32(size_record);
+	subtables = rvn_ttf_u32(size_record + 8);
+	if ((uint64_t)array + 8 * (uint64_t)subtables > ttf->cblc_length) return R_FALSE;
+	for (i = 0; i < subtables; i++) {
+		const uint8_t* entry = cblc + array + 8 * i;
+		first = rvn_ttf_u16(entry);
+		last = rvn_ttf_u16(entry + 2);
+		if ((uint32_t)glyph >= first && (uint32_t)glyph <= last && last >= first) {
+			sub = array + rvn_ttf_u32(entry + 4);
+			break;
+		}
+	}
+	if (i == subtables || (uint64_t)sub + 8 > ttf->cblc_length) return R_FALSE;
+	index_format = rvn_ttf_u16(cblc + sub);
+	image_format = rvn_ttf_u16(cblc + sub + 2);
+	data = rvn_ttf_u32(cblc + sub + 4);
+	switch (index_format) {
+	case 1: case 3: {
+		/* the offsets of every glyph of the range, 32 or 16 bits */
+		uint32_t k = (uint32_t)glyph - first, step = index_format == 1 ? 4 : 2;
+		if ((uint64_t)sub + 8 + step * ((uint64_t)k + 2) > ttf->cblc_length) return R_FALSE;
+		at = index_format == 1 ? rvn_ttf_u32(cblc + sub + 8 + 4 * k) : rvn_ttf_u16(cblc + sub + 8 + 2 * k);
+		length = (index_format == 1 ? rvn_ttf_u32(cblc + sub + 12 + 4 * k) : rvn_ttf_u16(cblc + sub + 10 + 2 * k)) - at;
+		break;
+	}
+	case 2: {
+		/* pictures of one size, one after the other; the metrics are here */
+		uint32_t k = (uint32_t)glyph - first;
+		if ((uint64_t)sub + 20 > ttf->cblc_length) return R_FALSE;
+		length = rvn_ttf_u32(cblc + sub + 8);
+		at = length * k;
+		if (length && at / length != k) return R_FALSE;
+		metrics = cblc + sub + 12;
+		break;
+	}
+	case 4: case 5: {
+		/* only some glyphs of the range: their numbers, in order */
+		uint32_t count, k;
+		if ((uint64_t)sub + (index_format == 4 ? 12 : 24) > ttf->cblc_length) return R_FALSE;
+		count = rvn_ttf_u32(cblc + sub + (index_format == 4 ? 8 : 20));
+		if ((uint64_t)sub + (index_format == 4 ? 12 + 4 * ((uint64_t)count + 1) : 24 + 2 * (uint64_t)count) > ttf->cblc_length) return R_FALSE;
+		for (k = 0; k < count; k++) {
+			if (index_format == 4 && rvn_ttf_u16(cblc + sub + 12 + 4 * k) == (uint32_t)glyph) {
+				at = rvn_ttf_u16(cblc + sub + 14 + 4 * k);
+				length = rvn_ttf_u16(cblc + sub + 18 + 4 * k) - at;
+				break;
+			}
+			if (index_format == 5 && rvn_ttf_u16(cblc + sub + 24 + 2 * k) == (uint32_t)glyph) {
+				length = rvn_ttf_u32(cblc + sub + 8);
+				at = length * k;
+				if (length && at / length != k) return R_FALSE;
+				metrics = cblc + sub + 12;
+				break;
+			}
+		}
+		if (k == count) return R_FALSE;
+		break;
+	}
+	default:
+		return R_FALSE;
+	}
+	/* the picture: its metrics (small or big, or those of the index), then the length of the PNG */
+	if ((uint64_t)data + at + length > ttf->cbdt_length || (int32_t)length <= 0) return R_FALSE;
+	{
+		const uint8_t* p = cbdt + data + at;
+		uint32_t header = image_format == 17 ? 5 : image_format == 18 ? 8 : image_format == 19 ? 0 : 0xFFFFu;
+		if (header == 0xFFFFu || (image_format == 19 && !metrics) || header + 4 > length) return R_FALSE;
+		if (image_format != 19) metrics = p;
+		*bearing_x = (int8_t)metrics[2];
+		*bearing_y = (int8_t)metrics[3];
+		*image_length = rvn_ttf_u32(p + header);
+		*image = p + header + 4;
+		if (*image_length > length - header - 4) return R_FALSE;
+	}
+	*ppem = best;
+	return R_TRUE;
+}
+
+/* RGBA (straight alpha) from sw x sh to dw x dh: each pixel the mean of the part of the picture it covers, weighted by alpha. */
+static uint8_t* rvn_bitmap_resize(const uint8_t* source, int sw, int sh, int dw, int dh) {
+	uint8_t* out = (uint8_t*)rvn_calloc((size_t)dw * (size_t)dh * 4);
+	float step_x = (float)sw / (float)dw, step_y = (float)sh / (float)dh;
+	int x, y, sx, sy;
+	for (y = 0; y < dh; y++) {
+		float y0 = (float)y * step_y, y1 = y0 + step_y;
+		for (x = 0; x < dw; x++) {
+			float x0 = (float)x * step_x, x1 = x0 + step_x, sum[4] = { 0.0f, 0.0f, 0.0f, 0.0f }, area = 0.0f;
+			uint8_t* pixel = out + ((size_t)y * (size_t)dw + (size_t)x) * 4;
+			for (sy = (int)y0; sy < sh && (float)sy < y1; sy++) {
+				float wy = rvn_minf(y1, (float)sy + 1.0f) - rvn_maxf(y0, (float)sy);
+				for (sx = (int)x0; sx < sw && (float)sx < x1; sx++) {
+					const uint8_t* p = source + ((size_t)sy * (size_t)sw + (size_t)sx) * 4;
+					float w = wy * (rvn_minf(x1, (float)sx + 1.0f) - rvn_maxf(x0, (float)sx)), a = (float)p[3] * w;
+					sum[0] += (float)p[0] * a;
+					sum[1] += (float)p[1] * a;
+					sum[2] += (float)p[2] * a;
+					sum[3] += a;
+					area += w;
+				}
+			}
+			if (sum[3] > 0.0f && area > 0.0f) {
+				pixel[0] = (uint8_t)rvn_minf(255.0f, sum[0] / sum[3] + 0.5f);
+				pixel[1] = (uint8_t)rvn_minf(255.0f, sum[1] / sum[3] + 0.5f);
+				pixel[2] = (uint8_t)rvn_minf(255.0f, sum[2] / sum[3] + 0.5f);
+				pixel[3] = (uint8_t)rvn_minf(255.0f, sum[3] / area + 0.5f);
+			}
+		}
+	}
+	return out;
+}
+
+/* COLR version 1 (gradients, transforms: Noto Color Emoji of Android 13 and later) has a paint for the glyph. */
+static int rvn_ttf_colr_v1_glyph(rvn_ttf_t* ttf, int glyph) {
+	const uint8_t* colr = ttf->info.data + ttf->colr;
+	uint32_t list, count;
+	int lo, hi;
+	if (!ttf->colr || rvn_ttf_u16(colr) != 1 || ttf->colr_length < 18) return R_FALSE;
+	list = rvn_ttf_u32(colr + 14);
+	if (!list || (uint64_t)list + 4 > ttf->colr_length) return R_FALSE;
+	count = rvn_ttf_u32(colr + list);
+	if ((uint64_t)list + 4 + 6 * (uint64_t)count > ttf->colr_length) return R_FALSE;
+	/* the records are sorted by glyph */
+	lo = 0;
+	hi = (int)count - 1;
+	while (lo <= hi) {
+		int mid = lo + (hi - lo) / 2, id = rvn_ttf_u16(colr + list + 4 + 6 * (uint32_t)mid);
+		if (id < glyph) lo = mid + 1;
+		else if (id > glyph) hi = mid - 1;
+		else return R_TRUE;
+	}
+	return R_FALSE;
+}
+
+int rvn_ttf_has_pictures(rvn_ttf_t* ttf) {
+	return ttf->sbix != 0 || ttf->cblc != 0 || (ttf->colr != 0 && rvn_ttf_u16(ttf->info.data + ttf->colr) == 1);
+}
+
+uint8_t* rvn_ttf_bitmap(rvn_ttf_t* ttf, int glyph, float size_px, int* x0, int* y0, int* width, int* height, int* undecoded) {
+	const uint8_t* image = NULL;
+	uint32_t image_length = 0, type = 0x706E6720u; /* png */
+	int ppem = 0, w = 0, h = 0, from_bottom = R_FALSE, left = 0, top = 0, dw, dh;
+	float scale;
+	uint8_t* pixels;
+	uint8_t* scaled;
+	*undecoded = R_FALSE;
+	if (glyph <= 0 || glyph >= ttf->glyph_count || size_px < 1.0f) return NULL;
+	if (ttf->sbix && rvn_ttf_sbix_image(ttf, glyph, size_px, &image, &image_length, &type, &ppem, &left, &top)) {
+		/* (sbix gives where the bottom left corner of the picture is, y up) */
+		from_bottom = R_TRUE;
+	} else if (!ttf->cblc || !rvn_ttf_cbdt_image(ttf, glyph, size_px, &image, &image_length, &ppem, &left, &top)) {
+		/* (a glyph of COLR version 1 is a picture too, one that Raven does not draw) */
+		*undecoded = rvn_ttf_colr_v1_glyph(ttf, glyph);
+		return NULL;
+	}
+	if (ppem <= 0) return NULL;
+	/* PNG (and JPEG): other pictures, such as Apple's own "emjc" of iOS, are left to the system */
+	if (type != 0x706E6720u && type != 0x6A706720u) {
+		*undecoded = R_TRUE;
+		return NULL;
+	}
+	pixels = rvn_image_decode(image, image_length, &w, &h);
+	if (!pixels) {
+		*undecoded = R_TRUE;
+		return NULL;
+	}
+	scale = size_px / (float)ppem;
+	dw = rvn_maxi(1, (int)((float)w * scale + 0.5f));
+	dh = rvn_maxi(1, (int)((float)h * scale + 0.5f));
+	*x0 = (int)floorf((float)left * scale + 0.5f);
+	*y0 = from_bottom ? (int)floorf(-(float)top * scale + 0.5f) - dh : (int)floorf(-(float)top * scale + 0.5f);
+	*width = dw;
+	*height = dh;
+	if (dw == w && dh == h) return pixels;
+	scaled = rvn_bitmap_resize(pixels, w, h, dw, dh);
+	rvn_free(pixels);
+	return scaled;
+}
+
+/* The font of a collection (.ttc) whose PostScript name is `name`: -1 when none is. */
+int rvn_ttf_find_face(const uint8_t* data, size_t size, const char* name) {
+	uint32_t faces = 1, face;
+	size_t name_length = strlen(name);
+	int collection;
+	if (!data || size < 12) return -1;
+	collection = memcmp(data, "ttcf", 4) == 0;
+	if (collection) {
+		faces = rvn_ttf_u32(data + 8);
+		if (12 + 4 * (uint64_t)faces > size) return -1;
+	}
+	for (face = 0; face < faces; face++) {
+		uint32_t start = collection ? rvn_ttf_u32(data + 12 + 4 * face) : 0, count, i, table = 0, length = 0;
+		uint32_t records, strings;
+		if ((uint64_t)start + 12 > size) continue;
+		count = rvn_ttf_u16(data + start + 4);
+		if ((uint64_t)start + 12 + 16 * (uint64_t)count > size) continue;
+		for (i = 0; i < count; i++) {
+			const uint8_t* record = data + start + 12 + 16 * i;
+			if (memcmp(record, "name", 4) == 0) {
+				table = rvn_ttf_u32(record + 8);
+				length = rvn_ttf_u32(record + 12);
+			}
+		}
+		if (!table || (uint64_t)table + length > size || length < 6) continue;
+		records = rvn_ttf_u16(data + table + 2);
+		strings = rvn_ttf_u16(data + table + 4);
+		if (6 + 12 * (uint64_t)records > length) continue;
+		/* the PostScript name (6), in UTF-16 (platforms 0 and 3) or in ASCII (1) */
+		for (i = 0; i < records; i++) {
+			const uint8_t* record = data + table + 6 + 12 * i;
+			uint32_t platform = rvn_ttf_u16(record), bytes = rvn_ttf_u16(record + 8), at = table + strings + rvn_ttf_u16(record + 10);
+			int wide = platform != 1;
+			size_t k;
+			if (rvn_ttf_u16(record + 6) != 6 || (uint64_t)at + bytes > (uint64_t)table + length) continue;
+			if (bytes != name_length * (wide ? 2 : 1)) continue;
+			for (k = 0; k < name_length; k++) {
+				uint32_t c = wide ? rvn_ttf_u16(data + at + 2 * k) : data[at + k];
+				if (c != (uint8_t)name[k]) break;
+			}
+			if (k == name_length) return (int)face;
+		}
+	}
+	return -1;
+}
+
+rvn_ttf_t* rvn_ttf_open_face(const uint8_t* data, size_t size, int face) {
 	rvn_ttf_t* ttf;
 	uint32_t offset = 0, colr_length = 0, cpal_length = 0, unused;
-	if (!data || size < 12) return NULL;
-	/* a collection (.ttc): its first font */
+	if (!data || size < 12 || face < 0) return NULL;
+	/* a collection (.ttc): one of its fonts */
 	if (memcmp(data, "ttcf", 4) == 0) {
-		if (size < 16 || rvn_ttf_u32(data + 8) == 0) return NULL;
-		offset = rvn_ttf_u32(data + 12);
+		if ((uint32_t)face >= rvn_ttf_u32(data + 8) || 16 + 4 * (uint64_t)face > size) return NULL;
+		offset = rvn_ttf_u32(data + 12 + 4 * (uint32_t)face);
+	} else if (face != 0) {
+		return NULL;
 	}
 	ttf = (rvn_ttf_t*)rvn_calloc(sizeof(rvn_ttf_t));
 	ttf->size = size;
@@ -332,6 +657,10 @@ rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size) {
 		return NULL;
 	}
 	return ttf;
+}
+
+rvn_ttf_t* rvn_ttf_open(const uint8_t* data, size_t size) {
+	return rvn_ttf_open_face(data, size, 0);
 }
 
 void rvn_ttf_close(rvn_ttf_t* ttf) {

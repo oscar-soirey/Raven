@@ -148,6 +148,23 @@ const (
 	R_SEVERITY_FATAL        RSeverity = 0x0083
 )
 
+// RAppEvent: What the system does with the application, on iOS and Android (desktop systems send none of
+// these). A pause is not always followed by R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog
+// of the system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME. At the start,
+// R_APP_WILL_RESUME and R_APP_DID_RESUME may come too. leaving the front R_APP_WILL_PAUSE still seen: save
+// what must not be lost in the background R_APP_DID_PAUSE not seen, no GPU work: Raven stops drawing coming
+// back R_APP_WILL_RESUME Raven draws again in front again R_APP_DID_RESUME takes input again
+type RAppEvent int32
+
+const (
+	R_APP_WILL_PAUSE     RAppEvent = 0x0B80
+	R_APP_DID_PAUSE      RAppEvent = 0x0B81
+	R_APP_WILL_RESUME    RAppEvent = 0x0B82
+	R_APP_DID_RESUME     RAppEvent = 0x0B83
+	R_APP_LOW_MEMORY     RAppEvent = 0x0B84
+	R_APP_WILL_TERMINATE RAppEvent = 0x0B85
+)
+
 type RWindowFlags int32
 
 const (
@@ -1282,6 +1299,18 @@ func GetTime() float64 {
 	return float64(C.Rget_time())
 }
 
+// IsAppPaused: Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the
+// background.
+func IsAppPaused() int {
+	return int(C.Ris_app_paused())
+}
+
+// InjectAppEvent: Handles an RAppEvent as if the system had sent it: for tests, and for a host application
+// (raven_host.h) that knows the lifecycle. UI thread.
+func InjectAppEvent(event RAppEvent) {
+	C.Rinject_app_event(C.RAppEvent(event))
+}
+
 // SetUiScale: Scale of the whole interface, on top of the one of the monitor (RInitDesc.ui_scale at start):
 // every window is laid out again. 0.25 .. 4.
 func SetUiScale(scale float32) {
@@ -1481,6 +1510,19 @@ func WindowGetSize(window ID) (width int, height int) {
 // keyboard goes away.
 func WindowClearFocus(window ID) {
 	C.Rwindow_clear_focus(C.Rid(window))
+}
+
+// WindowSetBackEnabled: R_TRUE while the application has somewhere to go back to (a page under the one
+// shown). Android 13 and later ask for Back only while the window wants it (predictive back): at the root
+// page the system handles Back itself and animates back to the home screen. Default R_FALSE.
+func WindowSetBackEnabled(window ID, enabled int) {
+	C.Rwindow_set_back_enabled(C.Rid(window), C.int(enabled))
+}
+
+// WindowWantsBack: Returns: R_TRUE while Back would be taken: a popup or dialog is open, or
+// Rwindow_set_back_enabled said so.
+func WindowWantsBack(window ID) int {
+	return int(C.Rwindow_wants_back(C.Rid(window)))
 }
 
 func WindowSetMinSize(window ID, width int, height int) {
@@ -1770,6 +1812,12 @@ func WindowInjectDrag(window ID, x float32, y float32, inside int) int {
 	return int(C.Rwindow_inject_drag(C.Rid(window), C.float(x), C.float(y), C.int(inside)))
 }
 
+// WindowInjectBack: Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something
+// took it.
+func WindowInjectBack(window ID) int {
+	return int(C.Rwindow_inject_back(C.Rid(window)))
+}
+
 // WindowIsKeyDown: R_TRUE while the key is held down in the window (cleared when the window loses the
 // keyboard).
 func WindowIsKeyDown(window ID, key RKey) int {
@@ -2027,6 +2075,8 @@ func ThemeGetColor(role RColorRole) (r float32, g float32, b float32, a float32)
 	return
 }
 
+// ThemeSetMetric: Changes a size of the theme in use. It lasts until the look or the theme is chosen again
+// (Rlook_set, Rtheme_use), but not through a switch between light and dark made by Rtheme_follow_system.
 func ThemeSetMetric(metric RMetric, value float32) {
 	C.Rtheme_set_metric(C.RMetric(metric), C.float(value))
 }
@@ -2074,7 +2124,10 @@ func ThemeGetSystemDark() int {
 
 // ThemeFollowSystem: Follows the dark or light mode of the system with the Raven look (R_LOOK_RAVEN_DARK /
 // R_LOOK_RAVEN_LIGHT), now and when it changes. Off by default. Does nothing where the platform does not tell
-// (desktop today).
+// (desktop today). A switch is Rlook_set, except that the sizes given with Rtheme_set_metric stay. Colors and
+// styles set with Rtheme_set_... are those of one mode and are lost; to keep colors, sizes and styles of the
+// application through the switch, put them in a theme that names no look (Rtheme_load_from_memory, then
+// Rtheme_use): it is laid over the new look.
 func ThemeFollowSystem(enabled int) {
 	C.Rtheme_follow_system(C.int(enabled))
 }
@@ -2587,7 +2640,7 @@ func WidgetSetFocusable(widget ID, focusable int) {
 	C.Rwidget_set_focusable(C.Rid(widget), C.int(focusable))
 }
 
-// WidgetFocus: Gives the keyboard focus to the widget.
+// WidgetFocus: Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 func WidgetFocus(widget ID) {
 	C.Rwidget_focus(C.Rid(widget))
 }
@@ -2683,7 +2736,8 @@ func WidgetClearMetric(widget ID, metric RMetric) {
 }
 
 // WidgetGetMetric: Returns: The metric the widget uses: its own, else the one of a style, else the one of its
-// theme.
+// theme; grown for larger text (Raccessibility_set_text_scale) and for a finger
+// (RTouchSettings::min_touch_size).
 func WidgetGetMetric(widget ID, metric RMetric) float32 {
 	return float32(C.Rwidget_get_metric(C.Rid(widget), C.RMetric(metric)))
 }
@@ -2846,7 +2900,9 @@ func ScrollBoxScrollToEnd(scroll_box ID) {
 	C.Rscroll_box_scroll_to_end(C.Rid(scroll_box))
 }
 
-// WidgetScrollIntoView: Scrolls every ScrollBox above the widget so that the widget is visible.
+// WidgetScrollIntoView: Scrolls every ScrollBox above the widget so that the widget is visible. The library
+// does it by itself for the focused widget when the focus comes from Tab or Rwidget_focus, and for a text
+// field above the on-screen keyboard (Rwindow_get_keyboard_area).
 func WidgetScrollIntoView(widget ID) {
 	C.Rwidget_scroll_into_view(C.Rid(widget))
 }
@@ -7430,6 +7486,12 @@ func HostWindowSetSize(window ID, width int, height int, scale float32) {
 	C.Rhost_window_set_size(C.Rid(window), C.int(width), C.int(height), C.float(scale))
 }
 
+// HostSetSystemDark: The application's system is in dark (R_TRUE) or light (R_FALSE) mode, -1 when it does
+// not tell (the default): Rtheme_get_system_dark, and Rtheme_follow_system follows it.
+func HostSetSystemDark(dark int) {
+	C.Rhost_set_system_dark(C.int(dark))
+}
+
 func HostInjectMouseMove(window ID, x int, y int, modifiers uint32) {
 	C.Rhost_inject_mouse_move(C.Rid(window), C.int(x), C.int(y), C.Ruint(modifiers))
 }
@@ -7469,16 +7531,17 @@ func HostInjectClose(window ID) {
 
 // Left to cgo (a pointer to a structure, a void* or a C callback among the parameters):
 // Rinit_ex, Rset_allocator, Rallocator_get_system, Rmemory_alloc, Rmemory_realloc, Rmemory_free
-// Rmemory_get_stats, Rset_frame_callback, Rtask_post, Rtask_run_async, Rparallel_for, Rtimer_create
-// Raction_bind, Raction_set_default_handler, Rerror_get_last, Rerror_set_callback
-// Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area, Rwindow_get_keyboard_area
-// Rwindow_set_keyboard_callback, Rwindow_set_icon, Rwindow_set_close_callback, Rwindow_set_resize_callback
-// Rwindow_set_drop_callback, Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle
-// Rwindow_capture, Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook
-// Rtouch_get_settings, Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings
-// Rwindow_get_touch_settings, Rwidget_set_touch_callback, Rwidget_set_pen_callback
-// Rwidget_set_gesture_callback, Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free
-// Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
+// Rmemory_get_stats, Rset_frame_callback, Rset_app_event_callback, Rtask_post, Rtask_run_async
+// Rparallel_for, Rtimer_create, Raction_bind, Raction_set_default_handler, Rerror_get_last
+// Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area
+// Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback, Rwindow_set_icon
+// Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
+// Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle, Rwindow_capture
+// Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rtouch_get_settings
+// Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings, Rwindow_get_touch_settings
+// Rwidget_set_touch_callback, Rwidget_set_pen_callback, Rwidget_set_gesture_callback
+// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rwidget_set_user_handle
+// Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
 // Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
 // Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
 // Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback
@@ -7517,4 +7580,4 @@ func HostInjectClose(window ID) {
 // Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
 // Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
 // Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rwidget_set_accessible_action, Rhost_platform_register
+// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets

@@ -6,7 +6,6 @@
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36" />
     <uses-feature android:name="android.hardware.vulkan.level" android:version="0" android:required="true" />
     <application android:label="Raven Showcase" android:hasCode="true" android:debuggable="true"
-        android:enableOnBackInvokedCallback="false"
         android:theme="@android:style/Theme.DeviceDefault.DayNight">
         <activity android:name="android.app.NativeActivity"
             android:label="Raven Showcase"

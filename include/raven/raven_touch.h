@@ -34,7 +34,9 @@
  *     pressure, a gesture of its own): Rwidget_set_touch_callback,
  *     Rwidget_set_pen_callback, Rwidget_set_gesture_callback. A callback
  *     that returns R_TRUE takes the finger, the stroke or the gesture: the
- *     library does nothing else with it.
+ *     library does nothing else with it. A widget given a touch or a
+ *     gesture callback takes the fingers on the whole of its rect, on the
+ *     empty parts of a panel (VBox, Overlay...) too, and so does the mouse.
  *
  * Events bubble from the widget under the finger (the pen, the center of the
  * gesture) to its parents, like the mouse events, and a finger or a stroke
@@ -144,6 +146,16 @@ typedef struct RTouchSettings {
 	int swipe_navigation;
 	/** How far (logical units) the fingers of a swipe go across before it navigates. Default 120. */
 	float swipe_distance;
+	/**
+	 * Smallest height (logical units) of what a finger presses: buttons,
+	 * fields, combo boxes, tabs and bars are at least this high, rows of
+	 * lists, trees, tables and menus too, and so are check boxes, switches
+	 * and sliders, whose box and handle grow to half of it. Whatever the
+	 * theme or a widget asks for, 0 leaves the sizes as they are.
+	 * Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+	 * 0 elsewhere.
+	 */
+	float min_touch_size;
 } RTouchSettings;
 
 typedef struct RTouchEvent {

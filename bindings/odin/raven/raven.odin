@@ -78,6 +78,30 @@ R_SEVERITY_WARNING :: 0x0081
 R_SEVERITY_ERROR :: 0x0082
 R_SEVERITY_FATAL :: 0x0083
 
+// What the system does with the application, on iOS and Android (desktop
+// systems send none of these). A pause is not always followed by
+// R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+// system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+// At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+//
+//   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+//   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+//   coming back         R_APP_WILL_RESUME   Raven draws again
+//   in front again      R_APP_DID_RESUME    takes input again
+RAppEvent :: i32
+// The application is about to leave the front (home, app switcher, a call). Save the state now.
+R_APP_WILL_PAUSE :: 0x0B80
+// The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+R_APP_DID_PAUSE :: 0x0B81
+// The application is coming back to the front: Raven draws again.
+R_APP_WILL_RESUME :: 0x0B82
+// The application is in front and takes input again.
+R_APP_DID_RESUME :: 0x0B83
+// The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+R_APP_LOW_MEMORY :: 0x0B84
+// The application is about to end (Android: the activity is finishing; its window is closed right after).
+R_APP_WILL_TERMINATE :: 0x0B85
+
 RWindowFlags :: i32
 R_WINDOW_DEFAULT :: 0
 R_WINDOW_NO_RESIZE :: 1
@@ -1209,6 +1233,14 @@ R_ROLE_PANE :: 0x0783
 // while the OS keeps the thread in a loop of its own (on Windows, while
 // the user moves or resizes a window), when your loop is not running.
 RFrameCallback :: #type proc "c" (delta_seconds: f64, user_data: rawptr)
+// Registers a function called when the application changes state
+// (RAppEvent), on the UI thread, while the system waits for it: keep it
+// short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+// draws nothing, animations stand still and Rwait_frame sleeps until an
+// event, a posted task or a timer: the timers of the application keep
+// running, so stop those that only drive drawing. Set it after Rinit;
+// NULL removes it.
+RAppEventCallback :: #type proc "c" (event: RAppEvent, user_data: rawptr)
 RTaskCallback :: #type proc "c" (user_data: rawptr)
 RParallelRangeCallback :: #type proc "c" (begin: u32, end: u32, user_data: rawptr)
 RTimerCallback :: #type proc "c" (timer: Rid, user_data: rawptr)
@@ -1245,6 +1277,10 @@ RKeyboardCallback :: #type proc "c" (window: Rid, visible: i32, height: f32, use
 // shows the "can drop here" cursor and highlights the target; for
 // R_DROP_DROPPED it tells the source that the data was taken.
 RDropCallback :: #type proc "c" (target: Rid, event: ^RDropEvent, user_data: rawptr) -> i32
+// Called on Back when no popup or dialog of Raven is open. Return
+// R_TRUE when the application went back, R_FALSE when it had nowhere to
+// go (the system then does its default). NULL removes it.
+RBackCallback :: #type proc "c" (window: Rid, user_data: rawptr) -> i32
 // Called when the user asks to close the window.
 // Return R_TRUE to let the window close, R_FALSE to keep it open.
 RWindowCloseCallback :: #type proc "c" (window: Rid, user_data: rawptr) -> i32
@@ -1627,6 +1663,14 @@ RTouchSettings :: struct {
 	swipe_navigation: i32,
 	// How far (logical units) the fingers of a swipe go across before it navigates. Default 120.
 	swipe_distance: f32,
+	// Smallest height (logical units) of what a finger presses: buttons,
+	// fields, combo boxes, tabs and bars are at least this high, rows of
+	// lists, trees, tables and menus too, and so are check boxes, switches
+	// and sliders, whose box and handle grow to half of it. Whatever the
+	// theme or a widget asks for, 0 leaves the sizes as they are.
+	// Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+	// 0 elsewhere.
+	min_touch_size: f32,
 }
 
 RTouchEvent :: struct {
@@ -2005,6 +2049,13 @@ foreign lib {
 	Rget_delta_time :: proc() -> f64 ---
 	// Returns: Seconds elapsed since Rinit, from a monotonic clock. Thread-safe.
 	Rget_time :: proc() -> f64 ---
+	Rset_app_event_callback :: proc(callback: RAppEventCallback, user_data: rawptr) ---
+	// Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background.
+	Ris_app_paused :: proc() -> i32 ---
+	// Handles an RAppEvent as if the system had sent it: for tests,
+	// and for a host application (raven_host.h) that knows the lifecycle.
+	// UI thread.
+	Rinject_app_event :: proc(event: RAppEvent) ---
 	// Scale of the whole interface, on top of the one of the monitor
 	// (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
 	Rset_ui_scale :: proc(scale: f32) ---
@@ -2126,12 +2177,23 @@ foreign lib {
 	Rwindow_get_safe_area :: proc(window: Rid, insets: ^RInsets) ---
 	// The part of the window the on-screen keyboard covers (only
 	// `bottom` is set), in logical units; 0 when it is hidden or there is
-	// none (desktop). The content is laid out above it already.
+	// none (desktop). The content is laid out above it already, and the
+	// field that has the focus is scrolled into view above it, by the
+	// ScrollBoxes that hold it, when the keyboard comes or changes height,
+	// when the window turns, and when another field takes the focus.
 	Rwindow_get_keyboard_area :: proc(window: Rid, insets: ^RInsets) ---
 	// Called when the on-screen keyboard appears, changes height or goes away (mobile). NULL removes it.
 	Rwindow_set_keyboard_callback :: proc(window: Rid, callback: RKeyboardCallback, user_data: rawptr) ---
 	// No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away.
 	Rwindow_clear_focus :: proc(window: Rid) ---
+	Rwindow_set_back_callback :: proc(window: Rid, callback: RBackCallback, user_data: rawptr) ---
+	// R_TRUE while the application has somewhere to go back to (a page
+	// under the one shown). Android 13 and later ask for Back only while the
+	// window wants it (predictive back): at the root page the system handles
+	// Back itself and animates back to the home screen. Default R_FALSE.
+	Rwindow_set_back_enabled :: proc(window: Rid, enabled: i32) ---
+	// Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so.
+	Rwindow_wants_back :: proc(window: Rid) -> i32 ---
 	Rwindow_set_min_size :: proc(window: Rid, width: i32, height: i32) ---
 	Rwindow_set_position :: proc(window: Rid, x: i32, y: i32) ---
 	Rwindow_get_position :: proc(window: Rid, x: ^i32, y: ^i32) ---
@@ -2297,6 +2359,8 @@ foreign lib {
 	Rwindow_inject_drag :: proc(window: Rid, x: f32, y: f32, inside: i32) -> i32 ---
 	// Drops files and / or text at a position. Returns R_TRUE when a target took them.
 	Rwindow_inject_drop :: proc(window: Rid, x: f32, y: f32, paths: [^]cstring, path_count: i32, text: cstring) -> i32 ---
+	// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
+	Rwindow_inject_back :: proc(window: Rid) -> i32 ---
 	// R_TRUE while the key is held down in the window (cleared when the window loses the keyboard).
 	Rwindow_is_key_down :: proc(window: Rid, key: RKey) -> i32 ---
 	// R_TRUE while the mouse button is held down over (or captured by) the window.
@@ -2416,6 +2480,9 @@ foreign lib {
 	Rtheme_apply :: proc(theme: RTheme) ---
 	Rtheme_set_color :: proc(role: RColorRole, r: f32, g: f32, b: f32, a: f32) ---
 	Rtheme_get_color :: proc(role: RColorRole, r: ^f32, g: ^f32, b: ^f32, a: ^f32) ---
+	// Changes a size of the theme in use. It lasts until the look or
+	// the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+	// switch between light and dark made by Rtheme_follow_system.
 	Rtheme_set_metric :: proc(metric: RMetric, value: f32) ---
 	Rtheme_get_metric :: proc(metric: RMetric) -> f32 ---
 	// Material of every widget that was not given one with
@@ -2438,6 +2505,13 @@ foreign lib {
 	// Follows the dark or light mode of the system with the Raven look
 	// (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
 	// Off by default. Does nothing where the platform does not tell (desktop today).
+	//
+	// A switch is Rlook_set, except that the sizes given with
+	// Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+	// those of one mode and are lost; to keep colors, sizes and styles of
+	// the application through the switch, put them in a theme that names no
+	// look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+	// new look.
 	Rtheme_follow_system :: proc(enabled: i32) ---
 	Rtheme_is_dark :: proc() -> i32 ---
 	// Image drawn behind the content of the windows that have no
@@ -2669,7 +2743,7 @@ foreign lib {
 	Rwidget_get_desired_size :: proc(widget: Rid, width: ^f32, height: ^f32) ---
 	Rwidget_is_hovered :: proc(widget: Rid) -> i32 ---
 	Rwidget_set_focusable :: proc(widget: Rid, focusable: i32) ---
-	// Gives the keyboard focus to the widget.
+	// Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 	Rwidget_focus :: proc(widget: Rid) ---
 	Rwidget_is_focused :: proc(widget: Rid) -> i32 ---
 	Rwidget_set_user_handle :: proc(widget: Rid, handle: rawptr) ---
@@ -2719,7 +2793,9 @@ foreign lib {
 	// Overrides a theme metric for one widget.
 	Rwidget_set_metric :: proc(widget: Rid, metric: RMetric, value: f32) ---
 	Rwidget_clear_metric :: proc(widget: Rid, metric: RMetric) ---
-	// Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme.
+	// Returns: The metric the widget uses: its own, else the one of a style,
+	// else the one of its theme; grown for larger text
+	// (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
 	Rwidget_get_metric :: proc(widget: Rid, metric: RMetric) -> f32 ---
 	// Classes of the widget, separated by spaces ("danger large"):
 	// the styles of the theme made for these classes apply to it
@@ -2785,7 +2861,10 @@ foreign lib {
 	Rscroll_box_set_offset :: proc(scroll_box: Rid, x: f32, y: f32) ---
 	Rscroll_box_get_offset :: proc(scroll_box: Rid, x: ^f32, y: ^f32) ---
 	Rscroll_box_scroll_to_end :: proc(scroll_box: Rid) ---
-	// Scrolls every ScrollBox above the widget so that the widget is visible.
+	// Scrolls every ScrollBox above the widget so that the widget is
+	// visible. The library does it by itself for the focused widget when the
+	// focus comes from Tab or Rwidget_focus, and for a text field above the
+	// on-screen keyboard (Rwindow_get_keyboard_area).
 	Rwidget_scroll_into_view :: proc(widget: Rid) ---
 	// R_HORIZONTAL puts the panes side by side (default), R_VERTICAL stacks them.
 	Rsplitter_set_orientation :: proc(splitter: Rid, orientation: ROrientation) ---
@@ -4277,6 +4356,9 @@ foreign lib {
 	// R_TRUE when `path` is a file registered with Rfile_register_memory.
 	Rfile_is_memory :: proc(path: cstring) -> i32 ---
 	// Whole files, with UTF-8 paths on every platform.
+	// On Android and iOS, a relative path that names no file held in memory
+	// and no file on disk is read from the app's package (the APK's assets/,
+	// the bundle's resources), and so is every file Raven reads by its path.
 	// Returns: Rfile_read: the content followed by a '\0', to release with
 	// Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
 	Rfile_read :: proc(path: cstring, size: ^uint) -> cstring ---
@@ -4666,6 +4748,15 @@ foreign lib {
 	Rhost_platform_is_active :: proc() -> i32 ---
 	// Size of a host window in pixels, and pixels per logical unit.
 	Rhost_window_set_size :: proc(window: Rid, width: i32, height: i32, scale: f32) ---
+	// What covers a host window on a phone or a tablet, in pixels: the
+	// safe area (status bar, notch, home indicator; NULL: none) and the height
+	// of the on-screen keyboard over its bottom (0: hidden). The content is laid
+	// out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+	Rhost_window_set_insets :: proc(window: Rid, safe_area: ^RInsets, keyboard_height: i32) ---
+	// The application's system is in dark (R_TRUE) or light (R_FALSE)
+	// mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+	// and Rtheme_follow_system follows it.
+	Rhost_set_system_dark :: proc(dark: i32) ---
 	Rhost_inject_mouse_move :: proc(window: Rid, x: i32, y: i32, modifiers: u32) ---
 	Rhost_inject_mouse_button :: proc(window: Rid, x: i32, y: i32, button: RMouseButton, pressed: i32, modifiers: u32) ---
 	Rhost_inject_mouse_wheel :: proc(window: Rid, wheel_x: f32, wheel_y: f32, modifiers: u32) ---
