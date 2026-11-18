@@ -2161,7 +2161,8 @@ int main(int argc, char** argv) {
 
 	memset(&g, 0, sizeof(g));
 	memset(&desc, 0, sizeof(desc));
-	desc.backend = R_BACKEND_VULKAN;
+	/* 0: the default of the platform (Metal on macOS, Vulkan elsewhere) */
+	desc.backend = (RBackend)0;
 	desc.app_name = "Raven Theme Editor";
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--null") == 0) {

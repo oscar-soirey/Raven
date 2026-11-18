@@ -11,6 +11,10 @@
  *
  * RAVEN_EXAMPLE_FILM=prefix also saves one frame out of six as prefix000.ppm,
  * prefix001.ppm..., with the animations advancing by 1/60 s per frame.
+ *
+ * RAVEN_BACKEND=metal, vulkan or null picks the renderer (to compare them);
+ * unset, the default of the platform is used (Metal on macOS and iOS, Vulkan
+ * elsewhere).
  */
 
 #ifndef RVN_EXAMPLE_H
@@ -30,15 +34,33 @@ static void example_on_error(RError code, RSeverity severity, const char* detail
 	fprintf(stderr, "[Raven] %s (%s): %s\n", Rerror_to_string(code), Rseverity_to_string(severity), detail);
 }
 
-/** Starts Raven with the platform backend. Returns R_FALSE on failure. */
-static int example_init(const char* name) {
+#ifndef __EMSCRIPTEN__
+/** The backend named by RAVEN_BACKEND (case does not matter), or 0 (the default of the platform). */
+static RBackend example_backend(void) {
+	static const struct { const char* name; RBackend backend; } names[] = {
+		{ "metal", R_BACKEND_METAL }, { "vulkan", R_BACKEND_VULKAN }, { "null", R_BACKEND_NULL }
+	};
+	const char* value = getenv("RAVEN_BACKEND");
+	size_t i, k;
+	if (!value || !value[0]) return (RBackend)0;
+	for (i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+		for (k = 0; value[k] && names[i].name[k]; k++) {
+			char c = value[k];
+			if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+			if (c != names[i].name[k]) break;
+		}
+		if (!value[k] && !names[i].name[k]) return names[i].backend;
+	}
+	fprintf(stderr, "RAVEN_BACKEND=%s: unknown backend (metal, vulkan or null), the default is used\n", value);
+	return (RBackend)0;
+}
+#endif
+
+/** Starts Raven with the given backend (0: the default of the platform). Returns R_FALSE on failure. */
+static int example_init_backend(const char* name, RBackend backend) {
 	RInitDesc desc;
 	memset(&desc, 0, sizeof(desc));
-#ifdef __EMSCRIPTEN__
-	desc.backend = 0;
-#else
-	desc.backend = R_BACKEND_VULKAN;
-#endif
+	desc.backend = backend;
 	desc.app_name = name;
 #ifndef NDEBUG
 	desc.enable_validation = R_TRUE;
@@ -49,6 +71,15 @@ static int example_init(const char* name) {
 		return R_FALSE;
 	}
 	return R_TRUE;
+}
+
+/** Starts Raven with the platform backend (or the one of RAVEN_BACKEND). Returns R_FALSE on failure. */
+static int example_init(const char* name) {
+#ifdef __EMSCRIPTEN__
+	return example_init_backend(name, (RBackend)0);
+#else
+	return example_init_backend(name, example_backend());
+#endif
 }
 
 /** Saves a window as a binary PPM image; as a PAM image, which keeps the alpha of a window that is seen through, when the name ends with ".pam". */
