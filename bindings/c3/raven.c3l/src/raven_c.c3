@@ -64,6 +64,8 @@ const RError R_ERROR_INVALID_FILE_FORMAT = 0x0078;
 const RError R_ERROR_FILE_NOT_FOUND = 0x0079;
 const RError R_ERROR_XML = 0x007A;
 const RError R_ERROR_WRONG_THREAD = 0x007B;
+<* A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...". *>
+const RError R_ERROR_SCRIPT = 0x007C;
 
 alias RSeverity = CInt;
 const RSeverity R_SEVERITY_WEAK_WARNING = 0x0080;
@@ -751,6 +753,8 @@ const RWidgetType R_WIDGET_PDF_VIEW = 0x0233;
 const RWidgetType R_WIDGET_CHART = 0x0234;
 <* A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. *>
 const RWidgetType R_WIDGET_MAP_VIEW = 0x0235;
+<* Pages shown one at a time and swiped (a page view): arrows, dots, autoplay. *>
+const RWidgetType R_WIDGET_CAROUSEL = 0x0236;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -1331,6 +1335,9 @@ const RTextureFormat R_TEXTURE_RGBA8 = 0x02D0;
 const RTextureFormat R_TEXTURE_ALPHA8 = 0x02D1;
 
 <* Only seen through a pointer. *>
+alias RActionContext = void;
+
+<* Only seen through a pointer. *>
 alias RPainter = void;
 
 <* Only seen through a pointer. *>
@@ -1364,6 +1371,7 @@ alias RTimerCallback = fn void(Rid timer, void* user_data);
  bound before or after the widgets are created.
 *>
 alias RActionCallback = fn void(Rid sender, char* action, void* user_data);
+alias RActionParametersCallback = fn void(RActionContext* context, void* user_data);
 <*
  Registers a function called whenever an error is raised.
  The function may be registered before Rinit. It is called on the
@@ -1539,6 +1547,12 @@ alias RChartSliceCallback = fn void(Rid chart, CInt slice, CInt selected, void* 
 alias RChartCellCallback = fn void(Rid chart, CInt row, CInt column, float value, void* user_data);
 <* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
 alias RPdfPageChangedCallback = fn void(Rid view, CInt page, void* user_data);
+<*
+ Called when the user goes to another page (a swipe, the keys, a
+ dot, an arrow) and when the autoplay does. This also fires the action
+ of the widget.
+*>
+alias RCarouselPageChangedCallback = fn void(Rid carousel, CInt page, void* user_data);
 <* Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. *>
 alias RMapTileCallback = fn void(Rid map, CInt z, CInt x, CInt y, void* user_data);
 <* Called when the user clicks a marker. *>
@@ -1666,6 +1680,15 @@ alias RXmlReloadCallback = fn void(char* path, CInt ok, void* user_data);
 *>
 alias RXmlTagCreateCallback = fn Rid(char* tag, void* user_data);
 alias RXmlTagAttributeCallback = fn CInt(Rid widget, char* name, char* value, void* user_data);
+<* Where app.log writes: the standard output when NULL. *>
+alias RScriptLogCallback = fn void(char* message, void* user_data);
+<*
+ Receives the diagnostics of the scripts instead of the error
+ callback. `text` is the whole message, as the command line shows it;
+ `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+ the diagnostic has no place). NULL gives them back to the error callback.
+*>
+alias RScriptDiagnosticCallback = fn void(RSeverity severity, char* code, char* file, CInt line, CInt column, char* text, void* user_data);
 alias RLocaleChangedCallback = fn void(char* language, void* user_data);
 alias RAccessiblePressCallback = fn void(Rid widget, void* user_data);
 <*
@@ -2671,6 +2694,37 @@ extern fn void r_action_fire(char* name, Rid sender) @cname("Raction_fire");
 
 <* Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge). *>
 extern fn void r_action_set_default_handler(RActionCallback callback, void* user_data) @cname("Raction_set_default_handler");
+
+extern fn CInt r_action_bind_with_parameters(char* name, char* signature, RActionParametersCallback callback, void* user_data) @cname("Raction_bind_with_parameters");
+
+<* Returns The widget whose event fired the action, R_INVALID_ID when a script calls it. *>
+extern fn Rid r_action_get_sender(RActionContext* context) @cname("Raction_get_sender");
+
+extern fn char* r_action_get_name(RActionContext* context) @cname("Raction_get_name");
+
+<* Returns The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more. *>
+extern fn CInt r_action_get_argument_count(RActionContext* context) @cname("Raction_get_argument_count");
+
+<* The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE. *>
+extern fn double r_action_get_number(RActionContext* context, CInt index) @cname("Raction_get_number");
+
+<* Returns Valid until the function returns. *>
+extern fn char* r_action_get_string(RActionContext* context, CInt index) @cname("Raction_get_string");
+
+extern fn CInt r_action_get_bool(RActionContext* context, CInt index) @cname("Raction_get_bool");
+
+<* The value returned to the script; of the type of the signature (what is set last counts). *>
+extern fn void r_action_return_number(RActionContext* context, double value) @cname("Raction_return_number");
+
+extern fn void r_action_return_string(RActionContext* context, char* value) @cname("Raction_return_string");
+
+extern fn void r_action_return_bool(RActionContext* context, CInt value) @cname("Raction_return_bool");
+
+<*
+ The function failed: the script that called it stops with error
+ RS205 and this message (the application goes on; so does the next event).
+*>
+extern fn void r_action_fail(RActionContext* context, char* message) @cname("Raction_fail");
 
 <*
  The actions Raven knows by itself: an interface written in XML
@@ -6935,6 +6989,57 @@ extern fn CInt r_xml_get_tag_children(char* tag) @cname("Rxml_get_tag_children")
 extern fn CInt r_xml_get_attribute_count(char* tag) @cname("Rxml_get_attribute_count");
 
 extern fn CInt r_xml_get_attribute_info(char* tag, CInt index, RXmlAttributeInfo* info) @cname("Rxml_get_attribute_info");
+
+<*
+ Loads a script given as text (not an XML document): its
+ functions become actions, its globals are initialized.
+ Returns R_FALSE when it has an error (nothing of it is installed).
+*>
+extern fn CInt r_script_load(char* source, usz size, char* name) @cname("Rscript_load");
+
+<* The same from a file (.rvs). *>
+extern fn CInt r_script_load_file(char* path) @cname("Rscript_load_file");
+
+<*
+ Checks a script, or the scripts of an XML document and the
+ functions its widgets name, without running anything nor building a
+ widget. The diagnostics are reported as usual.
+ Returns The number of errors.
+*>
+extern fn CInt r_script_check(char* source, usz size, char* name) @cname("Rscript_check");
+
+<* Returns The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read. *>
+extern fn CInt r_script_check_file(char* path) @cname("Rscript_check_file");
+
+<*
+ Formats a script: one statement per line, blocks indented,
+ spaces around operators; comments are kept.
+ Returns The text, valid until the next call; NULL when the script has a
+ syntax error (it is not changed).
+*>
+extern fn char* r_script_format(char* source, usz size, char* indent) @cname("Rscript_format");
+
+<* Removes every script function (their actions are unbound) and every global. Not while a script runs. *>
+extern fn void r_script_reset() @cname("Rscript_reset");
+
+<* Returns R_TRUE when a script function has that name. *>
+extern fn CInt r_script_has_function(char* name) @cname("Rscript_has_function");
+
+<*
+ R_FALSE: the <Script> elements of the documents are read but not
+ compiled nor run (a design tool that shows interfaces without running
+ them). On by default.
+*>
+extern fn void r_script_set_enabled(CInt enabled) @cname("Rscript_set_enabled");
+
+extern fn CInt r_script_is_enabled() @cname("Rscript_is_enabled");
+
+<* The limits of the scripts. 0 keeps a value. *>
+extern fn void r_script_set_limits(Ruint max_instructions, CInt max_depth, usz max_memory) @cname("Rscript_set_limits");
+
+extern fn void r_script_set_log_callback(RScriptLogCallback callback, void* user_data) @cname("Rscript_set_log_callback");
+
+extern fn void r_script_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data) @cname("Rscript_set_diagnostic_callback");
 
 <* Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error. *>
 extern fn CInt r_locale_load_csv(char* path) @cname("Rlocale_load_csv");

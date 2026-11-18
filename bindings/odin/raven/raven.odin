@@ -46,6 +46,7 @@ R_FALSE :: 0
 R_TRUE :: 1
 R_INVALID_ID : Rid : 0xFFFFFFFF
 
+RActionContext :: struct {}
 RPainter :: struct {}
 
 RBackend :: i32
@@ -71,6 +72,8 @@ R_ERROR_INVALID_FILE_FORMAT :: 0x0078
 R_ERROR_FILE_NOT_FOUND :: 0x0079
 R_ERROR_XML :: 0x007A
 R_ERROR_WRONG_THREAD :: 0x007B
+// A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
+R_ERROR_SCRIPT :: 0x007C
 
 RSeverity :: i32
 R_SEVERITY_WEAK_WARNING :: 0x0080
@@ -718,6 +721,8 @@ R_WIDGET_PDF_VIEW :: 0x0233
 R_WIDGET_CHART :: 0x0234
 // A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 R_WIDGET_MAP_VIEW :: 0x0235
+// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+R_WIDGET_CAROUSEL :: 0x0236
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -1263,6 +1268,7 @@ RTimerCallback :: #type proc "c" (timer: Rid, user_data: rawptr)
 // name is called. Names are resolved when the event fires, so actions can be
 // bound before or after the widgets are created.
 RActionCallback :: #type proc "c" (sender: Rid, action: cstring, user_data: rawptr)
+RActionParametersCallback :: #type proc "c" (context_: ^RActionContext, user_data: rawptr)
 // Registers a function called whenever an error is raised.
 // The function may be registered before Rinit. It is called on the
 // thread that raised the error: errors of the renderer (and the messages
@@ -1404,6 +1410,10 @@ RChartSliceCallback :: #type proc "c" (chart: Rid, slice: i32, selected: i32, us
 RChartCellCallback :: #type proc "c" (chart: Rid, row: i32, column: i32, value: f32, user_data: rawptr)
 // Called when the current page changes as the user scrolls. This also fires the action of the widget.
 RPdfPageChangedCallback :: #type proc "c" (view: Rid, page: i32, user_data: rawptr)
+// Called when the user goes to another page (a swipe, the keys, a
+// dot, an arrow) and when the autoplay does. This also fires the action
+// of the widget.
+RCarouselPageChangedCallback :: #type proc "c" (carousel: Rid, page: i32, user_data: rawptr)
 // Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
 RMapTileCallback :: #type proc "c" (map_: Rid, z: i32, x: i32, y: i32, user_data: rawptr)
 // Called when the user clicks a marker.
@@ -1509,6 +1519,13 @@ RXmlReloadCallback :: #type proc "c" (path: cstring, ok: i32, user_data: rawptr)
 // Rwidget_set_attribute goes through it too.
 RXmlTagCreateCallback :: #type proc "c" (tag: cstring, user_data: rawptr) -> Rid
 RXmlTagAttributeCallback :: #type proc "c" (widget: Rid, name: cstring, value: cstring, user_data: rawptr) -> i32
+// Where app.log writes: the standard output when NULL.
+RScriptLogCallback :: #type proc "c" (message: cstring, user_data: rawptr)
+// Receives the diagnostics of the scripts instead of the error
+// callback. `text` is the whole message, as the command line shows it;
+// `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+// the diagnostic has no place). NULL gives them back to the error callback.
+RScriptDiagnosticCallback :: #type proc "c" (severity: RSeverity, code: cstring, file: cstring, line: i32, column: i32, text: cstring, user_data: rawptr)
 RLocaleChangedCallback :: #type proc "c" (language: cstring, user_data: rawptr)
 RAccessiblePressCallback :: #type proc "c" (widget: Rid, user_data: rawptr)
 
@@ -2152,6 +2169,24 @@ foreign lib {
 	Raction_fire :: proc(name: cstring, sender: Rid) ---
 	// Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
 	Raction_set_default_handler :: proc(callback: RActionCallback, user_data: rawptr) ---
+	Raction_bind_with_parameters :: proc(name: cstring, signature: cstring, callback: RActionParametersCallback, user_data: rawptr) -> i32 ---
+	// Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+	Raction_get_sender :: proc(context_: ^RActionContext) -> Rid ---
+	Raction_get_name :: proc(context_: ^RActionContext) -> cstring ---
+	// Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+	Raction_get_argument_count :: proc(context_: ^RActionContext) -> i32 ---
+	// The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+	Raction_get_number :: proc(context_: ^RActionContext, index: i32) -> f64 ---
+	// Returns: Valid until the function returns.
+	Raction_get_string :: proc(context_: ^RActionContext, index: i32) -> cstring ---
+	Raction_get_bool :: proc(context_: ^RActionContext, index: i32) -> i32 ---
+	// The value returned to the script; of the type of the signature (what is set last counts).
+	Raction_return_number :: proc(context_: ^RActionContext, value: f64) ---
+	Raction_return_string :: proc(context_: ^RActionContext, value: cstring) ---
+	Raction_return_bool :: proc(context_: ^RActionContext, value: i32) ---
+	// The function failed: the script that called it stops with error
+	// RS205 and this message (the application goes on; so does the next event).
+	Raction_fail :: proc(context_: ^RActionContext, message: cstring) ---
 	// The actions Raven knows by itself: an interface written in XML
 	// uses them with no C at all (OnClicked="app.quit").
 	//
@@ -4819,6 +4854,43 @@ foreign lib {
 	// <Widget>, its own are its parameters.
 	Rxml_get_attribute_count :: proc(tag: cstring) -> i32 ---
 	Rxml_get_attribute_info :: proc(tag: cstring, index: i32, info: ^RXmlAttributeInfo) -> i32 ---
+	// Loads a script given as text (not an XML document): its
+	// functions become actions, its globals are initialized.
+	// name Names it in the diagnostics (a file name); may be NULL.
+	// Returns: R_FALSE when it has an error (nothing of it is installed).
+	Rscript_load :: proc(source: cstring, size: uint, name: cstring) -> i32 ---
+	// The same from a file (.rvs).
+	Rscript_load_file :: proc(path: cstring) -> i32 ---
+	// Checks a script, or the scripts of an XML document and the
+	// functions its widgets name, without running anything nor building a
+	// widget. The diagnostics are reported as usual.
+	// source A script, or an XML document (text that starts with '<').
+	// Returns: The number of errors.
+	Rscript_check :: proc(source: cstring, size: uint, name: cstring) -> i32 ---
+	// Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+	Rscript_check_file :: proc(path: cstring) -> i32 ---
+	// Formats a script: one statement per line, blocks indented,
+	// spaces around operators; comments are kept.
+	// indent One level of indentation; NULL for four spaces.
+	// Returns: The text, valid until the next call; NULL when the script has a
+	// syntax error (it is not changed).
+	Rscript_format :: proc(source: cstring, size: uint, indent: cstring) -> cstring ---
+	// Removes every script function (their actions are unbound) and every global. Not while a script runs.
+	Rscript_reset :: proc() ---
+	// Returns: R_TRUE when a script function has that name.
+	Rscript_has_function :: proc(name: cstring) -> i32 ---
+	// R_FALSE: the <Script> elements of the documents are read but not
+	// compiled nor run (a design tool that shows interfaces without running
+	// them). On by default.
+	Rscript_set_enabled :: proc(enabled: i32) ---
+	Rscript_is_enabled :: proc() -> i32 ---
+	// The limits of the scripts. 0 keeps a value.
+	// max_instructions Instructions one invocation (an event) may run (10 000 000).
+	// max_depth Calls nested (200).
+	// max_memory Bytes of strings and arrays alive (64 MB).
+	Rscript_set_limits :: proc(max_instructions: u32, max_depth: i32, max_memory: uint) ---
+	Rscript_set_log_callback :: proc(callback: RScriptLogCallback, user_data: rawptr) ---
+	Rscript_set_diagnostic_callback :: proc(callback: RScriptDiagnosticCallback, user_data: rawptr) ---
 	// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
 	Rlocale_load_csv :: proc(path: cstring) -> i32 ---
 	// Same, from text in memory (UTF-8).

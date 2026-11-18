@@ -73,6 +73,10 @@ namespace Raven
         R_ERROR_FILE_NOT_FOUND = 0x0079,
         R_ERROR_XML = 0x007A,
         R_ERROR_WRONG_THREAD = 0x007B,
+        /// <summary>
+        /// A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
+        /// </summary>
+        R_ERROR_SCRIPT = 0x007C,
     }
 
     public enum RSeverity : int
@@ -1065,6 +1069,10 @@ namespace Raven
         /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
         /// </summary>
         R_WIDGET_MAP_VIEW = 0x0235,
+        /// <summary>
+        /// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+        /// </summary>
+        R_WIDGET_CAROUSEL = 0x0236,
     }
 
     public enum RHAlign : int
@@ -2949,6 +2957,9 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RActionCallback(uint sender, IntPtr action, IntPtr user_data);
 
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RActionParametersCallback(IntPtr context, IntPtr user_data);
+
     /// <summary>
     /// Registers a function called whenever an error is raised.
     /// The function may be registered before Rinit. It is called on the
@@ -3267,6 +3278,14 @@ namespace Raven
     public delegate void RPdfPageChangedCallback(uint view, int page, IntPtr user_data);
 
     /// <summary>
+    /// Called when the user goes to another page (a swipe, the keys, a
+    /// dot, an arrow) and when the autoplay does. This also fires the action
+    /// of the widget.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RCarouselPageChangedCallback(uint carousel, int page, IntPtr user_data);
+
+    /// <summary>
     /// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -3488,6 +3507,21 @@ namespace Raven
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate int RXmlTagAttributeCallback(uint widget, IntPtr name, IntPtr value, IntPtr user_data);
+
+    /// <summary>
+    /// Where app.log writes: the standard output when NULL.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RScriptLogCallback(IntPtr message, IntPtr user_data);
+
+    /// <summary>
+    /// Receives the diagnostics of the scripts instead of the error
+    /// callback. `text` is the whole message, as the command line shows it;
+    /// `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+    /// the diagnostic has no place). NULL gives them back to the error callback.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RScriptDiagnosticCallback(RSeverity severity, IntPtr code, IntPtr file, int line, int column, IntPtr text, IntPtr user_data);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RLocaleChangedCallback(IntPtr language, IntPtr user_data);
@@ -3858,6 +3892,60 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Raction_set_default_handler(RActionCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Raction_bind_with_parameters([MarshalAs(Utf8.Str)] string name, [MarshalAs(Utf8.Str)] string signature, RActionParametersCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Raction_get_sender(IntPtr context);
+
+        [DllImport(Lib, EntryPoint = "Raction_get_name", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Raction_get_name_(IntPtr context);
+        public static string Raction_get_name(IntPtr context) { return Text(Raction_get_name_(context)); }
+
+        /// <summary>
+        /// Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Raction_get_argument_count(IntPtr context);
+
+        /// <summary>
+        /// The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Raction_get_number(IntPtr context, int index);
+
+        /// <summary>
+        /// Returns: Valid until the function returns.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Raction_get_string", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Raction_get_string_(IntPtr context, int index);
+        public static string Raction_get_string(IntPtr context, int index) { return Text(Raction_get_string_(context, index)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Raction_get_bool(IntPtr context, int index);
+
+        /// <summary>
+        /// The value returned to the script; of the type of the signature (what is set last counts).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Raction_return_number(IntPtr context, double value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Raction_return_string(IntPtr context, [MarshalAs(Utf8.Str)] string value);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Raction_return_bool(IntPtr context, int value);
+
+        /// <summary>
+        /// The function failed: the script that called it stops with error
+        /// RS205 and this message (the application goes on; so does the next event).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Raction_fail(IntPtr context, [MarshalAs(Utf8.Str)] string message);
 
         /// <summary>
         /// The actions Raven knows by itself: an interface written in XML
@@ -10753,6 +10841,88 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rxml_get_attribute_info([MarshalAs(Utf8.Str)] string tag, int index, IntPtr info);
+
+        /// <summary>
+        /// Loads a script given as text (not an XML document): its
+        /// functions become actions, its globals are initialized.
+        /// name Names it in the diagnostics (a file name); may be NULL.
+        /// Returns: R_FALSE when it has an error (nothing of it is installed).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rscript_load([MarshalAs(Utf8.Str)] string source, UIntPtr size, [MarshalAs(Utf8.Str)] string name);
+        public static int Rscript_load(string source, string name) { return Rscript_load(source, Utf8Length(source), name); }
+
+        /// <summary>
+        /// The same from a file (.rvs).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rscript_load_file([MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Checks a script, or the scripts of an XML document and the
+        /// functions its widgets name, without running anything nor building a
+        /// widget. The diagnostics are reported as usual.
+        /// source A script, or an XML document (text that starts with '&lt;').
+        /// Returns: The number of errors.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rscript_check([MarshalAs(Utf8.Str)] string source, UIntPtr size, [MarshalAs(Utf8.Str)] string name);
+        public static int Rscript_check(string source, string name) { return Rscript_check(source, Utf8Length(source), name); }
+
+        /// <summary>
+        /// Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rscript_check_file([MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Formats a script: one statement per line, blocks indented,
+        /// spaces around operators; comments are kept.
+        /// indent One level of indentation; NULL for four spaces.
+        /// Returns: The text, valid until the next call; NULL when the script has a
+        /// syntax error (it is not changed).
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rscript_format", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rscript_format_([MarshalAs(Utf8.Str)] string source, UIntPtr size, [MarshalAs(Utf8.Str)] string indent);
+        public static string Rscript_format(string source, UIntPtr size, string indent) { return Text(Rscript_format_(source, size, indent)); }
+
+        /// <summary>
+        /// Removes every script function (their actions are unbound) and every global. Not while a script runs.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rscript_reset();
+
+        /// <summary>
+        /// Returns: R_TRUE when a script function has that name.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rscript_has_function([MarshalAs(Utf8.Str)] string name);
+
+        /// <summary>
+        /// R_FALSE: the &lt;Script&gt; elements of the documents are read but not
+        /// compiled nor run (a design tool that shows interfaces without running
+        /// them). On by default.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rscript_set_enabled(int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rscript_is_enabled();
+
+        /// <summary>
+        /// The limits of the scripts. 0 keeps a value.
+        /// max_instructions Instructions one invocation (an event) may run (10 000 000).
+        /// max_depth Calls nested (200).
+        /// max_memory Bytes of strings and arrays alive (64 MB).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rscript_set_limits(uint max_instructions, int max_depth, UIntPtr max_memory);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rscript_set_log_callback(RScriptLogCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rscript_set_diagnostic_callback(RScriptDiagnosticCallback callback, IntPtr user_data);
 
         /// <summary>
         /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.

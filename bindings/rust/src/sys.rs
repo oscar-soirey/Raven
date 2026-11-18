@@ -14,6 +14,11 @@ pub const R_TRUE: c_int = 1;
 pub const R_INVALID_ID: Rid = 0xFFFFFFFF;
 
 #[repr(C)]
+pub struct RActionContext {
+    _private: [u8; 0],
+}
+
+#[repr(C)]
 pub struct RPainter {
     _private: [u8; 0],
 }
@@ -41,6 +46,8 @@ pub const R_ERROR_INVALID_FILE_FORMAT: RError = 0x0078;
 pub const R_ERROR_FILE_NOT_FOUND: RError = 0x0079;
 pub const R_ERROR_XML: RError = 0x007A;
 pub const R_ERROR_WRONG_THREAD: RError = 0x007B;
+/// A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
+pub const R_ERROR_SCRIPT: RError = 0x007C;
 
 pub type RSeverity = c_int;
 pub const R_SEVERITY_WEAK_WARNING: RSeverity = 0x0080;
@@ -688,6 +695,8 @@ pub const R_WIDGET_PDF_VIEW: RWidgetType = 0x0233;
 pub const R_WIDGET_CHART: RWidgetType = 0x0234;
 /// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 pub const R_WIDGET_MAP_VIEW: RWidgetType = 0x0235;
+/// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+pub const R_WIDGET_CAROUSEL: RWidgetType = 0x0236;
 
 pub type RHAlign = c_int;
 pub const R_HALIGN_FILL: RHAlign = 0x0240;
@@ -1233,6 +1242,7 @@ pub type RTimerCallback = Option<unsafe extern "C" fn(timer: Rid, user_data: *mu
 /// name is called. Names are resolved when the event fires, so actions can be
 /// bound before or after the widgets are created.
 pub type RActionCallback = Option<unsafe extern "C" fn(sender: Rid, action: *const c_char, user_data: *mut c_void)>;
+pub type RActionParametersCallback = Option<unsafe extern "C" fn(context: *mut RActionContext, user_data: *mut c_void)>;
 /// Registers a function called whenever an error is raised.
 /// The function may be registered before Rinit. It is called on the
 /// thread that raised the error: errors of the renderer (and the messages
@@ -1374,6 +1384,10 @@ pub type RChartSliceCallback = Option<unsafe extern "C" fn(chart: Rid, slice: c_
 pub type RChartCellCallback = Option<unsafe extern "C" fn(chart: Rid, row: c_int, column: c_int, value: f32, user_data: *mut c_void)>;
 /// Called when the current page changes as the user scrolls. This also fires the action of the widget.
 pub type RPdfPageChangedCallback = Option<unsafe extern "C" fn(view: Rid, page: c_int, user_data: *mut c_void)>;
+/// Called when the user goes to another page (a swipe, the keys, a
+/// dot, an arrow) and when the autoplay does. This also fires the action
+/// of the widget.
+pub type RCarouselPageChangedCallback = Option<unsafe extern "C" fn(carousel: Rid, page: c_int, user_data: *mut c_void)>;
 /// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
 pub type RMapTileCallback = Option<unsafe extern "C" fn(map: Rid, z: c_int, x: c_int, y: c_int, user_data: *mut c_void)>;
 /// Called when the user clicks a marker.
@@ -1479,6 +1493,13 @@ pub type RXmlReloadCallback = Option<unsafe extern "C" fn(path: *const c_char, o
 /// Rwidget_set_attribute goes through it too.
 pub type RXmlTagCreateCallback = Option<unsafe extern "C" fn(tag: *const c_char, user_data: *mut c_void) -> Rid>;
 pub type RXmlTagAttributeCallback = Option<unsafe extern "C" fn(widget: Rid, name: *const c_char, value: *const c_char, user_data: *mut c_void) -> c_int>;
+/// Where app.log writes: the standard output when NULL.
+pub type RScriptLogCallback = Option<unsafe extern "C" fn(message: *const c_char, user_data: *mut c_void)>;
+/// Receives the diagnostics of the scripts instead of the error
+/// callback. `text` is the whole message, as the command line shows it;
+/// `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+/// the diagnostic has no place). NULL gives them back to the error callback.
+pub type RScriptDiagnosticCallback = Option<unsafe extern "C" fn(severity: RSeverity, code: *const c_char, file: *const c_char, line: c_int, column: c_int, text: *const c_char, user_data: *mut c_void)>;
 pub type RLocaleChangedCallback = Option<unsafe extern "C" fn(language: *const c_char, user_data: *mut c_void)>;
 pub type RAccessiblePressCallback = Option<unsafe extern "C" fn(widget: Rid, user_data: *mut c_void)>;
 
@@ -2175,6 +2196,24 @@ extern "C" {
     pub fn Raction_fire(name: *const c_char, sender: Rid);
     /// Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
     pub fn Raction_set_default_handler(callback: RActionCallback, user_data: *mut c_void);
+    pub fn Raction_bind_with_parameters(name: *const c_char, signature: *const c_char, callback: RActionParametersCallback, user_data: *mut c_void) -> c_int;
+    /// Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+    pub fn Raction_get_sender(context: *mut RActionContext) -> Rid;
+    pub fn Raction_get_name(context: *mut RActionContext) -> *const c_char;
+    /// Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+    pub fn Raction_get_argument_count(context: *mut RActionContext) -> c_int;
+    /// The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+    pub fn Raction_get_number(context: *mut RActionContext, index: c_int) -> f64;
+    /// Returns: Valid until the function returns.
+    pub fn Raction_get_string(context: *mut RActionContext, index: c_int) -> *const c_char;
+    pub fn Raction_get_bool(context: *mut RActionContext, index: c_int) -> c_int;
+    /// The value returned to the script; of the type of the signature (what is set last counts).
+    pub fn Raction_return_number(context: *mut RActionContext, value: f64);
+    pub fn Raction_return_string(context: *mut RActionContext, value: *const c_char);
+    pub fn Raction_return_bool(context: *mut RActionContext, value: c_int);
+    /// The function failed: the script that called it stops with error
+    /// RS205 and this message (the application goes on; so does the next event).
+    pub fn Raction_fail(context: *mut RActionContext, message: *const c_char);
     /// The actions Raven knows by itself: an interface written in XML
     /// uses them with no C at all (OnClicked="app.quit").
     ///
@@ -4842,6 +4881,43 @@ extern "C" {
     /// <Widget>, its own are its parameters.
     pub fn Rxml_get_attribute_count(tag: *const c_char) -> c_int;
     pub fn Rxml_get_attribute_info(tag: *const c_char, index: c_int, info: *mut RXmlAttributeInfo) -> c_int;
+    /// Loads a script given as text (not an XML document): its
+    /// functions become actions, its globals are initialized.
+    /// name Names it in the diagnostics (a file name); may be NULL.
+    /// Returns: R_FALSE when it has an error (nothing of it is installed).
+    pub fn Rscript_load(source: *const c_char, size: usize, name: *const c_char) -> c_int;
+    /// The same from a file (.rvs).
+    pub fn Rscript_load_file(path: *const c_char) -> c_int;
+    /// Checks a script, or the scripts of an XML document and the
+    /// functions its widgets name, without running anything nor building a
+    /// widget. The diagnostics are reported as usual.
+    /// source A script, or an XML document (text that starts with '<').
+    /// Returns: The number of errors.
+    pub fn Rscript_check(source: *const c_char, size: usize, name: *const c_char) -> c_int;
+    /// Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+    pub fn Rscript_check_file(path: *const c_char) -> c_int;
+    /// Formats a script: one statement per line, blocks indented,
+    /// spaces around operators; comments are kept.
+    /// indent One level of indentation; NULL for four spaces.
+    /// Returns: The text, valid until the next call; NULL when the script has a
+    /// syntax error (it is not changed).
+    pub fn Rscript_format(source: *const c_char, size: usize, indent: *const c_char) -> *const c_char;
+    /// Removes every script function (their actions are unbound) and every global. Not while a script runs.
+    pub fn Rscript_reset();
+    /// Returns: R_TRUE when a script function has that name.
+    pub fn Rscript_has_function(name: *const c_char) -> c_int;
+    /// R_FALSE: the <Script> elements of the documents are read but not
+    /// compiled nor run (a design tool that shows interfaces without running
+    /// them). On by default.
+    pub fn Rscript_set_enabled(enabled: c_int);
+    pub fn Rscript_is_enabled() -> c_int;
+    /// The limits of the scripts. 0 keeps a value.
+    /// max_instructions Instructions one invocation (an event) may run (10 000 000).
+    /// max_depth Calls nested (200).
+    /// max_memory Bytes of strings and arrays alive (64 MB).
+    pub fn Rscript_set_limits(max_instructions: u32, max_depth: c_int, max_memory: usize);
+    pub fn Rscript_set_log_callback(callback: RScriptLogCallback, user_data: *mut c_void);
+    pub fn Rscript_set_diagnostic_callback(callback: RScriptDiagnosticCallback, user_data: *mut c_void);
     /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
     pub fn Rlocale_load_csv(path: *const c_char) -> c_int;
     /// Same, from text in memory (UTF-8).

@@ -231,6 +231,10 @@ public final class R {
     public static final int R_ERROR_FILE_NOT_FOUND = 0x0079;
     public static final int R_ERROR_XML = 0x007A;
     public static final int R_ERROR_WRONG_THREAD = 0x007B;
+    /**
+     * A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
+     */
+    public static final int R_ERROR_SCRIPT = 0x007C;
 
     // RSeverity
     public static final int R_SEVERITY_WEAK_WARNING = 0x0080;
@@ -1071,6 +1075,10 @@ public final class R {
      * A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
      */
     public static final int R_WIDGET_MAP_VIEW = 0x0235;
+    /**
+     * Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+     */
+    public static final int R_WIDGET_CAROUSEL = 0x0236;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -4239,6 +4247,24 @@ public final class R {
         return stub(f, RActionCallback.class, "RActionCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
     }
 
+    @FunctionalInterface
+    public interface RActionParametersCallback {
+        void invoke(MemorySegment context, MemorySegment user_data);
+    }
+
+    private static void RActionParametersCallback$raw(RActionParametersCallback f, MemorySegment context, MemorySegment user_data) {
+        try {
+            f.invoke(context, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RActionParametersCallback f) {
+        return stub(f, RActionParametersCallback.class, "RActionParametersCallback$raw", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+    }
+
     /**
      * Registers a function called whenever an error is raised.
      * The function may be registered before Rinit. It is called on the
@@ -5333,6 +5359,29 @@ public final class R {
     }
 
     /**
+     * Called when the user goes to another page (a swipe, the keys, a
+     * dot, an arrow) and when the autoplay does. This also fires the action
+     * of the widget.
+     */
+    @FunctionalInterface
+    public interface RCarouselPageChangedCallback {
+        void invoke(int carousel, int page, MemorySegment user_data);
+    }
+
+    private static void RCarouselPageChangedCallback$raw(RCarouselPageChangedCallback f, int carousel, int page, MemorySegment user_data) {
+        try {
+            f.invoke(carousel, page, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RCarouselPageChangedCallback f) {
+        return stub(f, RCarouselPageChangedCallback.class, "RCarouselPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
      * Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
      */
     @FunctionalInterface
@@ -6043,6 +6092,51 @@ public final class R {
 
     private static MemorySegment upcall(RXmlTagAttributeCallback f) {
         return stub(f, RXmlTagAttributeCallback.class, "RXmlTagAttributeCallback$raw", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Where app.log writes: the standard output when NULL.
+     */
+    @FunctionalInterface
+    public interface RScriptLogCallback {
+        void invoke(String message, MemorySegment user_data);
+    }
+
+    private static void RScriptLogCallback$raw(RScriptLogCallback f, MemorySegment message, MemorySegment user_data) {
+        try {
+            f.invoke(text(message), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RScriptLogCallback f) {
+        return stub(f, RScriptLogCallback.class, "RScriptLogCallback$raw", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+    }
+
+    /**
+     * Receives the diagnostics of the scripts instead of the error
+     * callback. `text` is the whole message, as the command line shows it;
+     * `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+     * the diagnostic has no place). NULL gives them back to the error callback.
+     */
+    @FunctionalInterface
+    public interface RScriptDiagnosticCallback {
+        void invoke(int severity, String code, String file, int line, int column, String text, MemorySegment user_data);
+    }
+
+    private static void RScriptDiagnosticCallback$raw(RScriptDiagnosticCallback f, int severity, MemorySegment code, MemorySegment file, int line, int column, MemorySegment text, MemorySegment user_data) {
+        try {
+            f.invoke(severity, text(code), text(file), line, column, text(text), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RScriptDiagnosticCallback f) {
+        return stub(f, RScriptDiagnosticCallback.class, "RScriptDiagnosticCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
     }
 
     @FunctionalInterface
@@ -6881,6 +6975,172 @@ public final class R {
      */
     public static void Raction_set_default_handler(RActionCallback callback) {
         Raction_set_default_handler(callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Raction_bind_with_parameters$;
+
+    public static int Raction_bind_with_parameters(String name, String signature, RActionParametersCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Raction_bind_with_parameters$;
+        if ($h == null) Raction_bind_with_parameters$ = $h = find("Raction_bind_with_parameters", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            MemorySegment signature$ = signature == null ? MemorySegment.NULL : utf8($a, signature);
+            int $r = (int) $h.invokeExact(name$, signature$, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static int Raction_bind_with_parameters(String name, String signature, RActionParametersCallback callback) {
+        return Raction_bind_with_parameters(name, signature, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Raction_get_sender$;
+
+    /**
+     * Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+     */
+    public static int Raction_get_sender(MemorySegment context) {
+        MethodHandle $h = Raction_get_sender$;
+        if ($h == null) Raction_get_sender$ = $h = find("Raction_get_sender", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_get_name$;
+
+    public static String Raction_get_name(MemorySegment context) {
+        MethodHandle $h = Raction_get_name$;
+        if ($h == null) Raction_get_name$ = $h = find("Raction_get_name", FunctionDescriptor.of(ADDRESS, ADDRESS));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context));
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_get_argument_count$;
+
+    /**
+     * Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+     */
+    public static int Raction_get_argument_count(MemorySegment context) {
+        MethodHandle $h = Raction_get_argument_count$;
+        if ($h == null) Raction_get_argument_count$ = $h = find("Raction_get_argument_count", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_get_number$;
+
+    /**
+     * The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+     */
+    public static double Raction_get_number(MemorySegment context, int index) {
+        MethodHandle $h = Raction_get_number$;
+        if ($h == null) Raction_get_number$ = $h = find("Raction_get_number", FunctionDescriptor.of(JAVA_DOUBLE, ADDRESS, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context), index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_get_string$;
+
+    /**
+     * Returns: Valid until the function returns.
+     */
+    public static String Raction_get_string(MemorySegment context, int index) {
+        MethodHandle $h = Raction_get_string$;
+        if ($h == null) Raction_get_string$ = $h = find("Raction_get_string", FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context), index);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_get_bool$;
+
+    public static int Raction_get_bool(MemorySegment context, int index) {
+        MethodHandle $h = Raction_get_bool$;
+        if ($h == null) Raction_get_bool$ = $h = find("Raction_get_bool", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context), index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_return_number$;
+
+    /**
+     * The value returned to the script; of the type of the signature (what is set last counts).
+     */
+    public static void Raction_return_number(MemorySegment context, double value) {
+        MethodHandle $h = Raction_return_number$;
+        if ($h == null) Raction_return_number$ = $h = find("Raction_return_number", FunctionDescriptor.ofVoid(ADDRESS, JAVA_DOUBLE));
+        try {
+            $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context), value);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_return_string$;
+
+    public static void Raction_return_string(MemorySegment context, String value) {
+        MethodHandle $h = Raction_return_string$;
+        if ($h == null) Raction_return_string$ = $h = find("Raction_return_string", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment value$ = value == null ? MemorySegment.NULL : utf8($a, value);
+            $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context), value$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_return_bool$;
+
+    public static void Raction_return_bool(MemorySegment context, int value) {
+        MethodHandle $h = Raction_return_bool$;
+        if ($h == null) Raction_return_bool$ = $h = find("Raction_return_bool", FunctionDescriptor.ofVoid(ADDRESS, JAVA_INT));
+        try {
+            $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context), value);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Raction_fail$;
+
+    /**
+     * The function failed: the script that called it stops with error
+     * RS205 and this message (the application goes on; so does the next event).
+     */
+    public static void Raction_fail(MemorySegment context, String message) {
+        MethodHandle $h = Raction_fail$;
+        if ($h == null) Raction_fail$ = $h = find("Raction_fail", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment message$ = message == null ? MemorySegment.NULL : utf8($a, message);
+            $h.invokeExact((MemorySegment) (context == null ? MemorySegment.NULL : context), message$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Raction_set_builtins$;
@@ -26143,6 +26403,217 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rscript_load$;
+
+    /**
+     * Loads a script given as text (not an XML document): its
+     * functions become actions, its globals are initialized.
+     * name Names it in the diagnostics (a file name); may be NULL.
+     * Returns: R_FALSE when it has an error (nothing of it is installed).
+     */
+    public static int Rscript_load(String source, String name) {
+        MethodHandle $h = Rscript_load$;
+        if ($h == null) Rscript_load$ = $h = find("Rscript_load", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment source$ = source == null ? MemorySegment.NULL : utf8($a, source);
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            int $r = (int) $h.invokeExact(source$, (long) (source$.equals(MemorySegment.NULL) ? 0L : source$.byteSize() - 1), name$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_load_file$;
+
+    /**
+     * The same from a file (.rvs).
+     */
+    public static int Rscript_load_file(String path) {
+        MethodHandle $h = Rscript_load_file$;
+        if ($h == null) Rscript_load_file$ = $h = find("Rscript_load_file", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_check$;
+
+    /**
+     * Checks a script, or the scripts of an XML document and the
+     * functions its widgets name, without running anything nor building a
+     * widget. The diagnostics are reported as usual.
+     * source A script, or an XML document (text that starts with '&lt;').
+     * Returns: The number of errors.
+     */
+    public static int Rscript_check(String source, String name) {
+        MethodHandle $h = Rscript_check$;
+        if ($h == null) Rscript_check$ = $h = find("Rscript_check", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment source$ = source == null ? MemorySegment.NULL : utf8($a, source);
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            int $r = (int) $h.invokeExact(source$, (long) (source$.equals(MemorySegment.NULL) ? 0L : source$.byteSize() - 1), name$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_check_file$;
+
+    /**
+     * Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+     */
+    public static int Rscript_check_file(String path) {
+        MethodHandle $h = Rscript_check_file$;
+        if ($h == null) Rscript_check_file$ = $h = find("Rscript_check_file", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_format$;
+
+    /**
+     * Formats a script: one statement per line, blocks indented,
+     * spaces around operators; comments are kept.
+     * indent One level of indentation; NULL for four spaces.
+     * Returns: The text, valid until the next call; NULL when the script has a
+     * syntax error (it is not changed).
+     */
+    public static String Rscript_format(String source, String indent) {
+        MethodHandle $h = Rscript_format$;
+        if ($h == null) Rscript_format$ = $h = find("Rscript_format", FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment source$ = source == null ? MemorySegment.NULL : utf8($a, source);
+            MemorySegment indent$ = indent == null ? MemorySegment.NULL : utf8($a, indent);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(source$, (long) (source$.equals(MemorySegment.NULL) ? 0L : source$.byteSize() - 1), indent$);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_reset$;
+
+    /**
+     * Removes every script function (their actions are unbound) and every global. Not while a script runs.
+     */
+    public static void Rscript_reset() {
+        MethodHandle $h = Rscript_reset$;
+        if ($h == null) Rscript_reset$ = $h = find("Rscript_reset", FunctionDescriptor.ofVoid());
+        try {
+            $h.invokeExact();
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_has_function$;
+
+    /**
+     * Returns: R_TRUE when a script function has that name.
+     */
+    public static int Rscript_has_function(String name) {
+        MethodHandle $h = Rscript_has_function$;
+        if ($h == null) Rscript_has_function$ = $h = find("Rscript_has_function", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            int $r = (int) $h.invokeExact(name$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_set_enabled$;
+
+    /**
+     * R_FALSE: the &lt;Script&gt; elements of the documents are read but not
+     * compiled nor run (a design tool that shows interfaces without running
+     * them). On by default.
+     */
+    public static void Rscript_set_enabled(int enabled) {
+        MethodHandle $h = Rscript_set_enabled$;
+        if ($h == null) Rscript_set_enabled$ = $h = find("Rscript_set_enabled", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_is_enabled$;
+
+    public static int Rscript_is_enabled() {
+        MethodHandle $h = Rscript_is_enabled$;
+        if ($h == null) Rscript_is_enabled$ = $h = find("Rscript_is_enabled", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_set_limits$;
+
+    /**
+     * The limits of the scripts. 0 keeps a value.
+     * max_instructions Instructions one invocation (an event) may run (10 000 000).
+     * max_depth Calls nested (200).
+     * max_memory Bytes of strings and arrays alive (64 MB).
+     */
+    public static void Rscript_set_limits(int max_instructions, int max_depth, long max_memory) {
+        MethodHandle $h = Rscript_set_limits$;
+        if ($h == null) Rscript_set_limits$ = $h = find("Rscript_set_limits", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_LONG));
+        try {
+            $h.invokeExact(max_instructions, max_depth, max_memory);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rscript_set_log_callback$;
+
+    public static void Rscript_set_log_callback(RScriptLogCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rscript_set_log_callback$;
+        if ($h == null) Rscript_set_log_callback$ = $h = find("Rscript_set_log_callback", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rscript_set_log_callback(RScriptLogCallback callback) {
+        Rscript_set_log_callback(callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rscript_set_diagnostic_callback$;
+
+    public static void Rscript_set_diagnostic_callback(RScriptDiagnosticCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rscript_set_diagnostic_callback$;
+        if ($h == null) Rscript_set_diagnostic_callback$ = $h = find("Rscript_set_diagnostic_callback", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rscript_set_diagnostic_callback(RScriptDiagnosticCallback callback) {
+        Rscript_set_diagnostic_callback(callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rlocale_load_csv$;

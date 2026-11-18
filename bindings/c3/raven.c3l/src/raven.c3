@@ -78,6 +78,7 @@ excuse
 	ERROR_FILE_NOT_FOUND,
 	ERROR_XML,
 	ERROR_WRONG_THREAD,
+	ERROR_SCRIPT,
 	ERROR_FAILED;
 
 <* The fault of an error; ERROR_FAILED for NO_ERROR. *>
@@ -96,6 +97,7 @@ fn fault Error.to_fault(self)
 		case Error.FILE_NOT_FOUND: return ERROR_FILE_NOT_FOUND;
 		case Error.XML: return ERROR_XML;
 		case Error.WRONG_THREAD: return ERROR_WRONG_THREAD;
+		case Error.SCRIPT: return ERROR_SCRIPT;
 		default: return ERROR_FAILED;
 	}
 }
@@ -143,6 +145,8 @@ constset Error : CInt
 	FILE_NOT_FOUND = 0x0079,
 	XML = 0x007A,
 	WRONG_THREAD = 0x007B,
+	<* A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...". *>
+	SCRIPT = 0x007C,
 }
 
 constset Severity : CInt
@@ -899,6 +903,8 @@ constset WidgetType : CInt
 	CHART = 0x0234,
 	<* A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. *>
 	MAP_VIEW = 0x0235,
+	<* Pages shown one at a time and swiped (a page view): arrows, dots, autoplay. *>
+	CAROUSEL = 0x0236,
 }
 
 constset HAlign : CInt
@@ -1600,6 +1606,9 @@ constset TextureFormat : CInt
 }
 
 <* Only seen through a pointer. *>
+typedef ActionContext = void;
+
+<* Only seen through a pointer. *>
 typedef Painter = void;
 
 <* Only seen through a pointer. *>
@@ -1633,6 +1642,7 @@ alias TimerCallback = fn void(Id timer, void* user_data);
  bound before or after the widgets are created.
 *>
 alias ActionCallback = fn void(Id sender, ZString action, void* user_data);
+alias ActionParametersCallback = fn void(ActionContext* context, void* user_data);
 <*
  Registers a function called whenever an error is raised.
  The function may be registered before Rinit. It is called on the
@@ -1808,6 +1818,12 @@ alias ChartSliceCallback = fn void(Id chart, CInt slice, CInt selected, void* us
 alias ChartCellCallback = fn void(Id chart, CInt row, CInt column, float value, void* user_data);
 <* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
 alias PdfPageChangedCallback = fn void(Id view, CInt page, void* user_data);
+<*
+ Called when the user goes to another page (a swipe, the keys, a
+ dot, an arrow) and when the autoplay does. This also fires the action
+ of the widget.
+*>
+alias CarouselPageChangedCallback = fn void(Id carousel, CInt page, void* user_data);
 <* Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. *>
 alias MapTileCallback = fn void(Id map, CInt z, CInt x, CInt y, void* user_data);
 <* Called when the user clicks a marker. *>
@@ -1935,6 +1951,15 @@ alias XmlReloadCallback = fn void(ZString path, CInt ok, void* user_data);
 *>
 alias XmlTagCreateCallback = fn Id(ZString tag, void* user_data);
 alias XmlTagAttributeCallback = fn CInt(Id widget, ZString name, ZString value, void* user_data);
+<* Where app.log writes: the standard output when NULL. *>
+alias ScriptLogCallback = fn void(ZString message, void* user_data);
+<*
+ Receives the diagnostics of the scripts instead of the error
+ callback. `text` is the whole message, as the command line shows it;
+ `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+ the diagnostic has no place). NULL gives them back to the error callback.
+*>
+alias ScriptDiagnosticCallback = fn void(Severity severity, ZString code, ZString file, CInt line, CInt column, ZString text, void* user_data);
 alias LocaleChangedCallback = fn void(ZString language, void* user_data);
 alias AccessiblePressCallback = fn void(Id widget, void* user_data);
 <*
@@ -5810,6 +5835,62 @@ fn void MapView.set_attribution(self, ZString text) @inline => c::r_map_view_set
 
 fn ZString MapView.get_attribution(self) @inline => (ZString)c::r_map_view_get_attribution((c::Rid)self);
 
+// ---- Carousel
+
+typedef Carousel = inline Widget;
+
+fn Carousel carousel_create() @inline => (Carousel)c::r_carousel_create();
+
+<*
+ Shows a page, gliding to it when `animated` (and the animations
+ are on), at once otherwise. The page changed callback is not called.
+*>
+fn void Carousel.set_page(self, CInt page, bool animated) @inline => c::r_carousel_set_page((c::Rid)self, page, (CInt)animated);
+
+<* The page shown, -1 when the carousel has none. *>
+fn CInt Carousel.get_page(self) @inline => c::r_carousel_get_page((c::Rid)self);
+
+<* Its children. *>
+fn CInt Carousel.get_page_count(self) @inline => c::r_carousel_get_page_count((c::Rid)self);
+
+<* Glides to the next / previous page; nothing at the last / first one unless it loops. *>
+fn void Carousel.next(self) @inline => c::r_carousel_next((c::Rid)self);
+
+fn void Carousel.prev(self) @inline => c::r_carousel_prev((c::Rid)self);
+
+<* R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). *>
+fn void Carousel.set_loop(self, CInt loop) @inline => c::r_carousel_set_loop((c::Rid)self, loop);
+
+fn CInt Carousel.get_loop(self) @inline => c::r_carousel_get_loop((c::Rid)self);
+
+<*
+ Goes to the next page by itself every `seconds` (0: never, the
+ default); after the last page it comes back to the first. It waits
+ while the pointer is on the carousel, while the pages are dragged and
+ while the keyboard is in it; a page chosen by the user starts the
+ interval again.
+*>
+fn void Carousel.set_autoplay(self, double seconds) @inline => c::r_carousel_set_autoplay((c::Rid)self, seconds);
+
+fn double Carousel.get_autoplay(self) @inline => c::r_carousel_get_autoplay((c::Rid)self);
+
+<* The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). *>
+fn void Carousel.set_indicators_visible(self, bool visible) @inline => c::r_carousel_set_indicators_visible((c::Rid)self, (CInt)visible);
+
+fn CInt Carousel.get_indicators_visible(self) @inline => c::r_carousel_get_indicators_visible((c::Rid)self);
+
+<* The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). *>
+fn void Carousel.set_arrows_visible(self, bool visible) @inline => c::r_carousel_set_arrows_visible((c::Rid)self, (CInt)visible);
+
+fn CInt Carousel.get_arrows_visible(self) @inline => c::r_carousel_get_arrows_visible((c::Rid)self);
+
+<* R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. *>
+fn void Carousel.set_orientation(self, Orientation orientation) @inline => c::r_carousel_set_orientation((c::Rid)self, (c::ROrientation)orientation);
+
+fn Orientation Carousel.get_orientation(self) @inline => (Orientation)c::r_carousel_get_orientation((c::Rid)self);
+
+fn void Carousel.set_page_changed_callback(self, CarouselPageChangedCallback callback, void* user_data) @inline => c::r_carousel_set_page_changed_callback((c::Rid)self, (c::RCarouselPageChangedCallback)callback, user_data);
+
 // ---- Window
 
 typedef Window = inline Id;
@@ -7039,6 +7120,37 @@ fn void action_fire(ZString name, Id sender) @inline => c::r_action_fire((char*)
 <* Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge). *>
 fn void action_set_default_handler(ActionCallback callback, void* user_data) @inline => c::r_action_set_default_handler((c::RActionCallback)callback, user_data);
 
+fn CInt action_bind_with_parameters(ZString name, ZString signature, ActionParametersCallback callback, void* user_data) @inline => c::r_action_bind_with_parameters((char*)name, (char*)signature, (c::RActionParametersCallback)callback, user_data);
+
+<* Returns The widget whose event fired the action, R_INVALID_ID when a script calls it. *>
+fn Id action_get_sender(ActionContext* context) @inline => (Id)c::r_action_get_sender((c::RActionContext*)context);
+
+fn ZString action_get_name(ActionContext* context) @inline => (ZString)c::r_action_get_name((c::RActionContext*)context);
+
+<* Returns The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more. *>
+fn CInt action_get_argument_count(ActionContext* context) @inline => c::r_action_get_argument_count((c::RActionContext*)context);
+
+<* The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE. *>
+fn double action_get_number(ActionContext* context, CInt index) @inline => c::r_action_get_number((c::RActionContext*)context, index);
+
+<* Returns Valid until the function returns. *>
+fn ZString action_get_string(ActionContext* context, CInt index) @inline => (ZString)c::r_action_get_string((c::RActionContext*)context, index);
+
+fn CInt action_get_bool(ActionContext* context, CInt index) @inline => c::r_action_get_bool((c::RActionContext*)context, index);
+
+<* The value returned to the script; of the type of the signature (what is set last counts). *>
+fn void action_return_number(ActionContext* context, double value) @inline => c::r_action_return_number((c::RActionContext*)context, value);
+
+fn void action_return_string(ActionContext* context, ZString value) @inline => c::r_action_return_string((c::RActionContext*)context, (char*)value);
+
+fn void action_return_bool(ActionContext* context, CInt value) @inline => c::r_action_return_bool((c::RActionContext*)context, value);
+
+<*
+ The function failed: the script that called it stops with error
+ RS205 and this message (the application goes on; so does the next event).
+*>
+fn void action_fail(ActionContext* context, ZString message) @inline => c::r_action_fail((c::RActionContext*)context, (char*)message);
+
 <*
  The actions Raven knows by itself: an interface written in XML
  uses them with no C at all (OnClicked="app.quit").
@@ -7684,6 +7796,57 @@ fn CInt xml_get_tag_children(ZString tag) @inline => c::r_xml_get_tag_children((
 fn CInt xml_get_attribute_count(ZString tag) @inline => c::r_xml_get_attribute_count((char*)tag);
 
 fn CInt xml_get_attribute_info(ZString tag, CInt index, XmlAttributeInfo* info) @inline => c::r_xml_get_attribute_info((char*)tag, index, (c::RXmlAttributeInfo*)info);
+
+<*
+ Loads a script given as text (not an XML document): its
+ functions become actions, its globals are initialized.
+ Returns R_FALSE when it has an error (nothing of it is installed).
+*>
+fn bool script_load(ZString source, usz size, ZString name) @inline => c::r_script_load((char*)source, size, (char*)name) != 0;
+
+<* The same from a file (.rvs). *>
+fn CInt script_load_file(ZString path) @inline => c::r_script_load_file((char*)path);
+
+<*
+ Checks a script, or the scripts of an XML document and the
+ functions its widgets name, without running anything nor building a
+ widget. The diagnostics are reported as usual.
+ Returns The number of errors.
+*>
+fn CInt script_check(ZString source, usz size, ZString name) @inline => c::r_script_check((char*)source, size, (char*)name);
+
+<* Returns The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read. *>
+fn CInt script_check_file(ZString path) @inline => c::r_script_check_file((char*)path);
+
+<*
+ Formats a script: one statement per line, blocks indented,
+ spaces around operators; comments are kept.
+ Returns The text, valid until the next call; NULL when the script has a
+ syntax error (it is not changed).
+*>
+fn ZString script_format(ZString source, usz size, ZString indent) @inline => (ZString)c::r_script_format((char*)source, size, (char*)indent);
+
+<* Removes every script function (their actions are unbound) and every global. Not while a script runs. *>
+alias script_reset = c::r_script_reset;
+
+<* Returns R_TRUE when a script function has that name. *>
+fn bool script_has_function(ZString name) @inline => c::r_script_has_function((char*)name) != 0;
+
+<*
+ R_FALSE: the <Script> elements of the documents are read but not
+ compiled nor run (a design tool that shows interfaces without running
+ them). On by default.
+*>
+fn void script_set_enabled(bool enabled) @inline => c::r_script_set_enabled((CInt)enabled);
+
+alias script_is_enabled = c::r_script_is_enabled;
+
+<* The limits of the scripts. 0 keeps a value. *>
+alias script_set_limits = c::r_script_set_limits;
+
+fn void script_set_log_callback(ScriptLogCallback callback, void* user_data) @inline => c::r_script_set_log_callback((c::RScriptLogCallback)callback, user_data);
+
+fn void script_set_diagnostic_callback(ScriptDiagnosticCallback callback, void* user_data) @inline => c::r_script_set_diagnostic_callback((c::RScriptDiagnosticCallback)callback, user_data);
 
 <* Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error. *>
 fn CInt locale_load_csv(ZString path) @inline => c::r_locale_load_csv((char*)path);

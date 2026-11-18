@@ -28,6 +28,8 @@ type
     ## A handle: every object of the library is one.
   Ruint* = uint32
     ## An unsigned number of the API (flags, codepoints).
+  RActionContext* = object
+    ## An object of the library seen through a pointer only.
   RPainter* = object
     ## An object of the library seen through a pointer only.
   RBackend* = cint
@@ -219,6 +221,7 @@ type
     ## Rwidget_set_action); when its main event fires, the function bound to that
     ## name is called. Names are resolved when the event fires, so actions can be
     ## bound before or after the widgets are created.
+  RActionParametersCallback* = proc (context: ptr RActionContext, user_data: pointer) {.cdecl.}
   RErrorCallback* = proc (code: RError, severity: RSeverity, detail: cstring) {.cdecl.}
     ## Registers a function called whenever an error is raised.
     ## The function may be registered before Rinit. It is called on the
@@ -360,6 +363,10 @@ type
     ## Called when the user clicks a cell of a heatmap.
   RPdfPageChangedCallback* = proc (view: Rid, page: cint, user_data: pointer) {.cdecl.}
     ## Called when the current page changes as the user scrolls. This also fires the action of the widget.
+  RCarouselPageChangedCallback* = proc (carousel: Rid, page: cint, user_data: pointer) {.cdecl.}
+    ## Called when the user goes to another page (a swipe, the keys, a
+    ## dot, an arrow) and when the autoplay does. This also fires the action
+    ## of the widget.
   RMapTileCallback* = proc (map: Rid, z: cint, x: cint, y: cint, user_data: pointer) {.cdecl.}
     ## Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
   RMapMarkerCallback* = proc (map: Rid, marker: cint, user_data: pointer) {.cdecl.}
@@ -465,6 +472,13 @@ type
     ## them to the widget (Name, Width, Slot..., and what its type knows).
     ## Rwidget_set_attribute goes through it too.
   RXmlTagAttributeCallback* = proc (widget: Rid, name: cstring, value: cstring, user_data: pointer): cint {.cdecl.}
+  RScriptLogCallback* = proc (message: cstring, user_data: pointer) {.cdecl.}
+    ## Where app.log writes: the standard output when NULL.
+  RScriptDiagnosticCallback* = proc (severity: RSeverity, code: cstring, file: cstring, line: cint, column: cint, text: cstring, user_data: pointer) {.cdecl.}
+    ## Receives the diagnostics of the scripts instead of the error
+    ## callback. `text` is the whole message, as the command line shows it;
+    ## `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+    ## the diagnostic has no place). NULL gives them back to the error callback.
   RLocaleChangedCallback* = proc (language: cstring, user_data: pointer) {.cdecl.}
   RAccessiblePressCallback* = proc (widget: Rid, user_data: pointer) {.cdecl.}
   RInitDesc* {.bycopy.} = object
@@ -958,6 +972,8 @@ const
   R_ERROR_FILE_NOT_FOUND*: RError = 0x0079
   R_ERROR_XML*: RError = 0x007A
   R_ERROR_WRONG_THREAD*: RError = 0x007B
+  R_ERROR_SCRIPT*: RError = 0x007C
+    ## A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
 
   # RSeverity
   R_SEVERITY_WEAK_WARNING*: RSeverity = 0x0080
@@ -1552,6 +1568,8 @@ const
     ## The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
   R_WIDGET_MAP_VIEW*: RWidgetType = 0x0235
     ## A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+  R_WIDGET_CAROUSEL*: RWidgetType = 0x0236
+    ## Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -2168,6 +2186,24 @@ proc Raction_fire*(name: cstring, sender: Rid) {.rapi.}
   ## sender Passed to the function; R_INVALID_ID when there is none.
 proc Raction_set_default_handler*(callback: RActionCallback, user_data: pointer) {.rapi.}
   ## Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge).
+proc Raction_bind_with_parameters*(name: cstring, signature: cstring, callback: RActionParametersCallback, user_data: pointer): cint {.rapi.}
+proc Raction_get_sender*(context: ptr RActionContext): Rid {.rapi.}
+  ## Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it.
+proc Raction_get_name*(context: ptr RActionContext): cstring {.rapi.}
+proc Raction_get_argument_count*(context: ptr RActionContext): cint {.rapi.}
+  ## Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more.
+proc Raction_get_number*(context: ptr RActionContext, index: cint): cdouble {.rapi.}
+  ## The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE.
+proc Raction_get_string*(context: ptr RActionContext, index: cint): cstring {.rapi.}
+  ## Returns: Valid until the function returns.
+proc Raction_get_bool*(context: ptr RActionContext, index: cint): cint {.rapi.}
+proc Raction_return_number*(context: ptr RActionContext, value: cdouble) {.rapi.}
+  ## The value returned to the script; of the type of the signature (what is set last counts).
+proc Raction_return_string*(context: ptr RActionContext, value: cstring) {.rapi.}
+proc Raction_return_bool*(context: ptr RActionContext, value: cint) {.rapi.}
+proc Raction_fail*(context: ptr RActionContext, message: cstring) {.rapi.}
+  ## The function failed: the script that called it stops with error
+  ## RS205 and this message (the application goes on; so does the next event).
 proc Raction_set_builtins*(enabled: cint) {.rapi.}
   ## The actions Raven knows by itself: an interface written in XML
   ## uses them with no C at all (OnClicked="app.quit").
@@ -4835,6 +4871,43 @@ proc Rxml_get_attribute_count*(tag: cstring): cint {.rapi.}
   ## has, then those of its place in its parent. For a tag declared with
   ## <Widget>, its own are its parameters.
 proc Rxml_get_attribute_info*(tag: cstring, index: cint, info: ptr RXmlAttributeInfo): cint {.rapi.}
+proc Rscript_load*(source: cstring, size: csize_t, name: cstring): cint {.rapi.}
+  ## Loads a script given as text (not an XML document): its
+  ## functions become actions, its globals are initialized.
+  ## name Names it in the diagnostics (a file name); may be NULL.
+  ## Returns: R_FALSE when it has an error (nothing of it is installed).
+proc Rscript_load_file*(path: cstring): cint {.rapi.}
+  ## The same from a file (.rvs).
+proc Rscript_check*(source: cstring, size: csize_t, name: cstring): cint {.rapi.}
+  ## Checks a script, or the scripts of an XML document and the
+  ## functions its widgets name, without running anything nor building a
+  ## widget. The diagnostics are reported as usual.
+  ## source A script, or an XML document (text that starts with '<').
+  ## Returns: The number of errors.
+proc Rscript_check_file*(path: cstring): cint {.rapi.}
+  ## Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+proc Rscript_format*(source: cstring, size: csize_t, indent: cstring): cstring {.rapi.}
+  ## Formats a script: one statement per line, blocks indented,
+  ## spaces around operators; comments are kept.
+  ## indent One level of indentation; NULL for four spaces.
+  ## Returns: The text, valid until the next call; NULL when the script has a
+  ## syntax error (it is not changed).
+proc Rscript_reset*() {.rapi.}
+  ## Removes every script function (their actions are unbound) and every global. Not while a script runs.
+proc Rscript_has_function*(name: cstring): cint {.rapi.}
+  ## Returns: R_TRUE when a script function has that name.
+proc Rscript_set_enabled*(enabled: cint) {.rapi.}
+  ## R_FALSE: the <Script> elements of the documents are read but not
+  ## compiled nor run (a design tool that shows interfaces without running
+  ## them). On by default.
+proc Rscript_is_enabled*(): cint {.rapi.}
+proc Rscript_set_limits*(max_instructions: uint32, max_depth: cint, max_memory: csize_t) {.rapi.}
+  ## The limits of the scripts. 0 keeps a value.
+  ## max_instructions Instructions one invocation (an event) may run (10 000 000).
+  ## max_depth Calls nested (200).
+  ## max_memory Bytes of strings and arrays alive (64 MB).
+proc Rscript_set_log_callback*(callback: RScriptLogCallback, user_data: pointer) {.rapi.}
+proc Rscript_set_diagnostic_callback*(callback: RScriptDiagnosticCallback, user_data: pointer) {.rapi.}
 proc Rlocale_load_csv*(path: cstring): cint {.rapi.}
   ## Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
 proc Rlocale_load_csv_from_memory*(csv: cstring, size: csize_t): cint {.rapi.}

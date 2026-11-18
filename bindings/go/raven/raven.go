@@ -137,6 +137,7 @@ const (
 	R_ERROR_FILE_NOT_FOUND      RError = 0x0079
 	R_ERROR_XML                 RError = 0x007A
 	R_ERROR_WRONG_THREAD        RError = 0x007B
+	R_ERROR_SCRIPT              RError = 0x007C
 )
 
 type RSeverity int32
@@ -687,6 +688,7 @@ const (
 	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
 	R_WIDGET_CHART           RWidgetType = 0x0234
 	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
+	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
 )
 
 type RHAlign int32
@@ -3750,6 +3752,35 @@ func TileViewSetEmptyText(tile_view ID, text string) {
 	C.Rtile_view_set_empty_text(C.Rid(tile_view), text_)
 }
 
+// TileViewSetIconWidth: Layout="Rows": width of the box the icon is drawn in (its height is the icon size),
+// for icons that are not square; 0 = square (default). XML: IconWidth.
+func TileViewSetIconWidth(tile_view ID, width float32) {
+	C.Rtile_view_set_icon_width(C.Rid(tile_view), C.float(width))
+}
+
+func TileViewGetSectionCount(tile_view ID) int {
+	return int(C.Rtile_view_get_section_count(C.Rid(tile_view)))
+}
+
+// TileViewGetSectionOf: The section of a tile, or -1 (before the first section).
+func TileViewGetSectionOf(tile_view ID, index int) int {
+	return int(C.Rtile_view_get_section_of(C.Rid(tile_view), C.int(index)))
+}
+
+// TileViewSetSectionFolded: Folds or unfolds a section (the toggled callback is not called).
+func TileViewSetSectionFolded(tile_view ID, section int, folded int) {
+	C.Rtile_view_set_section_folded(C.Rid(tile_view), C.int(section), C.int(folded))
+}
+
+func TileViewIsSectionFolded(tile_view ID, section int) int {
+	return int(C.Rtile_view_is_section_folded(C.Rid(tile_view), C.int(section)))
+}
+
+// TileViewGetSectionAt: The section whose header is at a point relative to the widget, or -1.
+func TileViewGetSectionAt(tile_view ID, local_x float32, local_y float32) int {
+	return int(C.Rtile_view_get_section_at(C.Rid(tile_view), C.float(local_x), C.float(local_y)))
+}
+
 func TileViewSetSelected(tile_view ID, index int, selected int) {
 	C.Rtile_view_set_selected(C.Rid(tile_view), C.int(index), C.int(selected))
 }
@@ -4819,6 +4850,85 @@ func PdfViewGetTitle(view ID) string {
 // view.
 func PdfViewGetPageText(view ID, page int) string {
 	return C.GoString(C.Rpdf_view_get_page_text(C.Rid(view), C.int(page)))
+}
+
+func CarouselCreate() ID {
+	return ID(C.Rcarousel_create())
+}
+
+// CarouselSetPage: Shows a page, gliding to it when `animated` (and the animations are on), at once
+// otherwise. The page changed callback is not called.
+func CarouselSetPage(carousel ID, page int, animated int) {
+	C.Rcarousel_set_page(C.Rid(carousel), C.int(page), C.int(animated))
+}
+
+// CarouselGetPage: The page shown, -1 when the carousel has none.
+func CarouselGetPage(carousel ID) int {
+	return int(C.Rcarousel_get_page(C.Rid(carousel)))
+}
+
+// CarouselGetPageCount: Its children.
+func CarouselGetPageCount(carousel ID) int {
+	return int(C.Rcarousel_get_page_count(C.Rid(carousel)))
+}
+
+// CarouselNext: Glides to the next / previous page; nothing at the last / first one unless it loops.
+func CarouselNext(carousel ID) {
+	C.Rcarousel_next(C.Rid(carousel))
+}
+
+func CarouselPrev(carousel ID) {
+	C.Rcarousel_prev(C.Rid(carousel))
+}
+
+// CarouselSetLoop: R_TRUE: after the last page comes the first one, and before the first the last (default
+// R_FALSE).
+func CarouselSetLoop(carousel ID, loop int) {
+	C.Rcarousel_set_loop(C.Rid(carousel), C.int(loop))
+}
+
+func CarouselGetLoop(carousel ID) int {
+	return int(C.Rcarousel_get_loop(C.Rid(carousel)))
+}
+
+// CarouselSetAutoplay: Goes to the next page by itself every `seconds` (0: never, the default); after the
+// last page it comes back to the first. It waits while the pointer is on the carousel, while the pages are
+// dragged and while the keyboard is in it; a page chosen by the user starts the interval again.
+func CarouselSetAutoplay(carousel ID, seconds float64) {
+	C.Rcarousel_set_autoplay(C.Rid(carousel), C.double(seconds))
+}
+
+func CarouselGetAutoplay(carousel ID) float64 {
+	return float64(C.Rcarousel_get_autoplay(C.Rid(carousel)))
+}
+
+// CarouselSetIndicatorsVisible: The dots along the bottom edge (the right edge when vertical), one per page
+// (default R_TRUE).
+func CarouselSetIndicatorsVisible(carousel ID, visible int) {
+	C.Rcarousel_set_indicators_visible(C.Rid(carousel), C.int(visible))
+}
+
+func CarouselGetIndicatorsVisible(carousel ID) int {
+	return int(C.Rcarousel_get_indicators_visible(C.Rid(carousel)))
+}
+
+// CarouselSetArrowsVisible: The previous / next buttons shown while the pointer is on the carousel (default
+// R_TRUE).
+func CarouselSetArrowsVisible(carousel ID, visible int) {
+	C.Rcarousel_set_arrows_visible(C.Rid(carousel), C.int(visible))
+}
+
+func CarouselGetArrowsVisible(carousel ID) int {
+	return int(C.Rcarousel_get_arrows_visible(C.Rid(carousel)))
+}
+
+// CarouselSetOrientation: R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other.
+func CarouselSetOrientation(carousel ID, orientation ROrientation) {
+	C.Rcarousel_set_orientation(C.Rid(carousel), C.ROrientation(orientation))
+}
+
+func CarouselGetOrientation(carousel ID) ROrientation {
+	return ROrientation(C.Rcarousel_get_orientation(C.Rid(carousel)))
 }
 
 func MapViewCreate() ID {
@@ -7439,6 +7549,83 @@ func XmlGetAttributeCount(tag string) int {
 	return int(C.Rxml_get_attribute_count(tag_))
 }
 
+// ScriptLoad: Loads a script given as text (not an XML document): its functions become actions, its globals
+// are initialized. name Names it in the diagnostics (a file name); may be NULL. Returns: R_FALSE when it has
+// an error (nothing of it is installed).
+func ScriptLoad(source string, name string) int {
+	source_ := C.CString(source)
+	defer C.free(unsafe.Pointer(source_))
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Rscript_load(source_, C.size_t(len(source)), name_))
+}
+
+// ScriptLoadFile: The same from a file (.rvs).
+func ScriptLoadFile(path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rscript_load_file(path_))
+}
+
+// ScriptCheck: Checks a script, or the scripts of an XML document and the functions its widgets name, without
+// running anything nor building a widget. The diagnostics are reported as usual. source A script, or an XML
+// document (text that starts with '<'). Returns: The number of errors.
+func ScriptCheck(source string, name string) int {
+	source_ := C.CString(source)
+	defer C.free(unsafe.Pointer(source_))
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Rscript_check(source_, C.size_t(len(source)), name_))
+}
+
+// ScriptCheckFile: Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read.
+func ScriptCheckFile(path string) int {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return int(C.Rscript_check_file(path_))
+}
+
+// ScriptFormat: Formats a script: one statement per line, blocks indented, spaces around operators; comments
+// are kept. indent One level of indentation; NULL for four spaces. Returns: The text, valid until the next
+// call; NULL when the script has a syntax error (it is not changed).
+func ScriptFormat(source string, indent string) string {
+	source_ := C.CString(source)
+	defer C.free(unsafe.Pointer(source_))
+	indent_ := C.CString(indent)
+	defer C.free(unsafe.Pointer(indent_))
+	return C.GoString(C.Rscript_format(source_, C.size_t(len(source)), indent_))
+}
+
+// ScriptReset: Removes every script function (their actions are unbound) and every global. Not while a script
+// runs.
+func ScriptReset() {
+	C.Rscript_reset()
+}
+
+// ScriptHasFunction: Returns: R_TRUE when a script function has that name.
+func ScriptHasFunction(name string) int {
+	name_ := C.CString(name)
+	defer C.free(unsafe.Pointer(name_))
+	return int(C.Rscript_has_function(name_))
+}
+
+// ScriptSetEnabled: R_FALSE: the <Script> elements of the documents are read but not compiled nor run (a
+// design tool that shows interfaces without running them). On by default.
+func ScriptSetEnabled(enabled int) {
+	C.Rscript_set_enabled(C.int(enabled))
+}
+
+func ScriptIsEnabled() int {
+	return int(C.Rscript_is_enabled())
+}
+
+// ScriptSetLimits: The limits of the scripts. 0 keeps a value. max_instructions Instructions one invocation
+// (an event) may run (10 000 000). max_depth Calls nested (200). max_memory Bytes of strings and arrays alive
+// (64 MB).
+func ScriptSetLimits(max_instructions uint32, max_depth int, max_memory int) {
+	C.Rscript_set_limits(C.Ruint(max_instructions), C.int(max_depth), C.size_t(max_memory))
+}
+
 // LocaleLoadCsv: Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an
 // error.
 func LocaleLoadCsv(path string) int {
@@ -7721,10 +7908,12 @@ func HostInjectClose(window ID) {
 // Left to cgo (a pointer to a structure, a void* or a C callback among the parameters):
 // Rinit_ex, Rset_allocator, Rallocator_get_system, Rmemory_alloc, Rmemory_realloc, Rmemory_free
 // Rmemory_get_stats, Rset_frame_callback, Rset_app_event_callback, Rtask_post, Rtask_run_async
-// Rparallel_for, Rtimer_create, Raction_bind, Raction_set_default_handler, Rerror_get_last
-// Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area
-// Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback, Rwindow_set_icon
-// Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
+// Rparallel_for, Rtimer_create, Raction_bind, Raction_set_default_handler, Raction_bind_with_parameters
+// Raction_get_sender, Raction_get_name, Raction_get_argument_count, Raction_get_number, Raction_get_string
+// Raction_get_bool, Raction_return_number, Raction_return_string, Raction_return_bool, Raction_fail
+// Rerror_get_last, Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats
+// Rwindow_get_safe_area, Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback
+// Rwindow_set_icon, Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
 // Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle, Rwindow_capture
 // Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rtouch_get_settings
 // Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings, Rwindow_get_touch_settings
@@ -7739,30 +7928,31 @@ func HostInjectClose(window ID) {
 // Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback, Rtree_item_set_user_handle
 // Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
 // Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
-// Rtile_view_set_drag_data_callback, Rtile_view_set_selection_changed_callback
-// Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
-// Rtable_set_cell_color_callback, Rtable_set_selection_changed_callback, Rtable_set_activated_callback
-// Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
-// Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
-// Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
-// Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback
-// Rpdf_view_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
+// Rtile_view_set_sections, Rtile_view_set_section_toggled_callback, Rtile_view_set_drag_data_callback
+// Rtile_view_set_selection_changed_callback, Rtile_view_set_activated_callback
+// Rtile_view_set_context_callback, Rtable_set_virtual_rows, Rtable_set_cell_color_callback
+// Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
+// Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
+// Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
+// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
+// Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback, Rpdf_view_set_page_changed_callback
+// Rcarousel_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
 // Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile, Rmap_view_set_marker_clicked_callback
 // Rmap_view_set_view_changed_callback, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
 // Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
 // Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
-// Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
-// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
-// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
-// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
-// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
-// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
-// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
-// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
-// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
-// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
-// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
-// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rdock_area_set_close_callback, Rdock_area_set_float_window, Rdock_area_set_changed_callback
+// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
+// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
+// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
+// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
+// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
+// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
+// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
+// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
+// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
+// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
+// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
@@ -7770,5 +7960,6 @@ func HostInjectClose(window ID) {
 // Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect
 // Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
 // Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
-// Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
+// Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
+// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
 // Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets

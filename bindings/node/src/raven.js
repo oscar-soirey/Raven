@@ -169,8 +169,9 @@ export const RError = _enum({
 	R_ERROR_FILE_NOT_FOUND: 121,
 	R_ERROR_XML: 122,
 	R_ERROR_WRONG_THREAD: 123,
+	R_ERROR_SCRIPT: 124,
 });
-export const { R_NO_ERROR, R_ERROR_INVALID_ID, R_ERROR_INVALID_ENUM, R_ERROR_INVALID_VALUE, R_ERROR_INVALID_OPERATION, R_ERROR_BACKEND, R_ERROR_PLATFORM, R_ERROR_OUT_OF_MEMORY, R_ERROR_INVALID_FILE_FORMAT, R_ERROR_FILE_NOT_FOUND, R_ERROR_XML, R_ERROR_WRONG_THREAD } = RError;
+export const { R_NO_ERROR, R_ERROR_INVALID_ID, R_ERROR_INVALID_ENUM, R_ERROR_INVALID_VALUE, R_ERROR_INVALID_OPERATION, R_ERROR_BACKEND, R_ERROR_PLATFORM, R_ERROR_OUT_OF_MEMORY, R_ERROR_INVALID_FILE_FORMAT, R_ERROR_FILE_NOT_FOUND, R_ERROR_XML, R_ERROR_WRONG_THREAD, R_ERROR_SCRIPT } = RError;
 
 export const RSeverity = _enum({
 	R_SEVERITY_WEAK_WARNING: 128,
@@ -651,8 +652,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_PDF_VIEW: 563,
 	R_WIDGET_CHART: 564,
 	R_WIDGET_MAP_VIEW: 565,
+	R_WIDGET_CAROUSEL: 566,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW, R_WIDGET_CAROUSEL } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -3224,6 +3226,17 @@ export const Raction_bind = _lib.Raction_bind;
 export const Raction_unbind = _lib.Raction_unbind;
 export const Raction_fire = _lib.Raction_fire;
 export const Raction_set_default_handler = _lib.Raction_set_default_handler;
+export const Raction_bind_with_parameters = _lib.Raction_bind_with_parameters;
+export const Raction_get_sender = _lib.Raction_get_sender;
+export const Raction_get_name = _lib.Raction_get_name;
+export const Raction_get_argument_count = _lib.Raction_get_argument_count;
+export const Raction_get_number = _lib.Raction_get_number;
+export const Raction_get_string = _lib.Raction_get_string;
+export const Raction_get_bool = _lib.Raction_get_bool;
+export const Raction_return_number = _lib.Raction_return_number;
+export const Raction_return_string = _lib.Raction_return_string;
+export const Raction_return_bool = _lib.Raction_return_bool;
+export const Raction_fail = _lib.Raction_fail;
 export const Raction_set_builtins = _lib.Raction_set_builtins;
 export const Raction_is_builtin = _lib.Raction_is_builtin;
 export const Ropen_url = _lib.Ropen_url;
@@ -4545,6 +4558,18 @@ export const Rxml_get_attribute_count = _lib.Rxml_get_attribute_count;
 export function Rxml_get_attribute_info(tag, index, info) {
 	return _lib.Rxml_get_attribute_info(tag, index, _p(info));
 }
+export const Rscript_load = _lib.Rscript_load;
+export const Rscript_load_file = _lib.Rscript_load_file;
+export const Rscript_check = _lib.Rscript_check;
+export const Rscript_check_file = _lib.Rscript_check_file;
+export const Rscript_format = _lib.Rscript_format;
+export const Rscript_reset = _lib.Rscript_reset;
+export const Rscript_has_function = _lib.Rscript_has_function;
+export const Rscript_set_enabled = _lib.Rscript_set_enabled;
+export const Rscript_is_enabled = _lib.Rscript_is_enabled;
+export const Rscript_set_limits = _lib.Rscript_set_limits;
+export const Rscript_set_log_callback = _lib.Rscript_set_log_callback;
+export const Rscript_set_diagnostic_callback = _lib.Rscript_set_diagnostic_callback;
 export const Rlocale_load_csv = _lib.Rlocale_load_csv;
 export const Rlocale_load_csv_from_memory = _lib.Rlocale_load_csv_from_memory;
 export const Rlocale_clear = _lib.Rlocale_clear;

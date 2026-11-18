@@ -31,6 +31,7 @@ local ffi = require("ffi")
 ffi.cdef[[
 typedef uint32_t Rid;
 typedef uint32_t Ruint;
+typedef struct RActionContext RActionContext;
 typedef struct RPainter RPainter;
 typedef enum RBackend {
 	R_BACKEND_VULKAN = 1,
@@ -51,6 +52,7 @@ typedef enum RError {
 	R_ERROR_FILE_NOT_FOUND = 121,
 	R_ERROR_XML = 122,
 	R_ERROR_WRONG_THREAD = 123,
+	R_ERROR_SCRIPT = 124,
 } RError;
 typedef enum RSeverity {
 	R_SEVERITY_WEAK_WARNING = 128,
@@ -473,6 +475,7 @@ typedef enum RWidgetType {
 	R_WIDGET_PDF_VIEW = 563,
 	R_WIDGET_CHART = 564,
 	R_WIDGET_MAP_VIEW = 565,
+	R_WIDGET_CAROUSEL = 566,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -864,6 +867,7 @@ typedef void (*RTaskCallback)(void* user_data);
 typedef void (*RParallelRangeCallback)(Ruint begin, Ruint end, void* user_data);
 typedef void (*RTimerCallback)(Rid timer, void* user_data);
 typedef void (*RActionCallback)(Rid sender, const char* action, void* user_data);
+typedef void (*RActionParametersCallback)(RActionContext* context, void* user_data);
 typedef void (*RErrorCallback)(RError code, RSeverity severity, const char* detail);
 typedef void (*RDeviceResetCallback)(void* user_data);
 typedef void (*RKeyboardCallback)(Rid window, int visible, float height, void* user_data);
@@ -914,6 +918,7 @@ typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* use
 typedef void (*RChartSliceCallback)(Rid chart, int slice, int selected, void* user_data);
 typedef void (*RChartCellCallback)(Rid chart, int row, int column, float value, void* user_data);
 typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_data);
 typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
 typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
 typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);
@@ -946,6 +951,8 @@ typedef void (*RMeasureCallback)(Rid widget, float* width, float* height, void* 
 typedef void (*RXmlReloadCallback)(const char* path, int ok, void* user_data);
 typedef Rid (*RXmlTagCreateCallback)(const char* tag, void* user_data);
 typedef int (*RXmlTagAttributeCallback)(Rid widget, const char* name, const char* value, void* user_data);
+typedef void (*RScriptLogCallback)(const char* message, void* user_data);
+typedef void (*RScriptDiagnosticCallback)(RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* user_data);
 typedef void (*RLocaleChangedCallback)(const char* language, void* user_data);
 typedef void (*RAccessiblePressCallback)(Rid widget, void* user_data);
 struct RInitDesc {
@@ -1273,6 +1280,17 @@ void Raction_bind(const char* name, RActionCallback callback, void* user_data);
 void Raction_unbind(const char* name);
 void Raction_fire(const char* name, Rid sender);
 void Raction_set_default_handler(RActionCallback callback, void* user_data);
+int Raction_bind_with_parameters(const char* name, const char* signature, RActionParametersCallback callback, void* user_data);
+Rid Raction_get_sender(const RActionContext* context);
+const char* Raction_get_name(const RActionContext* context);
+int Raction_get_argument_count(const RActionContext* context);
+double Raction_get_number(const RActionContext* context, int index);
+const char* Raction_get_string(const RActionContext* context, int index);
+int Raction_get_bool(const RActionContext* context, int index);
+void Raction_return_number(RActionContext* context, double value);
+void Raction_return_string(RActionContext* context, const char* value);
+void Raction_return_bool(RActionContext* context, int value);
+void Raction_fail(RActionContext* context, const char* message);
 void Raction_set_builtins(int enabled);
 int Raction_is_builtin(const char* name);
 int Ropen_url(const char* url);
@@ -2506,6 +2524,18 @@ const char* Rxml_get_tag_description(const char* tag);
 int Rxml_get_tag_children(const char* tag);
 int Rxml_get_attribute_count(const char* tag);
 int Rxml_get_attribute_info(const char* tag, int index, RXmlAttributeInfo* info);
+int Rscript_load(const char* source, size_t size, const char* name);
+int Rscript_load_file(const char* path);
+int Rscript_check(const char* source, size_t size, const char* name);
+int Rscript_check_file(const char* path);
+const char* Rscript_format(const char* source, size_t size, const char* indent);
+void Rscript_reset(void);
+int Rscript_has_function(const char* name);
+void Rscript_set_enabled(int enabled);
+int Rscript_is_enabled(void);
+void Rscript_set_limits(Ruint max_instructions, int max_depth, size_t max_memory);
+void Rscript_set_log_callback(RScriptLogCallback callback, void* user_data);
+void Rscript_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data);
 int Rlocale_load_csv(const char* path);
 int Rlocale_load_csv_from_memory(const char* csv, size_t size);
 void Rlocale_clear(void);

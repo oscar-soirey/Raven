@@ -202,6 +202,17 @@ const _symbols = {
 	Raction_unbind: { args: ["ptr"], returns: "void" },
 	Raction_fire: { args: ["ptr", "u32"], returns: "void" },
 	Raction_set_default_handler: { args: ["ptr", "ptr"], returns: "void" },
+	Raction_bind_with_parameters: { args: ["ptr", "ptr", "ptr", "ptr"], returns: "i32" },
+	Raction_get_sender: { args: ["ptr"], returns: "u32" },
+	Raction_get_name: { args: ["ptr"], returns: "cstring" },
+	Raction_get_argument_count: { args: ["ptr"], returns: "i32" },
+	Raction_get_number: { args: ["ptr", "i32"], returns: "f64" },
+	Raction_get_string: { args: ["ptr", "i32"], returns: "cstring" },
+	Raction_get_bool: { args: ["ptr", "i32"], returns: "i32" },
+	Raction_return_number: { args: ["ptr", "f64"], returns: "void" },
+	Raction_return_string: { args: ["ptr", "ptr"], returns: "void" },
+	Raction_return_bool: { args: ["ptr", "i32"], returns: "void" },
+	Raction_fail: { args: ["ptr", "ptr"], returns: "void" },
 	Raction_set_builtins: { args: ["i32"], returns: "void" },
 	Raction_is_builtin: { args: ["ptr"], returns: "i32" },
 	Ropen_url: { args: ["ptr"], returns: "i32" },
@@ -1435,6 +1446,18 @@ const _symbols = {
 	Rxml_get_tag_children: { args: ["ptr"], returns: "i32" },
 	Rxml_get_attribute_count: { args: ["ptr"], returns: "i32" },
 	Rxml_get_attribute_info: { args: ["ptr", "i32", "ptr"], returns: "i32" },
+	Rscript_load: { args: ["ptr", "usize", "ptr"], returns: "i32" },
+	Rscript_load_file: { args: ["ptr"], returns: "i32" },
+	Rscript_check: { args: ["ptr", "usize", "ptr"], returns: "i32" },
+	Rscript_check_file: { args: ["ptr"], returns: "i32" },
+	Rscript_format: { args: ["ptr", "usize", "ptr"], returns: "cstring" },
+	Rscript_reset: { args: [], returns: "void" },
+	Rscript_has_function: { args: ["ptr"], returns: "i32" },
+	Rscript_set_enabled: { args: ["i32"], returns: "void" },
+	Rscript_is_enabled: { args: [], returns: "i32" },
+	Rscript_set_limits: { args: ["u32", "i32", "usize"], returns: "void" },
+	Rscript_set_log_callback: { args: ["ptr", "ptr"], returns: "void" },
+	Rscript_set_diagnostic_callback: { args: ["ptr", "ptr"], returns: "void" },
 	Rlocale_load_csv: { args: ["ptr"], returns: "i32" },
 	Rlocale_load_csv_from_memory: { args: ["ptr", "usize"], returns: "i32" },
 	Rlocale_clear: { args: [], returns: "void" },
@@ -1546,6 +1569,8 @@ export enum RError {
 	R_ERROR_FILE_NOT_FOUND = 0x0079,
 	R_ERROR_XML = 0x007A,
 	R_ERROR_WRONG_THREAD = 0x007B,
+	/** A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...". */
+	R_ERROR_SCRIPT = 0x007C,
 }
 
 export const R_NO_ERROR = RError.R_NO_ERROR;
@@ -1560,6 +1585,7 @@ export const R_ERROR_INVALID_FILE_FORMAT = RError.R_ERROR_INVALID_FILE_FORMAT;
 export const R_ERROR_FILE_NOT_FOUND = RError.R_ERROR_FILE_NOT_FOUND;
 export const R_ERROR_XML = RError.R_ERROR_XML;
 export const R_ERROR_WRONG_THREAD = RError.R_ERROR_WRONG_THREAD;
+export const R_ERROR_SCRIPT = RError.R_ERROR_SCRIPT;
 
 export enum RSeverity {
 	R_SEVERITY_WEAK_WARNING = 0x0080,
@@ -2613,6 +2639,8 @@ export enum RWidgetType {
 	R_WIDGET_CHART = 0x0234,
 	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
 	R_WIDGET_MAP_VIEW = 0x0235,
+	/** Pages shown one at a time and swiped (a page view): arrows, dots, autoplay. */
+	R_WIDGET_CAROUSEL = 0x0236,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2669,6 +2697,7 @@ export const R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT;
 export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
 export const R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART;
 export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
+export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -5813,6 +5842,21 @@ function _adapt_RActionCallback(function_: RActionCallback | Pointer | null, thr
 	}, { args: ["u32", "ptr", "ptr"], returns: "void", threadsafe }));
 }
 
+export type RActionParametersCallback = (context: Pointer | null, user_data: Pointer | null) => void;
+
+function _adapt_RActionParametersCallback(function_: RActionParametersCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((context: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(context, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["ptr", "ptr"], returns: "void", threadsafe }));
+}
+
 /**
  * Registers a function called whenever an error is raised.
  * The function may be registered before Rinit. It is called on the
@@ -6708,6 +6752,26 @@ function _adapt_RPdfPageChangedCallback(function_: RPdfPageChangedCallback | Poi
 	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
+/**
+ * Called when the user goes to another page (a swipe, the keys, a
+ * dot, an arrow) and when the autoplay does. This also fires the action
+ * of the widget.
+ */
+export type RCarouselPageChangedCallback = (carousel: Rid, page: number, user_data: Pointer | null) => void;
+
+function _adapt_RCarouselPageChangedCallback(function_: RCarouselPageChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((carousel: number, page: number, user_data: Pointer | null): void => {
+		try {
+			function_(carousel, page, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
 /** Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
 export type RMapTileCallback = (map: Rid, z: number, x: number, y: number, user_data: Pointer | null) => void;
 
@@ -7284,6 +7348,43 @@ function _adapt_RXmlTagAttributeCallback(function_: RXmlTagAttributeCallback | P
 	}, { args: ["u32", "ptr", "ptr", "ptr"], returns: "i32", threadsafe }));
 }
 
+/** Where app.log writes: the standard output when NULL. */
+export type RScriptLogCallback = (message: string | null, user_data: Pointer | null) => void;
+
+function _adapt_RScriptLogCallback(function_: RScriptLogCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((message: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(_text(message), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["ptr", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Receives the diagnostics of the scripts instead of the error
+ * callback. `text` is the whole message, as the command line shows it;
+ * `code` is its code ("RS102"); `line` and `column` start at 1 (0 when
+ * the diagnostic has no place). NULL gives them back to the error callback.
+ */
+export type RScriptDiagnosticCallback = (severity: RSeverity, code: string | null, file: string | null, line: number, column: number, text: string | null, user_data: Pointer | null) => void;
+
+function _adapt_RScriptDiagnosticCallback(function_: RScriptDiagnosticCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((severity: number, code: Pointer | null, file: Pointer | null, line: number, column: number, text: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(severity as RSeverity, _text(code), _text(file), line, column, _text(text), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["i32", "ptr", "ptr", "i32", "i32", "ptr", "ptr"], returns: "void", threadsafe }));
+}
+
 export type RLocaleChangedCallback = (language: string | null, user_data: Pointer | null) => void;
 
 function _adapt_RLocaleChangedCallback(function_: RLocaleChangedCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -7629,6 +7730,59 @@ export function Raction_fire(name: string | null, sender: Rid): void {
 /** Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge). */
 export function Raction_set_default_handler(callback: RActionCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Raction_set_default_handler(_adapt_RActionCallback(callback), user_data);
+}
+
+export function Raction_bind_with_parameters(name: string | null, signature: string | null, callback: RActionParametersCallback | Pointer | null, user_data: RPointer = null): number {
+	return _lib.Raction_bind_with_parameters(_s(name), _s(signature), _adapt_RActionParametersCallback(callback), user_data);
+}
+
+/** Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it. */
+export function Raction_get_sender(context: RPointer): Rid {
+	return _lib.Raction_get_sender(context);
+}
+
+export function Raction_get_name(context: RPointer): string | null {
+	return _lib.Raction_get_name(context);
+}
+
+/** Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more. */
+export function Raction_get_argument_count(context: RPointer): number {
+	return _lib.Raction_get_argument_count(context);
+}
+
+/** The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE. */
+export function Raction_get_number(context: RPointer, index: number): number {
+	return _lib.Raction_get_number(context, index);
+}
+
+/** Returns: Valid until the function returns. */
+export function Raction_get_string(context: RPointer, index: number): string | null {
+	return _lib.Raction_get_string(context, index);
+}
+
+export function Raction_get_bool(context: RPointer, index: number): number {
+	return _lib.Raction_get_bool(context, index);
+}
+
+/** The value returned to the script; of the type of the signature (what is set last counts). */
+export function Raction_return_number(context: RPointer, value: number): void {
+	_lib.Raction_return_number(context, value);
+}
+
+export function Raction_return_string(context: RPointer, value: string | null): void {
+	_lib.Raction_return_string(context, _s(value));
+}
+
+export function Raction_return_bool(context: RPointer, value: number): void {
+	_lib.Raction_return_bool(context, value);
+}
+
+/**
+ * The function failed: the script that called it stops with error
+ * RS205 and this message (the application goes on; so does the next event).
+ */
+export function Raction_fail(context: RPointer, message: string | null): void {
+	_lib.Raction_fail(context, _s(message));
 }
 
 /**
@@ -14659,6 +14813,92 @@ export function Rxml_get_attribute_count(tag: string | null): number {
 
 export function Rxml_get_attribute_info(tag: string | null, index: number, info: RXmlAttributeInfo | null): number {
 	return _lib.Rxml_get_attribute_info(_s(tag), index, _p(info));
+}
+
+/**
+ * Loads a script given as text (not an XML document): its
+ * functions become actions, its globals are initialized.
+ * name Names it in the diagnostics (a file name); may be NULL.
+ * Returns: R_FALSE when it has an error (nothing of it is installed).
+ */
+export function Rscript_load(source: string | null, name: string | null): number {
+	const source_ = _s(source);
+	return _lib.Rscript_load(source_, source_ === null ? 0 : source_.length - 1, _s(name));
+}
+
+/** The same from a file (.rvs). */
+export function Rscript_load_file(path: string | null): number {
+	return _lib.Rscript_load_file(_s(path));
+}
+
+/**
+ * Checks a script, or the scripts of an XML document and the
+ * functions its widgets name, without running anything nor building a
+ * widget. The diagnostics are reported as usual.
+ * source A script, or an XML document (text that starts with '<').
+ * Returns: The number of errors.
+ */
+export function Rscript_check(source: string | null, name: string | null): number {
+	const source_ = _s(source);
+	return _lib.Rscript_check(source_, source_ === null ? 0 : source_.length - 1, _s(name));
+}
+
+/** Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read. */
+export function Rscript_check_file(path: string | null): number {
+	return _lib.Rscript_check_file(_s(path));
+}
+
+/**
+ * Formats a script: one statement per line, blocks indented,
+ * spaces around operators; comments are kept.
+ * indent One level of indentation; NULL for four spaces.
+ * Returns: The text, valid until the next call; NULL when the script has a
+ * syntax error (it is not changed).
+ */
+export function Rscript_format(source: string | null, indent: string | null): string | null {
+	const source_ = _s(source);
+	return _lib.Rscript_format(source_, source_ === null ? 0 : source_.length - 1, _s(indent));
+}
+
+/** Removes every script function (their actions are unbound) and every global. Not while a script runs. */
+export function Rscript_reset(): void {
+	_lib.Rscript_reset();
+}
+
+/** Returns: R_TRUE when a script function has that name. */
+export function Rscript_has_function(name: string | null): number {
+	return _lib.Rscript_has_function(_s(name));
+}
+
+/**
+ * R_FALSE: the <Script> elements of the documents are read but not
+ * compiled nor run (a design tool that shows interfaces without running
+ * them). On by default.
+ */
+export function Rscript_set_enabled(enabled: number): void {
+	_lib.Rscript_set_enabled(enabled);
+}
+
+export function Rscript_is_enabled(): number {
+	return _lib.Rscript_is_enabled();
+}
+
+/**
+ * The limits of the scripts. 0 keeps a value.
+ * max_instructions Instructions one invocation (an event) may run (10 000 000).
+ * max_depth Calls nested (200).
+ * max_memory Bytes of strings and arrays alive (64 MB).
+ */
+export function Rscript_set_limits(max_instructions: number, max_depth: number, max_memory: number): void {
+	_lib.Rscript_set_limits(max_instructions, max_depth, max_memory);
+}
+
+export function Rscript_set_log_callback(callback: RScriptLogCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rscript_set_log_callback(_adapt_RScriptLogCallback(callback), user_data);
+}
+
+export function Rscript_set_diagnostic_callback(callback: RScriptDiagnosticCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rscript_set_diagnostic_callback(_adapt_RScriptDiagnosticCallback(callback), user_data);
 }
 
 /** Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error. */

@@ -31,6 +31,8 @@ Error :: enum i32 {
 	Error_File_Not_Found = 0x0079,
 	Error_Xml = 0x007A,
 	Error_Wrong_Thread = 0x007B,
+	// A diagnostic of Raven Script (raven_script.h): the text is the whole message, "error[RS102]: ...".
+	Error_Script = 0x007C,
 }
 
 Severity :: enum i32 {
@@ -711,6 +713,8 @@ Widget_Type :: enum i32 {
 	Chart = 0x0234,
 	// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
 	Map_View = 0x0235,
+	// Pages shown one at a time and swiped (a page view): arrows, dots, autoplay.
+	Carousel = 0x0236,
 }
 
 H_Align :: enum i32 {

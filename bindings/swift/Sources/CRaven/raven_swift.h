@@ -21,6 +21,7 @@
 #include "../../../../include/raven/raven_draw.h"
 #include "../../../../include/raven/raven_shader.h"
 #include "../../../../include/raven/raven_xml.h"
+#include "../../../../include/raven/raven_script.h"
 #include "../../../../include/raven/raven_locale.h"
 #include "../../../../include/raven/raven_accessibility.h"
 #include "../../../../include/raven/raven_host.h"

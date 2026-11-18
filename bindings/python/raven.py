@@ -138,6 +138,7 @@ class RError(enum.IntEnum):
     R_ERROR_FILE_NOT_FOUND = 0x0079
     R_ERROR_XML = 0x007A
     R_ERROR_WRONG_THREAD = 0x007B
+    R_ERROR_SCRIPT = 0x007C
 
 R_NO_ERROR = RError.R_NO_ERROR
 R_ERROR_INVALID_ID = RError.R_ERROR_INVALID_ID
@@ -151,6 +152,7 @@ R_ERROR_INVALID_FILE_FORMAT = RError.R_ERROR_INVALID_FILE_FORMAT
 R_ERROR_FILE_NOT_FOUND = RError.R_ERROR_FILE_NOT_FOUND
 R_ERROR_XML = RError.R_ERROR_XML
 R_ERROR_WRONG_THREAD = RError.R_ERROR_WRONG_THREAD
+R_ERROR_SCRIPT = RError.R_ERROR_SCRIPT
 
 class RSeverity(enum.IntEnum):
     R_SEVERITY_WEAK_WARNING = 0x0080
@@ -963,6 +965,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_PDF_VIEW = 0x0233
     R_WIDGET_CHART = 0x0234
     R_WIDGET_MAP_VIEW = 0x0235
+    R_WIDGET_CAROUSEL = 0x0236
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1018,6 +1021,7 @@ R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT
 R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
 R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART
 R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
+R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -2159,6 +2163,14 @@ def _adapt_RActionCallback(function):
         function(sender, _r(action), user_data)
     return call
 
+RActionParametersCallback = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p)
+
+
+def _adapt_RActionParametersCallback(function):
+    def call(context, user_data):
+        function(context, user_data)
+    return call
+
 RErrorCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_int, ctypes.c_char_p)
 
 
@@ -2565,6 +2577,14 @@ def _adapt_RPdfPageChangedCallback(function):
         function(view, page, user_data)
     return call
 
+RCarouselPageChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RCarouselPageChangedCallback(function):
+    def call(carousel, page, user_data):
+        function(carousel, page, user_data)
+    return call
+
 RMapTileCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p)
 
 
@@ -2821,6 +2841,22 @@ RXmlTagAttributeCallback = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_uint32, ctype
 def _adapt_RXmlTagAttributeCallback(function):
     def call(widget, name, value, user_data):
         return function(widget, _r(name), _r(value), user_data) or 0
+    return call
+
+RScriptLogCallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RScriptLogCallback(function):
+    def call(message, user_data):
+        function(_r(message), user_data)
+    return call
+
+RScriptDiagnosticCallback = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RScriptDiagnosticCallback(function):
+    def call(severity, code, file, line, column, text, user_data):
+        function(_e(RSeverity, severity), _r(code), _r(file), line, column, _r(text), user_data)
     return call
 
 RLocaleChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_void_p)
@@ -3300,6 +3336,101 @@ _lib.Raction_set_default_handler.restype = None
 def Raction_set_default_handler(callback, user_data=None):
     """Receives every action that has no bound function and is not one of the built-in actions (e.g. a script bridge)."""
     _lib.Raction_set_default_handler(_callback(RActionCallback, _adapt_RActionCallback, callback), user_data)
+
+
+_lib.Raction_bind_with_parameters.argtypes = [ctypes.c_char_p, ctypes.c_char_p, RActionParametersCallback, ctypes.c_void_p]
+_lib.Raction_bind_with_parameters.restype = ctypes.c_int
+
+
+def Raction_bind_with_parameters(name, signature, callback, user_data=None):
+    return _lib.Raction_bind_with_parameters(_s(name), _s(signature), _callback(RActionParametersCallback, _adapt_RActionParametersCallback, callback), user_data)
+
+
+_lib.Raction_get_sender.argtypes = [ctypes.c_void_p]
+_lib.Raction_get_sender.restype = ctypes.c_uint32
+
+
+def Raction_get_sender(context):
+    """Returns: The widget whose event fired the action, R_INVALID_ID when a script calls it."""
+    return _lib.Raction_get_sender(context)
+
+
+_lib.Raction_get_name.argtypes = [ctypes.c_void_p]
+_lib.Raction_get_name.restype = ctypes.c_char_p
+
+
+def Raction_get_name(context):
+    return _r(_lib.Raction_get_name(context))
+
+
+_lib.Raction_get_argument_count.argtypes = [ctypes.c_void_p]
+_lib.Raction_get_argument_count.restype = ctypes.c_int
+
+
+def Raction_get_argument_count(context):
+    """Returns: The number of arguments given: the parameters of the signature, fewer when an event gives fewer... never more."""
+    return _lib.Raction_get_argument_count(context)
+
+
+_lib.Raction_get_number.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_lib.Raction_get_number.restype = ctypes.c_double
+
+
+def Raction_get_number(context, index):
+    """The arguments, by position from 0. A wrong index or type reports an error and gives 0, "" or R_FALSE."""
+    return _lib.Raction_get_number(context, index)
+
+
+_lib.Raction_get_string.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_lib.Raction_get_string.restype = ctypes.c_char_p
+
+
+def Raction_get_string(context, index):
+    """Returns: Valid until the function returns."""
+    return _r(_lib.Raction_get_string(context, index))
+
+
+_lib.Raction_get_bool.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_lib.Raction_get_bool.restype = ctypes.c_int
+
+
+def Raction_get_bool(context, index):
+    return _lib.Raction_get_bool(context, index)
+
+
+_lib.Raction_return_number.argtypes = [ctypes.c_void_p, ctypes.c_double]
+_lib.Raction_return_number.restype = None
+
+
+def Raction_return_number(context, value):
+    """The value returned to the script; of the type of the signature (what is set last counts)."""
+    _lib.Raction_return_number(context, value)
+
+
+_lib.Raction_return_string.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+_lib.Raction_return_string.restype = None
+
+
+def Raction_return_string(context, value):
+    _lib.Raction_return_string(context, _s(value))
+
+
+_lib.Raction_return_bool.argtypes = [ctypes.c_void_p, ctypes.c_int]
+_lib.Raction_return_bool.restype = None
+
+
+def Raction_return_bool(context, value):
+    _lib.Raction_return_bool(context, value)
+
+
+_lib.Raction_fail.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+_lib.Raction_fail.restype = None
+
+
+def Raction_fail(context, message):
+    """The function failed: the script that called it stops with error
+    RS205 and this message (the application goes on; so does the next event)."""
+    _lib.Raction_fail(context, _s(message))
 
 
 _lib.Raction_set_builtins.argtypes = [ctypes.c_int]
@@ -14804,6 +14935,130 @@ _lib.Rxml_get_attribute_info.restype = ctypes.c_int
 
 def Rxml_get_attribute_info(tag, index, info):
     return _lib.Rxml_get_attribute_info(_s(tag), index, _p(info))
+
+
+_lib.Rscript_load.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+_lib.Rscript_load.restype = ctypes.c_int
+
+
+def Rscript_load(source, name):
+    """Loads a script given as text (not an XML document): its
+    functions become actions, its globals are initialized.
+    name Names it in the diagnostics (a file name); may be NULL.
+    Returns: R_FALSE when it has an error (nothing of it is installed)."""
+    source = _s(source)
+    return _lib.Rscript_load(source, len(source) if source is not None else 0, _s(name))
+
+
+_lib.Rscript_load_file.argtypes = [ctypes.c_char_p]
+_lib.Rscript_load_file.restype = ctypes.c_int
+
+
+def Rscript_load_file(path):
+    """The same from a file (.rvs)."""
+    return _lib.Rscript_load_file(_s(path))
+
+
+_lib.Rscript_check.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+_lib.Rscript_check.restype = ctypes.c_int
+
+
+def Rscript_check(source, name):
+    """Checks a script, or the scripts of an XML document and the
+    functions its widgets name, without running anything nor building a
+    widget. The diagnostics are reported as usual.
+    source A script, or an XML document (text that starts with '<').
+    Returns: The number of errors."""
+    source = _s(source)
+    return _lib.Rscript_check(source, len(source) if source is not None else 0, _s(name))
+
+
+_lib.Rscript_check_file.argtypes = [ctypes.c_char_p]
+_lib.Rscript_check_file.restype = ctypes.c_int
+
+
+def Rscript_check_file(path):
+    """Returns: The number of errors in the file (a .rvs or an .xml), -1 when it cannot be read."""
+    return _lib.Rscript_check_file(_s(path))
+
+
+_lib.Rscript_format.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p]
+_lib.Rscript_format.restype = ctypes.c_char_p
+
+
+def Rscript_format(source, indent):
+    """Formats a script: one statement per line, blocks indented,
+    spaces around operators; comments are kept.
+    indent One level of indentation; NULL for four spaces.
+    Returns: The text, valid until the next call; NULL when the script has a
+    syntax error (it is not changed)."""
+    source = _s(source)
+    return _r(_lib.Rscript_format(source, len(source) if source is not None else 0, _s(indent)))
+
+
+_lib.Rscript_reset.argtypes = []
+_lib.Rscript_reset.restype = None
+
+
+def Rscript_reset():
+    """Removes every script function (their actions are unbound) and every global. Not while a script runs."""
+    _lib.Rscript_reset()
+
+
+_lib.Rscript_has_function.argtypes = [ctypes.c_char_p]
+_lib.Rscript_has_function.restype = ctypes.c_int
+
+
+def Rscript_has_function(name):
+    """Returns: R_TRUE when a script function has that name."""
+    return _lib.Rscript_has_function(_s(name))
+
+
+_lib.Rscript_set_enabled.argtypes = [ctypes.c_int]
+_lib.Rscript_set_enabled.restype = None
+
+
+def Rscript_set_enabled(enabled):
+    """R_FALSE: the <Script> elements of the documents are read but not
+    compiled nor run (a design tool that shows interfaces without running
+    them). On by default."""
+    _lib.Rscript_set_enabled(enabled)
+
+
+_lib.Rscript_is_enabled.argtypes = []
+_lib.Rscript_is_enabled.restype = ctypes.c_int
+
+
+def Rscript_is_enabled():
+    return _lib.Rscript_is_enabled()
+
+
+_lib.Rscript_set_limits.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_size_t]
+_lib.Rscript_set_limits.restype = None
+
+
+def Rscript_set_limits(max_instructions, max_depth, max_memory):
+    """The limits of the scripts. 0 keeps a value.
+    max_instructions Instructions one invocation (an event) may run (10 000 000).
+    max_depth Calls nested (200).
+    max_memory Bytes of strings and arrays alive (64 MB)."""
+    _lib.Rscript_set_limits(max_instructions, max_depth, max_memory)
+
+
+_lib.Rscript_set_log_callback.argtypes = [RScriptLogCallback, ctypes.c_void_p]
+_lib.Rscript_set_log_callback.restype = None
+
+
+def Rscript_set_log_callback(callback, user_data=None):
+    _lib.Rscript_set_log_callback(_callback(RScriptLogCallback, _adapt_RScriptLogCallback, callback), user_data)
+
+
+_lib.Rscript_set_diagnostic_callback.argtypes = [RScriptDiagnosticCallback, ctypes.c_void_p]
+_lib.Rscript_set_diagnostic_callback.restype = None
+
+
+def Rscript_set_diagnostic_callback(callback, user_data=None):
+    _lib.Rscript_set_diagnostic_callback(_callback(RScriptDiagnosticCallback, _adapt_RScriptDiagnosticCallback, callback), user_data)
 
 
 _lib.Rlocale_load_csv.argtypes = [ctypes.c_char_p]
