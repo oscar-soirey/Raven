@@ -107,6 +107,8 @@ fn void? check()
 
 constset Backend : CInt
 {
+	<* The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
+	DEFAULT = 0,
 	<* Built-in Vulkan renderer. *>
 	VULKAN = 1,
 	<* Renders nothing. Used for headless runs and unit tests. *>
@@ -1804,7 +1806,7 @@ alias AccessiblePressCallback = fn void(Id widget, void* user_data);
 *>
 struct InitDesc
 {
-	<* Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
+	<* Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
 	Backend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	ZString app_name;

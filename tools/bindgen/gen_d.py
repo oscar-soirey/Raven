@@ -164,7 +164,7 @@ PACKAGE_D = '''/**
  *
  * void main()
  * {
- *     Rinit(R_BACKEND_VULKAN);
+ *     Rinit(R_BACKEND_DEFAULT);
  *     windowFromXml(`<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>`);
  *     actionBind("quit", (Rid, string) { Rquit(0); });
  *     while (Rwait_frame(-1)) {}
@@ -363,7 +363,7 @@ void main(string[] args)
 {
     bool test = args.canFind("--test");
     RInitDesc desc;
-    desc.backend = test ? R_BACKEND_NULL : R_BACKEND_VULKAN;
+    desc.backend = test ? R_BACKEND_NULL : R_BACKEND_DEFAULT;
     desc.headless = test;
     if (!Rinit_ex(&desc))
     {
@@ -507,7 +507,7 @@ import std.stdio : writeln;
 
 void main()
 {
-    Rinit(R_BACKEND_VULKAN);
+    Rinit(R_BACKEND_DEFAULT);
     Rid window = windowFromXml(`
         <Window Title="Hello" Width="320" Height="160">
             <VBox Spacing="10" Slot.Padding="16">

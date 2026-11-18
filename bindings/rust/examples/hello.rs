@@ -26,7 +26,7 @@ fn main() {
     let test = std::env::args().any(|argument| argument == "--test");
     unsafe {
         let mut desc: RInitDesc = std::mem::zeroed();
-        desc.backend = if test { R_BACKEND_NULL } else { R_BACKEND_VULKAN };
+        desc.backend = if test { R_BACKEND_NULL } else { R_BACKEND_DEFAULT };
         desc.headless = test as i32;
         if Rinit_ex(&desc) == 0 {
             eprintln!("cannot start Raven");

@@ -39,7 +39,7 @@ The example of this folder (its `config.nims` reads `RAVEN_LIB_DIR`):
 ```nim
 import raven_gui
 
-discard Rinit(R_BACKEND_VULKAN)
+discard Rinit(R_BACKEND_DEFAULT)
 let window = windowFromXml("""
   <Window Title="Hello" Width="320" Height="160">
     <VBox Spacing="10" Slot.Padding="16">

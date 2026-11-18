@@ -2,7 +2,6 @@
 #
 #   cmake -P tools/installer/package.cmake                      (from the root of the repository)
 #   cmake -DFAMILIES=msvc -P tools/installer/package.cmake      (Windows: only Visual C++)
-#   cmake -DMOLTENVK=/path/libMoltenVK.dylib -P tools/installer/package.cmake   (macOS)
 #
 # 1. builds and installs the library packages of the SDK, static and shared, one per
 #    compiler of the platform (the folders dist.bat makes): build/installer/packages/<id>
@@ -171,22 +170,11 @@ set(PACK_ARGS --version "${VERSION}" --platform "${PLATFORM}" ${TARGET_ARGS}
 	--sdk-bin-file "raven-new${EXE}=${bin}/raven-new${EXE}")
 
 if(CMAKE_HOST_APPLE)
-	# Raven Designer.app and RavenSDKInstaller.app, each with MoltenVK (Raven draws with Vulkan)
-	if(NOT MOLTENVK)
-		foreach(_candidate /opt/homebrew/lib/libMoltenVK.dylib /usr/local/lib/libMoltenVK.dylib)
-			if(EXISTS "${_candidate}")
-				set(MOLTENVK "${_candidate}")
-			endif()
-		endforeach()
-	endif()
-	if(NOT MOLTENVK)
-		message(FATAL_ERROR "macOS: give -DMOLTENVK=<libMoltenVK.dylib> (brew install molten-vk, or the Vulkan SDK)")
-	endif()
+	# Raven Designer.app and RavenSDKInstaller.app (Raven draws with Metal: nothing else to carry)
 	function(make_bundle bundle executable name identifier)
 		file(REMOVE_RECURSE "${bundle}")
-		file(MAKE_DIRECTORY "${bundle}/Contents/MacOS" "${bundle}/Contents/Resources" "${bundle}/Contents/Frameworks")
+		file(MAKE_DIRECTORY "${bundle}/Contents/MacOS" "${bundle}/Contents/Resources")
 		file(COPY "${executable}" DESTINATION "${bundle}/Contents/MacOS")
-		file(COPY "${MOLTENVK}" DESTINATION "${bundle}/Contents/Frameworks" FOLLOW_SYMLINK_CHAIN)
 		get_filename_component(_exe_name "${executable}" NAME)
 		file(WRITE "${bundle}/Contents/Info.plist" "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">

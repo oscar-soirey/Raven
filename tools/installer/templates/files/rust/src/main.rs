@@ -4,7 +4,7 @@ use raven::*;
 
 fn main() {
     unsafe {
-        if Rinit(R_BACKEND_VULKAN) == 0 {
+        if Rinit(R_BACKEND_DEFAULT) == 0 {
             return;
         }
         Rlocale_load_csv(cstr("strings.csv").as_ptr());

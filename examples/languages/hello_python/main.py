@@ -17,7 +17,7 @@ def on_hello(sender, action, user_data):
 
 
 if __name__ == "__main__":
-    if not r.Rinit(r.R_BACKEND_VULKAN):
+    if not r.Rinit(r.R_BACKEND_DEFAULT):
         sys.exit(1)
     r.Rlocale_load_csv("strings.csv")
     r.Rlocale_set_language(r.Rlocale_get_system_language())

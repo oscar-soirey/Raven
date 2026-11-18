@@ -24,7 +24,7 @@
 //
 //   public class Hello {
 //       public static void main(String[] args) {
-//           Rinit(R_BACKEND_VULKAN);
+//           Rinit(R_BACKEND_DEFAULT);
 //           Rwindow_create_from_xml("<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>");
 //           Raction_bind("quit", (sender, action, user) -> Rquit(0));
 //           while (Rwait_frame(-1.0) != 0) { }
@@ -201,6 +201,10 @@ public final class R {
     public static final int R_INVALID_ID = 0xFFFFFFFF;
 
     // RBackend
+    /**
+     * The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+     */
+    public static final int R_BACKEND_DEFAULT = 0;
     /**
      * Built-in Vulkan renderer.
      */
@@ -1803,7 +1807,7 @@ public final class R {
         }
 
         /**
-         * Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+         * Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
          */
         public int backend() { return s.get(JAVA_INT, 0); }
         public RInitDesc backend(int value) { s.set(JAVA_INT, 0, value); return this; }

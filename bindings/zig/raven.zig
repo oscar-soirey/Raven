@@ -10,7 +10,7 @@
 //   const r = @import("raven.zig");
 //
 //   pub fn main() void {
-//       _ = r.Rinit(r.R_BACKEND_VULKAN);
+//       _ = r.Rinit(r.R_BACKEND_DEFAULT);
 //       const xml = "<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>";
 //       _ = r.Rwindow_create_from_xml(xml, xml.len);
 //       r.Raction_bind("quit", quit, null);
@@ -39,6 +39,8 @@ pub const R_INVALID_ID: Rid = 0xFFFFFFFF;
 pub const RPainter = opaque {};
 
 pub const RBackend = c_int;
+/// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+pub const R_BACKEND_DEFAULT: RBackend = 0;
 /// Built-in Vulkan renderer.
 pub const R_BACKEND_VULKAN: RBackend = 1;
 /// Renders nothing. Used for headless runs and unit tests.
@@ -1436,7 +1438,7 @@ pub const RAccessiblePressCallback = ?*const fn (widget: Rid, user_data: ?*anyop
 /// Optional settings for Rinit_ex. A zero-initialized structure selects the
 /// default for every field, so new fields can be added without breaking code.
 pub const RInitDesc = extern struct {
-    /// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+    /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     backend: RBackend = 0,
     /// Application name reported to the graphics driver. May be NULL.
     app_name: ?[*:0]const u8 = null,

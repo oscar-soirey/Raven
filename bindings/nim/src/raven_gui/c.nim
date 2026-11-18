@@ -424,7 +424,7 @@ type
     ## Optional settings for Rinit_ex. A zero-initialized structure selects the
     ## default for every field, so new fields can be added without breaking code.
     backend*: RBackend
-      ## Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+      ## Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     app_name*: cstring
       ## Application name reported to the graphics driver. May be NULL.
     worker_threads*: cint
@@ -875,6 +875,8 @@ const
   R_INVALID_ID*: Rid = 0xFFFFFFFF'u32
 
   # RBackend
+  R_BACKEND_DEFAULT*: RBackend = 0
+    ## The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
   R_BACKEND_VULKAN*: RBackend = 1
     ## Built-in Vulkan renderer.
   R_BACKEND_NULL*: RBackend = 2

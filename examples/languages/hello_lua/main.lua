@@ -3,7 +3,7 @@
 local ffi = require("ffi")
 local r = require("raven")
 
-if r.Rinit(r.R_BACKEND_VULKAN) == 0 then os.exit(1) end
+if r.Rinit(r.R_BACKEND_DEFAULT) == 0 then os.exit(1) end
 r.Rlocale_load_csv("strings.csv")
 r.Rlocale_set_language(r.Rlocale_get_system_language())
 local window = r.Rwindow_create_from_xml_file("main.xml")

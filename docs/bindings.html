@@ -201,7 +201,7 @@ target_link_libraries(app PRIVATE raven::raven)</pre>
 #include &lt;string&gt;
 
 int main() {
-    if (!raven::init(R_BACKEND_VULKAN)) return 1;
+    if (!raven::init(R_BACKEND_DEFAULT)) return 1;
 
     auto window = raven::Window::create("Hello", 360, 200, R_WINDOW_DEFAULT);
     auto box    = raven::Panel(raven::Widget::create(R_WIDGET_VBOX));
@@ -311,7 +311,7 @@ XML = """
     &lt;/VBox&gt;
 &lt;/Window&gt;"""
 
-if not r.Rinit(r.R_BACKEND_VULKAN):
+if not r.Rinit(r.R_BACKEND_DEFAULT):
     raise SystemExit("cannot start Raven")
 r.Rerror_set_callback(lambda code, severity, detail: print("raven:", detail))
 
@@ -415,7 +415,7 @@ const XML: &amp;str = r#"
 
 fn main() {
     unsafe {
-        if Rinit(R_BACKEND_VULKAN) == 0 {
+        if Rinit(R_BACKEND_DEFAULT) == 0 {
             eprintln!("cannot start Raven");
             return;
         }
@@ -528,7 +528,7 @@ const xml = `
 
 func main() {
     runtime.LockOSThread() // Raven belongs to the thread that starts it
-    if raven.Init(raven.R_BACKEND_VULKAN) == 0 {
+    if raven.Init(raven.R_BACKEND_DEFAULT) == 0 {
         fmt.Println("cannot start Raven")
         return
     }
@@ -623,7 +623,7 @@ static class Program
 
     static void Main()
     {
-        if (R.Rinit(RBackend.R_BACKEND_VULKAN) == 0) { Console.WriteLine("cannot start Raven"); return; }
+        if (R.Rinit(RBackend.R_BACKEND_DEFAULT) == 0) { Console.WriteLine("cannot start Raven"); return; }
         R.Rerror_set_callback(R.Keep&lt;RErrorCallback&gt;((code, severity, detail) =&gt;
             Console.WriteLine("raven: " + R.Text(detail))));
 
@@ -701,7 +701,7 @@ var title: r.Rid = r.R_INVALID_ID;
 var name: r.Rid = r.R_INVALID_ID;
 
 pub fn main() void {
-    if (r.Rinit(r.R_BACKEND_VULKAN) == 0) return;
+    if (r.Rinit(r.R_BACKEND_DEFAULT) == 0) return;
     const xml =
         \\&lt;Window Title="Hello" Width="360" Height="200"&gt;
         \\    &lt;VBox Spacing="10" Slot.Padding="16"&gt;
@@ -770,7 +770,7 @@ LuaRocks, copy <code>bindings/luajit/raven.lua</code> next to the program.</p>
 <pre>local r = require("raven")
 local ffi = r.ffi
 
-assert(r.Rinit(r.R_BACKEND_VULKAN) ~= 0, "cannot start Raven")
+assert(r.Rinit(r.R_BACKEND_DEFAULT) ~= 0, "cannot start Raven")
 
 local xml = [[
 &lt;Window Title="Hello" Width="360" Height="200"&gt;
@@ -874,7 +874,7 @@ public class Hello {
         """;
 
     public static void main(String[] args) {
-        if (Rinit(R_BACKEND_VULKAN) == 0) return;
+        if (Rinit(R_BACKEND_DEFAULT) == 0) return;
         int window = Rwindow_create_from_xml(XML);
         int title = Rwidget_find(window, "title");
         int name = Rwidget_find(window, "name");
@@ -937,7 +937,7 @@ greet :: proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
 }
 
 main :: proc() {
-    if r.Rinit(r.R_BACKEND_VULKAN) == 0 do return
+    if r.Rinit(r.R_BACKEND_DEFAULT) == 0 do return
     XML :: `&lt;Window Title="Hello" Width="360" Height="200"&gt;
     &lt;VBox Spacing="10" Slot.Padding="16"&gt;
         &lt;Label Name="title" Text="Hello" TextSize="20"/&gt;
@@ -997,7 +997,7 @@ const XML = `
     &lt;/VBox&gt;
 &lt;/Window&gt;`;
 
-if (!r.Rinit(r.R_BACKEND_VULKAN)) {
+if (!r.Rinit(r.R_BACKEND_DEFAULT)) {
     throw new Error("cannot start Raven");
 }
 r.Rerror_set_callback((code, severity, detail) =&gt; console.error("raven:", detail));
@@ -1086,7 +1086,7 @@ import "./native";
 import * as r from "./raven";
 import ui from "./main.xml" with { type: "text" };
 
-r.Rinit(r.R_BACKEND_VULKAN);
+r.Rinit(r.R_BACKEND_DEFAULT);
 r.Rwindow_create_from_xml(String(ui));
 await r.runLoop();
 r.Rshutdown();</pre>
@@ -1139,7 +1139,7 @@ const XML = `
     &lt;/VBox&gt;
 &lt;/Window&gt;`;
 
-if (!r.Rinit(r.R_BACKEND_VULKAN)) {
+if (!r.Rinit(r.R_BACKEND_DEFAULT)) {
     throw new Error("cannot start Raven");
 }
 r.Rerror_set_callback((code, severity, detail) =&gt; console.error("raven:", detail));

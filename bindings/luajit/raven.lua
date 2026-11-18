@@ -15,7 +15,7 @@
 -- calls them runs in the interpreter, the callbacks are compiled as usual.
 --
 --   local r = require("raven")
---   r.Rinit(r.R_BACKEND_VULKAN)
+--   r.Rinit(r.R_BACKEND_DEFAULT)
 --   local xml = [[<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>]]
 --   r.Rwindow_create_from_xml(xml, #xml)
 --   local quit = require("ffi").cast("RActionCallback", function() r.Rquit(0) end)
@@ -33,6 +33,7 @@ typedef uint32_t Rid;
 typedef uint32_t Ruint;
 typedef struct RPainter RPainter;
 typedef enum RBackend {
+	R_BACKEND_DEFAULT = 0,
 	R_BACKEND_VULKAN = 1,
 	R_BACKEND_NULL = 2,
 	R_BACKEND_CUSTOM = 3,

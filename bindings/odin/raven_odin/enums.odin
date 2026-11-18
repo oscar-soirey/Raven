@@ -8,6 +8,8 @@
 package raven_odin
 
 Backend :: enum i32 {
+	// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+	Default = 0,
 	// Built-in Vulkan renderer.
 	Vulkan = 1,
 	// Renders nothing. Used for headless runs and unit tests.

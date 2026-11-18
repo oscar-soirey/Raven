@@ -37,7 +37,7 @@ import std.stdio : writeln;
 
 void main()
 {
-    Rinit(R_BACKEND_VULKAN);
+    Rinit(R_BACKEND_DEFAULT);
     Rid window = windowFromXml(`
         <Window Title="Hello" Width="320" Height="160">
             <VBox Spacing="10" Slot.Padding="16">

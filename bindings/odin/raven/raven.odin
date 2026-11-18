@@ -14,7 +14,7 @@
 //   import r "raven"
 //
 //   main :: proc() {
-//       r.Rinit(r.R_BACKEND_VULKAN)
+//       r.Rinit(r.R_BACKEND_DEFAULT)
 //       xml :: "<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>"
 //       r.Rwindow_create_from_xml(xml, len(xml))
 //       r.Raction_bind("quit", proc "c" (sender: r.Rid, action: cstring, user_data: rawptr) {
@@ -49,6 +49,8 @@ R_INVALID_ID : Rid : 0xFFFFFFFF
 RPainter :: struct {}
 
 RBackend :: i32
+// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+R_BACKEND_DEFAULT :: 0
 // Built-in Vulkan renderer.
 R_BACKEND_VULKAN :: 1
 // Renders nothing. Used for headless runs and unit tests.
@@ -1446,7 +1448,7 @@ RAccessiblePressCallback :: #type proc "c" (widget: Rid, user_data: rawptr)
 // Optional settings for Rinit_ex. A zero-initialized structure selects the
 // default for every field, so new fields can be added without breaking code.
 RInitDesc :: struct {
-	// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+	// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
 	backend: RBackend,
 	// Application name reported to the graphics driver. May be NULL.
 	app_name: cstring,

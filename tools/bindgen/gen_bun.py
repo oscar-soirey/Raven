@@ -73,7 +73,7 @@ HEADER = '''/**
  * variable, then beside this file, then where the system looks.
  *
  *     import * as r from "./raven";
- *     r.Rinit(r.R_BACKEND_VULKAN);
+ *     r.Rinit(r.R_BACKEND_DEFAULT);
  *     r.Rwindow_create_from_xml('<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>');
  *     r.Raction_bind("quit", () => r.Rquit(0));
  *     await r.runLoop();

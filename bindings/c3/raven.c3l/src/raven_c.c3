@@ -12,7 +12,7 @@
 //
 //   import raven::c;
 //
-//   if (!c::r_init(c::R_BACKEND_VULKAN)) return 1;
+//   if (!c::r_init(c::R_BACKEND_DEFAULT)) return 1;
 //   Rid window = c::r_window_create("Hello", 420, 220, c::R_WINDOW_DEFAULT);
 module raven::c;
 
@@ -30,6 +30,8 @@ const CInt R_TRUE = 1;
 const Rid R_INVALID_ID = 0xFFFFFFFF;
 
 alias RBackend = CInt;
+<* The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
+const RBackend R_BACKEND_DEFAULT = 0;
 <* Built-in Vulkan renderer. *>
 const RBackend R_BACKEND_VULKAN = 1;
 <* Renders nothing. Used for headless runs and unit tests. *>
@@ -1543,7 +1545,7 @@ alias RAccessiblePressCallback = fn void(Rid widget, void* user_data);
 *>
 struct RInitDesc
 {
-	<* Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
+	<* Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. *>
 	RBackend backend;
 	<* Application name reported to the graphics driver. May be NULL. *>
 	char* app_name;

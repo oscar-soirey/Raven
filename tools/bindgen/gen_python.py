@@ -60,7 +60,7 @@ The library itself (raven.dll, libraven.so, libraven.dylib: build Raven with
 variable, then beside this file, then where the system looks.
 
     import raven as r
-    r.Rinit(r.R_BACKEND_VULKAN)
+    r.Rinit(r.R_BACKEND_DEFAULT)
     window = r.Rwindow_create_from_xml('<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>')
     r.Raction_bind("quit", lambda sender, action, user: r.Rquit(0))
     while r.Rwait_frame(-1.0):

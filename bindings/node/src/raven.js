@@ -149,13 +149,14 @@ export const R_TRUE = 1;
 export const R_INVALID_ID = 0xffffffff;
 
 export const RBackend = _enum({
+	R_BACKEND_DEFAULT: 0,
 	R_BACKEND_VULKAN: 1,
 	R_BACKEND_NULL: 2,
 	R_BACKEND_CUSTOM: 3,
 	R_BACKEND_WEBGL: 4,
 	R_BACKEND_METAL: 5,
 });
-export const { R_BACKEND_VULKAN, R_BACKEND_NULL, R_BACKEND_CUSTOM, R_BACKEND_WEBGL, R_BACKEND_METAL } = RBackend;
+export const { R_BACKEND_DEFAULT, R_BACKEND_VULKAN, R_BACKEND_NULL, R_BACKEND_CUSTOM, R_BACKEND_WEBGL, R_BACKEND_METAL } = RBackend;
 
 export const RError = _enum({
 	R_NO_ERROR: 112,

@@ -14,7 +14,7 @@
 // are bridged, which is what an interface described in XML needs:
 // ActionBind, ErrorSetCallback and TimerStart.
 //
-//	raven.Init(raven.R_BACKEND_VULKAN)
+//	raven.Init(raven.R_BACKEND_DEFAULT)
 //	raven.WindowCreateFromXml(`<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>`)
 //	raven.ActionBind("quit", func(sender raven.ID, action string) { raven.Quit(0) })
 //	for raven.WaitFrame(-1.0) != 0 {
@@ -116,11 +116,12 @@ func XmlNodeRemoveAttribute(node ID, name string) {
 type RBackend int32
 
 const (
-	R_BACKEND_VULKAN RBackend = 1
-	R_BACKEND_NULL   RBackend = 2
-	R_BACKEND_CUSTOM RBackend = 3
-	R_BACKEND_WEBGL  RBackend = 4
-	R_BACKEND_METAL  RBackend = 5
+	R_BACKEND_DEFAULT RBackend = 0
+	R_BACKEND_VULKAN  RBackend = 1
+	R_BACKEND_NULL    RBackend = 2
+	R_BACKEND_CUSTOM  RBackend = 3
+	R_BACKEND_WEBGL   RBackend = 4
+	R_BACKEND_METAL   RBackend = 5
 )
 
 type RError int32

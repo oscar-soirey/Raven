@@ -19,6 +19,8 @@ pub struct RPainter {
 }
 
 pub type RBackend = c_int;
+/// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+pub const R_BACKEND_DEFAULT: RBackend = 0;
 /// Built-in Vulkan renderer.
 pub const R_BACKEND_VULKAN: RBackend = 1;
 /// Renders nothing. Used for headless runs and unit tests.
@@ -1418,7 +1420,7 @@ pub type RAccessiblePressCallback = Option<unsafe extern "C" fn(widget: Rid, use
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct RInitDesc {
-    /// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+    /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     pub backend: RBackend,
     /// Application name reported to the graphics driver. May be NULL.
     pub app_name: *const c_char,

@@ -170,7 +170,7 @@ RAVEN_GUI = '''## Raven for Nim.
 ## .. code-block:: nim
 ##   import raven_gui
 ##
-##   discard Rinit(R_BACKEND_VULKAN)
+##   discard Rinit(R_BACKEND_DEFAULT)
 ##   discard windowFromXml("""<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>""")
 ##   actionBind("quit", proc (sender: Rid, action: string) = Rquit(0))
 ##   while Rwait_frame(-1) != 0: discard
@@ -329,7 +329,7 @@ template check(ok: bool, what: string) =
 proc main() =
   let test = "--test" in commandLineParams()
   var desc: RInitDesc
-  desc.backend = if test: R_BACKEND_NULL else: R_BACKEND_VULKAN
+  desc.backend = if test: R_BACKEND_NULL else: R_BACKEND_DEFAULT
   desc.headless = cint(test)
   if Rinit_ex(addr desc) == 0:
     echo "cannot start Raven"
@@ -481,7 +481,7 @@ The example of this folder (its `config.nims` reads `RAVEN_LIB_DIR`):
 ```nim
 import raven_gui
 
-discard Rinit(R_BACKEND_VULKAN)
+discard Rinit(R_BACKEND_DEFAULT)
 let window = windowFromXml("""
   <Window Title="Hello" Width="320" Height="160">
     <VBox Spacing="10" Slot.Padding="16">

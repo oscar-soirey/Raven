@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
 	int wx, wy;
 	const char* capture = argc > 1 ? argv[1] : NULL;
 	memset(&desc, 0, sizeof(desc));
-	desc.backend = capture ? R_BACKEND_VULKAN : R_BACKEND_NULL;
+	desc.backend = capture ? R_BACKEND_DEFAULT : R_BACKEND_NULL;
 	desc.headless = R_TRUE;
 	if (!Rinit_ex(&desc)) return 1;
 	Rset_animation_time_step(1.0 / 60.0);

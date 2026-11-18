@@ -70,7 +70,7 @@ fire, and bind the actions:
 ```python
 import raven as r
 
-r.Rinit(r.R_BACKEND_VULKAN)
+r.Rinit(r.R_BACKEND_DEFAULT)
 window = r.Rwindow_create_from_xml("""
     <Window Title="Hello" Width="320" Height="160">
         <VBox Spacing="10" Slot.Padding="16">

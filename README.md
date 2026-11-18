@@ -292,7 +292,7 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
 static void on_clicked(Rid button, void* user) { Rquit(0); }
 
 int main(void) {
-    Rinit(R_BACKEND_VULKAN);
+    Rinit(R_BACKEND_DEFAULT);
 
     Rid window = Rwindow_create("Hello", 420, 220, R_WINDOW_DEFAULT);
     Rid box = Rwidget_create(R_WIDGET_VBOX);
@@ -344,7 +344,7 @@ code untouched (see [Files that are loaded again](#files-that-are-loaded-again))
 use raven::*;
 
 fn main() {
-    unsafe { Rinit(R_BACKEND_VULKAN) };
+    unsafe { Rinit(R_BACKEND_DEFAULT) };
     let window = unsafe { Rwindow_create_from_xml_file(cstr("main.xml").as_ptr()) };
     let mut clicks = 0;
     action_bind("hello.clicked", move |_sender, _action| {     // OnClicked="hello.clicked"
@@ -681,7 +681,7 @@ also runs on Bun and Deno), D (a dub package), Nim (a nimble package) and C3
 
 ```python
 import raven as r
-r.Rinit(r.R_BACKEND_VULKAN)
+r.Rinit(r.R_BACKEND_DEFAULT)
 window = r.Rwindow_create_from_xml('<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>')
 r.Raction_bind("quit", lambda sender, action, user: r.Rquit(0))
 while r.Rwait_frame(-1.0):

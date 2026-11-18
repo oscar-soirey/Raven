@@ -15,7 +15,7 @@
  *
  * void main()
  * {
- *     Rinit(R_BACKEND_VULKAN);
+ *     Rinit(R_BACKEND_DEFAULT);
  *     windowFromXml(`<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>`);
  *     actionBind("quit", (Rid, string) { Rquit(0); });
  *     while (Rwait_frame(-1)) {}

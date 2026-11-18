@@ -89,7 +89,7 @@ def generate(api):
     w("//   const r = @import(\"raven.zig\");")
     w("//")
     w("//   pub fn main() void {")
-    w("//       _ = r.Rinit(r.R_BACKEND_VULKAN);")
+    w("//       _ = r.Rinit(r.R_BACKEND_DEFAULT);")
     w("//       const xml = \"<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>\";")
     w("//       _ = r.Rwindow_create_from_xml(xml, xml.len);")
     w("//       r.Raction_bind(\"quit\", quit, null);")

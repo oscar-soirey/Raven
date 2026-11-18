@@ -42,7 +42,7 @@ static RBackend example_backend(void) {
 	};
 	const char* value = getenv("RAVEN_BACKEND");
 	size_t i, k;
-	if (!value || !value[0]) return (RBackend)0;
+	if (!value || !value[0]) return R_BACKEND_DEFAULT;
 	for (i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
 		for (k = 0; value[k] && names[i].name[k]; k++) {
 			char c = value[k];
@@ -52,7 +52,7 @@ static RBackend example_backend(void) {
 		if (!value[k] && !names[i].name[k]) return names[i].backend;
 	}
 	fprintf(stderr, "RAVEN_BACKEND=%s: unknown backend (metal, vulkan or null), the default is used\n", value);
-	return (RBackend)0;
+	return R_BACKEND_DEFAULT;
 }
 #endif
 
@@ -76,7 +76,7 @@ static int example_init_backend(const char* name, RBackend backend) {
 /** Starts Raven with the platform backend (or the one of RAVEN_BACKEND). Returns R_FALSE on failure. */
 static int example_init(const char* name) {
 #ifdef __EMSCRIPTEN__
-	return example_init_backend(name, (RBackend)0);
+	return example_init_backend(name, R_BACKEND_DEFAULT);
 #else
 	return example_init_backend(name, example_backend());
 #endif

@@ -521,7 +521,7 @@ def main():
     global status_label
     global layer_label
 
-    Rinit(R_BACKEND_VULKAN)
+    Rinit(R_BACKEND_DEFAULT)
 
     try:
         load_themes()

@@ -82,7 +82,7 @@ LIB_RS = '''//! Raven for Rust.
 //!
 //! ```no_run
 //! use raven::*;
-//! unsafe { Rinit(R_BACKEND_VULKAN) };
+//! unsafe { Rinit(R_BACKEND_DEFAULT) };
 //! let _window = window_from_xml(r#"<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>"#);
 //! action_bind("quit", |_, _| unsafe { Rquit(0) });
 //! while unsafe { Rwait_frame(-1.0) } != 0 {}
@@ -244,7 +244,7 @@ fn main() {
     let test = std::env::args().any(|argument| argument == "--test");
     unsafe {
         let mut desc: RInitDesc = std::mem::zeroed();
-        desc.backend = if test { R_BACKEND_NULL } else { R_BACKEND_VULKAN };
+        desc.backend = if test { R_BACKEND_NULL } else { R_BACKEND_DEFAULT };
         desc.headless = test as i32;
         if Rinit_ex(&desc) == 0 {
             eprintln!("cannot start Raven");

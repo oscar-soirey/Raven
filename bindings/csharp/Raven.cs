@@ -16,7 +16,7 @@
 //
 //   using Raven;
 //
-//   R.Rinit(RBackend.R_BACKEND_VULKAN);
+//   R.Rinit(RBackend.R_BACKEND_DEFAULT);
 //   uint window = R.Rwindow_create_from_xml("<Window Title='Hi'><Button Text='Quit' OnClicked='quit'/></Window>");
 //   R.Raction_bind("quit", R.Keep<RActionCallback>((sender, action, user) => R.Rquit(0)), IntPtr.Zero);
 //   while (R.Rwait_frame(-1.0) != 0) { }
@@ -41,6 +41,10 @@ namespace Raven
 
     public enum RBackend : int
     {
+        /// <summary>
+        /// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+        /// </summary>
+        R_BACKEND_DEFAULT = 0,
         /// <summary>
         /// Built-in Vulkan renderer.
         /// </summary>
@@ -1932,7 +1936,7 @@ namespace Raven
     public struct RInitDesc
     {
         /// <summary>
-        /// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+        /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
         /// </summary>
         public RBackend backend;
         /// <summary>

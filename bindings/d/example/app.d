@@ -38,7 +38,7 @@ void main(string[] args)
 {
     bool test = args.canFind("--test");
     RInitDesc desc;
-    desc.backend = test ? R_BACKEND_NULL : R_BACKEND_VULKAN;
+    desc.backend = test ? R_BACKEND_NULL : R_BACKEND_DEFAULT;
     desc.headless = test;
     if (!Rinit_ex(&desc))
     {

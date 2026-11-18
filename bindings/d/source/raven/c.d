@@ -33,6 +33,8 @@ struct RPainter;
 alias RBackend = int;
 enum : RBackend
 {
+    /// The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+    R_BACKEND_DEFAULT = 0,
     /// Built-in Vulkan renderer.
     R_BACKEND_VULKAN = 1,
     /// Renders nothing. Used for headless runs and unit tests.
@@ -1666,7 +1668,7 @@ alias RAccessiblePressCallback = extern (C) void function(Rid widget, void* user
 /// default for every field, so new fields can be added without breaking code.
 struct RInitDesc
 {
-    /// Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
+    /// Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise.
     RBackend backend = 0;
     /// Application name reported to the graphics driver. May be NULL.
     const(char)* app_name = null;

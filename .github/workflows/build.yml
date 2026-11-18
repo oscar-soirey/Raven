@@ -449,7 +449,7 @@ jobs:
 
       - name: Dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install molten-vk ninja
+        run: brew install ninja
 
       - name: MinGW-w64 (Windows)
         if: runner.os == 'Windows'

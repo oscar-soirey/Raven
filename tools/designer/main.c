@@ -5136,7 +5136,8 @@ int main(int argc, char** argv) {
 	int frames = -1, i, ok = R_TRUE;
 
 	memset(&desc, 0, sizeof(desc));
-	desc.backend = R_BACKEND_VULKAN;
+	/* the renderer of the platform: Metal on macOS, Vulkan elsewhere */
+	desc.backend = R_BACKEND_DEFAULT;
 	desc.app_name = "Raven Designer";
 	for (i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--null") == 0) {
@@ -5161,7 +5162,7 @@ int main(int argc, char** argv) {
 	if (!(frames >= 0 || script)) crash_report_install(ds_config_dir(), "raven_designer");
 	Rerror_set_callback(on_error);
 	if (!Rinit_ex(&desc)) {
-		fprintf(stderr, "raven_designer: cannot start Raven (is a Vulkan driver installed?)\n");
+		fprintf(stderr, "raven_designer: cannot start Raven (is a graphics driver installed?)\n");
 		return 1;
 	}
 

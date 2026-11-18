@@ -174,7 +174,7 @@ int main(int argc, char** argv) {
 static void on_quit(Rid button, void* user_data) { Rquit(0); }
 
 int main(void) {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Rid window = Rwindow_create("Hello", 320, 160, R_WINDOW_DEFAULT);
     Rid button = Rbutton_create("Quit");
     Rbutton_set_clicked_callback(button, on_quit, NULL);
@@ -292,7 +292,7 @@ static Rid window;
 static int clicks = 0;
 
 int main() {
-    if (!Rinit(R_BACKEND_VULKAN)) return 1;
+    if (!Rinit(R_BACKEND_DEFAULT)) return 1;
     Raction_bind("hello.clicked", [](Rid, const char*, void*) {
         clicks++;
         Rlabel_set_text(Rwidget_find(window, "status"), (std::to_string(clicks) + " clicks").c_str());

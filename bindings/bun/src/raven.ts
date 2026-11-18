@@ -29,7 +29,7 @@
  * variable, then beside this file, then where the system looks.
  *
  *     import * as r from "./raven";
- *     r.Rinit(r.R_BACKEND_VULKAN);
+ *     r.Rinit(r.R_BACKEND_DEFAULT);
  *     r.Rwindow_create_from_xml('<Window Title="Hi"><Button Text="Quit" OnClicked="quit"/></Window>');
  *     r.Raction_bind("quit", () => r.Rquit(0));
  *     await r.runLoop();
@@ -1449,6 +1449,8 @@ export const R_TRUE = 1;
 export const R_INVALID_ID = 0xffffffff;
 
 export enum RBackend {
+	/** The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
+	R_BACKEND_DEFAULT = 0,
 	/** Built-in Vulkan renderer. */
 	R_BACKEND_VULKAN = 1,
 	/** Renders nothing. Used for headless runs and unit tests. */
@@ -1461,6 +1463,7 @@ export enum RBackend {
 	R_BACKEND_METAL = 5,
 }
 
+export const R_BACKEND_DEFAULT = RBackend.R_BACKEND_DEFAULT;
 export const R_BACKEND_VULKAN = RBackend.R_BACKEND_VULKAN;
 export const R_BACKEND_NULL = RBackend.R_BACKEND_NULL;
 export const R_BACKEND_CUSTOM = RBackend.R_BACKEND_CUSTOM;
@@ -3464,7 +3467,7 @@ export class RInitDesc extends RStruct {
 		return pointer ? new RInitDesc(pointer) : null;
 	}
 
-	/** Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
+	/** Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
 	get backend(): RBackend {
 		return this._view.getInt32(0, true) as RBackend;
 	}

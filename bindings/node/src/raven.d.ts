@@ -51,6 +51,8 @@ export const R_TRUE: number;
 export const R_INVALID_ID: number;
 
 export enum RBackend {
+	/** The renderer of the platform: WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
+	R_BACKEND_DEFAULT = 0,
 	/** Built-in Vulkan renderer. */
 	R_BACKEND_VULKAN = 1,
 	/** Renders nothing. Used for headless runs and unit tests. */
@@ -62,6 +64,7 @@ export enum RBackend {
 	/** Built-in Metal renderer (macOS, iOS). */
 	R_BACKEND_METAL = 5,
 }
+export const R_BACKEND_DEFAULT: RBackend.R_BACKEND_DEFAULT;
 export const R_BACKEND_VULKAN: RBackend.R_BACKEND_VULKAN;
 export const R_BACKEND_NULL: RBackend.R_BACKEND_NULL;
 export const R_BACKEND_CUSTOM: RBackend.R_BACKEND_CUSTOM;
@@ -1977,7 +1980,7 @@ export class RInitDesc extends RStruct {
 	constructor(pointer?: Pointer);
 	/** The structure at an address of the library, or null. */
 	static from(pointer: Pointer | null): RInitDesc | null;
-	/** Rendering backend. 0 selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
+	/** Rendering backend. R_BACKEND_DEFAULT (0) selects WebGL in browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise. */
 	get backend(): RBackend;
 	set backend(value: RBackend);
 	/** Application name reported to the graphics driver. May be NULL. */
