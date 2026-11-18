@@ -177,6 +177,9 @@ const _symbols = {
 	Rset_frame_callback: { args: ["ptr", "ptr"], returns: "void" },
 	Rget_delta_time: { args: [], returns: "f64" },
 	Rget_time: { args: [], returns: "f64" },
+	Rset_app_event_callback: { args: ["ptr", "ptr"], returns: "void" },
+	Ris_app_paused: { args: [], returns: "i32" },
+	Rinject_app_event: { args: ["i32"], returns: "void" },
 	Rset_ui_scale: { args: ["f32"], returns: "void" },
 	Rset_vsync: { args: ["i32"], returns: "void" },
 	Rget_vsync: { args: [], returns: "i32" },
@@ -224,6 +227,9 @@ const _symbols = {
 	Rwindow_get_keyboard_area: { args: ["u32", "ptr"], returns: "void" },
 	Rwindow_set_keyboard_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rwindow_clear_focus: { args: ["u32"], returns: "void" },
+	Rwindow_set_back_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rwindow_set_back_enabled: { args: ["u32", "i32"], returns: "void" },
+	Rwindow_wants_back: { args: ["u32"], returns: "i32" },
 	Rwindow_set_min_size: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_set_position: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rwindow_get_position: { args: ["u32", "ptr", "ptr"], returns: "void" },
@@ -282,6 +288,7 @@ const _symbols = {
 	Rwindow_inject_text: { args: ["u32", "ptr"], returns: "void" },
 	Rwindow_inject_drag: { args: ["u32", "f32", "f32", "i32"], returns: "i32" },
 	Rwindow_inject_drop: { args: ["u32", "f32", "f32", "ptr", "i32", "ptr"], returns: "i32" },
+	Rwindow_inject_back: { args: ["u32"], returns: "i32" },
 	Rwindow_is_key_down: { args: ["u32", "i32"], returns: "i32" },
 	Rwindow_is_mouse_button_down: { args: ["u32", "i32"], returns: "i32" },
 	Rwindow_get_modifiers: { args: ["u32"], returns: "u32" },
@@ -664,6 +671,14 @@ const _symbols = {
 	Rtile_view_get_count: { args: ["u32"], returns: "i32" },
 	Rtile_view_set_tile_size: { args: ["u32", "f32", "f32", "f32"], returns: "void" },
 	Rtile_view_set_empty_text: { args: ["u32", "ptr"], returns: "void" },
+	Rtile_view_set_icon_width: { args: ["u32", "f32"], returns: "void" },
+	Rtile_view_set_sections: { args: ["u32", "i32", "ptr", "ptr"], returns: "void" },
+	Rtile_view_get_section_count: { args: ["u32"], returns: "i32" },
+	Rtile_view_get_section_of: { args: ["u32", "i32"], returns: "i32" },
+	Rtile_view_set_section_folded: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtile_view_is_section_folded: { args: ["u32", "i32"], returns: "i32" },
+	Rtile_view_get_section_at: { args: ["u32", "f32", "f32"], returns: "i32" },
+	Rtile_view_set_section_toggled_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtile_view_set_selected: { args: ["u32", "i32", "i32"], returns: "void" },
 	Rtile_view_is_selected: { args: ["u32", "i32"], returns: "i32" },
 	Rtile_view_clear_selection: { args: ["u32"], returns: "void" },
@@ -882,7 +897,58 @@ const _symbols = {
 	Rpdf_view_get_title: { args: ["u32"], returns: "cstring" },
 	Rpdf_view_get_page_text: { args: ["u32", "i32"], returns: "cstring" },
 	Rpdf_view_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rcarousel_create: { args: [], returns: "u32" },
+	Rcarousel_set_page: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rcarousel_get_page: { args: ["u32"], returns: "i32" },
+	Rcarousel_get_page_count: { args: ["u32"], returns: "i32" },
+	Rcarousel_next: { args: ["u32"], returns: "void" },
+	Rcarousel_prev: { args: ["u32"], returns: "void" },
+	Rcarousel_set_loop: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_loop: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_autoplay: { args: ["u32", "f64"], returns: "void" },
+	Rcarousel_get_autoplay: { args: ["u32"], returns: "f64" },
+	Rcarousel_set_indicators_visible: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_indicators_visible: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_arrows_visible: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_arrows_visible: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_orientation: { args: ["u32", "i32"], returns: "void" },
+	Rcarousel_get_orientation: { args: ["u32"], returns: "i32" },
+	Rcarousel_set_page_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rpdf_view_print: { args: ["u32", "ptr"], returns: "i32" },
+	Rmap_view_create: { args: [], returns: "u32" },
+	Rmap_view_set_center: { args: ["u32", "f64", "f64"], returns: "void" },
+	Rmap_view_get_center: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_zoom: { args: ["u32", "f64"], returns: "void" },
+	Rmap_view_get_zoom: { args: ["u32"], returns: "f64" },
+	Rmap_view_set_zoom_range: { args: ["u32", "f64", "f64"], returns: "void" },
+	Rmap_view_get_zoom_range: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_animate_to: { args: ["u32", "f64", "f64", "f64"], returns: "void" },
+	Rmap_view_screen_to_latlon: { args: ["u32", "f32", "f32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_latlon_to_screen: { args: ["u32", "f64", "f64", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_tile_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_tile_cancel_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_tile: { args: ["u32", "i32", "i32", "i32", "ptr", "i32", "i32"], returns: "void" },
+	Rmap_view_set_tile_data: { args: ["u32", "i32", "i32", "i32", "ptr", "usize"], returns: "void" },
+	Rmap_view_set_tile_failed: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
+	Rmap_view_set_tile_path: { args: ["u32", "ptr"], returns: "void" },
+	Rmap_view_get_tile_path: { args: ["u32"], returns: "cstring" },
+	Rmap_view_set_tile_size: { args: ["u32", "i32"], returns: "void" },
+	Rmap_view_get_tile_size: { args: ["u32"], returns: "i32" },
+	Rmap_view_set_cache_size: { args: ["u32", "usize"], returns: "void" },
+	Rmap_view_get_cache_usage: { args: ["u32"], returns: "usize" },
+	Rmap_view_clear_tiles: { args: ["u32"], returns: "void" },
+	Rmap_view_get_tile_state: { args: ["u32", "i32", "i32", "i32"], returns: "i32" },
+	Rmap_view_add_marker: { args: ["u32", "f64", "f64", "ptr"], returns: "i32" },
+	Rmap_view_remove_marker: { args: ["u32", "i32"], returns: "void" },
+	Rmap_view_clear_markers: { args: ["u32"], returns: "void" },
+	Rmap_view_get_marker_count: { args: ["u32"], returns: "i32" },
+	Rmap_view_set_marker_position: { args: ["u32", "i32", "f64", "f64"], returns: "void" },
+	Rmap_view_set_marker_label: { args: ["u32", "i32", "ptr"], returns: "void" },
+	Rmap_view_set_marker_color: { args: ["u32", "i32", "f32", "f32", "f32", "f32"], returns: "void" },
+	Rmap_view_set_marker_clicked_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_view_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rmap_view_set_attribution: { args: ["u32", "ptr"], returns: "void" },
+	Rmap_view_get_attribution: { args: ["u32"], returns: "cstring" },
 	Rpdf_document_create: { args: [], returns: "u32" },
 	Rpdf_document_delete: { args: ["u32"], returns: "void" },
 	Rpdf_document_set_title: { args: ["u32", "ptr"], returns: "void" },
@@ -993,6 +1059,7 @@ const _symbols = {
 	Rdock_area_set_tearable: { args: ["u32", "i32"], returns: "void" },
 	Rdock_area_is_tearable: { args: ["u32"], returns: "i32" },
 	Rdock_area_set_float_mode: { args: ["u32", "i32"], returns: "void" },
+	Rdock_area_set_float_window: { args: ["u32", "u32", "ptr", "ptr"], returns: "void" },
 	Rdock_area_float_panel: { args: ["u32", "u32", "i32", "i32"], returns: "u32" },
 	Rdock_area_dock_panel: { args: ["u32", "u32"], returns: "void" },
 	Rdock_area_get_panel_window: { args: ["u32", "u32"], returns: "u32" },
@@ -1412,6 +1479,8 @@ const _symbols = {
 	Rhost_platform_register: { args: ["ptr"], returns: "void" },
 	Rhost_platform_is_active: { args: [], returns: "i32" },
 	Rhost_window_set_size: { args: ["u32", "i32", "i32", "f32"], returns: "void" },
+	Rhost_window_set_insets: { args: ["u32", "ptr", "i32"], returns: "void" },
+	Rhost_set_system_dark: { args: ["i32"], returns: "void" },
 	Rhost_inject_mouse_move: { args: ["u32", "i32", "i32", "u32"], returns: "void" },
 	Rhost_inject_mouse_button: { args: ["u32", "i32", "i32", "i32", "i32", "u32"], returns: "void" },
 	Rhost_inject_mouse_wheel: { args: ["u32", "f32", "f32", "u32"], returns: "void" },
@@ -1509,6 +1578,40 @@ export const R_SEVERITY_WEAK_WARNING = RSeverity.R_SEVERITY_WEAK_WARNING;
 export const R_SEVERITY_WARNING = RSeverity.R_SEVERITY_WARNING;
 export const R_SEVERITY_ERROR = RSeverity.R_SEVERITY_ERROR;
 export const R_SEVERITY_FATAL = RSeverity.R_SEVERITY_FATAL;
+
+/**
+ * What the system does with the application, on iOS and Android (desktop
+ * systems send none of these). A pause is not always followed by
+ * R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+ * system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+ * At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+ *
+ *   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+ *   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+ *   coming back         R_APP_WILL_RESUME   Raven draws again
+ *   in front again      R_APP_DID_RESUME    takes input again
+ */
+export enum RAppEvent {
+	/** The application is about to leave the front (home, app switcher, a call). Save the state now. */
+	R_APP_WILL_PAUSE = 0x0B80,
+	/** The application is in the background: Raven has stopped drawing, and waited until the GPU was idle. */
+	R_APP_DID_PAUSE = 0x0B81,
+	/** The application is coming back to the front: Raven draws again. */
+	R_APP_WILL_RESUME = 0x0B82,
+	/** The application is in front and takes input again. */
+	R_APP_DID_RESUME = 0x0B83,
+	/** The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap. */
+	R_APP_LOW_MEMORY = 0x0B84,
+	/** The application is about to end (Android: the activity is finishing; its window is closed right after). */
+	R_APP_WILL_TERMINATE = 0x0B85,
+}
+
+export const R_APP_WILL_PAUSE = RAppEvent.R_APP_WILL_PAUSE;
+export const R_APP_DID_PAUSE = RAppEvent.R_APP_DID_PAUSE;
+export const R_APP_WILL_RESUME = RAppEvent.R_APP_WILL_RESUME;
+export const R_APP_DID_RESUME = RAppEvent.R_APP_DID_RESUME;
+export const R_APP_LOW_MEMORY = RAppEvent.R_APP_LOW_MEMORY;
+export const R_APP_WILL_TERMINATE = RAppEvent.R_APP_WILL_TERMINATE;
 
 export enum RWindowFlags {
 	R_WINDOW_DEFAULT = 0,
@@ -2514,6 +2617,8 @@ export enum RWidgetType {
 	R_WIDGET_PDF_VIEW = 0x0233,
 	/** The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). */
 	R_WIDGET_CHART = 0x0234,
+	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
+	R_WIDGET_MAP_VIEW = 0x0235,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2569,6 +2674,7 @@ export const R_WIDGET_PAGINATION = RWidgetType.R_WIDGET_PAGINATION;
 export const R_WIDGET_PLOT = RWidgetType.R_WIDGET_PLOT;
 export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
 export const R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART;
+export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -2868,6 +2974,23 @@ export enum RPdfPrintFlags {
 }
 
 export const R_PDF_PRINT_NO_DIALOG = RPdfPrintFlags.R_PDF_PRINT_NO_DIALOG;
+
+/** Where a tile of a MapView stands (Rmap_view_get_tile_state). */
+export enum RMapTileState {
+	/** Not in the view's cache: never asked for, no longer wanted, or evicted. */
+	R_MAP_TILE_NONE = 0x0600,
+	/** Asked for (the tile callback was called, or the file is being read): waiting for its pixels. */
+	R_MAP_TILE_PENDING = 0x0601,
+	/** Its pixels are in the cache. */
+	R_MAP_TILE_LOADED = 0x0602,
+	/** The application said it has none (Rmap_view_set_tile_failed), or its file could not be read. */
+	R_MAP_TILE_FAILED = 0x0603,
+}
+
+export const R_MAP_TILE_NONE = RMapTileState.R_MAP_TILE_NONE;
+export const R_MAP_TILE_PENDING = RMapTileState.R_MAP_TILE_PENDING;
+export const R_MAP_TILE_LOADED = RMapTileState.R_MAP_TILE_LOADED;
+export const R_MAP_TILE_FAILED = RMapTileState.R_MAP_TILE_FAILED;
 
 /** How an axis of a Plot spreads its values. */
 export enum RPlotScale {
@@ -4124,7 +4247,7 @@ export class RDropEvent extends RStruct {
 
 /** How the library treats fingers and pens (Rtouch_set_settings, Rwindow_set_touch_settings). */
 export class RTouchSettings extends RStruct {
-	static readonly SIZE = 52;
+	static readonly SIZE = 56;
 
 	constructor(pointer?: Pointer) {
 		super(RTouchSettings.SIZE, pointer);
@@ -4237,6 +4360,22 @@ export class RTouchSettings extends RStruct {
 	}
 	set swipe_distance(value: number) {
 		this._view.setFloat32(48, value, true);
+	}
+
+	/**
+	 * Smallest height (logical units) of what a finger presses: buttons,
+	 * fields, combo boxes, tabs and bars are at least this high, rows of
+	 * lists, trees, tables and menus too, and so are check boxes, switches
+	 * and sliders, whose box and handle grow to half of it. Whatever the
+	 * theme or a widget asks for, 0 leaves the sizes as they are.
+	 * Default 44 on iOS (Apple: 44 points), 48 on Android (Material: 48 dp),
+	 * 0 elsewhere.
+	 */
+	get min_touch_size(): number {
+		return this._view.getFloat32(52, true);
+	}
+	set min_touch_size(value: number) {
+		this._view.setFloat32(52, value, true);
 	}
 }
 
@@ -4716,7 +4855,7 @@ export class RPdfPrintDesc extends RStruct {
 
 /** What a tile shows, filled by the application when the tile is drawn. */
 export class RTileItem extends RStruct {
-	static readonly SIZE = 80;
+	static readonly SIZE = 104;
 
 	constructor(pointer?: Pointer) {
 		super(RTileItem.SIZE, pointer);
@@ -4786,6 +4925,60 @@ export class RTileItem extends RStruct {
 	}
 	set text_color(value: ArrayLike<number>) {
 		this.text_color.set(value);
+	}
+
+	/** Layout="Rows": a third line under the detail, dimmer, or NULL. */
+	get note(): string | null {
+		return _text(_address(this._view.getBigUint64(80, true)));
+	}
+	set note(value: string | null) {
+		this._point("note", 80, _s(value));
+	}
+
+	/** Color of the detail line; alpha 0 = the theme (dimmer than the name). */
+	get detail_color(): Float32Array {
+		return new Float32Array(this._bytes.buffer as ArrayBuffer, 88, 4);
+	}
+	set detail_color(value: ArrayLike<number>) {
+		this.detail_color.set(value);
+	}
+}
+
+/** A section of a tile view: its first tile, and what its header shows. */
+export class RTileSection extends RStruct {
+	static readonly SIZE = 24;
+
+	constructor(pointer?: Pointer) {
+		super(RTileSection.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RTileSection | null {
+		return pointer ? new RTileSection(pointer) : null;
+	}
+
+	/** Index of the first tile of the section (read when the sections are given). */
+	get first(): number {
+		return this._view.getInt32(0, true);
+	}
+	set first(value: number) {
+		this._view.setInt32(0, value, true);
+	}
+
+	/** Title of the header (valid until the callback returns). */
+	get text(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set text(value: string | null) {
+		this._point("text", 8, _s(value));
+	}
+
+	/** Dimmer text after the title (a count...), or NULL. */
+	get detail(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set detail(value: string | null) {
+		this._point("detail", 16, _s(value));
 	}
 }
 
@@ -5572,6 +5765,30 @@ function _adapt_RFrameCallback(function_: RFrameCallback | Pointer | null, threa
 	}, { args: ["f64", "ptr"], returns: "void", threadsafe }));
 }
 
+/**
+ * Registers a function called when the application changes state
+ * (RAppEvent), on the UI thread, while the system waits for it: keep it
+ * short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+ * draws nothing, animations stand still and Rwait_frame sleeps until an
+ * event, a posted task or a timer: the timers of the application keep
+ * running, so stop those that only drive drawing. Set it after Rinit;
+ * NULL removes it.
+ */
+export type RAppEventCallback = (event: RAppEvent, user_data: Pointer | null) => void;
+
+function _adapt_RAppEventCallback(function_: RAppEventCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((event: number, user_data: Pointer | null): void => {
+		try {
+			function_(event as RAppEvent, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["i32", "ptr"], returns: "void", threadsafe }));
+}
+
 export type RTaskCallback = (user_data: Pointer | null) => void;
 
 function _adapt_RTaskCallback(function_: RTaskCallback | Pointer | null, threadsafe = false): Pointer | null {
@@ -5714,6 +5931,27 @@ function _adapt_RDropCallback(function_: RDropCallback | Pointer | null, threads
 			return 0;
 		}
 	}, { args: ["u32", "ptr", "ptr"], returns: "i32", threadsafe }));
+}
+
+/**
+ * Called on Back when no popup or dialog of Raven is open. Return
+ * R_TRUE when the application went back, R_FALSE when it had nowhere to
+ * go (the system then does its default). NULL removes it.
+ */
+export type RBackCallback = (window: Rid, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RBackCallback(function_: RBackCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((window: number, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(window, user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "ptr"], returns: "i32", threadsafe }));
 }
 
 /**
@@ -6140,6 +6378,25 @@ function _adapt_RMenuItemClickedCallback(function_: RMenuItemClickedCallback | P
 	}, { args: ["u32", "ptr"], returns: "void", threadsafe }));
 }
 
+/**
+ * Describes section `section`: when the sections are given (Rtile_view_set_sections,
+ * `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+ */
+export type RTileSectionCallback = (tile_view: Rid, section: number, out: RTileSection | null, user_data: Pointer | null) => void;
+
+function _adapt_RTileSectionCallback(function_: RTileSectionCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tile_view: number, section: number, out: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(tile_view, section, RTileSection.from(out), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr", "ptr"], returns: "void", threadsafe }));
+}
+
 /** Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view. */
 export type RTileItemCallback = (tile_view: Rid, index: number, item: RTileItem | null, user_data: Pointer | null) => void;
 
@@ -6481,6 +6738,58 @@ function _adapt_RPdfPageChangedCallback(function_: RPdfPageChangedCallback | Poi
 	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
+/** Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
+export type RMapTileCallback = (map: Rid, z: number, x: number, y: number, user_data: Pointer | null) => void;
+
+function _adapt_RMapTileCallback(function_: RMapTileCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((map: number, z: number, x: number, y: number, user_data: Pointer | null): void => {
+		try {
+			function_(map, z, x, y, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Called when the user clicks a marker. */
+export type RMapMarkerCallback = (map: Rid, marker: number, user_data: Pointer | null) => void;
+
+function _adapt_RMapMarkerCallback(function_: RMapMarkerCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((map: number, marker: number, user_data: Pointer | null): void => {
+		try {
+			function_(map, marker, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Called when the user moves or zooms the map (during a drag, at the
+ * end of an animated zoom), with its new center and zoom. This also fires
+ * the action of the widget.
+ */
+export type RMapViewCallback = (map: Rid, latitude: number, longitude: number, zoom: number, user_data: Pointer | null) => void;
+
+function _adapt_RMapViewCallback(function_: RMapViewCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((map: number, latitude: number, longitude: number, zoom: number, user_data: Pointer | null): void => {
+		try {
+			function_(map, latitude, longitude, zoom, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "f64", "f64", "f64", "ptr"], returns: "void", threadsafe }));
+}
+
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
 export type RTextEditorZoomCallback = (editor: Rid, zoom: number, user_data: Pointer | null) => void;
 
@@ -6597,6 +6906,34 @@ function _adapt_RDockCloseCallback(function_: RDockCloseCallback | Pointer | nul
 			return 0;
 		}
 	}, { args: ["u32", "u32", "ptr"], returns: "i32", threadsafe }));
+}
+
+/**
+ * Called when a panel leaves for a window of its own, once the
+ * window and its floating area are made, before the panel goes there and
+ * before anything is drawn.
+ * area          The area the panel belongs to (its home).
+ * panel         The panel that leaves.
+ * window        The new window.
+ * floating_area The dock area of the new window.
+ * Returns: The content of the window: a widget that holds floating_area
+ * (a VBox with a header bar above it, for a window made with
+ * R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+ */
+export type RDockFloatWindowCallback = (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: Pointer | null) => Rid;
+
+function _adapt_RDockFloatWindowCallback(function_: RDockFloatWindowCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((area: number, panel: number, window: number, floating_area: number, user_data: Pointer | null): number => {
+		try {
+			return function_(area, panel, window, floating_area, user_data) ?? R_INVALID_ID;
+		} catch (error) {
+			_report(error as Error);
+			return R_INVALID_ID;
+		}
+	}, { args: ["u32", "u32", "u32", "u32", "ptr"], returns: "u32", threadsafe }));
 }
 
 /** Called after the user moved, resized, showed or closed a panel. */
@@ -7171,6 +7508,24 @@ export function Rget_time(): number {
 	return _lib.Rget_time();
 }
 
+export function Rset_app_event_callback(callback: RAppEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rset_app_event_callback(_adapt_RAppEventCallback(callback), user_data);
+}
+
+/** Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background. */
+export function Ris_app_paused(): number {
+	return _lib.Ris_app_paused();
+}
+
+/**
+ * Handles an RAppEvent as if the system had sent it: for tests,
+ * and for a host application (raven_host.h) that knows the lifecycle.
+ * UI thread.
+ */
+export function Rinject_app_event(event: RAppEvent): void {
+	_lib.Rinject_app_event(event);
+}
+
 /**
  * Scale of the whole interface, on top of the one of the monitor
  * (RInitDesc.ui_scale at start): every window is laid out again. 0.25 .. 4.
@@ -7467,7 +7822,10 @@ export function Rwindow_get_safe_area(window: Rid, insets: RInsets | null): void
 /**
  * The part of the window the on-screen keyboard covers (only
  * `bottom` is set), in logical units; 0 when it is hidden or there is
- * none (desktop). The content is laid out above it already.
+ * none (desktop). The content is laid out above it already, and the
+ * field that has the focus is scrolled into view above it, by the
+ * ScrollBoxes that hold it, when the keyboard comes or changes height,
+ * when the window turns, and when another field takes the focus.
  */
 export function Rwindow_get_keyboard_area(window: Rid, insets: RInsets | null): void {
 	_lib.Rwindow_get_keyboard_area(window, _p(insets));
@@ -7481,6 +7839,25 @@ export function Rwindow_set_keyboard_callback(window: Rid, callback: RKeyboardCa
 /** No widget of the window has the keyboard focus any more: on mobile, the on-screen keyboard goes away. */
 export function Rwindow_clear_focus(window: Rid): void {
 	_lib.Rwindow_clear_focus(window);
+}
+
+export function Rwindow_set_back_callback(window: Rid, callback: RBackCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rwindow_set_back_callback(window, _adapt_RBackCallback(callback), user_data);
+}
+
+/**
+ * R_TRUE while the application has somewhere to go back to (a page
+ * under the one shown). Android 13 and later ask for Back only while the
+ * window wants it (predictive back): at the root page the system handles
+ * Back itself and animates back to the home screen. Default R_FALSE.
+ */
+export function Rwindow_set_back_enabled(window: Rid, enabled: number): void {
+	_lib.Rwindow_set_back_enabled(window, enabled);
+}
+
+/** Returns: R_TRUE while Back would be taken: a popup or dialog is open, or Rwindow_set_back_enabled said so. */
+export function Rwindow_wants_back(window: Rid): number {
+	return _lib.Rwindow_wants_back(window);
 }
 
 export function Rwindow_set_min_size(window: Rid, width: number, height: number): void {
@@ -7870,6 +8247,11 @@ export function Rwindow_inject_drop(window: Rid, x: number, y: number, paths: re
 	return _lib.Rwindow_inject_drop(window, x, y, _strings(paths), paths?.length ?? 0, _s(text));
 }
 
+/** Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it. */
+export function Rwindow_inject_back(window: Rid): number {
+	return _lib.Rwindow_inject_back(window);
+}
+
 /** R_TRUE while the key is held down in the window (cleared when the window loses the keyboard). */
 export function Rwindow_is_key_down(window: Rid, key: RKey): number {
 	return _lib.Rwindow_is_key_down(window, key);
@@ -8171,6 +8553,11 @@ export function Rtheme_get_color(role: RColorRole): [r: number, g: number, b: nu
 	return [r_[0]!, g_[0]!, b_[0]!, a_[0]!];
 }
 
+/**
+ * Changes a size of the theme in use. It lasts until the look or
+ * the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+ * switch between light and dark made by Rtheme_follow_system.
+ */
 export function Rtheme_set_metric(metric: RMetric, value: number): void {
 	_lib.Rtheme_set_metric(metric, value);
 }
@@ -8227,6 +8614,13 @@ export function Rtheme_get_system_dark(): number {
  * Follows the dark or light mode of the system with the Raven look
  * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
  * Off by default. Does nothing where the platform does not tell (desktop today).
+ *
+ * A switch is Rlook_set, except that the sizes given with
+ * Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+ * those of one mode and are lost; to keep colors, sizes and styles of
+ * the application through the switch, put them in a theme that names no
+ * look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+ * new look.
  */
 export function Rtheme_follow_system(enabled: number): void {
 	_lib.Rtheme_follow_system(enabled);
@@ -8560,6 +8954,9 @@ export function Rwidget_get_type(widget: Rid): RWidgetType {
  * A widget that already has a parent is moved.
  * Returns: `child`, so calls can be nested:
  *         Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+ *         R_INVALID_ID when the child replaced in a single-child container
+ *         had a destroy callback that destroyed the container or `child`;
+ *         `child`, when it is still there, is then not added.
  */
 export function Rwidget_add_child(parent: Rid, child: Rid): Rid {
 	return _lib.Rwidget_add_child(parent, child);
@@ -8796,7 +9193,7 @@ export function Rwidget_set_focusable(widget: Rid, focusable: number): void {
 	_lib.Rwidget_set_focusable(widget, focusable);
 }
 
-/** Gives the keyboard focus to the widget. */
+/** Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view). */
 export function Rwidget_focus(widget: Rid): void {
 	_lib.Rwidget_focus(widget);
 }
@@ -8928,7 +9325,11 @@ export function Rwidget_clear_metric(widget: Rid, metric: RMetric): void {
 	_lib.Rwidget_clear_metric(widget, metric);
 }
 
-/** Returns: The metric the widget uses: its own, else the one of a style, else the one of its theme. */
+/**
+ * Returns: The metric the widget uses: its own, else the one of a style,
+ * else the one of its theme; grown for larger text
+ * (Raccessibility_set_text_scale) and for a finger (RTouchSettings::min_touch_size).
+ */
 export function Rwidget_get_metric(widget: Rid, metric: RMetric): number {
 	return _lib.Rwidget_get_metric(widget, metric);
 }
@@ -9098,7 +9499,12 @@ export function Rscroll_box_scroll_to_end(scroll_box: Rid): void {
 	_lib.Rscroll_box_scroll_to_end(scroll_box);
 }
 
-/** Scrolls every ScrollBox above the widget so that the widget is visible. */
+/**
+ * Scrolls every ScrollBox above the widget so that the widget is
+ * visible. The library does it by itself for the focused widget when the
+ * focus comes from Tab or Rwidget_focus, and for a text field above the
+ * on-screen keyboard (Rwindow_get_keyboard_area).
+ */
 export function Rwidget_scroll_into_view(widget: Rid): void {
 	_lib.Rwidget_scroll_into_view(widget);
 }
@@ -10015,6 +10421,47 @@ export function Rtile_view_set_tile_size(tile_view: Rid, width: number, height: 
 
 export function Rtile_view_set_empty_text(tile_view: Rid, text: string | null): void {
 	_lib.Rtile_view_set_empty_text(tile_view, _s(text));
+}
+
+/**
+ * Layout="Rows": width of the box the icon is drawn in (its height is the
+ * icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+ */
+export function Rtile_view_set_icon_width(tile_view: Rid, width: number): void {
+	_lib.Rtile_view_set_icon_width(tile_view, width);
+}
+
+/** `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles. */
+export function Rtile_view_set_sections(tile_view: Rid, count: number, callback: RTileSectionCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtile_view_set_sections(tile_view, count, _adapt_RTileSectionCallback(callback), user_data);
+}
+
+export function Rtile_view_get_section_count(tile_view: Rid): number {
+	return _lib.Rtile_view_get_section_count(tile_view);
+}
+
+/** The section of a tile, or -1 (before the first section). */
+export function Rtile_view_get_section_of(tile_view: Rid, index: number): number {
+	return _lib.Rtile_view_get_section_of(tile_view, index);
+}
+
+/** Folds or unfolds a section (the toggled callback is not called). */
+export function Rtile_view_set_section_folded(tile_view: Rid, section: number, folded: number): void {
+	_lib.Rtile_view_set_section_folded(tile_view, section, folded);
+}
+
+export function Rtile_view_is_section_folded(tile_view: Rid, section: number): number {
+	return _lib.Rtile_view_is_section_folded(tile_view, section);
+}
+
+/** The section whose header is at a point relative to the widget, or -1. */
+export function Rtile_view_get_section_at(tile_view: Rid, local_x: number, local_y: number): number {
+	return _lib.Rtile_view_get_section_at(tile_view, local_x, local_y);
+}
+
+/** Called when the user folds or unfolds a section (`index`: the section). */
+export function Rtile_view_set_section_toggled_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtile_view_set_section_toggled_callback(tile_view, _adapt_RTileEventCallback(callback), user_data);
 }
 
 export function Rtile_view_set_selected(tile_view: Rid, index: number, selected: number): void {
@@ -11091,9 +11538,280 @@ export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPag
 	_lib.Rpdf_view_set_page_changed_callback(view, _adapt_RPdfPageChangedCallback(callback), user_data);
 }
 
+export function Rcarousel_create(): Rid {
+	return _lib.Rcarousel_create();
+}
+
+/**
+ * Shows a page, gliding to it when `animated` (and the animations
+ * are on), at once otherwise. The page changed callback is not called.
+ */
+export function Rcarousel_set_page(carousel: Rid, page: number, animated: number): void {
+	_lib.Rcarousel_set_page(carousel, page, animated);
+}
+
+/** The page shown, -1 when the carousel has none. */
+export function Rcarousel_get_page(carousel: Rid): number {
+	return _lib.Rcarousel_get_page(carousel);
+}
+
+/** Its children. */
+export function Rcarousel_get_page_count(carousel: Rid): number {
+	return _lib.Rcarousel_get_page_count(carousel);
+}
+
+/** Glides to the next / previous page; nothing at the last / first one unless it loops. */
+export function Rcarousel_next(carousel: Rid): void {
+	_lib.Rcarousel_next(carousel);
+}
+
+export function Rcarousel_prev(carousel: Rid): void {
+	_lib.Rcarousel_prev(carousel);
+}
+
+/** R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). */
+export function Rcarousel_set_loop(carousel: Rid, loop: number): void {
+	_lib.Rcarousel_set_loop(carousel, loop);
+}
+
+export function Rcarousel_get_loop(carousel: Rid): number {
+	return _lib.Rcarousel_get_loop(carousel);
+}
+
+/**
+ * Goes to the next page by itself every `seconds` (0: never, the
+ * default); after the last page it comes back to the first. It waits
+ * while the pointer is on the carousel, while the pages are dragged and
+ * while the keyboard is in it; a page chosen by the user starts the
+ * interval again.
+ */
+export function Rcarousel_set_autoplay(carousel: Rid, seconds: number): void {
+	_lib.Rcarousel_set_autoplay(carousel, seconds);
+}
+
+export function Rcarousel_get_autoplay(carousel: Rid): number {
+	return _lib.Rcarousel_get_autoplay(carousel);
+}
+
+/** The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). */
+export function Rcarousel_set_indicators_visible(carousel: Rid, visible: number): void {
+	_lib.Rcarousel_set_indicators_visible(carousel, visible);
+}
+
+export function Rcarousel_get_indicators_visible(carousel: Rid): number {
+	return _lib.Rcarousel_get_indicators_visible(carousel);
+}
+
+/** The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). */
+export function Rcarousel_set_arrows_visible(carousel: Rid, visible: number): void {
+	_lib.Rcarousel_set_arrows_visible(carousel, visible);
+}
+
+export function Rcarousel_get_arrows_visible(carousel: Rid): number {
+	return _lib.Rcarousel_get_arrows_visible(carousel);
+}
+
+/** R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. */
+export function Rcarousel_set_orientation(carousel: Rid, orientation: ROrientation): void {
+	_lib.Rcarousel_set_orientation(carousel, orientation);
+}
+
+export function Rcarousel_get_orientation(carousel: Rid): ROrientation {
+	return _lib.Rcarousel_get_orientation(carousel) as ROrientation;
+}
+
+export function Rcarousel_set_page_changed_callback(carousel: Rid, callback: RCarouselPageChangedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rcarousel_set_page_changed_callback(carousel, _adapt_RCarouselPageChangedCallback(callback), user_data);
+}
+
 /** Prints the document shown (see Rpdf_print); the job is named after its title. */
 export function Rpdf_view_print(view: Rid, desc: RPdfPrintDesc | null): number {
 	return _lib.Rpdf_view_print(view, _p(desc));
+}
+
+export function Rmap_view_create(): Rid {
+	return _lib.Rmap_view_create();
+}
+
+/** Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps. */
+export function Rmap_view_set_center(map: Rid, latitude: number, longitude: number): void {
+	_lib.Rmap_view_set_center(map, latitude, longitude);
+}
+
+/** The place at the middle of the map (longitude from -180 to 180). */
+export function Rmap_view_get_center(map: Rid): [latitude: number, longitude: number] {
+	const latitude_ = new Float64Array(1);
+	const longitude_ = new Float64Array(1);
+	_lib.Rmap_view_get_center(map, latitude_, longitude_);
+	return [latitude_[0]!, longitude_[0]!];
+}
+
+/** The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed. */
+export function Rmap_view_set_zoom(map: Rid, zoom: number): void {
+	_lib.Rmap_view_set_zoom(map, zoom);
+}
+
+export function Rmap_view_get_zoom(map: Rid): number {
+	return _lib.Rmap_view_get_zoom(map);
+}
+
+/** The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range. */
+export function Rmap_view_set_zoom_range(map: Rid, min_zoom: number, max_zoom: number): void {
+	_lib.Rmap_view_set_zoom_range(map, min_zoom, max_zoom);
+}
+
+export function Rmap_view_get_zoom_range(map: Rid): [min_zoom: number, max_zoom: number] {
+	const min_zoom_ = new Float64Array(1);
+	const max_zoom_ = new Float64Array(1);
+	_lib.Rmap_view_get_zoom_range(map, min_zoom_, max_zoom_);
+	return [min_zoom_[0]!, max_zoom_[0]!];
+}
+
+/** Glides to a place and a zoom (at once when animations are off). */
+export function Rmap_view_animate_to(map: Rid, latitude: number, longitude: number, zoom: number): void {
+	_lib.Rmap_view_animate_to(map, latitude, longitude, zoom);
+}
+
+/** The place at a point of the widget. */
+export function Rmap_view_screen_to_latlon(map: Rid, x: number, y: number): [latitude: number, longitude: number] {
+	const latitude_ = new Float64Array(1);
+	const longitude_ = new Float64Array(1);
+	_lib.Rmap_view_screen_to_latlon(map, x, y, latitude_, longitude_);
+	return [latitude_[0]!, longitude_[0]!];
+}
+
+/** Where a place is in the widget (of the copies of the world side by side, the one nearest the middle). */
+export function Rmap_view_latlon_to_screen(map: Rid, latitude: number, longitude: number): [x: number, y: number] {
+	const x_ = new Float32Array(1);
+	const y_ = new Float32Array(1);
+	_lib.Rmap_view_latlon_to_screen(map, latitude, longitude, x_, y_);
+	return [x_[0]!, y_[0]!];
+}
+
+/**
+ * Called once for each tile the map needs. Answer with
+ * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+ * at once or later. Setting it forgets the tiles of the previous source.
+ */
+export function Rmap_view_set_tile_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_tile_callback(map, _adapt_RMapTileCallback(callback), user_data);
+}
+
+/** Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. */
+export function Rmap_view_set_tile_cancel_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_tile_cancel_callback(map, _adapt_RMapTileCallback(callback), user_data);
+}
+
+/**
+ * The pixels of a tile: `width` x `height` RGBA8, tightly packed
+ * (they are copied; any size, shown at the tile size). Thread-safe: from
+ * another thread it is applied on the UI thread during the next frame.
+ */
+export function Rmap_view_set_tile(map: Rid, z: number, x: number, y: number, rgba: RPointer, width: number, height: number): void {
+	_lib.Rmap_view_set_tile(map, z, x, y, rgba, width, height);
+}
+
+/** A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe. */
+export function Rmap_view_set_tile_data(map: Rid, z: number, x: number, y: number, data: NodeJS.TypedArray | null): void {
+	_lib.Rmap_view_set_tile_data(map, z, x, y, _b(data), data?.byteLength ?? 0);
+}
+
+/** There is no such tile: the coarser one stays shown in its place. Thread-safe. */
+export function Rmap_view_set_tile_failed(map: Rid, z: number, x: number, y: number): void {
+	_lib.Rmap_view_set_tile_failed(map, z, x, y);
+}
+
+/**
+ * Reads the tiles from files instead of asking for them: a path
+ * where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+ * south, as in TMS and MBTiles). The files are read and decoded on a
+ * worker thread; a missing file is a tile that failed. NULL or "": the
+ * tile callback again. Local files only.
+ */
+export function Rmap_view_set_tile_path(map: Rid, path_template: string | null): void {
+	_lib.Rmap_view_set_tile_path(map, _s(path_template));
+}
+
+export function Rmap_view_get_tile_path(map: Rid): string | null {
+	return _lib.Rmap_view_get_tile_path(map);
+}
+
+/** Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger. */
+export function Rmap_view_set_tile_size(map: Rid, size: number): void {
+	_lib.Rmap_view_set_tile_size(map, size);
+}
+
+export function Rmap_view_get_tile_size(map: Rid): number {
+	return _lib.Rmap_view_get_tile_size(map);
+}
+
+/** Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept. */
+export function Rmap_view_set_cache_size(map: Rid, bytes: number): void {
+	_lib.Rmap_view_set_cache_size(map, bytes);
+}
+
+/** Memory the decoded tiles take now, in bytes. */
+export function Rmap_view_get_cache_usage(map: Rid): number {
+	return Number(_lib.Rmap_view_get_cache_usage(map));
+}
+
+/** Forgets every tile (they are asked for again): the tiles of the source changed. */
+export function Rmap_view_clear_tiles(map: Rid): void {
+	_lib.Rmap_view_clear_tiles(map);
+}
+
+export function Rmap_view_get_tile_state(map: Rid, z: number, x: number, y: number): RMapTileState {
+	return _lib.Rmap_view_get_tile_state(map, z, x, y) as RMapTileState;
+}
+
+/** Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1. */
+export function Rmap_view_add_marker(map: Rid, latitude: number, longitude: number, label: string | null): number {
+	return _lib.Rmap_view_add_marker(map, latitude, longitude, _s(label));
+}
+
+export function Rmap_view_remove_marker(map: Rid, marker: number): void {
+	_lib.Rmap_view_remove_marker(map, marker);
+}
+
+export function Rmap_view_clear_markers(map: Rid): void {
+	_lib.Rmap_view_clear_markers(map);
+}
+
+export function Rmap_view_get_marker_count(map: Rid): number {
+	return _lib.Rmap_view_get_marker_count(map);
+}
+
+export function Rmap_view_set_marker_position(map: Rid, marker: number, latitude: number, longitude: number): void {
+	_lib.Rmap_view_set_marker_position(map, marker, latitude, longitude);
+}
+
+export function Rmap_view_set_marker_label(map: Rid, marker: number, label: string | null): void {
+	_lib.Rmap_view_set_marker_label(map, marker, _s(label));
+}
+
+/** The color of a pin (by default the accent of the theme). */
+export function Rmap_view_set_marker_color(map: Rid, marker: number, r: number, g: number, b: number, a: number): void {
+	_lib.Rmap_view_set_marker_color(map, marker, r, g, b, a);
+}
+
+export function Rmap_view_set_marker_clicked_callback(map: Rid, callback: RMapMarkerCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_marker_clicked_callback(map, _adapt_RMapMarkerCallback(callback), user_data);
+}
+
+export function Rmap_view_set_view_changed_callback(map: Rid, callback: RMapViewCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rmap_view_set_view_changed_callback(map, _adapt_RMapViewCallback(callback), user_data);
+}
+
+/**
+ * A line written in the bottom right corner: the credit most tile
+ * licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+ */
+export function Rmap_view_set_attribution(map: Rid, text: string | null): void {
+	_lib.Rmap_view_set_attribution(map, _s(text));
+}
+
+export function Rmap_view_get_attribution(map: Rid): string | null {
+	return _lib.Rmap_view_get_attribution(map);
 }
 
 export function Rpdf_document_create(): Rid {
@@ -11771,6 +12489,21 @@ export function Rdock_area_is_tearable(area: Rid): number {
 /** Default for future floats/tears; existing floating panels keep their mode. */
 export function Rdock_area_set_float_mode(area: Rid, mode: RDockFloatMode): void {
 	_lib.Rdock_area_set_float_mode(area, mode);
+}
+
+/**
+ * How the windows of torn-off panels are made (native windows,
+ * R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+ * flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+ *                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+ *                 R_WINDOW_TRANSPARENT (the others are ignored).
+ *                 R_WINDOW_DEFAULT by default.
+ * callback May be NULL: the floating area is the whole window.
+ * Dragging the only tab of such a window still moves it, and closing
+ * it (its header bar's close button too) docks its panels back.
+ */
+export function Rdock_area_set_float_window(area: Rid, flags: number, callback: RDockFloatWindowCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rdock_area_set_float_window(area, flags, _adapt_RDockFloatWindowCallback(callback), user_data);
 }
 
 /** Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. */
@@ -13202,6 +13935,9 @@ export function Rfile_is_memory(path: string | null): number {
 
 /**
  * Whole files, with UTF-8 paths on every platform.
+ * On Android and iOS, a relative path that names no file held in memory
+ * and no file on disk is read from the app's package (the APK's assets/,
+ * the bundle's resources), and so is every file Raven reads by its path.
  * Returns: Rfile_read: the content followed by a '\0', to release with
  * Rmemory_free; NULL when the file cannot be read. `size` may be NULL.
  */
@@ -14202,6 +14938,25 @@ export function Rhost_platform_is_active(): number {
 /** Size of a host window in pixels, and pixels per logical unit. */
 export function Rhost_window_set_size(window: Rid, width: number, height: number, scale: number): void {
 	_lib.Rhost_window_set_size(window, width, height, scale);
+}
+
+/**
+ * What covers a host window on a phone or a tablet, in pixels: the
+ * safe area (status bar, notch, home indicator; NULL: none) and the height
+ * of the on-screen keyboard over its bottom (0: hidden). The content is laid
+ * out inside them (Rwindow_get_safe_area, Rwindow_get_keyboard_area).
+ */
+export function Rhost_window_set_insets(window: Rid, safe_area: RInsets | null, keyboard_height: number): void {
+	_lib.Rhost_window_set_insets(window, _p(safe_area), keyboard_height);
+}
+
+/**
+ * The application's system is in dark (R_TRUE) or light (R_FALSE)
+ * mode, -1 when it does not tell (the default): Rtheme_get_system_dark,
+ * and Rtheme_follow_system follows it.
+ */
+export function Rhost_set_system_dark(dark: number): void {
+	_lib.Rhost_set_system_dark(dark);
 }
 
 export function Rhost_inject_mouse_move(window: Rid, x: number, y: number, modifiers: number): void {

@@ -290,12 +290,20 @@ void rvn_widget_detach(rvn_widget_t* widget) {
 	}
 }
 
-void rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index) {
+int rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index) {
 	rvn_a11y_structure_changed();
 	if (child->parent || child->window) rvn_widget_detach(child);
 
 	if ((parent->cls->flags & RVN_CF_SINGLE_CHILD) && parent->child_count > 0) {
-		while (parent->child_count > 0) rvn_widget_destroy(parent->children[parent->child_count - 1]);
+		/* the destroy callbacks of the old child run here: one may destroy the container, or the new
+		 * child, or give the new child a parent; look both up again */
+		Rid parent_id = parent->id, child_id = child->id;
+		while (parent->child_count > 0) {
+			rvn_widget_destroy(parent->children[parent->child_count - 1]);
+			if (rvn_widget_get(parent_id) != parent) return R_FALSE;
+		}
+		if (rvn_widget_get(child_id) != child) return R_FALSE;
+		if (child->parent || child->window) rvn_widget_detach(child);
 	}
 	if (index < 0 || index > (int)parent->child_count) index = (int)parent->child_count;
 	RVN_ARRAY_RESERVE(parent->children, parent->child_cap, parent->child_count + 1);
@@ -311,6 +319,7 @@ void rvn_widget_add_child(rvn_widget_t* parent, rvn_widget_t* child, int index) 
 	rvn_widget_appear(child);
 	if (parent->cls->children_changed) parent->cls->children_changed(parent);
 	rvn_widget_invalidate_layout(parent);
+	return R_TRUE;
 }
 
 void rvn_widget_spread_font(rvn_widget_t* widget, Rid scope) {
@@ -436,7 +445,8 @@ Rid Rwidget_insert_child(Rid parent_id, Rid child_id, int index) {
 		rvn_error(R_ERROR_INVALID_OPERATION, R_SEVERITY_ERROR, "Rwidget_add_child: a widget cannot be added to itself or to one of its descendants");
 		return R_INVALID_ID;
 	}
-	rvn_widget_add_child(parent, child, index);
+	/* not added when replacing the child of a container destroyed the container or the new child */
+	if (!rvn_widget_add_child(parent, child, index)) return R_INVALID_ID;
 	return child_id;
 }
 
@@ -774,6 +784,10 @@ void Rwidget_set_focusable(Rid id, int focusable) {
 void Rwidget_focus(Rid id) {
 	RVN_WIDGET_VOID(widget, id, 0);
 	rvn_widget_focus(widget);
+	/* (a callback of the focus change may have destroyed the widget, or its window with it) */
+	widget = rvn_widget_get(id);
+	/* given by the application (the next field after Enter): it is shown */
+	if (widget && widget->window && !widget->window->dead && widget->window->focus == widget) rvn_window_reveal_focus(widget->window);
 }
 
 int Rwidget_is_focused(Rid id) {

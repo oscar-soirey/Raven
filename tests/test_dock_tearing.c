@@ -52,6 +52,23 @@ static void drag_to_screen(Rid window, float x0, float y0, float screen_x, float
 	frames(3);
 }
 
+/* Rdock_area_set_float_window: the application frames the floating area with a header bar. */
+static int float_calls = 0;
+static Rid float_seen_area = R_INVALID_ID, float_seen_panel = R_INVALID_ID, float_seen_window = R_INVALID_ID, float_frame = R_INVALID_ID;
+static Rid frame_floating_area(Rid area, Rid panel, Rid window, Rid floating_area, void* user_data) {
+	Rid box = Rwidget_create(R_WIDGET_VBOX), bar = Rheader_bar_create(NULL);
+	(void)user_data;
+	float_calls++;
+	float_seen_area = area;
+	float_seen_panel = panel;
+	float_seen_window = window;
+	Rwidget_add_child(box, bar);
+	Rwidget_add_child(box, floating_area);
+	Rslot_set_fill(floating_area, 1.0f);
+	float_frame = box;
+	return box;
+}
+
 static void double_click(Rid window, float x, float y) {
 	Rwindow_inject_mouse_move(window, x, y);
 	frames(1);
@@ -105,7 +122,7 @@ int main(int argc, char** argv) {
 		printf("     floating window %d x %d\n", fw, fh);
 		CHECK(fw >= 250 && fw <= 300 && fh >= 500, "the window has the size the panel had in the area");
 	}
-	CHECK(!Rdock_area_is_panel_open(dock, output) == 0, "the other panels stayed");
+	CHECK(Rdock_area_is_panel_open(dock, output) != 0, "the other panels stayed");
 	if (capture) {
 		frames(20);
 		{
@@ -157,6 +174,42 @@ int main(int argc, char** argv) {
 	Rdock_area_set_tearable(dock, R_FALSE);
 	drag(window, 40.0f, 14.0f, 450.0f, 760.0f);
 	CHECK(Rwidget_get_parent(files) == dock, "an area that is not tearable keeps its panels");
+
+	/* 6. Rdock_area_set_float_window: windows without the title bar of the OS, framed by the application */
+	Rdock_area_set_tearable(dock, R_TRUE);
+	Rdock_area_set_float_window(dock, R_WINDOW_CUSTOM_HEADER, frame_floating_area, NULL);
+	floating_window = Rdock_area_float_panel(dock, problems, 1200, 300);
+	frames(6);
+	CHECK(float_calls == 1 && float_seen_area == dock && float_seen_panel == problems && float_seen_window == floating_window,
+		"the callback is told the area, the panel and the window");
+	CHECK(Rwindow_get_content(floating_window) == float_frame, "the content of the window is the frame it gave");
+	floating = Rwidget_get_parent(problems);
+	CHECK(floating != dock && Rwidget_get_parent(floating) == float_frame, "the floating area is in the frame, the panel in it");
+	CHECK(Rdock_area_get_panel_window(dock, problems) == floating_window, "the area still finds the window of its panel");
+	{
+		float fx = 0.0f, fy = 0.0f, fw = 0.0f, fh = 0.0f;
+		Rwidget_get_rect(floating, &fx, &fy, &fw, &fh);
+		CHECK(fy >= 20.0f && fh > 100.0f, "the floating area is below the header bar");
+		/* its only tab dragged over the main window: docked there (the tab is below the header bar now) */
+		drag_to_screen(floating_window, 30.0f, fy + 14.0f, 100.0f + 600.0f, 100.0f + 160.0f);
+		frames(4);
+		CHECK(Rwidget_get_parent(problems) == dock, "the tab of a framed floating window docks back when dragged home");
+		CHECK(!Rwindow_is_valid(floating_window), "and the framed window closes");
+	}
+	floating_window = Rdock_area_float_panel(dock, problems, 1200, 300);
+	frames(4);
+	CHECK(float_calls == 2, "the callback is called for each new window");
+	Rwindow_close(floating_window);
+	frames(4);
+	CHECK(Rwidget_get_parent(problems) == dock, "closing a framed floating window docks its panel back");
+	/* no callback: the floating area is the whole window, as before */
+	Rdock_area_set_float_window(dock, R_WINDOW_CUSTOM_HEADER, NULL, NULL);
+	floating_window = Rdock_area_float_panel(dock, problems, 1200, 300);
+	frames(4);
+	CHECK(Rwindow_get_content(floating_window) == Rwidget_get_parent(problems), "without a callback the floating area is the content");
+	Rdock_area_dock_panel(dock, problems);
+	frames(4);
+	CHECK(Rwidget_get_parent(problems) == dock && float_calls == 2, "Rdock_area_dock_panel puts it back");
 
 	Rshutdown();
 	printf(failures ? "%d failure(s)\n" : "all good\n", failures);

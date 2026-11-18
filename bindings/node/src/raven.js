@@ -182,6 +182,16 @@ export const RSeverity = _enum({
 });
 export const { R_SEVERITY_WEAK_WARNING, R_SEVERITY_WARNING, R_SEVERITY_ERROR, R_SEVERITY_FATAL } = RSeverity;
 
+export const RAppEvent = _enum({
+	R_APP_WILL_PAUSE: 2944,
+	R_APP_DID_PAUSE: 2945,
+	R_APP_WILL_RESUME: 2946,
+	R_APP_DID_RESUME: 2947,
+	R_APP_LOW_MEMORY: 2948,
+	R_APP_WILL_TERMINATE: 2949,
+});
+export const { R_APP_WILL_PAUSE, R_APP_DID_PAUSE, R_APP_WILL_RESUME, R_APP_DID_RESUME, R_APP_LOW_MEMORY, R_APP_WILL_TERMINATE } = RAppEvent;
+
 export const RWindowFlags = _enum({
 	R_WINDOW_DEFAULT: 0,
 	R_WINDOW_NO_RESIZE: 1,
@@ -642,8 +652,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_PLOT: 562,
 	R_WIDGET_PDF_VIEW: 563,
 	R_WIDGET_CHART: 564,
+	R_WIDGET_MAP_VIEW: 565,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -796,6 +807,14 @@ export const RPdfPrintFlags = _enum({
 	R_PDF_PRINT_NO_DIALOG: 1,
 });
 export const { R_PDF_PRINT_NO_DIALOG } = RPdfPrintFlags;
+
+export const RMapTileState = _enum({
+	R_MAP_TILE_NONE: 1536,
+	R_MAP_TILE_PENDING: 1537,
+	R_MAP_TILE_LOADED: 1538,
+	R_MAP_TILE_FAILED: 1539,
+});
+export const { R_MAP_TILE_NONE, R_MAP_TILE_PENDING, R_MAP_TILE_LOADED, R_MAP_TILE_FAILED } = RMapTileState;
 
 export const RPlotScale = _enum({
 	R_PLOT_SCALE_LINEAR: 1328,
@@ -1693,7 +1712,7 @@ export class RDropEvent extends RStruct {
 }
 
 export class RTouchSettings extends RStruct {
-	static SIZE = 52;
+	static SIZE = 56;
 
 	constructor(pointer) {
 		super(RTouchSettings.SIZE, pointer);
@@ -1793,6 +1812,13 @@ export class RTouchSettings extends RStruct {
 	}
 	set swipe_distance(value) {
 		this._view.setFloat32(48, value, true);
+	}
+
+	get min_touch_size() {
+		return this._view.getFloat32(52, true);
+	}
+	set min_touch_size(value) {
+		this._view.setFloat32(52, value, true);
 	}
 }
 
@@ -2227,7 +2253,7 @@ export class RPdfPrintDesc extends RStruct {
 }
 
 export class RTileItem extends RStruct {
-	static SIZE = 80;
+	static SIZE = 104;
 
 	constructor(pointer) {
 		super(RTileItem.SIZE, pointer);
@@ -2292,6 +2318,54 @@ export class RTileItem extends RStruct {
 	}
 	set text_color(value) {
 		this.text_color.set(value);
+	}
+
+	get note() {
+		return _text(_address(this._view.getBigUint64(80, true)));
+	}
+	set note(value) {
+		this._point("note", 80, _s(value));
+	}
+
+	get detail_color() {
+		return new Float32Array(this._bytes.buffer, 88, 4);
+	}
+	set detail_color(value) {
+		this.detail_color.set(value);
+	}
+}
+
+export class RTileSection extends RStruct {
+	static SIZE = 24;
+
+	constructor(pointer) {
+		super(RTileSection.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RTileSection(pointer) : null;
+	}
+
+	get first() {
+		return this._view.getInt32(0, true);
+	}
+	set first(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get text() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set text(value) {
+		this._point("text", 8, _s(value));
+	}
+
+	get detail() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set detail(value) {
+		this._point("detail", 16, _s(value));
 	}
 }
 
@@ -3053,6 +3127,18 @@ function _adapt_RListItemColorCallback(function_) {
 	};
 }
 
+function _adapt_RTileSectionCallback(function_) {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return (tile_view, section, out, user_data) => {
+		const out_ = RTileSection.from(out);
+		const result_ = function_(tile_view, section, out_, user_data);
+		_back(out_, out);
+		return result_;
+	};
+}
+
 function _adapt_RTileItemCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -3136,6 +3222,9 @@ export const Rwait_events = _lib.Rwait_events;
 export const Rset_frame_callback = _lib.Rset_frame_callback;
 export const Rget_delta_time = _lib.Rget_delta_time;
 export const Rget_time = _lib.Rget_time;
+export const Rset_app_event_callback = _lib.Rset_app_event_callback;
+export const Ris_app_paused = _lib.Ris_app_paused;
+export const Rinject_app_event = _lib.Rinject_app_event;
 export const Rset_ui_scale = _lib.Rset_ui_scale;
 export const Rset_vsync = _lib.Rset_vsync;
 export const Rget_vsync = _lib.Rget_vsync;
@@ -3189,6 +3278,9 @@ export function Rwindow_get_keyboard_area(window, insets) {
 }
 export const Rwindow_set_keyboard_callback = _lib.Rwindow_set_keyboard_callback;
 export const Rwindow_clear_focus = _lib.Rwindow_clear_focus;
+export const Rwindow_set_back_callback = _lib.Rwindow_set_back_callback;
+export const Rwindow_set_back_enabled = _lib.Rwindow_set_back_enabled;
+export const Rwindow_wants_back = _lib.Rwindow_wants_back;
 export const Rwindow_set_min_size = _lib.Rwindow_set_min_size;
 export const Rwindow_set_position = _lib.Rwindow_set_position;
 export const Rwindow_get_position = _lib.Rwindow_get_position;
@@ -3251,6 +3343,7 @@ export const Rwindow_inject_key = _lib.Rwindow_inject_key;
 export const Rwindow_inject_text = _lib.Rwindow_inject_text;
 export const Rwindow_inject_drag = _lib.Rwindow_inject_drag;
 export const Rwindow_inject_drop = _lib.Rwindow_inject_drop;
+export const Rwindow_inject_back = _lib.Rwindow_inject_back;
 export const Rwindow_is_key_down = _lib.Rwindow_is_key_down;
 export const Rwindow_is_mouse_button_down = _lib.Rwindow_is_mouse_button_down;
 export const Rwindow_get_modifiers = _lib.Rwindow_get_modifiers;
@@ -3661,6 +3754,16 @@ export const Rtile_view_refresh = _lib.Rtile_view_refresh;
 export const Rtile_view_get_count = _lib.Rtile_view_get_count;
 export const Rtile_view_set_tile_size = _lib.Rtile_view_set_tile_size;
 export const Rtile_view_set_empty_text = _lib.Rtile_view_set_empty_text;
+export const Rtile_view_set_icon_width = _lib.Rtile_view_set_icon_width;
+export function Rtile_view_set_sections(tile_view, count, callback, user_data = null) {
+	return _lib.Rtile_view_set_sections(tile_view, count, _adapt_RTileSectionCallback(callback), user_data);
+}
+export const Rtile_view_get_section_count = _lib.Rtile_view_get_section_count;
+export const Rtile_view_get_section_of = _lib.Rtile_view_get_section_of;
+export const Rtile_view_set_section_folded = _lib.Rtile_view_set_section_folded;
+export const Rtile_view_is_section_folded = _lib.Rtile_view_is_section_folded;
+export const Rtile_view_get_section_at = _lib.Rtile_view_get_section_at;
+export const Rtile_view_set_section_toggled_callback = _lib.Rtile_view_set_section_toggled_callback;
 export const Rtile_view_set_selected = _lib.Rtile_view_set_selected;
 export const Rtile_view_is_selected = _lib.Rtile_view_is_selected;
 export const Rtile_view_clear_selection = _lib.Rtile_view_clear_selection;
@@ -3881,9 +3984,60 @@ export const Rpdf_view_get_fit = _lib.Rpdf_view_get_fit;
 export const Rpdf_view_get_title = _lib.Rpdf_view_get_title;
 export const Rpdf_view_get_page_text = _lib.Rpdf_view_get_page_text;
 export const Rpdf_view_set_page_changed_callback = _lib.Rpdf_view_set_page_changed_callback;
+export const Rcarousel_create = _lib.Rcarousel_create;
+export const Rcarousel_set_page = _lib.Rcarousel_set_page;
+export const Rcarousel_get_page = _lib.Rcarousel_get_page;
+export const Rcarousel_get_page_count = _lib.Rcarousel_get_page_count;
+export const Rcarousel_next = _lib.Rcarousel_next;
+export const Rcarousel_prev = _lib.Rcarousel_prev;
+export const Rcarousel_set_loop = _lib.Rcarousel_set_loop;
+export const Rcarousel_get_loop = _lib.Rcarousel_get_loop;
+export const Rcarousel_set_autoplay = _lib.Rcarousel_set_autoplay;
+export const Rcarousel_get_autoplay = _lib.Rcarousel_get_autoplay;
+export const Rcarousel_set_indicators_visible = _lib.Rcarousel_set_indicators_visible;
+export const Rcarousel_get_indicators_visible = _lib.Rcarousel_get_indicators_visible;
+export const Rcarousel_set_arrows_visible = _lib.Rcarousel_set_arrows_visible;
+export const Rcarousel_get_arrows_visible = _lib.Rcarousel_get_arrows_visible;
+export const Rcarousel_set_orientation = _lib.Rcarousel_set_orientation;
+export const Rcarousel_get_orientation = _lib.Rcarousel_get_orientation;
+export const Rcarousel_set_page_changed_callback = _lib.Rcarousel_set_page_changed_callback;
 export function Rpdf_view_print(view, desc) {
 	return _lib.Rpdf_view_print(view, _p(desc));
 }
+export const Rmap_view_create = _lib.Rmap_view_create;
+export const Rmap_view_set_center = _lib.Rmap_view_set_center;
+export const Rmap_view_get_center = _lib.Rmap_view_get_center;
+export const Rmap_view_set_zoom = _lib.Rmap_view_set_zoom;
+export const Rmap_view_get_zoom = _lib.Rmap_view_get_zoom;
+export const Rmap_view_set_zoom_range = _lib.Rmap_view_set_zoom_range;
+export const Rmap_view_get_zoom_range = _lib.Rmap_view_get_zoom_range;
+export const Rmap_view_animate_to = _lib.Rmap_view_animate_to;
+export const Rmap_view_screen_to_latlon = _lib.Rmap_view_screen_to_latlon;
+export const Rmap_view_latlon_to_screen = _lib.Rmap_view_latlon_to_screen;
+export const Rmap_view_set_tile_callback = _lib.Rmap_view_set_tile_callback;
+export const Rmap_view_set_tile_cancel_callback = _lib.Rmap_view_set_tile_cancel_callback;
+export const Rmap_view_set_tile = _lib.Rmap_view_set_tile;
+export const Rmap_view_set_tile_data = _lib.Rmap_view_set_tile_data;
+export const Rmap_view_set_tile_failed = _lib.Rmap_view_set_tile_failed;
+export const Rmap_view_set_tile_path = _lib.Rmap_view_set_tile_path;
+export const Rmap_view_get_tile_path = _lib.Rmap_view_get_tile_path;
+export const Rmap_view_set_tile_size = _lib.Rmap_view_set_tile_size;
+export const Rmap_view_get_tile_size = _lib.Rmap_view_get_tile_size;
+export const Rmap_view_set_cache_size = _lib.Rmap_view_set_cache_size;
+export const Rmap_view_get_cache_usage = _lib.Rmap_view_get_cache_usage;
+export const Rmap_view_clear_tiles = _lib.Rmap_view_clear_tiles;
+export const Rmap_view_get_tile_state = _lib.Rmap_view_get_tile_state;
+export const Rmap_view_add_marker = _lib.Rmap_view_add_marker;
+export const Rmap_view_remove_marker = _lib.Rmap_view_remove_marker;
+export const Rmap_view_clear_markers = _lib.Rmap_view_clear_markers;
+export const Rmap_view_get_marker_count = _lib.Rmap_view_get_marker_count;
+export const Rmap_view_set_marker_position = _lib.Rmap_view_set_marker_position;
+export const Rmap_view_set_marker_label = _lib.Rmap_view_set_marker_label;
+export const Rmap_view_set_marker_color = _lib.Rmap_view_set_marker_color;
+export const Rmap_view_set_marker_clicked_callback = _lib.Rmap_view_set_marker_clicked_callback;
+export const Rmap_view_set_view_changed_callback = _lib.Rmap_view_set_view_changed_callback;
+export const Rmap_view_set_attribution = _lib.Rmap_view_set_attribution;
+export const Rmap_view_get_attribution = _lib.Rmap_view_get_attribution;
 export const Rpdf_document_create = _lib.Rpdf_document_create;
 export const Rpdf_document_delete = _lib.Rpdf_document_delete;
 export const Rpdf_document_set_title = _lib.Rpdf_document_set_title;
@@ -4004,6 +4158,7 @@ export const Rdock_area_set_close_callback = _lib.Rdock_area_set_close_callback;
 export const Rdock_area_set_tearable = _lib.Rdock_area_set_tearable;
 export const Rdock_area_is_tearable = _lib.Rdock_area_is_tearable;
 export const Rdock_area_set_float_mode = _lib.Rdock_area_set_float_mode;
+export const Rdock_area_set_float_window = _lib.Rdock_area_set_float_window;
 export const Rdock_area_float_panel = _lib.Rdock_area_float_panel;
 export const Rdock_area_dock_panel = _lib.Rdock_area_dock_panel;
 export const Rdock_area_get_panel_window = _lib.Rdock_area_get_panel_window;
@@ -4461,6 +4616,10 @@ export function Rhost_platform_register(desc) {
 }
 export const Rhost_platform_is_active = _lib.Rhost_platform_is_active;
 export const Rhost_window_set_size = _lib.Rhost_window_set_size;
+export function Rhost_window_set_insets(window, safe_area, keyboard_height) {
+	return _lib.Rhost_window_set_insets(window, _p(safe_area), keyboard_height);
+}
+export const Rhost_set_system_dark = _lib.Rhost_set_system_dark;
 export const Rhost_inject_mouse_move = _lib.Rhost_inject_mouse_move;
 export const Rhost_inject_mouse_button = _lib.Rhost_inject_mouse_button;
 export const Rhost_inject_mouse_wheel = _lib.Rhost_inject_mouse_wheel;

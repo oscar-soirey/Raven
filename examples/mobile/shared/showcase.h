@@ -17,13 +17,6 @@ extern "C" {
 /* Builds the window and the whole UI. Returns the window, or R_INVALID_ID. */
 Rid showcase_create(void);
 
-/*
- * Called when "back" (Escape, the Android back key) has nothing left to go
- * back to: the app decides (Android finishes the activity; iOS has no such
- * thing and passes NULL).
- */
-void showcase_set_exit_handler(void (*handler)(void));
-
 /* Debug: logs the window size, safe area and theme (after a launch or rotation). */
 void showcase_report(const char* why);
 

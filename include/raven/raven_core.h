@@ -327,6 +327,60 @@ extern "C" {
 
 
 	/* ============================================================================
+	 *  APPLICATION LIFECYCLE
+	 * ============================================================================ */
+
+	/**
+	 * What the system does with the application, on iOS and Android (desktop
+	 * systems send none of these). A pause is not always followed by
+	 * R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+	 * system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+	 * At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+	 *
+	 *   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+	 *   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+	 *   coming back         R_APP_WILL_RESUME   Raven draws again
+	 *   in front again      R_APP_DID_RESUME    takes input again
+	 */
+	typedef enum RAppEvent{
+		/** The application is about to leave the front (home, app switcher, a call). Save the state now. */
+		R_APP_WILL_PAUSE = 0x0B80,
+		/** The application is in the background: Raven has stopped drawing, and waited until the GPU was idle. */
+		R_APP_DID_PAUSE,
+		/** The application is coming back to the front: Raven draws again. */
+		R_APP_WILL_RESUME,
+		/** The application is in front and takes input again. */
+		R_APP_DID_RESUME,
+		/** The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap. */
+		R_APP_LOW_MEMORY,
+		/** The application is about to end (Android: the activity is finishing; its window is closed right after). */
+		R_APP_WILL_TERMINATE
+	}RAppEvent;
+
+	/**
+	 * @brief Registers a function called when the application changes state
+	 * (RAppEvent), on the UI thread, while the system waits for it: keep it
+	 * short. Between R_APP_DID_PAUSE and R_APP_WILL_RESUME Raven lays out but
+	 * draws nothing, animations stand still and Rwait_frame sleeps until an
+	 * event, a posted task or a timer: the timers of the application keep
+	 * running, so stop those that only drive drawing. Set it after Rinit;
+	 * NULL removes it.
+	 */
+	typedef void (*RAppEventCallback)(RAppEvent event, void* user_data);
+	RAVEN_API void Rset_app_event_callback(RAppEventCallback callback, void* user_data);
+
+	/** @return R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the background. */
+	RAVEN_API int Ris_app_paused(void);
+
+	/**
+	 * @brief Handles an RAppEvent as if the system had sent it: for tests,
+	 * and for a host application (raven_host.h) that knows the lifecycle.
+	 * UI thread.
+	 */
+	RAVEN_API void Rinject_app_event(RAppEvent event);
+
+
+	/* ============================================================================
 	 *  ANIMATIONS
 	 * ============================================================================ */
 

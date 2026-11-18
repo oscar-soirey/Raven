@@ -16,6 +16,7 @@
 #   effects          the effects (shaders) of Raven, and two written by the application
 #   plot             curves of X / Y data: XML, streaming data, logarithmic axes, drag lines, a million points
 #   charts           a dashboard: KPI tiles with sparklines, a pie, a donut, gauges with bands, a heatmap
+#   map              a MapView whose tiles it draws itself (offline), markers, flights; or tiles from files
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
@@ -72,6 +73,7 @@ raven_add_example(effects effects/main.c effects/effects.xml effects/wave.frag e
 raven_add_example(plot plot/main.c plot/plot.xml)
 raven_add_example(charts charts/main.c charts/charts.xml)
 raven_add_example(pdf pdf/main.c pdf/pdf.xml)
+raven_add_example(map map/main.c map/world.h map/map.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml

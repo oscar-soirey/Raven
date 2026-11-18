@@ -50,6 +50,8 @@ typedef struct rvn_shelf_t {
 } rvn_shelf_t;
 
 typedef struct rvn_atlas_page_t {
+	/** R_TRUE: RGBA, for the color bitmaps of emoji; else coverage, one byte per pixel. */
+	int color;
 	uint8_t* pixels;
 	rvn_shelf_t* shelves;
 	uint32_t shelf_count;
@@ -65,6 +67,9 @@ struct rvn_font_t {
 	Rid id;
 	uint8_t* data;
 	int owns_data;
+	/** A font of the system: its file, mapped into memory (`size` bytes). */
+	const rvn_system_file_t* system;
+	size_t mapped_size;
 	rvn_ttf_t* ttf;
 	float ascent, descent, line_gap;
 	Rid fallback;
@@ -98,7 +103,7 @@ static struct {
 	int initialized;
 	/* fonts of the system, opened when a character needs them (render/font_system.c) */
 	struct {
-		const char* path;
+		const rvn_system_file_t* file;
 		rvn_font_t* font;
 		int failed;
 	} system[64];
@@ -109,12 +114,18 @@ static struct {
  *  Atlas (caller holds the mutex)
  * ------------------------------------------------------------------------- */
 
-static rvn_atlas_page_t* rvn_atlas_add_page(void) {
+/* Bytes per pixel of a page. */
+static size_t rvn_atlas_depth(const rvn_atlas_page_t* page) {
+	return page->color ? 4u : 1u;
+}
+
+static rvn_atlas_page_t* rvn_atlas_add_page(int color) {
 	rvn_atlas_page_t* page;
 	if (g_fonts.page_count >= RVN_ATLAS_MAX_PAGES) return NULL;
 	page = &g_fonts.pages[g_fonts.page_count++];
 	memset(page, 0, sizeof(*page));
-	page->pixels = (uint8_t*)rvn_calloc((size_t)RVN_ATLAS_SIZE * RVN_ATLAS_SIZE);
+	page->color = color;
+	page->pixels = (uint8_t*)rvn_calloc((size_t)RVN_ATLAS_SIZE * RVN_ATLAS_SIZE * rvn_atlas_depth(page));
 	page->next_y = 1;
 	page->texture = R_INVALID_ID;
 	return page;
@@ -148,17 +159,18 @@ static int rvn_atlas_place(rvn_atlas_page_t* page, int w, int h, uint16_t* out_x
 	return R_TRUE;
 }
 
-static int rvn_atlas_alloc(int w, int h, uint16_t* out_page, uint16_t* out_x, uint16_t* out_y) {
+/* A place on a page of coverage, or of color (RGBA) when `color`. */
+static int rvn_atlas_alloc(int w, int h, int color, uint16_t* out_page, uint16_t* out_x, uint16_t* out_y) {
 	uint32_t i;
 	rvn_atlas_page_t* page;
 	if (w + 2 > RVN_ATLAS_SIZE || h + 2 > RVN_ATLAS_SIZE) return R_FALSE;
 	for (i = 0; i < g_fonts.page_count; i++) {
-		if (rvn_atlas_place(&g_fonts.pages[i], w, h, out_x, out_y)) {
+		if (g_fonts.pages[i].color == color && rvn_atlas_place(&g_fonts.pages[i], w, h, out_x, out_y)) {
 			*out_page = (uint16_t)i;
 			return R_TRUE;
 		}
 	}
-	page = rvn_atlas_add_page();
+	page = rvn_atlas_add_page(color);
 	if (!page || !rvn_atlas_place(page, w, h, out_x, out_y)) return R_FALSE;
 	*out_page = (uint16_t)(g_fonts.page_count - 1);
 	return R_TRUE;
@@ -266,11 +278,35 @@ static void rvn_glyph_create(rvn_font_t* font, int glyph_index, uint32_t size_q,
 	uint8_t* styled = NULL;
 
 	memset(glyph, 0, sizeof(*glyph));
+	/* a picture in color (emoji): on a page of color, as it is (neither thickened nor slanted) */
+	if (rvn_ttf_has_pictures(font->ttf)) {
+		int undecoded = R_FALSE;
+		uint8_t* picture = rvn_ttf_bitmap(font->ttf, glyph_index, size_px, &x0, &y0, &w, &h, &undecoded);
+		if (!picture && undecoded) picture = rvn_font_system_draw(font->system, glyph_index, size_px, &x0, &y0, &w, &h);
+		if (picture) {
+			if (rvn_atlas_alloc(w, h, R_TRUE, &glyph->page, &glyph->x, &glyph->y)) {
+				rvn_atlas_page_t* page = &g_fonts.pages[glyph->page];
+				int row;
+				for (row = 0; row < h; row++) {
+					memcpy(page->pixels + ((size_t)(glyph->y + row) * RVN_ATLAS_SIZE + glyph->x) * 4, picture + (size_t)row * (size_t)w * 4, (size_t)w * 4);
+				}
+				rvn_atlas_mark_dirty(page, glyph->x, glyph->y, w, h);
+				glyph->w = (uint16_t)w;
+				glyph->h = (uint16_t)h;
+				glyph->offset_x = (int16_t)x0;
+				glyph->offset_y = (int16_t)y0;
+			}
+			rvn_free(picture);
+			rvn_glyph_pack(glyph, value);
+			rvn_lfmap_insert(&g_fonts.glyphs, key, value);
+			return;
+		}
+	}
 	rvn_ttf_glyph_box(font->ttf, glyph_index, size_px, &x0, &y0, &x1, &y1);
 	w = x1 - x0;
 	h = y1 - y0;
 	if (style && w > 0 && h > 0) styled = rvn_glyph_styled(font, glyph_index, size_px, style, &x0, y0, &w, h);
-	if (w > 0 && h > 0 && rvn_atlas_alloc(w, h, &glyph->page, &glyph->x, &glyph->y)) {
+	if (w > 0 && h > 0 && rvn_atlas_alloc(w, h, R_FALSE, &glyph->page, &glyph->x, &glyph->y)) {
 		rvn_atlas_page_t* page = &g_fonts.pages[glyph->page];
 		uint8_t* target = page->pixels + (size_t)glyph->y * RVN_ATLAS_SIZE + glyph->x;
 		if (styled) {
@@ -316,29 +352,31 @@ static void rvn_glyph_get(rvn_font_t* font, int glyph_index, uint32_t size_q, ui
  * that pool, and these are opened while they run.
  */
 static int rvn_font_system_glyph(uint32_t codepoint, rvn_cmap_entry_t* entry) {
-	const char* paths[24];
-	int count = rvn_font_system_candidates(codepoint, paths, (int)RVN_COUNT_OF(paths)), i, k;
+	const rvn_system_file_t* files[24];
+	int count = rvn_font_system_candidates(codepoint, files, (int)RVN_COUNT_OF(files)), i, k;
 	for (i = 0; i < count; i++) {
 		rvn_font_t* font = NULL;
 		int glyph;
 		for (k = 0; k < g_fonts.system_count; k++) {
-			if (g_fonts.system[k].path == paths[i]) break;
+			if (g_fonts.system[k].file == files[i]) break;
 		}
 		if (k == g_fonts.system_count) {
 			size_t size = 0;
 			uint8_t* data;
 			rvn_ttf_t* ttf;
 			if (g_fonts.system_count >= (int)RVN_COUNT_OF(g_fonts.system)) continue;
-			g_fonts.system[k].path = paths[i];
+			g_fonts.system[k].file = files[i];
 			g_fonts.system[k].font = NULL;
 			g_fonts.system[k].failed = R_TRUE;
 			g_fonts.system_count++;
-			data = (uint8_t*)rvn_read_file(paths[i], &size);
-			ttf = data ? rvn_ttf_open(data, size) : NULL;
+			/* (mapped, not read: only the parts of the font in use are loaded) */
+			data = rvn_map_file(files[i]->path, &size);
+			ttf = data ? rvn_ttf_open_face(data, size, files[i]->face) : NULL;
 			if (ttf) {
 				rvn_font_t* made = (rvn_font_t*)rvn_calloc(sizeof(rvn_font_t));
 				made->data = data;
-				made->owns_data = R_TRUE;
+				made->mapped_size = size;
+				made->system = files[i];
 				made->ttf = ttf;
 				made->fallback = R_INVALID_ID;
 				made->id = R_INVALID_ID;
@@ -347,7 +385,7 @@ static int rvn_font_system_glyph(uint32_t codepoint, rvn_cmap_entry_t* entry) {
 				g_fonts.system[k].font = made;
 				g_fonts.system[k].failed = R_FALSE;
 			} else {
-				rvn_free(data);
+				rvn_unmap_file(data, size);
 			}
 		}
 		if (g_fonts.system[k].failed) continue;
@@ -556,7 +594,7 @@ void rvn_fonts_shutdown(void) {
 		rvn_font_t* font = g_fonts.system[i].font;
 		if (!font) continue;
 		rvn_ttf_close(font->ttf);
-		rvn_free(font->data);
+		rvn_unmap_file(font->data, font->mapped_size);
 		rvn_free(font);
 	}
 	rvn_font_system_shutdown();
@@ -807,7 +845,8 @@ void rvn_text_draw(rvn_drawlist_t* list, rvn_font_t* font, float size_px, float 
 						instance->clip[2] = clip.x1;
 						instance->clip[3] = clip.y1;
 						instance->radii[0] = instance->radii[1] = instance->radii[2] = instance->radii[3] = 0.0f;
-						instance->color = layer_color;
+						/* (a picture in color keeps its colors, with the opacity of the text) */
+						instance->color = g_fonts.pages[glyph.page].color ? (0x00FFFFFFu | (color & 0xFF000000u)) : layer_color;
 						instance->border_color = 0;
 						instance->border_width = 0.0f;
 						instance->flags = R_PRIM_GLYPH | R_INSTANCE_TEXTURED;
@@ -851,18 +890,19 @@ void rvn_fonts_flush(void) {
 	}
 	for (i = 0; i < g_fonts.page_count; i++) {
 		rvn_atlas_page_t* page = &g_fonts.pages[i];
+		size_t depth = rvn_atlas_depth(page);
 		if (page->texture == R_INVALID_ID) {
-			uint8_t* copy = (uint8_t*)rvn_alloc((size_t)RVN_ATLAS_SIZE * RVN_ATLAS_SIZE);
-			memcpy(copy, page->pixels, (size_t)RVN_ATLAS_SIZE * RVN_ATLAS_SIZE);
-			page->texture = rvn_texture_create_raw(RVN_ATLAS_SIZE, RVN_ATLAS_SIZE, R_TEXTURE_ALPHA8,
+			uint8_t* copy = (uint8_t*)rvn_alloc((size_t)RVN_ATLAS_SIZE * RVN_ATLAS_SIZE * depth);
+			memcpy(copy, page->pixels, (size_t)RVN_ATLAS_SIZE * RVN_ATLAS_SIZE * depth);
+			page->texture = rvn_texture_create_raw(RVN_ATLAS_SIZE, RVN_ATLAS_SIZE, page->color ? R_TEXTURE_RGBA8 : R_TEXTURE_ALPHA8,
 				R_FILTER_LINEAR, copy);
 			page->dirty = R_FALSE;
 		} else if (page->dirty) {
 			int w = page->dirty_x1 - page->dirty_x0, h = page->dirty_y1 - page->dirty_y0, row;
-			uint8_t* copy = (uint8_t*)rvn_alloc((size_t)w * (size_t)h);
+			uint8_t* copy = (uint8_t*)rvn_alloc((size_t)w * (size_t)h * depth);
 			for (row = 0; row < h; row++) {
-				memcpy(copy + (size_t)row * (size_t)w,
-					page->pixels + (size_t)(page->dirty_y0 + row) * RVN_ATLAS_SIZE + page->dirty_x0, (size_t)w);
+				memcpy(copy + (size_t)row * (size_t)w * depth,
+					page->pixels + ((size_t)(page->dirty_y0 + row) * RVN_ATLAS_SIZE + (size_t)page->dirty_x0) * depth, (size_t)w * depth);
 			}
 			rvn_renderer_update_texture(page->texture, (uint32_t)page->dirty_x0, (uint32_t)page->dirty_y0,
 				(uint32_t)w, (uint32_t)h, copy);

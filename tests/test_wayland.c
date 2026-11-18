@@ -931,7 +931,7 @@ static const char* XML_WINDOW =
 static void test_wayland(void) {
 	RInitDesc desc;
 	RNativeWindow native;
-	Rid window, input, go, label;
+	Rid window, hidden, input, go, label;
 	point p;
 	int width = 0, height = 0;
 	configure_args resize = { 500, 350, 0 }, maximize = { 500, 350, 1 }, restore = { 500, 350, 0 };
@@ -1223,6 +1223,21 @@ static void test_wayland(void) {
 	settle(20);
 	CHECK(g_closes == 1);
 	CHECK(Rwindow_is_valid(window));
+
+	/* created hidden: no role, so the compositor has no window to list; the first show makes one */
+	hidden = Rwindow_create("hidden", 200, 100, R_WINDOW_HIDDEN);
+	CHECK(hidden != R_INVALID_ID);
+	settle(20);
+	pthread_mutex_lock(&g_lock);
+	CHECK(C.toplevels_made == 2);
+	pthread_mutex_unlock(&g_lock);
+	Rwindow_show(hidden);
+	settle(20);
+	pthread_mutex_lock(&g_lock);
+	CHECK(C.toplevels_made == 3 && C.toplevel != NULL);
+	CHECK(C.acked_serial == C.configure_serial);
+	pthread_mutex_unlock(&g_lock);
+	Rwindow_destroy(hidden);
 
 	Rshutdown();
 }

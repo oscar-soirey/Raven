@@ -291,6 +291,11 @@ extern "C" {
 	RAVEN_API void Rtheme_set_color(RColorRole role, float r, float g, float b, float a);
 	RAVEN_API void Rtheme_get_color(RColorRole role, float* r, float* g, float* b, float* a);
 
+	/**
+	 * @brief Changes a size of the theme in use. It lasts until the look or
+	 * the theme is chosen again (Rlook_set, Rtheme_use), but not through a
+	 * switch between light and dark made by Rtheme_follow_system.
+	 */
 	RAVEN_API void Rtheme_set_metric(RMetric metric, float value);
 	RAVEN_API float Rtheme_get_metric(RMetric metric);
 
@@ -324,6 +329,13 @@ extern "C" {
 	 * @brief Follows the dark or light mode of the system with the Raven look
 	 * (R_LOOK_RAVEN_DARK / R_LOOK_RAVEN_LIGHT), now and when it changes.
 	 * Off by default. Does nothing where the platform does not tell (desktop today).
+	 *
+	 * A switch is Rlook_set, except that the sizes given with
+	 * Rtheme_set_metric stay. Colors and styles set with Rtheme_set_... are
+	 * those of one mode and are lost; to keep colors, sizes and styles of
+	 * the application through the switch, put them in a theme that names no
+	 * look (Rtheme_load_from_memory, then Rtheme_use): it is laid over the
+	 * new look.
 	 */
 	RAVEN_API void Rtheme_follow_system(int enabled);
 	RAVEN_API int Rtheme_is_dark(void);

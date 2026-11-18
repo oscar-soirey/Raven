@@ -19,8 +19,9 @@ both:
 
     RAVEN_LIBRARY=/path/to/libraven.so node src/example.mjs
 
-The addon is looked for in `RAVEN_ADDON`, beside `raven.js`, then in `build/`; the
-library in `RAVEN_LIBRARY`, beside `raven.js`, then where the system looks.
+The addon is looked for in `RAVEN_ADDON`, beside `raven.js`, then in `build/`
+and `build/Release/`; the library in `RAVEN_LIBRARY`, beside `raven.js`, then
+where the system looks.
 
 ```js
 import * as r from "./raven.js";
@@ -33,6 +34,39 @@ r.Raction_bind("hello.clicked", () => {
 await r.runLoop();
 r.Rshutdown();
 ```
+
+## Windows
+
+There an addon links the import library of `node.exe`, `node.lib`, and an
+installation of Node.js has neither that nor `node_api.h`. So the CMake of the
+addon downloads both from nodejs.org, for the version of the `node` it finds,
+into the build folder, and checks them against the `SHASUMS256.txt` of that
+release. With Visual C++:
+
+    cmake -S . -B build-shared -A x64 -DRAVEN_BUILD_SHARED=ON
+    cmake --build build-shared --config Release --parallel
+    cmake -S bindings/node -B bindings/node/build -A x64
+    cmake --build bindings/node/build --config Release
+
+    set RAVEN_LIBRARY=C:\path\to\build-shared\bin\Release\raven.dll
+    node bindings\node\src\example.mjs
+
+The addon is `bindings/node/build/Release/raven_napi.node`, where `raven.js`
+looks for it. To build without a network, give both files and turn the
+download off:
+
+    cmake -S bindings/node -B bindings/node/build -A x64 -DRAVEN_NODE_DOWNLOAD=OFF ^
+        -DRAVEN_NODE_INCLUDE_DIR=C:\path\to\node-v24.11.1\include\node ^
+        -DRAVEN_NODE_LIBRARY=C:\path\to\win-x64\node.lib
+
+nodejs.org has them for every release (`node-<version>-headers.tar.gz`, and
+`node.lib` in `win-x64/` or `win-arm64/`). node-gyp keeps the same files in
+`%LOCALAPPDATA%\node-gyp\Cache\<version>` (`include\node`, `x64\node.lib`).
+
+`node.lib` names `node.exe`. Built with Visual C++, the addon loads Node-API late
+and takes it from the program that runs, as an addon of node-gyp does, so it
+also loads in an executable of another name, such as a renamed `node.exe`.
+MinGW builds it too, but without that: then it only loads in `node.exe`.
 
 ## What differs from C
 
@@ -120,6 +154,6 @@ from a `Worker`.
 
 runs without a window system and without a GPU, as `ctest` does (`binding_node`
 under Node.js and `binding_node_bun` under Bun, which also needs `node_api.h`
-to compile the addon).
+to compile the addon). On Windows `ctest` has `binding_node` only.
 
 `npm run typecheck` needs `npm install` first.

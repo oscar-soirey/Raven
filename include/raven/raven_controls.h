@@ -153,6 +153,18 @@ typedef struct RPdfPrintDesc {
 	const char* password;
 } RPdfPrintDesc;
 
+/** Where a tile of a MapView stands (Rmap_view_get_tile_state). */
+typedef enum RMapTileState{
+	/** Not in the view's cache: never asked for, no longer wanted, or evicted. */
+	R_MAP_TILE_NONE = 0x0600,
+	/** Asked for (the tile callback was called, or the file is being read): waiting for its pixels. */
+	R_MAP_TILE_PENDING,
+	/** Its pixels are in the cache. */
+	R_MAP_TILE_LOADED,
+	/** The application said it has none (Rmap_view_set_tile_failed), or its file could not be read. */
+	R_MAP_TILE_FAILED
+}RMapTileState;
+
 /** How an axis of a Plot spreads its values. */
 typedef enum RPlotScale{
 	R_PLOT_SCALE_LINEAR = 0x0530,
@@ -638,7 +650,27 @@ extern "C" {
 		float icon_radius;
 		/** Color of the name; alpha 0 = the theme. */
 		float text_color[4];
+		/** Layout="Rows": a third line under the detail, dimmer, or NULL. */
+		const char* note;
+		/** Color of the detail line; alpha 0 = the theme (dimmer than the name). */
+		float detail_color[4];
 	} RTileItem;
+
+	/** A section of a tile view: its first tile, and what its header shows. */
+	typedef struct RTileSection {
+		/** Index of the first tile of the section (read when the sections are given). */
+		int first;
+		/** Title of the header (valid until the callback returns). */
+		const char* text;
+		/** Dimmer text after the title (a count...), or NULL. */
+		const char* detail;
+	} RTileSection;
+
+	/**
+	 * Describes section `section`: when the sections are given (Rtile_view_set_sections,
+	 * `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+	 */
+	typedef void (*RTileSectionCallback)(Rid tile_view, int section, RTileSection* out, void* user_data);
 
 	/** Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view. */
 	typedef void (*RTileItemCallback)(Rid tile_view, int index, RTileItem* item, void* user_data);
@@ -655,6 +687,31 @@ extern "C" {
 	/** @brief Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64. */
 	RAVEN_API void Rtile_view_set_tile_size(Rid tile_view, float width, float height, float icon_size);
 	RAVEN_API void Rtile_view_set_empty_text(Rid tile_view, const char* text);
+	/**
+	 * @brief Layout="Rows": width of the box the icon is drawn in (its height is the
+	 * icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+	 */
+	RAVEN_API void Rtile_view_set_icon_width(Rid tile_view, float width);
+
+	/*
+	 * Sections: the tiles, in their order, are cut into runs under a header row (a
+	 * chevron, a title, a dimmer detail). A click on a header folds its section (its
+	 * tiles are neither drawn nor hit; the keys, Shift ranges and the rubber band pass
+	 * over them) or unfolds it. Tiles before the first section have no header.
+	 * The height of the headers: XML HeaderHeight (default 24).
+	 */
+	/** @brief `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles. */
+	RAVEN_API void Rtile_view_set_sections(Rid tile_view, int count, RTileSectionCallback callback, void* user_data);
+	RAVEN_API int Rtile_view_get_section_count(Rid tile_view);
+	/** @brief The section of a tile, or -1 (before the first section). */
+	RAVEN_API int Rtile_view_get_section_of(Rid tile_view, int index);
+	/** @brief Folds or unfolds a section (the toggled callback is not called). */
+	RAVEN_API void Rtile_view_set_section_folded(Rid tile_view, int section, int folded);
+	RAVEN_API int Rtile_view_is_section_folded(Rid tile_view, int section);
+	/** @brief The section whose header is at a point relative to the widget, or -1. */
+	RAVEN_API int Rtile_view_get_section_at(Rid tile_view, float local_x, float local_y);
+	/** @brief Called when the user folds or unfolds a section (`index`: the section). */
+	RAVEN_API void Rtile_view_set_section_toggled_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 
 	/* Several tiles can be selected: Ctrl + click, Shift + click, a rubber band from the empty space, Ctrl + A. */
 	RAVEN_API void Rtile_view_set_selected(Rid tile_view, int index, int selected);
@@ -1273,8 +1330,200 @@ extern "C" {
 	/** @brief Called when the current page changes as the user scrolls. This also fires the action of the widget. */
 	typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
 	RAVEN_API void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
+
+
+	/* ============================================================================
+	 *  CAROUSEL (pages shown one at a time and swiped: a page view)
+	 *
+	 * Every child is a page (Rwidget_add_child), the size of the carousel.
+	 * One page shows at a time; the pages are swiped side by side (or one
+	 * above the other, Rcarousel_set_orientation). They follow a drag of the
+	 * mouse, a finger and two fingers on a trackpad as if they were held,
+	 * stretch before the first page and after the last one, and settle on
+	 * the nearest page when let go, or on the next one when flicked. The
+	 * arrow keys (Left / Right, Up / Down when vertical), Page Up / Page
+	 * Down, Home and End, a click on a dot, the round arrows shown under the
+	 * pointer and the mouse wheel go to a page with a glide. Only the page
+	 * shown (and the one coming in while the pages move) is painted and can
+	 * be reached by the mouse and the keyboard.
+	 *
+	 * Pages are counted from 0. In a right-to-left layout the pages of a
+	 * horizontal carousel run from right to left.
+	 *
+	 * XML: <Carousel Page="0" Loop="true" Autoplay="5" Indicators="true"
+	 * Arrows="true" Orientation="Horizontal|Vertical" OnChanged="...">
+	 * followed by the pages, one element each.
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rcarousel_create(void);
+	/**
+	 * @brief Shows a page, gliding to it when `animated` (and the animations
+	 * are on), at once otherwise. The page changed callback is not called.
+	 */
+	RAVEN_API void Rcarousel_set_page(Rid carousel, int page, int animated);
+	/** @brief The page shown, -1 when the carousel has none. */
+	RAVEN_API int Rcarousel_get_page(Rid carousel);
+	/** @brief Its children. */
+	RAVEN_API int Rcarousel_get_page_count(Rid carousel);
+	/** @brief Glides to the next / previous page; nothing at the last / first one unless it loops. */
+	RAVEN_API void Rcarousel_next(Rid carousel);
+	RAVEN_API void Rcarousel_prev(Rid carousel);
+	/** @brief R_TRUE: after the last page comes the first one, and before the first the last (default R_FALSE). */
+	RAVEN_API void Rcarousel_set_loop(Rid carousel, int loop);
+	RAVEN_API int Rcarousel_get_loop(Rid carousel);
+	/**
+	 * @brief Goes to the next page by itself every `seconds` (0: never, the
+	 * default); after the last page it comes back to the first. It waits
+	 * while the pointer is on the carousel, while the pages are dragged and
+	 * while the keyboard is in it; a page chosen by the user starts the
+	 * interval again.
+	 */
+	RAVEN_API void Rcarousel_set_autoplay(Rid carousel, double seconds);
+	RAVEN_API double Rcarousel_get_autoplay(Rid carousel);
+	/** @brief The dots along the bottom edge (the right edge when vertical), one per page (default R_TRUE). */
+	RAVEN_API void Rcarousel_set_indicators_visible(Rid carousel, int visible);
+	RAVEN_API int Rcarousel_get_indicators_visible(Rid carousel);
+	/** @brief The previous / next buttons shown while the pointer is on the carousel (default R_TRUE). */
+	RAVEN_API void Rcarousel_set_arrows_visible(Rid carousel, int visible);
+	RAVEN_API int Rcarousel_get_arrows_visible(Rid carousel);
+	/** @brief R_HORIZONTAL: the pages side by side (default); R_VERTICAL: one above the other. */
+	RAVEN_API void Rcarousel_set_orientation(Rid carousel, ROrientation orientation);
+	RAVEN_API ROrientation Rcarousel_get_orientation(Rid carousel);
+	/**
+	 * @brief Called when the user goes to another page (a swipe, the keys, a
+	 * dot, an arrow) and when the autoplay does. This also fires the action
+	 * of the widget.
+	 */
+	typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_data);
+	RAVEN_API void Rcarousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data);
 	/** @brief Prints the document shown (see Rpdf_print); the job is named after its title. */
 	RAVEN_API int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+
+
+	/* ============================================================================
+	 *  MAP VIEW (a map of slippy-map tiles, panned and zoomed)
+	 *
+	 * The square tiles of the Web Mercator projection that OpenStreetMap and
+	 * most tile servers use: at zoom z the world is 2^z x 2^z tiles of 256
+	 * logical units (Rmap_view_set_tile_size), x going east from longitude
+	 * -180, y going south from latitude 85.0511 (the limit of the projection).
+	 * Raven fetches nothing from the network: the application gives the
+	 * tiles, from a server, a disk cache or drawn by itself.
+	 *
+	 * When a tile is needed, the tile callback asks for it once; the answer
+	 * comes then or later, from any thread: the pixels
+	 * (Rmap_view_set_tile), the bytes of a PNG / JPEG file
+	 * (Rmap_view_set_tile_data, decoded on the calling thread), or that there
+	 * is none (Rmap_view_set_tile_failed). Only the tiles seen, and one more
+	 * around them, are asked for; a tile that is no longer wanted is
+	 * forgotten (the cancel callback tells it) and an answer for it that
+	 * comes later is dropped. Rmap_view_set_tile_path reads the tiles from
+	 * files instead ("tiles/{z}/{x}/{y}.png"), on a worker thread.
+	 *
+	 * The tiles are kept in a cache of bounded size (Rmap_view_set_cache_size),
+	 * the least recently seen dropped first. While a tile is missing, a
+	 * coarser one that is there is shown stretched (and finer ones shrunk),
+	 * else a faint grid. Between two whole zooms the tiles are scaled.
+	 *
+	 * The user drags the map (it glides on when flung), zooms around the
+	 * pointer with the wheel, a pinch or Ctrl + the wheel of a trackpad (two
+	 * fingers move it), zooms in with a double click (out with Shift), and
+	 * uses + / - and the arrows when it has the focus. Longitudes wrap
+	 * around; latitudes stop at the limits of the projection.
+	 *
+	 * Points of the widget are in logical units from its top left corner.
+	 * Latitudes and longitudes are in degrees.
+	 *
+	 * XML: <MapView Latitude="48.85" Longitude="2.35" Zoom="5" MinZoom="2"
+	 * MaxZoom="18" TilePath="tiles/{z}/{x}/{y}.png" TileSize="256"
+	 * Attribution="(c) OpenStreetMap contributors" OnChanged="map.moved">
+	 * with <Marker Latitude Longitude Label Color/> elements.
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rmap_view_create(void);
+	/** @brief Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps. */
+	RAVEN_API void Rmap_view_set_center(Rid map, double latitude, double longitude);
+	/** @brief The place at the middle of the map (longitude from -180 to 180). */
+	RAVEN_API void Rmap_view_get_center(Rid map, double* latitude, double* longitude);
+	/** @brief The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed. */
+	RAVEN_API void Rmap_view_set_zoom(Rid map, double zoom);
+	RAVEN_API double Rmap_view_get_zoom(Rid map);
+	/** @brief The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range. */
+	RAVEN_API void Rmap_view_set_zoom_range(Rid map, double min_zoom, double max_zoom);
+	RAVEN_API void Rmap_view_get_zoom_range(Rid map, double* min_zoom, double* max_zoom);
+	/** @brief Glides to a place and a zoom (at once when animations are off). */
+	RAVEN_API void Rmap_view_animate_to(Rid map, double latitude, double longitude, double zoom);
+	/** @brief The place at a point of the widget. */
+	RAVEN_API void Rmap_view_screen_to_latlon(Rid map, float x, float y, double* latitude, double* longitude);
+	/** @brief Where a place is in the widget (of the copies of the world side by side, the one nearest the middle). */
+	RAVEN_API void Rmap_view_latlon_to_screen(Rid map, double latitude, double longitude, float* x, float* y);
+
+	/** @brief Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
+	typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
+	/**
+	 * @brief Called once for each tile the map needs. Answer with
+	 * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+	 * at once or later. Setting it forgets the tiles of the previous source.
+	 */
+	RAVEN_API void Rmap_view_set_tile_callback(Rid map, RMapTileCallback callback, void* user_data);
+	/** @brief Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. */
+	RAVEN_API void Rmap_view_set_tile_cancel_callback(Rid map, RMapTileCallback callback, void* user_data);
+	/**
+	 * @brief The pixels of a tile: `width` x `height` RGBA8, tightly packed
+	 * (they are copied; any size, shown at the tile size). Thread-safe: from
+	 * another thread it is applied on the UI thread during the next frame.
+	 */
+	RAVEN_API void Rmap_view_set_tile(Rid map, int z, int x, int y, const uint8_t* rgba, int width, int height);
+	/** @brief A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe. */
+	RAVEN_API void Rmap_view_set_tile_data(Rid map, int z, int x, int y, const void* data, size_t data_size);
+	/** @brief There is no such tile: the coarser one stays shown in its place. Thread-safe. */
+	RAVEN_API void Rmap_view_set_tile_failed(Rid map, int z, int x, int y);
+	/**
+	 * @brief Reads the tiles from files instead of asking for them: a path
+	 * where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+	 * south, as in TMS and MBTiles). The files are read and decoded on a
+	 * worker thread; a missing file is a tile that failed. NULL or "": the
+	 * tile callback again. Local files only.
+	 */
+	RAVEN_API void Rmap_view_set_tile_path(Rid map, const char* path_template);
+	RAVEN_API const char* Rmap_view_get_tile_path(Rid map);
+	/** @brief Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger. */
+	RAVEN_API void Rmap_view_set_tile_size(Rid map, int size);
+	RAVEN_API int Rmap_view_get_tile_size(Rid map);
+	/** @brief Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept. */
+	RAVEN_API void Rmap_view_set_cache_size(Rid map, size_t bytes);
+	/** @brief Memory the decoded tiles take now, in bytes. */
+	RAVEN_API size_t Rmap_view_get_cache_usage(Rid map);
+	/** @brief Forgets every tile (they are asked for again): the tiles of the source changed. */
+	RAVEN_API void Rmap_view_clear_tiles(Rid map);
+	RAVEN_API RMapTileState Rmap_view_get_tile_state(Rid map, int z, int x, int y);
+
+	/** @brief Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1. */
+	RAVEN_API int Rmap_view_add_marker(Rid map, double latitude, double longitude, const char* label);
+	RAVEN_API void Rmap_view_remove_marker(Rid map, int marker);
+	RAVEN_API void Rmap_view_clear_markers(Rid map);
+	RAVEN_API int Rmap_view_get_marker_count(Rid map);
+	RAVEN_API void Rmap_view_set_marker_position(Rid map, int marker, double latitude, double longitude);
+	RAVEN_API void Rmap_view_set_marker_label(Rid map, int marker, const char* label);
+	/** @brief The color of a pin (by default the accent of the theme). */
+	RAVEN_API void Rmap_view_set_marker_color(Rid map, int marker, float r, float g, float b, float a);
+	/** @brief Called when the user clicks a marker. */
+	typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
+	RAVEN_API void Rmap_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback, void* user_data);
+
+	/**
+	 * @brief Called when the user moves or zooms the map (during a drag, at the
+	 * end of an animated zoom), with its new center and zoom. This also fires
+	 * the action of the widget.
+	 */
+	typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);
+	RAVEN_API void Rmap_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data);
+	/**
+	 * @brief A line written in the bottom right corner: the credit most tile
+	 * licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+	 */
+	RAVEN_API void Rmap_view_set_attribution(Rid map, const char* text);
+	RAVEN_API const char* Rmap_view_get_attribution(Rid map);
 
 
 	/* ============================================================================

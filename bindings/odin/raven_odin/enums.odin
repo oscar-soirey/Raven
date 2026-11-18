@@ -44,6 +44,31 @@ Severity :: enum i32 {
 	Fatal = 0x0083,
 }
 
+// What the system does with the application, on iOS and Android (desktop
+// systems send none of these). A pause is not always followed by
+// R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog of the
+// system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME.
+// At the start, R_APP_WILL_RESUME and R_APP_DID_RESUME may come too.
+//
+//   leaving the front   R_APP_WILL_PAUSE    still seen: save what must not be lost
+//   in the background   R_APP_DID_PAUSE     not seen, no GPU work: Raven stops drawing
+//   coming back         R_APP_WILL_RESUME   Raven draws again
+//   in front again      R_APP_DID_RESUME    takes input again
+App_Event :: enum i32 {
+	// The application is about to leave the front (home, app switcher, a call). Save the state now.
+	Will_Pause = 0x0B80,
+	// The application is in the background: Raven has stopped drawing, and waited until the GPU was idle.
+	Did_Pause = 0x0B81,
+	// The application is coming back to the front: Raven draws again.
+	Will_Resume = 0x0B82,
+	// The application is in front and takes input again.
+	Did_Resume = 0x0B83,
+	// The system is low on memory: free what can be made again. Raven then drops its own caches and trims its heap.
+	Low_Memory = 0x0B84,
+	// The application is about to end (Android: the activity is finishing; its window is closed right after).
+	Will_Terminate = 0x0B85,
+}
+
 Window_Flag :: enum u32 {
 	No_Resize = 0,
 	Hidden = 1,
@@ -688,6 +713,8 @@ Widget_Type :: enum i32 {
 	Pdf_View = 0x0233,
 	// The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 	Chart = 0x0234,
+	// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+	Map_View = 0x0235,
 }
 
 H_Align :: enum i32 {
@@ -889,6 +916,18 @@ Pdf_Print_Flag :: enum u32 {
 	Dialog = 0,
 }
 Pdf_Print_Flags :: bit_set[Pdf_Print_Flag; u32]
+
+// Where a tile of a MapView stands (Rmap_view_get_tile_state).
+Map_Tile_State :: enum i32 {
+	// Not in the view's cache: never asked for, no longer wanted, or evicted.
+	None = 0x0600,
+	// Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+	Pending = 0x0601,
+	// Its pixels are in the cache.
+	Loaded = 0x0602,
+	// The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+	Failed = 0x0603,
+}
 
 // How an axis of a Plot spreads its values.
 Plot_Scale :: enum i32 {

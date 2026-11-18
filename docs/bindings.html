@@ -1121,10 +1121,13 @@ imported. To build, it only needs <code>node_api.h</code>, which an installation
 has beside its binary (<code>RAVEN_NODE_INCLUDE_DIR</code> points elsewhere). The addon is
 looked for in <code>RAVEN_ADDON</code>, beside <code>raven.js</code>, then in <code>build/</code>; the library
 in <code>RAVEN_LIBRARY</code>, beside <code>raven.js</code>, then where the system looks.</p>
-<p>On Windows, the CMake file leaves the addon out for now (an addon there links the
-import library of <code>node.exe</code>). The addon itself opens the library through a
-UTF-16 path there (<code>LoadLibraryW</code>), so a folder with characters outside ASCII
-works.</p>
+<p>On Windows, an addon links the import library of <code>node.exe</code>, <code>node.lib</code>,
+which an installation of Node.js does not have, nor <code>node_api.h</code>. The CMake file
+downloads both from nodejs.org, for the version of the <code>node</code> it finds, and checks
+them against that release's <code>SHASUMS256.txt</code>; <code>RAVEN_NODE_INCLUDE_DIR</code> and
+<code>RAVEN_NODE_LIBRARY</code>, with <code>RAVEN_NODE_DOWNLOAD</code> off, build without a network
+(see <code>bindings/node/README.md</code>). The addon opens the library through a UTF-16
+path there (<code>LoadLibraryW</code>), so a folder with characters outside ASCII works.</p>
 
 <h3 id="node-hello">A program</h3>
 <p>The program of <a href="#bun-hello">Bun</a>, in a file <code>app.mjs</code> beside <code>raven.js</code>:</p>

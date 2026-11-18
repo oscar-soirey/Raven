@@ -26,12 +26,16 @@ rm -rf "$APP"; mkdir -p "$APP"
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 CC="xcrun --sdk iphonesimulator clang -target arm64-apple-ios17.0-simulator -isysroot $SDK"
 SHARED=$HERE/../shared
-"$SHARED/gen.sh"
 $CC -g -fobjc-arc -I"$RAVEN/include" -I"$SHARED" -c "$HERE/src/main.m" -o "$HERE/build/main.o"
 $CC -g -std=c11 -Wall -I"$RAVEN/include" -I"$SHARED" -c "$SHARED/showcase.c" -o "$HERE/build/showcase.o"
 $CC -o "$APP/Hello" "$HERE/build/main.o" "$HERE/build/showcase.o" "$BUILD/libraven.a" \
-	-framework UIKit -framework QuartzCore -framework Metal -framework CoreFoundation -framework Foundation
+	-framework UIKit -framework QuartzCore -framework Metal -framework CoreFoundation -framework Foundation \
+	-framework CoreText -framework CoreGraphics
 cp "$HERE/Info.plist" "$APP/Info.plist"
+# the files the app reads (its resources): ../shared/assets + the font of the titles
+cp -R "$SHARED/assets/." "$APP/"
+mkdir -p "$APP/fonts"
+cp "$RAVEN/tools/designer/fonts/BricolageGrotesque-Bold-subset.ttf" "$APP/fonts/"
 codesign -s - --force "$APP"
 echo "built $APP"
 

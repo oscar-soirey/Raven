@@ -2617,12 +2617,17 @@ static rvn_pwindow_t* rvn_wl_window_create(const rvn_pwindow_desc_t* desc) {
 	rvn_wl_update_geometry(window);
 
 	/*
-	 * The role is given now, whether the window is shown or not: a surface
-	 * that ever had a buffer (presented by the renderer) can no longer
-	 * become a window. A hidden window stays without a buffer.
+	 * A window created hidden gets no role until it is first shown. The
+	 * compositor treats an xdg_toplevel as a window even before it has a
+	 * buffer: GNOME Shell lists it, and shows the application in the dock,
+	 * although nothing is on screen. A hidden window is never presented to,
+	 * so its surface stays without a buffer and can take the role later,
+	 * as it does again after every hide.
 	 */
-	rvn_wl_make_toplevel(window);
-	rvn_wl_wait_configure(window);
+	if (!(desc->flags & R_WINDOW_HIDDEN)) {
+		rvn_wl_make_toplevel(window);
+		rvn_wl_wait_configure(window);
+	}
 	return window;
 }
 

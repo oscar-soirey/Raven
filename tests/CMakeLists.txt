@@ -3,7 +3,7 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_deep_trees
+#   test_chart, test_deep_trees, test_lifecycle, test_package
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -85,11 +85,21 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	set_tests_properties(test_win32_backdrop PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 raven_add_test(test_touch)
+if(NOT RAVEN_BUILD_SHARED)
+	# pause / resume, low memory, the native surface lost and made again, Back (sent as a phone's window system would)
+	raven_add_test(test_lifecycle)
+endif()
 raven_add_test(test_more_widgets)
 raven_add_test(test_chart)
+raven_add_test(test_carousel)
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)
+raven_add_test(test_map_view)
+if(RAVEN_BUILD_SHARED)
+	# (what a paint drew and the tree of the screen readers are internal: checked with the static library)
+	target_compile_definitions(test_map_view PRIVATE RAVEN_TEST_SHARED)
+endif()
 # PDF documents written by Raven (read back by PdfView when PDFium is there) and printing to a file
 raven_add_test(test_pdf_document)
 target_compile_definitions(test_pdf_document PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
@@ -109,6 +119,11 @@ endif()
 # damaged fonts: cut short and changed at random, loaded and drawn (meant to run under AddressSanitizer too)
 raven_add_test(test_fonts)
 target_compile_definitions(test_fonts PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
+if(NOT RAVEN_BUILD_SHARED)
+	# the application's package (APK assets, iOS bundle) through a provider of the test (core/file.c)
+	raven_add_test(test_package)
+	target_compile_definitions(test_package PRIVATE "RAVEN_TEST_FONT=\"${PROJECT_SOURCE_DIR}/third_party/roboto/Roboto-Regular-subset.ttf\"")
+endif()
 
 # the Wayland platform against a compositor of its own (skipped without libwayland-server)
 if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)

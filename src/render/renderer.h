@@ -148,6 +148,10 @@ typedef void (*rvn_render_fn)(void* arg);
 void rvn_renderer_call(rvn_render_fn function, void* arg, int wait);
 /** Blocks until every command queued so far has been executed. */
 void rvn_renderer_sync(void);
+/** Blocks until every command queued so far has been executed and the GPU has finished all its work (the application goes to the background). */
+void rvn_renderer_wait_idle(void);
+/** Frees the draw lists kept for the next frames (low memory): they are made again when needed. */
+void rvn_renderer_trim(void);
 
 /** R_TRUE once the backend reported the loss of its device (Rbackend_device_lost). */
 int rvn_renderer_device_lost(void);

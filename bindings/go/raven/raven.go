@@ -150,6 +150,23 @@ const (
 	R_SEVERITY_FATAL        RSeverity = 0x0083
 )
 
+// RAppEvent: What the system does with the application, on iOS and Android (desktop systems send none of
+// these). A pause is not always followed by R_APP_DID_PAUSE: pulling down the notifications (iOS) or a dialog
+// of the system in front (Android) gives R_APP_WILL_PAUSE, then R_APP_DID_RESUME. At the start,
+// R_APP_WILL_RESUME and R_APP_DID_RESUME may come too. leaving the front R_APP_WILL_PAUSE still seen: save
+// what must not be lost in the background R_APP_DID_PAUSE not seen, no GPU work: Raven stops drawing coming
+// back R_APP_WILL_RESUME Raven draws again in front again R_APP_DID_RESUME takes input again
+type RAppEvent int32
+
+const (
+	R_APP_WILL_PAUSE     RAppEvent = 0x0B80
+	R_APP_DID_PAUSE      RAppEvent = 0x0B81
+	R_APP_WILL_RESUME    RAppEvent = 0x0B82
+	R_APP_DID_RESUME     RAppEvent = 0x0B83
+	R_APP_LOW_MEMORY     RAppEvent = 0x0B84
+	R_APP_WILL_TERMINATE RAppEvent = 0x0B85
+)
+
 type RWindowFlags int32
 
 const (
@@ -671,6 +688,7 @@ const (
 	R_WIDGET_PLOT            RWidgetType = 0x0232
 	R_WIDGET_PDF_VIEW        RWidgetType = 0x0233
 	R_WIDGET_CHART           RWidgetType = 0x0234
+	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
 )
 
 type RHAlign int32
@@ -856,6 +874,16 @@ type RPdfPrintFlags int32
 
 const (
 	R_PDF_PRINT_NO_DIALOG RPdfPrintFlags = 1
+)
+
+// RMapTileState: Where a tile of a MapView stands (Rmap_view_get_tile_state).
+type RMapTileState int32
+
+const (
+	R_MAP_TILE_NONE    RMapTileState = 0x0600
+	R_MAP_TILE_PENDING RMapTileState = 0x0601
+	R_MAP_TILE_LOADED  RMapTileState = 0x0602
+	R_MAP_TILE_FAILED  RMapTileState = 0x0603
 )
 
 // RPlotScale: How an axis of a Plot spreads its values.
@@ -1284,6 +1312,18 @@ func GetTime() float64 {
 	return float64(C.Rget_time())
 }
 
+// IsAppPaused: Returns: R_TRUE between R_APP_DID_PAUSE and R_APP_WILL_RESUME: the application is in the
+// background.
+func IsAppPaused() int {
+	return int(C.Ris_app_paused())
+}
+
+// InjectAppEvent: Handles an RAppEvent as if the system had sent it: for tests, and for a host application
+// (raven_host.h) that knows the lifecycle. UI thread.
+func InjectAppEvent(event RAppEvent) {
+	C.Rinject_app_event(C.RAppEvent(event))
+}
+
 // SetUiScale: Scale of the whole interface, on top of the one of the monitor (RInitDesc.ui_scale at start):
 // every window is laid out again. 0.25 .. 4.
 func SetUiScale(scale float32) {
@@ -1483,6 +1523,19 @@ func WindowGetSize(window ID) (width int, height int) {
 // keyboard goes away.
 func WindowClearFocus(window ID) {
 	C.Rwindow_clear_focus(C.Rid(window))
+}
+
+// WindowSetBackEnabled: R_TRUE while the application has somewhere to go back to (a page under the one
+// shown). Android 13 and later ask for Back only while the window wants it (predictive back): at the root
+// page the system handles Back itself and animates back to the home screen. Default R_FALSE.
+func WindowSetBackEnabled(window ID, enabled int) {
+	C.Rwindow_set_back_enabled(C.Rid(window), C.int(enabled))
+}
+
+// WindowWantsBack: Returns: R_TRUE while Back would be taken: a popup or dialog is open, or
+// Rwindow_set_back_enabled said so.
+func WindowWantsBack(window ID) int {
+	return int(C.Rwindow_wants_back(C.Rid(window)))
 }
 
 func WindowSetMinSize(window ID, width int, height int) {
@@ -1772,6 +1825,12 @@ func WindowInjectDrag(window ID, x float32, y float32, inside int) int {
 	return int(C.Rwindow_inject_drag(C.Rid(window), C.float(x), C.float(y), C.int(inside)))
 }
 
+// WindowInjectBack: Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something
+// took it.
+func WindowInjectBack(window ID) int {
+	return int(C.Rwindow_inject_back(C.Rid(window)))
+}
+
 // WindowIsKeyDown: R_TRUE while the key is held down in the window (cleared when the window loses the
 // keyboard).
 func WindowIsKeyDown(window ID, key RKey) int {
@@ -2029,6 +2088,8 @@ func ThemeGetColor(role RColorRole) (r float32, g float32, b float32, a float32)
 	return
 }
 
+// ThemeSetMetric: Changes a size of the theme in use. It lasts until the look or the theme is chosen again
+// (Rlook_set, Rtheme_use), but not through a switch between light and dark made by Rtheme_follow_system.
 func ThemeSetMetric(metric RMetric, value float32) {
 	C.Rtheme_set_metric(C.RMetric(metric), C.float(value))
 }
@@ -2076,7 +2137,10 @@ func ThemeGetSystemDark() int {
 
 // ThemeFollowSystem: Follows the dark or light mode of the system with the Raven look (R_LOOK_RAVEN_DARK /
 // R_LOOK_RAVEN_LIGHT), now and when it changes. Off by default. Does nothing where the platform does not tell
-// (desktop today).
+// (desktop today). A switch is Rlook_set, except that the sizes given with Rtheme_set_metric stay. Colors and
+// styles set with Rtheme_set_... are those of one mode and are lost; to keep colors, sizes and styles of the
+// application through the switch, put them in a theme that names no look (Rtheme_load_from_memory, then
+// Rtheme_use): it is laid over the new look.
 func ThemeFollowSystem(enabled int) {
 	C.Rtheme_follow_system(C.int(enabled))
 }
@@ -2360,6 +2424,8 @@ func WidgetGetType(widget ID) RWidgetType {
 
 // WidgetAddChild: Appends a child to a panel. The parent takes ownership. A widget that already has a parent
 // is moved. Returns: `child`, so calls can be nested: Rid ok = Rwidget_add_child(row, Rbutton_create("OK"));
+// R_INVALID_ID when the child replaced in a single-child container had a destroy callback that destroyed the
+// container or `child`; `child`, when it is still there, is then not added.
 func WidgetAddChild(parent ID, child ID) ID {
 	return ID(C.Rwidget_add_child(C.Rid(parent), C.Rid(child)))
 }
@@ -2589,7 +2655,7 @@ func WidgetSetFocusable(widget ID, focusable int) {
 	C.Rwidget_set_focusable(C.Rid(widget), C.int(focusable))
 }
 
-// WidgetFocus: Gives the keyboard focus to the widget.
+// WidgetFocus: Gives the keyboard focus to the widget, and scrolls it into view (Rwidget_scroll_into_view).
 func WidgetFocus(widget ID) {
 	C.Rwidget_focus(C.Rid(widget))
 }
@@ -2685,7 +2751,8 @@ func WidgetClearMetric(widget ID, metric RMetric) {
 }
 
 // WidgetGetMetric: Returns: The metric the widget uses: its own, else the one of a style, else the one of its
-// theme.
+// theme; grown for larger text (Raccessibility_set_text_scale) and for a finger
+// (RTouchSettings::min_touch_size).
 func WidgetGetMetric(widget ID, metric RMetric) float32 {
 	return float32(C.Rwidget_get_metric(C.Rid(widget), C.RMetric(metric)))
 }
@@ -2848,7 +2915,9 @@ func ScrollBoxScrollToEnd(scroll_box ID) {
 	C.Rscroll_box_scroll_to_end(C.Rid(scroll_box))
 }
 
-// WidgetScrollIntoView: Scrolls every ScrollBox above the widget so that the widget is visible.
+// WidgetScrollIntoView: Scrolls every ScrollBox above the widget so that the widget is visible. The library
+// does it by itself for the focused widget when the focus comes from Tab or Rwidget_focus, and for a text
+// field above the on-screen keyboard (Rwindow_get_keyboard_area).
 func WidgetScrollIntoView(widget ID) {
 	C.Rwidget_scroll_into_view(C.Rid(widget))
 }
@@ -4752,6 +4821,182 @@ func PdfViewGetTitle(view ID) string {
 // view.
 func PdfViewGetPageText(view ID, page int) string {
 	return C.GoString(C.Rpdf_view_get_page_text(C.Rid(view), C.int(page)))
+}
+
+func MapViewCreate() ID {
+	return ID(C.Rmap_view_create())
+}
+
+// MapViewSetCenter: Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+func MapViewSetCenter(map_ ID, latitude float64, longitude float64) {
+	C.Rmap_view_set_center(C.Rid(map_), C.double(latitude), C.double(longitude))
+}
+
+// MapViewGetCenter: The place at the middle of the map (longitude from -180 to 180).
+func MapViewGetCenter(map_ ID) (latitude float64, longitude float64) {
+	var latitude_ C.double
+	var longitude_ C.double
+	C.Rmap_view_get_center(C.Rid(map_), &latitude_, &longitude_)
+	latitude = float64(latitude_)
+	longitude = float64(longitude_)
+	return
+}
+
+// MapViewSetZoom: The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are
+// allowed.
+func MapViewSetZoom(map_ ID, zoom float64) {
+	C.Rmap_view_set_zoom(C.Rid(map_), C.double(zoom))
+}
+
+func MapViewGetZoom(map_ ID) float64 {
+	return float64(C.Rmap_view_get_zoom(C.Rid(map_)))
+}
+
+// MapViewSetZoomRange: The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for
+// at whole zooms of this range.
+func MapViewSetZoomRange(map_ ID, min_zoom float64, max_zoom float64) {
+	C.Rmap_view_set_zoom_range(C.Rid(map_), C.double(min_zoom), C.double(max_zoom))
+}
+
+func MapViewGetZoomRange(map_ ID) (min_zoom float64, max_zoom float64) {
+	var min_zoom_ C.double
+	var max_zoom_ C.double
+	C.Rmap_view_get_zoom_range(C.Rid(map_), &min_zoom_, &max_zoom_)
+	min_zoom = float64(min_zoom_)
+	max_zoom = float64(max_zoom_)
+	return
+}
+
+// MapViewAnimateTo: Glides to a place and a zoom (at once when animations are off).
+func MapViewAnimateTo(map_ ID, latitude float64, longitude float64, zoom float64) {
+	C.Rmap_view_animate_to(C.Rid(map_), C.double(latitude), C.double(longitude), C.double(zoom))
+}
+
+// MapViewScreenToLatlon: The place at a point of the widget.
+func MapViewScreenToLatlon(map_ ID, x float32, y float32) (latitude float64, longitude float64) {
+	var latitude_ C.double
+	var longitude_ C.double
+	C.Rmap_view_screen_to_latlon(C.Rid(map_), C.float(x), C.float(y), &latitude_, &longitude_)
+	latitude = float64(latitude_)
+	longitude = float64(longitude_)
+	return
+}
+
+// MapViewLatlonToScreen: Where a place is in the widget (of the copies of the world side by side, the one
+// nearest the middle).
+func MapViewLatlonToScreen(map_ ID, latitude float64, longitude float64) (x float32, y float32) {
+	var x_ C.float
+	var y_ C.float
+	C.Rmap_view_latlon_to_screen(C.Rid(map_), C.double(latitude), C.double(longitude), &x_, &y_)
+	x = float32(x_)
+	y = float32(y_)
+	return
+}
+
+// MapViewSetTileData: A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread.
+// Thread-safe.
+func MapViewSetTileData(map_ ID, z int, x int, y int, data []byte) {
+	var data_ unsafe.Pointer
+	if len(data) > 0 {
+		data_ = unsafe.Pointer(&data[0])
+	}
+	C.Rmap_view_set_tile_data(C.Rid(map_), C.int(z), C.int(x), C.int(y), data_, C.size_t(len(data)))
+}
+
+// MapViewSetTileFailed: There is no such tile: the coarser one stays shown in its place. Thread-safe.
+func MapViewSetTileFailed(map_ ID, z int, x int, y int) {
+	C.Rmap_view_set_tile_failed(C.Rid(map_), C.int(z), C.int(x), C.int(y))
+}
+
+// MapViewSetTilePath: Reads the tiles from files instead of asking for them: a path where {z}, {x} and {y}
+// are replaced ({-y}: the row counted from the south, as in TMS and MBTiles). The files are read and decoded
+// on a worker thread; a missing file is a tile that failed. NULL or "": the tile callback again. Local files
+// only.
+func MapViewSetTilePath(map_ ID, path_template string) {
+	path_template_ := C.CString(path_template)
+	defer C.free(unsafe.Pointer(path_template_))
+	C.Rmap_view_set_tile_path(C.Rid(map_), path_template_)
+}
+
+func MapViewGetTilePath(map_ ID) string {
+	return C.GoString(C.Rmap_view_get_tile_path(C.Rid(map_)))
+}
+
+// MapViewSetTileSize: Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles
+// show the map larger.
+func MapViewSetTileSize(map_ ID, size int) {
+	C.Rmap_view_set_tile_size(C.Rid(map_), C.int(size))
+}
+
+func MapViewGetTileSize(map_ ID) int {
+	return int(C.Rmap_view_get_tile_size(C.Rid(map_)))
+}
+
+// MapViewSetCacheSize: Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are
+// always kept.
+func MapViewSetCacheSize(map_ ID, bytes int) {
+	C.Rmap_view_set_cache_size(C.Rid(map_), C.size_t(bytes))
+}
+
+// MapViewGetCacheUsage: Memory the decoded tiles take now, in bytes.
+func MapViewGetCacheUsage(map_ ID) int {
+	return int(C.Rmap_view_get_cache_usage(C.Rid(map_)))
+}
+
+// MapViewClearTiles: Forgets every tile (they are asked for again): the tiles of the source changed.
+func MapViewClearTiles(map_ ID) {
+	C.Rmap_view_clear_tiles(C.Rid(map_))
+}
+
+func MapViewGetTileState(map_ ID, z int, x int, y int) RMapTileState {
+	return RMapTileState(C.Rmap_view_get_tile_state(C.Rid(map_), C.int(z), C.int(x), C.int(y)))
+}
+
+// MapViewAddMarker: Adds a pin at a place, with a label written next to it (may be NULL). Returns its id
+// (from 1), or -1.
+func MapViewAddMarker(map_ ID, latitude float64, longitude float64, label string) int {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	return int(C.Rmap_view_add_marker(C.Rid(map_), C.double(latitude), C.double(longitude), label_))
+}
+
+func MapViewRemoveMarker(map_ ID, marker int) {
+	C.Rmap_view_remove_marker(C.Rid(map_), C.int(marker))
+}
+
+func MapViewClearMarkers(map_ ID) {
+	C.Rmap_view_clear_markers(C.Rid(map_))
+}
+
+func MapViewGetMarkerCount(map_ ID) int {
+	return int(C.Rmap_view_get_marker_count(C.Rid(map_)))
+}
+
+func MapViewSetMarkerPosition(map_ ID, marker int, latitude float64, longitude float64) {
+	C.Rmap_view_set_marker_position(C.Rid(map_), C.int(marker), C.double(latitude), C.double(longitude))
+}
+
+func MapViewSetMarkerLabel(map_ ID, marker int, label string) {
+	label_ := C.CString(label)
+	defer C.free(unsafe.Pointer(label_))
+	C.Rmap_view_set_marker_label(C.Rid(map_), C.int(marker), label_)
+}
+
+// MapViewSetMarkerColor: The color of a pin (by default the accent of the theme).
+func MapViewSetMarkerColor(map_ ID, marker int, r float32, g float32, b float32, a float32) {
+	C.Rmap_view_set_marker_color(C.Rid(map_), C.int(marker), C.float(r), C.float(g), C.float(b), C.float(a))
+}
+
+// MapViewSetAttribution: A line written in the bottom right corner: the credit most tile licences ask for,
+// such as "(c) OpenStreetMap contributors". NULL or "": none.
+func MapViewSetAttribution(map_ ID, text string) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rmap_view_set_attribution(C.Rid(map_), text_)
+}
+
+func MapViewGetAttribution(map_ ID) string {
+	return C.GoString(C.Rmap_view_get_attribution(C.Rid(map_)))
 }
 
 func PdfDocumentCreate() ID {
@@ -7432,6 +7677,12 @@ func HostWindowSetSize(window ID, width int, height int, scale float32) {
 	C.Rhost_window_set_size(C.Rid(window), C.int(width), C.int(height), C.float(scale))
 }
 
+// HostSetSystemDark: The application's system is in dark (R_TRUE) or light (R_FALSE) mode, -1 when it does
+// not tell (the default): Rtheme_get_system_dark, and Rtheme_follow_system follows it.
+func HostSetSystemDark(dark int) {
+	C.Rhost_set_system_dark(C.int(dark))
+}
+
 func HostInjectMouseMove(window ID, x int, y int, modifiers uint32) {
 	C.Rhost_inject_mouse_move(C.Rid(window), C.int(x), C.int(y), C.Ruint(modifiers))
 }
@@ -7471,16 +7722,17 @@ func HostInjectClose(window ID) {
 
 // Left to cgo (a pointer to a structure, a void* or a C callback among the parameters):
 // Rinit_ex, Rset_allocator, Rallocator_get_system, Rmemory_alloc, Rmemory_realloc, Rmemory_free
-// Rmemory_get_stats, Rset_frame_callback, Rtask_post, Rtask_run_async, Rparallel_for, Rtimer_create
-// Raction_bind, Raction_set_default_handler, Rerror_get_last, Rerror_set_callback
-// Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area, Rwindow_get_keyboard_area
-// Rwindow_set_keyboard_callback, Rwindow_set_icon, Rwindow_set_close_callback, Rwindow_set_resize_callback
-// Rwindow_set_drop_callback, Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle
-// Rwindow_capture, Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook
-// Rtouch_get_settings, Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings
-// Rwindow_get_touch_settings, Rwidget_set_touch_callback, Rwidget_set_pen_callback
-// Rwidget_set_gesture_callback, Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free
-// Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
+// Rmemory_get_stats, Rset_frame_callback, Rset_app_event_callback, Rtask_post, Rtask_run_async
+// Rparallel_for, Rtimer_create, Raction_bind, Raction_set_default_handler, Rerror_get_last
+// Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area
+// Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback, Rwindow_set_icon
+// Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
+// Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle, Rwindow_capture
+// Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rtouch_get_settings
+// Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings, Rwindow_get_touch_settings
+// Rwidget_set_touch_callback, Rwidget_set_pen_callback, Rwidget_set_gesture_callback
+// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rwidget_set_user_handle
+// Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
 // Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
 // Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
 // Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback
@@ -7496,21 +7748,23 @@ func HostInjectClose(window ID) {
 // Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
 // Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
 // Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback
-// Rpdf_view_set_page_changed_callback, Rpdf_view_print, Rpdf_document_draw_image, Rpdf_document_save_memory
-// Rpdf_print, Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register
-// Rlanguage_get, Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback
-// Rtext_editor_set_changed_callback, Rdock_area_set_close_callback, Rdock_area_set_changed_callback
-// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
-// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
-// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
-// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
-// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
-// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
-// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
-// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
-// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
-// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rpdf_view_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
+// Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile, Rmap_view_set_marker_clicked_callback
+// Rmap_view_set_view_changed_callback, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
+// Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
+// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
+// Rdock_area_set_close_callback, Rdock_area_set_changed_callback, Risland_set_changed_callback
+// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
+// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
+// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
+// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
+// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
+// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
+// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
+// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
@@ -7519,4 +7773,4 @@ func HostInjectClose(window ID) {
 // Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
 // Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
 // Rxml_get_attribute_info, Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rwidget_set_accessible_action, Rhost_platform_register
+// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets

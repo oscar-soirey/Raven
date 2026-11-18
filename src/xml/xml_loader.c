@@ -127,7 +127,7 @@ static int rvn_search_is_absolute(const char* path) {
 }
 
 static int rvn_search_is_file(const char* path) {
-	return rvn_memory_file_exists(path) || (rvn_path_exists(path) && !rvn_path_is_dir(path));
+	return rvn_file_is_virtual(path) || (rvn_path_exists(path) && !rvn_path_is_dir(path));
 }
 
 /* A name inside a folder; "" is the current folder. */
@@ -139,8 +139,13 @@ static int rvn_search_compare_entries(const void* a, const void* b) {
 	return strcmp(((const rvn_dir_entry_t*)a)->name, ((const rvn_dir_entry_t*)b)->name);
 }
 
-/* Lists a folder in the order of the names, so that the result does not depend on the file system. */
+/*
+ * Lists a folder in the order of the names, so that the result does not depend on the file system.
+ * With a package (Android, iOS), a relative folder is one of the package, which is not listed
+ * (SHORTCUT: no auto-loading from the package), and not the current folder: that is "/" there.
+ */
 static int rvn_search_read_dir(const char* folder, rvn_dir_entry_t** entries, uint32_t* count) {
+	if (rvn_file_has_provider() && !(folder && rvn_search_is_absolute(folder))) return R_FALSE;
 	if (!rvn_dir_read((folder && folder[0]) ? folder : ".", entries, count)) return R_FALSE;
 	if (*count > 1) qsort(*entries, *count, sizeof(**entries), rvn_search_compare_entries);
 	return R_TRUE;
@@ -434,8 +439,8 @@ int rvn_xml_discover_widget(const char* tag) {
 		size_t size = 0;
 		char* text = rvn_read_file(path, &size);
 		if (text && rvn_search_is_declarations(text, size)) {
-			/* (a file held in memory keeps its name: it is found by it) */
-			char* from = rvn_memory_file_exists(path) ? rvn_strdup(path) : rvn_path_absolute(path);
+			/* (a file held in memory or in the package keeps its name: it is found by it) */
+			char* from = rvn_file_is_virtual(path) ? rvn_strdup(path) : rvn_path_absolute(path);
 			if (from) {
 				if (rvn_strings_find(&g_search.seen, from, R_FALSE) < 0) rvn_strings_add(&g_search.seen, from);
 				Rxml_register_widgets_from_file(from);

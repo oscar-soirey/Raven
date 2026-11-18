@@ -122,8 +122,8 @@ void rvn_watch_add(const char* path, rvn_watch_callback_t callback, void* user) 
 	uint32_t i;
 	rvn_live_configure();
 	if (!path || !path[0]) return;
-	/* a file held in memory never changes on disk */
-	if (rvn_memory_file_exists(path)) return;
+	/* a file held in memory or in the package never changes on disk */
+	if (rvn_file_is_virtual(path)) return;
 	for (i = 0; i < g_live.watch_count; i++) {
 		watch = &g_live.watches[i];
 		if (watch->callback == callback && watch->user == user && strcmp(watch->path, path) == 0) return;
