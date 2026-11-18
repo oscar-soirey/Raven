@@ -329,6 +329,18 @@ static void rvn_mtl_bind_ui_state(id<MTLRenderCommandEncoder> encoder, const rvn
 	scissor.height = pass->target.height;
 
 	[encoder setRenderPipelineState:g_mtl.ui_pipeline];
+	/*
+	 * State that Metal keeps in the encoder rather than in the pipeline (Vulkan
+	 * keeps it in the pipeline): a viewport callback may have changed it, and
+	 * culling or a wireframe fill would hide the primitives drawn after it.
+	 */
+	[encoder setCullMode:MTLCullModeNone];
+	[encoder setTriangleFillMode:MTLTriangleFillModeFill];
+	[encoder setFrontFacingWinding:MTLWindingClockwise];
+	[encoder setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
+	[encoder setDepthClipMode:MTLDepthClipModeClip];
+	[encoder setBlendColorRed:0.0f green:0.0f blue:0.0f alpha:0.0f];
+	[encoder setStencilReferenceValue:0];
 	[encoder setViewport:viewport];
 	[encoder setScissorRect:scissor];
 	if (pass->instances) [encoder setVertexBuffer:pass->instances offset:0 atIndex:RVN_MTL_BUFFER_INSTANCES];
@@ -525,8 +537,14 @@ void rvn_mtl_render_frame(const RDrawData* data, RCapture* capture) {
 		surface->drawable_height = data->framebuffer_height;
 	}
 
-	/* ---- the slot: the GPU has finished the frame that used it last ---- */
-	slot = (int)(surface->cursor++ % RVN_MTL_FRAMES);
+	/*
+	 * ---- the slot: the GPU has finished the frame that used it last ----
+	 * The cursor moves on only once the frame is committed (below): a frame
+	 * given up on the way (no drawable, no command buffer, suspended) gives its
+	 * semaphore count back, and must give its slot back too, or the next frame
+	 * would write the instances of a frame the GPU may still be reading.
+	 */
+	slot = (int)(surface->cursor % RVN_MTL_FRAMES);
 	slots = surface->slots;
 	dispatch_semaphore_wait(slots, DISPATCH_TIME_FOREVER);
 	pass.instances = rvn_mtl_upload_instances(surface, slot, data);
@@ -593,6 +611,7 @@ void rvn_mtl_render_frame(const RDrawData* data, RCapture* capture) {
 		dispatch_semaphore_signal(slots);
 		return;
 	}
+	surface->cursor++;
 
 	if (capture_buffer) {
 		[commands waitUntilCompleted];

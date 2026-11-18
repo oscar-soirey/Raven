@@ -21,6 +21,10 @@
 #if !defined(_WIN32)
 #include <unistd.h>
 #endif
+#if defined(__APPLE__)
+#include <objc/message.h>
+#include <objc/runtime.h>
+#endif
 
 #define SKIP_CODE 77
 
@@ -918,6 +922,42 @@ static void test_viewport(void) {
 	Rwindow_destroy(window);
 }
 
+#if defined(__APPLE__)
+/*
+ * Render thread. Changes the state Metal keeps in the encoder (not in the
+ * pipeline): front faces culled, triangles drawn as lines. Plain C, so through
+ * the Objective-C runtime.
+ */
+static void on_viewport_encoder_state(const RViewportDrawInfo* info, void* user_data) {
+	id encoder = (id)info->metal_encoder;
+	(void)user_data;
+	if (!encoder) return;
+	/* MTLCullModeFront = 1, MTLTriangleFillModeLines = 1, MTLWindingCounterClockwise = 1 */
+	((void (*)(id, SEL, unsigned long))objc_msgSend)(encoder, sel_registerName("setCullMode:"), 1ul);
+	((void (*)(id, SEL, unsigned long))objc_msgSend)(encoder, sel_registerName("setTriangleFillMode:"), 1ul);
+	((void (*)(id, SEL, unsigned long))objc_msgSend)(encoder, sel_registerName("setFrontFacingWinding:"), 1ul);
+}
+
+/* What a viewport callback leaves in the encoder does not change the UI drawn after it (Metal). */
+static void test_viewport_encoder_state(void) {
+	Rid window = window_from(
+		"<Window Width=\"200\" Height=\"100\" ClearColor=\"#000000\">"
+		"  <Canvas>"
+		"    <Viewport Name=\"view\" Slot.Position=\"0,0\" Slot.Size=\"50,50\"/>"
+		"    <Border Slot.Position=\"100,20\" Slot.Size=\"80,60\" Background=\"#FF0000\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"  </Canvas>"
+		"</Window>");
+	Rviewport_set_draw_callback(Rwidget_find(window, "view"), on_viewport_encoder_state, NULL);
+	capture(window);
+	/* the panel is filled, not culled away nor drawn as lines */
+	CHECK_PIXEL(140, 50, 255, 0, 0);
+	CHECK_PIXEL(110, 30, 255, 0, 0);
+	CHECK_PIXEL(170, 70, 255, 0, 0);
+	CHECK_PIXEL(190, 90, 0, 0, 0);
+	Rwindow_destroy(window);
+}
+#endif
+
 static void test_windows(void) {
 	Rid first = window_from("<Window Width=\"200\" Height=\"100\" ClearColor=\"#FF0000\"/>");
 	Rid second = window_from("<Window Width=\"120\" Height=\"160\" ClearColor=\"#0000FF\"/>");
@@ -1292,7 +1332,7 @@ static void on_default_draw(const RViewportDrawInfo* info, void* user_data) {
 /* On macOS and iOS, backend 0 is Metal when the library has it. */
 static void test_default_backend(void) {
 	RInitDesc desc;
-	RBackend used = (RBackend)0;
+	RBackend used = R_BACKEND_DEFAULT;
 	Rid window;
 	uint8_t* pixels;
 	int width = 0, height = 0;
@@ -1350,6 +1390,9 @@ int main(void) {
 	RUN(test_curves_and_blur);
 	RUN(test_node_graph);
 	RUN(test_viewport);
+#if defined(__APPLE__)
+	if (g_backend == R_BACKEND_METAL) RUN(test_viewport_encoder_state);
+#endif
 	RUN(test_windows);
 	RUN(test_effects);
 	RUN(test_transparent_window);

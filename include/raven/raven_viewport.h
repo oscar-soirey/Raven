@@ -22,6 +22,8 @@
  *      With the Vulkan backend the callback receives the VkCommandBuffer, with
  *      the Metal backend the id<MTLRenderCommandEncoder> (one BGRA8Unorm color
  *      attachment, no depth, one sample: make your pipeline states to match).
+ *      Raven sets the encoder state it needs again after the callback (pipeline,
+ *      viewport, scissor, cull and fill modes, buffers, textures).
  *      The callback runs on the render thread.
  *
  *   3. Native child window  (Rviewport_set_native)

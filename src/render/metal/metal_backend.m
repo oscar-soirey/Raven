@@ -40,11 +40,17 @@ void rvn_mtl_check_completed(id<MTLCommandBuffer> commands) {
 	if (commands.status != MTLCommandBufferStatusError) return;
 	error = commands.error;
 	if (error && [error.domain isEqualToString:MTLCommandBufferErrorDomain]) {
-		if (error.code == MTLCommandBufferErrorDeviceRemoved) {
+#if TARGET_OS_OSX
+		/*
+		 * MTLCommandBufferErrorDeviceRemoved (11), by its value: the constant does
+		 * not exist on iOS (no removable GPU) and is deprecated from macOS 27.
+		 */
+		if (error.code == 11) {
 			/* an external GPU was unplugged: Raven starts the backend again (render/device.c) */
 			if (!atomic_exchange(&g_mtl.device_lost, 1)) Rbackend_device_lost();
 			return;
 		}
+#endif
 		/* GPU work refused in the background (iOS): expected, the frame is simply not shown */
 		if (error.code == MTLCommandBufferErrorNotPermitted) return;
 	}

@@ -720,11 +720,14 @@ every other function of the table that touches Metal objects.
    `framebuffer_height`, it is set (in a CATransaction). When `data->vsync`
    changed, `displaySyncEnabled` is set (macOS). Headless targets are made
    again at the new size.
-4. Frame slot: `slot = &surface->frames[cursor++ % RVN_MTL_FRAMES]`,
-   `RVN_MTL_FRAMES` = 3, and `dispatch_semaphore_wait(surface->slots,
-   DISPATCH_TIME_FOREVER)`. The semaphore starts at 3 and is signaled by the
-   completed handler of the command buffer of each frame: a slot is never
-   written while the GPU reads it.
+4. Frame slot: `slot = cursor % RVN_MTL_FRAMES`, `RVN_MTL_FRAMES` = 3, and
+   `dispatch_semaphore_wait(surface->slots, DISPATCH_TIME_FOREVER)`. The
+   semaphore starts at 3 and is signaled by the completed handler of the
+   command buffer of each frame: a slot is never written while the GPU reads
+   it. The cursor moves on only once the frame is committed (step 9): a frame
+   dropped on the way (no drawable, no command buffer, iOS suspended) signals
+   the semaphore back and keeps its slot for the next frame, so the slots stay
+   in step with the semaphore.
 5. Instances: copied into the slot's buffer (`MTLResourceStorageModeShared |
    MTLResourceCPUCacheModeWriteCombined`), which grows like Vulkan's (at
    least 1024 instances, doubled until large enough; the slot is idle, so it
@@ -747,6 +750,11 @@ Bound at the start of the pass, after each backdrop capture and after each
 viewport callback (the application may have changed anything):
 
 - the UI pipeline state;
+- the state Metal keeps in the encoder rather than in the pipeline state (in
+  Vulkan it is part of the pipeline, so binding the UI pipeline restores it):
+  cull mode none, fill mode fill, clockwise front faces, no depth bias, depth
+  clip, blend color 0 and stencil reference 0. A viewport callback that culls
+  or draws lines would otherwise hide the primitives drawn after it;
 - the viewport `(0, 0, target width, target height, 0, 1)`;
 - the scissor: the whole target. As with Vulkan, the clip of each primitive
   is applied by the fragment functions (`RDrawInstance::clip`), not by the
@@ -816,7 +824,9 @@ seen through, into a buffer from `Rpixels_alloc`.
 - `Shutdown`: WaitIdle, then every object is released (set to nil).
 - Device loss: when a command buffer completes with
   `MTLCommandBufferStatusError` and the error is
-  `MTLCommandBufferErrorDeviceRemoved` (an external GPU unplugged on a Mac),
+  `MTLCommandBufferErrorDeviceRemoved` (an external GPU unplugged on a Mac;
+  macOS only, compared by its value 11: the constant does not exist on iOS and
+  is deprecated from macOS 27),
   the backend sets its `device_lost` flag (atomic) and calls
   `Rbackend_device_lost()`, which is thread-safe. RenderFrame then returns
   at once until Raven restarts the backend (`render/device.c`: Shutdown,
@@ -869,14 +879,20 @@ seen through, into a buffer from `Rpixels_alloc`.
 	R_BACKEND_METAL
 ```
 
-`RInitDesc::backend` is documented as "0 selects WebGL in browser builds,
-Metal on macOS and iOS when it is compiled, Vulkan otherwise". The bindings
-are generated again (`python3 tools/bindgen/bindgen.py`).
+`R_BACKEND_DEFAULT` (0) is added first, a name for the value 0 that already
+meant "the default": `Rinit(R_BACKEND_DEFAULT)` reads well in every binding.
+`RInitDesc::backend` is documented as "R_BACKEND_DEFAULT (0) selects WebGL in
+browser builds, Metal on macOS and iOS when it is compiled, Vulkan otherwise".
+The tools (Raven Designer, the theme editor, the SDK installer), the project
+templates of the installer, `examples/languages` and the samples of the
+documentation ask for `R_BACKEND_DEFAULT`, so on macOS none of them needs
+MoltenVK; the installer's bundles no longer carry it. The bindings are
+generated again (`python3 tools/bindgen/bindgen.py`).
 
 ### 6.2 Choosing the backend (context.c)
 
 ```c
-	if (desc.backend == 0) {
+	if (desc.backend == R_BACKEND_DEFAULT) {
 #if defined(RAVEN_BACKEND_WEBGL_ENABLED)
 		desc.backend = R_BACKEND_WEBGL;
 #elif defined(RAVEN_BACKEND_METAL_ENABLED)
