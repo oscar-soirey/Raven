@@ -2464,6 +2464,17 @@ proc Rwindow_inject_mouse_button*(window: Rid, button: RMouseButton, pressed: ci
 proc Rwindow_inject_mouse_wheel*(window: Rid, wheel_x: cfloat, wheel_y: cfloat) {.rapi.}
 proc Rwindow_inject_key*(window: Rid, key: RKey, pressed: cint, modifiers: uint32) {.rapi.}
 proc Rwindow_inject_text*(window: Rid, text: cstring) {.rapi.}
+proc Rwindow_inject_composition*(window: Rid, text: cstring, selection_start: cint, selection_end: cint) {.rapi.}
+  ## The text an input method is composing (preedit: Chinese,
+  ## Japanese, Korean, dead keys), as the platforms send it. The focused
+  ## TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+  ## place of its selection, but it is not in its text and no changed
+  ## callback runs. [selection_start, selection_end) are bytes of `text`:
+  ## the part the input method works on (underlined thicker), or the caret
+  ## when they are equal; -1 is the end of `text`. NULL or "" ends the
+  ## composition without typing anything (cancel). The committed text comes
+  ## through Rwindow_inject_text, which ends the composition too, and so
+  ## does a change of focus. Ignored when the focus takes no text.
 proc Rwindow_inject_drag*(window: Rid, x: cfloat, y: cfloat, inside: cint): cint {.rapi.}
   ## A drag from another application moves over the window
   ## (`inside` R_TRUE) or leaves it.
@@ -2494,13 +2505,19 @@ proc Rwindow_replace_text_input*(window: Rid, start: cint, `end`: cint, text: cs
   ## Replaces bytes [start, end) of it with `text` and puts the caret
   ## after it, as typing would (the changed callback runs; MaxLength
   ## applies). R_FALSE when there is none or it is read-only.
+proc Rwindow_get_text_composition*(window: Rid, selection_start: ptr cint, selection_end: ptr cint): cstring {.rapi.}
+  ## The composition of the input method in progress (UTF-8, valid
+  ## until it changes) and its selection in bytes; NULL when there is none.
+  ## Any output pointer may be NULL.
 proc Rwindow_has_popup*(window: Rid): cint {.rapi.}
   ## R_TRUE while a menu, list or dialog is open over the window.
 proc Rwindow_get_text_input_rect*(window: Rid, x: ptr cint, y: ptr cint, width: ptr cint, height: ptr cint): cint {.rapi.}
   ## Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
   ## Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
   ## outputs when there is no visible editable caret, the window is inactive, or focus changed
-  ## since painting. Any output pointer may be NULL.
+  ## since painting. Any output pointer may be NULL. While an input method
+  ## composes, it is the caret inside the composition: where its candidate
+  ## window goes.
 proc Rwindow_get_popup_count*(window: Rid): cint {.rapi.}
   ## Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
 proc Rwindow_get_popup*(window: Rid, index: cint): Rid {.rapi.}
@@ -5036,6 +5053,12 @@ proc Rhost_inject_key*(window: Rid, key: RKey, pressed: cint, modifiers: uint32,
   ## repeat R_TRUE for a key held down (auto-repeat).
 proc Rhost_inject_text*(window: Rid, codepoint: uint32) {.rapi.}
   ## One typed Unicode code point.
+proc Rhost_inject_composition*(window: Rid, text: cstring, selection_start: cint, selection_end: cint) {.rapi.}
+  ## The input method of the application's system composes `text`
+  ## (preedit), with its selection in bytes (see Rwindow_inject_composition).
+  ## NULL or "" cancels it; the committed text then comes through
+  ## Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+  ## candidate window.
 proc Rhost_inject_focus*(window: Rid, focused: cint) {.rapi.}
   ## The window gained or lost the keyboard. Losing it closes popups and drops captures.
 proc Rhost_inject_close*(window: Rid) {.rapi.}

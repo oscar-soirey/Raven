@@ -2699,6 +2699,17 @@ void Rwindow_inject_mouse_button(Rid window, RMouseButton button, int pressed);
 void Rwindow_inject_mouse_wheel(Rid window, float wheel_x, float wheel_y);
 void Rwindow_inject_key(Rid window, RKey key, int pressed, uint modifiers);
 void Rwindow_inject_text(Rid window, const(char)* text);
+/// The text an input method is composing (preedit: Chinese,
+/// Japanese, Korean, dead keys), as the platforms send it. The focused
+/// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+/// place of its selection, but it is not in its text and no changed
+/// callback runs. [selection_start, selection_end) are bytes of `text`:
+/// the part the input method works on (underlined thicker), or the caret
+/// when they are equal; -1 is the end of `text`. NULL or "" ends the
+/// composition without typing anything (cancel). The committed text comes
+/// through Rwindow_inject_text, which ends the composition too, and so
+/// does a change of focus. Ignored when the focus takes no text.
+void Rwindow_inject_composition(Rid window, const(char)* text, int selection_start, int selection_end);
 /// A drag from another application moves over the window
 /// (`inside` R_TRUE) or leaves it.
 /// Returns: R_TRUE when a drop at this position would be accepted.
@@ -2729,12 +2740,18 @@ int Rwindow_set_text_input_selection(Rid window, int start, int end);
 /// after it, as typing would (the changed callback runs; MaxLength
 /// applies). R_FALSE when there is none or it is read-only.
 int Rwindow_replace_text_input(Rid window, int start, int end, const(char)* text);
+/// The composition of the input method in progress (UTF-8, valid
+/// until it changes) and its selection in bytes; NULL when there is none.
+/// Any output pointer may be NULL.
+const(char)* Rwindow_get_text_composition(Rid window, int* selection_start, int* selection_end);
 /// R_TRUE while a menu, list or dialog is open over the window.
 int Rwindow_has_popup(Rid window);
 /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 /// Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 /// outputs when there is no visible editable caret, the window is inactive, or focus changed
-/// since painting. Any output pointer may be NULL.
+/// since painting. Any output pointer may be NULL. While an input method
+/// composes, it is the caret inside the composition: where its candidate
+/// window goes.
 int Rwindow_get_text_input_rect(Rid window, int* x, int* y, int* width, int* height);
 /// Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
 int Rwindow_get_popup_count(Rid window);
@@ -5271,6 +5288,12 @@ void Rhost_inject_mouse_leave(Rid window);
 void Rhost_inject_key(Rid window, RKey key, int pressed, uint modifiers, int repeat);
 /// One typed Unicode code point.
 void Rhost_inject_text(Rid window, uint codepoint);
+/// The input method of the application's system composes `text`
+/// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+/// NULL or "" cancels it; the committed text then comes through
+/// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+/// candidate window.
+void Rhost_inject_composition(Rid window, const(char)* text, int selection_start, int selection_end);
 /// The window gained or lost the keyboard. Losing it closes popups and drops captures.
 void Rhost_inject_focus(Rid window, int focused);
 /// The user asked to close the window (its close callback decides).

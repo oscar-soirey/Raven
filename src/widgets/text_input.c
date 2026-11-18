@@ -92,7 +92,8 @@ static void rvn_text_input_paint(rvn_widget_t* widget, RPainter* painter) {
 				rvn_color_fade(rvn_widget_color(widget, R_COLOR_FOCUS), lit * (1.0f - lit) * 2.0f));
 		}
 	}
-	if (input->edit.length == 0 && input->placeholder && (!focused || rvn_widget_family(widget) != RVN_FAMILY_RAVEN)) {
+	if (input->edit.length == 0 && input->placeholder && (!focused || rvn_widget_family(widget) != RVN_FAMILY_RAVEN) &&
+		!(focused && rvn_widget_composition(widget, NULL, NULL))) {
 		rvn_paint_push_clip(painter, area);
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f), area, 0.0f, input->placeholder, -1,
 			rvn_widget_color(widget, R_COLOR_TEXT_PLACEHOLDER));

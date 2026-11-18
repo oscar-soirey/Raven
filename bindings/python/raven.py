@@ -4296,6 +4296,24 @@ def Rwindow_inject_text(window, text):
     _lib.Rwindow_inject_text(window, _s(text))
 
 
+_lib.Rwindow_inject_composition.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+_lib.Rwindow_inject_composition.restype = None
+
+
+def Rwindow_inject_composition(window, text, selection_start, selection_end):
+    """The text an input method is composing (preedit: Chinese,
+    Japanese, Korean, dead keys), as the platforms send it. The focused
+    TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+    place of its selection, but it is not in its text and no changed
+    callback runs. [selection_start, selection_end) are bytes of `text`:
+    the part the input method works on (underlined thicker), or the caret
+    when they are equal; -1 is the end of `text`. NULL or "" ends the
+    composition without typing anything (cancel). The committed text comes
+    through Rwindow_inject_text, which ends the composition too, and so
+    does a change of focus. Ignored when the focus takes no text."""
+    _lib.Rwindow_inject_composition(window, _s(text), selection_start, selection_end)
+
+
 _lib.Rwindow_inject_drag.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_int]
 _lib.Rwindow_inject_drag.restype = ctypes.c_int
 
@@ -4422,6 +4440,20 @@ def Rwindow_replace_text_input(window, start, end, text):
     return _lib.Rwindow_replace_text_input(window, start, end, _s(text))
 
 
+_lib.Rwindow_get_text_composition.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rwindow_get_text_composition.restype = ctypes.c_char_p
+
+
+def Rwindow_get_text_composition(window):
+    """The composition of the input method in progress (UTF-8, valid
+    until it changes) and its selection in bytes; NULL when there is none.
+    Any output pointer may be NULL."""
+    selection_start_ = ctypes.c_int()
+    selection_end_ = ctypes.c_int()
+    result = _r(_lib.Rwindow_get_text_composition(window, ctypes.byref(selection_start_), ctypes.byref(selection_end_)))
+    return (result, selection_start_.value, selection_end_.value)
+
+
 _lib.Rwindow_has_popup.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_has_popup.restype = ctypes.c_int
 
@@ -4439,7 +4471,9 @@ def Rwindow_get_text_input_rect(window):
     """Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
     Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
     outputs when there is no visible editable caret, the window is inactive, or focus changed
-    since painting. Any output pointer may be NULL."""
+    since painting. Any output pointer may be NULL. While an input method
+    composes, it is the caret inside the composition: where its candidate
+    window goes."""
     x_ = ctypes.c_int()
     y_ = ctypes.c_int()
     width_ = ctypes.c_int()
@@ -15551,6 +15585,19 @@ _lib.Rhost_inject_text.restype = None
 def Rhost_inject_text(window, codepoint):
     """One typed Unicode code point."""
     _lib.Rhost_inject_text(window, codepoint)
+
+
+_lib.Rhost_inject_composition.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+_lib.Rhost_inject_composition.restype = None
+
+
+def Rhost_inject_composition(window, text, selection_start, selection_end):
+    """The input method of the application's system composes `text`
+    (preedit), with its selection in bytes (see Rwindow_inject_composition).
+    NULL or "" cancels it; the committed text then comes through
+    Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+    candidate window."""
+    _lib.Rhost_inject_composition(window, _s(text), selection_start, selection_end)
 
 
 _lib.Rhost_inject_focus.argtypes = [ctypes.c_uint32, ctypes.c_int]

@@ -1821,6 +1821,19 @@ func WindowInjectText(window ID, text string) {
 	C.Rwindow_inject_text(C.Rid(window), text_)
 }
 
+// WindowInjectComposition: The text an input method is composing (preedit: Chinese, Japanese, Korean, dead
+// keys), as the platforms send it. The focused TextInput, SpinBox or TextEditor shows it at its caret,
+// underlined, in place of its selection, but it is not in its text and no changed callback runs.
+// [selection_start, selection_end) are bytes of `text`: the part the input method works on (underlined
+// thicker), or the caret when they are equal; -1 is the end of `text`. NULL or "" ends the composition
+// without typing anything (cancel). The committed text comes through Rwindow_inject_text, which ends the
+// composition too, and so does a change of focus. Ignored when the focus takes no text.
+func WindowInjectComposition(window ID, text string, selection_start int, selection_end int) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rwindow_inject_composition(C.Rid(window), text_, C.int(selection_start), C.int(selection_end))
+}
+
 // WindowInjectDrag: A drag from another application moves over the window (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
 func WindowInjectDrag(window ID, x float32, y float32, inside int) int {
@@ -1887,6 +1900,17 @@ func WindowReplaceTextInput(window ID, start int, end int, text string) int {
 	return int(C.Rwindow_replace_text_input(C.Rid(window), C.int(start), C.int(end), text_))
 }
 
+// WindowGetTextComposition: The composition of the input method in progress (UTF-8, valid until it changes)
+// and its selection in bytes; NULL when there is none. Any output pointer may be NULL.
+func WindowGetTextComposition(window ID) (result string, selection_start int, selection_end int) {
+	var selection_start_ C.int
+	var selection_end_ C.int
+	result = C.GoString(C.Rwindow_get_text_composition(C.Rid(window), &selection_start_, &selection_end_))
+	selection_start = int(selection_start_)
+	selection_end = int(selection_end_)
+	return
+}
+
 // WindowHasPopup: R_TRUE while a menu, list or dialog is open over the window.
 func WindowHasPopup(window ID) int {
 	return int(C.Rwindow_has_popup(C.Rid(window)))
@@ -1895,7 +1919,8 @@ func WindowHasPopup(window ID) int {
 // WindowGetTextInputRect: Last painted caret in window pixels (x, y, width, height), including scrolling and
 // scale. Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the outputs when
 // there is no visible editable caret, the window is inactive, or focus changed since painting. Any output
-// pointer may be NULL.
+// pointer may be NULL. While an input method composes, it is the caret inside the composition: where its
+// candidate window goes.
 func WindowGetTextInputRect(window ID) (result int, x int, y int, width int, height int) {
 	var x_ C.int
 	var y_ C.int
@@ -7895,6 +7920,15 @@ func HostInjectKey(window ID, key RKey, pressed int, modifiers uint32, repeat in
 // HostInjectText: One typed Unicode code point.
 func HostInjectText(window ID, codepoint uint32) {
 	C.Rhost_inject_text(C.Rid(window), C.Ruint(codepoint))
+}
+
+// HostInjectComposition: The input method of the application's system composes `text` (preedit), with its
+// selection in bytes (see Rwindow_inject_composition). NULL or "" cancels it; the committed text then comes
+// through Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the candidate window.
+func HostInjectComposition(window ID, text string, selection_start int, selection_end int) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rhost_inject_composition(C.Rid(window), text_, C.int(selection_start), C.int(selection_end))
 }
 
 // HostInjectFocus: The window gained or lost the keyboard. Losing it closes popups and drops captures.

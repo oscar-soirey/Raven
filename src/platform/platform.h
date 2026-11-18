@@ -124,7 +124,17 @@ typedef enum rvn_pevent_type_t {
 	 * nothing did, the platform lets the system do its default (leave the
 	 * application). See Rwindow_wants_back for predictive back.
 	 */
-	RVN_PEVENT_BACK
+	RVN_PEVENT_BACK,
+	/**
+	 * The input method composes text (preedit): `composition` (UTF-8, valid
+	 * during the call; NULL or "" ends the composition without typing
+	 * anything) with its selection composition_start / composition_end
+	 * (bytes; equal: the caret). The committed text then comes as
+	 * RVN_PEVENT_TEXT, which ends the composition too. While it composes, the
+	 * platform sends the keys the input method takes neither as
+	 * RVN_PEVENT_KEY nor as RVN_PEVENT_TEXT.
+	 */
+	RVN_PEVENT_COMPOSITION
 } rvn_pevent_type_t;
 
 /**
@@ -222,6 +232,9 @@ typedef struct rvn_pevent_t {
 	int wheel_stop;
 	/** RVN_PEVENT_APP: an RAppEvent. */
 	int app_event;
+	/** RVN_PEVENT_COMPOSITION: the text being composed and its selection (bytes). */
+	const char* composition;
+	int composition_start, composition_end;
 } rvn_pevent_t;
 
 typedef void (*rvn_pevent_handler_t)(const rvn_pevent_t* event);

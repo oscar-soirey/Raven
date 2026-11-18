@@ -173,6 +173,7 @@ static struct {
 	void (*Rwindow_inject_mouse_wheel)(Rid, float, float);
 	void (*Rwindow_inject_key)(Rid, RKey, int, Ruint);
 	void (*Rwindow_inject_text)(Rid, const char*);
+	void (*Rwindow_inject_composition)(Rid, const char*, int, int);
 	int (*Rwindow_inject_drag)(Rid, float, float, int);
 	int (*Rwindow_inject_drop)(Rid, float, float, const char*const*, int, const char*);
 	int (*Rwindow_inject_back)(Rid);
@@ -186,6 +187,7 @@ static struct {
 	int (*Rwindow_get_text_input_selection)(Rid, int*, int*);
 	int (*Rwindow_set_text_input_selection)(Rid, int, int);
 	int (*Rwindow_replace_text_input)(Rid, int, int, const char*);
+	const char* (*Rwindow_get_text_composition)(Rid, int*, int*);
 	int (*Rwindow_has_popup)(Rid);
 	int (*Rwindow_get_text_input_rect)(Rid, int*, int*, int*, int*);
 	int (*Rwindow_get_popup_count)(Rid);
@@ -1386,6 +1388,7 @@ static struct {
 	void (*Rhost_inject_mouse_leave)(Rid);
 	void (*Rhost_inject_key)(Rid, RKey, int, Ruint, int);
 	void (*Rhost_inject_text)(Rid, uint32_t);
+	void (*Rhost_inject_composition)(Rid, const char*, int, int);
 	void (*Rhost_inject_focus)(Rid, int);
 	void (*Rhost_inject_close)(Rid);
 } rn;
@@ -1537,6 +1540,7 @@ static const struct {
 	{"Rwindow_inject_mouse_wheel", offsetof(__typeof__(rn), Rwindow_inject_mouse_wheel)},
 	{"Rwindow_inject_key", offsetof(__typeof__(rn), Rwindow_inject_key)},
 	{"Rwindow_inject_text", offsetof(__typeof__(rn), Rwindow_inject_text)},
+	{"Rwindow_inject_composition", offsetof(__typeof__(rn), Rwindow_inject_composition)},
 	{"Rwindow_inject_drag", offsetof(__typeof__(rn), Rwindow_inject_drag)},
 	{"Rwindow_inject_drop", offsetof(__typeof__(rn), Rwindow_inject_drop)},
 	{"Rwindow_inject_back", offsetof(__typeof__(rn), Rwindow_inject_back)},
@@ -1550,6 +1554,7 @@ static const struct {
 	{"Rwindow_get_text_input_selection", offsetof(__typeof__(rn), Rwindow_get_text_input_selection)},
 	{"Rwindow_set_text_input_selection", offsetof(__typeof__(rn), Rwindow_set_text_input_selection)},
 	{"Rwindow_replace_text_input", offsetof(__typeof__(rn), Rwindow_replace_text_input)},
+	{"Rwindow_get_text_composition", offsetof(__typeof__(rn), Rwindow_get_text_composition)},
 	{"Rwindow_has_popup", offsetof(__typeof__(rn), Rwindow_has_popup)},
 	{"Rwindow_get_text_input_rect", offsetof(__typeof__(rn), Rwindow_get_text_input_rect)},
 	{"Rwindow_get_popup_count", offsetof(__typeof__(rn), Rwindow_get_popup_count)},
@@ -2750,6 +2755,7 @@ static const struct {
 	{"Rhost_inject_mouse_leave", offsetof(__typeof__(rn), Rhost_inject_mouse_leave)},
 	{"Rhost_inject_key", offsetof(__typeof__(rn), Rhost_inject_key)},
 	{"Rhost_inject_text", offsetof(__typeof__(rn), Rhost_inject_text)},
+	{"Rhost_inject_composition", offsetof(__typeof__(rn), Rhost_inject_composition)},
 	{"Rhost_inject_focus", offsetof(__typeof__(rn), Rhost_inject_focus)},
 	{"Rhost_inject_close", offsetof(__typeof__(rn), Rhost_inject_close)},
 };
@@ -7307,6 +7313,27 @@ done:
 	return result_;
 }
 
+static napi_value rn_w_Rwindow_inject_composition(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	int a2;
+	int a3;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_int(env, argv[3], &a3)) goto done;
+	rn.Rwindow_inject_composition((Rid)a0, a1.p, (int)a2, (int)a3);
+done:
+	free(a1.heap);
+	return result_;
+}
+
 static napi_value rn_w_Rwindow_inject_drag(napi_env env, napi_callback_info info) {
 	size_t argc = 4;
 	napi_value argv[4];
@@ -7524,6 +7551,30 @@ static napi_value rn_w_Rwindow_replace_text_input(napi_env env, napi_callback_in
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a3.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_get_text_composition(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1 = 0;
+	int a2 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rwindow_get_text_composition((Rid)a0, &a1, &a2));
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a1, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a2, &o1_);
+		{
+			const napi_value values_[3] = {result_, o0_, o1_};
+			result_ = rn_tuple(env, 3, values_);
+		}
+	}
 	return result_;
 }
 
@@ -27403,6 +27454,27 @@ static napi_value rn_w_Rhost_inject_text(napi_env env, napi_callback_info info) 
 	return result_;
 }
 
+static napi_value rn_w_Rhost_inject_composition(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	int a2;
+	int a3;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_int(env, argv[3], &a3)) goto done;
+	rn.Rhost_inject_composition((Rid)a0, a1.p, (int)a2, (int)a3);
+done:
+	free(a1.heap);
+	return result_;
+}
+
 static napi_value rn_w_Rhost_inject_focus(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -27705,6 +27777,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_inject_mouse_wheel", NULL, rn_w_Rwindow_inject_mouse_wheel, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_key", NULL, rn_w_Rwindow_inject_key, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_text", NULL, rn_w_Rwindow_inject_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_inject_composition", NULL, rn_w_Rwindow_inject_composition, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_drag", NULL, rn_w_Rwindow_inject_drag, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_drop", NULL, rn_w_Rwindow_inject_drop, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_back", NULL, rn_w_Rwindow_inject_back, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -27718,6 +27791,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_get_text_input_selection", NULL, rn_w_Rwindow_get_text_input_selection, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_text_input_selection", NULL, rn_w_Rwindow_set_text_input_selection, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_replace_text_input", NULL, rn_w_Rwindow_replace_text_input, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_get_text_composition", NULL, rn_w_Rwindow_get_text_composition, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_has_popup", NULL, rn_w_Rwindow_has_popup, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_text_input_rect", NULL, rn_w_Rwindow_get_text_input_rect, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_popup_count", NULL, rn_w_Rwindow_get_popup_count, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -28918,6 +28992,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rhost_inject_mouse_leave", NULL, rn_w_Rhost_inject_mouse_leave, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_key", NULL, rn_w_Rhost_inject_key, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_text", NULL, rn_w_Rhost_inject_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhost_inject_composition", NULL, rn_w_Rhost_inject_composition, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_focus", NULL, rn_w_Rhost_inject_focus, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_close", NULL, rn_w_Rhost_inject_close, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"_open", NULL, rn_w__open, NULL, NULL, NULL, napi_enumerable, NULL},
