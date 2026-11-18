@@ -139,6 +139,7 @@ set(RAVEN_CORE_SOURCES
 	src/core/locale.c
 	src/core/accessibility.c
 	src/core/context.h
+	src/core/deflate.c
 	src/core/error.c
 	src/core/file.c
 	src/core/handle.c
@@ -177,6 +178,7 @@ set(RAVEN_RENDER_SOURCES
 	src/render/font.h
 	src/render/font_raster.c
 	src/render/image_decode.c
+	src/render/image_encode.c
 	src/render/svg_decode.c
 	src/render/renderer.c
 	src/render/renderer.h

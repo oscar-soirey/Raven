@@ -187,6 +187,11 @@ void rvn_text_add(rvn_text_t* text, const char* string);
 void rvn_text_printf(rvn_text_t* text, const char* format, ...);
 uint32_t rvn_hash_bytes(const void* data, size_t size);
 uint32_t rvn_hash_str(const char* text);
+/**
+ * Compresses `data` as a zlib stream (core/deflate.c: fixed Huffman codes,
+ * LZ77 over a 32 KB window). Never NULL. Free with rvn_free.
+ */
+uint8_t* rvn_zlib_compress(const uint8_t* data, size_t size, size_t* out_size);
 /** Reads a whole file. The result has one extra '\0' byte. Free with rvn_free. */
 char* rvn_read_file(const char* path, size_t* size);
 /**
