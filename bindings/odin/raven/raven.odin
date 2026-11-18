@@ -1250,6 +1250,20 @@ R_ROLE_SEPARATOR :: 0x0781
 R_ROLE_SCROLL_BAR :: 0x0782
 R_ROLE_PANE :: 0x0783
 
+RGoldenStatus :: i32
+// The capture matches the golden.
+R_GOLDEN_MATCH :: 0x0BA0
+// RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+R_GOLDEN_UPDATED :: 0x0BA1
+// Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+R_GOLDEN_MISMATCH :: 0x0BA2
+// The capture and the golden do not have the same size: NAME.actual.png was written.
+R_GOLDEN_SIZE_MISMATCH :: 0x0BA3
+// There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+R_GOLDEN_MISSING :: 0x0BA4
+// The window could not be captured, or a file could not be read or written.
+R_GOLDEN_FAILED :: 0x0BA5
+
 // Registers a function called once per frame, before the layout.
 // The body of your loop does the same job; the callback is also called
 // while the OS keeps the thread in a loop of its own (on Windows, while
@@ -2051,6 +2065,35 @@ RHostPlatformDesc :: struct {
 	user_data: rawptr,
 }
 
+// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+RGoldenOptions :: struct {
+	// Largest difference on one channel (0..255) for which two pixels are still the same.
+	channel_tolerance: i32,
+	// Share of the pixels (0..1) that may differ while the images still match.
+	max_diff_ratio: f32,
+	// R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+	per_platform: i32,
+	// Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+	output_directory: cstring,
+}
+
+// What Rtest_expect_golden found.
+RGoldenResult :: struct {
+	status: RGoldenStatus,
+	// Size of the capture, in pixels.
+	width: i32,
+	// Size of the capture, in pixels.
+	height: i32,
+	// Pixels farther from the golden than the tolerance.
+	differing_pixels: i32,
+	// Largest difference found on one channel (0..255).
+	max_channel_difference: i32,
+	// The golden that was read or written (with the platform tag). Valid until the next call.
+	golden_path: cstring,
+	// One line that says what happened, for the log of the test. Valid until the next call.
+	message: cstring,
+}
+
 @(default_calling_convention = "c")
 foreign lib {
 	// Starts the library with default settings on the given backend.
@@ -2731,6 +2774,16 @@ foreign lib {
 	Rimage_decode :: proc(data: rawptr, data_size: uint, width: ^i32, height: ^i32) -> [^]u8 ---
 	// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 	Rpixels_free :: proc(pixels: [^]u8) ---
+	// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+	// returns) as a PNG file in memory. Thread-safe.
+	// size Receives the number of bytes.
+	// Returns: The bytes of the file, to release with Rpixels_free; NULL when
+	// there are no pixels.
+	Rimage_encode_png :: proc(rgba: [^]u8, width: i32, height: i32, size: ^uint) -> [^]u8 ---
+	// Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+	// of Rwindow_capture, a picture made by the application. Thread-safe.
+	// Returns: R_FALSE when the file cannot be written.
+	Rimage_save_png :: proc(path: cstring, rgba: [^]u8, width: i32, height: i32) -> i32 ---
 	// Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 	Rtexture_is_ready :: proc(texture: Rid) -> i32 ---
 	// Blocks until an asynchronous texture is ready.
@@ -5023,4 +5076,97 @@ foreign lib {
 	Rhost_inject_focus :: proc(window: Rid, focused: i32) ---
 	// The user asked to close the window (its close callback decides).
 	Rhost_inject_close :: proc(window: Rid) ---
+	// R_TRUE makes what is drawn depend only on what the test does:
+	// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+	// and the carets of the text fields stay lit instead of blinking. R_FALSE
+	// gives the clock back (time step 0).
+	Rtest_set_deterministic :: proc(enabled: i32) ---
+	Rtest_is_deterministic :: proc() -> i32 ---
+	// Returns: What the goldens of this run are made with, "OS-backend":
+	// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+	// "null" with the null backend.
+	Rtest_get_platform_tag :: proc() -> cstring ---
+	// Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+	// path may have several names separated by '/': "settings/ok" is the
+	// widget named "ok" inside the one named "settings". In a window, the
+	// open popups (menus, dialogs) are searched first, top first, then the
+	// content.
+	// scope A window or a widget.
+	// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+	Rtest_find :: proc(scope: Rid, path: cstring) -> Rid ---
+	// Moves the mouse to the middle of the widget, presses and releases the left button.
+	Rtest_click :: proc(widget: Rid) -> i32 ---
+	// Two clicks in a row on the middle of the widget, seen as a double click.
+	Rtest_double_click :: proc(widget: Rid) -> i32 ---
+	// A click of the right button on the middle of the widget (a context menu).
+	Rtest_right_click :: proc(widget: Rid) -> i32 ---
+	// Clicks at a position of a widget or a window.
+	// clicks 1 for a click, 2 for a double click, 3 for a triple click.
+	// modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+	Rtest_click_at :: proc(target: Rid, x: f32, y: f32, button: RMouseButton, clicks: i32, modifiers: u32) -> i32 ---
+	// Moves the mouse over the middle of the widget, without clicking.
+	Rtest_hover :: proc(widget: Rid) -> i32 ---
+	// Moves the mouse to a position of a widget or a window.
+	Rtest_hover_at :: proc(target: Rid, x: f32, y: f32) -> i32 ---
+	// Presses the left button on the middle of the widget, moves by
+	// (dx, dy) in several steps, and releases: a slider, a splitter, a
+	// window dragged by a widget.
+	Rtest_drag :: proc(widget: Rid, dx: f32, dy: f32) -> i32 ---
+	// Drags from the middle of one widget to the middle of another (drag and drop).
+	Rtest_drag_to :: proc(from: Rid, to: Rid) -> i32 ---
+	// Turns the mouse wheel over the middle of the widget: `wheel_y`
+	// notches (positive: toward the top, as a wheel turned away from the
+	// user), `wheel_x` notches sideways.
+	Rtest_scroll :: proc(widget: Rid, wheel_x: f32, wheel_y: f32) -> i32 ---
+	// Presses and releases a key, with RModifier held. A widget
+	// target gets the keyboard focus first; a window sends the key to what
+	// has the focus.
+	Rtest_key :: proc(target: Rid, key: RKey, modifiers: u32) -> i32 ---
+	// Types UTF-8 text as a keyboard would. A widget target gets the
+	// keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+	// Tab and Backspace.
+	Rtest_type_text :: proc(target: Rid, text: cstring) -> i32 ---
+	// A finger touches the middle of the widget and leaves at once.
+	Rtest_tap :: proc(widget: Rid) -> i32 ---
+	// A finger put on the middle of the widget moves by (dx, dy) in
+	// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+	// (Rtest_settle lets it stop).
+	Rtest_swipe :: proc(widget: Rid, dx: f32, dy: f32, seconds: f64) -> i32 ---
+	// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+	Rtest_pump :: proc(frames: i32) -> i32 ---
+	// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+	// to do, nothing to paint, no animation, no layout spring, no inertia.
+	// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+	// realtime viewport) and the timers are not counted.
+	Rtest_is_idle :: proc() -> i32 ---
+	// Produces frames until Rtest_is_idle, each advancing the
+	// animations by the time step (1/60 s unless Rset_animation_time_step
+	// gives another), for at most `max_seconds` of that time.
+	// Returns: R_FALSE when it was still moving at the end.
+	Rtest_settle :: proc(max_seconds: f64) -> i32 ---
+	// Returns: What the user reads in the widget: the text of a field, else
+	// its label (as screen readers say it: the text of a Label, a Button, a
+	// Checkbox...). "" when it has none. Valid until the next call.
+	Rtest_get_text :: proc(widget: Rid) -> cstring ---
+	// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+	// all that holds it, on the page a Switcher or a TabView shows, and laid
+	// out with a size.
+	Rtest_is_shown :: proc(widget: Rid) -> i32 ---
+	// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+	Rtest_is_checked :: proc(widget: Rid) -> i32 ---
+	// Captures a window, or the rectangle of one widget, and compares
+	// it with the PNG file `golden_path` (see the top of this file).
+	// target A window or a widget.
+	// options NULL for the defaults.
+	// result Receives the details; may be NULL.
+	// Returns: R_TRUE when the capture matches (or the golden was written
+	// because RAVEN_UPDATE_GOLDENS=1).
+	Rtest_expect_golden :: proc(target: Rid, golden_path: cstring, options: ^RGoldenOptions, result: ^RGoldenResult) -> i32 ---
+	// Compares two RGBA8 images of the same size as Rtest_expect_golden
+	// does, without files.
+	// diff_rgba When not NULL, receives width * height * 4 bytes: the
+	// expected image faded, with the different pixels in red.
+	// Returns: The number of pixels farther apart than `channel_tolerance`;
+	// -1 when an image is missing.
+	Rtest_compare_pixels :: proc(actual: [^]u8, expected: [^]u8, width: i32, height: i32, channel_tolerance: i32, max_channel_difference: ^i32, diff_rgba: [^]u8) -> i32 ---
 }

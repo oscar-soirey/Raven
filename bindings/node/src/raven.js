@@ -1113,6 +1113,16 @@ export const RAccessibleRole = _enum({
 });
 export const { R_ROLE_AUTO, R_ROLE_NONE, R_ROLE_WINDOW, R_ROLE_GROUP, R_ROLE_TEXT, R_ROLE_HEADING, R_ROLE_LINK, R_ROLE_BUTTON, R_ROLE_TOGGLE_BUTTON, R_ROLE_CHECKBOX, R_ROLE_RADIO_BUTTON, R_ROLE_SLIDER, R_ROLE_PROGRESS_BAR, R_ROLE_SPIN_BUTTON, R_ROLE_TEXT_FIELD, R_ROLE_DOCUMENT, R_ROLE_COMBO_BOX, R_ROLE_LIST, R_ROLE_LIST_ITEM, R_ROLE_TREE, R_ROLE_TREE_ITEM, R_ROLE_TABLE, R_ROLE_MENU_BAR, R_ROLE_MENU, R_ROLE_MENU_ITEM, R_ROLE_TAB_LIST, R_ROLE_TAB, R_ROLE_TAB_PANEL, R_ROLE_TOOLBAR, R_ROLE_STATUS_BAR, R_ROLE_DIALOG, R_ROLE_ALERT, R_ROLE_IMAGE, R_ROLE_CANVAS, R_ROLE_SEPARATOR, R_ROLE_SCROLL_BAR, R_ROLE_PANE } = RAccessibleRole;
 
+export const RGoldenStatus = _enum({
+	R_GOLDEN_MATCH: 2976,
+	R_GOLDEN_UPDATED: 2977,
+	R_GOLDEN_MISMATCH: 2978,
+	R_GOLDEN_SIZE_MISMATCH: 2979,
+	R_GOLDEN_MISSING: 2980,
+	R_GOLDEN_FAILED: 2981,
+});
+export const { R_GOLDEN_MATCH, R_GOLDEN_UPDATED, R_GOLDEN_MISMATCH, R_GOLDEN_SIZE_MISMATCH, R_GOLDEN_MISSING, R_GOLDEN_FAILED } = RGoldenStatus;
+
 export class RInitDesc extends RStruct {
 	static SIZE = 40;
 
@@ -3051,6 +3061,109 @@ export class RHostPlatformDesc extends RStruct {
 	}
 }
 
+export class RGoldenOptions extends RStruct {
+	static SIZE = 24;
+
+	constructor(pointer) {
+		super(RGoldenOptions.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RGoldenOptions(pointer) : null;
+	}
+
+	get channel_tolerance() {
+		return this._view.getInt32(0, true);
+	}
+	set channel_tolerance(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get max_diff_ratio() {
+		return this._view.getFloat32(4, true);
+	}
+	set max_diff_ratio(value) {
+		this._view.setFloat32(4, value, true);
+	}
+
+	get per_platform() {
+		return this._view.getInt32(8, true);
+	}
+	set per_platform(value) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get output_directory() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set output_directory(value) {
+		this._point("output_directory", 16, _s(value));
+	}
+}
+
+export class RGoldenResult extends RStruct {
+	static SIZE = 40;
+
+	constructor(pointer) {
+		super(RGoldenResult.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RGoldenResult(pointer) : null;
+	}
+
+	get status() {
+		return this._view.getInt32(0, true);
+	}
+	set status(value) {
+		this._view.setInt32(0, value, true);
+	}
+
+	get width() {
+		return this._view.getInt32(4, true);
+	}
+	set width(value) {
+		this._view.setInt32(4, value, true);
+	}
+
+	get height() {
+		return this._view.getInt32(8, true);
+	}
+	set height(value) {
+		this._view.setInt32(8, value, true);
+	}
+
+	get differing_pixels() {
+		return this._view.getInt32(12, true);
+	}
+	set differing_pixels(value) {
+		this._view.setInt32(12, value, true);
+	}
+
+	get max_channel_difference() {
+		return this._view.getInt32(16, true);
+	}
+	set max_channel_difference(value) {
+		this._view.setInt32(16, value, true);
+	}
+
+	get golden_path() {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set golden_path(value) {
+		this._point("golden_path", 24, _s(value));
+	}
+
+	get message() {
+		return _text(_address(this._view.getBigUint64(32, true)));
+	}
+	set message(value) {
+		this._point("message", 32, _s(value));
+	}
+}
+
 function _adapt_RDropCallback(function_) {
 	if (typeof function_ !== "function") {
 		return function_;
@@ -3472,6 +3585,8 @@ export const Rtexture_create_from_pixels = _lib.Rtexture_create_from_pixels;
 export const Rtexture_update = _lib.Rtexture_update;
 export const Rimage_decode = _lib.Rimage_decode;
 export const Rpixels_free = _lib.Rpixels_free;
+export const Rimage_encode_png = _lib.Rimage_encode_png;
+export const Rimage_save_png = _lib.Rimage_save_png;
 export const Rtexture_is_ready = _lib.Rtexture_is_ready;
 export const Rtexture_wait = _lib.Rtexture_wait;
 export const Rtexture_destroy = _lib.Rtexture_destroy;
@@ -4653,6 +4768,33 @@ export const Rhost_inject_key = _lib.Rhost_inject_key;
 export const Rhost_inject_text = _lib.Rhost_inject_text;
 export const Rhost_inject_focus = _lib.Rhost_inject_focus;
 export const Rhost_inject_close = _lib.Rhost_inject_close;
+export const Rtest_set_deterministic = _lib.Rtest_set_deterministic;
+export const Rtest_is_deterministic = _lib.Rtest_is_deterministic;
+export const Rtest_get_platform_tag = _lib.Rtest_get_platform_tag;
+export const Rtest_find = _lib.Rtest_find;
+export const Rtest_click = _lib.Rtest_click;
+export const Rtest_double_click = _lib.Rtest_double_click;
+export const Rtest_right_click = _lib.Rtest_right_click;
+export const Rtest_click_at = _lib.Rtest_click_at;
+export const Rtest_hover = _lib.Rtest_hover;
+export const Rtest_hover_at = _lib.Rtest_hover_at;
+export const Rtest_drag = _lib.Rtest_drag;
+export const Rtest_drag_to = _lib.Rtest_drag_to;
+export const Rtest_scroll = _lib.Rtest_scroll;
+export const Rtest_key = _lib.Rtest_key;
+export const Rtest_type_text = _lib.Rtest_type_text;
+export const Rtest_tap = _lib.Rtest_tap;
+export const Rtest_swipe = _lib.Rtest_swipe;
+export const Rtest_pump = _lib.Rtest_pump;
+export const Rtest_is_idle = _lib.Rtest_is_idle;
+export const Rtest_settle = _lib.Rtest_settle;
+export const Rtest_get_text = _lib.Rtest_get_text;
+export const Rtest_is_shown = _lib.Rtest_is_shown;
+export const Rtest_is_checked = _lib.Rtest_is_checked;
+export function Rtest_expect_golden(target, golden_path, options, result) {
+	return _lib.Rtest_expect_golden(target, golden_path, _p(options), _p(result));
+}
+export const Rtest_compare_pixels = _lib.Rtest_compare_pixels;
 
 /**
  * Runs the interface until the last window closes or Rquit is called, leaving

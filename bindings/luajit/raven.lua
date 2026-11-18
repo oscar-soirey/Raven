@@ -836,6 +836,14 @@ typedef enum RAccessibleRole {
 	R_ROLE_SCROLL_BAR = 1922,
 	R_ROLE_PANE = 1923,
 } RAccessibleRole;
+typedef enum RGoldenStatus {
+	R_GOLDEN_MATCH = 2976,
+	R_GOLDEN_UPDATED = 2977,
+	R_GOLDEN_MISMATCH = 2978,
+	R_GOLDEN_SIZE_MISMATCH = 2979,
+	R_GOLDEN_MISSING = 2980,
+	R_GOLDEN_FAILED = 2981,
+} RGoldenStatus;
 typedef struct RInitDesc RInitDesc;
 typedef struct RAllocator RAllocator;
 typedef struct RMemoryStats RMemoryStats;
@@ -863,6 +871,8 @@ typedef struct RXmlError RXmlError;
 typedef struct RXmlAttributeInfo RXmlAttributeInfo;
 typedef struct RAccessibilitySettings RAccessibilitySettings;
 typedef struct RHostPlatformDesc RHostPlatformDesc;
+typedef struct RGoldenOptions RGoldenOptions;
+typedef struct RGoldenResult RGoldenResult;
 typedef void (*RFrameCallback)(double delta_seconds, void* user_data);
 typedef void (*RAppEventCallback)(RAppEvent event, void* user_data);
 typedef void (*RTaskCallback)(void* user_data);
@@ -1237,6 +1247,21 @@ struct RHostPlatformDesc {
 	void* wake;
 	void* user_data;
 };
+struct RGoldenOptions {
+	int channel_tolerance;
+	float max_diff_ratio;
+	int per_platform;
+	const char* output_directory;
+};
+struct RGoldenResult {
+	RGoldenStatus status;
+	int width;
+	int height;
+	int differing_pixels;
+	int max_channel_difference;
+	const char* golden_path;
+	const char* message;
+};
 int Rinit(RBackend backend);
 int Rinit_ex(const RInitDesc* desc);
 void Rshutdown(void);
@@ -1478,6 +1503,8 @@ Rid Rtexture_create_from_pixels(const uint8_t* rgba, int width, int height);
 void Rtexture_update(Rid texture, const uint8_t* rgba, int width, int height);
 uint8_t* Rimage_decode(const void* data, size_t data_size, int* width, int* height);
 void Rpixels_free(uint8_t* pixels);
+uint8_t* Rimage_encode_png(const uint8_t* rgba, int width, int height, size_t* size);
+int Rimage_save_png(const char* path, const uint8_t* rgba, int width, int height);
 int Rtexture_is_ready(Rid texture);
 void Rtexture_wait(Rid texture);
 void Rtexture_destroy(Rid texture);
@@ -2595,6 +2622,31 @@ void Rhost_inject_key(Rid window, RKey key, int pressed, Ruint modifiers, int re
 void Rhost_inject_text(Rid window, uint32_t codepoint);
 void Rhost_inject_focus(Rid window, int focused);
 void Rhost_inject_close(Rid window);
+void Rtest_set_deterministic(int enabled);
+int Rtest_is_deterministic(void);
+const char* Rtest_get_platform_tag(void);
+Rid Rtest_find(Rid scope, const char* path);
+int Rtest_click(Rid widget);
+int Rtest_double_click(Rid widget);
+int Rtest_right_click(Rid widget);
+int Rtest_click_at(Rid target, float x, float y, RMouseButton button, int clicks, Ruint modifiers);
+int Rtest_hover(Rid widget);
+int Rtest_hover_at(Rid target, float x, float y);
+int Rtest_drag(Rid widget, float dx, float dy);
+int Rtest_drag_to(Rid from, Rid to);
+int Rtest_scroll(Rid widget, float wheel_x, float wheel_y);
+int Rtest_key(Rid target, RKey key, Ruint modifiers);
+int Rtest_type_text(Rid target, const char* text);
+int Rtest_tap(Rid widget);
+int Rtest_swipe(Rid widget, float dx, float dy, double seconds);
+int Rtest_pump(int frames);
+int Rtest_is_idle(void);
+int Rtest_settle(double max_seconds);
+const char* Rtest_get_text(Rid widget);
+int Rtest_is_shown(Rid widget);
+int Rtest_is_checked(Rid widget);
+int Rtest_expect_golden(Rid target, const char* golden_path, const RGoldenOptions* options, RGoldenResult* result);
+int Rtest_compare_pixels(const uint8_t* actual, const uint8_t* expected, int width, int height, int channel_tolerance, int* max_channel_difference, uint8_t* diff_rgba);
 ]]
 
 local library = ffi.load(os.getenv("RAVEN_LIBRARY") or "raven")

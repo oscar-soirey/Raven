@@ -1240,6 +1240,20 @@ pub const R_ROLE_SEPARATOR: RAccessibleRole = 0x0781;
 pub const R_ROLE_SCROLL_BAR: RAccessibleRole = 0x0782;
 pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
 
+pub const RGoldenStatus = c_int;
+/// The capture matches the golden.
+pub const R_GOLDEN_MATCH: RGoldenStatus = 0x0BA0;
+/// RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+pub const R_GOLDEN_UPDATED: RGoldenStatus = 0x0BA1;
+/// Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+pub const R_GOLDEN_MISMATCH: RGoldenStatus = 0x0BA2;
+/// The capture and the golden do not have the same size: NAME.actual.png was written.
+pub const R_GOLDEN_SIZE_MISMATCH: RGoldenStatus = 0x0BA3;
+/// There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+pub const R_GOLDEN_MISSING: RGoldenStatus = 0x0BA4;
+/// The window could not be captured, or a file could not be read or written.
+pub const R_GOLDEN_FAILED: RGoldenStatus = 0x0BA5;
+
 /// Registers a function called once per frame, before the layout.
 /// The body of your loop does the same job; the callback is also called
 /// while the OS keeps the thread in a loop of its own (on Windows, while
@@ -2041,6 +2055,35 @@ pub const RHostPlatformDesc = extern struct {
     user_data: ?*anyopaque = null,
 };
 
+/// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+pub const RGoldenOptions = extern struct {
+    /// Largest difference on one channel (0..255) for which two pixels are still the same.
+    channel_tolerance: c_int = 0,
+    /// Share of the pixels (0..1) that may differ while the images still match.
+    max_diff_ratio: f32 = 0,
+    /// R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    per_platform: c_int = 0,
+    /// Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+    output_directory: ?[*:0]const u8 = null,
+};
+
+/// What Rtest_expect_golden found.
+pub const RGoldenResult = extern struct {
+    status: RGoldenStatus = 0,
+    /// Size of the capture, in pixels.
+    width: c_int = 0,
+    /// Size of the capture, in pixels.
+    height: c_int = 0,
+    /// Pixels farther from the golden than the tolerance.
+    differing_pixels: c_int = 0,
+    /// Largest difference found on one channel (0..255).
+    max_channel_difference: c_int = 0,
+    /// The golden that was read or written (with the platform tag). Valid until the next call.
+    golden_path: ?[*:0]const u8 = null,
+    /// One line that says what happened, for the log of the test. Valid until the next call.
+    message: ?[*:0]const u8 = null,
+};
+
 /// Starts the library with default settings on the given backend.
 /// The calling thread becomes the UI thread.
 /// Returns: R_TRUE on success. On failure, see Rerror_get_last.
@@ -2719,6 +2762,16 @@ pub extern fn Rtexture_update(texture: Rid, rgba: ?[*]const u8, width: c_int, he
 pub extern fn Rimage_decode(data: ?*const anyopaque, data_size: usize, width: ?*c_int, height: ?*c_int) ?[*]u8;
 /// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 pub extern fn Rpixels_free(pixels: ?[*]u8) void;
+/// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+/// returns) as a PNG file in memory. Thread-safe.
+/// size Receives the number of bytes.
+/// Returns: The bytes of the file, to release with Rpixels_free; NULL when
+/// there are no pixels.
+pub extern fn Rimage_encode_png(rgba: ?[*]const u8, width: c_int, height: c_int, size: ?*usize) ?[*]u8;
+/// Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+/// of Rwindow_capture, a picture made by the application. Thread-safe.
+/// Returns: R_FALSE when the file cannot be written.
+pub extern fn Rimage_save_png(path: ?[*:0]const u8, rgba: ?[*]const u8, width: c_int, height: c_int) c_int;
 /// Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 pub extern fn Rtexture_is_ready(texture: Rid) c_int;
 /// Blocks until an asynchronous texture is ready.
@@ -5011,3 +5064,96 @@ pub extern fn Rhost_inject_text(window: Rid, codepoint: u32) void;
 pub extern fn Rhost_inject_focus(window: Rid, focused: c_int) void;
 /// The user asked to close the window (its close callback decides).
 pub extern fn Rhost_inject_close(window: Rid) void;
+/// R_TRUE makes what is drawn depend only on what the test does:
+/// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+/// and the carets of the text fields stay lit instead of blinking. R_FALSE
+/// gives the clock back (time step 0).
+pub extern fn Rtest_set_deterministic(enabled: c_int) void;
+pub extern fn Rtest_is_deterministic() c_int;
+/// Returns: What the goldens of this run are made with, "OS-backend":
+/// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+/// "null" with the null backend.
+pub extern fn Rtest_get_platform_tag() ?[*:0]const u8;
+/// Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+/// path may have several names separated by '/': "settings/ok" is the
+/// widget named "ok" inside the one named "settings". In a window, the
+/// open popups (menus, dialogs) are searched first, top first, then the
+/// content.
+/// scope A window or a widget.
+/// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+pub extern fn Rtest_find(scope: Rid, path: ?[*:0]const u8) Rid;
+/// Moves the mouse to the middle of the widget, presses and releases the left button.
+pub extern fn Rtest_click(widget: Rid) c_int;
+/// Two clicks in a row on the middle of the widget, seen as a double click.
+pub extern fn Rtest_double_click(widget: Rid) c_int;
+/// A click of the right button on the middle of the widget (a context menu).
+pub extern fn Rtest_right_click(widget: Rid) c_int;
+/// Clicks at a position of a widget or a window.
+/// clicks 1 for a click, 2 for a double click, 3 for a triple click.
+/// modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+pub extern fn Rtest_click_at(target: Rid, x: f32, y: f32, button: RMouseButton, clicks: c_int, modifiers: u32) c_int;
+/// Moves the mouse over the middle of the widget, without clicking.
+pub extern fn Rtest_hover(widget: Rid) c_int;
+/// Moves the mouse to a position of a widget or a window.
+pub extern fn Rtest_hover_at(target: Rid, x: f32, y: f32) c_int;
+/// Presses the left button on the middle of the widget, moves by
+/// (dx, dy) in several steps, and releases: a slider, a splitter, a
+/// window dragged by a widget.
+pub extern fn Rtest_drag(widget: Rid, dx: f32, dy: f32) c_int;
+/// Drags from the middle of one widget to the middle of another (drag and drop).
+pub extern fn Rtest_drag_to(from: Rid, to: Rid) c_int;
+/// Turns the mouse wheel over the middle of the widget: `wheel_y`
+/// notches (positive: toward the top, as a wheel turned away from the
+/// user), `wheel_x` notches sideways.
+pub extern fn Rtest_scroll(widget: Rid, wheel_x: f32, wheel_y: f32) c_int;
+/// Presses and releases a key, with RModifier held. A widget
+/// target gets the keyboard focus first; a window sends the key to what
+/// has the focus.
+pub extern fn Rtest_key(target: Rid, key: RKey, modifiers: u32) c_int;
+/// Types UTF-8 text as a keyboard would. A widget target gets the
+/// keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+/// Tab and Backspace.
+pub extern fn Rtest_type_text(target: Rid, text: ?[*:0]const u8) c_int;
+/// A finger touches the middle of the widget and leaves at once.
+pub extern fn Rtest_tap(widget: Rid) c_int;
+/// A finger put on the middle of the widget moves by (dx, dy) in
+/// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+/// (Rtest_settle lets it stop).
+pub extern fn Rtest_swipe(widget: Rid, dx: f32, dy: f32, seconds: f64) c_int;
+/// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+pub extern fn Rtest_pump(frames: c_int) c_int;
+/// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+/// to do, nothing to paint, no animation, no layout spring, no inertia.
+/// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+/// realtime viewport) and the timers are not counted.
+pub extern fn Rtest_is_idle() c_int;
+/// Produces frames until Rtest_is_idle, each advancing the
+/// animations by the time step (1/60 s unless Rset_animation_time_step
+/// gives another), for at most `max_seconds` of that time.
+/// Returns: R_FALSE when it was still moving at the end.
+pub extern fn Rtest_settle(max_seconds: f64) c_int;
+/// Returns: What the user reads in the widget: the text of a field, else
+/// its label (as screen readers say it: the text of a Label, a Button, a
+/// Checkbox...). "" when it has none. Valid until the next call.
+pub extern fn Rtest_get_text(widget: Rid) ?[*:0]const u8;
+/// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+/// all that holds it, on the page a Switcher or a TabView shows, and laid
+/// out with a size.
+pub extern fn Rtest_is_shown(widget: Rid) c_int;
+/// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+pub extern fn Rtest_is_checked(widget: Rid) c_int;
+/// Captures a window, or the rectangle of one widget, and compares
+/// it with the PNG file `golden_path` (see the top of this file).
+/// target A window or a widget.
+/// options NULL for the defaults.
+/// result Receives the details; may be NULL.
+/// Returns: R_TRUE when the capture matches (or the golden was written
+/// because RAVEN_UPDATE_GOLDENS=1).
+pub extern fn Rtest_expect_golden(target: Rid, golden_path: ?[*:0]const u8, options: ?*const RGoldenOptions, result: ?*RGoldenResult) c_int;
+/// Compares two RGBA8 images of the same size as Rtest_expect_golden
+/// does, without files.
+/// diff_rgba When not NULL, receives width * height * 4 bytes: the
+/// expected image faded, with the different pixels in red.
+/// Returns: The number of pixels farther apart than `channel_tolerance`;
+/// -1 when an image is missing.
+pub extern fn Rtest_compare_pixels(actual: ?[*]const u8, expected: ?[*]const u8, width: c_int, height: c_int, channel_tolerance: c_int, max_channel_difference: ?*c_int, diff_rgba: ?[*]u8) c_int;

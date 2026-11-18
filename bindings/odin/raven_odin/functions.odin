@@ -14,11 +14,11 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1014 of the 1358 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 312 are raw only: call them through the package `raven`, imported as `raw`.
+// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
-//   a handle that is not known (114):
+//   a handle that is not known (120):
 //     Rwindow_set_owner Rmenu_add_menu Rchart_set_kind Rchart_get_kind Rchart_set_title Rchart_get_title
 //     Rchart_set_format Rchart_set_color Rchart_set_legend Rchart_clear Rchart_get_hovered Rchart_add_slice
 //     Rchart_remove_slice Rchart_get_slice_count Rchart_set_slice_value Rchart_get_slice_value
@@ -46,7 +46,8 @@
 //     Rmap_view_remove_marker Rmap_view_clear_markers Rmap_view_get_marker_count
 //     Rmap_view_set_marker_position Rmap_view_set_marker_label Rmap_view_set_marker_color
 //     Rmap_view_set_marker_clicked_callback Rmap_view_set_view_changed_callback Rmap_view_set_attribution
-//     Rmap_view_get_attribution
+//     Rmap_view_get_attribution Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text
+//     Rtest_expect_golden
 //
 //   a callback (105):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
@@ -91,9 +92,13 @@
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (8):
+//   a handle result that is not known (9):
 //     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rchart_create
-//     Rcarousel_create Rmap_view_create Rpdf_document_create
+//     Rcarousel_create Rmap_view_create Rpdf_document_create Rtest_find
+//
+//   a parameter of type const uint8_t* (8):
+//     Rwindow_set_icon Rtexture_create_from_pixels Rtexture_update Rimage_encode_png Rimage_save_png
+//     Rpdf_document_draw_image Rtray_set_icon Rtest_compare_pixels
 //
 //   a parameter of type const RActionContext* (6):
 //     Raction_get_sender Raction_get_name Raction_get_argument_count Raction_get_number Raction_get_string
@@ -102,9 +107,6 @@
 //   a parameter of type void* (6):
 //     Rmemory_realloc Rmemory_free Rwindow_set_user_handle Rwidget_set_user_handle
 //     Rtree_item_set_user_handle Rnode_graph_set_node_user_data
-//
-//   a parameter of type const uint8_t* (5):
-//     Rwindow_set_icon Rtexture_create_from_pixels Rtexture_update Rpdf_document_draw_image Rtray_set_icon
 //
 //   a result of type void* (5):
 //     Rmemory_alloc Rwindow_get_user_handle Rwidget_get_user_handle Rtree_item_get_user_handle
@@ -5905,4 +5907,109 @@ host_inject_focus :: proc(window: Window, focused: i32) {
 // The user asked to close the window (its close callback decides).
 host_inject_close :: proc(window: Window) {
 	raw.Rhost_inject_close(raw.Rid(window))
+}
+
+// R_TRUE makes what is drawn depend only on what the test does:
+// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+// and the carets of the text fields stay lit instead of blinking. R_FALSE
+// gives the clock back (time step 0).
+test_set_deterministic :: proc(enabled: bool) {
+	raw.Rtest_set_deterministic((1 if enabled else 0))
+}
+
+test_is_deterministic :: proc() -> bool {
+	return raw.Rtest_is_deterministic() != 0
+}
+
+// Returns: What the goldens of this run are made with, "OS-backend":
+// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+// "null" with the null backend.
+test_get_platform_tag :: proc() -> string {
+	return string(raw.Rtest_get_platform_tag())
+}
+
+// Moves the mouse to the middle of the widget, presses and releases the left button.
+test_click :: proc(widget: Widget) -> i32 {
+	return raw.Rtest_click(raw.Rid(widget))
+}
+
+// Two clicks in a row on the middle of the widget, seen as a double click.
+test_double_click :: proc(widget: Widget) -> i32 {
+	return raw.Rtest_double_click(raw.Rid(widget))
+}
+
+// A click of the right button on the middle of the widget (a context menu).
+test_right_click :: proc(widget: Widget) -> i32 {
+	return raw.Rtest_right_click(raw.Rid(widget))
+}
+
+// Moves the mouse over the middle of the widget, without clicking.
+test_hover :: proc(widget: Widget) -> i32 {
+	return raw.Rtest_hover(raw.Rid(widget))
+}
+
+// Presses the left button on the middle of the widget, moves by
+// (dx, dy) in several steps, and releases: a slider, a splitter, a
+// window dragged by a widget.
+test_drag :: proc(widget: Widget, dx: f32, dy: f32) -> i32 {
+	return raw.Rtest_drag(raw.Rid(widget), dx, dy)
+}
+
+// Turns the mouse wheel over the middle of the widget: `wheel_y`
+// notches (positive: toward the top, as a wheel turned away from the
+// user), `wheel_x` notches sideways.
+test_scroll :: proc(widget: Widget, wheel_x: f32, wheel_y: f32) -> i32 {
+	return raw.Rtest_scroll(raw.Rid(widget), wheel_x, wheel_y)
+}
+
+// A finger touches the middle of the widget and leaves at once.
+test_tap :: proc(widget: Widget) -> i32 {
+	return raw.Rtest_tap(raw.Rid(widget))
+}
+
+// A finger put on the middle of the widget moves by (dx, dy) in
+// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+// (Rtest_settle lets it stop).
+test_swipe :: proc(widget: Widget, dx: f32, dy: f32, seconds: f64) -> i32 {
+	return raw.Rtest_swipe(raw.Rid(widget), dx, dy, seconds)
+}
+
+// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+test_pump :: proc(frames: i32) -> bool {
+	return raw.Rtest_pump(frames) != 0
+}
+
+// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+// to do, nothing to paint, no animation, no layout spring, no inertia.
+// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+// realtime viewport) and the timers are not counted.
+test_is_idle :: proc() -> bool {
+	return raw.Rtest_is_idle() != 0
+}
+
+// Produces frames until Rtest_is_idle, each advancing the
+// animations by the time step (1/60 s unless Rset_animation_time_step
+// gives another), for at most `max_seconds` of that time.
+// Returns: R_FALSE when it was still moving at the end.
+test_settle :: proc(max_seconds: f64) -> bool {
+	return raw.Rtest_settle(max_seconds) != 0
+}
+
+// Returns: What the user reads in the widget: the text of a field, else
+// its label (as screen readers say it: the text of a Label, a Button, a
+// Checkbox...). "" when it has none. Valid until the next call.
+test_get_text :: proc(widget: Widget) -> string {
+	return string(raw.Rtest_get_text(raw.Rid(widget)))
+}
+
+// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+// all that holds it, on the page a Switcher or a TabView shows, and laid
+// out with a size.
+test_is_shown :: proc(widget: Widget) -> bool {
+	return raw.Rtest_is_shown(raw.Rid(widget)) != 0
+}
+
+// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+test_is_checked :: proc(widget: Widget) -> bool {
+	return raw.Rtest_is_checked(raw.Rid(widget)) != 0
 }
