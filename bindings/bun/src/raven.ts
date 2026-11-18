@@ -611,6 +611,15 @@ const _symbols = {
 	Rcombo_box_set_selected: { args: ["u32", "i32"], returns: "void" },
 	Rcombo_box_get_selected: { args: ["u32"], returns: "i32" },
 	Rcombo_box_set_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rcombo_box_set_editable: { args: ["u32", "i32"], returns: "void" },
+	Rcombo_box_is_editable: { args: ["u32"], returns: "i32" },
+	Rcombo_box_set_searchable: { args: ["u32", "i32"], returns: "void" },
+	Rcombo_box_is_searchable: { args: ["u32"], returns: "i32" },
+	Rcombo_box_get_text: { args: ["u32"], returns: "cstring" },
+	Rcombo_box_set_text: { args: ["u32", "ptr"], returns: "void" },
+	Rcombo_box_set_text_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rcombo_box_set_open: { args: ["u32", "i32"], returns: "void" },
+	Rcombo_box_is_open: { args: ["u32"], returns: "i32" },
 	Rseparator_set_orientation: { args: ["u32", "i32"], returns: "void" },
 	Rlist_view_add_item: { args: ["u32", "ptr"], returns: "i32" },
 	Rlist_view_set_item_text: { args: ["u32", "i32", "ptr"], returns: "void" },
@@ -742,6 +751,14 @@ const _symbols = {
 	Rtable_set_selection_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtable_set_activated_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtable_set_sort_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_set_column_editable: { args: ["u32", "i32", "i32"], returns: "void" },
+	Rtable_is_column_editable: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_set_cell_edited_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtable_edit_cell: { args: ["u32", "i32", "i32"], returns: "i32" },
+	Rtable_is_editing: { args: ["u32"], returns: "i32" },
+	Rtable_end_edit: { args: ["u32", "i32"], returns: "i32" },
+	Rtable_set_frozen_columns: { args: ["u32", "i32"], returns: "void" },
+	Rtable_get_frozen_columns: { args: ["u32"], returns: "i32" },
 	Rdate_picker_set_date: { args: ["u32", "i32", "i32", "i32"], returns: "void" },
 	Rdate_picker_get_date: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
 	Rdate_picker_set_range: { args: ["u32", "i32", "i32", "i32", "i32", "i32", "i32"], returns: "void" },
@@ -6313,6 +6330,22 @@ function _adapt_RComboBoxChangedCallback(function_: RComboBoxChangedCallback | P
 	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
+/** Called each time the user changes the text of an editable or searchable combo box. */
+export type RComboBoxTextCallback = (combo_box: Rid, text: string | null, user_data: Pointer | null) => void;
+
+function _adapt_RComboBoxTextCallback(function_: RComboBoxTextCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((combo_box: number, text: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(combo_box, _text(text), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr", "ptr"], returns: "void", threadsafe }));
+}
+
 /**
  * Virtual mode, for large or computed data: the list stores nothing and
  * asks for the text of the rows it draws. The returned string must stay
@@ -6588,6 +6621,32 @@ function _adapt_RTableSortCallback(function_: RTableSortCallback | Pointer | nul
 			_report(error as Error);
 		}
 	}, { args: ["u32", "i32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Called when the user keeps the text typed in a cell (Enter, Tab,
+ * a click elsewhere). Return R_TRUE to accept it: a stored table then
+ * keeps the text in the cell, unless the callback set the cell itself
+ * (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+ * nothing: the application keeps the text in its data. Return R_FALSE to
+ * refuse it: after Enter or Tab the field stays open on the text, so the
+ * user can correct it; after a click elsewhere the edit is dropped.
+ * Without a callback, a stored table keeps every text.
+ */
+export type RTableCellEditedCallback = (table: Rid, row: number, column: number, text: string | null, user_data: Pointer | null) => number | boolean;
+
+function _adapt_RTableCellEditedCallback(function_: RTableCellEditedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((table: number, row: number, column: number, text: Pointer | null, user_data: Pointer | null): number => {
+		try {
+			return Number(function_(table, row, column, _text(text), user_data) ?? 0);
+		} catch (error) {
+			_report(error as Error);
+			return 0;
+		}
+	}, { args: ["u32", "i32", "i32", "ptr", "ptr"], returns: "i32", threadsafe }));
 }
 
 /** Called when the user chooses a date. This also fires the action of the widget. */
@@ -10231,6 +10290,59 @@ export function Rcombo_box_set_changed_callback(combo_box: Rid, callback: RCombo
 	_lib.Rcombo_box_set_changed_callback(combo_box, _adapt_RComboBoxChangedCallback(callback), user_data);
 }
 
+/**
+ * R_TRUE: the combo box is a text field with its list: the user
+ * may type a text that is not one of the items (Editable="true"). The text
+ * is Rcombo_box_get_text; choosing an item puts its text there. A typed
+ * text equal to an item selects it, any other selects nothing (-1).
+ */
+export function Rcombo_box_set_editable(combo_box: Rid, editable: number): void {
+	_lib.Rcombo_box_set_editable(combo_box, editable);
+}
+
+export function Rcombo_box_is_editable(combo_box: Rid): number {
+	return _lib.Rcombo_box_is_editable(combo_box);
+}
+
+/**
+ * R_TRUE: typing in the combo box filters its list (Searchable="true"):
+ * the items that contain what was typed, without regard to case or
+ * accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+ * matches. Up and Down move in the list, Enter chooses, Escape closes it.
+ * A searchable combo box that is not editable comes back to the item
+ * chosen when nothing is.
+ */
+export function Rcombo_box_set_searchable(combo_box: Rid, searchable: number): void {
+	_lib.Rcombo_box_set_searchable(combo_box, searchable);
+}
+
+export function Rcombo_box_is_searchable(combo_box: Rid): number {
+	return _lib.Rcombo_box_is_searchable(combo_box);
+}
+
+/** The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none). */
+export function Rcombo_box_get_text(combo_box: Rid): string | null {
+	return _lib.Rcombo_box_get_text(combo_box);
+}
+
+/** Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text. */
+export function Rcombo_box_set_text(combo_box: Rid, text: string | null): void {
+	_lib.Rcombo_box_set_text(combo_box, _s(text));
+}
+
+export function Rcombo_box_set_text_changed_callback(combo_box: Rid, callback: RComboBoxTextCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rcombo_box_set_text_changed_callback(combo_box, _adapt_RComboBoxTextCallback(callback), user_data);
+}
+
+/** Opens (R_TRUE) or closes the list. */
+export function Rcombo_box_set_open(combo_box: Rid, open: number): void {
+	_lib.Rcombo_box_set_open(combo_box, open);
+}
+
+export function Rcombo_box_is_open(combo_box: Rid): number {
+	return _lib.Rcombo_box_is_open(combo_box);
+}
+
 /** R_HORIZONTAL draws a horizontal line (default). */
 export function Rseparator_set_orientation(separator: Rid, orientation: ROrientation): void {
 	_lib.Rseparator_set_orientation(separator, orientation);
@@ -10858,6 +10970,54 @@ export function Rtable_set_activated_callback(table: Rid, callback: RTableEventC
 
 export function Rtable_set_sort_callback(table: Rid, callback: RTableSortCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtable_set_sort_callback(table, _adapt_RTableSortCallback(callback), user_data);
+}
+
+/** R_TRUE: the cells of the column are edited in place by the user (default R_FALSE). */
+export function Rtable_set_column_editable(table: Rid, column: number, editable: number): void {
+	_lib.Rtable_set_column_editable(table, column, editable);
+}
+
+export function Rtable_is_column_editable(table: Rid, column: number): number {
+	return _lib.Rtable_is_column_editable(table, column);
+}
+
+export function Rtable_set_cell_edited_callback(table: Rid, callback: RTableCellEditedCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtable_set_cell_edited_callback(table, _adapt_RTableCellEditedCallback(callback), user_data);
+}
+
+/**
+ * Opens the editor on a cell, its text selected, as F2 does (the
+ * row is selected and scrolled into view). Any column can be edited this
+ * way, editable or not. Returns: R_TRUE when the editor is open.
+ */
+export function Rtable_edit_cell(table: Rid, row: number, column: number): number {
+	return _lib.Rtable_edit_cell(table, row, column);
+}
+
+export function Rtable_is_editing(table: Rid): number {
+	return _lib.Rtable_is_editing(table);
+}
+
+/**
+ * Closes the editor: `commit` R_TRUE keeps the text (through the
+ * cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+ * was refused (the editor then stays open), R_TRUE otherwise.
+ */
+export function Rtable_end_edit(table: Rid, commit: number): number {
+	return _lib.Rtable_end_edit(table, commit);
+}
+
+/**
+ * The first `count` columns stay in place when the table scrolls
+ * sideways; a thin shadow marks where the others pass under them. 0 (the
+ * default): every column scrolls.
+ */
+export function Rtable_set_frozen_columns(table: Rid, count: number): void {
+	_lib.Rtable_set_frozen_columns(table, count);
+}
+
+export function Rtable_get_frozen_columns(table: Rid): number {
+	return _lib.Rtable_get_frozen_columns(table);
 }
 
 /** Sets the date (today when the picker is created). An invalid date is refused. */

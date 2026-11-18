@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1014 of the 1358 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 312 are raw only: call them through the package `raven`, imported as `raw`.
+// 1029 of the 1375 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 314 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (114):
@@ -48,7 +48,7 @@
 //     Rmap_view_set_marker_clicked_callback Rmap_view_set_view_changed_callback Rmap_view_set_attribution
 //     Rmap_view_get_attribution
 //
-//   a callback (105):
+//   a callback (107):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -58,7 +58,7 @@
 //     Rexpander_set_changed_callback Rlabel_set_link_callback Rbutton_set_clicked_callback
 //     Rcheckbox_set_changed_callback Rslider_set_changed_callback Rtext_input_set_changed_callback
 //     Rtext_input_set_committed_callback Rspin_box_set_changed_callback Rcombo_box_set_changed_callback
-//     Rlist_view_set_virtual_items Rlist_view_set_item_color_callback
+//     Rcombo_box_set_text_changed_callback Rlist_view_set_virtual_items Rlist_view_set_item_color_callback
 //     Rlist_view_set_selection_changed_callback Rlist_view_set_activated_callback
 //     Rtree_view_set_selection_changed_callback Rtree_view_set_activated_callback
 //     Rtree_view_set_context_callback Rmenu_item_set_clicked_callback Rtile_view_set_items
@@ -66,17 +66,17 @@
 //     Rtile_view_set_selection_changed_callback Rtile_view_set_activated_callback
 //     Rtile_view_set_context_callback Rtable_set_virtual_rows Rtable_set_cell_color_callback
 //     Rtable_set_selection_changed_callback Rtable_set_activated_callback Rtable_set_sort_callback
-//     Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback Rtoast_set_action_callback
-//     Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback Rpagination_set_changed_callback
-//     Rplot_set_view_changed_callback Rplot_set_drag_line_callback Rplot_set_series_toggled_callback
-//     Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback Rtext_editor_set_hover_callback
-//     Rtext_editor_set_changed_callback Rdock_area_set_close_callback Rdock_area_set_float_window
-//     Rdock_area_set_changed_callback Risland_set_changed_callback Rtray_set_clicked_callback
-//     Rcolor_picker_set_changed_callback Rtimeline_set_time_callback Rtimeline_set_changed_callback
-//     Rtimeline_set_selection_callback Rtimeline_set_activated_callback Rtimeline_set_removed_callback
-//     Rnode_graph_set_connect_callback Rnode_graph_set_linked_callback Rnode_graph_set_unlinked_callback
-//     Rnode_graph_set_moved_callback Rnode_graph_set_selection_callback Rnode_graph_set_removed_callback
-//     Rnode_graph_set_activated_callback Rnode_graph_set_context_callback
+//     Rtable_set_cell_edited_callback Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback
+//     Rtoast_set_action_callback Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback
+//     Rpagination_set_changed_callback Rplot_set_view_changed_callback Rplot_set_drag_line_callback
+//     Rplot_set_series_toggled_callback Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback
+//     Rtext_editor_set_hover_callback Rtext_editor_set_changed_callback Rdock_area_set_close_callback
+//     Rdock_area_set_float_window Rdock_area_set_changed_callback Risland_set_changed_callback
+//     Rtray_set_clicked_callback Rcolor_picker_set_changed_callback Rtimeline_set_time_callback
+//     Rtimeline_set_changed_callback Rtimeline_set_selection_callback Rtimeline_set_activated_callback
+//     Rtimeline_set_removed_callback Rnode_graph_set_connect_callback Rnode_graph_set_linked_callback
+//     Rnode_graph_set_unlinked_callback Rnode_graph_set_moved_callback Rnode_graph_set_selection_callback
+//     Rnode_graph_set_removed_callback Rnode_graph_set_activated_callback Rnode_graph_set_context_callback
 //     Rnode_graph_set_canvas_activated_callback Rnode_graph_set_wire_dropped_callback
 //     Rnode_graph_set_pin_clicked_callback Rblock_editor_set_changed_callback
 //     Rblock_editor_set_clicked_callback Rblock_editor_set_context_callback Rdialog_open Rpopup_open
@@ -2316,6 +2316,52 @@ combo_box_get_selected :: proc(combo_box: Widget) -> i32 {
 	return raw.Rcombo_box_get_selected(raw.Rid(combo_box))
 }
 
+// R_TRUE: the combo box is a text field with its list: the user
+// may type a text that is not one of the items (Editable="true"). The text
+// is Rcombo_box_get_text; choosing an item puts its text there. A typed
+// text equal to an item selects it, any other selects nothing (-1).
+combo_box_set_editable :: proc(combo_box: Widget, editable: i32) {
+	raw.Rcombo_box_set_editable(raw.Rid(combo_box), editable)
+}
+
+combo_box_is_editable :: proc(combo_box: Widget) -> bool {
+	return raw.Rcombo_box_is_editable(raw.Rid(combo_box)) != 0
+}
+
+// R_TRUE: typing in the combo box filters its list (Searchable="true"):
+// the items that contain what was typed, without regard to case or
+// accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+// matches. Up and Down move in the list, Enter chooses, Escape closes it.
+// A searchable combo box that is not editable comes back to the item
+// chosen when nothing is.
+combo_box_set_searchable :: proc(combo_box: Widget, searchable: i32) {
+	raw.Rcombo_box_set_searchable(raw.Rid(combo_box), searchable)
+}
+
+combo_box_is_searchable :: proc(combo_box: Widget) -> bool {
+	return raw.Rcombo_box_is_searchable(raw.Rid(combo_box)) != 0
+}
+
+// The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none).
+combo_box_get_text :: proc(combo_box: Widget) -> string {
+	return string(raw.Rcombo_box_get_text(raw.Rid(combo_box)))
+}
+
+// Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text.
+combo_box_set_text :: proc(combo_box: Widget, text: string) {
+	buffer_text: [cstring_buffer_size]u8
+	raw.Rcombo_box_set_text(raw.Rid(combo_box), to_cstring(text, &buffer_text))
+}
+
+// Opens (R_TRUE) or closes the list.
+combo_box_set_open :: proc(combo_box: Widget, open: i32) {
+	raw.Rcombo_box_set_open(raw.Rid(combo_box), open)
+}
+
+combo_box_is_open :: proc(combo_box: Widget) -> bool {
+	return raw.Rcombo_box_is_open(raw.Rid(combo_box)) != 0
+}
+
 // R_HORIZONTAL draws a horizontal line (default).
 separator_set_orientation :: proc(separator: Widget, orientation: Orientation) {
 	raw.Rseparator_set_orientation(raw.Rid(separator), raw.ROrientation(orientation))
@@ -2849,6 +2895,44 @@ table_set_grid_lines :: proc(table: Widget, visible: bool) {
 // Every other row a little darker.
 table_set_striped :: proc(table: Widget, striped: i32) {
 	raw.Rtable_set_striped(raw.Rid(table), striped)
+}
+
+// R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+table_set_column_editable :: proc(table: Widget, column: i32, editable: i32) {
+	raw.Rtable_set_column_editable(raw.Rid(table), column, editable)
+}
+
+table_is_column_editable :: proc(table: Widget, column: i32) -> bool {
+	return raw.Rtable_is_column_editable(raw.Rid(table), column) != 0
+}
+
+// Opens the editor on a cell, its text selected, as F2 does (the
+// row is selected and scrolled into view). Any column can be edited this
+// way, editable or not. Returns: R_TRUE when the editor is open.
+table_edit_cell :: proc(table: Widget, row: i32, column: i32) -> bool {
+	return raw.Rtable_edit_cell(raw.Rid(table), row, column) != 0
+}
+
+table_is_editing :: proc(table: Widget) -> bool {
+	return raw.Rtable_is_editing(raw.Rid(table)) != 0
+}
+
+// Closes the editor: `commit` R_TRUE keeps the text (through the
+// cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+// was refused (the editor then stays open), R_TRUE otherwise.
+table_end_edit :: proc(table: Widget, commit: i32) -> bool {
+	return raw.Rtable_end_edit(raw.Rid(table), commit) != 0
+}
+
+// The first `count` columns stay in place when the table scrolls
+// sideways; a thin shadow marks where the others pass under them. 0 (the
+// default): every column scrolls.
+table_set_frozen_columns :: proc(table: Widget, count: i32) {
+	raw.Rtable_set_frozen_columns(raw.Rid(table), count)
+}
+
+table_get_frozen_columns :: proc(table: Widget) -> i32 {
+	return raw.Rtable_get_frozen_columns(raw.Rid(table))
 }
 
 // Sets the date (today when the picker is created). An invalid date is refused.

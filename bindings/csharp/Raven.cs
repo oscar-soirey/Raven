@@ -3132,6 +3132,12 @@ namespace Raven
     public delegate void RComboBoxChangedCallback(uint combo_box, int index, IntPtr user_data);
 
     /// <summary>
+    /// Called each time the user changes the text of an editable or searchable combo box.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RComboBoxTextCallback(uint combo_box, IntPtr text, IntPtr user_data);
+
+    /// <summary>
     /// Virtual mode, for large or computed data: the list stores nothing and
     /// asks for the text of the rows it draws. The returned string must stay
     /// valid until the next call.
@@ -3224,6 +3230,19 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTableSortCallback(uint table, int column, int descending, IntPtr user_data);
+
+    /// <summary>
+    /// Called when the user keeps the text typed in a cell (Enter, Tab,
+    /// a click elsewhere). Return R_TRUE to accept it: a stored table then
+    /// keeps the text in the cell, unless the callback set the cell itself
+    /// (Rtable_set_cell, to keep "12.50" for "12.5"). A virtual table stores
+    /// nothing: the application keeps the text in its data. Return R_FALSE to
+    /// refuse it: after Enter or Tab the field stays open on the text, so the
+    /// user can correct it; after a click elsewhere the edit is dropped.
+    /// Without a callback, a stored table keeps every text.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate int RTableCellEditedCallback(uint table, int row, int column, IntPtr text, IntPtr user_data);
 
     /// <summary>
     /// Called when the user chooses a date. This also fires the action of the widget.
@@ -6288,6 +6307,57 @@ namespace Raven
         public static extern void Rcombo_box_set_changed_callback(uint combo_box, RComboBoxChangedCallback callback, IntPtr user_data);
 
         /// <summary>
+        /// R_TRUE: the combo box is a text field with its list: the user
+        /// may type a text that is not one of the items (Editable="true"). The text
+        /// is Rcombo_box_get_text; choosing an item puts its text there. A typed
+        /// text equal to an item selects it, any other selects nothing (-1).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcombo_box_set_editable(uint combo_box, int editable);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcombo_box_is_editable(uint combo_box);
+
+        /// <summary>
+        /// R_TRUE: typing in the combo box filters its list (Searchable="true"):
+        /// the items that contain what was typed, without regard to case or
+        /// accents ("zoe" finds "Zoë", "sao" finds "São Paulo"), or a row saying that nothing
+        /// matches. Up and Down move in the list, Enter chooses, Escape closes it.
+        /// A searchable combo box that is not editable comes back to the item
+        /// chosen when nothing is.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcombo_box_set_searchable(uint combo_box, int searchable);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcombo_box_is_searchable(uint combo_box);
+
+        /// <summary>
+        /// The text shown: what was typed in an editable combo box, else the text of the selected item ("" for none).
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rcombo_box_get_text", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rcombo_box_get_text_(uint combo_box);
+        public static string Rcombo_box_get_text(uint combo_box) { return Text(Rcombo_box_get_text_(combo_box)); }
+
+        /// <summary>
+        /// Editable combo box: sets the text of the field (the item equal to it is selected); otherwise selects the item with this text.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcombo_box_set_text(uint combo_box, [MarshalAs(Utf8.Str)] string text);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcombo_box_set_text_changed_callback(uint combo_box, RComboBoxTextCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Opens (R_TRUE) or closes the list.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rcombo_box_set_open(uint combo_box, int open);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rcombo_box_is_open(uint combo_box);
+
+        /// <summary>
         /// R_HORIZONTAL draws a horizontal line (default).
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -6877,6 +6947,48 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtable_set_sort_callback(uint table, RTableSortCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// R_TRUE: the cells of the column are edited in place by the user (default R_FALSE).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_column_editable(uint table, int column, int editable);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_is_column_editable(uint table, int column);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_cell_edited_callback(uint table, RTableCellEditedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Opens the editor on a cell, its text selected, as F2 does (the
+        /// row is selected and scrolled into view). Any column can be edited this
+        /// way, editable or not. Returns: R_TRUE when the editor is open.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_edit_cell(uint table, int row, int column);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_is_editing(uint table);
+
+        /// <summary>
+        /// Closes the editor: `commit` R_TRUE keeps the text (through the
+        /// cell edited callback), R_FALSE forgets it. Returns: R_FALSE when the text
+        /// was refused (the editor then stays open), R_TRUE otherwise.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_end_edit(uint table, int commit);
+
+        /// <summary>
+        /// The first `count` columns stay in place when the table scrolls
+        /// sideways; a thin shadow marks where the others pass under them. 0 (the
+        /// default): every column scrolls.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtable_set_frozen_columns(uint table, int count);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtable_get_frozen_columns(uint table);
 
         /// <summary>
         /// Sets the date (today when the picker is created). An invalid date is refused.
