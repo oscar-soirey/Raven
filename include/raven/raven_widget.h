@@ -135,6 +135,8 @@ typedef enum RWidgetType{
 	R_WIDGET_PDF_VIEW,
 	/** The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). */
 	R_WIDGET_CHART,
+	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
+	R_WIDGET_MAP_VIEW,
 
 	R_WIDGET_LAST_
 }RWidgetType;

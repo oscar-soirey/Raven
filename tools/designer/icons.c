@@ -83,6 +83,7 @@ static const struct { const char* key; unsigned char family; unsigned char glyph
 	{ "Cell", FAMILY_DATA, G_ITEM }, { "Pagination", FAMILY_DATA, G_PAGER }, { "Plot", FAMILY_DATA, G_PLOT },
 	{ "Chart", FAMILY_DATA, G_PIE }, { "Slice", FAMILY_DATA, G_ITEM }, { "Band", FAMILY_DATA, G_ITEM },
 	{ "PdfView", FAMILY_DATA, G_FILE },
+	{ "PdfView", FAMILY_DATA, G_FILE }, { "MapView", FAMILY_DATA, G_PICTURE },
 	{ "Series", FAMILY_DATA, G_ITEM }, { "Scatter", FAMILY_DATA, G_ITEM }, { "DragLine", FAMILY_DATA, G_ITEM },
 	{ "Track", FAMILY_DATA, G_TIMELINE }, { "Clip", FAMILY_DATA, G_PROGRESS }, { "Key", FAMILY_DATA, G_ITEM },
 	{ "Marker", FAMILY_DATA, G_ITEM }, { "Node", FAMILY_DATA, G_NODES }, { "Input", FAMILY_DATA, G_ITEM },

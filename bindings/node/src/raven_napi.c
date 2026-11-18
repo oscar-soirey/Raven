@@ -766,6 +766,40 @@ static struct {
 	const char* (*Rpdf_view_get_page_text)(Rid, int);
 	void (*Rpdf_view_set_page_changed_callback)(Rid, RPdfPageChangedCallback, void*);
 	int (*Rpdf_view_print)(Rid, const RPdfPrintDesc*);
+	Rid (*Rmap_view_create)(void);
+	void (*Rmap_view_set_center)(Rid, double, double);
+	void (*Rmap_view_get_center)(Rid, double*, double*);
+	void (*Rmap_view_set_zoom)(Rid, double);
+	double (*Rmap_view_get_zoom)(Rid);
+	void (*Rmap_view_set_zoom_range)(Rid, double, double);
+	void (*Rmap_view_get_zoom_range)(Rid, double*, double*);
+	void (*Rmap_view_animate_to)(Rid, double, double, double);
+	void (*Rmap_view_screen_to_latlon)(Rid, float, float, double*, double*);
+	void (*Rmap_view_latlon_to_screen)(Rid, double, double, float*, float*);
+	void (*Rmap_view_set_tile_callback)(Rid, RMapTileCallback, void*);
+	void (*Rmap_view_set_tile_cancel_callback)(Rid, RMapTileCallback, void*);
+	void (*Rmap_view_set_tile)(Rid, int, int, int, const uint8_t*, int, int);
+	void (*Rmap_view_set_tile_data)(Rid, int, int, int, const void*, size_t);
+	void (*Rmap_view_set_tile_failed)(Rid, int, int, int);
+	void (*Rmap_view_set_tile_path)(Rid, const char*);
+	const char* (*Rmap_view_get_tile_path)(Rid);
+	void (*Rmap_view_set_tile_size)(Rid, int);
+	int (*Rmap_view_get_tile_size)(Rid);
+	void (*Rmap_view_set_cache_size)(Rid, size_t);
+	size_t (*Rmap_view_get_cache_usage)(Rid);
+	void (*Rmap_view_clear_tiles)(Rid);
+	RMapTileState (*Rmap_view_get_tile_state)(Rid, int, int, int);
+	int (*Rmap_view_add_marker)(Rid, double, double, const char*);
+	void (*Rmap_view_remove_marker)(Rid, int);
+	void (*Rmap_view_clear_markers)(Rid);
+	int (*Rmap_view_get_marker_count)(Rid);
+	void (*Rmap_view_set_marker_position)(Rid, int, double, double);
+	void (*Rmap_view_set_marker_label)(Rid, int, const char*);
+	void (*Rmap_view_set_marker_color)(Rid, int, float, float, float, float);
+	void (*Rmap_view_set_marker_clicked_callback)(Rid, RMapMarkerCallback, void*);
+	void (*Rmap_view_set_view_changed_callback)(Rid, RMapViewCallback, void*);
+	void (*Rmap_view_set_attribution)(Rid, const char*);
+	const char* (*Rmap_view_get_attribution)(Rid);
 	Rid (*Rpdf_document_create)(void);
 	void (*Rpdf_document_delete)(Rid);
 	void (*Rpdf_document_set_title)(Rid, const char*);
@@ -2047,6 +2081,40 @@ static const struct {
 	{"Rpdf_view_get_page_text", offsetof(__typeof__(rn), Rpdf_view_get_page_text)},
 	{"Rpdf_view_set_page_changed_callback", offsetof(__typeof__(rn), Rpdf_view_set_page_changed_callback)},
 	{"Rpdf_view_print", offsetof(__typeof__(rn), Rpdf_view_print)},
+	{"Rmap_view_create", offsetof(__typeof__(rn), Rmap_view_create)},
+	{"Rmap_view_set_center", offsetof(__typeof__(rn), Rmap_view_set_center)},
+	{"Rmap_view_get_center", offsetof(__typeof__(rn), Rmap_view_get_center)},
+	{"Rmap_view_set_zoom", offsetof(__typeof__(rn), Rmap_view_set_zoom)},
+	{"Rmap_view_get_zoom", offsetof(__typeof__(rn), Rmap_view_get_zoom)},
+	{"Rmap_view_set_zoom_range", offsetof(__typeof__(rn), Rmap_view_set_zoom_range)},
+	{"Rmap_view_get_zoom_range", offsetof(__typeof__(rn), Rmap_view_get_zoom_range)},
+	{"Rmap_view_animate_to", offsetof(__typeof__(rn), Rmap_view_animate_to)},
+	{"Rmap_view_screen_to_latlon", offsetof(__typeof__(rn), Rmap_view_screen_to_latlon)},
+	{"Rmap_view_latlon_to_screen", offsetof(__typeof__(rn), Rmap_view_latlon_to_screen)},
+	{"Rmap_view_set_tile_callback", offsetof(__typeof__(rn), Rmap_view_set_tile_callback)},
+	{"Rmap_view_set_tile_cancel_callback", offsetof(__typeof__(rn), Rmap_view_set_tile_cancel_callback)},
+	{"Rmap_view_set_tile", offsetof(__typeof__(rn), Rmap_view_set_tile)},
+	{"Rmap_view_set_tile_data", offsetof(__typeof__(rn), Rmap_view_set_tile_data)},
+	{"Rmap_view_set_tile_failed", offsetof(__typeof__(rn), Rmap_view_set_tile_failed)},
+	{"Rmap_view_set_tile_path", offsetof(__typeof__(rn), Rmap_view_set_tile_path)},
+	{"Rmap_view_get_tile_path", offsetof(__typeof__(rn), Rmap_view_get_tile_path)},
+	{"Rmap_view_set_tile_size", offsetof(__typeof__(rn), Rmap_view_set_tile_size)},
+	{"Rmap_view_get_tile_size", offsetof(__typeof__(rn), Rmap_view_get_tile_size)},
+	{"Rmap_view_set_cache_size", offsetof(__typeof__(rn), Rmap_view_set_cache_size)},
+	{"Rmap_view_get_cache_usage", offsetof(__typeof__(rn), Rmap_view_get_cache_usage)},
+	{"Rmap_view_clear_tiles", offsetof(__typeof__(rn), Rmap_view_clear_tiles)},
+	{"Rmap_view_get_tile_state", offsetof(__typeof__(rn), Rmap_view_get_tile_state)},
+	{"Rmap_view_add_marker", offsetof(__typeof__(rn), Rmap_view_add_marker)},
+	{"Rmap_view_remove_marker", offsetof(__typeof__(rn), Rmap_view_remove_marker)},
+	{"Rmap_view_clear_markers", offsetof(__typeof__(rn), Rmap_view_clear_markers)},
+	{"Rmap_view_get_marker_count", offsetof(__typeof__(rn), Rmap_view_get_marker_count)},
+	{"Rmap_view_set_marker_position", offsetof(__typeof__(rn), Rmap_view_set_marker_position)},
+	{"Rmap_view_set_marker_label", offsetof(__typeof__(rn), Rmap_view_set_marker_label)},
+	{"Rmap_view_set_marker_color", offsetof(__typeof__(rn), Rmap_view_set_marker_color)},
+	{"Rmap_view_set_marker_clicked_callback", offsetof(__typeof__(rn), Rmap_view_set_marker_clicked_callback)},
+	{"Rmap_view_set_view_changed_callback", offsetof(__typeof__(rn), Rmap_view_set_view_changed_callback)},
+	{"Rmap_view_set_attribution", offsetof(__typeof__(rn), Rmap_view_set_attribution)},
+	{"Rmap_view_get_attribution", offsetof(__typeof__(rn), Rmap_view_get_attribution)},
 	{"Rpdf_document_create", offsetof(__typeof__(rn), Rpdf_document_create)},
 	{"Rpdf_document_delete", offsetof(__typeof__(rn), Rpdf_document_delete)},
 	{"Rpdf_document_set_title", offsetof(__typeof__(rn), Rpdf_document_set_title)},
@@ -3482,6 +3550,9 @@ static void rn_t_RPlotSeriesCallback(Rid, int, int, void*);
 static void rn_t_RChartSliceCallback(Rid, int, int, void*);
 static void rn_t_RChartCellCallback(Rid, int, int, float, void*);
 static void rn_t_RPdfPageChangedCallback(Rid, int, void*);
+static void rn_t_RMapTileCallback(Rid, int, int, int, void*);
+static void rn_t_RMapMarkerCallback(Rid, int, void*);
+static void rn_t_RMapViewCallback(Rid, double, double, double, void*);
 static void rn_t_RTextEditorZoomCallback(Rid, float, void*);
 static void rn_t_RCompletionCallback(Rid, const char*, void*);
 static const char* rn_t_RTextEditorHoverCallback(Rid, int, int, void*);
@@ -4359,6 +4430,55 @@ static void rn_t_RPdfPageChangedCallback(Rid a0, int a1, void* a2) {
 	napi_create_int32(env, (int32_t)a1, &argv[1]);
 	argv[2] = rn_make_ptr(env, cb->user_data);
 	rn_call(cb, 0, 3, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RMapTileCallback(Rid a0, int a1, int a2, int a3, void* a4) {
+	rn_cb* cb = (rn_cb*)a4;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[5];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	napi_create_int32(env, (int32_t)a2, &argv[2]);
+	napi_create_int32(env, (int32_t)a3, &argv[3]);
+	argv[4] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 5, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RMapMarkerCallback(Rid a0, int a1, void* a2) {
+	rn_cb* cb = (rn_cb*)a2;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[3];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	argv[2] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 3, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RMapViewCallback(Rid a0, double a1, double a2, double a3, void* a4) {
+	rn_cb* cb = (rn_cb*)a4;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[5];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	napi_create_uint32(env, a0, &argv[0]);
+	napi_create_double(env, a1, &argv[1]);
+	napi_create_double(env, a2, &argv[2]);
+	napi_create_double(env, a3, &argv[3]);
+	argv[4] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 5, argv);
 	napi_close_handle_scope(env, scope);
 	rn_cb_leave(cb);
 }
@@ -16633,6 +16753,624 @@ static napi_value rn_w_Rpdf_view_print(napi_env env, napi_callback_info info) {
 	return result_;
 }
 
+static napi_value rn_w_Rmap_view_create(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	Rid value_ = rn.Rmap_view_create();
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_center(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	double a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	rn.Rmap_view_set_center((Rid)a0, (double)a1, (double)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_center(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1 = 0;
+	double a2 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rmap_view_get_center((Rid)a0, &a1, &a2);
+	{
+		napi_value o0_;
+		napi_create_double(env, a1, &o0_);
+		napi_value o1_;
+		napi_create_double(env, a2, &o1_);
+		{
+			const napi_value values_[2] = {o0_, o1_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_zoom(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	rn.Rmap_view_set_zoom((Rid)a0, (double)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_zoom(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	double value_ = rn.Rmap_view_get_zoom((Rid)a0);
+	napi_create_double(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_zoom_range(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	double a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	rn.Rmap_view_set_zoom_range((Rid)a0, (double)a1, (double)a2);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_zoom_range(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1 = 0;
+	double a2 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rmap_view_get_zoom_range((Rid)a0, &a1, &a2);
+	{
+		napi_value o0_;
+		napi_create_double(env, a1, &o0_);
+		napi_value o1_;
+		napi_create_double(env, a2, &o1_);
+		{
+			const napi_value values_[2] = {o0_, o1_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_animate_to(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	double a2;
+	double a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	if (!rn_get_double(env, argv[3], &a3)) return NULL;
+	rn.Rmap_view_animate_to((Rid)a0, (double)a1, (double)a2, (double)a3);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_screen_to_latlon(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	double a3 = 0;
+	double a4 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	rn.Rmap_view_screen_to_latlon((Rid)a0, (float)a1, (float)a2, &a3, &a4);
+	{
+		napi_value o0_;
+		napi_create_double(env, a3, &o0_);
+		napi_value o1_;
+		napi_create_double(env, a4, &o1_);
+		{
+			const napi_value values_[2] = {o0_, o1_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_latlon_to_screen(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	double a2;
+	float a3 = 0;
+	float a4 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	rn.Rmap_view_latlon_to_screen((Rid)a0, (double)a1, (double)a2, &a3, &a4);
+	{
+		napi_value o0_;
+		napi_create_double(env, (double)a3, &o0_);
+		napi_value o1_;
+		napi_create_double(env, (double)a4, &o1_);
+		{
+			const napi_value values_[2] = {o0_, o1_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_tile_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rmap_view_set_tile_callback((Rid)a0, cb_ ? (RMapTileCallback)rn_t_RMapTileCallback : (RMapTileCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 61, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_tile_cancel_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rmap_view_set_tile_cancel_callback((Rid)a0, cb_ ? (RMapTileCallback)rn_t_RMapTileCallback : (RMapTileCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 62, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_tile(napi_env env, napi_callback_info info) {
+	size_t argc = 7;
+	napi_value argv[7];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	void* a4;
+	int a5;
+	int a6;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	if (!rn_get_ptr(env, argv[4], &a4)) return NULL;
+	if (!rn_get_int(env, argv[5], &a5)) return NULL;
+	if (!rn_get_int(env, argv[6], &a6)) return NULL;
+	rn.Rmap_view_set_tile((Rid)a0, (int)a1, (int)a2, (int)a3, (const uint8_t*)a4, (int)a5, (int)a6);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_tile_data(napi_env env, napi_callback_info info) {
+	size_t argc = 5;
+	napi_value argv[5];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	void* a4;
+	size_t a4_size;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	if (!rn_get_bytes(env, argv[4], &a4, &a4_size)) return NULL;
+	rn.Rmap_view_set_tile_data((Rid)a0, (int)a1, (int)a2, (int)a3, (const void*)a4, a4_size);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_tile_failed(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	rn.Rmap_view_set_tile_failed((Rid)a0, (int)a1, (int)a2, (int)a3);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_tile_path(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rmap_view_set_tile_path((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_tile_path(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rmap_view_get_tile_path((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_tile_size(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rmap_view_set_tile_size((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_tile_size(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rmap_view_get_tile_size((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_cache_size(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint64_t a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint64(env, argv[1], &a1)) return NULL;
+	rn.Rmap_view_set_cache_size((Rid)a0, (size_t)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_cache_usage(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	size_t value_ = rn.Rmap_view_get_cache_usage((Rid)a0);
+	napi_create_double(env, (double)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_clear_tiles(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rmap_view_clear_tiles((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_tile_state(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	{
+		int value_ = (int)rn.Rmap_view_get_tile_state((Rid)a0, (int)a1, (int)a2, (int)a3);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_add_marker(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	double a2;
+	rn_str a3;
+	a3.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_double(env, argv[1], &a1)) goto done;
+	if (!rn_get_double(env, argv[2], &a2)) goto done;
+	if (!rn_str_get(env, argv[3], &a3)) goto done;
+	int value_ = rn.Rmap_view_add_marker((Rid)a0, (double)a1, (double)a2, a3.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a3.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_remove_marker(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rmap_view_remove_marker((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_clear_markers(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rmap_view_clear_markers((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_marker_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rmap_view_get_marker_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_marker_position(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	double a2;
+	double a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_double(env, argv[2], &a2)) return NULL;
+	if (!rn_get_double(env, argv[3], &a3)) return NULL;
+	rn.Rmap_view_set_marker_position((Rid)a0, (int)a1, (double)a2, (double)a3);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_marker_label(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	rn_str a2;
+	a2.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_str_get(env, argv[2], &a2)) goto done;
+	rn.Rmap_view_set_marker_label((Rid)a0, (int)a1, a2.p);
+done:
+	free(a2.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_marker_color(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	float a2;
+	float a3;
+	float a4;
+	float a5;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_float(env, argv[3], &a3)) return NULL;
+	if (!rn_get_float(env, argv[4], &a4)) return NULL;
+	if (!rn_get_float(env, argv[5], &a5)) return NULL;
+	rn.Rmap_view_set_marker_color((Rid)a0, (int)a1, (float)a2, (float)a3, (float)a4, (float)a5);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_marker_clicked_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rmap_view_set_marker_clicked_callback((Rid)a0, cb_ ? (RMapMarkerCallback)rn_t_RMapMarkerCallback : (RMapMarkerCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 63, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_view_changed_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	void* a2;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[2], &a2)) return NULL;
+	k0_ = rn_callback_arg(env, argv[1], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && rn.Rwidget_is_valid(a0)) {
+		cb_ = rn_cb_new(env, &argv[1], 1, a2);
+		if (!cb_) return NULL;
+	}
+	rn.Rmap_view_set_view_changed_callback((Rid)a0, cb_ ? (RMapViewCallback)rn_t_RMapViewCallback : (RMapViewCallback)n0_, cb_ ? (void*)cb_ : a2);
+	rn_bind(a0, RN_OWNER_WIDGET, 64, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_set_attribution(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rmap_view_set_attribution((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rmap_view_get_attribution(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rmap_view_get_attribution((Rid)a0));
+	return result_;
+}
+
 static napi_value rn_w_Rpdf_document_create(napi_env env, napi_callback_info info) {
 	napi_value result_ = NULL;
 	(void)env;
@@ -26572,6 +27310,40 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rpdf_view_get_page_text", NULL, rn_w_Rpdf_view_get_page_text, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_set_page_changed_callback", NULL, rn_w_Rpdf_view_set_page_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_view_print", NULL, rn_w_Rpdf_view_print, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_create", NULL, rn_w_Rmap_view_create, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_center", NULL, rn_w_Rmap_view_set_center, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_center", NULL, rn_w_Rmap_view_get_center, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_zoom", NULL, rn_w_Rmap_view_set_zoom, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_zoom", NULL, rn_w_Rmap_view_get_zoom, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_zoom_range", NULL, rn_w_Rmap_view_set_zoom_range, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_zoom_range", NULL, rn_w_Rmap_view_get_zoom_range, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_animate_to", NULL, rn_w_Rmap_view_animate_to, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_screen_to_latlon", NULL, rn_w_Rmap_view_screen_to_latlon, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_latlon_to_screen", NULL, rn_w_Rmap_view_latlon_to_screen, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_tile_callback", NULL, rn_w_Rmap_view_set_tile_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_tile_cancel_callback", NULL, rn_w_Rmap_view_set_tile_cancel_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_tile", NULL, rn_w_Rmap_view_set_tile, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_tile_data", NULL, rn_w_Rmap_view_set_tile_data, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_tile_failed", NULL, rn_w_Rmap_view_set_tile_failed, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_tile_path", NULL, rn_w_Rmap_view_set_tile_path, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_tile_path", NULL, rn_w_Rmap_view_get_tile_path, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_tile_size", NULL, rn_w_Rmap_view_set_tile_size, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_tile_size", NULL, rn_w_Rmap_view_get_tile_size, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_cache_size", NULL, rn_w_Rmap_view_set_cache_size, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_cache_usage", NULL, rn_w_Rmap_view_get_cache_usage, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_clear_tiles", NULL, rn_w_Rmap_view_clear_tiles, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_tile_state", NULL, rn_w_Rmap_view_get_tile_state, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_add_marker", NULL, rn_w_Rmap_view_add_marker, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_remove_marker", NULL, rn_w_Rmap_view_remove_marker, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_clear_markers", NULL, rn_w_Rmap_view_clear_markers, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_marker_count", NULL, rn_w_Rmap_view_get_marker_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_marker_position", NULL, rn_w_Rmap_view_set_marker_position, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_marker_label", NULL, rn_w_Rmap_view_set_marker_label, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_marker_color", NULL, rn_w_Rmap_view_set_marker_color, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_marker_clicked_callback", NULL, rn_w_Rmap_view_set_marker_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_view_changed_callback", NULL, rn_w_Rmap_view_set_view_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_set_attribution", NULL, rn_w_Rmap_view_set_attribution, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rmap_view_get_attribution", NULL, rn_w_Rmap_view_get_attribution, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_document_create", NULL, rn_w_Rpdf_document_create, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_document_delete", NULL, rn_w_Rpdf_document_delete, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpdf_document_set_title", NULL, rn_w_Rpdf_document_set_title, NULL, NULL, NULL, napi_enumerable, NULL},

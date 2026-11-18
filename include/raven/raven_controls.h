@@ -153,6 +153,18 @@ typedef struct RPdfPrintDesc {
 	const char* password;
 } RPdfPrintDesc;
 
+/** Where a tile of a MapView stands (Rmap_view_get_tile_state). */
+typedef enum RMapTileState{
+	/** Not in the view's cache: never asked for, no longer wanted, or evicted. */
+	R_MAP_TILE_NONE = 0x0600,
+	/** Asked for (the tile callback was called, or the file is being read): waiting for its pixels. */
+	R_MAP_TILE_PENDING,
+	/** Its pixels are in the cache. */
+	R_MAP_TILE_LOADED,
+	/** The application said it has none (Rmap_view_set_tile_failed), or its file could not be read. */
+	R_MAP_TILE_FAILED
+}RMapTileState;
+
 /** How an axis of a Plot spreads its values. */
 typedef enum RPlotScale{
 	R_PLOT_SCALE_LINEAR = 0x0530,
@@ -1275,6 +1287,132 @@ extern "C" {
 	RAVEN_API void Rpdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data);
 	/** @brief Prints the document shown (see Rpdf_print); the job is named after its title. */
 	RAVEN_API int Rpdf_view_print(Rid view, const RPdfPrintDesc* desc);
+
+
+	/* ============================================================================
+	 *  MAP VIEW (a map of slippy-map tiles, panned and zoomed)
+	 *
+	 * The square tiles of the Web Mercator projection that OpenStreetMap and
+	 * most tile servers use: at zoom z the world is 2^z x 2^z tiles of 256
+	 * logical units (Rmap_view_set_tile_size), x going east from longitude
+	 * -180, y going south from latitude 85.0511 (the limit of the projection).
+	 * Raven fetches nothing from the network: the application gives the
+	 * tiles, from a server, a disk cache or drawn by itself.
+	 *
+	 * When a tile is needed, the tile callback asks for it once; the answer
+	 * comes then or later, from any thread: the pixels
+	 * (Rmap_view_set_tile), the bytes of a PNG / JPEG file
+	 * (Rmap_view_set_tile_data, decoded on the calling thread), or that there
+	 * is none (Rmap_view_set_tile_failed). Only the tiles seen, and one more
+	 * around them, are asked for; a tile that is no longer wanted is
+	 * forgotten (the cancel callback tells it) and an answer for it that
+	 * comes later is dropped. Rmap_view_set_tile_path reads the tiles from
+	 * files instead ("tiles/{z}/{x}/{y}.png"), on a worker thread.
+	 *
+	 * The tiles are kept in a cache of bounded size (Rmap_view_set_cache_size),
+	 * the least recently seen dropped first. While a tile is missing, a
+	 * coarser one that is there is shown stretched (and finer ones shrunk),
+	 * else a faint grid. Between two whole zooms the tiles are scaled.
+	 *
+	 * The user drags the map (it glides on when flung), zooms around the
+	 * pointer with the wheel, a pinch or Ctrl + the wheel of a trackpad (two
+	 * fingers move it), zooms in with a double click (out with Shift), and
+	 * uses + / - and the arrows when it has the focus. Longitudes wrap
+	 * around; latitudes stop at the limits of the projection.
+	 *
+	 * Points of the widget are in logical units from its top left corner.
+	 * Latitudes and longitudes are in degrees.
+	 *
+	 * XML: <MapView Latitude="48.85" Longitude="2.35" Zoom="5" MinZoom="2"
+	 * MaxZoom="18" TilePath="tiles/{z}/{x}/{y}.png" TileSize="256"
+	 * Attribution="(c) OpenStreetMap contributors" OnChanged="map.moved">
+	 * with <Marker Latitude Longitude Label Color/> elements.
+	 * ============================================================================ */
+
+	RAVEN_API Rid Rmap_view_create(void);
+	/** @brief Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps. */
+	RAVEN_API void Rmap_view_set_center(Rid map, double latitude, double longitude);
+	/** @brief The place at the middle of the map (longitude from -180 to 180). */
+	RAVEN_API void Rmap_view_get_center(Rid map, double* latitude, double* longitude);
+	/** @brief The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed. */
+	RAVEN_API void Rmap_view_set_zoom(Rid map, double zoom);
+	RAVEN_API double Rmap_view_get_zoom(Rid map);
+	/** @brief The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range. */
+	RAVEN_API void Rmap_view_set_zoom_range(Rid map, double min_zoom, double max_zoom);
+	RAVEN_API void Rmap_view_get_zoom_range(Rid map, double* min_zoom, double* max_zoom);
+	/** @brief Glides to a place and a zoom (at once when animations are off). */
+	RAVEN_API void Rmap_view_animate_to(Rid map, double latitude, double longitude, double zoom);
+	/** @brief The place at a point of the widget. */
+	RAVEN_API void Rmap_view_screen_to_latlon(Rid map, float x, float y, double* latitude, double* longitude);
+	/** @brief Where a place is in the widget (of the copies of the world side by side, the one nearest the middle). */
+	RAVEN_API void Rmap_view_latlon_to_screen(Rid map, double latitude, double longitude, float* x, float* y);
+
+	/** @brief Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
+	typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
+	/**
+	 * @brief Called once for each tile the map needs. Answer with
+	 * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+	 * at once or later. Setting it forgets the tiles of the previous source.
+	 */
+	RAVEN_API void Rmap_view_set_tile_callback(Rid map, RMapTileCallback callback, void* user_data);
+	/** @brief Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. */
+	RAVEN_API void Rmap_view_set_tile_cancel_callback(Rid map, RMapTileCallback callback, void* user_data);
+	/**
+	 * @brief The pixels of a tile: `width` x `height` RGBA8, tightly packed
+	 * (they are copied; any size, shown at the tile size). Thread-safe: from
+	 * another thread it is applied on the UI thread during the next frame.
+	 */
+	RAVEN_API void Rmap_view_set_tile(Rid map, int z, int x, int y, const uint8_t* rgba, int width, int height);
+	/** @brief A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe. */
+	RAVEN_API void Rmap_view_set_tile_data(Rid map, int z, int x, int y, const void* data, size_t data_size);
+	/** @brief There is no such tile: the coarser one stays shown in its place. Thread-safe. */
+	RAVEN_API void Rmap_view_set_tile_failed(Rid map, int z, int x, int y);
+	/**
+	 * @brief Reads the tiles from files instead of asking for them: a path
+	 * where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+	 * south, as in TMS and MBTiles). The files are read and decoded on a
+	 * worker thread; a missing file is a tile that failed. NULL or "": the
+	 * tile callback again. Local files only.
+	 */
+	RAVEN_API void Rmap_view_set_tile_path(Rid map, const char* path_template);
+	RAVEN_API const char* Rmap_view_get_tile_path(Rid map);
+	/** @brief Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger. */
+	RAVEN_API void Rmap_view_set_tile_size(Rid map, int size);
+	RAVEN_API int Rmap_view_get_tile_size(Rid map);
+	/** @brief Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept. */
+	RAVEN_API void Rmap_view_set_cache_size(Rid map, size_t bytes);
+	/** @brief Memory the decoded tiles take now, in bytes. */
+	RAVEN_API size_t Rmap_view_get_cache_usage(Rid map);
+	/** @brief Forgets every tile (they are asked for again): the tiles of the source changed. */
+	RAVEN_API void Rmap_view_clear_tiles(Rid map);
+	RAVEN_API RMapTileState Rmap_view_get_tile_state(Rid map, int z, int x, int y);
+
+	/** @brief Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1. */
+	RAVEN_API int Rmap_view_add_marker(Rid map, double latitude, double longitude, const char* label);
+	RAVEN_API void Rmap_view_remove_marker(Rid map, int marker);
+	RAVEN_API void Rmap_view_clear_markers(Rid map);
+	RAVEN_API int Rmap_view_get_marker_count(Rid map);
+	RAVEN_API void Rmap_view_set_marker_position(Rid map, int marker, double latitude, double longitude);
+	RAVEN_API void Rmap_view_set_marker_label(Rid map, int marker, const char* label);
+	/** @brief The color of a pin (by default the accent of the theme). */
+	RAVEN_API void Rmap_view_set_marker_color(Rid map, int marker, float r, float g, float b, float a);
+	/** @brief Called when the user clicks a marker. */
+	typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
+	RAVEN_API void Rmap_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback, void* user_data);
+
+	/**
+	 * @brief Called when the user moves or zooms the map (during a drag, at the
+	 * end of an animated zoom), with its new center and zoom. This also fires
+	 * the action of the widget.
+	 */
+	typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);
+	RAVEN_API void Rmap_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data);
+	/**
+	 * @brief A line written in the bottom right corner: the credit most tile
+	 * licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+	 */
+	RAVEN_API void Rmap_view_set_attribution(Rid map, const char* text);
+	RAVEN_API const char* Rmap_view_get_attribution(Rid map);
 
 
 	/* ============================================================================

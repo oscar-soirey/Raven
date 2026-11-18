@@ -1113,6 +1113,8 @@ export enum RWidgetType {
 	R_WIDGET_PDF_VIEW = 0x0233,
 	/** The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). */
 	R_WIDGET_CHART = 0x0234,
+	/** A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. */
+	R_WIDGET_MAP_VIEW = 0x0235,
 }
 export const R_WIDGET_VBOX: RWidgetType.R_WIDGET_VBOX;
 export const R_WIDGET_HBOX: RWidgetType.R_WIDGET_HBOX;
@@ -1167,6 +1169,7 @@ export const R_WIDGET_PAGINATION: RWidgetType.R_WIDGET_PAGINATION;
 export const R_WIDGET_PLOT: RWidgetType.R_WIDGET_PLOT;
 export const R_WIDGET_PDF_VIEW: RWidgetType.R_WIDGET_PDF_VIEW;
 export const R_WIDGET_CHART: RWidgetType.R_WIDGET_CHART;
+export const R_WIDGET_MAP_VIEW: RWidgetType.R_WIDGET_MAP_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -1446,6 +1449,22 @@ export enum RPdfPrintFlags {
 	R_PDF_PRINT_NO_DIALOG = 1,
 }
 export const R_PDF_PRINT_NO_DIALOG: RPdfPrintFlags.R_PDF_PRINT_NO_DIALOG;
+
+/** Where a tile of a MapView stands (Rmap_view_get_tile_state). */
+export enum RMapTileState {
+	/** Not in the view's cache: never asked for, no longer wanted, or evicted. */
+	R_MAP_TILE_NONE = 0x0600,
+	/** Asked for (the tile callback was called, or the file is being read): waiting for its pixels. */
+	R_MAP_TILE_PENDING = 0x0601,
+	/** Its pixels are in the cache. */
+	R_MAP_TILE_LOADED = 0x0602,
+	/** The application said it has none (Rmap_view_set_tile_failed), or its file could not be read. */
+	R_MAP_TILE_FAILED = 0x0603,
+}
+export const R_MAP_TILE_NONE: RMapTileState.R_MAP_TILE_NONE;
+export const R_MAP_TILE_PENDING: RMapTileState.R_MAP_TILE_PENDING;
+export const R_MAP_TILE_LOADED: RMapTileState.R_MAP_TILE_LOADED;
+export const R_MAP_TILE_FAILED: RMapTileState.R_MAP_TILE_FAILED;
 
 /** How an axis of a Plot spreads its values. */
 export enum RPlotScale {
@@ -3092,6 +3111,19 @@ export type RChartCellCallback = (chart: Rid, row: number, column: number, value
 
 /** Called when the current page changes as the user scrolls. This also fires the action of the widget. */
 export type RPdfPageChangedCallback = (view: Rid, page: number, user_data: Pointer | null) => void;
+
+/** Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. */
+export type RMapTileCallback = (map: Rid, z: number, x: number, y: number, user_data: Pointer | null) => void;
+
+/** Called when the user clicks a marker. */
+export type RMapMarkerCallback = (map: Rid, marker: number, user_data: Pointer | null) => void;
+
+/**
+ * Called when the user moves or zooms the map (during a drag, at the
+ * end of an animated zoom), with its new center and zoom. This also fires
+ * the action of the widget.
+ */
+export type RMapViewCallback = (map: Rid, latitude: number, longitude: number, zoom: number, user_data: Pointer | null) => void;
 
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
 export type RTextEditorZoomCallback = (editor: Rid, zoom: number, user_data: Pointer | null) => void;
@@ -5816,6 +5848,111 @@ export function Rpdf_view_set_page_changed_callback(view: Rid, callback: RPdfPag
 
 /** Prints the document shown (see Rpdf_print); the job is named after its title. */
 export function Rpdf_view_print(view: Rid, desc: RPdfPrintDesc | null): number;
+
+export function Rmap_view_create(): Rid;
+
+/** Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps. */
+export function Rmap_view_set_center(map: Rid, latitude: number, longitude: number): void;
+
+/** The place at the middle of the map (longitude from -180 to 180). */
+export function Rmap_view_get_center(map: Rid): [latitude: number, longitude: number];
+
+/** The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed. */
+export function Rmap_view_set_zoom(map: Rid, zoom: number): void;
+
+export function Rmap_view_get_zoom(map: Rid): number;
+
+/** The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range. */
+export function Rmap_view_set_zoom_range(map: Rid, min_zoom: number, max_zoom: number): void;
+
+export function Rmap_view_get_zoom_range(map: Rid): [min_zoom: number, max_zoom: number];
+
+/** Glides to a place and a zoom (at once when animations are off). */
+export function Rmap_view_animate_to(map: Rid, latitude: number, longitude: number, zoom: number): void;
+
+/** The place at a point of the widget. */
+export function Rmap_view_screen_to_latlon(map: Rid, x: number, y: number): [latitude: number, longitude: number];
+
+/** Where a place is in the widget (of the copies of the world side by side, the one nearest the middle). */
+export function Rmap_view_latlon_to_screen(map: Rid, latitude: number, longitude: number): [x: number, y: number];
+
+/**
+ * Called once for each tile the map needs. Answer with
+ * Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+ * at once or later. Setting it forgets the tiles of the previous source.
+ */
+export function Rmap_view_set_tile_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data?: RPointer): void;
+
+/** Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. */
+export function Rmap_view_set_tile_cancel_callback(map: Rid, callback: RMapTileCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * The pixels of a tile: `width` x `height` RGBA8, tightly packed
+ * (they are copied; any size, shown at the tile size). Thread-safe: from
+ * another thread it is applied on the UI thread during the next frame.
+ */
+export function Rmap_view_set_tile(map: Rid, z: number, x: number, y: number, rgba: RPointer, width: number, height: number): void;
+
+/** A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe. */
+export function Rmap_view_set_tile_data(map: Rid, z: number, x: number, y: number, data: NodeJS.TypedArray | null): void;
+
+/** There is no such tile: the coarser one stays shown in its place. Thread-safe. */
+export function Rmap_view_set_tile_failed(map: Rid, z: number, x: number, y: number): void;
+
+/**
+ * Reads the tiles from files instead of asking for them: a path
+ * where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+ * south, as in TMS and MBTiles). The files are read and decoded on a
+ * worker thread; a missing file is a tile that failed. NULL or "": the
+ * tile callback again. Local files only.
+ */
+export function Rmap_view_set_tile_path(map: Rid, path_template: string | null): void;
+
+export function Rmap_view_get_tile_path(map: Rid): string | null;
+
+/** Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger. */
+export function Rmap_view_set_tile_size(map: Rid, size: number): void;
+
+export function Rmap_view_get_tile_size(map: Rid): number;
+
+/** Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept. */
+export function Rmap_view_set_cache_size(map: Rid, bytes: number): void;
+
+/** Memory the decoded tiles take now, in bytes. */
+export function Rmap_view_get_cache_usage(map: Rid): number;
+
+/** Forgets every tile (they are asked for again): the tiles of the source changed. */
+export function Rmap_view_clear_tiles(map: Rid): void;
+
+export function Rmap_view_get_tile_state(map: Rid, z: number, x: number, y: number): RMapTileState;
+
+/** Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1. */
+export function Rmap_view_add_marker(map: Rid, latitude: number, longitude: number, label: string | null): number;
+
+export function Rmap_view_remove_marker(map: Rid, marker: number): void;
+
+export function Rmap_view_clear_markers(map: Rid): void;
+
+export function Rmap_view_get_marker_count(map: Rid): number;
+
+export function Rmap_view_set_marker_position(map: Rid, marker: number, latitude: number, longitude: number): void;
+
+export function Rmap_view_set_marker_label(map: Rid, marker: number, label: string | null): void;
+
+/** The color of a pin (by default the accent of the theme). */
+export function Rmap_view_set_marker_color(map: Rid, marker: number, r: number, g: number, b: number, a: number): void;
+
+export function Rmap_view_set_marker_clicked_callback(map: Rid, callback: RMapMarkerCallback | Pointer | null, user_data?: RPointer): void;
+
+export function Rmap_view_set_view_changed_callback(map: Rid, callback: RMapViewCallback | Pointer | null, user_data?: RPointer): void;
+
+/**
+ * A line written in the bottom right corner: the credit most tile
+ * licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+ */
+export function Rmap_view_set_attribution(map: Rid, text: string | null): void;
+
+export function Rmap_view_get_attribution(map: Rid): string | null;
 
 export function Rpdf_document_create(): Rid;
 

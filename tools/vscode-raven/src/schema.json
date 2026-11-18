@@ -2523,6 +2523,63 @@
 			"accepted": []
 		},
 		{
+			"name": "MapView",
+			"description": "A map of slippy-map tiles (Web Mercator z/x/y) given by the application or read from files: dragged, zoomed, with Marker elements (Latitude, Longitude, Label, Color).",
+			"children": "none",
+			"attributes": [
+				{
+					"name": "Latitude",
+					"kind": "number",
+					"description": "Latitude of the center, in degrees (held within +/-85.0511)."
+				},
+				{
+					"name": "Longitude",
+					"kind": "number",
+					"description": "Longitude of the center, in degrees."
+				},
+				{
+					"name": "Zoom",
+					"kind": "number",
+					"description": "The zoom: 0 shows the whole world in one tile, each step doubles the scale."
+				},
+				{
+					"name": "MinZoom",
+					"kind": "number",
+					"description": "The smallest zoom the user can reach (default 0)."
+				},
+				{
+					"name": "MaxZoom",
+					"kind": "number",
+					"description": "The largest zoom the user can reach, and of the tiles asked for (default 19, at most 24)."
+				},
+				{
+					"name": "TilePath",
+					"kind": "text",
+					"description": "Reads the tiles from files: a path with {z}, {x} and {y} ({-y}: the row counted from the south, TMS)."
+				},
+				{
+					"name": "TileSize",
+					"kind": "number",
+					"description": "Logical size of a tile at a whole zoom (default 256, held within 16 .. 1024)."
+				},
+				{
+					"name": "Attribution",
+					"kind": "text",
+					"description": "The credit of the tiles, written in the bottom right corner."
+				},
+				{
+					"name": "OnChanged",
+					"kind": "action",
+					"description": "Action fired when the user moves or zooms the map."
+				}
+			],
+			"accepted": [
+				"Lat",
+				"Lon",
+				"Lng"
+			]
+		},
+		{
 			"name": "PdfView",
 			"description": "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time).",
 			"children": "none",
@@ -2994,6 +3051,8 @@
 		"LinePlot": "Plot",
 		"XYPlot": "Plot",
 		"PdfViewer": "PdfView",
-		"PDFView": "PdfView"
+		"PDFView": "PdfView",
+		"Map": "MapView",
+		"TileMap": "MapView"
 	}
 }

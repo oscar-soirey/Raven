@@ -3654,6 +3654,115 @@ inline void pdf_view_set_page_changed_callback(Rid view, std::function<void(Rid,
 /// Prints the document shown (see Rpdf_print); the job is named after its title.
 inline int pdf_view_print(Rid view, const RPdfPrintDesc* desc) { return Rpdf_view_print(view, desc); }
 
+inline Rid map_view_create() { return Rmap_view_create(); }
+
+/// Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+inline void map_view_set_center(Rid map, double latitude, double longitude) { Rmap_view_set_center(map, latitude, longitude); }
+
+/// The place at the middle of the map (longitude from -180 to 180).
+inline void map_view_get_center(Rid map, double* latitude, double* longitude) { Rmap_view_get_center(map, latitude, longitude); }
+
+/// The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+inline void map_view_set_zoom(Rid map, double zoom) { Rmap_view_set_zoom(map, zoom); }
+
+inline double map_view_get_zoom(Rid map) { return Rmap_view_get_zoom(map); }
+
+/// The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+inline void map_view_set_zoom_range(Rid map, double min_zoom, double max_zoom) { Rmap_view_set_zoom_range(map, min_zoom, max_zoom); }
+
+inline void map_view_get_zoom_range(Rid map, double* min_zoom, double* max_zoom) { Rmap_view_get_zoom_range(map, min_zoom, max_zoom); }
+
+/// Glides to a place and a zoom (at once when animations are off).
+inline void map_view_animate_to(Rid map, double latitude, double longitude, double zoom) { Rmap_view_animate_to(map, latitude, longitude, zoom); }
+
+/// The place at a point of the widget.
+inline void map_view_screen_to_latlon(Rid map, float x, float y, double* latitude, double* longitude) { Rmap_view_screen_to_latlon(map, x, y, latitude, longitude); }
+
+/// Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+inline void map_view_latlon_to_screen(Rid map, double latitude, double longitude, float* x, float* y) { Rmap_view_latlon_to_screen(map, latitude, longitude, x, y); }
+
+/// Called once for each tile the map needs. Answer with
+/// Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+/// at once or later. Setting it forgets the tiles of the previous source.
+inline void map_view_set_tile_callback(Rid map, RMapTileCallback callback, void* user_data) { Rmap_view_set_tile_callback(map, callback, user_data); }
+inline void map_view_set_tile_callback(Rid map, std::function<void(Rid, int, int, int)> callback) {
+	Rmap_view_set_tile_callback(map, [](Rid map, int z, int x, int y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(map, z, x, y); }, detail::keep(map, 76, std::move(callback)));
+}
+
+/// Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+inline void map_view_set_tile_cancel_callback(Rid map, RMapTileCallback callback, void* user_data) { Rmap_view_set_tile_cancel_callback(map, callback, user_data); }
+inline void map_view_set_tile_cancel_callback(Rid map, std::function<void(Rid, int, int, int)> callback) {
+	Rmap_view_set_tile_cancel_callback(map, [](Rid map, int z, int x, int y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(map, z, x, y); }, detail::keep(map, 77, std::move(callback)));
+}
+
+/// The pixels of a tile: `width` x `height` RGBA8, tightly packed
+/// (they are copied; any size, shown at the tile size). Thread-safe: from
+/// another thread it is applied on the UI thread during the next frame.
+inline void map_view_set_tile(Rid map, int z, int x, int y, const uint8_t* rgba, int width, int height) { Rmap_view_set_tile(map, z, x, y, rgba, width, height); }
+
+/// A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+inline void map_view_set_tile_data(Rid map, int z, int x, int y, const void* data, size_t data_size) { Rmap_view_set_tile_data(map, z, x, y, data, data_size); }
+
+/// There is no such tile: the coarser one stays shown in its place. Thread-safe.
+inline void map_view_set_tile_failed(Rid map, int z, int x, int y) { Rmap_view_set_tile_failed(map, z, x, y); }
+
+/// Reads the tiles from files instead of asking for them: a path
+/// where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+/// south, as in TMS and MBTiles). The files are read and decoded on a
+/// worker thread; a missing file is a tile that failed. NULL or "": the
+/// tile callback again. Local files only.
+inline void map_view_set_tile_path(Rid map, const char* path_template) { Rmap_view_set_tile_path(map, path_template); }
+
+inline const char* map_view_get_tile_path(Rid map) { return Rmap_view_get_tile_path(map); }
+
+/// Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+inline void map_view_set_tile_size(Rid map, int size) { Rmap_view_set_tile_size(map, size); }
+
+inline int map_view_get_tile_size(Rid map) { return Rmap_view_get_tile_size(map); }
+
+/// Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+inline void map_view_set_cache_size(Rid map, size_t bytes) { Rmap_view_set_cache_size(map, bytes); }
+
+/// Memory the decoded tiles take now, in bytes.
+inline size_t map_view_get_cache_usage(Rid map) { return Rmap_view_get_cache_usage(map); }
+
+/// Forgets every tile (they are asked for again): the tiles of the source changed.
+inline void map_view_clear_tiles(Rid map) { Rmap_view_clear_tiles(map); }
+
+inline RMapTileState map_view_get_tile_state(Rid map, int z, int x, int y) { return Rmap_view_get_tile_state(map, z, x, y); }
+
+/// Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+inline int map_view_add_marker(Rid map, double latitude, double longitude, const char* label) { return Rmap_view_add_marker(map, latitude, longitude, label); }
+
+inline void map_view_remove_marker(Rid map, int marker) { Rmap_view_remove_marker(map, marker); }
+
+inline void map_view_clear_markers(Rid map) { Rmap_view_clear_markers(map); }
+
+inline int map_view_get_marker_count(Rid map) { return Rmap_view_get_marker_count(map); }
+
+inline void map_view_set_marker_position(Rid map, int marker, double latitude, double longitude) { Rmap_view_set_marker_position(map, marker, latitude, longitude); }
+
+inline void map_view_set_marker_label(Rid map, int marker, const char* label) { Rmap_view_set_marker_label(map, marker, label); }
+
+/// The color of a pin (by default the accent of the theme).
+inline void map_view_set_marker_color(Rid map, int marker, float r, float g, float b, float a) { Rmap_view_set_marker_color(map, marker, r, g, b, a); }
+
+inline void map_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback, void* user_data) { Rmap_view_set_marker_clicked_callback(map, callback, user_data); }
+inline void map_view_set_marker_clicked_callback(Rid map, std::function<void(Rid, int)> callback) {
+	Rmap_view_set_marker_clicked_callback(map, [](Rid map, int marker, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(map, marker); }, detail::keep(map, 78, std::move(callback)));
+}
+
+inline void map_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data) { Rmap_view_set_view_changed_callback(map, callback, user_data); }
+inline void map_view_set_view_changed_callback(Rid map, std::function<void(Rid, double, double, double)> callback) {
+	Rmap_view_set_view_changed_callback(map, [](Rid map, double latitude, double longitude, double zoom, void* kept_) -> void { return (*static_cast<std::function<void(Rid, double, double, double)>*>(kept_))(map, latitude, longitude, zoom); }, detail::keep(map, 79, std::move(callback)));
+}
+
+/// A line written in the bottom right corner: the credit most tile
+/// licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+inline void map_view_set_attribution(Rid map, const char* text) { Rmap_view_set_attribution(map, text); }
+
+inline const char* map_view_get_attribution(Rid map) { return Rmap_view_get_attribution(map); }
+
 inline Rid pdf_document_create() { return Rpdf_document_create(); }
 
 inline void pdf_document_delete(Rid document) { Rpdf_document_delete(document); }

@@ -261,6 +261,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/plot.c
 	src/widgets/pdf_view.c
 	src/widgets/chart.c
+	src/widgets/map_view.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )

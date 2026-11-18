@@ -295,6 +295,7 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_PDF_VIEW: return R_ROLE_DOCUMENT;
 		/* a gauge is a meter: a value within a range; the other charts are pictures described in words */
 		case R_WIDGET_CHART: return Rchart_get_kind(widget->id) == R_CHART_GAUGE ? R_ROLE_PROGRESS_BAR : R_ROLE_IMAGE;
+		case R_WIDGET_MAP_VIEW: return R_ROLE_GROUP;
 		case R_WIDGET_TILE_VIEW: return R_ROLE_LIST;
 		case R_WIDGET_TREE_VIEW: return R_ROLE_TREE;
 		case R_WIDGET_MENU_BAR: return R_ROLE_MENU_BAR;
@@ -375,6 +376,7 @@ static int rvn_a11y_item_count(const rvn_widget_t* widget) {
 		case R_WIDGET_TABLE: return Rtable_get_row_count(widget->id);
 		case R_WIDGET_TREE_VIEW: return Rtree_view_get_item_count(widget->id);
 		case R_WIDGET_TAB_VIEW: return (int)widget->child_count;
+		case R_WIDGET_MAP_VIEW: return Rmap_view_get_marker_count(widget->id);
 		default: return 0;
 	}
 }
@@ -757,6 +759,20 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 				if (Rtab_view_get_active(widget->id) == item) node->states |= RVN_A11Y_SELECTED;
 				break;
 			}
+			case R_WIDGET_MAP_VIEW: {
+				/* a marker: a button named by its label, where its pin is */
+				const char* label = NULL;
+				rvn_rect_t pin;
+				if (!rvn_map_view_marker_info(widget, item, &label, &pin)) return R_FALSE;
+				node->role = R_ROLE_BUTTON;
+				rvn_text_add(&g_a11y.name, label && label[0] ? label : "Marker");
+				node->x += pin.x;
+				node->y += pin.y;
+				node->width = pin.w;
+				node->height = pin.h;
+				node->states |= RVN_A11Y_INVOKABLE;
+				break;
+			}
 			default:
 				return R_FALSE;
 		}
@@ -832,6 +848,15 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 		case R_WIDGET_PAGINATION:
 			rvn_text_printf(&g_a11y.value, "%d / %d", Rpagination_get_page(widget->id) + 1, Rpagination_get_page_count(widget->id));
 			break;
+		case R_WIDGET_MAP_VIEW: {
+			/* "Map" unless named; the place at the middle and the zoom as the value */
+			double latitude = 0.0, longitude = 0.0;
+			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, "Map");
+			Rmap_view_get_center(widget->id, &latitude, &longitude);
+			rvn_text_printf(&g_a11y.value, "%.4f\xC2\xB0 %c, %.4f\xC2\xB0 %c, zoom %.1f", fabs(latitude), latitude < 0.0 ? 'S' : 'N',
+				fabs(longitude), longitude < 0.0 ? 'W' : 'E', Rmap_view_get_zoom(widget->id));
+			break;
+		}
 		case R_WIDGET_PDF_VIEW:
 			/* the title as the name; the page shown as the value */
 			if (!rvn_a11y_str(&g_a11y.name)[0]) rvn_text_add(&g_a11y.name, Rpdf_view_get_title(widget->id));
@@ -1010,6 +1035,12 @@ int rvn_a11y_act(rvn_a11y_id_t id, rvn_a11y_action_t action) {
 				return R_TRUE;
 			case R_WIDGET_LIST_VIEW: Rlist_view_set_selected(widget->id, item); return R_TRUE;
 			case R_WIDGET_TAB_VIEW: Rtab_view_set_active(widget->id, item); return R_TRUE;
+			case R_WIDGET_MAP_VIEW:
+				if (item >= Rmap_view_get_marker_count(widget->id)) return R_FALSE;
+				rvn_dispatch_begin();
+				rvn_map_view_press_marker(widget, item);
+				rvn_dispatch_end();
+				return R_TRUE;
 			case R_WIDGET_TREE_VIEW: {
 				Rid tree_item = Rtree_view_get_item(widget->id, item);
 				if (tree_item == R_INVALID_ID) return R_FALSE;

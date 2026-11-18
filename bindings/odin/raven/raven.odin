@@ -716,6 +716,8 @@ R_WIDGET_PLOT :: 0x0232
 R_WIDGET_PDF_VIEW :: 0x0233
 // The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind).
 R_WIDGET_CHART :: 0x0234
+// A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
+R_WIDGET_MAP_VIEW :: 0x0235
 
 RHAlign :: i32
 R_HALIGN_FILL :: 0x0240
@@ -893,6 +895,17 @@ R_PDF_TEXT_UNDERLINE :: 4
 RPdfPrintFlags :: i32
 // No dialog: printed at once on the printer named, else the default one.
 R_PDF_PRINT_NO_DIALOG :: 1
+
+// Where a tile of a MapView stands (Rmap_view_get_tile_state).
+RMapTileState :: i32
+// Not in the view's cache: never asked for, no longer wanted, or evicted.
+R_MAP_TILE_NONE :: 0x0600
+// Asked for (the tile callback was called, or the file is being read): waiting for its pixels.
+R_MAP_TILE_PENDING :: 0x0601
+// Its pixels are in the cache.
+R_MAP_TILE_LOADED :: 0x0602
+// The application said it has none (Rmap_view_set_tile_failed), or its file could not be read.
+R_MAP_TILE_FAILED :: 0x0603
 
 // How an axis of a Plot spreads its values.
 RPlotScale :: i32
@@ -1388,6 +1401,14 @@ RChartSliceCallback :: #type proc "c" (chart: Rid, slice: i32, selected: i32, us
 RChartCellCallback :: #type proc "c" (chart: Rid, row: i32, column: i32, value: f32, user_data: rawptr)
 // Called when the current page changes as the user scrolls. This also fires the action of the widget.
 RPdfPageChangedCallback :: #type proc "c" (view: Rid, page: i32, user_data: rawptr)
+// Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted.
+RMapTileCallback :: #type proc "c" (map_: Rid, z: i32, x: i32, y: i32, user_data: rawptr)
+// Called when the user clicks a marker.
+RMapMarkerCallback :: #type proc "c" (map_: Rid, marker: i32, user_data: rawptr)
+// Called when the user moves or zooms the map (during a drag, at the
+// end of an animated zoom), with its new center and zoom. This also fires
+// the action of the widget.
+RMapViewCallback :: #type proc "c" (map_: Rid, latitude: f64, longitude: f64, zoom: f64, user_data: rawptr)
 // Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
 RTextEditorZoomCallback :: #type proc "c" (editor: Rid, zoom: f32, user_data: rawptr)
 // Called each time the editor gathers its proposals, with the
@@ -3553,6 +3574,69 @@ foreign lib {
 	Rpdf_view_set_page_changed_callback :: proc(view: Rid, callback: RPdfPageChangedCallback, user_data: rawptr) ---
 	// Prints the document shown (see Rpdf_print); the job is named after its title.
 	Rpdf_view_print :: proc(view: Rid, desc: ^RPdfPrintDesc) -> i32 ---
+	Rmap_view_create :: proc() -> Rid ---
+	// Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps.
+	Rmap_view_set_center :: proc(map_: Rid, latitude: f64, longitude: f64) ---
+	// The place at the middle of the map (longitude from -180 to 180).
+	Rmap_view_get_center :: proc(map_: Rid, latitude: ^f64, longitude: ^f64) ---
+	// The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed.
+	Rmap_view_set_zoom :: proc(map_: Rid, zoom: f64) ---
+	Rmap_view_get_zoom :: proc(map_: Rid) -> f64 ---
+	// The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range.
+	Rmap_view_set_zoom_range :: proc(map_: Rid, min_zoom: f64, max_zoom: f64) ---
+	Rmap_view_get_zoom_range :: proc(map_: Rid, min_zoom: ^f64, max_zoom: ^f64) ---
+	// Glides to a place and a zoom (at once when animations are off).
+	Rmap_view_animate_to :: proc(map_: Rid, latitude: f64, longitude: f64, zoom: f64) ---
+	// The place at a point of the widget.
+	Rmap_view_screen_to_latlon :: proc(map_: Rid, x: f32, y: f32, latitude: ^f64, longitude: ^f64) ---
+	// Where a place is in the widget (of the copies of the world side by side, the one nearest the middle).
+	Rmap_view_latlon_to_screen :: proc(map_: Rid, latitude: f64, longitude: f64, x: ^f32, y: ^f32) ---
+	// Called once for each tile the map needs. Answer with
+	// Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+	// at once or later. Setting it forgets the tiles of the previous source.
+	Rmap_view_set_tile_callback :: proc(map_: Rid, callback: RMapTileCallback, user_data: rawptr) ---
+	// Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
+	Rmap_view_set_tile_cancel_callback :: proc(map_: Rid, callback: RMapTileCallback, user_data: rawptr) ---
+	// The pixels of a tile: `width` x `height` RGBA8, tightly packed
+	// (they are copied; any size, shown at the tile size). Thread-safe: from
+	// another thread it is applied on the UI thread during the next frame.
+	Rmap_view_set_tile :: proc(map_: Rid, z: i32, x: i32, y: i32, rgba: [^]u8, width: i32, height: i32) ---
+	// A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe.
+	Rmap_view_set_tile_data :: proc(map_: Rid, z: i32, x: i32, y: i32, data: rawptr, data_size: uint) ---
+	// There is no such tile: the coarser one stays shown in its place. Thread-safe.
+	Rmap_view_set_tile_failed :: proc(map_: Rid, z: i32, x: i32, y: i32) ---
+	// Reads the tiles from files instead of asking for them: a path
+	// where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+	// south, as in TMS and MBTiles). The files are read and decoded on a
+	// worker thread; a missing file is a tile that failed. NULL or "": the
+	// tile callback again. Local files only.
+	Rmap_view_set_tile_path :: proc(map_: Rid, path_template: cstring) ---
+	Rmap_view_get_tile_path :: proc(map_: Rid) -> cstring ---
+	// Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger.
+	Rmap_view_set_tile_size :: proc(map_: Rid, size: i32) ---
+	Rmap_view_get_tile_size :: proc(map_: Rid) -> i32 ---
+	// Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept.
+	Rmap_view_set_cache_size :: proc(map_: Rid, bytes: uint) ---
+	// Memory the decoded tiles take now, in bytes.
+	Rmap_view_get_cache_usage :: proc(map_: Rid) -> uint ---
+	// Forgets every tile (they are asked for again): the tiles of the source changed.
+	Rmap_view_clear_tiles :: proc(map_: Rid) ---
+	Rmap_view_get_tile_state :: proc(map_: Rid, z: i32, x: i32, y: i32) -> RMapTileState ---
+	// Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1.
+	Rmap_view_add_marker :: proc(map_: Rid, latitude: f64, longitude: f64, label: cstring) -> i32 ---
+	Rmap_view_remove_marker :: proc(map_: Rid, marker: i32) ---
+	Rmap_view_clear_markers :: proc(map_: Rid) ---
+	Rmap_view_get_marker_count :: proc(map_: Rid) -> i32 ---
+	Rmap_view_set_marker_position :: proc(map_: Rid, marker: i32, latitude: f64, longitude: f64) ---
+	Rmap_view_set_marker_label :: proc(map_: Rid, marker: i32, label: cstring) ---
+	// The color of a pin (by default the accent of the theme).
+	Rmap_view_set_marker_color :: proc(map_: Rid, marker: i32, r: f32, g: f32, b: f32, a: f32) ---
+	Rmap_view_set_marker_clicked_callback :: proc(map_: Rid, callback: RMapMarkerCallback, user_data: rawptr) ---
+	Rmap_view_set_view_changed_callback :: proc(map_: Rid, callback: RMapViewCallback, user_data: rawptr) ---
+	// A line written in the bottom right corner: the credit most tile
+	// licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+	Rmap_view_set_attribution :: proc(map_: Rid, text: cstring) ---
+	Rmap_view_get_attribution :: proc(map_: Rid) -> cstring ---
 	Rpdf_document_create :: proc() -> Rid ---
 	Rpdf_document_delete :: proc(document: Rid) ---
 	// The information of the document, shown by readers (the title in their window).

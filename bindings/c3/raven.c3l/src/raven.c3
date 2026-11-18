@@ -897,6 +897,8 @@ constset WidgetType : CInt
 	PDF_VIEW = 0x0233,
 	<* The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). *>
 	CHART = 0x0234,
+	<* A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. *>
+	MAP_VIEW = 0x0235,
 }
 
 constset HAlign : CInt
@@ -1130,6 +1132,19 @@ constset PdfPrintFlags : CInt
 {
 	<* No dialog: printed at once on the printer named, else the default one. *>
 	NO_DIALOG = 1,
+}
+
+<* Where a tile of a MapView stands (Rmap_view_get_tile_state). *>
+constset MapTileState : CInt
+{
+	<* Not in the view's cache: never asked for, no longer wanted, or evicted. *>
+	NONE = 0x0600,
+	<* Asked for (the tile callback was called, or the file is being read): waiting for its pixels. *>
+	PENDING = 0x0601,
+	<* Its pixels are in the cache. *>
+	LOADED = 0x0602,
+	<* The application said it has none (Rmap_view_set_tile_failed), or its file could not be read. *>
+	FAILED = 0x0603,
 }
 
 <* How an axis of a Plot spreads its values. *>
@@ -1788,6 +1803,16 @@ alias ChartSliceCallback = fn void(Id chart, CInt slice, CInt selected, void* us
 alias ChartCellCallback = fn void(Id chart, CInt row, CInt column, float value, void* user_data);
 <* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
 alias PdfPageChangedCallback = fn void(Id view, CInt page, void* user_data);
+<* Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. *>
+alias MapTileCallback = fn void(Id map, CInt z, CInt x, CInt y, void* user_data);
+<* Called when the user clicks a marker. *>
+alias MapMarkerCallback = fn void(Id map, CInt marker, void* user_data);
+<*
+ Called when the user moves or zooms the map (during a drag, at the
+ end of an animated zoom), with its new center and zoom. This also fires
+ the action of the widget.
+*>
+alias MapViewCallback = fn void(Id map, double latitude, double longitude, double zoom, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 <*
@@ -5612,6 +5637,115 @@ fn void Chart.set_fill(self, CInt fill) @inline => c::r_chart_set_fill((c::Rid)s
 
 <* A dot on the last value of a sparkline (on by default). *>
 fn void Chart.set_marker(self, bool shown) @inline => c::r_chart_set_marker((c::Rid)self, (CInt)shown);
+
+// ---- MapView
+
+typedef MapView = inline Widget;
+
+fn MapView map_view_create() @inline => (MapView)c::r_map_view_create();
+
+<* Centers the map on a place. The latitude is held within +/-85.0511; the longitude wraps. *>
+fn void MapView.set_center(self, double latitude, double longitude) @inline => c::r_map_view_set_center((c::Rid)self, latitude, longitude);
+
+<* The place at the middle of the map (longitude from -180 to 180). *>
+fn void MapView.get_center(self, double* latitude, double* longitude) @inline => c::r_map_view_get_center((c::Rid)self, latitude, longitude);
+
+<* The zoom: 0 shows the whole world in one tile, each step doubles the scale. Fractions are allowed. *>
+fn void MapView.set_zoom(self, double zoom) @inline => c::r_map_view_set_zoom((c::Rid)self, zoom);
+
+fn double MapView.get_zoom(self) @inline => c::r_map_view_get_zoom((c::Rid)self);
+
+<* The zooms the user can reach (default 0 to 19, at most 0 to 24). Tiles are asked for at whole zooms of this range. *>
+fn void MapView.set_zoom_range(self, double min_zoom, double max_zoom) @inline => c::r_map_view_set_zoom_range((c::Rid)self, min_zoom, max_zoom);
+
+fn void MapView.get_zoom_range(self, double* min_zoom, double* max_zoom) @inline => c::r_map_view_get_zoom_range((c::Rid)self, min_zoom, max_zoom);
+
+<* Glides to a place and a zoom (at once when animations are off). *>
+fn void MapView.animate_to(self, double latitude, double longitude, double zoom) @inline => c::r_map_view_animate_to((c::Rid)self, latitude, longitude, zoom);
+
+<* The place at a point of the widget. *>
+fn void MapView.screen_to_latlon(self, float x, float y, double* latitude, double* longitude) @inline => c::r_map_view_screen_to_latlon((c::Rid)self, x, y, latitude, longitude);
+
+<* Where a place is in the widget (of the copies of the world side by side, the one nearest the middle). *>
+fn void MapView.latlon_to_screen(self, double latitude, double longitude, float* x, float* y) @inline => c::r_map_view_latlon_to_screen((c::Rid)self, latitude, longitude, x, y);
+
+<*
+ Called once for each tile the map needs. Answer with
+ Rmap_view_set_tile, Rmap_view_set_tile_data or Rmap_view_set_tile_failed,
+ at once or later. Setting it forgets the tiles of the previous source.
+*>
+fn void MapView.set_tile_callback(self, MapTileCallback callback, void* user_data) @inline => c::r_map_view_set_tile_callback((c::Rid)self, (c::RMapTileCallback)callback, user_data);
+
+<* Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional. *>
+fn void MapView.set_tile_cancel_callback(self, MapTileCallback callback, void* user_data) @inline => c::r_map_view_set_tile_cancel_callback((c::Rid)self, (c::RMapTileCallback)callback, user_data);
+
+<*
+ The pixels of a tile: `width` x `height` RGBA8, tightly packed
+ (they are copied; any size, shown at the tile size). Thread-safe: from
+ another thread it is applied on the UI thread during the next frame.
+*>
+fn void MapView.set_tile(self, CInt z, CInt x, CInt y, char* rgba, CInt width, CInt height) @inline => c::r_map_view_set_tile((c::Rid)self, z, x, y, rgba, width, height);
+
+<* A tile as the bytes of an image file (PNG, JPEG...), decoded on the calling thread. Thread-safe. *>
+fn void MapView.set_tile_data(self, CInt z, CInt x, CInt y, void* data, usz data_size) @inline => c::r_map_view_set_tile_data((c::Rid)self, z, x, y, data, data_size);
+
+<* There is no such tile: the coarser one stays shown in its place. Thread-safe. *>
+fn void MapView.set_tile_failed(self, CInt z, CInt x, CInt y) @inline => c::r_map_view_set_tile_failed((c::Rid)self, z, x, y);
+
+<*
+ Reads the tiles from files instead of asking for them: a path
+ where {z}, {x} and {y} are replaced ({-y}: the row counted from the
+ south, as in TMS and MBTiles). The files are read and decoded on a
+ worker thread; a missing file is a tile that failed. NULL or "": the
+ tile callback again. Local files only.
+*>
+fn void MapView.set_tile_path(self, ZString path_template) @inline => c::r_map_view_set_tile_path((c::Rid)self, (char*)path_template);
+
+fn ZString MapView.get_tile_path(self) @inline => (ZString)c::r_map_view_get_tile_path((c::Rid)self);
+
+<* Logical size of a tile at a whole zoom (default 256, from 16 to 1024): larger tiles show the map larger. *>
+fn void MapView.set_tile_size(self, CInt size) @inline => c::r_map_view_set_tile_size((c::Rid)self, size);
+
+fn CInt MapView.get_tile_size(self) @inline => c::r_map_view_get_tile_size((c::Rid)self);
+
+<* Memory the decoded tiles may take, in bytes (default 64 MiB). The tiles on screen are always kept. *>
+fn void MapView.set_cache_size(self, usz bytes) @inline => c::r_map_view_set_cache_size((c::Rid)self, bytes);
+
+<* Memory the decoded tiles take now, in bytes. *>
+fn usz MapView.get_cache_usage(self) @inline => c::r_map_view_get_cache_usage((c::Rid)self);
+
+<* Forgets every tile (they are asked for again): the tiles of the source changed. *>
+fn void MapView.clear_tiles(self) @inline => c::r_map_view_clear_tiles((c::Rid)self);
+
+fn MapTileState MapView.get_tile_state(self, CInt z, CInt x, CInt y) @inline => (MapTileState)c::r_map_view_get_tile_state((c::Rid)self, z, x, y);
+
+<* Adds a pin at a place, with a label written next to it (may be NULL). Returns its id (from 1), or -1. *>
+fn CInt MapView.add_marker(self, double latitude, double longitude, ZString label) @inline => c::r_map_view_add_marker((c::Rid)self, latitude, longitude, (char*)label);
+
+fn void MapView.remove_marker(self, CInt marker) @inline => c::r_map_view_remove_marker((c::Rid)self, marker);
+
+fn void MapView.clear_markers(self) @inline => c::r_map_view_clear_markers((c::Rid)self);
+
+fn CInt MapView.get_marker_count(self) @inline => c::r_map_view_get_marker_count((c::Rid)self);
+
+fn void MapView.set_marker_position(self, CInt marker, double latitude, double longitude) @inline => c::r_map_view_set_marker_position((c::Rid)self, marker, latitude, longitude);
+
+fn void MapView.set_marker_label(self, CInt marker, ZString label) @inline => c::r_map_view_set_marker_label((c::Rid)self, marker, (char*)label);
+
+<* The color of a pin (by default the accent of the theme). *>
+fn void MapView.set_marker_color(self, CInt marker, float r, float g, float b, float a) @inline => c::r_map_view_set_marker_color((c::Rid)self, marker, r, g, b, a);
+
+fn void MapView.set_marker_clicked_callback(self, MapMarkerCallback callback, void* user_data) @inline => c::r_map_view_set_marker_clicked_callback((c::Rid)self, (c::RMapMarkerCallback)callback, user_data);
+
+fn void MapView.set_view_changed_callback(self, MapViewCallback callback, void* user_data) @inline => c::r_map_view_set_view_changed_callback((c::Rid)self, (c::RMapViewCallback)callback, user_data);
+
+<*
+ A line written in the bottom right corner: the credit most tile
+ licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
+*>
+fn void MapView.set_attribution(self, ZString text) @inline => c::r_map_view_set_attribution((c::Rid)self, (char*)text);
+
+fn ZString MapView.get_attribution(self) @inline => (ZString)c::r_map_view_get_attribution((c::Rid)self);
 
 // ---- Window
 

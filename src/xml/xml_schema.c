@@ -375,6 +375,17 @@ static const rvn_schema_attribute_t g_chart[] = {
 	K("HighColor", "The color of the highest values of a heatmap."),
 	A("OnClicked", "Action fired when the user clicks a slice or a cell."),
 };
+static const rvn_schema_attribute_t g_map_view[] = {
+	N("Latitude", "Latitude of the center, in degrees (held within +/-85.0511)."),
+	N("Longitude", "Longitude of the center, in degrees."),
+	N("Zoom", "The zoom: 0 shows the whole world in one tile, each step doubles the scale."),
+	N("MinZoom", "The smallest zoom the user can reach (default 0)."),
+	N("MaxZoom", "The largest zoom the user can reach, and of the tiles asked for (default 19, at most 24)."),
+	T("TilePath", "Reads the tiles from files: a path with {z}, {x} and {y} ({-y}: the row counted from the south, TMS)."),
+	N("TileSize", "Logical size of a tile at a whole zoom (default 256, held within 16 .. 1024)."),
+	T("Attribution", "The credit of the tiles, written in the bottom right corner."),
+	A("OnChanged", "Action fired when the user moves or zooms the map."),
+};
 static const rvn_schema_attribute_t g_tree_view[] = {
 	A("OnChanged", "Action fired when the selection changes."),
 	A("OnActivated", "Action fired by a double click or Enter."),
@@ -588,6 +599,7 @@ static const rvn_schema_tag_t g_tags[] = {
 	TAG("Breadcrumb", g_breadcrumb, "The path to the current place: links separated by chevrons."),
 	TAG("Rating", g_rating, "A score shown and chosen with stars."),
 	TAG("Pagination", g_pagination, "Page numbers with previous and next."),
+	TAG("MapView", g_map_view, "A map of slippy-map tiles (Web Mercator z/x/y) given by the application or read from files: dragged, zoomed, with Marker elements (Latitude, Longitude, Label, Color)."),
 	TAG("PdfView", g_pdf_view, "The pages of a PDF document, scrolled and zoomed (drawn by PDFium, loaded at run time)."),
 	TAG("Chart", g_chart, "The charts of dashboards: a pie or a donut of Slice elements (Label, Value, Color), a gauge with Band elements (From, To, Color), a heatmap of Row elements (Label, Values), a sparkline of Values."),
 	TAG("Plot", g_plot, "Curves of X / Y data: Series elements (Name, Color, Line, LineWidth, Marker, MarkerSize, MarkerFilled, Step, Fill, XAxis, Axis, MaxPoints, X and Y lists or Points \"x,y x,y\"), Scatter elements, and DragLine elements (Axis, Value, Label, Color)."),

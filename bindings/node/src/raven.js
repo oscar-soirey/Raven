@@ -650,8 +650,9 @@ export const RWidgetType = _enum({
 	R_WIDGET_PLOT: 562,
 	R_WIDGET_PDF_VIEW: 563,
 	R_WIDGET_CHART: 564,
+	R_WIDGET_MAP_VIEW: 565,
 });
-export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART } = RWidgetType;
+export const { R_WIDGET_VBOX, R_WIDGET_HBOX, R_WIDGET_GRID, R_WIDGET_UNIFORM_GRID, R_WIDGET_OVERLAY, R_WIDGET_BORDER, R_WIDGET_SIZE_BOX, R_WIDGET_SPACER, R_WIDGET_SCROLL_BOX, R_WIDGET_SPLITTER, R_WIDGET_WRAP_BOX, R_WIDGET_CANVAS, R_WIDGET_SWITCHER, R_WIDGET_TAB_VIEW, R_WIDGET_EXPANDER, R_WIDGET_LABEL, R_WIDGET_BUTTON, R_WIDGET_CHECKBOX, R_WIDGET_SLIDER, R_WIDGET_PROGRESSBAR, R_WIDGET_IMAGE, R_WIDGET_TEXT_INPUT, R_WIDGET_SPIN_BOX, R_WIDGET_COMBO_BOX, R_WIDGET_SEPARATOR, R_WIDGET_LIST_VIEW, R_WIDGET_TREE_VIEW, R_WIDGET_MENU_BAR, R_WIDGET_MENU, R_WIDGET_MENU_ITEM, R_WIDGET_VIEWPORT, R_WIDGET_CUSTOM, R_WIDGET_TEXT_EDITOR, R_WIDGET_HEADER_BAR, R_WIDGET_DOCK_AREA, R_WIDGET_ISLAND, R_WIDGET_FILE_BROWSER, R_WIDGET_BACKGROUND_BLUR, R_WIDGET_COLOR_PICKER, R_WIDGET_TIMELINE, R_WIDGET_NODE_GRAPH, R_WIDGET_TILE_VIEW, R_WIDGET_BLOCK_EDITOR, R_WIDGET_TABLE, R_WIDGET_DATE_PICKER, R_WIDGET_TIME_PICKER, R_WIDGET_TOAST, R_WIDGET_BREADCRUMB, R_WIDGET_RATING, R_WIDGET_PAGINATION, R_WIDGET_PLOT, R_WIDGET_PDF_VIEW, R_WIDGET_CHART, R_WIDGET_MAP_VIEW } = RWidgetType;
 
 export const RHAlign = _enum({
 	R_HALIGN_FILL: 576,
@@ -804,6 +805,14 @@ export const RPdfPrintFlags = _enum({
 	R_PDF_PRINT_NO_DIALOG: 1,
 });
 export const { R_PDF_PRINT_NO_DIALOG } = RPdfPrintFlags;
+
+export const RMapTileState = _enum({
+	R_MAP_TILE_NONE: 1536,
+	R_MAP_TILE_PENDING: 1537,
+	R_MAP_TILE_LOADED: 1538,
+	R_MAP_TILE_FAILED: 1539,
+});
+export const { R_MAP_TILE_NONE, R_MAP_TILE_PENDING, R_MAP_TILE_LOADED, R_MAP_TILE_FAILED } = RMapTileState;
 
 export const RPlotScale = _enum({
 	R_PLOT_SCALE_LINEAR: 1328,
@@ -3885,6 +3894,40 @@ export const Rpdf_view_set_page_changed_callback = _lib.Rpdf_view_set_page_chang
 export function Rpdf_view_print(view, desc) {
 	return _lib.Rpdf_view_print(view, _p(desc));
 }
+export const Rmap_view_create = _lib.Rmap_view_create;
+export const Rmap_view_set_center = _lib.Rmap_view_set_center;
+export const Rmap_view_get_center = _lib.Rmap_view_get_center;
+export const Rmap_view_set_zoom = _lib.Rmap_view_set_zoom;
+export const Rmap_view_get_zoom = _lib.Rmap_view_get_zoom;
+export const Rmap_view_set_zoom_range = _lib.Rmap_view_set_zoom_range;
+export const Rmap_view_get_zoom_range = _lib.Rmap_view_get_zoom_range;
+export const Rmap_view_animate_to = _lib.Rmap_view_animate_to;
+export const Rmap_view_screen_to_latlon = _lib.Rmap_view_screen_to_latlon;
+export const Rmap_view_latlon_to_screen = _lib.Rmap_view_latlon_to_screen;
+export const Rmap_view_set_tile_callback = _lib.Rmap_view_set_tile_callback;
+export const Rmap_view_set_tile_cancel_callback = _lib.Rmap_view_set_tile_cancel_callback;
+export const Rmap_view_set_tile = _lib.Rmap_view_set_tile;
+export const Rmap_view_set_tile_data = _lib.Rmap_view_set_tile_data;
+export const Rmap_view_set_tile_failed = _lib.Rmap_view_set_tile_failed;
+export const Rmap_view_set_tile_path = _lib.Rmap_view_set_tile_path;
+export const Rmap_view_get_tile_path = _lib.Rmap_view_get_tile_path;
+export const Rmap_view_set_tile_size = _lib.Rmap_view_set_tile_size;
+export const Rmap_view_get_tile_size = _lib.Rmap_view_get_tile_size;
+export const Rmap_view_set_cache_size = _lib.Rmap_view_set_cache_size;
+export const Rmap_view_get_cache_usage = _lib.Rmap_view_get_cache_usage;
+export const Rmap_view_clear_tiles = _lib.Rmap_view_clear_tiles;
+export const Rmap_view_get_tile_state = _lib.Rmap_view_get_tile_state;
+export const Rmap_view_add_marker = _lib.Rmap_view_add_marker;
+export const Rmap_view_remove_marker = _lib.Rmap_view_remove_marker;
+export const Rmap_view_clear_markers = _lib.Rmap_view_clear_markers;
+export const Rmap_view_get_marker_count = _lib.Rmap_view_get_marker_count;
+export const Rmap_view_set_marker_position = _lib.Rmap_view_set_marker_position;
+export const Rmap_view_set_marker_label = _lib.Rmap_view_set_marker_label;
+export const Rmap_view_set_marker_color = _lib.Rmap_view_set_marker_color;
+export const Rmap_view_set_marker_clicked_callback = _lib.Rmap_view_set_marker_clicked_callback;
+export const Rmap_view_set_view_changed_callback = _lib.Rmap_view_set_view_changed_callback;
+export const Rmap_view_set_attribution = _lib.Rmap_view_set_attribution;
+export const Rmap_view_get_attribution = _lib.Rmap_view_get_attribution;
 export const Rpdf_document_create = _lib.Rpdf_document_create;
 export const Rpdf_document_delete = _lib.Rpdf_document_delete;
 export const Rpdf_document_set_title = _lib.Rpdf_document_set_title;

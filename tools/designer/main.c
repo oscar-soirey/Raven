@@ -358,6 +358,7 @@ static const struct { const char* tag; const char* xml; } TEMPLATES[] = {
 	{ "Plot", "<Plot Height=\"220\" Title=\"Plot\" XLabel=\"x\" YLabel=\"y\"><Series Name=\"Line\" Y=\"1 3 2 5 4 6\"/>"
 		"<Scatter Name=\"Points\" Points=\"0,2 1,1.5 2,3.5 3,3 4,5.5 5,5\" Marker=\"Diamond\"/></Plot>" },
 	{ "PdfView", "<PdfView Height=\"260\" Fit=\"Width\"/>" },
+	{ "MapView", "<MapView Height=\"260\" Latitude=\"48.85\" Longitude=\"2.35\" Zoom=\"4\"><Marker Latitude=\"48.85\" Longitude=\"2.35\" Label=\"Paris\"/></MapView>" },
 	{ "Series", "<Series Name=\"Series\" Y=\"1 2 3\"/>" },
 	{ "DragLine", "<DragLine Axis=\"X\" Value=\"1\" Label=\"x\"/>" },
 	{ "Column", "<Column Header=\"Column\" Width=\"100\"/>" },
@@ -379,7 +380,7 @@ static const struct { const char* tag; const char* attributes; const char* about
 	{ "Track", "Name|Color|Height|Locked|Muted", "A track of a Timeline: it holds Clip and Key elements." },
 	{ "Clip", "Start|Length|End|Label|Color|Selected", "Something that lasts, on a track of a Timeline." },
 	{ "Key", "Time|Label|Color", "A moment, on a track of a Timeline." },
-	{ "Marker", "Time|Label|Color", "A flag on the ruler of a Timeline." },
+	{ "Marker", "Time|Latitude|Longitude|Label|Color", "A flag on the ruler of a Timeline (Time), or a pin on a MapView (Latitude, Longitude)." },
 	{ "Node", "Name|Title|X|Y|Color|Selected", "A node of a NodeGraph: Input and Output elements, and a widget for its inside." },
 	{ "Input", "Name|Label|Type", "A pin on the left of a Node." },
 	{ "Output", "Name|Label|Type", "A pin on the right of a Node." },
