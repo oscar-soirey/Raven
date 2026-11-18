@@ -857,7 +857,21 @@ Rtimer_destroy(autosave_timer);</pre>
 <pre>Rclipboard_set_text("copied");
 Rclipboard_set_html("**bold**", "&lt;b&gt;bold&lt;/b&gt;");  /* rich text where it is pasted with formatting, plain text elsewhere */
 const char* pasted = Rclipboard_get_text();
+Rclipboard_set_image(rgba, width, height, 0);  /* a picture: PNG, and the bitmaps of the system */
+uint8_t* picture = Rclipboard_get_image(&amp;width, &amp;height);   /* copied anywhere; Rpixels_free */
 Ropen_url("https://example.org");              /* the browser of the system; a file opens in its application */</pre>
+<p>One content can go in several formats, named by MIME types: <code>text/plain</code>,
+<code>text/html</code>, <code>image/png</code>, <code>text/uri-list</code> (files), or a format of
+the application. Raven gives them their native names on each system.</p>
+<pre>RDataItem items[] = {
+    { "text/plain", "Node 7", 6 },
+    { "application/x-mygraph-node", bytes, size },   /* read back by the application only */
+};
+Rclipboard_set_data(items, 2);
+if (Rclipboard_has_data("application/x-mygraph-node")) {
+    size_t size;
+    char* node = Rclipboard_get_data("application/x-mygraph-node", &amp;size);   /* Rmemory_free */
+}</pre>
 
 <h3 id="drop">Drag and drop</h3>
 <p>Files and text dragged from other applications are dropped on a window or
@@ -886,7 +900,23 @@ static int on_asset_drop(Rid target, const RDropEvent* e, void* user_data) {
     if (e-&gt;phase == R_DROP_DROPPED) apply_asset(target, e-&gt;text);
     return R_TRUE;
 }</pre>
-<p>Dragging out of a Raven window to another application is not implemented.</p>
+<p>Data dragged out of a window goes to other applications (macOS and Windows), in the
+same formats as the clipboard: a picture into a document or an image editor, files into
+the Finder or the Explorer. Call <code>Rdrag_begin_external</code> while the mouse button is
+held; the system takes the drag at the next move of the pointer and tells at its end
+what the target did. Called during a drag inside the application, it lets that drag
+leave the window when the pointer does. A tile view asks for the data with
+<code>Rtile_view_set_drag_out_callback</code>.</p>
+<pre>static void on_finished(Rid source, RDragOperation operation, void* user_data) {
+    if (operation == R_DRAG_OPERATION_MOVE) remove_item(source);
+}
+
+RDataItem items[] = {
+    { "image/png", png, png_size },                       /* Rimage_encode_png */
+    { "text/uri-list", "file:///tmp/photo.png\r\n", 23 },
+};
+Rdrag_begin_external(source, items, 2, R_DRAG_OPERATION_COPY | R_DRAG_OPERATION_MOVE, on_finished, NULL);
+Rdrag_set_image(rgba, 96, 96);                            /* what follows the pointer (optional) */</pre>
 
 <h3 id="touch">Fingers, pens and trackpads</h3>
 <p>Touch screens, pens and trackpads work with nothing written: Raven reads them on every

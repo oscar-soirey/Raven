@@ -2053,6 +2053,12 @@ public:
 	/// Drops files and / or text at a position. Returns R_TRUE when a target took them.
 	int inject_drop(float x, float y, const char*const* paths, int path_count, const char* text) const { return Rwindow_inject_drop(id_, x, y, paths, path_count, text); }
 
+	/// The end of the drag out of the window that the window system
+	/// holds (Rdrag_begin_external), as it reports it: `operation` is what the
+	/// target did (an RDragOperation). Returns R_FALSE when no such drag is in
+	/// progress.
+	int inject_drag_end(RDragOperation operation) const { return Rwindow_inject_drag_end(id_, operation); }
+
 	/// Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
 	int inject_back() const { return Rwindow_inject_back(id_); }
 
@@ -2812,12 +2818,44 @@ inline void clipboard_set_text(const char* text) { Rclipboard_set_text(text); }
 /// Copies one content in two formats: `html` for the programs that
 /// paste formatting (word processors, chat, mail) and `text` for the
 /// others (editors, terminals). Each program takes the format it prefers.
-/// Where the window system has no clipboard formats (Win32 and macOS for
-/// now), or `html` is NULL, it is Rclipboard_set_text(text).
+/// Where the window system has no clipboard formats, or `html` is NULL,
+/// it is Rclipboard_set_text(text).
 inline void clipboard_set_html(const char* text, const char* html) { Rclipboard_set_html(text, html); }
 
 /// Returns: The clipboard text, or "" when empty. Valid until the next call.
 inline const char* clipboard_get_text() { return Rclipboard_get_text(); }
+
+/// Replaces what the clipboard holds with one content in several
+/// formats (RDataItem): each program pastes the one it prefers.
+/// Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+/// some could not be (a window system that only takes text: X11 and
+/// Wayland for now, where the text/plain item, if any, still is).
+inline int clipboard_set_data(const RDataItem* items, int count) { return Rclipboard_set_data(items, count); }
+
+/// Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+inline int clipboard_has_data(const char* mime) { return Rclipboard_has_data(mime); }
+
+/// What the clipboard holds in one format, converted from the
+/// native one when needed (a bitmap given as image/png...).
+/// Returns: The bytes, followed by a '\0' that `size` does not count, to
+/// release with Rmemory_free; NULL when the clipboard does not hold it.
+inline char* clipboard_get_data(const char* mime, size_t* size) { return Rclipboard_get_data(mime, size); }
+
+/// Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+/// bytes apart (0: width * 4). It goes on the clipboard as image/png
+/// (and as the bitmaps of the system), so that image editors, documents
+/// and mail paste it.
+/// Returns: R_FALSE when it could not be put there.
+inline int clipboard_set_image(const uint8_t* rgba, int width, int height, int stride) { return Rclipboard_set_image(rgba, width, height, stride); }
+
+/// Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+inline int clipboard_has_image() { return Rclipboard_has_image(); }
+
+/// The picture on the clipboard (copied from any program: PNG,
+/// TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+/// Returns: The pixels, to release with Rpixels_free; NULL when there is
+/// none (or no decoder: RAVEN_WITH_STB_IMAGE off).
+inline uint8_t* clipboard_get_image(int* width, int* height) { return Rclipboard_get_image(width, height); }
 
 /// Retrieves and clears the last recorded error.
 /// detail   Optional output: human-readable description.
@@ -2864,6 +2902,49 @@ inline const char* drag_get_data(Rid window) { return Rdrag_get_data(window); }
 
 /// Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
 inline void drag_cancel(Rid window) { Rdrag_cancel(window); }
+
+/// Lets the user drag data out of the window, to another
+/// application: a picture into a document, files into the file manager,
+/// text into an editor. `items` is one content in several formats
+/// (RDataItem, copied): the target takes the one it prefers.
+/// `operations` is a bitmask of RDragOperation the target may do (0:
+/// R_DRAG_OPERATION_COPY).
+///
+/// Call it as Rdrag_begin, while the mouse button is held (from a mouse
+/// move once the pointer has moved a few units). The window system then
+/// takes the drag at the next move of the pointer: it shows the picture
+/// that follows the pointer (Rdrag_set_image) and the cursor that tells
+/// what a drop there does; the button released, `callback` (may be NULL)
+/// is told what the target did.
+///
+/// Called while a drag inside the application (Rdrag_begin) is in progress
+/// in the window of `source`, it gives that drag the data for outside:
+/// the drag stays inside the window, to its drop targets, and becomes a
+/// drag of the window system only when the pointer leaves the window.
+/// Brought back over a window of the application, it still comes to the
+/// drop targets with the type and data given to Rdrag_begin.
+///
+/// Implemented on macOS and Windows; elsewhere it returns R_FALSE
+/// (Rdrag_external_supported).
+/// Returns: R_FALSE when the widget is not in a window or the window
+/// system cannot drag out of its windows.
+inline int drag_begin_external(Rid source, const RDataItem* items, int count, Ruint operations, RDragFinishedCallback callback, void* user_data) { return Rdrag_begin_external(source, items, count, operations, callback, user_data); }
+inline int drag_begin_external(Rid source, const RDataItem* items, int count, Ruint operations, std::function<void(Rid, RDragOperation)> callback) {
+	return Rdrag_begin_external(source, items, count, operations, [](Rid source, RDragOperation operation, void* kept_) -> void { return (*static_cast<std::function<void(Rid, RDragOperation)>*>(kept_))(source, operation); }, detail::keep(source, 58, std::move(callback)));
+}
+
+/// The picture that follows the pointer during the drag given by
+/// Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+/// copied), held by the pointer at its center. Call it right after
+/// Rdrag_begin_external. Without it the system chooses: the picture
+/// dragged, the icons of the files, or a generic one.
+inline void drag_set_image(const uint8_t* rgba, int width, int height) { Rdrag_set_image(rgba, width, height); }
+
+/// R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+inline int drag_external_supported() { return Rdrag_external_supported(); }
+
+/// R_TRUE from Rdrag_begin_external until its callback was called.
+inline int drag_external_is_active() { return Rdrag_external_is_active(); }
 
 /// The settings every window follows, unless it has its own.
 inline void touch_get_settings(RTouchSettings* settings) { Rtouch_get_settings(settings); }
@@ -3058,7 +3139,7 @@ inline RDirection get_layout_direction() { return Rget_layout_direction(); }
 /// Gives the tiles: `count` of them, described by `callback`. The selection is cleared.
 inline void tile_view_set_items(Rid tile_view, int count, RTileItemCallback callback, void* user_data) { Rtile_view_set_items(tile_view, count, callback, user_data); }
 inline void tile_view_set_items(Rid tile_view, int count, std::function<void(Rid, int, RTileItem*)> callback) {
-	Rtile_view_set_items(tile_view, count, [](Rid tile_view, int index, RTileItem* item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, RTileItem*)>*>(kept_))(tile_view, index, item); }, detail::keep(tile_view, 58, std::move(callback)));
+	Rtile_view_set_items(tile_view, count, [](Rid tile_view, int index, RTileItem* item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, RTileItem*)>*>(kept_))(tile_view, index, item); }, detail::keep(tile_view, 59, std::move(callback)));
 }
 
 /// Draws the tiles again (their description changed, not their number).
@@ -3078,7 +3159,7 @@ inline void tile_view_set_icon_width(Rid tile_view, float width) { Rtile_view_se
 /// `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
 inline void tile_view_set_sections(Rid tile_view, int count, RTileSectionCallback callback, void* user_data) { Rtile_view_set_sections(tile_view, count, callback, user_data); }
 inline void tile_view_set_sections(Rid tile_view, int count, std::function<void(Rid, int, RTileSection*)> callback) {
-	Rtile_view_set_sections(tile_view, count, [](Rid tile_view, int section, RTileSection* out, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, RTileSection*)>*>(kept_))(tile_view, section, out); }, detail::keep(tile_view, 59, std::move(callback)));
+	Rtile_view_set_sections(tile_view, count, [](Rid tile_view, int section, RTileSection* out, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, RTileSection*)>*>(kept_))(tile_view, section, out); }, detail::keep(tile_view, 60, std::move(callback)));
 }
 
 inline int tile_view_get_section_count(Rid tile_view) { return Rtile_view_get_section_count(tile_view); }
@@ -3097,7 +3178,7 @@ inline int tile_view_get_section_at(Rid tile_view, float local_x, float local_y)
 /// Called when the user folds or unfolds a section (`index`: the section).
 inline void tile_view_set_section_toggled_callback(Rid tile_view, RTileEventCallback callback, void* user_data) { Rtile_view_set_section_toggled_callback(tile_view, callback, user_data); }
 inline void tile_view_set_section_toggled_callback(Rid tile_view, std::function<void(Rid, int)> callback) {
-	Rtile_view_set_section_toggled_callback(tile_view, [](Rid tile_view, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(tile_view, index); }, detail::keep(tile_view, 60, std::move(callback)));
+	Rtile_view_set_section_toggled_callback(tile_view, [](Rid tile_view, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(tile_view, index); }, detail::keep(tile_view, 61, std::move(callback)));
 }
 
 inline void tile_view_set_selected(Rid tile_view, int index, int selected) { Rtile_view_set_selected(tile_view, index, selected); }
@@ -3130,22 +3211,34 @@ inline void tile_view_set_drag_type(Rid tile_view, const char* type) { Rtile_vie
 
 inline void tile_view_set_drag_data_callback(Rid tile_view, RTileDragDataCallback callback, void* user_data) { Rtile_view_set_drag_data_callback(tile_view, callback, user_data); }
 inline void tile_view_set_drag_data_callback(Rid tile_view, std::function<const char*(Rid)> callback) {
-	Rtile_view_set_drag_data_callback(tile_view, [](Rid tile_view, void* kept_) -> const char* { return (*static_cast<std::function<const char*(Rid)>*>(kept_))(tile_view); }, detail::keep(tile_view, 61, std::move(callback)));
+	Rtile_view_set_drag_data_callback(tile_view, [](Rid tile_view, void* kept_) -> const char* { return (*static_cast<std::function<const char*(Rid)>*>(kept_))(tile_view); }, detail::keep(tile_view, 62, std::move(callback)));
+}
+
+/// Tiles can be dragged out of the window, to other applications:
+/// when the user starts dragging the selected tiles (`index` is the one
+/// under the pointer), the callback gives their data by calling
+/// Rdrag_begin_external (the pictures, the files they stand for...), and
+/// Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+/// drag first goes to the drop targets of the window and only leaves it
+/// with the pointer. NULL: the tiles stay in the application (default).
+inline void tile_view_set_drag_out_callback(Rid tile_view, RTileEventCallback callback, void* user_data) { Rtile_view_set_drag_out_callback(tile_view, callback, user_data); }
+inline void tile_view_set_drag_out_callback(Rid tile_view, std::function<void(Rid, int)> callback) {
+	Rtile_view_set_drag_out_callback(tile_view, [](Rid tile_view, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(tile_view, index); }, detail::keep(tile_view, 63, std::move(callback)));
 }
 
 inline void tile_view_set_selection_changed_callback(Rid tile_view, RTileEventCallback callback, void* user_data) { Rtile_view_set_selection_changed_callback(tile_view, callback, user_data); }
 inline void tile_view_set_selection_changed_callback(Rid tile_view, std::function<void(Rid, int)> callback) {
-	Rtile_view_set_selection_changed_callback(tile_view, [](Rid tile_view, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(tile_view, index); }, detail::keep(tile_view, 62, std::move(callback)));
+	Rtile_view_set_selection_changed_callback(tile_view, [](Rid tile_view, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(tile_view, index); }, detail::keep(tile_view, 64, std::move(callback)));
 }
 
 inline void tile_view_set_activated_callback(Rid tile_view, RTileEventCallback callback, void* user_data) { Rtile_view_set_activated_callback(tile_view, callback, user_data); }
 inline void tile_view_set_activated_callback(Rid tile_view, std::function<void(Rid, int)> callback) {
-	Rtile_view_set_activated_callback(tile_view, [](Rid tile_view, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(tile_view, index); }, detail::keep(tile_view, 63, std::move(callback)));
+	Rtile_view_set_activated_callback(tile_view, [](Rid tile_view, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(tile_view, index); }, detail::keep(tile_view, 65, std::move(callback)));
 }
 
 inline void tile_view_set_context_callback(Rid tile_view, RTileContextCallback callback, void* user_data) { Rtile_view_set_context_callback(tile_view, callback, user_data); }
 inline void tile_view_set_context_callback(Rid tile_view, std::function<void(Rid, int, float, float)> callback) {
-	Rtile_view_set_context_callback(tile_view, [](Rid tile_view, int index, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(tile_view, index, x, y); }, detail::keep(tile_view, 64, std::move(callback)));
+	Rtile_view_set_context_callback(tile_view, [](Rid tile_view, int index, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(tile_view, index, x, y); }, detail::keep(tile_view, 66, std::move(callback)));
 }
 
 /// Adds a column.
@@ -3194,12 +3287,12 @@ inline int table_get_row_count(Rid table) { return Rtable_get_row_count(table); 
 
 inline void table_set_virtual_rows(Rid table, int count, RTableCellTextCallback callback, void* user_data) { Rtable_set_virtual_rows(table, count, callback, user_data); }
 inline void table_set_virtual_rows(Rid table, int count, std::function<const char*(Rid, int, int)> callback) {
-	Rtable_set_virtual_rows(table, count, [](Rid table, int row, int column, void* kept_) -> const char* { return (*static_cast<std::function<const char*(Rid, int, int)>*>(kept_))(table, row, column); }, detail::keep(table, 65, std::move(callback)));
+	Rtable_set_virtual_rows(table, count, [](Rid table, int row, int column, void* kept_) -> const char* { return (*static_cast<std::function<const char*(Rid, int, int)>*>(kept_))(table, row, column); }, detail::keep(table, 67, std::move(callback)));
 }
 
 inline void table_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data) { Rtable_set_cell_color_callback(table, callback, user_data); }
 inline void table_set_cell_color_callback(Rid table, std::function<int(Rid, int, int, float*, float*, float*, float*)> callback) {
-	Rtable_set_cell_color_callback(table, [](Rid table, int row, int column, float* r, float* g, float* b, float* a, void* kept_) -> int { return (*static_cast<std::function<int(Rid, int, int, float*, float*, float*, float*)>*>(kept_))(table, row, column, r, g, b, a); }, detail::keep(table, 66, std::move(callback)));
+	Rtable_set_cell_color_callback(table, [](Rid table, int row, int column, float* r, float* g, float* b, float* a, void* kept_) -> int { return (*static_cast<std::function<int(Rid, int, int, float*, float*, float*, float*)>*>(kept_))(table, row, column, r, g, b, a); }, detail::keep(table, 68, std::move(callback)));
 }
 
 /// Stored rows: a fixed text color; column -1 colors the row; cells override it.
@@ -3243,18 +3336,18 @@ inline void table_set_striped(Rid table, int striped) { Rtable_set_striped(table
 
 inline void table_set_selection_changed_callback(Rid table, RTableEventCallback callback, void* user_data) { Rtable_set_selection_changed_callback(table, callback, user_data); }
 inline void table_set_selection_changed_callback(Rid table, std::function<void(Rid, int)> callback) {
-	Rtable_set_selection_changed_callback(table, [](Rid table, int row, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(table, row); }, detail::keep(table, 67, std::move(callback)));
+	Rtable_set_selection_changed_callback(table, [](Rid table, int row, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(table, row); }, detail::keep(table, 69, std::move(callback)));
 }
 
 /// Called on double click or Enter. This also fires the action of the widget.
 inline void table_set_activated_callback(Rid table, RTableEventCallback callback, void* user_data) { Rtable_set_activated_callback(table, callback, user_data); }
 inline void table_set_activated_callback(Rid table, std::function<void(Rid, int)> callback) {
-	Rtable_set_activated_callback(table, [](Rid table, int row, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(table, row); }, detail::keep(table, 68, std::move(callback)));
+	Rtable_set_activated_callback(table, [](Rid table, int row, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(table, row); }, detail::keep(table, 70, std::move(callback)));
 }
 
 inline void table_set_sort_callback(Rid table, RTableSortCallback callback, void* user_data) { Rtable_set_sort_callback(table, callback, user_data); }
 inline void table_set_sort_callback(Rid table, std::function<void(Rid, int, int)> callback) {
-	Rtable_set_sort_callback(table, [](Rid table, int column, int descending, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int)>*>(kept_))(table, column, descending); }, detail::keep(table, 69, std::move(callback)));
+	Rtable_set_sort_callback(table, [](Rid table, int column, int descending, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int)>*>(kept_))(table, column, descending); }, detail::keep(table, 71, std::move(callback)));
 }
 
 /// Sets the date (today when the picker is created). An invalid date is refused.
@@ -3283,7 +3376,7 @@ inline int date_picker_is_open(Rid date_picker) { return Rdate_picker_is_open(da
 
 inline void date_picker_set_changed_callback(Rid date_picker, RDateChangedCallback callback, void* user_data) { Rdate_picker_set_changed_callback(date_picker, callback, user_data); }
 inline void date_picker_set_changed_callback(Rid date_picker, std::function<void(Rid, int, int, int)> callback) {
-	Rdate_picker_set_changed_callback(date_picker, [](Rid date_picker, int year, int month, int day, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(date_picker, year, month, day); }, detail::keep(date_picker, 70, std::move(callback)));
+	Rdate_picker_set_changed_callback(date_picker, [](Rid date_picker, int year, int month, int day, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(date_picker, year, month, day); }, detail::keep(date_picker, 72, std::move(callback)));
 }
 
 inline void time_picker_set_time(Rid time_picker, int hour, int minute, int second) { Rtime_picker_set_time(time_picker, hour, minute, second); }
@@ -3297,7 +3390,7 @@ inline void time_picker_set_minute_step(Rid time_picker, int step) { Rtime_picke
 
 inline void time_picker_set_changed_callback(Rid time_picker, RTimeChangedCallback callback, void* user_data) { Rtime_picker_set_changed_callback(time_picker, callback, user_data); }
 inline void time_picker_set_changed_callback(Rid time_picker, std::function<void(Rid, int, int, int)> callback) {
-	Rtime_picker_set_changed_callback(time_picker, [](Rid time_picker, int hour, int minute, int second, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(time_picker, hour, minute, second); }, detail::keep(time_picker, 71, std::move(callback)));
+	Rtime_picker_set_changed_callback(time_picker, [](Rid time_picker, int hour, int minute, int second, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(time_picker, hour, minute, second); }, detail::keep(time_picker, 73, std::move(callback)));
 }
 
 /// Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
@@ -3335,7 +3428,7 @@ inline void toast_set_action_text(Rid toast, const char* text) { Rtoast_set_acti
 
 inline void toast_set_action_callback(Rid toast, RToastCallback callback, void* user_data) { Rtoast_set_action_callback(toast, callback, user_data); }
 inline void toast_set_action_callback(Rid toast, std::function<void(Rid)> callback) {
-	Rtoast_set_action_callback(toast, [](Rid toast, void* kept_) -> void { return (*static_cast<std::function<void(Rid)>*>(kept_))(toast); }, detail::keep(toast, 72, std::move(callback)));
+	Rtoast_set_action_callback(toast, [](Rid toast, void* kept_) -> void { return (*static_cast<std::function<void(Rid)>*>(kept_))(toast); }, detail::keep(toast, 74, std::move(callback)));
 }
 
 /// Replaces the items: their texts separated by '|'.
@@ -3353,7 +3446,7 @@ inline const char* breadcrumb_get_item_text(Rid breadcrumb, int index) { return 
 
 inline void breadcrumb_set_clicked_callback(Rid breadcrumb, RBreadcrumbCallback callback, void* user_data) { Rbreadcrumb_set_clicked_callback(breadcrumb, callback, user_data); }
 inline void breadcrumb_set_clicked_callback(Rid breadcrumb, std::function<void(Rid, int)> callback) {
-	Rbreadcrumb_set_clicked_callback(breadcrumb, [](Rid breadcrumb, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(breadcrumb, index); }, detail::keep(breadcrumb, 73, std::move(callback)));
+	Rbreadcrumb_set_clicked_callback(breadcrumb, [](Rid breadcrumb, int index, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(breadcrumb, index); }, detail::keep(breadcrumb, 75, std::move(callback)));
 }
 
 /// The score, from 0 to the number of stars.
@@ -3377,7 +3470,7 @@ inline void rating_set_star_size(Rid rating, float size) { Rrating_set_star_size
 
 inline void rating_set_changed_callback(Rid rating, RRatingChangedCallback callback, void* user_data) { Rrating_set_changed_callback(rating, callback, user_data); }
 inline void rating_set_changed_callback(Rid rating, std::function<void(Rid, float)> callback) {
-	Rrating_set_changed_callback(rating, [](Rid rating, float value, void* kept_) -> void { return (*static_cast<std::function<void(Rid, float)>*>(kept_))(rating, value); }, detail::keep(rating, 74, std::move(callback)));
+	Rrating_set_changed_callback(rating, [](Rid rating, float value, void* kept_) -> void { return (*static_cast<std::function<void(Rid, float)>*>(kept_))(rating, value); }, detail::keep(rating, 76, std::move(callback)));
 }
 
 inline void pagination_set_page_count(Rid pagination, int count) { Rpagination_set_page_count(pagination, count); }
@@ -3393,7 +3486,7 @@ inline void pagination_set_siblings(Rid pagination, int siblings) { Rpagination_
 
 inline void pagination_set_changed_callback(Rid pagination, RPageChangedCallback callback, void* user_data) { Rpagination_set_changed_callback(pagination, callback, user_data); }
 inline void pagination_set_changed_callback(Rid pagination, std::function<void(Rid, int)> callback) {
-	Rpagination_set_changed_callback(pagination, [](Rid pagination, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(pagination, page); }, detail::keep(pagination, 75, std::move(callback)));
+	Rpagination_set_changed_callback(pagination, [](Rid pagination, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(pagination, page); }, detail::keep(pagination, 77, std::move(callback)));
 }
 
 inline void plot_set_title(Rid plot, const char* title) { Rplot_set_title(plot, title); }
@@ -3541,17 +3634,17 @@ inline void plot_set_drag_line_color(Rid plot, int line, float r, float g, float
 
 inline void plot_set_view_changed_callback(Rid plot, RPlotViewCallback callback, void* user_data) { Rplot_set_view_changed_callback(plot, callback, user_data); }
 inline void plot_set_view_changed_callback(Rid plot, std::function<void(Rid)> callback) {
-	Rplot_set_view_changed_callback(plot, [](Rid plot, void* kept_) -> void { return (*static_cast<std::function<void(Rid)>*>(kept_))(plot); }, detail::keep(plot, 76, std::move(callback)));
+	Rplot_set_view_changed_callback(plot, [](Rid plot, void* kept_) -> void { return (*static_cast<std::function<void(Rid)>*>(kept_))(plot); }, detail::keep(plot, 78, std::move(callback)));
 }
 
 inline void plot_set_drag_line_callback(Rid plot, RPlotDragLineCallback callback, void* user_data) { Rplot_set_drag_line_callback(plot, callback, user_data); }
 inline void plot_set_drag_line_callback(Rid plot, std::function<void(Rid, int, double)> callback) {
-	Rplot_set_drag_line_callback(plot, [](Rid plot, int line, double value, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, double)>*>(kept_))(plot, line, value); }, detail::keep(plot, 77, std::move(callback)));
+	Rplot_set_drag_line_callback(plot, [](Rid plot, int line, double value, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, double)>*>(kept_))(plot, line, value); }, detail::keep(plot, 79, std::move(callback)));
 }
 
 inline void plot_set_series_toggled_callback(Rid plot, RPlotSeriesCallback callback, void* user_data) { Rplot_set_series_toggled_callback(plot, callback, user_data); }
 inline void plot_set_series_toggled_callback(Rid plot, std::function<void(Rid, int, int)> callback) {
-	Rplot_set_series_toggled_callback(plot, [](Rid plot, int series, int visible, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int)>*>(kept_))(plot, series, visible); }, detail::keep(plot, 78, std::move(callback)));
+	Rplot_set_series_toggled_callback(plot, [](Rid plot, int series, int visible, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int)>*>(kept_))(plot, series, visible); }, detail::keep(plot, 80, std::move(callback)));
 }
 
 /// A chart of a kind (Rwidget_create(R_WIDGET_CHART) makes a pie).
@@ -3620,7 +3713,7 @@ inline void chart_set_center_text(Rid chart, const char* text, const char* capti
 
 inline void chart_set_slice_clicked_callback(Rid chart, RChartSliceCallback callback, void* user_data) { Rchart_set_slice_clicked_callback(chart, callback, user_data); }
 inline void chart_set_slice_clicked_callback(Rid chart, std::function<void(Rid, int, int)> callback) {
-	Rchart_set_slice_clicked_callback(chart, [](Rid chart, int slice, int selected, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int)>*>(kept_))(chart, slice, selected); }, detail::keep(chart, 79, std::move(callback)));
+	Rchart_set_slice_clicked_callback(chart, [](Rid chart, int slice, int selected, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int)>*>(kept_))(chart, slice, selected); }, detail::keep(chart, 81, std::move(callback)));
 }
 
 /// The range of a gauge (default 0 to 100), and a fixed range for the
@@ -3673,7 +3766,7 @@ inline void chart_set_color_scale(Rid chart, float low_r, float low_g, float low
 
 inline void chart_set_cell_clicked_callback(Rid chart, RChartCellCallback callback, void* user_data) { Rchart_set_cell_clicked_callback(chart, callback, user_data); }
 inline void chart_set_cell_clicked_callback(Rid chart, std::function<void(Rid, int, int, float)> callback) {
-	Rchart_set_cell_clicked_callback(chart, [](Rid chart, int row, int column, float value, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, float)>*>(kept_))(chart, row, column, value); }, detail::keep(chart, 80, std::move(callback)));
+	Rchart_set_cell_clicked_callback(chart, [](Rid chart, int row, int column, float value, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, float)>*>(kept_))(chart, row, column, value); }, detail::keep(chart, 82, std::move(callback)));
 }
 
 /// The values of a sparkline, copied. NaN leaves a gap.
@@ -3738,7 +3831,7 @@ inline const char* pdf_view_get_page_text(Rid view, int page) { return Rpdf_view
 
 inline void pdf_view_set_page_changed_callback(Rid view, RPdfPageChangedCallback callback, void* user_data) { Rpdf_view_set_page_changed_callback(view, callback, user_data); }
 inline void pdf_view_set_page_changed_callback(Rid view, std::function<void(Rid, int)> callback) {
-	Rpdf_view_set_page_changed_callback(view, [](Rid view, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(view, page); }, detail::keep(view, 81, std::move(callback)));
+	Rpdf_view_set_page_changed_callback(view, [](Rid view, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(view, page); }, detail::keep(view, 83, std::move(callback)));
 }
 
 inline Rid carousel_create() { return Rcarousel_create(); }
@@ -3789,7 +3882,7 @@ inline ROrientation carousel_get_orientation(Rid carousel) { return Rcarousel_ge
 
 inline void carousel_set_page_changed_callback(Rid carousel, RCarouselPageChangedCallback callback, void* user_data) { Rcarousel_set_page_changed_callback(carousel, callback, user_data); }
 inline void carousel_set_page_changed_callback(Rid carousel, std::function<void(Rid, int)> callback) {
-	Rcarousel_set_page_changed_callback(carousel, [](Rid carousel, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(carousel, page); }, detail::keep(carousel, 82, std::move(callback)));
+	Rcarousel_set_page_changed_callback(carousel, [](Rid carousel, int page, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(carousel, page); }, detail::keep(carousel, 84, std::move(callback)));
 }
 
 /// Prints the document shown (see Rpdf_print); the job is named after its title.
@@ -3827,13 +3920,13 @@ inline void map_view_latlon_to_screen(Rid map, double latitude, double longitude
 /// at once or later. Setting it forgets the tiles of the previous source.
 inline void map_view_set_tile_callback(Rid map, RMapTileCallback callback, void* user_data) { Rmap_view_set_tile_callback(map, callback, user_data); }
 inline void map_view_set_tile_callback(Rid map, std::function<void(Rid, int, int, int)> callback) {
-	Rmap_view_set_tile_callback(map, [](Rid map, int z, int x, int y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(map, z, x, y); }, detail::keep(map, 83, std::move(callback)));
+	Rmap_view_set_tile_callback(map, [](Rid map, int z, int x, int y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(map, z, x, y); }, detail::keep(map, 85, std::move(callback)));
 }
 
 /// Called when a tile asked for and not answered yet is no longer wanted (the user went elsewhere). Optional.
 inline void map_view_set_tile_cancel_callback(Rid map, RMapTileCallback callback, void* user_data) { Rmap_view_set_tile_cancel_callback(map, callback, user_data); }
 inline void map_view_set_tile_cancel_callback(Rid map, std::function<void(Rid, int, int, int)> callback) {
-	Rmap_view_set_tile_cancel_callback(map, [](Rid map, int z, int x, int y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(map, z, x, y); }, detail::keep(map, 84, std::move(callback)));
+	Rmap_view_set_tile_cancel_callback(map, [](Rid map, int z, int x, int y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, int, int)>*>(kept_))(map, z, x, y); }, detail::keep(map, 86, std::move(callback)));
 }
 
 /// The pixels of a tile: `width` x `height` RGBA8, tightly packed
@@ -3890,12 +3983,12 @@ inline void map_view_set_marker_color(Rid map, int marker, float r, float g, flo
 
 inline void map_view_set_marker_clicked_callback(Rid map, RMapMarkerCallback callback, void* user_data) { Rmap_view_set_marker_clicked_callback(map, callback, user_data); }
 inline void map_view_set_marker_clicked_callback(Rid map, std::function<void(Rid, int)> callback) {
-	Rmap_view_set_marker_clicked_callback(map, [](Rid map, int marker, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(map, marker); }, detail::keep(map, 85, std::move(callback)));
+	Rmap_view_set_marker_clicked_callback(map, [](Rid map, int marker, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(map, marker); }, detail::keep(map, 87, std::move(callback)));
 }
 
 inline void map_view_set_view_changed_callback(Rid map, RMapViewCallback callback, void* user_data) { Rmap_view_set_view_changed_callback(map, callback, user_data); }
 inline void map_view_set_view_changed_callback(Rid map, std::function<void(Rid, double, double, double)> callback) {
-	Rmap_view_set_view_changed_callback(map, [](Rid map, double latitude, double longitude, double zoom, void* kept_) -> void { return (*static_cast<std::function<void(Rid, double, double, double)>*>(kept_))(map, latitude, longitude, zoom); }, detail::keep(map, 86, std::move(callback)));
+	Rmap_view_set_view_changed_callback(map, [](Rid map, double latitude, double longitude, double zoom, void* kept_) -> void { return (*static_cast<std::function<void(Rid, double, double, double)>*>(kept_))(map, latitude, longitude, zoom); }, detail::keep(map, 88, std::move(callback)));
 }
 
 /// A line written in the bottom right corner: the credit most tile
@@ -4068,7 +4161,7 @@ inline void tray_set_menu(Rid tray, Rid menu) { Rtray_set_menu(tray, menu); }
 /// opens it instead.
 inline void tray_set_clicked_callback(Rid tray, RTrayClickedCallback callback, void* user_data) { Rtray_set_clicked_callback(tray, callback, user_data); }
 inline void tray_set_clicked_callback(Rid tray, std::function<void(Rid, RMouseButton)> callback) {
-	Rtray_set_clicked_callback(tray, [](Rid tray, RMouseButton button, void* kept_) -> void { return (*static_cast<std::function<void(Rid, RMouseButton)>*>(kept_))(tray, button); }, detail::keep(tray, 87, std::move(callback)));
+	Rtray_set_clicked_callback(tray, [](Rid tray, RMouseButton button, void* kept_) -> void { return (*static_cast<std::function<void(Rid, RMouseButton)>*>(kept_))(tray, button); }, detail::keep(tray, 89, std::move(callback)));
 }
 
 /// A short text shown beside the icon (macOS menu bar), drawn by the
@@ -4128,7 +4221,7 @@ inline void color_picker_set_compact(Rid picker, int compact) { Rcolor_picker_se
 
 inline void color_picker_set_changed_callback(Rid picker, RColorChangedCallback callback, void* user_data) { Rcolor_picker_set_changed_callback(picker, callback, user_data); }
 inline void color_picker_set_changed_callback(Rid picker, std::function<void(Rid, float, float, float, float)> callback) {
-	Rcolor_picker_set_changed_callback(picker, [](Rid picker, float r, float g, float b, float a, void* kept_) -> void { return (*static_cast<std::function<void(Rid, float, float, float, float)>*>(kept_))(picker, r, g, b, a); }, detail::keep(picker, 88, std::move(callback)));
+	Rcolor_picker_set_changed_callback(picker, [](Rid picker, float r, float g, float b, float a, void* kept_) -> void { return (*static_cast<std::function<void(Rid, float, float, float, float)>*>(kept_))(picker, r, g, b, a); }, detail::keep(picker, 90, std::move(callback)));
 }
 
 /// Red, green, blue (0..1) to hue (0..360), saturation, value (0..1).
@@ -4287,7 +4380,7 @@ inline int timeline_get_selected(Rid timeline, int index) { return Rtimeline_get
 
 inline void timeline_set_time_callback(Rid timeline, RTimelineTimeCallback callback, void* user_data) { Rtimeline_set_time_callback(timeline, callback, user_data); }
 inline void timeline_set_time_callback(Rid timeline, std::function<void(Rid, double)> callback) {
-	Rtimeline_set_time_callback(timeline, [](Rid timeline, double seconds, void* kept_) -> void { return (*static_cast<std::function<void(Rid, double)>*>(kept_))(timeline, seconds); }, detail::keep(timeline, 89, std::move(callback)));
+	Rtimeline_set_time_callback(timeline, [](Rid timeline, double seconds, void* kept_) -> void { return (*static_cast<std::function<void(Rid, double)>*>(kept_))(timeline, seconds); }, detail::keep(timeline, 91, std::move(callback)));
 }
 
 /// Called for each item the user moved, stretched or retimed, as
@@ -4295,19 +4388,19 @@ inline void timeline_set_time_callback(Rid timeline, std::function<void(Rid, dou
 /// per gesture, when the button is released.
 inline void timeline_set_changed_callback(Rid timeline, RTimelineItemCallback callback, void* user_data) { Rtimeline_set_changed_callback(timeline, callback, user_data); }
 inline void timeline_set_changed_callback(Rid timeline, std::function<void(Rid, int)> callback) {
-	Rtimeline_set_changed_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 90, std::move(callback)));
+	Rtimeline_set_changed_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 92, std::move(callback)));
 }
 
 /// Called when the selection changed; `item` is the item just clicked, or 0.
 inline void timeline_set_selection_callback(Rid timeline, RTimelineItemCallback callback, void* user_data) { Rtimeline_set_selection_callback(timeline, callback, user_data); }
 inline void timeline_set_selection_callback(Rid timeline, std::function<void(Rid, int)> callback) {
-	Rtimeline_set_selection_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 91, std::move(callback)));
+	Rtimeline_set_selection_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 93, std::move(callback)));
 }
 
 /// Called when an item is double-clicked.
 inline void timeline_set_activated_callback(Rid timeline, RTimelineItemCallback callback, void* user_data) { Rtimeline_set_activated_callback(timeline, callback, user_data); }
 inline void timeline_set_activated_callback(Rid timeline, std::function<void(Rid, int)> callback) {
-	Rtimeline_set_activated_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 92, std::move(callback)));
+	Rtimeline_set_activated_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 94, std::move(callback)));
 }
 
 /// Called when the user deletes an item (the Delete key), before
@@ -4315,7 +4408,7 @@ inline void timeline_set_activated_callback(Rid timeline, std::function<void(Rid
 /// Delete key does nothing: the application decides what can be deleted.
 inline void timeline_set_removed_callback(Rid timeline, RTimelineItemCallback callback, void* user_data) { Rtimeline_set_removed_callback(timeline, callback, user_data); }
 inline void timeline_set_removed_callback(Rid timeline, std::function<void(Rid, int)> callback) {
-	Rtimeline_set_removed_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 93, std::move(callback)));
+	Rtimeline_set_removed_callback(timeline, [](Rid timeline, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(timeline, item); }, detail::keep(timeline, 95, std::move(callback)));
 }
 
 inline Rid node_graph_create() { return Rnode_graph_create(); }
@@ -4476,30 +4569,30 @@ inline int node_graph_get_selected_node(Rid graph, int index) { return Rnode_gra
 
 inline void node_graph_set_connect_callback(Rid graph, RNodeGraphConnectCallback callback, void* user_data) { Rnode_graph_set_connect_callback(graph, callback, user_data); }
 inline void node_graph_set_connect_callback(Rid graph, std::function<int(Rid, int, int)> callback) {
-	Rnode_graph_set_connect_callback(graph, [](Rid graph, int output_pin, int input_pin, void* kept_) -> int { return (*static_cast<std::function<int(Rid, int, int)>*>(kept_))(graph, output_pin, input_pin); }, detail::keep(graph, 94, std::move(callback)));
+	Rnode_graph_set_connect_callback(graph, [](Rid graph, int output_pin, int input_pin, void* kept_) -> int { return (*static_cast<std::function<int(Rid, int, int)>*>(kept_))(graph, output_pin, input_pin); }, detail::keep(graph, 96, std::move(callback)));
 }
 
 /// Called after the user made a link, and before a link the user removed goes (its pins can still be read).
 inline void node_graph_set_linked_callback(Rid graph, RNodeGraphItemCallback callback, void* user_data) { Rnode_graph_set_linked_callback(graph, callback, user_data); }
 inline void node_graph_set_linked_callback(Rid graph, std::function<void(Rid, int)> callback) {
-	Rnode_graph_set_linked_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 95, std::move(callback)));
+	Rnode_graph_set_linked_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 97, std::move(callback)));
 }
 
 inline void node_graph_set_unlinked_callback(Rid graph, RNodeGraphItemCallback callback, void* user_data) { Rnode_graph_set_unlinked_callback(graph, callback, user_data); }
 inline void node_graph_set_unlinked_callback(Rid graph, std::function<void(Rid, int)> callback) {
-	Rnode_graph_set_unlinked_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 96, std::move(callback)));
+	Rnode_graph_set_unlinked_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 98, std::move(callback)));
 }
 
 /// Called for each node the user moved, when the button is released.
 inline void node_graph_set_moved_callback(Rid graph, RNodeGraphItemCallback callback, void* user_data) { Rnode_graph_set_moved_callback(graph, callback, user_data); }
 inline void node_graph_set_moved_callback(Rid graph, std::function<void(Rid, int)> callback) {
-	Rnode_graph_set_moved_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 97, std::move(callback)));
+	Rnode_graph_set_moved_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 99, std::move(callback)));
 }
 
 /// Called when the selection changed; `item` is the node just clicked, or 0.
 inline void node_graph_set_selection_callback(Rid graph, RNodeGraphItemCallback callback, void* user_data) { Rnode_graph_set_selection_callback(graph, callback, user_data); }
 inline void node_graph_set_selection_callback(Rid graph, std::function<void(Rid, int)> callback) {
-	Rnode_graph_set_selection_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 98, std::move(callback)));
+	Rnode_graph_set_selection_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 100, std::move(callback)));
 }
 
 /// Called when the user deletes a node (the Delete key), before
@@ -4507,25 +4600,25 @@ inline void node_graph_set_selection_callback(Rid graph, std::function<void(Rid,
 /// links: the application decides whether nodes can be deleted.
 inline void node_graph_set_removed_callback(Rid graph, RNodeGraphItemCallback callback, void* user_data) { Rnode_graph_set_removed_callback(graph, callback, user_data); }
 inline void node_graph_set_removed_callback(Rid graph, std::function<void(Rid, int)> callback) {
-	Rnode_graph_set_removed_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 99, std::move(callback)));
+	Rnode_graph_set_removed_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 101, std::move(callback)));
 }
 
 /// Called when the user double-clicks a node (to open what it stands for).
 inline void node_graph_set_activated_callback(Rid graph, RNodeGraphItemCallback callback, void* user_data) { Rnode_graph_set_activated_callback(graph, callback, user_data); }
 inline void node_graph_set_activated_callback(Rid graph, std::function<void(Rid, int)> callback) {
-	Rnode_graph_set_activated_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 100, std::move(callback)));
+	Rnode_graph_set_activated_callback(graph, [](Rid graph, int item, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(graph, item); }, detail::keep(graph, 102, std::move(callback)));
 }
 
 inline void node_graph_set_context_callback(Rid graph, RNodeGraphContextCallback callback, void* user_data) { Rnode_graph_set_context_callback(graph, callback, user_data); }
 inline void node_graph_set_context_callback(Rid graph, std::function<void(Rid, int, float, float)> callback) {
-	Rnode_graph_set_context_callback(graph, [](Rid graph, int node, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, node, x, y); }, detail::keep(graph, 101, std::move(callback)));
+	Rnode_graph_set_context_callback(graph, [](Rid graph, int node, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, node, x, y); }, detail::keep(graph, 103, std::move(callback)));
 }
 
 /// Double click on the empty canvas (`item` 0): the application acts
 /// there (a search to add a node...). Without this callback it frames all nodes.
 inline void node_graph_set_canvas_activated_callback(Rid graph, RNodeGraphPointCallback callback, void* user_data) { Rnode_graph_set_canvas_activated_callback(graph, callback, user_data); }
 inline void node_graph_set_canvas_activated_callback(Rid graph, std::function<void(Rid, int, float, float)> callback) {
-	Rnode_graph_set_canvas_activated_callback(graph, [](Rid graph, int item, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, item, x, y); }, detail::keep(graph, 102, std::move(callback)));
+	Rnode_graph_set_canvas_activated_callback(graph, [](Rid graph, int item, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, item, x, y); }, detail::keep(graph, 104, std::move(callback)));
 }
 
 /// A wire the user pulled from a pin was released on nothing: `item` is
@@ -4533,7 +4626,7 @@ inline void node_graph_set_canvas_activated_callback(Rid graph, std::function<vo
 /// wire draws back as usual.
 inline void node_graph_set_wire_dropped_callback(Rid graph, RNodeGraphPointCallback callback, void* user_data) { Rnode_graph_set_wire_dropped_callback(graph, callback, user_data); }
 inline void node_graph_set_wire_dropped_callback(Rid graph, std::function<void(Rid, int, float, float)> callback) {
-	Rnode_graph_set_wire_dropped_callback(graph, [](Rid graph, int item, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, item, x, y); }, detail::keep(graph, 103, std::move(callback)));
+	Rnode_graph_set_wire_dropped_callback(graph, [](Rid graph, int item, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, item, x, y); }, detail::keep(graph, 105, std::move(callback)));
 }
 
 /// A pin was clicked, not dragged (`item` is the pin, x, y on the canvas):
@@ -4542,7 +4635,7 @@ inline void node_graph_set_wire_dropped_callback(Rid graph, std::function<void(R
 /// of an input nor counts as a wire dropped on nothing.
 inline void node_graph_set_pin_clicked_callback(Rid graph, RNodeGraphPointCallback callback, void* user_data) { Rnode_graph_set_pin_clicked_callback(graph, callback, user_data); }
 inline void node_graph_set_pin_clicked_callback(Rid graph, std::function<void(Rid, int, float, float)> callback) {
-	Rnode_graph_set_pin_clicked_callback(graph, [](Rid graph, int item, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, item, x, y); }, detail::keep(graph, 104, std::move(callback)));
+	Rnode_graph_set_pin_clicked_callback(graph, [](Rid graph, int item, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(graph, item, x, y); }, detail::keep(graph, 106, std::move(callback)));
 }
 
 /// The node under a point of the widget (x, y as in the events: Rnode_graph_to_canvas), or 0.
@@ -4675,17 +4768,17 @@ inline int block_editor_load(Rid editor, const char* text) { return Rblock_edito
 
 inline void block_editor_set_changed_callback(Rid editor, RBlockEditorCallback callback, void* user_data) { Rblock_editor_set_changed_callback(editor, callback, user_data); }
 inline void block_editor_set_changed_callback(Rid editor, std::function<void(Rid, int)> callback) {
-	Rblock_editor_set_changed_callback(editor, [](Rid editor, int block, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(editor, block); }, detail::keep(editor, 105, std::move(callback)));
+	Rblock_editor_set_changed_callback(editor, [](Rid editor, int block, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(editor, block); }, detail::keep(editor, 107, std::move(callback)));
 }
 
 inline void block_editor_set_clicked_callback(Rid editor, RBlockEditorCallback callback, void* user_data) { Rblock_editor_set_clicked_callback(editor, callback, user_data); }
 inline void block_editor_set_clicked_callback(Rid editor, std::function<void(Rid, int)> callback) {
-	Rblock_editor_set_clicked_callback(editor, [](Rid editor, int block, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(editor, block); }, detail::keep(editor, 106, std::move(callback)));
+	Rblock_editor_set_clicked_callback(editor, [](Rid editor, int block, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(editor, block); }, detail::keep(editor, 108, std::move(callback)));
 }
 
 inline void block_editor_set_context_callback(Rid editor, RBlockEditorContextCallback callback, void* user_data) { Rblock_editor_set_context_callback(editor, callback, user_data); }
 inline void block_editor_set_context_callback(Rid editor, std::function<void(Rid, int, float, float)> callback) {
-	Rblock_editor_set_context_callback(editor, [](Rid editor, int block, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(editor, block, x, y); }, detail::keep(editor, 107, std::move(callback)));
+	Rblock_editor_set_context_callback(editor, [](Rid editor, int block, float x, float y, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int, float, float)>*>(kept_))(editor, block, x, y); }, detail::keep(editor, 109, std::move(callback)));
 }
 
 /// The choices of a %m slot of a kind, separated by '\n' ("" : the slot is typed in).
@@ -4719,7 +4812,7 @@ inline void block_editor_set_view(Rid editor, float x, float y, float zoom) { Rb
 /// The Escape key dismisses the dialog (result 0).
 inline void dialog_open(Rid window, Rid content, RDialogClosedCallback closed, void* user_data) { Rdialog_open(window, content, closed, user_data); }
 inline void dialog_open(Rid window, Rid content, std::function<void(Rid, int)> closed) {
-	Rdialog_open(window, content, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 108, std::move(closed)));
+	Rdialog_open(window, content, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 110, std::move(closed)));
 }
 
 /// Closes the dialog that contains a widget (the content itself or
@@ -4739,7 +4832,7 @@ inline int dialog_run(Rid window, Rid content) { return Rdialog_run(window, cont
 /// The content draws its own background (a Border with a Background...).
 inline void popup_open(Rid window, Rid content, float x, float y, RDialogClosedCallback closed, void* user_data) { Rpopup_open(window, content, x, y, closed, user_data); }
 inline void popup_open(Rid window, Rid content, float x, float y, std::function<void(Rid, int)> closed) {
-	Rpopup_open(window, content, x, y, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 109, std::move(closed)));
+	Rpopup_open(window, content, x, y, [](Rid content, int result, void* kept_) -> void { return (*static_cast<std::function<void(Rid, int)>*>(kept_))(content, result); }, detail::keep(window, 111, std::move(closed)));
 }
 
 /// Closes the popup that contains a widget (the content or anything inside it).
@@ -4805,7 +4898,7 @@ inline int notification_is_supported() { return Rnotification_is_supported(); }
 /// Called with the notifications the system could not show; NULL: none.
 inline void notification_set_fallback(RNotificationFallback callback, void* user_data) { Rnotification_set_fallback(callback, user_data); }
 inline void notification_set_fallback(std::function<void(const char*, const char*, RNotificationUrgency)> callback) {
-	Rnotification_set_fallback([](const char* title, const char* body, RNotificationUrgency urgency, void* kept_) -> void { return (*static_cast<std::function<void(const char*, const char*, RNotificationUrgency)>*>(kept_))(title, body, urgency); }, detail::keep(0, 110, std::move(callback)));
+	Rnotification_set_fallback([](const char* title, const char* body, RNotificationUrgency urgency, void* kept_) -> void { return (*static_cast<std::function<void(const char*, const char*, RNotificationUrgency)>*>(kept_))(title, body, urgency); }, detail::keep(0, 112, std::move(callback)));
 }
 
 /// Called when the user clicks a notification of Rnotification_show
@@ -4815,7 +4908,7 @@ inline void notification_set_fallback(std::function<void(const char*, const char
 /// Windows and macOS (elsewhere it is never called).
 inline void notification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data) { Rnotification_set_clicked_callback(callback, user_data); }
 inline void notification_set_clicked_callback(std::function<void()> callback) {
-	Rnotification_set_clicked_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 111, std::move(callback)));
+	Rnotification_set_clicked_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 113, std::move(callback)));
 }
 
 /// Pushes a spring away from its target (units per second): it bounces back.
@@ -4877,7 +4970,7 @@ inline int xml_get_live_reload() { return Rxml_get_live_reload(); }
 
 inline void xml_set_reload_callback(RXmlReloadCallback callback, void* user_data) { Rxml_set_reload_callback(callback, user_data); }
 inline void xml_set_reload_callback(std::function<void(const char*, int)> callback) {
-	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 112, std::move(callback)));
+	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 114, std::move(callback)));
 }
 
 /// Looks at the files now, without waiting for the next look
@@ -4906,7 +4999,7 @@ inline const char* xml_get_registered_widget_name(int index) { return Rxml_get_r
 /// Returns: R_FALSE when the name is the one of a widget of Raven, or when too many tags are registered (64).
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, RXmlTagAttributeCallback set_attribute, void* user_data) { return Rxml_register_tag(tag, create, set_attribute, user_data); }
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, std::function<int(Rid, const char*, const char*)> set_attribute) {
-	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 113, std::move(set_attribute)));
+	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 115, std::move(set_attribute)));
 }
 
 inline void xml_unregister_tag(const char* tag) { Rxml_unregister_tag(tag); }
@@ -4988,12 +5081,12 @@ inline void script_set_limits(Ruint max_instructions, int max_depth, size_t max_
 
 inline void script_set_log_callback(RScriptLogCallback callback, void* user_data) { Rscript_set_log_callback(callback, user_data); }
 inline void script_set_log_callback(std::function<void(const char*)> callback) {
-	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 114, std::move(callback)));
+	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 116, std::move(callback)));
 }
 
 inline void script_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data) { Rscript_set_diagnostic_callback(callback, user_data); }
 inline void script_set_diagnostic_callback(std::function<void(RSeverity, const char*, const char*, int, int, const char*)> callback) {
-	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 115, std::move(callback)));
+	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 117, std::move(callback)));
 }
 
 /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
@@ -5035,7 +5128,7 @@ inline int locale_is_rtl() { return Rlocale_is_rtl(); }
 /// Called after the language or the tables changed (the widgets are already updated).
 inline void locale_set_changed_callback(RLocaleChangedCallback callback, void* user_data) { Rlocale_set_changed_callback(callback, user_data); }
 inline void locale_set_changed_callback(std::function<void(const char*)> callback) {
-	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 116, std::move(callback)));
+	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 118, std::move(callback)));
 }
 
 /// The text of a key in the current language (see the fallbacks above). Never NULL.

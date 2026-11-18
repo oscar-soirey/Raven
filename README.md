@@ -223,7 +223,8 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
 - **What a tool needs**: a multi-line **text editor** with languages (colors,
   proposals, brackets, indentation), a **header bar** that replaces the title
   bar of the system, **docking**, the **file dialogs** of the system and a
-  file browser widget, **drag and drop** from other applications.
+  file browser widget, **drag and drop** from and to other applications,
+  pictures and formats of the application on the **clipboard**.
 - **Materials.** Solid, or three kinds of **glass** (clear, frosted, tinted)
   that blur and bend what is behind them, for one widget or for everything;
   panels that only **blur** what is behind; windows that are **seen through**,
@@ -657,6 +658,7 @@ The build trees are in `build\dist\`.
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
 | `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
+| `examples/transfer` | swatches dragged out of the window (a picture into a document, a PNG file into the Finder or the Explorer), copied and pasted as pictures, a name copied as HTML, text and a format of the application |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -977,8 +979,38 @@ static int on_drop(Rid target, const RDropEvent* event, void* user) {
 Rwindow_set_drop_callback(window, on_drop, NULL);     /* or Rwidget_set_drop_callback for one widget */
 ```
 
-Files and text dragged from other applications. Dragging *out* of a Raven
-window to another application is not implemented.
+Files and text dragged from other applications.
+
+Data goes the other way too, to the other applications: dragged out of a
+window (macOS and Windows) or put on the clipboard. It is one content in
+several formats, each named by a MIME type (`RDataItem`); the program that
+receives it takes the one it prefers, and Raven gives each format its native
+name and conversion on each system (`text/plain`, `text/html`, `image/png`,
+`text/uri-list` for files; any other name is a format of the application):
+
+```c
+/* from a widget's mouse move, the button held: the system takes the drag */
+RDataItem items[] = {
+    { "image/png",     png, png_size },                 /* a picture: documents, mail, image editors */
+    { "text/uri-list", "file:///tmp/photo.png\r\n", 23 }, /* the file: the Finder, the Explorer      */
+};
+Rdrag_begin_external(source, items, 2, R_DRAG_OPERATION_COPY, on_finished, NULL);
+Rdrag_set_image(rgba, 96, 96);                          /* what follows the pointer (optional)        */
+
+Rclipboard_set_image(rgba, width, height, 0);           /* goes as PNG (and TIFF, or a bitmap)        */
+uint8_t* pasted = Rclipboard_get_image(&width, &height); /* from PNG, TIFF, a bitmap...: Rpixels_free */
+Rclipboard_set_data(items, count);                      /* Rclipboard_has_data, Rclipboard_get_data   */
+```
+
+`on_finished` is told what the target did (`R_DRAG_OPERATION_COPY`, `MOVE`,
+`LINK`, or `NONE`). Called while a drag inside the application (`Rdrag_begin`)
+is in progress, `Rdrag_begin_external` lets that drag leave the window: it
+stays with the drop targets of the window and becomes a drag of the system
+when the pointer leaves it. A `TileView` does both for its tiles with
+`Rtile_view_set_drag_out_callback`. `Rimage_encode_png` writes the PNG files.
+The clipboard takes these formats on macOS, Windows and in headless runs
+(where it is kept in the process); X11 and Wayland keep text and HTML for now,
+and dragging out is not there yet (`Rdrag_external_supported`).
 
 During `R_DROP_ENTER` or `R_DROP_MOVE`, call
 `Rdrop_set_highlight_rect(x, y, width, height)` to highlight an insertion line,
@@ -1847,7 +1879,10 @@ What Raven does not do yet, by area. Contributions are welcome.
   language server client.
 
 **Windows and docking**
-- Dragging from a Raven window to another application.
+- Dragging from a Raven window to another application on X11 and Wayland
+  (macOS and Windows have it); pictures and formats of the application on
+  their clipboards (text and HTML only for now). Files made on demand when
+  dropped (file promises).
 - Glass over a native child window.
 
 **Rendering**

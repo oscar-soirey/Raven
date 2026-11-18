@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
+// 1036 of the 1397 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 329 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (120):
@@ -49,7 +49,7 @@
 //     Rmap_view_get_attribution Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text
 //     Rtest_expect_golden
 //
-//   a callback (105):
+//   a callback (106):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -64,20 +64,20 @@
 //     Rtree_view_set_selection_changed_callback Rtree_view_set_activated_callback
 //     Rtree_view_set_context_callback Rmenu_item_set_clicked_callback Rtile_view_set_items
 //     Rtile_view_set_sections Rtile_view_set_section_toggled_callback Rtile_view_set_drag_data_callback
-//     Rtile_view_set_selection_changed_callback Rtile_view_set_activated_callback
-//     Rtile_view_set_context_callback Rtable_set_virtual_rows Rtable_set_cell_color_callback
-//     Rtable_set_selection_changed_callback Rtable_set_activated_callback Rtable_set_sort_callback
-//     Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback Rtoast_set_action_callback
-//     Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback Rpagination_set_changed_callback
-//     Rplot_set_view_changed_callback Rplot_set_drag_line_callback Rplot_set_series_toggled_callback
-//     Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback Rtext_editor_set_hover_callback
-//     Rtext_editor_set_changed_callback Rdock_area_set_close_callback Rdock_area_set_float_window
-//     Rdock_area_set_changed_callback Risland_set_changed_callback Rtray_set_clicked_callback
-//     Rcolor_picker_set_changed_callback Rtimeline_set_time_callback Rtimeline_set_changed_callback
-//     Rtimeline_set_selection_callback Rtimeline_set_activated_callback Rtimeline_set_removed_callback
-//     Rnode_graph_set_connect_callback Rnode_graph_set_linked_callback Rnode_graph_set_unlinked_callback
-//     Rnode_graph_set_moved_callback Rnode_graph_set_selection_callback Rnode_graph_set_removed_callback
-//     Rnode_graph_set_activated_callback Rnode_graph_set_context_callback
+//     Rtile_view_set_drag_out_callback Rtile_view_set_selection_changed_callback
+//     Rtile_view_set_activated_callback Rtile_view_set_context_callback Rtable_set_virtual_rows
+//     Rtable_set_cell_color_callback Rtable_set_selection_changed_callback Rtable_set_activated_callback
+//     Rtable_set_sort_callback Rdate_picker_set_changed_callback Rtime_picker_set_changed_callback
+//     Rtoast_set_action_callback Rbreadcrumb_set_clicked_callback Rrating_set_changed_callback
+//     Rpagination_set_changed_callback Rplot_set_view_changed_callback Rplot_set_drag_line_callback
+//     Rplot_set_series_toggled_callback Rtext_editor_set_zoom_callback Rtext_editor_set_completion_callback
+//     Rtext_editor_set_hover_callback Rtext_editor_set_changed_callback Rdock_area_set_close_callback
+//     Rdock_area_set_float_window Rdock_area_set_changed_callback Risland_set_changed_callback
+//     Rtray_set_clicked_callback Rcolor_picker_set_changed_callback Rtimeline_set_time_callback
+//     Rtimeline_set_changed_callback Rtimeline_set_selection_callback Rtimeline_set_activated_callback
+//     Rtimeline_set_removed_callback Rnode_graph_set_connect_callback Rnode_graph_set_linked_callback
+//     Rnode_graph_set_unlinked_callback Rnode_graph_set_moved_callback Rnode_graph_set_selection_callback
+//     Rnode_graph_set_removed_callback Rnode_graph_set_activated_callback Rnode_graph_set_context_callback
 //     Rnode_graph_set_canvas_activated_callback Rnode_graph_set_wire_dropped_callback
 //     Rnode_graph_set_pin_clicked_callback Rblock_editor_set_changed_callback
 //     Rblock_editor_set_clicked_callback Rblock_editor_set_context_callback Rdialog_open Rpopup_open
@@ -92,13 +92,13 @@
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
+//   a parameter of type const uint8_t* (10):
+//     Rclipboard_set_image Rwindow_set_icon Rdrag_set_image Rtexture_create_from_pixels Rtexture_update
+//     Rimage_encode_png Rimage_save_png Rpdf_document_draw_image Rtray_set_icon Rtest_compare_pixels
+//
 //   a handle result that is not known (9):
 //     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rchart_create
 //     Rcarousel_create Rmap_view_create Rpdf_document_create Rtest_find
-//
-//   a parameter of type const uint8_t* (8):
-//     Rwindow_set_icon Rtexture_create_from_pixels Rtexture_update Rimage_encode_png Rimage_save_png
-//     Rpdf_document_draw_image Rtray_set_icon Rtest_compare_pixels
 //
 //   a parameter of type const RActionContext* (6):
 //     Raction_get_sender Raction_get_name Raction_get_argument_count Raction_get_number Raction_get_string
@@ -130,6 +130,9 @@
 //   a parameter of type const RPdfPrintDesc* (3):
 //     Rpdf_print Rpdf_print_file Rpdf_document_print
 //
+//   a result of type char* (3):
+//     Rclipboard_get_data Rpdf_document_save_memory Rfile_read
+//
 //   a parameter of type RInsets* (2):
 //     Rwindow_get_safe_area Rwindow_get_keyboard_area
 //
@@ -139,6 +142,9 @@
 //   a parameter of type RSpring* (2):
 //     Rspring_kick Rspring_set
 //
+//   a parameter of type const RDataItem* (2):
+//     Rclipboard_set_data Rdrag_begin_external
+//
 //   a parameter of type const RTouchSettings* (2):
 //     Rtouch_set_settings Rwindow_set_touch_settings
 //
@@ -147,9 +153,6 @@
 //
 //   a parameter of type const double* (2):
 //     Rplot_set_series_data Rplot_append_series_data
-//
-//   a result of type char* (2):
-//     Rpdf_document_save_memory Rfile_read
 //
 //   a parameter of type RAccessibilitySettings* (1):
 //     Raccessibility_get_system_settings
@@ -195,6 +198,9 @@
 //
 //   a result of type const RAllocator* (1):
 //     Rallocator_get_system
+//
+//   a result of type uint8_t* (1):
+//     Rclipboard_get_image
 package raven_odin
 
 import raw "../raven"
@@ -367,8 +373,8 @@ clipboard_set_text :: proc(text: string) {
 // Copies one content in two formats: `html` for the programs that
 // paste formatting (word processors, chat, mail) and `text` for the
 // others (editors, terminals). Each program takes the format it prefers.
-// Where the window system has no clipboard formats (Win32 and macOS for
-// now), or `html` is NULL, it is Rclipboard_set_text(text).
+// Where the window system has no clipboard formats, or `html` is NULL,
+// it is Rclipboard_set_text(text).
 clipboard_set_html :: proc(text: cstring, html: cstring) {
 	raw.Rclipboard_set_html(text, html)
 }
@@ -376,6 +382,17 @@ clipboard_set_html :: proc(text: cstring, html: cstring) {
 // Returns: The clipboard text, or "" when empty. Valid until the next call.
 clipboard_get_text :: proc() -> string {
 	return string(raw.Rclipboard_get_text())
+}
+
+// Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it.
+clipboard_has_data :: proc(mime: string) -> bool {
+	buffer_mime: [cstring_buffer_size]u8
+	return raw.Rclipboard_has_data(to_cstring(mime, &buffer_mime)) != 0
+}
+
+// Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+clipboard_has_image :: proc() -> bool {
+	return raw.Rclipboard_has_image() != 0
 }
 
 error_to_string :: proc(error: Error) -> string {
@@ -720,6 +737,14 @@ window_inject_drag :: proc(window: Window, x: f32, y: f32, inside: bool) -> bool
 	return raw.Rwindow_inject_drag(raw.Rid(window), x, y, (1 if inside else 0)) != 0
 }
 
+// The end of the drag out of the window that the window system
+// holds (Rdrag_begin_external), as it reports it: `operation` is what the
+// target did (an RDragOperation). Returns R_FALSE when no such drag is in
+// progress.
+window_inject_drag_end :: proc(window: Window, operation: Drag_Operation) -> i32 {
+	return raw.Rwindow_inject_drag_end(raw.Rid(window), raw.RDragOperation(operation))
+}
+
 // Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it.
 window_inject_back :: proc(window: Window) -> i32 {
 	return raw.Rwindow_inject_back(raw.Rid(window))
@@ -839,6 +864,16 @@ drag_get_data :: proc(window: Window) -> string {
 // Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
 drag_cancel :: proc(window: Window) {
 	raw.Rdrag_cancel(raw.Rid(window))
+}
+
+// R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external).
+drag_external_supported :: proc() -> i32 {
+	return raw.Rdrag_external_supported()
+}
+
+// R_TRUE from Rdrag_begin_external until its callback was called.
+drag_external_is_active :: proc() -> bool {
+	return raw.Rdrag_external_is_active() != 0
 }
 
 window_register_shortcut :: proc(window: Window, key: Key, modifiers: u32, action: string) {

@@ -7,6 +7,7 @@
 
 #include "../platform.h"
 #include "../../core/thread.h"
+#include "../../core/transfer.h"
 
 /* A tray icon: only what it was given. */
 struct rvn_ptray_t {
@@ -33,7 +34,9 @@ static struct {
 	rvn_mutex_t mutex;
 	rvn_cond_t cond;
 	int woken;
-	char* clipboard;
+	/* the clipboard, kept in the process: its formats as they were given */
+	RDataItem* clipboard;
+	int clipboard_count;
 	/* RAVEN_NULL_SYSTEM_MENU_BAR=1: a menu bar of the system, as macOS has (for the tests of the core) */
 	int system_menu_bar;
 	uint32_t system_menu_count;
@@ -217,12 +220,57 @@ static void rvn_null_wake(void) {
 	rvn_mutex_unlock(&g_null.mutex);
 }
 
+static int rvn_null_clipboard_set_data(const RDataItem* items, int count) {
+	rvn_free(g_null.clipboard);
+	g_null.clipboard = rvn_data_copy(items, count, &g_null.clipboard_count);
+	return R_TRUE;
+}
+
 static void rvn_null_clipboard_set(const char* text) {
-	rvn_str_set(&g_null.clipboard, text);
+	RDataItem item;
+	item.mime = "text/plain";
+	item.data = text ? text : "";
+	item.size = strlen((const char*)item.data);
+	rvn_null_clipboard_set_data(&item, 1);
+}
+
+static void rvn_null_clipboard_set_html(const char* text, const char* html) {
+	RDataItem items[2];
+	items[0].mime = "text/plain";
+	items[0].data = text ? text : "";
+	items[0].size = strlen((const char*)items[0].data);
+	items[1].mime = "text/html";
+	items[1].data = html ? html : "";
+	items[1].size = strlen((const char*)items[1].data);
+	rvn_null_clipboard_set_data(items, 2);
+}
+
+static int rvn_null_clipboard_has_data(const char* mime) {
+	return rvn_data_find(g_null.clipboard, g_null.clipboard_count, mime) != NULL;
+}
+
+static char* rvn_null_clipboard_get_data(const char* mime, size_t* size) {
+	const RDataItem* item = rvn_data_find(g_null.clipboard, g_null.clipboard_count, mime);
+	if (!item) return NULL;
+	if (size) *size = item->size;
+	return rvn_bytes_dup(item->data, item->size);
 }
 
 static char* rvn_null_clipboard_get(void) {
-	return rvn_strdup(g_null.clipboard);
+	const RDataItem* item = rvn_data_find(g_null.clipboard, g_null.clipboard_count, "text/plain");
+	return item ? rvn_bytes_dup(item->data, item->size) : NULL;
+}
+
+/* No pointer to drag with: the drag is only held, until the test tells its end (Rwindow_inject_drag_end). */
+static int rvn_null_drag_begin(rvn_pwindow_t* window, const RDataItem* items, int count, uint32_t operations,
+	const uint8_t* rgba, int width, int height) {
+	RVN_UNUSED(window);
+	RVN_UNUSED(items);
+	RVN_UNUSED(operations);
+	RVN_UNUSED(rgba);
+	RVN_UNUSED(width);
+	RVN_UNUSED(height);
+	return count > 0;
 }
 
 /*
@@ -413,7 +461,12 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.pump = rvn_null_pump,
 		.wake = rvn_null_wake,
 		.clipboard_set = rvn_null_clipboard_set,
+		.clipboard_set_html = rvn_null_clipboard_set_html,
 		.clipboard_get = rvn_null_clipboard_get,
+		.clipboard_set_data = rvn_null_clipboard_set_data,
+		.clipboard_has_data = rvn_null_clipboard_has_data,
+		.clipboard_get_data = rvn_null_clipboard_get_data,
+		.drag_begin = rvn_null_drag_begin,
 		.screen_notch = rvn_null_screen_notch,
 		.overlay_place = rvn_null_overlay_place,
 		.overlay_set_input = rvn_null_overlay_set_input,

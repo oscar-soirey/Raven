@@ -431,6 +431,14 @@ export const RDropPhase = _enum({
 });
 export const { R_DROP_ENTER, R_DROP_MOVE, R_DROP_LEAVE, R_DROP_DROPPED } = RDropPhase;
 
+export const RDragOperation = _enum({
+	R_DRAG_OPERATION_NONE: 0,
+	R_DRAG_OPERATION_COPY: 1,
+	R_DRAG_OPERATION_MOVE: 2,
+	R_DRAG_OPERATION_LINK: 4,
+});
+export const { R_DRAG_OPERATION_NONE, R_DRAG_OPERATION_COPY, R_DRAG_OPERATION_MOVE, R_DRAG_OPERATION_LINK } = RDragOperation;
+
 export const RTouchMode = _enum({
 	R_TOUCH_MODE_AUTO: 1152,
 	R_TOUCH_MODE_SCROLL: 1153,
@@ -1357,6 +1365,40 @@ export class RFrameStats extends RStruct {
 	}
 	set frame_index(value) {
 		this._view.setBigUint64(48, value, true);
+	}
+}
+
+export class RDataItem extends RStruct {
+	static SIZE = 24;
+
+	constructor(pointer) {
+		super(RDataItem.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RDataItem(pointer) : null;
+	}
+
+	get mime() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set mime(value) {
+		this._point("mime", 0, _s(value));
+	}
+
+	get data() {
+		return _address(this._view.getBigUint64(8, true));
+	}
+	set data(value) {
+		this._view.setBigUint64(8, BigInt(value ?? 0), true);
+	}
+
+	get size() {
+		return Number(this._view.getBigUint64(16, true));
+	}
+	set size(value) {
+		this._view.setBigUint64(16, BigInt(value), true);
 	}
 }
 
@@ -3379,6 +3421,14 @@ export const Ropen_url = _lib.Ropen_url;
 export const Rclipboard_set_text = _lib.Rclipboard_set_text;
 export const Rclipboard_set_html = _lib.Rclipboard_set_html;
 export const Rclipboard_get_text = _lib.Rclipboard_get_text;
+export function Rclipboard_set_data(items) {
+	return _lib.Rclipboard_set_data(_structs(items, RDataItem.SIZE), items?.length ?? 0);
+}
+export const Rclipboard_has_data = _lib.Rclipboard_has_data;
+export const Rclipboard_get_data = _lib.Rclipboard_get_data;
+export const Rclipboard_set_image = _lib.Rclipboard_set_image;
+export const Rclipboard_has_image = _lib.Rclipboard_has_image;
+export const Rclipboard_get_image = _lib.Rclipboard_get_image;
 export const Rerror_get_last = _lib.Rerror_get_last;
 export const Rerror_to_string = _lib.Rerror_to_string;
 export const Rseverity_to_string = _lib.Rseverity_to_string;
@@ -3469,6 +3519,7 @@ export const Rwindow_inject_key = _lib.Rwindow_inject_key;
 export const Rwindow_inject_text = _lib.Rwindow_inject_text;
 export const Rwindow_inject_drag = _lib.Rwindow_inject_drag;
 export const Rwindow_inject_drop = _lib.Rwindow_inject_drop;
+export const Rwindow_inject_drag_end = _lib.Rwindow_inject_drag_end;
 export const Rwindow_inject_back = _lib.Rwindow_inject_back;
 export const Rwindow_is_key_down = _lib.Rwindow_is_key_down;
 export const Rwindow_is_mouse_button_down = _lib.Rwindow_is_mouse_button_down;
@@ -3495,6 +3546,12 @@ export const Rdrag_is_active = _lib.Rdrag_is_active;
 export const Rdrag_get_type = _lib.Rdrag_get_type;
 export const Rdrag_get_data = _lib.Rdrag_get_data;
 export const Rdrag_cancel = _lib.Rdrag_cancel;
+export function Rdrag_begin_external(source, items, operations, callback, user_data = null) {
+	return _lib.Rdrag_begin_external(source, _structs(items, RDataItem.SIZE), items?.length ?? 0, operations, callback, user_data);
+}
+export const Rdrag_set_image = _lib.Rdrag_set_image;
+export const Rdrag_external_supported = _lib.Rdrag_external_supported;
+export const Rdrag_external_is_active = _lib.Rdrag_external_is_active;
 export const Rwindow_register_shortcut = _lib.Rwindow_register_shortcut;
 export const Rwindow_unregister_shortcut = _lib.Rwindow_unregister_shortcut;
 export function Rtouch_get_settings(settings) {
@@ -3904,6 +3961,7 @@ export const Rtile_view_get_item_at = _lib.Rtile_view_get_item_at;
 export const Rtile_view_set_drop_highlight = _lib.Rtile_view_set_drop_highlight;
 export const Rtile_view_set_drag_type = _lib.Rtile_view_set_drag_type;
 export const Rtile_view_set_drag_data_callback = _lib.Rtile_view_set_drag_data_callback;
+export const Rtile_view_set_drag_out_callback = _lib.Rtile_view_set_drag_out_callback;
 export const Rtile_view_set_selection_changed_callback = _lib.Rtile_view_set_selection_changed_callback;
 export const Rtile_view_set_activated_callback = _lib.Rtile_view_set_activated_callback;
 export const Rtile_view_set_context_callback = _lib.Rtile_view_set_context_callback;

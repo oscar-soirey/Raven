@@ -431,6 +431,17 @@ const (
 	R_DROP_DROPPED RDropPhase = 0x00E3
 )
 
+// RDragOperation: What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of
+// what is allowed, or the one done.
+type RDragOperation int32
+
+const (
+	R_DRAG_OPERATION_NONE RDragOperation = 0
+	R_DRAG_OPERATION_COPY RDragOperation = 1
+	R_DRAG_OPERATION_MOVE RDragOperation = 2
+	R_DRAG_OPERATION_LINK RDragOperation = 4
+)
+
 // RTouchMode: What a finger does on a widget (Rwidget_set_touch_mode).
 type RTouchMode int32
 
@@ -1459,8 +1470,8 @@ func ClipboardSetText(text string) {
 
 // ClipboardSetHtml: Copies one content in two formats: `html` for the programs that paste formatting (word
 // processors, chat, mail) and `text` for the others (editors, terminals). Each program takes the format it
-// prefers. Where the window system has no clipboard formats (Win32 and macOS for now), or `html` is NULL, it
-// is Rclipboard_set_text(text).
+// prefers. Where the window system has no clipboard formats, or `html` is NULL, it is
+// Rclipboard_set_text(text).
 func ClipboardSetHtml(text string, html string) {
 	text_ := C.CString(text)
 	defer C.free(unsafe.Pointer(text_))
@@ -1472,6 +1483,19 @@ func ClipboardSetHtml(text string, html string) {
 // ClipboardGetText: Returns: The clipboard text, or "" when empty. Valid until the next call.
 func ClipboardGetText() string {
 	return C.GoString(C.Rclipboard_get_text())
+}
+
+// ClipboardHasData: Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven
+// converts to it.
+func ClipboardHasData(mime string) int {
+	mime_ := C.CString(mime)
+	defer C.free(unsafe.Pointer(mime_))
+	return int(C.Rclipboard_has_data(mime_))
+}
+
+// ClipboardHasImage: Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read.
+func ClipboardHasImage() int {
+	return int(C.Rclipboard_has_image())
 }
 
 func ErrorToString(error_ RError) string {
@@ -1838,6 +1862,13 @@ func WindowInjectDrag(window ID, x float32, y float32, inside int) int {
 	return int(C.Rwindow_inject_drag(C.Rid(window), C.float(x), C.float(y), C.int(inside)))
 }
 
+// WindowInjectDragEnd: The end of the drag out of the window that the window system holds
+// (Rdrag_begin_external), as it reports it: `operation` is what the target did (an RDragOperation). Returns
+// R_FALSE when no such drag is in progress.
+func WindowInjectDragEnd(window ID, operation RDragOperation) int {
+	return int(C.Rwindow_inject_drag_end(C.Rid(window), C.RDragOperation(operation)))
+}
+
 // WindowInjectBack: Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something
 // took it.
 func WindowInjectBack(window ID) int {
@@ -1971,6 +2002,17 @@ func DragGetData(window ID) string {
 // DragCancel: Ends the drag in progress without dropping (the target receives R_DROP_LEAVE).
 func DragCancel(window ID) {
 	C.Rdrag_cancel(C.Rid(window))
+}
+
+// DragExternalSupported: R_TRUE when the window system lets Raven drag data out of its windows
+// (Rdrag_begin_external).
+func DragExternalSupported() int {
+	return int(C.Rdrag_external_supported())
+}
+
+// DragExternalIsActive: R_TRUE from Rdrag_begin_external until its callback was called.
+func DragExternalIsActive() int {
+	return int(C.Rdrag_external_is_active())
 }
 
 func WindowRegisterShortcut(window ID, key RKey, modifiers uint32, action string) {
@@ -8061,48 +8103,51 @@ func TestIsChecked(widget ID) int {
 // Rparallel_for, Rtimer_create, Raction_bind, Raction_set_default_handler, Raction_bind_with_parameters
 // Raction_get_sender, Raction_get_name, Raction_get_argument_count, Raction_get_number, Raction_get_string
 // Raction_get_bool, Raction_return_number, Raction_return_string, Raction_return_bool, Raction_fail
-// Rerror_get_last, Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats
-// Rwindow_get_safe_area, Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback
-// Rwindow_set_icon, Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
+// Rclipboard_set_data, Rclipboard_get_data, Rclipboard_set_image, Rclipboard_get_image, Rerror_get_last
+// Rerror_set_callback, Rset_device_reset_callback, Rwindow_get_frame_stats, Rwindow_get_safe_area
+// Rwindow_get_keyboard_area, Rwindow_set_keyboard_callback, Rwindow_set_back_callback, Rwindow_set_icon
+// Rwindow_set_close_callback, Rwindow_set_resize_callback, Rwindow_set_drop_callback
 // Rwindow_set_user_handle, Rwindow_get_user_handle, Rwindow_get_native_handle, Rwindow_capture
-// Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rtouch_get_settings
-// Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings, Rwindow_get_touch_settings
-// Rwidget_set_touch_callback, Rwidget_set_pen_callback, Rwidget_set_gesture_callback
-// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rimage_encode_png
-// Rimage_save_png, Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback
-// Rwidget_set_event_callback, Rwidget_set_drop_callback, Rtab_view_set_changed_callback
-// Rtab_view_set_close_callback, Rexpander_set_changed_callback, Rlabel_set_link_callback
-// Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback, Rslider_set_changed_callback
-// Rtext_input_set_changed_callback, Rtext_input_set_committed_callback, Rspin_box_set_changed_callback
-// Rcombo_box_set_changed_callback, Rlist_view_set_virtual_items, Rlist_view_set_item_color_callback
+// Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rdrag_begin_external
+// Rdrag_set_image, Rtouch_get_settings, Rtouch_set_settings, Rtouch_get_default_settings
+// Rwindow_set_touch_settings, Rwindow_get_touch_settings, Rwidget_set_touch_callback
+// Rwidget_set_pen_callback, Rwidget_set_gesture_callback, Rtexture_create_from_pixels, Rtexture_update
+// Rimage_decode, Rpixels_free, Rimage_encode_png, Rimage_save_png, Rwidget_set_user_handle
+// Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
+// Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
+// Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
+// Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback
+// Rtext_input_set_committed_callback, Rspin_box_set_changed_callback, Rcombo_box_set_changed_callback
+// Rlist_view_set_virtual_items, Rlist_view_set_item_color_callback
 // Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback, Rtree_item_set_user_handle
 // Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
 // Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
 // Rtile_view_set_sections, Rtile_view_set_section_toggled_callback, Rtile_view_set_drag_data_callback
-// Rtile_view_set_selection_changed_callback, Rtile_view_set_activated_callback
-// Rtile_view_set_context_callback, Rtable_set_virtual_rows, Rtable_set_cell_color_callback
-// Rtable_set_selection_changed_callback, Rtable_set_activated_callback, Rtable_set_sort_callback
-// Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback, Rtoast_set_action_callback
-// Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback, Rpagination_set_changed_callback
-// Rplot_set_view_changed_callback, Rplot_set_drag_line_callback, Rplot_set_series_toggled_callback
-// Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback, Rpdf_view_set_page_changed_callback
-// Rcarousel_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
-// Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile, Rmap_view_set_marker_clicked_callback
-// Rmap_view_set_view_changed_callback, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
-// Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
-// Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
-// Rdock_area_set_close_callback, Rdock_area_set_float_window, Rdock_area_set_changed_callback
-// Risland_set_changed_callback, Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback
-// Rcolor_picker_set_changed_callback, Rtimeline_set_time_callback, Rtimeline_set_changed_callback
-// Rtimeline_set_selection_callback, Rtimeline_set_activated_callback, Rtimeline_set_removed_callback
-// Rnode_graph_set_node_user_data, Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback
-// Rnode_graph_set_linked_callback, Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback
-// Rnode_graph_set_selection_callback, Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback
-// Rnode_graph_set_context_callback, Rnode_graph_set_canvas_activated_callback
-// Rnode_graph_set_wire_dropped_callback, Rnode_graph_set_pin_clicked_callback
-// Rblock_editor_set_changed_callback, Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback
-// Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
-// Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
+// Rtile_view_set_drag_out_callback, Rtile_view_set_selection_changed_callback
+// Rtile_view_set_activated_callback, Rtile_view_set_context_callback, Rtable_set_virtual_rows
+// Rtable_set_cell_color_callback, Rtable_set_selection_changed_callback, Rtable_set_activated_callback
+// Rtable_set_sort_callback, Rdate_picker_set_changed_callback, Rtime_picker_set_changed_callback
+// Rtoast_set_action_callback, Rbreadcrumb_set_clicked_callback, Rrating_set_changed_callback
+// Rpagination_set_changed_callback, Rplot_set_view_changed_callback, Rplot_set_drag_line_callback
+// Rplot_set_series_toggled_callback, Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback
+// Rpdf_view_set_page_changed_callback, Rcarousel_set_page_changed_callback, Rpdf_view_print
+// Rmap_view_set_tile_callback, Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile
+// Rmap_view_set_marker_clicked_callback, Rmap_view_set_view_changed_callback, Rpdf_document_draw_image
+// Rpdf_document_save_memory, Rpdf_print, Rpdf_print_file, Rpdf_document_print
+// Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get, Rtext_editor_set_completion_callback
+// Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback, Rdock_area_set_close_callback
+// Rdock_area_set_float_window, Rdock_area_set_changed_callback, Risland_set_changed_callback
+// Rtaskbar_set_jump_list, Rtray_set_icon, Rtray_set_clicked_callback, Rcolor_picker_set_changed_callback
+// Rtimeline_set_time_callback, Rtimeline_set_changed_callback, Rtimeline_set_selection_callback
+// Rtimeline_set_activated_callback, Rtimeline_set_removed_callback, Rnode_graph_set_node_user_data
+// Rnode_graph_get_node_user_data, Rnode_graph_set_connect_callback, Rnode_graph_set_linked_callback
+// Rnode_graph_set_unlinked_callback, Rnode_graph_set_moved_callback, Rnode_graph_set_selection_callback
+// Rnode_graph_set_removed_callback, Rnode_graph_set_activated_callback, Rnode_graph_set_context_callback
+// Rnode_graph_set_canvas_activated_callback, Rnode_graph_set_wire_dropped_callback
+// Rnode_graph_set_pin_clicked_callback, Rblock_editor_set_changed_callback
+// Rblock_editor_set_clicked_callback, Rblock_editor_set_context_callback, Rdialog_open, Rpopup_open
+// Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read, Rfile_browser_set_filters
+// Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
 // Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
 // Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect

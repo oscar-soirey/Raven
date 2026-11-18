@@ -114,7 +114,10 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Windows and system
 
-- [ ] Dragging from a Raven window to another application (files, text).
+- [x] Dragging from a Raven window to another application (files, pictures,
+  text, formats of the application) on macOS and Windows; pictures and
+  formats of the application on the clipboard.
+- [ ] The same on X11 and Wayland; files made on demand when dropped (file promises).
 - [ ] Glass over a native child window.
 - [ ] Embedding the system web view (WebView2, WebKitGTK).
 

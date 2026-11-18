@@ -18,6 +18,7 @@
 #   charts           a dashboard: KPI tiles with sparklines, a pie, a donut, gauges with bands, a heatmap
 #   map              a MapView whose tiles it draws itself (offline), markers, flights; or tiles from files
 #   carousel         pages swiped one at a time: an onboarding with dots, arrows, loop and autoplay
+#   transfer         pictures and formats on the clipboard, swatches dragged out to other applications
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
@@ -77,6 +78,7 @@ raven_add_example(charts charts/main.c charts/charts.xml)
 raven_add_example(pdf pdf/main.c pdf/pdf.xml)
 raven_add_example(map map/main.c map/world.h map/map.xml)
 raven_add_example(carousel carousel/main.c carousel/carousel.xml)
+raven_add_example(transfer transfer/main.c transfer/transfer.xml)
 raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 	music/ui/main.xml music/ui/widgets.xml music/ui/header.xml music/ui/sidebar.xml music/ui/home.xml
 	music/ui/collection.xml music/ui/search.xml music/ui/library.xml music/ui/settings.xml

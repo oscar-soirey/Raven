@@ -157,6 +157,8 @@ set(RAVEN_CORE_SOURCES
 	src/core/lfmap.h
 	src/core/memory.c
 	src/core/thread.h
+	src/core/transfer.c
+	src/core/transfer.h
 	src/core/utf8.c
 )
 
@@ -345,6 +347,8 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 		src/platform/win32/win32_manipulation.c
 		src/platform/win32/win32_taskbar.c
 		src/platform/win32/win32_taskbar.h
+		src/platform/win32/win32_transfer.c
+		src/platform/win32/win32_transfer.h
 		src/platform/win32/win32_manipulation.h
 	)
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_WIN32)

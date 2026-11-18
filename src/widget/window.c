@@ -7,6 +7,7 @@
 #include "widget.h"
 #include "../widgets/common.h"
 #include "../render/renderer.h"
+#include "../core/transfer.h"
 
 /* one frame waits to be rendered at most: the next one is painted with what the pointer did last (see rvn_windows_throttle) */
 #define RVN_MAX_FRAMES_IN_FLIGHT 1
@@ -1460,6 +1461,187 @@ void Rdrop_set_highlight_rect(float x, float y, float width, float height) {
 	g_drop_context->custom = R_TRUE;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Dragging out of the windows (Rdrag_begin_external)
+ *
+ * The core holds the drag (WAITING) until the next move of the pointer, or
+ * until the pointer leaves the window when it continues a drag inside the
+ * application (Rdrag_begin); then the window system holds it (SYSTEM) until
+ * it tells its end (RVN_PEVENT_DRAG_END). One at a time: the system has one
+ * pointer to drag with.
+ * ------------------------------------------------------------------------- */
+
+enum { RVN_DRAG_OUT_NONE, RVN_DRAG_OUT_WAITING, RVN_DRAG_OUT_SYSTEM };
+
+static struct {
+	int state;
+	/** the window and the widget it starts from */
+	Rid window, source;
+	RDataItem* items;
+	int count;
+	uint32_t operations;
+	RDragFinishedCallback callback;
+	void* user;
+	uint8_t* image;
+	int image_width, image_height;
+	/** it continues a drag inside the application: it waits for the pointer to leave the window */
+	int wait_leave;
+	/** the type and data of that drag, for the drop targets of the application when it comes back over a window */
+	char* type;
+	char* data;
+	Rid inner_source;
+	/** told apart from the drag that may start in its callback */
+	uint32_t serial;
+} g_drag_out;
+
+static void rvn_window_drag_cancel(rvn_window_t* window);
+
+static void rvn_drag_out_finish(int operation) {
+	RDragFinishedCallback callback = g_drag_out.callback;
+	void* user = g_drag_out.user;
+	Rid source = g_drag_out.source;
+	uint32_t serial = g_drag_out.serial;
+	if (g_drag_out.state == RVN_DRAG_OUT_NONE) return;
+	rvn_free(g_drag_out.items);
+	rvn_free(g_drag_out.image);
+	rvn_free(g_drag_out.type);
+	rvn_free(g_drag_out.data);
+	memset(&g_drag_out, 0, sizeof(g_drag_out));
+	g_drag_out.serial = serial;
+	if (callback) {
+		rvn_dispatch_begin();
+		callback(source, (RDragOperation)operation, user);
+		rvn_dispatch_end();
+	}
+}
+
+/* A drag of the window system that started in the application and is now over one of its windows: its drag inside. */
+static int rvn_drag_out_returns(void) {
+	return g_drag_out.state == RVN_DRAG_OUT_SYSTEM && g_drag_out.type != NULL;
+}
+
+/* The pointer moved (or left the window) with the button held: the window system takes the drag. */
+static void rvn_drag_out_start(rvn_window_t* window) {
+	uint32_t serial;
+	int started;
+	if (window->drag_active) {
+		/* the drag inside ends here; it comes back with its type and data */
+		g_drag_out.type = rvn_strdup(window->drag_type);
+		g_drag_out.data = rvn_strdup(window->drag_data);
+		g_drag_out.inner_source = window->drag_source;
+		g_drag_out.state = RVN_DRAG_OUT_SYSTEM;
+		rvn_window_drag_cancel(window);
+		if (window->dead) return;
+	}
+	g_drag_out.state = RVN_DRAG_OUT_SYSTEM;
+	serial = ++g_drag_out.serial;
+	/* the release of the button goes to the window system now */
+	window->capture = NULL;
+	window->buttons = 0;
+	window->needs_paint = R_TRUE;
+	started = window->platform && g_rvn.platform->drag_begin &&
+		g_rvn.platform->drag_begin(window->platform, g_drag_out.items, g_drag_out.count, g_drag_out.operations,
+			g_drag_out.image, g_drag_out.image_width, g_drag_out.image_height);
+	if (!started && g_drag_out.state == RVN_DRAG_OUT_SYSTEM && g_drag_out.serial == serial) rvn_drag_out_finish(R_DRAG_OPERATION_NONE);
+}
+
+/* The pointer of `window` is at (x, y), `inside` or not: R_TRUE when the window system took the drag. */
+static int rvn_drag_out_pointer(rvn_window_t* window, float x, float y, int inside) {
+	if (g_drag_out.state != RVN_DRAG_OUT_WAITING || g_drag_out.window != window->id || !window->buttons) return R_FALSE;
+	if (g_drag_out.wait_leave && inside) {
+		rvn_vec2_t size = rvn_window_size(window);
+		if (x >= 0.0f && y >= 0.0f && x < size.x && y < size.y) return R_FALSE;
+	}
+	rvn_drag_out_start(window);
+	return R_TRUE;
+}
+
+/* The buttons of `window` were released, or its drag inside ended there: the drag never left. */
+static void rvn_drag_out_stay(rvn_window_t* window) {
+	if (g_drag_out.state == RVN_DRAG_OUT_WAITING && g_drag_out.window == window->id && !window->buttons) {
+		rvn_drag_out_finish(R_DRAG_OPERATION_NONE);
+	}
+}
+
+static void rvn_drag_out_window_gone(rvn_window_t* window) {
+	if (g_drag_out.state != RVN_DRAG_OUT_NONE && g_drag_out.window == window->id) rvn_drag_out_finish(R_DRAG_OPERATION_NONE);
+}
+
+int Rdrag_begin_external(Rid source, const RDataItem* items, int count, Ruint operations,
+	RDragFinishedCallback callback, void* user_data) {
+
+	rvn_widget_t* widget;
+	rvn_window_t* window;
+	int i, copied = 0;
+	if (!rvn_api_check("Rdrag_begin_external")) return R_FALSE;
+	widget = rvn_widget_get(source);
+	if (!widget) {
+		rvn_error(R_ERROR_INVALID_ID, R_SEVERITY_ERROR, "Rdrag_begin_external: invalid widget handle 0x%08X", (unsigned)source);
+		return R_FALSE;
+	}
+	if (!items || count <= 0) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rdrag_begin_external: no items");
+		return R_FALSE;
+	}
+	for (i = 0; i < count; i++) {
+		if (!items[i].mime || !items[i].mime[0] || (!items[i].data && items[i].size)) {
+			rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rdrag_begin_external: item %d has no MIME type or no data", i);
+			return R_FALSE;
+		}
+	}
+	window = widget->window;
+	if (!window || window->dead || !window->platform || !g_rvn.platform->drag_begin) return R_FALSE;
+	/* (the drag needs the button held: its release ends it) */
+	if (!window->buttons) return R_FALSE;
+	if (g_drag_out.state == RVN_DRAG_OUT_SYSTEM) return R_FALSE;
+	/* the one still waiting is replaced */
+	if (g_drag_out.state == RVN_DRAG_OUT_WAITING) rvn_drag_out_finish(R_DRAG_OPERATION_NONE);
+	if (window->dead || !rvn_widget_alive(widget) || !window->buttons || g_drag_out.state != RVN_DRAG_OUT_NONE) return R_FALSE;
+
+	g_drag_out.items = rvn_data_copy(items, count, &copied);
+	g_drag_out.count = copied;
+	g_drag_out.state = RVN_DRAG_OUT_WAITING;
+	g_drag_out.window = window->id;
+	g_drag_out.source = source;
+	g_drag_out.operations = operations & (R_DRAG_OPERATION_COPY | R_DRAG_OPERATION_MOVE | R_DRAG_OPERATION_LINK);
+	if (!g_drag_out.operations) g_drag_out.operations = R_DRAG_OPERATION_COPY;
+	g_drag_out.callback = callback;
+	g_drag_out.user = user_data;
+	g_drag_out.wait_leave = window->drag_active;
+	if (!window->drag_active) {
+		/* the widget that started it no longer follows the pointer */
+		window->capture = NULL;
+		rvn_window_tooltip_hide(window);
+	}
+	return R_TRUE;
+}
+
+void Rdrag_set_image(const uint8_t* rgba, int width, int height) {
+	if (!rvn_api_check("Rdrag_set_image")) return;
+	if (g_drag_out.state != RVN_DRAG_OUT_WAITING) return;
+	rvn_free(g_drag_out.image);
+	g_drag_out.image = NULL;
+	g_drag_out.image_width = g_drag_out.image_height = 0;
+	if (!rgba || width <= 0 || height <= 0) return;
+	if (width > 4096 || height > 4096) {
+		rvn_error(R_ERROR_INVALID_VALUE, R_SEVERITY_ERROR, "Rdrag_set_image: %dx%d is too large", width, height);
+		return;
+	}
+	g_drag_out.image = (uint8_t*)rvn_alloc((size_t)width * (size_t)height * 4u);
+	memcpy(g_drag_out.image, rgba, (size_t)width * (size_t)height * 4u);
+	g_drag_out.image_width = width;
+	g_drag_out.image_height = height;
+}
+
+int Rdrag_external_supported(void) {
+	if (!rvn_api_check("Rdrag_external_supported")) return R_FALSE;
+	return g_rvn.platform->drag_begin != NULL ? R_TRUE : R_FALSE;
+}
+
+int Rdrag_external_is_active(void) {
+	return g_drag_out.state != RVN_DRAG_OUT_NONE ? R_TRUE : R_FALSE;
+}
+
 static int rvn_window_drop_send(rvn_window_t* window, RDropPhase phase, float x, float y,
 	const char* const* paths, int path_count, const char* text) {
 
@@ -1485,6 +1667,13 @@ static int rvn_window_drop_send(rvn_window_t* window, RDropPhase phase, float x,
 		event.text = window->drag_data;
 		event.drag_type = window->drag_type;
 		event.drag_source = window->drag_source;
+	} else if (rvn_drag_out_returns()) {
+		/* the drag inside the application that left a window comes back over one */
+		event.paths = NULL;
+		event.path_count = 0;
+		event.text = g_drag_out.data;
+		event.drag_type = g_drag_out.type;
+		event.drag_source = g_drag_out.inner_source;
 	}
 	if (window->drop_target) {
 		rvn_vec2_t origin = rvn_widget_origin(window->drop_target);
@@ -1535,7 +1724,7 @@ static int rvn_window_drag(rvn_window_t* window, float x, float y, int inside) {
 		}
 	}
 	/* a drag inside the application only goes to widgets */
-	on_window = inside && !target && window->drop_callback != NULL && !window->drag_active;
+	on_window = inside && !target && window->drop_callback != NULL && !window->drag_active && !rvn_drag_out_returns();
 
 	if (target != window->drop_target || on_window != window->drop_on_window) {
 		Rid target_id = target ? target->id : R_INVALID_ID;
@@ -1600,6 +1789,10 @@ static void rvn_window_drag_end(rvn_window_t* window) {
 	window->drag_type = window->drag_data = window->drag_label = NULL;
 	window->drag_source = R_INVALID_ID;
 	window->needs_paint = R_TRUE;
+	/* the drag never left the window: what it had for outside goes with it */
+	if (g_drag_out.state == RVN_DRAG_OUT_WAITING && g_drag_out.window == window->id && g_drag_out.wait_leave) {
+		rvn_drag_out_finish(R_DRAG_OPERATION_NONE);
+	}
 }
 
 static void rvn_window_drag_cancel(rvn_window_t* window) {
@@ -1645,6 +1838,8 @@ static void rvn_window_mouse_move(rvn_window_t* window, float x, float y) {
 	window->mouse_x = x;
 	window->mouse_y = y;
 	window->mouse_inside = R_TRUE;
+	/* a drag out of the window goes to the window system */
+	if (rvn_drag_out_pointer(window, x, y, R_TRUE)) return;
 	if (window->tooltip_visible && (fabsf(x - window->tooltip_x) > 6.0f || fabsf(y - window->tooltip_y) > 6.0f)) {
 		rvn_window_tooltip_arm(window);
 	}
@@ -1690,6 +1885,7 @@ static void rvn_window_mouse_move(rvn_window_t* window, float x, float y) {
 }
 
 static void rvn_window_mouse_leave(rvn_window_t* window) {
+	if (rvn_drag_out_pointer(window, window->mouse_x, window->mouse_y, R_FALSE) && window->dead) return;
 	window->mouse_inside = R_FALSE;
 	window->edge = RVN_PREGION_CLIENT;
 	if (!window->capture) rvn_window_set_hover(window, NULL);
@@ -1715,7 +1911,7 @@ static void rvn_window_open_context_menu(rvn_window_t* window, rvn_widget_t* tar
 	}
 }
 
-static void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, int pressed) {
+static void rvn_window_mouse_button_send(rvn_window_t* window, RMouseButton button, int pressed) {
 	REvent event;
 	rvn_widget_t* target;
 	rvn_widget_t* hit;
@@ -1827,6 +2023,12 @@ static void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, i
 		}
 	}
 	if (!window->dead) rvn_window_update_cursor(window);
+}
+
+static void rvn_window_mouse_button(rvn_window_t* window, RMouseButton button, int pressed) {
+	rvn_window_mouse_button_send(window, button, pressed);
+	/* released without leaving the window: the drag out of it never started */
+	if (!pressed && !window->dead) rvn_drag_out_stay(window);
 }
 
 static void rvn_window_mouse_wheel(rvn_window_t* window, float wheel_x, float wheel_y, int precise) {
@@ -2029,6 +2231,11 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		rvn_update();
 		return;
 	}
+	/* the end of a drag out of a window: the core holds the drag, the window may be gone */
+	if (pevent->type == RVN_PEVENT_DRAG_END) {
+		if (g_drag_out.state == RVN_DRAG_OUT_SYSTEM) rvn_drag_out_finish(pevent->operation);
+		return;
+	}
 	/* a tray icon: `user` is the icon, not a window */
 	if (pevent->type == RVN_PEVENT_TRAY) {
 		if (g_rvn.input_blocked > 0) return;
@@ -2188,6 +2395,7 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		case RVN_PEVENT_TRAY:
 		case RVN_PEVENT_APPEARANCE:
 		case RVN_PEVENT_APP:
+		case RVN_PEVENT_DRAG_END:
 			break;
 	}
 	rvn_dispatch_end();
@@ -2289,6 +2497,8 @@ void rvn_window_destroy(rvn_window_t* window) {
 		rvn_window_t* owned = (rvn_window_t*)rvn_pool_at(&g_rvn.windows, i);
 		if (owned && owned != window && !owned->dead && owned->owner == window->id) rvn_window_destroy(owned);
 	}
+	if (window->dead) return;
+	rvn_drag_out_window_gone(window);
 	if (window->dead) return;
 	while (window->ghost_count > 0) rvn_window_remove_ghost(window, 0);
 	rvn_window_tooltip_hide(window);
@@ -3081,6 +3291,18 @@ int Rwindow_inject_drag(Rid id, float x, float y, int inside) {
 	accepted = rvn_window_drag(window, x, y, inside);
 	rvn_dispatch_end();
 	return accepted;
+}
+
+int Rwindow_inject_drag_end(Rid id, RDragOperation operation) {
+	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
+	int ended = R_FALSE;
+	if (!window) return R_FALSE;
+	if (g_drag_out.state == RVN_DRAG_OUT_SYSTEM && g_drag_out.window == id) {
+		rvn_drag_out_finish((int)operation);
+		ended = R_TRUE;
+	}
+	rvn_dispatch_end();
+	return ended;
 }
 
 int Rwindow_inject_back(Rid id) {

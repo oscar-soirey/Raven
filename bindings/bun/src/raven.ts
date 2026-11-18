@@ -219,6 +219,12 @@ const _symbols = {
 	Rclipboard_set_text: { args: ["ptr"], returns: "void" },
 	Rclipboard_set_html: { args: ["ptr", "ptr"], returns: "void" },
 	Rclipboard_get_text: { args: [], returns: "cstring" },
+	Rclipboard_set_data: { args: ["ptr", "i32"], returns: "i32" },
+	Rclipboard_has_data: { args: ["ptr"], returns: "i32" },
+	Rclipboard_get_data: { args: ["ptr", "ptr"], returns: "ptr" },
+	Rclipboard_set_image: { args: ["ptr", "i32", "i32", "i32"], returns: "i32" },
+	Rclipboard_has_image: { args: [], returns: "i32" },
+	Rclipboard_get_image: { args: ["ptr", "ptr"], returns: "ptr" },
 	Rerror_get_last: { args: ["ptr", "ptr"], returns: "i32" },
 	Rerror_to_string: { args: ["i32"], returns: "cstring" },
 	Rseverity_to_string: { args: ["i32"], returns: "cstring" },
@@ -299,6 +305,7 @@ const _symbols = {
 	Rwindow_inject_text: { args: ["u32", "ptr"], returns: "void" },
 	Rwindow_inject_drag: { args: ["u32", "f32", "f32", "i32"], returns: "i32" },
 	Rwindow_inject_drop: { args: ["u32", "f32", "f32", "ptr", "i32", "ptr"], returns: "i32" },
+	Rwindow_inject_drag_end: { args: ["u32", "i32"], returns: "i32" },
 	Rwindow_inject_back: { args: ["u32"], returns: "i32" },
 	Rwindow_is_key_down: { args: ["u32", "i32"], returns: "i32" },
 	Rwindow_is_mouse_button_down: { args: ["u32", "i32"], returns: "i32" },
@@ -321,6 +328,10 @@ const _symbols = {
 	Rdrag_get_type: { args: ["u32"], returns: "cstring" },
 	Rdrag_get_data: { args: ["u32"], returns: "cstring" },
 	Rdrag_cancel: { args: ["u32"], returns: "void" },
+	Rdrag_begin_external: { args: ["u32", "ptr", "i32", "u32", "ptr", "ptr"], returns: "i32" },
+	Rdrag_set_image: { args: ["ptr", "i32", "i32"], returns: "void" },
+	Rdrag_external_supported: { args: [], returns: "i32" },
+	Rdrag_external_is_active: { args: [], returns: "i32" },
 	Rwindow_register_shortcut: { args: ["u32", "i32", "u32", "ptr"], returns: "void" },
 	Rwindow_unregister_shortcut: { args: ["u32", "i32", "u32"], returns: "void" },
 	Rtouch_get_settings: { args: ["ptr"], returns: "void" },
@@ -704,6 +715,7 @@ const _symbols = {
 	Rtile_view_set_drop_highlight: { args: ["u32", "i32"], returns: "void" },
 	Rtile_view_set_drag_type: { args: ["u32", "ptr"], returns: "void" },
 	Rtile_view_set_drag_data_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rtile_view_set_drag_out_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtile_view_set_selection_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtile_view_set_activated_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rtile_view_set_context_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
@@ -2145,6 +2157,23 @@ export const R_DROP_ENTER = RDropPhase.R_DROP_ENTER;
 export const R_DROP_MOVE = RDropPhase.R_DROP_MOVE;
 export const R_DROP_LEAVE = RDropPhase.R_DROP_LEAVE;
 export const R_DROP_DROPPED = RDropPhase.R_DROP_DROPPED;
+
+/** What the application that takes a drag does with it (Rdrag_begin_external): a bitmask of what is allowed, or the one done. */
+export enum RDragOperation {
+	/** Nothing was taken: dropped where nothing accepted it, or cancelled. */
+	R_DRAG_OPERATION_NONE = 0,
+	/** The target made a copy: the source keeps its data. */
+	R_DRAG_OPERATION_COPY = 1,
+	/** The target took the data: the source removes it (a file the file manager moved...). */
+	R_DRAG_OPERATION_MOVE = 2,
+	/** The target made a link, an alias or a shortcut to it. */
+	R_DRAG_OPERATION_LINK = 4,
+}
+
+export const R_DRAG_OPERATION_NONE = RDragOperation.R_DRAG_OPERATION_NONE;
+export const R_DRAG_OPERATION_COPY = RDragOperation.R_DRAG_OPERATION_COPY;
+export const R_DRAG_OPERATION_MOVE = RDragOperation.R_DRAG_OPERATION_MOVE;
+export const R_DRAG_OPERATION_LINK = RDragOperation.R_DRAG_OPERATION_LINK;
 
 /** What a finger does on a widget (Rwidget_set_touch_mode). */
 export enum RTouchMode {
@@ -3904,6 +3933,65 @@ export class RFrameStats extends RStruct {
 	}
 	set frame_index(value: bigint) {
 		this._view.setBigUint64(48, value, true);
+	}
+}
+
+/**
+ * One format of something given to the other applications: put on
+ * the clipboard (Rclipboard_set_data) or dragged out of a window
+ * (Rdrag_begin_external). The program that receives it takes the format
+ * it prefers.
+ *
+ * `mime` names the format. Raven gives these their native names on each
+ * system (and converts them), so that every program understands them:
+ *
+ *   text/plain      UTF-8 text
+ *   text/html       HTML (UTF-8)
+ *   image/png       a PNG file (Rimage_encode_png); on Windows it is also
+ *                   given as a bitmap (CF_DIBV5), on macOS also as TIFF
+ *   text/uri-list   files, as file:// URLs, one per line: the file
+ *                   manager copies or moves them, the other programs
+ *                   open them
+ *   text/rtf, image/jpeg, image/tiff, image/gif, application/pdf,
+ *   application/json, text/csv, image/svg+xml
+ *
+ * Any other name is a format of the application ("application/x-myapp-node"):
+ * passed as it is, and read back by the programs that know it (other
+ * instances of the application).
+ */
+export class RDataItem extends RStruct {
+	static readonly SIZE = 24;
+
+	constructor(pointer?: Pointer) {
+		super(RDataItem.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RDataItem | null {
+		return pointer ? new RDataItem(pointer) : null;
+	}
+
+	/** The format: a MIME type. */
+	get mime(): string | null {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set mime(value: string | null) {
+		this._point("mime", 0, _s(value));
+	}
+
+	/** The bytes (copied by the function they are given to). Text is not followed by a '\0'. */
+	get data(): Pointer | null {
+		return _address(this._view.getBigUint64(8, true));
+	}
+	set data(value: Pointer | null) {
+		this._view.setBigUint64(8, BigInt(value ?? 0), true);
+	}
+
+	get size(): number {
+		return Number(this._view.getBigUint64(16, true));
+	}
+	set size(value: number) {
+		this._view.setBigUint64(16, BigInt(value), true);
 	}
 }
 
@@ -6142,6 +6230,26 @@ function _adapt_RDropCallback(function_: RDropCallback | Pointer | null, threads
 }
 
 /**
+ * The end of a drag out of the window (Rdrag_begin_external):
+ * `operation` is what the target did, R_DRAG_OPERATION_NONE when nothing
+ * took it. Called once per drag, whatever ended it.
+ */
+export type RDragFinishedCallback = (source: Rid, operation: RDragOperation, user_data: Pointer | null) => void;
+
+function _adapt_RDragFinishedCallback(function_: RDragFinishedCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((source: number, operation: number, user_data: Pointer | null): void => {
+		try {
+			function_(source, operation as RDragOperation, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
  * Called on Back when no popup or dialog of Raven is open. Return
  * R_TRUE when the application went back, R_FALSE when it had nowhere to
  * go (the system then does its default). NULL removes it.
@@ -8034,8 +8142,8 @@ export function Rclipboard_set_text(text: string | null): void {
  * Copies one content in two formats: `html` for the programs that
  * paste formatting (word processors, chat, mail) and `text` for the
  * others (editors, terminals). Each program takes the format it prefers.
- * Where the window system has no clipboard formats (Win32 and macOS for
- * now), or `html` is NULL, it is Rclipboard_set_text(text).
+ * Where the window system has no clipboard formats, or `html` is NULL,
+ * it is Rclipboard_set_text(text).
  */
 export function Rclipboard_set_html(text: string | null, html: string | null): void {
 	_lib.Rclipboard_set_html(_s(text), _s(html));
@@ -8044,6 +8152,69 @@ export function Rclipboard_set_html(text: string | null, html: string | null): v
 /** Returns: The clipboard text, or "" when empty. Valid until the next call. */
 export function Rclipboard_get_text(): string | null {
 	return _lib.Rclipboard_get_text();
+}
+
+/**
+ * Replaces what the clipboard holds with one content in several
+ * formats (RDataItem): each program pastes the one it prefers.
+ * Returns: R_TRUE when every format was put on the clipboard; R_FALSE when
+ * some could not be (a window system that only takes text: X11 and
+ * Wayland for now, where the text/plain item, if any, still is).
+ */
+export function Rclipboard_set_data(items: readonly RDataItem[] | null): number {
+	return _lib.Rclipboard_set_data(_structs(items, RDataItem.SIZE), items?.length ?? 0);
+}
+
+/** Returns: R_TRUE when the clipboard holds this format (Rclipboard_set_data), or one Raven converts to it. */
+export function Rclipboard_has_data(mime: string | null): number {
+	return _lib.Rclipboard_has_data(_s(mime));
+}
+
+/**
+ * What the clipboard holds in one format, converted from the
+ * native one when needed (a bitmap given as image/png...).
+ * Returns: The bytes, followed by a '\0' that `size` does not count, to
+ * release with Rmemory_free; NULL when the clipboard does not hold it.
+ */
+export function Rclipboard_get_data(mime: string | null): Uint8Array | null {
+	const size_ = new BigUint64Array(1);
+	const address = _lib.Rclipboard_get_data(_s(mime), size_) as Pointer | null;
+	if (!address) {
+		return null;
+	}
+	const size = Number(size_[0]!);
+	const data = size > 0 ? new Uint8Array(_toArrayBuffer(address, 0, size).slice(0)) : new Uint8Array(0);
+	_lib.Rmemory_free(address);
+	return data;
+}
+
+/**
+ * Copies a picture: RGBA8 pixels, straight alpha, rows `stride`
+ * bytes apart (0: width * 4). It goes on the clipboard as image/png
+ * (and as the bitmaps of the system), so that image editors, documents
+ * and mail paste it.
+ * Returns: R_FALSE when it could not be put there.
+ */
+export function Rclipboard_set_image(rgba: RPointer, width: number, height: number, stride: number): number {
+	return _lib.Rclipboard_set_image(rgba, width, height, stride);
+}
+
+/** Returns: R_TRUE when the clipboard holds a picture Rclipboard_get_image can read. */
+export function Rclipboard_has_image(): number {
+	return _lib.Rclipboard_has_image();
+}
+
+/**
+ * The picture on the clipboard (copied from any program: PNG,
+ * TIFF, a bitmap...), as tightly packed RGBA8 pixels, straight alpha.
+ * Returns: The pixels, to release with Rpixels_free; NULL when there is
+ * none (or no decoder: RAVEN_WITH_STB_IMAGE off).
+ */
+export function Rclipboard_get_image(): [result: Pointer | null, width: number, height: number] {
+	const width_ = new Int32Array(1);
+	const height_ = new Int32Array(1);
+	const result_ = _lib.Rclipboard_get_image(width_, height_) as Pointer | null;
+	return [result_, width_[0]!, height_[0]!];
 }
 
 /**
@@ -8565,6 +8736,16 @@ export function Rwindow_inject_drop(window: Rid, x: number, y: number, paths: re
 	return _lib.Rwindow_inject_drop(window, x, y, _strings(paths), paths?.length ?? 0, _s(text));
 }
 
+/**
+ * The end of the drag out of the window that the window system
+ * holds (Rdrag_begin_external), as it reports it: `operation` is what the
+ * target did (an RDragOperation). Returns R_FALSE when no such drag is in
+ * progress.
+ */
+export function Rwindow_inject_drag_end(window: Rid, operation: RDragOperation): number {
+	return _lib.Rwindow_inject_drag_end(window, operation);
+}
+
 /** Back, as the system sends it (Rwindow_set_back_callback). Returns R_TRUE when something took it. */
 export function Rwindow_inject_back(window: Rid): number {
 	return _lib.Rwindow_inject_back(window);
@@ -8698,6 +8879,58 @@ export function Rdrag_get_data(window: Rid): string | null {
 /** Ends the drag in progress without dropping (the target receives R_DROP_LEAVE). */
 export function Rdrag_cancel(window: Rid): void {
 	_lib.Rdrag_cancel(window);
+}
+
+/**
+ * Lets the user drag data out of the window, to another
+ * application: a picture into a document, files into the file manager,
+ * text into an editor. `items` is one content in several formats
+ * (RDataItem, copied): the target takes the one it prefers.
+ * `operations` is a bitmask of RDragOperation the target may do (0:
+ * R_DRAG_OPERATION_COPY).
+ *
+ * Call it as Rdrag_begin, while the mouse button is held (from a mouse
+ * move once the pointer has moved a few units). The window system then
+ * takes the drag at the next move of the pointer: it shows the picture
+ * that follows the pointer (Rdrag_set_image) and the cursor that tells
+ * what a drop there does; the button released, `callback` (may be NULL)
+ * is told what the target did.
+ *
+ * Called while a drag inside the application (Rdrag_begin) is in progress
+ * in the window of `source`, it gives that drag the data for outside:
+ * the drag stays inside the window, to its drop targets, and becomes a
+ * drag of the window system only when the pointer leaves the window.
+ * Brought back over a window of the application, it still comes to the
+ * drop targets with the type and data given to Rdrag_begin.
+ *
+ * Implemented on macOS and Windows; elsewhere it returns R_FALSE
+ * (Rdrag_external_supported).
+ * Returns: R_FALSE when the widget is not in a window or the window
+ * system cannot drag out of its windows.
+ */
+export function Rdrag_begin_external(source: Rid, items: readonly RDataItem[] | null, operations: number, callback: RDragFinishedCallback | Pointer | null, user_data: RPointer = null): number {
+	return _lib.Rdrag_begin_external(source, _structs(items, RDataItem.SIZE), items?.length ?? 0, operations, _adapt_RDragFinishedCallback(callback), user_data);
+}
+
+/**
+ * The picture that follows the pointer during the drag given by
+ * Rdrag_begin_external (RGBA8 pixels, straight alpha, tightly packed,
+ * copied), held by the pointer at its center. Call it right after
+ * Rdrag_begin_external. Without it the system chooses: the picture
+ * dragged, the icons of the files, or a generic one.
+ */
+export function Rdrag_set_image(rgba: RPointer, width: number, height: number): void {
+	_lib.Rdrag_set_image(rgba, width, height);
+}
+
+/** R_TRUE when the window system lets Raven drag data out of its windows (Rdrag_begin_external). */
+export function Rdrag_external_supported(): number {
+	return _lib.Rdrag_external_supported();
+}
+
+/** R_TRUE from Rdrag_begin_external until its callback was called. */
+export function Rdrag_external_is_active(): number {
+	return _lib.Rdrag_external_is_active();
 }
 
 export function Rwindow_register_shortcut(window: Rid, key: RKey, modifiers: number, action: string | null): void {
@@ -10858,6 +11091,19 @@ export function Rtile_view_set_drag_type(tile_view: Rid, type: string | null): v
 
 export function Rtile_view_set_drag_data_callback(tile_view: Rid, callback: RTileDragDataCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rtile_view_set_drag_data_callback(tile_view, _adapt_RTileDragDataCallback(callback), user_data);
+}
+
+/**
+ * Tiles can be dragged out of the window, to other applications:
+ * when the user starts dragging the selected tiles (`index` is the one
+ * under the pointer), the callback gives their data by calling
+ * Rdrag_begin_external (the pictures, the files they stand for...), and
+ * Rdrag_set_image. With a drag type too (Rtile_view_set_drag_type), the
+ * drag first goes to the drop targets of the window and only leaves it
+ * with the pointer. NULL: the tiles stay in the application (default).
+ */
+export function Rtile_view_set_drag_out_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rtile_view_set_drag_out_callback(tile_view, _adapt_RTileEventCallback(callback), user_data);
 }
 
 export function Rtile_view_set_selection_changed_callback(tile_view: Rid, callback: RTileEventCallback | Pointer | null, user_data: RPointer = null): void {
