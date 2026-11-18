@@ -352,6 +352,14 @@ back into what opened it, until its spring is at rest. `Rset_animation_time_step
 replaces the clock (tests, films); `Rset_animations_enabled(R_FALSE)` puts
 every spring on its target at once.
 
+`widget/testing.c` (`raven_testing.h`) drives windows for tests through the
+same functions as the injected input (`Rwindow_inject_*`, `Rwindow_inject_touch`),
+and knows when a window is at rest from what makes it want a frame
+(`rvn_window_is_settled`: layout to do, paint pending, `animating` set by a
+spring during the last paint, layout springs, touch inertia). Golden images
+are written by `render/image_encode.c`, a PNG encoder over the deflate of
+`core/deflate.c` (shared with the PDF writer).
+
 ## Windows: header, dialogs, drag and drop
 
 `widget/window.c` holds what belongs to a window rather than to a widget.
