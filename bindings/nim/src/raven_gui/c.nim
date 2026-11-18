@@ -309,6 +309,9 @@ type
     ## Right click: `item` is the item under the pointer (selected
     ## first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
   RMenuItemClickedCallback* = proc (item: Rid, user_data: pointer) {.cdecl.}
+  RTileSectionCallback* = proc (tile_view: Rid, section: cint, `out`: ptr RTileSection, user_data: pointer) {.cdecl.}
+    ## Describes section `section`: when the sections are given (Rtile_view_set_sections,
+    ## `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
   RTileItemCallback* = proc (tile_view: Rid, index: cint, item: ptr RTileItem, user_data: pointer) {.cdecl.}
     ## Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
   RTileEventCallback* = proc (tile_view: Rid, index: cint, user_data: pointer) {.cdecl.}
@@ -755,6 +758,18 @@ type
     icon_radius*: cfloat
     text_color*: array[4, cfloat]
       ## Color of the name; alpha 0 = the theme.
+    note*: cstring
+      ## Layout="Rows": a third line under the detail, dimmer, or NULL.
+    detail_color*: array[4, cfloat]
+      ## Color of the detail line; alpha 0 = the theme (dimmer than the name).
+  RTileSection* {.bycopy.} = object
+    ## A section of a tile view: its first tile, and what its header shows.
+    first*: cint
+      ## Index of the first tile of the section (read when the sections are given).
+    text*: cstring
+      ## Title of the header (valid until the callback returns).
+    detail*: cstring
+      ## Dimmer text after the title (a count...), or NULL.
   RLanguageDesc* {.bycopy.} = object
     ## What the editor knows of a language. Every field but the name may be NULL.
     ## Lists of words are separated by spaces.
@@ -3244,6 +3259,21 @@ proc Rtile_view_get_count*(tile_view: Rid): cint {.rapi.}
 proc Rtile_view_set_tile_size*(tile_view: Rid, width: cfloat, height: cfloat, icon_size: cfloat) {.rapi.}
   ## Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64.
 proc Rtile_view_set_empty_text*(tile_view: Rid, text: cstring) {.rapi.}
+proc Rtile_view_set_icon_width*(tile_view: Rid, width: cfloat) {.rapi.}
+  ## Layout="Rows": width of the box the icon is drawn in (its height is the
+  ## icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+proc Rtile_view_set_sections*(tile_view: Rid, count: cint, callback: RTileSectionCallback, user_data: pointer) {.rapi.}
+  ## `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+proc Rtile_view_get_section_count*(tile_view: Rid): cint {.rapi.}
+proc Rtile_view_get_section_of*(tile_view: Rid, index: cint): cint {.rapi.}
+  ## The section of a tile, or -1 (before the first section).
+proc Rtile_view_set_section_folded*(tile_view: Rid, section: cint, folded: cint) {.rapi.}
+  ## Folds or unfolds a section (the toggled callback is not called).
+proc Rtile_view_is_section_folded*(tile_view: Rid, section: cint): cint {.rapi.}
+proc Rtile_view_get_section_at*(tile_view: Rid, local_x: cfloat, local_y: cfloat): cint {.rapi.}
+  ## The section whose header is at a point relative to the widget, or -1.
+proc Rtile_view_set_section_toggled_callback*(tile_view: Rid, callback: RTileEventCallback, user_data: pointer) {.rapi.}
+  ## Called when the user folds or unfolds a section (`index`: the section).
 proc Rtile_view_set_selected*(tile_view: Rid, index: cint, selected: cint) {.rapi.}
 proc Rtile_view_is_selected*(tile_view: Rid, index: cint): cint {.rapi.}
 proc Rtile_view_clear_selection*(tile_view: Rid) {.rapi.}

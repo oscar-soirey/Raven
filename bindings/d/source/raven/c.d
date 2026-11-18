@@ -1578,6 +1578,9 @@ alias RTreeEventCallback = extern (C) void function(Rid tree_view, Rid item, voi
 /// first), or R_INVALID_ID in the empty space; x, y in the window, for Rmenu_open.
 alias RTreeContextCallback = extern (C) void function(Rid tree_view, Rid item, float x, float y, void* user_data);
 alias RMenuItemClickedCallback = extern (C) void function(Rid item, void* user_data);
+/// Describes section `section`: when the sections are given (Rtile_view_set_sections,
+/// `first` is read) and when its header is drawn (`text`, `detail`). UI thread.
+alias RTileSectionCallback = extern (C) void function(Rid tile_view, int section, RTileSection* out_, void* user_data);
 /// Fills `item` for tile `index`. Called on the UI thread, only for the tiles in view.
 alias RTileItemCallback = extern (C) void function(Rid tile_view, int index, RTileItem* item, void* user_data);
 /// Selection change (`index`: the current tile, or -1) and activation (double click, Enter).
@@ -2068,6 +2071,21 @@ struct RTileItem
     float icon_radius = 0;
     /// Color of the name; alpha 0 = the theme.
     float[4] text_color = 0;
+    /// Layout="Rows": a third line under the detail, dimmer, or NULL.
+    const(char)* note = null;
+    /// Color of the detail line; alpha 0 = the theme (dimmer than the name).
+    float[4] detail_color = 0;
+}
+
+/// A section of a tile view: its first tile, and what its header shows.
+struct RTileSection
+{
+    /// Index of the first tile of the section (read when the sections are given).
+    int first = 0;
+    /// Title of the header (valid until the callback returns).
+    const(char)* text = null;
+    /// Dimmer text after the title (a count...), or NULL.
+    const(char)* detail = null;
 }
 
 /// What the editor knows of a language. Every field but the name may be NULL.
@@ -3475,6 +3493,21 @@ int Rtile_view_get_count(Rid tile_view);
 /// Size of a tile (its name included) and of its icon. Default 112 x 112, icon 64.
 void Rtile_view_set_tile_size(Rid tile_view, float width, float height, float icon_size);
 void Rtile_view_set_empty_text(Rid tile_view, const(char)* text);
+/// Layout="Rows": width of the box the icon is drawn in (its height is the
+/// icon size), for icons that are not square; 0 = square (default). XML: IconWidth.
+void Rtile_view_set_icon_width(Rid tile_view, float width);
+/// `count` sections, described by `callback`, all unfolded. Rtile_view_set_items removes them: give them after the tiles.
+void Rtile_view_set_sections(Rid tile_view, int count, RTileSectionCallback callback, void* user_data);
+int Rtile_view_get_section_count(Rid tile_view);
+/// The section of a tile, or -1 (before the first section).
+int Rtile_view_get_section_of(Rid tile_view, int index);
+/// Folds or unfolds a section (the toggled callback is not called).
+void Rtile_view_set_section_folded(Rid tile_view, int section, int folded);
+int Rtile_view_is_section_folded(Rid tile_view, int section);
+/// The section whose header is at a point relative to the widget, or -1.
+int Rtile_view_get_section_at(Rid tile_view, float local_x, float local_y);
+/// Called when the user folds or unfolds a section (`index`: the section).
+void Rtile_view_set_section_toggled_callback(Rid tile_view, RTileEventCallback callback, void* user_data);
 void Rtile_view_set_selected(Rid tile_view, int index, int selected);
 int Rtile_view_is_selected(Rid tile_view, int index);
 void Rtile_view_clear_selection(Rid tile_view);
