@@ -248,6 +248,11 @@ specific to Windows:
 - While the user moves or resizes a window, Windows runs its own message
   loop and the loop of the application is not running. A timer emits `RVN_PEVENT_MODAL_TICK`,
   on which the core produces a frame, so the content follows the resize.
+- Input methods go through IMM32 (`imm32.dll`, loaded at run time). The
+  composition is sent as `RVN_PEVENT_COMPOSITION` and drawn by the field;
+  the window of the input method is hidden (`ISC_SHOWUICOMPOSITIONWINDOW`),
+  its candidate window put at the caret, and its context removed from the
+  window while the focus takes no text.
 - Graphics drivers send messages to the window from the thread that creates
   or resizes a swapchain. If the UI thread were blocked on the render thread
   at that moment, both would wait forever. Whenever the UI thread waits for
@@ -301,6 +306,19 @@ Things that differ from the other systems:
 `libwayland-server`) and checks the dialogue: configure, resize, scale,
 pointer, trackpad (scrolling, inertia, pinch, swipe, hold), keyboard,
 clipboard, drops, hide and show, close.
+
+**Input methods.** A platform sends the text an input method is composing
+as `RVN_PEVENT_COMPOSITION` (UTF-8, with the clause being converted) and the
+committed text as `RVN_PEVENT_TEXT`, which ends the composition; the keys the
+input method takes are sent as nothing. The window keeps the composition for
+its focus (`rvn_window_t::composition`, dropped when the focus moves) and the
+text widgets draw it at their caret, underlined, without putting it in their
+text. The platform places the candidate window from
+`Rwindow_get_text_input_rect`. macOS: the content view is an
+`NSTextInputClient` and keys go through `interpretKeyEvents` while the focus
+takes text (not with Command or Control); a click commits what was being
+composed. Windows: IMM32 (above). X11: XIM, with the input method's own
+window for the composition.
 
 **Fingers, pens and trackpads.** Every platform turns what it reads into
 `RVN_PEVENT_TOUCH`, `_PEN`, `_GESTURE` (a gesture the system recognized: the

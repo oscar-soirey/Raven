@@ -1426,6 +1426,26 @@ algorithm and Arabic letters take their joined forms. A character the
 bundled font does not have is drawn with a font of the system (Segoe UI,
 Noto, the CJK fonts...), and color emoji are drawn in color.
 
+### Input methods
+
+Chinese, Japanese and Korean input methods, dead keys and the character
+palette type into a `TextInput`, a `SpinBox` and a `TextEditor`. The text
+being composed is drawn in the field at the caret, underlined (the clause
+being converted thicker), and is not part of the text until it is committed:
+no changed callback runs for it. The candidate window of the system opens
+under the caret.
+
+| Platform | |
+|---|---|
+| macOS | `NSTextInputClient` (any input source of the system) |
+| Windows | IMM32; the input method is off while the focus is not in a text field |
+| X11 | XIM (the input method draws the composition in its own window) |
+| iOS, Android | the text services of the on-screen keyboard |
+| Host platform | `Rhost_inject_composition` from the application's own input method |
+
+`Rwindow_inject_composition` and `Rwindow_get_text_composition` drive and read
+the composition (tests, a host that has its own input method).
+
 ### Accessibility
 
 ```c
@@ -1792,7 +1812,6 @@ What Raven does not do yet, by area. Contributions are welcome.
 **Text**
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic
   joining is done.
-- Placement of the IME composition window.
 - In the text editor: multiple cursors, search and replace, code folding, a
   language server client.
 
