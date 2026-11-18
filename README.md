@@ -1226,6 +1226,37 @@ decoded tiles are kept in a cache of 64 MiB by default
 (`Rmap_view_set_cache_size`), the least recently seen dropped first; while a
 tile is missing, a coarser one that is there is shown stretched in its place.
 
+### Carousel
+
+```xml
+<Carousel Name="intro" Loop="true" Autoplay="5" OnChanged="intro.page" Slot.Fill="1">
+    <Border Background="#5B5BD6"><Label Text="Welcome" TextSize="32"/></Border>
+    <Border Background="#12A594"><Label Text="Swipe the pages" TextSize="32"/></Border>
+    <Border Background="#F76B15"><Label Text="Ready" TextSize="32"/></Border>
+</Carousel>
+```
+
+```c
+Rid carousel = Rcarousel_create();
+Rwidget_add_child(carousel, page_one);         /* every child is a page */
+Rwidget_add_child(carousel, page_two);
+Rcarousel_set_page_changed_callback(carousel, on_page, NULL);
+Rcarousel_set_page(carousel, 1, R_TRUE);       /* pages counted from 0; glides to it */
+Rcarousel_next(carousel);
+```
+
+A `Carousel` shows its children one at a time, side by side (or one above
+the other, `Orientation="Vertical"`). The pages follow a drag of the mouse, a
+finger or two fingers on a trackpad as if they were held, stretch before the
+first page and after the last, and settle on the nearest page when let go, or
+on the next one when flicked. The arrow keys, Home and End, the dots along the
+bottom edge, the round arrows shown under the pointer and the mouse wheel turn
+the pages too. `Loop` makes the last page lead to the first; `Autoplay` turns
+them every so many seconds, and waits while the pointer is on the carousel.
+Only the page shown, and the one coming in while the pages move, is drawn and
+reached by the mouse and the keyboard. Screen readers see a list of tabs, one
+per page (its `Slot.Title`, else "Page 2 of 5").
+
 ### Tables, dates and the small controls
 
 ```xml

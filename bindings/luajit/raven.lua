@@ -474,7 +474,8 @@ typedef enum RWidgetType {
 	R_WIDGET_PLOT = 562,
 	R_WIDGET_PDF_VIEW = 563,
 	R_WIDGET_CHART = 564,
-	R_WIDGET_MAP_VIEW = 565,
+	R_WIDGET_CAROUSEL = 565,
+	R_WIDGET_MAP_VIEW = 566,
 } RWidgetType;
 typedef enum RHAlign {
 	R_HALIGN_FILL = 576,
@@ -916,6 +917,7 @@ typedef void (*RPlotSeriesCallback)(Rid plot, int series, int visible, void* use
 typedef void (*RChartSliceCallback)(Rid chart, int slice, int selected, void* user_data);
 typedef void (*RChartCellCallback)(Rid chart, int row, int column, float value, void* user_data);
 typedef void (*RPdfPageChangedCallback)(Rid view, int page, void* user_data);
+typedef void (*RCarouselPageChangedCallback)(Rid carousel, int page, void* user_data);
 typedef void (*RMapTileCallback)(Rid map, int z, int x, int y, void* user_data);
 typedef void (*RMapMarkerCallback)(Rid map, int marker, void* user_data);
 typedef void (*RMapViewCallback)(Rid map, double latitude, double longitude, double zoom, void* user_data);

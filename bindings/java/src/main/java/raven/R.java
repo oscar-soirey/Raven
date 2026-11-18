@@ -1076,9 +1076,13 @@ public final class R {
      */
     public static final int R_WIDGET_CHART = 0x0234;
     /**
+     * Pages shown one at a time and swiped (a page view), with dots and arrows.
+     */
+    public static final int R_WIDGET_CAROUSEL = 0x0235;
+    /**
      * A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
      */
-    public static final int R_WIDGET_MAP_VIEW = 0x0235;
+    public static final int R_WIDGET_MAP_VIEW = 0x0236;
 
     // RHAlign
     public static final int R_HALIGN_FILL = 0x0240;
@@ -5356,6 +5360,29 @@ public final class R {
 
     private static MemorySegment upcall(RPdfPageChangedCallback f) {
         return stub(f, RPdfPageChangedCallback.class, "RPdfPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
+    }
+
+    /**
+     * Called when the user goes to another page (a swipe, the keys, a
+     * dot, an arrow) and when the autoplay does. This also fires the action
+     * of the widget.
+     */
+    @FunctionalInterface
+    public interface RCarouselPageChangedCallback {
+        void invoke(int carousel, int page, MemorySegment user_data);
+    }
+
+    private static void RCarouselPageChangedCallback$raw(RCarouselPageChangedCallback f, int carousel, int page, MemorySegment user_data) {
+        try {
+            f.invoke(carousel, page, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RCarouselPageChangedCallback f) {
+        return stub(f, RCarouselPageChangedCallback.class, "RCarouselPageChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, ADDRESS));
     }
 
     /**

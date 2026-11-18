@@ -753,8 +753,10 @@ const RWidgetType R_WIDGET_PLOT = 0x0232;
 const RWidgetType R_WIDGET_PDF_VIEW = 0x0233;
 <* The charts of dashboards: pie, donut, gauge, heatmap, sparkline (RChartKind). *>
 const RWidgetType R_WIDGET_CHART = 0x0234;
+<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
+const RWidgetType R_WIDGET_CAROUSEL = 0x0235;
 <* A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers. *>
-const RWidgetType R_WIDGET_MAP_VIEW = 0x0235;
+const RWidgetType R_WIDGET_MAP_VIEW = 0x0236;
 
 alias RHAlign = CInt;
 const RHAlign R_HALIGN_FILL = 0x0240;
@@ -1543,6 +1545,12 @@ alias RChartSliceCallback = fn void(Rid chart, CInt slice, CInt selected, void* 
 alias RChartCellCallback = fn void(Rid chart, CInt row, CInt column, float value, void* user_data);
 <* Called when the current page changes as the user scrolls. This also fires the action of the widget. *>
 alias RPdfPageChangedCallback = fn void(Rid view, CInt page, void* user_data);
+<*
+ Called when the user goes to another page (a swipe, the keys, a
+ dot, an arrow) and when the autoplay does. This also fires the action
+ of the widget.
+*>
+alias RCarouselPageChangedCallback = fn void(Rid carousel, CInt page, void* user_data);
 <* Asks the application for a tile (z, x, y), or tells it that a tile asked for is no longer wanted. *>
 alias RMapTileCallback = fn void(Rid map, CInt z, CInt x, CInt y, void* user_data);
 <* Called when the user clicks a marker. *>
