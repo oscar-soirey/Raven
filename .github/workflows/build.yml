@@ -9,7 +9,8 @@
 # Every package is a CMake install prefix (include/, lib/, bin/ with
 # raven_designer, share/raven/): find_package(raven) with CMAKE_PREFIX_PATH set to it.
 #
-# The tests run on Linux (headless; test_web drives the Chrome of the runner).
+# The tests run on Linux (headless; test_web drives the Chrome of the runner),
+# and on macOS with the Metal backend and no Vulkan at all.
 # A tag is released only when they pass.
 #
 # Each run uploads the packages as artifacts (Actions tab > the run > Artifacts).
@@ -317,6 +318,39 @@ jobs:
       - name: Test native backdrop surface
         run: ctest --test-dir build -C Release -R '^test_win32_backdrop$' --no-tests=error --output-on-failure --timeout 60
 
+  # The Metal backend (macOS): built without Vulkan at all (no headers, no
+  # MoltenVK), then the tests, test_render_metal drawing real frames with the
+  # GPU of the runner (skipped when it has none).
+  metal:
+    name: tests (macos, metal)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DRAVEN_BACKEND_VULKAN=OFF \
+            -DRAVEN_BACKEND_METAL=ON \
+            -DRAVEN_BUILD_TESTS=ON \
+            -DRAVEN_BUILD_EXAMPLES=ON \
+            -DRAVEN_BUILD_TOOLS=ON \
+            -DRAVEN_BUILD_WEB=OFF \
+            -DRAVEN_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        # (test_shell and test_themes do not pass on macOS yet, with any backend)
+        run: ctest --test-dir build --output-on-failure --timeout 300 -E '^(test_shell|test_themes)$'
+
+      - name: No Vulkan library is linked
+        run: |
+          otool -L ./build/bin/raven_hello
+          ! otool -L ./build/bin/raven_hello | grep -i -e vulkan -e moltenvk
+
   # ---------------------------------------------------------------------------
   #  Windows (MinGW-w64, through MSYS2)
   # ---------------------------------------------------------------------------
@@ -487,7 +521,7 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, build, mingw, installer]
+    needs: [test, metal, build, mingw, installer]
     runs-on: ubuntu-latest
     permissions:
       contents: write

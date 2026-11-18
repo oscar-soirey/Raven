@@ -9,9 +9,10 @@
 #   test_wayland
 #       the Wayland platform against a small compositor run in the test itself
 #       (libwayland-server): skipped where it is not installed.
-#   test_render
-#       renders real frames with the Vulkan backend and checks pixels. It is
-#       reported as skipped when the machine has no usable Vulkan driver.
+#   test_render, test_render_metal
+#       render real frames with the Vulkan backend, and with the Metal backend
+#       (macOS, iOS), and check pixels. They are reported as skipped when the
+#       machine has no usable driver.
 #
 #   raven_benchmark
 #       not a test: prints layout and paint timings for a large widget tree.
@@ -124,9 +125,27 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "x11" AND RAVEN_WAYLAND)
 	endif()
 endif()
 
-if(RAVEN_BACKEND_VULKAN)
+# one executable for both GPU backends: RAVEN_BACKEND picks the one it renders with
+if(RAVEN_BACKEND_VULKAN OR RAVEN_BACKEND_METAL)
 	raven_add_test(test_render)
-	set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77)
+	if(RAVEN_BACKEND_VULKAN)
+		target_compile_definitions(test_render PRIVATE RAVEN_TEST_VULKAN=1)
+		set_tests_properties(test_render PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=vulkan")
+	else()
+		# (no Vulkan in the library: only the Metal test is run)
+		target_compile_definitions(test_render PRIVATE RAVEN_TEST_VULKAN=0)
+		set_tests_properties(test_render PROPERTIES DISABLED TRUE)
+	endif()
+	if(RAVEN_BACKEND_METAL)
+		add_test(NAME test_render_metal COMMAND test_render)
+		set_tests_properties(test_render_metal PROPERTIES SKIP_RETURN_CODE 77 ENVIRONMENT "RAVEN_BACKEND=metal")
+		find_package(Python3 COMPONENTS Interpreter QUIET)
+		if(Python3_FOUND)
+			# generated/shaders.h is what src/render/metal/generate_shaders.py writes from the .metal files
+			add_test(NAME metal_shaders_up_to_date
+				COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/src/render/metal/generate_shaders.py --check)
+		endif()
+	endif()
 endif()
 
 # Not a test: prints timings for a large widget tree (see the top of benchmark.c).

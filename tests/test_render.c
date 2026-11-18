@@ -1,11 +1,17 @@
 /**
- * Raven tests - rendering with the Vulkan backend.
+ * Raven tests - rendering with the Vulkan or the Metal backend.
  *
  * Frames are rendered for real and read back with Rwindow_capture, then a
  * few well-chosen pixels are compared with the expected colors. The test
- * first tries to run without a window system (VK_EXT_headless_surface), then
- * with a real window. Without a usable Vulkan driver it is skipped (exit
- * code 77), so that the test suite still passes on machines without a GPU.
+ * first tries to run without a window system (VK_EXT_headless_surface, or an
+ * offscreen texture with Metal), then with a real window. Without a usable
+ * driver it is skipped (exit code 77), so that the test suite still passes on
+ * machines without a GPU.
+ *
+ * RAVEN_BACKEND=vulkan (the default) or metal picks the backend; ctest runs
+ * test_render with Vulkan and test_render_metal with Metal. The tests of the
+ * Vulkan API only exist when the library has the Vulkan backend
+ * (RAVEN_TEST_VULKAN=1, given by CMake).
  */
 
 #include "test.h"
@@ -17,6 +23,14 @@
 #endif
 
 #define SKIP_CODE 77
+
+#ifndef RAVEN_TEST_VULKAN
+#define RAVEN_TEST_VULKAN 1
+#endif
+
+/* the backend under test */
+static RBackend g_backend = R_BACKEND_VULKAN;
+static const char* g_backend_name = "Vulkan";
 
 static uint8_t* g_pixels;
 static int g_width, g_height;
@@ -884,9 +898,17 @@ static void test_viewport(void) {
 
 	/* the capture waited for the frame, so the callback already ran on the render thread */
 	CHECK(g_callback_calls > 0);
-	CHECK(g_callback_info.backend == R_BACKEND_VULKAN);
+	CHECK(g_callback_info.backend == g_backend);
 	CHECK(g_callback_info.window == window);
-	CHECK(g_callback_info.command_buffer != NULL && g_callback_info.render_pass != NULL);
+	if (g_backend == R_BACKEND_METAL) {
+		/* the encoder of the frame, its command buffer and the device; MTLPixelFormatBGRA8Unorm (80) */
+		CHECK(g_callback_info.metal_encoder != NULL && g_callback_info.metal_command_buffer != NULL && g_callback_info.metal_device != NULL);
+		CHECK(g_callback_info.command_buffer == NULL && g_callback_info.render_pass == NULL);
+		CHECK(g_callback_info.color_format == 80);
+	} else {
+		CHECK(g_callback_info.command_buffer != NULL && g_callback_info.render_pass != NULL);
+		CHECK(g_callback_info.metal_encoder == NULL);
+	}
 	/* (at a fractional scale, 150 * 1.25 = 187.5: the place on the pixel grid may be either pixel) */
 	CHECK(abs(g_callback_info.x - (int)floorf(150 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.y - (int)floorf(20 * g_scale + 0.5f)) <= 1);
 	CHECK(abs(g_callback_info.width - (int)floorf(120 * g_scale + 0.5f)) <= 1 && abs(g_callback_info.height - (int)floorf(80 * g_scale + 0.5f)) <= 1);
@@ -940,6 +962,7 @@ static void test_windows(void) {
 	Rwindow_destroy(first);
 }
 
+#if RAVEN_TEST_VULKAN
 static void test_vulkan_api(void) {
 	Ruint count = 0;
 	const char* const* names;
@@ -1095,6 +1118,66 @@ static void test_device_lost(void) {
 	g_big_pixels = NULL;
 }
 
+#endif /* RAVEN_TEST_VULKAN */
+
+/* ---------------------------------------------------------------------------
+ *  Effects and windows seen through (every backend)
+ * ------------------------------------------------------------------------- */
+
+static int differs(const uint8_t* a, const uint8_t* b) {
+	return abs((int)a[0] - (int)b[0]) + abs((int)a[1] - (int)b[1]) + abs((int)a[2] - (int)b[2]);
+}
+
+/* The built-in effects are drawn by the backend (Metal has its own ports of them), inside their rounded rectangle. */
+static void test_effects(void) {
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"140\" ClearColor=\"#000000\">"
+		"  <Canvas>"
+		"    <Border Slot.Position=\"10,10\" Slot.Size=\"120,120\" Effect=\"mesh\" CornerRadius=\"30\"/>"
+		"    <Border Slot.Position=\"160,10\" Slot.Size=\"120,120\" Effect=\"plasma\" CornerRadius=\"30\"/>"
+		"  </Canvas>"
+		"</Window>");
+	uint8_t a[4], b[4];
+	capture(window);
+	/* the corners of the rounded rectangles are left alone */
+	CHECK_PIXEL(12, 12, 0, 0, 0);
+	CHECK_PIXEL(128, 128, 0, 0, 0);
+	CHECK_PIXEL(162, 12, 0, 0, 0);
+	/* the mesh gradient: lit, and of another color in each corner */
+	memcpy(a, pixel_at(35, 35), 4);
+	memcpy(b, pixel_at(105, 105), 4);
+	CHECK(a[0] + a[1] + a[2] > 150 && b[0] + b[1] + b[2] > 150);
+	CHECK(differs(a, b) > 60);
+	/* the plasma too */
+	memcpy(a, pixel_at(185, 35), 4);
+	memcpy(b, pixel_at(255, 105), 4);
+	CHECK(a[0] + a[1] + a[2] > 150 || b[0] + b[1] + b[2] > 150);
+	CHECK(differs(a, b) > 60);
+	Rwindow_destroy(window);
+}
+
+/* A window seen through: the clear color is transparent, and a native backdrop erases what is behind it. */
+static void test_transparent_window(void) {
+	Rid window = window_from(
+		"<Window Width=\"300\" Height=\"200\" Transparent=\"true\" Borderless=\"true\">"
+		"  <Canvas>"
+		"    <Border Slot.Position=\"10,10\" Slot.Size=\"280,180\" Background=\"#FF0000\" CornerRadius=\"0\" BorderWidth=\"0\"/>"
+		"    <BackgroundBlur Slot.Position=\"60,60\" Slot.Size=\"120,80\" Style=\"Native\" CornerRadius=\"0\" Tint=\"#00000000\" Shadow=\"0\"/>"
+		"  </Canvas>"
+		"</Window>");
+	capture(window);
+	/* outside the panel: nothing drawn, transparent */
+	CHECK(pixel_at(4, 4)[3] < 8);
+	/* the panel: opaque red */
+	CHECK_PIXEL(30, 30, 255, 0, 0);
+	CHECK(pixel_at(30, 30)[3] > 247);
+	/* the native backdrop: a hole through the red, so that the system shows (and blurs) the desktop */
+	CHECK(pixel_at(120, 100)[3] < 8);
+	CHECK(pixel_at(120, 100)[0] < 8);
+	CHECK(pixel_at(200, 100)[3] > 247);
+	Rwindow_destroy(window);
+}
+
 static int start(int headless) {
 	RInitDesc desc;
 	Rid probe;
@@ -1102,7 +1185,7 @@ static int start(int headless) {
 	int width = 0, height = 0;
 
 	memset(&desc, 0, sizeof(desc));
-	desc.backend = R_BACKEND_VULKAN;
+	desc.backend = g_backend;
 	desc.headless = headless;
 	desc.app_name = "test_render";
 	Rerror_set_callback(test_error_callback);
@@ -1201,17 +1284,50 @@ static void test_label_foreground(void) {
 	Rtheme_apply(R_THEME_DARK);
 }
 
+#if defined(__APPLE__)
+static void on_default_draw(const RViewportDrawInfo* info, void* user_data) {
+	*(RBackend*)user_data = info->backend;
+}
+
+/* On macOS and iOS, backend 0 is Metal when the library has it. */
+static void test_default_backend(void) {
+	RInitDesc desc;
+	RBackend used = (RBackend)0;
+	Rid window;
+	uint8_t* pixels;
+	int width = 0, height = 0;
+
+	memset(&desc, 0, sizeof(desc));
+	desc.headless = !getenv("RAVEN_TEST_WINDOWED");
+	desc.app_name = "test_render";
+	CHECK(Rinit_ex(&desc));
+	window = window_from("<Window Width=\"100\" Height=\"100\"><Viewport Name=\"view\"/></Window>");
+	Rviewport_set_draw_callback(Rwidget_find(window, "view"), on_default_draw, &used);
+	pixels = Rwindow_capture(window, &width, &height);
+	CHECK(pixels != NULL);
+	Rpixels_free(pixels);
+	CHECK(used == R_BACKEND_METAL);
+	Rwindow_destroy(window);
+	Rshutdown();
+}
+#endif
+
 int main(void) {
-	/* failures to start are expected on machines without Vulkan: stay quiet */
+	/* failures to start are expected on machines without a GPU: stay quiet */
 	/* RAVEN_TEST_WINDOWED=1 forces a real window, to test the window system path too */
 	int windowed = getenv("RAVEN_TEST_WINDOWED") != NULL;
+	const char* backend = getenv("RAVEN_BACKEND");
+	if (backend && strcmp(backend, "metal") == 0) {
+		g_backend = R_BACKEND_METAL;
+		g_backend_name = "Metal";
+	}
 	EXPECT_ERRORS_BEGIN();
 	if (!windowed && start(R_TRUE)) {
-		printf("test_render: Vulkan without a window system (headless surface)\n");
+		printf("test_render: %s without a window system (headless surface)\n", g_backend_name);
 	} else if (start(R_FALSE)) {
-		printf("test_render: Vulkan with a real window\n");
+		printf("test_render: %s with a real window\n", g_backend_name);
 	} else {
-		printf("test_render: SKIPPED, no usable Vulkan driver or display\n");
+		printf("test_render: SKIPPED, no usable %s driver or display\n", g_backend_name);
 		return SKIP_CODE;
 	}
 	g_test_expect_errors = 0;
@@ -1235,14 +1351,24 @@ int main(void) {
 	RUN(test_node_graph);
 	RUN(test_viewport);
 	RUN(test_windows);
-	RUN(test_vulkan_api);
-	RUN(test_device_lost);
-	/* everything works on the new device */
-	RUN(test_shapes);
-	RUN(test_text);
-	RUN(test_glass);
+	RUN(test_effects);
+	RUN(test_transparent_window);
+#if RAVEN_TEST_VULKAN
+	if (g_backend == R_BACKEND_VULKAN) {
+		RUN(test_vulkan_api);
+		RUN(test_device_lost);
+		/* everything works on the new device */
+		RUN(test_shapes);
+		RUN(test_text);
+		RUN(test_glass);
+	}
+#endif
 
 	Rpixels_free(g_pixels);
+	g_pixels = NULL;
 	Rshutdown();
-	return test_report("test_render");
+#if defined(__APPLE__)
+	if (g_backend == R_BACKEND_METAL) RUN(test_default_backend);
+#endif
+	return test_report(g_backend == R_BACKEND_METAL ? "test_render_metal" : "test_render");
 }
