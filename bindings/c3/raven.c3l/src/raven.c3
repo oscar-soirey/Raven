@@ -1843,6 +1843,15 @@ alias TrayClickedCallback = fn void(Id tray, MouseButton button, void* user_data
  Return R_FALSE to keep the panel.
 *>
 alias DockCloseCallback = fn CInt(Id area, Id panel, void* user_data);
+<*
+ Called when a panel leaves for a window of its own, once the
+ window and its floating area are made, before the panel goes there and
+ before anything is drawn.
+ Returns The content of the window: a widget that holds floating_area
+ (a VBox with a header bar above it, for a window made with
+ R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+*>
+alias DockFloatWindowCallback = fn Id(Id area, Id panel, Id window, Id floating_area, void* user_data);
 <* Called after the user moved, resized, showed or closed a panel. *>
 alias DockChangedCallback = fn void(Id area, void* user_data);
 <* Called when the user unfolds or folds the island. The action of the widget (OnChanged) fires too. *>
@@ -4055,6 +4064,12 @@ fn bool DockArea.is_tearable(self) @inline => c::r_dock_area_is_tearable((c::Rid
 
 <* Default for future floats/tears; existing floating panels keep their mode. *>
 fn void DockArea.set_float_mode(self, DockFloatMode mode) @inline => c::r_dock_area_set_float_mode((c::Rid)self, (c::RDockFloatMode)mode);
+
+<*
+ How the windows of torn-off panels are made (native windows,
+ R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+*>
+fn void DockArea.set_float_window(self, WindowFlags flags, DockFloatWindowCallback callback, void* user_data) @inline => c::r_dock_area_set_float_window((c::Rid)self, (c::Ruint)flags, (c::RDockFloatWindowCallback)callback, user_data);
 
 <* Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. *>
 fn Id DockArea.float_panel(self, Id panel, CInt x, CInt y) @inline => (Id)c::r_dock_area_float_panel((c::Rid)self, (c::Rid)panel, x, y);

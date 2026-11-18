@@ -3161,6 +3161,20 @@ export type RTrayClickedCallback = (tray: Rid, button: RMouseButton, user_data: 
  */
 export type RDockCloseCallback = (area: Rid, panel: Rid, user_data: Pointer | null) => number | boolean;
 
+/**
+ * Called when a panel leaves for a window of its own, once the
+ * window and its floating area are made, before the panel goes there and
+ * before anything is drawn.
+ * area          The area the panel belongs to (its home).
+ * panel         The panel that leaves.
+ * window        The new window.
+ * floating_area The dock area of the new window.
+ * Returns: The content of the window: a widget that holds floating_area
+ * (a VBox with a header bar above it, for a window made with
+ * R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
+ */
+export type RDockFloatWindowCallback = (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: Pointer | null) => Rid;
+
 /** Called after the user moved, resized, showed or closed a panel. */
 export type RDockChangedCallback = (area: Rid, user_data: Pointer | null) => void;
 
@@ -6442,6 +6456,19 @@ export function Rdock_area_is_tearable(area: Rid): number;
 
 /** Default for future floats/tears; existing floating panels keep their mode. */
 export function Rdock_area_set_float_mode(area: Rid, mode: RDockFloatMode): void;
+
+/**
+ * How the windows of torn-off panels are made (native windows,
+ * R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+ * flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+ *                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+ *                 R_WINDOW_TRANSPARENT (the others are ignored).
+ *                 R_WINDOW_DEFAULT by default.
+ * callback May be NULL: the floating area is the whole window.
+ * Dragging the only tab of such a window still moves it, and closing
+ * it (its header bar's close button too) docks its panels back.
+ */
+export function Rdock_area_set_float_window(area: Rid, flags: number, callback: RDockFloatWindowCallback | Pointer | null, user_data?: RPointer): void;
 
 /** Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window. */
 export function Rdock_area_float_panel(area: Rid, panel: Rid, x: number, y: number): Rid;

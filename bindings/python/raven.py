@@ -2620,6 +2620,14 @@ def _adapt_RDockCloseCallback(function):
         return function(area, panel, user_data) or 0
     return call
 
+RDockFloatWindowCallback = ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p)
+
+
+def _adapt_RDockFloatWindowCallback(function):
+    def call(area, panel, window, floating_area, user_data):
+        return function(area, panel, window, floating_area, user_data) or 0
+    return call
+
 RDockChangedCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_void_p)
 
 
@@ -11164,6 +11172,23 @@ _lib.Rdock_area_set_float_mode.restype = None
 def Rdock_area_set_float_mode(area, mode):
     """Default for future floats/tears; existing floating panels keep their mode."""
     _lib.Rdock_area_set_float_mode(area, int(mode))
+
+
+_lib.Rdock_area_set_float_window.argtypes = [ctypes.c_uint32, ctypes.c_uint32, RDockFloatWindowCallback, ctypes.c_void_p]
+_lib.Rdock_area_set_float_window.restype = None
+
+
+def Rdock_area_set_float_window(area, flags, callback, user_data=None):
+    """How the windows of torn-off panels are made (native windows,
+    R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+    flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+                    R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+                    R_WINDOW_TRANSPARENT (the others are ignored).
+                    R_WINDOW_DEFAULT by default.
+    callback May be NULL: the floating area is the whole window.
+    Dragging the only tab of such a window still moves it, and closing
+    it (its header bar's close button too) docks its panels back."""
+    _lib.Rdock_area_set_float_window(area, flags, _callback(RDockFloatWindowCallback, _adapt_RDockFloatWindowCallback, callback), user_data)
 
 
 _lib.Rdock_area_float_panel.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_int, ctypes.c_int]

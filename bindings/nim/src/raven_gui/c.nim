@@ -387,6 +387,17 @@ type
   RDockCloseCallback* = proc (area: Rid, panel: Rid, user_data: pointer): cint {.cdecl.}
     ## Called when the user closes a panel, before it is deleted.
     ## Return R_FALSE to keep the panel.
+  RDockFloatWindowCallback* = proc (area: Rid, panel: Rid, window: Rid, floating_area: Rid, user_data: pointer): Rid {.cdecl.}
+    ## Called when a panel leaves for a window of its own, once the
+    ## window and its floating area are made, before the panel goes there and
+    ## before anything is drawn.
+    ## area          The area the panel belongs to (its home).
+    ## panel         The panel that leaves.
+    ## window        The new window.
+    ## floating_area The dock area of the new window.
+    ## Returns: The content of the window: a widget that holds floating_area
+    ## (a VBox with a header bar above it, for a window made with
+    ## R_WINDOW_CUSTOM_HEADER), or R_INVALID_ID for floating_area itself.
   RDockChangedCallback* = proc (area: Rid, user_data: pointer) {.cdecl.}
     ## Called after the user moved, resized, showed or closed a panel.
   RIslandChangedCallback* = proc (island: Rid, expanded: cint, user_data: pointer) {.cdecl.}
@@ -3955,6 +3966,16 @@ proc Rdock_area_set_tearable*(area: Rid, tearable: cint) {.rapi.}
 proc Rdock_area_is_tearable*(area: Rid): cint {.rapi.}
 proc Rdock_area_set_float_mode*(area: Rid, mode: RDockFloatMode) {.rapi.}
   ## Default for future floats/tears; existing floating panels keep their mode.
+proc Rdock_area_set_float_window*(area: Rid, flags: uint32, callback: RDockFloatWindowCallback, user_data: pointer) {.rapi.}
+  ## How the windows of torn-off panels are made (native windows,
+  ## R_DOCK_FLOAT_WINDOW; in-window cards are not windows).
+  ## flags    RWindowFlags they are created with: R_WINDOW_NO_RESIZE,
+  ##                 R_WINDOW_BORDERLESS, R_WINDOW_CUSTOM_HEADER and
+  ##                 R_WINDOW_TRANSPARENT (the others are ignored).
+  ##                 R_WINDOW_DEFAULT by default.
+  ## callback May be NULL: the floating area is the whole window.
+  ## Dragging the only tab of such a window still moves it, and closing
+  ## it (its header bar's close button too) docks its panels back.
 proc Rdock_area_float_panel*(area: Rid, panel: Rid, x: cint, y: cint): Rid {.rapi.}
   ## Floats a panel. Native mode: screen x/y; in-window mode: window-local logical x/y. Returns its containing window.
 proc Rdock_area_dock_panel*(area: Rid, panel: Rid) {.rapi.}
