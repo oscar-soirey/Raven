@@ -424,24 +424,43 @@ public final class RavenRequestActivity extends Activity {
 		}
 	}
 
-	private static int exifDegrees(String path) {
+	private static int exifOrientation(String path) {
 		try {
-			switch (new ExifInterface(path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)) {
-			case ExifInterface.ORIENTATION_ROTATE_90: return 90;
-			case ExifInterface.ORIENTATION_ROTATE_180: return 180;
-			case ExifInterface.ORIENTATION_ROTATE_270: return 270;
-			default: return 0;
-			}
+			int orientation = new ExifInterface(path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+			return orientation >= ExifInterface.ORIENTATION_NORMAL && orientation <= ExifInterface.ORIENTATION_ROTATE_270 ? orientation
+			                                                                                                             : ExifInterface.ORIENTATION_NORMAL;
 		} catch (IOException | RuntimeException e) {
-			return 0;
+			return ExifInterface.ORIENTATION_NORMAL;
 		}
+	}
+
+	/* the four orientations whose stored picture is turned a quarter: width and height swap */
+	private static boolean swapsSides(int orientation) {
+		return orientation == ExifInterface.ORIENTATION_TRANSPOSE || orientation == ExifInterface.ORIENTATION_ROTATE_90
+			|| orientation == ExifInterface.ORIENTATION_TRANSVERSE || orientation == ExifInterface.ORIENTATION_ROTATE_270;
+	}
+
+	/* what turns the stored picture upright: a rotation, a mirror (front cameras), or both */
+	private static Matrix uprightMatrix(int orientation) {
+		Matrix matrix = new Matrix();
+		switch (orientation) {
+		case ExifInterface.ORIENTATION_FLIP_HORIZONTAL: matrix.setScale(-1, 1); break;
+		case ExifInterface.ORIENTATION_ROTATE_180: matrix.setRotate(180); break;
+		case ExifInterface.ORIENTATION_FLIP_VERTICAL: matrix.setRotate(180); matrix.postScale(-1, 1); break;
+		case ExifInterface.ORIENTATION_TRANSPOSE: matrix.setRotate(90); matrix.postScale(-1, 1); break;
+		case ExifInterface.ORIENTATION_ROTATE_90: matrix.setRotate(90); break;
+		case ExifInterface.ORIENTATION_TRANSVERSE: matrix.setRotate(-90); matrix.postScale(-1, 1); break;
+		case ExifInterface.ORIENTATION_ROTATE_270: matrix.setRotate(-90); break;
+		default: return null;
+		}
+		return matrix;
 	}
 
 	/*
 	 * A photo as Raven decodes it: JPEG, PNG, GIF or BMP, upright (Raven does
-	 * not read EXIF orientations). Others (HEIC, WebP, AVIF) and rotated ones
-	 * are decoded by the system and written again as JPEG; the size in pixels
-	 * is filled in. SHORTCUT: mirrored EXIF orientations are not undone.
+	 * not read EXIF orientations). Others (HEIC, WebP, AVIF) and those with an
+	 * EXIF orientation (turned, mirrored, or both) are decoded by the system,
+	 * made upright and written again as JPEG; the size in pixels is filled in.
 	 */
 	private static void uprightImage(RavenDevice.Picked file) throws IOException {
 		BitmapFactory.Options bounds = new BitmapFactory.Options();
@@ -451,19 +470,18 @@ public final class RavenRequestActivity extends Activity {
 		String type = bounds.outMimeType != null ? bounds.outMimeType.toLowerCase(Locale.ROOT) : "";
 		boolean readable = type.equals("image/jpeg") || type.equals("image/png") || type.equals("image/gif") || type.equals("image/bmp")
 			|| type.equals("image/x-ms-bmp");
-		int degrees = exifDegrees(file.path);
-		file.width = degrees == 90 || degrees == 270 ? bounds.outHeight : bounds.outWidth;
-		file.height = degrees == 90 || degrees == 270 ? bounds.outWidth : bounds.outHeight;
-		if (readable && degrees == 0) return;
+		int orientation = exifOrientation(file.path);
+		Matrix matrix = uprightMatrix(orientation);
+		file.width = swapsSides(orientation) ? bounds.outHeight : bounds.outWidth;
+		file.height = swapsSides(orientation) ? bounds.outWidth : bounds.outHeight;
+		if (readable && matrix == null) return;
 		BitmapFactory.Options options = new BitmapFactory.Options();
 		options.inSampleSize = 1;
 		/* (a 200 MP photo would not fit in the heap: halved until under 48 MP) */
 		while ((long)(bounds.outWidth / options.inSampleSize) * (bounds.outHeight / options.inSampleSize) > 48000000L) options.inSampleSize *= 2;
 		Bitmap bitmap = BitmapFactory.decodeFile(file.path, options);
 		if (bitmap == null) return;
-		if (degrees != 0) {
-			Matrix matrix = new Matrix();
-			matrix.postRotate(degrees);
+		if (matrix != null) {
 			Bitmap rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
 			if (rotated != bitmap) bitmap.recycle();
 			bitmap = rotated;
@@ -479,7 +497,7 @@ public final class RavenRequestActivity extends Activity {
 		bitmap.recycle();
 		source.delete();
 		if (!temporary.renameTo(jpeg)) throw new IOException("cannot rename to " + jpeg);
-		Log.i(TAG, "photo " + file.name + ": " + type + (degrees != 0 ? ", turned " + degrees + " degrees" : "") + ", written as JPEG");
+		Log.i(TAG, "photo " + file.name + ": " + type + (matrix != null ? ", EXIF orientation " + orientation + " made upright" : "") + ", written as JPEG");
 		if (!file.name.toLowerCase(Locale.ROOT).endsWith(".jpg")) file.name = jpeg.getName();
 		file.path = jpeg.getAbsolutePath();
 		file.mime = "image/jpeg";
