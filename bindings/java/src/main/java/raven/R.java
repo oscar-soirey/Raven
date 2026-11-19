@@ -1843,6 +1843,32 @@ public final class R {
     public static final int R_ROLE_SCROLL_BAR = 0x0782;
     public static final int R_ROLE_PANE = 0x0783;
 
+    // RGoldenStatus
+    /**
+     * The capture matches the golden.
+     */
+    public static final int R_GOLDEN_MATCH = 0x0BA0;
+    /**
+     * RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+     */
+    public static final int R_GOLDEN_UPDATED = 0x0BA1;
+    /**
+     * Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+     */
+    public static final int R_GOLDEN_MISMATCH = 0x0BA2;
+    /**
+     * The capture and the golden do not have the same size: NAME.actual.png was written.
+     */
+    public static final int R_GOLDEN_SIZE_MISMATCH = 0x0BA3;
+    /**
+     * There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+     */
+    public static final int R_GOLDEN_MISSING = 0x0BA4;
+    /**
+     * The window could not be captured, or a file could not be read or written.
+     */
+    public static final int R_GOLDEN_FAILED = 0x0BA5;
+
     // ---- structures
 
     /**
@@ -4165,6 +4191,155 @@ public final class R {
 
         public MemorySegment user_data() { return s.get(ADDRESS, 32); }
         public RHostPlatformDesc user_data(MemorySegment value) { s.set(ADDRESS, 32, value == null ? MemorySegment.NULL : value); return this; }
+    }
+
+    /**
+     * How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+     */
+    public static final class RGoldenOptions {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 24;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RGoldenOptions x = {0};` is in C). */
+        public RGoldenOptions() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RGoldenOptions(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RGoldenOptions(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RGoldenOptions[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RGoldenOptions[] items = new RGoldenOptions[count];
+            for (int i = 0; i < count; i++) items[i] = new RGoldenOptions(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * Largest difference on one channel (0..255) for which two pixels are still the same.
+         */
+        public int channel_tolerance() { return s.get(JAVA_INT, 0); }
+        public RGoldenOptions channel_tolerance(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        /**
+         * Share of the pixels (0..1) that may differ while the images still match.
+         */
+        public float max_diff_ratio() { return s.get(JAVA_FLOAT, 4); }
+        public RGoldenOptions max_diff_ratio(float value) { s.set(JAVA_FLOAT, 4, value); return this; }
+
+        /**
+         * R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+         */
+        public int per_platform() { return s.get(JAVA_INT, 8); }
+        public RGoldenOptions per_platform(int value) { s.set(JAVA_INT, 8, value); return this; }
+
+        /**
+         * Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+         */
+        public String output_directory() { return R.text(s.get(ADDRESS, 16)); }
+        public RGoldenOptions output_directory(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+    }
+
+    /**
+     * What Rtest_expect_golden found.
+     */
+    public static final class RGoldenResult {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 40;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RGoldenResult x = {0};` is in C). */
+        public RGoldenResult() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RGoldenResult(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RGoldenResult(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RGoldenResult[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RGoldenResult[] items = new RGoldenResult[count];
+            for (int i = 0; i < count; i++) items[i] = new RGoldenResult(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        public int status() { return s.get(JAVA_INT, 0); }
+        public RGoldenResult status(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        /**
+         * Size of the capture, in pixels.
+         */
+        public int width() { return s.get(JAVA_INT, 4); }
+        public RGoldenResult width(int value) { s.set(JAVA_INT, 4, value); return this; }
+
+        /**
+         * Size of the capture, in pixels.
+         */
+        public int height() { return s.get(JAVA_INT, 8); }
+        public RGoldenResult height(int value) { s.set(JAVA_INT, 8, value); return this; }
+
+        /**
+         * Pixels farther from the golden than the tolerance.
+         */
+        public int differing_pixels() { return s.get(JAVA_INT, 12); }
+        public RGoldenResult differing_pixels(int value) { s.set(JAVA_INT, 12, value); return this; }
+
+        /**
+         * Largest difference found on one channel (0..255).
+         */
+        public int max_channel_difference() { return s.get(JAVA_INT, 16); }
+        public RGoldenResult max_channel_difference(int value) { s.set(JAVA_INT, 16, value); return this; }
+
+        /**
+         * The golden that was read or written (with the platform tag). Valid until the next call.
+         */
+        public String golden_path() { return R.text(s.get(ADDRESS, 24)); }
+        public RGoldenResult golden_path(String value) { s.set(ADDRESS, 24, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * One line that says what happened, for the log of the test. Valid until the next call.
+         */
+        public String message() { return R.text(s.get(ADDRESS, 32)); }
+        public RGoldenResult message(String value) { s.set(ADDRESS, 32, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
     }
 
     // ---- callbacks
@@ -8623,6 +8798,31 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_inject_composition$;
+
+    /**
+     * The text an input method is composing (preedit: Chinese,
+     * Japanese, Korean, dead keys), as the platforms send it. The focused
+     * TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+     * place of its selection, but it is not in its text and no changed
+     * callback runs. [selection_start, selection_end) are bytes of `text`:
+     * the part the input method works on (underlined thicker), or the caret
+     * when they are equal; -1 is the end of `text`. NULL or "" ends the
+     * composition without typing anything (cancel). The committed text comes
+     * through Rwindow_inject_text, which ends the composition too, and so
+     * does a change of focus. Ignored when the focus takes no text.
+     */
+    public static void Rwindow_inject_composition(int window, String text, int selection_start, int selection_end) {
+        MethodHandle $h = Rwindow_inject_composition$;
+        if ($h == null) Rwindow_inject_composition$ = $h = find("Rwindow_inject_composition", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(window, text$, selection_start, selection_end);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_inject_drag$;
 
     /**
@@ -8842,6 +9042,28 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_get_text_composition$;
+
+    /**
+     * The composition of the input method in progress (UTF-8, valid
+     * until it changes) and its selection in bytes; NULL when there is none.
+     * Any output pointer may be NULL.
+     */
+    public static String Rwindow_get_text_composition(int window, int[] selection_start, int[] selection_end) {
+        MethodHandle $h = Rwindow_get_text_composition$;
+        if ($h == null) Rwindow_get_text_composition$ = $h = find("Rwindow_get_text_composition", FunctionDescriptor.of(ADDRESS, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment selection_start$ = selection_start == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment selection_end$ = selection_end == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(window, selection_start$, selection_end$);
+            if (selection_start != null && selection_start.length > 0) selection_start[0] = selection_start$.get(JAVA_INT, 0);
+            if (selection_end != null && selection_end.length > 0) selection_end[0] = selection_end$.get(JAVA_INT, 0);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_has_popup$;
 
     /**
@@ -8864,7 +9086,9 @@ public final class R {
      * Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
      * Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
      * outputs when there is no visible editable caret, the window is inactive, or focus changed
-     * since painting. Any output pointer may be NULL.
+     * since painting. Any output pointer may be NULL. While an input method
+     * composes, it is the caret inside the composition: where its candidate
+     * window goes.
      */
     public static int Rwindow_get_text_input_rect(int window, int[] x, int[] y, int[] width, int[] height) {
         MethodHandle $h = Rwindow_get_text_input_rect$;
@@ -10262,6 +10486,49 @@ public final class R {
         if ($h == null) Rpixels_free$ = $h = find("Rpixels_free", FunctionDescriptor.ofVoid(ADDRESS));
         try {
             $h.invokeExact((MemorySegment) (pixels == null ? MemorySegment.NULL : pixels));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_encode_png$;
+
+    /**
+     * Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+     * returns) as a PNG file in memory. Thread-safe.
+     * size Receives the number of bytes.
+     * Returns: The bytes of the file, to release with Rpixels_free; NULL when
+     * there are no pixels.
+     */
+    public static MemorySegment Rimage_encode_png(byte[] rgba, int width, int height, long[] size) {
+        MethodHandle $h = Rimage_encode_png$;
+        if ($h == null) Rimage_encode_png$ = $h = find("Rimage_encode_png", FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment rgba$ = rgba == null ? MemorySegment.NULL : bytes($a, rgba);
+            MemorySegment size$ = size == null ? MemorySegment.NULL : $a.allocate(JAVA_LONG);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(rgba$, width, height, size$);
+            if (size != null && size.length > 0) size[0] = size$.get(JAVA_LONG, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_save_png$;
+
+    /**
+     * Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+     * of Rwindow_capture, a picture made by the application. Thread-safe.
+     * Returns: R_FALSE when the file cannot be written.
+     */
+    public static int Rimage_save_png(String path, byte[] rgba, int width, int height) {
+        MethodHandle $h = Rimage_save_png$;
+        if ($h == null) Rimage_save_png$ = $h = find("Rimage_save_png", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            MemorySegment rgba$ = rgba == null ? MemorySegment.NULL : bytes($a, rgba);
+            int $r = (int) $h.invokeExact(path$, rgba$, width, height);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -27858,6 +28125,26 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rhost_inject_composition$;
+
+    /**
+     * The input method of the application's system composes `text`
+     * (preedit), with its selection in bytes (see Rwindow_inject_composition).
+     * NULL or "" cancels it; the committed text then comes through
+     * Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+     * candidate window.
+     */
+    public static void Rhost_inject_composition(int window, String text, int selection_start, int selection_end) {
+        MethodHandle $h = Rhost_inject_composition$;
+        if ($h == null) Rhost_inject_composition$ = $h = find("Rhost_inject_composition", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(window, text$, selection_start, selection_end);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rhost_inject_focus$;
 
     /**
@@ -27883,6 +28170,453 @@ public final class R {
         if ($h == null) Rhost_inject_close$ = $h = find("Rhost_inject_close", FunctionDescriptor.ofVoid(JAVA_INT));
         try {
             $h.invokeExact(window);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_set_deterministic$;
+
+    /**
+     * R_TRUE makes what is drawn depend only on what the test does:
+     * every frame advances the animations by 1/60 s (Rset_animation_time_step),
+     * and the carets of the text fields stay lit instead of blinking. R_FALSE
+     * gives the clock back (time step 0).
+     */
+    public static void Rtest_set_deterministic(int enabled) {
+        MethodHandle $h = Rtest_set_deterministic$;
+        if ($h == null) Rtest_set_deterministic$ = $h = find("Rtest_set_deterministic", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_is_deterministic$;
+
+    public static int Rtest_is_deterministic() {
+        MethodHandle $h = Rtest_is_deterministic$;
+        if ($h == null) Rtest_is_deterministic$ = $h = find("Rtest_is_deterministic", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_get_platform_tag$;
+
+    /**
+     * Returns: What the goldens of this run are made with, "OS-backend":
+     * "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+     * "null" with the null backend.
+     */
+    public static String Rtest_get_platform_tag() {
+        MethodHandle $h = Rtest_get_platform_tag$;
+        if ($h == null) Rtest_get_platform_tag$ = $h = find("Rtest_get_platform_tag", FunctionDescriptor.of(ADDRESS));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact();
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_find$;
+
+    /**
+     * Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+     * path may have several names separated by '/': "settings/ok" is the
+     * widget named "ok" inside the one named "settings". In a window, the
+     * open popups (menus, dialogs) are searched first, top first, then the
+     * content.
+     * scope A window or a widget.
+     * Returns: R_INVALID_ID when nothing has that name (no error is reported).
+     */
+    public static int Rtest_find(int scope, String path) {
+        MethodHandle $h = Rtest_find$;
+        if ($h == null) Rtest_find$ = $h = find("Rtest_find", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            int $r = (int) $h.invokeExact(scope, path$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_click$;
+
+    /**
+     * Moves the mouse to the middle of the widget, presses and releases the left button.
+     */
+    public static int Rtest_click(int widget) {
+        MethodHandle $h = Rtest_click$;
+        if ($h == null) Rtest_click$ = $h = find("Rtest_click", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_double_click$;
+
+    /**
+     * Two clicks in a row on the middle of the widget, seen as a double click.
+     */
+    public static int Rtest_double_click(int widget) {
+        MethodHandle $h = Rtest_double_click$;
+        if ($h == null) Rtest_double_click$ = $h = find("Rtest_double_click", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_right_click$;
+
+    /**
+     * A click of the right button on the middle of the widget (a context menu).
+     */
+    public static int Rtest_right_click(int widget) {
+        MethodHandle $h = Rtest_right_click$;
+        if ($h == null) Rtest_right_click$ = $h = find("Rtest_right_click", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_click_at$;
+
+    /**
+     * Clicks at a position of a widget or a window.
+     * clicks 1 for a click, 2 for a double click, 3 for a triple click.
+     * modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+     */
+    public static int Rtest_click_at(int target, float x, float y, int button, int clicks, int modifiers) {
+        MethodHandle $h = Rtest_click_at$;
+        if ($h == null) Rtest_click_at$ = $h = find("Rtest_click_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(target, x, y, button, clicks, modifiers);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_hover$;
+
+    /**
+     * Moves the mouse over the middle of the widget, without clicking.
+     */
+    public static int Rtest_hover(int widget) {
+        MethodHandle $h = Rtest_hover$;
+        if ($h == null) Rtest_hover$ = $h = find("Rtest_hover", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_hover_at$;
+
+    /**
+     * Moves the mouse to a position of a widget or a window.
+     */
+    public static int Rtest_hover_at(int target, float x, float y) {
+        MethodHandle $h = Rtest_hover_at$;
+        if ($h == null) Rtest_hover_at$ = $h = find("Rtest_hover_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(target, x, y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_drag$;
+
+    /**
+     * Presses the left button on the middle of the widget, moves by
+     * (dx, dy) in several steps, and releases: a slider, a splitter, a
+     * window dragged by a widget.
+     */
+    public static int Rtest_drag(int widget, float dx, float dy) {
+        MethodHandle $h = Rtest_drag$;
+        if ($h == null) Rtest_drag$ = $h = find("Rtest_drag", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(widget, dx, dy);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_drag_to$;
+
+    /**
+     * Drags from the middle of one widget to the middle of another (drag and drop).
+     */
+    public static int Rtest_drag_to(int from, int to_) {
+        MethodHandle $h = Rtest_drag_to$;
+        if ($h == null) Rtest_drag_to$ = $h = find("Rtest_drag_to", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(from, to_);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_scroll$;
+
+    /**
+     * Turns the mouse wheel over the middle of the widget: `wheel_y`
+     * notches (positive: toward the top, as a wheel turned away from the
+     * user), `wheel_x` notches sideways.
+     */
+    public static int Rtest_scroll(int widget, float wheel_x, float wheel_y) {
+        MethodHandle $h = Rtest_scroll$;
+        if ($h == null) Rtest_scroll$ = $h = find("Rtest_scroll", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT));
+        try {
+            int $r = (int) $h.invokeExact(widget, wheel_x, wheel_y);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_key$;
+
+    /**
+     * Presses and releases a key, with RModifier held. A widget
+     * target gets the keyboard focus first; a window sends the key to what
+     * has the focus.
+     */
+    public static int Rtest_key(int target, int key, int modifiers) {
+        MethodHandle $h = Rtest_key$;
+        if ($h == null) Rtest_key$ = $h = find("Rtest_key", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(target, key, modifiers);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_type_text$;
+
+    /**
+     * Types UTF-8 text as a keyboard would. A widget target gets the
+     * keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+     * Tab and Backspace.
+     */
+    public static int Rtest_type_text(int target, String text) {
+        MethodHandle $h = Rtest_type_text$;
+        if ($h == null) Rtest_type_text$ = $h = find("Rtest_type_text", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            int $r = (int) $h.invokeExact(target, text$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_tap$;
+
+    /**
+     * A finger touches the middle of the widget and leaves at once.
+     */
+    public static int Rtest_tap(int widget) {
+        MethodHandle $h = Rtest_tap$;
+        if ($h == null) Rtest_tap$ = $h = find("Rtest_tap", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_swipe$;
+
+    /**
+     * A finger put on the middle of the widget moves by (dx, dy) in
+     * `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+     * (Rtest_settle lets it stop).
+     */
+    public static int Rtest_swipe(int widget, float dx, float dy, double seconds) {
+        MethodHandle $h = Rtest_swipe$;
+        if ($h == null) Rtest_swipe$ = $h = find("Rtest_swipe", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_DOUBLE));
+        try {
+            int $r = (int) $h.invokeExact(widget, dx, dy, seconds);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_pump$;
+
+    /**
+     * Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+     */
+    public static int Rtest_pump(int frames) {
+        MethodHandle $h = Rtest_pump$;
+        if ($h == null) Rtest_pump$ = $h = find("Rtest_pump", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(frames);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_is_idle$;
+
+    /**
+     * Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+     * to do, nothing to paint, no animation, no layout spring, no inertia.
+     * Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+     * realtime viewport) and the timers are not counted.
+     */
+    public static int Rtest_is_idle() {
+        MethodHandle $h = Rtest_is_idle$;
+        if ($h == null) Rtest_is_idle$ = $h = find("Rtest_is_idle", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_settle$;
+
+    /**
+     * Produces frames until Rtest_is_idle, each advancing the
+     * animations by the time step (1/60 s unless Rset_animation_time_step
+     * gives another), for at most `max_seconds` of that time.
+     * Returns: R_FALSE when it was still moving at the end.
+     */
+    public static int Rtest_settle(double max_seconds) {
+        MethodHandle $h = Rtest_settle$;
+        if ($h == null) Rtest_settle$ = $h = find("Rtest_settle", FunctionDescriptor.of(JAVA_INT, JAVA_DOUBLE));
+        try {
+            int $r = (int) $h.invokeExact(max_seconds);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_get_text$;
+
+    /**
+     * Returns: What the user reads in the widget: the text of a field, else
+     * its label (as screen readers say it: the text of a Label, a Button, a
+     * Checkbox...). "" when it has none. Valid until the next call.
+     */
+    public static String Rtest_get_text(int widget) {
+        MethodHandle $h = Rtest_get_text$;
+        if ($h == null) Rtest_get_text$ = $h = find("Rtest_get_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(widget);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_is_shown$;
+
+    /**
+     * Returns: R_TRUE when the widget can be seen: in a window, Visible with
+     * all that holds it, on the page a Switcher or a TabView shows, and laid
+     * out with a size.
+     */
+    public static int Rtest_is_shown(int widget) {
+        MethodHandle $h = Rtest_is_shown$;
+        if ($h == null) Rtest_is_shown$ = $h = find("Rtest_is_shown", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_is_checked$;
+
+    /**
+     * Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+     */
+    public static int Rtest_is_checked(int widget) {
+        MethodHandle $h = Rtest_is_checked$;
+        if ($h == null) Rtest_is_checked$ = $h = find("Rtest_is_checked", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(widget);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_expect_golden$;
+
+    /**
+     * Captures a window, or the rectangle of one widget, and compares
+     * it with the PNG file `golden_path` (see the top of this file).
+     * target A window or a widget.
+     * options NULL for the defaults.
+     * result Receives the details; may be NULL.
+     * Returns: R_TRUE when the capture matches (or the golden was written
+     * because RAVEN_UPDATE_GOLDENS=1).
+     */
+    public static int Rtest_expect_golden(int target, String golden_path, RGoldenOptions options, RGoldenResult result) {
+        MethodHandle $h = Rtest_expect_golden$;
+        if ($h == null) Rtest_expect_golden$ = $h = find("Rtest_expect_golden", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment golden_path$ = golden_path == null ? MemorySegment.NULL : utf8($a, golden_path);
+            int $r = (int) $h.invokeExact(target, golden_path$, (MemorySegment) (options == null ? MemorySegment.NULL : options.segment()), (MemorySegment) (result == null ? MemorySegment.NULL : result.segment()));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtest_compare_pixels$;
+
+    /**
+     * Compares two RGBA8 images of the same size as Rtest_expect_golden
+     * does, without files.
+     * diff_rgba When not NULL, receives width * height * 4 bytes: the
+     * expected image faded, with the different pixels in red.
+     * Returns: The number of pixels farther apart than `channel_tolerance`;
+     * -1 when an image is missing.
+     */
+    public static int Rtest_compare_pixels(byte[] actual, byte[] expected, int width, int height, int channel_tolerance, int[] max_channel_difference, MemorySegment diff_rgba) {
+        MethodHandle $h = Rtest_compare_pixels$;
+        if ($h == null) Rtest_compare_pixels$ = $h = find("Rtest_compare_pixels", FunctionDescriptor.of(JAVA_INT, ADDRESS, ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment actual$ = actual == null ? MemorySegment.NULL : bytes($a, actual);
+            MemorySegment expected$ = expected == null ? MemorySegment.NULL : bytes($a, expected);
+            MemorySegment max_channel_difference$ = max_channel_difference == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(actual$, expected$, width, height, channel_tolerance, max_channel_difference$, (MemorySegment) (diff_rgba == null ? MemorySegment.NULL : diff_rgba));
+            if (max_channel_difference != null && max_channel_difference.length > 0) max_channel_difference[0] = max_channel_difference$.get(JAVA_INT, 0);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }

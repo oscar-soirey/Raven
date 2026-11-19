@@ -257,7 +257,8 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   or a widget, from code, XML or the designer, and events of their own
   (`raven_touch.h`).
 - **Accessible.** Native **screen readers** (Narrator and NVDA through UI
-  Automation, VoiceOver, Orca through AT-SPI), a **text scale**,
+  Automation, VoiceOver on macOS and iOS, TalkBack on Android, Orca through
+  AT-SPI), a **text scale**,
   **high-contrast** themes, **color filters** for color blindness, a focus
   ring that stays visible, less motion.
 - **Viewports** for content rendered by the application: a texture (zero-copy
@@ -510,13 +511,14 @@ Questions: oscarsoirey.contact@gmail.com.
 Version 0.2.3. Everything in this README has been tested: the headless test
 programs (layout, widgets, XML, threads, memory, animations, text editor,
 shell, dialogs, themes, Markdown, tools, locales and accessibility, clean
-under AddressSanitizer, UBSan and ThreadSanitizer), the renderer and glass on
+under AddressSanitizer, UBSan and ThreadSanitizer; run on every push on Linux,
+macOS and Windows, with the tests of the Cocoa and Win32 platforms), the renderer and glass on
 real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 `raven_web`, the designer, the build scripts, `dist.sh`/`dist.bat`, the CMake
 package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,
 Java, Bun, Node.js, D, Nim). The native Wayland platform is newer: it is tested against a
 compositor written in its test (`test_wayland`: windows, scales, keyboard,
-pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
+input methods, pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
 or wlroots with a GPU. iOS and Android are experimental: they have run on
 the iOS Simulator, on an Android phone and on the Android emulator
 (`examples/mobile`), not yet on an iPhone.
@@ -533,7 +535,7 @@ libraries are opened when the program starts.
 | Needs | `libwayland-client` and `libxkbcommon` (installed on every Wayland desktop) |
 | Title bars | drawn by the compositor (KDE, wlroots, Hyprland...), or by `libdecor` where it draws none (GNOME). Without either, Raven uses X11 |
 | Scale | fractional scales (125 %, 150 %...) through `fractional-scale-v1`, sharp at any scale |
-| Keyboard | the layout of the compositor, key repeat, dead keys and compose sequences |
+| Keyboard | the layout of the compositor, key repeat, dead keys and compose sequences; input methods through `text-input-v3` ([Input methods](#input-methods)) |
 | Cursors | `cursor-shape-v1`, or the cursor theme (`XCURSOR_THEME`, `XCURSOR_SIZE`) |
 | Also | clipboard, files dropped from other applications, native viewports (sub-surfaces), window icons (`xdg-toplevel-icon`), blur behind transparent windows (`ext-background-effect`) |
 
@@ -668,6 +670,7 @@ The build trees are in `build\dist\`.
 | `examples/viewport_opengl` | an OpenGL scene in a native child window (WGL / GLX) |
 | `examples/bevy_editor` | **a 3D scene editor in Rust, its whole interface in one `editor.xml`**: hierarchy, inspector, gizmos to move, rotate and scale, undo, scene files. Bevy draws the scene into the viewport; without Bevy, a software renderer does. See its [README](examples/bevy_editor/README.md) |
 | `examples/languages` | the same program in C, C++, Rust, Python, Go, C#, Zig and Lua: one `main.xml` loaded by the program of each language, built by the tools of each language |
+| `examples/ui_test` | a test of an interface: the window of `login.xml` driven by the names of its widgets, its texts checked, and a golden image compared (`RAVEN_UPDATE_GOLDENS=1` writes it) |
 | `examples/mobile` | one showcase in C for iOS and Android (experimental): a tab bar, a list of 1,000 rows with a detail page, controls, glass, a form with keyboard types. See its [README](examples/mobile/README.md) |
 
 ![The notepad example](docs/images/notepad.png)
@@ -683,7 +686,8 @@ C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
 on Maven Central), Odin, Bun (`bun:ffi`), Node.js (a Node-API addon, which
 also runs on Bun and Deno), D (a dub package), Nim (a nimble package), C3
-(a library) and Swift (a Swift package). All but Odin and C3 are tested. See
+(a library), Swift (a Swift package) and Haskell (a cabal package). All but Odin and C3 are
+tested. See
 [bindings/README.md](bindings/README.md). They cover everything in `Raven.h`;
 `raven_web.h` is C only.
 
@@ -1428,6 +1432,27 @@ algorithm and Arabic letters take their joined forms. A character the
 bundled font does not have is drawn with a font of the system (Segoe UI,
 Noto, the CJK fonts...), and color emoji are drawn in color.
 
+### Input methods
+
+Chinese, Japanese and Korean input methods, dead keys and the character
+palette type into a `TextInput`, a `SpinBox` and a `TextEditor`. The text
+being composed is drawn in the field at the caret, underlined (the clause
+being converted thicker), and is not part of the text until it is committed:
+no changed callback runs for it. The candidate window of the system opens
+under the caret.
+
+| Platform | |
+|---|---|
+| macOS | `NSTextInputClient` (any input source of the system) |
+| Windows | IMM32; the input method is off while the focus is not in a text field |
+| Wayland | `text-input-v3` where the compositor offers it (GNOME, KDE, wlroots...): IBus, Fcitx and the others run by the compositor; enabled only while the focus is in a text field |
+| X11 | XIM; the composition drawn in the field (on the spot) when the input method can (IBus, Fcitx), in the input method's own window otherwise |
+| iOS, Android | the text services of the on-screen keyboard |
+| Host platform | `Rhost_inject_composition` from the application's own input method |
+
+`Rwindow_inject_composition` and `Rwindow_get_text_composition` drive and read
+the composition (tests, a host that has its own input method).
+
 ### Accessibility
 
 ```c
@@ -1456,10 +1481,63 @@ readers and the browser accessibility tree.
 Every widget is seen by the screen reader of the system with its role,
 name, value and state, and can be used from it (press, toggle, set a value,
 edit text, move the focus): UI Automation on Windows (Narrator, NVDA, JAWS),
-NSAccessibility on macOS (VoiceOver), AT-SPI on Linux (Orca). Nothing has to
-be added: names come from the texts and from the label in front of a field.
+NSAccessibility on macOS (VoiceOver), AT-SPI on Linux (Orca),
+UIAccessibility on iOS (VoiceOver) and an `AccessibilityNodeProvider` on
+Android (TalkBack, Switch Access). Nothing has to be added: names come from
+the texts and from the label in front of a field. On a touch screen a double
+tap presses, toggles, selects or focuses, and a swipe up or down moves a
+slider or a spin box by its step; the widgets out of view are left out.
 The color filters correct (or, for designers, simulate) protanopia,
 deuteranopia, tritanopia and achromatopsia.
+
+### Testing your interface
+
+`raven_testing.h` drives an interface the way a user does and checks what it
+shows: widgets are found by their `Name`, clicked, typed into, dragged,
+scrolled and tapped through the same input path as the window system (no
+event is sent to the OS), frames are produced until nothing moves, and the
+window, or one widget, is compared with a golden PNG file.
+
+```c
+Rid window = Rwindow_create_from_xml_file("login.xml");
+Rtest_set_deterministic(R_TRUE);                /* fixed clock, carets that do not blink */
+
+Rtest_type_text(Rtest_find(window, "user"), "ada");
+Rtest_click(Rtest_find(window, "form/submit")); /* a name, or a path of names */
+Rtest_settle(2.0);                              /* frames until animations and layout are done */
+
+if (strcmp(Rtest_get_text(Rtest_find(window, "status")), "Welcome, ada") != 0) return 1;
+
+RGoldenOptions options = { .channel_tolerance = 8, .per_platform = R_TRUE };
+RGoldenResult result;
+if (!Rtest_expect_golden(window, "goldens/login.png", &options, &result)) {
+    printf("%s\n", result.message);             /* what differs, and where the pictures are */
+    return 1;
+}
+```
+
+There is also `Rtest_double_click`, `Rtest_right_click`, `Rtest_click_at`
+(a position, a button, modifiers), `Rtest_hover`, `Rtest_drag`,
+`Rtest_drag_to`, `Rtest_scroll`, `Rtest_key`, `Rtest_tap`, `Rtest_swipe`,
+`Rtest_pump` (a number of frames), `Rtest_is_idle`, `Rtest_is_shown` and
+`Rtest_is_checked`. A test is an ordinary program run by `ctest` or any
+runner: `examples/ui_test` is one.
+
+When a golden does not match, `NAME.actual.png` (what was drawn) and
+`NAME.diff.png` (the golden faded, the different pixels in red) are written
+beside it, or in `options.output_directory`. Run the tests with
+`RAVEN_UPDATE_GOLDENS=1` to write the goldens again. Headless tests use
+the null backend, which draws nothing; goldens need the GPU backend (Metal
+renders offscreen on macOS; Vulkan renders without a window system where
+the driver has `VK_EXT_headless_surface`, as `test_render` does). What a GPU draws differs slightly
+between backends, so keep one golden per OS and backend
+(`per_platform` names them `login.macos-metal.png`, `login.linux-vulkan.png`...)
+and allow a small tolerance for the rounding of different GPUs. Text is
+rasterized by Raven with its bundled fonts, so the goldens do not change with
+the fonts of the system. `Rimage_save_png` and `Rimage_encode_png` write any
+capture as a PNG file.
+
+![A golden, the actual frame after a deliberate change, and the diff](docs/images/golden_diff.png)
 
 ### Web pages
 
@@ -1774,7 +1852,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3, Swift
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3, Swift, Haskell
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```
@@ -1791,15 +1869,14 @@ What Raven does not do yet, by area. Contributions are welcome.
 **Platforms**
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
   one above the others (so picture in picture and splash screens too) and fading a whole window:
-  the protocol does not let an application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
-  are not connected yet; dead keys and compose sequences work.
+  the protocol does not let an application do it.
 - Embedding the system web view on Windows (WebView2), Linux (WebKitGTK) and
   Android: `SystemWebView` shows pages on macOS and iOS only; elsewhere
   `raven_web` drives an installed Chromium-based browser instead.
 - iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
   On both, a window fills the screen: its size, position and title are left
-  to the system. There are no native child windows, no screen readers
-  (VoiceOver, TalkBack), no tray icon, menu bar or badge of the system;
+  to the system. There are no native child windows, no tray icon, menu bar
+  or badge of the system;
   notifications go to the fallback of the application
   (`Rnotification_set_fallback`), and file dialogs are Raven's own. The text
   services of the system (suggestions, autocorrection, composition) work in a
@@ -1818,7 +1895,6 @@ What Raven does not do yet, by area. Contributions are welcome.
 **Text**
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic
   joining is done.
-- Placement of the IME composition window.
 - In the text editor: multiple cursors, search and replace, code folding, a
   language server client.
 

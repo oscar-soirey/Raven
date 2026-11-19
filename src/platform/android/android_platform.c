@@ -15,7 +15,8 @@
  * the activity. The on-screen keyboard, predictive back and trim-memory
  * requests go through Raven's Java view (java/raven/android/RavenTextView.java,
  * in the APK's classes.dex): see "Text input" and "Back" below; without it,
- * key events only. Relative paths read the APK's assets/ (AAssetManager):
+ * key events only. TalkBack reads a copy of the tree of core/accessibility.h
+ * kept in java/raven/android/RavenAccessibility.java: see "Screen readers". Relative paths read the APK's assets/ (AAssetManager):
  * see "Files of the APK".
  */
 
@@ -23,6 +24,7 @@
 #include "../../core/thread.h"
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, for the text input of the core) */
 #include "../../widget/widget.h"
+#include "../../core/accessibility.h"
 #include <jni.h>
 #include <raven/raven_android.h>
 #include <android_native_app_glue.h>
@@ -113,6 +115,15 @@ static struct {
 	int tx_applied;        /* number of the last op of Java handled */
 	char* tx_text;         /* text and selection (bytes) Java has */
 	int tx_start, tx_end;
+	/* screen readers: raven.android.RavenAccessibility (global ref; NULL without it) and the copy of the tree it has */
+	jclass ax_class;
+	jmethodID ax_set_tree, ax_hover, ax_announce, ax_active, ax_detach;
+	int ax_dirty;          /* a frame may have changed the tree since the last copy */
+	double ax_sent;        /* when the last copy was sent (seconds) */
+	struct rvn_android_ax_entry_t* ax_map;  /* node -> virtual view id of the last copy, sorted by node */
+	int ax_count;
+	int ax_next_vid;
+	int ax_hovered;        /* the node under the finger of explore by touch (virtual view id), RVN_ANDROID_AX_NONE */
 } g_android;
 
 enum {
@@ -127,7 +138,8 @@ enum {
 	RVN_TX_OP_ACTION = 2,     /* action key / Enter */
 	RVN_TX_OP_KEY = 3,        /* a = Android key code, b = meta state */
 	RVN_TX_OP_BACK = 4,       /* the system's Back, from the predictive back callback (not a field op) */
-	RVN_TX_OP_LOW_MEMORY = 5  /* onTrimMemory, a = level (not a field op) */
+	RVN_TX_OP_LOW_MEMORY = 5, /* onTrimMemory, a = level (not a field op) */
+	RVN_TX_OP_A11Y = 6        /* RavenAccessibility.nativeAction: a = virtual view id, b = RVN_ANDROID_AX_*, text, number (not a field op) */
 };
 
 typedef struct rvn_android_op_t {
@@ -135,6 +147,7 @@ typedef struct rvn_android_op_t {
 	int op, gen, seq, a, b;
 	char* text;
 	int length;
+	double number;
 } rvn_android_op_t;
 
 /*
@@ -940,17 +953,17 @@ static int32_t rvn_android_on_key(AInputEvent* input) {
  * Without the class (no classes.dex) none of this runs.
  * ------------------------------------------------------------------------- */
 
-/* Called by the Java view on the UI thread: queues the op and wakes android_main. */
-static void JNICALL rvn_android_jni_op(JNIEnv* env, jclass cls, jint op, jint gen, jint seq, jbyteArray text, jint a, jint b) {
+/* On the UI thread (the Java views): queues an op and wakes android_main. */
+static void rvn_android_queue_op(JNIEnv* env, jint op, jint gen, jint seq, jbyteArray text, jint a, jint b, double number) {
 	rvn_android_op_t* item = (rvn_android_op_t*)calloc(1, sizeof(rvn_android_op_t));
 	ALooper* looper;
-	RVN_UNUSED(cls);
 	if (!item) return;
 	item->op = op;
 	item->gen = gen;
 	item->seq = seq;
 	item->a = a;
 	item->b = b;
+	item->number = number;
 	if (text) {
 		jsize length = (*env)->GetArrayLength(env, text);
 		item->text = (char*)malloc((size_t)length + 1);
@@ -975,6 +988,12 @@ static void JNICALL rvn_android_jni_op(JNIEnv* env, jclass cls, jint op, jint ge
 	looper = g_android_ops.looper;
 	if (looper) ALooper_wake(looper);
 	pthread_mutex_unlock(&g_android_ops.lock);
+}
+
+/* RavenTextView.nativeOp */
+static void JNICALL rvn_android_jni_op(JNIEnv* env, jclass cls, jint op, jint gen, jint seq, jbyteArray text, jint a, jint b) {
+	RVN_UNUSED(cls);
+	rvn_android_queue_op(env, op, gen, seq, text, a, b, 0.0);
 }
 
 static void rvn_android_text_free_ops(rvn_android_op_t* item) {
@@ -1125,6 +1144,7 @@ static void rvn_android_text_apply_edit(Rid window, const rvn_android_op_t* op) 
 }
 
 static void rvn_android_text_sync(void);
+static void rvn_android_ax_action(const rvn_android_op_t* op);
 
 /* The ops of the Java view, in order, on android_main. */
 static void rvn_android_text_apply(void) {
@@ -1144,6 +1164,10 @@ static void rvn_android_text_apply(void) {
 		}
 		if (item->op == RVN_TX_OP_LOW_MEMORY) {
 			rvn_android_low_memory("onTrimMemory", item->a);
+			continue;
+		}
+		if (item->op == RVN_TX_OP_A11Y) {
+			rvn_android_ax_action(item);
 			continue;
 		}
 		g_android.tx_applied = item->seq;
@@ -1237,6 +1261,381 @@ static void rvn_android_text_sync(void) {
 	(*env)->PopLocalFrame(env, NULL);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Screen readers: TalkBack
+ *
+ * raven.android.RavenAccessibility (src/platform/android/java) is a view over
+ * the whole window whose AccessibilityNodeProvider shows the nodes of
+ * core/accessibility.h as virtual views. Accessibility services ask it on the
+ * UI thread and want an answer at once, while the core lives here: the view
+ * answers from a copy of the tree that android_main sends it (setTree).
+ *  - The core calls a11y_event after every frame (a11y_every_frame) while a
+ *    service is on; the copy is made in pump, at most every
+ *    RVN_ANDROID_AX_PERIOD (a frame of an animation does not cost a copy).
+ *  - Each node keeps its virtual view id from one copy to the next (ax_map):
+ *    TalkBack's cursor stays on it. The nodes out of view (rows of a list
+ *    scrolled away, pages not shown: rvn_a11y_touch_shown) are left out, and a copy has RVN_ANDROID_AX_MAX nodes at
+ *    most.
+ *  - What a node is for TalkBack (class, clickable, scrollable...) comes from
+ *    rvn_a11y_touch (core/accessibility_touch.c), as for VoiceOver.
+ *  - Actions come back as RVN_TX_OP_A11Y ops (rvn_android_ax_action): the
+ *    double tap is rvn_a11y_activate, a scroll on a slider rvn_a11y_adjust.
+ *  - Explore by touch: the hover events of the finger (rvn_android_ax_hover)
+ *    find the node under it, which the view sends as hover events.
+ * SHORTCUT: TalkBack's focus rectangle is not drawn (the system draws it in
+ * the views, which NativeActivity's surface covers), and scrolling a list
+ * (ACTION_SCROLL_* on a container) is not handled: only a range is scrolled.
+ * ------------------------------------------------------------------------- */
+
+#define RVN_ANDROID_AX_PERIOD 0.1
+
+static float rvn_android_window_get_scale(rvn_pwindow_t* window);
+#define RVN_ANDROID_AX_MAX 4096
+#define RVN_ANDROID_AX_NONE ((int)0x80000000)  /* Integer.MIN_VALUE */
+
+/* RavenAccessibility.ACT_* */
+enum {
+	RVN_ANDROID_AX_ACTIVATE = 1,
+	RVN_ANDROID_AX_FOCUS = 2,
+	RVN_ANDROID_AX_SELECT = 3,
+	RVN_ANDROID_AX_EXPAND = 4,
+	RVN_ANDROID_AX_COLLAPSE = 5,
+	RVN_ANDROID_AX_ADJUST = 6,     /* number = steps */
+	RVN_ANDROID_AX_SET_TEXT = 7,   /* text */
+	RVN_ANDROID_AX_SET_NUMBER = 8, /* number */
+	RVN_ANDROID_AX_REFRESH = 9     /* a service was turned on: a copy now */
+};
+
+typedef struct rvn_android_ax_entry_t {
+	rvn_a11y_id_t id;
+	int vid;
+} rvn_android_ax_entry_t;
+
+/* A copy of the tree being made: what setTree takes (RavenAccessibility.INTS, FLOATS, STRINGS per node). */
+typedef struct rvn_android_ax_copy_t {
+	rvn_android_ax_entry_t* map;
+	jint* ints;
+	jfloat* floats;
+	char* strings;
+	int count, capacity;
+	size_t length, size;
+	float scale;
+	int failed;
+} rvn_android_ax_copy_t;
+
+static int rvn_android_ax_compare(const void* a, const void* b) {
+	rvn_a11y_id_t x = ((const rvn_android_ax_entry_t*)a)->id, y = ((const rvn_android_ax_entry_t*)b)->id;
+	return x < y ? -1 : x > y ? 1 : 0;
+}
+
+/* The virtual view id of a node in the last copy, RVN_ANDROID_AX_NONE when it is not in it. */
+static int rvn_android_ax_vid(rvn_a11y_id_t id) {
+	rvn_android_ax_entry_t key;
+	const rvn_android_ax_entry_t* found;
+	if (!g_android.ax_map || !g_android.ax_count) return RVN_ANDROID_AX_NONE;
+	key.id = id;
+	key.vid = 0;
+	found = (const rvn_android_ax_entry_t*)bsearch(&key, g_android.ax_map, (size_t)g_android.ax_count, sizeof(key), rvn_android_ax_compare);
+	return found ? found->vid : RVN_ANDROID_AX_NONE;
+}
+
+/* The node of a virtual view id of the last copy, 0 when none. */
+static rvn_a11y_id_t rvn_android_ax_node(int vid) {
+	int i;
+	for (i = 0; i < g_android.ax_count; i++) if (g_android.ax_map[i].vid == vid) return g_android.ax_map[i].id;
+	return 0;
+}
+
+static void rvn_android_ax_add_string(rvn_android_ax_copy_t* copy, const char* text) {
+	size_t length = text ? strlen(text) : 0;
+	if (copy->length + length + 1 > copy->size) {
+		size_t size = copy->size ? copy->size : 4096;
+		char* strings;
+		while (copy->length + length + 1 > size) size *= 2;
+		strings = (char*)realloc(copy->strings, size);
+		if (!strings) {
+			copy->failed = R_TRUE;
+			return;
+		}
+		copy->strings = strings;
+		copy->size = size;
+	}
+	if (length) memcpy(copy->strings + copy->length, text, length);
+	copy->strings[copy->length + length] = 0;
+	copy->length += length + 1;
+}
+
+/* Adds the children of a node shown (and theirs), in preorder. */
+static void rvn_android_ax_walk(rvn_android_ax_copy_t* copy, rvn_a11y_id_t parent, int parent_vid, int depth) {
+	int i, count = rvn_a11y_child_count(parent);
+	for (i = 0; i < count && !copy->failed && copy->count < RVN_ANDROID_AX_MAX; i++) {
+		rvn_a11y_id_t child = rvn_a11y_child(parent, i);
+		rvn_a11y_node_t node;
+		rvn_a11y_touch_t touch;
+		int vid, n;
+		if (!rvn_a11y_describe(child, &node) || !rvn_a11y_touch_shown(&node)) continue;
+		rvn_a11y_touch(&node, &touch);
+		if (copy->count == copy->capacity) {
+			int capacity = copy->capacity ? copy->capacity * 2 : 128;
+			rvn_android_ax_entry_t* map = (rvn_android_ax_entry_t*)realloc(copy->map, (size_t)capacity * sizeof(*map));
+			jint* ints = map ? (jint*)realloc(copy->ints, (size_t)capacity * 4 * sizeof(jint)) : NULL;
+			jfloat* floats = ints ? (jfloat*)realloc(copy->floats, (size_t)capacity * 8 * sizeof(jfloat)) : NULL;
+			if (map) copy->map = map;
+			if (ints) copy->ints = ints;
+			if (floats) copy->floats = floats;
+			if (!floats) {
+				copy->failed = R_TRUE;
+				return;
+			}
+			copy->capacity = capacity;
+		}
+		vid = rvn_android_ax_vid(child);
+		if (vid == RVN_ANDROID_AX_NONE) {
+			vid = g_android.ax_next_vid++;
+			if (g_android.ax_next_vid >= 0x7fffffff) g_android.ax_next_vid = 1;
+		}
+		n = copy->count++;
+		copy->map[n].id = child;
+		copy->map[n].vid = vid;
+		copy->ints[n * 4] = vid;
+		copy->ints[n * 4 + 1] = parent_vid;
+		copy->ints[n * 4 + 2] = (jint)node.states;
+		copy->ints[n * 4 + 3] = (jint)touch.flags;
+		/* pixels of the window (the view fills it) */
+		copy->floats[n * 8] = node.x * copy->scale;
+		copy->floats[n * 8 + 1] = node.y * copy->scale;
+		copy->floats[n * 8 + 2] = node.width * copy->scale;
+		copy->floats[n * 8 + 3] = node.height * copy->scale;
+		copy->floats[n * 8 + 4] = (jfloat)node.number;
+		copy->floats[n * 8 + 5] = (jfloat)node.minimum;
+		copy->floats[n * 8 + 6] = (jfloat)node.maximum;
+		copy->floats[n * 8 + 7] = (jfloat)node.step;
+		/* (the strings of describe only last until the next call: copied before the children) */
+		rvn_android_ax_add_string(copy, node.name);
+		rvn_android_ax_add_string(copy, node.value);
+		rvn_android_ax_add_string(copy, node.description);
+		rvn_android_ax_add_string(copy, touch.class_name);
+		if (depth < 64) rvn_android_ax_walk(copy, child, vid, depth + 1);
+	}
+}
+
+static int rvn_android_ax_service_on(void) {
+	JNIEnv* env = g_android.env;
+	jboolean active;
+	if (!env || !g_android.ax_class) return R_FALSE;
+	active = (*env)->CallStaticBooleanMethod(env, g_android.ax_class, g_android.ax_active);
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionClear(env);
+		return R_FALSE;
+	}
+	return active ? R_TRUE : R_FALSE;
+}
+
+/* Makes a copy of the tree and sends it to the view. */
+static void rvn_android_ax_send(void) {
+	JNIEnv* env = g_android.env;
+	rvn_window_t* core = rvn_android_core_window();
+	rvn_android_ax_copy_t copy;
+	jintArray ints;
+	jfloatArray floats;
+	jbyteArray strings;
+	memset(&copy, 0, sizeof(copy));
+	copy.scale = rvn_android_window_get_scale(g_android.window);
+	if (!g_android.ax_next_vid) g_android.ax_next_vid = 1;
+	if (core) rvn_android_ax_walk(&copy, (rvn_a11y_id_t)core->id, RVN_ANDROID_AX_NONE, 0);
+	if (copy.failed) {
+		free(copy.map);
+		free(copy.ints);
+		free(copy.floats);
+		free(copy.strings);
+		__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "accessibility: out of memory for a copy of the tree");
+		return;
+	}
+	(*env)->PushLocalFrame(env, 4);
+	ints = (*env)->NewIntArray(env, copy.count * 4);
+	floats = (*env)->NewFloatArray(env, copy.count * 8);
+	strings = (*env)->NewByteArray(env, (jsize)copy.length);
+	if (ints && floats && strings && !(*env)->ExceptionCheck(env)) {
+		if (copy.count) {
+			(*env)->SetIntArrayRegion(env, ints, 0, copy.count * 4, copy.ints);
+			(*env)->SetFloatArrayRegion(env, floats, 0, copy.count * 8, copy.floats);
+		}
+		if (copy.length) (*env)->SetByteArrayRegion(env, strings, 0, (jsize)copy.length, (const jbyte*)copy.strings);
+		(*env)->CallStaticVoidMethod(env, g_android.ax_class, g_android.ax_set_tree, ints, floats, strings);
+	}
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+	}
+	(*env)->PopLocalFrame(env, NULL);
+	/* the ids of this copy, sorted for rvn_android_ax_vid */
+	if (copy.count) qsort(copy.map, (size_t)copy.count, sizeof(*copy.map), rvn_android_ax_compare);
+	free(g_android.ax_map);
+	g_android.ax_map = copy.map;
+	g_android.ax_count = copy.count;
+	free(copy.ints);
+	free(copy.floats);
+	free(copy.strings);
+}
+
+/*
+ * In pump: sends a copy when the tree may have changed and the last one is
+ * old enough. Returns how long to wait for the next one (ms), -1 when none
+ * is due.
+ */
+static int rvn_android_ax_sync(void) {
+	double now, left;
+	if (!g_android.ax_class || !g_android.ax_dirty || !g_android.window) return -1;
+	now = rvn_clock_seconds();
+	left = g_android.ax_sent + RVN_ANDROID_AX_PERIOD - now;
+	if (left > 0.0) return (int)(left * 1000.0) + 1;
+	g_android.ax_dirty = R_FALSE;
+	if (!rvn_android_ax_service_on()) return -1;
+	g_android.ax_sent = now;
+	rvn_android_ax_send();
+	return -1;
+}
+
+/* An action of a service on a node (on android_main, from the op queue). */
+static void rvn_android_ax_action(const rvn_android_op_t* op) {
+	rvn_a11y_id_t id = rvn_android_ax_node(op->a);
+	int done = R_FALSE;
+	g_android.ax_dirty = R_TRUE;
+	if (op->b == RVN_ANDROID_AX_REFRESH) {
+		g_android.ax_sent = 0.0;
+		return;
+	}
+	if (!id) return;
+	switch (op->b) {
+	case RVN_ANDROID_AX_ACTIVATE: done = rvn_a11y_activate(id); break;
+	case RVN_ANDROID_AX_FOCUS: done = rvn_a11y_act(id, RVN_A11Y_FOCUS); break;
+	case RVN_ANDROID_AX_SELECT: done = rvn_a11y_act(id, RVN_A11Y_SELECT); break;
+	case RVN_ANDROID_AX_EXPAND: done = rvn_a11y_act(id, RVN_A11Y_EXPAND); break;
+	case RVN_ANDROID_AX_COLLAPSE: done = rvn_a11y_act(id, RVN_A11Y_COLLAPSE); break;
+	case RVN_ANDROID_AX_ADJUST: done = rvn_a11y_adjust(id, op->number < 0.0 ? -1 : 1); break;
+	case RVN_ANDROID_AX_SET_TEXT: done = rvn_a11y_set_value(id, op->text ? op->text : ""); break;
+	case RVN_ANDROID_AX_SET_NUMBER: done = rvn_a11y_set_number(id, op->number); break;
+	default: break;
+	}
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "accessibility: action %d on node %d: %s", op->b, op->a, done ? "done" : "refused");
+}
+
+/* Explore by touch: the node under the finger, told to the view when it changes. */
+static void rvn_android_ax_hover(const AInputEvent* input, int32_t masked) {
+	JNIEnv* env = g_android.env;
+	rvn_window_t* core = rvn_android_core_window();
+	int vid = RVN_ANDROID_AX_NONE;
+	if (!env || !g_android.ax_class || !core || !g_android.ax_count) return;
+	if (masked != AMOTION_EVENT_ACTION_HOVER_EXIT) {
+		float scale = rvn_android_window_get_scale(g_android.window);
+		rvn_a11y_id_t node = rvn_a11y_hit(core->id, AMotionEvent_getX(input, 0) / scale, AMotionEvent_getY(input, 0) / scale);
+		/* (the nearest node of the copy: the one hit may be out of it) */
+		while (node && node != (rvn_a11y_id_t)core->id && (vid = rvn_android_ax_vid(node)) == RVN_ANDROID_AX_NONE) node = rvn_a11y_parent(node);
+	}
+	if (vid == g_android.ax_hovered) return;
+	g_android.ax_hovered = vid;
+	(*env)->CallStaticVoidMethod(env, g_android.ax_class, g_android.ax_hover, (jint)vid);
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+	}
+}
+
+/* RavenAccessibility.nativeAction */
+static void JNICALL rvn_android_jni_ax_action(JNIEnv* env, jclass cls, jint vid, jint action, jbyteArray text, jdouble number) {
+	RVN_UNUSED(cls);
+	rvn_android_queue_op(env, RVN_TX_OP_A11Y, 0, 0, text, vid, action, (double)number);
+}
+
+/* Loads raven.android.RavenAccessibility (after RavenTextView: it shares its op queue) and adds its view. */
+static void rvn_android_ax_load(void) {
+	JNIEnv* env = g_android.env;
+	jobject activity, loader = NULL, cls = NULL;
+	jmethodID attach;
+	static const JNINativeMethod natives[] = {
+		{ "nativeAction", "(II[BD)V", (void*)rvn_android_jni_ax_action }
+	};
+	g_android.ax_hovered = RVN_ANDROID_AX_NONE;
+	if (!env || !g_android.tx_class || !g_android.app || !g_android.app->activity) return;
+	activity = g_android.app->activity->clazz;
+	(*env)->PushLocalFrame(env, 8);
+	loader = (*env)->CallObjectMethod(env, activity,
+		(*env)->GetMethodID(env, (*env)->GetObjectClass(env, activity), "getClassLoader", "()Ljava/lang/ClassLoader;"));
+	if (loader && !(*env)->ExceptionCheck(env)) {
+		jclass loader_class = (*env)->FindClass(env, "java/lang/ClassLoader");
+		cls = (*env)->CallObjectMethod(env, loader, (*env)->GetMethodID(env, loader_class, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;"),
+			(*env)->NewStringUTF(env, "raven.android.RavenAccessibility"));
+	}
+	if ((*env)->ExceptionCheck(env) || !cls || (*env)->RegisterNatives(env, (jclass)cls, natives, 1) != 0) {
+		(*env)->ExceptionClear(env);
+		(*env)->PopLocalFrame(env, NULL);
+		__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "raven.android.RavenAccessibility not in the APK (classes.dex): no screen reader");
+		return;
+	}
+	g_android.ax_set_tree = (*env)->GetStaticMethodID(env, (jclass)cls, "setTree", "([I[F[B)V");
+	g_android.ax_hover = g_android.ax_set_tree ? (*env)->GetStaticMethodID(env, (jclass)cls, "hover", "(I)V") : NULL;
+	g_android.ax_announce = g_android.ax_hover ? (*env)->GetStaticMethodID(env, (jclass)cls, "announce", "([B)V") : NULL;
+	g_android.ax_active = g_android.ax_announce ? (*env)->GetStaticMethodID(env, (jclass)cls, "isActive", "()Z") : NULL;
+	g_android.ax_detach = g_android.ax_active ? (*env)->GetStaticMethodID(env, (jclass)cls, "detach", "()V") : NULL;
+	attach = g_android.ax_detach ? (*env)->GetStaticMethodID(env, (jclass)cls, "attach", "(Landroid/app/Activity;)V") : NULL;
+	if ((*env)->ExceptionCheck(env) || !attach) {
+		(*env)->ExceptionClear(env);
+		(*env)->PopLocalFrame(env, NULL);
+		__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "RavenAccessibility: methods not found");
+		return;
+	}
+	(*env)->CallStaticVoidMethod(env, (jclass)cls, attach, activity);
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+		(*env)->PopLocalFrame(env, NULL);
+		return;
+	}
+	g_android.ax_class = (jclass)(*env)->NewGlobalRef(env, cls);
+	g_android.ax_dirty = R_TRUE;
+	(*env)->PopLocalFrame(env, NULL);
+	__android_log_print(ANDROID_LOG_INFO, RVN_ANDROID_TAG, "RavenAccessibility loaded: TalkBack reads the widgets");
+}
+
+static void rvn_android_ax_unload(void) {
+	if (g_android.env && g_android.ax_class) {
+		(*g_android.env)->CallStaticVoidMethod(g_android.env, g_android.ax_class, g_android.ax_detach);
+		(*g_android.env)->ExceptionClear(g_android.env);
+		(*g_android.env)->DeleteGlobalRef(g_android.env, g_android.ax_class);
+	}
+	g_android.ax_class = NULL;
+	free(g_android.ax_map);
+	g_android.ax_map = NULL;
+	g_android.ax_count = 0;
+}
+
+/* After every frame while a service is on (a11y_every_frame): the copy is made in pump, when due. */
+static void rvn_android_a11y_event(rvn_pwindow_t* window, int event, uint64_t node) {
+	RVN_UNUSED(window);
+	RVN_UNUSED(event);
+	RVN_UNUSED(node);
+	g_android.ax_dirty = R_TRUE;
+}
+
+static void rvn_android_a11y_announce(rvn_pwindow_t* window, const char* text, int assertive) {
+	JNIEnv* env = g_android.env;
+	RVN_UNUSED(window);
+	/* (TalkBack has one way to say a message: announceForAccessibility) */
+	RVN_UNUSED(assertive);
+	if (!env || !g_android.ax_class || !text) return;
+	(*env)->PushLocalFrame(env, 2);
+	(*env)->CallStaticVoidMethod(env, g_android.ax_class, g_android.ax_announce, rvn_android_text_bytes(env, text));
+	if ((*env)->ExceptionCheck(env)) {
+		(*env)->ExceptionDescribe(env);
+		(*env)->ExceptionClear(env);
+	}
+	(*env)->PopLocalFrame(env, NULL);
+}
+
+static int rvn_android_a11y_active(void) {
+	return rvn_android_ax_service_on();
+}
+
 static const char* rvn_android_cmd_name(int32_t cmd) {
 	switch (cmd) {
 	case APP_CMD_LOW_MEMORY: return "LOW_MEMORY";
@@ -1321,6 +1720,8 @@ static void rvn_android_on_cmd(struct android_app* app, int32_t cmd) {
 	}
 }
 
+static void rvn_android_ax_hover(const AInputEvent* input, int32_t masked);
+
 static int32_t rvn_android_on_input(struct android_app* app, AInputEvent* input) {
 	rvn_pevent_t event;
 	int32_t action, masked, index, count, i;
@@ -1330,6 +1731,11 @@ static int32_t rvn_android_on_input(struct android_app* app, AInputEvent* input)
 	if (AInputEvent_getType(input) != AINPUT_EVENT_TYPE_MOTION) return 0;
 	action = AMotionEvent_getAction(input);
 	masked = action & AMOTION_EVENT_ACTION_MASK;
+	/* (explore by touch: with TalkBack on, the finger comes as hover events) */
+	if (masked == AMOTION_EVENT_ACTION_HOVER_ENTER || masked == AMOTION_EVENT_ACTION_HOVER_MOVE || masked == AMOTION_EVENT_ACTION_HOVER_EXIT) {
+		rvn_android_ax_hover(input, masked);
+		return 1;
+	}
 	index = (action & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
 	count = (int32_t)AMotionEvent_getPointerCount(input);
 	for (i = 0; i < count; ++i) {
@@ -1449,6 +1855,7 @@ static int rvn_android_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t 
 			__android_log_print(ANDROID_LOG_WARN, RVN_ANDROID_TAG, "KeyCharacterMap not found: keys give no text");
 		}
 		rvn_android_text_load();
+		rvn_android_ax_load();
 	}
 	{
 		const char* value = getenv("RAVEN_NULL_SYSTEM_MENU_BAR");
@@ -1463,6 +1870,7 @@ static void rvn_android_shutdown(void) {
 	rvn_file_set_provider(NULL);
 	g_android_assets = NULL;
 	if (g_android.env && g_android.kcm_class) (*g_android.env)->DeleteGlobalRef(g_android.env, g_android.kcm_class);
+	rvn_android_ax_unload();
 	rvn_android_text_unload();
 	rvn_android_unhook_ui_thread();
 	/* (a thread that ends attached to the Java VM aborts the process) */
@@ -1638,6 +2046,11 @@ static void rvn_android_pump(double timeout_seconds) {
 	 */
 	if (g_android.kb_state != RVN_KB_HIDDEN || g_android.ime_visible == R_TRUE || g_android.kb_height > 0.0f)
 		if (timeout_ms < 0 || timeout_ms > 100) timeout_ms = 100;
+	/* a copy of the tree for TalkBack, or the time left until it may be sent */
+	{
+		int wait_ms = rvn_android_ax_sync();
+		if (wait_ms >= 0 && (timeout_ms < 0 || timeout_ms > wait_ms)) timeout_ms = wait_ms;
+	}
 	rvn_android_poll(timeout_ms);
 }
 
@@ -1850,7 +2263,11 @@ const rvn_platform_t* rvn_platform_android(void) {
 		.window_get_safe_area = rvn_android_window_get_safe_area,
 		.system_dark = rvn_android_system_dark,
 		.window_get_keyboard_height = rvn_android_window_get_keyboard_height,
-		.window_set_back_wanted = rvn_android_window_set_back_wanted
+		.window_set_back_wanted = rvn_android_window_set_back_wanted,
+		.a11y_event = rvn_android_a11y_event,
+		.a11y_announce = rvn_android_a11y_announce,
+		.a11y_active = rvn_android_a11y_active,
+		.a11y_every_frame = R_TRUE
 	};
 	return &platform;
 }

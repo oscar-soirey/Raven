@@ -1282,6 +1282,96 @@ static void test_text_input_services(void) {
 	Rwidget_destroy(box);
 }
 
+/* Composition of an input method (preedit): shown by the field, not in its text, until committed. */
+#define NIHONGO "\xE3\x81\xAB\xE3\x81\xBB\xE3\x82\x93\xE3\x81\x94" /* にほんご: 12 bytes */
+#define NIHONGO_KANJI "\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E" /* 日本語 */
+static void test_text_composition(void) {
+	Rid box = column();
+	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rid editor = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_EDITOR));
+	Rid button = Rwidget_add_child(box, Rbutton_create("Other"));
+	int start = -1, end = -1, line = -1, col = -1, changes;
+	Rtext_input_set_changed_callback(input, on_text, NULL);
+	Rtext_input_set_text(input, "ab");
+	Rwidget_focus(input);
+	CHECK(Rwindow_set_text_input_selection(g_window, 1, 1));
+	g_clicks = 0;
+
+	/* preedit: the field's text and its callback do not see it */
+	Rwindow_inject_composition(g_window, NIHONGO, -1, -1);
+	CHECK_STR(Rwindow_get_text_composition(g_window, &start, &end), NIHONGO);
+	CHECK(start == 12 && end == 12);
+	CHECK_STR(Rtext_input_get_text(input), "ab");
+	CHECK(g_clicks == 0);
+	Rdraw_frame();
+	/* the input method converts and selects a clause; offsets snap to characters */
+	Rwindow_inject_composition(g_window, NIHONGO_KANJI, 1, 7);
+	CHECK(Rwindow_get_text_composition(g_window, &start, &end) != NULL);
+	CHECK(start == 0 && end == 6);
+	Rdraw_frame();
+	/* commit: the committed text takes the place of the composition */
+	Rwindow_inject_text(g_window, NIHONGO_KANJI);
+	CHECK(Rwindow_get_text_composition(g_window, &start, &end) == NULL);
+	CHECK(start == 0 && end == 0);
+	CHECK_STR(Rtext_input_get_text(input), "a" NIHONGO_KANJI "b");
+	CHECK(g_clicks > 0);
+
+	/* cancel: nothing typed, nothing called */
+	changes = g_clicks;
+	Rwindow_inject_composition(g_window, "\xE3\x81\x8B", -1, -1);
+	CHECK(Rwindow_get_text_composition(g_window, NULL, NULL) != NULL);
+	Rwindow_inject_composition(g_window, NULL, 0, 0);
+	CHECK(Rwindow_get_text_composition(g_window, NULL, NULL) == NULL);
+	Rwindow_inject_composition(g_window, "x", 0, 0);
+	Rwindow_inject_composition(g_window, "", 0, 0);
+	CHECK(Rwindow_get_text_composition(g_window, NULL, NULL) == NULL);
+	CHECK_STR(Rtext_input_get_text(input), "a" NIHONGO_KANJI "b");
+	CHECK(g_clicks == changes);
+
+	/* the commit replaces the selection, which the composition is shown in place of */
+	Rtext_input_select_all(input);
+	Rwindow_inject_composition(g_window, NIHONGO, -1, -1);
+	Rdraw_frame();
+	CHECK_STR(Rtext_input_get_text(input), "a" NIHONGO_KANJI "b");
+	Rwindow_inject_text(g_window, NIHONGO);
+	CHECK_STR(Rtext_input_get_text(input), NIHONGO);
+
+	/* a password field and the placeholder paint with a composition */
+	Rtext_input_set_text(input, "");
+	Rtext_input_set_placeholder(input, "Name");
+	Rtext_input_set_password(input, R_TRUE);
+	Rwindow_inject_composition(g_window, NIHONGO, 3, 6);
+	Rdraw_frame();
+	Rtext_input_set_password(input, R_FALSE);
+	Rdraw_frame();
+
+	/* a change of focus ends it; a focus that takes no text has none */
+	Rwidget_focus(button);
+	CHECK(Rwindow_get_text_composition(g_window, NULL, NULL) == NULL);
+	CHECK_STR(Rtext_input_get_text(input), "");
+	Rwindow_inject_composition(g_window, NIHONGO, -1, -1);
+	CHECK(Rwindow_get_text_composition(g_window, NULL, NULL) == NULL);
+
+	/* the TextEditor: at its caret, on any line */
+	Rtext_editor_set_text(editor, "first\n\tsecond");
+	Rwidget_focus(editor);
+	Rtext_editor_set_cursor(editor, 1, 2);
+	Rwindow_inject_composition(g_window, NIHONGO, 0, 3);
+	Rdraw_frame();
+	CHECK_STR(Rtext_editor_get_text(editor), "first\n\tsecond");
+	Rwindow_inject_text(g_window, NIHONGO_KANJI);
+	CHECK_STR(Rtext_editor_get_text(editor), "first\n\ts" NIHONGO_KANJI "econd");
+	Rtext_editor_get_cursor(editor, &line, &col);
+	CHECK(line == 1 && col == 11);
+	Rtext_editor_set_cursor(editor, 0, 0);
+	Rwindow_inject_composition(g_window, NIHONGO, -1, -1);
+	Rdraw_frame();
+	Rwindow_inject_composition(g_window, NULL, 0, 0);
+	CHECK_STR(Rtext_editor_get_text(editor), "first\n\ts" NIHONGO_KANJI "econd");
+	Rwidget_destroy(box);
+	CHECK(Rwindow_get_text_composition(g_window, NULL, NULL) == NULL);
+}
+
 static void test_selectable_label(void) {
 	Rid box = column();
 	Rid before = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
@@ -1520,6 +1610,7 @@ int main(void) {
 	RUN(test_text_input);
 	RUN(test_text_input_services);
 	RUN(test_text_input_own_text);
+	RUN(test_text_composition);
 	RUN(test_selectable_label);
 	RUN(test_combo_box);
 	RUN(test_highlight_follows_pointer);

@@ -136,6 +136,8 @@ public final class RavenTextView extends View {
 		logCalls = (context.getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
 		setFocusable(true);
 		setFocusableInTouchMode(true);
+		/* (screen readers see the fields in the tree of RavenAccessibility, not this 1x1 editor) */
+		setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
 		Selection.setSelection(editable, 0);
 	}
 

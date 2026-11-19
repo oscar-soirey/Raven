@@ -37,6 +37,7 @@
  *     raven/raven_script.h       Raven Script: the scripts of the interfaces
  *     raven/raven_vulkan.h       sharing the Vulkan device of the library
  *     raven/raven_backend.h      writing a rendering backend
+ *     raven/raven_testing.h      tests: driving the interface, golden images
  */
 
 #ifndef RAVEN_H
@@ -64,5 +65,6 @@
 #include "raven/raven_vulkan.h"
 #include "raven/raven_backend.h"
 #include "raven/raven_host.h"
+#include "raven/raven_testing.h"
 
 #endif /* RAVEN_H */

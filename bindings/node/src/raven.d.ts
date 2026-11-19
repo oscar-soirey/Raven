@@ -2051,6 +2051,27 @@ export const R_ROLE_SEPARATOR: RAccessibleRole.R_ROLE_SEPARATOR;
 export const R_ROLE_SCROLL_BAR: RAccessibleRole.R_ROLE_SCROLL_BAR;
 export const R_ROLE_PANE: RAccessibleRole.R_ROLE_PANE;
 
+export enum RGoldenStatus {
+	/** The capture matches the golden. */
+	R_GOLDEN_MATCH = 0x0BA0,
+	/** RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden. */
+	R_GOLDEN_UPDATED = 0x0BA1,
+	/** Too many pixels differ: NAME.actual.png and NAME.diff.png were written. */
+	R_GOLDEN_MISMATCH = 0x0BA2,
+	/** The capture and the golden do not have the same size: NAME.actual.png was written. */
+	R_GOLDEN_SIZE_MISMATCH = 0x0BA3,
+	/** There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it). */
+	R_GOLDEN_MISSING = 0x0BA4,
+	/** The window could not be captured, or a file could not be read or written. */
+	R_GOLDEN_FAILED = 0x0BA5,
+}
+export const R_GOLDEN_MATCH: RGoldenStatus.R_GOLDEN_MATCH;
+export const R_GOLDEN_UPDATED: RGoldenStatus.R_GOLDEN_UPDATED;
+export const R_GOLDEN_MISMATCH: RGoldenStatus.R_GOLDEN_MISMATCH;
+export const R_GOLDEN_SIZE_MISMATCH: RGoldenStatus.R_GOLDEN_SIZE_MISMATCH;
+export const R_GOLDEN_MISSING: RGoldenStatus.R_GOLDEN_MISSING;
+export const R_GOLDEN_FAILED: RGoldenStatus.R_GOLDEN_FAILED;
+
 /**
  * Optional settings for Rinit_ex. A zero-initialized structure selects the
  * default for every field, so new fields can be added without breaking code.
@@ -2923,6 +2944,54 @@ export class RHostPlatformDesc extends RStruct {
 	set wake(value: Pointer | null);
 	get user_data(): Pointer | null;
 	set user_data(value: Pointer | null);
+}
+
+/** How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel. */
+export class RGoldenOptions extends RStruct {
+	static readonly SIZE = 24;
+	constructor(pointer?: Pointer);
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RGoldenOptions | null;
+	/** Largest difference on one channel (0..255) for which two pixels are still the same. */
+	get channel_tolerance(): number;
+	set channel_tolerance(value: number);
+	/** Share of the pixels (0..1) that may differ while the images still match. */
+	get max_diff_ratio(): number;
+	set max_diff_ratio(value: number);
+	/** R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag). */
+	get per_platform(): number;
+	set per_platform(value: number);
+	/** Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden. */
+	get output_directory(): string | null;
+	set output_directory(value: string | null);
+}
+
+/** What Rtest_expect_golden found. */
+export class RGoldenResult extends RStruct {
+	static readonly SIZE = 40;
+	constructor(pointer?: Pointer);
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RGoldenResult | null;
+	get status(): RGoldenStatus;
+	set status(value: RGoldenStatus);
+	/** Size of the capture, in pixels. */
+	get width(): number;
+	set width(value: number);
+	/** Size of the capture, in pixels. */
+	get height(): number;
+	set height(value: number);
+	/** Pixels farther from the golden than the tolerance. */
+	get differing_pixels(): number;
+	set differing_pixels(value: number);
+	/** Largest difference found on one channel (0..255). */
+	get max_channel_difference(): number;
+	set max_channel_difference(value: number);
+	/** The golden that was read or written (with the platform tag). Valid until the next call. */
+	get golden_path(): string | null;
+	set golden_path(value: string | null);
+	/** One line that says what happened, for the log of the test. Valid until the next call. */
+	get message(): string | null;
+	set message(value: string | null);
 }
 
 /**
@@ -4021,6 +4090,20 @@ export function Rwindow_inject_key(window: Rid, key: RKey, pressed: number, modi
 export function Rwindow_inject_text(window: Rid, text: string | null): void;
 
 /**
+ * The text an input method is composing (preedit: Chinese,
+ * Japanese, Korean, dead keys), as the platforms send it. The focused
+ * TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+ * place of its selection, but it is not in its text and no changed
+ * callback runs. [selection_start, selection_end) are bytes of `text`:
+ * the part the input method works on (underlined thicker), or the caret
+ * when they are equal; -1 is the end of `text`. NULL or "" ends the
+ * composition without typing anything (cancel). The committed text comes
+ * through Rwindow_inject_text, which ends the composition too, and so
+ * does a change of focus. Ignored when the focus takes no text.
+ */
+export function Rwindow_inject_composition(window: Rid, text: string | null, selection_start: number, selection_end: number): void;
+
+/**
  * A drag from another application moves over the window
  * (`inside` R_TRUE) or leaves it.
  * Returns: R_TRUE when a drop at this position would be accepted.
@@ -4067,6 +4150,13 @@ export function Rwindow_set_text_input_selection(window: Rid, start: number, end
  */
 export function Rwindow_replace_text_input(window: Rid, start: number, end: number, text: string | null): number;
 
+/**
+ * The composition of the input method in progress (UTF-8, valid
+ * until it changes) and its selection in bytes; NULL when there is none.
+ * Any output pointer may be NULL.
+ */
+export function Rwindow_get_text_composition(window: Rid): [result: string | null, selection_start: number, selection_end: number];
+
 /** R_TRUE while a menu, list or dialog is open over the window. */
 export function Rwindow_has_popup(window: Rid): number;
 
@@ -4074,7 +4164,9 @@ export function Rwindow_has_popup(window: Rid): number;
  * Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
  * Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
  * outputs when there is no visible editable caret, the window is inactive, or focus changed
- * since painting. Any output pointer may be NULL.
+ * since painting. Any output pointer may be NULL. While an input method
+ * composes, it is the caret inside the composition: where its candidate
+ * window goes.
  */
 export function Rwindow_get_text_input_rect(window: Rid): [result: number, x: number, y: number, width: number, height: number];
 
@@ -4461,6 +4553,22 @@ export function Rimage_decode(data: NodeJS.TypedArray | null): [result: Pointer 
 
 /** Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe. */
 export function Rpixels_free(pixels: RPointer): void;
+
+/**
+ * Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+ * returns) as a PNG file in memory. Thread-safe.
+ * size Receives the number of bytes.
+ * Returns: The bytes of the file, to release with Rpixels_free; NULL when
+ * there are no pixels.
+ */
+export function Rimage_encode_png(rgba: RPointer, width: number, height: number): [result: Pointer | null, size: number];
+
+/**
+ * Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+ * of Rwindow_capture, a picture made by the application. Thread-safe.
+ * Returns: R_FALSE when the file cannot be written.
+ */
+export function Rimage_save_png(path: string | null, rgba: RPointer, width: number, height: number): number;
 
 /** Returns: R_TRUE once an asynchronous texture is decoded (or failed). */
 export function Rtexture_is_ready(texture: Rid): number;
@@ -8308,11 +8416,168 @@ export function Rhost_inject_key(window: Rid, key: RKey, pressed: number, modifi
 /** One typed Unicode code point. */
 export function Rhost_inject_text(window: Rid, codepoint: number): void;
 
+/**
+ * The input method of the application's system composes `text`
+ * (preedit), with its selection in bytes (see Rwindow_inject_composition).
+ * NULL or "" cancels it; the committed text then comes through
+ * Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+ * candidate window.
+ */
+export function Rhost_inject_composition(window: Rid, text: string | null, selection_start: number, selection_end: number): void;
+
 /** The window gained or lost the keyboard. Losing it closes popups and drops captures. */
 export function Rhost_inject_focus(window: Rid, focused: number): void;
 
 /** The user asked to close the window (its close callback decides). */
 export function Rhost_inject_close(window: Rid): void;
+
+/**
+ * R_TRUE makes what is drawn depend only on what the test does:
+ * every frame advances the animations by 1/60 s (Rset_animation_time_step),
+ * and the carets of the text fields stay lit instead of blinking. R_FALSE
+ * gives the clock back (time step 0).
+ */
+export function Rtest_set_deterministic(enabled: number): void;
+
+export function Rtest_is_deterministic(): number;
+
+/**
+ * Returns: What the goldens of this run are made with, "OS-backend":
+ * "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+ * "null" with the null backend.
+ */
+export function Rtest_get_platform_tag(): string | null;
+
+/**
+ * Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+ * path may have several names separated by '/': "settings/ok" is the
+ * widget named "ok" inside the one named "settings". In a window, the
+ * open popups (menus, dialogs) are searched first, top first, then the
+ * content.
+ * scope A window or a widget.
+ * Returns: R_INVALID_ID when nothing has that name (no error is reported).
+ */
+export function Rtest_find(scope: Rid, path: string | null): Rid;
+
+/** Moves the mouse to the middle of the widget, presses and releases the left button. */
+export function Rtest_click(widget: Rid): number;
+
+/** Two clicks in a row on the middle of the widget, seen as a double click. */
+export function Rtest_double_click(widget: Rid): number;
+
+/** A click of the right button on the middle of the widget (a context menu). */
+export function Rtest_right_click(widget: Rid): number;
+
+/**
+ * Clicks at a position of a widget or a window.
+ * clicks 1 for a click, 2 for a double click, 3 for a triple click.
+ * modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+ */
+export function Rtest_click_at(target: Rid, x: number, y: number, button: RMouseButton, clicks: number, modifiers: number): number;
+
+/** Moves the mouse over the middle of the widget, without clicking. */
+export function Rtest_hover(widget: Rid): number;
+
+/** Moves the mouse to a position of a widget or a window. */
+export function Rtest_hover_at(target: Rid, x: number, y: number): number;
+
+/**
+ * Presses the left button on the middle of the widget, moves by
+ * (dx, dy) in several steps, and releases: a slider, a splitter, a
+ * window dragged by a widget.
+ */
+export function Rtest_drag(widget: Rid, dx: number, dy: number): number;
+
+/** Drags from the middle of one widget to the middle of another (drag and drop). */
+export function Rtest_drag_to(from: Rid, to: Rid): number;
+
+/**
+ * Turns the mouse wheel over the middle of the widget: `wheel_y`
+ * notches (positive: toward the top, as a wheel turned away from the
+ * user), `wheel_x` notches sideways.
+ */
+export function Rtest_scroll(widget: Rid, wheel_x: number, wheel_y: number): number;
+
+/**
+ * Presses and releases a key, with RModifier held. A widget
+ * target gets the keyboard focus first; a window sends the key to what
+ * has the focus.
+ */
+export function Rtest_key(target: Rid, key: RKey, modifiers: number): number;
+
+/**
+ * Types UTF-8 text as a keyboard would. A widget target gets the
+ * keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+ * Tab and Backspace.
+ */
+export function Rtest_type_text(target: Rid, text: string | null): number;
+
+/** A finger touches the middle of the widget and leaves at once. */
+export function Rtest_tap(widget: Rid): number;
+
+/**
+ * A finger put on the middle of the widget moves by (dx, dy) in
+ * `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+ * (Rtest_settle lets it stop).
+ */
+export function Rtest_swipe(widget: Rid, dx: number, dy: number, seconds: number): number;
+
+/** Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits. */
+export function Rtest_pump(frames: number): number;
+
+/**
+ * Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+ * to do, nothing to paint, no animation, no layout spring, no inertia.
+ * Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+ * realtime viewport) and the timers are not counted.
+ */
+export function Rtest_is_idle(): number;
+
+/**
+ * Produces frames until Rtest_is_idle, each advancing the
+ * animations by the time step (1/60 s unless Rset_animation_time_step
+ * gives another), for at most `max_seconds` of that time.
+ * Returns: R_FALSE when it was still moving at the end.
+ */
+export function Rtest_settle(max_seconds: number): number;
+
+/**
+ * Returns: What the user reads in the widget: the text of a field, else
+ * its label (as screen readers say it: the text of a Label, a Button, a
+ * Checkbox...). "" when it has none. Valid until the next call.
+ */
+export function Rtest_get_text(widget: Rid): string | null;
+
+/**
+ * Returns: R_TRUE when the widget can be seen: in a window, Visible with
+ * all that holds it, on the page a Switcher or a TabView shows, and laid
+ * out with a size.
+ */
+export function Rtest_is_shown(widget: Rid): number;
+
+/** Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item. */
+export function Rtest_is_checked(widget: Rid): number;
+
+/**
+ * Captures a window, or the rectangle of one widget, and compares
+ * it with the PNG file `golden_path` (see the top of this file).
+ * target A window or a widget.
+ * options NULL for the defaults.
+ * result Receives the details; may be NULL.
+ * Returns: R_TRUE when the capture matches (or the golden was written
+ * because RAVEN_UPDATE_GOLDENS=1).
+ */
+export function Rtest_expect_golden(target: Rid, golden_path: string | null, options: RGoldenOptions | null, result: RGoldenResult | null): number;
+
+/**
+ * Compares two RGBA8 images of the same size as Rtest_expect_golden
+ * does, without files.
+ * diff_rgba When not NULL, receives width * height * 4 bytes: the
+ * expected image faded, with the different pixels in red.
+ * Returns: The number of pixels farther apart than `channel_tolerance`;
+ * -1 when an image is missing.
+ */
+export function Rtest_compare_pixels(actual: RPointer, expected: RPointer, width: number, height: number, channel_tolerance: number, diff_rgba: RPointer): [result: number, max_channel_difference: number];
 
 /**
  * Runs the interface until the last window closes or Rquit is called, leaving

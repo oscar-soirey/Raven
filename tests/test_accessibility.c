@@ -105,11 +105,229 @@ static void test_carousel(void) {
 	Rwindow_destroy(window);
 }
 
+/* What VoiceOver and TalkBack are told (core/accessibility_touch.c), and the double tap / swipe they act with. */
+static void test_touch(void) {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	Rid window = Rwindow_create("Touch", 400, 600, 0);
+	Rid box = Rwidget_create(R_WIDGET_VBOX);
+	Rid heading = Rwidget_add_child(box, Rwidget_create(R_WIDGET_LABEL));
+	Rid button = Rwidget_add_child(box, Rwidget_create(R_WIDGET_BUTTON));
+	Rid checkbox = Rwidget_add_child(box, Rwidget_create(R_WIDGET_CHECKBOX));
+	Rid slider = Rwidget_add_child(box, Rwidget_create(R_WIDGET_SLIDER));
+	Rid progress = Rwidget_add_child(box, Rwidget_create(R_WIDGET_PROGRESSBAR));
+	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rid list = Rwidget_add_child(box, Rwidget_create(R_WIDGET_LIST_VIEW));
+	Rid custom = Rwidget_add_child(box, Rwidget_create(R_WIDGET_CUSTOM));
+	rvn_a11y_id_t item;
+	int presses = 0;
+	Rwindow_set_content(window, box);
+	Rlabel_set_text(heading, "Settings");
+	Rwidget_set_accessible_role(heading, R_ROLE_HEADING);
+	Rbutton_set_text(button, "Save");
+	Rcheckbox_set_text(checkbox, "Wi-Fi");
+	Rslider_set_range(slider, 0.0f, 10.0f);
+	Rslider_set_value(slider, 5.0f);
+	Rprogress_bar_set_value(progress, 0.25f);
+	Rlist_view_add_item(list, "One");
+	Rlist_view_add_item(list, "Two");
+	Rwidget_set_accessible_name(custom, "Star");
+	Rwidget_set_accessible_checked(custom, 0);
+	Rwidget_set_accessible_action(custom, on_press, &presses);
+	Rdraw_frame();
+
+	/* the window and the box are not elements: what they hold is */
+	CHECK(rvn_a11y_describe(window, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(!(touch.flags & RVN_A11Y_TOUCH_ELEMENT));
+
+	CHECK(rvn_a11y_describe(heading, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.flags & RVN_A11Y_TOUCH_ELEMENT);
+	CHECK(touch.flags & RVN_A11Y_TOUCH_HEADING);
+	CHECK(touch.traits == (RVN_A11Y_TRAIT_HEADER | RVN_A11Y_TRAIT_STATIC_TEXT));
+	CHECK_STR(touch.class_name, "android.widget.TextView");
+	CHECK(!rvn_a11y_activate(heading));
+
+	CHECK(rvn_a11y_describe(button, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == RVN_A11Y_TRAIT_BUTTON);
+	CHECK(touch.flags == (RVN_A11Y_TOUCH_ELEMENT | RVN_A11Y_TOUCH_CLICKABLE));
+	CHECK_STR(touch.class_name, "android.widget.Button");
+	Rwidget_set_enabled(button, R_FALSE);
+	CHECK(rvn_a11y_describe(button, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == (RVN_A11Y_TRAIT_BUTTON | RVN_A11Y_TRAIT_NOT_ENABLED));
+	CHECK(!(touch.flags & RVN_A11Y_TOUCH_CLICKABLE));
+	CHECK(!rvn_a11y_activate(button));
+	Rwidget_set_enabled(button, R_TRUE);
+
+	/* a check box is a toggle: the double tap checks it */
+	CHECK(rvn_a11y_describe(checkbox, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == (RVN_A11Y_TRAIT_BUTTON | RVN_A11Y_TRAIT_TOGGLE));
+	CHECK_STR(touch.class_name, "android.widget.CheckBox");
+	CHECK(!Rcheckbox_is_checked(checkbox));
+	CHECK(rvn_a11y_activate(checkbox));
+	CHECK(Rcheckbox_is_checked(checkbox));
+	CHECK(rvn_a11y_describe(checkbox, &node) && (node.states & RVN_A11Y_CHECKED));
+	rvn_a11y_touch(&node, &touch);
+	/* (on: said by the toggle, not as "selected") */
+	CHECK(!(touch.traits & RVN_A11Y_TRAIT_SELECTED));
+
+	/* a slider is adjustable: a swipe moves it by its step, within its range */
+	CHECK(rvn_a11y_describe(slider, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == RVN_A11Y_TRAIT_ADJUSTABLE);
+	CHECK(touch.flags == (RVN_A11Y_TOUCH_ELEMENT | RVN_A11Y_TOUCH_ADJUSTABLE));
+	CHECK_STR(touch.class_name, "android.widget.SeekBar");
+	CHECK(rvn_a11y_adjust(slider, 1));
+	CHECK(Rslider_get_value(slider) > 5.09f && Rslider_get_value(slider) < 5.11f);
+	CHECK(rvn_a11y_adjust(slider, -2));
+	CHECK(Rslider_get_value(slider) > 4.89f && Rslider_get_value(slider) < 4.91f);
+	CHECK(rvn_a11y_adjust(slider, 1000));
+	CHECK(Rslider_get_value(slider) == 10.0f);
+	CHECK(!rvn_a11y_adjust(slider, 1));
+	CHECK(!rvn_a11y_adjust(slider, 0));
+
+	/* a progress bar is read, not moved */
+	CHECK(rvn_a11y_describe(progress, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == RVN_A11Y_TRAIT_UPDATES_FREQUENTLY);
+	CHECK(!(touch.flags & RVN_A11Y_TOUCH_ADJUSTABLE));
+	CHECK_STR(touch.class_name, "android.widget.ProgressBar");
+	CHECK(!rvn_a11y_adjust(progress, 1));
+
+	/* a text field: its text can be set, the double tap focuses it (the keyboard comes) */
+	CHECK(rvn_a11y_describe(input, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.flags == (RVN_A11Y_TOUCH_ELEMENT | RVN_A11Y_TOUCH_CLICKABLE | RVN_A11Y_TOUCH_SET_TEXT));
+	CHECK(touch.traits == 0);
+	CHECK_STR(touch.class_name, "android.widget.EditText");
+	CHECK(Rwindow_get_focused_widget(window) != input);
+	CHECK(rvn_a11y_activate(input));
+	CHECK(Rwindow_get_focused_widget(window) == input);
+
+	/* a list is a collection; its items are selected by a double tap */
+	CHECK(rvn_a11y_describe(list, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.flags & RVN_A11Y_TOUCH_COLLECTION);
+	CHECK(!(touch.flags & RVN_A11Y_TOUCH_ELEMENT));
+	CHECK_STR(touch.class_name, "android.widget.ListView");
+	CHECK(rvn_a11y_child_count(list) == 2);
+	item = rvn_a11y_child(list, 1);
+	CHECK(rvn_a11y_describe(item, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.flags == (RVN_A11Y_TOUCH_ELEMENT | RVN_A11Y_TOUCH_CLICKABLE | RVN_A11Y_TOUCH_COLLECTION_ITEM));
+	CHECK(touch.traits == RVN_A11Y_TRAIT_STATIC_TEXT);
+	CHECK(rvn_a11y_activate(item));
+	CHECK(Rlist_view_get_selected(list) == 1);
+	CHECK(rvn_a11y_describe(item, &node));
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == (RVN_A11Y_TRAIT_STATIC_TEXT | RVN_A11Y_TRAIT_SELECTED));
+
+	/* a custom widget with a press action and a checked state (a named group): a toggle, pressed through its callback */
+	CHECK(rvn_a11y_describe(custom, &node));
+	CHECK(node.role == R_ROLE_GROUP);
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == (RVN_A11Y_TRAIT_BUTTON | RVN_A11Y_TRAIT_TOGGLE));
+	CHECK(touch.flags == (RVN_A11Y_TOUCH_ELEMENT | RVN_A11Y_TOUCH_CLICKABLE));
+	CHECK(rvn_a11y_activate(custom));
+	CHECK(presses == 1);
+
+	/* a node that is gone does nothing */
+	Rwidget_destroy(custom);
+	CHECK(!rvn_a11y_activate(custom));
+	CHECK(!rvn_a11y_adjust(custom, 1));
+	Rwindow_destroy(window);
+}
+
+/* A switcher shows one page: the screen readers see that one only (the others keep their place and size). */
+static void test_switcher(void) {
+	static const char* xml = "<Switcher><Label Text=\"first\"/><Label Text=\"second\"/></Switcher>";
+	rvn_a11y_node_t node;
+	Rid window = Rwindow_create("Switcher", 300, 200, 0);
+	Rid switcher = Rwidget_create_from_xml(xml, strlen(xml));
+	Rwindow_set_content(window, switcher);
+	Rdraw_frame();
+	CHECK(rvn_a11y_child_count(window) == 1);
+	CHECK(rvn_a11y_describe(rvn_a11y_child(window, 0), &node));
+	CHECK_STR(node.name, "first");
+	Rswitcher_set_index(switcher, 1);
+	Rdraw_frame();
+	CHECK(rvn_a11y_child_count(window) == 1);
+	CHECK(rvn_a11y_describe(rvn_a11y_child(window, 0), &node));
+	CHECK_STR(node.name, "second");
+	Rwindow_destroy(window);
+}
+
+/* Every role has a class for TalkBack, and only the roles that hold others are not elements. */
+static void test_touch_roles(void) {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	int role;
+	memset(&node, 0, sizeof(node));
+	node.name = "Name";
+	node.value = "";
+	node.description = "";
+	for (role = R_ROLE_WINDOW; role <= R_ROLE_PANE; role++) {
+		node.role = (RAccessibleRole)role;
+		rvn_a11y_touch(&node, &touch);
+		CHECK(touch.class_name && strncmp(touch.class_name, "android.", 8) == 0);
+		switch (role) {
+			case R_ROLE_WINDOW: case R_ROLE_GROUP: case R_ROLE_PANE: case R_ROLE_LIST: case R_ROLE_TREE: case R_ROLE_TABLE:
+			case R_ROLE_MENU_BAR: case R_ROLE_MENU: case R_ROLE_TAB_LIST: case R_ROLE_TAB_PANEL: case R_ROLE_TOOLBAR:
+			case R_ROLE_DIALOG: case R_ROLE_SEPARATOR: case R_ROLE_SCROLL_BAR:
+				CHECK(!(touch.flags & RVN_A11Y_TOUCH_ELEMENT));
+				break;
+			default:
+				CHECK(touch.flags & RVN_A11Y_TOUCH_ELEMENT);
+				break;
+		}
+	}
+	node.role = R_ROLE_TAB;
+	node.states = RVN_A11Y_SELECTABLE | RVN_A11Y_INVOKABLE | RVN_A11Y_SELECTED;
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == (RVN_A11Y_TRAIT_BUTTON | RVN_A11Y_TRAIT_SELECTED));
+	CHECK_STR(touch.class_name, "android.app.ActionBar$Tab");
+	node.role = R_ROLE_TAB_LIST;
+	node.states = 0;
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == RVN_A11Y_TRAIT_TAB_BAR);
+	node.role = R_ROLE_RADIO_BUTTON;
+	node.states = RVN_A11Y_CHECKABLE | RVN_A11Y_CHECKED | RVN_A11Y_INVOKABLE;
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.traits == (RVN_A11Y_TRAIT_BUTTON | RVN_A11Y_TRAIT_SELECTED));
+	node.role = R_ROLE_ALERT;
+	node.states = 0;
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.flags & RVN_A11Y_TOUCH_LIVE);
+	node.role = R_ROLE_DIALOG;
+	rvn_a11y_touch(&node, &touch);
+	CHECK(touch.flags & RVN_A11Y_TOUCH_GROUP);
+	/* what a finger cannot reach is left out */
+	node.width = node.height = 10.0f;
+	CHECK(rvn_a11y_touch_shown(&node));
+	node.states = RVN_A11Y_OFFSCREEN;
+	CHECK(!rvn_a11y_touch_shown(&node));
+	node.states = 0;
+	node.height = 0.0f;
+	CHECK(!rvn_a11y_touch_shown(&node));
+	/* an unnamed text says nothing */
+	node.role = R_ROLE_TEXT;
+	node.name = "";
+	rvn_a11y_touch(&node, &touch);
+	CHECK(!(touch.flags & RVN_A11Y_TOUCH_ELEMENT));
+}
+
 int main(void) {
 	if (!test_init(0)) return 1;
 	RUN(test_custom_actions);
 	RUN(test_default_checked);
 	RUN(test_carousel);
+	RUN(test_touch);
+	RUN(test_touch_roles);
+	RUN(test_switcher);
 	Rshutdown();
 	return test_report("test_accessibility");
 }

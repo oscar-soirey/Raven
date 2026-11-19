@@ -22,6 +22,7 @@
 #   browser          web pages in the interface, with the optional library raven_web
 #   music            a music player (no sound): an interface in several XML files,
 #                    tags made by the application, themes, the accent of the cover, an island
+#   ui_test          a test of an interface: widgets driven by name, a golden image
 #   viewport_vulkan  a Vulkan scene shown in the UI (offscreen image + in-pass draw)
 #   viewport_opengl  an OpenGL scene shown in a native child window
 
@@ -86,6 +87,13 @@ raven_add_example(music music/main.c music/library.c music/tags.c music/music.h
 # A page shown by the web engine of the system (a message where the system has none Raven embeds).
 if(NOT EMSCRIPTEN)
 	raven_add_example(web_view web_view/main.c web_view/web_view.xml web_view/pages/welcome.html)
+endif()
+
+# A test of an interface (raven_testing.h), run by ctest too.
+if(NOT EMSCRIPTEN)
+	raven_add_example(ui_test ui_test/main.c ui_test/login.xml)
+	add_test(NAME example_ui_test COMMAND raven_ui_test)
+	set_tests_properties(example_ui_test PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
 # Web pages in the interface: needs the optional library (RAVEN_BUILD_WEB).
