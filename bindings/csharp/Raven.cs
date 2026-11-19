@@ -3207,6 +3207,12 @@ namespace Raven
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RSliderChangedCallback(uint slider, float value, IntPtr user_data);
 
+    /// <summary>
+    /// Called when the animation stops after its last play (at the next frame), before the action of the image.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RImageFinishedCallback(uint image, IntPtr user_data);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RTextChangedCallback(uint text_input, IntPtr text, IntPtr user_data);
 
@@ -5220,7 +5226,8 @@ namespace Raven
 
         /// <summary>
         /// Creates a texture from the content of an image file (PNG, JPEG,
-        /// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+        /// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+        /// animated GIF or APNG keeps its frames: an Image showing it plays them.
         /// Returns: R_INVALID_ID on failure.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -5291,6 +5298,26 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr Rimage_decode(byte[] data, UIntPtr data_size, out int width, out int height);
+
+        /// <summary>
+        /// Reads what an image file in memory holds without keeping its
+        /// pixels: its size, its frames (1 for a still image, more for an animated
+        /// GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+        /// Each pointer may be NULL.
+        /// Returns: R_FALSE when the data is not an image Raven can read.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rimage_decode_info(byte[] data, UIntPtr data_size, out int width, out int height, out int frame_count, out int loop_count);
+
+        /// <summary>
+        /// Decodes one frame of an animated GIF or APNG into tightly packed
+        /// RGBA8 pixels, composed as it is shown (the frames before it drawn and
+        /// disposed of). Frame 0 of a still image is the image. Thread-safe.
+        /// delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+        /// Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rimage_decode_frame(byte[] data, UIntPtr data_size, int frame, out int width, out int height, out double delay);
 
         /// <summary>
         /// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
@@ -6283,6 +6310,79 @@ namespace Raven
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rimage_set_corner_radius(uint image, float radius);
+
+        /// <summary>
+        /// R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rimage_is_animated(uint image);
+
+        /// <summary>
+        /// Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rimage_get_frame_count(uint image);
+
+        /// <summary>
+        /// Returns: The seconds one play of its animation lasts (0 for a still image).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rimage_get_duration(uint image);
+
+        /// <summary>
+        /// Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern double Rimage_get_frame_delay(uint image, int frame);
+
+        /// <summary>
+        /// Plays the animation from the frame it is on (from the first
+        /// again when it had finished). An Image plays as soon as it is given an
+        /// animated texture, unless XML says Animate="false".
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rimage_play(uint image);
+
+        /// <summary>
+        /// Stops the animation on the frame it is on.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rimage_pause(uint image);
+
+        /// <summary>
+        /// Stops the animation and shows its first frame.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rimage_stop(uint image);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rimage_is_playing(uint image);
+
+        /// <summary>
+        /// Shows a frame (from 0), playing on from it if it plays.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rimage_set_frame(uint image, int frame);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rimage_get_frame(uint image);
+
+        /// <summary>
+        /// How many times the animation plays before it stops on its last
+        /// frame: 0 forever, -1 what the file says (the default). XML: Loop
+        /// (a number; also Forever, Once).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rimage_set_loop_count(uint image, int count);
+
+        /// <summary>
+        /// Returns: The plays of the animation (0: forever), the file's unless it was set.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rimage_get_loop_count(uint image);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rimage_set_finished_callback(uint image, RImageFinishedCallback callback, IntPtr user_data);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_input_set_text(uint text_input, [MarshalAs(Utf8.Str)] string text);

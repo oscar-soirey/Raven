@@ -4917,6 +4917,27 @@ public final class R {
         return stub(f, RSliderChangedCallback.class, "RSliderChangedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, ADDRESS));
     }
 
+    /**
+     * Called when the animation stops after its last play (at the next frame), before the action of the image.
+     */
+    @FunctionalInterface
+    public interface RImageFinishedCallback {
+        void invoke(int image, MemorySegment user_data);
+    }
+
+    private static void RImageFinishedCallback$raw(RImageFinishedCallback f, int image, MemorySegment user_data) {
+        try {
+            f.invoke(image, user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RImageFinishedCallback f) {
+        return stub(f, RImageFinishedCallback.class, "RImageFinishedCallback$raw", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+    }
+
     @FunctionalInterface
     public interface RTextChangedCallback {
         void invoke(int text_input, String text, MemorySegment user_data);
@@ -10217,7 +10238,8 @@ public final class R {
 
     /**
      * Creates a texture from the content of an image file (PNG, JPEG,
-     * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+     * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+     * animated GIF or APNG keeps its frames: an Image showing it plays them.
      * Returns: R_INVALID_ID on failure.
      */
     public static int Rtexture_create(byte[] data) {
@@ -10382,6 +10404,62 @@ public final class R {
             MemorySegment $r = (MemorySegment) $h.invokeExact(data$, data$.byteSize(), width$, height$);
             if (width != null && width.length > 0) width[0] = width$.get(JAVA_INT, 0);
             if (height != null && height.length > 0) height[0] = height$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_decode_info$;
+
+    /**
+     * Reads what an image file in memory holds without keeping its
+     * pixels: its size, its frames (1 for a still image, more for an animated
+     * GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+     * Each pointer may be NULL.
+     * Returns: R_FALSE when the data is not an image Raven can read.
+     */
+    public static int Rimage_decode_info(byte[] data, int[] width, int[] height, int[] frame_count, int[] loop_count) {
+        MethodHandle $h = Rimage_decode_info$;
+        if ($h == null) Rimage_decode_info$ = $h = find("Rimage_decode_info", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment data$ = data == null ? MemorySegment.NULL : bytes($a, data);
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment frame_count$ = frame_count == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment loop_count$ = loop_count == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(data$, data$.byteSize(), width$, height$, frame_count$, loop_count$);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_INT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_INT, 0);
+            if (frame_count != null && frame_count.length > 0) frame_count[0] = frame_count$.get(JAVA_INT, 0);
+            if (loop_count != null && loop_count.length > 0) loop_count[0] = loop_count$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_decode_frame$;
+
+    /**
+     * Decodes one frame of an animated GIF or APNG into tightly packed
+     * RGBA8 pixels, composed as it is shown (the frames before it drawn and
+     * disposed of). Frame 0 of a still image is the image. Thread-safe.
+     * delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+     * Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+     */
+    public static MemorySegment Rimage_decode_frame(byte[] data, int frame, int[] width, int[] height, double[] delay) {
+        MethodHandle $h = Rimage_decode_frame$;
+        if ($h == null) Rimage_decode_frame$ = $h = find("Rimage_decode_frame", FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG, JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment data$ = data == null ? MemorySegment.NULL : bytes($a, data);
+            MemorySegment width$ = width == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment height$ = height == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment delay$ = delay == null ? MemorySegment.NULL : $a.allocate(JAVA_DOUBLE);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(data$, data$.byteSize(), frame, width$, height$, delay$);
+            if (width != null && width.length > 0) width[0] = width$.get(JAVA_INT, 0);
+            if (height != null && height.length > 0) height[0] = height$.get(JAVA_INT, 0);
+            if (delay != null && delay.length > 0) delay[0] = delay$.get(JAVA_DOUBLE, 0);
             return $r;
         } catch (Throwable $t) {
             throw fail($t);
@@ -13220,6 +13298,207 @@ public final class R {
         } catch (Throwable $t) {
             throw fail($t);
         }
+    }
+
+    private static MethodHandle Rimage_is_animated$;
+
+    /**
+     * R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+     */
+    public static int Rimage_is_animated(int image) {
+        MethodHandle $h = Rimage_is_animated$;
+        if ($h == null) Rimage_is_animated$ = $h = find("Rimage_is_animated", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(image);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_get_frame_count$;
+
+    /**
+     * Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+     */
+    public static int Rimage_get_frame_count(int image) {
+        MethodHandle $h = Rimage_get_frame_count$;
+        if ($h == null) Rimage_get_frame_count$ = $h = find("Rimage_get_frame_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(image);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_get_duration$;
+
+    /**
+     * Returns: The seconds one play of its animation lasts (0 for a still image).
+     */
+    public static double Rimage_get_duration(int image) {
+        MethodHandle $h = Rimage_get_duration$;
+        if ($h == null) Rimage_get_duration$ = $h = find("Rimage_get_duration", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(image);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_get_frame_delay$;
+
+    /**
+     * Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+     */
+    public static double Rimage_get_frame_delay(int image, int frame) {
+        MethodHandle $h = Rimage_get_frame_delay$;
+        if ($h == null) Rimage_get_frame_delay$ = $h = find("Rimage_get_frame_delay", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(image, frame);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_play$;
+
+    /**
+     * Plays the animation from the frame it is on (from the first
+     * again when it had finished). An Image plays as soon as it is given an
+     * animated texture, unless XML says Animate="false".
+     */
+    public static void Rimage_play(int image) {
+        MethodHandle $h = Rimage_play$;
+        if ($h == null) Rimage_play$ = $h = find("Rimage_play", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(image);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_pause$;
+
+    /**
+     * Stops the animation on the frame it is on.
+     */
+    public static void Rimage_pause(int image) {
+        MethodHandle $h = Rimage_pause$;
+        if ($h == null) Rimage_pause$ = $h = find("Rimage_pause", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(image);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_stop$;
+
+    /**
+     * Stops the animation and shows its first frame.
+     */
+    public static void Rimage_stop(int image) {
+        MethodHandle $h = Rimage_stop$;
+        if ($h == null) Rimage_stop$ = $h = find("Rimage_stop", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(image);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_is_playing$;
+
+    public static int Rimage_is_playing(int image) {
+        MethodHandle $h = Rimage_is_playing$;
+        if ($h == null) Rimage_is_playing$ = $h = find("Rimage_is_playing", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(image);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_set_frame$;
+
+    /**
+     * Shows a frame (from 0), playing on from it if it plays.
+     */
+    public static void Rimage_set_frame(int image, int frame) {
+        MethodHandle $h = Rimage_set_frame$;
+        if ($h == null) Rimage_set_frame$ = $h = find("Rimage_set_frame", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(image, frame);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_get_frame$;
+
+    public static int Rimage_get_frame(int image) {
+        MethodHandle $h = Rimage_get_frame$;
+        if ($h == null) Rimage_get_frame$ = $h = find("Rimage_get_frame", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(image);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_set_loop_count$;
+
+    /**
+     * How many times the animation plays before it stops on its last
+     * frame: 0 forever, -1 what the file says (the default). XML: Loop
+     * (a number; also Forever, Once).
+     */
+    public static void Rimage_set_loop_count(int image, int count) {
+        MethodHandle $h = Rimage_set_loop_count$;
+        if ($h == null) Rimage_set_loop_count$ = $h = find("Rimage_set_loop_count", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(image, count);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_get_loop_count$;
+
+    /**
+     * Returns: The plays of the animation (0: forever), the file's unless it was set.
+     */
+    public static int Rimage_get_loop_count(int image) {
+        MethodHandle $h = Rimage_get_loop_count$;
+        if ($h == null) Rimage_get_loop_count$ = $h = find("Rimage_get_loop_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(image);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rimage_set_finished_callback$;
+
+    public static void Rimage_set_finished_callback(int image, RImageFinishedCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rimage_set_finished_callback$;
+        if ($h == null) Rimage_set_finished_callback$ = $h = find("Rimage_set_finished_callback", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(image, upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rimage_set_finished_callback(int image, RImageFinishedCallback callback) {
+        Rimage_set_finished_callback(image, callback, (MemorySegment) null);
     }
 
     private static MethodHandle Rtext_input_set_text$;

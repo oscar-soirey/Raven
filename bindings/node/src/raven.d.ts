@@ -3120,6 +3120,9 @@ export type RCheckboxChangedCallback = (checkbox: Rid, checked: number, user_dat
 
 export type RSliderChangedCallback = (slider: Rid, value: number, user_data: Pointer | null) => void;
 
+/** Called when the animation stops after its last play (at the next frame), before the action of the image. */
+export type RImageFinishedCallback = (image: Rid, user_data: Pointer | null) => void;
+
 export type RTextChangedCallback = (text_input: Rid, text: string | null, user_data: Pointer | null) => void;
 
 export type RSpinBoxChangedCallback = (spin_box: Rid, value: number, user_data: Pointer | null) => void;
@@ -4460,7 +4463,8 @@ export function Rfont_measure_text(font: Rid, size: number, text: string | null)
 
 /**
  * Creates a texture from the content of an image file (PNG, JPEG,
- * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+ * BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+ * animated GIF or APNG keeps its frames: an Image showing it plays them.
  * Returns: R_INVALID_ID on failure.
  */
 export function Rtexture_create(data: string | null): Rid;
@@ -4516,6 +4520,24 @@ export function Rtexture_update(texture: Rid, rgba: RPointer, width: number, hei
  * is not an image Raven can read.
  */
 export function Rimage_decode(data: NodeJS.TypedArray | null): [result: Pointer | null, width: number, height: number];
+
+/**
+ * Reads what an image file in memory holds without keeping its
+ * pixels: its size, its frames (1 for a still image, more for an animated
+ * GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+ * Each pointer may be NULL.
+ * Returns: R_FALSE when the data is not an image Raven can read.
+ */
+export function Rimage_decode_info(data: NodeJS.TypedArray | null): [result: number, width: number, height: number, frame_count: number, loop_count: number];
+
+/**
+ * Decodes one frame of an animated GIF or APNG into tightly packed
+ * RGBA8 pixels, composed as it is shown (the frames before it drawn and
+ * disposed of). Frame 0 of a still image is the image. Thread-safe.
+ * delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+ * Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+ */
+export function Rimage_decode_frame(data: NodeJS.TypedArray | null, frame: number): [result: Pointer | null, width: number, height: number, delay: number];
 
 /** Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe. */
 export function Rpixels_free(pixels: RPointer): void;
@@ -5180,6 +5202,50 @@ export function Rimage_set_stretch(image: Rid, stretch: RStretch): void;
 export function Rimage_set_region(image: Rid, min_u: number, min_v: number, max_u: number, max_v: number): void;
 
 export function Rimage_set_corner_radius(image: Rid, radius: number): void;
+
+/** R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more). */
+export function Rimage_is_animated(image: Rid): number;
+
+/** Returns: The frames of its animation; 1 for a still image, 0 without a texture. */
+export function Rimage_get_frame_count(image: Rid): number;
+
+/** Returns: The seconds one play of its animation lasts (0 for a still image). */
+export function Rimage_get_duration(image: Rid): number;
+
+/** Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist). */
+export function Rimage_get_frame_delay(image: Rid, frame: number): number;
+
+/**
+ * Plays the animation from the frame it is on (from the first
+ * again when it had finished). An Image plays as soon as it is given an
+ * animated texture, unless XML says Animate="false".
+ */
+export function Rimage_play(image: Rid): void;
+
+/** Stops the animation on the frame it is on. */
+export function Rimage_pause(image: Rid): void;
+
+/** Stops the animation and shows its first frame. */
+export function Rimage_stop(image: Rid): void;
+
+export function Rimage_is_playing(image: Rid): number;
+
+/** Shows a frame (from 0), playing on from it if it plays. */
+export function Rimage_set_frame(image: Rid, frame: number): void;
+
+export function Rimage_get_frame(image: Rid): number;
+
+/**
+ * How many times the animation plays before it stops on its last
+ * frame: 0 forever, -1 what the file says (the default). XML: Loop
+ * (a number; also Forever, Once).
+ */
+export function Rimage_set_loop_count(image: Rid, count: number): void;
+
+/** Returns: The plays of the animation (0: forever), the file's unless it was set. */
+export function Rimage_get_loop_count(image: Rid): number;
+
+export function Rimage_set_finished_callback(image: Rid, callback: RImageFinishedCallback | Pointer | null, user_data?: RPointer): void;
 
 export function Rtext_input_set_text(text_input: Rid, text: string | null): void;
 

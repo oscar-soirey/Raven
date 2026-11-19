@@ -295,6 +295,8 @@ type
   RButtonClickedCallback* = proc (button: Rid, user_data: pointer) {.cdecl.}
   RCheckboxChangedCallback* = proc (checkbox: Rid, checked: cint, user_data: pointer) {.cdecl.}
   RSliderChangedCallback* = proc (slider: Rid, value: cfloat, user_data: pointer) {.cdecl.}
+  RImageFinishedCallback* = proc (image: Rid, user_data: pointer) {.cdecl.}
+    ## Called when the animation stops after its last play (at the next frame), before the action of the image.
   RTextChangedCallback* = proc (text_input: Rid, text: cstring, user_data: pointer) {.cdecl.}
   RSpinBoxChangedCallback* = proc (spin_box: Rid, value: cdouble, user_data: pointer) {.cdecl.}
   RComboBoxChangedCallback* = proc (combo_box: Rid, index: cint, user_data: pointer) {.cdecl.}
@@ -2765,7 +2767,8 @@ proc Rfont_measure_text*(font: Rid, size: cfloat, text: cstring, width: ptr cflo
   ## size Font size; 0 uses R_METRIC_FONT_SIZE.
 proc Rtexture_create*(data: cstring, data_size: csize_t): Rid {.rapi.}
   ## Creates a texture from the content of an image file (PNG, JPEG,
-  ## BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+  ## BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+  ## animated GIF or APNG keeps its frames: an Image showing it plays them.
   ## Returns: R_INVALID_ID on failure.
 proc Rtexture_create_async*(data: cstring, data_size: csize_t): Rid {.rapi.}
   ## Same as Rtexture_create, decoded on a worker thread. The handle
@@ -2803,6 +2806,18 @@ proc Rimage_decode*(data: pointer, data_size: csize_t, width: ptr cint, height: 
   ## so that the decoding can be done away from the UI thread.
   ## Returns: The pixels, to release with Rpixels_free; NULL when the data
   ## is not an image Raven can read.
+proc Rimage_decode_info*(data: pointer, data_size: csize_t, width: ptr cint, height: ptr cint, frame_count: ptr cint, loop_count: ptr cint): cint {.rapi.}
+  ## Reads what an image file in memory holds without keeping its
+  ## pixels: its size, its frames (1 for a still image, more for an animated
+  ## GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+  ## Each pointer may be NULL.
+  ## Returns: R_FALSE when the data is not an image Raven can read.
+proc Rimage_decode_frame*(data: pointer, data_size: csize_t, frame: cint, width: ptr cint, height: ptr cint, delay: ptr cdouble): ptr uint8 {.rapi.}
+  ## Decodes one frame of an animated GIF or APNG into tightly packed
+  ## RGBA8 pixels, composed as it is shown (the frames before it drawn and
+  ## disposed of). Frame 0 of a still image is the image. Thread-safe.
+  ## delay Receives the seconds the frame is shown (0 for a still image); may be NULL.
+  ## Returns: The pixels, to release with Rpixels_free; NULL when the frame does not exist.
 proc Rpixels_free*(pixels: ptr uint8) {.rapi.}
   ## Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 proc Rimage_encode_png*(rgba: ptr uint8, width: cint, height: cint, size: ptr csize_t): ptr uint8 {.rapi.}
@@ -3207,6 +3222,33 @@ proc Rimage_set_stretch*(image: Rid, stretch: RStretch) {.rapi.}
 proc Rimage_set_region*(image: Rid, min_u: cfloat, min_v: cfloat, max_u: cfloat, max_v: cfloat) {.rapi.}
   ## Part of the texture to show, in UV coordinates. Default: 0, 0, 1, 1.
 proc Rimage_set_corner_radius*(image: Rid, radius: cfloat) {.rapi.}
+proc Rimage_is_animated*(image: Rid): cint {.rapi.}
+  ## R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+proc Rimage_get_frame_count*(image: Rid): cint {.rapi.}
+  ## Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+proc Rimage_get_duration*(image: Rid): cdouble {.rapi.}
+  ## Returns: The seconds one play of its animation lasts (0 for a still image).
+proc Rimage_get_frame_delay*(image: Rid, frame: cint): cdouble {.rapi.}
+  ## Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+proc Rimage_play*(image: Rid) {.rapi.}
+  ## Plays the animation from the frame it is on (from the first
+  ## again when it had finished). An Image plays as soon as it is given an
+  ## animated texture, unless XML says Animate="false".
+proc Rimage_pause*(image: Rid) {.rapi.}
+  ## Stops the animation on the frame it is on.
+proc Rimage_stop*(image: Rid) {.rapi.}
+  ## Stops the animation and shows its first frame.
+proc Rimage_is_playing*(image: Rid): cint {.rapi.}
+proc Rimage_set_frame*(image: Rid, frame: cint) {.rapi.}
+  ## Shows a frame (from 0), playing on from it if it plays.
+proc Rimage_get_frame*(image: Rid): cint {.rapi.}
+proc Rimage_set_loop_count*(image: Rid, count: cint) {.rapi.}
+  ## How many times the animation plays before it stops on its last
+  ## frame: 0 forever, -1 what the file says (the default). XML: Loop
+  ## (a number; also Forever, Once).
+proc Rimage_get_loop_count*(image: Rid): cint {.rapi.}
+  ## Returns: The plays of the animation (0: forever), the file's unless it was set.
+proc Rimage_set_finished_callback*(image: Rid, callback: RImageFinishedCallback, user_data: pointer) {.rapi.}
 proc Rtext_input_set_text*(text_input: Rid, text: cstring) {.rapi.}
 proc Rtext_input_get_text*(text_input: Rid): cstring {.rapi.}
 proc Rtext_input_set_placeholder*(text_input: Rid, text: cstring) {.rapi.}

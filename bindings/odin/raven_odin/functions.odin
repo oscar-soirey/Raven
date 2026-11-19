@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
+// 1046 of the 1403 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 325 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (120):
@@ -49,7 +49,7 @@
 //     Rmap_view_get_attribution Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text
 //     Rtest_expect_golden
 //
-//   a callback (105):
+//   a callback (106):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -57,9 +57,9 @@
 //     Rwidget_set_gesture_callback Rwidget_set_destroy_callback Rwidget_set_event_callback
 //     Rwidget_set_drop_callback Rtab_view_set_changed_callback Rtab_view_set_close_callback
 //     Rexpander_set_changed_callback Rlabel_set_link_callback Rbutton_set_clicked_callback
-//     Rcheckbox_set_changed_callback Rslider_set_changed_callback Rtext_input_set_changed_callback
-//     Rtext_input_set_committed_callback Rspin_box_set_changed_callback Rcombo_box_set_changed_callback
-//     Rlist_view_set_virtual_items Rlist_view_set_item_color_callback
+//     Rcheckbox_set_changed_callback Rslider_set_changed_callback Rimage_set_finished_callback
+//     Rtext_input_set_changed_callback Rtext_input_set_committed_callback Rspin_box_set_changed_callback
+//     Rcombo_box_set_changed_callback Rlist_view_set_virtual_items Rlist_view_set_item_color_callback
 //     Rlist_view_set_selection_changed_callback Rlist_view_set_activated_callback
 //     Rtree_view_set_selection_changed_callback Rtree_view_set_activated_callback
 //     Rtree_view_set_context_callback Rmenu_item_set_clicked_callback Rtile_view_set_items
@@ -104,6 +104,9 @@
 //     Raction_get_sender Raction_get_name Raction_get_argument_count Raction_get_number Raction_get_string
 //     Raction_get_bool
 //
+//   a parameter of type const void* (6):
+//     Rimage_decode Rimage_decode_info Rimage_decode_frame Rfile_register_memory Rfile_write Rshader_create
+//
 //   a parameter of type void* (6):
 //     Rmemory_realloc Rmemory_free Rwindow_set_user_handle Rwidget_set_user_handle
 //     Rtree_item_set_user_handle Rnode_graph_set_node_user_data
@@ -114,9 +117,6 @@
 //
 //   a parameter of type RActionContext* (4):
 //     Raction_return_number Raction_return_string Raction_return_bool Raction_fail
-//
-//   a parameter of type const void* (4):
-//     Rimage_decode Rfile_register_memory Rfile_write Rshader_create
 //
 //   a parameter of type RShaderLook* (3):
 //     Reffect_get_defaults Rshader_look_init Rshader_look_defaults
@@ -713,6 +713,20 @@ window_inject_text :: proc(window: Window, text: string) {
 	raw.Rwindow_inject_text(raw.Rid(window), to_cstring(text, &buffer_text))
 }
 
+// The text an input method is composing (preedit: Chinese,
+// Japanese, Korean, dead keys), as the platforms send it. The focused
+// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+// place of its selection, but it is not in its text and no changed
+// callback runs. [selection_start, selection_end) are bytes of `text`:
+// the part the input method works on (underlined thicker), or the caret
+// when they are equal; -1 is the end of `text`. NULL or "" ends the
+// composition without typing anything (cancel). The committed text comes
+// through Rwindow_inject_text, which ends the composition too, and so
+// does a change of focus. Ignored when the focus takes no text.
+window_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rwindow_inject_composition(raw.Rid(window), text, selection_start, selection_end)
+}
+
 // A drag from another application moves over the window
 // (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
@@ -774,6 +788,14 @@ window_replace_text_input :: proc(window: Window, start: i32, end: i32, text: st
 	return raw.Rwindow_replace_text_input(raw.Rid(window), start, end, to_cstring(text, &buffer_text))
 }
 
+// The composition of the input method in progress (UTF-8, valid
+// until it changes) and its selection in bytes; NULL when there is none.
+// Any output pointer may be NULL.
+window_get_text_composition :: proc(window: Window) -> (result: string, selection_start: i32, selection_end: i32) {
+	result = string(raw.Rwindow_get_text_composition(raw.Rid(window), &selection_start, &selection_end))
+	return
+}
+
 // R_TRUE while a menu, list or dialog is open over the window.
 window_has_popup :: proc(window: Window) -> bool {
 	return raw.Rwindow_has_popup(raw.Rid(window)) != 0
@@ -782,7 +804,9 @@ window_has_popup :: proc(window: Window) -> bool {
 // Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 // Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 // outputs when there is no visible editable caret, the window is inactive, or focus changed
-// since painting. Any output pointer may be NULL.
+// since painting. Any output pointer may be NULL. While an input method
+// composes, it is the caret inside the composition: where its candidate
+// window goes.
 window_get_text_input_rect :: proc(window: Window) -> (result: i32, x: i32, y: i32, width: i32, height: i32) {
 	result = raw.Rwindow_get_text_input_rect(raw.Rid(window), &x, &y, &width, &height)
 	return
@@ -1205,7 +1229,8 @@ font_measure_text :: proc(font: Font, size: f32, text: string) -> (width: f32, h
 }
 
 // Creates a texture from the content of an image file (PNG, JPEG,
-// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+// BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+// animated GIF or APNG keeps its frames: an Image showing it plays them.
 // Returns: R_INVALID_ID on failure.
 texture_create :: proc(data: string, data_size: uint) -> (handle: Texture, ok: bool) #optional_ok {
 	buffer_data: [cstring_buffer_size]u8
@@ -2200,6 +2225,68 @@ image_set_region :: proc(image: Widget, min_u: f32, min_v: f32, max_u: f32, max_
 
 image_set_corner_radius :: proc(image: Widget, radius: f32) {
 	raw.Rimage_set_corner_radius(raw.Rid(image), radius)
+}
+
+// R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+image_is_animated :: proc(image: Widget) -> bool {
+	return raw.Rimage_is_animated(raw.Rid(image)) != 0
+}
+
+// Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+image_get_frame_count :: proc(image: Widget) -> i32 {
+	return raw.Rimage_get_frame_count(raw.Rid(image))
+}
+
+// Returns: The seconds one play of its animation lasts (0 for a still image).
+image_get_duration :: proc(image: Widget) -> f64 {
+	return raw.Rimage_get_duration(raw.Rid(image))
+}
+
+// Returns: The seconds a frame of its animation is shown (0 for a frame that does not exist).
+image_get_frame_delay :: proc(image: Widget, frame: i32) -> f64 {
+	return raw.Rimage_get_frame_delay(raw.Rid(image), frame)
+}
+
+// Plays the animation from the frame it is on (from the first
+// again when it had finished). An Image plays as soon as it is given an
+// animated texture, unless XML says Animate="false".
+image_play :: proc(image: Widget) {
+	raw.Rimage_play(raw.Rid(image))
+}
+
+// Stops the animation on the frame it is on.
+image_pause :: proc(image: Widget) {
+	raw.Rimage_pause(raw.Rid(image))
+}
+
+// Stops the animation and shows its first frame.
+image_stop :: proc(image: Widget) {
+	raw.Rimage_stop(raw.Rid(image))
+}
+
+image_is_playing :: proc(image: Widget) -> bool {
+	return raw.Rimage_is_playing(raw.Rid(image)) != 0
+}
+
+// Shows a frame (from 0), playing on from it if it plays.
+image_set_frame :: proc(image: Widget, frame: i32) {
+	raw.Rimage_set_frame(raw.Rid(image), frame)
+}
+
+image_get_frame :: proc(image: Widget) -> i32 {
+	return raw.Rimage_get_frame(raw.Rid(image))
+}
+
+// How many times the animation plays before it stops on its last
+// frame: 0 forever, -1 what the file says (the default). XML: Loop
+// (a number; also Forever, Once).
+image_set_loop_count :: proc(image: Widget, count: i32) {
+	raw.Rimage_set_loop_count(raw.Rid(image), count)
+}
+
+// Returns: The plays of the animation (0: forever), the file's unless it was set.
+image_get_loop_count :: proc(image: Widget) -> i32 {
+	return raw.Rimage_get_loop_count(raw.Rid(image))
 }
 
 // Dimmed text shown while the input is empty.
@@ -5897,6 +5984,15 @@ host_inject_key :: proc(window: Window, key: Key, pressed: bool, modifiers: u32,
 // One typed Unicode code point.
 host_inject_text :: proc(window: Window, codepoint: u32) {
 	raw.Rhost_inject_text(raw.Rid(window), codepoint)
+}
+
+// The input method of the application's system composes `text`
+// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+// NULL or "" cancels it; the committed text then comes through
+// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+// candidate window.
+host_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rhost_inject_composition(raw.Rid(window), text, selection_start, selection_end)
 }
 
 // The window gained or lost the keyboard. Losing it closes popups and drops captures.

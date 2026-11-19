@@ -2356,7 +2356,8 @@ func FontMeasureText(font ID, size float32, text string) (width float32, height 
 }
 
 // TextureCreate: Creates a texture from the content of an image file (PNG, JPEG, BMP, TGA, GIF, PSD, SVG).
-// Decoding happens on the calling thread. Returns: R_INVALID_ID on failure.
+// Decoding happens on the calling thread. An animated GIF or APNG keeps its frames: an Image showing it plays
+// them. Returns: R_INVALID_ID on failure.
 func TextureCreate(data []byte) ID {
 	var data_ *C.char
 	if len(data) > 0 {
@@ -2406,6 +2407,26 @@ func TextureCreateFromFileAsync(path string) ID {
 	path_ := C.CString(path)
 	defer C.free(unsafe.Pointer(path_))
 	return ID(C.Rtexture_create_from_file_async(path_))
+}
+
+// ImageDecodeInfo: Reads what an image file in memory holds without keeping its pixels: its size, its frames
+// (1 for a still image, more for an animated GIF or APNG) and how many times it plays (0: forever).
+// Thread-safe. Each pointer may be NULL. Returns: R_FALSE when the data is not an image Raven can read.
+func ImageDecodeInfo(data []byte) (result int, width int, height int, frame_count int, loop_count int) {
+	var data_ unsafe.Pointer
+	if len(data) > 0 {
+		data_ = unsafe.Pointer(&data[0])
+	}
+	var width_ C.int
+	var height_ C.int
+	var frame_count_ C.int
+	var loop_count_ C.int
+	result = int(C.Rimage_decode_info(data_, C.size_t(len(data)), &width_, &height_, &frame_count_, &loop_count_))
+	width = int(width_)
+	height = int(height_)
+	frame_count = int(frame_count_)
+	loop_count = int(loop_count_)
+	return
 }
 
 // TextureIsReady: Returns: R_TRUE once an asynchronous texture is decoded (or failed).
@@ -3344,6 +3365,67 @@ func ImageSetRegion(image ID, min_u float32, min_v float32, max_u float32, max_v
 
 func ImageSetCornerRadius(image ID, radius float32) {
 	C.Rimage_set_corner_radius(C.Rid(image), C.float(radius))
+}
+
+// ImageIsAnimated: R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more).
+func ImageIsAnimated(image ID) int {
+	return int(C.Rimage_is_animated(C.Rid(image)))
+}
+
+// ImageGetFrameCount: Returns: The frames of its animation; 1 for a still image, 0 without a texture.
+func ImageGetFrameCount(image ID) int {
+	return int(C.Rimage_get_frame_count(C.Rid(image)))
+}
+
+// ImageGetDuration: Returns: The seconds one play of its animation lasts (0 for a still image).
+func ImageGetDuration(image ID) float64 {
+	return float64(C.Rimage_get_duration(C.Rid(image)))
+}
+
+// ImageGetFrameDelay: Returns: The seconds a frame of its animation is shown (0 for a frame that does not
+// exist).
+func ImageGetFrameDelay(image ID, frame int) float64 {
+	return float64(C.Rimage_get_frame_delay(C.Rid(image), C.int(frame)))
+}
+
+// ImagePlay: Plays the animation from the frame it is on (from the first again when it had finished). An
+// Image plays as soon as it is given an animated texture, unless XML says Animate="false".
+func ImagePlay(image ID) {
+	C.Rimage_play(C.Rid(image))
+}
+
+// ImagePause: Stops the animation on the frame it is on.
+func ImagePause(image ID) {
+	C.Rimage_pause(C.Rid(image))
+}
+
+// ImageStop: Stops the animation and shows its first frame.
+func ImageStop(image ID) {
+	C.Rimage_stop(C.Rid(image))
+}
+
+func ImageIsPlaying(image ID) int {
+	return int(C.Rimage_is_playing(C.Rid(image)))
+}
+
+// ImageSetFrame: Shows a frame (from 0), playing on from it if it plays.
+func ImageSetFrame(image ID, frame int) {
+	C.Rimage_set_frame(C.Rid(image), C.int(frame))
+}
+
+func ImageGetFrame(image ID) int {
+	return int(C.Rimage_get_frame(C.Rid(image)))
+}
+
+// ImageSetLoopCount: How many times the animation plays before it stops on its last frame: 0 forever, -1 what
+// the file says (the default). XML: Loop (a number; also Forever, Once).
+func ImageSetLoopCount(image ID, count int) {
+	C.Rimage_set_loop_count(C.Rid(image), C.int(count))
+}
+
+// ImageGetLoopCount: Returns: The plays of the animation (0: forever), the file's unless it was set.
+func ImageGetLoopCount(image ID) int {
+	return int(C.Rimage_get_loop_count(C.Rid(image)))
 }
 
 func TextInputSetText(text_input ID, text string) {
@@ -8102,13 +8184,14 @@ func TestIsChecked(widget ID) int {
 // Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rtouch_get_settings
 // Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings, Rwindow_get_touch_settings
 // Rwidget_set_touch_callback, Rwidget_set_pen_callback, Rwidget_set_gesture_callback
-// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rimage_encode_png
-// Rimage_save_png, Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback
-// Rwidget_set_event_callback, Rwidget_set_drop_callback, Rtab_view_set_changed_callback
-// Rtab_view_set_close_callback, Rexpander_set_changed_callback, Rlabel_set_link_callback
-// Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback, Rslider_set_changed_callback
-// Rtext_input_set_changed_callback, Rtext_input_set_committed_callback, Rspin_box_set_changed_callback
-// Rcombo_box_set_changed_callback, Rlist_view_set_virtual_items, Rlist_view_set_item_color_callback
+// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rimage_decode_frame, Rpixels_free
+// Rimage_encode_png, Rimage_save_png, Rwidget_set_user_handle, Rwidget_get_user_handle
+// Rwidget_set_destroy_callback, Rwidget_set_event_callback, Rwidget_set_drop_callback
+// Rtab_view_set_changed_callback, Rtab_view_set_close_callback, Rexpander_set_changed_callback
+// Rlabel_set_link_callback, Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback
+// Rslider_set_changed_callback, Rimage_set_finished_callback, Rtext_input_set_changed_callback
+// Rtext_input_set_committed_callback, Rspin_box_set_changed_callback, Rcombo_box_set_changed_callback
+// Rlist_view_set_virtual_items, Rlist_view_set_item_color_callback
 // Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback, Rtree_item_set_user_handle
 // Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
 // Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items

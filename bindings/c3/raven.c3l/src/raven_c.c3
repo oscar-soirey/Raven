@@ -1482,6 +1482,8 @@ alias RLabelLinkCallback = fn void(Rid label, char* url, void* user_data);
 alias RButtonClickedCallback = fn void(Rid button, void* user_data);
 alias RCheckboxChangedCallback = fn void(Rid checkbox, CInt checked, void* user_data);
 alias RSliderChangedCallback = fn void(Rid slider, float value, void* user_data);
+<* Called when the animation stops after its last play (at the next frame), before the action of the image. *>
+alias RImageFinishedCallback = fn void(Rid image, void* user_data);
 alias RTextChangedCallback = fn void(Rid text_input, char* text, void* user_data);
 alias RSpinBoxChangedCallback = fn void(Rid spin_box, double value, void* user_data);
 alias RComboBoxChangedCallback = fn void(Rid combo_box, CInt index, void* user_data);
@@ -3554,7 +3556,8 @@ extern fn void r_font_measure_text(Rid font, float size, char* text, float* widt
 
 <*
  Creates a texture from the content of an image file (PNG, JPEG,
- BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+ BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+ animated GIF or APNG keeps its frames: an Image showing it plays them.
  Returns R_INVALID_ID on failure.
 *>
 extern fn Rid r_texture_create(char* data, usz data_size) @cname("Rtexture_create");
@@ -3610,6 +3613,23 @@ extern fn void r_texture_update(Rid texture, char* rgba, CInt width, CInt height
  is not an image Raven can read.
 *>
 extern fn char* r_image_decode(void* data, usz data_size, CInt* width, CInt* height) @cname("Rimage_decode");
+
+<*
+ Reads what an image file in memory holds without keeping its
+ pixels: its size, its frames (1 for a still image, more for an animated
+ GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+ Each pointer may be NULL.
+ Returns R_FALSE when the data is not an image Raven can read.
+*>
+extern fn CInt r_image_decode_info(void* data, usz data_size, CInt* width, CInt* height, CInt* frame_count, CInt* loop_count) @cname("Rimage_decode_info");
+
+<*
+ Decodes one frame of an animated GIF or APNG into tightly packed
+ RGBA8 pixels, composed as it is shown (the frames before it drawn and
+ disposed of). Frame 0 of a still image is the image. Thread-safe.
+ Returns The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+*>
+extern fn char* r_image_decode_frame(void* data, usz data_size, CInt frame, CInt* width, CInt* height, double* delay) @cname("Rimage_decode_frame");
 
 <* Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe. *>
 extern fn void r_pixels_free(char* pixels) @cname("Rpixels_free");
@@ -4267,6 +4287,50 @@ extern fn void r_image_set_stretch(Rid image, RStretch stretch) @cname("Rimage_s
 extern fn void r_image_set_region(Rid image, float min_u, float min_v, float max_u, float max_v) @cname("Rimage_set_region");
 
 extern fn void r_image_set_corner_radius(Rid image, float radius) @cname("Rimage_set_corner_radius");
+
+<* R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more). *>
+extern fn CInt r_image_is_animated(Rid image) @cname("Rimage_is_animated");
+
+<* Returns The frames of its animation; 1 for a still image, 0 without a texture. *>
+extern fn CInt r_image_get_frame_count(Rid image) @cname("Rimage_get_frame_count");
+
+<* Returns The seconds one play of its animation lasts (0 for a still image). *>
+extern fn double r_image_get_duration(Rid image) @cname("Rimage_get_duration");
+
+<* Returns The seconds a frame of its animation is shown (0 for a frame that does not exist). *>
+extern fn double r_image_get_frame_delay(Rid image, CInt frame) @cname("Rimage_get_frame_delay");
+
+<*
+ Plays the animation from the frame it is on (from the first
+ again when it had finished). An Image plays as soon as it is given an
+ animated texture, unless XML says Animate="false".
+*>
+extern fn void r_image_play(Rid image) @cname("Rimage_play");
+
+<* Stops the animation on the frame it is on. *>
+extern fn void r_image_pause(Rid image) @cname("Rimage_pause");
+
+<* Stops the animation and shows its first frame. *>
+extern fn void r_image_stop(Rid image) @cname("Rimage_stop");
+
+extern fn CInt r_image_is_playing(Rid image) @cname("Rimage_is_playing");
+
+<* Shows a frame (from 0), playing on from it if it plays. *>
+extern fn void r_image_set_frame(Rid image, CInt frame) @cname("Rimage_set_frame");
+
+extern fn CInt r_image_get_frame(Rid image) @cname("Rimage_get_frame");
+
+<*
+ How many times the animation plays before it stops on its last
+ frame: 0 forever, -1 what the file says (the default). XML: Loop
+ (a number; also Forever, Once).
+*>
+extern fn void r_image_set_loop_count(Rid image, CInt count) @cname("Rimage_set_loop_count");
+
+<* Returns The plays of the animation (0: forever), the file's unless it was set. *>
+extern fn CInt r_image_get_loop_count(Rid image) @cname("Rimage_get_loop_count");
+
+extern fn void r_image_set_finished_callback(Rid image, RImageFinishedCallback callback, void* user_data) @cname("Rimage_set_finished_callback");
 
 extern fn void r_text_input_set_text(Rid text_input, char* text) @cname("Rtext_input_set_text");
 

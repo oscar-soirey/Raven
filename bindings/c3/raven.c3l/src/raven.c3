@@ -1755,6 +1755,8 @@ alias LabelLinkCallback = fn void(Id label, ZString url, void* user_data);
 alias ButtonClickedCallback = fn void(Id button, void* user_data);
 alias CheckboxChangedCallback = fn void(Id checkbox, CInt checked, void* user_data);
 alias SliderChangedCallback = fn void(Id slider, float value, void* user_data);
+<* Called when the animation stops after its last play (at the next frame), before the action of the image. *>
+alias ImageFinishedCallback = fn void(Id image, void* user_data);
 alias TextChangedCallback = fn void(Id text_input, ZString text, void* user_data);
 alias SpinBoxChangedCallback = fn void(Id spin_box, double value, void* user_data);
 alias ComboBoxChangedCallback = fn void(Id combo_box, CInt index, void* user_data);
@@ -3390,6 +3392,23 @@ fn Image image_create() @inline => (Image)c::r_widget_create(c::R_WIDGET_IMAGE);
 alias image_decode = c::r_image_decode;
 
 <*
+ Reads what an image file in memory holds without keeping its
+ pixels: its size, its frames (1 for a still image, more for an animated
+ GIF or APNG) and how many times it plays (0: forever). Thread-safe.
+ Each pointer may be NULL.
+ Returns R_FALSE when the data is not an image Raven can read.
+*>
+fn bool image_decode_info(void* data, usz data_size, CInt* width, CInt* height, CInt* frame_count, CInt* loop_count) @inline => c::r_image_decode_info(data, data_size, width, height, frame_count, loop_count) != 0;
+
+<*
+ Decodes one frame of an animated GIF or APNG into tightly packed
+ RGBA8 pixels, composed as it is shown (the frames before it drawn and
+ disposed of). Frame 0 of a still image is the image. Thread-safe.
+ Returns The pixels, to release with Rpixels_free; NULL when the frame does not exist.
+*>
+alias image_decode_frame = c::r_image_decode_frame;
+
+<*
  Encodes tightly packed RGBA8 pixels (what Rwindow_capture
  returns) as a PNG file in memory. Thread-safe.
  Returns The bytes of the file, to release with Rpixels_free; NULL when
@@ -3417,6 +3436,50 @@ fn void Image.set_stretch(self, Stretch stretch) @inline => c::r_image_set_stret
 fn void Image.set_region(self, float min_u, float min_v, float max_u, float max_v) @inline => c::r_image_set_region((c::Rid)self, min_u, min_v, max_u, max_v);
 
 fn void Image.set_corner_radius(self, float radius) @inline => c::r_image_set_corner_radius((c::Rid)self, radius);
+
+<* R_TRUE when the texture of the image is an animated GIF or APNG (two frames or more). *>
+fn bool Image.is_animated(self) @inline => c::r_image_is_animated((c::Rid)self) != 0;
+
+<* Returns The frames of its animation; 1 for a still image, 0 without a texture. *>
+fn CInt Image.get_frame_count(self) @inline => c::r_image_get_frame_count((c::Rid)self);
+
+<* Returns The seconds one play of its animation lasts (0 for a still image). *>
+fn double Image.get_duration(self) @inline => c::r_image_get_duration((c::Rid)self);
+
+<* Returns The seconds a frame of its animation is shown (0 for a frame that does not exist). *>
+fn double Image.get_frame_delay(self, CInt frame) @inline => c::r_image_get_frame_delay((c::Rid)self, frame);
+
+<*
+ Plays the animation from the frame it is on (from the first
+ again when it had finished). An Image plays as soon as it is given an
+ animated texture, unless XML says Animate="false".
+*>
+fn void Image.play(self) @inline => c::r_image_play((c::Rid)self);
+
+<* Stops the animation on the frame it is on. *>
+fn void Image.pause(self) @inline => c::r_image_pause((c::Rid)self);
+
+<* Stops the animation and shows its first frame. *>
+fn void Image.stop(self) @inline => c::r_image_stop((c::Rid)self);
+
+fn bool Image.is_playing(self) @inline => c::r_image_is_playing((c::Rid)self) != 0;
+
+<* Shows a frame (from 0), playing on from it if it plays. *>
+fn void Image.set_frame(self, CInt frame) @inline => c::r_image_set_frame((c::Rid)self, frame);
+
+fn CInt Image.get_frame(self) @inline => c::r_image_get_frame((c::Rid)self);
+
+<*
+ How many times the animation plays before it stops on its last
+ frame: 0 forever, -1 what the file says (the default). XML: Loop
+ (a number; also Forever, Once).
+*>
+fn void Image.set_loop_count(self, CInt count) @inline => c::r_image_set_loop_count((c::Rid)self, count);
+
+<* Returns The plays of the animation (0: forever), the file's unless it was set. *>
+fn CInt Image.get_loop_count(self) @inline => c::r_image_get_loop_count((c::Rid)self);
+
+fn void Image.set_finished_callback(self, ImageFinishedCallback callback, void* user_data) @inline => c::r_image_set_finished_callback((c::Rid)self, (c::RImageFinishedCallback)callback, user_data);
 
 // ---- TextInput
 
@@ -6578,7 +6641,8 @@ typedef Texture = inline Id;
 
 <*
  Creates a texture from the content of an image file (PNG, JPEG,
- BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread.
+ BMP, TGA, GIF, PSD, SVG). Decoding happens on the calling thread. An
+ animated GIF or APNG keeps its frames: an Image showing it plays them.
  Returns R_INVALID_ID on failure.
 *>
 fn Texture? texture_create(ZString data, usz data_size)
