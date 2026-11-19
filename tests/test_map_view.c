@@ -33,6 +33,8 @@ static int g_auto_answer;
 static int g_view_calls;
 static double g_view_zoom;
 static int g_marker_clicks, g_last_marker;
+/* raised by a widget painted just before the map, lowered by one painted just after it */
+static int g_painting, g_view_calls_while_painting;
 
 static void on_request(Rid map, int z, int x, int y, void* user_data) {
 	CHECK(user_data == &g_request_count);
@@ -67,6 +69,25 @@ static void on_view(Rid map, double latitude, double longitude, double zoom, voi
 	CHECK(user_data == &g_view_calls);
 	g_view_calls++;
 	g_view_zoom = zoom;
+	if (g_painting) g_view_calls_while_painting++;
+}
+
+static void on_paint_before(Rid widget, RPainter* painter, float width, float height, void* user_data) {
+	(void)widget;
+	(void)painter;
+	(void)width;
+	(void)height;
+	(void)user_data;
+	g_painting = R_TRUE;
+}
+
+static void on_paint_after(Rid widget, RPainter* painter, float width, float height, void* user_data) {
+	(void)widget;
+	(void)painter;
+	(void)width;
+	(void)height;
+	(void)user_data;
+	g_painting = R_FALSE;
 }
 
 static void on_marker(Rid map, int marker, void* user_data) {
@@ -665,6 +686,60 @@ static void test_input(void) {
 	Rmap_view_set_view_changed_callback(map, NULL, NULL);
 }
 
+/*
+ * A zoom, a flight or a glide moves the view as the map is painted: the application is told
+ * after the paint (at the next frame), where its callback may change the tree.
+ */
+static void test_told_outside_paint(void) {
+	Rid box = Rwidget_create(R_WIDGET_VBOX);
+	Rid before = Rwidget_add_child(box, Rwidget_create(R_WIDGET_CUSTOM));
+	Rid map = Rwidget_add_child(box, Rmap_view_create());
+	Rid after = Rwidget_add_child(box, Rwidget_create(R_WIDGET_CUSTOM));
+	int i;
+
+	Rwidget_set_size(before, 10.0f, 10.0f);
+	Rwidget_set_size(after, 10.0f, 10.0f);
+	Rslot_set_fill(map, 1.0f);
+	Rcustom_set_paint_callback(before, on_paint_before, NULL);
+	Rcustom_set_paint_callback(after, on_paint_after, NULL);
+	Rwindow_set_content(g_window, box);
+	Rmap_view_set_zoom(map, 3.0);
+	Rmap_view_set_view_changed_callback(map, on_view, &g_view_calls);
+	Rdraw_frame();
+
+	Rset_animations_enabled(R_TRUE);
+	Rset_animation_time_step(1.0 / 60.0);
+	g_view_calls = g_view_calls_while_painting = 0;
+	g_painting = R_FALSE;
+	Rmap_view_animate_to(map, 48.8566, 2.3522, 6.0);
+	for (i = 0; i < 240; i++) {
+		Rwindow_request_redraw(g_window);
+		Rdraw_frame();
+	}
+	CHECK(Rmap_view_get_zoom(map) == 6.0);
+	CHECK(g_view_calls >= 1);
+	CHECK_CLOSE(g_view_zoom, 6.0, 1e-9);
+	CHECK(g_view_calls_while_painting == 0);
+	Rset_animation_time_step(0.0);
+	Rset_animations_enabled(R_FALSE);
+
+	/* a map destroyed with a telling still to come: nothing is told */
+	g_view_calls = 0;
+	Rmap_view_animate_to(map, 40.0, 10.0, 4.0);
+	Rset_animations_enabled(R_TRUE);
+	Rset_animation_time_step(1.0 / 60.0);
+	Rmap_view_animate_to(map, 10.0, 20.0, 5.0);
+	Rwindow_request_redraw(g_window);
+	Rdraw_frame();
+	g_view_calls = 0;
+	Rwidget_destroy(map);
+	Rdraw_frame();
+	Rdraw_frame();
+	CHECK(g_view_calls == 0);
+	Rset_animation_time_step(0.0);
+	Rset_animations_enabled(R_FALSE);
+}
+
 static void test_markers(void) {
 	Rid map = new_map();
 	float x, y, w, h;
@@ -767,6 +842,17 @@ static void test_xml(void) {
 	/* (the files are not there: the tiles fail, quietly) */
 	Rdraw_frame();
 
+	/* a place and a zoom in double precision: a float would make 120.000001 120 (90 units at zoom 24) */
+	Rmap_view_set_zoom_range(map, 0.0, 24.0);
+	CHECK(Rwidget_set_attribute(map, "Longitude", "120.000001"));
+	CHECK(Rwidget_set_attribute(map, "Latitude", "45.0000013"));
+	CHECK(Rwidget_set_attribute(map, "Zoom", "23.0000001"));
+	Rmap_view_get_center(map, &lat, &lon);
+	CHECK_CLOSE(lon, 120.000001, 1e-9);
+	CHECK_CLOSE(lat, 45.0000013, 1e-9);
+	CHECK_CLOSE(Rmap_view_get_zoom(map), 23.0000001, 1e-12);
+	Rdraw_frame();
+
 	/* the other names of the tag */
 	map = Rwidget_create_from_xml("<Map/>", 6);
 	CHECK(Rwidget_get_type(map) == R_WIDGET_MAP_VIEW);
@@ -827,6 +913,7 @@ int main(void) {
 	RUN(test_fallback_and_cache);
 	RUN(test_tile_path);
 	RUN(test_input);
+	RUN(test_told_outside_paint);
 	RUN(test_markers);
 	RUN(test_xml);
 	RUN(test_errors);

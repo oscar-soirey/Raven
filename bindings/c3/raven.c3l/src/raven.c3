@@ -6337,6 +6337,20 @@ fn void Window.inject_key(self, Key key, bool pressed, Modifier modifiers) @inli
 fn void Window.inject_text(self, ZString text) @inline => c::r_window_inject_text((c::Rid)self, (char*)text);
 
 <*
+ The text an input method is composing (preedit: Chinese,
+ Japanese, Korean, dead keys), as the platforms send it. The focused
+ TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+ place of its selection, but it is not in its text and no changed
+ callback runs. [selection_start, selection_end) are bytes of `text`:
+ the part the input method works on (underlined thicker), or the caret
+ when they are equal; -1 is the end of `text`. NULL or "" ends the
+ composition without typing anything (cancel). The committed text comes
+ through Rwindow_inject_text, which ends the composition too, and so
+ does a change of focus. Ignored when the focus takes no text.
+*>
+fn void Window.inject_composition(self, ZString text, CInt selection_start, CInt selection_end) @inline => c::r_window_inject_composition((c::Rid)self, (char*)text, selection_start, selection_end);
+
+<*
  A drag from another application moves over the window
  (`inside` R_TRUE) or leaves it.
  Returns R_TRUE when a drop at this position would be accepted.
@@ -6391,6 +6405,13 @@ fn CInt Window.set_text_input_selection(self, CInt start, CInt end) @inline => c
 *>
 fn CInt Window.replace_text_input(self, CInt start, CInt end, ZString text) @inline => c::r_window_replace_text_input((c::Rid)self, start, end, (char*)text);
 
+<*
+ The composition of the input method in progress (UTF-8, valid
+ until it changes) and its selection in bytes; NULL when there is none.
+ Any output pointer may be NULL.
+*>
+fn ZString Window.get_text_composition(self, CInt* selection_start, CInt* selection_end) @inline => (ZString)c::r_window_get_text_composition((c::Rid)self, selection_start, selection_end);
+
 <* R_TRUE while a menu, list or dialog is open over the window. *>
 fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) != 0;
 
@@ -6398,7 +6419,9 @@ fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) !=
  Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
  Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
  outputs when there is no visible editable caret, the window is inactive, or focus changed
- since painting. Any output pointer may be NULL.
+ since painting. Any output pointer may be NULL. While an input method
+ composes, it is the caret inside the composition: where its candidate
+ window goes.
 *>
 fn CInt Window.get_text_input_rect(self, CInt* x, CInt* y, CInt* width, CInt* height) @inline => c::r_window_get_text_input_rect((c::Rid)self, x, y, width, height);
 
@@ -8223,6 +8246,15 @@ fn void host_inject_key(Id window, Key key, bool pressed, Modifier modifiers, bo
 
 <* One typed Unicode code point. *>
 fn void host_inject_text(Id window, uint codepoint) @inline => c::r_host_inject_text((c::Rid)window, codepoint);
+
+<*
+ The input method of the application's system composes `text`
+ (preedit), with its selection in bytes (see Rwindow_inject_composition).
+ NULL or "" cancels it; the committed text then comes through
+ Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+ candidate window.
+*>
+fn void host_inject_composition(Id window, ZString text, CInt selection_start, CInt selection_end) @inline => c::r_host_inject_composition((c::Rid)window, (char*)text, selection_start, selection_end);
 
 <* The window gained or lost the keyboard. Losing it closes popups and drops captures. *>
 fn void host_inject_focus(Id window, CInt focused) @inline => c::r_host_inject_focus((c::Rid)window, focused);

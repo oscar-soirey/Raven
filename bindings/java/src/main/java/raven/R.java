@@ -8950,6 +8950,31 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_inject_composition$;
+
+    /**
+     * The text an input method is composing (preedit: Chinese,
+     * Japanese, Korean, dead keys), as the platforms send it. The focused
+     * TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+     * place of its selection, but it is not in its text and no changed
+     * callback runs. [selection_start, selection_end) are bytes of `text`:
+     * the part the input method works on (underlined thicker), or the caret
+     * when they are equal; -1 is the end of `text`. NULL or "" ends the
+     * composition without typing anything (cancel). The committed text comes
+     * through Rwindow_inject_text, which ends the composition too, and so
+     * does a change of focus. Ignored when the focus takes no text.
+     */
+    public static void Rwindow_inject_composition(int window, String text, int selection_start, int selection_end) {
+        MethodHandle $h = Rwindow_inject_composition$;
+        if ($h == null) Rwindow_inject_composition$ = $h = find("Rwindow_inject_composition", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(window, text$, selection_start, selection_end);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_inject_drag$;
 
     /**
@@ -9188,6 +9213,28 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rwindow_get_text_composition$;
+
+    /**
+     * The composition of the input method in progress (UTF-8, valid
+     * until it changes) and its selection in bytes; NULL when there is none.
+     * Any output pointer may be NULL.
+     */
+    public static String Rwindow_get_text_composition(int window, int[] selection_start, int[] selection_end) {
+        MethodHandle $h = Rwindow_get_text_composition$;
+        if ($h == null) Rwindow_get_text_composition$ = $h = find("Rwindow_get_text_composition", FunctionDescriptor.of(ADDRESS, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment selection_start$ = selection_start == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment selection_end$ = selection_end == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(window, selection_start$, selection_end$);
+            if (selection_start != null && selection_start.length > 0) selection_start[0] = selection_start$.get(JAVA_INT, 0);
+            if (selection_end != null && selection_end.length > 0) selection_end[0] = selection_end$.get(JAVA_INT, 0);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rwindow_has_popup$;
 
     /**
@@ -9210,7 +9257,9 @@ public final class R {
      * Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
      * Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
      * outputs when there is no visible editable caret, the window is inactive, or focus changed
-     * since painting. Any output pointer may be NULL.
+     * since painting. Any output pointer may be NULL. While an input method
+     * composes, it is the caret inside the composition: where its candidate
+     * window goes.
      */
     public static int Rwindow_get_text_input_rect(int window, int[] x, int[] y, int[] width, int[] height) {
         MethodHandle $h = Rwindow_get_text_input_rect$;
@@ -28096,6 +28145,26 @@ public final class R {
         if ($h == null) Rhost_inject_text$ = $h = find("Rhost_inject_text", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(window, codepoint);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rhost_inject_composition$;
+
+    /**
+     * The input method of the application's system composes `text`
+     * (preedit), with its selection in bytes (see Rwindow_inject_composition).
+     * NULL or "" cancels it; the committed text then comes through
+     * Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+     * candidate window.
+     */
+    public static void Rhost_inject_composition(int window, String text, int selection_start, int selection_end) {
+        MethodHandle $h = Rhost_inject_composition$;
+        if ($h == null) Rhost_inject_composition$ = $h = find("Rhost_inject_composition", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment text$ = text == null ? MemorySegment.NULL : utf8($a, text);
+            $h.invokeExact(window, text$, selection_start, selection_end);
         } catch (Throwable $t) {
             throw fail($t);
         }

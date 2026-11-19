@@ -362,6 +362,8 @@ static int rvn_a11y_collect(const rvn_widget_t* widget, rvn_widget_t** out, int 
 		/* only the page that is shown of a tab view */
 		if (widget->cls->type == R_WIDGET_TAB_VIEW && (int)i != Rtab_view_get_active(widget->id)) continue;
 		if (widget->cls->type == R_WIDGET_CAROUSEL && (int)i != Rcarousel_get_page(widget->id)) continue;
+		/* and of a switcher (the pages it does not show keep their place and size) */
+		if (widget->cls->type == R_WIDGET_SWITCHER && (int)i != Rswitcher_get_index(widget->id)) continue;
 		if (rvn_a11y_role_of(child) == R_ROLE_NONE) {
 			count = rvn_a11y_collect(child, out, max, count);
 		} else {
@@ -1221,6 +1223,10 @@ void rvn_a11y_frame(rvn_window_t* window) {
         return;
     }
 #endif
+	if (g_rvn.platform->a11y_every_frame) {
+		g_rvn.platform->a11y_event(window->platform, RVN_A11Y_EVENT_STRUCTURE, (uint64_t)window->id);
+		return;
+	}
 	focus = rvn_a11y_focus(window->id);
 	if (g_a11y.generation != window->a11y_generation) {
 		window->a11y_generation = g_a11y.generation;

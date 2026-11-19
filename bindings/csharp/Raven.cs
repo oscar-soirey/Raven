@@ -4725,6 +4725,21 @@ namespace Raven
         public static extern void Rwindow_inject_text(uint window, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
+        /// The text an input method is composing (preedit: Chinese,
+        /// Japanese, Korean, dead keys), as the platforms send it. The focused
+        /// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+        /// place of its selection, but it is not in its text and no changed
+        /// callback runs. [selection_start, selection_end) are bytes of `text`:
+        /// the part the input method works on (underlined thicker), or the caret
+        /// when they are equal; -1 is the end of `text`. NULL or "" ends the
+        /// composition without typing anything (cancel). The committed text comes
+        /// through Rwindow_inject_text, which ends the composition too, and so
+        /// does a change of focus. Ignored when the focus takes no text.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rwindow_inject_composition(uint window, [MarshalAs(Utf8.Str)] string text, int selection_start, int selection_end);
+
+        /// <summary>
         /// A drag from another application moves over the window
         /// (`inside` R_TRUE) or leaves it.
         /// Returns: R_TRUE when a drop at this position would be accepted.
@@ -4823,6 +4838,15 @@ namespace Raven
         public static extern int Rwindow_replace_text_input(uint window, int start, int end, [MarshalAs(Utf8.Str)] string text);
 
         /// <summary>
+        /// The composition of the input method in progress (UTF-8, valid
+        /// until it changes) and its selection in bytes; NULL when there is none.
+        /// Any output pointer may be NULL.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rwindow_get_text_composition", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rwindow_get_text_composition_(uint window, out int selection_start, out int selection_end);
+        public static string Rwindow_get_text_composition(uint window, out int selection_start, out int selection_end) { return Text(Rwindow_get_text_composition_(window, out selection_start, out selection_end)); }
+
+        /// <summary>
         /// R_TRUE while a menu, list or dialog is open over the window.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
@@ -4832,7 +4856,9 @@ namespace Raven
         /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
         /// Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
         /// outputs when there is no visible editable caret, the window is inactive, or focus changed
-        /// since painting. Any output pointer may be NULL.
+        /// since painting. Any output pointer may be NULL. While an input method
+        /// composes, it is the caret inside the composition: where its candidate
+        /// window goes.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rwindow_get_text_input_rect(uint window, out int x, out int y, out int width, out int height);
@@ -11607,6 +11633,16 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rhost_inject_text(uint window, uint codepoint);
+
+        /// <summary>
+        /// The input method of the application's system composes `text`
+        /// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+        /// NULL or "" cancels it; the committed text then comes through
+        /// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+        /// candidate window.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rhost_inject_composition(uint window, [MarshalAs(Utf8.Str)] string text, int selection_start, int selection_end);
 
         /// <summary>
         /// The window gained or lost the keyboard. Losing it closes popups and drops captures.

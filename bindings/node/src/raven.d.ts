@@ -4157,6 +4157,20 @@ export function Rwindow_inject_key(window: Rid, key: RKey, pressed: number, modi
 export function Rwindow_inject_text(window: Rid, text: string | null): void;
 
 /**
+ * The text an input method is composing (preedit: Chinese,
+ * Japanese, Korean, dead keys), as the platforms send it. The focused
+ * TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+ * place of its selection, but it is not in its text and no changed
+ * callback runs. [selection_start, selection_end) are bytes of `text`:
+ * the part the input method works on (underlined thicker), or the caret
+ * when they are equal; -1 is the end of `text`. NULL or "" ends the
+ * composition without typing anything (cancel). The committed text comes
+ * through Rwindow_inject_text, which ends the composition too, and so
+ * does a change of focus. Ignored when the focus takes no text.
+ */
+export function Rwindow_inject_composition(window: Rid, text: string | null, selection_start: number, selection_end: number): void;
+
+/**
  * A drag from another application moves over the window
  * (`inside` R_TRUE) or leaves it.
  * Returns: R_TRUE when a drop at this position would be accepted.
@@ -4211,6 +4225,13 @@ export function Rwindow_set_text_input_selection(window: Rid, start: number, end
  */
 export function Rwindow_replace_text_input(window: Rid, start: number, end: number, text: string | null): number;
 
+/**
+ * The composition of the input method in progress (UTF-8, valid
+ * until it changes) and its selection in bytes; NULL when there is none.
+ * Any output pointer may be NULL.
+ */
+export function Rwindow_get_text_composition(window: Rid): [result: string | null, selection_start: number, selection_end: number];
+
 /** R_TRUE while a menu, list or dialog is open over the window. */
 export function Rwindow_has_popup(window: Rid): number;
 
@@ -4218,7 +4239,9 @@ export function Rwindow_has_popup(window: Rid): number;
  * Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
  * Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
  * outputs when there is no visible editable caret, the window is inactive, or focus changed
- * since painting. Any output pointer may be NULL.
+ * since painting. Any output pointer may be NULL. While an input method
+ * composes, it is the caret inside the composition: where its candidate
+ * window goes.
  */
 export function Rwindow_get_text_input_rect(window: Rid): [result: number, x: number, y: number, width: number, height: number];
 
@@ -8458,6 +8481,15 @@ export function Rhost_inject_key(window: Rid, key: RKey, pressed: number, modifi
 
 /** One typed Unicode code point. */
 export function Rhost_inject_text(window: Rid, codepoint: number): void;
+
+/**
+ * The input method of the application's system composes `text`
+ * (preedit), with its selection in bytes (see Rwindow_inject_composition).
+ * NULL or "" cancels it; the committed text then comes through
+ * Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+ * candidate window.
+ */
+export function Rhost_inject_composition(window: Rid, text: string | null, selection_start: number, selection_end: number): void;
 
 /** The window gained or lost the keyboard. Losing it closes popups and drops captures. */
 export function Rhost_inject_focus(window: Rid, focused: number): void;

@@ -13,6 +13,7 @@
 #include "../platform.h"
 #include "../../core/accessibility.h"
 #include "../../core/transfer.h"
+#include "../../widget/widget.h"
 
 struct rvn_pwindow_t {
     NSWindow* handle;
@@ -178,6 +179,27 @@ static void rvn_cocoa_emit_text(rvn_pwindow_t* window, NSString* value, uint32_t
         event.modifiers = modifiers;
         rvn_cocoa_emit(window, &event);
     }
+}
+
+/* Text an input method committed (or typed through it): every character, whatever the modifiers. */
+static void rvn_cocoa_emit_committed(rvn_pwindow_t* window, NSString* value) {
+    rvn_cocoa_emit_text(window, value, 0);
+}
+
+/* UTF-16 units of `text` to UTF-8 bytes (an offset inside a surrogate pair goes back to its start). */
+static int rvn_cocoa_bytes(NSString* text, NSUInteger units) {
+    if (!text) return 0;
+    if (units > [text length]) units = [text length];
+    if (units > 0 && units < [text length] && CFStringIsSurrogateLowCharacter([text characterAtIndex:units])) units--;
+    return (int)[[text substringToIndex:units] lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+}
+
+/* UTF-8 bytes of `utf8` to UTF-16 units. */
+static NSUInteger rvn_cocoa_units(const char* utf8, int bytes) {
+    NSString* prefix;
+    if (!utf8 || bytes <= 0) return 0;
+    prefix = [[[NSString alloc] initWithBytes:utf8 length:(NSUInteger)bytes encoding:NSUTF8StringEncoding] autorelease];
+    return prefix ? [prefix length] : 0;
 }
 
 static void rvn_cocoa_resize_drag(rvn_pwindow_t* window) {
@@ -371,7 +393,18 @@ static NSImage* rvn_cocoa_image_from_rgba(const uint8_t* rgba, int width, int he
     return image;
 }
 
-@interface RavenCocoaView : NSView <NSDraggingDestination, NSDraggingSource> {
+/*
+ * The content view. It is an NSTextInputClient: while the focus is in a
+ * TextInput, SpinBox or TextEditor, keys go through the input method of the
+ * system (interpretKeyEvents), so that Chinese, Japanese and Korean input
+ * methods, dead keys and the character palette work. The text being composed
+ * (marked text) goes to the core as RVN_PEVENT_COMPOSITION, which the field
+ * shows underlined at its caret; the committed text as RVN_PEVENT_TEXT. The
+ * keys the input method takes while it composes are not sent as keys.
+ * Elsewhere (no text focus) and with Command or Control, keys go to the core
+ * directly, as before.
+ */
+@interface RavenCocoaView : NSView <NSDraggingDestination, NSDraggingSource, NSTextInputClient> {
 @public rvn_pwindow_t* ravenWindow;
     NSTrackingArea* trackingArea;
     /* the press or move of the mouse a drag out of the window starts from (beginDraggingSession needs it) */
@@ -379,6 +412,15 @@ static NSImage* rvn_cocoa_image_from_rgba(const uint8_t* rgba, int width, int he
     /* a drag out of the window is going on: what the target may do with it */
     NSDragOperation dragMask;
 @public int dragging;
+    /* the marked text of the input method (nil: none) and its selection, UTF-16 */
+    NSString* ravenMarked;
+    NSRange ravenMarkedSelection;
+    /* inside interpretKeyEvents: the text inserted so far, not sent yet, and whether the input method composed */
+    BOOL ravenInKey;
+    BOOL ravenKeyComposed;
+    NSMutableString* ravenKeyText;
+    /* key codes whose key down the input method took: their key up is not sent either */
+    unsigned char ravenSwallowed[128];
 }
 @end
 
@@ -390,7 +432,13 @@ static NSImage* rvn_cocoa_image_from_rgba(const uint8_t* rgba, int width, int he
     [self addTrackingArea:trackingArea];
     [super updateTrackingAreas];
 }
-- (void)dealloc { if (trackingArea) [trackingArea release]; [dragEvent release]; [super dealloc]; }
+- (void)dealloc {
+    if (trackingArea) [trackingArea release];
+    [dragEvent release];
+    [ravenMarked release];
+    [ravenKeyText release];
+    [super dealloc];
+}
 - (void)rvnKeepDragEvent:(NSEvent*)event { [dragEvent release]; dragEvent = [event retain]; }
 - (BOOL)acceptsFirstResponder { return YES; }
 /* (the island of the camera housing takes the click at once, without becoming the key window first) */
@@ -494,6 +542,14 @@ static NSImage* rvn_cocoa_image_from_rgba(const uint8_t* rgba, int width, int he
     (void)event; rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_MOUSE_LEAVE; rvn_cocoa_emit(ravenWindow, &e);
 }
 - (void)rvnMouse:(NSEvent*)event button:(int)button pressed:(int)pressed {
+    /* a click while the input method composes: the marked text is typed as it is, where it was composed */
+    if (pressed && ravenMarked) {
+        NSString* marked = [[ravenMarked retain] autorelease];
+        [self ravenSetMarked:nil selection:NSMakeRange(0, 0) send:NO];
+        rvn_cocoa_emit_committed(ravenWindow, marked);
+        [[self inputContext] discardMarkedText];
+        if (!ravenWindow) return;
+    }
     NSPoint p = [self convertPoint:[event locationInWindow] fromView:nil]; float s = rvn_cocoa_scale(ravenWindow);
     rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_MOUSE_BUTTON;
     e.button = button; e.pressed = pressed; e.x = (int)lrint(p.x * s); e.y = (int)lrint(p.y * s);
@@ -523,12 +579,40 @@ static NSImage* rvn_cocoa_image_from_rgba(const uint8_t* rgba, int width, int he
 }
 - (void)keyDown:(NSEvent*)event {
     uint32_t mods = rvn_cocoa_modifiers([event modifierFlags]);
-    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key([event keyCode], [event charactersIgnoringModifiers]);
-    e.pressed = 1; e.repeat = [event isARepeat]; e.modifiers = mods; rvn_cocoa_emit(ravenWindow, &e);
+    unsigned short code = [event keyCode];
+    BOOL composing;
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key(code, [event charactersIgnoringModifiers]);
+    e.pressed = 1; e.repeat = [event isARepeat]; e.modifiers = mods;
+    /* (a callback may close the window, and with it this view) */
+    [[self retain] autorelease];
+    [self ravenSyncMarked];
+    composing = ravenMarked != nil;
+    if (composing || (!(mods & (R_MOD_CTRL | R_MOD_SUPER)) && [self ravenWantsText])) {
+        /* through the input method: it composes, commits (insertText) or gives the key back as a command */
+        if (!ravenKeyText) ravenKeyText = [[NSMutableString alloc] init];
+        [ravenKeyText setString:@""];
+        ravenKeyComposed = NO;
+        ravenInKey = YES;
+        [self interpretKeyEvents:[NSArray arrayWithObject:event]];
+        ravenInKey = NO;
+        if (!ravenWindow) return;
+        if (composing || ravenKeyComposed || ravenMarked != nil) {
+            /* the input method took the key: only what it committed goes to the core */
+            if (code < sizeof(ravenSwallowed)) ravenSwallowed[code] = 1;
+            [self ravenFlushKeyText:0];
+            return;
+        }
+        rvn_cocoa_emit(ravenWindow, &e);
+        if (ravenWindow) [self ravenFlushKeyText:mods];
+        return;
+    }
+    rvn_cocoa_emit(ravenWindow, &e);
     rvn_cocoa_emit_text(ravenWindow, [event characters], mods);
 }
 - (void)keyUp:(NSEvent*)event {
-    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key([event keyCode], [event charactersIgnoringModifiers]);
+    unsigned short code = [event keyCode];
+    if (code < sizeof(ravenSwallowed) && ravenSwallowed[code]) { ravenSwallowed[code] = 0; return; }
+    rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_KEY; e.key = rvn_cocoa_key(code, [event charactersIgnoringModifiers]);
     e.pressed = 0; e.modifiers = rvn_cocoa_modifiers([event modifierFlags]); rvn_cocoa_emit(ravenWindow, &e);
 }
 - (void)flagsChanged:(NSEvent*)event {
@@ -543,6 +627,156 @@ static NSImage* rvn_cocoa_image_from_rgba(const uint8_t* rgba, int width, int he
         ((e.modifiers & R_MOD_SUPER) != 0);
     rvn_cocoa_emit(ravenWindow, &e);
 }
+/* ---- the input method (NSTextInputClient) ---- */
+- (Rid)ravenCore {
+    rvn_window_t* core = ravenWindow ? (rvn_window_t*)ravenWindow->user : NULL;
+    return core ? core->id : R_INVALID_ID;
+}
+- (BOOL)ravenWantsText {
+    Rid core = [self ravenCore];
+    return core != R_INVALID_ID && Rwindow_wants_text_input(core);
+}
+/* The marked text changes; `send`: the core is told (RVN_PEVENT_COMPOSITION). */
+- (void)ravenSetMarked:(NSString*)marked selection:(NSRange)selection send:(BOOL)send {
+    rvn_pevent_t e;
+    if (marked && [marked length] == 0) marked = nil;
+    if (!marked && !ravenMarked) return;
+    [ravenMarked release];
+    ravenMarked = [marked copy];
+    if (marked) {
+        NSUInteger length = [marked length];
+        if (selection.location == NSNotFound || selection.location > length) selection = NSMakeRange(length, 0);
+        if (NSMaxRange(selection) > length) selection.length = length - selection.location;
+    } else selection = NSMakeRange(0, 0);
+    ravenMarkedSelection = selection;
+    if (!send || !ravenWindow) return;
+    memset(&e, 0, sizeof(e));
+    e.type = RVN_PEVENT_COMPOSITION;
+    e.composition = marked ? [marked UTF8String] : NULL;
+    e.composition_start = rvn_cocoa_bytes(marked, selection.location);
+    e.composition_end = rvn_cocoa_bytes(marked, NSMaxRange(selection));
+    rvn_cocoa_emit(ravenWindow, &e);
+}
+/* The core ended the composition itself (the focus moved): the input method forgets it too. */
+- (void)ravenSyncMarked {
+    Rid core = [self ravenCore];
+    if (!ravenMarked || (core != R_INVALID_ID && Rwindow_get_text_composition(core, NULL, NULL))) return;
+    [self ravenSetMarked:nil selection:NSMakeRange(0, 0) send:NO];
+    [[self inputContext] discardMarkedText];
+}
+/* Sends the text inserted during interpretKeyEvents. */
+- (void)ravenFlushKeyText:(uint32_t)mods {
+    NSString* text;
+    if (!ravenKeyText || [ravenKeyText length] == 0) return;
+    text = [[ravenKeyText copy] autorelease];
+    [ravenKeyText setString:@""];
+    rvn_cocoa_emit_text(ravenWindow, text, mods);
+}
+/* The document the input method sees: the text of a TextInput (UTF-16), or nothing but the marked text. */
+- (NSString*)ravenDocument:(NSUInteger*)markedAt {
+    Rid core = [self ravenCore];
+    const char* text = core != R_INVALID_ID ? Rwindow_get_text_input_text(core) : NULL;
+    int start = 0, end = 0;
+    NSString *before, *after;
+    *markedAt = 0;
+    if (!text || !Rwindow_get_text_input_selection(core, &start, &end)) return ravenMarked ? ravenMarked : @"";
+    if (start > end) { int swap = start; start = end; end = swap; }
+    before = [[[NSString alloc] initWithBytes:text length:(NSUInteger)start encoding:NSUTF8StringEncoding] autorelease];
+    after = [NSString stringWithUTF8String:text + end];
+    if (!before || !after) return ravenMarked ? ravenMarked : @"";
+    *markedAt = [before length];
+    if (!ravenMarked) return [NSString stringWithUTF8String:text];
+    return [NSString stringWithFormat:@"%@%@%@", before, ravenMarked, after];
+}
+- (BOOL)hasMarkedText {
+    [self ravenSyncMarked];
+    return ravenMarked != nil;
+}
+- (NSRange)markedRange {
+    NSUInteger at;
+    if (![self hasMarkedText]) return NSMakeRange(NSNotFound, 0);
+    [self ravenDocument:&at];
+    return NSMakeRange(at, [ravenMarked length]);
+}
+- (NSRange)selectedRange {
+    Rid core = [self ravenCore];
+    const char* text = core != R_INVALID_ID ? Rwindow_get_text_input_text(core) : NULL;
+    int start = 0, end = 0;
+    NSUInteger at;
+    if ([self hasMarkedText]) {
+        [self ravenDocument:&at];
+        return NSMakeRange(at + ravenMarkedSelection.location, ravenMarkedSelection.length);
+    }
+    if (!text || !Rwindow_get_text_input_selection(core, &start, &end)) return NSMakeRange(0, 0);
+    if (start > end) { int swap = start; start = end; end = swap; }
+    return NSMakeRange(rvn_cocoa_units(text, start), rvn_cocoa_units(text, end) - rvn_cocoa_units(text, start));
+}
+- (void)setMarkedText:(id)string selectedRange:(NSRange)selectedRange replacementRange:(NSRange)replacementRange {
+    NSString* marked = [string isKindOfClass:[NSAttributedString class]] ? [string string] : (NSString*)string;
+    (void)replacementRange;
+    /* (text inserted earlier in this key goes first: a Korean syllable is committed as the next one starts) */
+    if (ravenInKey) { ravenKeyComposed = YES; [self ravenFlushKeyText:0]; }
+    [self ravenSetMarked:marked selection:selectedRange send:YES];
+}
+- (void)unmarkText {
+    /* the marked text is accepted as it is */
+    NSString* marked = [[ravenMarked retain] autorelease];
+    if (!marked) return;
+    if (ravenInKey) ravenKeyComposed = YES;
+    [self ravenSetMarked:nil selection:NSMakeRange(0, 0) send:NO];
+    rvn_cocoa_emit_committed(ravenWindow, marked);
+}
+- (void)insertText:(id)string replacementRange:(NSRange)replacementRange {
+    NSString* text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : (NSString*)string;
+    BOOL was = ravenMarked != nil;
+    (void)replacementRange;
+    /* the committed text takes the place of the marked text (RVN_PEVENT_TEXT ends the composition in the core) */
+    [self ravenSetMarked:nil selection:NSMakeRange(0, 0) send:NO];
+    if (ravenInKey && !was && !ravenKeyComposed) {
+        /* typed without composing: sent after the key, as the key's text */
+        [ravenKeyText appendString:text ? text : @""];
+        return;
+    }
+    if (ravenInKey) ravenKeyComposed = YES;
+    if (was && (!text || [text length] == 0) && ravenWindow) {
+        rvn_pevent_t e; memset(&e, 0, sizeof(e)); e.type = RVN_PEVENT_COMPOSITION; rvn_cocoa_emit(ravenWindow, &e);
+        return;
+    }
+    rvn_cocoa_emit_committed(ravenWindow, text);
+}
+/* The keys the input method gives back (arrows, Return, Backspace...) are sent as keys by keyDown. */
+- (void)doCommandBySelector:(SEL)selector { (void)selector; }
+- (NSArray<NSAttributedStringKey>*)validAttributesForMarkedText {
+    return [NSArray arrayWithObjects:NSUnderlineStyleAttributeName, nil];
+}
+- (NSAttributedString*)attributedSubstringForProposedRange:(NSRange)range actualRange:(NSRangePointer)actualRange {
+    NSUInteger at;
+    NSString* document = [self ravenDocument:&at];
+    NSRange found = NSIntersectionRange(range, NSMakeRange(0, [document length]));
+    if (range.location == NSNotFound || range.location > [document length]) return nil;
+    if (actualRange) *actualRange = found;
+    return [[[NSAttributedString alloc] initWithString:[document substringWithRange:found]] autorelease];
+}
+/*
+ * Where the candidate window goes: the caret of the field, as the core
+ * painted it (Rwindow_get_text_input_rect, in the composition while there is
+ * one), in screen coordinates.
+ */
+- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actualRange {
+    Rid core = [self ravenCore];
+    int x = 0, y = 0, width = 0, height = 0;
+    CGFloat scale = rvn_cocoa_scale(ravenWindow);
+    NSRect rect;
+    if (actualRange) *actualRange = range;
+    if (core == R_INVALID_ID || !Rwindow_get_text_input_rect(core, &x, &y, &width, &height)) {
+        rect = NSMakeRect(0, 0, 0, 0);
+    } else {
+        rect = NSMakeRect(x / scale, y / scale, (width > 0 ? width : 1) / scale, height / scale);
+    }
+    rect = [self convertRect:rect toView:nil];
+    return [self window] ? [[self window] convertRectToScreen:rect] : rect;
+}
+- (NSUInteger)characterIndexForPoint:(NSPoint)point { (void)point; return NSNotFound; }
 - (NSDragOperation)rvnDrag:(id<NSDraggingInfo>)sender leaving:(int)leaving {
     NSPoint p = [self convertPoint:[sender draggingLocation] fromView:nil];
     float scale = rvn_cocoa_scale(ravenWindow);

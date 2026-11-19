@@ -139,6 +139,7 @@ set(RAVEN_CORE_SOURCES
 	src/core/context.c
 	src/core/locale.c
 	src/core/accessibility.c
+	src/core/accessibility_touch.c
 	src/core/context.h
 	src/core/deflate.c
 	src/core/error.c
@@ -164,6 +165,8 @@ set(RAVEN_CORE_SOURCES
 
 set(RAVEN_PLATFORM_SOURCES
 	src/platform/platform.c
+	src/platform/preedit.c
+	src/platform/preedit.h
 	src/platform/notify.c
 	src/platform/taskbar.c
 	src/platform/tray.c
