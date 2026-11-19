@@ -69,6 +69,8 @@ struct zwp_pointer_gestures_v1;
 struct zwp_pointer_gesture_swipe_v1;
 struct zwp_pointer_gesture_pinch_v1;
 struct zwp_pointer_gesture_hold_v1;
+struct zwp_text_input_v3;
+struct zwp_text_input_manager_v3;
 
 static const struct wl_interface rvn_wl_display_interface;
 static const struct wl_interface rvn_wl_registry_interface;
@@ -123,6 +125,8 @@ static const struct wl_interface rvn_zwp_pointer_gestures_v1_interface;
 static const struct wl_interface rvn_zwp_pointer_gesture_swipe_v1_interface;
 static const struct wl_interface rvn_zwp_pointer_gesture_pinch_v1_interface;
 static const struct wl_interface rvn_zwp_pointer_gesture_hold_v1_interface;
+static const struct wl_interface rvn_zwp_text_input_v3_interface;
+static const struct wl_interface rvn_zwp_text_input_manager_v3_interface;
 
 static const struct wl_interface* rvn_types_wl_display_r_sync[] = { &rvn_wl_callback_interface };
 static const struct wl_interface* rvn_types_wl_display_r_get_registry[] = { &rvn_wl_registry_interface };
@@ -1120,6 +1124,61 @@ static const struct wl_interface rvn_zwp_pointer_gesture_hold_v1_interface = {
 	2, rvn_zwp_pointer_gesture_hold_v1_events
 };
 
+static const struct wl_interface* rvn_types_zwp_text_input_v3_r_set_surrounding_text[] = { NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_r_set_text_change_cause[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_r_set_content_type[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_r_set_cursor_rectangle[] = { NULL, NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_r_set_available_actions[] = { NULL };
+static const struct wl_message rvn_zwp_text_input_v3_requests[] = {
+	{ "destroy", "", NULL },
+	{ "enable", "", NULL },
+	{ "disable", "", NULL },
+	{ "set_surrounding_text", "sii", rvn_types_zwp_text_input_v3_r_set_surrounding_text },
+	{ "set_text_change_cause", "u", rvn_types_zwp_text_input_v3_r_set_text_change_cause },
+	{ "set_content_type", "uu", rvn_types_zwp_text_input_v3_r_set_content_type },
+	{ "set_cursor_rectangle", "iiii", rvn_types_zwp_text_input_v3_r_set_cursor_rectangle },
+	{ "commit", "", NULL },
+	{ "set_available_actions", "2a", rvn_types_zwp_text_input_v3_r_set_available_actions },
+	{ "show_input_panel", "2", NULL },
+	{ "hide_input_panel", "2", NULL },
+};
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_enter[] = { &rvn_wl_surface_interface };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_leave[] = { &rvn_wl_surface_interface };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_preedit_string[] = { NULL, NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_commit_string[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_delete_surrounding_text[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_done[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_action[] = { NULL, NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_language[] = { NULL };
+static const struct wl_interface* rvn_types_zwp_text_input_v3_e_preedit_hint[] = { NULL, NULL, NULL };
+static const struct wl_message rvn_zwp_text_input_v3_events[] = {
+	{ "enter", "o", rvn_types_zwp_text_input_v3_e_enter },
+	{ "leave", "o", rvn_types_zwp_text_input_v3_e_leave },
+	{ "preedit_string", "?sii", rvn_types_zwp_text_input_v3_e_preedit_string },
+	{ "commit_string", "?s", rvn_types_zwp_text_input_v3_e_commit_string },
+	{ "delete_surrounding_text", "uu", rvn_types_zwp_text_input_v3_e_delete_surrounding_text },
+	{ "done", "u", rvn_types_zwp_text_input_v3_e_done },
+	{ "action", "2uu", rvn_types_zwp_text_input_v3_e_action },
+	{ "language", "2s", rvn_types_zwp_text_input_v3_e_language },
+	{ "preedit_hint", "2uuu", rvn_types_zwp_text_input_v3_e_preedit_hint },
+};
+static const struct wl_interface rvn_zwp_text_input_v3_interface = {
+	"zwp_text_input_v3", 2,
+	11, rvn_zwp_text_input_v3_requests,
+	9, rvn_zwp_text_input_v3_events
+};
+
+static const struct wl_interface* rvn_types_zwp_text_input_manager_v3_r_get_text_input[] = { &rvn_zwp_text_input_v3_interface, &rvn_wl_seat_interface };
+static const struct wl_message rvn_zwp_text_input_manager_v3_requests[] = {
+	{ "destroy", "", NULL },
+	{ "get_text_input", "no", rvn_types_zwp_text_input_manager_v3_r_get_text_input },
+};
+static const struct wl_interface rvn_zwp_text_input_manager_v3_interface = {
+	"zwp_text_input_manager_v3", 2,
+	2, rvn_zwp_text_input_manager_v3_requests,
+	0, NULL
+};
+
 enum wl_display_error {
 	WL_DISPLAY_ERROR_INVALID_OBJECT = 0,
 	WL_DISPLAY_ERROR_INVALID_METHOD = 1,
@@ -1616,6 +1675,58 @@ enum zwp_tablet_pad_v2_button_state {
 	ZWP_TABLET_PAD_V2_BUTTON_STATE_RELEASED = 0,
 	ZWP_TABLET_PAD_V2_BUTTON_STATE_PRESSED = 1,
 };
+enum zwp_text_input_v3_change_cause {
+	ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_INPUT_METHOD = 0,
+	ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_OTHER = 1,
+};
+enum zwp_text_input_v3_content_hint {
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE = 0x0,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_COMPLETION = 0x1,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_SPELLCHECK = 0x2,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_AUTO_CAPITALIZATION = 0x4,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_LOWERCASE = 0x8,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_UPPERCASE = 0x10,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_TITLECASE = 0x20,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_HIDDEN_TEXT = 0x40,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_SENSITIVE_DATA = 0x80,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_LATIN = 0x100,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_MULTILINE = 0x200,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_ON_SCREEN_INPUT_PROVIDED = 0x400,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_NO_EMOJI = 0x800,
+	ZWP_TEXT_INPUT_V3_CONTENT_HINT_PREEDIT_SHOWN = 0x1000,
+};
+enum zwp_text_input_v3_content_purpose {
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL = 0,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_ALPHA = 1,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_DIGITS = 2,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NUMBER = 3,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_PHONE = 4,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_URL = 5,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_EMAIL = 6,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NAME = 7,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_PASSWORD = 8,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_PIN = 9,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_DATE = 10,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_TIME = 11,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_DATETIME = 12,
+	ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_TERMINAL = 13,
+};
+enum zwp_text_input_v3_error {
+	ZWP_TEXT_INPUT_V3_ERROR_INVALID_ACTION = 0,
+};
+enum zwp_text_input_v3_action {
+	ZWP_TEXT_INPUT_V3_ACTION_NONE = 0,
+	ZWP_TEXT_INPUT_V3_ACTION_SUBMIT = 1,
+};
+enum zwp_text_input_v3_preedit_hint {
+	ZWP_TEXT_INPUT_V3_PREEDIT_HINT_WHOLE = 1,
+	ZWP_TEXT_INPUT_V3_PREEDIT_HINT_SELECTION = 2,
+	ZWP_TEXT_INPUT_V3_PREEDIT_HINT_PREDICTION = 3,
+	ZWP_TEXT_INPUT_V3_PREEDIT_HINT_PREFIX = 4,
+	ZWP_TEXT_INPUT_V3_PREEDIT_HINT_SUFFIX = 5,
+	ZWP_TEXT_INPUT_V3_PREEDIT_HINT_SPELLING_ERROR = 6,
+	ZWP_TEXT_INPUT_V3_PREEDIT_HINT_COMPOSE_ERROR = 7,
+};
 
 struct wl_registry_listener {
 	void (*global)(void* data, struct wl_registry* wl_registry, uint32_t name, const char* interface_, uint32_t version);
@@ -1916,6 +2027,20 @@ struct zwp_pointer_gesture_hold_v1_listener {
 };
 static int zwp_pointer_gesture_hold_v1_add_listener(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1, const struct zwp_pointer_gesture_hold_v1_listener* listener, void* data) {
 	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_pointer_gesture_hold_v1, (void (**)(void))listener, data);
+}
+struct zwp_text_input_v3_listener {
+	void (*enter)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, struct wl_surface* surface);
+	void (*leave)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, struct wl_surface* surface);
+	void (*preedit_string)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, const char* text, int32_t cursor_begin, int32_t cursor_end);
+	void (*commit_string)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, const char* text);
+	void (*delete_surrounding_text)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, uint32_t before_length, uint32_t after_length);
+	void (*done)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, uint32_t serial);
+	void (*action)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, uint32_t action, uint32_t serial);
+	void (*language)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, const char* language);
+	void (*preedit_hint)(void* data, struct zwp_text_input_v3* zwp_text_input_v3, uint32_t start, uint32_t end, uint32_t hint);
+};
+static int zwp_text_input_v3_add_listener(struct zwp_text_input_v3* zwp_text_input_v3, const struct zwp_text_input_v3_listener* listener, void* data) {
+	return RVN_WL_ADD_LISTENER((struct wl_proxy*)zwp_text_input_v3, (void (**)(void))listener, data);
 }
 
 static void wl_display_set_user_data(struct wl_display* wl_display, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)wl_display, data); }
@@ -2616,6 +2741,53 @@ static void* zwp_pointer_gesture_hold_v1_get_user_data(struct zwp_pointer_gestur
 static uint32_t zwp_pointer_gesture_hold_v1_get_version(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_hold_v1); }
 static void zwp_pointer_gesture_hold_v1_destroy(struct zwp_pointer_gesture_hold_v1* zwp_pointer_gesture_hold_v1) {
 	RVN_WL_MARSHAL((struct wl_proxy*)zwp_pointer_gesture_hold_v1, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_pointer_gesture_hold_v1), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+
+static void zwp_text_input_v3_set_user_data(struct zwp_text_input_v3* zwp_text_input_v3, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_text_input_v3, data); }
+static void* zwp_text_input_v3_get_user_data(struct zwp_text_input_v3* zwp_text_input_v3) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_text_input_v3); }
+static uint32_t zwp_text_input_v3_get_version(struct zwp_text_input_v3* zwp_text_input_v3) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3); }
+static void zwp_text_input_v3_destroy(struct zwp_text_input_v3* zwp_text_input_v3) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+static void zwp_text_input_v3_enable(struct zwp_text_input_v3* zwp_text_input_v3) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 1, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0);
+}
+static void zwp_text_input_v3_disable(struct zwp_text_input_v3* zwp_text_input_v3) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 2, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0);
+}
+static void zwp_text_input_v3_set_surrounding_text(struct zwp_text_input_v3* zwp_text_input_v3, const char* text, int32_t cursor, int32_t anchor) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 3, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0, text, cursor, anchor);
+}
+static void zwp_text_input_v3_set_text_change_cause(struct zwp_text_input_v3* zwp_text_input_v3, uint32_t cause) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 4, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0, cause);
+}
+static void zwp_text_input_v3_set_content_type(struct zwp_text_input_v3* zwp_text_input_v3, uint32_t hint, uint32_t purpose) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 5, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0, hint, purpose);
+}
+static void zwp_text_input_v3_set_cursor_rectangle(struct zwp_text_input_v3* zwp_text_input_v3, int32_t x, int32_t y, int32_t width, int32_t height) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 6, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0, x, y, width, height);
+}
+static void zwp_text_input_v3_commit(struct zwp_text_input_v3* zwp_text_input_v3) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 7, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0);
+}
+static void zwp_text_input_v3_set_available_actions(struct zwp_text_input_v3* zwp_text_input_v3, struct wl_array* available_actions) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 8, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0, available_actions);
+}
+static void zwp_text_input_v3_show_input_panel(struct zwp_text_input_v3* zwp_text_input_v3) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 9, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0);
+}
+static void zwp_text_input_v3_hide_input_panel(struct zwp_text_input_v3* zwp_text_input_v3) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_v3, 10, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_v3), 0);
+}
+
+static void zwp_text_input_manager_v3_set_user_data(struct zwp_text_input_manager_v3* zwp_text_input_manager_v3, void* data) { RVN_WL_SET_USER_DATA((struct wl_proxy*)zwp_text_input_manager_v3, data); }
+static void* zwp_text_input_manager_v3_get_user_data(struct zwp_text_input_manager_v3* zwp_text_input_manager_v3) { return RVN_WL_GET_USER_DATA((struct wl_proxy*)zwp_text_input_manager_v3); }
+static uint32_t zwp_text_input_manager_v3_get_version(struct zwp_text_input_manager_v3* zwp_text_input_manager_v3) { return RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_manager_v3); }
+static void zwp_text_input_manager_v3_destroy(struct zwp_text_input_manager_v3* zwp_text_input_manager_v3) {
+	RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_manager_v3, 0, NULL, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_manager_v3), RVN_WL_MARSHAL_FLAG_DESTROY);
+}
+static struct zwp_text_input_v3* zwp_text_input_manager_v3_get_text_input(struct zwp_text_input_manager_v3* zwp_text_input_manager_v3, struct wl_seat* seat) {
+	return (struct zwp_text_input_v3*)RVN_WL_MARSHAL((struct wl_proxy*)zwp_text_input_manager_v3, 1, &rvn_zwp_text_input_v3_interface, RVN_WL_GET_VERSION((struct wl_proxy*)zwp_text_input_manager_v3), 0, NULL, seat);
 }
 
 #if defined(__GNUC__)

@@ -84,9 +84,10 @@ is a plan, not a promise: issues and pull requests can change the order.
   `NSTextInputClient` on macOS, IMM32 on Windows. The composition is drawn
   in the field, underlined (`Rwindow_inject_composition`), and the
   candidate window is placed at the caret (`Rwindow_get_text_input_rect`).
-- [ ] Input methods on Wayland (`text-input-v3`); the composition drawn in
-  the field on X11 (XIM on-the-spot, today the input method's own window);
-  TSF on Windows (IMM32 is used).
+- [x] **Input methods on Linux**: `text-input-v3` on Wayland, XIM on the
+  spot on X11 (the composition drawn in the field, the candidates at the
+  caret), the input method's own window where it cannot.
+- [ ] TSF on Windows (IMM32 is used).
 - [ ] Text editor: multiple cursors, search and replace, code folding, a
   language server client.
 - [ ] Full OpenType shaping (Indic scripts, kerning).

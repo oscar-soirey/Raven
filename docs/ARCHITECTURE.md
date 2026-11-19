@@ -268,7 +268,9 @@ specific to Windows:
   `RAVEN_DIRECT_MANIPULATION=0`) the touchpad stays the wheel.
 
 **X11.** Xlib only. Text input goes through an X input context (dead keys,
-compose). The scale comes from the `Xft.dpi` resource. A self-pipe wakes the
+compose); when the input method supports `XIMPreeditCallbacks` the
+composition comes through its callbacks (on the spot) and its candidates
+are put at the caret (`XNSpotLocation`). The scale comes from the `Xft.dpi` resource. A self-pipe wakes the
 event loop from other threads.
 
 **Wayland.** Compiled beside X11; `rvn_platform_select` connects to the
@@ -299,13 +301,23 @@ Things that differ from the other systems:
   wheel), `axis_stop` that they left, and the core keeps the content going.
   The pinch, the swipe and the hold of `zwp_pointer_gestures_v1` become the
   gestures of the trackpad (the hold stops what coasts).
+- *Input methods* (`zwp_text_input_v3`, when the compositor offers it): the
+  text input is enabled while the focus of the window it entered takes text,
+  and enabled again for each new field; the kind of field, the text around
+  the caret and the caret rectangle (logical units) follow it, each sent when
+  it changes, then committed. Its events change a pending state applied on
+  `done` (`platform/preedit.c`): the composition removed, the text around the
+  caret deleted, the commit typed, the new composition shown. A `done` whose
+  serial is behind our commits is applied but not answered. The keys the
+  input method takes never arrive as `wl_keyboard` keys, so xkb's compose
+  sequences only see the others.
 - *The clipboard* is read through a pipe from the other application; a
   selection of our own is answered without going through the compositor.
 
 `tests/test_wayland.c` runs a small compositor of its own (on
 `libwayland-server`) and checks the dialogue: configure, resize, scale,
-pointer, trackpad (scrolling, inertia, pinch, swipe, hold), keyboard,
-clipboard, drops, hide and show, close.
+pointer, trackpad (scrolling, inertia, pinch, swipe, hold), keyboard, input
+methods (text-input-v3), clipboard, drops, hide and show, close.
 
 **Input methods.** A platform sends the text an input method is composing
 as `RVN_PEVENT_COMPOSITION` (UTF-8, with the clause being converted) and the
@@ -317,8 +329,8 @@ text. The platform places the candidate window from
 `Rwindow_get_text_input_rect`. macOS: the content view is an
 `NSTextInputClient` and keys go through `interpretKeyEvents` while the focus
 takes text (not with Command or Control); a click commits what was being
-composed. Windows: IMM32 (above). X11: XIM, with the input method's own
-window for the composition.
+composed. Windows: IMM32 (above). Wayland: `text-input-v3` (above). X11:
+XIM, on the spot when the input method can, its own window otherwise.
 
 **Fingers, pens and trackpads.** Every platform turns what it reads into
 `RVN_PEVENT_TOUCH`, `_PEN`, `_GESTURE` (a gesture the system recognized: the

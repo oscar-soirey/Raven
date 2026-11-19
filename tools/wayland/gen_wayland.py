@@ -37,6 +37,7 @@ FILES = [
     "xdg-toplevel-icon-v1.xml",
     "tablet-v2.xml",
     "pointer-gestures-unstable-v1.xml",
+    "text-input-unstable-v3.xml",
 ]
 
 C_TYPES = {
