@@ -681,7 +681,8 @@ C++ (classes and lambdas), Python (`ctypes`), Rust (a crate), Go (cgo), C#
 (P/Invoke), Zig, LuaJIT, Java (the Foreign Function & Memory API of Java 22,
 on Maven Central), Odin, Bun (`bun:ffi`), Node.js (a Node-API addon, which
 also runs on Bun and Deno), D (a dub package), Nim (a nimble package), C3
-(a library) and Swift (a Swift package). All but Odin and C3 are tested. See
+(a library), Swift (a Swift package) and Haskell (a cabal package). All but Odin and C3 are
+tested. See
 [bindings/README.md](bindings/README.md). They cover everything in `Raven.h`;
 `raven_web.h` is C only.
 
@@ -1749,7 +1750,7 @@ examples/            sixteen programs (bevy_editor: a scene editor in Rust; lang
 tools/designer/      raven_designer (main.c: the visual editor; files, island, strings, welcome, os)
 tools/theme_editor/  raven_theme_editor
 tools/bindgen/       writes bindings/ from the headers
-bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3, Swift
+bindings/            C++, Python, Rust, Go, C#, Zig, LuaJIT, Java, Odin, Bun, Node.js, D, Nim, C3, Swift, Haskell
 tests/  docs/  cmake/  third_party/
 build.bat  generate-cmake.bat  dist.bat  dist.sh  CMakePresets.json
 ```
