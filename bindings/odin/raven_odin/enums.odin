@@ -996,6 +996,28 @@ Chart_Kind :: enum i32 {
 	Sparkline = 0x0594,
 }
 
+// How the rows of a Table are selected (Rtable_set_selection_mode).
+Table_Selection_Mode :: enum i32 {
+	// One row at a time (the default).
+	Single = 0x0BC0,
+	// Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+	Multiple = 0x0BC1,
+	// The user selects nothing (the rows are only shown; cells may still be edited and checked).
+	None = 0x0BC2,
+}
+
+// What the cells of a column show (Rtable_set_column_kind).
+Table_Column_Kind :: enum i32 {
+	// Their text (the default).
+	Text = 0x0BD0,
+	// A check box, checked when the text is "1", "true" or "yes". The user
+	// toggles it with a click or Space unless the column is made not
+	// editable; the cell edited callback is then called with "1" or "0".
+	Check = 0x0BD1,
+	// A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+	Progress = 0x0BD2,
+}
+
 // Shorthands of Rtext_editor_set_language for two languages.
 Syntax :: enum i32 {
 	None = 0x0340,

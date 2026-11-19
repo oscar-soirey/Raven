@@ -948,6 +948,26 @@ pub const R_CHART_HEATMAP: RChartKind = 0x0593;
 /// A small line of values without axes, to sit in a tile or a cell of a table.
 pub const R_CHART_SPARKLINE: RChartKind = 0x0594;
 
+/// How the rows of a Table are selected (Rtable_set_selection_mode).
+pub type RTableSelectionMode = c_int;
+/// One row at a time (the default).
+pub const R_TABLE_SELECTION_SINGLE: RTableSelectionMode = 0x0BC0;
+/// Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+pub const R_TABLE_SELECTION_MULTIPLE: RTableSelectionMode = 0x0BC1;
+/// The user selects nothing (the rows are only shown; cells may still be edited and checked).
+pub const R_TABLE_SELECTION_NONE: RTableSelectionMode = 0x0BC2;
+
+/// What the cells of a column show (Rtable_set_column_kind).
+pub type RTableColumnKind = c_int;
+/// Their text (the default).
+pub const R_TABLE_COLUMN_TEXT: RTableColumnKind = 0x0BD0;
+/// A check box, checked when the text is "1", "true" or "yes". The user
+/// toggles it with a click or Space unless the column is made not
+/// editable; the cell edited callback is then called with "1" or "0".
+pub const R_TABLE_COLUMN_CHECK: RTableColumnKind = 0x0BD1;
+/// A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+pub const R_TABLE_COLUMN_PROGRESS: RTableColumnKind = 0x0BD2;
+
 /// Shorthands of Rtext_editor_set_language for two languages.
 pub type RSyntax = c_int;
 pub const R_SYNTAX_NONE: RSyntax = 0x0340;
@@ -3417,17 +3437,40 @@ extern "C" {
     /// Stored rows: a fixed text color; column -1 colors the row; cells override it.
     /// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
     pub fn Rtable_set_cell_text_color(table: Rid, row: c_int, column: c_int, r: f32, g: f32, b: f32, a: f32);
-    /// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+    /// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
     pub fn Rtable_set_multi_select(table: Rid, enabled: c_int);
+    /// Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+    /// Going to single keeps the selected row, going to none clears the selection.
+    pub fn Rtable_set_selection_mode(table: Rid, mode: RTableSelectionMode);
+    pub fn Rtable_get_selection_mode(table: Rid) -> RTableSelectionMode;
     pub fn Rtable_set_row_selected(table: Rid, row: c_int, selected: c_int);
     pub fn Rtable_is_row_selected(table: Rid, row: c_int) -> c_int;
+    /// Selects (`selected` R_TRUE) or deselects the rows first..last, both
+    /// included, keeping the others: multiple selection only (in single
+    /// selection, selecting a range selects `last`).
+    pub fn Rtable_select_range(table: Rid, first: c_int, last: c_int, selected: c_int);
+    /// Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+    pub fn Rtable_select_all(table: Rid);
     pub fn Rtable_clear_selection(table: Rid);
     pub fn Rtable_get_selection_count(table: Rid) -> c_int;
     /// Selected row at index, top to bottom; -1 outside the selection.
     pub fn Rtable_get_selection(table: Rid, index: c_int) -> c_int;
+    /// The selection as runs of consecutive rows, top to bottom: the
+    /// fast way to go through a large selection (select all of a million rows
+    /// is one range).
+    pub fn Rtable_get_selection_range_count(table: Rid) -> c_int;
+    /// The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
+    pub fn Rtable_get_selection_range(table: Rid, index: c_int, first: *mut c_int, last: *mut c_int) -> c_int;
     /// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
     pub fn Rtable_set_selected(table: Rid, row: c_int);
+    /// The selected row (-1: none). In multiple selection, the one
+    /// selected last, or else the first one; the selection changed callback
+    /// receives it.
     pub fn Rtable_get_selected(table: Rid) -> c_int;
+    /// The row the keyboard is on: the selected row in single
+    /// selection; in multiple selection the row last clicked or reached with
+    /// the arrows, which Space toggles (it may be unselected). -1: none.
+    pub fn Rtable_get_current_row(table: Rid) -> c_int;
     pub fn Rtable_scroll_to_row(table: Rid, row: c_int);
     /// Sorts by a column (stored rows are moved); -1 shows no sorted column.
     pub fn Rtable_sort(table: Rid, column: c_int, descending: c_int);
@@ -3459,6 +3502,17 @@ extern "C" {
     /// default): every column scrolls.
     pub fn Rtable_set_frozen_columns(table: Rid, count: c_int);
     pub fn Rtable_get_frozen_columns(table: Rid) -> c_int;
+    /// Text (default), check box or progress bar: how the cells of the
+    /// column are drawn from their texts. A check column is made editable (the
+    /// user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+    /// only) and centered. For anything else, a cell color callback and the
+    /// texts are what the table offers: it draws no other widget in its cells.
+    pub fn Rtable_set_column_kind(table: Rid, column: c_int, kind: RTableColumnKind);
+    pub fn Rtable_get_column_kind(table: Rid, column: c_int) -> RTableColumnKind;
+    /// A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+    pub fn Rtable_is_cell_checked(table: Rid, row: c_int, column: c_int) -> c_int;
+    /// Stored rows: writes "1" or "0" in the cell (no callback is called).
+    pub fn Rtable_set_cell_checked(table: Rid, row: c_int, column: c_int, checked: c_int);
     /// Sets the date (today when the picker is created). An invalid date is refused.
     pub fn Rdate_picker_set_date(date_picker: Rid, year: c_int, month: c_int, day: c_int);
     pub fn Rdate_picker_get_date(date_picker: Rid, year: *mut c_int, month: *mut c_int, day: *mut c_int);

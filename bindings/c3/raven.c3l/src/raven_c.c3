@@ -1018,6 +1018,28 @@ const RChartKind R_CHART_HEATMAP = 0x0593;
 <* A small line of values without axes, to sit in a tile or a cell of a table. *>
 const RChartKind R_CHART_SPARKLINE = 0x0594;
 
+<* How the rows of a Table are selected (Rtable_set_selection_mode). *>
+alias RTableSelectionMode = CInt;
+<* One row at a time (the default). *>
+const RTableSelectionMode R_TABLE_SELECTION_SINGLE = 0x0BC0;
+<* Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A. *>
+const RTableSelectionMode R_TABLE_SELECTION_MULTIPLE = 0x0BC1;
+<* The user selects nothing (the rows are only shown; cells may still be edited and checked). *>
+const RTableSelectionMode R_TABLE_SELECTION_NONE = 0x0BC2;
+
+<* What the cells of a column show (Rtable_set_column_kind). *>
+alias RTableColumnKind = CInt;
+<* Their text (the default). *>
+const RTableColumnKind R_TABLE_COLUMN_TEXT = 0x0BD0;
+<*
+ A check box, checked when the text is "1", "true" or "yes". The user
+ toggles it with a click or Space unless the column is made not
+ editable; the cell edited callback is then called with "1" or "0".
+*>
+const RTableColumnKind R_TABLE_COLUMN_CHECK = 0x0BD1;
+<* A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing. *>
+const RTableColumnKind R_TABLE_COLUMN_PROGRESS = 0x0BD2;
+
 <* Shorthands of Rtext_editor_set_language for two languages. *>
 alias RSyntax = CInt;
 const RSyntax R_SYNTAX_NONE = 0x0340;
@@ -4629,12 +4651,30 @@ extern fn void r_table_set_cell_color_callback(Rid table, RTableCellColorCallbac
 *>
 extern fn void r_table_set_cell_text_color(Rid table, CInt row, CInt column, float r, float g, float b, float a) @cname("Rtable_set_cell_text_color");
 
-<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. *>
+<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE). *>
 extern fn void r_table_set_multi_select(Rid table, CInt enabled) @cname("Rtable_set_multi_select");
+
+<*
+ Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+ Going to single keeps the selected row, going to none clears the selection.
+*>
+extern fn void r_table_set_selection_mode(Rid table, RTableSelectionMode mode) @cname("Rtable_set_selection_mode");
+
+extern fn RTableSelectionMode r_table_get_selection_mode(Rid table) @cname("Rtable_get_selection_mode");
 
 extern fn void r_table_set_row_selected(Rid table, CInt row, CInt selected) @cname("Rtable_set_row_selected");
 
 extern fn CInt r_table_is_row_selected(Rid table, CInt row) @cname("Rtable_is_row_selected");
+
+<*
+ Selects (`selected` R_TRUE) or deselects the rows first..last, both
+ included, keeping the others: multiple selection only (in single
+ selection, selecting a range selects `last`).
+*>
+extern fn void r_table_select_range(Rid table, CInt first, CInt last, CInt selected) @cname("Rtable_select_range");
+
+<* Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes. *>
+extern fn void r_table_select_all(Rid table) @cname("Rtable_select_all");
 
 extern fn void r_table_clear_selection(Rid table) @cname("Rtable_clear_selection");
 
@@ -4643,10 +4683,32 @@ extern fn CInt r_table_get_selection_count(Rid table) @cname("Rtable_get_selecti
 <* Selected row at index, top to bottom; -1 outside the selection. *>
 extern fn CInt r_table_get_selection(Rid table, CInt index) @cname("Rtable_get_selection");
 
+<*
+ The selection as runs of consecutive rows, top to bottom: the
+ fast way to go through a large selection (select all of a million rows
+ is one range).
+*>
+extern fn CInt r_table_get_selection_range_count(Rid table) @cname("Rtable_get_selection_range_count");
+
+<* The rows first..last (both included) of a range of the selection. @return R_FALSE outside the ranges. *>
+extern fn CInt r_table_get_selection_range(Rid table, CInt index, CInt* first, CInt* last) @cname("Rtable_get_selection_range");
+
 <* Replaces the selection with one row. -1 selects nothing, including in multi-select mode. *>
 extern fn void r_table_set_selected(Rid table, CInt row) @cname("Rtable_set_selected");
 
+<*
+ The selected row (-1: none). In multiple selection, the one
+ selected last, or else the first one; the selection changed callback
+ receives it.
+*>
 extern fn CInt r_table_get_selected(Rid table) @cname("Rtable_get_selected");
+
+<*
+ The row the keyboard is on: the selected row in single
+ selection; in multiple selection the row last clicked or reached with
+ the arrows, which Space toggles (it may be unselected). -1: none.
+*>
+extern fn CInt r_table_get_current_row(Rid table) @cname("Rtable_get_current_row");
 
 extern fn void r_table_scroll_to_row(Rid table, CInt row) @cname("Rtable_scroll_to_row");
 
@@ -4702,6 +4764,23 @@ extern fn CInt r_table_end_edit(Rid table, CInt commit) @cname("Rtable_end_edit"
 extern fn void r_table_set_frozen_columns(Rid table, CInt count) @cname("Rtable_set_frozen_columns");
 
 extern fn CInt r_table_get_frozen_columns(Rid table) @cname("Rtable_get_frozen_columns");
+
+<*
+ Text (default), check box or progress bar: how the cells of the
+ column are drawn from their texts. A check column is made editable (the
+ user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+ only) and centered. For anything else, a cell color callback and the
+ texts are what the table offers: it draws no other widget in its cells.
+*>
+extern fn void r_table_set_column_kind(Rid table, CInt column, RTableColumnKind kind) @cname("Rtable_set_column_kind");
+
+extern fn RTableColumnKind r_table_get_column_kind(Rid table, CInt column) @cname("Rtable_get_column_kind");
+
+<* A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked. *>
+extern fn CInt r_table_is_cell_checked(Rid table, CInt row, CInt column) @cname("Rtable_is_cell_checked");
+
+<* Stored rows: writes "1" or "0" in the cell (no callback is called). *>
+extern fn void r_table_set_cell_checked(Rid table, CInt row, CInt column, CInt checked) @cname("Rtable_set_cell_checked");
 
 <* Sets the date (today when the picker is created). An invalid date is refused. *>
 extern fn void r_date_picker_set_date(Rid date_picker, CInt year, CInt month, CInt day) @cname("Rdate_picker_set_date");

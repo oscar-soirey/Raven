@@ -14,7 +14,7 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1029 of the 1375 functions of the C API are here, 32 are written by hand (the other files of this
+// 1040 of the 1386 functions of the C API are here, 32 are written by hand (the other files of this
 // folder), and 314 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
@@ -2832,9 +2832,19 @@ table_set_cell_text_color :: proc(table: Widget, row: i32, column: i32, r: f32, 
 	raw.Rtable_set_cell_text_color(raw.Rid(table), row, column, r, g, b, a)
 }
 
-// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
 table_set_multi_select :: proc(table: Widget, enabled: bool) {
 	raw.Rtable_set_multi_select(raw.Rid(table), (1 if enabled else 0))
+}
+
+// Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+// Going to single keeps the selected row, going to none clears the selection.
+table_set_selection_mode :: proc(table: Widget, mode: Table_Selection_Mode) {
+	raw.Rtable_set_selection_mode(raw.Rid(table), raw.RTableSelectionMode(mode))
+}
+
+table_get_selection_mode :: proc(table: Widget) -> Table_Selection_Mode {
+	return Table_Selection_Mode(raw.Rtable_get_selection_mode(raw.Rid(table)))
 }
 
 table_set_row_selected :: proc(table: Widget, row: i32, selected: bool) {
@@ -2843,6 +2853,18 @@ table_set_row_selected :: proc(table: Widget, row: i32, selected: bool) {
 
 table_is_row_selected :: proc(table: Widget, row: i32) -> bool {
 	return raw.Rtable_is_row_selected(raw.Rid(table), row) != 0
+}
+
+// Selects (`selected` R_TRUE) or deselects the rows first..last, both
+// included, keeping the others: multiple selection only (in single
+// selection, selecting a range selects `last`).
+table_select_range :: proc(table: Widget, first: i32, last: i32, selected: bool) {
+	raw.Rtable_select_range(raw.Rid(table), first, last, (1 if selected else 0))
+}
+
+// Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+table_select_all :: proc(table: Widget) {
+	raw.Rtable_select_all(raw.Rid(table))
 }
 
 table_clear_selection :: proc(table: Widget) {
@@ -2858,13 +2880,36 @@ table_get_selection :: proc(table: Widget, index: i32) -> i32 {
 	return raw.Rtable_get_selection(raw.Rid(table), index)
 }
 
+// The selection as runs of consecutive rows, top to bottom: the
+// fast way to go through a large selection (select all of a million rows
+// is one range).
+table_get_selection_range_count :: proc(table: Widget) -> i32 {
+	return raw.Rtable_get_selection_range_count(raw.Rid(table))
+}
+
+// The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
+table_get_selection_range :: proc(table: Widget, index: i32) -> (ok: bool, first: i32, last: i32) {
+	ok = raw.Rtable_get_selection_range(raw.Rid(table), index, &first, &last) != 0
+	return
+}
+
 // Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 table_set_selected :: proc(table: Widget, row: i32) {
 	raw.Rtable_set_selected(raw.Rid(table), row)
 }
 
+// The selected row (-1: none). In multiple selection, the one
+// selected last, or else the first one; the selection changed callback
+// receives it.
 table_get_selected :: proc(table: Widget) -> i32 {
 	return raw.Rtable_get_selected(raw.Rid(table))
+}
+
+// The row the keyboard is on: the selected row in single
+// selection; in multiple selection the row last clicked or reached with
+// the arrows, which Space toggles (it may be unselected). -1: none.
+table_get_current_row :: proc(table: Widget) -> i32 {
+	return raw.Rtable_get_current_row(raw.Rid(table))
 }
 
 table_scroll_to_row :: proc(table: Widget, row: i32) {
@@ -2933,6 +2978,29 @@ table_set_frozen_columns :: proc(table: Widget, count: i32) {
 
 table_get_frozen_columns :: proc(table: Widget) -> i32 {
 	return raw.Rtable_get_frozen_columns(raw.Rid(table))
+}
+
+// Text (default), check box or progress bar: how the cells of the
+// column are drawn from their texts. A check column is made editable (the
+// user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+// only) and centered. For anything else, a cell color callback and the
+// texts are what the table offers: it draws no other widget in its cells.
+table_set_column_kind :: proc(table: Widget, column: i32, kind: Table_Column_Kind) {
+	raw.Rtable_set_column_kind(raw.Rid(table), column, raw.RTableColumnKind(kind))
+}
+
+table_get_column_kind :: proc(table: Widget, column: i32) -> Table_Column_Kind {
+	return Table_Column_Kind(raw.Rtable_get_column_kind(raw.Rid(table), column))
+}
+
+// A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+table_is_cell_checked :: proc(table: Widget, row: i32, column: i32) -> bool {
+	return raw.Rtable_is_cell_checked(raw.Rid(table), row, column) != 0
+}
+
+// Stored rows: writes "1" or "0" in the cell (no callback is called).
+table_set_cell_checked :: proc(table: Widget, row: i32, column: i32, checked: bool) {
+	raw.Rtable_set_cell_checked(raw.Rid(table), row, column, (1 if checked else 0))
 }
 
 // Sets the date (today when the picker is created). An invalid date is refused.

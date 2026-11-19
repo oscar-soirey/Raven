@@ -1431,6 +1431,36 @@ public final class R {
      */
     public static final int R_CHART_SPARKLINE = 0x0594;
 
+    // RTableSelectionMode: How the rows of a Table are selected (Rtable_set_selection_mode).
+    /**
+     * One row at a time (the default).
+     */
+    public static final int R_TABLE_SELECTION_SINGLE = 0x0BC0;
+    /**
+     * Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A.
+     */
+    public static final int R_TABLE_SELECTION_MULTIPLE = 0x0BC1;
+    /**
+     * The user selects nothing (the rows are only shown; cells may still be edited and checked).
+     */
+    public static final int R_TABLE_SELECTION_NONE = 0x0BC2;
+
+    // RTableColumnKind: What the cells of a column show (Rtable_set_column_kind).
+    /**
+     * Their text (the default).
+     */
+    public static final int R_TABLE_COLUMN_TEXT = 0x0BD0;
+    /**
+     * A check box, checked when the text is "1", "true" or "yes". The user
+     * toggles it with a click or Space unless the column is made not
+     * editable; the cell edited callback is then called with "1" or "0".
+     */
+    public static final int R_TABLE_COLUMN_CHECK = 0x0BD1;
+    /**
+     * A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing.
+     */
+    public static final int R_TABLE_COLUMN_PROGRESS = 0x0BD2;
+
     // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
     public static final int R_SYNTAX_NONE = 0x0340;
     public static final int R_SYNTAX_XML = 0x0341;
@@ -15274,13 +15304,42 @@ public final class R {
     private static MethodHandle Rtable_set_multi_select$;
 
     /**
-     * Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+     * Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
      */
     public static void Rtable_set_multi_select(int table, int enabled) {
         MethodHandle $h = Rtable_set_multi_select$;
         if ($h == null) Rtable_set_multi_select$ = $h = find("Rtable_set_multi_select", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(table, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_set_selection_mode$;
+
+    /**
+     * Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+     * Going to single keeps the selected row, going to none clears the selection.
+     */
+    public static void Rtable_set_selection_mode(int table, int mode) {
+        MethodHandle $h = Rtable_set_selection_mode$;
+        if ($h == null) Rtable_set_selection_mode$ = $h = find("Rtable_set_selection_mode", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, mode);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_get_selection_mode$;
+
+    public static int Rtable_get_selection_mode(int table) {
+        MethodHandle $h = Rtable_get_selection_mode$;
+        if ($h == null) Rtable_get_selection_mode$ = $h = find("Rtable_get_selection_mode", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -15306,6 +15365,38 @@ public final class R {
         try {
             int $r = (int) $h.invokeExact(table, row);
             return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_select_range$;
+
+    /**
+     * Selects (`selected` R_TRUE) or deselects the rows first..last, both
+     * included, keeping the others: multiple selection only (in single
+     * selection, selecting a range selects `last`).
+     */
+    public static void Rtable_select_range(int table, int first, int last, int selected) {
+        MethodHandle $h = Rtable_select_range$;
+        if ($h == null) Rtable_select_range$ = $h = find("Rtable_select_range", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, first, last, selected);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_select_all$;
+
+    /**
+     * Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+     */
+    public static void Rtable_select_all(int table) {
+        MethodHandle $h = Rtable_select_all$;
+        if ($h == null) Rtable_select_all$ = $h = find("Rtable_select_all", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(table);
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -15352,6 +15443,44 @@ public final class R {
         }
     }
 
+    private static MethodHandle Rtable_get_selection_range_count$;
+
+    /**
+     * The selection as runs of consecutive rows, top to bottom: the
+     * fast way to go through a large selection (select all of a million rows
+     * is one range).
+     */
+    public static int Rtable_get_selection_range_count(int table) {
+        MethodHandle $h = Rtable_get_selection_range_count$;
+        if ($h == null) Rtable_get_selection_range_count$ = $h = find("Rtable_get_selection_range_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_get_selection_range$;
+
+    /**
+     * The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
+     */
+    public static int Rtable_get_selection_range(int table, int index, int[] first, int[] last) {
+        MethodHandle $h = Rtable_get_selection_range$;
+        if ($h == null) Rtable_get_selection_range$ = $h = find("Rtable_get_selection_range", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment first$ = first == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment last$ = last == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(table, index, first$, last$);
+            if (first != null && first.length > 0) first[0] = first$.get(JAVA_INT, 0);
+            if (last != null && last.length > 0) last[0] = last$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtable_set_selected$;
 
     /**
@@ -15369,9 +15498,32 @@ public final class R {
 
     private static MethodHandle Rtable_get_selected$;
 
+    /**
+     * The selected row (-1: none). In multiple selection, the one
+     * selected last, or else the first one; the selection changed callback
+     * receives it.
+     */
     public static int Rtable_get_selected(int table) {
         MethodHandle $h = Rtable_get_selected$;
         if ($h == null) Rtable_get_selected$ = $h = find("Rtable_get_selected", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_get_current_row$;
+
+    /**
+     * The row the keyboard is on: the selected row in single
+     * selection; in multiple selection the row last clicked or reached with
+     * the arrows, which Space toggles (it may be unselected). -1: none.
+     */
+    public static int Rtable_get_current_row(int table) {
+        MethodHandle $h = Rtable_get_current_row$;
+        if ($h == null) Rtable_get_current_row$ = $h = find("Rtable_get_current_row", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
         try {
             int $r = (int) $h.invokeExact(table);
             return $r;
@@ -15644,6 +15796,69 @@ public final class R {
         try {
             int $r = (int) $h.invokeExact(table);
             return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_set_column_kind$;
+
+    /**
+     * Text (default), check box or progress bar: how the cells of the
+     * column are drawn from their texts. A check column is made editable (the
+     * user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+     * only) and centered. For anything else, a cell color callback and the
+     * texts are what the table offers: it draws no other widget in its cells.
+     */
+    public static void Rtable_set_column_kind(int table, int column, int kind) {
+        MethodHandle $h = Rtable_set_column_kind$;
+        if ($h == null) Rtable_set_column_kind$ = $h = find("Rtable_set_column_kind", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, column, kind);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_get_column_kind$;
+
+    public static int Rtable_get_column_kind(int table, int column) {
+        MethodHandle $h = Rtable_get_column_kind$;
+        if ($h == null) Rtable_get_column_kind$ = $h = find("Rtable_get_column_kind", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table, column);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_is_cell_checked$;
+
+    /**
+     * A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+     */
+    public static int Rtable_is_cell_checked(int table, int row, int column) {
+        MethodHandle $h = Rtable_is_cell_checked$;
+        if ($h == null) Rtable_is_cell_checked$ = $h = find("Rtable_is_cell_checked", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(table, row, column);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtable_set_cell_checked$;
+
+    /**
+     * Stored rows: writes "1" or "0" in the cell (no callback is called).
+     */
+    public static void Rtable_set_cell_checked(int table, int row, int column, int checked) {
+        MethodHandle $h = Rtable_set_cell_checked$;
+        if ($h == null) Rtable_set_cell_checked$ = $h = find("Rtable_set_cell_checked", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(table, row, column, checked);
         } catch (Throwable $t) {
             throw fail($t);
         }

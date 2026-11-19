@@ -1227,6 +1227,32 @@ constset ChartKind : CInt
 	SPARKLINE = 0x0594,
 }
 
+<* How the rows of a Table are selected (Rtable_set_selection_mode). *>
+constset TableSelectionMode : CInt
+{
+	<* One row at a time (the default). *>
+	SINGLE = 0x0BC0,
+	<* Any number of rows: Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A. *>
+	MULTIPLE = 0x0BC1,
+	<* The user selects nothing (the rows are only shown; cells may still be edited and checked). *>
+	NONE = 0x0BC2,
+}
+
+<* What the cells of a column show (Rtable_set_column_kind). *>
+constset TableColumnKind : CInt
+{
+	<* Their text (the default). *>
+	TEXT = 0x0BD0,
+	<*
+	 A check box, checked when the text is "1", "true" or "yes". The user
+	 toggles it with a click or Space unless the column is made not
+	 editable; the cell edited callback is then called with "1" or "0".
+	*>
+	CHECK = 0x0BD1,
+	<* A progress bar, from a number 0..1 or a percentage ("45%"); an empty cell shows nothing. *>
+	PROGRESS = 0x0BD2,
+}
+
 <* Shorthands of Rtext_editor_set_language for two languages. *>
 constset Syntax : CInt
 {
@@ -5216,12 +5242,30 @@ fn void Table.set_cell_color_callback(self, TableCellColorCallback callback, voi
 *>
 fn void Table.set_cell_text_color(self, CInt row, CInt column, float r, float g, float b, float a) @inline => c::r_table_set_cell_text_color((c::Rid)self, row, column, r, g, b, a);
 
-<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. *>
+<* Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE). *>
 fn void Table.set_multi_select(self, bool enabled) @inline => c::r_table_set_multi_select((c::Rid)self, (CInt)enabled);
+
+<*
+ Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+ Going to single keeps the selected row, going to none clears the selection.
+*>
+fn void Table.set_selection_mode(self, TableSelectionMode mode) @inline => c::r_table_set_selection_mode((c::Rid)self, (c::RTableSelectionMode)mode);
+
+fn TableSelectionMode Table.get_selection_mode(self) @inline => (TableSelectionMode)c::r_table_get_selection_mode((c::Rid)self);
 
 fn void Table.set_row_selected(self, CInt row, bool selected) @inline => c::r_table_set_row_selected((c::Rid)self, row, (CInt)selected);
 
 fn bool Table.is_row_selected(self, CInt row) @inline => c::r_table_is_row_selected((c::Rid)self, row) != 0;
+
+<*
+ Selects (`selected` R_TRUE) or deselects the rows first..last, both
+ included, keeping the others: multiple selection only (in single
+ selection, selecting a range selects `last`).
+*>
+fn void Table.select_range(self, CInt first, CInt last, bool selected) @inline => c::r_table_select_range((c::Rid)self, first, last, (CInt)selected);
+
+<* Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes. *>
+fn void Table.select_all(self) @inline => c::r_table_select_all((c::Rid)self);
 
 fn void Table.clear_selection(self) @inline => c::r_table_clear_selection((c::Rid)self);
 
@@ -5230,10 +5274,32 @@ fn CInt Table.get_selection_count(self) @inline => c::r_table_get_selection_coun
 <* Selected row at index, top to bottom; -1 outside the selection. *>
 fn CInt Table.get_selection(self, CInt index) @inline => c::r_table_get_selection((c::Rid)self, index);
 
+<*
+ The selection as runs of consecutive rows, top to bottom: the
+ fast way to go through a large selection (select all of a million rows
+ is one range).
+*>
+fn CInt Table.get_selection_range_count(self) @inline => c::r_table_get_selection_range_count((c::Rid)self);
+
+<* The rows first..last (both included) of a range of the selection. @return R_FALSE outside the ranges. *>
+fn bool Table.get_selection_range(self, CInt index, CInt* first, CInt* last) @inline => c::r_table_get_selection_range((c::Rid)self, index, first, last) != 0;
+
 <* Replaces the selection with one row. -1 selects nothing, including in multi-select mode. *>
 fn void Table.set_selected(self, CInt row) @inline => c::r_table_set_selected((c::Rid)self, row);
 
+<*
+ The selected row (-1: none). In multiple selection, the one
+ selected last, or else the first one; the selection changed callback
+ receives it.
+*>
 fn CInt Table.get_selected(self) @inline => c::r_table_get_selected((c::Rid)self);
+
+<*
+ The row the keyboard is on: the selected row in single
+ selection; in multiple selection the row last clicked or reached with
+ the arrows, which Space toggles (it may be unselected). -1: none.
+*>
+fn CInt Table.get_current_row(self) @inline => c::r_table_get_current_row((c::Rid)self);
 
 fn void Table.scroll_to_row(self, CInt row) @inline => c::r_table_scroll_to_row((c::Rid)self, row);
 
@@ -5289,6 +5355,23 @@ fn bool Table.end_edit(self, CInt commit) @inline => c::r_table_end_edit((c::Rid
 fn void Table.set_frozen_columns(self, CInt count) @inline => c::r_table_set_frozen_columns((c::Rid)self, count);
 
 fn CInt Table.get_frozen_columns(self) @inline => c::r_table_get_frozen_columns((c::Rid)self);
+
+<*
+ Text (default), check box or progress bar: how the cells of the
+ column are drawn from their texts. A check column is made editable (the
+ user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+ only) and centered. For anything else, a cell color callback and the
+ texts are what the table offers: it draws no other widget in its cells.
+*>
+fn void Table.set_column_kind(self, CInt column, TableColumnKind kind) @inline => c::r_table_set_column_kind((c::Rid)self, column, (c::RTableColumnKind)kind);
+
+fn TableColumnKind Table.get_column_kind(self, CInt column) @inline => (TableColumnKind)c::r_table_get_column_kind((c::Rid)self, column);
+
+<* A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked. *>
+fn bool Table.is_cell_checked(self, CInt row, CInt column) @inline => c::r_table_is_cell_checked((c::Rid)self, row, column) != 0;
+
+<* Stored rows: writes "1" or "0" in the cell (no callback is called). *>
+fn void Table.set_cell_checked(self, CInt row, CInt column, bool checked) @inline => c::r_table_set_cell_checked((c::Rid)self, row, column, (CInt)checked);
 
 // ---- DatePicker
 

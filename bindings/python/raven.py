@@ -1340,6 +1340,26 @@ R_CHART_GAUGE = RChartKind.R_CHART_GAUGE
 R_CHART_HEATMAP = RChartKind.R_CHART_HEATMAP
 R_CHART_SPARKLINE = RChartKind.R_CHART_SPARKLINE
 
+class RTableSelectionMode(enum.IntEnum):
+    """How the rows of a Table are selected (Rtable_set_selection_mode)."""
+    R_TABLE_SELECTION_SINGLE = 0x0BC0
+    R_TABLE_SELECTION_MULTIPLE = 0x0BC1
+    R_TABLE_SELECTION_NONE = 0x0BC2
+
+R_TABLE_SELECTION_SINGLE = RTableSelectionMode.R_TABLE_SELECTION_SINGLE
+R_TABLE_SELECTION_MULTIPLE = RTableSelectionMode.R_TABLE_SELECTION_MULTIPLE
+R_TABLE_SELECTION_NONE = RTableSelectionMode.R_TABLE_SELECTION_NONE
+
+class RTableColumnKind(enum.IntEnum):
+    """What the cells of a column show (Rtable_set_column_kind)."""
+    R_TABLE_COLUMN_TEXT = 0x0BD0
+    R_TABLE_COLUMN_CHECK = 0x0BD1
+    R_TABLE_COLUMN_PROGRESS = 0x0BD2
+
+R_TABLE_COLUMN_TEXT = RTableColumnKind.R_TABLE_COLUMN_TEXT
+R_TABLE_COLUMN_CHECK = RTableColumnKind.R_TABLE_COLUMN_CHECK
+R_TABLE_COLUMN_PROGRESS = RTableColumnKind.R_TABLE_COLUMN_PROGRESS
+
 class RSyntax(enum.IntEnum):
     """Shorthands of Rtext_editor_set_language for two languages."""
     R_SYNTAX_NONE = 0x0340
@@ -8354,8 +8374,26 @@ _lib.Rtable_set_multi_select.restype = None
 
 
 def Rtable_set_multi_select(table, enabled):
-    """Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default."""
+    """Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE)."""
     _lib.Rtable_set_multi_select(table, enabled)
+
+
+_lib.Rtable_set_selection_mode.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_set_selection_mode.restype = None
+
+
+def Rtable_set_selection_mode(table, mode):
+    """Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+    Going to single keeps the selected row, going to none clears the selection."""
+    _lib.Rtable_set_selection_mode(table, int(mode))
+
+
+_lib.Rtable_get_selection_mode.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_selection_mode.restype = ctypes.c_int
+
+
+def Rtable_get_selection_mode(table):
+    return _e(RTableSelectionMode, _lib.Rtable_get_selection_mode(table))
 
 
 _lib.Rtable_set_row_selected.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
@@ -8372,6 +8410,26 @@ _lib.Rtable_is_row_selected.restype = ctypes.c_int
 
 def Rtable_is_row_selected(table, row):
     return _lib.Rtable_is_row_selected(table, row)
+
+
+_lib.Rtable_select_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_select_range.restype = None
+
+
+def Rtable_select_range(table, first, last, selected):
+    """Selects (`selected` R_TRUE) or deselects the rows first..last, both
+    included, keeping the others: multiple selection only (in single
+    selection, selecting a range selects `last`)."""
+    _lib.Rtable_select_range(table, first, last, selected)
+
+
+_lib.Rtable_select_all.argtypes = [ctypes.c_uint32]
+_lib.Rtable_select_all.restype = None
+
+
+def Rtable_select_all(table):
+    """Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes."""
+    _lib.Rtable_select_all(table)
 
 
 _lib.Rtable_clear_selection.argtypes = [ctypes.c_uint32]
@@ -8399,6 +8457,29 @@ def Rtable_get_selection(table, index):
     return _lib.Rtable_get_selection(table, index)
 
 
+_lib.Rtable_get_selection_range_count.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_selection_range_count.restype = ctypes.c_int
+
+
+def Rtable_get_selection_range_count(table):
+    """The selection as runs of consecutive rows, top to bottom: the
+    fast way to go through a large selection (select all of a million rows
+    is one range)."""
+    return _lib.Rtable_get_selection_range_count(table)
+
+
+_lib.Rtable_get_selection_range.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtable_get_selection_range.restype = ctypes.c_int
+
+
+def Rtable_get_selection_range(table, index):
+    """The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges."""
+    first_ = ctypes.c_int()
+    last_ = ctypes.c_int()
+    result = _lib.Rtable_get_selection_range(table, index, ctypes.byref(first_), ctypes.byref(last_))
+    return (result, first_.value, last_.value)
+
+
 _lib.Rtable_set_selected.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rtable_set_selected.restype = None
 
@@ -8413,7 +8494,21 @@ _lib.Rtable_get_selected.restype = ctypes.c_int
 
 
 def Rtable_get_selected(table):
+    """The selected row (-1: none). In multiple selection, the one
+    selected last, or else the first one; the selection changed callback
+    receives it."""
     return _lib.Rtable_get_selected(table)
+
+
+_lib.Rtable_get_current_row.argtypes = [ctypes.c_uint32]
+_lib.Rtable_get_current_row.restype = ctypes.c_int
+
+
+def Rtable_get_current_row(table):
+    """The row the keyboard is on: the selected row in single
+    selection; in multiple selection the row last clicked or reached with
+    the arrows, which Space toggles (it may be unselected). -1: none."""
+    return _lib.Rtable_get_current_row(table)
 
 
 _lib.Rtable_scroll_to_row.argtypes = [ctypes.c_uint32, ctypes.c_int]
@@ -8571,6 +8666,45 @@ _lib.Rtable_get_frozen_columns.restype = ctypes.c_int
 
 def Rtable_get_frozen_columns(table):
     return _lib.Rtable_get_frozen_columns(table)
+
+
+_lib.Rtable_set_column_kind.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_column_kind.restype = None
+
+
+def Rtable_set_column_kind(table, column, kind):
+    """Text (default), check box or progress bar: how the cells of the
+    column are drawn from their texts. A check column is made editable (the
+    user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+    only) and centered. For anything else, a cell color callback and the
+    texts are what the table offers: it draws no other widget in its cells."""
+    _lib.Rtable_set_column_kind(table, column, int(kind))
+
+
+_lib.Rtable_get_column_kind.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtable_get_column_kind.restype = ctypes.c_int
+
+
+def Rtable_get_column_kind(table, column):
+    return _e(RTableColumnKind, _lib.Rtable_get_column_kind(table, column))
+
+
+_lib.Rtable_is_cell_checked.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_is_cell_checked.restype = ctypes.c_int
+
+
+def Rtable_is_cell_checked(table, row, column):
+    """A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked."""
+    return _lib.Rtable_is_cell_checked(table, row, column)
+
+
+_lib.Rtable_set_cell_checked.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtable_set_cell_checked.restype = None
+
+
+def Rtable_set_cell_checked(table, row, column, checked):
+    """Stored rows: writes "1" or "0" in the cell (no callback is called)."""
+    _lib.Rtable_set_cell_checked(table, row, column, checked)
 
 
 _lib.Rdate_picker_set_date.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]

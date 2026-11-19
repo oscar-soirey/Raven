@@ -870,6 +870,20 @@ export const RChartKind = _enum({
 });
 export const { R_CHART_PIE, R_CHART_DONUT, R_CHART_GAUGE, R_CHART_HEATMAP, R_CHART_SPARKLINE } = RChartKind;
 
+export const RTableSelectionMode = _enum({
+	R_TABLE_SELECTION_SINGLE: 3008,
+	R_TABLE_SELECTION_MULTIPLE: 3009,
+	R_TABLE_SELECTION_NONE: 3010,
+});
+export const { R_TABLE_SELECTION_SINGLE, R_TABLE_SELECTION_MULTIPLE, R_TABLE_SELECTION_NONE } = RTableSelectionMode;
+
+export const RTableColumnKind = _enum({
+	R_TABLE_COLUMN_TEXT: 3024,
+	R_TABLE_COLUMN_CHECK: 3025,
+	R_TABLE_COLUMN_PROGRESS: 3026,
+});
+export const { R_TABLE_COLUMN_TEXT, R_TABLE_COLUMN_CHECK, R_TABLE_COLUMN_PROGRESS } = RTableColumnKind;
+
 export const RSyntax = _enum({
 	R_SYNTAX_NONE: 832,
 	R_SYNTAX_XML: 833,
@@ -3823,13 +3837,20 @@ export function Rtable_set_cell_color_callback(table, callback, user_data = null
 }
 export const Rtable_set_cell_text_color = _lib.Rtable_set_cell_text_color;
 export const Rtable_set_multi_select = _lib.Rtable_set_multi_select;
+export const Rtable_set_selection_mode = _lib.Rtable_set_selection_mode;
+export const Rtable_get_selection_mode = _lib.Rtable_get_selection_mode;
 export const Rtable_set_row_selected = _lib.Rtable_set_row_selected;
 export const Rtable_is_row_selected = _lib.Rtable_is_row_selected;
+export const Rtable_select_range = _lib.Rtable_select_range;
+export const Rtable_select_all = _lib.Rtable_select_all;
 export const Rtable_clear_selection = _lib.Rtable_clear_selection;
 export const Rtable_get_selection_count = _lib.Rtable_get_selection_count;
 export const Rtable_get_selection = _lib.Rtable_get_selection;
+export const Rtable_get_selection_range_count = _lib.Rtable_get_selection_range_count;
+export const Rtable_get_selection_range = _lib.Rtable_get_selection_range;
 export const Rtable_set_selected = _lib.Rtable_set_selected;
 export const Rtable_get_selected = _lib.Rtable_get_selected;
+export const Rtable_get_current_row = _lib.Rtable_get_current_row;
 export const Rtable_scroll_to_row = _lib.Rtable_scroll_to_row;
 export const Rtable_sort = _lib.Rtable_sort;
 export const Rtable_get_sort_column = _lib.Rtable_get_sort_column;
@@ -3848,6 +3869,10 @@ export const Rtable_is_editing = _lib.Rtable_is_editing;
 export const Rtable_end_edit = _lib.Rtable_end_edit;
 export const Rtable_set_frozen_columns = _lib.Rtable_set_frozen_columns;
 export const Rtable_get_frozen_columns = _lib.Rtable_get_frozen_columns;
+export const Rtable_set_column_kind = _lib.Rtable_set_column_kind;
+export const Rtable_get_column_kind = _lib.Rtable_get_column_kind;
+export const Rtable_is_cell_checked = _lib.Rtable_is_cell_checked;
+export const Rtable_set_cell_checked = _lib.Rtable_set_cell_checked;
 export const Rdate_picker_set_date = _lib.Rdate_picker_set_date;
 export const Rdate_picker_get_date = _lib.Rdate_picker_get_date;
 export const Rdate_picker_set_range = _lib.Rdate_picker_set_range;

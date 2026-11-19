@@ -3228,12 +3228,26 @@ inline void table_set_cell_color_callback(Rid table, std::function<int(Rid, int,
 /// Alpha 0 restores the inherited/theme color. A color from the cell color callback wins over it.
 inline void table_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a) { Rtable_set_cell_text_color(table, row, column, r, g, b, a); }
 
-/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default.
+/// Opt into Ctrl/Cmd toggles and Shift ranges; single selection is the default. Same as Rtable_set_selection_mode(MULTIPLE or SINGLE).
 inline void table_set_multi_select(Rid table, int enabled) { Rtable_set_multi_select(table, enabled); }
+
+/// Single (default), multiple or no selection (SelectionMode="Multiple" in XML).
+/// Going to single keeps the selected row, going to none clears the selection.
+inline void table_set_selection_mode(Rid table, RTableSelectionMode mode) { Rtable_set_selection_mode(table, mode); }
+
+inline RTableSelectionMode table_get_selection_mode(Rid table) { return Rtable_get_selection_mode(table); }
 
 inline void table_set_row_selected(Rid table, int row, int selected) { Rtable_set_row_selected(table, row, selected); }
 
 inline int table_is_row_selected(Rid table, int row) { return Rtable_is_row_selected(table, row); }
+
+/// Selects (`selected` R_TRUE) or deselects the rows first..last, both
+/// included, keeping the others: multiple selection only (in single
+/// selection, selecting a range selects `last`).
+inline void table_select_range(Rid table, int first, int last, int selected) { Rtable_select_range(table, first, last, selected); }
+
+/// Multiple selection: selects every row (Ctrl/Cmd+A). Nothing in the other modes.
+inline void table_select_all(Rid table) { Rtable_select_all(table); }
 
 inline void table_clear_selection(Rid table) { Rtable_clear_selection(table); }
 
@@ -3242,10 +3256,26 @@ inline int table_get_selection_count(Rid table) { return Rtable_get_selection_co
 /// Selected row at index, top to bottom; -1 outside the selection.
 inline int table_get_selection(Rid table, int index) { return Rtable_get_selection(table, index); }
 
+/// The selection as runs of consecutive rows, top to bottom: the
+/// fast way to go through a large selection (select all of a million rows
+/// is one range).
+inline int table_get_selection_range_count(Rid table) { return Rtable_get_selection_range_count(table); }
+
+/// The rows first..last (both included) of a range of the selection. Returns: R_FALSE outside the ranges.
+inline int table_get_selection_range(Rid table, int index, int* first, int* last) { return Rtable_get_selection_range(table, index, first, last); }
+
 /// Replaces the selection with one row. -1 selects nothing, including in multi-select mode.
 inline void table_set_selected(Rid table, int row) { Rtable_set_selected(table, row); }
 
+/// The selected row (-1: none). In multiple selection, the one
+/// selected last, or else the first one; the selection changed callback
+/// receives it.
 inline int table_get_selected(Rid table) { return Rtable_get_selected(table); }
+
+/// The row the keyboard is on: the selected row in single
+/// selection; in multiple selection the row last clicked or reached with
+/// the arrows, which Space toggles (it may be unselected). -1: none.
+inline int table_get_current_row(Rid table) { return Rtable_get_current_row(table); }
 
 inline void table_scroll_to_row(Rid table, int row) { Rtable_scroll_to_row(table, row); }
 
@@ -3307,6 +3337,21 @@ inline int table_end_edit(Rid table, int commit) { return Rtable_end_edit(table,
 inline void table_set_frozen_columns(Rid table, int count) { Rtable_set_frozen_columns(table, count); }
 
 inline int table_get_frozen_columns(Rid table) { return Rtable_get_frozen_columns(table); }
+
+/// Text (default), check box or progress bar: how the cells of the
+/// column are drawn from their texts. A check column is made editable (the
+/// user toggles it; Rtable_set_column_editable(R_FALSE) after this shows it
+/// only) and centered. For anything else, a cell color callback and the
+/// texts are what the table offers: it draws no other widget in its cells.
+inline void table_set_column_kind(Rid table, int column, RTableColumnKind kind) { Rtable_set_column_kind(table, column, kind); }
+
+inline RTableColumnKind table_get_column_kind(Rid table, int column) { return Rtable_get_column_kind(table, column); }
+
+/// A cell of a check column: R_TRUE when its text is "1", "true" or "yes". Any cell can be asked.
+inline int table_is_cell_checked(Rid table, int row, int column) { return Rtable_is_cell_checked(table, row, column); }
+
+/// Stored rows: writes "1" or "0" in the cell (no callback is called).
+inline void table_set_cell_checked(Rid table, int row, int column, int checked) { Rtable_set_cell_checked(table, row, column, checked); }
 
 /// Sets the date (today when the picker is created). An invalid date is refused.
 inline void date_picker_set_date(Rid date_picker, int year, int month, int day) { Rdate_picker_set_date(date_picker, year, month, day); }

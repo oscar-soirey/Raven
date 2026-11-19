@@ -639,6 +639,16 @@ typedef enum RChartKind {
 	R_CHART_HEATMAP = 1427,
 	R_CHART_SPARKLINE = 1428,
 } RChartKind;
+typedef enum RTableSelectionMode {
+	R_TABLE_SELECTION_SINGLE = 3008,
+	R_TABLE_SELECTION_MULTIPLE = 3009,
+	R_TABLE_SELECTION_NONE = 3010,
+} RTableSelectionMode;
+typedef enum RTableColumnKind {
+	R_TABLE_COLUMN_TEXT = 3024,
+	R_TABLE_COLUMN_CHECK = 3025,
+	R_TABLE_COLUMN_PROGRESS = 3026,
+} RTableColumnKind;
 typedef enum RSyntax {
 	R_SYNTAX_NONE = 832,
 	R_SYNTAX_XML = 833,
@@ -1819,13 +1829,20 @@ void Rtable_set_virtual_rows(Rid table, int count, RTableCellTextCallback callba
 void Rtable_set_cell_color_callback(Rid table, RTableCellColorCallback callback, void* user_data);
 void Rtable_set_cell_text_color(Rid table, int row, int column, float r, float g, float b, float a);
 void Rtable_set_multi_select(Rid table, int enabled);
+void Rtable_set_selection_mode(Rid table, RTableSelectionMode mode);
+RTableSelectionMode Rtable_get_selection_mode(Rid table);
 void Rtable_set_row_selected(Rid table, int row, int selected);
 int Rtable_is_row_selected(Rid table, int row);
+void Rtable_select_range(Rid table, int first, int last, int selected);
+void Rtable_select_all(Rid table);
 void Rtable_clear_selection(Rid table);
 int Rtable_get_selection_count(Rid table);
 int Rtable_get_selection(Rid table, int index);
+int Rtable_get_selection_range_count(Rid table);
+int Rtable_get_selection_range(Rid table, int index, int* first, int* last);
 void Rtable_set_selected(Rid table, int row);
 int Rtable_get_selected(Rid table);
+int Rtable_get_current_row(Rid table);
 void Rtable_scroll_to_row(Rid table, int row);
 void Rtable_sort(Rid table, int column, int descending);
 int Rtable_get_sort_column(Rid table);
@@ -1844,6 +1861,10 @@ int Rtable_is_editing(Rid table);
 int Rtable_end_edit(Rid table, int commit);
 void Rtable_set_frozen_columns(Rid table, int count);
 int Rtable_get_frozen_columns(Rid table);
+void Rtable_set_column_kind(Rid table, int column, RTableColumnKind kind);
+RTableColumnKind Rtable_get_column_kind(Rid table, int column);
+int Rtable_is_cell_checked(Rid table, int row, int column);
+void Rtable_set_cell_checked(Rid table, int row, int column, int checked);
 void Rdate_picker_set_date(Rid date_picker, int year, int month, int day);
 void Rdate_picker_get_date(Rid date_picker, int* year, int* month, int* day);
 void Rdate_picker_set_range(Rid date_picker, int min_year, int min_month, int min_day, int max_year, int max_month, int max_day);
