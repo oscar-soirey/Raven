@@ -11,6 +11,9 @@
  *   markers           the lines that say TODO or FIXME are underlined
  *   find and replace  the find bar of the editor (Ctrl+F, Ctrl+H), also in the
  *                     Edit menu
+ *   several cursors   Alt+click, Ctrl+D, Ctrl+Shift+L (also in the Edit menu)
+ *   folding           markers beside the line numbers, Ctrl+Shift+[ and ],
+ *                     fold all / unfold all in the View menu
  *   file dialogs      the ones of the system (Rfile_dialog_open / save)
  *   message box       "discard the changes?" before losing them
  *   drag and drop     a file dropped on the window is opened
@@ -362,12 +365,16 @@ static void action_edit(Rid sender, const char* action, void* user_data) {
 	else if (strcmp(action, "edit.complete") == 0) Rtext_editor_show_completions(app.editor);
 	else if (strcmp(action, "edit.find") == 0) Rtext_editor_show_find(app.editor, R_FALSE);
 	else if (strcmp(action, "edit.replace") == 0) Rtext_editor_show_find(app.editor, R_TRUE);
+	else if (strcmp(action, "edit.next_occurrence") == 0) Rtext_editor_add_next_occurrence(app.editor);
+	else if (strcmp(action, "edit.all_occurrences") == 0) Rtext_editor_select_all_occurrences(app.editor);
 }
 
 static void action_view(Rid sender, const char* action, void* user_data) {
 	(void)user_data;
 	if (strcmp(action, "view.numbers") == 0) Rtext_editor_set_line_numbers(app.editor, Rmenu_item_is_checked(sender));
 	else if (strcmp(action, "view.wrap") == 0) Rtext_editor_set_word_wrap(app.editor, Rmenu_item_is_checked(sender));
+	else if (strcmp(action, "view.fold_all") == 0) Rtext_editor_fold_all(app.editor);
+	else if (strcmp(action, "view.unfold_all") == 0) Rtext_editor_unfold_all(app.editor);
 	else if (strcmp(action, "view.dark") == 0) Rtheme_apply(R_THEME_DARK);
 	else if (strcmp(action, "view.light") == 0) Rtheme_apply(R_THEME_LIGHT);
 	else if (strcmp(action, "view.glass_dark") == 0) Rtheme_apply(R_THEME_GLASS_DARK);
@@ -396,8 +403,10 @@ static const char WELCOME[] =
 
 int main(int argc, char** argv) {
 	static const char* const file_actions[] = { "file.new", "file.open", "file.save", "file.save_as", "file.quit" };
-	static const char* const edit_actions[] = { "edit.undo", "edit.redo", "edit.select_all", "edit.complete", "edit.find", "edit.replace" };
-	static const char* const view_actions[] = { "view.numbers", "view.wrap", "view.dark", "view.light", "view.glass_dark", "view.glass_light" };
+	static const char* const edit_actions[] = { "edit.undo", "edit.redo", "edit.select_all", "edit.complete", "edit.find", "edit.replace",
+		"edit.next_occurrence", "edit.all_occurrences" };
+	static const char* const view_actions[] = { "view.numbers", "view.wrap", "view.dark", "view.light", "view.glass_dark", "view.glass_light",
+		"view.fold_all", "view.unfold_all" };
 	size_t i;
 
 	if (!example_init("notepad")) return 1;

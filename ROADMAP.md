@@ -92,8 +92,11 @@ is a plan, not a promise: issues and pull requests can change the order.
 - [ ] Placement of the composition window of the IME.
 - [x] Text editor: search and replace (find bar, match case, whole word,
   replace all as one undo step).
-- [ ] Text editor: multiple cursors, code folding, a language server client,
-  regular expressions in the search.
+- [x] Text editor: several cursors (Alt+click, Ctrl+D, Ctrl+Shift+L, column
+  selection; one undo step per edit) and code folding (brackets and
+  indentation, markers in the margin, works with word wrap).
+- [ ] Text editor: a language server client, regular expressions in the
+  search, folding by the tags of markup.
 - [ ] Full OpenType shaping (Indic scripts, kerning).
 
 ### Widgets

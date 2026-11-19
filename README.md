@@ -862,7 +862,8 @@ again when everything is at rest.
 ### Text editor
 
 `R_WIDGET_TEXT_EDITOR` (`<TextEditor>`) edits text of any number of lines:
-selection, clipboard, undo, line numbers, word wrap, find and replace. With a language it
+selection, clipboard, undo, line numbers, word wrap, find and replace,
+several cursors, code folding. With a language it
 colors the text, proposes words while typing (those of the language and the
 names already in the text; `Ctrl+Space` asks), shows which bracket closes
 which, closes brackets and quotes, indents, and comments lines out (`Ctrl+/`).
@@ -905,6 +906,41 @@ Matches are counted per line and counted again only where the text changed,
 so a text of hundreds of thousands of lines stays fast. Case is ignored for
 ASCII, Latin-1, the Latin letters of Unicode, Greek, Cyrillic and Armenian.
 There are no regular expressions.
+
+**Several cursors.** `Alt+click` (`Option+click`) adds a cursor, `Ctrl+D`
+(`Cmd+D`) selects the word at the caret and then adds the next occurrence of
+the selection, `Ctrl+Shift+L` (or `Alt+Enter` in the find bar) puts a cursor
+on every occurrence, `Ctrl+Alt+Up` / `Down` (`Cmd+Option+Up` / `Down`) adds
+one on the row above or below, and `Alt+Shift+drag` selects a column.
+Typing, erasing, `Enter`, `Tab`, the arrows (with `Shift` to select), the
+clipboard and `Ctrl+/` then act at every cursor; cursors that meet become
+one, and each edit is one step of undo that gives the cursors back. Copying
+puts one selection per line; pasting as many lines as there are cursors puts
+one at each. `Escape` goes back to one cursor. The main cursor (the last one
+added) is the one the view follows and the one an input method composes at;
+what it commits is typed at every cursor.
+
+```c
+Rtext_editor_add_cursor(editor, 12, 4);                  /* the main cursor stays where it is */
+Rtext_editor_select_all_occurrences(editor);             /* as Ctrl+Shift+L */
+for (int i = 0; i < Rtext_editor_get_cursor_count(editor); i++) {
+    int line, column;
+    Rtext_editor_get_cursor_at(editor, i, &line, &column, NULL, NULL);
+}
+```
+
+**Code folding.** A line that opens a bracket closed on a later line, or that
+the next lines are more indented than, starts a region. With line numbers, a
+marker beside them folds and unfolds it (the markers show while the pointer is
+over the margin; a folded one always); `Ctrl+Shift+[` and `Ctrl+Shift+]`
+(`Cmd+Option+[` and `]`) fold and unfold at the caret. A folded region keeps
+its first line, followed by `...` (a click unfolds it); the hidden lines are
+skipped by the arrows, the pointer and the scrollbar, and the line numbers
+stay those of the text. Folds follow their lines when text changes elsewhere;
+editing a hidden line, or a match of the search or a cursor that goes into
+one, unfolds it. `Rtext_editor_fold`, `Rtext_editor_unfold`,
+`Rtext_editor_fold_all`, `Rtext_editor_unfold_all`; `Folding="false"` turns it
+off. It works with word wrap.
 
 ### Header bar
 
@@ -1892,8 +1928,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 **Text**
 - Full OpenType shaping of complex scripts (Indic scripts, kerning); Arabic
   joining is done.
-- In the text editor: multiple cursors, code folding, a language server
-  client; regular expressions in the search.
+- In the text editor: a language server client; regular expressions in the
+  search; folding by the tags of markup (XML and HTML fold by indentation).
 
 **Windows and docking**
 - Dragging from a Raven window to another application.
