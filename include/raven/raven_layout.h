@@ -212,7 +212,7 @@ extern "C" {
 	/** @brief Index of the tab of a page, -1 if none. */
 	RAVEN_API int Rtab_view_find_tab(Rid tab_view, Rid content);
 	RAVEN_API void Rtab_view_set_tab_title(Rid tab_view, Rid content, const char* title);
-	/** @brief Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color. */
+	/** @brief Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon. */
 	RAVEN_API void Rtab_view_set_tab_icon(Rid tab_view, Rid content, Rid texture, float u0, float v0, float u1, float v1, int tint);
 	/** @brief R_FALSE: no close button (documents ; the level tab). Tabs can be closed by default. */
 	RAVEN_API void Rtab_view_set_tab_closable(Rid tab_view, Rid content, int closable);

@@ -11,6 +11,7 @@
 
 #include "common.h"
 #include "../xml/xml.h"
+#include "../render/renderer.h"
 
 typedef struct rvn_tree_view_t rvn_tree_view_t;
 
@@ -392,6 +393,7 @@ static void rvn_tree_view_paint(rvn_widget_t* widget, RPainter* painter) {
 		/* (Windows: the rows are inset; the chevron and the text move in with them) */
 		float x = 4.0f + indent * (float)item->depth + (fluent ? 8.0f : 0.0f);
 		float text_x = x + indent + (fluent ? 6.0f : 0.0f);
+		rvn_color_t foreground;
 		if (item == tree->selected) {
 			/* (drawn above) */
 		} else if (fluent && ((tree->multi && item->selected) || (i == tree->hot && (widget->flags & RVN_WF_HOVERED) && painter->enabled))) {
@@ -423,16 +425,17 @@ static void rvn_tree_view_paint(rvn_widget_t* widget, RPainter* painter) {
 			rvn_paint_icon(painter, item->expanded ? RVN_ICON_CHEVRON_DOWN : RVN_ICON_CHEVRON_RIGHT,
 				x + indent * 0.5f, line.y + row * 0.5f, 7.0f, rvn_color_fade(text, 0.75f));
 		}
+		foreground = rvn_color_a(item->color) ? item->color : (fluent && (item == tree->selected || (tree->multi && item->selected))) ?
+			rvn_platform_item_foreground(widget, rvn_widget_states(widget, painter, R_FALSE, R_FALSE) | RVN_STATE_SELECTED, RVN_ITEM_LIST) : text;
 		if (item->icon != R_INVALID_ID) {
 			float size = rvn_maxf(4.0f, row - 6.0f);
+			/* (an icon in currentColor takes the color of the text) */
 			rvn_paint_image(painter, rvn_rect(text_x, line.y + (row - size) * 0.5f, size, size), item->icon, item->icon_uv,
-				rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f), 0.0f);
+				rvn_icon_tint(item->icon, R_FALSE, foreground, rvn_rgba(1.0f, 1.0f, 1.0f, 1.0f)), 0.0f);
 			text_x += size + 5.0f;
 		}
 		rvn_paint_text_in(painter, R_INVALID_ID, rvn_widget_font_size(widget, 0.0f),
-			rvn_rect(text_x, line.y, rvn_maxf(0.0f, line.w - text_x), row), 0.0f, item->text, -1,
-			rvn_color_a(item->color) ? item->color : (fluent && (item == tree->selected || (tree->multi && item->selected))) ?
-			rvn_platform_item_foreground(widget, rvn_widget_states(widget, painter, R_FALSE, R_FALSE) | RVN_STATE_SELECTED, RVN_ITEM_LIST) : text);
+			rvn_rect(text_x, line.y, rvn_maxf(0.0f, line.w - text_x), row), 0.0f, item->text, -1, foreground);
 	}
 	if (tree->drop_root) {
 		rvn_color_t accent = rvn_widget_color(widget, R_COLOR_ACCENT);
@@ -645,6 +648,7 @@ static int rvn_tree_xml_item(rvn_tree_view_t* tree, rvn_tree_item_t* parent, con
 	const rvn_xml_node_t* child;
 	const char* text;
 	const char* expanded;
+	const char* icon;
 	rvn_tree_item_t* item;
 	int flag = R_FALSE;
 
@@ -654,6 +658,12 @@ static int rvn_tree_xml_item(rvn_tree_view_t* tree, rvn_tree_item_t* parent, con
 	if (!item) return R_FALSE;
 	expanded = rvn_xml_attribute(node, "Expanded");
 	if (expanded && rvn_parse_bool(expanded, &flag)) item->expanded = flag;
+	/* "raven:folder" or an image file */
+	icon = rvn_xml_attribute(node, "Icon");
+	if (icon && icon[0]) {
+		item->icon = rvn_xml_texture(icon);
+		item->icon_uv[2] = item->icon_uv[3] = 1.0f;
+	}
 	for (child = node->first_child; child; child = child->next) {
 		if (!rvn_tree_xml_item(tree, item, child)) return R_FALSE;
 	}

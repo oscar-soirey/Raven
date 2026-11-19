@@ -342,6 +342,15 @@ static int rvn_widget_set_slot_attribute(rvn_widget_t* widget, const char* name,
 		if (rvn_parse_floats(value, slot->alignment, 2) != 2) return R_FALSE;
 	} else if (RVN_ATTR("Title")) {
 		rvn_str_set(&slot->title, value);
+	} else if (RVN_ATTR("Icon")) {
+		/* the icon of the tab (TabView, DockArea): "raven:folder" or an image file; an empty value removes it */
+		Rid icon = value[0] ? rvn_xml_texture(value) : R_INVALID_ID;
+		if (value[0] && icon == R_INVALID_ID) return R_FALSE;
+		slot->has_icon = icon != R_INVALID_ID;
+		slot->icon = icon;
+		slot->icon_uv[0] = slot->icon_uv[1] = 0.0f;
+		slot->icon_uv[2] = slot->icon_uv[3] = 1.0f;
+		slot->icon_tint = R_FALSE;
 	} else if (RVN_ATTR("Dock")) {
 		if (rvn_stricmp(value, "Left") == 0) slot->dock = R_DOCK_LEFT;
 		else if (rvn_stricmp(value, "Right") == 0) slot->dock = R_DOCK_RIGHT;

@@ -317,6 +317,11 @@
 				"description": "Title of the tab or of the docked panel that holds the widget."
 			},
 			{
+				"name": "Slot.Icon",
+				"kind": "file",
+				"description": "Icon before the title of the tab (a TabView with Documents=\"true\") or of the docked panel: an icon of Raven (\"raven:folder\") or an image file."
+			},
+			{
 				"name": "Slot.Dock",
 				"kind": "choice",
 				"choices": [
@@ -1355,7 +1360,7 @@
 				{
 					"name": "Source",
 					"kind": "file",
-					"description": "Image file."
+					"description": "Image file, or an icon of Raven: \"raven:search\" (drawn in the color of the text)."
 				},
 				{
 					"name": "Stretch",
@@ -1371,7 +1376,7 @@
 				{
 					"name": "Tint",
 					"kind": "color",
-					"description": "Color the image is multiplied by."
+					"description": "Color the image is multiplied by; the color of an icon in currentColor (the text color by default)."
 				},
 				{
 					"name": "CornerRadius",
@@ -1617,6 +1622,16 @@
 					"description": "Size of the icon of a tile."
 				},
 				{
+					"name": "IconWidth",
+					"kind": "number",
+					"description": "Rows layout: width of the box of the icon (0: square)."
+				},
+				{
+					"name": "HeaderHeight",
+					"kind": "number",
+					"description": "Height of the header of a section (Rtile_view_set_sections)."
+				},
+				{
 					"name": "Spacing",
 					"kind": "number",
 					"description": "Space between the tiles."
@@ -1701,6 +1716,11 @@
 					"name": "Separator",
 					"kind": "bool",
 					"description": "A line instead of an item."
+				},
+				{
+					"name": "Icon",
+					"kind": "file",
+					"description": "Icon before the text: an icon of Raven (\"raven:save\") or an image file."
 				},
 				{
 					"name": "OnClicked",
@@ -2321,6 +2341,11 @@
 					"name": "Columns",
 					"kind": "list",
 					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align)."
+				},
+				{
+					"name": "MultiSelect",
+					"kind": "bool",
+					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
 				},
 				{
 					"name": "Selected",

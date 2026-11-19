@@ -297,6 +297,8 @@ typedef struct rvn_context_t {
 	rvn_mutex_t style_mutex;
 	/** The built-in wallpapers, created on first use: dark, light. */
 	Rid wallpapers[2];
+	/** The built-in icons (Ricon_get), created on first use: one per icon, or NULL before the first. */
+	Rid* icons;
 	Rid default_font;
 	Rid mono_font;
 	char* clipboard;

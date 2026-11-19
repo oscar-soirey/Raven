@@ -659,6 +659,7 @@ The build trees are in `build\dist\`.
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
 | `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
+| `examples/icons` | every icon shipped with Raven, and some in buttons, tabs and a tree, in the color of the text; a button switches between the dark and the light theme |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1333,6 +1334,58 @@ drawn again on a worker thread for the density of the screen, an `Image` that
 stretches it or a zoom, and again when the window moves to another monitor.
 `Rtexture_create_from_svg` with a scale draws one at that scale only.
 
+### Icons
+
+![The icons example](docs/images/icons.png)
+
+*`examples/icons`: every icon shipped with Raven, and some in buttons (one
+hovered, one disabled), tabs and a tree; the button at the top right switches
+to the light theme.*
+
+```xml
+<Button>
+    <HBox Spacing="8">
+        <Image Source="raven:save" Width="16" Height="16"/>
+        <Label Text="Save"/>
+    </HBox>
+</Button>
+<TreeView>
+    <Item Text="Project" Icon="raven:folder"/>
+</TreeView>
+<MenuItem Text="Open" Icon="raven:open"/>
+```
+
+```c
+Rid search = Ricon_get("search");               /* a texture owned by Raven, shared */
+Rimage_set_texture(image, search);
+Rmenu_item_set_icon(item, Ricon_get("save"), 0, 0, 1, 1, R_FALSE);
+for (int i = 0; i < Ricon_get_count(); i++)     /* "add", "arrow-down"... in order */
+    printf("%s\n", Ricon_get_name(i));
+```
+
+Raven ships a set of 63 icons for the usual actions: add, remove, close,
+check, chevrons and arrows, menu, search, settings, edit, delete, copy, cut,
+paste, undo, redo, save, open, folder, file, home, user, info, warning, error,
+help, refresh, download, upload, share, link, lock, eye, star, heart,
+calendar, clock, bell, mail, play, pause, stop, filter, sort, more,
+external-link, zoom, print, sun, moon... They are the icons of
+[Lucide](https://lucide.dev) (ISC License), drawn with lines on a grid of
+24 x 24, and take 7 KB in the library. `Ricon_get` gives one by its name, and
+XML names one with `raven:` wherever an image goes: `Image Source`,
+`MenuItem Icon`, the `Icon` of a `TreeView` item, `Slot.Icon` (the tab of a
+`TabView` with `Documents="true"`, a docked panel), a `Node Icon`, a Markdown
+image. They are SVGs, drawn at the density they are shown with.
+
+An icon takes the color of the text around it, and so does any SVG painted
+only in `currentColor` (`fill="currentColor"`, `stroke="currentColor"`): it
+is drawn once, in white, and the widget that shows it tints it with the color
+of its text when it paints. It follows the theme, dark or light, hover,
+pressed and disabled, and a `Color` given to a panel, without being drawn
+again. A `Tint` on the `Image` gives it a color of its own;
+`Rdraw_image` draws it in the color it is given; `Rtexture_uses_current_color`
+tells such a texture. In an SVG that also uses other colors, `currentColor`
+is black, as in an SVG shown on its own.
+
 ### Charts
 
 `Chart` draws the charts of dashboards, where `Plot` draws curves over axes:
@@ -1890,7 +1943,8 @@ What Raven does not do yet, by area. Contributions are welcome.
 
 `stb_truetype` and `stb_image` (public domain / MIT, Sean Barrett), `nanosvg`
 (zlib, Mikko Mononen), a subset
-of the Roboto font (Apache 2.0, Google) and a subset of Roboto Mono (SIL Open
-Font License 1.1) are included under `third_party/`; see
+of the Roboto font (Apache 2.0, Google), a subset of Roboto Mono (SIL Open
+Font License 1.1) and 63 icons of Lucide (ISC, some MIT from Feather) are
+included under `third_party/`; see
 [THIRD_PARTY.md](THIRD_PARTY.md). The Vulkan headers (Apache 2.0 / MIT,
 Khronos) are needed to build but are not part of this repository.

@@ -27,6 +27,7 @@
 
 #include "common.h"
 #include "../xml/xml.h"
+#include "../render/renderer.h"
 
 #define RVN_NG_ROW       24.0f
 #define RVN_NG_PAD       10.0f
@@ -1478,7 +1479,8 @@ static void rvn_ng_paint_header(rvn_node_graph_t* graph, RPainter* painter, cons
 	else title = look->text;
 	if (node->icon != R_INVALID_ID && Rtexture_is_valid(node->icon)) {
 		float size = rvn_minf(16.0f, height - 10.0f);
-		rvn_paint_image(painter, rvn_rect(title_x, rect.y + (height - size) * 0.5f, size, size), node->icon, NULL, rvn_hex(0xFFFFFF, 255), 3.0f);
+		rvn_paint_image(painter, rvn_rect(title_x, rect.y + (height - size) * 0.5f, size, size), node->icon, NULL,
+			rvn_icon_tint(node->icon, R_FALSE, title, rvn_hex(0xFFFFFF, 255)), 3.0f);
 		title_x += size + 7.0f;
 	} else if (shape == RVN_SHAPE_NONE) {
 		/* no band of color: a dot of it */

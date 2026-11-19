@@ -1498,6 +1498,7 @@ void Rfont_measure_text(Rid font, float size, const char* text, float* width, fl
 Rid Rtexture_create(const char* data, size_t data_size);
 Rid Rtexture_create_async(const char* data, size_t data_size);
 Rid Rtexture_create_from_svg(const char* svg, size_t svg_size, float scale);
+int Rtexture_uses_current_color(Rid texture);
 float Rtexture_get_density(Rid texture);
 Rid Rtexture_create_from_file(const char* path);
 Rid Rtexture_create_from_file_async(const char* path);
@@ -1513,6 +1514,9 @@ void Rtexture_destroy(Rid texture);
 int Rtexture_is_valid(Rid texture);
 void Rtexture_get_size(Rid texture, int* width, int* height);
 void Rtexture_set_filter(Rid texture, RFilterType filter);
+Rid Ricon_get(const char* name);
+int Ricon_get_count(void);
+const char* Ricon_get_name(int index);
 Rid Rwidget_create(RWidgetType type);
 void Rwidget_destroy(Rid widget);
 int Rwidget_is_valid(Rid widget);

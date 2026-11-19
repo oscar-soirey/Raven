@@ -7,6 +7,13 @@
  *
  * nanosvg draws paths, fills, strokes and gradients; it does not draw text,
  * filters, masks, nor images inside the SVG. That is what icons are made of.
+ *
+ * currentColor (flagged by a small change to nanosvg, see THIRD_PARTY.md):
+ * an SVG painted only in currentColor is drawn in white, as a mask, and the
+ * widgets that show it multiply it by the color of their text at draw time,
+ * so it follows the theme and the states without being drawn again. In an
+ * SVG that mixes currentColor with other colors, currentColor is black, as
+ * in an SVG shown on its own.
  */
 
 #include "renderer.h"
@@ -103,13 +110,40 @@ static void rvn_svg_tame(NSVGimage* image, float scale) {
 	}
 }
 
-uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height) {
+/*
+ * R_TRUE when every visible fill and stroke is currentColor (and there is
+ * one): those are then made white, keeping their opacity.
+ */
+static int rvn_svg_current_color_mask(NSVGimage* image) {
+	NSVGshape* shape;
+	int any = R_FALSE;
+	for (shape = image->shapes; shape; shape = shape->next) {
+		if (!(shape->flags & NSVG_FLAGS_VISIBLE)) continue;
+		if (shape->fill.type != NSVG_PAINT_NONE) {
+			if (shape->fill.type != NSVG_PAINT_COLOR || !(shape->flags & NSVG_FLAGS_FILL_CURRENT_COLOR)) return R_FALSE;
+			any = R_TRUE;
+		}
+		if (shape->stroke.type != NSVG_PAINT_NONE && shape->strokeWidth > 0.0f) {
+			if (shape->stroke.type != NSVG_PAINT_COLOR || !(shape->flags & NSVG_FLAGS_STROKE_CURRENT_COLOR)) return R_FALSE;
+			any = R_TRUE;
+		}
+	}
+	if (!any) return R_FALSE;
+	for (shape = image->shapes; shape; shape = shape->next) {
+		if (shape->fill.type == NSVG_PAINT_COLOR) shape->fill.color |= 0x00FFFFFFu;
+		if (shape->stroke.type == NSVG_PAINT_COLOR) shape->stroke.color |= 0x00FFFFFFu;
+	}
+	return R_TRUE;
+}
+
+uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height, int* current_color) {
 	NSVGimage* image;
 	NSVGrasterizer* rasterizer;
 	char* text;
 	uint8_t* pixels = NULL;
 	float fw, fh;
-	int w, h;
+	int w, h, mask;
+	if (current_color) *current_color = R_FALSE;
 	if (!data || size == 0 || size > 0x7FFFFFFFu || !(scale > 0.0f)) return NULL;
 	/* nanosvg writes into the text it parses */
 	text = (char*)rvn_alloc(size + 1);
@@ -125,6 +159,7 @@ uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* widt
 		w = (int)fw;
 		h = (int)fh;
 		rvn_svg_tame(image, scale);
+		mask = rvn_svg_current_color_mask(image);
 		rasterizer = nsvgCreateRasterizer();
 		if (rasterizer) {
 			pixels = (uint8_t*)rvn_calloc((size_t)w * (size_t)h * 4);
@@ -132,6 +167,7 @@ uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* widt
 			nsvgDeleteRasterizer(rasterizer);
 			*width = w;
 			*height = h;
+			if (current_color) *current_color = mask;
 		}
 	}
 	nsvgDelete(image);
@@ -146,7 +182,8 @@ int rvn_svg_detect(const uint8_t* data, size_t size) {
 	return R_FALSE;
 }
 
-uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height) {
+uint8_t* rvn_svg_decode(const uint8_t* data, size_t size, float scale, int* width, int* height, int* current_color) {
+	if (current_color) *current_color = R_FALSE;
 	RVN_UNUSED(data);
 	RVN_UNUSED(size);
 	RVN_UNUSED(scale);

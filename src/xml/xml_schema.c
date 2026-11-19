@@ -81,6 +81,7 @@ static const rvn_schema_attribute_t g_slot[] = {
 	V("Slot.Size", "Canvas: \"width,height\"."),
 	V("Slot.Alignment", "Canvas: \"x,y\", the point of the widget placed at the position, from 0 to 1."),
 	T("Slot.Title", "Title of the tab or of the docked panel that holds the widget."),
+	F("Slot.Icon", "Icon before the title of the tab (a TabView with Documents=\"true\") or of the docked panel: an icon of Raven (\"raven:folder\") or an image file."),
 	C("Slot.Dock", "Left|Right|Top|Bottom|Tab", "DockArea: the side of the area, or of Slot.DockTo, the panel takes."),
 	T("Slot.DockTo", "DockArea: name of the panel the panel is placed against."),
 	N("Slot.DockSize", "DockArea: share of the place it is cut from, between 0 and 1."),
@@ -242,9 +243,9 @@ static const rvn_schema_attribute_t g_progress_bar[] = {
 };
 static const rvn_schema_attribute_t g_separator[] = { C("Orientation", ORIENTATION, "Horizontal is a line across.") };
 static const rvn_schema_attribute_t g_image[] = {
-	F("Source", "Image file."),
+	F("Source", "Image file, or an icon of Raven: \"raven:search\" (drawn in the color of the text)."),
 	C("Stretch", STRETCH, "How the image fills its place."),
-	K("Tint", "Color the image is multiplied by."),
+	K("Tint", "Color the image is multiplied by; the color of an icon in currentColor (the text color by default)."),
 	N("CornerRadius", "Rounds the corners."),
 	V("Region", "Part of the image shown: \"minu,minv,maxu,maxv\" from 0 to 1."),
 	B("TintText", "Tinted with the color of the text around it: white icons that follow the theme."),
@@ -422,6 +423,7 @@ static const rvn_schema_attribute_t g_menu_item[] = {
 	B("Checkable", "Clicking it checks and unchecks it."),
 	B("Checked", "Its state."),
 	B("Separator", "A line instead of an item."),
+	F("Icon", "Icon before the text: an icon of Raven (\"raven:save\") or an image file."),
 	A("OnClicked", "Action fired by the item."),
 };
 static const rvn_schema_attribute_t g_viewport[] = {

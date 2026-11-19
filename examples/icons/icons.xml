@@ -1,0 +1,63 @@
+<!-- The icons of Raven: in buttons, tabs, a tree, menu items. They are drawn in the color of the text around them. main.c fills the gallery. -->
+<Window Title="Raven icons" Width="960" Height="640">
+	<VBox Spacing="14" Slot.Padding="24">
+		<HBox Spacing="10">
+			<VBox Spacing="2" Slot.Fill="1">
+				<Label Text="Icons" TextSize="26"/>
+				<Label Name="subtitle" Text="Shipped with Raven, drawn in the color of the text: they follow the theme, hover, pressed and disabled" Opacity="0.6"/>
+			</VBox>
+			<Button Name="theme" OnClicked="icons.theme" Slot.VAlign="Center">
+				<HBox Spacing="8">
+					<Image Name="theme_icon" Source="raven:sun" Width="16" Height="16" Slot.VAlign="Center"/>
+					<Label Name="theme_text" Text="Light" Slot.VAlign="Center"/>
+				</HBox>
+			</Button>
+		</HBox>
+
+		<HBox Spacing="10">
+			<Button Style="Primary">
+				<HBox Spacing="8">
+					<Image Source="raven:save" Width="16" Height="16" Slot.VAlign="Center"/>
+					<Label Text="Save" Slot.VAlign="Center"/>
+				</HBox>
+			</Button>
+			<Button Name="hovered">
+				<HBox Spacing="8">
+					<Image Source="raven:share" Width="16" Height="16" Slot.VAlign="Center"/>
+					<Label Text="Share (hovered)" Slot.VAlign="Center"/>
+				</HBox>
+			</Button>
+			<Button Enabled="false">
+				<HBox Spacing="8">
+					<Image Source="raven:delete" Width="16" Height="16" Slot.VAlign="Center"/>
+					<Label Text="Delete (disabled)" Slot.VAlign="Center"/>
+				</HBox>
+			</Button>
+			<Button Style="Flat">
+				<Image Source="raven:settings" Width="18" Height="18"/>
+			</Button>
+			<HBox Spacing="6" Slot.VAlign="Center">
+				<Image Source="raven:warning" Width="16" Height="16" Tint="#F5A524" Slot.VAlign="Center"/>
+				<Label Text="Tint gives an icon its own color" Slot.VAlign="Center"/>
+			</HBox>
+		</HBox>
+
+		<HBox Spacing="14" Slot.Fill="1">
+			<TabView Width="250" Documents="true">
+				<TreeView Slot.Title="Files" Slot.Icon="raven:folder" Slot.Closable="false">
+					<Item Text="Project" Icon="raven:open" Expanded="true">
+						<Item Text="README.md" Icon="raven:file"/>
+						<Item Text="photo.png" Icon="raven:image"/>
+						<Item Text="Settings" Icon="raven:settings"/>
+					</Item>
+					<Item Text="Starred" Icon="raven:star"/>
+					<Item Text="Shared" Icon="raven:link"/>
+				</TreeView>
+				<Label Slot.Title="Search" Slot.Icon="raven:search" Slot.Closable="false" Text="Nothing to search."/>
+			</TabView>
+			<ScrollBox Slot.Fill="1">
+				<WrapBox Name="gallery" Spacing="6"/>
+			</ScrollBox>
+		</HBox>
+	</VBox>
+</Window>

@@ -45,6 +45,10 @@ attribute can be set at run time with `Rwidget_set_attribute(widget, "Text", "He
   current folder and the folders of `PATH` (see
   [Where files are looked for](#where-files-are-looked-for)). A file is
   loaded once and shared by every widget that names it.
+- An image can be one of the icons shipped with Raven: `raven:` and its name
+  (`Source="raven:search"`, `Icon="raven:save"`; `Ricon_get_name` lists
+  them). Icons, and SVGs painted only in `currentColor`, are drawn in the
+  color of the text of the widget that shows them.
 
 ## Value types
 
@@ -263,6 +267,7 @@ panel uses the attributes that make sense for it.
 | `Slot.Size` | `width,height` (when the anchors do not stretch) | Canvas |
 | `Slot.Alignment` | `x,y` pivot of the child, 0..1 (`0.5,0.5` centers it on its position) | Canvas |
 | `Slot.Title` | text of the tab | TabView, DockArea |
+| `Slot.Icon` | icon before the title of the tab: an image, or an icon of Raven (`raven:folder`) | TabView with `Documents="true"`, DockArea |
 | `Slot.Dock` | `Left`, `Right`, `Top`, `Bottom`: the side the panel takes; `Tab`: a tab beside the panel named by `Slot.DockTo` | DockArea |
 | `Slot.DockTo` | name of the panel it is placed against; without it, the whole area | DockArea |
 | `Slot.DockSize` | share of the place it is cut from, 0..1 (0: a half, or a quarter of the whole area) | DockArea |
@@ -305,12 +310,12 @@ panel uses the attributes that make sense for it.
 | `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength` |
 | `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"` |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
-| `TreeView` | nested `<Item Text="..." Expanded="true">` children |
-| `Image` | `Source` (path of an image), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |
+| `TreeView` | nested `<Item Text="..." Expanded="true" Icon="raven:folder">` children |
+| `Image` | `Source` (path of an image, or an icon of Raven: `raven:search`), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |
 | `Separator` | `Orientation` (`Horizontal` line by default) |
 | `MenuBar` | `<Menu>` children; `Native` (`false`: drawn in the window on macOS too, instead of the menu bar of the system) |
 | `Menu` | `Text`; children `<MenuItem>`, `<Separator/>` and nested `<Menu>` |
-| `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked` |
+| `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked`, `Icon` (an image, or an icon of Raven: `raven:save`) |
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |
 | `Custom` | drawn by the application: `Rcustom_set_paint_callback` |
 | `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |

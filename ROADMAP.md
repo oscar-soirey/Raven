@@ -108,8 +108,9 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 ### Images
 
-- [ ] SVG icons tinted with the theme (`currentColor`), with a set of icons
-  shipped with Raven.
+- [x] SVG icons tinted with the theme (`currentColor`), with a set of icons
+  shipped with Raven: 63 icons of Lucide (`Ricon_get`, `raven:search` in
+  XML), drawn in white and tinted with the text color of the widget.
 - [ ] Animated images (GIF, APNG).
 
 ### Windows and system

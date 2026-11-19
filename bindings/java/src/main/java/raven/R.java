@@ -3202,7 +3202,7 @@ public final class R {
         public RTileItem badge(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
 
         /**
-         * Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default).
+         * Icon texture (R_INVALID_ID: none), the region of it and its tint (white by default; an SVG in currentColor is also tinted with the color of the name).
          */
         public int icon() { return s.get(JAVA_INT, 24); }
         public RTileItem icon(int value) { s.set(JAVA_INT, 24, value); return this; }
@@ -10268,6 +10268,15 @@ public final class R {
      * does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
      * ones read SVG files this way. Paths, fills, strokes and gradients are
      * drawn; text, filters and masks are not.
+     *
+     * currentColor: an SVG painted only in currentColor (fill="currentColor",
+     * stroke="currentColor") is drawn in white, keeping its shape and its
+     * opacity, and the widgets that show it (Image, the icons of menu items,
+     * tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+     * their text at draw time: it follows the theme, hover, pressed and
+     * disabled without being drawn again. Rdraw_image draws it in its tint
+     * color. In an SVG that also uses other colors, currentColor is black.
+     * See Rtexture_uses_current_color.
      */
     public static int Rtexture_create_from_svg(String svg, long svg_size, float scale) {
         MethodHandle $h = Rtexture_create_from_svg$;
@@ -10275,6 +10284,24 @@ public final class R {
         try (Arena $a = Arena.ofConfined()) {
             MemorySegment svg$ = svg == null ? MemorySegment.NULL : utf8($a, svg);
             int $r = (int) $h.invokeExact(svg$, svg_size, scale);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtexture_uses_current_color$;
+
+    /**
+     * R_TRUE when the texture is an SVG painted only in currentColor:
+     * white where it is painted, tinted with the color of the text by the
+     * widgets that show it (see Rtexture_create_from_svg).
+     */
+    public static int Rtexture_uses_current_color(int texture) {
+        MethodHandle $h = Rtexture_uses_current_color$;
+        if ($h == null) Rtexture_uses_current_color$ = $h = find("Rtexture_uses_current_color", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(texture);
             return $r;
         } catch (Throwable $t) {
             throw fail($t);
@@ -10530,6 +10557,64 @@ public final class R {
         if ($h == null) Rtexture_set_filter$ = $h = find("Rtexture_set_filter", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(texture, filter);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Ricon_get$;
+
+    /**
+     * An icon shipped with Raven, by its name: "search", "settings",
+     * "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+     * XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+     * License), 24 x 24 logical units, drawn with lines in currentColor: the
+     * widgets that show them tint them with the color of their text, so they
+     * follow the theme and the states (Rtexture_create_from_svg). Drawn at
+     * the density they are shown with, sharp on every screen.
+     * Returns: A texture owned by Raven, made on first use and then shared
+     * (do not destroy it; if it was, the next call makes it again);
+     * R_INVALID_ID, with an error, when there is no icon of that name.
+     */
+    public static int Ricon_get(String name) {
+        MethodHandle $h = Ricon_get$;
+        if ($h == null) Ricon_get$ = $h = find("Ricon_get", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment name$ = name == null ? MemorySegment.NULL : utf8($a, name);
+            int $r = (int) $h.invokeExact(name$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Ricon_get_count$;
+
+    /**
+     * Returns: The number of icons shipped with Raven.
+     */
+    public static int Ricon_get_count() {
+        MethodHandle $h = Ricon_get_count$;
+        if ($h == null) Ricon_get_count$ = $h = find("Ricon_get_count", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Ricon_get_name$;
+
+    /**
+     * Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range.
+     */
+    public static String Ricon_get_name(int index) {
+        MethodHandle $h = Ricon_get_name$;
+        if ($h == null) Ricon_get_name$ = $h = find("Ricon_get_name", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(index);
+            return text($r);
         } catch (Throwable $t) {
             throw fail($t);
         }
@@ -12402,7 +12487,7 @@ public final class R {
     private static MethodHandle Rtab_view_set_tab_icon$;
 
     /**
-     * Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color.
+     * Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon.
      */
     public static void Rtab_view_set_tab_icon(int tab_view, int content, int texture, float u0, float v0, float u1, float v1, int tint) {
         MethodHandle $h = Rtab_view_set_tab_icon$;
@@ -13158,6 +13243,11 @@ public final class R {
 
     private static MethodHandle Rimage_set_tint_color$;
 
+    /**
+     * Color the image is multiplied by (white by default). An SVG in
+     * currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+     * the text around it until a tint is given; then in the tint. XML: Tint.
+     */
     public static void Rimage_set_tint_color(int image, float r, float g, float b, float a) {
         MethodHandle $h = Rimage_set_tint_color$;
         if ($h == null) Rimage_set_tint_color$ = $h = find("Rimage_set_tint_color", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT, JAVA_FLOAT));
@@ -14154,6 +14244,7 @@ public final class R {
 
     /**
      * Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+     * An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item.
      */
     public static void Rtree_item_set_icon(int item, int texture, float u0, float v0, float u1, float v1) {
         MethodHandle $h = Rtree_item_set_icon$;
@@ -14572,6 +14663,7 @@ public final class R {
      * Icon drawn before the text of a menu item (after the check mark column).
      * texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
      * tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+     *                An SVG in currentColor (Ricon_get) always is. XML: Icon.
      */
     public static void Rmenu_item_set_icon(int item, int texture, float u0, float v0, float u1, float v1, int tint) {
         MethodHandle $h = Rmenu_item_set_icon$;

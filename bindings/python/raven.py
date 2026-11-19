@@ -5288,8 +5288,28 @@ def Rtexture_create_from_svg(svg, svg_size, scale):
     in pixels (Rtexture_get_size) change then; its size in logical units
     does not. Rtexture_create, Rtexture_create_from_file and the asynchronous
     ones read SVG files this way. Paths, fills, strokes and gradients are
-    drawn; text, filters and masks are not."""
+    drawn; text, filters and masks are not.
+    
+    currentColor: an SVG painted only in currentColor (fill="currentColor",
+    stroke="currentColor") is drawn in white, keeping its shape and its
+    opacity, and the widgets that show it (Image, the icons of menu items,
+    tabs, tree items, dock panels, tiles, nodes) tint it with the color of
+    their text at draw time: it follows the theme, hover, pressed and
+    disabled without being drawn again. Rdraw_image draws it in its tint
+    color. In an SVG that also uses other colors, currentColor is black.
+    See Rtexture_uses_current_color."""
     return _lib.Rtexture_create_from_svg(_s(svg), svg_size, scale)
+
+
+_lib.Rtexture_uses_current_color.argtypes = [ctypes.c_uint32]
+_lib.Rtexture_uses_current_color.restype = ctypes.c_int
+
+
+def Rtexture_uses_current_color(texture):
+    """R_TRUE when the texture is an SVG painted only in currentColor:
+    white where it is painted, tinted with the color of the text by the
+    widgets that show it (see Rtexture_create_from_svg)."""
+    return _lib.Rtexture_uses_current_color(texture)
 
 
 _lib.Rtexture_get_density.argtypes = [ctypes.c_uint32]
@@ -5444,6 +5464,42 @@ def Rtexture_set_filter(texture, filter_):
     from image files start with R_FILTER_MIPMAP, the others with
     R_FILTER_LINEAR."""
     _lib.Rtexture_set_filter(texture, int(filter_))
+
+
+_lib.Ricon_get.argtypes = [ctypes.c_char_p]
+_lib.Ricon_get.restype = ctypes.c_uint32
+
+
+def Ricon_get(name):
+    """An icon shipped with Raven, by its name: "search", "settings",
+    "close"... (Ricon_get_name lists them; "raven:search" works too, as in
+    XML: Source="raven:search"). The icons are the ones of Lucide (ISC
+    License), 24 x 24 logical units, drawn with lines in currentColor: the
+    widgets that show them tint them with the color of their text, so they
+    follow the theme and the states (Rtexture_create_from_svg). Drawn at
+    the density they are shown with, sharp on every screen.
+    Returns: A texture owned by Raven, made on first use and then shared
+    (do not destroy it; if it was, the next call makes it again);
+    R_INVALID_ID, with an error, when there is no icon of that name."""
+    return _lib.Ricon_get(_s(name))
+
+
+_lib.Ricon_get_count.argtypes = []
+_lib.Ricon_get_count.restype = ctypes.c_int
+
+
+def Ricon_get_count():
+    """Returns: The number of icons shipped with Raven."""
+    return _lib.Ricon_get_count()
+
+
+_lib.Ricon_get_name.argtypes = [ctypes.c_int]
+_lib.Ricon_get_name.restype = ctypes.c_char_p
+
+
+def Ricon_get_name(index):
+    """Returns: The name of an icon, from 0 to Ricon_get_count() - 1, in alphabetical order; NULL out of range."""
+    return _r(_lib.Ricon_get_name(index))
 
 
 _lib.Rwidget_create.argtypes = [ctypes.c_int]
@@ -6605,7 +6661,7 @@ _lib.Rtab_view_set_tab_icon.restype = None
 
 
 def Rtab_view_set_tab_icon(tab_view, content, texture, u0, v0, u1, v1, tint):
-    """Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color."""
+    """Icon before the title (documents). R_INVALID_ID removes it; tint: a mask in the text color (always, for an SVG in currentColor). XML: Slot.Icon."""
     _lib.Rtab_view_set_tab_icon(tab_view, content, texture, u0, v0, u1, v1, tint)
 
 
@@ -7063,6 +7119,9 @@ _lib.Rimage_set_tint_color.restype = None
 
 
 def Rimage_set_tint_color(image, r, g, b, a):
+    """Color the image is multiplied by (white by default). An SVG in
+    currentColor (Ricon_get, Rtexture_create_from_svg) is drawn in the color of
+    the text around it until a tint is given; then in the tint. XML: Tint."""
     _lib.Rimage_set_tint_color(image, r, g, b, a)
 
 
@@ -7648,7 +7707,8 @@ _lib.Rtree_item_set_icon.restype = None
 
 
 def Rtree_item_set_icon(item, texture, u0, v0, u1, v1):
-    """Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it."""
+    """Icon drawn before the text of the item (a region u0,v0,u1,v1 of the texture). R_INVALID_ID removes it.
+    An SVG in currentColor (Ricon_get) takes the color of the text. XML: Icon on an Item."""
     _lib.Rtree_item_set_icon(item, texture, u0, v0, u1, v1)
 
 
@@ -7902,7 +7962,8 @@ _lib.Rmenu_item_set_icon.restype = None
 def Rmenu_item_set_icon(item, texture, u0, v0, u1, v1, tint):
     """Icon drawn before the text of a menu item (after the check mark column).
     texture R_INVALID_ID removes it. u0, v0, u1, v1 : region of the texture.
-    tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons)."""
+    tint    R_TRUE: the texture is a mask drawn in the text color (monochrome icons).
+                   An SVG in currentColor (Ricon_get) always is. XML: Icon."""
     _lib.Rmenu_item_set_icon(item, texture, u0, v0, u1, v1, tint)
 
 

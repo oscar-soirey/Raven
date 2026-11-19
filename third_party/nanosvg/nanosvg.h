@@ -103,7 +103,10 @@ enum NSVGfillRule {
 };
 
 enum NSVGflags {
-	NSVG_FLAGS_VISIBLE = 0x01
+	NSVG_FLAGS_VISIBLE = 0x01,
+	// Raven: the fill or the stroke is "currentColor" (parsed as black); the application gives the color
+	NSVG_FLAGS_FILL_CURRENT_COLOR = 0x02,
+	NSVG_FLAGS_STROKE_CURRENT_COLOR = 0x04
 };
 
 enum NSVGpaintOrder {
@@ -446,6 +449,8 @@ typedef struct NSVGattrib
 	char hasStroke;
 	char visible;
     unsigned char paintOrder;
+	char fillCurrentColor;		// Raven: the fill color is currentColor
+	char strokeCurrentColor;	// Raven: the stroke color is currentColor
 } NSVGattrib;
 
 typedef struct NSVGstyleDeclaration
@@ -1046,6 +1051,9 @@ static void nsvg__addShape(NSVGparser* p)
 
 	// Set flags
 	shape->flags = (attr->visible ? NSVG_FLAGS_VISIBLE : 0x00);
+	// Raven: which colors are currentColor
+	if (attr->hasFill == 1 && attr->fillCurrentColor) shape->flags |= NSVG_FLAGS_FILL_CURRENT_COLOR;
+	if (attr->hasStroke == 1 && attr->strokeCurrentColor) shape->flags |= NSVG_FLAGS_STROKE_CURRENT_COLOR;
 
 	// Add to tail
 	if (p->image->shapes == NULL)
@@ -1490,6 +1498,20 @@ static unsigned int nsvg__parseColorName(const char* str)
 	return NSVG_RGB(128, 128, 128);
 }
 
+// Raven: R_TRUE when the value is the keyword currentColor (in any case)
+static int nsvg__isCurrentColor(const char* str)
+{
+	const char* keyword = "currentcolor";
+	while (*str == ' ') ++str;
+	for (; *keyword; ++str, ++keyword) {
+		char c = *str;
+		if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+		if (c != *keyword) return 0;
+	}
+	while (*str == ' ') ++str;
+	return *str == '\0';
+}
+
 static unsigned int nsvg__parseColor(const char* str)
 {
 	size_t len = 0;
@@ -1877,7 +1899,9 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 			nsvg__parseUrl(attr->fillGradient, value);
 		} else {
 			attr->hasFill = 1;
-			attr->fillColor = nsvg__parseColor(value);
+			// Raven: currentColor is black (the color of an SVG drawn alone) unless the application gives another
+			attr->fillCurrentColor = (char)nsvg__isCurrentColor(value);
+			attr->fillColor = attr->fillCurrentColor ? NSVG_RGB(0, 0, 0) : nsvg__parseColor(value);
 		}
 	} else if (strcmp(name, "opacity") == 0) {
 		attr->opacity = nsvg__parseOpacity(value);
@@ -1891,7 +1915,9 @@ static int nsvg__parseAttr(NSVGparser* p, const char* name, const char* value)
 			nsvg__parseUrl(attr->strokeGradient, value);
 		} else {
 			attr->hasStroke = 1;
-			attr->strokeColor = nsvg__parseColor(value);
+			// Raven: as for the fill
+			attr->strokeCurrentColor = (char)nsvg__isCurrentColor(value);
+			attr->strokeColor = attr->strokeCurrentColor ? NSVG_RGB(0, 0, 0) : nsvg__parseColor(value);
 		}
 	} else if (strcmp(name, "stroke-width") == 0) {
 		attr->strokeWidth = nsvg__parseCoordinate(p, value, 0.0f, nsvg__actualLength(p));

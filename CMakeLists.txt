@@ -181,6 +181,8 @@ set(RAVEN_RENDER_SOURCES
 	src/render/bidi.c
 	src/render/font.h
 	src/render/font_raster.c
+	src/render/icons.c
+	src/render/icons.h
 	src/render/image_decode.c
 	src/render/image_encode.c
 	src/render/svg_decode.c
@@ -192,6 +194,7 @@ set(RAVEN_RENDER_SOURCES
 	src/render/null/null_backend.c
 	src/resources/default_font.c
 	src/resources/mono_font.c
+	src/resources/icons.c
 )
 
 set(RAVEN_WIDGET_SOURCES
