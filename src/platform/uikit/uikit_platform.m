@@ -41,6 +41,7 @@
 #endif
 /* (SHORTCUT: the platform reads the id of the core's window from its user pointer, as the Android platform reaches the core) */
 #include "../../widget/widget.h"
+#include "../../core/accessibility.h"
 
 struct rvn_pwindow_t {
 	void* user;
@@ -56,6 +57,8 @@ struct rvn_pwindow_t {
 	Rid keyboard_focus;
 	/* the keyboard went away without Raven asking (the user or the system): pump drops Raven's focus */
 	int keyboard_dismissed;
+	/* VoiceOver: the nodes at the top of the window when last told (a change is a new screen) */
+	uint32_t a11y_top;
 };
 
 #define RVN_UIKIT_QUEUE 256
@@ -914,6 +917,298 @@ static UIWindowScene* rvn_uikit_scene(void) {
 }
 
 /* ---------------------------------------------------------------------------
+ *  Accessibility: VoiceOver (UIAccessibility)
+ *
+ *  The view is a container (not an element itself) that stands for the
+ *  window node of core/accessibility.h. Every other node is a
+ *  RavenUIKitElement (a UIAccessibilityElement), made on first use and kept
+ *  in a table by node; all it says is asked of the core when VoiceOver asks
+ *  (UIKit and the core share the main thread), with the mapping of
+ *  core/accessibility_touch.c, which TalkBack on Android uses too:
+ *   - a node with children is a container of them; a node that is also an
+ *     element (an expander, a custom widget with children) comes first among
+ *     them, as a second RavenUIKitElement for the same node (ravenSelf);
+ *   - label = name, value = value, hint = description, traits from the role
+ *     and the states; the frame is the node's rectangle (points: the logical
+ *     units of Raven on iOS) given to UIAccessibilityConvertFrameToScreenCoordinates;
+ *   - a double tap is rvn_a11y_activate, a swipe up / down rvn_a11y_adjust.
+ *  The nodes out of view (rows of a list scrolled away, pages not shown) are left out.
+ *  SHORTCUT: three-finger scrolling (accessibilityScroll) is not handled.
+ * ------------------------------------------------------------------------- */
+
+@interface RavenUIKitElement : UIAccessibilityElement {
+@public
+	rvn_a11y_id_t ravenNode;
+	rvn_pwindow_t* ravenWindow;
+	/* the node itself, first among its own children (it is an element and a container) */
+	BOOL ravenSelf;
+}
+@end
+
+/* node -> RavenUIKitElement (containers and elements), and node -> its ravenSelf element */
+static NSMutableDictionary* g_uikit_elements;
+static NSMutableDictionary* g_uikit_selves;
+
+static rvn_a11y_id_t rvn_uikit_a11y_root(rvn_pwindow_t* window) {
+	return window ? (rvn_a11y_id_t)rvn_a11y_window_of(window->user) : 0;
+}
+
+static id rvn_uikit_a11y_object(rvn_pwindow_t* window, rvn_a11y_id_t node);
+
+static RavenUIKitElement* rvn_uikit_a11y_element(NSMutableDictionary* __strong* table, rvn_pwindow_t* window, rvn_a11y_id_t node, id container, BOOL itself) {
+	NSNumber* key = [NSNumber numberWithUnsignedLongLong:(unsigned long long)node];
+	RavenUIKitElement* element;
+	if (!*table) *table = [[NSMutableDictionary alloc] init];
+	element = [*table objectForKey:key];
+	if (element) {
+		/* (a node can move to another parent) */
+		if (container && element.accessibilityContainer != container) element.accessibilityContainer = container;
+		return element;
+	}
+	if (!container) return nil;
+	element = [[RavenUIKitElement alloc] initWithAccessibilityContainer:container];
+	element->ravenNode = node;
+	element->ravenWindow = window;
+	element->ravenSelf = itself;
+	[*table setObject:element forKey:key];
+	return element;
+}
+
+/* The elements in a container: the node itself first when it is an element too, then its children shown. */
+static NSArray* rvn_uikit_a11y_children(rvn_pwindow_t* window, rvn_a11y_id_t node, id container, BOOL with_self) {
+	int i, count = rvn_a11y_child_count(node);
+	NSMutableArray* elements = [NSMutableArray arrayWithCapacity:(NSUInteger)(count > 0 ? count + 1 : 1)];
+	if (with_self) {
+		RavenUIKitElement* itself = rvn_uikit_a11y_element(&g_uikit_selves, window, node, container, YES);
+		if (itself) [elements addObject:itself];
+	}
+	for (i = 0; i < count; i++) {
+		rvn_a11y_id_t child = rvn_a11y_child(node, i);
+		rvn_a11y_node_t info;
+		rvn_a11y_touch_t touch;
+		RavenUIKitElement* element;
+		if (!rvn_a11y_describe(child, &info) || !rvn_a11y_touch_shown(&info)) continue;
+		rvn_a11y_touch(&info, &touch);
+		/* (a node that is not an element and holds nothing says nothing) */
+		if (!(touch.flags & RVN_A11Y_TOUCH_ELEMENT) && rvn_a11y_child_count(child) == 0) continue;
+		element = rvn_uikit_a11y_element(&g_uikit_elements, window, child, container, NO);
+		if (element) [elements addObject:element];
+	}
+	return elements;
+}
+
+/* The object VoiceOver should be on for a node: the view for the window, the element (or its ravenSelf) for the others. */
+static id rvn_uikit_a11y_object(rvn_pwindow_t* window, rvn_a11y_id_t node) {
+	rvn_a11y_node_t info;
+	rvn_a11y_touch_t touch;
+	id container;
+	if (!window || !node || !window->view) return nil;
+	if (node == rvn_uikit_a11y_root(window)) return (__bridge RavenUIKitView*)window->view;
+	if (!rvn_a11y_describe(node, &info)) return nil;
+	rvn_a11y_touch(&info, &touch);
+	container = rvn_uikit_a11y_object(window, rvn_a11y_parent(node));
+	if (!container) return nil;
+	if ([container isKindOfClass:[RavenUIKitElement class]] && ((RavenUIKitElement*)container)->ravenSelf) return nil;
+	if ((touch.flags & RVN_A11Y_TOUCH_ELEMENT) && rvn_a11y_child_count(node) > 0) {
+		id holder = rvn_uikit_a11y_element(&g_uikit_elements, window, node, container, NO);
+		return rvn_uikit_a11y_element(&g_uikit_selves, window, node, holder, YES);
+	}
+	return rvn_uikit_a11y_element(&g_uikit_elements, window, node, container, NO);
+}
+
+static void rvn_uikit_a11y_forget_in(NSMutableDictionary* table, rvn_pwindow_t* window) {
+	NSMutableArray* keys = [NSMutableArray array];
+	for (NSNumber* key in table) {
+		RavenUIKitElement* element = [table objectForKey:key];
+		/* a window that goes takes its elements; else only the nodes that are gone */
+		if (window ? element->ravenWindow == window : !rvn_a11y_exists(element->ravenNode)) {
+			element->ravenWindow = NULL;
+			[keys addObject:key];
+		}
+	}
+	[table removeObjectsForKeys:keys];
+}
+
+static void rvn_uikit_a11y_forget(rvn_pwindow_t* window) {
+	if (g_uikit_elements) rvn_uikit_a11y_forget_in(g_uikit_elements, window);
+	if (g_uikit_selves) rvn_uikit_a11y_forget_in(g_uikit_selves, window);
+}
+
+static UIAccessibilityTraits rvn_uikit_a11y_traits(const rvn_a11y_node_t* node, const rvn_a11y_touch_t* touch) {
+	UIAccessibilityTraits traits = UIAccessibilityTraitNone;
+	uint32_t t = touch->traits;
+	if (t & RVN_A11Y_TRAIT_BUTTON) traits |= UIAccessibilityTraitButton;
+	if (t & RVN_A11Y_TRAIT_LINK) traits |= UIAccessibilityTraitLink;
+	if (t & RVN_A11Y_TRAIT_HEADER) traits |= UIAccessibilityTraitHeader;
+	if (t & RVN_A11Y_TRAIT_IMAGE) traits |= UIAccessibilityTraitImage;
+	if (t & RVN_A11Y_TRAIT_STATIC_TEXT) traits |= UIAccessibilityTraitStaticText;
+	if (t & RVN_A11Y_TRAIT_ADJUSTABLE) traits |= UIAccessibilityTraitAdjustable;
+	if (t & RVN_A11Y_TRAIT_SELECTED) traits |= UIAccessibilityTraitSelected;
+	if (t & RVN_A11Y_TRAIT_NOT_ENABLED) traits |= UIAccessibilityTraitNotEnabled;
+	if (t & RVN_A11Y_TRAIT_UPDATES_FREQUENTLY) traits |= UIAccessibilityTraitUpdatesFrequently;
+	if (t & RVN_A11Y_TRAIT_TAB_BAR) traits |= UIAccessibilityTraitTabBar;
+	if (t & RVN_A11Y_TRAIT_TOGGLE) {
+		/* iOS 17: "switch button, on"; before: a button, "selected" when checked */
+		if (@available(iOS 17.0, *)) traits |= UIAccessibilityTraitToggleButton;
+		else if (node->states & RVN_A11Y_CHECKED) traits |= UIAccessibilityTraitSelected;
+	}
+	return traits;
+}
+
+static NSString* rvn_uikit_a11y_string(const char* text) {
+	return text && text[0] ? [NSString stringWithUTF8String:text] : nil;
+}
+
+@implementation RavenUIKitElement
+- (BOOL)ravenDescribe:(rvn_a11y_node_t*)node touch:(rvn_a11y_touch_t*)touch {
+	if (!ravenWindow || !rvn_a11y_describe(ravenNode, node)) return NO;
+	rvn_a11y_touch(node, touch);
+	return YES;
+}
+- (BOOL)isAccessibilityElement {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	if (![self ravenDescribe:&node touch:&touch]) return NO;
+	if (ravenSelf) return YES;
+	return (touch.flags & RVN_A11Y_TOUCH_ELEMENT) && rvn_a11y_child_count(ravenNode) == 0 ? YES : NO;
+}
+- (NSArray*)accessibilityElements {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	if (ravenSelf || ![self ravenDescribe:&node touch:&touch] || rvn_a11y_child_count(ravenNode) == 0) return nil;
+	return rvn_uikit_a11y_children(ravenWindow, ravenNode, self, (touch.flags & RVN_A11Y_TOUCH_ELEMENT) ? YES : NO);
+}
+- (UIAccessibilityContainerType)accessibilityContainerType {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	if (ravenSelf || ![self ravenDescribe:&node touch:&touch]) return UIAccessibilityContainerTypeNone;
+	/* (a tab bar is said by its trait) */
+	if (touch.traits & RVN_A11Y_TRAIT_TAB_BAR) return UIAccessibilityContainerTypeNone;
+	if (touch.flags & RVN_A11Y_TOUCH_COLLECTION) return UIAccessibilityContainerTypeList;
+	if (touch.flags & RVN_A11Y_TOUCH_GROUP) return UIAccessibilityContainerTypeSemanticGroup;
+	return UIAccessibilityContainerTypeNone;
+}
+- (NSString*)accessibilityLabel {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	return [self ravenDescribe:&node touch:&touch] ? rvn_uikit_a11y_string(node.name) : nil;
+}
+- (NSString*)accessibilityValue {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	if (![self ravenDescribe:&node touch:&touch]) return nil;
+	/* (a toggle button reads "1" / "0" as on / off) */
+	if (touch.traits & RVN_A11Y_TRAIT_TOGGLE) {
+		if (@available(iOS 17.0, *)) return (node.states & RVN_A11Y_CHECKED) ? @"1" : @"0";
+	}
+	return rvn_uikit_a11y_string(node.value);
+}
+- (NSString*)accessibilityHint {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	return [self ravenDescribe:&node touch:&touch] ? rvn_uikit_a11y_string(node.description) : nil;
+}
+- (UIAccessibilityTraits)accessibilityTraits {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	if (![self ravenDescribe:&node touch:&touch]) return UIAccessibilityTraitNone;
+	/* (a container is not a button: only its ravenSelf element is) */
+	if (!ravenSelf && rvn_a11y_child_count(ravenNode) > 0) return (touch.traits & RVN_A11Y_TRAIT_TAB_BAR) ? UIAccessibilityTraitTabBar : UIAccessibilityTraitNone;
+	return rvn_uikit_a11y_traits(&node, &touch);
+}
+- (CGRect)accessibilityFrame {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	UIView* view;
+	if (![self ravenDescribe:&node touch:&touch] || !ravenWindow->view) return CGRectZero;
+	view = (__bridge UIView*)ravenWindow->view;
+	return UIAccessibilityConvertFrameToScreenCoordinates(CGRectMake(node.x, node.y, node.width, node.height), view);
+}
+- (BOOL)accessibilityViewIsModal {
+	rvn_a11y_node_t node;
+	rvn_a11y_touch_t touch;
+	return !ravenSelf && [self ravenDescribe:&node touch:&touch] && (node.states & RVN_A11Y_MODAL) ? YES : NO;
+}
+- (BOOL)accessibilityActivate {
+	return ravenWindow && rvn_a11y_activate(ravenNode) ? YES : NO;
+}
+- (void)accessibilityIncrement {
+	if (ravenWindow) rvn_a11y_adjust(ravenNode, 1);
+}
+- (void)accessibilityDecrement {
+	if (ravenWindow) rvn_a11y_adjust(ravenNode, -1);
+}
+@end
+
+@implementation RavenUIKitView (RavenAccessibility)
+- (BOOL)isAccessibilityElement { return NO; }
+- (NSArray*)accessibilityElements {
+	rvn_a11y_id_t root = rvn_uikit_a11y_root(ravenWindow);
+	if (!root) return nil;
+	return rvn_uikit_a11y_children(ravenWindow, root, self, NO);
+}
+@end
+
+/* A hash of the nodes at the top of a window: when it changes (a dialog, a popup, another page), the screen changed. */
+static uint32_t rvn_uikit_a11y_top(rvn_a11y_id_t root) {
+	uint32_t hash = 2166136261u;
+	int i, count = rvn_a11y_child_count(root);
+	for (i = 0; i < count; i++) {
+		rvn_a11y_id_t child = rvn_a11y_child(root, i);
+		hash = (hash ^ (uint32_t)child) * 16777619u;
+		hash = (hash ^ (uint32_t)(child >> 32)) * 16777619u;
+	}
+	return hash;
+}
+
+static void rvn_uikit_a11y_event(rvn_pwindow_t* window, int event, uint64_t node) {
+	switch (event) {
+		case RVN_A11Y_EVENT_FOCUS: {
+			/* VoiceOver goes where the focus went (Next on the keyboard, a field focused by the application) */
+			id object = node == rvn_uikit_a11y_root(window) ? nil : rvn_uikit_a11y_object(window, (rvn_a11y_id_t)node);
+			if (object) UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, object);
+			break;
+		}
+		case RVN_A11Y_EVENT_STRUCTURE: {
+			uint32_t top = rvn_uikit_a11y_top(rvn_uikit_a11y_root(window));
+			rvn_uikit_a11y_forget(NULL);
+			if (top != window->a11y_top) {
+				window->a11y_top = top;
+				UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification, nil);
+			} else {
+				UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+			}
+			break;
+		}
+		default:
+			/* (a value, a name, a state: VoiceOver asks the element again when it reads it; after a swipe up / down it reads the new value) */
+			break;
+	}
+}
+
+static void rvn_uikit_a11y_announce(rvn_pwindow_t* window, const char* text, int assertive) {
+	NSString* string = rvn_uikit_a11y_string(text);
+	RVN_UNUSED(window);
+	if (!string) return;
+	if (@available(iOS 17.0, *)) {
+		NSAttributedString* message = [[NSAttributedString alloc] initWithString:string attributes:@{
+			UIAccessibilitySpeechAttributeAnnouncementPriority: assertive ? UIAccessibilityPriorityHigh : UIAccessibilityPriorityDefault }];
+		UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, message);
+	} else {
+		UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification, string);
+	}
+}
+
+static int rvn_uikit_a11y_active(void) {
+	return UIAccessibilityIsVoiceOverRunning() || UIAccessibilityIsSwitchControlRunning() ? R_TRUE : R_FALSE;
+}
+
+static void rvn_uikit_a11y_settings(RAccessibilitySettings* settings) {
+	settings->reduce_motion = UIAccessibilityIsReduceMotionEnabled() ? R_TRUE : R_FALSE;
+	settings->high_contrast = UIAccessibilityDarkerSystemColorsEnabled() ? R_TRUE : R_FALSE;
+}
+
+/* ---------------------------------------------------------------------------
  *  Table
  * ------------------------------------------------------------------------- */
 
@@ -1116,6 +1411,7 @@ static void rvn_uikit_window_destroy(rvn_pwindow_t* window) {
 	view->ravenResigning = YES;
 	if (view.isFirstResponder) [view resignFirstResponder];
 	view->ravenWindow = NULL;
+	rvn_uikit_a11y_forget(window);
 	uiwindow.hidden = YES;
 	CFBridgingRelease(window->view);
 	CFBridgingRelease(window->window);
@@ -1309,7 +1605,11 @@ const rvn_platform_t* rvn_platform_uikit(void) {
 		.clipboard_get = rvn_uikit_clipboard_get,
 		.window_get_safe_area = rvn_uikit_window_get_safe_area,
 		.system_dark = rvn_uikit_system_dark,
-		.window_get_keyboard_height = rvn_uikit_window_get_keyboard_height
+		.window_get_keyboard_height = rvn_uikit_window_get_keyboard_height,
+		.a11y_event = rvn_uikit_a11y_event,
+		.a11y_announce = rvn_uikit_a11y_announce,
+		.a11y_active = rvn_uikit_a11y_active,
+		.a11y_settings = rvn_uikit_a11y_settings
 	};
 	return &platform;
 }

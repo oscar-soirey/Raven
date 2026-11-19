@@ -22,6 +22,7 @@ under the same names, with the same documentation comments.
 | D | `d/` | A dub package, `raven-gui`: `raven.c` is the C API as `extern(C)` declarations under the same names (enumerations as `int` constants, structures that start zeroed), and `raven` adds `text` and delegates for `actionBind`, `timerStart`, `errorSetCallback`. See `d/README.md`. | yes (`binding_d`; macOS and Linux, LDC) |
 | Nim | `nim/` | A nimble package, `raven_gui`: `raven_gui/c` is the C API as `importc` declarations under the same names (enumerations as `cint` constants, structures as `{.bycopy.}` objects), and `raven_gui` adds `text`, `fileRead` and closures for `actionBind`, `timerStart`, `errorSetCallback`. See `nim/README.md`. | yes (`binding_nim`; macOS and Linux, Nim 2) |
 | Swift | `swift/` | A Swift package: `import Raven` gives the C API as Swift reads it from the headers (Swift strings for texts, `inout` for pointers), plus `text`, and closures for `actionBind`, `timerStart`, `errorSetCallback`. See `swift/README.md`. | yes (`binding_swift`; macOS and Linux) |
+| Haskell | `haskell/` | A cabal package, `raven-gui`: `Raven.C` is the C API through the FFI (functions with their first letter lowered, `rwindow_create`; enumerations as patterns with the names of C; structures as `Storable` records; `mkRXxxCallback` for callbacks), and `Raven` adds `text`/`withText` and Haskell functions for `actionBind`, `timerStart`, `errorSetCallback`. See `haskell/README.md`. | yes (`binding_haskell`; macOS and Linux) |
 | C3 | `c3/raven.c3l/` | A library: `raven::c` is the C API, `raven` adds typed handles with methods (`button.set_text(...)`), faults and Optionals. See `c3/raven.c3l/README.md`. | no |
 
 "Tested" means that the example of the binding, started with `--test`, runs
@@ -48,7 +49,7 @@ from C: `raven_backend.h` (writing a rendering backend) and `raven_vulkan.h`
 | Rust | `raven-gui = "0.1"` (used as `raven`) | the library from a release, `RAVEN_LIB_DIR` |
 | LuaJIT | `luarocks install raven-gui` | the library from a release, `RAVEN_LIBRARY` |
 | Java | `io.github.oscar-soirey:raven-gui` (Maven Central) | the library is included |
-| C++, Go, Zig, Odin, D, Nim, Swift | the files of this folder | see below |
+| C++, Go, Zig, Odin, D, Nim, Swift, Haskell | the files of this folder | see below |
 
 How these packages are made and published: [PUBLISHING.md](PUBLISHING.md).
 
@@ -88,7 +89,7 @@ r.Rshutdown()
 
 The same program is in each folder (`example.py`, `example.cpp`,
 `examples/hello.rs`, `example/main.go`, `example/Example.java`,
-`example/main.odin`, `src/example.mjs`, `example/app.d`, `example/hello.nim`, `Examples/hello/main.swift`), and the designer (`raven_designer`) edits the XML.
+`example/main.odin`, `src/example.mjs`, `example/app.d`, `example/hello.nim`, `Examples/hello/main.swift`, `example/Main.hs`), and the designer (`raven_designer`) edits the XML.
 
 The XML can also stay in a file of its own, loaded when the program starts
 (`Rwindow_create_from_xml_file("main.xml")`): save it while the program runs
@@ -199,6 +200,18 @@ where C takes a text, `text` reads one back. See `nim/README.md`.
 
 `import Raven`, and the C API is there under its own names: a `String` goes
 where C takes a text, `text(pointer)` reads one back. See `swift/README.md`.
+
+**Haskell** (GHC 9.6 or later; macOS and Linux)
+
+    -- cabal.project
+    packages: . <raven>/bindings/haskell
+    -- and in the .cabal file: build-depends: raven-gui
+
+    cabal run app --extra-lib-dirs=/path/to/lib
+
+`import Raven`, and the C API is there, each name with its first letter
+lowered (`rwindow_create`); `withText` and `text` make and read texts. See
+`haskell/README.md`.
 
 ## Regenerating
 

@@ -507,6 +507,11 @@ void rvn_textedit_mouse_down(rvn_textedit_t* edit, const rvn_widget_t* widget, R
 void rvn_textedit_mouse_drag(rvn_textedit_t* edit, const rvn_widget_t* widget, Rid font, float size, float x);
 /** Draws selection, text and caret inside `area` (widget coordinates). */
 void rvn_text_input_rect(const rvn_widget_t* widget, const RPainter* painter, rvn_rect_t caret);
+/** The composition of an input method when the widget has the focus (Rwindow_inject_composition), else NULL. */
+const char* rvn_widget_composition(const rvn_widget_t* widget, int* start, int* end);
+/** Underlines a composition from x0 to x1, thicker from target_x0 to target_x1, at `baseline`. */
+void rvn_paint_composition_underline(RPainter* painter, float x0, float x1, float target_x0, float target_x1,
+	float baseline, rvn_color_t color);
 void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
 	rvn_rect_t area, Rid font, float size, rvn_color_t color, int focused);
 

@@ -1237,6 +1237,20 @@ pub const R_ROLE_SEPARATOR: RAccessibleRole = 0x0781;
 pub const R_ROLE_SCROLL_BAR: RAccessibleRole = 0x0782;
 pub const R_ROLE_PANE: RAccessibleRole = 0x0783;
 
+pub type RGoldenStatus = c_int;
+/// The capture matches the golden.
+pub const R_GOLDEN_MATCH: RGoldenStatus = 0x0BA0;
+/// RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+pub const R_GOLDEN_UPDATED: RGoldenStatus = 0x0BA1;
+/// Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+pub const R_GOLDEN_MISMATCH: RGoldenStatus = 0x0BA2;
+/// The capture and the golden do not have the same size: NAME.actual.png was written.
+pub const R_GOLDEN_SIZE_MISMATCH: RGoldenStatus = 0x0BA3;
+/// There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+pub const R_GOLDEN_MISSING: RGoldenStatus = 0x0BA4;
+/// The window could not be captured, or a file could not be read or written.
+pub const R_GOLDEN_FAILED: RGoldenStatus = 0x0BA5;
+
 /// Registers a function called once per frame, before the layout.
 /// The body of your loop does the same job; the callback is also called
 /// while the OS keeps the thread in a loop of its own (on Windows, while
@@ -2092,6 +2106,39 @@ pub struct RHostPlatformDesc {
     pub user_data: *mut c_void,
 }
 
+/// How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RGoldenOptions {
+    /// Largest difference on one channel (0..255) for which two pixels are still the same.
+    pub channel_tolerance: c_int,
+    /// Share of the pixels (0..1) that may differ while the images still match.
+    pub max_diff_ratio: f32,
+    /// R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    pub per_platform: c_int,
+    /// Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+    pub output_directory: *const c_char,
+}
+
+/// What Rtest_expect_golden found.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct RGoldenResult {
+    pub status: RGoldenStatus,
+    /// Size of the capture, in pixels.
+    pub width: c_int,
+    /// Size of the capture, in pixels.
+    pub height: c_int,
+    /// Pixels farther from the golden than the tolerance.
+    pub differing_pixels: c_int,
+    /// Largest difference found on one channel (0..255).
+    pub max_channel_difference: c_int,
+    /// The golden that was read or written (with the platform tag). Valid until the next call.
+    pub golden_path: *const c_char,
+    /// One line that says what happened, for the log of the test. Valid until the next call.
+    pub message: *const c_char,
+}
+
 extern "C" {
     /// Starts the library with default settings on the given backend.
     /// The calling thread becomes the UI thread.
@@ -2487,6 +2534,17 @@ extern "C" {
     pub fn Rwindow_inject_mouse_wheel(window: Rid, wheel_x: f32, wheel_y: f32);
     pub fn Rwindow_inject_key(window: Rid, key: RKey, pressed: c_int, modifiers: u32);
     pub fn Rwindow_inject_text(window: Rid, text: *const c_char);
+    /// The text an input method is composing (preedit: Chinese,
+    /// Japanese, Korean, dead keys), as the platforms send it. The focused
+    /// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+    /// place of its selection, but it is not in its text and no changed
+    /// callback runs. [selection_start, selection_end) are bytes of `text`:
+    /// the part the input method works on (underlined thicker), or the caret
+    /// when they are equal; -1 is the end of `text`. NULL or "" ends the
+    /// composition without typing anything (cancel). The committed text comes
+    /// through Rwindow_inject_text, which ends the composition too, and so
+    /// does a change of focus. Ignored when the focus takes no text.
+    pub fn Rwindow_inject_composition(window: Rid, text: *const c_char, selection_start: c_int, selection_end: c_int);
     /// A drag from another application moves over the window
     /// (`inside` R_TRUE) or leaves it.
     /// Returns: R_TRUE when a drop at this position would be accepted.
@@ -2517,12 +2575,18 @@ extern "C" {
     /// after it, as typing would (the changed callback runs; MaxLength
     /// applies). R_FALSE when there is none or it is read-only.
     pub fn Rwindow_replace_text_input(window: Rid, start: c_int, end: c_int, text: *const c_char) -> c_int;
+    /// The composition of the input method in progress (UTF-8, valid
+    /// until it changes) and its selection in bytes; NULL when there is none.
+    /// Any output pointer may be NULL.
+    pub fn Rwindow_get_text_composition(window: Rid, selection_start: *mut c_int, selection_end: *mut c_int) -> *const c_char;
     /// R_TRUE while a menu, list or dialog is open over the window.
     pub fn Rwindow_has_popup(window: Rid) -> c_int;
     /// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
     /// Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
     /// outputs when there is no visible editable caret, the window is inactive, or focus changed
-    /// since painting. Any output pointer may be NULL.
+    /// since painting. Any output pointer may be NULL. While an input method
+    /// composes, it is the caret inside the composition: where its candidate
+    /// window goes.
     pub fn Rwindow_get_text_input_rect(window: Rid, x: *mut c_int, y: *mut c_int, width: *mut c_int, height: *mut c_int) -> c_int;
     /// Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
     pub fn Rwindow_get_popup_count(window: Rid) -> c_int;
@@ -2771,6 +2835,16 @@ extern "C" {
     pub fn Rimage_decode(data: *const c_void, data_size: usize, width: *mut c_int, height: *mut c_int) -> *mut u8;
     /// Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
     pub fn Rpixels_free(pixels: *mut u8);
+    /// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+    /// returns) as a PNG file in memory. Thread-safe.
+    /// size Receives the number of bytes.
+    /// Returns: The bytes of the file, to release with Rpixels_free; NULL when
+    /// there are no pixels.
+    pub fn Rimage_encode_png(rgba: *const u8, width: c_int, height: c_int, size: *mut usize) -> *mut u8;
+    /// Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+    /// of Rwindow_capture, a picture made by the application. Thread-safe.
+    /// Returns: R_FALSE when the file cannot be written.
+    pub fn Rimage_save_png(path: *const c_char, rgba: *const u8, width: c_int, height: c_int) -> c_int;
     /// Returns: R_TRUE once an asynchronous texture is decoded (or failed).
     pub fn Rtexture_is_ready(texture: Rid) -> c_int;
     /// Blocks until an asynchronous texture is ready.
@@ -5111,8 +5185,107 @@ extern "C" {
     pub fn Rhost_inject_key(window: Rid, key: RKey, pressed: c_int, modifiers: u32, repeat: c_int);
     /// One typed Unicode code point.
     pub fn Rhost_inject_text(window: Rid, codepoint: u32);
+    /// The input method of the application's system composes `text`
+    /// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+    /// NULL or "" cancels it; the committed text then comes through
+    /// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+    /// candidate window.
+    pub fn Rhost_inject_composition(window: Rid, text: *const c_char, selection_start: c_int, selection_end: c_int);
     /// The window gained or lost the keyboard. Losing it closes popups and drops captures.
     pub fn Rhost_inject_focus(window: Rid, focused: c_int);
     /// The user asked to close the window (its close callback decides).
     pub fn Rhost_inject_close(window: Rid);
+    /// R_TRUE makes what is drawn depend only on what the test does:
+    /// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+    /// and the carets of the text fields stay lit instead of blinking. R_FALSE
+    /// gives the clock back (time step 0).
+    pub fn Rtest_set_deterministic(enabled: c_int);
+    pub fn Rtest_is_deterministic() -> c_int;
+    /// Returns: What the goldens of this run are made with, "OS-backend":
+    /// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+    /// "null" with the null backend.
+    pub fn Rtest_get_platform_tag() -> *const c_char;
+    /// Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+    /// path may have several names separated by '/': "settings/ok" is the
+    /// widget named "ok" inside the one named "settings". In a window, the
+    /// open popups (menus, dialogs) are searched first, top first, then the
+    /// content.
+    /// scope A window or a widget.
+    /// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+    pub fn Rtest_find(scope: Rid, path: *const c_char) -> Rid;
+    /// Moves the mouse to the middle of the widget, presses and releases the left button.
+    pub fn Rtest_click(widget: Rid) -> c_int;
+    /// Two clicks in a row on the middle of the widget, seen as a double click.
+    pub fn Rtest_double_click(widget: Rid) -> c_int;
+    /// A click of the right button on the middle of the widget (a context menu).
+    pub fn Rtest_right_click(widget: Rid) -> c_int;
+    /// Clicks at a position of a widget or a window.
+    /// clicks 1 for a click, 2 for a double click, 3 for a triple click.
+    /// modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+    pub fn Rtest_click_at(target: Rid, x: f32, y: f32, button: RMouseButton, clicks: c_int, modifiers: u32) -> c_int;
+    /// Moves the mouse over the middle of the widget, without clicking.
+    pub fn Rtest_hover(widget: Rid) -> c_int;
+    /// Moves the mouse to a position of a widget or a window.
+    pub fn Rtest_hover_at(target: Rid, x: f32, y: f32) -> c_int;
+    /// Presses the left button on the middle of the widget, moves by
+    /// (dx, dy) in several steps, and releases: a slider, a splitter, a
+    /// window dragged by a widget.
+    pub fn Rtest_drag(widget: Rid, dx: f32, dy: f32) -> c_int;
+    /// Drags from the middle of one widget to the middle of another (drag and drop).
+    pub fn Rtest_drag_to(from: Rid, to: Rid) -> c_int;
+    /// Turns the mouse wheel over the middle of the widget: `wheel_y`
+    /// notches (positive: toward the top, as a wheel turned away from the
+    /// user), `wheel_x` notches sideways.
+    pub fn Rtest_scroll(widget: Rid, wheel_x: f32, wheel_y: f32) -> c_int;
+    /// Presses and releases a key, with RModifier held. A widget
+    /// target gets the keyboard focus first; a window sends the key to what
+    /// has the focus.
+    pub fn Rtest_key(target: Rid, key: RKey, modifiers: u32) -> c_int;
+    /// Types UTF-8 text as a keyboard would. A widget target gets the
+    /// keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+    /// Tab and Backspace.
+    pub fn Rtest_type_text(target: Rid, text: *const c_char) -> c_int;
+    /// A finger touches the middle of the widget and leaves at once.
+    pub fn Rtest_tap(widget: Rid) -> c_int;
+    /// A finger put on the middle of the widget moves by (dx, dy) in
+    /// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+    /// (Rtest_settle lets it stop).
+    pub fn Rtest_swipe(widget: Rid, dx: f32, dy: f32, seconds: f64) -> c_int;
+    /// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+    pub fn Rtest_pump(frames: c_int) -> c_int;
+    /// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+    /// to do, nothing to paint, no animation, no layout spring, no inertia.
+    /// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+    /// realtime viewport) and the timers are not counted.
+    pub fn Rtest_is_idle() -> c_int;
+    /// Produces frames until Rtest_is_idle, each advancing the
+    /// animations by the time step (1/60 s unless Rset_animation_time_step
+    /// gives another), for at most `max_seconds` of that time.
+    /// Returns: R_FALSE when it was still moving at the end.
+    pub fn Rtest_settle(max_seconds: f64) -> c_int;
+    /// Returns: What the user reads in the widget: the text of a field, else
+    /// its label (as screen readers say it: the text of a Label, a Button, a
+    /// Checkbox...). "" when it has none. Valid until the next call.
+    pub fn Rtest_get_text(widget: Rid) -> *const c_char;
+    /// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+    /// all that holds it, on the page a Switcher or a TabView shows, and laid
+    /// out with a size.
+    pub fn Rtest_is_shown(widget: Rid) -> c_int;
+    /// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+    pub fn Rtest_is_checked(widget: Rid) -> c_int;
+    /// Captures a window, or the rectangle of one widget, and compares
+    /// it with the PNG file `golden_path` (see the top of this file).
+    /// target A window or a widget.
+    /// options NULL for the defaults.
+    /// result Receives the details; may be NULL.
+    /// Returns: R_TRUE when the capture matches (or the golden was written
+    /// because RAVEN_UPDATE_GOLDENS=1).
+    pub fn Rtest_expect_golden(target: Rid, golden_path: *const c_char, options: *const RGoldenOptions, result: *mut RGoldenResult) -> c_int;
+    /// Compares two RGBA8 images of the same size as Rtest_expect_golden
+    /// does, without files.
+    /// diff_rgba When not NULL, receives width * height * 4 bytes: the
+    /// expected image faded, with the different pixels in red.
+    /// Returns: The number of pixels farther apart than `channel_tolerance`;
+    /// -1 when an image is missing.
+    pub fn Rtest_compare_pixels(actual: *const u8, expected: *const u8, width: c_int, height: c_int, channel_tolerance: c_int, max_channel_difference: *mut c_int, diff_rgba: *mut u8) -> c_int;
 }

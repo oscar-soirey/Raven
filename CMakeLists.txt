@@ -129,6 +129,7 @@ set(RAVEN_PUBLIC_HEADERS
 	include/raven/raven_accessibility.h
 	include/raven/raven_backend.h
 	include/raven/raven_host.h
+	include/raven/raven_testing.h
 	include/raven/raven_android.h
 	include/raven/raven_vulkan.h
 )
@@ -138,7 +139,9 @@ set(RAVEN_CORE_SOURCES
 	src/core/context.c
 	src/core/locale.c
 	src/core/accessibility.c
+	src/core/accessibility_touch.c
 	src/core/context.h
+	src/core/deflate.c
 	src/core/error.c
 	src/core/file.c
 	src/core/handle.c
@@ -160,6 +163,8 @@ set(RAVEN_CORE_SOURCES
 
 set(RAVEN_PLATFORM_SOURCES
 	src/platform/platform.c
+	src/platform/preedit.c
+	src/platform/preedit.h
 	src/platform/notify.c
 	src/platform/taskbar.c
 	src/platform/tray.c
@@ -177,6 +182,7 @@ set(RAVEN_RENDER_SOURCES
 	src/render/font.h
 	src/render/font_raster.c
 	src/render/image_decode.c
+	src/render/image_encode.c
 	src/render/svg_decode.c
 	src/render/renderer.c
 	src/render/renderer.h
@@ -205,6 +211,7 @@ set(RAVEN_WIDGET_SOURCES
 	src/widget/widget.h
 	src/widget/window.c
 	src/widget/inspector.c
+	src/widget/testing.c
 )
 
 set(RAVEN_WIDGETS_SOURCES

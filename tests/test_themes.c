@@ -6,6 +6,9 @@
 #include "test.h"
 
 #include <stdlib.h>
+#if defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
 
 static int g_reloads;
 static int g_reload_ok;
@@ -651,14 +654,20 @@ static void test_looks(void) {
 	CHECK_STR(Rtheme_get_name(), "GlassLight");
 	CHECK(Rtheme_use("WindowsDark"));
 	CHECK(Rlook_get() == R_LOOK_WINDOWS_DARK);
-	/* the look of the platform: Windows on Windows, Raven elsewhere (for now) */
+	/* the look of the platform: Windows on Windows, macOS on macOS, GNOME elsewhere */
 	Rlook_set(R_LOOK_NATIVE_LIGHT);
 	CHECK(Rlook_get() == R_LOOK_NATIVE_LIGHT);
 	CHECK(!Rtheme_is_dark());
 #if defined(_WIN32)
 	CHECK_STR(Rtheme_get_name(), "WindowsLight");
 #elif defined(__APPLE__)
-	CHECK_STR(Rtheme_get_name(), "MacOSLight");
+	{
+		/* Liquid Glass from macOS 26 on (an older SDK is told 16, which means the same) */
+		char version[32] = "";
+		size_t length = sizeof(version);
+		int major = sysctlbyname("kern.osproductversion", version, &length, NULL, 0) == 0 ? atoi(version) : 0;
+		CHECK_STR(Rtheme_get_name(), major >= 26 || major == 16 ? "MacOSGlassLight" : "MacOSLight");
+	}
 #else
 	CHECK_STR(Rtheme_get_name(), "GnomeLight");
 #endif

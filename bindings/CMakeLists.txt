@@ -17,6 +17,7 @@
 #   binding_d             needs dub and a D compiler, and the shared library; not on Windows
 #   binding_nim           needs nim and the shared library; not on Windows
 #   binding_swift         needs swift (5.9 or later) and the shared library; not on Windows
+#   binding_haskell       needs ghc and cabal, and the shared library; not on Windows
 #   binding_zig           needs zig: compiles and checks every declaration of zig/raven.zig (no binary is made: nothing is linked or run)
 #
 # C# and LuaJIT have no test here.
@@ -53,6 +54,7 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 		"RAVEN_LIBRARY=$<TARGET_FILE:raven>"
 		"RAVEN_LIB_DIR=$<TARGET_FILE_DIR:raven>"
 		"LD_LIBRARY_PATH=$<TARGET_FILE_DIR:raven>"
+		"DYLD_LIBRARY_PATH=$<TARGET_FILE_DIR:raven>"
 		"CGO_CFLAGS=-I${CMAKE_SOURCE_DIR}/include"
 		"CGO_LDFLAGS=-L$<TARGET_FILE_DIR:raven>")
 
@@ -142,6 +144,17 @@ if(RAVEN_BUILD_SHARED AND NOT WIN32)
 			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_SWIFT} run
 				--package-path ${CMAKE_CURRENT_SOURCE_DIR}/swift --scratch-path ${CMAKE_CURRENT_BINARY_DIR}/swift hello --test
 			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+	endif()
+
+	# (cabal resolves only base and containers, which come with GHC: no download)
+	find_program(RAVEN_GHC ghc)
+	find_program(RAVEN_CABAL cabal)
+	if(RAVEN_GHC AND RAVEN_CABAL)
+		add_test(NAME binding_haskell
+			COMMAND ${CMAKE_COMMAND} -E env ${RAVEN_BINDING_ENV} ${RAVEN_CABAL} run raven-hello
+				--builddir=${CMAKE_CURRENT_BINARY_DIR}/haskell --extra-lib-dirs=$<TARGET_FILE_DIR:raven>
+				"--ghc-options=-optl-Wl,-rpath,$<TARGET_FILE_DIR:raven>" -- --test
+			WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/haskell)
 	endif()
 
 	add_subdirectory(node)

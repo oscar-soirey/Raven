@@ -70,9 +70,10 @@ newest NDK, build tools and platform it finds in `$ANDROID_HOME` (default
 signed with a debug key made on the first build) and starts it on the device
 `adb` sees (`ANDROID_SERIAL` picks one).
 
-Raven's Java part, the `InputConnection` of the on-screen keyboard
-(`src/platform/android/java`), is compiled into the APK's `classes.dex`.
-Without it Raven falls back to key events: no suggestions, ASCII only.
+Raven's Java part, the `InputConnection` of the on-screen keyboard and the
+`AccessibilityNodeProvider` that TalkBack reads (`src/platform/android/java`),
+is compiled into the APK's `classes.dex`. Without it Raven falls back to key
+events (no suggestions, ASCII only) and has no screen reader.
 
 An emulator whose device has a hardware keyboard (`hw.keyboard=yes`) only
 shows Gboard's small toolbar, not the full keyboard.

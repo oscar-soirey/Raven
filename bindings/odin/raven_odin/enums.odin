@@ -1313,3 +1313,18 @@ Accessible_Role :: enum i32 {
 	Scroll_Bar = 0x0782,
 	Pane = 0x0783,
 }
+
+Golden_Status :: enum i32 {
+	// The capture matches the golden.
+	Match = 0x0BA0,
+	// RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+	Updated = 0x0BA1,
+	// Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+	Mismatch = 0x0BA2,
+	// The capture and the golden do not have the same size: NAME.actual.png was written.
+	Size_Mismatch = 0x0BA3,
+	// There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+	Missing = 0x0BA4,
+	// The window could not be captured, or a file could not be read or written.
+	Failed = 0x0BA5,
+}

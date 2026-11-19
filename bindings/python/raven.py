@@ -1737,6 +1737,21 @@ R_ROLE_SEPARATOR = RAccessibleRole.R_ROLE_SEPARATOR
 R_ROLE_SCROLL_BAR = RAccessibleRole.R_ROLE_SCROLL_BAR
 R_ROLE_PANE = RAccessibleRole.R_ROLE_PANE
 
+class RGoldenStatus(enum.IntEnum):
+    R_GOLDEN_MATCH = 0x0BA0
+    R_GOLDEN_UPDATED = 0x0BA1
+    R_GOLDEN_MISMATCH = 0x0BA2
+    R_GOLDEN_SIZE_MISMATCH = 0x0BA3
+    R_GOLDEN_MISSING = 0x0BA4
+    R_GOLDEN_FAILED = 0x0BA5
+
+R_GOLDEN_MATCH = RGoldenStatus.R_GOLDEN_MATCH
+R_GOLDEN_UPDATED = RGoldenStatus.R_GOLDEN_UPDATED
+R_GOLDEN_MISMATCH = RGoldenStatus.R_GOLDEN_MISMATCH
+R_GOLDEN_SIZE_MISMATCH = RGoldenStatus.R_GOLDEN_SIZE_MISMATCH
+R_GOLDEN_MISSING = RGoldenStatus.R_GOLDEN_MISSING
+R_GOLDEN_FAILED = RGoldenStatus.R_GOLDEN_FAILED
+
 
 class RInitDesc(ctypes.Structure):
     """Optional settings for Rinit_ex. A zero-initialized structure selects the
@@ -2131,6 +2146,29 @@ class RHostPlatformDesc(ctypes.Structure):
         ("clipboard_get", ctypes.c_void_p),
         ("wake", ctypes.c_void_p),
         ("user_data", ctypes.c_void_p),
+    ]
+
+
+class RGoldenOptions(ctypes.Structure):
+    """How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel."""
+    _fields_ = [
+        ("channel_tolerance", ctypes.c_int),
+        ("max_diff_ratio", ctypes.c_float),
+        ("per_platform", ctypes.c_int),
+        ("output_directory", ctypes.c_char_p),
+    ]
+
+
+class RGoldenResult(ctypes.Structure):
+    """What Rtest_expect_golden found."""
+    _fields_ = [
+        ("status", ctypes.c_int),
+        ("width", ctypes.c_int),
+        ("height", ctypes.c_int),
+        ("differing_pixels", ctypes.c_int),
+        ("max_channel_difference", ctypes.c_int),
+        ("golden_path", ctypes.c_char_p),
+        ("message", ctypes.c_char_p),
     ]
 
 
@@ -4308,6 +4346,24 @@ def Rwindow_inject_text(window, text):
     _lib.Rwindow_inject_text(window, _s(text))
 
 
+_lib.Rwindow_inject_composition.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+_lib.Rwindow_inject_composition.restype = None
+
+
+def Rwindow_inject_composition(window, text, selection_start, selection_end):
+    """The text an input method is composing (preedit: Chinese,
+    Japanese, Korean, dead keys), as the platforms send it. The focused
+    TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+    place of its selection, but it is not in its text and no changed
+    callback runs. [selection_start, selection_end) are bytes of `text`:
+    the part the input method works on (underlined thicker), or the caret
+    when they are equal; -1 is the end of `text`. NULL or "" ends the
+    composition without typing anything (cancel). The committed text comes
+    through Rwindow_inject_text, which ends the composition too, and so
+    does a change of focus. Ignored when the focus takes no text."""
+    _lib.Rwindow_inject_composition(window, _s(text), selection_start, selection_end)
+
+
 _lib.Rwindow_inject_drag.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_int]
 _lib.Rwindow_inject_drag.restype = ctypes.c_int
 
@@ -4434,6 +4490,20 @@ def Rwindow_replace_text_input(window, start, end, text):
     return _lib.Rwindow_replace_text_input(window, start, end, _s(text))
 
 
+_lib.Rwindow_get_text_composition.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rwindow_get_text_composition.restype = ctypes.c_char_p
+
+
+def Rwindow_get_text_composition(window):
+    """The composition of the input method in progress (UTF-8, valid
+    until it changes) and its selection in bytes; NULL when there is none.
+    Any output pointer may be NULL."""
+    selection_start_ = ctypes.c_int()
+    selection_end_ = ctypes.c_int()
+    result = _r(_lib.Rwindow_get_text_composition(window, ctypes.byref(selection_start_), ctypes.byref(selection_end_)))
+    return (result, selection_start_.value, selection_end_.value)
+
+
 _lib.Rwindow_has_popup.argtypes = [ctypes.c_uint32]
 _lib.Rwindow_has_popup.restype = ctypes.c_int
 
@@ -4451,7 +4521,9 @@ def Rwindow_get_text_input_rect(window):
     """Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
     Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
     outputs when there is no visible editable caret, the window is inactive, or focus changed
-    since painting. Any output pointer may be NULL."""
+    since painting. Any output pointer may be NULL. While an input method
+    composes, it is the caret inside the composition: where its candidate
+    window goes."""
     x_ = ctypes.c_int()
     y_ = ctypes.c_int()
     width_ = ctypes.c_int()
@@ -5302,6 +5374,32 @@ _lib.Rpixels_free.restype = None
 def Rpixels_free(pixels):
     """Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe."""
     _lib.Rpixels_free(pixels)
+
+
+_lib.Rimage_encode_png.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_size_t)]
+_lib.Rimage_encode_png.restype = ctypes.c_void_p
+
+
+def Rimage_encode_png(rgba, width, height):
+    """Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+    returns) as a PNG file in memory. Thread-safe.
+    size Receives the number of bytes.
+    Returns: The bytes of the file, to release with Rpixels_free; NULL when
+    there are no pixels."""
+    size_ = ctypes.c_size_t()
+    result = _lib.Rimage_encode_png(rgba, width, height, ctypes.byref(size_))
+    return (result, size_.value)
+
+
+_lib.Rimage_save_png.argtypes = [ctypes.c_char_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+_lib.Rimage_save_png.restype = ctypes.c_int
+
+
+def Rimage_save_png(path, rgba, width, height):
+    """Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+    of Rwindow_capture, a picture made by the application. Thread-safe.
+    Returns: R_FALSE when the file cannot be written."""
+    return _lib.Rimage_save_png(_s(path), rgba, width, height)
 
 
 _lib.Rtexture_is_ready.argtypes = [ctypes.c_uint32]
@@ -15726,6 +15824,19 @@ def Rhost_inject_text(window, codepoint):
     _lib.Rhost_inject_text(window, codepoint)
 
 
+_lib.Rhost_inject_composition.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
+_lib.Rhost_inject_composition.restype = None
+
+
+def Rhost_inject_composition(window, text, selection_start, selection_end):
+    """The input method of the application's system composes `text`
+    (preedit), with its selection in bytes (see Rwindow_inject_composition).
+    NULL or "" cancels it; the committed text then comes through
+    Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+    candidate window."""
+    _lib.Rhost_inject_composition(window, _s(text), selection_start, selection_end)
+
+
 _lib.Rhost_inject_focus.argtypes = [ctypes.c_uint32, ctypes.c_int]
 _lib.Rhost_inject_focus.restype = None
 
@@ -15742,3 +15853,273 @@ _lib.Rhost_inject_close.restype = None
 def Rhost_inject_close(window):
     """The user asked to close the window (its close callback decides)."""
     _lib.Rhost_inject_close(window)
+
+
+_lib.Rtest_set_deterministic.argtypes = [ctypes.c_int]
+_lib.Rtest_set_deterministic.restype = None
+
+
+def Rtest_set_deterministic(enabled):
+    """R_TRUE makes what is drawn depend only on what the test does:
+    every frame advances the animations by 1/60 s (Rset_animation_time_step),
+    and the carets of the text fields stay lit instead of blinking. R_FALSE
+    gives the clock back (time step 0)."""
+    _lib.Rtest_set_deterministic(enabled)
+
+
+_lib.Rtest_is_deterministic.argtypes = []
+_lib.Rtest_is_deterministic.restype = ctypes.c_int
+
+
+def Rtest_is_deterministic():
+    return _lib.Rtest_is_deterministic()
+
+
+_lib.Rtest_get_platform_tag.argtypes = []
+_lib.Rtest_get_platform_tag.restype = ctypes.c_char_p
+
+
+def Rtest_get_platform_tag():
+    """Returns: What the goldens of this run are made with, "OS-backend":
+    "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+    "null" with the null backend."""
+    return _r(_lib.Rtest_get_platform_tag())
+
+
+_lib.Rtest_find.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtest_find.restype = ctypes.c_uint32
+
+
+def Rtest_find(scope, path):
+    """Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+    path may have several names separated by '/': "settings/ok" is the
+    widget named "ok" inside the one named "settings". In a window, the
+    open popups (menus, dialogs) are searched first, top first, then the
+    content.
+    scope A window or a widget.
+    Returns: R_INVALID_ID when nothing has that name (no error is reported)."""
+    return _lib.Rtest_find(scope, _s(path))
+
+
+_lib.Rtest_click.argtypes = [ctypes.c_uint32]
+_lib.Rtest_click.restype = ctypes.c_int
+
+
+def Rtest_click(widget):
+    """Moves the mouse to the middle of the widget, presses and releases the left button."""
+    return _lib.Rtest_click(widget)
+
+
+_lib.Rtest_double_click.argtypes = [ctypes.c_uint32]
+_lib.Rtest_double_click.restype = ctypes.c_int
+
+
+def Rtest_double_click(widget):
+    """Two clicks in a row on the middle of the widget, seen as a double click."""
+    return _lib.Rtest_double_click(widget)
+
+
+_lib.Rtest_right_click.argtypes = [ctypes.c_uint32]
+_lib.Rtest_right_click.restype = ctypes.c_int
+
+
+def Rtest_right_click(widget):
+    """A click of the right button on the middle of the widget (a context menu)."""
+    return _lib.Rtest_right_click(widget)
+
+
+_lib.Rtest_click_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_int, ctypes.c_int, ctypes.c_uint32]
+_lib.Rtest_click_at.restype = ctypes.c_int
+
+
+def Rtest_click_at(target, x, y, button, clicks, modifiers):
+    """Clicks at a position of a widget or a window.
+    clicks 1 for a click, 2 for a double click, 3 for a triple click.
+    modifiers RModifier held during the clicks (R_MOD_SHIFT...)."""
+    return _lib.Rtest_click_at(target, x, y, int(button), clicks, modifiers)
+
+
+_lib.Rtest_hover.argtypes = [ctypes.c_uint32]
+_lib.Rtest_hover.restype = ctypes.c_int
+
+
+def Rtest_hover(widget):
+    """Moves the mouse over the middle of the widget, without clicking."""
+    return _lib.Rtest_hover(widget)
+
+
+_lib.Rtest_hover_at.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rtest_hover_at.restype = ctypes.c_int
+
+
+def Rtest_hover_at(target, x, y):
+    """Moves the mouse to a position of a widget or a window."""
+    return _lib.Rtest_hover_at(target, x, y)
+
+
+_lib.Rtest_drag.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rtest_drag.restype = ctypes.c_int
+
+
+def Rtest_drag(widget, dx, dy):
+    """Presses the left button on the middle of the widget, moves by
+    (dx, dy) in several steps, and releases: a slider, a splitter, a
+    window dragged by a widget."""
+    return _lib.Rtest_drag(widget, dx, dy)
+
+
+_lib.Rtest_drag_to.argtypes = [ctypes.c_uint32, ctypes.c_uint32]
+_lib.Rtest_drag_to.restype = ctypes.c_int
+
+
+def Rtest_drag_to(from_, to):
+    """Drags from the middle of one widget to the middle of another (drag and drop)."""
+    return _lib.Rtest_drag_to(from_, to)
+
+
+_lib.Rtest_scroll.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float]
+_lib.Rtest_scroll.restype = ctypes.c_int
+
+
+def Rtest_scroll(widget, wheel_x, wheel_y):
+    """Turns the mouse wheel over the middle of the widget: `wheel_y`
+    notches (positive: toward the top, as a wheel turned away from the
+    user), `wheel_x` notches sideways."""
+    return _lib.Rtest_scroll(widget, wheel_x, wheel_y)
+
+
+_lib.Rtest_key.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+_lib.Rtest_key.restype = ctypes.c_int
+
+
+def Rtest_key(target, key, modifiers):
+    """Presses and releases a key, with RModifier held. A widget
+    target gets the keyboard focus first; a window sends the key to what
+    has the focus."""
+    return _lib.Rtest_key(target, int(key), modifiers)
+
+
+_lib.Rtest_type_text.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtest_type_text.restype = ctypes.c_int
+
+
+def Rtest_type_text(target, text):
+    """Types UTF-8 text as a keyboard would. A widget target gets the
+    keyboard focus first. '\\n', '\\t' and '\\b' are sent as the keys Enter,
+    Tab and Backspace."""
+    return _lib.Rtest_type_text(target, _s(text))
+
+
+_lib.Rtest_tap.argtypes = [ctypes.c_uint32]
+_lib.Rtest_tap.restype = ctypes.c_int
+
+
+def Rtest_tap(widget):
+    """A finger touches the middle of the widget and leaves at once."""
+    return _lib.Rtest_tap(widget)
+
+
+_lib.Rtest_swipe.argtypes = [ctypes.c_uint32, ctypes.c_float, ctypes.c_float, ctypes.c_double]
+_lib.Rtest_swipe.restype = ctypes.c_int
+
+
+def Rtest_swipe(widget, dx, dy, seconds):
+    """A finger put on the middle of the widget moves by (dx, dy) in
+    `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+    (Rtest_settle lets it stop)."""
+    return _lib.Rtest_swipe(widget, dx, dy, seconds)
+
+
+_lib.Rtest_pump.argtypes = [ctypes.c_int]
+_lib.Rtest_pump.restype = ctypes.c_int
+
+
+def Rtest_pump(frames):
+    """Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits."""
+    return _lib.Rtest_pump(frames)
+
+
+_lib.Rtest_is_idle.argtypes = []
+_lib.Rtest_is_idle.restype = ctypes.c_int
+
+
+def Rtest_is_idle():
+    """Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+    to do, nothing to paint, no animation, no layout spring, no inertia.
+    Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+    realtime viewport) and the timers are not counted."""
+    return _lib.Rtest_is_idle()
+
+
+_lib.Rtest_settle.argtypes = [ctypes.c_double]
+_lib.Rtest_settle.restype = ctypes.c_int
+
+
+def Rtest_settle(max_seconds):
+    """Produces frames until Rtest_is_idle, each advancing the
+    animations by the time step (1/60 s unless Rset_animation_time_step
+    gives another), for at most `max_seconds` of that time.
+    Returns: R_FALSE when it was still moving at the end."""
+    return _lib.Rtest_settle(max_seconds)
+
+
+_lib.Rtest_get_text.argtypes = [ctypes.c_uint32]
+_lib.Rtest_get_text.restype = ctypes.c_char_p
+
+
+def Rtest_get_text(widget):
+    """Returns: What the user reads in the widget: the text of a field, else
+    its label (as screen readers say it: the text of a Label, a Button, a
+    Checkbox...). "" when it has none. Valid until the next call."""
+    return _r(_lib.Rtest_get_text(widget))
+
+
+_lib.Rtest_is_shown.argtypes = [ctypes.c_uint32]
+_lib.Rtest_is_shown.restype = ctypes.c_int
+
+
+def Rtest_is_shown(widget):
+    """Returns: R_TRUE when the widget can be seen: in a window, Visible with
+    all that holds it, on the page a Switcher or a TabView shows, and laid
+    out with a size."""
+    return _lib.Rtest_is_shown(widget)
+
+
+_lib.Rtest_is_checked.argtypes = [ctypes.c_uint32]
+_lib.Rtest_is_checked.restype = ctypes.c_int
+
+
+def Rtest_is_checked(widget):
+    """Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item."""
+    return _lib.Rtest_is_checked(widget)
+
+
+_lib.Rtest_expect_golden.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.POINTER(RGoldenOptions), ctypes.POINTER(RGoldenResult)]
+_lib.Rtest_expect_golden.restype = ctypes.c_int
+
+
+def Rtest_expect_golden(target, golden_path, options, result):
+    """Captures a window, or the rectangle of one widget, and compares
+    it with the PNG file `golden_path` (see the top of this file).
+    target A window or a widget.
+    options NULL for the defaults.
+    result Receives the details; may be NULL.
+    Returns: R_TRUE when the capture matches (or the golden was written
+    because RAVEN_UPDATE_GOLDENS=1)."""
+    return _lib.Rtest_expect_golden(target, _s(golden_path), _p(options), _p(result))
+
+
+_lib.Rtest_compare_pixels.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.c_void_p]
+_lib.Rtest_compare_pixels.restype = ctypes.c_int
+
+
+def Rtest_compare_pixels(actual, expected, width, height, channel_tolerance, diff_rgba):
+    """Compares two RGBA8 images of the same size as Rtest_expect_golden
+    does, without files.
+    diff_rgba When not NULL, receives width * height * 4 bytes: the
+    expected image faded, with the different pixels in red.
+    Returns: The number of pixels farther apart than `channel_tolerance`;
+    -1 when an image is missing."""
+    max_channel_difference_ = ctypes.c_int()
+    result = _lib.Rtest_compare_pixels(actual, expected, width, height, channel_tolerance, ctypes.byref(max_channel_difference_), diff_rgba)
+    return (result, max_channel_difference_.value)
