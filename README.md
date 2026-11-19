@@ -659,6 +659,7 @@ The build trees are in `build\dist\`.
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
 | `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
+| `examples/notifications` | notifications of the system with a tag, buttons and an icon, replaced and closed; what the user did with them; a toast where the system shows none |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1323,8 +1324,41 @@ wait their turn (`Queue="Sequence"`) or stack up, the newest at the bottom
 `Rnotification_show` asks the system for a
 notification (Windows, macOS, `org.freedesktop.Notifications` on Linux) and,
 where there is none, calls the fallback the application gave
-(`Rnotification_set_fallback`), to show it in a toast for instance. A click on
-a notification calls `Rnotification_set_clicked_callback` (Windows for now).
+(`Rnotification_set_fallback`), to show it in a toast for instance.
+
+`Rnotification_show_desc` adds a tag (a notification shown again with the same
+tag replaces the first one; `Rnotification_close` takes it away), up to three
+buttons and an icon. What the user does with it comes back to
+`Rnotification_set_callback`: a click on the notification
+(`R_NOTIFICATION_ACTIVATED`, which also brings its window back: shown again,
+out of the Dock or the taskbar, in front; `Rnotification_set_bring_to_front`
+turns that off), a click on a button (`R_NOTIFICATION_ACTION_INVOKED` with its
+id) or its dismissal. Where the system shows no notifications, a `Toast` given
+to `Rnotification_set_fallback_toast` shows them with their title, icon and
+buttons, and reports to the same callback: the application behaves the same
+everywhere.
+
+```c
+static const RNotificationAction actions[] = { { "reply", "Reply" }, { "later", "Remind me" } };
+RNotificationDesc desc = { sizeof(RNotificationDesc) };
+desc.tag = "chat-ada";
+desc.title = "Ada Lovelace";
+desc.body = "Are we still on for tonight?";
+desc.icon = "chat.svg";
+desc.actions = actions;
+desc.action_count = 2;
+Rnotification_show_desc(&desc);
+```
+
+| | buttons | replace / close | icon | click | dismissal |
+|---|---|---|---|---|---|
+| macOS (in a bundle) | yes | yes | yes | yes | yes |
+| Linux, BSD | where the server has them (GNOME, KDE, dunst, mako...) | yes | yes | where the server has buttons | yes |
+| Windows (a balloon shown as a toast) | no | yes (one at a time) | no | yes | no |
+| fallback toast | yes | yes | yes | yes | yes |
+
+`Rnotification_supports(R_NOTIFICATION_FEATURE_ACTIONS)` and the other
+features tell an application what the system does here.
 
 SVG files are read wherever an image is (`Image Source="icon.svg"`,
 `Rtexture_create_from_file`) and shown at the size the SVG gives. They are
@@ -1842,6 +1876,11 @@ The plan for what comes next is in [ROADMAP.md](ROADMAP.md).
 What Raven does not do yet, by area. Contributions are welcome.
 
 **Platforms**
+- Notifications on Windows are balloons of the notification area: no buttons
+  and no image of their own (the toasts of WinRT, with their actions, would
+  need an application id and a COM activator). A click on a notification
+  brings the window back everywhere but on Wayland, where Raven does not use
+  xdg-activation yet (the token the notification server gives is not used).
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
   one above the others (so picture in picture and splash screens too) and fading a whole window:
   the protocol does not let an application do it.
@@ -1852,7 +1891,7 @@ What Raven does not do yet, by area. Contributions are welcome.
   to the system. There are no native child windows, no tray icon, menu bar
   or badge of the system;
   notifications go to the fallback of the application
-  (`Rnotification_set_fallback`), and file dialogs are Raven's own. The text
+  (`Rnotification_set_fallback`, `Rnotification_set_fallback_toast`), and file dialogs are Raven's own. The text
   services of the system (suggestions, autocorrection, composition) work in a
   `TextInput`; a `TextEditor` or a `SpinBox` gets plain keys and text. The
   places known to be simplified are marked `SHORTCUT` in the sources.

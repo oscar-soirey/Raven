@@ -100,8 +100,10 @@ is a plan, not a promise: issues and pull requests can change the order.
   holding a widget (a checkbox, a progress bar), frozen first column.
 - [ ] Date picker: a range of two dates; a time zone aware time picker; a
   12-hour clock where the locale uses one.
-- [ ] Notifications: actions (buttons), a click that brings the window
-  back, replacing a notification, an icon.
+- [x] Notifications: actions (buttons), a click that brings the window
+  back, replacing a notification, an icon (`Rnotification_show_desc`,
+  `Rnotification_close`, `Rnotification_set_callback`, the fallback toast).
+  Not yet: buttons on Windows (WinRT toasts), xdg-activation on Wayland.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.
 - [ ] Timeline: nested tracks, curves between keys.
 - [ ] Markdown: images from the network, HTML, footnotes.
