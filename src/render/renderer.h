@@ -96,6 +96,8 @@ int rvn_effect_index_of(const uint32_t* spirv, size_t size);
 void rvn_renderer_create_shader(Rid shader, uint32_t* spirv, size_t size);
 void rvn_renderer_destroy_shader(Rid shader);
 
+/** Encodes RGBA8 pixels as a PNG file (render/image_encode.c). NULL without pixels. Free with rvn_free. */
+uint8_t* rvn_png_encode(const uint8_t* rgba, int width, int height, size_t* size);
 /** Decodes an image file into RGBA8 (render/image_decode.c). Free with rvn_free. */
 uint8_t* rvn_image_decode(const uint8_t* data, size_t size, int* width, int* height);
 /**

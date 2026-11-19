@@ -999,9 +999,18 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 	int span_count = 0, span_line = -1;
 	const rvn_language_t* language = rvn_ed_language(ed);
 
+	/* the composition of an input method: shown at the caret (in place of the selection), not in the text */
+	int compose_start = 0, compose_end = 0;
+	const char* composition = focused && !ed->read_only ? rvn_widget_composition(widget, &compose_start, &compose_end) : NULL;
+	uint32_t compose_row = 0;
+
 	rvn_ed_metrics(ed, &m);
 	rvn_ed_update_rows(ed, &m);
 	if (!focused) selection = rvn_color_fade(selection, 0.55f);
+	if (composition) {
+		has_selection = R_FALSE;
+		compose_row = rvn_ed_first_row(ed, ed->caret.line) + (uint32_t)rvn_ed_row_of(ed, ed->caret.line, ed->caret.column);
+	}
 
 	/* frame */
 	if (rvn_widget_glass(widget)) {
@@ -1102,11 +1111,24 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 					rvn_color_fade(rvn_widget_color(widget, R_COLOR_ACCENT), 0.22f), 1.0f, rvn_color_fade(rvn_widget_color(widget, R_COLOR_ACCENT), 0.7f));
 			}
 		}
-		if (end > begin) {
-			if (language && span_line != line) {
-				rvn_syntax_line(language, l->text, l->length, l->lex_in, spans, RVN_ED_MAX_SPANS, &span_count);
-				span_line = line;
-			}
+		if (end > begin && language && span_line != line) {
+			rvn_syntax_line(language, l->text, l->length, l->lex_in, spans, RVN_ED_MAX_SPANS, &span_count);
+			span_line = line;
+		}
+		if (composition && row == compose_row) {
+			/* the row of the caret: its text before the caret, the composition, the rest moved after it */
+			int at = rvn_clampi(ed->caret.column, begin, end);
+			float x = m.area.x - scroll_x;
+			float before = rvn_ed_advance(&m, l->text, begin, at, 0.0f);
+			float width = rvn_text_width(m.font, m.size, composition, -1);
+			if (at > begin) rvn_ed_paint_text(painter, &m, l->text, begin, at, x, y, spans, language ? span_count : 0, text);
+			rvn_paint_text(painter, m.font_id, m.size, x + before, y, composition, -1, text);
+			if (end > at) rvn_ed_paint_text(painter, &m, l->text, at, end, x + before + width, y, spans, language ? span_count : 0, text);
+			rvn_paint_composition_underline(painter, x + before, x + before + width,
+				x + before + rvn_text_width(m.font, m.size, composition, compose_start),
+				x + before + rvn_text_width(m.font, m.size, composition, compose_end),
+				y + m.line_height - 2.0f, text);
+		} else if (end > begin) {
 			rvn_ed_paint_text(painter, &m, l->text, begin, end, m.area.x - scroll_x, y,
 				spans, language ? span_count : 0, text);
 		}
@@ -1137,12 +1159,14 @@ static void rvn_text_editor_paint(rvn_widget_t* widget, RPainter* painter) {
 	/* the caret glides to its place and blinks once it rests there */
 	if (focused && !ed->read_only) {
 		rvn_vec2_t point = rvn_ed_pos_point(ed, &m, ed->caret);
-		float x = rvn_paint_spring(painter, &ed->caret_x, point.x, R_MOTION_SNAPPY);
+		float x;
+		if (composition) point.x += rvn_text_width(m.font, m.size, composition, compose_end);
+		x = rvn_paint_spring(painter, &ed->caret_x, point.x, R_MOTION_SNAPPY);
 		float caret_y = rvn_paint_spring(painter, &ed->caret_y, point.y, R_MOTION_SNAPPY);
 		int moving = rvn_spring_moving(&ed->caret_x, point.x) || rvn_spring_moving(&ed->caret_y, point.y);
 		rvn_rect_t caret = rvn_rect(m.area.x + x - scroll_x - 1.0f, m.area.y + caret_y - scroll_y + 1.0f, 2.0f, m.line_height - 2.0f);
 		rvn_text_input_rect(widget, painter, caret);
-		if (moving || fmod(rvn_clock_seconds() - ed->blink_start, 1.0) < 0.55) {
+		if (moving || g_rvn.test_deterministic || fmod(rvn_clock_seconds() - ed->blink_start, 1.0) < 0.55) {
 			rvn_paint_box(painter, caret,
 				1.0f, rvn_widget_color(widget, R_COLOR_ACCENT_HOVERED), 0.0f, 0);
 		}

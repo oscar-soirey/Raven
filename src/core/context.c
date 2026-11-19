@@ -365,7 +365,7 @@ void rvn_tasks_run(void) {
 	rvn_free(tasks);
 }
 
-static int rvn_tasks_pending(void) {
+int rvn_tasks_pending(void) {
 	int pending;
 	rvn_mutex_lock(&g_rvn.task_mutex);
 	pending = g_rvn.task_count > 0;

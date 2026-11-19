@@ -199,6 +199,7 @@ type
     ## The kind of value an attribute takes.
   RColorFilter* = cint
   RAccessibleRole* = cint
+  RGoldenStatus* = cint
   RFrameCallback* = proc (delta_seconds: cdouble, user_data: pointer) {.cdecl.}
     ## Registers a function called once per frame, before the layout.
     ## The body of your loop does the same job; the callback is also called
@@ -956,6 +957,31 @@ type
     wake*: pointer
       ## Raven has work to do (a timer, a posted task, a redraw): produce a frame soon. Thread-safe. May be NULL.
     user_data*: pointer
+  RGoldenOptions* {.bycopy.} = object
+    ## How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+    channel_tolerance*: cint
+      ## Largest difference on one channel (0..255) for which two pixels are still the same.
+    max_diff_ratio*: cfloat
+      ## Share of the pixels (0..1) that may differ while the images still match.
+    per_platform*: cint
+      ## R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    output_directory*: cstring
+      ## Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+  RGoldenResult* {.bycopy.} = object
+    ## What Rtest_expect_golden found.
+    status*: RGoldenStatus
+    width*: cint
+      ## Size of the capture, in pixels.
+    height*: cint
+      ## Size of the capture, in pixels.
+    differing_pixels*: cint
+      ## Pixels farther from the golden than the tolerance.
+    max_channel_difference*: cint
+      ## Largest difference found on one channel (0..255).
+    golden_path*: cstring
+      ## The golden that was read or written (with the platform tag). Valid until the next call.
+    message*: cstring
+      ## One line that says what happened, for the log of the test. Valid until the next call.
 
 const
   RAVEN_VERSION_MAJOR*: cint = 0
@@ -2081,6 +2107,20 @@ const
   R_ROLE_SCROLL_BAR*: RAccessibleRole = 0x0782
   R_ROLE_PANE*: RAccessibleRole = 0x0783
 
+  # RGoldenStatus
+  R_GOLDEN_MATCH*: RGoldenStatus = 0x0BA0
+    ## The capture matches the golden.
+  R_GOLDEN_UPDATED*: RGoldenStatus = 0x0BA1
+    ## RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+  R_GOLDEN_MISMATCH*: RGoldenStatus = 0x0BA2
+    ## Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+  R_GOLDEN_SIZE_MISMATCH*: RGoldenStatus = 0x0BA3
+    ## The capture and the golden do not have the same size: NAME.actual.png was written.
+  R_GOLDEN_MISSING*: RGoldenStatus = 0x0BA4
+    ## There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+  R_GOLDEN_FAILED*: RGoldenStatus = 0x0BA5
+    ## The window could not be captured, or a file could not be read or written.
+
 proc Rinit*(backend: RBackend): cint {.rapi.}
   ## Starts the library with default settings on the given backend.
   ## The calling thread becomes the UI thread.
@@ -2475,6 +2515,17 @@ proc Rwindow_inject_mouse_button*(window: Rid, button: RMouseButton, pressed: ci
 proc Rwindow_inject_mouse_wheel*(window: Rid, wheel_x: cfloat, wheel_y: cfloat) {.rapi.}
 proc Rwindow_inject_key*(window: Rid, key: RKey, pressed: cint, modifiers: uint32) {.rapi.}
 proc Rwindow_inject_text*(window: Rid, text: cstring) {.rapi.}
+proc Rwindow_inject_composition*(window: Rid, text: cstring, selection_start: cint, selection_end: cint) {.rapi.}
+  ## The text an input method is composing (preedit: Chinese,
+  ## Japanese, Korean, dead keys), as the platforms send it. The focused
+  ## TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+  ## place of its selection, but it is not in its text and no changed
+  ## callback runs. [selection_start, selection_end) are bytes of `text`:
+  ## the part the input method works on (underlined thicker), or the caret
+  ## when they are equal; -1 is the end of `text`. NULL or "" ends the
+  ## composition without typing anything (cancel). The committed text comes
+  ## through Rwindow_inject_text, which ends the composition too, and so
+  ## does a change of focus. Ignored when the focus takes no text.
 proc Rwindow_inject_drag*(window: Rid, x: cfloat, y: cfloat, inside: cint): cint {.rapi.}
   ## A drag from another application moves over the window
   ## (`inside` R_TRUE) or leaves it.
@@ -2505,13 +2556,19 @@ proc Rwindow_replace_text_input*(window: Rid, start: cint, `end`: cint, text: cs
   ## Replaces bytes [start, end) of it with `text` and puts the caret
   ## after it, as typing would (the changed callback runs; MaxLength
   ## applies). R_FALSE when there is none or it is read-only.
+proc Rwindow_get_text_composition*(window: Rid, selection_start: ptr cint, selection_end: ptr cint): cstring {.rapi.}
+  ## The composition of the input method in progress (UTF-8, valid
+  ## until it changes) and its selection in bytes; NULL when there is none.
+  ## Any output pointer may be NULL.
 proc Rwindow_has_popup*(window: Rid): cint {.rapi.}
   ## R_TRUE while a menu, list or dialog is open over the window.
 proc Rwindow_get_text_input_rect*(window: Rid, x: ptr cint, y: ptr cint, width: ptr cint, height: ptr cint): cint {.rapi.}
   ## Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
   ## Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
   ## outputs when there is no visible editable caret, the window is inactive, or focus changed
-  ## since painting. Any output pointer may be NULL.
+  ## since painting. Any output pointer may be NULL. While an input method
+  ## composes, it is the caret inside the composition: where its candidate
+  ## window goes.
 proc Rwindow_get_popup_count*(window: Rid): cint {.rapi.}
   ## Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
 proc Rwindow_get_popup*(window: Rid, index: cint): Rid {.rapi.}
@@ -2759,6 +2816,16 @@ proc Rimage_decode*(data: pointer, data_size: csize_t, width: ptr cint, height: 
   ## is not an image Raven can read.
 proc Rpixels_free*(pixels: ptr uint8) {.rapi.}
   ## Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
+proc Rimage_encode_png*(rgba: ptr uint8, width: cint, height: cint, size: ptr csize_t): ptr uint8 {.rapi.}
+  ## Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+  ## returns) as a PNG file in memory. Thread-safe.
+  ## size Receives the number of bytes.
+  ## Returns: The bytes of the file, to release with Rpixels_free; NULL when
+  ## there are no pixels.
+proc Rimage_save_png*(path: cstring, rgba: ptr uint8, width: cint, height: cint): cint {.rapi.}
+  ## Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+  ## of Rwindow_capture, a picture made by the application. Thread-safe.
+  ## Returns: R_FALSE when the file cannot be written.
 proc Rtexture_is_ready*(texture: Rid): cint {.rapi.}
   ## Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 proc Rtexture_wait*(texture: Rid) {.rapi.}
@@ -5087,7 +5154,106 @@ proc Rhost_inject_key*(window: Rid, key: RKey, pressed: cint, modifiers: uint32,
   ## repeat R_TRUE for a key held down (auto-repeat).
 proc Rhost_inject_text*(window: Rid, codepoint: uint32) {.rapi.}
   ## One typed Unicode code point.
+proc Rhost_inject_composition*(window: Rid, text: cstring, selection_start: cint, selection_end: cint) {.rapi.}
+  ## The input method of the application's system composes `text`
+  ## (preedit), with its selection in bytes (see Rwindow_inject_composition).
+  ## NULL or "" cancels it; the committed text then comes through
+  ## Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+  ## candidate window.
 proc Rhost_inject_focus*(window: Rid, focused: cint) {.rapi.}
   ## The window gained or lost the keyboard. Losing it closes popups and drops captures.
 proc Rhost_inject_close*(window: Rid) {.rapi.}
   ## The user asked to close the window (its close callback decides).
+proc Rtest_set_deterministic*(enabled: cint) {.rapi.}
+  ## R_TRUE makes what is drawn depend only on what the test does:
+  ## every frame advances the animations by 1/60 s (Rset_animation_time_step),
+  ## and the carets of the text fields stay lit instead of blinking. R_FALSE
+  ## gives the clock back (time step 0).
+proc Rtest_is_deterministic*(): cint {.rapi.}
+proc Rtest_get_platform_tag*(): cstring {.rapi.}
+  ## Returns: What the goldens of this run are made with, "OS-backend":
+  ## "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+  ## "null" with the null backend.
+proc Rtest_find*(scope: Rid, path: cstring): Rid {.rapi.}
+  ## Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+  ## path may have several names separated by '/': "settings/ok" is the
+  ## widget named "ok" inside the one named "settings". In a window, the
+  ## open popups (menus, dialogs) are searched first, top first, then the
+  ## content.
+  ## scope A window or a widget.
+  ## Returns: R_INVALID_ID when nothing has that name (no error is reported).
+proc Rtest_click*(widget: Rid): cint {.rapi.}
+  ## Moves the mouse to the middle of the widget, presses and releases the left button.
+proc Rtest_double_click*(widget: Rid): cint {.rapi.}
+  ## Two clicks in a row on the middle of the widget, seen as a double click.
+proc Rtest_right_click*(widget: Rid): cint {.rapi.}
+  ## A click of the right button on the middle of the widget (a context menu).
+proc Rtest_click_at*(target: Rid, x: cfloat, y: cfloat, button: RMouseButton, clicks: cint, modifiers: uint32): cint {.rapi.}
+  ## Clicks at a position of a widget or a window.
+  ## clicks 1 for a click, 2 for a double click, 3 for a triple click.
+  ## modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+proc Rtest_hover*(widget: Rid): cint {.rapi.}
+  ## Moves the mouse over the middle of the widget, without clicking.
+proc Rtest_hover_at*(target: Rid, x: cfloat, y: cfloat): cint {.rapi.}
+  ## Moves the mouse to a position of a widget or a window.
+proc Rtest_drag*(widget: Rid, dx: cfloat, dy: cfloat): cint {.rapi.}
+  ## Presses the left button on the middle of the widget, moves by
+  ## (dx, dy) in several steps, and releases: a slider, a splitter, a
+  ## window dragged by a widget.
+proc Rtest_drag_to*(`from`: Rid, to: Rid): cint {.rapi.}
+  ## Drags from the middle of one widget to the middle of another (drag and drop).
+proc Rtest_scroll*(widget: Rid, wheel_x: cfloat, wheel_y: cfloat): cint {.rapi.}
+  ## Turns the mouse wheel over the middle of the widget: `wheel_y`
+  ## notches (positive: toward the top, as a wheel turned away from the
+  ## user), `wheel_x` notches sideways.
+proc Rtest_key*(target: Rid, key: RKey, modifiers: uint32): cint {.rapi.}
+  ## Presses and releases a key, with RModifier held. A widget
+  ## target gets the keyboard focus first; a window sends the key to what
+  ## has the focus.
+proc Rtest_type_text*(target: Rid, text: cstring): cint {.rapi.}
+  ## Types UTF-8 text as a keyboard would. A widget target gets the
+  ## keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+  ## Tab and Backspace.
+proc Rtest_tap*(widget: Rid): cint {.rapi.}
+  ## A finger touches the middle of the widget and leaves at once.
+proc Rtest_swipe*(widget: Rid, dx: cfloat, dy: cfloat, seconds: cdouble): cint {.rapi.}
+  ## A finger put on the middle of the widget moves by (dx, dy) in
+  ## `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+  ## (Rtest_settle lets it stop).
+proc Rtest_pump*(frames: cint): cint {.rapi.}
+  ## Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+proc Rtest_is_idle*(): cint {.rapi.}
+  ## Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+  ## to do, nothing to paint, no animation, no layout spring, no inertia.
+  ## Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+  ## realtime viewport) and the timers are not counted.
+proc Rtest_settle*(max_seconds: cdouble): cint {.rapi.}
+  ## Produces frames until Rtest_is_idle, each advancing the
+  ## animations by the time step (1/60 s unless Rset_animation_time_step
+  ## gives another), for at most `max_seconds` of that time.
+  ## Returns: R_FALSE when it was still moving at the end.
+proc Rtest_get_text*(widget: Rid): cstring {.rapi.}
+  ## Returns: What the user reads in the widget: the text of a field, else
+  ## its label (as screen readers say it: the text of a Label, a Button, a
+  ## Checkbox...). "" when it has none. Valid until the next call.
+proc Rtest_is_shown*(widget: Rid): cint {.rapi.}
+  ## Returns: R_TRUE when the widget can be seen: in a window, Visible with
+  ## all that holds it, on the page a Switcher or a TabView shows, and laid
+  ## out with a size.
+proc Rtest_is_checked*(widget: Rid): cint {.rapi.}
+  ## Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+proc Rtest_expect_golden*(target: Rid, golden_path: cstring, options: ptr RGoldenOptions, result_value: ptr RGoldenResult): cint {.rapi.}
+  ## Captures a window, or the rectangle of one widget, and compares
+  ## it with the PNG file `golden_path` (see the top of this file).
+  ## target A window or a widget.
+  ## options NULL for the defaults.
+  ## result Receives the details; may be NULL.
+  ## Returns: R_TRUE when the capture matches (or the golden was written
+  ## because RAVEN_UPDATE_GOLDENS=1).
+proc Rtest_compare_pixels*(actual: ptr uint8, expected: ptr uint8, width: cint, height: cint, channel_tolerance: cint, max_channel_difference: ptr cint, diff_rgba: ptr uint8): cint {.rapi.}
+  ## Compares two RGBA8 images of the same size as Rtest_expect_golden
+  ## does, without files.
+  ## diff_rgba When not NULL, receives width * height * 4 bytes: the
+  ## expected image faded, with the different pixels in red.
+  ## Returns: The number of pixels farther apart than `channel_tolerance`;
+  ## -1 when an image is missing.

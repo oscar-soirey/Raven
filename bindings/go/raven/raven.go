@@ -1230,6 +1230,17 @@ const (
 	R_ROLE_PANE          RAccessibleRole = 0x0783
 )
 
+type RGoldenStatus int32
+
+const (
+	R_GOLDEN_MATCH         RGoldenStatus = 0x0BA0
+	R_GOLDEN_UPDATED       RGoldenStatus = 0x0BA1
+	R_GOLDEN_MISMATCH      RGoldenStatus = 0x0BA2
+	R_GOLDEN_SIZE_MISMATCH RGoldenStatus = 0x0BA3
+	R_GOLDEN_MISSING       RGoldenStatus = 0x0BA4
+	R_GOLDEN_FAILED        RGoldenStatus = 0x0BA5
+)
+
 // Init: Starts the library with default settings on the given backend. The calling thread becomes the UI
 // thread. Returns: R_TRUE on success. On failure, see Rerror_get_last.
 func Init(backend RBackend) int {
@@ -1821,6 +1832,19 @@ func WindowInjectText(window ID, text string) {
 	C.Rwindow_inject_text(C.Rid(window), text_)
 }
 
+// WindowInjectComposition: The text an input method is composing (preedit: Chinese, Japanese, Korean, dead
+// keys), as the platforms send it. The focused TextInput, SpinBox or TextEditor shows it at its caret,
+// underlined, in place of its selection, but it is not in its text and no changed callback runs.
+// [selection_start, selection_end) are bytes of `text`: the part the input method works on (underlined
+// thicker), or the caret when they are equal; -1 is the end of `text`. NULL or "" ends the composition
+// without typing anything (cancel). The committed text comes through Rwindow_inject_text, which ends the
+// composition too, and so does a change of focus. Ignored when the focus takes no text.
+func WindowInjectComposition(window ID, text string, selection_start int, selection_end int) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rwindow_inject_composition(C.Rid(window), text_, C.int(selection_start), C.int(selection_end))
+}
+
 // WindowInjectDrag: A drag from another application moves over the window (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
 func WindowInjectDrag(window ID, x float32, y float32, inside int) int {
@@ -1887,6 +1911,17 @@ func WindowReplaceTextInput(window ID, start int, end int, text string) int {
 	return int(C.Rwindow_replace_text_input(C.Rid(window), C.int(start), C.int(end), text_))
 }
 
+// WindowGetTextComposition: The composition of the input method in progress (UTF-8, valid until it changes)
+// and its selection in bytes; NULL when there is none. Any output pointer may be NULL.
+func WindowGetTextComposition(window ID) (result string, selection_start int, selection_end int) {
+	var selection_start_ C.int
+	var selection_end_ C.int
+	result = C.GoString(C.Rwindow_get_text_composition(C.Rid(window), &selection_start_, &selection_end_))
+	selection_start = int(selection_start_)
+	selection_end = int(selection_end_)
+	return
+}
+
 // WindowHasPopup: R_TRUE while a menu, list or dialog is open over the window.
 func WindowHasPopup(window ID) int {
 	return int(C.Rwindow_has_popup(C.Rid(window)))
@@ -1895,7 +1930,8 @@ func WindowHasPopup(window ID) int {
 // WindowGetTextInputRect: Last painted caret in window pixels (x, y, width, height), including scrolling and
 // scale. Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the outputs when
 // there is no visible editable caret, the window is inactive, or focus changed since painting. Any output
-// pointer may be NULL.
+// pointer may be NULL. While an input method composes, it is the caret inside the composition: where its
+// candidate window goes.
 func WindowGetTextInputRect(window ID) (result int, x int, y int, width int, height int) {
 	var x_ C.int
 	var y_ C.int
@@ -7978,6 +8014,15 @@ func HostInjectText(window ID, codepoint uint32) {
 	C.Rhost_inject_text(C.Rid(window), C.Ruint(codepoint))
 }
 
+// HostInjectComposition: The input method of the application's system composes `text` (preedit), with its
+// selection in bytes (see Rwindow_inject_composition). NULL or "" cancels it; the committed text then comes
+// through Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the candidate window.
+func HostInjectComposition(window ID, text string, selection_start int, selection_end int) {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	C.Rhost_inject_composition(C.Rid(window), text_, C.int(selection_start), C.int(selection_end))
+}
+
 // HostInjectFocus: The window gained or lost the keyboard. Losing it closes popups and drops captures.
 func HostInjectFocus(window ID, focused int) {
 	C.Rhost_inject_focus(C.Rid(window), C.int(focused))
@@ -7986,6 +8031,143 @@ func HostInjectFocus(window ID, focused int) {
 // HostInjectClose: The user asked to close the window (its close callback decides).
 func HostInjectClose(window ID) {
 	C.Rhost_inject_close(C.Rid(window))
+}
+
+// TestSetDeterministic: R_TRUE makes what is drawn depend only on what the test does: every frame advances
+// the animations by 1/60 s (Rset_animation_time_step), and the carets of the text fields stay lit instead of
+// blinking. R_FALSE gives the clock back (time step 0).
+func TestSetDeterministic(enabled int) {
+	C.Rtest_set_deterministic(C.int(enabled))
+}
+
+func TestIsDeterministic() int {
+	return int(C.Rtest_is_deterministic())
+}
+
+// TestGetPlatformTag: Returns: What the goldens of this run are made with, "OS-backend": "macos-metal",
+// "linux-vulkan", "windows-vulkan", "web-webgl"... and "null" with the null backend.
+func TestGetPlatformTag() string {
+	return C.GoString(C.Rtest_get_platform_tag())
+}
+
+// TestFind: Finds a widget by name (Rwidget_set_name, Name="" in XML). The path may have several names
+// separated by '/': "settings/ok" is the widget named "ok" inside the one named "settings". In a window, the
+// open popups (menus, dialogs) are searched first, top first, then the content. scope A window or a widget.
+// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+func TestFind(scope ID, path string) ID {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	return ID(C.Rtest_find(C.Rid(scope), path_))
+}
+
+// TestClick: Moves the mouse to the middle of the widget, presses and releases the left button.
+func TestClick(widget ID) int {
+	return int(C.Rtest_click(C.Rid(widget)))
+}
+
+// TestDoubleClick: Two clicks in a row on the middle of the widget, seen as a double click.
+func TestDoubleClick(widget ID) int {
+	return int(C.Rtest_double_click(C.Rid(widget)))
+}
+
+// TestRightClick: A click of the right button on the middle of the widget (a context menu).
+func TestRightClick(widget ID) int {
+	return int(C.Rtest_right_click(C.Rid(widget)))
+}
+
+// TestClickAt: Clicks at a position of a widget or a window. clicks 1 for a click, 2 for a double click, 3
+// for a triple click. modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+func TestClickAt(target ID, x float32, y float32, button RMouseButton, clicks int, modifiers uint32) int {
+	return int(C.Rtest_click_at(C.Rid(target), C.float(x), C.float(y), C.RMouseButton(button), C.int(clicks), C.Ruint(modifiers)))
+}
+
+// TestHover: Moves the mouse over the middle of the widget, without clicking.
+func TestHover(widget ID) int {
+	return int(C.Rtest_hover(C.Rid(widget)))
+}
+
+// TestHoverAt: Moves the mouse to a position of a widget or a window.
+func TestHoverAt(target ID, x float32, y float32) int {
+	return int(C.Rtest_hover_at(C.Rid(target), C.float(x), C.float(y)))
+}
+
+// TestDrag: Presses the left button on the middle of the widget, moves by (dx, dy) in several steps, and
+// releases: a slider, a splitter, a window dragged by a widget.
+func TestDrag(widget ID, dx float32, dy float32) int {
+	return int(C.Rtest_drag(C.Rid(widget), C.float(dx), C.float(dy)))
+}
+
+// TestDragTo: Drags from the middle of one widget to the middle of another (drag and drop).
+func TestDragTo(from ID, to ID) int {
+	return int(C.Rtest_drag_to(C.Rid(from), C.Rid(to)))
+}
+
+// TestScroll: Turns the mouse wheel over the middle of the widget: `wheel_y` notches (positive: toward the
+// top, as a wheel turned away from the user), `wheel_x` notches sideways.
+func TestScroll(widget ID, wheel_x float32, wheel_y float32) int {
+	return int(C.Rtest_scroll(C.Rid(widget), C.float(wheel_x), C.float(wheel_y)))
+}
+
+// TestKey: Presses and releases a key, with RModifier held. A widget target gets the keyboard focus first; a
+// window sends the key to what has the focus.
+func TestKey(target ID, key RKey, modifiers uint32) int {
+	return int(C.Rtest_key(C.Rid(target), C.RKey(key), C.Ruint(modifiers)))
+}
+
+// TestTypeText: Types UTF-8 text as a keyboard would. A widget target gets the keyboard focus first. '\n',
+// '\t' and '\b' are sent as the keys Enter, Tab and Backspace.
+func TestTypeText(target ID, text string) int {
+	text_ := C.CString(text)
+	defer C.free(unsafe.Pointer(text_))
+	return int(C.Rtest_type_text(C.Rid(target), text_))
+}
+
+// TestTap: A finger touches the middle of the widget and leaves at once.
+func TestTap(widget ID) int {
+	return int(C.Rtest_tap(C.Rid(widget)))
+}
+
+// TestSwipe: A finger put on the middle of the widget moves by (dx, dy) in `seconds`, and leaves: a fast
+// swipe flicks a list, which then coasts (Rtest_settle lets it stop).
+func TestSwipe(widget ID, dx float32, dy float32, seconds float64) int {
+	return int(C.Rtest_swipe(C.Rid(widget), C.float(dx), C.float(dy), C.double(seconds)))
+}
+
+// TestPump: Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+func TestPump(frames int) int {
+	return int(C.Rtest_pump(C.int(frames)))
+}
+
+// TestIsIdle: Returns: R_TRUE when nothing waits for a frame: no posted task, no layout to do, nothing to
+// paint, no animation, no layout spring, no inertia. Windows that redraw all the time
+// (Rwindow_set_continuous_redraw, a realtime viewport) and the timers are not counted.
+func TestIsIdle() int {
+	return int(C.Rtest_is_idle())
+}
+
+// TestSettle: Produces frames until Rtest_is_idle, each advancing the animations by the time step (1/60 s
+// unless Rset_animation_time_step gives another), for at most `max_seconds` of that time. Returns: R_FALSE
+// when it was still moving at the end.
+func TestSettle(max_seconds float64) int {
+	return int(C.Rtest_settle(C.double(max_seconds)))
+}
+
+// TestGetText: Returns: What the user reads in the widget: the text of a field, else its label (as screen
+// readers say it: the text of a Label, a Button, a Checkbox...). "" when it has none. Valid until the next
+// call.
+func TestGetText(widget ID) string {
+	return C.GoString(C.Rtest_get_text(C.Rid(widget)))
+}
+
+// TestIsShown: Returns: R_TRUE when the widget can be seen: in a window, Visible with all that holds it, on
+// the page a Switcher or a TabView shows, and laid out with a size.
+func TestIsShown(widget ID) int {
+	return int(C.Rtest_is_shown(C.Rid(widget)))
+}
+
+// TestIsChecked: Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+func TestIsChecked(widget ID) int {
+	return int(C.Rtest_is_checked(C.Rid(widget)))
 }
 
 // Left to cgo (a pointer to a structure, a void* or a C callback among the parameters):
@@ -8001,15 +8183,16 @@ func HostInjectClose(window ID) {
 // Rwindow_inject_drop, Rwindow_get_text_input_info, Rwindow_set_event_hook, Rtouch_get_settings
 // Rtouch_set_settings, Rtouch_get_default_settings, Rwindow_set_touch_settings, Rwindow_get_touch_settings
 // Rwidget_set_touch_callback, Rwidget_set_pen_callback, Rwidget_set_gesture_callback
-// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rwidget_set_user_handle
-// Rwidget_get_user_handle, Rwidget_set_destroy_callback, Rwidget_set_event_callback
-// Rwidget_set_drop_callback, Rtab_view_set_changed_callback, Rtab_view_set_close_callback
-// Rexpander_set_changed_callback, Rlabel_set_link_callback, Rbutton_set_clicked_callback
-// Rcheckbox_set_changed_callback, Rslider_set_changed_callback, Rtext_input_set_changed_callback
-// Rtext_input_set_committed_callback, Rspin_box_set_changed_callback, Rcombo_box_set_changed_callback
-// Rcombo_box_set_text_changed_callback, Rlist_view_set_virtual_items, Rlist_view_set_item_color_callback
-// Rlist_view_set_selection_changed_callback, Rlist_view_set_activated_callback, Rtree_item_set_user_handle
-// Rtree_item_get_user_handle, Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
+// Rtexture_create_from_pixels, Rtexture_update, Rimage_decode, Rpixels_free, Rimage_encode_png
+// Rimage_save_png, Rwidget_set_user_handle, Rwidget_get_user_handle, Rwidget_set_destroy_callback
+// Rwidget_set_event_callback, Rwidget_set_drop_callback, Rtab_view_set_changed_callback
+// Rtab_view_set_close_callback, Rexpander_set_changed_callback, Rlabel_set_link_callback
+// Rbutton_set_clicked_callback, Rcheckbox_set_changed_callback, Rslider_set_changed_callback
+// Rtext_input_set_changed_callback, Rtext_input_set_committed_callback, Rspin_box_set_changed_callback
+// Rcombo_box_set_changed_callback, Rcombo_box_set_text_changed_callback, Rlist_view_set_virtual_items
+// Rlist_view_set_item_color_callback, Rlist_view_set_selection_changed_callback
+// Rlist_view_set_activated_callback, Rtree_item_set_user_handle, Rtree_item_get_user_handle
+// Rtree_view_set_selection_changed_callback, Rtree_view_set_activated_callback
 // Rtree_view_set_context_callback, Rmenu_item_set_clicked_callback, Rtile_view_set_items
 // Rtile_view_set_sections, Rtile_view_set_section_toggled_callback, Rtile_view_set_drag_data_callback
 // Rtile_view_set_selection_changed_callback, Rtile_view_set_activated_callback
@@ -8046,4 +8229,5 @@ func HostInjectClose(window ID) {
 // Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
 // Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
 // Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets
+// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rtest_expect_golden
+// Rtest_compare_pixels

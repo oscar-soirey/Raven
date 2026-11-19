@@ -845,6 +845,13 @@ struct rvn_window_t {
 	/** Last painted editable caret, in surface pixels; its owner guards against stale focus. */
 	rvn_box_t text_input_rect;
 	Rid text_input_owner;
+	/**
+	 * The text an input method is composing for the focus (preedit), not in
+	 * the widget's text: the text widgets draw it at their caret, underlined.
+	 * NULL: none. composition_start / _end: its selection (bytes).
+	 */
+	char* composition;
+	int composition_start, composition_end;
 	rvn_widget_t* capture;
 	/** R_TRUE when the focus was moved with the keyboard: widgets then draw a focus outline. */
 	int focus_visible;
@@ -963,6 +970,8 @@ void rvn_window_layout(rvn_window_t* window);
 int  rvn_window_wants_frame(rvn_window_t* window);
 /** Seconds until the window wants a frame: 0 = now, negative = nothing to do (it waits for an event). */
 double rvn_window_frame_in(rvn_window_t* window);
+/** R_TRUE when the window waits for no frame: nothing to lay out or paint, nothing moving (widget/testing.c). Continuous redraws are not counted. */
+int rvn_window_is_settled(rvn_window_t* window);
 /*
  * Waits until the windows that will paint can take a frame (the previous one
  * left for the renderer). Called before the input is read: the frame that
@@ -1094,6 +1103,8 @@ int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root)
 /** Triggers a menu item (shortcuts). Implemented in widgets/menu.c. */
 void rvn_menu_item_trigger(rvn_widget_t* item);
 int rvn_menu_item_is_header(const rvn_widget_t* item);
+/** Where an entry (item or sub-menu) of an open menu is drawn, in its window; R_FALSE when its menu is not shown (widget/testing.c). */
+int rvn_menu_entry_bounds(const rvn_widget_t* entry, rvn_rect_t* rect);
 int rvn_table_multi_select(const rvn_widget_t* table);
 rvn_rect_t rvn_table_accessible_rect(rvn_widget_t* table, int row);
 int rvn_table_accessible_row_at(rvn_widget_t* table, float x, float y);

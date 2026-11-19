@@ -1,9 +1,10 @@
 /**
  * Raven tests - test_wayland.c
  * The Wayland platform against a small compositor run in this process: a
- * window is made, configured, resized, scaled, clicked, typed into, scrolled
- * and pinched with a trackpad, given the clipboard, dropped on, hidden and
- * closed, and what Raven asked of the compositor is checked.
+ * window is made, configured, resized, scaled, clicked, typed into (also
+ * through an input method: text-input-v3), scrolled and pinched with a
+ * trackpad, given the clipboard, dropped on, hidden and closed, and what
+ * Raven asked of the compositor is checked.
  *
  * The compositor is written here on libwayland-server, opened at run time.
  * No GPU is used (null backend): what is tested is the dialogue with the
@@ -194,7 +195,7 @@ static test_impl I_compositor, I_surface, I_region, I_subcompositor, I_subsurfac
 	I_output, I_wm_base, I_xdg_surface, I_toplevel, I_decoration_manager, I_decoration, I_viewporter, I_viewport,
 	I_fractional_manager, I_fractional, I_shape_manager, I_shape_device, I_ddm, I_data_device, I_data_source, I_data_offer,
 	I_tablet_manager, I_tablet_seat, I_tablet, I_tool, I_tool_shape,
-	I_gestures, I_swipe, I_pinch, I_hold;
+	I_gestures, I_swipe, I_pinch, I_hold, I_text_input_manager, I_text_input;
 
 /* What the compositor saw, and what the test asks it to do: shared between the two threads. */
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -238,6 +239,14 @@ static struct {
 	const char* read_mime;     /* what do_read_selection asks for (NULL: plain text) */
 
 	const char* offer_text;    /* what our offers hold when they are read */
+
+	/* the text input of the seat (text-input-v3) and what Raven told it */
+	struct wl_resource* text_input;
+	int ti_enabled, ti_enables, ti_disables, ti_commits, ti_cause_other;
+	char ti_surrounding[256];
+	int ti_cursor, ti_anchor;
+	uint32_t ti_hint, ti_purpose;
+	int ti_rect[4];
 
 	/* a command from the test thread, run by the compositor thread */
 	void (*command)(void*);
@@ -463,6 +472,53 @@ static void bind_gestures(struct wl_client* client, void* data, uint32_t version
 	test_create(client, &I_gestures, version, id, NULL);
 }
 
+/* ---- input methods (text-input-v3) ---- */
+
+static void ti_enable(struct wl_client* client, struct wl_resource* resource) {
+	(void)client; (void)resource;
+	C.ti_enabled = 1;
+	C.ti_enables++;
+}
+static void ti_disable(struct wl_client* client, struct wl_resource* resource) {
+	(void)client; (void)resource;
+	C.ti_enabled = 0;
+	C.ti_disables++;
+}
+static void ti_set_surrounding_text(struct wl_client* client, struct wl_resource* resource, const char* text, int32_t cursor, int32_t anchor) {
+	(void)client; (void)resource;
+	snprintf(C.ti_surrounding, sizeof(C.ti_surrounding), "%s", text);
+	C.ti_cursor = cursor;
+	C.ti_anchor = anchor;
+}
+static void ti_set_text_change_cause(struct wl_client* client, struct wl_resource* resource, uint32_t cause) {
+	(void)client; (void)resource;
+	if (cause == ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_OTHER) C.ti_cause_other++;
+}
+static void ti_set_content_type(struct wl_client* client, struct wl_resource* resource, uint32_t hint, uint32_t purpose) {
+	(void)client; (void)resource;
+	C.ti_hint = hint;
+	C.ti_purpose = purpose;
+}
+static void ti_set_cursor_rectangle(struct wl_client* client, struct wl_resource* resource, int32_t x, int32_t y, int32_t width, int32_t height) {
+	(void)client; (void)resource;
+	C.ti_rect[0] = x;
+	C.ti_rect[1] = y;
+	C.ti_rect[2] = width;
+	C.ti_rect[3] = height;
+}
+static void ti_commit(struct wl_client* client, struct wl_resource* resource) {
+	(void)client; (void)resource;
+	C.ti_commits++;
+}
+static void ti_manager_get_text_input(struct wl_client* client, struct wl_resource* resource, uint32_t id, struct wl_resource* seat) {
+	(void)seat;
+	C.text_input = test_create(client, &I_text_input, (uint32_t)S.resource_get_version(resource), id, NULL);
+}
+static void bind_text_input_manager(struct wl_client* client, void* data, uint32_t version, uint32_t id) {
+	(void)data;
+	test_create(client, &I_text_input_manager, version, id, NULL);
+}
+
 static void bind_shape_manager(struct wl_client* client, void* data, uint32_t version, uint32_t id) {
 	(void)data;
 	test_create(client, &I_shape_manager, version, id, NULL);
@@ -522,6 +578,7 @@ static void* compositor_thread(void* unused) {
 	S.global_create(C.display, &rvn_wl_data_device_manager_interface, 3, NULL, bind_ddm);
 	S.global_create(C.display, &rvn_zwp_tablet_manager_v2_interface, 1, NULL, bind_tablet_manager);
 	S.global_create(C.display, &rvn_zwp_pointer_gestures_v1_interface, 3, NULL, bind_gestures);
+	S.global_create(C.display, &rvn_zwp_text_input_manager_v3_interface, 1, NULL, bind_text_input_manager);
 
 	pthread_mutex_lock(&g_lock);
 	C.ready = 1;
@@ -747,6 +804,25 @@ static void type_key(uint32_t key, uint32_t modifiers) {
 	key_action press = { key, 1, modifiers }, release = { key, 0, modifiers };
 	compositor_do(do_key, &press);
 	compositor_do(do_key, &release);
+}
+
+/* What the input method sends, then done: with the serial of every commit Raven made, or one behind (stale). */
+typedef struct ti_events { const char* preedit; int begin, end; const char* commit; uint32_t before, after; int stale; } ti_events;
+
+static void do_ti_enter(void* unused) {
+	(void)unused;
+	EVENT(C.text_input, zwp_text_input_v3, "enter", C.surface);
+}
+static void do_ti_leave(void* unused) {
+	(void)unused;
+	EVENT(C.text_input, zwp_text_input_v3, "leave", C.surface);
+}
+static void do_ti_events(void* argument) {
+	ti_events* e = (ti_events*)argument;
+	if (e->preedit) EVENT(C.text_input, zwp_text_input_v3, "preedit_string", e->preedit, e->begin, e->end);
+	if (e->before || e->after) EVENT(C.text_input, zwp_text_input_v3, "delete_surrounding_text", e->before, e->after);
+	if (e->commit) EVENT(C.text_input, zwp_text_input_v3, "commit_string", e->commit);
+	EVENT(C.text_input, zwp_text_input_v3, "done", (uint32_t)(C.ti_commits - (e->stale ? 1 : 0)));
 }
 
 typedef struct configure_args { int width, height, maximized; } configure_args;
@@ -1052,6 +1128,100 @@ static void test_wayland(void) {
 		CHECK(count >= 4);
 	}
 
+	/* an input method (text-input-v3): enabled for the field, with its kind, its text and its caret */
+	Rtext_input_set_text(input, "ab");
+	compositor_do(do_ti_enter, NULL);
+	settle(50);
+	{
+		ti_events preedit = { "nihon", 5, 5, NULL, 0, 0, 0 };
+		ti_events kanji = { NULL, 0, 0, "\xE6\x97\xA5\xE6\x9C\xAC", 0, 0, 0 };     /* 日本 */
+		ti_events replace = { NULL, 0, 0, "x", 3, 0, 0 };                          /* 本 replaced by x */
+		ti_events stale = { NULL, 0, 0, "y", 0, 0, 1 };
+		ti_events composing = { "\xE3\x81\x8B", 3, 3, NULL, 0, 0, 0 };            /* か */
+		const char* composition;
+		int start = -1, end = -1, caret_x, commits;
+
+		pthread_mutex_lock(&g_lock);
+		CHECK(C.text_input != NULL);
+		CHECK(C.ti_enabled && C.ti_enables == 1);
+		CHECK(C.ti_purpose == ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL);
+		CHECK_STR(C.ti_surrounding, "ab");
+		CHECK(C.ti_cursor == 2 && C.ti_anchor == 2);
+		CHECK(C.ti_rect[2] > 0 && C.ti_rect[3] > 0);
+		CHECK(C.ti_rect[0] >= 0 && C.ti_rect[0] < 400 && C.ti_rect[1] >= 0 && C.ti_rect[1] < 300);
+		CHECK(C.ti_commits >= 1);
+		caret_x = C.ti_rect[0];
+		pthread_mutex_unlock(&g_lock);
+
+		/* a composition: shown in the field, not in its text; the candidates follow its caret */
+		compositor_do(do_ti_events, &preedit);
+		settle(50);
+		composition = Rwindow_get_text_composition(window, &start, &end);
+		CHECK(composition != NULL);
+		if (composition) CHECK_STR(composition, "nihon");
+		CHECK(start == 5 && end == 5);
+		CHECK_STR(Rtext_input_get_text(input), "ab");
+		pthread_mutex_lock(&g_lock);
+		CHECK(C.ti_rect[0] > caret_x);
+		pthread_mutex_unlock(&g_lock);
+
+		/* committed: typed at the caret, the composition gone (a done without preedit_string ends it) */
+		compositor_do(do_ti_events, &kanji);
+		settle(50);
+		CHECK_STR(Rtext_input_get_text(input), "ab\xE6\x97\xA5\xE6\x9C\xAC");
+		CHECK(Rwindow_get_text_composition(window, NULL, NULL) == NULL);
+		/* the input method is told the new text, as its own change */
+		pthread_mutex_lock(&g_lock);
+		CHECK_STR(C.ti_surrounding, "ab\xE6\x97\xA5\xE6\x9C\xAC");
+		CHECK(C.ti_cursor == 8 && C.ti_anchor == 8);
+		CHECK(C.ti_cause_other == 0);
+		pthread_mutex_unlock(&g_lock);
+
+		/* the text before the caret deleted, then the commit, in one done */
+		compositor_do(do_ti_events, &replace);
+		settle(50);
+		CHECK_STR(Rtext_input_get_text(input), "ab\xE6\x97\xA5x");
+
+		/* a done whose serial is behind: applied all the same, but its state is not sent back */
+		compositor_do(do_ti_events, &stale);
+		settle(50);
+		CHECK_STR(Rtext_input_get_text(input), "ab\xE6\x97\xA5xy");
+		pthread_mutex_lock(&g_lock);
+		CHECK_STR(C.ti_surrounding, "ab\xE6\x97\xA5x");
+		pthread_mutex_unlock(&g_lock);
+
+		/* a key the input method let through: typed as before, and a change of the user's for it */
+		type_key(30, 0);   /* a */
+		settle(50);
+		CHECK_STR(Rtext_input_get_text(input), "ab\xE6\x97\xA5xya");
+		pthread_mutex_lock(&g_lock);
+		CHECK_STR(C.ti_surrounding, "ab\xE6\x97\xA5xya");
+		CHECK(C.ti_cause_other >= 1);
+		pthread_mutex_unlock(&g_lock);
+
+		/* the focus leaves the text: disabled; back in it: enabled again */
+		Rwidget_focus(go);
+		settle(50);
+		pthread_mutex_lock(&g_lock);
+		CHECK(!C.ti_enabled && C.ti_disables == 1);
+		commits = C.ti_commits;
+		pthread_mutex_unlock(&g_lock);
+		Rwidget_focus(input);
+		settle(50);
+		pthread_mutex_lock(&g_lock);
+		CHECK(C.ti_enabled && C.ti_enables == 2 && C.ti_commits > commits);
+		pthread_mutex_unlock(&g_lock);
+
+		/* the text input leaves the window while composing: the composition goes, the text stays */
+		compositor_do(do_ti_events, &composing);
+		settle(50);
+		CHECK(Rwindow_get_text_composition(window, NULL, NULL) != NULL);
+		compositor_do(do_ti_leave, NULL);
+		settle(50);
+		CHECK(Rwindow_get_text_composition(window, NULL, NULL) == NULL);
+		CHECK_STR(Rtext_input_get_text(input), "ab\xE6\x97\xA5xya");
+	}
+
 	/* the wheel */
 	center_of(label, &p);
 	compositor_do(do_pointer_enter, &p);
@@ -1312,6 +1482,16 @@ int main(void) {
 	test_impl_init(&I_swipe, &rvn_zwp_pointer_gesture_swipe_v1_interface);
 	test_impl_init(&I_pinch, &rvn_zwp_pointer_gesture_pinch_v1_interface);
 	test_impl_init(&I_hold, &rvn_zwp_pointer_gesture_hold_v1_interface);
+	test_impl_init(&I_text_input_manager, &rvn_zwp_text_input_manager_v3_interface);
+	test_on(&I_text_input_manager, "get_text_input", (test_handler)ti_manager_get_text_input);
+	test_impl_init(&I_text_input, &rvn_zwp_text_input_v3_interface);
+	test_on(&I_text_input, "enable", (test_handler)ti_enable);
+	test_on(&I_text_input, "disable", (test_handler)ti_disable);
+	test_on(&I_text_input, "set_surrounding_text", (test_handler)ti_set_surrounding_text);
+	test_on(&I_text_input, "set_text_change_cause", (test_handler)ti_set_text_change_cause);
+	test_on(&I_text_input, "set_content_type", (test_handler)ti_set_content_type);
+	test_on(&I_text_input, "set_cursor_rectangle", (test_handler)ti_set_cursor_rectangle);
+	test_on(&I_text_input, "commit", (test_handler)ti_commit);
 	test_impl_init(&I_shape_device, &rvn_wp_cursor_shape_device_v1_interface);
 	test_on(&I_shape_device, "set_shape", (test_handler)shape_set_shape);
 	test_impl_init(&I_ddm, &rvn_wl_data_device_manager_interface);

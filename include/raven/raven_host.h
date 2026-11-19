@@ -64,6 +64,14 @@ extern "C" {
 	RAVEN_API void Rhost_inject_key(Rid window, RKey key, int pressed, Ruint modifiers, int repeat);
 	/** @brief One typed Unicode code point. */
 	RAVEN_API void Rhost_inject_text(Rid window, uint32_t codepoint);
+	/**
+	 * @brief The input method of the application's system composes `text`
+	 * (preedit), with its selection in bytes (see Rwindow_inject_composition).
+	 * NULL or "" cancels it; the committed text then comes through
+	 * Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+	 * candidate window.
+	 */
+	RAVEN_API void Rhost_inject_composition(Rid window, const char* text, int selection_start, int selection_end);
 	/** @brief The window gained or lost the keyboard. Losing it closes popups and drops captures. */
 	RAVEN_API void Rhost_inject_focus(Rid window, int focused);
 	/** @brief The user asked to close the window (its close callback decides). */

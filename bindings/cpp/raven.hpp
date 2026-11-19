@@ -647,6 +647,18 @@ public:
 	/// is not an image Raven can read.
 	static uint8_t* decode(const void* data, size_t data_size, int* width, int* height) { return Rimage_decode(data, data_size, width, height); }
 
+	/// Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+	/// returns) as a PNG file in memory. Thread-safe.
+	/// size Receives the number of bytes.
+	/// Returns: The bytes of the file, to release with Rpixels_free; NULL when
+	/// there are no pixels.
+	static uint8_t* encode_png(const uint8_t* rgba, int width, int height, size_t* size) { return Rimage_encode_png(rgba, width, height, size); }
+
+	/// Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+	/// of Rwindow_capture, a picture made by the application. Thread-safe.
+	/// Returns: R_FALSE when the file cannot be written.
+	static int save_png(const char* path, const uint8_t* rgba, int width, int height) { return Rimage_save_png(path, rgba, width, height); }
+
 	void set_texture(Rid texture) const { Rimage_set_texture(id_, texture); }
 
 	void set_tint_color(float r, float g, float b, float a) const { Rimage_set_tint_color(id_, r, g, b, a); }
@@ -2067,6 +2079,18 @@ public:
 
 	void inject_text(const char* text) const { Rwindow_inject_text(id_, text); }
 
+	/// The text an input method is composing (preedit: Chinese,
+	/// Japanese, Korean, dead keys), as the platforms send it. The focused
+	/// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+	/// place of its selection, but it is not in its text and no changed
+	/// callback runs. [selection_start, selection_end) are bytes of `text`:
+	/// the part the input method works on (underlined thicker), or the caret
+	/// when they are equal; -1 is the end of `text`. NULL or "" ends the
+	/// composition without typing anything (cancel). The committed text comes
+	/// through Rwindow_inject_text, which ends the composition too, and so
+	/// does a change of focus. Ignored when the focus takes no text.
+	void inject_composition(const char* text, int selection_start, int selection_end) const { Rwindow_inject_composition(id_, text, selection_start, selection_end); }
+
 	/// A drag from another application moves over the window
 	/// (`inside` R_TRUE) or leaves it.
 	/// Returns: R_TRUE when a drop at this position would be accepted.
@@ -2110,13 +2134,20 @@ public:
 	/// applies). R_FALSE when there is none or it is read-only.
 	int replace_text_input(int start, int end, const char* text) const { return Rwindow_replace_text_input(id_, start, end, text); }
 
+	/// The composition of the input method in progress (UTF-8, valid
+	/// until it changes) and its selection in bytes; NULL when there is none.
+	/// Any output pointer may be NULL.
+	const char* get_text_composition(int* selection_start, int* selection_end) const { return Rwindow_get_text_composition(id_, selection_start, selection_end); }
+
 	/// R_TRUE while a menu, list or dialog is open over the window.
 	int has_popup() const { return Rwindow_has_popup(id_); }
 
 	/// Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 	/// Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 	/// outputs when there is no visible editable caret, the window is inactive, or focus changed
-	/// since painting. Any output pointer may be NULL.
+	/// since painting. Any output pointer may be NULL. While an input method
+	/// composes, it is the caret inside the composition: where its candidate
+	/// window goes.
 	int get_text_input_rect(int* x, int* y, int* width, int* height) const { return Rwindow_get_text_input_rect(id_, x, y, width, height); }
 
 	/// Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
@@ -5184,11 +5215,136 @@ inline void host_inject_key(Rid window, RKey key, int pressed, Ruint modifiers, 
 /// One typed Unicode code point.
 inline void host_inject_text(Rid window, uint32_t codepoint) { Rhost_inject_text(window, codepoint); }
 
+/// The input method of the application's system composes `text`
+/// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+/// NULL or "" cancels it; the committed text then comes through
+/// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+/// candidate window.
+inline void host_inject_composition(Rid window, const char* text, int selection_start, int selection_end) { Rhost_inject_composition(window, text, selection_start, selection_end); }
+
 /// The window gained or lost the keyboard. Losing it closes popups and drops captures.
 inline void host_inject_focus(Rid window, int focused) { Rhost_inject_focus(window, focused); }
 
 /// The user asked to close the window (its close callback decides).
 inline void host_inject_close(Rid window) { Rhost_inject_close(window); }
+
+/// R_TRUE makes what is drawn depend only on what the test does:
+/// every frame advances the animations by 1/60 s (Rset_animation_time_step),
+/// and the carets of the text fields stay lit instead of blinking. R_FALSE
+/// gives the clock back (time step 0).
+inline void test_set_deterministic(int enabled) { Rtest_set_deterministic(enabled); }
+
+inline int test_is_deterministic() { return Rtest_is_deterministic(); }
+
+/// Returns: What the goldens of this run are made with, "OS-backend":
+/// "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+/// "null" with the null backend.
+inline const char* test_get_platform_tag() { return Rtest_get_platform_tag(); }
+
+/// Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+/// path may have several names separated by '/': "settings/ok" is the
+/// widget named "ok" inside the one named "settings". In a window, the
+/// open popups (menus, dialogs) are searched first, top first, then the
+/// content.
+/// scope A window or a widget.
+/// Returns: R_INVALID_ID when nothing has that name (no error is reported).
+inline Rid test_find(Rid scope, const char* path) { return Rtest_find(scope, path); }
+
+/// Moves the mouse to the middle of the widget, presses and releases the left button.
+inline int test_click(Rid widget) { return Rtest_click(widget); }
+
+/// Two clicks in a row on the middle of the widget, seen as a double click.
+inline int test_double_click(Rid widget) { return Rtest_double_click(widget); }
+
+/// A click of the right button on the middle of the widget (a context menu).
+inline int test_right_click(Rid widget) { return Rtest_right_click(widget); }
+
+/// Clicks at a position of a widget or a window.
+/// clicks 1 for a click, 2 for a double click, 3 for a triple click.
+/// modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+inline int test_click_at(Rid target, float x, float y, RMouseButton button, int clicks, Ruint modifiers) { return Rtest_click_at(target, x, y, button, clicks, modifiers); }
+
+/// Moves the mouse over the middle of the widget, without clicking.
+inline int test_hover(Rid widget) { return Rtest_hover(widget); }
+
+/// Moves the mouse to a position of a widget or a window.
+inline int test_hover_at(Rid target, float x, float y) { return Rtest_hover_at(target, x, y); }
+
+/// Presses the left button on the middle of the widget, moves by
+/// (dx, dy) in several steps, and releases: a slider, a splitter, a
+/// window dragged by a widget.
+inline int test_drag(Rid widget, float dx, float dy) { return Rtest_drag(widget, dx, dy); }
+
+/// Drags from the middle of one widget to the middle of another (drag and drop).
+inline int test_drag_to(Rid from, Rid to) { return Rtest_drag_to(from, to); }
+
+/// Turns the mouse wheel over the middle of the widget: `wheel_y`
+/// notches (positive: toward the top, as a wheel turned away from the
+/// user), `wheel_x` notches sideways.
+inline int test_scroll(Rid widget, float wheel_x, float wheel_y) { return Rtest_scroll(widget, wheel_x, wheel_y); }
+
+/// Presses and releases a key, with RModifier held. A widget
+/// target gets the keyboard focus first; a window sends the key to what
+/// has the focus.
+inline int test_key(Rid target, RKey key, Ruint modifiers) { return Rtest_key(target, key, modifiers); }
+
+/// Types UTF-8 text as a keyboard would. A widget target gets the
+/// keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+/// Tab and Backspace.
+inline int test_type_text(Rid target, const char* text) { return Rtest_type_text(target, text); }
+
+/// A finger touches the middle of the widget and leaves at once.
+inline int test_tap(Rid widget) { return Rtest_tap(widget); }
+
+/// A finger put on the middle of the widget moves by (dx, dy) in
+/// `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+/// (Rtest_settle lets it stop).
+inline int test_swipe(Rid widget, float dx, float dy, double seconds) { return Rtest_swipe(widget, dx, dy, seconds); }
+
+/// Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+inline int test_pump(int frames) { return Rtest_pump(frames); }
+
+/// Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+/// to do, nothing to paint, no animation, no layout spring, no inertia.
+/// Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+/// realtime viewport) and the timers are not counted.
+inline int test_is_idle() { return Rtest_is_idle(); }
+
+/// Produces frames until Rtest_is_idle, each advancing the
+/// animations by the time step (1/60 s unless Rset_animation_time_step
+/// gives another), for at most `max_seconds` of that time.
+/// Returns: R_FALSE when it was still moving at the end.
+inline int test_settle(double max_seconds) { return Rtest_settle(max_seconds); }
+
+/// Returns: What the user reads in the widget: the text of a field, else
+/// its label (as screen readers say it: the text of a Label, a Button, a
+/// Checkbox...). "" when it has none. Valid until the next call.
+inline const char* test_get_text(Rid widget) { return Rtest_get_text(widget); }
+
+/// Returns: R_TRUE when the widget can be seen: in a window, Visible with
+/// all that holds it, on the page a Switcher or a TabView shows, and laid
+/// out with a size.
+inline int test_is_shown(Rid widget) { return Rtest_is_shown(widget); }
+
+/// Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+inline int test_is_checked(Rid widget) { return Rtest_is_checked(widget); }
+
+/// Captures a window, or the rectangle of one widget, and compares
+/// it with the PNG file `golden_path` (see the top of this file).
+/// target A window or a widget.
+/// options NULL for the defaults.
+/// result Receives the details; may be NULL.
+/// Returns: R_TRUE when the capture matches (or the golden was written
+/// because RAVEN_UPDATE_GOLDENS=1).
+inline int test_expect_golden(Rid target, const char* golden_path, const RGoldenOptions* options, RGoldenResult* result) { return Rtest_expect_golden(target, golden_path, options, result); }
+
+/// Compares two RGBA8 images of the same size as Rtest_expect_golden
+/// does, without files.
+/// diff_rgba When not NULL, receives width * height * 4 bytes: the
+/// expected image faded, with the different pixels in red.
+/// Returns: The number of pixels farther apart than `channel_tolerance`;
+/// -1 when an image is missing.
+inline int test_compare_pixels(const uint8_t* actual, const uint8_t* expected, int width, int height, int channel_tolerance, int* max_channel_difference, uint8_t* diff_rgba) { return Rtest_compare_pixels(actual, expected, width, height, channel_tolerance, max_channel_difference, diff_rgba); }
 
 } // namespace raven
 

@@ -447,6 +447,18 @@ void Rhost_inject_text(Rid id, uint32_t codepoint) {
 	rvn_host_send(window, &event);
 }
 
+void Rhost_inject_composition(Rid id, const char* text, int selection_start, int selection_end) {
+	rvn_window_t* window = rvn_host_target(id, "Rhost_inject_composition");
+	rvn_pevent_t event;
+	if (!window) return;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_COMPOSITION;
+	event.composition = text;
+	event.composition_start = selection_start;
+	event.composition_end = selection_end;
+	rvn_host_send(window, &event);
+}
+
 void Rhost_inject_focus(Rid id, int focused) {
 	rvn_window_t* window = rvn_host_target(id, "Rhost_inject_focus");
 	rvn_pevent_t event;

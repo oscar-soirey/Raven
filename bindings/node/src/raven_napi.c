@@ -173,6 +173,7 @@ static struct {
 	void (*Rwindow_inject_mouse_wheel)(Rid, float, float);
 	void (*Rwindow_inject_key)(Rid, RKey, int, Ruint);
 	void (*Rwindow_inject_text)(Rid, const char*);
+	void (*Rwindow_inject_composition)(Rid, const char*, int, int);
 	int (*Rwindow_inject_drag)(Rid, float, float, int);
 	int (*Rwindow_inject_drop)(Rid, float, float, const char*const*, int, const char*);
 	int (*Rwindow_inject_back)(Rid);
@@ -186,6 +187,7 @@ static struct {
 	int (*Rwindow_get_text_input_selection)(Rid, int*, int*);
 	int (*Rwindow_set_text_input_selection)(Rid, int, int);
 	int (*Rwindow_replace_text_input)(Rid, int, int, const char*);
+	const char* (*Rwindow_get_text_composition)(Rid, int*, int*);
 	int (*Rwindow_has_popup)(Rid);
 	int (*Rwindow_get_text_input_rect)(Rid, int*, int*, int*, int*);
 	int (*Rwindow_get_popup_count)(Rid);
@@ -271,6 +273,8 @@ static struct {
 	void (*Rtexture_update)(Rid, const uint8_t*, int, int);
 	uint8_t* (*Rimage_decode)(const void*, size_t, int*, int*);
 	void (*Rpixels_free)(uint8_t*);
+	uint8_t* (*Rimage_encode_png)(const uint8_t*, int, int, size_t*);
+	int (*Rimage_save_png)(const char*, const uint8_t*, int, int);
 	int (*Rtexture_is_ready)(Rid);
 	void (*Rtexture_wait)(Rid);
 	void (*Rtexture_destroy)(Rid);
@@ -1403,8 +1407,34 @@ static struct {
 	void (*Rhost_inject_mouse_leave)(Rid);
 	void (*Rhost_inject_key)(Rid, RKey, int, Ruint, int);
 	void (*Rhost_inject_text)(Rid, uint32_t);
+	void (*Rhost_inject_composition)(Rid, const char*, int, int);
 	void (*Rhost_inject_focus)(Rid, int);
 	void (*Rhost_inject_close)(Rid);
+	void (*Rtest_set_deterministic)(int);
+	int (*Rtest_is_deterministic)(void);
+	const char* (*Rtest_get_platform_tag)(void);
+	Rid (*Rtest_find)(Rid, const char*);
+	int (*Rtest_click)(Rid);
+	int (*Rtest_double_click)(Rid);
+	int (*Rtest_right_click)(Rid);
+	int (*Rtest_click_at)(Rid, float, float, RMouseButton, int, Ruint);
+	int (*Rtest_hover)(Rid);
+	int (*Rtest_hover_at)(Rid, float, float);
+	int (*Rtest_drag)(Rid, float, float);
+	int (*Rtest_drag_to)(Rid, Rid);
+	int (*Rtest_scroll)(Rid, float, float);
+	int (*Rtest_key)(Rid, RKey, Ruint);
+	int (*Rtest_type_text)(Rid, const char*);
+	int (*Rtest_tap)(Rid);
+	int (*Rtest_swipe)(Rid, float, float, double);
+	int (*Rtest_pump)(int);
+	int (*Rtest_is_idle)(void);
+	int (*Rtest_settle)(double);
+	const char* (*Rtest_get_text)(Rid);
+	int (*Rtest_is_shown)(Rid);
+	int (*Rtest_is_checked)(Rid);
+	int (*Rtest_expect_golden)(Rid, const char*, const RGoldenOptions*, RGoldenResult*);
+	int (*Rtest_compare_pixels)(const uint8_t*, const uint8_t*, int, int, int, int*, uint8_t*);
 } rn;
 
 static const struct {
@@ -1554,6 +1584,7 @@ static const struct {
 	{"Rwindow_inject_mouse_wheel", offsetof(__typeof__(rn), Rwindow_inject_mouse_wheel)},
 	{"Rwindow_inject_key", offsetof(__typeof__(rn), Rwindow_inject_key)},
 	{"Rwindow_inject_text", offsetof(__typeof__(rn), Rwindow_inject_text)},
+	{"Rwindow_inject_composition", offsetof(__typeof__(rn), Rwindow_inject_composition)},
 	{"Rwindow_inject_drag", offsetof(__typeof__(rn), Rwindow_inject_drag)},
 	{"Rwindow_inject_drop", offsetof(__typeof__(rn), Rwindow_inject_drop)},
 	{"Rwindow_inject_back", offsetof(__typeof__(rn), Rwindow_inject_back)},
@@ -1567,6 +1598,7 @@ static const struct {
 	{"Rwindow_get_text_input_selection", offsetof(__typeof__(rn), Rwindow_get_text_input_selection)},
 	{"Rwindow_set_text_input_selection", offsetof(__typeof__(rn), Rwindow_set_text_input_selection)},
 	{"Rwindow_replace_text_input", offsetof(__typeof__(rn), Rwindow_replace_text_input)},
+	{"Rwindow_get_text_composition", offsetof(__typeof__(rn), Rwindow_get_text_composition)},
 	{"Rwindow_has_popup", offsetof(__typeof__(rn), Rwindow_has_popup)},
 	{"Rwindow_get_text_input_rect", offsetof(__typeof__(rn), Rwindow_get_text_input_rect)},
 	{"Rwindow_get_popup_count", offsetof(__typeof__(rn), Rwindow_get_popup_count)},
@@ -1652,6 +1684,8 @@ static const struct {
 	{"Rtexture_update", offsetof(__typeof__(rn), Rtexture_update)},
 	{"Rimage_decode", offsetof(__typeof__(rn), Rimage_decode)},
 	{"Rpixels_free", offsetof(__typeof__(rn), Rpixels_free)},
+	{"Rimage_encode_png", offsetof(__typeof__(rn), Rimage_encode_png)},
+	{"Rimage_save_png", offsetof(__typeof__(rn), Rimage_save_png)},
 	{"Rtexture_is_ready", offsetof(__typeof__(rn), Rtexture_is_ready)},
 	{"Rtexture_wait", offsetof(__typeof__(rn), Rtexture_wait)},
 	{"Rtexture_destroy", offsetof(__typeof__(rn), Rtexture_destroy)},
@@ -2784,8 +2818,34 @@ static const struct {
 	{"Rhost_inject_mouse_leave", offsetof(__typeof__(rn), Rhost_inject_mouse_leave)},
 	{"Rhost_inject_key", offsetof(__typeof__(rn), Rhost_inject_key)},
 	{"Rhost_inject_text", offsetof(__typeof__(rn), Rhost_inject_text)},
+	{"Rhost_inject_composition", offsetof(__typeof__(rn), Rhost_inject_composition)},
 	{"Rhost_inject_focus", offsetof(__typeof__(rn), Rhost_inject_focus)},
 	{"Rhost_inject_close", offsetof(__typeof__(rn), Rhost_inject_close)},
+	{"Rtest_set_deterministic", offsetof(__typeof__(rn), Rtest_set_deterministic)},
+	{"Rtest_is_deterministic", offsetof(__typeof__(rn), Rtest_is_deterministic)},
+	{"Rtest_get_platform_tag", offsetof(__typeof__(rn), Rtest_get_platform_tag)},
+	{"Rtest_find", offsetof(__typeof__(rn), Rtest_find)},
+	{"Rtest_click", offsetof(__typeof__(rn), Rtest_click)},
+	{"Rtest_double_click", offsetof(__typeof__(rn), Rtest_double_click)},
+	{"Rtest_right_click", offsetof(__typeof__(rn), Rtest_right_click)},
+	{"Rtest_click_at", offsetof(__typeof__(rn), Rtest_click_at)},
+	{"Rtest_hover", offsetof(__typeof__(rn), Rtest_hover)},
+	{"Rtest_hover_at", offsetof(__typeof__(rn), Rtest_hover_at)},
+	{"Rtest_drag", offsetof(__typeof__(rn), Rtest_drag)},
+	{"Rtest_drag_to", offsetof(__typeof__(rn), Rtest_drag_to)},
+	{"Rtest_scroll", offsetof(__typeof__(rn), Rtest_scroll)},
+	{"Rtest_key", offsetof(__typeof__(rn), Rtest_key)},
+	{"Rtest_type_text", offsetof(__typeof__(rn), Rtest_type_text)},
+	{"Rtest_tap", offsetof(__typeof__(rn), Rtest_tap)},
+	{"Rtest_swipe", offsetof(__typeof__(rn), Rtest_swipe)},
+	{"Rtest_pump", offsetof(__typeof__(rn), Rtest_pump)},
+	{"Rtest_is_idle", offsetof(__typeof__(rn), Rtest_is_idle)},
+	{"Rtest_settle", offsetof(__typeof__(rn), Rtest_settle)},
+	{"Rtest_get_text", offsetof(__typeof__(rn), Rtest_get_text)},
+	{"Rtest_is_shown", offsetof(__typeof__(rn), Rtest_is_shown)},
+	{"Rtest_is_checked", offsetof(__typeof__(rn), Rtest_is_checked)},
+	{"Rtest_expect_golden", offsetof(__typeof__(rn), Rtest_expect_golden)},
+	{"Rtest_compare_pixels", offsetof(__typeof__(rn), Rtest_compare_pixels)},
 };
 
 /* ---- threads */
@@ -7379,6 +7439,27 @@ done:
 	return result_;
 }
 
+static napi_value rn_w_Rwindow_inject_composition(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	int a2;
+	int a3;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_int(env, argv[3], &a3)) goto done;
+	rn.Rwindow_inject_composition((Rid)a0, a1.p, (int)a2, (int)a3);
+done:
+	free(a1.heap);
+	return result_;
+}
+
 static napi_value rn_w_Rwindow_inject_drag(napi_env env, napi_callback_info info) {
 	size_t argc = 4;
 	napi_value argv[4];
@@ -7596,6 +7677,30 @@ static napi_value rn_w_Rwindow_replace_text_input(napi_env env, napi_callback_in
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a3.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rwindow_get_text_composition(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1 = 0;
+	int a2 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rwindow_get_text_composition((Rid)a0, &a1, &a2));
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a1, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a2, &o1_);
+		{
+			const napi_value values_[3] = {result_, o0_, o1_};
+			result_ = rn_tuple(env, 3, values_);
+		}
+	}
 	return result_;
 }
 
@@ -8932,6 +9037,53 @@ static napi_value rn_w_Rpixels_free(napi_env env, napi_callback_info info) {
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
 	rn.Rpixels_free((uint8_t*)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rimage_encode_png(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	int a1;
+	int a2;
+	size_t a3 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	result_ = rn_make_ptr(env, rn.Rimage_encode_png((const uint8_t*)a0, (int)a1, (int)a2, &a3));
+	{
+		napi_value o0_;
+		napi_create_double(env, (double)a3, &o0_);
+		{
+			const napi_value values_[2] = {result_, o0_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rimage_save_png(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	void* a1;
+	int a2;
+	int a3;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_ptr(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_int(env, argv[3], &a3)) goto done;
+	int value_ = rn.Rimage_save_png(a0.p, (const uint8_t*)a1, (int)a2, (int)a3);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
 	return result_;
 }
 
@@ -27738,6 +27890,27 @@ static napi_value rn_w_Rhost_inject_text(napi_env env, napi_callback_info info) 
 	return result_;
 }
 
+static napi_value rn_w_Rhost_inject_composition(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	int a2;
+	int a3;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_int(env, argv[3], &a3)) goto done;
+	rn.Rhost_inject_composition((Rid)a0, a1.p, (int)a2, (int)a3);
+done:
+	free(a1.heap);
+	return result_;
+}
+
 static napi_value rn_w_Rhost_inject_focus(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -27761,6 +27934,388 @@ static napi_value rn_w_Rhost_inject_close(napi_env env, napi_callback_info info)
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
 	rn.Rhost_inject_close((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_set_deterministic(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	rn.Rtest_set_deterministic((int)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_is_deterministic(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rtest_is_deterministic();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_get_platform_tag(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	result_ = rn_make_text(env, rn.Rtest_get_platform_tag());
+	return result_;
+}
+
+static napi_value rn_w_Rtest_find(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	Rid value_ = rn.Rtest_find((Rid)a0, a1.p);
+	napi_create_uint32(env, value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_click(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_click((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_double_click(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_double_click((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_right_click(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_right_click((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_click_at(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	int a3;
+	int a4;
+	uint32_t a5;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	if (!rn_get_int(env, argv[4], &a4)) return NULL;
+	if (!rn_get_uint32(env, argv[5], &a5)) return NULL;
+	int value_ = rn.Rtest_click_at((Rid)a0, (float)a1, (float)a2, (RMouseButton)a3, (int)a4, (Ruint)a5);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_hover(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_hover((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_hover_at(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rtest_hover_at((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_drag(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rtest_drag((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_drag_to(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	uint32_t a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_uint32(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtest_drag_to((Rid)a0, (Rid)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_scroll(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rtest_scroll((Rid)a0, (float)a1, (float)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_key(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	uint32_t a2;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_uint32(env, argv[2], &a2)) return NULL;
+	int value_ = rn.Rtest_key((Rid)a0, (RKey)a1, (Ruint)a2);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_type_text(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtest_type_text((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_tap(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_tap((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_swipe(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	float a1;
+	float a2;
+	double a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_float(env, argv[1], &a1)) return NULL;
+	if (!rn_get_float(env, argv[2], &a2)) return NULL;
+	if (!rn_get_double(env, argv[3], &a3)) return NULL;
+	int value_ = rn.Rtest_swipe((Rid)a0, (float)a1, (float)a2, (double)a3);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_pump(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_pump((int)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_is_idle(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rtest_is_idle();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_settle(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	double a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_double(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_settle((double)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_get_text(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rtest_get_text((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rtest_is_shown(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_is_shown((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_is_checked(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtest_is_checked((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_expect_golden(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	void* a2;
+	void* a3;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_ptr(env, argv[2], &a2)) goto done;
+	if (!rn_get_ptr(env, argv[3], &a3)) goto done;
+	int value_ = rn.Rtest_expect_golden((Rid)a0, a1.p, (const RGoldenOptions*)a2, (RGoldenResult*)a3);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtest_compare_pixels(napi_env env, napi_callback_info info) {
+	size_t argc = 6;
+	napi_value argv[6];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	void* a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5 = 0;
+	void* a6;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	if (!rn_get_ptr(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	if (!rn_get_int(env, argv[4], &a4)) return NULL;
+	if (!rn_get_ptr(env, argv[5], &a6)) return NULL;
+	int value_ = rn.Rtest_compare_pixels((const uint8_t*)a0, (const uint8_t*)a1, (int)a2, (int)a3, (int)a4, &a5, (uint8_t*)a6);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a5, &o0_);
+		{
+			const napi_value values_[2] = {result_, o0_};
+			result_ = rn_tuple(env, 2, values_);
+		}
+	}
 	return result_;
 }
 
@@ -28040,6 +28595,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_inject_mouse_wheel", NULL, rn_w_Rwindow_inject_mouse_wheel, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_key", NULL, rn_w_Rwindow_inject_key, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_text", NULL, rn_w_Rwindow_inject_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_inject_composition", NULL, rn_w_Rwindow_inject_composition, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_drag", NULL, rn_w_Rwindow_inject_drag, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_drop", NULL, rn_w_Rwindow_inject_drop, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_inject_back", NULL, rn_w_Rwindow_inject_back, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -28053,6 +28609,7 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rwindow_get_text_input_selection", NULL, rn_w_Rwindow_get_text_input_selection, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_set_text_input_selection", NULL, rn_w_Rwindow_set_text_input_selection, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_replace_text_input", NULL, rn_w_Rwindow_replace_text_input, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rwindow_get_text_composition", NULL, rn_w_Rwindow_get_text_composition, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_has_popup", NULL, rn_w_Rwindow_has_popup, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_text_input_rect", NULL, rn_w_Rwindow_get_text_input_rect, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwindow_get_popup_count", NULL, rn_w_Rwindow_get_popup_count, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -28138,6 +28695,8 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtexture_update", NULL, rn_w_Rtexture_update, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rimage_decode", NULL, rn_w_Rimage_decode, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rpixels_free", NULL, rn_w_Rpixels_free, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rimage_encode_png", NULL, rn_w_Rimage_encode_png, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rimage_save_png", NULL, rn_w_Rimage_save_png, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_is_ready", NULL, rn_w_Rtexture_is_ready, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_wait", NULL, rn_w_Rtexture_wait, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtexture_destroy", NULL, rn_w_Rtexture_destroy, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -29270,8 +29829,34 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rhost_inject_mouse_leave", NULL, rn_w_Rhost_inject_mouse_leave, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_key", NULL, rn_w_Rhost_inject_key, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_text", NULL, rn_w_Rhost_inject_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rhost_inject_composition", NULL, rn_w_Rhost_inject_composition, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_focus", NULL, rn_w_Rhost_inject_focus, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rhost_inject_close", NULL, rn_w_Rhost_inject_close, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_set_deterministic", NULL, rn_w_Rtest_set_deterministic, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_is_deterministic", NULL, rn_w_Rtest_is_deterministic, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_get_platform_tag", NULL, rn_w_Rtest_get_platform_tag, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_find", NULL, rn_w_Rtest_find, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_click", NULL, rn_w_Rtest_click, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_double_click", NULL, rn_w_Rtest_double_click, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_right_click", NULL, rn_w_Rtest_right_click, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_click_at", NULL, rn_w_Rtest_click_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_hover", NULL, rn_w_Rtest_hover, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_hover_at", NULL, rn_w_Rtest_hover_at, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_drag", NULL, rn_w_Rtest_drag, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_drag_to", NULL, rn_w_Rtest_drag_to, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_scroll", NULL, rn_w_Rtest_scroll, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_key", NULL, rn_w_Rtest_key, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_type_text", NULL, rn_w_Rtest_type_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_tap", NULL, rn_w_Rtest_tap, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_swipe", NULL, rn_w_Rtest_swipe, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_pump", NULL, rn_w_Rtest_pump, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_is_idle", NULL, rn_w_Rtest_is_idle, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_settle", NULL, rn_w_Rtest_settle, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_get_text", NULL, rn_w_Rtest_get_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_is_shown", NULL, rn_w_Rtest_is_shown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_is_checked", NULL, rn_w_Rtest_is_checked, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_expect_golden", NULL, rn_w_Rtest_expect_golden, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtest_compare_pixels", NULL, rn_w_Rtest_compare_pixels, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"_open", NULL, rn_w__open, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"_ptr", NULL, rn_w__ptr, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"_text", NULL, rn_w__text, NULL, NULL, NULL, napi_enumerable, NULL},
