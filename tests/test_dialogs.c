@@ -7,8 +7,10 @@
  */
 
 #include "test.h"
-/* (the windows of the application, to find the one a message box made for itself) */
+#if !defined(RAVEN_TEST_SHARED)
+/* (the windows of the application, to find the one a message box made for itself: internal, not exported by a shared library) */
 #include "../src/widget/widget.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -300,6 +302,7 @@ static void test_dialog_run(void) {
 	EXPECT_ERRORS_END(1);
 }
 
+#if !defined(RAVEN_TEST_SHARED)
 static Rid g_box_window;
 
 /* The user closes the window a message box made for itself (its close button): the only window with a dialog. */
@@ -326,6 +329,7 @@ static void test_message_box_window_closed(void) {
 	CHECK(Rmessage_box(R_INVALID_ID, "Title", "Closed with its window", R_MESSAGE_OK) == R_MESSAGE_RESULT_CANCEL);
 	CHECK(g_box_window != R_INVALID_ID && !Rwindow_is_valid(g_box_window));
 }
+#endif
 
 /* ---------------------------------------------------------------------------
  *  File browser
@@ -846,7 +850,9 @@ int main(void) {
 	RUN(test_files);
 	RUN(test_dialog);
 	RUN(test_dialog_run);
+#if !defined(RAVEN_TEST_SHARED)
 	RUN(test_message_box_window_closed);
+#endif
 	RUN(test_dialog_animated);
 	RUN(test_file_browser);
 	RUN(test_file_browser_xml);
