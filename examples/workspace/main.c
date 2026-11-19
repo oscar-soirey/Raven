@@ -13,7 +13,8 @@
  *   Island         tells what just happened, then folds back
  *   HeaderBar      without background: the bar is the top of the window
  *   Table          cells edited in place, checked by the application
- *                  (Rtable_set_cell_edited_callback), a frozen first column
+ *                  (Rtable_set_cell_edited_callback), a frozen first column,
+ *                  several selected rows, a check box and a progress bar column
  *   ComboBox       searchable: typing filters the people of the list
  */
 
@@ -146,7 +147,14 @@ static void action_look(Rid sender, const char* action, void* user_data) {
 static int on_task_edited(Rid table, int row, int column, const char* text, void* user_data) {
 	char line[200];
 	(void)user_data;
-	if (column == 3) {
+	if (column == 1) {
+		/* the Done check box: the task is finished, or opened again */
+		Rtable_set_cell(table, row, 3, text[0] == '1' ? "Done" : "In progress");
+		if (text[0] == '1') Rtable_set_cell(table, row, 4, "1");
+		say(text[0] == '1' ? "Task done" : "Task opened again", Rtable_get_cell(table, row, 0));
+		return R_TRUE;
+	}
+	if (column == 5) {
 		char* end = NULL;
 		double hours = strtod(text, &end);
 		if (end == text || *end != '\0' || hours < 0.0) {
@@ -162,13 +170,20 @@ static int on_task_edited(Rid table, int row, int column, const char* text, void
 	return R_TRUE;
 }
 
+/* Every selected task is given to the person chosen: the selection is read range by range. */
 static void action_assign(Rid sender, const char* action, void* user_data) {
-	int row = Rtable_get_selected(app.tasks);
+	int i, first, last, row, count = 0;
+	char line[200];
 	(void)action;
 	(void)user_data;
-	if (row < 0 || Rcombo_box_get_selected(sender) < 0) return;
-	Rtable_set_cell(app.tasks, row, 1, Rcombo_box_get_text(sender));
-	say("Assigned", Rcombo_box_get_text(sender));
+	if (Rcombo_box_get_selected(sender) < 0) return;
+	for (i = 0; i < Rtable_get_selection_range_count(app.tasks); i++) {
+		Rtable_get_selection_range(app.tasks, i, &first, &last);
+		for (row = first; row <= last; row++, count++) Rtable_set_cell(app.tasks, row, 2, Rcombo_box_get_text(sender));
+	}
+	if (count == 0) return;
+	snprintf(line, sizeof(line), "%d task%s to %s", count, count > 1 ? "s" : "", Rcombo_box_get_text(sender));
+	say("Assigned", line);
 }
 
 static void example_shutdown(void) {
