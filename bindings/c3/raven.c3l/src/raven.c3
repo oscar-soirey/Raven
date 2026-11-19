@@ -1591,6 +1591,22 @@ constset AccessibleRole : CInt
 	PANE = 0x0783,
 }
 
+constset GoldenStatus : CInt
+{
+	<* The capture matches the golden. *>
+	MATCH = 0x0BA0,
+	<* RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden. *>
+	UPDATED = 0x0BA1,
+	<* Too many pixels differ: NAME.actual.png and NAME.diff.png were written. *>
+	MISMATCH = 0x0BA2,
+	<* The capture and the golden do not have the same size: NAME.actual.png was written. *>
+	SIZE_MISMATCH = 0x0BA3,
+	<* There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it). *>
+	MISSING = 0x0BA4,
+	<* The window could not be captured, or a file could not be read or written. *>
+	FAILED = 0x0BA5,
+}
+
 constset DrawCommandType : CInt
 {
 	<* Draw `instance_count` instances starting at `first_instance`. *>
@@ -2601,6 +2617,37 @@ struct HostPlatformDesc
 	void* user_data;
 }
 
+<* How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel. *>
+struct GoldenOptions
+{
+	<* Largest difference on one channel (0..255) for which two pixels are still the same. *>
+	CInt channel_tolerance;
+	<* Share of the pixels (0..1) that may differ while the images still match. *>
+	float max_diff_ratio;
+	<* R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag). *>
+	CInt per_platform;
+	<* Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden. *>
+	ZString output_directory;
+}
+
+<* What Rtest_expect_golden found. *>
+struct GoldenResult
+{
+	GoldenStatus status;
+	<* Size of the capture, in pixels. *>
+	CInt width;
+	<* Size of the capture, in pixels. *>
+	CInt height;
+	<* Pixels farther from the golden than the tolerance. *>
+	CInt differing_pixels;
+	<* Largest difference found on one channel (0..255). *>
+	CInt max_channel_difference;
+	<* The golden that was read or written (with the platform tag). Valid until the next call. *>
+	ZString golden_path;
+	<* One line that says what happened, for the log of the test. Valid until the next call. *>
+	ZString message;
+}
+
 <* Memory exported by Rvulkan_texture_create_shared. *>
 struct SharedTextureInfo
 {
@@ -3380,6 +3427,21 @@ fn Image image_create() @inline => (Image)c::r_widget_create(c::R_WIDGET_IMAGE);
  is not an image Raven can read.
 *>
 alias image_decode = c::r_image_decode;
+
+<*
+ Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+ returns) as a PNG file in memory. Thread-safe.
+ Returns The bytes of the file, to release with Rpixels_free; NULL when
+ there are no pixels.
+*>
+alias image_encode_png = c::r_image_encode_png;
+
+<*
+ Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+ of Rwindow_capture, a picture made by the application. Thread-safe.
+ Returns R_FALSE when the file cannot be written.
+*>
+fn bool image_save_png(ZString path, char* rgba, CInt width, CInt height) @inline => c::r_image_save_png((char*)path, rgba, width, height) != 0;
 
 fn void Image.set_texture(self, Id texture) @inline => c::r_image_set_texture((c::Rid)self, (c::Rid)texture);
 
@@ -6373,6 +6435,20 @@ fn void Window.inject_key(self, Key key, bool pressed, Modifier modifiers) @inli
 fn void Window.inject_text(self, ZString text) @inline => c::r_window_inject_text((c::Rid)self, (char*)text);
 
 <*
+ The text an input method is composing (preedit: Chinese,
+ Japanese, Korean, dead keys), as the platforms send it. The focused
+ TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+ place of its selection, but it is not in its text and no changed
+ callback runs. [selection_start, selection_end) are bytes of `text`:
+ the part the input method works on (underlined thicker), or the caret
+ when they are equal; -1 is the end of `text`. NULL or "" ends the
+ composition without typing anything (cancel). The committed text comes
+ through Rwindow_inject_text, which ends the composition too, and so
+ does a change of focus. Ignored when the focus takes no text.
+*>
+fn void Window.inject_composition(self, ZString text, CInt selection_start, CInt selection_end) @inline => c::r_window_inject_composition((c::Rid)self, (char*)text, selection_start, selection_end);
+
+<*
  A drag from another application moves over the window
  (`inside` R_TRUE) or leaves it.
  Returns R_TRUE when a drop at this position would be accepted.
@@ -6419,6 +6495,13 @@ fn CInt Window.set_text_input_selection(self, CInt start, CInt end) @inline => c
 *>
 fn CInt Window.replace_text_input(self, CInt start, CInt end, ZString text) @inline => c::r_window_replace_text_input((c::Rid)self, start, end, (char*)text);
 
+<*
+ The composition of the input method in progress (UTF-8, valid
+ until it changes) and its selection in bytes; NULL when there is none.
+ Any output pointer may be NULL.
+*>
+fn ZString Window.get_text_composition(self, CInt* selection_start, CInt* selection_end) @inline => (ZString)c::r_window_get_text_composition((c::Rid)self, selection_start, selection_end);
+
 <* R_TRUE while a menu, list or dialog is open over the window. *>
 fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) != 0;
 
@@ -6426,7 +6509,9 @@ fn bool Window.has_popup(self) @inline => c::r_window_has_popup((c::Rid)self) !=
  Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
  Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
  outputs when there is no visible editable caret, the window is inactive, or focus changed
- since painting. Any output pointer may be NULL.
+ since painting. Any output pointer may be NULL. While an input method
+ composes, it is the caret inside the composition: where its candidate
+ window goes.
 *>
 fn CInt Window.get_text_input_rect(self, CInt* x, CInt* y, CInt* width, CInt* height) @inline => c::r_window_get_text_input_rect((c::Rid)self, x, y, width, height);
 
@@ -8168,11 +8253,158 @@ fn void host_inject_key(Id window, Key key, bool pressed, Modifier modifiers, bo
 <* One typed Unicode code point. *>
 fn void host_inject_text(Id window, uint codepoint) @inline => c::r_host_inject_text((c::Rid)window, codepoint);
 
+<*
+ The input method of the application's system composes `text`
+ (preedit), with its selection in bytes (see Rwindow_inject_composition).
+ NULL or "" cancels it; the committed text then comes through
+ Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+ candidate window.
+*>
+fn void host_inject_composition(Id window, ZString text, CInt selection_start, CInt selection_end) @inline => c::r_host_inject_composition((c::Rid)window, (char*)text, selection_start, selection_end);
+
 <* The window gained or lost the keyboard. Losing it closes popups and drops captures. *>
 fn void host_inject_focus(Id window, CInt focused) @inline => c::r_host_inject_focus((c::Rid)window, focused);
 
 <* The user asked to close the window (its close callback decides). *>
 fn void host_inject_close(Id window) @inline => c::r_host_inject_close((c::Rid)window);
+
+<*
+ R_TRUE makes what is drawn depend only on what the test does:
+ every frame advances the animations by 1/60 s (Rset_animation_time_step),
+ and the carets of the text fields stay lit instead of blinking. R_FALSE
+ gives the clock back (time step 0).
+*>
+fn void test_set_deterministic(bool enabled) @inline => c::r_test_set_deterministic((CInt)enabled);
+
+alias test_is_deterministic = c::r_test_is_deterministic;
+
+<*
+ Returns What the goldens of this run are made with, "OS-backend":
+ "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+ "null" with the null backend.
+*>
+fn ZString test_get_platform_tag() @inline => (ZString)c::r_test_get_platform_tag();
+
+<*
+ Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+ path may have several names separated by '/': "settings/ok" is the
+ widget named "ok" inside the one named "settings". In a window, the
+ open popups (menus, dialogs) are searched first, top first, then the
+ content.
+ Returns R_INVALID_ID when nothing has that name (no error is reported).
+*>
+fn Id test_find(Id scope, ZString path) @inline => (Id)c::r_test_find((c::Rid)scope, (char*)path);
+
+<* Moves the mouse to the middle of the widget, presses and releases the left button. *>
+fn CInt test_click(Id widget) @inline => c::r_test_click((c::Rid)widget);
+
+<* Two clicks in a row on the middle of the widget, seen as a double click. *>
+fn CInt test_double_click(Id widget) @inline => c::r_test_double_click((c::Rid)widget);
+
+<* A click of the right button on the middle of the widget (a context menu). *>
+fn CInt test_right_click(Id widget) @inline => c::r_test_right_click((c::Rid)widget);
+
+<* Clicks at a position of a widget or a window. *>
+fn CInt test_click_at(Id target, float x, float y, MouseButton button, CInt clicks, Modifier modifiers) @inline => c::r_test_click_at((c::Rid)target, x, y, (c::RMouseButton)button, clicks, (c::Ruint)modifiers);
+
+<* Moves the mouse over the middle of the widget, without clicking. *>
+fn CInt test_hover(Id widget) @inline => c::r_test_hover((c::Rid)widget);
+
+<* Moves the mouse to a position of a widget or a window. *>
+fn CInt test_hover_at(Id target, float x, float y) @inline => c::r_test_hover_at((c::Rid)target, x, y);
+
+<*
+ Presses the left button on the middle of the widget, moves by
+ (dx, dy) in several steps, and releases: a slider, a splitter, a
+ window dragged by a widget.
+*>
+fn CInt test_drag(Id widget, float dx, float dy) @inline => c::r_test_drag((c::Rid)widget, dx, dy);
+
+<* Drags from the middle of one widget to the middle of another (drag and drop). *>
+fn CInt test_drag_to(Id from, Id to) @inline => c::r_test_drag_to((c::Rid)from, (c::Rid)to);
+
+<*
+ Turns the mouse wheel over the middle of the widget: `wheel_y`
+ notches (positive: toward the top, as a wheel turned away from the
+ user), `wheel_x` notches sideways.
+*>
+fn CInt test_scroll(Id widget, float wheel_x, float wheel_y) @inline => c::r_test_scroll((c::Rid)widget, wheel_x, wheel_y);
+
+<*
+ Presses and releases a key, with RModifier held. A widget
+ target gets the keyboard focus first; a window sends the key to what
+ has the focus.
+*>
+fn CInt test_key(Id target, Key key, Modifier modifiers) @inline => c::r_test_key((c::Rid)target, (c::RKey)key, (c::Ruint)modifiers);
+
+<*
+ Types UTF-8 text as a keyboard would. A widget target gets the
+ keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+ Tab and Backspace.
+*>
+fn CInt test_type_text(Id target, ZString text) @inline => c::r_test_type_text((c::Rid)target, (char*)text);
+
+<* A finger touches the middle of the widget and leaves at once. *>
+fn CInt test_tap(Id widget) @inline => c::r_test_tap((c::Rid)widget);
+
+<*
+ A finger put on the middle of the widget moves by (dx, dy) in
+ `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+ (Rtest_settle lets it stop).
+*>
+fn CInt test_swipe(Id widget, float dx, float dy, double seconds) @inline => c::r_test_swipe((c::Rid)widget, dx, dy, seconds);
+
+<* Produces `frames` frames (Rdraw_frame). @return R_FALSE once the application quits. *>
+fn bool test_pump(CInt frames) @inline => c::r_test_pump(frames) != 0;
+
+<*
+ Returns R_TRUE when nothing waits for a frame: no posted task, no layout
+ to do, nothing to paint, no animation, no layout spring, no inertia.
+ Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+ realtime viewport) and the timers are not counted.
+*>
+fn bool test_is_idle() @inline => c::r_test_is_idle() != 0;
+
+<*
+ Produces frames until Rtest_is_idle, each advancing the
+ animations by the time step (1/60 s unless Rset_animation_time_step
+ gives another), for at most `max_seconds` of that time.
+ Returns R_FALSE when it was still moving at the end.
+*>
+fn bool test_settle(double max_seconds) @inline => c::r_test_settle(max_seconds) != 0;
+
+<*
+ Returns What the user reads in the widget: the text of a field, else
+ its label (as screen readers say it: the text of a Label, a Button, a
+ Checkbox...). "" when it has none. Valid until the next call.
+*>
+fn ZString test_get_text(Id widget) @inline => (ZString)c::r_test_get_text((c::Rid)widget);
+
+<*
+ Returns R_TRUE when the widget can be seen: in a window, Visible with
+ all that holds it, on the page a Switcher or a TabView shows, and laid
+ out with a size.
+*>
+fn bool test_is_shown(Id widget) @inline => c::r_test_is_shown((c::Rid)widget) != 0;
+
+<* Returns R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item. *>
+fn bool test_is_checked(Id widget) @inline => c::r_test_is_checked((c::Rid)widget) != 0;
+
+<*
+ Captures a window, or the rectangle of one widget, and compares
+ it with the PNG file `golden_path` (see the top of this file).
+ Returns R_TRUE when the capture matches (or the golden was written
+ because RAVEN_UPDATE_GOLDENS=1).
+*>
+fn bool test_expect_golden(Id target, ZString golden_path, GoldenOptions* options, GoldenResult* result) @inline => c::r_test_expect_golden((c::Rid)target, (char*)golden_path, (c::RGoldenOptions*)options, (c::RGoldenResult*)result) != 0;
+
+<*
+ Compares two RGBA8 images of the same size as Rtest_expect_golden
+ does, without files.
+ Returns The number of pixels farther apart than `channel_tolerance`;
+ -1 when an image is missing.
+*>
+alias test_compare_pixels = c::r_test_compare_pixels;
 
 <*
  By default Raven creates its own VkInstance and VkDevice. To make Raven render

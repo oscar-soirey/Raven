@@ -15,6 +15,8 @@
  *     scales otherwise,
  *   - keyboard through xkbcommon: layouts, key repeat, dead keys and
  *     compose sequences,
+ *   - input methods (text-input-unstable-v3, when the compositor has it):
+ *     the composition drawn in the field, the candidates at its caret,
  *   - pointer, wheel and touchpad scrolling; cursors from cursor-shape-v1
  *     or from the cursor theme,
  *   - clipboard and files or text dropped from other applications
@@ -28,7 +30,9 @@
  */
 
 #include "../platform.h"
+#include "../preedit.h"
 #include "../../core/thread.h"
+#include "../../widget/widget.h"
 #include "../atspi.h"
 #include "../sni.h"
 #include "../x11/x11_internal.h"   /* the key symbols of X11 and of xkbcommon are the same numbers */
@@ -518,6 +522,26 @@ static struct {
 
 	/* the serial of the last input event, which some requests must quote */
 	uint32_t input_serial;
+
+	/*
+	 * Input methods (text-input-unstable-v3): the window the compositor gave
+	 * the text input to (enter); enabled for a field (the widget); the state
+	 * of the events (preedit.c); what was last sent, sent again only when it
+	 * changes; the text changed by the input method itself (its next state
+	 * is not a change of the user's); a done whose serial was behind.
+	 */
+	struct zwp_text_input_manager_v3* text_input_manager;
+	struct zwp_text_input_v3* text_input;
+	rvn_pwindow_t* text_input_window;
+	int text_input_enabled;
+	Rid text_input_focus;
+	rvn_ti3_t ti3;
+	int ti_rect_sent, ti_rect[4];
+	int ti_surrounding_sent;
+	char* ti_surrounding;
+	int ti_cursor, ti_anchor;
+	int ti_by_input_method;
+	int ti_stale;
 
 	/* clipboard */
 	char* clipboard;
@@ -1545,6 +1569,261 @@ static const struct wl_keyboard_listener g_wl_keyboard_listener = {
 };
 
 /* ---------------------------------------------------------------------------
+ *  Input methods (text-input-unstable-v3)
+ *
+ * The compositor runs the input method (IBus, Fcitx...) and talks with us
+ * through a text input of the seat: enabled while the focus of the window it
+ * entered takes text, with the kind of field, the text around the caret and
+ * where the caret is (its candidate window goes there). The composition
+ * comes back as RVN_PEVENT_COMPOSITION, drawn by the field; what is
+ * committed as text. The keys the input method takes are not sent to us as
+ * wl_keyboard keys at all, so nothing is typed twice: the keys it lets
+ * through go through xkb (and its compose sequences) as before.
+ *
+ * Without the manager (or without a seat) nothing changes.
+ * ------------------------------------------------------------------------- */
+
+/* The longest surrounding text the protocol allows. */
+#define RVN_WL_SURROUNDING_MAX 4000
+
+static Rid rvn_wl_core(const rvn_pwindow_t* window) {
+	const rvn_window_t* core = window ? (const rvn_window_t*)window->user : NULL;
+	return core ? core->id : R_INVALID_ID;
+}
+
+static void rvn_wl_emit_composition(rvn_pwindow_t* window, const char* text, int start, int end) {
+	rvn_pevent_t event;
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_COMPOSITION;
+	event.composition = text;
+	event.composition_start = start;
+	event.composition_end = end;
+	rvn_wl_emit(window, &event);
+}
+
+/* What the field was told is forgotten: the next update sends it all again. */
+static void rvn_wl_ti_forget_sent(void) {
+	g_wl.ti_rect_sent = R_FALSE;
+	g_wl.ti_surrounding_sent = R_FALSE;
+	rvn_free(g_wl.ti_surrounding);
+	g_wl.ti_surrounding = NULL;
+	g_wl.ti_by_input_method = R_FALSE;
+	g_wl.ti_stale = R_FALSE;
+}
+
+static void rvn_wl_ti_enter(void* data, struct zwp_text_input_v3* text_input, struct wl_surface* surface) {
+	RVN_UNUSED(data); RVN_UNUSED(text_input);
+	/* (a surface that is not a window of ours, as the title bar of libdecor: no text input) */
+	g_wl.text_input_window = rvn_wl_window_of(surface);
+	/* after enter, everything must be sent again (the update enables it when the focus takes text) */
+	g_wl.text_input_enabled = R_FALSE;
+	rvn_ti3_clear(&g_wl.ti3);
+	rvn_wl_ti_forget_sent();
+}
+
+static void rvn_wl_ti_leave(void* data, struct zwp_text_input_v3* text_input, struct wl_surface* surface) {
+	rvn_pwindow_t* window = g_wl.text_input_window;
+	RVN_UNUSED(data); RVN_UNUSED(text_input); RVN_UNUSED(surface);
+	g_wl.text_input_window = NULL;
+	g_wl.text_input_enabled = R_FALSE;
+	rvn_ti3_clear(&g_wl.ti3);
+	rvn_wl_ti_forget_sent();
+	/* the composition shown in the window goes (the protocol asks it) */
+	if (window) rvn_wl_emit_composition(window, NULL, 0, 0);
+}
+
+static void rvn_wl_ti_preedit_string(void* data, struct zwp_text_input_v3* text_input, const char* text, int32_t cursor_begin, int32_t cursor_end) {
+	RVN_UNUSED(data); RVN_UNUSED(text_input);
+	rvn_ti3_preedit_string(&g_wl.ti3, text, cursor_begin, cursor_end);
+}
+
+static void rvn_wl_ti_commit_string(void* data, struct zwp_text_input_v3* text_input, const char* text) {
+	RVN_UNUSED(data); RVN_UNUSED(text_input);
+	rvn_ti3_commit_string(&g_wl.ti3, text);
+}
+
+static void rvn_wl_ti_delete_surrounding_text(void* data, struct zwp_text_input_v3* text_input, uint32_t before_length, uint32_t after_length) {
+	RVN_UNUSED(data); RVN_UNUSED(text_input);
+	rvn_ti3_delete_surrounding(&g_wl.ti3, before_length, after_length);
+}
+
+/* done: what the events asked for, all at once and in the order of the protocol. */
+static void rvn_wl_ti_done(void* data, struct zwp_text_input_v3* text_input, uint32_t serial) {
+	rvn_pwindow_t* window = g_wl.text_input_window;
+	rvn_ti3_t* ti = &g_wl.ti3;
+	int current;
+	Rid core;
+	RVN_UNUSED(data); RVN_UNUSED(text_input);
+	current = rvn_ti3_done(ti, serial);
+	core = rvn_wl_core(window);
+	if (!window || core == R_INVALID_ID || !g_wl.text_input_enabled) return;
+	/* 1-2. the composition replaced by the caret, then the text around the caret deleted (a TextInput: the others give no text) */
+	if (ti->delete_before > 0 || ti->delete_after > 0) {
+		const char* text = Rwindow_get_text_input_text(core);
+		int start, end, from, to;
+		rvn_wl_emit_composition(window, NULL, 0, 0);
+		if (text && Rwindow_get_text_input_selection(core, &start, &end) &&
+			rvn_ti3_delete_range(text, start, end, ti->delete_before, ti->delete_after, &from, &to)) {
+			Rwindow_replace_text_input(core, from, to, "");
+		}
+	}
+	/* 3. the committed text, typed at the caret (it ends the composition) */
+	if (ti->commit) {
+		const char* cursor = ti->commit;
+		const char* end = ti->commit + strlen(ti->commit);
+		while (cursor < end && g_wl.text_input_window == window) rvn_wl_emit_text(window, rvn_utf8_decode(&cursor, end));
+	}
+	if (g_wl.text_input_window != window) return;
+	/* 5-6. the new composition, with its caret (or none: a done without preedit_string ends it) */
+	rvn_wl_emit_composition(window, ti->preedit, ti->preedit_begin, ti->preedit_end);
+	/*
+	 * The state that follows is the input method's doing. When the serial was
+	 * behind (the input method had not seen our last state yet), it is not
+	 * answered: the next change of the user sends it.
+	 */
+	if (ti->commit || ti->delete_before > 0 || ti->delete_after > 0) {
+		g_wl.ti_by_input_method = R_TRUE;
+		if (!current) g_wl.ti_stale = R_TRUE;
+	}
+}
+
+static void rvn_wl_ti_action(void* data, struct zwp_text_input_v3* text_input, uint32_t action, uint32_t serial) {
+	RVN_UNUSED(data); RVN_UNUSED(text_input); RVN_UNUSED(action); RVN_UNUSED(serial);
+}
+static void rvn_wl_ti_language(void* data, struct zwp_text_input_v3* text_input, const char* language) {
+	RVN_UNUSED(data); RVN_UNUSED(text_input); RVN_UNUSED(language);
+}
+static void rvn_wl_ti_preedit_hint(void* data, struct zwp_text_input_v3* text_input, uint32_t start, uint32_t end, uint32_t hint) {
+	RVN_UNUSED(data); RVN_UNUSED(text_input); RVN_UNUSED(start); RVN_UNUSED(end); RVN_UNUSED(hint);
+}
+
+/* (version 1 is bound: the last three events are never sent, but the listener has room for them) */
+static const struct zwp_text_input_v3_listener g_wl_text_input_listener = {
+	rvn_wl_ti_enter, rvn_wl_ti_leave, rvn_wl_ti_preedit_string, rvn_wl_ti_commit_string,
+	rvn_wl_ti_delete_surrounding_text, rvn_wl_ti_done, rvn_wl_ti_action, rvn_wl_ti_language, rvn_wl_ti_preedit_hint
+};
+
+/* Once there are both a seat and the manager: the text input of the seat. */
+static void rvn_wl_text_input_start(void) {
+	if (!g_wl.seat || !g_wl.text_input_manager || g_wl.text_input) return;
+	g_wl.text_input = zwp_text_input_manager_v3_get_text_input(g_wl.text_input_manager, g_wl.seat);
+	zwp_text_input_v3_add_listener(g_wl.text_input, &g_wl_text_input_listener, NULL);
+}
+
+/* The kind of field, for the input method (and an on-screen keyboard). */
+static void rvn_wl_ti_content_type(const rvn_window_t* window, Rid core, uint32_t* hint, uint32_t* purpose) {
+	RTextInputInfo info;
+	*hint = ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE;
+	*purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NORMAL;
+	if (window && window->focus && window->focus->cls->type == R_WIDGET_TEXT_EDITOR) *hint |= ZWP_TEXT_INPUT_V3_CONTENT_HINT_MULTILINE;
+	if (window && window->focus && window->focus->cls->type == R_WIDGET_SPIN_BOX) *purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NUMBER;
+	if (!Rwindow_get_text_input_info(core, &info)) return;
+	if (info.password) {
+		*hint |= ZWP_TEXT_INPUT_V3_CONTENT_HINT_HIDDEN_TEXT | ZWP_TEXT_INPUT_V3_CONTENT_HINT_SENSITIVE_DATA;
+		*purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_PASSWORD;
+		return;
+	}
+	switch (info.type) {
+		case R_TEXT_INPUT_TYPE_EMAIL: *purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_EMAIL; break;
+		case R_TEXT_INPUT_TYPE_NUMBER: *purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_DIGITS; break;
+		case R_TEXT_INPUT_TYPE_DECIMAL: *purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_NUMBER; break;
+		case R_TEXT_INPUT_TYPE_PHONE: *purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_PHONE; break;
+		case R_TEXT_INPUT_TYPE_URL: *purpose = ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_URL; break;
+		default: break;
+	}
+}
+
+/*
+ * Before each wait: the text input enabled while the focus of its window
+ * takes text and disabled elsewhere; enabled again when the focus moves to
+ * another field (which resets the input method); the text around the caret
+ * and the caret sent when they change, then committed.
+ */
+static void rvn_wl_text_input_update(void) {
+	rvn_pwindow_t* window = g_wl.text_input_window;
+	const rvn_window_t* state;
+	Rid core, focus;
+	int send = R_FALSE, x, y, width, height;
+	if (!g_wl.text_input) return;
+	core = rvn_wl_core(window);
+	if (core == R_INVALID_ID || !Rwindow_wants_text_input(core)) {
+		if (g_wl.text_input_enabled) {
+			zwp_text_input_v3_disable(g_wl.text_input);
+			zwp_text_input_v3_commit(g_wl.text_input);
+			g_wl.ti3.commits++;
+			g_wl.text_input_enabled = R_FALSE;
+			rvn_ti3_clear(&g_wl.ti3);
+			rvn_wl_ti_forget_sent();
+		}
+		return;
+	}
+	state = (const rvn_window_t*)window->user;
+	focus = state->focus ? state->focus->id : R_INVALID_ID;
+	if (!g_wl.text_input_enabled || focus != g_wl.text_input_focus) {
+		uint32_t hint, purpose;
+		/* (enable resets the state of both sides: everything follows it) */
+		zwp_text_input_v3_enable(g_wl.text_input);
+		rvn_wl_ti_content_type(state, core, &hint, &purpose);
+		zwp_text_input_v3_set_content_type(g_wl.text_input, hint, purpose);
+		g_wl.text_input_enabled = R_TRUE;
+		g_wl.text_input_focus = focus;
+		rvn_ti3_clear(&g_wl.ti3);
+		rvn_wl_ti_forget_sent();
+		send = R_TRUE;
+	}
+
+	/* the text around the caret: a TextInput that does not hide it */
+	{
+		const char* text = Rwindow_get_text_input_text(core);
+		RTextInputInfo info;
+		int start, end;
+		if (text && Rwindow_get_text_input_info(core, &info) && !info.password && Rwindow_get_text_input_selection(core, &start, &end)) {
+			int offset, length, cursor, anchor;
+			rvn_ti3_surrounding(text, start, end, RVN_WL_SURROUNDING_MAX, &offset, &length, &cursor, &anchor);
+			if (!g_wl.ti_surrounding_sent || g_wl.ti_cursor != cursor || g_wl.ti_anchor != anchor || !g_wl.ti_surrounding ||
+				(int)strlen(g_wl.ti_surrounding) != length || memcmp(g_wl.ti_surrounding, text + offset, (size_t)length) != 0) {
+				rvn_free(g_wl.ti_surrounding);
+				g_wl.ti_surrounding = rvn_strndup(text + offset, (size_t)length);
+				g_wl.ti_cursor = cursor;
+				g_wl.ti_anchor = anchor;
+				if (!g_wl.ti_stale) {
+					/* a change the input method did not make (typing, a click, the application) */
+					if (g_wl.ti_surrounding_sent && !g_wl.ti_by_input_method) {
+						zwp_text_input_v3_set_text_change_cause(g_wl.text_input, ZWP_TEXT_INPUT_V3_CHANGE_CAUSE_OTHER);
+					}
+					zwp_text_input_v3_set_surrounding_text(g_wl.text_input, g_wl.ti_surrounding, cursor, anchor);
+					send = R_TRUE;
+				}
+				g_wl.ti_surrounding_sent = R_TRUE;
+			}
+		}
+	}
+
+	/* the caret, where the candidates go: window pixels to surface-local logical units */
+	if (Rwindow_get_text_input_rect(core, &x, &y, &width, &height) && window->scale > 0.0f) {
+		int rect[4];
+		rect[0] = (int)floor((double)x / (double)window->scale);
+		rect[1] = (int)floor((double)y / (double)window->scale);
+		rect[2] = rvn_maxi(1, (int)ceil((double)(x + width) / (double)window->scale) - rect[0]);
+		rect[3] = rvn_maxi(1, (int)ceil((double)(y + height) / (double)window->scale) - rect[1]);
+		if (!g_wl.ti_rect_sent || memcmp(rect, g_wl.ti_rect, sizeof(rect)) != 0) {
+			memcpy(g_wl.ti_rect, rect, sizeof(rect));
+			g_wl.ti_rect_sent = R_TRUE;
+			if (!g_wl.ti_stale) {
+				zwp_text_input_v3_set_cursor_rectangle(g_wl.text_input, rect[0], rect[1], rect[2], rect[3]);
+				send = R_TRUE;
+			}
+		}
+	}
+	g_wl.ti_by_input_method = R_FALSE;
+	g_wl.ti_stale = R_FALSE;
+	if (send) {
+		zwp_text_input_v3_commit(g_wl.text_input);
+		g_wl.ti3.commits++;
+	}
+}
+
+/* ---------------------------------------------------------------------------
  *  Fingers (wl_touch)
  * ------------------------------------------------------------------------- */
 
@@ -2239,6 +2518,7 @@ static void rvn_wl_registry_global(void* data, struct wl_registry* registry, uin
 		RVN_BIND(g_wl.seat, wl_seat, 8);
 		wl_seat_add_listener(g_wl.seat, &g_wl_seat_listener, NULL);
 		rvn_wl_tablet_seat();
+		rvn_wl_text_input_start();
 	} else if (strcmp(interface, "wl_output") == 0 && g_wl.output_count < RVN_WL_MAX_OUTPUTS) {
 		rvn_wl_output_t* output = &g_wl.outputs[g_wl.output_count++];
 		output->name = name;
@@ -2269,6 +2549,9 @@ static void rvn_wl_registry_global(void* data, struct wl_registry* registry, uin
 	} else if (strcmp(interface, "zwp_pointer_gestures_v1") == 0) {
 		RVN_BIND(g_wl.pointer_gestures, zwp_pointer_gestures_v1, 3);
 		rvn_wl_gestures_start();
+	} else if (strcmp(interface, "zwp_text_input_manager_v3") == 0) {
+		RVN_BIND(g_wl.text_input_manager, zwp_text_input_manager_v3, 1);
+		rvn_wl_text_input_start();
 	}
 #undef RVN_BIND
 }
@@ -2307,6 +2590,10 @@ static void rvn_wl_disconnect(void) {
 		if (wl_data_device_get_version(g_wl.data_device) >= 2) wl_data_device_release(g_wl.data_device);
 		else wl_data_device_destroy(g_wl.data_device);
 	}
+	if (g_wl.text_input) zwp_text_input_v3_destroy(g_wl.text_input);
+	if (g_wl.text_input_manager) zwp_text_input_manager_v3_destroy(g_wl.text_input_manager);
+	rvn_ti3_clear(&g_wl.ti3);
+	rvn_free(g_wl.ti_surrounding);
 	rvn_wl_gestures_stop();
 	if (g_wl.pointer_gestures) {
 		if (zwp_pointer_gestures_v1_get_version(g_wl.pointer_gestures) >= 2) zwp_pointer_gestures_v1_release(g_wl.pointer_gestures);
@@ -2644,6 +2931,7 @@ static void rvn_wl_window_destroy(rvn_pwindow_t* window) {
 		rvn_wl_repeat_arm(0);
 	}
 	if (g_wl.drag_window == window) g_wl.drag_window = NULL;
+	if (g_wl.text_input_window == window) g_wl.text_input_window = NULL;
 	if (!g_wl.failed) {
 		rvn_wl_frame_forget(window);
 		if (window->subsurface) wl_subsurface_destroy(window->subsurface);
@@ -2988,6 +3276,8 @@ static void rvn_wl_pump(double timeout_seconds) {
 		/* (events were handled: do not sleep, the core has work) */
 		timeout_seconds = 0.0;
 	}
+	/* the input method follows the focus and the caret of the last frame */
+	rvn_wl_text_input_update();
 	if (g_wlc.display_flush(g_wl.display) < 0 && errno != EAGAIN) {
 		g_wlc.display_cancel_read(g_wl.display);
 		rvn_wl_lost();

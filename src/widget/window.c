@@ -422,6 +422,39 @@ static void rvn_window_reveal_focus_now(rvn_window_t* window) {
 	rvn_widget_reveal(window->focus, RVN_REVEAL_MARGIN);
 }
 
+/*
+ * The text an input method composes (preedit): kept by the window for its
+ * focus, drawn by the text widgets at their caret, underlined, and not in
+ * their text until it is committed (RVN_PEVENT_TEXT, Rwindow_inject_text).
+ * NULL or "" ends it. Only a focus that takes text has one.
+ */
+static void rvn_window_compose(rvn_window_t* window, const char* text, int start, int end) {
+	int length;
+	if (!text || !text[0] || !rvn_window_focus_takes_text(window)) {
+		if (!window->composition) return;
+		rvn_free(window->composition);
+		window->composition = NULL;
+		window->composition_start = window->composition_end = 0;
+		window->needs_paint = R_TRUE;
+		if (window->focus && !(window->focus->flags & RVN_WF_DEAD)) rvn_widget_invalidate_paint(window->focus);
+		return;
+	}
+	length = (int)strlen(text);
+	if (end < 0 || end > length) end = length;
+	if (start < 0 || start > end) start = end;
+	/* (on character boundaries) */
+	while (start > 0 && ((unsigned char)text[start] & 0xC0) == 0x80) start--;
+	while (end > 0 && end < length && ((unsigned char)text[end] & 0xC0) == 0x80) end--;
+	if (start > end) start = end;
+	if (window->composition && strcmp(window->composition, text) == 0 &&
+		window->composition_start == start && window->composition_end == end) return;
+	rvn_str_set(&window->composition, text);
+	window->composition_start = start;
+	window->composition_end = end;
+	window->needs_paint = R_TRUE;
+	rvn_widget_invalidate_paint(window->focus);
+}
+
 void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 	rvn_widget_t* old = window->focus;
 	REvent event;
@@ -431,6 +464,8 @@ void rvn_window_set_focus(rvn_window_t* window, rvn_widget_t* widget) {
 	window->focus = widget;
 	window->text_input_owner = R_INVALID_ID;
 	window->needs_paint = R_TRUE;
+	/* (a composition belongs to the field it was typed in: the input method is told by the platform) */
+	rvn_window_compose(window, NULL, 0, 0);
 	if (old) {
 		old->flags &= ~RVN_WF_FOCUSED;
 		event = rvn_window_event(window, R_EVENT_FOCUS_LOST);
@@ -1186,6 +1221,14 @@ double rvn_window_frame_in(rvn_window_t* window) {
 	return -1.0;
 }
 
+int rvn_window_is_settled(rvn_window_t* window) {
+	if (window->dead) return R_TRUE;
+	if (window->needs_layout || window->layout_spring_count > 0 || rvn_touch_animating(window)) return R_FALSE;
+	/* (what cannot be painted, hidden or in the background, waits for nothing) */
+	if (!rvn_window_can_paint(window) || !window->visible) return R_TRUE;
+	return !window->needs_paint && rvn_atomic_load(&window->animating) == 0 && rvn_atomic_load(&window->redraw_requested) == 0;
+}
+
 int rvn_window_wants_frame(rvn_window_t* window) {
 	return rvn_window_frame_in(window) == 0.0;
 }
@@ -1903,6 +1946,8 @@ static void rvn_window_key(rvn_window_t* window, RKey key, int pressed, uint32_t
 
 static void rvn_window_text(rvn_window_t* window, uint32_t codepoint) {
 	REvent event;
+	/* the committed text of an input method takes the place of its composition */
+	rvn_window_compose(window, NULL, 0, 0);
 	event = rvn_window_event(window, R_EVENT_TEXT);
 	event.codepoint = codepoint;
 	if (rvn_window_hook(window, &event) || window->dead) return;
@@ -2120,6 +2165,9 @@ void rvn_window_on_platform_event(const rvn_pevent_t* pevent) {
 		case RVN_PEVENT_TEXT:
 			rvn_window_text(window, pevent->codepoint);
 			break;
+		case RVN_PEVENT_COMPOSITION:
+			rvn_window_compose(window, pevent->composition, pevent->composition_start, pevent->composition_end);
+			break;
 		case RVN_PEVENT_FOCUS:
 			if (!pevent->focused) {
 				/* the window lost the keyboard: drop transient state */
@@ -2255,6 +2303,7 @@ static void rvn_window_free(rvn_window_t* window) {
 	rvn_free(window->float_layers);
 	rvn_free(window->layout_springs);
 	rvn_free(window->title);
+	rvn_free(window->composition);
 	rvn_free(window->drag_type);
 	rvn_free(window->drag_data);
 	rvn_free(window->drag_label);
@@ -3064,6 +3113,23 @@ void Rwindow_inject_text(Rid id, const char* text) {
 		rvn_window_text(window, rvn_utf8_decode(&cursor, end));
 	}
 	rvn_dispatch_end();
+}
+
+void Rwindow_inject_composition(Rid id, const char* text, int selection_start, int selection_end) {
+	rvn_window_t* window = rvn_window_inject_begin(id, __func__);
+	if (!window) return;
+	rvn_window_compose(window, text, selection_start, selection_end);
+	rvn_dispatch_end();
+}
+
+const char* Rwindow_get_text_composition(Rid id, int* selection_start, int* selection_end) {
+	rvn_window_t* window = rvn_window_check(id, "Rwindow_get_text_composition");
+	if (selection_start) *selection_start = 0;
+	if (selection_end) *selection_end = 0;
+	if (!window || !window->composition) return NULL;
+	if (selection_start) *selection_start = window->composition_start;
+	if (selection_end) *selection_end = window->composition_end;
+	return window->composition;
 }
 
 int Rwindow_inject_drag(Rid id, float x, float y, int inside) {

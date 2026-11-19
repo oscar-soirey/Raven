@@ -31,6 +31,118 @@ static void test_function_keys(Rid input, NSView* view) {
 	CHECK_STR(Rtext_input_get_text(input), "");
 }
 
+/*
+ * The input method, as AppKit drives an NSTextInputClient: marked text is
+ * shown by the field (Rwindow_get_text_composition) and is not in its text
+ * until committed; the keys it takes while composing do not reach the field.
+ */
+static void test_input_method(Rid window, NSView* view) {
+	id<NSTextInputClient> client = (id<NSTextInputClient>)view;
+	NSRange none = NSMakeRange(NSNotFound, 0), range;
+	NSAttributedString* sub;
+	Rid box = Rwidget_create(R_WIDGET_VBOX);
+	Rid input = Rwidget_add_child(box, Rwidget_create(R_WIDGET_TEXT_INPUT));
+	Rid other = Rwidget_add_child(box, Rbutton_create("Other"));
+	int start = -1, end = -1, x, y, w, h;
+	CHECK([view conformsToProtocol:@protocol(NSTextInputClient)]);
+	Rwindow_set_content(window, box);
+	Rdraw_frame();
+	Rwidget_focus(input);
+	Rtext_input_set_text(input, "ab");
+	CHECK(Rwindow_set_text_input_selection(window, 1, 1));
+	CHECK(![client hasMarkedText]);
+	CHECK([client markedRange].location == NSNotFound);
+	range = [client selectedRange];
+	CHECK(range.location == 1 && range.length == 0);
+
+	/* preedit */
+	[client setMarkedText:@"に" selectedRange:NSMakeRange(1, 0) replacementRange:none];
+	CHECK([client hasMarkedText]);
+	CHECK_STR(Rwindow_get_text_composition(window, &start, &end), "\xE3\x81\xAB");
+	CHECK(start == 3 && end == 3);
+	[client setMarkedText:[[[NSAttributedString alloc] initWithString:@"にほんご"] autorelease]
+		selectedRange:NSMakeRange(1, 2) replacementRange:none];
+	CHECK_STR(Rwindow_get_text_composition(window, &start, &end), "\xE3\x81\xAB\xE3\x81\xBB\xE3\x82\x93\xE3\x81\x94");
+	CHECK(start == 3 && end == 9);
+	CHECK_STR(Rtext_input_get_text(input), "ab");
+	range = [client markedRange];
+	CHECK(range.location == 1 && range.length == 4);
+	range = [client selectedRange];
+	CHECK(range.location == 2 && range.length == 2);
+	sub = [client attributedSubstringForProposedRange:[client markedRange] actualRange:NULL];
+	CHECK([[sub string] isEqualToString:@"にほんご"]);
+	sub = [client attributedSubstringForProposedRange:NSMakeRange(0, 100) actualRange:&range];
+	CHECK([[sub string] isEqualToString:@"aにほんごb"] && range.length == 6);
+	CHECK([[client validAttributesForMarkedText] count] > 0);
+
+	/* the candidate window goes to the caret, in screen coordinates */
+	Rdraw_frame();
+	if (Rwindow_get_text_input_rect(window, &x, &y, &w, &h)) {
+		NSRect rect = [client firstRectForCharacterRange:[client markedRange] actualRange:NULL];
+		NSRect frame = [[view window] convertRectToScreen:[view convertRect:[view bounds] toView:nil]];
+		CHECK(NSContainsRect(NSInsetRect(frame, -1, -1), rect) && rect.size.height > 0);
+		printf("candidate rect %.0f,%.0f %.0fx%.0f in window %.0f,%.0f %.0fx%.0f\n", rect.origin.x, rect.origin.y,
+			rect.size.width, rect.size.height, frame.origin.x, frame.origin.y, frame.size.width, frame.size.height);
+	} else printf("no caret painted (window not active): candidate rect not checked\n");
+
+	/* the keys the input method takes while composing are not keys for the field */
+	cocoa_key(view, 51, @"\x7F", 0, NO);
+	cocoa_key(view, 123, @"", 0, NO);
+	CHECK_STR(Rtext_input_get_text(input), "ab");
+	CHECK(Rwindow_get_text_input_selection(window, &start, &end) && start == 1 && end == 1);
+
+	/* commit */
+	[client insertText:@"日本語" replacementRange:none];
+	CHECK(![client hasMarkedText]);
+	CHECK(Rwindow_get_text_composition(window, NULL, NULL) == NULL);
+	CHECK_STR(Rtext_input_get_text(input), "a\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E" "b");
+
+	/* cancel */
+	[client setMarkedText:@"か" selectedRange:NSMakeRange(1, 0) replacementRange:none];
+	[client setMarkedText:@"" selectedRange:NSMakeRange(0, 0) replacementRange:none];
+	CHECK(![client hasMarkedText]);
+	CHECK(Rwindow_get_text_composition(window, NULL, NULL) == NULL);
+	CHECK_STR(Rtext_input_get_text(input), "a\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E" "b");
+
+	/* a dead key: the accent is marked, the next key commits the letter */
+	Rtext_input_set_text(input, "");
+	[client setMarkedText:@"´" selectedRange:NSMakeRange(1, 0) replacementRange:none];
+	[client insertText:@"é" replacementRange:none];
+	CHECK_STR(Rtext_input_get_text(input), "\xC3\xA9");
+	/* unmarkText accepts the marked text as it is */
+	[client setMarkedText:@"¨" selectedRange:NSMakeRange(1, 0) replacementRange:none];
+	[client unmarkText];
+	CHECK_STR(Rtext_input_get_text(input), "\xC3\xA9\xC2\xA8");
+	CHECK(Rwindow_get_text_composition(window, NULL, NULL) == NULL);
+
+	/* a click commits what was being composed */
+	Rtext_input_set_text(input, "");
+	[client setMarkedText:@"ご" selectedRange:NSMakeRange(1, 0) replacementRange:none];
+	[view mouseDown:[NSEvent mouseEventWithType:NSEventTypeLeftMouseDown location:NSMakePoint(1, 1) modifierFlags:0
+		timestamp:0 windowNumber:[[view window] windowNumber] context:nil eventNumber:0 clickCount:1 pressure:1]];
+	[view mouseUp:[NSEvent mouseEventWithType:NSEventTypeLeftMouseUp location:NSMakePoint(1, 1) modifierFlags:0
+		timestamp:0 windowNumber:[[view window] windowNumber] context:nil eventNumber:0 clickCount:1 pressure:0]];
+	CHECK(![client hasMarkedText]);
+	CHECK_STR(Rtext_input_get_text(input), "\xE3\x81\x94");
+
+	/* the focus moves away: the composition ends (nothing typed), and a button composes nothing */
+	Rwidget_focus(input);
+	[client setMarkedText:@"ご" selectedRange:NSMakeRange(1, 0) replacementRange:none];
+	Rwidget_focus(other);
+	CHECK(![client hasMarkedText]);
+	[client setMarkedText:@"ご" selectedRange:NSMakeRange(1, 0) replacementRange:none];
+	CHECK(![client hasMarkedText]);
+	CHECK_STR(Rtext_input_get_text(input), "\xE3\x81\x94");
+	Rwidget_focus(input);
+
+	/* without composition, typing still gives the key, then its text */
+	Rtext_input_set_text(input, "");
+	cocoa_key(view, 0, @"a", 0, NO);
+	cocoa_key(view, 51, @"\x7F", 0, NO);
+	cocoa_key(view, 11, @"b", 0, NO);
+	CHECK_STR(Rtext_input_get_text(input), "b");
+}
+
 static void test_table_selection(Rid window, NSView* view) {
 	Rid table = Rwidget_create(R_WIDGET_TABLE);
 	NSArray* children;
@@ -101,6 +213,8 @@ static void test_native_menu_headers(Rid window) {
 	Rid menu;
 	NSMenu* native;
 	NSMenuItem* header;
+	NSWindow* handle;
+	RNativeWindow handles;
 	Rmenu_bar_add_divider(bar);
 	menu = Rmenu_add_menu(bar, "Devices");
 	Rmenu_set_title_color(menu, 1, 0, 0, 1);
@@ -111,6 +225,17 @@ static void test_native_menu_headers(Rid window) {
 	Rwindow_show(window);
 	Rwindow_focus(window);
 	Rdraw_frame();
+	/* The bar of the system shows the menus of the key window, and a window
+	 * becomes key only once the application is active. macOS (14 and later)
+	 * does not make an application active while another one is in front, as
+	 * when the tests run beside other programs or on a build machine: it
+	 * becomes key when the user comes to it. That moment is played here. */
+	CHECK(Rwindow_get_native_handle(window, &handles));
+	handle = (NSWindow*)handles.display;
+	if (![handle isKeyWindow]) {
+		[[NSNotificationCenter defaultCenter] postNotificationName:NSWindowDidBecomeKeyNotification object:handle];
+		Rdraw_frame();
+	}
 	native = [[[NSApp mainMenu] itemWithTitle:@"Devices"] submenu];
 	CHECK(native != nil);
 	CHECK([[NSApp mainMenu] numberOfItems] == 2); /* app menu and Devices; dividers omitted */
@@ -144,6 +269,7 @@ int main(void) {
 	CHECK(Rwindow_get_native_handle(window, &native));
 	view = [(NSWindow*)native.display contentView];
 	test_function_keys(input, view);
+	test_input_method(window, view);
 	test_table_selection(window, view);
 	test_accessible_action(window, view);
 	test_native_menu_headers(window);

@@ -3,7 +3,9 @@
  * Xlib implementation of the platform interface (Linux, BSD; also works
  * through XWayland). Only libX11 is needed.
  *
- *   - UTF-8 text input through an X input context,
+ *   - UTF-8 text input through an X input context; the composition of
+ *     the input method drawn in the field (on-the-spot preedit) when it
+ *     can, in its own window otherwise,
  *   - CLIPBOARD selection (UTF-8), large texts in both directions through
  *     the incremental protocol (INCR),
  *   - scale factor from the Xft.dpi resource,
@@ -17,7 +19,9 @@
 
 #include "x11_internal.h"
 #include "../atspi.h"
+#include "../preedit.h"
 #include "../sni.h"
+#include "../../widget/widget.h"
 
 #include <X11/Xatom.h>
 #include <X11/Xutil.h>
@@ -30,6 +34,7 @@
 #include <locale.h>
 #include <poll.h>
 #include <unistd.h>
+#include <wchar.h>
 
 #define RVN_X11_CURSOR_COUNT 10
 #define RVN_X11_CLIPBOARD_TIMEOUT_MS 500
@@ -71,6 +76,20 @@ struct rvn_pwindow_t {
 	int pip_was_maximized, pip_was_above;
 	/* asked for attention (XUrgencyHint): cleared when it takes the keyboard */
 	int urgent;
+	/*
+	 * The composition of the input method, on the spot (XIMPreeditCallbacks):
+	 * its callbacks (Xlib keeps pointers to them), its text (UTF-8) with the
+	 * feedback of each character, its caret (characters); whether the core
+	 * shows it (only a focus that takes text does); where its candidates
+	 * were last put (XNSpotLocation, pixels).
+	 */
+	XICCallback preedit_start, preedit_done, preedit_draw, preedit_caret;
+	int preedit_shown;
+	char* preedit;
+	uint32_t* preedit_marks;
+	int preedit_chars;
+	int preedit_caret_index;
+	int spot_set, spot_x, spot_y;
 };
 
 static struct {
@@ -79,6 +98,10 @@ static struct {
 	Window root;
 	XContext context;
 	XIM input_method;
+	/* the input method draws its composition through our callbacks (on the spot) */
+	int on_the_spot;
+	/* the window that has the keyboard */
+	rvn_pwindow_t* focus_window;
 	rvn_pevent_handler_t handler;
 	float scale;
 
@@ -318,6 +341,17 @@ static int rvn_x11_init(rvn_pevent_handler_t handler, rvn_pregion_handler_t regi
 		XSetLocaleModifiers("");
 		g_x11.input_method = XOpenIM(g_x11.display, NULL, NULL, NULL);
 	}
+	/* the composition drawn in the field when the input method can send it (IBus, Fcitx do) */
+	if (g_x11.input_method) {
+		XIMStyles* styles = NULL;
+		if (!XGetIMValues(g_x11.input_method, XNQueryInputStyle, &styles, NULL) && styles) {
+			unsigned short k;
+			for (k = 0; k < styles->count_styles; k++) {
+				if (styles->supported_styles[k] == (XIMPreeditCallbacks | XIMStatusNothing)) g_x11.on_the_spot = R_TRUE;
+			}
+			XFree(styles);
+		}
+	}
 
 	for (i = 0; i < RVN_X11_CURSOR_COUNT; i++) g_x11.cursors[i] = XCreateFontCursor(g_x11.display, shapes[i]);
 
@@ -381,6 +415,235 @@ static int rvn_x11_composited(void) {
 	if (forced && forced[0]) return forced[0] != '0';
 	snprintf(name, sizeof(name), "_NET_WM_CM_S%d", g_x11.screen);
 	return XGetSelectionOwner(g_x11.display, XInternAtom(g_x11.display, name, False)) != None;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Input methods (XIM)
+ *
+ * When the input method can (IBus and Fcitx can), it hands us its
+ * composition through callbacks (on the spot): it goes to the core as
+ * RVN_PEVENT_COMPOSITION and is drawn in the field; its candidates are put
+ * at the caret (XNSpotLocation). Otherwise it draws the composition in a
+ * window of its own (XIMPreeditNothing), as before. Either way the keys it
+ * takes are filtered by XFilterEvent and the committed text comes through
+ * Xutf8LookupString.
+ * ------------------------------------------------------------------------- */
+
+static Rid rvn_x11_core(const rvn_pwindow_t* window) {
+	const rvn_window_t* core = window ? (const rvn_window_t*)window->user : NULL;
+	return core ? core->id : R_INVALID_ID;
+}
+
+/* The composition as it is now, to the core: the clause being converted selected, the caret otherwise. */
+static void rvn_x11_preedit_emit(rvn_pwindow_t* window) {
+	rvn_pevent_t event;
+	int start, end;
+	if (!rvn_preedit_marked_run(window->preedit, window->preedit_marks, window->preedit_chars, XIMReverse | XIMHighlight, &start, &end)) {
+		const char* text = window->preedit ? window->preedit : "";
+		start = end = rvn_preedit_char_offset(text, (int)strlen(text), window->preedit_caret_index);
+	}
+	memset(&event, 0, sizeof(event));
+	event.type = RVN_PEVENT_COMPOSITION;
+	event.composition = window->preedit;
+	event.composition_start = start;
+	event.composition_end = end;
+	rvn_x11_emit(window, &event);
+	{
+		Rid core = rvn_x11_core(window);
+		window->preedit_shown = window->preedit && core != R_INVALID_ID && Rwindow_get_text_composition(core, NULL, NULL) != NULL;
+	}
+}
+
+static void rvn_x11_preedit_clear(rvn_pwindow_t* window) {
+	rvn_free(window->preedit);
+	rvn_free(window->preedit_marks);
+	window->preedit = NULL;
+	window->preedit_marks = NULL;
+	window->preedit_chars = 0;
+	window->preedit_caret_index = 0;
+	window->preedit_shown = R_FALSE;
+}
+
+/* XIMText to UTF-8 (wide characters, or the multibyte encoding of the locale), and its number of characters. Free with rvn_free. */
+static char* rvn_x11_xim_text(const XIMText* text, int* characters) {
+	rvn_text_t out;
+	int count = 0;
+	memset(&out, 0, sizeof(out));
+	if (text->encoding_is_wchar) {
+		int i;
+		for (i = 0; i < (int)text->length && text->string.wide_char[i]; i++) {
+			char bytes[4];
+			uint32_t codepoint = (uint32_t)text->string.wide_char[i];
+			if (codepoint > 0x10FFFFu || (codepoint >= 0xD800u && codepoint <= 0xDFFFu)) codepoint = 0xFFFDu;
+			rvn_text_append(&out, bytes, (size_t)rvn_utf8_encode(codepoint, bytes));
+			count++;
+		}
+	} else {
+		const char* cursor = text->string.multi_byte;
+		size_t left = strlen(cursor);
+		mbstate_t state;
+		memset(&state, 0, sizeof(state));
+		while (left > 0 && count < (int)text->length) {
+			wchar_t wide = 0;
+			size_t used = mbrtowc(&wide, cursor, left, &state);
+			char bytes[4];
+			uint32_t codepoint = (uint32_t)wide;
+			if (used == (size_t)-1 || used == (size_t)-2) {
+				/* not of the locale: a byte at a time */
+				memset(&state, 0, sizeof(state));
+				used = 1;
+				codepoint = 0xFFFDu;
+			}
+			if (used == 0) break;
+			if (codepoint > 0x10FFFFu || (codepoint >= 0xD800u && codepoint <= 0xDFFFu)) codepoint = 0xFFFDu;
+			rvn_text_append(&out, bytes, (size_t)rvn_utf8_encode(codepoint, bytes));
+			cursor += used;
+			left -= used;
+			count++;
+		}
+	}
+	*characters = count;
+	return out.data;
+}
+
+static Bool rvn_x11_preedit_start(XIC ic, XPointer client, XPointer call) {
+	rvn_pwindow_t* window = (rvn_pwindow_t*)client;
+	RVN_UNUSED(ic); RVN_UNUSED(call);
+	rvn_x11_preedit_clear(window);
+	/* (no limit to the length of the composition) */
+	return -1;
+}
+
+static Bool rvn_x11_preedit_done(XIC ic, XPointer client, XPointer call) {
+	rvn_pwindow_t* window = (rvn_pwindow_t*)client;
+	RVN_UNUSED(ic); RVN_UNUSED(call);
+	if (!window->preedit) return True;
+	rvn_x11_preedit_clear(window);
+	rvn_x11_preedit_emit(window);
+	return True;
+}
+
+/* Characters chg_first .. chg_first + chg_length of the composition replaced by the text (none: deleted). */
+static Bool rvn_x11_preedit_draw(XIC ic, XPointer client, XPointer call) {
+	rvn_pwindow_t* window = (rvn_pwindow_t*)client;
+	const XIMPreeditDrawCallbackStruct* draw = (const XIMPreeditDrawCallbackStruct*)call;
+	RVN_UNUSED(ic);
+	if (!draw) return True;
+	if (draw->text && (draw->text->encoding_is_wchar ? draw->text->string.wide_char == NULL : draw->text->string.multi_byte == NULL)) {
+		/* only the look of characters changed (their feedback), not the characters */
+		if (draw->text->feedback && draw->chg_first >= 0) {
+			int i;
+			for (i = 0; i < (int)draw->text->length && draw->chg_first + i < window->preedit_chars; i++) {
+				window->preedit_marks[draw->chg_first + i] = (uint32_t)draw->text->feedback[i];
+			}
+		}
+	} else {
+		char* insert = NULL;
+		int count = 0, i;
+		uint32_t* marks = NULL;
+		if (draw->text) insert = rvn_x11_xim_text(draw->text, &count);
+		if (count > 0 && draw->text->feedback) {
+			marks = (uint32_t*)rvn_calloc((size_t)count * sizeof(uint32_t));
+			for (i = 0; i < count && i < (int)draw->text->length; i++) marks[i] = (uint32_t)draw->text->feedback[i];
+		}
+		rvn_preedit_replace_chars(&window->preedit, draw->chg_first, draw->chg_length, insert);
+		rvn_preedit_replace_marks(&window->preedit_marks, &window->preedit_chars, draw->chg_first, draw->chg_length, marks, count);
+		rvn_free(marks);
+		rvn_free(insert);
+		/* (the marks follow the text: one per character) */
+		if (!window->preedit) {
+			rvn_free(window->preedit_marks);
+			window->preedit_marks = NULL;
+			window->preedit_chars = 0;
+		}
+	}
+	window->preedit_caret_index = rvn_maxi(0, rvn_mini(draw->caret, window->preedit_chars));
+	rvn_x11_preedit_emit(window);
+	return True;
+}
+
+/* The input method moves the caret of the composition, and is told where it went. */
+static Bool rvn_x11_preedit_caret(XIC ic, XPointer client, XPointer call) {
+	rvn_pwindow_t* window = (rvn_pwindow_t*)client;
+	XIMPreeditCaretCallbackStruct* caret = (XIMPreeditCaretCallbackStruct*)call;
+	int position = window->preedit_caret_index;
+	RVN_UNUSED(ic);
+	if (!caret) return True;
+	switch (caret->direction) {
+		case XIMForwardChar: position++; break;
+		case XIMBackwardChar: position--; break;
+		case XIMLineStart: position = 0; break;
+		case XIMLineEnd: position = window->preedit_chars; break;
+		case XIMAbsolutePosition: position = caret->position; break;
+		default: break;
+	}
+	position = rvn_maxi(0, rvn_mini(position, window->preedit_chars));
+	caret->position = position;
+	if (position != window->preedit_caret_index) {
+		window->preedit_caret_index = position;
+		if (window->preedit) rvn_x11_preedit_emit(window);
+	}
+	return True;
+}
+
+/* The input context of a window: on the spot when the input method can, in its own window otherwise. */
+static void rvn_x11_create_ic(rvn_pwindow_t* window) {
+	if (g_x11.on_the_spot) {
+		XVaNestedList attributes;
+		window->preedit_start.client_data = (XPointer)window;
+		window->preedit_start.callback = rvn_x11_preedit_start;
+		window->preedit_done.client_data = (XPointer)window;
+		window->preedit_done.callback = rvn_x11_preedit_done;
+		window->preedit_draw.client_data = (XPointer)window;
+		window->preedit_draw.callback = rvn_x11_preedit_draw;
+		window->preedit_caret.client_data = (XPointer)window;
+		window->preedit_caret.callback = rvn_x11_preedit_caret;
+		attributes = XVaCreateNestedList(0, XNPreeditStartCallback, &window->preedit_start, XNPreeditDoneCallback, &window->preedit_done,
+			XNPreeditDrawCallback, &window->preedit_draw, XNPreeditCaretCallback, &window->preedit_caret, NULL);
+		if (attributes) {
+			window->input_context = XCreateIC(g_x11.input_method, XNInputStyle, XIMPreeditCallbacks | XIMStatusNothing,
+				XNClientWindow, window->handle, XNFocusWindow, window->handle, XNPreeditAttributes, attributes, NULL);
+			XFree(attributes);
+		}
+	}
+	if (!window->input_context) {
+		window->input_context = XCreateIC(g_x11.input_method, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
+			XNClientWindow, window->handle, XNFocusWindow, window->handle, NULL);
+	}
+}
+
+/*
+ * Before each wait, for the window that has the keyboard: a composition the
+ * core showed and ended (the focus moved) is dropped by the input method
+ * too; its candidates go to the caret. (Where the focus takes no text, the
+ * core shows no composition, but what the input method commits is still
+ * sent as text.)
+ */
+static void rvn_x11_ime_update(rvn_pwindow_t* window) {
+	Rid core = rvn_x11_core(window);
+	int x, y, width, height;
+	if (!window->input_context || core == R_INVALID_ID) return;
+	if (window->preedit && window->preedit_shown && !Rwindow_get_text_composition(core, NULL, NULL)) {
+		char* rest = XmbResetIC(window->input_context);
+		if (rest) XFree(rest);
+		rvn_x11_preedit_clear(window);
+	}
+	if (!g_x11.on_the_spot || !Rwindow_get_text_input_rect(core, &x, &y, &width, &height)) return;
+	if (window->spot_set && window->spot_x == x && window->spot_y == y + height) return;
+	{
+		XPoint spot;
+		XVaNestedList attributes;
+		spot.x = (short)rvn_maxi(-32768, rvn_mini(32767, x));
+		spot.y = (short)rvn_maxi(-32768, rvn_mini(32767, y + height));
+		attributes = XVaCreateNestedList(0, XNSpotLocation, &spot, NULL);
+		if (!attributes) return;
+		/* (an input method that does not use it ignores it) */
+		XSetICValues(window->input_context, XNPreeditAttributes, attributes, NULL);
+		XFree(attributes);
+		window->spot_set = R_TRUE;
+		window->spot_x = x;
+		window->spot_y = y + height;
+	}
 }
 
 static rvn_pwindow_t* rvn_x11_window_create(const rvn_pwindow_desc_t* desc) {
@@ -470,17 +733,17 @@ static rvn_pwindow_t* rvn_x11_window_create(const rvn_pwindow_desc_t* desc) {
 		XChangeProperty(g_x11.display, window->handle, g_x11.net_wm_state, XA_ATOM, 32, PropModeReplace,
 			(const unsigned char*)states, 2);
 	}
-	if (g_x11.input_method) {
-		window->input_context = XCreateIC(g_x11.input_method, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-			XNClientWindow, window->handle, XNFocusWindow, window->handle, NULL);
-	}
+	if (g_x11.input_method) rvn_x11_create_ic(window);
 	XFlush(g_x11.display);
 	return window;
 }
 
 static void rvn_x11_window_destroy(rvn_pwindow_t* window) {
 	if (g_x11.drag_window == window) g_x11.drag_window = NULL;
+	if (g_x11.focus_window == window) g_x11.focus_window = NULL;
 	if (window->input_context) XDestroyIC(window->input_context);
+	rvn_free(window->preedit);
+	rvn_free(window->preedit_marks);
 	if (!window->is_child) XDeleteContext(g_x11.display, window->handle, g_x11.context);
 	if (g_x11.pen_window == window) g_x11.pen_window = NULL;
 	XDestroyWindow(g_x11.display, window->handle);
@@ -1314,6 +1577,12 @@ static void rvn_x11_key_press(rvn_pwindow_t* window, XKeyEvent* key_event, int f
 			event.codepoint = codepoint;
 			rvn_x11_emit(window, &event);
 		}
+		/*
+		 * The text ended the composition in the core; what the input method
+		 * still composes (it committed a part) is shown again. Its callbacks
+		 * then remove what it committed, if they have not yet.
+		 */
+		if (window->preedit) rvn_x11_preedit_emit(window);
 	}
 }
 
@@ -1744,6 +2013,8 @@ static void rvn_x11_process(XEvent* xevent) {
 			break;
 		case FocusIn:
 			if (window->input_context) XSetICFocus(window->input_context);
+			g_x11.focus_window = window;
+			window->spot_set = R_FALSE;
 			if (window->urgent) rvn_x11_set_urgent(window, R_FALSE);
 			event.type = RVN_PEVENT_FOCUS;
 			event.focused = R_TRUE;
@@ -1751,6 +2022,7 @@ static void rvn_x11_process(XEvent* xevent) {
 			break;
 		case FocusOut:
 			if (window->input_context) XUnsetICFocus(window->input_context);
+			if (g_x11.focus_window == window) g_x11.focus_window = NULL;
 			/* key releases will go to another window */
 			memset(g_x11.keys_down, 0, sizeof(g_x11.keys_down));
 			event.type = RVN_PEVENT_FOCUS;
@@ -1763,6 +2035,8 @@ static void rvn_x11_process(XEvent* xevent) {
 }
 
 static void rvn_x11_pump(double timeout_seconds) {
+	/* the input method follows the caret of the last frame */
+	if (g_x11.focus_window) rvn_x11_ime_update(g_x11.focus_window);
 	XFlush(g_x11.display);
 
 	if (!XPending(g_x11.display) && timeout_seconds != 0.0) {

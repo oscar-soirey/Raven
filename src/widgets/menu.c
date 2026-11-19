@@ -310,6 +310,22 @@ static int rvn_menu_entry_rect(const rvn_widget_t* widget, int index, rvn_rect_t
 	return R_FALSE;
 }
 
+int rvn_menu_entry_bounds(const rvn_widget_t* entry, rvn_rect_t* rect) {
+	const rvn_widget_t* menu = entry->parent;
+	rvn_vec2_t origin;
+	uint32_t i;
+	if (!menu || menu->cls->type != R_WIDGET_MENU || !menu->window || !rvn_widget_is_shown(menu)) return R_FALSE;
+	for (i = 0; i < menu->child_count; i++) {
+		if (menu->children[i] != entry) continue;
+		if (!rvn_menu_entry_rect(menu, (int)i, rect)) return R_FALSE;
+		origin = rvn_widget_origin(menu);
+		rect->x += origin.x;
+		rect->y += origin.y;
+		return R_TRUE;
+	}
+	return R_FALSE;
+}
+
 static int rvn_menu_entry_at(const rvn_widget_t* widget, float x, float y) {
 	uint32_t i;
 	if (x < 0.0f || x >= widget->rect.w) return -1;

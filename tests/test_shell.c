@@ -38,10 +38,11 @@ static void double_click_at(Rid window, float x, float y) {
 }
 
 static void test_header_bar(void) {
+	/* (the buttons on the right, as on Windows and Linux: the default side is that of the system, tested below) */
 	Rid window = window_from(
 		"<Window Title=\"Header\" Width=\"600\" Height=\"300\" CustomHeader=\"true\">"
 		"<VBox>"
-		"<HeaderBar Name=\"bar\">"
+		"<HeaderBar Name=\"bar\" ButtonSide=\"Right\">"
 		"<Button Name=\"open\" Text=\"Open\"/>"
 		"<Button Name=\"share\" Text=\"Share\" Slot.HAlign=\"Right\"/>"
 		"</HeaderBar>"
@@ -128,6 +129,28 @@ static void test_header_bar(void) {
 	test_click_at(window, 600.0f - 23.0f, h * 0.5f);
 	CHECK(g_close_asked == 2);
 	CHECK(!Rwindow_is_valid(window));
+}
+
+/* Without ButtonSide, the buttons are where the system has them: on the left on macOS, on the right elsewhere. */
+static void test_header_default_side(void) {
+	Rid window = window_from(
+		"<Window Title=\"Side\" Width=\"600\" Height=\"300\" CustomHeader=\"true\">"
+		"<VBox><HeaderBar Name=\"bar\"><Button Name=\"a\" Text=\"A\"/><Button Name=\"z\" Text=\"Z\" Slot.HAlign=\"Right\"/></HeaderBar>"
+		"<Label Slot.Fill=\"1\">Body</Label></VBox></Window>");
+	float x, y, w, h;
+
+	Rwidget_get_rect(Rwidget_find(window, "a"), &x, &y, &w, &h);
+#if defined(__APPLE__)
+	/* the lights (3 x 13, 8 apart, 14 from the edge) come first */
+	CHECK(x > 14.0f + 3 * 13.0f + 2 * 8.0f);
+	Rwidget_get_rect(Rwidget_find(window, "z"), &x, &y, &w, &h);
+	CHECK_NEAR(x + w, 600 - 8);
+#else
+	CHECK_NEAR(x, 8);
+	Rwidget_get_rect(Rwidget_find(window, "z"), &x, &y, &w, &h);
+	CHECK(x + w < 600 - 8 - 3 * 24.0f);
+#endif
+	Rwindow_destroy(window);
 }
 
 static void test_header_variants(void) {
@@ -1050,6 +1073,7 @@ int main(void) {
 		return 1;
 	}
 	RUN(test_header_bar);
+	RUN(test_header_default_side);
 	RUN(test_header_variants);
 	RUN(test_drop);
 	RUN(test_hit_test);

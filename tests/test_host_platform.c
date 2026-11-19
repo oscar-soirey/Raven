@@ -276,6 +276,62 @@ static void test_editor_and_spin_carets(void) {
 	Rdraw_frame();
 }
 
+/* The composition of the host's input method: the caret (where the candidate window goes) follows it. */
+static void test_composition_caret(void) {
+	Rid window = host_window(240, 220, 1.0f);
+	Rid input = Rwidget_create(R_WIDGET_TEXT_INPUT);
+	Rid editor = Rwidget_create(R_WIDGET_TEXT_EDITOR);
+	int x0, x1, x2, y, width, height, start, end;
+	Rwidget_set_size(editor, 240.0f, 120.0f);
+	Rwidget_add_child(Rwindow_get_content(window), input);
+	Rwidget_add_child(Rwindow_get_content(window), editor);
+	Rtext_input_set_text(input, "ab");
+	Rhost_inject_focus(window, R_TRUE);
+	Rwidget_focus(input);
+	Rdraw_frame();
+	CHECK(Rwindow_get_text_input_rect(window, &x0, &y, &width, &height));
+	Rhost_inject_composition(window, "\xE3\x81\xAB\xE3\x81\xBB", -1, -1);
+	Rdraw_frame();
+	CHECK_STR(Rwindow_get_text_composition(window, &start, &end), "\xE3\x81\xAB\xE3\x81\xBB");
+	CHECK(start == 6 && end == 6);
+	CHECK(Rwindow_get_text_input_rect(window, &x1, &y, &width, &height));
+	CHECK(x1 > x0);
+	/* the caret inside the composition */
+	Rhost_inject_composition(window, "\xE3\x81\xAB\xE3\x81\xBB", 3, 3);
+	Rdraw_frame();
+	CHECK(Rwindow_get_text_input_rect(window, &x2, &y, &width, &height));
+	CHECK(x2 > x0 && x2 < x1);
+	/* committed through the host's text events */
+	Rhost_inject_text(window, 0x65E5);
+	Rdraw_frame();
+	CHECK(Rwindow_get_text_composition(window, NULL, NULL) == NULL);
+	CHECK_STR(Rtext_input_get_text(input), "ab\xE6\x97\xA5");
+	CHECK(Rwindow_get_text_input_rect(window, &x2, &y, &width, &height));
+	CHECK(x2 > x0);
+	/* cancelled: the caret comes back */
+	Rhost_inject_composition(window, "\xE3\x81\x8B", -1, -1);
+	Rdraw_frame();
+	CHECK(Rwindow_get_text_input_rect(window, &x1, &y, &width, &height));
+	CHECK(x1 > x2);
+	Rhost_inject_composition(window, NULL, 0, 0);
+	Rdraw_frame();
+	CHECK(Rwindow_get_text_input_rect(window, &x1, &y, &width, &height));
+	CHECK(x1 == x2);
+	/* the TextEditor */
+	Rwidget_focus(editor);
+	Rtext_editor_set_text(editor, "one");
+	Rtext_editor_set_cursor(editor, 0, 3);
+	Rdraw_frame();
+	CHECK(Rwindow_get_text_input_rect(window, &x0, &y, &width, &height));
+	Rhost_inject_composition(window, "\xE3\x81\xAB\xE3\x81\xBB", -1, -1);
+	Rdraw_frame();
+	CHECK(Rwindow_get_text_input_rect(window, &x1, &y, &width, &height));
+	CHECK(x1 > x0);
+	CHECK_STR(Rtext_editor_get_text(editor), "one");
+	Rwindow_destroy(window);
+	Rdraw_frame();
+}
+
 static void test_independent_surfaces_and_capture(void) {
 	Rid first = host_window(200, 100, 1.0f);
 	Rid second = host_window(200, 100, 2.0f);
@@ -542,6 +598,7 @@ int main(void) {
 	RUN(test_close_request);
 	RUN(test_caret_rect);
 	RUN(test_editor_and_spin_carets);
+	RUN(test_composition_caret);
 	RUN(test_independent_surfaces_and_capture);
 	RUN(test_parallel_caret);
 	RUN(test_keyboard_reveals_field);

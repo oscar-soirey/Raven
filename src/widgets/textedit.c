@@ -288,11 +288,15 @@ int rvn_textedit_input(rvn_textedit_t* edit, uint32_t codepoint) {
  *  Geometry (password mode shows one bullet per character)
  * ------------------------------------------------------------------------- */
 
-static float rvn_te_offset_to_x(const rvn_textedit_t* edit, rvn_font_t* font, float size, int offset) {
-	if (edit->password) {
-		return rvn_text_width(font, size, RVN_BULLET, -1) * (float)rvn_utf8_count(edit->text, offset);
+static float rvn_te_text_x(rvn_font_t* font, float size, int password, const char* text, int offset) {
+	if (password) {
+		return rvn_text_width(font, size, RVN_BULLET, -1) * (float)rvn_utf8_count(text, offset);
 	}
-	return rvn_text_width(font, size, edit->text, offset);
+	return rvn_text_width(font, size, text, offset);
+}
+
+static float rvn_te_offset_to_x(const rvn_textedit_t* edit, rvn_font_t* font, float size, int offset) {
+	return rvn_te_text_x(font, size, edit->password, edit->text, offset);
 }
 
 static int rvn_te_x_to_offset(const rvn_textedit_t* edit, rvn_font_t* font, float size, float x) {
@@ -347,19 +351,55 @@ void rvn_text_input_rect(const rvn_widget_t* widget, const RPainter* painter, rv
 	window->text_input_owner = widget->id;
 }
 
+const char* rvn_widget_composition(const rvn_widget_t* widget, int* start, int* end) {
+	const rvn_window_t* window = widget->window;
+	if (!window || window->focus != widget || !window->composition) return NULL;
+	if (start) *start = window->composition_start;
+	if (end) *end = window->composition_end;
+	return window->composition;
+}
+
+void rvn_paint_composition_underline(RPainter* painter, float x0, float x1, float target_x0, float target_x1,
+	float baseline, rvn_color_t color) {
+	/* the whole composition thin, the part the input method works on thicker (as the systems draw it) */
+	if (x1 > x0) rvn_paint_rect(painter, rvn_rect(x0, baseline, x1 - x0, 1.0f), color);
+	if (target_x1 > target_x0) rvn_paint_rect(painter, rvn_rect(target_x0, baseline - 0.5f, target_x1 - target_x0, 2.0f), color);
+}
+
 void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPainter* painter,
 	rvn_rect_t area, Rid font_id, float size, rvn_color_t color, int focused) {
 
 	rvn_font_t* font = rvn_font_resolve(font_id);
 	rvn_font_metrics_t metrics;
 	float caret_x, text_width, max_scroll, text_y;
+	/* what is shown: the text, or the text with the composition of an input method in place of the selection */
+	const char* shown = edit->text;
+	const char* composition = NULL;
+	char* composed = NULL;
+	int shown_length = edit->length, caret_at = edit->caret;
+	int mark_from = 0, mark_to = 0, target_from = 0, target_to = 0;
 
 	if (!font) return;
 	size = rvn_widget_font_size(widget, size);
 	rvn_font_metrics(font, size, &metrics);
 	text_y = area.y + (area.h - metrics.line_height) * 0.5f;
-	caret_x = rvn_te_offset_to_x(edit, font, size, edit->caret);
-	text_width = rvn_te_offset_to_x(edit, font, size, edit->length);
+	if (focused && !edit->read_only) composition = rvn_widget_composition(widget, &target_from, &target_to);
+	if (composition) {
+		int from = rvn_te_min(edit), to = rvn_te_max(edit), length = (int)strlen(composition);
+		shown_length = edit->length - (to - from) + length;
+		composed = (char*)rvn_alloc((size_t)shown_length + 1);
+		memcpy(composed, edit->text, (size_t)from);
+		memcpy(composed + from, composition, (size_t)length);
+		memcpy(composed + from + length, edit->text + to, (size_t)(edit->length - to) + 1);
+		shown = composed;
+		mark_from = from;
+		mark_to = from + length;
+		target_from += from;
+		target_to += from;
+		caret_at = target_to;
+	}
+	caret_x = rvn_te_text_x(font, size, edit->password, shown, caret_at);
+	text_width = rvn_te_text_x(font, size, edit->password, shown, shown_length);
 
 	/* scroll horizontally so that the caret stays visible */
 	if (focused) {
@@ -370,26 +410,34 @@ void rvn_textedit_paint(rvn_textedit_t* edit, const rvn_widget_t* widget, RPaint
 	edit->scroll = rvn_clampf(edit->scroll, 0.0f, max_scroll);
 
 	rvn_paint_push_clip(painter, area);
-	if (focused && rvn_te_has_selection(edit)) {
+	if (focused && !composition && rvn_te_has_selection(edit)) {
 		float x0 = rvn_te_offset_to_x(edit, font, size, rvn_te_min(edit));
 		float x1 = rvn_te_offset_to_x(edit, font, size, rvn_te_max(edit));
 		rvn_paint_rect(painter, rvn_rect(area.x + x0 - edit->scroll, text_y, x1 - x0, metrics.line_height),
 			rvn_widget_color(widget, R_COLOR_SELECTION));
 	}
 	if (edit->password) {
-		int count = rvn_utf8_count(edit->text, edit->length), i;
+		int count = rvn_utf8_count(shown, shown_length), i;
 		char* bullets = (char*)rvn_alloc((size_t)count * 3 + 1);
 		for (i = 0; i < count; i++) memcpy(bullets + i * 3, RVN_BULLET, 3);
 		bullets[count * 3] = '\0';
 		rvn_paint_text(painter, font_id, size, area.x - edit->scroll, text_y, bullets, count * 3, color);
 		rvn_free(bullets);
 	} else {
-		rvn_paint_text(painter, font_id, size, area.x - edit->scroll, text_y, edit->text, edit->length, color);
+		rvn_paint_text(painter, font_id, size, area.x - edit->scroll, text_y, shown, shown_length, color);
+	}
+	if (composition) {
+		float x = area.x - edit->scroll;
+		rvn_paint_composition_underline(painter,
+			x + rvn_te_text_x(font, size, edit->password, shown, mark_from), x + rvn_te_text_x(font, size, edit->password, shown, mark_to),
+			x + rvn_te_text_x(font, size, edit->password, shown, target_from), x + rvn_te_text_x(font, size, edit->password, shown, target_to),
+			text_y + metrics.line_height - 2.0f, color);
+		rvn_free(composed);
 	}
 	if (focused && !edit->read_only) {
 		rvn_rect_t caret = rvn_rect(area.x + caret_x - edit->scroll, text_y, 1.0f, metrics.line_height);
 		rvn_text_input_rect(widget, painter, caret);
-		if (fmod(rvn_clock_seconds() - edit->blink_start, 1.0) < 0.5) rvn_paint_rect(painter, caret, color);
+		if (g_rvn.test_deterministic || fmod(rvn_clock_seconds() - edit->blink_start, 1.0) < 0.5) rvn_paint_rect(painter, caret, color);
 	}
 	rvn_paint_pop_clip(painter);
 }
