@@ -842,6 +842,17 @@ static void test_xml(void) {
 	/* (the files are not there: the tiles fail, quietly) */
 	Rdraw_frame();
 
+	/* a place and a zoom in double precision: a float would make 120.000001 120 (90 units at zoom 24) */
+	Rmap_view_set_zoom_range(map, 0.0, 24.0);
+	CHECK(Rwidget_set_attribute(map, "Longitude", "120.000001"));
+	CHECK(Rwidget_set_attribute(map, "Latitude", "45.0000013"));
+	CHECK(Rwidget_set_attribute(map, "Zoom", "23.0000001"));
+	Rmap_view_get_center(map, &lat, &lon);
+	CHECK_CLOSE(lon, 120.000001, 1e-9);
+	CHECK_CLOSE(lat, 45.0000013, 1e-9);
+	CHECK_CLOSE(Rmap_view_get_zoom(map), 23.0000001, 1e-12);
+	Rdraw_frame();
+
 	/* the other names of the tag */
 	map = Rwidget_create_from_xml("<Map/>", 6);
 	CHECK(Rwidget_get_type(map) == R_WIDGET_MAP_VIEW);
