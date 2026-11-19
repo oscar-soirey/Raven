@@ -8326,7 +8326,8 @@ namespace Raven
 
         /// <summary>
         /// Types a text at the cursor, replacing the selection, as the user
-        /// would: it can be undone and the changed callback is called.
+        /// would (at every cursor when there are several): it can be undone and
+        /// the changed callback is called.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_editor_insert_text(uint editor, [MarshalAs(Utf8.Str)] string text);
@@ -8364,6 +8365,121 @@ namespace Raven
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_editor_scroll_to_line(uint editor, int line);
+
+        /// <summary>
+        /// Adds a cursor (a caret) to the editor; the main cursor stays
+        /// the main one. A cursor over another one, or at the place of another
+        /// caret, becomes one with it. Rtext_editor_set_cursor,
+        /// Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_add_cursor(uint editor, int line, int column);
+
+        /// <summary>
+        /// Adds a cursor that selects from one position to another (its caret on the second).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_add_selection(uint editor, int from_line, int from_column, int to_line, int to_column);
+
+        /// <summary>
+        /// Returns: The number of cursors, the main one included (1 at least).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_cursor_count(uint editor);
+
+        /// <summary>
+        /// A cursor by its index, in the order of the text (0 for the
+        /// first): its caret and the anchor of its selection (the same position
+        /// when nothing is selected). Returns R_FALSE when `index` is out of range.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_cursor_at(uint editor, int index, out int line, out int column, out int anchor_line, out int anchor_column);
+
+        /// <summary>
+        /// Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_main_cursor(uint editor);
+
+        /// <summary>
+        /// Back to the main cursor alone, as Escape does.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_clear_cursors(uint editor);
+
+        /// <summary>
+        /// What Ctrl+D does: with nothing selected, selects the word at
+        /// each caret; else adds a cursor on the next occurrence of the main
+        /// selection (with its case, a whole word when it was selected so) that no
+        /// cursor selects, going on from the start of the text. Returns R_FALSE
+        /// when there is none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_add_next_occurrence(uint editor);
+
+        /// <summary>
+        /// What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_select_all_occurrences(uint editor);
+
+        /// <summary>
+        /// Folds the region that starts at a line: the lines after it, up
+        /// to the one before the bracket that closes it (or to the last one more
+        /// indented), are hidden. When the line starts none, or it is folded
+        /// already, the nearest region around the line is folded. Cursors in it
+        /// go to the end of its first line. Returns R_FALSE when there is none.
+        /// Line numbers stay those of the text. Folds follow the lines when text
+        /// is added or removed elsewhere; editing a hidden line (or the line break
+        /// of the first line) unfolds its region, and so does a match of the
+        /// search or a cursor that goes into it.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_fold(uint editor, int line);
+
+        /// <summary>
+        /// Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_unfold(uint editor, int line);
+
+        /// <summary>
+        /// Folds every region, those inside others too.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_fold_all(uint editor);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_unfold_all(uint editor);
+
+        /// <summary>
+        /// Returns: R_TRUE when a folded region starts at this line.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_is_folded(uint editor, int line);
+
+        /// <summary>
+        /// Returns: R_TRUE when the line is hidden in a folded region.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_is_line_hidden(uint editor, int line);
+
+        /// <summary>
+        /// Returns: The last line of the region that starts at a line (folded or not), -1 when it starts none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_fold_end(uint editor, int line);
+
+        /// <summary>
+        /// R_FALSE unfolds everything and stops folding: no markers, and
+        /// Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+        /// XML: Folding="false".
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rtext_editor_set_folding(uint editor, int enabled);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rtext_editor_get_folding(uint editor);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rtext_editor_undo(uint editor);

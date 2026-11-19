@@ -3928,7 +3928,8 @@ proc Rtext_editor_get_line*(editor: Rid, line: cint): cstring {.rapi.}
   ## Returns: One line, without its line break. Valid until the next edit. NULL when `line` is out of range.
 proc Rtext_editor_insert_text*(editor: Rid, text: cstring) {.rapi.}
   ## Types a text at the cursor, replacing the selection, as the user
-  ## would: it can be undone and the changed callback is called.
+  ## would (at every cursor when there are several): it can be undone and
+  ## the changed callback is called.
 proc Rtext_editor_set_cursor*(editor: Rid, line: cint, column: cint) {.rapi.}
 proc Rtext_editor_get_cursor*(editor: Rid, line: ptr cint, column: ptr cint) {.rapi.}
 proc Rtext_editor_select*(editor: Rid, from_line: cint, from_column: cint, to_line: cint, to_column: cint) {.rapi.}
@@ -3940,6 +3941,57 @@ proc Rtext_editor_get_selected_text*(editor: Rid): cstring {.rapi.}
   ## Returns: The selected text, "" when there is none. Valid until the next call or the next edit.
 proc Rtext_editor_scroll_to_line*(editor: Rid, line: cint) {.rapi.}
   ## Scrolls so that a line is visible.
+proc Rtext_editor_add_cursor*(editor: Rid, line: cint, column: cint) {.rapi.}
+  ## Adds a cursor (a caret) to the editor; the main cursor stays
+  ## the main one. A cursor over another one, or at the place of another
+  ## caret, becomes one with it. Rtext_editor_set_cursor,
+  ## Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+proc Rtext_editor_add_selection*(editor: Rid, from_line: cint, from_column: cint, to_line: cint, to_column: cint) {.rapi.}
+  ## Adds a cursor that selects from one position to another (its caret on the second).
+proc Rtext_editor_get_cursor_count*(editor: Rid): cint {.rapi.}
+  ## Returns: The number of cursors, the main one included (1 at least).
+proc Rtext_editor_get_cursor_at*(editor: Rid, index: cint, line: ptr cint, column: ptr cint, anchor_line: ptr cint, anchor_column: ptr cint): cint {.rapi.}
+  ## A cursor by its index, in the order of the text (0 for the
+  ## first): its caret and the anchor of its selection (the same position
+  ## when nothing is selected). Returns R_FALSE when `index` is out of range.
+proc Rtext_editor_get_main_cursor*(editor: Rid): cint {.rapi.}
+  ## Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+proc Rtext_editor_clear_cursors*(editor: Rid) {.rapi.}
+  ## Back to the main cursor alone, as Escape does.
+proc Rtext_editor_add_next_occurrence*(editor: Rid): cint {.rapi.}
+  ## What Ctrl+D does: with nothing selected, selects the word at
+  ## each caret; else adds a cursor on the next occurrence of the main
+  ## selection (with its case, a whole word when it was selected so) that no
+  ## cursor selects, going on from the start of the text. Returns R_FALSE
+  ## when there is none.
+proc Rtext_editor_select_all_occurrences*(editor: Rid): cint {.rapi.}
+  ## What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number.
+proc Rtext_editor_fold*(editor: Rid, line: cint): cint {.rapi.}
+  ## Folds the region that starts at a line: the lines after it, up
+  ## to the one before the bracket that closes it (or to the last one more
+  ## indented), are hidden. When the line starts none, or it is folded
+  ## already, the nearest region around the line is folded. Cursors in it
+  ## go to the end of its first line. Returns R_FALSE when there is none.
+  ## Line numbers stay those of the text. Folds follow the lines when text
+  ## is added or removed elsewhere; editing a hidden line (or the line break
+  ## of the first line) unfolds its region, and so does a match of the
+  ## search or a cursor that goes into it.
+proc Rtext_editor_unfold*(editor: Rid, line: cint): cint {.rapi.}
+  ## Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there.
+proc Rtext_editor_fold_all*(editor: Rid) {.rapi.}
+  ## Folds every region, those inside others too.
+proc Rtext_editor_unfold_all*(editor: Rid) {.rapi.}
+proc Rtext_editor_is_folded*(editor: Rid, line: cint): cint {.rapi.}
+  ## Returns: R_TRUE when a folded region starts at this line.
+proc Rtext_editor_is_line_hidden*(editor: Rid, line: cint): cint {.rapi.}
+  ## Returns: R_TRUE when the line is hidden in a folded region.
+proc Rtext_editor_get_fold_end*(editor: Rid, line: cint): cint {.rapi.}
+  ## Returns: The last line of the region that starts at a line (folded or not), -1 when it starts none.
+proc Rtext_editor_set_folding*(editor: Rid, enabled: cint) {.rapi.}
+  ## R_FALSE unfolds everything and stops folding: no markers, and
+  ## Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+  ## XML: Folding="false".
+proc Rtext_editor_get_folding*(editor: Rid): cint {.rapi.}
 proc Rtext_editor_undo*(editor: Rid) {.rapi.}
 proc Rtext_editor_redo*(editor: Rid) {.rapi.}
 proc Rtext_editor_can_undo*(editor: Rid): cint {.rapi.}

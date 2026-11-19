@@ -3943,7 +3943,8 @@ extern "C" {
     /// Returns: One line, without its line break. Valid until the next edit. NULL when `line` is out of range.
     pub fn Rtext_editor_get_line(editor: Rid, line: c_int) -> *const c_char;
     /// Types a text at the cursor, replacing the selection, as the user
-    /// would: it can be undone and the changed callback is called.
+    /// would (at every cursor when there are several): it can be undone and
+    /// the changed callback is called.
     pub fn Rtext_editor_insert_text(editor: Rid, text: *const c_char);
     pub fn Rtext_editor_set_cursor(editor: Rid, line: c_int, column: c_int);
     pub fn Rtext_editor_get_cursor(editor: Rid, line: *mut c_int, column: *mut c_int);
@@ -3956,6 +3957,57 @@ extern "C" {
     pub fn Rtext_editor_get_selected_text(editor: Rid) -> *const c_char;
     /// Scrolls so that a line is visible.
     pub fn Rtext_editor_scroll_to_line(editor: Rid, line: c_int);
+    /// Adds a cursor (a caret) to the editor; the main cursor stays
+    /// the main one. A cursor over another one, or at the place of another
+    /// caret, becomes one with it. Rtext_editor_set_cursor,
+    /// Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+    pub fn Rtext_editor_add_cursor(editor: Rid, line: c_int, column: c_int);
+    /// Adds a cursor that selects from one position to another (its caret on the second).
+    pub fn Rtext_editor_add_selection(editor: Rid, from_line: c_int, from_column: c_int, to_line: c_int, to_column: c_int);
+    /// Returns: The number of cursors, the main one included (1 at least).
+    pub fn Rtext_editor_get_cursor_count(editor: Rid) -> c_int;
+    /// A cursor by its index, in the order of the text (0 for the
+    /// first): its caret and the anchor of its selection (the same position
+    /// when nothing is selected). Returns R_FALSE when `index` is out of range.
+    pub fn Rtext_editor_get_cursor_at(editor: Rid, index: c_int, line: *mut c_int, column: *mut c_int, anchor_line: *mut c_int, anchor_column: *mut c_int) -> c_int;
+    /// Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+    pub fn Rtext_editor_get_main_cursor(editor: Rid) -> c_int;
+    /// Back to the main cursor alone, as Escape does.
+    pub fn Rtext_editor_clear_cursors(editor: Rid);
+    /// What Ctrl+D does: with nothing selected, selects the word at
+    /// each caret; else adds a cursor on the next occurrence of the main
+    /// selection (with its case, a whole word when it was selected so) that no
+    /// cursor selects, going on from the start of the text. Returns R_FALSE
+    /// when there is none.
+    pub fn Rtext_editor_add_next_occurrence(editor: Rid) -> c_int;
+    /// What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number.
+    pub fn Rtext_editor_select_all_occurrences(editor: Rid) -> c_int;
+    /// Folds the region that starts at a line: the lines after it, up
+    /// to the one before the bracket that closes it (or to the last one more
+    /// indented), are hidden. When the line starts none, or it is folded
+    /// already, the nearest region around the line is folded. Cursors in it
+    /// go to the end of its first line. Returns R_FALSE when there is none.
+    /// Line numbers stay those of the text. Folds follow the lines when text
+    /// is added or removed elsewhere; editing a hidden line (or the line break
+    /// of the first line) unfolds its region, and so does a match of the
+    /// search or a cursor that goes into it.
+    pub fn Rtext_editor_fold(editor: Rid, line: c_int) -> c_int;
+    /// Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there.
+    pub fn Rtext_editor_unfold(editor: Rid, line: c_int) -> c_int;
+    /// Folds every region, those inside others too.
+    pub fn Rtext_editor_fold_all(editor: Rid);
+    pub fn Rtext_editor_unfold_all(editor: Rid);
+    /// Returns: R_TRUE when a folded region starts at this line.
+    pub fn Rtext_editor_is_folded(editor: Rid, line: c_int) -> c_int;
+    /// Returns: R_TRUE when the line is hidden in a folded region.
+    pub fn Rtext_editor_is_line_hidden(editor: Rid, line: c_int) -> c_int;
+    /// Returns: The last line of the region that starts at a line (folded or not), -1 when it starts none.
+    pub fn Rtext_editor_get_fold_end(editor: Rid, line: c_int) -> c_int;
+    /// R_FALSE unfolds everything and stops folding: no markers, and
+    /// Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+    /// XML: Folding="false".
+    pub fn Rtext_editor_set_folding(editor: Rid, enabled: c_int);
+    pub fn Rtext_editor_get_folding(editor: Rid) -> c_int;
     pub fn Rtext_editor_undo(editor: Rid);
     pub fn Rtext_editor_redo(editor: Rid);
     pub fn Rtext_editor_can_undo(editor: Rid) -> c_int;

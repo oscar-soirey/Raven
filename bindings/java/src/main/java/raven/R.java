@@ -19416,7 +19416,8 @@ public final class R {
 
     /**
      * Types a text at the cursor, replacing the selection, as the user
-     * would: it can be undone and the changed callback is called.
+     * would (at every cursor when there are several): it can be undone and
+     * the changed callback is called.
      */
     public static void Rtext_editor_insert_text(int editor, String text) {
         MethodHandle $h = Rtext_editor_insert_text$;
@@ -19534,6 +19535,293 @@ public final class R {
         if ($h == null) Rtext_editor_scroll_to_line$ = $h = find("Rtext_editor_scroll_to_line", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
         try {
             $h.invokeExact(editor, line);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_add_cursor$;
+
+    /**
+     * Adds a cursor (a caret) to the editor; the main cursor stays
+     * the main one. A cursor over another one, or at the place of another
+     * caret, becomes one with it. Rtext_editor_set_cursor,
+     * Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+     */
+    public static void Rtext_editor_add_cursor(int editor, int line, int column) {
+        MethodHandle $h = Rtext_editor_add_cursor$;
+        if ($h == null) Rtext_editor_add_cursor$ = $h = find("Rtext_editor_add_cursor", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, line, column);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_add_selection$;
+
+    /**
+     * Adds a cursor that selects from one position to another (its caret on the second).
+     */
+    public static void Rtext_editor_add_selection(int editor, int from_line, int from_column, int to_line, int to_column) {
+        MethodHandle $h = Rtext_editor_add_selection$;
+        if ($h == null) Rtext_editor_add_selection$ = $h = find("Rtext_editor_add_selection", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, from_line, from_column, to_line, to_column);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_cursor_count$;
+
+    /**
+     * Returns: The number of cursors, the main one included (1 at least).
+     */
+    public static int Rtext_editor_get_cursor_count(int editor) {
+        MethodHandle $h = Rtext_editor_get_cursor_count$;
+        if ($h == null) Rtext_editor_get_cursor_count$ = $h = find("Rtext_editor_get_cursor_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_cursor_at$;
+
+    /**
+     * A cursor by its index, in the order of the text (0 for the
+     * first): its caret and the anchor of its selection (the same position
+     * when nothing is selected). Returns R_FALSE when `index` is out of range.
+     */
+    public static int Rtext_editor_get_cursor_at(int editor, int index, int[] line, int[] column, int[] anchor_line, int[] anchor_column) {
+        MethodHandle $h = Rtext_editor_get_cursor_at$;
+        if ($h == null) Rtext_editor_get_cursor_at$ = $h = find("Rtext_editor_get_cursor_at", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment line$ = line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment column$ = column == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment anchor_line$ = anchor_line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment anchor_column$ = anchor_column == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(editor, index, line$, column$, anchor_line$, anchor_column$);
+            if (line != null && line.length > 0) line[0] = line$.get(JAVA_INT, 0);
+            if (column != null && column.length > 0) column[0] = column$.get(JAVA_INT, 0);
+            if (anchor_line != null && anchor_line.length > 0) anchor_line[0] = anchor_line$.get(JAVA_INT, 0);
+            if (anchor_column != null && anchor_column.length > 0) anchor_column[0] = anchor_column$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_main_cursor$;
+
+    /**
+     * Returns: The index of the main cursor, in the order of Rtext_editor_get_cursor_at.
+     */
+    public static int Rtext_editor_get_main_cursor(int editor) {
+        MethodHandle $h = Rtext_editor_get_main_cursor$;
+        if ($h == null) Rtext_editor_get_main_cursor$ = $h = find("Rtext_editor_get_main_cursor", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_clear_cursors$;
+
+    /**
+     * Back to the main cursor alone, as Escape does.
+     */
+    public static void Rtext_editor_clear_cursors(int editor) {
+        MethodHandle $h = Rtext_editor_clear_cursors$;
+        if ($h == null) Rtext_editor_clear_cursors$ = $h = find("Rtext_editor_clear_cursors", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_add_next_occurrence$;
+
+    /**
+     * What Ctrl+D does: with nothing selected, selects the word at
+     * each caret; else adds a cursor on the next occurrence of the main
+     * selection (with its case, a whole word when it was selected so) that no
+     * cursor selects, going on from the start of the text. Returns R_FALSE
+     * when there is none.
+     */
+    public static int Rtext_editor_add_next_occurrence(int editor) {
+        MethodHandle $h = Rtext_editor_add_next_occurrence$;
+        if ($h == null) Rtext_editor_add_next_occurrence$ = $h = find("Rtext_editor_add_next_occurrence", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_select_all_occurrences$;
+
+    /**
+     * What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number.
+     */
+    public static int Rtext_editor_select_all_occurrences(int editor) {
+        MethodHandle $h = Rtext_editor_select_all_occurrences$;
+        if ($h == null) Rtext_editor_select_all_occurrences$ = $h = find("Rtext_editor_select_all_occurrences", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_fold$;
+
+    /**
+     * Folds the region that starts at a line: the lines after it, up
+     * to the one before the bracket that closes it (or to the last one more
+     * indented), are hidden. When the line starts none, or it is folded
+     * already, the nearest region around the line is folded. Cursors in it
+     * go to the end of its first line. Returns R_FALSE when there is none.
+     * Line numbers stay those of the text. Folds follow the lines when text
+     * is added or removed elsewhere; editing a hidden line (or the line break
+     * of the first line) unfolds its region, and so does a match of the
+     * search or a cursor that goes into it.
+     */
+    public static int Rtext_editor_fold(int editor, int line) {
+        MethodHandle $h = Rtext_editor_fold$;
+        if ($h == null) Rtext_editor_fold$ = $h = find("Rtext_editor_fold", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, line);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_unfold$;
+
+    /**
+     * Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there.
+     */
+    public static int Rtext_editor_unfold(int editor, int line) {
+        MethodHandle $h = Rtext_editor_unfold$;
+        if ($h == null) Rtext_editor_unfold$ = $h = find("Rtext_editor_unfold", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, line);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_fold_all$;
+
+    /**
+     * Folds every region, those inside others too.
+     */
+    public static void Rtext_editor_fold_all(int editor) {
+        MethodHandle $h = Rtext_editor_fold_all$;
+        if ($h == null) Rtext_editor_fold_all$ = $h = find("Rtext_editor_fold_all", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_unfold_all$;
+
+    public static void Rtext_editor_unfold_all(int editor) {
+        MethodHandle $h = Rtext_editor_unfold_all$;
+        if ($h == null) Rtext_editor_unfold_all$ = $h = find("Rtext_editor_unfold_all", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_is_folded$;
+
+    /**
+     * Returns: R_TRUE when a folded region starts at this line.
+     */
+    public static int Rtext_editor_is_folded(int editor, int line) {
+        MethodHandle $h = Rtext_editor_is_folded$;
+        if ($h == null) Rtext_editor_is_folded$ = $h = find("Rtext_editor_is_folded", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, line);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_is_line_hidden$;
+
+    /**
+     * Returns: R_TRUE when the line is hidden in a folded region.
+     */
+    public static int Rtext_editor_is_line_hidden(int editor, int line) {
+        MethodHandle $h = Rtext_editor_is_line_hidden$;
+        if ($h == null) Rtext_editor_is_line_hidden$ = $h = find("Rtext_editor_is_line_hidden", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, line);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_fold_end$;
+
+    /**
+     * Returns: The last line of the region that starts at a line (folded or not), -1 when it starts none.
+     */
+    public static int Rtext_editor_get_fold_end(int editor, int line) {
+        MethodHandle $h = Rtext_editor_get_fold_end$;
+        if ($h == null) Rtext_editor_get_fold_end$ = $h = find("Rtext_editor_get_fold_end", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, line);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_set_folding$;
+
+    /**
+     * R_FALSE unfolds everything and stops folding: no markers, and
+     * Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+     * XML: Folding="false".
+     */
+    public static void Rtext_editor_set_folding(int editor, int enabled) {
+        MethodHandle $h = Rtext_editor_set_folding$;
+        if ($h == null) Rtext_editor_set_folding$ = $h = find("Rtext_editor_set_folding", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_folding$;
+
+    public static int Rtext_editor_get_folding(int editor) {
+        MethodHandle $h = Rtext_editor_get_folding$;
+        if ($h == null) Rtext_editor_get_folding$ = $h = find("Rtext_editor_get_folding", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
         } catch (Throwable $t) {
             throw fail($t);
         }

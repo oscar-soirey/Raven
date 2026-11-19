@@ -3934,7 +3934,8 @@ fn ZString TextEditor.get_line(self, CInt line) @inline => (ZString)c::r_text_ed
 
 <*
  Types a text at the cursor, replacing the selection, as the user
- would: it can be undone and the changed callback is called.
+ would (at every cursor when there are several): it can be undone and
+ the changed callback is called.
 *>
 fn void TextEditor.insert_text(self, ZString text) @inline => c::r_text_editor_insert_text((c::Rid)self, (char*)text);
 
@@ -3955,6 +3956,84 @@ fn ZString TextEditor.get_selected_text(self) @inline => (ZString)c::r_text_edit
 
 <* Scrolls so that a line is visible. *>
 fn void TextEditor.scroll_to_line(self, CInt line) @inline => c::r_text_editor_scroll_to_line((c::Rid)self, line);
+
+<*
+ Adds a cursor (a caret) to the editor; the main cursor stays
+ the main one. A cursor over another one, or at the place of another
+ caret, becomes one with it. Rtext_editor_set_cursor,
+ Rtext_editor_select and Rtext_editor_set_text go back to one cursor.
+*>
+fn void TextEditor.add_cursor(self, CInt line, CInt column) @inline => c::r_text_editor_add_cursor((c::Rid)self, line, column);
+
+<* Adds a cursor that selects from one position to another (its caret on the second). *>
+fn void TextEditor.add_selection(self, CInt from_line, CInt from_column, CInt to_line, CInt to_column) @inline => c::r_text_editor_add_selection((c::Rid)self, from_line, from_column, to_line, to_column);
+
+<* Returns The number of cursors, the main one included (1 at least). *>
+fn CInt TextEditor.get_cursor_count(self) @inline => c::r_text_editor_get_cursor_count((c::Rid)self);
+
+<*
+ A cursor by its index, in the order of the text (0 for the
+ first): its caret and the anchor of its selection (the same position
+ when nothing is selected). Returns R_FALSE when `index` is out of range.
+*>
+fn CInt TextEditor.get_cursor_at(self, CInt index, CInt* line, CInt* column, CInt* anchor_line, CInt* anchor_column) @inline => c::r_text_editor_get_cursor_at((c::Rid)self, index, line, column, anchor_line, anchor_column);
+
+<* Returns The index of the main cursor, in the order of Rtext_editor_get_cursor_at. *>
+fn CInt TextEditor.get_main_cursor(self) @inline => c::r_text_editor_get_main_cursor((c::Rid)self);
+
+<* Back to the main cursor alone, as Escape does. *>
+fn void TextEditor.clear_cursors(self) @inline => c::r_text_editor_clear_cursors((c::Rid)self);
+
+<*
+ What Ctrl+D does: with nothing selected, selects the word at
+ each caret; else adds a cursor on the next occurrence of the main
+ selection (with its case, a whole word when it was selected so) that no
+ cursor selects, going on from the start of the text. Returns R_FALSE
+ when there is none.
+*>
+fn CInt TextEditor.add_next_occurrence(self) @inline => c::r_text_editor_add_next_occurrence((c::Rid)self);
+
+<* What Ctrl+Shift+L does: a cursor on every occurrence of the main selection (or of the word at the caret). Returns their number. *>
+fn CInt TextEditor.select_all_occurrences(self) @inline => c::r_text_editor_select_all_occurrences((c::Rid)self);
+
+<*
+ Folds the region that starts at a line: the lines after it, up
+ to the one before the bracket that closes it (or to the last one more
+ indented), are hidden. When the line starts none, or it is folded
+ already, the nearest region around the line is folded. Cursors in it
+ go to the end of its first line. Returns R_FALSE when there is none.
+ Line numbers stay those of the text. Folds follow the lines when text
+ is added or removed elsewhere; editing a hidden line (or the line break
+ of the first line) unfolds its region, and so does a match of the
+ search or a cursor that goes into it.
+*>
+fn CInt TextEditor.fold(self, CInt line) @inline => c::r_text_editor_fold((c::Rid)self, line);
+
+<* Unfolds the region that starts at a line, or what hides it. Returns R_FALSE when nothing was folded there. *>
+fn CInt TextEditor.unfold(self, CInt line) @inline => c::r_text_editor_unfold((c::Rid)self, line);
+
+<* Folds every region, those inside others too. *>
+fn void TextEditor.fold_all(self) @inline => c::r_text_editor_fold_all((c::Rid)self);
+
+fn void TextEditor.unfold_all(self) @inline => c::r_text_editor_unfold_all((c::Rid)self);
+
+<* Returns R_TRUE when a folded region starts at this line. *>
+fn bool TextEditor.is_folded(self, CInt line) @inline => c::r_text_editor_is_folded((c::Rid)self, line) != 0;
+
+<* Returns R_TRUE when the line is hidden in a folded region. *>
+fn bool TextEditor.is_line_hidden(self, CInt line) @inline => c::r_text_editor_is_line_hidden((c::Rid)self, line) != 0;
+
+<* Returns The last line of the region that starts at a line (folded or not), -1 when it starts none. *>
+fn CInt TextEditor.get_fold_end(self, CInt line) @inline => c::r_text_editor_get_fold_end((c::Rid)self, line);
+
+<*
+ R_FALSE unfolds everything and stops folding: no markers, and
+ Ctrl+Shift+[ / ] go to the shortcuts of the window. On by default.
+ XML: Folding="false".
+*>
+fn void TextEditor.set_folding(self, bool enabled) @inline => c::r_text_editor_set_folding((c::Rid)self, (CInt)enabled);
+
+fn CInt TextEditor.get_folding(self) @inline => c::r_text_editor_get_folding((c::Rid)self);
 
 fn void TextEditor.undo(self) @inline => c::r_text_editor_undo((c::Rid)self);
 
