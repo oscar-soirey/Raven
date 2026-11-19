@@ -1387,6 +1387,16 @@
 					"name": "TintText",
 					"kind": "bool",
 					"description": "Tinted with the color of the text around it: white icons that follow the theme."
+				},
+				{
+					"name": "Animate",
+					"kind": "bool",
+					"description": "An animated GIF or APNG plays (default); false: it stays on its first frame."
+				},
+				{
+					"name": "Loop",
+					"kind": "number",
+					"description": "Times an animation plays, 0 for forever. Default: what the file says."
 				}
 			],
 			"accepted": []

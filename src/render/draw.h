@@ -136,6 +136,12 @@ void rvn_spring_set(RSpring* spring, float value);
 int rvn_spring_moving(const RSpring* spring, float target);
 /** Tells the window being painted that something is still moving: another frame is needed. */
 void rvn_paint_keep_animating(RPainter* painter);
+/**
+ * Asks for another frame of the window in `seconds` (of the clock), rather
+ * than at once: what changes at its own pace, a frame of a GIF. Several
+ * requests during a paint keep the soonest. Thread-safe (paint jobs).
+ */
+void rvn_paint_wake_after(RPainter* painter, double seconds);
 
 /**
  * Scales and moves everything that was added to a list from `first_instance`

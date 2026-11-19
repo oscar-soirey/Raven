@@ -182,6 +182,7 @@ set(RAVEN_RENDER_SOURCES
 	src/render/font.h
 	src/render/font_raster.c
 	src/render/image_decode.c
+	src/render/anim_decode.c
 	src/render/image_encode.c
 	src/render/svg_decode.c
 	src/render/renderer.c

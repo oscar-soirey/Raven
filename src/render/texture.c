@@ -56,6 +56,7 @@ static void rvn_texture_keep_source(rvn_texture_t* texture, const char* path, co
 }
 
 static void rvn_texture_free(rvn_texture_t* texture) {
+	rvn_anim_free(texture->anim);
 	rvn_free(texture->source_path);
 	rvn_free(texture->source_data);
 	rvn_free(texture->kept_pixels);
@@ -105,6 +106,24 @@ Rid rvn_texture_create_raw(int width, int height, RTextureFormat format, RFilter
 	return texture->id;
 }
 
+void rvn_texture_replace_pixels(Rid id, uint8_t* pixels) {
+	rvn_texture_t* texture = rvn_texture_get(id);
+	if (!texture || !texture->created) {
+		rvn_free(pixels);
+		return;
+	}
+	rvn_texture_keep_pixels(texture, texture->width, texture->height, pixels);
+	rvn_renderer_update_texture(id, 0, 0, (uint32_t)texture->width, (uint32_t)texture->height, pixels);
+}
+
+void rvn_texture_release(Rid id) {
+	rvn_texture_t* texture = rvn_texture_get(id);
+	if (!texture) return;
+	if (texture->created) rvn_renderer_destroy_texture(id);
+	rvn_pool_remove(&g_rvn.textures, id);
+	rvn_texture_free(texture);
+}
+
 void rvn_textures_shutdown(void) {
 	uint32_t i;
 	for (i = 0; i < g_rvn.textures.used; i++) {
@@ -124,6 +143,7 @@ void rvn_texture_restore(rvn_texture_t* texture) {
 	uint8_t* pixels = NULL;
 	int width = texture->width, height = texture->height;
 	texture->created = R_FALSE;
+	texture->restores++;
 	if (texture->external || width <= 0 || height <= 0) return;
 	if (texture->kept_pixels) {
 		size_t size = (size_t)width * (size_t)height * 4;
@@ -166,6 +186,8 @@ typedef struct rvn_texture_job_t {
 	int svg;
 	/** Drawing an SVG again at another scale (rvn_textures_update_svg), not making the texture. */
 	int redraw;
+	/** An animated GIF or APNG (not for a redraw). */
+	rvn_anim_t* anim;
 } rvn_texture_job_t;
 
 /* UI thread: the decoded pixels become the texture, unless it was deleted meanwhile. */
@@ -184,6 +206,9 @@ static void rvn_texture_job_finish(void* arg) {
 	} else if (texture && job->pixels) {
 		texture->density = job->density;
 		texture->svg_auto = job->svg;
+		rvn_anim_free(texture->anim);
+		texture->anim = job->anim;
+		job->anim = NULL;
 		rvn_texture_upload(texture, job->width, job->height, job->pixels);
 		job->pixels = NULL;
 		rvn_invalidate_all_windows();
@@ -192,6 +217,7 @@ static void rvn_texture_job_finish(void* arg) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "asynchronous texture: cannot decode %s",
 			job->path ? job->path : "the image");
 	}
+	rvn_anim_free(job->anim);
 	rvn_free(job->pixels);
 	rvn_free(job->path);
 	rvn_free(job);
@@ -212,7 +238,8 @@ static void rvn_texture_job_run(void* arg) {
 	}
 	if (job->data) {
 		job->svg = rvn_svg_detect(job->data, job->size);
-		job->pixels = rvn_image_decode_at(job->data, job->size, job->svg_scale, &job->width, &job->height, &job->density);
+		job->pixels = rvn_image_decode_anim(job->data, job->size, job->svg_scale, &job->width, &job->height, &job->density,
+			job->redraw ? NULL : &job->anim);
 	}
 	rvn_free(job->data);
 	job->data = NULL;
@@ -238,9 +265,9 @@ static void rvn_web_image_complete(emscripten_fetch_t* fetch, int success) {
         rvn_texture_t* texture = rvn_texture_get(job->id);
         job->svg = rvn_svg_detect((const uint8_t*)fetch->data,
                                   (size_t)fetch->numBytes);
-        job->pixels = rvn_image_decode_at((const uint8_t*)fetch->data,
+        job->pixels = rvn_image_decode_anim((const uint8_t*)fetch->data,
             (size_t)fetch->numBytes, job->svg_scale,
-            &job->width, &job->height, &job->density);
+            &job->width, &job->height, &job->density, &job->anim);
         if (texture && job->pixels) {
             /* Recovery and SVG rescaling must not need synchronous networking. */
             rvn_free(texture->source_path); texture->source_path = NULL;
@@ -339,7 +366,8 @@ static void rvn_texture_set_svg_auto(rvn_texture_t* texture, const char* path, c
 static Rid rvn_texture_create_decoded(const char* data, size_t data_size, float svg_scale, const char* function) {
 	int width = 0, height = 0;
 	float density = 1.0f;
-	uint8_t* pixels = rvn_image_decode_at((const uint8_t*)data, data_size, svg_scale, &width, &height, &density);
+	rvn_anim_t* anim = NULL;
+	uint8_t* pixels = rvn_image_decode_anim((const uint8_t*)data, data_size, svg_scale, &width, &height, &density, &anim);
 	if (!pixels) {
 		rvn_error(R_ERROR_INVALID_FILE_FORMAT, R_SEVERITY_ERROR, "%s: cannot decode the image", function);
 		return R_INVALID_ID;
@@ -348,6 +376,8 @@ static Rid rvn_texture_create_decoded(const char* data, size_t data_size, float 
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
 		if (texture) texture->density = density;
+		if (texture) texture->anim = anim;
+		else rvn_anim_free(anim);
 		if (texture && svg_scale <= 0.0f && rvn_svg_detect((const uint8_t*)data, data_size)) rvn_texture_set_svg_auto(texture, NULL, data, data_size);
 		else if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, NULL, data, data_size);
 		return id;
@@ -398,6 +428,7 @@ Rid Rtexture_create_from_file(const char* path) {
 	int width = 0, height = 0;
 	float density = 1.0f;
 	uint8_t* pixels;
+	rvn_anim_t* anim = NULL;
 	int svg;
 	RVN_API_GUARD(R_INVALID_ID);
 	data = rvn_read_file(path, &size);
@@ -405,7 +436,7 @@ Rid Rtexture_create_from_file(const char* path) {
 		rvn_error(R_ERROR_FILE_NOT_FOUND, R_SEVERITY_ERROR, "Rtexture_create_from_file: cannot read '%s'", path ? path : "");
 		return R_INVALID_ID;
 	}
-	pixels = rvn_image_decode_at((const uint8_t*)data, size, 0.0f, &width, &height, &density);
+	pixels = rvn_image_decode_anim((const uint8_t*)data, size, 0.0f, &width, &height, &density, &anim);
 	svg = rvn_svg_detect((const uint8_t*)data, size);
 	rvn_free(data);
 	if (!pixels) {
@@ -416,6 +447,8 @@ Rid Rtexture_create_from_file(const char* path) {
 		Rid id = rvn_texture_create_raw(width, height, R_TEXTURE_RGBA8, R_FILTER_MIPMAP, pixels);
 		rvn_texture_t* texture = rvn_texture_get(id);
 		if (texture) texture->density = density;
+		if (texture) texture->anim = anim;
+		else rvn_anim_free(anim);
 		if (texture && svg) rvn_texture_set_svg_auto(texture, path, NULL, 0);
 		else if (texture && !texture->kept_pixels) rvn_texture_keep_source(texture, path, NULL, 0);
 		return id;
@@ -468,6 +501,9 @@ void Rtexture_update(Rid id, const uint8_t* rgba, int width, int height) {
 	memcpy(copy, rgba, size);
 	texture->density = 1.0f;
 	texture->svg_auto = R_FALSE;
+	/* (no longer the animation of a file) */
+	rvn_anim_free(texture->anim);
+	texture->anim = NULL;
 	/* the pixels come from the application now: the file is no longer what it shows */
 	rvn_free(texture->source_path);
 	rvn_free(texture->source_data);
@@ -559,6 +595,49 @@ uint8_t* Rimage_decode(const void* data, size_t data_size, int* width, int* heig
 	uint8_t* pixels = rvn_image_decode((const uint8_t*)data, data_size, &w, &h);
 	if (width) *width = pixels ? w : 0;
 	if (height) *height = pixels ? h : 0;
+	return pixels;
+}
+
+int Rimage_decode_info(const void* data, size_t data_size, int* width, int* height, int* frame_count, int* loop_count) {
+	rvn_anim_t* anim = rvn_anim_open((const uint8_t*)data, data_size, R_FALSE);
+	int w = 0, h = 0, frames = 0, loops = 1;
+	if (anim) {
+		w = anim->width;
+		h = anim->height;
+		frames = anim->frame_count;
+		loops = frames > 1 ? anim->loop_count : 1;
+		rvn_anim_free(anim);
+	} else {
+		uint8_t* pixels = rvn_image_decode((const uint8_t*)data, data_size, &w, &h);
+		if (pixels) frames = 1;
+		rvn_free(pixels);
+	}
+	if (width) *width = frames ? w : 0;
+	if (height) *height = frames ? h : 0;
+	if (frame_count) *frame_count = frames;
+	if (loop_count) *loop_count = frames ? loops : 0;
+	return frames > 0;
+}
+
+uint8_t* Rimage_decode_frame(const void* data, size_t data_size, int frame, int* width, int* height, double* delay) {
+	rvn_anim_t* anim = rvn_anim_open((const uint8_t*)data, data_size, R_FALSE);
+	uint8_t* pixels = NULL;
+	int w = 0, h = 0;
+	double seconds = 0.0;
+	if (anim) {
+		if (frame >= 0 && frame < anim->frame_count) {
+			pixels = rvn_anim_decode_frame(anim, frame);
+			w = anim->width;
+			h = anim->height;
+			seconds = anim->frame_count > 1 ? (double)anim->frames[frame].delay_ms / 1000.0 : 0.0;
+		}
+		rvn_anim_free(anim);
+	} else if (frame == 0) {
+		pixels = rvn_image_decode((const uint8_t*)data, data_size, &w, &h);
+	}
+	if (width) *width = pixels ? w : 0;
+	if (height) *height = pixels ? h : 0;
+	if (delay) *delay = pixels ? seconds : 0.0;
 	return pixels;
 }
 

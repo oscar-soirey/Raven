@@ -259,6 +259,10 @@ static void rvn_widget_add_counts(rvn_widget_t* from, int subtree, int ui_paint)
 	}
 }
 
+void rvn_widget_add_ui_paint(rvn_widget_t* widget, int delta) {
+	rvn_widget_add_counts(widget, 0, delta);
+}
+
 void rvn_widget_detach(rvn_widget_t* widget) {
 	rvn_widget_t* parent = widget->parent;
 	rvn_window_t* window = widget->window;

@@ -390,6 +390,17 @@ spring during the last paint, layout springs, touch inertia). Golden images
 are written by `render/image_encode.c`, a PNG encoder over the deflate of
 `core/deflate.c` (shared with the PDF writer).
 
+Animated GIF and APNG files (`render/anim_decode.c`) are opened once, when
+their texture is made: only the structure of the file is read (each frame's
+rectangle, delay, disposal and blend). The texture keeps that and holds the
+first frame. An `Image` showing it plays it with its own state and a
+texture of its own, into which it composes the frame due, on the UI thread
+(the widget paints there while it shows an animation: `rvn_widget_add_ui_paint`).
+Rather than asking for every frame of the screen, it asks for the frame at
+the time the next GIF frame is due (`rvn_paint_wake_after`, the
+`wake_request` / `wake_time` of the window, which `Rwait_events` sleeps
+until); with a fixed time step (tests, films) it asks for every frame.
+
 ## Windows: header, dialogs, drag and drop
 
 `widget/window.c` holds what belongs to a window rather than to a widget.

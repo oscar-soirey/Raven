@@ -306,7 +306,7 @@ panel uses the attributes that make sense for it.
 | `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"` |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
 | `TreeView` | nested `<Item Text="..." Expanded="true">` children |
-| `Image` | `Source` (path of an image), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |
+| `Image` | `Source` (path of an image; an animated GIF or APNG plays), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius`, `Animate` (`false`: an animation stays on its first frame until `Rimage_play`), `Loop` (times it plays, `0` for forever; default: what the file says). Its action fires when an animation stops after its last play |
 | `Separator` | `Orientation` (`Horizontal` line by default) |
 | `MenuBar` | `<Menu>` children; `Native` (`false`: drawn in the window on macOS too, instead of the menu bar of the system) |
 | `Menu` | `Text`; children `<MenuItem>`, `<Separator/>` and nested `<Menu>` |

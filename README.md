@@ -589,7 +589,7 @@ options go after `--`: `generate-cmake.bat -- -DRAVEN_WARNINGS_AS_ERRORS=ON`.
 | `RAVEN_BACKEND_METAL` | `ON` on Apple | the Metal backend (macOS, iOS), the default there; no dependency |
 | `RAVEN_PLATFORM` | `auto` | `win32`, `x11`, `cocoa` (macOS), `uikit` (iOS), `android`, `emscripten` (the browser, [docs/emscripten.md](docs/emscripten.md)) or `null` |
 | `RAVEN_WAYLAND` | `ON` | Linux and BSD: native Wayland compiled beside X11 ([Linux: Wayland and X11](#linux-wayland-and-x11)) |
-| `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding |
+| `RAVEN_WITH_STB_IMAGE` | `ON` | PNG / JPEG / BMP / TGA decoding (and the frames of APNG files; animated GIFs play without it) |
 | `RAVEN_WITH_SVG` | `ON` | SVG images (icons), drawn by nanosvg |
 | `RAVEN_FETCH_VULKAN_HEADERS` | `ON` | download the Khronos headers when no SDK is found |
 | `RAVEN_VULKAN_INCLUDE_DIR` | | folder containing `vulkan/vulkan.h`, to skip the search |
@@ -659,6 +659,7 @@ The build trees are in `build\dist\`.
 | `examples/themes` | the looks (Raven, Windows 11, macOS, GNOME), three theme files (one that follows the look, with styles of parts and states), styles and classes, a card that keeps its own theme, Markdown in a label and in an editor; every file of the example is watched |
 | `examples/charts` | a dashboard of `Chart` widgets: KPI tiles with live sparklines, a pie, a donut with its total, gauges with bands, a heatmap of orders by weekday and hour; the shares glide when shuffled |
 | `examples/carousel` | an onboarding of five pages in a `Carousel`: swiped, dots, arrows, loop, autoplay, vertical |
+| `examples/animated_images` | animated GIF and APNG files in `Image` widgets: a spinner with a transparent color, a ball with an alpha channel, a countdown that plays once and fires its action; play, pause, stop, a frame chosen with a slider, reduced motion |
 | `examples/pdf` | a PDF viewer: open, save, print, pages, zoom and fit around a `PdfView`, and an invoice of three pages that it writes itself with `Rpdf_document_*`. Needs PDFium (`RAVEN_PDFIUM`) to show the pages |
 | `examples/map` | a `MapView` that works offline: its tiles are drawn by the example on worker threads (a coarse world, a graticule, the z/x/y of each tile), markers for sixteen cities that fly there when clicked. `RAVEN_MAP_TILE_DIR` reads real tiles from files instead |
 | `examples/overlay` | a window that is seen through, the backdrops of the system, and the four ways to blur what is behind a panel |
@@ -1332,6 +1333,41 @@ drawn with as many pixels as they are shown with: once painted, an SVG is
 drawn again on a worker thread for the density of the screen, an `Image` that
 stretches it or a zoom, and again when the window moves to another monitor.
 `Rtexture_create_from_svg` with a scale draws one at that scale only.
+
+Animated GIF and APNG files play in an `Image`, wherever the image comes from
+(`Image Source="loading.gif"`, `Rtexture_create_from_file`, a texture made
+from memory or on a worker thread). The frames follow the clock of the
+animations: `Rset_animation_speed` slows them, `Rtest_set_deterministic`
+makes them advance by a fixed step for tests, and with reduced motion
+(`Rset_animations_enabled(R_FALSE)`) the image stays on its frame. An image
+only asks for frames while it is painted: hidden, scrolled away or in a
+window that is not shown, it costs nothing and goes on from where it was;
+between two frames of the GIF the window sleeps instead of drawing at the
+rate of the screen. Each `Image` has its own playback:
+
+```c
+Rid image = Rwidget_create(R_WIDGET_IMAGE);
+Rimage_set_texture(image, Rtexture_create_from_file("spinner.gif"));
+Rimage_set_loop_count(image, 3);           /* -1: as the file says, 0: forever */
+Rimage_set_finished_callback(image, on_done, NULL);
+Rimage_pause(image);                       /* Rimage_play, Rimage_stop */
+Rimage_set_frame(image, 0);                /* Rimage_get_frame_count, _get_duration */
+```
+
+```xml
+<Image Source="intro.gif" Loop="1" Action="intro_done"/>
+<Image Source="badge.png" Animate="false"/>
+```
+
+The disposal and blend operations, transparency, local palettes, interlaced
+GIFs and the loop count (NETSCAPE2.0, `acTL`) are followed; frames of 10 ms
+or less last 100 ms, as in browsers. Nothing is decoded ahead: a playing
+image composes the frame it shows into one canvas of the size of the
+picture, so its memory does not grow with the number of frames (going back
+to an earlier frame composes again from the first). `Rimage_decode_info` and
+`Rimage_decode_frame` read the frames of a file without a widget. Other
+widgets that draw an animated texture (a `Button` icon...) show its first
+frame.
 
 ### Charts
 

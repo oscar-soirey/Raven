@@ -110,7 +110,11 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 - [ ] SVG icons tinted with the theme (`currentColor`), with a set of icons
   shipped with Raven.
-- [ ] Animated images (GIF, APNG).
+- [x] Animated images (GIF, APNG): an `Image` plays them on the clock of the
+  animations, only while it is painted; play / pause / stop / seek, loop
+  count, a callback at the end; `Animate` and `Loop` in XML. Raven's own GIF
+  decoder, APNG frames through stb_image; frames composed on demand into one
+  canvas (fuzzed under AddressSanitizer).
 
 ### Windows and system
 
