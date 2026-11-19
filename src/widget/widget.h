@@ -1002,6 +1002,8 @@ int  rvn_touch_on_wheel(rvn_window_t* window, const rvn_pevent_t* event);
 /** Moves flicked content and fires a due long press; R_TRUE while something still moves. */
 int  rvn_touch_step(rvn_window_t* window);
 int  rvn_touch_animating(const rvn_window_t* window);
+/** R_TRUE while the press of a finger is delivered as the left button of the mouse (a tap, or a finger that drags). */
+int  rvn_touch_finger_pressing(const rvn_window_t* window);
 void rvn_touch_forget_widget(rvn_window_t* window, rvn_widget_t* widget);
 /** The window lost the input (the keyboard focus, a dialog of the system): every finger and the pen are let go. */
 void rvn_touch_cancel(rvn_window_t* window);
@@ -1095,6 +1097,12 @@ int  rvn_window_is_leaving(const rvn_window_t* window, const rvn_widget_t* root)
 void rvn_menu_item_trigger(rvn_widget_t* item);
 int rvn_menu_item_is_header(const rvn_widget_t* item);
 int rvn_table_multi_select(const rvn_widget_t* table);
+/** R_FALSE for a table whose selection mode is none. */
+int rvn_table_selectable(const rvn_widget_t* table);
+/** The row the keyboard is on (the selected row, or in multiple selection the current one), or -1. */
+int rvn_table_cursor_row(const rvn_widget_t* table);
+/** The text a screen reader is given for a cell: a check box and a progress bar are said in words. */
+const char* rvn_table_accessible_cell(rvn_widget_t* table, int row, int column);
 rvn_rect_t rvn_table_accessible_rect(rvn_widget_t* table, int row);
 int rvn_table_accessible_row_at(rvn_widget_t* table, float x, float y);
 /** Destroys the native child windows of the viewports inside a subtree leaving the window. */

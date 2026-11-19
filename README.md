@@ -946,15 +946,37 @@ can be shown as a dialog of a window (`Rdialog_open`, `Rdialog_run`).
 
 ### Table colors and selection
 
-Tables can opt into multiple row selection with
-`Rtable_set_multi_select(table, R_TRUE)`. Ctrl/Cmd-click toggles rows and Shift
-click/arrows select an anchored range. `Rtable_set_selected` replaces the whole
-selection; `Rtable_set_row_selected` changes one row. Query membership/count
-with `Rtable_is_row_selected` and `Rtable_get_selection_count`, and enumerate
-top to bottom with `Rtable_get_selection`. `Rtable_get_selected` returns the
-primary selected row, or -1. Stored sorting/removal keeps selection with data;
-virtual refreshes keep valid selected indices, while the application remains
-responsible for virtual data ordering.
+```c
+Rtable_set_selection_mode(table, R_TABLE_SELECTION_MULTIPLE); /* <Table SelectionMode="Multiple"> */
+for (int i = 0; i < Rtable_get_selection_range_count(table); i++) {
+    int first, last;
+    Rtable_get_selection_range(table, i, &first, &last);  /* rows first..last are selected */
+}
+```
+
+A table selects one row at a time by default. In multiple selection
+(`Rtable_set_selection_mode`, or the older `Rtable_set_multi_select`) a click
+selects one row, Ctrl/Cmd+click toggles a row, Shift+click and Shift with the
+arrows, Page Up / Page Down, Home and End extend from the anchor (Ctrl+Shift
+keeps the other rows), Ctrl+arrows move the current row without selecting,
+Space toggles the current row and Ctrl/Cmd+A selects every row. A tap of a
+finger toggles its row, since a finger has no Ctrl key (a long press stays
+the context menu). `R_TABLE_SELECTION_NONE` makes a table the user selects
+nothing in: the arrows scroll it, and its cells can still be edited or checked.
+
+The selection is kept as sorted ranges of rows, not as a flag per row:
+selecting all of a million virtual rows is one range, and asking whether a
+row is selected is a binary search. `Rtable_select_range`, `Rtable_select_all`,
+`Rtable_set_row_selected` and `Rtable_clear_selection` change it;
+`Rtable_is_row_selected`, `Rtable_get_selection_count`, `Rtable_get_selection`
+(the n-th selected row) and `Rtable_get_selection_range` read it.
+`Rtable_set_selected` replaces the whole selection with one row.
+`Rtable_get_selected` is the primary row (the one selected last; the selection
+changed callback receives it), and `Rtable_get_current_row` the row the
+keyboard is on. Sorting a stored table and removing rows keep the selection on
+its rows. A virtual table keeps the selected indices when its count is
+refreshed (dropping those past the end) and when it is sorted: the application
+orders its data, and selects again if the selection must follow it.
 
 `Rtable_set_cell_text_color(table, row, column, r, g, b, a)` colors a stored
 cell, or the whole row with column -1. Cell overrides take precedence over row
@@ -965,6 +987,30 @@ otherwise the fixed cell/row color, then the theme color. Color callbacks run
 on the UI thread for visible cells only.
 Screen readers see selectable rows, including Cocoa selected rows, AT-SPI
 selected states, UIA multiple-selection support and the browser grid state.
+
+### Check boxes and progress bars in cells
+
+```c
+Rtable_set_column_kind(table, 0, R_TABLE_COLUMN_CHECK);    /* <Column Kind="Check"/> */
+Rtable_set_column_kind(table, 3, R_TABLE_COLUMN_PROGRESS); /* <Column Kind="Progress"/> */
+Rtable_add_row(table, "1|Release notes|Ana|0.75");
+```
+
+A column can draw its cells as a check box or a progress bar instead of a
+text. The value is the text of the cell, stored or given by the virtual
+callback: "1", "true" or "yes" is checked; a number 0..1 or a percentage
+("45%") is a progress (an empty cell shows nothing). The table draws them
+itself, for the visible rows only, so a million virtual rows stay as fast as
+before. A check column is editable: a click on its cell toggles it without
+changing the selection, and Space, Enter or F2 toggle the current cell. The
+cell edited callback is then called with "1" or "0", and accepts or refuses
+the change as for a typed text; a stored table keeps it, a virtual table
+leaves it to the application. `Rtable_set_column_editable(table, column,
+R_FALSE)` makes it a check box that is only shown. Screen readers hear
+"checked", "not checked" (`Raven.Checked`, `Raven.NotChecked` translate them)
+and percentages. Sorting such a column orders by the state and by the value.
+Tables do not hold other widgets in their cells; colors are given per cell by
+`Rtable_set_cell_color_callback`.
 
 ### Editing cells, frozen columns, searchable combo boxes
 

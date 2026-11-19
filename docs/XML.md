@@ -305,7 +305,7 @@ panel uses the attributes that make sense for it.
 | `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength` |
 | `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"`, `Editable` (any text can be typed; `Text`), `Searchable` (typing filters the list) |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
-| `Table` | `Columns="A|B"` or `<Column Header Width Fill Sortable Align Editable/>` children, `<Row>a|b</Row>` children, `Selected`, `MultiSelect`, `SortColumn`, `SortDescending`, `ShowHeader`, `GridLines`, `Striped`, `FrozenColumns` (the first columns stay while the others scroll) |
+| `Table` | `Columns="A|B"` or `<Column Header Width Fill Sortable Align Editable Kind/>` children (`Kind="Check"`: a check box the user toggles, from "1"/"0"; `Kind="Progress"`: a bar from 0..1 or "45%"), `<Row>a|b</Row>` children, `Selected`, `SelectionMode` (`Single`, `Multiple`, `None`), `MultiSelect`, `SortColumn`, `SortDescending`, `ShowHeader`, `GridLines`, `Striped`, `FrozenColumns` (the first columns stay while the others scroll) |
 | `TreeView` | nested `<Item Text="..." Expanded="true">` children |
 | `Image` | `Source` (path of an image), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |
 | `Separator` | `Orientation` (`Horizontal` line by default) |

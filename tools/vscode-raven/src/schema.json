@@ -2345,7 +2345,7 @@
 				{
 					"name": "Columns",
 					"kind": "list",
-					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable)."
+					"description": "The headers of the columns, separated by '|' (or Column elements: Header, Width, Fill, Sortable, Align, Editable, Kind=\"Text|Check|Progress\")."
 				},
 				{
 					"name": "FrozenColumns",
@@ -2356,6 +2356,16 @@
 					"name": "MultiSelect",
 					"kind": "bool",
 					"description": "Ctrl/Cmd-click toggles rows; Shift selects an anchored range."
+				},
+				{
+					"name": "SelectionMode",
+					"kind": "choice",
+					"choices": [
+						"Single",
+						"Multiple",
+						"None"
+					],
+					"description": "One row at a time (default), any number of rows (Ctrl/Cmd+click, Shift+click, Shift+arrows, Space, Ctrl/Cmd+A), or none."
 				},
 				{
 					"name": "Selected",
