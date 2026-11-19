@@ -909,6 +909,8 @@ constset WidgetType : CInt
 	MAP_VIEW = 0x0235,
 	<* Pages shown one at a time and swiped (a page view), with dots and arrows. *>
 	CAROUSEL = 0x0236,
+	<* A web page shown by the engine of the system (WKWebView) in a view kept over the widget. *>
+	SYSTEM_WEB_VIEW = 0x0237,
 }
 
 constset HAlign : CInt
@@ -1225,6 +1227,21 @@ constset ChartKind : CInt
 	HEATMAP = 0x0593,
 	<* A small line of values without axes, to sit in a tile or a cell of a table. *>
 	SPARKLINE = 0x0594,
+}
+
+<* What happens in a SystemWebView (Rsystem_web_view_set_event_callback). *>
+constset SystemWebViewEvent : CInt
+{
+	<* The view shows another address (Rsystem_web_view_get_url). *>
+	NAVIGATED = 0x0B90,
+	<* The title of the page changed (Rsystem_web_view_get_title). *>
+	TITLE = 0x0B91,
+	<* A page starts loading. *>
+	LOADING = 0x0B92,
+	<* The page and what it refers to are loaded. *>
+	LOADED = 0x0B93,
+	<* The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error). *>
+	FAILED = 0x0B94,
 }
 
 <* Shorthands of Rtext_editor_set_language for two languages. *>
@@ -1838,6 +1855,15 @@ alias MapMarkerCallback = fn void(Id map, CInt marker, void* user_data);
  the action of the widget.
 *>
 alias MapViewCallback = fn void(Id map, double latitude, double longitude, double zoom, void* user_data);
+<*
+ Receives the result of a script: `result` is its value written
+ as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+ script failed, `error` then telling why.
+*>
+alias SystemWebViewResultCallback = fn void(Id view, ZString result, ZString error, void* user_data);
+<* Receives what the page sends with `window.raven.postMessage(value)`. *>
+alias SystemWebViewMessageCallback = fn void(Id view, ZString message, void* user_data);
+alias SystemWebViewEventCallback = fn void(Id view, SystemWebViewEvent event, void* user_data);
 <* Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). *>
 alias TextEditorZoomCallback = fn void(Id editor, float zoom, void* user_data);
 <*
@@ -5900,6 +5926,70 @@ fn void Carousel.set_orientation(self, Orientation orientation) @inline => c::r_
 fn Orientation Carousel.get_orientation(self) @inline => (Orientation)c::r_carousel_get_orientation((c::Rid)self);
 
 fn void Carousel.set_page_changed_callback(self, CarouselPageChangedCallback callback, void* user_data) @inline => c::r_carousel_set_page_changed_callback((c::Rid)self, (c::RCarouselPageChangedCallback)callback, user_data);
+
+// ---- SystemWebView
+
+typedef SystemWebView = inline Widget;
+
+<* Returns R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system). *>
+fn bool system_web_view_is_supported() @inline => c::r_system_web_view_is_supported() != 0;
+
+fn SystemWebView system_web_view_create() @inline => (SystemWebView)c::r_system_web_view_create();
+
+<* Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder. *>
+fn void SystemWebView.load_url(self, ZString url) @inline => c::r_system_web_view_load_url((c::Rid)self, (char*)url);
+
+<* Shows a file of the computer (an .html file, and what it refers to in its folder). *>
+fn void SystemWebView.load_file(self, ZString path) @inline => c::r_system_web_view_load_file((c::Rid)self, (char*)path);
+
+<* Shows HTML given as text. *>
+fn void SystemWebView.load_html(self, ZString html, ZString base_url) @inline => c::r_system_web_view_load_html((c::Rid)self, (char*)html, (char*)base_url);
+
+fn void SystemWebView.reload(self) @inline => c::r_system_web_view_reload((c::Rid)self);
+
+fn void SystemWebView.stop(self) @inline => c::r_system_web_view_stop((c::Rid)self);
+
+fn void SystemWebView.go_back(self) @inline => c::r_system_web_view_go_back((c::Rid)self);
+
+fn void SystemWebView.go_forward(self) @inline => c::r_system_web_view_go_forward((c::Rid)self);
+
+fn bool SystemWebView.can_go_back(self) @inline => c::r_system_web_view_can_go_back((c::Rid)self) != 0;
+
+fn bool SystemWebView.can_go_forward(self) @inline => c::r_system_web_view_can_go_forward((c::Rid)self) != 0;
+
+<* Returns The address of the page shown (the one asked for, where unsupported). Valid until it changes. *>
+fn ZString SystemWebView.get_url(self) @inline => (ZString)c::r_system_web_view_get_url((c::Rid)self);
+
+<* Returns The title of the page, "" when it has none. Valid until it changes. *>
+fn ZString SystemWebView.get_title(self) @inline => (ZString)c::r_system_web_view_get_title((c::Rid)self);
+
+fn bool SystemWebView.is_loading(self) @inline => c::r_system_web_view_is_loading((c::Rid)self) != 0;
+
+<* Returns Why the last page could not be shown, or "" when all is well. *>
+fn ZString SystemWebView.get_error(self) @inline => (ZString)c::r_system_web_view_get_error((c::Rid)self);
+
+<*
+ Runs JavaScript in the page; the value of its last statement is
+ the result. If it is a promise, the result is what the promise
+ resolves to. The callback (may be NULL) always comes later, never
+ during this call.
+*>
+fn void SystemWebView.run_javascript(self, ZString script, SystemWebViewResultCallback callback, void* user_data) @inline => c::r_system_web_view_run_javascript((c::Rid)self, (char*)script, (c::RSystemWebViewResultCallback)callback, user_data);
+
+fn void SystemWebView.set_message_callback(self, SystemWebViewMessageCallback callback, void* user_data) @inline => c::r_system_web_view_set_message_callback((c::Rid)self, (c::RSystemWebViewMessageCallback)callback, user_data);
+
+<*
+ Called when something happens in the page. The action of the
+ widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+ time the address changes.
+*>
+fn void SystemWebView.set_event_callback(self, SystemWebViewEventCallback callback, void* user_data) @inline => c::r_system_web_view_set_event_callback((c::Rid)self, (c::RSystemWebViewEventCallback)callback, user_data);
+
+<*
+ The view of the system, to go further than these functions:
+ a WKWebView* on macOS and iOS. NULL where unsupported.
+*>
+fn void* SystemWebView.get_native_handle(self) @inline => c::r_system_web_view_get_native_handle((c::Rid)self);
 
 // ---- Window
 

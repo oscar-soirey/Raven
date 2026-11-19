@@ -970,6 +970,7 @@ class RWidgetType(enum.IntEnum):
     R_WIDGET_CHART = 0x0234
     R_WIDGET_MAP_VIEW = 0x0235
     R_WIDGET_CAROUSEL = 0x0236
+    R_WIDGET_SYSTEM_WEB_VIEW = 0x0237
 
 R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX
 R_WIDGET_HBOX = RWidgetType.R_WIDGET_HBOX
@@ -1026,6 +1027,7 @@ R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW
 R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART
 R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW
 R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL
+R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW
 
 class RHAlign(enum.IntEnum):
     R_HALIGN_FILL = 0x0240
@@ -1339,6 +1341,20 @@ R_CHART_DONUT = RChartKind.R_CHART_DONUT
 R_CHART_GAUGE = RChartKind.R_CHART_GAUGE
 R_CHART_HEATMAP = RChartKind.R_CHART_HEATMAP
 R_CHART_SPARKLINE = RChartKind.R_CHART_SPARKLINE
+
+class RSystemWebViewEvent(enum.IntEnum):
+    """What happens in a SystemWebView (Rsystem_web_view_set_event_callback)."""
+    R_SYSTEM_WEB_VIEW_NAVIGATED = 0x0B90
+    R_SYSTEM_WEB_VIEW_TITLE = 0x0B91
+    R_SYSTEM_WEB_VIEW_LOADING = 0x0B92
+    R_SYSTEM_WEB_VIEW_LOADED = 0x0B93
+    R_SYSTEM_WEB_VIEW_FAILED = 0x0B94
+
+R_SYSTEM_WEB_VIEW_NAVIGATED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_NAVIGATED
+R_SYSTEM_WEB_VIEW_TITLE = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_TITLE
+R_SYSTEM_WEB_VIEW_LOADING = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADING
+R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADED
+R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_FAILED
 
 class RSyntax(enum.IntEnum):
     """Shorthands of Rtext_editor_set_language for two languages."""
@@ -2614,6 +2630,30 @@ RMapViewCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_double, ctyp
 def _adapt_RMapViewCallback(function):
     def call(map, latitude, longitude, zoom, user_data):
         function(map, latitude, longitude, zoom, user_data)
+    return call
+
+RSystemWebViewResultCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RSystemWebViewResultCallback(function):
+    def call(view, result, error, user_data):
+        function(view, _r(result), _r(error), user_data)
+    return call
+
+RSystemWebViewMessageCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_char_p, ctypes.c_void_p)
+
+
+def _adapt_RSystemWebViewMessageCallback(function):
+    def call(view, message, user_data):
+        function(view, _r(message), user_data)
+    return call
+
+RSystemWebViewEventCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_int, ctypes.c_void_p)
+
+
+def _adapt_RSystemWebViewEventCallback(function):
+    def call(view, event, user_data):
+        function(view, _e(RSystemWebViewEvent, event), user_data)
     return call
 
 RTextEditorZoomCallback = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_float, ctypes.c_void_p)
@@ -10343,6 +10383,176 @@ _lib.Rmap_view_get_attribution.restype = ctypes.c_char_p
 
 def Rmap_view_get_attribution(map):
     return _r(_lib.Rmap_view_get_attribution(map))
+
+
+_lib.Rsystem_web_view_is_supported.argtypes = []
+_lib.Rsystem_web_view_is_supported.restype = ctypes.c_int
+
+
+def Rsystem_web_view_is_supported():
+    """Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system)."""
+    return _lib.Rsystem_web_view_is_supported()
+
+
+_lib.Rsystem_web_view_create.argtypes = []
+_lib.Rsystem_web_view_create.restype = ctypes.c_uint32
+
+
+def Rsystem_web_view_create():
+    return _lib.Rsystem_web_view_create()
+
+
+_lib.Rsystem_web_view_load_url.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rsystem_web_view_load_url.restype = None
+
+
+def Rsystem_web_view_load_url(view, url):
+    """Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder."""
+    _lib.Rsystem_web_view_load_url(view, _s(url))
+
+
+_lib.Rsystem_web_view_load_file.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rsystem_web_view_load_file.restype = None
+
+
+def Rsystem_web_view_load_file(view, path):
+    """Shows a file of the computer (an .html file, and what it refers to in its folder)."""
+    _lib.Rsystem_web_view_load_file(view, _s(path))
+
+
+_lib.Rsystem_web_view_load_html.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_char_p]
+_lib.Rsystem_web_view_load_html.restype = None
+
+
+def Rsystem_web_view_load_html(view, html, base_url):
+    """Shows HTML given as text.
+    base_url Where the relative addresses of the text are looked
+    for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL."""
+    _lib.Rsystem_web_view_load_html(view, _s(html), _s(base_url))
+
+
+_lib.Rsystem_web_view_reload.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_reload.restype = None
+
+
+def Rsystem_web_view_reload(view):
+    _lib.Rsystem_web_view_reload(view)
+
+
+_lib.Rsystem_web_view_stop.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_stop.restype = None
+
+
+def Rsystem_web_view_stop(view):
+    _lib.Rsystem_web_view_stop(view)
+
+
+_lib.Rsystem_web_view_go_back.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_go_back.restype = None
+
+
+def Rsystem_web_view_go_back(view):
+    _lib.Rsystem_web_view_go_back(view)
+
+
+_lib.Rsystem_web_view_go_forward.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_go_forward.restype = None
+
+
+def Rsystem_web_view_go_forward(view):
+    _lib.Rsystem_web_view_go_forward(view)
+
+
+_lib.Rsystem_web_view_can_go_back.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_can_go_back.restype = ctypes.c_int
+
+
+def Rsystem_web_view_can_go_back(view):
+    return _lib.Rsystem_web_view_can_go_back(view)
+
+
+_lib.Rsystem_web_view_can_go_forward.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_can_go_forward.restype = ctypes.c_int
+
+
+def Rsystem_web_view_can_go_forward(view):
+    return _lib.Rsystem_web_view_can_go_forward(view)
+
+
+_lib.Rsystem_web_view_get_url.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_get_url.restype = ctypes.c_char_p
+
+
+def Rsystem_web_view_get_url(view):
+    """Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes."""
+    return _r(_lib.Rsystem_web_view_get_url(view))
+
+
+_lib.Rsystem_web_view_get_title.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_get_title.restype = ctypes.c_char_p
+
+
+def Rsystem_web_view_get_title(view):
+    """Returns: The title of the page, "" when it has none. Valid until it changes."""
+    return _r(_lib.Rsystem_web_view_get_title(view))
+
+
+_lib.Rsystem_web_view_is_loading.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_is_loading.restype = ctypes.c_int
+
+
+def Rsystem_web_view_is_loading(view):
+    return _lib.Rsystem_web_view_is_loading(view)
+
+
+_lib.Rsystem_web_view_get_error.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_get_error.restype = ctypes.c_char_p
+
+
+def Rsystem_web_view_get_error(view):
+    """Returns: Why the last page could not be shown, or "" when all is well."""
+    return _r(_lib.Rsystem_web_view_get_error(view))
+
+
+_lib.Rsystem_web_view_run_javascript.argtypes = [ctypes.c_uint32, ctypes.c_char_p, RSystemWebViewResultCallback, ctypes.c_void_p]
+_lib.Rsystem_web_view_run_javascript.restype = None
+
+
+def Rsystem_web_view_run_javascript(view, script, callback, user_data=None):
+    """Runs JavaScript in the page; the value of its last statement is
+    the result. If it is a promise, the result is what the promise
+    resolves to. The callback (may be NULL) always comes later, never
+    during this call."""
+    _lib.Rsystem_web_view_run_javascript(view, _s(script), _callback(RSystemWebViewResultCallback, _adapt_RSystemWebViewResultCallback, callback), user_data)
+
+
+_lib.Rsystem_web_view_set_message_callback.argtypes = [ctypes.c_uint32, RSystemWebViewMessageCallback, ctypes.c_void_p]
+_lib.Rsystem_web_view_set_message_callback.restype = None
+
+
+def Rsystem_web_view_set_message_callback(view, callback, user_data=None):
+    _lib.Rsystem_web_view_set_message_callback(view, _callback(RSystemWebViewMessageCallback, _adapt_RSystemWebViewMessageCallback, callback), user_data)
+
+
+_lib.Rsystem_web_view_set_event_callback.argtypes = [ctypes.c_uint32, RSystemWebViewEventCallback, ctypes.c_void_p]
+_lib.Rsystem_web_view_set_event_callback.restype = None
+
+
+def Rsystem_web_view_set_event_callback(view, callback, user_data=None):
+    """Called when something happens in the page. The action of the
+    widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+    time the address changes."""
+    _lib.Rsystem_web_view_set_event_callback(view, _callback(RSystemWebViewEventCallback, _adapt_RSystemWebViewEventCallback, callback), user_data)
+
+
+_lib.Rsystem_web_view_get_native_handle.argtypes = [ctypes.c_uint32]
+_lib.Rsystem_web_view_get_native_handle.restype = ctypes.c_void_p
+
+
+def Rsystem_web_view_get_native_handle(view):
+    """The view of the system, to go further than these functions:
+    a WKWebView* on macOS and iOS. NULL where unsupported."""
+    return _lib.Rsystem_web_view_get_native_handle(view)
 
 
 _lib.Rpdf_document_create.argtypes = []

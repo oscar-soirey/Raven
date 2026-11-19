@@ -162,6 +162,8 @@ type
     ## Where the legend of a Plot is.
   RChartKind* = cint
     ## What a Chart draws.
+  RSystemWebViewEvent* = cint
+    ## What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
   RSyntax* = cint
     ## Shorthands of Rtext_editor_set_language for two languages.
   RLanguageFlags* = cint
@@ -375,6 +377,13 @@ type
     ## Called when the user moves or zooms the map (during a drag, at the
     ## end of an animated zoom), with its new center and zoom. This also fires
     ## the action of the widget.
+  RSystemWebViewResultCallback* = proc (view: Rid, result_value: cstring, error: cstring, user_data: pointer) {.cdecl.}
+    ## Receives the result of a script: `result` is its value written
+    ## as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+    ## script failed, `error` then telling why.
+  RSystemWebViewMessageCallback* = proc (view: Rid, message: cstring, user_data: pointer) {.cdecl.}
+    ## Receives what the page sends with `window.raven.postMessage(value)`.
+  RSystemWebViewEventCallback* = proc (view: Rid, event: RSystemWebViewEvent, user_data: pointer) {.cdecl.}
   RTextEditorZoomCallback* = proc (editor: Rid, zoom: cfloat, user_data: pointer) {.cdecl.}
     ## Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
   RCompletionCallback* = proc (editor: Rid, prefix: cstring, user_data: pointer) {.cdecl.}
@@ -1580,6 +1589,8 @@ const
     ## A map of slippy-map tiles given by the application (or read from files): panned, zoomed, with markers.
   R_WIDGET_CAROUSEL*: RWidgetType = 0x0236
     ## Pages shown one at a time and swiped (a page view), with dots and arrows.
+  R_WIDGET_SYSTEM_WEB_VIEW*: RWidgetType = 0x0237
+    ## A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
 
   # RHAlign
   R_HALIGN_FILL*: RHAlign = 0x0240
@@ -1807,6 +1818,18 @@ const
     ## A grid of values, each cell colored from the low color to the high one.
   R_CHART_SPARKLINE*: RChartKind = 0x0594
     ## A small line of values without axes, to sit in a tile or a cell of a table.
+
+  # RSystemWebViewEvent
+  R_SYSTEM_WEB_VIEW_NAVIGATED*: RSystemWebViewEvent = 0x0B90
+    ## The view shows another address (Rsystem_web_view_get_url).
+  R_SYSTEM_WEB_VIEW_TITLE*: RSystemWebViewEvent = 0x0B91
+    ## The title of the page changed (Rsystem_web_view_get_title).
+  R_SYSTEM_WEB_VIEW_LOADING*: RSystemWebViewEvent = 0x0B92
+    ## A page starts loading.
+  R_SYSTEM_WEB_VIEW_LOADED*: RSystemWebViewEvent = 0x0B93
+    ## The page and what it refers to are loaded.
+  R_SYSTEM_WEB_VIEW_FAILED*: RSystemWebViewEvent = 0x0B94
+    ## The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
 
   # RSyntax
   R_SYNTAX_NONE*: RSyntax = 0x0340
@@ -3776,6 +3799,43 @@ proc Rmap_view_set_attribution*(map: Rid, text: cstring) {.rapi.}
   ## A line written in the bottom right corner: the credit most tile
   ## licences ask for, such as "(c) OpenStreetMap contributors". NULL or "": none.
 proc Rmap_view_get_attribution*(map: Rid): cstring {.rapi.}
+proc Rsystem_web_view_is_supported*(): cint {.rapi.}
+  ## Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+proc Rsystem_web_view_create*(): Rid {.rapi.}
+proc Rsystem_web_view_load_url*(view: Rid, url: cstring) {.rapi.}
+  ## Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder.
+proc Rsystem_web_view_load_file*(view: Rid, path: cstring) {.rapi.}
+  ## Shows a file of the computer (an .html file, and what it refers to in its folder).
+proc Rsystem_web_view_load_html*(view: Rid, html: cstring, base_url: cstring) {.rapi.}
+  ## Shows HTML given as text.
+  ## base_url Where the relative addresses of the text are looked
+  ## for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+proc Rsystem_web_view_reload*(view: Rid) {.rapi.}
+proc Rsystem_web_view_stop*(view: Rid) {.rapi.}
+proc Rsystem_web_view_go_back*(view: Rid) {.rapi.}
+proc Rsystem_web_view_go_forward*(view: Rid) {.rapi.}
+proc Rsystem_web_view_can_go_back*(view: Rid): cint {.rapi.}
+proc Rsystem_web_view_can_go_forward*(view: Rid): cint {.rapi.}
+proc Rsystem_web_view_get_url*(view: Rid): cstring {.rapi.}
+  ## Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes.
+proc Rsystem_web_view_get_title*(view: Rid): cstring {.rapi.}
+  ## Returns: The title of the page, "" when it has none. Valid until it changes.
+proc Rsystem_web_view_is_loading*(view: Rid): cint {.rapi.}
+proc Rsystem_web_view_get_error*(view: Rid): cstring {.rapi.}
+  ## Returns: Why the last page could not be shown, or "" when all is well.
+proc Rsystem_web_view_run_javascript*(view: Rid, script: cstring, callback: RSystemWebViewResultCallback, user_data: pointer) {.rapi.}
+  ## Runs JavaScript in the page; the value of its last statement is
+  ## the result. If it is a promise, the result is what the promise
+  ## resolves to. The callback (may be NULL) always comes later, never
+  ## during this call.
+proc Rsystem_web_view_set_message_callback*(view: Rid, callback: RSystemWebViewMessageCallback, user_data: pointer) {.rapi.}
+proc Rsystem_web_view_set_event_callback*(view: Rid, callback: RSystemWebViewEventCallback, user_data: pointer) {.rapi.}
+  ## Called when something happens in the page. The action of the
+  ## widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+  ## time the address changes.
+proc Rsystem_web_view_get_native_handle*(view: Rid): pointer {.rapi.}
+  ## The view of the system, to go further than these functions:
+  ## a WKWebView* on macOS and iOS. NULL where unsupported.
 proc Rpdf_document_create*(): Rid {.rapi.}
 proc Rpdf_document_delete*(document: Rid) {.rapi.}
 proc Rpdf_document_set_title*(document: Rid, title: cstring) {.rapi.}

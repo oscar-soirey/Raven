@@ -960,6 +960,25 @@ const _symbols = {
 	Rmap_view_set_view_changed_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
 	Rmap_view_set_attribution: { args: ["u32", "ptr"], returns: "void" },
 	Rmap_view_get_attribution: { args: ["u32"], returns: "cstring" },
+	Rsystem_web_view_is_supported: { args: [], returns: "i32" },
+	Rsystem_web_view_create: { args: [], returns: "u32" },
+	Rsystem_web_view_load_url: { args: ["u32", "ptr"], returns: "void" },
+	Rsystem_web_view_load_file: { args: ["u32", "ptr"], returns: "void" },
+	Rsystem_web_view_load_html: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rsystem_web_view_reload: { args: ["u32"], returns: "void" },
+	Rsystem_web_view_stop: { args: ["u32"], returns: "void" },
+	Rsystem_web_view_go_back: { args: ["u32"], returns: "void" },
+	Rsystem_web_view_go_forward: { args: ["u32"], returns: "void" },
+	Rsystem_web_view_can_go_back: { args: ["u32"], returns: "i32" },
+	Rsystem_web_view_can_go_forward: { args: ["u32"], returns: "i32" },
+	Rsystem_web_view_get_url: { args: ["u32"], returns: "cstring" },
+	Rsystem_web_view_get_title: { args: ["u32"], returns: "cstring" },
+	Rsystem_web_view_is_loading: { args: ["u32"], returns: "i32" },
+	Rsystem_web_view_get_error: { args: ["u32"], returns: "cstring" },
+	Rsystem_web_view_run_javascript: { args: ["u32", "ptr", "ptr", "ptr"], returns: "void" },
+	Rsystem_web_view_set_message_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rsystem_web_view_set_event_callback: { args: ["u32", "ptr", "ptr"], returns: "void" },
+	Rsystem_web_view_get_native_handle: { args: ["u32"], returns: "ptr" },
 	Rpdf_document_create: { args: [], returns: "u32" },
 	Rpdf_document_delete: { args: ["u32"], returns: "void" },
 	Rpdf_document_set_title: { args: ["u32", "ptr"], returns: "void" },
@@ -2647,6 +2666,8 @@ export enum RWidgetType {
 	R_WIDGET_MAP_VIEW = 0x0235,
 	/** Pages shown one at a time and swiped (a page view), with dots and arrows. */
 	R_WIDGET_CAROUSEL = 0x0236,
+	/** A web page shown by the engine of the system (WKWebView) in a view kept over the widget. */
+	R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
 }
 
 export const R_WIDGET_VBOX = RWidgetType.R_WIDGET_VBOX;
@@ -2704,6 +2725,7 @@ export const R_WIDGET_PDF_VIEW = RWidgetType.R_WIDGET_PDF_VIEW;
 export const R_WIDGET_CHART = RWidgetType.R_WIDGET_CHART;
 export const R_WIDGET_MAP_VIEW = RWidgetType.R_WIDGET_MAP_VIEW;
 export const R_WIDGET_CAROUSEL = RWidgetType.R_WIDGET_CAROUSEL;
+export const R_WIDGET_SYSTEM_WEB_VIEW = RWidgetType.R_WIDGET_SYSTEM_WEB_VIEW;
 
 export enum RHAlign {
 	R_HALIGN_FILL = 0x0240,
@@ -3122,6 +3144,26 @@ export const R_CHART_DONUT = RChartKind.R_CHART_DONUT;
 export const R_CHART_GAUGE = RChartKind.R_CHART_GAUGE;
 export const R_CHART_HEATMAP = RChartKind.R_CHART_HEATMAP;
 export const R_CHART_SPARKLINE = RChartKind.R_CHART_SPARKLINE;
+
+/** What happens in a SystemWebView (Rsystem_web_view_set_event_callback). */
+export enum RSystemWebViewEvent {
+	/** The view shows another address (Rsystem_web_view_get_url). */
+	R_SYSTEM_WEB_VIEW_NAVIGATED = 0x0B90,
+	/** The title of the page changed (Rsystem_web_view_get_title). */
+	R_SYSTEM_WEB_VIEW_TITLE = 0x0B91,
+	/** A page starts loading. */
+	R_SYSTEM_WEB_VIEW_LOADING = 0x0B92,
+	/** The page and what it refers to are loaded. */
+	R_SYSTEM_WEB_VIEW_LOADED = 0x0B93,
+	/** The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error). */
+	R_SYSTEM_WEB_VIEW_FAILED = 0x0B94,
+}
+
+export const R_SYSTEM_WEB_VIEW_NAVIGATED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_NAVIGATED;
+export const R_SYSTEM_WEB_VIEW_TITLE = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_TITLE;
+export const R_SYSTEM_WEB_VIEW_LOADING = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADING;
+export const R_SYSTEM_WEB_VIEW_LOADED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_LOADED;
+export const R_SYSTEM_WEB_VIEW_FAILED = RSystemWebViewEvent.R_SYSTEM_WEB_VIEW_FAILED;
 
 /** Shorthands of Rtext_editor_set_language for two languages. */
 export enum RSyntax {
@@ -6852,6 +6894,57 @@ function _adapt_RMapViewCallback(function_: RMapViewCallback | Pointer | null, t
 			_report(error as Error);
 		}
 	}, { args: ["u32", "f64", "f64", "f64", "ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Receives the result of a script: `result` is its value written
+ * as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+ * script failed, `error` then telling why.
+ */
+export type RSystemWebViewResultCallback = (view: Rid, result: string | null, error: string | null, user_data: Pointer | null) => void;
+
+function _adapt_RSystemWebViewResultCallback(function_: RSystemWebViewResultCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((view: number, result: Pointer | null, error: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(view, _text(result), _text(error), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr", "ptr", "ptr"], returns: "void", threadsafe }));
+}
+
+/** Receives what the page sends with `window.raven.postMessage(value)`. */
+export type RSystemWebViewMessageCallback = (view: Rid, message: string | null, user_data: Pointer | null) => void;
+
+function _adapt_RSystemWebViewMessageCallback(function_: RSystemWebViewMessageCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((view: number, message: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(view, _text(message), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "ptr", "ptr"], returns: "void", threadsafe }));
+}
+
+export type RSystemWebViewEventCallback = (view: Rid, event: RSystemWebViewEvent, user_data: Pointer | null) => void;
+
+function _adapt_RSystemWebViewEventCallback(function_: RSystemWebViewEventCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((view: number, event: number, user_data: Pointer | null): void => {
+		try {
+			function_(view, event as RSystemWebViewEvent, user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["u32", "i32", "ptr"], returns: "void", threadsafe }));
 }
 
 /** Called when the user zoomed (to zoom other editors the same, or to keep it for the next time). */
@@ -11966,6 +12059,108 @@ export function Rmap_view_set_attribution(map: Rid, text: string | null): void {
 
 export function Rmap_view_get_attribution(map: Rid): string | null {
 	return _lib.Rmap_view_get_attribution(map);
+}
+
+/** Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system). */
+export function Rsystem_web_view_is_supported(): number {
+	return _lib.Rsystem_web_view_is_supported();
+}
+
+export function Rsystem_web_view_create(): Rid {
+	return _lib.Rsystem_web_view_create();
+}
+
+/** Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder. */
+export function Rsystem_web_view_load_url(view: Rid, url: string | null): void {
+	_lib.Rsystem_web_view_load_url(view, _s(url));
+}
+
+/** Shows a file of the computer (an .html file, and what it refers to in its folder). */
+export function Rsystem_web_view_load_file(view: Rid, path: string | null): void {
+	_lib.Rsystem_web_view_load_file(view, _s(path));
+}
+
+/**
+ * Shows HTML given as text.
+ * base_url Where the relative addresses of the text are looked
+ * for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+ */
+export function Rsystem_web_view_load_html(view: Rid, html: string | null, base_url: string | null): void {
+	_lib.Rsystem_web_view_load_html(view, _s(html), _s(base_url));
+}
+
+export function Rsystem_web_view_reload(view: Rid): void {
+	_lib.Rsystem_web_view_reload(view);
+}
+
+export function Rsystem_web_view_stop(view: Rid): void {
+	_lib.Rsystem_web_view_stop(view);
+}
+
+export function Rsystem_web_view_go_back(view: Rid): void {
+	_lib.Rsystem_web_view_go_back(view);
+}
+
+export function Rsystem_web_view_go_forward(view: Rid): void {
+	_lib.Rsystem_web_view_go_forward(view);
+}
+
+export function Rsystem_web_view_can_go_back(view: Rid): number {
+	return _lib.Rsystem_web_view_can_go_back(view);
+}
+
+export function Rsystem_web_view_can_go_forward(view: Rid): number {
+	return _lib.Rsystem_web_view_can_go_forward(view);
+}
+
+/** Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes. */
+export function Rsystem_web_view_get_url(view: Rid): string | null {
+	return _lib.Rsystem_web_view_get_url(view);
+}
+
+/** Returns: The title of the page, "" when it has none. Valid until it changes. */
+export function Rsystem_web_view_get_title(view: Rid): string | null {
+	return _lib.Rsystem_web_view_get_title(view);
+}
+
+export function Rsystem_web_view_is_loading(view: Rid): number {
+	return _lib.Rsystem_web_view_is_loading(view);
+}
+
+/** Returns: Why the last page could not be shown, or "" when all is well. */
+export function Rsystem_web_view_get_error(view: Rid): string | null {
+	return _lib.Rsystem_web_view_get_error(view);
+}
+
+/**
+ * Runs JavaScript in the page; the value of its last statement is
+ * the result. If it is a promise, the result is what the promise
+ * resolves to. The callback (may be NULL) always comes later, never
+ * during this call.
+ */
+export function Rsystem_web_view_run_javascript(view: Rid, script: string | null, callback: RSystemWebViewResultCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rsystem_web_view_run_javascript(view, _s(script), _adapt_RSystemWebViewResultCallback(callback), user_data);
+}
+
+export function Rsystem_web_view_set_message_callback(view: Rid, callback: RSystemWebViewMessageCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rsystem_web_view_set_message_callback(view, _adapt_RSystemWebViewMessageCallback(callback), user_data);
+}
+
+/**
+ * Called when something happens in the page. The action of the
+ * widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+ * time the address changes.
+ */
+export function Rsystem_web_view_set_event_callback(view: Rid, callback: RSystemWebViewEventCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rsystem_web_view_set_event_callback(view, _adapt_RSystemWebViewEventCallback(callback), user_data);
+}
+
+/**
+ * The view of the system, to go further than these functions:
+ * a WKWebView* on macOS and iOS. NULL where unsupported.
+ */
+export function Rsystem_web_view_get_native_handle(view: Rid): Pointer | null {
+	return _lib.Rsystem_web_view_get_native_handle(view) as Pointer | null;
 }
 
 export function Rpdf_document_create(): Rid {

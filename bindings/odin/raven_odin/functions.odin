@@ -14,11 +14,11 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1014 of the 1358 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 312 are raw only: call them through the package `raven`, imported as `raw`.
+// 1015 of the 1377 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 330 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
-//   a handle that is not known (114):
+//   a handle that is not known (131):
 //     Rwindow_set_owner Rmenu_add_menu Rchart_set_kind Rchart_get_kind Rchart_set_title Rchart_get_title
 //     Rchart_set_format Rchart_set_color Rchart_set_legend Rchart_clear Rchart_get_hovered Rchart_add_slice
 //     Rchart_remove_slice Rchart_get_slice_count Rchart_set_slice_value Rchart_get_slice_value
@@ -46,7 +46,12 @@
 //     Rmap_view_remove_marker Rmap_view_clear_markers Rmap_view_get_marker_count
 //     Rmap_view_set_marker_position Rmap_view_set_marker_label Rmap_view_set_marker_color
 //     Rmap_view_set_marker_clicked_callback Rmap_view_set_view_changed_callback Rmap_view_set_attribution
-//     Rmap_view_get_attribution
+//     Rmap_view_get_attribution Rsystem_web_view_load_url Rsystem_web_view_load_file
+//     Rsystem_web_view_load_html Rsystem_web_view_reload Rsystem_web_view_stop Rsystem_web_view_go_back
+//     Rsystem_web_view_go_forward Rsystem_web_view_can_go_back Rsystem_web_view_can_go_forward
+//     Rsystem_web_view_get_url Rsystem_web_view_get_title Rsystem_web_view_is_loading
+//     Rsystem_web_view_get_error Rsystem_web_view_run_javascript Rsystem_web_view_set_message_callback
+//     Rsystem_web_view_set_event_callback Rsystem_web_view_get_native_handle
 //
 //   a callback (105):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
@@ -91,9 +96,9 @@
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
 //     Rdraw_image Rdraw_text Rdraw_glass Rdraw_spring Rdraw_push_clip_rect Rdraw_pop_clip_rect Rdraw_shader
 //
-//   a handle result that is not known (8):
+//   a handle result that is not known (9):
 //     Rwindow_get_owner Rtheme_get_wallpaper Rmenu_add_header Rmenu_bar_add_divider Rchart_create
-//     Rcarousel_create Rmap_view_create Rpdf_document_create
+//     Rcarousel_create Rmap_view_create Rsystem_web_view_create Rpdf_document_create
 //
 //   a parameter of type const RActionContext* (6):
 //     Raction_get_sender Raction_get_name Raction_get_argument_count Raction_get_number Raction_get_string
@@ -3295,6 +3300,11 @@ plot_set_drag_line_color :: proc(plot: Widget, line: i32, r: f32, g: f32, b: f32
 // R_TRUE when PDFium can be loaded (it is, the first time this is asked).
 pdf_is_available :: proc() -> bool {
 	return raw.Rpdf_is_available() != 0
+}
+
+// Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+system_web_view_is_supported :: proc() -> bool {
+	return raw.Rsystem_web_view_is_supported() != 0
 }
 
 pdf_document_delete :: proc(document: Xml_Document) {

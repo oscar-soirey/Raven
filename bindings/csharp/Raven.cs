@@ -1081,6 +1081,10 @@ namespace Raven
         /// Pages shown one at a time and swiped (a page view), with dots and arrows.
         /// </summary>
         R_WIDGET_CAROUSEL = 0x0236,
+        /// <summary>
+        /// A web page shown by the engine of the system (WKWebView) in a view kept over the widget.
+        /// </summary>
+        R_WIDGET_SYSTEM_WEB_VIEW = 0x0237,
     }
 
     public enum RHAlign : int
@@ -1527,6 +1531,33 @@ namespace Raven
         /// A small line of values without axes, to sit in a tile or a cell of a table.
         /// </summary>
         R_CHART_SPARKLINE = 0x0594,
+    }
+
+    /// <summary>
+    /// What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+    /// </summary>
+    public enum RSystemWebViewEvent : int
+    {
+        /// <summary>
+        /// The view shows another address (Rsystem_web_view_get_url).
+        /// </summary>
+        R_SYSTEM_WEB_VIEW_NAVIGATED = 0x0B90,
+        /// <summary>
+        /// The title of the page changed (Rsystem_web_view_get_title).
+        /// </summary>
+        R_SYSTEM_WEB_VIEW_TITLE = 0x0B91,
+        /// <summary>
+        /// A page starts loading.
+        /// </summary>
+        R_SYSTEM_WEB_VIEW_LOADING = 0x0B92,
+        /// <summary>
+        /// The page and what it refers to are loaded.
+        /// </summary>
+        R_SYSTEM_WEB_VIEW_LOADED = 0x0B93,
+        /// <summary>
+        /// The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error).
+        /// </summary>
+        R_SYSTEM_WEB_VIEW_FAILED = 0x0B94,
     }
 
     /// <summary>
@@ -3324,6 +3355,23 @@ namespace Raven
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RMapViewCallback(uint map, double latitude, double longitude, double zoom, IntPtr user_data);
+
+    /// <summary>
+    /// Receives the result of a script: `result` is its value written
+    /// as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+    /// script failed, `error` then telling why.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RSystemWebViewResultCallback(uint view, IntPtr result, IntPtr error, IntPtr user_data);
+
+    /// <summary>
+    /// Receives what the page sends with `window.raven.postMessage(value)`.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RSystemWebViewMessageCallback(uint view, IntPtr message, IntPtr user_data);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RSystemWebViewEventCallback(uint view, RSystemWebViewEvent @event, IntPtr user_data);
 
     /// <summary>
     /// Called when the user zoomed (to zoom other editors the same, or to keep it for the next time).
@@ -7965,6 +8013,104 @@ namespace Raven
         [DllImport(Lib, EntryPoint = "Rmap_view_get_attribution", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr Rmap_view_get_attribution_(uint map);
         public static string Rmap_view_get_attribution(uint map) { return Text(Rmap_view_get_attribution_(map)); }
+
+        /// <summary>
+        /// Returns: R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rsystem_web_view_is_supported();
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern uint Rsystem_web_view_create();
+
+        /// <summary>
+        /// Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_load_url(uint view, [MarshalAs(Utf8.Str)] string url);
+
+        /// <summary>
+        /// Shows a file of the computer (an .html file, and what it refers to in its folder).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_load_file(uint view, [MarshalAs(Utf8.Str)] string path);
+
+        /// <summary>
+        /// Shows HTML given as text.
+        /// base_url Where the relative addresses of the text are looked
+        /// for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_load_html(uint view, [MarshalAs(Utf8.Str)] string html, [MarshalAs(Utf8.Str)] string base_url);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_reload(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_stop(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_go_back(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_go_forward(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rsystem_web_view_can_go_back(uint view);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rsystem_web_view_can_go_forward(uint view);
+
+        /// <summary>
+        /// Returns: The address of the page shown (the one asked for, where unsupported). Valid until it changes.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rsystem_web_view_get_url", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rsystem_web_view_get_url_(uint view);
+        public static string Rsystem_web_view_get_url(uint view) { return Text(Rsystem_web_view_get_url_(view)); }
+
+        /// <summary>
+        /// Returns: The title of the page, "" when it has none. Valid until it changes.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rsystem_web_view_get_title", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rsystem_web_view_get_title_(uint view);
+        public static string Rsystem_web_view_get_title(uint view) { return Text(Rsystem_web_view_get_title_(view)); }
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rsystem_web_view_is_loading(uint view);
+
+        /// <summary>
+        /// Returns: Why the last page could not be shown, or "" when all is well.
+        /// </summary>
+        [DllImport(Lib, EntryPoint = "Rsystem_web_view_get_error", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr Rsystem_web_view_get_error_(uint view);
+        public static string Rsystem_web_view_get_error(uint view) { return Text(Rsystem_web_view_get_error_(view)); }
+
+        /// <summary>
+        /// Runs JavaScript in the page; the value of its last statement is
+        /// the result. If it is a promise, the result is what the promise
+        /// resolves to. The callback (may be NULL) always comes later, never
+        /// during this call.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_run_javascript(uint view, [MarshalAs(Utf8.Str)] string script, RSystemWebViewResultCallback callback, IntPtr user_data);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_set_message_callback(uint view, RSystemWebViewMessageCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Called when something happens in the page. The action of the
+        /// widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+        /// time the address changes.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rsystem_web_view_set_event_callback(uint view, RSystemWebViewEventCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// The view of the system, to go further than these functions:
+        /// a WKWebView* on macOS and iOS. NULL where unsupported.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr Rsystem_web_view_get_native_handle(uint view);
 
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern uint Rpdf_document_create();

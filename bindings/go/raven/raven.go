@@ -691,6 +691,7 @@ const (
 	R_WIDGET_CHART           RWidgetType = 0x0234
 	R_WIDGET_MAP_VIEW        RWidgetType = 0x0235
 	R_WIDGET_CAROUSEL        RWidgetType = 0x0236
+	R_WIDGET_SYSTEM_WEB_VIEW RWidgetType = 0x0237
 )
 
 type RHAlign int32
@@ -948,6 +949,17 @@ const (
 	R_CHART_GAUGE     RChartKind = 0x0592
 	R_CHART_HEATMAP   RChartKind = 0x0593
 	R_CHART_SPARKLINE RChartKind = 0x0594
+)
+
+// RSystemWebViewEvent: What happens in a SystemWebView (Rsystem_web_view_set_event_callback).
+type RSystemWebViewEvent int32
+
+const (
+	R_SYSTEM_WEB_VIEW_NAVIGATED RSystemWebViewEvent = 0x0B90
+	R_SYSTEM_WEB_VIEW_TITLE     RSystemWebViewEvent = 0x0B91
+	R_SYSTEM_WEB_VIEW_LOADING   RSystemWebViewEvent = 0x0B92
+	R_SYSTEM_WEB_VIEW_LOADED    RSystemWebViewEvent = 0x0B93
+	R_SYSTEM_WEB_VIEW_FAILED    RSystemWebViewEvent = 0x0B94
 )
 
 // RSyntax: Shorthands of Rtext_editor_set_language for two languages.
@@ -5109,6 +5121,85 @@ func MapViewGetAttribution(map_ ID) string {
 	return C.GoString(C.Rmap_view_get_attribution(C.Rid(map_)))
 }
 
+// SystemWebViewIsSupported: Returns: R_TRUE when web views show pages here (the system has an engine Raven
+// can embed, and Raven runs with a window system).
+func SystemWebViewIsSupported() int {
+	return int(C.Rsystem_web_view_is_supported())
+}
+
+func SystemWebViewCreate() ID {
+	return ID(C.Rsystem_web_view_create())
+}
+
+// SystemWebViewLoadUrl: Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may
+// read the files of its folder.
+func SystemWebViewLoadUrl(view ID, url string) {
+	url_ := C.CString(url)
+	defer C.free(unsafe.Pointer(url_))
+	C.Rsystem_web_view_load_url(C.Rid(view), url_)
+}
+
+// SystemWebViewLoadFile: Shows a file of the computer (an .html file, and what it refers to in its folder).
+func SystemWebViewLoadFile(view ID, path string) {
+	path_ := C.CString(path)
+	defer C.free(unsafe.Pointer(path_))
+	C.Rsystem_web_view_load_file(C.Rid(view), path_)
+}
+
+// SystemWebViewLoadHtml: Shows HTML given as text. base_url Where the relative addresses of the text are
+// looked for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+func SystemWebViewLoadHtml(view ID, html string, base_url string) {
+	html_ := C.CString(html)
+	defer C.free(unsafe.Pointer(html_))
+	base_url_ := C.CString(base_url)
+	defer C.free(unsafe.Pointer(base_url_))
+	C.Rsystem_web_view_load_html(C.Rid(view), html_, base_url_)
+}
+
+func SystemWebViewReload(view ID) {
+	C.Rsystem_web_view_reload(C.Rid(view))
+}
+
+func SystemWebViewStop(view ID) {
+	C.Rsystem_web_view_stop(C.Rid(view))
+}
+
+func SystemWebViewGoBack(view ID) {
+	C.Rsystem_web_view_go_back(C.Rid(view))
+}
+
+func SystemWebViewGoForward(view ID) {
+	C.Rsystem_web_view_go_forward(C.Rid(view))
+}
+
+func SystemWebViewCanGoBack(view ID) int {
+	return int(C.Rsystem_web_view_can_go_back(C.Rid(view)))
+}
+
+func SystemWebViewCanGoForward(view ID) int {
+	return int(C.Rsystem_web_view_can_go_forward(C.Rid(view)))
+}
+
+// SystemWebViewGetUrl: Returns: The address of the page shown (the one asked for, where unsupported). Valid
+// until it changes.
+func SystemWebViewGetUrl(view ID) string {
+	return C.GoString(C.Rsystem_web_view_get_url(C.Rid(view)))
+}
+
+// SystemWebViewGetTitle: Returns: The title of the page, "" when it has none. Valid until it changes.
+func SystemWebViewGetTitle(view ID) string {
+	return C.GoString(C.Rsystem_web_view_get_title(C.Rid(view)))
+}
+
+func SystemWebViewIsLoading(view ID) int {
+	return int(C.Rsystem_web_view_is_loading(C.Rid(view)))
+}
+
+// SystemWebViewGetError: Returns: Why the last page could not be shown, or "" when all is well.
+func SystemWebViewGetError(view ID) string {
+	return C.GoString(C.Rsystem_web_view_get_error(C.Rid(view)))
+}
+
 func PdfDocumentCreate() ID {
 	return ID(C.Rpdf_document_create())
 }
@@ -7940,7 +8031,9 @@ func HostInjectClose(window ID) {
 // Rchart_set_slice_clicked_callback, Rchart_set_cell_clicked_callback, Rpdf_view_set_page_changed_callback
 // Rcarousel_set_page_changed_callback, Rpdf_view_print, Rmap_view_set_tile_callback
 // Rmap_view_set_tile_cancel_callback, Rmap_view_set_tile, Rmap_view_set_marker_clicked_callback
-// Rmap_view_set_view_changed_callback, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
+// Rmap_view_set_view_changed_callback, Rsystem_web_view_run_javascript
+// Rsystem_web_view_set_message_callback, Rsystem_web_view_set_event_callback
+// Rsystem_web_view_get_native_handle, Rpdf_document_draw_image, Rpdf_document_save_memory, Rpdf_print
 // Rpdf_print_file, Rpdf_document_print, Rtext_editor_set_zoom_callback, Rlanguage_register, Rlanguage_get
 // Rtext_editor_set_completion_callback, Rtext_editor_set_hover_callback, Rtext_editor_set_changed_callback
 // Rdock_area_set_close_callback, Rdock_area_set_float_window, Rdock_area_set_changed_callback
