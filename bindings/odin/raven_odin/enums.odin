@@ -1242,6 +1242,16 @@ Xml_Value_Type :: enum i32 {
 	List = 0x03C8,
 }
 
+// How the hours of a time are shown.
+Clock :: enum i32 {
+	// As the locale does (Rlocale_uses_12_hour_clock).
+	Auto = 0x0C30,
+	// 1 to 12, with AM and PM.
+	_12_Hour = 0x0C31,
+	// 0 to 23.
+	_24_Hour = 0x0C32,
+}
+
 Color_Filter :: enum i32 {
 	None = 0x0740,
 	// Corrections: the colors that cannot be told apart are moved to colors that can.

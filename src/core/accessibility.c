@@ -853,12 +853,10 @@ int rvn_a11y_describe(rvn_a11y_id_t id, rvn_a11y_node_t* node) {
 			if (Rdate_picker_is_open(widget->id)) node->states |= RVN_A11Y_EXPANDED;
 			rvn_text_add(&g_a11y.value, Rdate_picker_get_text(widget->id));
 			break;
-		case R_WIDGET_TIME_PICKER: {
-			int hour = 0, minute = 0, second = 0;
-			Rtime_picker_get_time(widget->id, &hour, &minute, &second);
-			rvn_text_printf(&g_a11y.value, "%02d:%02d:%02d", hour, minute, second);
+		case R_WIDGET_TIME_PICKER:
+			/* as shown: "3:05 PM EST", "15:05" */
+			rvn_text_add(&g_a11y.value, Rtime_picker_get_text(widget->id));
 			break;
-		}
 		case R_WIDGET_TOAST:
 			rvn_text_add(&g_a11y.name, Rtoast_get_text(widget->id));
 			break;

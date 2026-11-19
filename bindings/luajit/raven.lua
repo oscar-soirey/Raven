@@ -785,6 +785,11 @@ typedef enum RXmlValueType {
 	R_XML_NUMBERS = 967,
 	R_XML_LIST = 968,
 } RXmlValueType;
+typedef enum RClock {
+	R_CLOCK_AUTO = 3120,
+	R_CLOCK_12_HOUR = 3121,
+	R_CLOCK_24_HOUR = 3122,
+} RClock;
 typedef enum RColorFilter {
 	R_COLOR_FILTER_NONE = 1856,
 	R_COLOR_FILTER_PROTANOPIA = 1857,
@@ -1863,11 +1868,25 @@ const char* Rdate_picker_get_text(Rid date_picker);
 void Rdate_picker_set_open(Rid date_picker, int open);
 int Rdate_picker_is_open(Rid date_picker);
 void Rdate_picker_set_changed_callback(Rid date_picker, RDateChangedCallback callback, void* user_data);
+void Rdate_picker_set_time_zone(Rid date_picker, const char* zone);
+const char* Rdate_picker_get_time_zone(Rid date_picker);
+void Rdate_picker_set_instant(Rid date_picker, double utc);
+double Rdate_picker_get_instant(Rid date_picker);
 void Rtime_picker_set_time(Rid time_picker, int hour, int minute, int second);
 void Rtime_picker_get_time(Rid time_picker, int* hour, int* minute, int* second);
 void Rtime_picker_set_seconds_visible(Rid time_picker, int visible);
 void Rtime_picker_set_minute_step(Rid time_picker, int step);
 void Rtime_picker_set_changed_callback(Rid time_picker, RTimeChangedCallback callback, void* user_data);
+void Rtime_picker_set_clock(Rid time_picker, RClock clock);
+RClock Rtime_picker_get_clock(Rid time_picker);
+const char* Rtime_picker_get_text(Rid time_picker);
+void Rtime_picker_set_time_zone(Rid time_picker, const char* zone);
+const char* Rtime_picker_get_time_zone(Rid time_picker);
+void Rtime_picker_set_time_zone_visible(Rid time_picker, int visible);
+void Rtime_picker_set_date(Rid time_picker, int year, int month, int day);
+void Rtime_picker_get_date(Rid time_picker, int* year, int* month, int* day);
+void Rtime_picker_set_instant(Rid time_picker, double utc);
+double Rtime_picker_get_instant(Rid time_picker);
 void Rtoast_show(Rid toast, const char* text, double seconds);
 void Rtoast_show_kind(Rid toast, const char* text, RToastKind kind, double seconds);
 void Rtoast_hide(Rid toast);
@@ -2588,6 +2607,21 @@ const char* Rtr_format(const char* key, const char* const* args, int arg_count);
 const char* Rtr_plural(const char* key, int count);
 void Rwidget_set_text_key(Rid widget, const char* attribute, const char* key);
 const char* Rlocale_format_number(double value, int decimals);
+void Rlocale_set_clock(RClock clock);
+RClock Rlocale_get_clock(void);
+int Rlocale_uses_12_hour_clock(void);
+const char* Rlocale_get_day_period(int pm);
+const char* Rlocale_format_time(int hour, int minute, int second, int show_seconds);
+const char* Rtimezone_get_system(void);
+void Rtimezone_set_directory(const char* path);
+int Rtimezone_is_valid(const char* zone);
+int Rtimezone_to_local(const char* zone, double utc, int* year, int* month, int* day, int* hour, int* minute, int* second);
+double Rtimezone_from_local(const char* zone, int year, int month, int day, int hour, int minute, int second);
+int Rtimezone_count_local(const char* zone, int year, int month, int day, int hour, int minute, int second);
+int Rtimezone_get_offset(const char* zone, double utc);
+int Rtimezone_is_daylight_saving(const char* zone, double utc);
+const char* Rtimezone_get_abbreviation(const char* zone, double utc);
+const char* Rtimezone_get_label(const char* zone, double utc);
 void Raccessibility_set_text_scale(float scale);
 float Raccessibility_get_text_scale(void);
 void Raccessibility_set_high_contrast(int enabled);

@@ -29,3 +29,6 @@
 *.pdf binary
 *.whl binary
 *.wasm binary
+
+# Compiled time zone files (TZif) for the tests: binary.
+tests/data/zoneinfo/*/* binary

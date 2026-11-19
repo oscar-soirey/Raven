@@ -197,6 +197,8 @@ type
     ## Flags of Rshader_create.
   RXmlValueType* = cint
     ## The kind of value an attribute takes.
+  RClock* = cint
+    ## How the hours of a time are shown.
   RColorFilter* = cint
   RAccessibleRole* = cint
   RGoldenStatus* = cint
@@ -2041,6 +2043,14 @@ const
   R_XML_LIST*: RXmlValueType = 0x03C8
     ## Texts separated by '\|': "One\|Two\|Three".
 
+  # RClock
+  R_CLOCK_AUTO*: RClock = 0x0C30
+    ## As the locale does (Rlocale_uses_12_hour_clock).
+  R_CLOCK_12_HOUR*: RClock = 0x0C31
+    ## 1 to 12, with AM and PM.
+  R_CLOCK_24_HOUR*: RClock = 0x0C32
+    ## 0 to 23.
+
   # RColorFilter
   R_COLOR_FILTER_NONE*: RColorFilter = 0x0740
   R_COLOR_FILTER_PROTANOPIA*: RColorFilter = 0x0741
@@ -3482,12 +3492,41 @@ proc Rdate_picker_set_open*(date_picker: Rid, open: cint) {.rapi.}
   ## Opens or closes the calendar.
 proc Rdate_picker_is_open*(date_picker: Rid): cint {.rapi.}
 proc Rdate_picker_set_changed_callback*(date_picker: Rid, callback: RDateChangedCallback, user_data: pointer) {.rapi.}
+proc Rdate_picker_set_time_zone*(date_picker: Rid, zone: cstring) {.rapi.}
+  ## The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+proc Rdate_picker_get_time_zone*(date_picker: Rid): cstring {.rapi.}
+proc Rdate_picker_set_instant*(date_picker: Rid, utc: cdouble) {.rapi.}
+  ## Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+proc Rdate_picker_get_instant*(date_picker: Rid): cdouble {.rapi.}
+  ## The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
 proc Rtime_picker_set_time*(time_picker: Rid, hour: cint, minute: cint, second: cint) {.rapi.}
 proc Rtime_picker_get_time*(time_picker: Rid, hour: ptr cint, minute: ptr cint, second: ptr cint) {.rapi.}
 proc Rtime_picker_set_seconds_visible*(time_picker: Rid, visible: cint) {.rapi.}
 proc Rtime_picker_set_minute_step*(time_picker: Rid, step: cint) {.rapi.}
   ## Step of the minutes for the arrows and the wheel (default 1).
 proc Rtime_picker_set_changed_callback*(time_picker: Rid, callback: RTimeChangedCallback, user_data: pointer) {.rapi.}
+proc Rtime_picker_set_clock*(time_picker: Rid, clock: RClock) {.rapi.}
+  ## 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto\|12\|24" in XML.
+proc Rtime_picker_get_clock*(time_picker: Rid): RClock {.rapi.}
+proc Rtime_picker_get_text*(time_picker: Rid): cstring {.rapi.}
+  ## The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+proc Rtime_picker_set_time_zone*(time_picker: Rid, zone: cstring) {.rapi.}
+  ## The time zone of the time ("America/New_York", see
+  ## Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+  ## unknown zone is refused. TimeZone="..." in XML.
+proc Rtime_picker_get_time_zone*(time_picker: Rid): cstring {.rapi.}
+  ## The zone set, "" for none.
+proc Rtime_picker_set_time_zone_visible*(time_picker: Rid, visible: cint) {.rapi.}
+  ## Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+proc Rtime_picker_set_date*(time_picker: Rid, year: cint, month: cint, day: cint) {.rapi.}
+  ## The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+proc Rtime_picker_get_date*(time_picker: Rid, year: ptr cint, month: ptr cint, day: ptr cint) {.rapi.}
+proc Rtime_picker_set_instant*(time_picker: Rid, utc: cdouble) {.rapi.}
+  ## Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+proc Rtime_picker_get_instant*(time_picker: Rid): cdouble {.rapi.}
+  ## The instant the day and the time are in the zone. A time the
+  ## clocks skipped is moved forward, a time they repeated is the first
+  ## (see Rtimezone_from_local).
 proc Rtoast_show*(toast: Rid, text: cstring, seconds: cdouble) {.rapi.}
   ## Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
 proc Rtoast_show_kind*(toast: Rid, text: cstring, kind: RToastKind, seconds: cdouble) {.rapi.}
@@ -5031,6 +5070,54 @@ proc Rwidget_set_text_key*(widget: Rid, attribute: cstring, key: cstring) {.rapi
   ## Same as Rwidget_set_attribute(widget, attribute, "@key").
 proc Rlocale_format_number*(value: cdouble, decimals: cint): cstring {.rapi.}
   ## A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French).
+proc Rlocale_set_clock*(clock: RClock) {.rapi.}
+  ## Forces the clock of every time shown (a setting of the
+  ## application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+  ## to follow the locale. A TimePicker can still choose its own (Clock="24").
+proc Rlocale_get_clock*(): RClock {.rapi.}
+proc Rlocale_uses_12_hour_clock*(): cint {.rapi.}
+  ## R_TRUE when times are shown on 12 hours with AM and PM. With
+  ## Rlocale_set_clock, what it forces; else, when the application chose a
+  ## language (Rlocale_set_language), the usage of that language (from CLDR:
+  ## en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+  ## others 24); else the setting of the user on the system (Windows, macOS,
+  ## the LC_TIME of Linux), or the usage of the language of the system.
+proc Rlocale_get_day_period*(pm: cint): cstring {.rapi.}
+  ## "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+proc Rlocale_format_time*(hour: cint, minute: cint, second: cint, show_seconds: cint): cstring {.rapi.}
+  ## A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+proc Rtimezone_get_system*(): cstring {.rapi.}
+  ## The zone of the system ("Europe/Paris"): the TZ variable, the
+  ## link /etc/localtime, else what the system says; "UTC" when it says
+  ## nothing. Valid until the next call.
+proc Rtimezone_set_directory*(path: cstring) {.rapi.}
+  ## The folder of the tz database (the files "Europe/Paris"...), or
+  ## the packed tzdata file of Android, to read instead of the system's: for
+  ## a database shipped with the application, or tests. It is then the only
+  ## one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+  ## read so far.
+proc Rtimezone_is_valid*(zone: cstring): cint {.rapi.}
+  ## R_TRUE when the zone is known. Every function takes a name of
+  ## the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+  ## NULL / "" for the zone of the system.
+proc Rtimezone_to_local*(zone: cstring, utc: cdouble, year: ptr cint, month: ptr cint, day: ptr cint, hour: ptr cint, minute: ptr cint, second: ptr cint): cint {.rapi.}
+  ## The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+proc Rtimezone_from_local*(zone: cstring, year: cint, month: cint, day: cint, hour: cint, minute: cint, second: cint): cdouble {.rapi.}
+  ## The instant a date and time of a zone is. When the clocks go
+  ## forward, the times they skip do not exist: such a time is moved forward
+  ## by the length of the gap (02:30 becomes 03:30). When they go back, the
+  ## times of the hour repeated happen twice: the first is taken (still in
+  ## summer time). Rtimezone_count_local tells these cases apart.
+proc Rtimezone_count_local*(zone: cstring, year: cint, month: cint, day: cint, hour: cint, minute: cint, second: cint): cint {.rapi.}
+  ## How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+proc Rtimezone_get_offset*(zone: cstring, utc: cdouble): cint {.rapi.}
+  ## Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+proc Rtimezone_is_daylight_saving*(zone: cstring, utc: cdouble): cint {.rapi.}
+  ## R_TRUE when the zone is on summer (daylight saving) time at the instant.
+proc Rtimezone_get_abbreviation*(zone: cstring, utc: cdouble): cstring {.rapi.}
+  ## The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+proc Rtimezone_get_label*(zone: cstring, utc: cdouble): cstring {.rapi.}
+  ## The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
 proc Raccessibility_set_text_scale*(scale: cfloat) {.rapi.}
   ## Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 proc Raccessibility_get_text_scale*(): cfloat {.rapi.}

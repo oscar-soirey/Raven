@@ -98,8 +98,10 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 - [ ] Table: several selected rows, cells that are edited in place, cells
   holding a widget (a checkbox, a progress bar), frozen first column.
-- [ ] Date picker: a range of two dates; a time zone aware time picker; a
-  12-hour clock where the locale uses one.
+- [~] Date picker: a range of two dates (to do). Done: a 12-hour clock with
+  AM and PM where the locale uses one (`Clock="Auto|12|24"`,
+  `Rlocale_uses_12_hour_clock`), and time zones (`Rtimezone_*`, the tz
+  database of the system, `TimeZone` and `ShowTimeZone` on the pickers).
 - [ ] Notifications: actions (buttons), a click that brings the window
   back, replacing a notification, an icon.
 - [ ] Node graph: knots on links, groups and comments, minimap, undo.

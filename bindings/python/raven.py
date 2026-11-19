@@ -1625,6 +1625,16 @@ R_XML_FILE = RXmlValueType.R_XML_FILE
 R_XML_NUMBERS = RXmlValueType.R_XML_NUMBERS
 R_XML_LIST = RXmlValueType.R_XML_LIST
 
+class RClock(enum.IntEnum):
+    """How the hours of a time are shown."""
+    R_CLOCK_AUTO = 0x0C30
+    R_CLOCK_12_HOUR = 0x0C31
+    R_CLOCK_24_HOUR = 0x0C32
+
+R_CLOCK_AUTO = RClock.R_CLOCK_AUTO
+R_CLOCK_12_HOUR = RClock.R_CLOCK_12_HOUR
+R_CLOCK_24_HOUR = RClock.R_CLOCK_24_HOUR
+
 class RColorFilter(enum.IntEnum):
     R_COLOR_FILTER_NONE = 0x0740
     R_COLOR_FILTER_PROTANOPIA = 0x0741
@@ -8580,6 +8590,41 @@ def Rdate_picker_set_changed_callback(date_picker, callback, user_data=None):
     _lib.Rdate_picker_set_changed_callback(date_picker, _callback(RDateChangedCallback, _adapt_RDateChangedCallback, callback), user_data)
 
 
+_lib.Rdate_picker_set_time_zone.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rdate_picker_set_time_zone.restype = None
+
+
+def Rdate_picker_set_time_zone(date_picker, zone):
+    """The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML."""
+    _lib.Rdate_picker_set_time_zone(date_picker, _s(zone))
+
+
+_lib.Rdate_picker_get_time_zone.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_get_time_zone.restype = ctypes.c_char_p
+
+
+def Rdate_picker_get_time_zone(date_picker):
+    return _r(_lib.Rdate_picker_get_time_zone(date_picker))
+
+
+_lib.Rdate_picker_set_instant.argtypes = [ctypes.c_uint32, ctypes.c_double]
+_lib.Rdate_picker_set_instant.restype = None
+
+
+def Rdate_picker_set_instant(date_picker, utc):
+    """Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker."""
+    _lib.Rdate_picker_set_instant(date_picker, utc)
+
+
+_lib.Rdate_picker_get_instant.argtypes = [ctypes.c_uint32]
+_lib.Rdate_picker_get_instant.restype = ctypes.c_double
+
+
+def Rdate_picker_get_instant(date_picker):
+    """The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to)."""
+    return _lib.Rdate_picker_get_instant(date_picker)
+
+
 _lib.Rtime_picker_set_time.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
 _lib.Rtime_picker_set_time.restype = None
 
@@ -8623,6 +8668,102 @@ _lib.Rtime_picker_set_changed_callback.restype = None
 
 def Rtime_picker_set_changed_callback(time_picker, callback, user_data=None):
     _lib.Rtime_picker_set_changed_callback(time_picker, _callback(RTimeChangedCallback, _adapt_RTimeChangedCallback, callback), user_data)
+
+
+_lib.Rtime_picker_set_clock.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtime_picker_set_clock.restype = None
+
+
+def Rtime_picker_set_clock(time_picker, clock):
+    """12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML."""
+    _lib.Rtime_picker_set_clock(time_picker, int(clock))
+
+
+_lib.Rtime_picker_get_clock.argtypes = [ctypes.c_uint32]
+_lib.Rtime_picker_get_clock.restype = ctypes.c_int
+
+
+def Rtime_picker_get_clock(time_picker):
+    return _e(RClock, _lib.Rtime_picker_get_clock(time_picker))
+
+
+_lib.Rtime_picker_get_text.argtypes = [ctypes.c_uint32]
+_lib.Rtime_picker_get_text.restype = ctypes.c_char_p
+
+
+def Rtime_picker_get_text(time_picker):
+    """The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call)."""
+    return _r(_lib.Rtime_picker_get_text(time_picker))
+
+
+_lib.Rtime_picker_set_time_zone.argtypes = [ctypes.c_uint32, ctypes.c_char_p]
+_lib.Rtime_picker_set_time_zone.restype = None
+
+
+def Rtime_picker_set_time_zone(time_picker, zone):
+    """The time zone of the time ("America/New_York", see
+    Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+    unknown zone is refused. TimeZone="..." in XML."""
+    _lib.Rtime_picker_set_time_zone(time_picker, _s(zone))
+
+
+_lib.Rtime_picker_get_time_zone.argtypes = [ctypes.c_uint32]
+_lib.Rtime_picker_get_time_zone.restype = ctypes.c_char_p
+
+
+def Rtime_picker_get_time_zone(time_picker):
+    """The zone set, "" for none."""
+    return _r(_lib.Rtime_picker_get_time_zone(time_picker))
+
+
+_lib.Rtime_picker_set_time_zone_visible.argtypes = [ctypes.c_uint32, ctypes.c_int]
+_lib.Rtime_picker_set_time_zone_visible.restype = None
+
+
+def Rtime_picker_set_time_zone_visible(time_picker, visible):
+    """Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML."""
+    _lib.Rtime_picker_set_time_zone_visible(time_picker, visible)
+
+
+_lib.Rtime_picker_set_date.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtime_picker_set_date.restype = None
+
+
+def Rtime_picker_set_date(time_picker, year, month, day):
+    """The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML."""
+    _lib.Rtime_picker_set_date(time_picker, year, month, day)
+
+
+_lib.Rtime_picker_get_date.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtime_picker_get_date.restype = None
+
+
+def Rtime_picker_get_date(time_picker):
+    year_ = ctypes.c_int()
+    month_ = ctypes.c_int()
+    day_ = ctypes.c_int()
+    _lib.Rtime_picker_get_date(time_picker, ctypes.byref(year_), ctypes.byref(month_), ctypes.byref(day_))
+    return (year_.value, month_.value, day_.value)
+
+
+_lib.Rtime_picker_set_instant.argtypes = [ctypes.c_uint32, ctypes.c_double]
+_lib.Rtime_picker_set_instant.restype = None
+
+
+def Rtime_picker_set_instant(time_picker, utc):
+    """Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time."""
+    _lib.Rtime_picker_set_instant(time_picker, utc)
+
+
+_lib.Rtime_picker_get_instant.argtypes = [ctypes.c_uint32]
+_lib.Rtime_picker_get_instant.restype = ctypes.c_double
+
+
+def Rtime_picker_get_instant(time_picker):
+    """The instant the day and the time are in the zone. A time the
+    clocks skipped is moved forward, a time they repeated is the first
+    (see Rtimezone_from_local)."""
+    return _lib.Rtime_picker_get_instant(time_picker)
 
 
 _lib.Rtoast_show.argtypes = [ctypes.c_uint32, ctypes.c_char_p, ctypes.c_double]
@@ -15339,6 +15480,166 @@ _lib.Rlocale_format_number.restype = ctypes.c_char_p
 def Rlocale_format_number(value, decimals):
     """A number written in the conventions of the language: decimal separator and digit grouping ("1 234,5" in French)."""
     return _r(_lib.Rlocale_format_number(value, decimals))
+
+
+_lib.Rlocale_set_clock.argtypes = [ctypes.c_int]
+_lib.Rlocale_set_clock.restype = None
+
+
+def Rlocale_set_clock(clock):
+    """Forces the clock of every time shown (a setting of the
+    application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+    to follow the locale. A TimePicker can still choose its own (Clock="24")."""
+    _lib.Rlocale_set_clock(int(clock))
+
+
+_lib.Rlocale_get_clock.argtypes = []
+_lib.Rlocale_get_clock.restype = ctypes.c_int
+
+
+def Rlocale_get_clock():
+    return _e(RClock, _lib.Rlocale_get_clock())
+
+
+_lib.Rlocale_uses_12_hour_clock.argtypes = []
+_lib.Rlocale_uses_12_hour_clock.restype = ctypes.c_int
+
+
+def Rlocale_uses_12_hour_clock():
+    """R_TRUE when times are shown on 12 hours with AM and PM. With
+    Rlocale_set_clock, what it forces; else, when the application chose a
+    language (Rlocale_set_language), the usage of that language (from CLDR:
+    en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+    others 24); else the setting of the user on the system (Windows, macOS,
+    the LC_TIME of Linux), or the usage of the language of the system."""
+    return _lib.Rlocale_uses_12_hour_clock()
+
+
+_lib.Rlocale_get_day_period.argtypes = [ctypes.c_int]
+_lib.Rlocale_get_day_period.restype = ctypes.c_char_p
+
+
+def Rlocale_get_day_period(pm):
+    """"AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL."""
+    return _r(_lib.Rlocale_get_day_period(pm))
+
+
+_lib.Rlocale_format_time.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rlocale_format_time.restype = ctypes.c_char_p
+
+
+def Rlocale_format_time(hour, minute, second, show_seconds):
+    """A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05"."""
+    return _r(_lib.Rlocale_format_time(hour, minute, second, show_seconds))
+
+
+_lib.Rtimezone_get_system.argtypes = []
+_lib.Rtimezone_get_system.restype = ctypes.c_char_p
+
+
+def Rtimezone_get_system():
+    """The zone of the system ("Europe/Paris"): the TZ variable, the
+    link /etc/localtime, else what the system says; "UTC" when it says
+    nothing. Valid until the next call."""
+    return _r(_lib.Rtimezone_get_system())
+
+
+_lib.Rtimezone_set_directory.argtypes = [ctypes.c_char_p]
+_lib.Rtimezone_set_directory.restype = None
+
+
+def Rtimezone_set_directory(path):
+    """The folder of the tz database (the files "Europe/Paris"...), or
+    the packed tzdata file of Android, to read instead of the system's: for
+    a database shipped with the application, or tests. It is then the only
+    one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+    read so far."""
+    _lib.Rtimezone_set_directory(_s(path))
+
+
+_lib.Rtimezone_is_valid.argtypes = [ctypes.c_char_p]
+_lib.Rtimezone_is_valid.restype = ctypes.c_int
+
+
+def Rtimezone_is_valid(zone):
+    """R_TRUE when the zone is known. Every function takes a name of
+    the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+    NULL / "" for the zone of the system."""
+    return _lib.Rtimezone_is_valid(_s(zone))
+
+
+_lib.Rtimezone_to_local.argtypes = [ctypes.c_char_p, ctypes.c_double, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int)]
+_lib.Rtimezone_to_local.restype = ctypes.c_int
+
+
+def Rtimezone_to_local(zone, utc):
+    """The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone."""
+    year_ = ctypes.c_int()
+    month_ = ctypes.c_int()
+    day_ = ctypes.c_int()
+    hour_ = ctypes.c_int()
+    minute_ = ctypes.c_int()
+    second_ = ctypes.c_int()
+    result = _lib.Rtimezone_to_local(_s(zone), utc, ctypes.byref(year_), ctypes.byref(month_), ctypes.byref(day_), ctypes.byref(hour_), ctypes.byref(minute_), ctypes.byref(second_))
+    return (result, year_.value, month_.value, day_.value, hour_.value, minute_.value, second_.value)
+
+
+_lib.Rtimezone_from_local.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtimezone_from_local.restype = ctypes.c_double
+
+
+def Rtimezone_from_local(zone, year, month, day, hour, minute, second):
+    """The instant a date and time of a zone is. When the clocks go
+    forward, the times they skip do not exist: such a time is moved forward
+    by the length of the gap (02:30 becomes 03:30). When they go back, the
+    times of the hour repeated happen twice: the first is taken (still in
+    summer time). Rtimezone_count_local tells these cases apart."""
+    return _lib.Rtimezone_from_local(_s(zone), year, month, day, hour, minute, second)
+
+
+_lib.Rtimezone_count_local.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+_lib.Rtimezone_count_local.restype = ctypes.c_int
+
+
+def Rtimezone_count_local(zone, year, month, day, hour, minute, second):
+    """How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back)."""
+    return _lib.Rtimezone_count_local(_s(zone), year, month, day, hour, minute, second)
+
+
+_lib.Rtimezone_get_offset.argtypes = [ctypes.c_char_p, ctypes.c_double]
+_lib.Rtimezone_get_offset.restype = ctypes.c_int
+
+
+def Rtimezone_get_offset(zone, utc):
+    """Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer)."""
+    return _lib.Rtimezone_get_offset(_s(zone), utc)
+
+
+_lib.Rtimezone_is_daylight_saving.argtypes = [ctypes.c_char_p, ctypes.c_double]
+_lib.Rtimezone_is_daylight_saving.restype = ctypes.c_int
+
+
+def Rtimezone_is_daylight_saving(zone, utc):
+    """R_TRUE when the zone is on summer (daylight saving) time at the instant."""
+    return _lib.Rtimezone_is_daylight_saving(_s(zone), utc)
+
+
+_lib.Rtimezone_get_abbreviation.argtypes = [ctypes.c_char_p, ctypes.c_double]
+_lib.Rtimezone_get_abbreviation.restype = ctypes.c_char_p
+
+
+def Rtimezone_get_abbreviation(zone, utc):
+    """The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name)."""
+    return _r(_lib.Rtimezone_get_abbreviation(_s(zone), utc))
+
+
+_lib.Rtimezone_get_label.argtypes = [ctypes.c_char_p, ctypes.c_double]
+_lib.Rtimezone_get_label.restype = ctypes.c_char_p
+
+
+def Rtimezone_get_label(zone, utc):
+    """The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name."""
+    return _r(_lib.Rtimezone_get_label(_s(zone), utc))
 
 
 _lib.Raccessibility_set_text_scale.argtypes = [ctypes.c_float]

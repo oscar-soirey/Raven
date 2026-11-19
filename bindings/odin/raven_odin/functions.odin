@@ -14,7 +14,7 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
+// 1063 of the 1417 functions of the C API are here, 32 are written by hand (the other files of this
 // folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
@@ -713,6 +713,20 @@ window_inject_text :: proc(window: Window, text: string) {
 	raw.Rwindow_inject_text(raw.Rid(window), to_cstring(text, &buffer_text))
 }
 
+// The text an input method is composing (preedit: Chinese,
+// Japanese, Korean, dead keys), as the platforms send it. The focused
+// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+// place of its selection, but it is not in its text and no changed
+// callback runs. [selection_start, selection_end) are bytes of `text`:
+// the part the input method works on (underlined thicker), or the caret
+// when they are equal; -1 is the end of `text`. NULL or "" ends the
+// composition without typing anything (cancel). The committed text comes
+// through Rwindow_inject_text, which ends the composition too, and so
+// does a change of focus. Ignored when the focus takes no text.
+window_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rwindow_inject_composition(raw.Rid(window), text, selection_start, selection_end)
+}
+
 // A drag from another application moves over the window
 // (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
@@ -774,6 +788,14 @@ window_replace_text_input :: proc(window: Window, start: i32, end: i32, text: st
 	return raw.Rwindow_replace_text_input(raw.Rid(window), start, end, to_cstring(text, &buffer_text))
 }
 
+// The composition of the input method in progress (UTF-8, valid
+// until it changes) and its selection in bytes; NULL when there is none.
+// Any output pointer may be NULL.
+window_get_text_composition :: proc(window: Window) -> (result: string, selection_start: i32, selection_end: i32) {
+	result = string(raw.Rwindow_get_text_composition(raw.Rid(window), &selection_start, &selection_end))
+	return
+}
+
 // R_TRUE while a menu, list or dialog is open over the window.
 window_has_popup :: proc(window: Window) -> bool {
 	return raw.Rwindow_has_popup(raw.Rid(window)) != 0
@@ -782,7 +804,9 @@ window_has_popup :: proc(window: Window) -> bool {
 // Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 // Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 // outputs when there is no visible editable caret, the window is inactive, or focus changed
-// since painting. Any output pointer may be NULL.
+// since painting. Any output pointer may be NULL. While an input method
+// composes, it is the caret inside the composition: where its candidate
+// window goes.
 window_get_text_input_rect :: proc(window: Window) -> (result: i32, x: i32, y: i32, width: i32, height: i32) {
 	result = raw.Rwindow_get_text_input_rect(raw.Rid(window), &x, &y, &width, &height)
 	return
@@ -2895,6 +2919,25 @@ date_picker_is_open :: proc(date_picker: Widget) -> bool {
 	return raw.Rdate_picker_is_open(raw.Rid(date_picker)) != 0
 }
 
+// The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+date_picker_set_time_zone :: proc(date_picker: Widget, zone: cstring) {
+	raw.Rdate_picker_set_time_zone(raw.Rid(date_picker), zone)
+}
+
+date_picker_get_time_zone :: proc(date_picker: Widget) -> string {
+	return string(raw.Rdate_picker_get_time_zone(raw.Rid(date_picker)))
+}
+
+// Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+date_picker_set_instant :: proc(date_picker: Widget, utc: f64) {
+	raw.Rdate_picker_set_instant(raw.Rid(date_picker), utc)
+}
+
+// The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+date_picker_get_instant :: proc(date_picker: Widget) -> f64 {
+	return raw.Rdate_picker_get_instant(raw.Rid(date_picker))
+}
+
 time_picker_set_time :: proc(time_picker: Widget, hour: i32, minute: i32, second: i32) {
 	raw.Rtime_picker_set_time(raw.Rid(time_picker), hour, minute, second)
 }
@@ -2911,6 +2954,59 @@ time_picker_set_seconds_visible :: proc(time_picker: Widget, visible: bool) {
 // Step of the minutes for the arrows and the wheel (default 1).
 time_picker_set_minute_step :: proc(time_picker: Widget, step: i32) {
 	raw.Rtime_picker_set_minute_step(raw.Rid(time_picker), step)
+}
+
+// 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+time_picker_set_clock :: proc(time_picker: Widget, clock: Clock) {
+	raw.Rtime_picker_set_clock(raw.Rid(time_picker), raw.RClock(clock))
+}
+
+time_picker_get_clock :: proc(time_picker: Widget) -> Clock {
+	return Clock(raw.Rtime_picker_get_clock(raw.Rid(time_picker)))
+}
+
+// The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+time_picker_get_text :: proc(time_picker: Widget) -> string {
+	return string(raw.Rtime_picker_get_text(raw.Rid(time_picker)))
+}
+
+// The time zone of the time ("America/New_York", see
+// Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+// unknown zone is refused. TimeZone="..." in XML.
+time_picker_set_time_zone :: proc(time_picker: Widget, zone: cstring) {
+	raw.Rtime_picker_set_time_zone(raw.Rid(time_picker), zone)
+}
+
+// The zone set, "" for none.
+time_picker_get_time_zone :: proc(time_picker: Widget) -> string {
+	return string(raw.Rtime_picker_get_time_zone(raw.Rid(time_picker)))
+}
+
+// Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+time_picker_set_time_zone_visible :: proc(time_picker: Widget, visible: bool) {
+	raw.Rtime_picker_set_time_zone_visible(raw.Rid(time_picker), (1 if visible else 0))
+}
+
+// The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+time_picker_set_date :: proc(time_picker: Widget, year: i32, month: i32, day: i32) {
+	raw.Rtime_picker_set_date(raw.Rid(time_picker), year, month, day)
+}
+
+time_picker_get_date :: proc(time_picker: Widget) -> (year: i32, month: i32, day: i32) {
+	raw.Rtime_picker_get_date(raw.Rid(time_picker), &year, &month, &day)
+	return
+}
+
+// Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+time_picker_set_instant :: proc(time_picker: Widget, utc: f64) {
+	raw.Rtime_picker_set_instant(raw.Rid(time_picker), utc)
+}
+
+// The instant the day and the time are in the zone. A time the
+// clocks skipped is moved forward, a time they repeated is the first
+// (see Rtimezone_from_local).
+time_picker_get_instant :: proc(time_picker: Widget) -> f64 {
+	return raw.Rtime_picker_get_instant(raw.Rid(time_picker))
 }
 
 // Shows a message for `seconds` (0 or less: until Rtoast_hide), with the kind and button set now.
@@ -5747,6 +5843,107 @@ locale_format_number :: proc(value: f64, decimals: i32) -> string {
 	return string(raw.Rlocale_format_number(value, decimals))
 }
 
+// Forces the clock of every time shown (a setting of the
+// application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+// to follow the locale. A TimePicker can still choose its own (Clock="24").
+locale_set_clock :: proc(clock: Clock) {
+	raw.Rlocale_set_clock(raw.RClock(clock))
+}
+
+locale_get_clock :: proc() -> Clock {
+	return Clock(raw.Rlocale_get_clock())
+}
+
+// R_TRUE when times are shown on 12 hours with AM and PM. With
+// Rlocale_set_clock, what it forces; else, when the application chose a
+// language (Rlocale_set_language), the usage of that language (from CLDR:
+// en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+// others 24); else the setting of the user on the system (Windows, macOS,
+// the LC_TIME of Linux), or the usage of the language of the system.
+locale_uses_12_hour_clock :: proc() -> i32 {
+	return raw.Rlocale_uses_12_hour_clock()
+}
+
+// "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+locale_get_day_period :: proc(pm: i32) -> string {
+	return string(raw.Rlocale_get_day_period(pm))
+}
+
+// A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+locale_format_time :: proc(hour: i32, minute: i32, second: i32, show_seconds: i32) -> string {
+	return string(raw.Rlocale_format_time(hour, minute, second, show_seconds))
+}
+
+// The zone of the system ("Europe/Paris"): the TZ variable, the
+// link /etc/localtime, else what the system says; "UTC" when it says
+// nothing. Valid until the next call.
+timezone_get_system :: proc() -> string {
+	return string(raw.Rtimezone_get_system())
+}
+
+// The folder of the tz database (the files "Europe/Paris"...), or
+// the packed tzdata file of Android, to read instead of the system's: for
+// a database shipped with the application, or tests. It is then the only
+// one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+// read so far.
+timezone_set_directory :: proc(path: cstring) {
+	raw.Rtimezone_set_directory(path)
+}
+
+// R_TRUE when the zone is known. Every function takes a name of
+// the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+// NULL / "" for the zone of the system.
+timezone_is_valid :: proc(zone: cstring) -> bool {
+	return raw.Rtimezone_is_valid(zone) != 0
+}
+
+// The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+timezone_to_local :: proc(zone: string, utc: f64) -> (result: i32, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) {
+	buffer_zone: [cstring_buffer_size]u8
+	result = raw.Rtimezone_to_local(to_cstring(zone, &buffer_zone), utc, &year, &month, &day, &hour, &minute, &second)
+	return
+}
+
+// The instant a date and time of a zone is. When the clocks go
+// forward, the times they skip do not exist: such a time is moved forward
+// by the length of the gap (02:30 becomes 03:30). When they go back, the
+// times of the hour repeated happen twice: the first is taken (still in
+// summer time). Rtimezone_count_local tells these cases apart.
+timezone_from_local :: proc(zone: string, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) -> f64 {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_from_local(to_cstring(zone, &buffer_zone), year, month, day, hour, minute, second)
+}
+
+// How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+timezone_count_local :: proc(zone: string, year: i32, month: i32, day: i32, hour: i32, minute: i32, second: i32) -> i32 {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_count_local(to_cstring(zone, &buffer_zone), year, month, day, hour, minute, second)
+}
+
+// Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+timezone_get_offset :: proc(zone: string, utc: f64) -> i32 {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_get_offset(to_cstring(zone, &buffer_zone), utc)
+}
+
+// R_TRUE when the zone is on summer (daylight saving) time at the instant.
+timezone_is_daylight_saving :: proc(zone: string, utc: f64) -> bool {
+	buffer_zone: [cstring_buffer_size]u8
+	return raw.Rtimezone_is_daylight_saving(to_cstring(zone, &buffer_zone), utc) != 0
+}
+
+// The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+timezone_get_abbreviation :: proc(zone: string, utc: f64) -> string {
+	buffer_zone: [cstring_buffer_size]u8
+	return string(raw.Rtimezone_get_abbreviation(to_cstring(zone, &buffer_zone), utc))
+}
+
+// The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+timezone_get_label :: proc(zone: string, utc: f64) -> string {
+	buffer_zone: [cstring_buffer_size]u8
+	return string(raw.Rtimezone_get_label(to_cstring(zone, &buffer_zone), utc))
+}
+
 // Size of every text, 1 = as designed (0.5 to 4). Controls grow with their text.
 accessibility_set_text_scale :: proc(scale: f32) {
 	raw.Raccessibility_set_text_scale(scale)
@@ -5897,6 +6094,15 @@ host_inject_key :: proc(window: Window, key: Key, pressed: bool, modifiers: u32,
 // One typed Unicode code point.
 host_inject_text :: proc(window: Window, codepoint: u32) {
 	raw.Rhost_inject_text(raw.Rid(window), codepoint)
+}
+
+// The input method of the application's system composes `text`
+// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+// NULL or "" cancels it; the committed text then comes through
+// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+// candidate window.
+host_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rhost_inject_composition(raw.Rid(window), text, selection_start, selection_end)
 }
 
 // The window gained or lost the keyboard. Losing it closes popups and drops captures.

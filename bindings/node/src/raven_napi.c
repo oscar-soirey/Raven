@@ -631,11 +631,25 @@ static struct {
 	void (*Rdate_picker_set_open)(Rid, int);
 	int (*Rdate_picker_is_open)(Rid);
 	void (*Rdate_picker_set_changed_callback)(Rid, RDateChangedCallback, void*);
+	void (*Rdate_picker_set_time_zone)(Rid, const char*);
+	const char* (*Rdate_picker_get_time_zone)(Rid);
+	void (*Rdate_picker_set_instant)(Rid, double);
+	double (*Rdate_picker_get_instant)(Rid);
 	void (*Rtime_picker_set_time)(Rid, int, int, int);
 	void (*Rtime_picker_get_time)(Rid, int*, int*, int*);
 	void (*Rtime_picker_set_seconds_visible)(Rid, int);
 	void (*Rtime_picker_set_minute_step)(Rid, int);
 	void (*Rtime_picker_set_changed_callback)(Rid, RTimeChangedCallback, void*);
+	void (*Rtime_picker_set_clock)(Rid, RClock);
+	RClock (*Rtime_picker_get_clock)(Rid);
+	const char* (*Rtime_picker_get_text)(Rid);
+	void (*Rtime_picker_set_time_zone)(Rid, const char*);
+	const char* (*Rtime_picker_get_time_zone)(Rid);
+	void (*Rtime_picker_set_time_zone_visible)(Rid, int);
+	void (*Rtime_picker_set_date)(Rid, int, int, int);
+	void (*Rtime_picker_get_date)(Rid, int*, int*, int*);
+	void (*Rtime_picker_set_instant)(Rid, double);
+	double (*Rtime_picker_get_instant)(Rid);
 	void (*Rtoast_show)(Rid, const char*, double);
 	void (*Rtoast_show_kind)(Rid, const char*, RToastKind, double);
 	void (*Rtoast_hide)(Rid);
@@ -1356,6 +1370,21 @@ static struct {
 	const char* (*Rtr_plural)(const char*, int);
 	void (*Rwidget_set_text_key)(Rid, const char*, const char*);
 	const char* (*Rlocale_format_number)(double, int);
+	void (*Rlocale_set_clock)(RClock);
+	RClock (*Rlocale_get_clock)(void);
+	int (*Rlocale_uses_12_hour_clock)(void);
+	const char* (*Rlocale_get_day_period)(int);
+	const char* (*Rlocale_format_time)(int, int, int, int);
+	const char* (*Rtimezone_get_system)(void);
+	void (*Rtimezone_set_directory)(const char*);
+	int (*Rtimezone_is_valid)(const char*);
+	int (*Rtimezone_to_local)(const char*, double, int*, int*, int*, int*, int*, int*);
+	double (*Rtimezone_from_local)(const char*, int, int, int, int, int, int);
+	int (*Rtimezone_count_local)(const char*, int, int, int, int, int, int);
+	int (*Rtimezone_get_offset)(const char*, double);
+	int (*Rtimezone_is_daylight_saving)(const char*, double);
+	const char* (*Rtimezone_get_abbreviation)(const char*, double);
+	const char* (*Rtimezone_get_label)(const char*, double);
 	void (*Raccessibility_set_text_scale)(float);
 	float (*Raccessibility_get_text_scale)(void);
 	void (*Raccessibility_set_high_contrast)(int);
@@ -2025,11 +2054,25 @@ static const struct {
 	{"Rdate_picker_set_open", offsetof(__typeof__(rn), Rdate_picker_set_open)},
 	{"Rdate_picker_is_open", offsetof(__typeof__(rn), Rdate_picker_is_open)},
 	{"Rdate_picker_set_changed_callback", offsetof(__typeof__(rn), Rdate_picker_set_changed_callback)},
+	{"Rdate_picker_set_time_zone", offsetof(__typeof__(rn), Rdate_picker_set_time_zone)},
+	{"Rdate_picker_get_time_zone", offsetof(__typeof__(rn), Rdate_picker_get_time_zone)},
+	{"Rdate_picker_set_instant", offsetof(__typeof__(rn), Rdate_picker_set_instant)},
+	{"Rdate_picker_get_instant", offsetof(__typeof__(rn), Rdate_picker_get_instant)},
 	{"Rtime_picker_set_time", offsetof(__typeof__(rn), Rtime_picker_set_time)},
 	{"Rtime_picker_get_time", offsetof(__typeof__(rn), Rtime_picker_get_time)},
 	{"Rtime_picker_set_seconds_visible", offsetof(__typeof__(rn), Rtime_picker_set_seconds_visible)},
 	{"Rtime_picker_set_minute_step", offsetof(__typeof__(rn), Rtime_picker_set_minute_step)},
 	{"Rtime_picker_set_changed_callback", offsetof(__typeof__(rn), Rtime_picker_set_changed_callback)},
+	{"Rtime_picker_set_clock", offsetof(__typeof__(rn), Rtime_picker_set_clock)},
+	{"Rtime_picker_get_clock", offsetof(__typeof__(rn), Rtime_picker_get_clock)},
+	{"Rtime_picker_get_text", offsetof(__typeof__(rn), Rtime_picker_get_text)},
+	{"Rtime_picker_set_time_zone", offsetof(__typeof__(rn), Rtime_picker_set_time_zone)},
+	{"Rtime_picker_get_time_zone", offsetof(__typeof__(rn), Rtime_picker_get_time_zone)},
+	{"Rtime_picker_set_time_zone_visible", offsetof(__typeof__(rn), Rtime_picker_set_time_zone_visible)},
+	{"Rtime_picker_set_date", offsetof(__typeof__(rn), Rtime_picker_set_date)},
+	{"Rtime_picker_get_date", offsetof(__typeof__(rn), Rtime_picker_get_date)},
+	{"Rtime_picker_set_instant", offsetof(__typeof__(rn), Rtime_picker_set_instant)},
+	{"Rtime_picker_get_instant", offsetof(__typeof__(rn), Rtime_picker_get_instant)},
 	{"Rtoast_show", offsetof(__typeof__(rn), Rtoast_show)},
 	{"Rtoast_show_kind", offsetof(__typeof__(rn), Rtoast_show_kind)},
 	{"Rtoast_hide", offsetof(__typeof__(rn), Rtoast_hide)},
@@ -2750,6 +2793,21 @@ static const struct {
 	{"Rtr_plural", offsetof(__typeof__(rn), Rtr_plural)},
 	{"Rwidget_set_text_key", offsetof(__typeof__(rn), Rwidget_set_text_key)},
 	{"Rlocale_format_number", offsetof(__typeof__(rn), Rlocale_format_number)},
+	{"Rlocale_set_clock", offsetof(__typeof__(rn), Rlocale_set_clock)},
+	{"Rlocale_get_clock", offsetof(__typeof__(rn), Rlocale_get_clock)},
+	{"Rlocale_uses_12_hour_clock", offsetof(__typeof__(rn), Rlocale_uses_12_hour_clock)},
+	{"Rlocale_get_day_period", offsetof(__typeof__(rn), Rlocale_get_day_period)},
+	{"Rlocale_format_time", offsetof(__typeof__(rn), Rlocale_format_time)},
+	{"Rtimezone_get_system", offsetof(__typeof__(rn), Rtimezone_get_system)},
+	{"Rtimezone_set_directory", offsetof(__typeof__(rn), Rtimezone_set_directory)},
+	{"Rtimezone_is_valid", offsetof(__typeof__(rn), Rtimezone_is_valid)},
+	{"Rtimezone_to_local", offsetof(__typeof__(rn), Rtimezone_to_local)},
+	{"Rtimezone_from_local", offsetof(__typeof__(rn), Rtimezone_from_local)},
+	{"Rtimezone_count_local", offsetof(__typeof__(rn), Rtimezone_count_local)},
+	{"Rtimezone_get_offset", offsetof(__typeof__(rn), Rtimezone_get_offset)},
+	{"Rtimezone_is_daylight_saving", offsetof(__typeof__(rn), Rtimezone_is_daylight_saving)},
+	{"Rtimezone_get_abbreviation", offsetof(__typeof__(rn), Rtimezone_get_abbreviation)},
+	{"Rtimezone_get_label", offsetof(__typeof__(rn), Rtimezone_get_label)},
 	{"Raccessibility_set_text_scale", offsetof(__typeof__(rn), Raccessibility_set_text_scale)},
 	{"Raccessibility_get_text_scale", offsetof(__typeof__(rn), Raccessibility_get_text_scale)},
 	{"Raccessibility_set_high_contrast", offsetof(__typeof__(rn), Raccessibility_set_high_contrast)},
@@ -14776,6 +14834,62 @@ static napi_value rn_w_Rdate_picker_set_changed_callback(napi_env env, napi_call
 	return result_;
 }
 
+static napi_value rn_w_Rdate_picker_set_time_zone(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rdate_picker_set_time_zone((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rdate_picker_get_time_zone(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rdate_picker_get_time_zone((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rdate_picker_set_instant(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	rn.Rdate_picker_set_instant((Rid)a0, (double)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rdate_picker_get_instant(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	double value_ = rn.Rdate_picker_get_instant((Rid)a0);
+	napi_create_double(env, value_, &result_);
+	return result_;
+}
+
 static napi_value rn_w_Rtime_picker_set_time(napi_env env, napi_callback_info info) {
 	size_t argc = 4;
 	napi_value argv[4];
@@ -14871,6 +14985,162 @@ static napi_value rn_w_Rtime_picker_set_changed_callback(napi_env env, napi_call
 	}
 	rn.Rtime_picker_set_changed_callback((Rid)a0, cb_ ? (RTimeChangedCallback)rn_t_RTimeChangedCallback : (RTimeChangedCallback)n0_, cb_ ? (void*)cb_ : a2);
 	rn_bind(a0, RN_OWNER_WIDGET, 55, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_set_clock(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtime_picker_set_clock((Rid)a0, (RClock)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_get_clock(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	{
+		int value_ = (int)rn.Rtime_picker_get_clock((Rid)a0);
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_get_text(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rtime_picker_get_text((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_set_time_zone(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	rn.Rtime_picker_set_time_zone((Rid)a0, a1.p);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_get_time_zone(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rtime_picker_get_time_zone((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_set_time_zone_visible(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtime_picker_set_time_zone_visible((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_set_date(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	rn.Rtime_picker_set_date((Rid)a0, (int)a1, (int)a2, (int)a3);
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_get_date(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1 = 0;
+	int a2 = 0;
+	int a3 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rtime_picker_get_date((Rid)a0, &a1, &a2, &a3);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a1, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a2, &o1_);
+		napi_value o2_;
+		napi_create_int32(env, (int32_t)a3, &o2_);
+		{
+			const napi_value values_[3] = {o0_, o1_, o2_};
+			result_ = rn_tuple(env, 3, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_set_instant(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	double a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_double(env, argv[1], &a1)) return NULL;
+	rn.Rtime_picker_set_instant((Rid)a0, (double)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtime_picker_get_instant(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	double value_ = rn.Rtime_picker_get_instant((Rid)a0);
+	napi_create_double(env, value_, &result_);
 	return result_;
 }
 
@@ -27089,6 +27359,275 @@ static napi_value rn_w_Rlocale_format_number(napi_env env, napi_callback_info in
 	return result_;
 }
 
+static napi_value rn_w_Rlocale_set_clock(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	rn.Rlocale_set_clock((RClock)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rlocale_get_clock(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	{
+		int value_ = (int)rn.Rlocale_get_clock();
+		napi_create_int32(env, value_, &result_);
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rlocale_uses_12_hour_clock(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	int value_ = rn.Rlocale_uses_12_hour_clock();
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rlocale_get_day_period(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rlocale_get_day_period((int)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rlocale_format_time(napi_env env, napi_callback_info info) {
+	size_t argc = 4;
+	napi_value argv[4];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	int a1;
+	int a2;
+	int a3;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	if (!rn_get_int(env, argv[2], &a2)) return NULL;
+	if (!rn_get_int(env, argv[3], &a3)) return NULL;
+	result_ = rn_make_text(env, rn.Rlocale_format_time((int)a0, (int)a1, (int)a2, (int)a3));
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_get_system(napi_env env, napi_callback_info info) {
+	napi_value result_ = NULL;
+	(void)env;
+	(void)info;
+	result_ = rn_make_text(env, rn.Rtimezone_get_system());
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_set_directory(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	rn.Rtimezone_set_directory(a0.p);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_is_valid(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	int value_ = rn.Rtimezone_is_valid(a0.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_to_local(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	double a1;
+	int a2 = 0;
+	int a3 = 0;
+	int a4 = 0;
+	int a5 = 0;
+	int a6 = 0;
+	int a7 = 0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_double(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtimezone_to_local(a0.p, (double)a1, &a2, &a3, &a4, &a5, &a6, &a7);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a2, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a3, &o1_);
+		napi_value o2_;
+		napi_create_int32(env, (int32_t)a4, &o2_);
+		napi_value o3_;
+		napi_create_int32(env, (int32_t)a5, &o3_);
+		napi_value o4_;
+		napi_create_int32(env, (int32_t)a6, &o4_);
+		napi_value o5_;
+		napi_create_int32(env, (int32_t)a7, &o5_);
+		{
+			const napi_value values_[7] = {result_, o0_, o1_, o2_, o3_, o4_, o5_};
+			result_ = rn_tuple(env, 7, values_);
+		}
+	}
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_from_local(napi_env env, napi_callback_info info) {
+	size_t argc = 7;
+	napi_value argv[7];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int a6;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_int(env, argv[3], &a3)) goto done;
+	if (!rn_get_int(env, argv[4], &a4)) goto done;
+	if (!rn_get_int(env, argv[5], &a5)) goto done;
+	if (!rn_get_int(env, argv[6], &a6)) goto done;
+	double value_ = rn.Rtimezone_from_local(a0.p, (int)a1, (int)a2, (int)a3, (int)a4, (int)a5, (int)a6);
+	napi_create_double(env, value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_count_local(napi_env env, napi_callback_info info) {
+	size_t argc = 7;
+	napi_value argv[7];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	int a1;
+	int a2;
+	int a3;
+	int a4;
+	int a5;
+	int a6;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_int(env, argv[1], &a1)) goto done;
+	if (!rn_get_int(env, argv[2], &a2)) goto done;
+	if (!rn_get_int(env, argv[3], &a3)) goto done;
+	if (!rn_get_int(env, argv[4], &a4)) goto done;
+	if (!rn_get_int(env, argv[5], &a5)) goto done;
+	if (!rn_get_int(env, argv[6], &a6)) goto done;
+	int value_ = rn.Rtimezone_count_local(a0.p, (int)a1, (int)a2, (int)a3, (int)a4, (int)a5, (int)a6);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_get_offset(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	double a1;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_double(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtimezone_get_offset(a0.p, (double)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_is_daylight_saving(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	double a1;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_double(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtimezone_is_daylight_saving(a0.p, (double)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_get_abbreviation(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	double a1;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_double(env, argv[1], &a1)) goto done;
+	result_ = rn_make_text(env, rn.Rtimezone_get_abbreviation(a0.p, (double)a1));
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtimezone_get_label(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	double a1;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	if (!rn_get_double(env, argv[1], &a1)) goto done;
+	result_ = rn_make_text(env, rn.Rtimezone_get_label(a0.p, (double)a1));
+done:
+	free(a0.heap);
+	return result_;
+}
+
 static napi_value rn_w_Raccessibility_set_text_scale(napi_env env, napi_callback_info info) {
 	size_t argc = 1;
 	napi_value argv[1];
@@ -28718,11 +29257,25 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rdate_picker_set_open", NULL, rn_w_Rdate_picker_set_open, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_is_open", NULL, rn_w_Rdate_picker_is_open, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rdate_picker_set_changed_callback", NULL, rn_w_Rdate_picker_set_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdate_picker_set_time_zone", NULL, rn_w_Rdate_picker_set_time_zone, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdate_picker_get_time_zone", NULL, rn_w_Rdate_picker_get_time_zone, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdate_picker_set_instant", NULL, rn_w_Rdate_picker_set_instant, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rdate_picker_get_instant", NULL, rn_w_Rdate_picker_get_instant, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtime_picker_set_time", NULL, rn_w_Rtime_picker_set_time, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtime_picker_get_time", NULL, rn_w_Rtime_picker_get_time, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtime_picker_set_seconds_visible", NULL, rn_w_Rtime_picker_set_seconds_visible, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtime_picker_set_minute_step", NULL, rn_w_Rtime_picker_set_minute_step, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtime_picker_set_changed_callback", NULL, rn_w_Rtime_picker_set_changed_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_set_clock", NULL, rn_w_Rtime_picker_set_clock, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_get_clock", NULL, rn_w_Rtime_picker_get_clock, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_get_text", NULL, rn_w_Rtime_picker_get_text, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_set_time_zone", NULL, rn_w_Rtime_picker_set_time_zone, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_get_time_zone", NULL, rn_w_Rtime_picker_get_time_zone, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_set_time_zone_visible", NULL, rn_w_Rtime_picker_set_time_zone_visible, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_set_date", NULL, rn_w_Rtime_picker_set_date, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_get_date", NULL, rn_w_Rtime_picker_get_date, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_set_instant", NULL, rn_w_Rtime_picker_set_instant, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtime_picker_get_instant", NULL, rn_w_Rtime_picker_get_instant, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtoast_show", NULL, rn_w_Rtoast_show, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtoast_show_kind", NULL, rn_w_Rtoast_show_kind, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtoast_hide", NULL, rn_w_Rtoast_hide, NULL, NULL, NULL, napi_enumerable, NULL},
@@ -29443,6 +29996,21 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtr_plural", NULL, rn_w_Rtr_plural, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rwidget_set_text_key", NULL, rn_w_Rwidget_set_text_key, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rlocale_format_number", NULL, rn_w_Rlocale_format_number, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rlocale_set_clock", NULL, rn_w_Rlocale_set_clock, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rlocale_get_clock", NULL, rn_w_Rlocale_get_clock, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rlocale_uses_12_hour_clock", NULL, rn_w_Rlocale_uses_12_hour_clock, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rlocale_get_day_period", NULL, rn_w_Rlocale_get_day_period, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rlocale_format_time", NULL, rn_w_Rlocale_format_time, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_get_system", NULL, rn_w_Rtimezone_get_system, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_set_directory", NULL, rn_w_Rtimezone_set_directory, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_is_valid", NULL, rn_w_Rtimezone_is_valid, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_to_local", NULL, rn_w_Rtimezone_to_local, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_from_local", NULL, rn_w_Rtimezone_from_local, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_count_local", NULL, rn_w_Rtimezone_count_local, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_get_offset", NULL, rn_w_Rtimezone_get_offset, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_is_daylight_saving", NULL, rn_w_Rtimezone_is_daylight_saving, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_get_abbreviation", NULL, rn_w_Rtimezone_get_abbreviation, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtimezone_get_label", NULL, rn_w_Rtimezone_get_label, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Raccessibility_set_text_scale", NULL, rn_w_Raccessibility_set_text_scale, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Raccessibility_get_text_scale", NULL, rn_w_Raccessibility_get_text_scale, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Raccessibility_set_high_contrast", NULL, rn_w_Raccessibility_set_high_contrast, NULL, NULL, NULL, napi_enumerable, NULL},

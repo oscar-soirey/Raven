@@ -2,7 +2,7 @@
 #
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
-#   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
+#   test_locale, test_datetime, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
 #   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_testing
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
@@ -71,6 +71,15 @@ if(NOT RAVEN_BUILD_SHARED)
 	target_compile_definitions(test_effect_hover PRIVATE "RAVEN_TEST_LIQUID=\"${PROJECT_SOURCE_DIR}/examples/effects/liquid.spv\"")
 endif()
 raven_add_test(test_locale)
+# the clock of the locale, the TimePicker on 12 hours, time zones read from tests/data/zoneinfo
+raven_add_test(test_datetime)
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output")
+target_compile_definitions(test_datetime PRIVATE
+	"RAVEN_TEST_ZONEINFO=\"${CMAKE_CURRENT_SOURCE_DIR}/data/zoneinfo\""
+	"RAVEN_TEST_OUTPUT=\"${CMAKE_CURRENT_BINARY_DIR}/test_datetime_output\"")
+if(RAVEN_BUILD_SHARED)
+	target_compile_definitions(test_datetime PRIVATE RAVEN_TEST_SHARED)
+endif()
 if(NOT RAVEN_BUILD_SHARED)
 	# Tests the shared screen-reader tree/actions used by all native platforms.
 	raven_add_test(test_accessibility)

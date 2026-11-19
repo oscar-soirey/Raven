@@ -1058,6 +1058,13 @@ export const RXmlValueType = _enum({
 });
 export const { R_XML_TEXT, R_XML_BOOL, R_XML_NUMBER, R_XML_CHOICE, R_XML_COLOR, R_XML_ACTION, R_XML_FILE, R_XML_NUMBERS, R_XML_LIST } = RXmlValueType;
 
+export const RClock = _enum({
+	R_CLOCK_AUTO: 3120,
+	R_CLOCK_12_HOUR: 3121,
+	R_CLOCK_24_HOUR: 3122,
+});
+export const { R_CLOCK_AUTO, R_CLOCK_12_HOUR, R_CLOCK_24_HOUR } = RClock;
+
 export const RColorFilter = _enum({
 	R_COLOR_FILTER_NONE: 1856,
 	R_COLOR_FILTER_PROTANOPIA: 1857,
@@ -3957,11 +3964,25 @@ export const Rdate_picker_get_text = _lib.Rdate_picker_get_text;
 export const Rdate_picker_set_open = _lib.Rdate_picker_set_open;
 export const Rdate_picker_is_open = _lib.Rdate_picker_is_open;
 export const Rdate_picker_set_changed_callback = _lib.Rdate_picker_set_changed_callback;
+export const Rdate_picker_set_time_zone = _lib.Rdate_picker_set_time_zone;
+export const Rdate_picker_get_time_zone = _lib.Rdate_picker_get_time_zone;
+export const Rdate_picker_set_instant = _lib.Rdate_picker_set_instant;
+export const Rdate_picker_get_instant = _lib.Rdate_picker_get_instant;
 export const Rtime_picker_set_time = _lib.Rtime_picker_set_time;
 export const Rtime_picker_get_time = _lib.Rtime_picker_get_time;
 export const Rtime_picker_set_seconds_visible = _lib.Rtime_picker_set_seconds_visible;
 export const Rtime_picker_set_minute_step = _lib.Rtime_picker_set_minute_step;
 export const Rtime_picker_set_changed_callback = _lib.Rtime_picker_set_changed_callback;
+export const Rtime_picker_set_clock = _lib.Rtime_picker_set_clock;
+export const Rtime_picker_get_clock = _lib.Rtime_picker_get_clock;
+export const Rtime_picker_get_text = _lib.Rtime_picker_get_text;
+export const Rtime_picker_set_time_zone = _lib.Rtime_picker_set_time_zone;
+export const Rtime_picker_get_time_zone = _lib.Rtime_picker_get_time_zone;
+export const Rtime_picker_set_time_zone_visible = _lib.Rtime_picker_set_time_zone_visible;
+export const Rtime_picker_set_date = _lib.Rtime_picker_set_date;
+export const Rtime_picker_get_date = _lib.Rtime_picker_get_date;
+export const Rtime_picker_set_instant = _lib.Rtime_picker_set_instant;
+export const Rtime_picker_get_instant = _lib.Rtime_picker_get_instant;
 export const Rtoast_show = _lib.Rtoast_show;
 export const Rtoast_show_kind = _lib.Rtoast_show_kind;
 export const Rtoast_hide = _lib.Rtoast_hide;
@@ -4728,6 +4749,21 @@ export const Rtr_format = _lib.Rtr_format;
 export const Rtr_plural = _lib.Rtr_plural;
 export const Rwidget_set_text_key = _lib.Rwidget_set_text_key;
 export const Rlocale_format_number = _lib.Rlocale_format_number;
+export const Rlocale_set_clock = _lib.Rlocale_set_clock;
+export const Rlocale_get_clock = _lib.Rlocale_get_clock;
+export const Rlocale_uses_12_hour_clock = _lib.Rlocale_uses_12_hour_clock;
+export const Rlocale_get_day_period = _lib.Rlocale_get_day_period;
+export const Rlocale_format_time = _lib.Rlocale_format_time;
+export const Rtimezone_get_system = _lib.Rtimezone_get_system;
+export const Rtimezone_set_directory = _lib.Rtimezone_set_directory;
+export const Rtimezone_is_valid = _lib.Rtimezone_is_valid;
+export const Rtimezone_to_local = _lib.Rtimezone_to_local;
+export const Rtimezone_from_local = _lib.Rtimezone_from_local;
+export const Rtimezone_count_local = _lib.Rtimezone_count_local;
+export const Rtimezone_get_offset = _lib.Rtimezone_get_offset;
+export const Rtimezone_is_daylight_saving = _lib.Rtimezone_is_daylight_saving;
+export const Rtimezone_get_abbreviation = _lib.Rtimezone_get_abbreviation;
+export const Rtimezone_get_label = _lib.Rtimezone_get_label;
 export const Raccessibility_set_text_scale = _lib.Raccessibility_set_text_scale;
 export const Raccessibility_get_text_scale = _lib.Raccessibility_get_text_scale;
 export const Raccessibility_set_high_contrast = _lib.Raccessibility_set_high_contrast;

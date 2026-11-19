@@ -296,12 +296,17 @@ static const rvn_schema_attribute_t g_date_picker[] = {
 	T("Max", "The latest date that can be chosen, \"YYYY-MM-DD\"."),
 	C("FirstDayOfWeek", "Sunday|Monday|Saturday", "The day the weeks of the calendar start with (or 0 to 6)."),
 	T("Format", "How the date is written: YYYY, MM, M, DD, D, MMMM, MMM, dddd, ddd; default YYYY-MM-DD."),
+	T("TimeZone", "The time zone of the date for Rdate_picker_get_instant: \"Europe/Paris\"; empty: the zone of the system."),
 	A("OnChanged", "Action fired when the user chooses a date."),
 };
 static const rvn_schema_attribute_t g_time_picker[] = {
 	T("Time", "The time, \"HH:MM\" or \"HH:MM:SS\"."),
 	B("ShowSeconds", "Shows the seconds."),
 	N("MinuteStep", "Step of the minutes for the arrows and the wheel."),
+	C("Clock", "Auto|12|24", "12 hours with AM and PM, or 24 hours; Auto: as the locale does."),
+	T("TimeZone", "The time zone of the time: \"America/New_York\", \"Europe/Paris\"; empty: the zone of the system."),
+	B("ShowTimeZone", "Writes the time zone after the time (\"EST\", \"CET\", \"UTC+3\")."),
+	T("Date", "The day of the time, for its time zone: \"YYYY-MM-DD\" or Today (default)."),
 	A("OnChanged", "Action fired when the user changes the time."),
 };
 static const rvn_schema_attribute_t g_toast[] = {

@@ -304,6 +304,8 @@ panel uses the attributes that make sense for it.
 | `SpinBox` | `Min`, `Max`, `Value`, `Step`, `Decimals`, `Buttons` (step buttons in the looks of Raven too) |
 | `TextInput` (`TextBox`, `EditableText`) | `Text`, `Placeholder`, `Password`, `ReadOnly`, `MaxLength` |
 | `ComboBox` | `Selected` (index), items as children `<Item Text="..."/>` or `Items="A|B|C"` |
+| `DatePicker` | `Date` (`YYYY-MM-DD` or `Today`), `Min`, `Max`, `FirstDayOfWeek` (`Sunday Monday Saturday` or 0 to 6), `Format` (`D MMMM YYYY`...), `TimeZone` (of `Rdate_picker_get_instant`), `OnChanged` |
+| `TimePicker` | `Time` (`HH:MM` or `HH:MM:SS`, on 24 hours), `ShowSeconds`, `MinuteStep`, `Clock` (`Auto`: as the locale does; `12`: 1 to 12 with AM and PM; `24`), `TimeZone` (`America/New_York`, `Europe/Paris`; empty: the zone of the system), `ShowTimeZone` (writes the zone after the time: `EST`, `CET`, `UTC+3`), `Date` (the day of the time, for its zone; `Today` by default), `OnChanged` |
 | `ListView` | `Selected`, items as children `<Item>` or `Items="A|B|C"` (large lists: `Rlist_view_set_virtual_items`) |
 | `TreeView` | nested `<Item Text="..." Expanded="true">` children |
 | `Image` | `Source` (path of an image), `Tint`, `Stretch` (`Fill Fit Cover None`), `Region` (`u0,v0,u1,v1`), `CornerRadius` |

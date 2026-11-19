@@ -13,6 +13,7 @@
 #define RAVEN_CONTROLS_H
 
 #include "raven_widget.h"
+#include "raven_locale.h"
 
 
 typedef enum RTextAlign{
@@ -882,12 +883,31 @@ extern "C" {
 	/** @brief Called when the user chooses a date. This also fires the action of the widget. */
 	typedef void (*RDateChangedCallback)(Rid date_picker, int year, int month, int day, void* user_data);
 	RAVEN_API void Rdate_picker_set_changed_callback(Rid date_picker, RDateChangedCallback callback, void* user_data);
+	/** @brief The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML. */
+	RAVEN_API void Rdate_picker_set_time_zone(Rid date_picker, const char* zone);
+	RAVEN_API const char* Rdate_picker_get_time_zone(Rid date_picker);
+	/** @brief Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker. */
+	RAVEN_API void Rdate_picker_set_instant(Rid date_picker, double utc);
+	/** @brief The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to). */
+	RAVEN_API double Rdate_picker_get_instant(Rid date_picker);
 
 
 	/* ============================================================================
-	 *  TIME PICKER (hours : minutes [: seconds], 24 hours)
+	 *  TIME PICKER (hours : minutes [: seconds], on 12 or 24 hours, in a time zone)
 	 *
-	 * A click on a part selects it; the arrows, the wheel or the digits change it.
+	 *      <TimePicker Time="15:30" Clock="Auto" TimeZone="America/New_York" ShowTimeZone="true"/>
+	 *
+	 * A click on a part selects it; the arrows, the wheel or the digits change
+	 * it. On 12 hours (the clock of the locale, see Rlocale_uses_12_hour_clock,
+	 * or Clock="12") the hours show 1 to 12 and a part shows AM or PM: A and P
+	 * (or the first letter of the AM and PM of the language) choose it, the
+	 * arrows on it switch it, and the hours go on from 11 AM to 12 PM. The
+	 * values given and returned stay on 24 hours (0 to 23).
+	 *
+	 * With a time zone, the time is a time of a day in that zone (today
+	 * unless Rtime_picker_set_date says another): Rtime_picker_get_instant
+	 * gives the instant it is, and ShowTimeZone writes the zone after it
+	 * ("EST", "CET", "UTC+3").
 	 * ============================================================================ */
 
 	RAVEN_API void Rtime_picker_set_time(Rid time_picker, int hour, int minute, int second);
@@ -898,6 +918,32 @@ extern "C" {
 	/** @brief Called when the user changes the time. This also fires the action of the widget. */
 	typedef void (*RTimeChangedCallback)(Rid time_picker, int hour, int minute, int second, void* user_data);
 	RAVEN_API void Rtime_picker_set_changed_callback(Rid time_picker, RTimeChangedCallback callback, void* user_data);
+	/** @brief 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML. */
+	RAVEN_API void Rtime_picker_set_clock(Rid time_picker, RClock clock);
+	RAVEN_API RClock Rtime_picker_get_clock(Rid time_picker);
+	/** @brief The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call). */
+	RAVEN_API const char* Rtime_picker_get_text(Rid time_picker);
+	/**
+	 * @brief The time zone of the time ("America/New_York", see
+	 * Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+	 * unknown zone is refused. TimeZone="..." in XML.
+	 */
+	RAVEN_API void Rtime_picker_set_time_zone(Rid time_picker, const char* zone);
+	/** @brief The zone set, "" for none. */
+	RAVEN_API const char* Rtime_picker_get_time_zone(Rid time_picker);
+	/** @brief Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML. */
+	RAVEN_API void Rtime_picker_set_time_zone_visible(Rid time_picker, int visible);
+	/** @brief The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML. */
+	RAVEN_API void Rtime_picker_set_date(Rid time_picker, int year, int month, int day);
+	RAVEN_API void Rtime_picker_get_date(Rid time_picker, int* year, int* month, int* day);
+	/** @brief Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time. */
+	RAVEN_API void Rtime_picker_set_instant(Rid time_picker, double utc);
+	/**
+	 * @brief The instant the day and the time are in the zone. A time the
+	 * clocks skipped is moved forward, a time they repeated is the first
+	 * (see Rtimezone_from_local).
+	 */
+	RAVEN_API double Rtime_picker_get_instant(Rid time_picker);
 
 
 	/* ============================================================================

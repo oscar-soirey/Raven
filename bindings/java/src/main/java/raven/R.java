@@ -1754,6 +1754,20 @@ public final class R {
      */
     public static final int R_XML_LIST = 0x03C8;
 
+    // RClock: How the hours of a time are shown.
+    /**
+     * As the locale does (Rlocale_uses_12_hour_clock).
+     */
+    public static final int R_CLOCK_AUTO = 0x0C30;
+    /**
+     * 1 to 12, with AM and PM.
+     */
+    public static final int R_CLOCK_12_HOUR = 0x0C31;
+    /**
+     * 0 to 23.
+     */
+    public static final int R_CLOCK_24_HOUR = 0x0C32;
+
     // RColorFilter
     public static final int R_COLOR_FILTER_NONE = 0x0740;
     /**
@@ -15744,6 +15758,66 @@ public final class R {
         Rdate_picker_set_changed_callback(date_picker, callback, (MemorySegment) null);
     }
 
+    private static MethodHandle Rdate_picker_set_time_zone$;
+
+    /**
+     * The time zone of the date, for the instants below; NULL or "" (default): the zone of the system. TimeZone="..." in XML.
+     */
+    public static void Rdate_picker_set_time_zone(int date_picker, String zone) {
+        MethodHandle $h = Rdate_picker_set_time_zone$;
+        if ($h == null) Rdate_picker_set_time_zone$ = $h = find("Rdate_picker_set_time_zone", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            $h.invokeExact(date_picker, zone$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_get_time_zone$;
+
+    public static String Rdate_picker_get_time_zone(int date_picker) {
+        MethodHandle $h = Rdate_picker_get_time_zone$;
+        if ($h == null) Rdate_picker_get_time_zone$ = $h = find("Rdate_picker_get_time_zone", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(date_picker);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_set_instant$;
+
+    /**
+     * Shows the date an instant (seconds since 1970, UTC) has in the zone of the picker.
+     */
+    public static void Rdate_picker_set_instant(int date_picker, double utc) {
+        MethodHandle $h = Rdate_picker_set_instant$;
+        if ($h == null) Rdate_picker_set_instant$ = $h = find("Rdate_picker_set_instant", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(date_picker, utc);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rdate_picker_get_instant$;
+
+    /**
+     * The first instant of the date in the zone: its midnight (or, where the clocks skip midnight, the time they go to).
+     */
+    public static double Rdate_picker_get_instant(int date_picker) {
+        MethodHandle $h = Rdate_picker_get_instant$;
+        if ($h == null) Rdate_picker_get_instant$ = $h = find("Rdate_picker_get_instant", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(date_picker);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
     private static MethodHandle Rtime_picker_set_time$;
 
     public static void Rtime_picker_set_time(int time_picker, int hour, int minute, int second) {
@@ -15815,6 +15889,165 @@ public final class R {
 
     public static void Rtime_picker_set_changed_callback(int time_picker, RTimeChangedCallback callback) {
         Rtime_picker_set_changed_callback(time_picker, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtime_picker_set_clock$;
+
+    /**
+     * 12 or 24 hours for this picker; R_CLOCK_AUTO (default): the clock of the locale. Clock="Auto|12|24" in XML.
+     */
+    public static void Rtime_picker_set_clock(int time_picker, int clock) {
+        MethodHandle $h = Rtime_picker_set_clock$;
+        if ($h == null) Rtime_picker_set_clock$ = $h = find("Rtime_picker_set_clock", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(time_picker, clock);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_get_clock$;
+
+    public static int Rtime_picker_get_clock(int time_picker) {
+        MethodHandle $h = Rtime_picker_get_clock$;
+        if ($h == null) Rtime_picker_get_clock$ = $h = find("Rtime_picker_get_clock", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(time_picker);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_get_text$;
+
+    /**
+     * The time as the field shows it: "3:05 PM", "15:05", with the zone when it is shown (valid until the next call).
+     */
+    public static String Rtime_picker_get_text(int time_picker) {
+        MethodHandle $h = Rtime_picker_get_text$;
+        if ($h == null) Rtime_picker_get_text$ = $h = find("Rtime_picker_get_text", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(time_picker);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_set_time_zone$;
+
+    /**
+     * The time zone of the time ("America/New_York", see
+     * Rtimezone_is_valid); NULL or "" (default): the zone of the system. An
+     * unknown zone is refused. TimeZone="..." in XML.
+     */
+    public static void Rtime_picker_set_time_zone(int time_picker, String zone) {
+        MethodHandle $h = Rtime_picker_set_time_zone$;
+        if ($h == null) Rtime_picker_set_time_zone$ = $h = find("Rtime_picker_set_time_zone", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            $h.invokeExact(time_picker, zone$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_get_time_zone$;
+
+    /**
+     * The zone set, "" for none.
+     */
+    public static String Rtime_picker_get_time_zone(int time_picker) {
+        MethodHandle $h = Rtime_picker_get_time_zone$;
+        if ($h == null) Rtime_picker_get_time_zone$ = $h = find("Rtime_picker_get_time_zone", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(time_picker);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_set_time_zone_visible$;
+
+    /**
+     * Writes the zone after the time ("EST", "CET", "UTC+3"). ShowTimeZone="true" in XML.
+     */
+    public static void Rtime_picker_set_time_zone_visible(int time_picker, int visible) {
+        MethodHandle $h = Rtime_picker_set_time_zone_visible$;
+        if ($h == null) Rtime_picker_set_time_zone_visible$ = $h = find("Rtime_picker_set_time_zone_visible", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(time_picker, visible);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_set_date$;
+
+    /**
+     * The day of the time, for its zone (month 1 to 12); year 0: today (default). Date="YYYY-MM-DD" in XML.
+     */
+    public static void Rtime_picker_set_date(int time_picker, int year, int month, int day) {
+        MethodHandle $h = Rtime_picker_set_date$;
+        if ($h == null) Rtime_picker_set_date$ = $h = find("Rtime_picker_set_date", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(time_picker, year, month, day);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_get_date$;
+
+    public static void Rtime_picker_get_date(int time_picker, int[] year, int[] month, int[] day) {
+        MethodHandle $h = Rtime_picker_get_date$;
+        if ($h == null) Rtime_picker_get_date$ = $h = find("Rtime_picker_get_date", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment year$ = year == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment month$ = month == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment day$ = day == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            $h.invokeExact(time_picker, year$, month$, day$);
+            if (year != null && year.length > 0) year[0] = year$.get(JAVA_INT, 0);
+            if (month != null && month.length > 0) month[0] = month$.get(JAVA_INT, 0);
+            if (day != null && day.length > 0) day[0] = day$.get(JAVA_INT, 0);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_set_instant$;
+
+    /**
+     * Shows an instant (seconds since 1970, UTC) in the zone of the picker: its day and its time.
+     */
+    public static void Rtime_picker_set_instant(int time_picker, double utc) {
+        MethodHandle $h = Rtime_picker_set_instant$;
+        if ($h == null) Rtime_picker_set_instant$ = $h = find("Rtime_picker_set_instant", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_DOUBLE));
+        try {
+            $h.invokeExact(time_picker, utc);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtime_picker_get_instant$;
+
+    /**
+     * The instant the day and the time are in the zone. A time the
+     * clocks skipped is moved forward, a time they repeated is the first
+     * (see Rtimezone_from_local).
+     */
+    public static double Rtime_picker_get_instant(int time_picker) {
+        MethodHandle $h = Rtime_picker_get_instant$;
+        if ($h == null) Rtime_picker_get_instant$ = $h = find("Rtime_picker_get_instant", FunctionDescriptor.of(JAVA_DOUBLE, JAVA_INT));
+        try {
+            double $r = (double) $h.invokeExact(time_picker);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rtoast_show$;
@@ -27213,6 +27446,281 @@ public final class R {
         if ($h == null) Rlocale_format_number$ = $h = find("Rlocale_format_number", FunctionDescriptor.of(ADDRESS, JAVA_DOUBLE, JAVA_INT));
         try {
             MemorySegment $r = (MemorySegment) $h.invokeExact(value, decimals);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlocale_set_clock$;
+
+    /**
+     * Forces the clock of every time shown (a setting of the
+     * application): R_CLOCK_12_HOUR, R_CLOCK_24_HOUR, or R_CLOCK_AUTO (default)
+     * to follow the locale. A TimePicker can still choose its own (Clock="24").
+     */
+    public static void Rlocale_set_clock(int clock) {
+        MethodHandle $h = Rlocale_set_clock$;
+        if ($h == null) Rlocale_set_clock$ = $h = find("Rlocale_set_clock", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(clock);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlocale_get_clock$;
+
+    public static int Rlocale_get_clock() {
+        MethodHandle $h = Rlocale_get_clock$;
+        if ($h == null) Rlocale_get_clock$ = $h = find("Rlocale_get_clock", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlocale_uses_12_hour_clock$;
+
+    /**
+     * R_TRUE when times are shown on 12 hours with AM and PM. With
+     * Rlocale_set_clock, what it forces; else, when the application chose a
+     * language (Rlocale_set_language), the usage of that language (from CLDR:
+     * en-US, en-CA, en-AU, en-IN, hi, ar, ko, zh-TW, fil... use 12 hours, most
+     * others 24); else the setting of the user on the system (Windows, macOS,
+     * the LC_TIME of Linux), or the usage of the language of the system.
+     */
+    public static int Rlocale_uses_12_hour_clock() {
+        MethodHandle $h = Rlocale_uses_12_hour_clock$;
+        if ($h == null) Rlocale_uses_12_hour_clock$ = $h = find("Rlocale_uses_12_hour_clock", FunctionDescriptor.of(JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact();
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlocale_get_day_period$;
+
+    /**
+     * "AM" (pm = R_FALSE) or "PM" in the language: the keys Raven.AM / Raven.PM when the tables have them. Never NULL.
+     */
+    public static String Rlocale_get_day_period(int pm) {
+        MethodHandle $h = Rlocale_get_day_period$;
+        if ($h == null) Rlocale_get_day_period$ = $h = find("Rlocale_get_day_period", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(pm);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rlocale_format_time$;
+
+    /**
+     * A time of the day (hour 0 to 23) as the locale writes it: "3:05 PM", "15:05", "오후 3:05".
+     */
+    public static String Rlocale_format_time(int hour, int minute, int second, int show_seconds) {
+        MethodHandle $h = Rlocale_format_time$;
+        if ($h == null) Rlocale_format_time$ = $h = find("Rlocale_format_time", FunctionDescriptor.of(ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(hour, minute, second, show_seconds);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_get_system$;
+
+    /**
+     * The zone of the system ("Europe/Paris"): the TZ variable, the
+     * link /etc/localtime, else what the system says; "UTC" when it says
+     * nothing. Valid until the next call.
+     */
+    public static String Rtimezone_get_system() {
+        MethodHandle $h = Rtimezone_get_system$;
+        if ($h == null) Rtimezone_get_system$ = $h = find("Rtimezone_get_system", FunctionDescriptor.of(ADDRESS));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact();
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_set_directory$;
+
+    /**
+     * The folder of the tz database (the files "Europe/Paris"...), or
+     * the packed tzdata file of Android, to read instead of the system's: for
+     * a database shipped with the application, or tests. It is then the only
+     * one read. NULL: the system's (or the TZDIR variable). Forgets the zones
+     * read so far.
+     */
+    public static void Rtimezone_set_directory(String path) {
+        MethodHandle $h = Rtimezone_set_directory$;
+        if ($h == null) Rtimezone_set_directory$ = $h = find("Rtimezone_set_directory", FunctionDescriptor.ofVoid(ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment path$ = path == null ? MemorySegment.NULL : utf8($a, path);
+            $h.invokeExact(path$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_is_valid$;
+
+    /**
+     * R_TRUE when the zone is known. Every function takes a name of
+     * the tz database, "UTC", a POSIX TZ rule ("EST5EDT,M3.2.0,M11.1.0"), or
+     * NULL / "" for the zone of the system.
+     */
+    public static int Rtimezone_is_valid(String zone) {
+        MethodHandle $h = Rtimezone_is_valid$;
+        if ($h == null) Rtimezone_is_valid$ = $h = find("Rtimezone_is_valid", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            int $r = (int) $h.invokeExact(zone$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_to_local$;
+
+    /**
+     * The date and time an instant shows in a zone (month 1 to 12). R_FALSE for an unknown zone.
+     */
+    public static int Rtimezone_to_local(String zone, double utc, int[] year, int[] month, int[] day, int[] hour, int[] minute, int[] second) {
+        MethodHandle $h = Rtimezone_to_local$;
+        if ($h == null) Rtimezone_to_local$ = $h = find("Rtimezone_to_local", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_DOUBLE, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            MemorySegment year$ = year == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment month$ = month == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment day$ = day == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment hour$ = hour == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment minute$ = minute == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment second$ = second == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(zone$, utc, year$, month$, day$, hour$, minute$, second$);
+            if (year != null && year.length > 0) year[0] = year$.get(JAVA_INT, 0);
+            if (month != null && month.length > 0) month[0] = month$.get(JAVA_INT, 0);
+            if (day != null && day.length > 0) day[0] = day$.get(JAVA_INT, 0);
+            if (hour != null && hour.length > 0) hour[0] = hour$.get(JAVA_INT, 0);
+            if (minute != null && minute.length > 0) minute[0] = minute$.get(JAVA_INT, 0);
+            if (second != null && second.length > 0) second[0] = second$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_from_local$;
+
+    /**
+     * The instant a date and time of a zone is. When the clocks go
+     * forward, the times they skip do not exist: such a time is moved forward
+     * by the length of the gap (02:30 becomes 03:30). When they go back, the
+     * times of the hour repeated happen twice: the first is taken (still in
+     * summer time). Rtimezone_count_local tells these cases apart.
+     */
+    public static double Rtimezone_from_local(String zone, int year, int month, int day, int hour, int minute, int second) {
+        MethodHandle $h = Rtimezone_from_local$;
+        if ($h == null) Rtimezone_from_local$ = $h = find("Rtimezone_from_local", FunctionDescriptor.of(JAVA_DOUBLE, ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            double $r = (double) $h.invokeExact(zone$, year, month, day, hour, minute, second);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_count_local$;
+
+    /**
+     * How many instants show this date and time in the zone: 1, 0 (skipped when the clocks went forward) or 2 (repeated when they went back).
+     */
+    public static int Rtimezone_count_local(String zone, int year, int month, int day, int hour, int minute, int second) {
+        MethodHandle $h = Rtimezone_count_local$;
+        if ($h == null) Rtimezone_count_local$ = $h = find("Rtimezone_count_local", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            int $r = (int) $h.invokeExact(zone$, year, month, day, hour, minute, second);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_get_offset$;
+
+    /**
+     * Seconds the zone is ahead of UTC at an instant (3600 in Paris in winter, -14400 in New York in summer).
+     */
+    public static int Rtimezone_get_offset(String zone, double utc) {
+        MethodHandle $h = Rtimezone_get_offset$;
+        if ($h == null) Rtimezone_get_offset$ = $h = find("Rtimezone_get_offset", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_DOUBLE));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            int $r = (int) $h.invokeExact(zone$, utc);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_is_daylight_saving$;
+
+    /**
+     * R_TRUE when the zone is on summer (daylight saving) time at the instant.
+     */
+    public static int Rtimezone_is_daylight_saving(String zone, double utc) {
+        MethodHandle $h = Rtimezone_is_daylight_saving$;
+        if ($h == null) Rtimezone_is_daylight_saving$ = $h = find("Rtimezone_is_daylight_saving", FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_DOUBLE));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            int $r = (int) $h.invokeExact(zone$, utc);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_get_abbreviation$;
+
+    /**
+     * The abbreviation of the zone at an instant ("CET", "EDT"; "+03" where the database has no name).
+     */
+    public static String Rtimezone_get_abbreviation(String zone, double utc) {
+        MethodHandle $h = Rtimezone_get_abbreviation$;
+        if ($h == null) Rtimezone_get_abbreviation$ = $h = find("Rtimezone_get_abbreviation", FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_DOUBLE));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(zone$, utc);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtimezone_get_label$;
+
+    /**
+     * The zone at an instant, to show: "CET, UTC+1", "EDT, UTC-4", "IST, UTC+5:30", "UTC+3" when it has no name.
+     */
+    public static String Rtimezone_get_label(String zone, double utc) {
+        MethodHandle $h = Rtimezone_get_label$;
+        if ($h == null) Rtimezone_get_label$ = $h = find("Rtimezone_get_label", FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_DOUBLE));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment zone$ = zone == null ? MemorySegment.NULL : utf8($a, zone);
+            MemorySegment $r = (MemorySegment) $h.invokeExact(zone$, utc);
             return text($r);
         } catch (Throwable $t) {
             throw fail($t);
