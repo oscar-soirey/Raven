@@ -1222,6 +1222,12 @@ static struct {
 	int (*Rnotification_is_supported)(void);
 	void (*Rnotification_set_fallback)(RNotificationFallback, void*);
 	void (*Rnotification_set_clicked_callback)(RNotificationClickedCallback, void*);
+	int (*Rnotification_show_desc)(const RNotificationDesc*);
+	void (*Rnotification_close)(const char*);
+	void (*Rnotification_set_callback)(RNotificationCallback, void*);
+	void (*Rnotification_set_bring_to_front)(int);
+	void (*Rnotification_set_fallback_toast)(Rid);
+	int (*Rnotification_supports)(RNotificationFeature);
 	void (*Rviewport_set_texture)(Rid, Rid);
 	void (*Rviewport_set_stretch)(Rid, RStretch);
 	void (*Rviewport_set_flip_y)(Rid, int);
@@ -2616,6 +2622,12 @@ static const struct {
 	{"Rnotification_is_supported", offsetof(__typeof__(rn), Rnotification_is_supported)},
 	{"Rnotification_set_fallback", offsetof(__typeof__(rn), Rnotification_set_fallback)},
 	{"Rnotification_set_clicked_callback", offsetof(__typeof__(rn), Rnotification_set_clicked_callback)},
+	{"Rnotification_show_desc", offsetof(__typeof__(rn), Rnotification_show_desc)},
+	{"Rnotification_close", offsetof(__typeof__(rn), Rnotification_close)},
+	{"Rnotification_set_callback", offsetof(__typeof__(rn), Rnotification_set_callback)},
+	{"Rnotification_set_bring_to_front", offsetof(__typeof__(rn), Rnotification_set_bring_to_front)},
+	{"Rnotification_set_fallback_toast", offsetof(__typeof__(rn), Rnotification_set_fallback_toast)},
+	{"Rnotification_supports", offsetof(__typeof__(rn), Rnotification_supports)},
 	{"Rviewport_set_texture", offsetof(__typeof__(rn), Rviewport_set_texture)},
 	{"Rviewport_set_stretch", offsetof(__typeof__(rn), Rviewport_set_stretch)},
 	{"Rviewport_set_flip_y", offsetof(__typeof__(rn), Rviewport_set_flip_y)},
@@ -3736,6 +3748,7 @@ static void rn_t_RDialogClosedCallback(Rid, int, void*);
 static void rn_t_RFileBrowserCallback(Rid, const char*, void*);
 static void rn_t_RNotificationFallback(const char*, const char*, RNotificationUrgency, void*);
 static void rn_t_RNotificationClickedCallback(void*);
+static void rn_t_RNotificationCallback(const char*, RNotificationEvent, const char*, void*);
 static void rn_t_RViewportResizeCallback(Rid, int, int, void*);
 static void rn_t_RPaintCallback(Rid, RPainter*, float, float, void*);
 static void rn_t_RMeasureCallback(Rid, float*, float*, void*);
@@ -5044,6 +5057,22 @@ static void rn_t_RNotificationClickedCallback(void* a0) {
 	cb->depth++;
 	argv[0] = rn_make_ptr(env, cb->user_data);
 	rn_call(cb, 0, 1, argv);
+	napi_close_handle_scope(env, scope);
+	rn_cb_leave(cb);
+}
+
+static void rn_t_RNotificationCallback(const char* a0, RNotificationEvent a1, const char* a2, void* a3) {
+	rn_cb* cb = (rn_cb*)a3;
+	napi_env env = cb->env;
+	napi_handle_scope scope;
+	napi_value argv[4];
+	napi_open_handle_scope(env, &scope);
+	cb->depth++;
+	argv[0] = rn_make_text(env, a0);
+	napi_create_int32(env, (int32_t)a1, &argv[1]);
+	argv[2] = rn_make_text(env, a2);
+	argv[3] = rn_make_ptr(env, cb->user_data);
+	rn_call(cb, 0, 4, argv);
 	napi_close_handle_scope(env, scope);
 	rn_cb_leave(cb);
 }
@@ -24859,6 +24888,94 @@ static napi_value rn_w_Rnotification_set_clicked_callback(napi_env env, napi_cal
 	return result_;
 }
 
+static napi_value rn_w_Rnotification_show_desc(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rnotification_show_desc((const RNotificationDesc*)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rnotification_close(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	rn_str a0;
+	a0.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_str_get(env, argv[0], &a0)) goto done;
+	rn.Rnotification_close(a0.p);
+done:
+	free(a0.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rnotification_set_callback(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	void* a1;
+	rn_cb* cb_ = NULL;
+	void* n0_;
+	int k0_;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_ptr(env, argv[1], &a1)) return NULL;
+	k0_ = rn_callback_arg(env, argv[0], &n0_);
+	if (k0_ == RN_CALLBACK_THROWN) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && !rn_check_thread(env)) return NULL;
+	if (k0_ == RN_CALLBACK_FUNCTION && 1) {
+		cb_ = rn_cb_new(env, &argv[0], 1, a1);
+		if (!cb_) return NULL;
+	}
+	rn.Rnotification_set_callback(cb_ ? (RNotificationCallback)rn_t_RNotificationCallback : (RNotificationCallback)n0_, cb_ ? (void*)cb_ : a1);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 107, NULL, cb_);
+	return result_;
+}
+
+static napi_value rn_w_Rnotification_set_bring_to_front(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	rn.Rnotification_set_bring_to_front((int)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rnotification_set_fallback_toast(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rnotification_set_fallback_toast((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rnotification_supports(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	int a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_int(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rnotification_supports((RNotificationFeature)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
 static napi_value rn_w_Rviewport_set_texture(napi_env env, napi_callback_info info) {
 	size_t argc = 2;
 	napi_value argv[2];
@@ -24992,7 +25109,7 @@ static napi_value rn_w_Rviewport_set_resize_callback(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rviewport_set_resize_callback((Rid)a0, cb_ ? (RViewportResizeCallback)rn_t_RViewportResizeCallback : (RViewportResizeCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 107, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 108, NULL, cb_);
 	return result_;
 }
 
@@ -25031,7 +25148,7 @@ static napi_value rn_w_Rcustom_set_paint_callback(napi_env env, napi_callback_in
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_paint_callback((Rid)a0, cb_ ? (RPaintCallback)rn_t_RPaintCallback : (RPaintCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 108, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 109, NULL, cb_);
 	return result_;
 }
 
@@ -25056,7 +25173,7 @@ static napi_value rn_w_Rcustom_set_measure_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rcustom_set_measure_callback((Rid)a0, cb_ ? (RMeasureCallback)rn_t_RMeasureCallback : (RMeasureCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 109, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 110, NULL, cb_);
 	return result_;
 }
 
@@ -25798,7 +25915,7 @@ static napi_value rn_w_Rxml_set_reload_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rxml_set_reload_callback(cb_ ? (RXmlReloadCallback)rn_t_RXmlReloadCallback : (RXmlReloadCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 110, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 111, NULL, cb_);
 	return result_;
 }
 
@@ -25933,7 +26050,7 @@ static napi_value rn_w_Rxml_register_tag(napi_env env, napi_callback_info info) 
 		rn_cb_release(cb_);
 		cb_ = NULL;
 	}
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 111, a0.p, cb_);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 112, a0.p, cb_);
 	napi_create_int32(env, (int32_t)value_, &result_);
 done:
 	free(a0.heap);
@@ -25950,7 +26067,7 @@ static napi_value rn_w_Rxml_unregister_tag(napi_env env, napi_callback_info info
 	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
 	if (!rn_str_get(env, argv[0], &a0)) goto done;
 	rn.Rxml_unregister_tag(a0.p);
-	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 111, a0.p, NULL);
+	if (a0.p && a0.p[0]) rn_bind(rn_name_key(a0.p), RN_OWNER_PLAIN, 112, a0.p, NULL);
 done:
 	free(a0.heap);
 	return result_;
@@ -26795,7 +26912,7 @@ static napi_value rn_w_Rscript_set_log_callback(napi_env env, napi_callback_info
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_log_callback(cb_ ? (RScriptLogCallback)rn_t_RScriptLogCallback : (RScriptLogCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 112, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 113, NULL, cb_);
 	return result_;
 }
 
@@ -26818,7 +26935,7 @@ static napi_value rn_w_Rscript_set_diagnostic_callback(napi_env env, napi_callba
 		if (!cb_) return NULL;
 	}
 	rn.Rscript_set_diagnostic_callback(cb_ ? (RScriptDiagnosticCallback)rn_t_RScriptDiagnosticCallback : (RScriptDiagnosticCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 113, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 114, NULL, cb_);
 	return result_;
 }
 
@@ -26981,7 +27098,7 @@ static napi_value rn_w_Rlocale_set_changed_callback(napi_env env, napi_callback_
 		if (!cb_) return NULL;
 	}
 	rn.Rlocale_set_changed_callback(cb_ ? (RLocaleChangedCallback)rn_t_RLocaleChangedCallback : (RLocaleChangedCallback)n0_, cb_ ? (void*)cb_ : a1);
-	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 114, NULL, cb_);
+	rn_bind(RN_KEY_APPLICATION, RN_OWNER_PLAIN, 115, NULL, cb_);
 	return result_;
 }
 
@@ -27340,7 +27457,7 @@ static napi_value rn_w_Rwidget_set_accessible_action(napi_env env, napi_callback
 		if (!cb_) return NULL;
 	}
 	rn.Rwidget_set_accessible_action((Rid)a0, cb_ ? (RAccessiblePressCallback)rn_t_RAccessiblePressCallback : (RAccessiblePressCallback)n0_, cb_ ? (void*)cb_ : a2);
-	rn_bind(a0, RN_OWNER_WIDGET, 115, NULL, cb_);
+	rn_bind(a0, RN_OWNER_WIDGET, 116, NULL, cb_);
 	return result_;
 }
 
@@ -29309,6 +29426,12 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rnotification_is_supported", NULL, rn_w_Rnotification_is_supported, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnotification_set_fallback", NULL, rn_w_Rnotification_set_fallback, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rnotification_set_clicked_callback", NULL, rn_w_Rnotification_set_clicked_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnotification_show_desc", NULL, rn_w_Rnotification_show_desc, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnotification_close", NULL, rn_w_Rnotification_close, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnotification_set_callback", NULL, rn_w_Rnotification_set_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnotification_set_bring_to_front", NULL, rn_w_Rnotification_set_bring_to_front, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnotification_set_fallback_toast", NULL, rn_w_Rnotification_set_fallback_toast, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rnotification_supports", NULL, rn_w_Rnotification_supports, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_texture", NULL, rn_w_Rviewport_set_texture, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_stretch", NULL, rn_w_Rviewport_set_stretch, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rviewport_set_flip_y", NULL, rn_w_Rviewport_set_flip_y, NULL, NULL, NULL, napi_enumerable, NULL},

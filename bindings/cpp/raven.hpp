@@ -4818,7 +4818,9 @@ inline int file_write(const char* path, const void* data, size_t size) { return 
 /// Returns: R_TRUE when the system took the notification.
 inline int notification_show(const char* title, const char* body, RNotificationUrgency urgency) { return Rnotification_show(title, body, urgency); }
 
-/// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+/// R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+/// the fallback): the null platform, no notification server on Linux, an executable outside of a
+/// bundle on macOS.
 inline int notification_is_supported() { return Rnotification_is_supported(); }
 
 /// Called with the notifications the system could not show; NULL: none.
@@ -4828,14 +4830,40 @@ inline void notification_set_fallback(std::function<void(const char*, const char
 }
 
 /// Called when the user clicks a notification of Rnotification_show
-/// (on the UI thread; the application may then bring its window to the
-/// front: the system lets it). It is the last one shown that was clicked:
-/// the application remembers what it was about. NULL: none.
-/// Windows and macOS (elsewhere it is never called).
+/// (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+/// Rnotification_set_callback, which also tells which one. NULL: none.
 inline void notification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data) { Rnotification_set_clicked_callback(callback, user_data); }
 inline void notification_set_clicked_callback(std::function<void()> callback) {
 	Rnotification_set_clicked_callback([](void* kept_) -> void { return (*static_cast<std::function<void()>*>(kept_))(); }, detail::keep(0, 111, std::move(callback)));
 }
+
+/// Shows a notification described by `desc` (see RNotificationDesc).
+/// Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+inline int notification_show_desc(const RNotificationDesc* desc) { return Rnotification_show_desc(desc); }
+
+/// Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+inline void notification_close(const char* tag) { Rnotification_close(tag); }
+
+inline void notification_set_callback(RNotificationCallback callback, void* user_data) { Rnotification_set_callback(callback, user_data); }
+inline void notification_set_callback(std::function<void(const char*, RNotificationEvent, const char*)> callback) {
+	Rnotification_set_callback([](const char* tag, RNotificationEvent event, const char* action, void* kept_) -> void { return (*static_cast<std::function<void(const char*, RNotificationEvent, const char*)>*>(kept_))(tag, event, action); }, detail::keep(0, 112, std::move(callback)));
+}
+
+/// R_TRUE (the default): a click on a notification (not on one of
+/// its buttons) brings its window back before the callback is called:
+/// shown again if it was hidden or minimized, in front, with the keyboard.
+/// R_FALSE: the application does what it wants in the callback.
+inline void notification_set_bring_to_front(int enabled) { Rnotification_set_bring_to_front(enabled); }
+
+/// A Toast that shows the notifications the system could not show,
+/// with their title, icon and buttons; a click on one, or on a button, is
+/// reported to Rnotification_set_callback as for the system's. Put it in
+/// an Overlay (Queue="Stack" shows several at once). It takes the place
+/// of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+inline void notification_set_fallback_toast(Rid toast) { Rnotification_set_fallback_toast(toast); }
+
+/// Whether the notifications of the system have that feature here (R_FALSE where there are none).
+inline int notification_supports(RNotificationFeature feature) { return Rnotification_supports(feature); }
 
 /// Pushes a spring away from its target (units per second): it bounces back.
 inline void spring_kick(RSpring* spring, float velocity) { Rspring_kick(spring, velocity); }
@@ -4896,7 +4924,7 @@ inline int xml_get_live_reload() { return Rxml_get_live_reload(); }
 
 inline void xml_set_reload_callback(RXmlReloadCallback callback, void* user_data) { Rxml_set_reload_callback(callback, user_data); }
 inline void xml_set_reload_callback(std::function<void(const char*, int)> callback) {
-	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 112, std::move(callback)));
+	Rxml_set_reload_callback([](const char* path, int ok, void* kept_) -> void { return (*static_cast<std::function<void(const char*, int)>*>(kept_))(path, ok); }, detail::keep(0, 113, std::move(callback)));
 }
 
 /// Looks at the files now, without waiting for the next look
@@ -4925,7 +4953,7 @@ inline const char* xml_get_registered_widget_name(int index) { return Rxml_get_r
 /// Returns: R_FALSE when the name is the one of a widget of Raven, or when too many tags are registered (64).
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, RXmlTagAttributeCallback set_attribute, void* user_data) { return Rxml_register_tag(tag, create, set_attribute, user_data); }
 inline int xml_register_tag(const char* tag, RXmlTagCreateCallback create, std::function<int(Rid, const char*, const char*)> set_attribute) {
-	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 113, std::move(set_attribute)));
+	return Rxml_register_tag(tag, create, [](Rid widget, const char* name, const char* value, void* kept_) -> int { return (*static_cast<std::function<int(Rid, const char*, const char*)>*>(kept_))(widget, name, value); }, detail::keep(detail::key_of(tag), 114, std::move(set_attribute)));
 }
 
 inline void xml_unregister_tag(const char* tag) { Rxml_unregister_tag(tag); }
@@ -5007,12 +5035,12 @@ inline void script_set_limits(Ruint max_instructions, int max_depth, size_t max_
 
 inline void script_set_log_callback(RScriptLogCallback callback, void* user_data) { Rscript_set_log_callback(callback, user_data); }
 inline void script_set_log_callback(std::function<void(const char*)> callback) {
-	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 114, std::move(callback)));
+	Rscript_set_log_callback([](const char* message, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(message); }, detail::keep(0, 115, std::move(callback)));
 }
 
 inline void script_set_diagnostic_callback(RScriptDiagnosticCallback callback, void* user_data) { Rscript_set_diagnostic_callback(callback, user_data); }
 inline void script_set_diagnostic_callback(std::function<void(RSeverity, const char*, const char*, int, int, const char*)> callback) {
-	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 115, std::move(callback)));
+	Rscript_set_diagnostic_callback([](RSeverity severity, const char* code, const char* file, int line, int column, const char* text, void* kept_) -> void { return (*static_cast<std::function<void(RSeverity, const char*, const char*, int, int, const char*)>*>(kept_))(severity, code, file, line, column, text); }, detail::keep(0, 116, std::move(callback)));
 }
 
 /// Loads a CSV table of translations from a file. Returns the number of keys read, -1 on an error.
@@ -5054,7 +5082,7 @@ inline int locale_is_rtl() { return Rlocale_is_rtl(); }
 /// Called after the language or the tables changed (the widgets are already updated).
 inline void locale_set_changed_callback(RLocaleChangedCallback callback, void* user_data) { Rlocale_set_changed_callback(callback, user_data); }
 inline void locale_set_changed_callback(std::function<void(const char*)> callback) {
-	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 116, std::move(callback)));
+	Rlocale_set_changed_callback([](const char* language, void* kept_) -> void { return (*static_cast<std::function<void(const char*)>*>(kept_))(language); }, detail::keep(0, 117, std::move(callback)));
 }
 
 /// The text of a key in the current language (see the fallbacks above). Never NULL.

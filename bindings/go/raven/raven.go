@@ -1090,6 +1090,27 @@ const (
 	R_NOTIFICATION_CRITICAL RNotificationUrgency = 0x04F2
 )
 
+// RNotificationEvent: What happened to a notification (Rnotification_set_callback).
+type RNotificationEvent int32
+
+const (
+	R_NOTIFICATION_ACTIVATED      RNotificationEvent = 0x0C20
+	R_NOTIFICATION_ACTION_INVOKED RNotificationEvent = 0x0C21
+	R_NOTIFICATION_DISMISSED      RNotificationEvent = 0x0C22
+)
+
+// RNotificationFeature: What the notifications of the system can do here (Rnotification_supports).
+type RNotificationFeature int32
+
+const (
+	R_NOTIFICATION_FEATURE_ACTIONS   RNotificationFeature = 1
+	R_NOTIFICATION_FEATURE_REPLACE   RNotificationFeature = 2
+	R_NOTIFICATION_FEATURE_CLOSE     RNotificationFeature = 4
+	R_NOTIFICATION_FEATURE_ICON      RNotificationFeature = 8
+	R_NOTIFICATION_FEATURE_ACTIVATED RNotificationFeature = 0x0010
+	R_NOTIFICATION_FEATURE_DISMISSED RNotificationFeature = 0x0020
+)
+
 type RFileDialogFlags int32
 
 const (
@@ -7129,10 +7150,40 @@ func NotificationShow(title string, body string, urgency RNotificationUrgency) i
 	return int(C.Rnotification_show(title_, body_, C.RNotificationUrgency(urgency)))
 }
 
-// NotificationIsSupported: R_FALSE when the platform has no notifications (Rnotification_show then always
-// uses the fallback).
+// NotificationIsSupported: R_FALSE when the system shows no notifications here (Rnotification_show then
+// always uses the fallback): the null platform, no notification server on Linux, an executable outside of a
+// bundle on macOS.
 func NotificationIsSupported() int {
 	return int(C.Rnotification_is_supported())
+}
+
+// NotificationClose: Takes away the notification of that tag, shown by the system or by the fallback toast.
+// The callback is not called.
+func NotificationClose(tag string) {
+	tag_ := C.CString(tag)
+	defer C.free(unsafe.Pointer(tag_))
+	C.Rnotification_close(tag_)
+}
+
+// NotificationSetBringToFront: R_TRUE (the default): a click on a notification (not on one of its buttons)
+// brings its window back before the callback is called: shown again if it was hidden or minimized, in front,
+// with the keyboard. R_FALSE: the application does what it wants in the callback.
+func NotificationSetBringToFront(enabled int) {
+	C.Rnotification_set_bring_to_front(C.int(enabled))
+}
+
+// NotificationSetFallbackToast: A Toast that shows the notifications the system could not show, with their
+// title, icon and buttons; a click on one, or on a button, is reported to Rnotification_set_callback as for
+// the system's. Put it in an Overlay (Queue="Stack" shows several at once). It takes the place of the
+// fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+func NotificationSetFallbackToast(toast ID) {
+	C.Rnotification_set_fallback_toast(C.Rid(toast))
+}
+
+// NotificationSupports: Whether the notifications of the system have that feature here (R_FALSE where there
+// are none).
+func NotificationSupports(feature RNotificationFeature) int {
+	return int(C.Rnotification_supports(C.RNotificationFeature(feature)))
 }
 
 // ViewportSetTexture: Shows a texture. R_INVALID_ID shows nothing.
@@ -8138,13 +8189,13 @@ func TestIsChecked(widget ID) int {
 // Rdialog_open, Rpopup_open, Rfile_dialog_open, Rfile_dialog_save, Rfile_dialog_select_folder, Rfile_read
 // Rfile_browser_set_filters, Rfile_browser_set_accepted_callback, Rfile_browser_set_cancelled_callback
 // Rfile_browser_set_selection_changed_callback, Rnotification_set_fallback
-// Rnotification_set_clicked_callback, Rviewport_set_draw_callback, Rviewport_get_native_handle
-// Rviewport_set_resize_callback, Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect
-// Rdraw_shadow, Rdraw_rect_outline, Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image
-// Rdraw_text, Rdraw_glass, Rdraw_spring, Rspring_kick, Rspring_set, Rdraw_push_clip_rect
-// Rdraw_pop_clip_rect, Reffect_get_defaults, Rshader_look_init, Rshader_look_defaults, Rdraw_shader
-// Rborder_set_effect, Rxml_set_reload_callback, Rxml_register_tag, Rxml_document_parse
-// Rxml_get_attribute_info, Rscript_set_log_callback, Rscript_set_diagnostic_callback
-// Rlocale_set_changed_callback, Rtr_format, Raccessibility_get_system_settings
-// Rwidget_set_accessible_action, Rhost_platform_register, Rhost_window_set_insets, Rtest_expect_golden
-// Rtest_compare_pixels
+// Rnotification_set_clicked_callback, Rnotification_show_desc, Rnotification_set_callback
+// Rviewport_set_draw_callback, Rviewport_get_native_handle, Rviewport_set_resize_callback
+// Rcustom_set_paint_callback, Rcustom_set_measure_callback, Rdraw_rect, Rdraw_shadow, Rdraw_rect_outline
+// Rdraw_circle, Rdraw_line, Rdraw_curve, Rdraw_triangle, Rdraw_image, Rdraw_text, Rdraw_glass, Rdraw_spring
+// Rspring_kick, Rspring_set, Rdraw_push_clip_rect, Rdraw_pop_clip_rect, Reffect_get_defaults
+// Rshader_look_init, Rshader_look_defaults, Rdraw_shader, Rborder_set_effect, Rxml_set_reload_callback
+// Rxml_register_tag, Rxml_document_parse, Rxml_get_attribute_info, Rscript_set_log_callback
+// Rscript_set_diagnostic_callback, Rlocale_set_changed_callback, Rtr_format
+// Raccessibility_get_system_settings, Rwidget_set_accessible_action, Rhost_platform_register
+// Rhost_window_set_insets, Rtest_expect_golden, Rtest_compare_pixels

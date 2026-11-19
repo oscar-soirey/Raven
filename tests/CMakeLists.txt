@@ -2,7 +2,7 @@
 #
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
-#   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
+#   test_locale, test_fonts, test_touch, test_more_widgets, test_notifications, test_pdf, test_pdf_document,
 #   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package, test_testing
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
@@ -94,6 +94,12 @@ if(NOT RAVEN_BUILD_SHARED)
 	raven_add_test(test_lifecycle)
 endif()
 raven_add_test(test_more_widgets)
+# notifications with tags, buttons and an icon, through the fallback toast (the null platform has none of its own)
+raven_add_test(test_notifications)
+if(RAVEN_BUILD_SHARED)
+	# (what the platforms report and share is internal: checked with the static library)
+	target_compile_definitions(test_notifications PRIVATE RAVEN_TEST_SHARED)
+endif()
 raven_add_test(test_chart)
 raven_add_test(test_carousel)
 raven_add_test(test_pdf)

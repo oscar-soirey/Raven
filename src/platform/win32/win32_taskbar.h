@@ -38,8 +38,10 @@ void rvn_win32_tray_shutdown(void);
 /**
  * A notification (balloon) on the application's tray icon, rather than on an
  * icon of its own: one icon in the notification area. A click on it calls
- * rvn_notification_clicked. R_FALSE when there is no tray icon.
+ * rvn_win32_balloon_clicked. R_FALSE when there is no tray icon.
  */
 int  rvn_win32_tray_balloon(const WCHAR* title, const WCHAR* text, DWORD info_flags);
+/** A click on the balloon of a notification (win32_platform.c): reported for the one shown. */
+void rvn_win32_balloon_clicked(void);
 
 #endif /* RVN_WIN32_TASKBAR_H */

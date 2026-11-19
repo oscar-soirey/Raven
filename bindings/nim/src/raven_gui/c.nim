@@ -183,6 +183,10 @@ type
   RBlockPlace* = cint
   RNotificationUrgency* = cint
     ## How much a notification of the system asks for attention (Rnotification_show).
+  RNotificationEvent* = cint
+    ## What happened to a notification (Rnotification_set_callback).
+  RNotificationFeature* = cint
+    ## What the notifications of the system can do here (Rnotification_supports).
   RFileDialogFlags* = cint
   RFileBrowserMode* = cint
   RMessageButtons* = cint
@@ -446,6 +450,11 @@ type
     ## widget (OnActivated in XML) fires at the same time.
   RNotificationFallback* = proc (title: cstring, body: cstring, urgency: RNotificationUrgency, user_data: pointer) {.cdecl.}
   RNotificationClickedCallback* = proc (user_data: pointer) {.cdecl.}
+  RNotificationCallback* = proc (tag: cstring, event: RNotificationEvent, action: cstring, user_data: pointer) {.cdecl.}
+    ## Called on the UI thread when the user clicks a notification or
+    ## one of its buttons, or dismisses it. `tag` names the notification,
+    ## `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+    ## NULL: none.
   RViewportDrawCallback* = proc (info: ptr RViewportDrawInfo, user_data: pointer) {.cdecl.}
     ## Called on the render thread each time the window is rendered.
     ## State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -827,6 +836,35 @@ type
       ## The command line given to the application when it is chosen: it is started again with these arguments.
     description*: cstring
       ## The tooltip; NULL: none.
+  RNotificationAction* {.bycopy.} = object
+    ## A button of a notification.
+    id*: cstring
+      ## Given back to the callback ("reply", "snooze"); not empty, and not "default".
+    label*: cstring
+      ## Shown to the user ("Reply").
+  RNotificationDesc* {.bycopy.} = object
+    ## A notification for Rnotification_show_desc. `size` must be
+    ## sizeof(RNotificationDesc): the fields that later versions of Raven add
+    ## come after the others, and a smaller size tells Raven they were not
+    ## given. The other fields may be left to zero.
+    size*: uint32
+      ## sizeof(RNotificationDesc).
+    tag*: cstring
+      ## Names the notification: shown again with the same tag, it replaces the
+      ## one still shown instead of adding another; Rnotification_close takes it
+      ## away; the callback is given it. NULL or "": a tag of its own
+      ## ("raven.1", "raven.2"...).
+    title*: cstring
+    body*: cstring
+    urgency*: RNotificationUrgency
+      ## 0: R_NOTIFICATION_NORMAL.
+    icon*: cstring
+      ## An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+    actions*: ptr RNotificationAction
+      ## Up to 3 buttons, or NULL.
+    action_count*: cint
+    window*: Rid
+      ## The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
   RFileFilter* {.bycopy.} = object
     ## A kind of file in a file dialog.
     name*: cstring
@@ -1960,6 +1998,28 @@ const
   R_NOTIFICATION_NORMAL*: RNotificationUrgency = 0x04F1
   R_NOTIFICATION_CRITICAL*: RNotificationUrgency = 0x04F2
     ## Stays until the user dismisses it, where the system allows it.
+
+  # RNotificationEvent
+  R_NOTIFICATION_ACTIVATED*: RNotificationEvent = 0x0C20
+    ## The user clicked the notification itself (not one of its buttons).
+  R_NOTIFICATION_ACTION_INVOKED*: RNotificationEvent = 0x0C21
+    ## The user clicked one of its buttons: `action` is the id of that button.
+  R_NOTIFICATION_DISMISSED*: RNotificationEvent = 0x0C22
+    ## It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+
+  # RNotificationFeature
+  R_NOTIFICATION_FEATURE_ACTIONS*: RNotificationFeature = 1
+    ## Buttons (RNotificationDesc::actions).
+  R_NOTIFICATION_FEATURE_REPLACE*: RNotificationFeature = 2
+    ## A notification shown again with the same tag replaces the first one.
+  R_NOTIFICATION_FEATURE_CLOSE*: RNotificationFeature = 4
+    ## Rnotification_close takes a notification away.
+  R_NOTIFICATION_FEATURE_ICON*: RNotificationFeature = 8
+    ## An image beside the text (RNotificationDesc::icon).
+  R_NOTIFICATION_FEATURE_ACTIVATED*: RNotificationFeature = 0x0010
+    ## A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+  R_NOTIFICATION_FEATURE_DISMISSED*: RNotificationFeature = 0x0020
+    ## Its dismissal is reported (R_NOTIFICATION_DISMISSED).
 
   # RFileDialogFlags
   R_FILE_DIALOG_MULTIPLE*: RFileDialogFlags = 1
@@ -4697,15 +4757,34 @@ proc Rfile_browser_set_selection_changed_callback*(browser: Rid, callback: RFile
 proc Rnotification_show*(title: cstring, body: cstring, urgency: RNotificationUrgency): cint {.rapi.}
   ## Returns: R_TRUE when the system took the notification.
 proc Rnotification_is_supported*(): cint {.rapi.}
-  ## R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+  ## R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+  ## the fallback): the null platform, no notification server on Linux, an executable outside of a
+  ## bundle on macOS.
 proc Rnotification_set_fallback*(callback: RNotificationFallback, user_data: pointer) {.rapi.}
   ## Called with the notifications the system could not show; NULL: none.
 proc Rnotification_set_clicked_callback*(callback: RNotificationClickedCallback, user_data: pointer) {.rapi.}
   ## Called when the user clicks a notification of Rnotification_show
-  ## (on the UI thread; the application may then bring its window to the
-  ## front: the system lets it). It is the last one shown that was clicked:
-  ## the application remembers what it was about. NULL: none.
-  ## Windows and macOS (elsewhere it is never called).
+  ## (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+  ## Rnotification_set_callback, which also tells which one. NULL: none.
+proc Rnotification_show_desc*(desc: ptr RNotificationDesc): cint {.rapi.}
+  ## Shows a notification described by `desc` (see RNotificationDesc).
+  ## Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+proc Rnotification_close*(tag: cstring) {.rapi.}
+  ## Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+proc Rnotification_set_callback*(callback: RNotificationCallback, user_data: pointer) {.rapi.}
+proc Rnotification_set_bring_to_front*(enabled: cint) {.rapi.}
+  ## R_TRUE (the default): a click on a notification (not on one of
+  ## its buttons) brings its window back before the callback is called:
+  ## shown again if it was hidden or minimized, in front, with the keyboard.
+  ## R_FALSE: the application does what it wants in the callback.
+proc Rnotification_set_fallback_toast*(toast: Rid) {.rapi.}
+  ## A Toast that shows the notifications the system could not show,
+  ## with their title, icon and buttons; a click on one, or on a button, is
+  ## reported to Rnotification_set_callback as for the system's. Put it in
+  ## an Overlay (Queue="Stack" shows several at once). It takes the place
+  ## of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+proc Rnotification_supports*(feature: RNotificationFeature): cint {.rapi.}
+  ## Whether the notifications of the system have that feature here (R_FALSE where there are none).
 proc Rviewport_set_texture*(viewport: Rid, texture: Rid) {.rapi.}
   ## Shows a texture. R_INVALID_ID shows nothing.
 proc Rviewport_set_stretch*(viewport: Rid, stretch: RStretch) {.rapi.}

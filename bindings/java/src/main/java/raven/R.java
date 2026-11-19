@@ -1620,6 +1620,46 @@ public final class R {
      */
     public static final int R_NOTIFICATION_CRITICAL = 0x04F2;
 
+    // RNotificationEvent: What happened to a notification (Rnotification_set_callback).
+    /**
+     * The user clicked the notification itself (not one of its buttons).
+     */
+    public static final int R_NOTIFICATION_ACTIVATED = 0x0C20;
+    /**
+     * The user clicked one of its buttons: `action` is the id of that button.
+     */
+    public static final int R_NOTIFICATION_ACTION_INVOKED = 0x0C21;
+    /**
+     * It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+     */
+    public static final int R_NOTIFICATION_DISMISSED = 0x0C22;
+
+    // RNotificationFeature: What the notifications of the system can do here (Rnotification_supports).
+    /**
+     * Buttons (RNotificationDesc::actions).
+     */
+    public static final int R_NOTIFICATION_FEATURE_ACTIONS = 1;
+    /**
+     * A notification shown again with the same tag replaces the first one.
+     */
+    public static final int R_NOTIFICATION_FEATURE_REPLACE = 2;
+    /**
+     * Rnotification_close takes a notification away.
+     */
+    public static final int R_NOTIFICATION_FEATURE_CLOSE = 4;
+    /**
+     * An image beside the text (RNotificationDesc::icon).
+     */
+    public static final int R_NOTIFICATION_FEATURE_ICON = 8;
+    /**
+     * A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+     */
+    public static final int R_NOTIFICATION_FEATURE_ACTIVATED = 0x0010;
+    /**
+     * Its dismissal is reported (R_NOTIFICATION_DISMISSED).
+     */
+    public static final int R_NOTIFICATION_FEATURE_DISMISSED = 0x0020;
+
     // RFileDialogFlags
     /**
      * Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result.
@@ -3484,6 +3524,155 @@ public final class R {
          */
         public String description() { return R.text(s.get(ADDRESS, 16)); }
         public RJumpTask description(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+    }
+
+    /**
+     * A button of a notification.
+     */
+    public static final class RNotificationAction {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 16;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RNotificationAction x = {0};` is in C). */
+        public RNotificationAction() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RNotificationAction(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RNotificationAction(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RNotificationAction[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RNotificationAction[] items = new RNotificationAction[count];
+            for (int i = 0; i < count; i++) items[i] = new RNotificationAction(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * Given back to the callback ("reply", "snooze"); not empty, and not "default".
+         */
+        public String id() { return R.text(s.get(ADDRESS, 0)); }
+        public RNotificationAction id(String value) { s.set(ADDRESS, 0, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Shown to the user ("Reply").
+         */
+        public String label() { return R.text(s.get(ADDRESS, 8)); }
+        public RNotificationAction label(String value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+    }
+
+    /**
+     * A notification for Rnotification_show_desc. `size` must be
+     * sizeof(RNotificationDesc): the fields that later versions of Raven add
+     * come after the others, and a smaller size tells Raven they were not
+     * given. The other fields may be left to zero.
+     */
+    public static final class RNotificationDesc {
+        /** The size of the structure in C, in bytes. */
+        public static final long SIZE = 64;
+        private final MemorySegment s;
+        private Arena arena;
+
+        /** A new structure, zeroed (what `RNotificationDesc x = {0};` is in C). */
+        public RNotificationDesc() {
+            arena = Arena.ofAuto();
+            s = arena.allocate(SIZE, 8);
+        }
+
+        /** The structure at an address (given by the library, or a slice of an array). */
+        public RNotificationDesc(MemorySegment address) {
+            s = address.reinterpret(SIZE);
+        }
+
+        private RNotificationDesc(MemorySegment segment, Arena arena) {
+            this.s = segment;
+            this.arena = arena;
+        }
+
+        /** Its memory: what to give where C takes a pointer to it. */
+        public MemorySegment segment() { return s; }
+
+        /** `count` structures side by side, zeroed: an array of C. */
+        public static RNotificationDesc[] array(int count) {
+            Arena a = Arena.ofAuto();
+            MemorySegment all = a.allocate(SIZE * Math.max(count, 1), 8);
+            RNotificationDesc[] items = new RNotificationDesc[count];
+            for (int i = 0; i < count; i++) items[i] = new RNotificationDesc(all.asSlice(SIZE * i, SIZE), a);
+            return items;
+        }
+
+        private Arena arena() {
+            if (arena == null) arena = Arena.ofAuto();
+            return arena;
+        }
+
+        /**
+         * sizeof(RNotificationDesc).
+         */
+        public int size() { return s.get(JAVA_INT, 0); }
+        public RNotificationDesc size(int value) { s.set(JAVA_INT, 0, value); return this; }
+
+        /**
+         * Names the notification: shown again with the same tag, it replaces the
+         * one still shown instead of adding another; Rnotification_close takes it
+         * away; the callback is given it. NULL or "": a tag of its own
+         * ("raven.1", "raven.2"...).
+         */
+        public String tag() { return R.text(s.get(ADDRESS, 8)); }
+        public RNotificationDesc tag(String value) { s.set(ADDRESS, 8, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public String title() { return R.text(s.get(ADDRESS, 16)); }
+        public RNotificationDesc title(String value) { s.set(ADDRESS, 16, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        public String body() { return R.text(s.get(ADDRESS, 24)); }
+        public RNotificationDesc body(String value) { s.set(ADDRESS, 24, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * 0: R_NOTIFICATION_NORMAL.
+         */
+        public int urgency() { return s.get(JAVA_INT, 32); }
+        public RNotificationDesc urgency(int value) { s.set(JAVA_INT, 32, value); return this; }
+
+        /**
+         * An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+         */
+        public String icon() { return R.text(s.get(ADDRESS, 40)); }
+        public RNotificationDesc icon(String value) { s.set(ADDRESS, 40, value == null ? MemorySegment.NULL : R.utf8(arena(), value)); return this; }
+
+        /**
+         * Up to 3 buttons, or NULL.
+         */
+        public MemorySegment actions() { return s.get(ADDRESS, 48); }
+        public RNotificationDesc actions(MemorySegment value) { s.set(ADDRESS, 48, value == null ? MemorySegment.NULL : value); return this; }
+
+        public int action_count() { return s.get(JAVA_INT, 56); }
+        public RNotificationDesc action_count(int value) { s.set(JAVA_INT, 56, value); return this; }
+
+        /**
+         * The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
+         */
+        public int window() { return s.get(JAVA_INT, 60); }
+        public RNotificationDesc window(int value) { s.set(JAVA_INT, 60, value); return this; }
     }
 
     /**
@@ -6137,6 +6326,30 @@ public final class R {
 
     private static MemorySegment upcall(RNotificationClickedCallback f) {
         return stub(f, RNotificationClickedCallback.class, "RNotificationClickedCallback$raw", FunctionDescriptor.ofVoid(ADDRESS));
+    }
+
+    /**
+     * Called on the UI thread when the user clicks a notification or
+     * one of its buttons, or dismisses it. `tag` names the notification,
+     * `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+     * NULL: none.
+     */
+    @FunctionalInterface
+    public interface RNotificationCallback {
+        void invoke(String tag, int event, String action, MemorySegment user_data);
+    }
+
+    private static void RNotificationCallback$raw(RNotificationCallback f, MemorySegment tag, int event, MemorySegment action, MemorySegment user_data) {
+        try {
+            f.invoke(text(tag), event, text(action), user_data);
+        } catch (Throwable t) {
+            // an exception must not cross C: it is reported here
+            t.printStackTrace();
+        }
+    }
+
+    private static MemorySegment upcall(RNotificationCallback f) {
+        return stub(f, RNotificationCallback.class, "RNotificationCallback$raw", FunctionDescriptor.ofVoid(ADDRESS, JAVA_INT, ADDRESS, ADDRESS));
     }
 
     /**
@@ -24983,7 +25196,9 @@ public final class R {
     private static MethodHandle Rnotification_is_supported$;
 
     /**
-     * R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+     * R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+     * the fallback): the null platform, no notification server on Linux, an executable outside of a
+     * bundle on macOS.
      */
     public static int Rnotification_is_supported() {
         MethodHandle $h = Rnotification_is_supported$;
@@ -25022,10 +25237,8 @@ public final class R {
 
     /**
      * Called when the user clicks a notification of Rnotification_show
-     * (on the UI thread; the application may then bring its window to the
-     * front: the system lets it). It is the last one shown that was clicked:
-     * the application remembers what it was about. NULL: none.
-     * Windows and macOS (elsewhere it is never called).
+     * (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+     * Rnotification_set_callback, which also tells which one. NULL: none.
      */
     public static void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, MemorySegment user_data) {
         MethodHandle $h = Rnotification_set_clicked_callback$;
@@ -25039,13 +25252,113 @@ public final class R {
 
     /**
      * Called when the user clicks a notification of Rnotification_show
-     * (on the UI thread; the application may then bring its window to the
-     * front: the system lets it). It is the last one shown that was clicked:
-     * the application remembers what it was about. NULL: none.
-     * Windows and macOS (elsewhere it is never called).
+     * (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+     * Rnotification_set_callback, which also tells which one. NULL: none.
      */
     public static void Rnotification_set_clicked_callback(RNotificationClickedCallback callback) {
         Rnotification_set_clicked_callback(callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rnotification_show_desc$;
+
+    /**
+     * Shows a notification described by `desc` (see RNotificationDesc).
+     * Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+     */
+    public static int Rnotification_show_desc(RNotificationDesc desc) {
+        MethodHandle $h = Rnotification_show_desc$;
+        if ($h == null) Rnotification_show_desc$ = $h = find("Rnotification_show_desc", FunctionDescriptor.of(JAVA_INT, ADDRESS));
+        try {
+            int $r = (int) $h.invokeExact((MemorySegment) (desc == null ? MemorySegment.NULL : desc.segment()));
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnotification_close$;
+
+    /**
+     * Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+     */
+    public static void Rnotification_close(String tag) {
+        MethodHandle $h = Rnotification_close$;
+        if ($h == null) Rnotification_close$ = $h = find("Rnotification_close", FunctionDescriptor.ofVoid(ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment tag$ = tag == null ? MemorySegment.NULL : utf8($a, tag);
+            $h.invokeExact(tag$);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnotification_set_callback$;
+
+    public static void Rnotification_set_callback(RNotificationCallback callback, MemorySegment user_data) {
+        MethodHandle $h = Rnotification_set_callback$;
+        if ($h == null) Rnotification_set_callback$ = $h = find("Rnotification_set_callback", FunctionDescriptor.ofVoid(ADDRESS, ADDRESS));
+        try {
+            $h.invokeExact(upcall(callback), (MemorySegment) (user_data == null ? MemorySegment.NULL : user_data));
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    public static void Rnotification_set_callback(RNotificationCallback callback) {
+        Rnotification_set_callback(callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rnotification_set_bring_to_front$;
+
+    /**
+     * R_TRUE (the default): a click on a notification (not on one of
+     * its buttons) brings its window back before the callback is called:
+     * shown again if it was hidden or minimized, in front, with the keyboard.
+     * R_FALSE: the application does what it wants in the callback.
+     */
+    public static void Rnotification_set_bring_to_front(int enabled) {
+        MethodHandle $h = Rnotification_set_bring_to_front$;
+        if ($h == null) Rnotification_set_bring_to_front$ = $h = find("Rnotification_set_bring_to_front", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnotification_set_fallback_toast$;
+
+    /**
+     * A Toast that shows the notifications the system could not show,
+     * with their title, icon and buttons; a click on one, or on a button, is
+     * reported to Rnotification_set_callback as for the system's. Put it in
+     * an Overlay (Queue="Stack" shows several at once). It takes the place
+     * of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+     */
+    public static void Rnotification_set_fallback_toast(int toast) {
+        MethodHandle $h = Rnotification_set_fallback_toast$;
+        if ($h == null) Rnotification_set_fallback_toast$ = $h = find("Rnotification_set_fallback_toast", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(toast);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rnotification_supports$;
+
+    /**
+     * Whether the notifications of the system have that feature here (R_FALSE where there are none).
+     */
+    public static int Rnotification_supports(int feature) {
+        MethodHandle $h = Rnotification_supports$;
+        if ($h == null) Rnotification_supports$ = $h = find("Rnotification_supports", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(feature);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rviewport_set_texture$;

@@ -1770,6 +1770,57 @@ namespace Raven
         R_NOTIFICATION_CRITICAL = 0x04F2,
     }
 
+    /// <summary>
+    /// What happened to a notification (Rnotification_set_callback).
+    /// </summary>
+    public enum RNotificationEvent : int
+    {
+        /// <summary>
+        /// The user clicked the notification itself (not one of its buttons).
+        /// </summary>
+        R_NOTIFICATION_ACTIVATED = 0x0C20,
+        /// <summary>
+        /// The user clicked one of its buttons: `action` is the id of that button.
+        /// </summary>
+        R_NOTIFICATION_ACTION_INVOKED = 0x0C21,
+        /// <summary>
+        /// It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+        /// </summary>
+        R_NOTIFICATION_DISMISSED = 0x0C22,
+    }
+
+    /// <summary>
+    /// What the notifications of the system can do here (Rnotification_supports).
+    /// </summary>
+    [Flags]
+    public enum RNotificationFeature : int
+    {
+        /// <summary>
+        /// Buttons (RNotificationDesc::actions).
+        /// </summary>
+        R_NOTIFICATION_FEATURE_ACTIONS = 1,
+        /// <summary>
+        /// A notification shown again with the same tag replaces the first one.
+        /// </summary>
+        R_NOTIFICATION_FEATURE_REPLACE = 2,
+        /// <summary>
+        /// Rnotification_close takes a notification away.
+        /// </summary>
+        R_NOTIFICATION_FEATURE_CLOSE = 4,
+        /// <summary>
+        /// An image beside the text (RNotificationDesc::icon).
+        /// </summary>
+        R_NOTIFICATION_FEATURE_ICON = 8,
+        /// <summary>
+        /// A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+        /// </summary>
+        R_NOTIFICATION_FEATURE_ACTIVATED = 0x0010,
+        /// <summary>
+        /// Its dismissal is reported (R_NOTIFICATION_DISMISSED).
+        /// </summary>
+        R_NOTIFICATION_FEATURE_DISMISSED = 0x0020,
+    }
+
     [Flags]
     public enum RFileDialogFlags : int
     {
@@ -2713,6 +2764,63 @@ namespace Raven
     }
 
     /// <summary>
+    /// A button of a notification.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RNotificationAction
+    {
+        /// <summary>
+        /// Given back to the callback ("reply", "snooze"); not empty, and not "default".
+        /// </summary>
+        public IntPtr id;
+        /// <summary>
+        /// Shown to the user ("Reply").
+        /// </summary>
+        public IntPtr label;
+    }
+
+    /// <summary>
+    /// A notification for Rnotification_show_desc. `size` must be
+    /// sizeof(RNotificationDesc): the fields that later versions of Raven add
+    /// come after the others, and a smaller size tells Raven they were not
+    /// given. The other fields may be left to zero.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RNotificationDesc
+    {
+        /// <summary>
+        /// sizeof(RNotificationDesc).
+        /// </summary>
+        public uint size;
+        /// <summary>
+        /// Names the notification: shown again with the same tag, it replaces the
+        /// one still shown instead of adding another; Rnotification_close takes it
+        /// away; the callback is given it. NULL or "": a tag of its own
+        /// ("raven.1", "raven.2"...).
+        /// </summary>
+        public IntPtr tag;
+        public IntPtr title;
+        public IntPtr body;
+        /// <summary>
+        /// 0: R_NOTIFICATION_NORMAL.
+        /// </summary>
+        public RNotificationUrgency urgency;
+        /// <summary>
+        /// An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+        /// </summary>
+        public IntPtr icon;
+        /// <summary>
+        /// Up to 3 buttons, or NULL.
+        /// </summary>
+        public IntPtr actions;
+        public int action_count;
+        /// <summary>
+        /// The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
+        /// </summary>
+        public uint window;
+    }
+
+    /// <summary>
     /// A kind of file in a file dialog.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
@@ -3563,6 +3671,15 @@ namespace Raven
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void RNotificationClickedCallback(IntPtr user_data);
+
+    /// <summary>
+    /// Called on the UI thread when the user clicks a notification or
+    /// one of its buttons, or dismisses it. `tag` names the notification,
+    /// `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+    /// NULL: none.
+    /// </summary>
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void RNotificationCallback(IntPtr tag, RNotificationEvent @event, IntPtr action, IntPtr user_data);
 
     /// <summary>
     /// Called on the render thread each time the window is rendered.
@@ -10295,7 +10412,9 @@ namespace Raven
         public static extern int Rnotification_show([MarshalAs(Utf8.Str)] string title, [MarshalAs(Utf8.Str)] string body, RNotificationUrgency urgency);
 
         /// <summary>
-        /// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+        /// R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+        /// the fallback): the null platform, no notification server on Linux, an executable outside of a
+        /// bundle on macOS.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern int Rnotification_is_supported();
@@ -10308,13 +10427,59 @@ namespace Raven
 
         /// <summary>
         /// Called when the user clicks a notification of Rnotification_show
-        /// (on the UI thread; the application may then bring its window to the
-        /// front: the system lets it). It is the last one shown that was clicked:
-        /// the application remembers what it was about. NULL: none.
-        /// Windows and macOS (elsewhere it is never called).
+        /// (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+        /// Rnotification_set_callback, which also tells which one. NULL: none.
         /// </summary>
         [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
         public static extern void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// Shows a notification described by `desc` (see RNotificationDesc).
+        /// Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnotification_show_desc(ref RNotificationDesc desc);
+
+        /// <summary>
+        /// Shows a notification described by `desc` (see RNotificationDesc).
+        /// Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnotification_show_desc(IntPtr desc);
+
+        /// <summary>
+        /// Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnotification_close([MarshalAs(Utf8.Str)] string tag);
+
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnotification_set_callback(RNotificationCallback callback, IntPtr user_data);
+
+        /// <summary>
+        /// R_TRUE (the default): a click on a notification (not on one of
+        /// its buttons) brings its window back before the callback is called:
+        /// shown again if it was hidden or minimized, in front, with the keyboard.
+        /// R_FALSE: the application does what it wants in the callback.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnotification_set_bring_to_front(int enabled);
+
+        /// <summary>
+        /// A Toast that shows the notifications the system could not show,
+        /// with their title, icon and buttons; a click on one, or on a button, is
+        /// reported to Rnotification_set_callback as for the system's. Put it in
+        /// an Overlay (Queue="Stack" shows several at once). It takes the place
+        /// of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void Rnotification_set_fallback_toast(uint toast);
+
+        /// <summary>
+        /// Whether the notifications of the system have that feature here (R_FALSE where there are none).
+        /// </summary>
+        [DllImport(Lib, CallingConvention = CallingConvention.Cdecl)]
+        public static extern int Rnotification_supports(RNotificationFeature feature);
 
         /// <summary>
         /// Shows a texture. R_INVALID_ID shows nothing.

@@ -3251,8 +3251,8 @@ static void rvn_wl_lost(void) {
 }
 
 static void rvn_wl_pump(double timeout_seconds) {
-	struct pollfd fds[6];
-	int count = 0, i, timeout_ms, a11y, tray, decor_fd = -1, display_fd;
+	struct pollfd fds[7];
+	int count = 0, i, timeout_ms, a11y, tray, notifications, decor_fd = -1, display_fd;
 	/* (what a roundtrip outside this function dispatched: not worth sleeping over) */
 	if (g_wl.close_first) {
 		rvn_wl_deliver_closes();
@@ -3312,6 +3312,13 @@ static void rvn_wl_pump(double timeout_seconds) {
 		fds[count].events = POLLIN;
 		fds[count++].revents = 0;
 	}
+	/* and the notification server: a click on a notification or on one of its buttons */
+	notifications = rvn_dbus_notify_fd();
+	if (notifications >= 0) {
+		fds[count].fd = notifications;
+		fds[count].events = POLLIN;
+		fds[count++].revents = 0;
+	}
 	if (g_wl.decor) {
 		decor_fd = g_decor.get_fd(g_wl.decor);
 		if (decor_fd >= 0 && decor_fd != display_fd) {
@@ -3345,6 +3352,7 @@ static void rvn_wl_pump(double timeout_seconds) {
 	}
 	rvn_atspi_dispatch();
 	rvn_sni_dispatch();
+	rvn_dbus_notify_dispatch();
 	/* empty the wake-up pipe, whether we slept or not */
 	if (g_wl.wake_pipe[0] >= 0) {
 		char buffer[64];
@@ -3404,6 +3412,8 @@ const rvn_platform_t* rvn_platform_wayland(void) {
 		.a11y_active = rvn_atspi_active,
 		.a11y_settings = rvn_atspi_settings,
 		.notify = rvn_dbus_notify,
+		.notify_close = rvn_dbus_notify_close,
+		.notify_features = rvn_dbus_notify_features,
 		.window_set_progress = rvn_wl_window_set_progress,
 		.window_request_attention = rvn_wl_window_request_attention,
 		.app_set_badge = rvn_dbus_launcher_badge,

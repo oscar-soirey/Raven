@@ -1346,6 +1346,12 @@ const _symbols = {
 	Rnotification_is_supported: { args: [], returns: "i32" },
 	Rnotification_set_fallback: { args: ["ptr", "ptr"], returns: "void" },
 	Rnotification_set_clicked_callback: { args: ["ptr", "ptr"], returns: "void" },
+	Rnotification_show_desc: { args: ["ptr"], returns: "i32" },
+	Rnotification_close: { args: ["ptr"], returns: "void" },
+	Rnotification_set_callback: { args: ["ptr", "ptr"], returns: "void" },
+	Rnotification_set_bring_to_front: { args: ["i32"], returns: "void" },
+	Rnotification_set_fallback_toast: { args: ["u32"], returns: "void" },
+	Rnotification_supports: { args: ["i32"], returns: "i32" },
 	Rviewport_set_texture: { args: ["u32", "u32"], returns: "void" },
 	Rviewport_set_stretch: { args: ["u32", "i32"], returns: "void" },
 	Rviewport_set_flip_y: { args: ["u32", "i32"], returns: "void" },
@@ -3383,6 +3389,43 @@ export const R_NOTIFICATION_LOW = RNotificationUrgency.R_NOTIFICATION_LOW;
 export const R_NOTIFICATION_NORMAL = RNotificationUrgency.R_NOTIFICATION_NORMAL;
 export const R_NOTIFICATION_CRITICAL = RNotificationUrgency.R_NOTIFICATION_CRITICAL;
 
+/** What happened to a notification (Rnotification_set_callback). */
+export enum RNotificationEvent {
+	/** The user clicked the notification itself (not one of its buttons). */
+	R_NOTIFICATION_ACTIVATED = 0x0C20,
+	/** The user clicked one of its buttons: `action` is the id of that button. */
+	R_NOTIFICATION_ACTION_INVOKED = 0x0C21,
+	/** It went away without being clicked: closed by the user, or its time ran out (where the system tells). */
+	R_NOTIFICATION_DISMISSED = 0x0C22,
+}
+
+export const R_NOTIFICATION_ACTIVATED = RNotificationEvent.R_NOTIFICATION_ACTIVATED;
+export const R_NOTIFICATION_ACTION_INVOKED = RNotificationEvent.R_NOTIFICATION_ACTION_INVOKED;
+export const R_NOTIFICATION_DISMISSED = RNotificationEvent.R_NOTIFICATION_DISMISSED;
+
+/** What the notifications of the system can do here (Rnotification_supports). */
+export enum RNotificationFeature {
+	/** Buttons (RNotificationDesc::actions). */
+	R_NOTIFICATION_FEATURE_ACTIONS = 1,
+	/** A notification shown again with the same tag replaces the first one. */
+	R_NOTIFICATION_FEATURE_REPLACE = 2,
+	/** Rnotification_close takes a notification away. */
+	R_NOTIFICATION_FEATURE_CLOSE = 4,
+	/** An image beside the text (RNotificationDesc::icon). */
+	R_NOTIFICATION_FEATURE_ICON = 8,
+	/** A click on the notification is reported (R_NOTIFICATION_ACTIVATED). */
+	R_NOTIFICATION_FEATURE_ACTIVATED = 0x0010,
+	/** Its dismissal is reported (R_NOTIFICATION_DISMISSED). */
+	R_NOTIFICATION_FEATURE_DISMISSED = 0x0020,
+}
+
+export const R_NOTIFICATION_FEATURE_ACTIONS = RNotificationFeature.R_NOTIFICATION_FEATURE_ACTIONS;
+export const R_NOTIFICATION_FEATURE_REPLACE = RNotificationFeature.R_NOTIFICATION_FEATURE_REPLACE;
+export const R_NOTIFICATION_FEATURE_CLOSE = RNotificationFeature.R_NOTIFICATION_FEATURE_CLOSE;
+export const R_NOTIFICATION_FEATURE_ICON = RNotificationFeature.R_NOTIFICATION_FEATURE_ICON;
+export const R_NOTIFICATION_FEATURE_ACTIVATED = RNotificationFeature.R_NOTIFICATION_FEATURE_ACTIVATED;
+export const R_NOTIFICATION_FEATURE_DISMISSED = RNotificationFeature.R_NOTIFICATION_FEATURE_DISMISSED;
+
 export enum RFileDialogFlags {
 	/** Several files can be chosen (Rfile_dialog_open): see Rfile_dialog_get_result. */
 	R_FILE_DIALOG_MULTIPLE = 1,
@@ -5234,6 +5277,135 @@ export class RJumpTask extends RStruct {
 	}
 	set description(value: string | null) {
 		this._point("description", 16, _s(value));
+	}
+}
+
+/** A button of a notification. */
+export class RNotificationAction extends RStruct {
+	static readonly SIZE = 16;
+
+	constructor(pointer?: Pointer) {
+		super(RNotificationAction.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RNotificationAction | null {
+		return pointer ? new RNotificationAction(pointer) : null;
+	}
+
+	/** Given back to the callback ("reply", "snooze"); not empty, and not "default". */
+	get id(): string | null {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set id(value: string | null) {
+		this._point("id", 0, _s(value));
+	}
+
+	/** Shown to the user ("Reply"). */
+	get label(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set label(value: string | null) {
+		this._point("label", 8, _s(value));
+	}
+}
+
+/**
+ * A notification for Rnotification_show_desc. `size` must be
+ * sizeof(RNotificationDesc): the fields that later versions of Raven add
+ * come after the others, and a smaller size tells Raven they were not
+ * given. The other fields may be left to zero.
+ */
+export class RNotificationDesc extends RStruct {
+	static readonly SIZE = 64;
+
+	constructor(pointer?: Pointer) {
+		super(RNotificationDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer: Pointer | null): RNotificationDesc | null {
+		return pointer ? new RNotificationDesc(pointer) : null;
+	}
+
+	/** sizeof(RNotificationDesc). */
+	get size(): number {
+		return this._view.getUint32(0, true);
+	}
+	set size(value: number) {
+		this._view.setUint32(0, value, true);
+	}
+
+	/**
+	 * Names the notification: shown again with the same tag, it replaces the
+	 * one still shown instead of adding another; Rnotification_close takes it
+	 * away; the callback is given it. NULL or "": a tag of its own
+	 * ("raven.1", "raven.2"...).
+	 */
+	get tag(): string | null {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set tag(value: string | null) {
+		this._point("tag", 8, _s(value));
+	}
+
+	get title(): string | null {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set title(value: string | null) {
+		this._point("title", 16, _s(value));
+	}
+
+	get body(): string | null {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set body(value: string | null) {
+		this._point("body", 24, _s(value));
+	}
+
+	/** 0: R_NOTIFICATION_NORMAL. */
+	get urgency(): RNotificationUrgency {
+		return this._view.getInt32(32, true) as RNotificationUrgency;
+	}
+	set urgency(value: RNotificationUrgency) {
+		this._view.setInt32(32, value, true);
+	}
+
+	/** An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL. */
+	get icon(): string | null {
+		return _text(_address(this._view.getBigUint64(40, true)));
+	}
+	set icon(value: string | null) {
+		this._point("icon", 40, _s(value));
+	}
+
+	/** Up to 3 buttons, or NULL. */
+	get actions(): Pointer | null {
+		return _address(this._view.getBigUint64(48, true));
+	}
+	set actions(value: readonly RNotificationAction[] | Pointer | null) {
+		if (typeof value === "number") {
+			this._view.setBigUint64(48, BigInt(value), true);
+			return;
+		}
+		this._point("actions", 48, _structs(value, RNotificationAction.SIZE));
+		(this._kept ??= new Map()).set("actions.items", value ?? this._bytes);
+		this.action_count = value?.length ?? 0;
+	}
+
+	get action_count(): number {
+		return this._view.getInt32(56, true);
+	}
+	set action_count(value: number) {
+		this._view.setInt32(56, value, true);
+	}
+
+	/** The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened). */
+	get window(): Rid {
+		return this._view.getUint32(60, true);
+	}
+	set window(value: Rid) {
+		this._view.setUint32(60, value, true);
 	}
 }
 
@@ -7423,6 +7595,27 @@ function _adapt_RNotificationClickedCallback(function_: RNotificationClickedCall
 			_report(error as Error);
 		}
 	}, { args: ["ptr"], returns: "void", threadsafe }));
+}
+
+/**
+ * Called on the UI thread when the user clicks a notification or
+ * one of its buttons, or dismisses it. `tag` names the notification,
+ * `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+ * NULL: none.
+ */
+export type RNotificationCallback = (tag: string | null, event: RNotificationEvent, action: string | null, user_data: Pointer | null) => void;
+
+function _adapt_RNotificationCallback(function_: RNotificationCallback | Pointer | null, threadsafe = false): Pointer | null {
+	if (typeof function_ !== "function") {
+		return function_;
+	}
+	return _keep(new _JSCallback((tag: Pointer | null, event: number, action: Pointer | null, user_data: Pointer | null): void => {
+		try {
+			function_(_text(tag), event as RNotificationEvent, _text(action), user_data);
+		} catch (error) {
+			_report(error as Error);
+		}
+	}, { args: ["ptr", "i32", "ptr", "ptr"], returns: "void", threadsafe }));
 }
 
 /**
@@ -14422,7 +14615,11 @@ export function Rnotification_show(title: string | null, body: string | null, ur
 	return _lib.Rnotification_show(_s(title), _s(body), urgency);
 }
 
-/** R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback). */
+/**
+ * R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+ * the fallback): the null platform, no notification server on Linux, an executable outside of a
+ * bundle on macOS.
+ */
 export function Rnotification_is_supported(): number {
 	return _lib.Rnotification_is_supported();
 }
@@ -14434,13 +14631,54 @@ export function Rnotification_set_fallback(callback: RNotificationFallback | Poi
 
 /**
  * Called when the user clicks a notification of Rnotification_show
- * (on the UI thread; the application may then bring its window to the
- * front: the system lets it). It is the last one shown that was clicked:
- * the application remembers what it was about. NULL: none.
- * Windows and macOS (elsewhere it is never called).
+ * (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+ * Rnotification_set_callback, which also tells which one. NULL: none.
  */
 export function Rnotification_set_clicked_callback(callback: RNotificationClickedCallback | Pointer | null, user_data: RPointer = null): void {
 	_lib.Rnotification_set_clicked_callback(_adapt_RNotificationClickedCallback(callback), user_data);
+}
+
+/**
+ * Shows a notification described by `desc` (see RNotificationDesc).
+ * Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+ */
+export function Rnotification_show_desc(desc: RNotificationDesc | null): number {
+	return _lib.Rnotification_show_desc(_p(desc));
+}
+
+/** Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called. */
+export function Rnotification_close(tag: string | null): void {
+	_lib.Rnotification_close(_s(tag));
+}
+
+export function Rnotification_set_callback(callback: RNotificationCallback | Pointer | null, user_data: RPointer = null): void {
+	_lib.Rnotification_set_callback(_adapt_RNotificationCallback(callback), user_data);
+}
+
+/**
+ * R_TRUE (the default): a click on a notification (not on one of
+ * its buttons) brings its window back before the callback is called:
+ * shown again if it was hidden or minimized, in front, with the keyboard.
+ * R_FALSE: the application does what it wants in the callback.
+ */
+export function Rnotification_set_bring_to_front(enabled: number): void {
+	_lib.Rnotification_set_bring_to_front(enabled);
+}
+
+/**
+ * A Toast that shows the notifications the system could not show,
+ * with their title, icon and buttons; a click on one, or on a button, is
+ * reported to Rnotification_set_callback as for the system's. Put it in
+ * an Overlay (Queue="Stack" shows several at once). It takes the place
+ * of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+ */
+export function Rnotification_set_fallback_toast(toast: Rid): void {
+	_lib.Rnotification_set_fallback_toast(toast);
+}
+
+/** Whether the notifications of the system have that feature here (R_FALSE where there are none). */
+export function Rnotification_supports(feature: RNotificationFeature): number {
+	return _lib.Rnotification_supports(feature);
 }
 
 /** Shows a texture. R_INVALID_ID shows nothing. */

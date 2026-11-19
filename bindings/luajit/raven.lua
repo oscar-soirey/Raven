@@ -732,6 +732,19 @@ typedef enum RNotificationUrgency {
 	R_NOTIFICATION_NORMAL = 1265,
 	R_NOTIFICATION_CRITICAL = 1266,
 } RNotificationUrgency;
+typedef enum RNotificationEvent {
+	R_NOTIFICATION_ACTIVATED = 3104,
+	R_NOTIFICATION_ACTION_INVOKED = 3105,
+	R_NOTIFICATION_DISMISSED = 3106,
+} RNotificationEvent;
+typedef enum RNotificationFeature {
+	R_NOTIFICATION_FEATURE_ACTIONS = 1,
+	R_NOTIFICATION_FEATURE_REPLACE = 2,
+	R_NOTIFICATION_FEATURE_CLOSE = 4,
+	R_NOTIFICATION_FEATURE_ICON = 8,
+	R_NOTIFICATION_FEATURE_ACTIVATED = 16,
+	R_NOTIFICATION_FEATURE_DISMISSED = 32,
+} RNotificationFeature;
 typedef enum RFileDialogFlags {
 	R_FILE_DIALOG_MULTIPLE = 1,
 	R_FILE_DIALOG_RAVEN = 2,
@@ -862,6 +875,8 @@ typedef struct RTileItem RTileItem;
 typedef struct RTileSection RTileSection;
 typedef struct RLanguageDesc RLanguageDesc;
 typedef struct RJumpTask RJumpTask;
+typedef struct RNotificationAction RNotificationAction;
+typedef struct RNotificationDesc RNotificationDesc;
 typedef struct RFileFilter RFileFilter;
 typedef struct RFileDialogDesc RFileDialogDesc;
 typedef struct RViewportDrawInfo RViewportDrawInfo;
@@ -956,6 +971,7 @@ typedef void (*RDialogClosedCallback)(Rid content, int result, void* user_data);
 typedef void (*RFileBrowserCallback)(Rid browser, const char* path, void* user_data);
 typedef void (*RNotificationFallback)(const char* title, const char* body, RNotificationUrgency urgency, void* user_data);
 typedef void (*RNotificationClickedCallback)(void* user_data);
+typedef void (*RNotificationCallback)(const char* tag, RNotificationEvent event, const char* action, void* user_data);
 typedef void (*RViewportDrawCallback)(const RViewportDrawInfo* info, void* user_data);
 typedef void (*RViewportResizeCallback)(Rid viewport, int width, int height, void* user_data);
 typedef void (*RPaintCallback)(Rid widget, RPainter* painter, float width, float height, void* user_data);
@@ -1169,6 +1185,21 @@ struct RJumpTask {
 	const char* title;
 	const char* arguments;
 	const char* description;
+};
+struct RNotificationAction {
+	const char* id;
+	const char* label;
+};
+struct RNotificationDesc {
+	Ruint size;
+	const char* tag;
+	const char* title;
+	const char* body;
+	RNotificationUrgency urgency;
+	const char* icon;
+	const RNotificationAction* actions;
+	int action_count;
+	Rid window;
 };
 struct RFileFilter {
 	const char* name;
@@ -2454,6 +2485,12 @@ int Rnotification_show(const char* title, const char* body, RNotificationUrgency
 int Rnotification_is_supported(void);
 void Rnotification_set_fallback(RNotificationFallback callback, void* user_data);
 void Rnotification_set_clicked_callback(RNotificationClickedCallback callback, void* user_data);
+int Rnotification_show_desc(const RNotificationDesc* desc);
+void Rnotification_close(const char* tag);
+void Rnotification_set_callback(RNotificationCallback callback, void* user_data);
+void Rnotification_set_bring_to_front(int enabled);
+void Rnotification_set_fallback_toast(Rid toast);
+int Rnotification_supports(RNotificationFeature feature);
 void Rviewport_set_texture(Rid viewport, Rid texture);
 void Rviewport_set_stretch(Rid viewport, RStretch stretch);
 void Rviewport_set_flip_y(Rid viewport, int flip);

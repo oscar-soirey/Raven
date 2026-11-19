@@ -260,6 +260,12 @@ static void rvn_null_focus_event(rvn_pwindow_t* window, int focused) {
 	g_null.handler(&event);
 }
 
+/* Rwindow_focus: out of the minimized state, and given the keyboard (as a window manager would). */
+static void rvn_null_window_focus(rvn_pwindow_t* window) {
+	if (window->state == RVN_PWINDOW_MINIMIZED) rvn_null_window_set_state(window, RVN_PWINDOW_NORMAL);
+	rvn_null_focus_event(window, R_TRUE);
+}
+
 /* Centered on the same work area of 1920 x 1080 pixels. */
 static void rvn_null_window_center(rvn_pwindow_t* window) {
 	window->x = (1920 - window->width) / 2;
@@ -386,6 +392,7 @@ const rvn_platform_t* rvn_platform_null(void) {
 		.window_get_position = rvn_null_window_get_position,
 		.window_get_scale = rvn_null_window_get_scale,
 		.window_show = rvn_null_window_show,
+		.window_focus = rvn_null_window_focus,
 		.window_set_state = rvn_null_window_set_state,
 		.window_get_state = rvn_null_window_get_state,
 		.window_begin_move = rvn_null_window_begin_move,

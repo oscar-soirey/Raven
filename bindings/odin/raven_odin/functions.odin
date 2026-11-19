@@ -14,8 +14,8 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1031 of the 1385 functions of the C API are here, 32 are written by hand (the other files of this
-// folder), and 322 are raw only: call them through the package `raven`, imported as `raw`.
+// 1038 of the 1394 functions of the C API are here, 32 are written by hand (the other files of this
+// folder), and 324 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
 //   a handle that is not known (120):
@@ -49,7 +49,7 @@
 //     Rmap_view_get_attribution Rtest_click_at Rtest_hover_at Rtest_drag_to Rtest_key Rtest_type_text
 //     Rtest_expect_golden
 //
-//   a callback (105):
+//   a callback (106):
 //     Rset_app_event_callback Rtask_post Rtask_run_async Rparallel_for Raction_set_default_handler
 //     Raction_bind_with_parameters Rset_device_reset_callback Rwindow_set_keyboard_callback
 //     Rwindow_set_back_callback Rwindow_set_close_callback Rwindow_set_resize_callback
@@ -83,10 +83,10 @@
 //     Rblock_editor_set_clicked_callback Rblock_editor_set_context_callback Rdialog_open Rpopup_open
 //     Rfile_browser_set_accepted_callback Rfile_browser_set_cancelled_callback
 //     Rfile_browser_set_selection_changed_callback Rnotification_set_fallback
-//     Rnotification_set_clicked_callback Rviewport_set_draw_callback Rviewport_set_resize_callback
-//     Rcustom_set_paint_callback Rcustom_set_measure_callback Rxml_set_reload_callback Rxml_register_tag
-//     Rscript_set_log_callback Rscript_set_diagnostic_callback Rlocale_set_changed_callback
-//     Rwidget_set_accessible_action
+//     Rnotification_set_clicked_callback Rnotification_set_callback Rviewport_set_draw_callback
+//     Rviewport_set_resize_callback Rcustom_set_paint_callback Rcustom_set_measure_callback
+//     Rxml_set_reload_callback Rxml_register_tag Rscript_set_log_callback Rscript_set_diagnostic_callback
+//     Rlocale_set_changed_callback Rwidget_set_accessible_action
 //
 //   a parameter of type RPainter* (14):
 //     Rdraw_rect Rdraw_shadow Rdraw_rect_outline Rdraw_circle Rdraw_line Rdraw_curve Rdraw_triangle
@@ -189,6 +189,9 @@
 //
 //   a parameter of type const RLanguageDesc* (1):
 //     Rlanguage_register
+//
+//   a parameter of type const RNotificationDesc* (1):
+//     Rnotification_show_desc
 //
 //   a parameter of type const RShaderLook* (1):
 //     Rborder_set_effect
@@ -713,6 +716,20 @@ window_inject_text :: proc(window: Window, text: string) {
 	raw.Rwindow_inject_text(raw.Rid(window), to_cstring(text, &buffer_text))
 }
 
+// The text an input method is composing (preedit: Chinese,
+// Japanese, Korean, dead keys), as the platforms send it. The focused
+// TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+// place of its selection, but it is not in its text and no changed
+// callback runs. [selection_start, selection_end) are bytes of `text`:
+// the part the input method works on (underlined thicker), or the caret
+// when they are equal; -1 is the end of `text`. NULL or "" ends the
+// composition without typing anything (cancel). The committed text comes
+// through Rwindow_inject_text, which ends the composition too, and so
+// does a change of focus. Ignored when the focus takes no text.
+window_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rwindow_inject_composition(raw.Rid(window), text, selection_start, selection_end)
+}
+
 // A drag from another application moves over the window
 // (`inside` R_TRUE) or leaves it.
 // Returns: R_TRUE when a drop at this position would be accepted.
@@ -774,6 +791,14 @@ window_replace_text_input :: proc(window: Window, start: i32, end: i32, text: st
 	return raw.Rwindow_replace_text_input(raw.Rid(window), start, end, to_cstring(text, &buffer_text))
 }
 
+// The composition of the input method in progress (UTF-8, valid
+// until it changes) and its selection in bytes; NULL when there is none.
+// Any output pointer may be NULL.
+window_get_text_composition :: proc(window: Window) -> (result: string, selection_start: i32, selection_end: i32) {
+	result = string(raw.Rwindow_get_text_composition(raw.Rid(window), &selection_start, &selection_end))
+	return
+}
+
 // R_TRUE while a menu, list or dialog is open over the window.
 window_has_popup :: proc(window: Window) -> bool {
 	return raw.Rwindow_has_popup(raw.Rid(window)) != 0
@@ -782,7 +807,9 @@ window_has_popup :: proc(window: Window) -> bool {
 // Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 // Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 // outputs when there is no visible editable caret, the window is inactive, or focus changed
-// since painting. Any output pointer may be NULL.
+// since painting. Any output pointer may be NULL. While an input method
+// composes, it is the caret inside the composition: where its candidate
+// window goes.
 window_get_text_input_rect :: proc(window: Window) -> (result: i32, x: i32, y: i32, width: i32, height: i32) {
 	result = raw.Rwindow_get_text_input_rect(raw.Rid(window), &x, &y, &width, &height)
 	return
@@ -5112,9 +5139,39 @@ notification_show :: proc(title: string, body: string, urgency: Notification_Urg
 	return raw.Rnotification_show(to_cstring(title, &buffer_title), to_cstring(body, &buffer_body), raw.RNotificationUrgency(urgency)) != 0
 }
 
-// R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+// R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+// the fallback): the null platform, no notification server on Linux, an executable outside of a
+// bundle on macOS.
 notification_is_supported :: proc() -> bool {
 	return raw.Rnotification_is_supported() != 0
+}
+
+// Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+notification_close :: proc(tag: string) {
+	buffer_tag: [cstring_buffer_size]u8
+	raw.Rnotification_close(to_cstring(tag, &buffer_tag))
+}
+
+// R_TRUE (the default): a click on a notification (not on one of
+// its buttons) brings its window back before the callback is called:
+// shown again if it was hidden or minimized, in front, with the keyboard.
+// R_FALSE: the application does what it wants in the callback.
+notification_set_bring_to_front :: proc(enabled: bool) {
+	raw.Rnotification_set_bring_to_front((1 if enabled else 0))
+}
+
+// A Toast that shows the notifications the system could not show,
+// with their title, icon and buttons; a click on one, or on a button, is
+// reported to Rnotification_set_callback as for the system's. Put it in
+// an Overlay (Queue="Stack" shows several at once). It takes the place
+// of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+notification_set_fallback_toast :: proc(toast: Widget) {
+	raw.Rnotification_set_fallback_toast(raw.Rid(toast))
+}
+
+// Whether the notifications of the system have that feature here (R_FALSE where there are none).
+notification_supports :: proc(feature: Notification_Feature) -> i32 {
+	return raw.Rnotification_supports(raw.RNotificationFeature(feature))
 }
 
 // Shows a texture. R_INVALID_ID shows nothing.
@@ -5897,6 +5954,15 @@ host_inject_key :: proc(window: Window, key: Key, pressed: bool, modifiers: u32,
 // One typed Unicode code point.
 host_inject_text :: proc(window: Window, codepoint: u32) {
 	raw.Rhost_inject_text(raw.Rid(window), codepoint)
+}
+
+// The input method of the application's system composes `text`
+// (preedit), with its selection in bytes (see Rwindow_inject_composition).
+// NULL or "" cancels it; the committed text then comes through
+// Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+// candidate window.
+host_inject_composition :: proc(window: Window, text: cstring, selection_start: i32, selection_end: i32) {
+	raw.Rhost_inject_composition(raw.Rid(window), text, selection_start, selection_end)
 }
 
 // The window gained or lost the keyboard. Losing it closes popups and drops captures.

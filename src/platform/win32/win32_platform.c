@@ -1373,11 +1373,21 @@ static void rvn_win32_copy_wide(WCHAR* out, size_t capacity, const char* text) {
 #endif
 
 static WNDPROC g_rvn_notify_static_proc;
+/* The tag of the balloon shown (one at a time: a new one takes its place), or NULL. */
+static char* g_rvn_notify_tag;
+
+void rvn_win32_balloon_clicked(void) {
+	/* (the core may hear of it after the balloon was replaced: the tag of the one clicked is kept) */
+	char* tag = g_rvn_notify_tag;
+	g_rvn_notify_tag = NULL;
+	if (tag) rvn_notification_event(tag, R_NOTIFICATION_ACTIVATED, NULL);
+	rvn_free(tag);
+}
 
 static LRESULT CALLBACK rvn_win32_notify_proc(HWND handle, UINT message, WPARAM wparam, LPARAM lparam) {
 	if (message == RVN_WM_NOTIFY_ICON) {
 		/* the event is lparam (or its low word, with NOTIFYICON_VERSION_4) */
-		if (LOWORD(lparam) == NIN_BALLOONUSERCLICK) rvn_notification_clicked();
+		if (LOWORD(lparam) == NIN_BALLOONUSERCLICK) rvn_win32_balloon_clicked();
 		return 0;
 	}
 	return CallWindowProcW(g_rvn_notify_static_proc, handle, message, wparam, lparam);
@@ -1385,22 +1395,22 @@ static LRESULT CALLBACK rvn_win32_notify_proc(HWND handle, UINT message, WPARAM 
 
 static void rvn_win32_notify_shutdown(void);
 
-static int rvn_win32_notify(const char* app, const char* title, const char* body, int urgency) {
+/* Shows the balloon (empty texts: takes it away) on the tray icon of the application, else on an icon of its own. */
+static int rvn_win32_balloon(const char* title, const char* body, DWORD info_flags, const char* app) {
 	NOTIFYICONDATAW data;
-	/* low: no sound; critical: the error sign */
-	DWORD info_flags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
 	{
 		/* the application has a tray icon: the notification is shown on it
 		 * (one icon in the notification area, not two) */
 		WCHAR info_title[64], info_text[256];
-		rvn_win32_copy_wide(info_title, RVN_COUNT_OF(info_title), *title ? title : app);
-		rvn_win32_copy_wide(info_text, RVN_COUNT_OF(info_text), *body ? body : " ");
+		rvn_win32_copy_wide(info_title, RVN_COUNT_OF(info_title), title);
+		rvn_win32_copy_wide(info_text, RVN_COUNT_OF(info_text), body);
 		if (rvn_win32_tray_balloon(info_title, info_text, info_flags)) {
 			/* (an icon of its own made before the tray icon came: gone) */
 			if (g_win32.notify_icon) rvn_win32_notify_shutdown();
 			return R_TRUE;
 		}
 	}
+	if (!*body && !g_win32.notify_icon) return R_TRUE;
 	if (!g_win32.notify_window) {
 		/* a message-only window: never shown, it only owns the icon and hears its clicks */
 		g_win32.notify_window = CreateWindowExW(0, L"STATIC", L"", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, g_win32.instance, NULL);
@@ -1420,10 +1430,33 @@ static int rvn_win32_notify(const char* app, const char* title, const char* body
 		g_win32.notify_icon = R_TRUE;
 	}
 	data.uFlags = NIF_INFO;
-	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), *title ? title : app);
-	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), *body ? body : " ");
+	rvn_win32_copy_wide(data.szInfoTitle, RVN_COUNT_OF(data.szInfoTitle), title);
+	rvn_win32_copy_wide(data.szInfo, RVN_COUNT_OF(data.szInfo), body);
 	data.dwInfoFlags = info_flags;
 	return Shell_NotifyIconW(NIM_MODIFY, &data) ? R_TRUE : R_FALSE;
+}
+
+/* (no buttons and no image of its own: a balloon has neither; the newest one replaces the one shown) */
+static int rvn_win32_notify(const rvn_notification_t* notification) {
+	int urgency = notification->urgency;
+	/* low: no sound; critical: the error sign */
+	DWORD info_flags = urgency <= 0 ? (NIIF_NONE | NIIF_NOSOUND) : urgency >= 2 ? NIIF_ERROR : NIIF_INFO;
+	if (!rvn_win32_balloon(notification->title[0] ? notification->title : notification->app,
+		notification->body[0] ? notification->body : " ", info_flags, notification->app)) return R_FALSE;
+	rvn_str_set(&g_rvn_notify_tag, notification->tag);
+	return R_TRUE;
+}
+
+static void rvn_win32_notify_close(const char* tag) {
+	if (!g_rvn_notify_tag || strcmp(g_rvn_notify_tag, tag) != 0) return;
+	/* an empty text takes the balloon away */
+	rvn_win32_balloon("", "", NIIF_NONE, "");
+	rvn_free(g_rvn_notify_tag);
+	g_rvn_notify_tag = NULL;
+}
+
+static unsigned rvn_win32_notify_features(void) {
+	return R_NOTIFICATION_FEATURE_REPLACE | R_NOTIFICATION_FEATURE_CLOSE | R_NOTIFICATION_FEATURE_ACTIVATED;
 }
 
 static void rvn_win32_notify_shutdown(void) {
@@ -1438,6 +1471,8 @@ static void rvn_win32_notify_shutdown(void) {
 	if (g_win32.notify_window) DestroyWindow(g_win32.notify_window);
 	g_win32.notify_window = NULL;
 	g_win32.notify_icon = R_FALSE;
+	rvn_free(g_rvn_notify_tag);
+	g_rvn_notify_tag = NULL;
 }
 
 static void rvn_win32_shutdown(void) {
@@ -1884,6 +1919,16 @@ static void rvn_win32_window_show(rvn_pwindow_t* window, int visible) {
 	if (visible) window->shown_once = R_TRUE;
 }
 
+/* Rwindow_focus (and a click on a notification, after which Windows lets the application come to the
+ * front): out of the taskbar if minimized, in front, with the keyboard. */
+static void rvn_win32_window_focus(rvn_pwindow_t* window) {
+	if (IsIconic(window->handle)) ShowWindow(window->handle, SW_RESTORE);
+	else if (!IsWindowVisible(window->handle)) ShowWindow(window->handle, SW_SHOW);
+	window->shown_once = R_TRUE;
+	BringWindowToTop(window->handle);
+	SetForegroundWindow(window->handle);
+}
+
 static void rvn_win32_window_set_state(rvn_pwindow_t* window, rvn_pwindow_state_t state) {
 	switch (state) {
 		case RVN_PWINDOW_MINIMIZED: ShowWindow(window->handle, SW_MINIMIZE); break;
@@ -2173,6 +2218,7 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.window_get_position = rvn_win32_window_get_position,
 		.window_get_scale = rvn_win32_window_get_scale,
 		.window_show = rvn_win32_window_show,
+		.window_focus = rvn_win32_window_focus,
 		.window_set_state = rvn_win32_window_set_state,
 		.window_get_state = rvn_win32_window_get_state,
 		.window_begin_move = rvn_win32_window_begin_move,
@@ -2207,7 +2253,9 @@ const rvn_platform_t* rvn_platform_win32(void) {
 		.a11y_announce = rvn_win32_a11y_announce,
 		.a11y_active = rvn_uia_active,
 		.a11y_settings = rvn_uia_settings,
-		.notify = rvn_win32_notify
+		.notify = rvn_win32_notify,
+		.notify_close = rvn_win32_notify_close,
+		.notify_features = rvn_win32_notify_features
 	};
 	return &platform;
 }

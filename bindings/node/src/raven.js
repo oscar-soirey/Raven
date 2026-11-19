@@ -989,6 +989,23 @@ export const RNotificationUrgency = _enum({
 });
 export const { R_NOTIFICATION_LOW, R_NOTIFICATION_NORMAL, R_NOTIFICATION_CRITICAL } = RNotificationUrgency;
 
+export const RNotificationEvent = _enum({
+	R_NOTIFICATION_ACTIVATED: 3104,
+	R_NOTIFICATION_ACTION_INVOKED: 3105,
+	R_NOTIFICATION_DISMISSED: 3106,
+});
+export const { R_NOTIFICATION_ACTIVATED, R_NOTIFICATION_ACTION_INVOKED, R_NOTIFICATION_DISMISSED } = RNotificationEvent;
+
+export const RNotificationFeature = _enum({
+	R_NOTIFICATION_FEATURE_ACTIONS: 1,
+	R_NOTIFICATION_FEATURE_REPLACE: 2,
+	R_NOTIFICATION_FEATURE_CLOSE: 4,
+	R_NOTIFICATION_FEATURE_ICON: 8,
+	R_NOTIFICATION_FEATURE_ACTIVATED: 16,
+	R_NOTIFICATION_FEATURE_DISMISSED: 32,
+});
+export const { R_NOTIFICATION_FEATURE_ACTIONS, R_NOTIFICATION_FEATURE_REPLACE, R_NOTIFICATION_FEATURE_CLOSE, R_NOTIFICATION_FEATURE_ICON, R_NOTIFICATION_FEATURE_ACTIVATED, R_NOTIFICATION_FEATURE_DISMISSED } = RNotificationFeature;
+
 export const RFileDialogFlags = _enum({
 	R_FILE_DIALOG_MULTIPLE: 1,
 	R_FILE_DIALOG_RAVEN: 2,
@@ -2523,6 +2540,115 @@ export class RJumpTask extends RStruct {
 	}
 	set description(value) {
 		this._point("description", 16, _s(value));
+	}
+}
+
+export class RNotificationAction extends RStruct {
+	static SIZE = 16;
+
+	constructor(pointer) {
+		super(RNotificationAction.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RNotificationAction(pointer) : null;
+	}
+
+	get id() {
+		return _text(_address(this._view.getBigUint64(0, true)));
+	}
+	set id(value) {
+		this._point("id", 0, _s(value));
+	}
+
+	get label() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set label(value) {
+		this._point("label", 8, _s(value));
+	}
+}
+
+export class RNotificationDesc extends RStruct {
+	static SIZE = 64;
+
+	constructor(pointer) {
+		super(RNotificationDesc.SIZE, pointer);
+	}
+
+	/** The structure at an address of the library, or null. */
+	static from(pointer) {
+		return pointer ? new RNotificationDesc(pointer) : null;
+	}
+
+	get size() {
+		return this._view.getUint32(0, true);
+	}
+	set size(value) {
+		this._view.setUint32(0, value, true);
+	}
+
+	get tag() {
+		return _text(_address(this._view.getBigUint64(8, true)));
+	}
+	set tag(value) {
+		this._point("tag", 8, _s(value));
+	}
+
+	get title() {
+		return _text(_address(this._view.getBigUint64(16, true)));
+	}
+	set title(value) {
+		this._point("title", 16, _s(value));
+	}
+
+	get body() {
+		return _text(_address(this._view.getBigUint64(24, true)));
+	}
+	set body(value) {
+		this._point("body", 24, _s(value));
+	}
+
+	get urgency() {
+		return this._view.getInt32(32, true);
+	}
+	set urgency(value) {
+		this._view.setInt32(32, value, true);
+	}
+
+	get icon() {
+		return _text(_address(this._view.getBigUint64(40, true)));
+	}
+	set icon(value) {
+		this._point("icon", 40, _s(value));
+	}
+
+	get actions() {
+		return _address(this._view.getBigUint64(48, true));
+	}
+	set actions(value) {
+		if (typeof value === "number") {
+			this._view.setBigUint64(48, BigInt(value), true);
+			return;
+		}
+		this._point("actions", 48, _structs(value, RNotificationAction.SIZE));
+		(this._kept ??= new Map()).set("actions.items", value ?? this._bytes);
+		this.action_count = value?.length ?? 0;
+	}
+
+	get action_count() {
+		return this._view.getInt32(56, true);
+	}
+	set action_count(value) {
+		this._view.setInt32(56, value, true);
+	}
+
+	get window() {
+		return this._view.getUint32(60, true);
+	}
+	set window(value) {
+		this._view.setUint32(60, value, true);
 	}
 }
 
@@ -4570,6 +4696,14 @@ export const Rnotification_show = _lib.Rnotification_show;
 export const Rnotification_is_supported = _lib.Rnotification_is_supported;
 export const Rnotification_set_fallback = _lib.Rnotification_set_fallback;
 export const Rnotification_set_clicked_callback = _lib.Rnotification_set_clicked_callback;
+export function Rnotification_show_desc(desc) {
+	return _lib.Rnotification_show_desc(_p(desc));
+}
+export const Rnotification_close = _lib.Rnotification_close;
+export const Rnotification_set_callback = _lib.Rnotification_set_callback;
+export const Rnotification_set_bring_to_front = _lib.Rnotification_set_bring_to_front;
+export const Rnotification_set_fallback_toast = _lib.Rnotification_set_fallback_toast;
+export const Rnotification_supports = _lib.Rnotification_supports;
 export const Rviewport_set_texture = _lib.Rviewport_set_texture;
 export const Rviewport_set_stretch = _lib.Rviewport_set_stretch;
 export const Rviewport_set_flip_y = _lib.Rviewport_set_flip_y;

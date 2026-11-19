@@ -1810,6 +1810,43 @@ pattern R_NOTIFICATION_NORMAL = RNotificationUrgency 1265
 pattern R_NOTIFICATION_CRITICAL :: RNotificationUrgency
 pattern R_NOTIFICATION_CRITICAL = RNotificationUrgency 1266
 
+-- | What happened to a notification (Rnotification_set_callback).
+newtype RNotificationEvent = RNotificationEvent CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The user clicked the notification itself (not one of its buttons).
+pattern R_NOTIFICATION_ACTIVATED :: RNotificationEvent
+pattern R_NOTIFICATION_ACTIVATED = RNotificationEvent 3104
+-- | The user clicked one of its buttons: `action` is the id of that button.
+pattern R_NOTIFICATION_ACTION_INVOKED :: RNotificationEvent
+pattern R_NOTIFICATION_ACTION_INVOKED = RNotificationEvent 3105
+-- | It went away without being clicked: closed by the user, or its time ran out (where the system tells).
+pattern R_NOTIFICATION_DISMISSED :: RNotificationEvent
+pattern R_NOTIFICATION_DISMISSED = RNotificationEvent 3106
+
+-- | What the notifications of the system can do here (Rnotification_supports).
+newtype RNotificationFeature = RNotificationFeature CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | Buttons (RNotificationDesc::actions).
+pattern R_NOTIFICATION_FEATURE_ACTIONS :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_ACTIONS = RNotificationFeature 1
+-- | A notification shown again with the same tag replaces the first one.
+pattern R_NOTIFICATION_FEATURE_REPLACE :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_REPLACE = RNotificationFeature 2
+-- | Rnotification_close takes a notification away.
+pattern R_NOTIFICATION_FEATURE_CLOSE :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_CLOSE = RNotificationFeature 4
+-- | An image beside the text (RNotificationDesc::icon).
+pattern R_NOTIFICATION_FEATURE_ICON :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_ICON = RNotificationFeature 8
+-- | A click on the notification is reported (R_NOTIFICATION_ACTIVATED).
+pattern R_NOTIFICATION_FEATURE_ACTIVATED :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_ACTIVATED = RNotificationFeature 16
+-- | Its dismissal is reported (R_NOTIFICATION_DISMISSED).
+pattern R_NOTIFICATION_FEATURE_DISMISSED :: RNotificationFeature
+pattern R_NOTIFICATION_FEATURE_DISMISSED = RNotificationFeature 32
+
 newtype RFileDialogFlags = RFileDialogFlags CInt
     deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
 
@@ -2054,6 +2091,28 @@ pattern R_ROLE_SCROLL_BAR :: RAccessibleRole
 pattern R_ROLE_SCROLL_BAR = RAccessibleRole 1922
 pattern R_ROLE_PANE :: RAccessibleRole
 pattern R_ROLE_PANE = RAccessibleRole 1923
+
+newtype RGoldenStatus = RGoldenStatus CInt
+    deriving newtype (Eq, Ord, Show, Num, Bits, Storable)
+
+-- | The capture matches the golden.
+pattern R_GOLDEN_MATCH :: RGoldenStatus
+pattern R_GOLDEN_MATCH = RGoldenStatus 2976
+-- | RAVEN_UPDATE_GOLDENS=1: the capture was written as the golden.
+pattern R_GOLDEN_UPDATED :: RGoldenStatus
+pattern R_GOLDEN_UPDATED = RGoldenStatus 2977
+-- | Too many pixels differ: NAME.actual.png and NAME.diff.png were written.
+pattern R_GOLDEN_MISMATCH :: RGoldenStatus
+pattern R_GOLDEN_MISMATCH = RGoldenStatus 2978
+-- | The capture and the golden do not have the same size: NAME.actual.png was written.
+pattern R_GOLDEN_SIZE_MISMATCH :: RGoldenStatus
+pattern R_GOLDEN_SIZE_MISMATCH = RGoldenStatus 2979
+-- | There is no golden yet: NAME.actual.png was written (run with RAVEN_UPDATE_GOLDENS=1 to keep it).
+pattern R_GOLDEN_MISSING :: RGoldenStatus
+pattern R_GOLDEN_MISSING = RGoldenStatus 2980
+-- | The window could not be captured, or a file could not be read or written.
+pattern R_GOLDEN_FAILED :: RGoldenStatus
+pattern R_GOLDEN_FAILED = RGoldenStatus 2981
 
 -- | Registers a function called once per frame, before the layout.
 -- The body of your loop does the same job; the callback is also called
@@ -2715,6 +2774,16 @@ type RNotificationClickedCallback = FunPtr (Ptr () -> IO ())
 -- | Makes a 'RNotificationClickedCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
 -- no longer calls it.
 foreign import ccall "wrapper" mkRNotificationClickedCallback :: (Ptr () -> IO ()) -> IO RNotificationClickedCallback
+
+-- | Called on the UI thread when the user clicks a notification or
+-- one of its buttons, or dismisses it. `tag` names the notification,
+-- `action` is the id of the button for R_NOTIFICATION_ACTION_INVOKED, else NULL.
+-- NULL: none.
+type RNotificationCallback = FunPtr (CString -> RNotificationEvent -> CString -> Ptr () -> IO ())
+
+-- | Makes a 'RNotificationCallback' of a Haskell function; free it with 'freeHaskellFunPtr' once the library
+-- no longer calls it.
+foreign import ccall "wrapper" mkRNotificationCallback :: (CString -> RNotificationEvent -> CString -> Ptr () -> IO ()) -> IO RNotificationCallback
 
 -- | Called on the render thread each time the window is rendered.
 -- State you bind (pipeline, descriptor sets, viewport, scissor) does not
@@ -3702,6 +3771,81 @@ instance Storable RJumpTask where
         pokeByteOff p 8 (rJumpTask_arguments v)
         pokeByteOff p 16 (rJumpTask_description v)
 
+-- | A button of a notification.
+data RNotificationAction = RNotificationAction
+    { rNotificationAction_id :: CString
+      -- ^ Given back to the callback ("reply", "snooze"); not empty, and not "default".
+    , rNotificationAction_label :: CString
+      -- ^ Shown to the user ("Reply").
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RNotificationAction x = {0};@ is in C).
+rNotificationAction :: RNotificationAction
+rNotificationAction = RNotificationAction (nullPtr) (nullPtr)
+
+instance Storable RNotificationAction where
+    sizeOf _ = 16
+    alignment _ = 8
+    peek p = RNotificationAction
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+    poke p v = do
+        pokeByteOff p 0 (rNotificationAction_id v)
+        pokeByteOff p 8 (rNotificationAction_label v)
+
+-- | A notification for Rnotification_show_desc. `size` must be
+-- sizeof(RNotificationDesc): the fields that later versions of Raven add
+-- come after the others, and a smaller size tells Raven they were not
+-- given. The other fields may be left to zero.
+data RNotificationDesc = RNotificationDesc
+    { rNotificationDesc_size :: Word32
+      -- ^ sizeof(RNotificationDesc).
+    , rNotificationDesc_tag :: CString
+      -- ^ Names the notification: shown again with the same tag, it replaces the
+      -- one still shown instead of adding another; Rnotification_close takes it
+      -- away; the callback is given it. NULL or "": a tag of its own
+      -- ("raven.1", "raven.2"...).
+    , rNotificationDesc_title :: CString
+    , rNotificationDesc_body :: CString
+    , rNotificationDesc_urgency :: RNotificationUrgency
+      -- ^ 0: R_NOTIFICATION_NORMAL.
+    , rNotificationDesc_icon :: CString
+      -- ^ An image file shown beside the text (PNG, JPEG, SVG...: what Raven reads), or NULL.
+    , rNotificationDesc_actions :: Ptr RNotificationAction
+      -- ^ Up to 3 buttons, or NULL.
+    , rNotificationDesc_action_count :: CInt
+    , rNotificationDesc_window :: Rid
+      -- ^ The window brought back when the notification is clicked. R_INVALID_ID: the main window (the first one opened).
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RNotificationDesc x = {0};@ is in C).
+rNotificationDesc :: RNotificationDesc
+rNotificationDesc = RNotificationDesc (0) (nullPtr) (nullPtr) (nullPtr) (0) (nullPtr) (nullPtr) (0) (0)
+
+instance Storable RNotificationDesc where
+    sizeOf _ = 64
+    alignment _ = 8
+    peek p = RNotificationDesc
+        <$> peekByteOff p 0
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+        <*> peekByteOff p 40
+        <*> peekByteOff p 48
+        <*> peekByteOff p 56
+        <*> peekByteOff p 60
+    poke p v = do
+        pokeByteOff p 0 (rNotificationDesc_size v)
+        pokeByteOff p 8 (rNotificationDesc_tag v)
+        pokeByteOff p 16 (rNotificationDesc_title v)
+        pokeByteOff p 24 (rNotificationDesc_body v)
+        pokeByteOff p 32 (rNotificationDesc_urgency v)
+        pokeByteOff p 40 (rNotificationDesc_icon v)
+        pokeByteOff p 48 (rNotificationDesc_actions v)
+        pokeByteOff p 56 (rNotificationDesc_action_count v)
+        pokeByteOff p 60 (rNotificationDesc_window v)
+
 -- | A kind of file in a file dialog.
 data RFileFilter = RFileFilter
     { rFileFilter_name :: CString
@@ -4046,6 +4190,77 @@ instance Storable RHostPlatformDesc where
         pokeByteOff p 16 (rHostPlatformDesc_clipboard_get v)
         pokeByteOff p 24 (rHostPlatformDesc_wake v)
         pokeByteOff p 32 (rHostPlatformDesc_user_data v)
+
+-- | How Rtest_expect_golden compares. NULL options: a tolerance of 2 per channel and no different pixel.
+data RGoldenOptions = RGoldenOptions
+    { rGoldenOptions_channel_tolerance :: CInt
+      -- ^ Largest difference on one channel (0..255) for which two pixels are still the same.
+    , rGoldenOptions_max_diff_ratio :: CFloat
+      -- ^ Share of the pixels (0..1) that may differ while the images still match.
+    , rGoldenOptions_per_platform :: CInt
+      -- ^ R_TRUE: the golden of this OS and backend, "button.png" read as "button.macos-metal.png" (Rtest_get_platform_tag).
+    , rGoldenOptions_output_directory :: CString
+      -- ^ Folder of the .actual.png and .diff.png written on a mismatch. NULL: beside the golden.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RGoldenOptions x = {0};@ is in C).
+rGoldenOptions :: RGoldenOptions
+rGoldenOptions = RGoldenOptions (0) (0) (0) (nullPtr)
+
+instance Storable RGoldenOptions where
+    sizeOf _ = 24
+    alignment _ = 8
+    peek p = RGoldenOptions
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 16
+    poke p v = do
+        pokeByteOff p 0 (rGoldenOptions_channel_tolerance v)
+        pokeByteOff p 4 (rGoldenOptions_max_diff_ratio v)
+        pokeByteOff p 8 (rGoldenOptions_per_platform v)
+        pokeByteOff p 16 (rGoldenOptions_output_directory v)
+
+-- | What Rtest_expect_golden found.
+data RGoldenResult = RGoldenResult
+    { rGoldenResult_status :: RGoldenStatus
+    , rGoldenResult_width :: CInt
+      -- ^ Size of the capture, in pixels.
+    , rGoldenResult_height :: CInt
+      -- ^ Size of the capture, in pixels.
+    , rGoldenResult_differing_pixels :: CInt
+      -- ^ Pixels farther from the golden than the tolerance.
+    , rGoldenResult_max_channel_difference :: CInt
+      -- ^ Largest difference found on one channel (0..255).
+    , rGoldenResult_golden_path :: CString
+      -- ^ The golden that was read or written (with the platform tag). Valid until the next call.
+    , rGoldenResult_message :: CString
+      -- ^ One line that says what happened, for the log of the test. Valid until the next call.
+    } deriving (Eq, Show)
+
+-- | The zeroed structure (what @RGoldenResult x = {0};@ is in C).
+rGoldenResult :: RGoldenResult
+rGoldenResult = RGoldenResult (0) (0) (0) (0) (0) (nullPtr) (nullPtr)
+
+instance Storable RGoldenResult where
+    sizeOf _ = 40
+    alignment _ = 8
+    peek p = RGoldenResult
+        <$> peekByteOff p 0
+        <*> peekByteOff p 4
+        <*> peekByteOff p 8
+        <*> peekByteOff p 12
+        <*> peekByteOff p 16
+        <*> peekByteOff p 24
+        <*> peekByteOff p 32
+    poke p v = do
+        pokeByteOff p 0 (rGoldenResult_status v)
+        pokeByteOff p 4 (rGoldenResult_width v)
+        pokeByteOff p 8 (rGoldenResult_height v)
+        pokeByteOff p 12 (rGoldenResult_differing_pixels v)
+        pokeByteOff p 16 (rGoldenResult_max_channel_difference v)
+        pokeByteOff p 24 (rGoldenResult_golden_path v)
+        pokeByteOff p 32 (rGoldenResult_message v)
 
 -- | Starts the library with default settings on the given backend.
 -- The calling thread becomes the UI thread.
@@ -4584,6 +4799,18 @@ foreign import ccall safe "Rwindow_inject_key" rwindow_inject_key :: Rid -> RKey
 
 foreign import ccall safe "Rwindow_inject_text" rwindow_inject_text :: Rid -> CString -> IO ()
 
+-- | The text an input method is composing (preedit: Chinese,
+-- Japanese, Korean, dead keys), as the platforms send it. The focused
+-- TextInput, SpinBox or TextEditor shows it at its caret, underlined, in
+-- place of its selection, but it is not in its text and no changed
+-- callback runs. [selection_start, selection_end) are bytes of `text`:
+-- the part the input method works on (underlined thicker), or the caret
+-- when they are equal; -1 is the end of `text`. NULL or "" ends the
+-- composition without typing anything (cancel). The committed text comes
+-- through Rwindow_inject_text, which ends the composition too, and so
+-- does a change of focus. Ignored when the focus takes no text.
+foreign import ccall safe "Rwindow_inject_composition" rwindow_inject_composition :: Rid -> CString -> CInt -> CInt -> IO ()
+
 -- | A drag from another application moves over the window
 -- (`inside` R_TRUE) or leaves it.
 -- Returns: R_TRUE when a drop at this position would be accepted.
@@ -4627,13 +4854,20 @@ foreign import ccall safe "Rwindow_set_text_input_selection" rwindow_set_text_in
 -- applies). R_FALSE when there is none or it is read-only.
 foreign import ccall safe "Rwindow_replace_text_input" rwindow_replace_text_input :: Rid -> CInt -> CInt -> CString -> IO CInt
 
+-- | The composition of the input method in progress (UTF-8, valid
+-- until it changes) and its selection in bytes; NULL when there is none.
+-- Any output pointer may be NULL.
+foreign import ccall safe "Rwindow_get_text_composition" rwindow_get_text_composition :: Rid -> Ptr CInt -> Ptr CInt -> IO CString
+
 -- | R_TRUE while a menu, list or dialog is open over the window.
 foreign import ccall safe "Rwindow_has_popup" rwindow_has_popup :: Rid -> IO CInt
 
 -- | Last painted caret in window pixels (x, y, width, height), including scrolling and scale.
 -- Call after Rdraw_frame. Independent of the blink phase. Returns R_FALSE and zeros the
 -- outputs when there is no visible editable caret, the window is inactive, or focus changed
--- since painting. Any output pointer may be NULL.
+-- since painting. Any output pointer may be NULL. While an input method
+-- composes, it is the caret inside the composition: where its candidate
+-- window goes.
 foreign import ccall safe "Rwindow_get_text_input_rect" rwindow_get_text_input_rect :: Rid -> Ptr CInt -> Ptr CInt -> Ptr CInt -> Ptr CInt -> IO CInt
 
 -- | Returns: Number of open in-window popups (menus, combo lists, pickers), bottom to top.
@@ -4965,6 +5199,18 @@ foreign import ccall safe "Rimage_decode" rimage_decode :: Ptr () -> CSize -> Pt
 
 -- | Releases pixels returned by Raven (Rimage_decode, Rwindow_capture). Thread-safe.
 foreign import ccall safe "Rpixels_free" rpixels_free :: Ptr Word8 -> IO ()
+
+-- | Encodes tightly packed RGBA8 pixels (what Rwindow_capture
+-- returns) as a PNG file in memory. Thread-safe.
+-- size Receives the number of bytes.
+-- Returns: The bytes of the file, to release with Rpixels_free; NULL when
+-- there are no pixels.
+foreign import ccall safe "Rimage_encode_png" rimage_encode_png :: Ptr Word8 -> CInt -> CInt -> Ptr CSize -> IO (Ptr Word8)
+
+-- | Writes tightly packed RGBA8 pixels to a PNG file: a screenshot
+-- of Rwindow_capture, a picture made by the application. Thread-safe.
+-- Returns: R_FALSE when the file cannot be written.
+foreign import ccall safe "Rimage_save_png" rimage_save_png :: CString -> Ptr Word8 -> CInt -> CInt -> IO CInt
 
 -- | Returns: R_TRUE once an asynchronous texture is decoded (or failed).
 foreign import ccall safe "Rtexture_is_ready" rtexture_is_ready :: Rid -> IO CInt
@@ -7791,18 +8037,43 @@ foreign import ccall safe "Rfile_browser_set_selection_changed_callback" rfile_b
 -- | Returns: R_TRUE when the system took the notification.
 foreign import ccall safe "Rnotification_show" rnotification_show :: CString -> CString -> RNotificationUrgency -> IO CInt
 
--- | R_FALSE when the platform has no notifications (Rnotification_show then always uses the fallback).
+-- | R_FALSE when the system shows no notifications here (Rnotification_show then always uses
+-- the fallback): the null platform, no notification server on Linux, an executable outside of a
+-- bundle on macOS.
 foreign import ccall safe "Rnotification_is_supported" rnotification_is_supported :: IO CInt
 
 -- | Called with the notifications the system could not show; NULL: none.
 foreign import ccall safe "Rnotification_set_fallback" rnotification_set_fallback :: RNotificationFallback -> Ptr () -> IO ()
 
 -- | Called when the user clicks a notification of Rnotification_show
--- (on the UI thread; the application may then bring its window to the
--- front: the system lets it). It is the last one shown that was clicked:
--- the application remembers what it was about. NULL: none.
--- Windows and macOS (elsewhere it is never called).
+-- (on the UI thread), as R_NOTIFICATION_ACTIVATED of
+-- Rnotification_set_callback, which also tells which one. NULL: none.
 foreign import ccall safe "Rnotification_set_clicked_callback" rnotification_set_clicked_callback :: RNotificationClickedCallback -> Ptr () -> IO ()
+
+-- | Shows a notification described by `desc` (see RNotificationDesc).
+-- Returns: R_TRUE when the system took it; R_FALSE when it went to the fallback (or nowhere).
+foreign import ccall safe "Rnotification_show_desc" rnotification_show_desc :: Ptr RNotificationDesc -> IO CInt
+
+-- | Takes away the notification of that tag, shown by the system or by the fallback toast. The callback is not called.
+foreign import ccall safe "Rnotification_close" rnotification_close :: CString -> IO ()
+
+foreign import ccall safe "Rnotification_set_callback" rnotification_set_callback :: RNotificationCallback -> Ptr () -> IO ()
+
+-- | R_TRUE (the default): a click on a notification (not on one of
+-- its buttons) brings its window back before the callback is called:
+-- shown again if it was hidden or minimized, in front, with the keyboard.
+-- R_FALSE: the application does what it wants in the callback.
+foreign import ccall safe "Rnotification_set_bring_to_front" rnotification_set_bring_to_front :: CInt -> IO ()
+
+-- | A Toast that shows the notifications the system could not show,
+-- with their title, icon and buttons; a click on one, or on a button, is
+-- reported to Rnotification_set_callback as for the system's. Put it in
+-- an Overlay (Queue="Stack" shows several at once). It takes the place
+-- of the fallback callback (Rnotification_set_fallback). R_INVALID_ID: none.
+foreign import ccall safe "Rnotification_set_fallback_toast" rnotification_set_fallback_toast :: Rid -> IO ()
+
+-- | Whether the notifications of the system have that feature here (R_FALSE where there are none).
+foreign import ccall safe "Rnotification_supports" rnotification_supports :: RNotificationFeature -> IO CInt
 
 -- | Shows a texture. R_INVALID_ID shows nothing.
 foreign import ccall safe "Rviewport_set_texture" rviewport_set_texture :: Rid -> Rid -> IO ()
@@ -8369,8 +8640,133 @@ foreign import ccall safe "Rhost_inject_key" rhost_inject_key :: Rid -> RKey -> 
 -- | One typed Unicode code point.
 foreign import ccall safe "Rhost_inject_text" rhost_inject_text :: Rid -> Word32 -> IO ()
 
+-- | The input method of the application's system composes `text`
+-- (preedit), with its selection in bytes (see Rwindow_inject_composition).
+-- NULL or "" cancels it; the committed text then comes through
+-- Rhost_inject_text. Rwindow_get_text_input_rect tells where to put the
+-- candidate window.
+foreign import ccall safe "Rhost_inject_composition" rhost_inject_composition :: Rid -> CString -> CInt -> CInt -> IO ()
+
 -- | The window gained or lost the keyboard. Losing it closes popups and drops captures.
 foreign import ccall safe "Rhost_inject_focus" rhost_inject_focus :: Rid -> CInt -> IO ()
 
 -- | The user asked to close the window (its close callback decides).
 foreign import ccall safe "Rhost_inject_close" rhost_inject_close :: Rid -> IO ()
+
+-- | R_TRUE makes what is drawn depend only on what the test does:
+-- every frame advances the animations by 1/60 s (Rset_animation_time_step),
+-- and the carets of the text fields stay lit instead of blinking. R_FALSE
+-- gives the clock back (time step 0).
+foreign import ccall safe "Rtest_set_deterministic" rtest_set_deterministic :: CInt -> IO ()
+
+foreign import ccall safe "Rtest_is_deterministic" rtest_is_deterministic :: IO CInt
+
+-- | Returns: What the goldens of this run are made with, "OS-backend":
+-- "macos-metal", "linux-vulkan", "windows-vulkan", "web-webgl"... and
+-- "null" with the null backend.
+foreign import ccall safe "Rtest_get_platform_tag" rtest_get_platform_tag :: IO CString
+
+-- | Finds a widget by name (Rwidget_set_name, Name="" in XML). The
+-- path may have several names separated by '/': "settings/ok" is the
+-- widget named "ok" inside the one named "settings". In a window, the
+-- open popups (menus, dialogs) are searched first, top first, then the
+-- content.
+-- scope A window or a widget.
+-- Returns: R_INVALID_ID when nothing has that name (no error is reported).
+foreign import ccall safe "Rtest_find" rtest_find :: Rid -> CString -> IO Rid
+
+-- | Moves the mouse to the middle of the widget, presses and releases the left button.
+foreign import ccall safe "Rtest_click" rtest_click :: Rid -> IO CInt
+
+-- | Two clicks in a row on the middle of the widget, seen as a double click.
+foreign import ccall safe "Rtest_double_click" rtest_double_click :: Rid -> IO CInt
+
+-- | A click of the right button on the middle of the widget (a context menu).
+foreign import ccall safe "Rtest_right_click" rtest_right_click :: Rid -> IO CInt
+
+-- | Clicks at a position of a widget or a window.
+-- clicks 1 for a click, 2 for a double click, 3 for a triple click.
+-- modifiers RModifier held during the clicks (R_MOD_SHIFT...).
+foreign import ccall safe "Rtest_click_at" rtest_click_at :: Rid -> CFloat -> CFloat -> RMouseButton -> CInt -> Word32 -> IO CInt
+
+-- | Moves the mouse over the middle of the widget, without clicking.
+foreign import ccall safe "Rtest_hover" rtest_hover :: Rid -> IO CInt
+
+-- | Moves the mouse to a position of a widget or a window.
+foreign import ccall safe "Rtest_hover_at" rtest_hover_at :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Presses the left button on the middle of the widget, moves by
+-- (dx, dy) in several steps, and releases: a slider, a splitter, a
+-- window dragged by a widget.
+foreign import ccall safe "Rtest_drag" rtest_drag :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Drags from the middle of one widget to the middle of another (drag and drop).
+foreign import ccall safe "Rtest_drag_to" rtest_drag_to :: Rid -> Rid -> IO CInt
+
+-- | Turns the mouse wheel over the middle of the widget: `wheel_y`
+-- notches (positive: toward the top, as a wheel turned away from the
+-- user), `wheel_x` notches sideways.
+foreign import ccall safe "Rtest_scroll" rtest_scroll :: Rid -> CFloat -> CFloat -> IO CInt
+
+-- | Presses and releases a key, with RModifier held. A widget
+-- target gets the keyboard focus first; a window sends the key to what
+-- has the focus.
+foreign import ccall safe "Rtest_key" rtest_key :: Rid -> RKey -> Word32 -> IO CInt
+
+-- | Types UTF-8 text as a keyboard would. A widget target gets the
+-- keyboard focus first. '\n', '\t' and '\b' are sent as the keys Enter,
+-- Tab and Backspace.
+foreign import ccall safe "Rtest_type_text" rtest_type_text :: Rid -> CString -> IO CInt
+
+-- | A finger touches the middle of the widget and leaves at once.
+foreign import ccall safe "Rtest_tap" rtest_tap :: Rid -> IO CInt
+
+-- | A finger put on the middle of the widget moves by (dx, dy) in
+-- `seconds`, and leaves: a fast swipe flicks a list, which then coasts
+-- (Rtest_settle lets it stop).
+foreign import ccall safe "Rtest_swipe" rtest_swipe :: Rid -> CFloat -> CFloat -> CDouble -> IO CInt
+
+-- | Produces `frames` frames (Rdraw_frame). Returns: R_FALSE once the application quits.
+foreign import ccall safe "Rtest_pump" rtest_pump :: CInt -> IO CInt
+
+-- | Returns: R_TRUE when nothing waits for a frame: no posted task, no layout
+-- to do, nothing to paint, no animation, no layout spring, no inertia.
+-- Windows that redraw all the time (Rwindow_set_continuous_redraw, a
+-- realtime viewport) and the timers are not counted.
+foreign import ccall safe "Rtest_is_idle" rtest_is_idle :: IO CInt
+
+-- | Produces frames until Rtest_is_idle, each advancing the
+-- animations by the time step (1/60 s unless Rset_animation_time_step
+-- gives another), for at most `max_seconds` of that time.
+-- Returns: R_FALSE when it was still moving at the end.
+foreign import ccall safe "Rtest_settle" rtest_settle :: CDouble -> IO CInt
+
+-- | Returns: What the user reads in the widget: the text of a field, else
+-- its label (as screen readers say it: the text of a Label, a Button, a
+-- Checkbox...). "" when it has none. Valid until the next call.
+foreign import ccall safe "Rtest_get_text" rtest_get_text :: Rid -> IO CString
+
+-- | Returns: R_TRUE when the widget can be seen: in a window, Visible with
+-- all that holds it, on the page a Switcher or a TabView shows, and laid
+-- out with a size.
+foreign import ccall safe "Rtest_is_shown" rtest_is_shown :: Rid -> IO CInt
+
+-- | Returns: R_TRUE for a checked Checkbox, Switch, RadioButton, toggle Button or menu item.
+foreign import ccall safe "Rtest_is_checked" rtest_is_checked :: Rid -> IO CInt
+
+-- | Captures a window, or the rectangle of one widget, and compares
+-- it with the PNG file `golden_path` (see the top of this file).
+-- target A window or a widget.
+-- options NULL for the defaults.
+-- result Receives the details; may be NULL.
+-- Returns: R_TRUE when the capture matches (or the golden was written
+-- because RAVEN_UPDATE_GOLDENS=1).
+foreign import ccall safe "Rtest_expect_golden" rtest_expect_golden :: Rid -> CString -> Ptr RGoldenOptions -> Ptr RGoldenResult -> IO CInt
+
+-- | Compares two RGBA8 images of the same size as Rtest_expect_golden
+-- does, without files.
+-- diff_rgba When not NULL, receives width * height * 4 bytes: the
+-- expected image faded, with the different pixels in red.
+-- Returns: The number of pixels farther apart than `channel_tolerance`;
+-- -1 when an image is missing.
+foreign import ccall safe "Rtest_compare_pixels" rtest_compare_pixels :: Ptr Word8 -> Ptr Word8 -> CInt -> CInt -> CInt -> Ptr CInt -> Ptr Word8 -> IO CInt

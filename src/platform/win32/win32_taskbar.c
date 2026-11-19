@@ -417,7 +417,7 @@ static LRESULT CALLBACK rvn_tray_proc(HWND handle, UINT message, WPARAM wparam, 
 				break;
 			case NIN_BALLOONUSERCLICK:
 				/* a notification shown on this icon (rvn_win32_tray_balloon) */
-				rvn_notification_clicked();
+				rvn_win32_balloon_clicked();
 				break;
 			default:
 				break;

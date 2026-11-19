@@ -1260,6 +1260,8 @@ static void rvn_cocoa_window_show(rvn_pwindow_t* window, int visible) {
 static void rvn_cocoa_window_focus(rvn_pwindow_t* window) {
     if ([NSApp respondsToSelector:@selector(activate)]) [NSApp activate];
     else [NSApp activateIgnoringOtherApps:YES];
+    /* (out of the Dock: a click on a notification brings the window back) */
+    if ([window->handle isMiniaturized]) [window->handle deminiaturize:nil];
     [window->handle makeKeyAndOrderFront:nil];
 }
 static void rvn_cocoa_window_set_state(rvn_pwindow_t* window, rvn_pwindow_state_t state) {
@@ -1877,9 +1879,15 @@ static int rvn_cocoa_accent_color(float rgb[3]) {
  * at once). When the user said no, the notifications go to the fallback: the
  * one being asked about from its completion, the later ones by returning R_FALSE.
  *
+ * The tag of a notification is the identifier of its request: a request of
+ * the same identifier replaces the one shown. Its buttons are the actions of
+ * a category, one per set of buttons; every category asks for the dismissals
+ * too (UNNotificationCategoryOptionCustomDismissAction). Its icon is an
+ * attachment: a copy of the file, as the center moves the file it is given.
+ *
  * Raven is the delegate of the center unless the application set one: its
  * notifications then show while the application is in front too, as banners,
- * and a click calls the callback of Rnotification_set_clicked_callback.
+ * and what the user does with them goes to rvn_notification_event.
  */
 @interface RavenNotificationDelegate : NSObject <UNUserNotificationCenterDelegate>
 @end
@@ -1898,12 +1906,17 @@ static int rvn_cocoa_accent_color(float rgb[3]) {
 - (void)userNotificationCenter:(UNUserNotificationCenter*)center
     didReceiveNotificationResponse:(UNNotificationResponse*)response
              withCompletionHandler:(void (^)(void))completionHandler {
+    NSString* tag = [[[[response notification] request] identifier] copy];
+    NSString* action = [[response actionIdentifier] copy];
+    int event = R_NOTIFICATION_ACTION_INVOKED;
     (void)center;
-    if ([[response actionIdentifier] isEqualToString:UNNotificationDefaultActionIdentifier]) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            rvn_notification_clicked();
-        });
-    }
+    if ([action isEqualToString:UNNotificationDefaultActionIdentifier]) event = R_NOTIFICATION_ACTIVATED;
+    else if ([action isEqualToString:UNNotificationDismissActionIdentifier]) event = R_NOTIFICATION_DISMISSED;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        rvn_notification_event([tag UTF8String], event, event == R_NOTIFICATION_ACTION_INVOKED ? [action UTF8String] : NULL);
+    });
+    [tag release];
+    [action release];
     completionHandler();
 }
 
@@ -1912,19 +1925,99 @@ static int rvn_cocoa_accent_color(float rgb[3]) {
 /* the answer of the user: 0 not known yet, 1 allowed, -1 refused */
 static volatile int g_rvn_notify_allowed = 0;
 static RavenNotificationDelegate* g_rvn_notify_delegate = nil;
-static unsigned long g_rvn_notify_serial = 0;
+/* the categories given to the center, by identifier (one per set of buttons) */
+static NSMutableDictionary* g_rvn_notify_categories = nil;
 
-static int rvn_cocoa_notify(const char* app, const char* title, const char* body, int urgency) {
+static int rvn_cocoa_notify_available(void) {
+    return [[NSBundle mainBundle] bundleIdentifier] != nil;
+}
+
+/* The category of the buttons of a notification (made and given to the center the first time). */
+static NSString* rvn_cocoa_notify_category(UNUserNotificationCenter* center, const rvn_notification_t* notification) {
+    NSMutableString* identifier = [NSMutableString stringWithString:@"raven"];
+    NSMutableArray* actions;
+    int i;
+    /* (the lengths keep "a|b" + "c" apart from "a" + "b|c") */
+    for (i = 0; i < notification->action_count; i++) {
+        [identifier appendFormat:@"|%zu:%s|%zu:%s", strlen(notification->action_ids[i]), notification->action_ids[i],
+            strlen(notification->action_labels[i]), notification->action_labels[i]];
+    }
+    if (!g_rvn_notify_categories) g_rvn_notify_categories = [[NSMutableDictionary alloc] init];
+    if ([g_rvn_notify_categories objectForKey:identifier]) return identifier;
+    actions = [NSMutableArray array];
+    for (i = 0; i < notification->action_count; i++) {
+        [actions addObject:[UNNotificationAction actionWithIdentifier:rvn_cocoa_string(notification->action_ids[i])
+            title:rvn_cocoa_string(notification->action_labels[i]) options:UNNotificationActionOptionNone]];
+    }
+    [g_rvn_notify_categories setObject:[UNNotificationCategory categoryWithIdentifier:identifier actions:actions
+        intentIdentifiers:@[] options:UNNotificationCategoryOptionCustomDismissAction] forKey:identifier];
+    [center setNotificationCategories:[NSSet setWithArray:[g_rvn_notify_categories allValues]]];
+    return identifier;
+}
+
+/* The icon as an attachment: a copy in the temporary folder, which the center takes. An image the
+ * center does not read (SVG, BMP, TGA) is decoded by Raven and given as a PNG. */
+static void rvn_cocoa_notify_icon(UNMutableNotificationContent* content, const char* icon) {
+    NSString* source = rvn_cocoa_string(icon);
+    NSString* extension = [[source pathExtension] lowercaseString];
+    int readable = [@[@"png", @"jpg", @"jpeg", @"gif", @"heic"] containsObject:extension];
+    NSString* copy;
+    UNNotificationAttachment* attachment;
+    if (!icon[0]) return;
+    copy = [NSTemporaryDirectory() stringByAppendingPathComponent:
+        [NSString stringWithFormat:@"raven-notification-%@.%@", [[NSUUID UUID] UUIDString], readable ? extension : @"png"]];
+    if (readable) {
+        if (![[NSFileManager defaultManager] copyItemAtPath:source toPath:copy error:NULL]) return;
+    } else {
+        NSData* file = [NSData dataWithContentsOfFile:source];
+        int width = 0, height = 0;
+        size_t size = 0;
+        uint8_t* pixels = file ? Rimage_decode([file bytes], (size_t)[file length], &width, &height) : NULL;
+        uint8_t* png = pixels ? Rimage_encode_png(pixels, width, height, &size) : NULL;
+        int written = png && [[NSData dataWithBytes:png length:size] writeToFile:copy atomically:NO];
+        Rpixels_free(pixels);
+        Rpixels_free(png);
+        if (!written) return;
+    }
+    attachment = [UNNotificationAttachment attachmentWithIdentifier:@"icon" URL:[NSURL fileURLWithPath:copy] options:nil error:NULL];
+    if (attachment) [content setAttachments:@[attachment]];
+    else [[NSFileManager defaultManager] removeItemAtPath:copy error:NULL];
+}
+
+/* A notification refused by the user, sent to the fallback once the answer came (on the main queue). */
+static void rvn_cocoa_notify_refused(NSArray* strings, NSArray* ids, NSArray* labels, int urgency, NSString* reason) {
+    rvn_notification_t notification;
+    const char* action_ids[8];
+    const char* action_labels[8];
+    NSUInteger i;
+    memset(&notification, 0, sizeof(notification));
+    notification.app = [[strings objectAtIndex:0] UTF8String];
+    notification.tag = [[strings objectAtIndex:1] UTF8String];
+    notification.title = [[strings objectAtIndex:2] UTF8String];
+    notification.body = [[strings objectAtIndex:3] UTF8String];
+    notification.icon = [[strings objectAtIndex:4] UTF8String];
+    notification.urgency = urgency;
+    for (i = 0; i < [ids count] && i < 8; i++) {
+        action_ids[i] = [[ids objectAtIndex:i] UTF8String];
+        action_labels[i] = [[labels objectAtIndex:i] UTF8String];
+    }
+    notification.action_ids = action_ids;
+    notification.action_labels = action_labels;
+    notification.action_count = (int)i;
+    rvn_notification_fallback(&notification, reason ? [reason UTF8String] : NULL);
+}
+
+static int rvn_cocoa_notify(const rvn_notification_t* notification) {
     @autoreleasepool {
         UNUserNotificationCenter* center;
         UNMutableNotificationContent* content;
         UNNotificationRequest* request;
-        NSString* identifier;
-        NSString* fallback_title;
-        NSString* fallback_body;
-        int fallback_urgency = urgency;
+        NSArray* strings;
+        NSMutableArray* ids;
+        NSMutableArray* labels;
+        int urgency = notification->urgency, i;
 
-        if (![[NSBundle mainBundle] bundleIdentifier]) return R_FALSE;
+        if (!rvn_cocoa_notify_available()) return R_FALSE;
         if (__atomic_load_n(&g_rvn_notify_allowed, __ATOMIC_ACQUIRE) < 0) return R_FALSE;
         center = [UNUserNotificationCenter currentNotificationCenter];
         if (!center) return R_FALSE;
@@ -1934,13 +2027,23 @@ static int rvn_cocoa_notify(const char* app, const char* title, const char* body
         }
 
         content = [[[UNMutableNotificationContent alloc] init] autorelease];
-        [content setTitle:[NSString stringWithUTF8String:(*title ? title : app)]];
-        [content setBody:[NSString stringWithUTF8String:body]];
+        [content setTitle:rvn_cocoa_string(notification->title[0] ? notification->title : notification->app)];
+        [content setBody:rvn_cocoa_string(notification->body)];
         if (urgency > 0) [content setSound:[UNNotificationSound defaultSound]];
-        identifier = [NSString stringWithFormat:@"raven.%lu", ++g_rvn_notify_serial];
-        request = [UNNotificationRequest requestWithIdentifier:identifier content:content trigger:nil];
-        fallback_title = [NSString stringWithUTF8String:title];
-        fallback_body = [NSString stringWithUTF8String:body];
+        [content setCategoryIdentifier:rvn_cocoa_notify_category(center, notification)];
+        rvn_cocoa_notify_icon(content, notification->icon);
+        /* (the same identifier: the notification shown is replaced) */
+        request = [UNNotificationRequest requestWithIdentifier:rvn_cocoa_string(notification->tag) content:content trigger:nil];
+
+        /* what the fallback needs, should the user refuse */
+        strings = @[rvn_cocoa_string(notification->app), rvn_cocoa_string(notification->tag), rvn_cocoa_string(notification->title),
+            rvn_cocoa_string(notification->body), rvn_cocoa_string(notification->icon)];
+        ids = [NSMutableArray array];
+        labels = [NSMutableArray array];
+        for (i = 0; i < notification->action_count; i++) {
+            [ids addObject:rvn_cocoa_string(notification->action_ids[i])];
+            [labels addObject:rvn_cocoa_string(notification->action_labels[i])];
+        }
 
         /* (blocks copied by the center retain what they use) */
         [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
@@ -1952,13 +2055,30 @@ static int rvn_cocoa_notify(const char* app, const char* title, const char* body
                 /* (an error rather than a no of the user: the bundle is not allowed notifications, for one) */
                 NSString* reason = error ? [error localizedDescription] : nil;
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    rvn_notification_fallback([fallback_title UTF8String], [fallback_body UTF8String], fallback_urgency,
-                        reason ? [reason UTF8String] : NULL);
+                    rvn_cocoa_notify_refused(strings, ids, labels, urgency, reason);
                 });
             }
         }];
         return R_TRUE;
     }
+}
+
+static void rvn_cocoa_notify_close(const char* tag) {
+    @autoreleasepool {
+        UNUserNotificationCenter* center;
+        NSArray* identifiers;
+        if (!rvn_cocoa_notify_available()) return;
+        center = [UNUserNotificationCenter currentNotificationCenter];
+        identifiers = @[rvn_cocoa_string(tag)];
+        [center removePendingNotificationRequestsWithIdentifiers:identifiers];
+        [center removeDeliveredNotificationsWithIdentifiers:identifiers];
+    }
+}
+
+static unsigned rvn_cocoa_notify_features(void) {
+    if (!rvn_cocoa_notify_available()) return 0;
+    return R_NOTIFICATION_FEATURE_ACTIONS | R_NOTIFICATION_FEATURE_REPLACE | R_NOTIFICATION_FEATURE_CLOSE |
+        R_NOTIFICATION_FEATURE_ICON | R_NOTIFICATION_FEATURE_ACTIVATED | R_NOTIFICATION_FEATURE_DISMISSED;
 }
 
 const rvn_platform_t* rvn_platform_cocoa(void) {
@@ -1990,6 +2110,7 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .a11y_event = rvn_cocoa_a11y_event, .a11y_announce = rvn_cocoa_a11y_announce,
         .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
         .accent_color = rvn_cocoa_accent_color, .notify = rvn_cocoa_notify,
+        .notify_close = rvn_cocoa_notify_close, .notify_features = rvn_cocoa_notify_features,
         .screen_notch = rvn_cocoa_screen_notch, .overlay_place = rvn_cocoa_overlay_place,
         .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key
     };
