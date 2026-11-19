@@ -515,7 +515,7 @@ real GPUs, Windows, macOS and Linux (X11), the screen readers of each system,
 package and every binding but Odin (C++, Python, Rust, Go, C#, Zig, LuaJIT,
 Java, Bun, Node.js, D, Nim). The native Wayland platform is newer: it is tested against a
 compositor written in its test (`test_wayland`: windows, scales, keyboard,
-pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
+input methods, pointer, clipboard, drops, with and without libdecor), not yet on GNOME, KDE
 or wlroots with a GPU. iOS and Android are experimental: they have run on
 the iOS Simulator, on an Android phone and on the Android emulator
 (`examples/mobile`), not yet on an iPhone.
@@ -532,7 +532,7 @@ libraries are opened when the program starts.
 | Needs | `libwayland-client` and `libxkbcommon` (installed on every Wayland desktop) |
 | Title bars | drawn by the compositor (KDE, wlroots, Hyprland...), or by `libdecor` where it draws none (GNOME). Without either, Raven uses X11 |
 | Scale | fractional scales (125 %, 150 %...) through `fractional-scale-v1`, sharp at any scale |
-| Keyboard | the layout of the compositor, key repeat, dead keys and compose sequences |
+| Keyboard | the layout of the compositor, key repeat, dead keys and compose sequences; input methods through `text-input-v3` ([Input methods](#input-methods)) |
 | Cursors | `cursor-shape-v1`, or the cursor theme (`XCURSOR_THEME`, `XCURSOR_SIZE`) |
 | Also | clipboard, files dropped from other applications, native viewports (sub-surfaces), window icons (`xdg-toplevel-icon`), blur behind transparent windows (`ext-background-effect`) |
 
@@ -1439,7 +1439,8 @@ under the caret.
 |---|---|
 | macOS | `NSTextInputClient` (any input source of the system) |
 | Windows | IMM32; the input method is off while the focus is not in a text field |
-| X11 | XIM (the input method draws the composition in its own window) |
+| Wayland | `text-input-v3` where the compositor offers it (GNOME, KDE, wlroots...): IBus, Fcitx and the others run by the compositor; enabled only while the focus is in a text field |
+| X11 | XIM; the composition drawn in the field (on the spot) when the input method can (IBus, Fcitx), in the input method's own window otherwise |
 | iOS, Android | the text services of the on-screen keyboard |
 | Host platform | `Rhost_inject_composition` from the application's own input method |
 
@@ -1786,8 +1787,7 @@ What Raven does not do yet, by area. Contributions are welcome.
 **Platforms**
 - Wayland: placing windows (`Rwindow_set_position`, `Rwindow_center`), keeping
   one above the others (so picture in picture and splash screens too) and fading a whole window:
-  the protocol does not let an application do it. Input methods (text-input-v3: Chinese, Japanese, Korean)
-  are not connected yet; dead keys and compose sequences work.
+  the protocol does not let an application do it.
 - Embedding the system web view (WebView2, WebKitGTK); `raven_web` drives an
   installed Chromium-based browser instead.
 - iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
