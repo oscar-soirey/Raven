@@ -587,6 +587,8 @@ const (
 	R_COLOR_DANGER           RColorRole = 0x0121
 	R_COLOR_LINK             RColorRole = 0x0122
 	R_COLOR_CODE             RColorRole = 0x0123
+	R_COLOR_SEARCH_MATCH     RColorRole = 0x0124
+	R_COLOR_SEARCH_CURRENT   RColorRole = 0x0125
 )
 
 // RMetric: Sizes, in logical units.
@@ -991,6 +993,14 @@ const (
 	R_TOKEN_STRONG      RToken = 0x03AC
 	R_TOKEN_EMPHASIS    RToken = 0x03AD
 	R_TOKEN_LINK        RToken = 0x03AE
+)
+
+// RSearchFlags: Options of a search (Rtext_editor_set_search), a bitmask.
+type RSearchFlags int32
+
+const (
+	R_SEARCH_MATCH_CASE RSearchFlags = 1
+	R_SEARCH_WHOLE_WORD RSearchFlags = 2
 )
 
 // RMarkerKind: What a marker says about the text it underlines.
@@ -5520,6 +5530,112 @@ func TextEditorClearMarkers(editor ID) {
 
 func TextEditorGetMarkerCount(editor ID) int {
 	return int(C.Rtext_editor_get_marker_count(C.Rid(editor)))
+}
+
+// TextEditorSetSearch: Sets what is searched for, with RSearchFlags, and shows every match of the visible
+// text (theme colors R_COLOR_SEARCH_MATCH and R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with
+// a line break finds nothing. NULL or "" clears the search. The selection does not move;
+// Rtext_editor_find_next goes to a match.
+func TextEditorSetSearch(editor ID, query string, flags uint32) {
+	query_ := C.CString(query)
+	defer C.free(unsafe.Pointer(query_))
+	C.Rtext_editor_set_search(C.Rid(editor), query_, C.Ruint(flags))
+}
+
+// TextEditorGetSearch: Returns: The text searched for, "" when there is none.
+func TextEditorGetSearch(editor ID) string {
+	return C.GoString(C.Rtext_editor_get_search(C.Rid(editor)))
+}
+
+// TextEditorGetSearchFlags: Returns: The RSearchFlags of the search.
+func TextEditorGetSearchFlags(editor ID) uint32 {
+	return uint32(C.Rtext_editor_get_search_flags(C.Rid(editor)))
+}
+
+// TextEditorFindNext: Selects the next match after the selection (or the cursor), going on from the start of
+// the text after its end, and scrolls to it. Returns R_FALSE when the text has no match.
+func TextEditorFindNext(editor ID) int {
+	return int(C.Rtext_editor_find_next(C.Rid(editor)))
+}
+
+// TextEditorFindPrevious: The same, toward the start: the match before the selection, from the end of the
+// text after its start.
+func TextEditorFindPrevious(editor ID) int {
+	return int(C.Rtext_editor_find_previous(C.Rid(editor)))
+}
+
+// TextEditorGetMatchCount: Returns: The number of matches in the whole text. Counted once per change of the
+// text or of the search.
+func TextEditorGetMatchCount(editor ID) int {
+	return int(C.Rtext_editor_get_match_count(C.Rid(editor)))
+}
+
+// TextEditorGetMatchIndex: Returns: The index of the selected match (0 for the first in the text), -1 when
+// the selection is not a match.
+func TextEditorGetMatchIndex(editor ID) int {
+	return int(C.Rtext_editor_get_match_index(C.Rid(editor)))
+}
+
+// TextEditorGetMatch: Where a match is: its line and the columns of its first byte and of the byte after it.
+// Returns R_FALSE when `index` is out of range.
+func TextEditorGetMatch(editor ID, index int) (result int, line int, from_column int, to_column int) {
+	var line_ C.int
+	var from_column_ C.int
+	var to_column_ C.int
+	result = int(C.Rtext_editor_get_match(C.Rid(editor), C.int(index), &line_, &from_column_, &to_column_))
+	line = int(line_)
+	from_column = int(from_column_)
+	to_column = int(to_column_)
+	return
+}
+
+// TextEditorSelectMatch: Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out
+// of range.
+func TextEditorSelectMatch(editor ID, index int) int {
+	return int(C.Rtext_editor_select_match(C.Rid(editor), C.int(index)))
+}
+
+// TextEditorReplace: Replaces the selected match by `replacement`, as one step of the history, then selects
+// the next match. When the selection is not a match, only selects the next one (the user sees what will be
+// replaced). Returns R_TRUE when something was replaced. As with Rtext_editor_insert_text, the changed
+// callback is called.
+func TextEditorReplace(editor ID, replacement string) int {
+	replacement_ := C.CString(replacement)
+	defer C.free(unsafe.Pointer(replacement_))
+	return int(C.Rtext_editor_replace(C.Rid(editor), replacement_))
+}
+
+// TextEditorReplaceAll: Replaces every match by `replacement`, as a single step of the history (one undo puts
+// them all back). Returns the number of matches replaced.
+func TextEditorReplaceAll(editor ID, replacement string) int {
+	replacement_ := C.CString(replacement)
+	defer C.free(unsafe.Pointer(replacement_))
+	return int(C.Rtext_editor_replace_all(C.Rid(editor), replacement_))
+}
+
+// TextEditorShowFind: Opens the find bar of the editor (Ctrl+F), with the row to replace when `replace` is
+// R_TRUE (Ctrl+H), and gives it the keyboard. Text selected on one line becomes the text searched for. Its
+// texts are English unless the locale has the keys Raven.Find, Raven.Replace, Raven.ReplaceAll,
+// Raven.FindNoResults, Raven.FindCount ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+// Raven.FindPrevious, Raven.FindNext, Raven.FindClose and Raven.FindToggleReplace.
+func TextEditorShowFind(editor ID, replace int) {
+	C.Rtext_editor_show_find(C.Rid(editor), C.int(replace))
+}
+
+// TextEditorHideFind: Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+func TextEditorHideFind(editor ID) {
+	C.Rtext_editor_hide_find(C.Rid(editor))
+}
+
+func TextEditorIsFindShown(editor ID) int {
+	return int(C.Rtext_editor_is_find_shown(C.Rid(editor)))
+}
+
+// TextEditorSetFindBar: R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3, Cmd+G), which then go
+// to the shortcuts of the window: for an application with its own search, built on Rtext_editor_set_search.
+// On by default. XML: FindBar="false".
+func TextEditorSetFindBar(editor ID, enabled int) {
+	C.Rtext_editor_set_find_bar(C.Rid(editor), C.int(enabled))
 }
 
 // ThemeSetTokenColor: Color of a kind of token in the theme in use, instead of the one Raven picks for dark

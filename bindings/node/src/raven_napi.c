@@ -915,6 +915,21 @@ static struct {
 	void (*Rtext_editor_clear_markers)(Rid);
 	int (*Rtext_editor_get_marker_count)(Rid);
 	void (*Rtext_editor_set_hover_callback)(Rid, RTextEditorHoverCallback, void*);
+	void (*Rtext_editor_set_search)(Rid, const char*, Ruint);
+	const char* (*Rtext_editor_get_search)(Rid);
+	Ruint (*Rtext_editor_get_search_flags)(Rid);
+	int (*Rtext_editor_find_next)(Rid);
+	int (*Rtext_editor_find_previous)(Rid);
+	int (*Rtext_editor_get_match_count)(Rid);
+	int (*Rtext_editor_get_match_index)(Rid);
+	int (*Rtext_editor_get_match)(Rid, int, int*, int*, int*);
+	int (*Rtext_editor_select_match)(Rid, int);
+	int (*Rtext_editor_replace)(Rid, const char*);
+	int (*Rtext_editor_replace_all)(Rid, const char*);
+	void (*Rtext_editor_show_find)(Rid, int);
+	void (*Rtext_editor_hide_find)(Rid);
+	int (*Rtext_editor_is_find_shown)(Rid);
+	void (*Rtext_editor_set_find_bar)(Rid, int);
 	void (*Rtheme_set_token_color)(RToken, float, float, float, float);
 	void (*Rtheme_get_token_color)(RToken, float*, float*, float*, float*);
 	void (*Rtheme_clear_token_colors)(void);
@@ -2279,6 +2294,21 @@ static const struct {
 	{"Rtext_editor_clear_markers", offsetof(__typeof__(rn), Rtext_editor_clear_markers)},
 	{"Rtext_editor_get_marker_count", offsetof(__typeof__(rn), Rtext_editor_get_marker_count)},
 	{"Rtext_editor_set_hover_callback", offsetof(__typeof__(rn), Rtext_editor_set_hover_callback)},
+	{"Rtext_editor_set_search", offsetof(__typeof__(rn), Rtext_editor_set_search)},
+	{"Rtext_editor_get_search", offsetof(__typeof__(rn), Rtext_editor_get_search)},
+	{"Rtext_editor_get_search_flags", offsetof(__typeof__(rn), Rtext_editor_get_search_flags)},
+	{"Rtext_editor_find_next", offsetof(__typeof__(rn), Rtext_editor_find_next)},
+	{"Rtext_editor_find_previous", offsetof(__typeof__(rn), Rtext_editor_find_previous)},
+	{"Rtext_editor_get_match_count", offsetof(__typeof__(rn), Rtext_editor_get_match_count)},
+	{"Rtext_editor_get_match_index", offsetof(__typeof__(rn), Rtext_editor_get_match_index)},
+	{"Rtext_editor_get_match", offsetof(__typeof__(rn), Rtext_editor_get_match)},
+	{"Rtext_editor_select_match", offsetof(__typeof__(rn), Rtext_editor_select_match)},
+	{"Rtext_editor_replace", offsetof(__typeof__(rn), Rtext_editor_replace)},
+	{"Rtext_editor_replace_all", offsetof(__typeof__(rn), Rtext_editor_replace_all)},
+	{"Rtext_editor_show_find", offsetof(__typeof__(rn), Rtext_editor_show_find)},
+	{"Rtext_editor_hide_find", offsetof(__typeof__(rn), Rtext_editor_hide_find)},
+	{"Rtext_editor_is_find_shown", offsetof(__typeof__(rn), Rtext_editor_is_find_shown)},
+	{"Rtext_editor_set_find_bar", offsetof(__typeof__(rn), Rtext_editor_set_find_bar)},
 	{"Rtheme_set_token_color", offsetof(__typeof__(rn), Rtheme_set_token_color)},
 	{"Rtheme_get_token_color", offsetof(__typeof__(rn), Rtheme_get_token_color)},
 	{"Rtheme_clear_token_colors", offsetof(__typeof__(rn), Rtheme_clear_token_colors)},
@@ -19452,6 +19482,236 @@ static napi_value rn_w_Rtext_editor_set_hover_callback(napi_env env, napi_callba
 	return result_;
 }
 
+static napi_value rn_w_Rtext_editor_set_search(napi_env env, napi_callback_info info) {
+	size_t argc = 3;
+	napi_value argv[3];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	uint32_t a2;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	if (!rn_get_uint32(env, argv[2], &a2)) goto done;
+	rn.Rtext_editor_set_search((Rid)a0, a1.p, (Ruint)a2);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_search(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	result_ = rn_make_text(env, rn.Rtext_editor_get_search((Rid)a0));
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_search_flags(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	Ruint value_ = rn.Rtext_editor_get_search_flags((Rid)a0);
+	napi_create_uint32(env, value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_find_next(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_find_next((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_find_previous(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_find_previous((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_match_count(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_get_match_count((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_match_index(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_get_match_index((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_get_match(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	int a2 = 0;
+	int a3 = 0;
+	int a4 = 0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_get_match((Rid)a0, (int)a1, &a2, &a3, &a4);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	{
+		napi_value o0_;
+		napi_create_int32(env, (int32_t)a2, &o0_);
+		napi_value o1_;
+		napi_create_int32(env, (int32_t)a3, &o1_);
+		napi_value o2_;
+		napi_create_int32(env, (int32_t)a4, &o2_);
+		{
+			const napi_value values_[4] = {result_, o0_, o1_, o2_};
+			result_ = rn_tuple(env, 4, values_);
+		}
+	}
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_select_match(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	int value_ = rn.Rtext_editor_select_match((Rid)a0, (int)a1);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_replace(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtext_editor_replace((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_replace_all(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	rn_str a1;
+	a1.heap = NULL;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) goto done;
+	if (!rn_str_get(env, argv[1], &a1)) goto done;
+	int value_ = rn.Rtext_editor_replace_all((Rid)a0, a1.p);
+	napi_create_int32(env, (int32_t)value_, &result_);
+done:
+	free(a1.heap);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_show_find(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtext_editor_show_find((Rid)a0, (int)a1);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_hide_find(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	rn.Rtext_editor_hide_find((Rid)a0);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_is_find_shown(napi_env env, napi_callback_info info) {
+	size_t argc = 1;
+	napi_value argv[1];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	int value_ = rn.Rtext_editor_is_find_shown((Rid)a0);
+	napi_create_int32(env, (int32_t)value_, &result_);
+	return result_;
+}
+
+static napi_value rn_w_Rtext_editor_set_find_bar(napi_env env, napi_callback_info info) {
+	size_t argc = 2;
+	napi_value argv[2];
+	napi_value result_ = NULL;
+	(void)env;
+	uint32_t a0;
+	int a1;
+	napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
+	if (!rn_get_uint32(env, argv[0], &a0)) return NULL;
+	if (!rn_get_int(env, argv[1], &a1)) return NULL;
+	rn.Rtext_editor_set_find_bar((Rid)a0, (int)a1);
+	return result_;
+}
+
 static napi_value rn_w_Rtheme_set_token_color(napi_env env, napi_callback_info info) {
 	size_t argc = 5;
 	napi_value argv[5];
@@ -28447,6 +28707,21 @@ static const napi_property_descriptor rn_properties[] = {
 	{"Rtext_editor_clear_markers", NULL, rn_w_Rtext_editor_clear_markers, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_get_marker_count", NULL, rn_w_Rtext_editor_get_marker_count, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtext_editor_set_hover_callback", NULL, rn_w_Rtext_editor_set_hover_callback, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_set_search", NULL, rn_w_Rtext_editor_set_search, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_search", NULL, rn_w_Rtext_editor_get_search, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_search_flags", NULL, rn_w_Rtext_editor_get_search_flags, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_find_next", NULL, rn_w_Rtext_editor_find_next, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_find_previous", NULL, rn_w_Rtext_editor_find_previous, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_match_count", NULL, rn_w_Rtext_editor_get_match_count, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_match_index", NULL, rn_w_Rtext_editor_get_match_index, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_get_match", NULL, rn_w_Rtext_editor_get_match, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_select_match", NULL, rn_w_Rtext_editor_select_match, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_replace", NULL, rn_w_Rtext_editor_replace, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_replace_all", NULL, rn_w_Rtext_editor_replace_all, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_show_find", NULL, rn_w_Rtext_editor_show_find, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_hide_find", NULL, rn_w_Rtext_editor_hide_find, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_is_find_shown", NULL, rn_w_Rtext_editor_is_find_shown, NULL, NULL, NULL, napi_enumerable, NULL},
+	{"Rtext_editor_set_find_bar", NULL, rn_w_Rtext_editor_set_find_bar, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtheme_set_token_color", NULL, rn_w_Rtheme_set_token_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtheme_get_token_color", NULL, rn_w_Rtheme_get_token_color, NULL, NULL, NULL, napi_enumerable, NULL},
 	{"Rtheme_clear_token_colors", NULL, rn_w_Rtheme_clear_token_colors, NULL, NULL, NULL, napi_enumerable, NULL},

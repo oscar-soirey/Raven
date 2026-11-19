@@ -14,7 +14,7 @@
 //     Raven, valid until the next call that changes it
 //   - numbers written through a pointer come back as results, after the result of the function
 //
-// 1014 of the 1358 functions of the C API are here, 32 are written by hand (the other files of this
+// 1029 of the 1373 functions of the C API are here, 32 are written by hand (the other files of this
 // folder), and 312 are raw only: call them through the package `raven`, imported as `raw`.
 // Raw only, and why:
 //
@@ -3668,6 +3668,106 @@ text_editor_clear_markers :: proc(editor: Widget) {
 
 text_editor_get_marker_count :: proc(editor: Widget) -> i32 {
 	return raw.Rtext_editor_get_marker_count(raw.Rid(editor))
+}
+
+// Sets what is searched for, with RSearchFlags, and shows every
+// match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+// R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+// break finds nothing. NULL or "" clears the search. The selection does
+// not move; Rtext_editor_find_next goes to a match.
+text_editor_set_search :: proc(editor: Widget, query: cstring, flags: u32) {
+	raw.Rtext_editor_set_search(raw.Rid(editor), query, flags)
+}
+
+// Returns: The text searched for, "" when there is none.
+text_editor_get_search :: proc(editor: Widget) -> string {
+	return string(raw.Rtext_editor_get_search(raw.Rid(editor)))
+}
+
+// Returns: The RSearchFlags of the search.
+text_editor_get_search_flags :: proc(editor: Widget) -> u32 {
+	return raw.Rtext_editor_get_search_flags(raw.Rid(editor))
+}
+
+// Selects the next match after the selection (or the cursor),
+// going on from the start of the text after its end, and scrolls to it.
+// Returns R_FALSE when the text has no match.
+text_editor_find_next :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_find_next(raw.Rid(editor))
+}
+
+// The same, toward the start: the match before the selection, from the end of the text after its start.
+text_editor_find_previous :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_find_previous(raw.Rid(editor))
+}
+
+// Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+text_editor_get_match_count :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_get_match_count(raw.Rid(editor))
+}
+
+// Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+text_editor_get_match_index :: proc(editor: Widget) -> i32 {
+	return raw.Rtext_editor_get_match_index(raw.Rid(editor))
+}
+
+// Where a match is: its line and the columns of its first byte and
+// of the byte after it. Returns R_FALSE when `index` is out of range.
+text_editor_get_match :: proc(editor: Widget, index: i32) -> (result: i32, line: i32, from_column: i32, to_column: i32) {
+	result = raw.Rtext_editor_get_match(raw.Rid(editor), index, &line, &from_column, &to_column)
+	return
+}
+
+// Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+text_editor_select_match :: proc(editor: Widget, index: i32) -> i32 {
+	return raw.Rtext_editor_select_match(raw.Rid(editor), index)
+}
+
+// Replaces the selected match by `replacement`, as one step of
+// the history, then selects the next match. When the selection is not a
+// match, only selects the next one (the user sees what will be replaced).
+// Returns R_TRUE when something was replaced. As with
+// Rtext_editor_insert_text, the changed callback is called.
+text_editor_replace :: proc(editor: Widget, replacement: string) -> i32 {
+	buffer_replacement: [cstring_buffer_size]u8
+	return raw.Rtext_editor_replace(raw.Rid(editor), to_cstring(replacement, &buffer_replacement))
+}
+
+// Replaces every match by `replacement`, as a single step of the
+// history (one undo puts them all back). Returns the number of matches
+// replaced.
+text_editor_replace_all :: proc(editor: Widget, replacement: string) -> i32 {
+	buffer_replacement: [cstring_buffer_size]u8
+	return raw.Rtext_editor_replace_all(raw.Rid(editor), to_cstring(replacement, &buffer_replacement))
+}
+
+// Opens the find bar of the editor (Ctrl+F), with the row to
+// replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+// Text selected on one line becomes the text searched for.
+// Its texts are English unless the locale has the keys Raven.Find,
+// Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+// ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+// Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+// Raven.FindToggleReplace.
+text_editor_show_find :: proc(editor: Widget, replace: i32) {
+	raw.Rtext_editor_show_find(raw.Rid(editor), replace)
+}
+
+// Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+text_editor_hide_find :: proc(editor: Widget) {
+	raw.Rtext_editor_hide_find(raw.Rid(editor))
+}
+
+text_editor_is_find_shown :: proc(editor: Widget) -> bool {
+	return raw.Rtext_editor_is_find_shown(raw.Rid(editor)) != 0
+}
+
+// R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+// Cmd+G), which then go to the shortcuts of the window: for an
+// application with its own search, built on Rtext_editor_set_search. On
+// by default. XML: FindBar="false".
+text_editor_set_find_bar :: proc(editor: Widget, enabled: bool) {
+	raw.Rtext_editor_set_find_bar(raw.Rid(editor), (1 if enabled else 0))
 }
 
 // Color of a kind of token in the theme in use, instead of the

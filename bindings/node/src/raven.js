@@ -557,8 +557,10 @@ export const RColorRole = _enum({
 	R_COLOR_DANGER: 289,
 	R_COLOR_LINK: 290,
 	R_COLOR_CODE: 291,
+	R_COLOR_SEARCH_MATCH: 292,
+	R_COLOR_SEARCH_CURRENT: 293,
 });
-export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE } = RColorRole;
+export const { R_COLOR_WINDOW, R_COLOR_PANEL, R_COLOR_BORDER, R_COLOR_TEXT, R_COLOR_TEXT_DISABLED, R_COLOR_TEXT_PLACEHOLDER, R_COLOR_ACCENT, R_COLOR_ACCENT_HOVERED, R_COLOR_ACCENT_PRESSED, R_COLOR_ACCENT_TEXT, R_COLOR_CONTROL, R_COLOR_CONTROL_HOVERED, R_COLOR_CONTROL_PRESSED, R_COLOR_CONTROL_BORDER, R_COLOR_INPUT, R_COLOR_FOCUS, R_COLOR_SELECTION, R_COLOR_ROW_HOVERED, R_COLOR_TRACK, R_COLOR_HANDLE, R_COLOR_HANDLE_HOVERED, R_COLOR_SEPARATOR, R_COLOR_HEADER, R_COLOR_HEADER_HOVERED, R_COLOR_TAB_ACTIVE, R_COLOR_POPUP, R_COLOR_POPUP_BORDER, R_COLOR_SHADOW, R_COLOR_TOOLTIP, R_COLOR_TOOLTIP_TEXT, R_COLOR_SWITCH, R_COLOR_SUCCESS, R_COLOR_WARNING, R_COLOR_DANGER, R_COLOR_LINK, R_COLOR_CODE, R_COLOR_SEARCH_MATCH, R_COLOR_SEARCH_CURRENT } = RColorRole;
 
 export const RMetric = _enum({
 	R_METRIC_FONT_SIZE: 320,
@@ -907,6 +909,12 @@ export const RToken = _enum({
 	R_TOKEN_LINK: 942,
 });
 export const { R_TOKEN_TEXT, R_TOKEN_COMMENT, R_TOKEN_STRING, R_TOKEN_NUMBER, R_TOKEN_KEYWORD, R_TOKEN_TYPE, R_TOKEN_FUNCTION, R_TOKEN_TAG, R_TOKEN_ATTRIBUTE, R_TOKEN_PUNCTUATION, R_TOKEN_DIRECTIVE, R_TOKEN_HEADING, R_TOKEN_STRONG, R_TOKEN_EMPHASIS, R_TOKEN_LINK } = RToken;
+
+export const RSearchFlags = _enum({
+	R_SEARCH_MATCH_CASE: 1,
+	R_SEARCH_WHOLE_WORD: 2,
+});
+export const { R_SEARCH_MATCH_CASE, R_SEARCH_WHOLE_WORD } = RSearchFlags;
 
 export const RMarkerKind = _enum({
 	R_MARKER_ERROR: 848,
@@ -4140,6 +4148,21 @@ export const Rtext_editor_add_marker = _lib.Rtext_editor_add_marker;
 export const Rtext_editor_clear_markers = _lib.Rtext_editor_clear_markers;
 export const Rtext_editor_get_marker_count = _lib.Rtext_editor_get_marker_count;
 export const Rtext_editor_set_hover_callback = _lib.Rtext_editor_set_hover_callback;
+export const Rtext_editor_set_search = _lib.Rtext_editor_set_search;
+export const Rtext_editor_get_search = _lib.Rtext_editor_get_search;
+export const Rtext_editor_get_search_flags = _lib.Rtext_editor_get_search_flags;
+export const Rtext_editor_find_next = _lib.Rtext_editor_find_next;
+export const Rtext_editor_find_previous = _lib.Rtext_editor_find_previous;
+export const Rtext_editor_get_match_count = _lib.Rtext_editor_get_match_count;
+export const Rtext_editor_get_match_index = _lib.Rtext_editor_get_match_index;
+export const Rtext_editor_get_match = _lib.Rtext_editor_get_match;
+export const Rtext_editor_select_match = _lib.Rtext_editor_select_match;
+export const Rtext_editor_replace = _lib.Rtext_editor_replace;
+export const Rtext_editor_replace_all = _lib.Rtext_editor_replace_all;
+export const Rtext_editor_show_find = _lib.Rtext_editor_show_find;
+export const Rtext_editor_hide_find = _lib.Rtext_editor_hide_find;
+export const Rtext_editor_is_find_shown = _lib.Rtext_editor_is_find_shown;
+export const Rtext_editor_set_find_bar = _lib.Rtext_editor_set_find_bar;
 export const Rtheme_set_token_color = _lib.Rtheme_set_token_color;
 export const Rtheme_get_token_color = _lib.Rtheme_get_token_color;
 export const Rtheme_clear_token_colors = _lib.Rtheme_clear_token_colors;

@@ -749,6 +749,10 @@ constset ColorRole : CInt
 	LINK = 0x0122,
 	<* Background of code in formatted text. *>
 	CODE = 0x0123,
+	<* The matches of a search in a text editor (usually see-through). *>
+	SEARCH_MATCH = 0x0124,
+	<* The selected match of a search in a text editor. *>
+	SEARCH_CURRENT = 0x0125,
 }
 
 <* Sizes, in logical units. *>
@@ -1288,6 +1292,22 @@ constset Token : CInt
 	EMPHASIS = 0x03AD,
 	LINK = 0x03AE,
 }
+
+<* Options of a search (Rtext_editor_set_search), a bitmask. *>
+constset SearchFlags : CInt
+{
+	<*
+	 Upper and lower case differ. Without it the case is ignored, for the
+	 letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+	 Cyrillic and Armenian.
+	*>
+	MATCH_CASE = 1,
+	<* A match is a whole word: "for" does not find the start of "format". *>
+	WHOLE_WORD = 2,
+}
+
+<* Whether every flag of `flags` is set. *>
+fn bool SearchFlags.has(self, SearchFlags flags) @inline => (self & flags) == flags;
 
 <* What a marker says about the text it underlines. *>
 constset MarkerKind : CInt
@@ -4000,6 +4020,87 @@ fn void TextEditor.clear_markers(self) @inline => c::r_text_editor_clear_markers
 fn CInt TextEditor.get_marker_count(self) @inline => c::r_text_editor_get_marker_count((c::Rid)self);
 
 fn void TextEditor.set_hover_callback(self, TextEditorHoverCallback callback, void* user_data) @inline => c::r_text_editor_set_hover_callback((c::Rid)self, (c::RTextEditorHoverCallback)callback, user_data);
+
+<*
+ Sets what is searched for, with RSearchFlags, and shows every
+ match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+ R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+ break finds nothing. NULL or "" clears the search. The selection does
+ not move; Rtext_editor_find_next goes to a match.
+*>
+fn void TextEditor.set_search(self, ZString query, SearchFlags flags) @inline => c::r_text_editor_set_search((c::Rid)self, (char*)query, (c::Ruint)flags);
+
+<* Returns The text searched for, "" when there is none. *>
+fn ZString TextEditor.get_search(self) @inline => (ZString)c::r_text_editor_get_search((c::Rid)self);
+
+<* Returns The RSearchFlags of the search. *>
+fn SearchFlags TextEditor.get_search_flags(self) @inline => (SearchFlags)c::r_text_editor_get_search_flags((c::Rid)self);
+
+<*
+ Selects the next match after the selection (or the cursor),
+ going on from the start of the text after its end, and scrolls to it.
+ Returns R_FALSE when the text has no match.
+*>
+fn CInt TextEditor.find_next(self) @inline => c::r_text_editor_find_next((c::Rid)self);
+
+<* The same, toward the start: the match before the selection, from the end of the text after its start. *>
+fn CInt TextEditor.find_previous(self) @inline => c::r_text_editor_find_previous((c::Rid)self);
+
+<* Returns The number of matches in the whole text. Counted once per change of the text or of the search. *>
+fn CInt TextEditor.get_match_count(self) @inline => c::r_text_editor_get_match_count((c::Rid)self);
+
+<* Returns The index of the selected match (0 for the first in the text), -1 when the selection is not a match. *>
+fn CInt TextEditor.get_match_index(self) @inline => c::r_text_editor_get_match_index((c::Rid)self);
+
+<*
+ Where a match is: its line and the columns of its first byte and
+ of the byte after it. Returns R_FALSE when `index` is out of range.
+*>
+fn CInt TextEditor.get_match(self, CInt index, CInt* line, CInt* from_column, CInt* to_column) @inline => c::r_text_editor_get_match((c::Rid)self, index, line, from_column, to_column);
+
+<* Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range. *>
+fn CInt TextEditor.select_match(self, CInt index) @inline => c::r_text_editor_select_match((c::Rid)self, index);
+
+<*
+ Replaces the selected match by `replacement`, as one step of
+ the history, then selects the next match. When the selection is not a
+ match, only selects the next one (the user sees what will be replaced).
+ Returns R_TRUE when something was replaced. As with
+ Rtext_editor_insert_text, the changed callback is called.
+*>
+fn CInt TextEditor.replace(self, ZString replacement) @inline => c::r_text_editor_replace((c::Rid)self, (char*)replacement);
+
+<*
+ Replaces every match by `replacement`, as a single step of the
+ history (one undo puts them all back). Returns the number of matches
+ replaced.
+*>
+fn CInt TextEditor.replace_all(self, ZString replacement) @inline => c::r_text_editor_replace_all((c::Rid)self, (char*)replacement);
+
+<*
+ Opens the find bar of the editor (Ctrl+F), with the row to
+ replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+ Text selected on one line becomes the text searched for.
+ Its texts are English unless the locale has the keys Raven.Find,
+ Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+ ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+ Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+ Raven.FindToggleReplace.
+*>
+fn void TextEditor.show_find(self, CInt replace) @inline => c::r_text_editor_show_find((c::Rid)self, replace);
+
+<* Closes the find bar; the matches are no longer shown, F3 still goes to the next one. *>
+fn void TextEditor.hide_find(self) @inline => c::r_text_editor_hide_find((c::Rid)self);
+
+fn bool TextEditor.is_find_shown(self) @inline => c::r_text_editor_is_find_shown((c::Rid)self) != 0;
+
+<*
+ R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+ Cmd+G), which then go to the shortcuts of the window: for an
+ application with its own search, built on Rtext_editor_set_search. On
+ by default. XML: FindBar="false".
+*>
+fn void TextEditor.set_find_bar(self, bool enabled) @inline => c::r_text_editor_set_find_bar((c::Rid)self, (CInt)enabled);
 
 fn void TextEditor.set_changed_callback(self, TextEditorChangedCallback callback, void* user_data) @inline => c::r_text_editor_set_changed_callback((c::Rid)self, (c::RTextEditorChangedCallback)callback, user_data);
 

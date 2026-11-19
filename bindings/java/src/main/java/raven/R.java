@@ -841,6 +841,14 @@ public final class R {
      * Background of code in formatted text.
      */
     public static final int R_COLOR_CODE = 0x0123;
+    /**
+     * The matches of a search in a text editor (usually see-through).
+     */
+    public static final int R_COLOR_SEARCH_MATCH = 0x0124;
+    /**
+     * The selected match of a search in a text editor.
+     */
+    public static final int R_COLOR_SEARCH_CURRENT = 0x0125;
 
     // RMetric: Sizes, in logical units.
     public static final int R_METRIC_FONT_SIZE = 0x0140;
@@ -1507,6 +1515,18 @@ public final class R {
     public static final int R_TOKEN_STRONG = 0x03AC;
     public static final int R_TOKEN_EMPHASIS = 0x03AD;
     public static final int R_TOKEN_LINK = 0x03AE;
+
+    // RSearchFlags: Options of a search (Rtext_editor_set_search), a bitmask.
+    /**
+     * Upper and lower case differ. Without it the case is ignored, for the
+     * letters of ASCII, Latin-1, the Latin letters of Unicode, Greek,
+     * Cyrillic and Armenian.
+     */
+    public static final int R_SEARCH_MATCH_CASE = 1;
+    /**
+     * A match is a whole word: "for" does not find the start of "format".
+     */
+    public static final int R_SEARCH_WHOLE_WORD = 2;
 
     // RMarkerKind: What a marker says about the text it underlines.
     public static final int R_MARKER_ERROR = 0x0350;
@@ -19843,6 +19863,271 @@ public final class R {
 
     public static void Rtext_editor_set_hover_callback(int editor, RTextEditorHoverCallback callback) {
         Rtext_editor_set_hover_callback(editor, callback, (MemorySegment) null);
+    }
+
+    private static MethodHandle Rtext_editor_set_search$;
+
+    /**
+     * Sets what is searched for, with RSearchFlags, and shows every
+     * match of the visible text (theme colors R_COLOR_SEARCH_MATCH and
+     * R_COLOR_SEARCH_CURRENT). A match lies on one line: a query with a line
+     * break finds nothing. NULL or "" clears the search. The selection does
+     * not move; Rtext_editor_find_next goes to a match.
+     */
+    public static void Rtext_editor_set_search(int editor, String query, int flags) {
+        MethodHandle $h = Rtext_editor_set_search$;
+        if ($h == null) Rtext_editor_set_search$ = $h = find("Rtext_editor_set_search", FunctionDescriptor.ofVoid(JAVA_INT, ADDRESS, JAVA_INT));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment query$ = query == null ? MemorySegment.NULL : utf8($a, query);
+            $h.invokeExact(editor, query$, flags);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_search$;
+
+    /**
+     * Returns: The text searched for, "" when there is none.
+     */
+    public static String Rtext_editor_get_search(int editor) {
+        MethodHandle $h = Rtext_editor_get_search$;
+        if ($h == null) Rtext_editor_get_search$ = $h = find("Rtext_editor_get_search", FunctionDescriptor.of(ADDRESS, JAVA_INT));
+        try {
+            MemorySegment $r = (MemorySegment) $h.invokeExact(editor);
+            return text($r);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_search_flags$;
+
+    /**
+     * Returns: The RSearchFlags of the search.
+     */
+    public static int Rtext_editor_get_search_flags(int editor) {
+        MethodHandle $h = Rtext_editor_get_search_flags$;
+        if ($h == null) Rtext_editor_get_search_flags$ = $h = find("Rtext_editor_get_search_flags", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_find_next$;
+
+    /**
+     * Selects the next match after the selection (or the cursor),
+     * going on from the start of the text after its end, and scrolls to it.
+     * Returns R_FALSE when the text has no match.
+     */
+    public static int Rtext_editor_find_next(int editor) {
+        MethodHandle $h = Rtext_editor_find_next$;
+        if ($h == null) Rtext_editor_find_next$ = $h = find("Rtext_editor_find_next", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_find_previous$;
+
+    /**
+     * The same, toward the start: the match before the selection, from the end of the text after its start.
+     */
+    public static int Rtext_editor_find_previous(int editor) {
+        MethodHandle $h = Rtext_editor_find_previous$;
+        if ($h == null) Rtext_editor_find_previous$ = $h = find("Rtext_editor_find_previous", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_match_count$;
+
+    /**
+     * Returns: The number of matches in the whole text. Counted once per change of the text or of the search.
+     */
+    public static int Rtext_editor_get_match_count(int editor) {
+        MethodHandle $h = Rtext_editor_get_match_count$;
+        if ($h == null) Rtext_editor_get_match_count$ = $h = find("Rtext_editor_get_match_count", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_match_index$;
+
+    /**
+     * Returns: The index of the selected match (0 for the first in the text), -1 when the selection is not a match.
+     */
+    public static int Rtext_editor_get_match_index(int editor) {
+        MethodHandle $h = Rtext_editor_get_match_index$;
+        if ($h == null) Rtext_editor_get_match_index$ = $h = find("Rtext_editor_get_match_index", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_get_match$;
+
+    /**
+     * Where a match is: its line and the columns of its first byte and
+     * of the byte after it. Returns R_FALSE when `index` is out of range.
+     */
+    public static int Rtext_editor_get_match(int editor, int index, int[] line, int[] from_column, int[] to_column) {
+        MethodHandle $h = Rtext_editor_get_match$;
+        if ($h == null) Rtext_editor_get_match$ = $h = find("Rtext_editor_get_match", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment line$ = line == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment from_column$ = from_column == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            MemorySegment to_column$ = to_column == null ? MemorySegment.NULL : $a.allocate(JAVA_INT);
+            int $r = (int) $h.invokeExact(editor, index, line$, from_column$, to_column$);
+            if (line != null && line.length > 0) line[0] = line$.get(JAVA_INT, 0);
+            if (from_column != null && from_column.length > 0) from_column[0] = from_column$.get(JAVA_INT, 0);
+            if (to_column != null && to_column.length > 0) to_column[0] = to_column$.get(JAVA_INT, 0);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_select_match$;
+
+    /**
+     * Selects a match by its index and scrolls to it. Returns R_FALSE when `index` is out of range.
+     */
+    public static int Rtext_editor_select_match(int editor, int index) {
+        MethodHandle $h = Rtext_editor_select_match$;
+        if ($h == null) Rtext_editor_select_match$ = $h = find("Rtext_editor_select_match", FunctionDescriptor.of(JAVA_INT, JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor, index);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_replace$;
+
+    /**
+     * Replaces the selected match by `replacement`, as one step of
+     * the history, then selects the next match. When the selection is not a
+     * match, only selects the next one (the user sees what will be replaced).
+     * Returns R_TRUE when something was replaced. As with
+     * Rtext_editor_insert_text, the changed callback is called.
+     */
+    public static int Rtext_editor_replace(int editor, String replacement) {
+        MethodHandle $h = Rtext_editor_replace$;
+        if ($h == null) Rtext_editor_replace$ = $h = find("Rtext_editor_replace", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment replacement$ = replacement == null ? MemorySegment.NULL : utf8($a, replacement);
+            int $r = (int) $h.invokeExact(editor, replacement$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_replace_all$;
+
+    /**
+     * Replaces every match by `replacement`, as a single step of the
+     * history (one undo puts them all back). Returns the number of matches
+     * replaced.
+     */
+    public static int Rtext_editor_replace_all(int editor, String replacement) {
+        MethodHandle $h = Rtext_editor_replace_all$;
+        if ($h == null) Rtext_editor_replace_all$ = $h = find("Rtext_editor_replace_all", FunctionDescriptor.of(JAVA_INT, JAVA_INT, ADDRESS));
+        try (Arena $a = Arena.ofConfined()) {
+            MemorySegment replacement$ = replacement == null ? MemorySegment.NULL : utf8($a, replacement);
+            int $r = (int) $h.invokeExact(editor, replacement$);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_show_find$;
+
+    /**
+     * Opens the find bar of the editor (Ctrl+F), with the row to
+     * replace when `replace` is R_TRUE (Ctrl+H), and gives it the keyboard.
+     * Text selected on one line becomes the text searched for.
+     * Its texts are English unless the locale has the keys Raven.Find,
+     * Raven.Replace, Raven.ReplaceAll, Raven.FindNoResults, Raven.FindCount
+     * ("{0} of {1}"), Raven.FindMatchCase, Raven.FindWholeWord,
+     * Raven.FindPrevious, Raven.FindNext, Raven.FindClose and
+     * Raven.FindToggleReplace.
+     */
+    public static void Rtext_editor_show_find(int editor, int replace) {
+        MethodHandle $h = Rtext_editor_show_find$;
+        if ($h == null) Rtext_editor_show_find$ = $h = find("Rtext_editor_show_find", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, replace);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_hide_find$;
+
+    /**
+     * Closes the find bar; the matches are no longer shown, F3 still goes to the next one.
+     */
+    public static void Rtext_editor_hide_find(int editor) {
+        MethodHandle $h = Rtext_editor_hide_find$;
+        if ($h == null) Rtext_editor_hide_find$ = $h = find("Rtext_editor_hide_find", FunctionDescriptor.ofVoid(JAVA_INT));
+        try {
+            $h.invokeExact(editor);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_is_find_shown$;
+
+    public static int Rtext_editor_is_find_shown(int editor) {
+        MethodHandle $h = Rtext_editor_is_find_shown$;
+        if ($h == null) Rtext_editor_is_find_shown$ = $h = find("Rtext_editor_is_find_shown", FunctionDescriptor.of(JAVA_INT, JAVA_INT));
+        try {
+            int $r = (int) $h.invokeExact(editor);
+            return $r;
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
+    }
+
+    private static MethodHandle Rtext_editor_set_find_bar$;
+
+    /**
+     * R_FALSE removes the find bar and its keys (Ctrl+F, Ctrl+H, F3,
+     * Cmd+G), which then go to the shortcuts of the window: for an
+     * application with its own search, built on Rtext_editor_set_search. On
+     * by default. XML: FindBar="false".
+     */
+    public static void Rtext_editor_set_find_bar(int editor, int enabled) {
+        MethodHandle $h = Rtext_editor_set_find_bar$;
+        if ($h == null) Rtext_editor_set_find_bar$ = $h = find("Rtext_editor_set_find_bar", FunctionDescriptor.ofVoid(JAVA_INT, JAVA_INT));
+        try {
+            $h.invokeExact(editor, enabled);
+        } catch (Throwable $t) {
+            throw fail($t);
+        }
     }
 
     private static MethodHandle Rtheme_set_token_color$;
