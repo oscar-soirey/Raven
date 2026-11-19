@@ -230,6 +230,20 @@ typedef enum RChartKind{
 	R_CHART_SPARKLINE
 }RChartKind;
 
+/** What happens in a SystemWebView (Rsystem_web_view_set_event_callback). */
+typedef enum RSystemWebViewEvent{
+	/** The view shows another address (Rsystem_web_view_get_url). */
+	R_SYSTEM_WEB_VIEW_NAVIGATED = 0x0B90,
+	/** The title of the page changed (Rsystem_web_view_get_title). */
+	R_SYSTEM_WEB_VIEW_TITLE,
+	/** A page starts loading. */
+	R_SYSTEM_WEB_VIEW_LOADING,
+	/** The page and what it refers to are loaded. */
+	R_SYSTEM_WEB_VIEW_LOADED,
+	/** The page could not be loaded, or the engine showing it stopped (Rsystem_web_view_get_error). */
+	R_SYSTEM_WEB_VIEW_FAILED
+}RSystemWebViewEvent;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -1524,6 +1538,96 @@ extern "C" {
 	 */
 	RAVEN_API void Rmap_view_set_attribution(Rid map, const char* text);
 	RAVEN_API const char* Rmap_view_get_attribution(Rid map);
+
+
+	/* ============================================================================
+	 *  SYSTEM WEB VIEW (the web engine of the system, embedded in the window)
+	 *
+	 * Web pages shown by the engine that comes with the system, in a view of
+	 * its own kept over the widget: WebKit (WKWebView) on macOS and iOS.
+	 * Pages are drawn, scrolled and typed into by the system, as in its
+	 * browser; WebKit is opened when the first view is made, so a program
+	 * that has none does not load it.
+	 *
+	 * Like a native child window (Rviewport_set_native), the page is not
+	 * drawn by Raven: it follows the widget (its place, its size, whether it
+	 * is shown, the part of it a ScrollBox lets be seen), but Raven cannot
+	 * draw over it: popups, menus and tooltips that cross it go under it.
+	 *
+	 * Elsewhere (Windows, Linux, the browser, Android, and without a window
+	 * system) Rsystem_web_view_is_supported is R_FALSE. The widget exists all
+	 * the same, so programs and XML stay the same everywhere: it keeps the
+	 * address it is given and shows a message instead of the page; scripts
+	 * get an error. raven_web.h shows pages with an installed browser of the
+	 * Chromium family on those systems.
+	 *
+	 * The page talks to the application with
+	 * `window.raven.postMessage(value)` (Rsystem_web_view_set_message_callback):
+	 * a string as it is, anything else written as JSON. Every page the view
+	 * shows can call it: check what arrives as you would any input.
+	 *
+	 * Everything here is called from the UI thread; the callbacks come on it.
+	 *
+	 * XML: <SystemWebView Url="https://example.org" OnChanged="..."/>, or
+	 * <SystemWebView Html="&lt;h1&gt;Hello&lt;/h1&gt;" BaseUrl="file:///..."/>
+	 * ============================================================================ */
+
+	/** @return R_TRUE when web views show pages here (the system has an engine Raven can embed, and Raven runs with a window system). */
+	RAVEN_API int Rsystem_web_view_is_supported(void);
+	RAVEN_API Rid Rsystem_web_view_create(void);
+	/** @brief Goes to an address ("https://...", "file:///...", "about:blank"). A file: address may read the files of its folder. */
+	RAVEN_API void Rsystem_web_view_load_url(Rid view, const char* url);
+	/** @brief Shows a file of the computer (an .html file, and what it refers to in its folder). */
+	RAVEN_API void Rsystem_web_view_load_file(Rid view, const char* path);
+	/**
+	 * @brief Shows HTML given as text.
+	 * @param base_url Where the relative addresses of the text are looked
+	 * for ("file:///Users/me/app/pages/", "https://example.org/"), or NULL.
+	 */
+	RAVEN_API void Rsystem_web_view_load_html(Rid view, const char* html, const char* base_url);
+	RAVEN_API void Rsystem_web_view_reload(Rid view);
+	RAVEN_API void Rsystem_web_view_stop(Rid view);
+	RAVEN_API void Rsystem_web_view_go_back(Rid view);
+	RAVEN_API void Rsystem_web_view_go_forward(Rid view);
+	RAVEN_API int Rsystem_web_view_can_go_back(Rid view);
+	RAVEN_API int Rsystem_web_view_can_go_forward(Rid view);
+	/** @return The address of the page shown (the one asked for, where unsupported). Valid until it changes. */
+	RAVEN_API const char* Rsystem_web_view_get_url(Rid view);
+	/** @return The title of the page, "" when it has none. Valid until it changes. */
+	RAVEN_API const char* Rsystem_web_view_get_title(Rid view);
+	RAVEN_API int Rsystem_web_view_is_loading(Rid view);
+	/** @return Why the last page could not be shown, or "" when all is well. */
+	RAVEN_API const char* Rsystem_web_view_get_error(Rid view);
+
+	/**
+	 * @brief Receives the result of a script: `result` is its value written
+	 * as JSON ("42", "\"text\"", "{\"a\":1}", "null"), or NULL when the
+	 * script failed, `error` then telling why.
+	 */
+	typedef void (*RSystemWebViewResultCallback)(Rid view, const char* result, const char* error, void* user_data);
+	/**
+	 * @brief Runs JavaScript in the page; the value of its last statement is
+	 * the result. If it is a promise, the result is what the promise
+	 * resolves to. The callback (may be NULL) always comes later, never
+	 * during this call.
+	 */
+	RAVEN_API void Rsystem_web_view_run_javascript(Rid view, const char* script, RSystemWebViewResultCallback callback, void* user_data);
+	/** @brief Receives what the page sends with `window.raven.postMessage(value)`. */
+	typedef void (*RSystemWebViewMessageCallback)(Rid view, const char* message, void* user_data);
+	RAVEN_API void Rsystem_web_view_set_message_callback(Rid view, RSystemWebViewMessageCallback callback, void* user_data);
+	typedef void (*RSystemWebViewEventCallback)(Rid view, RSystemWebViewEvent event, void* user_data);
+	/**
+	 * @brief Called when something happens in the page. The action of the
+	 * widget (Rwidget_set_action, OnChanged in XML) is fired as well each
+	 * time the address changes.
+	 */
+	RAVEN_API void Rsystem_web_view_set_event_callback(Rid view, RSystemWebViewEventCallback callback, void* user_data);
+	/**
+	 * @brief The view of the system, to go further than these functions:
+	 * a WKWebView* on macOS and iOS. NULL where unsupported.
+	 */
+	RAVEN_API void* Rsystem_web_view_get_native_handle(Rid view);
+
 
 
 	/* ============================================================================

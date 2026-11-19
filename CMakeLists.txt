@@ -265,6 +265,7 @@ set(RAVEN_WIDGETS_SOURCES
 	src/widgets/chart.c
 	src/widgets/map_view.c
 	src/widgets/carousel.c
+	src/widgets/system_web_view.c
 	src/widgets/pdf_document.c
 	src/widgets/pdf_print.c
 )
@@ -373,7 +374,10 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	if(NOT APPLE)
 		message(FATAL_ERROR "Raven: the cocoa platform is only available on macOS")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m src/platform/cocoa/cocoa_print.m)
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/cocoa/cocoa_platform.m src/platform/cocoa/cocoa_print.m
+		src/platform/apple/webkit_web_view.m src/platform/apple/webkit_web_view.h)
+	# (WebKit is opened at run time, when the first SystemWebView is made: it is not linked)
+	set_source_files_properties(src/platform/apple/webkit_web_view.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_COCOA)
 	find_library(RAVEN_APPKIT_FRAMEWORK AppKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)
@@ -389,8 +393,10 @@ elseif(RAVEN_PLATFORM_SELECTED STREQUAL "uikit")
 	if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
 		message(FATAL_ERROR "Raven: the uikit platform is only available on iOS (CMAKE_SYSTEM_NAME=iOS)")
 	endif()
-	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m)
-	set_source_files_properties(src/platform/uikit/uikit_platform.m PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
+	list(APPEND RAVEN_PLATFORM_SOURCES src/platform/uikit/uikit_platform.m
+		src/platform/apple/webkit_web_view.m src/platform/apple/webkit_web_view.h)
+	set_source_files_properties(src/platform/uikit/uikit_platform.m src/platform/apple/webkit_web_view.m
+		PROPERTIES COMPILE_OPTIONS "-fobjc-arc")
 	list(APPEND RAVEN_DEFINITIONS RAVEN_PLATFORM_UIKIT)
 	find_library(RAVEN_UIKIT_FRAMEWORK UIKit)
 	find_library(RAVEN_QUARTZCORE_FRAMEWORK QuartzCore)

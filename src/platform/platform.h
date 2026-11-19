@@ -28,6 +28,52 @@ typedef struct rvn_ptray_t rvn_ptray_t;
 /** A native window. Each platform defines its own structure. */
 typedef struct rvn_pwindow_t rvn_pwindow_t;
 
+/** A web view of the system (web_view_create). Each platform defines its own structure. */
+typedef struct rvn_pweb_view_t rvn_pweb_view_t;
+
+/** What a web view of the system tells the core (rvn_web_view_event). */
+typedef enum rvn_pweb_event_type_t {
+	/** It shows another address: `text`. */
+	RVN_PWEB_URL,
+	/** The title of the page: `text` ("" none). */
+	RVN_PWEB_TITLE,
+	/** A page starts loading. */
+	RVN_PWEB_LOADING,
+	/** The page is loaded. */
+	RVN_PWEB_LOADED,
+	/** The page could not be loaded, or the engine stopped: `error`. */
+	RVN_PWEB_FAILED,
+	/** The page called window.raven.postMessage: `text`. */
+	RVN_PWEB_MESSAGE,
+	/** A script of web_view_run_javascript ended: `request`, and `text` (its value as JSON) or `error`. */
+	RVN_PWEB_RESULT
+} rvn_pweb_event_type_t;
+
+typedef struct rvn_pweb_event_t {
+	rvn_pweb_event_type_t type;
+	/** The `user` given to web_view_create. */
+	void* user;
+	const char* text;
+	const char* error;
+	uint64_t request;
+} rvn_pweb_event_t;
+
+/** The navigation commands of a web view of the system. */
+typedef enum rvn_pweb_command_t {
+	RVN_PWEB_BACK,
+	RVN_PWEB_FORWARD,
+	RVN_PWEB_RELOAD,
+	RVN_PWEB_STOP
+} rvn_pweb_command_t;
+
+/**
+ * The platform tells the core what happens in a web view of the system
+ * (implemented in widgets/system_web_view.c). UI thread, from the loop of
+ * events of the platform (pump) or from the run loop of the system; never
+ * during a call of the core into the web view.
+ */
+void rvn_web_view_event(const rvn_pweb_event_t* event);
+
 typedef enum rvn_pevent_type_t {
 	/** The user asked to close the window. */
 	RVN_PEVENT_CLOSE,
@@ -466,6 +512,41 @@ typedef struct rvn_platform_t {
 	 * system handles Back itself (and animates back to the home screen).
 	 */
 	void  (*window_set_back_wanted)(rvn_pwindow_t* window, int wanted);
+
+	/*
+	 * ---- the web view of the system (optional, all NULL when there is none) ----
+	 *
+	 * A view of the web engine of the system (WKWebView), kept over a
+	 * SystemWebView widget as a native child window is. What happens in it
+	 * comes back through rvn_web_view_event.
+	 */
+
+	/** R_TRUE when web_view_create can make a view (the engine could be loaded). */
+	int   (*web_view_supported)(void);
+	/** A new view, in no window yet. NULL when it cannot be made. */
+	rvn_pweb_view_t* (*web_view_create)(void* user);
+	/** Takes the view out of its window and frees it; nothing comes back from it after. */
+	void  (*web_view_destroy)(rvn_pweb_view_t* view);
+	/** Puts the view in a window, or takes it out (NULL). It stays hidden until web_view_set_rect shows it. */
+	void  (*web_view_set_parent)(rvn_pweb_view_t* view, rvn_pwindow_t* parent);
+	/**
+	 * Places the view: `rect` the whole page, `clip` the part of it that is
+	 * seen (x, y, width, height in pixels of the client area of the parent,
+	 * `scale` pixels per logical unit), or hides it.
+	 */
+	void  (*web_view_set_rect)(rvn_pweb_view_t* view, const int rect[4], const int clip[4], float scale, int visible);
+	void  (*web_view_load_url)(rvn_pweb_view_t* view, const char* url);
+	/** `base_url` may be NULL. */
+	void  (*web_view_load_html)(rvn_pweb_view_t* view, const char* html, const char* base_url);
+	void  (*web_view_command)(rvn_pweb_view_t* view, rvn_pweb_command_t command);
+	/** R_TRUE when RVN_PWEB_BACK / RVN_PWEB_FORWARD would go somewhere. */
+	int   (*web_view_can)(rvn_pweb_view_t* view, rvn_pweb_command_t command);
+	/** Runs a script; its end comes back as RVN_PWEB_RESULT with `request`, later. */
+	void  (*web_view_run_javascript)(rvn_pweb_view_t* view, const char* script, uint64_t request);
+	/** Gives the keyboard to the page, or takes it back to the window. */
+	void  (*web_view_focus)(rvn_pweb_view_t* view, int focused);
+	/** The view of the system (WKWebView*). */
+	void* (*web_view_native)(rvn_pweb_view_t* view);
 } rvn_platform_t;
 
 #if defined(RAVEN_PLATFORM_EMSCRIPTEN)

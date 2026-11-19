@@ -62,7 +62,8 @@ static const rvn_widget_class_t* const g_classes[] = {
 	&rvn_class_pdf_view,
 	&rvn_class_chart,
 	&rvn_class_map_view,
-	&rvn_class_carousel
+	&rvn_class_carousel,
+	&rvn_class_system_web_view
 };
 
 /** Other tags accepted in XML, for people coming from Slate / UMG. */

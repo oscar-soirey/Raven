@@ -312,6 +312,7 @@ panel uses the attributes that make sense for it.
 | `Menu` | `Text`; children `<MenuItem>`, `<Separator/>` and nested `<Menu>` |
 | `MenuItem` | `Text`, `Shortcut`, `Checkable`, `Checked` |
 | `Viewport` | `Source` (image shown until the application sets a texture), `Stretch`, `FlipY`, `Realtime` |
+| `SystemWebView` | `Url` (the address shown), `Source` (an .html file, found next to the document), `Html` (a page given as text) and `BaseUrl` (where its relative addresses are looked for), `OnChanged` (the view shows another address). The page is shown by the web engine of the system (WKWebView on macOS and iOS) in a view kept over the widget; where there is none, a message takes its place |
 | `Custom` | drawn by the application: `Rcustom_set_paint_callback` |
 | `TextEditor` (`TextArea`) | `Text` (or the text inside the element), `Language` (`C`, `C++`, `C#`, `Java`, `JavaScript`, `TypeScript`, `Python`, `Rust`, `Zig`, `GLSL`, `JSON`, `CSS`, `XML`, `HTML`, one declared with `Rlanguage_register`, or `None`), `LineNumbers`, `Wrap`, `ReadOnly`, `Placeholder`, `TabSize`, `TabSpaces`, `Completion` (`false`: proposes words only on Ctrl+Space), `AutoPairs` (`false`: does not close brackets and quotes), `TextSize`, `Font`, `Markdown` (`true`: the same as `Language="Markdown"`: the text stays as typed, styled in place) |
 | `FileBrowser` | `Directory`, `Mode` (`Open`, `Save`, `Folder`), `Filter` (`*.png;*.jpg`), `FileName`, `DefaultExtension`, `ShowHidden`, `Multiple`, `Controls` (`false` hides the name, the filter and the buttons), `Places` (`false` hides the list of places) |
@@ -465,7 +466,8 @@ Rxml_register_tag("Gauge", make_gauge, gauge_attribute, NULL);      /* then: <Ga
 ```
 
 `<WebView>` of the optional library `raven_web` is such a tag: see
-[WEB.md](WEB.md).
+[WEB.md](WEB.md). (`<SystemWebView>`, the web engine of the system, is a tag
+of Raven itself.)
 
 ## Declaring tags
 

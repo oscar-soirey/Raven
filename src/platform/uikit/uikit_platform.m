@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 
 #include "../platform.h"
+#include "../apple/webkit_web_view.h"
 #if defined(RAVEN_BACKEND_METAL_ENABLED)
 #include "../../render/renderer.h"
 #endif
@@ -1176,6 +1177,10 @@ static rvn_pwindow_t* rvn_uikit_child_create(rvn_pwindow_t* parent, int x, int y
 static void rvn_uikit_child_set_rect(rvn_pwindow_t* child, int x, int y, int width, int height, int visible) {
 	RVN_UNUSED(child); RVN_UNUSED(x); RVN_UNUSED(y); RVN_UNUSED(width); RVN_UNUSED(height); RVN_UNUSED(visible);
 }
+/* The web view of the system (platform/apple/webkit_web_view.m) goes into the view of the window. */
+static void rvn_uikit_web_view_set_parent(rvn_pweb_view_t* view, rvn_pwindow_t* parent) {
+	rvn_webkit_set_parent_view(view, parent ? parent->view : NULL);
+}
 
 /*
  * Shows and hides the on-screen keyboard after the events of the frame, as
@@ -1309,7 +1314,19 @@ const rvn_platform_t* rvn_platform_uikit(void) {
 		.clipboard_get = rvn_uikit_clipboard_get,
 		.window_get_safe_area = rvn_uikit_window_get_safe_area,
 		.system_dark = rvn_uikit_system_dark,
-		.window_get_keyboard_height = rvn_uikit_window_get_keyboard_height
+		.window_get_keyboard_height = rvn_uikit_window_get_keyboard_height,
+		.web_view_supported = rvn_webkit_supported,
+		.web_view_create = rvn_webkit_create,
+		.web_view_destroy = rvn_webkit_destroy,
+		.web_view_set_parent = rvn_uikit_web_view_set_parent,
+		.web_view_set_rect = rvn_webkit_set_rect,
+		.web_view_load_url = rvn_webkit_load_url,
+		.web_view_load_html = rvn_webkit_load_html,
+		.web_view_command = rvn_webkit_command,
+		.web_view_can = rvn_webkit_can,
+		.web_view_run_javascript = rvn_webkit_run_javascript,
+		.web_view_focus = rvn_webkit_focus,
+		.web_view_native = rvn_webkit_native
 	};
 	return &platform;
 }

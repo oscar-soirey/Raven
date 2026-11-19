@@ -12,6 +12,7 @@
 
 #include "../platform.h"
 #include "../../core/accessibility.h"
+#include "../apple/webkit_web_view.h"
 
 struct rvn_pwindow_t {
     NSWindow* handle;
@@ -1178,6 +1179,10 @@ static void rvn_cocoa_child_set_rect(rvn_pwindow_t* child, int x, int y, int wid
     }
     else [child->view setHidden:YES];
 }
+/* The web view of the system (platform/apple/webkit_web_view.m) goes into the content view of the window. */
+static void rvn_cocoa_web_view_set_parent(rvn_pweb_view_t* view, rvn_pwindow_t* parent) {
+    rvn_webkit_set_parent_view(view, parent ? (void*)parent->view : NULL);
+}
 static void rvn_cocoa_pump(double timeout_seconds) {
     NSDate* limit = timeout_seconds < 0.0 ? [NSDate distantFuture] :
         (timeout_seconds == 0.0 ? [NSDate distantPast] : [NSDate dateWithTimeIntervalSinceNow:timeout_seconds]);
@@ -1757,7 +1762,13 @@ const rvn_platform_t* rvn_platform_cocoa(void) {
         .a11y_active = rvn_cocoa_a11y_active, .a11y_settings = rvn_cocoa_a11y_settings,
         .accent_color = rvn_cocoa_accent_color, .notify = rvn_cocoa_notify,
         .screen_notch = rvn_cocoa_screen_notch, .overlay_place = rvn_cocoa_overlay_place,
-        .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key
+        .overlay_set_input = rvn_cocoa_overlay_set_input, .overlay_set_key = rvn_cocoa_overlay_set_key,
+        .web_view_supported = rvn_webkit_supported, .web_view_create = rvn_webkit_create,
+        .web_view_destroy = rvn_webkit_destroy, .web_view_set_parent = rvn_cocoa_web_view_set_parent,
+        .web_view_set_rect = rvn_webkit_set_rect, .web_view_load_url = rvn_webkit_load_url,
+        .web_view_load_html = rvn_webkit_load_html, .web_view_command = rvn_webkit_command,
+        .web_view_can = rvn_webkit_can, .web_view_run_javascript = rvn_webkit_run_javascript,
+        .web_view_focus = rvn_webkit_focus, .web_view_native = rvn_webkit_native
     };
     return &platform;
 }

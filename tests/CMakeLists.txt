@@ -3,7 +3,7 @@
 #   test_layout, test_widgets, test_xml, test_threads, test_memory, test_animation,
 #   test_text_editor, test_shell, test_dialogs, test_themes, test_markdown, test_tools,
 #   test_locale, test_fonts, test_touch, test_more_widgets, test_pdf, test_pdf_document,
-#   test_chart, test_carousel, test_deep_trees, test_lifecycle, test_package
+#   test_chart, test_carousel, test_system_web_view, test_deep_trees, test_lifecycle, test_package
 #       run headless (null platform + null backend): no display and no GPU are
 #       needed, so they run on any build machine.
 #   test_wayland
@@ -77,6 +77,11 @@ if(RAVEN_PLATFORM_SELECTED STREQUAL "cocoa")
 	add_executable(test_cocoa_input test_cocoa_input.m test.h)
 	target_link_libraries(test_cocoa_input PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
 	add_test(NAME test_cocoa_input COMMAND test_cocoa_input)
+	# a real WKWebView in a Cocoa window: pages given as text, scripts, messages, where the view is placed
+	add_executable(test_cocoa_web_view test_cocoa_web_view.m test.h)
+	target_link_libraries(test_cocoa_web_view PRIVATE raven::raven ${RAVEN_APPKIT_FRAMEWORK})
+	add_test(NAME test_cocoa_web_view COMMAND test_cocoa_web_view)
+	set_tests_properties(test_cocoa_web_view PROPERTIES TIMEOUT 180)
 endif()
 if(RAVEN_PLATFORM_SELECTED STREQUAL "win32")
 	# Real GDI redirection surface behind DWM backdrops; no Vulkan driver required.
@@ -92,6 +97,8 @@ endif()
 raven_add_test(test_more_widgets)
 raven_add_test(test_chart)
 raven_add_test(test_carousel)
+# SystemWebView where the system has no web view (headless): the widget, its API, its XML, its message
+raven_add_test(test_system_web_view)
 raven_add_test(test_pdf)
 # without PDFium (RAVEN_PDFIUM, or the library next to the test) it is reported as skipped
 set_tests_properties(test_pdf PROPERTIES SKIP_RETURN_CODE 77)

@@ -111,7 +111,10 @@ is a plan, not a promise: issues and pull requests can change the order.
 
 - [ ] Dragging from a Raven window to another application (files, text).
 - [ ] Glass over a native child window.
-- [ ] Embedding the system web view (WebView2, WebKitGTK).
+- [x] Embedding the system web view: `SystemWebView`, WKWebView on macOS
+  (and iOS), WebKit opened at run time.
+- [ ] The system web view on Windows (WebView2), Linux (WebKitGTK) and Android
+  (`android.webkit.WebView`).
 
 ### Rendering
 

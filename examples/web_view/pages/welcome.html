@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A page of the system web view</title>
+<style>
+	:root { --accent: #7C5CFF; color-scheme: dark; }
+	* { box-sizing: border-box; }
+	html, body { margin: 0; min-height: 100%; }
+	body {
+		font: 16px/1.5 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+		color: #e9e9f2;
+		background:
+			radial-gradient(900px 500px at 85% -10%, color-mix(in srgb, var(--accent) 45%, transparent), transparent),
+			radial-gradient(700px 500px at -10% 110%, #0fb5a644, transparent),
+			#14141c;
+		padding: 36px 44px;
+	}
+	h1 { font-size: 38px; line-height: 1.1; margin: 0 0 8px; letter-spacing: -0.02em; }
+	h1 span { background: linear-gradient(90deg, var(--accent), #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; }
+	p.lead { margin: 0 0 26px; color: #a9a9bd; max-width: 62ch; }
+	.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+	.card { background: #ffffff0d; border: 1px solid #ffffff1a; border-radius: 16px; padding: 18px 20px; transition: transform .2s, border-color .2s; }
+	.card:hover { transform: translateY(-3px); border-color: var(--accent); }
+	.card h2 { font-size: 15px; margin: 0 0 10px; color: #c9c9da; font-weight: 600; }
+	button { font: inherit; color: white; background: var(--accent); border: 0; border-radius: 10px; padding: 8px 14px; cursor: pointer; margin: 0 6px 6px 0; }
+	button:hover { filter: brightness(1.15); }
+	input[type=text] { font: inherit; width: 100%; color: inherit; background: #0000004d; border: 1px solid #ffffff26; border-radius: 10px; padding: 8px 12px; outline: none; }
+	input[type=text]:focus { border-color: var(--accent); }
+	.bars { display: flex; gap: 6px; align-items: flex-end; height: 96px; }
+	.bars i { flex: 1; background: var(--accent); border-radius: 6px 6px 2px 2px; animation: grow 1.6s ease-in-out infinite alternate; }
+	.bars i:nth-child(2n) { animation-delay: -.4s; } .bars i:nth-child(3n) { animation-delay: -.9s; }
+	@keyframes grow { from { height: 18%; opacity: .45; } to { height: 100%; opacity: 1; } }
+	small { color: #8a8aa0; }
+	code { color: #c9c9da; }
+</style>
+</head>
+<body>
+	<h1>HTML, CSS and JavaScript,<br><span>in the web view of the system.</span></h1>
+	<p class="lead">This page is shown by the web engine that comes with the system, in a view kept over a
+	<code>SystemWebView</code> widget: it scrolls, selects text and takes the keyboard as a browser does, while
+	the toolbar and the panel beside it are drawn by Raven.</p>
+
+	<div class="grid">
+		<div class="card">
+			<h2>Talk to the application</h2>
+			<button onclick="raven.postMessage('Hello from JavaScript')">Say hello</button>
+			<button onclick="raven.postMessage({ clicks: ++clicks, at: new Date().toLocaleTimeString() })">Send an object</button>
+			<br><small>window.raven.postMessage(value)</small>
+		</div>
+		<div class="card">
+			<h2>Type something</h2>
+			<input type="text" placeholder="Sent to Raven as you type" oninput="raven.postMessage('Typed: ' + this.value)">
+		</div>
+		<div class="card">
+			<h2>CSS animations</h2>
+			<div class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+		</div>
+	</div>
+	<script>var clicks = 0;</script>
+</body>
+</html>

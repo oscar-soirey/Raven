@@ -293,6 +293,8 @@ static RAccessibleRole rvn_a11y_default_role(const rvn_widget_t* widget) {
 		case R_WIDGET_PAGINATION: return R_ROLE_GROUP;
 		case R_WIDGET_PLOT: return R_ROLE_IMAGE;
 		case R_WIDGET_PDF_VIEW: return R_ROLE_DOCUMENT;
+		/* (what is in the page is not in the tree of Raven: the view of the system holds it) */
+		case R_WIDGET_SYSTEM_WEB_VIEW: return R_ROLE_DOCUMENT;
 		/* a gauge is a meter: a value within a range; the other charts are pictures described in words */
 		case R_WIDGET_CHART: return Rchart_get_kind(widget->id) == R_CHART_GAUGE ? R_ROLE_PROGRESS_BAR : R_ROLE_IMAGE;
 		case R_WIDGET_MAP_VIEW: return R_ROLE_GROUP;
