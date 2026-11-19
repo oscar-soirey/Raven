@@ -4,7 +4,8 @@
  *
  * Screen readers. Every window of Raven is exposed to the screen reader of
  * the system: UI Automation on Windows (Narrator, NVDA, JAWS), NSAccessibility
- * on macOS (VoiceOver), AT-SPI on Linux (Orca). Nothing is needed for that:
+ * on macOS (VoiceOver), AT-SPI on Linux (Orca), UIAccessibility on iOS
+ * (VoiceOver), AccessibilityNodeInfo on Android (TalkBack). Nothing is needed for that:
  * the widgets say what they are (a button, a check box, a slider, a list and
  * its items, a tab...), their name (the text they show, or the label just
  * before them), their value and their state, and they can be used from the

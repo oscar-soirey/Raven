@@ -256,7 +256,8 @@ the [releases](https://github.com/oscar-soirey/Raven/releases).
   or a widget, from code, XML or the designer, and events of their own
   (`raven_touch.h`).
 - **Accessible.** Native **screen readers** (Narrator and NVDA through UI
-  Automation, VoiceOver, Orca through AT-SPI), a **text scale**,
+  Automation, VoiceOver on macOS and iOS, TalkBack on Android, Orca through
+  AT-SPI), a **text scale**,
   **high-contrast** themes, **color filters** for color blindness, a focus
   ring that stays visible, less motion.
 - **Viewports** for content rendered by the application: a texture (zero-copy
@@ -1475,8 +1476,12 @@ readers and the browser accessibility tree.
 Every widget is seen by the screen reader of the system with its role,
 name, value and state, and can be used from it (press, toggle, set a value,
 edit text, move the focus): UI Automation on Windows (Narrator, NVDA, JAWS),
-NSAccessibility on macOS (VoiceOver), AT-SPI on Linux (Orca). Nothing has to
-be added: names come from the texts and from the label in front of a field.
+NSAccessibility on macOS (VoiceOver), AT-SPI on Linux (Orca),
+UIAccessibility on iOS (VoiceOver) and an `AccessibilityNodeProvider` on
+Android (TalkBack, Switch Access). Nothing has to be added: names come from
+the texts and from the label in front of a field. On a touch screen a double
+tap presses, toggles, selects or focuses, and a swipe up or down moves a
+slider or a spin box by its step; the widgets out of view are left out.
 The color filters correct (or, for designers, simulate) protanopia,
 deuteranopia, tritanopia and achromatopsia.
 
@@ -1793,8 +1798,8 @@ What Raven does not do yet, by area. Contributions are welcome.
   installed Chromium-based browser instead.
 - iOS and Android are experimental ([examples/mobile](examples/mobile/README.md)).
   On both, a window fills the screen: its size, position and title are left
-  to the system. There are no native child windows, no screen readers
-  (VoiceOver, TalkBack), no tray icon, menu bar or badge of the system;
+  to the system. There are no native child windows, no tray icon, menu bar
+  or badge of the system;
   notifications go to the fallback of the application
   (`Rnotification_set_fallback`), and file dialogs are Raven's own. The text
   services of the system (suggestions, autocorrection, composition) work in a

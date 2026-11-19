@@ -421,6 +421,12 @@ typedef struct rvn_platform_t {
 	void  (*a11y_announce)(rvn_pwindow_t* window, const char* text, int assertive);
 	/** R_TRUE when a screen reader (or another assistive program) is listening. */
 	int   (*a11y_active)(void);
+	/**
+	 * R_TRUE: the screen reader reads a copy of the tree the platform keeps
+	 * (on another thread: Android), so a11y_event(RVN_A11Y_EVENT_STRUCTURE)
+	 * comes after every frame and the platform compares the copy itself.
+	 */
+	int   a11y_every_frame;
 	/** What the user asked the system for: text size, contrast, motion. */
 	void  (*a11y_settings)(struct RAccessibilitySettings* settings);
 	/** The accent color the user chose for the system (0..1); R_FALSE when it does not tell. NULL: none (widget/look.c reads Windows and GNOME itself). */
